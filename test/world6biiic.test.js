@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { validFoeRecord } from '../src/net/wire.js';
 import { createExteriorFoes } from '../src/scenes/exteriorFoes.js';
-import { generateItems, validLootList } from '../src/systems/loot.js';
+import { generateItems, validLootList, LOOT_NEWER_TAKE_TEXT } from '../src/systems/loot.js';
 import { makeHitPend } from '../src/net/hitPend.js';   // LOOT-DUP: the REAL hit queue, whose boolean is the defect
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -141,7 +141,7 @@ test('WORLD6b-iii(c): by source - the record and the reader, the target, the ask
   assert.match(x, /if \(r\.o !== undefined\) \{ p\.o = r\.o; if \(r\.o > 0 && !\(f\._closedN != null && \(_owners\.get\(f\.puppet\)\?\.n \?\? 0\) <= f\._closedN\)\) f\.corpseDisabled = false; \}/, 'the reader (AUDIT WORLD6b-iii(c) A7: a word older than the grant that closed it re-opens nothing)');
   assert.match(x, /isCorpse: \(f\) => !!f\.corpse && !!f\.entity && \(!f\.puppet \|\| \(f\._pup\?\.o \| 0\) > 0\),/, 'the target');
   assert.match(x, /_net\?\.onPeerHit\?\.\(\{ to: f\.puppet, k: _owners\.get\(f\.puppet\)\?\.k \?\? _net\.room\?\.\(\) \?\? null, i: f\.seq, take: 1 \},\s*\{ sent: \(\) => \{ f\._takeAsked = _now\(\); \} \}\);/, 'the ask, keyed to the owner\'s cell, latched when the frame left (AUDIT WORLD6b-iii(c) B1; LOOT-DUP: and left is THIS frame\'s word, not the hit queue\'s)');
-  assert.match(x, /const held = items\.splice\(0, grant\.length\);\s*const back = \(\) => \{ items\.unshift\(\.\.\.held\); \};\s*if \(!_net\?\.onPeerHit\) \{ back\(\); return; \}\s*_net\.onPeerHit\(frame, \{ dropped: back \}\);/, 'LOOT-DUP: the items are RESERVED when the frame is accepted and put back if it never leaves - splicing on the queue\'s boolean granted the same pile twice (AUDIT WORLD6b-iii(c) A3/C2)');
+  assert.match(x, /const held = items\.splice\(0, grant\.length\);\s*(?:\/\/[^\n]*\n\s*)*const granted = \{ to, held, at: _now\(\) \};\s*f\._granted = granted;\s*const back = \(\) => \{ if \(f\._granted === granted\) f\._granted = null; items\.unshift\(\.\.\.held\); \};\s*if \(!_net\?\.onPeerHit\) \{ back\(\); return; \}\s*_net\.onPeerHit\(frame, \{ dropped: back \}\);/, 'LOOT-DUP: the items are RESERVED when the frame is accepted and put back if it never leaves - splicing on the queue\'s boolean granted the same pile twice (AUDIT WORLD6b-iii(c) A3/C2)');   // AUDIT ONLINE2 F4: the grant kept a while for the taker's `back`
   assert.match(x, /const n = takeCorpseLoot\(\{ entity: \{ items: grant \} \}, playerEntity, say \?\? \(\(\) => \{\}\)\);/, 'the one take law');
   assert.match(rd('bible/06-Systems/Online-Arc.md'), /### 6b-iii\(c\): a puppet's corpse loot/, 'the record');
 });
@@ -207,4 +207,54 @@ test('LOOT-DUP: a grant that never leaves puts the pile BACK - the frame aged ou
   at = 500;
   pend.flush(at);   // the fight moved on: the frame is dropped
   assert.equal(rat.entity.items.length, held, 'and the pile is back on the body, whole');
+});
+
+test('AUDIT ONLINE2 F4: A PILE THE TAKER CANNOT READ COMES BACK - the taker that asked answers `back` to the owner and is told to reload; the owner puts the pieces back on the body for that grant alone, inside its window; a `back` from a peer it granted nothing, a second one, or a late one moves nothing; an unasked grant it cannot read is answered nothing (mutants: no answer; the pieces never put back; any `back` believed; the window unbounded)', async () => {
+  const bobE = playerEntity(), macE = playerEntity(), eveE = playerEntity();
+  const bobSaid = [], macSaid = [], eveSaid = [];
+  const bob = poolFor(bobE, bobSaid), mac = poolFor(macE, macSaid), eve = poolFor(eveE, eveSaid);
+  const bobHits = [], macHits = [], eveHits = [];
+  const roster = [{ id: 'bob-0002', feet: [30, 0, 30], height: 1.8 }, { id: 'mac-0001', feet: [10, 0, 10], height: 1.8 }, { id: 'eve-0003', feet: [12, 0, 10], height: 1.8 }];
+  let t = 1000;
+  bob.setNet({ ...netFor('bob-0002', bobHits, roster), now: () => t }); mac.setNet({ ...netFor('mac-0001', macHits, roster), now: () => t }); eve.setNet(netFor('eve-0003', eveHits, roster));
+  const rat = await bob.spawnFoe(0, [12, 0, 12], { feetGiven: true });
+  const pile = generateItems('M', { level: 10, gender: 'male' }, () => 0.99).map((it) => ({ ...it }));
+  rat.entity.items = pile.map((it) => ({ ...it }));
+  bob.damageFoe(rat, 9999, [10, 0, 10]);
+  const f = bob.foesFrame(true).f[0];
+  mac.applyFoes('bob-0002', { n: 1, k: 'world:3,12', full: 1, f: [{ ...f, d: 0, h: 9, o: 0 }] }); await settle();
+  mac.update(0.05, [10, 0, 10], [10, 1.6, 10], senses(macE));
+  mac.applyFoes('bob-0002', { n: 2, k: 'world:3,12', full: 1, f: [f] });
+  const pup = mac.foes.find((x) => x.puppet === 'bob-0002');
+  mac.takeLoot(`foeCorpse:${pup.uid}`, (l) => macSaid.push(l));
+  assert.equal(bob.applyHit('mac-0001', macHits.at(-1)), true);
+  const grant = bobHits.at(-1);
+  assert.equal(rat.entity.items.length, 0, 'granted: the body holds none of it');
+  // Mac's build cannot read one of the pieces (a set from after it) - modelled as a piece this port cannot mint
+  const unreadable = { ...grant, grant: [...grant.grant, { templateIndex: 999999 }] };
+  assert.equal(mac.applyHit('bob-0002', unreadable), false);
+  assert.deepEqual(macHits.at(-1), { to: 'bob-0002', k: 'world:3,12', i: rat.seq, back: 1 }, 'the owner is told');
+  assert.equal(macSaid.at(-1), LOOT_NEWER_TAKE_TEXT, 'and the player to reload');
+  assert.equal(macE.items.length, 0, 'nothing taken');
+  const asked = macHits.length;
+  assert.equal(mac.applyHit('bob-0002', unreadable), false);
+  assert.equal(macHits.length, asked, 'an unasked grant it cannot read is answered nothing');
+  const back = macHits.at(-1);
+  // the owner
+  assert.equal(bob.applyHit('eve-0003', back), false, 'a peer it granted nothing');
+  assert.equal(rat.entity.items.length, 0);
+  assert.equal(bob.applyHit('mac-0001', { ...back, i: rat.seq + 1 }), false, 'another body');
+  assert.equal(bob.applyHit('mac-0001', back), true);
+  assert.deepEqual(rat.entity.items, pile, 'every piece back on the body, in its order');
+  assert.equal(bob.foesFrame(true).f[0].o, pile.length, 'and the body says so again');
+  assert.equal(bob.applyHit('mac-0001', back), false, 'once');
+  assert.deepEqual(rat.entity.items, pile);
+  // late: the owner's window has passed
+  mac.takeLoot(`foeCorpse:${pup.uid}`, (l) => macSaid.push(l));
+  pup._takeAsked = t;
+  bob.applyHit('mac-0001', { to: 'bob-0002', k: 'world:3,12', i: rat.seq, take: 1 });
+  assert.equal(rat.entity.items.length, 0, 'granted again');
+  t += 2 * 3000 + 1;
+  assert.equal(bob.applyHit('mac-0001', back), false, 'a `back` past the window moves nothing');
+  assert.equal(rat.entity.items.length, 0);
 });

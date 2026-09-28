@@ -19,19 +19,26 @@
 // its clip shader reads. The port's tilemap texture is one R8UI byte a
 // tile (DFU's converted record << 2 | rotate | flip << 1, which never
 // reaches 255 - the tileset has 56 records), so the mark is the byte 255:
-// CLIP_SENTINEL, which every terrain program discards (renderer.js,
-// enhancedLighting.js, shadowPass.js).
+// CLIP_SENTINEL (its one home is world/terrainSurface.js, the TileMap
+// byte's). The terrain program that discards it is the CLIP VARIANT
+// (render/renderer.js terrainClipFs, FAR-CLIP1) - the mod's
+// ApplyWaterTexelClip swaps each terrain it clips to that shader, and
+// the streaming host draws the ground of a pixel whose TileMap this patched
+// with it (scenes/world.js). The plain terrain programs never test the byte
+// (it would draw as tile layer 63, which GL clamps to the ground archive's
+// last record), and the shadow pass's depth program reads no tilemap.
 // ═══════════════════════════════════════════════════════════════════
 
 import { HEIGHTMAP_DIMENSION } from './terrainSampler.js';
 import { WORLD_MAP_TILE_DIM } from './terrainTiles.js';
 import { heightSample, mapDataHasWater, mapDataFullySubmerged, DW_WATER_THRESHOLD } from './deepWaterClassification.js';
+import { CLIP_SENTINEL } from './terrainSurface.js';   // FAR-CLIP1: the byte's one home, the TileMap format's module - the renderer reads it there too
 
 const f32 = Math.fround;
 const clampInt = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
-/** The byte a clipped texel carries in the port's R8UI tilemap. */
-export const CLIP_SENTINEL = 255;
+/** The byte a clipped texel carries in the port's R8UI tilemap - world/terrainSurface.js's, for this module's readers. */
+export { CLIP_SENTINEL };
 
 /** IsClippedWaterTileData, for the texture-array encoding (record = byte >> 2). */
 export function isClippedWaterTileData(tileData) {
@@ -124,18 +131,22 @@ export function capDecision(mapPixelX, mapPixelY, mapData, tilemapBytes, bake) {
 }
 
 /**
- * THE CLIP, AS GEOMETRY. The mod discards a clipped texel in its terrain
- * shader (TilemapTextureArrayClipWater's `(255, 0, 255)` test); a texel is a
- * whole terrain tile, and a tile is a whole quad of the stride-1 grid - so
- * the port leaves the clipped tiles' quads out of the pixel's index set
- * instead, and the ground's program (and every other pixel's) keeps its
- * early depth test. buildTerrainIndices' layout exactly (terrainSurface.js):
- * a strided quad goes when every tile it covers is clipped (a far pixel's
- * part-clipped quad stands at the sea's height, under the surface), and a
- * strided grid's skirt segment (EV4's, the port's own) goes when every
- * edge tile it hangs under is clipped - the discard would take its texels
- * too, and left whole it hung 40 m of pale curtain in the carved sea along
- * every far coastal pixel's edges, the sea's "square panels".
+ * THE CLIP'S CULL. The mod discards a clipped texel in its terrain shader
+ * (TilemapTextureArrayClipWater's `(255, 0, 255)` test), and so does the
+ * port: a pixel whose TileMap the cap patched draws its ground with the
+ * terrain program's clip variant (render/renderer.js terrainClipFs,
+ * FAR-CLIP1). This leaves out of the pixel's index set what that discard
+ * would take WHOLE, buildTerrainIndices' layout exactly
+ * (terrainSurface.js): a quad goes when
+ * every tile it covers is clipped - on the stride-1 grid a tile is a quad
+ * and this is the whole clip - and a strided grid's skirt segment (EV4's,
+ * the port's own) goes when every edge tile it hangs under is clipped: left
+ * whole it hung 40 m of pale curtain in the carved sea along every far
+ * coastal pixel's edges, the sea's "square panels" (DW-F). A far pixel's
+ * part-clipped quad, or skirt segment, STANDS: its clipped tiles are the
+ * program's to discard. (Until FAR-CLIP1 nothing did - no terrain program
+ * tested the byte - and the far ground drew them as road art on the quad's
+ * chord, over the sea: "geometry just being hard squares".)
  * @param {Uint8Array} bytes - the pixel's patched TileMap (z * 128 + x)
  * @param {number} [stride]
  * @returns {?Uint32Array} null when no quad or skirt segment is clipped

@@ -57,8 +57,8 @@
   {
     "name": "A0928-O3-built-in-the-handler",
     "file": "src/scenes/comeSailAwayPeers.js",
-    "old": "    live.set(owner, { boats: r.boats, toScene, at: nowMs, dirty: true });\n    return true;",
-    "new": "    live.set(owner, { boats: r.boats, toScene, at: nowMs, dirty: false });\n    realign(owner, live.get(owner)); buildOne();\n    return true;",
+    "old": "    live.set(owner, { boats: r.boats, toScene, at: nowMs, dirty: true, age: 0 });\n    return true;",
+    "new": "    live.set(owner, { boats: r.boats, toScene, at: nowMs, dirty: false, age: 0 });\n    realign(owner, live.get(owner)); buildOne();\n    return true;",
     "tests": [
       "test/audit0928_online.test.js",
       "test/csa_online.test.js"
@@ -130,8 +130,8 @@
   {
     "name": "A0928-O2-force-dropped",
     "file": "src/scenes/world.js",
-    "old": "exteriorFoes.foesFrame(full, _hccDirty || csaMoved || navalMoved)",
-    "new": "exteriorFoes.foesFrame(full, _hccDirty || navalMoved)",
+    "old": "exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved || navalMoved)",
+    "new": "exteriorFoes.foesFrame(full, _hccDirty || csaAboardMoved || navalMoved)",
     "tests": [
       "test/audit0928_online.test.js"
     ]

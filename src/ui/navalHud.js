@@ -31,9 +31,19 @@ import { isEnhancedPlus } from '../systems/uiSkin.js';
 
 export const NAVAL_HUD_STYLE_ID = 'dagger-naval-hud-style';
 export const NAVAL_KIT_STYLE_ID = 'dagger-naval-kit-style';
-/** Where the card stands (the gate bar's place) and how wide the plate is. */
-export const NAVAL_CARD_TOP = '58px';
+/** Where the card stands: under the compass by the house law (the journey bar's PLUS8, the helm panel's CSA-L) - the
+ *  compass's foot (.hud-top at 18px, the strip 26px and its 2px rule, all times the HUD scale) and a gap - a step lower
+ *  while the foe's bar is up under the compass (its blade taller still, NAVAL_CARD_TOP_FOE / _BLADE). Under the helm
+ *  panel when it stands (THE MERGE with CSA-L): its bar is as tall as its buttons wrap, so it is measured -
+ *  drawNavalHud's `under` - and the card stands NAVAL_CARD_GAP below its foot. And how wide the plate is. */
+export const NAVAL_CARD_TOP = 'calc(18px + 28px * var(--hud-scale, 1) + 12px)';
+export const NAVAL_CARD_TOP_FOE = 'calc(18px + 28px * var(--hud-scale, 1) + 12px + 46px * var(--hud-scale, 1))';
+export const NAVAL_CARD_TOP_BLADE = 'calc(18px + 28px * var(--hud-scale, 1) + 12px + 76px * var(--hud-scale, 1))';
+export const NAVAL_CARD_GAP = 8;
 export const NAVAL_PLATE_W = 272;
+/** On a finger's screen the plate stands over the touch corner's presses - 16px up and 48px tall (ui/touch.js
+ *  layoutCorner) - and a gap, never on them. */
+export const NAVAL_PLATE_TOUCH_BOTTOM = 16 + 48 + 12;
 
 const OUTLINED = '-1px 0 0 #050608, 1px 0 0 #050608, 0 -1px 0 #050608, 0 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7)';
 const CLASP = 'linear-gradient(180deg, #f3cf86 0 2px, transparent 2px), linear-gradient(90deg, #e2b064 0 2px, #c08a3e 2px 4px, #7a5424 4px 6px)';
@@ -41,9 +51,12 @@ const T = FRAME_TONES;
 
 export const NAVAL_HUD_CSS = `
 ${PIXELIFY_FIVE_FACE}
-.dfnaval-hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; ${PIXEL_FONT_CSS} color: #d8cfae; }
+.dfnaval-hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; ${PIXEL_FONT_CSS} color: #d8cfae; --nc-top: ${NAVAL_CARD_TOP}; }
+body:has(.hud-foe.on) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_FOE}; }
+body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
+.dfnaval-hud.touch .dfnaval-plate { right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(${NAVAL_PLATE_TOUCH_BOTTOM}px + env(safe-area-inset-bottom, 0px)); }
 .dfnaval-plate { position: absolute; right: 18px; bottom: 22px; width: ${NAVAL_PLATE_W}px; padding: 10px 12px 9px;
-  background: ${T.groundPanel}; border: 2px solid ${T.stoneLit}; transform: scale(var(--naval-scale, 1)); transform-origin: bottom right; }
+  background: ${T.groundPanel}; border: 2px solid ${T.stoneLit}; transform: scale(var(--hud-scale, 1)); transform-origin: bottom right; }
 .dfnaval-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: -10px -12px 8px; padding: 6px 12px 5px;
   font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED}; }
 .dfnaval-waters { font-size: 10px; letter-spacing: 0.06em; color: #b3a684; text-transform: none; white-space: nowrap; }
@@ -93,7 +106,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfnaval-aim .dfnaval-aim-range { color: ${T.brassHi}; }
 .dfnaval-aim.hot { color: #ffb4a6; }
 .dfnaval-aim.hot .dfnaval-aim-range { color: #ff8a76; }
-.dfnaval-card { position: absolute; left: 50%; top: ${NAVAL_CARD_TOP}; transform: translateX(-50%); width: 400px; max-width: 86vw; padding: 7px 14px 8px;
+.dfnaval-card { position: absolute; left: 50%; top: var(--nc-top); transform: translateX(-50%); width: 400px; max-width: 86vw; padding: 7px 14px 8px;
   text-align: center; background: ${T.groundPanel}; border: 2px solid ${T.stoneLit}; }
 .dfnaval-card-name { font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED}; }
 .dfnaval-card.hostile .dfnaval-card-name { color: #ffb4a6; }
@@ -124,11 +137,13 @@ function cardState(t, board, key) {
 
 /**
  * The readout's words for a model - pure, the pins' reading. `keys` the registry's names for the attack, Activate and
- * the brace. `plate` is null on foot (the card alone stands, and only while a ship is in reach).
+ * the brace. `plate` is null on foot (the card alone stands, and only while a ship is in reach). `touch`: a finger's
+ * screen, where no key is named - a tap is the activation (the host's one arm, a key's or a click's alike), the
+ * finger held and dragged the aim (touch.js aimHold), the lift the broadside, and Crouch the touch table's press.
  */
-export function navalHudText(model, keys = {}) {
+export function navalHudText(model, keys = {}, { touch = false } = {}) {
   if (!model) return null;
-  const aimKey = keys.aim ?? 'Attack', boardKey = keys.board ?? 'Activate', braceKey = keys.brace ?? 'Brace';
+  const aimKey = keys.aim ?? 'Attack', boardKey = touch ? 'Tap' : (keys.board ?? 'Activate'), braceKey = touch ? 'Crouch' : (keys.brace ?? 'Brace');
   const batteries = (model.batteries ?? []).map((b) => ({
     side: b.side, word: SIDE_WORDS[b.side],
     count: b.gun === 'barrel' ? `${b.barrels ?? 0} barrel${b.barrels === 1 ? '' : 's'}` : `${b.guns} ${b.guns === 1 ? GUN_WORDS[b.gun].replace(/s$/, '') : GUN_WORDS[b.gun]}`,
@@ -155,7 +170,8 @@ export function navalHudText(model, keys = {}) {
     batteries,
     // the press that matters most, first: a ship in reach to board or plunder, then the guns
     hint: model.board ? `${boardKey}: ${model.board.kind === 'hold' ? `open ${model.board.name}'s hold` : `board ${model.board.name}`}`
-      : !model.armed ? 'No guns aboard' : model.aiming ? `Let go to fire - ${braceKey}: brace` : `Hold ${aimKey} to aim - ${braceKey}: brace`,
+      : !model.armed ? 'No guns aboard' : model.aiming ? `${touch ? 'Lift' : 'Let go'} to fire - ${braceKey}: brace`
+      : `${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${braceKey}: brace`,
   } : null;
   return { plate, aim, card };
 }
@@ -255,9 +271,11 @@ const width = (key, node, v) => { if (shown[key] !== v) { shown[key] = v; node.s
 /**
  * Draw the readout for a model (null hides it). `covered` - the HUD's own hide, a window over the world, a pause;
  * `keys` the registry's names for the aim, Activate and the brace; `scale` the HUD's scale (the enhanced HUD's
- * --hud-scale, which a sibling layer copies).
+ * --hud-scale, which this sibling layer copies onto its root - the plate's size and the card's place read it);
+ * `under` what stands over the card at the top of the screen (the helm panel's bar, ui/enhancedHelm.js) or null;
+ * `touch` a finger's screen (the plate over the touch corner, the hints in its words).
  */
-export function drawNavalHud(model, { covered = false, doc = globalThis.document, keys = {}, scale = 1 } = {}) {
+export function drawNavalHud(model, { covered = false, doc = globalThis.document, keys = {}, scale = 1, under = null, touch = false } = {}) {
   const want = !covered && !!model;
   if (!root) {
     if (!want || !doc?.createElement) return;
@@ -265,11 +283,14 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
   }
   show('root', root, want);
   if (!want) return;
-  const t = navalHudText(model, keys);
+  const t = navalHudText(model, keys, { touch });
+  // the helm panel's foot, read before this frame's writes here and only while the card and the panel both stand
+  const foot = t.card ? (under?.getBoundingClientRect?.()?.bottom ?? 0) : 0;
+  if (shown.scale !== scale) { shown.scale = scale; root.style.setProperty?.('--hud-scale', String(scale)); }
+  cls('rootc', root, touch ? 'dfnaval-hud touch' : 'dfnaval-hud');
   const p = t.plate;
   show('plate', parts.plate, !!p);
   if (p) {
-    if (shown.scale !== scale) { shown.scale = scale; parts.plate.style.setProperty?.('--naval-scale', String(scale)); }
     put('name', parts.name, p.name);
     put('waters', parts.watersWord, p.waters);
     for (let i = 0; i < 4; i++) cls(`anchor${i}`, parts.anchors[i], i < p.anchors ? 'dfnaval-anchor on' : 'dfnaval-anchor');
@@ -305,9 +326,11 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
     put('aimr', parts.aimRange, t.aim.range);
     put('aimg', parts.aimTarget, t.aim.target);
   }
-  // the card
+  // the card - under the compass by the sheet's law (--nc-top), under the helm panel's foot while it stands
   show('card', parts.card, !!t.card);
   if (t.card) {
+    const top = foot > 0 ? `${Math.ceil(foot) + NAVAL_CARD_GAP}px` : '';
+    if (shown.cardTop !== top) { shown.cardTop = top; parts.card.style.top = top; }
     cls('cardc', parts.card, `dfnaval-card ${t.card.faction}${t.card.hostile ? ' hostile' : ''}`);
     put('cardn', parts.cardName, t.card.name);
     put('cards', parts.cardSub, t.card.sub);

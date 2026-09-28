@@ -106,7 +106,7 @@ steps back never says one twice (AUDIT WB C4):
 | 17:00 | *The sky burns over the wilds near Wayrest, in the Wayrest region. An Oblivion Gate opens there at 8 in the evening (14:32).* |
 | 19:00 | *An Oblivion Gate has risen near Wayrest. It opens in five minutes.* |
 | 20:00 | *The Oblivion Gate near Wayrest stands open. It seals at 10 in the evening (14:42).* |
-| 22:00 | *The Oblivion Gate near Wayrest has sealed.* |
+| 22:00 | *The Oblivion Gate near Wayrest has sealed. It collapses at 00:00 (14:52 your time).* (GATE-COLLAPSE, 2026-09-28: and when it goes) |
 | 24:00 | *The Oblivion Gate near Wayrest collapses. Valkynaz Ruhn returns to the Deadlands.* (not after a kill) |
 
 The ONE line that needs the relay is the fall, said to everyone online: *Valkynaz Ruhn has fallen at the gate near
@@ -140,7 +140,10 @@ the player's own and optional (MWA4), so nothing here may lean on it.
   lights take one colour - and the embers and the roar this row planned were never built; the gate's fire, its beacon
   and, since WBX8, the sky burning over it are its signs), and the gate's own voice at its rise and collapse.
 - **The countdown**: looked at, the World Tooltips plaque names it *Oblivion Gate - opens in 3:12* / *closes in
-  8:41*; within 60 m the same words stand as a line at the top of the screen.
+  8:41*; within 60 m the same words stand as a line at the top of the screen. Sealed for the night (22:00 to the
+  wrath) it counts to the collapse - *Sealed* / *Collapses in 6:12*, the banner *Oblivion Gate - sealed, collapses in
+  6:12* (GATE-COLLAPSE, 2026-09-28: the sealed hours said nothing, and a gate still standing after "has sealed" read as
+  one that would never go).
 - **States**, all read off the clock: *rising* (19:00, it climbs out of the ground over 20 s), *sealed*, *open*,
   *sealed after* (22:00: the membrane darkens, the arena's players still inside), *collapsing* (the kill or the
   wrath: it sinks over 10 s and the beacon goes out).
@@ -394,7 +397,8 @@ it. One receipt per account per day, whatever tabs it holds.
 
 **The receipt** - the relay's first signature. Today the relay holds no secret at all (ACC1: it verifies, the account
 service signs). A kill the account service will honour has to be signed by the one party that saw it, so the relay
-gets ONE key, and it can sign ONE thing:
+gets ONE key, and it can sign ONE thing (RAID3, 2026-09-27, made it two: a town raid's receipt, `w1`, in its own shape -
+`03-World/Raiding-Parties.md`; the version inside the signed bytes keeps the two apart):
 
 ```
 r1.<base64url({ d, b, s, c, x, i, e })>.<base64url(Ed25519 signature)>
@@ -706,6 +710,56 @@ other refusal keeps its own words, and the hello's refusal of an ended window st
 change and no RELAY_VERSION: a build from this one on says the reason at the next brain bump; the builds already out
 cannot be taught a word, and are told only by the reload itself - the patch notes' *"Reload the game after the update to
 fight"* is the whole answer for them.
+
+### THE GATE IN THE ROCK (2026-09-28): GATE-CLEAR, GATE-COLLAPSE, EVENT-TIP
+
+The field, through Mac: *"gate under the rock didnt go away stayed there"* - *"Never left"*; Mac: *"the gate can spawn
+inside the rock geometry from world of daggerfall"*. The record is `01-Overview/Field-Bugs-2026-09-28b.md`; in short:
+
+- **"Never left" was the sealed hours, not a leak.** The report (14:46 UTC) fell in day 538's `closed` phase (sealed
+  14:42:30, wrath 14:52:30), which the map's countdown-less label confirms; every drawer derives the phase from the clock,
+  and nothing keeps a gate past its collapse. The rock kept anyone from the fire, so no kill ended it early and it stood
+  its whole schedule saying nothing.
+- **GATE-CLEAR** (`world/gateClearance.js`): the gate's spot stays the clock's and the map files'; World of Daggerfall's
+  rock yields - a whole site reaching 24 m of the gate's foot is refused at its pick, any other piece whose mesh box
+  reaches it is not stood - for the gate the clock is about, the pixels a turn changes built again between builds.
+- **GATE-COLLAPSE** (Mac: *"Count down to collapse"*): the sealed hours count down - `gateCountdown`'s `closed` arm,
+  `countdownWords`, the seal line's time (the table above). World125: the words are in the relay's bundle.
+- **EVENT-TIP** (Mac: *"add a tooltip to the map for these type of events"*): on the held map the gate's ring and every
+  raided town (`03-World/Raiding-Parties.md`, folded in from #414) answer a hover with a card (`ui/eventMapMarks.js`,
+  the omen's `gateTip`).
+
+### THE HERALD (DISCORD-GATES, 2026-09-28): the gates on Discord, live
+
+The field's player: *"add a discord channel that tells the gates in real time itll create hype and make more join"*;
+Mac: *"Discord live gates?"*, then the moments - *"Omen (15 min before), Boss slain"* - and *"Ping an opt-in role"*
+(on the omen alone). The relay's hub posts to a Discord channel's webhook (`net/gateHerald.js`, the hub's own alarm):
+
+| When | The post | Pings |
+|---|---|---|
+| the omen (17:00 - fifteen real minutes before the gate opens) | **The sky burns near Copperham, Wrothgarian Mountains.** An Oblivion Gate opens *in 15 minutes* (*14:32*) and seals at *14:42*. Valkynaz Ruhn, Warden of the Burning Gate, holds it. | the opt-in role |
+| the kill | **Valkynaz Ruhn has fallen** at the Oblivion Gate near Copperham, Wrothgarian Mountains - struck down by Ann, Bran, Cid and 12 others. The gate collapses. | nobody |
+
+- **The times are Discord's** (`<t:…:R>`, `<t:…:t>`): each reader sees them in their own clock, the wait counting down.
+- **When**: the omen at its own instant, armed on the hub's alarm beside the sweep's; late while the gate has not opened
+  (a hub asleep through it, a deploy), never after, never twice. The kill when the gate's object tells the hub
+  (`_gateFellInternal`): KEPT FIRST (`herald.owe`), the alarm armed now, posted by the alarm alone - one poster, so
+  never twice however often the court tells it - once a day, while it is news (HERALD_FELL_KEEP_MS past the collapse).
+  A post Discord does not take is posted again HERALD_RETRY_MS on - but not one it refuses for good (a 4xx but 429: a
+  deleted webhook); and the beat writes over what storage holds then, so a kill owed while Discord answered is kept.
+- **Where - the players' word.** The relay holds no map file (section 1: the site is the client's). Each online game,
+  once its site scan is done, says where it found the gate the clock is about (`gate` `site` - its day, map pixel and
+  place, to the hub alone; `net/online.js sendGateSite`, once a socket and day, off the clearing's own site). The hub
+  folds one word an account a day and names the place the most accounts said, once at least GATE_SITE_AGREE (2) of them
+  agree - one lying client names nothing. Until then the post says *over the wilds* and points at the map.
+- **Safe to post**: `allowed_mentions` is the one role (the omen) or nothing (the kill), so no text can ping anyone
+  else; the place (`gatePlaceWire`, both ends; the relay refuses one it would change) and a fighter's name
+  (`heraldName`) are letters, digits, spaces and a little punctuation - no markdown, no link, no mention.
+- **The door**: `GATE_DISCORD_WEBHOOK`, a Worker SECRET (its URL is the key to post in the channel - never in the
+  repository), and `GATE_DISCORD_ROLE`, a var (`server/wrangler.toml`). No webhook, no herald: nothing posted, nothing
+  kept. The role must allow anyone to @mention it, or Discord shows the ping and notifies nobody.
+
+Relay world123 (world126 on its branch, renumbered at the merge with main). Pinned in `test/discordgates.test.js` (11); mutants `tools/mutants/discordgates.json` (45, all dead).
 
 ## Shipped
 

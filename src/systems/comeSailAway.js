@@ -245,6 +245,17 @@ export function customModelOf(name, ids) {
 }
 /** The seven boxes' lookup: this mod's registrations. */
 export const activationModelOf = (name) => customModelOf(name, Object.keys(ACTIVATIONS));
+/** BoardBoat's place (5429-5448): the sibling before the board trigger - its world position and the heading of its
+ *  forward, in degrees (SetHorizontalFacing(child.forward)). CSA-K: another player's boat is boarded at the same one. */
+export function boardPlaceOf(triggerNode) {
+  const parent = triggerNode.parent;
+  const child = parent.getChild(parent.children.indexOf(triggerNode) - 1);
+  return { position: child.position, yaw: yawOfForward(quatRotate(child.rotation, [0, 0, 1])) };
+}
+/** CheckBoatStatus's box (5508-5523) - CSA-K: another player's boat's status box says it too. */
+export const NICE_BOAT_TEXT = 'Nice Boat!';
+/** CSA-K (DECLARED): the pack's refusal while another player stands on the deck, in the driver's words' shape. */
+export const PASSENGERS_ABOARD_TEXT = 'You cannot pack a boat with passengers aboard!';
 /** The mod's two helm keys this slice reads, as the port's registry actions (KB1: one key, one action). */
 export const BOAT_ACTIONS = Object.freeze({
   disembark: 'BoatDisembark', toggleLight: 'BoatToggleLight',
@@ -408,8 +419,11 @@ const applyMatrix = (m, p) => [
   m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14],
 ];
 const applyInverse = (m, p) => applyMatrix(invertAffine(m), p);
+/** A child's point carried by its root's move: its local offset under `before` kept under `after` (SetParent's law -
+ *  the helm's player and a rider here; CSA-K: a passenger on another player's deck, scenes/comeSailAwayAboard.js). */
+export const carriedPoint = (before, after, p) => applyMatrix(after, applyInverse(before, p));
 /** The turn about up between two poses of one root, in degrees (-180, 180]. */
-function yawDelta(before, after) {
+export function yawDelta(before, after) {
   let d = (Math.atan2(after[8], after[10]) - Math.atan2(before[8], before[10])) * 180 / Math.PI;
   while (d > 180) d -= 360;
   while (d <= -180) d += 360;
@@ -717,15 +731,12 @@ export function createComeSailAwayRuntime(deps) {
   function carryChildren(boat, before) {
     const after = boat.GameObject.worldMatrix();
     if (playerParent === boat) {
-      const p = deps.player().position;
-      const local = applyInverse(before, p);
-      deps.helm.setPlayerPosition(applyMatrix(after, local));
+      deps.helm.setPlayerPosition(carriedPoint(before, after, deps.player().position));
       deps.helm.turnPlayer(yawDelta(before, after));
     }
     for (const { enemy, boat: b } of state.parentedObjects.values()) {
       if (b !== boat) continue;
-      const local = applyInverse(before, enemy.position());
-      enemy.setPosition(applyMatrix(after, local));
+      enemy.setPosition(carriedPoint(before, after, enemy.position()));
       enemy.turn?.(yawDelta(before, after));
     }
   }
@@ -1393,6 +1404,7 @@ export function createComeSailAwayRuntime(deps) {
     if (mode === 'steal') {   // PlayerActivateModes.Steal (0)
       if (boat.packable) {
         if (state.CurrentBoat != null && state.CurrentBoat === boat) deps.midScreenText('You cannot pack a boat you are driving!', 1.5);
+        else if ((deps.passengersAboard?.(boat) ?? 0) > 0) deps.midScreenText(PASSENGERS_ABOARD_TEXT, 1.5);   // CSA-K (DECLARED): the driver's refusal, for a deck another player stands on - a pack would drop them in the sea
         else PackBoat(boat, true);   // PackBoat(boat, item: true)
       }
     } else if (isSailing() && boat === state.CurrentBoat) StopSailingDelayed();
@@ -1402,26 +1414,30 @@ export function createComeSailAwayRuntime(deps) {
   function BoardBoat(hit) {
     const boat = boatOfHit(hit);
     if (boat == null) return;
-    const parent = hit.node.parent;
-    const child = parent.getChild(parent.children.indexOf(hit.node) - 1);
-    deps.helm.setPlayerPosition(child.position);
-    deps.helm.setFacing(yawOfForward(quatRotate(child.rotation, [0, 0, 1])), 0);   // SetHorizontalFacing(child.forward)
+    const at = boardPlaceOf(hit.node);
+    deps.helm.setPlayerPosition(at.position);
+    deps.helm.setFacing(at.yaw, 0);   // SetHorizontalFacing(child.forward)
     deps.helm.alignToGround?.(3);   // GameObjectHelper.AlignControllerToGround(controller, 3f)
   }
   /** TriggerDoor (5542-5572): the door the trigger hangs under, its Animator's Opened turned over. */
   function TriggerDoor(hit) {
     const boat = boatOfHit(hit);
     if (boat == null) return;
-    const component = animatorOf(hit.node.parent);
+    turnDoor(hit.node);
+  }
+  /** TriggerDoor's arm past the boat's lookup: the Animator over the trigger turned over, and its sound. CSA-K: a door on
+   *  another player's boat turns over through the same statements (for the one who pressed it - DECLARED). */
+  function turnDoor(triggerNode) {
+    const component = animatorOf(triggerNode.parent);
     if (component != null) {
       const bool = component.GetBool('Opened');
       component.SetBool('Opened', !bool);
-      deps.audio?.dfClipAtPoint?.(bool ? 93 : 94, [...hit.node.position], 1);   // boat.DFAudioSource.PlayClipAtPoint(bool ? 93 : 94, hit.transform.position, 1f)
+      deps.audio?.dfClipAtPoint?.(bool ? 93 : 94, [...triggerNode.position], 1);   // boat.DFAudioSource.PlayClipAtPoint(bool ? 93 : 94, hit.transform.position, 1f)
     }
   }
   /** CheckBoatStatus (5508-5523). */
   function CheckBoatStatus(hit) {
-    if (boatOfHit(hit) != null) deps.messageBox?.('Nice Boat!');
+    if (boatOfHit(hit) != null) deps.messageBox?.(NICE_BOAT_TEXT);
   }
   /** PlayerActivate's custom activation for one of the seven: within 3.2 of the ray it runs, farther it does not. */
   function activate(modelId, hit, mode) {
@@ -1822,6 +1838,25 @@ export function createComeSailAwayRuntime(deps) {
     PlaySlow(boat);
     return boat;
   }
+  /**
+   * OWS2 (the port's own - bible/06-Systems/Travel-View.md "OWS - the sea"; the player's ask: "You should transition to
+   * your boat if traveling across water"): A JOURNEY'S LAUNCH. The placing click's terrain arm (a Terrain whose tile
+   * under the point is water: "Boat placed!", PlaceBoat, the item's half - its UID, its packed cargo aboard, the parts
+   * spent) aimed by the Overworld's journey where the camera's ray would land - `position` on the water, the bow along
+   * `direction` - for a packable boat's PARTS alone (a deed's boat stands where a port put it). What the click would
+   * have been placing is let go first. Returns the boat, or null for an item that is not parts.
+   */
+  function LaunchFromParts(item, itemCollection, position, direction, terrain = null) {
+    if (item?.templateIndex !== BOAT_PARTS_TEMPLATE) return null;
+    if (state.placing) StopPlacing();
+    state.placeItem = item;
+    state.placeItemCollection = itemCollection;
+    deps.hudText('Boat placed!');
+    const boat = PlaceBoat([...position], [...direction], hullFromMessage(item.message), variantFromMessage(item.message), terrain);
+    takePlaceItem(boat);
+    StopPlacing();
+    return boat;
+  }
   /** PlaceBoat(Boat, Vector3, Vector3, Terrain) (6171-6178). */
   function PlaceBoatOnTerrain(newBoat, position, direction, terrain = null) {
     SpawnBoat(newBoat);
@@ -1981,17 +2016,12 @@ export function createComeSailAwayRuntime(deps) {
     UpdateBoatNodesAtMapPixel(boat, mapPixel);
   }
 
+  /** A node's reading at a point on one terrain (0 is water): Iliac Puddle No More's height test, else the tile map's -
+   *  readNodes' law, and OWS2's (the port's own journey asks where a boat would float before it puts one there). */
+  const nodeReadingAt = (point, terrain) => (deps.iliacPuddleNoMore() ? (terrain.sampleHeight(point) < WATER_LEVEL ? 0 : 1) : tileMapIndexAtPosition(point, terrain));
   /** Each node's reading on one terrain: Iliac Puddle No More's height test, else the tile map's water. */
   function readNodes(boat, terrain) {
-    if (deps.iliacPuddleNoMore()) {
-      for (let j = 0; j < boat.NodeTileMapIndices.length; j++) {
-        boat.NodeTileMapIndices[j] = terrain.sampleHeight(boat.Nodes[j].position) < WATER_LEVEL ? 0 : 1;
-      }
-    } else {
-      for (let k = 0; k < boat.NodeTileMapIndices.length; k++) {
-        boat.NodeTileMapIndices[k] = tileMapIndexAtPosition(boat.Nodes[k].position, terrain);
-      }
-    }
+    for (let j = 0; j < boat.NodeTileMapIndices.length; j++) boat.NodeTileMapIndices[j] = nodeReadingAt(boat.Nodes[j].position, terrain);
   }
   /** Inside, a dungeon with water reads every node as water (3641-3651 / 3685-3695). True when the caller returns. */
   function nodesInside(boat) {
@@ -2492,6 +2522,30 @@ export function createComeSailAwayRuntime(deps) {
     get placing() { return state.placing; },
     get pendingRestore() { return pendingRestore; },
     isSailing,
+    /** CSA-K: the boat at the helm's way this frame - the world velocity LateUpdate translates it by and the degrees
+     *  it turns it by, each per second of Time.deltaTime (the host scales them to the real clock) - or null: no helm,
+     *  or a beached boat, which does not move. */
+    helmMotion() {
+      const boat = state.CurrentBoat;
+      if (!isSailing() || boat == null || IsBeached(boat)) return null;
+      return { boat, velocity: quatRotate(boat.GameObject.rotation, state.velocityCurrent), turn: state.TurnCurrent };
+    },
+    /** CSA-L: what the helm panel shows (ui/enhancedHelm.js) - read, never written: the sails raised, the square
+     *  sails a hull with fore-and-aft ones too can raise alone and whether they stand, the lanterns, the time scale's
+     *  step and value, and whether the trim is the player's (SailingAssist.AutoTrimming off) and on which sails. */
+    helmPanelState() {
+      const boat = state.CurrentBoat;
+      if (!isSailing() || boat == null) return null;
+      const foreAft = boat.SailsLateen.length > 0 || boat.SailsGaff.length > 0;
+      const squareRaised = boat.SailsSquare.length > 0 && boat.SailsSquare.some((sq) => animatorOf(sq)?.GetBool('Stowed') === false);
+      return {
+        hull: boat.hull, hasSails: boat.Sails.length > 0, sailsUp: state.sailPosition !== 0,
+        hasSquare: boat.SailsSquare.length > 0,
+        squareToggle: state.sailPosition !== 0 && boat.SailsSquare.length > 0 && foreAft && !trimAutoSquareUpwind(), squareUp: squareRaised,
+        light: !!boat.LightOn, timeScaleIndex: state.timeScaleIndex, timeScale: TIME_SCALES[state.timeScaleIndex], timeScaleMax: TIME_SCALES.length - 1,
+        manualTrim: !trimAuto(), squareOnly: !foreAft,
+      };
+    },
     StartPlacing, StopPlacing,
     PlaceBoat, PlaceBoatOnTerrain, PlaceBoatAtMapPixel, RepositionBoat, RepositionBoatAtMapPixel,
     PlaceBoatAtRayHit, PlaceBoatAtRayHitArgs,
@@ -2505,7 +2559,9 @@ export function createComeSailAwayRuntime(deps) {
     GetPlacedBoatWithUID, GetHitBoatIndex, AddMapMarker,
     update, lateUpdate, fixedUpdate, endOfFrame, tick,
     StartSailing, StopSailing, StopSailingDelayed, ReturnTemporaryShip, UpdateCurrentBoatNodes, CheckCollision, UpdateBoatCargoMod,
+    turnDoor,   // CSA-K: TriggerDoor's arm, for a door on another player's boat
     CanSail, IsBeached, IsNodeOnWater, CanTurnLeft, CanTurnRight, ResetTimeScale,
+    LaunchFromParts, nodeReadingAt,   // OWS2: the Overworld's crossing - a launch aimed by the journey, and the node's law it probes with
     activate, OnStartLoad, OnPreFastTravel, OnPostFastTravel, OnPlayerDeath, OnNewMagicRound,
     UpdateWind, OnNewHour, OnWeatherChange,
     GetSailPower, ToggleSails, RaiseSails, LowerSails, ToggleSquareSails, HasLargeSquareSailWithGaff,

@@ -214,5 +214,59 @@
     "tests": [
       "test/nav_d_boarding.test.js"
     ]
+  },
+  {
+    "name": "NAV-D-the-running-raid-unasked",
+    "file": "src/systems/warmAshesShips.js",
+    "old": "  if (hasTraveledbyShip || _boardIn !== null || raidRunning()) return 'busy';",
+    "new": "  if (hasTraveledbyShip || _boardIn !== null) return 'busy';",
+    "tests": [
+      "test/nav_d_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAV-D-under-way-forgets-the-lent-ship",
+    "file": "src/systems/warmAshesShips.js",
+    "old": "  return hasTraveledbyShip || _boardIn !== null || tempShip || raidRunning();",
+    "new": "  return hasTraveledbyShip || _boardIn !== null || raidRunning();",
+    "tests": [
+      "test/nav_d_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAV-D-under-way-forgets-the-running-raid",
+    "file": "src/systems/warmAshesShips.js",
+    "old": "  return hasTraveledbyShip || _boardIn !== null || tempShip || raidRunning();",
+    "new": "  return hasTraveledbyShip || _boardIn !== null || tempShip;",
+    "tests": [
+      "test/nav_d_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAV-D-the-boarders-raid-over-an-ambush",
+    "file": "src/scenes/world.js",
+    "old": "        if (warmAshesRaidUnderWay()) return null;   // THE MERGE (NAV-D, OWS3): one raid at a time - the boarders come over as the arc's own party\n",
+    "new": "",
+    "tests": [
+      "test/nav_d_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAV-D-the-host-word-never-given",
+    "file": "src/scenes/world.js",
+    "old": "    raidRunning: () => [...questBridge.machine.quests.values()].some((q) => WA_RAID_QUESTS.includes(q.questName) && !q.questComplete && !q.questTombstoned),\n",
+    "new": "",
+    "tests": [
+      "test/nav_d_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAV-D-a-finished-raid-still-running",
+    "file": "src/scenes/world.js",
+    "old": "WA_RAID_QUESTS.includes(q.questName) && !q.questComplete && !q.questTombstoned)",
+    "new": "WA_RAID_QUESTS.includes(q.questName))",
+    "tests": [
+      "test/nav_d_boarding.test.js"
+    ]
   }
 ]

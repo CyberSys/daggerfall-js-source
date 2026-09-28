@@ -134,7 +134,9 @@ had said they were lit as the port lights its flats); Ocean Holes (20), a replac
   lanterns, disembark) have no touch button and no pad binding by default; a pad reaches them only through a capture on
   the enhanced Controls page. No vendored mod's actions are exposed on touch or a pad anywhere in the port (Handheld
   Torches, Horse Cart and Cargo, Travel Options, Eye of the Beholder alike), so there is no house pattern to extend - it
-  is a new design. The 1000x500 map at DoNotScale also overflows a phone's canvas.
+  is a new design. The 1000x500 map at DoNotScale also overflows a phone's canvas. ANSWERED for the nine by CSA-L
+  (2026-09-28, the player's ask - `03-World/Come-Sail-Away.md` The helm on screen): Enhanced Plus's helm panel takes a
+  finger and a freed mouse, and at the helm a pad's d-pad is the helm's; the classic skin and the map's size stand.
 - **BoatDisembark's `'` (U6, PLAUSIBLE) - Mac's call.** It is Firefox's Quick Find key and the world leaves an unspent
   key's default to the browser (KB1). Either a new preventDefault rule for registry keys (and `swallowBrowserKey` would
   also eat `'` in the chat) or a new default key; neither is an audit's to choose.

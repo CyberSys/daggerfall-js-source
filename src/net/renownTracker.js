@@ -83,6 +83,14 @@ export function renownFoeStruck(foe, now = Date.now()) {
   if (e) { e.at = now; if (never) e.paid = true; } else _struck.set(foe, { at: now, paid: never });
 }
 
+/** RAID1: when the player's last blow on `foe` landed (the clock `renownFoeStruck` was handed), or null. Raiding
+ *  Parties' "the player fought this raid" (systems/raidingParties.js, fix 5) reads the same stamp - one record of the
+ *  foes a player fought, not two. */
+export function renownStruckAt(foe) {
+  const e = foe && typeof foe === 'object' ? _struck.get(foe) : null;
+  return e ? e.at : null;
+}
+
 /** AUDIT RENOWN1 GAME-10: a foe stood again as a NEW record (a Wabbajack's change, a joiner's rebuild of the host's foe
  *  as another species) is the same fight - my blows on the old record count on the new one. */
 export function renownFoeCarry(from, to) {

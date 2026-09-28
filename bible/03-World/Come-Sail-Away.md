@@ -1,4 +1,4 @@
-# Come Sail Away - Come Sail Away 2.1 (CSA-A to CSA-J, from 2026-09-27)
+# Come Sail Away - Come Sail Away 2.1 (CSA-A to CSA-L, from 2026-09-27)
 
 RedRoryOTheGlen's **Come Sail Away 2.1** (Nexus 1131), ported 1:1 off the
 compiled assembly - Mac, 2026-09-25: "All mods attached are to be
@@ -32,6 +32,8 @@ lines, one MonoBehaviour).
 | CSA-H | ITEMS, SHOPS AND CARGO: the two item classes, the shops' variants, the cargo, the ports (1095, 3820, 6521, 6687-6808) | landed: the two items (their rows, a UID of their own, their UseItem on the item-use door); the shelves through the one custom-group table (Iliac Puddle No More's fish on it too) and AssignVariantsToShopItems; PackBoat and the packed cargo; the cargo box; the variant picker; IsNearPort; `giveboat` |
 | CSA-I | THE MAP AND THE WATER WALK: the position reading and its markers, OnGUI, WaterWalkingSilent (3941-4186, 5589-5778, 5966-6031) | landed: the position box's reading (the instruments' box, the two restrictions, the map a window in the mode's slot, its keys), the markers, OnGUI's map over the travel map rebuilt from the player's TRAV0I00.IMG, the debug values; the water walk on a hull, WaterWalkingSilent on the effect list and IsWaterWalking read one way |
 | CSA-J | THE CLOSE: the message receiver, the compatibility arms (World of Daggerfall's terrain, Animated Water, Iliac Puddle No More; Travel Options' one message is CSA-G's), online, the audit, the patch notes (1007-1008, 1821-1890, 1973-1976) | landed: MessageReceiver whole and OnUpdateWind raised on a restore; Eye of the Beholder's boat camera and sprite; the two mods the port does not carry null in code, Iliac Puddle No More's arms checked; a sailor's boats seen by the others in a cell (`sa` on the foes frame); the audit's fixes (the load's doors, the Transport press, every mode's death, the new game's wind, the half-built hull, RuntimeMaterials' copy, the bed's offer rung); the patch notes |
+| CSA-K | SAILING TOGETHER (the port's own, online - the player's ask, 2026-09-28: "I want people to be able to sail together, to walk on board as it moves"): the way on the wire, another player's boat boarded, stood on, carried by and left, the others seen on the deck | landed: below |
+| CSA-L | THE HELM ON SCREEN (the port's own - "instead of an overuse of keybinds, is there a way we can instead develop enhanced plus UI elements?"): the Enhanced Plus helm panel, a pad's d-pad at the helm | landed: below |
 
 ## The settings (CSA-A)
 
@@ -1715,7 +1717,10 @@ taken back after the mod loop, as StopSailing's lent-ship arm takes it
 (IL_b0e7-IL_b121: AUDIT PRE-MERGE 0928 C1 - the let-go record never reached
 it, and the character kept a ship a bank would buy for 85,000); (39) a
 load's start ends a disembark still holding the player, where the C#'s
-OnStartLoad stops only a sail its IsSailing sees (AUDIT PRE-MERGE 0928 S1).
+OnStartLoad stops only a sail its IsSailing sees (AUDIT PRE-MERGE 0928 S1);
+(40) another player's boat is boarded, stood on and carried by, the others
+aboard seen on its deck (Sailing together, CSA-K); (41) the helm is on
+screen and on a pad's d-pad (The helm on screen, CSA-L).
 
 ## Online (CSA-A, CSA-J)
 
@@ -1747,8 +1752,9 @@ normalized, the bits and two flags) and lands past the room test
 (`scenes/exteriorFoes.js` setOnCsa). `scenes/comeSailAwayPeers.js` stands
 it: each boat built as SpawnBoat builds one, into the pool's PEER list
 (`scenes/comeSailAwayPool.js`) - drawn, baked and lit as a boat of mine,
-but never a collider, a ray's hit or an activation, because the host's
-loops read the pool's own `boats` - and posed every frame off the word,
+and a collider, a ray's hit and an activation only as CSA-K makes it one (a
+deck for whoever is aboard it, its ladder and boxes pressed: below), because
+the host's loops read the pool's own `boats` - and posed every frame off the word,
 converted from the wire frame each frame (AUDIT HCC O1), eased toward it
 (a step past twenty metres snaps: `easeToward`, the team's law) and turned
 toward it by a slerp. A boat of the same hull is kept wherever the word
@@ -1773,7 +1779,204 @@ the world (the pre-merge audit's I-B law - AUDIT PRE-MERGE 0928 O4). The
 hull carries no foe another client steps (O6). Not carried: the bob,
 the wake, the oars, the sounds, the trim and the wind's belly - the
 owner's own frame drives those, and the wire carries the pose five times
-a second.
+a second, the helm's way beside it (CSA-K, below).
+
+## Sailing together (CSA-K)
+
+The port's own, online (DECLARED (40)): the player's ask (2026-09-28), "I
+want people to be able to sail together, to walk on board as it moves".
+The mod is single-player - its boats carry their own player at the helm
+and nobody else, and DFU has no second player to stand on a deck - so
+nothing here is a C# statement; what it reuses is named where it runs.
+
+**The way on the wire.** A pose five times a second, eased word to word,
+surges and stalls five times a second under whoever walks the deck. So
+the boat at the helm says where it is going: `m` beside `b` in the owner's
+`sa` word (`systems/comeSailAwayWire.js`), a place for each boat - its
+velocity on the water through the wire frame (the point a second on,
+converted, less the point: natives a second) and its turn in degrees a
+second, each on the real clock at the owner's time scale
+(`systems/comeSailAway.js` helmMotion: the world vector LateUpdate
+translates the boat by and TurnCurrent; nothing while a pause holds it,
+nothing beached). A moored fleet says no `m` at all, so a reader of the
+older build - which reads `b` alone - reads the same record; a new reader
+of an old record leads nothing. The door takes the way whole or drops the
+record whole (aligned with `b`, three finite numbers, a boat's speed and
+turn). The change key carries it, so a boat brought up short is said at
+once. `scenes/comeSailAwayPeers.js` LEADS a boat under way instead of
+chasing it: each frame it is carried on by the way's share of the frame
+(what the lead grew by - none past CSA_PEER_LEAD_MAX, 0.6 s, so a late
+word leads no further and the boat holds where the way took it) and eased
+the rest of the way to the word led from its arrival; the turn the same,
+Rotate(up x turn) in the boat's own frame. A step past the snap (20 m) is a
+teleport. Each boat's frame keeps the pose before it (`moveOf`: none the
+frame it is built, none across a snap) and can be peeked a frame ahead
+(`poseAhead`).
+
+**Aboard** (`scenes/comeSailAwayAboard.js`). A player comes aboard another's
+boat by its own ladder - BoardBoat (112401) answers on it as on one's own:
+stood at the sibling before the trigger (`boardPlaceOf`, the one export
+BoardBoat reads too), facing its forward, set on the ground within 3 m
+with THEIR deck among what that ray meets (`scenes/world.js` csaBoardPeer) -
+or by landing on its deck from above: in the air over it, the ray down
+from the body's centre (the riders' own ray, CSA_ABOARD_BELOW 3 m longer
+so a fall is met before it lands) meeting its colliders no higher than a
+step (0.3) over the feet. A swimmer is never taken aboard by the ray - inside
+a hull the ray meets its floor from within - so the ladder is the way up out
+of the water, as in the mod; and a body standing on anything else (a pier
+over a moored boat, the shore under a bow) is never aboard and never
+dragged off by the boat's going. Aboard is the motor standing on the boat's
+own colliders, or in the air over its deck; the ladder's first two frames
+(CSA_ABOARD_GRACE) are its own, the motor not having stood there yet.
+
+**The deck holds only who is aboard** (PR-WAGON1's law: another player's
+wagon never walls anyone out, Mac: "Others' wagons don't block"). Another
+player's boat stands in a player's collider only while that player is
+aboard it - its switched-on, non-trigger colliders, as buckets beside the
+player's own boats' (`scenes/world.js` csaSyncColliders), re-stood as it
+moves, gone the moment they are not aboard. Nobody else meets it: a
+swimmer passes through its hull, a walker on the shore under its bow. The
+mod's own rays (the placing, the riders' FixedUpdate, the helm's sweep)
+skip those buckets and meet the player's own boats alone, as before.
+
+**Carried.** Once a frame, after the mod's own step and its colliders and
+before the eye is taken from the body (`scenes/world.js` csaPeersFrame,
+from csaUpdate; from the pool's frame when that did not run), the peers'
+boats are posed, and the deck carries whoever stands aboard it by its
+move: the feet kept at their place on the deck (carriedPoint - the helm's
+own law for its child, one export) and the facing turned with the boat
+about up (yawDelta), in the air over the deck too, so a jump on a moving
+deck comes down where it left it. The body is carried rigidly
+(`player/motor.js` carryBy: the body and both ends of the render span, the
+smoothed eye and a fall's start with it, no motion state touched) - the
+helm's carry of its child, not DFU's controller.Move - and the motor's next
+step meets the world from there. Nobody is carried across a jump of the
+boat's (a snap, a boat rebuilt): it puts them off.
+
+**Off.** Walking or jumping off the side (nothing of it under the body and
+nothing of it stood on), standing on something else, swimming, the boat
+gone (packed, its owner gone from the room, a clear) or the host's own
+leave - a transition, a fast travel, a teleport, a death, the mod off, a
+mode's frame (a building's, a dungeon's) - puts the one aboard off at once,
+the deck's buckets with them; the motor falls or swims as it would.
+
+**Seen on the deck.** My place aboard - whose boat, which of their word's
+places, and my feet in that boat's own frame to the centimetre - rides my
+foes frame as `ab` (`scenes/world.js` csaAboardWord), a word only when it
+changes (standing still on a moving deck says nothing) and again on every
+full frame, null aboard nothing; the reader takes it past the same room
+test and owner law as `sa` (`scenes/exteriorFoes.js`: gone from the room or
+quiet past the stale time, a clear, a teardown). The pose frame could not
+carry it: the relay's `validPose` projects the pose field by field and a new
+field would be a relay change (every player dropped). Every reader stands a
+player aboard on their OWN copy of that boat at that place (glue, over
+`online.drawable()` before every layer reads it): the owner on the boat they
+sail - its move of this frame made ahead, since the online frame runs before
+the mod's LateUpdate (`csaPoseAhead`) - the others on the one they lead, a
+frame ahead the same way; the place eased toward each word, a new boat's
+taken at once. So the deck I walk is the deck they see me on, never a
+stride behind it.
+
+**What a passenger may press.** Another's boat's pick is taken only where
+none of the player's own boats is under the ray, and it YIELDS (PR-WAGON1's
+`firmFirst`: anything firm under the ray takes the press first); the static
+world nearer takes it, the deck I stand on skipped as my own boats' buckets
+are. The ladder boards it; the status box is the mod's "Nice Boat!"
+(NICE_BOAT_TEXT, one export); a door turns over through TriggerDoor's own
+statements (`turnDoor`) for the one who pressed it (DECLARED: the owner's
+doors are not on the wire); the position box is the player's own
+instruments (StartShowBoatPosition reads no boat, kept); the bed is Roleplay
+Realism's BedActivation, anyone's; the helm, the cargo and the variant are
+the owner's, and the press says whose, a peer's wagon's HCC-TIP shape
+("This Large Boat - owned by Ann."); past the mod's 3.2, silence. The plaque
+names the hull and "Owned by Ann". The owner's pack is refused while anyone
+stands aboard ("You cannot pack a boat with passengers aboard!", the
+driver's refusal's shape: a pack would drop them in the sea); the owner's
+leaving the room, a fast travel or a log-off still takes the boat from under
+them (DECLARED: the owner's world is theirs), and they swim.
+
+**The four hosts.** `scenes/world.js` wires it all (the exterior's frame -
+the only place another player's boat stands); `scenes/worldModes.js` and
+`scenes/dungeonContext.js` stand no one's boat (a building's and a
+dungeon's room carry no `sa`: FLAGGED as the port's reach, not DFU's), and
+their frames put the one aboard off; `scenes/exterior.js` (the standalone
+street, offline) has no peers. Not carried: a foe does not ride another's
+boat (the riders' FixedUpdate asks the player's own boats), nor does a peer's
+avatar collide (peers never stand in the collider).
+
+## The helm on screen (CSA-L)
+
+The port's own (DECLARED (41)): the player's ask (2026-09-28), "instead of
+an overuse of keybinds, is there a way we can instead develop enhanced plus
+UI elements?" - and AUDIT PRE-MERGE 0928 U4's open question (the helm's
+nine actions on a phone and a pad) with it. `ui/enhancedHelm.js`, Enhanced
+Plus only; the classic skin keeps the mod's keys as the mod drew them.
+
+- **Every button is its key.** A press is the registry action the key
+  presses, handed to the mod through the host's one input seam
+  (`scenes/world.js` csaHelmInput: `started` a tap's edge for that frame,
+  `has` a hold until it is let go, and a chord's modifier held for the frame
+  of its tap - the square sails' End with the trim modifier); the mod's step
+  spends the frame's taps after its LateUpdate. So the mod's own code runs
+  as it runs for the key, and the keys still work (KB1: bindable; a press
+  with no key bound still presses). What the panel shows it reads
+  (`helmPanelState`) and never writes: the sails and whether they stand; the
+  square sails' own toggle where the key's chord would raise them alone
+  (raised sails, square and fore-and-aft kinds, the assist off); the trim
+  only while it is the player's (SailingAssist.AutoTrimming off), and the
+  square sails' own trim where the hull carries both kinds; the lanterns;
+  the time scale's three, the ends refused; the position reading (the
+  position box's own reading, from the wheel - DECLARED: the box is out of
+  reach there); leaving the helm.
+- **The HUD's kind of thing, not a window** (the journey bar's law,
+  `ui/enhancedTravelControl.js`): it pauses nothing, registers with no
+  overlay stack, and only its buttons take the pointer, their presses
+  swallowed (never a swing or an activation in the world). It stands under
+  the compass where the journey bar stands (a journey and a helm are never
+  up together), hidden under a window over the HUD, the HUD toggled off or a
+  pause, and every hold is let go when it hides or goes. Once a frame from
+  the frame's own top, so a dungeon's water is sailed with it too.
+- **The mouse** clicks it whenever the pointer is free - the free-mouse key
+  (Y), a surface, a finger - as the hotbar's and the spell tiles' do; while
+  the look holds the pointer the title says how to free it. Each button
+  carries its key as the Controls page names it.
+- **A finger**: every button is 44 px and the bar stands at the top, clear
+  of the stick and the corner; no key hints.
+- **A pad**: at the helm the d-pad is the helm's (`ui/gamepadInput.js`,
+  PADPLUS6's quick-loot law): up raises or stows the sails (held, the square
+  sails alone), down lights or douses the lanterns (held, leaves the helm),
+  left and right step the time scale (held, the trim while it is the
+  player's, else left puts the time back to one) - so none of the four
+  reaches the bare d-pad's own actions or a quickslot at the wheel; a bumper
+  held is still the crossbar's, and the prompt bar says so. A held trim is
+  let go when the helm, a window or a bumper takes the d-pad.
+- **Aboard another's boat** (CSA-K) the same bar names whose deck you stand
+  on ("Aboard Ann's Large Boat") and holds no button - the helm is theirs.
+
+It is dressed by the kit (`ui/enhancedFrame.js` FRAME_ROLES: the bar a
+window, the presses buttons); its own sheet only places and letters.
+
+## The Overworld's crossing (OWS2, 2026-09-28)
+
+The player's ask: *"You should transition to your boat if traveling across water then back onto land when hitting
+land"* - `06-Systems/Travel-View.md` OWS2 records the journey; what it asks of this mod is here, and the Port-Ledger
+row's (42).
+- **Two doors on the runtime.** `LaunchFromParts(item, collection, position, direction, terrain)` is the placing
+  click's terrain arm aimed by the journey rather than the camera's ray: "Boat placed!", PlaceBoat with the parts'
+  hull and variant (`hullFromMessage`, `variantFromMessage`), the item's half (`takePlaceItem`: the parts' UID and
+  their packed cargo aboard, the parts spent from the pack as it stands), whatever the click was placing let go - PARTS
+  only (a deed's boat stands where a port put it). `nodeReadingAt(point, terrain)` is the nodes' own law, one home now
+  (`readNodes` reads through it): Iliac Puddle No More's height under its line, else the tile map's water - the
+  journey asks it where a boat would float before it puts one there.
+- **The pool's rig.** `hullRig(hull)` builds a hull once on the pool's own context (SpawnBoat, never placed or drawn)
+  and keeps its five nodes in its own frame, its sails, its crew, its packing and its Cargo modifier: the launch's
+  probe and the crossing's choice of boat read it.
+- **The helm pressed by the journey.** An Overworld journey's hand (`systems/seaHelm.js`) presses the helm through the
+  host's one input seam (`csaJourneyHelm`, read by `input.has` beside the keys and CSA-L's panel, and by the autorun):
+  the rudder keys held, the ToggleSail key's edge, the oars' autorun, and at the landfall the disembark key - the mod's
+  code moves, turns, beaches and leaves the boat, and PackBoat packs it. A packable boat is to hand again after its
+  landfall; a crewed one is left moored. The Rowboat (no sail) and the Carrack (no Cargo modifier: it makes no way,
+  kept) are no crossing's boat.
 
 ## What was already waiting in the port
 
@@ -1862,7 +2065,12 @@ and the finer laws each a mutant found (the galleon's own oars, the turn's
 cap, the crewed ship's free oars and the left turn's, the helm's pin, the
 walk of inputCurrent, the CanTurnRight quadrant behind, a three-node
 float, the horse's and cart's switches, a negative MoveTowards).
-`tools/mutants/csa_sailing.json`: 84 mutants, all dead.
+`tools/mutants/csa_sailing.json`: 84 mutants, all dead. CSA-K and CSA-L
+added four (28): the pack refused with a passenger aboard (and the driver's
+refusal first); helmMotion (the world way, the turn, none ashore or beached);
+helmPanelState (none ashore, the trim's owner, the square sails, the time);
+and the laws another's boat shares with mine, one export each (boardPlaceOf,
+NICE_BOAT_TEXT, turnDoor's clip, carriedPoint and yawDelta).
 
 `test/csa_animator.test.js` (17): the binding hash; the curves (a
 constant, a streamed segment - a linear one and a step at its own key
@@ -1979,3 +2187,18 @@ off, the origin's shift); a word before the models; the hosts' seams.
 `test/eotb_camera.test.js` drives the arm order through the real path,
 and `test/eotb_scope.test.js`'s two rows are ported.
 `tools/mutants/csa_close.json`: 126 mutants, all dead.
+
+`test/csa_together.test.js` (20, CSA-K and CSA-L): the way on the wire (its
+conversion, a turn alone, none moored, the key) and through the door; the
+readers' lead (an even speed, the cap, no way, the turn) and each frame's
+pose kept (moveOf, a snap, the peek); aboard by landing (never off a pier,
+from the water or a boat past reach); carried (the helm's child's law, the
+turn, the word, in the air); every way off; the ladder and its grace; the
+others aboard (the door, the glue, the ease, the owner law, the count); the
+ray on another's boat (the ladder's box, the bare hull); the host (the deck in
+my collider alone, the frame's order, the carry, the gate; the `ab` word
+mounted with the foes stream, the receiver, the glue, the owner's boat a
+frame ahead; the press, the ladder, the plaque, the pack guard); the motor's
+carry; the helm's buttons; the panel on a page; the Plus dress; the pad's
+gestures and prompts; the pad layer at the helm; the host's helm seam,
+mounted. `tools/mutants/csa_together.json`: 93 mutants, all dead.

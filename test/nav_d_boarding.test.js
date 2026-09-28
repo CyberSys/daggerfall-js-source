@@ -18,7 +18,8 @@ import {
 } from '../src/systems/naval/navalLaw.js';
 import { classById, SHIP_CLASSES, CROWNS } from '../src/systems/naval/navalShips.js';
 import { CRIMES } from '../src/systems/crimes.js';
-import { LeaveShip, setWarmAshesHost, WA_SEA_REGION, _resetWarmAshesShips } from '../src/systems/warmAshesShips.js';
+import { LeaveShip, setWarmAshesHost, WA_SEA_REGION, _resetWarmAshesShips, raidAtSea, raidUnderWay, frame as warmAshesFrame, WA_RAID_QUESTS } from '../src/systems/warmAshesShips.js';
+import { readFileSync } from 'node:fs';
 
 const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''} ${a} vs ${b} (±${eps})`);
 
@@ -261,4 +262,46 @@ test('NAV-D THE GATE (DECLARED): Warm Ashes\' LeaveShip asks the host\'s leaveSh
   assert.deepEqual(calls, [['variant', 'SHIPAA00.RMB', '_base'], ['variant', 'SHIPAA01.RMB', '_base'], ['ship']]);
   setWarmAshesHost(null);
   _resetWarmAshesShips();
+});
+
+test('NAV-D ONE RAID AT A TIME (THE MERGE with OWS3): Warm Ashes\' module answers for every starter - an ambush armed or boarding, a lent ship out, or a raid quest running whoever started it (the host\'s word off the quest machine); an Overworld raider alongside is refused while the sea fight\'s raid runs, and the sea fight\'s boarders start none over an armed ambush - they come over as the arc\'s own party (mutants: the running raid unasked, the boarders\' raid over an ambush, the host\'s word never given)', () => {
+  // the two quests are the sea fight's own two names
+  assert.deepEqual([...WA_RAID_QUESTS], [WA_SMALLRAID, WA_ATTACK_PIRATE]);
+  _resetWarmAshesShips();
+  let running = false;
+  const calls = [];
+  setWarmAshesHost({
+    random: () => 0.99, ownsShip: () => true, raidRunning: () => running,
+    getQuest: (name) => ({ name }), startQuest: (q) => calls.push(['start', q.name]), setTransportModeShip: () => calls.push(['ship']),
+    setBlockVariant: () => {}, assignShip: () => {}, resetShip: () => {}, currentRegionIndex: () => WA_SEA_REGION,
+  });
+  assert.equal(raidUnderWay(), false, 'nothing under way');
+  // the sea fight's raid running on a Come Sail Away deck: the raider alongside sheers off, nothing armed
+  running = true;
+  assert.equal(raidUnderWay(), true);
+  assert.equal(raidAtSea(), 'busy');
+  assert.equal(warmAshesFrame(1), false, 'no coroutine armed');
+  assert.deepEqual(calls, []);
+  // the raid over: the next raider is heeded - and while ITS ambush is armed, the boarders start no second raid
+  running = false;
+  assert.equal(raidAtSea(), 'raid');
+  assert.equal(raidUnderWay(), true, 'armed and boarding');
+  assert.equal(warmAshesFrame(1), true);
+  assert.deepEqual(calls, [['start', WA_SMALLRAID], ['ship']]);
+  assert.equal(raidUnderWay(), false, 'boarded: the quest itself is the host\'s word now');
+  running = true;
+  assert.equal(raidUnderWay(), true);
+  // a lent ship out (a player with none of their own): under way until Leave Ship takes it back
+  _resetWarmAshesShips();
+  running = false;
+  setWarmAshesHost({ random: () => 0.99, ownsShip: () => false, raidRunning: () => running, getQuest: (name) => ({ name }), startQuest: () => {}, setTransportModeShip: () => {}, setBlockVariant: () => {}, assignShip: () => {}, resetShip: () => {} });
+  assert.equal(raidAtSea(), 'raid-lent');
+  warmAshesFrame(1);
+  assert.equal(raidUnderWay(), true, 'the lent ship is out');
+  setWarmAshesHost(null);
+  _resetWarmAshesShips();
+  // the host: the machine's live raid quests are the word, and the sea fight's starter asks first
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /raidRunning: \(\) => \[\.\.\.questBridge\.machine\.quests\.values\(\)\]\.some\(\(q\) => WA_RAID_QUESTS\.includes\(q\.questName\) && !q\.questComplete && !q\.questTombstoned\),/);
+  assert.match(w, /startRaid: \(name\) => \{\n\s+if \(warmAshesRaidUnderWay\(\)\) return null;/);
 });

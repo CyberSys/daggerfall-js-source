@@ -113,7 +113,7 @@
   {
     "name": "AUDWBX-S1-said-before-it-is-safe",
     "file": "src/scenes/spoilsPool.js",
-    "old": "    const durable = store?.persisted?.(SPOILS_STORE_KEY) ?? true;",
+    "old": "    const durable = store?.persisted?.(STORE_KEY) ?? true;",
     "new": "    const durable = true;",
     "tests": [
       "test/auditwbx.test.js"

@@ -99,15 +99,27 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   byRoad: (name) => `To ${name}, by the road`,
   acrossCountry: (name) => `To ${name}, across country`,
   toSpot: 'To the marked spot',
+  // OWS2: the crossing's words - the trip's line when it puts to sea, and why one cannot
+  bySea: (name) => `To ${name}, by sea`,
+  toSpotBySea: 'To the marked spot, by sea',
+  needBoat: 'There is no way there by land - a boat would carry you across the water.',
+  passenger: 'You are aboard another\'s boat - its helmsman sets the course.',
+  noLaunch: 'There is no water here for your boat to float in.',
+  noWayAtSea: 'Your boat can make no way toward its mark.',
+  leftMoored: 'Your boat is left moored where it landed.',
+  noBoat: 'Your boat is not with you to cross the water.',
+  aground: 'Your boat has run aground.',
+  raidersAlongside: 'Pirates come alongside!',   // OWS3
   inPlace: (place, region) => (region ? `${place}, ${region}` : place),
   nearPlace: (place, region) => (region ? `Near ${place}, ${region}` : `Near ${place}`),
   wilderness: (region) => (region ? `The wilds of ${region}` : 'The wilds'),
 });
 
 /** TV2: the trip's line - a place by the roads when half its way or more is road or track, across country otherwise;
- *  a spot is a spot. */
-export function travelTripLine({ name = '', share = 0, spot = false } = {}) {
-  if (spot) return TRAVEL_VIEW_TEXT.toSpot;
+ *  a spot is a spot. OWS2: a trip that puts to sea says so. */
+export function travelTripLine({ name = '', share = 0, spot = false, sea = false } = {}) {
+  if (spot) return sea ? TRAVEL_VIEW_TEXT.toSpotBySea : TRAVEL_VIEW_TEXT.toSpot;
+  if (sea) return TRAVEL_VIEW_TEXT.bySea(name);
   return share >= 0.5 ? TRAVEL_VIEW_TEXT.byRoad(name) : TRAVEL_VIEW_TEXT.acrossCountry(name);
 }
 

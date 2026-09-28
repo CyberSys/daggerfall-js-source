@@ -92,7 +92,7 @@
   {
     "name": "EM3-10-a-note-is-drawn-without-a-halo",
     "file": "src/ui/inkAutomap.js",
-    "old": "      ctx.strokeText(m.name ?? '', x, y - 4);\n",
+    "old": "        ctx.strokeText(m.name, hx + NOTE_PIN.head + 7, hy);\n",
     "new": "",
     "tests": [
       "test/inkautomap.test.js"
@@ -178,8 +178,8 @@
   {
     "name": "EM3-19-the-static-key-reads-the-CACHE",
     "file": "src/ui/automapSheet.js",
-    "old": "      return `${cutKey()}|${deps.insideBuilding ? 'in' : 'dn'}`;",
-    "new": "      return `${cut?.key ?? 'none'}|${deps.insideBuilding ? 'in' : 'dn'}`;",
+    "old": "      return `${cutKey()}|${deps.insideBuilding ? 'in' : 'dn'}${turned}`;",
+    "new": "      return `${cut?.key ?? 'none'}|${deps.insideBuilding ? 'in' : 'dn'}${turned}`;",
     "tests": [
       "test/automapsheet.test.js"
     ],
@@ -198,8 +198,8 @@
   {
     "name": "EM3-21-a-mark-is-drawn-on-every-storey",
     "file": "src/ui/automapSheet.js",
-    "old": "    const mine = (y) => sheetAt(f, y) === index;",
-    "new": "    const mine = () => true;",
+    "old": "    const mine = (y) => solidOn || sheetAt(f, y) === index;   // EM3-3D: the solid map shows every floor",
+    "new": "    const mine = () => true;   // EM3-3D: the solid map shows every floor",
     "tests": [
       "test/automapsheet.test.js"
     ],
@@ -208,7 +208,7 @@
   {
     "name": "EM3-22-the-caret-is-drawn-on-a-floor-the-player-is-not-on",
     "file": "src/ui/automapSheet.js",
-    "old": "    if (sheetAt(f, feet[1]) !== index) return null;",
+    "old": "    if (!solidOn && sheetAt(f, feet[1]) !== index) return null;\n",
     "new": "",
     "tests": [
       "test/automapsheet.test.js"

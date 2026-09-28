@@ -14,7 +14,7 @@ import { SHIP_CLASSES, classById } from '../src/systems/naval/navalShips.js';
 import { HULL_VARIANT_COUNTS, Boat } from '../src/systems/comeSailAwayBoat.js';
 import { POSE_BOUND, POSE_Y_BOUND } from '../src/net/wire.js';
 import { createComeSailAwayPool } from '../src/scenes/comeSailAwayPool.js';
-import { createComeSailAwayPeers, PEER_VEL_RATE } from '../src/scenes/comeSailAwayPeers.js';
+import { createComeSailAwayPeers } from '../src/scenes/comeSailAwayPeers.js';
 
 const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
 
@@ -115,36 +115,37 @@ function standInPipeline() {
 const Q = [0, Math.sin(0.25), 0, Math.cos(0.25)];
 const boatWord = (over = {}) => [over.hull ?? 1, over.variant ?? 0, over.x ?? 10, over.y ?? 34, over.z ?? 20, ...Q, 0, over.helm ?? 1, 0];
 
-test('NAV-H the other players\' boats at their helms are the sea\'s contacts: where each stands and her way, measured off the eased places and settled at PEER_VEL_RATE; a boat at rest at its mooring is nobody\'s contact (mutants: an idle boat hunted, the way never measured)', async () => {
+test('NAV-H the other players\' boats at their helms are the sea\'s contacts: where each stands and her way - her word\'s own (CSA-K\'s `m`), carried through the frame as the lead carries it; a word that says no way has none, and a boat at rest at its mooring is nobody\'s contact (mutants: an idle boat hunted, the way never read, the way left in the wire frame)', async () => {
   const pool = createComeSailAwayPool({ renderer: standInRenderer(), pipeline: standInPipeline(), fetchFn: fileFetch, log: { warn() {} } });
   assert.equal(await pool.preload(), true);
   const peers = createComeSailAwayPeers({ pool, selfId: () => 'me' });
-  const toScene = (p) => p;
-  peers.applyOwner('ann', { b: [boatWord({ x: 10 }), boatWord({ x: 400, helm: 0 })] }, toScene, 1000);
+  // the wire frame is natives, forty to the metre, about an origin of its own - a way is carried through it as a
+  // difference, never read as it stands
+  const toScene = (p) => [(p[0] - 1000) / 40, p[1], (p[2] + 400) / 40];
+  peers.applyOwner('ann', { b: [boatWord({ x: 1400, z: 400 }), boatWord({ x: 16000, helm: 0 })] }, toScene, 1000);
   peers.frame(0.1);
   let got = peers.helmBoats();
   assert.equal(got.length, 1, 'the moored boat is not at a helm');
   assert.deepEqual(got[0].id, 'ann');
   assert.deepEqual(got[0].pos.map((v) => +v.toFixed(6)), [10, 34, 20]);
-  assert.equal(got[0].speed, 0, 'no way measured yet');
-  // she sails: the eased place moves and the way is measured off it, settling toward the true way
-  for (let i = 1; i <= 20; i++) {
-    peers.applyOwner('ann', { b: [boatWord({ x: 10 + i * 0.5 }), boatWord({ x: 400, helm: 0 })] }, toScene, 1000 + i * 100);
-    peers.frame(0.1);
-  }
+  assert.deepEqual([got[0].speed, ...got[0].vel], [0, 0, 0, 0], 'her word says no way: she has none');
+  // she sails: her word says her way - 200 natives a second along x and 80 along z, 5 and 2 m/s in the scene
+  peers.applyOwner('ann', { b: [boatWord({ x: 1420, z: 400 }), boatWord({ x: 16000, helm: 0 })], m: [[200, 80, 3], [0, 0, 0]] }, toScene, 1100);
+  peers.frame(0.1);
   got = peers.helmBoats();
   assert.equal(pool.peerBoats.length, 2, 'both of ann\'s boats built');
   assert.equal(got.length, 1, 'the moored one is still nobody\'s contact');
-  assert.ok(got[0].speed > 1 && got[0].speed < 8, `her way (${got[0].speed.toFixed(2)} m/s) measured off her places`);
-  assert.ok(got[0].vel[0] > 0 && Math.abs(got[0].vel[2]) < 1e-6, 'along her track');
-  assert.ok(PEER_VEL_RATE > 0);
-  // a snap (a crossing, a summons) is no ship's way: the measure starts again after it, never a spike to lead by
-  peers.applyOwner('ann', { b: [boatWord({ x: 200 }), boatWord({ x: 400, helm: 0 })] }, toScene, 3100);
+  assert.deepEqual(got[0].vel.map((v) => +v.toFixed(9)), [5, 0, 2], 'her way in the scene, a second\'s');
+  assert.ok(Math.abs(got[0].speed - Math.hypot(5, 2)) < 1e-9);
+  assert.ok(got[0].pos[0] > 10.5, 'and she is led along it');
+  // brought up short: the word that says no way takes it at once - nothing measured, nothing left over
+  peers.applyOwner('ann', { b: [boatWord({ x: 1440, z: 400 }), boatWord({ x: 16000, helm: 0 })] }, toScene, 1200);
   peers.frame(0.1);
-  assert.equal(peers.helmBoats()[0].speed, 0, 'the teleport read as no way at all');
-  peers.applyOwner('ann', { b: [boatWord({ x: 200.5 }), boatWord({ x: 400, helm: 0 })] }, toScene, 3200);
+  assert.equal(peers.helmBoats()[0].speed, 0, 'no way said, none');
+  // a summons is a new place, not a way: she snaps there, and her speed stays her word's (none said here) - never the jump's
+  peers.applyOwner('ann', { b: [boatWord({ x: 9000, z: 400 }), boatWord({ x: 16000, helm: 0 })] }, toScene, 1300);
   peers.frame(0.1);
-  assert.ok(peers.helmBoats()[0].speed > 0 && peers.helmBoats()[0].speed < 8, 'and measured again from there');
+  assert.deepEqual([peers.helmBoats()[0].speed, peers.helmBoats()[0].pos[0]], [0, 200], 'snapped to her new place with no way');
   peers.applyOwner('ann', null, toScene, 4000);
   peers.frame(0.1);
   assert.deepEqual(peers.helmBoats(), [], 'her word withdrawn');
@@ -164,7 +165,7 @@ test('NAV-H the other players\' boats at their helms are the sea\'s contacts: wh
 
 test('NAV-G the doors: my word rides my foes frame beside the boats\' - a changed word asking for the frame it rides; a peer\'s lands past the room test and is cleared with the puppets; a blow carrying `nv` goes to the naval stander, anything else where it always went (mutants: the moved word never asking, the clears, the hit routed to the foes)', () => {
   const w = src('scenes/world.js');
-  assert.match(w, /if \(cell\) csaWord\(frame, full\); if \(cell\) navalWord\(frame, full\);/);
+  assert.match(w, /if \(cell\) csaWord\(frame, full\); if \(cell\) csaAboardWord\(frame, full\); if \(cell\) navalWord\(frame, full\);/);
   assert.match(w, /function navalWord\(frame, full\) \{\n\s+if \(!navalOn\(\)\) \{ if \(!_navalWordKey\) return false; if \(frame\) \{ frame\.nv = null; _navalWordKey = ''; \} return true; \}\n\s+const rec = naval\.word\(campToWire\);\n\s+const key = navalRecordKey\(rec\);\n\s+if \(!full && key === _navalWordKey\) return false;\n\s+if \(frame\) \{ frame\.nv = rec; _navalWordKey = key; \}\n\s+return true;/);
   assert.match(w, /exteriorFoes\.setOnNaval\(\(from, nv\) => naval\?\.applyWord\(from, nv, campToScene\), \(\) => naval\?\.clearPeers\(\)\);/);
   assert.match(w, /online\.onHit = \(id, data\) => \{ if \(isCellRoom\(online\.room\) && data\?\.nv\) \{ naval\?\.applyPeerHit\(id, data\); return; \} if \(isCellRoom\(online\.room\)\) exteriorFoes\.applyHit\(id, data\);/);

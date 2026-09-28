@@ -14,6 +14,7 @@
 - Pirates attack anything. Merchantmen run from a fight. A navy hunts pirates, and it will hunt you once your notoriety is high enough.
 - Ships sail by the wind, keep off the rocks and fight broadside to broadside. A galley turns her bow toward you to fire her great guns.
 - Near ports you meet more merchantmen and navy ships. Out on the open bay you meet more pirates. Pirate flagships only appear once you are a seasoned captain.
+- A hostile ship nearby counts as an enemy nearby. You cannot fast travel or rest while one is close, and a Travel Options journey stops for her, including a crossing by sea.
 
 ## Boarding and plunder
 - Batter a ship until she strikes her colours. Come alongside her, slow right down and press Activate to throw the grapples. She is hauled in and you go over her rail.
@@ -23,6 +24,7 @@
 - A sunk ship leaves floating casks of her cargo. Sail through one to haul it aboard.
 - Pirates board you too. If your ship has a crew, you face Warm Ashes' own pirate raid on your deck, and a pirate flagship brings its raid with a captain at its head. Throw them back and their ship lies alongside for you to board.
 - When you beat Warm Ashes' voyage ambush, you can plunder the raiders' hold before you sail on.
+- Only one pirate raid runs at a time. Pirates who board you during another raid fight you as a boarding party instead, and raiders on the Overworld leave you alone until it is over.
 
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
@@ -31,6 +33,8 @@
 ## On screen
 - At the helm, a panel shows your ship's hull, sails and crew, your guns reloading side by side, the waters you are in and your notoriety.
 - The ship you are looking at is named at the top of the screen, with her hull and sails and what she is doing. When you can board her, the panel names the key to press.
+- The ship's name sits below Come Sail Away's helm panel, and below the enemy health bar when one is showing. Both panels follow your HUD scale.
+- On a phone or tablet, your ship's panel sits above the touch buttons, and its hints describe taps and drags instead of keys.
 - Everything uses the Enhanced Plus look, on the classic interface too.
 
 ## Sound and sight

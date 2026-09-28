@@ -246,8 +246,18 @@
   {
     "name": "EM1-25-a-click-on-a-tab-also-picks-the-place-under-it",
     "file": "src/ui/heldMap.js",
-    "old": "        if (tab) this._selectSheet(tab);\n        else this._sheet?.pickAt?.(px, py);",
-    "new": "        if (tab) this._selectSheet(tab);\n        this._sheet?.pickAt?.(px, py);",
+    "old": "        // also pick the place under it.\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        else this._sheet?.pickAt?.(px, py);",
+    "new": "        // also pick the place under it.\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        this._sheet?.pickAt?.(px, py);",
+    "tests": [
+      "test/heldmap.test.js"
+    ],
+    "note": "A tab's word sits over the sheet's own ink."
+  },
+  {
+    "name": "EM1-25b-a-PRESSED-tab-also-picks-the-place-under-it",
+    "file": "src/ui/heldMap.js",
+    "old": "        if (this._phase !== 'map') return;\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        else this._sheet?.pickAt?.(px, py);",
+    "new": "        if (this._phase !== 'map') return;\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        this._sheet?.pickAt?.(px, py);",
     "tests": [
       "test/heldmap.test.js"
     ],
@@ -256,8 +266,18 @@
   {
     "name": "EM1-26-the-strip-is-never-asked-before-the-sheet",
     "file": "src/ui/heldMap.js",
-    "old": "        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        else this._sheet?.pickAt?.(px, py);",
-    "new": "        this._sheet?.pickAt?.(px, py);",
+    "old": "        // also pick the place under it.\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        else this._sheet?.pickAt?.(px, py);",
+    "new": "        // also pick the place under it.\n        this._sheet?.pickAt?.(px, py);",
+    "tests": [
+      "test/heldmap.test.js"
+    ],
+    "note": "Then the tabs are ink nobody can press."
+  },
+  {
+    "name": "EM1-26b-the-strip-is-never-asked-before-the-sheet-on-a-PRESS",
+    "file": "src/ui/heldMap.js",
+    "old": "        if (this._phase !== 'map') return;\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        else this._sheet?.pickAt?.(px, py);",
+    "new": "        if (this._phase !== 'map') return;\n        this._sheet?.pickAt?.(px, py);",
     "tests": [
       "test/heldmap.test.js"
     ],

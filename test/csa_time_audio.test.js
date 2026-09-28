@@ -397,9 +397,10 @@ test('CSA-G: the boat\'s bed is Roleplay Realism\'s - the Small Ship\'s and the 
   // the host's pick and arm (scenes/world.js), the modes' door (scenes/worldModes.js)
   const src = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   const pick = src.slice(src.indexOf('function csaActivationPick('), src.indexOf('const csaHoverName'));
-  assert.match(pick, /const bed = modelId == null && bedSleepingOn\(\) && csaCustomModelOf\(best\.hit\.node\?\.name, BED_MODELS\) != null;/);
-  assert.match(pick, /:\$\{modelId \?\? \(bed \? 'bed' : 'hull'\)\}`/);
-  assert.match(pick, /reach: bed \? DEFAULT_ACTIVATION_DISTANCE : CSA_ACTIVATION_DISTANCE,/);
+  const own = src.slice(src.indexOf('function csaActivationPick('), src.indexOf('function csaPeerActivationPick('));   // CSA-K: my boats' own pick, before another's (which reads the bed the same way)
+  assert.match(own, /const bed = modelId == null && bedSleepingOn\(\) && csaCustomModelOf\(best\.hit\.node\?\.name, BED_MODELS\) != null;/);
+  assert.match(own, /:\$\{modelId \?\? \(bed \? 'bed' : 'hull'\)\}`/);
+  assert.match(own, /reach: bed \? DEFAULT_ACTIVATION_DISTANCE : CSA_ACTIVATION_DISTANCE,/);
   // CSA-J (the audit): the bed's press says it is one - BedActivation is the gate less its GiveOffer rung
   assert.match(pick, /if \(pick\?\.bed\) \{\s*if \(pick\.distance <= DEFAULT_ACTIVATION_DISTANCE\) \{ if \(\(modes\?\.mode \?\? 'exterior'\) === 'exterior'\) \{ _restFromBed = true; try \{ toggleRest\(\); \} finally \{ _restFromBed = false; \} \} else modes\?\.restFromBed\?\.\(\); \}\s*return;\s*\}/);
   const wm = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');

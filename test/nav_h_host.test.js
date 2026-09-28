@@ -416,7 +416,13 @@ test('NAV-H the world host: one naval host on Come Sail Away\'s pool, its record
   assert.match(w, /naval\?\.raidEnded\(q\);/);
   assert.match(w, /leaveShipGate: \(quest\) => naval\?\.leaveShipGate\(quest\) \?\? 'proceed',/);
   assert.match(w, /const csaColliderBoats = \(\) => \(naval\?\.enabled \? \[\.\.\.csa\.boats, \.\.\.naval\.collidable\(\)\] : csa\.boats\);/, 'her deck walkable, her hull a thing to strike');
-  assert.match(w, /enemiesNearby: [^\n]*\|\| !!naval\?\.hostileNear\(\)/, 'no hurrying time with a hostile sail near');
+  // a hostile ship in reach is an enemy nearby wherever the game asks it outdoors, as DUEL1's opponent is
+  assert.match(w, /const navalHostileNear = \(\) => !!naval\?\.hostileNear\(\);/);
+  assert.match(w, /enemiesNearby: \(\) => areEnemiesNearby\([^\n]*\) \|\| navalHostileNear\(\),   \/\/ NAV-H: a hostile ship in reach holds the helm's time scale too/, 'no hurrying time with a hostile sail near');
+  assert.match(w, /if \(duelEnemyNear\(\) \|\| areEnemiesNearby\(\[\.\.\.cityGuards\.guards, \.\.\.exteriorFoes\.foes\]\) \|\| navalHostileNear\(\)\) \{/, 'no travel map');
+  assert.match(w, /\.\.\.exteriorFoes\.foes\]\) \|\| navalHostileNear\(\)\) return CANNOT_TRAVEL_ENEMIES_TEXT;/, 'no party trip');
+  assert.match(w, /enemiesNearby: \(\) => duelEnemyNear\(\) \|\| areEnemiesNearby\(\[\.\.\.cityGuards\.guards, \.\.\.exteriorFoes\.foes\]\) \|\| navalHostileNear\(\),/, 'no journey - the Overworld\'s sea legs stop for her');
+  assert.match(w, /\[\.\.\.cityGuards\.guards, \.\.\.exteriorFoes\.foes\], \{ resting: true \}\) \|\| navalHostileNear\(\),/, 'no rest');
 });
 
 test('NAV-H the attack\'s five doors: a readied spell eats the press first, the helm\'s guns take it second, the rig last; the release is never gated and fires the broadside as its own statement; at a helm with guns the drag and the look under a held attack are the aim\'s - the look never dropped there - and the pad and the finger hold it plainly (mutants: the guns before the spell, a gated release, the look settled while aiming)', () => {

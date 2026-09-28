@@ -53,6 +53,7 @@ import { TRAVEL_OPTIONS_TEXT as T, TRAVEL_NAV_TEXT, format, localize } from './t
 import { hasPort } from './travelPorts.js';
 import { FATIGUE_MULTIPLIER } from './statMods.js';
 import { LOCATION_TYPES, CLIMATES } from '../formats/mapsFile.js';
+import { dryLine as dryLineOf } from './travelRoute.js';   // AUDIT DEEP T2-1's law, one home (OWS2)
 
 export const TRAVEL_OPTIONS_VENDOR = 'travel-options';
 
@@ -68,6 +69,14 @@ export const START_ACCEL_VALUES = Object.freeze([1, 2, 3, 5, 10, 15, 20, 25, 30,
  *  for after a successful avoidance. Unscaled real time, so the
  *  acceleration does not shorten it. */
 export const IGNORE_ENCOUNTERS_SECONDS = 15;
+/** OWS2 (the Overworld's crossing): a sailed leg's square - the middle quarter of its water pixel (8192 native units
+ *  a side, about 205 m) - and a spot on the water's (2048, about 51 m). A road's width (P_SIZE, 12.8 m) is a walker's
+ *  mark; a boat under sail turns in a hundred metres. */
+export const SEA_LEG_SIZE = 8192;
+export const SEA_LEG_LO = (32768 - SEA_LEG_SIZE) / 2;
+export const SEA_SPOT_SIZE = 2048;
+/** OWS2: the legs sailed (systems/travelRoute.js SEA_KINDS less the landfall, whose mark is ashore). */
+const SEA_LEG_KINDS = Object.freeze(['sea', 'embark']);
 
 /** :1200 - the avoid roll is luck + Stealth - 50, capped by the
  *  MaxChanceToAvoidEncounter setting. (The mod's own readme says
@@ -476,8 +485,9 @@ export function createTravelOptions(deps = {}) {
   function routeLegSpeed(kind) {
     return !st.destinationCautious && kind === 'road' ? st.settings.recklessTravelMultiplier : st.settings.cautiousTravelMultiplier;
   }
-  /** The square a spot journey arrives in - one path's width (P_SIZE) about the point. */
-  const spotRect = (pt) => rectOf(pt.x - P_SIZE / 2, pt.z - P_SIZE / 2, P_SIZE, P_SIZE);
+  /** The square a spot journey arrives in - one path's width (P_SIZE) about the point. OWS2: one on the water, the
+   *  sea's own (SEA_SPOT_SIZE) - a boat under sail comes about in a hundred metres, and never threads a road's width. */
+  const spotRect = (pt, afloat = false) => { const w = afloat ? SEA_SPOT_SIZE : P_SIZE; return rectOf(pt.x - w / 2, pt.z - w / 2, w, w); };
 
   /** The leg the route is on: a pixel's middle while legs remain, and at the last the place itself (its rect grown by
    *  the arrival buffer, as the mod's own location journey, :62-73) or the spot. */
@@ -495,14 +505,15 @@ export function createTravelOptions(deps = {}) {
       }
     }
     if (final && r.point) {
-      st.autopilot = new TravelAutopilot(r.point.pixel, spotRect(r.point), routeLegSpeed(r.legs.at(-1)?.kind ?? 'open'));
+      st.autopilot = new TravelAutopilot(r.point.pixel, spotRect(r.point, SEA_LEG_KINDS.includes(r.legs.at(-1)?.kind)), routeLegSpeed(r.legs.at(-1)?.kind ?? 'open'));
       st.autopilot.onArrival = () => arriveRoute(r.quiet);
       return;
     }
     const leg = r.legs[Math.min(r.i, r.legs.length - 1)];
     if (!leg) { arriveRoute(r.quiet); return; }
     const o = mapPixelWorldOrigin(leg.x, leg.y);
-    const rect = rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);
+    // OWS2: a leg sailed to a water pixel arrives in the middle quarter of it, not a road's width at its heart
+    const rect = leg.kind === 'sea' || leg.kind === 'embark' ? rectOf(o.x + SEA_LEG_LO, o.z + SEA_LEG_LO, SEA_LEG_SIZE, SEA_LEG_SIZE) : rectOf(o.x + MID_LO, o.z + MID_LO, P_SIZE, P_SIZE);
     if (st.autopilot == null) st.autopilot = new TravelAutopilot(leg, rect, routeLegSpeed(leg.kind));
     else st.autopilot.initTargetRect(leg, rect, routeLegSpeed(leg.kind));
     st.autopilot.onArrival = () => {
@@ -518,9 +529,7 @@ export function createTravelOptions(deps = {}) {
   /** AUDIT DEEP T2-1: no water pixel on the straight line between two pixels (a host with no sea to ask: none). */
   function dryLine(a, b) {
     if (typeof deps.isWater !== 'function') return true;
-    const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
-    for (let s = 1; s <= n; s++) if (deps.isWater(Math.round(a.x + ((b.x - a.x) * s) / n), Math.round(a.y + ((b.y - a.y) * s) / n))) return false;
-    return true;
+    return dryLineOf(a, b, deps.isWater);   // OWS2: the one law, travelRoute.js's (the Overworld's spot walk asks it too)
   }
   function resumeRoute() {
     const r = st.route;
@@ -953,8 +962,10 @@ export function createTravelOptions(deps = {}) {
           locationTypeString(loc?.locationType, deps.locationTypeName?.() ?? ''), deps.localizedCurrentLocationName?.() ?? ''));
         return { drive, handled: true, stopped: 'location' };
       }
-      // :1402-1407 - the sea
-      if ((deps.climateIndex?.() ?? 0) === CLIMATE_OCEAN) { stopTravelWithMessage(T.MsgOcean); return { drive, handled: true, stopped: 'ocean' }; }
+      // :1402-1407 - the sea. OWS2 (the port's own, bible/06-Systems/Travel-View.md "OWS - the sea"): not for a traveller
+      // afloat - the mod's stop is for one who walked into it ("maybe you should travel on a ship"), and one at a helm is
+      // on one; the Overworld's crossing sails its sea legs
+      if ((deps.climateIndex?.() ?? 0) === CLIMATE_OCEAN && !deps.atSea?.()) { stopTravelWithMessage(T.MsgOcean); return { drive, handled: true, stopped: 'ocean' }; }
       // :1409-1424 - encounters
       if (st.ignoreEncounters && now() >= st.ignoreEncountersTime) st.ignoreEncounters = false;
       if (!st.ignoreEncounters && deps.enemiesNearby?.()) {
@@ -979,7 +990,7 @@ export function createTravelOptions(deps = {}) {
       // onClose is InterruptTravel, so the destination stays for the map's
       // resume prompt) and a message box says why. A host whose panel does
       // not interrupt is stopped outright (ROAD-CRASH's guard).
-      if (st.autopilot && drive && !drive.arrived && st.settings.avoidObstacles && deps.steer) {
+      if (st.autopilot && drive && !drive.arrived && st.settings.avoidObstacles && deps.steer && !deps.atSea?.()) {   // OWS2: afloat, the helm's own hand steers (systems/seaHelm.js), not the walk's
         const stop = deps.steer(drive, p.x, p.z, st.autopilot);
         st.steeredBy = drive.yaw !== st.autopilot.yaw ? st.autopilot : null;
         if (stop) {

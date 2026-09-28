@@ -114,6 +114,20 @@ the pirates' stay classic - and so does the port's door.
 - `WAQ_SHIP_ATTACK_PIRATE` is registered and never started; it names
   messages (1016, 1017, 1022, 2025-2029) its QRC does not carry.
 
+## The raid, seen coming (OWS3, 2026-09-28)
+
+The player's ask: *"The pirate quest system should work like how we're changing enemies and nearby dungeons. Like
+mount and blade, being able to see other players sailing in the overworld and other enemy ships"*. On the enhanced
+lane's Overworld the raiders are SHIPS on the open sea (`systems/seaRaiders.js`: a seeded cell a life, the same sails
+for every player at the shared minute), and one that sights a traveller at sea under the view gives chase; one that
+comes alongside makes this mod's raid through its own statements - `raidAtSea`: OnPreFastTravel's sailing arm
+[IL_044e-IL_04a3] (now its one home, `armRaid`, which the fast travel's arm calls too: the ambush armed, a player
+without a ship lent the large one, both ship blocks `_smallraid`) and CheckforEncounters' coroutine, so
+TransportToShipWithDelay starts WAQ_SHIP_SMALLRAID and boards the ship as ever, and Leave Ship puts the traveller back
+where they boarded (their Come Sail Away boat's deck). It is refused as the mod refuses a voyage: while an ambush is
+armed or boarding, and while a lent ship is out. The fast travel's hidden roll stands beside it, whole; with the mod
+off there are no raiders. The Port-Ledger row's (4); `06-Systems/Travel-View.md` OWS3.
+
 ## Online
 
 The player's own (`ONLINE_PLAYERS_OWN_MODS`): the ambush is the player's

@@ -261,5 +261,50 @@
     "tests": [
       "test/nav_h_host.test.js"
     ]
+  },
+  {
+    "name": "NAV-H-the-helper-never-asks",
+    "file": "src/scenes/world.js",
+    "old": "  const navalHostileNear = () => !!naval?.hostileNear();",
+    "new": "  const navalHostileNear = () => false;",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-a-travel-map-past-a-pirate",
+    "file": "src/scenes/world.js",
+    "old": "    if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]) || navalHostileNear()) {   // NAV-H: a hostile ship in reach too",
+    "new": "    if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes])) {",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-a-party-trip-past-a-pirate",
+    "file": "src/scenes/world.js",
+    "old": "...exteriorFoes.foes]) || navalHostileNear()) return CANNOT_TRAVEL_ENEMIES_TEXT;",
+    "new": "...exteriorFoes.foes])) return CANNOT_TRAVEL_ENEMIES_TEXT;",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-a-journey-past-a-pirate",
+    "file": "src/scenes/world.js",
+    "old": "    enemiesNearby: () => duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]) || navalHostileNear(),",
+    "new": "    enemiesNearby: () => duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]),",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-a-rest-under-her-guns",
+    "file": "src/scenes/world.js",
+    "old": "      [...cityGuards.guards, ...exteriorFoes.foes], { resting: true }) || navalHostileNear(),",
+    "new": "      [...cityGuards.guards, ...exteriorFoes.foes], { resting: true }),",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
   }
 ]

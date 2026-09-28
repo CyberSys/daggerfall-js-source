@@ -90,10 +90,10 @@
     ]
   },
   {
-    "name": "NAV-G-the-way-never-measured",
+    "name": "NAV-G-the-way-never-read",
     "file": "src/scenes/comeSailAwayPeers.js",
-    "old": "      const v = [(s.shown[0] - was[0]) / dt, 0, (s.shown[2] - was[2]) / dt];",
-    "new": "      const v = [0, 0, 0];",
+    "old": "    s.vel = sceneWay(w, toScene);",
+    "new": "    s.vel = null;",
     "tests": [
       "test/nav_g_online.test.js"
     ]
@@ -108,10 +108,10 @@
     ]
   },
   {
-    "name": "NAV-G-a-snap-read-as-way",
+    "name": "NAV-G-the-way-left-in-the-wire-frame",
     "file": "src/scenes/comeSailAwayPeers.js",
-    "old": "    if (was && dist2(was, target) > EASE_SNAP_M * EASE_SNAP_M) s.vel = null;\n    else if (was && dt > 0) {",
-    "new": "    if (was && dt > 0) {",
+    "old": "  return [b[0] - a[0], 0, b[2] - a[2]];",
+    "new": "  return [v[0], 0, v[2]];",
     "tests": [
       "test/nav_g_online.test.js"
     ]

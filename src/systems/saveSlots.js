@@ -203,6 +203,13 @@ export function findMostRecentSave(storage = store()) {
  *  `saved`): a save that holds the pieces, by the event and never by comparing two clocks. Answers the unsubscribe. */
 const _slotSaved = new Set();
 export function onSlotSaved(fn) { _slotSaved.add(fn); return () => _slotSaved.delete(fn); }
+/** AUDIT ONLINE2 F3 (AUDIT RAID R8d): WHO IS TOLD A SAVE WAS LOADED IN THE SESSION - `(characterId)` once the pack is
+ *  the save's (the world's load and the dungeon's alike). The spoils pools let go of the pieces they held in the old
+ *  pack, and the crash's door asks again for the loaded character: a town's thanks given, then a load of a save from
+ *  before them, then a save, cleared their record with the pieces in no pack at all. Answers the unsubscribe. */
+const _slotLoaded = new Set();
+export function onSlotLoaded(fn) { _slotLoaded.add(fn); return () => _slotLoaded.delete(fn); }
+export function slotLoaded(characterId) { for (const fn of _slotLoaded) { try { fn(characterId ?? null); } catch (e) { console.warn('[saveSlots] a load listener failed', e?.message ?? e); } } }
 
 /** Save(characterName, saveName): overwrite the character's save of
  *  the same name, else the first free key. The info is written LAST -

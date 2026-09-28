@@ -161,5 +161,113 @@
       "test/nav_f_ui.test.js",
       "test/plusdress1.test.js"
     ]
+  },
+  {
+    "name": "NAV-F-the-card-over-the-helm-panel",
+    "file": "src/ui/navalHud.js",
+    "old": "    const top = foot > 0 ? `${Math.ceil(foot) + NAVAL_CARD_GAP}px` : '';",
+    "new": "    const top = '';",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-foot-read-with-no-card",
+    "file": "src/ui/navalHud.js",
+    "old": "  const foot = t.card ? (under?.getBoundingClientRect?.()?.bottom ?? 0) : 0;",
+    "new": "  const foot = under?.getBoundingClientRect?.()?.bottom ?? 0;",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-scale-on-the-plate-alone",
+    "file": "src/ui/navalHud.js",
+    "old": "root.style.setProperty?.('--hud-scale', String(scale));",
+    "new": "parts.plate.style.setProperty?.('--hud-scale', String(scale));",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-compass-foot-unscaled",
+    "file": "src/ui/navalHud.js",
+    "old": "export const NAVAL_CARD_TOP = 'calc(18px + 28px * var(--hud-scale, 1) + 12px)';",
+    "new": "export const NAVAL_CARD_TOP = '58px';",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-foe-bar-over-the-card",
+    "file": "src/ui/navalHud.js",
+    "old": "body:has(.hud-foe.on) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_FOE}; }\n",
+    "new": "",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-helm-bar-under-a-window",
+    "file": "src/ui/enhancedHelm.js",
+    "old": "export const enhancedHelmBar = () => (host && last?.covered !== true ? parts.bar : null);",
+    "new": "export const enhancedHelmBar = () => (host ? parts.bar : null);",
+    "tests": [
+      "test/csa_together.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-host-hands-no-bar",
+    "file": "src/scenes/world.js",
+    "old": "      under: enhancedHelmBar(),",
+    "new": "      under: null,",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-keys-named-to-a-finger",
+    "file": "src/ui/navalHud.js",
+    "old": "boardKey = touch ? 'Tap' : (keys.board ?? 'Activate')",
+    "new": "boardKey = keys.board ?? 'Activate'",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-finger-told-to-hold-a-key",
+    "file": "src/ui/navalHud.js",
+    "old": "`${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${braceKey}: brace`",
+    "new": "`Hold ${aimKey} to aim - ${braceKey}: brace`",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-plate-on-the-presses",
+    "file": "src/ui/navalHud.js",
+    "old": ".dfnaval-hud.touch .dfnaval-plate { right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(${NAVAL_PLATE_TOUCH_BOTTOM}px + env(safe-area-inset-bottom, 0px)); }\n",
+    "new": "",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-finger-root-never-marked",
+    "file": "src/ui/navalHud.js",
+    "old": "  cls('rootc', root, touch ? 'dfnaval-hud touch' : 'dfnaval-hud');\n",
+    "new": "",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-host-never-says-touch",
+    "file": "src/scenes/world.js",
+    "old": "      touch: !!touch,   // a finger's screen: the plate over the touch corner's presses, the hints a finger's",
+    "new": "      touch: false,",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
   }
 ]

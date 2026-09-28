@@ -171,6 +171,14 @@ her boarders spent, lies struck alongside: board her in turn.
 Ship" WAITS (`leaveShipGate`: 'wait') while the raiders' vessel's hold is laid open in the plunder window, and sails on
 when the window shuts - the voyage never waits on a closed window. The switch "Raiders' plunder" turns it off.
 
+**One raid at a time** (THE MERGE with OWS3): beside the mod's own fast travel, two starters make Warm Ashes' raid -
+the boarders above on a crewed deck, and main's Overworld raiders alongside (`warmAshesShips.js raidAtSea`) - and
+neither saw the other's, so one could start a raid over the other's (the mod's ship boarded under a fight on a Come
+Sail Away deck). Warm Ashes' module is the one answer now: `raidUnderWay()` - an ambush armed or boarding, a lent ship
+out, or a raid quest running whoever started it (the host's `raidRunning`, off the quest machine's live table:
+WA_RAID_QUESTS, neither complete nor tombstoned). `raidAtSea` says 'busy' while one runs, and the sea fight's
+`startRaid` starts none while one is under way - the boarders come over as the arc's own party instead.
+
 **THE GATE** (DECLARED, the Warm Ashes page's own departure): the mod's `LeaveShip.Update` asks the host's
 `leaveShipGate(quest)` first - 'naval', a raid the sea fight started (on the player's own boat, where the IL would lend
 a ship and set the player on it): complete, nothing sailed; 'wait': not yet; 'proceed': the IL's own body. A raid
@@ -202,6 +210,15 @@ in the crown's waters rises with each act (NOTORIETY: fire, sink, board) and dec
 director sends hunters. Sinking or taking a PIRATE is lawful: PIRATE_REWARD - legal repute with the crown, and the
 Knightly Order's and the temples' regard (KNIGHTLY_FACTION, TEMPLE_FACTION), a flagship's the most.
 
+## An enemy nearby (NAV-H)
+
+A hostile ship in reach (`navalHost.js hostileNear`: afloat, within HOSTILE_NEAR_M, and hostile to the player by
+`navalAI.js hostile`) is an ENEMY NEARBY wherever the game asks it outdoors, as DUEL1's opponent is: Come Sail Away's
+time scale will not run past one, the travel map and a party's trip refuse ("You cannot travel with enemies
+nearby."), a Travel Options journey stops for her - so main's Overworld crossing (OWS2) is brought up short by a pirate
+bearing down, as a road journey is by a bandit - and nobody rests under her guns (`world.js navalHostileNear`, one
+helper at the five doors). A merchantman, a navy that is not hunting the player, a struck or sinking ship is no enemy.
+
 ## Online (NAV-G)
 
 - **One player stands the sea**: the lowest id within NAVAL_SHARE_RADIUS (DEEP-SHARE's greedy election,
@@ -225,9 +242,15 @@ Knightly Order's and the temples' regard (KNIGHTLY_FACTION, TEMPLE_FACTION), a f
   answer for her.
 - **Flotsam is the stander's**: a sunk ship's casks are dropped in the stander's world and are not on the wire, so only
   the stander's boats haul them in.
-- **The pirates fight every player's boat** - a peer at their helm is a contact (`comeSailAwayPeers.js helmBoats`,
-  their way measured off the eased places, a snap past `horseCartWire.js` EASE_SNAP_M read as no way at all) - but a pirate GRAPPLES only the boat of the player who stands the sea: a
-  boarding is a fight on one client's deck, and the others' boats meet the guns alone.
+- **The pirates fight every player's boat** - a peer at their helm is a contact (`comeSailAwayPeers.js helmBoats`),
+  led by the way their own word says: CSA-K's `m` on the boats' word, the velocity the boat at the helm says on the
+  wire, carried through the frame as the lead carries it (the frame is affine, so a way is the difference of two
+  converted points). A word that says no way - a boat brought up short, a moored fleet, an older build's - has none,
+  and a snap (a summons, a fast travel) moves her place and never her speed, which is never measured off her places.
+  (Before the merge with CSA-K the port measured the way off the eased places and threw a snap's step away; the
+  owner's own word is the truth that measure stood in for.) But a pirate GRAPPLES only the
+  boat of the player who stands the sea: a boarding is a fight on one client's deck, and the others' boats meet the
+  guns alone.
 - **The switch is forced ON online** (the Features row): the ships at sea are the room's world, and a room where one
   player sees the pirate boarding another and the other does not is two worlds. The traffic, the boarders and a
   voyage raid's plunder stay each player's own.
@@ -240,9 +263,20 @@ Knightly Order's and the temples' regard (KNIGHTLY_FACTION, TEMPLE_FACTION), a f
   hull under a quarter pulses), chips for fire, brace and a crippled ship, the crown's waters and four notoriety
   anchors, the BATTERY ROSE (bow over stern, port and starboard either side - each its guns, filling as it reloads,
   gold when the look lays it, brass-edged when loaded) and the hint (the key that matters most first - a ship in reach
-  to board or plunder, then the guns). The AIM under the crosshair. The TARGET CARD under the compass (the boss bar's
-  place): her name, class and captain, the distance, her hull and sails, whether she is hostile, her state and the key
-  that boards her. On foot, the card alone - while a struck ship or a prize is in reach.
+  to board or plunder, then the guns). The AIM under the crosshair. The TARGET CARD under the compass: her name, class
+  and captain, the distance, her hull and sails, whether she is hostile, her state and the key that boards her. On
+  foot, the card alone - while a struck ship or a prize is in reach.
+- **Where the card stands** (THE MERGE with CSA-L): by the house law for what stands under the compass (the journey
+  bar's PLUS8, the helm panel's CSA-L) - the compass's foot times the HUD scale and a gap (NAVAL_CARD_TOP), a step
+  lower while the foe's bar is up under the compass and further under its blade. Come Sail Away's HELM PANEL stands
+  there too on Enhanced Plus, and its bar is as tall as its buttons wrap, so while it stands the card is placed
+  NAVAL_CARD_GAP under its measured foot (`drawNavalHud`'s `under`, `enhancedHelm.js enhancedHelmBar` - the panel is
+  drawn earlier in the frame, and its foot is read only while both stand). The layer copies the HUD scale onto its
+  root, so the plate's size and the card's place follow the player's HUD scale together.
+- **On a finger's screen** (`touch`): no key is named - "Hold and drag to aim", "Lift to fire", "Tap: board her" (the
+  host's one activation arm answers a key, a click and a tap alike), "Crouch: brace" (the touch table's own press) -
+  and the plate stands NAVAL_PLATE_TOUCH_BOTTOM up, over the touch corner's presses rather than on them. A pad's
+  button is no key to print either: the hint names its action (the helm panel's `csaKeyLabel` law).
 - **The plunder window** (`ui/navalPlunderWindow.js`, a lazy chunk behind `ui/navalPlunderDoor.js`, the Sigil
   Broker's door's shape): her colours, name, class and captain; HER HOLD (the first HOLD_ROWS by name, Take all, Open
   her hold); TAKE FROM HER (the three tiles); HER FATE (Scuttle her - the warn role's blood edge - and Cast her adrift);
@@ -317,14 +351,39 @@ its drawer Ships at sea (`naval-ships`: few, some, many), Pirates board you (`na
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
 life, the shot field), `nav_b_picture` (the effects, the pass on a recording GL, the deck fires, the colours),
 `nav_c_ships` (the classes, names and crowns, the captains, the traffic), `nav_d_boarding` (the muster, the berth, the
-reckoning, the raids' win, the hold, the choice, the law, notoriety, THE GATE), `nav_e_sounds` (the six files, the
+reckoning, the raids' win, the hold, the choice, the law, notoriety, THE GATE, one raid at a time), `nav_e_sounds` (the six files, the
 bake regenerated byte for byte, the ranges, the one registration), `nav_f_ui` (the readout's words and node, the kit's
-cut, the plunder window driven on the suite's DOM, its door), `nav_g_online` (the word, its door, the blow frame, the
+cut, the plunder window driven on the suite's DOM, its door, the card's place, a finger's screen), `nav_g_online` (the word, its door, the blow frame, the
 helm boats, the doors) and `nav_h_host` (the host through real frames over Come Sail Away's real pool - the guns, the
 traffic, the law, boarding, boarders and Warm Ashes' raids, the voyage's wait, the save, the stander and the striker -
-and the world host's wiring). Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, 149 records, every one dead;
+and the world host's wiring, a hostile ship an enemy nearby at its five doors). Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, 172 records, every one dead (149 at
+the arc's close; 23 more at the merge with main - the card's place and the finger's screen, one raid at a time, a
+hostile ship an enemy nearby, a peer's way read off its word);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
+
+## THE MERGE with main (2026-09-28)
+
+Main had moved on under the arc - Come Sail Away's CSA-K (sailing together) and CSA-L (the helm on screen), the
+Overworld's sea (OWS1-OWS3), the raids (RAID1-RAID4), the 3D dungeon map, the gate's work - and the merge carried both
+sides whole. What each met of the other, and what was decided:
+
+- **A peer's way** (CSA-K): the boat at the helm says its velocity on the wire now (`sa`'s `m`), so the sea's contacts
+  are led by that word instead of a way measured off the eased places (Online, above). The measure, its settling rate
+  and the snap it threw away are gone with the need for them.
+- **The collider** (CSA-K): the deck of another player's boat I stand aboard joins MY boats and the sea's ships near
+  enough to board (`csaSyncColliders`), and nothing else of a peer's stands in it (PR-WAGON1).
+- **The foes frame**: my boats' word, my place aboard another's (`ab`), the sea's word (`nv`) and the raids' (`rk`)
+  ride one frame, each changed word asking for it.
+- **The top of the screen** (CSA-L): the helm panel and the target card both stand under the compass - the card under
+  the panel's foot while it stands (The UI, above); and on a phone the plate stands over the touch corner.
+- **One raid at a time** (OWS3): above, in Boarding.
+- **An enemy nearby** (OWS2): a journey across the sea stops for a hostile ship (above).
+- OPEN: main's Overworld raiders are Warm Ashes' own raid seen coming - on the Overworld they are marks, and in play
+  their hull is not drawn (a ship's length off, `seaRaiders.js` RAIDER_CONTACT_PLAY_M) before the mod's raid boards the
+  player's ship. The sea's pirates are drawn ships on Come Sail Away's hulls. FOLD: an Overworld raider that closes
+  in play could be stood as one of the sea's pirates (seeded from its cell, so every player still meets the same
+  sail), her boarding the raid - one pirate of the Bay, seen from the map and met at the rail.
 
 ## Not seen
 

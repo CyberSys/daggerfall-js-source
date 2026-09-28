@@ -16,11 +16,11 @@
 //     slots match the role per the approved engine-PRNG stance
 // MI (magic items) rolls need the MAGIC.DEF registry
 // (setMagicItemTemplates), and EVERY host that can generate loot now
-// loads it: scenes/shared.js:125-128 (loadMagicRegistries) feeds the
+// loads it: scenes/shared.js:126-129 (loadMagicRegistries) feeds the
 // module table this file reads, called from dungeonContext.js:1437,
-// world.js:4366 and exterior.js:1299 - interiors run inside those hosts
+// world.js:4427 and exterior.js:1301 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
-// that is DFU's own answer rather than a stand-in: shared.js:136
+// that is DFU's own answer rather than a stand-in: shared.js:137
 // records it, the category simply stays empty.
 
 import { randomMaterial, randomArmorMaterial, createWeapon, WEAPONS_ENUM, ARMOR_ENUM } from '../combat/enemyEquipment.js';
@@ -599,6 +599,12 @@ export function validLootItem(v) {
   delete out.equipSlot; delete out.questItem;
   return out;
 }
+
+/** AUDIT SETS M2 (2026-09-28): what a player hears opening a container whose room word THIS build cannot read - a
+ *  newer game's item in it (a raid set piece before RAID4b): it is not opened, claimed or closed over here. */
+export const LOOT_NEWER_TEXT = 'Something in here is from a newer version of the game. Reload to open it.';
+/** AUDIT ONLINE2 F4: a body's pile a peer granted that this build cannot read - handed back to its owner. */
+export const LOOT_NEWER_TAKE_TEXT = 'Something on this body is from a newer version of the game. Reload to take it.';
 
 /** A container's whole list off the wire - every item clamped, or null when the list is not one. An EMPTY list is
  *  the commonest word a room says about a container ("it is emptied"), so it is valid and is not null. */
