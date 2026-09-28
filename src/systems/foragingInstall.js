@@ -1,0 +1,212 @@
+// ═══════════════════════════════════════════════════════════════════
+// FORAGE1-FORAGE2 (2026-09-28): FORAGING 1.7 (Harbinger451) - THE
+// INSTALL. What ForagingMain.Init/Awake/Start do (IL_0251-IL_0513): the
+// twelve templates, the author's seven pictures, the quest list, the six
+// tools' and five foods' UseItem, and the console command. The law is
+// systems/foragingLaw.js; the record is bible/06-Systems/Foraging.md.
+//
+// THE TEMPLATES register at import, whatever the switch says (FORAGE0
+// law 6): a saved tool never vanishes, and with the switch off it is an
+// inert item - its Use not offered, its hooks silent.
+//
+// THE WORLD. A use asks the world what the mod's checks ask
+// (PlayerEnterExit, PlayerGPS, WorldTime, GameManager.AreEnemiesNearby,
+// PlayerMotor); the host that owns the player answers through
+// setForagingHost. With no host a use is "inside" - the one answer that
+// can never let a tool work where it should not.
+//
+// THE DRAWS are UnityEngine.Random's (THE ENGINE-PRNG RULE: Math.random,
+// injectable for a test).
+// ═══════════════════════════════════════════════════════════════════
+
+import {
+  FORAGING_TEMPLATES, FORAGING_VENDOR, FORAGING_GROUP, FORAGING_QUEST_LIST, FT, TOOL_TEMPLATES, FORAGING_TEXTURE_ARCHIVES,
+  foragingRefusal, woodAxeBundles, woodAxeMessage, pickAxeQuest, sickleQuest, fishingCount, fishingMessage, fishTemplate,
+  spadeQuest, basketDraw, basketFind, TOOL_QUESTS, brokeMessage, FOODS, FORAGING_COMMAND,
+} from './foragingLaw.js';
+import { registerCustomTemplates, registerItemUseHandler, registerCustomItemsForGroup, setItemFields, mintCondition, templateByIndex } from './itemTemplates.js';
+import { addVendorTextures } from './textureReplacement.js';
+import { registerQuestList } from './quest/questLists.js';
+import { registerCommand } from './consoleCommands.js';
+import { modSetting } from './modSettings.js';
+import { hudText, popupMessage } from './notify.js';
+import { addItem } from './inventory.js';
+import { lowerCondition } from './equip.js';
+import { isOnlinePage } from './onlineLane.js';
+import { liveStat, maxFatigue, FATIGUE_MULTIPLIER } from './statMods.js';
+import { survivalOn } from './survival/switch.js';
+import { createSurvivalItem } from './survival/items.js';
+
+registerCustomTemplates(FORAGING_TEMPLATES);
+
+/** The mod's switch (MO1: on). */
+export const foragingOn = () => modSetting(FORAGING_VENDOR, 'Enabled') === true;
+
+/** Foraging's share of GetCustomItemsForGroup: its twelve templates, all UselessItems2, while its switch is on - so a
+ *  General Store or Pawn Shop shelves them by DFU's own custom-item loop (rarity <= quality; the tools and the Wood
+ *  Bundle rarity 10, the Mushroom and the Egg 5, the Fish and the fruit 100 and so never). The online exception
+ *  FORAGE0 law 6 records (the tools shelve whatever the switch says) arrives with the professions (PROF1). */
+export const foragingCustomItemsForGroup = (group) => (group === FORAGING_GROUP && foragingOn() ? FORAGING_TEMPLATES.map((t) => t.index) : []);
+registerCustomItemsForGroup(foragingCustomItemsForGroup);
+
+// ---- the host ----------------------------------------------------------
+
+/**
+ * @typedef {object} ForagingHost
+ * @property {() => import('./foragingLaw.js').ForagingWorld} world  what the checks ask, now
+ * @property {() => number} monthValue    WorldTime.Now.MonthValue (0-based)
+ * @property {() => object} [entity]      the player entity (the console command's)
+ * @property {(name: string) => boolean} startQuest   QuestMachine.StartQuest(QuestListsManager.GetQuest(name, 0))
+ */
+let _host = /** @type {ForagingHost|null} */ (null);
+/** The host that owns the player answers; returns the one it replaced (a nested host restores it). */
+export function setForagingHost(h) { const prev = _host; _host = h ?? null; return prev; }
+export const foragingHost = () => _host;
+
+const INSIDE = Object.freeze({
+  inside: true, insideDungeon: false, insideCastle: false, locationType: 0xffff, inLocationRect: false, hour: 12, climate: 0,
+  region: 0, enemiesNear: false, carriedWeight: 0, maxEncumbrance: 1, swimming: false, exteriorWater: 'None',
+});
+const worldNow = () => _host?.world?.() ?? INSIDE;
+
+let _random = Math.random;
+/** Tests: the draws. */
+export function _setForagingRandomForTests(fn) { _random = fn ?? Math.random; }
+
+// ---- minting -----------------------------------------------------------
+
+/** ItemBuilder.CreateItem(group, templateIndex): Foraging's own rows, or C&C's for its fish and fruit. */
+export function createForagingItem(templateIndex) {
+  if (!(templateIndex >= FT.WoodAxe && templateIndex <= FT.Egg)) return createSurvivalItem(templateIndex);
+  return mintCondition(setItemFields({ group: FORAGING_GROUP, templateIndex, material: 0, flags: 0, variant: 0, message: 0, stackCount: 1 }));
+}
+/** `Player.Items.AddItem(item, AddPosition.Back)`, n times. */
+function give(entity, templateIndex, n) {
+  if (!entity || !templateIndex) return;
+  if (!Array.isArray(entity.items)) entity.items = [];
+  for (let i = 0; i < n; i++) {
+    const item = createForagingItem(templateIndex);
+    if (item) addItem(entity.items, item, 'back');
+  }
+}
+const startQuest = (name) => { _host?.startQuest?.(name); };
+
+// ---- the six tools -----------------------------------------------------
+
+const stats = (entity) => ({
+  intelligence: liveStat(entity, 'intelligence'), strength: liveStat(entity, 'strength'),
+  agility: liveStat(entity, 'agility'), endurance: liveStat(entity, 'endurance'),
+});
+
+/** LowerCondition(1), then on a break "Your <Tool> broke." and the removal - after DFU's own popup. */
+function wear(item, collection, entity) {
+  lowerCondition(item, 1, entity, (line) => popupMessage(line), collection);
+  if ((item.currentCondition ?? 0) > 0) return;
+  hudText(brokeMessage(item.templateIndex));
+  if (collection) { const i = collection.indexOf(item); if (i >= 0) collection.splice(i, 1); }
+}
+
+/** One tool's UseItem: the checks, the yield and its box, the quest, the wear. */
+export function useForagingTool(item, collection, { entity } = {}) {
+  if (!foragingOn() || !entity) return null;
+  const w = worldNow();
+  const refusal = foragingRefusal(item.templateIndex, w);
+  if (refusal) {
+    hudText(refusal);
+    return { kind: 'foraging', refused: true };   // DFU's false falls to NextVariant: nothing visible
+  }
+  const s = stats(entity);
+  const cc = survivalOn();
+  let text = null;
+  switch (item.templateIndex) {
+    case FT.WoodAxe: {
+      const n = woodAxeBundles({ ...s, climate: w.climate }, _random);
+      give(entity, FT.WoodBundle, n);
+      text = woodAxeMessage(n);
+      startQuest(TOOL_QUESTS[FT.WoodAxe]);
+      break;
+    }
+    case FT.PickAxe: startQuest(pickAxeQuest(s)); break;
+    case FT.Sickle: startQuest(sickleQuest(w.climate, _host?.monthValue?.() ?? 0)); break;
+    case FT.FishingNet: {
+      const n = fishingCount(s, _random);
+      give(entity, fishTemplate(cc), n);
+      text = fishingMessage(n);
+      startQuest(TOOL_QUESTS[FT.FishingNet]);
+      break;
+    }
+    case FT.Spade: startQuest(spadeQuest(s, false)); break;   // Cheb's Necromancy is not in the port: never its family
+    case FT.Basket: {
+      const find = basketFind(basketDraw({ intelligence: s.intelligence, climate: w.climate, monthValue: _host?.monthValue?.() ?? 0 }, _random), cc);
+      give(entity, find.templateIndex, find.count);
+      text = find.message;
+      startQuest(TOOL_QUESTS[FT.Basket]);
+      break;
+    }
+    default: return null;
+  }
+  wear(item, collection, entity);
+  return { kind: 'foraging', text };   // the box over the open inventory (ClickAnywhereToClose)
+}
+
+// ---- the five foods ----------------------------------------------------
+
+/** One food's UseItem: the HUD line, fatigue in points, health or magicka, one eaten. */
+export function eatForagingFood(item, collection, { entity } = {}) {
+  if (!foragingOn() || !entity) return null;
+  const f = FOODS[item.templateIndex];
+  if (!f) return null;
+  hudText(f.text);
+  entity.fatigue = Math.min(maxFatigue(entity), (entity.fatigue ?? 0) + f.fatigue * FATIGUE_MULTIPLIER);   // IncreaseFatigue(n, true)
+  if (f.health) entity.health = Math.min(entity.maxHealth ?? Infinity, (entity.health ?? 0) + f.health);   // IncreaseHealth
+  if (f.magicka) entity.magicka = Math.min(entity.maxMagicka ?? Infinity, (entity.magicka ?? 0) + f.magicka);   // IncreaseMagicka
+  if (collection) {
+    if ((item.stackCount ?? 1) > 1) item.stackCount -= 1;
+    else { const i = collection.indexOf(item); if (i >= 0) collection.splice(i, 1); }
+  }
+  return { kind: 'foraging' };
+}
+
+// ---- the console command ----------------------------------------------
+
+/** Foraging_Tools: one of each tool, offline; refused online (FORAGE0 8). */
+export function foragingToolsCommand() {
+  if (isOnlinePage()) return FORAGING_COMMAND.refusedOnline;
+  const entity = _host?.entity?.();
+  if (!entity) return FORAGING_COMMAND.answer;
+  for (const t of TOOL_TEMPLATES) give(entity, t, 1);
+  return FORAGING_COMMAND.answer;
+}
+
+// ---- the install -------------------------------------------------------
+
+/** The author's pictures, from the vendored Textures/ (standIn: these archives exist only as this art). */
+export const foragingTextureUrl = (archive) => new URL(`../../vendor/foraging/Textures/${archive}_0-0.png`, import.meta.url).href;
+
+let _installed = false;
+/** Once, at the scene boot (ensureAudio, before any quest bridge is built). `fetchBytes` is a test's seam. */
+export function installForaging({ fetchBytes = null } = {}) {
+  if (_installed) return 0;
+  _installed = true;
+  registerQuestList(FORAGING_QUEST_LIST, foragingOn);
+  const toolUse = (item, collection, ctx) => useForagingTool(item, collection, ctx);
+  toolUse.usable = () => foragingOn();
+  for (const t of TOOL_TEMPLATES) registerItemUseHandler(t, toolUse);
+  const eat = (item, collection, ctx) => eatForagingFood(item, collection, ctx);
+  eat.usable = () => foragingOn();
+  for (const t of Object.keys(FOODS)) registerItemUseHandler(Number(t), eat);
+  registerCommand(FORAGING_COMMAND.name, FORAGING_COMMAND.description, FORAGING_COMMAND.usage, () => foragingToolsCommand());
+  const load = fetchBytes ?? (async (archive) => {
+    const r = await fetch(foragingTextureUrl(archive));
+    if (!r.ok) throw new Error(`foraging ${archive}: ${r.status}`);
+    return new Uint8Array(await r.arrayBuffer());
+  });
+  return addVendorTextures(FORAGING_TEXTURE_ARCHIVES.map((archive) => ({
+    archive, record: 0, frame: 0, standIn: true, lazy: true, fileName: `${archive}_0-0`, load: () => load(archive),
+  })));
+}
+/** Tests: install again. */
+export function _resetForagingInstall() { _installed = false; }
+
+/** Whether a template is one of this mod's (the templates are registered at import). */
+export const isForagingItem = (item) => !!item && !!templateByIndex(item.templateIndex) && item.templateIndex >= FT.WoodAxe && item.templateIndex <= FT.Egg;

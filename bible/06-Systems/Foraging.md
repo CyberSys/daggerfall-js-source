@@ -1,6 +1,6 @@
 # FORAGING - Harbinger451's mod, 1:1, and the professions' tools (FORAGE0, the design record)
 
-**Status: FORAGE1-FORAGE2 UNDER WAY, on its branch.** Built so far (2026-09-28): the files vendored (`vendor/foraging/`, 1.1), the registry row, the credit, the Features row, and the law (`src/systems/foragingLaw.js`, pinned by `test/forage1_law.test.js`). Still to come in the same change, before it reaches main: the install, the six tools' uses, the foods, the console command, QAE's four actions and the quest pack. Opened 2026-09-28
+**Status: FORAGE1-FORAGE2 SHIPPED on the branch (2026-09-28) - offline Foraging whole: the tools, the foods, the quests, the shelves (see the record at the end).** Still to come: FORAGE3's three loot hooks and FORAGE4's online wait. Opened 2026-09-28
 beside the professions (`06-Systems/Professions-Arc.md`, PROF0) and the seats (`11-Multiplayer/Seats-Arc.md`,
 SEAT0), whose marks it uses: **DECIDED (Mac)**, **DECIDED** (the record's, at Mac's instruction), **FACT** (read in
 this tree, the mod's IL or DFU's source), **MEASURED**.
@@ -111,10 +111,10 @@ and the Features row together, as `vendor/foraging/`:
 
 **Three gaps**, each closed by a FORAGE slice (section 17):
 
-- **The shelf's custom items are RRI's alone.** `customItemsForGroup` lives in `src/systems/rriItems.js` and reads
-  RRI's classes, so no other mod's item can reach a shelf. DFU's `ItemHelper.GetCustomItemsForGroup` is a registry of
-  every mod's items; FORAGE3 moves it to `src/systems/itemTemplates.js` (ONE DFU MEMBER, ONE EXPORT), RRI and Foraging
-  both registering there.
+- ~~**The shelf's custom items are RRI's alone.**~~ **CLOSED by FORAGE1** (brought forward from FORAGE3, because a
+  tool no shop sells is a mod nobody can play): `customItemsForGroup` lives in `src/systems/itemTemplates.js` now,
+  DFU's GetCustomItemsForGroup with one provider per mod - RRI's (`rriCustomItemsForGroup`, the first) and
+  Foraging's - and the shelf, the random weapon and armour rolls and the RRI quest line all read it there.
 - **`PlayerActivate.OnLootSpawned` is a direct call.** The hosts call RRI's `onShopShelfStocked`
   (`src/systems/rriKits.js`) by name after a shelf stocks, and nothing after a house container stocks. DFU raises the
   event for both. FORAGE3 makes it a handler registry in UL1's shape, RRI's subscriber the first.
@@ -787,9 +787,9 @@ mod a player can actually use - tools that chop, quests that pay - never a switc
 | Slice | What | Done when |
 |---|---|---|
 | **FORAGE0** | This record | - |
-| **FORAGE1** | The files vendored (1.1) with the README, the registry row, the credit and the Features row; QAE's four actions (9.2) and the inert `update-quest-item`; the quest list and its 22 quests, gated on the switch | A fetch quest is offered by a commoner; a script's `raise time by 1:30` moves the clock 90 minutes |
-| **FORAGE2** | The twelve templates; the seven textures; the six tools' uses (5, 6), the result box, the wear; the foods (7); the console command (8); the three-valued water state in the streaming host | Each tool, used in each host, gives the mod's line, yield and quest |
-| **FORAGE3** | `GetCustomItemsForGroup` as a registry; `PlayerActivate.OnLootSpawned` and `LootTables.OnLootSpawned` as registries (RRI's subscriber first); Foraging's three hooks | A General Store shelves a Pick-Axe; a Prison's pile holds a Spade |
+| **FORAGE1** - SHIPPED 2026-09-28 | The files vendored (1.1) with the README, the registry row, the credit and the Features row; QAE's four actions (9.2) and the inert `update-quest-item`; the quest list and its 22 quests, gated on the switch | A fetch quest is offered by a commoner; a script's `raise time by 1:30` moves the clock 90 minutes |
+| **FORAGE2** - SHIPPED 2026-09-28 | The twelve templates; the seven textures; the six tools' uses (5, 6), the result box, the wear; the foods (7); the console command (8); the three-valued water state in the streaming host | Each tool, used in each host, gives the mod's line, yield and quest |
+| **FORAGE3** | ~~`GetCustomItemsForGroup` as a registry~~ (shipped early, with FORAGE1); `PlayerActivate.OnLootSpawned` and `LootTables.OnLootSpawned` as registries (RRI's subscriber first); Foraging's three hooks | A General Store shelves a Pick-Axe; a Prison's pile holds a Spade |
 | **FORAGE4** | Online: the wait (13.1) | Online, the Wood-Axe gives its bundles, a 12-second wait and 20% fatigue; the shared clock does not move |
 | **FORAGE-FIX** | Q7-Q11 (12), carried by the slice that ports each - the quest patches and Q11 in FORAGE1, Q10 in FORAGE2 - with its Ledger A row (THE FORAGING FIXES) | Each patch pinned against the verbatim line it replaces |
 
@@ -879,3 +879,38 @@ takes the road to the Prison two pixels north: its dungeon veins do not care abo
 | Basket (online) | 1 / 1-2 / 1-3 finds; three glints of 1.0-1.4 s; clean +50%, two +25% |
 | Crafted tools | Crude 37, Standard 50, Fine 57, Superior 65, Masterwork 65 uses |
 | Skinning Knife | 603: 0.5 kg, 50 HP, 100 gold, rarity 10, online shelves only |
+
+## FORAGE1-FORAGE2 - WHAT SHIPPED (2026-09-28, Mac: "Your lead")
+
+Offline Foraging, whole, in one change - so the Features row switches a mod a player can use:
+
+- **The files**, `vendor/foraging/` (1.1), with its README (the permission line RECORD OPEN), its Mod-Registry row,
+  its credit (Harbinger451, with thanks to Jagget), its Features row (on, MO1), its online lane (the player's own)
+  and the doctrine's bundle-art row for the seven pictures (membership from the manifest's own Files).
+- **The law**, `src/systems/foragingLaw.js`: sections 4-9 and FORAGE-FIX's quest patches, pure.
+- **The install**, `src/systems/foragingInstall.js`: the templates at import whatever the switch says; the quest list
+  on the switch; the six tools' and five foods' UseItem (`useForagingTool`, `eatForagingFood`); `Foraging_Tools`,
+  refused online; the pictures on the texture door; `setForagingHost`, what the checks ask the world; and Foraging's
+  share of GetCustomItemsForGroup - which moved to `src/systems/itemTemplates.js` (gap 1, closed), so a General Store
+  and a Pawn Shop shelve the tools.
+- **Quest Actions Extension's four**, `src/systems/quest/questActionsExtension.js` (Q11 mended there).
+- **The quest pack**, `scenes/questData.js`: the list and the 22 quests, FORAGE-FIX applied as each is read.
+- **The four hosts**: `scenes/world.js` registers the four actions on its machine and answers the checks in every mode
+  it runs - the streaming world by its pixel, its location's rect and type, its hour, its foes, its load and its
+  water; an interior (`scenes/worldModes.js`, which now writes the water's three-valued twin as None) and a dungeon
+  (`scenes/dungeonContext.js` under it) as `inside`, which every tool refuses first. `scenes/exterior.js` does the same
+  for the fixed city, where every tool refuses with its settlement line (the town's rect is the whole host). **FLAGGED
+  by name**: `scenes/dungeonContext.js` standing alone (`?dungeon`) sets no host, and a use there answers the no-host
+  default, `inside` - the right refusal, reached by default rather than by a host's answer.
+- **The water**: both exterior hosts keep `player.onExteriorWaterMethod`, all three of PlayerMotor's values, beside the
+  Swimming boolean they kept before; the net reads WaterWalking (a shallow shore tile) too.
+- **The ledger**: section A's FORAGING row (FORAGE-FIX, the templates whatever the switch, QAE restated, the console
+  refused online, the online clock) and section B's FORAGING'S QUIRKS row (Q1-Q6, Q12); the ENGINE-PRNG roster names
+  `foragingInstall.js`.
+- **Pins**: `test/forage1_law.test.js` (14) and `test/forage2_tools.test.js` (14); `tools/mutants/forage1.json`, 20
+  mutations, 20 dead.
+
+**Not yet**: FORAGE3's three loot hooks (a house container's, a dungeon pile's at its index - Q12 - and a corpse's), so
+a tool comes from a shop or the console, not yet from loot; and FORAGE4's online wait - online, `raise time by`
+leaves the shared clock where it is and waits for nothing, until FORAGE4 builds the busy page (13.1).
+

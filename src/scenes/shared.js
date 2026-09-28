@@ -74,6 +74,7 @@ import { installDiverseWeaponsIcons } from '../combat/diverseWeaponsIcons.js';
 import { installRoleplayRealismItems } from '../systems/rriInstall.js';
 import { installDetailedShipsArt } from '../systems/detailedShips.js';   // DS1: Detailed Ships' pictures and xml scales
 import { installWarmAshesShips } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships' quest list and save slot
+import { installForaging } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's quest list, tools, foods, pictures and console command
 import '../systems/gateSpoils.js';   // WB5: the Sigil Stone's own template (570) registers in every host, so a save carrying one loads it in any of the four
 import '../systems/sigilBroker.js';   // SET7: the Broker's record (what this character bought today) registers its save slot in every host, so a save made anywhere carries it
 import { installRoleplayRealism } from '../systems/rrInstall.js';   // RR1: Roleplay & Realism's InitMod - after Items', as DFU loads them (Items is the one it looks up)   // RRI1: the templates, the patches, the art - the same seam, the same reason   // DW3: its icons, on the replacement door - here and not at worldTick's module scope, where the mod's law sits in an import cycle (a TDZ)
@@ -1203,6 +1204,7 @@ export function ensureAudio(fetch = fetchBytes) {
   // Registration is a name list and a loader - no PNG is read until an
   // archive that has replacements is actually loaded.
   installDetailedShipsArt();   // DS1: archives 1210/1230 on the texture door (their pictures built from your own records at the archive's load) and the six xml scales
+  installForaging();   // FORAGE1: the ForagingQuests list (before any quest bridge is built), the six tools' and five foods' UseItem, the seven pictures, Foraging_Tools
   installWarmAshesShips();   // WA1: the WA_Ships quest list (before any quest bridge is built - LoadQuestLists reads it) and the mod's save record
   installDiverseWeaponsIcons();   // DW3: before the archives load, so 233/234's preload carries the mod's icons
   installRoleplayRealismItems();

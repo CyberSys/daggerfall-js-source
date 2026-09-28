@@ -280,10 +280,10 @@ export function rriEquipSound(item) {
   return cls?.equipSound ?? null;
 }
 
-/** ItemHelper.GetCustomItemsForGroup: the registered custom template
- *  indices for a group, in registration order (the two weapons, the
- *  chain five then the leather seven), empty while off. */
-export function customItemsForGroup(group) {
+/** RRI's share of ItemHelper.GetCustomItemsForGroup (its home is itemTemplates.js, FORAGE1, which holds this as
+ *  its first provider - this module stays a leaf): the mod's registered custom template indices for a group, in
+ *  registration order (the two weapons, the chain five then the leather seven), empty while off. */
+export function rriCustomItemsForGroup(group) {
   return Object.values(RRI_CLASSES).filter((c) => c.group === group && customItemClass(c.index)).map((c) => c.index);
 }
 

@@ -283,6 +283,9 @@ import { horseNameTooltip } from '../ui/horseNameTooltip.js';   // AUDIT HCC U6:
 import { createHorseCartPool } from './horseCartPool.js';
 import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerRiders.js';   // RIDE: another player in the saddle   // HCC: Horse Cart and Cargo's presentation - the wagon's five pieces, the horse's eight views, the peers' teams
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
+import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, answered by this host
+import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
+import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
@@ -9495,7 +9498,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9615-9679 -
+  // worldModes answers it in BOTH modes (worldModes.js:9616-9680 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -10634,6 +10637,38 @@ export async function bootWorld(canvas, renderer, params, status) {
   // an ambush already at sea (armed by the switch, a ship lent) must still be able to put you ashore if the switch
   // goes off before its last pirate falls, or a save carrying one loads with the mod off.
   questBridge.machine.registerAction(new LeaveShip(null));
+  // FORAGE1: Quest Actions Extension's four (Jagget) - raise time by, reduce player fatigue by, player possesses,
+  // player handsover - registered as LeaveShip is, before any save's quests restore and whatever Foraging's switch
+  // says: only Foraging's quests say them, and a saved one must still resolve its actions with the mod off.
+  for (const t of questActionsExtensionTemplates()) questBridge.machine.registerAction(t);
+  // FORAGE1: what Foraging's six checks ask (PlayerEnterExit, PlayerGPS, WorldTime, AreEnemiesNearby, PlayerMotor,
+  // the load) and the quest a tool starts - this host's answers, in every mode it runs (an interior or a dungeon is
+  // `inside`, which every tool refuses first).
+  setForagingHost({
+    world: () => {
+      const m = _mode();
+      const wm = worldMinutes();
+      const px = playerTravelPixel();
+      const exterior = m === 'exterior';
+      return {
+        inside: !exterior, insideDungeon: m === 'dungeon', insideCastle: false,
+        locationType: _musicLocationType(), inLocationRect: !!_musicInLocationRect(),
+        hour: Math.floor((((wm % 1440) + 1440) % 1440) / 60),
+        climate: maps.getClimateIndex(px.x, px.y), region: _questRegionIndex(),
+        enemiesNear: exterior ? areEnemiesNearby(exteriorFoePool(), { resting: true }) : false,
+        carriedWeight: carriedWeight(playerEntity), maxEncumbrance: entityMaxEncumbrance(playerEntity),
+        swimming: exterior && !!(player.isPlayerSwimming || player.swimming),
+        exteriorWater: exterior ? (player.onExteriorWaterMethod ?? 'None') : 'None',
+      };
+    },
+    monthValue: () => dateFromClassicMinutes(worldMinutes()).month,
+    entity: () => playerEntity,
+    startQuest: (name) => {
+      const quest = questBridge.questLists.getQuest(name, 0);
+      if (quest) questBridge.machine.startQuestImmediate(quest);
+      return !!quest;
+    },
+  });
   // WA1: the mod's reaches into GameManager and DaggerfallBankManager, answered by this host (systems/warmAshesShips.js)
   setWarmAshesHost({
     random: Math.random,   // UnityEngine.Random.Range - THE ENGINE-PRNG RULE
@@ -15802,6 +15837,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // "Wave B's exterior-water slice owns the model that raises
         // it"; this is that raise.
         player.onExteriorWater = _surf.water === ON_EXTERIOR_WATER.Swimming;
+        player.onExteriorWaterMethod = _surf.water;   // FORAGE2: all three values - Foraging's net reads WaterWalking (a shallow shore tile) too
         // OT1 (AUDIT 64 F0's residue): PlayerEnterExit.IsPlayerSwimming above ground - the sink/unsink
         // edge (DoUnsinking's write is the motor's 'unsink' heightAction) and the tile-0 clearing rule,
         // one helper. Before this the flag was the clear alone: a sea swim never suppressed the encounter

@@ -13,7 +13,7 @@ import { WAGON_MODEL_ID } from './horseCartLaw.js';   // DISC24-B: the cart's pi
 import TEMPLATES_JSON from '../characters/itemTemplates.json' with { type: 'json' };
 import { playerArchiveFor, resolvePaperdollRecord } from '../characters/paperdollArt.js';   // AUDIT 17f: SetRace, one home; NT3 (F006): the record law too
 import { itemDyeColor, itemDyeTarget } from './itemDye.js';
-import { customItemClass, rriVariantFields, rriStoredWeight } from './rriItems.js';   // RRI1: DFU's custom-item dispatch, asked first   // DW3: GetItemImage's `color = (int)item.dyeColor` (ItemHelper.cs:402) rides the image
+import { customItemClass, rriVariantFields, rriStoredWeight, rriCustomItemsForGroup } from './rriItems.js';   // RRI1: DFU's custom-item dispatch, asked first   // DW3: GetItemImage's `color = (int)item.dyeColor` (ItemHelper.cs:402) rides the image
 
 export { GROUP_TEMPLATE_INDICES };
 
@@ -226,6 +226,18 @@ export const rollPaintingMessage = (rolls = Math.random) => Math.floor(rolls() *
 /** DaggerfallUnityItem.ConditionPercentage (:460-463): `maxCondition > 0
  *  ? 100 * currentCondition / maxCondition : 100`, C# integer division. */
 export const conditionPercentage = (item) => ((item?.maxCondition ?? 0) > 0 ? Math.trunc(100 * (item.currentCondition ?? 0) / item.maxCondition) : 100);
+
+// ---- ItemHelper.GetCustomItemsForGroup ----------------------------------
+/** FORAGE1: DFU's `customItemTemplates` by group - every LOADED mod's registered custom templates of a group, in
+ *  the order the mods registered them - asked by the shelf's second loop (DaggerfallLoot.cs:255-287) and the random
+ *  weapon and armour rolls (ItemBuilder.cs:382-390). Each mod registers ONE provider, which answers from its own
+ *  switch (a mod switched off has nothing registered, as an unloaded mod has not). RRI1 kept this list as its own
+ *  until a second mod had items to shelve. */
+const _customItemProviders = [rriCustomItemsForGroup];   // RRI1's, the first mod to register (its module is this one's import)
+export function registerCustomItemsForGroup(provider) {
+  if (typeof provider === 'function' && !_customItemProviders.includes(provider)) _customItemProviders.push(provider);
+}
+export const customItemsForGroup = (group) => _customItemProviders.flatMap((p) => p(group) ?? []);
 
 // ---- ItemHelper.RegisterItemUseHandler (ItemHelper.cs:113-116) --------
 /** `Dictionary<int, ItemUseHandler> itemUseHandlers` - a mod's handler for

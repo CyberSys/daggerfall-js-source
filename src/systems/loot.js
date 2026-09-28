@@ -16,15 +16,15 @@
 //     slots match the role per the approved engine-PRNG stance
 // MI (magic items) rolls need the MAGIC.DEF registry
 // (setMagicItemTemplates), and EVERY host that can generate loot now
-// loads it: scenes/shared.js:125-128 (loadMagicRegistries) feeds the
+// loads it: scenes/shared.js:126-129 (loadMagicRegistries) feeds the
 // module table this file reads, called from dungeonContext.js:1373,
-// world.js:3858 and exterior.js:1299 - interiors run inside those hosts
+// world.js:3861 and exterior.js:1302 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
-// that is DFU's own answer rather than a stand-in: shared.js:136
+// that is DFU's own answer rather than a stand-in: shared.js:137
 // records it, the category simply stays empty.
 
 import { randomMaterial, randomArmorMaterial, createWeapon, WEAPONS_ENUM, ARMOR_ENUM } from '../combat/enemyEquipment.js';
-import { customItemsForGroup } from './rriItems.js';   // RRI1: CreateRandomWeapon/Armor roll over the classic slots PLUS the registered custom items (ItemBuilder.cs:382-390, :451-459)
+import { customItemsForGroup } from './itemTemplates.js';   // FORAGE1: every mod's, from its one home; RRI1: CreateRandomWeapon/Armor roll over the classic slots PLUS the registered custom items (ItemBuilder.cs:382-390, :451-459)
 import { ARROW_TEMPLATE } from './inventory.js';   // X11b: CreateWeapon's arrow arm keys on it
 import { dice100 } from '../combat/formulas.js';
 import { goldStack } from './inventory.js';

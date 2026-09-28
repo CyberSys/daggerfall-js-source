@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   RRI_MOD, RRI_VENDOR, RRI_TEMPLATES, RRI_TEMPLATE_PATCHES, RRI_CLASSES, RRI_TEXT, FIRST_FEMALE_ARCHIVE,
-  leatherMaterialArmorValue, chainmailMaterialArmorValue, customItemClass, customItemsForGroup, rriVariantFields, rriSpriteEntries, rriEnabled, rriModule,
+  leatherMaterialArmorValue, chainmailMaterialArmorValue, customItemClass, rriCustomItemsForGroup, rriVariantFields, rriSpriteEntries, rriEnabled, rriModule,
 } from '../src/systems/rriItems.js';
 import { installRoleplayRealismItems, _resetRoleplayRealismItems, rriSpriteUrl } from '../src/systems/rriInstall.js';
 import { templateByIndex, templateOverrideCount, registerTemplateOverrides, inventoryItemImage, setItemFields, ITEM_TEMPLATES } from '../src/systems/itemTemplates.js';
@@ -95,12 +95,12 @@ test('RRI1 switches: the mod\'s eleven modules and Enabled on the Mods pane, the
     _resetModSettings();
     assert.equal(rriEnabled(), true); assert.equal(rriModule('newWeapons'), true);
     assert.ok(customItemClass(513) && customItemClass(520));
-    assert.deepEqual(customItemsForGroup('Weapons'), [513, 514]);
-    assert.deepEqual(customItemsForGroup('Armor'), [515, 516, 517, 518, 519, 520, 521, 522, 523, 524, 525, 526], 'the chain five, then the leather seven - InitMod\'s order');
+    assert.deepEqual(rriCustomItemsForGroup('Weapons'), [513, 514]);
+    assert.deepEqual(rriCustomItemsForGroup('Armor'), [515, 516, 517, 518, 519, 520, 521, 522, 523, 524, 525, 526], 'the chain five, then the leather seven - InitMod\'s order');
     setModSetting(RRI_VENDOR, 'newWeapons', false);
-    assert.equal(customItemClass(513), null, 'newWeapons off: the class is not registered'); assert.ok(customItemClass(520)); assert.deepEqual(customItemsForGroup('Weapons'), []);
+    assert.equal(customItemClass(513), null, 'newWeapons off: the class is not registered'); assert.ok(customItemClass(520)); assert.deepEqual(rriCustomItemsForGroup('Weapons'), []);
     setModSetting(RRI_VENDOR, 'newWeapons', true); setModSetting(RRI_VENDOR, 'newArmor', false);
-    assert.ok(customItemClass(513)); assert.equal(customItemClass(520), null); assert.deepEqual(customItemsForGroup('Armor'), []);
+    assert.ok(customItemClass(513)); assert.equal(customItemClass(520), null); assert.deepEqual(rriCustomItemsForGroup('Armor'), []);
     setModSetting(RRI_VENDOR, 'newArmor', true); setModSetting(RRI_VENDOR, 'Enabled', false);
     assert.equal(customItemClass(513), null); assert.equal(customItemClass(520), null); assert.equal(rriModule('newArmor'), false, 'Enabled off: no module is on');
     assert.equal(customItemClass(102), null, 'a classic template has no class');
