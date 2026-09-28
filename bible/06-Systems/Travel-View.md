@@ -444,6 +444,11 @@ now (`eye: tvf ? cam.pos : mwv.eye`); the bolts are still DRAWN from the view's 
 rows (sunny, cloudy, overcast) with its haze, as ever. Under an exp row its nearest edge at
 the default grid (4 km) is already fog (rain: e^-12), so its gate hides only fog.
 
+**Pins amended, their laws grown.** BOLT wired (the strikes stand round the eye the view is
+built from - and under the travel view round the traveller's head; the ribbons still face the
+view's eye); EV6 and PERF2 count the world host's foreign seams at twelve; AUDIT 39r counts
+seventeen host call sites across thirteen passes.
+
 **Proof.** `test/tv4_weather_above.test.js` (8), `tools/mutants/tv4.json` (12 dead),
 `tools/travelViewProbe.mjs` (TV4's four checks).
 
