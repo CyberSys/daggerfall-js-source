@@ -526,7 +526,7 @@ import { createMiasma, miasmaReach } from '../world/oceanHolesMiasma.js';
 import { SURFACE_INNER_COLOR, FLOOR_INNER_COLOR, placementFraction, OCEAN_HOLES_VENDOR, addBonusMagicLoot, upgradeLoot } from '../world/oceanHoles.js';
 import { createOceanHolesAbyss } from './oceanHolesAbyss.js';   // OH-D: the abyss - the pit's way down, its dungeon, its way back up
 import { DUNGEON_AMBIENT } from '../world/dungeonLights.js';   // OH-E: PlayerAmbientLight.DungeonAmbientLight, what the abyss darkens
-import { TILE_WORLD_SIZE } from '../world/deepWaterFloor.js';   // OH-D: RestoreOceanPosition's terrainData.size
+import { TILE_WORLD_SIZE_F32 } from '../world/deepWaterFloor.js';   // OH-D: RestoreOceanPosition's terrainData.size (AUDIT PRE-MERGE 0928 H4: a float)
 import { createDeepWatersFish, createFishPictures, FISH_KEY_PREFIX } from './deepWatersFish.js';   // DW-E3: the fish
 import { createEnemySpawner, ENEMY_ATTEMPTS_PER_PIXEL_PER_TICK, trySpawnTreasureGuards } from './deepWatersEncounters.js';   // DW-E4: the deep's foes; DW-E5: and the wrecks' guards
 import { createUnderwaterLoot } from './deepWatersLoot.js';   // DW-E5: the sunken loot
@@ -1770,7 +1770,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     oceanSurfaceY: (x, y) => (built.has(`${x},${y}`) ? state.pixelTranslation(x, y, [0, 0, 0])[1] + deepWaters.oceanLocalY : null),
     pitPlacement: (x, y) => {
       const t = state.pixelTranslation(x, y, [0, 0, 0]);
-      return { x: t[0] + placementFraction(x, y, 88) * TILE_WORLD_SIZE, z: t[2] + placementFraction(x, y, 90) * TILE_WORLD_SIZE };
+      return { x: Math.fround(t[0] + Math.fround(placementFraction(x, y, 88) * TILE_WORLD_SIZE_F32)), z: Math.fround(t[2] + Math.fround(placementFraction(x, y, 90) * TILE_WORLD_SIZE_F32)) };   // AUDIT PRE-MERGE 0928 H4: position + fraction x terrainData.size (819.2f), each a float step (IL_61de-IL_6272) - where ProcessTerrain stood the pit
     },
     // !IsInit && !IsRepositioningPlayer: the world stood at the player's pixel and the player placed on it - the port's
     // teleport resolves only then, so the player's own pixel built is the whole of it (not the stream's last neighbour)
