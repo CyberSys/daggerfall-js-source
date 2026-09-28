@@ -41,6 +41,14 @@ export const TV_CLOUD_MARGIN = 60;
 export const TV_HEIGHT_FLOOR = 40;
 /** The eye keeps this clear of the ground under it and of a ridge between it and the traveller. */
 export const TV_GROUND_CLEAR = 25;
+/** OW-BIG (2026-09-28, Mac: "The player sprite needs to appear larger. Like it shouldnt be at the tiny scale"): the
+ *  traveller's own sprite under the view is drawn this many times its size - one more for every TV_OWN_GROW_M metres
+ *  the eye stands from the feet, so it reads about as tall on the screen at every zoom (a Mount & Blade party's icon,
+ *  ~40-50 px at 1080p), never past TV_OWN_GROW_MAX, and 1 near the ground (the rise grows it, the fall shrinks it).
+ *  Whole steps: the sprite's batch is made again at each. */
+export const TV_OWN_GROW_M = 32;
+export const TV_OWN_GROW_MAX = 12;
+export const tvOwnGrow = (dist) => Math.max(1, Math.min(TV_OWN_GROW_MAX, Math.round((Number.isFinite(dist) ? dist : 0) / TV_OWN_GROW_M)));
 /** The rise out of the head and the fall back into it, seconds. */
 export const TV_RISE_S = 1.2;
 export const TV_FALL_S = 0.8;

@@ -165,7 +165,7 @@ test('NAV-H the other players\' boats at their helms are the sea\'s contacts: wh
 
 test('NAV-G the doors: my word rides my foes frame beside the boats\' - a changed word asking for the frame it rides; a peer\'s lands past the room test and is cleared with the puppets; a blow carrying `nv` goes to the naval stander, anything else where it always went (mutants: the moved word never asking, the clears, the hit routed to the foes)', () => {
   const w = src('scenes/world.js');
-  assert.match(w, /if \(cell\) csaWord\(frame, full\); if \(cell\) csaAboardWord\(frame, full\); if \(cell\) navalWord\(frame, full\);/);
+  assert.match(w, /if \(cell\) csaWord\(frame, full\); if \(cell\) csaAboardWord\(frame, full\);(?: if \(cell\) bandWord\(frame, full\);)? if \(cell\) navalWord\(frame, full\);/);   // THE MERGE with TV7b: the Overworld's bands' word may ride between
   assert.match(w, /function navalWord\(frame, full\) \{\n\s+if \(!navalOn\(\)\) \{ if \(!_navalWordKey\) return false; if \(frame\) \{ frame\.nv = null; _navalWordKey = ''; \} return true; \}\n\s+const rec = naval\.word\(campToWire\);\n\s+const key = navalRecordKey\(rec\);\n\s+if \(!full && key === _navalWordKey\) return false;\n\s+if \(frame\) \{ frame\.nv = rec; _navalWordKey = key; \}\n\s+return true;/);
   assert.match(w, /exteriorFoes\.setOnNaval\(\(from, nv\) => naval\?\.applyWord\(from, nv, campToScene\), \(\) => naval\?\.clearPeers\(\)\);/);
   assert.match(w, /online\.onHit = \(id, data\) => \{ if \(isCellRoom\(online\.room\) && data\?\.nv\) \{ naval\?\.applyPeerHit\(id, data\); return; \} if \(isCellRoom\(online\.room\)\) exteriorFoes\.applyHit\(id, data\);/);

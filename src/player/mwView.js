@@ -428,7 +428,10 @@ export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw, face = null
   // (ToggleOffset, IL_2307-IL_2353), where it draws behind the eye
   if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw, face });   // AUDIT DEEP R-2: `face` - the travel view's basis for the quad
   if (!mwCamera.thirdPerson()) return false;
-  return fpArm.drawThird(canvas, { proj, view, eye, feet, yaw });
+  // AUDIT OW3 J6: OW-BIG's grown traveller is the Morrowind body's too - `face.grow` (player/travelCamera.js tvOwnGrow)
+  // reached the sprite body alone, and under the travel view the Morrowind body stood a speck at its own size.
+  // AUDIT OW4 J6: and `face.up` - its quad leaned as the sprite lane's is (eotbBody.js), not upright under a pitched picture
+  return fpArm.drawThird(canvas, { proj, view, eye, feet, yaw, grow: face?.grow > 1 ? face.grow : 1, up: face?.up ?? null });
 }
 
 /** EOTB5's door, matching `setEotbBodyReady`: the host hands the seam

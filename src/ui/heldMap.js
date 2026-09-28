@@ -704,6 +704,9 @@ export class HeldMapWindow {
         e?.preventDefault?.();
         if (code === 'KeyY' || code === 'Enter' || code === 'NumpadEnter') { this._top = null; this._renderBox(); this.deps.onResumeTravel?.(); this._beginClose(null); }
         else if (code === 'KeyN' || code === 'Escape' || code === 'KeyE') { this._top = null; this._renderBox(); }
+        // RESUME-OUT (2026-09-28, Mac: "option persists"): the mod keeps the destination on No, so it asked at EVERY
+        // open with no way to be rid of it - Forget ends the journey (ClearTravelDestination) and the asking with it
+        else if (code === 'KeyF') { this._top = null; this._renderBox(); this.deps.onForgetTravel?.(); }
         return;
       }
     }
@@ -1994,7 +1997,9 @@ export class HeldMapWindow {
     yes.onclick = () => this.input('KeyY');
     const no = el('button', 'act hmghost', 'Not now');
     no.onclick = () => this.input('KeyN');
-    row.append(yes, no);
+    const forget = el('button', 'act hmghost', 'Forget it');   // RESUME-OUT: the journey ended - never asked again
+    forget.onclick = () => this.input('KeyF');
+    row.append(yes, no, forget);
     box.append(row);
   }
 

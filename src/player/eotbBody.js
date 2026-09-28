@@ -859,16 +859,21 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       // mirrored
       const flipView = FP && cfg.visibility === 2;
       const s = spriteFor(shown.table, shown.orientation, shown.frame, lookNow(), { flip: shown.flip !== flipView });   // PR-WW1: the live form's archive (112381 the wereboar)
+      // OW-BIG (2026-09-28, Mac: "The player sprite needs to appear larger"): under the travel view the sprite is drawn
+      // `face.grow` times its size (player/travelCamera.js tvOwnGrow) - a party's icon from the Overworld's height, not
+      // a speck; whole steps, the batch made again at each
+      const grow = face && face.grow > 1 ? face.grow : 1;
       const up = ensure(s);
       if (up) {
         const xml = spriteOffset(s.archive, s.record);
         const size = spriteSize(up.w, up.h, { riding: last.riding, transformed: last.transformed, scale: cfg.scale }, xml.scale);
-        if (!batch || batchRec !== cacheKey(s)) {
+        const key = `${cacheKey(s)}|${grow}`;
+        if (!batch || batchRec !== key) {
           if (batch) renderer.destroyBillboardBatch?.(batch);
-          batch = renderer.createBillboardBatch(s.archive, s.rec, size, [[0, 0, 0]]);
+          batch = renderer.createBillboardBatch(s.archive, s.rec, grow > 1 ? { w: size.w * grow, h: size.h * grow } : size, [[0, 0, 0]]);
           batch.origin = [0, 0, 0];
-          batch.selfCard = true;   // DISC24-C: the player's own body - it casts as drawn, into the maps redrawn every frame (render/shadowPass.js SELF CARD)
-          batchRec = cacheKey(s);
+          batch.selfCard = grow === 1;   // DISC24-C: the player's own body - it casts as drawn, into the maps redrawn every frame (render/shadowPass.js SELF CARD); OW-BIG: a grown one casts no giant's shadow
+          batchRec = key;
         }
         batchSize = size;
       }
@@ -882,7 +887,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       const by = face ? face.yaw : cam.yaw;
       const camRight = [Math.cos(by), 0, -Math.sin(by)];
       renderer.drawBillboards([batch], camRight, face?.up ?? [0, 1, 0]);
-      drawLantern();   // HT-WAIST: the lantern at the waist, its own billboard, after the body
+      if (grow === 1) drawLantern();   // HT-WAIST: the lantern at the waist, its own billboard, after the body - OW-BIG: a grown body's waist is not where the lantern hangs
       return true;
     },
 

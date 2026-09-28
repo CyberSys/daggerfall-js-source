@@ -240,6 +240,7 @@ function sail(speed) {
     exteriorFoes: foesPool(clock), _hccDirty: false, camps: { wireRecords: () => [] }, hcc: { wireRecord: () => null }, duelRingWord: () => {}, raidWireWord: () => null,   // THE MERGE: RAID2's word rides the same line - no raid here
     campToWire: (p) => [...p], csaRuntime: { AllBoats: [boat], isSailing: () => true, state: { CurrentBoat: boat } }, csaOn: () => true,
     csaWireRecord, csaRecordKey, csaAnimatorOf: boatMod.animatorOf, _csaWordKey: null,
+    bandWord: () => false,   // TV7b: no band chases on this sea
     csaAboardWord: () => false,   // CSA-K: aboard nobody's boat - the stream's second word says nothing
     navalOn: () => false, naval: null, navalRecordKey: () => '', _navalWordKey: null,   // NAV-G: the sea's word rides the same stream - off here, this pin is the boats'
   };

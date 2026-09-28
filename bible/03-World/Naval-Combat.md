@@ -373,8 +373,9 @@ sides whole. What each met of the other, and what was decided:
   and the snap it threw away are gone with the need for them.
 - **The collider** (CSA-K): the deck of another player's boat I stand aboard joins MY boats and the sea's ships near
   enough to board (`csaSyncColliders`), and nothing else of a peer's stands in it (PR-WAGON1).
-- **The foes frame**: my boats' word, my place aboard another's (`ab`), the sea's word (`nv`) and the raids' (`rk`)
-  ride one frame, each changed word asking for it.
+- **The foes frame**: my boats' word, my place aboard another's (`ab`), the Overworld's bands' (`bd`, TV7b - taken in
+  by the second merge of main the same day, with TV6-TV8), the sea's word (`nv`) and the raids' (`rk`) ride one frame,
+  each changed word asking for it.
 - **The top of the screen** (CSA-L): the helm panel and the target card both stand under the compass - the card under
   the panel's foot while it stands (The UI, above); and on a phone the plate stands over the touch corner.
 - **One raid at a time** (OWS3): above, in Boarding.

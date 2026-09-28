@@ -368,7 +368,7 @@ export function createChargenWindow(flow, { onDone, onCancel, hudScale = 2 } = {
   //
   // THE FOUR HOSTS RULE, answered here rather than three times over.
   // Three hosts run a new game and all three build their wizard
-  // through this function - world.js:4582, exterior.js:1389,
+  // through this function - world.js:4617, exterior.js:1389,
   // dungeonContext.js:2696 - so the question is asked once, in the
   // seam, and not one of them learns a new word. THE FOURTH HOST,
   // scenes/worldModes.js, IS ACCOUNTED FOR AND ASKS NOTHING: a new game

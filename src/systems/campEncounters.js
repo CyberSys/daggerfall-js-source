@@ -245,7 +245,7 @@ export function amGroupRollOwner(myId, myFeet, peers, radius = GROUP_ROLL_RADIUS
  *  camp reads as "a knot of bandits", "an orc raiding party", "a
  *  cluster of spiders", never a grab-bag, and a table entry that was
  *  never in that climate's list to begin with still can't appear. */
-function rollGroupComposition(ctx, rolls) {
+export function rollGroupComposition(ctx, rolls) {   // TV7: exported - a roaming band is made of the same themed group
   const timeOfDay = ctx.gameMinutes % 1440;
   const isDay = timeOfDay >= 360 && timeOfDay <= 1080;
   const rollCtx = { ...ctx, isDay };
