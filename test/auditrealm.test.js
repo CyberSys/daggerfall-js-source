@@ -16,6 +16,7 @@ import { SURVIVAL_TEMPLATES } from '../src/systems/survival/items.js';
 import { DEEP_WATERS_FISH_TEMPLATES } from '../src/systems/deepWatersFishItems.js';
 import { SIGIL_STONE_TEMPLATES, SIGIL_STONE_TEMPLATE, sigilStone } from '../src/systems/gateSpoils.js';
 import { THUNDERLOCK_TEMPLATES } from '../src/systems/thunderlock.js';
+import { CSA_ITEM_TEMPLATES } from '../src/systems/comeSailAwayItems.js';   // THE MERGE: main's Come Sail Away registers the sixth
 import { RRI_TEMPLATES, RRI_TEMPLATE_PATCHES } from '../src/systems/rriItems.js';
 import { createTradePack, tradeRefusal } from '../src/systems/tradePack.js';
 import { createWeapon } from '../src/combat/enemyEquipment.js';
@@ -135,10 +136,10 @@ test('AUDIT REALM F1: a Sigil Stone never changes hands through the realm - the 
   assert.deepEqual([await record(A.io, A.char.id), await record(B.io, B.char.id)], before, 'both records as they were: three stones with A, none with B');
 });
 
-test('AUDIT REALM F1: BOUND_TEMPLATES is every row the game registers with `bound` - the classic table, each registrar\'s rows and RRI\'s patches - and the registrars are the five it reads', () => {
+test('AUDIT REALM F1: BOUND_TEMPLATES is every row the game registers with `bound` - the classic table, each registrar\'s rows and RRI\'s patches - and the registrars are the six it reads (Come Sail Away\'s the sixth, at the merge with main)', () => {
   const rows = [
     ...ITEM_TEMPLATES.map((t, i) => ({ ...t, index: t.index ?? i })),
-    ...SURVIVAL_TEMPLATES, ...DEEP_WATERS_FISH_TEMPLATES, ...SIGIL_STONE_TEMPLATES, ...THUNDERLOCK_TEMPLATES, ...RRI_TEMPLATES, ...RRI_TEMPLATE_PATCHES,
+    ...SURVIVAL_TEMPLATES, ...DEEP_WATERS_FISH_TEMPLATES, ...SIGIL_STONE_TEMPLATES, ...THUNDERLOCK_TEMPLATES, ...CSA_ITEM_TEMPLATES, ...RRI_TEMPLATES, ...RRI_TEMPLATE_PATCHES,
   ];
   assert.deepEqual(rows.filter((t) => t.bound === true).map((t) => t.index).sort((a, b) => a - b), [...BOUND_TEMPLATES]);
   assert.ok(BOUND_TEMPLATES.includes(SIGIL_STONE_TEMPLATE));
@@ -152,7 +153,7 @@ test('AUDIT REALM F1: BOUND_TEMPLATES is every row the game registers with `boun
     }
   };
   walk('src');
-  assert.deepEqual(registrars.sort(), ['src/systems/deepWatersFishItems.js', 'src/systems/gateSpoils.js', 'src/systems/rriInstall.js', 'src/systems/survival/items.js', 'src/systems/thunderlock.js']);
+  assert.deepEqual(registrars.sort(), ['src/systems/comeSailAwayItems.js', 'src/systems/deepWatersFishItems.js', 'src/systems/gateSpoils.js', 'src/systems/rriInstall.js', 'src/systems/survival/items.js', 'src/systems/thunderlock.js']);
   // and the honest client never offers one: the window's pack refuses it before a half is ever written
   const holder = { items: [{ ...sigilStone(), stackCount: 2 }], goldPieces: 0 };
   assert.equal(createTradePack(holder).offerable(holder.items[0]), tradeRefusal(holder.items[0]));
