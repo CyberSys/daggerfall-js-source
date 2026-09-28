@@ -980,6 +980,10 @@ The three loot hooks, 1:1 off IL_0520-IL_0b8f, and the two DFU events they hang 
 - **Pins**: `test/forage3_loot.test.js` (12), the loot sites' older pins re-aimed at the one homes
   (`rri2_realism`, `roada2_itemseconomy`, `lr1_lootrarity`, `wod3_spawner`, `world8`); `tools/mutants/forage3.json`,
   22 mutations, 22 dead.
+- **The test reset's leak** (found 2026-09-28 by the whole suite on the bounty boards' integration, AUDIT BOUNTY1):
+  `_resetForagingInstall` cleared the install's latch and left its three subscribers registered, so the OnLootSpawned
+  pin heard Foraging's pile hook roll on Math.random ahead of its own spy - it failed 4 runs in 12. The reset takes the
+  subscribers out with it now: 0 in 12.
 
 ## FORAGE4 - WHAT SHIPPED (2026-09-28, Mac: "Continue! Remember, this is your baby")
 

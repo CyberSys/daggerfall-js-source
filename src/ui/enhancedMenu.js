@@ -175,6 +175,7 @@ import { loadFace } from './facePortrait.js';
 import { profileBadge, portraitSave, liveCharacter } from './profileBadge.js';   // PROFILE1: the mark is the last character's portrait   // TILE1: the character's face, the one home chargen also reads
 import { cloudIo, cloudList, pushSlot, pullSlot, removeCloudSlot, cloudOnly, slotKeyOf, cloudRefusalText } from '../systems/cloudSaves.js';   // ACC2: the backup a tile can offer, AUDIT-312 F1's delete, and ACC2c's download of a save that is only up there
 import { serviceBase, storedSession } from '../net/accountClient.js';
+import { isBountyQuestId, abandonBountyQuest, shareBountyQuest, bountyQuestShareable } from '../systems/bountyJournal.js';   // BOUNTY1: a bounty in the journal - its Abandon and its Share
 
 // ── THE RAIL ─────────────────────────────────────────────────────
 // Six destinations. Mac's call: the menus get set up now even where
@@ -270,6 +271,7 @@ let groundTimer = null;     // PX1b: the home sky's 8fps clock - cleared by ever
 let questTimer = null;      // QT-LIVE1: the journal's once-a-second timer redraw - the same two owners
 let pauseTab = 'system';    // PX3: which tab the pause window shows - System lands on Resume/Save
 let questSel = null;        // PX4: the journal's selected row - 'a:<uid>' | 'f:<index>' | null = first active
+let bountyAbandonArmed = null;   // BOUNTY1: the bounty whose Abandon was pressed once - the second press gives it up
 let statsSec = 'character'; // PX6: the Stats page's rail - character | attributes | skills | standing
 let statsAllSkills = false; // PX6: the Miscellaneous disclosure, the sheet's own gesture
 let sysSec = 'save';        // PX7: the System page's rail - which pane fills the detail
@@ -3658,6 +3660,28 @@ function pauseQuests(body) {
         armQuestTimer(timer, sel.key);
       }
       if (meta.childNodes.length) detail.append(meta);   // PX22: an empty meta line is a gap the eye reads as a mistake
+    }
+    // BOUNTY1 (Mac: "i also dont see the bounty in my questlog means i cant abandon it?"): a bounty's two presses - Abandon
+    // (twice: the first arms it, so a stray click gives nothing up) and, in a party, Share
+    if (sel.entries && isBountyQuestId(sel.id)) {
+      const acts = el('div', 'px-qacts');
+      acts.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin:6px 0 8px';
+      if (bountyQuestShareable(sel.id)) {
+        const sh = el('button', 'act', 'Share with party');
+        sh.onclick = () => { shareBountyQuest(sel.id); render(); };
+        acts.append(sh);
+      }
+      const armed = bountyAbandonArmed === sel.id;
+      const ab = el('button', 'act', armed ? 'Click again to abandon' : 'Abandon bounty');
+      ab.onclick = () => {
+        if (bountyAbandonArmed !== sel.id) { bountyAbandonArmed = sel.id; render(); return; }
+        bountyAbandonArmed = null;
+        abandonBountyQuest(sel.id);
+        questSel = null;
+        render();
+      };
+      acts.append(ab);
+      detail.append(acts);
     }
     if (sel.entries) {
       // Active: the LATEST entry is the state of the quest; the trail

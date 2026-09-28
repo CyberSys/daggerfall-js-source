@@ -106,7 +106,7 @@ direction). The real staleness is where the sweep cannot see:
   row's own title records the previous three.
 - `:340` residue "a static NPC currently answers with the
   no-response line" - contradicts the same row's own head and row
-  `:446` (B7); `worldModes.js:1516-1527` opens the real talk window.
+  `:446` (B7); `worldModes.js:1519-1530` opens the real talk window.
 - `:339` "house/ship PURCHASE popups... still out" - contradicts row
   `:441` ("this row is now CLOSED", H1-H3) and
   `ui/bankPurchaseWindow.js`.
@@ -163,7 +163,7 @@ per arc:
   `:3368`); `:4722` is now flatly false ("the interior host's
   char-sheet and inventory panels swallow their click and do
   nothing") and contradicts U43 in the same file
-  (`worldModes.js:5789-5790` routes them). UI-Arc carries no records
+  (`worldModes.js:5795-5796` routes them). UI-Arc carries no records
   at all for H1-H3 - the banking windows exist only in the Ledger.
 - *Combat.md*: the status head (first 51 lines) is the stale part -
   DrainMagicka "INTERIM no-op" (`:19`, real since S4a and
@@ -215,8 +215,8 @@ own AUDIT-18 correction.
 
 Doc review only, nothing fixed - but four code comments assert the
 opposite of their own code and deserve a slice's attention:
-- `src/ui/deathScreen.js:87-88` claims "`drop` is read by each host's
-  frame" - no host reads it (the Ledger row `:503` is right, the
+- `src/ui/deathScreen.js:89-90` claims "`drop` is read by each host's
+  frame" - no host reads it (the Ledger row `:505` is right, the
   comment is wrong).
 - `src/systems/mysticism.js:53` header "OPEN AND LOCK ARE NOT WIRED" -
   they are (X1, `actionSystem.js:930-931`).
@@ -233,9 +233,9 @@ opposite of their own code and deserve a slice's attention:
 
 ## Line-citation drift (low, batched)
 
-`Port-Ledger.md:600` (save.js:33/:562/:571 → :28/:621/:651), `:602`
-(world.js:3856 → :2412); `Quest-Arc.md:719`/`:2906`
-(worldModes.js:611 → :903); `Player-Arc.md:966` (worldModes.js:903 →
+`Port-Ledger.md:602` (save.js:33/:562/:571 → :28/:621/:651), `:602`
+(world.js:3872 → :2412); `Quest-Arc.md:719`/`:2906`
+(worldModes.js:614 → :903); `Player-Arc.md:966` (worldModes.js:906 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
 (CHAR_PIXEL "7" - `renderer.js:620` ships 9, and the doc missed two
 later revisions recorded in `paperdollViewer.js:138`), `:2114`

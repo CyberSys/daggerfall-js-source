@@ -312,8 +312,8 @@
   {
     "name": "PSCALE1-camp-does-not-grow",
     "file": "src/scenes/world.js",
-    "old": "for (const mobileType of partyGroupMembers(hit.mobileTypes, partySize())) {",
-    "new": "for (const mobileType of hit.mobileTypes) {",
+    "old": "hit.fixed ? hit.mobileTypes : partyGroupMembers(hit.mobileTypes, partySize())",
+    "new": "hit.fixed ? hit.mobileTypes : hit.mobileTypes",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"

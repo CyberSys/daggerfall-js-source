@@ -100,7 +100,8 @@ test('D-ONLINE1 by source: the world host snapshots "was this death online" at t
   assert.ok(healAt < fn.indexOf('modes?.forceExitToExterior()'), 'MAC-D3: healed BEFORE the death screen is torn down (the CALL, not this file\u2019s prose about it)');
   assert.ok(healAt < fn.indexOf('await _teleportToPixel'), 'MAC-D3: ...and before anything is awaited - a dead player must not survive a single frame of the flight');
   assert.match(fn, /reviveForPlay\(playerEntity, \{ force: true \}\);\s*\n\s*surfacePlayer\(\);/, 'surfaced with it');
-  assert.match(fn, /townTalk\.showOverlay\(new ActionTextBox\(\[respawnFlavorText\(kind\)\]\)\);/, 'and the line stands where the death screen did');
+  // DEATH-PENALTY: the line may carry what the fall cost beside it (systems/deathPenalty.js deathPenaltyText)
+  assert.match(fn, /townTalk\.showOverlay\(new ActionTextBox\(\[respawnFlavorText\(kind\)(?:, deathPenaltyText\(goldLost\)\]\.filter\(Boolean\)|\])\)\);/, 'and the line stands where the death screen did');
   // ...and one respawn at a time, or a death raised mid-flight starts
   // another teleport racing the first
   assert.match(fn, /if \(_respawning\) return;/, 'MAC-D3: re-entry is refused');

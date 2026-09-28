@@ -246,8 +246,15 @@ export function installForaging({ fetchBytes = null } = {}) {
     archive, record: 0, frame: 0, standIn: true, lazy: true, fileName: `${archive}_0-0`, load: () => load(archive),
   })));
 }
-/** Tests: install again. */
-export function _resetForagingInstall() { _installed = false; }
+/** Tests: install again - and the three subscribers the install registered come out with it, so a later test in the
+ *  same process never hears Foraging's pile hook roll on Math.random before its own spy (AUDIT BOUNTY1: FORAGE3's
+ *  OnLootSpawned pin failed one run in four behind the leak). */
+export function _resetForagingInstall() {
+  _installed = false;
+  registerContainerLootHandler(FORAGING_VENDOR, null);
+  registerTabledLootHandler(FORAGING_VENDOR, null);
+  registerEnemyDeathHandler(FORAGING_VENDOR, null);
+}
 
 /** Whether a template is one of this mod's (the templates are registered at import). */
 export const isForagingItem = (item) => !!item && !!templateByIndex(item.templateIndex) && item.templateIndex >= FT.WoodAxe && item.templateIndex <= FT.Egg;

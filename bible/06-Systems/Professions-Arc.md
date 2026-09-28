@@ -620,8 +620,15 @@ etc".
 
 - **It is Daggerfall's own board.** FACT: Daggerfall's towns carry a bulletin board, a 3D model the town blocks place
   (`BULLETIN_BOARD_MODEL_ID`, `src/world/rmbLayout.js`), activated as DFU activates it (`src/systems/bulletinBoard.js`:
-  the reach gate, the location's name, the rumour mill's line). **Offline it stays exactly that.**
-- **Online, the same board opens the Notice Board.** DFU's reach gate still applies (256 classic units).
+  the reach gate, the location's name, the rumour mill's line). **Offline a rumour board stays exactly that.**
+- **BOUNTY1 took half of every town's boards** (FACT - shipped 2026-09-28 at Mac's word, `06-Systems/Bounty-Boards.md`):
+  in a town with two boards or more, every other one by position is a **Bounty Board** in BOTH lanes, posting the
+  town's four hunts. DECIDED: the Notice Board is the OTHER boards' - a bounty board stays the town's hunts, online as
+  off, and the Notices tab pins one line under the rumour: "The town's bounties are posted on its Bounty Board." A
+  board stood for a seat or hub (below) is a Notice Board. The Work tab's black Bounty seal is a WRIT (section 11),
+  never a board's hunt; the two share a colour because both are a price on a beast's head.
+- **Online, a rumour board opens the Notice Board** - every board of a town that is not a bounty board, a lone board
+  included. DFU's reach gate still applies (256 classic units).
 - **Every seat and hub has one.** A seat or hub whose blocks place no board gets one: the same DFU model, drawn from
   the player's own ARENA2 at runtime, stood at an anchor derived from the town's layout - the market square (the open
   block nearest the town's centre), else beside the palace door. SEAT-COUNT counts them.
@@ -803,7 +810,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 |---|---|---|
 | **PROF0** | This record | - |
 | **MARKS1** - SHIPPED 2026-09-28 (at `dev`) | Marks: balances, the guild Marks treasury, the ledger, the Bank's exchange, the weekly report; the first faucet is the gate's receipts (Court writs come with PROF1's Stores - a writ filled from the pack would be a save item bought with Marks) | Every faucet capped and pinned; gold never becomes Marks, pinned |
-| **NOTICE1** | The Notice Board: DFU's board opens it online, the rumour pinned first; boards stood where a seat or hub lacks one; the Notices and Work tabs; player notes | Offline the board is byte-for-byte DFU's (the ROAD A9 pins hold) |
+| **NOTICE1** | The Notice Board: a town's rumour boards open it online (BOUNTY1's bounty boards stay the hunts), the rumour pinned first and the bounty board's line under it; boards stood where a seat or hub lacks one; the Notices and Work tabs; player notes | Offline a rumour board is byte-for-byte DFU's (the ROAD A9 pins hold) |
 | **PROF1** | The Stores; **Herbalism** with its act; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
 | **PROF2** | Mining and Quarrying with their acts; smelting; ores and ingots (610-630) | Veins placed on rock fields; signatures by kingdom. Needs FORAGE1-2 (shipped: the Pick-Axe) |
 | **PROF3** | Smithing with its act; quality; provenance; the forge | A crafted Mithril Longsword is DFU's, with its quality |

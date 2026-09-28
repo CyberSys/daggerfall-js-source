@@ -682,6 +682,63 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
   .broker-offer .broker-price { grid-column: 2; grid-row: 2; }
   .broker-offer .broker-buy { grid-column: 3; grid-row: 1 / span 2; padding-left: 6px; padding-right: 6px; letter-spacing: 0.03em; }
 }`;
+/** BOUNTY1 (2026-09-28): THE BOUNTY BOARD'S WINDOW and the payday notice (ui/bountyWindow.js) - the Broker's kind: a
+ *  stone window over the world, the town's notices in a list, the one pressed read whole beside it (under it on a
+ *  phone). The kit dresses the window, the card, the rows, the header and the presses (ui/enhancedFrame.js); this is
+ *  the layout and the notice's own ink. */
+export const BOUNTY_CSS = `/* ── BOUNTY1: THE BOUNTY BOARD ── */
+.bounty-shell { position: fixed; inset: 0; z-index: 39; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(0,0,0,0.46); font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; }
+.bounty-win { width: min(960px, 96vw); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+  border: 2px solid; background: rgba(14,12,11,0.96); }
+.bounty-win.bounty-noticewin { width: min(560px, 94vw); }
+.bounty-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; border-bottom: 2px solid rgba(5,6,8,0.6); }
+.bounty-title { flex: 1 1 280px; min-width: 0; }
+.bounty-title h2 { margin: 0; font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe0b8; text-shadow: 2px 2px 0 #050608; }
+.bounty-sub { margin: 2px 0 0; font-size: 12px; color: #b9ab93; }
+.bounty-note { margin: 4px 0 0; font-size: 12px; color: #e59a8e; }
+.bounty-note:empty { display: none; }
+.bounty-note.ok { color: #9fe8b4; }
+.bounty-close { flex: 0 0 auto; }
+.bounty-body { display: flex; gap: 14px; padding: 12px 16px 16px; min-height: 0; overflow: auto; }
+.bounty-side { flex: 1 1 50%; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.bounty-posts, .bounty-held { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.bounty-post { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px;
+  cursor: pointer; border: 1px solid transparent; }
+.bounty-post.on { background: linear-gradient(90deg, rgba(243,207,134,0.12), transparent 85%); }
+.bounty-post-body { display: flex; flex-direction: column; min-width: 0; }
+.bounty-post-title { font-size: 14px; color: #efe8d6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 0 #050608; }
+.bounty-post-meta { font-size: 11px; color: #b9ab93; letter-spacing: 0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bounty-state { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #b9ab93; white-space: nowrap; }
+.bounty-state.st-open { color: #f3cf86; }
+.bounty-state.st-held { color: #9fe8b4; }
+.bounty-post.st-paid .bounty-post-title, .bounty-post.st-paid .bounty-state { opacity: 0.55; }
+.bounty-empty { padding: 10px; font-size: 13px; color: #b9ab93; font-style: italic; }
+.bounty-heldhead { margin: 10px 0 2px; font-family: inherit; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #b9ab93; }
+.bounty-heldrow { display: flex; flex-direction: column; padding: 4px 10px; border-left: 2px solid #c08a3e; background: rgba(243,207,134,0.05); }
+.bounty-card { flex: 1 1 50%; min-width: 0; margin: 0; padding: 12px 14px; border: 2px solid; align-self: flex-start; }
+.bounty-card h3 { margin: 0 0 8px; font-family: inherit; font-size: 16px; color: #efe8d6; }
+.bounty-tier { margin: -4px 0 8px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #c9a86a; }
+.bounty-story { margin: 0 0 6px; font-size: 13px; line-height: 1.5; color: #e6dccb; }
+.bounty-poster { margin: 0 0 8px; font-size: 12px; color: #b9ab93; font-style: italic; text-align: right; }
+.bounty-mapline { margin: 0 0 10px; font-size: 12px; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
+.bounty-reward { display: flex; flex-direction: column; gap: 2px; margin: 0 0 8px; padding: 6px 8px; background: rgba(0,0,0,0.3); }
+.bounty-reward-head { font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #b9ab93; }
+.bounty-gold { font-size: 14px; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
+.bounty-itemhint { font-size: 12px; color: #d8ccb6; }
+.bounty-progress, .bounty-mates, .bounty-why { margin: 0 0 8px; font-size: 12px; color: #9fe8b4; }
+.bounty-why { color: #b9ab93; }
+.bounty-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.bounty-noticebody { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; overflow: auto; }
+.bounty-noticebody .bounty-story { font-size: 14px; }
+.bounty-rewardbox { display: flex; flex-direction: column; gap: 3px; align-self: stretch; }
+.bounty-rewarditem { font-size: 15px; text-shadow: 1px 1px 0 #050608; }
+@media (max-width: 720px) {
+  .bounty-shell { padding: 8px; }
+  .bounty-body { flex-direction: column; padding: 10px 12px 12px; }
+  .bounty-title h2 { font-size: 17px; letter-spacing: 0.08em; }
+}
+@media (pointer: coarse) { .bounty-post { min-height: 44px; } }`;
 export const ITEM_FRAME_CSS = `
 /* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */
 ${rarityVarsCss()}
@@ -837,6 +894,7 @@ ${SET_BLOCK_CSS}
 .setline-stage { min-width: 64px; text-align: right; color: #b9ab93; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
 @media (pointer: coarse) { .setline { min-height: 40px; } }   /* AUDIT SET U14: a line a thumb presses, as every other press on a touch screen */
 ${BROKER_CSS}
+${BOUNTY_CSS}
 /* ── WEAR-UI: THE HOTBAR'S WEAR BAR, ON EVERY PICTURE OF A PIECE THAT WEARS (ui/enhancedInventory.js wearBar) ──
    The hotbar's own bar (3px, a hard black ring, its green and its red under 40), a lit pixel on top like every fill
    here. Along the foot of a grid tile or a socket; inside the foot of a list's picture. A broken piece's track goes

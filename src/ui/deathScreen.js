@@ -34,6 +34,8 @@ import { isEnhanced } from '../systems/uiSkin.js';   // DEATH2: the enhanced ski
 import { drawEnhancedDeath, removeEnhancedDeath } from './enhancedDeath.js';
 import { EYE_HEIGHT } from '../player/motor.js';   // DEATH3: the standing eye the fall starts from
 import { isOnlinePage } from '../systems/onlineLane.js';   // DEATH4: the online screen counts down, the offline one waits
+import { deathGoldLoss, deathPenaltyLine } from '../systems/deathPenalty.js';   // DEATH-PENALTY: the screen says what the respawn is about to take
+import { goldPiecesOf } from '../systems/inventory.js';   // DEATH-PENALTY: the purse the loss is read off
 
 /** DEATH4 (Discord, 2026-09-23: "don't let it fade away automatically in
  *  offline mode, only in online mode - and give it 10 seconds"). On the
@@ -102,6 +104,12 @@ export class DeathScreen {
     // DEATH3: the fall is the enhanced skin's; the classic keeps DFU's sink.
     this.fall = isEnhanced();
     this.online = isOnlinePage();
+    // DEATH-PENALTY (Mac: "and it should be shown in the death screen"): the gold the respawn will take,
+    // read HERE, once. The purse cannot change while the player is dead, so this is exactly what
+    // respawnOnlinePlayer's applyDeathPenalty takes from the same counter; offline there is no respawn
+    // and no penalty, so the screen has nothing to say.
+    this.goldLoss = this.online ? deathGoldLoss(goldPiecesOf(entity)) : 0;
+    this.goldLossLine = deathPenaltyLine(this.goldLoss);   // drawn ONCE: the enhanced face redraws every frame and the words must not change under the player
     this.clock = 0;   // DEATH4: the enhanced screen's own clock (the sequence's stops short of its reset)
     this.eyeHeight = Number.isFinite(eyeHeight) ? eyeHeight : EYE_HEIGHT;
     this._view = null;   // { cam, pitch } - the pitch to hand back if the run goes on (an online respawn)
@@ -172,5 +180,9 @@ export class DeathScreen {
     drawText(renderer, font, t, (canvas.width - measureText(font.fnt, t) * s) / 2, canvas.height / 2 - 10 * s, s, [0.9, 0.2, 0.15, 1]);
     const hint = this.online ? `RISING IN ${this.respawnIn}   ENTER now` : this.hint;   // AUDIT CONTRIB A5: the hold said out loud, as the enhanced face's "Rising in"
     drawText(renderer, font, hint, (canvas.width - measureText(font.fnt, hint) * s) / 2, canvas.height / 2 + 6 * s, s, DIM);
+    if (this.goldLoss > 0) {   // DEATH-PENALTY: the classic face says it too, one line under the hold
+      const loss = `DEATH CLAIMS ${this.goldLoss} GOLD`;
+      drawText(renderer, font, loss, (canvas.width - measureText(font.fnt, loss) * s) / 2, canvas.height / 2 + 22 * s, s, [0.9, 0.2, 0.15, 1]);
+    }
   }
 }

@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6952` read, on one physical line:
+`src/scenes/worldModes.js:6960` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5014` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:5030` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7100,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1005`, `src/net/online.js:2057`):**
+**Now (`src/net/wire.js:1012`, `src/net/online.js:2057`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10467,3 +10467,34 @@ caps, the switch, the Bank and its repeats, the guild treasury and the disband, 
 sale end to end over the real Worker (lost answers, a kept sale settling into its own region for its own character),
 the Bank window, the gate's line, the wiring. `tools/mutants/marks1.json`, 20 mutations, 20 dead.
 
+
+## BOUNTY1 (2026-09-28, Mac: "all players see the same boardquests and it should be shareable") - the bounty boards' party half
+
+The record is `06-Systems/Bounty-Boards.md`; this is the online half. The party pose carries `bq` (a member's
+bounties, each {i, s?, c?}, at most 8) and `lv` (the member's level) - `net/wire.js` validPartyPose, and the relay moves
+to **`world122`** (a hand deploy, as every relay move). A share is taken up within its tier; one pack a hunt, stood by
+the lowest account on its pixel; a mate's clear pays every holder of that hunt - a peer's word paying gold into the
+save, FLAGGED there by name. Until the relay is redeployed a bounty is hunted alone.
+
+## DEATH-PENALTY (2026-09-24, Mac: "add deathpenalty 25% of the gold you have with you"; "online mode only ofc"; "and it should be shown in the death screen") - an online death costs a quarter of the purse
+
+THE HOLDINGS ARC above left "the gold lost on death (the original pillars 5 and 6)" out with respawning at a hub
+("That'll be a seperate idea"). This is Mac's later word on the gold, and it stands; the hub respawn stays out. A Ledger A departure (AN ONLINE DEATH COSTS A QUARTER OF THE PURSE).
+
+- **Why online alone**: offline a death ends the run (`endRunToTitleMenu` - the video, the title, F11 for the last
+  save), so there is no purse that goes on. Online a death RESPAWNS the player (D-ONLINE1), and that was free.
+- **What** (`src/systems/deathPenalty.js`): a quarter of the purse (`goldPieces`, the counter), rounded down in the
+  player's favour - three coins lose nothing, a hundred lose twenty-five. Not the bank (keeping gold there is the
+  trade-off the penalty exists to make) and not letters of credit. No switch: an online rule a player could turn off
+  would be none.
+- **Where**: `respawnOnlinePlayer` (`scenes/world.js`), once a death - the `_respawning` latch is what makes it once -
+  and Privateer's Hold's in-place respawn (`scenes/worldModes.js`, online-gated). The waking line says it: "Death
+  claimed N gold from your purse."
+- **The death screen** reads the same loss, once (the purse cannot change while the player is dead): the classic face
+  adds "DEATH CLAIMS N GOLD" under the hold; the Enhanced face puts one of four lines (Mac's wording, each carrying
+  the amount, "a coin" for one) in the tagline's place and font (Mac: "remove the tale line and use the same fonts for
+  the gold loss message in online mode"), drawn once a death, not once a frame. Offline, or a loss of nothing, the
+  screen keeps its words.
+
+`test/deathpenalty.test.js` (5); `test/donline1_respawn.test.js` and `test/risestuck.test.js` allow the line;
+`tools/mutants/bounty1.json` DEATH-PENALTY-1 to 5, dead.

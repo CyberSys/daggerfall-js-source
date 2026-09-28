@@ -167,10 +167,10 @@ import { alignSurvival, shiftSurvival } from '../systems/survival/needs.js';   /
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // SURV7: the env's lycanthrope and beast-form flags
 import { elementalResistanceChance, ELEMENTS, BODY_CAPSULE_RADIUS, EFFECT_FLAGS, savingThrow } from '../systems/spellcast.js';   // SURV7: the env's fire and frost resistances; WB4: the saving throw a boss's fire meets   // DW-E3: a foe's controller, as a fish's probe meets it
 import { createTownWatch, runTownWatchFrame } from '../systems/townWatch.js';   // DISC19-F: the watch defends the town
-import { rollCampEncountersOnChunkLoad, amGroupRollOwner, campAnchorSpot, CAMP_SIGHT_RADIUS } from '../systems/campEncounters.js';   // CAMP1: the group-encounter roll - camps and packs; CAMP-NOTIMER: the chunk-load twin is this host's ONLY trigger now, so the timer's entry point is gone from here
+import { rollCampEncountersOnChunkLoad, amGroupRollOwner, campAnchorSpot, CAMP_SIGHT_RADIUS, PACK_SPACING, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // CAMP1: the group-encounter roll - camps and packs; CAMP-NOTIMER: the chunk-load twin is this host's ONLY trigger now, so the timer's entry point is gone from here
 import { WORLD_SALT, spawnsDungeon, pathFreePixel, isEliteSpawn, pickTemplate, synthesizeDungeonLocation, spawnTemplates, createSpawnLedger, spawnedLocationCentreLocal, dungeonSightLine } from '../world/spawnedDungeons.js';   // SPAWNED-DUNGEONS1: online, a pixel may hold a dungeon; TTL1: ...and it does not hold it for ever
 import { createGateOmen, insideGateRing, gateSceneXZ, fellLine, OMEN_SETTLE_MS, GATE_STORM_RING } from '../systems/gateOmen.js';   // WB1 (Mac: "on the timer, a large area would be shown on the map, also in chat"): the Oblivion Gate's omen - its lines, its ring, its compass mark
-import { gateScanner, findGateSite } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
+import { gateScanner, findGateSite, gateSeaPixel } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
 import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
@@ -290,6 +290,11 @@ import { questActionsExtensionTemplates } from '../systems/quest/questActionsExt
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC
+import { applyDeathPenalty, deathPenaltyText } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a quarter of the purse
+import { createBountyHost } from './bountyHost.js';   // BOUNTY1: the town's bounty boards - the hunts, their packs, their purse
+import { createBountyFarms, farmSpotLocal, pickFarm } from './bountyFarms.js';   // BOUNTY-FARM: a farm on a farm bounty's pixel, while it is held
+import { questBoardIndices } from '../systems/bountyBoard.js';   // BOUNTY1: which of a town's boards post bounties (half)
+import { createBountyOverlay } from '../ui/bountyDoor.js';   // BOUNTY1: the board's window and the payday notice
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
 import { WAGON_KG_LIMIT, planTake, CANNOT_CARRY_TEXT } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit; SET7: the Broker's sale asks the pack's own carry gate
@@ -812,6 +817,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // One location per map pixel game-wide (pinned corpus invariant).
   status('indexing locations');
   const locationIndex = new Map();
+  let bountyFarms = null;   // BOUNTY-FARM: the farm pool, made beside the bounty pack's stander; read late (a transition, a load, the frame)
+  const _bountyFarmLocs = [];   // BOUNTY-FARM: the game's own farmsteads - the nearest lends a farm bounty its buildings
+  const _bountyDungeonPixels = new Map();   // BOUNTY1: the game's own dungeons, by pixel -> name, for a board's underground hunts
+  const _bountyLocPixels = new Set();   // BOUNTY1: the pixels the game's OWN locations stand on (no spawn, no mod row), for a hunt's ground
   const _hubRows = [];   // HUB1: the game's own rows, whatever a mod's addition later stands on their pixel
   for (let r = 0; r < maps.regionCount; r++) {
     const region = maps.getRegion(r);
@@ -823,6 +832,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       const p = longitudeLatitudeToMapPixel(loc.mapTableData.longitude, loc.mapTableData.latitude);
       locationIndex.set(`${p.x},${p.y}`, loc);
       if (l < baseCount) _hubRows.push(loc);
+      if (l < baseCount) {   // BOUNTY1: the game's own rows alone - a mod's addition stands on one client and not another
+        _bountyLocPixels.add(`${p.x},${p.y}`);   // the pixels a hunt's ground may not be
+        // a dungeon a board may name - the game's own, never a town's (a city's castle is the city's)
+        const lt = loc.mapTableData?.locationType;
+        if (lt === LOCATION_TYPES.HomeFarms) _bountyFarmLocs.push({ px: p.x, py: p.y, loc });   // BOUNTY-FARM: the game's own farms, whose first block a farm bounty stands
+        if (loc.hasDungeon && lt !== LOCATION_TYPES.TownCity && lt !== LOCATION_TYPES.TownHamlet && lt !== LOCATION_TYPES.TownVillage) _bountyDungeonPixels.set(`${p.x},${p.y}`, String(loc.name ?? ''));
+      }
     }
   }
   // HUB1: every region's main city, one answer on every client (systems/regionHubs.js) - read online alone
@@ -5119,7 +5135,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2612 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6326
+  // that context through modes.dungeonCtx - so worldModes.js:6332
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -5307,10 +5323,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (anchor && _nearRoad([anchor.x, anchor.y, anchor.z], (hit.spacing ?? 0) + CAMP_ROAD_CLEAR_M)) anchor = null;   // ROADS-CLEAR: pitched off the road, its whole ring clear of it
       if (anchor && _overDeepWater(anchor.x, anchor.z)) anchor = null;   // AUDIT (pre-merge) P4: never on the carved seabed - a player on the shore rolled land camps 100-150 m out, under the sea
     }
-    if (!anchor) return;
+    if (!anchor) return null;
     const campId = _nextCampId++;
     const anchorFeet = [anchor.x, anchor.y, anchor.z];
-    for (const mobileType of partyGroupMembers(hit.mobileTypes, partySize())) {   // PSCALE1: a camp or a pack grows with the party it meets
+    const stands = [];   // BOUNTY1: what was stood, for a caller that counts them (the roll's own callers do not)
+    // PSCALE1: a camp or a pack grows with the party it meets - BOUNTY1: a bounty's pack (`fixed`) is the posting's own
+    // count, never grown: its purse and its tally are the notice's
+    for (const mobileType of (hit.fixed ? hit.mobileTypes : partyGroupMembers(hit.mobileTypes, partySize()))) {
       const memberEnv = placeFoeEnv({
         collider,
         playerFeet: [anchorFeet[0], anchorFeet[1] + 0.9, anchorFeet[2]],
@@ -5331,8 +5350,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       if (!spot) continue;
       const fly = (ENEMY_BASICS[mobileType]?.behaviour ?? 'General') === 'Flying';
-      exteriorFoes.spawnFoe(mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
+      stands.push(exteriorFoes.spawnFoe(mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
         yaw: Math.atan2(anchorFeet[0] - spot.x, anchorFeet[2] - spot.z),
+        ...(hit.spawnOpts ?? {}),   // BOUNTY1: a bounty's pack stands `loose` and `transient`
       }).then((f) => {
         if (f) {
           f.campId = campId; f.campAlertRadius = hit.alertRadius;
@@ -5354,8 +5374,128 @@ export async function bootWorld(canvas, renderer, params, status) {
           // was refused, and enemytargets.test.js guards the difference.)
           if (f.entity) f.entity.campId = campId;   // CAMP2: the infighting exemption is the CAMP's, not a blanket flag - see enemyTargets.js's arm
         }
-      }).catch(() => null);
+        return f;
+      }).catch(() => null));
     }
+    return { foes: Promise.all(stands), anchorFeet };
+  };
+  // BOUNTY1: A BOUNTY'S PACK - stood by the camp's own stand (_standCampEncounter, just above: one home for a group in
+  // the wilderness), four to eight of ONE beast, 60 to 110 metres out on a random bearing, and the host names the way.
+  // A camp id wakes the whole pack when one member sees the hunter, and spares the members each other.
+  // BOUNTY-FARM (Mac: "can you spawn some farmhouses there it says the granary is overrun?"): the farm pool
+  // (scenes/bountyFarms.js) - the nearest of the game's own farmsteads, its first block, stood on the bounty's pixel
+  // while this player holds a farm bounty there. Never saved; down when its pixel unloads, or - once the bounty is
+  // over - when the player is 200 m off.
+  const _farmBlocks = new Map();   // "px,py" of a farm location -> its first block's layout, laid once
+  bountyFarms = createBountyFarms({
+    collider: () => collider,
+    pixelTranslation: (px, py) => state.pixelTranslation(px, py),
+    pixelBuilt: (px, py) => built.get(`${px},${py}`) ?? null,
+    farmBlockNear: (px, py, key) => {
+      const best = pickFarm(_bountyFarmLocs, px, py, key);   // BOUNTY-FARM-PICK: one of the eight nearest, the notice's
+      if (!best) return null;
+      const k = `${best.px},${best.py}`;
+      if (!_farmBlocks.has(k)) {
+        let lay = null;
+        try { lay = layoutLocation(best.loc, maps, blocks, { enhanced: isEnhanced(), windmills: false }).blocks[0]?.layout ?? null; } catch { lay = null; }
+        _farmBlocks.set(k, lay ? { models: lay.models, side: RMB_SIDE } : null);
+      }
+      return _farmBlocks.get(k);
+    },
+    getGpuMesh: (id) => getGpuMesh(id),
+    cpuModel: (id) => cpuModels.get(id),
+    prepare: (gpu, p) => remapSubMeshes(gpu.subMeshes, p.texRemap,
+      (a, r) => applyClimate(a, r, getWorldClimateSettings(maps.getClimateIndex(p.px, p.py)).climateType, p.season), pipeline),
+    spotOk: (x, z, r) => {
+      const y = collider.heightAt?.(x, z) ?? 0;
+      return !_inAnyLocationRect([x, y, z]) && !_nearRoad([x, y, z], r) && !_overDeepWater(x, z);
+    },
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : cam.pos),
+    mode: () => _mode(),
+    enhanced: () => isEnhanced(),
+  });
+  let _farmSyncT = 0;   // BOUNTY-FARM: the pool is brought in line twice a second
+  /** BOUNTY-FARM / BOUNTY-TRAIL: how near its spot (the farmhouse, the second group's) the hunter must come before the
+   *  group stands - under the camps' 200 m cull, so a group stood is never culled on the frame it stands. */
+  const BOUNTY_GROUP_REACH_M = 150;
+  /** BOUNTY-TRAIL: the second group's spot on its pixel, pixel-local metres - the bounty id's roll over eight spots, the
+   *  first clear of roads, the sea and towns and on built ground, so every holder's second group waits in one place. */
+  const _bountyTrailSpot = (id, px, py) => {
+    const t = state.pixelTranslation(px, py);
+    for (let k = 0; k < 8; k++) {
+      const [lx, lz] = farmSpotLocal(`${id}:trail`, k);
+      const x = t[0] + lx, z = t[2] + lz;
+      const y = collider.heightAt?.(x, z);
+      if (!Number.isFinite(y)) continue;
+      if (_inAnyLocationRect([x, y, z]) || _nearRoad([x, y, z], 8) || _overDeepWater(x, z)) continue;
+      return [x, y, z];
+    }
+    return null;
+  };
+  const _standBountyPack = ({ id, mobileType, count, stage = 0, farm = false, target = null, farmKey = id, huntKey = id }) => {
+    const feet = player.feetAt();
+    // WHERE THE GROUP WAITS: a farm bounty's first group at its farmhouse, a split hunt's second group at its trail spot,
+    // every other group round the hunter as before. A spot still far off is answered `far` - the host names the way
+    let spotAt = null;
+    if (farm) {
+      spotAt = bountyFarms?.anchorFor(farmKey) ?? null;   // BOUNTY-TIER: the notice's one farm
+      if (!spotAt && bountyFarms && !bountyFarms.failed(farmKey)) return null;   // the farm is still going up: the next try
+    } else if (stage === 1 && target) {
+      spotAt = _bountyTrailSpot(huntKey, target.px, target.py);   // BOUNTY-TIER: the hunt's one trail, whoever's machine stands it
+    }
+    if (spotAt) {
+      const d = Math.hypot(spotAt[0] - feet[0], spotAt[2] - feet[2]);
+      if (d > BOUNTY_GROUP_REACH_M) return { far: true, dx: spotAt[0] - feet[0], dz: spotAt[2] - feet[2] };
+    }
+    // THE CAMP'S OWN STAND (_standCampEncounter above): the anchor on the terrain's floor - round the hunter 60 to 110
+    // metres out, or at the group's spot - the members round it at a pack's spacing, off roads, out of town rects and the
+    // sea, 60 m sight, one camp id; ONE beast `count` times, never grown by the party (`fixed`: the purse and the tally
+    // are the posting's), uncapped (`loose` - a board's hunt is not the encounter roll's to refuse) and never saved
+    // (`transient` - scenes/bountyHost.js stands what is left again)
+    const stood = _standCampEncounter({
+      mobileTypes: Array(count).fill(mobileType), fixed: true, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
+      minDistance: spotAt ? (farm ? 10 : 0) : 60, maxDistance: spotAt ? (farm ? 18 : 8) : 110,   // in the farmyard, beside the house / on the trail's spot
+      bearingDegrees: Math.random() * 360, spawnOpts: { loose: true, transient: true },
+    }, spotAt ?? feet);
+    if (!stood) return null;
+    return { foes: stood.foes, dx: stood.anchorFeet[0] - feet[0], dz: stood.anchorFeet[2] - feet[2] };
+  };
+  // BOUNTY1 (Mac: "Dungeon bounties (notices name a nearby dungeon)"): A BOUNTY'S PACK UNDERGROUND - its lair deeper in:
+  // the anchor is where one of the dungeon's own foes stands 25 to 90 metres from the hunter (the farthest there is when
+  // none is in that band), and the members stand round it through the dungeon's own chain (spawnLooseFoe - a loose
+  // stand rides the room's lane to everyone in it online, SUMMON-SYNC). A member with no floor near the anchor is not
+  // stood: the host stands what is left of the pack again on the next visit.
+  const _standBountyDungeonPack = ({ mobileType, count }) => {
+    const d = _dungeonPool();
+    if (!d?.spawnLooseFoe || !d.collider) return null;
+    const feet = enchantFeet();
+    const dist = (f) => Math.hypot(f.ai.feet[0] - feet[0], f.ai.feet[2] - feet[2]);
+    const layout = (d.foes ?? []).filter((f) => f?.ai?.feet && !f.puppet && f._ownFrom == null);
+    if (!layout.length) return null;
+    const band = layout.filter((f) => { const m = dist(f); return m >= 25 && m <= 90; });
+    const at = band.length ? band[Math.floor(Math.random() * band.length)] : layout.reduce((a, b) => (dist(b) > dist(a) ? b : a));
+    const anchorFeet = [at.ai.feet[0], at.ai.feet[1], at.ai.feet[2]];
+    const campId = _nextCampId++;
+    const stands = [];
+    for (let k = 0; k < count; k++) {
+      const env = placeFoeEnv({
+        collider: d.collider,
+        playerFeet: [anchorFeet[0], anchorFeet[1] + 0.9, anchorFeet[2]],
+        playerYawRad: Math.random() * Math.PI * 2,
+        fovDegrees: 0,
+        isOccupied: entityOccupancy((f) => f.ai?.feet ?? f.feet, () => d.foes ?? [], anchorFeet),
+      });
+      let spot = null;
+      for (let i = 0; i < LOOSE_FOE_PLACE_ATTEMPTS && !spot; i++) spot = placeFoeFreely(env, { minDistance: 1, maxDistance: 6, lineOfSightCheck: false });
+      if (!spot) continue;
+      const fly = (ENEMY_BASICS[mobileType]?.behaviour ?? 'General') === 'Flying';
+      stands.push(Promise.resolve(d.spawnLooseFoe(mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], { yawRad: Math.random() * Math.PI * 2 })).then((f) => {
+        if (f) { f.campId = campId; if (f.entity) f.entity.campId = campId; }
+        return f;
+      }).catch(() => null));
+    }
+    if (!stands.length) return null;
+    return { foes: Promise.all(stands), dx: anchorFeet[0] - feet[0], dz: anchorFeet[2] - feet[2] };
   };
   const _standLooseFoe = (mobileType, opts = {}) => {
     const mode = _mode();
@@ -6353,6 +6493,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // and the cache is invalid because the ORIGIN moved, which is the
     // reason, rather than because a splice happened to run first.
     doorGeneration += 1;   // WORLD-HOVER: the origin was re-anchored, so every door's WORLD matrix moved with it
+    bountyFarms?.destroyAll();   // BOUNTY-FARM: the frame moves under it - it stands again from the bounty, in the new one
     _streamSince = null;   // PERF-EXT24 (the review): the sweep ended the old world's stream - the new one's two seconds start at its first pump
     const first = queue.shift();
     if (seasonsActive && modEvent === 'travel') await seasons.onPostFastTravel().catch((e) => console.warn('[seasons] travel:', e?.message ?? e));   // SIB1: OnPostFastTravel, off the arrival month (SIB2: the travel popup's arm alone)
@@ -7079,6 +7220,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // basically permanent death for your character").
     reviveForPlay(playerEntity, { force: true });
     surfacePlayer();
+    const goldLost = applyDeathPenalty(playerEntity);   // DEATH-PENALTY: once per death - the _respawning guard above is what makes it once
     _deathWasOnline = null;   // armed fresh for the NEXT death
     const mode = modes?.mode ?? 'exterior';
     const wasInDungeon = mode === 'dungeon';
@@ -7129,7 +7271,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // cross a cell that re-reads vitals; it is the same value, so
       // this is idempotent rather than a second mercy.
       if (!(playerEntity.health > 0)) { reviveForPlay(playerEntity); surfacePlayer(); }
-      townTalk.showOverlay(new ActionTextBox([respawnFlavorText(kind)]));
+      townTalk.showOverlay(new ActionTextBox([respawnFlavorText(kind), deathPenaltyText(goldLost)].filter(Boolean)));   // DEATH-PENALTY: and what the fall cost
     }).catch((e) => {
       // RISE-STUCK: A RISE THAT THREW STILL RISES. The heal ran first
       // (MAC-D3), so the player is alive; a screen left up here has its
@@ -7610,6 +7752,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         // saved ones at their native spots.
         droppedLoot.restoreWorld(restandRows(w.piles), (nx, nz) => state.localFromWorld(nx, nz), state.compensation[1]);
         droppedTorches.restore(restandAt('position')(w.droppedTorches), (p) => { const [lx, lz] = state.localFromWorld(p[0], p[2]); return [lx, p[1] + state.compensation[1], lz]; });   // HT1
+        bountyFarms?.destroyAll();   // BOUNTY-FARM: a load - the farms stand again from the loaded bounties
         camps.dropOwn();   // AUDIT SURV-TIERS (the third pass): the save says which camps are mine - the pitch after it is undone, not kept beside the gear it gave back
         camps.restore(restandAt('pos')(w.camps), campFromNatives);   // SURV3
         // F216/F217: the pools re-mint through their one spawn chain,
@@ -8275,6 +8418,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       // WB1: THE OBLIVION GATE'S RING - a function for the party's reason (the countdown moves while the map stands
       // open); null offline and while no gate is marked, and both maps draw nothing
       gate: () => gateOmen?.mapMark() ?? null,
+      // BOUNTY1 (Mac: "board quests can be a green circle", then black - green is the party's): each held bounty's pixel, on both maps
+      bounties: () => bountyHost?.mapMarks() ?? [],
       // HUB1: each region's hub, marked and named - online alone (systems/regionHubs.js); offline the map is DFU's
       hubAt: params.has('online') ? (summary) => hubAtMapId(regionHubs, summary?.mapID ?? summary?.mapId) : null,
       // TO1: the mod itself rides travelFareDeps (above); the reads its additions to this window need follow.
@@ -9515,7 +9660,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9639-9703 -
+  // worldModes answers it in BOTH modes (worldModes.js:9647-9711 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -10704,6 +10849,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     setTransportModeShip: () => shipTransportMode(),
     currentRegionIndex: () => _questRegionIndex(),
   });
+  // BOUNTY1 (Mac: "i also dont see the bounty in my questlog means i cant abandon it?"): the bounties ride the quest
+  // log every journal face reads - the pause window's Quests tab and the chronicle, above ground and below (the dungeon
+  // context reads this same bridge) - as side quests with their clock; abandoning one is ui's word through
+  // systems/bountyJournal.js
+  {
+    const baseQuestLog = questBridge.questLog.bind(questBridge);
+    questBridge.questLog = () => {
+      const log = baseQuestLog();
+      const extra = bountyHost?.questLogEntries?.() ?? [];
+      return extra.length ? { ...log, active: [...(log?.active ?? []), ...extra] } : log;
+    };
+  }
   // E3: the pixels this host laid BEFORE the bridge existed - the start
   // pixel is built during init, above - get RMBLayout's third act now.
   // QuestMachine is a scene singleton in DFU, so its layout never has
@@ -10807,6 +10964,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  (repeatable) quest, or a copy no longer kept in step, stands its own waves; the map kept the old sharer, so every
    *  wave of the new one counted as placed while that member stood near, and nothing stood. */
   const _liveSharer = (q) => (questBridge?.machine?.hasSharedQuestNamed?.(q) ? (_questSharer.get(q) ?? null) : null);
+  let bountyHost = null;   // BOUNTY1: made below, beside the party's marks; read late by the maps, the pose and the boards
   let social = null, _partyComposedAt = -Infinity, _partyPose = null;   // PARTY8-B: the last pose composed, for the party HUD's own "where am I"
   let _rezOut = null, _rezSeen = null;   // RESURRECT1: my call to a fallen member; and, while I lie dead, what my party's poses said at my death
   let _deadMark = null;   // PCORPSE3: where my body lies while I am dead (my party pose says so)
@@ -12551,6 +12709,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       ...(partyTravel?.poseFields() ?? {}),
       ...(social?.leads?.() && mode === 'exterior' && walkMode && playerSpawned && !worldMoveBusy() ? partyFeetOf(player.pos) : {}),
       ...partyFxField(),   // PARTY-BUFFS: my live spell effects, for the party's cards (net/partyBuffs.js)
+      ...(bountyHost?.poseField() ?? {}),   // BOUNTY1: my bounties - the shared, the held and today's cleared (validPartyPose `bq`)
+      lv: Math.max(1, Math.min(99, playerEntity.level | 0 || 1)),   // BOUNTY-TIER: my level, so a sharer knows whose tier a bounty shuts out
       ...(!restsWithParty() || (_restAloneNight && playerEntity.isResting) ? { nr: 1 } : {}),   // REST-OPT: I rest alone - no voter, nobody to gather, no rest to mirror (AUDIT C3: and a night granted as my own stays mine to its end)
       ...(playerEntity.isResting ? { rs: 1 } : {}),   // PARTY-BUFFS: resting, mine or followed - what I gain is the night's, no heal to float
     };
@@ -13442,6 +13602,51 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  or a building is the place's own, and `in` says which so the map can put the word beside the name.
    *
    *  Composed on every read, never cached - the map holds this function, not its answer. */
+  // BOUNTY1 (2026-09-28, Mac: "Cities in this game have always 2 Bulletin Boards can we make it so that one of the two
+  // when opened gives a quest screen"): THE TOWNS' BOUNTY BOARDS, in the world - scenes/bountyHost.js. Every read it
+  // makes of the world is here; it registers its own save record (systems/modSaveData.js).
+  bountyHost = createBountyHost({
+    now: () => Math.floor(playerTicker.classicMinutes),
+    level: () => playerEntity.level | 0 || 1,
+    entity: () => playerEntity,
+    townName: (px, py) => String(locationIndex.get(`${px},${py}`)?.name ?? ''),
+    // the ground a pack may stand on: land (the height bytes say where the sea is, as the gate's scan reads them), no
+    // location of the game's own on the pixel, no spawned dungeon - every client's map files answer alike
+    siteOk: (x, y) => x > 0 && y > 0 && x < 999 && y < 499 && !_bountyLocPixels.has(`${x},${y}`) && !spawnsDungeon(_spawnSalt, x, y)
+      && !gateSeaPixel(maps.getClimateIndex(x, y), woods.getHeightMapValue(x, y)),
+    dungeonAt: (x, y) => _bountyDungeonPixels.get(`${x},${y}`) || null,
+    playerPixel: () => ((modes?.mode ?? 'exterior') === 'exterior' ? playerTravelPixel() : null),
+    // underground the streamer's pixel is frozen at the entrance - the dungeon's own pixel (playerTravelPixel's A10 note)
+    // the dungeon's OWN pixel - its location's map-table position - rather than the streamer's last pixel (which is
+    // where the player crossed in from, not necessarily the dungeon's)
+    dungeonPixel: () => {
+      if ((modes?.mode ?? 'exterior') !== 'dungeon') return null;
+      const mt = modes?.dungeonLocation?.mapTableData;
+      if (mt && Number.isFinite(mt.longitude) && Number.isFinite(mt.latitude)) return longitudeLatitudeToMapPixel(mt.longitude, mt.latitude);
+      return playerTravelPixel();
+    },
+    canStandDungeon: () => (modes?.mode ?? 'exterior') === 'dungeon' && !!modes?.dungeonCtx && !gamePaused() && !playerEntity.isResting,
+    standDungeonPack: (o) => _standBountyDungeonPack(o),
+    canStand: () => (modes?.mode ?? 'exterior') === 'exterior' && playerSpawned && !gamePaused() && !playerEntity.isResting
+      && !travelOptions?.isTravelActive && !(walkMode && player.isPlayerSwimming),
+    standPack: (o) => _standBountyPack(o),
+    foePool: () => ((modes?.mode ?? 'exterior') === 'dungeon' ? (modes?.dungeonCtx?.foes ?? []) : exteriorFoes.foes),
+    say: (line) => townTalk.say(line),
+    showNotice: (notice) => {
+      // the notice waits for the screen - the street's slot, and indoors or below the interior's and the dungeon's own
+      // stacks (`modes.overlayHeld`): a mate's clear lands while a shop or the pack is open, and must not stand over it
+      if ((townTalk.overlayActive && !townTalk.overlayDone) || (modes?.overlayHeld ?? false)) return false;
+      const ov = createBountyOverlay('notice', { notice });
+      if (!ov) return true;
+      townTalk.showOverlay(ov);
+      return true;
+    },
+    openBoardWindow: (deps) => { const ov = createBountyOverlay('board', deps); if (ov) townTalk.showOverlay(ov); },
+    social: () => (social?.party ? {
+      acct: social.acct ?? null, inParty: true,
+      mates: (social.others() ?? []).filter((m) => !!m.p).map((m) => ({ acct: m.acct, name: m.name, p: m.p })),
+    } : null),
+  });
   const partyMarkers = () => (social?.others() ?? [])
     .filter((m) => !!m.p)
     .map((m) => ({
@@ -14946,12 +15151,15 @@ export async function bootWorld(canvas, renderer, params, status) {
       for (const p of built.values()) {
         if (!p.boards?.length) continue;
         const t = state.pixelTranslation(p.px, p.py);
-        for (const b of p.boards) {
+        // BOUNTY1: half the town's boards post its bounties - every client picks the same half (questBoardIndices)
+        const bountyAt = p.location ? questBoardIndices(p.boards) : new Set();
+        p.boards.forEach((b, i) => {
           out.push({
             min: [b.box[0] + t[0], b.box[1] + t[1], b.box[2] + t[2]],
             max: [b.box[3] + t[0], b.box[4] + t[1], b.box[5] + t[2]],
+            ...(bountyAt.has(i) ? { bounty: { px: p.px, py: p.py, name: p.location } } : {}),
           });
-        }
+        });
       }
       return out;
     },
@@ -14981,6 +15189,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // ActivateBulletinBoard's news (:716) - the mill's SIGN face,
     // ported at TK-i and until now called by nothing.
     bulletinBoardNews: () => rumorMill.getNewsOrRumorsForBulletinBoard(),
+    openBountyBoard: (town) => bountyHost?.openBoard(town) ?? false,   // BOUNTY1: a bounty board's press
     baseCollider: () => collider,
     // E2: one entered door -> its merged building identity. Door
     // positions resolve in the pixel's LOCATION frame (the raw
@@ -15500,6 +15709,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       ambience.update(dt, { inside: true, underground: modes.mode === 'dungeon', indoorRainSource: betterAmbience.rainPlaying() });
       if (dwPlayer) { audio.setListenerLowPass(0); _dwSwimSound.reset(); dwPlayer.insideFrame(player, now / 1000); dwFlushStateChange(); }   // DW-D: IsPlayerInside - RemoveAudioFilter, ResetSwimTrack
       if (dwFish) { _dwFishInside = true; dwFish.pulse.pump(dwFishFrame(dt)); }   // DW-E3: indoors the exterior (and its fish) is inactive; the mod's pulse runs on - out of the water context, cleared two seconds oning, the driver's inside arm
+      // BOUNTY1 (Mac, 2026-09-28: "one of my quests turned into a graveyard dungeon quest where i had to kill spiders,
+      // sadly no spider where to be found"): the bounties tick INDOORS too. This modal arm returns before the
+      // exterior frame's tick below, so underground the hunt was asleep - a dungeon bounty's pack never stood, and a
+      // purse earned inside held its notice until the street. The farms come down here (their sync's mode test).
+      try { bountyHost?.tick(dt); } catch (e) { console.warn('[bounty] tick', e); }
+      _farmSyncT -= dt;
+      if (_farmSyncT <= 0) { _farmSyncT = 0.5; try { bountyFarms?.sync(bountyHost?.farmsWanted() ?? []); } catch (e) { console.warn('[bounty] farms', e); } }
       // AUDIT F2-I1: the modal frame RETURNS, so an overlay held in the
       // townTalk slot got neither its clock nor its draw while the
       // player was inside a building or a dungeon - chargen mounts
@@ -16386,6 +16602,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         }
       }
     }
+    try { bountyHost?.tick(dt); } catch (e) { console.warn('[bounty] tick', e); }   // BOUNTY1: the hunts - packs stood and counted, a purse paid, a notice raised
+    _farmSyncT -= dt;
+    if (_farmSyncT <= 0) { _farmSyncT = 0.5; try { bountyFarms?.sync(bountyHost?.farmsWanted() ?? []); } catch (e) { console.warn('[bounty] farms', e); } }   // BOUNTY-FARM: the farms brought in line with the bounties held
     pump();
 
     // ROAD-E E5: the DOCKED large HUD shrinks the world pass rather
@@ -16666,6 +16885,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     gatePool?.draw(renderer);   // WB2: the Oblivion Gate's stone
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
     hcc.draw(renderer);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass)
+    bountyFarms?.draw(renderer);   // BOUNTY-FARM: a held farm bounty's farmstead
 
     // WM2b: read the eased wind ONCE a frame, not once a mill.
     const windNow = sky.wind();
