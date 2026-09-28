@@ -220,13 +220,13 @@ test('AUDIT DW-F E-1: a foe under the carved sea takes the water column\'s share
   // one column law, three programs: the floor, the decorations, and both lanes' flats
   const renderSrc = rd('src/render/renderer.js');
   const bb = renderSrc.slice(renderSrc.indexOf('const BB_FS = `'), renderSrc.indexOf('// Dungeon water: one horizontal quad'));
-  assert.match(bb, /\$\{FOG_GLSL\}\n\$\{COLUMN_GLSL\}\n(?:\$\{HIT_FLASH_GLSL\}\n)?void main\(\)/, 'the classic flats declare it after the fog block');   // merged beside HITFLASH1's term, which reads neither
+  assert.match(bb, /\$\{FOG_GLSL\}\n\$\{COLUMN_GLSL\}\n\$\{HIT_FLASH_GLSL\}\nvoid main\(\)/, 'the classic flats declare it after the fog block, and HITFLASH1\'s term after it');   // AUDIT PRE-MERGE 0928 N7: no longer optional - BB_FS calls hitFlashLit, so without the term the classic flats' program does not compile
   assert.match(bb, /outColor = vec4\(dwWaterFog\(dwColumn\(mix\(uFogColor, lit, fogFactorAt\(vBBWorld\)\), vBBWorld\), vBBWorld\), alpha\);/, 'the world fog, the share, the sea\'s fog - the floor\'s own order');
   assert.ok(EL_BB_FS.includes(COLUMN_GLSL), 'the lane\'s flats too');
   assert.match(EL_BB_FS, /outColor = vec4\(dwColumn\(elFinish\(lit, vBBWorld\), vBBWorld\), alpha\);/, 'on the finished display colour (the sea\'s fog is off whenever the share is on)');
 });
 
-test('AUDIT DW-F E-1: the renderer hands the column to the flats the host flagged and to no other - the switch per batch, the surface on its own unit, a frame\'s (mutants: every flat switched; the surface on the picture\'s unit; the frame kept)', () => {
+test('AUDIT DW-F E-1: the renderer hands the column to the flats the host flagged and to no other - the switch per batch, the surface on its own unit, a frame\'s; and the switch a flat draws with is the one it asked for across calls and frames, the program holding its last upload (mutants: every flat switched; the surface on the picture\'s unit; the frame kept; the block forgets the switch\'s shadow)', () => {
   const log = [];
   const r = recordingRenderer(log);
   const surf = { surface: true };
@@ -249,6 +249,25 @@ test('AUDIT DW-F E-1: the renderer hands the column to the flats the host flagge
   r.drawBillboards([a, b], new Float32Array([1, 0, 0]), new Float32Array([0, 1, 0]));
   assert.ok(log.filter((e) => e.name === 'uColumnOn').every((e) => e.args[0] === 0), 'beginFrame clears it');
   assert.ok(!log.some((e) => e.fn === 'bind' && e.unit === BB_SURFACE_UNIT));
+  // AUDIT PRE-MERGE 0928 M3: TWO FRAMES, TWO CALLS EACH. A uniform is the program's and holds until the next upload
+  // to it, so what a draw reads is the last `uColumnOn` sent before it, whichever call sent it. Each frame's first call
+  // opens on the flagged flat and its second ends on it - so the next frame opens on a program left switched on, under
+  // a new block that switches it off: the renderer's shadow of the switch must be reset with it, or the flagged flat
+  // takes the frame's first draw with the switch the block left.
+  let sw = 0;
+  const draws = (batches) => {
+    log.length = 0;
+    r.drawBillboards(batches, new Float32Array([1, 0, 0]), new Float32Array([0, 1, 0]));
+    const read = [];
+    for (const e of log) { if (e.name === 'uColumnOn') sw = e.args[0]; if (e.fn === 'draw') read.push(sw); }
+    return read;
+  };
+  for (let f = 0; f < 2; f++) {
+    r.beginFrame(identity(), identity(), new Float32Array([0, 1, 0]));
+    r.setWaterColumn({ seaY: 34, topColor: [0.1, 0.3, 0.35, 0.42], topVision: 18, surfaceScroll: [0.2, 0.1], surfaceTexture: surf, origin: [0, 0, 0] });
+    assert.deepEqual(draws([a, b]), [1, 0], `frame ${f}, the first call: the flagged flat on, the other off`);
+    assert.deepEqual(draws([b, a]), [0, 1], `frame ${f}, the second call: the other off, the flagged flat on - the frame ends switched on`);
+  }
 });
 
 test('AUDIT DW-F E-1: the host flags the flats that STAND in a carved column - a foe\'s feet or a pile\'s spot, under the sea\'s line, over a carved point - and draws them flagged (pins)', () => {

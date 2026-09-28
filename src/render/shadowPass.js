@@ -1102,10 +1102,19 @@ export class ShadowPass {
     if (!same) { m.set(matrix); s.at = this.frameNo; }
     return s.at != null && this.frameNo - s.at < SHADOW_DYNAMIC_HOLD;   // moved now, or within the hold
   }
+  /** AUDIT PRE-MERGE 0928 R1: its vertex generation (updateMeshVertices, a sail's bake; 0 before one) changed since the
+   *  pass last saw it, now or within the hold - _moved's law for the mesh's own geometry; a first sight is still. */
+  _reshaped(mesh) {
+    const g = mesh._vertGen ?? 0;
+    if (mesh._vertSeen === undefined) { mesh._vertSeen = g; return false; }
+    if (mesh._vertSeen !== g) { mesh._vertSeen = g; mesh._vertMovedAt = this.frameNo; }
+    return mesh._vertMovedAt !== undefined && this.frameNo - mesh._vertMovedAt < SHADOW_DYNAMIC_HOLD;
+  }
   recordMesh(mesh, matrix, texRemap) {
     const r = this._rec(); if (!r) return;
     r.kind = REC_MESH; r.mesh = mesh; r.matrix.set(matrix); r.texRemap = texRemap;
-    r.dynamic = this._moved(mesh, matrix);   // SC1
+    const moved = this._moved(mesh, matrix), reshaped = this._reshaped(mesh);   // AUDIT PRE-MERGE 0928 R1: both asked every record - each keeps its own memory
+    r.dynamic = moved || reshaped;   // SC1
     // EL5: the spheres, in the world, once per record (a mesh without bounds is drawn by every replay)
     r.bounded = !!mesh.bounds;
     if (r.bounded) {

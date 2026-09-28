@@ -4012,6 +4012,12 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, normals);
     boundsOf(positions).forEach((v, i) => { mesh.bounds[i] = v; });
     for (const sm of mesh.subMeshes) boundsOf(positions, mesh.triIndices, sm.startIndex, sm.primitiveCount * 3).forEach((v, i) => { sm._bounds[i] = v; });
+    // AUDIT PRE-MERGE 0928 R1: a bake that moves a vertex is a new generation, a move to the lantern cache (shadowPass.js _reshaped) that its still matrix hid; a still sail's re-bake is none
+    const was = mesh._vertWas;
+    if (!was || was.length !== positions.length || !was.every((v, i) => v === positions[i])) {
+      mesh._vertGen = (mesh._vertGen ?? 0) + 1;
+      if (was && was.length === positions.length) was.set(positions); else mesh._vertWas = Float32Array.from(positions);
+    }
   }
 
   /** INCIDENT 2026-09-04: CameraClearManager.cs:23-25/:51-57 - inside,
