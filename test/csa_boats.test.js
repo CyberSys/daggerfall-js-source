@@ -165,6 +165,14 @@ test('CSA-B: which Daggerfall texture a slot wears - RuntimeMaterials in the com
   ] });
   applyRuntimeMaterials(odd);
   assert.deepEqual(odd.getComponent('MeshRenderer').materials, [{ bundle: 'a' }, { archive: 3, record: 3 }]);
+  // CSA-J (the audit): and the C# writes into a COPY assigned past its loop - a good entry before the bad one lands nothing either
+  const partial = new PrefabNode('partial', { components: [
+    { type: 'MeshRenderer', m_Materials: [{ material: 'a' }, null] },
+    { type: 'MonoBehaviour', m_Script: { script: 'RuntimeMaterials' }, Materials: [{ Index: 0, Archive: 4, Record: 4 }, { Index: 9, Archive: 5, Record: 5 }] },
+  ] });
+  assert.equal(applyRuntimeMaterials(partial), 0);
+  assert.deepEqual(partial.getComponent('MeshRenderer').materials, [{ bundle: 'a' }, null], 'the copy never assigned');
+  assert.equal(partial.getComponent('MonoBehaviour').hasAppliedMaterials, 1, 'and its finally marks it applied');
   // ApplyGameTextures reads Convert.ToInt32 either side of the first '_'
   assert.deepEqual(gameTextureFromName('050_007'), { archive: 50, record: 7 });
   assert.deepEqual(gameTextureFromName('050_007 '), { archive: 50, record: 7 }, 'the trailing space four of the skiff\'s sails carry');

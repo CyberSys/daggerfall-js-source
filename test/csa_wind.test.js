@@ -229,7 +229,7 @@ const stowed = (sail) => animatorOf(sail).GetBool('Stowed');
 /** A wind of length `len` at `deg` degrees about up off the sail's own flat forward. */
 const windOff = (sail, deg, len = 1) => turnUp(deg, flatNorm(forwardOf(sail))).map((v) => v * len);
 
-test('CSA-E: GetSailPower - a lateen at half off its own forward and full at 135, down to half at 165 and nought past it, a fifth-and-a-bit less on its bad tack; large half again', () => {
+test('CSA-E: GetSailPower - a lateen at half off its own forward and full at 135, down to half at 165 and nought past it, 15% less (x0.85) on its bad tack; large half again', () => {
   const s = scene();
   const boat = s.helm(s.place(1, 0));   // the skiff's one large lateen
   s.rt.RaiseSails();

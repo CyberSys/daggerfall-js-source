@@ -368,9 +368,14 @@ export function createWorldModes(host) {
    *  exhaustion law (DaggerfallEntity.cs:360-366) - the old comment
    *  claimed the ticker owned the collapse; nothing did. */
   let _inExhaustion = false;
+  /** CSA-J (the audit): a bed's click in a building - Roleplay Realism's BedActivation, DaggerfallUI's gate less its
+   *  offer rung, and the window told the bed is the one clicked (`new DaggerfallRestWindow(uiManager, true)`). */
+  let _restFromBed = false;
+  const restFromInteriorBed = () => { _restFromBed = true; try { interiorKeyCtx.toggleRest({ ignoreAllocatedBed: true }); } finally { _restFromBed = false; } };
   function onExhaustedInterior() {
     if (_inExhaustion) return;
     _inExhaustion = true;
+    host.csaOnPlayerDeath?.();   // CSA-J (the audit): PlayerEntity.OnExhausted -> ComeSailAway.OnPlayerDeath, indoors too
     try {
       const out = exhaustionOutcome({
         enemiesNearby: interiorEnemiesNearby(), swimming: false, entity: playerEntity,
@@ -403,6 +408,7 @@ export function createWorldModes(host) {
     if (playerEntity.fatigue <= 0 && playerEntity.health > 0) onExhaustedInterior();
   };
   const presentInteriorDeath = () => {
+    host.csaOnPlayerDeath?.();   // CSA-J (the audit): PlayerEntity.OnDeath -> ComeSailAway.OnPlayerDeath, indoors too
     // DC1: the LIVE eye and capsule, as PlayerEntity_OnDeath reads them
     // (`player` is the host destructure below; this runs at death, long
     // after it binds - the U45 TDZ shape only bites immediate reads).
@@ -463,7 +469,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3768 hands
+   * record these hosts mint spells it `name` (exterior.js:3770 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1150,7 +1156,7 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:389-390), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:959-963 and
+   *  READ the effect list every frame (exteriorFoes.js:961-965 and
    *  cityGuards.js:949-955 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -6215,7 +6221,7 @@ export function createWorldModes(host) {
         return true;
       }
       if (key.startsWith('bed:')) {
-        interiorKeyCtx.toggleRest({ ignoreAllocatedBed: true });   // RR1: BedActivation (RoleplayRealism.cs:464-506) IS DaggerfallUI's rest gate, then the window; AUDIT-RR F6: `new DaggerfallRestWindow(uiManager, true)` (:524) - you rest in the bed you clicked, not the room's allocated one
+        restFromInteriorBed();   // RR1: BedActivation (RoleplayRealism.cs:464-506) is DaggerfallUI's rest gate less its GiveOffer rung (CSA-J's audit), then the window; AUDIT-RR F6: `new DaggerfallRestWindow(uiManager, true)` (:524) - you rest in the bed you clicked, not the room's allocated one
         return true;
       }
       if (key.startsWith('person:')) {
@@ -6609,6 +6615,7 @@ export function createWorldModes(host) {
           // function), the same way partyRestGate itself already is - see its doc comment for the bug this closes.
           markPartyRestSpent: () => host.markPartyRestSpent?.(),
           csaDrawWindWidget: () => host.csaDrawWindWidget?.(),   // CSA-E: the wind widget over the dungeon's HUD
+          csaOnPlayerDeath: () => host.csaOnPlayerDeath?.(),   // CSA-J (the audit): a death or a collapse underground leaves the helm
           csaDrawParticlesBlended: () => host.csaDrawParticlesBlended?.(),   // CSA-F: a kept boat's drops, after the dungeon's water
           cancelPartyRestStart: () => host.cancelPartyRestStart?.(),   // PARTY-REST29: a dungeon rest window closed unrested
           partyRestHere: () => host.partyRestHere?.() === true,   // OVH4: the dungeon's rest is the party's too - the party card on either skin
@@ -6632,6 +6639,8 @@ export function createWorldModes(host) {
           // (There's a Hole in the Bottom of the Ocean's abyss was lost to a save made inside it)
           modSaveRecords: () => host.modSaveRecords?.() ?? {},
           modSaveLoad: (modData) => host.modSaveLoad?.(modData),
+          modStartLoad: () => host.modStartLoad?.(),   // CSA-J (the audit): OnStartLoad ahead of the save's player
+          modLoaded: () => host.modLoaded?.(),   // CSA-J (the audit): OnLoad once the load has landed
           useMagicItem: (item) => host.useMagicItem?.(item), revealMap: host.revealLocation ? () => host.revealLocation('readMap') : null,   // MAPLOOT1: RecordLocationFromMap's reveal underground (DaggerfallInventoryWindow.cs:1819-1846) - a corpse's map was studied and left on the body
           // QUEST1: the SAME two Share-button hooks, delegated straight
           // through - the dungeon has no online layer of its own, only
@@ -6778,7 +6787,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:6672), so the OUTER host's one rides in.
+          // (dungeonContext.js:6679), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -7512,6 +7521,10 @@ export function createWorldModes(host) {
         });
       }
     }
+    // CSA-J (the audit): Come Sail Away's Update and LateUpdate AFTER the motor, as the street runs them - the helm's pin
+    // and the boat's move carry the body before the eye is taken, the water walk's box and the riders read this frame's
+    // places - every frame, a held one too (the mod's own pause arm), on this frame's axes (InputManager.Horizontal/Vertical)
+    host.csaFrame?.(dt, { h: axes.strafe, v: axes.forward });
     if (mode === 'dungeon' && dungeonCtx) {
       // P11: the splash/jump/swim-minute fatigue feed (same seam as
       // the standalone scene); P14's fall landing rides the same call.
@@ -7930,7 +7943,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:11561's own wave-46 note); the interior
+          // a blow (world.js:11611's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8855,7 +8868,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3830`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3832`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -9321,6 +9334,7 @@ export function createWorldModes(host) {
         // a pending `give pc ... notify` offer takes this press and
         // the rest window stays shut (ui/pendingOffer.js).
         giveOffer,
+        ...(_restFromBed ? { giveOffer: null } : null),
         racialOverrideBlocks: !!rb,
       });
       if (d.kind !== 'rest') {
@@ -9738,8 +9752,8 @@ export function createWorldModes(host) {
     // door, the window told the bed is the one clicked as RR1's own beds tell it (`new DaggerfallRestWindow(uiManager,
     // true)`; only a tavern's allocated bed reads it)
     restFromBed() {
-      if (mode === 'interior' && interiorCtx) interiorKeyCtx.toggleRest({ ignoreAllocatedBed: true });
-      else if (mode === 'dungeon' && dungeonCtx) dungeonCtx.toggleRest();
+      if (mode === 'interior' && interiorCtx) restFromInteriorBed();
+      else if (mode === 'dungeon' && dungeonCtx) dungeonCtx.restFromBed();
     },
     // ONLINE1: what the host needs to name the room - the mounted dungeon's
     // location, the interior's building; null in the exterior
@@ -10326,6 +10340,12 @@ export function createWorldModes(host) {
     // this host's arithmetic - `interiorPaused` is the one place the
     // question is asked (see its note at the stack's construction).
     get overlayHeld() { return (mode === 'interior' && interiorPaused()) || (mode === 'dungeon' && !!dungeonCtx?.uiOverlayActive); },
+    /** CSA-J (the audit): PlayerEntity.DecreaseFatigue indoors - the mode's own door and its collapse (true: handled). */
+    drainPlayerFatigue: (n) => {
+      if (mode === 'dungeon' && dungeonCtx?.drainPlayerFatigue) { dungeonCtx.drainPlayerFatigue(n); return true; }
+      if (mode === 'interior') { drainInteriorFatigue(n); return true; }
+      return false;
+    },
     /** AUDIT 64 F35 (review round): the same union, asked of the
      *  previousWindow chain instead of the pause latch - see
      *  `modeHudCovered`. The outer hosts OR this with townTalk's. */
@@ -10478,9 +10498,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3412-3434), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3414-3436), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:8413). So an F9 pressed in a shop
+     *  unconditionally (world.js:8454). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10519,7 +10539,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:8515)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:8556)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10529,8 +10549,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:8668`
-     *  and `dungeonContext.js:6683` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:8710`
+     *  and `dungeonContext.js:6690` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

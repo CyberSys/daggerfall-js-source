@@ -256,7 +256,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2040); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2045); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** AUDIT WORLD3 E3: can the ONE build chain actually stand this species? Both of buildFoeAt's branches need a truthy
@@ -1760,7 +1760,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:11767 / exterior.js:3692), set
+  // host's own townTalk sink (world.js:11817 / exterior.js:3694), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2144,6 +2144,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // way out, so a dungeon that kept the seam left every later death
   // above ground presenting into a torn-down context's overlay slot.
   const _prevDeathPresenter = setDeathPresenter(() => {
+    opts.csaOnPlayerDeath?.();   // CSA-J (the audit): PlayerEntity.OnDeath -> ComeSailAway.OnPlayerDeath, underground too
     if (!(activeOverlay instanceof DeathScreen)) {
       // A1 review: this is the one FORCED overwrite of the overlay
       // slot - a window holding GL resources (the automap's batches
@@ -2204,6 +2205,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  comment said the port had no source for the Improved Athleticism
    *  enchantment. It has had one since E1 decoded ImprovesTalents. */
   const fatigueLossMultiplier = () => fatigueLossMultiplierFor(playerEntity);
+  let _restFromBed = false;   // CSA-J (the audit): the rest press is a bed's - BedActivation's gate has no GiveOffer rung (RoleplayRealism.cs:487-525)
   function drainFatigue(n) {
     if (n <= 0) return;
     playerEntity.fatigue = Math.max(0, (playerEntity.fatigue ?? 0) - n);
@@ -2218,6 +2220,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  collapse KILLS. The text box is click-anywhere-to-close and
    *  holds the motor like every overlay. */
   function onExhausted() {
+    opts.csaOnPlayerDeath?.();   // CSA-J (the audit): PlayerEntity.OnExhausted -> ComeSailAway.OnPlayerDeath, underground too
     // GameManager.AreEnemiesNearby() (PlayerEntity.cs:2397) - the
     // STRICT variant, through the ONE home the three hosts ask.
     const enemiesNearby = areEnemiesNearby(foes);
@@ -2301,7 +2304,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1242,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1248,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2833,7 +2836,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1097 against :1127; worldModes.js:7281 against :7307).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1097 against :1127; worldModes.js:7290 against :7316).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3494,8 +3497,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17979,
-              // exterior.js:5264 and worldModes.js:7955 already ran;
+              // playerArrowHitFoe is the one copy world.js:18038,
+              // exterior.js:5266 and worldModes.js:7968 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -3881,7 +3884,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (!_authority || !data || typeof data !== 'object') return false;
     const i = data.i | 0, dmg = Number(data.dmg);
     const f = foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2040). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2045). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || i >= _layoutFoes || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -4382,7 +4385,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1612's restoreWorld goes through
+    // construction (exteriorFoes.js:1615's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -6555,6 +6558,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // toggleClosedBinding - so a second Rest press ends a running rest
     // or closes the selection page (:302-315), which is
     // DaggerfallRestWindow.Update :187-196 whole.
+    /** CSA-J (the audit): a bed's click - Roleplay Realism's BedActivation, DaggerfallUI's gate less its offer rung. */
+    restFromBed() { _restFromBed = true; try { this.toggleRest(); } finally { _restFromBed = false; } },
     toggleRest() {
       if (activeOverlay) return;
       if (isGateArena(dfLocation)) { hudText.add(COURT_TEXT.noRest); return; }   // WB3b: an enemy is always near - the boss
@@ -6589,6 +6594,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // a pending `give pc ... notify` offer takes this press and
         // the rest window stays shut (ui/pendingOffer.js).
         giveOffer,
+        ...(_restFromBed ? { giveOffer: null } : null),
         racialOverrideBlocks: !!rb,
       });
       if (d.kind !== 'rest') {
@@ -6634,6 +6640,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // waterWalking flag lands its swimmer).
     playerLevitating: () => hasActiveEffect(playerEntity, 'levitate'),
     playerWaterWalking: () => isEntityWaterWalking(playerEntity),   // CSA-I: IsWaterWalking, either effect
+    drainPlayerFatigue: (n) => drainFatigue(n),   // CSA-J (the audit): PlayerEntity.DecreaseFatigue underground - the dungeon's own collapse
     playerParalyzed: () => entityIsParalyzed(playerEntity),   // S19 gates + the S22 FreeAction fold
 
     // P11: per-frame activity feed - the splash on the swim edge, the
@@ -6758,11 +6765,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         Promise.resolve().then(() => opts.worldLoad(k));
         return;
       }
+      opts.modStartLoad?.();   // CSA-J (the audit): SaveLoadManager.OnStartLoad ahead of the save's player (:1378)
       const extras = restorePlayer(playerEntity, snap, spellsByIndex);
       if (!extras) { hudText.add('Save version mismatch.'); return; }
       opts.modSaveLoad?.(extras.modData ?? null);   // WA1: the registered mods' records (or their NewSaveData), as a world load restores them
       opts.horseCartLoad?.(extras.modData?.['horse-cart-and-cargo'] ?? null);   // AUDIT HCC H3: OnStartLoad, then RestoreSaveData - the same-dungeon load is a load too
       this.restoreSaved(extras, setPlayerPos);
+      opts.modLoaded?.();   // CSA-J (the audit): SaveLoadManager.OnLoad once the load has landed (:1554)
     },
     /** MAC6 #1: the load's second half - everything after restorePlayer
      *  - on its own, so the WORLD host's boot load can re-enter this

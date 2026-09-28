@@ -101,6 +101,10 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   /** @type {any} */ let models = null;
   let modelsLoading = null, modelsFailed = false;
   /** @type {any[]} */ const boats = [];
+  /** CSA-J: the peers' boats (scenes/comeSailAwayPeers.js) - drawn, baked and lit as mine, but never in `boats`, so
+   *  the host's colliders, rays and activations (which read `boats`) never meet them. */
+  /** @type {any[]} */ const peerBoats = [];
+  const drawn = () => (peerBoats.length ? boats.concat(peerBoats) : boats);
   const meshes = new Map();      // rendererModelKey -> gpu mesh | null
   const meshLoads = new Map();   // in flight
   const bakes = new Map();       // FixDeformations script -> { gpu, positions, normals, loading }
@@ -157,8 +161,8 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   /** CSA-C: SpawnBoat as the C# runs it - at once, on what `preload` brought in; null before that. */
   function spawnNow(boat, player) {
     if (!models) return null;
+    boats.push(boat);   // CSA-J (the audit): in the scene before it is built - a SpawnBoat that throws half way (a variant past the hull's) leaves its half-built hull standing, as the C#'s GameObject does
     spawnBoat(boat, { models, player: () => player, billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
-    boats.push(boat);
     return boat;
   }
   /** CSA-H: SetBoatVariant (1304-1308) on the pool's own context - a reinitialize instances nothing, so the player's
@@ -167,11 +171,19 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   function setVariant(boat, variant) {
     setBoatVariant(boat, variant, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
   }
+  /** CSA-J: a peer's boat, built as SpawnBoat builds one (at the origin - its owner's word poses it) and drawn. */
+  function spawnPeerNow(boat) {
+    if (!models) return null;
+    spawnBoat(boat, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
+    peerBoats.push(boat);
+    return boat;
+  }
   /** Object.Destroy(boat.GameObject): its meshes, bakes and flats go with it. */
   function remove(boat) {
-    const i = boats.indexOf(boat);
+    const list = boats.includes(boat) ? boats : peerBoats;
+    const i = list.indexOf(boat);
     if (i < 0) return;
-    boats.splice(i, 1);
+    list.splice(i, 1);
     for (const n of boat.GameObject.walk()) {
       const b = flats.get(n); if (b) { renderer?.destroyBillboardBatch?.(b); flats.delete(n); }
       for (const c of n.components) if (c.type === 'FixDeformations') { const k = bakes.get(c); if (k?.gpu) renderer?.destroyMesh?.(k.gpu); bakes.delete(c); }
@@ -231,7 +243,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
    */
   function frame(gameDt, world = {}) {
     const playerPosition = world.playerPosition ?? [0, 0, 0];
-    for (const boat of boats) {
+    for (const boat of drawn()) {
       for (const [n] of activeObjects(boat.GameObject)) {
         for (const c of n.components) {
           if (c.type === 'FixDeformations') lateUpdateHolder(c, n, gameDt);
@@ -245,7 +257,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   /** The billboards: a batch per active, drawn flat, its centre on its object. */
   function syncFlats() {
     const seen = new Set();
-    for (const boat of boats) {
+    for (const boat of drawn()) {
       for (const [n, m] of activeObjects(boat.GameObject)) {
         const bb = n.getComponent('DaggerfallBillboard');
         if (!bb) continue;
@@ -275,7 +287,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   function draw(r = renderer, texRemap = null) {
     if (!models || !r?.drawMesh) return 0;
     let n = 0;
-    for (const boat of boats) {
+    for (const boat of drawn()) {
       for (const [node, m] of activeObjects(boat.GameObject)) {
         const mr = node.getComponent('MeshRenderer');
         if (!mr || mr.m_Enabled === false || mr.materials?.[0]?.billboard) continue;
@@ -299,7 +311,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   /** The lit lanterns for the host's light list: the nearest CSA_LIGHTS_MAX to the eye. */
   function lights(eye = null) {
     const out = [];
-    for (const boat of boats) {
+    for (const boat of drawn()) {
       for (const l of boat.Lights) {
         if (!l.enabled || !l.node.activeInHierarchy) continue;
         const p = l.node.position;
@@ -317,11 +329,13 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
       boat.GameObject.localPosition = [p[0] + offset[0], p[1] + offset[1], p[2] + offset[2]];
     }
   }
-  function destroyAll() { for (const b of [...boats]) remove(b); }
+  function destroyAll() { for (const b of [...boats, ...peerBoats]) remove(b); }
 
   return {
     ensureModels, spawn, spawnNow, preload, ready: () => preloaded, remove, setVariant, frame, batches, draw, lights, offsetAll, destroyAll,
+    spawnPeerNow,
     get boats() { return boats; },
+    get peerBoats() { return peerBoats; },
     get models() { return models; },
     /** A probe's reading: what stands, and how much of it is drawn. */
     stat: () => boats.map((b) => ({ hull: b.hull, variant: b.variant, position: b.GameObject.position.map((v) => +v.toFixed(2)), meshes: [...meshes.values()].filter(Boolean).length, bakes: [...bakes.values()].filter((k) => k.gpu).length, flats: flats.size, lights: b.Lights.filter((l) => l.enabled).length })),

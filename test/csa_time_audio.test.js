@@ -400,13 +400,15 @@ test('CSA-G: the boat\'s bed is Roleplay Realism\'s - the Small Ship\'s and the 
   assert.match(pick, /const bed = modelId == null && bedSleepingOn\(\) && csaCustomModelOf\(best\.hit\.node\?\.name, BED_MODELS\) != null;/);
   assert.match(pick, /:\$\{modelId \?\? \(bed \? 'bed' : 'hull'\)\}`/);
   assert.match(pick, /reach: bed \? DEFAULT_ACTIVATION_DISTANCE : CSA_ACTIVATION_DISTANCE,/);
-  assert.match(pick, /if \(pick\?\.bed\) \{\s*if \(pick\.distance <= DEFAULT_ACTIVATION_DISTANCE\) \{ if \(\(modes\?\.mode \?\? 'exterior'\) === 'exterior'\) toggleRest\(\); else modes\?\.restFromBed\?\.\(\); \}\s*return;\s*\}/);
+  // CSA-J (the audit): the bed's press says it is one - BedActivation is the gate less its GiveOffer rung
+  assert.match(pick, /if \(pick\?\.bed\) \{\s*if \(pick\.distance <= DEFAULT_ACTIVATION_DISTANCE\) \{ if \(\(modes\?\.mode \?\? 'exterior'\) === 'exterior'\) \{ _restFromBed = true; try \{ toggleRest\(\); \} finally \{ _restFromBed = false; \} \} else modes\?\.restFromBed\?\.\(\); \}\s*return;\s*\}/);
   const wm = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');
   const at = wm.indexOf('    restFromBed() {');
   assert.ok(at > 0);
   const door = wm.slice(at, wm.indexOf('\n    },', at));
-  assert.match(door, /if \(mode === 'interior' && interiorCtx\) interiorKeyCtx\.toggleRest\(\{ ignoreAllocatedBed: true \}\);/);
-  assert.match(door, /else if \(mode === 'dungeon' && dungeonCtx\) dungeonCtx\.toggleRest\(\);/);
+  assert.match(door, /if \(mode === 'interior' && interiorCtx\) restFromInteriorBed\(\);/);
+  assert.match(door, /else if \(mode === 'dungeon' && dungeonCtx\) dungeonCtx\.restFromBed\(\);/);
+  assert.match(wm, /const restFromInteriorBed = \(\) => \{ _restFromBed = true; try \{ interiorKeyCtx\.toggleRest\(\{ ignoreAllocatedBed: true \}\); \} finally \{ _restFromBed = false; \} \};/, 'the window told the bed is the one clicked, the offer rung skipped');
 });
 
 // ── the borrowed ship's scenes ─────────────────────────────────────────────────

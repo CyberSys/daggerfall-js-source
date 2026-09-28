@@ -94,8 +94,8 @@
   {
     "name": "CSA-B-runtime-materials-bad-index-skips",
     "file": "src/systems/comeSailAwayModels.js",
-    "old": "if (!(m.Index >= 0 && m.Index < renderer.materials.length)) break;",
-    "new": "if (!(m.Index >= 0 && m.Index < renderer.materials.length)) continue;",
+    "old": "      if (!(m.Index >= 0 && m.Index < materials.length)) { inRange = false; break; }",
+    "new": "      if (!(m.Index >= 0 && m.Index < materials.length)) continue;",
     "tests": [
       "test/csa_boats.test.js"
     ]
@@ -103,8 +103,8 @@
   {
     "name": "CSA-B-runtime-materials-first-wins",
     "file": "src/systems/comeSailAwayModels.js",
-    "old": "      renderer.materials[m.Index] = dfMaterial(m.Archive, m.Record);",
-    "new": "      if (!renderer.materials[m.Index]?.archive && renderer.materials[m.Index]?.archive !== 0) renderer.materials[m.Index] = dfMaterial(m.Archive, m.Record);",
+    "old": "      materials[m.Index] = dfMaterial(m.Archive, m.Record);",
+    "new": "      if (!materials[m.Index]?.archive && materials[m.Index]?.archive !== 0) materials[m.Index] = dfMaterial(m.Archive, m.Record);",
     "tests": [
       "test/csa_boats.test.js"
     ]

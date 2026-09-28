@@ -4695,7 +4695,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6773` read, on one physical line:
+`src/scenes/worldModes.js:6782` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4710,7 +4710,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4491`). With the property missing that call is a
+(`dungeonContext.js:4494`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4837,7 +4837,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6060` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6096` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:275`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -9087,3 +9087,29 @@ deposit's refund to a refusal's word, and puts a withdrawal in the purse. Migrat
 whole (a port of SQLite's own `sqlite3_complete`, read in wrangler 4.140's source) - not yet run against a real D1.
 
 Pinned: `test/guild1.test.js` (9), `test/accountworker.test.js` (the tables). `tools/mutants/guild1.json` (83).
+
+## CSA-J ONLINE (2026-09-28) - a sailor's boats stand in the cell
+
+Come Sail Away (`03-World/Come-Sail-Away.md`) is single-player: a boat is a possession in its owner's save, placed
+and sailed on their client alone (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS). Online the others in a cell SEE
+it - DECLARED (36) on the mod's Port-Ledger row - under HCC-ONLINE's law and no new one:
+
+- **The record** (`systems/comeSailAwayWire.js`): what the presentation shows, not the save - each active boat's
+  hull, variant, root in the wire frame (to the centimetre) and turn (to four places), its raised sails as bits, the
+  helm and the lanterns; at most eight. It rides as `sa` on the owner's own foes frame beside `c`, `hv` and `du`: on
+  every full frame, and between them whenever the word moved (`scenes/world.js` csaWord); the mod off, one `null`.
+- **The door** (`validCsaRecord`): shape, POSE_BOUND / POSE_Y_BOUND, a known hull and variant, a quaternion within
+  0.5..2 renormalised, the bits and two flags. A junk word drops the owner's whole record.
+- **The owner law** (`scenes/comeSailAwayPeers.js` applyOwner / sweepOwners / clearPeers): an owner's word replaces
+  theirs alone and never mine; gone from the room or quiet past FOES_STALE_MS, their boats go with their puppets; a
+  clear (a transition, a fast travel, a room change) takes every peer's; a viewer with the mod off stands nothing.
+- **The landing**: each boat built as SpawnBoat builds one into the pool's PEER list - drawn, baked and lit as a
+  boat of mine, never a collider, a ray's hit or an activation - and posed every frame off the word converted from
+  the wire frame (AUDIT HCC O1), eased between words (a step past 20 m snaps), its sails, crew and lanterns as the
+  word says. Nothing of the cargo, the wind or the time scale rides; the bob, the wake, the oars and the sounds are
+  the owner's own frame's.
+- **No relay change**: the relay reads nothing inside a foes frame (AUDIT WORLD2), so `sa` needs no version and no
+  law row.
+
+Pinned: `test/csa_online.test.js` (6); mutants in `tools/mutants/csa_close.json`. Not verified in a browser with two
+players: no online session exists in this container.

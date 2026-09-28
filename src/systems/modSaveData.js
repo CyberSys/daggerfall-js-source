@@ -14,9 +14,10 @@
 
 const _mods = new Map();   // vendor -> { newSaveData, getSaveData, restoreSaveData }
 
-/** Register a mod's three members; a second registration for the vendor replaces the first. */
-export function registerModSaveData(vendor, { newSaveData, getSaveData, restoreSaveData }) {
-  _mods.set(vendor, { newSaveData, getSaveData, restoreSaveData });
+/** Register a mod's three members; a second registration for the vendor replaces the first. CSA-J: `newGame`, where
+ *  a mod has one, is what a new game does with it in place of its NewSaveData restored. */
+export function registerModSaveData(vendor, { newSaveData, getSaveData, restoreSaveData, newGame = null }) {
+  _mods.set(vendor, { newSaveData, getSaveData, restoreSaveData, newGame });
 }
 
 /** Every registered mod's record, by vendor - what a save writes (GetSaveData, whatever the mod's switch says). */
@@ -53,7 +54,10 @@ export function restoreModSaveRecords(modData, onError = null) {
  * The port's host is built per game and hands a new character a clean record.
  */
 export function newGameModSaveRecords() {
-  for (const m of _mods.values()) m.restoreSaveData(m.newSaveData());
+  for (const m of _mods.values()) {
+    if (m.newGame) m.newGame();
+    else m.restoreSaveData(m.newSaveData());
+  }
 }
 
 export const registeredModSaveVendors = () => [..._mods.keys()];

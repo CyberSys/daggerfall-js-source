@@ -309,7 +309,7 @@ export const MOD_SETTINGS = Object.freeze({
       'SailingAssist.AutoTrimming': Object.freeze({ default: true, description: 'Trim the sails to the wind for you.' }),
       'SailingAssist.AutoStowSquareSails': Object.freeze({ default: true, description: 'Stow the square sails for you when you head into the wind.' }),
       'SailingAssist.AutoStowGaffSails': Object.freeze({ default: true, description: 'Shipped with the mod; its assembly never reads it.' }),
-      'Compatibility.AnimatedWaterVertexWaves': Object.freeze({ default: false, description: 'With Animated Water loaded, ride its vertex waves instead of drawing the mod’s own waves.' }),
+      'Compatibility.AnimatedWaterVertexWaves': Object.freeze({ default: false, description: 'With Animated Water loaded, ride its vertex waves instead of drawing the mod’s own waves. INERT here: Animated Water is not in the port, so the mod’s own waves always draw (CSA-J).' }),
       'Compatibility.PersistentDungeonBoats': Object.freeze({ default: false, description: 'Keep a boat placed indoors when you leave it (off, it is gone once you are more than a map pixel away).' }),
       'Map.RestrictPositionReadingTime': Object.freeze({ default: true, description: 'Position can only be viewed around midday and midnight' }),
       'Map.RestrictPositionReadingWeather': Object.freeze({ default: true, description: 'Position can only be viewed in Sunny or Cloudy weather' }),

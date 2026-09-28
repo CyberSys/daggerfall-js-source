@@ -452,8 +452,8 @@
   {
     "name": "CSA-E-stow-bool-inverted",
     "file": "src/systems/comeSailAway.js",
-    "old": "    component.SetBool('Stowed', stowed);",
-    "new": "    component.SetBool('Stowed', !stowed);",
+    "old": "  component.SetBool('Stowed', stowed);",
+    "new": "  component.SetBool('Stowed', !stowed);",
     "tests": [
       "test/csa_wind.test.js"
     ]
@@ -461,8 +461,8 @@
   {
     "name": "CSA-E-stow-speed",
     "file": "src/systems/comeSailAway.js",
-    "old": "    component.CrossFade(stowed ? 'Stowed' : 'Unstowed', SAIL_ANIMATION_SPEED);",
-    "new": "    component.CrossFade(stowed ? 'Stowed' : 'Unstowed', 1);",
+    "old": "  component.CrossFade(stowed ? 'Stowed' : 'Unstowed', SAIL_ANIMATION_SPEED);",
+    "new": "  component.CrossFade(stowed ? 'Stowed' : 'Unstowed', 1);",
     "tests": [
       "test/csa_wind.test.js"
     ]

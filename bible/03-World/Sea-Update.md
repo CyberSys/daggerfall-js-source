@@ -40,6 +40,7 @@ way in.
 | CSA-G (time and sounds) | ...and the helm's time scale (its three keys and the enemies' gates, Travel Options' journey asked); Unity's AnimationEvents and a particle's start delay, the oars' events; the five sounds - the loops as Unity keeps them, the Galley's strokes, DFU's sails and door clips; the boat's bed as Roleplay Realism's; the HUD's message clocks in game time | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
 | CSA-H (items, shops and cargo) | ...and the two items (their rows, their UID, their UseItem on the item-use door), on the shelves through the one custom-group table (Iliac Puddle No More's fish on it too), the shelf's variants; PackBoat and the packed cargo; the cargo box as the pack's loot target; the variant picker; IsNearPort's square; `giveboat` | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
 | CSA-I (the map and the water walk) | ...and the position box's reading (the instruments' box, the weather's and the hour's restrictions, the map a window in the mode's slot), the markers (placed, named with the day, removed), OnGUI's map over the travel map rebuilt from the player's TRAV0I00.IMG, the debug values; the water walk on a hull (WaterWalkingSilent its own kind on the effect list, IsWaterWalking read one way) | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
+| CSA-J (the close) | ...and the mod's message receiver (its ten messages, OnUpdateWind raised on a restore), Eye of the Beholder's boat camera and sprite, the two mods the port does not carry null in code (World of Daggerfall's terrain, Animated Water) and Iliac Puddle No More's arms checked; online, a sailor's boats seen by the others in a cell (`sa` on their own foes frame, no relay change); the audit pass, five readers against the assembly (the load's doors, the Transport press, every mode's death, a new game's wind, the half-built hull, RuntimeMaterials' copy, the bed's offer rung) | `claude/funny-tesla-bhzv35` | `03-World/Come-Sail-Away.md` |
 
 Every landed mod is on by default, registered (settings, Features,
 credits, `01-Overview/Mod-Registry.md`) and placed in the online lane
@@ -101,16 +102,19 @@ deploy). A load the abyss stands in is a rebuild, since the shared key
 would otherwise patch the drowned dungeon in place. The patch notes have
 their section.
 
-### 4. Come Sail Away 2.1 (RedRoryOTheGlen) - IN PROGRESS (from 2026-09-27)
+### 4. Come Sail Away 2.1 (RedRoryOTheGlen) - CSA-A to CSA-J LANDED (2026-09-27/28)
 
 Held by Mac on 2026-09-25; the archive came again on 2026-09-26 with
 Ocean Holes', the port read the hold as lifted and said so, and Mac
-answered "continue". CSA-A to CSA-I have landed - registered, the boats
+answered "continue". CSA-A to CSA-J have landed - registered, the boats
 built and drawn, placed and saved, sailed, the sails and the wind, the
 waves and the effects, the time scale and the sounds, the items, the
-shops and the cargo, the position reading and the water walk
-(`03-World/Come-Sail-Away.md`, the slices CSA-A to CSA-J and their
-state; CSA-J, the close, is next); what follows
+shops and the cargo, the position reading and the water walk, and the
+close: the message receiver, Eye of the Beholder's boat, the two mods
+the port does not carry, the others seeing a sailor's boats, and the
+audit (`03-World/Come-Sail-Away.md`, the slices and their state). What
+the mod leaves for Mac is on its Port-Ledger row: DECLARED (1) to (38),
+awaiting Mac's read. The patch notes have their section. What follows
 is the log as it stood when the mod was held. The largest of the six: 12 C# files, about
 7,500 lines decompiled (`ComeSailAway.cs` 6,808 of them), and a 13.5 MB
 asset bundle of 10,465 objects - the boats' meshes, prefabs, animation

@@ -20,6 +20,20 @@
 - Online, the holes are in the same places for everyone in a room. A death in a drowned dungeon wakes you at its hole.
 - Needs Iliac Puddle No More.
 
+## Come Sail Away (RedRoryOTheGlen) - new, on by default
+- Own a boat and sail it. General stores and pawn shops sell the parts of a rowboat, which you carry in your pack, and deeds to bigger boats: the Large Boat, the Small Ship and the Large Galley.
+- Use the parts to put the rowboat in the water in front of you. Use a deed near a port to put its boat in the water there.
+- Take the helm to sail. Row with the movement keys, or raise the sails and let the wind carry you. Trim the sails yourself, or let them trim themselves.
+- The wind changes with the hour and the weather. At the helm, a small picture on screen shows which way it is blowing.
+- Waves break along the coasts. Your boat leaves a wake, rolls on the swell and is pulled by the current, and its sails, oars and rudder move as you sail.
+- You can walk the deck and light the lanterns from the helm. The Small Ship and the Large Galley carry a crew, and a bed you can rest in when Roleplay Realism's bed sleeping is on.
+- Load cargo into the hold, but the heavier the load, the slower the boat. A rowboat or a Large Boat can be packed back into your pack, cargo and all.
+- At the helm you can speed time up, as much as thirty times, while no enemies are near.
+- Find out where you are. At midday or midnight in clear weather, read your position on the travel map, and mark places on it.
+- A boat stays where you leave it, and every boat you own is saved with your game.
+- Every part has its own settings, including its keys.
+- Works with Iliac Puddle No More's deep sea, and with Eye of the Beholder, whose camera follows the boat you sail.
+
 ## Warm Ashes - Ships (Kamer) - new, on by default
 - A sea voyage can be ambushed. When a fast travel crosses the sea and you sail, there is a one-in-four chance that pirates attack.
 - You're put on your ship's deck with your crew. Fight off the boarders and the ship continues to where you were going.
@@ -47,6 +61,7 @@
 - Iliac Puddle No More's sea, its depth, the creatures of the deep and its swimming rules are the same for everyone in a room. How the water looks (the surfaces, the fog, the fish and the seafloor plants) is each player's own choice.
 - Detailed Ships is on for everyone online.
 - Warm Ashes - Ships ambushes belong to your own voyage. Aquatic Sprites is each player's own.
+- Come Sail Away's boats are each player's own. Others in your area see your boats, both where you left them and as you sail them, but can't board them.
 
 ## Fixes
 - Online: auto-travel no longer crashes the game when it stops beside a spawned dungeon ("Error finding location ...").
@@ -56,6 +71,4 @@
 - Opening a window (the inventory, the map) while underwater no longer lets your breath run out behind it.
 - Swimming in dungeon water now makes the same swimming splashes as the open sea.
 - Loading a save no longer carries the swim state of the moment before over into the loaded game.
-
-## Notes
-- Come Sail Away is not in this update.
+- Clicking a bed to rest (Roleplay Realism's beds) now opens the rest window straight away, as in Daggerfall Unity. It used to show a waiting quest offer first.

@@ -46,7 +46,7 @@
 //   which the port does not read), Unity's Default-Material, the hull's
 //   WaterMask. The port draws none of those: every renderer that keeps one
 //   is inactive or switched off in the prefab and stays so (the flag's
-//   cube, the carrack's two dock planks, the root's helper plane - pinned),
+//   cube, the carrack's two dock planks, three hulls' roots' helper plane - pinned),
 //   and the water masks, never drawn (CSA-F: colour alone, before any opaque
 //   thing, with no depth - the sea or the hull always draws over them).
 // Every Daggerfall material here is MaterialReader.GetMaterial with its
@@ -186,9 +186,12 @@ export const isDfMaterial = (slot) => !!slot && Number.isInteger(slot.archive) &
 
 /**
  * RuntimeMaterials.ApplyMaterials on one node: every RuntimeMaterials the
- * node carries, in its order, each entry into its slot. An entry whose slot
- * is out of range stops that component (the C#'s IndexOutOfRange lands in
- * its own catch) and the next still runs.
+ * node carries, in its order, each entry into its slot. The C# writes into a
+ * copy of the renderer's materials and assigns the copy after its loop, so
+ * an entry whose slot is out of range (its IndexOutOfRange lands in its own
+ * catch) leaves that component's writes unassigned, every one; its finally
+ * marks it applied, and the next still runs (CSA-J's audit: the port had kept
+ * the writes before the bad entry).
  * @param {{ components: any[] }} node
  * @returns {number} how many slots were written
  */
@@ -200,12 +203,16 @@ export function applyRuntimeMaterials(node) {
   for (const c of node.components) {
     if (c.type !== 'MonoBehaviour' || c.m_Script?.script !== 'RuntimeMaterials') continue;
     if (!c.Materials?.length || c.hasAppliedMaterials) continue;
+    const materials = [...renderer.materials];   // meshRenderer.sharedMaterials: a copy
+    let n = 0;
+    let inRange = true;
     for (const m of c.Materials) {
-      if (!(m.Index >= 0 && m.Index < renderer.materials.length)) break;
-      renderer.materials[m.Index] = dfMaterial(m.Archive, m.Record);
-      written++;
+      if (!(m.Index >= 0 && m.Index < materials.length)) { inRange = false; break; }
+      materials[m.Index] = dfMaterial(m.Archive, m.Record);
+      n++;
     }
-    c.hasAppliedMaterials = 1;
+    if (inRange) { renderer.materials = materials; written += n; }   // meshRenderer.sharedMaterials = materials, past the loop
+    c.hasAppliedMaterials = 1;   // finally
   }
   return written;
 }

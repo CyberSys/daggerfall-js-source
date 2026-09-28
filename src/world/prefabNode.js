@@ -33,7 +33,7 @@
 //   false)) keeps the local transform as it stands.
 
 import { multiply } from './mat4.js';
-import { mat4FromQuatPosScale, quatMultiply } from './quat.js';
+import { mat4FromQuatPosScale, quatMultiply, quatRotate } from './quat.js';
 
 const IDENTITY = Object.freeze([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 
@@ -107,6 +107,14 @@ export class PrefabNode {
     const d = [p[0] - m[12], p[1] - m[13], p[2] - m[14]];
     return [inv[0] * d[0] + inv[1] * d[1] + inv[2] * d[2], inv[3] * d[0] + inv[4] * d[1] + inv[5] * d[2], inv[6] * d[0] + inv[7] * d[1] + inv[8] * d[2]];
   }
+  /** Transform.InverseTransformVector: a vector in the root's frame, in this node's - its rotation and scale undone,
+   *  no position. */
+  inverseTransformVector(v) {
+    const inv = inv3(rs3(this.worldMatrix()));
+    return [inv[0] * v[0] + inv[1] * v[1] + inv[2] * v[2], inv[3] * v[0] + inv[4] * v[1] + inv[5] * v[2], inv[6] * v[0] + inv[7] * v[1] + inv[8] * v[2]];
+  }
+  /** Transform.forward: the node's rotation of +Z. */
+  get forward() { return quatRotate(this.rotation, [0, 0, 1]); }
 
   setActive(v) { this.activeSelf = !!v; }
   get activeInHierarchy() {

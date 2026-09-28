@@ -265,6 +265,30 @@ export function colliderBounds(ctx, node, collider) {
   const local = collider.classicModel != null ? classicLocalBounds(ctx, collider.classicModel) : meshLocalBounds(ctx, collider.m_Mesh);
   return local ? worldBounds(node, local) : null;
 }
+/**
+ * CSA-J: GetComponentInChildren<Collider>().bounds, which Eye of the Beholder asks of the boat's mesh object: the
+ * first collider depth first from `node` - the node itself first, in component order, on active objects only - and
+ * its Collider.bounds; a box collider's own box under its node. The bundle's colliders are boxes and meshes alone.
+ * @returns {{ center:number[], extents:number[], size:number[], min:number[], max:number[] } | null} null: none
+ */
+export function colliderBoundsInChildren(ctx, node) {
+  if (!node?.activeInHierarchy) return null;
+  const first = (n) => {
+    const c = n.components.find((k) => k.type === 'BoxCollider' || k.type === 'MeshCollider');
+    if (c) return { n, c };
+    for (const ch of n.children) {
+      if (!ch.activeSelf) continue;
+      const found = first(ch);
+      if (found) return found;
+    }
+    return null;
+  };
+  const hit = first(node);
+  if (!hit) return null;
+  if (hit.c.type === 'MeshCollider') return colliderBounds(ctx, hit.n, hit.c);
+  const { m_Center: c = { x: 0, y: 0, z: 0 }, m_Size: s = { x: 1, y: 1, z: 1 } } = hit.c;
+  return worldBounds(hit.n, { center: [c.x, c.y, c.z], extent: [s.x / 2, s.y / 2, s.z / 2] });
+}
 /** Renderer.bounds of a classic model's MeshRenderer on `node`. */
 export function classicRendererBounds(ctx, node, modelId) {
   const local = classicLocalBounds(ctx, modelId);

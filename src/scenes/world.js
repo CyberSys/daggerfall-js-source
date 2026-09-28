@@ -216,7 +216,7 @@ import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: th
 import { mobilePersonName, lootPileName } from '../systems/worldTooltips.js';   // WORLD-HOVER H2: MobilePersonNPC.NameNPC (.cs:299-302); M5: a dropped pile's word (.cs:534-548), outdoors too
 import { wagonHoverName } from '../player/eotbWagon.js';   // WORLD-HOVER M6: the cart's word, beside its producer
 import { waterSourceHoverName } from '../systems/survival/items.js';   // WORLD-HOVER M6: a water source's word, beside its producer
-import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV
+import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, setEotbComeSailAway } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV; CSA-J: EOTB's boat
 import { mwCamera } from '../player/mwCamera.js';   // MW-D30: persistence
 import { pickActivatableHit, pickQuestFoe, pickFoe } from '../player/activate.js';   // G3: corpse loot; QG1: the foe-click door; TI1: the lock-on pick
 import { raceActivation } from '../player/activationRace.js';   // HARD2: one home for "the nearest thing under the one ray takes the click"
@@ -274,7 +274,9 @@ import { createHorseCartPool } from './horseCartPool.js';
 import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerRiders.js';   // RIDE: another player in the saddle   // HCC: Horse Cart and Cargo's presentation - the wagon's five pieces, the horse's eight views, the peers' teams
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
-import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips
+import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
+import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
+import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
 import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
 import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
@@ -4667,8 +4669,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   setEotbCartYields(() => hccOn() && hccRuntime.showTrailingWagon);   // DISC10: one cart - EOTB's gives way while HCC's trails (mwView.js)
   // CSA-B: Come Sail Away's boats. The pool draws what stands; the runtime below places them (CSA-C). Its switch is
   // the mod's Enabled - off, no boat is drawn, lit or baked.
-  const csaOn = () => { try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; } };
+  // CSA-J (the audit): ONE answer at every door - the mod is loaded or not for the game, as DFU's mods are (the pane says
+  // it takes effect when the game next loads); the draw, the shelf and the item use had read it live where the helm,
+  // the colliders and the rays never did, so a mod switched off mid-game left an invisible deck standing
+  const _csaOnAtLoad = (() => { try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; } })();
+  const csaOn = () => _csaOnAtLoad;
   const csa = createComeSailAwayPool({ renderer, pipeline, log: console });
+  const csaPeers = createComeSailAwayPeers({ pool: csa, selfId: () => online?.id ?? null });   // CSA-J: the others' boats, in the pool's peer list
   // CSA-C: THE RUNTIME - the boats placed, kept where they stand and saved (systems/comeSailAway.js). Made as the world
   // mounts with the mod on ("Takes effect when the game next loads"), and only then does its record ride the save
   // (OH-D's precedent: a mod DFU did not load writes none). The pool loads every hull's needs at once, so SpawnBoat
@@ -4684,7 +4691,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         mapPixelX: p.px, mapPixelY: p.py,
         get position() { return state.pixelTranslation(p.px, p.py, [0, 0, 0]); },   // the terrain's transform: the pixel's corner, the vertical compensation
         get tileMap() { return p.tilemapBytes ?? null; },   // DaggerfallTerrain.TileMap's `.r`, converted as UpdateTileMapData writes it (terrainGen.js)
-        sampleHeight: (q) => { state.pixelTranslation(p.px, p.py, o); return surfaceHeightAt(p.samples, q[0] - o[0], q[2] - o[2], p._stride ?? 1); },   // Terrain.SampleHeight: the drawn ground over the terrain's own y (DW-D's reading)
+        sampleHeight: (q) => { state.pixelTranslation(p.px, p.py, o); const c = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v)); return surfaceHeightAt(p.samples, c(q[0] - o[0]), c(q[2] - o[2]), p._stride ?? 1); },   // CSA-J (the audit): past the terrain's edge, the edge's height - GetInterpolatedHeight clamps its [0, 1] coordinates, where this sampler went on up the last quad's slope   // Terrain.SampleHeight: the drawn ground over the terrain's own y (DW-D's reading)
       };
       _csaTerrains.set(p, t);
     }
@@ -4794,7 +4801,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const feet = f.dead ? null : f.ai?.feet;
       if (!feet || Math.abs(feet[0] - o[0]) > reach + 4 || Math.abs(feet[2] - o[2]) > reach + 4) continue;
       const c = rayUprightCapsule(o, d, reach, feet, BODY_CAPSULE_RADIUS, f.ai.height ?? CAPSULE_HEIGHT);
-      if (c) take({ distance: c.dist, point: at(c.dist), name: 'DaggerfallEnemy', terrain: null, root: null });
+      if (c) take({ distance: c.dist, point: at(c.dist), name: 'DaggerfallEnemy', terrain: null, root: csaRuntime?.state?.parentedObjects?.get(f.ai)?.boat?.GameObject ?? null });   // CSA-J (the audit): a foe riding a hull is its child (FixedUpdate's SetParent) - its transform.root the boat's
     }
     for (const boat of csa.boats) {
       const hit = raycastColliders(boat.GameObject, o, d, reach, { triggers, geometry: csaColliderMesh });
@@ -4891,7 +4898,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    */
   const csaActivate = (pick) => {
     if (pick?.bed) {
-      if (pick.distance <= DEFAULT_ACTIVATION_DISTANCE) { if ((modes?.mode ?? 'exterior') === 'exterior') toggleRest(); else modes?.restFromBed?.(); }
+      if (pick.distance <= DEFAULT_ACTIVATION_DISTANCE) { if ((modes?.mode ?? 'exterior') === 'exterior') { _restFromBed = true; try { toggleRest(); } finally { _restFromBed = false; } } else modes?.restFromBed?.(); }
       return;
     }
     if (pick?.modelId != null) csaCall(() => csaRuntime.activate(pick.modelId, pick.hit, getInteractionMode()));
@@ -5073,7 +5080,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       isFemale: () => playerEntity.gender === 'female',
       carriedWeight: () => carriedWeight(playerEntity),
       wagonWeight: () => totalWeight(playerEntity.wagonItems ?? []),
-      decreaseFatigue: (n) => { playerTicker.sinks.drainFatigue(n); surfacePlayer(); },   // PlayerEntity.DecreaseFatigue: the one fatigue door, its collapse at 0 with it
+      decreaseFatigue: (n) => { if (!modes?.drainPlayerFatigue?.(n)) playerTicker.sinks.drainFatigue(n); surfacePlayer(); },   // PlayerEntity.DecreaseFatigue: the one fatigue door, its collapse at 0 with it - CSA-J (the audit): the mode's own, so a collapse indoors is the mode's (its enemies, its rest)
     },
     cargoWeight: (items) => totalWeight(items ?? []),
     sphereCastAll: csaSphereCastAll,
@@ -5109,6 +5116,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       removeBundle: (name) => removeBundleNamed(playerEntity, name),
     },
   }) : null;
+  // CSA-J: Eye of the Beholder's ModCompatibilityChecking finds this boot's Come Sail Away (null: off) - its receiver,
+  // and Unity's Collider.bounds over the boat's nodes, which only the models answer
+  setEotbComeSailAway(csaRuntime ? { send: csaRuntime.MessageReceiver, colliderBounds: (go) => csaColliderBoundsInChildren({ models: csa.models }, go) } : null);
   if (csaRuntime) {
     csa.preload();
     registerModSaveData(COME_SAIL_AWAY_VENDOR, csaRuntime);   // IHasModSaveData: ComeSailAwaySaveData
@@ -5173,7 +5183,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** CSA-F: StreamingWorld.OnTeleportToCoordinates (Start 1055) - the waves a tenth of a second later. */
   const csaOnTeleport = () => { if (csaRuntime) csaCall(() => csaRuntime.OnTeleportToCoordinates()); };
   /** CSA-F: the waves' pass, and their pictures (InitializeWaveTextures, 1811-1819): the author's two paints and the
-   *  snow they key, TEXTURE.303 record 1 of the player's ARENA2, loaded at the first wave drawn. */
+   *  snow they key, TEXTURE.303 record 1 of the player's ARENA2 - loaded at boot, as Start has them (CSA-J). */
   const csaRender = csaRuntime ? new ComeSailAwayRenderer(renderer) : null;
   let _csaWaveLoad = null;
   function csaWaveFrames() {
@@ -5200,7 +5210,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     })().catch((e) => console.warn('[come-sail-away] the waves\' pictures did not load', e));
   }
   /** CSA-F: the particles' pictures - the mod's splash (112395_0-0, point-sampled) and the port's own soft dot for Unity's
-   *  Default-Particle - loaded at the first particle drawn. */
+   *  Default-Particle - loaded at boot, as the bundle's materials are there at Start (CSA-J). */
   let _csaParticleLoad = null;
   function csaParticleTextures() {
     _csaParticleLoad ??= (async () => {
@@ -5259,7 +5269,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  mode's collider where they now stand. Outdoors it runs after the motor, before the eye is taken from the body. */
   function csaUpdate(dt) {
     if (!csaRuntime) return;
-    const paused = gamePaused();
+    const paused = gamePaused() || _loading;   // CSA-J (the audit): Update, LateUpdate and FixedUpdate return while SaveLoadManager.LoadInProgress too (4291/4917/5087), the pause's arm
     _csaDt = paused ? 0 : dt * worldTimeScale();
     if (!paused) _csaTime += _csaDt;
     _csaMovedPlayer = false;
@@ -5296,6 +5306,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return _csaSoundLoad;
   }
   if (csaRuntime) csaSounds();   // decoded before the first boat is heard (here, below the names it reads)
+  if (csaRender) { csaWaveFrames(); csaParticleTextures(); }   // CSA-J (the audit): InitializeWaveTextures and the bundle's materials are Start's - a wave or a wake's first frames were simulated and not drawn while they loaded
   /** AudioSource.PlayOneShot(clip) on a plain source (the Trireme's rudder: its prefab's volume, pitch and distances;
    *  its spatialBlend of 0.9 played fully positional). */
   function csaSourceOneShot(src, node, clip, volumeScale = 1) {
@@ -5375,7 +5386,32 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** CSA-B: the boats' own LateUpdate and their lanterns' Updates (the pool), on Time.deltaTime. */
   function csaPoolFrame(dt) {
-    if (csaOn()) csa.frame(gamePaused() ? 0 : dt * worldTimeScale(), { cityLightsOn: isCityLightsOn(minuteNow()), playerPosition: player.pos });
+    csaPeers.setEnabled(csaOn());   // CSA-J: a disabled mod is one DFU never loaded - nothing of a peer's stands (AUDIT HCC O8's law)
+    if (csaOn()) { csaPeers.frame(dt); csa.frame(gamePaused() ? 0 : dt * worldTimeScale(), { cityLightsOn: isCityLightsOn(minuteNow()), playerPosition: player.pos }); }   // CSA-J: the peers' boats posed off their words first, on the real clock (their owners' worlds run on)
+  }
+  /** CSA-J (the audit): a save's records with Come Sail Away's helm let go - for a load that landed elsewhere than its
+   *  save (the online wake at a temple, a dungeon not found or with no door, a save of elsewhere), where RestoreSaveData's
+   *  StartSailing would pin the player to a boat UpdateBoatVisibility then destroys. DFU always lands on the save's own
+   *  place and never meets it. */
+  const csaHelmLeft = (modData) => {
+    const rec = modData?.[COME_SAIL_AWAY_VENDOR];
+    return rec && rec.currentBoat >= 0 ? { ...modData, [COME_SAIL_AWAY_VENDOR]: { ...rec, currentBoat: -1 } } : modData;
+  };
+  let _csaWordKey = null;   // CSA-J: the word my last foes frame carried ('' none stood; null: none said yet)
+  /** CSA-J: my boats for the others (systems/comeSailAwayWire.js) - every active one, as it stands - on every full
+   *  foes frame and on a moved word between them; the mod off, one null to take mine away. */
+  function csaWord(frame, full) {
+    if (!csaRuntime || !csaOn()) { if (_csaWordKey) { frame.sa = null; _csaWordKey = ''; } return; }
+    const view = csaRuntime.AllBoats.filter((b) => b.GameObject?.activeSelf).map((b) => ({
+      hull: b.hull, variant: b.variant, position: b.GameObject.position, rotation: b.GameObject.rotation,
+      sails: b.Sails.reduce((m, sail, k) => (csaAnimatorOf(sail) && !csaAnimatorOf(sail).GetBool('Stowed') ? m | (1 << k) : m), 0),
+      helm: csaRuntime.isSailing() && b === csaRuntime.state.CurrentBoat, light: !!b.LightOn,
+    }));
+    const rec = csaWireRecord(view, campToWire);
+    const key = csaRecordKey(rec);
+    if (!full && key === _csaWordKey) return;
+    frame.sa = rec;
+    _csaWordKey = key;
   }
   /** Both, in a mode's frame (a building, a dungeon), whose own motor and eye follow. */
   function csaFrame(dt) { csaUpdate(dt); csaPoolFrame(dt); }
@@ -6162,10 +6198,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2557 mounts the same one, gated on
+  // and dungeonContext.js:2560 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6120
+  // that context through modes.dungeonCtx - so worldModes.js:6126
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -6251,7 +6287,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:436-441) never looks the record up in `foes`, and
+    // (exteriorFoes.js:438-443) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1485-1503) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -7012,6 +7048,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     inside: () => (modes?.mode ?? 'exterior') !== 'exterior',
     restKind: () => (camps.fireNear(walkMode && playerSpawned ? player.pos : cam.pos) ? 'camp' : 'rough'),   // SURV4: a lit fire near is the sleep; the window alone is rough (AUDIT SURV-TIERS: the world's fire, in every tier)
   });
+  // CSA-J (the audit): the press is a bed's - Roleplay Realism's BedActivation is DaggerfallUI's gate less its GiveOffer
+  // rung (RoleplayRealism.cs:487-525), so a bed clicked leaves a pending offer where the R key would hand it over
+  let _restFromBed = false;
   const toggleRest = () => {
     if (townTalk.overlayActive) return;
     // THE OPEN GATE (DaggerfallUI.cs:651-687), which is scene-free -
@@ -7039,6 +7078,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // a pending `give pc ... notify` offer takes this press and
       // the rest window stays shut (ui/pendingOffer.js).
       giveOffer,
+      ...(_restFromBed ? { giveOffer: null } : null),
       racialOverrideBlocks: !!rb,
     });
     if (d.kind !== 'rest') {
@@ -8363,6 +8403,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       setCrimeCommitted(playerEntity, CRIMES.None);
       townTalk.say(beside && pick.besideText ? pick.besideText : `You arrive at ${pick.name}.`);
       if (warmAshesOn()) warmAshesPostTravel();   // WA1: RaiseOnPostFastTravelEvent (:383) - Warm Ashes' CheckforEncounters arms its 0.05s coroutine
+      if (csaRuntime) csaCall(() => csaRuntime.OnPostFastTravel());   // CSA-J (the audit): ComeSailAway.OnPostFastTravel, the same event's - ResetTimeScale(false)
     } finally {
       if (hccPostDue) hccRuntimeOn()?.handlePostFastTravel();   // AUDIT HCC (branch audit): the journey threw - the team is released where it stands
       _traveling = false;
@@ -8413,7 +8454,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:6652), so exterior mode and a
+    // composer, dungeonContext.js:6659), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -8564,11 +8605,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       // before the save is read over the entity it was building for.
       modes?.abortTransition?.();
       await modes?.transitionSettled?.();
+      if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad());   // CSA-D: ComeSailAway.OnStartLoad - the riders dropped, the helm left; CSA-J (the audit): AHEAD of the save's player (SaveLoadManager.cs:1378, the restore at :1497) - its StopSailing hands a lent ship back, and after restorePlayer it took the loaded character's own
       const extras = restorePlayer(playerEntity, snap, spellsByIndex);
       if (!extras) { townTalk.say('Save version mismatch.'); return; }
       autoBuildArms(playerEntity);   // MWA1: the loaded character's arms (a boot into ?load has no chargenDone until here)
       hccRuntime.handleStartLoad();   // AUDIT HCC H3: SaveLoadManager.OnStartLoad [IL_a714] - the old character's horse, name and parked wagon end HERE, before any await, on every branch below
-      if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad());   // CSA-D: ComeSailAway.OnStartLoad - the riders dropped, the helm left
       // CameraRecoiler's SaveLoadManager_OnStartLoad (:185-191): the
       // incoming character does not inherit the old one's reel.
       cameraRecoiler.reset();
@@ -8596,6 +8637,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // runs inside the composer, after the quest machine is restored,
       // exactly where LoadGame runs it.
       if (restoreSessionState(extras, { questBridge, talk: { mill: rumorMill, tree: topicTree, session: npcSession }, entity: playerEntity, spawnLedger: _spawnLedger })) _questStarted = true;
+      let csaElsewhere = false;   // CSA-J (the audit): the load did not land where its save stood
       if (extras.locationKey === 'world' && extras.world?.pixel) {
         const w = extras.world;
         _wodInside = !!extras.interior;   // WOD6: an inside save lands inside
@@ -8676,6 +8718,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         // envelope names its pixel now (dungeonContext's composer); one
         // from before it did is found by its id across the index.
         const pixel = extras.dungeon?.pixel ?? dungeonPixelFor(extras.locationKey, locationIndex.values(), (mt) => longitudeLatitudeToMapPixel(mt.longitude, mt.latitude));
+        csaElsewhere = !pixel;   // CSA-J (the audit): a dungeon this world cannot find is no landing at the save's place
         if (!pixel) townTalk.say('(saved in a dungeon this world cannot find - character restored; travel there yourself)');
         else if (onlineOn && !(pixel.x === getInt('Startup', 'StartCellX') && pixel.y === getInt('Startup', 'StartCellY'))) {
           // ONLINE-UNDERGROUND-LOAD1 (Lost, 2026-09-19): an online page never puts a character back INSIDE a dungeon -
@@ -8690,17 +8733,22 @@ export async function bootWorld(canvas, renderer, params, status) {
           // WOD6 (audit): a load all the same - SaveLoadManager.OnLoad, last, at the landed player
           { const s = walkMode && playerSpawned; const f = s ? player.pos : cam.pos; wodOnLoad([f[0], f[1] + (s ? player.height / 2 : 0), f[2]]); }
           townTalk.say(undergroundWakeText(wake.kind));
+          csaElsewhere = true;
         } else {
           _wodInside = true;   // WOD6: a dungeon save lands inside - no marker hears this load
           await _teleportToPixel(pixel.x, pixel.y, null, { modEvent: 'load' });   // SIB2: SaveLoadManager.OnLoad
           const entered = await (modes?.startInDungeon?.({ locationKey: extras.locationKey }) ?? false);   // StartDungeonInterior: the enter marker first, the saved position over it; CASTLE1: the SAVED dungeon's door, not the first one loaded
           if (entered) { playerSpawned = true; await modes?.restoreDungeonSave?.(extras); }   // AUDIT OH-F B1: RestoreEnemyData whole before the mod loop below
           else { _wodInside = false; townTalk.say('(the dungeon has no entrance here - character restored at its door)'); }   // WOD6: it landed outside after all
+          if (!entered) csaElsewhere = true;   // CSA-J (the audit): outside at its door, not where the save stood
         }
       } else if (extras.locationKey && extras.locationKey !== 'world') {
         townTalk.say('(saved elsewhere - character restored; travel there yourself)');
+        csaElsewhere = true;
       }
       ohAbyss?.onRespawnerComplete();   // OH-D: RestorePositionHelper's respawn completes (LoadInProgress) before the mod loop restores the save's record
+      if (csaRuntime) await csa.preload();   // CSA-J (the audit): SpawnBoat is synchronous in the C# - the boats' models in before the mod loop, so a load's boats stand at once and no floating-origin shift can land while they are held (the hold stays for models that never come)
+      if (csaElsewhere) extras.modData = csaHelmLeft(extras.modData);   // CSA-J (the audit): landed elsewhere - the helm let go before the mod loop reads it
       // AUDIT HCC H3: RestoreSaveData [IL_93ac] once the save's place stands - a world save, a dungeon save, a wake
       // at a temple alike; a save without the record stays the fresh start OnStartLoad made above
       const hccRecord = extras.modData?.[HCC_VENDOR] ?? null;
@@ -9628,7 +9676,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // picker opens.
     // MAC-K3: the picker is the mount rig's - see player/mountRig.js
     // for the grounded/airborne law and the ship row's own gate.
-    openTransport: () => mountRig.open(),
+    // CSA-J (the audit): ActionStarted(Transport) leaves the helm on the PRESS (ComeSailAway.cs 4362), and DFU opens
+    // this window on the release (DaggerfallUI's ActionComplete) - the port opens it on the press, so the mod's arm runs first
+    openTransport: () => { if (csaRuntime?.isSailing() && !gamePaused()) csaCall(() => csaRuntime.StopSailingDelayed()); mountRig.open(); },
     openUseMagicItem: () => {
       const win = createUseMagicItemWindow({
         items: playerEntity.items ?? [],
@@ -10711,7 +10761,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9488-9552 -
+  // worldModes answers it in BOTH modes (worldModes.js:9502-9566 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -12062,7 +12112,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const full = now - _foesFullAt >= FOES_FULL_MS;
     const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty) : null) : modes?.dungeonFoesFrame?.(full);
     if (!frame) return false;
-    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
+    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
     if (!online.sendFoes(frame)) { _foesFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9: a refused frame's deltas were already committed - the next frame carries every foe
     if (full) _foesFullAt = now;
     return true;
@@ -12306,6 +12356,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     exteriorFoes.setOnSites((from, sites) => wodPeerSites(from, sites), wodSprungList);   // WOD7: a peer's sprung markers - mine are spent; mine ride my full frames
     exteriorFoes.setOnCamps((from, c, at) => camps.applyOwner(from, c, campToScene, at));   // SURV3: a peer's camps, off their foes frame past the pool's own room test, through validCampRecord
     exteriorFoes.setOnHcc((from, hv, at) => hcc.applyOwner(from, hv, campToScene, at), () => hcc.clearPeers());
+    exteriorFoes.setOnCsa((from, sa, at) => csaPeers.applyOwner(from, sa, campToScene, at), () => csaPeers.clearPeers());   // CSA-J: a peer's boats, off their foes frame past the room test, through validCsaRecord
     exteriorFoes.setOnDuel((from, r, at) => { const rec = r === null ? null : validRingRecord(r); if (rec) _duelRings.set(from, { rec, at }); else _duelRings.delete(from); }, () => _duelRings.clear());   // DUEL1: a peer's ring, for the wall
     online.onPark = (room, e) => hcc.applyKept(room, e, campToScene, performance.now());   // HCC-PARK: a cell's word about a parked team (mine or a halo's cell), its owner here or not
     online.onParks = (room, list) => hcc.replaceKept(room, list, campToScene, performance.now());   // HCC-PARK: and a cell's whole memory, after its welcome   // HCC-ONLINE: a peer's horse and wagon, the same frame, the same room test, through validHccRecord; and the peers' teams go wherever the pool's puppets go (a room change, a leave)
@@ -14934,6 +14985,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     hccParkTick(now);   // HCC-PARK: my parked team's word to the cell it stands in, when it changed
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) camps.sweepOwners(ids, now, FOES_STALE_MS); }   // PERF11: the same list   // SURV3: a peer's camps go as their puppets do - the same liveness, the same answer-gate   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) hcc.sweepOwners(ids, now, FOES_STALE_MS); }   // HCC-ONLINE: a peer's team goes as their puppets and camps do - the same memoised list, the same liveness   // PERF11: the same list   // SURV3: a peer's camps go as their puppets do - the same liveness, the same answer-gate   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
+    if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) csaPeers.sweepOwners(ids, now, FOES_STALE_MS); }   // CSA-J: a peer's boats go as their team does - the same memoised list, the same liveness
     hcc.pruneKept(isCellRoom(online.room) ? [online.room, ...online.haloRooms()] : [], now);   // HCC-PARK: a kept team is its CELL's - it stands while I hold that cell's socket (mine or a halo's), and its welcome brings it back
     const drawable = online.drawable();
     peerCastVisuals(drawable);   // SPELLFX1: a peer's new cast, drawn once
@@ -15092,6 +15144,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     csaShelfStocked: (items) => csaShelfStocked(items),   // CSA-H: PlayerActivate.OnLootSpawned's Come Sail Away subscriber on a stocked shelf
     csaActivate: (pick) => csaActivate(pick),
     csaDrawWindWidget: () => csaDrawWindWidget(),   // CSA-E: the wind widget over a mode's HUD
+    csaOnPlayerDeath: () => { if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath()); },   // CSA-J (the audit): PlayerEntity.OnDeath and OnExhausted reach ComeSailAway.OnPlayerDeath in every mode (Start 1059-1060)
+    csaFrame: (dt, axes) => { _csaAxes = axes; csaFrame(dt); },   // CSA-C: a MonoBehaviour's Update and LateUpdate indoors too - a boat placed on a dungeon's water is baked, lit and drawn there; CSA-J (the audit): from the modes' frame, after its motor, on its axes
     onTransitionInterior: () => csaOnTransition(),   // CSA-C: PlayerEnterExit.OnTransitionInterior
     onTransitionExterior: () => csaOnTransition(),   // CSA-C: PlayerEnterExit.OnTransitionExterior
     gateCourtLights: () => gateCourt?.lights() ?? [],   // WB4: the glow on him, in the court's light channel
@@ -15388,7 +15442,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     horseCartSave: () => hccRuntime.getSaveData(),   // AUDIT HCC H3: the record a dungeon save carries (DFU's per-mod slot, whatever the switch says)
     horseCartLoad: (rec) => { hccRuntime.handleStartLoad(); if (rec) hccRuntime.restoreSaveData(rec); },   // AUDIT HCC H3: a same-dungeon load's OnStartLoad and RestoreSaveData
     modSaveRecords: () => modSaveRecords(),   // WA1: the records a dungeon save carries beside HCC's
-    modSaveLoad: (modData) => { if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); restoreModSaveRecords(modData, csaModLoadFailed); },   // WA1: ...and a same-dungeon load hands back; CSA-D: Come Sail Away's OnStartLoad first
+    // CSA-J (the audit): the same-dungeon load's three doors - SaveLoadManager's OnStartLoad AHEAD of the save's player
+    // (:1378, before the restore at :1497: Come Sail Away's StopSailing hands a lent ship back, and after the restore it
+    // took the loaded character's own), the records, and OnLoad once the load has landed (:1554 - the boats' visibility)
+    modStartLoad: () => { if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },
+    modSaveLoad: (modData) => { restoreModSaveRecords(modData, csaModLoadFailed); },   // WA1: ...and a same-dungeon load hands back
+    modLoaded: () => { if (csaRuntime) csaCall(() => csaRuntime.OnLoad()); },
     // PX17c: the pause window's journal seams ride into the interior
     // arm - the SAME expressions the world's own pause hands over
     // (PX3/PX4/PX5), so a pause inside a tavern shows the same rail,
@@ -16037,7 +16096,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // return, and a line between them reads to that pin as a sweep
     // that has drifted back down the frame.
     tickAmbientText();
-    if ((modes.mode ?? 'exterior') !== 'exterior') csaFrame(dt);   // CSA-C: a MonoBehaviour's Update and LateUpdate indoors too - a boat placed on a dungeon's water is baked, lit and drawn there (above the torch sweep's note: F11 pins the sweep to the modal return)
     // AUDIT 66 F11: the torch sweep runs HERE, above the modal
     // return, because that is where the transition is. It used to sit
     // with the tick at the foot of the exterior frame - which this
@@ -16382,7 +16440,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // ROAD-Ar (R0): ...and the season hold stops the motor dead,
         // because there is no floor under it while the re-skin runs.
         _dwLastForward = paralyzed ? 0 : axes.forward;   // DW-D: the shore exit's InputManager.Vertical, for the next frame's driver
-        _csaAxes = { h: paralyzed ? 0 : axes.strafe, v: paralyzed ? 0 : axes.forward };   // CSA-D: InputManager.Horizontal / Vertical for the helm's inputTarget
+        _csaAxes = { h: axes.strafe, v: axes.forward };   // CSA-D: InputManager.Horizontal / Vertical for the helm's inputTarget - CSA-J (the audit): InputManager has no paralysis gate, only the motors do
         if (_overlayHeld || _seasonHeld) player.holdFrame();   // DISC8-G: a held motor reports no landing and no jump
         if (!_overlayHeld && !_seasonHeld) player.update(dt, paralyzed ? { forward: 0, strafe: 0, run: held(keys, 'Run'), autoRun: held(keys, 'AutoRun'), back: mv.backwards, sneak: held(keys, 'Sneak'), jump: false, up: false, down: false, crouch: crouchPress } : {
           forward: axes.forward,   // TO1: the autopilot's force while a journey runs, else the player's own   // AUDIT 28 W8: InputManager's axes - accelerated under MovementAcceleration, the held difference without
@@ -16863,6 +16921,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       camps.offsetAll(r.offset);   // SURV3: and the camps
       hcc.offsetAll(r.offset);   // HCC: FloatingOrigin.OnPositionUpdate - every scene point the runtime holds, the peers' teams, the parked wagon's collider
       if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
+      csaPeers.rebase(r.offset);   // CSA-J: the peers' eased places with the world
       csaSyncColliders();   // CSA-D: the boats' buckets stand where the shift put them before any motor step meets them   // CSA-C: the mod's own FloatingOrigin.OnPositionUpdate (its kept bug: a boat out of sight stays behind)
       hitEffects.offsetAll(r.offset);   // AUDIT 24 (wave 39): a splash mid-animation follows the origin too
       for (const q of [_wodArrival.origin, _wodArrival.loadAt]) if (q) { q[0] += r.offset[0]; q[1] += r.offset[1]; q[2] += r.offset[2]; }   // WOD6

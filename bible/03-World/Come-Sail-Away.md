@@ -31,7 +31,7 @@ lines, one MonoBehaviour).
 | CSA-G | AUDIO, TIME AND TRAVEL: the sounds and the oars' events, the time scale, fast travel, transitions, the hour, the weather, death (1904-2126, 6071-6112, 6527-6687) | landed: the helm's time scale (its three keys, the enemies' two gates, the unpause reset, Travel Options' journey asked); Unity's AnimationEvents and a particle's start delay restated, the oars' three events; the five sounds - the two loops as Unity keeps them, the Galley's strokes, DFU's sails and door clips - and UpdateAudioSource; the boat's bed as Roleplay Realism's; the HUD's message clocks in game time (fast travel, the transitions, the load and death landed with CSA-D, the hour and the weather with CSA-E) |
 | CSA-H | ITEMS, SHOPS AND CARGO: the two item classes, the shops' variants, the cargo, the ports (1095, 3820, 6521, 6687-6808) | landed: the two items (their rows, a UID of their own, their UseItem on the item-use door); the shelves through the one custom-group table (Iliac Puddle No More's fish on it too) and AssignVariantsToShopItems; PackBoat and the packed cargo; the cargo box; the variant picker; IsNearPort; `giveboat` |
 | CSA-I | THE MAP AND THE WATER WALK: the position reading and its markers, OnGUI, WaterWalkingSilent (3941-4186, 5589-5778, 5966-6031) | landed: the position box's reading (the instruments' box, the two restrictions, the map a window in the mode's slot, its keys), the markers, OnGUI's map over the travel map rebuilt from the player's TRAV0I00.IMG, the debug values; the water walk on a hull, WaterWalkingSilent on the effect list and IsWaterWalking read one way |
-| CSA-J | THE CLOSE: the message receiver, the compatibility arms (World of Daggerfall's terrain, Animated Water, Iliac Puddle No More; Travel Options' one message is CSA-G's), online, the audit, the patch notes | |
+| CSA-J | THE CLOSE: the message receiver, the compatibility arms (World of Daggerfall's terrain, Animated Water, Iliac Puddle No More; Travel Options' one message is CSA-G's), online, the audit, the patch notes (1007-1008, 1821-1890, 1973-1976) | landed: MessageReceiver whole and OnUpdateWind raised on a restore; Eye of the Beholder's boat camera and sprite; the two mods the port does not carry null in code, Iliac Puddle No More's arms checked; a sailor's boats seen by the others in a cell (`sa` on the foes frame); the audit's fixes (the load's doors, the Transport press, every mode's death, the new game's wind, the half-built hull, RuntimeMaterials' copy, the bed's offer rung); the patch notes |
 
 ## The settings (CSA-A)
 
@@ -188,7 +188,9 @@ extractor writes `vendor/come-sail-away/Models/`:
   nodes, 482 distinct components). The one script in the prefabs is DFU's
   own `RuntimeMaterials` (a submesh's material by Daggerfall archive and
   record); the mod's four behaviours are added by its code at run time.
-  Each hull root's helper `Plane` (Unity's built-in 10 x 10 plane at 10x
+  The Rowboat's, the Large Boat's and the Large Galley's hull roots carry
+  a helper `Plane` (the Small Ship and the Carrack none; CSA-J's audit)
+  (Unity's built-in 10 x 10 plane at 10x
   scale) has its renderer and collider both off, and stays so.
 - **The meshes**: Unity 2019's vertex data - channels in streams, each
   stream 16-byte aligned, a channel's dimension the low nibble of its byte
@@ -296,7 +298,7 @@ bundle's material - a Standard material named after a Daggerfall texture
 but holding none (DFU's FinaliseMaterials swaps one only for a loose
 texture file), Unity's Default-Material, the WaterMask - and every
 renderer that keeps one is hidden and stays hidden (the flag's cube, the
-carrack's two dock planks, the root's helper plane), and the two hulls'
+carrack's two dock planks, three hulls' helper plane), and the two hulls'
 water masks too (CSA-F: they write colour alone, before any opaque thing
 and with no depth, and the sea or the hull always draws over them). A renderer with fewer materials
 than its mesh has submeshes draws only the first (the galleon's anchor,
@@ -352,8 +354,8 @@ game time sets it to "within 51.5 m of the player on the ground plane".
 `scenes/comeSailAwayPool.js` loads the five files once, loads what a hull
 reads out of the ARENA2 before it is built (`boatAssetNeeds`: its flats,
 its classic models), then lets SpawnBoat run straight through as the C#
-does. Each frame the streaming world (`scenes/world.js`) ticks it after
-the horse cart (the holders' LateUpdate, the lanterns' Updates), draws its
+does. Each frame the streaming world (`scenes/world.js`) ticks it just
+before the horse cart's tick (the holders' LateUpdate, the lanterns' Updates), draws its
 meshes in the world pass, its flats on the flats' pass (a flat's centre on
 its object, sized by its record and its object's world scale) and hands
 its lit lanterns to the light list. The `?shot` probe stands a boat
@@ -789,7 +791,7 @@ the particles' (CSA-F).
 GetSailPower sums each raised sail's pull by its kind and its angle to
 the wind (the flat angle between the wind and the sail's forward): a
 lateen from half along it to full at 135 and back to half at 165, nought
-past, less a fifth-and-a-bit with the wind on its right; a gaff from
+past, 15% less (x0.85) with the wind on its right; a gaff from
 half to full at 135 and nought at 150, backing a quarter past; a
 staysail from a fifth to four fifths at 135, nought at 150, backing a
 quarter past; a square sail full before the wind, nought at 90, backing
@@ -818,8 +820,9 @@ raised sails; a save taken with them up raises them as it loads.
 
 With the auto trim on (SailingAssist.AutoTrimming) each boom turns at 100
 degrees a second toward the wind: a square one to the wind's angle off
-the bow held to 45, a lateen and a gaff to the side it blows from (90 to
-45 on a reach, easing to nought running), a boat with a large square
+the bow held to 45, a lateen and a gaff to the side it blows from (90
+running, 45 on a beam reach, easing to nought as the wind comes ahead -
+150 for a gaff, 165 for a lateen), a boat with a large square
 sail and a gaff held to 30, a stowed sail's boom home, a gaff swinging
 out at 300. Off, the brackets turn the fore-and-aft booms 15 degrees a
 second to 90 either way, and with the modifier (or on a boat with
@@ -948,12 +951,13 @@ day and back by night (six to eighteen), round the ends; the frame time
 is `(2 - Speed / 100) * 0.125` with the integer division.
 
 THE CURRENT (FixedUpdate, 5147-5198), written only with the waves on:
-once any wave mesh was laid, whichever quarter of the pixel the player
-stands in faces a land neighbour pulls that axis to one (toward it), the
-wind's own component elsewhere, normalized to half the wind's strength,
-reversed where the pixel's own middle is land and again by night; before
-any mesh, the wind at half strength (nought over a dungeon block's
-water). OnUpdateCurrent when it changes (CSA-J's listeners). LateUpdate's
+once any pixel in range was found water (UpdateWaveMesh's neighbours are
+set there, a piece laid or not - CSA-J's audit corrected "once a mesh
+was laid"), whichever quarter of the pixel the player stands in faces a
+land neighbour pulls that axis to one (toward it), the wind's own
+component elsewhere, normalized to half the wind's strength, reversed
+where the pixel's own middle is land and again by night; before any, the
+wind at half strength (nought over a dungeon block's water). OnUpdateCurrent when it changes (CSA-J's listeners). LateUpdate's
 move carries the boat on it (CSA-D).
 
 ### Unity's particle system
@@ -1215,8 +1219,10 @@ registers (41000-41002, RoleplayRealism.cs:124-129, at
 DefaultActivationDistance) and none of this mod's seven. With RR's bed
 sleeping on, the boat pick marks a hit on it (`csaBoat:<id>:bed`, its
 reach 3.2, silent past it as every custom activation is) and its arm
-opens the mode's own rest door - the rest gate DaggerfallUI and
-BedActivation share (487-525), then the Rest window told the bed is the
+opens the mode's own rest door - BedActivation's gate (487-525):
+DaggerfallUI's less its GiveOffer rung, so a bed clicked leaves a pending
+`give pc` offer where the R key hands it over (CSA-J's audit found the
+port asking it) - then the Rest window told the bed is the
 one clicked (`ignoreAllocatedBed`, which only a tavern's allocated bed
 reads): `toggleRest` outdoors, `restFromBed` in a building or a dungeon.
 Only the Small Ship and the Large Galley carry a bed: the other three
@@ -1487,7 +1493,8 @@ it. Holding Left Shift zeroes the line, marker and outline thicknesses
 (the three Finals, 670-705) - the label's place keeps the raw thickness
 (kept). The rect is `screenRect.width x screenScaleX / 2 - map / 2`: the
 screen's width scaled before it is halved, so at ScalingMode 1 or 2 the
-map stands off the screen - at 1920x1080 from x 2484 (kept). The
+map stands off the screen - at 1920x1080 from x 2484 at ScalingMode 1
+(a scale of 5.4), 2760 at 2 (6) (kept). The
 arithmetic is `systems/comeSailAwayMap.js` (mapOverlayDraws), drawn by
 the host (`drawScreenQuad`, and `ui/text.js` drawText for DrawText's two
 passes, the shadow first).
@@ -1569,19 +1576,156 @@ after mapShowing, and a window pushed over it draws over it, where
 OnGUI's depth -1 would not); the map's picture rebuilt from the player's
 TRAV0I00.IMG without the bundle's DXT1 blocks.
 
-## Online (CSA-A, and what CSA-J owes)
+## The close (CSA-J)
+
+### The message receiver
+
+`MessageReceiver(message, data, callBack)` (1833-1890, registered in
+Awake at 918; `systems/comeSailAway.js`, on the runtime) restated whole,
+its ten messages in the C#'s switch: GetWind and GetCurrent answer the two
+vectors as copies (a Vector3 is passed by value); OnUpdateWind,
+OnUpdateCurrent and OnUpdateSailing subscribe `data as Action` - a
+function, or nothing at all; ResetTimeScale; StopSailing is
+StopSailingDelayed, the Disembark key's delayed stop; IsPlayerSailing;
+GetBoatGameObject and GetBoatMeshObject answer CurrentBoat's two objects
+to a callback. An unknown message is logged as an error in Unity's name
+for the component (`MOD_OBJECT_NAME`). Every event raises its listeners
+with a copy of the vector, and RunOnUpdateEvents (the save's restore
+calls it) raises OnUpdateWind as the C# does - the port had only cleared
+the current's memory there. Kept: with no boat,
+GetBoatGameObject and GetBoatMeshObject read CurrentBoat anyway, so a
+caller with a callback meets the C#'s NullReferenceException; with no
+callback nothing is read.
+
+### Eye of the Beholder's boat
+
+The second consumer the port carries (`player/eotbCamera.js`,
+`player/eotbBillboard.js`; `06-Systems/Eye-Of-The-Beholder.md`), and its
+two rows of `test/eotb_scope.test.js` are ported. ModCompatibilityChecking
+finds the mod once, in Start, and subscribes OnUpdateSailing; each boot
+hands the camera that boot's runtime (`player/mwView.js`
+setEotbComeSailAway - DECLARED (37): the port's camera outlives a host
+boot and the runtime does not), which puts the boat fields back as the
+.ctor would, and a mod handed after Start subscribes at once.
+OnUpdateSailing asks GetBoatMeshObject and is answered at once; the
+collider's centre is kept as a vector in the object's frame, its extent
+is the largest half-size, and the flag and the helm are looked for among
+the object's OWN children - the walk stops once both are found, a later
+child of the same name never replaces an earlier one, and with neither
+the flag is the object itself (kept: three hulls carry their flag deeper
+than that, so their flag is the hull itself). Both are nulled before each look, so
+one camera over two sails never keeps the first boat's. The camera's boat
+target (IL_1612-IL_16c5): the posOffset arm by the camera's own field;
+the masthead (Target 1) plus the offset scaled by the extent; the hull
+(Target 0) plus its LOCAL centre added as a world vector (kept); ashore,
+or with the override off, the body's head; and the minimum distance still
+floors it in the body's frame (IL_1766-IL_17da, kept). The sprite faces
+the boat (IL_471c-IL_4765): its DrivePosition's forward, else the hull's,
+over every turn-to-view arm, flattened; ashore, nothing. The rig's old
+`sailing: false` wire is gone. Two small doors the arm needed:
+`world/prefabNode.js` `inverseTransformVector` and `forward`, and
+`systems/comeSailAwayBoat.js` `colliderBoundsInChildren`
+(GetComponentInChildren<Collider>: the node's own first collider, then
+its children's).
+
+### The mods the port does not carry
+
+Start looks up two mods the port has not got (1007-1008): World of
+Daggerfall's TERRAIN, by its GUID `a9091dd7-...` (not the port's World of
+Daggerfall, the locations mod), and Animated Water. Both lookups are
+null in code (`WOD_TERRAIN`, `ANIMATED_WATER`), so every arm on them takes
+its null branch: the water level 34 (100 is the terrain mod's), the mod's
+own wave frames, current, rudder particles and bob, Animated Water's
+getWaveHeights never sent. Compatibility/AnimatedWaterVertexWaves stays in
+the pane as the mod ships it and changes nothing; its description says so.
+Iliac Puddle No More is in the port, asked of the host
+(`iliacPuddleNoMore`), and its arms were checked and stand: the placement
+ray's hit on its DeepWaters slab, the WaterLevel plane when the ray finds
+nothing, the nodes' height test, the water walk's box height, and on its
+own side the swim standing down on the boat's bundle. Travel Options'
+one message is CSA-G's.
+
+### The audit
+
+Five readers against the assembly and DFU, each over its own share of the
+port. Their fixes: OnStartLoad raised ahead of the save's player on both
+loads (SaveLoadManager raises it at :1378, before the restore at :1497 -
+the port raised it after, and its StopSailing took a loaded character's
+ship); OnLoad after a same-dungeon load (:1554); the boats' models awaited
+before a load's mod loop (SpawnBoat is synchronous, so a load's boats
+stand at once); the Transport press leaving the helm before the street's
+window opens (the mod leaves on the press, and DFU opens the window on the
+release); OnPlayerDeath from a death or a collapse in a building or
+underground; the oars' fatigue through the mode's own door; the modes'
+frame running the mod after its motor, on the mode's own axes, none of
+them gated by paralysis (InputManager has no such gate); OnPostFastTravel
+(1973-1976, the scale put back to one); a load in progress holding the
+mod as a pause does; the Enabled switch read once, at load, as the pane
+says; a new game keeping Start's rolled wind (DFU calls nothing on a
+mod's save interface for a new game - `systems/modSaveData.js`'s
+`newGame`, which a mod without one does not have, so it still takes its
+NewSaveData); past a terrain's edge the edge's own height (Unity's
+GetInterpolatedHeight clamps); a rider's hit carrying its hull; a
+SpawnBoat that throws half way leaving its half-built hull standing, as
+the C#'s GameObject stays in the scene; RuntimeMaterials writing into a
+copy and assigning it past the loop, so an index out of range writes
+nothing; the boat's bed skipping the GiveOffer rung, which Roleplay
+Realism's BedActivation has not (RR1's beds too); and the waves' and
+particles' pictures loaded at boot. The page's own claims were read
+against the code as well; the trim, the current, the lateen, the tick
+order, the helper plane, ScalingMode and the bed were corrected.
+
+DECLARED (the Port-Ledger row): (36) the others see a sailor's boats
+(Online, below); (37) the camera finds the boat each boot (above); (38) a
+load that lands elsewhere leaves the helm - the port's loads can land away
+from the save's place (the online wake at a temple, ONLINE-UNDERGROUND-LOAD1;
+a dungeon not found or with no door; a save of elsewhere) where DFU always
+re-enters it, and there the record's helm is let go (`currentBoat` -1),
+because RestoreSaveData's StartSailing would pin the player to a boat
+UpdateBoatVisibility then destroys.
+
+## Online (CSA-A, CSA-J)
 
 The player's own (`systems/onlineLane.js` ONLINE_PLAYERS_OWN_MODS): a boat
 is a possession in the player's save, placed and sailed by them - Horse
-Cart and Cargo's wagon's shape, whose boat stands where is the player's
-own and a peer only SEES them move. Its wind is each machine's own roll
+Cart and Cargo's wagon's shape. Its wind is each machine's own roll
 (`UpdateWind` draws from UnityEngine.Random), as it is for each DFU
-player. What CSA-J owes: a peer seeing the boat under the player (a
-sidecar on a frame the relay already carries, since a new pose field is a
-relay deploy). The time scale (CSA-G) is Travel Options' journey's case
+player. The time scale (CSA-G) is Travel Options' journey's case
 (TO-ONLINE): the shared clock takes nothing from dt
 (`systems/worldTick.js`), so the helm's scale speeds the player's own
 world and spends no room's clock (OL2).
+
+CSA-J: the others in a cell SEE a sailor's boats (DECLARED (36): the mod
+is single-player). `systems/comeSailAwayWire.js`: every active boat - its
+hull, its variant, its root in the wire frame (to the centimetre), its turn
+(to four places), its raised sails as bits (sixteen at most), the helm and
+the lanterns; at most eight boats - rides the owner's own foes frame as
+`sa`, beside the camps' `c` and the team's `hv`, on every full frame and
+on a moved word between them (`scenes/world.js` csaWord; the mod off, one
+null takes the owner's away). The relay reads nothing inside a foes
+frame, so the relay is unchanged. A peer's word passes the door whole or
+not at all (a known hull and variant, the pose bounds, a unit quaternion,
+normalized, the bits and two flags) and lands past the room test
+(`scenes/exteriorFoes.js` setOnCsa). `scenes/comeSailAwayPeers.js` stands
+it: each boat built as SpawnBoat builds one, into the pool's PEER list
+(`scenes/comeSailAwayPool.js`) - drawn, baked and lit as a boat of mine,
+but never a collider, a ray's hit or an activation, because the host's
+loops read the pool's own `boats` - and posed every frame off the word,
+converted from the wire frame each frame (AUDIT HCC O1), eased toward it
+(a step past twenty metres snaps: `easeToward`, the team's law) and turned
+toward it by a slerp. The same hull at the same place in the list is
+kept, its variant set in place as SetBoatVariant sets it; the sails raise
+and stow through the mod's own Animator calls, the crew's idle and active
+objects follow the helm, the lanterns the owner's switch. The owner law
+is the camps' and the team's: an owner's word replaces theirs alone; an
+owner gone from the room, or quiet past the stale time (three full
+frames, six seconds), takes their boats with them; a clear (a transition,
+a fast travel, a room change) takes everyone's; the mod off stands
+nothing of anyone's; before the pool's models are in a word stands
+nothing, and on the first frame after, it stands. Not carried: the bob,
+the wake, the oars, the sounds, the trim and the wind's belly - the
+owner's own frame drives those, and the wire carries the pose five times
+a second.
 
 ## What was already waiting in the port
 
@@ -1589,9 +1733,9 @@ world and spends no room's clock (OL2).
   (`world/deepWaterSwim.js` `isBoatEffectBundle`): the mod's effect bundle
   is "I'm On A Boat", and that literal is in the assembly's heap.
 - Eye of the Beholder's boat camera (`CameraOverrideBoat.*`,
-  `player/eotbCamera.js`) reads a `sailing` state, and its
-  `OnUpdateSailing` hook is a row of `test/eotb_scope.test.js` waiting for
-  this mod.
+  `player/eotbCamera.js`) read a `sailing` state, and its
+  `OnUpdateSailing` hook was a row of `test/eotb_scope.test.js` waiting for
+  this mod; CSA-J ported it (The close, above).
 - Item templates 1320 and 1321 are free.
 
 ## Tests
@@ -1765,3 +1909,25 @@ Puddle No More, an inactive boat, a paused frame, a bundle already live,
 "Jesus Mode", a spell's walk left); WaterWalkingSilent on the effect
 list; the host's seams. `tools/mutants/csa_map.json`: 95 mutants, all
 dead.
+
+`test/csa_close.test.js` (15): MessageReceiver (the two vectors as copies,
+the three events subscribed by a function and by nothing else,
+IsPlayerSailing, an unknown message's error in Unity's name; ResetTimeScale's
+line, StopSailing the delayed stop, the boat's two objects and the kept
+NullReferenceException); Eye of the Beholder's OnUpdateSailing on every
+hull, one camera over two sails, the child walk's stop and its first-found
+rule, ModCompatibilityChecking's arm and a new boot's fields, the camera's
+boat target and its kept floor, the sprite's heading, the hosts' seams;
+the two mods the port does not carry, null in code; and the audit's fixes
+(OnPostFastTravel, the Transport press, every mode's death and collapse,
+the oars' fatigue door, the indoor axes, a new game's wind, the half-built
+hull, the load's doors, a load that lands elsewhere, the models before the
+mod loop, a load held as a pause, the switch read once, a rider's hull, a
+terrain's edge). `test/csa_online.test.js` (6): my word (its fields and
+their rounding, eight at most, none a null); a peer's word through the
+door; the peer list (built, posed off the word, never in `boats`; the
+sails, crew and lanterns); the owner law (gone, stale, a clear, the mod
+off, the origin's shift); a word before the models; the hosts' seams.
+`test/eotb_camera.test.js` drives the arm order through the real path,
+and `test/eotb_scope.test.js`'s two rows are ported.
+`tools/mutants/csa_close.json`: 126 mutants, all dead.

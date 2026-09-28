@@ -123,6 +123,8 @@
 //   CSA-F, the waves:
 //   heightMapValue(x, y) -> byte                  WoodsFileReader.GetHeightMapValue (the live map, clamped at its edges)
 //   transport.isOnShip()                          TransportManager.IsOnShip
+//   CSA-J, the message receiver:
+//   logError(text)                                Debug.LogErrorFormat (a message no arm knows)
 // }
 
 import { Boat, setLights, HULL_NAMES, HULL_PRICES, HULL_WEIGHTS, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds, animatorOf, boatAnimators, boatParticleSystems, nodeOf, AUDIO_CLIPS, SAIL_ANIMATION_SPEED } from './comeSailAwayBoat.js';
@@ -138,8 +140,20 @@ import { MONTH_NAMES } from './gameDate.js';   // CSA-I: WorldTime.Now.MonthName
 import { MAP_MARKER_MODE_COLORS, mapRect, guiMouse, mapPixelUnder, guiRectContains, vector2IntDistance, markerLabel, dayOfMonthWithSuffix, mapOverlayDraws, csFloatString, COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_BLACK, DAGGERFALL_DEFAULT_SHADOW_POS } from './comeSailAwayMap.js';   // CSA-I: the position reading
 
 export const COME_SAIL_AWAY_VENDOR = 'come-sail-away';
-/** ComeSailAway.WaterLevel (IL 514): `WODTerrain ? 100 : 34` - the port carries no World of Daggerfall terrain. */
-export const WATER_LEVEL = 34;
+/**
+ * CSA-J: Start's lookups of the two mods the port does not carry (1007-1008) - World of Daggerfall's TERRAIN,
+ * GetModFromGUID("a9091dd7-e07a-4171-b16d-d13d67a5f221") (not the port's World of Daggerfall, the locations mod,
+ * 98f05888), and GetMod("Animated Water"). Both are null here, so every arm on them takes its null branch: the water
+ * level 34 and a coast pixel no higher than 2 (comeSailAwayWaves.js), the mod's own waves, current, particles and
+ * bob, Animated Water's getWaveHeights never sent, Compatibility/AnimatedWaterVertexWaves inert. Iliac Puddle No More
+ * and Travel Options are in the port, asked of the host (deps.iliacPuddleNoMore, deps.travelOptionsActive).
+ * @type {null | { Title: string }}
+ */
+export const WOD_TERRAIN = null;
+/** @type {null | { Title: string }} */
+export const ANIMATED_WATER = null;
+/** ComeSailAway.WaterLevel (514-524): `WODTerrain != null ? 100 : 34`. */
+export const WATER_LEVEL = WOD_TERRAIN != null ? 100 : 34;
 /** ComeSailAway.terrainEdge. */
 export const TERRAIN_EDGE = Math.fround(819.2);
 /** The placement ray's reach, and the dungeon water plane's. */
@@ -476,9 +490,9 @@ export function createComeSailAwayRuntime(deps) {
   };
   /** The player's transform parent: the boat StartSailing parented them to, until the un-parenting. */
   let playerParent = null;
-  /** The C#'s events a later slice or another mod listens on (the message receiver is CSA-J's). */
+  /** The C#'s events another mod listens on through MessageReceiver (CSA-J) - Eye of the Beholder's OnUpdateSailing. */
   const events = { OnUpdateSailing: [], OnUpdateWind: [], OnUpdateCurrent: [] };
-  const raise = (name, v) => { for (const fn of events[name]) fn(v); };
+  const raise = (name, v) => { for (const fn of events[name]) fn(Array.isArray(v) ? [...v] : v); };   // a Vector3 is each delegate's own copy
   /** Coroutines waiting on WaitForEndOfFrame, resumed by endOfFrame(): each a step that answers true to wait again. */
   /** @type {(() => boolean)[]} */
   let endOfFrameQueue = [];
@@ -655,6 +669,30 @@ export function createComeSailAwayRuntime(deps) {
   function SetTimeScale(scale, message = true) {
     deps.setTimeScale?.(scale);
     if (message) deps.midScreenText(`Time scale set to ${scale}.`, f(3 * scale));
+  }
+
+  /**
+   * MessageReceiver (1833-1890, registered in Awake 918): the ten messages another mod sends this one. The wind and
+   * the current are answered as Vector3s are passed - a copy; the three events take `data as Action<...>`, which is
+   * null for anything but a function, and `+= null` subscribes nothing; ResetTimeScale says its scale, as the helm's
+   * does; StopSailing is the Disembark key's delayed stop. The two boat objects are CurrentBoat's, read only when a
+   * callback was given - with no boat, the C#'s NullReferenceException (kept). Any other message is logged as an error.
+   * @param {string} message @param {any} data @param {((message:string, data:any) => void) | null} [callBack]
+   */
+  function MessageReceiver(message, data, callBack = null) {
+    switch (message) {
+      case 'GetWind': callBack?.('GetWind', [...state.windVectorCurrent]); break;
+      case 'GetCurrent': callBack?.('GetCurrent', [...state.currentVector]); break;
+      case 'OnUpdateWind': if (typeof data === 'function') events.OnUpdateWind.push(data); break;
+      case 'OnUpdateCurrent': if (typeof data === 'function') events.OnUpdateCurrent.push(data); break;
+      case 'OnUpdateSailing': if (typeof data === 'function') events.OnUpdateSailing.push(data); break;
+      case 'ResetTimeScale': ResetTimeScale(); break;
+      case 'StopSailing': StopSailingDelayed(); break;
+      case 'IsPlayerSailing': callBack?.('IsPlayerSailing', isSailing()); break;
+      case 'GetBoatGameObject': callBack?.('GetBoatGameObject', state.CurrentBoat.GameObject); break;
+      case 'GetBoatMeshObject': callBack?.('GetBoatMeshObject', state.CurrentBoat.MeshObject); break;
+      default: (deps.logError ?? deps.log)?.(`${MOD_OBJECT_NAME}: unknown message received (${message}).`); break;
+    }
   }
 
   /** UpdateBoatCargoMod (3820-3858): the cargo's weight against the threshold; a mod past half or at all, said. */
@@ -870,11 +908,6 @@ export function createComeSailAwayRuntime(deps) {
       num = f(num + num2);
     }
     return num;
-  }
-  /** A sail's Animator stowed or raised: CrossFade over sailAnimationSpeed and the Stowed bool with it. */
-  function stow(component, stowed) {
-    component.CrossFade(stowed ? 'Stowed' : 'Unstowed', SAIL_ANIMATION_SPEED);
-    component.SetBool('Stowed', stowed);
   }
   /** ToggleSails (5296-5310). */
   function ToggleSails() {
@@ -1204,7 +1237,7 @@ export function createComeSailAwayRuntime(deps) {
     if (state.wasPaused && f(deps.timeScale?.() ?? 1) !== 1 && !state.isTravelling) ResetTimeScale();
     state.wasPaused = false;
     if (isSailing() && state.CurrentBoat != null) updateSailing();
-    if (!waveOn()) return;   // `|| (AnimatedWater != null && AWVertexWaves)` - CSA-J's
+    if (!waveOn() || animatedWaterWaves()) return;   // (4769) `!wave || waveObject == null || (AnimatedWater != null && AWVertexWaves)`
     const step = stepWaveFrame(state.waveFrameIndex, state.waveFrameTimer, waveFrameTimeOf(setting('Waves.Speed', 100)), dt(), WAVE_FRAME_COUNT, isDayHour(deps.hour?.() ?? 12));
     state.waveFrameIndex = step.index;   // material.SetTexture("_MainTex", waveFrames[waveFrameIndex]) - the host draws the index
     state.waveFrameTimer = step.timer;
@@ -1251,8 +1284,8 @@ export function createComeSailAwayRuntime(deps) {
    *  roll not scaled by modifierAnimation (the C#'s precedence, kept) - and its flag streaming down the wind less the
    *  boat's way. CSA-I: first, whether the player stands in the hull's collider box - its mesh's own bounds, the
    *  player taken into the hull's space before this frame's bob, its height the box's centre's without Iliac Puddle
-   *  No More (the box a column) - and after the boats the water walk started or ended on the answer. Animated Water's
-   *  arm is CSA-J's. */
+   *  No More (the box a column) - and after the boats the water walk started or ended on the answer. CSA-J: Animated
+   *  Water's arm (4991-5026, its getWaveHeights on the five nodes) is never taken - ANIMATED_WATER is null. */
   function lateUpdateBoats() {
     let flag = false;
     const ctx = { models: deps.pool.models };
@@ -1270,7 +1303,7 @@ export function createComeSailAwayRuntime(deps) {
           const m = vMagnitude(state.MoveVectorCurrent);
           num = m < wakeThreshold() ? 0 : f(f(state.TurnCurrent / HANDLING.turnSpeedSail) * f(f(m * f(0.1)) / HANDLING.moveSpeedSail));
         }
-        // `if (AnimatedWater != null && AWVertexWaves && timeScaleIndex == 0)` - its wave heights, CSA-J's
+        // `if (AnimatedWater != null && AWVertexWaves && timeScaleIndex == 0)` - never here (ANIMATED_WATER); its else:
         let num2 = f(f(deps.time()) + i);
         num2 = f(num2 / TIME_SCALES[state.timeScaleIndex]);
         const roll = f(mathfClamp(f(f(0 - num) * 5), -30, 30) + f(f(Math.sin(f(f(num2 * f(0.5)) * magnitude))) * magnitude));
@@ -1290,8 +1323,9 @@ export function createComeSailAwayRuntime(deps) {
   /**
    * FixedUpdate (5053-5198): every active enemy with a controller, a ray down its own height from its transform; one
    * grounded on a boat's hull collider rides that hull (SetParent(MeshObject)), any other back to the scene's parent.
-   * Then, only with the waves, the current (CSA-F): along the wind at half its strength, or - once any wave mesh was
-   * laid - toward whichever land neighbour the player's quarter of their pixel faces (the last water pixel's, kept),
+   * Then, only with the waves, the current (CSA-F): along the wind at half its strength, or - once any pixel in range
+   * was found water, a mesh laid or not - toward whichever land neighbour the player's quarter of their pixel faces (the
+   * last water pixel's, kept),
    * reversed where that pixel's own middle is land and again by night; OnUpdateCurrent when it changed.
    */
   function fixedUpdate({ paused = false } = {}) {
@@ -1318,7 +1352,7 @@ export function createComeSailAwayRuntime(deps) {
       }
     }
     // CSA-F: the current (5147-5198) - only with the waves
-    if (!waveOn()) return;   // `|| (AnimatedWater != null && AWVertexWaves)` - CSA-J's
+    if (!waveOn() || animatedWaterWaves()) return;   // (5147) the same gate as Update's
     const night = !isDayHour(deps.hour?.() ?? 12);   // WorldTime.Now.IsNight
     const N = state.currentNeighbors;
     if (N != null) {
@@ -1707,6 +1741,10 @@ export function createComeSailAwayRuntime(deps) {
       if (currentBoat.packable) PackBoat(currentBoat, true);
     } else ResetTimeScale(false);
   }
+  /** OnPostFastTravel (1973-1976, CSA-J's audit): the arrival puts the scale back to one, saying nothing. */
+  function OnPostFastTravel() {
+    ResetTimeScale(false);
+  }
   /** OnPlayerDeath (2089-2099) - the entity's OnDeath and OnExhausted alike. */
   function OnPlayerDeath() {
     if (isSailing()) StopSailing();
@@ -2060,11 +2098,13 @@ export function createComeSailAwayRuntime(deps) {
 
   // ── CSA-F: the waves (2134-2143, 2145-3477; comeSailAwayWaves.js) ──
   const waveOn = () => !!setting('Waves.Enable', true);
+  /** CSA-J: `AnimatedWater != null && AWVertexWaves` - false here, the setting never read (ANIMATED_WATER is null). */
+  const animatedWaterWaves = () => ANIMATED_WATER != null && !!setting('Compatibility.AnimatedWaterVertexWaves', false);
   /** UpdateWaveMesh (2145-3477): the mesh cleared; with the waves off, indoors or on the player's ship nothing more;
    *  else the object stood over the player's pixel and the coast's pieces laid. */
   function UpdateWaveMesh() {
     state.waveObject.mesh = null;   // waveMeshFilter.mesh.Clear()
-    if (!waveOn() || deps.isPlayerInside() || deps.transport?.isOnShip?.()) return;   // `|| (AnimatedWater != null && AWVertexWaves)` - CSA-J's
+    if (!waveOn() || animatedWaterWaves() || deps.isPlayerInside() || deps.transport?.isOnShip?.()) return;   // (2798)
     const r = buildWaveMesh({
       heightMapValue: deps.heightMapValue,
       raycast: (origin, direction, maxDistance) => deps.raycast(origin, direction, maxDistance, { triggers: true }),
@@ -2080,8 +2120,8 @@ export function createComeSailAwayRuntime(deps) {
   // ── CSA-F: the boats' two loops, their play state (6527-6600) - the wake's Play and Stop ride it; the sound is CSA-G's ──
   /** The MonoBehaviour's one `fading` coroutine, every boat's (kept). */
   let fading = null;
-  /** DisableParticles (617-627): `AnimatedWater != null && AWVertexWaves` - CSA-J's; never here. */
-  const DisableParticles = () => false;
+  /** DisableParticles (617-627): `AnimatedWater != null && AWVertexWaves` - never here (ANIMATED_WATER). */
+  const DisableParticles = () => animatedWaterWaves();
   /** DaggerfallUnity.Settings.SoundVolume * sfxVolume. */
   const loopVolume = () => f(f(deps.soundVolume?.() ?? 1) * f(setting('Audio.SoundVolume', 1)));
   /** AudioSource.Play - from the clip's start (a playing source restarts: `plays` counts them for the host) - and Stop. */
@@ -2406,8 +2446,10 @@ export function createComeSailAwayRuntime(deps) {
     for (const [uid, items] of Object.entries(data.packedCargoes ?? {})) state.PackedCargoes.set(cargoKey(uid), deps.packedItems.deserialize(items));
     RunOnUpdateEvents();
   }
-  /** RunOnUpdateEvents (1821-1831): the wind's event (CSA-E's listeners), the current's memory cleared. */
+  /** RunOnUpdateEvents (1821-1831, the save's restore calls it): OnUpdateWind with the wind as it stands - CSA-J's
+   *  receiver lets another mod listen - and the current's memory cleared. */
   function RunOnUpdateEvents() {
+    raise('OnUpdateWind', [...state.windVectorCurrent]);
     state.currentVectorPrevious = [0, 0, 0];
   }
   /** AddMapMarker (5695-5701): a marker, once per pixel. */
@@ -2445,7 +2487,7 @@ export function createComeSailAwayRuntime(deps) {
     update, lateUpdate, fixedUpdate, endOfFrame, tick,
     StartSailing, StopSailing, StopSailingDelayed, UpdateCurrentBoatNodes, CheckCollision, UpdateBoatCargoMod,
     CanSail, IsBeached, IsNodeOnWater, CanTurnLeft, CanTurnRight, ResetTimeScale,
-    activate, OnStartLoad, OnPreFastTravel, OnPlayerDeath, OnNewMagicRound,
+    activate, OnStartLoad, OnPreFastTravel, OnPostFastTravel, OnPlayerDeath, OnNewMagicRound,
     UpdateWind, OnNewHour, OnWeatherChange,
     GetSailPower, ToggleSails, RaiseSails, LowerSails, ToggleSquareSails, HasLargeSquareSailWithGaff,
     windWidget, windWidgetFrameOf,
@@ -2459,7 +2501,13 @@ export function createComeSailAwayRuntime(deps) {
     // CSA-I: the position reading, OnGUI's map and values, the water walk
     CheckBoatPosition, StartShowBoatPosition, StopShowBoatPosition, IsPositionMarked, LeftClickOnMap, RightClickOnMap,
     mapOverlay, debugValues, StartWaterwalking, EndWaterwalking,
+    // CSA-J: the message receiver
+    MessageReceiver,
     newSaveData, getSaveData, restoreSaveData,
+    /** CSA-J (the audit): a new game. DFU calls nothing on a mod's save interface (the NewSaveData restore is the
+     *  port's, modSaveData.js), and this runtime is the game's own - the host is built per game - so Start's state
+     *  stands: its rolled wind, where NewSaveData's Vector3.forward would have turned every new game's wind due north. */
+    newGame() {},
   };
 }
 
@@ -2469,8 +2517,18 @@ const cargoKey = (uid) => String(uid);
  *  (world/deepWaterSwim.js isBoatEffectBundle) - its one effect's key (WaterWalkingSilent.EffectKey), and the other
  *  bundle EndWaterwalking takes off (6021). */
 export const BOAT_EFFECT_BUNDLE = "I'm On A Boat";
+/** CSA-J: the component as Unity's Object.ToString() names it in the receiver's error - Init's GameObject, named for
+ *  the mod's title (719), and the type's full name in brackets. */
+export const MOD_OBJECT_NAME = 'Come Sail Away (ComeSailAwayMod.ComeSailAway)';
 export const WATER_WALKING_SILENT = 'WaterWalkingSilent';
 const JESUS_MODE_BUNDLE = 'Jesus Mode';
+/** A sail's Animator stowed or raised: CrossFade over sailAnimationSpeed and the Stowed bool with it (CSA-J: a peer's
+ *  boat's sails too, scenes/comeSailAwayPeers.js). */
+function stow(component, stowed) {
+  component.CrossFade(stowed ? 'Stowed' : 'Unstowed', SAIL_ANIMATION_SPEED);
+  component.SetBool('Stowed', stowed);
+}
+export { stow as stowSail };
 /** Bounds.Contains: inside the box or on its faces. */
 export function boundsContains(b, p) {
   for (let k = 0; k < 3; k++) if (p[k] < f(b.center[k] - b.extent[k]) || p[k] > f(b.center[k] + b.extent[k])) return false;
