@@ -365,8 +365,12 @@ test('AUDIT-39r: the dungeon host runs the missile sweep at its OWN load door', 
   // (F9/F11 reach it directly, with no pane in the way to stop them) ahead of the same call chain.
   // BLOOD AUDIT 4 widened it again: the blood's clear rides beside the sweep, with its reason.
   // CASTLE1 widened it once more: the door hands a save from another place to the world host first, with its reason.
-  // DIAL-LOAD widened it again: the second half's first line takes the host's load law when the door brought none.
-  const body = ctx.slice(at, at + 6000);
+  // AUDIT OH-F B2 widened it again: the drowned dungeon's load goes the same way, with its reason, and the restore
+  // hands its rebuilds back. DIAL-LOAD widened it again: the second half's first line takes the host's load law when the
+  // door brought none. (The merge of the two: both widenings, 5500 + 1000 + 500.)
+  // AUDIT DISC28 widened it once more: the load's start raises the host's own OnStartLoad hands (onStartLoad - the
+  // camera's reel reset), with its reason.
+  const body = ctx.slice(at, at + 7100);
   assert.match(body, /magic\.clearMissiles\(\);/, 'which sweeps its own flights');
   assert.ok(body.indexOf('magic.clearMissiles();') < body.indexOf('applyWorld(extras.world)'),
     'ahead of the world restore, as OnStartLoad is');
@@ -405,7 +409,7 @@ test('AUDIT 39 #159: the travel map refuses with enemies nearby, before the raci
 
 test('AUDIT 39 #130: the exterior host\'s attack TAP defers to a readied spell like its other three doors', () => {
   // WeaponManager.cs:244-263 hands the click to the ready spell before
-  // it handles any attack; touch.js:234 already promises the tap casts.
+  // it handles any attack; touch.js:235 already promises the tap casts.
   // TI1 (2026-09-05): the tap-to-attack button is gone - the touch
   // SWIPE is the attack now, and it carries the same gate in front of
   // the drag seam, held-edge only (a release must reach the rig).

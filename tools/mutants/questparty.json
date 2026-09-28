@@ -86,8 +86,8 @@
   {
     "name": "QP-stranger-stands-them",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      if (qt && !_questShare?.accepts?.(from, qt)) { if (f) removePuppet(f); continue; }",
-    "new": "",
+    "old": "      if (qt && !_questShare?.accepts?.(from, qt) && !(heirIsMe(r) && _questShare?.partyPeer?.(from))) {   // QUEST-PARTY: a party's quest foes stand at its members alone",
+    "new": "      if (false) {   // QUEST-PARTY: a party's quest foes stand at its members alone",
     "tests": ["test/questparty.test.js"]
   },
   {

@@ -978,8 +978,10 @@ the only things that ever change a lantern's shadow are the light
 itself, a door on its swing, a rig walking through, a foe.
 
 **The shape.** `render/shadowPass.js`. Every record is CLASSIFIED as it
-is recorded: a mesh at the matrix it was drawn with last frame is
-static, one that moved is dynamic - and stays dynamic for
+is recorded: a mesh at the matrix it was drawn with last frame, its
+vertices as they were, is static; one that moved, or whose vertices a bake
+moved (updateMeshVertices' generation - a sail re-baked in place: AUDIT
+PRE-MERGE 0928 R1), is dynamic - and stays dynamic for
 `SHADOW_DYNAMIC_HOLD` (60) recorded frames after it stops, so a door that
 swings and stops or a walker who pauses does not redraw every cache in
 reach at each step; a rig is always dynamic; a flat is dynamic while its
@@ -1689,7 +1691,7 @@ and their colours - decoded to linear again each time, 144 `Math.pow` - the indi
 (`_uploadEl`: the exposure and the glow's gain, the three shadow arrays on their units, `uSunVP[3]`, the cascade
 terms, `uPointShadowParams[8]`, `uShadowIndex[8]`, `uCasterOf[48]`, the eye's image, the contact block, the grid's two
 textures and four uniforms). On the fake GL with the lane and the air on that is **95 GL calls a billboard call (of
-the pin's three batches), 83 a decal call, 84 a body** - of which only the basis, the wind and the batches' own, the
+the pin's three batches), 83 a decal call, 84 a body** (97, 85 and 86 since TV1, 2026-09-28: the travel view's `uFocus` rides the fog's upload and `uSunOrigin` the shadow block's) - of which only the basis, the wind and the batches' own, the
 atlas and the picture flag, and the model matrix and ranges are the call's. An interior frame makes eight flat calls (its flats, the blood, the dropped torches, the placed
 decor, the piles, the foes, the watch, the spells), a decal call per hung weapon (DECOR2c's mounts, every frame) and
 the blood pool's, and one call per body - and nothing between them moved a value in the block. Now PERF3's terrain law

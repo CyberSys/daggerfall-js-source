@@ -40,6 +40,9 @@ let host = null;
 let parts = null;
 let last = null;
 
+/** TV2 (AUDIT DEEP X-6): the held clock, in words - the rate the travel view's governor lets run, of the one asked for. */
+export const TRAVEL_HELD_TEXT = (n, of) => `Held to ×${n} of ×${of} while the land loads`;
+
 /** enhancedHud.js:316 - write only on a change. */
 function put(node, key, value) {
   if (!node || last[key] === value) return;
@@ -83,6 +86,10 @@ function build(doc, hooks) {
     <canvas class="travelpanel-junction" width="${JUNCTION_MAP_WIDTH * DOT_SCALE}" height="${JUNCTION_MAP_HEIGHT * DOT_SCALE}"></canvas>
   `;
   doc.body.append(root);
+  // AUDIT DEEP2 A1: a press on one of the panel's own controls is the panel's - the host's window mousedown counts any
+  // press as Mouse0 (the activation, the swing, a readied spell), so under the travel view a click on + or Exit also
+  // activated what stood before the traveller's head. The PRESS stops here; never the release (AUDIT CHAT C5).
+  root.addEventListener('mousedown', (e) => { if (e.target?.closest?.('[data-act]')) e.stopPropagation(); });
   root.addEventListener('click', (e) => {
     const act = e.target?.closest?.('[data-act]')?.dataset?.act;
     if (!act) return;
@@ -157,7 +164,8 @@ export function paintJunction(canvas, buf, { mapPixel, direction, settings, deps
 
 /** The panel's frame. `state` is what the journey knows:
  *  { showing, covered, destination, following, accel, message, minutesLeft,
- *    from, to, junction: { on, mapPixel, direction, settings, deps, buf } }
+ *    from, to, junction: { on, mapPixel, direction, settings, deps, buf }, held }
+ *  (TV2: `held` the rate the travel view's governor holds the clock to, or null)
  *  `hooks` are the five controls, wired once at build.
  *
  *  AUDIT-TO1 F1: THE JUNCTION MAP OUTLIVES THE BAR. In the mod the
@@ -199,7 +207,15 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
   const eta = etaText(state.minutesLeft);
   const dist = distanceText(state.from, state.to);
   put(parts.sub, 'sub', [eta, dist].filter(Boolean).join('  ·  '));
-  put(parts.accel, 'accel', `×${state.accel ?? 1}`);
+  // TV2: under the travel view the clock may be HELD under the spinner (systems/travelGovernor.js) - the rate that
+  // runs, then the one asked for; the spinner stays the player's
+  const accel = state.accel ?? 1;
+  const held = state.held != null && state.held < accel ? state.held : null;
+  put(parts.accel, 'accel', held != null ? `×${held} / ×${accel}` : `×${accel}`);
+  cls(parts.accel, 'accelClass', held != null ? 'travelpanel-accel held' : 'travelpanel-accel');
+  // AUDIT DEEP X-6: and says why, under the pointer (the travel view's own words - they were written, and never shown)
+  const why = held != null ? TRAVEL_HELD_TEXT(held, accel) : '';
+  if (parts.accel && last.accelTitle !== why) { last.accelTitle = why; parts.accel.title = why; }
   put(parts.msg, 'msg', String(state.message ?? ''));
   cls(parts.msg, 'msgClass', state.message && !junctionOnly ? 'travelpanel-msg show' : 'travelpanel-msg');
   const j = state.junction;

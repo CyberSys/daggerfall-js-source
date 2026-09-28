@@ -136,7 +136,7 @@ test('PAD1-C the store: a full reset and the load-time autofill both FILL the pa
   // secondary back to the pad button - so the test stopped asking what
   // it says it asks. A code no default holds, in EITHER dict, is what
   // this fixture has always meant.
-  const own = [...'PYZXQKJUOBNM'.split('').map((c) => `Key${c}`), 'Semicolon', 'Quote', 'BracketLeft', 'BracketRight']   // KB1: past the letters, which are all spoken for
+  const own = [...'PYZXQKJUOBNM'.split('').map((c) => `Key${c}`), 'Semicolon', 'Quote', 'BracketLeft', 'BracketRight', 'ScrollLock']   // KB1: past the letters, which are all spoken for (CSA-D/E: and the four after them)
     .find((c) => !DEFAULT_BINDINGS.some(([code]) => code === c)
       && !DEFAULT_SECONDARY_BINDINGS.some(([code]) => code === c));
   assert.ok(own, 'every candidate letter is spoken for - this fixture needs a new one');

@@ -985,6 +985,17 @@ export function paintInkOverlay(ctx, view, opts) {
   if (opts.gate && visible(opts.gate.cx, opts.gate.cy, opts.gate.r + 2)) paintGateRing(ctx, view, opts.gate, pulse);
   // EVENT-TIP: the towns under attack, over the ring and under the party - a member standing in one reads over it
   for (const m of opts.raids ?? []) if (visible(m.x, m.y)) paintRaidMark(ctx, view, m, pulse);
+  // TV3: the region's travellers, under the party - a smaller ring and a smaller name, a stranger's
+  for (const t of opts.travellers ?? []) {
+    if (!visible(t.x, t.y)) continue;
+    const [x, y] = toPaper(view, t.x, t.y);
+    ctx.strokeStyle = t.color; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = t.color;
+    ctx.font = `600 11px ${NAME_FACE}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(t.journey ? `${t.name} \u2192` : t.name, x, y + 7);
+  }
   for (const m of opts.party ?? []) {
     if (!visible(m.x, m.y)) continue;
     const [x, y] = toPaper(view, m.x, m.y);

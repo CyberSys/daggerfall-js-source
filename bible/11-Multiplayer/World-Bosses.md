@@ -759,7 +759,7 @@ Mac: *"Discord live gates?"*, then the moments - *"Omen (15 min before), Boss sl
   repository), and `GATE_DISCORD_ROLE`, a var (`server/wrangler.toml`). No webhook, no herald: nothing posted, nothing
   kept. The role must allow anyone to @mention it, or Discord shows the ping and notifies nobody.
 
-Relay world126. Pinned in `test/discordgates.test.js` (11); mutants `tools/mutants/discordgates.json` (45, all dead).
+Relay world123 (world126 on its branch, renumbered at the merge with main). Pinned in `test/discordgates.test.js` (11); mutants `tools/mutants/discordgates.json` (45, all dead).
 
 ## Shipped
 

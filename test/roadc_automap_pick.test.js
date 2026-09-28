@@ -716,10 +716,13 @@ test('c2/S7 SOURCE PINS: the host hands the picker its triangles, and the model 
 // DATA-GATED
 // ─────────────────────────────────────────────────────────────────────
 test('c2/S7 mesh 99900 is a real, whole model and the window rides IT, not the quad', { skip: skipReal }, async () => {
-  const { openArch3d } = await import('../src/world/arch3d.js');
-  const { readMesh } = await import('../src/world/meshReader.js');
-  const arch = await openArch3d(ARENA2);
-  const mesh = readMesh(arch, 99900);
+  const { Arch3dFile } = await import('../src/formats/arch3dFile.js');
+  const { dfMeshToModel } = await import('../src/world/meshReader.js');
+  const arch = new Arch3dFile();
+  arch.load(new Uint8Array(readFileSync(join(ARENA2, 'ARCH3D.BSA'))));
+  // the host's own read (scenes/dataPipeline.js buildGpuMesh); the record
+  // sizes only scale the UVs, which nothing below reads
+  const mesh = dfMeshToModel(arch.getMesh(arch.getRecordIndex(99900)), () => ({ width: 1, height: 1 }));
   // SHAPE AND VALUE of the real load: a whole vertex buffer, at least one
   // textured submesh, and an index run that exactly covers the triangles
   // the submesh table claims - a truncated or mis-fanned read fails here

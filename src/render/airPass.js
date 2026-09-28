@@ -1309,7 +1309,7 @@ export class AirPass {
         // the march's shadow block, the names ShadowPass.upload binds by (the sun's are null here - the shader declares them and reads none)
         this.programs.vol = vol;
         vol.shadow = {
-          sunShadow: u(p, 'uSunShadow'), sunVP: u(p, 'uSunVP'), sunParams: u(p, 'uSunShadowParams'), sunTexel: u(p, 'uSunTexel'),
+          sunShadow: u(p, 'uSunShadow'), sunVP: u(p, 'uSunVP'), sunParams: u(p, 'uSunShadowParams'), sunTexel: u(p, 'uSunTexel'), sunOrigin: u(p, 'uSunOrigin'),
           pointShadow: u(p, 'uPointShadow'), pointParams: u(p, 'uPointShadowParams'), shadowIndex: u(p, 'uShadowIndex'), casterOf: u(p, 'uCasterOf'), pointShadowLo: u(p, 'uPointShadowLo'),
         };
       } catch (e) {
@@ -1789,7 +1789,7 @@ export class AirPass {
         }
       } else if (r.kind === 2) {
         for (const b of r.batches) {
-          if (!b?.vao || b._dead || b.conceal) continue;
+          if (!b?.vao || b._dead || b.conceal || b.emissionOff) continue;   // CSA-B: a flat whose emission is black has nothing to bloom
           if (!batchVisible(planes, b)) continue;   // EL5
           const key = billboardKey(b);
           const emis = f.emissionTextures.get(key);

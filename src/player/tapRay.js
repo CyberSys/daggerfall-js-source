@@ -102,12 +102,17 @@ export function rayDirFromScreen(sx, sy, w, h, proj, view, eye, rect = null) {
  * A world point on the screen (top-left CSS px), through the frame's
  * own matrices. `front` is false behind the camera - the caller hides
  * the mark rather than drawing it mirrored somewhere on the strip.
+ * AUDIT DEEP T1-1: `behind` asks for that mirror instead (x, y through a
+ * negative w, `front` still false) - the travel view holds a mark behind the
+ * eye at the screen's edge, pointing its way, and needs to know which way.
  */
-export function projectToScreen(p, w, h, proj, view, rect = null) {
+export function projectToScreen(p, w, h, proj, view, rect = null, behind = false) {
   const pv = multiply(proj, view);
   const [x, y, z] = p;
-  const cw = pv[3] * x + pv[7] * y + pv[11] * z + pv[15];
-  if (!(cw > 0)) return { x: 0, y: 0, depth: 0, front: false };
+  let cw = pv[3] * x + pv[7] * y + pv[11] * z + pv[15];
+  const front = cw > 0;
+  if (!front && !(behind && Number.isFinite(cw))) return { x: 0, y: 0, depth: 0, front: false };
+  if (!front) cw = Math.min(cw, -1e-6);   // on the eye's own plane: a hair behind it
   const nx = (pv[0] * x + pv[4] * y + pv[8] * z + pv[12]) / cw;
   const ny = (pv[1] * x + pv[5] * y + pv[9] * z + pv[13]) / cw;
   const r = worldRectPx(rect, w, h);
@@ -119,5 +124,5 @@ export function projectToScreen(p, w, h, proj, view, rect = null) {
   // height lands on `f * H / depth` pixels, so anything that must shrink
   // with the thing it labels needs this number and nothing else. Purely
   // additive - every existing caller reads x, y and front.
-  return { x: r.x + ((nx + 1) / 2) * r.w, y: r.y + ((1 - ny) / 2) * r.h, depth: cw, front: true };
+  return { x: r.x + ((nx + 1) / 2) * r.w, y: r.y + ((1 - ny) / 2) * r.h, depth: cw, front };
 }

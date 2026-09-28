@@ -205,14 +205,14 @@ test('AUDIT WORLD34 B2: online, the whole dungeon - the layout the room addresse
   const m = rd('src/scenes/worldModes.js'), w = rd('src/scenes/world.js');
   assert.match(m, /dungeonLocationFor\(hit\.dfLocation, \{ questMachine: questBridge\?\.machine, online: host\.dungeonOnline\?\.\(\) \?\? false \}\)/, 'the entry seam asks');
   assert.match(w, /dungeonOnline: \(\) => onlineOn,/, 'and the world host answers');
-  assert.equal((w.match(/online: onlineOn \}\)/g) ?? []).length, 2, 'the quest layer\'s two location doors too');
+  assert.equal((w.match(/questMachine: questBridge\?\.machine, online: params\.has\('online'\) \}\)/g) ?? []).length, 2, 'the quest layer\'s two location doors too (the page flag: a quest parsed at chargen reaches them before `onlineOn` is declared)');
   const d = rd('src/scenes/dungeonContext.js');
   assert.match(d, /if \(data\.k != null && data\.k !== _locationKey\) \{ if \(!_keyMismatchSaid\) \{ _keyMismatchSaid = true; console\.warn\(/, 'a stream keyed to another layout is refused and SAID once');
 });
 
 test('AUDIT WORLD34 B1/B3 by source: a dead foe is retyped too (a joiner whose save had killed the foe at `i` refused the rebuild for the life of the context and stood an invulnerable mismatch); a full frame goes even when it carries nothing - it is the heartbeat', () => {
   const d = rd('src/scenes/dungeonContext.js');
-  assert.match(d, /async function retypeFoe\(i, mobileType, gender = null\) \{\s*const f = foes\[i\];\s*(?:\/\/[^\n]*\n\s*)*if \(!f \|\| i >= _layoutFoes \|\| !f\.src \|\| _retyping\.has\(i\) \|\| !canStandFoe\(mobileType\)\) return false;/, 'no f.dead in the guard');
+  assert.match(d, /async function retypeFoe\(i, mobileType, gender = null, \{ anyFoe = false, at = null \} = \{\}\) \{\s*const f = foes\[i\];\s*(?:\/\/[^\n]*\n\s*)*if \(!f \|\| \(!anyFoe && i >= _layoutFoes\) \|\| !f\.src \|\| _retyping\.has\(i\) \|\| !canStandFoe\(mobileType\)\) return false;/, 'no f.dead in the guard (OH-E: `anyFoe` lets the abyss retype a spawned foe; the layout run is still the stream\'s)');
   assert.doesNotMatch(d.slice(d.indexOf('async function retypeFoe('), d.indexOf('async function retypeFoe(') + 900), /f\.dead \|\|/);
   // REST-SYNC re-aim: the frame also carries the room's shared encounters (`x`) - an empty full frame still goes
   assert.match(d, /if \(!out\.length && !shared\.length && !full\) return null;\s*const frame = \{ n: \+\+_foesSeq, k: _locationKey, f: out \};/, 'the empty full frame goes');

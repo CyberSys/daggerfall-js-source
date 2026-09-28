@@ -130,7 +130,7 @@ imports both sides', the docs' both entries, the suite recounted, three SURVTIER
 continuation re-aimed). The merge commit says each. The raids' patch notes, which #414 still listed as to do, are not
 written here.
 
-**Deploys when this merges**: relay **world126** (the raids' world122-124 with GATE-COLLAPSE's words and DISCORD-GATES'
+**Deploys when this merges**: relay **world123** - the batch's world122-126, one relay past main's TV3 (the raids' world122-124 with GATE-COLLAPSE's words and DISCORD-GATES'
 herald; every connected player is dropped once), account service **acct18** with migrations 0016 and 0017; `RAID_TOWNS_SHA256` in
 `server/wrangler.toml` stays the operator's step (`node tools/raidTowns.mjs --arena2 <ARENA2>`).
 
@@ -166,5 +166,5 @@ redeploys the Worker: every player dropped once); never in the repository or a c
 *Allow anyone to @mention this role*, and its id (Developer Mode, right-click the role, Copy Role ID) goes in
 `server/wrangler.toml` as `GATE_DISCORD_ROLE`.
 
-Relay **world126**. Pinned in `test/discordgates.test.js` (11), mutants `tools/mutants/discordgates.json` (45, all
+Relay **world123** (world126 on its branch, renumbered at the merge with main). Pinned in `test/discordgates.test.js` (11), mutants `tools/mutants/discordgates.json` (45, all
 dead).

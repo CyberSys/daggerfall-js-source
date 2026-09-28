@@ -200,7 +200,7 @@
   {
     "name": "DISCORD-GATES-the-version-floor-off",
     "file": "src/net/wire.js",
-    "old": "export const GATE_SITE_RELAY_MIN = 126;",
+    "old": "export const GATE_SITE_RELAY_MIN = 123;",
     "new": "export const GATE_SITE_RELAY_MIN = 116;",
     "tests": [
       "test/discordgates.test.js"
@@ -342,7 +342,7 @@
     ]
   },
   {
-    "name": "DISCORD-GATES-said-to-world125",
+    "name": "DISCORD-GATES-said-to-world122",
     "file": "src/net/online.js",
     "old": "if (primary) this.gateSiteOk = relaySupportsGateSite(relayV);",
     "new": "if (primary) this.gateSiteOk = true;",

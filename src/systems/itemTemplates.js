@@ -96,6 +96,14 @@ export function registerAmmunition(templateIndex) {
 }
 export const isAmmunition = (item) => _ammunition.has(item?.templateIndex);
 
+/** SetItemPropertiesByMaterial's value line (ItemBuilder.cs:649) over
+ *  SetItem's `value = itemTemplate.basePrice` (DaggerfallUnityItem.cs
+ *  :563): `value *= 3 * valueMultipliersByMaterial[material]` - the
+ *  weapon's material, or the plate's less 0x0200. One home: the base
+ *  value below and CreateWeapon's material pass (combat/enemyEquipment.js
+ *  weaponOfMaterial) read it. */
+export const materialValue = (basePrice, material) => basePrice * 3 * (valueMultipliersByMaterial[material] ?? 1);
+
 /** The item's BASE VALUE for cost math (DaggerfallUnityItem.value
  *  after ItemBuilder): weapons/plate = basePrice * 3 * mult[material];
  *  chain armor doubles; everything else is the template basePrice.
@@ -107,11 +115,11 @@ export function itemBaseValue(item) {
   // material multiplier (ItemBuilder.cs) - an arrow is worth its
   // basePrice, not 6x it.
   if (item.group === 'Weapons' && isAmmunition(item)) return t.basePrice;
-  if (item.group === 'Weapons') return t.basePrice * 3 * (valueMultipliersByMaterial[item.material ?? 0] ?? 1);
+  if (item.group === 'Weapons') return materialValue(t.basePrice, item.material ?? 0);
   if (item.group === 'Armor') {
     const m = item.material ?? 0;
     if (m === 0x0100) return t.basePrice * 2;                     // chain
-    if (m >= 0x0200) return t.basePrice * 3 * (valueMultipliersByMaterial[m - 0x0200] ?? 1);   // plate
+    if (m >= 0x0200) return materialValue(t.basePrice, m - 0x0200);   // plate
     return t.basePrice;                                           // leather
   }
   return t.basePrice;

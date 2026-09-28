@@ -521,6 +521,8 @@ export class PlayerMotor {
    *  the port keeps CaptureInputSpeedAdjustment in the motor; the
    *  hosts hand it to MoveAxes, which is InputManager's half. */
   get toggleAutorun() { return this._autorun; }
+  /** CSA-D: `InputManager.Instance.ToggleAutorun = false` - Come Sail Away's StopSailing writes the latch. */
+  set toggleAutorun(v) { this._autorun = !!v; }
 
   /** SEA-RISE (2026-09-27): drop both latches, as a held MoveBackwards does (InputManager.cs:1851's clear, and
    *  PlayerSpeedChanger.cs:96-99's on the press). The online respawn's - the port's own teleport: a player raised
@@ -666,6 +668,16 @@ export class PlayerMotor {
     if (dx * dx + dy * dy + dz * dz > PlayerMotor.SNAP_SPAN * PlayerMotor.SNAP_SPAN) return [p[0], p[1], p[2]];
     const a = Math.max(0, Math.min(1, alpha));
     return [q[0] + dx * a, q[1] + dy * a, q[2] + dz * a];
+  }
+
+  /** CSA-D: another script writes the PlayerObject's transform - Come Sail Away's helm pin (`playerObject.transform
+   *  .position = DrivePosition`, each frame at the helm, the boat carrying its child after it). The body is put there
+   *  and BOTH ends of the render span with it, so the eye does not lerp behind a moving deck; no motion state is
+   *  touched (the motor is frozen at the helm, and a write to a transform is no teleport). */
+  pinFeet(x, y, z) {
+    this.pos[0] = x; this.pos[1] = y; this.pos[2] = z;
+    this._prevPos[0] = x; this._prevPos[1] = y; this._prevPos[2] = z;
+    this._eyeFeetY = null;   // MAC1: the smoothing primes afresh on the pinned height
   }
 
   /** EV1: a floating-origin shift moves BOTH ends of the
@@ -969,7 +981,7 @@ export class PlayerMotor {
       //
       // The pass condition is `!Number.isFinite(dist)`, not a
       // comparison against the distance: collider.sphereCast
-      // (collider.js:663) returns Infinity ONLY on a clear sweep and a
+      // (collider.js:748) returns Infinity ONLY on a clear sweep and a
       // finite dist (0 on a start-overlap) for any hit, which is
       // exactly Unity's boolean. One accepted deviation: Unity's
       // SphereCast ignores colliders overlapping the START sphere, so a

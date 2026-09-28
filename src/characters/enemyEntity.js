@@ -162,3 +162,15 @@ export function makeEnemyEntity(mobileType, basicsIn, career, playerLevel, rollF
     name: isClass ? career.name : undefined,
   };
 }
+
+/**
+ * OH-E: EnemyEntity.OnLootSpawned (EnemyEntity.cs:399) - SetEnemyCareer raises it once the enemy's loot is in its Items
+ * (the table, the equipment, the map/potion/recipe trio): `{mobileType, lootTableKey, items, worn}` - `worn` the kit
+ * the port keeps off the droppable `items` (DFU's Items holds both). The port's one subscriber list; scenes/hostCombat.js's
+ * spawnEnemyLoot raises it.
+ */
+export const enemyLootSpawned = Object.freeze({
+  _fns: [],
+  add(fn) { this._fns.push(fn); return () => { const i = this._fns.indexOf(fn); if (i >= 0) this._fns.splice(i, 1); }; },
+  raise(args) { for (const fn of [...this._fns]) fn(args); },
+});

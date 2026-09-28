@@ -387,7 +387,8 @@ test('REST-SYNC by source: the rest, the hour\'s check, the act door, the frame,
   assert.match(D, /enemiesNearby: \(\) => roomEncounterComing\(\) \|\| areEnemiesNearby\(foes, \{ resting: true \}\),/, 'the asker\'s rest breaks at the hour');
   assert.match(D, /const asked = data\.rs != null && roomEncounterAsked\(id, data\.rs\);[^\n]*\n[^\n]*\n\s*return n > 0 \|\| asked;/, 'the host hears the ask');
   assert.match(D, /applySharedRecords\(Array\.isArray\(data\.x\) \? data\.x : \[\], data\.xf === 1\);/, 'the joiner hears the encounters');
-  assert.match(D, /const _roomFoe = isRoomFoe\(f, _fi\);[^\n]*\n\s*const _puppet = \(!_authority && _roomFoe\) \|\| f\._ownFrom != null;/, 'a joiner\'s copy is a puppet (QUEST-PARTY phase 3c: and a party member\'s quest foe)');
+  assert.match(D, /const _roomFoe = isRoomFoe\(f, _fi\);[^\n]*\n\s*const _puppet = isPuppetFoe\(f, _fi\);/, 'a joiner\'s copy is a puppet (QUEST-PARTY phase 3c: and a party member\'s quest foe)');
+  assert.match(D, /const isPuppetFoe = \(f, i = foes\.indexOf\(f\)\) => f != null && \(\(!_authority && isRoomFoe\(f, i\)\) \|\| f\._ownFrom != null\);/, 'AUDIT PRE-MERGE 0928 O6: the frame\'s one test - the room\'s foes (a shared encounter too) while another holds the seat');
   assert.match(D, /f\.ai\.update\(foeFrameDt\(dt\), _pf, _armed\(f, _senses, _roomFoe\), _fParalyzed, _fPaused\);/, 'and the host\'s hunts every player (FOE-CATCHUP re-aim: the frame at most three steps)');
   assert.equal((D.match(/= roomLootKey\(key\);   \/\/ REST-SYNC: the room's name for it/g) ?? []).length, 2, 'the quick take and the window say the room\'s name');
   const i = W.indexOf("if (data?.rs && !(data?.a?.length) && !(data?.l?.length)) return actFrameFits(data) ? online.sendAct(data) : false;");

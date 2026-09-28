@@ -48,11 +48,18 @@ export const buildingLockValue = (quality) => Math.trunc((quality ?? 0) / 2);
  *   isHouseOwned(buildingKey)     - DaggerfallBankManager.IsHouseOwned
  *                                   (H1 WIRED IT: banking.js:176 over
  *                                   playerEntity.houses, handed in at
- *                                   scenes/worldModes.js:4604, so
+ *                                   scenes/worldModes.js:4608, so
  *                                   :69 - PlayerActivate.cs:1261-1262,
  *                                   the ladder's first test - now has
  *                                   a real answer instead of false)
- *   isActiveQuestBuilding(building) - the siteLinks walk (:1315-1329)
+ *   isActiveQuestBuilding(building) - PlayerActivate.IsActiveQuestBuilding
+ *                                   (:1315-1329): every Place of every
+ *                                   incomplete quest (QuestMachine.
+ *                                   GetAllActiveQuestSites), House1-House6
+ *                                   by default - the host asks the
+ *                                   machine's member. AUDIT DISC28 QS-D:
+ *                                   not the site links, which only a
+ *                                   placement makes (DISC28-I).
  *   guildForBuilding(factionId)   - -> { hallAccessAnytime, isMember }
  *                                   booleans resolved by the host's
  *                                   guild layer (Guild.HallAccessAnytime

@@ -502,9 +502,11 @@ test('BA1: the four hosts gate the classic stride through the one gate, drive th
   for (const src of [world, ext]) assert.match(src, /onExteriorWater: _onWater, onExteriorWaterAny: _onWater, onExteriorPath: !!_surf\.path, onStaticGeometry: !!_surf\.staticGeometry, onFoot: isOnFoot\(player\.transportMode\),/);
   assert.match(world, /loadInProgress: false, paused: _overlayHeld \|\| _seasonHeld,/, 'AUDIT-BA F2/F3: no debug key is a load; a held frame is paused');
   assert.match(ext, /paused: _overlayHeld,/); assert.match(wm, /paused: overlayHeld,/); assert.match(dj, /paused: overlayHeld,/);
+  // OH-E: the world's dungeon hands the same two, through the abyss's arm (its darkened ambient, the Trilight's sky)
+  assert.match(wm, /const _dgAmbient = _abyss \? _abyss\.renderAmbient\.slice\(0, 3\) : dungeonCtx\.ambient;\n\s*const _dgTrilight = abyssTrilight\(betterAmbience\.dungeonAmbient\(\), _abyss\);/, 'worldModes: the trilight and the ambient it hands are Better Ambience\'s and the selector\'s outside the abyss');
   for (const [name, src] of [['worldModes', wm], ['dungeon', dj]]) {
     assert.match(src, /const _fog = dungeonFog\((?:lightingOn|!!renderer\.lightingLane), betterAmbience\.dungeonFog\(\) \?\? DUNGEON_FOG\); applyFog\(renderer, [a-zA-Z]+\.underwaterFogSettings\?\.\(cam\.pos\[1\], player\.pos, _fog\) \?\? _fog\);/, `${name}: the fog base (AUDIT-EL F6: through the lane's dark)`);
-    assert.match(src, /const _tri = dungeonTrilight\((?:lightingOn|_on), betterAmbience\.dungeonAmbient\(\)\); renderer\.setLighting\(new Float32Array\(_tri \? _tri\.equator : dungeonAmbient\((?:lightingOn|_on), [a-zA-Z]+\.ambient\)\), 0, undefined, _tri\);/, `${name}: the trilight (EL4: through the lane's dark, scaled once)`);
+    assert.match(src, /const _tri = dungeonTrilight\((?:lightingOn|_on), (?:betterAmbience\.dungeonAmbient\(\)|_dgTrilight)\); renderer\.setLighting\(new Float32Array\(_tri \? _tri\.equator : dungeonAmbient\((?:lightingOn|_on), (?:[a-zA-Z]+\.ambient|_dgAmbient)\)\), 0, undefined, _tri\);/, `${name}: the trilight (EL4: through the lane's dark, scaled once)`);
     assert.match(src, /betterAmbience\.onTransition\(\{ dungeon: \{ regionName: dfLocation\.regionName, name: dfLocation\.name, inCastle: \(\) => !!ctx\.insideDungeonCastle\?\.\(\), exitPos: ctx\.enterMarker \? \[ctx\.enterMarker\.x, ctx\.enterMarker\.y, ctx\.enterMarker\.z\] : null \} \}\);/, `${name}: the dungeon transition`);
   }
   // AUDIT 68 X3-ba-forceexit-rain: and the forced exit (a Recall, a quest

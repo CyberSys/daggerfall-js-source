@@ -55,7 +55,7 @@ test('CR1: rank >= Range(0,20) - the boundary, and the roll is a MEMBER\'s alone
 
 test('CR1: the flow arm - before the plead box, with the acquittal exit trio', () => {
   const flow = read('src/scenes/arrestFlow.js');
-  const from = flow.indexOf('const rescue = court ? guildRescue(court, { guildRankOf, roll: rolls }) : null;');
+  const from = flow.indexOf('const rescue = guildRescue(court, { guildRankOf, roll: rolls });');   // DISC28-B: the court is read (and a null one returned on) before anything is armed
   assert.ok(from > 0, 'the arm exists, on the startCourt record');
   const body = flow.slice(from, from + 900);
   // PIN MOVED (Road to 1:1, a3), and CORRECTED WHILE IT MOVED. The

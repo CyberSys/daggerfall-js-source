@@ -397,7 +397,7 @@ test('DW-E2: the decoration program is the mod\'s - the right vector off the vie
   assert.match(DECOR_FS, /vec3 tint = uSceneTint\.www \* \(uSceneTint\.xyz - vec3\(1\.0\)\) \+ vec3\(1\.0\);/);
   assert.match(DECOR_FS, /vec3 col = dwColumn\(t\.xyz \* uColor\.xyz \* tint, vWorldPos\);[^\n]*\n\s+outColor = vec4\(dwWaterFog\(col, vWorldPos\), 1\.0\);/,
     'the column\'s share, then the distance fog (the post effect is last)');
-  assert.doesNotMatch(DECOR_FS.replace(/float fogFactorAt[\s\S]*?\n}\n/, ''), /fogFactorAt\(/, 'the forward pass takes no Unity fog');
+  assert.doesNotMatch(DECOR_FS.replace(COLUMN_GLSL, '').replace(/float fogFactorAt[\s\S]*?\n}\n/, ''), /fogFactorAt\(/, 'the forward pass takes no Unity fog (the column\'s share is the top\'s colour, fogged as the top is - DW-F)');
   assert.deepEqual(DECORATION_COLOR, [1.12, 1.12, 1.12, 1]);
   assert.equal(DECORATION_CUTOFF, 0.5);
   // Unity's view is (right, up, back) by rows; the port's lookAt (DFU's left-handed world, the projection mirrored) is
@@ -462,7 +462,7 @@ test('DW-E2: seen from over the sea a decoration takes the top\'s column share, 
   // the GLSL is that function, and both programs run it before the distance fog
   assert.match(COLUMN_GLSL, /if \(uColumnOn > 0\.5 && worldPos\.y < uSeaY && uCamPos\.y > worldPos\.y\) \{/);
   assert.match(COLUMN_GLSL, /float s = clamp\(\(uSeaY - uCamPos\.y\) \/ min\(toFrag\.y, -1e-4\), 0\.0, 1\.0\);/);
-  assert.match(COLUMN_GLSL, /float behind = max\(dot\(worldPos - entry, uCamFwd\), 0\.0\);/);
+  assert.match(COLUMN_GLSL, /float behind = max\(dot\(worldPos - entry, uDwCamFwd\), 0\.0\);/);
   assert.match(COLUMN_GLSL, /float t = min\(behind \/ max\(uTopVision, 1\.0\), 1\.0\);/);
   assert.match(COLUMN_GLSL, /col = mix\(col, st, t\);/);
   assert.ok(FLOOR_FS.includes(COLUMN_GLSL) && DECOR_FS.includes(COLUMN_GLSL), 'one column, both programs');
@@ -489,7 +489,8 @@ test('DW-E2: the settings and the host wiring - the four decoration reads, the p
   assert.match(world, /queue\.push\(\.\.\.r\.load\);\n\s+announceNearbySpawns\([^\n]*\n\s+if \(dwDecor\) dwDecor\.onMapPixelChanged\(r\.current\);/, 'the crossing: PlayerGPS.OnMapPixelChanged');
   assert.match(world, /if \(deepWaters\.pump\(\) && dwDecor\) dwDecor\.refreshPlayerArea\(\);/, 'LoadSettings\' RefreshPlayerArea');
   assert.match(world, /if \(dwDecor\) \{ dwDecor\.process\(\); deepWaters\.flushPromoteTiming\(\); \}/);
-  assert.match(world, /if \(deepWaters\) drawDeepWatersFloors\(groundQueue\);[^\n]*\n\s+if \(dwDecor\) drawDeepWatersDecorations\(groundQueue\);/);
+  // OH-C: There's a Hole in the Bottom of the Ocean's opaque discs stand between, in their queues (2000/2001, before AlphaTest's 2450)
+  assert.match(world, /if \(deepWaters\) drawDeepWatersFloors\(groundQueue\);[^\n]*\n\s+if \(oceanHoles\) drawOceanHolesOpaque\(groundQueue\);[^\n]*\n\s+if \(dwDecor\) drawDeepWatersDecorations\(groundQueue\);/);
   assert.match(world, /onTransientReset\(\(\) => dwDecor\.reset\(\)\);/);
   assert.match(world, /setPostTransitionRefresh\(\(\) => dwDecor\.refreshPlayerArea\(\)\);/);
   const tex = createDecorTextureSource({ getTexture: async () => null, textureFile: () => null, scaledSize: () => null, replacementSize: () => null, replacementsOn: () => false, hasReplacement: () => false, loadReplacement: async () => null, createTexture: () => null });

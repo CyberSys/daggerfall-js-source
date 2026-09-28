@@ -280,11 +280,26 @@ export function rriEquipSound(item) {
   return cls?.equipSound ?? null;
 }
 
+/** CSA-H: THE OTHER MODS' ROWS. DFU's customItemGroups is ONE table across every loaded mod
+ *  (ItemHelper.RegisterCustomItem, :151-163), so a mod that registers a class into a group - Come Sail Away's boat
+ *  parts and deed, UselessItems2 - lands on the same shelves this mod's do. `isOn` is the mod being loaded: its row
+ *  answers only then, as DFU registers only a loaded mod's. Registration order is kept (a group's list is walked in
+ *  it), and a second registration of an index is DFU's `Contains` guard: no second row. */
+const _otherModItems = [];
+export function registerCustomItemGroup(templateIndex, group, isOn = () => true) {
+  if (_otherModItems.some((r) => r.templateIndex === templateIndex && r.group === group)) return;
+  _otherModItems.push({ templateIndex, group, isOn });
+}
+
 /** ItemHelper.GetCustomItemsForGroup: the registered custom template
  *  indices for a group, in registration order (the two weapons, the
- *  chain five then the leather seven), empty while off. */
+ *  chain five then the leather seven), empty while off - and then the
+ *  other loaded mods' (CSA-H). */
 export function customItemsForGroup(group) {
-  return Object.values(RRI_CLASSES).filter((c) => c.group === group && customItemClass(c.index)).map((c) => c.index);
+  return [
+    ...Object.values(RRI_CLASSES).filter((c) => c.group === group && customItemClass(c.index)).map((c) => c.index),
+    ..._otherModItems.filter((r) => r.group === group && r.isOn()).map((r) => r.templateIndex),
+  ];
 }
 
 /** AUDIT-RR2 G7: the weight the fold STORED for a fur piece (message 1: the template's, the jerkin's 2 kg off -

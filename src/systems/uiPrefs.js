@@ -96,6 +96,7 @@ export const PREF_DEFAULTS = Object.freeze({
   // Regenerate, Cure, Fortify, Shield, resistances, Jumping, Water Breathing - systems/allyCast.js). On: Tabitha's ask.
   acceptStrangerSpells: true,
   restWithParty: true,   // REST-OPT: off - I rest alone, and the party rests without me
+  showToTravellers: true,   // TV3: off - the region's travellers do not see where I am (my party always does)
   // MWA4 (2026-09-25): `mwArms` (MWA1's arms switch) is retired - the attached Morrowind files are the switch, and
   // Remove data the off (combat/weaponRig.js autoBuildArms, ui/enhancedMenu.js morrowindCard). A stored value is
   // read by nothing.
