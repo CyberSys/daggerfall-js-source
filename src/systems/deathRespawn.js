@@ -355,9 +355,12 @@ export function reviveForPlay(entity, { force = false } = {}) {
   // The respawn's fatigue is at least the health's fraction; more than that is kept. A living release (no force) is
   // untouched, as its health is.
   if (dead || force) entity.fatigue = Math.max(entity.fatigue > 0 ? entity.fatigue : 0, respawnHealth(maxFatigue(entity)));
-  // DISC28-E: ...and the minutes spent dead are nobody's (worldTick.js skipDeadMinutes). Online the shared clock ran
-  // through the death screen with nothing ticking under it, and the first tick after this charged the whole span -
-  // stamina drain, needs, magic rounds - to the body just revived. Offline there is no such span (a death is a load).
+  // DISC28-E: ...and the minutes spent dead are not the BODY's to pay (worldTick.js skipDeadMinutes). Online the shared
+  // clock ran through the death screen with nothing ticking under it, and the first tick after this charged the whole
+  // span - stamina drain, needs, magic rounds - to the body just revived. AUDIT DISC28 TM-2/3/4: the skip bills the body
+  // nothing (its effect clocks ride the span and the encounter loop rolls none of it) while the WORLD's calendar runs
+  // through it - the day block and the per-minute loop's arms, as for any minute the world ran. Offline there is no
+  // such span (a death is a load).
   const skipped = (dead || force) && sharedClockOn() ? skipDeadMinutes(entity, worldMinutes()) : false;
   return { revived: dead || force, cleared, exposure, lifted, skipped };
 }

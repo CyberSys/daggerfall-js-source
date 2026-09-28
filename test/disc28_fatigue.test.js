@@ -90,13 +90,15 @@ test('DISC28-E: offline there is no dead span to skip - the revival moves no clo
 
 test('DISC28-E: the skip moves the player\'s markers, carries the needs\' clocks over the span, and leaves the world\'s alone', () => {
   setSharedClock(() => 5000);
-  const e = { lastGameMinutes: 4000, survival: { lastMinute: 4000, lastAte: 3900, awakeSince: 3000 }, rentedRooms: [{ expiryMinutes: 4500 }] };
+  // AUDIT DISC28 TM-3: a room that runs out AFTER the rise - one that ran out under the death screen is swept by the
+  // day block the span crossed (test/auditdisc28_time.test.js), which is the world's clock running too
+  const e = { lastGameMinutes: 4000, survival: { lastMinute: 4000, lastAte: 3900, awakeSince: 3000 }, rentedRooms: [{ expiryMinutes: 5600 }] };
   assert.equal(skipDeadMinutes(e, 5000), true);
   assert.equal(e.lastGameMinutes, 5000);
   assert.equal(e.survival.lastMinute, 5000);
   assert.equal(e.survival.lastAte, 4900, 'hunger did not age in a corpse');
   assert.equal(e.survival.awakeSince, 4000);
-  assert.equal(e.rentedRooms[0].expiryMinutes, 4500, 'a room runs out on the world\'s clock through a death as through any hour');
+  assert.equal(e.rentedRooms[0].expiryMinutes, 5600, 'a room runs out on the world\'s clock through a death as through any hour');
   assert.equal(skipDeadMinutes(e, 5000), false, 'nothing to skip twice');
 });
 
@@ -107,7 +109,9 @@ test('DISC28-F: an arrival across three normalise boundaries pays all three - th
   setSharedClock(() => 3 * N + 10);
   const e = convict(N - 5);
   alignEntityClocks(e, 3 * N + 10);   // crosses N, 2N and 3N
-  assert.deepEqual(e.legalRep.slice(0, 3), [0, -12, 0], 'three boundaries, three points toward zero');
+  // AUDIT DISC28 TM-1 (Mac, 2026-09-28: "Recovery only"): an absence pays the recovery half - the -15 walks back three,
+  // the +3 standing is kept (it went to 0 before the decision)
+  assert.deepEqual(e.legalRep.slice(0, 3), [0, -12, 3], 'three boundaries, three points of recovery, no standing lost');
 });
 
 test('DISC28-F: an arrival inside one interval pays nothing; the boundary minute is [last, now) - DFU\'s own convention', () => {

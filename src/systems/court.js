@@ -176,20 +176,32 @@ export function clampLegalReputations(player) {
  * NON-propagating on both sides (AUDIT 23 corrected the old claim that
  * the faction half fanned out; DFU's call passes no propagate flag).
  * The asymmetry is only direct-increment vs clamped ChangeReputation.
+ *
+ * AUDIT DISC28 TM-1 (Mac, 2026-09-28: "Recovery only"): `recoveryOnly` is
+ * the PORT'S ONLINE TIME MODEL, not DFU's - DFU's member walks both ways
+ * and never meets an absence, because the single-player clock stands
+ * while nobody plays. Online the world's clock runs through every
+ * absence, and the boundaries an absence crossed (worldTick.js
+ * normalizeAcross, from alignEntityClocks) pay only the RECOVERY half:
+ * a reputation below zero drifts one point back, a standing above zero
+ * is kept - a player who takes a break comes back owing less, never
+ * holding less. The clamp and the non-propagating ChangeReputation are
+ * DFU's either way. A lived minute (the tick) and the minutes spent
+ * dead (skipDeadMinutes) are the world's own and pay both halves.
  */
-export function normalizeReputations(player, store) {
+export function normalizeReputations(player, store, { recoveryOnly = false } = {}) {
   clampLegalReputations(player);
   for (const key of Object.keys(player.legalRep ?? {})) {
     const v = player.legalRep[key];
     if (v < 0) player.legalRep[key] = v + 1;
-    else if (v > 0) player.legalRep[key] = v - 1;
+    else if (v > 0 && !recoveryOnly) player.legalRep[key] = v - 1;
   }
   if (!store?.dict) return;
   for (const id of [...store.dict.keys()]) {
     const f = store.dict.get(id);
     if (!f) continue;
     if (f.rep < 0) changeReputation(store, f.id, 1);
-    else if (f.rep > 0) changeReputation(store, f.id, -1);
+    else if (f.rep > 0 && !recoveryOnly) changeReputation(store, f.id, -1);
   }
 }
 

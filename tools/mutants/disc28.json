@@ -182,10 +182,11 @@
   {
     "name": "DISC28-F-death-skips-boundaries",
     "file": "src/systems/worldTick.js",
-    "old": "  normalizeAcross(entity, last, now);\n  const s = entity.survival;",
-    "new": "  const s = entity.survival;",
+    "old": "  runCalendarArms(entity, last, now, { rolls });",
+    "new": "",
     "tests": [
-      "test/disc28_fatigue.test.js"
+      "test/disc28_fatigue.test.js",
+      "test/auditdisc28_time.test.js"
     ]
   },
   {

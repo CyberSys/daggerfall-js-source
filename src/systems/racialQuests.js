@@ -10,8 +10,16 @@
 // region-conditions update, which is why the call rides beside
 // regionPowerUpdate in worldTick) DFU rolls the NON-cure quest, and
 // every 84 days (120960) the CURE quest. Both walks run on absolute
-// classic minutes, so a fortnight of prison or travel catches up
-// exactly as DFU's `for (i < minutesPassed)` does.
+// classic minutes, over whatever span the tick walks: offline a
+// fortnight of prison or travel catches up exactly as DFU's
+// `for (i < minutesPassed)` does. AUDIT DISC28 TM-3: online the world's
+// clock is nobody's to jump, so there is no such fortnight; the minutes
+// a player lies dead ARE walked, at the rise (worldTick.js
+// skipDeadMinutes -> runCalendarArms, the loop's one body), but the
+// minutes of an ABSENCE are not - an arrival pays only the normalise's
+// recovery half (alignEntityClocks), so a 38- or 84-day minute that
+// falls while the player is away rolls nothing. That is the online time
+// model's standing gap, recorded, not DFU's law.
 //
 // THE ROLLS ARE EACH CURSE'S OWN, verbatim:
 //  - werewolf/wereboar: CURE only (the base StartQuest is empty) -
