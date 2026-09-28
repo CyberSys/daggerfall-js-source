@@ -460,6 +460,97 @@ export const calculateMaxBankLoan = (level) => {
  *  .1)`, a FLOAT sum truncated once at the end. */
 export const calculateBankLoanRepayment = (amount) => Math.trunc(amount + amount * 0.1);
 
+// ── REALM P0.3: online, the Empire is one lender ───────────────────
+/** REALM P0.3 (2026-09-28, Mac: "I want to make sure players cant take an offline character and bring in massive
+ *  resources"; bible/06-Systems/Realm-Arc.md "The Empire is one lender"). Daggerfall lends region by region: sixty-two
+ *  lenders, each blind to the rest, and a default costs one region's reputation. ONLINE THE EMPIRE IS ONE LENDER:
+ *  one loan a character, wherever it stands; a default anywhere shuts every branch, and the Empire then takes from
+ *  every account and every deposit; a character joining with more debt than the Empire would lend has the rest
+ *  called in. Offline, DFU's law stands. */
+export const empireLoanRegion = (accounts) => (accounts ?? []).findIndex((a) => a?.loanTotal > 0);
+/** Why the Empire will not lend: a default on any branch, else a loan standing on one; null when it will. */
+export function empireRefusal(accounts) {
+  const defaulted = (accounts ?? []).findIndex((a) => !!a?.hasDefaulted);
+  if (defaulted >= 0) return { result: TRANSACTION_RESULT.ALREADY_DEFAULTED, empireRegion: defaulted };
+  const loan = empireLoanRegion(accounts);
+  return loan >= 0 ? { result: TRANSACTION_RESULT.ALREADY_HAVE_LOAN, empireRegion: loan } : null;
+}
+/** The Empire's own words for a refusal another branch caused: Daggerfall's 0288 names the region in context. */
+export function empireRefusalLines({ result, empireRegion }, regionName = () => '') {
+  const where = regionName(empireRegion) || 'another region';
+  return result === TRANSACTION_RESULT.ALREADY_DEFAULTED
+    ? ['The Empire lends nothing to one', `who defaulted on it, in ${where}.`]
+    : ['The Empire lends one loan at a time.', `Yours stands in ${where}.`];
+}
+/** What the defaulted loans still owe, over every branch: what a defaulter's deposit is taken for. */
+export const empireDefaultOwed = (accounts) => (accounts ?? []).reduce((sum, a) => sum + (a?.hasDefaulted && a.loanTotal > 0 ? a.loanTotal : 0), 0);
+/** THE EMPIRE TAKES FROM EVERY BRANCH: up to `owed` of region `regionIndex`'s loan is paid from the other accounts in
+ *  region order (the loan's own account pays first, in DFU's sweep and the call below). Answers the gold taken. */
+export function drawEmpireAccounts(accounts, regionIndex, owed = accounts[regionIndex].loanTotal) {
+  const loan = accounts[regionIndex];
+  let drawn = 0;
+  for (let i = 0; i < accounts.length && drawn < owed; i++) {
+    if (i === regionIndex) continue;
+    const take = Math.min(owed - drawn, accounts[i].accountGold);
+    if (take > 0) { accounts[i].accountGold -= take; drawn += take; }
+  }
+  loan.loanTotal -= drawn;
+  if (loan.loanTotal <= 0) loan.loanDueDate = 0;
+  return drawn;
+}
+/** A DEFAULTER'S DEPOSIT IS THE EMPIRE'S: gold just paid into `regionIndex` goes to the defaulted loans first, up to
+ *  `amount`. Answers the gold taken. */
+export function garnishDeposit(accounts, regionIndex, amount) {
+  const account = accounts[regionIndex];
+  let taken = 0;
+  for (const loan of accounts) {
+    if (!loan.hasDefaulted || !(loan.loanTotal > 0)) continue;
+    const take = Math.min(loan.loanTotal, amount - taken, account.accountGold);
+    if (take <= 0) break;
+    account.accountGold -= take;
+    loan.loanTotal -= take;
+    if (loan.loanTotal <= 0) loan.loanDueDate = 0;
+    taken += take;
+  }
+  return taken;
+}
+export const empireGarnishLines = (taken) => ['The Empire takes', `${taken} gold of it for your default.`];
+/** THE EMPIRE CALLS IN WHAT IT WOULD NOT HAVE LENT, as a character joins. It keeps one loan, the largest, up to what its
+ *  own cap would owe with interest (`cap` is the Empire's cap, calculateMaxBankLoan online); the rest of that loan and
+ *  every other loan are called in. A call is paid from the loan's own account, then the other accounts, then the purse
+ *  (`player.deductGold`, coins and then letters of credit, answering what it could not cover). A loan whose call is not
+ *  paid in full falls due now, for the host to settle as the overdue sweep does - a default. Answers
+ *  { called, paid, owed, unpaid }, `unpaid` the regions that fell due. */
+export function callInEmpireDebt(accounts, player, { cap = 0, nowMinutes = 0 } = {}) {
+  const out = { called: 0, paid: 0, owed: 0, unpaid: [] };
+  const loans = (accounts ?? []).map((_, i) => i).filter((i) => accounts[i]?.loanTotal > 0)
+    .sort((x, y) => accounts[y].loanTotal - accounts[x].loanTotal || x - y);
+  const kept = calculateBankLoanRepayment(cap);
+  loans.forEach((r, n) => {
+    const loan = accounts[r];
+    const call = n === 0 ? Math.max(0, loan.loanTotal - kept) : loan.loanTotal;
+    if (!(call > 0)) return;
+    const standing = loan.loanTotal - call;
+    const own = Math.min(call, loan.accountGold);
+    loan.accountGold -= own;
+    loan.loanTotal -= own;
+    if (loan.loanTotal > standing) drawEmpireAccounts(accounts, r, loan.loanTotal - standing);
+    if (loan.loanTotal > standing) loan.loanTotal = standing + player.deductGold(loan.loanTotal - standing);
+    out.called += call;
+    out.paid += call - (loan.loanTotal - standing);
+    if (loan.loanTotal > standing) { out.owed += loan.loanTotal - standing; out.unpaid.push(r); loan.loanDueDate = nowMinutes; }
+    else if (loan.loanTotal <= 0) loan.loanDueDate = 0;
+  });
+  return out;
+}
+/** The join's words: what the Empire called in, and what stands unpaid. */
+export function empireCallInLines({ called, owed }) {
+  if (!(called > 0)) return [];
+  return owed > 0
+    ? [`The Empire calls in ${called} gold of your loans.`, `${owed} gold is unpaid: you are in default.`]
+    : [`The Empire calls in ${called} gold of your loans.`, 'Your accounts and purse have paid it.'];
+}
+
 // ── the transactions ───────────────────────────────────────────────
 // Each answers a TRANSACTION_RESULT and mutates the account in place.
 // `player` is the host's purse seam: { gold(), deductGold(n),
@@ -469,7 +560,7 @@ export const calculateBankLoanRepayment = (amount) => Math.trunc(amount + amount
 /** DepositGold (:339-360). The WAGON counts toward what can be
  *  deposited, and is drawn on only for the shortfall after the purse
  *  is empty - so depositing everything empties the purse first. */
-export function depositGold(accounts, regionIndex, amount, player) {
+export function depositGold(accounts, regionIndex, amount, player, { online = isOnlinePage() } = {}) {
   mustValidate(accounts, regionIndex);
   const purse = player.gold();
   const wagon = player.wagonGold?.() ?? 0;
@@ -481,6 +572,7 @@ export function depositGold(accounts, regionIndex, amount, player) {
   } else {
     player.deductGold(amount);
   }
+  if (online) garnishDeposit(accounts, regionIndex, amount);   // REALM P0.3: a defaulter's deposit is the Empire's
   return TRANSACTION_RESULT.NONE;
 }
 
@@ -500,13 +592,17 @@ export function withdrawGold(accounts, regionIndex, amount, player) {
 
 /** DepositAll_LOC (:377-389) - EVERY letter in the pack, at face
  *  value, in one go. There is no partial deposit. */
-export function depositAllLetters(accounts, regionIndex, player) {
+export function depositAllLetters(accounts, regionIndex, player, { online = isOnlinePage() } = {}) {
   mustValidate(accounts, regionIndex);
+  let paid = 0;
   for (;;) {
     const loc = player.takeLetter();
-    if (!loc) return TRANSACTION_RESULT.NONE;
+    if (!loc) break;
     accounts[regionIndex].accountGold += loc.value ?? 0;
+    paid += loc.value ?? 0;
   }
+  if (online) garnishDeposit(accounts, regionIndex, paid);   // REALM P0.3: the letters too
+  return TRANSACTION_RESULT.NONE;
 }
 
 /** Withdraw_LOC (:391-404). The commission leaves the ACCOUNT and the
@@ -559,8 +655,10 @@ export function repayLoan(accounts, regionIndex, amount, player, { accountOnly =
 /** BorrowLoan (:542-556). The account is credited with `amount` and
  *  the loan is debited with amount + 10% - the interest exists from
  *  the instant the loan is made, so repaying early saves nothing. */
-export function borrowLoan(accounts, regionIndex, amount, { level = 1, nowMinutes = 0 } = {}) {
+export function borrowLoan(accounts, regionIndex, amount, { level = 1, nowMinutes = 0, online = isOnlinePage() } = {}) {
   mustValidate(accounts, regionIndex);
+  const empire = online ? empireRefusal(accounts) : null;   // REALM P0.3: one loan a character online, whatever asked
+  if (empire) return empire.result;
   if (amount < LOAN_MINIMUM) return TRANSACTION_RESULT.LOAN_REQUEST_TOO_LOW;
   if (amount > calculateMaxBankLoan(level)) return TRANSACTION_RESULT.LOAN_REQUEST_TOO_HIGH;
   const account = accounts[regionIndex];
@@ -600,9 +698,10 @@ export function checkOverdueLoans(accounts, lastGameMinutes, gameMinutes) {
  *  is a default. The reputation drop happens ONCE, guarded by the
  *  hasDefaulted flag, and DFU notes that flag "does not seem to ever
  *  be set in classic". Answers what the host must do. */
-export function settleOverdueLoan(accounts, regionIndex, player) {
+export function settleOverdueLoan(accounts, regionIndex, player, { online = isOnlinePage() } = {}) {
   const transfer = Math.min(loanedTotal(accounts, regionIndex), accountTotal(accounts, regionIndex));
   repayLoan(accounts, regionIndex, transfer, player, { accountOnly: true });
+  if (online && hasLoan(accounts, regionIndex)) drawEmpireAccounts(accounts, regionIndex);   // REALM P0.3: every branch pays
   if (!hasLoan(accounts, regionIndex)) return { kind: 'settled' };
   if (hasDefaulted(accounts, regionIndex)) return { kind: 'alreadyDefaulted' };
   setDefaulted(accounts, regionIndex, true);
@@ -650,9 +749,12 @@ export function parseTransactionAmount(text) {
 /** LoanBorrowButton_OnMouseClick (:398-415). Two refusals BEFORE the
  *  input opens, and their order is DFU's: a defaulted region is told
  *  so even if it also has a loan outstanding. */
-export function borrowDecision(accounts, regionIndex) {
+export function borrowDecision(accounts, regionIndex, { online = isOnlinePage() } = {}) {
   if (hasDefaulted(accounts, regionIndex)) return { kind: 'refuse', result: TRANSACTION_RESULT.ALREADY_DEFAULTED };
   if (hasLoan(accounts, regionIndex)) return { kind: 'refuse', result: TRANSACTION_RESULT.ALREADY_HAVE_LOAN };
+  // REALM P0.3: online, another branch's default or loan refuses here too, in the Empire's words (empireRefusalLines)
+  const empire = online ? empireRefusal(accounts) : null;
+  if (empire) return { kind: 'refuse', ...empire };
   return { kind: 'input', transactionType: TRANSACTION_TYPE.Borrowing_loan };
 }
 
@@ -758,7 +860,7 @@ export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
 //    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:2961
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
-//    3D model panel, and ui/bankWindow.js:246-259 routes BUY HOUSE's
+//    3D model panel, and ui/bankWindow.js:266-279 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to
 //    DFU's own missing-directory answer, :433-434).
 //  - ReadNativeBankData (:584-614) IS PORTED, verbatim quirks and all:
