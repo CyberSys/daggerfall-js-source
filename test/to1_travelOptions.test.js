@@ -1586,7 +1586,7 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   // is refused must not cancel the player's journey on its way out. What this
   // pins is unchanged - the clear happens at the top of the function, before
   // its first await, not that it is the first statement in it.
-  assert.match(w, /async function worldQuickLoad\(\{ mostRecent = false, key = null \} = \{\}\) \{\s*\n\s*if \(_loading\) return;[\s\S]{0,2400}?travelOptions\?\.clearTravelDestination\(\);\s*\n\s*if \(worldTimeScale\(\) !== 1\) resetTimeScale\(\);/);
+  assert.match(w, /async function worldQuickLoad\(\{ mostRecent = false, key = null, snap: picked = null \} = \{\}\) \{\s*\n\s*if \(_loading\) return;[\s\S]{0,2400}?travelOptions\?\.clearTravelDestination\(\);\s*\n\s*if \(worldTimeScale\(\) !== 1\) resetTimeScale\(\);/);
   // G2: the scale's net above every gate, and an indoor mode ends the journey
   // PIN MOVED (CSA-G): a scale with no panel behind it is reset unless Come Sail Away's helm holds it (its time keys
   // set Time.timeScale too, and no journey stands behind that one)

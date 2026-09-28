@@ -83,8 +83,8 @@
   {
     "name": "NAVBAKE-cache-version-unbumped",
     "file": "src/ai/navClient.js",
-    "old": "export const NAV_BAKE_VERSION = 3;",
-    "new": "export const NAV_BAKE_VERSION = 2;",
+    "old": "export const NAV_BAKE_VERSION = 4;",
+    "new": "export const NAV_BAKE_VERSION = 3;",
     "tests": [
       "test/audit62_enhancedai.test.js"
     ]

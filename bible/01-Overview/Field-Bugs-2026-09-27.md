@@ -1,104 +1,119 @@
-# FIELD BUGS 2026-09-27 — FIELD-CONSOLE1, a player's console read line by line
+# FIELD BUGS 2026-09-27 - seven from the Discord, the Escape first
 
-The user handed over a browser console from a live session (online, a walk
-south from Privateer's Hold, a building, a dungeon, back out). Every line
-was read; each is either fixed here, recorded as expected, or open.
+Mac, with screenshots from the bug-reports channel and a DM: *"Some bugs."* And on the
+pause: *"So when you hit esc to leave a menu, your cursor remains on the screen instead
+of returning to the game."*
 
-## Fixed
+1. *"acrobat (female) skin bug - acrobat sprite is super short on certain angles, (i am
+   not crouching)"* (Skeptikali)
+2. *"Retaining criminal status even after going to prison and serving sentence - Guards
+   will still chase you down and kill you, even if you have already been to prison for
+   the crime committed"* (Hulk Hogan)
+3. *"Can't see all items in cart - My resolution is 1366 x 768. I tried setting the HUD
+   to %50, but I still can't see all the items"* (Malarkey)
+4. *"... even if I have all my gear on and a max of 502 encumbrance it sees me as
+   overweight when I hit past whatever my base is ... as soon as I hit 105 it's giving
+   me full weight penalties"* (名無しの人)
+5. *"In the Mantellan Crux (final MQ dungeon) when reaching entrance to the Fire Skull
+   Room after touching the big crystal, it will not go there, instead it leads back to
+   outside."* (Seanobi)
+6. *"Lanxus can't cast spells on other players, even during party"* - Lanxus: *"we both
+   are high level (My character is at lvl 34) and that is when i notice can't cast
+   beneficial spell on others"* (Seanobi, Mohg)
+7. A tester in a DM: *"the pause thing i told u broke the pause menu totally. U have to
+   hit escape 2 times to get pause menu up now"*, and Mac's clarification above.
 
-- **`[town] FACTION.TXT unavailable: Cannot access 'Ut' before initialization`**
-  (reproduced in the production bundle - the minifier's name differs per
-  build; in dev it reads `_questRegionIndex`). townTalk's load, built far up
-  `bootWorld`, resumes after its FACTION.TXT fetch and reads the region
-  through `_questRegionIndex` - a `const` declared thousands of lines below,
-  after `await loadQuestPack()`. bootWorld is suspended at that await when the
-  fetch lands, so the read hit the dead zone and the region's people never
-  loaded: every town's talk ran without its people. It is a hoisted
-  declaration now, and everything its body reads is declared before townTalk
-  is built (`test/fieldconsole1.test.js`, `test/regionlive.test.js`).
-- **`/assets/undefined` 404, twice at boot and twice at every door**
-  (reproduced in the bundle, the initiator Handheld Torches' sprite loader).
-  Both of that mod's loaders (the hand's sprite, the dropped torch's flats)
-  probe frames until one is missing - the mod's own TryImportTexture loop -
-  and in the bundle a frame past the last has no file, so Vite's dynamic URL
-  answers `/assets/undefined` and each probe's miss went out as a request.
-  The vendored set is known at build time (`vendoredTexture`,
-  `systems/handheldTorches.js`); a frame not in it is a miss, never a fetch.
-- **`Canvas2D: Multiple readback operations using getImageData are faster
-  with the willReadFrequently attribute` (x24)**. Every 2D context the port
-  makes to READ pixels back (the PNG decode every vendored texture goes
-  through, the SDF font atlas, the held map's sheet and thumbs, the save
-  window's shots, the paperdoll skin) asks for `willReadFrequently` now -
-  CPU-backed, no GPU readback.
+The same DM carried ideas, not bugs: an owner's option to let friends drop things in a
+house, a cost for teleporting into a locked house (*"Tested that"* - it works today), and
+a name, "DaggerfallOnline" - taken the same day as BR4's rebrand to Daggerfall Online
+(`10-UI/UI-Arc.md` BR4). The two house ideas are Mac's to decide; nothing here touches
+them.
 
-## Made to name its culprit
+Each fix below is written up on its owning page; this page is the index and what is
+left for Mac.
 
-- **`PERF-2D: a foreign pass ran inside an open 2D run`**. Not reproduced
-  offline: a single-player walk of the same route (109,158 to 109,162) with
-  the renderer instrumented never raised it, and the static candidates in the
-  world section (the sea's surfaces, the pits, the rain, the wisps, the bolts,
-  the grass, the bodies, the peers' walkers) all close or never open a run.
-  The session that raised it was online with other players. The warning now
-  carries two stacks - the pass that found the open run and the draw that
-  opened it (kept, as an Error, only until the warning has spoken) - so the
-  next console that shows it names the draw.
+## ESC-LOCK: one Escape opens the pause; the app takes the look back (7)
 
-## Expected, not faults
+Two browser rules, not a regression. A locked pointer's Escape is the browser's - it
+ends the lock and the page never sees the key - so the first press only freed the
+cursor. And Escape is no user activation, so once the player has ended a lock every
+relock inside an Escape close was refused. A lock loss the page did not ask for is now
+delivered as that press, so the pause opens on one Escape; a refused relock is re-run
+by the desktop app's shell as a user gesture. **A browser tab cannot relock on Escape**
+- the next click or key does, as before. `10-UI/UI-Arc.md` ESC-LOCK; Ledger A
+(continued) "THE BROWSER KEEPS ESCAPE".
 
-- `CURSOR.IMG` 404: that player's ARENA2 has no CURSOR.IMG; the OS cursor
-  stands in, as the line says.
-- `BOK00112.TXT` / `BOK00113.TXT` 404: DFU's book mapping names ids 112 and
-  113 ("Bourn in Wood, Part I/II", `vendor/dfu-books/books.txt`), which the
-  classic data does not carry and DFU does not ship either; the price preload
-  asks for every mapped book and keeps the template price for a missing one.
-- The Immersive Footsteps warning: it reads Better Ambience's live
-  `Better Footsteps.enable`, which the port ships OFF - that player turned it
-  on. The mod's warning is right, and says how to silence it.
+## JAIL-HIT: the trial is a paused window offline too (2)
 
-## Fixed after the first pass
+The release clears the crime, as DFU's does. What was wrong: DFU's surrender box and
+court stop the world, and here the watch keeps WINFOE1's clock under any window.
+ARREST-SHIELD withheld its blows online only, so offline a guard's blow on the
+surrender's 1 health killed the player inside the court, or forced a second trial that
+threw the prison screen's release away - the crime never cleared and the watch hunted
+on. The shield holds in both modes, one trial at a time, and an unanswered surrender
+box another window replaces ends its question. `06-Systems/Systems-Arc.md` under
+WINFOE1.
 
-- **`[enhanced-ai] navmesh bake looks degenerate (11 polys from 17592
-  triangles)`**, in the dungeon of map id 1204685, on both entries.
-  Reproduced exactly in node (the host's own counters, the bake's own
-  input, the same 11 polys and cell 0.7248), and not the spawn's: every
-  classic dungeon's soup bake was broken - Privateer's Hold gave 130 polys
-  from 9,079 triangles, 11 of 12 sampled dungeons tripped the guard - by
-  four faults in the triangle-soup bake that compound, and the one-anchor
-  cull (`src/ai/navBake.js`, `src/ai/triRaster.js`, `src/ai/navClient.js`):
-  1. **The cell was coarsened.** Mac's budget rule (`coarsenAgent`) is for
-     open terrain and sizes by the soup's box; every classic dungeon's box
-     is three blocks or more a side, so all 4,232 coarsened, to 0.54-1.05 m
-     cells, at which no 1.25 m doorway survives. A soup bake keeps its
-     cell (0.25 m).
-  2. **Two rings of erosion.** AGENT's 0.4 m radius erodes two 0.25 m
-     cells off each jamb: 0 of 12 grid alignments kept a classic 1.25 m
-     doorway. The soup's agent erodes one ring (`SOUP_AGENT`); a gap of
-     0.75 m or less still never links.
-  3. **Closed doors were walls.** Every unlocked action door (openDoorsStep's
-     own test - a foe opens it) is left out of the soup; a locked or special
-     one stays a wall.
-  4. **Flat floors vanished.** A level triangle is a zero-thickness box, and
-     the voxeliser drops one whose height lands exactly on a voxel boundary
-     (16, 24, 32, 48 m against a grid based at minY - 10.2): 5,865 m2 of
-     floor in that dungeon. A flat box is one voxel whose top is the surface
-     (`FLAT_EPS`, Recast's own clamp).
-  5. **Only the player's component was kept.** Behind one-way drops and
-     locked doors most foes had no mesh at all; the bake keeps every place
-     agents live - the player's feet and each layout foe's, each landed on a
-     floor within 0.6 m (`landAnchors`) - through the anchor union Mac's
-     `buildRegions` already takes. No implicit plane is laid any more.
-  After: m1204685 8,819 polys, cell 0.25, 92 of 93 foes on the mesh, 88% of
-  the capsule-walked floor; Privateer's Hold 4,602 polys, 42 of 42. The
-  cache version moves to 3 (every v2 bake is a coarse one). THE COST:
-  a worker bake of a large dungeon is 5-11 s instead of 1-2 s and up to
-  ~0.5 GB (the corpus's largest, Scourg Barrow, ~1.3 GB, node figures), and
-  the hydrated mesh keeps its boxes on the main thread (m1204685 19 -> 136
-  MB). So a worker that dies on a large soup no longer falls back to a
-  main-thread bake - that would be AUDIT 59 F1's freeze several times over -
-  and the classic motor stands, as it did behind a degenerate bake. The
-  memory itself belongs to Mac's navmesh body (sparse cells, packed boxes,
-  the poly merge), untouched here and owed to project-final. Pinned in
-  `test/enhancedAI.test.js` (DEGENERATE-BAKE ROOT: the doorway at every
-  alignment, the boundary floor, the doors, the anchor union, the worker's
-  death, and with ARENA2 both real dungeons) and `tools/mutants/navbake.json`
-  (10 mutants, all dead).
+DFU's and kept: a sentence restores only half the region's legal reputation less one,
+and below -10 the watch can be called at random (PlayerEntity.cs:498-504). A player
+with a bad name in a region is hunted there after the sentence in Daggerfall too.
+
+## CART-FIT: the pack and the wagon share one screen (3)
+
+The pack and a side window beside it (the wagon, the player's own storage) were each
+clamped to the viewport alone, so side by side they wanted 1738 px and the wagon ran
+off the edge. The HUD scale never reached this window. Paired, the side window is one
+column and the pack takes the rest; from 1770 px the two-column window returns.
+`10-UI/UI-Arc.md` CART-FIT.
+
+## ENC-CEIL: the penalty reads the pack's ceiling (4)
+
+Roleplay & Realism's encumbrance penalty divided by the bare strength formula (105);
+the mod divides by `PlayerEntity.MaxEncumbrance`, the pack's own ceiling with the
+weight allowance (502). The horse and cart were never part of it.
+`06-Systems/Roleplay-Realism.md` ENC-CEIL.
+
+## CRUX-DOOR: a door in the Crux is not a way out (5)
+
+A dungeon block's door list is every door face its models carry - DFU's misnomer - and
+the host took every one as an exit. Only a DungeonExit door leaves; the rest are the
+model's, and the Crux's own teleport answers them again. `06-Systems/Quest-Arc.md`
+CRUX-DOOR. Not verified without ARENA2 - see below.
+
+## PEER-CAST: a caster past level 30 casts on a mate at 30 (6)
+
+The cast frame's level bound is 30 and the port caps no level, so a caster past it
+minted a frame the caster's own door refused: nothing left, and a CasterOnly heal fell
+back onto the caster. The sender clamps to the bound, the duel's law.
+`06-Systems/Online-Arc.md` PEER-CAST.
+
+## ACRO-SHORT: one picture drawn small (1)
+
+The female acrobat's front three-quarter idle is a whole figure 81 pixels tall where
+the group's other views are 110. The pack carries no XML to size it, so `skins.json`
+carries the scale DFU's XML would. A sweep of every view of every sheet found no
+other. `06-Systems/Eye-Of-The-Beholder.md` ACRO-SHORT.
+
+## For Mac
+
+- **Escape in a browser tab.** An Escape close cannot take the mouse back in a tab;
+  the desktop app can. Two ways past it: Chrome's Keyboard Lock (only in a page
+  fullscreen, which the port offers on phones alone), or a "click to resume" hint.
+- **The cast level bound.** Casters past 30 cast on a mate at 30 (about 12% short on
+  the per-level terms at 34). Raising the bound is a relay version and a larger
+  crafted gift.
+- **The paired side window scrolls** below 1770 px when it outgrows its frame -
+  PX21e's no-scroll call was made of the loot window alone, which keeps it.
+- **The Crux door** is fixed by type; if the reporter's door is a baked exit face
+  (DFU's model-58051 kind), DFU exits there too and it is another bug. An ARENA2-gated
+  pin laying out the Crux's doors would settle it.
+- **Guards after a sentence** at a low regional reputation are DFU's rule, kept.
+
+## Verification
+
+Suite green at every commit (`node tools/testChanged.mjs`, then `npm run check`);
+new pins `jailhit` (3), `cartfit` (2), `crux_door` (2), `esclock` (5), and ACRO-SHORT,
+ENC-CEIL and PEER-CAST in `skin2_class_skins`, `rr1_realism` and `allycast`. Mutants:
+`jail_hit` 6, `cart_fit` 4, `crux_door` 4, `esc_lock` 8, `enc_ceil` 3, `peer_cast` 3,
+`skin2` +5 - all dead. CART-FIT measured in Chromium; ESC-LOCK and CRUX-DOOR not
+proven in a real browser or on real data.

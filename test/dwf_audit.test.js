@@ -220,7 +220,7 @@ test('AUDIT DW-F E-1: a foe under the carved sea takes the water column\'s share
   // one column law, three programs: the floor, the decorations, and both lanes' flats
   const renderSrc = rd('src/render/renderer.js');
   const bb = renderSrc.slice(renderSrc.indexOf('const BB_FS = `'), renderSrc.indexOf('// Dungeon water: one horizontal quad'));
-  assert.match(bb, /\$\{FOG_GLSL\}\n\$\{COLUMN_GLSL\}\nvoid main\(\)/, 'the classic flats declare it after the fog block');
+  assert.match(bb, /\$\{FOG_GLSL\}\n\$\{COLUMN_GLSL\}\n(?:\$\{HIT_FLASH_GLSL\}\n)?void main\(\)/, 'the classic flats declare it after the fog block');   // merged beside HITFLASH1's term, which reads neither
   assert.match(bb, /outColor = vec4\(dwWaterFog\(dwColumn\(mix\(uFogColor, lit, fogFactorAt\(vBBWorld\)\), vBBWorld\), vBBWorld\), alpha\);/, 'the world fog, the share, the sea\'s fog - the floor\'s own order');
   assert.ok(EL_BB_FS.includes(COLUMN_GLSL), 'the lane\'s flats too');
   assert.match(EL_BB_FS, /outColor = vec4\(dwColumn\(elFinish\(lit, vBBWorld\), vBBWorld\), alpha\);/, 'on the finished display colour (the sea\'s fog is off whenever the share is on)');

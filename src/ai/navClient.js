@@ -21,10 +21,15 @@ import { idbStore } from '../world/roadsCache.js';
  *  (roadsCache.js's GENERATOR_VERSION rule) - a cached bake under an old
  *  version is a wrong bake served forever per dungeon. AUDIT 62 F3: 1 had
  *  outlived the y-anchor fix (2026-09-03) and now the stacked-floor weld
- *  and the serialised vertex heights (F1). 3 (2026-09-27): the soup bake's
- *  own cell and agent, doors out, flat floors kept, the anchor union - every
- *  v2 bake is a coarse one that sealed its doorways. */
-export const NAV_BAKE_VERSION = 3;
+ *  and the serialised vertex heights (F1). 3: DUNGEON-SEAMS moved the
+ *  corners of 32 dungeon models (world/arch3dSeams.js) under the collider
+ *  a bake reads - same triangle count, and in most dungeons the same
+ *  height bounds, so the key could not tell a bake of the old corners.
+ *  4 (2026-09-27, the soup bake whole - its branch's 3, renumbered when
+ *  main's 3 met it at the merge): the soup bake's own cell and agent, doors
+ *  out, flat floors kept, the anchor union - every earlier bake is a coarse
+ *  one that sealed its doorways, and a v3 of either change lacks the other. */
+export const NAV_BAKE_VERSION = 4;
 
 /** AUDIT 62 F3: the key carries the ANCHOR's cell too - buildRegions keeps
  *  the anchor's foot-connected component and culls the rest, so a bake taken
