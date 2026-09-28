@@ -466,3 +466,31 @@ test('MAC-O3: attach is RE-CLAIMED by the stepping rig - the same pair is a no-o
   assert.doesNotMatch(weaponRig, /eotbBody\.attach\(renderer, \(\) => \(\{/, 'and the construction-only attach is gone');
   b.attach(null, null);
 });
+
+test('OW-BIG (Mac: "The player sprite needs to appear larger"): under the travel view the traveller\'s sprite is drawn face.grow times its size - its own batch at each step, casting no giant\'s shadow, its lantern not hung on a waist that moved; back on the ground the plain sprite and its shadow return', async () => {
+  const { tvOwnGrow, TV_OWN_GROW_M, TV_OWN_GROW_MAX } = await import('../src/player/travelCamera.js');
+  assert.deepEqual([tvOwnGrow(0), tvOwnGrow(20), tvOwnGrow(200), tvOwnGrow(450), tvOwnGrow(5000), tvOwnGrow(NaN)], [1, 1, 6, TV_OWN_GROW_MAX, TV_OWN_GROW_MAX, 1]);
+  assert.equal(TV_OWN_GROW_M, 32);
+  const { b, r } = await liveBody();
+  ticks(b, 10, still());
+  const draw = (face) => { b.draw(null, { eye: [0, 1.5, -2], feet: [0, 0, 0], yaw: 0, face }); };
+  draw(null);
+  await new Promise((res) => setTimeout(res, 2));
+  draw(null);
+  const plain = r.batches.at(-1);
+  assert.equal(plain.selfCard, true);
+  draw({ yaw: 0, up: [0, 1, 0], grow: 6 });
+  const big = r.batches.at(-1);
+  assert.notEqual(big, plain, 'a batch of its own at the step');
+  assert.deepEqual([big.size.w, big.size.h].map((v) => Number(v.toFixed(6))), [plain.size.w * 6, plain.size.h * 6].map((v) => Number(v.toFixed(6))), 'six times the sprite');
+  assert.equal(big.selfCard, false, 'no giant\'s shadow');
+  const n = r.batches.length;
+  draw({ yaw: 0.3, up: [0, 1, 0], grow: 6 });
+  assert.equal(r.batches.length, n, 'the same step: the same batch');
+  draw(null);
+  assert.equal(r.batches.at(-1).selfCard, true, 'down again: the plain sprite, casting');
+  assert.deepEqual(r.batches.at(-1).size, plain.size);
+  assert.match(bodySrc, /if \(grow === 1\) drawLantern\(\);/, 'no lantern on a grown body');
+  const tv = readFileSync(join(root, 'src/scenes/travelView.js'), 'utf8');
+  assert.match(tv, /grow: tvOwnGrow\(Math\.hypot\(shown\.eye\[0\] - f\[0\], shown\.eye\[1\] - f\[1\], shown\.eye\[2\] - f\[2\]\)\),/, 'the view hands the host the step from its own eye');
+});

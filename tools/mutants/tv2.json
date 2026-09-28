@@ -42,8 +42,8 @@
   {
     "name": "TV2-half-an-edge-is-a-road",
     "file": "src/systems/travelRoute.js",
-    "old": "  if (roads && (roads[a] & bit) && (roads[b] & back)) return 'road';",
-    "new": "  if (roads && (roads[a] & bit)) return 'road';",
+    "old": "  if (roads && (roads[a] & bit) && (roads[b] & back)) return 0;",
+    "new": "  if (roads && (roads[a] & bit)) return 0;",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -52,8 +52,8 @@
   {
     "name": "TV2-route-swims",
     "file": "src/systems/travelRoute.js",
-    "old": "        if (wet && (seaGoal || n !== goal)) {",
-    "new": "        if (false) {",
+    "old": "  if (goal === 0 && isWater(bx, by)) return -1;\n",
+    "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -132,8 +132,8 @@
   {
     "name": "TV2-resume-from-the-start",
     "file": "src/systems/travelOptions.js",
-    "old": "    r.i = best;\n    st.autopilot = null;",
-    "new": "    st.autopilot = null;",
+    "old": "    r.i = best;\n    r.join = rejoinPoint(r);",
+    "new": "    r.join = rejoinPoint(r);",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -202,8 +202,8 @@
   {
     "name": "AUDIT-TV-A1-line-by-pixel",
     "file": "src/scenes/world.js",
-    "old": "    tvTrip.natives = [[me.x, me.z], ...legs.slice(0, -1).map(mid), [rect.cx, rect.cz]];",
-    "new": "    tvTrip.natives = [[me.x, me.z], ...plan.pixels.slice(1, -1).map(mid), [rect.cx, rect.cz]];",
+    "old": "    tvTrip.natives = routeDrawPoints(state.worldCoords(player.pos), legs, { x: rect.cx, z: rect.cz }, tvLegMid);",
+    "new": "    tvTrip.natives = routeDrawPoints(state.worldCoords(player.pos), plan.pixels.slice(1), { x: rect.cx, z: rect.cz }, tvLegMid);",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -332,8 +332,8 @@
   {
     "name": "AUDIT-DEEP-T2-8-old-ceiling-kept",
     "file": "src/scenes/world.js",
-    "old": "{ quiet: tvQuiet });\n    if (!ok) return false;\n    travelGovernor.reset();",
-    "new": "{ quiet: tvQuiet });\n    if (!ok) return false;",
+    "old": "    partyWalkBegin({ pixel: summary.pixel });   // TV8: the party walks with me, if I lead one gathered\n    travelGovernor.reset();",
+    "new": "    partyWalkBegin({ pixel: summary.pixel });   // TV8: the party walks with me, if I lead one gathered",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -342,7 +342,7 @@
   {
     "name": "AUDIT-DEEP-T2-5-swim-the-corner",
     "file": "src/systems/travelRoute.js",
-    "old": "      if (dx && dy && isWater(cx + dx, cy) && isWater(cx, cy + dy)) continue;\n",
+    "old": "  if (ax !== bx && ay !== by && isWater(bx, ay) && isWater(ax, by)) return -1;\n",
     "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js"

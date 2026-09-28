@@ -2,7 +2,7 @@
   {
     "name": "quad-at-box-centre",
     "file": "src/render/characterSprite.js",
-    "old": "  const at = aim === center ? center : landAnchor(center, anchor, camDir, right);   // PR-BOW1: where the quad stands",
+    "old": "  const at = aim === center ? center : landAnchor(center, anchor, camDir, right, qUp);   // PR-BOW1: where the quad stands",
     "new": "  const at = center;",
     "tests": [
       "test/prbow1_bow.test.js"
@@ -38,8 +38,8 @@
   {
     "name": "resolution-read-at-box",
     "file": "src/render/characterSprite.js",
-    "old": "  const screenPxH = Math.abs(prjY(at[0], at[1] + halfH, at[2]) - prjY(at[0], at[1] - halfH, at[2])) * (span ? span[0] : canvas.clientHeight) / 2;",
-    "new": "  const screenPxH = Math.abs(prjY(center[0], center[1] + halfH, center[2]) - prjY(center[0], center[1] - halfH, center[2])) * (span ? span[0] : canvas.clientHeight) / 2;",
+    "old": "  const screenPxH = Math.abs(prjY(at[0] + qUp[0] * halfH, at[1] + qUp[1] * halfH, at[2] + qUp[2] * halfH) - prjY(at[0] - qUp[0] * halfH, at[1] - qUp[1] * halfH, at[2] - qUp[2] * halfH)) * (span ? span[0] : canvas.clientHeight) / 2;",
+    "new": "  const screenPxH = Math.abs(prjY(center[0] + qUp[0] * halfH, center[1] + qUp[1] * halfH, center[2] + qUp[2] * halfH) - prjY(center[0] - qUp[0] * halfH, center[1] - qUp[1] * halfH, center[2] - qUp[2] * halfH)) * (span ? span[0] : canvas.clientHeight) / 2;",
     "tests": [
       "test/prbow1_bow.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "drawthird-no-anchor",
     "file": "src/combat/fpArm.js",
-    "old": "      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, anchor, hitFlash, conceal }, proj, view, eye, MW_ARM_PIXEL);",
-    "new": "      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, hitFlash, conceal }, proj, view, eye, MW_ARM_PIXEL);",
+    "old": "      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, anchor, hitFlash, conceal, up }, proj, view, eye, MW_ARM_PIXEL);",
+    "new": "      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, hitFlash, conceal, up }, proj, view, eye, MW_ARM_PIXEL);",
     "tests": [
       "test/prbow1_bow.test.js"
     ]

@@ -936,6 +936,206 @@ standing down), `test/tv5_far_places.test.js` (the marker's face: the title abov
 the Renown amber, the party's green, the tag's steel, a stranger's bone, a title won at rest
 redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
 
+## OW FIXES - the first field report on the Overworld (2026-09-28, Mac)
+
+- **RESUME-OUT** ("option persists"): the held map asked "Resume your journey to ...?" at EVERY open while a
+  stopped journey was pending - the mod's own behaviour (TravelOptionsMapWindow.cs: No closes the box and keeps
+  `DestinationName`), with no way to be rid of it. The prompt now has a third answer, **Forget it**, which ends the
+  journey through the mod's own `ClearTravelDestination` (`onForgetTravel`); Resume and Not now are the mod's.
+- **OW-THEME** ("The overworld ui needs to follow enhanced ui theme"): the bar (`.tview-bar`, the journey bar's
+  window role), its Return (`.tview-back`, a button) and its compass (`.tview-compass`, a well) are in the Enhanced
+  Plus frame roles (`ui/enhancedFrame.js` FRAME_ROLES - paint only), and the canvas's plates are drawn in the
+  theme's own stone (`themePlate`: the page's `--slate` at 0.78 alpha, read at each open; a new stone lets
+  the old plate images go).
+- **OW-BIG** ("The player sprite needs to appear larger. Like it shouldnt be at the tiny scale"): under the view the
+  traveller's own sprite is drawn `tvOwnGrow(distance)` times its size (`player/travelCamera.js`: one more for every
+  `TV_OWN_GROW_M` = 32 m from the eye to the feet, never past `TV_OWN_GROW_MAX` = 12, 1 near the ground) - about
+  40-50 px tall at 1080p at every zoom, a Mount & Blade party's icon. The view hands the step (`frame().grow`), the
+  host passes it on the body's `face`, and the sprite lane (`player/eotbBody.js`) makes its batch again at each whole
+  step; a grown sprite casts no giant's shadow (`selfCard` off) and hangs no lantern on a waist that moved.
+
+**Proof.** `test/heldmap.test.js`, `test/tv5_far_places.test.js`, `test/eotb_body.test.js`,
+`test/tv1_travel_view.test.js`; `tools/mutants/ow1.json` (14 records, all dead).
+
+## OW ROUND 2 - no ground travel, the road walked on, no mountains (2026-09-28, Mac)
+
+- **OW-ONLY** ("Remove the ground travel alltogether. Now selecting a location should immediately transition you to the
+  overworld"): on the enhanced interface a pick on the map (`beginAcceleratedTravel`) is the Overworld's OWN journey - a
+  place by the roads (`travelViewRouteTo`), a spot by `travelViewWalkTo` - refused, with the view's own reason, where the
+  view may not rise; any Travel Options journey raises the view the first frame no window, foe or gate forbids it
+  (`tvJourneyUp`, silently); and a view the PLAYER brings down (Return, Escape, the key: `onLower`) stops the journey -
+  `interruptTravel`, the destination kept, so the map's Resume takes it up again, in the view. A cut (a door, a window,
+  a death, a foe) is not the player's choice and is never counted. The classic skin keeps Travel Options exactly.
+- **OW-ROADSIDE** ("Sometimes routes do follow roads, but appear traveling alongside it"): the first leg ran from wherever
+  in the start pixel the traveller stood (up to 400 m off the road) to the far end of the road's first straight run -
+  beside the road the whole way. A route whose first step is a road's or a track's now JOINS it first
+  (`travelRoute.js joinPoint`: the nearest point of that run's line, clamped to it; the leg's own `at`, which
+  `startRouteLeg` aims the autopilot at), and the drawn route joins where the walk does.
+- **OW-MOUNTAINS** ("Bumping into a mountain can cause insane lag and cause you to take character damage. You shouldnt be
+  able to navigate mountains"): the planner refuses an OPEN step into the Mountain climate (226) or up or down more than
+  `TV_STEEP_RISE` (16, the small heightmap's units) between two pixels (`openStepBlocked`); a road or a track goes where
+  it was laid (over the passes); the step out of the start and onto the goal are never refused. A spot journey is now
+  routed too (to the spot's pixel round the peaks, then to the spot), and a spot among the peaks is refused ("The
+  mountains cannot be crossed on foot.").
+
+**Proof.** `test/tv2_click_to_move.test.js` (three more), `tools/mutants/ow2.json` (18 records, all dead).
+
+## THE OVERHAUL - a living Overworld (TV6-TV8, DESIGN, 2026-09-28)
+
+Mac (2026-09-28): "Random encounters and nearby dungeons implemented should somehow be detailed implemented into the
+new overworld. Like think mount and blade and how you can see enemies in the overworld. Like a true overhaul for the
+new overworld." His calls, the same day: **Roaming parties**, **Discover on approach**, **Leader drives**, **Shared per
+area**. Enhanced interface only (the Overworld's lane); the classic skin keeps DFU exactly.
+
+**TV6 - THE DUNGEONS, DISCOVERED ON APPROACH.** Every dungeon (`formats/mapsFile.js` LOCATION_TYPES: Labyrinth,
+Keep, Ruin, Graveyard, Coven - DFU's travel-map "dungeons" filter) within `TV_FAR_RANGE` (24 pixels, ~20 km) stands on
+the Overworld: a discovered one is a plate with its name and distance, held at the edge and clicked for a journey, as
+the far towns are; an UNDISCOVERED one is an unnamed mark (no name, no journey) at its place. Coming within
+`TV_DUNGEON_FIND_M` (1 km) of an undiscovered dungeon, outdoors on the enhanced interface, DISCOVERS it (the port's own
+store, `discoverLocation`) and says so on the screen ("You have found <name>."). A departure from DFU, Mac's call: DFU
+discovers on the location's rect (PlayerGPS.PlayerLocationRectCheck) and says nothing. The held map and the Overworld
+read the same store, so a dungeon found either way is named on both.
+
+**TV7 - THE ROAMING BANDS.** Enemy bands roam the wilderness and can be seen from above, as a Mount & Blade party is.
+- *Where and what:* a band is BORN of the land and the shared clock - a pure function of (map pixel, time bucket) and
+  WORLD_SEED on the shared minute (`sharedClassicMinutes`), as TV4's storms are - so every player in an area computes
+  the same bands with nothing sent. Its members come from Daggerfall's own tables: the climate x day/night table
+  (`encounters.js` resolveEncounterTableIndex - none in a town's rect by day), the group filled by
+  `rollGroupComposition` (2-5; as built it rerolls solitary types away, so no band is one), rolled from the band's own seed.
+- *How they move:* a band WANDERS a seeded path until it SPOTS a player (the sight radius from the band's kind, longer by
+  day); then it CHASES, and the chase is simulated by the chased player's client (the port's owner model - WORLD6b) and
+  streamed to the others under a key of its own in the foes frame (validated outside `wire.js`, the WoD camps' way: no
+  relay change). A chase gives up past a leash; a band that gave up or fought is spent for its bucket for everyone.
+- *Contact:* at `TV_BAND_CONTACT_M` the Overworld comes down (the view's own `danger`) and the band's members stand as
+  real foes around the traveller (`exteriorFoes.spawnFoe`, placed) - exactly the band that was seen. On a Travel Options
+  journey the band is the journey's `enemiesNearby`: the stop, and on a cautious journey the mod's own avoid roll
+  (luck + Stealth - 50) - success, the band loses the trail.
+- *Seen from above:* each band is a marker in the Overworld - as built a red point (TV7 BUILT below), not a grown sprite -
+  with its kind and number ("Orc, 4"), red; a band that has spotted you wears the chase. Off the picture a chasing band
+  is held at the edge. In play (the view down) a band within the pose range stands as its foes, as a camp does.
+
+**TV8 - GROUP TRAVEL, THE LEADER DRIVES.** A party leader's Overworld journey (a town or a spot) is PROPOSED to the
+members through the party pose (PARTY-TRAVEL's own shape, a walked journey this time - a new field, so a relay version,
+world123); a member gathered with the leader (within PARTY_REST_RADIUS) who accepts starts the same journey (the same
+route legs) and travels it beside the leader. A stop for one is a stop for all - a stamp that only moves forward, as
+PARTY-REST5's `restEnemyAt` is; the leader's resume resumes them. A band that makes contact with one halts them all (as built: the member's stop is the party's).
+
+**Order of the build:** TV6 (self-contained), TV7 (the bands, no relay change), TV8 (the party's journey, world123).
+
+**TV6 BUILT (2026-09-28).** `systems/travelDungeons.js` (pure: `dungeonPixels`, `nearDungeons`, `dungeonToFind`,
+`TV_DUNGEON_MAX` 12, `TV_DUNGEON_FIND_M` 1000); the host's `travelViewDungeons` (kept between pixels and finds, a load
+forgets it) and `dungeonFindFrame` (four times a second, the enhanced interface outdoors: `discoverLocation`, then
+"You have found <name>." on the screen); a found dungeon past the grid is a far plate (its name, its distance, a
+journey - within the grid TV2's own plate), the rest are the readout's LAIR look - a dull red point and a "?", no
+journey, never held at the edge. Proof: `test/tv6_dungeons.test.js`, `tools/mutants/tv6.json` (14 records, all dead).
+
+**TV7 BUILT (2026-09-28).** `systems/travelBands.js` (pure): a cell of BAND_CELL_PX (2) map pixels holds a band in a
+life of BAND_LIFE_MS (12 real minutes on the shared clock) at 0.30 by day and 0.45 by night, born at a seeded point
+the land allows (the host's `bandOk`: no water, no place's pixel); it WANDERS 75 s legs at 1.3 m/s, each bent up to a
+quarter turn, turned back off the land's edge - every client computes the same bands in the same places, nothing sent.
+Its make is the camps' themed group (`rollGroupComposition`, now exported) rolled from its own seed off its birthplace's
+table. Under the Overworld a band that sees the traveller (320 m by day, 190 by night) CHASES at 5.2 m/s times the
+journey's time scale (a slow walker is caught; a quick one, a runner or a rider gets away); at 30 m (with the view down, 140 m) it STANDS as those
+foes around the traveller on its own bearing (`_standCampEncounter`, now taking the band's `yawRad`) - and the view's
+`danger` and the Travel Options journey's own enemy stop (and its cautious avoid roll) do the rest; past 900 m, or two
+minutes without closing a metre, it loses the trail and is gone for its life. Seen from above: a red point with its kind and
+number ("Orc, 4"); a chaser held at the edge. **Online** the bands themselves are shared - born, placed and wandering the same for everyone - and TV7b (below) shares
+the chase. What a band IS scales to who sees it, as Daggerfall's encounters do (`rollGroupComposition` reads the
+viewer's level): two players of different levels can read different members off one band; the fight is the chaser's.
+Proof: `test/tv7_bands.test.js`, `tools/mutants/tv7.json` (19 records, all dead).
+
+**TV7b BUILT (2026-09-28) - THE CHASE, SHARED.** The chaser's client says its chases on its own cell foes frame under
+`bd` (`[[id, x, z, 1]]`, the band's place in native units) and the bands spent there (`[[id, 0, 0, 2]]`), at most
+BANDS_WIRE_MAX (8) - validated at the reader (`validBandWord`), as the World of Daggerfall camps' `st`/`sp` are, never by
+the relay (NO relay change). A chase asks for a frame (`bandMoved`, as a moving boat's word does). A reader shows a
+peer's chase where it runs (for BAND_WORD_MS after the word; then the band wanders on), never starts its own chase of
+that band, and spends every band a peer spent - one band, one fight, everyone's. Two players who saw one band in the
+same breath: the lower id keeps it (`chaseYields`), alike on every client.
+Proof: `test/tv7_bands.test.js`, `tools/mutants/tv7.json` (33 records, all dead).
+
+**TV8 BUILT (2026-09-28) - GROUP TRAVEL, THE LEADER DRIVES.** `systems/partyWalk.js` (pure). A party leader's Overworld
+journey (a place, or a spot) with a member gathered within PARTY_WALK_RADIUS_M (60 m) is a WALK on the leader's party
+pose - `tw` `{x, y, sx?, sz?, at, go, h}` (net/wire.js validPartyPose, **world123**, PARTY_WALK_RELAY_MIN 123: offered
+only through a hub that carries it). A gathered member is asked ("<leader> leads the party to <place>. Travel with
+them?", ui/yesNoBox.js, within PARTY_WALK_ASK_MS); on a yes they walk the same journey in their own Overworld (a place
+by the roads - a place they have not found themselves walked to as a spot - or the spot itself). The leader's stop
+HALTS the walk (`h`) and every member stops with it; the leader's journey taken up again (the map's Resume) SETS OUT
+again (`go`) and every member who said yes takes theirs up again, from where they stand. A member's OWN stop - a foe, a
+band's contact - is said on their pose (`ts`), and the leader halts on a stop newer than the last set-out: a stop for
+one is a stop for all. An arrival ends the walk; a member's arrival is never a stop. **Deploy:** world123 must ship to
+the relay before the walk is offered (an older relay strips `tw` and `ts`; nothing breaks).
+Proof: `test/tv8_party_walk.test.js`, `tools/mutants/tv8.json` (17 records, all dead), `test/relayversion.test.js`
+(the world123 law).
+
+**AUDIT OW3 (2026-09-28) - everything since the merge, audited in five lanes, verified, fixed.**
+- *Journeys (J):* the view brought down stops its journey through the panel (`pauseTravel`, the mod's Camp), so the
+  held map offers Resume, and `tvJourneyUp` raises the view only while the autopilot drives. On the enhanced interface
+  a walked trip the Overworld refuses is refused (`tvOwnsJourneys`), never fast-travelled; a coordinate pick on the sea
+  is refused in the view's words. A resume rejoins the road: `route.join` is the nearest point of the run taken up
+  (`joinPoint`), aimed in its own pixel before the leg, and the view's line goes through it. Both journeys draw one
+  point per leg (`routeDrawPoints`). The peaks rule is the ground's: every step out of a Mountain pixel is walked and
+  none into one; no start exemption; the goal step is exempt only for a place (`goalExempt`), so a plateau spot is
+  refused. The Morrowind body grows with OW-BIG (`drawThird` `grow`, sprite depth `max(4, halfW + boxH + 1)`).
+- *Dungeons (D):* the pure list is `dungeonRows` (map rows, gathered once), `spawnedPixels` (the live index),
+  `nearDungeons` (filtered, THEN capped at 12: a row with no named place, a spawn's pixel, a found dungeon inside TV2's
+  grid spends no slot), `dungeonApproach`, `dungeonToFind`. SPAWNED dungeons (Mac's "nearby dungeons implemented")
+  stand as `spawn:<map id>` once the spawned feature has told of them: a "?" until filed, then a named far plate whose
+  click is TV2's spot journey to 20 m outside the exterior; the find never takes a spawn. The find and the bands stand
+  down while `worldMoveBusy()` (an arrival's feet lie).
+- *Bands (T7):* a contact tries the band's bearing, a quarter turn either way, then behind, and the band is spent only
+  once it STOOD (BAND_STAND_RETRY_MS 1500, BAND_STAND_TRIES 5); every chase is stepped on its own band (a life's
+  turn no longer strands it); a chase gives up BAND_GIVE_UP_MS after its last metre gained (`gainAt`), not two minutes
+  in; the make rolls from `bandMakeSeed` (its own stream - the birth's first draw is under the spawn chance, so
+  Daggerfall's roll over 80 never came) by the night its life began in (read once a life); a wander leg's way is
+  chosen by its whole end (no mid-leg jumps); water, a door or a town's rect ends a chase SPENT; a peer's word is kept
+  only for a band that can be about me (`bandNearMe`) and the tables are pruned each life.
+- *Group travel (P):* every halt stops through the panel, and "journeying" is the panel with an autopilot under it. A
+  walk's END is Travel Options' own `cleared` count (an arrival, Exit, Forget it, a load), never the destination
+  fields, so a spot walk's stop is a halt. When the walk ends members are released and walk on to the same place;
+  halts come only from `h`. Taking the halted walk's own place up again sets it out again in the same round. A member
+  is asked, and set out, only when free (outdoors, alive, no window, no foe, no duel); the question comes down with its
+  round, its 30 s or danger; a yes dies with its round; the leader's walk is believed PARTY_WALK_GRACE_MS (10 s)
+  without a pose. The wire is unchanged (world123).
+- *Known, not changed:* the relay fans a cell's foes frame 3 pixels out (`RANGE_PIXELS`) while bands are drawn 6
+  (BAND_REACH_PX) - a player 4-6 pixels off hears a chase or a spent band only on coming nearer (the spent list rides
+  every full frame). Members' paces are their own clients' (a member at x1 behind a leader at x10 falls behind).
+  A band's make reads the viewer's level (TV7 BUILT). A traveller on a plateau ringed by cliffs outside the mountains,
+  with no road off it, is told there is no way by land.
+- Proof: `test/tv2_click_to_move.test.js` (28), `test/tv6_dungeons.test.js` (11), `test/tv7_bands.test.js` (10),
+  `test/tv8_party_walk.test.js` (12), `prbow1_bow`, `mwhead1_window`, `eotb_view` (+1 each); `tools/mutants/ow3j.json`
+  (28), `ow3d.json` (27), `ow3t.json` (18), `ow3p.json` (36) - all dead; the older sets re-aimed.
+
+**AUDIT OW4 (2026-09-28) - the second full audit of the branch (five lanes, the OW3 fixes included), verified, fixed.**
+- *Bands (B):* the bands were asked for at the MAP pixel, whose y runs the other way from their rows - every band stood
+  at the mirror of its latitude and almost nobody met one (`bandPixelOf`, in the list and in a peer's word). The land a
+  band may stand on is the maps' own places taken at boot (`_bandPlacePixels`), never the live index a spawn joins per
+  client. A stand counts only with a member placed; the bearing is kept from the first contact; a door ends every chase,
+  spent; death or a window HOLDS a chase, a boat ends it; no band drawn with the camps off; the spent list pruned by
+  life; the sight read by the bands' night. bandFrame/bandStand/bandHear are lifted from world.js and RUN in the tests.
+- *Journeys (J):* only the traveller's OWN peaks are left freely: `planRoute` flood-fills the start's connected
+  Mountain area (`peakAt`), and `openStepBlocked(..., leaving)` frees only its steps - a range entered by a road is
+  walked no further. The ladder ends on the whole map (`ROUTE_MARGINS` [6, 20, 60, 1000]); the ground is read once
+  (`routeGround`) and its land pieces answer "no way by land" once the first box misses. A won avoid roll takes the SAME
+  route up again (a spot's became "Following a road"). The map's Resume re-plans on the enhanced interface
+  (`travelViewResume`; a spawn's walk resumed is its door). An Overworld journey with its view down runs at x1 until the
+  view rises. A new disease stops through the panel. The grown Morrowind body's quad leans by the view's up.
+- *Dungeons (D):* a spawn's plate walks as a place's DOOR (`travelViewWalkTo` `{ door }`: never refused for the peaks,
+  its own pixel's step exempt), its edge facing where the route's last leg starts (`lastLegStart`); an expired spawn
+  (`tvSpawnGone`) is never listed; a load clears the announced spawns; found spawns past the stream stand again after a
+  reload (`filedSpawns`, `tvSpawnAt`, the shared `_spawnCloneAt`); the list keyed on the index's generation
+  (`_locIndexGen`); the cap of twelve taken found-first.
+- *Group travel (P, X):* a spot re-aimed in its pixel sets out again (members re-routed); a halt lapses after
+  PARTY_WALK_HALT_MS (5 min) and drops off the pose; a stop meaning the journey cannot run (WALK_BALKS: low health or
+  fatigue on cautious travel, stuck, blocked, the sea) halts the party once, then the leader's Resume passes that member
+  by until their own; a member stopped by a halt who takes the journey up leaves the walk; the question is tracked through
+  the window stack, withdrawn if buried, and an answer counts only while the round stands; nobody sets out mid-arrival.
+  A member walking to a place they have not found, or to a spawn, walks it as its door. The wire is unchanged (world123).
+- *Known, not changed:* some towns among the peaks with no road reaching them are now "no way by land" (the peaks' law
+  holds); the "historical" example numbers in test/citedrift.test.js move with every citation shift, as they always have.
+- Proof: `test/tv2_click_to_move.test.js` (32), `tv6_dungeons` (19), `tv7_bands` (15), `tv8_party_walk` (22),
+  `to1_travelOptions` (+1), `prbow1_bow` (+2); `tools/mutants/ow4j.json` (26), `ow4d.json` (38), `ow4t.json` (14),
+  `ow4p.json` (25), `ow4x.json` (3) - all dead; the older sets re-aimed.
+
 ## OWS - THE SEA ON THE OVERWORLD - SHIPPED (2026-09-28, the player's asks)
 
 The player, on the Overworld: *"1. You should transition to your boat if traveling across water then back onto land

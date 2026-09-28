@@ -202,8 +202,8 @@
   {
     "name": "JRN-relay-a-channel-carries-it",
     "file": "server/src/index.js",
-    "old": "{ t: 'muted', until: a.mu })); return; }\n      if (isChatRoom(a.key) || isSocialRoom(a.key)) return;\n",
-    "new": "{ t: 'muted', until: a.mu })); return; }\n",
+    "old": "{ this._send(ws, JSON.stringify({ t: 'muted', until: a.mu })); return; }\n      if (isChatRoom(a.key) || isSocialRoom(a.key)) return;\n",
+    "new": "{ this._send(ws, JSON.stringify({ t: 'muted', until: a.mu })); return; }\n",
     "tests": ["test/journal1.test.js"],
     "note": "A page held out in a chat channel - nowhere to stand beside anyone."
   },

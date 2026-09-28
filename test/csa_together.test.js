@@ -396,6 +396,7 @@ test('CSA-K: the host - my place aboard rides my foes frame as `ab` (a changed w
     _hccDirty: false, camps: { wireRecords: () => [] }, hcc: { wireRecord: () => null }, duelRingWord: () => {}, campToWire: (p) => p,
     csaWord: () => false, csaOn: () => true, csaAboard: { word: () => aboardWord }, player: { pos: [0, 0, 0] }, _csaAboardKey: '',
     raidWireWord: () => null,   // THE MERGE: RAID2's word rides the same line
+    bandWord: () => false,   // THE MERGE (TV7b): no band chases on this deck
   };
   scope.csaAboardWord = mount(scope, cut(WORLD, 'function csaAboardWord(frame, full) {', '\n  }\n'), 'csaAboardWord');
   const foesStream = mount(scope, cut(WORLD, 'const foesStream = (now) => {', '\n  };\n'), 'foesStream');

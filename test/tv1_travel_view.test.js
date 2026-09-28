@@ -556,7 +556,7 @@ test('AUDIT DEEP T1-7/X-1/X-2/T1-5: a look key let go in a text box still stops 
   assert.ok(door > 0 && door < frame.indexOf('if (modes.frame(dt, now)) {'), 'the door cut precedes the modal branch');
   assert.ok(door < frame.indexOf('travelView?.steer(dt);'), 'and the steer - no turn from indoors');
   // R-2: the traveller's own sprite turns its quad to the VIEW's eye and leans with the flats
-  assert.match(w, /const tvFace = tvf \? \{ yaw: tvf\.yaw, up: tvf\.up \} : null;/);
+  assert.match(w, /const tvFace = tvf \? \{ yaw: tvf\.yaw, up: tvf\.up, grow: tvf\.grow \} : null;/);
   assert.match(w, /mwViewDrawBody\(canvas, \{ proj, view, eye: mwv\.eye, feet: player\.bodyFeetAt\(\), yaw: cam\.yaw, face: tvFace \}\);/);
   assert.match(rd('src/player/mwView.js'), /if \(eotbLane\(\)\) return drawEotbBody\(canvas, \{ proj, view, eye, feet, yaw, face \}\);/);
   const eb = rd('src/player/eotbBody.js');
