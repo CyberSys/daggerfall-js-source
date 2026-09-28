@@ -85,7 +85,8 @@ test('SPAWNED-DUNGEONS: templates are real non-main-story dungeons, one-block ex
 test('SPAWNED-DUNGEONS by source: ONE choke point (buildPixelNow), online-only off the page params, wrapped, never a fresh roll per load', async () => {
   const { readFileSync } = await import('node:fs');
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
-  assert.match(w, /const dfLocation = locationIndex\.get\(key\) \|\| spawnedDungeonAt\(px, py\) \|\| null;/, 'a real location always wins; only an empty pixel is asked');
+  assert.match(w, /const dfLocation = _locationToBuild\(px, py\) \|\| null;/, 'the build asks what stands (AUDIT OW5 D2)');
+  assert.match(w, /function _locationToBuild\(px, py\) \{[\s\S]{0,600}?return loc \|\| spawnedDungeonAt\(px, py\);\n  \}/, 'a real location always wins; only an empty pixel is asked');
   const i = w.indexOf('const spawnedDungeonAt = (px, py) => {');
   const fn = w.slice(i, w.indexOf('\n  };\n', i));
   assert.match(fn, /if \(!params\.has\('online'\)\) return null;/, 'online only - and off params: `onlineOn` is a const declared far below this build');
@@ -226,7 +227,8 @@ test('TTL1 by source: expiry is checked on the pixel build, and never while the 
   const i = w.indexOf('const spawnedDungeonAt = (px, py) => {');
   const fn = w.slice(i, w.indexOf('\n  };\n', i));
   assert.match(fn, /_spawnLedger\.expired\(key, _spawnClock\(\)\) && !_insideSpawn\(key\)/, 'both clocks AND the creator\'s "no player in it"');
-  assert.match(fn, /_spawnLedger\.forget\(key\);\s*\n\s*locationIndex\.delete\(key\);\s*\n\s*return null;/, 'expired: the row goes, the location goes, the pixel is empty land');
+  assert.match(fn, /_locIndexGen \+= 1;[^\n]*\n\s*locationIndex\.delete\(key\);\s*\n\s*return null;/, 'expired: the location goes, the pixel is empty land');
+  assert.ok(!/_spawnLedger\.forget\(key\)/.test(fn), 'AUDIT OW5 D2: and the row STAYS - its clocks keep it gone; forgotten, the pure roll stood the same dungeon again on a fresh seven days');
   assert.match(fn, /_spawnLedger\.note\(key, _spawnClock\(\)\);/, 'first sight starts the long clock');
   // the boot builds the player's OWN pixel through this function before
   // `playerTicker` is declared - a temporal dead zone `?.` cannot save
@@ -298,4 +300,53 @@ test('TTL1 by source: both hosts carry the ledger, so a save made underground ke
   assert.match(d, /composeSessionState\(\{ questBridge: opts\.questBridge, talk: opts\.talkSave, spawnLedger: opts\.spawnLedger\?\.\(\) \?\? null \}\)/);
   assert.match(d, /restoreSessionState\(extras, \{[^\n]*spawnLedger: opts\.spawnLedger\?\.\(\) \?\? null \}\)/);
   assert.match(m, /spawnLedger: \(\) => host\.spawnLedger\?\.\(\) \?\? null,/);
+});
+
+// AUDIT OW5 D2 (TTL1, the creator's rule relayed by Mac: "Spawned Dungeons should expire/removed after 2 ingame days when
+// cleared ... and after 7 ingame days in general"): spawnedDungeonAt and the build's own ask lifted out of world.js and
+// RUN - an expired spawn is REMOVED and stays removed, however often its pixel is asked or built.
+test('AUDIT OW5 D2 host run: A SPAWN PAST ITS TIME IS GONE FOR GOOD - the build\'s probe and the build itself both ask, and neither stands it again on a fresh clock; one the index still holds is taken out at its pixel\'s next build; never while the player is in it; a real place always wins', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { createSpawnLedger, GENERAL_TTL_MINUTES } = await import('../src/world/spawnedDungeons.js');
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  const i = w.indexOf('  const spawnedDungeonAt = (px, py) => {');
+  const spawned = w.slice(i, w.indexOf('\n  };\n', i) + 5);
+  const j = w.indexOf('  function _locationToBuild(px, py) {');
+  const build = w.slice(j, w.indexOf('\n  }\n', j) + 4);
+  assert.ok(i > 0 && j > 0, 'both lifted');
+  const run = ({ inside = false } = {}) => {
+    const d = { now: 0, inside, index: new Map(), ledger: createSpawnLedger() };
+    const host = new Function('d', 'createSpawnLedger', `
+      const params = { has: () => true }, spawnsDungeon = () => true, _spawnSalt = 1, maps = { getClimateIndex: () => 0 }, CLIMATES = { Ocean: 99 };
+      const terrainGen = { roads: () => null }, pathFreePixel = () => true, _spawnUnroaded = new Set();
+      const _spawnLedger = d.ledger, _spawnClock = () => d.now, _insideSpawn = () => d.inside, locationIndex = d.index;
+      const _spawnCloneAt = (px, py) => ({ name: 'Old Keep', spawned: true, px, py });
+      let _locIndexGen = 0;
+      ${spawned}
+      ${build}
+      return { spawnedDungeonAt, _locationToBuild, gen: () => _locIndexGen };`)(d, createSpawnLedger);
+    return { d, ...host };
+  };
+  const h = run();
+  const first = h._locationToBuild(7, 9);
+  assert.equal(first?.name, 'Old Keep', 'first sight: stood, its seven days begun');
+  assert.equal(h.d.ledger.toJSON()[0][1], 0);
+  h.d.now = GENERAL_TTL_MINUTES + 1;
+  const gen = h.gen();
+  assert.equal(h._locationToBuild(7, 9), null, 'held in the index, past its time: its pixel built empty');
+  assert.equal(h.d.index.has('7,9'), false, 'out of the index');
+  assert.ok(h.gen() > gen, 'the index\'s generation moved (AUDIT OW4 D5)');
+  assert.equal(h._locationToBuild(7, 9), null, 'the probe asked again: still empty');
+  assert.equal(h.spawnedDungeonAt(7, 9), null, 'the build\'s own ask: still empty - never the same dungeon on a fresh clock');
+  h.d.now += 30 * 1440;
+  assert.equal(h._locationToBuild(7, 9), null, 'a month on: gone for good');
+  assert.equal(h.d.ledger.size, 1, 'its row kept - the tombstone the save carries');
+  const inside = run({ inside: true });
+  inside._locationToBuild(3, 3);
+  inside.d.now = GENERAL_TTL_MINUTES + 1;
+  assert.equal(inside._locationToBuild(3, 3)?.name, 'Old Keep', 'nobody\'s dungeon expires under its own explorer');
+  const real = run();
+  real.d.index.set('5,5', { name: 'Castle Dread' });
+  real.d.now = GENERAL_TTL_MINUTES * 10;
+  assert.equal(real._locationToBuild(5, 5)?.name, 'Castle Dread', 'a real place always wins');
 });

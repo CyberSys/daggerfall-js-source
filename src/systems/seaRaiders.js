@@ -87,10 +87,18 @@ export function raiderOf({ cx, cy, life, open }) {
   return { id: `r${cx}.${cy}.${life}`, cx, cy, life, seed, born: { x: o.x + r() * NATIVE_PIXEL, z: o.z + r() * NATIVE_PIXEL }, bornMs: life * RAIDER_LIFE_MS, heading0: r() * Math.PI * 2 };
 }
 
+/** AUDIT OW5 S4: how many points along a leg are asked for water - one every RAIDER_LEG_MS's run over this (about 22 m
+ *  of its 360), so no leg cuts a land pixel's corner by more than that. */
+export const RAIDER_LEG_PROBES = 16;
+
 /**
  * WHERE A RAIDER IS at shared time `ms`, and its heading - its course from birth, leg by leg: each full leg bends up to
- * a quarter turn either way; a leg whose end is not `sea(x, z)` (native) is sailed the other way, and a raider with no
- * water either way lies to. Stateless: every player computes the same.
+ * a quarter turn either way; a leg that is not `sea(x, z)` (native) all along is sailed the other way, and a raider with
+ * no water either way lies to. Stateless: every player computes the same.
+ * AUDIT OW5 S4: A LEG'S WAY IS CHOSEN BY THE WHOLE LEG (the bands' own AUDIT OW3 T7-6), and a leg part-sailed keeps it.
+ * The part-sailed leg asked only its own moving end, so the moment that end touched land it flipped - the raider jumped
+ * from a way out to as far the other way (up to 700 m in a breath, within a lookout's sight at once) - and a full leg
+ * asked only its end, so it sailed across a cape to water beyond.
  * @returns {{ x: number, z: number, heading: number }}
  */
 export function raiderAt(raider, ms, sea) {
@@ -99,17 +107,25 @@ export function raiderAt(raider, ms, sea) {
   const legs = Math.floor(t / RAIDER_LEG_MS);
   let x = raider.born.x, z = raider.born.z, h = raider.heading0;
   const step = RAIDER_SAIL_MPS * M * (RAIDER_LEG_MS / 1000);
-  const sail = (len) => {
-    const nx = x + Math.sin(h) * len, nz = z + Math.cos(h) * len;
-    if (sea(nx, nz)) { x = nx; z = nz; return; }
-    const bx = x - Math.sin(h) * len, bz = z - Math.cos(h) * len;
-    if (sea(bx, bz)) { h += Math.PI; x = bx; z = bz; }
+  const clear = (hd) => {
+    for (let k = 1; k <= RAIDER_LEG_PROBES; k++) {
+      const f = (step * k) / RAIDER_LEG_PROBES;
+      if (!sea(x + Math.sin(hd) * f, z + Math.cos(hd) * f)) return false;
+    }
+    return true;
+  };
+  /** The leg sailed `frac` of its length: its way chosen by the whole leg, ahead, else back; neither, it lies to. */
+  const sail = (frac) => {
+    const way = clear(h) ? h : clear(h + Math.PI) ? h + Math.PI : null;
+    if (way == null) return;
+    h = way;
+    x += Math.sin(h) * step * frac; z += Math.cos(h) * step * frac;
   };
   for (let k = 0; k < legs; k++) {
-    sail(step);
+    sail(1);
     h += (r() - 0.5) * Math.PI;   // the bend at the leg's end
   }
-  sail(step * ((t - legs * RAIDER_LEG_MS) / RAIDER_LEG_MS));
+  sail((t - legs * RAIDER_LEG_MS) / RAIDER_LEG_MS);
   return { x, z, heading: h };
 }
 

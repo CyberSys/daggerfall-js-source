@@ -52,8 +52,8 @@
   {
     "name": "TV7-chase-no-scale",
     "file": "src/systems/travelBands.js",
-    "old": "  const step = Math.min(dist, BAND_CHASE_MPS * dt * Math.max(1, scale));",
-    "new": "  const step = Math.min(dist, BAND_CHASE_MPS * dt);",
+    "old": "  const step = Math.min(Math.max(0, dist - contact), BAND_CHASE_MPS * dt * Math.max(1, scale));",
+    "new": "  const step = Math.min(Math.max(0, dist - contact), BAND_CHASE_MPS * dt);",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -102,7 +102,7 @@
   {
     "name": "TV7-contact-never-stands",
     "file": "src/scenes/world.js",
-    "old": "        if (bandStand(bandMake(c.band), c.yaw) || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }",
+    "old": "        if (bandStand(mk, c.yaw, c.dist) || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }",
     "new": "        if (true || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }",
     "tests": [
       "test/tv7_bands.test.js"
@@ -142,8 +142,8 @@
   {
     "name": "TV7-wrong-bearing",
     "file": "src/scenes/world.js",
-    "old": "minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: yaw + turn }, fx)) return true;",
-    "new": "minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: cam.yaw + turn }, fx)) return true;",
+    "old": "minDistance, maxDistance, bearingDegrees: 0, yawRad: yaw + turn }, fx)) return true;",
+    "new": "minDistance, maxDistance, bearingDegrees: 0, yawRad: cam.yaw + turn }, fx)) return true;",
     "tests": [
       "test/tv7_bands.test.js"
     ],

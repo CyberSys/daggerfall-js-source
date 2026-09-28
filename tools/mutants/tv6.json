@@ -12,8 +12,8 @@
   {
     "name": "TV6-no-cap",
     "file": "src/systems/travelDungeons.js",
-    "old": "  return out.slice(0, max).sort(nearer);",
-    "new": "  return out.sort(nearer);",
+    "old": "...rest.slice(0, max)].sort(nearer);",
+    "new": "...rest].sort(nearer);",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -122,7 +122,7 @@
   {
     "name": "TV6-kept-forever",
     "file": "src/scenes/world.js",
-    "old": "    tvDng = { at: null, dg: -1, list: [] };   // TV6: nor the dungeons\n",
+    "old": "    tvDng = { at: null, dg: -1, list: [], finds: [] };   // TV6: nor the dungeons\n",
     "new": "",
     "tests": [
       "test/tv6_dungeons.test.js"

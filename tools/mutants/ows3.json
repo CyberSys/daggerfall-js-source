@@ -47,8 +47,8 @@
   {
     "name": "OWS3-sails-through-land",
     "file": "src/systems/seaRaiders.js",
-    "old": "    if (sea(nx, nz)) { x = nx; z = nz; return; }",
-    "new": "    { x = nx; z = nz; return; }",
+    "old": "      if (!sea(x + Math.sin(hd) * f, z + Math.cos(hd) * f)) return false;",
+    "new": "      if (false) return false;",
     "tests": [
       "test/ows3_raiders.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "OWS3-never-about",
     "file": "src/systems/seaRaiders.js",
-    "old": "    if (sea(bx, bz)) { h += Math.PI; x = bx; z = bz; }",
-    "new": "    if (false) { h += Math.PI; x = bx; z = bz; }",
+    "old": "    const way = clear(h) ? h : clear(h + Math.PI) ? h + Math.PI : null;",
+    "new": "    const way = clear(h) ? h : null;",
     "tests": [
       "test/ows3_raiders.test.js"
     ]
@@ -65,7 +65,7 @@
   {
     "name": "OWS3-no-leg-step",
     "file": "src/systems/seaRaiders.js",
-    "old": "  sail(step * ((t - legs * RAIDER_LEG_MS) / RAIDER_LEG_MS));",
+    "old": "  sail((t - legs * RAIDER_LEG_MS) / RAIDER_LEG_MS);",
     "new": "  sail(0);",
     "tests": [
       "test/ows3_raiders.test.js"
@@ -182,8 +182,8 @@
   {
     "name": "OWS3-raid-with-a-lent-ship-out",
     "file": "src/systems/warmAshesShips.js",
-    "old": "  if (tempShip) return 'lent';\n  const armed",
-    "new": "  const armed",
+    "old": "  if (tempShip) return 'lent';\n  return null;",
+    "new": "  return null;",
     "tests": [
       "test/ows3_raiders.test.js"
     ]
@@ -218,8 +218,8 @@
   {
     "name": "OWS3-host-born-on-lakes",
     "file": "src/scenes/world.js",
-    "old": "    if (maps.getClimateIndex(px, py) !== CLIMATES.Ocean) return false;\n",
-    "new": "\n",
+    "old": " || maps.getClimateIndex(px, py) !== CLIMATES.Ocean) return false;",
+    "new": ") return false;",
     "tests": [
       "test/ows3_raiders.test.js"
     ]
@@ -236,8 +236,8 @@
   {
     "name": "OWS3-host-chase-ashore",
     "file": "src/scenes/world.js",
-    "old": "!gamePaused() ? csaBoatUnderMe() : null;",
-    "new": "!gamePaused() ? true : null;",
+    "old": "(modes?.mode ?? 'exterior') === 'exterior' && raidQuarry();",
+    "new": "(modes?.mode ?? 'exterior') === 'exterior';",
     "tests": [
       "test/ows3_raiders.test.js"
     ]

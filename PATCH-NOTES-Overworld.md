@@ -81,6 +81,18 @@
 - Spawned dungeons in the mountains can be walked to, expired ones vanish, found ones far away keep their plates after a reload, and found dungeons are never crowded out by "?" marks.
 - Group travel: re-aiming a spot takes the party with you, a halted walk expires after 5 minutes, a member too hurt or stuck to travel no longer halts the party on every Resume, your own Resume during a halt leaves the walk, the "Travel with them?" question can't reappear late or take a stale Yes, and a member can follow the leader to a town they haven't found yet - even in the mountains.
 
+## Fourth update
+- A band that reaches you on a journey stops it the moment it arrives, and the camera comes down right there - you no longer run straight through it at speed (on a horse, sometimes past it altogether). The same goes for a wandering monster that turns up beside you on the road.
+- Travelling cautiously, a successful escape now truly leaves the band behind: it never stands in your way.
+- A band chasing you no longer gains extra ground when the game stutters, no longer gives up because you had a window open, and if you bring the view down mid-chase it stands where it really is, not right beside you.
+- Bands are the same for every player whatever mods they have switched on.
+- You find dungeons by walking near them again however many you've already found in the area, and the "?" of an undiscovered dungeon close by always shows.
+- Spawned dungeons that expire are really gone now - they used to come straight back on the same spot. One still standing in front of you keeps its plate until you leave.
+- Resuming a journey to a spawned dungeon, or following your party leader to one, walks you to its door.
+- Pirates: when they come alongside you're taken off your helm first, so you're really boarded (before, you were snapped back to your own boat's helm). A lent ship works as it does on a fast travel.
+- A pirate chase no longer ends because you opened a window or stepped off the helm onto your own deck, and a passenger on someone else's boat isn't chased. A pirate ship chasing you always shows on the map.
+- Pirate ships no longer jump across capes or sail off the edge of the world, and aren't shown at all if you can't sail.
+
 ## Fixes before release
 - Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.
 - A journey to a far town keeps the town on screen: its flag is pinned to the edge with its distance, and clicking it takes the journey up again after a stop.

@@ -39,6 +39,9 @@ export const BAND_GIVE_UP_MS = 120 * 1000;
 /** Contact (m): under the Overworld the band must reach the traveller; with the view down it stands as foes this near. */
 export const BAND_CONTACT_M = 30;
 export const BAND_STAND_M = 140;
+/** AUDIT OW5 B2: the nearest a band's anchor stands to the traveller (m) - its members, a pack's spacing about it, never
+ *  on top of them. A band stands where it IS, this or farther. */
+export const BAND_STAND_MIN_M = 18;
 /** AUDIT OW3 T7-1: a contact whose band finds no ground to stand on (the road, a town's rect, a full foe pool) tries again
  *  this often (ms), this many times, before the band is lost - never spent unstood on the first refusal. */
 export const BAND_STAND_RETRY_MS = 1500;
@@ -128,13 +131,17 @@ export const bandSight = (night) => (night ? BAND_SIGHT_NIGHT_M : BAND_SIGHT_DAY
  * the band closes on the feet at BAND_CHASE_MPS. Returns the new position, its nearest and when it last closed, and what
  * happened: 'contact' (within `contact` metres), 'lost' (past the leash, or BAND_GIVE_UP_MS without closing a metre),
  * or null (still running).
+ * AUDIT OW5 B5: it closes to the contact's ring and NO NEARER - where it stands is the side it came from. A step was
+ * the whole way when it could be, and a band on the traveller's own feet had no bearing at all: the one read there was
+ * float noise (a fast frame head-on, or a band riding along through a won roll's grace), and it stood anywhere.
  * @param {{ pos: {x:number,z:number}, feet: {x:number,z:number}, dt: number, scale?: number, contact: number,
  *   gainAt: number, now: number, best: number }} q  `best` its nearest yet (m), `gainAt` when it last came a metre nearer
+ *   (`now` and `gainAt` on the chase's own clock - the host's, which a hold does not run)
  */
 export function bandChaseStep({ pos, feet, dt, scale = 1, contact, gainAt, now, best }) {
   const dx = feet.x - pos.x, dz = feet.z - pos.z;
   const dist = Math.hypot(dx, dz) / NATIVE_PER_M;   // metres
-  const step = Math.min(dist, BAND_CHASE_MPS * dt * Math.max(1, scale));
+  const step = Math.min(Math.max(0, dist - contact), BAND_CHASE_MPS * dt * Math.max(1, scale));
   const k = dist > 1e-6 ? (step / dist) : 0;
   const np = { x: pos.x + dx * k, z: pos.z + dz * k };
   const left = dist - step;

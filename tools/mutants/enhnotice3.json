@@ -327,8 +327,8 @@
   {
     "name": "ENH-NOTICE3-P4-mod-enemies-refusal-sent-to-the-hud-line",
     "file": "src/systems/travelOptions.js",
-    "old": "        else messageBox(T.MsgEnemies);",
-    "new": "        else say(T.MsgEnemies);",
+    "old": "    messageBox(T.MsgEnemies);\n    return false;",
+    "new": "    say(T.MsgEnemies);\n    return false;",
     "tests": [
       "test/notify.test.js",
       "test/to1_travelOptions.test.js"

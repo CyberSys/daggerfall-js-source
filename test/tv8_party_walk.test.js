@@ -379,7 +379,7 @@ const STOP_WHY = lift(/\n\s*(if \(report\?\.stopped\) [^\n;]*;)/, 'the travel fr
 const LAW = lift(/\nimport \{ ([^}]*) \} from '\.\.\/systems\/partyWalk\.js';/, 'the law the host imports').split(',').map((s) => s.trim());
 const AROUND = ['social', 'socialLink', 'travelOptions', 'modes', 'playerSpawned', 'playerEntity', 'townTalk', 'gamePaused', 'pointerSurfaces',
   'duelEnemyNear', 'areEnemiesNearby', 'exteriorFoePool', 'worldMoveBusy', 'memberPresent', 'distanceToPartyAccount', 'tvPlaceSummary',
-  'mapPixelToWorldCoords', 'tvSceneOf', 'travelViewRouteTo', 'travelViewWalkTo', 'YesNoBoxWindow', 'TRAVEL_VIEW_TEXT', 'locationIndex', 'locationWorldRect'];
+  'mapPixelToWorldCoords', 'tvSceneOf', 'travelViewRouteTo', 'travelViewWalkTo', 'YesNoBoxWindow', 'TRAVEL_VIEW_TEXT', 'locationIndex', 'locationWorldRect', 'tvLocationAt'];
 const liftedHost = new Function('d', `const { ${[...AROUND, ...LAW].join(', ')} } = d;
 ${HOST_STATE}
 ${HOST_BLOCK}
@@ -420,6 +420,8 @@ function walkHost(world, acct, over = {}) {
     travelViewWalkTo: (point, pix, opts = {}) => { c.walks = [...(c.walks ?? []), { pix, door: opts.door ?? null }]; return begun(c.to.beginTravelToPoint({ pixel: pix, x: point[0], z: point[2] }, c.cautious, { quiet: true }), { pixel: pix, point: { x: point[0], z: point[2] } }); },
     YesNoBoxWindow, TRAVEL_VIEW_TEXT,
     locationIndex: new Map(), locationWorldRect: (loc) => loc.rect,
+    // AUDIT OW5 D3: what stands on a pixel, built or not - the index's, else the spawn its roll would stand (the host's tvLocationAt)
+    unbuilt: new Map(), tvLocationAt: (x, y) => d.locationIndex.get(`${x},${y}`) ?? d.unbuilt.get(`${x},${y}`) ?? null,
     ...over,
   };
   c.d = d;
@@ -733,4 +735,18 @@ test('AUDIT OW4 X1 (run on the host\'s own code): a place the member has not fou
   bare.now = 1000; bare.clients[0].routeTo(); bare.tick(1100);
   bare.clients[1].key('KeyY'); bare.tick(1400);
   assert.equal(bare.clients[1].walks.at(-1).door, null, 'no place in the pixel: a spot');
+});
+
+test('AUDIT OW5 D3 (run on the host\'s own code): THE LEADER\'S SPAWN IS A DOOR TO A MEMBER WHOSE OWN PIXELS NEVER BUILT IT - asked what stands there, not what the index holds', () => {
+  const rect = { minX: 5, maxX: 6, minZ: 7, maxZ: 8 };
+  const w = walkParty('L', 'M', { M: { tvPlaceSummary: () => null } });
+  const [L, M] = w.clients;
+  M.d.unbuilt.set(`${RIPWYCH.pixel.x},${RIPWYCH.pixel.y}`, { rect });   // a spawn M's index never held (its pixel never built for M)
+  w.now = 1000; L.routeTo(); w.tick(1100);
+  M.key('KeyY'); w.tick(1400);
+  assert.equal(M.journeying(), true, 'M walks it');
+  assert.deepEqual(M.walks.at(-1).door, rect, 'as its door - never refused for the peaks, never a bare spot');
+  const w8 = rd('src/scenes/world.js');
+  assert.match(w8, /const there = summary \? null : tvLocationAt\(tw\.x, tw\.y\);/, 'the host asks what stands there');
+  assert.match(w8, /const tvLocationAt = \(x, y\) => locationIndex\.get\(`\$\{x\},\$\{y\}`\) \?\? \(params\.has\('online'\) && spawnsDungeon\(_spawnSalt, x, y\) \? tvSpawnAt\(x, y\) : null\);/, 'the index, else the spawn its roll would stand (online; side-effect free)');
 });

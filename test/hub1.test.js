@@ -191,7 +191,7 @@ test('HUB1 the held map: online a hub\'s mark carries its hub and sits in a colo
 
 test('HUB1 the world host, by source: the boot collects the game\'s own rows as it indexes every location and picks the hubs from them; online alone the held map is handed each summary\'s hub, and walking into a hub says so at the location rect\'s entry (mutants: a mod row collected, the map handed hubs offline, the arrival said offline or on every town)', () => {
   const W = strip(read('src/scenes/world.js'));
-  assert.match(W, /const baseCount = maps\.baseLocationCount\(r\);[\s\S]{0,400}?locationIndex\.set\(`\$\{p\.x\},\$\{p\.y\}`, loc\);\s*if \(l < baseCount\) _hubRows\.push\(loc\);/, 'the game\'s own rows, collected as the index is built');
+  assert.match(W, /const baseCount = maps\.baseLocationCount\(r\);[\s\S]{0,400}?locationIndex\.set\(`\$\{p\.x\},\$\{p\.y\}`, loc\);\s*if \(l < baseCount\) \{ _hubRows\.push\(loc\); _bandPlacePixels\.add\(`\$\{p\.x\},\$\{p\.y\}`\); \}/, 'the game\'s own rows, collected as the index is built (and the bands\' land with them, AUDIT OW5 B3)');
   assert.match(W, /const regionHubs = pickRegionHubs\(_hubRows, \{ regionNameOf: \(r\) => maps\.getRegionName\(r\) \}\);/);
   assert.match(W, /hubAt: params\.has\('online'\) \? \(summary\) => hubAtMapId\(regionHubs, summary\?\.mapID \?\? summary\?\.mapId\) : null,/, 'the map is handed hubs online alone');
   const edge = W.slice(W.indexOf('_inRect && !_wasInLocationRect'));

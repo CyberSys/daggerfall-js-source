@@ -734,7 +734,8 @@ test('TV1 body: the seam holds whichever body answers out of the head for the vi
   assert.match(src, /return heldThird\?\.changed && heldThird\.lane === 'mw' \? \{ \.\.\.s, firstPerson: true \} : s;/);
   const wsrc = rd('src/scenes/world.js');
   assert.match(wsrc, /camera: mwViewSaveCamera\(\), transport:/);
-  assert.match(wsrc, /travelView\?\.exit\('load', true\);[^\n]*\n\s*mwViewLoadPose\(pose\.camera,/);
+  // AUDIT OW5 D4: the cut rides the Overworld's load reset, the first thing applyPose does - before the camera the save restores
+  assert.match(wsrc, /function overworldLoadReset\(\) \{[\s\S]*?travelView\?\.exit\('load', true\);[\s\S]*?\n  \}\n  function applyPose\(pose\) \{\n\s*overworldLoadReset\(\);[\s\S]*?mwViewLoadPose\(pose\.camera,/);
   // the Morrowind rig: out by the restore door, back by the head's own door; the saddle holds nothing (RIDE-POV)
   assert.match(src, /if \(fpArm\.canThirdPerson\(\) && !mounted\) \{/);
   assert.match(src, /else if \(h\.changed && h\.lane === 'mw'\) mwIntoHead\(\);/);

@@ -353,7 +353,7 @@ test('AUDIT DEEP T2-4/T2-5/T2-6/T2-7/T2-8: the planner never swims a corner of t
   const q = planRoute({ x: 5, y: 5 }, { x: 6, y: 6 }, { isWater: coast, width: W, height: H });
   assert.deepEqual(q.pixels, [{ x: 5, y: 5 }, { x: 6, y: 6 }], 'one wet side: the diagonal is dry land');
   const w = rd('src/scenes/world.js');
-  assert.match(w, /tvPlates = \{ at: null, list: \[\] \};   \/\/ AUDIT DEEP T2-4[^\n]*\n\s*tvFar = \{ at: null, near: -1, list: \[\] \};[^\n]*\n\s*(tvDng = \{ at: null, dg: -1, list: \[\] \};[^\n]*\n\s*)?(tvBandSeen = [^\n]*\n\s*)?travelView\?\.exit\('load', true\);/, 'a load empties the plates');
+  assert.match(w, /tvPlates = \{ at: null, list: \[\] \};   \/\/ AUDIT DEEP T2-4[^\n]*\n\s*tvFar = \{ at: null, near: -1, list: \[\] \};[^\n]*\n\s*(tvDng = \{ at: null, dg: -1, list: \[\](, finds: \[\])? \};[^\n]*\n\s*)?(tvBandSeen = [^\n]*\n\s*)?travelView\?\.exit\('load', true\);/, 'a load empties the plates');
   assert.ok(((i, j) => i >= 0 && j >= 0 && i < j)(w.indexOf('let tvPlates = { at: null, list: [] };'), w.indexOf('tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4')), 'BOOT-TDZ: declared above the load that clears it');
   assert.match(w, /to: travelOptions\?\.route\?\.summary\?\.pixel \?\? travelOptions\?\.route\?\.point\?\.pixel \?\? travelOptions\?\.state\?\.autopilot\?\.destinationMapPixel \?\? null,/);
   assert.match(w, /const raw = terrainGen\.roads\(\);\n\s*const net = raw\?\.source === 'basic-roads' \? raw : null;\n\s*const plan = planRoute\(from, summary\.pixel,/);
@@ -509,7 +509,7 @@ test('TV2 host wiring: the click is a ray from the VIEW\'s eye through this fram
   assert.match(w, /leg\(me\.x, me\.z, n\[start\]\[0\], n\[start\]\[1\], pts\);[^\n]*\n(\s*\/\/[^\n]*\n)*\s*const gen = tvGroundGenNow\(\), kept = tvTrip\._tail;\n\s*let tail = kept && kept\.gen === gen && kept\.start === start && kept\.n === n \? kept\.pts : null;/, 'PERF-TV: the legs past the traveller\'s own kept while the ground and the leg hold');
   // AUDIT TV A5: a town's grown rect asked across the 3x3 about the hit
   assert.match(w, /for \(let dy = -1; dy <= 1; dy\+\+\) \{\n\s*for \(let dx = -1; dx <= 1; dx\+\+\) \{\n\s*const summary = tvPlaceSummary\(pix\.x \+ dx, pix\.y \+ dy\);/);
-  assert.match(w, /const legs = tvJoinedLegs\(from, plan\);\n(\s*if \(door\) n = [^\n]*\n)?\s*const ok = travelOptions\.beginTravelAlongRoute\(\{ legs, point: \{ pixel: pix, x: n\.x, z: n\.z \}, name: TRAVEL_VIEW_TEXT\.spot \}, tvCautious\(\), \{ quiet: tvQuiet \}\)/);
+  assert.match(w, /const legs = tvJoinedLegs\(from, plan\);\n(\s*if \(door\) n = [^\n]*\n)?\s*const ok = travelOptions\.beginTravelAlongRoute\(\{ legs, point: \{ pixel: pix, x: n\.x, z: n\.z, door \}, name: TRAVEL_VIEW_TEXT\.spot \}, tvCautious\(\), \{ quiet: tvQuiet \}\)/);
   for (const dep of [/onPick: \(x, y\) => onTravelViewPick\(x, y\),/, /onMark: \(key\) => onTravelViewMark\(key\),/, /marks: travelViewMarks,/, /route: travelViewRoute,/, /trip: \(\) => \(tvTripLive\(\) \? tvTrip\.line : ''\),/]) assert.match(w, dep);
 });
 
@@ -906,7 +906,7 @@ test('AUDIT OW4 J2: a band AVOIDED on a SPOT\'s journey (the cautious roll won) 
 test('AUDIT OW4 J4/J5: the map\'s Resume PLANS the Overworld\'s journey again from where the traveller stands (a place by the roads round the peaks, a spot walked to again), refused in the view\'s words - the mod\'s resume walked straight at the next leg over whatever stood between; and a journey the Overworld owns runs at walking pace while its view is down (an avoided band still standing near: no spinner-rate drive on the ground)', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /onResumeTravel: \(\) => \{ travelViewResume\(\); \},/, 'the held map\'s and the classic map\'s Resume');
-  assert.match(w, /function travelViewResume\(\) \{\n\s*const r = travelOptions\?\.route;\n\s*if \(!tvOwnsJourneys\(\) \|\| !r\) \{ travelOptions\?\.resumeTravel\(\); return; \}\n\s*const why = travelViewAllowed\(\);\n\s*if \(!why\.ok\) \{ if \(why\.why\) townTalk\.say\(why\.why\); return; \}\n\s*if \(!travelViewCanGo\(\)\) return;\n\s*if \(r\.summary\) travelViewRouteTo\(r\.summary\);\n\s*else if \(r\.point\) \{\n\s*const there = locationIndex\.get\(`\$\{r\.point\.pixel\.x\},\$\{r\.point\.pixel\.y\}`\);[^\n]*\n\s*travelViewWalkTo\(tvSceneOf\(r\.point\.x, r\.point\.z, 0\), r\.point\.pixel, \{ door: there \? locationWorldRect\(there, r\.point\.pixel\.x, r\.point\.pixel\.y\) : null \}\);\n\s*\}\n\s*\}/, 'planned again - the classic skin and the mod\'s own journeys keep the mod\'s resume; a spawn\'s walk resumed is its door again (AUDIT OW4 X2)');
+  assert.match(w, /function travelViewResume\(\) \{\n\s*const r = travelOptions\?\.route;\n\s*if \(!tvOwnsJourneys\(\) \|\| !r\) \{ travelOptions\?\.resumeTravel\(\); return; \}\n\s*const why = travelViewAllowed\(\);\n\s*if \(!why\.ok\) \{ if \(why\.why\) townTalk\.say\(why\.why\); return; \}\n\s*if \(!travelViewCanGo\(\)\) return;\n\s*if \(r\.summary\) travelViewRouteTo\(r\.summary\);\n(?:\s*\/\/[^\n]*\n)*\s*else if \(r\.point\) travelViewWalkTo\(tvSceneOf\(r\.point\.x, r\.point\.z, 0\), r\.point\.pixel, \{ door: r\.point\.door \?\? null \}\);\n\s*\}/, 'planned again - the classic skin and the mod\'s own journeys keep the mod\'s resume; a spawn\'s walk resumed is its door again (AUDIT OW4 X2) - the walk\'s OWN door, never the live index\'s (AUDIT OW5 D3)');
   assert.match(w, /if \(journey && !travelView\?\.active && tvOwnsJourneys\(\)\) \{\n\s*if \(worldTimeScale\(\) !== 1\) setWorldTimeScale\(1\);\n\s*tvHeld = travelAsked > 1 \? 1 : null;[^\n]*\n\s*travelGovernor\.reset\(\);\n\s*return;\n\s*\}\n\s*if \(!travelView\?\.active \|\| !journey\) \{/, 'held at x1 until the view rises - then the governor has it');
   // what the resume re-plans past: the mod's resume aims the next leg from wherever the traveller stands, asking nothing
   const r = travelRig();
@@ -916,4 +916,25 @@ test('AUDIT OW4 J4/J5: the map\'s Resume PLANS the Overworld\'s journey again fr
   r.state.pixel = { x: 500, y: 246 }; r.state.pos = r.at(500, 246);   // walked off by hand, a range between (the host's to know)
   r.to.resumeTravel();
   assert.deepEqual(r.to.state.autopilot.destinationMapPixel, { x: 505, y: 245 }, 'straight at the leg - no planner asked');
+});
+
+test('AUDIT OW5 D3 (run on the host\'s own code): THE MAP\'S RESUME WALKS THE WALK\'S OWN DOOR - a far spawn\'s walk (its pixel never built, so the index knows nothing of it) resumes as its door; a spot clicked on a place\'s pixel resumes as that spot', () => {
+  const w = rd('src/scenes/world.js');
+  const m = /\n {2}(function travelViewResume\(\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
+  assert.ok(m, 'the resume lifted');
+  const walked = [];
+  const run = (point, index = new Map()) => {
+    walked.length = 0;
+    const resume = new Function('d', `const { travelOptions, tvOwnsJourneys, travelViewAllowed, townTalk, travelViewCanGo, travelViewRouteTo, travelViewWalkTo, tvSceneOf, locationIndex, locationWorldRect } = d;
+      return ${m[1]};`)({
+      travelOptions: { route: { point }, resumeTravel: () => walked.push('mod') }, tvOwnsJourneys: () => true, travelViewAllowed: () => ({ ok: true }), townTalk: { say() {} },
+      travelViewCanGo: () => true, travelViewRouteTo: () => walked.push('route'), travelViewWalkTo: (at, pix, opts) => walked.push({ pix, door: opts?.door ?? null }),
+      tvSceneOf: (x, z) => [x, 0, z], locationIndex: index, locationWorldRect: () => ({ minX: 0, maxX: 1, minZ: 0, maxZ: 1 }),
+    });
+    resume();
+    return walked[0];
+  };
+  const door = { minX: 10, maxX: 20, minZ: 30, maxZ: 40 };
+  assert.deepEqual(run({ pixel: { x: 7, y: 8 }, x: 1, z: 2, door }), { pix: { x: 7, y: 8 }, door }, 'the far spawn: its own door, though the index holds nothing there');
+  assert.deepEqual(run({ pixel: { x: 7, y: 8 }, x: 1, z: 2, door: null }, new Map([['7,8', { name: 'A keep' }]])), { pix: { x: 7, y: 8 }, door: null }, 'a spot on a keep\'s pixel: a spot still');
 });
