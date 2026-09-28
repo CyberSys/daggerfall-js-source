@@ -6,7 +6,9 @@
 // Mac: "What if the leveling system was something seperate unique to
 // online but compatible" - and offline play earns "No" Renown XP.
 // net/renown.js holds the numbers; this file decides WHEN a character
-// has earned some and carries it to the service.
+// has earned some and carries it to the service. RENOWN-ACCOUNT
+// (2026-09-28): what it earns is its ACCOUNT's - the service keeps one
+// Renown an account, whichever character earns it.
 //
 // ═══ A FOE YOU FOUGHT ══════════════════════════════════════════════
 //
@@ -136,7 +138,7 @@ export function _resetRenownKillsForTests() { _struck = new WeakMap(); _onKill =
  *              was SAID, never against the page's level, for the same reason;
  *   `capped`   whether the hour's bound cut this report short: never at the cap's total (`max`), where there is no
  *              hour to speak of, and never for a repeat (a report already credited, answered again);
- *   `xp`       RENOWN4: the track's total as the service now holds it, for the page's own bar (ui/hudRenown.js) -
+ *   `xp`       RENOWN4: the account's total as the service now holds it, for the page's own bar (ui/hudRenown.js) -
  *              null for an answer without one.
  */
 export function renownAnswer(data, sent, said = null) {
@@ -148,7 +150,9 @@ export function renownAnswer(data, sent, said = null) {
   return { level, order, announce, capped, xp };
 }
 
-/** The service's refusals that will not change by trying again: this character (or this build) cannot report. */
+/** The service's refusals that will not change by trying again: this character (or this build) cannot report.
+ *  RENOWN-ACCOUNT: the service refuses only 'renown-xp' now - 'renown-character' and 'renown-full' are a service's from
+ *  before it (a track a character, sixty at most), still heard as what they meant. */
 const PERMANENT = new Set(['renown-character', 'renown-xp', 'renown-full']);
 
 /** AUDIT RENOWN1 GAME-2: the longest a refused report waits before it goes again - the wait doubles from
@@ -166,10 +170,11 @@ export function renownRid(rand = (b) => globalThis.crypto.getRandomValues(b)) {
 /**
  * The client's tracker. `report(character, xp, name, rid)` is the account service's `/v1/renown/xp`
  * (net/accountClient.js accountRenown), answering `{ ok, data }` or `{ ok: false, error }`; `leave` the same report
- * made as the page goes (`keepalive`); `character()` the character earning (systems/characterId.js), `name()` its name
- * for the account card, `earning()` whether XP may be earned now (online, and only online), `onAnswer(data, sent)` the
- * service's word after each report, `onStop(error)` a refusal that ends reporting for this page, `rid()` a report's
- * own id.
+ * made as the page goes (`keepalive`); `character()` the character earning (systems/characterId.js), `name()` its name,
+ * `earning()` whether XP may be earned now (online, and only online), `onAnswer(data, sent)` the service's word after
+ * each report, `onStop(error)` a refusal that ends reporting for this page, `rid()` a report's own id.
+ * RENOWN-ACCOUNT: the character and its name still ride every report, for a service from before it (which kept a track
+ * a character, and refused a report naming none); this service credits the ACCOUNT and reads neither.
  *
  * ═══ AUDIT RENOWN1: ONE REPORT HELD UNTIL IT IS ANSWERED ════════════
  *

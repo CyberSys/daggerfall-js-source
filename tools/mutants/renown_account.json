@@ -1,0 +1,209 @@
+[
+  {
+    "name": "RENOWN-ACCOUNT-the-full-rate-kept",
+    "file": "src/net/renown.js",
+    "old": "export const RENOWN_RATE_PCT = 75;",
+    "new": "export const RENOWN_RATE_PCT = 100;",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-rate-rounded-not-floored",
+    "file": "src/net/renown.js",
+    "old": "export const renownRate = (fullXp) => Math.floor((",
+    "new": "export const renownRate = (fullXp) => Math.round((",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-a-kill-at-the-full-rate",
+    "file": "src/net/renown.js",
+    "old": "=> renownRate(RENOWN_KILL_XP_PER_LEVEL * Math.min(clampInt(foeLevel",
+    "new": "=> (RENOWN_KILL_XP_PER_LEVEL * Math.min(clampInt(foeLevel",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-a-quest-at-the-full-rate",
+    "file": "src/net/renown.js",
+    "old": "=> renownRate(RENOWN_QUEST_XP_BASE + ",
+    "new": "=> (RENOWN_QUEST_XP_BASE + ",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-hour-at-20000",
+    "file": "src/net/renown.js",
+    "old": "export const RENOWN_XP_HOUR_MAX = 15_000;",
+    "new": "export const RENOWN_XP_HOUR_MAX = 20_000;",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-answer-reads-no-track",
+    "file": "server-account/src/renownTracks.js",
+    "old": "    db.prepare(track).bind(player.id),",
+    "new": "    db.prepare(track).bind('nobody'),",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-every-id-a-repeat",
+    "file": "server-account/src/renownTracks.js",
+    "old": "WHERE player = ?1 AND last_rid = ?6))'",
+    "new": "WHERE player = ?1 AND last_rid IS NOT NULL))'",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-report-id-not-kept",
+    "file": "server-account/src/renownTracks.js",
+    "old": "         last_rid = COALESCE(?3, last_rid), updated_at = ?4",
+    "new": "         last_rid = COALESCE(last_rid, ?3), updated_at = ?4",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-an-empty-first-track",
+    "file": "server-account/src/renownTracks.js",
+    "old": "       WHERE id = ?1 AND renown_last_credit > 0\n         AND NOT EXISTS (SELECT 1 FROM renown_accounts WHERE player = ?1)`,",
+    "new": "       WHERE id = ?1 AND renown_last_credit >= 0\n         AND NOT EXISTS (SELECT 1 FROM renown_accounts WHERE player = ?1)`,",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-mint-keyed-by-its-character",
+    "file": "server-account/src/index.js",
+    "old": "((await renownTrackOf(ctx, who.player.id)) ?? { xp: 0, level: 1 })",
+    "new": "((await renownTrackOf(ctx, body.character)) ?? { xp: 0, level: 1 })",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-card-sent-a-list",
+    "file": "server-account/src/index.js",
+    "old": "renown: await renownTrackOf(ctx, who.player.id) },",
+    "new": "renown: [await renownTrackOf(ctx, who.player.id)] },",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-founding-asks-the-character",
+    "file": "server-account/src/guilds.js",
+    "old": "  const track = await renownTrackOf({ db }, player.id);",
+    "new": "  const track = await renownTrackOf({ db }, character);",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-raid-keyed-by-its-character",
+    "file": "server-account/src/raids.js",
+    "old": "  const before = await renownTrackOf({ db }, player.id);",
+    "new": "  const before = await renownTrackOf({ db }, fought);",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-raid-forgets-who-fought",
+    "file": "server-account/src/raids.js",
+    "old": "  const fought = renownCharacterOk(character) ? /** @type {string} */ (character) : '';",
+    "new": "  const fought = '';",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-raid-refuses-no-character",
+    "file": "server-account/src/raids.js",
+    "old": "  // RENOWN-ACCOUNT: the character that fought it - its row's record, never Renown's key ('' when the claim names none)\n",
+    "new": "  if (!renownCharacterOk(character)) return { error: 'renown-character' };\n",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-migration-sums-the-alts",
+    "file": "server-account/migrations/0021_renown_account.sql",
+    "old": "  SELECT t.player, MAX(t.xp),",
+    "new": "  SELECT t.player, SUM(t.xp),",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-migration-rows-an-empty-account",
+    "file": "server-account/migrations/0021_renown_account.sql",
+    "old": "  HAVING MAX(t.xp) > 0;",
+    "new": "  HAVING MAX(t.xp) >= 0;",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-migration-reads-the-oldest-report",
+    "file": "server-account/migrations/0021_renown_account.sql",
+    "old": "ORDER BY r.updated_at DESC, r.char_id LIMIT 1),",
+    "new": "ORDER BY r.updated_at ASC, r.char_id LIMIT 1),",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-account-walked-as-a-character-table",
+    "file": "server-account/src/realm.js",
+    "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks']);",
+    "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'renown_accounts']);",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-a-delete-takes-the-account",
+    "file": "server-account/src/realm.js",
+    "old": "    db.prepare('DELETE FROM renown_tracks WHERE player = ? AND char_id = ?').bind(playerId, id),\n",
+    "new": "    db.prepare('DELETE FROM renown_tracks WHERE player = ? AND char_id = ?').bind(playerId, id),\n    db.prepare('DELETE FROM renown_accounts WHERE player = ?').bind(playerId),\n",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-card-takes-any-shape",
+    "file": "src/ui/enhancedAccount.js",
+    "old": "  return renownText(r.level) && Number.isSafeInteger(r.xp) && r.xp >= 0 ? { level: r.level, xp: r.xp } : null;",
+    "new": "  return { level: r.level, xp: r.xp };",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-the-page-drops-another-characters-raid",
+    "file": "src/scenes/world.js",
+    "old": "      if (!data?.renown) return;   // RENOWN-ACCOUNT: any claim's credit is the account's - adopted whichever character fought it\n",
+    "new": "      if (data?.renown?.character !== characterIdOf(playerEntity)) return;\n",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  },
+  {
+    "name": "RENOWN-ACCOUNT-a-deleted-character-takes-the-renown",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "- its home and its guild place with it. Your Renown belongs to your account and stays, as does a copy you made offline.",
+    "new": "- its Renown, its home and its guild place with it. A copy you made offline stays.",
+    "tests": [
+      "test/renown_account.test.js"
+    ]
+  }
+]

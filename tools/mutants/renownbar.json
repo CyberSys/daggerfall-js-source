@@ -59,8 +59,8 @@
   {
     "name": "RENOWN-BAR-the-profile-row-loses-its-numbers",
     "file": "src/ui/enhancedAccount.js",
-    "old": " - Renown ${t.level}, ${renownProgressText(t.xp)}`);",
-    "new": " - Renown ${t.level}`);",
+    "old": "row('Renown', `Renown ${renown.level}, ${renownProgressText(renown.xp)}`);",
+    "new": "row('Renown', `Renown ${renown.level}`);",
     "tests": [
       "test/renownbar.test.js",
       "test/renown1.test.js"

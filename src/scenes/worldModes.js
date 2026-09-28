@@ -46,6 +46,7 @@ import { removeOne, addItem, isEnchanted, carriedWeight, letterOfCredit, LETTER_
 import { isEquipped, unequipSlot } from '../systems/equip.js';   // AUDIT 17e F4: worn gear is not merchandise
 import { targetAimPoint, missileAimDirection } from '../characters/enemyTargets.js';   // AUDIT WORLD6b-iii(a) C3: the ONE aim law for an enemy missile (the peer's transform, mine otherwise)
 import { playerEntity, surfacePlayer } from '../characters/playerEntity.js';
+import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity off draws a nude figure's clothed stand-in
 import { offHandQuickslot, offHandOffersSwap, tickQuickslotHold } from '../systems/quickslots.js';   // QS4: the off-hand cell's press, on THIS mode's own rig   // QS6: the off hand's swap question, and the hold machine this mode's frame drives
 import { createPlayerTicker , wireInfectionVideos, endRunToTitleMenu, exitToTitleMenu, doorSpellFor, exteriorOpenSpellFor, consumeDoorSpell, wireDoorSpells, createDetectFeed, createRestDeps, foeNearbyRecord, nearbyLootRecords} from './shared.js';   // AUDIT 18: the interior host's world clock; S40: its rest deps
 import { triggerExteriorOpen, DOOR_SPELL_TEXT } from '../systems/mysticism.js';   // X3: the Open spell's EXTERIOR-door arm
@@ -489,7 +490,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3801 hands
+   * record these hosts mint spells it `name` (exterior.js:3803 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -725,6 +726,7 @@ export function createWorldModes(host) {
     actionOf: (e) => actionOf(e, keys),
     locked: () => typeof document !== 'undefined' && document.pointerLockElement === canvas, cursorOff: () => setCursorActive(false),
     wallet: () => decorWallet(), homeDecor: host.homeDecor ?? null, character: () => host.decorCharacter?.() ?? null,
+    realm: () => host.realmAct ?? null,   // REALM P2.2b: a realm character's piece and its gold, one write on the service
     // DECOR2a: the player's own things - what is carried, one of it out, one back
     pack: () => playerEntity.items ?? [], identity: () => playerEntity, furnishings: () => playerEntity.furnishings ?? [],   // DECOR2b: and what the furnisher delivered
     packHas: (item) => decorHome(item).includes(item), packTake: (item) => decorPackTake(item), packGive: (item) => decorPackGive(item),
@@ -1585,10 +1587,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:1995 states), so the same visual
+   *  the C11 law dungeonContext.js:1997 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1880, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1882, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -1618,11 +1620,16 @@ export function createWorldModes(host) {
     // given the NPC a different hash - and therefore a different
     // nameSeed fallback and a different generated NAME - than DFU.
     const stand = { ctx, archive, record, x, y, z, marker: hashPosition ?? position, width: 0, height: 0, batch: null, active: true, dead: false, behaviour };
+    // NUDE-FLATS: a person's picture is the clothed stand-in while Show
+    // Nudity is off - Azura summoned, or a questor who kept a nude
+    // figure's billboard indices from the click. The stand keeps the born
+    // pair; it is placed by the ray below, so the drawn size places it.
+    const [drawArchive, drawRecord] = isItem ? [archive, record] : drawnFlat(archive, record);
     (async () => {
-      const t = await getTexture(archive);
-      if (!t || record >= t.recordCount || stand.dead || getCtx() !== ctx) return;
-      uploadRecord(archive, record);
-      const size = billboardSize(t, record);
+      const t = await getTexture(drawArchive);
+      if (!t || drawRecord >= t.recordCount || stand.dead || getCtx() !== ctx) return;
+      uploadRecord(drawArchive, drawRecord);
+      const size = billboardSize(t, drawRecord);
       stand.width = size.w; stand.height = size.h;
       // AUDIT 26 F068: an ITEM and an NPC are stood by DIFFERENT laws.
       // The old comment here said AddQuestNPC and AddQuestItem "both
@@ -1658,7 +1665,7 @@ export function createWorldModes(host) {
         if (Number.isFinite(drop)) by = (origin - drop) + size.h * 0.02;
       }
       stand.y = by;
-      stand.batch = renderer.createBillboardBatch(archive, record, size, [[x, by, z]]);
+      stand.batch = renderer.createBillboardBatch(drawArchive, drawRecord, size, [[x, by, z]]);
       if (stand.active) ctx.billboardBatches.push(stand.batch);
     })().catch((e) => console.error('[quest] stand fill failed:', e));
     const unhook = () => {
@@ -2487,7 +2494,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:497, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:589, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -5880,6 +5887,9 @@ export function createWorldModes(host) {
       mapId, buildingKey: bd.buildingKey, region, price,
       afford: (n) => n <= purse.totalGold() + (homeAccount(region)?.accountGold ?? 0),
       pay: (n) => { const short = purse.deductGold(n); const a = homeAccount(region); if (a) a.accountGold -= short; },
+      // REALM P2.2b: a realm character's record pays in the claim's own batch; a refusal gives the price back to the account
+      refund: (n) => { const a = homeAccount(region); if (a) a.accountGold += n; else purse.addGold(n); },
+      realm: host.realmAct ? { act: host.realmAct } : null,
     });
     if (r.error === HOME_BUY_BUSY) return;   // AUDIT MERGE-PLUS A1: a second press while the first claim is out - its answer speaks
     if (!r.ok) { townTalk?.say?.(r.error === 'gold' ? homeShortLine(price) : accountRefusalText(r.error)); return; }
@@ -5935,14 +5945,21 @@ export function createWorldModes(host) {
     if (!homes) return;
     const region = bd.regionIndex ?? 0;
     const mapId = homeTownOf(bd);
+    // AUDIT REALM2 C6: the owner's own things back to the pack, and the scene let go, AS THE SALE IS PAID - inside a realm
+    // act's apply, so the act's closing checkpoint holds them. After it, a tab lost in the next two minutes left them in
+    // a scene the service had released, which only an owner's visit gives back
+    let own = [];
     const r = await sellOnlineHome(homes, {
       mapId, buildingKey: bd.buildingKey,
-      credit: (n) => { const a = homeAccount(region); if (a) a.accountGold += n; },
+      credit: (n) => {
+        const a = homeAccount(region); if (a) a.accountGold += n;
+        own = takeSceneOwn(sceneCache(), homeSceneName(mapId, bd.buildingKey));   // DECOR2a: the owner's own things - "Back to pack"
+        for (const item of own) decorPackGive(item);
+        removePermanentScene(sceneCache(), homeSceneName(mapId, bd.buildingKey));
+      },
+      realm: host.realmAct ? { act: host.realmAct } : null,   // REALM P2.2b: the record paid back in the release's own batch
     });
     if (!r.ok) { townTalk?.say?.(accountRefusalText(r.error)); return; }
-    const own = takeSceneOwn(sceneCache(), homeSceneName(mapId, bd.buildingKey));   // DECOR2a: the owner's own things - "Back to pack"
-    for (const item of own) decorPackGive(item);
-    removePermanentScene(sceneCache(), homeSceneName(mapId, bd.buildingKey));
     townTalk?.say?.(homeSoldLine(r.refund, r.decorBack) + (own.length ? ` ${ownBackLines(own, decorOwnBackLine)}` : ''));   // DECOR1e: and its placed pieces' half
   }
 
@@ -7010,7 +7027,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7381), so the OUTER host's one rides in.
+          // (dungeonContext.js:7393), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -8175,7 +8192,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:12249's own wave-46 note); the interior
+          // a blow (world.js:12359's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9105,7 +9122,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3863`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3865`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -9991,7 +10008,7 @@ export function createWorldModes(host) {
     // envelope at all. `saveName` forwards through either way, default
     // QuickSave, so the caller can also target a character's AutoSave
     // slot without this method knowing what that means.
-    quickSaveNow: (saveName) => (mode === 'dungeon' ? dungeonCtx?.quickSave(saveName) : host.quickSave?.(saveName)),
+    quickSaveNow: (saveName, opts) => (mode === 'dungeon' ? dungeonCtx?.quickSave(saveName, opts) : host.quickSave?.(saveName, opts)),   // REALM P0.5: `opts.quiet`, the checkpoint's
     // CSA-H: a window pushed over whatever the mode draws (X11b's slot-picker - the street's, the building's, the
     // dungeon's), and taken off it: Come Sail Away's boat cargo and variant picker open wherever the boat stands
     mountWindow: (win) => mountSpellWindow(win),
@@ -10771,9 +10788,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3441-3463), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3443-3465), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:8934). So an F9 pressed in a shop
+     *  unconditionally (world.js:8977). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10812,7 +10829,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:9043)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:9088)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10822,8 +10839,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7959`
-     *  and `dungeonContext.js:7392` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:7899`
+     *  and `dungeonContext.js:7404` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {
