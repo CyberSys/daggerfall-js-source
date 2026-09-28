@@ -29,7 +29,7 @@
 // dishonest one a refusal or a copy the ledger sees.
 // ═══════════════════════════════════════════════════════════════════
 
-import { REALM_ID_RE, LEASE_RE, REALM_MAX_BYTES, mintObjectKey, dropObjects } from './realm.js';
+import { REALM_ID_RE, LEASE_RE, REALM_MAX_BYTES, mintObjectKey, dropObjects, dropIfUnnamed } from './realm.js';
 import { realmTradeHalfOf, halvesAgree, settleRealmTrade, REALM_TRADE_SID_RE, REALM_TRADE_TTL_S } from '../../src/net/realmTradeLaw.js';
 import { canon } from '../../src/net/canon.js';
 
@@ -104,10 +104,16 @@ export async function tradeRealm({ db, bucket, rand, nowS }, playerId, body) {
   if (!t) {
     // THE FIRST HALF waits - and the rows past their keeping go, a cheap sweep on the write that adds one
     await db.prepare('DELETE FROM realm_trades WHERE created_at < ?').bind(nowS - REALM_TRADE_KEEP_S).run();
-    const put = await db.prepare(
-      "INSERT INTO realm_trades (sid, a_player, a_char, a_lease, a_seq, a_half, state, created_at) VALUES (?, ?, ?, ?, ?, ?, 'waiting', ?)"
-      + ' ON CONFLICT (sid) DO NOTHING',
-    ).bind(sid, playerId, id, lease, seq, canon(half), nowS).run();
+    // AUDIT REALM2 S5: ONE WAITING HALF A CHARACTER - its new half takes the place of any other it left waiting, in the
+    // insert's own batch. Every new sid was a new row, kept a week: one character at one sequence left two hundred
+    // halves (5.76 MiB) in a minute, ten gigabytes a day an account. A tab trades one trade at a time.
+    const [, put] = await db.batch([
+      db.prepare("DELETE FROM realm_trades WHERE a_player = ? AND a_char = ? AND state = 'waiting' AND sid != ?").bind(playerId, id, sid),
+      db.prepare(
+        "INSERT INTO realm_trades (sid, a_player, a_char, a_lease, a_seq, a_half, state, created_at) VALUES (?, ?, ?, ?, ?, ?, 'waiting', ?)"
+        + ' ON CONFLICT (sid) DO NOTHING',
+      ).bind(sid, playerId, id, lease, seq, canon(half), nowS),
+    ]);
     if (put.meta.changes) return { state: 'waiting' };
     t = await db.prepare('SELECT * FROM realm_trades WHERE sid = ?').bind(sid).first();   // the other half came first, this very moment
     if (!t) return { error: 'server' };
@@ -158,8 +164,11 @@ export async function tradeRealm({ db, bucket, rand, nowS }, playerId, body) {
       ).bind(t.a_char, keyA, t.a_lease, id, keyB, lease, sid, id),
     ]);
   } catch {
-    // a record moved under the settle (a join elsewhere, a checkpoint), or the trade ended the same moment: nothing moved
-    await dropObjects(bucket, [keyA, keyB]);
+    // a record moved under the settle (a join elsewhere, a checkpoint), or the trade ended the same moment: nothing moved.
+    // AUDIT REALM2 S3: OR IT ALL DID, AND THE ANSWER WAS LOST - an object goes only if its row names it nowhere (both rows
+    // named the two that were dropped, and both traders' saves were gone); the row then tells the half its outcome.
+    await dropIfUnnamed(db, bucket, t.a_player, t.a_char, keyA);
+    await dropIfUnnamed(db, bucket, playerId, id, keyB);
     return refuse(db, sid, 'moved', playerId, asker, true);
   }
   await dropObjects(bucket, [other.prev, row.prev]);   // two back now, for both: the one before the trade stays

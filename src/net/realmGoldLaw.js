@@ -74,3 +74,66 @@ export function creditSave(/** @type {any} */ save, /** @type {number} */ amount
   else save.goldPieces = whole(save.goldPieces) + amount;
   return true;
 }
+
+// ── AUDIT REALM2 S1: WHAT A SAVE HOLDS, MEASURED THE SAME AT BOTH ENDS ──
+// Customs (systems/realmCustoms.js) caps a copy at the allowance on the client, and the service now holds a character's
+// FIRST save to it (server-account/src/realm.js firstSaveRefusal) - so the measure and the numbers moved here, the law
+// the Worker bundles, and realmCustoms.js re-exports them: one home, one count. A service that counted less than the
+// client capped would let wealth hide where it does not look; one that counted more would refuse an honest customs.
+
+/** OPEN (Realm-Arc "Customs"): the liquid wealth a character brings in - a base, and this much a level. */
+export const CUSTOMS_WEALTH_BASE = 20_000;
+export const CUSTOMS_WEALTH_PER_LEVEL = 10_000;
+/** The allowance at a level. */
+export const customsAllowance = (/** @type {number} */ level) => CUSTOMS_WEALTH_BASE + CUSTOMS_WEALTH_PER_LEVEL * Math.max(1, Math.trunc(level) || 1);
+/** A CHARACTER BORN ONLINE starts where chargen starts one: level 1, and the gold chargen hands it - 100
+ *  (systems/startingGear.js STARTING_GOLD) and what its biography's answers add (BiogFile's GP lines, a handful a file).
+ *  The bound is a first setting with room past both; OPEN, as every number of the realm is. */
+export const REALM_BIRTH_LEVEL = 1;
+export const REALM_BIRTH_WEALTH_MAX = 10_000;
+
+/** The gold-piece template (systems/inventory.js GOLD_TEMPLATE; isGoldPieces reads the group with it) and the containers
+ *  of a scene that are the player's to fill (systems/sceneCache.js LOOT_CONTAINER_TYPES DroppedLoot and HouseContainers):
+ *  a house's own chests and a pile the player dropped - never a shop's shelves, a body or a treasure pile, which are the
+ *  world's loot, not the character's. Pinned equal (test/auditrealm2_service.test.js): the Worker bundles no systems/. */
+const COINS_TEMPLATE = 276;
+const PLAYER_FILLED = Object.freeze([3, 5]);
+const isCoins = (/** @type {any} */ it) => it?.group === 'Currency' && it?.templateIndex === COINS_TEMPLATE;
+const isLetter = (/** @type {any} */ it) => it?.templateIndex === REALM_LETTER_TEMPLATE;
+/** A record's liquid worth: a gold-piece item's count, a letter of credit's value - anything else none. */
+export const liquidWorthOf = (/** @type {any} */ it) => (isCoins(it) ? Math.max(0, it?.stackCount ?? 0) : isLetter(it) ? Math.max(0, it?.value ?? 0) : 0);
+const lists = (/** @type {any[]} */ ...ls) => ls.filter(Array.isArray);
+
+/**
+ * AUDIT REALM F2: WHAT THE PLAYER LEFT IN THE WORLD - every list of the character's own things a save carries outside its
+ * pack and wagon, where gold and letters of credit lie as items: in each cached scene (sceneCache.js), a house's chests,
+ * the piles dropped in a room or on a street, and the storage pieces' contents (DECOR1c `decorItems`, an online home's
+ * too); and the piles the save's own host rides in its `world` bag - a dungeon's `droppedLoot` (its `piles` are the
+ * dungeon's treasure), the open air's `piles`. Customs read the purse, the pack's letters, the wagon's gold and the banks
+ * alone, so letters stowed in the wagon, gold in a house chest or a storage piece and a pile left on the floor all
+ * crossed uncapped.
+ * @param {any} snap
+ */
+export function stashedItemLists(snap) {
+  const out = [];
+  for (const scene of Array.isArray(snap?.sceneCache?.scenes) ? snap.sceneCache.scenes : []) {
+    for (const c of scene?.lootContainers ?? []) if (PLAYER_FILLED.includes(c?.containerType)) out.push(...lists(c.items));
+    for (const pile of scene?.droppedPiles ?? []) out.push(...lists(pile?.items));
+    for (const held of Object.values(scene?.decorItems ?? {})) out.push(...lists(held));
+  }
+  const world = snap?.world;
+  for (const pile of (snap?.dungeon ? world?.droppedLoot : world?.piles) ?? []) out.push(...lists(pile?.items));
+  return out;
+}
+/** Every list of the character's own things where liquid wealth can lie, in the order customs takes from them: the
+ *  stashes, then the wagon, then the pack. (The banks and the purse are counts, not lists.) */
+export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];
+
+/** The liquid wealth a save holds: its purse, every bank account, and every gold-piece item and letter of credit the
+ *  character owns wherever it lies - the pack, the wagon, and what it left in the world (stashedItemLists). */
+export function liquidWealthOf(/** @type {any} */ snap) {
+  const purse = Math.max(0, snap?.goldPieces ?? 0);
+  const banks = (Array.isArray(snap?.bankAccounts) ? snap.bankAccounts : []).reduce((s, a) => s + Math.max(0, a?.accountGold ?? 0), 0);
+  const items = carriedItemLists(snap).reduce((s, list) => s + list.reduce((t, it) => t + liquidWorthOf(it), 0), 0);
+  return purse + banks + items;
+}

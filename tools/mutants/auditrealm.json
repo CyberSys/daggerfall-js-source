@@ -28,43 +28,43 @@
   },
   {
     "name": "AUDIT-REALM-F2-no-stash-counted",
-    "file": "src/systems/realmCustoms.js",
-    "old": "const carriedLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];",
-    "new": "const carriedLists = (/** @type {any} */ snap) => [...lists(snap?.wagonItems), ...lists(snap?.items)];",
+    "file": "src/net/realmGoldLaw.js",
+    "old": "export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];",
+    "new": "export const carriedItemLists = (/** @type {any} */ snap) => [...lists(snap?.wagonItems), ...lists(snap?.items)];",
     "tests": [
       "test/auditrealm.test.js"
     ]
   },
   {
     "name": "AUDIT-REALM-F2-the-wagon-uncounted",
-    "file": "src/systems/realmCustoms.js",
-    "old": "const carriedLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];",
-    "new": "const carriedLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.items)];",
+    "file": "src/net/realmGoldLaw.js",
+    "old": "export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];",
+    "new": "export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.items)];",
     "tests": [
       "test/auditrealm.test.js"
     ]
   },
   {
     "name": "AUDIT-REALM-F2-a-shop-shelf-counted",
-    "file": "src/systems/realmCustoms.js",
-    "old": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot, LOOT_CONTAINER_TYPES.HouseContainers]);",
-    "new": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot, LOOT_CONTAINER_TYPES.HouseContainers, LOOT_CONTAINER_TYPES.ShopShelves]);",
+    "file": "src/net/realmGoldLaw.js",
+    "old": "const PLAYER_FILLED = Object.freeze([3, 5]);",
+    "new": "const PLAYER_FILLED = Object.freeze([3, 5, 4]);",
     "tests": [
       "test/auditrealm.test.js"
     ]
   },
   {
     "name": "AUDIT-REALM-F2-a-house-chest-uncounted",
-    "file": "src/systems/realmCustoms.js",
-    "old": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot, LOOT_CONTAINER_TYPES.HouseContainers]);",
-    "new": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot]);",
+    "file": "src/net/realmGoldLaw.js",
+    "old": "const PLAYER_FILLED = Object.freeze([3, 5]);",
+    "new": "const PLAYER_FILLED = Object.freeze([3]);",
     "tests": [
       "test/auditrealm.test.js"
     ]
   },
   {
     "name": "AUDIT-REALM-F2-a-room-pile-uncounted",
-    "file": "src/systems/realmCustoms.js",
+    "file": "src/net/realmGoldLaw.js",
     "old": "    for (const pile of scene?.droppedPiles ?? []) out.push(...lists(pile?.items));\n",
     "new": "",
     "tests": [
@@ -73,7 +73,7 @@
   },
   {
     "name": "AUDIT-REALM-F2-a-storage-piece-uncounted",
-    "file": "src/systems/realmCustoms.js",
+    "file": "src/net/realmGoldLaw.js",
     "old": "    for (const held of Object.values(scene?.decorItems ?? {})) out.push(...lists(held));\n",
     "new": "",
     "tests": [
@@ -82,7 +82,7 @@
   },
   {
     "name": "AUDIT-REALM-F2-a-dungeon-s-treasure-counted",
-    "file": "src/systems/realmCustoms.js",
+    "file": "src/net/realmGoldLaw.js",
     "old": "  for (const pile of (snap?.dungeon ? world?.droppedLoot : world?.piles) ?? []) out.push(...lists(pile?.items));",
     "new": "  for (const pile of world?.piles ?? []) out.push(...lists(pile?.items));",
     "tests": [

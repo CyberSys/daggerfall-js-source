@@ -31,7 +31,7 @@ import { accountKind, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';
 import { homeMapIdOk, homeBuildingKeyOk } from '../../src/net/homeLaw.js';
 import { DECOR_CAP, DECOR_ID_RE, DECOR_OPS_MAX, DECOR_OPS_WINDOW_S, DECOR_STATION_FEES, decorPieceOf, decorPlaceOf, decorHiddenOf, decorRefund } from '../../src/net/decorLaw.js';
-import { prepareRealmRecord, realmSideOf, realmActFirst, recordMovedOf, mustChange, dropObjects } from './realm.js';   // REALM P2.2b; AUDIT REALM L1-F2: the record asked first
+import { prepareRealmRecord, realmSideOf, realmActFirst, recordMovedOf, mustChange, dropObjects, dropIfUnnamed, REALM_ID_RE } from './realm.js';   // REALM P2.2b; AUDIT REALM L1-F2: the record asked first; AUDIT REALM2 S2/S3
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2b: the wallet's own order, over the record
 
 /**
@@ -90,7 +90,7 @@ async function realmDecorWrite(ctx, player, at, { mapId, buildingKey, delta, wri
   try {
     await db.batch([...prep.steps, write, mustChange(db)]);
   } catch {
-    await dropObjects(bucket, [prep.key]);
+    await dropIfUnnamed(db, bucket, player.id, at.id, prep.key);   // AUDIT REALM2 S3: a batch that landed and lost its answer keeps its save
     return (await recordMovedOf(db, player.id, at)) || { error: await refusal() };
   }
   await dropObjects(bucket, [prep.prev]);
@@ -120,11 +120,14 @@ function pieceOfRow(row) {
   });
 }
 
-/** The shared first steps of every write: a registered account, a home named, a character, the hour's writes. */
-async function writeDoor({ db, nowS }, player, { mapId, buildingKey, character }) {
+/** The shared first steps of every write: a registered account, a home named, a character, the hour's writes.
+ *  AUDIT REALM2 S2: a placement's character is a realm character's (`realmOnly`) - any other id still placed on its
+ *  client's word, a 200,000-gold station among them, into a house customs then carried in. */
+async function writeDoor({ db, nowS }, player, { mapId, buildingKey, character }, realmOnly = false) {
   if (accountKind(player) !== 'linked') return 'homes-need-account';
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)) return 'bad-home';
   if (typeof character !== 'string' || !CHAR_ID_RE.test(character)) return 'home-character';
+  if (realmOnly && !REALM_ID_RE.test(character)) return 'realm-only';
   if (await overRate({ db, nowS }, `decor:${player.id}`, DECOR_OPS_MAX, DECOR_OPS_WINDOW_S)) return 'decor-rate';
   return null;
 }
@@ -179,7 +182,7 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
     const first = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before the door's rate
     if (first.error) return first;
   }
-  const shut = await writeDoor(ctx, player, { mapId, buildingKey, character });
+  const shut = await writeDoor(ctx, player, { mapId, buildingKey, character }, true);   // AUDIT REALM2 S2: a realm character's
   if (shut) return { error: shut };
   const p = decorPieceOf(piece);
   if (!p) return { error: 'bad-decor' };

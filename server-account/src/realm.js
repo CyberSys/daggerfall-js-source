@@ -43,6 +43,7 @@
 
 import { SAVE_MAX_BYTES } from './service.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';   // AUDIT REALM L1-F7: a deleted guildmaster hands the guild over first
+import { liquidWealthOf, customsAllowance, REALM_BIRTH_LEVEL, REALM_BIRTH_WEALTH_MAX } from '../../src/net/realmGoldLaw.js';   // AUDIT REALM2 S1: the first save, measured as customs measures it
 
 /** Realm characters an ACCOUNT may hold. A new one past it is refused; nothing is ever deleted to make room. */
 export const REALM_CHARACTERS_MAX = 6;
@@ -155,18 +156,22 @@ export async function createRealm({ db, rand, nowS }, playerId, { name, summary 
   return { id, lease, seq: 0 };
 }
 
-/** THE TABLES A CHARACTER'S ONLINE LIFE IS KEYED IN, by the character's id: its Renown (renownTracks.js), its homes
- *  (homes.js) and its guild (guilds.js). Customs carries them to the realm's id. */
-export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);
+/** THE TABLES CUSTOMS CARRIES from the offline id to the realm's: the Renown track (renownTracks.js) - the plan's
+ *  "Renown starts from its existing track".
+ *  AUDIT REALM2 S2: AND NO HOME AND NO GUILD PLACE - the safe choice of the two ("only what stood before the realm, or
+ *  none"). Nothing on a home or a membership row says it stood before the realm (the census counted Renown tracks
+ *  alone), and what did stand was bought on the client's word: a house at a price it named, pieces and stations whose
+ *  cost no record paid, a founding whose fee nobody checked - the two-write lane any id had until the realm, and the
+ *  free lane an offline id kept after it (a 200,000 station, carried in). The allowance caps a character's gold; it
+ *  cannot count a house, so a house never crosses. The track does: the census proves it stood at the realm's start,
+ *  and Renown is filed to the account's hourly bound whichever id it names. */
+export const CHARACTER_TABLES = Object.freeze(['renown_tracks']);
 
-/** CUSTOMS CARRIES A CHARACTER'S ONLINE LIFE IN: its Renown track, its homes and its guild, re-keyed from the offline id
- *  to the realm's - the plan's "Renown starts from its existing track" - so nothing it earned online is left behind
- *  under an id the realm never plays again. The account's own rows only. */
-async function carryOnlineLife({ db }, /** @type {string} */ playerId, /** @type {string} */ originId, /** @type {string} */ id) {
-  for (const table of CHARACTER_TABLES) {
-    await db.prepare(`UPDATE ${table} SET char_id = ? WHERE player = ? AND char_id = ?`).bind(id, playerId, originId).run();
-  }
-}
+/** CUSTOMS CARRIES A CHARACTER'S TRACK IN, re-keyed from the offline id to the realm's - the account's own rows only, and
+ *  never over a track the realm's id already holds (OR IGNORE: a resume carries again, AUDIT REALM2 S6). Statements, for
+ *  the caller's batch. */
+const customsCarry = (/** @type {any} */ db, /** @type {string} */ playerId, /** @type {string} */ originId, /** @type {string} */ id) =>
+  CHARACTER_TABLES.map((table) => db.prepare(`UPDATE OR IGNORE ${table} SET char_id = ? WHERE player = ? AND char_id = ?`).bind(id, playerId, originId));
 
 /**
  * WHY CUSTOMS REFUSED (decision 3: "Migrate once via customs"). An offline character may come into the realm once, and
@@ -204,6 +209,7 @@ export async function customsRealm(ctx, playerId, { origin, name, summary = null
   if (typeof origin !== 'string' || !ORIGIN_ID_RE.test(origin) || REALM_ID_RE.test(origin)) return { error: 'body' };
   const mine = await db.prepare('SELECT id, bytes FROM realm_characters WHERE player = ? AND origin_id = ?').bind(playerId, origin).first();
   if (mine && !(mine.bytes > 0)) {
+    await db.batch(customsCarry(db, playerId, origin, mine.id));   // AUDIT REALM2 S6: carried again - a resume never carried
     const joined = await joinRealm(ctx, playerId, mine.id);
     return joined.error ? joined : { id: joined.id, lease: joined.lease, seq: 0, resumed: true };
   }
@@ -220,6 +226,10 @@ export async function customsRealm(ctx, playerId, { origin, name, summary = null
       ).bind(id, playerId, n, realmSummaryOf(summary), lease, nowS, origin, nowS, nowS, playerId, REALM_CHARACTERS_MAX, playerId, origin),
       mustChange(db),
       db.prepare('UPDATE realm_census SET spent = 1 WHERE char_id = ?').bind(origin),
+      // AUDIT REALM2 S6: THE CARRY IS IN THE CENSUS'S OWN BATCH. It ran after it, a statement at a time, so a failure
+      // there (a transient D1 error, the request cancelled) left the census spent and the track under an id the realm
+      // never plays again - and the resume above never carried it.
+      ...customsCarry(db, playerId, origin, id),
     ]);
   } catch (e) {
     const why = await customsRefusal(ctx, playerId, origin);
@@ -227,7 +237,6 @@ export async function customsRealm(ctx, playerId, { origin, name, summary = null
     throw e;
   }
   await freeOthers({ db }, playerId, id);
-  await carryOnlineLife({ db }, playerId, origin, id);
   return { id, lease, seq: 0 };
 }
 
@@ -247,29 +256,63 @@ export async function joinRealm({ db, rand, nowS }, playerId, id) {
 }
 
 /**
+ * AUDIT REALM2 S1: THE FIRST SAVE IS READ. The service took any bytes as a character's first checkpoint, so a character
+ * "born online" could be any offline save (ten million gold, level sixty), customs' allowance was the client's alone to
+ * apply - and the first save is the start every later check of the realm measures from. A character born online starts
+ * as chargen starts one: level REALM_BIRTH_LEVEL, and no more liquid wealth than REALM_BIRTH_WEALTH_MAX ('realm-birth').
+ * A customs character brings no more than the allowance at the level customs was asked at - the level on its row's
+ * summary, which nothing writes before the first save lands, never the first save's own word ('customs-allowance').
+ * Wealth is customs' own measure (net/realmGoldLaw.js liquidWealthOf): the purse, the banks, and every gold-piece item
+ * and letter of credit wherever it lies. A save that is no JSON object is neither. Answers null, or `{ error }`.
+ * @param {ArrayBuffer} body @param {{ origin_id?: string | null, summary?: string | null }} row
+ */
+export function firstSaveRefusal(body, row) {
+  let save = null;
+  try { save = JSON.parse(new TextDecoder().decode(body)); } catch { save = null; }
+  const shaped = !!save && typeof save === 'object' && !Array.isArray(save);
+  if (!row.origin_id) {
+    return shaped && save.level === REALM_BIRTH_LEVEL && liquidWealthOf(save) <= REALM_BIRTH_WEALTH_MAX ? null : { error: 'realm-birth' };
+  }
+  let level = null;
+  try { level = JSON.parse(row.summary ?? 'null')?.level ?? null; } catch { level = null; }
+  return shaped && liquidWealthOf(save) <= customsAllowance(level) ? null : { error: 'customs-allowance' };
+}
+
+/**
  * A CHECKPOINT: the save, under the current lease, at `seq + 1`. The row is asked first (a stale lease or sequence is
  * refused before a byte is written), the object lands at a key of its own, and the row moves to it only if the lease
  * and sequence still hold - so a join or a trade between the two leaves the current save untouched, and the losing
  * write's object is dropped. The save two back goes; the one before stays. Answers `{ ok, seq }` or `{ error }`:
  * 'lease' - another tab or device has the character now; 'seq' - not the next one, with the service's `seq` beside it,
- * so a tab whose last checkpoint landed but whose answer was lost can resync.
+ * so a tab whose last checkpoint landed but whose answer was lost can resync; the first save's own words
+ * (firstSaveRefusal).
  * @param {any} ctx @param {string} playerId
  * @param {{ id: string, lease: unknown, seq: unknown, summary?: unknown }} at @param {ArrayBuffer} body @param {number} bytes
  */
 export async function checkpointRealm({ db, bucket, rand, nowS }, playerId, { id, lease, seq, summary = null }, body, bytes) {
   if (!bucket) return { error: 'no-storage' };
   if (!REALM_ID_RE.test(id) || typeof lease !== 'string' || !LEASE_RE.test(lease) || !Number.isSafeInteger(seq) || /** @type {number} */ (seq) < 1) return { error: 'body' };
-  const row = await db.prepare('SELECT seq, lease, prev FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  const row = await db.prepare('SELECT seq, lease, prev, origin_id, summary FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
   if (row.lease !== lease) return { error: 'lease' };
   if (seq !== row.seq + 1) return { error: 'seq', seq: row.seq };   // the service's own: a client whose last answer was lost resyncs
+  if (seq === 1) {
+    const refused = firstSaveRefusal(body, row);   // AUDIT REALM2 S1: a new character's, or customs' own - before a byte lands
+    if (refused) return refused;
+  }
   const key = mintObjectKey(rand, playerId, id, /** @type {number} */ (seq));
   await bucket.put(key, body);
   const moved = await db.prepare(
     'UPDATE realm_characters SET seq = ?, bytes = ?, obj = ?, prev = obj, lease_at = ?, summary = COALESCE(?, summary), updated_at = ?'
     + ' WHERE id = ? AND player = ? AND lease = ? AND seq = ?',
   ).bind(seq, bytes, key, nowS, realmSummaryOf(summary), nowS, id, playerId, lease, /** @type {number} */ (seq) - 1).run();
-  if (!moved.meta.changes) { await dropObjects(bucket, [key]); return { error: 'lease' }; }
+  if (!moved.meta.changes) {
+    await dropObjects(bucket, [key]);
+    // AUDIT REALM2 S7: WHY IT DID NOT MOVE, read again - two checkpoints under one lease (a retry beside a slow one, the
+    // page's beside the timer's) race to one sequence, and the loser was told 'lease': "another tab has the character",
+    // and its tab ended the session. Its own write won; 'seq', with the service's, is the truth, and the tab resyncs.
+    return (await recordMovedOf(db, playerId, { id, lease, seq: /** @type {number} */ (seq) - 1 })) ?? { error: 'lease' };
+  }
   await dropObjects(bucket, [row.prev]);   // two back now: the one before the last stays
   return { ok: true, seq };
 }
@@ -339,6 +382,17 @@ export async function prepareRealmRecord({ db, bucket, rand, nowS }, playerId, a
   return { steps, key, prev: row.prev, seq: at.seq + 1 };
 }
 
+/** AUDIT REALM2 S3: AFTER A BATCH THAT THREW, the object it wrote goes only if the row names it nowhere (`obj` or
+ *  `prev`). D1 can commit a batch and lose its answer: every catch dropped the new object whatever the row said, and the
+ *  row that had moved to it named a save that was gone - a trade's two records, a guild deposit's, the character's live
+ *  save deleted and its next join 'no-data'. Answers whether the row names it (the batch landed). */
+export async function dropIfUnnamed(/** @type {any} */ db, /** @type {any} */ bucket, /** @type {string} */ playerId, /** @type {string} */ id, /** @type {string} */ key) {
+  const row = await db.prepare('SELECT obj, prev FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  if (row && (row.obj === key || row.prev === key)) return true;
+  await dropObjects(bucket, [key]);
+  return false;
+}
+
 /** After a batch that carried a record's move failed: the record's own reason - 'lease' (another tab holds it) or
  *  'seq' with the service's sequence (it moved) - or null when it still stands where the tab said, and the act's own
  *  write was what failed. */
@@ -392,14 +446,19 @@ export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @ty
  *  guild place with it"): the row's delete carries its homes (their pieces and hidden furniture go by the tables' own
  *  cascade), its guild place and its Renown track in ONE batch. They stood under a dead id: a house nobody could buy
  *  again nor its owner sell, a guild whose master could never be succeeded, a track that counted against the account.
- *  A guildmaster with members hands the guild over first ('guild-master-leaves', the guild's own word for leaving). */
+ *  A guildmaster with members hands the guild over first ('guild-master-leaves', the guild's own word for leaving).
+ *  AUDIT REALM2 S8: AND A LONE ONE EMPTIES THE TREASURY FIRST ('guild-treasury'), as leaving asks (guilds.js leaveGuild).
+ *  The delete let it go with gold inside: a guild nobody is in, holding what its records paid in, until the next founder
+ *  of its name or tag cleared it away, gold and all. */
 export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId, /** @type {unknown} */ id) {
   if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return { error: 'body' };
   const row = await db.prepare('SELECT obj, prev FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
-  const master = await db.prepare(`SELECT (SELECT COUNT(*) FROM guild_members o WHERE o.guild_id = m.guild_id) AS n FROM guild_members m
+  const master = await db.prepare(`SELECT (SELECT COUNT(*) FROM guild_members o WHERE o.guild_id = m.guild_id) AS n,
+    (SELECT treasury FROM guilds g WHERE g.id = m.guild_id) AS treasury FROM guild_members m
     WHERE m.player = ? AND m.char_id = ? AND m.rank = ?`).bind(playerId, id, GUILD_RANK_MASTER).first();
   if ((master?.n ?? 0) > 1) return { error: 'guild-master-leaves' };
+  if ((master?.treasury ?? 0) > 0) return { error: 'guild-treasury' };
   if (bucket) {
     await dropObjects(bucket, [row.obj, row.prev]);   // an object that will not go is not a reason to keep the row
     if (typeof bucket.list === 'function') {

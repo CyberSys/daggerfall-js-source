@@ -18,6 +18,7 @@ import { deductGold } from '../src/systems/court.js';
 import { LETTER_OF_CREDIT_TEMPLATE as INV_LETTER } from '../src/systems/inventory.js';
 import { GuildBook } from '../src/net/guildBook.js';
 import { realmIo, realmCreate, realmPut, realmFetch, createRealmSession, realmGoldAct } from '../src/systems/realmSaves.js';
+import { freshSave, layRecord } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
 
 const { subtle } = webcrypto;
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -89,7 +90,9 @@ async function stand() {
     const fetch = fetchOf(door);
     const io = realmIo({ fetch, storage });
     const made = (await realmCreate(io, handle)).data;
-    assert.equal((await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(save))).ok, true);
+    // AUDIT REALM2 S1: the first save a new character's (the service reads it); the record the pins count from laid over it
+    assert.equal((await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(freshSave({ name: handle })))).ok, true);
+    layRecord(env, made.id, save);
     if (renown > 1) {
       env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
         .run(g.id, made.id, handle, renownXpFor(renown), T0, T0);
@@ -188,12 +191,17 @@ test('REALM P2.2: nothing moves on a refusal - a realm character that names no r
   // a lease another tab took
   assert.equal((await A.guilds.deposit(A.char, 10, { ...at(2), lease: 'f'.repeat(32) })).error, 'lease');
   assert.deepEqual([await record(A), treasury(guildId)], [before, 50], 'nothing moved, anywhere');
-  // no other character may carry a record: the founding asks before anything else
-  const res = await worker.fetch(new Request('https://accounts.invalid/v1/guilds/found', {
-    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${JSON.parse(A.io.storage.getItem(SESSION_KEY)).secret}` },
-    body: JSON.stringify({ character: 'char-offline', name: 'The Salt Road', tag: 'SALT', realm: at(2) }),
-  }), env);
-  assert.deepEqual([res.status, (await res.json()).error], [400, 'body']);
+  // no other character may carry a record: a deposit asks before anything else - and a founding (AUDIT REALM2 S2) is a
+  // realm character's alone, so any other is refused before its record is even read
+  const ask = async (path, body) => {
+    const res = await worker.fetch(new Request(`https://accounts.invalid${path}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${JSON.parse(A.io.storage.getItem(SESSION_KEY)).secret}` },
+      body: JSON.stringify(body),
+    }), env);
+    return [res.status, (await res.json()).error];
+  };
+  assert.deepEqual(await ask('/v1/guilds/deposit', { character: 'char-offline', gold: 10, realm: at(2) }), [400, 'body']);
+  assert.deepEqual(await ask('/v1/guilds/found', { character: 'char-offline', name: 'The Salt Road', tag: 'SALT', realm: at(2) }), [400, 'realm-only']);
 });
 
 test('REALM P2.2: a record that moves under the batch rolls the guild\'s write back with it - the treasury never holds gold the record kept', async () => {

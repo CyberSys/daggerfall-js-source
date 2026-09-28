@@ -25,6 +25,7 @@ import {
   realmIo, realmCreate, realmFetch, realmJoin, realmPut, realmTradeCall, createRealmSession, realmTradeEscrow, settleRealmTradeHalf,
   realmRefusalText, REALM_TRADE_WAIT_MS,
 } from '../src/systems/realmSaves.js';
+import { freshSave, layRecord } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -85,15 +86,17 @@ async function realm() {
       if (door.mode === 'offline') throw new TypeError('network');
       return worker.fetch(new Request(url, init), env);
     };
-    return { g, door, storage, io: realmIo({ fetch, storage }) };
+    return { g, door, storage, env, io: realmIo({ fetch, storage }) };
   }
   return { env, player };
 }
-/** A realm character with its first save: `{ id, lease, seq }` after the checkpoint. */
-async function character(io, name, save) {
-  const made = (await realmCreate(io, name)).data;
-  const put = await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(save));
+/** A realm character with its first save: `{ id, lease, seq }` after the checkpoint. AUDIT REALM2 S1: the first save a
+ *  new character's (the service reads it), and `save` - the record the pins count from - laid over it at that sequence. */
+async function character(P, name, save) {
+  const made = (await realmCreate(P.io, name)).data;
+  const put = await realmPut(P.io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(freshSave({ name })));
   assert.equal(put.ok, true);
+  layRecord(P.env, made.id, save);
   return { id: made.id, lease: made.lease, seq: 1 };
 }
 const record = async (io, id) => { const r = await realmFetch(io, id); return { seq: r.seq, save: JSON.parse(r.text) }; };
@@ -155,6 +158,7 @@ test('REALM P2.1 law: an honest offer IS its record - the port\'s own items thro
   const save = JSON.parse(JSON.stringify({ items: entity.items, goldPieces: 100 }));
   assert.ok(recordIsOffered(save.items[1], offer[0]) && recordIsOffered(save.items[2], offer[1]), 'the save\'s copy is the offer, the wire\'s clamp and floor notwithstanding');
   assert.equal(recordIsOffered(save.items[2], offer[0]), false, 'arrows are not a dagger');
+  assert.equal(recordIsOffered({ name: 'Nothing' }, { name: 'Nothing' }), false, 'an offer names a template, whatever the record holds (AUDIT REALM2 S4: both ways, the offer still names one)');
   const cheap = { ...dagger(), value: 0 };   // a record priced under its template: the wire floors the offer's price (WORLD6a B1)
   const cheapOffer = wireOf([cheap], [{ item: cheap, count: 1 }])[0];
   assert.ok(cheapOffer.value > 0, 'the offer carries the floored price');
@@ -209,8 +213,8 @@ async function pair() {
   const r = await realm();
   const A = await r.player(), B = await r.player();
   const d = dagger(), a = arrows(10);
-  A.char = await character(A.io, 'Arthago', { name: 'Arthago', items: [d], goldPieces: 50 });
-  B.char = await character(B.io, 'Brisienna', { name: 'Brisienna', items: [a], goldPieces: 5 });
+  A.char = await character(A, 'Arthago', { name: 'Arthago', items: [d], goldPieces: 50 });
+  B.char = await character(B, 'Brisienna', { name: 'Brisienna', items: [a], goldPieces: 5 });
   const giveA = { items: wireOf([d], [{ item: d, count: 1 }]), gold: 20 }, giveB = { items: wireOf([a], [{ item: a, count: 4 }]), gold: 0 };
   const ask = (P, sid, give, get, over = {}) => realmTradeCall(P.io, { id: P.char.id, lease: P.char.lease, seq: P.char.seq, sid, give, get, pick: give.items.map((_, i) => i), ...over });
   return { ...r, A, B, giveA, giveB, ask };
@@ -231,7 +235,7 @@ test('REALM P2.1: the service settles a trade - the first half waits, the second
   assert.equal(env.SAVES._map.size, 4, 'each character: the trade\'s save and the one before it');
   const C = await player();
   assert.deepEqual([(await realmTradeCall(C.io, { id: A.char.id, lease: A.char.lease, seq: 2, sid: 'sidone01', give: giveA, get: giveB, pick: [0] })).error], ['no-realm-character'], 'another account: the record is not its own, and the trade is never named');
-  C.char = await character(C.io, 'Cyrus', { name: 'Cyrus', items: [], goldPieces: 0 });
+  C.char = await character(C, 'Cyrus', { name: 'Cyrus', items: [], goldPieces: 0 });
   assert.equal((await ask(C, 'sidone01', giveB, giveA)).error, 'trade-spent', 'another account\'s own character, no party to it: told nothing');
   // the next checkpoint follows the trade's sequence
   assert.equal((await realmPut(A.io, A.char.id, { lease: A.char.lease, seq: 3 }, '{"after":1}')).ok, true);
@@ -331,8 +335,8 @@ async function tabs({ escrowB = true } = {}) {
   const entA = { name: 'Arthago', items: [dagger(), arrows(3)], goldPieces: 50, stats: { strength: 60 } };
   const entB = { name: 'Brisienna', items: [arrows(10)], goldPieces: 5, stats: { strength: 60 } };
   const snap = (e) => JSON.stringify({ name: e.name, items: e.items, goldPieces: e.goldPieces });
-  A.char = await character(A.io, 'Arthago', JSON.parse(snap(entA)));
-  B.char = await character(B.io, 'Brisienna', JSON.parse(snap(entB)));
+  A.char = await character(A, 'Arthago', JSON.parse(snap(entA)));
+  B.char = await character(B, 'Brisienna', JSON.parse(snap(entB)));
   const q = [], said = { A: [], B: [] };
   let clock = 0;
   const now = () => clock;
@@ -468,7 +472,7 @@ test('REALM P2.1: a hold whose goods could not be reserved is released - the tra
 test('REALM P2.1: while a transaction is in flight no checkpoint is sent; the one asked before it lands first, and the service\'s move is adopted', { timeout: 60_000 }, async () => {
   const { player } = await realm();
   const P = await player();
-  P.char = await character(P.io, 'Nystul', { items: [], goldPieces: 1 });
+  P.char = await character(P, 'Nystul', { items: [], goldPieces: 1 });
   const s = createRealmSession({ io: P.io, id: P.char.id, lease: P.char.lease, seq: P.char.seq });
   s.checkpoint('{"before":1}');
   let inside = null;

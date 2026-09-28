@@ -127,7 +127,7 @@ test('REALM P1.3: the boot\'s join reads the save from the service - the realm\'
   const never = (await realmCreate(io, 'Unsaved')).data;
   assert.deepEqual(await openRealmBoot({ io, id: never.id }), { ok: false, error: 'no-data' }, 'never saved');
   const made = (await realmCreate(io, 'Nystul')).data;
-  await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify({ v: 1, name: 'Nystul', characterId: 'c0ffee00-offline' }));
+  await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify({ v: 1, name: 'Nystul', level: 1, characterId: 'c0ffee00-offline' }));   // AUDIT REALM2 S1: a new character's first save
   const boot = await openRealmBoot({ io, id: made.id });
   assert.equal(boot.ok, true);
   assert.deepEqual([boot.snap.name, boot.snap.characterId, boot.seq], ['Nystul', made.id, 1], 'the realm\'s id on the save, whatever it named');

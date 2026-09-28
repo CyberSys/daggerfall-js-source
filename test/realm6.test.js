@@ -17,6 +17,7 @@ import { DECOR_STATION_FEES, decorRescale, decorRefund } from '../src/net/decorL
 import { DEED_SELL_MULT } from '../src/systems/banking.js';
 import { createOnlineHomes, buyOnlineHome, sellOnlineHome, homeRefund } from '../src/systems/onlineHomes.js';
 import { realmIo, realmCreate, realmPut, realmFetch, createRealmSession, realmGoldAct } from '../src/systems/realmSaves.js';
+import { freshSave, layRecord } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
 import { settle, toolRig, placeFrom, all, one, rows } from './decorFakes.mjs';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -78,7 +79,9 @@ async function stand() {
     const fetch = async (url, init) => { if (door.before) await door.before(String(url)); return worker.fetch(new Request(url, init), env); };
     const io = realmIo({ fetch, storage });
     const made = (await realmCreate(io, handle)).data;
-    assert.equal((await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(save))).ok, true);
+    // AUDIT REALM2 S1: the first save a new character's (the service reads it); the record the pins count from laid over it
+    assert.equal((await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(freshSave({ name: handle })))).ok, true);
+    layRecord(env, made.id, save);
     return { id: g.id, io, door, char: made.id, lease: made.lease, homes: accountHomes({ fetch, storage }), decor: accountDecor({ fetch, storage }), at: (seq) => ({ id: made.id, lease: made.lease, seq }) };
   }
   const record = async (P) => { const r = await realmFetch(P.io, P.char); return { seq: r.seq, save: JSON.parse(r.text) }; };

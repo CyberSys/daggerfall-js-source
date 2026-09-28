@@ -56,6 +56,10 @@ export const VALUE_IS_IDENTITY_TEMPLATES = Object.freeze([275]);
 /** The fields that are never part of what an item IS: its count and its price (the offer's own, which the wire floors),
  *  and the marks that are the RECEIVER's (systems/loot.js validLootItem strips them). */
 export const TRADE_VOLATILE_FIELDS = Object.freeze(['stackCount', 'value', 'equipSlot', 'questItem']);
+/** AUDIT REALM2 S4: the most a record a trade moves may be, in JSON characters - the JSON routes' own body (service.js
+ *  MAX_BODY_BYTES). A piece the port mints is a few hundred; one with every string at the wire's 128 and ten
+ *  enchantments, fifteen hundred. A price is volatile, so without it a million-character one rode along unseen. */
+export const REALM_TRADE_RECORD_MAX = 4096;
 /** AUDIT REALM F1: THE ROWS THAT BIND EVERY PIECE OF THEIR KIND - systems/itemBound.js isBound's other half (SS1: "Its
  *  template row can say `bound`"), which this Worker cannot read, since the template table is the game's. The Sigil
  *  Stone's row (systems/gateSpoils.js SIGIL_STONE_TEMPLATES) is the one; test/auditrealm.test.js holds this list equal to
@@ -117,11 +121,16 @@ export function tradeableRecord(/** @type {any} */ rec) {
   return true;
 }
 
-/** Is `rec` what `offered` describes? The offer must name a template, and every field it names but the volatile ones is
- *  the record's own. A record may carry more than its offer showed (the wire's clamp may cut a field); never less. */
+/** Is `rec` what `offered` describes? The offer must name a template, and every field but the volatile ones is the
+ *  same on both - the offer's and the record's alike.
+ *  AUDIT REALM2 S4: BOTH WAYS. The fields the offer named were compared, and then the RECORD moved - so the giver chose
+ *  what was checked: an offer of a template and a material, which the receiver's window shows as a whole Daedric dagger,
+ *  settled against a record at 1 of 400 condition, carrying an enchantment nobody was shown and a million characters of
+ *  padding. An honest offer is its record through the wire's projection, and that projection changes only the volatile
+ *  fields for anything the port mints (its clamp cuts only a string past 128, a list past 64, a nest past four). */
 export function recordIsOffered(/** @type {any} */ rec, /** @type {any} */ offered) {
   if (!Number.isSafeInteger(offered?.templateIndex)) return false;
-  for (const k of Object.keys(offered)) {
+  for (const k of new Set([...Object.keys(offered), ...(plain(rec) ? Object.keys(rec) : [])])) {
     if (TRADE_VOLATILE_FIELDS.includes(k)) continue;
     if (canon(offered[k]) !== canon(rec?.[k])) return false;
   }
@@ -149,6 +158,7 @@ export function takeTradeGoods(save, side, pick) {
   for (let k = 0; k < side.items.length; k++) {
     const offered = side.items[k], at = pick[k], n = recordCount(offered);
     if (!(at < items.length) || left[at] < n || !recordIsOffered(items[at], offered)) return null;
+    if (JSON.stringify(items[at]).length > REALM_TRADE_RECORD_MAX) return null;   // AUDIT REALM2 S4: the record that moves, bounded
     left[at] -= n;
     picks.push({ at, n });
   }
