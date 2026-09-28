@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as acorn from 'acorn';
-import { validFoeRecord, FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, CELL_LOOSE_PUPPETS } from '../src/net/wire.js';
+import { validFoeRecord, FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, CELL_LOOSE_PUPPETS, FOES_FRAME_MAX } from '../src/net/wire.js';
 import { validQuestTags, questMarkerYields, QUEST_PUPPETS_MAX, validLooseSeqs } from '../src/scenes/exteriorFoes.js';
 
 const D = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
@@ -77,7 +77,7 @@ function side(self, { layout = [], own = [] } = {}) {
     opts: { selfId: () => self, questShare: () => share },
     _layoutFoes: layout.length, foes, _authority: true, _encId: undefined, _ctxDead: false, _locationKey: 'dungeon:7',
     _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(), _ownAdopted: new Map(), _ownKept: new Map(),
-    FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, QUEST_PUPPETS_MAX, CELL_LOOSE_PUPPETS, HIT_DMG_MAX: 10000,
+    FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, QUEST_PUPPETS_MAX, CELL_LOOSE_PUPPETS, HIT_DMG_MAX: 10000, FOES_FRAME_MAX,
     validFoeRecord, validQuestTags, validLooseSeqs, questMarkerYields, GENDER_BIT: ['male', 'female'],
     _sharedFoe: () => false, fightN: () => 1, canStandFoe: () => true,
     applyFoeRecord: (f, r) => { if (r.f) f.ai.feet = [...r.f]; if (Number.isFinite(r.h)) f.entity.health = r.h; if (r.d === 1) f.dead = true; f._pup = { feet: [...(r.f ?? f.ai.feet)], yaw: r.y ?? 0 }; },
@@ -99,6 +99,11 @@ function side(self, { layout = [], own = [] } = {}) {
     ${declSrc('questTouched')}
     ${declSrc('ownHeirIsMe')}
     ${declSrc('ownHeirElse')}
+    ${declSrc('FOES_FRAME_SLACK')}
+    ${declSrc('FOE_MAX_PER_FRAME')}
+    ${declSrc('_maxLeft')}
+    ${declSrc('foeMaxOf')}
+    ${fnSrc('fitMaxima')}
     ${fnSrc('roomRecord')}
     ${fnSrc('ownFrame')}
     ${fnSrc('applyOwnFrame')}
@@ -141,6 +146,27 @@ test('QUEST-PARTY 3c: my shared quest\'s foes past the layout ride the own lane 
   assert.equal(hurt.full, 0);
   const empty = side('aaa-0001').ownFrame(true);
   assert.deepEqual([empty.f, empty.full, empty.qf], [[], 1, undefined], 'a full frame goes with nothing in it - the readers take down what it no longer lists');
+});
+
+test('AUDIT SETS M1: MY OWN LANE PAYS ITS FOES\' MAXIMA BY THE LAYOUT\'S LAW - a whole frame (a full one, or a handover) pays each foe\'s, a delta the owed alone and at most twelve, and a record past the relay\'s bound owes its again (mutants: a handover paying none; the delta\'s budget unbounded; a record past the bound kept as paid)', () => {
+  const own = Array.from({ length: CELL_FRAME_RECORDS_MAX + 2 }, (_, n) => questFoe(`_q${n}_`, { entity: { health: 10, maxHealth: 40 + n, items: [] } }));
+  const me = side('aaa-0001', { own });
+  const full = me.ownFrame(true);
+  assert.equal(full.f.length, CELL_FRAME_RECORDS_MAX);
+  assert.ok(full.f.every((r, n) => r.k === 40 + n), 'a full frame pays each foe\'s maximum');
+  assert.deepEqual(me.ownFrame(false).f.map((r) => r.k), [40 + CELL_FRAME_RECORDS_MAX, 41 + CELL_FRAME_RECORDS_MAX], 'the two past the relay\'s bound next, their maxima with them');
+  assert.equal(me.ownFrame(false), null, 'then quiet');
+  for (const f of own.slice(0, 14)) f.entity.maxHealth += 100;
+  assert.equal(me.ownFrame(false).f.length, 12, 'a delta pays twelve owed');
+  assert.deepEqual(me.ownFrame(false).f.map((r) => r.k), [152, 153], 'and the rest the next');
+  const handed = me.ownFrame(false, () => 'mmm-0002');
+  assert.ok(handed.f.every((r) => r.k !== undefined), 'a handover pays each - its heir learns them at once');
+  me.ownFrame(false);
+  // a delta past the relay's bound: the two shed carried the only maxima owed
+  for (const f of own) f.ai.feet = [1, 0, 1];
+  own[CELL_FRAME_RECORDS_MAX].entity.maxHealth = 500; own[CELL_FRAME_RECORDS_MAX + 1].entity.maxHealth = 501;
+  assert.equal(me.ownFrame(false).f.length, CELL_FRAME_RECORDS_MAX, 'the bound holds');
+  assert.deepEqual(me.ownFrame(false).f.map((r) => r.k), [500, 501], 'the shed go next and still owe their maxima');
 });
 
 test('QUEST-PARTY 3c: a party member stands my shared quest\'s foes as puppets and follows them; a stranger stands none; another dungeon\'s or an older frame is not the world; a full frame takes down what it no longer lists', async () => {

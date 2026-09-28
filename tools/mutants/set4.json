@@ -101,8 +101,8 @@
   {
     "name": "SET4-the-renowns-hold-unsaid",
     "file": "src/systems/sigilSets.js",
-    "old": "  const line = `Your ${set.name} brightens: ${stage.name}.`;\n  const cap = renownSigilStage(sigilRenown());\n  if (cap < 0 || cap >= rank) return line;",
-    "new": "  const line = `Your ${set.name} brightens: ${stage.name}.`;\n  const cap = renownSigilStage(sigilRenown());\n  if (cap < 0 || cap >= rank || true) return line;",
+    "old": "  const line = `${/^The /.test(set.name) ? set.name : `Your ${set.name}`} brightens: ${stage.name}.`;   // AUDIT SETS L2: never \"Your The Broken Oath\"\n  const cap = renownSigilStage(sigilRenown());\n  if (cap < 0 || cap >= rank) return line;",
+    "new": "  const line = `${/^The /.test(set.name) ? set.name : `Your ${set.name}`} brightens: ${stage.name}.`;   // AUDIT SETS L2: never \"Your The Broken Oath\"\n  const cap = renownSigilStage(sigilRenown());\n  if (cap < 0 || cap >= rank || true) return line;",
     "tests": [
       "test/set4_drops_growth.test.js"
     ]

@@ -43,7 +43,7 @@ import '../src/world/landView.js';   // RF4: the condensed rows' lanes register 
 import '../src/world/outdoors.js';
 import '../src/systems/featureLanes.js';   // FT18: the wind, the quick slots and the blood lanes register themselves too
 import * as LR from '../src/systems/lootRarity.js';
-import { REGALIA } from '../src/systems/aetheric.js';   // SET6: the test room shows the Aetheric rung too
+import { AETHERIC_RECORDS } from '../src/systems/aetheric.js';   // SET6: the test room shows the Aetheric rung too (RAID4b: the raids' sets with it)
 import { createRandomWeapon, createRandomArmor, LOOT_ARRAY_FIELDS, validLootItem, validLootList } from '../src/systems/loot.js';   // AUDIT-LR: a container's whole list, the shape both online doors send
 import { createWeapon } from '../src/combat/enemyEquipment.js';
 import { mintCondition, itemBaseValue } from '../src/systems/itemTemplates.js';
@@ -466,8 +466,8 @@ test('LR1: the skins - the native cell tints and the tooltip lists, the enhanced
   // the card's list leaves the sigil to its own block under it (SIGIL-UI)
   assert.match(inv, /markItemFrame\(row, item\);   \/\/ LR1/, 'a row wears its tier');
   assert.match(inv, /export function markItemFrame\(node, item\) \{\n\s+const r = rarityAttr\(item\);\n\s+if \(r\) node\.dataset\.rarity = r;/, 'through the marker');
-  assert.match(inv, /const lines = itemPowerLines\(picked, deps, \{ set: false \}\); if \(lines\.length\)/, 'the card lists the lines (SET5: the sigil and the set draw their own blocks)');   // TRADE-INFO: rarityLines, and a DFU magic item's powers
-  assert.match(inv, /export function itemPowerLines\(item, d = deps, \{ set = true \} = \{\}\) \{\n  const lines = rarityLines\(item, \{ sigil: false, set \}\);/, 'the tier\'s lines first');
+  assert.match(inv, /const lines = itemPowerLines\(picked, deps, \{ set: false, lore: false \}\); if \(lines\.length\)/, 'the card lists the lines (SET5: the sigil and the set draw their own blocks; CARD-FIT: the lore is the Info box\'s)');   // TRADE-INFO: rarityLines, and a DFU magic item's powers
+  assert.match(inv, /export function itemPowerLines\(item, d = deps, \{ set = true, lore = true \} = \{\}\) \{\n  const lines = rarityLines\(item, \{ sigil: false, set, lore \}\);/, 'the tier\'s lines first');
   assert.match(read('src/ui/worldPlaque.js'), /if \(r\.rarity\) row\.dataset\.rarity = r\.rarity;/);
   assert.match(read('src/ui/nativeInventory.js'), /armorLabelValue\(av\[i\] \?\? 100, entityArmorDisplayMod\(this\.hooks\.entity, i\)\)/, 'the doll\'s numbers, per part (RF1)');
   assert.match(read('src/ui/enhancedInventory.js'), /material: parts\.material \|\| null,/, 'LR4: the enhanced row names no material until identified - RF6: the long name\'s own prefix, which an unidentified item has none of');
@@ -501,8 +501,8 @@ test('LR3: the Test Room\'s loot ladder - one door, thirty items (a Magic and a 
   assert.equal(LR.lootRarityOn(), true, 'the door turns the ladder on');
   // LR6: the ladder, plus the unidentified pair - one Rare and one
   // Legendary left on the floor's own reading.
-  assert.equal(added.length, 20 + LR.LEGENDARIES.length + 2 + REGALIA.length);
-  assert.deepEqual(added.filter((i) => i.rarity === 'aetheric').map((i) => i.aetheric), REGALIA.map((r) => r.id), 'SET6: the nine Regalia pieces, once each');
+  assert.equal(added.length, 20 + LR.LEGENDARIES.length + 2 + AETHERIC_RECORDS.length);
+  assert.deepEqual(added.filter((i) => i.rarity === 'aetheric').map((i) => i.aetheric), AETHERIC_RECORDS.map((r) => r.id), 'SET6: the nine Regalia pieces, once each; RAID4b: then the raids\' twenty-seven');
   assert.equal(added.filter((i) => i.rarity === 'magic').length, 10);
   assert.equal(added.filter((i) => i.rarity === 'rare').length, 11);
   const legs = added.filter((i) => i.rarity === 'legendary' && i.isIdentified);

@@ -163,6 +163,7 @@ const newAutomapRecord = () => ({
   // reads Keys[i] positionally, so the order is part of the law.
   notes: new Map(),        // id -> { position:[x,y,z], note }
   teleporters: new Map(),  // dictKey -> { entrance:{pos,yawDeg}, exit:{pos,yawDeg} }
+  trail: new Set(),        // EM3-3D: where the player has stood (automapTrailTick)
 });
 
 /** AUDIT 27h M1: a record OUTSIDE the store, for a level with no map to keep - the Burning Court (WB3b, the port's own
@@ -262,6 +263,9 @@ export function snapshotAutomap(nowMinutes = null) {
       // keeps the same field for the same purpose; it is OPTIONAL on
       // the way back in, so an A1/A2 envelope still restores.
       ...(rec.blockNames ? { blockNames: [...rec.blockNames] } : {}),
+      // EM3-3D: the walked trail, only where there is one (an older reader ignores it; see automapTrailTick)
+      ...(rec.trail?.size ? { trail: [...rec.trail] } : {}),
+      ...(rec.trailAll ? { trailAll: true } : {}),
       // c2/S8: :2199 / :2202 - the two user collections are COPIED into
       // the state on every save. Sorted-list order is the law for the
       // notes (AddNext reads Keys positionally), insertion order for the
@@ -308,6 +312,12 @@ export function restoreAutomap(snap) {
       // with. Ascending key order is rebuilt, not trusted.
       notes: sortedNoteMap(rec.notes),
       teleporters: new Map(Array.isArray(rec.teleporters) ? rec.teleporters : []),
+      // EM3-3D: the walked trail comes back where it was saved; a save without one gets one at the first scan
+      ...(Array.isArray(rec.trail) ? { trail: new Set(rec.trail) } : {}),
+      // EM3-3D fix: `trailPartial` (the first cut's flag) is NOT restored. It was set on every dungeon entered with
+      // that build - the reveal scan runs before the trail tick, so the first trail always found a map already
+      // there - and it made the sheet draw every model the scan had touched. A trail with points is the truth.
+      ...(rec.trailAll ? { trailAll: true } : {}),
     });
   }
 }
@@ -489,6 +499,7 @@ export function bindAutomapLayout(rec, model) {
     // the portals with the discovery, and does not keep half of each.
     rec.notes = new Map();
     rec.teleporters = new Map();
+    delete rec.trail; delete rec.trailAll;   // EM3-3D: the walked trail is of a layout that is gone
     rec.blockNames = [...model.blockNames];
     return false;
   }
@@ -854,13 +865,21 @@ export function teleporterDictKey(entrance, exit) {
  * Answers the key (whether or not it was new) so the caller can name the
  * marker objects with it, and `added` for the pins.
  */
-export function recordTeleporterConnection(rec, entrance, exit) {
-  if (!rec || !entrance || !exit) return null;
+/** TP-SEEN: the connection a portal WOULD record - the two raw action transforms with DFU's offsets applied - so a
+ *  portal the map shows before it is walked lands exactly where, and under exactly the key, it will once walked. */
+export function teleporterConnection(entrance, exit) {
+  if (!entrance?.pos || !exit?.pos) return null;
   const conn = {
     entrance: { pos: addOffset(entrance.pos, TELEPORTER_ENTRANCE_OFFSET), yawDeg: entrance.yawDeg ?? 0 },
     exit: { pos: addOffset(exit.pos, TELEPORTER_EXIT_OFFSET), yawDeg: exit.yawDeg ?? 0 },
   };
-  const key = teleporterDictKey(conn.entrance, conn.exit);
+  return { key: teleporterDictKey(conn.entrance, conn.exit), conn };
+}
+
+export function recordTeleporterConnection(rec, entrance, exit) {
+  if (!rec || !entrance || !exit) return null;
+  const { key, conn } = teleporterConnection(entrance, exit) ?? {};
+  if (!conn) return null;
   if (rec.teleporters.has(key)) return { key, added: false };
   rec.teleporters.set(key, conn);
   return { key, added: true };
@@ -884,6 +903,7 @@ export function revealAllAutomap(rec, model) {
     rec.visitedThisRun.add(row.key);
   }
   rec.entranceDiscovered = true;
+  rec.trailAll = true;   // EM3-3D: everything is known now, walked or not - the solid sheet draws the reveal
   return true;
 }
 
@@ -896,7 +916,42 @@ export function hideAllAutomap(rec) {
   if (!rec) return false;
   rec.revealed = new Set();
   rec.entranceDiscovered = false;
+  rec.trail = new Set(); delete rec.trailAll;   // EM3-3D: nothing is known, so nothing was walked
   return true;
+}
+
+/**
+ * EM3-3D (2026-09-27, Mac: "it should only uncover parts on the dungeon map where you went in"): THE WALKED TRAIL.
+ * DFU's reveal is by MODEL - a row the scan hits is revealed whole - and a Daggerfall dungeon's models are big, so
+ * one glance down a corridor inks rooms the player never set foot in. The held map's solid sheet draws only floor
+ * within a short walk of where the player has STOOD, so it keeps its own record of that: the feet, on a one-metre
+ * grid, at the scan's own 5 Hz. It rides the dungeon's record beside `revealed` and is saved with it.
+ *
+ * EM3-3D fix: every new record starts with an empty trail (enterDungeonAutomap), and a trail is never marked
+ * "partial" by the tick. The first cut did that whenever the record already had a reveal - which the reveal scan,
+ * running a line above this tick, had ALWAYS just made - so every dungeon fell back to drawing each model the
+ * scan had touched, whole floors the player never set foot on. Only RevealAll (`trailAll`) asks for the reveal now;
+ * a record with no trail point at all (a save older than the trail) shows its reveal until its first step.
+ */
+export const TRAIL_CELL = 1;
+export function automapTrailTick(rec, eye, eyeHeight = EYE_HEIGHT) {
+  if (!rec || !eye) return false;
+  if (!rec.trail) rec.trail = new Set();
+  const x = Math.floor(eye[0] / TRAIL_CELL), z = Math.floor(eye[2] / TRAIL_CELL);
+  const y = Math.round((eye[1] - eyeHeight) * 2) / 2;
+  const key = `${x},${y},${z}`;
+  if (rec.trail.has(key)) return false;
+  rec.trail.add(key);
+  return true;
+}
+/** The trail as world points (the middle of each cell stood in, at the feet's height). */
+export function automapTrailPoints(rec) {
+  const out = [];
+  for (const k of rec?.trail ?? []) {
+    const [x, y, z] = k.split(',').map(Number);
+    if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) out.push([(x + 0.5) * TRAIL_CELL, y, (z + 0.5) * TRAIL_CELL]);
+  }
+  return out;
 }
 
 /** DebugTeleportMode (:2665-2687): a bare toggle on the Automap

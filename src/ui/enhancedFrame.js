@@ -63,6 +63,8 @@ export const FRAME_ROLES = {
   window: ['.dlg-win', '.px-win', '.pack-win', '.loot-win', '.px-about', '.px-profile', '.hmbox',
     // PLUS8: the journey's bar (ui/enhancedTravelControl.js) - carved stone, brass fittings, the theme's ground
     '.travelpanel-bar',
+    // PLUS-MAP: the 3D dungeon map's control bar - the journey bar's carved stone, the same fittings
+    '.hmroot .hmtools',
     // PLUS-DRESS (2026-09-26, Mac: "ensure any of the new UI elements are also a part of how enhanced plus looks"): the
     // decorator (HOME2/DECOR1) is a whole window over the room - the pack's own carved frame, not a rounded card
     'body .dfdecor-card',
@@ -115,9 +117,11 @@ export const FRAME_ROLES = {
     '.trade-shell .packtab',
     // PLUS8: the journey bar's Map / Camp / Exit and the time stepper's two presses
     '.travelpanel-act', '.travelpanel-step',
+    // PLUS-MAP: the 3D map's turn, tilt, floor and view buttons
+    '.hmroot .hmtool',
     // PLUS-DRESS: the page's, the F-menu's (its Cancel stays a line of text), the duel's and the decorator's
     'body .dfpage-btn', 'body .dfpeer-btn:not(.cancel)', 'body .dfduel-btn', 'body .dfprofile-duel', 'body .dfdecor-btn', 'body .dfdecor-open'],
-  primary: ['.lv-ok', '.hmroot .act', 'body .dfdecor-place'],   // PLUS-DRESS: Place is what the decorator is for
+  primary: ['.lv-ok', '.hmroot .act:not(.hmtool)', 'body .dfdecor-place'],   // PLUS-MAP: the map's tools are plain stone   // PLUS-DRESS: Place is what the decorator is for
   // PLUS-DRESS: a press that COSTS something - leave or disband a guild, remove a member, challenge a player - the
   // button in blood rather than brass (the low-health frame's red). Each is a button above as well; this is its edge.
   warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel'],
@@ -583,7 +587,7 @@ export const ONE_PANE = ['.rest-shell .px-body > .card'];
 export const ACTION_ROWS = ['.px-sys .acts', '.px-win .card .acts', '.pack-shell .acts', '.sb-shell .sb-acts',
   '.cr-shell .sb-acts', '.hmacts', '.lv-acts'];
 export const ACTION_BUTTONS = ['.px-sys .act', '.px-win .card .act', '.pack-shell .act', '.sb-shell .sb-acts .act',
-  '.cr-shell .sb-acts .act', '.hmroot .act', '.lv-ok', '.talk-head .act', '.talk-say .act'];
+  '.cr-shell .sb-acts .act', '.hmroot .act:not(.hmtool)', '.lv-ok', '.talk-head .act', '.talk-say .act'];
 export const LAYOUT_CSS = `
 /* ── LAYOUT1: BUTTON ROWS (ui/enhancedFrame.js) ─────────────────── */
 ${list(ACTION_ROWS)} { justify-content: center; gap: 10px; }

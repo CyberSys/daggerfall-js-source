@@ -48,10 +48,10 @@ test('SIGIL-UI the view: the stage it stands at in MY hand (the lower of its gro
   _resetSigilForTests();
 });
 
-test('SIGIL-UI the block: the rune, "Sigil" and the stage, what it gives now and at Ascendant, five gems (grown, and lit where my Renown lets it burn), a progress bar at its share with the numbers and the fight that won it; held says the Renown it waits for, fresh says how it grows, dormant says it wakes online (mutants: the gems unlit, the bar\'s share lost, the held note dropped)', () => {
+test('SIGIL-UI the block: the rune, "Sigil" and the stage, what it gives now and at Ascendant, five gems (grown, and lit where my Renown lets it burn), a progress bar at its share with the numbers and the fight that won it; held says the Renown it waits for, fresh says how it grows, dormant says it wakes online - the Info box\'s whole dress (CARD-FIT); the card\'s is two rows - the stage and the numbers, the five stages as one bar with the stage it grows into filled as far as it has drunk, the blow in a line, the Renown\'s hold (mutants: the gems unlit, the bar\'s share lost, the held note dropped; the card\'s fill on the wrong stage; the card\'s long words back)', () => {
   withDom(() => {
     online(15);
-    const box = sigilCard(sword(7420));
+    const box = sigilCard(sword(7420), { full: true });
     assert.equal(box.tagName, 'SECTION');
     assert.equal(box.className, 'sigilbox');
     assert.equal(box.dataset.stage, '1');
@@ -69,16 +69,34 @@ test('SIGIL-UI the block: the rune, "Sigil" and the stage, what it gives now and
     assert.equal(one(box, 'sigil-progress').children[0].textContent, '7,420 / 12,500 to Bright');
     assert.equal(one(box, 'sigil-party').textContent, 'won in a fight of 3');
     assert.equal(one(box, 'sigil-note'), null, 'neither held nor fresh: no note');
-    const held = sigilCard(sword(23900));
+    const held = sigilCard(sword(23900), { full: true });
     assert.equal(one(held, 'sigil-note').textContent, 'Your Renown holds it at Kindled - Bright at Renown 20');
     assert.deepEqual(kids(held, 'sigil-gem').map((g) => g.className), ['sigil-gem grown awake', 'sigil-gem grown awake', 'sigil-gem grown', 'sigil-gem grown', 'sigil-gem']);
-    const fresh = sigilCard(sword(0, { sigil: { power: 3, party: 1, xp: 0 } }));
+    const fresh = sigilCard(sword(0, { sigil: { power: 3, party: 1, xp: 0 } }), { full: true });
     assert.equal(one(fresh, 'sigil-note').textContent, 'It grows as this weapon earns Renown in your hand.');
     assert.equal(one(fresh, 'sigil-party'), null, 'a fight of one is not a fight to boast of');
+    // CARD-FIT: THE CARD'S DRESS - two rows, and a line for the blow
+    const c = sigilCard(sword(7420));
+    assert.equal(c.className, 'sigilbox compact');
+    assert.equal(one(c, 'sigil-stage').textContent, 'Kindled');
+    assert.equal(one(c, 'sigil-progress').textContent, '7,420/12,500');
+    assert.equal(one(c, 'sigil-progress').title, '7,420 / 12,500 to Bright', 'the words under the pointer');
+    const cg = kids(c, 'sigil-gem');
+    assert.deepEqual(cg.map((g) => g.className), ['sigil-gem grown awake', 'sigil-gem grown awake', 'sigil-gem next', 'sigil-gem', 'sigil-gem'], 'the stage it grows into is the one filling');
+    assert.equal(cg[2].dataset.fill, '32.3%');
+    assert.equal(one(c, 'sigil-stages').getAttribute('role'), 'progressbar');
+    assert.equal(one(c, 'sigil-stages').getAttribute('aria-valuenow'), '32');
+    assert.equal(one(c, 'sigil-effect').textContent, '+2.4% damage (up to +6%)');
+    for (const cls of ['sigil-meter', 'sigil-party', 'sigil-note']) assert.equal(one(c, cls), null, `no ${cls} on the card`);
+    const cheld = sigilCard(sword(23900));
+    assert.equal(one(cheld, 'sigil-note').textContent, 'Renown holds it: Bright at Renown 20');
+    assert.deepEqual(kids(cheld, 'sigil-gem').map((g) => g.className.includes('next')), [false, false, false, false, true], 'its OWN growth fills - Radiant drunk, Ascendant filling - whatever my Renown lets it burn at');
+    assert.equal(one(sigilCard(sword(0, { sigil: { power: 3, party: 1, xp: 0 } })), 'sigil-note'), null, 'how a sigil grows is the Info box\'s');
     setSigilOnline(false);
-    const dormant = sigilCard(sword(7420));
+    const dormant = sigilCard(sword(7420), { full: true });
     assert.equal(dormant.dataset.stage, 'dormant');
     assert.equal(one(dormant, 'sigil-effect').textContent, 'Wakes online, with your Renown: +6% damage at Ascendant');
+    assert.equal(one(sigilCard(sword(7420)), 'sigil-effect').textContent, 'Wakes online: up to +6% damage');
     assert.equal(sigilCard({ name: 'Mace' }), null);
     _resetSigilForTests();
   });
@@ -100,9 +118,9 @@ test('SIGIL-UI the card carries the BLOCK, not three more lines: the tier list l
   assert.ok(all.some((l) => /Kindled/.test(l)));
   assert.ok(!bare.some((l) => /Kindled|[Ss]igil/.test(l)), 'the card\'s own list does not');
   const inv = read('src/ui/enhancedInventory.js');
-  assert.match(inv, /itemPowerLines\(picked, deps, \{ set: false \}\)[^\n]*\n[^\n]*\n[^\n]*\n\s+\{ const sb = sigilCard\(picked\); if \(sb\) c\.append\(sb\); \}/, 'the hover card: the list, then the block');   // TRADE-INFO: the list is itemPowerLines now (SET5: set: false)
-  assert.match(inv, /export function itemPowerLines\(item, d = deps, \{ set = true \} = \{\}\) \{\n  const lines = rarityLines\(item, \{ sigil: false, set \}\);/, 'and it leaves the sigil to the block');
-  assert.match(inv, /\{ const sb = sigilCard\(item\); if \(sb\) card\.append\(sb\); \}/, 'the Info box');
+  assert.match(inv, /itemPowerLines\(picked, deps, \{ set: false, lore: false \}\)[^\n]*\n[^\n]*\n[^\n]*\n\s+\{ const sb = sigilCard\(picked\); if \(sb\) into\.append\(sb\); \}/, 'the hover card: the list, then the block');   // TRADE-INFO: the list is itemPowerLines now (SET5: set: false; CARD-FIT: lore: false, and the card's words go into its body)
+  assert.match(inv, /export function itemPowerLines\(item, d = deps, \{ set = true, lore = true \} = \{\}\) \{\n  const lines = rarityLines\(item, \{ sigil: false, set, lore \}\);/, 'and it leaves the sigil to the block');
+  assert.match(inv, /\{ const sb = sigilCard\(item, \{ full: true \}\); if \(sb\) body\.append\(sb\); \}/, 'the Info box - whole');
   _resetSigilForTests();
 });
 

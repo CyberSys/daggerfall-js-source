@@ -709,7 +709,7 @@ const identified = (item) => !enchanted(item) || item?.isIdentified === true;
  *  Regalia's; it imports this file, so this one cannot import it). `fn(item) -> string | null`. */
 let _aethericLore = null;
 export function registerAethericLore(fn) { _aethericLore = typeof fn === 'function' ? fn : null; }
-export function rarityLines(item, { sigil = true, set = true } = {}) {
+export function rarityLines(item, { sigil = true, set = true, lore = true } = {}) {
   if (!lootRarityOn() || !item) return [];
   const tier = rarityOf(item);
   if (tier === 'common') return [];
@@ -726,8 +726,8 @@ export function rarityLines(item, { sigil = true, set = true } = {}) {
   }
   if (sigil) out.push(...setSigilLines(item));   // SIGIL1: what the sigil gives in my hand, and how far it has grown (AUDIT SET U11: a set piece's, asleep in a duel)
   if (set) out.push(...setLines(item));   // SET5: its set - what is worn of it, and its three tiers (a card that draws the set's block asks without)
-  const lore = item.legendary ? legendaryById(item.legendary)?.lore : item.aetheric ? (_aethericLore?.(item) ?? null) : null;   // SET6: an Aetheric piece's own
-  if (lore) out.push(lore);
+  const words = !lore ? null : item.legendary ? legendaryById(item.legendary)?.lore : item.aetheric ? (_aethericLore?.(item) ?? null) : null;   // SET6: an Aetheric piece's own; CARD-FIT: the card's list asks without (the Info box says it)
+  if (words) out.push(words);
   return out;
 }
 /** The skin colour for an item's name, or null for Common / off. */

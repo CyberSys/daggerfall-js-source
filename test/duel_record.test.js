@@ -140,8 +140,8 @@ test('DUEL1 the worker: /v1/duel/loss and /v1/duel/record behind a session, neit
   const { call } = await stand();
   assert.ok(ROUTES.has('/v1/duel/loss') && ROUTES.has('/v1/duel/record'));
   assert.ok(!OPEN_ROUTES.has('/v1/duel/loss') && !OPEN_ROUTES.has('/v1/duel/record'));
-  assert.equal(ACCOUNT_VERSION, 'acct16');   // HOME-STATIONS moved it on (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); SHADOW-FANG's title and glyph moved it on (acct14 - acct12 on its branch); RENOWN4's total in the mint's answer and GUILD1c's guild on the token and its orders moved it on (acct13 - acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12); BASE-HIDE's taken-out furniture moved it on (acct12); DUEL1 was acct8; FOUNDER2's cutoff moved it on (acct9); RENOWN1's Renown, HOME1's homes, DECOR1's decor and GUILD1's guilds, one deploy, moved it again (acct10 - acct9 on the branch); WB5b's gates closed again (acct11 - acct10 on its branch)
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct16"/);
+  assert.equal(ACCOUNT_VERSION, 'acct18');   // AUDIT RAID moved it on (acct18: a town's thanks once a raid and account, a raid's Renown the hour's); before it RAID4 (acct17: the towns defended - a raid's receipt counted and paid in Renown); before it HOME-STATIONS (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); SHADOW-FANG's title and glyph moved it on (acct14 - acct12 on its branch); RENOWN4's total in the mint's answer and GUILD1c's guild on the token and its orders moved it on (acct13 - acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12); BASE-HIDE's taken-out furniture moved it on (acct12); DUEL1 was acct8; FOUNDER2's cutoff moved it on (acct9); RENOWN1's Renown, HOME1's homes, DECOR1's decor and GUILD1's guilds, one deploy, moved it again (acct10 - acct9 on the branch); WB5b's gates closed again (acct11 - acct10 on its branch)
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct18"/);
   const me = (await call('POST', '/v1/auth/guest', {})).body;
   const them = (await call('POST', '/v1/auth/guest', {})).body;
   // AUDIT DUEL1 A1: a guest's loss is fought, not counted - the record is between registered accounts
@@ -153,7 +153,7 @@ test('DUEL1 the worker: /v1/duel/loss and /v1/duel/record behind a session, neit
   assert.equal((await call('POST', '/v1/duel/record', { id: them.id })).status, 401);
   const r = await call('POST', '/v1/duel/loss', { winner: them.id, loser: them.id }, me.secret);
   assert.deepEqual(r.body, { recorded: true, wins: 0, losses: 1 }, 'the session is the loser, whatever the body says');
-  assert.deepEqual((await call('POST', '/v1/duel/record', { id: them.id }, me.secret)).body, { id: them.id, wins: 1, losses: 0, gates: { closed: 0 } }, 'WB5b: the gates closed ride the same answer');
+  assert.deepEqual((await call('POST', '/v1/duel/record', { id: them.id }, me.secret)).body, { id: them.id, wins: 1, losses: 0, gates: { closed: 0 }, raids: { defended: 0 } }, 'WB5b: the gates closed ride the same answer (RAID4: and the towns defended)');
   assert.equal((await call('POST', '/v1/duel/record', { id: 'nobody-here' }, me.secret)).status, 404);
   assert.equal((await call('POST', '/v1/duel/loss', { winner: me.id }, me.secret)).body.error, 'self');
   const acct = (await call('GET', '/v1/account', undefined, them.secret)).body.account;

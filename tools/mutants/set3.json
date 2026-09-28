@@ -416,7 +416,7 @@
   {
     "name": "SET3-said-before-its-time",
     "file": "src/systems/sigilSetPowers.js",
-    "old": "    if (now < READY[k].at()) continue;\n",
+    "old": "    if (now < r.at()) continue;\n",
     "new": "",
     "tests": [
       "test/set3_powers.test.js"
@@ -434,8 +434,8 @@
   {
     "name": "SET3-said-in-a-duel",
     "file": "src/systems/sigilSetPowers.js",
-    "old": "if (setsAwake()) say(READY[k].line);",
-    "new": "say(READY[k].line);",
+    "old": "if (tierOf(entity, r.set, r.tier) && (!r.spent || r.spent())) say(r.line);",
+    "new": "if (!r.spent || r.spent()) say(r.line);",
     "tests": [
       "test/set3_powers.test.js"
     ]
@@ -461,7 +461,7 @@
   {
     "name": "SET3-the-powers-never-imported",
     "file": "src/scenes/world.js",
-    "old": "import { setSetPowersVoice, setHudChips } from '../systems/sigilSetPowers.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips\n",
+    "old": "import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips\n",
     "new": "",
     "tests": [
       "test/set3_powers.test.js"

@@ -254,7 +254,7 @@ test('SET4 the rise: said ONCE FOR A SET when its own rank - its lowest piece\'s
 test('SET4 the rise lines: every set at every stage in its own words; the Renown\'s hold named with the Renown that frees it; nothing for a set or a stage that is not one (mutants: the Renown\'s hold unsaid)', () => {
   fresh(); online(40);
   for (const set of Object.values(SIGIL_SETS)) {
-    for (let rank = 0; rank < SIGIL_STAGES.length; rank++) assert.equal(setRiseLine(set.id, rank), `Your ${set.name} brightens: ${SIGIL_STAGES[rank].name}.`);
+    for (let rank = 0; rank < SIGIL_STAGES.length; rank++) assert.equal(setRiseLine(set.id, rank), `${/^The /.test(set.name) ? set.name : `Your ${set.name}`} brightens: ${SIGIL_STAGES[rank].name}.`);   // AUDIT SETS L2: never "Your The ..." 
   }
   setSigilRenown(1);
   assert.equal(setRiseLine('ruhn', 4), 'Your Ruhn\'s Regalia brightens: Ascendant. Your Renown holds it at Faint until Renown 10.');

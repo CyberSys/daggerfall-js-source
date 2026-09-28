@@ -77,12 +77,28 @@ export const CLEAVE_METRES = 3;
 export const WRATH_BELOW = 0.3;
 export const NOVA_METRES = 6;
 export const WRATH_SECONDS = 10;
+/** RAID4b, The Broken Oath (4): Riposte's window, after a foe's blow lands on you, for the one blow it sharpens. */
+export const RIPOSTE_SECONDS = 4;
+/** RAID4b, The Thief-Taker's Garb (6): No Escape marks the nearest other foe within this many metres, for this long. */
+export const MARK_METRES = 12;
+export const MARK_SECONDS = 10;
+/** RAID4b, Orcsbane Harness (4): Blood for Blood's stacks - each foe's blow that lands adds one and refreshes them all. */
+export const BLOOD_SECONDS = 8;
+export const BLOOD_STACKS = 5;
 
-const tier = (at, key, name, values, text) => Object.freeze({ at, key, name, values: Object.freeze(values), text });
+/** CARD-FIT (2026-09-28, Discord - Cruor: "New sigil items descriptor is a bit long!"): a tier's BRIEF - what it does in
+ *  a few words, one line of the card's row, and every line a tooltip, a trade or a chat post prints of it; `text` stays
+ *  the whole sentence, which the Info box and a row's hover read. A recovery is never in the brief - it is the tier's
+ *  `recover` number, which the card draws as its own tag and a line says after the brief. No brief runs past BRIEF_MAX
+ *  at any stage (test/cardfit.test.js holds every set's, a new one's too), so a set can never again push a card's
+ *  buttons off the screen by its words. */
+export const BRIEF_MAX = 32;
+const tier = (at, key, name, values, text, brief) => Object.freeze({ at, key, name, values: Object.freeze(values), text, brief });
 
 /**
  * THE SETS. Each: its id (the sigil's `set`), its name, its Prince, its colour, the one line that says what it is for,
- * `aetheric` for a boss's own, and its three tiers - each `{ at, key, name, values: { name: [faint, ascendant] },
+ * `aetheric` for a boss's own (and a raid's - RAID4b: `raid` names the raiding party whose raids pay it, the receipt's
+ * `y`: 0 knights, 1 bandits, 2 orcs), and its three tiers - each `{ at, key, name, values: { name: [faint, ascendant] },
  * text(v) }`, `text` saying the tier with the numbers of a stage.
  */
 export const SIGIL_SETS = Object.freeze({
@@ -91,11 +107,14 @@ export const SIGIL_SETS = Object.freeze({
     role: 'The one who will not fall',
     tiers: Object.freeze([
       tier(2, 'orc-hide', 'Orc-Hide', { armor: [2, 5], endurance: [2, 6] },
-        (v) => `+${v.armor} armour on every part, +${v.endurance} Endurance`),
+        (v) => `+${v.armor} armour on every part, +${v.endurance} Endurance`,
+        (v) => `+${v.armor} armour, +${v.endurance} Endurance`),
       tier(4, 'spite', 'Spite of the Spurned', { back: [10, 30] },
-        (v) => `A foe whose blow lands on you takes ${v.back}% of it back`),
+        (v) => `A foe whose blow lands on you takes ${v.back}% of it back`,
+        (v) => `Return ${v.back}% of blows that land`),
       tier(6, 'unbroken', 'Unbroken', { halved: [4, 8], recover: [300, 150] },
-        (v) => `Damage that would kill you leaves you at 1 health instead, and all damage you take is halved for ${v.halved} s. Recovers in ${v.recover} s`),
+        (v) => `Damage that would kill you leaves you at 1 health instead, and all damage you take is halved for ${v.halved} s. Recovers in ${v.recover} s`,
+        (v) => `Cheat death, then half damage ${v.halved}s`),
     ]),
   }),
   dagon: Object.freeze({
@@ -103,11 +122,14 @@ export const SIGIL_SETS = Object.freeze({
     role: 'The one who does not stop',
     tiers: Object.freeze([
       tier(2, 'ravager', 'Ravager', { strength: [2, 6], critical: [4, 12] },
+        (v) => `+${v.strength} Strength, +${v.critical} Critical Strike`,
         (v) => `+${v.strength} Strength, +${v.critical} Critical Strike`),
       tier(4, 'bloodfury', 'Bloodfury', { more: [4, 12] },
-        (v) => `Your weapon blows deal +${v.more}% damage, +${v.more * 2}% below half health`),
+        (v) => `Your weapon blows deal +${v.more}% damage, +${v.more * 2}% below half health`,
+        (v) => `+${v.more}% damage, +${v.more * 2}% below half HP`),
       tier(6, 'rampage', 'Rampage', { stack: [4, 10] },
-        (v) => `Each kill grants a Rampage stack for ${RAMPAGE_SECONDS} s, up to ${RAMPAGE_STACKS}: +${v.stack}% weapon damage a stack`),
+        (v) => `Each kill grants a Rampage stack for ${RAMPAGE_SECONDS} s, up to ${RAMPAGE_STACKS}: +${v.stack}% weapon damage a stack`,
+        (v) => `+${v.stack}% a kill, up to ${RAMPAGE_STACKS} (${RAMPAGE_SECONDS}s)`),
     ]),
   }),
   nocturnal: Object.freeze({
@@ -115,11 +137,14 @@ export const SIGIL_SETS = Object.freeze({
     role: 'The one who is not seen',
     tiers: Object.freeze([
       tier(2, 'shadows-grace', "Shadow's Grace", { stealth: [4, 12], agility: [2, 6] },
+        (v) => `+${v.stealth} Stealth, +${v.agility} Agility`,
         (v) => `+${v.stealth} Stealth, +${v.agility} Agility`),
       tier(4, 'nightfall', 'Nightfall Strike', { more: [25, 60] },
-        (v) => `A weapon blow at a foe that has not noticed you deals +${v.more}% damage, arrows too`),
+        (v) => `A weapon blow at a foe that has not noticed you deals +${v.more}% damage, arrows too`,
+        (v) => `+${v.more}% on a foe unaware of you`),
       tier(6, 'eventide', 'Eventide', { rounds: [1, 3], recover: [30, 15] },
-        (v) => `A kill wraps you in shadow (Chameleon) for ${v.rounds * ROUND_SECONDS} s. Recovers in ${v.recover} s`),
+        (v) => `A kill wraps you in shadow (Chameleon) for ${v.rounds * ROUND_SECONDS} s. Recovers in ${v.recover} s`,
+        (v) => `A kill: Chameleon ${v.rounds * ROUND_SECONDS}s`),
     ]),
   }),
   mora: Object.freeze({
@@ -127,11 +152,14 @@ export const SIGIL_SETS = Object.freeze({
     role: 'The one who knows',
     tiers: Object.freeze([
       tier(2, 'forbidden-lore', 'Forbidden Lore', { intelligence: [2, 6], schools: [2, 6] },
-        (v) => `+${v.intelligence} Intelligence, +${v.schools} to every school of magic`),
+        (v) => `+${v.intelligence} Intelligence, +${v.schools} to every school of magic`,
+        (v) => `+${v.intelligence} Intelligence, +${v.schools} every school`),
       tier(4, 'waters', 'Waters of Oblivion', { less: [5, 15] },
-        (v) => `Your spells cost ${v.less}% less magicka`),
+        (v) => `Your spells cost ${v.less}% less magicka`,
+        (v) => `Spells cost ${v.less}% less`),
       tier(6, 'eye', 'Eye of Mora', { absorb: [10, 30] },
-        (v) => `A Destruction spell that strikes you is absorbed ${v.absorb}% of the time - its magicka yours, if you have room for it`),
+        (v) => `A Destruction spell that strikes you is absorbed ${v.absorb}% of the time - its magicka yours, if you have room for it`,
+        (v) => `Absorb ${v.absorb}% of Destruction spells`),
     ]),
   }),
   ruhn: Object.freeze({
@@ -139,17 +167,72 @@ export const SIGIL_SETS = Object.freeze({
     role: 'The Warden of the Burning Gate, worn',
     tiers: Object.freeze([
       tier(2, 'burning-gate', 'The Burning Gate', { fire: [15, 45], sear: [2, 6] },
-        (v) => `+${v.fire} fire resistance; your weapon blows sear for ${v.sear} more damage`),
+        (v) => `+${v.fire} fire resistance; your weapon blows sear for ${v.sear} more damage`,
+        (v) => `+${v.fire} fire resist, +${v.sear} fire a blow`),
       tier(4, 'cleave', 'Cleave', { share: [25, 60] },
-        (v) => `Your melee blows also strike the nearest other foe within ${CLEAVE_METRES} m of your target for ${v.share}% of the blow`),
+        (v) => `Your melee blows also strike the nearest other foe within ${CLEAVE_METRES} m of your target for ${v.share}% of the blow`,
+        (v) => `Melee splashes ${v.share}% to a 2nd foe`),
       tier(6, 'wrath', 'Wrath of the Warden', { nova: [10, 40], more: [10, 25], recover: [180, 90] },
-        (v) => `When a blow takes you below ${Math.round(WRATH_BELOW * 100)}% health, a Flame Nova deals ${v.nova} damage to every foe within ${NOVA_METRES} m, and your weapon blows deal +${v.more}% for ${WRATH_SECONDS} s. Recovers in ${v.recover} s`),
+        (v) => `When a blow takes you below ${Math.round(WRATH_BELOW * 100)}% health, a Flame Nova deals ${v.nova} damage to every foe within ${NOVA_METRES} m, and your weapon blows deal +${v.more}% for ${WRATH_SECONDS} s. Recovers in ${v.recover} s`,
+        (v) => `Under ${Math.round(WRATH_BELOW * 100)}%: Nova ${v.nova}, +${v.more}% damage`),
+    ]),
+  }),
+  // RAID4b (2026-09-28, Mac on World Events - Raiding Parties online: "3. We can also add renown and it's own atheric +
+  // armor sets"): THE RAIDING PARTIES' OWN - three Aetheric sets no world drop, shelf or Broker rolls; a town defended
+  // pays a piece of the set of the party it was defended against (systems/raidSpoils.js). Their Prince is the Bay's
+  // towns: a raid is fought for them, not for a Daedra.
+  oath: Object.freeze({
+    id: 'oath', name: 'The Broken Oath', prince: 'The towns of the Bay', colour: '#a9bfd6', aetheric: true, raid: 0,
+    role: 'The shield the town stands behind',
+    tiers: Object.freeze([
+      tier(2, 'watch-oath', 'Oath of the Watch', { armor: [1, 4], willpower: [2, 6] },
+        (v) => `+${v.armor} armour on every part, +${v.willpower} Willpower`,
+        (v) => `+${v.armor} armour, +${v.willpower} Willpower`),
+      tier(4, 'riposte', 'Riposte', { more: [15, 40] },
+        (v) => `When a foe's blow lands on you, your next weapon blow within ${RIPOSTE_SECONDS} s deals +${v.more}% damage`,
+        (v) => `Hit: your next blow +${v.more}% (${RIPOSTE_SECONDS}s)`),
+      tier(6, 'hold-the-line', 'Hold the Line', { less: [10, 25] },
+        (v) => `While you are under half health, you take ${v.less}% less damage`,
+        (v) => `${v.less}% less damage below half HP`),
+    ]),
+  }),
+  thieftaker: Object.freeze({
+    id: 'thieftaker', name: "The Thief-Taker's Garb", prince: 'The towns of the Bay', colour: '#d2a45e', aetheric: true, raid: 1,
+    role: 'The one who runs them down',
+    tiers: Object.freeze([
+      tier(2, 'keen-eyed', 'Keen-Eyed', { agility: [2, 6], archery: [4, 12] },
+        (v) => `+${v.agility} Agility, +${v.archery} Archery`,
+        (v) => `+${v.agility} Agility, +${v.archery} Archery`),
+      tier(4, 'run-them-down', 'Run Them Down', { more: [8, 20] },
+        (v) => `Your weapon blows deal +${v.more}% damage to a foe under half health, arrows too`,
+        (v) => `+${v.more}% on foes below half HP`),
+      tier(6, 'no-escape', 'No Escape', { more: [15, 40] },
+        (v) => `A kill marks the nearest other foe within ${MARK_METRES} m for ${MARK_SECONDS} s: your weapon blows deal it +${v.more}% damage`,
+        (v) => `Kill marks next foe: +${v.more}% (${MARK_SECONDS}s)`),
+    ]),
+  }),
+  orcsbane: Object.freeze({
+    id: 'orcsbane', name: 'Orcsbane Harness', prince: 'The towns of the Bay', colour: '#8aac5c', aetheric: true, raid: 2,
+    role: 'The one the horde breaks against',
+    tiers: Object.freeze([
+      tier(2, 'thick-skinned', 'Thick-Skinned', { endurance: [2, 6], blunt: [4, 12] },
+        (v) => `+${v.endurance} Endurance, +${v.blunt} Blunt Weapon`,
+        (v) => `+${v.endurance} Endurance, +${v.blunt} Blunt Weapon`),
+      tier(4, 'blood-for-blood', 'Blood for Blood', { stack: [3, 8] },
+        (v) => `Each foe's blow that lands on you grants a stack for ${BLOOD_SECONDS} s, up to ${BLOOD_STACKS}: +${v.stack}% weapon damage a stack`,
+        (v) => `+${v.stack}% a blow taken, up to ${BLOOD_STACKS} (${BLOOD_SECONDS}s)`),
+      tier(6, 'iron-hide', 'Iron Hide', { ward: [10, 40], recover: [60, 30] },
+        (v) => `A kill wards you: the next ${v.ward} damage you take is turned aside. Recovers in ${v.recover} s`,
+        (v) => `A kill: a ${v.ward}-point ward`),
     ]),
   }),
 });
 /** The sets of the world (the four any win may roll), and every set, in the registry's order. */
 export const WORLD_SET_IDS = Object.freeze(Object.values(SIGIL_SETS).filter((s) => !s.aetheric).map((s) => s.id));
 export const setById = (id) => (typeof id === 'string' && Object.hasOwn(SIGIL_SETS, id) ? SIGIL_SETS[id] : null);
+/** RAID4b: the set a raiding party's raids pay (the receipt's `y`), or null - only a set that names a party answers
+ *  (a world set names none: read bare, `undefined` would have matched every one of them). */
+export const raidSetOf = (party) => Object.values(SIGIL_SETS).find((s) => 'raid' in s && s.raid === party) ?? null;
 
 /** A number of a tier at a stage: its place on the line from Faint to Ascendant, rounded. Stage clamped to 0..4. */
 export function stageValue(pair, stage) {
@@ -242,7 +325,8 @@ export function setState(id, pieces, renown, awake = true, { text = true } = {})
     tiers: set.tiers.map((t) => {
       const values = tierValues(t, at);
       return { at: t.at, key: t.key, name: t.name, awake: stage >= 0 && count >= t.at, values, text: text ? t.text(values) : '',
-        full: text ? t.text(tierValues(t, SET_STAGE_MAX)) : '' };
+        full: text ? t.text(tierValues(t, SET_STAGE_MAX)) : '', brief: text ? t.brief(values) : '',   // CARD-FIT: the card's row
+        recover: Number.isFinite(values.recover) ? values.recover : null };   // ...and its recovery, the card's own tag
     }),
   };
 }
@@ -302,7 +386,7 @@ const lowestRank = (pieces) => pieces.reduce((low, p) => Math.min(low, sigilRank
 export function setRiseLine(id, rank) {
   const set = setById(id), stage = SIGIL_STAGES[rank];
   if (!set || !stage) return null;
-  const line = `Your ${set.name} brightens: ${stage.name}.`;
+  const line = `${/^The /.test(set.name) ? set.name : `Your ${set.name}`} brightens: ${stage.name}.`;   // AUDIT SETS L2: never "Your The Broken Oath"
   const cap = renownSigilStage(sigilRenown());
   if (cap < 0 || cap >= rank) return line;
   return `${line} Your Renown holds it at ${SIGIL_STAGES[cap].name} until Renown ${SIGIL_STAGES[cap + 1].renown}.`;
@@ -392,14 +476,16 @@ export function setSigilLines(item) {
   const lines = sigilLines(item);
   return lines.length && _dueling && setIdOf(item) && !sigilHasBlow(item.sigil) ? ['Sigil (asleep in a duel)'] : lines;
 }
-/** The set in words, for a tooltip that prints lines (the classic skin's, a plaque's): its name and what is worn, then a
- *  line a tier - which are awake, and what each wants. Plain ASCII, as the classic font draws. [] for no set piece. */
+/** The set in words, for a tooltip that prints lines (the classic skin's, a plaque's, the trade window's, a chat post):
+ *  its name and what is worn, then a line a tier - which are awake, and what each wants. CARD-FIT: each tier by its
+ *  BRIEF (a whole sentence a tier ran to 160 characters, and a set piece's lines to four screens' width); the sentence
+ *  is the Info box's. [] for no set piece. */
 export function setLines(item, wearer = setsWearer()) {
   const v = setCardView(item, wearer);
   if (!v) return [];
   const why = setSleepText(v.sleep);
   const head = `${v.name}: ${v.count} of ${v.of} worn${v.stageName ? `, ${v.stageName}` : ''}${why ? ` (${why})` : ''}`;
-  return [head, ...v.tiers.map((t) => `${t.at} pieces - ${t.name}: ${t.text}${t.awake ? '' : v.count < t.at ? ` (${t.at - v.count} more)` : ' (asleep)'}`)];
+  return [head, ...v.tiers.map((t) => `${t.at} pieces - ${t.name}: ${t.brief}${t.recover != null ? `, every ${t.recover}s` : ''}${t.awake ? '' : v.count < t.at ? ` (${t.at - v.count} more)` : ' (asleep)'}`)];
 }
 
 /** Tests only: forget the duel and the wearer. */
