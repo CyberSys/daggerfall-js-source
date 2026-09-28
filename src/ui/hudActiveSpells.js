@@ -47,7 +47,7 @@
 // are already a Ledger note on ui/spellIcons.js and stay one.
 
 import { drawSpellIcon, spellIconsLoaded } from './spellIcons.js';
-import { liveBundles } from '../systems/mysticism.js';
+import { liveBundles, canEndBundle } from '../systems/mysticism.js';   // BUFF-END: and which the player may end
 import { getString } from '../systems/settings.js';
 import { nativeMetrics, pointToNative } from './nativePanel.js';
 
@@ -141,6 +141,8 @@ export function activeSpellIcons(entity) {
       poolIndex: poolIndex++,
       expiring: maxRoundsRemaining(bundle) < 2,
       isItem: bundle.bundleType === 'HeldMagicItem',
+      bundleId: bundle.bundleId,         // BUFF-END: the bundle a right-click ends...
+      endable: canEndBundle(bundle),     // ...when it is the player's to end (ui/hudLarge.js routeSpellIconClick)
     };
     // SPELL-GIFT (2026-09-27, Tabitha: "the feedback for buffing other players is non-existent"): a GIFT - another
     // player's beneficial spell (ALLY-CAST's bundleAlly, only ever the beneficial families) - is a buff, and sorts with

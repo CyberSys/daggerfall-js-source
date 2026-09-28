@@ -100,8 +100,8 @@ test('the classic door still gates its data first', () => {
 test('only game actions resolve the door - never a destination', () => {
   const src = read('src/ui/enhancedMenu.js');
   const calls = [...new Set([...src.matchAll(/onAction\('([a-z]+)'\)/g)].map((m) => m[1]))].sort();
-  assert.deepEqual(calls, ['begin', 'continue', 'exit', 'load', 'new', 'online', 'resume', 'save'],
-    'boot resolves continue/new/load/online (and begin on the classic rail, FD1); pause resolves resume/save/exit');
+  assert.deepEqual(calls, ['begin', 'continue', 'exit', 'handoff', 'load', 'new', 'online', 'resume', 'save'],
+    'boot resolves continue/new/load/online (and begin on the classic rail, FD1); pause resolves resume/save/exit, and handoff - ESC-BOOK: the Stats page\'s doors, which leave for another window');
   for (const dest of ['settings', 'mods', 'about']) {
     assert.ok(!calls.includes(dest),
       `${dest} is a destination INSIDE this screen, not an exit from it`);

@@ -140,6 +140,8 @@ export function pauseMenuHooks(base, seamsOf) {
 export function pauseMenuAct(hooks, close) {
   return (action) => {
     close();
+    // ESC-BOOK: a door that opens ANOTHER window hands the slot on - no relock under it, no return to a classic window.
+    if (action === 'handoff') return;
     // DISC22-B: opened from the classic pause window, Resume goes back to that window - the settings were a page of
     // it, not the way out of it (save, load and exit still leave as they always do).
     if (action === 'resume' && typeof hooks.onResume === 'function') { hooks.onResume(); return; }
@@ -286,7 +288,7 @@ function enhancedPauseOverlay(show, base) {
   function openAscend() {
     if (fired || ascendHost || !playerEntity) return;
     if (playerEntity.readyToLevelUp) {
-      act('resume');   // down first, then the level-up takes the slot it frees (the Pack button's own order)
+      act('handoff');   // down first, then the level-up takes the slot it frees (the Pack button's own order - ESC-BOOK's handoff; AUDIT 27h A5: a resume relocked under the level-up, and from the classic Controls route built a throwaway pause first)
       show(createCharSheetWindow({ entity: playerEntity }));
       return;
     }

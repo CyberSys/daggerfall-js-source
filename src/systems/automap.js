@@ -155,18 +155,26 @@ export const automapDungeonKey = (regionIndex, name) => `${regionIndex}/${name}`
  *  renderer re-apply (SetState :387-389, RestoreState... :2351-2422);
  *  the stamp and prune belong to SAVE time (:2155, :2216-2238), so a
  *  load must never evict records the save itself carried (A1 review). */
+const newAutomapRecord = () => ({
+  revealed: new Set(), visitedThisRun: new Set(), entranceDiscovered: false, lastVisited: 0,
+  blockNames: null,   // c2/S1: the layout the discovery was recorded against (the restore guard's input)
+  // c2/S8: AutomapDungeonState's two user-data collections (:93-94).
+  // The SortedList is a Map kept in ASCENDING KEY ORDER - AddNext
+  // reads Keys[i] positionally, so the order is part of the law.
+  notes: new Map(),        // id -> { position:[x,y,z], note }
+  teleporters: new Map(),  // dictKey -> { entrance:{pos,yawDeg}, exit:{pos,yawDeg} }
+});
+
+/** AUDIT 27h M1: a record OUTSIDE the store, for a level with no map to keep - the Burning Court (WB3b, the port's own
+ *  made level, whose M is refused). Entered on the fresh arm it took one of the remembered-dungeon slots, stamped the
+ *  newest, and pruned a real dungeon's map against it: each region's court cost one. Nothing enters, stamps, prunes,
+ *  saves or forgets through it; the exit that follows finds no live key and a player who was never inside. */
+export const detachedAutomapRecord = () => newAutomapRecord();
+
 export function enterDungeonAutomap(key, nowMinutes, { fromLoad = false } = {}) {
   let rec = _dungeons.get(key);
   if (!rec) {
-    rec = {
-      revealed: new Set(), visitedThisRun: new Set(), entranceDiscovered: false, lastVisited: 0,
-      blockNames: null,   // c2/S1: the layout the discovery was recorded against (the restore guard's input)
-      // c2/S8: AutomapDungeonState's two user-data collections (:93-94).
-      // The SortedList is a Map kept in ASCENDING KEY ORDER - AddNext
-      // reads Keys[i] positionally, so the order is part of the law.
-      notes: new Map(),        // id -> { position:[x,y,z], note }
-      teleporters: new Map(),  // dictKey -> { entrance:{pos,yawDeg}, exit:{pos,yawDeg} }
-    };
+    rec = newAutomapRecord();
     _dungeons.set(key, rec);
   }
   _inside = true;
@@ -189,10 +197,11 @@ export function exitDungeonAutomap(nowMinutes = null) {
   // transition stamps the record with the EXIT time (:2155, :2530-2534)
   const live = _liveKey ? _dungeons.get(_liveKey) : null;
   if (live && Number.isFinite(nowMinutes)) live.lastVisited = nowMinutes;
+  const wasInside = _inside;   // MAP-KEEP: a teardown after a load left no dungeon of THIS store - there is nothing to forget
   _inside = false;
   _liveKey = null;
   _live = null;   // E3: Automap.instance goes with the geometry
-  if (getInt('Map', 'AutomapNumberOfDungeons', 0, 100) === 0) _dungeons = new Map();
+  if (wasInside && getInt('Map', 'AutomapNumberOfDungeons', 0, 100) === 0) _dungeons = new Map();
 }
 
 /** The LRU prune (:2216-2238), DFU's own removal law: everything
@@ -276,6 +285,14 @@ export function snapshotAutomap(nowMinutes = null) {
 export function restoreAutomap(snap) {
   if (!snap) return;
   _dungeons = new Map();
+  // MAP-KEEP (2026-09-27, Flylighter on Discord: "Parts of the map previously filled out will randomly disappear from
+  // the 3D map"): THE STORE IS THE SAVE'S NOW, and nobody stands in any of its dungeons until the load enters one
+  // (fromLoad). The world host restores the save BEFORE it tears the scene it is leaving down, and that teardown's
+  // exit stamped the dungeon it left - in the SAVE's store - with the clock being left, and at "remember 0 dungeons"
+  // cleared the whole store it had just restored.
+  _inside = false;
+  _liveKey = null;
+  _live = null;
   for (const [key, rec] of Object.entries(snap)) {
     _dungeons.set(key, {
       revealed: new Set(rec.revealed ?? []),

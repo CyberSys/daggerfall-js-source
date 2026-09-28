@@ -94,8 +94,9 @@ test('ASCEND-ANYTIME by source: the pause window (Tab\'s dial, Escape) hands the
     'closing the Ascension puts the pause window back on Stats');
   assert.doesNotMatch(door, /^import .*(enhancedLevelUp|levelUpView)\.js/m, 'the window stays out of the boot bundle');
   // A level OWED is still the real level-up: the pause window puts itself away first (the Pack button\'s order), then
-  // the sheet key\'s own door answers - the feature adds a way in and never replaces the rollout.
-  assert.match(door, /if \(playerEntity\.readyToLevelUp\) \{\s*\n\s*act\('resume'\);[^\n]*\n\s*show\(createCharSheetWindow\(\{ entity: playerEntity \}\)\);/);
+  // the sheet key\'s own door answers - the feature adds a way in and never replaces the rollout. AUDIT 27h A5: as a
+  // HANDOFF, the Pack button's own since ESC-BOOK - a resume relocked under the level-up it was about to show.
+  assert.match(door, /if \(playerEntity\.readyToLevelUp\) \{\s*\n\s*act\('handoff'\);[^\n]*\n\s*show\(createCharSheetWindow\(\{ entity: playerEntity \}\)\);/);
   // Whatever is on top of the pause window goes with it.
   const close = door.slice(door.indexOf('const close = ()'), door.indexOf('const overlay = {'));
   assert.ok(close.indexOf('dropAscend();') > 0 && close.indexOf('dropAscend();') < close.indexOf('view?.unmount()'),
@@ -112,7 +113,7 @@ test('ASCEND-ANYTIME pause door: it hands the Stats page the hook, and close() t
 
 test('ASCEND-ANYTIME pause door: a level OWED goes to the real sheet door, nothing owed swaps in a view', () => {
   const src = read('src/ui/pauseDoor.js');
-  assert.match(src, /if \(playerEntity\.readyToLevelUp\) \{\s*\n\s*act\('resume'\);[^\n]*\n\s*show\(createCharSheetWindow\(\{ entity: playerEntity \}\)\);/);
+  assert.match(src, /if \(playerEntity\.readyToLevelUp\) \{\s*\n\s*act\('handoff'\);[^\n]*\n\s*show\(createCharSheetWindow\(\{ entity: playerEntity \}\)\);/);   // AUDIT 27h A5
   assert.match(src, /load: \(\) => import\('\.\/enhancedLevelUp\.js'\),\s*\n\s*alive: \(\) => !fired && ascendHost === h,/);
 });
 

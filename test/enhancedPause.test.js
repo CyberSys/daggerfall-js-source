@@ -479,9 +479,10 @@ test('PX25: the Stats page carries the doors, and only the ones a host handed ov
   // point of the filter rather than a gap in it.
   assert.match(fn, /\.filter\(\(\[, fn\]\) => typeof fn === 'function'\)/);
   assert.match(fn, /if \(doors\.length\) \{/);
-  // The window RESUMES before it opens: two overlays at once is the
-  // stacking bug U55 found the other way round on this seam.
-  assert.match(fn, /b\.onclick = \(\) => \{ onAction\('resume'\); fn\(\); \};/);
+  // The window goes DOWN before it opens: two overlays at once is the
+  // stacking bug U55 found the other way round on this seam. ESC-BOOK:
+  // as a handoff - the door's window takes the slot, nothing relocks.
+  assert.match(fn, /b\.onclick = \(\) => \{ onAction\('handoff'\); if \(fn\(\) === false\) onAction\('resume'\); \};/);
   assert.match(read('src/ui/enhancedStyle.js'), /\.px-sheetdoors \.act \{ min-height: 44px; \}/);
 });
 
@@ -498,12 +499,13 @@ test('PX25: every host hands the pause window the arms it already had', () => {
     const s = read(host);
     let call = s.slice(s.indexOf('openPauseFlow('), s.indexOf('openPauseFlow(') + 1200);
     // F5-QUESTS: three hosts' bags are their own arm now, SPREAD into the call and handed to F5's page too - so a
-    // spread is followed to the arm it names, and the arm is read whole.
-    const spread = /\.\.\.(pauseDoorHooks\(\)|this\.pauseHooks\(setPlayerPos\)),/.exec(call);
+    // spread is followed to the arm it names, and the arm is read whole. ESC-BOOK: the building's is the fourth.
+    const spread = /\.\.\.(pauseDoorHooks\(\)|interiorPauseHooks\(\)|this\.pauseHooks\(setPlayerPos\)),/.exec(call);
     if (spread) {
-      const from = s.indexOf(spread[1] === 'pauseDoorHooks()' ? 'const pauseDoorHooks = () => ({' : 'pauseHooks(setPlayerPos = null) {');
+      const heads = { 'pauseDoorHooks()': 'const pauseDoorHooks = () => ({', 'interiorPauseHooks()': 'const interiorPauseHooks = () => ({' };
+      const from = s.indexOf(heads[spread[1]] ?? 'pauseHooks(setPlayerPos = null) {');
       assert.ok(from > 0, `${host}: the arm the door spreads exists`);
-      call = s.slice(from, s.indexOf(spread[1] === 'pauseDoorHooks()' ? '\n  });\n' : '\n      };\n    },\n', from));
+      call = s.slice(from, s.indexOf(heads[spread[1]] ? '\n  });\n' : '\n      };\n    },\n', from));
     }
     for (const hook of ['openPack', 'openSpellbook', 'openChronicle']) {
       assert.ok(call.includes(`${hook}:`), `${host} hands over ${hook}`);

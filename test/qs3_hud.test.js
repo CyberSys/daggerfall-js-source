@@ -371,7 +371,7 @@ test('QS3: the block is written only when it CHANGED, and a phone can press it',
   // edges a hold needs (down, up, cancel, leave) and is called three
   // times, and the off cell's tap is the fifth site. MAC-R3 (2026-09-17):
   // and the MAIN cell's tap is the sixth - the hand switch.
-  assert.equal((HUD.match(/addEventListener\(/g) ?? []).length, 6, 'six listener sites, and they are these six');
+  assert.equal((HUD.match(/addEventListener\(/g) ?? []).length, 9, 'nine listener sites: these six, and the status widget\'s right-click three (BUFF-END, test/buffend.test.js)');
   assert.match(HUD, /cells\.main\.cell\.addEventListener\('pointerdown', tap\(\(\) => \{ liveOpts\.quickSwitchHand\?\.\(\); \}\)\);/, 'MAC-R3: the main cell switches hands');
   assert.equal((HUD.match(/\bbindHold\(/g) ?? []).length, 3, 'bindHold is called for exactly three slots');
   for (const e of ['pointerdown', 'pointerup', 'pointercancel', 'pointerleave']) {
