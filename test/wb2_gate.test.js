@@ -298,7 +298,15 @@ test('WB2 the door: sealed says when, open without a relay says not yet, open wi
   assert.deepEqual(composeNamer([(k) => r.pool.hoverName(k)])('gate:721')?.title, 'Oblivion Gate', 'and the ladder takes it');
   r.clock.now = r.t.sealAt + 1000;
   r.pool.frame(0.016);
-  assert.deepEqual(r.pool.hoverName('gate:721'), { title: 'Oblivion Gate', subs: ['Sealed'] }, 'sealed for the night: no countdown, the word');
+  assert.deepEqual(r.pool.hoverName('gate:721'), { title: 'Oblivion Gate', subs: ['Sealed', `Collapses in ${countdownText(r.t.wrathAt - r.clock.now)}`] },
+    'GATE-COLLAPSE: sealed for the night, and when it goes');
+  r.clock.now += GATE_SAY_MS;
+  assert.equal(r.pool.activate('gate:721'), false);
+  assert.equal(r.said.at(-1), GATE_TEXT.collapsesIn(countdownText(r.t.wrathAt - r.clock.now)), 'a press on the sealed gate says when it collapses');
+  assert.equal(GATE_TEXT.collapsesIn('6:12'), 'The gate has sealed. It collapses in 6:12.');
+  r.clock.now = r.t.wrathAt + 1000;
+  r.pool.frame(0.016);
+  assert.deepEqual(r.pool.hoverName('gate:721'), { title: 'Oblivion Gate', subs: [] }, 'collapsing: nothing left to count');
   assert.equal(r.pool.hoverName(7), null, 'a door\'s bare number is not the gate\'s (AUDIT-WH C1)');
 });
 
@@ -318,6 +326,14 @@ test('WB2 the walk through: a step across the fire inside its opening enters; be
   for (const [lx, lz] of [[7, 1], [7, -1]]) { feet = at2(lx, lz); w2.pool.frame(0.016); }
   assert.equal(w2.entered.length, 0, 'past the horns, not through the fire');
   assert.ok(w2.banners.at(-1)?.startsWith('Oblivion Gate - seals in'), 'near it, the countdown stands over the screen');
+  // GATE-COLLAPSE: sealed for the night, the banner counts down to the collapse (it said "sealed" and nothing more)
+  w2.clock.now = w2.t.sealAt + 2000;
+  w2.pool.frame(0.016);
+  assert.equal(w2.banners.at(-1), 'Oblivion Gate - sealed, collapses in 9:58');
+  w2.clock.now = w2.t.wrathAt + 1000;
+  w2.pool.frame(0.016);
+  assert.equal(w2.banners.at(-1), null, 'collapsing: no countdown over the screen');
+  w2.clock.now = w2.t.openAt + 1000;
   feet = [p2.origin[0] + GATE_BANNER_M + 5, p2.origin[1], p2.origin[2]];
   w2.pool.frame(0.016);
   assert.equal(w2.banners.at(-1), null, 'and not from afar');

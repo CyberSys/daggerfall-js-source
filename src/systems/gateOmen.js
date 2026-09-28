@@ -16,7 +16,7 @@
 // silent rather than naming nowhere.
 //
 // Not a DFU member. Ledger A (WB).
-import { gateAt, gatePhase, gateCountdown, countdownText, gateMarked, gateStands, gateBossOf, omenLine, riseLine, openLine, sealLine, wrathLine, GATE_OPEN_MINUTE, GATE_SEAL_MINUTE, GATE_DAY_MINUTES, GATE_COLLAPSE_MS, PIXEL_M } from '../net/gateLaw.js';
+import { gateAt, gatePhase, gateCountdown, countdownText, countdownWords, gateMarked, gateStands, gateBossOf, omenLine, riseLine, openLine, sealLine, wrathLine, GATE_OPEN_MINUTE, GATE_SEAL_MINUTE, GATE_WRATH_MINUTE, GATE_DAY_MINUTES, GATE_COLLAPSE_MS, PIXEL_M } from '../net/gateLaw.js';
 import { GATE_TOWN_MAX_PX } from './gateSite.js';
 
 /** Is map pixel (px, py) within the omen's ring, give or take `slack` pixels? The compass carries the gate only here:
@@ -139,7 +139,7 @@ export function createGateOmen({ now, site, say, localTime = () => null, fellAt 
         if (line === 'omen') say(omenLine({ ...words, at: at(t.day, GATE_OPEN_MINUTE) }));
         else if (line === 'rise') say(riseLine({ ...words, left: countdownText(t.openAt - now()) }));
         else if (line === 'open') say(openLine({ ...words, at: at(t.day, GATE_SEAL_MINUTE) }));
-        else if (line === 'seal') say(sealLine(words));
+        else if (line === 'seal') say(sealLine({ ...words, at: at(t.day, GATE_WRATH_MINUTE) }));   // GATE-COLLAPSE: and when it goes
         else if (line === 'wrath') say(wrathLine(words));
       }
       return current;
@@ -151,7 +151,7 @@ export function createGateOmen({ now, site, say, localTime = () => null, fellAt 
       const c = current;
       if (!c?.site || !gateMarked(c.phase)) return null;
       const cd = gateCountdown(c.t, now(), c.phase);
-      const label = cd ? `Oblivion Gate - ${cd.to === 'open' ? 'opens' : 'seals'} in ${countdownText(cd.ms)}` : 'Oblivion Gate';
+      const label = cd ? `Oblivion Gate - ${cd.to === 'collapse' ? 'sealed, ' : ''}${countdownWords(cd)}` : 'Oblivion Gate';   // GATE-COLLAPSE: the sealed hours count down too
       return { day: c.t.day, cx: c.site.ring.cx, cy: c.site.ring.cy, r: c.site.ring.r, label, phase: c.phase };
     },
     /** WBX8: THE SKY THE GATE BURNS over an eye at `eye` (scene metres): its weight (gateSkyWeight - its life by its
