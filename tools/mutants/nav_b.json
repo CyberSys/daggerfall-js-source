@@ -1,0 +1,192 @@
+[
+  {
+    "name": "NAV-B-the-smoke-born-opaque",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "p.kind === 'smoke' ? Math.min(1, k * 6) * (1 - k) :",
+    "new": "p.kind === 'smoke' ? (1 - k) :",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-swell-linear",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "(p.kind === 'smoke' ? Math.sqrt(k) : k);",
+    "new": "k;",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-newest-dropped",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "    if (keep.length > PARTICLE_BUDGET) keep.splice(0, keep.length - PARTICLE_BUDGET);",
+    "new": "    if (keep.length > PARTICLE_BUDGET) keep.length = PARTICLE_BUDGET;",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-wind-ignored",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "      if (p.kind === 'smoke') { p.vel[0] += (w[0] ?? 0) * 0.35 * t; p.vel[2] += (w[2] ?? 0) * 0.35 * t; }",
+    "new": "",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-burn-per-frame",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "    const k = clamp(dt, 0, 0.1);\n    if (r() < 14 * k)",
+    "new": "    const k = 0.05;\n    if (r() < 14 * k)",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-spray-weightless",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "      p.vel[1] = p.vel[1] * drag - (p.gravity ?? 0) * t + (p.lift ?? 0) * t;",
+    "new": "      p.vel[1] = p.vel[1] * drag + (p.lift ?? 0) * t;",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-foam-upright",
+    "file": "src/render/navalRender.js",
+    "old": "  if (p.flat) return { ax: [c * h, 0, s * h], ay: [-s * h, 0, c * h] };",
+    "new": "",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-blends-swapped",
+    "file": "src/render/navalRender.js",
+    "old": "      gl.blendFunc(gl.ONE, blend === 'add' ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA);",
+    "new": "      gl.blendFunc(gl.ONE, blend === 'add' ? gl.ONE_MINUS_SRC_ALPHA : gl.ONE);",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-front-to-back",
+    "file": "src/render/navalRender.js",
+    "old": "    alpha.sort((a, b) => d2(b) - d2(a));",
+    "new": "    alpha.sort((a, b) => d2(a) - d2(b));",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-depth-written",
+    "file": "src/render/navalRender.js",
+    "old": "    gl.depthMask(false);",
+    "new": "    gl.depthMask(true);",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-focus-unsent",
+    "file": "src/render/navalRender.js",
+    "old": "    if (u.uFocus) gl.uniform4fv(u.uFocus, r._focus);\n  }",
+    "new": "  }",
+    "tests": [
+      "test/nav_b_picture.test.js",
+      "test/tv4_weather_above.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-cap-ignored",
+    "file": "src/render/navalRender.js",
+    "old": "        if (v + 6 > cap) break;\n        const k = `${pictureOf(p)}|${blend}`;",
+    "new": "        const k = `${pictureOf(p)}|${blend}`;",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-uv-flipped",
+    "file": "src/render/navalRender.js",
+    "old": "    out[o + 3] = (sx + 1) / 2; out[o + 4] = (1 - sy) / 2;",
+    "new": "    out[o + 3] = (sx + 1) / 2; out[o + 4] = (sy + 1) / 2;",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-ribbon-along",
+    "file": "src/render/navalRender.js",
+    "old": "    let s = [d[1] * e[2] - d[2] * e[1], d[2] * e[0] - d[0] * e[2], d[0] * e[1] - d[1] * e[0]];",
+    "new": "    let s = [d[0], d[1], d[2]];",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-a-picture-coloured",
+    "file": "src/render/navalRender.js",
+    "old": "      data[i] = 255; data[i + 1] = 255; data[i + 2] = 255;",
+    "new": "      data[i] = 255; data[i + 1] = 200; data[i + 2] = 255;",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-a-batch-a-move",
+    "file": "src/scenes/navalFlames.js",
+    "old": "        move(p) { f.pos[0] = p[0]; f.pos[1] = p[1]; f.pos[2] = p[2]; },",
+    "new": "        move(p) { f.pos = [...p]; },",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-a-retired-flame-burning",
+    "file": "src/scenes/navalFlames.js",
+    "old": "        retire() { f.dead = true; unmount(f); live.delete(f); },",
+    "new": "        retire() { f.dead = true; live.delete(f); },",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-flame-scale",
+    "file": "src/scenes/navalFlames.js",
+    "old": "      art = { count, size: { w: size.width * GLOBAL_SCALE * FLAME_SCALE, h: size.height * GLOBAL_SCALE * FLAME_SCALE } };",
+    "new": "      art = { count, size: { w: size.width * GLOBAL_SCALE, h: size.height * GLOBAL_SCALE } };",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-one-run-for-all",
+    "file": "src/render/comeSailAwayRender.js",
+    "old": "    const key = Array.isArray(q.color) ? q.color.join(',') : '';",
+    "new": "    const key = '';",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-the-white-squares-back",
+    "file": "src/render/comeSailAwayRender.js",
+    "old": "    data[i] = a; data[i + 1] = a; data[i + 2] = a; data[i + 3] = a;   // white, premultiplied",
+    "new": "    data[i] = 255; data[i + 1] = 255; data[i + 2] = 255; data[i + 3] = a;",
+    "tests": [
+      "test/csa_effects.test.js"
+    ]
+  },
+  {
+    "name": "NAV-B-her-colours-struck",
+    "file": "src/scenes/navalHost.js",
+    "old": "          e.boat.flagColor = NAVAL_FACTIONS[e.ship.cls?.faction]?.flag ?? null;",
+    "new": "          e.boat.flagColor = null;",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  }
+]

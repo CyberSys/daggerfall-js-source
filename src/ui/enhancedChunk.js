@@ -182,6 +182,7 @@ export const WARM_CHUNKS = Object.freeze([
   () => import('./enhancedTavern.js'),
   () => import('./enhancedMerchantPanel.js'),
   () => import('./brokerWindow.js'),   // SET7: the Sigil Broker's window - online's, and last: the gate is the rarest door
+  () => import('./navalPlunderWindow.js'),   // NAV-F: a taken ship's plunder window - rarer still: a prize is a won sea fight
 ]);
 
 let warmed = false;

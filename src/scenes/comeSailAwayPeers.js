@@ -22,7 +22,7 @@
 import { validCsaRecord, CSA_WIRE_BOATS_MAX } from '../systems/comeSailAwayWire.js';
 import { Boat, boatAnimators, animatorOf, setLights } from '../systems/comeSailAwayBoat.js';
 import { stowSail } from '../systems/comeSailAway.js';
-import { easeToward } from '../systems/horseCartWire.js';
+import { easeToward, EASE_SNAP_M } from '../systems/horseCartWire.js';
 import { quatSlerp } from '../world/quat.js';
 import { FOES_FULL_MS } from '../net/online.js';
 
@@ -33,6 +33,8 @@ export const CSA_PEER_BUILD_BURST = CSA_WIRE_BOATS_MAX;
 export const CSA_PEER_BUILD_REFILL_MS = FOES_FULL_MS;
 /** The distinct failures said to the console (a crafted stream is its own flood). */
 const SAID_MAX = 16;
+/** NAV-H: how fast a peer's boat's measured way settles (per second) - a jump of the ease is not a ship's speed. */
+export const PEER_VEL_RATE = 4;
 
 const dist2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
 
@@ -112,7 +114,17 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
   /** One boat's frame: eased toward its word, its sails, crew and lanterns as the word says, the owner's look, its
    *  Animators stepped. */
   function pose(s, w, toScene, dt, look) {
-    s.shown = easeToward(s.shown, toScene(w.position), dt);
+    const was = s.shown;
+    const target = toScene(w.position);
+    s.shown = easeToward(s.shown, target, dt);
+    // NAV-H: its way over the water, smoothed - what a captain at sea leads his guns by (scenes/navalHost.js contacts).
+    // A snap (a crossing, a summons: easeToward's teleport) is no ship's way - the measure starts again after it
+    if (was && dist2(was, target) > EASE_SNAP_M * EASE_SNAP_M) s.vel = null;
+    else if (was && dt > 0) {
+      const v = [(s.shown[0] - was[0]) / dt, 0, (s.shown[2] - was[2]) / dt];
+      const k = 1 - Math.exp(-PEER_VEL_RATE * dt);
+      s.vel = s.vel ? [s.vel[0] + (v[0] - s.vel[0]) * k, 0, s.vel[2] + (v[2] - s.vel[2]) * k] : v;
+    }
     s.turn = s.turn ? quatSlerp(s.turn, w.rotation, 1 - Math.exp(-CSA_PEER_TURN_RATE * Math.max(0, dt))) : [...w.rotation];
     s.boat.GameObject.position = s.shown;
     s.boat.GameObject.rotation = s.turn;
@@ -185,6 +197,20 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
 
   return {
     applyOwner, sweepOwners, clearPeers, rebase, frame, setEnabled,
+    /** NAV-H: the boats other players stand at their helms, where each is and how it moves - the sea's contacts
+     *  (scenes/navalHost.js): a pirate hunts them as it hunts mine. A boat that stands nowhere (a hidden owner's) is
+     *  nobody's contact. */
+    helmBoats() {
+      const out = [];
+      for (const [owner, list] of shown) {
+        for (const s of list) {
+          if (!s?.helm || !s.shown || !s.boat.GameObject.activeSelf) continue;
+          const vel = s.vel ?? [0, 0, 0];
+          out.push({ id: owner, pos: s.shown, vel, speed: Math.hypot(vel[0], vel[2]) });
+        }
+      }
+      return out;
+    },
     /** AUDIT PRE-MERGE 0928 O4: the host's word on each other player's look - 'hidden', a concealed visual, or null. */
     setPeerLook(fn) { peerLook = typeof fn === 'function' ? fn : null; },
     get enabled() { return enabled; },

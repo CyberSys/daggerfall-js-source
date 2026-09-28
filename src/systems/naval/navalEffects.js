@@ -1,0 +1,135 @@
+// @ts-check
+// NAV-B (2026-09-28) - THE SMOKE AND THE SPRAY: what a sea fight looks like between the shot and the splinter. The
+// port's own; pure - particles as numbers, drawn by render/navalRender.js.
+//
+// FIVE KINDS, each a law of its own:
+//   smoke  - gun smoke: a puff out of the muzzle along the shot, slowing in the air, SWELLING as it thins and
+//            drifting with the wind (Black Flag's broadside hangs a wall of it down the ship's side); grey, blended
+//   flash  - the muzzle's fire: a bright, short, additive bloom at the muzzle and a tongue along the shot
+//   spray  - a splash's water thrown up and falling back (gravity), white, blended; and FOAM - a ring laid flat on
+//            the sea that spreads and fades (drawn flat, `flat: true`)
+//   debris - splinters of a hull struck: dark wood chips thrown out along the shot and down, spinning, under gravity
+//   ember  - a burning ship's sparks, rising; its FIRE is Daggerfall's own fire flat stood on her deck
+//            (scenes/navalFlames.js - TEXTURE.210, the camp's), its smoke this module's
+// Every particle ages to its `life` and is gone; the whole field is held under PARTICLE_BUDGET - past it the oldest
+// go first, so a long broadside never costs the frame more than its budget.
+
+/** The most particles alive at once. */
+export const PARTICLE_BUDGET = 900;
+/** Gravity on spray and debris (m/s^2). */
+const G = 9.81;
+
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+
+/**
+ * @param {{ random?: () => number, wind?: () => number[] }} deps - the wind the smoke drifts on (where it blows to)
+ */
+export function createNavalEffects({ random = Math.random, wind = () => [0, 0, 0] } = {}) {
+  /** @type {any[]} */ let parts = [];
+  const r = random;
+  const jitter = (s) => (r() - 0.5) * 2 * s;
+  const push = (p) => { parts.push(p); };
+
+  /** A puff of gun smoke - `dir` the shot's (unit), `scale` the gun's size. */
+  function smoke(pos, dir, scale = 1, n = 6) {
+    for (let i = 0; i < n; i++) {
+      const out = 1.5 + r() * 5.5;
+      push({
+        kind: 'smoke', pos: [pos[0] + jitter(0.4), pos[1] + jitter(0.3), pos[2] + jitter(0.4)],
+        vel: [dir[0] * out * scale + jitter(0.6), dir[1] * out * 0.4 + 0.25 + r() * 0.4, dir[2] * out * scale + jitter(0.6)],
+        age: 0, life: 4 + r() * 4.5, size0: 1.1 * scale, size1: (5 + r() * 3) * scale, drag: 1.4, lift: 0.18,
+        color: [0.78 + jitter(0.05), 0.77 + jitter(0.05), 0.74 + jitter(0.05)], alpha: 0.62, rot: r() * 6.28, spin: jitter(0.25), blend: 'alpha',
+      });
+    }
+  }
+  /** A muzzle's flash. */
+  function flash(pos, dir, scale = 1) {
+    push({ kind: 'flash', pos: [...pos], vel: [0, 0, 0], age: 0, life: 0.11, size0: 2.2 * scale, size1: 3.1 * scale, drag: 0, lift: 0, color: [1, 0.78, 0.42], alpha: 1, rot: r() * 6.28, spin: 0, blend: 'add' });
+    push({ kind: 'flash', pos: [pos[0] + dir[0] * 1.3 * scale, pos[1] + dir[1] * 1.3 * scale, pos[2] + dir[2] * 1.3 * scale], vel: [dir[0] * 6, dir[1] * 6, dir[2] * 6], age: 0, life: 0.08, size0: 1.6 * scale, size1: 2.4 * scale, drag: 0, lift: 0, color: [1, 0.6, 0.25], alpha: 0.9, rot: r() * 6.28, spin: 0, blend: 'add' });
+  }
+  /** A muzzle: its flash, and its smoke down the shot. */
+  function muzzle(pos, dir, scale = 1) {
+    const l = Math.hypot(dir[0], dir[1], dir[2]) || 1;
+    const d = [dir[0] / l, dir[1] / l, dir[2] / l];
+    flash(pos, d, scale);
+    smoke(pos, d, scale, Math.round(5 + 3 * scale));
+  }
+  /** A ball into the sea: a column of spray and a ring of foam. `big` a heavy ball's or a hull's fall. */
+  function splash(pos, big = false) {
+    const n = big ? 22 : 12;
+    const up = big ? 9 : 6.5;
+    for (let i = 0; i < n; i++) {
+      const a = r() * 6.28, s = r() * (big ? 2.2 : 1.4);
+      push({ kind: 'spray', pos: [pos[0] + jitter(0.3), pos[1] + 0.05, pos[2] + jitter(0.3)], vel: [Math.sin(a) * s, up * (0.55 + r() * 0.6), Math.cos(a) * s], age: 0, life: 0.9 + r() * 0.8, size0: big ? 0.9 : 0.6, size1: big ? 1.8 : 1.2, drag: 0.4, gravity: G, color: [0.9, 0.95, 1], alpha: 0.8, rot: r() * 6.28, spin: jitter(1), blend: 'alpha' });
+    }
+    push({ kind: 'foam', flat: true, pos: [pos[0], pos[1] + 0.04, pos[2]], vel: [0, 0, 0], age: 0, life: big ? 3.2 : 2.4, size0: big ? 1.6 : 1, size1: big ? 9 : 5.5, drag: 0, lift: 0, color: [0.92, 0.96, 1], alpha: 0.7, rot: r() * 6.28, spin: 0, blend: 'alpha' });
+  }
+  /** A ball into a hull: splinters thrown along the shot, a puff of dust and smoke, a small flash. */
+  function hit(pos, dir, heavy = false) {
+    const l = Math.hypot(dir[0], dir[2]) || 1;
+    const d = [dir[0] / l, 0, dir[2] / l];
+    const n = heavy ? 16 : 10;
+    for (let i = 0; i < n; i++) {
+      const s = 3 + r() * 7;
+      push({ kind: 'debris', pos: [...pos], vel: [d[0] * s + jitter(3), 2 + r() * 5, d[2] * s + jitter(3)], age: 0, life: 1.2 + r() * 1.2, size0: 0.18 + r() * 0.22, size1: 0.18, drag: 0.2, gravity: G, color: [0.36 + jitter(0.06), 0.25 + jitter(0.04), 0.15], alpha: 1, rot: r() * 6.28, spin: jitter(12), blend: 'alpha', solid: true });
+    }
+    smoke(pos, [d[0] * 0.3, 0.5, d[2] * 0.3], heavy ? 0.8 : 0.55, heavy ? 5 : 3);
+    push({ kind: 'flash', pos: [...pos], vel: [0, 0, 0], age: 0, life: 0.08, size0: 1.2, size1: 1.8, drag: 0, lift: 0, color: [1, 0.7, 0.35], alpha: 0.8, rot: r() * 6.28, spin: 0, blend: 'add' });
+  }
+  /** A fire barrel's burst, or a magazine's: a fireball, a column of smoke, splinters, a big splash. */
+  function blast(pos) {
+    for (let i = 0; i < 10; i++) push({ kind: 'flash', pos: [pos[0] + jitter(1.5), pos[1] + r() * 2, pos[2] + jitter(1.5)], vel: [jitter(3), 2 + r() * 4, jitter(3)], age: 0, life: 0.35 + r() * 0.35, size0: 3 + r() * 2, size1: 6 + r() * 3, drag: 1.5, lift: 0, color: [1, 0.55 + r() * 0.2, 0.2], alpha: 1, rot: r() * 6.28, spin: jitter(1), blend: 'add' });
+    smoke(pos, [0, 1, 0], 1.6, 12);
+    hit(pos, [jitter(1), 0, jitter(1)], true);
+    splash(pos, true);
+  }
+  /** A burning ship's breath, each frame at each fire: embers up, and now and then a gout of smoke. */
+  function burn(pos, dt) {
+    const k = clamp(dt, 0, 0.1);
+    if (r() < 14 * k) push({ kind: 'ember', pos: [pos[0] + jitter(0.8), pos[1] + r() * 0.5, pos[2] + jitter(0.8)], vel: [jitter(0.6), 2 + r() * 2.5, jitter(0.6)], age: 0, life: 1 + r() * 1.2, size0: 0.22, size1: 0.05, drag: 0.5, lift: 0.4, color: [1, 0.55, 0.18], alpha: 1, rot: 0, spin: 0, blend: 'add' });
+    if (r() < 5 * k) push({ kind: 'smoke', pos: [pos[0] + jitter(0.5), pos[1] + 1, pos[2] + jitter(0.5)], vel: [jitter(0.3), 1.6 + r(), jitter(0.3)], age: 0, life: 5 + r() * 3, size0: 1.6, size1: 7, drag: 0.6, lift: 0.3, color: [0.2, 0.19, 0.18], alpha: 0.55, rot: r() * 6.28, spin: jitter(0.2), blend: 'alpha' });
+  }
+  /** A sinking hull's last breath: foam and bubbles where she goes under. */
+  function founder(pos, dt, spread = 6) {
+    if (r() < 10 * clamp(dt, 0, 0.1)) push({ kind: 'foam', flat: true, pos: [pos[0] + jitter(spread), pos[1] + 0.04, pos[2] + jitter(spread)], vel: [0, 0, 0], age: 0, life: 2.4, size0: 1.2, size1: 4, drag: 0, lift: 0, color: [0.9, 0.95, 1], alpha: 0.6, rot: r() * 6.28, spin: 0, blend: 'alpha' });
+  }
+
+  /** One step: every particle moves, drags, falls or rises, drifts on the wind, and ages out. */
+  function step(dt) {
+    const t = Math.max(0, dt);
+    if (t === 0) return;
+    const w = wind();
+    const keep = [];
+    for (const p of parts) {
+      p.age += t;
+      if (p.age >= p.life) continue;
+      const drag = Math.exp(-(p.drag ?? 0) * t);
+      p.vel[0] *= drag; p.vel[2] *= drag;
+      p.vel[1] = p.vel[1] * drag - (p.gravity ?? 0) * t + (p.lift ?? 0) * t;
+      if (p.kind === 'smoke') { p.vel[0] += (w[0] ?? 0) * 0.35 * t; p.vel[2] += (w[2] ?? 0) * 0.35 * t; }
+      p.pos[0] += p.vel[0] * t; p.pos[1] += p.vel[1] * t; p.pos[2] += p.vel[2] * t;
+      p.rot += p.spin * t;
+      keep.push(p);
+    }
+    if (keep.length > PARTICLE_BUDGET) keep.splice(0, keep.length - PARTICLE_BUDGET);
+    parts = keep;
+  }
+
+  /** What to draw: `{ pos, size, color: [r, g, b, a], rot, blend, flat, solid }` - the size and alpha by age. */
+  function drawList() {
+    return parts.map((p) => {
+      const k = p.age / p.life;
+      const size = p.size0 + (p.size1 - p.size0) * (p.kind === 'smoke' ? Math.sqrt(k) : k);
+      const fade = p.kind === 'flash' ? 1 - k : p.kind === 'smoke' ? Math.min(1, k * 6) * (1 - k) : p.kind === 'debris' ? 1 - Math.max(0, k - 0.7) / 0.3 : 1 - k * k;
+      return { pos: p.pos, size, color: [p.color[0], p.color[1], p.color[2], p.alpha * fade], rot: p.rot, blend: p.blend, flat: !!p.flat, solid: !!p.solid, kind: p.kind };
+    });
+  }
+
+  function offsetAll(o) { for (const p of parts) { p.pos[0] += o[0]; p.pos[1] += o[1]; p.pos[2] += o[2]; } }
+
+  return {
+    muzzle, flash, smoke, splash, hit, blast, burn, founder, step, drawList, offsetAll,
+    clear() { parts = []; },
+    get count() { return parts.length; },
+  };
+}

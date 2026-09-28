@@ -104,9 +104,12 @@ export function hccRecordKey(rec) {
   return JSON.stringify([rec.w ?? 0, rec.h ?? 0, rec.n ?? '']);
 }
 
+/** How far a step must be to be a teleport, not a move (m) - easeToward's snap, named for the readers that must
+ *  tell the two apart (NAV-H: a peer's boat's measured way, scenes/comeSailAwayPeers.js). */
+export const EASE_SNAP_M = 20;
 /** The snap-or-ease a reader shows between two words: a step past `snap` metres is a teleport (the owner
  *  crossed a pixel, summoned, or fast-travelled), anything nearer eases at `rate` per second. Pure. */
-export function easeToward(shown, target, dt, rate = 12, snap = 20) {
+export function easeToward(shown, target, dt, rate = 12, snap = EASE_SNAP_M) {
   if (!shown) return [...target];
   const dx = target[0] - shown[0], dy = target[1] - shown[1], dz = target[2] - shown[2];
   if (dx * dx + dy * dy + dz * dz > snap * snap) return [...target];

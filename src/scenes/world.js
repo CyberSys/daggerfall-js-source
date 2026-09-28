@@ -300,10 +300,18 @@ import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: an
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
 import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
-import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
+import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, tileMapIndexAtPosition as csaTileMapIndexAtPosition } from '../systems/comeSailAway.js';   // NAV-H: the tile a sea ship floats on
 import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
+import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR } from './navalHost.js';   // NAV-H: the sea fight - the Iliac Bay's ships, the guns, boarding, the law and the word
+import { createNavalFlames } from './navalFlames.js';   // NAV-B: a burning ship's deck fires
+import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke, the spray, the balls in flight and the aim
+import { drawNavalHud } from '../ui/navalHud.js';   // NAV-F: the helm's readout
+import { createNavalPlunderOverlay, closeNavalPlunder } from '../ui/navalPlunderDoor.js';   // NAV-F: a taken ship's window, behind its door
+import { installNavalSounds } from '../systems/naval/navalSounds.js';   // NAV-E: the guns' own sounds
+import { navalRecordKey } from '../systems/naval/navalWire.js';   // NAV-G: my sea's word, said when it changed
+import { CROWNS as NAVAL_CROWNS } from '../systems/naval/navalShips.js';   // NAV-C: the three crowns, whose capitals name the waters
 import { particleMeshRotation as csaParticleMeshRotation, RENDER_MODE as CSA_RENDER_MODE } from '../world/unityParticles.js';   // CSA-F
 import { quatRotate as csaQuatRotate } from '../world/quat.js';   // CSA-F: the effects probe's flag forward
 import { classicRecordRgba } from '../formats/derivedTexture.js';   // CSA-F: the snow the waves' paints key
@@ -440,7 +448,7 @@ import { morrowindDataCount, morrowindDataGeneration, getBytes } from './dataSou
 import { createQuestBridge, tokensToRows } from './questBridge.js';
 import { loadQuestPack } from './questData.js';
 import { ensureFactionRep, getReputation, changeReputation } from '../systems/factionRep.js';
-import { changeLegalRep, legalRepOf, CRIMES, setCrimeCommitted } from '../systems/court.js';   // PlayerEntity.Update:498-511 reads the region's LegalRep and levies Criminal_Conspiracy
+import { changeLegalRep, legalRepOf, CRIMES, setCrimeCommitted, lowerRepForCrime } from '../systems/court.js';   // PlayerEntity.Update:498-511 reads the region's LegalRep and levies Criminal_Conspiracy
 import { isEquipped, unequipSlot } from '../systems/equip.js';
 import { ServiceFlowWindow } from '../ui/guildServiceWindows.js';
 import { makeItemPermanent } from '../systems/quest/item.js';
@@ -4816,6 +4824,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _csaOnAtLoad = latchModLoaded('come-sail-away', (() => { try { return modSetting('come-sail-away', 'Enabled') !== false; } catch { return false; } })());   // AUDIT PRE-MERGE 0928 S4: and the mod's other doors (the shelf's rows, its keys, its effect's restore) read this answer too
   const csaOn = () => _csaOnAtLoad;
   const csa = createComeSailAwayPool({ renderer, pipeline, log: console });
+  /** NAV-H: the naval host (made below, with Come Sail Away's runtime) - declared here, beside the pool whose sea list
+   *  it fills, because the boats' colliders, rays and particles below read its ships. */
+  let naval = null;
+  /** NAV-H: every boat that stands in the mode's collider - mine, and the sea's ships near enough to strike and walk. */
+  const csaColliderBoats = () => (naval?.enabled ? [...csa.boats, ...naval.collidable()] : csa.boats);
   const csaPeers = createComeSailAwayPeers({ pool: csa, selfId: () => online?.id ?? null });   // CSA-J: the others' boats, in the pool's peer list
   csaPeers.setPeerLook((id) => (_hiddenPeers.has(id) ? 'hidden' : (_veils.get(id) ?? null)));   // AUDIT PRE-MERGE 0928 O4: a concealed sailor's boat is concealed with them (the cart pool's I-B law; last frame's word)
   // CSA-C: THE RUNTIME - the boats placed, kept where they stand and saved (systems/comeSailAway.js). Made as the world
@@ -4875,7 +4888,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function csaSyncColliders() {
     const col = csaModeCollider();
     const want = new Set();
-    for (const boat of csa.boats) {
+    for (const boat of csaColliderBoats()) {   // NAV-H: and the sea's ships near enough to board and to ram
       if (!boat.GameObject?.activeSelf) continue;
       const id = csaBoatId(boat);
       let i = 0;
@@ -4945,7 +4958,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const c = rayUprightCapsule(o, d, reach, feet, BODY_CAPSULE_RADIUS, f.ai.height ?? CAPSULE_HEIGHT);
       if (c) take({ distance: c.dist, point: at(c.dist), name: 'DaggerfallEnemy', terrain: null, root: csaRuntime?.state?.parentedObjects?.get(f.ai)?.boat?.GameObject ?? null });   // CSA-J (the audit): a foe riding a hull is its child (FixedUpdate's SetParent) - its transform.root the boat's
     }
-    for (const boat of csa.boats) {
+    for (const boat of csaColliderBoats()) {   // NAV-H: the buckets skipped above are the sea's ships' too
       const hit = raycastColliders(boat.GameObject, o, d, reach, { triggers, geometry: csaColliderMesh });
       if (hit) take({ distance: hit.distance, point: hit.point, name: hit.node.name, terrain: null, root: boat.GameObject, node: hit.node, collider: hit.collider });
     }
@@ -5230,7 +5243,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     enemies: csaEnemies,
     // CSA-G: GameManager.AreEnemiesNearby(false, false) over the mode's foes; Travel Options' isTravelActive (null
     // without the mod, as HCC asks it); Time.timeScale, which the helm's keys now set (the motor reads the one number)
-    enemiesNearby: () => areEnemiesNearby((modes?.mode ?? 'exterior') === 'exterior' ? [...exteriorFoes.foes, ...cityGuards.guards] : (modes?.insideFoes?.() ?? [])),
+    enemiesNearby: () => areEnemiesNearby((modes?.mode ?? 'exterior') === 'exterior' ? [...exteriorFoes.foes, ...cityGuards.guards] : (modes?.insideFoes?.() ?? [])) || !!naval?.hostileNear(),   // NAV-H: a hostile ship in reach holds the helm's time scale too
     travelOptionsActive: () => (travelOptions ? !!travelOptions.isTravelActive : null),
     timeScale: () => worldTimeScale(),
     setTimeScale: (scale) => setWorldTimeScale(scale),
@@ -5370,7 +5383,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** CSA-F: every boat's living particles, by the material their renderer wears. */
   function csaParticleLists() {
     const lists = { wake: [], flags: [], drops: [] };
-    for (const boat of csaRuntime.AllBoats) {
+    for (const boat of naval?.enabled ? [...csaRuntime.AllBoats, ...naval.boats()] : csaRuntime.AllBoats) {   // NAV-H: and the sea's ships'
       for (const ps of boat.particleSystems ?? []) {
         if (!ps.particleCount || !ps.renderer?.m_Enabled) continue;
         const material = ps.renderer.m_Materials?.[0]?.material;
@@ -5378,7 +5391,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         const list = mode === CSA_RENDER_MODE.Mesh ? lists.flags : material === 'Default-Particle' ? lists.drops : material === 'WakeMaterial' ? lists.wake : null;
         if (!list) continue;
         const maxSize = ps.renderer.m_MaxParticleSize ?? 0.5;
-        for (const q of ps.renderList()) list.push({ ...q, maxSize });
+        for (const q of ps.renderList()) list.push(list === lists.flags && boat.flagColor ? { ...q, maxSize, color: boat.flagColor } : { ...q, maxSize });   // NAV-B: a sea ship flies her faction's colours
       }
     }
     return lists;
@@ -5564,6 +5577,210 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** Both, in a mode's frame (a building, a dungeon), whose own motor and eye follow. */
   function csaFrame(dt) { csaUpdate(dt); csaPoolFrame(dt); }
+  // ── NAV-H (2026-09-28, Mac: "enhance the newly integrated ships by adding proper naval combat with a huge reference
+  // to assassins creed black flag. Being able to aim and fire when viewing from the side. Along with this, I want to
+  // introduce actual sailing ships to the world that players can encounter and pillage ... All UI elements should follow
+  // enhanced plus UI ... directly integrate into online mode"): THE SEA FIGHT (bible/03-World/Naval-Combat.md). The
+  // naval host (scenes/navalHost.js) owns the Iliac Bay's ships on Come Sail Away's own hulls (the pool's sea list),
+  // the guns of the boat at the helm and their aim, the shots, boarding, the law, its save record and its word; this
+  // block is its one host's half - every seam in the world it reaches, named below. Come Sail Away is its hull, so with
+  // the mod off there is no sea fight (navalOn). THE FOUR HOSTS RULE: only this host streams the sea - a building's, a
+  // dungeon's and the ?exterior bench's own hosts (scenes/worldModes.js, scenes/dungeonContext.js, scenes/exterior.js)
+  // have no broadside, and the naval host empties the sea whenever this host leaves the exterior (navalTransition).
+  const navalOn = () => !!csaRuntime && csaOn() && getPref('naval') !== false;
+  const NAVAL_DRAFT = Object.freeze([0.8, 1.4, 2.2, 2.8, 3.2]);   // a hull's water under her keel (m), rowboat to carrack - how shoal a sea she can sail
+  /** An action's bound key, as the HUD's hint names it - the player's own binding (primary, then secondary), in the
+   *  words the Controls page shows it (AUDIT DEEP T1-12's reading, the travel view's hint). */
+  const navalKeyName = (action) => { const c = codeForAction(bindings(), action); return c ? buttonText(c, true) : null; };
+  /** Open water deep enough for a hull at a scene point: a water tile of a built pixel - and, where Iliac Puddle No
+   *  More carved the sea, a floor at least that hull's draft under the surface (-1: the surface alone). */
+  const navalIsWater = (x, z, hull = 0) => {
+    const p = csaPixelAt(x, z);
+    if (!p) return false;
+    const t = csaTerrainOf(p);
+    if (!p.deepWaters && csaTileMapIndexAtPosition([x, 0, z], t) !== 0) return false;
+    if (!p.deepWaters) return true;
+    const floor = surfaceAt(x, z);
+    return Number.isFinite(floor) && floor < tvSeaY() - (hull < 0 ? 0.05 : NAVAL_DRAFT[Math.min(NAVAL_DRAFT.length - 1, hull | 0)]);
+  };
+  let _navalCapitals = null;
+  /** The three crowns' capitals' map pixels (navalShips.js crownOf reads the nearest as the waters' crown) - once. */
+  const navalCapitals = () => (_navalCapitals ??= NAVAL_CROWNS.map((c) => {
+    try {
+      const loc = maps.getLocationByName(REGION_NAMES[c.region], c.name);
+      if (!loc?.mapTableData) return null;
+      const px = longitudeLatitudeToMapPixel(loc.mapTableData.longitude, loc.mapTableData.latitude);
+      return { region: c.region, x: px.x, y: px.y };
+    } catch { return null; }
+  }).filter(Boolean));
+  /** A port town within a pixel of the player (the merchantmen's and the navies' water, navalDirector.js PORT_WEIGHTS). */
+  let _navalPortAt = null;   // { key, near } - the answer for the pixel it was asked at
+  const navalNearPort = () => {
+    const p = playerTravelPixel();
+    const key = `${p.x},${p.y}`;
+    if (_navalPortAt?.key !== key) {
+      let near = false;
+      for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1 && !near; dx++) near = csaIsPortTown(p.x + dx, p.y + dy);
+      _navalPortAt = { key, near };
+    }
+    return _navalPortAt.near;
+  };
+  /** Where a boat's deck is walkable: `n` standing spots from rays down onto its own colliders, spread along and across
+   *  her, each [feet, yaw] facing her centre - the boarding's musters and a player set over her rail. */
+  function navalDeckSpots(boat, n = 8) {
+    if (!boat?.GameObject) return [];
+    const box = navalHullBoxOf(boat, csa.models);
+    if (!box) return [];
+    const out = [];
+    const cols = Math.max(2, Math.ceil(Math.sqrt(n * 3))), rows = Math.max(2, Math.ceil(n / cols) + 1);
+    for (let i = 0; i < cols && out.length < n * 2; i++) {
+      for (let j = 0; j < rows; j++) {
+        const u = (i + 0.5) / cols * 2 - 1, v = (j + 0.5) / rows * 2 - 1;
+        const x = box.c[0] + box.az[0] * u * box.h[2] * 0.8 + box.ax[0] * v * box.h[0] * 0.6;
+        const z = box.c[2] + box.az[2] * u * box.h[2] * 0.8 + box.ax[2] * v * box.h[0] * 0.6;
+        const top = box.c[1] + box.h[1] + 6;
+        const hit = raycastColliders(boat.GameObject, [x, top, z], [0, -1, 0], box.h[1] * 2 + 12, { triggers: false, geometry: csaColliderMesh });
+        if (!hit || hit.point[1] < tvSeaY() + 0.2) continue;   // the sea, not her deck
+        out.push([[hit.point[0], hit.point[1] + 0.05, hit.point[2]], Math.atan2(box.c[0] - x, box.c[2] - z)]);
+      }
+    }
+    // spread: every other spot first, so a short muster stands along the whole deck
+    return [...out.filter((_, k) => k % 2 === 0), ...out.filter((_, k) => k % 2 === 1)].slice(0, n);
+  }
+  /** A boarding's foe, stood where the host says, on the side it names - the handle fills when its stand lands. */
+  const navalSpawnFoe = (mobile, feet, yaw, side) => {
+    const handle = { foe: null, gone: false };
+    exteriorFoes.spawnFoe(mobile, feet, { yaw, feetGiven: true, placed: true, allied: side === 'ally' })
+      .then((f) => { if (!f) return; if (handle.gone) exteriorFoes.removeFoe(f); else handle.foe = f; })
+      .catch((e) => console.warn('[naval] a boarder would not stand', e?.message ?? e));
+    return handle;
+  };
+  /** The hold's goods into a boat's own hold (Come Sail Away's cargo) - or with no boat, into the pack as far as it
+   *  carries (the pack's own gate, itemTransfer.js planTake). Answers what would not go. */
+  const navalGiveItems = (items, boat) => {
+    if (boat?.Cargo?.Items) { for (const it of items) addItem(boat.Cargo.Items, it); surfacePlayer(); return { left: [] }; }
+    playerEntity.items = playerEntity.items || [];
+    const left = [];
+    for (const it of items) {
+      if (planTake(it, { bag: playerEntity.items, entity: playerEntity, dryRun: true }).ok) addItem(playerEntity.items, it);
+      else left.push(it);
+    }
+    surfacePlayer();
+    return { left };
+  };
+  /** The plunder window over the world, the hold's loot window between two of its presses (navalPlunderDoor.js). */
+  function navalOpenPlunder(model) {
+    let why = 'close';
+    const win = createNavalPlunderOverlay({
+      model, nameOf: (item) => itemLongName(item),
+      onClose: (reason) => { why = reason; if (reason !== 'hold' && model.raid && !model.fated()) model.fate('sail'); },   // a voyage's raid never waits on a window shut
+    });
+    if (!win) return false;
+    townTalk.showOverlay(win, () => { if (why === 'hold') navalOpenHold(model); });
+    return true;
+  }
+  function navalOpenHold(model) {
+    const inv = inventoryDoorReady() ? makeInventoryWindow({ loot: { items: () => model.items, containerImage: () => CONTAINER_IMAGES.Chest, playerOwned: false } }) : null;
+    if (!inv) { navalOpenPlunder(model); return; }
+    townTalk.showOverlay(inv, () => { if (!model.fated()) navalOpenPlunder(model); });
+  }
+  const navalFlames = createNavalFlames({ renderer, getTexture, uploadRecordFrame });
+  const navalRender = new NavalRenderer(renderer);
+  naval = createNavalHost({
+    pool: csa,
+    csa: () => (navalOn() ? csaRuntime : null),
+    seaY: () => tvSeaY(),
+    isWater: navalIsWater,
+    groundY: (x, z) => surfaceAt(x, z),
+    feet: () => player.feetAt(),
+    look: () => ({
+      origin: [cam.pos[0] + _dwEyeOffset[0], cam.pos[1] + _dwEyeOffset[1], cam.pos[2] + _dwEyeOffset[2]],   // the eye the frame drew from - Eye of the Beholder's over the shoulder too
+      dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)],
+    }),
+    level: () => playerEntity.level ?? 1,
+    where: () => { const p = playerTravelPixel(); return { px: p.x, py: p.y, region: _questRegionIndex(), day: Math.floor(worldMinutes() / 1440), nearPort: navalNearPort(), capitals: navalCapitals(), cityLights: isCityLightsOn(minuteNow()) }; },
+    say: (text, seconds) => townTalk.say(text, seconds),
+    mid: (text, seconds) => setMidScreenText(text, seconds),
+    shake: (amount) => betterAmbience.weaponKick(amount),   // FIELD-GUN6's door: a shake that is not a wound, under the player's own maxShake
+    audio: { play3d: (k, p, v, o) => audio.play3d(k, p, v, o), loop3d: (k, p, v, o) => audio.loop3d(k, p, v, o) },
+    flame: (pos) => navalFlames.flame(pos),
+    law: {
+      // Piracy reported to the crown whose waters they were (navalLaw.js lawOf): DFU's own LowerRepForCrime - the
+      // court's table's legal loss in that region, half of it off the region's People - as a loan default is charged
+      // (systems/worldTick.js); no watch stands at sea, so no crime is COMMITTED for one to arrest
+      crime: (region, crime) => { lowerRepForCrime(playerEntity, region, crime); surfacePlayer(); },
+      legal: (region, n) => { changeLegalRep(playerEntity, region, n); surfacePlayer(); },
+      faction: (id, n) => { if (playerEntity.factionRep) changeReputation(playerEntity.factionRep, id, n, true); },
+    },
+    board: {
+      leaveHelm: () => { if (csaRuntime?.isSailing?.()) csaCall(() => csaRuntime.StopSailing?.()); },
+      placePlayer: (feet, yaw) => { player.spawn(feet[0], feet[1], feet[2]); cam.yaw = yaw; lookFilter.settle(); },
+      deckSpots: (boat, n) => navalDeckSpots(boat, n),
+      spawnFoe: navalSpawnFoe,
+      foeDown: (h) => !!h?.foe?.dead,
+      removeFoe: (h) => { if (!h) return; h.gone = true; if (h.foe && !h.foe.dead) exteriorFoes.removeFoe(h.foe); },
+      startRaid: (name) => { const q = questBridge?.questLists?.getQuest(name, 0) ?? null; if (!q) return null; try { questBridge.machine.startQuestImmediate(q); } catch (e) { console.warn('[naval] the raid would not start', e); return null; } return q; },
+      openPlunder: (model) => navalOpenPlunder(model),
+      giveItems: navalGiveItems,
+    },
+    hold: (key, tier) => {
+      const items = generateLootItems(key, { level: playerEntity.level, gender: playerEntity.gender });
+      addPileLootExtras(items, key);
+      rollLootRarity(items, pileSource(tier), { luck: liveStat(playerEntity, 'luck') });   // LR1: every list a host mints, at its source
+      stampWonWeapons(items, 1);   // NAV-D: a hold taken online - SIGIL1's sigils rolled at the mint, as a found pile's
+      return items;
+    },
+    get online() {
+      if (!online || online.status !== 'open' || !isCellRoom(online.room)) return null;
+      return { id: () => online?.id ?? null, peers: () => peersNear() ?? [], sendHit: (data) => !!online?.sendHit?.(data) };
+    },
+    peerBoats: () => csaPeers.helmBoats(),
+    warmAshesOn: () => warmAshesOn(),
+    setting: (key) => (key === 'ShipsAtSea' ? getPref('naval-ships') : key === 'RaidPrize' ? getPref('naval-raid-prize') !== false : key === 'Boarders' ? getPref('naval-boarders') !== false : undefined),
+    random: Math.random,   // THE ENGINE-PRNG RULE (Port-Ledger A)
+  });
+  naval.setEnabled(navalOn());   // the switch's state from the first frame (navalFrame follows it after)
+  registerModSaveData(NAVAL_SAVE_VENDOR, naval);   // the player's boats' hurts, the crowns' notoriety, a raid a load carries
+  /** The sea emptied: a transition, a teleport, the arc switched off - its window with it. */
+  const navalClear = () => { naval?.clear(); navalFlames.clear(); closeNavalPlunder(); drawNavalHud(null); };
+  const navalTransition = () => navalClear();
+  let _navalWasOn = null;
+  /** The frame: the switch read, the sounds loaded at the first sea, the host's step, the flames' clock. */
+  function navalFrame(dt) {
+    const on = navalOn();
+    if (on !== _navalWasOn) { _navalWasOn = on; naval.setEnabled(on); if (!on) { navalFlames.clear(); closeNavalPlunder(); drawNavalHud(null); } }
+    if (!on) return;
+    if (csa.seaBoats.length || csaRuntime.isSailing()) installNavalSounds(audio);   // once: the first sea (the loader keeps its promise)
+    naval.frame(dt * worldTimeScale(), { paused: gamePaused() || _loading, outdoors: _mode() === 'exterior', brace: csaRuntime.isSailing() && held(keys, 'Crouch') });   // the brace: ducking behind the rail - the Crouch action at the helm
+    navalFlames.tick(gamePaused() ? 0 : dt);
+  }
+  /** The attack let go (every door's release, beside the rig's and as ungated): a laid broadside fires - unless a window
+   *  came up over the aim, or the world under it went, which puts it down unfired. */
+  function navalRelease() {
+    if (!naval?.aiming) return;
+    if (townTalk.overlayActive || gamePaused() || modeNow() !== 'exterior') naval.cancelAim();
+    else naval.attackInput(false);
+  }
+  /** The helm's readout, under every window and with the HUD. */
+  function navalHud() {
+    if (!navalOn()) return;
+    drawNavalHud(_mode() === 'exterior' ? naval.hudModel() : null, {
+      covered: townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden,
+      keys: { aim: navalKeyName('SwingWeapon'), board: navalKeyName('Interact'), brace: navalKeyName('Crouch') },
+      scale: enhancedHudScale(),
+    });
+  }
+  let _navalWordKey = null;   // the word my last foes frame carried ('' none stood; null: none said yet)
+  /** NAV-G: my sea for the others (systems/naval/navalWire.js) - the ships I stand, my volleys and barrels - on every
+   *  full foes frame and on a changed word between them (a volley is news at once); the arc off, one null. */
+  function navalWord(frame, full) {
+    if (!navalOn()) { if (!_navalWordKey) return false; if (frame) { frame.nv = null; _navalWordKey = ''; } return true; }
+    const rec = naval.word(campToWire);
+    const key = navalRecordKey(rec);
+    if (!full && key === _navalWordKey) return false;
+    if (frame) { frame.nv = rec; _navalWordKey = key; }
+    return true;
+  }
   /** AUDIT HCC H1: TrailingWagonRuntime.LateUpdate, ONCE a frame and in EVERY mode (the machine gates its own
    *  presentation on PlayerEnterExit.IsPlayerInside, and its hotkeys answer indoors with the mod's "outdoors only").
    *  Called from the modal branch (a building, a dungeon) and from the exterior frame after the motor and the
@@ -6442,7 +6659,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:485-490) never looks the record up in `foes`, and
+    // (exteriorFoes.js:487-492) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1493-1511) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -7534,6 +7751,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     cameraRecoiler.reset();
     dwTeleported(performance.now() / 1000);   // DW-D: OnTeleportToCoordinates' grace
     csaOnTeleport();   // CSA-F: OnTeleportToCoordinates - the waves, a tenth of a second on
+    navalTransition();   // NAV-H: the sea at the old place is gone with it (its ships were never a save's)
     modes?.abortTransition?.();   // AUDIT 68 X3-transition-build-race: a door build still in flight lands in the world being left - it frees itself instead of publishing
     // A1: a fast travel is where the calendar jumps WEEKS - straighten
     // the season BEFORE the destination pixel builds, or the arrival
@@ -10536,7 +10754,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // `modeNow() === 'exterior'`, so indoors worldModes fed the modal
     // rig (:1517) and this fell through to the camera: every swing
     // inside a building or a dungeon turned the view with it.
-    const drag = routeMouseDrag({ walkMode, buttons: e.buttons, keys, mode: modeNow() });
+    const routed = routeMouseDrag({ walkMode, buttons: e.buttons, keys, mode: modeNow() });
+    // NAV-H: at a helm with guns the swing's button is the broadside's AIM, never a swing (the press lays the guns -
+    // navalHost.js attackInput), and the drag under it turns the view they are laid by: a look, the camera free
+    const drag = routed === 'swing' && naval?.atGuns ? 'look' : routed;
     if (drag !== 'look') {
       if (drag === 'swing' && !magic.interceptAttack(true)) {   // M2: an armed cast eats the click
         weaponRig.attackInput(e.movementX, e.movementY, true);
@@ -10561,8 +10782,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // (Mouse2, the wheel) and the drawn bow's ActivateCenterObject
   // un-draw (Mouse0) could never read true. mouseCode owns the
   // Unity/DOM middle-button crossover; the RELEASE is unconditional.
-  addEventListener('mousedown', (e) => { if (isSwingButton(e.button)) rightHeld = true; const mc = mouseCode(e.button); if (mc) { keys.add(mc); noteKeyDown(latch.edge, mc); } if (isSwingButton(e.button) && !townTalk.overlayActive && walkMode && modeNow() === 'exterior') { if (magic.interceptAttack(true)) return; weaponRig.attackInput(0, 0, true); } });   // M2; FIX-F: the swing's button is the registry's (Mouse1 -> SwingWeapon by default)
-  addEventListener('mouseup', (e) => { if (isSwingButton(e.button)) rightHeld = false; const mc = mouseCode(e.button); if (mc) { keys.delete(mc); noteKeyUp(latch.edge, mc); } if (isSwingButton(e.button) && walkMode && modeNow() === 'exterior') weaponRig.attackInput(0, 0, false); });   // the RELEASE is never gated - a window opened mid-swing must still let go
+  addEventListener('mousedown', (e) => { if (isSwingButton(e.button)) rightHeld = true; const mc = mouseCode(e.button); if (mc) { keys.add(mc); noteKeyDown(latch.edge, mc); } if (isSwingButton(e.button) && !townTalk.overlayActive && walkMode && modeNow() === 'exterior') { if (magic.interceptAttack(true)) return; if (naval?.attackInput(true)) return; weaponRig.attackInput(0, 0, true); } });   // M2; FIX-F: the swing's button is the registry's (Mouse1 -> SwingWeapon by default); NAV-H: held at a helm with guns, they are laid
+  addEventListener('mouseup', (e) => { if (isSwingButton(e.button)) rightHeld = false; const mc = mouseCode(e.button); if (mc) { keys.delete(mc); noteKeyUp(latch.edge, mc); } if (isSwingButton(e.button) && walkMode && modeNow() === 'exterior') weaponRig.attackInput(0, 0, false); if (isSwingButton(e.button)) navalRelease(); });   // the RELEASE is never gated - a window opened mid-swing must still let go; NAV-H: let go at the helm, the broadside fires (a window over it puts the aim down unfired)
   const inputHooks = {   // GP1: one hooks object for the finger AND the pad   // mobile: stick synthesizes WASD; the right half is classified (TI1)
     look: (dx, dy) => {
       lookFilter.add(dx * lookScale(), -dy * lookScale() * lookInvert());   // AUDIT 28 W7: through the look filter (HANDEDNESS, mat4's law)
@@ -10575,6 +10796,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (modeNow() === 'exterior') {
         swipeHeld = held;
         if (held && magic.interceptAttack(true)) return;   // M2: an armed cast eats the swing
+        if (held && naval?.attackInput(true)) return;   // NAV-H: at a helm with guns the hold lays them (the layers hold it plainly - `aimHold`)...
+        if (!held) navalRelease();   // ...and its lift fires them; the rig's release below runs regardless
         weaponRig.attackInput(dx, dy, held);
       } else {
         swipeHeld = false;
@@ -10602,6 +10825,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     cycleMode: () => townTalk.nextMode(),   // T3-touch: the phone's F1-F4
     socialInteract: () => socialInteract(),   // AUDIT SOC C9: the phone's F - the host's own door (a card over the body in front, else the friends panel; false with no account, and the layer's button then does nothing)
     overlayActive: () => townTalk.overlayActive || !!travelView?.active,   // AUDIT DEEP2 A2: under the view the pad is a cursor (its pick, orbit and zoom) - never the world's look, activation or swing
+    aimHold: () => !!naval?.atGuns,   // NAV-H: at a helm with guns the attack is the broadside's aim - the pad and the finger HOLD it (no gesture strokes) and look on under it
     stickRuns: () => !csaRuntime?.isSailing(),   // AUDIT PRE-MERGE 0928 U3: at Come Sail Away's helm Run + a side key is the oars' strafe - the stick's throw runs nowhere there, so a full push turns the boat
     // AUDIT 62 F7: the finger's pause gate - the same predicate the
     // mouse arms carry (the mousemove look needs the pointer lock a
@@ -11381,6 +11605,15 @@ export async function bootWorld(canvas, renderer, params, status) {
         return modes?.tryPlaceQuestFoe?.(handle) ?? false;
       }
       if (!(walkMode && playerSpawned)) return false;
+      // NAV-D: a raid the sea fight started (a pirate grappled a crewed boat) stands its waves on the deck they board -
+      // the boat's own, not the wilderness ring (scenes/navalHost.js placeQuestFoe): Warm Ashes' "Your crew quickly
+      // spring into action!" is a fight on your planks
+      const _deck = naval?.placeQuestFoe(handle.foe?.parentQuest ?? null);
+      if (_deck) {
+        exteriorFoes.spawnFoe(handle.foe.foeType, _deck[0], { gender: questFoeGender(handle.foe), yaw: _deck[1], questBehaviour: handle.behaviour, feetGiven: true })
+          .catch((e) => console.error('[quest] naval deck foe stand failed:', e?.message ?? e));
+        return true;
+      }
       const feet = player.pos;
       // QUEST-PARTY: the member who shared this quest stands near - that copy stands the wave and this one sees it
       // through the stream; here it counts as placed (its message and its count run on) and no foe stands twice
@@ -11904,6 +12137,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (initiated.length) revealMemberGuildHalls();
       escortQuestEnded(q);
       renownQuestEnded?.(q);   // RENOWN1: a quest done online pays its Renown XP
+      naval?.raidEnded(q);   // NAV-D: a raid the sea fight started - won (its leader down) or run out - ends its boarding
     },
     // TK-i: the six rumor seams land in the mill (TalkManager's own
     // methods, 1:1)
@@ -12190,6 +12424,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     startQuest: (quest) => questBridge.machine.startQuestImmediate(quest),
     setTransportModeShip: () => shipTransportMode(),
     currentRegionIndex: () => _questRegionIndex(),
+    // NAV-D: "Leave Ship" asks the sea fight first (scenes/navalHost.js leaveShipGate) - a raid it started is its own
+    // (the boarders thrown back, nothing sailed); a voyage's raid waits while its raiders' hold is open
+    leaveShipGate: (quest) => naval?.leaveShipGate(quest) ?? 'proceed',
   });
   // E3: the pixels this host laid BEFORE the bridge existed - the start
   // pixel is built during init, above - get RMBLayout's third act now.
@@ -12434,9 +12671,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     _foesSentAt = now;   // AUDIT WORLD2 B11: the clock re-arms whether or not anything changed - a quiet room asked every frame
     const full = now - _foesFullAt >= FOES_FULL_MS;
     const csaMoved = cell && csaWord(null, full);   // AUDIT PRE-MERGE 0928 O2: my boats' moved word asks for a frame, as the team's does - a quiet sea built none, and a sailing boat rode the full frames alone
-    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved) : null) : modes?.dungeonFoesFrame?.(full);
+    const navalMoved = cell && navalWord(null, full);   // NAV-G: a volley is news at once - the sea's changed word asks for a frame
+    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved || navalMoved) : null) : modes?.dungeonFoesFrame?.(full);
     if (!frame) return false;
-    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
+    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full); if (cell) navalWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
     if (!online.sendFoes(frame)) { _foesFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9: a refused frame's deltas were already committed - the next frame carries every foe
     if (full) _foesFullAt = now;
     return true;
@@ -12735,7 +12973,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // me ride the pose to the players who see me; every splash drawn here is the dedupe for theirs
     setSplashObserver((bloodIndex, pos, hit) => { peerFxPlayer.splashed(pos); if (hit?.fromPlayer) noteMyBlow(pos, bloodIndex, hit, (q) => sceneToOnline(q)); });   // AUDIT MERGE-PLUS B1: the mode's own frame
     setOneShotObserver((clip, volume) => { if (isHurtClip(clip, volume, PLAYER_HIT_VOLUME)) noteMyHurt(peerFxHurtShare()); });
-    online.onHit = (id, data) => { if (isCellRoom(online.room)) exteriorFoes.applyHit(id, data); else if (data?.own === 1) modes?.applyOwnHit?.(id, data); else modes?.applyDungeonHit?.(id, data); };   // WORLD6b: a peer's blow on my foe in the cell; QUEST-PARTY phase 3b: a blow on MY OWN foe in a world room (marked `own`) is mine to land, host or not
+    online.onHit = (id, data) => { if (isCellRoom(online.room) && data?.nv) { naval?.applyPeerHit(id, data); return; } if (isCellRoom(online.room)) exteriorFoes.applyHit(id, data); else if (data?.own === 1) modes?.applyOwnHit?.(id, data); else modes?.applyDungeonHit?.(id, data); };   // WORLD6b: a peer's blow on my foe in the cell; QUEST-PARTY phase 3b: a blow on MY OWN foe in a world room (marked `own`) is mine to land, host or not
     // QUEST-PARTY phase 3b/3c: a peer's OWN foes in my world room (OWN1's lane) - a building's, a dungeon's shared quest's
     online.onOwnFoes = (id, data) => { modes?.applyOwnFoes?.(id, data); };
     // WORLD6b: the cell's net into the encounter pool - who I am, the room the socket is in, a blow on a puppet to its
@@ -12761,6 +12999,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     exteriorFoes.setOnCamps((from, c, at) => camps.applyOwner(from, c, campToScene, at));   // SURV3: a peer's camps, off their foes frame past the pool's own room test, through validCampRecord
     exteriorFoes.setOnHcc((from, hv, at) => hcc.applyOwner(from, hv, campToScene, at), () => hcc.clearPeers());
     exteriorFoes.setOnCsa((from, sa, at) => csaPeers.applyOwner(from, sa, campToScene, at), () => csaPeers.clearPeers());   // CSA-J: a peer's boats, off their foes frame past the room test, through validCsaRecord
+    exteriorFoes.setOnNaval((from, nv) => naval?.applyWord(from, nv, campToScene), () => naval?.clearPeers());   // NAV-G: a peer's sea - the ships they stand, their volleys and barrels - through validNavalRecord
     // QUEST-PARTY (2026-09-26, Mac: "Party shares them"): a quest shared with the party streams its foes to the party,
     // a member stands a party peer's, a peer's blow and a quest foe's hunt reach only the party (a quest's own allies
     // take no blow), and my copy of the quest counts the injury and the kill it sees on a partner's foe
@@ -16081,8 +16320,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     csaDrawWindWidget: () => csaDrawWindWidget(),   // CSA-E: the wind widget over a mode's HUD
     csaOnPlayerDeath: () => { if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath()); },   // CSA-J (the audit): PlayerEntity.OnDeath and OnExhausted reach ComeSailAway.OnPlayerDeath in every mode (Start 1059-1060)
     csaFrame: (dt, axes) => { _csaAxes = axes; csaFrame(dt); },   // CSA-C: a MonoBehaviour's Update and LateUpdate indoors too - a boat placed on a dungeon's water is baked, lit and drawn there; CSA-J (the audit): from the modes' frame, after its motor, on its axes
-    onTransitionInterior: () => csaOnTransition(),   // CSA-C: PlayerEnterExit.OnTransitionInterior
-    onTransitionExterior: () => csaOnTransition(),   // CSA-C: PlayerEnterExit.OnTransitionExterior
+    onTransitionInterior: () => { csaOnTransition(); navalTransition(); },   // CSA-C: PlayerEnterExit.OnTransitionInterior; NAV-H: a building has no sea
+    onTransitionExterior: () => { csaOnTransition(); navalTransition(); },   // CSA-C: PlayerEnterExit.OnTransitionExterior; NAV-H: a fresh sea at the door
     gateCourtLights: () => gateCourt?.lights() ?? [],   // WB4: the glow on him, in the court's light channel
     gateBoss: () => gateCourt?.target() ?? null,   // WB4b: him as a body my blows meet
     onBossHit: (hit) => !!gateCourt?.hit(hit),   // WB4b: a blow's number on him, out to the room
@@ -16130,9 +16369,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     onDungeonLeave: () => { const n = handOverRoomFoes(); if (n) console.info(`[foes] handed ${n} quest foe(s) at the dungeon's door`); worldPublish(performance.now(), true); },   // WORLD1: the room's memory goes out while the dungeon still stands; QUEST-PARTY phase 3c: my shared quest's foes to the party who stay
     // OH-D: the four DFU events There's a Hole in the Bottom of the Ocean subscribes to (its Install), raised by the doors
     onSetDungeon: (ctx) => ohAbyss?.onDungeonSet(ohDungeonOf(ctx)),   // DaggerfallDungeon.OnSetDungeon
-    onTransitionDungeonInterior: (ctx) => { ohAbyss?.onDungeonEntered(ohDungeonOf(ctx)); csaOnTransition(); },   // PlayerEnterExit.OnTransitionDungeonInterior (CSA-C: Come Sail Away's OnTransition after OceanHoles' - the mods' load order)
+    onTransitionDungeonInterior: (ctx) => { ohAbyss?.onDungeonEntered(ohDungeonOf(ctx)); csaOnTransition(); navalTransition(); },   // PlayerEnterExit.OnTransitionDungeonInterior (CSA-C: Come Sail Away's OnTransition after OceanHoles' - the mods' load order)
     onFailedTransition: () => { ohAbyss?.onTransitionFailed(); },   // PlayerEnterExit.OnFailedTransition
-    onTransitionDungeonExterior: () => { ohAbyss?.onDungeonExited(); csaOnTransition(); },   // PlayerEnterExit.OnTransitionDungeonExterior (and Come Sail Away's)
+    onTransitionDungeonExterior: () => { ohAbyss?.onDungeonExited(); csaOnTransition(); navalTransition(); },   // PlayerEnterExit.OnTransitionDungeonExterior (and Come Sail Away's)
     onEnemySpawn: (rec) => { const d = ohDungeonOf(modes?.dungeonCtx); if (d) ohAbyss?.onEnemySpawned(d, d.foeView(rec)); },   // OH-E: GameManager.OnEnemySpawn
     // OH-E: OceanHoles.LateUpdate's presentation over the bound abyss, or null - off the dungeon's own water fog and
     // PlayerAmbientLight's DungeonAmbientLight (the component the port always has), DungeonAmbientLightScale on top
@@ -17312,7 +17551,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // camera is read.
     gamepad?.tick(dt);   // GP1: the pad's frame - its keys, its stick, its look - before the paused gate, so a window still sees Back and a lifted thumb still releases
     if (!gamePaused()) {
-      if (swingSuppressesLook({ swingHeld: rightHeld || swipeHeld || swingKeyLatch, weaponIsBow: weaponRig.playerWeapon.machine?.isBow }) && walkMode && modeNow() === 'exterior') lookFilter.settle();   // MAC-O2: the law is lookFilter.js's one seam (:246-248, WeaponSwingMode included); `walkMode` and the mode are this host's own - the mode host owns another screen weapon
+      if (swingSuppressesLook({ swingHeld: rightHeld || swipeHeld || swingKeyLatch, weaponIsBow: weaponRig.playerWeapon.machine?.isBow }) && walkMode && modeNow() === 'exterior' && !naval?.atGuns) lookFilter.settle();   // MAC-O2: the law is lookFilter.js's one seam (:246-248, WeaponSwingMode included); `walkMode` and the mode are this host's own - the mode host owns another screen weapon; NAV-H: at a helm with guns the held attack is the aim, which is laid BY the look
       else lookFilter.tick(dt, cam);
       // FIX-F: the KEYBOARD look - TurnLeft/TurnRight/LookUp/LookDown
       // (InputManager.cs:1854-1865), one look unit a frame in DFU, paid
@@ -17613,8 +17852,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const swingKey = swingKeyHeld(keys);   // MAC-SWING1: a swing bound to a KEY or pad code has no mousedown - the latch is polled here, and fed to the rig on the change
         if (swingKey !== swingKeyLatch) {
           swingKeyLatch = swingKey;
-          if (!swingKey) weaponRig.attackInput(0, 0, false);   // the release is never gated
-          else if (!townTalk.overlayActive && walkMode && modeNow() === 'exterior' && !magic.interceptAttack(true)) weaponRig.attackInput(0, 0, true);
+          if (!swingKey) { weaponRig.attackInput(0, 0, false); navalRelease(); }   // the release is never gated; NAV-H: nor the broadside's
+          else if (!townTalk.overlayActive && walkMode && modeNow() === 'exterior' && !magic.interceptAttack(true) && !naval?.attackInput(true)) weaponRig.attackInput(0, 0, true);
         }
         const crouchHeld = held(keys, 'Crouch');   // P12 host parity (audit F4); I2: DFU's default C
         const crouchPress = pressed(latch.edge, keys, 'Crouch');   // MWCROUCH: GetKeyDown, not a held-ring derivation - the levitate descent below still reads the HELD key
@@ -17992,6 +18231,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // hits what is on screen; divergence from player.eye is under
         // one physics step). `eye` stays the simulation's truth.
         cam.pos = player.eyeAt();
+        navalFrame(dt);   // NAV-H: the sea fight - after the helm moved the boat and the eye was taken, before the pool walks the hulls it posed
         // DC1: PlayerDeath.Update's camera sink - while the death
         // overlay runs, the eye rides down the sequence's drop (the
         // fresh array from player.eye makes this per-frame, never
@@ -18119,6 +18359,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           if (_lockFoe) lockOn.toggle(_lockFoe);
           else if (_tapLockOnly) { /* TS1: the stick-half tap found no foe - it opens nothing */ }
           else if (!_act.pressCast && plaquePeerAct(cam.pos, useFwd)) { /* ACT-MENU: a player the plaque named nearest, and the verb it lit - never on a press that cast (AUDIT DISC7 A1) */ }
+          else if (!_race.loot && !_race.drop && naval?.activate()) { /* NAV-D: grapples thrown on a struck ship, a rail gone over, a prize's hold opened - a body or a pile under the ray still takes the click first */ }
           // AUDIT 65 MC-2: ONE enemy arm, at the RAY's reach, still
           // decided against every rival above - DFU's one raycast
           // (:314) reaches MobileEnemyCheck (:419) only for the thing
@@ -18290,6 +18531,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       hcc.offsetAll(r.offset);   // HCC: FloatingOrigin.OnPositionUpdate - every scene point the runtime holds, the peers' teams, the parked wagon's collider
       if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
       csaPeers.rebase(r.offset);   // CSA-J: the peers' eased places with the world
+      naval?.offsetAll(r.offset); navalFlames.offsetAll(r.offset);   // NAV-H: the sea's ships, their shots, smoke and fires - before their buckets stand again below
       csaSyncColliders();   // CSA-D: the boats' buckets stand where the shift put them before any motor step meets them   // CSA-C: the mod's own FloatingOrigin.OnPositionUpdate (its kept bug: a boat out of sight stays behind)
       hitEffects.offsetAll(r.offset);   // AUDIT 24 (wave 39): a splash mid-animation follows the origin too
       for (const q of [_wodArrival.origin, _wodArrival.loadAt]) if (q) { q[0] += r.offset[0]; q[1] += r.offset[1]; q[2] += r.offset[2]; }   // WOD6
@@ -18686,7 +18928,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const _lanterns = wodSel ? null : nearestLights(_sceneLights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), _litRanges, null, 0, n);
       // DW-D: UnderwaterPresentationEffects.SuppressPlayerTorch - EnablePlayerTorch's light dark under the fog (the fuel burns on, the light is the only thing it takes)
       const lit = withPlayerLights(wodSel ? wodSel.data : _lanterns,   // EL1: the installed set's cap (16 classic, 48 on the lane); PERF-LIGHTS: `n` is how much of the pool is live
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32, renderer.lightingLane ? capFadeColors(lit, lit.length / 4 - _lanterns.length / 4, cam.pos, renderer.maxPointLights, CITY_LIGHT_COLOR_F32) : null);   // LA-LIGHTS2
     } else {
@@ -18697,7 +18939,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // WOD2: ...and the mod's lights, which burn at every hour.
       const wodSel = wodLit || csaLit.length ? _wodSelect(0, _csaFill(wodLit ? _wodFill(0) : 0, csaLit)) : null;   // AUDIT PRE-MERGE 0928 R2: the boats' lanterns by day too (DungeonLightHandler lights them near)
       const lit = withPlayerLights(wodSel ? wodSel.data : new Float32Array(0),
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // HT1; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // HT1; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the flashes by day too
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32);
     }
@@ -19141,7 +19383,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     hitEffects.bleedPlayer(townTalk.overlayActive ? 0 : dt, walkMode && playerSpawned ? player.pos : cam.pos, playerEntity);   // BLOOD2e: the player's own blood, at the feet, on the same clock; BLOOD AUDIT 5: not under a window, and the host's own feet
     livePersonBatches.push(...hitEffects.batches());
     // HT1: the dropped torches burn, the thrown one flies, a burning foe's flame follows it (the transition sweep is at the mode branch above, AUDIT 66 F11)
-    if (_mode() === 'exterior') { droppedTorches.tick(dt); livePersonBatches.push(...droppedTorches.batches()); camps.tick(dt); livePersonBatches.push(...camps.batches()); }   // SURV3: the fires burn on the same axis
+    if (_mode() === 'exterior') { droppedTorches.tick(dt); livePersonBatches.push(...droppedTorches.batches()); camps.tick(dt); livePersonBatches.push(...camps.batches()); livePersonBatches.push(...navalFlames.batches()); }   // SURV3: the fires burn on the same axis; NAV-B: and a burning ship's
     if (sigilBroker && _mode() === 'exterior') livePersonBatches.push(...sigilBroker.batches());   // SET7: the Broker on the flats' axis, as a foe stands
     // HCC: the horse billboards on the flats' axis (the runtime ticked above, hccTick - AUDIT HCC H1)
     if (hcc.enabled && _mode() === 'exterior') livePersonBatches.push(...hcc.batches());
@@ -19184,6 +19426,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (deepWaters) drawDeepWatersSurfaces(now);   // DW-C: the sea's surface - the mod's Transparent queue, after every opaque thing and every cut-out flat
     if (oceanHoles) drawOceanHolesTransparent();   // OH-C: the blue hole's core over it (3001), then the miasma (3002)
     csaDrawParticlesBlended();   // CSA-F: the oars' and rudders' drops (the Transparent queue)
+    if (naval?.enabled) navalRender.draw(naval.drawFrame());   // NAV-B: the smoke, the spray, the balls in flight and the aim's arcs and zone, over the sea's top
+    navalHud();   // NAV-F: the helm's readout
     // DW-D: UnderwaterPresentationEffects.UpdateWeatherParticles - a swimmer outdoors (never a water walker) has no
     // rain or snow about them (the port's sand is the same kind of particle volume, and goes with them); DW-C: and
     // under the distance fog the air's own effects - the sand, the wisps, the bolts, none of which writes a depth the

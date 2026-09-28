@@ -1,0 +1,165 @@
+[
+  {
+    "name": "NAV-F-the-singular",
+    "file": "src/ui/navalHud.js",
+    "old": "`${b.guns} ${b.guns === 1 ? GUN_WORDS[b.gun].replace(/s$/, '') : GUN_WORDS[b.gun]}`",
+    "new": "`${b.guns} ${GUN_WORDS[b.gun]}`",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-a-reload-shown-full",
+    "file": "src/ui/navalHud.js",
+    "old": "    fill: pct(b.ready ? 1 : b.progress),",
+    "new": "    fill: pct(1),",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-board-hint-shadowed",
+    "file": "src/ui/navalHud.js",
+    "old": "    hint: model.board ?",
+    "new": "    hint: false ?",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-another-ships-key",
+    "file": "src/ui/navalHud.js",
+    "old": "  const mine = board?.name === t.name;",
+    "new": "  const mine = !!board;",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-prize-missed",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (t.state === 'prize') return",
+    "new": "  if (false) return",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-covered-still-drawn",
+    "file": "src/ui/navalHud.js",
+    "old": "  const want = !covered && !!model;",
+    "new": "  const want = !!model;",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-a-rebuild-a-frame",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (!root) {\n    if (!want || !doc?.createElement) return;",
+    "new": "  if (want || !root) {\n    if (!want || !doc?.createElement) return;",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-whole-kit",
+    "file": "src/ui/navalHud.js",
+    "old": "export const navalKitCss = () => scopeRules(frameCss(), (sel) => sel.includes('dfnaval'));",
+    "new": "export const navalKitCss = () => frameCss();",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-kit-twice-on-plus",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (!doc?.createElement || isEnhancedPlus()) return false;",
+    "new": "  if (!doc?.createElement) return false;",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-two-choices",
+    "file": "src/ui/navalPlunderWindow.js",
+    "old": "      if (chosen || !o.useful) tile.setAttribute('disabled', '');",
+    "new": "      if (!o.useful) tile.setAttribute('disabled', '');",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-fate-not-told",
+    "file": "src/ui/navalPlunderWindow.js",
+    "old": "      button('Scuttle her', 'dfnaval-btn dfnaval-scuttle', () => { m.fate?.('scuttle'); exit('fate'); }),",
+    "new": "      button('Scuttle her', 'dfnaval-btn dfnaval-scuttle', () => { exit('fate'); }),",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-a-listener-left-behind",
+    "file": "src/ui/navalPlunderWindow.js",
+    "old": "      globalThis.removeEventListener('keydown', onKey, { capture: true });",
+    "new": "",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-a-raid-offered-the-choice",
+    "file": "src/ui/navalPlunderWindow.js",
+    "old": "    choiceSec.style.display = !m.raid && offers.length ? '' : 'none';",
+    "new": "    choiceSec.style.display = offers.length ? '' : 'none';",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-scrim-inert",
+    "file": "src/ui/navalPlunderWindow.js",
+    "old": "  const offOutside = closeOnOutsideTap(shell, '.dfnaval-win', () => exit('close'));",
+    "new": "  const offOutside = () => {};",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-two-windows",
+    "file": "src/ui/navalPlunderDoor.js",
+    "old": "  if (typeof document === 'undefined') return null;\n  _open?.dispose();",
+    "new": "  if (typeof document === 'undefined') return null;",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-reason-lost",
+    "file": "src/ui/navalPlunderDoor.js",
+    "old": "    if (typeof reason === 'string') why = reason;",
+    "new": "",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-a-second-onclose",
+    "file": "src/ui/navalPlunderDoor.js",
+    "old": "    if (fired) return;\n    if (typeof reason",
+    "new": "    if (typeof reason",
+    "tests": [
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAV-F-the-scuttle-undressed",
+    "file": "src/ui/enhancedFrame.js",
+    "old": "  warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel',\n    'body .dfnaval-scuttle'],",
+    "new": "  warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel'],",
+    "tests": [
+      "test/nav_f_ui.test.js",
+      "test/plusdress1.test.js"
+    ]
+  }
+]

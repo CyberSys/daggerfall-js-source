@@ -194,7 +194,8 @@ test('CSA-J: the hosts - the foes frame carries my word beside the team\'s, the 
   assert.match(w, /function csaWord\(frame, full\) \{\n\s+if \(!csaRuntime \|\| !csaOn\(\)\) \{ if \(!_csaWordKey\) return false; if \(frame\) \{ frame\.sa = null; _csaWordKey = ''; \} return true; \}/);
   assert.match(w, /const rec = csaWireRecord\(view, campToWire\);\n\s+const key = csaRecordKey\(rec\);\n\s+if \(!full && key === _csaWordKey\) return false;\n\s+if \(frame\) \{ frame\.sa = rec; _csaWordKey = key; \}\n\s+return true;/);
   // AUDIT PRE-MERGE 0928 O2: the moved word asks for the frame it rides (test/audit0928_online.test.js drives it)
-  assert.match(w, /const csaMoved = cell && csaWord\(null, full\);[^\n]*\n\s+const frame = cell \? \(\(modes\?\.mode \?\? 'exterior'\) === 'exterior' \? exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved\) : null\)/);
+  // NAV-G: the sea's word rides beside the boats' by the same law - a changed word asks for the frame it rides
+  assert.match(w, /const csaMoved = cell && csaWord\(null, full\);[^\n]*\n\s+const navalMoved = cell && navalWord\(null, full\);[^\n]*\n\s+const frame = cell \? \(\(modes\?\.mode \?\? 'exterior'\) === 'exterior' \? exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved \|\| navalMoved\) : null\)/);
   assert.match(w, /exteriorFoes\.setOnCsa\(\(from, sa, at\) => csaPeers\.applyOwner\(from, sa, campToScene, at\), \(\) => csaPeers\.clearPeers\(\)\);/);
   assert.match(w, /if \(ids\) hcc\.sweepOwners\(ids, now, FOES_STALE_MS\); \}[^\n]*\n\s+if \(isCellRoom\(online\.room\)\) \{ const ids = ownerIds\(\); if \(ids\) csaPeers\.sweepOwners\(ids, now, FOES_STALE_MS\); \}/);
   assert.match(w, /csaPeers\.rebase\(r\.offset\);/);

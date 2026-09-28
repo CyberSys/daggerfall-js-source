@@ -144,8 +144,10 @@ const codesOf = (code) => (code == null ? [] : (getCombo(code) ?? [code]));
 /**
  * Attach the touch layer.
  * @param canvas the game canvas (drag surface)
- * @param hooks { look(dx,dy), attack?(dx,dy,held), tap?(x,y), locked?(), dial?, enhanced?, cycleMode?(), socialInteract?(), overlayActive?(), paused?(), stickRuns?() }
+ * @param hooks { look(dx,dy), attack?(dx,dy,held), tap?(x,y), locked?(), dial?, enhanced?, cycleMode?(), socialInteract?(), overlayActive?(), paused?(), stickRuns?(), aimHold?() }
  *   - stickRuns: AUDIT PRE-MERGE 0928 U3 - false stands the stick's 80%-throw Run down (the boat's helm); absent, it runs.
+ *   - aimHold: NAV-H - true while the attack is a held aim (a helm with guns): the swipe presses it once and the
+ *     finger's drag under it is a look - the guns are laid by the view; the lift fires them. Absent, the drag swings.
  *   TI2 adds nothing to the hooks: the analog stick is read FROM the
  *   handle (`axes()`), the gyro goes through `look`.
  *   - attack/tap/dial omitted on scenes without them (the fly-cam
@@ -551,6 +553,8 @@ export function attachTouch(canvas, hooks = {}) {
       } else if (ev.type === 'swipe') {
         if (ev.held) {
           if (paused) { if (swiping) { swiping = false; hooks.attack?.(0, 0, false); } continue; }
+          // NAV-H: at a helm with guns the hold is the broadside's aim - pressed once, and the drag under it a look
+          if (swiping && hooks.aimHold?.()) { hooks.look?.(ev.dx * TOUCH_LOOK_GAIN * lookNorm(), ev.dy * TOUCH_LOOK_GAIN * lookNorm()); continue; }
           if (!swiping) buzz(15);   // TI2: the hold armed - the finger is told
           swiping = true;
         } else swiping = false;

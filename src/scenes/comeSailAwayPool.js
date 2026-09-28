@@ -104,7 +104,11 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   /** CSA-J: the peers' boats (scenes/comeSailAwayPeers.js) - drawn, baked and lit as mine, but never in `boats`, so
    *  the host's colliders, rays and activations (which read `boats`) never meet them. */
   /** @type {any[]} */ const peerBoats = [];
-  const drawn = () => (peerBoats.length ? boats.concat(peerBoats) : boats);
+  /** NAV-C: the sea's ships (scenes/navalHost.js) - the Iliac Bay's pirates, merchantmen and navies, built on these same
+   *  hulls: drawn, baked and lit as mine, never in `boats` (no helm is taken on one, no deed places one); the naval host
+   *  poses them, and stands the near ones in the world's collider itself. */
+  /** @type {any[]} */ const seaBoats = [];
+  const drawn = () => (peerBoats.length || seaBoats.length ? boats.concat(peerBoats, seaBoats) : boats);
   const meshes = new Map();      // rendererModelKey -> gpu mesh | null
   const meshLoads = new Map();   // in flight
   const bakes = new Map();       // FixDeformations script -> { gpu, positions, normals, loading }
@@ -215,9 +219,16 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     peerBoats.push(boat);
     return boat;
   }
+  /** NAV-C: a sea ship, built as SpawnBoat builds one (at the origin - the naval host poses it) and drawn. */
+  function spawnSeaNow(boat) {
+    if (!models) return null;
+    spawnBoat(boat, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
+    seaBoats.push(boat);
+    return boat;
+  }
   /** Object.Destroy(boat.GameObject): its meshes, bakes and flats go with it. */
   function remove(boat) {
-    const list = boats.includes(boat) ? boats : peerBoats;
+    const list = boats.includes(boat) ? boats : peerBoats.includes(boat) ? peerBoats : seaBoats;
     const i = list.indexOf(boat);
     if (i < 0) return;
     list.splice(i, 1);
@@ -375,15 +386,16 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
       walks.delete(boat);   // AUDIT PRE-MERGE 0928 R5: moved - walked again
     }
   }
-  function destroyAll() { for (const b of [...boats, ...peerBoats]) remove(b); }
+  function destroyAll() { for (const b of [...boats, ...peerBoats, ...seaBoats]) remove(b); }
 
   return {
     ensureModels, spawn, spawnNow, preload, ready: () => preloaded, remove, setVariant, frame, batches, draw, lights, offsetAll, destroyAll,
-    spawnPeerNow,
+    spawnPeerNow, spawnSeaNow,
     /** AUDIT PRE-MERGE 0928 R5: a boat's walk as this frame made it (its nodes and world matrices) - a probe's reading. */
     walkOf,
     get boats() { return boats; },
     get peerBoats() { return peerBoats; },
+    get seaBoats() { return seaBoats; },
     get models() { return models; },
     /** A probe's reading: what stands, and how much of it is drawn. */
     stat: () => boats.map((b) => ({ hull: b.hull, variant: b.variant, position: b.GameObject.position.map((v) => +v.toFixed(2)), meshes: [...meshes.values()].filter(Boolean).length, bakes: [...bakes.values()].filter((k) => k.gpu).length, flats: flats.size, lights: b.Lights.filter((l) => l.enabled).length })),

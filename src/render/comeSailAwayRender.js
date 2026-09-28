@@ -224,7 +224,31 @@ export const CUBE_TRIANGLES = (() => {
   }
   return out;
 })();
-/** The port's own stand-in for Unity's Default-Particle picture: a soft white disc (Port-Ledger, declared). */
+/**
+ * NAV-B (2026-09-28): the flags in RUNS OF ONE COLOUR, in the order each colour first flies - a sea ship's flag
+ * particle carries her faction's `color` (systems/naval/navalShips.js NAVAL_FACTIONS' `flag`: the pirates' black, a
+ * merchantman's gold, a navy's red), a player's boat none (FlagMaterial's own orange, the mod's). One upload, one draw a run.
+ * @param {any[]} flags
+ * @returns {{ color: number[] | null, list: any[] }[]}
+ */
+export function flagRuns(flags) {
+  const runs = new Map();
+  for (const q of flags) {
+    const key = Array.isArray(q.color) ? q.color.join(',') : '';
+    let run = runs.get(key);
+    if (!run) { run = { color: Array.isArray(q.color) ? q.color : null, list: [] }; runs.set(key, run); }
+    run.list.push(q);
+  }
+  return [...runs.values()];
+}
+/**
+ * The port's own stand-in for Unity's Default-Particle picture: a soft white disc (Port-Ledger, declared), PREMULTIPLIED
+ * - its colour is its coverage (rgb = alpha), as the one material that samples it needs. That material is the drops'
+ * "Alpha Blended Premultiply" (PART_PREMUL_FS: the texel times the premultiplied particle colour, blended One
+ * OneMinusSrcAlpha), whose `One` takes the texel's rgb WHOLE: a disc white to its clear rim (rgb 255 where alpha is
+ * 0) added full white over every pixel of the quad - each oar's and rudder's drop a white square on the sea. Found by
+ * the naval arc (NAV-B, 2026-09-28), whose ships row and splash through this same pass.
+ */
 export function softParticleTexture(size = 64) {
   const data = new Uint8Array(size * size * 4);
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
@@ -232,7 +256,7 @@ export function softParticleTexture(size = 64) {
     const r = Math.min(1, Math.hypot(dx, dy));
     const a = Math.round(255 * Math.pow(1 - r, 2));
     const i = (y * size + x) * 4;
-    data[i] = 255; data[i + 1] = 255; data[i + 2] = 255; data[i + 3] = a;
+    data[i] = a; data[i + 1] = a; data[i + 2] = a; data[i + 3] = a;   // white, premultiplied
   }
   return { width: size, height: size, data };
 }
@@ -379,26 +403,34 @@ export class ComeSailAwayRenderer {
       if (st.cap < n) { st.cap = Math.max(n, st.cap * 2, 360); st.data = new Float32Array(st.cap * 6); gl.bindBuffer(gl.ARRAY_BUFFER, st.vbo); gl.bufferData(gl.ARRAY_BUFFER, st.data.byteLength, gl.STREAM_DRAW); }
       const d = st.data;
       let o = 0;
-      for (const q of flags) {
-        const rot = rotate(q.systemRotation, q.rotation);
-        const turn = (v) => quatRotate(rot, v);
-        for (const t of CUBE_TRIANGLES) {
-          const p = turn([t.p[0] * q.size[0], t.p[1] * q.size[1], t.p[2] * q.size[2]]);
-          const nn = turn([t.n[0] / (q.size[0] || 1), t.n[1] / (q.size[1] || 1), t.n[2] / (q.size[2] || 1)]);
-          d[o++] = q.position[0] + p[0]; d[o++] = q.position[1] + p[1]; d[o++] = q.position[2] + p[2];
-          d[o++] = nn[0]; d[o++] = nn[1]; d[o++] = nn[2];
+      const spans = [];
+      for (const run of flagRuns(flags)) {
+        const first = o / 6;
+        for (const q of run.list) {
+          const rot = rotate(q.systemRotation, q.rotation);
+          const turn = (v) => quatRotate(rot, v);
+          for (const t of CUBE_TRIANGLES) {
+            const p = turn([t.p[0] * q.size[0], t.p[1] * q.size[1], t.p[2] * q.size[2]]);
+            const nn = turn([t.n[0] / (q.size[0] || 1), t.n[1] / (q.size[1] || 1), t.n[2] / (q.size[2] || 1)]);
+            d[o++] = q.position[0] + p[0]; d[o++] = q.position[1] + p[1]; d[o++] = q.position[2] + p[2];
+            d[o++] = nn[0]; d[o++] = nn[1]; d[o++] = nn[2];
+          }
         }
+        spans.push({ color: run.color, first, count: o / 6 - first });
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, st.vbo);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, d.subarray(0, o));
       gl.useProgram(P.cube.p);
       gl.uniformMatrix4fv(u.uProj, false, r._proj);
       gl.uniformMatrix4fv(u.uView, false, r._view);
-      gl.uniform4f(u.uColor, 1, 0.5, 0, 1);   // FlagMaterial's _Color
       this._lightFog(u);
       gl.enable(gl.CULL_FACE);
       gl.bindVertexArray(st.vao);
-      gl.drawArrays(gl.TRIANGLES, 0, n);
+      for (const sp of spans) {
+        if (sp.color) gl.uniform4f(u.uColor, sp.color[0], sp.color[1], sp.color[2], 1);   // NAV-B: a sea ship's own colours
+        else gl.uniform4f(u.uColor, 1, 0.5, 0, 1);   // FlagMaterial's _Color
+        gl.drawArrays(gl.TRIANGLES, sp.first, sp.count);
+      }
       gl.bindVertexArray(null);
     }
     gl.bindTexture(gl.TEXTURE_2D, null);

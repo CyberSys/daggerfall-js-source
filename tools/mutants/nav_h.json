@@ -1,0 +1,265 @@
+[
+  {
+    "name": "NAV-H-the-release-never-fires",
+    "file": "src/scenes/navalHost.js",
+    "old": "    fire({ shooter: myBoatId(boat), wireShooter: -1, hull: boat.hull, pose, solution, skill: 0.6 });\n    st.guns.fired(side);",
+    "new": "    st.guns.fired(side);",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-reload-skipped",
+    "file": "src/scenes/navalHost.js",
+    "old": "    st.guns.fired(side);\n    deps.shake?.(1.2);",
+    "new": "    deps.shake?.(1.2);",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-brace-ignored",
+    "file": "src/scenes/navalHost.js",
+    "old": "      s.guns.braced = b === boat && braceHeld;",
+    "new": "      s.guns.braced = false;",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-swing-eaten-at-a-rowboat",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (!armed(boat)) { aiming = false; return false; }",
+    "new": "    if (!armed(boat)) { aiming = false; return true; }",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-guns-where-none-are",
+    "file": "src/scenes/navalHost.js",
+    "old": "    get atGuns() { return enabled && armed(myBoat()); },",
+    "new": "    get atGuns() { return enabled && !!myBoat(); },",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-every-ball-a-charge",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (entry.charged.has(act)) return;\n",
+    "new": "",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-sink-never-charged",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (!down(was) && down(dmg.state) && clock - (e.myBlowAt ?? -Infinity) <= SINK_CREDIT_S) chargePlayer('sink', e);",
+    "new": "",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-sink-charged-forever",
+    "file": "src/scenes/navalHost.js",
+    "old": "clock - (e.myBlowAt ?? -Infinity) <= SINK_CREDIT_S) chargePlayer('sink', e);",
+    "new": "e.myBlowAt > -Infinity) chargePlayer('sink', e);",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-my-blow-landed-twice",
+    "file": "src/scenes/navalHost.js",
+    "old": "      return;\n    }\n    strike(target, hurt, byMe ? myId() : e.shooter);",
+    "new": "    }\n    strike(target, hurt, byMe ? myId() : e.shooter);",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-haul-skipped",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (!boat) boarding.t = Infinity;",
+    "new": "    boarding.t = Infinity;",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-captain-last",
+    "file": "src/scenes/navalHost.js",
+    "old": "      const all = [muster.captain, ...muster.men];",
+    "new": "      const all = [...muster.men, muster.captain];",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-prize-never-offered",
+    "file": "src/scenes/navalHost.js",
+    "old": "    endBoarding();   // the hands go home over the rail; her dead lie on her deck (entry.deck)\n    openPrize(entry);",
+    "new": "    endBoarding();   // the hands go home over the rail; her dead lie on her deck (entry.deck)",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-raid-never-started",
+    "file": "src/scenes/navalHost.js",
+    "old": "      const quest = deps.board?.startRaid?.(raidQuestOf(entry.ship.cls));",
+    "new": "      const quest = null;",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-gate-sailing-home",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (entry) winBoarding(b, entry); else endBoarding();\n      return 'naval';",
+    "new": "      if (entry) winBoarding(b, entry); else endBoarding();\n      return 'proceed';",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-voyage-never-waiting",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (prizeRaid?.quest === quest) return prizeRaid.state === 'done' ? 'proceed' : 'wait';",
+    "new": "    if (prizeRaid?.quest === quest) return 'proceed';",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-raids-forgotten",
+    "file": "src/scenes/navalHost.js",
+    "old": "day: lastDecayDay, raids: [...raidUids] };",
+    "new": "day: lastDecayDay, raids: [] };",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-a-boat-keyed-by-nothing",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (!Number.isSafeInteger(key) || key <= 0 || !rec || typeof rec !== 'object') continue;",
+    "new": "      if (!rec || typeof rec !== 'object') continue;",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-traffic-on-land",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const onWater = !!boat || deps.isWater(deps.feet()[0], deps.feet()[2], 0);",
+    "new": "    const onWater = true;",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-build-never-done",
+    "file": "src/scenes/navalHost.js",
+    "old": "    stepBoarding(d);\n    buildOne();",
+    "new": "    stepBoarding(d);",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-a-peers-blow-ignored",
+    "file": "src/scenes/navalHost.js",
+    "old": "    strike(entry, { hull: hit.hull, sail: hit.sail, crew: hit.crew, fire: hit.fire }, from);",
+    "new": "",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-claim-unmarked",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (hit.board === BOARD_CODES.boarding) entry.ship.boarded = true;",
+    "new": "      if (hit.board === BOARD_CODES.boarding) { /* the claim unmarked */ }",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-a-departed-owner-stays",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (!alive?.has?.(o) || clock - last > staleS) dropOwner(o);",
+    "new": "      if (clock - last > staleS) dropOwner(o);",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-a-volley-seen-twice",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (seen.has(v.id)) continue;",
+    "new": "",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-stander-launching-for-all",
+    "file": "src/scenes/navalHost.js",
+    "old": "    standing = amGroupRollOwner(id, deps.feet(), peers, standing ? NAVAL_SHARE_RADIUS : NAVAL_SHARE_RADIUS * SHARE_HYSTERESIS);",
+    "new": "    standing = true;",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-drag-a-swing-at-the-guns",
+    "file": "src/scenes/world.js",
+    "old": "    const drag = routed === 'swing' && naval?.atGuns ? 'look' : routed;",
+    "new": "    const drag = routed;",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-look-settled-at-the-guns",
+    "file": "src/scenes/world.js",
+    "old": "&& walkMode && modeNow() === 'exterior' && !naval?.atGuns) lookFilter.settle();",
+    "new": "&& walkMode && modeNow() === 'exterior') lookFilter.settle();",
+    "tests": [
+      "test/nav_h_host.test.js",
+      "test/audit28_looksmoothing.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-guns-before-the-spell",
+    "file": "src/scenes/world.js",
+    "old": "{ if (magic.interceptAttack(true)) return; if (naval?.attackInput(true)) return; weaponRig.attackInput(0, 0, true); }",
+    "new": "{ if (naval?.attackInput(true)) return; if (magic.interceptAttack(true)) return; weaponRig.attackInput(0, 0, true); }",
+    "tests": [
+      "test/nav_h_host.test.js",
+      "test/hostmagic_wiring.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-pad-strokes-at-the-guns",
+    "file": "src/ui/gamepadInput.js",
+    "old": " && !getBool('Controls', 'BowDrawback') && !hooks.aimHold?.();",
+    "new": " && !getBool('Controls', 'BowDrawback');",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV-H-the-finger-swings-at-the-guns",
+    "file": "src/ui/touch.js",
+    "old": "          if (swiping && hooks.aimHold?.()) { hooks.look?.(ev.dx * TOUCH_LOOK_GAIN * lookNorm(), ev.dy * TOUCH_LOOK_GAIN * lookNorm()); continue; }\n",
+    "new": "",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  }
+]

@@ -91,6 +91,7 @@ export const boardPending = () => _boardIn !== null;
  *   setTransportModeShip() TransportManager.TransportMode = Ship (UpdateMode's ship arm: a board, or a landing)
  *   currentRegionIndex()   PlayerGPS.CurrentRegionIndex
  *   setBlockVariant        WorldDataVariants.SetBlockVariant (a seam for the tests; the registry by default)
+ *   leaveShipGate(quest)   NAV-D: the sea fight's word on a "Leave Ship" - 'naval' | 'wait' | 'proceed' (scenes/navalHost.js)
  */
 let _host = null;
 export function setWarmAshesHost(host) { _host = host ?? null; }
@@ -171,9 +172,15 @@ export class LeaveShip extends ActionTemplate {
     if (!this.test(source)) return null;
     return new LeaveShip(parentQuest);
   }
-  /** Update [IL_0540]. */
+  /** Update [IL_0540]. NAV-D (DECLARED, bible/03-World/Naval-Combat.md): the host's `leaveShipGate` is asked first -
+   *  'naval', a raid the sea fight started on the player's own boat: done, nothing sailed (the IL would lend a ship and
+   *  set the player on it); 'wait', a voyage's raid whose raiders' hold is open: not yet; 'proceed' (or no gate): the
+   *  IL's own body. */
   update(_caller) {
     const h = host();
+    const gate = h.leaveShipGate?.(this.parentQuest) ?? 'proceed';
+    if (gate === 'wait') return;
+    if (gate === 'naval') { this.setComplete(); return; }
     if (h.currentRegionIndex?.() === WA_SEA_REGION) {
       resetShipVariants();
       if (!h.ownsShip?.()) {

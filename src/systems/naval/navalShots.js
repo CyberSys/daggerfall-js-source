@@ -1,0 +1,171 @@
+// @ts-check
+// NAV-A (2026-09-28) - THE SHOT IN FLIGHT, AND WHAT FLOATS: every ball fired, every fire barrel rolled off a stern,
+// every cask a sinking hull gives up. The port's own; pure - the host hands the sea's height, the ships as boxes
+// and (optionally) the ground, and reads back what happened as events.
+//
+// A BALL flies its closed form (navalBallistics.js: p0 + v0 t + g t^2 / 2) from the moment its gun fires - a
+// volley's balls each wait their ripple (`delay`) and then appear at the muzzle, which is the 'muzzle' event the
+// host smokes and flashes. Each step the ball is swept from where it stood to where the form puts it now, and meets,
+// nearest first: a SHIP's box (grown by the ball's radius; never its own ship's, which it leaves through its own
+// planking) - a 'hit', classified where it struck (navalDamage.js hitZone); the GROUND - 'land'; the SEA - 'splash'.
+// A ball past BALL_LIFE seconds is gone.
+//
+// WHO RESOLVES A HIT. A volley fired `resolve: true` is this client's to judge: its hits are 'hit' events the host
+// turns into damage (or, online, into a word to whoever stands the ship - NAV-G). A volley `resolve: false` is
+// another client's, drawn here only: its balls splash and strike the same (the same launches, the same seed - the
+// same flight), and the 'hit' it raises carries `resolve: false`, so the host shows the splinters and never counts
+// the damage twice.
+//
+// A FIRE BARREL floats where it was dropped, bobbing, for BARREL.life seconds; it is armed after BARREL_ARM seconds
+// (its own stern has sailed clear), and the first ship's box within BARREL.fuse of it sets it off - a 'blast'.
+// FLOTSAM - the casks a sunk ship leaves (NAV-D) - floats FLOTSAM_LIFE seconds, and the first collector (the
+// player's boat) within FLOTSAM_REACH picks it up - a 'pickup'.
+
+import { shotPosition, segmentBoxEntry, segmentCrossesDown, toBoxLocal } from './navalBallistics.js';
+import { hitZone } from './navalDamage.js';
+import { GUNS, BARREL } from './navalShips.js';
+
+/** A ball's longest flight (s). */
+export const BALL_LIFE = 9;
+/** A fire barrel is harmless this long after it is dropped (s). */
+export const BARREL_ARM = 1.6;
+/** Flotsam: how long it floats (s), and how near a collector's box must come (m). */
+export const FLOTSAM_LIFE = 150;
+export const FLOTSAM_REACH = 3;
+/** How far a swept ball is tested for the ground, at most - a flight over open sea never asks. */
+const GROUND_STEP = 4;
+
+/**
+ * @typedef {{ id: string, box: { c: number[], ax: number[], ay: number[], az: number[], h: number[] }, overSea: number, alive?: boolean }} ShotTarget
+ *   a ship as the shots see it: its hull box this frame (navalBallistics.js orientedBox), its centre's height over
+ *   the sea; `alive` false for a ship that no longer takes hits (sunk)
+ */
+
+/**
+ * @param {{ seaY: () => number, targets: () => ShotTarget[], ground?: ((p: number[]) => boolean) | null,
+ *           collectors?: () => { id: string, box: any }[], onEvent?: (e: any) => void, random?: () => number }} deps
+ */
+export function createShotField(deps) {
+  /** @type {any[]} */ let balls = [];
+  /** @type {any[]} */ let floaters = [];
+  let clock = 0;
+  const emit = (e) => deps.onEvent?.(e);
+  const random = deps.random ?? Math.random;
+
+  /**
+   * A volley's balls. `launches` from navalGunnery.js volleyLaunches; `shooter` the ship's id (never struck by its
+   * own balls); `resolve` whether this client judges the hits.
+   */
+  function fireVolley({ id, shooter, launches, resolve = true, side = null, owner = null }) {
+    for (const l of launches) {
+      balls.push({
+        volley: id, shooter, owner, resolve, side, gun: l.gun, index: l.index,
+        p0: [...l.p0], v0: [...l.v0], born: clock + Math.max(0, l.delay ?? 0), shown: false, prev: [...l.p0], pos: [...l.p0], spin: random() * Math.PI * 2,
+      });
+    }
+  }
+
+  /** A fire barrel dropped at `pos` (on the sea) by `shooter`. */
+  function dropBarrel({ id, shooter, pos, resolve = true, owner = null }) {
+    floaters.push({ kind: 'barrel', id, shooter, owner, resolve, pos: [...pos], born: clock, life: BARREL.life, phase: random() * Math.PI * 2 });
+  }
+  /** A cask of a sunk ship's cargo, worth `lot` (NAV-D's). */
+  function dropFlotsam({ id, pos, lot = 0, from = null }) {
+    floaters.push({ kind: 'flotsam', id, from, lot, pos: [...pos], born: clock, life: FLOTSAM_LIFE, phase: random() * Math.PI * 2 });
+  }
+
+  const nearestHit = (a, b, radius, shooter) => {
+    let best = null;
+    for (const t of deps.targets()) {
+      if (t.alive === false || t.id === shooter) continue;
+      const e = segmentBoxEntry(a, b, t.box, radius);
+      if (e && (!best || e.t < best.e.t)) best = { t, e };
+    }
+    return best;
+  };
+
+  /** The ground along a segment, walked GROUND_STEP at a time: the fraction it is first under, or null. */
+  function groundAlong(a, b) {
+    if (!deps.ground) return null;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    const n = Math.max(1, Math.ceil(len / GROUND_STEP));
+    for (let i = 1; i <= n; i++) {
+      const k = i / n;
+      if (deps.ground([a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k])) return k;
+    }
+    return null;
+  }
+
+  /** One step of every ball and floater. */
+  function step(dt) {
+    clock += Math.max(0, dt);
+    const seaY = deps.seaY();
+    const keep = [];
+    for (const b of balls) {
+      if (clock < b.born) { keep.push(b); continue; }
+      const age = clock - b.born;
+      if (!b.shown) {
+        b.shown = true;
+        emit({ type: 'muzzle', volley: b.volley, shooter: b.shooter, owner: b.owner, side: b.side, gun: b.gun, index: b.index, pos: [...b.p0], dir: [...b.v0], resolve: b.resolve });
+      }
+      if (age > BALL_LIFE) continue;
+      const a = b.pos, next = shotPosition(b.p0, b.v0, age, undefined, [0, 0, 0]);
+      const radius = GUNS[b.gun]?.radius ?? 0.1;
+      const ship = nearestHit(a, next, radius, b.shooter);
+      const sea = segmentCrossesDown(a, next, seaY);
+      const land = groundAlong(a, next);
+      const firstT = Math.min(ship ? ship.e.t : Infinity, sea ?? Infinity, land ?? Infinity);
+      if (firstT === Infinity) { b.prev = a; b.pos = next; keep.push(b); continue; }
+      const at = (k) => [a[0] + (next[0] - a[0]) * k, a[1] + (next[1] - a[1]) * k, a[2] + (next[2] - a[2]) * k];
+      if (ship && ship.e.t === firstT) {
+        const local = toBoxLocal(ship.t.box, ship.e.point);
+        emit({
+          type: 'hit', volley: b.volley, shooter: b.shooter, owner: b.owner, target: ship.t.id, gun: b.gun, point: ship.e.point,
+          zone: hitZone(local, ship.t.box, ship.t.overSea), dir: [next[0] - a[0], next[1] - a[1], next[2] - a[2]], resolve: b.resolve,
+        });
+      } else if (land != null && land === firstT) emit({ type: 'land', volley: b.volley, shooter: b.shooter, gun: b.gun, point: at(land) });
+      else emit({ type: 'splash', volley: b.volley, shooter: b.shooter, gun: b.gun, point: [at(sea ?? 0)[0], seaY, at(sea ?? 0)[2]] });
+    }
+    balls = keep;
+    const floatKeep = [];
+    for (const f of floaters) {
+      const age = clock - f.born;
+      if (age > f.life) { emit({ type: 'sink', kind: f.kind, id: f.id, point: [...f.pos] }); continue; }
+      f.pos[1] = seaY + 0.15 * Math.sin(clock * 1.7 + f.phase);
+      if (f.kind === 'barrel' && age >= BARREL_ARM) {
+        const t = deps.targets().find((s) => s.alive !== false && s.id !== f.shooter && insideGrown(s.box, f.pos, BARREL.fuse));
+        if (t) { emit({ type: 'blast', id: f.id, shooter: f.shooter, owner: f.owner, target: t.id, point: [...f.pos], resolve: f.resolve }); continue; }
+      }
+      if (f.kind === 'flotsam') {
+        const c = (deps.collectors?.() ?? []).find((k) => insideGrown(k.box, f.pos, FLOTSAM_REACH));
+        if (c) { emit({ type: 'pickup', id: f.id, lot: f.lot, from: f.from, collector: c.id, point: [...f.pos] }); continue; }
+      }
+      floatKeep.push(f);
+    }
+    floaters = floatKeep;
+  }
+
+  /** The floating origin moved: every ball's launch and every floater with it. */
+  function offsetAll(o) {
+    for (const b of balls) for (const k of ['p0', 'prev', 'pos']) { b[k][0] += o[0]; b[k][1] += o[1]; b[k][2] += o[2]; }
+    for (const f of floaters) { f.pos[0] += o[0]; f.pos[1] += o[1]; f.pos[2] += o[2]; }
+  }
+
+  return {
+    fireVolley, dropBarrel, dropFlotsam, step, offsetAll,
+    /** The balls in the air, for the draw: `{ pos, gun, spin }`. */
+    balls: () => balls.filter((b) => b.shown).map((b) => ({ pos: b.pos, gun: b.gun, spin: b.spin + (clock - b.born) * 12 })),
+    /** What floats, for the draw: `{ kind, pos, phase }`. */
+    floaters: () => floaters.map((f) => ({ kind: f.kind, pos: f.pos, id: f.id, phase: f.phase })),
+    /** Everything gone (a transition, a load). */
+    clear() { balls = []; floaters = []; },
+    get clock() { return clock; },
+    get inFlight() { return balls.length; },
+  };
+}
+
+/** Whether a point lies inside a box grown by `r` on every axis. */
+export function insideGrown(box, p, r) {
+  const l = toBoxLocal(box, p);
+  return Math.abs(l[0]) <= box.h[0] + r && Math.abs(l[1]) <= box.h[1] + r && Math.abs(l[2]) <= box.h[2] + r;
+}

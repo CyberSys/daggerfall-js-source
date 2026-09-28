@@ -10,6 +10,11 @@ The gun lab’s shooting and reloading sounds. Every file here is
 The `*-synth.wav` files are ours outright: `tools/gunSfx.mjs` builds them
 from noise and sine through the same bake, deterministically.
 
+The `naval-*.wav` files are ours outright too: the sea fight's guns, strikes,
+barrels and grapnels (bible/03-World/Naval-Combat.md), built by `tools/navalSfx.mjs`
+from the same kit (`tools/sfxSynth.mjs`) and the same bake. DAGGER.SND has the
+splashes, the bell and the fire the naval host also plays; it has no cannon.
+
 | file | slot | source | by | license | why |
 | --- | --- | --- | --- | --- | --- |
 | `fire-shotgun.wav` | fire | [Shotgun Shot 03.wav](https://freesound.org/people/LilMati/sounds/473846/) | LilMati | CC0 | a 6ms transient - the cleanest crack in the set, and the reason it is the default |
@@ -28,3 +33,9 @@ from noise and sine through the same bake, deterministically.
 | `gun-fire-synth.wav` | fire | `tools/gunSfx.mjs` | ours | n/a | synthesised from noise and sine, deterministically - nothing recorded, nothing to attribute |
 | `gun-reload-open-synth.wav` | reload-open | `tools/gunSfx.mjs` | ours | n/a | synthesised from noise and sine, deterministically - nothing recorded, nothing to attribute |
 | `gun-reload-close-synth.wav` | reload-close | `tools/gunSfx.mjs` | ours | n/a | synthesised from noise and sine, deterministically - nothing recorded, nothing to attribute |
+| `naval-cannon.wav` | naval: cannon | `tools/navalSfx.mjs` | ours | n/a | synthesised from noise and sine, deterministically - a long gun near: crack, a body falling 2.4 kHz to 180 Hz, a 75 to 34 Hz thump, and a roll over open water with its slap back |
+| `naval-cannon-far.wav` | naval: cannon, past 260 m | `tools/navalSfx.mjs` | ours | n/a | synthesised from noise and sine, deterministically - a broadside across the bay: the top gone in the air (all under 500 Hz), two thumps rolled together, a long rumble |
+| `naval-swivel.wav` | naval: swivel gun | `tools/navalSfx.mjs` | ours | n/a | synthesised from noise and sine, deterministically - the swivel on a rail: sharper, higher and shorter than a long gun |
+| `naval-hit.wav` | naval: a ball strikes a hull | `tools/navalSfx.mjs` | ours | n/a | synthesised from noise and sine, deterministically - the thud through the frames, the splinters (uneven ticks, loudest first), the timbers' groan |
+| `naval-blast.wav` | naval: a fire barrel goes up | `tools/navalSfx.mjs` | ours | n/a | synthesised from noise and sine, deterministically - the deepest thump in the set, a slow body, and the debris crackling down for a second and more |
+| `naval-grapple.wav` | naval: grapnels thrown | `tools/navalSfx.mjs` | ours | n/a | synthesised from noise and sine, deterministically - a rope's whoosh, two iron hooks biting a rail, the hawsers creaking taut |

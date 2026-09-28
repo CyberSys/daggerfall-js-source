@@ -240,8 +240,10 @@ function sail(speed) {
     exteriorFoes: foesPool(clock), _hccDirty: false, camps: { wireRecords: () => [] }, hcc: { wireRecord: () => null }, duelRingWord: () => {},
     campToWire: (p) => [...p], csaRuntime: { AllBoats: [boat], isSailing: () => true, state: { CurrentBoat: boat } }, csaOn: () => true,
     csaWireRecord, csaRecordKey, csaAnimatorOf: boatMod.animatorOf, _csaWordKey: null,
+    navalOn: () => false, naval: null, navalRecordKey: () => '', _navalWordKey: null,   // NAV-G: the sea's word rides the same stream - off here, this pin is the boats'
   };
   scope.csaWord = mount(scope, cut(WORLD, 'function csaWord(frame, full) {', '\n  }\n'), 'csaWord');
+  scope.navalWord = mount(scope, cut(WORLD, 'function navalWord(frame, full) {', '\n  }\n'), 'navalWord');
   const foesStream = mount(scope, cut(WORLD, 'const foesStream = (now) => {', '\n  };\n'), 'foesStream');
   for (let t = 0; t <= 6000; t += 1000 / 60) {
     clock.t = t;
