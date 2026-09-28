@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6506` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6508` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7100,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1040`, `src/net/online.js:2201`):**
+**Now (`src/net/wire.js:1040`, `src/net/online.js:2227`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10598,3 +10598,42 @@ law), and is out of this slice by Mac's choice. `/spawn` and `/killall` were lef
 foes are shared online, so both act on other players.
 
 `net/staffCommands.js` (pure); `test/staff1.test.js` (5); `tools/mutants/staff1.json` (16, all dead).
+
+## VOICE1 (2026-09-28, Mac: "Lets instead take this idea and develop prox chat") - proximity voice - world124
+
+The idea is PR #375's (Skooma-Breath: Morrowind voice lines played to nearby players, tes3mp's way); what ships is the
+players' OWN voices. Mac chose: PUSH-TO-TALK, STUN ONLY (no TURN - free, and a pair that cannot meet directly is told
+so), NEARBY ONLY, and the mouse's BACK SIDE BUTTON for the key (every letter is spent - inputActions.js FREEMOUSE).
+
+- THE VOICE NEVER TOUCHES THE RELAY. Each pair of players within earshot holds one WebRTC peer connection, browser to
+  browser (`net/proxVoice.js`). The relay only INTRODUCES them: one new directed frame, `rtc` (wire.js validRtcData -
+  `offer`/`answer` an SDP of printable ASCII to RTC_SDP_MAX, `ice` a candidate line with its mid and index, `bye`),
+  the page arm's routing - a place room only, the one socket `to` names, the sender's id stamped, its own meter
+  (RTC_HZ_MAX, an ICE burst) and the per-sender funnel - and NEVER from a muted player (MOD1: a mute that stopped a
+  line and let a voice through would be no mute), in silence. VOICE_RELAY_MIN 124; an older relay closes the socket on
+  the frame, so none is sent to one. RELAY_VERSION world124 - the deploy drops every connected player once.
+- EARSHOT (`net/voiceLaw.js`): full voice within 2 m, a linear fall to silence at 30 m (WebAudio's 'linear' model, so
+  the panner and the law say the same number); a link opened within 35 m and kept to 45 m (no flapping on the edge); the
+  nearest 8; the LOWER id offers (no crossed offers); an offer answered only from a player within the kept band while
+  my voice is on (a stranger across town is not let into my speakers by asking).
+- THE LINK: one audio transceiver, sendrecv from birth, so the microphone joins a standing link by `replaceTrack` (no
+  renegotiation) and a player who has not granted the microphone still HEARS. ICE that races ahead of the description
+  is held (to 64) and flushed. A link that is not connected 20 s after it is made is let go and rested a minute - said
+  ("Voice could not connect to X") only when the other side answered, since silence from a client without voice is
+  not news; a link that stood and dropped is not "could not connect". A `bye` (declined, out of earshot, voice off)
+  rests it too, so it is not re-offered every frame.
+- THE SOUND: each voice through a PannerNode at the speaker's head (HRTF - 3D-AUDIO's law - the handedness turned at
+  the audio door, `placeAudio`), a gain for Voice volume, into the LISTENER's bus (past the sound-effects volume, under
+  the underwater muffle like every sound). Chrome plays a remote stream into WebAudio only while a media element holds
+  it, so a muted `<audio>` does. Who is speaking: an analyser per voice, ten reads a second, RMS past 0.02.
+- PUSH-TO-TALK: the `PushToTalk` action (Controls > Online), default `Mouse3` - `MOUSE_CODES` grew Unity's Mouse3 and
+  Mouse4, the side buttons, so they bind like any button; the world host stops the browser's Back/Forward on them. The
+  microphone (echo cancellation, noise suppression, gain control) is asked for on the FIRST press, never before; its
+  track is live only while held. Blocked, the player is told and still hears.
+- THE SWITCH: Settings, "Proximity voice chat" - OPT-IN (`proxVoice` false), because a peer link tells the players near
+  you your network address, and the row says so; "Voice volume" beside it. Both the player's own say online.
+- THE READOUT (`ui/voiceHud.js`): at the left edge, "Talking" while the button is held (or why not), then the names of
+  those heard speaking now, four and a count.
+
+Not built: a TURN relay for strict networks (Mac: later), muting one player locally, walls stopping sound.
+`test/voice1.test.js` (11); `tools/mutants/voice1.json` (40 - 39 dead, the funnel's recorded equivalent).
