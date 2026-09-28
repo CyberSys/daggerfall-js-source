@@ -374,15 +374,16 @@ test('PROF1 keys and hosts: the act choice is KB1\'s, on ;, in a Professions gro
   assert.ok(DEFAULT_BINDINGS.some(([c, a]) => c === 'Semicolon' && a === 'ActChoice'), 'on `;` - `=` is the decorator\'s');
   assert.deepEqual(ACTION_GROUPS.find((g) => g.title === 'Professions')?.rows.map((r) => r.action), ['ActChoice']);
   const w = src('src/scenes/world.js');
-  assert.match(w, /herbHost\?\.onBuilt\(built\.get\(key\)\);/);
-  assert.match(w, /herbHost\?\.onDestroyed\(p\);[^\n]*\n\s*for \(const b of p\.batches\) renderer\.destroyBatch\(b\);/, 'forgotten before the pixel frees its batches');
-  assert.match(w, /const herbTook = useEdge && !modes\.transitioning && \(herbHost\?\.press\(\) \?\? false\);\n\s*if \(\(_act\.activate \|\| \(useEdge && !herbTook\)\) && !modes\.transitioning\) \{/);
-  assert.match(w, /if \(act === 'Escape' && herbHost\?\.cancel\(\)\) return true;/);
-  assert.match(w, /actTool: \(\) => herbHost\?\.handTool\(\) \?\? null,/);
-  assert.equal((w.match(/herbHost\?\.acting\(\)/g) ?? []).length, 4, 'the mouse, the drag, the key and the finger never swing through an act');
-  assert.equal((w.match(/herbHost\?\.tick\(dt\)/g) ?? []).length, 2, 'the street\'s frame and the modal one');
-  assert.doesNotMatch(src('src/scenes/exterior.js'), /herbHost|createProfBook/, 'the fixed city: no wilderness, no nodes (PROF0 17.1)');
-  assert.doesNotMatch(src('src/scenes/dungeonContext.js'), /herbHost/, 'the dungeons: no herbs (their veins are PROF2\'s)');
+  // PROF2: the herb host became the one gathering host (src/scenes/gatherHost.js) - Herbalism a kind in it
+  assert.match(w, /gatherHost\?\.onBuilt\(built\.get\(key\)\);/);
+  assert.match(w, /gatherHost\?\.onDestroyed\(p\);[^\n]*\n\s*for \(const b of p\.batches\) renderer\.destroyBatch\(b\);/, 'forgotten before the pixel frees its batches');
+  assert.match(w, /const nodeTook = useEdge && !modes\.transitioning && \(gatherHost\?\.press\(\) \?\? false\);[^\n]*\n\s*if \(\(_act\.activate \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning\) \{/);
+  assert.match(w, /if \(!townTalk\.overlayActive && act === 'Escape' && gatherHost\?\.cancel\(\)\) \{ e\.preventDefault\(\); return true; \}/);
+  assert.match(w, /actTool: \(\) => gatherHost\?\.handTool\(\) \?\? null,/);
+  assert.equal((w.match(/gatherHost\?\.acting\(\)/g) ?? []).length, 5, 'the mouse, the drag, the key and the finger never swing through an act - and the dungeon\'s swing asks it (PROF2)');
+  assert.equal((w.match(/gatherHost\?\.tick\(dt\)/g) ?? []).length, 2, 'the street\'s frame and the modal one');
+  assert.doesNotMatch(src('src/scenes/exterior.js'), /gatherHost|herbHost|createProfBook/, 'the fixed city: no wilderness, no nodes (PROF0 17.1)');
+  assert.doesNotMatch(src('src/scenes/dungeonContext.js'), /herbHost|herbKind/, 'the dungeons: no herbs (their veins are PROF2\'s)');
   const rig = src('src/combat/weaponRig.js');
   assert.match(rig, /const tool = c && !paralyzed && !fpArm\.active\(\) && !eotbHidesWeapon\(\) \? actTool\(\) : null;/);
   assert.ok(rig.indexOf('actTool()') < rig.indexOf('const torchOnly ='), 'above every sheathe gate');

@@ -4038,6 +4038,9 @@ export function mountEnhancedMenu(host, {
   confirming = null;
   featureQuery = '';   // FT18: a fresh visit searches nothing
   discardControlsStaging();   // FIX-F: a second visit never inherits the first one's staged binds
+  // PROF2: a landing on a professions page - the Stats tab at it (a home forge's press opens the Stores' forge); the
+  // draw falls back to the character's own page when the professions are not the account's
+  if (PROF_PAGE_SECTIONS.some(([id]) => id === at)) { pauseTab = 'stats'; statsSec = at; }
   _eff = null;
   render();
   keyHandler = onKey;

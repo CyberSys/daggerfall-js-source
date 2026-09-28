@@ -56,8 +56,8 @@
   {
     "name": "DYE-ICON-the-image-without-it",
     "file": "src/systems/itemTemplates.js",
-    "old": "  // swatch its classic arm dyes (:473-476), which that door changes.\n  return { archive, record, dye: itemDyeColor(item), dyeTarget: itemDyeTarget(item) };",
-    "new": "  // swatch its classic arm dyes (:473-476), which that door changes.\n  return { archive, record, dye: itemDyeColor(item) };",
+    "old": "  if (Number.isFinite(t.iconDye)) return { archive, record, dye: t.iconDye, dyeTarget: DYE_TARGETS.WeaponsAndArmor };\n  return { archive, record, dye: itemDyeColor(item), dyeTarget: itemDyeTarget(item) };",
+    "new": "  if (Number.isFinite(t.iconDye)) return { archive, record, dye: t.iconDye, dyeTarget: DYE_TARGETS.WeaponsAndArmor };\n  return { archive, record, dye: itemDyeColor(item) };",
     "tests": [
       "test/dyeicon.test.js"
     ]

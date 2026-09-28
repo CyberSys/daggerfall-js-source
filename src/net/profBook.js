@@ -46,6 +46,8 @@ export const PROF_PUMP_MS = Object.freeze([2_000, 5_000, 15_000, 30_000]);
 export const PROF_WRITS_CACHE_MS = 60_000;
 /** The pixels one read asks after (the service's PIXELS_READ_MAX). */
 export const PROF_PIXELS_MAX = 25;
+/** PROF2: the dungeons one read asks after (the service's DUNGEONS_READ_MAX). */
+export const PROF_DUNGEONS_MAX = 4;
 /** The answers an act is asked again after: the network, the service's own fault, the account's minute spent. */
 const RETRY = Object.freeze(['offline', 'server', 'rate']);
 /** The answers that say nothing about the act's row - kept, and asked again once there is a session. */
@@ -146,6 +148,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
 
   /** The pixels' states, as the service last said them this UTC day: 'x,y' -> { day, state, climate?, region? }. */
   const pixels = new Map();
+  /** PROF2: the dungeons' states the same way: id -> { day, state, climate?, region? }. */
+  const dungeons = new Map();
   let _pixelsBusy = null;
   /** The writs' cache: region -> { at, data, error }. */
   const writCache = new Map();
@@ -153,6 +157,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
   const ids = new Map();
   const idFor = (key) => { let v = ids.get(key); if (!v) ids.set(key, v = { id: rid(), promise: null }); return v; };
   let _pump = null;
+  /** PROF2: the kept harvests on the wire - a pump never asks one again while its first ask waits (its answer said once). */
+  const sending = new Set();
   let _withdrawBusy = null;
 
   const book = {
@@ -201,6 +207,27 @@ export function createProfBook({ door, storage = null, character = () => null, n
       return _pixelsBusy;
     },
 
+    // ─── THE DUNGEONS (PROF2) ───────────────────────────────────────
+    /** A dungeon's witnessed state today (its id DFU's MapId & 0xfffff), or null not yet asked. */
+    dungeon(id) { const d = dungeons.get(id); return d && d.day === dayOf(now()) ? d : null; },
+    /** Asks after a dungeon not yet known today, beside no pixels - one read in flight. Answers whether its state is
+     *  new (the dungeon's veins stand again). */
+    async askDungeon(id) {
+      if (_pixelsBusy || state.open === false || this.dungeon(id)) return false;
+      const c = character();
+      if (!c) return false;
+      const day = dayOf(now());
+      _pixelsBusy = (async () => {
+        const r = await ask(() => door.pixels(c, [], [id]));
+        if (!r?.ok) { shutBy(r); return []; }
+        const d = (r.data?.dungeons ?? []).find((x) => x.id === id);
+        const before = dungeons.get(id);
+        dungeons.set(id, { day, state: d?.state ?? 'none', climate: d?.climate ?? null, region: d?.region ?? null });
+        return !before || before.state !== (d?.state ?? 'none') ? [id] : [];
+      })().finally(() => { _pixelsBusy = null; });
+      return (await _pixelsBusy).length > 0;
+    },
+
     // ─── A HARVEST ──────────────────────────────────────────────────
     /** Whether a node's kind is taken today - by the service's word, or on its way to it (being counted). */
     taken(node, kind) { return state.taken.has(`${node}|${kind}`); },
@@ -231,7 +258,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
     pump(onAnswer = () => {}) {
       if (_pump) return _pump;
       const key = slot();
-      const due = keptOf(key).harvests.filter((h) => (h.nextAt ?? 0) <= now());
+      const due = keptOf(key).harvests.filter((h) => (h.nextAt ?? 0) <= now() && !sending.has(h.rid));
       if (!due.length) return null;
       _pump = (async () => {
         for (const h of due) {
@@ -321,6 +348,25 @@ export function createProfBook({ door, storage = null, character = () => null, n
       return m.promise;
     },
 
+    // ─── A SMELT AT A FORGE (PROF2) ─────────────────────────────────
+    /** A recipe `count` times at the forge. The id is kept until an answer comes, so a press after a lost answer is the
+     *  same smelt, never a second. Answers the service's answer; the Stores and Smithing's track moved with it. */
+    async smelt(recipe, count) {
+      const c = character();
+      if (!c) return { ok: false, error: 'prof-character' };
+      const key = `smelt|${slot()}|${recipe}|${count}`;
+      const m = idFor(key);
+      if (m.promise) return m.promise;
+      m.promise = (async () => {
+        const r = await ask(() => door.smelt(c, recipe, count, m.id));
+        m.promise = null;
+        if (!keptAnswer(r)) ids.delete(key);
+        if (r?.ok) { for (const s of r.data?.stores ?? []) applyStore(s); applyTrack(r.data?.track); } else shutBy(r);
+        return r;
+      })();
+      return m.promise;
+    },
+
     // ─── A SPECIALISATION ───────────────────────────────────────────
     /** A specialisation chosen (PROF0 3.3) - free the first time, 1,000 Marks and a week after. */
     async choose(profession, rank, spec) {
@@ -345,11 +391,13 @@ export function createProfBook({ door, storage = null, character = () => null, n
   async function send(h, key) {
     const body = { character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: h.rid };
     let r;
-    try { r = await door.harvest(body); } catch { r = { ok: false, error: 'offline' }; }
+    sending.add(h.rid);
+    try { r = await door.harvest(body); } catch { r = { ok: false, error: 'offline' }; } finally { sending.delete(h.rid); }
     if (r?.ok) {
       drop(h.rid, key);
       state.taken.add(`${h.node}|${h.kind}`);
       applyStore(r.data?.store);
+      applyStore(r.data?.gemStore);   // PROF2: a gem the strikes found
       applyTrack(r.data?.track);
       if (r.data?.track && Number.isSafeInteger(r.data?.today)) state.today = { ...state.today, [r.data.track.profession]: r.data.today };
       return { ok: true, data: r.data };

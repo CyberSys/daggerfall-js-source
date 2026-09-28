@@ -108,7 +108,7 @@ const pair = (a, b) => Object.freeze([a, b]);
  *  others take effect with their professions' slices (a track there holds no XP until then). */
 export const SPECIALISATIONS = Object.freeze({
   mining: Object.freeze({
-    50: pair(spec('prospector', 'Prospector', 'Veins within 200 m are marked on the compass and the held map; gem chance +10%.'),
+    50: pair(spec('prospector', 'Prospector', 'Veins within 200 m are marked on the compass; gem chance +10%.'),
       spec('deep-delver', 'Deep Delver', 'Dungeon veins yield +50%.')),
     100: pair(spec('motherlode-sense', 'Motherlode Sense', 'Motherlode warnings come 30 minutes ahead, not 10.'),
       spec('stonebreaker', 'Stonebreaker', 'Quarrying yields Cut Stone directly.')),
@@ -274,12 +274,87 @@ export const foodKey = (code, fruit) => (code === 2 ? (fruit === 'Apple' ? 'food
 export const TIER_VALUES = Object.freeze([1, 2, 4, 6, 9, 14, 40]);
 export const HERB_VALUES = Object.freeze([1, 2, 5]);
 
+// ─── THE MATERIALS PROF2 STORES (PROF0 4.1, 4.5, 4.6, 4.8, 23) ────────
+
+/**
+ * @typedef {{ key: string, family: string, tier: number, templateIndex: number, group?: string, name?: string,
+ *   icon?: readonly number[], dye?: string|null }} MinedRow a mined (or smelted) material's row
+ */
+/** A DFU item's material row: its key, family, tier, DFU group and template. @returns {MinedRow} */
+const dfu = (key, family, tier, group, templateIndex) => Object.freeze({ key, family, tier, group, templateIndex });
+/** A new template's (600-699, PROF0 4.8): its key, family, tier and template - DFU's picture it borrows, and the DFU
+ *  dye that recolours it (systems/itemDye.js; `dye` a DYE_COLORS name, over the WeaponsAndArmor swatch, or null). A
+ *  silver one is DFU's Silver - Unchanged, as a silver blade is (dyes.js). @returns {MinedRow} */
+const made = (key, family, tier, templateIndex, name, icon, dye) => Object.freeze({ key, family, tier, templateIndex, name, icon, dye });
+
+/** DFU's metals (MetalIngredients, itemTemplatesData.js) at PROF0 4.1's tiers: Iron, Tin, Copper, Lead, Sulphur 1;
+ *  Lodestone, Mercury 2; Silver 3; Gold 4; Platinum 5 - and Brass, smelted from Copper and Tin, 2. */
+export const METALS = Object.freeze([
+  dfu('metal:iron', 'metals', 1, 'MetalIngredients', 71), dfu('metal:tin', 'metals', 1, 'MetalIngredients', 66),
+  dfu('metal:copper', 'metals', 1, 'MetalIngredients', 72), dfu('metal:lead', 'metals', 1, 'MetalIngredients', 70),
+  dfu('metal:sulphur', 'metals', 1, 'MetalIngredients', 69), dfu('metal:lodestone', 'metals', 2, 'MetalIngredients', 68),
+  dfu('metal:mercury', 'metals', 2, 'MetalIngredients', 65), dfu('metal:silver', 'metals', 3, 'MetalIngredients', 73),
+  dfu('metal:gold', 'metals', 4, 'MetalIngredients', 74), dfu('metal:platinum', 'metals', 5, 'MetalIngredients', 75),
+  dfu('metal:brass', 'metals', 2, 'MetalIngredients', 67),
+]);
+/** DFU's pictures the new templates borrow (TEXTURE.254): Lodestone's lump, Iron's bar. */
+export const ICON_LODESTONE = Object.freeze([254, 66]);
+export const ICON_IRON = Object.freeze([254, 63]);
+/** The new ores (610-615): Moonstone 4, Dwarven Scrap 4, Mithril 5, Adamantium 6, Ebony 6, Orichalcum 6. */
+export const ORES = Object.freeze([
+  made('ore:moonstone', 'metals', 4, 610, 'Moonstone Ore', ICON_LODESTONE, 'Elven'),
+  made('ore:dwarven', 'metals', 4, 611, 'Dwarven Scrap', ICON_LODESTONE, 'Dwarven'),
+  made('ore:mithril', 'metals', 5, 612, 'Mithril Ore', ICON_LODESTONE, 'Mithril'),
+  made('ore:adamantium', 'metals', 6, 613, 'Adamantium Ore', ICON_LODESTONE, 'Adamantium'),
+  made('ore:ebony', 'metals', 6, 614, 'Ebony Ore', ICON_LODESTONE, 'Ebony'),
+  made('ore:orichalcum', 'metals', 6, 615, 'Orichalcum Ore', ICON_LODESTONE, 'Orcish'),
+]);
+/** The ingots (620-630), each its DFU material's tier and dye. Daedric (7) and Warforged Steel (6: counts as Ebony
+ *  with a step, a Siege Honour's) are registered with the rest; nothing in PROF2 makes them. */
+export const INGOTS = Object.freeze([
+  made('ingot:iron', 'metals', 1, 620, 'Iron Ingot', ICON_IRON, 'Iron'),
+  made('ingot:steel', 'metals', 2, 621, 'Steel Ingot', ICON_IRON, 'Steel'),
+  made('ingot:silver', 'metals', 3, 622, 'Silver Ingot', ICON_IRON, 'Silver'),
+  made('ingot:moonstone', 'metals', 4, 623, 'Moonstone Ingot', ICON_IRON, 'Elven'),
+  made('ingot:dwarven', 'metals', 4, 624, 'Dwarven Ingot', ICON_IRON, 'Dwarven'),
+  made('ingot:mithril', 'metals', 5, 625, 'Mithril Ingot', ICON_IRON, 'Mithril'),
+  made('ingot:adamantium', 'metals', 6, 626, 'Adamantium Ingot', ICON_IRON, 'Adamantium'),
+  made('ingot:ebony', 'metals', 6, 627, 'Ebony Ingot', ICON_IRON, 'Ebony'),
+  made('ingot:orichalcum', 'metals', 6, 628, 'Orichalcum Ingot', ICON_IRON, 'Orcish'),
+  made('ingot:daedric', 'metals', 7, 629, 'Daedric Ingot', ICON_IRON, 'Daedric'),
+  made('ingot:warforged', 'metals', 6, 630, 'Warforged Steel Ingot', ICON_IRON, 'Steel'),
+]);
+/** Stone (PROF0 4.5): Rough Stone quarried, tier 1; Cut Stone cut from it 2 : 1, tier 2. Lodestone's grey lump as it
+ *  is - FACT, DFU's Grey is a clothing dye (dyes.js CLOTHING_STARTS), and no metal's swatch is a stone's. */
+export const STONES = Object.freeze([
+  made('stone:rough', 'stone', 1, 673, 'Rough Stone', ICON_LODESTONE, null),
+  made('stone:cut', 'stone', 2, 674, 'Cut Stone', ICON_LODESTONE, null),
+]);
+/** A gem's tier by its DFU price's band (PROF0 23): to 10 gold 2, to 50 3, to 100 4, to 250 5, past it 6. */
+export const gemTierOfPrice = (price) => (price <= 10 ? 2 : price <= 50 ? 3 : price <= 100 ? 4 : price <= 250 ? 5 : 6);
+/** DFU's eight gems (Gems, itemTemplatesData.js), each at its price's tier (Ruby 250, Emerald 425, Sapphire 375,
+ *  Diamond 500, Jade 10, Turquoise 50, Malachite 25, Amber 100 - itemTemplates.json). Pearl comes with Fishing. */
+export const GEMS = Object.freeze([
+  dfu('gem:ruby', 'gems', gemTierOfPrice(250), 'Gems', 0), dfu('gem:emerald', 'gems', gemTierOfPrice(425), 'Gems', 1),
+  dfu('gem:sapphire', 'gems', gemTierOfPrice(375), 'Gems', 2), dfu('gem:diamond', 'gems', gemTierOfPrice(500), 'Gems', 3),
+  dfu('gem:jade', 'gems', gemTierOfPrice(10), 'Gems', 4), dfu('gem:turquoise', 'gems', gemTierOfPrice(50), 'Gems', 5),
+  dfu('gem:malachite', 'gems', gemTierOfPrice(25), 'Gems', 6), dfu('gem:amber', 'gems', gemTierOfPrice(100), 'Gems', 7),
+]);
+/** Charcoal (PROF0 4.2): Logging's, tier 1 - the Steel recipe names it now; the Stores hold it from PROF4. */
+export const CHARCOAL = made('wood:charcoal', 'wood', 1, 652, 'Charcoal', ICON_LODESTONE, null);
+/** Every new template PROF2 registers, by template. */
+export const MINING_TEMPLATES = Object.freeze([...ORES, ...INGOTS, ...STONES]);
+const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, CHARCOAL].map((m) => [m.key, m]));
+/** A mined (or smelted) material's row, or null. */
+export const minedMaterial = (key) => MINED.get(key) ?? null;
+
 /**
  * A material's standing: `{ key, family, tier, value, group?, templateIndex? }`, or null for a key the Stores never
  * hold. An herb's tier and value are its COMMONEST place's (nodeLaw herbTier): a plant common anywhere is a common
- * herb's worth everywhere - the one price a market can hold.
+ * herb's worth everywhere - the one price a market can hold. A metal, ore, ingot, stone or gem is its row's.
  * @param {string} key
  * @param {(templateIndex: number) => number|null} herbTier nodeLaw's herbTier
+ * @returns {{ key: string, family: string, tier: number, value: number, group?: string, templateIndex?: number }|null}
  */
 export function materialOf(key, herbTier) {
   if (typeof key !== 'string') return null;
@@ -292,10 +367,76 @@ export function materialOf(key, herbTier) {
     return { key, family: 'herbs', tier, value: HERB_VALUES[tier - 1], group: PLANT_GROUPS[m[1]], templateIndex };
   }
   if (FOOD_KEYS.includes(key)) return { key, family: 'food', tier: 1, value: TIER_VALUES[0] };
+  const r = MINED.get(key);
+  if (r) return { key, family: r.family, tier: r.tier, value: TIER_VALUES[r.tier - 1], ...(r.group ? { group: r.group } : {}), templateIndex: r.templateIndex };
   return null;
 }
 /** Which profession gathers a material - a writ's XP goes to it. */
-export const professionOfFamily = (family) => (family === 'herbs' || family === 'food' ? 'herbalism' : null);
+export const professionOfFamily = (family) => (family === 'herbs' || family === 'food' ? 'herbalism'
+  : family === 'metals' || family === 'stone' || family === 'gems' ? 'mining' : null);
+
+// ─── MINING'S ACT (PROF0 5.2, 23; FORAGE0 14.4) ──────────────────────
+
+/** The strikes a node takes by its tier: 4 (1-2), 5 (3-4), 7 (5-6). */
+export const strikesFor = (tier) => (tier <= 2 ? 4 : tier <= 4 ? 5 : 7);
+/** The glint: five points, one glinting `glintS` (`masterGlintS` at Master) x the Pick-Axe's band, a strike within
+ *  `radiusDeg` of it counting double; one strike a `swingS`. The points' box: `spreadYawDeg` x `spreadPitchDeg` about
+ *  the node's centre. */
+export const MINE_ACT = Object.freeze({ points: 5, glintS: 1.2, masterGlintS: 2.0, radiusDeg: 2.5, swingS: 0.45, spreadYawDeg: 7, spreadPitchDeg: 4 });
+/** The most strikes a finish can hold on the glint - every one of them, each counting two. */
+export const glintsMax = (tier) => Math.ceil(strikesFor(tier) / 2);
+/** A gem: 3% a strike on the glint (a Prospector's x1.1), on a confirmed pixel or dungeon only. */
+export const GEM_CHANCE = 0.03;
+export const PROSPECTOR_GEM = 1.1;
+/** Deep Delver's dungeon veins, x1.5. */
+export const DEEP_DELVER_MULT = 1.5;
+/** Rough Stone cut at the rock: two make one (PROF0 4.5; Quarryman's 1 : 1 is the bench's, not the rock's). */
+export const CUT_RATIO = 2;
+/** The Pick-Axe's attribute pair (FORAGE0 14.4): (INT + AGI) / 2 - Foraging's average, the IL's Agility. */
+export const pickAxeBand = ({ intelligence, agility }) => actBand(Math.trunc((intelligence + agility) / 2));
+
+// ─── SMELTING (PROF0 4.1, 23) ────────────────────────────────────────
+
+/** A smelt, most units a request. */
+export const SMELT_MAX = 100;
+/** The use fee a Weaponsmith's or Armorer's forge asks, a smelt (gold, the purse's). */
+export const FORGE_FEE = 50;
+const recipe = (id, out, inputs) => Object.freeze({ id, out, inputs: Object.freeze(inputs.map(([key, n]) => Object.freeze({ key, n }))) });
+/** The forge's recipes, in the window's order: two of a raw metal an ingot; Steel an Iron Ingot and a Charcoal; Brass
+ *  a Copper and a Tin. Daedric waits on its heart and its stone (PROF0 23). */
+export const SMELT_RECIPES = Object.freeze([
+  recipe('ingot:iron', 'ingot:iron', [['metal:iron', 2]]),
+  recipe('ingot:steel', 'ingot:steel', [['ingot:iron', 1], ['wood:charcoal', 1]]),
+  recipe('ingot:silver', 'ingot:silver', [['metal:silver', 2]]),
+  recipe('metal:brass', 'metal:brass', [['metal:copper', 1], ['metal:tin', 1]]),
+  recipe('ingot:moonstone', 'ingot:moonstone', [['ore:moonstone', 2]]),
+  recipe('ingot:dwarven', 'ingot:dwarven', [['ore:dwarven', 2]]),
+  recipe('ingot:mithril', 'ingot:mithril', [['ore:mithril', 2]]),
+  recipe('ingot:adamantium', 'ingot:adamantium', [['ore:adamantium', 2]]),
+  recipe('ingot:ebony', 'ingot:ebony', [['ore:ebony', 2]]),
+  recipe('ingot:orichalcum', 'ingot:orichalcum', [['ore:orichalcum', 2]]),
+]);
+export const smeltRecipe = (id) => SMELT_RECIPES.find((r) => r.id === id) ?? null;
+/** Smithing XP a smelted unit: 10 x its tier (PROF0 4.1). */
+export const smeltXp = (tier, units) => 10 * tier * units;
+/**
+ * THE ORIGIN OF A SMELT'S UNITS (PROF0 7, 23): `count` products, each input spent bought-first (`bought[i]` the
+ * bought units of input i the Stores hold). Product j takes input i's units j*n_i .. (j+1)*n_i - 1 in that order, so
+ * it is bought when any of them is: the bought products are the most any input's bought units reach.
+ * @returns {{ own: number, bought: number }}
+ */
+export function smeltOrigin(r, count, bought) {
+  let b = 0;
+  r.inputs.forEach((inp, i) => { b = Math.max(b, Math.ceil(Math.min(Math.max(0, bought[i] ?? 0), inp.n * count) / inp.n)); });
+  b = Math.min(count, b);
+  return { own: count - b, bought: b };
+}
+/** THE CRAFTER'S LIMIT (PROF0 3.2): a character raises at most two crafts past Journeyman. A craft that is not one of
+ *  them while two others are stops at rank 50 - the XP one short of rank 51. `ranks` every crafting track's rank. */
+export function craftXpCap(profession, ranks) {
+  const past = Object.entries(ranks ?? {}).filter(([p, r]) => p !== profession && BY_ID.get(p)?.kind === 'crafting' && r > JOURNEYMAN_RANK).length;
+  return past >= CRAFTS_ABOVE_JOURNEYMAN ? xpForRank(JOURNEYMAN_RANK + 1) - 1 : PROF_XP_MAX;
+}
 
 // ─── COURT WRITS (PROF0 11) ──────────────────────────────────────────
 

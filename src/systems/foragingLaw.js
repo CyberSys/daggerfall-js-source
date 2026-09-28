@@ -158,11 +158,13 @@ function checkFails(check, w) {
 }
 
 /** The first refusal a tool gives in this world, or null to go on. The net's inside check reads inside or a
- *  castle only (its dungeon arm follows); every other tool's reads all three. */
-export function foragingRefusal(templateIndex, w) {
+ *  castle only (its dungeon arm follows); every other tool's reads all three. PROF2: `skip` - checks a profession's
+ *  node is not asked (a dungeon vein: inside, settlement, daylight and sea - PROF0 5.1). */
+export function foragingRefusal(templateIndex, w, skip = null) {
   const order = CHECK_ORDER[templateIndex];
   if (!order) return null;
   for (const check of order) {
+    if (skip?.includes(check)) continue;
     const fails = check === 'inside' && templateIndex === FT.FishingNet
       ? !!(w.inside || w.insideCastle)
       : checkFails(check, w);

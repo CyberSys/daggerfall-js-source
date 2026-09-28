@@ -57,6 +57,7 @@ on:
       - "src/net/boardLaw.js"
       - "src/net/professionLaw.js"
       - "src/net/nodeLaw.js"
+      - "src/net/kingdomLaw.js"
       - "src/net/gateLaw.js"
       - "src/formats/mapsTables.js"
       - "src/systems/foragingCore.js"

@@ -73,6 +73,24 @@ export function natureStandsAt(heightmapData, tilemapData, locationRect, x, y) {
   return { x: x * scale, y: at(x, y) - steepness / SLOPE_SINK_RATIO, z: y * scale };
 }
 
+/**
+ * PROF2: THE GROUND'S HEIGHT at a pixel-local point (metres, x east and z the tile rows' way - natureStandsAt's frame),
+ * bilinear between the heightmap's four samples round it (a sample stands at each tile corner). A vein stands at a rock
+ * piece's foot, which is on no tile's corner.
+ * @param {Float32Array} heightmapData @param {number} mx @param {number} mz
+ */
+export function groundAt(heightmapData, mx, mz) {
+  const hDim = HEIGHTMAP_DIMENSION;
+  const cell = TERRAIN_SIZE / WORLD_MAP_TILE_DIM;
+  const fx = Math.max(0, Math.min(hDim - 1, mx / cell)), fz = Math.max(0, Math.min(hDim - 1, mz / cell));
+  const x0 = Math.min(hDim - 2, Math.floor(fx)), z0 = Math.min(hDim - 2, Math.floor(fz));
+  const tx = fx - x0, tz = fz - z0;
+  const h = (a, b) => heightmapData[a * hDim + b];
+  const top = h(x0, z0) * (1 - tz) + h(x0, z0 + 1) * tz;
+  const bot = h(x0 + 1, z0) * (1 - tz) + h(x0 + 1, z0 + 1) * tz;
+  return (top * (1 - tx) + bot * tx) * MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE;
+}
+
 /** Verbatim TerrainHelper.MakeTerrainKey: ((short)y << 16) + (short)x. */
 export function makeTerrainKey(mapPixelX, mapPixelY) {
   return (((mapPixelY << 16) >> 16) << 16) + ((mapPixelX << 16) >> 16);

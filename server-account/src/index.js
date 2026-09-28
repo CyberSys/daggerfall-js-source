@@ -74,6 +74,7 @@
 //   POST /v1/prof/pixels { character, pixels: [[x, y]...] }            -> { pixels: [{ x, y, state, climate?, region? }] }
 //   POST /v1/prof/harvest { character, node, kind, climate, region, act, at, rid } -> { ok, material, qty, xp, track, today, store } | { repeat, ... }
 //   POST /v1/prof/spec { character, profession, rank, spec, rid }      -> { ok, track, marks?, balance? }
+//   POST /v1/prof/smelt { character, recipe, count, rid }              -> { ok, recipe, count, own, bought, xp, track, stores } | { repeat, ... }   (PROF2)
 //   POST /v1/stores/withdraw { character, material, qty, rid }         -> { ok, material, qty, store } | { repeat, ... }
 //   POST /v1/writs/list { character, region }                          -> { region, day, endsAt, writs, today }
 //   POST /v1/writs/deliver { character, id, rid }                      -> { ok, writ, pay, balance, track, store, today, renown, order } | { repeat, ... }
@@ -140,7 +141,7 @@ import {
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
-import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions
+import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, smeltAtForge, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions; PROF2: the forge
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -194,7 +195,7 @@ const BOARD_STATUS = Object.freeze({
  *  hour's acts spent 429, a bad shape 400 (the default). */
 const PROF_STATUS = Object.freeze({
   'prof-need-account': 403, 'prof-closed': 403, 'marks-closed': 403, 'prof-rank': 403,
-  'no-writ': 404,
+  'no-writ': 404, 'bad-recipe': 404,
   'prof-pixel': 409, 'prof-day': 409, 'prof-late': 409, 'prof-night': 409, 'prof-cap': 409, 'stores-full': 409, 'stores-short': 409,
   'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
   'prof-rate': 429,
@@ -639,6 +640,7 @@ export default {
           '/v1/prof/pixels': () => profPixels(ctx, who.player, env, body),
           '/v1/prof/harvest': () => harvestNode(ctx, who.player, env, body),
           '/v1/prof/spec': () => chooseSpec(ctx, who.player, env, body),
+          '/v1/prof/smelt': () => smeltAtForge(ctx, who.player, env, body),   // PROF2
           '/v1/stores/withdraw': () => withdrawStores(ctx, who.player, env, body),
           '/v1/writs/list': () => listWrits(ctx, who.player, env, body),
           '/v1/writs/deliver': () => deliverWrit(ctx, who.player, env, body),

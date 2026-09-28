@@ -123,7 +123,7 @@ function wear(item, collection, entity) {
 /** PROF1 (FORAGE0 14.3): the checks a profession's act runs first, with Foraging's own line for `templateIndex` (the
  *  Sickle's for an herb, the Basket's for its food) - never asking Foraging's switch (law 6: the acts are the
  *  server's). Null where every check passes. */
-export const foragingActRefusal = (templateIndex) => foragingRefusal(templateIndex, worldNow());
+export const foragingActRefusal = (templateIndex, skip = null) => foragingRefusal(templateIndex, worldNow(), skip);   // PROF2: a dungeon vein skips the surface's checks
 /** PROF1 (FORAGE0 14.1): which tool an act draws - the first of its kind in the pack, in the pack's order (as DFU's
  *  ItemCollection finds it), one not yet broken. */
 export const foragingToolIn = (entity, templateIndex) =>

@@ -18,14 +18,16 @@
 //   THE STORES PAGE - the materials with their counts, own and bought;
 //   the families to filter by, a search, the sort; a material's action:
 //   Withdraw to pack, a quantity. (Delivering to a writ is the Notice
-//   Board's Work tab; listing comes with the market, PROF5.)
+//   Board's Work tab; listing comes with the market, PROF5.) PROF2: THE
+//   FORGE under it - the smelts, while the player stands at a forge (a
+//   Weaponsmith's or an Armorer's, its fee a smelt; a home's forge).
 //
 // The pages draw with the menu's own kit (its `el`, divider and meter,
 // handed in), so they are the sheet's pages and not a second window.
 // ═══════════════════════════════════════════════════════════════════
 import {
   PROFESSIONS, SPECIALISATIONS, SPEC_RANKS, RESPEC, xpForRank, rankName, PROF_RANK_MAX, TIER_RANKS, CRAFTS_ABOVE_JOURNEYMAN,
-  JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, WITHDRAW_MAX, professionName,
+  JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
 } from '../net/professionLaw.js';
 import { material } from '../net/nodeLaw.js';
 import { accountRefusalText } from '../net/accountClient.js';
@@ -36,6 +38,8 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {any} book                                   net/profBook.js - the character's professions
  * @property {(key: string) => string} name               a material's name (systems/profItems.js materialLabel)
  * @property {(key: string, qty: number) => Promise<{ ok: boolean, text: string }>} withdraw   out of the Stores, into the pack
+ * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [forge]   PROF2: the forge the player stands at, or null
+ * @property {(recipe: string, count: number) => Promise<{ ok: boolean, text: string }>} [smelt]   PROF2: a smelt, its fee paid
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
@@ -52,14 +56,21 @@ let _armed = null;
 let _profWord = null;
 /** The Stores page's filter, search, sort, the material chosen and the quantity to withdraw. */
 const _stores = { family: null, query: '', sort: 'tier', picked: null, qty: 1, word: null, busy: false };
+/** PROF2: the forge's counts by recipe, a smelt in flight, and its last word. */
+const _forge = { counts: /** @type {Record<string, number>} */ ({}), busy: false, word: /** @type {string|null} */ (null) };
 /** A fresh visit starts plain (the menu calls it with its own reset). */
-export function resetProfPages() { _armed = null; _profWord = null; _stores.word = null; _stores.picked = null; _stores.qty = 1; }
+export function resetProfPages() { _armed = null; _profWord = null; _stores.word = null; _stores.picked = null; _stores.qty = 1; _forge.word = null; _forge.counts = {}; }
 
 /** What the Professions page says a harvest earns for each profession PROF1 gathers, by tier. */
 const UNLOCKS = Object.freeze({
   herbalism: Object.freeze([['Common herbs, and the Basket\'s food', 1], ['Uncommon herbs', 2], ['Rare herbs', 3]]),
+  // PROF2: the metals by their tiers (PROF0 4.1), the stone and the dungeons' deep veins
+  mining: Object.freeze([['Iron, Tin, Copper, Lead, Sulphur; quarrying', 1], ['Lodestone, Mercury', 2], ['Silver; the dungeons\' deep veins', 3],
+    ['Gold, Moonstone, Dwarven Scrap', 4], ['Platinum, Mithril', 5], ['Adamantium, Ebony, Orichalcum', 6]]),
 });
-const PRACTISED = Object.freeze(['herbalism']);
+const PRACTISED = Object.freeze(['herbalism', 'mining']);
+/** PROF2: a craft practised in part - what raises it now. */
+const PARTLY = Object.freeze({ smithing: 'Smelting at a forge raises it (10 XP a unit a tier). The rest of the craft comes later.' });
 
 /** The line a track's XP makes: "11,900 / 12,250 XP" to the next rank, or the Master's total. */
 export function xpLine(track) {
@@ -101,7 +112,7 @@ export function drawProfessionsPage(detail, rerender, kit) {
   title.append(el('h3', null, professionName(_sel)), el('span', 'prof-rankline', t.rank >= PROF_RANK_MAX ? 'Master 100' : `${rankName(t.rank)}  ${t.rank} -> ${t.rank + 1}`));
   pane.append(title, el('p', 'prof-xp', xpLine(t)));
   const practised = PRACTISED.includes(_sel);
-  if (!practised) pane.append(el('p', 'px-note', 'This craft is not practised in the Bay yet.'));
+  if (!practised) pane.append(el('p', 'px-note', PARTLY[_sel] ?? 'This craft is not practised in the Bay yet.'));
   if (PROFESSIONS.find((x) => x.id === _sel)?.kind === 'gathering' && practised) {
     pane.append(el('p', 'prof-today', `Today: ${book.state.today?.[_sel] ?? 0} of ${book.state.caps?.harvests ?? HARVESTS_PER_DAY} harvests`));
   }
@@ -147,7 +158,7 @@ export function drawProfessionsPage(detail, rerender, kit) {
   box.type = 'checkbox';
   box.checked = getPref('gentleActs') === true;
   box.onchange = () => { setPref('gentleActs', !!box.checked); rerender(); };
-  gentle.append(box, document.createTextNode(' Gentle acts - every act completes plainly: no bruise, and no clean bonus'));
+  gentle.append(box, document.createTextNode(' Gentle acts - every act completes plainly: no bruise, no glint to find, and no clean bonus'));
   pane.append(gentle);
   cols.append(list, pane);
   detail.append(cols);
@@ -234,4 +245,61 @@ export function drawStoresPage(detail, rerender, kit) {
     detail.append(el('p', 'px-note', 'Withdrawn, a material is an item in your pack and never goes back into the Stores. Writs are delivered at a Notice Board\'s Work tab.'));
   }
   if (_stores.word) detail.append(el('p', 'prof-word', _stores.word));
+  drawForge(detail, rerender, kit);
 }
+
+/** What the Stores make of a recipe now: the most it can smelt (every input's units over its need), to SMELT_MAX. */
+export function smeltable(r, held) {
+  let n = SMELT_MAX;
+  for (const inp of r.inputs) n = Math.min(n, Math.floor(held(inp.key) / inp.n));
+  return Math.max(0, n);
+}
+
+/**
+ * PROF2: THE FORGE (bible/06-Systems/Professions-Arc.md 4.1, 23) - under the Stores, the smelts: each recipe's inputs
+ * as the Stores hold them, how many it can make, a count and Smelt. Only at a forge: a Weaponsmith's or an Armorer's,
+ * whose use fee is paid a smelt, or the player's own home forge.
+ * @param {HTMLElement} detail @param {() => void} rerender @param {{ el: Function, divider: (w: string) => HTMLElement }} kit
+ */
+function drawForge(detail, rerender, { el, divider }) {
+  const p = _provider;
+  if (!p?.forge || !p.smelt) return;
+  const book = p.book;
+  const forge = p.forge();
+  detail.append(divider('The Forge'));
+  if (!forge) {
+    detail.append(el('p', 'px-note', `Smelting is done at a forge: a Weaponsmith's or an Armorer's (${FORGE_FEE} gold a smelt), or your own home's forge.`));
+    return;
+  }
+  detail.append(el('p', 'px-note', forge.kind === 'shop' ? `The smith's forge - ${forge.fee} gold a smelt.` : 'Your forge.'));
+  const held = (k) => book.held(k);
+  for (const r of SMELT_RECIPES) {
+    const most = smeltable(r, held);
+    const row = el('div', `prof-smelt${most ? '' : ' prof-locked'}`);
+    const ins = r.inputs.map((inp) => `${inp.n} ${p.name(inp.key)} (${held(inp.key)})`).join(' + ');
+    row.append(el('b', null, p.name(r.out)), el('span', 'prof-split', ins));
+    const qty = el('input', 'prof-qty');
+    qty.type = 'number'; qty.min = '1'; qty.max = String(Math.max(1, most));
+    const want = Math.max(1, Math.min(_forge.counts[r.id] ?? 1, Math.max(1, most)));
+    qty.value = String(want);
+    qty.oninput = () => { _forge.counts[r.id] = Math.max(1, Math.min(SMELT_MAX, Math.floor(Number(qty.value) || 1))); };
+    const go = el('button', 'act', _forge.busy ? 'Smelting...' : 'Smelt');
+    go.type = 'button';
+    go.disabled = _forge.busy || most < 1;
+    go.onclick = async () => {
+      if (_forge.busy) return;
+      _forge.busy = true; rerender();
+      const n = Math.max(1, Math.min(_forge.counts[r.id] ?? 1, smeltable(r, held)));
+      const res = await p.smelt(r.id, n);
+      _forge.busy = false;
+      _forge.word = res?.text ?? null;
+      rerender();
+    };
+    row.append(qty, go);
+    detail.append(row);
+  }
+  if (r0Charcoal(book)) detail.append(el('p', 'px-note', 'Steel wants Charcoal, which the woods give (Logging, not yet practised).'));
+  if (_forge.word) detail.append(el('p', 'prof-word', _forge.word));
+}
+/** Whether the Steel line needs its word: no Charcoal held. */
+const r0Charcoal = (book) => book.held('wood:charcoal') < 1;

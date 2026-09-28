@@ -284,7 +284,7 @@
   {
     "name": "PROF1-31-gathering-by-night",
     "file": "server-account/src/professions.js",
-    "old": "  if (!isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };   // the wilderness keeps Foraging's day (FORAGE0 14.3)",
+    "old": "  if (!deep && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
     "new": "",
     "tests": [
       "test/prof1_service.test.js"
@@ -302,8 +302,8 @@
   {
     "name": "PROF1-33-any-rank-picks-rares",
     "file": "server-account/src/professions.js",
-    "old": "    if (!tierOpen(rank, tier)) return { error: 'prof-rank' };",
-    "new": "",
+    "old": "      tier = patch.tier;\n      if (!tierOpen(rank, tier)) return { error: 'prof-rank' };",
+    "new": "      tier = patch.tier;",
     "tests": [
       "test/prof1_service.test.js"
     ]
@@ -329,8 +329,8 @@
   {
     "name": "PROF1-36-the-stores-overflow",
     "file": "server-account/src/professions.js",
-    "old": "      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored}), ?12, ?13, ?2, ?3",
-    "new": "      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, ?10, ?12, ?13, ?2, ?3",
+    "old": "      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored}), ?12,",
+    "new": "      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, ?10, ?12,",
     "tests": [
       "test/prof1_service.test.js"
     ]

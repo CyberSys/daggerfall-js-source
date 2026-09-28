@@ -135,7 +135,8 @@ test('PROF1 service: the day, the hour and the node are the law\'s - yesterday\'
   assert.deepEqual(await post({ at: _now - 601 }), { error: 'prof-late' });
   assert.deepEqual(await post({ at: _now + 61 }), { error: 'prof-late' });
   assert.deepEqual(await post({ node: nodeKey({ kind: 'herb', x: p.x, y: p.y, day: utcDay(_now), slot: 4 }) }), { error: 'bad-node' }, 'Woodlands has four patches');
-  assert.deepEqual(await post({ node: 'vein:1:1:1:0' }), { error: 'bad-node' });
+  assert.deepEqual(await post({ node: 'vein:1:1:1:0' }), { error: 'prof-kind' }, 'PROF2: a vein is ore, never herbs');
+  assert.deepEqual(await post({ node: 'tree:1:1:1:0', kind: 'herbs' }), { error: 'bad-node' }, 'a tree is Logging\'s, not yet');
   assert.deepEqual(await post({ kind: 'logs' }), { error: 'prof-kind' });
   assert.deepEqual(await post({ climate: 223 }), { error: 'prof-pixel' }, 'the sea grows no herbs');
   const night = secondAt(utcDay(_now) * DAY + 60, 2);
@@ -164,7 +165,7 @@ test('PROF1 service: the rank - an uncommon herb wants Herbalism 10; unbruised i
   assert.equal(common.body.xp, 15, 'a common herb comes up by hand: no moment, no bruise');
 });
 
-test('PROF1 service: the day\'s cap - sixty harvests a character, the sixty-first refused; the Stores\' room - full refuses, nearly full cuts the yield to fit', async () => {
+test('PROF1 service: the day\'s cap - sixty harvests a character, the sixty-first refused; the Stores\' room - full refuses, nearly full cuts the yield to fit', async (t) => {
   const s = await stand();
   const mac = await s.registered('Mac');
   const day = utcDay(_now);
@@ -179,6 +180,9 @@ test('PROF1 service: the day\'s cap - sixty harvests a character, the sixty-firs
   const full = await s.call('/v1/prof/harvest', harvestBody(ann, p), ann.secret);
   assert.deepEqual([full.status, full.body.error], [409, 'stores-full']);
   s.give(ann, key, 'bought', STORES_MAX - 1);
+  // the service's dice at their highest, so the roll is past the one unit of room (PROF2: a roll of one never proved the cut)
+  const real = globalThis.crypto.getRandomValues.bind(globalThis.crypto);
+  t.mock.method(globalThis.crypto, 'getRandomValues', (b) => (b.byteLength === 4 ? b.fill(0xff) : real(b)));
   const one = await s.call('/v1/prof/harvest', harvestBody(ann, p), ann.secret);
   assert.equal(one.body.qty, 1, 'cut to the room left');
   assert.deepEqual(s.stores(ann, key), [['bought', STORES_MAX - 1], ['own', 1]]);
@@ -249,7 +253,7 @@ test('PROF1 service: Court writs - a region posts none until its ground is witne
   assert.equal(l.writs.length, 6);
   assert.equal(l.endsAt, (utcDay(_now) + 1) * DAY);
   for (const w of l.writs) {
-    assert.match(w.material, /^p1:/, 'Anticlere is a Breton region: northern plants');
+    assert.match(w.material, /^(p1:|metal:|stone:)/, 'Anticlere is a Breton region: northern plants; PROF2: the ground\'s metal and stone beside them');
     assert.equal(w.qty % 10, 0);
     assert.equal(w.state, 'open');
     assert.ok(w.tier <= 2, 'an unconfirmed pixel\'s ground asks tiers 1-2 only');

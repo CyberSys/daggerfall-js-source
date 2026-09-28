@@ -257,6 +257,10 @@ The regions left out hold no seat: seventeen hold no location at all (the wilder
 and the eighteenth - region 31, the High Rock sea coast - holds only Mantellan Crux and the two "Your Ship" moorings
 (FACT, `travelMapWindow.js`'s own correction), none of them with a Palace.
 
+BUILT (PROF2, 2026-09-28): this table is `src/net/kingdomLaw.js` - the one home both ends read (`kingdomOf`,
+`isMarch`, `isFreeLand`); the professions' signatures and Marches read it first (`06-Systems/Professions-Arc.md` 23),
+and the seats' slices will read it rather than draw it again.
+
 - **Kingdom reach** - DECIDED (Mac, "All of the above"): a guild holding a crown seat earns **+25%** on every source
   but Tribute at the palace seats of that kingdom.
 - **The Marches**: each claiming crown's holder earns **+12.5%** there; a guild holding both claiming crowns earns

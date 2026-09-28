@@ -53,6 +53,8 @@ import { drawLootPanel } from './classicLootPanel.js';   // DISC22-C: quick loot
 import { packImgTexture } from './packArt.js';   // OVH2: the worn UI pack's picture
 import { ToolTip } from './toolTip.js';
 import { PARTY_GREEN } from '../net/social.js';   // COMPASS-PARTY: the one green a party is drawn in
+/** PROF2: the Prospector's veins on the compass - the party's mark in the veins' copper (enhancedHud.js VEIN_MARK_CSS). */
+export const VEIN_MARK = Object.freeze([217 / 255, 137 / 255, 74 / 255, 1]);
 
 export const COMPASS_BOX_OUTLINE = 2;
 export const COMPASS_BOX_INTERIOR = 64;
@@ -478,7 +480,7 @@ export function hideHudTextSurfaces(hudText = null) {
 }
 
 export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
-  { font = null, cursorActive = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, party = null, largeHud = null, hover = null,
+  { font = null, cursorActive = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, party = null, veins = null, largeHud = null, hover = null,
     readied = null, weapon = null, weaponSheathed = true, quickUse = null, quickSwap = null, quickOffHand = null, quickSpell = null, quickSwitchHand = null } = {}) {   // PX30b: for the enhanced HUD's hand plaques; AUDIT 28 W2: the arrow counter's gate; AUDIT 64 F35: the host's previousWindow answer; QS3: the diamond's sheathe state and its two phone taps; QS6: the caption's spell chip press
   // AUDIT 24 (wave 39): ShowPlayerDamage's red flash, under the bars.
   // THE FOUR HOSTS RULE, applied before the fact: drawHud is the one
@@ -643,6 +645,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       playerXZ: playerXZ ?? null,
       gate: gate ?? null,   // WB1: the Oblivion Gate's scene XZ while the player stands in its ring - the compass's own mark
       party: party ?? null,   // COMPASS-PARTY: the party's points (ui/partyMapMarks.js partyCompassPoints)
+      veins: veins ?? null,   // PROF2: the Prospector's veins' points
       // QS3: the quickslot diamond dims its main cell when the weapon
       // is put away. drawHud has carried `weaponSheathed` since AUDIT
       // 28 W2 for the arrow counter's gate and never passed it on, so
@@ -783,6 +786,8 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   }
   // COMPASS-PARTY: the party's marks, over the box as the Detect markers are, in the party's green
   drawPartyCompassMarks(renderer, party, playerXZ, heading01, { bx, by, bw, s });
+  // PROF2: the Prospector's veins within 200 m (PROF0 3.3), the same mark in the veins' copper
+  drawPartyCompassMarks(renderer, veins, playerXZ, heading01, { bx, by, bw, s }, VEIN_MARK);
   // U38: the crosshair and the interaction-mode indicator, LAST -
   // DaggerfallHUD draws them from one Update beside the vitals it
   // already owns, and drawHud is the ONE host-agnostic call all four
@@ -804,7 +809,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
  *  (compassMarkerLerp, clamped: a mate behind stands at the box's end on the side to turn toward), in the party's one
  *  green (net/social.js PARTY_GREEN). `points` are scene XZ (ui/partyMapMarks.js partyCompassPoints); `box` is the
  *  compass box as drawCompassStrip laid it. Not a DFU member: DFU has no party. */
-export function drawPartyCompassMarks(renderer, points, playerXZ, heading01, { bx, by, bw, s }) {
+export function drawPartyCompassMarks(renderer, points, playerXZ, heading01, { bx, by, bw, s }, colour = PARTY_GREEN) {
   if (!points || !points.length || !playerXZ) return 0;
   const mw = DETECT_MARKER_W * s, mh = DETECT_MARKER_H * s;
   const boxLeft = bx, boxRight = bx + bw - mw;
@@ -816,7 +821,7 @@ export function drawPartyCompassMarks(renderer, points, playerXZ, heading01, { b
     const mx = boxLeft + (boxRight - boxLeft) * lerp;
     for (let r = 0; r < DETECT_MARKER_ROWS.length; r++) {
       const fill = DETECT_MARKER_ROWS[r] * s;
-      renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, PARTY_GREEN);
+      renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, colour);
     }
     drawn++;
   }

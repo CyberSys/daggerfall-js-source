@@ -293,9 +293,9 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     The note that hosts without a HUD text layer
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
- *                     (dungeonContext.js:3024), townTalk.say
- *                     (exterior.js:2144, world.js:5040) and
- *                     worldModes' own interior sink (worldModes.js:476,
+ *                     (dungeonContext.js:3048), townTalk.say
+ *                     (exterior.js:2144, world.js:5066) and
+ *                     worldModes' own interior sink (worldModes.js:477,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
  *                     is unreached,
@@ -1775,7 +1775,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       const tool = c && !paralyzed && !fpArm.active() && !eotbHidesWeapon() ? actTool() : null;
       if (tool) {
         const toolArt = artFor(tool);   // an act never plays under a window (the host's own gate), so no held map is up here
-        if (toolArt) drawFpsWeapon(renderer, c, toolArt, 'Idle', 0, { tint: fpTint });
+        // PROF2: the act says the frame - the Pick-Axe's StrikeDown on each swing (scenes/mineHost.js pickHandFrame), else
+        // the idle frame (the steady hand does not swing)
+        if (toolArt) drawFpsWeapon(renderer, c, toolArt, tool.state ?? 'Idle', tool.frame ?? 0, { tint: fpTint });
         return;
       }
       // TORCH-VIS (2026-09-18, Mac: "if you only have the torch equipped and no weapon, it doesn't show you

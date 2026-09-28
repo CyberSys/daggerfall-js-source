@@ -232,13 +232,14 @@ test('PROF1 law: Court writs - 6 x max(1, ceil(active / 100)) a region a day; th
 test('PROF1 law: a region\'s writs ask what its witnessed ground grows in the season - a confirmed pixel\'s whole table, an unconfirmed one\'s tiers 1-2; the day\'s first the highest tier; units in tens', () => {
   const C = mapsFile.CLIMATES;
   const table = regionWritTable(21, [{ climate: C.Woodlands, confirmed: false }], SEASONS.Summer);
-  assert.deepEqual(table.map((m) => name(m.material.split(':')[1] * 1)).sort(), ['Clover', 'Green Leaves', 'Red Berries', 'Red Flowers', 'Red Poppy', 'Red Rose', 'Yellow Berries', 'Yellow Flowers', 'Yellow Rose']);
+  const herbsOf = (t) => t.filter((m) => /^p[12]:/.test(m.material));   // PROF2: the ground's metal and stone beside them (prof2_law)
+  assert.deepEqual(herbsOf(table).map((m) => name(m.material.split(':')[1] * 1)).sort(), ['Clover', 'Green Leaves', 'Red Berries', 'Red Flowers', 'Red Poppy', 'Red Rose', 'Yellow Berries', 'Yellow Flowers', 'Yellow Rose']);
   const confirmed = regionWritTable(21, [{ climate: C.Woodlands, confirmed: true }], SEASONS.Summer);
   assert.ok(confirmed.some((m) => m.tier === 3), 'the rare poppies once the ground is confirmed');
-  assert.deepEqual(regionWritTable(21, [{ climate: C.Woodlands, confirmed: true }], SEASONS.Winter).map((m) => m.material), ['p1:18', 'p1:9'], 'winter: Clover and Green Leaves');
+  assert.deepEqual(herbsOf(regionWritTable(21, [{ climate: C.Woodlands, confirmed: true }], SEASONS.Winter)).map((m) => m.material), ['p1:18', 'p1:9'], 'winter: Clover and Green Leaves');
   assert.deepEqual(regionWritTable(21, [], SEASONS.Summer), []);
   assert.deepEqual(courtWrits(20000, 21, 6, []), []);
-  const writs = courtWrits(20000, 21, 12, confirmed);
+  const writs = courtWrits(20000, 21, 12, herbsOf(confirmed));
   assert.equal(writs.length, 12);
   assert.equal(writs[0].tier, 3, 'the day\'s first: the highest the herbs reach');
   for (const w of writs) {
@@ -249,5 +250,5 @@ test('PROF1 law: a region\'s writs ask what its witnessed ground grows in the se
     assert.equal(w.pay, writPay(w.units, m.value));
     assert.ok(Number.isInteger(w.pay) && Number.isInteger(w.renown));
   }
-  assert.deepEqual(courtWrits(20000, 21, 12, confirmed), writs, 'a pure function of the day, the region and the count');
+  assert.deepEqual(courtWrits(20000, 21, 12, herbsOf(confirmed)), writs, 'a pure function of the day, the region and the count');
 });

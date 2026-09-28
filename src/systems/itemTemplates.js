@@ -13,6 +13,7 @@ import { WAGON_MODEL_ID } from './horseCartLaw.js';   // DISC24-B: the cart's pi
 import TEMPLATES_JSON from '../characters/itemTemplates.json' with { type: 'json' };
 import { playerArchiveFor, resolvePaperdollRecord } from '../characters/paperdollArt.js';   // AUDIT 17f: SetRace, one home; NT3 (F006): the record law too
 import { itemDyeColor, itemDyeTarget } from './itemDye.js';
+import { DYE_TARGETS } from '../characters/dyes.js';   // PROF2: a new material's picture dyed on DFU's metal swatch
 import { customItemClass, rriVariantFields, rriStoredWeight, rriCustomItemsForGroup } from './rriItems.js';   // RRI1: DFU's custom-item dispatch, asked first   // DW3: GetItemImage's `color = (int)item.dyeColor` (ItemHelper.cs:402) rides the image
 
 export { GROUP_TEMPLATE_INDICES };
@@ -375,5 +376,8 @@ export function inventoryItemImage(item, identity = undefined) {
   // first (:402) and asks the replacement door by it (:453, :458), so
   // an icon door that draws this must ask by it too. DYE-ICON: and the
   // swatch its classic arm dyes (:473-476), which that door changes.
+  // PROF2: a new material's picture is DFU's own, dyed by DFU's own law - its metal's DyeColor over the WeaponsAndArmor
+  // swatch (systems/profTemplates.js `iconDye`), as an Ebony blade is told from an Iron one
+  if (Number.isFinite(t.iconDye)) return { archive, record, dye: t.iconDye, dyeTarget: DYE_TARGETS.WeaponsAndArmor };
   return { archive, record, dye: itemDyeColor(item), dyeTarget: itemDyeTarget(item) };
 }

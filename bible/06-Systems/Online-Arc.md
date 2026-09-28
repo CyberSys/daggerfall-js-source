@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1238`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1262`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6978` read, on one physical line:
+`src/scenes/worldModes.js:6984` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:4948`). With the property missing that call is a
+(`dungeonContext.js:4974`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5103` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:5129` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10635,3 +10635,41 @@ departure (`Port-Ledger.md` section A, PROFESSIONS).
 
 `test/prof1_law.test.js` (14), `test/prof1_service.test.js` (13), `test/prof1_client.test.js` (15);
 `tools/mutants/prof1.json`, 58 mutations, 58 dead.
+
+## PROF2 (2026-09-28, Mac: "Go") - Mining and Quarrying, ores, ingots and the forge
+
+The record is `06-Systems/Professions-Arc.md` 23 (PROF0); this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, MINING).
+
+- **The laws** (both ends): `src/net/kingdomLaw.js` - SEAT0 4.3's map, one home (the three crowns' regions, the Marches,
+  the Free Lands); `src/net/professionLaw.js` - DFU's eleven metals and the six new ores, the eleven ingots, the two
+  stones and the gems (a gem's tier by its DFU price), the Pick-Axe's act (strikes 4 / 5 / 7, the glint's 1.2 s, 2.0 s
+  at Master, the 2.5-degree double, the clean finish's bound), the gem's 3%, Deep Delver's x1.5, the cut at 2 : 1, the
+  forge's ten recipes (2 raw an ingot; Brass Copper and Tin; Steel an Iron Ingot and Charcoal), Smithing's 10 x tier a
+  unit, the smelt's origin (bought first; a product bought if any of its units were), the crafter's limit;
+  `src/net/nodeLaw.js` - a pixel's day of veins (4.1's tables, tier 2 unconfirmed, a confirmed kingdom's signature in
+  its first slot, Daggerfall's two) and boulders, a dungeon's day of veins (`1 + hash % 4`, tier 3 unconfirmed, a
+  marker and a bearing), a strike's gem, the yields, and the metal and stone a region's writs may ask.
+- **The store** (`server-account/migrations/0019_mining.sql`): `node_harvests` rebuilt for `ore` and `stone` and a
+  found `gem`; `world_witness` rebuilt for its second kind, `dungeon`; `prof_smelts`.
+- **The service** (`server-account/src/professions.js`, `acct20`): the harvest generalised - a vein's ore, a
+  boulder's stone, a dungeon vein's deep ore (no hours underground), the ground a pixel's or a dungeon's witness, the
+  act's glints bounded by the finish, a gem on witnessed ground nulled in the decision when its Stores are full;
+  `/v1/prof/pixels` answers up to four dungeons beside the pixels; `/v1/prof/smelt` - ONE STATEMENT DECIDES (every
+  input held, the product's room, its bought units read first), the spends bought first, the products own and bought,
+  Smithing under the crafter's limit, a smelt asked twice one.
+- **The client**: `src/scenes/gatherHost.js` (the one gathering host - Herbalism's and Mining's kinds; a dungeon a
+  place of its own; the target, the prompt, the act, Escape in every mode, the tool in the hand, the toasts with a gem
+  and the XP); `src/scenes/mineHost.js` (veins at the foot of the rock piece nearest their point, else a stone tile,
+  else nature's ground; boulders only at a piece; a dungeon's veins on its walls; the plan; the Warhammer's StrikeDown
+  frames); `src/systems/mineAct.js` (the Pick-Axe's act); `src/systems/profTemplates.js` (the nineteen new templates on
+  DFU's dyed pictures); `src/net/profBook.js` (the dungeons' witnessed state, a gem's Stores, the smelt, the asks on the
+  wire the pump skips); `src/ui/profHud.js` (the face, the glint, the aim and the pips); `src/ui/profPages.js` (Mining
+  practised, the Forge on the Stores page); the Prospector's veins on both compasses (`ui/hud.js`,
+  `ui/enhancedHud.js`); a home's forge station (`net/decorLaw.js`, 50,000 gold).
+- **The switch**: `PROFESSIONS_OPEN`, shipped at `dev`.
+- **Not built here** (PROF0 23): the Motherlodes and gate-touched ground (PROF2b), Daedric smelting, the held map's
+  marks, a vein's cracks, the Morrowind lane's pick (FLAGGED), nodes in the fixed city (FLAGGED).
+
+`test/prof2_law.test.js` (11), `test/prof2_service.test.js` (9), `test/prof2_client.test.js` (14);
+`tools/mutants/prof2.json`, 40 mutations, 40 dead.

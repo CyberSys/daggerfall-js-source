@@ -243,6 +243,7 @@ export const REFUSALS = Object.freeze({
   'stores-short': 'Your Stores do not hold that many.',
   'node-taken': 'You have already gathered here today.',
   'bad-material': 'The Stores do not keep that.',
+  'bad-recipe': 'The forge knows no such work.',   // PROF2
   'bad-qty': `Take 1 to ${WITHDRAW_MAX} at a time.`,
   'bad-pixels': 'That land could not be read.',
   'bad-region': 'That region could not be read.',
@@ -765,10 +766,11 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
   return {
     account: () => storedSession(storage)?.id ?? null,
     state: (character) => post('/v1/prof/state', { character }),
-    pixels: (character, pixels) => post('/v1/prof/pixels', { character, pixels }),
+    pixels: (character, pixels, dungeons = []) => post('/v1/prof/pixels', { character, pixels, dungeons }),   // PROF2: the dungeon stood in
     harvest: (req) => post('/v1/prof/harvest', req),
     spec: (character, profession, rank, spec, rid) => post('/v1/prof/spec', { character, profession, rank, spec, rid }),
     withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
+    smelt: (character, recipe, count, rid) => post('/v1/prof/smelt', { character, recipe, count, rid }),   // PROF2: the forge
     writs: (character, region) => post('/v1/writs/list', { character, region }),
     deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),
   };

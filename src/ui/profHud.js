@@ -23,6 +23,8 @@
 // it with the page.
 // ═══════════════════════════════════════════════════════════════════
 import { BASKET_SPOTS } from '../systems/herbAct.js';
+import { MINE_POINTS } from '../systems/mineAct.js';   // PROF2: the vein's face
+import { MINE_ACT } from '../net/professionLaw.js';
 import { PROF_CSS } from './enhancedPlusStyle.js';
 
 /** The toasts: four at most, three seconds each (PROF0 8). */
@@ -106,7 +108,34 @@ export function createProfHud({ doc = globalThis.document } = {}) {
       meter.hidden = false;
       const st = act.state;
       meter.classList.toggle('bruised', !!st.bruised);
+      meter.classList.toggle('struck-glint', st.kind === 'mine' && st.last === 'glint' && act.swing > 0);
       meter.replaceChildren();
+      if (st.kind === 'mine') {
+        // PROF2: THE GLINT - the node's face as a box (MINE_ACT's spread), its five points, the one glinting, and where
+        // the crosshair is on it; the strikes below (a strike on the glint counts two)
+        const face = mk('prof-face');
+        /** @param {readonly number[]} p [yaw, pitch] degrees */
+        const at = (p) => [50 + (p[0] / (2 * MINE_ACT.spreadYawDeg)) * 100, 50 - (p[1] / (2 * MINE_ACT.spreadPitchDeg)) * 100];
+        MINE_POINTS.forEach((p, i) => {
+          const n = mk(i === st.glint ? 'prof-glint' : 'prof-point');
+          const [x, y] = at(p);
+          n.style.left = `${x}%`; n.style.top = `${y}%`;
+          if (i === st.glint && reduced()) n.style.animation = 'none';
+          face.append(n);
+        });
+        if (st.aim) {
+          const a = mk('prof-aim');
+          const [x, y] = at([Math.max(-MINE_ACT.spreadYawDeg, Math.min(MINE_ACT.spreadYawDeg, st.aim.yaw)), Math.max(-MINE_ACT.spreadPitchDeg, Math.min(MINE_ACT.spreadPitchDeg, st.aim.pitch))]);
+          a.style.left = `${x}%`; a.style.top = `${y}%`;
+          face.append(a);
+        }
+        const pips = mk('prof-finds');
+        pips.textContent = `${'o '.repeat(Math.min(st.points, st.need))}${'. '.repeat(Math.max(0, st.need - st.points))}`.trim();
+        const hint = mk('prof-hint');
+        hint.textContent = st.gentle ? (label || 'strike') : (label || 'strike the glint');
+        meter.append(face, pips, hint);
+        return;
+      }
       if (st.kind === 'basket') {
         const leaves = mk('prof-leaves');
         if (st.spot >= 0) {

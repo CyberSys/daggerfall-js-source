@@ -36,9 +36,10 @@ function choose(rig, id) {
 const PLACE = Object.freeze({ pos: [1, 0, 2], rot: [90, 0, 0], scale: 1, light: null, storage: false, paid: 120 });
 
 test('HOME-STATIONS the law: a piece serves one of three crafts, carried only when it serves one; a craft it does not know, a piece that holds things, and one\'s own item serve none (mutants: any word taken; storage and a station together; the key always written)', () => {
-  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant']);
-  assert.deepEqual({ ...DECOR_STATION_FEES }, { alchemy: 50000, spells: 100000, enchant: 200000 });   // STATION-FEES: ten times the first pass
-  assert.deepEqual({ ...DECOR_STATION_SERVICES }, { alchemy: 'guildServicePotionMaker', spells: 'guildServiceSpellMaker', enchant: 'guildServiceItemMaker' });
+  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge']);   // PROF2: the forge, a fourth (Professions-Arc 23)
+  assert.deepEqual({ ...DECOR_STATION_FEES }, { alchemy: 50000, spells: 100000, enchant: 200000, forge: 50000 });   // STATION-FEES: ten times the first pass; PROF2: a forge as the alchemy station
+  assert.deepEqual({ ...DECOR_STATION_SERVICES }, { alchemy: 'guildServicePotionMaker', spells: 'guildServiceSpellMaker', enchant: 'guildServiceItemMaker' }, 'the forge is no guild\'s service - it opens the Stores\' forge');
+  assert.deepEqual(decorStationWords(null, 'forge'), { pick: 'Station: Forge >', act: 'Make station - 50,000 gold', what: 'station:forge' });
   assert.equal(DECOR_STATION_NAMES.spells, 'Spellmaking station');
   assert.equal(decorPlaceOf({ ...PLACE, station: 'alchemy' }).station, 'alchemy');
   assert.equal('station' in decorPlaceOf(PLACE), false, 'a piece that serves no craft reads as it always did');

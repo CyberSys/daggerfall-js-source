@@ -868,6 +868,10 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .prof-count { color: #f3cf86; font-variant-numeric: tabular-nums; }
 .prof-split { grid-column: 1 / -1; font-size: 10px; color: #9d917d; }
 .prof-matbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 12px; color: #d9cfbd; }
+.prof-smelt { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 2fr) 64px auto; align-items: center; gap: 8px;
+  padding: 4px 0; border-bottom: 1px solid rgba(192,138,62,0.18); font-size: 12px; color: #d9cfbd; }
+.prof-smelt b { color: #efe0b8; font-weight: normal; }
+@media (max-width: 560px) { .prof-smelt { grid-template-columns: 1fr 64px auto; } .prof-smelt .prof-split { grid-column: 1 / -1; } }
 .prof-matline { flex: 1 1 220px; }
 @media (max-width: 720px) { .prof-cols { grid-template-columns: 1fr; } .prof-specs { grid-template-columns: 1fr; } }
 @media (pointer: coarse) { .prof-row, .prof-mat, .prof-spec, .prof-family { min-height: 40px; } }
@@ -893,6 +897,13 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
   background: radial-gradient(circle, #fff6d8 0 20%, rgba(243,207,134,0.8) 35%, transparent 70%); animation: prof-glint 0.5s ease-in-out infinite alternate; }
 @keyframes prof-glint { from { transform: scale(0.8); } to { transform: scale(1.1); } }
 .prof-finds { letter-spacing: 0.2em; }
+.prof-face { position: relative; height: calc(64px * var(--hud-scale, 1)); margin-bottom: 4px;
+  background: radial-gradient(circle at 40% 35%, rgba(112,104,94,0.92), rgba(58,54,50,0.94) 65%), #3a3632; box-shadow: 0 0 0 2px #050608; }
+.prof-point { position: absolute; width: 4%; aspect-ratio: 1; margin: -2% 0 0 -2%; border-radius: 50%; background: rgba(239,224,184,0.45); }
+.prof-face .prof-glint { width: 22%; margin: -11% 0 0 -11%; }
+.prof-aim { position: absolute; width: 10%; aspect-ratio: 1; margin: -5% 0 0 -5%; border: 1px solid #efe0b8; box-sizing: border-box;
+  box-shadow: 0 0 0 1px #050608; }
+.prof-meter.struck-glint .prof-face { box-shadow: 0 0 0 2px #050608, 0 0 6px 2px rgba(243,207,134,0.8); }
 .prof-toasts { position: fixed; right: 12px; top: 34%; z-index: 12; display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
   pointer-events: none; font-family: ${PIXEL_STACK}; font-size: calc(12px * var(--hud-scale, 1)); }
 .prof-toast { padding: 3px 10px; color: #efe0b8; background: rgba(10,8,6,0.78); border-left: 2px solid var(--brass, #c08a3e);

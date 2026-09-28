@@ -861,8 +861,12 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 - `prof_stores` (player, char_id, material, origin, qty) - BUILT, `0018_professions.sql`; `guild_prof_stores`
   (guild_id, material, origin, qty) with its ledger - `origin` own or bought (section 7)
 - `node_harvests` (day, node_id, kind, player, char_id) - BUILT, `0018_professions.sql` (with the harvest's material,
-  qty, XP and rid; pruned after two days by the state's own read, section 20); `prof_withdrawals` (a withdrawal's rid)
-  and `world_witness` (SEAT0 3.2's witnessed pixel) BUILT with it; `fish_hauls` (day, account, n) for the account cap
+  qty, XP and rid; pruned after two days by the state's own read, section 20; PROF2's `0019_mining.sql` rebuilt it for
+  the kinds `ore` and `stone` and a found `gem`); `prof_withdrawals` (a withdrawal's rid) and `world_witness` (SEAT0
+  3.2's witnessed pixel) BUILT with it - its second kind, the witnessed dungeon, PROF2's; `fish_hauls` (day, account,
+  n) for the account cap
+- `prof_smelts` (player, rid, char_id, recipe, count, own, bought, xp, at, n) - BUILT, `0019_mining.sql` (PROF2: a
+  smelt's decision, the row its answer is read back from)
 - `recipes_known` (player, char_id, recipe)
 - `products` (provenance PK, template, material, quality, maker, made_at, listed, condition, enchantments JSON) - a
   listing writes the item's condition and enchantments as the pack held them, and the buyer receives exactly that
@@ -876,10 +880,10 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 - `board_notes` (id, map_id, author, author_name, subject, body, button, guild_id, char_id, at, expires_at, hidden,
   rid), `board_reports` (note_id, reporter, at) and `board_notices` (id, subject, body, author, author_name, at,
   expires_at, rid) - BUILT, `0017_board.sql` (AUDIT 28: this line gave the first sketch)
-- Endpoints: `/v1/prof/*` (harvest, craft, spec), `/v1/stores/*`, `/v1/marks/*` (balance, exchange, guild),
-  `/v1/board/*` (notes), `/v1/market/*`, `/v1/writs/*`.
-- Law modules (pure, shared by client and service): marksLaw.js, boardLaw.js, professionLaw.js and nodeLaw.js
-  (built); recipeLaw.js (to be written, with PROF3).
+- Endpoints: `/v1/prof/*` (harvest, craft, spec; `smelt` BUILT with PROF2), `/v1/stores/*`, `/v1/marks/*` (balance,
+  exchange, guild), `/v1/board/*` (notes), `/v1/market/*`, `/v1/writs/*`.
+- Law modules (pure, shared by client and service): marksLaw.js, boardLaw.js, professionLaw.js, nodeLaw.js and
+  kingdomLaw.js (built - the last PROF2's, SEAT0 4.3's map); recipeLaw.js (to be written, with PROF3).
 - The relay: the activity field on the pose (a `RELAY_VERSION` and LAW row); the in-person check for deliveries.
 
 ## 15. The slices, in order
@@ -891,7 +895,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **NOTICE1** - SHIPPED 2026-09-28 (at `dev`) | The Notice Board (10.7): a town's rumour boards open it online (BOUNTY1's bounty boards stay the hunts), the rumour pinned first and the bounty board's line under it; the server's word; the Notices tab; player notes, their button, reports and moderation; the count over the board. The Work tab moved to PROF1 | Offline a rumour board is byte-for-byte DFU's (the ROAD A9 pins hold) |
 | **NOTICE1b** | Boards stood where a hub lacks one (10.1), if `tools/boardCount.mjs` names any; a seat's with SEAT1 | Mac's run of the measure |
 | **PROF1** - SHIPPED 2026-09-28 (at `dev`, section 22) | The Stores; **Herbalism** with its act; the board's **Work tab**; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
-| **PROF2** | Mining and Quarrying with their acts; smelting; ores and ingots (610-630) | Veins placed on rock fields; signatures by kingdom. Needs FORAGE1-2 (shipped: the Pick-Axe) |
+| **PROF2** - SHIPPED 2026-09-28 (at `dev`, section 23) | Mining and Quarrying with their acts; the dungeon veins and the witnessed dungeon; gems; smelting at a forge (a smith's, or a home's forge station); ores and ingots (610-630) and stone (673-674); the Prospector's compass; metal and stone writs. Motherlodes and gate-touched ground are PROF2b. Needs FORAGE1-2 (shipped: the Pick-Axe) | Veins placed on rock fields; signatures by kingdom |
 | **PROF3** | Smithing with its act; quality; provenance; the forge | A crafted Mithril Longsword is DFU's, with its quality |
 | **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
 | **PROF5** | The Market tab: listings, regional markets, couriers, buy orders, history | Needs MARKS1, NOTICE1, PROF3 |
@@ -1148,7 +1152,8 @@ what was found (FACT):
 - **Withdraw to pack**: bought units first; the items the law names, minted as DFU mints them; a withdrawal whose answer
   was lost is kept and asked again with its id (MARKS1's kept sale).
 - **The shelves' exception** (FORAGE0 law 6): online, the six tools shelve whatever Foraging's switch says.
-- **The four hosts** (17.1): **the streaming world** (`scenes/world.js`, through `scenes/herbHost.js`) stands a built
+- **The four hosts** (17.1): **the streaming world** (`scenes/world.js`, through `scenes/herbHost.js` - since PROF2 a
+  kind in the one gathering host, `scenes/gatherHost.js`, section 23) stands a built
   wilderness pixel's patches in the pixel's own list, so its frame walk draws them and `destroyPixel` frees them; the
   prompt, the act, the answers, the Work tab on its boards. **The fixed city** (`scenes/exterior.js`) - **FLAGGED by
   name**: no nodes, as 17.1 says. **Building interiors** (`scenes/worldModes.js`): nothing stands there in PROF1 (the
@@ -1174,6 +1179,131 @@ what was found (FACT):
 - **Pinned**: `test/prof1_law.test.js` (14), `test/prof1_service.test.js` (13), `test/prof1_client.test.js` (15);
   `tools/mutants/prof1.json`, 58 mutants, every one dead. The done-when is `prof1_client`'s DONE WHEN: an herb
   harvested through the real Worker, withdrawn into the pack, minted as DFU's own plant and mixed by DFU's recipe law.
+
+## 23. PROF2 - Mining and Quarrying, ores, ingots and the forge, as built (SHIPPED 2026-09-28, at `dev`)
+
+Mac: **"Go"** (PROF2 after PROF1). What the design above left open for PROF2, DECIDED here (the record's, at Mac's
+instruction), and what was found (FACT):
+
+- **What PROF2 is.** Mining's surface veins and Quarrying's boulders in the streaming world, the dungeon veins, the
+  region signatures (4.7), the gems (4.6), smelting at a forge, the ores and ingots (610-630) and the stone (673-674)
+  as items, the Prospector's compass, and the Court writs asking for metal and stone. **Not here, named**: the
+  **Motherlodes** (section 6 - a relay room's socket check and the hub's warning; PROF2b) and **gate-touched ground**
+  (4.7 - the gate's pixel is the client's to find, `src/net/gateLaw.js`, and a receipt carries no pixel today, so
+  three fighters cannot yet agree where it stood; PROF2b); Daedric smelting (its Daedra's Heart and Sigil Stone cannot
+  enter the Stores until Hunting and the gate's gift put them there - law 3); the held map's marks; a vein's cracks.
+- **The kingdoms are one home.** FACT: nothing in the tree maps a region to a kingdom but SEAT0 4.3's table.
+  DECIDED: that table becomes `src/net/kingdomLaw.js` (the regions of Daggerfall, Wayrest and Sentinel, the Marches,
+  the Free Lands), which nodeLaw reads for the signatures and the Marches and the seats' slices will read for theirs.
+- **The veins' tables** are 4.1's, each metal DFU's own (MetalIngredients: Mercury 65, Tin 66, Brass 67, Lodestone
+  68, Sulphur 69, Lead 70, Iron 71, Copper 72, Silver 73, Gold 74, Platinum 75 - FACT, `itemTemplatesData.js`) at 4.1's
+  tier, the four new ores at theirs (Moonstone 4, Dwarven Scrap 4, Mithril 5, Adamantium 6, Ebony 6, Orichalcum 6). A
+  vein's tier is drawn over the tiers its climate's table holds by section 6's weights renormalised (a Woodlands vein
+  is Iron, Copper or Tin at 40 : 25 against Lodestone), held to tier 2 on a pixel not confirmed, and its metal evenly
+  among that tier's. "Deep veins" (4.1, 4.6) are the dungeon veins.
+- **The signatures** (4.7): on a **confirmed** pixel of the kingdom, a signature replaces a pixel's first vein - the
+  Kingdom of Daggerfall's Moonstone its first **two** ("twice the usual rate"), Wayrest's Mithril, Sentinel's Ebony,
+  the Orsinium Area's and the Wrothgarian Mountains' Orichalcum (found nowhere else), the Isle of Balfiera's
+  Adamantium (the only open-world surface Adamantium). On a pixel not confirmed the slot is an ordinary vein - a
+  signature is tier 4 to 6 and such a pixel is worth tiers 1-2. The Marches keep their +25%.
+- **Where a node stands** (section 6: "the nearest suitable anchor"). FACT: World of Daggerfall is forced on for the
+  online lane (`src/systems/onlineLane.js`) and 209,436 of its 227,938 instances are `Rocks` layouts, 2,502
+  `Mountains` (`03-World/World-Of-Daggerfall.md`), so every client of a room stands the same rock pieces. DECIDED: a
+  **vein** stands at the foot of the rock-field piece nearest its law point (the piece's own box, on the side facing
+  that point) where the pixel has one; else on the terrain's stone tile (tile 3, `terrainNature.js`) nearest its point
+  within 24 tiles where nature could stand; else where nature stands at its point; else nowhere. A **boulder** is a
+  rock-field piece itself - Quarrying works "a rock field's boulders" (5.2) - so a pixel with no rock field, or with
+  fewer pieces than its boulder slots, stands fewer. A piece holds one node. The node's picture is its material's own
+  item flat (TEXTURE.254, the metal's own, a new ore Lodestone's; a boulder's loose stone Lodestone's), a small
+  cluster at the piece's foot, as PROF1's patches are the herb's own flat (law 6).
+- **The dungeon veins** (section 6): `1 + hash % 4` a dungeon a UTC day, a dungeon named by DFU's own identity
+  (`MapTableData.MapId & 0xfffff`, `mapsFile.js`), the id `dvein:<id>:<day>:<slot>`. Their table: Silver 3, Gold 4,
+  Dwarven Scrap 4, Platinum 5, Adamantium 6, and Moonstone 4 in a Woodlands or HauntedWoodlands dungeon (4.1's deep
+  veins); tiers 3-6 by the weights. They stand on the dungeon's own walls: from one of its foe markers (the layout's
+  list, the same on every client) a ray at chest height along the slot's bearing through the dungeon's collider to the
+  first near-vertical face within 12 m, the vein a third of a metre off it - the elite foes' clearance rays' precedent
+  (`dungeonContext.js`). A dungeon a client's hash made (`spawned`) grows none. **The witnessed dungeon** (SEAT0 3.2's
+  law, a second kind): a harvest carries the dungeon's climate and region, three accounts a week registered agreeing
+  confirm it; a dungeon not confirmed is worth its least - tier 3 (Silver) and no gem. Dungeon veins keep no hours, and
+  Foraging's inside, settlement, daylight and sea checks are not asked there (5.1); the foe and the load are.
+- **The act** (5.2): the Pick-Axe drawn as DFU's Warhammer (template 126), its strike DFU's own StrikeDown frames.
+  Strikes 4 (tiers 1-2), 5 (3-4), 7 (5-6); a boulder is tier 1 (Rough Stone's). Five points on the node's face in a
+  box around it (their bearings from its centre); one glints for **1.2 s** (**2.0 s** at Master) x the Pick-Axe's
+  band ((INT + AGI) / 2, FORAGE0 14.4), then moves - after a strike too. Attack strikes (one a 0.45 s swing); with the
+  crosshair within **2.5 degrees** of the glinting point it counts **double**. A **clean finish** is every strike on
+  the glint. FACT: the Stores keep no quality (section 22), so the finish's "one quality step" waits for PROF3's
+  quality; here a clean finish is the clean act (+50% XP), and on a boulder, or always for a Stonebreaker, it yields
+  **Cut Stone** at the mason's 2 : 1 (the cut done at the rock; Quarryman's 1 : 1 is the bench's). A **gem**: 3% a
+  strike on the glint (Prospector x1.1), by the node's climate (4.6: Amber, Jade, Turquoise, Malachite, one of Ruby,
+  Sapphire, Emerald in the Mountain; a Diamond from a dungeon vein), on a confirmed pixel or dungeon only - the
+  service rolls each, never past the strikes a finish needs. Gentle acts: every strike plain, no clean act, no gem.
+- **The yields** (section 6's order): a vein 2-3, a boulder 3-5 Rough Stone; Deep Delver x1.5 on a dungeon vein; a
+  march's +25% on a confirmed surface pixel; the Cut Stone cut; the fraction a chance. A gem is one, beside.
+- **A gem's tier** (the Stores' and a writ's reference): DECIDED by its DFU price's band - to 10 gold tier 2 (Jade), to
+  50 tier 3 (Malachite, Turquoise), to 100 tier 4 (Amber), to 250 tier 5 (Ruby), past it tier 6 (Sapphire, Emerald,
+  Diamond).
+- **The materials and their items.** A DFU metal withdraws as DFU's own MetalIngredients item, a gem as DFU's own gem;
+  the new ores (610-615), ingots (620-630) and stone (673 Rough, 674 Cut) are registered custom templates (as the Sigil
+  Stone 570 is, `gateSpoils.js`), their pictures DFU's own (an ore Lodestone's, 254/66; an ingot Iron's, 254/63; stone
+  Lodestone's) recoloured by DFU's own law - FACT, GetItemImage's ChangeDye with the metal's DyeColor over the
+  WeaponsAndArmor swatch (`systems/itemDye.js`, ItemHelper.cs:473-476) is how DFU colours an Ebony blade apart from an
+  Iron one - an ingot its metal's dye, an ore its metal's; stone is Lodestone's lump as it is. Brass (DFU 67) is
+  smelted, tier 2.
+- **Smelting** (4.1): at a forge, no act - 2 of a raw metal make 1 ingot (Iron, Silver, and the six ores); Brass is 1
+  Copper and 1 Tin; Steel is 1 Iron Ingot and 1 Charcoal (the recipe stands; Charcoal comes with Logging, PROF4).
+  Smithing XP 10 x the product's tier a unit, under **the crafter's limit** (3.2 - a third craft past Journeyman stops
+  at rank 50). An ingot is **own** only when every unit that made it was (bought units are spent first, section 7).
+  Up to 100 a smelt. **The forge**: a Weaponsmith's or an Armorer's (50 gold a smelt, the use fee, paid from the purse)
+  or a home's **forge** station - HOME-STATIONS grows a fourth craft (`DECOR_STATIONS`, its licence 50,000 gold as the
+  alchemy station's). The Forge is a section of the Stores page (`ui/profPages.js`, every skin's pause menu), live while
+  the player stands inside a Weaponsmith's or an Armorer's (`scenes/worldModes.js` forgeHere; the fee paid on the
+  service's answer, never on a repeat) or their own home with a forge station, whose press opens the pause menu at
+  the Stores page. FACT: the service cannot see the forge (as it cannot see the board, section 22): the inputs are the
+  Stores' and their units are the bound.
+- **The Court writs** ask metal and stone too: a witnessed pixel's vein metals (a confirmed pixel's all, an unconfirmed
+  one's tiers 1-2), its region's signature ore on a confirmed pixel of that kingdom, and Rough Stone where its climate
+  has boulders. Never an ingot, Cut Stone or a gem (smelted, cut or found, not the ground's). A metal's or stone's writ
+  XP is Mining's.
+- **The Prospector** (3.3): the veins stood within 200 m are marked on the compass, both skins, beside the party's
+  marks (`ui/hud.js`, `ui/enhancedHud.js`). The held map's marks are not built (as PROF1's patches').
+- **One gathering host.** FACT: the streaming world's Herbalism was one host (`scenes/herbHost.js`), and every
+  gathering profession needs the same shell - a pixel's nodes stood, the nearest target, one prompt, one act, the book.
+  DECIDED: the shell is `scenes/gatherHost.js`, each profession a kind in it (Herbalism's patches and Mining's veins and
+  boulders now; Logging's trees, Hunting's bodies and Fishing's water later), one prompt and one act at a time.
+
+As built:
+
+- **Behind PROF1's switch.** `PROFESSIONS_OPEN`, at `dev`. The service is `acct20`; the tables are `0019_mining.sql`
+  (`node_harvests` rebuilt for the kinds `ore` and `stone` and its `gem`; `world_witness` rebuilt for the kind
+  `dungeon`; `prof_smelts`); the route `/v1/prof/smelt`. A harvest's decision is still one INSERT - the day's cap, the
+  node untaken, the Stores' room - and a gem rides in it, nulled there when the gem's own Stores are full (the ore is
+  still given). A smelt's decision is one INSERT too - every input held, the product's room, its bought units read
+  before a unit moves - and the spends, the products and the Smithing XP follow it in the same batch.
+- **The four hosts** (17.1). **The streaming world** stands every kind through `scenes/gatherHost.js`: Herbalism is
+  `herbKind` (`scenes/herbHost.js`), Mining `mineKind` (`scenes/mineHost.js`). A built pixel carries its rock pieces
+  (`rocks`: the boxes of World of Daggerfall's placements named `Rocks` or `Mountains` that stood - after the road's
+  clearance - `world/worldOfDaggerfall.js` picks now carry their name). **The fixed city** - **FLAGGED by name**, as
+  PROF1's. **Building interiors**: the forge (above). **Dungeons**: `scenes/dungeonContext.js` hands the host its
+  identity (`MapId & 0xfffff`, none for a spawned dungeon), its wall ray (`veinWall`: from a foe marker at chest
+  height, a near-vertical face within 12 m) and its own flats' doors; the mode machine tells the host a dungeon was
+  entered (after the flip and its lock) and left (the veins dropped while the dungeon still stands, beside the quest
+  foes' hand-over); E reaches a vein before the exit's press; the dungeon rig draws the act's tool and swings nothing
+  while an act plays.
+- **The tool in the hand**: the Pick-Axe as DFU's Warhammer (template 126), idle between strikes and StrikeDown's
+  frames over each 0.45 s swing. **The Morrowind lane keeps its stance - FLAGGED**, as PROF1's Sickle.
+- **Esc** ends an act in every mode now: PROF1's cancel sat under the exterior gate, so an act underground could not
+  be let go; it sits above the mode gate (a fix found by PROF2's own dungeon).
+- **A harvest asked twice** (FOUND, fixed): a harvest is kept before it is asked, and the book's pump - which asks kept
+  harvests again - could ask one whose first ask was still on the wire; the service answered both as one (the id), but
+  the answer was said twice. The book now keeps the asks on the wire (`net/profBook.js` `sending`) and the pump skips
+  them.
+- **A PROF1 pin that proved nothing half the time** (FOUND, fixed): the Stores-overflow pin's harvest rolled 1 to 3, and
+  a roll of 1 fits one unit of room with or without the cut - its mutant survived at random. The pin steers the
+  service's dice to their top.
+- **Pinned**: `test/prof2_law.test.js` (11), `test/prof2_service.test.js` (9), `test/prof2_client.test.js` (14);
+  `tools/mutants/prof2.json`, 40 mutants, every one dead. The done-when is `prof2_client`'s DONE WHEN: a confirmed
+  Wayrest pixel's first vein stood at its rock piece is Mithril, mined through the real Worker, smelted at a forge into
+  a Mithril Ingot and withdrawn as its registered template.
 
 ## Appendix A - a day of a gatherer
 

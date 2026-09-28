@@ -289,7 +289,7 @@ export class WodWorld {
     // instance's identity is read here, from the list the pick came from, never through its index into a newer one
     const session = this.session;
     return pickLocations(tile, session, (name) => this.prefabs.get(name) ?? null, pathsPoint, siteClear)
-      .map((pick) => ({ ...pick, locationID: session.locationID[pick.index] }));
+      .map((pick) => ({ ...pick, locationID: session.locationID[pick.index], name: session.name[pick.index] }));   // PROF2: the instance's name - its Rocks and Mountains pieces anchor Mining's nodes
   }
 
   /**
@@ -310,7 +310,7 @@ export class WodWorld {
           if (c.modelId == null) { out.stopped = true; return; }
           out.models.push({
             modelId: c.modelId, matrix: objectMatrix(pos, obj.rot, obj.scale),
-            normalMatrix: objectNormalMatrix(obj.rot, obj.scale), objectID: obj.objectID,
+            normalMatrix: objectNormalMatrix(obj.rot, obj.scale), objectID: obj.objectID, pick: i,   // PROF2: the pick it came from
           });
           continue;
         }

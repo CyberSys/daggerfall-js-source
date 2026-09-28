@@ -30,15 +30,18 @@ import { CLIMATES, REGION_NAMES, MAX_MAP_PIXEL_X, MAX_MAP_PIXEL_Y } from '../for
 import { SEASONS, seasonValue, dateFromClassicMinutes } from '../systems/gameDate.js';
 import { basketBlock, BASKET_BLOCKS } from '../systems/foragingCore.js';   // the Basket's blocks and foods - the IL's, one home
 import {
-  herbKey, materialOf, foodKey, WRIT_UNITS, WRIT_TIER_WEIGHTS, writPay, writRenown,
+  herbKey, materialOf, foodKey, WRIT_UNITS, WRIT_TIER_WEIGHTS, writPay, writRenown, minedMaterial, CUT_RATIO,
+  DEEP_DELVER_MULT, GEM_CHANCE, PROSPECTOR_GEM,
 } from './professionLaw.js';
+import { kingdomOf, FREE_LANDS, MARCH_REGIONS, isMarch } from './kingdomLaw.js';   // SEAT0 4.3's map, one home (PROF2)
 
 /** The one salt every client stands a day's nodes with. Changing it moves every node in the world. */
 export const NODE_SALT = 0x5e3d;
 /** The salt a region's Court writs are drawn with. */
 export const WRIT_SALT = 0x3c17;
-/** A node's kind, as its id and its hash write it. */
-export const NODE_KINDS = Object.freeze({ tree: 1, herb: 2, vein: 3, boulder: 4 });
+/** A node's kind, as its id and its hash write it. A dungeon's vein is its own kind: its id names a dungeon, not a
+ *  pixel (PROF2). */
+export const NODE_KINDS = Object.freeze({ tree: 1, herb: 2, vein: 3, boulder: 4, dvein: 5 });
 
 // ─── HOW MANY (PROF0 6) ──────────────────────────────────────────────
 
@@ -124,12 +127,24 @@ export const dayMonth = (day) => dayDate(day).month;
 export const pixelOk = (x, y) => Number.isSafeInteger(x) && Number.isSafeInteger(y) && x >= 0 && y >= 0 && x < MAX_MAP_PIXEL_X && y < MAX_MAP_PIXEL_Y;
 /** Whether `r` is a region index. */
 export const regionOk = (r) => Number.isSafeInteger(r) && r >= 0 && r < REGION_NAMES.length;
-/** A node's id: `herb:412:188:20724:2` - its kind, its pixel, its UTC day and its slot. */
+/** A node's id: `herb:412:188:20724:2` - its kind, its pixel, its UTC day and its slot. A dungeon's vein names its
+ *  dungeon instead: `dvein:<id>:<day>:<slot>`. */
 export const nodeKey = ({ kind, x, y, day, slot }) => `${kind}:${x}:${y}:${day}:${slot}`;
+export const dveinKey = ({ dungeon, day, slot }) => `dvein:${dungeon}:${day}:${slot}`;
 const NODE_KEY_RE = /^(tree|herb|vein|boulder):(\d{1,3}):(\d{1,3}):(\d{1,6}):(\d{1,2})$/;
+const DVEIN_KEY_RE = /^dvein:(\d{1,7}):(\d{1,6}):(\d{1,2})$/;
+/** A dungeon's identity, DFU's own: `MapTableData.MapId & 0xfffff` (formats/mapsFile.js). */
+export const DUNGEON_ID_MAX = 0xfffff;
+export const dungeonOk = (id) => Number.isSafeInteger(id) && id >= 0 && id <= DUNGEON_ID_MAX;
 /** A node id read back, or null for one out of shape. */
 export function parseNodeKey(s) {
-  const m = typeof s === 'string' ? NODE_KEY_RE.exec(s) : null;
+  if (typeof s !== 'string') return null;
+  const d = DVEIN_KEY_RE.exec(s);
+  if (d) {
+    const [dungeon, day, slot] = [Number(d[1]), Number(d[2]), Number(d[3])];
+    return dungeonOk(dungeon) ? { kind: 'dvein', dungeon, day, slot } : null;
+  }
+  const m = NODE_KEY_RE.exec(s);
   if (!m) return null;
   const [x, y, day, slot] = [Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5])];
   return pixelOk(x, y) ? { kind: m[1], x, y, day, slot } : null;
@@ -183,16 +198,146 @@ export function herbPatches({ x, y, day, climate, confirmed = false, seasonalEye
   return out;
 }
 
+// ─── THE VEINS (PROF0 4.1, 4.6, 4.7, 6, 23) ──────────────────────────
+
+/** Each climate's vein metals (PROF0 4.1) - DFU's MetalIngredients and the new ores, as material keys. A table's tier
+ *  is each metal's own (professionLaw METALS, ORES). "Deep veins" are the dungeon's (DUNGEON_VEINS). */
+export const VEIN_TABLES = Object.freeze({
+  [CLIMATES.Woodlands]: row('metal:iron', 'metal:copper', 'metal:tin', 'metal:lodestone'),
+  [CLIMATES.MountainWoods]: row('metal:iron', 'metal:copper', 'metal:silver', 'metal:lead'),
+  [CLIMATES.Mountain]: row('metal:iron', 'metal:silver', 'metal:gold', 'metal:platinum', 'ore:mithril'),
+  [CLIMATES.HauntedWoodlands]: row('metal:iron', 'metal:lead', 'metal:mercury'),
+  [CLIMATES.Swamp]: row('metal:iron', 'metal:mercury', 'metal:sulphur'),
+  [CLIMATES.Rainforest]: row('metal:iron', 'metal:copper', 'metal:gold'),
+  [CLIMATES.Subtropical]: row('metal:iron', 'metal:copper', 'metal:tin', 'metal:sulphur'),
+  [CLIMATES.Desert]: row('metal:iron', 'metal:lead', 'metal:sulphur', 'metal:gold', 'ore:ebony'),
+  [CLIMATES.Desert2]: row('metal:iron', 'metal:lead', 'metal:sulphur', 'metal:gold', 'ore:ebony'),
+});
+/** The deep veins' table - a dungeon's, tiers 3-6 (PROF0 6, 23): Silver, Gold, Dwarven Scrap, Platinum, Adamantium;
+ *  and Moonstone in a Woodlands or HauntedWoodlands dungeon (4.1's deep veins). */
+export const DUNGEON_VEINS = row('metal:silver', 'metal:gold', 'ore:dwarven', 'metal:platinum', 'ore:adamantium');
+export const DEEP_MOONSTONE_CLIMATES = Object.freeze([CLIMATES.Woodlands, CLIMATES.HauntedWoodlands]);
+export const dungeonVeinTable = (climate) => (DEEP_MOONSTONE_CLIMATES.includes(climate) ? [...DUNGEON_VEINS, 'ore:moonstone'] : [...DUNGEON_VEINS]);
+/** A dungeon's veins a day: 1 to 4. */
+export const DUNGEON_VEINS_MAX = 4;
+/** A region's signature ore (PROF0 4.7): the crowns' - Daggerfall's Moonstone on a pixel's first TWO veins, Wayrest's
+ *  Mithril, Sentinel's Ebony - and the Free Lands': Orsinium's and the Wrothgarian Mountains' Orichalcum, Balfiera's
+ *  Adamantium. `slots` how many of a pixel's veins it takes. */
+export function regionSignature(region) {
+  const k = kingdomOf(region);
+  if (k === 'daggerfall') return { ore: 'ore:moonstone', slots: 2 };
+  if (k === 'wayrest') return { ore: 'ore:mithril', slots: 1 };
+  if (k === 'sentinel') return { ore: 'ore:ebony', slots: 1 };
+  if (region === FREE_LANDS.orsinium || region === FREE_LANDS.wrothgarian) return { ore: 'ore:orichalcum', slots: 1 };
+  if (region === FREE_LANDS.balfiera) return { ore: 'ore:adamantium', slots: 1 };
+  return null;
+}
+const tierOfKey = (key) => minedMaterial(key)?.tier ?? 0;
+/**
+ * A tier drawn by `u` over the tiers `table` holds, by NODE_TIER_WEIGHTS renormalised - at most `cap` - then a metal of
+ * it evenly by `v`. So a Woodlands vein is Iron, Copper or Tin 40 : 25 against Lodestone.
+ * @param {readonly string[]} table
+ */
+export function drawFromTable(table, u, v, cap = 7) {
+  const tiers = [...new Set(table.map(tierOfKey))].filter((t) => t >= 1 && t <= cap).sort((a, b) => a - b);
+  if (!tiers.length) return null;
+  const w = tiers.map((t) => NODE_TIER_WEIGHTS[t - 1] ?? NODE_TIER_WEIGHTS[NODE_TIER_WEIGHTS.length - 1]);
+  let at = u * w.reduce((a, b) => a + b, 0);
+  let tier = tiers[tiers.length - 1];
+  for (let i = 0; i < tiers.length; i++) { if (at < w[i]) { tier = tiers[i]; break; } at -= w[i]; }
+  const of = table.filter((k) => tierOfKey(k) === tier);
+  return { tier, material: of[Math.min(of.length - 1, Math.floor(v * of.length))] };
+}
+/**
+ * ONE VEIN of a pixel's day: its law point (`u`, `v`), its tier and metal. A pixel not confirmed is held to tier 2 and
+ * takes no signature; a confirmed one of a signature region gives its first vein (Daggerfall's first two) to the
+ * signature ore. Null where the climate holds no veins, or past its count.
+ * @param {{ x: number, y: number, day: number, slot: number, climate: number, region?: number|null, confirmed?: boolean }} p
+ */
+export function vein({ x, y, day, slot, climate, region = null, confirmed = false }) {
+  const table = VEIN_TABLES[climate];
+  if (!table || slot >= nodeCount(climate, 'vein')) return null;
+  const u = 0.04 + 0.92 * unit('vein', x, y, day, slot, 1);
+  const v = 0.04 + 0.92 * unit('vein', x, y, day, slot, 2);
+  const sig = confirmed && region !== null ? regionSignature(region) : null;
+  if (sig && slot < sig.slots) return { slot, u, v, tier: tierOfKey(sig.ore), material: sig.ore, signature: true };
+  const d = drawFromTable(table, unit('vein', x, y, day, slot, 3), unit('vein', x, y, day, slot, 4), confirmed ? 7 : 2);
+  return d ? { slot, u, v, tier: d.tier, material: d.material, signature: false } : null;
+}
+/** Every vein of a pixel's day, slot 0 first. */
+export function veins(p) {
+  const out = [];
+  for (let slot = 0; slot < nodeCount(p.climate, 'vein'); slot++) { const n = vein({ ...p, slot }); if (n) out.push(n); }
+  return out;
+}
+/** ONE BOULDER of a pixel's day (PROF0 4.5, 23): its law point, tier 1 (Rough Stone's). Null past the climate's count. */
+export function boulder({ x, y, day, slot, climate }) {
+  if (slot >= nodeCount(climate, 'boulder')) return null;
+  return { slot, u: 0.04 + 0.92 * unit('boulder', x, y, day, slot, 1), v: 0.04 + 0.92 * unit('boulder', x, y, day, slot, 2), tier: 1, material: 'stone:rough' };
+}
+export function boulders(p) {
+  const out = [];
+  for (let slot = 0; slot < nodeCount(p.climate, 'boulder'); slot++) { const n = boulder({ ...p, slot }); if (n) out.push(n); }
+  return out;
+}
+/** How many veins a dungeon holds on a day: 1 + hash % 4. */
+export const dungeonVeinCount = (dungeon, day) => 1 + (nodeRoll('dvein', dungeon, 0, day, 0, 0) % DUNGEON_VEINS_MAX);
+/**
+ * ONE DUNGEON VEIN of a day: its tier (3-6 by the weights; 3 in a dungeon not confirmed), its metal, and where it
+ * stands - `marker` in [0, 1) picks one of the dungeon's foe markers, `bearing` in [0, 2 pi) the ray's heading from it.
+ * @param {{ dungeon: number, day: number, slot: number, climate: number, confirmed?: boolean }} p
+ */
+export function dungeonVein({ dungeon, day, slot, climate, confirmed = false }) {
+  if (!dungeonOk(dungeon) || slot >= dungeonVeinCount(dungeon, day)) return null;
+  const table = dungeonVeinTable(climate);
+  const d = drawFromTable(table, unit('dvein', dungeon, 0, day, slot, 3), unit('dvein', dungeon, 0, day, slot, 4), confirmed ? 7 : 3);
+  if (!d) return null;
+  return { slot, tier: d.tier, material: d.material, marker: unit('dvein', dungeon, 0, day, slot, 1), bearing: 2 * Math.PI * unit('dvein', dungeon, 0, day, slot, 2) };
+}
+export function dungeonVeins(p) {
+  const out = [];
+  for (let slot = 0; slot < dungeonVeinCount(p.dungeon, p.day); slot++) { const n = dungeonVein({ ...p, slot }); if (n) out.push(n); }
+  return out;
+}
+
+/** The gem a climate's veins give (PROF0 4.6): Amber (Woodlands), Jade (Rainforest), Turquoise (the deserts),
+ *  Malachite (Swamp), Ruby, Sapphire or Emerald (Mountain); none elsewhere. A dungeon's vein gives a Diamond. */
+export const VEIN_GEMS = Object.freeze({
+  [CLIMATES.Woodlands]: row('gem:amber'), [CLIMATES.Rainforest]: row('gem:jade'),
+  [CLIMATES.Desert]: row('gem:turquoise'), [CLIMATES.Desert2]: row('gem:turquoise'),
+  [CLIMATES.Swamp]: row('gem:malachite'), [CLIMATES.Mountain]: row('gem:ruby', 'gem:sapphire', 'gem:emerald'),
+});
+export const DUNGEON_GEM = 'gem:diamond';
+/** The gem a node gives, `u` choosing among its climate's, or null. */
+export function gemOf({ kind, climate }, u) {
+  if (kind === 'dvein') return DUNGEON_GEM;
+  if (kind !== 'vein') return null;   // a boulder is stone
+  const list = VEIN_GEMS[climate];
+  return list ? list[Math.min(list.length - 1, Math.floor(u * list.length))] : null;
+}
+/**
+ * A STRIKE'S GEM (PROF0 4.6, 23): each strike on the glint a chance - GEM_CHANCE, x PROSPECTOR_GEM for a Prospector -
+ * on ground the witnesses confirmed; one gem at most, beside the ore. `dice()` the service's, a unit a call.
+ * @param {{ kind: string, climate: number, glints: number, confirmed: boolean, prospector?: boolean }} p
+ * @param {() => number} dice
+ */
+export function veinGem({ kind, climate, glints, confirmed, prospector = false }, dice) {
+  if (!confirmed) return null;
+  const chance = GEM_CHANCE * (prospector ? PROSPECTOR_GEM : 1);
+  for (let i = 0; i < glints; i++) if (dice() < chance) return gemOf({ kind, climate }, dice());
+  return null;
+}
+
 // ─── THE YIELDS (PROF0 6) ────────────────────────────────────────────
 
 /** An herb's base roll (the service's dice): 1 to 3. */
 export const HERB_YIELD = Object.freeze([1, 3]);
 /** The Basket's food by the patch's block (FORAGE0 14.6): one in a desert, 1-2 in B and D, 1-3 in C and E. */
 export const FOOD_YIELD = Object.freeze({ A: Object.freeze([1, 1]), B: Object.freeze([1, 2]), C: Object.freeze([1, 3]), D: Object.freeze([1, 2]), E: Object.freeze([1, 3]) });
-/** The Marches - Betony, Anticlere, Lainlyn (PROF0 4.7): every node +25%, on a confirmed pixel. */
-export const MARCH_REGIONS = Object.freeze([19, 21, 22]);
+/** The Marches - Betony, Anticlere, Lainlyn (PROF0 4.7): every node +25%, on a confirmed pixel. The regions are
+ *  kingdomLaw's (SEAT0 4.3), one home. */
+export { MARCH_REGIONS, isMarch };
 export const MARCH_MULT = 1.25;
-export const isMarch = (region) => MARCH_REGIONS.includes(region);
 /** A fraction of a unit left at the end is that chance of one more, on the service's dice (`chance` in [0, 1)). */
 export function wholeYield(y, chance) {
   const whole = Math.floor(y + 1e-9);
@@ -217,6 +362,32 @@ export function foodYield({ roll, step = 1, march = false }, chance) {
   if (march) y *= MARCH_MULT;
   return Math.max(1, wholeYield(y, chance));
 }
+/** A vein's base roll (the service's dice): 2 to 3 ore. A boulder's: 3 to 5 Rough Stone. */
+export const VEIN_YIELD = Object.freeze([2, 3]);
+export const BOULDER_YIELD = Object.freeze([3, 5]);
+/**
+ * A VEIN'S YIELD, in PROF0 6's order: the base roll; a Deep Delver's dungeon vein x1.5; a march's +25% (a surface vein
+ * on a confirmed pixel - the caller's `march`); the fraction a chance. The act moves no ore (its step waits for
+ * PROF3's quality - PROF0 23).
+ */
+export function veinYield({ roll, deep = false, deepDelver = false, march = false }, chance) {
+  let y = roll;
+  if (deep && deepDelver) y *= DEEP_DELVER_MULT;
+  if (march) y *= MARCH_MULT;
+  return Math.max(1, wholeYield(y, chance));
+}
+/**
+ * A BOULDER'S YIELD: `{ material, qty }` - the base roll and a march's +25% of Rough Stone; a clean finish (or a
+ * Stonebreaker, always) cuts it at the rock, two to one, into Cut Stone (at least one). One chance, the service's, for
+ * whichever fraction is left last.
+ */
+export function boulderYield({ roll, march = false, cut = false }, chance) {
+  let y = roll;
+  if (march) y *= MARCH_MULT;
+  if (cut) return { material: 'stone:cut', qty: Math.max(1, wholeYield(y / CUT_RATIO, chance)) };
+  return { material: 'stone:rough', qty: Math.max(1, wholeYield(y, chance)) };
+}
+
 /** The Basket's find at a patch on day `day`: its block (the climate, the day's month) and the food drawn from the
  *  block's list by `u` in [0, 1) - a material key. */
 export function basketFood(climate, day, u) {
@@ -269,14 +440,16 @@ export const factConfirmed = (fact) => fact?.state === 'confirmed' || fact?.stat
 
 /**
  * WHAT A REGION'S COURT MAY ASK on a day: every herb its witnessed ground grows in the day's season - a confirmed
- * pixel's whole table, an unconfirmed one's tiers 1-2 - as the region's own group's material, with the material's own
- * tier and value, ordered by key (a stable input for the draw).
+ * pixel's whole table, an unconfirmed one's tiers 1-2 - as the region's own group's material; its veins' metals by the
+ * same rule, the region's signature ore on a confirmed pixel, Rough Stone where boulders stand (PROF2); each with the
+ * material's own tier and value, ordered by key (a stable input for the draw).
  * @param {number} region
  * @param {Array<{ climate: number, confirmed: boolean }>} pixels the region's witnessed pixels
  * @param {number} season
  */
 export function regionWritTable(region, pixels, season) {
   const keys = new Set();
+  const sig = regionSignature(region);
   for (const p of pixels ?? []) {
     const table = HERB_TABLES[p?.climate];
     if (!table) continue;
@@ -284,13 +457,19 @@ export function regionWritTable(region, pixels, season) {
     for (let t = 0; t < upTo; t++) {
       for (const h of table[t]) if (herbInSeason(h, season)) { const k = herbKey(h, region); if (k) keys.add(k); }
     }
+    // PROF2: the ground's metal and stone - its veins' (a confirmed pixel's every tier, an unconfirmed one's 1-2), its
+    // region's signature on a confirmed pixel, and Rough Stone where the climate has boulders. Never an ingot, Cut
+    // Stone or a gem: those are smelted, cut or found, not the ground's.
+    for (const k of VEIN_TABLES[p.climate] ?? []) if (tierOfKey(k) <= (p.confirmed ? 7 : 2)) keys.add(k);
+    if (sig && p.confirmed) keys.add(sig.ore);
+    if (nodeCount(p.climate, 'boulder') > 0) keys.add('stone:rough');
   }
   return [...keys].sort().map((key) => { const m = material(key); return { material: key, tier: m.tier, value: m.value }; });
 }
 const writUnit = (day, region, slot, k) => gateHash(WRIT_SALT, day, region, slot, k) / 4294967296;
 /**
  * A REGION'S COURT WRITS for a day: `count` of them over `table` (regionWritTable). The day's first asks the highest tier
- * the table holds of 5-6, else its highest (PROF0 11: "one a day of tier 5-6"; herbs reach tier 3); the rest draw a tier
+ * the table holds of 5-6, else its highest (PROF0 11: "one a day of tier 5-6"; herbs reach tier 3, metals 6); the rest draw a tier
  * of 1-4 the table holds by the nodes' weights, then a material of it evenly; units in tens from the tier's range. The
  * pay and the Renown follow. None over an empty table.
  * @param {number} day @param {number} region @param {number} count
