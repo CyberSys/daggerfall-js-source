@@ -1066,6 +1066,44 @@ the relay before the walk is offered (an older relay strips `tw` and `ts`; nothi
 Proof: `test/tv8_party_walk.test.js`, `tools/mutants/tv8.json` (17 records, all dead), `test/relayversion.test.js`
 (the world123 law).
 
+**AUDIT OW3 (2026-09-28) - everything since the merge, audited in five lanes, verified, fixed.**
+- *Journeys (J):* the view brought down stops its journey through the panel (`pauseTravel`, the mod's Camp), so the
+  held map offers Resume, and `tvJourneyUp` raises the view only while the autopilot drives. On the enhanced interface
+  a walked trip the Overworld refuses is refused (`tvOwnsJourneys`), never fast-travelled; a coordinate pick on the sea
+  is refused in the view's words. A resume rejoins the road: `route.join` is the nearest point of the run taken up
+  (`joinPoint`), aimed in its own pixel before the leg, and the view's line goes through it. Both journeys draw one
+  point per leg (`routeDrawPoints`). The peaks rule is the ground's: every step out of a Mountain pixel is walked and
+  none into one; no start exemption; the goal step is exempt only for a place (`goalExempt`), so a plateau spot is
+  refused. The Morrowind body grows with OW-BIG (`drawThird` `grow`, sprite depth `max(4, halfW + boxH + 1)`).
+- *Dungeons (D):* the pure list is `dungeonRows` (map rows, gathered once), `spawnedPixels` (the live index),
+  `nearDungeons` (filtered, THEN capped at 12: a row with no named place, a spawn's pixel, a found dungeon inside TV2's
+  grid spends no slot), `dungeonApproach`, `dungeonToFind`. SPAWNED dungeons (Mac's "nearby dungeons implemented")
+  stand as `spawn:<map id>` once the spawned feature has told of them: a "?" until filed, then a named far plate whose
+  click is TV2's spot journey to 20 m outside the exterior; the find never takes a spawn. The find and the bands stand
+  down while `worldMoveBusy()` (an arrival's feet lie).
+- *Bands (T7):* a contact tries the band's bearing, a quarter turn either way, then behind, and the band is spent only
+  once it STOOD (BAND_STAND_RETRY_MS 1500, BAND_STAND_TRIES 5); every chase is stepped on its own band (a life's
+  turn no longer strands it); a chase gives up BAND_GIVE_UP_MS after its last metre gained (`gainAt`), not two minutes
+  in; the make rolls from `bandMakeSeed` (its own stream - the birth's first draw is under the spawn chance, so
+  Daggerfall's roll over 80 never came) by the night its life began in (read once a life); a wander leg's way is
+  chosen by its whole end (no mid-leg jumps); water, a door or a town's rect ends a chase SPENT; a peer's word is kept
+  only for a band that can be about me (`bandNearMe`) and the tables are pruned each life.
+- *Group travel (P):* every halt stops through the panel, and "journeying" is the panel with an autopilot under it. A
+  walk's END is Travel Options' own `cleared` count (an arrival, Exit, Forget it, a load), never the destination
+  fields, so a spot walk's stop is a halt. When the walk ends members are released and walk on to the same place;
+  halts come only from `h`. Taking the halted walk's own place up again sets it out again in the same round. A member
+  is asked, and set out, only when free (outdoors, alive, no window, no foe, no duel); the question comes down with its
+  round, its 30 s or danger; a yes dies with its round; the leader's walk is believed PARTY_WALK_GRACE_MS (10 s)
+  without a pose. The wire is unchanged (world123).
+- *Known, not changed:* the relay fans a cell's foes frame 3 pixels out (`RANGE_PIXELS`) while bands are drawn 6
+  (BAND_REACH_PX) - a player 4-6 pixels off hears a chase or a spent band only on coming nearer (the spent list rides
+  every full frame). Members' paces are their own clients' (a member at x1 behind a leader at x10 falls behind).
+  A band's make reads the viewer's level (TV7 BUILT). A traveller on a plateau ringed by cliffs outside the mountains,
+  with no road off it, is told there is no way by land.
+- Proof: `test/tv2_click_to_move.test.js` (28), `test/tv6_dungeons.test.js` (11), `test/tv7_bands.test.js` (10),
+  `test/tv8_party_walk.test.js` (12), `prbow1_bow`, `mwhead1_window`, `eotb_view` (+1 each); `tools/mutants/ow3j.json`
+  (28), `ow3d.json` (27), `ow3t.json` (18), `ow3p.json` (36) - all dead; the older sets re-aimed.
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

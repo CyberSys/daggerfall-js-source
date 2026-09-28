@@ -21,7 +21,7 @@
 
 ## Travel together (online)
 - When a party leader sets off in the Overworld, party members standing with them are asked to come along. Say yes and you travel the same road in your own Overworld, side by side.
-- A stop for one is a stop for all: if the leader stops, everyone stops; if a band catches one of you, the whole party halts. When the leader sets off again, everyone who came along sets off again too.
+- A stop for one is a stop for all: if the leader stops, everyone stops; if a band catches one of you, the whole party halts. When the leader sets off again, everyone who came along sets off again too. When the leader arrives, the others walk on to the same place.
 - This needs the server update that ships with it; until then the leader simply travels alone.
 
 ## Towns beyond the horizon
@@ -57,6 +57,19 @@
 - They're Daggerfall's own encounters for the land and the hour - more of them at night, none in towns - and every player sees the same bands in the same places.
 - Online, everyone nearby sees the same chase: a band hunting a friend is seen running at them, and a band someone has fought is gone for everyone.
 - A band that spots you gives chase. On foot they'll catch you; on horseback you can outrun them. If one reaches you, the camera comes down and you fight exactly the band you saw coming. A band chasing you from off-screen is pinned to the edge, pointing at it.
+
+## Second update
+- Bringing the Overworld down mid-journey now stops the journey properly, so the map offers to resume it (before, the view could pop straight back up over a frozen journey).
+- A journey the Overworld refuses ("There is no way there by land") is refused - it no longer turns into a paid fast travel that skipped the mountains.
+- Resuming a road journey walks back onto the road first, and a spot's route line on screen follows the way you actually walk.
+- The mountains hold everywhere: a thin ridge next to you can't be crossed, a spot on a plateau up a cliff is refused, and if you're already among the peaks you can always walk out.
+- A pick on the sea from the map is refused, like a click on the sea in the Overworld.
+- With the Morrowind body, your character is drawn larger from the Overworld too.
+- Spawned dungeons you've come across show on the Overworld, named once you've been there; click one to travel to its door.
+- Fast travel and loading a save no longer "find" a dungeon you never walked near, and the dungeon list no longer loses a real dungeon to empty entries.
+- A band that reaches you on a road now stands and fights (before, it could vanish), and a band still closing on you keeps chasing past the two-minute mark.
+- Bands are Daggerfall's full encounter range again (their strongest picks never came before), no longer jump when they walk beside water, and give up at a town's edge or when you swim.
+- Group travel: a stop now stops the whole party properly and taking the journey up again sets everyone out again; the question never covers an open window, and nobody is sent off while in a dungeon, dead or mid-fight.
 
 ## Fixes before release
 - Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.
