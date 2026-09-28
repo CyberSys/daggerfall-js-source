@@ -114,18 +114,40 @@ export function onPreFastTravel({ oceanPixels = 0, travelShip = false } = {}) {
   if (!(oceanPixels > 0)) return 'no-water';   // "WA High Seas: No Water Detected on Travel"
   const h = host();
   if (rangeInt(0, 100, h.random ?? Math.random) < WA_PEACEFUL_PERCENT || tempShip) return 'peace';
-  if (travelShip) {
-    const owns = !!h.ownsShip?.();
-    hasTraveledbyShip = true;
-    if (!owns) {
-      tempShip = true;
-      h.assignShip?.(SHIP_TYPES.Large);   // "Temporary ship assigned."
-    }
-    for (const block of WA_SHIP_BLOCKS) variant(block, WA_VARIANT_RAID);
-    return owns ? 'raid' : 'raid-lent';
-  }
+  if (travelShip) return armRaid();
   for (const block of WA_SHIP_BLOCKS) variant(block, WA_VARIANT_BASE);   // "Player is not traveling by ship."
   return 'base';
+}
+
+/** OnPreFastTravel's sailing arm [IL_044e-IL_04a3]: the ambush armed, a player without a ship LENT the large one, both
+ *  ship blocks `_smallraid` (the pirate vessels standing off) - its one home, the Overworld's raid's too (raidAtSea). */
+function armRaid() {
+  const h = host();
+  const owns = !!h.ownsShip?.();
+  hasTraveledbyShip = true;
+  if (!owns) {
+    tempShip = true;
+    h.assignShip?.(SHIP_TYPES.Large);   // "Temporary ship assigned."
+  }
+  for (const block of WA_SHIP_BLOCKS) variant(block, WA_VARIANT_RAID);
+  return owns ? 'raid' : 'raid-lent';
+}
+
+/**
+ * OWS3 (the port's own - bible/06-Systems/Travel-View.md "OWS - the sea"; the player's ask: "The pirate quest system
+ * should work like how we're changing enemies and nearby dungeons. Like mount and blade"): THE RAID, SEEN COMING. A
+ * raider that comes alongside a traveller at sea on the Overworld (systems/seaRaiders.js) makes the mod's own ambush:
+ * the sailing arm of OnPreFastTravel arms it (armRaid) and CheckforEncounters starts its coroutine, so
+ * TransportToShipWithDelay starts WAQ_SHIP_SMALLRAID and boards the ship, as the fast travel's ambush does - the roll
+ * for peace is the sails' own (they were seen, and not outsailed). Refused (and said why) while an ambush is armed or
+ * boarding, and while a lent ship is out (the fast travel's own `tempShip` refusal).
+ */
+export function raidAtSea() {
+  if (hasTraveledbyShip || _boardIn !== null) return 'busy';
+  if (tempShip) return 'lent';
+  const armed = armRaid();
+  onPostFastTravel();
+  return armed;
 }
 
 /** CheckforEncounters [IL_0384], OnPostFastTravel's subscriber: an armed ambush starts the coroutine. */

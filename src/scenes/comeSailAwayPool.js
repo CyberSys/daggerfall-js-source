@@ -37,7 +37,7 @@
 //          textureFiles }, fetchFn (the vendored files' fetch), log }
 
 import { loadComeSailAwayModels, rendererModel, rendererModelKey, bundleSlots } from '../systems/comeSailAwayModels.js';
-import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER, HULL_NAMES, setBoatVariant } from '../systems/comeSailAwayBoat.js';
+import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER, HULL_NAMES, setBoatVariant, Boat } from '../systems/comeSailAwayBoat.js';
 import { resolveNodePointer } from '../world/prefabNode.js';
 import { bakeSkinnedMesh, recalculateNormals, fixDeformationsTick } from '../world/skinnedBake.js';
 import { billboardSize } from '../world/rmbFlats.js';
@@ -102,7 +102,8 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   let modelsLoading = null, modelsFailed = false;
   /** @type {any[]} */ const boats = [];
   /** CSA-J: the peers' boats (scenes/comeSailAwayPeers.js) - drawn, baked and lit as mine, but never in `boats`, so
-   *  the host's colliders, rays and activations (which read `boats`) never meet them. */
+   *  the host's colliders, rays and activations (which read `boats`) meet them only where CSA-K asks for one by name:
+   *  the deck the player stands aboard, and another's boat's own ray (scenes/comeSailAwayAboard.js). */
   /** @type {any[]} */ const peerBoats = [];
   const drawn = () => (peerBoats.length ? boats.concat(peerBoats) : boats);
   const meshes = new Map();      // rendererModelKey -> gpu mesh | null
@@ -214,6 +215,22 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     spawnBoat(boat, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
     peerBoats.push(boat);
     return boat;
+  }
+  /** OWS2: A HULL'S RIG, read off a boat SpawnBoat builds once a hull on the pool's context and never places or draws -
+   *  its five nodes in its own frame (Center, Fore, Aft and the beams off its hull collider's bounds: the Overworld's
+   *  launch asks where each would stand before it puts a boat on the water), its sails, its crew, its packing and its
+   *  Cargo modifier (whether it crosses a sea at all). Null before the models are in, or for a hull the mod has none of. */
+  const hullRigCache = new Map();
+  function hullRig(hull) {
+    if (!models || !(hull >= 0 && hull < HULL_NAMES.length)) return null;
+    let rig = hullRigCache.get(hull);
+    if (!rig) {
+      const b = new Boat(hull, 0);
+      spawnBoat(b, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
+      rig = Object.freeze({ nodes: b.Nodes.map((n) => [...n.localPosition]), sails: b.Sails.length, crewed: !!b.crewed, packable: !!b.packable, cargo: b.modifierCargoThreshold });
+      hullRigCache.set(hull, rig);
+    }
+    return rig;
   }
   /** Object.Destroy(boat.GameObject): its meshes, bakes and flats go with it. */
   function remove(boat) {
@@ -379,6 +396,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
 
   return {
     ensureModels, spawn, spawnNow, preload, ready: () => preloaded, remove, setVariant, frame, batches, draw, lights, offsetAll, destroyAll,
+    hullRig,   // OWS2
     spawnPeerNow,
     /** AUDIT PRE-MERGE 0928 R5: a boat's walk as this frame made it (its nodes and world matrices) - a probe's reading. */
     walkOf,

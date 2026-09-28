@@ -19,6 +19,11 @@
 - **Show me to travellers in my region** (Mods screen, Other players card) is on by default: while you're outdoors, where you stand is shared on your region's channel. Turn it off and only your party and players close enough to see you know where you are - your name still shows in your region's chat. Nothing goes on the region's channel from indoors (your party still sees where you are, as it always has). The switch is saved on each device.
 - This needs the server update that ships with it. Until then, nobody is shown and nothing breaks.
 
+## Travel together (online)
+- When a party leader sets off in the Overworld, party members standing with them are asked to come along. Say yes and you travel the same road in your own Overworld, side by side.
+- A stop for one is a stop for all: if the leader stops, everyone stops; if a band catches one of you, the whole party halts. When the leader sets off again, everyone who came along sets off again too. When the leader arrives, the others walk on to the same place.
+- This needs the server update that ships with it; until then the leader simply travels alone.
+
 ## Towns beyond the horizon
 - Towns, cities and villages you've discovered up to about 20 km away show as name plates, with their distance. One off your screen is pinned to the edge, pointing the way. The nearest ten are shown.
 - Click one to travel there by the roads.
@@ -32,6 +37,49 @@
 ## Weather from above
 - Storms stand where they really are: rain and snow hang in curtains under their clouds, and every player sees the same storm in the same place.
 - Lightning from a distant storm strikes the ground, not the air.
+
+## First update
+- The map's "Resume your journey?" question no longer comes back forever: it has a **Forget it** answer that ends the journey.
+- The Overworld's bar, Return button, compass and town plates follow your Enhanced Plus theme.
+- Your character is drawn much larger from the Overworld, so you can always find yourself at a glance.
+
+## Travel is the Overworld now
+- Pick a place (or a spot) on your map and you go straight up into the Overworld and set off - by the roads to a town, round the hills to a spot. Bring the view down yourself and the journey stops; the map offers to resume it.
+- Journeys no longer run beside a road: you walk to the road first, then along it.
+- Mountains can't be crossed on foot any more - journeys go round them or over the passes the roads take, and a spot among the peaks is refused. No more grinding into a cliff face at speed.
+
+## Dungeons on the Overworld
+- The nearest dungeons within about 20 km (up to twelve) show on the Overworld. Ones you haven't found yet are a red "?" where they lie - you know something is there, not what.
+- Pass within a kilometre of one and you find it: "You have found <name>." From then on it has a name plate with its distance, on the Overworld and on your map, and a click travels there.
+
+## Enemies on the road
+- Bands of enemies roam the wilderness, and you can see them from the Overworld: a red mark with what they are and how many ("Orc, 4").
+- They're Daggerfall's own encounters for the land and the hour - more of them at night, none in towns - and every player sees the same bands in the same places.
+- Online, everyone nearby sees the same chase: a band hunting a friend is seen running at them, and a band someone has fought is gone for everyone.
+- A band that spots you gives chase. On foot they'll catch you; on horseback you can outrun them. If one reaches you, the camera comes down and you fight exactly the band you saw coming. A band chasing you from off-screen is pinned to the edge, pointing at it.
+
+## Second update
+- Bringing the Overworld down mid-journey now stops the journey properly, so the map offers to resume it (before, the view could pop straight back up over a frozen journey).
+- A journey the Overworld refuses ("There is no way there by land") is refused - it no longer turns into a paid fast travel that skipped the mountains.
+- Resuming a road journey walks back onto the road first, and a spot's route line on screen follows the way you actually walk.
+- The mountains hold everywhere: a thin ridge next to you can't be crossed, a spot on a plateau up a cliff is refused, and if you're already among the peaks you can always walk out.
+- A pick on the sea from the map is refused, like a click on the sea in the Overworld.
+- With the Morrowind body, your character is drawn larger from the Overworld too.
+- Spawned dungeons you've come across show on the Overworld, named once you've been there; click one to travel to its door.
+- Fast travel and loading a save no longer "find" a dungeon you never walked near, and the dungeon list no longer loses a real dungeon to empty entries.
+- A band that reaches you on a road now stands and fights (before, it could vanish), and a band still closing on you keeps chasing past the two-minute mark.
+- Bands are Daggerfall's full encounter range again (their strongest picks never came before), no longer jump when they walk beside water, and give up at a town's edge or when you swim.
+- Group travel: a stop now stops the whole party properly and taking the journey up again sets everyone out again; the question never covers an open window, and nobody is sent off while in a dungeon, dead or mid-fight.
+
+## Third update
+- Roaming bands now actually roam around you - before, every band was placed at the mirror of its real position, often hundreds of kilometres away, so you almost never met one. Online, everyone sees the same bands no matter which land has loaded for them.
+- A band that reaches you always stands and fights on the side it came from; bands pause while you're dead or reading a window, give up when you board a boat or go through a door, and don't show at all with wilderness encounters switched off.
+- Routes no longer wander across a mountain range a road led into; long trips find their way round the big ranges, and a trip with no way by land says so at once.
+- Dodging a band no longer turns a trip to a spot into "Following a road", and Resume plans the way again from where you stand.
+- A journey running while the Overworld view is down goes at walking pace until the view rises.
+- The Morrowind body no longer looks squashed from above.
+- Spawned dungeons in the mountains can be walked to, expired ones vanish, found ones far away keep their plates after a reload, and found dungeons are never crowded out by "?" marks.
+- Group travel: re-aiming a spot takes the party with you, a halted walk expires after 5 minutes, a member too hurt or stuck to travel no longer halts the party on every Resume, your own Resume during a halt leaves the walk, the "Travel with them?" question can't reappear late or take a stale Yes, and a member can follow the leader to a town they haven't found yet - even in the mountains.
 
 ## Fixes before release
 - Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.

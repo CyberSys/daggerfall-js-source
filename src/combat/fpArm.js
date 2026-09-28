@@ -17,7 +17,7 @@
 //
 // HOW IT DRAWS, and why this needs no renderer change at all: the port
 // has ALREADY shipped a first-person pass. renderCharacterSprite
-// (render/renderer.js:1245) binds an offscreen target with its OWN depth
+// (render/renderer.js:1298) binds an offscreen target with its OWN depth
 // renderbuffer, clears colour AND depth, swaps the frame's proj/view for
 // ones the caller supplies, draws, and restores; drawScreenOverlayQuad
 // (:987) composites it fullscreen with an alpha cut and no depth test.
@@ -32,7 +32,7 @@
 //     framebuffer, so there is nothing to be clipped by.
 //
 // MW-D10: the framing constants this pass USED to borrow from the voxel
-// viewmodel (render/characterSprite.js:132-144) are gone with the mapper
+// viewmodel (render/characterSprite.js:148-160) are gone with the mapper
 // that needed them. Rule 54 places the camera inside the rig, so there
 // is no distance to push, no drop to apply and no scale to solve - and
 // the viewmodel's two hard-won laws do not transfer either: its camera
@@ -570,7 +570,7 @@ export function armReach(eye, unionBounds) {
 /**
  * PACK THE ASSEMBLY for drawCharacter's vertex stream: 9 floats per
  * vertex, [pos.xyz, colour.rgb, normal.xyz], NON-INDEXED, because
- * drawCharacter issues drawArrays (renderer.js:1158). The MW readers hand
+ * drawCharacter issues drawArrays (renderer.js:1211). The MW readers hand
  * back indexed triangles, so the indices are expanded here.
  *
  * NORMALS ARE COMPUTED, not read. poseAssembly skins positions with a
@@ -584,7 +584,7 @@ export function armReach(eye, unionBounds) {
  * left arm is lit inside-out - dark where the right arm is bright - and
  * that is a lighting bug that reads as "the mesh is wrong" rather than
  * as "the mirror is wrong". drawCharacter disables back-face culling
- * (renderer.js:1156), so the winding costs nothing else.
+ * (renderer.js:1209), so the winding costs nothing else.
  */
 export function packFpArm(pieces, out = null) {
   let tris = 0;
@@ -4941,7 +4941,7 @@ export function createFpArm() {
      * composite - MW-D23's law): this pass composites through the
      * WORLD's lens, which is mirrorProjectionX (dungeon.js:760 et al.),
      * and the port's world convention puts the player's RIGHT at +X at
-     * yaw 0 (motor.js:758) - a LEFT-handed convention the mirror turns
+     * yaw 0 (motor.js:769) - a LEFT-handed convention the mirror turns
      * into correct screen imagery. A right-handed NIF actor placed with
      * a pure rotation therefore reads MIRRORED on screen (measured:
      * sword ink Δleft 1701 vs Δright -127 with the motor's +X anchor
@@ -4952,10 +4952,12 @@ export function createFpArm() {
      * (chirality-true by MW-D23's measurement) already shows it.
      * Winding is safe: drawCharacter disables CULL_FACE.
      */
-    drawThird(canvas, { proj, view, eye, feet, yaw, hitFlash = 0, conceal = null }) {
+    drawThird(canvas, { proj, view, eye, feet, yaw, hitFlash = 0, conceal = null, grow = 1, up = null }) {
       if (!thirdActive() || !canvas || !feet) return false;
       const t = thirdBuilt;
-      const u = 1 / MW_UNITS_PER_METER;
+      // AUDIT OW3 J6: `grow` - the travel view's OW-BIG, the body drawn that many times its size ABOUT ITS FEET (the root
+      // trs stands MW 0,0,0 on them at any scale), its box and so its picture with it; 1 everywhere else
+      const u = (grow > 1 ? grow : 1) / MW_UNITS_PER_METER;
       const yawDeg = (yaw * 180 / Math.PI) + 180;
       // MW-D34: adjustScale on the rendered body (npc.cpp:1124-1135):
       // x,y take the race's WEIGHT, z its HEIGHT. In this frame the
@@ -5008,8 +5010,10 @@ export function createFpArm() {
       // MW-D43b: the body is a Morrowind MESH, so it takes the arm's
       // dial, not the sprite standard - the same fix MW-D43 made for
       // the first-person pass and missed here.
-      // INVIS-LOOK: `conceal` a concealed peer's draw (ECV1's visual, net/peerBodies.js drawVeiled) - the quad blends
-      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, anchor, hitFlash, conceal }, proj, view, eye, MW_ARM_PIXEL);   // HITFLASH1: a struck peer's body flashes
+      // INVIS-LOOK: `conceal` a concealed peer's draw (ECV1's visual, net/peerBodies.js drawVeiled) - the quad blends.
+      // AUDIT OW4 J6: `up` the travel view's leaned vertical (player/mwView.js, face.up) - the quad leans with the flats and
+      // the sprite lane's body, so the picture taken down the pitched ray is not foreshortened a second time
+      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, anchor, hitFlash, conceal, up }, proj, view, eye, MW_ARM_PIXEL);   // HITFLASH1: a struck peer's body flashes
       return true;
     },
 

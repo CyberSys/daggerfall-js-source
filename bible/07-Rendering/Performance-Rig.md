@@ -405,7 +405,10 @@ GPU made this century does for free.
 pixel walk, draws the pixel's static batch and models where the ground
 used to be drawn, and drains the queue once the walk is done - so a
 pixel's ground also lies under the NEXT pixel's buildings, and the
-terrain program binds once a frame instead of twice a pixel. The sky,
+terrain program binds once a frame instead of twice a pixel (FAR-CLIP1:
+and the ground of a pixel Iliac Puddle No More's cap patched draws after
+the rest on the program's clip variant - one that discards - bound once
+more; `03-World/Deep-Waters.md`). The sky,
 the ring, the water and the flats keep their places after it: the water
 reads the ground's depth and the flats are cut-outs blended over it.
 **The town host** draws its ground after the buildings, the mills, the

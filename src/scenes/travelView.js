@@ -56,7 +56,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import {
   TV_RISE_S, TV_FALL_S, TV_ZOOM_STEP, ceilingFor, initialCamera, stepCamera, zoomTarget, orbitBy, turnCamera, blendView,
-  anglesOf, rightOf, leanedUp, turnHeading, forwardOf,
+  anglesOf, rightOf, leanedUp, turnHeading, forwardOf, tvOwnGrow,
 } from '../player/travelCamera.js';
 
 /** A press that moves further than this (px) before it lifts is a drag (the orbit), not a click (a pick). */
@@ -94,20 +94,33 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   water: 'You cannot walk out onto the water.',
   far: 'That lies beyond what you can see from here.',
   noWay: 'There is no way there by land.',
+  mountains: 'The mountains cannot be crossed on foot.',   // OW-MOUNTAINS: a spot among the peaks
   placesOnly: 'Travel Options only travels to places - click a town.',   // AUDIT DEEP T2-8: coordinate targeting off
   spot: 'The marked spot',
   byRoad: (name) => `To ${name}, by the road`,
   acrossCountry: (name) => `To ${name}, across country`,
   toSpot: 'To the marked spot',
+  // OWS2: the crossing's words - the trip's line when it puts to sea, and why one cannot
+  bySea: (name) => `To ${name}, by sea`,
+  toSpotBySea: 'To the marked spot, by sea',
+  needBoat: 'There is no way there by land - a boat would carry you across the water.',
+  passenger: 'You are aboard another\'s boat - its helmsman sets the course.',
+  noLaunch: 'There is no water here for your boat to float in.',
+  noWayAtSea: 'Your boat can make no way toward its mark.',
+  leftMoored: 'Your boat is left moored where it landed.',
+  noBoat: 'Your boat is not with you to cross the water.',
+  aground: 'Your boat has run aground.',
+  raidersAlongside: 'Pirates come alongside!',   // OWS3
   inPlace: (place, region) => (region ? `${place}, ${region}` : place),
   nearPlace: (place, region) => (region ? `Near ${place}, ${region}` : `Near ${place}`),
   wilderness: (region) => (region ? `The wilds of ${region}` : 'The wilds'),
 });
 
 /** TV2: the trip's line - a place by the roads when half its way or more is road or track, across country otherwise;
- *  a spot is a spot. */
-export function travelTripLine({ name = '', share = 0, spot = false } = {}) {
-  if (spot) return TRAVEL_VIEW_TEXT.toSpot;
+ *  a spot is a spot. OWS2: a trip that puts to sea says so. */
+export function travelTripLine({ name = '', share = 0, spot = false, sea = false } = {}) {
+  if (spot) return sea ? TRAVEL_VIEW_TEXT.toSpotBySea : TRAVEL_VIEW_TEXT.toSpot;
+  if (sea) return TRAVEL_VIEW_TEXT.bySea(name);
   return share >= 0.5 ? TRAVEL_VIEW_TEXT.byRoad(name) : TRAVEL_VIEW_TEXT.acrossCountry(name);
 }
 
@@ -131,6 +144,7 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  * @param {() => {ok:boolean, why?:string}} deps.allowed - the open air, a live traveller, the enhanced lane
  * @param {() => boolean} deps.windowUp - a window stands (the host's pause)
  * @param {() => boolean} [deps.overlayUp] - AUDIT DEEP2 A3: an enhanced overlay (the Tab dial) stands over the view - its keys are its own
+ * @param {(why: string) => void} [deps.onLower] - OW-ONLY: the view is being brought down (not cut) - `why` the door
  * @param {() => boolean} [deps.danger] - enemies near (DFU's AreEnemiesNearby): the view will not rise, and falls
  * @param {(e:any) => string[]} deps.actionsOf - a key event's registry actions (KB1)
  * @param {() => boolean} [deps.movementHeld] - a movement action is held (the host's own Set)
@@ -355,6 +369,7 @@ export function createTravelView(deps) {
   /** Out: `cut` drops straight to off (a window, a door, a death); otherwise the camera falls back to the head. */
   function exit(why = 'escape', cut = false) {
     if (state === 'off') return false;
+    if (!cut) deps.onLower?.(why);   // OW-ONLY: the host hears a view brought down - a journey stops with it
     if (cut) { finish(); return true; }
     state = 'falling';
     return true;
@@ -406,11 +421,13 @@ export function createTravelView(deps) {
     shown = blendView(head, { eye: r.eye, fwd: r.fwd }, t);
     const ang = anglesOf(shown.fwd);
     const tilt = Math.max(0, -ang.pitch);
+    const f = deps.feet();
     return {
       eye: shown.eye, fwd: shown.fwd, yaw: ang.yaw, pitch: ang.pitch,
       right: rightOf(ang.yaw), up: leanedUp(ang.yaw, tilt * Math.min(1, t)),
       focus: [camera.focus[0], camera.focus[1], camera.focus[2]],
       blend: t, fullyUp: state === 'up', state,
+      grow: tvOwnGrow(Math.hypot(shown.eye[0] - f[0], shown.eye[1] - f[1], shown.eye[2] - f[2])),   // OW-BIG: the traveller's sprite, grown with the eye's distance
     };
   }
 

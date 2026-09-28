@@ -96,3 +96,28 @@ test('MWHEAD1: a level ray draws exactly what it did - the window grows only by 
   assert.ok(Math.abs(1 / r2.c.op[0] - box.halfW) < 1e-6, 'the width is untouched');
   assert.ok(Math.abs(r2.c.pw / r2.c.ph - r2.c.hw / r2.c.hh) < 1 / r2.c.ph + 1e-9, 'texels stay square');
 });
+
+test('AUDIT OW3 J6: the picture\'s DEPTH holds the whole box - a body the travel view grows (OW-BIG, up to x12) seen from the Overworld\'s eye has every corner between the picture\'s near and far planes (the fixed 4 m eye and 0.1..8 m planes sliced it); a body\'s own box keeps exactly those planes', () => {
+  /** a point's depth in the picture, NDC (inside is |z| <= 1) */
+  const depth = (c, p) => {
+    const m = multiply(c.op, c.ov);
+    return (m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]) / (m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]);
+  };
+  const r0 = capture();
+  const e0 = mwEye(BASE_DISTANCE, 0.4);
+  drawRigSpriteBox(r0, canvas, null, id, box, proj, lookAt(e0, [0, FOCAL_HEIGHT * U, 0], [0, 1, 0]), e0, 3);
+  assert.ok(Math.abs(r0.c.op[10] - -2 / 7.9) < 1e-6, 'a body\'s own box: the planes that always stood');
+  for (const p of corners) assert.ok(Math.abs(depth(r0.c, p)) <= 1, 'and every corner inside them');
+  for (const g of [6, 12]) {
+    const grown = { center: box.center.map((v) => v * g), halfW: box.halfW * g, halfH: box.halfH * g, anchor: box.anchor.map((v) => v * g) };
+    for (const pitch of [0.6, 0.91, 1.3]) {
+      const eye = [0, Math.sin(pitch) * 280, -Math.cos(pitch) * 280];   // the Overworld's eye, ~280 m out
+      const r = capture();
+      drawRigSpriteBox(r, canvas, null, id, grown, proj, lookAt(eye, grown.anchor, [0, 1, 0]), eye, 3);
+      for (const p of corners) {
+        const d = depth(r.c, p.map((v) => v * g));
+        assert.ok(Math.abs(d) <= 1, `x${g}, pitch ${pitch}: corner ${p.map((v) => (v * g).toFixed(2))} at depth ${d.toFixed(3)} - past 1 is sliced off`);
+      }
+    }
+  }
+});

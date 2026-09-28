@@ -262,6 +262,24 @@ export function mwViewFirstPerson() {
 }
 
 /**
+ * VIEW-TOGGLE (2026-09-28, Mac: "add a force first person/third person toggle"): ONE PRESS, THE OTHER VIEW - for
+ * whichever body answers, beside the wheel (EOTB's own `Camera.TogglePerspective` key, IL_1230-IL_124d, which the port
+ * had left inert for the wheel - Mac's call, now reversed for a key of the player's choosing). The EOTB lane takes the
+ * mod's own ToggleOffset; the Morrowind lane goes out by the restore door the travel view's hold uses and in by
+ * MAP-POV's `mwIntoHead`. Refused (false) while the travel view holds the body, in the saddle on the Morrowind body
+ * (RIDE-POV: no saddle to show), and where no body can show at all.
+ */
+export function mwViewTogglePerspective() {
+  if (heldThird) return false;
+  if (eotbLane()) { eotbCamera.toggleOffset(!eotbCamera.thirdPerson()); return true; }
+  if (mwCamera.thirdPerson()) return mwIntoHead();
+  if (!fpArm.canThirdPerson() || mounted) return false;
+  mwCamera.restore({ firstPerson: false, baseDistance: mwCamera.baseDistance() });
+  fpArm.setViewMode('third');
+  return true;
+}
+
+/**
  * TV1 (2026-09-27, bible/06-Systems/Travel-View.md): THE BODY OUT OF THE HEAD FOR THE TRAVEL VIEW, AND BACK. The
  * view's eye stands hundreds of metres over the traveller, and the traveller is what it looks at - so whichever body
  * can answer is held in third person for the view's length (the EOTB sprite by its own ToggleOffset, the Morrowind
@@ -428,7 +446,10 @@ export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw, face = null
   // (ToggleOffset, IL_2307-IL_2353), where it draws behind the eye
   if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw, face });   // AUDIT DEEP R-2: `face` - the travel view's basis for the quad
   if (!mwCamera.thirdPerson()) return false;
-  return fpArm.drawThird(canvas, { proj, view, eye, feet, yaw });
+  // AUDIT OW3 J6: OW-BIG's grown traveller is the Morrowind body's too - `face.grow` (player/travelCamera.js tvOwnGrow)
+  // reached the sprite body alone, and under the travel view the Morrowind body stood a speck at its own size.
+  // AUDIT OW4 J6: and `face.up` - its quad leaned as the sprite lane's is (eotbBody.js), not upright under a pitched picture
+  return fpArm.drawThird(canvas, { proj, view, eye, feet, yaw, grow: face?.grow > 1 ? face.grow : 1, up: face?.up ?? null });
 }
 
 /** EOTB5's door, matching `setEotbBodyReady`: the host hands the seam

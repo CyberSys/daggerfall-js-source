@@ -935,6 +935,348 @@ standing down), `test/tv5_far_places.test.js` (the marker's face: the title abov
 the Renown amber, the party's green, the tag's steel, a stranger's bone, a title won at rest
 redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
 
+## OW FIXES - the first field report on the Overworld (2026-09-28, Mac)
+
+- **RESUME-OUT** ("option persists"): the held map asked "Resume your journey to ...?" at EVERY open while a
+  stopped journey was pending - the mod's own behaviour (TravelOptionsMapWindow.cs: No closes the box and keeps
+  `DestinationName`), with no way to be rid of it. The prompt now has a third answer, **Forget it**, which ends the
+  journey through the mod's own `ClearTravelDestination` (`onForgetTravel`); Resume and Not now are the mod's.
+- **OW-THEME** ("The overworld ui needs to follow enhanced ui theme"): the bar (`.tview-bar`, the journey bar's
+  window role), its Return (`.tview-back`, a button) and its compass (`.tview-compass`, a well) are in the Enhanced
+  Plus frame roles (`ui/enhancedFrame.js` FRAME_ROLES - paint only), and the canvas's plates are drawn in the
+  theme's own stone (`themePlate`: the page's `--slate` at 0.78 alpha, read at each open; a new stone lets
+  the old plate images go).
+- **OW-BIG** ("The player sprite needs to appear larger. Like it shouldnt be at the tiny scale"): under the view the
+  traveller's own sprite is drawn `tvOwnGrow(distance)` times its size (`player/travelCamera.js`: one more for every
+  `TV_OWN_GROW_M` = 32 m from the eye to the feet, never past `TV_OWN_GROW_MAX` = 12, 1 near the ground) - about
+  40-50 px tall at 1080p at every zoom, a Mount & Blade party's icon. The view hands the step (`frame().grow`), the
+  host passes it on the body's `face`, and the sprite lane (`player/eotbBody.js`) makes its batch again at each whole
+  step; a grown sprite casts no giant's shadow (`selfCard` off) and hangs no lantern on a waist that moved.
+
+**Proof.** `test/heldmap.test.js`, `test/tv5_far_places.test.js`, `test/eotb_body.test.js`,
+`test/tv1_travel_view.test.js`; `tools/mutants/ow1.json` (14 records, all dead).
+
+## OW ROUND 2 - no ground travel, the road walked on, no mountains (2026-09-28, Mac)
+
+- **OW-ONLY** ("Remove the ground travel alltogether. Now selecting a location should immediately transition you to the
+  overworld"): on the enhanced interface a pick on the map (`beginAcceleratedTravel`) is the Overworld's OWN journey - a
+  place by the roads (`travelViewRouteTo`), a spot by `travelViewWalkTo` - refused, with the view's own reason, where the
+  view may not rise; any Travel Options journey raises the view the first frame no window, foe or gate forbids it
+  (`tvJourneyUp`, silently); and a view the PLAYER brings down (Return, Escape, the key: `onLower`) stops the journey -
+  `interruptTravel`, the destination kept, so the map's Resume takes it up again, in the view. A cut (a door, a window,
+  a death, a foe) is not the player's choice and is never counted. The classic skin keeps Travel Options exactly.
+- **OW-ROADSIDE** ("Sometimes routes do follow roads, but appear traveling alongside it"): the first leg ran from wherever
+  in the start pixel the traveller stood (up to 400 m off the road) to the far end of the road's first straight run -
+  beside the road the whole way. A route whose first step is a road's or a track's now JOINS it first
+  (`travelRoute.js joinPoint`: the nearest point of that run's line, clamped to it; the leg's own `at`, which
+  `startRouteLeg` aims the autopilot at), and the drawn route joins where the walk does.
+- **OW-MOUNTAINS** ("Bumping into a mountain can cause insane lag and cause you to take character damage. You shouldnt be
+  able to navigate mountains"): the planner refuses an OPEN step into the Mountain climate (226) or up or down more than
+  `TV_STEEP_RISE` (16, the small heightmap's units) between two pixels (`openStepBlocked`); a road or a track goes where
+  it was laid (over the passes); the step out of the start and onto the goal are never refused. A spot journey is now
+  routed too (to the spot's pixel round the peaks, then to the spot), and a spot among the peaks is refused ("The
+  mountains cannot be crossed on foot.").
+
+**Proof.** `test/tv2_click_to_move.test.js` (three more), `tools/mutants/ow2.json` (18 records, all dead).
+
+## THE OVERHAUL - a living Overworld (TV6-TV8, DESIGN, 2026-09-28)
+
+Mac (2026-09-28): "Random encounters and nearby dungeons implemented should somehow be detailed implemented into the
+new overworld. Like think mount and blade and how you can see enemies in the overworld. Like a true overhaul for the
+new overworld." His calls, the same day: **Roaming parties**, **Discover on approach**, **Leader drives**, **Shared per
+area**. Enhanced interface only (the Overworld's lane); the classic skin keeps DFU exactly.
+
+**TV6 - THE DUNGEONS, DISCOVERED ON APPROACH.** Every dungeon (`formats/mapsFile.js` LOCATION_TYPES: Labyrinth,
+Keep, Ruin, Graveyard, Coven - DFU's travel-map "dungeons" filter) within `TV_FAR_RANGE` (24 pixels, ~20 km) stands on
+the Overworld: a discovered one is a plate with its name and distance, held at the edge and clicked for a journey, as
+the far towns are; an UNDISCOVERED one is an unnamed mark (no name, no journey) at its place. Coming within
+`TV_DUNGEON_FIND_M` (1 km) of an undiscovered dungeon, outdoors on the enhanced interface, DISCOVERS it (the port's own
+store, `discoverLocation`) and says so on the screen ("You have found <name>."). A departure from DFU, Mac's call: DFU
+discovers on the location's rect (PlayerGPS.PlayerLocationRectCheck) and says nothing. The held map and the Overworld
+read the same store, so a dungeon found either way is named on both.
+
+**TV7 - THE ROAMING BANDS.** Enemy bands roam the wilderness and can be seen from above, as a Mount & Blade party is.
+- *Where and what:* a band is BORN of the land and the shared clock - a pure function of (map pixel, time bucket) and
+  WORLD_SEED on the shared minute (`sharedClassicMinutes`), as TV4's storms are - so every player in an area computes
+  the same bands with nothing sent. Its members come from Daggerfall's own tables: the climate x day/night table
+  (`encounters.js` resolveEncounterTableIndex - none in a town's rect by day), the group filled by
+  `rollGroupComposition` (2-5; as built it rerolls solitary types away, so no band is one), rolled from the band's own seed.
+- *How they move:* a band WANDERS a seeded path until it SPOTS a player (the sight radius from the band's kind, longer by
+  day); then it CHASES, and the chase is simulated by the chased player's client (the port's owner model - WORLD6b) and
+  streamed to the others under a key of its own in the foes frame (validated outside `wire.js`, the WoD camps' way: no
+  relay change). A chase gives up past a leash; a band that gave up or fought is spent for its bucket for everyone.
+- *Contact:* at `TV_BAND_CONTACT_M` the Overworld comes down (the view's own `danger`) and the band's members stand as
+  real foes around the traveller (`exteriorFoes.spawnFoe`, placed) - exactly the band that was seen. On a Travel Options
+  journey the band is the journey's `enemiesNearby`: the stop, and on a cautious journey the mod's own avoid roll
+  (luck + Stealth - 50) - success, the band loses the trail.
+- *Seen from above:* each band is a marker in the Overworld - as built a red point (TV7 BUILT below), not a grown sprite -
+  with its kind and number ("Orc, 4"), red; a band that has spotted you wears the chase. Off the picture a chasing band
+  is held at the edge. In play (the view down) a band within the pose range stands as its foes, as a camp does.
+
+**TV8 - GROUP TRAVEL, THE LEADER DRIVES.** A party leader's Overworld journey (a town or a spot) is PROPOSED to the
+members through the party pose (PARTY-TRAVEL's own shape, a walked journey this time - a new field, so a relay version,
+world123); a member gathered with the leader (within PARTY_REST_RADIUS) who accepts starts the same journey (the same
+route legs) and travels it beside the leader. A stop for one is a stop for all - a stamp that only moves forward, as
+PARTY-REST5's `restEnemyAt` is; the leader's resume resumes them. A band that makes contact with one halts them all (as built: the member's stop is the party's).
+
+**Order of the build:** TV6 (self-contained), TV7 (the bands, no relay change), TV8 (the party's journey, world123).
+
+**TV6 BUILT (2026-09-28).** `systems/travelDungeons.js` (pure: `dungeonPixels`, `nearDungeons`, `dungeonToFind`,
+`TV_DUNGEON_MAX` 12, `TV_DUNGEON_FIND_M` 1000); the host's `travelViewDungeons` (kept between pixels and finds, a load
+forgets it) and `dungeonFindFrame` (four times a second, the enhanced interface outdoors: `discoverLocation`, then
+"You have found <name>." on the screen); a found dungeon past the grid is a far plate (its name, its distance, a
+journey - within the grid TV2's own plate), the rest are the readout's LAIR look - a dull red point and a "?", no
+journey, never held at the edge. Proof: `test/tv6_dungeons.test.js`, `tools/mutants/tv6.json` (14 records, all dead).
+
+**TV7 BUILT (2026-09-28).** `systems/travelBands.js` (pure): a cell of BAND_CELL_PX (2) map pixels holds a band in a
+life of BAND_LIFE_MS (12 real minutes on the shared clock) at 0.30 by day and 0.45 by night, born at a seeded point
+the land allows (the host's `bandOk`: no water, no place's pixel); it WANDERS 75 s legs at 1.3 m/s, each bent up to a
+quarter turn, turned back off the land's edge - every client computes the same bands in the same places, nothing sent.
+Its make is the camps' themed group (`rollGroupComposition`, now exported) rolled from its own seed off its birthplace's
+table. Under the Overworld a band that sees the traveller (320 m by day, 190 by night) CHASES at 5.2 m/s times the
+journey's time scale (a slow walker is caught; a quick one, a runner or a rider gets away); at 30 m (with the view down, 140 m) it STANDS as those
+foes around the traveller on its own bearing (`_standCampEncounter`, now taking the band's `yawRad`) - and the view's
+`danger` and the Travel Options journey's own enemy stop (and its cautious avoid roll) do the rest; past 900 m, or two
+minutes without closing a metre, it loses the trail and is gone for its life. Seen from above: a red point with its kind and
+number ("Orc, 4"); a chaser held at the edge. **Online** the bands themselves are shared - born, placed and wandering the same for everyone - and TV7b (below) shares
+the chase. What a band IS scales to who sees it, as Daggerfall's encounters do (`rollGroupComposition` reads the
+viewer's level): two players of different levels can read different members off one band; the fight is the chaser's.
+Proof: `test/tv7_bands.test.js`, `tools/mutants/tv7.json` (19 records, all dead).
+
+**TV7b BUILT (2026-09-28) - THE CHASE, SHARED.** The chaser's client says its chases on its own cell foes frame under
+`bd` (`[[id, x, z, 1]]`, the band's place in native units) and the bands spent there (`[[id, 0, 0, 2]]`), at most
+BANDS_WIRE_MAX (8) - validated at the reader (`validBandWord`), as the World of Daggerfall camps' `st`/`sp` are, never by
+the relay (NO relay change). A chase asks for a frame (`bandMoved`, as a moving boat's word does). A reader shows a
+peer's chase where it runs (for BAND_WORD_MS after the word; then the band wanders on), never starts its own chase of
+that band, and spends every band a peer spent - one band, one fight, everyone's. Two players who saw one band in the
+same breath: the lower id keeps it (`chaseYields`), alike on every client.
+Proof: `test/tv7_bands.test.js`, `tools/mutants/tv7.json` (33 records, all dead).
+
+**TV8 BUILT (2026-09-28) - GROUP TRAVEL, THE LEADER DRIVES.** `systems/partyWalk.js` (pure). A party leader's Overworld
+journey (a place, or a spot) with a member gathered within PARTY_WALK_RADIUS_M (60 m) is a WALK on the leader's party
+pose - `tw` `{x, y, sx?, sz?, at, go, h}` (net/wire.js validPartyPose, **world123**, PARTY_WALK_RELAY_MIN 123: offered
+only through a hub that carries it). A gathered member is asked ("<leader> leads the party to <place>. Travel with
+them?", ui/yesNoBox.js, within PARTY_WALK_ASK_MS); on a yes they walk the same journey in their own Overworld (a place
+by the roads - a place they have not found themselves walked to as a spot - or the spot itself). The leader's stop
+HALTS the walk (`h`) and every member stops with it; the leader's journey taken up again (the map's Resume) SETS OUT
+again (`go`) and every member who said yes takes theirs up again, from where they stand. A member's OWN stop - a foe, a
+band's contact - is said on their pose (`ts`), and the leader halts on a stop newer than the last set-out: a stop for
+one is a stop for all. An arrival ends the walk; a member's arrival is never a stop. **Deploy:** world123 must ship to
+the relay before the walk is offered (an older relay strips `tw` and `ts`; nothing breaks).
+Proof: `test/tv8_party_walk.test.js`, `tools/mutants/tv8.json` (17 records, all dead), `test/relayversion.test.js`
+(the world123 law).
+
+**AUDIT OW3 (2026-09-28) - everything since the merge, audited in five lanes, verified, fixed.**
+- *Journeys (J):* the view brought down stops its journey through the panel (`pauseTravel`, the mod's Camp), so the
+  held map offers Resume, and `tvJourneyUp` raises the view only while the autopilot drives. On the enhanced interface
+  a walked trip the Overworld refuses is refused (`tvOwnsJourneys`), never fast-travelled; a coordinate pick on the sea
+  is refused in the view's words. A resume rejoins the road: `route.join` is the nearest point of the run taken up
+  (`joinPoint`), aimed in its own pixel before the leg, and the view's line goes through it. Both journeys draw one
+  point per leg (`routeDrawPoints`). The peaks rule is the ground's: every step out of a Mountain pixel is walked and
+  none into one; no start exemption; the goal step is exempt only for a place (`goalExempt`), so a plateau spot is
+  refused. The Morrowind body grows with OW-BIG (`drawThird` `grow`, sprite depth `max(4, halfW + boxH + 1)`).
+- *Dungeons (D):* the pure list is `dungeonRows` (map rows, gathered once), `spawnedPixels` (the live index),
+  `nearDungeons` (filtered, THEN capped at 12: a row with no named place, a spawn's pixel, a found dungeon inside TV2's
+  grid spends no slot), `dungeonApproach`, `dungeonToFind`. SPAWNED dungeons (Mac's "nearby dungeons implemented")
+  stand as `spawn:<map id>` once the spawned feature has told of them: a "?" until filed, then a named far plate whose
+  click is TV2's spot journey to 20 m outside the exterior; the find never takes a spawn. The find and the bands stand
+  down while `worldMoveBusy()` (an arrival's feet lie).
+- *Bands (T7):* a contact tries the band's bearing, a quarter turn either way, then behind, and the band is spent only
+  once it STOOD (BAND_STAND_RETRY_MS 1500, BAND_STAND_TRIES 5); every chase is stepped on its own band (a life's
+  turn no longer strands it); a chase gives up BAND_GIVE_UP_MS after its last metre gained (`gainAt`), not two minutes
+  in; the make rolls from `bandMakeSeed` (its own stream - the birth's first draw is under the spawn chance, so
+  Daggerfall's roll over 80 never came) by the night its life began in (read once a life); a wander leg's way is
+  chosen by its whole end (no mid-leg jumps); water, a door or a town's rect ends a chase SPENT; a peer's word is kept
+  only for a band that can be about me (`bandNearMe`) and the tables are pruned each life.
+- *Group travel (P):* every halt stops through the panel, and "journeying" is the panel with an autopilot under it. A
+  walk's END is Travel Options' own `cleared` count (an arrival, Exit, Forget it, a load), never the destination
+  fields, so a spot walk's stop is a halt. When the walk ends members are released and walk on to the same place;
+  halts come only from `h`. Taking the halted walk's own place up again sets it out again in the same round. A member
+  is asked, and set out, only when free (outdoors, alive, no window, no foe, no duel); the question comes down with its
+  round, its 30 s or danger; a yes dies with its round; the leader's walk is believed PARTY_WALK_GRACE_MS (10 s)
+  without a pose. The wire is unchanged (world123).
+- *Known, not changed:* the relay fans a cell's foes frame 3 pixels out (`RANGE_PIXELS`) while bands are drawn 6
+  (BAND_REACH_PX) - a player 4-6 pixels off hears a chase or a spent band only on coming nearer (the spent list rides
+  every full frame). Members' paces are their own clients' (a member at x1 behind a leader at x10 falls behind).
+  A band's make reads the viewer's level (TV7 BUILT). A traveller on a plateau ringed by cliffs outside the mountains,
+  with no road off it, is told there is no way by land.
+- Proof: `test/tv2_click_to_move.test.js` (28), `test/tv6_dungeons.test.js` (11), `test/tv7_bands.test.js` (10),
+  `test/tv8_party_walk.test.js` (12), `prbow1_bow`, `mwhead1_window`, `eotb_view` (+1 each); `tools/mutants/ow3j.json`
+  (28), `ow3d.json` (27), `ow3t.json` (18), `ow3p.json` (36) - all dead; the older sets re-aimed.
+
+**AUDIT OW4 (2026-09-28) - the second full audit of the branch (five lanes, the OW3 fixes included), verified, fixed.**
+- *Bands (B):* the bands were asked for at the MAP pixel, whose y runs the other way from their rows - every band stood
+  at the mirror of its latitude and almost nobody met one (`bandPixelOf`, in the list and in a peer's word). The land a
+  band may stand on is the maps' own places taken at boot (`_bandPlacePixels`), never the live index a spawn joins per
+  client. A stand counts only with a member placed; the bearing is kept from the first contact; a door ends every chase,
+  spent; death or a window HOLDS a chase, a boat ends it; no band drawn with the camps off; the spent list pruned by
+  life; the sight read by the bands' night. bandFrame/bandStand/bandHear are lifted from world.js and RUN in the tests.
+- *Journeys (J):* only the traveller's OWN peaks are left freely: `planRoute` flood-fills the start's connected
+  Mountain area (`peakAt`), and `openStepBlocked(..., leaving)` frees only its steps - a range entered by a road is
+  walked no further. The ladder ends on the whole map (`ROUTE_MARGINS` [6, 20, 60, 1000]); the ground is read once
+  (`routeGround`) and its land pieces answer "no way by land" once the first box misses. A won avoid roll takes the SAME
+  route up again (a spot's became "Following a road"). The map's Resume re-plans on the enhanced interface
+  (`travelViewResume`; a spawn's walk resumed is its door). An Overworld journey with its view down runs at x1 until the
+  view rises. A new disease stops through the panel. The grown Morrowind body's quad leans by the view's up.
+- *Dungeons (D):* a spawn's plate walks as a place's DOOR (`travelViewWalkTo` `{ door }`: never refused for the peaks,
+  its own pixel's step exempt), its edge facing where the route's last leg starts (`lastLegStart`); an expired spawn
+  (`tvSpawnGone`) is never listed; a load clears the announced spawns; found spawns past the stream stand again after a
+  reload (`filedSpawns`, `tvSpawnAt`, the shared `_spawnCloneAt`); the list keyed on the index's generation
+  (`_locIndexGen`); the cap of twelve taken found-first.
+- *Group travel (P, X):* a spot re-aimed in its pixel sets out again (members re-routed); a halt lapses after
+  PARTY_WALK_HALT_MS (5 min) and drops off the pose; a stop meaning the journey cannot run (WALK_BALKS: low health or
+  fatigue on cautious travel, stuck, blocked, the sea) halts the party once, then the leader's Resume passes that member
+  by until their own; a member stopped by a halt who takes the journey up leaves the walk; the question is tracked through
+  the window stack, withdrawn if buried, and an answer counts only while the round stands; nobody sets out mid-arrival.
+  A member walking to a place they have not found, or to a spawn, walks it as its door. The wire is unchanged (world123).
+- *Known, not changed:* some towns among the peaks with no road reaching them are now "no way by land" (the peaks' law
+  holds); the "historical" example numbers in test/citedrift.test.js move with every citation shift, as they always have.
+- Proof: `test/tv2_click_to_move.test.js` (32), `tv6_dungeons` (19), `tv7_bands` (15), `tv8_party_walk` (22),
+  `to1_travelOptions` (+1), `prbow1_bow` (+2); `tools/mutants/ow4j.json` (26), `ow4d.json` (38), `ow4t.json` (14),
+  `ow4p.json` (25), `ow4x.json` (3) - all dead; the older sets re-aimed.
+
+## OWS - THE SEA ON THE OVERWORLD - SHIPPED (2026-09-28, the player's asks)
+
+The player, on the Overworld: *"1. You should transition to your boat if traveling across water then back onto land
+when hitting land 2. The pirate quest system should work like how we're changing enemies and nearby dungeons. Like mount
+and blade, being able to see other players sailing in the overworld and other enemy ships"*.
+
+Built on this branch's Overworld (TV1-TV5, main's). The Overworld round's own branch (TV6-TV8: the dungeons found on
+approach, the roaming enemy bands, group travel) had not merged; the raiders below take the bands' shape - a seeded
+cell a life, a course that is a function of the shared clock, a chase the chased traveller's own - in their own module,
+`systems/seaRaiders.js`. The two walks are one law waiting to happen: whichever lands second FOLDS them (Active-Arcs).
+Read off that branch on the way: its bands are born about map row `499 - py` (`bandsNear` counts cells from the
+traveller's south-counting pixel row, `bandOf` places a band's native z from the same number as a north-counting row),
+so away from row 250 none comes within sight - recorded here for that branch; the raiders keep MapsFile's own two laws
+(`pixelOfNative`/`nativeOfPixel`, pinned against `worldCoordToMapPixel` and the traveller mark's).
+
+### OWS1 - the ships on the map
+
+- **The way the frame always carried.** TV3's traveller mark has `m` - foot, horse, cart, ship - and nothing sent the
+  ship: `player.transportMode` is never Ship (TRANSPORT_MODES.Ship is "not a real player transport mode", and Come Sail
+  Away holds the transport on foot at its helm). A traveller at a helm, or aboard another's boat (CSA-K), now sends
+  `ship`, headed as the boat's bow (`csaBoatUnderMe`, `csaBoatYaw`); `travellerDue` sends a changed way at once. The
+  relay's shape law already took 0-3: no relay version.
+- **Drawn as a ship.** The readout draws a mark whose kind says `ship` as a hull under a sail (`drawShipMark`, upright
+  as a map draws its ships) in its look's colour - a stranger's verdigris, my party's green - its name standing over the
+  sail (`SHIP_MARK_RISE`); one off the picture keeps the arrow. The held map inks the same (`inkShip`; the host's rows
+  say `ship`). A ship's mark rides the sea's top, never the seabed Deep Waters carves under it (`tvSceneKept`'s
+  `onSea`). Within the pose range a sailor is their body on their own boat (CSA-J, CSA-K), marked over their head.
+
+### OWS2 - the crossing
+
+- **The boat to hand** (`tvSeaMeans`): at its helm now (the route starts afloat), mine moored within 60 m (boarded at
+  the journey's start - the mod's StartSailing, "You control the boat!"), or a packable boat's PARTS in the pack (the
+  route starts ashore). A boat crosses when it has sails or a crew's oars: the Rowboat's lone rower spends 11 fatigue each
+  second at its oars (OAR_FATIGUE) - a character of 50 Strength and 50 Endurance holds 6,400 ((Str + End) x 64), about
+  ten minutes of rowing, little more than a kilometre at the oars' 2 m/s - and the Carrack makes no way at all - the mod divides its cargo by a Cargo
+  modifier it lacks (kept, CSA-D) - so neither is a crossing's boat. No boat: the sea is refused as it always was, and
+  a route a boat would have made is said ("There is no way there by land - a boat would carry you across the water.").
+- **The planner's sea** (`systems/travelRoute.js`, `sea`): three layers of the grid - ashore with the boat to hand,
+  afloat, ashore with it left behind. A step from a land pixel into the water is the LAUNCH (`embark`), steps between
+  water pixels are SAILED (`sea`: 1.2 a step - a little dearer than a road; 1.5 beside the land, so a route stands off a
+  wide sea's shore and still threads a strait), a step out onto land the LANDFALL (`landfall`); each launch and landfall
+  costs `shore` (6) on top of its step, so no route hops in and out of the water. A packable boat is to hand again after
+  its landfall (it packs); a crewed ship is left where it landed, so its journey crosses once. Afloat, a boat never
+  sails through a corner of the land. A spot on the water is reached afloat - a bay in a land pixel too - and a place
+  on the water's pixel (a harbour town) is walked into, as ever. The heuristic's road cost stays under every step.
+- **The legs.** Each launch, sailed run and landfall is a leg of its own (`routeLegs` folds a straight sailed run); a
+  sailed leg arrives in the middle quarter of its water pixel (`SEA_LEG_SIZE`, 205 m - a boat under sail comes about in a
+  hundred metres, it never threads a road's 12.8 m), a spot on the water in its own 51 m square (`SEA_SPOT_SIZE`).
+- **The launch** (`tvSeaLaunch`): on a leg that puts to sea, ashore, every quarter second - the first water on the way
+  to the leg's mark (and fanned 30 and 60 degrees about it) within 40 m, the boat's root pushed out past it by the
+  hull's reach, and all five of its nodes on water by the nodes' own law (`nodeReadingAt`, the pool's `hullRig`); there
+  the parts go in (`LaunchFromParts`: "Boat placed!", the parts' UID and packed cargo aboard, the parts spent) and the
+  helm is taken. Not at the water yet: walked on.
+- **The sea legs** (`tvSeaSail`, `systems/seaHelm.js`): the journey's hand on the helm, through the one input seam
+  (`csaJourneyHelm` beside the keys' and CSA-L's panel's): the rudder keys toward the course, the ToggleSail key's
+  edge, the oars' autorun - the mod's own code moves the boat. Under sail the course is the leg mark's bearing, unless
+  the mark lies inside the rig's no-go cone about the wind's eye - 35 degrees with a lateen aboard, 68 for square sails
+  alone (where GetSailPower's pull times the course's share toward the mark is best) - where the boat BEATS, a tack
+  held until the mark's bearing swings 20 degrees past the eye, then about. The oars: to turn the boat more than 30
+  degrees (the mod turns a boat under sail by the way it makes - one head to wind never comes round - where the oars
+  turn it twenty degrees a second), in a calm (a wind under 0.25), for 20 s after the sails made no way for 8, within
+  120 m of a landfall's shore (the sails come down and the oars take it in), and away from land close ahead on a leg
+  that does not land there (hard over to the freer hand); and whenever a crew's oars are the faster (the Large
+  Galley's crew rows at eight against its one square sail's four or five - a crew rows for nothing, a lone rower pays,
+  so a crewless boat sails). A sailed leg that comes no 20 m nearer its mark in 180 game seconds stops the journey
+  ("Your boat can make no way toward its mark."); a boat beached on a leg that does not land stops it ("Your boat has
+  run aground.").
+- **The landfall** (`tvSeaLand`, `tvSeaAshore`): on the landfall leg, beached - or 10 m off the shore and all but
+  stopped - the helm is left by the mod's own disembark key ("You stop controlling the boat!", the sails lowered); when
+  its second's hold is over the traveller is set on the first dry ground ahead of the bow, else about the boat, within
+  60 m, and a packable boat with none aboard is packed (the mod's own PackBoat, "You store the boat in your
+  inventory") - else it is left moored ("Your boat is left moored where it landed."). The land legs are walked on.
+- **Afloat, Travel Options stands down twice**: its ocean stop (it is for a traveller who walked into the sea) and the
+  walk's steering (the helm's hand steers). Its other stops are its own: foes, the cautious traveller's health and
+  fatigue, a place under LocationPause. A journey that ends at sea - arrived at a spot on the water, or stopped - takes
+  its hand off the helm and lowers the sails.
+- **The words.** The trip's line says a crossing ("To Wayrest, by sea"); a passenger aboard another's boat is refused
+  a journey ("its helmsman sets the course"); the route's line rides the sea's top.
+- **Measured** at the mod's own helm, by these keys alone (the port's runtime over the vendored hulls, open water, the
+  wind at 1.5, a mark 1,500 m due north; game seconds, the wind blowing toward the bearing given):
+
+  | hull | 0 (running) | 45 | 90 (beam) | 135 | 180 (dead into it) | 225 | 270 | 315 |
+  |---|---|---|---|---|---|---|---|---|
+  | Large Boat (a lateen, no crew) | 390 | 417 | 383 | 542 | 697 (253 fatigue) | 463 | 328 | 356 |
+  | Small Ship (two lateens, crewed) | 207 | 219 | 202 | 275 | 366 | 237 | 176 | 190 |
+  | Large Galley (the crew rows) | 220 | 220 | 220 | 220 | 220 | 220 | 220 | 220 |
+
+  Pinned at 600 m in `test/ows2_crossing.test.js`.
+
+### OWS3 - the raiders, seen coming
+
+- **Seeded, never sent** (`systems/seaRaiders.js`): a cell of 6 x 6 map pixels holds at most one raider a life (20
+  minutes of the shared clock; a chance of 0.35), rolled from the cell and the life alone, born on the OPEN sea (its
+  pixel and all eight about it water, the ocean's climate - never a lake or a bay's mouth). It sails its own course at 3
+  m/s, bending up to a quarter turn each two-minute leg, turning about at land and lying to with none either way - a
+  function of its seed and the clock, so every player in the region sees the same sails at the same minute.
+- **Marked** (the host's `travelViewRaiders`, read each half second over the cells within 12 pixels): a raider within the
+  grid's reach is a ship in the cinnabar, "Pirates" under it (the raid quest's own word); one giving chase is marked
+  wherever it is, held at the edge off the picture.
+- **The chase** (`raidFrame`): a traveller at sea (at a helm or aboard) under the view is sighted by a raider within
+  1,000 m by day, 500 by night (DFU's night hours), one at a time; the chase sails 4.2 m/s at the world's time scale -
+  the Large Boat before a fair wind outsails it, becalmed or beating it is caught - and is lost past 3,000 m, after
+  three minutes of the world's clock without a metre gained, or when land stands in its way; lost, it sheers off for
+  its life. Ashore, every chase is given up. A chase begun under the view goes on in play (alongside at 120 m there,
+  60 under the view). A load ends them. The chase is the chased traveller's own (TV7's way): nothing is sent.
+- **Alongside** (`raidContact`): the mod's own raid (`raidAtSea`) - OnPreFastTravel's sailing arm (`armRaid`, its one
+  home: the ambush armed, a player without a ship lent the large one, both ship blocks `_smallraid`) and
+  CheckforEncounters' coroutine, so TransportToShipWithDelay starts WAQ_SHIP_SMALLRAID and boards the ship as the fast
+  travel's ambush does ("You've been attacked by pirates..."); the journey stops ("Pirates come alongside!"). Refused
+  as the mod refuses (an ambush armed or boarding, a lent ship out), the raider sheers off unheeded. Come Sail Away's
+  helm is left by the load, as any load leaves it; the quest's Leave Ship puts the traveller back where they boarded -
+  their boat's deck. The fast travel's own roll stands beside it, whole. Warm Ashes off: no raiders.
+
+### AUDIT OWS - the lead's audit of the three (2026-09-28, the player: "Audit this")
+
+Four read-only lenses were sent over the frozen tree (the planner and the helm, the crossing's host, the raiders and
+the marks, FAR-CLIP1) and all four stopped at a usage limit before reporting; the audit was finished by hand:
+- **The planner, differential.** 400 random grids (water, roads, both ends random), the old planner against the new
+  with no boat: pixels, kinds and cost identical, every one. 300 more with a boat to hand: the crossing's cost never
+  above the land route's, and never none where land had one.
+- **A1 - a load kept the crossing's hand on the helm.** The journey's rudder keys and oars were let go only on the
+  next exterior frame's `tvSeaFrame`; a load mid-crossing into a dungeon (whose water Come Sail Away sails too) left
+  the rudder held for the next helm taken there. A load now lets them go and forgets the crossing; the state is
+  declared above the load and the ocean stop's `atSea` that read it (BOOT-TDZ - it had been declared 8,000 lines
+  below them).
+- **A2 - a landing left behind held the ocean stop down.** A journey that ended during the landing's second left
+  `phase` at 'landing', and `atSea` read it: Travel Options' ocean stop stood down for every journey after, the
+  map's own included. The journey's end now forgets the landing.
+- **A3 - the spent raiders grew for the session.** Each life's sails are new ids; a new life now forgets the last
+  life's spent ones (a chase still running is kept).
+- **Read and kept:** the raid's boarding records the traveller's place at the helm (`boardOrDisembark`'s
+  `shipMemory`), so Leave Ship sets them back on their boat's deck - if the pool has not stood the boat again by the
+  time the ground is built, they land in the water beside it and climb its ladder. Not verified in a browser.
+  FAR-CLIP1's lens did not report; its own tests and 27 mutants stand.
+Each pinned (`test/ows2_crossing.test.js`, `test/ows3_raiders.test.js`) and each pin made to fail.
+
+### What it is not
+
+- The raiders are marks: no hull is drawn for them in the world (the pool's peer path could stand one; a later slice).
+- The raid's fight is the mod's own, on its ship's deck - the ship boarded - not the open sea.
+- The classic lane has no Overworld: DFU's map, its fast travel and Warm Ashes' roll, whole.
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

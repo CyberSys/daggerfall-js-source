@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6344` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6551` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7100,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1040`, `src/net/online.js:2199`):**
+**Now (`src/net/wire.js:1040`, `src/net/online.js:2201`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10425,15 +10425,48 @@ it - DECLARED (36) on the mod's Port-Ledger row - under HCC-ONLINE's law and no 
   theirs alone and never mine; gone from the room or quiet past FOES_STALE_MS, their boats go with their puppets; a
   clear (a transition, a fast travel, a room change) takes every peer's; a viewer with the mod off stands nothing.
 - **The landing**: each boat built as SpawnBoat builds one into the pool's PEER list - drawn, baked and lit as a
-  boat of mine, never a collider, a ray's hit or an activation - and posed every frame off the word converted from
-  the wire frame (AUDIT HCC O1), eased between words (a step past 20 m snaps), its sails, crew and lanterns as the
-  word says. Nothing of the cargo, the wind or the time scale rides; the bob, the wake, the oars and the sounds are
+  boat of mine, a collider, a ray's hit and an activation only as CSA-K makes one (below) - and posed every frame off
+  the word converted from the wire frame (AUDIT HCC O1), eased between words (a step past 20 m snaps) and led along the
+  helm's way since CSA-K, its sails, crew and lanterns as the word says. Nothing of the cargo, the wind or the time scale rides; the bob, the wake, the oars and the sounds are
   the owner's own frame's.
 - **No relay change**: the relay reads nothing inside a foes frame (AUDIT WORLD2), so `sa` needs no version and no
   law row.
 
 Pinned: `test/csa_online.test.js` (6); mutants in `tools/mutants/csa_close.json`. Not verified in a browser with two
 players: no online session exists in this container.
+
+## CSA-K ONLINE (2026-09-28) - sailing together (a player's ask: "I want people to be able to sail together, to walk on board as it moves")
+
+DECLARED (40) on the mod's Port-Ledger row; the record is `03-World/Come-Sail-Away.md` Sailing together. Two words more
+on the foes frame, and no relay change - the relay reads nothing inside a foes frame, and it PROJECTS the pose frame
+field by field (`validPose`), so nothing rides there:
+
+- **The way**: `sa`'s `m`, a place for each of `b`'s - the boat at the helm's velocity through the wire frame and its
+  turn, on the real clock at the owner's time scale; only while a boat is under way, so a moored fleet's record is the
+  one an older reader reads. Readers lead the boat along it (`scenes/comeSailAwayPeers.js`, capped at 0.6 s).
+- **Aboard**: `ab` on the passenger's own frame - `[owner, place, x, y, z]`, their feet in that boat's own frame to
+  the centimetre; a word when it changes and on every full frame, null aboard nothing; the boats' owner law (gone,
+  stale, a clear). Every reader - the boat's owner among them - stands the passenger on its own copy of that boat
+  (`scenes/comeSailAwayAboard.js` glue over `online.drawable()`), a frame ahead as it will be drawn.
+- **Physics stays each client's**: another's boat stands in a player's collider only while that player is aboard it
+  (PR-WAGON1's law), the deck carrying them by its move; the owner's pack refuses while any `ab` stands on the boat.
+
+Pinned: `test/csa_together.test.js` (20); mutants in `tools/mutants/csa_together.json`. Not verified in a browser with
+two players, as CSA-J.
+
+## OWS ONLINE (2026-09-28) - the ships on the map, the raiders seen coming (the player's asks on the Overworld)
+
+The record is `06-Systems/Travel-View.md` OWS. No relay change, and nothing new on any frame:
+- **OWS1 - the ship's way**: TV3's traveller mark always carried `m` (foot, horse, cart, ship) and the relay's shape law
+  took all four; a traveller at a helm or aboard now sends `ship` (their boat's bow for `h`), sent at once when it
+  changes (`travellerDue`). The view and the held map draw it as a ship.
+- **OWS3 - the raiders are shared by their seed**: a cell's raider and its course are functions of the cell, the life
+  and the shared clock (`Date.now() + _sharedOffsetMs`), so every player in the region sees the same sails at the same
+  minute; a chase is the chased traveller's own (TV7's way), and the raid it makes is Warm Ashes' own, the player's own
+  mod (`ONLINE_PLAYERS_OWN_MODS`) - a passenger aboard is sighted and raided on their own screen as the helmsman is on
+  theirs.
+- **OWS2 - the crossing** is the traveller's own journey; its boat rides CSA-J's `sa` word and its passengers CSA-K's
+  `ab` as any sailing boat's do. A passenger's own journey is refused (the helmsman sets the course).
 
 ## THE 2026-09-28 DISCORD BATCH - the pause key, the arrest, the dead span, the swimmer, the flyer, the shared quest
 
@@ -10536,3 +10569,50 @@ over main's traveller marks. `test/relayversion.test.js` keeps main's world122 r
 the branch rows' hashes in its note (the renumbering law of every merge before it); `RAID_RELAY_MIN` stays 123 (main's
 world122 holds no raid) and `GATE_SITE_RELAY_MIN` is 123 (126 on the branch). One deploy, one drop of every
 connected player.
+
+## STAFF1 (2026-09-28, Mac: "So for developer, dungeon master and the shadow fang titles I want to add teleport, debug, and other admin commands") - the staff's chat commands, no relay change
+
+Mac chose the groups: TELEPORT (self) and DEBUG; no time or weather; nothing that acts on another player. So every
+command acts on the typer alone and none touches the wire - no RELAY_VERSION bump, nobody dropped.
+
+- `/tp <place>` - any named place in the Iliac Bay (the world host's own location index): an exact name, then the
+  shortest it begins, then one it contains (`findPlace`). `/tp <x> <y>` - a map pixel of the travel map's 1000 x 500
+  grid. `/tp @<player>` - the map pixel of a traveller in my region (TV3's book) or a party member anywhere (SOC6's
+  marks). The arrival is the guild teleport's own (`teleportTo`: the Teleport window's smash to black, the random start
+  marker, the climate's weather, "You arrive at ..."); refused in words while another move is in flight.
+- `/god [on|off]` - no blow delivered: the ONE damage door's veto (`playerDamageWithheld`, characters/playerEntity.js),
+  so the SetHealth(0) doors (drowning, the exhaustion collapse) are withheld too, as a trial's are.
+- `/fly [on|off]` - the Levitate motor without the spell: `staffFly()` ORed beside the effect at every motor-flag write
+  (scenes/shared.js applyMotorEffectFlags, the dungeon context's `playerLevitating`).
+- `/heal` (health, fatigue, magicka full), `/pos` (the map pixel, its place, native world units), `/staff` (the list).
+
+WHO MAY: `isStaff` - a player whose glyphs hold `dev`, `dm` or `shadowfang` (the Developer's, the Dungeon Master's,
+Shadow Fang's), read from the ACCOUNT SERVICE'S OWN ANSWER at each token issue (`adoptIssued`), never the device's
+stored copy. To anyone else each command is the chat's own "There is no /tp command." A title taken away turns the two
+switches off at the next issue. The switches are never saved and never sent.
+
+THE LIMIT, SAID PLAINLY: this is a client gate. It keeps the commands from every ordinary player, but a player who
+edits the running game could reach the same functions - as they always could move themselves. Anything that acts on
+ANOTHER player (summon, kick, freeze, a shared clock) must be the relay's question, asked of the signed token (RED1's
+law), and is out of this slice by Mac's choice. `/spawn` and `/killall` were left out for the same reason: a town's
+foes are shared online, so both act on other players.
+
+`net/staffCommands.js` (pure); `test/staff1.test.js` (5); `tools/mutants/staff1.json` (16, all dead).
+
+## VOICE1 reverted (2026-09-28, Mac: "Do not merge voice chat. Please revert voice chat but keep other changes") - world124 again
+
+VOICE1 (proximity voice chat, world125) and AUDIT VOICE1 came out whole with PR #427's merge reverted:
+- the links and the sound (`net/proxVoice.js`), earshot (`net/voiceLaw.js`), and who is speaking (`ui/voiceHud.js`);
+- the relay's `rtc` frame and its arm;
+- the `PushToTalk` action and the voice prefs.
+
+The relay is world124's bytes again, and `RELAY_VERSION` names world124. world125's row stays in
+`test/relayversion.test.js` as the record of bytes that were deployed.
+
+Kept: VIEW-TOGGLE (PR #427's other change - `TogglePerspective`, one press first person or third, on the mouse's
+forward side button), and the side-button plumbing it rides, which came with VOICE1:
+- `ui/input.js` `MOUSE_CODES` through Mouse4;
+- `systems/keyCodes.js`' Mouse3 and Mouse4;
+- the world host keeping the side buttons from the browser's Back and Forward.
+
+`test/viewtoggle.test.js` pins all three.

@@ -1462,6 +1462,12 @@ export function createTownTalk({ renderer, canvas, fetchBytes, playerEntity, reg
     /** AUDIT 21 (hosts lane, F6): the live overlay, so a death presenter can
      *  refuse to stack a second death screen on the first. */
     get overlay() { return overlay; },
+    /** AUDIT OW4 P3: ContainsWindow (UserInterfaceManager.cs:114-117) -
+     *  whether the STACK still holds `win`: the slot's, or suspended under
+     *  a window pushed over it (pushOverlay). The slot alone answers "gone"
+     *  for a box a trade window, a quest popup or the exhaustion box was
+     *  laid over, and world.js's party walk lost its question that way. */
+    containsOverlay(win) { return windows.containsWindow(win); },
     /** S40: PopToHUD. A window that must VACATE the slot before it
      *  hands control on - the rest window does, because DFU pops to
      *  the HUD before RaiseSkills and the level-up screen it can raise

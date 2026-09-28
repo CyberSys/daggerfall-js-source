@@ -1,8 +1,9 @@
 // @ts-check
 // COME SAIL AWAY - ANOTHER PLAYER'S BOAT (CSA-J, 2026-09-28). A peer's word (systems/comeSailAwayWire.js, `sa` on
 // their foes frame) stood as boats the others can see: each built as SpawnBoat builds one, into the pool's PEER list
-// (scenes/comeSailAwayPool.js) - drawn, baked and lit as a boat of mine, but never a collider, a ray's hit or an
-// activation, because the host's loops read the pool's own `boats` - and posed every frame from the word, which stays
+// (scenes/comeSailAwayPool.js) - drawn, baked and lit as a boat of mine, and a collider, a ray's hit or an activation
+// only as CSA-K makes one (scenes/comeSailAwayAboard.js: a deck for whoever is aboard it, its ladder and boxes pressed)
+// because the host's loops read the pool's own `boats` - and posed every frame from the word, which stays
 // in the wire frame and is converted each frame (the floating origin, AUDIT HCC O1). A step past twenty metres is a
 // teleport and snaps; anything nearer eases (horseCartWire.js easeToward, the team's law). The sails raise and stow
 // as the owner's stand, through the mod's own Animator calls; the crew's idle and active objects follow the helm, the
@@ -19,15 +20,27 @@
 // AUDIT PRE-MERGE 0928 O4: the owner's look is their boat's (AUDIT 0927 I-B's law, the cart pool's): the boat under a
 // hidden owner at its helm (the classic lane) stands nowhere; under a concealed one (the enhanced lane) its crew and
 // lanterns wear the owner's look while the hull draws whole; a moored boat is a boat in the world either way.
+// CSA-K (SAIL-TOGETHER): A BOAT UNDER WAY IS LED, NOT CHASED. A word that says the boat's way (the wire's `m`) is
+// carried along it: the boat moves on by its velocity and turn every frame, and eases the rest of the way to the word
+// led from its arrival (up to CSA_PEER_LEAD_MAX seconds - a word late past that leads no further). So a deck someone
+// walks moves as the owner's does, at an even speed, and not in five surges a second. Each boat's frame keeps the pose
+// it had before it (`was`), and a step past the snap - a teleport, a new boat - is marked `jumped`: the host carries
+// whoever stands on the deck by the pose's change, never across a jump.
 import { validCsaRecord, CSA_WIRE_BOATS_MAX } from '../systems/comeSailAwayWire.js';
 import { Boat, boatAnimators, animatorOf, setLights } from '../systems/comeSailAwayBoat.js';
 import { stowSail } from '../systems/comeSailAway.js';
 import { easeToward } from '../systems/horseCartWire.js';
-import { quatSlerp } from '../world/quat.js';
+import { quatSlerp, quatMultiply, quatAngleAxis } from '../world/quat.js';
 import { FOES_FULL_MS } from '../net/online.js';
 
 /** How fast a peer's boat turns toward its word (per second, the ease's rate). */
 export const CSA_PEER_TURN_RATE = 12;
+/** A step past this is a teleport and snaps (the team's law, horseCartWire.js easeToward) - and carries nobody (CSA-K). */
+export const CSA_PEER_SNAP_M = 20;
+/** CSA-K: how long a word's way leads the boat past its arrival (three frames' worth of words: a late one leads no
+ *  further - the boat holds where the way took it until the next word). */
+export const CSA_PEER_LEAD_MAX = 0.6;
+const V_UP = [0, 1, 0];
 /** AUDIT PRE-MERGE 0928 O3: the builds an owner may spend at once - its whole list - and the time one more comes back in. */
 export const CSA_PEER_BUILD_BURST = CSA_WIRE_BOATS_MAX;
 export const CSA_PEER_BUILD_REFILL_MS = FOES_FULL_MS;
@@ -110,10 +123,36 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
     }
   }
   /** One boat's frame: eased toward its word, its sails, crew and lanterns as the word says, the owner's look, its
-   *  Animators stepped. */
-  function pose(s, w, toScene, dt, look) {
-    s.shown = easeToward(s.shown, toScene(w.position), dt);
-    s.turn = s.turn ? quatSlerp(s.turn, w.rotation, 1 - Math.exp(-CSA_PEER_TURN_RATE * Math.max(0, dt))) : [...w.rotation];
+   *  Animators stepped. CSA-K: a word under way leads it - the boat carried on by its way this frame, then eased to
+   *  the word led from its arrival (`age` seconds ago); the pose before the frame kept as `was`, a snap marked. */
+  /** A boat's pose after a frame of `dt` on its word `age` seconds old - pure: the frame's own pose and a peek ahead
+   *  (poseAhead) ask the same arithmetic. */
+  function nextPose(s, w, toScene, dt, age) {
+    const step = Math.max(0, dt);
+    const lead = Math.min(Math.max(0, age), CSA_PEER_LEAD_MAX);
+    const grow = lead - Math.min(Math.max(0, age - step), CSA_PEER_LEAD_MAX);   // the way's share of this frame: what the lead grew by (none past the cap)
+    const v = w.velocity, turn = w.turn ?? 0;
+    const at = v ? [w.position[0] + v[0] * lead, w.position[1], w.position[2] + v[2] * lead] : w.position;
+    const target = toScene(at);
+    let shown = s.shown;
+    if (shown && v && grow > 0) {   // on by the way, in the scene: the frame is affine, so the step is the difference
+      const a = toScene(w.position), b = toScene([w.position[0] + v[0] * grow, w.position[1], w.position[2] + v[2] * grow]);
+      shown = [shown[0] + b[0] - a[0], shown[1] + b[1] - a[1], shown[2] + b[2] - a[2]];
+    }
+    const jumped = !shown || (target[0] - shown[0]) ** 2 + (target[1] - shown[1]) ** 2 + (target[2] - shown[2]) ** 2 > CSA_PEER_SNAP_M * CSA_PEER_SNAP_M;
+    const position = easeToward(shown, target, dt, undefined, CSA_PEER_SNAP_M);
+    const turnTo = turn ? quatMultiply(w.rotation, quatAngleAxis(turn * lead, V_UP)) : w.rotation;   // Rotate(up * turn) in the boat's own frame, as the helm turns it
+    let turned = s.turn;
+    if (turned && turn && grow > 0) turned = quatMultiply(turned, quatAngleAxis(turn * grow, V_UP));
+    const rotation = turned ? quatSlerp(turned, turnTo, 1 - Math.exp(-CSA_PEER_TURN_RATE * step)) : [...turnTo];
+    return { position, rotation, jumped };
+  }
+  function pose(s, w, toScene, dt, look, age) {
+    s.was = s.shown && s.turn ? { position: [...s.shown], rotation: [...s.turn] } : null;
+    const next = nextPose(s, w, toScene, dt, age);
+    s.jumped = next.jumped;
+    s.shown = next.position;
+    s.turn = next.rotation;
     s.boat.GameObject.position = s.shown;
     s.boat.GameObject.rotation = s.turn;
     for (let k = 0; k < s.boat.Sails.length; k++) {
@@ -133,6 +172,7 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
   /** One frame: the builds' buckets refilled, each moved word matched to what stands, ONE build, then each boat posed. */
   function frame(dt) {
     const ms = Math.max(0, dt) * 1000;
+    for (const l of live.values()) l.age += Math.max(0, dt);   // CSA-K: each word's age on the real clock, which leads it
     for (const [owner, b] of buckets) {
       b.tokens = Math.min(CSA_PEER_BUILD_BURST, b.tokens + ms / CSA_PEER_BUILD_REFILL_MS);
       if (b.tokens >= CSA_PEER_BUILD_BURST && !live.has(owner)) buckets.delete(owner);   // owes nothing: a newcomer's own
@@ -148,7 +188,7 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
       if (!list) continue;
       const look = peerLook?.(owner) ?? null;
       try {
-        for (let i = 0; i < list.length; i++) if (list[i]) pose(list[i], l.boats[i], l.toScene, dt, look);
+        for (let i = 0; i < list.length; i++) if (list[i]) pose(list[i], l.boats[i], l.toScene, dt, look, l.age);
       } catch (e) { fail(owner, e); }
     }
   }
@@ -160,7 +200,7 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
     const r = raw == null ? null : validCsaRecord(raw);
     if (!r) { live.delete(owner); drop(owner); return raw == null; }
     if (!buckets.has(owner)) buckets.set(owner, { tokens: CSA_PEER_BUILD_BURST });
-    live.set(owner, { boats: r.boats, toScene, at: nowMs, dirty: true });
+    live.set(owner, { boats: r.boats, toScene, at: nowMs, dirty: true, age: 0 });
     return true;
   }
   /** An owner gone from the room, or quiet past staleMs, takes their boats with them (its bucket stays until full). */
@@ -190,5 +230,38 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
     get enabled() { return enabled; },
     /** What stands, owner by owner, place by place (null: waiting for its build) - a probe's and the tests' reading. */
     shown: () => [...shown].map(([owner, list]) => ({ owner, boats: list.map((s) => (s ? { hull: s.hull, variant: s.variant, position: s.shown ? [...s.shown] : null, boat: s.boat } : null)) })),
+    /** CSA-K: the boat standing for an owner's place in their word, or null. */
+    boatAt: (owner, slot) => shown.get(owner)?.[slot]?.boat ?? null,
+    /** CSA-K: where a boat of a peer's stands in their word - `{ owner, slot }` - or null (not a peer's, or gone). */
+    placeOf(boat) {
+      for (const [owner, list] of shown) for (let i = 0; i < list.length; i++) if (list[i]?.boat === boat) return { owner, slot: i };
+      return null;
+    },
+    /** CSA-K: the pose a boat of a peer's will stand at after the next frame of `dt` (a reader's online frame runs
+     *  before the peers' frame, and places a passenger on the deck where it will be drawn) - or null. */
+    poseAhead(boat, dt) {
+      for (const [owner, list] of shown) {
+        const l = live.get(owner);
+        if (!l) continue;
+        for (let i = 0; i < list.length; i++) {
+          const s = list[i];
+          if (s?.boat !== boat) continue;
+          const p = nextPose(s, l.boats[i], l.toScene, dt, l.age + Math.max(0, dt));
+          return { position: p.position, rotation: p.rotation };
+        }
+      }
+      return null;
+    },
+    /** CSA-K: a boat's move this frame - its root's pose before the frame and after - or null where there is none to
+     *  carry anyone by: a boat just built, a snap (a teleport), or no boat of a peer's. */
+    moveOf(boat) {
+      for (const list of shown.values()) {
+        for (const s of list) {
+          if (s?.boat !== boat) continue;
+          return s.was && !s.jumped ? { before: s.was, after: { position: [...s.shown], rotation: [...s.turn] } } : null;
+        }
+      }
+      return null;
+    },
   };
 }
