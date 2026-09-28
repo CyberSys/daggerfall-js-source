@@ -59,7 +59,7 @@ so balance is an edit to one file, pinned by its own tests, never a hunt.
    `titles.js`: "a cron is a thing that can stop running while everything looks fine").
 5. **NOTHING OF ARENA2 IS COMMITTED** ("a render of game data is game data"). Heraldry and devices are the port's own
    drawn art; banners, boards and map marks are drawn at runtime; the servers never hold game data (3.2).
-6. **THE WORD "SEAT" IS TAKEN IN THE CODE** - ONE-SEAT (`src/net/oneSeat.js`, `SEAT_ELSEWHERE`), SEAT-HEAL, the
+6. **THE WORD "SEAT" IS TAKEN IN THE CODE** - ONE-SEAT (`src/net/oneSeat.js`; its `SEAT_ELSEWHERE` in `src/net/wire.js`), SEAT-HEAL, the
    party's kept seat. The player reads "seat"; the code says **`townSeat`**: `townSeatLaw.js`, D1 tables
    `town_seat*`, relay frames `{t:'tseat'}`, room keys `siege:`.
 
@@ -138,6 +138,20 @@ the clients that derived them, and trust a seat only when enough of them agree.
 Why not a committed table of map ids: a list read off MAPS.BSA is ARENA2's, and the doctrine keeps ARENA2 out of
 the tree.
 
+**The witnessed world.** The registry is not a seat's alone. Every fact the servers need that only ARENA2 knows is
+learnt the same way - reported by the clients that derived it, confirmed by 3 witnesses who agree byte for byte,
+disputed the moment an honest witness disagrees - in one table and one law (`world_witness`, keyed by kind and key):
+
+| Kind | Key | What is witnessed | Who uses it |
+|---|---|---|---|
+| a location | map id | name, region, pixel, kind, whether it is a seat (and its tier), whether it has a Notice Board | the seats (3.1), the bailiwicks (7.2), the boards (PROF0 10.1) |
+| a map pixel | x, y | climate, region | the nodes' tables (PROF0 6.1) |
+| a gate day | game day | the gate's region and pixel | gate kills (4.2), gate-touched ground (PROF0 4.7) |
+
+A disputed row is worth nothing until a moderator settles it; an unconfirmed row is worth the least its kind allows
+(PROF0 6.1). Three colluding accounts can forge one row - which is why each kind's reward is bounded and every
+confirmation is on the audit list.
+
 ### 3.3 The Charter, the words, the map
 
 - **The Charter**: "the Charter of <Town>" for a palace seat, "the Crown Charter of <Kingdom>" for a crown seat.
@@ -194,14 +208,16 @@ A region may hold several seats, so a guild's work in a region needs a target.
 
 | Source | Trust | Influence | Detail |
 |---|---|---|---|
-| **The Watch** | Relay-witnessed socket; the position is the client's own claim, so it is bounded | 1 per 2 minutes, capped **60 a character a day** | A registered member's socket in the seat's cell room whose pose lies in the seat's map pixel (FACT: a pose is an absolute world position inside `POSE_BOUND`, so the relay divides it by `PIXEL_UNITS` - no game data needed; the registry carries the seat's pixel), has moved in the last 5 minutes, and is not resting. A client can lie about where it stands; the daily cap is what bounds the lie (420 a week, a fifth of a character's cap) |
-| **Gate kills** | Relay-signed receipt; its region witnessed | **300** a receipt | An `r1.` receipt claimed with the region the fighter's client derived for that day. FACT: the gate's region is NOT a pure function of the day alone - `pickGateRegion(day, regions)` (`src/net/gateLaw.js`) draws from `gateRegions(scan)`, a client-side scan of MAPS.BSA (`src/systems/gateSite.js`) - so the service takes the day's region from the claims themselves: the region at least **3** of that day's receipts agree on. A claim naming another region earns nothing |
-| **Writs** | Service-witnessed | **1 per Mark** of writ value | Materials delivered from the Stores to the seat's stockpile at its board (PROF0 section 11): to the holder as defence, to a pledged challenger as its Siege Camp |
+| **The Watch** | Relay-witnessed socket; the position is the client's own claim, so it is bounded | 1 per 2 minutes, capped **60 an account a day** | A registered member's socket in the seat's cell room whose pose lies in the seat's map pixel (FACT: a pose is an absolute world position inside `POSE_BOUND`; the relay maps it to its map pixel as `cellRoomOfWire` already does - x / `PIXEL_UNITS`, and 499 - z / `PIXEL_UNITS`, the map's y running the other way - with no game data; the registry carries the seat's pixel), has moved in the last 5 minutes, and is not resting. A client can lie about where it stands; the daily cap is what bounds the lie (420 a week, a fifth of an account's cap) |
+| **Gate kills** | Relay-signed receipt; its region witnessed | **300** a receipt | An `r1.` receipt claimed with the region the fighter's client derived for that day. FACT, the rhythm: a gate rises every game day (`GATE_EVERY_DAYS` 1), which is every **2 real hours** - twelve a real day, drawn from a shuffle bag of some forty regions - so a region sees a gate about **twice a week**. FACT: the gate's region is NOT a pure function of the day alone - `pickGateRegion(day, regions)` (`src/net/gateLaw.js`) draws from `gateRegions(scan)`, a client-side scan of MAPS.BSA (`src/systems/gateSite.js`) - so the service takes the day's region from the claims themselves: the region at least **3** of that day's receipts agree on. A claim naming another region earns nothing |
+| **Writs** | Service-witnessed | **1 per Mark of the materials' value** | Materials delivered from the Stores to the seat's stockpile at its board (PROF0 section 11): to the holder as defence, to a pledged challenger as its Siege Camp. The **value** is the delivered materials' Marks value by PROF0 4.8's table - never the writ's pay, so a guild paying itself mints no influence |
 | **Homes** | Service-witnessed | **25 a home a day**, at most 5 homes a guild a seat | Members' homes in the seat's town (`homes.map_id`) |
-| **Renown in the region** | Client-reported, bounded | **1 per 20 Renown XP**, capped **400 a character a week** | The Renown report grows `region` (0-61); the service keeps a per-character, per-region, per-week sum beside the track |
+| **Renown in the region** | Client-reported, bounded | **1 per 20 Renown XP**, capped **400 an account a week** | The Renown report grows `region` (0-61); the service keeps a per-account, per-region, per-week sum beside the tracks |
 | **Tribute** | Service-witnessed (Marks) | **1 per 10 Marks**, capped at **20%** of the guild's week at that seat | Marks from the guild's Marks treasury, spent on the pledge by the Guildmaster |
 
-- **Per-character cap**: one character contributes at most **2,000 influence a seat a week** from all sources.
+- **Per-account caps**: one ACCOUNT contributes at most **2,000 influence a seat a week** from all sources, whatever
+  number of its characters play (the Watch and Renown caps above are per account too). A cap per character would be
+  multiplied by an account's characters in one guild - fifty characters at Renown's 400 is 20,000 influence a week.
 - **Per-account war** - DECIDED (Mac: "Yes"): the first guild an account's character contributes to in a week is
   that account's guild for the week's seats; its other characters earn nothing toward any other guild's seat that
   week, and cannot fight in any other guild's siege or as a sellsword against it. Membership stays per character
@@ -226,8 +242,9 @@ rows where they agree, with `REGION_NAMES`' own indices:
 | **The Marches** - claimed by two crowns | Betony (19): Daggerfall and Sentinel, the quarrel Daggerfall's own story is fought over; Anticlere (21): Daggerfall and Wayrest; Lainlyn (22): Wayrest and Sentinel |
 | **The Free Lands** - no crown's | Isle of Balfiera (9): the Direnni's; Orsinium Area (26) and Wrothgarian Mountains (16): the Orcs' |
 
-The regions left out hold no location (the wildernesses, coasts and generic villages - FACT, `travelMapWindow.js`
-counts eighteen with no map page) and so no seat.
+The regions left out hold no seat: seventeen hold no location at all (the wildernesses, coasts and generic villages),
+and the eighteenth - region 31, the High Rock sea coast - holds only Mantellan Crux and the two "Your Ship" moorings
+(FACT, `travelMapWindow.js`'s own correction), none of them with a Palace.
 
 - **Kingdom reach** - DECIDED (Mac, "All of the above"): a guild holding a crown seat earns **+25%** on every source
   but Tribute at the palace seats of that kingdom.
@@ -239,18 +256,19 @@ counts eighteen with no map page) and so no seat.
 ### 4.4 A worked example
 
 The Silver Hand (24 members) pledges Anticlere (a march) and holds the Crown of Daggerfall. In one week, 14 members
-patrol the town an hour a day for five days (the Watch: 14 x 30 x 5 = 2,100), fell four gates in Anticlere's region
-(4 x 300 = 1,200), deliver 900 Marks of timber and stone writs (900), keep three homes there (3 x 25 x 7 = 525), earn
-60,000 Renown XP there between them (3,000, under the 400-a-character cap), and pay 400 Marks of Tribute (40).
-Before reach: 7,765. The march gives Daggerfall's holder +12.5% on all but Tribute: 7,765 + 965 = **8,730**, above
-the palace claim threshold (6,000). No member hit the 2,000 cap.
+patrol the town an hour a day for five days (the Watch: 14 x 30 x 5 = 2,100), fell the one gate that rose in
+Anticlere's region that week (300), deliver 900 Marks' worth of timber and stone to their Siege Camp (900), keep
+three homes there (3 x 25 x 7 = 525), earn 60,000 Renown XP there between them (3,000, under the 400-an-account cap),
+and pay 400 Marks of Tribute (40). Before reach: 6,865. The march gives Daggerfall's holder +12.5% on all but
+Tribute: 6,865 + 853 = **7,718**, above the palace claim threshold (6,000). No account hit the 2,000 cap.
 
 ## 5. The week - the Turning
 
 ### 5.1 The cycle
 
-DECIDED (Mac: "Yes"). A seat week is a real week counted from `ONLINE_EPOCH_MS` (the game week, 14 real hours, is far
-too fast for a war).
+DECIDED (Mac: "Yes"). A seat week is a real week (the game week, 14 real hours, is far too fast for a war). FACT,
+`ONLINE_EPOCH_MS` is Monday 2026-09-14 00:00 UTC, so seat week n begins at `ONLINE_EPOCH_MS` + 6 days 18 hours + n
+weeks: the first Turning fell on Sunday 2026-09-20 at 18:00 UTC.
 
 | Phase | When (UTC) | What happens |
 |---|---|---|
@@ -298,8 +316,10 @@ FACT: no server sees a blow between players today, and "a client's damage claim 
 referees up to 256 fighters against one foe.
 
 - **Siege vitality** - DECIDED: in a siege room the RELAY holds every fighter's vitality, and it is normalised:
-  **200 + 5 x Renown level** (the level the account service signed into the token - the one number about a
-  character a client cannot inflate). A siege never touches the save's health, items or gold (DECIDED): a fallen
+  **300 + 2 x Renown level** - from 302 to 400. The level is the account service's signed number; its XP is
+  client-reported but rate-bounded (20,000 an hour an account, FACT `renownTracks.js`), so an inflated level is a slow
+  lie - some 125 hours at the cap to reach 50 - and the formula is flat on purpose, so even a lie buys a quarter more
+  vitality at most. A siege never touches the save's health, items or gold (DECIDED): a fallen
   fighter respawns (6.2), and leaves the room as they entered it.
 - **The blow** - a claim `{target, weapon kind, material, spell?}`. The relay accepts it when: both are alive; the
   target's last pose is within the weapon's reach (DFU's melee reach, imported - `DEFAULT_WEAPON_REACH`, 2.25 m,
@@ -344,9 +364,10 @@ referees up to 256 fighters against one foe.
 
 ### 6.3 Scheduling
 
-- **The holder's window** - DECIDED (Mac: "Yes"): the holder sets a standing window on the board - a weekday and a
-  start hour, **16:00 to 02:00 UTC**, two hours long. The siege begins at the window's start on that weekday in the
-  seven days after the Turning. A window changed within **48 hours** of a siege does not apply to it. A holder that
+- **The holder's window** - DECIDED (Mac: "Yes"): the holder sets a standing window on the board - a day from
+  **Wednesday to Saturday** and a start hour, **16:00 to 02:00 UTC**, two hours long. The siege begins at the
+  window's start on that day in the week after the Turning - never sooner than 70 hours after it, so a challenger
+  always has three days to sign its side (a Sunday-night window would let a holder win by the challenger's absence). A window changed within **48 hours** of a siege does not apply to it. A holder that
   never set one gets **Wednesday 20:00 UTC**.
 - **Crown sieges** - DECIDED: **Saturday**, Daggerfall at **20:00**, Wayrest at **21:00**, Sentinel at **22:00
   UTC**, whatever the holder's window - three marquee battles an hour apart, so one guild is never asked to fight two
@@ -420,8 +441,15 @@ yields - Warforged Steel ingot, a Standard-bearer's silk, a Siege-cracked gem).
   price taken from the seller's proceeds**, and the same share of the writ and courier fees paid there. The holder
   sets it: palace **0-10%**, crown **0-15%**, whole percents, changed at most once a week; it lands in the holder's
   Marks treasury. The **buyer always pays the listed price**; the seller receives the price less the burnt 5% sales
-  tax and the Tithe (PROF0 10.4). And a seller chooses where to list: a listing may be posted at **any board in the
-  region**, so two seats in one region **compete** - a greedy Tithe empties its own boards into its neighbour's.
+  tax and the Tithe (PROF0 10.4).
+- **The bailiwick** - where the Tithe reaches. Every Notice Board in a region that holds at least one seat belongs
+  to exactly one seat: **the seat nearest it in that region** by map-pixel distance (ties to the lower key), derived
+  from the witnessed world (3.2) - so a seat's bailiwick is its own town and every ordinary town nearer to it than to
+  any other seat of the region. A listing, a writ fee or a courier paid at any board pays that board's seat's Tithe;
+  there is no untaxed board in a seated region, so no seller escapes a Tithe by walking to a village. What remains is
+  choice between seats: in a region with two seats a seller may list at either's boards, so a greedy Tithe empties
+  its own bailiwick into its neighbour's. A region with no seat has no Tithe at all. Conscription (7.6) and a vassal's
+  tribute (7.8) are shares of this same Tithe, so they reach as far.
   Gold purchases (homes, licences, decor) are the save's and are never tithed: a Mark minted from gold a client may
   not have had is the hole Marks close.
 - **Members' discount** - **10%** at the seat town's shops (**15%** at a crown seat), **+5%** while Standing is 80 or
@@ -444,7 +472,8 @@ Every held seat has a **Standing** from 0 to 100; a new Charter starts at **50**
 | Raises it | Lowers it |
 |---|---|
 | Tithe at or below half its cap: +2 a week | Tithe above three quarters of its cap: -3 a week |
-| Held unchallenged at a Turning: +5 | A gate in the region left unfelled: -5 each |
+| Held unchallenged at a Turning: +5 | A week with no Watch minutes from the holder's own members: -5 |
+| A gate felled in the region (a witnessed receipt): +2, at most +6 a week | |
 | A siege held: +15 | A siege held only after the Throne was reached: -5 |
 | A Festival (7.6): +10 | Neglect (5.2): -10 |
 | Writs filled for the town: +1 each, at most +5 a week | Upkeep paid late: -5 |
@@ -485,7 +514,7 @@ after its last delivery. Costs (PROF0 section 4 names every material):
 | **Watchtowers** | 200 Cut Stone, 200 Pine Planks, 800 Marks | 400 Cut Stone, 100 Iron Ingots, 2,000 Marks | - | the holder is told when a challenger passes half its defence (tier 1) or a quarter (tier 2) |
 | **Barracks** | 300 Oak Planks, 100 Iron Ingots, 1,500 Marks | 600 Oak Planks, 200 Steel Ingots, 4,000 Marks | 800 Teak Planks, 100 Mithril Ingots, 9,000 Marks | relay-run town guards fight for the holder: 2, 4, 6 (the gate's brain with adds) |
 | **Market Hall** | 200 Oak Planks, 100 Cut Stone, 1,000 Marks | 400 Cherry Planks, 200 Cut Stone, 2,500 Marks | 400 Mahogany Planks, 50 Gold, 6,000 Marks | the town's boards list 25% more; the Tithe's cap +1% |
-| **Shrine** | 100 Cut Stone, 20 Silver, 1,000 Marks | 200 Cut Stone, 10 Holy Relics, 3,000 Marks | - | Standing +1 a week; each gate felled in the region gives the holder +50 influence |
+| **Shrine** | 100 Cut Stone, 20 Silver, 1,000 Marks | 200 Cut Stone, 10 Pearls, 3,000 Marks | - | Standing +1 a week; each gate felled in the region gives the holder +50 influence |
 | **Forge** | 200 Cut Stone, 100 Iron Ingots, 1,000 Marks | 300 Cut Stone, 100 Steel Ingots, 2,500 Marks | - | members smithing here: quality +1 step (PROF0 9.2) |
 | **Workshop** | 200 Oak Planks, 50 Iron Ingots, 1,000 Marks | 300 Teak Planks, 50 Steel Ingots, 2,500 Marks | - | members in Carpentry, Outfitting, Masonry here: +1 step |
 | **Apothecary** | 100 Cut Stone, 100 Oak Planks, 1,000 Marks | 200 Cut Stone, 20 Pearls, 2,500 Marks | - | members in Alchemy, Cooking, Jewelcrafting here: +1 step |
@@ -605,7 +634,7 @@ and a salt, as the gate's site is. Everyone knows the coming week's Tides at the
 | Blight | 5 | herbs and wood yields -25% |
 | Plague | 5 | the Watch counts half; Festivals cost double |
 | Orc Raids | 10 | WOD camps in the kingdom doubled; each cleared gives the clearer's pledged guild +50 influence |
-| Daedric Incursion | 10 | the gate rises there twice a day; gate kills give double influence |
+| Daedric Incursion | 10 | gate kills in the kingdom's regions give double influence, and double Marks (PROF0 10.5) |
 | Royal Wedding | 5 | Festivals cost half; Standing +3 at every held seat |
 | Bandit Summer | 5 | couriers into the kingdom take twice as long (PROF0 10.4) |
 | Storm Season | 5 | fishing yields +50%, sea travel slowed |
@@ -621,14 +650,14 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
 
 | Threat | Answer |
 |---|---|
-| A modified client inflates Renown | Renown is the weakest source: 1 per 20 XP, 400 a character a week (4.2) |
+| A modified client inflates Renown | Renown is the weakest source: 1 per 20 XP, 400 an account a week (4.2); siege vitality is flat (6.1) |
 | A modified client fakes a blow, a speed or a position | PVP-REF: the relay referees every blow and every step (6.1) |
 | A modified client fakes the gold behind a fee | No seat cost is in gold: Marks only, which only the server holds (PROF0 10.5) |
-| One account feeds two guilds | Per-account war (4.2) |
+| One account feeds two guilds, or fields many characters in one | Per-account war and per-account caps (4.2) |
 | Fresh alts join to pad influence | 7 days in a guild before a member counts (4.2) |
 | A holder farms its own alt challenger | Forfeit Standing only once a Season per challenger; thresholds make a fake challenger cost 6,000 influence |
 | A parked tab farms the Watch | Movement in the last 5 minutes; 60 a day (4.2) |
-| A zerg takes everything | Per-character caps, Overreach, fixed team sizes, Unrest, Pacts against it |
+| A zerg takes everything | Per-account caps, Overreach, fixed team sizes, Unrest, Pacts against it |
 | A holder sets sieges for 4 a.m. | Windows start 16:00-02:00 UTC, fixed 48 hours ahead; crowns fixed Saturday evening |
 | A holder hoards and never builds | Upkeep, Standing, revolt |
 | Two readers settle a week at once | One transaction keyed by the week (5.2) |
@@ -639,10 +668,10 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
 
 | Seat side | Professions side (PROF0) |
 |---|---|
-| Writs as influence (4.2) | Gatherers and crafters fill them from the Stores (section 9) |
-| Fortifications (7.5) | Masonry, Carpentry, Smithing; every material in section 4 |
+| Writs as influence (4.2) | Gatherers and crafters fill them from the Stores (PROF0 section 11) |
+| Fortifications (7.5) | Masonry, Carpentry, Smithing; every material in PROF0 section 4 |
 | The Ram (6.2) | Carpentry and Smithing craft it; a siege consumes it |
-| The Levy (7.6), Harvest and Blight (9.3) | Node yields (section 5) |
+| The Levy (7.6), Harvest and Blight (9.3) | Node yields (PROF0 section 6) |
 | Regional signature materials (PROF0 4.7) | The crowns and marches that tax them |
 | The Forge, Workshop, Apothecary (7.5) | Quality +1 step for the holder's members |
 | Siege Honours (6.8) | The Spoils of War table - materials only war yields |
@@ -653,7 +682,8 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
 - **Account service (D1)**, migrations after 0015:
   - `town_seats` (key PK, name, region, tier, pixel_x, pixel_y, confirmed_at, holder_guild, held_since, standing,
     tithe, edict, window_day, window_hour, legacy JSON)
-  - `town_seat_witness` (key, account, report_hash, at) - the registry (3.2)
+  - `world_witness` (kind, key, account, report_hash, at) and `world_facts` (kind, key, data JSON, state -
+    unconfirmed, confirmed or disputed) - the witnessed world (3.2): locations and seats, pixels, gate days
   - `town_seat_pledges` (week, guild_id, region, key, set_by, at)
   - `town_seat_influence` (week, key, guild_id, account, char_id, source, amount) - summed on read, capped on write
   - `town_seat_weeks` (week PK, settled_at) - the settle's idempotence key
@@ -754,8 +784,9 @@ Every law in Home.md's Process section, and what it demands of this arc:
 
 - **A seat is struck** by a developer (3.2) while held: the Charter voids, the claim fee is refunded to the holder's
   Marks treasury if struck within the Season, and the history keeps the row.
-- **A holder is Contested and Neglected at once**: Neglect is settled first (5.2's order), so a seat whose Charter
-  lapses to Neglect this Turning can be Contested next week.
+- **Neglect and Contested never meet at one Turning**: only an unheld seat can be Contested (5.2, step 1), and
+  Neglect is a held seat's (step 3). A seat whose Charter lapses from Neglect is unheld from the next week, and may be
+  Contested at the Turning after that.
 - **Two seats in one town** cannot happen: one seat a location (3.1).
 - **A crown holder's own palaces**: kingdom reach raises the crown guild's influence at its own palace seats too, so
   a crown defends its realm better - the reason crowns are coveted.
@@ -848,7 +879,7 @@ Enhanced Plus windows, drawn in its brass and bone; these are layouts, not art.
 
                                    +
 
-                                                  vitality  |||||||||..  312 / 450
+                                                  vitality  |||||||||..  372 / 386
                                                   next wave in 12 s
 ```
 
@@ -875,7 +906,7 @@ note:
   region, and fill the Ebon Oath's own stone writ at the board - paid in Marks, but it counts toward the Oath's
   defence, not their claim (writs count only for the holder or a pledged guild, at their own camp). They deliver
   timber to their Siege Camp instead.
-- **Friday 18:00, the Reckoning.** Pledges lock. The board shows the Silver Hand at 8,730, the Iron Circle at 4,100.
+- **Friday 18:00, the Reckoning.** Pledges lock. The board shows the Silver Hand at 7,718, the Iron Circle at 4,100.
 - **Sunday 18:00, the Turning.** The Oath's defence: its own 5,900 x (1 + 0.04 Standing) x (1 + 0 forts - Walls
   change respawns, not defence) + 400 Legacy = 6,536. The Silver Hand beat it and passed 6,000: the **Right of
   Siege**. The Oath's window is Wednesday 20:00.
@@ -891,9 +922,9 @@ note:
 |---|---|
 | Witnesses to confirm / witness account age | 3 / 7 days |
 | Pledge regions a guild / pledges a region | 5 / 1 |
-| Watch: per 2 minutes, cap a day, movement window | 1, 60, 5 minutes |
-| Gate kill / home a day (cap 5 homes) / writ per Mark / Renown per 20 XP (cap 400 a week) / Tribute per 10 Marks (cap 20%) | 300 / 25 / 1 / 1 / 1 |
-| Per-character cap a seat a week / new-member wait / Legacy | 2,000 / 7 days / 10% |
+| Watch: per 2 minutes, cap an account a day, movement window | 1, 60, 5 minutes |
+| Gate kill / home a day (cap 5 homes) / writ per Mark of materials' value / Renown per 20 XP (cap 400 an account a week) / Tribute per 10 Marks (cap 20%) | 300 / 25 / 1 / 1 / 1 |
+| Per-account cap a seat a week / new-member wait / Legacy | 2,000 / 7 days / 10% |
 | Kingdom reach / march share / free-land Watch bonus | 25% / 12.5% / 10% |
 | Claim threshold (palace / crown) | 6,000 / 30,000 |
 | Claim fee (palace / crown) | 8,000 / 80,000 Marks |
@@ -905,10 +936,10 @@ note:
 | Standing: start, Unrest below, revolt at | 50, 20, 0 |
 | Standing on defence (above 50 / below 50, a point) | +0.5% / -1% |
 | Turning / Reckoning | Sunday 18:00 / Friday 18:00 UTC |
-| Window start range / length / freeze / default | 16:00-02:00 UTC / 2 h / 48 h / Wednesday 20:00 |
+| Window days / start range / length / freeze / default | Wednesday-Saturday / 16:00-02:00 UTC / 2 h / 48 h / Wednesday 20:00 |
 | Crown sieges | Saturday 20:00 DF, 21:00 WR, 22:00 SN UTC |
 | Sides (palace / crown), sellswords | 10 / 20; 2 / 4 |
-| Siege vitality | 200 + 5 x Renown level |
+| Siege vitality | 300 + 2 x Renown level (302-400) |
 | Blows a second / casts per 5 s / cast damage / heal | 4 / 3 / 60 / 40 |
 | Speed limit | 12.5 m/s + 0.5 m |
 | Banner radius / raise time / Throne (palace / crown) | 8 m / 20 s / 120 s / 180 s |
@@ -930,7 +961,7 @@ The model lives with Marks, in `06-Systems/Professions-Arc.md` Appendix C. What 
 
 | Number | First record | Now | Why |
 |---|---|---|---|
-| Claim threshold | 5,000 / 25,000 | **6,000 / 30,000** | a regular 8-member guild's median week clears a palace; a crown needs a 30-member guild's |
+| Claim threshold | 5,000 / 25,000 | **6,000 / 30,000** | a regular 8-member guild's median week clears a palace; a crown needs a 30-member guild in a good week (its p90 is 32,413) or a 40-member guild's median |
 | Claim fee | 5,000 / 50,000 Marks | **8,000 / 80,000** | most of a 12-member guild's week of writs; three weeks of a 30-member guild's |
 | Palace upkeep | 1,000 | **2,500** | at 1,000 it was 6% of a 12-member guild's writ income - a seat that cost nothing; now a quarter |
 | Crown upkeep | 10,000 | **15,000 x the server's scale** | more than half a 30-member guild's income, scaled so a small server's crown is not starved |
