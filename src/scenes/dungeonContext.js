@@ -32,7 +32,7 @@ import { isHearthFlat } from '../systems/survival/hearth.js';   // HEARTH1: a bo
 import { CityLightAnimator, MINUTES_PER_DAY } from '../world/worldClock.js';
 import { billboardSize, mobileBillboardSize, centredBase } from '../world/rmbFlats.js';
 import { WATER_SCROLL_TILES_PER_SEC } from '../render/waterSurface.js';   // WATER-D1: the classic texel's flow, one home - the dungeon water draw lives here now
-import { enemyControllerHeight, idleSpriteHeight, feetFromCentre, centreFromFeet, spriteOriginY, keepRebuiltSpawn } from '../characters/enemyAnchor.js';   // INCIDENT 2026-09-04 (ceiling bats): SetupDemoEnemy.cs:103-115 capsule + DaggerfallMobileUnit.cs:398-411 anchor
+import { enemyControllerHeight, idleSpriteHeight, flyerSpawnFeet, centreFromFeet, spriteOriginY, keepRebuiltSpawn } from '../characters/enemyAnchor.js';   // INCIDENT 2026-09-04 (ceiling bats): SetupDemoEnemy.cs:103-115 capsule + DaggerfallMobileUnit.cs:398-411 anchor
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobileUnit.js';   // C11: classic sprite monsters   // A5: the Seducer transform pair + its trigger
 import { dfMeshToModel, GLOBAL_SCALE } from '../world/meshReader.js';
 import { customModelFor, emptyModel } from '../world/customModels.js';   // DS1: models no ARCH3D carries, and GetModelData's false
@@ -1054,7 +1054,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     entity.damageScale = ELITE_DAMAGE_SCALE;
     entity.elite = true;
   }
-  async function buildFoeAt(e, fallbackFlat = true, { at = -1 } = {}) {
+  async function buildFoeAt(e, fallbackFlat = true, { at = -1, feetGiven = false } = {}) {   // DISC28-H: `feetGiven` - the position is already a motor's FEET (a streamed puppet), not a marker's sprite centre
     const basics = ENEMY_BASICS[e.mobileType];
     if (!basics) return;
     if (at >= 0 && !canStandFoe(e.mobileType)) return;   // AUDIT WORLD3 E3: a rebuild has a live record standing there - the flat fallback has nothing to draw and its flatGroups push is dead after the build
@@ -1179,7 +1179,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // on its pool bed and swims up on pursuit).
       const behaviour = basics.behaviour ?? 'General';
       const idleH = idleSpriteHeight(t);
-      const pos = behaviour === 'Flying' ? feetFromCentre([e.x, e.y, e.z], idleH) : D.floorLanding(collider, [e.x, e.y + 0.2, e.z]);
+      // DISC28-H: a flyer hangs on its marker, never with its feet under the floor below it (enemyAnchor.js flyerSpawnFeet);
+      // a streamed puppet's position is the owner's feet already, and re-hanging it built the flyer half a sprite low
+      const floorUnder = () => { const d = collider.raycast([e.x, e.y + 0.2, e.z], [0, -1, 0], idleH / 2 + 0.4); return Number.isFinite(d) ? e.y + 0.2 - d : null; };
+      const pos = behaviour === 'Flying' ? (feetGiven ? [e.x, e.y, e.z] : flyerSpawnFeet([e.x, e.y, e.z], idleH, floorUnder())) : D.floorLanding(collider, [e.x, e.y + 0.2, e.z]);
       const yawDeg = ((e.mobileType * 73 + Math.round(e.x + e.z)) % 8) * 45;   // deterministic facing (Ledger A rule)
       const career = await D.loadMonsterCareer(e.mobileType, D.fetchBytes);
       const entity = D.makeEnemyEntity(e.mobileType, basics, career, D.playerEntity.level);
@@ -3953,7 +3956,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** REST-SYNC: one of the room's encounters stood here as a puppet - the build chain's own, where the host's record
    *  says, and posed by the newest record the stream has carried since. */
   async function standSharedPuppet(r) {
-    const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false);
+    const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false, { feetGiven: true });   // DISC28-H: `r.f` is the owner's feet
     const newest = _sharedPending.get(r.i) ?? r;
     _sharedPending.delete(r.i);
     if (!f) return null;
@@ -4090,7 +4093,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  by the newest record since; a build its owner's sweep overtook ends on arrival. */
   async function standOwnPuppet(from, r, qt, gen, lo = false) {
     const key = ownPupKey(from, r.i);
-    const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false);
+    const f = await buildFoeAt({ mobileType: r.t, gender: GENDER_BIT[r.x === 1 ? 1 : 0], x: r.f[0], y: r.f[1], z: r.f[2], spawnDistanceType: 0 }, false, { feetGiven: true });   // DISC28-H: `r.f` is the owner's feet
     const kept = _ownPending.has(key);   // no room change cleared it (clearOwnPuppets empties the pending)
     const newest = _ownPending.get(key) ?? r;
     _ownPending.delete(key); _ownPendLoose.delete(key);

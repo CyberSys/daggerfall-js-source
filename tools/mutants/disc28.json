@@ -233,5 +233,42 @@
       "test/disc28_swim.test.js",
       "test/ph1_physics.test.js"
     ]
+  },
+  {
+    "name": "DISC28-H-hang-unfloored",
+    "file": "src/characters/enemyAnchor.js",
+    "old": "  if (Number.isFinite(floorY) && floorY <= centre[1] && feet[1] < floorY) feet[1] = floorY;\n",
+    "new": "",
+    "tests": [
+      "test/disc28_flyer.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-H-floor-above-marker-lifts",
+    "file": "src/characters/enemyAnchor.js",
+    "old": "floorY <= centre[1] && ",
+    "new": "",
+    "tests": [
+      "test/disc28_flyer.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-H-builder-reads-no-floor",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "flyerSpawnFeet([e.x, e.y, e.z], idleH, floorUnder())",
+    "new": "flyerSpawnFeet([e.x, e.y, e.z], idleH, null)",
+    "tests": [
+      "test/disc28_flyer.test.js",
+      "test/incident_ceiling_bats.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-H-puppet-rehung",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "spawnDistanceType: 0 }, false, { feetGiven: true });   // DISC28-H: `r.f` is the owner's feet\n    const kept",
+    "new": "spawnDistanceType: 0 }, false);\n    const kept",
+    "tests": [
+      "test/disc28_flyer.test.js"
+    ]
   }
 ]

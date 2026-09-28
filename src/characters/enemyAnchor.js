@@ -38,6 +38,20 @@ export function feetFromCentre(pos, idleH) {
   return [pos[0], pos[1] - idleH / 2, pos[2]];
 }
 
+/** DISC28-H (Discord: the Dragonslayer quest's dragonling "stuck in the floor"): A FLYER'S FEET NEVER START UNDER THE
+ *  FLOOR BENEATH ITS MARKER. feetFromCentre hangs the sprite on the marker as DFU does, which puts the feet half the
+ *  idle sprite below it - a bat's 1 m, and a Meaner Monsters dragonling's several metres (texture 295 at 2.5x), whose
+ *  quest marker stands half a metre off the floor. Its capsule started inside the floor. DFU's CharacterController
+ *  recovers from a start overlap by pushing out, and the port's collider does not: the middle and head spheres were
+ *  pushed DOWN from the face they were under, and the body flew on held half into the ground, drawn sunk on every
+ *  peer too. So the floor under the marker, when the drop reaches it, is where the feet start at the lowest.
+ *  `floorY` is that floor's height, or null (a bat's marker far above any floor keeps DFU's hang exactly). */
+export function flyerSpawnFeet(centre, idleH, floorY = null) {
+  const feet = feetFromCentre(centre, idleH);
+  if (Number.isFinite(floorY) && floorY <= centre[1] && feet[1] < floorY) feet[1] = floorY;
+  return feet;
+}
+
 /** The inverse: DFU's transform from the port's feet. WabbajackEffect.cs:90
  *  hands CreateEnemy the struck foe's transform.localPosition, and a
  *  save restores the transform it wrote - both are the sprite CENTRE,
