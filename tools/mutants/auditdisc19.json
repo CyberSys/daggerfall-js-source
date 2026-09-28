@@ -47,8 +47,8 @@
   {
     "name": "AUDIT-DISC19-W3-quiet-cumulative",
     "file": "src/systems/townWatch.js",
-    "old": "      if (threats > 0) quiet = 0;\n",
-    "new": "",
+    "old": "      if (threats > 0) quiet = 0;\n      else if ((quiet += dt) >= TOWN_WATCH_STAND_DOWN_SECONDS) waves = 0;",
+    "new": "      if ((quiet += dt) >= TOWN_WATCH_STAND_DOWN_SECONDS) waves = 0;",
     "tests": [
       "test/auditdisc19.test.js"
     ]
