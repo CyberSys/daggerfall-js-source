@@ -2,8 +2,8 @@
   {
     "name": "ESC-BOOK-arm-before-close",
     "file": "src/ui/charSheetDoor.js",
-    "old": "() => { close(); bag[arm](); }",
-    "new": "() => { bag[arm](); close(); }",
+    "old": "() => { close(); return bag[arm](); }",
+    "new": "() => { const r = bag[arm](); close(); return r; }",
     "tests": [
       "test/escbook.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "ESC-BOOK-door-without-arm",
     "file": "src/ui/charSheetDoor.js",
-    "old": "() => { close(); bag[arm](); } : undefined);",
-    "new": "() => { close(); bag[arm](); } : () => close());",
+    "old": "() => { close(); return bag[arm](); } : undefined);",
+    "new": "() => { close(); return bag[arm](); } : () => close());",
     "tests": [
       "test/escbook.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "ESC-BOOK-stats-door-resumes",
     "file": "src/ui/enhancedMenu.js",
-    "old": "b.onclick = () => { onAction('handoff'); fn(); };",
-    "new": "b.onclick = () => { onAction('resume'); fn(); };",
+    "old": "b.onclick = () => { onAction('handoff'); if (fn() === false) onAction('resume'); };",
+    "new": "b.onclick = () => { onAction('resume'); if (fn() === false) onAction('resume'); };",
     "tests": [
       "test/escbook.test.js"
     ]
@@ -389,7 +389,7 @@
   {
     "name": "HOLD-STEP-view-no-setter",
     "file": "src/ui/enhancedPorts.js",
-    "old": "set: (v) => ed.setValue(field, v),",
+    "old": "set: live((v) => ed.setValue(field, v)),",
     "new": "set: undefined,",
     "tests": [
       "test/holdstep.test.js"

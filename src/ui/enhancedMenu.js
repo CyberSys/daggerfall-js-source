@@ -3326,7 +3326,11 @@ function pauseStats(body) {
       // stacking bug U55 found the other way round on this very seam.
       // ESC-BOOK: as a HANDOFF, not a resume - the door's window takes
       // the slot, so nothing relocks under it (ui/pauseDoor.js).
-      b.onclick = () => { onAction('handoff'); fn(); };
+      // AUDIT 27h A4: ...unless the door says it opened nothing (a
+      // refused pack, a journal whose art has not landed): then it IS
+      // a resume, inside this same click - no page and no window up,
+      // and the pointer left free under a running game, was the hole.
+      b.onclick = () => { onAction('handoff'); if (fn() === false) onAction('resume'); };
       row.append(b);
     }
     detail.append(row);

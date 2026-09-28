@@ -3765,6 +3765,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   preloadCharSheetArt({ renderer, fetchBytes, palette });   // U8a: INFO00I0 warms at boot
   warmLevelUpWindow();   // LV1's audit: the level-up window opens because the GAME decided, so its chunk warms at boot rather than inside a pause nobody asked for
   preloadBookArt({ renderer, fetchBytes, palette });   // B1: BOOK00I0 warms at boot
+  preloadQuestJournalArt({ renderer, fetchBytes, palette });   // AUDIT 27h A4: LGBK00I0 warms at boot too (exterior.js's U43 line) - the classic journal's door answered null until it had, so the first L, N or Chronicle press opened nothing
   preloadTransportArt({ renderer, fetchBytes, palette });   // TR3: MOVE00I0 + MOVE01I0
   // MAC-K3: the mount rig, built once townTalk exists to hold its
   // picker. `onShip` is THIS host's - the ship is a teleport across a
@@ -5099,7 +5100,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2612 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6309
+  // that context through modes.dungeonCtx - so worldModes.js:6314
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -6990,6 +6991,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     _deadMark = null; _partyComposedAt = -Infinity;   // PCORPSE3: my body is gone - my party pose says so at once
     reviveForPlay(playerEntity, { force: true });
     playerEntity.health = Math.max(1, Math.round((playerEntity.maxHealth ?? playerEntity.health) * RESURRECT_HEALTH_PCT / 100));
+    player.stopAutorun();   // AUDIT 27h S2: SEA-RISE's law for every rise - a drowned autorunner raised on the seabed walked on
     _deathWasOnline = null;
     closeDeathScreen();
     townTalk.say(RESURRECT_TEXT.raised(rez.name));
@@ -7359,7 +7361,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7031), so exterior mode and a
+    // composer, dungeonContext.js:7036), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -7522,6 +7524,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // incoming character does not inherit the old one's reel.
       cameraRecoiler.reset();
       resetVitalsDetector();   // BLOOD AUDIT 5: nor the difference between the two healths as a blow (VitalsChangeDetector.cs:139-158)
+      player.stopAutorun();   // AUDIT 27h S2: nor the old one's autorun latch - F11 off a death screen came back running at the sea
       dwLoadStarted();   // DW-D: DeepWaterRuntime.OnStartLoad (SaveLoadManager raises it once a load is under way) - no swim hand until OnLoad
       // IS1: a load never runs UNDER a mounted mode - RespawnPlayer
       // destroys the standing interior first (PlayerEnterExit
@@ -8504,10 +8507,11 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  and the F5 page (makeCharSheetWindow's `pause`, ui/charSheetDoor.js), which was handed the sheet's four
    *  doors and nothing else, so its Quests tab never listed a quest. */
   const pauseDoorHooks = () => ({
-    // PX25: the sheet's own doors, through this host's own arms.
-    openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); },   // DISC10-E L3: a refused pack is null
-    openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); },
-    openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); },
+    // PX25: the sheet's own doors, through this host's own arms. AUDIT 27h A4: each answers whether it opened one -
+    // the page went down as a handoff (ui/pauseDoor.js), and a door that opened nothing resumes instead.
+    openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); return !!w; },   // DISC10-E L3: a refused pack is null
+    openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); return !!w; },
+    openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); return !!w; },
     quickSave: worldQuickSave,
     quickLoad: worldQuickLoad,
     relock: () => requestLook(canvas),   // MAC1: the pointer comes back with the resume gesture (ui/pauseDoor.js)
@@ -9497,7 +9501,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9626-9690 -
+  // worldModes answers it in BOTH modes (worldModes.js:9637-9701 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -17459,7 +17463,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // layer, because a talk window is a modal above the vitals.
     // AUDIT 39: THE CALL IS UNCONDITIONAL. drawHud runs the damage
     // flash and the enhanced DOM HUD ABOVE its own `!art` return
-    // (hud.js:426-454) because neither reads ARENA2 - "a player whose
+    // (hud.js:433-461) because neither reads ARENA2 - "a player whose
     // HUD art failed to load still has vitals". Wrapping the whole
     // call in `if (hudArt)` inverted that: hudArt starts null and is
     // filled by a fire-and-forget load whose failure leaves it null

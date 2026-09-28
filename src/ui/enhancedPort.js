@@ -34,6 +34,7 @@
 // window as it always has, so every hotkey and Y/N still works.
 
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
+import { swallowBrowserKey } from './input.js';   // AUDIT 27h H2: the typed field still swallows the keys the browser would steal
 
 /** A renderer that paints nothing and answers the canvas. */
 export function quietRenderer(renderer) {
@@ -289,6 +290,14 @@ export function portWindow(win, spec, doc = globalThis.document) {
     const h = { pos, n: 0, timer: null };
     const tick = () => {
       if (hold !== h || !host) return;
+      // AUDIT 27h H1: THE LIVE VIEW, read at the repeat - not the last one drawn. The acts click the classic window at
+      // fixed points, so a repeat that fired after the window moved on and before the next draw (Escape shutting the
+      // editor mid-hold, under a 30 fps cap) clicked whatever stood there now: the main window's Buy spell.
+      let view = null;
+      try { view = win.done ? null : spec.view(proxy); } catch { view = null; }
+      if (!view) { stopHold(); return; }
+      const vs = viewSig(view);
+      if (vs !== sig) { sig = vs; render(view); } else acts = collectActs(view);
       const btn = body?.querySelectorAll?.('.port-spinbtn')?.[h.pos] ?? null;
       const fn = btn && !btn.disabled && btn.dataset.a != null ? acts[Number(btn.dataset.a)] : null;
       if (typeof fn !== 'function') { stopHold(); return; }
@@ -300,6 +309,13 @@ export function portWindow(win, spec, doc = globalThis.document) {
     hold = h;
   };
   const onRelease = () => stopHold();
+  // AUDIT 27h H7: a typed value not yet committed goes in BEFORE a button's act. A press keeps the focus where it was
+  // (its pointerdown is cancelled), so Done shut the editor with the value still in the field, and the commit that
+  // came with the field's removal found an editor gone (H1's guard) - the typed value was lost
+  const commitTyped = () => {
+    const f = doc.activeElement;
+    if (f && host?.contains?.(f) && f.matches?.('input[data-s]')) f.blur();
+  };
 
   const unmount = () => {
     clearTimeout(watchdog);
@@ -330,7 +346,14 @@ export function portWindow(win, spec, doc = globalThis.document) {
       e.stopPropagation();
       // HOLD-STEP: a spinner's button held repeats its press; the release is heard anywhere (the button is rebuilt)
       const spin = e.target.closest?.('.port-spinbtn[data-a]');
-      if (spin && !spin.disabled && (e.button ?? 0) === 0) startHold([...body.querySelectorAll('.port-spinbtn')].indexOf(spin));
+      if (spin && !spin.disabled && (e.button ?? 0) === 0) {
+        startHold([...body.querySelectorAll('.port-spinbtn')].indexOf(spin));
+        // AUDIT 27h H6: ...and on the pressed node itself - the Plus pad's release falls back to the node its press went
+        // down on (gamepadInput.js, a cursor over no element), which the first repeat rebuilt away, and an event on a
+        // detached node never reaches the document: the hold stepped on to the limit
+        spin.addEventListener('pointerup', onRelease, { once: true });
+        spin.addEventListener('pointercancel', onRelease, { once: true });
+      }
     });
     doc.addEventListener?.('pointerup', onRelease, true);
     doc.addEventListener?.('pointercancel', onRelease, true);
@@ -343,11 +366,13 @@ export function portWindow(win, spec, doc = globalThis.document) {
       const fn = acts[Number(f.dataset.s)];
       if (v == null || typeof fn !== 'function') { f.value = f.defaultValue; return; }
       fn(v);
+      sig = '';   // AUDIT 27h H3: repainted from the model - a value clamped to the one already set changes no view, and "999" stood in the field
     });
     host.addEventListener('keydown', (e) => {
       const f = e.target.closest?.('input[data-s]');
       if (!f) return;
       e.stopPropagation();   // the field's keys are the field's
+      swallowBrowserKey(e);   // AUDIT 27h H2: ...but F5, F6 and F11 are still not the browser's - the hosts' swallow never heard them here, and F5 reloaded the page (chatPanel.js's own guard)
       if (e.key === 'Enter') { e.preventDefault(); f.blur(); }
       else if (e.key === 'Escape') { e.preventDefault(); f.value = f.defaultValue; f.blur(); }
     });
@@ -355,6 +380,7 @@ export function portWindow(win, spec, doc = globalThis.document) {
       if (swallowClick) { swallowClick = false; e.stopPropagation(); return; }   // HOLD-STEP: the release of a hold that stepped
       const b = e.target.closest?.('[data-a]');
       e.stopPropagation();
+      if (b && !b.disabled) commitTyped();   // AUDIT 27h H7: at the click, not the press - a commit at the press rebuilt the buttons before the release, and the click never came
       // DROPS-AUDIT F6: a click-anywhere notice the classic window holds (a box with no buttons) takes the first
       // click, as the classic click does - dismissed there, and nothing under it acts
       if (win.box && !win.box.buttons?.length && !win.picker) { win.click?.(-1, -1); return; }
@@ -368,6 +394,13 @@ export function portWindow(win, spec, doc = globalThis.document) {
 
   const render = (view) => {
     for (const s of body.querySelectorAll('[data-scroll-key]')) scrolls.set(s.dataset.scrollKey, s.scrollTop);
+    // AUDIT 27h H4: the typed field that has the focus keeps it through the rebuild - by its place (the labels repeat
+    // across groups), with any text not yet committed and its selection. A Tab into the next field, whose commit
+    // changed the view, dropped the focus to the page, and the keys typed next went to the classic editor.
+    const fieldsOf = () => [...body.querySelectorAll('input[data-s]')];
+    const had = doc.activeElement;
+    const fi = had ? fieldsOf().indexOf(had) : -1;
+    const kept = fi >= 0 ? { value: had.value, dirty: had.value !== had.defaultValue, a: had.selectionStart, b: had.selectionEnd } : null;
     body.replaceChildren();
     acts = [];
     canvases = [];
@@ -378,6 +411,7 @@ export function portWindow(win, spec, doc = globalThis.document) {
     if (view.sub) titles.append(el(doc, 'span', 'port-sub', view.sub));
     head.append(titles);
     const main = el(doc, 'div', 'port-body');
+    main.dataset.scrollKey = `body:${view.title ?? ''}`;   // AUDIT 27h H5: the body keeps its place too - each step's rebuild put a phone's scrolled editor back at the top, the held spinner out from under the finger
     for (const b of view.blocks ?? []) { const n = b && blockNode(doc, b, acts, canvases); if (n) main.append(n); }
     body.append(head, main);
     if (view.foot?.length) {
@@ -388,6 +422,12 @@ export function portWindow(win, spec, doc = globalThis.document) {
     for (const s of body.querySelectorAll('[data-scroll-key]')) {
       const v = scrolls.get(s.dataset.scrollKey);
       if (v) s.scrollTop = v;
+    }
+    const nf = kept ? fieldsOf()[fi] : null;
+    if (nf) {
+      if (kept.dirty) nf.value = kept.value;
+      nf.focus?.({ preventScroll: true });
+      try { nf.setSelectionRange?.(kept.a, kept.b); } catch { /* a field that takes no selection */ }
     }
   };
 

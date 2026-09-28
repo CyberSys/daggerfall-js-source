@@ -202,7 +202,8 @@ export function createCharSheetWindow(deps = {}) {
  * with no such arm gets no door - the honest refusal - rather than a factory's window nobody holds.
  */
 export function sheetPageDoors(bag, close) {
-  const door = (arm) => (typeof bag?.[arm] === 'function' ? () => { close(); bag[arm](); } : undefined);
+  // AUDIT 27h A4: the arm's answer rides back (false: it opened nothing), so the page's door can resume instead.
+  const door = (arm) => (typeof bag?.[arm] === 'function' ? () => { close(); return bag[arm](); } : undefined);
   return { openPack: door('openPack'), openSpellbook: door('openSpellbook'), openChronicle: door('openChronicle') };
 }
 

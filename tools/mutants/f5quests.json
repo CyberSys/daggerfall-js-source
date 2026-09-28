@@ -38,7 +38,7 @@
   {
     "name": "F5Q-exterior-sheet-without-the-bag",
     "file": "src/scenes/exterior.js",
-    "old": "    pause: () => pauseDoorHooks(),   // F5-QUESTS: the enhanced F5 page is the pause window - handed this host's own bag\n",
+    "old": "    pause: pause ?? (() => pauseDoorHooks()),   // F5-QUESTS: the enhanced F5 page is the pause window - handed this host's own bag (or the mounting building's)\n",
     "new": "",
     "tests": [
       "test/f5quests.test.js"

@@ -86,8 +86,10 @@ test('BUFF-END: the classic right-click - the freed mouse over an icon the playe
 test('BUFF-END: the enhanced widget takes the pointer only with the mouse freed, and the Stats page lists every spell with an End on the ones that may be ended', () => {
   const hud = rd('src/ui/enhancedHud.js');
   assert.match(hud, /const ending = cursorActive\(\) && !overlayOpen\(\) && !controllerLook\(\);/);
-  assert.match(hud, /stat\.addEventListener\('contextmenu', \(e\) => \{[\s\S]{0,300}?endBundle\(last\.statEntity, Number\(cell\.dataset\.bundle\)\)/);
-  assert.match(hud, /stat\.addEventListener\('mousedown', own\);\n\s*stat\.addEventListener\('mouseup', own\);/, 'the press is the widget\'s - no swing under it');
+  assert.match(hud, /const g = endingGesture\(cellOf, \(bundle\) => \{\n\s*const name = endBundle\(last\.statEntity, bundle\);/);
+  assert.match(hud, /stat\.addEventListener\('contextmenu', g\.menu\);/);
+  // AUDIT 27h B1: the press is the widget's - no swing under it - and so is ITS release, and only its (test/audit27h.test.js runs the gesture)
+  assert.match(hud, /stat\.addEventListener\('mousedown', g\.down\);\n\s*stat\.addEventListener\('mouseup', g\.up\);/);
   assert.match(rd('src/ui/enhancedStyle.js'), /\.hud-stat\.ending \.hst-cell\.can-end \{ pointer-events: auto; cursor: pointer; \}/);
   const menu = rd('src/ui/enhancedMenu.js');
   assert.match(menu, /\['effects', 'Effects'\],/);

@@ -86,7 +86,7 @@ test('F5-QUESTS / THE FOUR HOSTS: every host\'s sheet is handed the SAME bag its
   for (const file of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
     const s = rd(file);
     assert.match(s, /openPauseFlow\(\(w\) => townTalk\.showOverlay\(w\), \{\n\s*at: pauseAt,[^\n]*\n\s*\.\.\.pauseDoorHooks\(\),/, `${file}: the pause door spreads the bag`);
-    const head = file === 'src/scenes/world.js' ? 'const makeCharSheetWindow = ({ inventory = null, pause = null } = {}) => createCharSheetWindow(' : 'const makeCharSheetWindow = () => createCharSheetWindow(';   // AUDIT (pre-merge) I-A: world.js's takes a building's own pack; ESC-BOOK: and its own bag
+    const head = 'const makeCharSheetWindow = ({ inventory = null, pause = null } = {}) => createCharSheetWindow(';   // AUDIT (pre-merge) I-A: world.js's takes a building's own pack; ESC-BOOK: and its own bag; AUDIT 27h A2: exterior.js's the same
     const deps = mountLiteral(s, head, { pauseDoorHooks: () => 'THE-BAG', inventory: null, pause: null });
     assert.equal(typeof deps.pause, 'function', `${file}: the sheet is handed a pause bag`);
     assert.equal(deps.pause(), 'THE-BAG', `${file}: ...and it is the pause door's own`);
@@ -111,12 +111,15 @@ test('F5-QUESTS / THE FOUR HOSTS: every host\'s sheet is handed the SAME bag its
   assert.deepEqual(loads, [['APPLIER'], ['APPLIER', 3]], 'the Load arms place the player through the applier');
   assert.equal(bag.questLog(), 'LOG');
   // worldModes.js (the interior) borrows the outer host's builder - ESC-BOOK: handing it the BUILDING's bag, whose arms
-  // open the doors in the building's slot (the street's opened them where nothing inside draws)
+  // open the doors in the building's slot (the street's opened the STREET's windows - its pack's drop in the street's pool)
   const modes = rd('src/scenes/worldModes.js');
   assert.match(modes, /const interiorSheetDoors = \(\) => \(\{ inventory: \(\) => interiorInventory\(\), pause: \(\) => interiorPauseHooks\(\) \}\);/, 'a building\'s sheet is handed the building\'s own bag');
   assert.match(modes, /openPauseFlow\(\(w\) => \{ interiorOverlay = w; \}, \{\n\s*at: pauseAt,[^\n]*\n\s*\.\.\.interiorPauseHooks\(\),/, '...the one its pause door spreads');
-  assert.match(modes, /toggleCharSheet\(\) \{ mountInterior\(host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\)\); \},/, 'the interior borrows the outer builder (AUDIT pre-merge I-A: with its own pack)');
-  assert.match(rd('src/scenes/world.js'), /makeCharSheet: \(doors\) => \(charSheetDoorReady\(\) \? makeCharSheetWindow\(doors\) : null\),/, '...which is the one handed the bag');
+  assert.match(modes, /const openInteriorSheet = \(\) => \{ const w = host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\); if \(w\) mountInterior\(w\); return !!w; \};/, 'the interior borrows the outer builder (AUDIT pre-merge I-A: with its own pack)');
+  assert.match(modes, /toggleCharSheet\(\) \{ openInteriorSheet\(\); \},/, 'F5 takes that one door (AUDIT 27h A1: and so do the pack\'s F5 and the pause bag\'s crossover)');
+  for (const file of ['src/scenes/world.js', 'src/scenes/exterior.js']) {   // AUDIT 27h A2: ?exterior's builder ignored the doors it was handed
+    assert.match(rd(file), /makeCharSheet: \(doors\) => \(charSheetDoorReady\(\) \? makeCharSheetWindow\(doors\) : null\),/, `${file}: ...which is the one handed the bag`);
+  }
 });
 
 test('F5-QUESTS: F5 carries routeKey\'s position applier into the sheet, as Escape carries it into the pause door', () => {

@@ -1,7 +1,8 @@
 # FIELD BUGS 2026-09-27h - the escape menu's doors, the sea's deathloop, the street's shield, the map a load greyed
 
 Mac, with eight Discord threads as screenshots: six bug reports and two suggestions. This page is the batch's record;
-each fix has its own section below. Mutants: `tools/mutants/fieldbugs27h.json` (45, all dead).
+each fix has its own section below. Mutants: `tools/mutants/fieldbugs27h.json` (45, all dead). The batch's audit, before
+it merged, is ## AUDIT at the end (`tools/mutants/audit27h.json`, 44, all dead).
 
 The list, as it came:
 
@@ -64,7 +65,8 @@ What made it a LOOP was the port's own:
 - **The autorun latch survived the respawn** and walked the risen player back into the water. The respawn drops it
   (`player/motor.js` stopAutorun - the two latches a held MoveBackwards drops).
 - **The sea's breath ran on under an open pack**, so emptying the pack drowned the player doing it. It waits under a
-  window now, as the dungeon's breathTick and this host's own calendar always have (DFU's windows pause the game).
+  window now, as the dungeon's breathTick and this host's own calendar always have (DFU's windows pause the game) -
+  the dungeon's under its OWN windows only, it turned out; AUDIT S1 gave it the street slot's too.
 
 "No More Puddles does nothing": its switch is the ROOM's online (forced on, the Mods pane greys it "On (online)") and
 offline it reaches the next world load - it never drained a sea under a swimmer, and it never touched the weight rule.
@@ -128,15 +130,18 @@ choice to end one:
   read again), a duel's, an armed Open or Lock, a disease or a poison (neither is a bundle), and never a bundle with a
   harmful kind in it - a foe's Drain merges into the incumbent it finds, so the caster is not enough and every entry's
   kind is asked. Ending takes that bundle's entries alone (Dispel Magic's self-cast arm, no roll) and says
-  "<name> ends.".
-- **The HUD, right-click** - with the mouse freed (Enter, or the FreeMouse key): the enhanced status widget's tile for
+  "<name> ends.". Who cast it is not asked (AUDIT B4): the player's own, a mate's or a stranger's gift, a potion's, a
+  worn set's timed proc (Eventide) - each ended is only a benefit given up.
+- **The HUD, right-click** - with the mouse freed (the FreeMouse key, Y; Enter too where the chat does not take it -
+  online it does, AUDIT B3): the enhanced status widget's tile for
   a spell that may be ended takes the pointer (only then - the HUD stays pointer-transparent) and a right-click ends it;
   its press goes no further (no swing). The classic HUD's icon the same, through the HUD click door every host already
   calls (`ui/hudLarge.js` routeSpellIconClick): the pointerdown is cancelled, so neither the swing nor an armed cast
   hears it; and the classic icon's name now shows with the mouse freed too (DFU's tooltip gate, which the hosts'
   paused flag had halved).
 - **The pause window's Stats page, Effects** - every spell on you with its rounds, and an End on each that may be
-  ended: the door a pad, a finger or a player who never frees the mouse can use.
+  ended: the door a pad, a finger or a player who never frees the mouse can use. It is the Enhanced Plus pause
+  window's (AUDIT B5): the classic pause has no tabs - its Controls button opens the enhanced menu, where Stats is one.
 
 `test/buffend.test.js` (5). Port-Ledger A.
 
@@ -163,9 +168,109 @@ window keeps DFU's click-per-step. `test/holdstep.test.js` (4). Port-Ledger A.
 ## THE FOUR HOSTS
 
 ESC-BOOK: world.js, exterior.js and dungeonContext.js hand their sheet their own pause bag, as since F5-QUESTS; the
-building (worldModes) hands its own bag through world.js's builder, which takes it. SEA-RISE: the respawn, the autorun
-and the sea's breath are world.js's alone (the only host with an online respawn and the carved sea). SHIELD-OUT: every
+building (worldModes) hands its own bag through the outer host's builder, which takes it - world.js's, and since AUDIT
+A2 exterior.js's - and its pack crosses over to that page (A1). SEA-RISE: the respawn and the sea's breath are world.js's
+(the only host with an online respawn and the carved sea); the autorun latch drops at every rise and load in world.js,
+worldModes.js and dungeon.js, and a world-hosted dungeon's breath takes worldModes' street-slot hold (AUDIT S1, S2). SHIELD-OUT: every
 rig's widget counts in the one module. MAP-KEEP: the load's arm is world.js's (the dungeon context's own quickLoad
-already entered on the load arm); the store fix is the module's. BUFF-END: the enhanced widget and the Stats page are
+already entered on the load arm); the store fix is the module's, and the Burning Court's detached record the dungeon
+context's (AUDIT M1). BUFF-END: the enhanced widget and the Stats page are
 host-free; the classic icon rides `routeLargeHudClick`, which all four hosts' pointerdowns already call, each now
 handing it the event. LIST-FIT and HOLD-STEP are the skin's.
+
+## AUDIT (2026-09-28, before the merge)
+
+Mac: *"Lets audit before merging"*. The branch was first merged with main (#412, the Sigil Stones: every conflict a cite
+number both sides had moved, `tools/citeMerge.mjs` on the merged tree), then read in five lanes - the F5 page's doors;
+the sea and the shield; the map and the list tile; ending a spell; the spell maker's hold and field. Every finding was
+checked against the code before anything moved, and the port's in Chromium over the real `SpellMakerWindow` (scratch
+probes). Pinned in `test/audit27h.test.js` (10) and the slices' own suites; `tools/mutants/audit27h.json` (44, all
+dead), and the 130 older records whose killers or sites the fixes touched re-run - all dead but the two recorded as
+equivalent.
+
+### The F5 page's doors
+
+- **A1** (the batch's claim, half kept): a building's F5 page got the building's bag, but the enhanced PACK's F5 crossover
+  still built the STREET's page (world.js `makeInventoryWindow`'s `openCharSheet`, which `interiorInventory` never
+  overrode), whose Pack was the street's: a drop inside a shop or a visitor's home went to the street's pool, past
+  HOUSE-DROP's refusal. One door now, `openInteriorSheet`, for F5, the pause bag's crossover (which no pack ever read)
+  and the pack's own bag. The batch's comment gave the wrong harm ("nothing a building draws" - the street slot IS
+  drawn indoors) and says the right one.
+- **A2**: ?exterior's builder ignored the doors a building handed it; it takes them, as world.js's does.
+- **A3**: the building's bag carried no `playerId`, so its F5 page (the street's bag had one) lost CHARID1's by-id Save
+  list to name matching.
+- **A4**: a door is a handoff (no relock), so a door whose window could not open left no page, no window and the pointer
+  free over a running game. Every host's arms answer whether they opened, and the Stats door resumes on a `false`,
+  inside the click. Two such doors were real: the dungeon's Chronicle with no quest bridge (withheld now - PX14's drawn
+  door) and the world's classic journal on its first press (LGBK00I0 was never warmed at the world's boot, so the L and
+  N keys' first press opened nothing either; warmed now, exterior.js's U43 line).
+- **A5**: the Stats page's Ascend (a level owed) still resumed - a relock under the level-up, and from the classic
+  Controls route a throwaway classic pause first. A handoff now.
+
+### The sea and the shield
+
+- **S1**: the batch said the sea's breath waits under a window "as the dungeon's does". The dungeon's did under its OWN
+  windows only: a street-slot window over a world-hosted dungeon (Recall's prompt) held the motor while the breath ran
+  on. worldModes hands the dungeon `breathHeld`.
+- **S2**: the latch dropped at the online respawn alone. A mate's Resurrect, the Privateer's Hold rise and a load (F11
+  off an offline death screen - a save facing the water walked the player back in) came up running. Every rise and every
+  load drops it now; the load's is the port's own rule - a loaded character inherits no latch, as it inherits no camera
+  reel (CameraRecoiler's reset beside it).
+- **S3**: the widgets' step counter moved only while the Shield Widget was ON, so a shield repaired with the switch off
+  came back battered when it was switched on ("takes effect at once"). A rig's frame with the switch off counts the step
+  (`offFrame`).
+
+### The map and the list tile
+
+- MAP-KEEP and LIST-FIT stand as written: every load path carries `fromLoad` and no fresh entry does; the restore's
+  reset is reached only from `restorePlayer`; "remember 0" is DFU's law; no mid-visit path removes a revealed cell. The
+  trade tile's flex reaches the shop and the player trade only (the loot window's and the pack's tiles were flex
+  already), measured at 1400 and 390 px with nothing else moved.
+- **M1** (pre-existing, WB3b): the Burning Court entered the automap store on the fresh arm - a record of a level whose
+  M is refused, stamped the newest, and the store pruned against it, so each region's court cost the oldest remembered
+  dungeon its map. The court binds a detached record now (`detachedAutomapRecord`).
+
+### Ending a spell
+
+- **B1**: the widget swallowed a mouseup wherever it landed on an endable tile, so a right press begun on the world (a
+  gap, a click-through tile) and let go over one never reached the host: `rightHeld` stayed up (the look frozen), a
+  held swing (WeaponSwingMode 2) swung on, and on Windows, where the menu comes with the release, the tile's spell ended
+  too. `endingGesture`: a tile owns its press and that press's release only, every press anywhere clears it first (the
+  window's capture), and the menu ends only the spell whose tile took the right press. The hotbar's sockets in mouse
+  mode (HB1c, on main) had the same hole, and the same fix.
+- **B2**: the classic HUD's icon rects stood from the last frame drawn, so with the HUD hidden (Shift-F10) a freed
+  right-click still ended a spell. The hidden returns empty them, and a placement not drawn for a second answers none.
+- **B3-B5** (words): online the chat takes Enter, so the FreeMouse key (Y) is the way; `canEndBundle` never asks who
+  cast it (a potion's, a stranger's gift, a set's Eventide end too - benefits given up, nothing more), where the notes
+  said "your own and party members'"; and the Effects page is the Enhanced Plus pause window's. The notes say so now.
+
+### The spell maker's hold and field
+
+- **H1**: each repeat ran the LAST DRAWN view's acts, which click the classic window at fixed points. Escape shut the
+  editor mid-hold and, under a 30 fps cap, the next repeat landed before a draw - on the main window's Buy spell (4 of
+  25 trials bought the spell and spent the gold). Each repeat reads the live view first, and every spinner act is its
+  own editor's (`live`), so a stale act presses nothing: 0 of 30 at 30 fps after.
+- **H2**: the field stopped every key, so the hosts' swallow never heard F5, F6 or F11 - F5 typed there reloaded the
+  page (online, after the exit autosave). It swallows them itself (chatPanel.js's own guard).
+- **H3**: a value clamped to the one already set changed no view, and "999" stood in the field; the field repaints.
+- **H4**: a rebuild dropped the field's focus - a Tab into the next field, whose commit changed the view, sent the next
+  keys to the classic editor. The focused field keeps its focus (by place), its uncommitted text and its selection.
+- **H5** (pre-existing): every rebuild put a phone's scrolled editor back at the top, the held button out from under the
+  finger. The body keeps its scroll, per view.
+- **H6** (found probing H1): the Plus pad's release falls back to the node its press went down on, which the first
+  repeat had rebuilt away - an event on a detached node never reaches the document, and the hold stepped on to the
+  limit. The pressed node hears it too.
+- **H7** (found fixing H1): a button's press keeps the focus where it was, so Done shut the editor with a typed value
+  still in the field, and the commit that came with the field's removal found the editor gone (H1's guard) - the value
+  was lost. A typed value commits at a button's click, before its act.
+
+### What stands, and why
+
+- ?exterior's building Save and Load panes offer doors that do nothing: `pauseMenuHooks` makes quickSave and quickLoad
+  functions whatever the host handed, which defeats the panes' own "no hook, no button" test (F5-QUESTS). A dev route,
+  and not this batch's; recorded.
+- A held spinner keeps stepping when the pointer leaves the button, as Chromium's own number spinner does; a design
+  choice.
+- The 3D map's cut plane (MAP-KEEP's note) stands as DFU's.
+- The all-region sweep decodes each region in turn (11-21 ms on classic-sized data, once, behind the death screen); the
+  boot's pixel index could answer it without the decode - a cost, not a fault.

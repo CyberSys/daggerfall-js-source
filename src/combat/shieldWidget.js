@@ -804,8 +804,13 @@ export function createShieldWidget({
     return true;
   }
 
+  /** AUDIT 27h S3: a rig frame with the Shield Widget switched OFF is a step every widget misses - the switch "takes
+   *  effect at once" (features.js), and a shield repaired or battered while it was off stood at its old sprite when it
+   *  came back on, since no widget had stepped to mark this one stale. */
+  function offFrame() { ++_widgetSteps; }
+
   return {
-    lateUpdate, draw, drawRect, endOfFrame, onAttackDamageCalculated,
+    lateUpdate, draw, drawRect, endOfFrame, onAttackDamageCalculated, offFrame,
     /** Eye of the Beholder's `onToggleOffset` (ModCompatibilityChecking IL 0x00). */
     setThirdPerson(v) { w.isInThirdPerson = !!v; },
     get position() { return [w.position[0], w.position[1]]; },

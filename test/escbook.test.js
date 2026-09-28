@@ -36,6 +36,15 @@ function literalBody(text, opener) {
   throw new Error(`unbalanced literal after ${opener}`);
 }
 const STUB = new Proxy(function stub() {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => 'STUB' : STUB), apply: () => STUB });
+/** A one-line `const NAME = <expression>;` out of the live source, evaluated over `env` (AUDIT 27h: the building's
+ *  bag reads two such helpers - the door answers and the one sheet door - and a copy of their law here would test the copy). */
+function constOf(text, name, env = {}) {
+  const m = new RegExp(`^\\s*const ${name} = (.*);$`, 'm').exec(text);
+  assert.ok(m, `could not find const ${name}`);
+  const scope = new Proxy({ ...env }, { has: () => true, get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : STUB)) });
+  // eslint-disable-next-line no-new-func
+  return new Function('__scope', `with (__scope) { return (${m[1]}); }`)(scope);
+}
 function mountLiteral(text, opener, env = {}) {
   const scope = new Proxy({ ...env }, {
     has: () => true,
@@ -76,18 +85,24 @@ test('ESC-BOOK: a door that opens another window HANDS OFF - the pause window do
   assert.deepEqual(seen, ['close', 'close', 'back'], 'Resume still goes back to the classic window (DISC22-B)');
   const menu = rd('src/ui/enhancedMenu.js');
   const at = menu.indexOf('function pauseStats(body)');
-  assert.match(menu.slice(at, menu.indexOf('\nfunction ', at + 10)), /b\.onclick = \(\) => \{ onAction\('handoff'\); fn\(\); \};/);
+  assert.match(menu.slice(at, menu.indexOf('\nfunction ', at + 10)), /b\.onclick = \(\) => \{ onAction\('handoff'\); if \(fn\(\) === false\) onAction\('resume'\); \};/);
 });
 
 test('ESC-BOOK / THE FOUR HOSTS: a building\'s F5 page is handed the BUILDING\'s bag, whose doors mount in the building\'s slot', () => {
   const modes = rd('src/scenes/worldModes.js');
   const mounted = [];
+  const mountInterior = (w) => mounted.push(w);
+  const host = { makeJournal: (m) => `JOURNAL:${m}`, pauseQuestLog: () => 'LOG', makeCharSheet: (doors) => ({ sheet: doors }) };
+  const interiorSheetDoors = () => 'DOORS';
   const bag = mountLiteral(modes, 'const interiorPauseHooks = () => (', {
-    mountInterior: (w) => mounted.push(w), interiorInventory: () => 'PACK', magic: {}, makeSpellbookWindow: () => 'BOOK',
-    host: { makeJournal: (m) => `JOURNAL:${m}`, pauseQuestLog: () => 'LOG' }, interiorSheetDoors: () => ({}),
+    interiorInventory: () => 'PACK', magic: {}, makeSpellbookWindow: () => 'BOOK', host,
+    mountedInterior: constOf(modes, 'mountedInterior', { mountInterior }),   // AUDIT 27h A4: the door's answer
+    openInteriorSheet: constOf(modes, 'openInteriorSheet', { host, interiorSheetDoors, mountInterior }),   // AUDIT 27h A1: the one sheet door
   });
-  bag.openPack(); bag.openSpellbook(); bag.openChronicle();
+  assert.deepEqual([bag.openPack(), bag.openSpellbook(), bag.openChronicle()], [true, true, true], 'each door says it opened');
   assert.deepEqual(mounted, ['PACK', 'BOOK', 'JOURNAL:notebook'], 'each door opens its window in the building\'s own slot');
+  assert.equal(bag.openCharSheet(), true);
+  assert.deepEqual(mounted[3], { sheet: 'DOORS' }, 'the crossover to the sheet is the building\'s own sheet, with its own doors');
   assert.equal(bag.questLog(), 'LOG', 'and the Quests tab reads the host\'s walk');
   // the sheet builder the building borrows takes that bag, and keeps its own when none is handed
   const world = rd('src/scenes/world.js');

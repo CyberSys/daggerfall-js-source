@@ -126,7 +126,7 @@ test('QS7: and the modal ladders really do carry the doors the outer arm stood i
   // U43's one dispatch, both arms
   assert.match(wm, /if \(mode === 'interior'\) \{\n\s+if \(routeKey\(e, interiorKeyCtx, null, keys\)\) e\.preventDefault\(\);/,
     'the interior mode routes the whole table over its own ctx');
-  assert.match(wm, /if \(routeKey\(e, dungeonCtx, \(p\) => player\.spawn/,
+  assert.match(wm, /if \(routeKey\(e, dungeonCtx, \(p\) => \{ player\.spawn/,   // AUDIT 27h S2: the applier's body grew the autorun drop
     'and the dungeon mode over the dungeon ctx');
   // every action the outer arm can dispatch has a door on BOTH ctxs -
   // the polled three are the frame's, so the dispatchable pair is what

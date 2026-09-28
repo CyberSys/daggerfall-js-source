@@ -294,7 +294,7 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
  *                     (dungeonContext.js:3024), townTalk.say
- *                     (exterior.js:2141, world.js:4931) and
+ *                     (exterior.js:2141, world.js:4932) and
  *                     worldModes' own interior sink (worldModes.js:473,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
@@ -1666,6 +1666,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
           // default, which is the only reason nothing said so.
           look: { x: look?.[0] ?? 0, y: look?.[1] ?? 0, cursorActive: cursorActive(), swingAction: _held },
         });
+        else shield.offFrame();   // AUDIT 27h S3: the switch off still counts the step, so the widget switched back on re-reads its shield
         if (widgetOn()) widget.lateUpdate(dt, {
           renderer, canvas: c, entity, art: c ? artFor(playerWeapon.weapon) : null, weapon: playerWeapon.weapon,
           weaponType: weaponTypeForItem(playerWeapon.weapon), material: playerWeapon.weapon?.material ?? -1,

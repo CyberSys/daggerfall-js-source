@@ -138,7 +138,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       // below, after this context; null falls to standing defaults.
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
       // MAC1 J: this host's canvas, for the pause door's relock. The
-      // context owns none of its own (dungeonContext.js:7051), so each
+      // context owns none of its own (dungeonContext.js:7056), so each
       // dungeon host hands its own in and the resume gesture carries
       // the pointer back with it (ui/pauseDoor.js:141-165).
       relock: () => requestLook(canvas) });
@@ -488,7 +488,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // landed in setPlayerPos, so a quickload here restored the
     // character and left them standing wherever they were.
     const hadOverlay = !!ctx.uiOverlayActive;
-    if (routeKey(e, ctx, (p) => player.spawn(p[0], p[1], p[2]), keys)) e.preventDefault();   // P14: a load clears motion state (DFU CancelMovement + ClearFallingDamage)   // AUDIT 58 (f3/input): + the held-keys Set, so a rebound combo reaches the dispatch (InputManager.cs:1666-1712)
+    if (routeKey(e, ctx, (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); }, keys)) e.preventDefault();   // P14: a load clears motion state (DFU CancelMovement + ClearFallingDamage); AUDIT 27h S2: and the autorun latch   // AUDIT 58 (f3/input): + the held-keys Set, so a rebound combo reaches the dispatch (InputManager.cs:1666-1712)
     // MENU-RELOCK: reclaim inside the same key gesture that removed the
     // final window; the frame-late look gate is outside user activation.
     if (hadOverlay && !ctx.uiOverlayActive) requestLook(canvas);

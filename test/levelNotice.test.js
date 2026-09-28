@@ -654,5 +654,5 @@ test('LV3 by source: an UNBOUND sheet action presses nothing and shows no button
   assert.match(m, /if \(typeof hooks\.openAscend === 'function'\) \{/, 'the page\'s door is handed in, not gated on state');
   assert.doesNotMatch(m, /readyToLevelUp/, 'the Stats page never reads the flag: WHICH screen the door opens is the door\'s question');
   assert.doesNotMatch(m, /doors\.unshift\(\['Level up'/, 'and there is no second, conditional door for the same window');
-  assert.match(m, /b\.onclick = \(\) => \{ onAction\('handoff'\); fn\(\); \};/, 'the pause window goes down first for the doors that LEAVE this page - a handoff, ESC-BOOK: nothing relocks under the window they open');
+  assert.match(m, /b\.onclick = \(\) => \{ onAction\('handoff'\); if \(fn\(\) === false\) onAction\('resume'\); \};/, 'the pause window goes down first for the doors that LEAVE this page - a handoff, ESC-BOOK: nothing relocks under the window they open');
 });

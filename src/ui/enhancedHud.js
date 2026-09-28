@@ -1041,23 +1041,48 @@ function drawStatus(vitals, opts) {
 
 /** BUFF-END: a spell tile's hover, where it can be ended. */
 export const END_SPELL_HINT = 'Right-click to end this spell';
+/** AUDIT 27h B1: A PRESS AND ITS RELEASE ARE ONE GESTURE, owned where the PRESS landed. The widget swallowed a release
+ *  wherever it landed on a tile, so a right press begun on the world (a gap between tiles, a tile that lets clicks
+ *  through) and let go over an endable tile never reached the host: its rightHeld stayed up - the look frozen, a held
+ *  swing (WeaponSwingMode 2) swinging on - and where the menu comes with the release (Windows) the tile's spell ended
+ *  too. `took` is the press this widget stopped (the spell, not the node - a blink rebuilds the tiles mid-press);
+ *  `forget` runs on EVERY press anywhere first (the window's capture), so no press of the world's inherits it. */
+export function endingGesture(cellOf, end) {
+  let took = null;
+  return {
+    forget: () => { took = null; },
+    down: (e) => {
+      const cell = cellOf(e);
+      if (!cell) return;
+      took = { bundle: cell.dataset.bundle, button: e.button };
+      e.stopPropagation();
+    },
+    up: (e) => { if (took && took.button === e.button) e.stopPropagation(); },
+    menu: (e) => {
+      const cell = cellOf(e);
+      if (!cell) return;
+      e.preventDefault();
+      if (took?.bundle !== cell.dataset.bundle || took.button !== 2) return;   // the right press began on THIS spell's tile, or it is no end
+      end(Number(cell.dataset.bundle));
+    },
+  };
+}
 /** BUFF-END (Zerofyre on Discord: "An option to right click cancel buffs on yourself like most RPGs"): THE WIDGET'S
  *  OWN POINTER, bound once. With the mouse freed a right-click on a spell the player may end ends it (mysticism.js
  *  endBundle) and says so; the press is the widget's, as a hotbar socket's is (HB1c) - every host swings from a
  *  WINDOW mousedown, so it goes no further. Anything else on the widget stays the world's. */
 function bindStatEnding(stat) {
   const cellOf = (e) => (stat.classList.contains('ending') ? e.target?.closest?.('.hst-cell.can-end') ?? null : null);
-  stat.addEventListener('contextmenu', (e) => {
-    const cell = cellOf(e);
-    if (!cell) return;
-    e.preventDefault();
-    const name = endBundle(last.statEntity, Number(cell.dataset.bundle));
+  const g = endingGesture(cellOf, (bundle) => {
+    const name = endBundle(last.statEntity, bundle);
     if (name) hudText(endedSpellText(name));
     last.stat = null;   // the widget redraws on the next frame without it
   });
-  const own = (e) => { if (cellOf(e)) e.stopPropagation(); };
-  stat.addEventListener('mousedown', own);
-  stat.addEventListener('mouseup', own);
+  globalThis.addEventListener?.('mousedown', g.forget, true);
+  holds.push({ off: () => globalThis.removeEventListener?.('mousedown', g.forget, true) });   // the HUD's teardown takes it
+  stat.addEventListener('mousedown', g.down);
+  stat.addEventListener('mouseup', g.up);
+  stat.addEventListener('contextmenu', g.menu);
 }
 
 /** UI3: one tile - its frame's kind, its picture (a spell's icon, a set's rune, a glyph), its foot and its name. */

@@ -261,7 +261,13 @@ const _spellBlink = createBlinkClock();
 let _spellTip = null;
 const spellTip = () => (_spellTip ??= new ToolTip());
 let _placedSpellIcons = [];
-export const activeSpellIconsPlaced = () => _placedSpellIcons;
+// AUDIT 27h B2: THE ICONS ARE WHERE THEY WERE LAST DRAWN, AND ONLY WHILE THEY ARE DRAWN. A HUD hidden (Shift-F10)
+// or covered returns before the rows, and the last frame's rects stood - a freed right-click there ended a spell with
+// nothing on the screen. Emptied on those returns, and a placement not drawn for a second answers none.
+let _placedAt = -Infinity;
+const PLACED_FRESH_MS = 1000;
+const nowMs = () => globalThis.performance?.now?.() ?? Date.now();
+export const activeSpellIconsPlaced = () => (nowMs() - _placedAt <= PLACED_FRESH_MS ? _placedSpellIcons : []);
 
 /**
  * The icon rows, drawn from the ONE host-agnostic call - and drawn on
@@ -283,6 +289,7 @@ function drawSpellIconRows(renderer, canvas, vitals, dt, { font, cursorActive, l
   _placedSpellIcons = drawActiveSpells(renderer, m, vitals, {
     blinkState: blink, paused: cursorActive, largeHudTop,
   });
+  _placedAt = nowMs();
   if (!font) { spellTip().hide(); return; }
   // BUFF-END: ...OR THE CURSOR IS ACTIVE. The hosts hand `cursorActive` their paused flag, so the freed mouse (Enter,
   // FreeMouse) - DFU's other half of the gate - showed no name over the icon it was about to right-click and end
@@ -680,7 +687,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
     // stands: HUDLarge's Update keeps its Rectangle live for
     // ViewportChanger and the panel click routing while its Draw is
     // suppressed.
-    if (!hudDrawn) return;
+    if (!hudDrawn) { _placedSpellIcons = []; return; }   // AUDIT 27h B2: no rows drawn, none to click
     const s2 = hudScale(canvas.width, canvas.height);
     // VB1: HUDLarge owns its OWN HUDVitals instance (HUDLarge.cs:66) -
     // the second rig, updated only while this branch is the live HUD.
@@ -718,7 +725,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   // strip, the arrow count, the Detect markers, the escort column, the
   // crosshair/mode icon and the active-spell rows are all components
   // of the two HUD panels (DaggerfallHUD.cs:157-192).
-  if (!hudDrawn) return;
+  if (!hudDrawn) { _placedSpellIcons = []; return; }   // AUDIT 27h B2: no rows drawn, none to click
   const s = hudScale(canvas.width, canvas.height);
   const bottom = canvas.height - HUD_BORDER;
   // Vitals, left to right: health, fatigue, magicka (classic order),

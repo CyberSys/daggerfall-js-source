@@ -288,7 +288,7 @@ function enhancedPauseOverlay(show, base) {
   function openAscend() {
     if (fired || ascendHost || !playerEntity) return;
     if (playerEntity.readyToLevelUp) {
-      act('resume');   // down first, then the level-up takes the slot it frees (the Pack button's own order)
+      act('handoff');   // down first, then the level-up takes the slot it frees (the Pack button's own order - ESC-BOOK's handoff; AUDIT 27h A5: a resume relocked under the level-up, and from the classic Controls route built a throwaway pause first)
       show(createCharSheetWindow({ entity: playerEntity }));
       return;
     }

@@ -106,7 +106,14 @@ test('MAC-C: the enhanced sheet page has a key of its own, and gives it back', (
 });
 
 test('MAC-C: every host hands the pack a sheet door, beside the spellbook one it already had', () => {
-  for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/worldModes.js', 'src/scenes/dungeonContext.js']) {
+  // AUDIT 27h A1: THE BUILDING'S PACK IS THE STREET BUILDER'S (host.makeInventory, whose bag carries the spellbook's
+  // door), and its sheet door is the building's own - handed in the building's bag over the builder's. This pin read
+  // `openCharSheet: () =>` in the building's PAUSE bag, which no pack ever read: the building's pack crossed over to
+  // the STREET's sheet all along.
+  const wm = rd('src/scenes/worldModes.js');
+  const pack = wm.slice(wm.indexOf('const interiorInventory = ('), wm.indexOf('onClose: () => { interiorDropped.releaseEmptied(); onClose?.(); },'));
+  assert.match(pack, /openCharSheet: openInteriorSheet,[^\n]*\n\s*\.\.\.extra,/, 'worldModes.js: the pack can reach the sheet - this building\'s');
+  for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeonContext.js']) {
     const s = rd(f);
     assert.match(s, /openCharSheet: \(\) =>/, `${f}: the pack can reach the sheet`);
     // it stands with openSpellbook, which is the hook it is modelled on -

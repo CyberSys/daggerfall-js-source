@@ -77,5 +77,8 @@ test('SEA-RISE: the sea\'s breath waits under a window, as the dungeon\'s does -
   assert.match(w, /if \(!_overlayHeld\) _dwBreathTimer \+= dt;\n\s*while \(_dwBreathTimer >= CLASSIC_UPDATE_INTERVAL\) \{/, 'the classic update\'s breath is held with the calendar');
   assert.match(w, /if \(!_overlayHeld\) playerTicker\.tick\(/, 'the calendar the window holds, beside it');
   // the dungeon host's breath runs only with no window up (drawFoes' own gate)
-  assert.match(rd('src/scenes/dungeonContext.js'), /rest window IS an overlay[\s\S]{0,400}breathTick\(dt, playerFeet, playerHeight\);/);
+  // AUDIT 27h S1: ...and under the OUTER host's street slot too (a Recall prompt over a world-hosted dungeon), which the
+  // dungeon's own gate never saw - the claim above was only half true
+  assert.match(rd('src/scenes/dungeonContext.js'), /rest window IS an overlay[\s\S]{0,700}breathTick\(opts\.breathHeld\?\.\(\) \? 0 : dt, playerFeet, playerHeight\);/);
+  assert.match(rd('src/scenes/worldModes.js'), /breathHeld: \(\) => !!townTalk\?\.overlayActive,/);
 });

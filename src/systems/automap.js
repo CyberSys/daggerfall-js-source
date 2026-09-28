@@ -155,18 +155,26 @@ export const automapDungeonKey = (regionIndex, name) => `${regionIndex}/${name}`
  *  renderer re-apply (SetState :387-389, RestoreState... :2351-2422);
  *  the stamp and prune belong to SAVE time (:2155, :2216-2238), so a
  *  load must never evict records the save itself carried (A1 review). */
+const newAutomapRecord = () => ({
+  revealed: new Set(), visitedThisRun: new Set(), entranceDiscovered: false, lastVisited: 0,
+  blockNames: null,   // c2/S1: the layout the discovery was recorded against (the restore guard's input)
+  // c2/S8: AutomapDungeonState's two user-data collections (:93-94).
+  // The SortedList is a Map kept in ASCENDING KEY ORDER - AddNext
+  // reads Keys[i] positionally, so the order is part of the law.
+  notes: new Map(),        // id -> { position:[x,y,z], note }
+  teleporters: new Map(),  // dictKey -> { entrance:{pos,yawDeg}, exit:{pos,yawDeg} }
+});
+
+/** AUDIT 27h M1: a record OUTSIDE the store, for a level with no map to keep - the Burning Court (WB3b, the port's own
+ *  made level, whose M is refused). Entered on the fresh arm it took one of the remembered-dungeon slots, stamped the
+ *  newest, and pruned a real dungeon's map against it: each region's court cost one. Nothing enters, stamps, prunes,
+ *  saves or forgets through it; the exit that follows finds no live key and a player who was never inside. */
+export const detachedAutomapRecord = () => newAutomapRecord();
+
 export function enterDungeonAutomap(key, nowMinutes, { fromLoad = false } = {}) {
   let rec = _dungeons.get(key);
   if (!rec) {
-    rec = {
-      revealed: new Set(), visitedThisRun: new Set(), entranceDiscovered: false, lastVisited: 0,
-      blockNames: null,   // c2/S1: the layout the discovery was recorded against (the restore guard's input)
-      // c2/S8: AutomapDungeonState's two user-data collections (:93-94).
-      // The SortedList is a Map kept in ASCENDING KEY ORDER - AddNext
-      // reads Keys[i] positionally, so the order is part of the law.
-      notes: new Map(),        // id -> { position:[x,y,z], note }
-      teleporters: new Map(),  // dictKey -> { entrance:{pos,yawDeg}, exit:{pos,yawDeg} }
-    };
+    rec = newAutomapRecord();
     _dungeons.set(key, rec);
   }
   _inside = true;

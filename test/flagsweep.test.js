@@ -147,7 +147,8 @@ test('FS1: the F5/F6 arc is retired, and U43 really did route the table indoors'
   // ctx that carries the doors those keys open.
   const modes = read('src/scenes/worldModes.js');
   assert.match(modes, /if \(mode === 'interior'\) \{\n\s*if \(routeKey\(e, interiorKeyCtx, null, keys\)\) e\.preventDefault\(\);/);   // AUDIT 58 (f3/input): + the held-keys Set
-  assert.match(modes, /toggleCharSheet\(\) \{ mountInterior\(host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\)\); \}/);
+  assert.match(modes, /toggleCharSheet\(\) \{ openInteriorSheet\(\); \}/);   // AUDIT 27h A1: the one door (host.makeCharSheet(interiorSheetDoors()) in the building's slot)
+  assert.match(modes, /const openInteriorSheet = \(\) => \{ const w = host\.makeCharSheet\?\.\(interiorSheetDoors\(\)\); if \(w\) mountInterior\(w\); return !!w; \};/);
   for (const arm of ['CharacterSheet', 'Inventory', 'LogBook', 'NoteBook']) {
     assert.ok(read('src/ui/input.js').includes(`case '${arm}':`), `${arm} is in the one table`);
   }
@@ -162,7 +163,7 @@ test('FS1: the melee/arrow clauses are retired, and the tree contradicts them', 
   // alone, and the fixed-city host took the same three-pool swing
   // verbatim; replacing its encounter arm with four comment lines (so
   // no cite could move) left the swing as watch -> civilians with the
-  // shipped comment still claiming world.js:17151's order, green.
+  // shipped comment still claiming world.js:17155's order, green.
   for (const [file, foeTargets] of [
     ['src/scenes/world.js', /foeTargets: \[\.\.\.\[\.\.\.exteriorFoes\.foes, \.\.\.cityGuards\.guards\]/],   // DUEL1: the pools, then my duel opponent's body
     ['src/scenes/exterior.js', /foeTargets: exteriorFoePool\(\)\.filter\(\(t\) => !t\.dead && t\.ai\)/],

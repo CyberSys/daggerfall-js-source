@@ -72,7 +72,7 @@ test('HOLD-STEP: the port\'s field, its hold and its act order - down, set, up i
   const port = rd('src/ui/enhancedPort.js');
   assert.match(port, /if \(b\.set && !b\.disabled\) n\.append\(spinField\(doc, b, acts\)\);/);
   assert.match(port, /case 'spinner': if \(!b\.disabled\) \{ if \(b\.down\) out\.push\(b\.down\); if \(b\.set\) out\.push\(b\.set\); if \(b\.up\) out\.push\(b\.up\); \} return;/);
-  assert.match(port, /const spin = e\.target\.closest\?\.\('\.port-spinbtn\[data-a\]'\);\n\s*if \(spin && !spin\.disabled && \(e\.button \?\? 0\) === 0\) startHold\(\[\.\.\.body\.querySelectorAll\('\.port-spinbtn'\)\]\.indexOf\(spin\)\);/,
+  assert.match(port, /const spin = e\.target\.closest\?\.\('\.port-spinbtn\[data-a\]'\);\n\s*if \(spin && !spin\.disabled && \(e\.button \?\? 0\) === 0\) \{\n\s*startHold\(\[\.\.\.body\.querySelectorAll\('\.port-spinbtn'\)\]\.indexOf\(spin\)\);/,
     'the hold is keyed by the button\'s PLACE among the spinner buttons, not its node or a bare act index');
   assert.match(port, /if \(hold\.n > 0\) \{ swallowClick = true;/, 'a hold that stepped swallows its release\'s click');
   assert.match(port, /const btn = body\?\.querySelectorAll\?\.\('\.port-spinbtn'\)\?\.\[h\.pos\] \?\? null;\n\s*const fn = btn && !btn\.disabled && btn\.dataset\.a != null \? acts\[Number\(btn\.dataset\.a\)\] : null;\n\s*if \(typeof fn !== 'function'\) \{ stopHold\(\); return; \}/,
