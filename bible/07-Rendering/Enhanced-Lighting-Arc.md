@@ -1689,7 +1689,7 @@ and their colours - decoded to linear again each time, 144 `Math.pow` - the indi
 (`_uploadEl`: the exposure and the glow's gain, the three shadow arrays on their units, `uSunVP[3]`, the cascade
 terms, `uPointShadowParams[8]`, `uShadowIndex[8]`, `uCasterOf[48]`, the eye's image, the contact block, the grid's two
 textures and four uniforms). On the fake GL with the lane and the air on that is **95 GL calls a billboard call (of
-the pin's three batches), 83 a decal call, 84 a body** (96, 84 and 85 since TV1, 2026-09-28: the travel view's `uFocus` rides the fog's upload) - of which only the basis, the wind and the batches' own, the
+the pin's three batches), 83 a decal call, 84 a body** (97, 85 and 86 since TV1, 2026-09-28: the travel view's `uFocus` rides the fog's upload and `uSunOrigin` the shadow block's) - of which only the basis, the wind and the batches' own, the
 atlas and the picture flag, and the model matrix and ranges are the call's. An interior frame makes eight flat calls (its flats, the blood, the dropped torches, the placed
 decor, the piles, the foes, the watch, the spells), a decal call per hung weapon (DECOR2c's mounts, every frame) and
 the blood pool's, and one call per body - and nothing between them moved a value in the block. Now PERF3's terrain law

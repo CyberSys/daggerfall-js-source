@@ -1603,6 +1603,10 @@ export class HeldMapWindow {
   }
 
   /** TV1: the Overworld door stands only where the host can lift the camera. */
+  // TV1 (bible/06-Systems/Travel-View.md, Mac: "When opening the map, there should be a toggle to go to the overworld
+  // style map"): THE DOOR UP. The foot's Overworld button is shown only where the host can honour it (the open air, the
+  // enhanced lane) and never under the teleport arm; the sheet lowers as it does for a journey, and the host lifts the
+  // camera (scenes/travelView.js) at the bottom of the close.
   _travelViewShown() { return typeof this.deps.onTravelView === 'function' && (this.deps.travelViewAllowed?.() ?? true) && !this.teleportationTravel; }
   _renderTravelView() {
     const b = this._chrome?.over;
@@ -2184,17 +2188,15 @@ export class HeldMapWindow {
     const foot = el('div', 'hmfoot');
     const hint = el('div', 'hmhint', MAP_HINT);
     const band = el('div', 'hmband', '');
+    // TV1: the door up to the travel view (_openTravelView)
+    const over = el('button', 'act hmover', TRAVEL_VIEW_BUTTON);
+    over.onclick = () => { if (this._phase === 'map') this._openTravelView(); };
     // SOC6: the legend, beside the hint, only while there is a mark to explain
     const legend = el('div', 'hmlegend');
     // MAP2: the ports button (the classic page's TO1 button, :191-197),
     // shown only while the mod restricts ship travel to ports
     const ports = el('button', 'act hmports', 'Ports');
     ports.onclick = () => { if (this._phase === 'map') this._togglePorts(); };
-    // TV1 (bible/06-Systems/Travel-View.md, Mac: "When opening the map, there should be a toggle to go to the
-    // overworld style map"): THE DOOR UP. The sheet lowers as it does for a journey, and the host lifts the camera
-    // (scenes/travelView.js) - shown only where the host can honour it (the open air, the enhanced lane)
-    const over = el('button', 'act hmover', TRAVEL_VIEW_BUTTON);
-    over.onclick = () => { if (this._phase === 'map') this._openTravelView(); };
     foot.append(hint, band, legend, ports, over);
     // MAP2: the box over the sheet - the I/H box, or the resume prompt
     const box = el('div', 'hmbox');

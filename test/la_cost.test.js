@@ -226,8 +226,9 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
     counts.push(`${what} ${first} -> ${calls.length}`);
   }
   // the numbers the bible quotes: GL calls a call, the frame's first against the rest (LA-AUDIT F5: compared, not counted)
-  // TV1 (2026-09-28): +1 on every first call - the frame's focus (uFocus, render/fogGlsl.js FOCUS_GLSL) rides the fog's upload
-  assert.deepEqual(counts, ['billboards 96 -> 28', 'decals 84 -> 12', 'a character 85 -> 13']);
+  // TV1 (2026-09-28): +2 on every first call - the frame's focus (uFocus, render/fogGlsl.js FOCUS_GLSL) rides the fog's
+  // upload, and the cascades' origin (uSunOrigin, render/shadowPass.js) the shadow block's
+  assert.deepEqual(counts, ['billboards 97 -> 28', 'decals 85 -> 12', 'a character 86 -> 13']);
   // ...and the next frame sends them all again
   r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
   calls.length = 0; r.drawBillboards(bbs, R, UP);

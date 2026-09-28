@@ -36,7 +36,8 @@ import { WEAPON_MATERIALS, WEAPONS } from '../src/characters/weapons.js';
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 test('DISC14-A: in both hosts that ride, the weapons draw over the mount - the mount\'s frame, then the weapon rig, then the HUD (mutants: the rig back in the walk block; the rig drawn before the mount)', () => {
-  for (const [file, gate] of [['src/scenes/world.js', 'walkMode && playerSpawned && !tvf'],   // TV1: and no hand on the travel view's camera ['src/scenes/exterior.js', 'walkMode && !tpMode']]) {
+  // TV1: the world host's gate also refuses the travel view's camera - no hand 450 m up
+  for (const [file, gate] of [['src/scenes/world.js', 'walkMode && playerSpawned && !tvf'], ['src/scenes/exterior.js', 'walkMode && !tpMode']]) {
     const src = rd(file);
     const draws = [...src.matchAll(/weaponRig\.draw\(\{ paralyzed \}\)/g)].map((m) => m.index);
     assert.equal(draws.length, 1, `${file}: the rig draws once a frame`);

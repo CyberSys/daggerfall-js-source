@@ -267,7 +267,8 @@ anchors now read the view's spelling - `sky.draw(tvf ? tvf.yaw : cam.yaw, ...)` 
 INVIS-LOOK, SHADOW-REACH and BLOOD1a, every ordering they assert unchanged; DISC14-A's
 gate is the walk block's AND not the view's; AUDIT 58's cursor guard ORs the view in on the
 world host; I1 and QS2 count the appended, unbound `TravelView`; LA-COST1 classes `_focus`
-as an input and counts its upload (+1 on each first call); U42 counts the readout's module.
+as an input and counts the two new uploads (+2 on each first call); AUDIT SOC C10/D5 reads
+the foot row with the Overworld button after Ports; U42 counts the readout's module.
 Every spelling P0, FPS-CAP1, PERF1, AUDIT 39 and AUDIT-WH hold on the frame's first lines,
 and the mwViewFrame call's length AUDIT-EOTB F3b reads, is kept as it was.
 
