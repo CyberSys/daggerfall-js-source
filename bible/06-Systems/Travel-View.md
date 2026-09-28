@@ -375,9 +375,9 @@ today. The held map draws the same book - a smaller verdigris ring under the par
 legend row.
 
 **Being seen - decided as lead.** "Show me to travellers in my region" (`showToTravellers`),
-ON by default, on the Other players card, the player's own say online (never forced by the
-room). Off: nobody outside the party sees where they are, and they still see those who show
-themselves. Nothing is ever sent from inside a building or a dungeon.
+ON by default, on the Mods screen's Other players card, the player's own say online (never
+forced by the room). Off: only the party (its own marks) and players within the pose range
+(their own eyes, as today) know where they are; they still see those who show themselves. Nothing is ever sent from inside a building or a dungeon.
 
 **THE COST, measured against RELAY-H1's figure.** RELAY-H1 priced a room awake for an hour at
 ~460 GB-s (the free tier's 13,000 GB-s a day was ~7 player-hours at ~4 rooms each). A mark
@@ -451,6 +451,45 @@ seventeen host call sites across thirteen passes.
 
 **Proof.** `test/tv4_weather_above.test.js` (8), `tools/mutants/tv4.json` (12 dead),
 `tools/travelViewProbe.mjs` (TV4's four checks).
+
+## TV5 - DESIGNED, MEASURED, NOT BUILT (2026-09-28) - and the stage for what comes next
+
+**The measurement that decides it.** The design said far-ring silhouettes for the places
+beyond the grid. The world pass cannot draw them: its linear fog is EV4's `2400 x TD/3` metres
+from the traveller, and the grid's edge is `TD x 819.2` - at every Land View of 3 or more the
+fog ends 100 m INSIDE the grid (TD 5: fog 4,000 m, grid 4,096 m). Whatever stands past the
+grid is fog in the world pass, from the eye or from the air. The far ring shows the province
+past it only because it is its own pass with its own haze (EV8: its own projection out to
+~60 km, `RING_HAZE_HOLD`), drawn after the sky at the far plane (`gl_FragDepth = 1`).
+
+**So TV5 is a ring-span pass, and it needs one thing the ring does not have: depth.** A town's
+roofs drawn in the ring's span would show through the ring's own hills, because the ring
+writes the far plane for every fragment. The build, in order:
+1. **The ring writes its OWN depth** in its own projection (a second depth attachment, or the
+   ring's fragments at a depth mapped into the far slice the world never reaches), so
+   anything else drawn in that span is occluded by the ring's hills. Pinned by the EV8
+   tests that hold its far-plane law today (`test/farring.test.js`, `test/perf2.test.js`).
+2. **The towns**: for every location whose pixel lies between the grid's edge and
+   `RING_RADIUS`, a cluster of boxes in its own rect (`locationWorldRect`), seeded by its map
+   id, its block count its footprint, the climate's roof colour, lit by the frame's sun, in
+   the ring's haze - a DISCOVERED place's plate on it under the view (TV2's plates).
+3. **Measured**: the draw calls at the ring's full radius (one instanced call; the ring
+   already builds its vertex grid off the same pixels).
+
+**What the arc leaves ready for later content** - each a seam that exists now, named:
+- **Journeys that leave from the air.** `beginTravelAlongRoute` takes any list of legs;
+  a party's journey (PARTY-TRAVEL) or a ship's could hand it one, and the view's line and
+  flag draw whatever `tvTrip` holds.
+- **Marks for anything placed on the map.** The readout's keyed marks (`marks`, `pick`,
+  `edge`) take a world point and a kind: quest targets, a party leader, a world boss's omen
+  (WB1's ring), a hub (HUB1) can be marks the same way the places and travellers are.
+- **Travellers who say more.** The TV3 mark is seven keys and the relay refuses an eighth -
+  on purpose. A later field (a guild tag's colour, "looking for company") is a new relay
+  version and a new key, never a squeeze into these.
+- **The weather forecast from the air.** `forecastAt` (WEATHER3) is a pure function of place
+  and minute; the view could hang a system's next hour under its curtain.
+- **Encounters seen coming.** The governor's unbuilt-ground count is per pixel; the same
+  window could carry the foes a Travel Options journey will meet (its `enemiesNearby`).
 
 ## Open, for Mac
 
