@@ -93,8 +93,8 @@
   {
     "name": "PERF-TV-screen-read-per-mark",
     "file": "src/ui/travelViewHud.js",
-    "old": "    const held = m.edge ? edgeHold(m, vw, vh) : null;",
-    "new": "    const held = m.edge ? edgeHold(m, win?.innerWidth ?? 0, win?.innerHeight ?? 0) : null;",
+    "old": "    const held = m.edge ? edgeHold(m, vw, vh, TV_EDGE_MARGIN, furniture.top, furniture.foot) : null;",
+    "new": "    const held = m.edge ? edgeHold(m, win?.innerWidth ?? 0, win?.innerHeight ?? 0, TV_EDGE_MARGIN, furniture.top, furniture.foot) : null;",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -283,7 +283,7 @@
   {
     "name": "EDGE-DECLUTTER-crowd-off-the-screen",
     "file": "src/ui/travelViewHud.js",
-    "old": "      const even = r.span > hi - lo;   // more than the edge holds: spaced evenly along it",
+    "old": "      const even = r.span > z - a;   // more than the edge holds: spaced evenly along it",
     "new": "      const even = false;",
     "tests": [
       "test/tv5_far_places.test.js"
@@ -293,11 +293,101 @@
   {
     "name": "EDGE-DECLUTTER-pushed-one-way",
     "file": "src/ui/travelViewHud.js",
-    "old": "        p.at = Math.min(Math.max(p.sum / p.n, lo), hi - p.span);",
-    "new": "        p.at = Math.min(Math.max(p.at, lo), hi - p.span);",
+    "old": "        p.at = p.sum / p.n; p.at = fit(p);",
+    "new": "        p.at = fit(p);",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
     "note": "A stack grows only downward from its first mark - the last plate hangs far from where its town lies."
+  },
+  {
+    "name": "EDGE-FURNITURE-held-under-the-bar",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  const sx = (cx - margin) / Math.max(1e-6, Math.abs(dx)), sy = (dy < 0 ? cy - top : cy - foot) / Math.max(1e-6, Math.abs(dy));",
+    "new": "  const sx = (cx - margin) / Math.max(1e-6, Math.abs(dx)), sy = (cy - margin) / Math.max(1e-6, Math.abs(dy));",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A town behind the camera is held at the screen's foot - under the view's bar and the hotbar, its name off the bottom."
+  },
+  {
+    "name": "EDGE-FURNITURE-drawn-under-the-bar",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (p.front && p.x >= margin && p.x <= w - margin && p.y >= top && p.y <= h - foot) return null;",
+    "new": "  if (p.front && p.x >= margin && p.x <= w - margin && p.y >= margin && p.y <= h - margin) return null;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A mark in the picture but behind the bar is drawn there, unseen, instead of held above it."
+  },
+  {
+    "name": "EDGE-FURNITURE-name-under-its-arrow",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    const ly = q.side === 3 ? y - 10 - sp.h - (sb ? sb.h : 0) :",
+    "new": "    const ly = false ? y - 10 - sp.h - (sb ? sb.h : 0) :",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Held at the foot, the name hangs below its arrow - into the bar."
+  },
+  {
+    "name": "EDGE-FURNITURE-click-box-in-the-bar",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (q.side === 3) return { x0: x0 - 4, x1: x0 + w + 4, y0: q.y - 14 - h - (q.m.sub ? 16 : 0), y1: q.y + 10 };   // its label above it\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The plate is drawn above its arrow but its click box hangs below - a click on the name finds nothing."
+  },
+  {
+    "name": "EDGE-FURNITURE-measured-every-frame",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (now - furniture.at < FURNITURE_EVERY_MS && furniture.vw === vw && furniture.vh === vh) return;",
+    "new": "  if (false) return;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A layout read every frame for the edges' furniture - PERF-TV's forced layout back."
+  },
+  {
+    "name": "EDGE-FURNITURE-stale-on-show",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  furniture.at = -Infinity;   // EDGE-FURNITURE: what stands at the edges now (a journey's panel may have come or gone)\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Reopened on a journey, the marks stand under the travel panel for half a second."
+  },
+  {
+    "name": "EDGE-FURNITURE-foot-unmeasured",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    else if (r.top >= vh / 2) foot = Math.max(foot, vh - r.top + FURNITURE_GAP);",
+    "new": "    else if (r.top >= vh / 2) foot = Math.max(foot, TV_EDGE_MARGIN);",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The bar and the hotbar measured and ignored - everything behind you under them again."
+  },
+  {
+    "name": "EDGE-FURNITURE-side-label-in-the-bar",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    const side = s < 2, lo = side ? furniture.top : m, hi = side ? vh - furniture.foot : vw - m;",
+    "new": "    const side = s < 2, lo = m, hi = side ? vh - m : vw - m;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A town off the side, low, hangs its name and distance down into the bar."
+  },
+  {
+    "name": "EDGE-FURNITURE-a-renamed-piece",
+    "file": "src/ui/travelViewHud.js",
+    "old": "const FURNITURE = '.hud-top, .hud-bottom, .travelpanel-bar';",
+    "new": "const FURNITURE = '.hud-top, .hud-bottom, .travel-panel-bar';",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A class that no longer exists is measured - the travel panel stands over the marks unseen."
   }
 ]

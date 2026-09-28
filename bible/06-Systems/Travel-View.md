@@ -698,8 +698,22 @@ marks would stand, so no arrow drifts far from its town, and each arrow still po
 way. More than an edge holds (about ten plates down a side): spaced evenly along it, on
 the screen. Measured: the readout stays inside PERF-TV's budgets (0.44 / 1.02 / 0.04 ms).
 
-**Proof.** `test/tv5_far_places.test.js`, `tools/mutants/tv5.json` (the TV5 and
-EDGE-DECLUTTER records), `tools/travelViewProbe.mjs` (a far place held at the right edge, its
+**EDGE-FURNITURE (2026-09-28, Mac: "Fix this bug").** A mark behind the camera is held at the
+FOOT of the screen - and the foot is where the view's bar and the game HUD's vitals and hotbar
+stand (the HUD stays up under the view), drawn over the readout's canvas; its name hung below
+its arrow, off the bottom. Roughly half of all directions are behind the camera, so many far
+towns and riders were unseen (TV3's riders since TV3). At the top the compass stood over them,
+and on a journey the travel panel. Now the readout MEASURES what stands in the top and the
+bottom half (`.hud-top`, `.hud-bottom`, `.travelpanel-bar` and its own bar; a layout read, so
+at most twice a second and again each time the view opens - never per frame or per mark) and
+`edgeHold` holds marks inside that clear room: a point under the furniture is held at its edge
+as one off the screen is. At the foot the name and distance stand ABOVE the arrow and the click
+box with them; down a side, a low mark's label is kept off the bar. The pieces' classes are
+pinned against the style sheet, so a rename cannot leave a mark under one unseen. Measured in
+the browser probe against the real bar; the readout stays inside PERF-TV's budgets.
+
+**Proof.** `test/tv5_far_places.test.js`, `tools/mutants/tv5.json` (the TV5, EDGE-DECLUTTER and
+EDGE-FURNITURE records), `tools/travelViewProbe.mjs` (a far place held at the right edge, its
 plate on the screen, a click on it a journey).
 
 ## PERF-TV - the Overworld's own frame cost, made golden (2026-09-28)

@@ -73,11 +73,12 @@ test('TV5 host wiring: the far places are rebuilt on a pixel (or a reach) change
 // ── PERF-TV: THE READOUT, DRAWN ─────────────────────────────────────────────────────────────────────────────────────
 
 /** A document just real enough for the readout: elements, a canvas whose 2D context records what it is told, and a
- *  window whose size is COUNTED when read (a read after a write is a forced layout in a browser). */
-function fakeDoc() {
-  const calls = [];
+ *  window whose size is COUNTED when read (a read after a write is a forced layout in a browser). `rects` stands the
+ *  HUD's furniture up: `bar` the view's own bar's box, `others` what the page's query finds - each box read COUNTED. */
+function fakeDoc({ rects = null } = {}) {
+  const calls = [], draws = [];
   const ctx = new Proxy({ calls }, {
-    get: (t, k) => (k in t ? t[k] : k === 'measureText' ? (s) => ({ width: String(s).length * 7 }) : (...a) => { calls.push(k); }),
+    get: (t, k) => (k in t ? t[k] : k === 'measureText' ? (s) => ({ width: String(s).length * 7 }) : (...a) => { calls.push(k); if (k === 'drawImage') draws.push(a); }),
     set: (t, k, v) => { t[k] = v; return true; },
   });
   const reads = { n: 0 };
@@ -85,12 +86,15 @@ function fakeDoc() {
   Object.defineProperty(win, 'innerWidth', { get() { reads.n++; return 1280; } });
   Object.defineProperty(win, 'innerHeight', { get() { reads.n++; return 720; } });
   const doc = { defaultView: win, fonts: null };
+  const rectReads = { n: 0 };
+  const box = (r) => { rectReads.n++; return r ?? { width: 0, height: 0 }; };
+  if (rects) doc.querySelectorAll = () => (rects.others ?? []).map((r) => ({ getBoundingClientRect: () => box(r) }));
   const mk = (tag) => {
     const n = {
       tagName: tag.toUpperCase(), className: '', textContent: '', id: '', children: [], style: { setProperty() {} }, ownerDocument: doc,
       attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; },
       append(...c) { this.children.push(...c); }, remove() {}, addEventListener() {}, isConnected: true,
-      width: 0, height: 0,
+      width: 0, height: 0, getBoundingClientRect() { return box(this.className === 'tview-bar' ? rects?.bar : null); },
     };
     if (tag === 'canvas') n.getContext = () => ctx;
     return n;
@@ -99,7 +103,7 @@ function fakeDoc() {
     createElement: mk, createElementNS: (_, tag) => mk(tag), getElementById: () => null,
     head: mk('head'), body: mk('body'),
   });
-  return { doc, win, calls, reads };
+  return { doc, win, calls, draws, reads, rectReads };
 }
 
 test('PERF-TV readout: every mark on the one canvas; the screen read ONCE a frame however many marks are held at its edge; a picture that did not change is not drawn again; a moved one is', async () => {
@@ -226,4 +230,54 @@ test('EDGE-DECLUTTER: marks held at one edge in much the same direction slide ap
     for (let i = 1; i < 20; i++) assert.ok(mids[i] > mids[i - 1], `in order down the edge (${mids[i - 1]} < ${mids[i]})`);
     assert.ok(hits[0].y0 >= 0 && hits[19].y0 < 720, `on the screen (${hits[0].y0} .. ${hits[19].y0})`);
   } finally { hud.disposeTravelViewHud(); }
+});
+
+test('EDGE-FURNITURE law: a point under the top\'s or the foot\'s furniture is held at its edge, as one off the screen is; straight behind lands on the foot\'s edge, not under the bar', async () => {
+  const { edgeHold } = await import('../src/ui/travelViewHud.js');
+  const W = 1280, H = 720, M = 28;
+  const under = edgeHold({ x: 640, y: 700, front: true }, W, H, M, M, 100);
+  assert.ok(under && Math.abs(under.y - 620) < 1e-9 && Math.abs(under.angle - 180) < 1e-9, `under the bar: held on its edge, pointing down (${JSON.stringify(under)})`);
+  assert.equal(edgeHold({ x: 640, y: 600, front: true }, W, H, M, M, 100), null, 'above it: in the picture');
+  assert.equal(edgeHold({ x: 640, y: 360, front: false }, W, H, M, M, 100).y, 620, 'straight behind: on the foot\'s edge');
+  assert.equal(edgeHold({ x: 640, y: 50, front: true }, W, H, M, 120, M).y, 120, 'under the compass or the panel: held below it');
+  assert.equal(edgeHold({ x: 640, y: 700, front: true }, W, H).y, H - M, 'no furniture given: the margin, as before');
+});
+
+test('EDGE-FURNITURE readout: marks behind the camera stand ABOVE the bar with their names over their arrows; ahead, below the compass and a journey\'s panel; a side\'s mark keeps its label off the bar; the furniture measured twice a second, not every frame', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const bar = { left: 336, right: 944, top: 638, bottom: 702, width: 608, height: 64 };
+  const compass = { left: 490, right: 790, top: 18, bottom: 48, width: 300, height: 30 };
+  const panel = { left: 276, right: 1004, top: 60, bottom: 124, width: 728, height: 64 };
+  const { doc, rectReads, draws } = fakeDoc({ rects: { bar, others: [compass, panel] } });
+  hud.showTravelViewHud({}, doc);
+  const far = (key, x, y, front) => ({ key, x, y, front, label: key, sub: '12 km', kind: 'far', pick: true, edge: true });
+  const f = { feet: null, heading: null, yaw: 0, where: '', marks: [
+    far('far:behind-a', 700, 200, false), far('far:behind-b', 560, 100, false),   // behind: the foot
+    far('far:ahead', 640, -5000, true),                                            // ahead, off the top
+    far('far:side', 1500, 700, true),                                              // off the right, low - by the bar
+  ] };
+  try {
+    for (let i = 0; i < 30; i++) hud.updateTravelViewHud(f);
+    const hits = hud.travelViewHudState().hits, at = (k) => hits.find((h) => h.key === k);
+    const low = draws.filter(([, , y, , h]) => y + h > bar.top);
+    assert.deepEqual(low, [], 'no name or distance drawn down into the bar');
+    for (const k of ['far:behind-a', 'far:behind-b']) {
+      const h = at(k);
+      assert.ok(h.y1 <= bar.top, `${k}: above the bar (${h.y0}..${h.y1}, the bar from ${bar.top})`);
+      assert.ok(h.y1 - h.y0 > 40 && h.y1 - 10 > h.y0 + 30, `${k}: its name and distance over its arrow (${h.y0}..${h.y1})`);
+    }
+    assert.ok(at('far:ahead').y0 + 24 >= panel.bottom + 12, `ahead: its arrow below the panel (${at('far:ahead').y0 + 24})`);
+    assert.ok(at('far:side').y1 <= bar.top, `the side's low mark keeps its label off the bar (${at('far:side').y1})`);
+    assert.ok(rectReads.n > 0 && rectReads.n <= 3, `thirty frames, one measure of the three pieces (${rectReads.n} box reads)`);
+    hud.hideTravelViewHud(); hud.showTravelViewHud({}, doc);
+    const before = rectReads.n;
+    hud.updateTravelViewHud(f);
+    assert.equal(rectReads.n - before, 3, 'shown again: measured again at once');
+  } finally { hud.disposeTravelViewHud(); }
+  // the pieces it measures are the HUD's own - a class renamed in the style sheet would leave a mark under it unseen
+  const h = rd('src/ui/travelViewHud.js'), css = rd('src/ui/enhancedStyle.js');
+  const sel = h.match(/const FURNITURE = '([^']+)';/);
+  assert.ok(sel, 'the furniture named in one place');
+  assert.deepEqual(sel[1].split(', '), ['.hud-top', '.hud-bottom', '.travelpanel-bar'], 'the compass, the vitals and hotbar, a journey\'s panel');
+  for (const c of sel[1].split(', ')) assert.match(css, new RegExp(`^\\${c} \\{`, 'm'), `${c} is a class the style sheet stands up`);
 });

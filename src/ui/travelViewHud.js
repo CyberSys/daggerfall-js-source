@@ -75,17 +75,19 @@ let last = null;
  * TV3: A MARK OUTSIDE THE PICTURE, HELD AT ITS EDGE: where on a `w` x `h` screen (inset by `margin`) the mark of a
  * point projected at `p` stands, and the way its arrow points (degrees clockwise from up). A point behind the eye
  * projects through the mirror of itself, so its direction from the middle is turned round first. Null for a point
- * that is on the picture - it is drawn where it stands.
+ * that is on the picture - it is drawn where it stands. EDGE-FURNITURE: `top` and `foot` are the clear room at the top and
+ * the foot (the HUD's compass and the travel panel above, the view's bar and the hotbar below - measured by the
+ * readout); a point under them is held at their edge, as one off the screen is.
  * @param {{x:number, y:number, front:boolean}} p
  */
-export function edgeHold(p, w, h, margin = TV_EDGE_MARGIN) {
+export function edgeHold(p, w, h, margin = TV_EDGE_MARGIN, top = margin, foot = margin) {
   if (!p) return null;
-  if (p.front && p.x >= margin && p.x <= w - margin && p.y >= margin && p.y <= h - margin) return null;
+  if (p.front && p.x >= margin && p.x <= w - margin && p.y >= top && p.y <= h - foot) return null;
   const cx = w / 2, cy = h / 2;
   let dx = p.x - cx, dy = p.y - cy;
   if (!p.front) { dx = -dx; dy = -dy; }
   if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) dy = 1;   // straight behind: below, where the ground behind would be
-  const sx = (cx - margin) / Math.max(1e-6, Math.abs(dx)), sy = (cy - margin) / Math.max(1e-6, Math.abs(dy));
+  const sx = (cx - margin) / Math.max(1e-6, Math.abs(dx)), sy = (dy < 0 ? cy - top : cy - foot) / Math.max(1e-6, Math.abs(dy));
   const k = Math.min(sx, sy);
   return { x: cx + dx * k, y: cy + dy * k, angle: (Math.atan2(dx, -dy) * 180) / Math.PI };
 }
@@ -179,6 +181,7 @@ export function showTravelViewHud(hooks = {}, doc = globalThis.document) {
     resetMarks();   // PERF-TV: a new canvas holds nothing
   }
   parts.back.onclick = (e) => { e.preventDefault(); hooks.onReturn?.(); };
+  furniture.at = -Infinity;   // EDGE-FURNITURE: what stands at the edges now (a journey's panel may have come or gone)
   root.style.display = '';
   listenPointer(doc.defaultView, true);
   return true;
@@ -201,7 +204,7 @@ export function disposeTravelViewHud() {
   sprites.clear();
 }
 
-function resetMarks() { hits = []; drawnKeys = []; canvasDrew = false; canvasSig = []; }
+function resetMarks() { hits = []; drawnKeys = []; canvasDrew = false; canvasSig = []; furniture.at = -Infinity; }
 /** PERF-TV: the pointer's place over the page, followed while the readout stands (a plate under it is lit, and the
  *  cursor says it takes a click) - passive, never a handler that could stop the view's own. */
 const onPointerMoveHud = (e) => { pointer = { x: e.clientX, y: e.clientY }; };
@@ -321,15 +324,16 @@ function drawMarks(marks) {
   if (!g) return;
   const win = cv.ownerDocument?.defaultView;
   const vw = win?.innerWidth ?? 0, vh = win?.innerHeight ?? 0, dpr = win?.devicePixelRatio || 1;   // read ONCE, before any write
+  measureFurniture(cv.ownerDocument, vw, vh);
   const bw = Math.round(vw * dpr), bh = Math.round(vh * dpr);
   // where each mark stands this frame, and what is under the pointer (the plates on top, the last drawn first)
   const placed = [];
   const nextHits = [];
   for (const m of marks) {
-    const held = m.edge ? edgeHold(m, vw, vh) : null;
+    const held = m.edge ? edgeHold(m, vw, vh, TV_EDGE_MARGIN, furniture.top, furniture.foot) : null;
     if (!m.front && !held) continue;
     const at = held ?? m;
-    placed.push({ m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m) });
+    placed.push({ m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: held ? heldSide(held, vw) : -1 });
   }
   spreadHeld(placed, vw, vh);
   let hover = null;
@@ -371,11 +375,12 @@ function drawMarks(marks) {
     const plate = look === 'place' || look === 'far';
     const sp = labelSprite(doc, m.label, look, held && !plate ? 11 : plate ? 13 : 12, /\bjourney\b/.test(m.kind ?? ''), m.key === hover, dpr);
     if (!sp) continue;
-    const ly = plate && !held ? y - 24 - sp.h / 2 : y + (held ? 10 : 7);
+    const sb = m.sub ? labelSprite(doc, m.sub, 'sub', 11, false, false, dpr) : null;   // TV5: a far place's distance, under its plate
+    // held at the foot, the label stands ABOVE its arrow - under it is the bar (EDGE-FURNITURE)
+    const ly = q.side === 3 ? y - 10 - sp.h - (sb ? sb.h : 0) : plate && !held ? y - 24 - sp.h / 2 : y + (held ? 10 : 7);
     g.drawImage(sp.c, inScreen(x - sp.w / 2, sp.w, vw), ly, sp.w, sp.h);   // a long name held at a side edge stays on the screen
-    if (m.sub) {   // TV5: a far place's distance, under its plate
-      const sb = labelSprite(doc, m.sub, 'sub', 11, false, false, dpr);
-      if (sb) g.drawImage(sb.c, inScreen(x - sb.w / 2, sb.w, vw), ly + sp.h, sb.w, sb.h);
+    if (sb) {
+      g.drawImage(sb.c, inScreen(x - sb.w / 2, sb.w, vw), ly + sp.h, sb.w, sb.h);
     }
     canvasDrew = true;
   }
@@ -385,6 +390,43 @@ function drawMarks(marks) {
 const markWidth = (m) => Math.max(24, 9 * (m.label?.length ?? 0) + 16);
 /** The room between two marks held along one edge. */
 const HELD_GAP = 4;
+/** EDGE-FURNITURE: what stands at the screen's top and foot while the view is up - the game HUD's compass and its
+ *  vitals and hotbar (both stay under the view), a journey's travel panel, the view's own bar. */
+const FURNITURE = '.hud-top, .hud-bottom, .travelpanel-bar';
+/** A held arrow's room off the furniture (px) - its own half height (8) and a little air. */
+const FURNITURE_GAP = 12;
+/** How often the furniture is measured (ms) - a layout read, so twice a second and never per mark. */
+const FURNITURE_EVERY_MS = 500;
+/** The clear room at the top and the foot (px), measured; never more than this share of the screen each. */
+const FURNITURE_MAX_SHARE = 0.3;
+const furniture = { top: TV_EDGE_MARGIN, foot: TV_EDGE_MARGIN, at: -Infinity, vw: 0, vh: 0 };
+/**
+ * EDGE-FURNITURE (2026-09-28, Mac: "Fix this bug"): a mark behind the camera is held at the FOOT of the screen - where
+ * the view's bar and the HUD's hotbar stand, over it (the bar is drawn after the canvas), its label hanging off the
+ * bottom; one ahead at the top stood under the compass and, on a journey, the travel panel. The pieces standing in
+ * the top and the bottom half are measured here, and the held marks kept clear of them (FURNITURE_GAP). A layout read, so at
+ * most every FURNITURE_EVERY_MS and when the screen changes size - never per frame, never per mark.
+ */
+function measureFurniture(doc, vw, vh) {
+  const now = globalThis.performance?.now?.() ?? Date.now();
+  if (now - furniture.at < FURNITURE_EVERY_MS && furniture.vw === vw && furniture.vh === vh) return;
+  furniture.at = now; furniture.vw = vw; furniture.vh = vh;
+  let top = TV_EDGE_MARGIN, foot = TV_EDGE_MARGIN;
+  const els = [parts?.bar, ...(doc?.querySelectorAll?.(FURNITURE) ?? [])];
+  for (const e of els) {
+    const r = e?.getBoundingClientRect?.();
+    if (!r || !(r.width > 0 && r.height > 0)) continue;
+    if (r.bottom <= vh / 2) top = Math.max(top, r.bottom + FURNITURE_GAP);
+    else if (r.top >= vh / 2) foot = Math.max(foot, vh - r.top + FURNITURE_GAP);
+  }
+  furniture.top = Math.min(top, vh * FURNITURE_MAX_SHARE);
+  furniture.foot = Math.min(foot, vh * FURNITURE_MAX_SHARE);
+}
+/** Which edge a held mark stands on: 0 left, 1 right, 2 the top, 3 the foot. */
+function heldSide(held, vw) {
+  const m = TV_EDGE_MARGIN;
+  return held.x <= m + 0.5 ? 0 : held.x >= vw - m - 0.5 ? 1 : held.y <= furniture.top + 0.5 ? 2 : 3;
+}
 /**
  * EDGE-DECLUTTER (2026-09-28, Mac: "Just #1"): THE MARKS HELD AT ONE EDGE, SPREAD so none lies over another. Two towns
  * (or a town and a rider) in much the same direction were held at the same spot, one plate hiding the other and its
@@ -397,7 +439,7 @@ function spreadHeld(placed, vw, vh) {
   const sides = [[], [], [], []];   // left, right, top, foot
   for (const q of placed) {
     if (!q.held) continue;
-    const side = q.held.x <= m + 0.5 ? 0 : q.held.x >= vw - m - 0.5 ? 1 : q.held.y <= m + 0.5 ? 2 : 3;
+    const side = q.side;
     if (side < 2) {
       const b = markBox(q, vw);
       sides[side].push({ q, pos: q.y, a: q.y - b.y0, b: b.y1 - q.y });
@@ -408,9 +450,12 @@ function spreadHeld(placed, vw, vh) {
   }
   for (let s = 0; s < 4; s++) {
     const items = sides[s];
-    if (items.length < 2) continue;
+    if (!items.length) continue;
     items.sort((u, v) => u.pos - v.pos || (u.q.m.key < v.q.m.key ? -1 : u.q.m.key > v.q.m.key ? 1 : 0));
-    const lo = m, hi = s < 2 ? vh - m : vw - m;
+    // down a side, a run's boxes stay between the furniture at the top and the foot (a label hanging under its arrow
+    // into the bar is under it); along the top or the foot, its arrows between the corners (inScreen keeps the labels)
+    const side = s < 2, lo = side ? furniture.top : m, hi = side ? vh - furniture.foot : vw - m;
+    const fit = (r) => Math.min(Math.max(r.at, lo + (side ? items[r.i0].a : 0)), hi - r.span - (side ? items[r.i1].b : 0));
     // runs of touching marks, each run centred on where its marks would stand (its first mark at `at`, the rest `off`
     // below it); a run that meets the one before it joins it, and the joined run is centred again
     const runs = [];
@@ -422,15 +467,17 @@ function spreadHeld(placed, vw, vh) {
         if (p.at + shift <= r.at) break;
         for (let k = r.i0; k <= r.i1; k++) items[k].off += shift;
         p.sum += r.sum - shift * r.n; p.n += r.n; p.i1 = r.i1; p.span = shift + r.span;
-        p.at = Math.min(Math.max(p.sum / p.n, lo), hi - p.span);
+        p.at = p.sum / p.n; p.at = fit(p);
         runs.pop(); r = p;
       }
       runs.push(r);
     }
     for (const r of runs) {
-      const even = r.span > hi - lo;   // more than the edge holds: spaced evenly along it
+      const a = lo + (side ? items[r.i0].a : 0), z = hi - (side ? items[r.i1].b : 0);
+      const even = r.span > z - a;   // more than the edge holds: spaced evenly along it
+      const at = even ? a : fit(r);
       for (let k = r.i0; k <= r.i1; k++) {
-        const pos = even ? lo + ((hi - lo) * (k - r.i0)) / Math.max(1, r.i1 - r.i0) : r.at + items[k].off;
+        const pos = even ? a + ((z - a) * (k - r.i0)) / Math.max(1, r.i1 - r.i0) : at + items[k].off;
         if (s < 2) items[k].q.y = Math.round(pos); else items[k].q.x = Math.round(pos);
       }
     }
@@ -443,8 +490,9 @@ const inScreen = (x0, w, vw) => (vw > w + 8 ? Math.min(Math.max(4, x0), vw - 4 -
 function markBox(q, vw) {
   const plate = q.look === 'place' || q.look === 'far';
   const w = markWidth(q.m), h = plate ? 24 : 20;
-  const top = plate && !q.held ? q.y - 36 : q.y - 10, bottom = (plate && !q.held ? q.y + 8 : q.y + 28) + (q.m.sub ? 16 : 0);
   const x0 = inScreen(q.x - w / 2, w, vw);
+  if (q.side === 3) return { x0: x0 - 4, x1: x0 + w + 4, y0: q.y - 14 - h - (q.m.sub ? 16 : 0), y1: q.y + 10 };   // its label above it
+  const top = plate && !q.held ? q.y - 36 : q.y - 10, bottom = (plate && !q.held ? q.y + 8 : q.y + 28) + (q.m.sub ? 16 : 0);
   return { x0: x0 - 4, x1: x0 + w + 4, y0: Math.min(top, q.y - h), y1: bottom };
 }
 function setHover(key) {

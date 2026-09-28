@@ -223,7 +223,8 @@ try {
       onPick: (x, y) => log.picks.push([Math.round(x), Math.round(y)]),
       onMark: (k) => log.marked.push(k),   // TV2: a plate's click
       marks: () => [{ key: 'place:7', at: [60, 0, 40], label: 'Ripwych', kind: 'place', pick: true },
-        { key: 'far:9', at: [2000, 0, 10], label: 'Daggerfall', sub: '12 km', kind: 'far', pick: true, edge: true }],   // TV5: a far place off the picture's right
+        { key: 'far:9', at: [2000, 0, 10], label: 'Daggerfall', sub: '12 km', kind: 'far', pick: true, edge: true },   // TV5: a far place off the picture's right
+        { key: 'far:foot', at: [0, 0, -2000], label: 'Glenpoint', sub: '18 km', kind: 'far', pick: true, edge: true }],   // EDGE-FURNITURE: one off the foot
       route: () => [[0, 0, 0], [20, 0, 10], [40, 0, 30], [60, 0, 40]],
       trip: () => 'To Ripwych, by the road',
       hud: { show: hud.showTravelViewHud, hide: hud.hideTravelViewHud, update: hud.updateTravelViewHud, pickAt: hud.travelViewHudPickAt },
@@ -273,6 +274,11 @@ try {
   check(tv2.trip === 'To Ripwych, by the road', `the trip is in the bar (${tv2.trip})`);
   const barBox = await page2.locator('.tview-bar').boundingBox();
   check(!!barBox && barBox.x >= 0 && barBox.x + barBox.width <= 1366 && barBox.y + barBox.height <= 768, `the readout's bar is on screen (${JSON.stringify(barBox)})`);
+  // EDGE-FURNITURE: a far place off the foot stands ABOVE the real bar, its name over its arrow, where a click finds it
+  const footBox = await page2.evaluate(() => window.__tvHud.travelViewHudState().hits.find((h) => h.key === 'far:foot') ?? null);
+  check(!!footBox && !!barBox && footBox.y1 <= barBox.y && footBox.y0 > barBox.y - 90, `EDGE-FURNITURE: the mark off the foot stands just above the bar (${JSON.stringify(footBox)}, the bar from ${barBox?.y})`);
+  const footTop = footBox ? await page2.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.className ?? '', { x: (footBox.x0 + footBox.x1) / 2, y: footBox.y0 + 14 }) : '';
+  check(!/tview-bar|tview-back/.test(String(footTop)), `EDGE-FURNITURE: nothing of the bar over its plate (${footTop})`);
   const you = await page2.locator('.tview-you').boundingBox();
   check(!!you, 'the traveller\'s mark is drawn');
   await page2.locator('.tview-back').click();
