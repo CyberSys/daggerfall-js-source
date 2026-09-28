@@ -144,8 +144,8 @@
   {
     "name": "AUDWB-A5-the-rung-dropped-by-the-route",
     "file": "server-account/src/index.js",
-    "old": "        if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, ",
-    "new": "        if (r.error) return json({ error: r.error }, ",
+    "old": "        // not the relay's pair, a clock) and lets go of one it cannot\n        if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, ",
+    "new": "        // not the relay's pair, a clock) and lets go of one it cannot\n        if (r.error) return json({ error: r.error }, ",
     "tests": ["test/auditwb_spoils.test.js", "test/wb5b_gate_claim.test.js"]
   },
   {
@@ -179,8 +179,8 @@
   {
     "name": "AUDWB-A9-me-nobody",
     "file": "src/net/accountClient.js",
-    "old": "    me: () => storedSession(storage)?.id ?? null,",
-    "new": "    me: () => null,",
+    "old": "    /** AUDIT WB A9: the signed-in account's id - the receipts this device may offer are its alone. */\n    me: () => storedSession(storage)?.id ?? null,",
+    "new": "    /** AUDIT WB A9: the signed-in account's id - the receipts this device may offer are its alone. */\n    me: () => null,",
     "tests": ["test/auditwb_spoils.test.js"]
   }
 ]

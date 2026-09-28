@@ -1,4 +1,4 @@
-# World Events - Raiding Parties (RAID1, RAID2, RAID3, 2026-09-27)
+# World Events - Raiding Parties (RAID1, RAID2, RAID3, 2026-09-27; RAID4, 2026-09-28)
 
 Kamer's **World Events - Raiding Parties 1.1**, made for this port. Mac, 2026-09-27: "World event mod was specially built
 for us. I want to talk about how this can properly be integrated into online in a detailed way." Asked the design's six
@@ -189,6 +189,22 @@ word (co-op's law - the relay has no world to see them in), bounded by the cap, 
 window. It has no copy of the day's schedule (no game data), so it keeps a raid it was told of in its day, its cell
 and its pose, and no other; the account service (RAID4) bounds what a receipt is worth. A tab loaded before the deploy
 fights by RAID2's law, and its raiders' deaths reach the relay's count only once it reloads.
+
+## The rewards (RAID4, 2026-09-28)
+
+Mac's "3. We can also add renown and it's own atheric + armor sets". A town defended pays in two ways, both off RAID3's
+receipt - one a raid, to each account that struck a raider and stood in the town at the cleanse.
+
+- **RAID4a - the record and the Renown** (account service acct17, no relay change). The device carries each receipt
+  with the character that fought it (`net/raidClaims.js`) to `/v1/raid/claim` (`server-account/src/raids.js`), which
+  verifies it with the relay's public half, counts it once a (raid, account) and at most `RAID_CLAIMS_DAY_MAX` (6) a
+  game day - the relay holds no schedule, so this is the record's bound - and pays that character `renownRaidXp`:
+  three quests' worth at the top quest level, under RENOWN3's ceiling (780 at Renown 1, 1,860 at 10, 3,900 from 27),
+  outside the hour's bound (the receipt is the relay's word, not the client's), in the same transaction as the row, so
+  a receipt claimed twice at once pays once. The chat says *The town will remember you. Towns defended: 3. +780 Renown
+  XP.*; the account card and the Inspect card say *Towns defended: 3*. A guest is counted once it registers.
+- **RAID4b - the spoils and the raid's own sets**: next - the receipt's seed rolls a town's thanks, and the raiding
+  party's own Aetheric set (knights, bandits, orcs) can drop.
 
 ## Open
 

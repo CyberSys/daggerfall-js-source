@@ -3818,3 +3818,30 @@ owner out. So the way back is the operator's, and it is the player's own recover
   recovery with the code typed without dashes, a new code, the operator's copy dead, every earlier device signed out,
   and the same account with its Founder. `tools/mutants/recoverop.json` has 7 mutants, all dead.
 
+
+## RAID4 — the towns defended (2026-09-28, acct17)
+
+Mac, on World Events - Raiding Parties online: "3. We can also add renown and it's own atheric + armor sets". The relay
+keeps a town raid's ledger and signs a receipt (`w1`, `src/net/raidReceipt.js`, under the gate's GATE_SIGNING_KEY) for
+each account that struck a raider and stood in the town at its cleanse (RAID3, `03-World/Raiding-Parties.md`). This
+service honours it:
+
+- **`POST /v1/raid/claim { receipt, character, name }`**, behind a session whose account is the receipt's `s`
+  (`server-account/src/raids.js claimRaid`), verified with the relay's public half (GATE_PUBLIC_KEY - the gate's pair
+  signs both receipts; the version inside the signed bytes keeps them apart). Migration 0016 `raid_cleanses (raid,
+  account, day, party, char_id, xp, nonce, at)`, primary key `(raid, account)`: a receipt counts once whatever happens
+  to it. An account is counted at most `RAID_CLAIMS_DAY_MAX` (6) raids a game day - the relay holds no copy of the
+  day's schedule, so this is the record's bound. A guest fights and is not counted until it registers (the same id).
+- **Renown.** The character that fought it (the client names it; its own save's id) is paid `renownRaidXp` - three
+  quests' worth at the top quest level, read no higher than its Renown allows (`src/net/renown.js`: 780 at Renown 1,
+  1,860 at 10, 3,900 from 27) - OUTSIDE the hour's bound: the receipt is the relay's word, not the client's. One
+  `db.batch` writes the row (under the day's bound, stamped with the claim's own nonce) and credits the track only
+  where THAT row exists, so the same receipt claimed from two devices at once pays once. A rise comes back with a
+  signed renown order, as a report's does. A new character past RENOWN_TRACKS_MAX is counted and paid nothing.
+- **The record.** `/v1/account` and the Inspect record carry `raids: { defended }`: the account card says *Towns
+  defended: 3*, the Inspect card *Towns defended: 3* once there is one.
+- **The device** (`src/net/raidClaims.js`, the gate's carrier's twin) keeps each receipt with the character that fought
+  it until the service settles it, offering the signed-in account's alone; a counted raid's Renown is the page's at once
+  when that character is the one playing.
+- `ACCOUNT_VERSION` acct17; the account deploy's path filter carries `src/net/raidReceipt.js` (and RAID3's
+  `src/net/raidLaw.js`). No relay change. Pins: `test/raid4_rewards.test.js`; `tools/mutants/raid4.json`.

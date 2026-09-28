@@ -55,6 +55,7 @@ on:
       - "src/net/guildLaw.js"
       - "src/net/raidLaw.js"
       - "src/net/gateReceipt.js"
+      - "src/net/raidReceipt.js"
       - "src/net/wire.js"
       - "src/net/dice.js"
       - "src/world/mat4.js"

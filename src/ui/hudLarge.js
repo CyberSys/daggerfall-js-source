@@ -112,7 +112,7 @@
 // original note is STALE and is withdrawn: there are no screen-to-ray
 // conversions to fix. The port's activation ray is the CAMERA's own
 // forward vector (`townTalk.tryActivate(cam.pos, useFwd, ...)` -
-// scenes/world.js:16094 and scenes/exterior.js:4859, the only two
+// scenes/world.js:16117 and scenes/exterior.js:4859, the only two
 // hosts that carry the call, each over a useFwd that is the camera's
 // own forward from cam.yaw and cam.pitch - or, since TI1, the touch
 // tap's ray, which IS a pixel unprojected, but through the frame's

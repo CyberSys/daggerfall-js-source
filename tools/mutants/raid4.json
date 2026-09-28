@@ -1,0 +1,245 @@
+[
+  {
+    "name": "RAID4-day-unbounded",
+    "file": "server-account/src/raids.js",
+    "old": "       WHERE (SELECT COUNT(*) FROM raid_cleanses WHERE account = ?2 AND day = ?3) < ?9\n",
+    "new": "       WHERE ?9 > 0\n",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-credit-by-account",
+    "file": "server-account/src/raids.js",
+    "old": "const mine = 'EXISTS (SELECT 1 FROM raid_cleanses WHERE raid = ?7 AND account = ?1 AND nonce = ?8)';",
+    "new": "const mine = 'EXISTS (SELECT 1 FROM raid_cleanses WHERE raid = ?7 AND account = ?1 AND ?8 IS NOT NULL)';",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-cap-overrun",
+    "file": "server-account/src/raids.js",
+    "old": "`UPDATE renown_tracks SET xp = MIN(?3, xp + ?4),",
+    "new": "`UPDATE renown_tracks SET xp = xp + ?4 + 0 * ?3,",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-guest-counted",
+    "file": "server-account/src/raids.js",
+    "old": "  if (!player.handle) return { recorded: false, why: 'guest', ...(await raidRecordOf({ db }, player.id)) };\n",
+    "new": "",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-not-yours",
+    "file": "server-account/src/raids.js",
+    "old": "  if (c.s !== player.id) return { error: 'not-yours' };\n",
+    "new": "",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-paid-at-level-one",
+    "file": "server-account/src/raids.js",
+    "old": "  const xp = renownRaidXp(before?.level ?? 1);",
+    "new": "  const xp = renownRaidXp(1);",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-track-bound",
+    "file": "server-account/src/raids.js",
+    "old": "         AND (SELECT COUNT(*) FROM renown_tracks WHERE player = ?1) < ?9\n",
+    "new": "         AND ?9 > 0\n",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-rose-always",
+    "file": "server-account/src/raids.js",
+    "old": "rose: renownForXp(total) > renownForXp(was) },",
+    "new": "rose: true },",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-day-full-said-claimed",
+    "file": "server-account/src/raids.js",
+    "old": "why: had ? 'claimed' : 'day-full'",
+    "new": "why: 'claimed'",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-route-no-order",
+    "file": "server-account/src/index.js",
+    "old": "        if (r.renown?.rose) {",
+    "new": "        if (false) {",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-account-without-raids",
+    "file": "server-account/src/index.js",
+    "old": "raids: await raidRecordOf(ctx, who.player.id), ",
+    "new": "",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-inspect-without-raids",
+    "file": "server-account/src/index.js",
+    "old": ", raids: await raidRecordOf(ctx, body.id) }, 200, origin);",
+    "new": " }, 200, origin);",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-route-unlisted",
+    "file": "server-account/src/service.js",
+    "old": "  '/v1/raid/claim',\n",
+    "new": "",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-quests-off",
+    "file": "src/net/renown.js",
+    "old": "export const RENOWN_RAID_QUESTS = 3;",
+    "new": "export const RENOWN_RAID_QUESTS = 2;",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-ceiling-unread",
+    "file": "src/net/renown.js",
+    "old": "RENOWN_RAID_QUESTS * renownQuestXp(RENOWN_QUEST_LEVEL_MAX, renown);",
+    "new": "RENOWN_RAID_QUESTS * renownQuestXp(RENOWN_QUEST_LEVEL_MAX, RENOWN_MAX);",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-carrier-character-dropped",
+    "file": "src/net/raidClaims.js",
+    "old": "{ r, ch: character, nm: typeof name",
+    "new": "{ r, ch: String(character).slice(1), nm: typeof name",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-carrier-unsigned-kept",
+    "file": "src/net/raidClaims.js",
+    "old": "return c && c.signed && c.e > nowS() ? c : null;",
+    "new": "return c && c.e > nowS() ? c : null;",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-carrier-guest-let-go",
+    "file": "src/net/raidClaims.js",
+    "old": "  if (answer?.ok) return answer.data?.why === 'guest' ? 'keep' : 'done';",
+    "new": "  if (answer?.ok) return 'done';",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-carrier-retry-ignored",
+    "file": "src/net/raidClaims.js",
+    "old": "due = t - lastAt >= RAID_CLAIM_RETRY_MS;",
+    "new": "due = false && t - lastAt >= RAID_CLAIM_RETRY_MS;",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-carrier-other-account",
+    "file": "src/net/raidClaims.js",
+    "old": "        if (!mine || live(e.r)?.s !== mine) continue;",
+    "new": "        if (!mine) continue;",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-carrier-mendable",
+    "file": "src/net/raidClaims.js",
+    "old": "answer?.error === 'receipt' && !RAID_CLAIM_MENDABLE.includes(answer.why) ? 'done' : 'keep';",
+    "new": "answer?.error === 'receipt' ? 'done' : 'keep';",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-carrier-unbounded",
+    "file": "src/net/raidClaims.js",
+    "old": ".slice(-RAID_CLAIMS_MAX));",
+    "new": ".slice(0));",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-carrier-renown-unheard",
+    "file": "src/net/raidClaims.js",
+    "old": "          onRecorded(answer.data, e);\n",
+    "new": "",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-card-stranger-none",
+    "file": "src/ui/profileWindow.js",
+    "old": "return Number.isSafeInteger(n) && n > 0 ? `Towns defended: ${n}` : null;",
+    "new": "return Number.isSafeInteger(n) && n >= 0 ? `Towns defended: ${n}` : null;",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-card-row-unsaid",
+    "file": "src/ui/enhancedAccount.js",
+    "old": "      if (raids) row('Towns defended', raids);\n",
+    "new": "",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-world-renown-any-character",
+    "file": "src/scenes/world.js",
+    "old": "      if (data?.renown?.character !== characterIdOf(playerEntity)) return;\n",
+    "new": "",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  },
+  {
+    "name": "RAID4-world-receipt-unqueued",
+    "file": "src/scenes/world.js",
+    "old": "    onRaidReceipt: (r) => { raidClaims?.add(r, characterIdOf(playerEntity), typeof playerEntity?.name === 'string' ? playerEntity.name : null); },",
+    "new": "    onRaidReceipt: (r) => { void r; },",
+    "tests": [
+      "test/raid4_rewards.test.js"
+    ]
+  }
+]
