@@ -154,6 +154,8 @@ const REALM_STATUS = Object.freeze({
   'customs-never-online': 403, 'customs-already': 409, 'no-storage': 503,
   'trade-spent': 409,   // REALM P2.1: a trade's sid another pair settled
   'guild-master-leaves': 409,   // AUDIT REALM L1-F7: a guildmaster deleted hands the guild over first
+  'guild-treasury': 409,   // AUDIT REALM2 S8: and a lone one empties the treasury first
+  'realm-birth': 403, 'customs-allowance': 403,   // AUDIT REALM2 S1: a first save the realm's law refuses
 });
 /** GUILD1: each guild refusal's status - a bad shape 400 (the default), the wrong rank or too little Renown 403, a
  *  thing that is not there 404, a conflict with what is 409, the hour's writes spent 429. */

@@ -34,6 +34,7 @@ import { applyCustoms, liquidWealthOf, stashedItemLists } from '../src/systems/r
 import { LETTER_OF_CREDIT_TEMPLATE, goldStack } from '../src/systems/inventory.js';
 import { LOOT_CONTAINER_TYPES } from '../src/systems/sceneCache.js';
 import { createBankAccounts } from '../src/systems/banking.js';
+import { freshSave, layRecord } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -90,15 +91,17 @@ async function realm() {
     const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
     const storage = fakeStorage();
     storage.setItem(SESSION_KEY, JSON.stringify({ id: g.id, secret: g.secret }));
-    return { g, storage, io: realmIo({ fetch: (url, init) => worker.fetch(new Request(url, init), env), storage }) };
+    return { g, storage, env, io: realmIo({ fetch: (url, init) => worker.fetch(new Request(url, init), env), storage }) };
   }
   return { env, player };
 }
-/** A realm character with its first save: `{ id, lease, seq }` after the checkpoint. */
-async function character(io, name, save) {
-  const made = (await realmCreate(io, name)).data;
-  const put = await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(save));
+/** A realm character with its first save: `{ id, lease, seq }` after the checkpoint. AUDIT REALM2 S1: the first save a
+ *  new character's (the service reads it), and `save` - the record the pins count from - laid over it at that sequence. */
+async function character(P, name, save) {
+  const made = (await realmCreate(P.io, name)).data;
+  const put = await realmPut(P.io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(freshSave({ name })));
   assert.equal(put.ok, true);
+  layRecord(P.env, made.id, save);
   return { id: made.id, lease: made.lease, seq: 1 };
 }
 const record = async (io, id) => { const r = await realmFetch(io, id); return { seq: r.seq, save: JSON.parse(r.text) }; };
@@ -126,8 +129,8 @@ test('AUDIT REALM F1: a Sigil Stone never changes hands through the realm - the 
   // the service, driven: two colluding halves - A gives a stone off its stack of three, B takes it - are refused whole
   const r = await realm();
   const A = await r.player(), B = await r.player();
-  A.char = await character(A.io, 'Arthago', { name: 'Arthago', items: [{ ...stone, stackCount: 3 }], goldPieces: 50 });
-  B.char = await character(B.io, 'Brisienna', { name: 'Brisienna', items: [dagger()], goldPieces: 50 });   // enough to pay: only the stone refuses
+  A.char = await character(A, 'Arthago', { name: 'Arthago', items: [{ ...stone, stackCount: 3 }], goldPieces: 50 });
+  B.char = await character(B, 'Brisienna', { name: 'Brisienna', items: [dagger()], goldPieces: 50 });   // enough to pay: only the stone refuses
   const before = [await record(A.io, A.char.id), await record(B.io, B.char.id)];
   const give = { items: [{ ...stone, stackCount: 1 }], gold: 0 }, get = { items: [], gold: 10 };
   const ask = (P, sid, g, t) => realmTradeCall(P.io, { id: P.char.id, lease: P.char.lease, seq: P.char.seq, sid, give: g, get: t, pick: g.items.map((_, i) => i) });
@@ -221,8 +224,8 @@ test('AUDIT REALM L1-F1: the pack names where each offered record stands in the 
 test('AUDIT REALM L1-F1: a trade gives the very record its half picked, and a letter of credit IS its value - the 10-gold letter leaves, the 100,000 stays; a half that names one letter and picks the other moves nothing', { timeout: 60_000 }, async () => {
   const r = await realm();
   const A = await r.player(), B = await r.player();
-  A.char = await character(A.io, 'Arthago', { name: 'Arthago', items: [letterOf(100_000), letterOf(10)], goldPieces: 0 });
-  B.char = await character(B.io, 'Brisienna', { name: 'Brisienna', items: [], goldPieces: 50 });
+  A.char = await character(A, 'Arthago', { name: 'Arthago', items: [letterOf(100_000), letterOf(10)], goldPieces: 0 });
+  B.char = await character(B, 'Brisienna', { name: 'Brisienna', items: [], goldPieces: 50 });
   const ask = (P, sid, give, get, pick) => realmTradeCall(P.io, { id: P.char.id, lease: P.char.lease, seq: P.char.seq, sid, give, get, pick });
   const giveA = { items: [letterOf(10)], gold: 0 }, giveB = { items: [], gold: 5 };
   // picking the 100,000 letter for an offer of 10: refused - the value is what a letter is
@@ -238,8 +241,8 @@ test('AUDIT REALM L1-F1: a trade gives the very record its half picked, and a le
 test('AUDIT REALM L1-F4 / L2-F1: a settle landing between the first side\'s reads is answered as the settle - the record is read before the trade, so the poll never takes a done trade for a moved record', { timeout: 60_000 }, async () => {
   const r = await realm();
   const A = await r.player(), B = await r.player();
-  A.char = await character(A.io, 'Arthago', { name: 'Arthago', items: [dagger()], goldPieces: 50 });
-  B.char = await character(B.io, 'Brisienna', { name: 'Brisienna', items: [], goldPieces: 50 });
+  A.char = await character(A, 'Arthago', { name: 'Arthago', items: [dagger()], goldPieces: 50 });
+  B.char = await character(B, 'Brisienna', { name: 'Brisienna', items: [], goldPieces: 50 });
   const giveA = { items: [JSON.parse(JSON.stringify((await record(A.io, A.char.id)).save.items[0]))], gold: 0 }, giveB = { items: [], gold: 20 };
   const ask = (P, give, get, pick) => realmTradeCall(P.io, { id: P.char.id, lease: P.char.lease, seq: P.char.seq, sid: 'sidrace9', give, get, pick });
   assert.deepEqual((await ask(A, giveA, giveB, [0])).data, { state: 'waiting' });
@@ -266,8 +269,8 @@ test('AUDIT REALM L1-F4 / L2-F1: a settle landing between the first side\'s read
 test('AUDIT REALM L1-F6: an outcome is its own half\'s - a later trade under a spent sid is refused and moves nothing, and a character that was no party is told nothing', { timeout: 60_000 }, async () => {
   const r = await realm();
   const A = await r.player(), B = await r.player();
-  A.char = await character(A.io, 'Arthago', { name: 'Arthago', items: [dagger()], goldPieces: 50 });
-  B.char = await character(B.io, 'Brisienna', { name: 'Brisienna', items: [], goldPieces: 50 });
+  A.char = await character(A, 'Arthago', { name: 'Arthago', items: [dagger()], goldPieces: 50 });
+  B.char = await character(B, 'Brisienna', { name: 'Brisienna', items: [], goldPieces: 50 });
   const giveA = { items: [JSON.parse(JSON.stringify((await record(A.io, A.char.id)).save.items[0]))], gold: 0 }, giveB = { items: [], gold: 20 };
   const ask = (P, over) => realmTradeCall(P.io, { id: P.char.id, lease: P.char.lease, seq: P.char.seq, sid: 'sidspent1', ...over });
   await ask(A, { give: giveA, get: giveB, pick: [0] });
@@ -284,7 +287,7 @@ test('AUDIT REALM L1-F6: an outcome is its own half\'s - a later trade under a s
   assert.deepEqual([await record(A.io, A.char.id), await record(B.io, B.char.id)], before, 'nothing moved - no receipt applied twice');
   // the old half asked again is told its outcome; the same account's other character is told nothing
   assert.equal((await ask(A, { give: giveA, get: giveB, pick: [0] })).data.state, 'done');
-  const other = await character(B.io, 'Cyrus', { name: 'Cyrus', items: [], goldPieces: 0 });
+  const other = await character(B, 'Cyrus', { name: 'Cyrus', items: [], goldPieces: 0 });
   assert.equal((await realmTradeCall(B.io, { id: other.id, lease: other.lease, seq: 1, sid: 'sidspent1', give: giveB, get: giveA, pick: [] })).error, 'trade-spent');
 });
 
@@ -313,7 +316,8 @@ async function registered() {
     };
     const io = realmIo({ fetch, storage });
     const made = (await realmCreate(io, handle)).data;
-    assert.equal((await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(save))).ok, true);
+    assert.equal((await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(freshSave({ name: handle })))).ok, true);
+    layRecord(env, made.id, save);   // AUDIT REALM2 S1: the record the pins count from, over a new character's first save
     env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)').run(g.id, renownXpFor(renown), 1, 1);   // RENOWN-ACCOUNT: the account's one track
     env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(g.id, made.id, handle, renownXpFor(renown), 1, 1);   // and the character's history row, as customs carries one
     const session = createRealmSession({ io, id: made.id, lease: made.lease, seq: 1 });
@@ -350,8 +354,10 @@ test('AUDIT REALM L1-F3: a realm record is paid back only what realm records pai
   const s = await registered();
   const A = await s.player('Arthago', { name: 'Arthago', goldPieces: 500_000, items: [], bankAccounts: new Array(20).fill(0).map(() => ({ accountGold: 0 })) });
   const at = () => ({ id: A.char, lease: A.lease, seq: A.session.seq });
-  // (a) a house claimed by a character no record stands behind, at the price cap - the realm record's sale is refused
-  assert.equal((await A.homes.claim({ mapId: 1234, buildingKey: 5, region: 17, character: 'an-offline-id-0001', price: 10_000_000 })).ok, true);
+  // (a) a house held by a character no record stands behind, at the price cap - the realm record's sale is refused. One
+  // from before the realm: a claim is a realm character's alone now (AUDIT REALM2 S2)
+  assert.equal((await A.homes.claim({ mapId: 1234, buildingKey: 5, region: 17, character: 'an-offline-id-0001', price: 10_000_000 })).error, 'realm-only');
+  s.env.DB._raw.prepare("INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at) VALUES (1234, 5, ?, 'an-offline-id-0001', 'Arthago', 17, 'private', 10000000, 1)").run(A.id);
   const sale = await A.homes.release(1234, 5, at());
   assert.deepEqual([sale.ok, sale.error], [false, 'no-home'], 'not the realm character\'s house');
   assert.equal((await s.saveOf(A)).bankAccounts[17].accountGold, 0);
@@ -482,7 +488,7 @@ test('AUDIT REALM L1-F2 / L2-F1: the checkpoint drain takes the service one ahea
   const r = await realm();
   const P = await r.player();
   const made = (await realmCreate(P.io, 'Nystul')).data;
-  assert.equal((await realmPut(P.io, made.id, { lease: made.lease, seq: 1 }, '{"v":1}')).ok, true);
+  assert.equal((await realmPut(P.io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(freshSave()))).ok, true);   // AUDIT REALM2 S1
   // its own put lands and its answer is lost: the next checkpoint adopts it and goes on
   const storage = P.storage;
   let loseNext = false;

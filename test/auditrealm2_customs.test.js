@@ -23,6 +23,7 @@ import { decorSaleBack } from '../src/net/decorLaw.js';
 import { LETTER_OF_CREDIT_TEMPLATE, goldStack, letterOfCredit } from '../src/systems/inventory.js';
 import { planStore, applyTransfer } from '../src/systems/itemTransfer.js';
 import { createWeapon } from '../src/combat/enemyEquipment.js';
+import { r2, freshSave, layRecord } from './realmSeat.mjs';   // AUDIT REALM2 S1: a realm character's first save is a new one's
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -54,18 +55,6 @@ function d1() {
     },
   };
 }
-function r2() {
-  const m = new Map();
-  return {
-    async put(key, body) { m.set(key, new Uint8Array(body instanceof ArrayBuffer ? body : new TextEncoder().encode(String(body)))); return { key }; },
-    async get(key) {
-      const v = m.get(key);
-      return v === undefined ? null : { key, size: v.byteLength, body: v, async text() { return new TextDecoder().decode(v); } };
-    },
-    async delete(key) { m.delete(key); },
-    async list({ prefix = '' } = {}) { return { objects: [...m.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key })) }; },
-  };
-}
 function fakeStorage() {
   const m = new Map();
   return { get length() { return m.size; }, key: (i) => [...m.keys()][i] ?? null, getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); }, removeItem: (k) => m.delete(k) };
@@ -82,11 +71,13 @@ async function realm() {
   }
   return { env, player };
 }
-/** A realm character with its first save: `{ id, lease, seq }` after the checkpoint. */
-async function character(io, name, save) {
+/** A realm character with its first save: `{ id, lease, seq }` after the checkpoint. AUDIT REALM2 S1: the first save a
+ *  new character's (the service reads it), and `save` - the record the pin counts from - laid over it (realmSeat.mjs). */
+async function character(env, io, name, save) {
   const made = (await realmCreate(io, name)).data;
-  const put = await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(save));
+  const put = await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(freshSave({ name })));
   assert.equal(put.ok, true);
+  layRecord(env, made.id, save);
   return { id: made.id, lease: made.lease, seq: 1 };
 }
 const record = async (io, id) => { const r = await realmFetch(io, id); return { seq: r.seq, save: JSON.parse(r.text) }; };
@@ -134,8 +125,8 @@ test('AUDIT REALM2 T1: a Come Sail Away boat\'s deed and its parts never change 
 test('AUDIT REALM2 T1 / T7: the service, driven - two colluding halves naming a boat\'s deed or its parts are refused whole and move nothing; a settle leaves the giver\'s record lighting the item it lit', { timeout: 60_000 }, async () => {
   const r = await realm();
   const A = await r.player(), B = await r.player();
-  A.char = await character(A.io, 'Arthago', { name: 'Arthago', items: [dagger(), boatItem(BOAT_DEED_TEMPLATE, 3, 1790000000000001), boatItem(BOAT_PARTS_TEMPLATE, 1, 1790000000000002), torch()], lightSourceIndex: 3, goldPieces: 50 });
-  B.char = await character(B.io, 'Brisienna', { name: 'Brisienna', items: [], goldPieces: 50 });
+  A.char = await character(r.env, A.io, 'Arthago', { name: 'Arthago', items: [dagger(), boatItem(BOAT_DEED_TEMPLATE, 3, 1790000000000001), boatItem(BOAT_PARTS_TEMPLATE, 1, 1790000000000002), torch()], lightSourceIndex: 3, goldPieces: 50 });
+  B.char = await character(r.env, B.io, 'Brisienna', { name: 'Brisienna', items: [], goldPieces: 50 });
   const before = [await record(A.io, A.char.id), await record(B.io, B.char.id)];
   const ask = (P, sid, give, get, pick) => realmTradeCall(P.io, { id: P.char.id, lease: P.char.lease, seq: P.char.seq, sid, give, get, pick });
   const get = { items: [], gold: 10 };

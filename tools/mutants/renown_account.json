@@ -164,8 +164,8 @@
   {
     "name": "RENOWN-ACCOUNT-the-account-walked-as-a-character-table",
     "file": "server-account/src/realm.js",
-    "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);",
-    "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members', 'renown_accounts']);",
+    "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks']);",
+    "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'renown_accounts']);",
     "tests": [
       "test/renown_account.test.js"
     ]

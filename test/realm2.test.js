@@ -14,8 +14,11 @@ import { SESSION_KEY } from '../src/net/accountClient.js';
 import {
   realmIo, realmList, realmCreate, realmJoin, realmFetch, realmDelete, realmCustoms, createRealmSession, REALM_LOST,
 } from '../src/systems/realmSaves.js';
+import { freshSave } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+/** AUDIT REALM2 S1: a first save the realm takes, `tag` to tell two apart. */
+const first = (tag) => JSON.stringify(freshSave({ name: 'Nystul', tag }));
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -87,10 +90,10 @@ test('REALM P1.2: made, joined, checkpointed and read back - the save is the tex
   const { id, lease, seq } = made.data;
   assert.deepEqual((await realmFetch(io, id)), { ok: false, error: 'no-data', status: 404 });
   const s = createRealmSession({ io, id, lease, seq });
-  assert.deepEqual(await s.checkpoint('{"v":1,"name":"Nystul"}', { level: 2 }), { ok: true, seq: 1 });
+  assert.deepEqual(await s.checkpoint(first('v1'), { level: 2 }), { ok: true, seq: 1 });
   assert.equal(s.seq, 1);
   const back = await realmFetch(io, id);
-  assert.deepEqual([back.ok, back.text, back.seq], [true, '{"v":1,"name":"Nystul"}', 1]);
+  assert.deepEqual([back.ok, back.text, back.seq], [true, first('v1'), 1]);
   const listed = await realmList(io);
   assert.deepEqual([listed.characters.length, listed.characters[0].summary.level, listed.max], [1, 2, 6]);
   assert.equal((await realmCustoms(io, 'c0ffee00-1111', 'X')).error, 'customs-never-online');
@@ -102,7 +105,7 @@ test('REALM P1.2: checkpoints go one at a time, in order - one asked while anoth
   const { io } = await device();
   const { id, lease, seq } = (await realmCreate(io, 'Nystul')).data;
   const s = createRealmSession({ io, id, lease, seq });
-  const a = s.checkpoint('a');
+  const a = s.checkpoint(first('a'));
   const b = s.checkpoint('b');
   const c = s.checkpoint('c');
   // AUDIT REALM2 C4: each answered by the put that carried its save - "b", replaced before it left, by "c"'s
@@ -115,8 +118,8 @@ test('REALM P1.2: a checkpoint whose answer was lost is resynced - the service o
   const { id, lease, seq } = (await realmCreate(io, 'Nystul')).data;
   const s = createRealmSession({ io, id, lease, seq });
   door.mode = 'lose-answer';
-  const first = await s.checkpoint('landed');
-  assert.deepEqual([first.ok, first.error, s.seq, s.waiting], [false, 'offline', 0, true], 'it landed; this tab could not know');
+  const landed = await s.checkpoint(first('landed'));
+  assert.deepEqual([landed.ok, landed.error, s.seq, s.waiting], [false, 'offline', 0, true], 'it landed; this tab could not know');
   assert.deepEqual(await s.checkpoint('next'), { ok: true, seq: 2 }, 'told seq 1, adopted, sent at 2');
   assert.equal((await realmFetch(io, id)).text, 'next');
   assert.equal(s.lost, null, 'a resync is not a loss');
@@ -130,8 +133,8 @@ test('REALM P1.2: offline keeps the newest save for the next checkpoint; nothing
   assert.deepEqual(await s.checkpoint('while away'), { ok: false, error: 'offline' });
   assert.equal(s.waiting, true);
   door.mode = 'ok';
-  assert.deepEqual(await s.checkpoint('back'), { ok: true, seq: 1 }, 'the newest goes');
-  assert.equal((await realmFetch(io, id)).text, 'back');
+  assert.deepEqual(await s.checkpoint(first('back')), { ok: true, seq: 1 }, 'the newest goes');
+  assert.equal((await realmFetch(io, id)).text, first('back'));
 });
 
 test('REALM P1.2: another tab\'s join ends this session - said once, and no checkpoint of it is ever sent again; a leave gives the lease up', async () => {
@@ -139,7 +142,7 @@ test('REALM P1.2: another tab\'s join ends this session - said once, and no chec
   const { id, lease, seq } = (await realmCreate(io, 'Nystul')).data;
   const said = [];
   const s = createRealmSession({ io, id, lease, seq, onLost: (why) => said.push(why) });
-  assert.equal((await s.checkpoint('mine')).ok, true);
+  assert.equal((await s.checkpoint(first('mine'))).ok, true);
   const other = await realmJoin(io, id);   // another tab
   assert.equal(other.ok, true);
   assert.deepEqual(await s.checkpoint('stale'), { ok: false, error: 'lease' });
@@ -149,7 +152,7 @@ test('REALM P1.2: another tab\'s join ends this session - said once, and no chec
   assert.deepEqual(await s.checkpoint('and again'), { ok: false, error: 'lease' }, 'every one after, answered at once (AUDIT REALM2 C4: none left waiting on a drain)');
   assert.equal(door.inits.length, before, 'nothing sent');
   assert.deepEqual(said, ['lease'], 'said once');
-  assert.equal((await realmFetch(io, id)).text, 'mine');
+  assert.equal((await realmFetch(io, id)).text, first('mine'));
   // the other tab's session leaves, sending what waits first
   const t = createRealmSession({ io, id, lease: other.data.lease, seq: other.data.seq });
   t.checkpoint('theirs');
@@ -182,10 +185,10 @@ test('REALM P1.2: a leave sends the save that waited through a failure before it
   const { id, lease, seq } = (await realmCreate(io, 'Nystul')).data;
   const s = createRealmSession({ io, id, lease, seq });
   door.mode = 'offline';
-  await s.checkpoint('waited');
+  await s.checkpoint(first('waited'));
   assert.equal(s.waiting, true);
   door.mode = 'ok';
   const left = await s.leave();
   assert.equal(left.data.released, true);
-  assert.equal((await realmFetch(io, id)).text, 'waited', 'the waiting save went before the leave');
+  assert.equal((await realmFetch(io, id)).text, first('waited'), 'the waiting save went before the leave');
 });

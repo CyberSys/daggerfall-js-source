@@ -14,6 +14,7 @@ import {
   REALM_CHARACTERS_MAX, REALM_ID_RE, LEASE_RE, REALM_MAX_BYTES, REALM_PLAYING_S, realmObjectKey, realmPrefix, realmSummaryOf, realmNameOf,
 } from '../server-account/src/realm.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
+import { freshSave } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -87,6 +88,8 @@ async function stand() {
   return { env, call, put, get, guest };
 }
 const save = (text) => new TextEncoder().encode(text);
+/** AUDIT REALM2 S1: a first save the realm takes - a new character's, as chargen makes one - as text. */
+const FIRST = JSON.stringify(freshSave({ name: 'Nystul' }));
 
 test('REALM P1: the routes are the service\'s, behind a session and never open - a guest holds realm characters too; acct17 and the toml in step', async () => {
   for (const r of ['/v1/realm', '/v1/realm/create', '/v1/realm/customs', '/v1/realm/join', '/v1/realm/leave', '/v1/realm/delete']) assert.ok(ROUTES.has(r), r);
@@ -130,10 +133,10 @@ test('REALM P1: a checkpoint lands only under the current lease at the next sequ
   const g = await guest();
   const { id, lease } = (await call('POST', '/v1/realm/create', { name: 'Nystul' }, g.secret)).body;
   assert.deepEqual((await get(id, g.secret)).json, { error: 'no-data' }, 'no save before the first checkpoint');
-  const one = await put(id, save('save one'), g.secret, { lease, seq: 1, summary: { level: 2, className: 'Spellsword' } });
+  const one = await put(id, save(FIRST), g.secret, { lease, seq: 1, summary: { level: 2, className: 'Spellsword' } });
   assert.deepEqual([one.status, one.body], [200, { ok: true, seq: 1 }]);
   const read = await get(id, g.secret);
-  assert.deepEqual([read.status, read.seq, new TextDecoder().decode(read.bytes)], [200, '1', 'save one']);
+  assert.deepEqual([read.status, read.seq, new TextDecoder().decode(read.bytes)], [200, '1', FIRST]);
   assert.equal(read.expose, 'x-realm-seq', 'the browser may read the sequence');
   assert.deepEqual((await put(id, save('again'), g.secret, { lease, seq: 1 })).body, { error: 'seq', seq: 1 }, 'a replay - told the service\'s own');
   assert.deepEqual((await put(id, save('ahead'), g.secret, { lease, seq: 3 })).body, { error: 'seq', seq: 1 }, 'a skip');
@@ -155,7 +158,7 @@ test('REALM P1: a checkpoint lands only under the current lease at the next sequ
   const keys = [...env.SAVES._map.keys()].sort();
   assert.equal(keys.length, 2, 'the save and the one before it');
   assert.ok(keys.every((k) => k.startsWith(realmPrefix(g.id))), 'under the account\'s prefix');
-  assert.equal(new TextDecoder().decode(env.SAVES._map.get(first[0])), 'save one', 'the one before survives');
+  assert.equal(new TextDecoder().decode(env.SAVES._map.get(first[0])), FIRST, 'the one before survives');
   assert.equal((await put(id, save('save three'), g.secret, { lease, seq: 3 })).status, 200);
   assert.equal(env.SAVES._map.size, 2, 'two back goes');
   assert.ok(!env.SAVES._map.has(first[0]), 'the first save is gone');
@@ -168,9 +171,9 @@ test('REALM P1: a join takes the character from any other tab, and one account p
   const { call, put, guest } = await stand();
   const g = await guest();
   const a = (await call('POST', '/v1/realm/create', { name: 'Nystul' }, g.secret)).body;
-  assert.equal((await put(a.id, save('a1'), g.secret, { lease: a.lease, seq: 1 })).status, 200);
+  assert.equal((await put(a.id, save(FIRST), g.secret, { lease: a.lease, seq: 1 })).status, 200);
   const second = await call('POST', '/v1/realm/join', { id: a.id }, g.secret);
-  assert.deepEqual([second.status, second.body.seq, second.body.bytes], [200, 1, 2]);
+  assert.deepEqual([second.status, second.body.seq, second.body.bytes], [200, 1, FIRST.length]);
   assert.notEqual(second.body.lease, a.lease, 'a new lease');
   const out = await put(a.id, save('old tab'), g.secret, { lease: a.lease, seq: 2 });
   assert.deepEqual([out.status, out.body], [409, { error: 'lease' }], 'the old tab is out');
@@ -194,7 +197,7 @@ test('REALM P1: a leave gives the lease up - only the tab that holds it; another
   const g = await guest();
   const other = await guest();
   const a = (await call('POST', '/v1/realm/create', { name: 'Nystul' }, g.secret)).body;
-  assert.equal((await put(a.id, save('mine'), g.secret, { lease: a.lease, seq: 1 })).status, 200);
+  assert.equal((await put(a.id, save(FIRST), g.secret, { lease: a.lease, seq: 1 })).status, 200);
   assert.deepEqual((await call('POST', '/v1/realm/leave', { id: a.id, lease: 'e'.repeat(32) }, g.secret)).body, { ok: true, released: false });
   assert.deepEqual((await call('POST', '/v1/realm/leave', { id: a.id, lease: a.lease }, g.secret)).body, { ok: true, released: true });
   assert.deepEqual((await put(a.id, save('after'), g.secret, { lease: a.lease, seq: 2 })).body, { error: 'lease' }, 'a left character takes no checkpoint');
@@ -202,14 +205,14 @@ test('REALM P1: a leave gives the lease up - only the tab that holds it; another
   assert.equal((await call('POST', '/v1/realm/join', { id: a.id }, other.secret)).status, 404);
   assert.equal((await put(a.id, save('theirs'), other.secret, { lease: a.lease, seq: 2 })).status, 404);
   assert.equal((await call('POST', '/v1/realm/delete', { id: a.id }, other.secret)).status, 404);
-  assert.equal(new TextDecoder().decode((await get(a.id, g.secret)).bytes), 'mine', 'untouched');
+  assert.equal(new TextDecoder().decode((await get(a.id, g.secret)).bytes), FIRST, 'untouched');
 });
 
 test('REALM P1: the player\'s own delete takes its objects and the row', async () => {
   const { env, call, put, guest } = await stand();
   const g = await guest();
   const a = (await call('POST', '/v1/realm/create', { name: 'Nystul' }, g.secret)).body;
-  await put(a.id, save('1'), g.secret, { lease: a.lease, seq: 1 });
+  await put(a.id, save(FIRST), g.secret, { lease: a.lease, seq: 1 });
   await put(a.id, save('2'), g.secret, { lease: a.lease, seq: 2 });
   assert.equal(env.SAVES._map.size, 2);
   env.SAVES._map.set(`${realmPrefix(g.id)}${a.id}/9-deadbeef`, new Uint8Array(1));   // REALM P2.1: a lost write's object whose drop failed
@@ -237,10 +240,11 @@ test('REALM P1: customs brings an offline character in ONCE, and only one that p
   assert.equal(came.status, 200);
   assert.match(came.body.id, REALM_ID_RE);
   assert.notEqual(came.body.id, origin, 'the service mints its own id');
-  // its online life comes in with it: the Renown track and the home, under the realm's id now
+  // its Renown track comes in with it, under the realm's id now - AUDIT REALM2 S2: and no home and no guild place, which
+  // were bought on the client's word before the realm; they stay with the offline character
   assert.deepEqual(env.DB._raw.prepare('SELECT char_id, xp FROM renown_tracks WHERE player = ?').all(g.id).map((r) => ({ ...r })), [{ char_id: came.body.id, xp: 500 }]);
-  assert.deepEqual(env.DB._raw.prepare('SELECT char_id FROM homes WHERE player = ?').all(g.id).map((r) => r.char_id), [came.body.id]);
-  assert.deepEqual(env.DB._raw.prepare('SELECT char_id, rank FROM guild_members WHERE player = ?').all(g.id).map((r) => ({ ...r })), [{ char_id: came.body.id, rank: 5 }], 'and its guild, at its rank');
+  assert.deepEqual(env.DB._raw.prepare('SELECT char_id FROM homes WHERE player = ?').all(g.id).map((r) => r.char_id), [origin]);
+  assert.deepEqual(env.DB._raw.prepare('SELECT char_id, rank FROM guild_members WHERE player = ?').all(g.id).map((r) => ({ ...r })), [{ char_id: origin, rank: 5 }], 'nor its guild place');
   // AUDIT REALM L3-F3: a customs whose first save never landed is taken up again - the same row, a new lease - and once
   // its first save lands, the character is in and customs is spent
   const again = await call('POST', '/v1/realm/customs', { origin, name: 'Nystul' }, g.secret);

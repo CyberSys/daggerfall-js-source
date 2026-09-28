@@ -46,7 +46,7 @@
   },
   {
     "name": "REALM3-letters-uncounted",
-    "file": "src/systems/realmCustoms.js",
+    "file": "src/net/realmGoldLaw.js",
     "old": ": isLetter(it) ? Math.max(0, it?.value ?? 0) : 0);",
     "new": ": 0);",
     "tests": [
@@ -55,7 +55,7 @@
   },
   {
     "name": "REALM3-allowance-flat",
-    "file": "src/systems/realmCustoms.js",
+    "file": "src/net/realmGoldLaw.js",
     "old": "export const customsAllowance = (/** @type {number} */ level) => CUSTOMS_WEALTH_BASE + CUSTOMS_WEALTH_PER_LEVEL * Math.max(1, Math.trunc(level) || 1);",
     "new": "export const customsAllowance = (/** @type {number} */ level) => CUSTOMS_WEALTH_BASE + CUSTOMS_WEALTH_PER_LEVEL * (void level, 1);",
     "tests": [

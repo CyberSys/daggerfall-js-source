@@ -21,6 +21,7 @@
 // to a region's bank account (a home sold). The service imports this and
 // never systems/court.js, whose imports the Worker does not bundle.
 // ═══════════════════════════════════════════════════════════════════
+import { decorSaleBack } from './decorLaw.js';   // AUDIT REALM2 T3: what a room's placed pieces pay back
 
 /** The letter of credit's template (systems/inventory.js LETTER_OF_CREDIT_TEMPLATE, pinned equal; a name of its own, so no symbol is declared twice - audit24 wave24). */
 export const REALM_LETTER_TEMPLATE = 275;
@@ -73,4 +74,118 @@ export function creditSave(/** @type {any} */ save, /** @type {number} */ amount
   if (a) a.accountGold = (Number.isFinite(a.accountGold) ? a.accountGold : 0) + amount;
   else save.goldPieces = whole(save.goldPieces) + amount;
   return true;
+}
+
+// ── AUDIT REALM2 S1: WHAT A SAVE HOLDS, MEASURED THE SAME AT BOTH ENDS ──
+// Customs (systems/realmCustoms.js) caps a copy at the allowance on the client, and the service now holds a character's
+// FIRST save to it (server-account/src/realm.js firstSaveRefusal) - so the measure and the numbers moved here, the law
+// the Worker bundles, and realmCustoms.js re-exports them: one home, one count. A service that counted less than the
+// client capped would let wealth hide where it does not look; one that counted more would refuse an honest customs.
+
+/** OPEN (Realm-Arc "Customs"): the liquid wealth a character brings in - a base, and this much a level. */
+export const CUSTOMS_WEALTH_BASE = 20_000;
+export const CUSTOMS_WEALTH_PER_LEVEL = 10_000;
+/** The allowance at a level. */
+export const customsAllowance = (/** @type {number} */ level) => CUSTOMS_WEALTH_BASE + CUSTOMS_WEALTH_PER_LEVEL * Math.max(1, Math.trunc(level) || 1);
+/** A CHARACTER BORN ONLINE starts where chargen starts one: level 1, and the gold chargen hands it - 100
+ *  (systems/startingGear.js STARTING_GOLD) and what its biography's answers add (BiogFile's GP lines, a handful a file).
+ *  The bound is a first setting with room past both; OPEN, as every number of the realm is. */
+export const REALM_BIRTH_LEVEL = 1;
+export const REALM_BIRTH_WEALTH_MAX = 10_000;
+
+/** The gold-piece template (systems/inventory.js GOLD_TEMPLATE; isGoldPieces reads the group with it). Pinned equal
+ *  (test/auditrealm2_service.test.js): the Worker bundles no systems/. */
+const COINS_TEMPLATE = 276;
+const isCoins = (/** @type {any} */ it) => it?.group === 'Currency' && it?.templateIndex === COINS_TEMPLATE;
+const isLetter = (/** @type {any} */ it) => it?.templateIndex === REALM_LETTER_TEMPLATE;
+/** A record's liquid worth: a gold-piece item's count, a letter of credit's value - anything else none. */
+export const liquidWorthOf = (/** @type {any} */ it) => (isCoins(it) ? Math.max(0, it?.stackCount ?? 0) : isLetter(it) ? Math.max(0, it?.value ?? 0) : 0);
+const lists = (/** @type {any[]} */ ...ls) => ls.filter(Array.isArray);
+/** Come Sail Away's record in a save's per-mod slot (systems/comeSailAway.js COME_SAIL_AWAY_VENDOR, pinned equal - that
+ *  module is the mod's runtime, which neither the Online door nor the Worker loads). */
+const CSA_VENDOR = 'come-sail-away';
+
+/**
+ * AUDIT REALM F2: WHAT THE PLAYER LEFT IN THE WORLD - every list of the character's own things a save carries outside its
+ * pack and wagon, where gold and letters of credit lie as items: in each cached scene (sceneCache.js), a house's chests,
+ * the piles dropped in a room or on a street, and the storage pieces' contents (DECOR1c `decorItems`, an online home's
+ * too); and the piles the save's own host rides in its `world` bag - a dungeon's `droppedLoot`, the open air's `piles`.
+ * Customs read the purse, the pack's letters, the wagon's gold and the banks alone, so letters stowed in the wagon, gold
+ * in a house chest or a storage piece and a pile left on the floor all crossed uncapped.
+ *
+ * AUDIT REALM2 T5: AND EVERY PILE AND CONTAINER BESIDE THEM. F2 left a treasure pile, a body and a shop's shelf to the
+ * world, and a dungeon's `piles` (its treasure) with them - but the pack stores anything in any of them
+ * (itemTransfer.js planStore; a closed shop's shelf opens both ways), and the save carries what they hold
+ * (dungeonContext.js collectWorld) - so every container counts, both pile lists of the world bag whichever host wrote
+ * it, and a dungeon's fallen (`foes` with `dead`: a body is a container; a living foe's purse is its own).
+ * AUDIT REALM2 T2: AND A BOAT'S HOLD - each placed boat's `Items` and each packed boat's cargo (comeSailAway.js
+ * getSaveData), the mod's record in the save: an ordinary container the pack fills, which customs never read.
+ * @param {any} snap
+ */
+export function stashedItemLists(snap) {
+  const out = [];
+  for (const scene of Array.isArray(snap?.sceneCache?.scenes) ? snap.sceneCache.scenes : []) {
+    for (const c of scene?.lootContainers ?? []) out.push(...lists(c?.items));
+    for (const pile of scene?.droppedPiles ?? []) out.push(...lists(pile?.items));
+    for (const held of Object.values(scene?.decorItems ?? {})) out.push(...lists(held));
+  }
+  const world = snap?.world;
+  for (const pile of [...(world?.piles ?? []), ...(world?.droppedLoot ?? [])]) out.push(...lists(pile?.items));
+  for (const foe of world?.foes ?? []) if (foe?.dead) out.push(...lists(foe.items));
+  const csa = snap?.modData?.[CSA_VENDOR];
+  for (const boat of csa?.placedBoats ?? []) out.push(...lists(boat?.Items));
+  out.push(...lists(...Object.values(csa?.packedCargoes ?? {})));
+  return out;
+}
+/** Every list of the character's own things where liquid wealth can lie, in the order customs takes from them: the
+ *  stashes, then the wagon, then the pack. (The banks and the purse are counts, not lists.) */
+export const carriedItemLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];
+
+/** OPEN (AUDIT REALM2 T3), as the allowance is: the price customs counts a Daggerfall house at. The realm's bank buys a
+ *  house back at the deed's share of its building's model radius x 1280 (banking.js houseSellPrice), a measure no save
+ *  carries - the bank reads it off the building at its counter - and a Daggerfall house costs tens of thousands
+ *  (net/homeLaw.js, HOME_PRICE_MAX's note), so every house counts at the deed's share of the top of that range. */
+export const CUSTOMS_HOUSE_PRICE = 100_000;
+/** The realm's bank's buy-back and where it files a ship's room, as the game has them - systems/banking.js DEED_SELL_MULT,
+ *  SHIP_PRICES, shipSellPrice, ownedShipType, ownsShip and SHIP_INTERIOR_MAP_IDS, talkTopics.js BUILDING_KEY_0 (the
+ *  no-key key both ship interiors are filed under) and sceneCache.js interiorSceneName. Pinned equal
+ *  (test/auditrealm2_service.test.js): the Worker bundles no systems/. */
+const DEED_SELL_MULT = 0.85;
+const SHIP_PRICES = Object.freeze([100000, 200000]);
+const shipSellPrice = (/** @type {number} */ ship) => Math.trunc((ship >= 0 ? SHIP_PRICES[ship] : 0) * DEED_SELL_MULT);
+const ownedShipType = (/** @type {any} */ player) => player?.ownedShip ?? -1;
+const ownsShip = (/** @type {any} */ player) => ownedShipType(player) !== -1;
+const SHIP_INTERIOR_MAP_IDS = Object.freeze([1050578, 2102157]);
+const BUILDING_KEY_0 = 1 << 24;
+const interiorSceneName = (/** @type {number} */ mapId, /** @type {number} */ buildingKey) => `DaggerfallInterior [MapID=${mapId}, BuildingKey=${buildingKey}]`;
+
+/** AUDIT REALM2 T3: THE DEEDS THE REALM'S BANK BUYS BACK - the ship at shipSellPrice and each house at the deed's share
+ *  of CUSTOMS_HOUSE_PRICE, each with what the pieces placed in its own room pay back (net/decorLaw.js decorSaleBack:
+ *  half of each one's `paid`, on its removal or the sale; the owner's own things cost nothing) - the dearest first, the
+ *  order customs strips them in. A room no deed of the character's stands for pays nothing: nobody can take a piece out.
+ *  @param {any} snap @returns {{ slot: any, room: any, value: number }[]} */
+export function deedsOf(snap) {
+  const scenes = Array.isArray(snap?.sceneCache?.scenes) ? snap.sceneCache.scenes : [];
+  const roomOf = (/** @type {string} */ name) => scenes.find((s) => s?.sceneName === name) ?? null;
+  const deeds = [];
+  if (ownsShip(snap)) {
+    const ship = ownedShipType(snap);
+    deeds.push({ slot: null, room: roomOf(interiorSceneName(SHIP_INTERIOR_MAP_IDS[ship], BUILDING_KEY_0)), value: shipSellPrice(ship) });
+  }
+  for (const slot of Array.isArray(snap?.houses) ? snap.houses : []) {
+    if (slot?.buildingKey > 0) deeds.push({ slot, room: roomOf(interiorSceneName(slot.mapId, slot.buildingKey)), value: Math.trunc(CUSTOMS_HOUSE_PRICE * DEED_SELL_MULT) });
+  }
+  for (const d of deeds) d.value += decorSaleBack(d.room?.decor);
+  return deeds.sort((a, b) => b.value - a.value);
+}
+
+/** The wealth a save holds that the realm pays out in gold: its purse, every bank account, every gold-piece item and
+ *  letter of credit the character owns wherever it lies - the pack, the wagon, and what it left in the world
+ *  (stashedItemLists) - and (AUDIT REALM2 T3) each deed at what the realm's bank buys it back for (deedsOf). */
+export function liquidWealthOf(/** @type {any} */ snap) {
+  const purse = Math.max(0, snap?.goldPieces ?? 0);
+  const banks = (Array.isArray(snap?.bankAccounts) ? snap.bankAccounts : []).reduce((s, a) => s + Math.max(0, a?.accountGold ?? 0), 0);
+  const items = carriedItemLists(snap).reduce((s, list) => s + list.reduce((t, it) => t + liquidWorthOf(it), 0), 0);
+  const deeds = deedsOf(snap).reduce((s, d) => s + d.value, 0);
+  return purse + banks + items + deeds;
 }

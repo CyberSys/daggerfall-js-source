@@ -70,7 +70,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';
-import { prepareRealmRecord, realmActFirst, recordMovedOf, mustChange, dropObjects } from './realm.js';   // REALM P2.2; AUDIT REALM L1-F2: the record asked first
+import { prepareRealmRecord, realmActFirst, recordMovedOf, mustChange, dropObjects, dropIfUnnamed, REALM_ID_RE } from './realm.js';   // REALM P2.2; AUDIT REALM L1-F2: the record asked first; AUDIT REALM2 S2/S3
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2: the wallet's own order, over the record
 import { renownTrackOf } from './renownTracks.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
@@ -166,6 +166,9 @@ export async function foundGuild(ctx, player, { character, name, tag, realm = nu
   const { db, nowS, rand } = ctx;
   if (accountKind(player) !== 'linked') return { error: 'guilds-need-account' };
   if (!charOk(character)) return { error: 'guild-character' };
+  // AUDIT REALM2 S2: A FOUNDING IS A REALM CHARACTER'S, PAID ON ITS RECORD - any other id founded on its client's word,
+  // the fee never paid, and customs carried the guildmaster in
+  if (!REALM_ID_RE.test(character)) return { error: 'realm-only' };
   const side = await realmActFirst(db, player.id, character, realm);   // REALM P2.2; AUDIT REALM L1-F2: where the record stands, before any other word
   if (side.error) return side;
   const n = guildNameOf(name);
@@ -191,7 +194,7 @@ export async function foundGuild(ctx, player, { character, name, tag, realm = nu
         .bind(player.id, character, id, displayName(player), nowS),
     ]);
   } catch {
-    if (prep) await dropObjects(ctx.bucket, [prep.key]);
+    if (prep) await dropIfUnnamed(db, ctx.bucket, player.id, character, prep.key);   // AUDIT REALM2 S3: a batch that landed and lost its answer keeps its save
     // AUDIT REALM L1-F2: a record that moved under the founding says so first; else one of the uniques held: say which
     const moved = side.at ? await recordMovedOf(db, player.id, side.at) : null;
     if (moved) return moved;
@@ -371,7 +374,7 @@ async function realmTreasury(ctx, player, me, at, kind, gold, region) {
   try {
     await db.batch([...prep.steps, move, mustChange(db)]);
   } catch {
-    await dropObjects(bucket, [prep.key]);
+    await dropIfUnnamed(db, bucket, player.id, at.id, prep.key);   // AUDIT REALM2 S3
     const moved = await recordMovedOf(db, player.id, at);
     if (moved) return moved;
     if (kind === 'deposit') return { error: 'guild-treasury-full' };

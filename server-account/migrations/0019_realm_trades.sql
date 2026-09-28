@@ -12,9 +12,9 @@
 -- `obj` AND `prev`. A realm character's save lands at a key of its own
 -- (src/realm.js mintObjectKey) and the row then names it: `obj` the
 -- current save, `prev` the one before, which a bad write never touches.
--- 0016 alternated two objects by `seq`; a write that lost its race - a
--- checkpoint against a trade being settled - could land on the current
--- one.
+-- 0018 (0016 on its branch) alternated two objects by `seq`; a write
+-- that lost its race - a checkpoint against a trade being settled -
+-- could land on the current one.
 --
 -- realm_trades: ONE ROW A TRADE, by the peers' own sid. The first HALF
 -- waits here (`a_*`: who sent it, the lease and the sequence of the

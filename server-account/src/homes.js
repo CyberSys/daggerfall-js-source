@@ -35,7 +35,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';
-import { prepareRealmRecord, realmActFirst, realmAtOf, recordMovedOf, mustChange, dropObjects, REALM_ID_RE } from './realm.js';   // REALM P2.2b; AUDIT REALM L1-F2: the record asked first
+import { prepareRealmRecord, realmActFirst, realmAtOf, recordMovedOf, mustChange, dropObjects, dropIfUnnamed, REALM_ID_RE } from './realm.js';   // REALM P2.2b; AUDIT REALM L1-F2: the record asked first; AUDIT REALM2 S3: a landed batch's object kept
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2b: the wallet's own order, over the record
 import {
   HOME_CAP, HOME_ENTRY_DEFAULT, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S, HOME_TOWN_MAX,
@@ -70,7 +70,7 @@ async function realmClaim(ctx, player, at, claim) {
   try {
     await db.batch([...prep.steps, claimStatement(db, player, claim, nowS, claim.price), mustChange(db)]);
   } catch {
-    await dropObjects(bucket, [prep.key]);
+    await dropIfUnnamed(db, bucket, player.id, at.id, prep.key);   // AUDIT REALM2 S3: a batch that landed and lost its answer keeps its save
     const now = await recordMovedOf(db, player.id, at);
     if (now) return now;
     return (await db.prepare('SELECT 1 AS one FROM homes WHERE map_id = ? AND building_key = ?').bind(claim.mapId, claim.buildingKey).first()) ? { error: 'home-taken' } : { error: 'home-cap' };
@@ -92,16 +92,13 @@ export async function claimHome(ctx, player, { mapId, buildingKey, region, chara
   if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price)) return { error: 'bad-home' };
   if (typeof character !== 'string' || !CHAR_ID_RE.test(character)) return { error: 'home-character' };
+  // AUDIT REALM2 S2: A HOUSE IS A REALM CHARACTER'S, BOUGHT ON ITS RECORD. Any other id still claimed on its client's word
+  // - a made-up one at a price of 1, sixty buildings an hour taken from the world - and customs carried the house in.
+  if (!REALM_ID_RE.test(character)) return { error: 'realm-only' };
   const side = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before the hour's claims
   if (side.error) return side;
   if (await overRate({ db, nowS }, `home:${player.id}`, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S)) return { error: 'home-rate' };
-  if (side.at) return realmClaim(ctx, player, side.at, { mapId, buildingKey, region, character, price });
-  const r = await claimStatement(db, player, { mapId, buildingKey, region, character, price }, nowS).run();
-  const row = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ?').bind(mapId, buildingKey).first();
-  if (r?.meta?.changes) return { ok: true, home: homeOf(row) };
-  if (row && row.player === player.id && row.char_id === character) return { ok: true, repeat: true, home: homeOf(row) };
-  if (row) return { error: 'home-taken' };
-  return { error: 'home-cap' };
+  return realmClaim(ctx, player, side.at, { mapId, buildingKey, region, character, price });   // a realm character's side is always its record
 }
 
 /** DECOR1e: a home's placed pieces and half of what they cost - what its sale gives back for them. */
@@ -142,7 +139,7 @@ async function realmRelease(ctx, player, at, home) {
       mustChange(db),
     ]);
   } catch {
-    await dropObjects(bucket, [prep.key]);
+    await dropIfUnnamed(db, bucket, player.id, at.id, prep.key);   // AUDIT REALM2 S3
     return (await recordMovedOf(db, player.id, at)) || { error: 'no-home' };
   }
   await dropObjects(bucket, [prep.prev]);

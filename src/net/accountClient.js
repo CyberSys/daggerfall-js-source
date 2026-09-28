@@ -206,6 +206,11 @@ export const REFUSALS = Object.freeze({
   seq: 'This character was saved from somewhere else in the meantime. Rejoin to carry on.',
   'customs-never-online': 'Only a character that has already played online can be brought into the realm.',
   'customs-already': 'That character has already been brought into the realm.',
+  // AUDIT REALM2 S1: a first save the realm reads - a new character's, or customs' own
+  'realm-birth': 'The realm takes a new character only as character creation makes one. Delete it and make it again.',
+  'customs-allowance': 'That character carries more gold than customs lets in. Bring it online again.',
+  // AUDIT REALM2 S2: the online acts that cost gold are a realm character's
+  'realm-only': 'Only an online character of the realm can do that.',
   // REALM P2.1: a trade's sid another pair settled (server-account/src/realmTrade.js)
   'trade-spent': 'That trade has already ended - nothing was traded.',
   // REALM P2.2: an act that moves a realm character's gold on its record (server-account/src/realm.js)

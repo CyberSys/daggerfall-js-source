@@ -33,6 +33,7 @@ import { importPublicKeyB64, verifyToken } from '../src/net/identityToken.js';
 import { accountCard, accountRenownOf } from '../src/ui/enhancedAccount.js';
 import { AccountFlow } from '../src/ui/accountFlow.js';
 import { graph } from './importGraph.mjs';
+import { r2, seatRealm } from './realmSeat.mjs';   // AUDIT REALM2 S2: a founder is a realm character
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -178,7 +179,7 @@ async function stand() {
   _resetKeyForTests();
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const pkcs8 = Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64');
-  const env = { DB: d1(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
+  const env = { DB: d1(), SAVES: r2(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
   const call = async (method, path, body, bearer = null) => {
     const res = await worker.fetch(new Request(`https://accounts.invalid${path}`, {
       method,
@@ -192,7 +193,7 @@ async function stand() {
 
 test('RENOWN-ACCOUNT the worker: the token\'s level is the ACCOUNT\'s whichever character the mint names - one new to the account starts there; a mint naming none still carries none; a report answers the account\'s track, a character named or not; /v1/account says the ONE Renown ({ xp, level }, null before any); a character that never earned founds a guild at the account\'s Renown; acct19 still (mutants: the mint reading a character\'s track; the card sent a list; the founding asking the character)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
-  const { call, kp } = await stand();
+  const { env, call, kp } = await stand();
   const me = (await call('POST', '/v1/auth/guest', {})).body;
   assert.equal((await call('GET', '/v1/account', undefined, me.secret)).body.account.renown, null, 'nothing earned: no Renown to say');
   let r = (await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 5000, name: 'Mara' }, me.secret));
@@ -210,14 +211,17 @@ test('RENOWN-ACCOUNT the worker: the token\'s level is the ACCOUNT\'s whichever 
   assert.equal((await verifyToken(none.token, kp.publicKey, { subtle, nowS: T0 })).claims.lv, undefined);
   assert.deepEqual((await call('GET', '/v1/account', undefined, me.secret)).body.account.renown, { xp: 5510, level: 10 }, 'the card: the ONE Renown');
   assert.equal((await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 0 }, me.secret)).status, 400, 'the one refusal left: an amount out of its bound');
-  // A GUILD: founding asks the account's Renown, so a character that never earned founds at it
+  // A GUILD: founding asks the account's Renown, so a character that never earned founds at it (AUDIT REALM2 S2: a realm
+  // character founds, on its record)
   assert.equal((await call('POST', '/v1/auth/register', { handle: 'Aldric', password: 'a good long one' }, me.secret)).status, 200);
-  const found = await call('POST', '/v1/guilds/found', { character: 'char-fresh', name: 'The Hound', tag: 'HND' }, me.secret);
+  const fresh = await seatRealm(env, me.secret, 'Fresh', { name: 'Fresh', level: 9, goldPieces: 100_000, items: [] });
+  const found = await call('POST', '/v1/guilds/found', { character: fresh.id, name: 'The Hound', tag: 'HND', realm: fresh.at() }, me.secret);
   assert.equal(found.status, 200, 'a character that never earned stands at the account\'s Renown 10');
   const low = (await call('POST', '/v1/auth/guest', {})).body;
   assert.equal((await call('POST', '/v1/auth/register', { handle: 'Lowly', password: 'a good long one' }, low.secret)).status, 200);
-  assert.equal((await call('POST', '/v1/renown/xp', { character: 'char-lowl', xp: 5000 }, low.secret)).status, 200);
-  assert.deepEqual(await call('POST', '/v1/guilds/found', { character: 'char-lowl', name: 'Low Band', tag: 'LOW' }, low.secret), { status: 403, body: { error: 'guild-renown' } }, 'Renown 9 is not 10, whichever character asks');
+  const lowly = await seatRealm(env, low.secret, 'Lowly', { name: 'Lowly', level: 9, goldPieces: 100_000, items: [] });
+  assert.equal((await call('POST', '/v1/renown/xp', { character: lowly.id, xp: 5000 }, low.secret)).status, 200);
+  assert.deepEqual(await call('POST', '/v1/guilds/found', { character: lowly.id, name: 'Low Band', tag: 'LOW', realm: lowly.at() }, low.secret), { status: 403, body: { error: 'guild-renown' } }, 'Renown 9 is not 10, whichever character asks');
   assert.equal(ACCOUNT_VERSION, 'acct19', 'RENOWN-ACCOUNT rides REALM\'s undeployed acct19');
   assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct19"/);
 });

@@ -44,6 +44,7 @@ import { sellOnlineHome } from '../src/systems/onlineHomes.js';
 import { armUnloadGuard, releaseUnloadGuard } from '../src/systems/unloadGuard.js';
 import { installConsoleProbe, registerCommand } from '../src/systems/consoleCommands.js';
 import { checkpointAllowed } from '../src/systems/onlineCheckpoint.js';
+import { r2, freshSave, layRecord } from './realmSeat.mjs';   // AUDIT REALM2 S1: a realm character's first save is a new one's
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -72,14 +73,6 @@ function d1() {
       db.exec('BEGIN');
       try { const out = list.map((st) => st._result()); db.exec('COMMIT'); return out; } catch (e) { db.exec('ROLLBACK'); throw e; }
     },
-  };
-}
-function r2() {
-  const m = new Map();
-  return {
-    async put(key, body) { m.set(key, new Uint8Array(body instanceof ArrayBuffer ? body : new TextEncoder().encode(String(body)))); return { key }; },
-    async get(key) { const v = m.get(key); return v === undefined ? null : { key, size: v.byteLength, body: v }; },
-    async delete(key) { m.delete(key); },
   };
 }
 function fakeStorage() {
@@ -111,7 +104,9 @@ async function device() {
 /** A realm character saved at 1, joined as a boot joins it: its session and the service's row. */
 async function joined(dev, save = { v: 1, name: 'Nystul', goldPieces: 100 }, onLost = () => {}) {
   const made = (await realmCreate(dev.io, 'Nystul')).data;
-  await realmPut(dev.io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(save));
+  // AUDIT REALM2 S1: the first save a new character's (the service reads it); the record the pin counts from laid over it
+  assert.equal((await realmPut(dev.io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(freshSave({ name: 'Nystul' })))).ok, true);
+  layRecord(dev.env, made.id, save);
   const boot = await openRealmBoot({ io: dev.io, id: made.id });
   const session = createRealmSession({ io: dev.io, id: made.id, lease: boot.lease, seq: boot.seq, onLost });
   const row = () => dev.env.DB._raw.prepare('SELECT seq, lease FROM realm_characters WHERE id = ?').get(made.id);
@@ -463,7 +458,7 @@ test('AUDIT REALM2 C5: a tile\'s class name past Latin-1 rides the checkpoint\'s
   for (const className of names) {
     const made = (await realmCreate(dev.io, 'Nystul')).data;
     const summary = realmSummaryOf({ level: 3, career: { name: className }, race: 'Breton', gender: 'female', faceIndex: 1 });
-    const put = await realmPut(dev.io, made.id, { lease: made.lease, seq: 1, summary }, '{"v":1}');   // world.js realmBirth's
+    const put = await realmPut(dev.io, made.id, { lease: made.lease, seq: 1, summary }, JSON.stringify(freshSave({ v: 1 })));   // world.js realmBirth's (AUDIT REALM2 S1: a new character's)
     assert.deepEqual(put, { ok: true, data: { ok: true, seq: 1 } }, `${className}: the birth's put lands`);
     const row = (await realmList(dev.io)).characters.find((ch) => ch.id === made.id);
     assert.equal(row.summary.className, className, `${className}: the service reads the name back`);

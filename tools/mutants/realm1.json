@@ -164,17 +164,17 @@
   {
     "name": "REALM1-customs-leaves-life",
     "file": "server-account/src/realm.js",
-    "old": "  await carryOnlineLife({ db }, playerId, origin, id);\n",
+    "old": "      ...customsCarry(db, playerId, origin, id),\n",
     "new": "",
     "tests": [
       "test/realm1.test.js"
     ]
   },
   {
-    "name": "REALM1-customs-leaves-guild",
+    "name": "REALM1-customs-carries-the-guild",
     "file": "server-account/src/realm.js",
-    "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);",
-    "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes']);",
+    "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks']);",
+    "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);",
     "tests": [
       "test/realm1.test.js"
     ]
