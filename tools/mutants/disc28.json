@@ -88,5 +88,23 @@
     "tests": [
       "test/disc28_arrest.test.js"
     ]
+  },
+  {
+    "name": "DISC28-C-shop-box-no-layer",
+    "file": "src/ui/enhancedStyle.js",
+    "old": ".trade-shell .sb-ask { position: absolute; inset: 0; display: flex; align-items: center;\n  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px;\n  z-index: 10; }",
+    "new": ".trade-shell .sb-ask { position: absolute; inset: 0; display: flex; align-items: center;\n  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px; }",
+    "tests": [
+      "test/disc28_shopbox.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-C-shop-box-under-the-rune",
+    "file": "src/ui/enhancedStyle.js",
+    "old": ".trade-shell .sb-ask { position: absolute; inset: 0; display: flex; align-items: center;\n  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px;\n  z-index: 10; }",
+    "new": ".trade-shell .sb-ask { position: absolute; inset: 0; display: flex; align-items: center;\n  justify-content: center; background: rgba(10,12,17,0.72); padding: 20px;\n  z-index: 2; }",
+    "tests": [
+      "test/disc28_shopbox.test.js"
+    ]
   }
 ]
