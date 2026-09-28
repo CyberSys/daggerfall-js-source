@@ -184,7 +184,8 @@ grid (a town is a cluster of roofs at its real pixel before its blocks build), a
 whatever the TV2 probe says the builder still needs.
 
 **Release gate: TV1-TV4.** Call 4 puts the travellers in the first release, and Mac's
-"every detail like weather patterns, should be 1:1" puts TV4 there. TV5 follows.
+"every detail like weather patterns, should be 1:1" puts TV4 there. TV5 follows. *(TV5 as
+built: edge markers, Mac's call - see "TV5 - SHIPPED".)*
 
 ## TV1 - SHIPPED (2026-09-28)
 
@@ -611,7 +612,8 @@ view's.
   the view would fix it, but every pass that reads the projection would have to be proven
   first - not worth two pixels.
 - The per-frame costs (the heartbeat's re-arm, a score of small arrays, the route's path
-  string, the marks' styles): measured small; left for a profile that shows them.
+  string, the marks' styles): measured small; left for a profile that shows them. *(Since
+  profiled - PERF-TV below: the marks' styles were not small.)*
 - The governor's reach assumes flat ground at the traveller (a ridge over a valley may see
   a pixel it does not count) - plausible, unmeasured.
 - Mac's call 3 as TV0 records it includes "the others see smooth movement": the poses snap
@@ -619,6 +621,10 @@ view's.
   departure, recorded here, for the relay's own arc.
 
 ## TV5 - DESIGNED, MEASURED, NOT BUILT (2026-09-28) - and the stage for what comes next
+
+*Superseded the same day: Mac chose **edge markers** over these silhouettes ("TV5 - SHIPPED"
+below). The ring-span design stays here as the record, should town shapes on the horizon be
+wanted later.*
 
 **The measurement that decides it.** The design said far-ring silhouettes for the places
 beyond the grid. The world pass cannot draw them: its linear fog is EV4's `2400 x TD/3` metres
@@ -656,6 +662,75 @@ writes the far plane for every fragment. The build, in order:
   and minute; the view could hang a system's next hour under its curtain.
 - **Encounters seen coming.** The governor's unbuilt-ground count is per pixel; the same
   window could carry the foes a Travel Options journey will meet (its `enemiesNearby`).
+
+## TV5 - SHIPPED (2026-09-28): the far places, marked at the edge
+
+Mac, choosing between the ring-span silhouettes above and a mark: **"Edge markers"**. The
+measurements behind the call: at the default tilt (52 degrees) and field of view (65) the
+view's top edge meets the ground about 531 m ahead, and the horizon is in the picture only
+at a tilt of FOV/2 or less - so a town's roofs past the grid would mostly be drawn where the
+camera cannot see them. A mark can be seen wherever the town lies.
+
+**What the player sees.** Every DISCOVERED settlement (a city, a town or a village - DFU's
+town trio; not a dungeon, a temple or a farm) beyond the streamed grid and within
+`TV_FAR_RANGE` (24 map pixels, about 20 km), the nearest `TV_FAR_MAX` (10) of them, as a
+plate: in the picture, on the town; outside it, held at the screen's edge with an arrow
+pointing its way. Its distance hangs under the name (tenths of a kilometre under ten, whole
+kilometres past - the tenths would only flicker). A click on it is a journey there by the
+roads - TV2's own planner and route; the journey's own end wears the flag, not a plate.
+The grid's own places keep TV2's plates on the land; the far places start where the grid
+ends, so no town is marked twice.
+
+**How** (`systems/travelFarPlaces.js`, pure): `settlementPixels` gathers the world's
+settlements once from the host's pixel index; `farPlaces` picks them by Chebyshev distance
+(beyond the grid's radius, within the range), keeps the discovered ones (`tvPlaceSummary`,
+DFU's discovery law: an undiscovered place has no name to go to), nearest first. The host
+(`travelViewFarPlaces`) rebuilds the list only when the traveller's pixel or the grid's
+reach changes, and a load empties it (BOOT-TDZ: declared above its readers). One pixel is
+`PIXEL_KM` = 0.8192 km (MapsFile.WorldMapTerrainDim x GlobalScale).
+
+**Proof.** `test/tv5_far_places.test.js`, `tools/mutants/tv5.json` (the TV5 records),
+`tools/travelViewProbe.mjs` (a far place held at the right edge, its plate on the screen,
+a click on it a journey).
+
+## PERF-TV - the Overworld's own frame cost, made golden (2026-09-28)
+
+Mac: "I also want to ensure performance is golden." Measured in a real browser
+(`tools/travelViewPerf.mjs`, Chromium): the update's JavaScript plus the style and layout it
+owes, forced inside the timer so nothing hides in the next paint. The frame is 16.7 ms at
+60 Hz; the view's own share must be a rounding error.
+
+| The readout, a frame | Before | After | Budget |
+|---|---|---|---|
+| 20 places + 64 travellers, moving | 5.8 ms | 0.38 ms | 0.60 ms |
+| 20 places + 256 travellers, moving | 35.7 ms | 0.91 ms | 1.50 ms |
+| 20 places + 64 travellers, at rest | - | 0.05 ms | 0.15 ms |
+
+**What was slow.** Every mark was a DOM node moved by style each frame, and each mark held
+at the edge read the screen's size AFTER the previous mark's writes - a forced layout per
+held mark. 256 travellers cost two frames.
+
+**What changed.**
+- **One canvas.** Every mark - dots, plates, edge arrows, the destination's ring - is drawn
+  on the readout's one canvas (`ui/travelViewHud.js` `drawMarks`); each label is a sprite
+  drawn once and reused (`SPRITES_MAX` 512, dropped when the display face arrives). The
+  screen's size is read ONCE a frame, before any write. A picture that did not change (a
+  camera at rest) is not drawn again - the frame's signature is compared first.
+- **Clicks by position.** The canvas takes no pointer; a plate's click is found where it was
+  drawn (`travelViewHudPickAt`, the one on top), asked by the view before it picks the
+  ground. A plate held at a side edge keeps its whole box on the screen.
+- **The world host keeps what did not move.** The ground's generation (`tvGroundGenNow`:
+  a pixel built or dropped, the floating origin re-anchored, and every half second besides)
+  keys: the marks' scene points (`tvSceneKept`), the route's legs past the one being walked
+  (hundreds of terrain reads a frame on a long road), the cap's unbuilt count, and the rain
+  curtains' lowest land. The curtains ask the land only under the veils kept
+  (`CURTAINS_MAX`, not every raining cell in reach), and a veil drifting less than
+  `CURTAIN_MEMO_M` (32 m) is not asked again.
+
+**Proof.** `tools/travelViewPerf.mjs` (the budgets; exits 1 on a blown one),
+`test/tv5_far_places.test.js` (the screen read counted, the redraw skipped at rest and taken
+on a move, the click boxes, the curtains' samples counted), `tools/mutants/tv5.json` (the
+PERF-TV records).
 
 ## Open, for Mac
 

@@ -430,7 +430,7 @@ test('TV3 host wiring: the book hoisted above its readers, filled by the Region 
   assert.match(w, /travellerDue\(travellerSent, \{ now, mark, alone: link\.othersHere === 0, shown \}\)/);
   assert.match(w, /if \(Math\.max\(Math\.abs\(t\.p\.px - me\.x\), Math\.abs\(t\.p\.py - me\.y\)\) <= TV_BODY_RANGE\) continue;/, 'inside the pose range a traveller is their body');
   assert.match(w, /const kind = social\?\.inMyParty\(social\.accountOfPeer\(t\.id\)\) \? 'party' : 'traveller';/, 'AUDIT TV C3: the hub\'s account for the peer');
-  assert.match(w, /marks\.push\(\{ key: `trav:\$\{t\.id\}`, at: tvSceneOf\(w\.x, w\.z, 2\), label: t\.name, kind: `\$\{kind\}\$\{t\.p\.tv \? ' journey' : ''\}`, edge: true \}\);/);
+  assert.match(w, /marks\.push\(\{ key: `trav:\$\{t\.id\}`, at: tvSceneKept\(t, w\.x, w\.z, 2\), label: t\.name, kind: `\$\{kind\}\$\{t\.p\.tv \? ' journey' : ''\}`, edge: true \}\);/);
   assert.match(w, /return \[x, ringHeight\(byte\) \+ state\.pixelTranslation\(px\.x, px\.y\)\[1\] \+ lift, z\];/, 'past the grid, the far ring\'s own height');
   assert.match(rd('src/ui/heldMap.js'), /travellers: this\._trav\.map\(\(t\) => \(\{ x: t\.x, y: t\.y, name: t\.name, color: TRAVELLER_MARK_CSS, journey: t\.journey \}\)\),/);
   // the relay: one arm, the region's channel alone, the attachment, the room's budget, the welcome

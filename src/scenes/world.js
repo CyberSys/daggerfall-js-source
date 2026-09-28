@@ -219,10 +219,11 @@ import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my w
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
 import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
-import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud } from '../ui/travelViewHud.js';   // TV1: its readout
+import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt } from '../ui/travelViewHud.js';   // TV1: its readout
 import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js';   // TV2: the click's ground
 import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   // TV2: the way by the roads
 import { createLoadGovernor, viewReach, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
+import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
 import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook } from '../systems/travellerMarks.js';   // TV3: the region's travellers
 import { RainCurtainsRenderer, curtainsOf, CURTAIN_FOOT_MARGIN_M } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
 import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
@@ -1222,6 +1223,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // built; every reader above already guards on null, which is the guard
   // a player with the mod switched off needs in any case.
   let travelOptions = null;
+  let tvFar = { at: null, near: -1, list: [] };   // TV5: the far places about the traveller (above its readers: BOOT-TDZ - a load empties it)
   let tvPlates = { at: null, list: [] };   // TV2: the known places about the traveller, rebuilt on a pixel change - AUDIT DEEP T2-4: and emptied by a load (above its readers: BOOT-TDZ)
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
   let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its spinner, or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
@@ -7722,6 +7724,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // older save, the classic import - a Daggerfall .SAV carries no
     // Morrowind camera) leaves the live camera standing.
     tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4: the loaded character's discoveries - never the plates the last one knew
+    tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places
     travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
     mwViewLoadPose(pose.camera, (modes?.mode ?? 'exterior') !== 'exterior');   // AUDIT-EOTB2: both lanes - the Morrowind restore above, and the sprite camera's OnLoad (EOTB-IL: with PlayerEnterExit.IsPlayerInside)
   }
@@ -15454,7 +15457,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   }
   /** A plate's click: the same journey as a click on the town. */
   function onTravelViewMark(key) {
-    const plate = tvPlates.list.find((p) => p.key === key);
+    const plate = tvPlates.list.find((p) => p.key === key) ?? tvFar.list.find((p) => p.key === key);   // TV5: a far place's plate is the same journey
     if (plate && travelViewCanGo()) travelViewRouteTo(plate.summary);
   }
   /** The known places whose pixels lie in the view's reach (the grid's own radius), rebuilt when the traveller's pixel
@@ -15475,6 +15478,40 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     tvPlates = { at, list };
     return list;
   }
+  // TV5 (2026-09-28, Mac: "Edge markers"; systems/travelFarPlaces.js): THE FAR PLACES - the discovered settlements past
+  // the grid, nearest first, rebuilt when the traveller's pixel (or the grid's reach) changes; each a plate held at the
+  // screen's edge, its distance under its name, a click a journey there by the roads.
+  let _tvSettlements = null;   // the world's settlements, gathered once, the first time the view asks
+  function travelViewFarPlaces() {
+    const at = playerTravelPixel();
+    const near = Math.max(1, state.terrainDistance ?? 3);
+    if (tvFar.at && tvFar.at.x === at.x && tvFar.at.y === at.y && tvFar.near === near) return tvFar.list;
+    const list = farPlaces({ at, near, settlements: (_tvSettlements ??= settlementPixels(locationIndex)), summaryOf: tvPlaceSummary })
+      .map((f) => { const rect = tvPlaceRect(f.summary); return { key: f.key, summary: f.summary, x: rect.cx, z: rect.cz }; });
+    tvFar = { at, near, list };
+    return list;
+  }
+  // PERF-TV: THE GROUND'S GENERATION - moves whenever a scene point's place or height can have: a pixel built or dropped,
+  // the floating origin re-anchored (and every half second besides, for whatever that signature cannot see). The marks,
+  // the route and the cap's count are kept between its moves instead of re-read off the terrain every frame.
+  const _tvGround = [NaN, NaN, NaN, NaN, NaN, NaN, -Infinity];
+  let tvGroundGen = 0;
+  function tvGroundGenNow() {
+    const k = _tvGround, c = state.compensation, t = performance.now();
+    if (k[0] !== built.size || k[1] !== state.mapOrigin.x || k[2] !== state.mapOrigin.y || k[3] !== c[0] || k[4] !== c[1] || k[5] !== c[2] || t - k[6] > 500) {
+      k[0] = built.size; k[1] = state.mapOrigin.x; k[2] = state.mapOrigin.y; k[3] = c[0]; k[4] = c[1]; k[5] = c[2]; k[6] = t;
+      tvGroundGen += 1;
+    }
+    return tvGroundGen;
+  }
+  /** PERF-TV: a native point's scene point, kept on `holder` while the ground under it cannot have moved. */
+  function tvSceneKept(holder, nx, nz, lift) {
+    const gen = tvGroundGenNow();
+    if (holder._tvGen !== gen || holder._tvNx !== nx || holder._tvNz !== nz) {
+      holder._tvAt = tvSceneOf(nx, nz, lift); holder._tvGen = gen; holder._tvNx = nx; holder._tvNz = nz;
+    }
+    return holder._tvAt;
+  }
   /** The readout's marks: the plates (the journey's own end hides its plate), and the end. World points - the view
    *  projects them through the frame's matrices. */
   function travelViewMarks() {
@@ -15484,17 +15521,25 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const marks = [];
     for (const p of travelViewPlaces()) {
       if (p.key === endKey) continue;
-      marks.push({ key: p.key, at: tvSceneOf(p.x, p.z, TV_PLACE_LIFT), label: p.summary.name, kind: 'place', pick: true });
+      marks.push({ key: p.key, at: tvSceneKept(p, p.x, p.z, TV_PLACE_LIFT), label: p.summary.name, kind: 'place', pick: true });
     }
-    if (live && tvTrip.end) marks.push({ key: 'dest', at: tvSceneOf(tvTrip.end.x, tvTrip.end.z, tvTrip.end.kind === 'dest' ? TV_PLACE_LIFT : 0), label: tvTrip.end.label, kind: tvTrip.end.kind });
+    // TV5: the far places, held at the edge with their distance (the journey's own end is the flag's)
+    const farEnd = endKey ? `far:${tvTrip.plan.summary.mapId}` : null;
+    const here = state.worldCoords(player.pos);
+    for (const f of travelViewFarPlaces()) {
+      if (f.key === farEnd) continue;
+      const km = (Math.hypot(f.x - here.x, f.z - here.z) / 32768) * PIXEL_KM;   // native units a pixel (MapsFile.WorldMapTerrainDim)
+      marks.push({ key: f.key, at: tvSceneKept(f, f.x, f.z, TV_PLACE_LIFT), label: f.summary.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true });
+    }
+    if (live && tvTrip.end) marks.push({ key: 'dest', at: tvSceneKept(tvTrip.end, tvTrip.end.x, tvTrip.end.z, tvTrip.end.kind === 'dest' ? TV_PLACE_LIFT : 0), label: tvTrip.end.label, kind: tvTrip.end.kind });
     // TV3: THE REGION'S TRAVELLERS - their marks, beyond the pose range (inside it their bodies stand, named over their
     // heads); a party member's in the party's colour; one outside the picture held at its edge, pointing
     const me = playerTravelPixel();
     for (const t of travellerBook.live(Date.now())) {
       if (Math.max(Math.abs(t.p.px - me.x), Math.abs(t.p.py - me.y)) <= TV_BODY_RANGE) continue;
-      const w = travellerWorldOf(t.p);
+      const w = (t._w ??= travellerWorldOf(t.p));   // PERF-TV: a book entry is made new by each mark heard, so it is kept on it
       const kind = social?.inMyParty(social.accountOfPeer(t.id)) ? 'party' : 'traveller';   // AUDIT TV C3: the hub's account for the peer - a token's subject is another id space
-      marks.push({ key: `trav:${t.id}`, at: tvSceneOf(w.x, w.z, 2), label: t.name, kind: `${kind}${t.p.tv ? ' journey' : ''}`, edge: true });
+      marks.push({ key: `trav:${t.id}`, at: tvSceneKept(t, w.x, w.z, 2), label: t.name, kind: `${kind}${t.p.tv ? ' journey' : ''}`, edge: true });
     }
     return marks;
   }
@@ -15506,17 +15551,27 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const me = state.worldCoords(player.pos);
     const n = tvTrip.natives;
     const from = travelOptions.route?.i ?? 0;   // the legs behind the traveller are walked: the line starts at them
-    const rest = [[me.x, me.z], ...n.slice(Math.min(n.length - 1, from + 1))];
-    for (let i = 1; i < rest.length; i++) {
-      const [ax, az] = rest[i - 1], [bx, bz] = rest[i];
-      for (let k = 1; k <= 4; k++) pts.push(tvSceneOf(ax + (bx - ax) * (k / 4), az + (bz - az) * (k / 4), 1));
+    const start = Math.min(n.length - 1, from + 1);
+    const leg = (ax, az, bx, bz, out) => { for (let k = 1; k <= 4; k++) out.push(tvSceneOf(ax + (bx - ax) * (k / 4), az + (bz - az) * (k / 4), 1)); };
+    leg(me.x, me.z, n[start][0], n[start][1], pts);   // the traveller's own leg moves with them
+    // PERF-TV: the legs past it are the same every frame - kept while the ground and the leg being walked hold (a long
+    // road re-read hundreds of terrain points a frame)
+    const gen = tvGroundGenNow(), kept = tvTrip._tail;
+    let tail = kept && kept.gen === gen && kept.start === start && kept.n === n ? kept.pts : null;
+    if (!tail) {
+      tail = [];
+      for (let i = start + 1; i < n.length; i++) leg(n[i - 1][0], n[i - 1][1], n[i][0], n[i][1], tail);
+      tvTrip._tail = { gen, start, n, pts: tail };
     }
+    for (const p of tail) pts.push(p);
     return pts;
   }
   // THE CAP (systems/travelGovernor.js): while the view is up and a journey drives, the clock runs no faster than the
   // grid raises the ground the view can see. The spinner stays the player's; the panel says when it is held.
   const travelGovernor = createLoadGovernor({ max: MAX_TIME_SCALE });
   let tvHeld = null;   // the rate the governor holds the clock to, while it holds it under the spinner's
+  const _tvUnbuilt = { gen: -1, x: NaN, y: NaN, r: -1, n: 0 };   // PERF-TV: the cap's last count, and what it counted
+  const _tvFootMemo = { gen: -1, map: new Map() };   // PERF-TV: the curtains' lowest land (render/rainCurtains.js memo)
   function travelViewGovern(dt) {
     const journey = !!travelControlUI?.isShowing && !!travelOptions?.state?.autopilot;
     if (!travelView?.active || !journey) {
@@ -15531,7 +15586,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // unbuilt a moment (at any speed), and it stands at or past the fog's end (TV5's measurement): counted, a view that
     // looks out to the horizon held every journey to x1 after each crossing
     const radius = Math.max(1, Math.min(grid - 1, Math.ceil(reach / TERRAIN_SIZE)));
-    const unbuilt = unbuiltAround(playerTravelPixel(), radius, (x, y) => x < 0 || y < 0 || x >= 1000 || y >= 500 || built.has(`${x},${y}`));
+    // PERF-TV: counted again only when the ground, the pixel or the reach moved - not every frame
+    const px = playerTravelPixel(), gen = tvGroundGenNow(), uc = _tvUnbuilt;
+    if (uc.gen !== gen || uc.x !== px.x || uc.y !== px.y || uc.r !== radius) {
+      uc.n = unbuiltAround(px, radius, (x, y) => x < 0 || y < 0 || x >= 1000 || y >= 500 || built.has(`${x},${y}`));
+      uc.gen = gen; uc.x = px.x; uc.y = px.y; uc.r = radius;
+    }
+    const unbuilt = uc.n;
     const want = travelAsked;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap
     const rate = travelGovernor.step(dt, { unbuilt, requested: want });
     if (worldTimeScale() !== rate) setWorldTimeScale(rate);
@@ -15556,7 +15617,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     freeCursor: (free) => { if (free) { tvCursorWas = cursorActive(); setCursorActive(true); releaseLook(); } else { setCursorActive(tvCursorWas); if (!tvCursorWas && !gamePaused() && !pointerSurfaces.size && !(modes?.modalWindowUp?.() ?? false)) requestLook(canvas); } },   // AUDIT DEEP T1-5: never the lock under an open chat or a window - the surface's close, or the look gate's, takes it back   // AUDIT TV B9: a cursor the player freed before the view is free after it
     where: travelViewWhere,
     project: (p) => (_lastProj && _lastView ? projectToScreen(p, canvas.clientWidth, canvas.clientHeight, _lastProj, _lastView, worldViewportRect(canvas.clientWidth, canvas.clientHeight), true) : null),   // AUDIT DEEP T1-1: behind the eye, the mirror - a traveller there is held at the edge THEIR way, not all in one corner
-    hud: { show: showTravelViewHud, hide: hideTravelViewHud, update: updateTravelViewHud },
+    hud: { show: showTravelViewHud, hide: hideTravelViewHud, update: updateTravelViewHud, pickAt: travelViewHudPickAt },   // PERF-TV: a plate's click found by position
     say: (t) => townTalk.say(t),
     touch: !!touch,
     alive: () => frameAlive(_frameToken),   // the heartbeat's question: a loop a later boot killed is left quietly
@@ -17628,7 +17689,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the world, under the travel view alone (at the eye the sky map's own curtains stand on the horizon); the same
     // cells the clouds draw, at the shared minute (render/rainCurtains.js)
     if (tvf && rainCurtains) {
-      const curtains = curtainsOf(fieldCellsHere(), { focus: cam.pos, eye: mwv.eye, ground: player.feetAt()[1], groundAt: tvGroundAt, reach: renderer._fogMode === 1 ? renderer._fogRange[1] : undefined });   // AUDIT TV D3: the foot under the lowest land about the veil
+      if (_tvFootMemo.gen !== tvGroundGenNow()) { _tvFootMemo.gen = tvGroundGen; _tvFootMemo.map.clear(); }   // PERF-TV: the veils' lowest land, kept while the ground holds
+      const curtains = curtainsOf(fieldCellsHere(), { focus: cam.pos, eye: mwv.eye, ground: player.feetAt()[1], groundAt: tvGroundAt, reach: renderer._fogMode === 1 ? renderer._fogRange[1] : undefined, memo: _tvFootMemo.map });   // AUDIT TV D3: the foot under the lowest land about the veil
       const lit = (renderer._ambient[0] + renderer._ambient[1] + renderer._ambient[2]) / 3 + 0.6 * renderer._sunScale;
       if (curtains.length && rainCurtains.draw(curtains, proj, view, mwv.eye, now / 1000,
         { light: lit, fade: Math.min(1, tvf.blend * 1.5), fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus, dw: renderer._dwFog } })) renderer.markForeignPass();

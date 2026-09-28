@@ -2515,38 +2515,14 @@ ${badgeCss()}
 .tview-chev { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; }
 .tview-chev::before { content: ''; position: absolute; left: 4px; top: -13px; border-left: 5px solid transparent;
   border-right: 5px solid transparent; border-bottom: 9px solid var(--brass); filter: drop-shadow(0 1px 1px #000); }
-.tview-marks { position: absolute; inset: 0; }
-.tview-mark { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
-.tview-dot { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%;
-  background: var(--bone); border: 1px solid #000; box-shadow: 0 0 4px rgba(0,0,0,0.8); }
-.tview-label { position: absolute; left: 0; top: 8px; transform: translateX(-50%); white-space: nowrap;
-  font-size: 12px; letter-spacing: 0.06em; color: var(--bone); text-shadow: 0 1px 2px #000, 0 0 3px #000; }
-.tview-mark.dest .tview-dot { background: var(--brass); width: 14px; height: 14px; left: -7px; top: -7px; }
-.tview-mark.dest .tview-label { color: var(--brass); }
-.tview-mark.traveller .tview-dot { background: var(--verdigris); }
-.tview-mark.party .tview-dot { background: #6fb86a; }
-/* TV2: the places in the view - a plate that takes the pointer (a click is a journey there by the roads) - the
-   destination's flag, and the route line under the marks (a dark casing, the brass line dashed over it). */
-.tview-mark.place .tview-dot { width: 8px; height: 8px; left: -4px; top: -4px; background: var(--brass); }
-.tview-mark.place .tview-label { top: -24px; padding: 2px 7px; font-family: var(--display); font-size: 13px;
-  background: rgba(14,16,19,0.72); border: 1px solid rgba(192,138,62,0.35); border-radius: 2px; }
-.tview-mark.pick { pointer-events: auto; cursor: pointer; }
-.tview-mark.pick .tview-label { pointer-events: auto; }
-.tview-mark.pick:hover .tview-label { border-color: var(--brass); color: var(--brass); }
-.tview-mark.target .tview-dot { background: transparent; border: 2px solid var(--brass); width: 16px; height: 16px;
-  left: -10px; top: -10px; box-shadow: 0 0 6px rgba(192,138,62,0.7); }
+/* PERF-TV: every mark on one canvas - the dots, plates, edge arrows and the destination's ring drawn by
+   ui/travelViewHud.js drawMarks in TRAVEL_VIEW_MARK_COLORS; never a target (a plate's click is found by position).
+   TV2's route line stays an SVG under it (a dark casing, the brass line dashed over it). */
+.tview-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .tview-route { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .tview-route-casing { fill: none; stroke: rgba(0,0,0,0.55); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
 .tview-route-line { fill: none; stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 9 6; stroke-linecap: round;
   stroke-linejoin: round; }
-/* TV3: a traveller outside the picture, held at the edge - its dot an arrow pointing the way (--edge-turn) */
-.tview-mark.edge .tview-dot { border-radius: 0; background: transparent; border: none; box-shadow: none; width: 0; height: 0;
-  left: -7px; top: -7px; border-left: 7px solid transparent; border-right: 7px solid transparent;
-  border-bottom: 12px solid var(--verdigris); transform: rotate(var(--edge-turn, 0deg)); transform-origin: 7px 7px;
-  filter: drop-shadow(0 1px 2px #000); }
-.tview-mark.party.edge .tview-dot { border-bottom-color: #6fb86a; }
-.tview-mark.edge .tview-label { top: 10px; font-size: 11px; }
-.tview-mark.journey .tview-label::after { content: ' →'; color: var(--brass); }
 .tview-trip { font-size: 11.5px; color: var(--brass); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   display: flex; align-items: center; gap: 12px; min-width: min(560px, 94vw); max-width: 94vw; padding: 8px 12px;
@@ -2562,6 +2538,8 @@ ${badgeCss()}
 .tview-title { font-family: var(--display); font-size: 19px; line-height: 1.05; color: var(--brass); letter-spacing: 0.04em; }
 .tview-where { font-size: 12px; color: var(--bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tview-hint { font-size: 10.5px; color: var(--dim); letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* PERF-TV (the phone): the hint wraps rather than lose its last words to an ellipsis - the phone's hand is three gestures */
+@media (max-width: 520px) { .tview-hint { white-space: normal; } }
 .tview-back { pointer-events: auto; flex: 0 0 auto; padding: 7px 14px; cursor: pointer;
   background: rgba(43,50,59,0.9); color: var(--bone); border: 1px solid rgba(192,138,62,0.4); border-radius: 2px;
   font-family: var(--data); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }

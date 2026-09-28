@@ -128,12 +128,13 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  * @param {(p:number[]) => {x:number,y:number,front:boolean}} [deps.project] - a world point to the screen, this frame
  * @param {(x:number, y:number, e:any) => void} [deps.onPick] - TV2: a click on the ground (viewport pixels)
  * @param {(key:string) => void} [deps.onMark] - TV2: a click on a mark that takes one (a place's plate)
- * @param {() => Array<{key:string, at:number[], label?:string, kind?:string, pick?:boolean, edge?:boolean}>} [deps.marks] - TV2/TV3: the
+ * @param {() => Array<{key:string, at:number[], label?:string, sub?:string, kind?:string, pick?:boolean, edge?:boolean}>} [deps.marks] - TV2/TV3/TV5: the
  *   keyed marks the readout draws, at WORLD points (projected here, through the frame's own matrices)
  * @param {() => number[][]} [deps.route] - TV2: the journey's way, world points from the feet on
  * @param {() => string} [deps.trip] - TV2: the journey in words
  * @param {() => {move?:string, out?:string}} [deps.hintKeys] - AUDIT DEEP T1-12: the keys the hint names, read on the way up
- * @param {{show:Function, hide:Function, update:Function}} [deps.hud] - ui/travelViewHud.js
+ * @param {{show:Function, hide:Function, update:Function, pickAt?:(x:number, y:number) => string|null}} [deps.hud] -
+ *   ui/travelViewHud.js (PERF-TV: `pickAt`, the pickable mark drawn under a click)
  * @param {(t:string) => void} [deps.say]
  * @param {boolean} [deps.touch]
  * @param {any} [deps.win] - the event target listeners go on (the window)
@@ -206,7 +207,12 @@ export function createTravelView(deps) {
     const p = press;
     press = null;
     // AUDIT TV B9: a cancelled press (the browser took the finger for a scroll or a gesture) is never a pick
-    if (p && p.id === e.pointerId && !p.moved && p.button === 0 && state === 'up' && e.type !== 'pointercancel') deps.onPick?.(e.clientX, e.clientY, e);
+    if (p && p.id === e.pointerId && !p.moved && p.button === 0 && state === 'up' && e.type !== 'pointercancel') {
+      // PERF-TV: the marks are drawn, so a click on a plate is found by where it landed - a place's (or TV5's far
+      // place's) journey, never the ground's pick
+      const key = deps.hud?.pickAt?.(e.clientX, e.clientY) ?? null;
+      if (key) deps.onMark?.(key); else deps.onPick?.(e.clientX, e.clientY, e);
+    }
   }
   function onMouse(e) {   // the host's window mousedown/mouseup (the swing, Mouse0) - the canvas's are the view's
     if (state === 'off' || gone() || !isCanvasEvent(e)) return;
@@ -292,7 +298,7 @@ export function createTravelView(deps) {
       deps.freeCursor?.(true);
     }
     listen(true);
-    deps.hud?.show({ onReturn: () => exit('button'), onMark: (key) => { if (state === 'up') deps.onMark?.(key); } });
+    deps.hud?.show({ onReturn: () => exit('button') });
     rearm();
     return true;
   }
@@ -389,7 +395,7 @@ export function createTravelView(deps) {
     const marks = [];
     for (const m of deps.marks?.() ?? []) {
       const at = proj(m.at);
-      marks.push({ key: m.key, x: at?.x ?? 0, y: at?.y ?? 0, front: !!at?.front, label: m.label, kind: m.kind, pick: !!m.pick, edge: !!m.edge });
+      marks.push({ key: m.key, x: at?.x ?? 0, y: at?.y ?? 0, front: !!at?.front, label: m.label, sub: m.sub, kind: m.kind, pick: !!m.pick, edge: !!m.edge });
     }
     deps.hud.update({
       feet: f, heading: lastHeading, yaw: camera?.yaw ?? 0, where: deps.where?.() ?? '',

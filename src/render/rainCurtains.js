@@ -55,6 +55,8 @@ export const CURTAIN_FOOT_SAMPLES = 8;
 /** AUDIT DEEP R-5: the most a veil thins for the traveller standing inside it (the eye still outside) - their own storm
  *  stays a storm from the air: the falling rain around them is 1.6 cm streaks, under a pixel from 150 m up. */
 export const CURTAIN_OWN_ALPHA = 0.35;
+/** PERF-TV: how far a veil drifts (m) before its lowest land is asked again. */
+export const CURTAIN_MEMO_M = 32;
 /** Rain's and snow's colour, display-encoded (the lit lane's frame image is 8-bit and display encoded - airPass.js). */
 export const CURTAIN_RAIN_COLOR = Object.freeze([0.5, 0.54, 0.6]);
 export const CURTAIN_SNOW_COLOR = Object.freeze([0.84, 0.86, 0.9]);
@@ -71,12 +73,14 @@ export const curtainClock = (s) => ((s % CURTAIN_CLOCK_PERIOD) + CURTAIN_CLOCK_P
  * `kind` (0 rain, 1 snow) and `alpha` (the fade as the eye - or the traveller - comes over it). A storm cell's clip keeps
  * its veil inside the disc it paints within. Pure.
  * @param {Array<any>} cells - world.js fieldCellsHere's, in the host's metres (volumetricClouds.js cellOfField)
- * @param {{ focus: number[], eye: number[], ground?: number, groundAt?: (x:number, z:number) => number, reach?: number }} at
+ * @param {{ focus: number[], eye: number[], ground?: number, groundAt?: (x:number, z:number) => number, reach?: number,
+ *   memo?: Map<string, number>|null }} at
  *   - the traveller's head, the view's eye, the traveller's ground (y) the deck's heights are measured from, the land's
  *   height anywhere (the host's: the built grid, the far ring past it) for the foot, and how far the frame's fog lets
- *   anything be seen (AUDIT DEEP R-6: a veil past it is wholly fogged - a slot and a fill for nothing)
+ *   anything be seen (AUDIT DEEP R-6: a veil past it is wholly fogged - a slot and a fill for nothing), and `memo` a Map
+ *   the host keeps and empties when its ground changes (PERF-TV)
  */
-export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null, reach = CURTAIN_REACH_M }) {
+export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null, reach = CURTAIN_REACH_M, memo = null }) {
   const far = Math.min(CURTAIN_REACH_M, Number.isFinite(reach) && reach > 0 ? reach : CURTAIN_REACH_M);
   const g = ground ?? focus?.[1] ?? 0;
   const out = [];
@@ -90,11 +94,6 @@ export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null, 
     const d = Math.hypot(c.x - focus[0], c.z - focus[2]);
     if (d - radius > far) continue;
     const base = (c.base ?? 600) + ((c.top ?? c.base ?? 600) - (c.base ?? 600)) * CURTAIN_INTO;
-    // AUDIT DEEP R-4: the LOWEST LAND's rule wherever the host knows the land - the traveller's own (CURTAIN_BELOW_M under
-    // their ground) only where it knows none. Kept under both, a storm off a coast hung 300 m of veil down through the
-    // sea, whose surface writes no depth to cut it.
-    const lo = lowestGround(groundAt, c.x, c.z, radius);
-    const foot = Number.isFinite(lo) ? lo - CURTAIN_FOOT_MARGIN_M : g - CURTAIN_BELOW_M;
     // VC7c's `near`: as the eye comes over the veil it thins to nothing - the rain the player stands in is theirs.
     // AUDIT TV D2: and as the TRAVELLER does - a traveller inside the veil with the eye still outside it was seen
     // through the whole cylinder's chord, the storm's full depth drawn in front of the very ground they stand on
@@ -102,10 +101,28 @@ export function curtainsOf(cells, { focus, eye, ground = null, groundAt = null, 
     const ramp = (dist) => Math.min(1, Math.max(0, (dist - radius * 0.85) / (radius * 0.3)));
     const alpha = ramp(Math.hypot(c.x - eye[0], c.z - eye[2])) * Math.max(CURTAIN_OWN_ALPHA, ramp(d));
     if (alpha <= 0.001) continue;
-    out.push({ centre: [c.x, foot, c.z], radius, height: g + base - foot, depth: CURTAIN_EXT * c.fall, kind: c.fallKind ? 1 : 0, alpha, d });
+    out.push({ centre: [c.x, 0, c.z], radius, height: base, depth: CURTAIN_EXT * c.fall, kind: c.fallKind ? 1 : 0, alpha, d });
   }
   out.sort((a, b) => a.d - b.d);
-  return out.slice(0, CURTAINS_MAX);
+  const kept = out.slice(0, CURTAINS_MAX);
+  // AUDIT DEEP R-4: the LOWEST LAND's rule wherever the host knows the land - the traveller's own (CURTAIN_BELOW_M under
+  // their ground) only where it knows none. Kept under both, a storm off a coast hung 300 m of veil down through the
+  // sea, whose surface writes no depth to cut it. PERF-TV: asked of the curtains DRAWN alone - seventeen samples of
+  // the land a cell, for every falling cell in reach, was the pass's whole cost before a veil was stood
+  for (const k of kept) {
+    // PERF-TV: `memo` (a Map the host empties when its ground changes) keeps a veil's lowest land while it drifts
+    // within CURTAIN_MEMO_M - a storm moves with the wind, the land under it does not
+    const key = memo ? `${Math.round(k.centre[0] / CURTAIN_MEMO_M)},${Math.round(k.centre[2] / CURTAIN_MEMO_M)},${Math.round(k.radius / CURTAIN_MEMO_M)}` : null;
+    let lo = key !== null ? memo.get(key) : undefined;
+    if (lo === undefined) {
+      lo = lowestGround(groundAt, k.centre[0], k.centre[2], k.radius);
+      if (key !== null) { if (memo.size >= 256) memo.clear(); memo.set(key, lo); }
+    }
+    const foot = Number.isFinite(lo) ? lo - CURTAIN_FOOT_MARGIN_M : g - CURTAIN_BELOW_M;
+    k.centre[1] = foot;
+    k.height = g + k.height - foot;
+  }
+  return kept;
 }
 
 /** AUDIT TV D3: the lowest land under a veil - its centre, CURTAIN_FOOT_SAMPLES points on its rim and as many half way in

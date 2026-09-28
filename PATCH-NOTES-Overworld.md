@@ -18,6 +18,14 @@
 - **Show me to travellers in my region** (Mods screen, Other players card) is on by default: while you're outdoors, where you stand is shared on your region's channel. Turn it off and only your party and players close enough to see you know where you are - your name still shows in your region's chat. Nothing is ever shared from indoors. The switch is saved on each device.
 - This needs the server update that ships with it. Until then, nobody is shown and nothing breaks.
 
+## Towns beyond the horizon
+- Towns, cities and villages you've discovered up to about 20 km away show as name plates, with their distance. One off your screen is pinned to the edge, pointing the way. The nearest ten are shown.
+- Click one to travel there by the roads.
+
+## Smooth to fly
+- The Overworld's name plates, markers and route cost almost nothing to draw: under half a millisecond a frame with 20 towns and 64 travellers moving, and next to nothing while the camera rests. (Before, 64 travellers could cost a third of a frame.)
+- The Overworld no longer re-reads the ground under every marker, the route and the storms each frame - only when the land around you changes.
+
 ## Weather from above
 - Storms stand where they really are: rain and snow hang in curtains under their clouds, and every player sees the same storm in the same place.
 - Lightning from a distant storm strikes the ground, not the air.

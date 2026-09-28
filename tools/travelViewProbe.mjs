@@ -222,12 +222,14 @@ try {
       project: (p) => (p ? { x: innerWidth / 2 + p[0] * 4, y: innerHeight / 2 - p[2] * 4, front: true } : null),
       onPick: (x, y) => log.picks.push([Math.round(x), Math.round(y)]),
       onMark: (k) => log.marked.push(k),   // TV2: a plate's click
-      marks: () => [{ key: 'place:7', at: [60, 0, 40], label: 'Ripwych', kind: 'place', pick: true }],
+      marks: () => [{ key: 'place:7', at: [60, 0, 40], label: 'Ripwych', kind: 'place', pick: true },
+        { key: 'far:9', at: [2000, 0, 10], label: 'Daggerfall', sub: '12 km', kind: 'far', pick: true, edge: true }],   // TV5: a far place off the picture's right
       route: () => [[0, 0, 0], [20, 0, 10], [40, 0, 30], [60, 0, 40]],
       trip: () => 'To Ripwych, by the road',
-      hud: { show: hud.showTravelViewHud, hide: hud.hideTravelViewHud, update: hud.updateTravelViewHud },
+      hud: { show: hud.showTravelViewHud, hide: hud.hideTravelViewHud, update: hud.updateTravelViewHud, pickAt: hud.travelViewHudPickAt },
     });
     window.__tvObj = tv;
+    window.__tvHud = hud;
     tv.enter();
     let last = performance.now();
     const loop = (now) => { tv.frame(Math.min(0.1, (now - last) / 1000)); tv.drawHud(); last = now; requestAnimationFrame(loop); };
@@ -247,12 +249,26 @@ try {
   check(st.h < h0, `the wheel zoomed in (${h0.toFixed(0)} -> ${st.h.toFixed(0)})`);
   check(st.hostHeard.length === 0, `the host's own listeners heard nothing (${JSON.stringify(st.hostHeard)})`);
   check(JSON.stringify(st.cursor) === '[true]', 'the cursor freed once');
-  // TV2: the plate is a button over the canvas - its click is the place's journey, never a pick
+  // TV2: the plate takes a click - the place's journey, never a pick. PERF-TV: the plate is DRAWN on the readout's
+  // canvas, so the click lands on the world's canvas and the view finds the plate by where it landed
   const picksBefore = st.picks.length;
-  await page2.locator('.tview-mark.pick .tview-label').click();
+  const plate = await page2.evaluate(() => window.__tvHud.travelViewHudState().hits.find((h) => h.key === 'place:7') ?? null);
+  check(!!plate, `the plate is drawn and takes a click (${JSON.stringify(plate)})`);
+  if (plate) await page2.mouse.click((plate.x0 + plate.x1) / 2, plate.y0 + 6);
+  const lit = await page2.waitForFunction(() => document.body.style.cursor === 'pointer', null, { timeout: 2000 }).then(() => 'pointer', () => page2.evaluate(() => document.body.style.cursor));   // the hover is the next frame's
   const tv2 = await page2.evaluate(() => ({ marked: window.__tv.marked, picks: window.__tv.picks.length,
     d: document.querySelector('.tview-route-line')?.getAttribute('d') ?? '', trip: document.querySelector('.tview-trip')?.textContent ?? '' }));
   check(JSON.stringify(tv2.marked) === '["place:7"]' && tv2.picks === picksBefore, `a plate's click is the place's journey, not a pick (${JSON.stringify(tv2)})`);
+  check(lit === 'pointer', `the pointer over a plate says it takes a click (cursor ${lit})`);
+  // TV5: the far place, held at the right edge with its plate on the screen, is a journey too
+  const farBox = await page2.evaluate(() => window.__tvHud.travelViewHudState().hits.find((h) => h.key === 'far:9') ?? null);
+  check(!!farBox && farBox.x1 <= 1366 && farBox.x0 > 1000, `TV5: the far place is held at the right edge, its plate on the screen (${JSON.stringify(farBox)})`);
+  if (farBox) await page2.mouse.click((farBox.x0 + farBox.x1) / 2, (farBox.y0 + farBox.y1) / 2);
+  const farMarked = await page2.evaluate(() => window.__tv.marked.slice());
+  check(JSON.stringify(farMarked) === '["place:7","far:9"]', `TV5: a far place's click is its journey (${JSON.stringify(farMarked)})`);
+  // PERF-TV: the marks are painted - the plate's brass is on the canvas where the hit box says
+  const painted = await page2.evaluate(({ x, y }) => { const c = document.querySelector('.tview-canvas'); const g = c.getContext('2d'); const d = devicePixelRatio || 1; const px = g.getImageData(Math.round(x * d), Math.round(y * d), 1, 1).data; return [...px]; }, { x: plate ? (plate.x0 + plate.x1) / 2 : 0, y: plate ? plate.y1 - 8 : 0 });
+  check(painted[3] > 0, `the plate's dot is painted on the canvas (${painted})`);
   check(/^M\d+ \d+ L/.test(tv2.d), `the route line is drawn (${tv2.d.slice(0, 40)})`);
   check(tv2.trip === 'To Ripwych, by the road', `the trip is in the bar (${tv2.trip})`);
   const barBox = await page2.locator('.tview-bar').boundingBox();

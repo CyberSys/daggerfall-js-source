@@ -70,7 +70,6 @@ export function chevronDegrees(feetPx, aheadPx) {
 let root = null;
 let parts = null;
 let last = null;
-let hooksNow = {};
 
 /**
  * TV3: A MARK OUTSIDE THE PICTURE, HELD AT ITS EDGE: where on a `w` x `h` screen (inset by `margin`) the mark of a
@@ -129,7 +128,8 @@ function build(doc, hooks) {
   const ring = el('div', 'tview-ring');
   const chev = el('div', 'tview-chev');
   you.append(ring, chev);
-  const marks = el('div', 'tview-marks');
+  // PERF-TV: every mark is drawn on ONE canvas (drawMarks) - pointer-free: a click on a plate is found by position
+  const canvas = el('canvas', 'tview-canvas');
   const bar = el('div', 'tview-bar');
   const compass = el('div', 'tview-compass');
   const needle = el('div', 'tview-needle', 'N');
@@ -155,50 +155,74 @@ function build(doc, hooks) {
   bar.append(compass, text, back);
   // AUDIT TV B8: a press on the readout (Return, a plate) is the readout's - the host's window mousedown counts any
   // press as Mouse0 (the swing, the activation), so it stops here
+  // PERF-TV: a label drawn before the plates' web font arrived would stay in the fallback face - the label images are
+  // drawn again once the fonts are in
+  doc.fonts?.addEventListener?.('loadingdone', () => { sprites.clear(); canvasSig = []; });
   const own = (e) => e.stopPropagation?.();
   r.addEventListener?.('mousedown', own);
   r.addEventListener?.('mouseup', own);
   if (route) r.append(route);
-  r.append(marks, you, bar);
+  r.append(canvas, you, bar);
   doc.body.append(r);
-  return { root: r, parts: { you, ring, chev, marks, bar, compass, needle, where, trip, hint, back, route, casing, line } };
+  return { root: r, parts: { you, ring, chev, canvas, bar, compass, needle, where, trip, hint, back, route, casing, line } };
 }
 
 /**
- * Show the readout (made once, then kept). `hooks.onReturn` is the button; `hooks.onMark(key)` a plate's click (TV2).
+ * Show the readout (made once, then kept). `hooks.onReturn` is the button. (A plate's click is found by position -
+ * travelViewHudPickAt - since PERF-TV draws the marks.)
  */
 export function showTravelViewHud(hooks = {}, doc = globalThis.document) {
   if (!doc) return false;
-  hooksNow = hooks;
   if (!root || !root.isConnected) {
-    for (const n of markNodes.values()) n.remove();
-    markNodes.clear();
     const b = build(doc, hooks);
     root = b.root; parts = b.parts; last = {};
+    resetMarks();   // PERF-TV: a new canvas holds nothing
   }
   parts.back.onclick = (e) => { e.preventDefault(); hooks.onReturn?.(); };
   root.style.display = '';
+  listenPointer(doc.defaultView, true);
   return true;
 }
 
 /** Hide it (kept for the next open - the view is entered and left often). */
 export function hideTravelViewHud() {
   if (root) root.style.display = 'none';
+  listenPointer(parts?.canvas?.ownerDocument?.defaultView, false);
+  hits = []; setHover(null);
 }
 
 /** Take it down for good (a host teardown). */
 export function disposeTravelViewHud() {
+  listenPointer(parts?.canvas?.ownerDocument?.defaultView, false);
+  setHover(null);
   root?.remove();
   root = null; parts = null; last = null;
-  markNodes.clear();
-  hooksNow = {};
+  resetMarks();
+  sprites.clear();
+}
+
+function resetMarks() { hits = []; drawnKeys = []; canvasDrew = false; canvasSig = []; }
+/** PERF-TV: the pointer's place over the page, followed while the readout stands (a plate under it is lit, and the
+ *  cursor says it takes a click) - passive, never a handler that could stop the view's own. */
+const onPointerMoveHud = (e) => { pointer = { x: e.clientX, y: e.clientY }; };
+let pointerWin = null;
+function listenPointer(win, on) {
+  if (on && win && pointerWin !== win && typeof win.addEventListener === 'function') {
+    pointerWin?.removeEventListener?.('pointermove', onPointerMoveHud);
+    win.addEventListener('pointermove', onPointerMoveHud, { passive: true });
+    pointerWin = win;
+  } else if (!on && pointerWin) {
+    pointerWin.removeEventListener?.('pointermove', onPointerMoveHud);
+    pointerWin = null;
+    pointer = null;
+  }
 }
 
 /**
  * One frame's readout.
  * @param {{ feet: {x:number,y:number,front:boolean}|null, heading: number|null, yaw: number, where: string, keys?: {move?:string, out?:string}|null,
  *   touch?: boolean, fade?: number, trip?: string, route?: Array<{x:number,y:number,front:boolean}|null>,
- *   marks?: Array<{key:string, x:number, y:number, front:boolean, label?:string, kind?:string, pick?:boolean, edge?:boolean}> }} f
+ *   marks?: Array<{key:string, x:number, y:number, front:boolean, label?:string, sub?:string, kind?:string, pick?:boolean, edge?:boolean}> }} f
  *   `feet` the projected feet, `heading` the chevron's degrees (null keeps the last), `yaw` the camera's heading,
  *   `fade` 0..1 how far risen (the readout comes in with the camera and goes with it); TV2: `trip` the journey's line,
  *   `route` its projected points, and a mark with `pick` takes a click (`hooks.onMark`)
@@ -225,46 +249,162 @@ export function updateTravelViewHud(f) {
       parts.casing.setAttribute('d', d);
     }
   }
-  syncMarks(f.marks ?? []);
+  drawMarks(f.marks ?? []);
 }
 
-/** The keyed marks (TV2's destination, TV3's travellers): made on first sight, moved after, dropped when gone. */
-const markNodes = new Map();
-function syncMarks(marks) {
-  const seen = new Set();
-  for (const m of marks) {
-    seen.add(m.key);
-    let n = markNodes.get(m.key);
-    if (!n) {
-      const doc = parts.marks.ownerDocument;
-      n = doc.createElement('div');
-      n.className = `tview-mark ${m.kind ?? ''}${m.pick ? ' pick' : ''}`;
-      const dot = doc.createElement('div'); dot.className = 'tview-dot';
-      const lab = doc.createElement('div'); lab.className = 'tview-label';
-      n.append(dot, lab);
-      if (m.pick) {
-        const key = m.key;
-        n.onclick = (e) => { e.preventDefault?.(); e.stopPropagation?.(); hooksNow.onMark?.(key); };
-      }
-      parts.marks.append(n);
-      markNodes.set(m.key, n);
-    }
-    // TV3: a mark's kind may change under it (a traveller's journey begins) - the class follows, the edge on top
-    const cls = `tview-mark ${m.kind ?? ''}${m.pick ? ' pick' : ''}`;
-    if (n._tvCls !== cls) { n._tvCls = cls; n.className = cls; }
-    // TV3: a mark that asks for it is held at the screen's edge when it is off the picture, an arrow pointing its way
-    const win = parts.marks.ownerDocument?.defaultView;
-    const held = m.edge && win ? edgeHold(m, win.innerWidth, win.innerHeight) : null;
-    const shown = m.front || !!held;
-    n.style.display = shown ? '' : 'none';
-    if (held) n.style.transform = `translate(${Math.round(held.x)}px, ${Math.round(held.y)}px)`;
-    else if (m.front) n.style.transform = `translate(${Math.round(m.x)}px, ${Math.round(m.y)}px)`;
-    n.classList.toggle('edge', !!held);
-    if (held) n.style.setProperty('--edge-turn', `${held.angle.toFixed(1)}deg`);
-    const lab = n.lastChild;
-    if (lab && lab.textContent !== (m.label ?? '')) lab.textContent = m.label ?? '';
+/**
+ * PERF-TV (bible/06-Systems/Travel-View.md): THE MARKS ARE DRAWN, NOT BUILT. Every mark - a traveller, a place's
+ * plate, a far place (TV5), the journey's end - is painted on ONE canvas under the bar, a shape and a cached label
+ * image each; a click on one that takes it (`pick`) is found here (travelViewHudPickAt) and the pointer's hover is
+ * followed here. As DOM nodes each moving mark cost a style recalculation every frame - 20 plates and 64 travellers
+ * 5.8 ms in the browser probe before, the screen's size read after each held mark's writes forcing a layout apiece -
+ * and a picture that did not change is not drawn again.
+ */
+export const TRAVEL_VIEW_MARK_COLORS = Object.freeze({
+  traveller: '#4e7f72', party: '#6fb86a', bone: '#e9e4d9', brass: '#c08a3e',   // enhancedStyle.js --verdigris, --bone, --brass; PARTY_MARK_CSS
+  plate: 'rgba(14,16,19,0.72)', plateEdge: 'rgba(192,138,62,0.35)',
+});
+/** The plates' face - the stylesheet's --display, as the DOM plates had it. */
+export const TRAVEL_VIEW_PLATE_FONT = "'Cormorant', Georgia, serif";
+const SPRITES_MAX = 512;
+const sprites = new Map();
+let hits = [];          // this frame's pickable marks, drawn last on top: { key, x0, y0, x1, y1 }
+let drawnKeys = [];
+let canvasDrew = false;
+let canvasSig = [];     // last frame's picture, as drawn
+let hoverKey = null;
+let pointer = null;     // { x, y } the pointer over the page, while the readout is shown
+/** A mark's look, by its kind's first word. */
+const lookOf = (m) => {
+  const k = (m.kind ?? '').split(' ')[0];
+  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' ? k : 'traveller';
+};
+/** A label's image, made once (its shadow or its plate baked in) and kept by what it shows. */
+function labelSprite(doc, text, look, size, journey, hover, dpr) {
+  const key = `${look}|${size}|${journey ? 1 : 0}|${hover ? 1 : 0}|${dpr}|${text}`;
+  let sp = sprites.get(key);
+  if (sp) return sp;
+  if (sprites.size >= SPRITES_MAX) sprites.clear();
+  const c = doc.createElement('canvas');
+  const x = c.getContext?.('2d');
+  if (!x) return null;
+  const plate = look === 'place' || look === 'far';
+  const font = plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px sans-serif`;   // `sub`: a plate's second line (TV5's distance)
+  x.font = font;
+  const tw = x.measureText(text).width;
+  const aw = journey ? x.measureText(' →').width : 0;
+  const padX = plate ? 7 : 4, padY = plate ? 3 : 3;
+  const w = Math.ceil(tw + aw + padX * 2), h = Math.ceil(size + padY * 2 + 2);
+  c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr);
+  x.scale(dpr, dpr);
+  x.font = font; x.textBaseline = 'top';
+  const C = TRAVEL_VIEW_MARK_COLORS;
+  if (plate) {
+    x.fillStyle = C.plate; x.fillRect(0.5, 0.5, w - 1, h - 1);
+    x.strokeStyle = hover ? C.brass : C.plateEdge; x.lineWidth = 1; x.strokeRect(0.5, 0.5, w - 1, h - 1);
+    x.fillStyle = hover || look === 'far' ? C.brass : C.bone;
+  } else {
+    x.shadowColor = '#000'; x.shadowBlur = 3; x.shadowOffsetY = 1;
+    x.fillStyle = look === 'dest' ? C.brass : look === 'sub' ? 'rgba(233,228,217,0.8)' : C.bone;
   }
-  for (const [k, n] of markNodes) if (!seen.has(k)) { n.remove(); markNodes.delete(k); }
+  x.fillText(text, padX, padY + 1);
+  if (journey) { x.fillStyle = C.brass; x.fillText(' →', padX + tw, padY + 1); }
+  sp = { c, w, h };
+  sprites.set(key, sp);
+  return sp;
+}
+function drawMarks(marks) {
+  const cv = parts.canvas;
+  drawnKeys = marks.map((m) => m.key);
+  if (!cv || (!marks.length && !canvasDrew)) { hits = []; return; }
+  const g = cv.getContext?.('2d');
+  if (!g) return;
+  const win = cv.ownerDocument?.defaultView;
+  const vw = win?.innerWidth ?? 0, vh = win?.innerHeight ?? 0, dpr = win?.devicePixelRatio || 1;   // read ONCE, before any write
+  const bw = Math.round(vw * dpr), bh = Math.round(vh * dpr);
+  // where each mark stands this frame, and what is under the pointer (the plates on top, the last drawn first)
+  const placed = [];
+  const nextHits = [];
+  for (const m of marks) {
+    const held = m.edge ? edgeHold(m, vw, vh) : null;
+    if (!m.front && !held) continue;
+    const at = held ?? m;
+    placed.push({ m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m) });
+  }
+  let hover = null;
+  for (let i = placed.length - 1; i >= 0 && pointer; i--) {
+    const q = placed[i];
+    if (!q.m.pick) continue;
+    const b = markBox(q, vw);
+    if (pointer.x >= b.x0 && pointer.x <= b.x1 && pointer.y >= b.y0 && pointer.y <= b.y1) { hover = q.m.key; break; }
+  }
+  setHover(hover);
+  // the picture this frame would draw: unchanged (a camera at rest), the canvas already shows it
+  const sig = [bw, bh, hover ?? ''];
+  for (const q of placed) sig.push(q.m.key, q.x, q.y, q.held ? Math.round(q.held.angle) : 999, q.m.label ?? '', q.m.sub ?? '', q.m.kind ?? '');
+  for (const q of placed) if (q.m.pick) nextHits.push({ key: q.m.key, ...markBox(q, vw) });
+  hits = nextHits;
+  if (sig.length === canvasSig.length && sig.every((v, i) => v === canvasSig[i])) return;
+  canvasSig = sig;
+  if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, vw, vh);
+  canvasDrew = false;
+  const C = TRAVEL_VIEW_MARK_COLORS;
+  const doc = cv.ownerDocument;
+  for (const q of placed) {
+    const { m, held, x, y, look } = q;
+    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : C.brass;
+    g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
+    if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
+      g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);
+      g.beginPath(); g.moveTo(0, -8); g.lineTo(7, 5); g.lineTo(-7, 5); g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    } else if (look === 'target') {
+      g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = C.brass; g.stroke();
+    } else {
+      const r = look === 'dest' ? 7 : look === 'place' || look === 'far' ? 4 : 5;
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.stroke();
+    }
+    if (!m.label) continue;
+    const plate = look === 'place' || look === 'far';
+    const sp = labelSprite(doc, m.label, look, held && !plate ? 11 : plate ? 13 : 12, /\bjourney\b/.test(m.kind ?? ''), m.key === hover, dpr);
+    if (!sp) continue;
+    const ly = plate && !held ? y - 24 - sp.h / 2 : y + (held ? 10 : 7);
+    g.drawImage(sp.c, inScreen(x - sp.w / 2, sp.w, vw), ly, sp.w, sp.h);   // a long name held at a side edge stays on the screen
+    if (m.sub) {   // TV5: a far place's distance, under its plate
+      const sb = labelSprite(doc, m.sub, 'sub', 11, false, false, dpr);
+      if (sb) g.drawImage(sb.c, inScreen(x - sb.w / 2, sb.w, vw), ly + sp.h, sb.w, sb.h);
+    }
+    canvasDrew = true;
+  }
+  canvasDrew = canvasDrew || placed.length > 0;
+}
+/** A label's left edge, kept inside a screen `vw` wide (4 px in). */
+const inScreen = (x0, w, vw) => (vw > w + 8 ? Math.min(Math.max(4, x0), vw - 4 - w) : x0);
+/** A pickable mark's box on the screen - its plate (or its label) and its dot, with a finger's slack, kept inside the
+ *  screen as its label is. */
+function markBox(q, vw) {
+  const plate = q.look === 'place' || q.look === 'far';
+  const w = Math.max(24, 9 * (q.m.label?.length ?? 0) + 16), h = plate ? 24 : 20;
+  const top = plate && !q.held ? q.y - 36 : q.y - 10, bottom = (plate && !q.held ? q.y + 8 : q.y + 28) + (q.m.sub ? 16 : 0);
+  const x0 = inScreen(q.x - w / 2, w, vw);
+  return { x0: x0 - 4, x1: x0 + w + 4, y0: Math.min(top, q.y - h), y1: bottom };
+}
+function setHover(key) {
+  if (key === hoverKey) return;
+  hoverKey = key;
+  const body = parts?.canvas?.ownerDocument?.body;
+  if (body?.style) body.style.cursor = key ? 'pointer' : '';
+}
+/** PERF-TV: THE CLICK ON A MARK - the key of the pickable mark drawn at (x, y) this frame, the one on top; null for none
+ *  (the click is the ground's - scenes/travelView.js asks here before it picks). */
+export function travelViewHudPickAt(x, y) {
+  for (let i = hits.length - 1; i >= 0; i--) {
+    const b = hits[i];
+    if (x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1) return b.key;
+  }
+  return null;
 }
 
 /** The pins' read: what the readout shows right now. */
@@ -276,6 +416,7 @@ export function travelViewHudState() {
     hint: parts.hint.textContent,
     trip: parts.trip.textContent,
     route: last.route ?? '',
-    marks: [...markNodes.keys()],
+    marks: [...drawnKeys],   // PERF-TV: the marks the canvas was handed this frame
+    hits: hits.map((h) => ({ ...h })),   // and the boxes that take a click
   };
 }

@@ -242,8 +242,8 @@
   {
     "name": "AUDIT-TV-B9-cancel-picks",
     "file": "src/scenes/travelView.js",
-    "old": " && e.type !== 'pointercancel') deps.onPick",
-    "new": ") deps.onPick",
+    "old": " && state === 'up' && e.type !== 'pointercancel') {",
+    "new": " && state === 'up') {",
     "tests": [
       "test/tv1_travel_view.test.js"
     ],

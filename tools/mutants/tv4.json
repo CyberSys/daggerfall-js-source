@@ -42,8 +42,8 @@
   {
     "name": "TV4-no-cap",
     "file": "src/render/rainCurtains.js",
-    "old": "  return out.slice(0, CURTAINS_MAX);",
-    "new": "  return out;",
+    "old": "  const kept = out.slice(0, CURTAINS_MAX);\n",
+    "new": "  const kept = out;\n",
     "tests": [
       "test/tv4_weather_above.test.js"
     ],

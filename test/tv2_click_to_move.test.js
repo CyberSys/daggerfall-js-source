@@ -329,7 +329,7 @@ test('AUDIT DEEP T2-4/T2-5/T2-6/T2-7/T2-8: the planner never swims a corner of t
   const q = planRoute({ x: 5, y: 5 }, { x: 6, y: 6 }, { isWater: coast, width: W, height: H });
   assert.deepEqual(q.pixels, [{ x: 5, y: 5 }, { x: 6, y: 6 }], 'one wet side: the diagonal is dry land');
   const w = rd('src/scenes/world.js');
-  assert.match(w, /tvPlates = \{ at: null, list: \[\] \};   \/\/ AUDIT DEEP T2-4[^\n]*\n\s*travelView\?\.exit\('load', true\);/, 'a load empties the plates');
+  assert.match(w, /tvPlates = \{ at: null, list: \[\] \};   \/\/ AUDIT DEEP T2-4[^\n]*\n\s*tvFar = \{ at: null, near: -1, list: \[\] \};[^\n]*\n\s*travelView\?\.exit\('load', true\);/, 'a load empties the plates');
   assert.ok(w.indexOf('let tvPlates = { at: null, list: [] };') < w.indexOf('tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4'), 'BOOT-TDZ: declared above the load that clears it');
   assert.match(w, /to: travelOptions\?\.route\?\.summary\?\.pixel \?\? travelOptions\?\.route\?\.point\?\.pixel \?\? travelOptions\?\.state\?\.autopilot\?\.destinationMapPixel \?\? null,/);
   assert.match(w, /const raw = terrainGen\.roads\(\);\n\s*const net = raw\?\.source === 'basic-roads' \? raw : null;\n\s*const plan = planRoute\(from, summary\.pixel,/);
@@ -421,20 +421,30 @@ function viewRig(over = {}) {
 }
 
 test('TV2 view: the marks and the route are WORLD points the view projects through the frame; the trip rides along; a plate takes a click only while the view is up', () => {
-  const { tv, log } = viewRig();
+  // PERF-TV: the plates are DRAWN - a click on one reaches the view as a click, and the readout says what is under it
+  const L = [];
+  const win = { addEventListener(t, fn) { L.push([t, fn]); }, removeEventListener(t, fn) { const i = L.findIndex(([a, b]) => a === t && b === fn); if (i >= 0) L.splice(i, 1); } };
+  const fire = (t, e) => { for (const [a, fn] of [...L]) if (a === t) fn({ preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {}, ...e }); };
+  const canvas = {};
+  const seen = {};
+  const { tv, log } = viewRig({ win, canvas, hud: { show() {}, hide() {}, update: (f) => { seen.last = f; }, pickAt: (x, y) => (Math.abs(x - 110) < 5 && Math.abs(y - 80) < 5 ? 'place:1' : null) } });
+  const click = (x, y) => { fire('pointerdown', { target: canvas, pointerId: 1, clientX: x, clientY: y, button: 0 }); fire('pointerup', { target: canvas, pointerId: 1, clientX: x, clientY: y, button: 0 }); };
   tv.enter();
-  log.hooks.onMark('place:1');
-  assert.deepEqual(log.marked, [], 'rising: no journeys from a camera still on its way up');
+  click(110, 80);
+  assert.deepEqual([log.marked, log.picks], [[], []], 'rising: no journeys from a camera still on its way up');
   for (let i = 0; i < 90; i++) tv.frame(TV_RISE_S / 60);
   assert.equal(tv.state, 'up');
   tv.drawHud();
+  log.last = seen.last;
   const m = log.last.marks;
-  assert.deepEqual(m[0], { key: 'place:1', x: 110, y: 80, front: true, label: 'Ripwych', kind: 'place', pick: true, edge: false });   // TV3: `edge` rides along
+  assert.deepEqual(m[0], { key: 'place:1', x: 110, y: 80, front: true, label: 'Ripwych', sub: undefined, kind: 'place', pick: true, edge: false });   // TV3: `edge` rides along; TV5: and `sub`
   assert.equal(m[1].front, false, 'behind the eye: hidden, not drawn at the origin');
   assert.deepEqual(log.last.route.map((p) => p.front), [true, true, false]);
   assert.equal(log.last.trip, 'To Ripwych, by the road');
-  log.hooks.onMark('place:1');
-  assert.deepEqual(log.marked, ['place:1']);
+  click(110, 80);
+  assert.deepEqual([log.marked, log.picks], [['place:1'], []], 'a click on the plate is its journey, never the ground\'s pick');
+  click(300, 300);
+  assert.deepEqual(log.picks, [[300, 300]], 'beside it, the ground');
 });
 
 test('TV2 readout: the route line moves to its first point, lines through the rest, and breaks where a point falls behind the eye', () => {
@@ -468,7 +478,8 @@ test('TV2 host wiring: the click is a ray from the VIEW\'s eye through this fram
   assert.match(w, /const tvCautious = \(\) => !!travelMapPopUpState\(\)\.speedCautious;\n\s*const tvQuiet = \(\) => !!travelView\?\.active;/);
   // AUDIT TV A1: the line's points are one a LEG, so the leg index cuts it where the traveller is
   assert.match(w, /tvTrip\.natives = \[\[me\.x, me\.z\], \.\.\.legs\.slice\(0, -1\)\.map\(mid\), \[rect\.cx, rect\.cz\]\];/);
-  assert.match(w, /const rest = \[\[me\.x, me\.z\], \.\.\.n\.slice\(Math\.min\(n\.length - 1, from \+ 1\)\)\];/);
+  assert.match(w, /const start = Math\.min\(n\.length - 1, from \+ 1\);/);
+  assert.match(w, /leg\(me\.x, me\.z, n\[start\]\[0\], n\[start\]\[1\], pts\);[^\n]*\n(\s*\/\/[^\n]*\n)*\s*const gen = tvGroundGenNow\(\), kept = tvTrip\._tail;\n\s*let tail = kept && kept\.gen === gen && kept\.start === start && kept\.n === n \? kept\.pts : null;/, 'PERF-TV: the legs past the traveller\'s own kept while the ground and the leg hold');
   // AUDIT TV A5: a town's grown rect asked across the 3x3 about the hit
   assert.match(w, /for \(let dy = -1; dy <= 1; dy\+\+\) \{\n\s*for \(let dx = -1; dx <= 1; dx\+\+\) \{\n\s*const summary = tvPlaceSummary\(pix\.x \+ dx, pix\.y \+ dy\);/);
   assert.match(w, /travelOptions\.beginTravelToPoint\(\{ pixel: pix, x: n\.x, z: n\.z \}, tvCautious\(\), \{ quiet: tvQuiet, name: TRAVEL_VIEW_TEXT\.spot \}\)/);
@@ -488,7 +499,7 @@ test('TV2 host wiring: THE CAP - governed before the frame reads the travel scal
   assert.match(w, /viewReach\(\{ height: cam0\.height, pitch: -cam0\.tilt, fovY: fieldOfView\(\), far: Infinity \}\)/);
   assert.equal((w.match(/if \(!ok\) return false;\n\s*travelGovernor\.reset\(\);   \/\/ AUDIT DEEP T2-8/g) ?? []).length, 2, 'a new click\'s journey forgets the old ceiling - the road\'s and the spot\'s');
   assert.match(w, /const radius = Math\.max\(1, Math\.min\(grid - 1, Math\.ceil\(reach \/ TERRAIN_SIZE\)\)\);/, 'never past the grid - and never its outermost ring, queued anew at every crossing and fogged (AUDIT DEEP T2-2)');
-  assert.match(w, /unbuiltAround\(playerTravelPixel\(\), radius, \(x, y\) => x < 0 \|\| y < 0 \|\| x >= 1000 \|\| y >= 500 \|\| built\.has\(`\$\{x\},\$\{y\}`\)\)/);
+  assert.match(w, /if \(uc\.gen !== gen \|\| uc\.x !== px\.x \|\| uc\.y !== px\.y \|\| uc\.r !== radius\) \{\n\s*uc\.n = unbuiltAround\(px, radius, \(x, y\) => x < 0 \|\| y < 0 \|\| x >= 1000 \|\| y >= 500 \|\| built\.has\(`\$\{x\},\$\{y\}`\)\);/);
   assert.match(w, /held: tvHeld,/, 'the travel panel says the clock is held');
   const panel = rd('src/ui/enhancedTravelControl.js');
   assert.match(panel, /put\(parts\.accel, 'accel', held != null \? `×\$\{held\} \/ ×\$\{accel\}` : `×\$\{accel\}`\);/);

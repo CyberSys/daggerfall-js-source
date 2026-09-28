@@ -1,0 +1,243 @@
+[
+  {
+    "name": "TV5-the-grid's-own-places-marked-twice",
+    "file": "src/systems/travelFarPlaces.js",
+    "old": "    if (cheb <= near || cheb > range) continue;",
+    "new": "    if (cheb > range) continue;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A town inside the streamed grid wears its plate on the land AND an edge marker - two plates for one place."
+  },
+  {
+    "name": "TV5-no-reach",
+    "file": "src/systems/travelFarPlaces.js",
+    "old": "    if (cheb <= near || cheb > range) continue;",
+    "new": "    if (cheb <= near) continue;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The edge speaks for every town in the Iliac Bay - a gazetteer, not a compass."
+  },
+  {
+    "name": "TV5-undiscovered-named",
+    "file": "src/systems/travelFarPlaces.js",
+    "old": "    const summary = summaryOf(s.x, s.y);",
+    "new": "    const summary = summaryOf(s.x, s.y) ?? { mapId: s.x * 1000 + s.y, name: s.loc.name };",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A town the traveller never found is named at the edge - DFU's discovery law broken."
+  },
+  {
+    "name": "TV5-farthest-first",
+    "file": "src/systems/travelFarPlaces.js",
+    "old": "  found.sort((a, b) => a.d - b.d || a.key.localeCompare(b.key));",
+    "new": "  found.sort((a, b) => b.d - a.d || a.key.localeCompare(b.key));",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The cap keeps the ten FARTHEST towns - the next village down the road is dropped."
+  },
+  {
+    "name": "TV5-no-cap",
+    "file": "src/systems/travelFarPlaces.js",
+    "old": "  return found.slice(0, max);",
+    "new": "  return found;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Every town within 20 km crowds the edge."
+  },
+  {
+    "name": "TV5-dungeons-are-destinations",
+    "file": "src/systems/travelFarPlaces.js",
+    "old": "    if (!loc?.name || !TV_FAR_TYPES.has(loc.mapTableData?.locationType)) continue;",
+    "new": "    if (!loc?.name) continue;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Every crypt, farm and temple marked at the edge - not the settlements the edge speaks for."
+  },
+  {
+    "name": "TV5-tenths-flicker",
+    "file": "src/systems/travelFarPlaces.js",
+    "old": "  return km < 10 ?",
+    "new": "  return km < 100 ?",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Twelve kilometres read 12.4, 12.3, 12.2... as the traveller walks."
+  },
+  {
+    "name": "TV5-journey-end-marked-twice",
+    "file": "src/scenes/world.js",
+    "old": "      if (f.key === farEnd) continue;",
+    "new": "      if (f.key === '') continue;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The far town being travelled to wears its edge plate AND the destination flag."
+  },
+  {
+    "name": "PERF-TV-click-never-a-plate",
+    "file": "src/scenes/travelView.js",
+    "old": "      if (key) deps.onMark?.(key); else deps.onPick?.(e.clientX, e.clientY, e);",
+    "new": "      deps.onPick?.(e.clientX, e.clientY, e);",
+    "tests": [
+      "test/tv5_far_places.test.js",
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "A click on a plate walks to the ground under it instead of journeying to the town - the canvas takes no clicks of its own."
+  },
+  {
+    "name": "PERF-TV-screen-read-per-mark",
+    "file": "src/ui/travelViewHud.js",
+    "old": "    const held = m.edge ? edgeHold(m, vw, vh) : null;",
+    "new": "    const held = m.edge ? edgeHold(m, win?.innerWidth ?? 0, win?.innerHeight ?? 0) : null;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The screen's size read for each held mark - a forced layout per mark (5.8 ms for 64, measured)."
+  },
+  {
+    "name": "PERF-TV-drawn-every-frame",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (sig.length === canvasSig.length && sig.every((v, i) => v === canvasSig[i])) return;",
+    "new": "  if (false) return;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A camera at rest redraws the same picture sixty times a second."
+  },
+  {
+    "name": "PERF-TV-a-move-not-drawn",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (sig.length === canvasSig.length && sig.every((v, i) => v === canvasSig[i])) return;",
+    "new": "  if (sig.length === canvasSig.length) return;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Marks that moved stay where they were drawn - the picture frozen while the camera orbits."
+  },
+  {
+    "name": "PERF-TV-plate-off-the-screen",
+    "file": "src/ui/travelViewHud.js",
+    "old": "const inScreen = (x0, w, vw) => (vw > w + 8 ? Math.min(Math.max(4, x0), vw - 4 - w) : x0);",
+    "new": "const inScreen = (x0) => x0;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A far town held at the right edge hangs half its plate off the screen, its click box with it."
+  },
+  {
+    "name": "PERF-TV-every-mark-takes-a-click",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  for (const q of placed) if (q.m.pick) nextHits.push({ key: q.m.key, ...markBox(q, vw) });",
+    "new": "  for (const q of placed) nextHits.push({ key: q.m.key, ...markBox(q, vw) });",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A click on a passing rider's label starts a journey to a key no place owns."
+  },
+  {
+    "name": "PERF-TV-hidden-still-clicked",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  hits = []; setHover(null);",
+    "new": "  setHover(null);",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "With the view down, a click where a plate last stood still journeys there."
+  },
+  {
+    "name": "PERF-TV-the-bottom-plate-takes-it",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  for (let i = hits.length - 1; i >= 0; i--) {",
+    "new": "  for (let i = 0; i < hits.length; i++) {",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Two plates overlapping: the one drawn under takes the click the eye gave the one on top."
+  },
+  {
+    "name": "PERF-TV-fonts-never-redrawn",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  doc.fonts?.addEventListener?.('loadingdone', () => { sprites.clear(); canvasSig = []; });\n",
+    "new": "",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Labels drawn before the display face arrived stay in Georgia for the whole session."
+  },
+  {
+    "name": "PERF-TV-scene-point-never-refreshed",
+    "file": "src/scenes/world.js",
+    "old": "    if (holder._tvGen !== gen || holder._tvNx !== nx || holder._tvNz !== nz) {",
+    "new": "    if (holder._tvAt === undefined) {",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "A plate read before its pixel was built keeps the fallback height forever - hung in the air or buried."
+  },
+  {
+    "name": "PERF-TV-ground-never-moves",
+    "file": "src/scenes/world.js",
+    "old": "    if (k[0] !== built.size || k[1] !== state.mapOrigin.x || k[2] !== state.mapOrigin.y || k[3] !== c[0] || k[4] !== c[1] || k[5] !== c[2] || t - k[6] > 500) {",
+    "new": "    if (k[0] !== built.size || t - k[6] > 500) {",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The floating origin re-anchors and every kept mark stands a kilometre off for up to half a second."
+  },
+  {
+    "name": "PERF-TV-route-tail-never-refreshed",
+    "file": "src/scenes/world.js",
+    "old": "    let tail = kept && kept.gen === gen && kept.start === start && kept.n === n ? kept.pts : null;",
+    "new": "    let tail = kept && kept.n === n ? kept.pts : null;",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The route line keeps legs already walked, and floats when the ground rebuilds under it."
+  },
+  {
+    "name": "PERF-TV-cap-count-stale",
+    "file": "src/scenes/world.js",
+    "old": "    if (uc.gen !== gen || uc.x !== px.x || uc.y !== px.y || uc.r !== radius) {",
+    "new": "    if (uc.gen < 0) {",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The cap counts the unbuilt ground once and holds a journey to that count for the whole trip."
+  },
+  {
+    "name": "PERF-TV-curtains-sample-every-cell",
+    "file": "src/render/rainCurtains.js",
+    "old": "  const kept = out.slice(0, CURTAINS_MAX);\n",
+    "new": "  const kept = out.slice(0, CURTAINS_MAX);\n  for (const k of out) lowestGround(groundAt, k.centre[0], k.centre[2], k.radius);\n",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "Seventeen terrain reads for every raining cell in reach, most of them never drawn."
+  },
+  {
+    "name": "PERF-TV-curtain-memo-unread",
+    "file": "src/render/rainCurtains.js",
+    "old": "    let lo = key !== null ? memo.get(key) : undefined;",
+    "new": "    let lo = undefined;",
+    "tests": [
+      "test/tv5_far_places.test.js"
+    ],
+    "note": "The host's memo is written and never read - every veil asks the land every frame."
+  },
+  {
+    "name": "PERF-TV-curtain-memo-never-cleared",
+    "file": "src/scenes/world.js",
+    "old": "      if (_tvFootMemo.gen !== tvGroundGenNow()) { _tvFootMemo.gen = tvGroundGen; _tvFootMemo.map.clear(); }",
+    "new": "      if (_tvFootMemo.gen !== tvGroundGenNow()) { _tvFootMemo.gen = tvGroundGen; }",
+    "tests": [
+      "test/tv4_weather_above.test.js"
+    ],
+    "note": "A veil's foot measured over unbuilt ground stays there after the land rises - a curtain floating over a hill."
+  }
+]
