@@ -91,11 +91,12 @@ test('MAC-K1: the crossed middle name is spelled ONCE, and the hosts read that t
   // counts left/MIDDLE/right. The two middle names cross, so a host
   // that spelled 'Mouse' + e.button would hand the wheel the right
   // button's action.
-  assert.deepEqual([...MOUSE_CODES], ['Mouse0', 'Mouse2', 'Mouse1']);
+  assert.deepEqual([...MOUSE_CODES], ['Mouse0', 'Mouse2', 'Mouse1', 'Mouse3', 'Mouse4']);   // VOICE1: and the two side buttons, push-to-talk's
   assert.equal(mouseCode(0), 'Mouse0', 'left');
   assert.equal(mouseCode(1), 'Mouse2', 'the DOM’s middle is Unity’s Mouse2');
   assert.equal(mouseCode(2), 'Mouse1', '...and the DOM’s right is Unity’s Mouse1');
-  assert.equal(mouseCode(3), null, 'a fourth button is not a KeyCode');
+  assert.equal(mouseCode(3), 'Mouse3', 'VOICE1: the back side button is Unity\'s Mouse3');
+  assert.equal(mouseCode(5), null, 'a sixth button is not a KeyCode');
   assert.equal(mouseCode(-1), null);
   for (const f of [...HOSTS.map((h) => `src/scenes/${h}.js`), 'src/scenes/dungeon.js',
     'src/ui/controlsWindow.js', 'src/ui/enhancedControls.js']) {
@@ -119,7 +120,7 @@ test('MAC-K1: BOTH controls skins can capture a mouse button, which is what "not
   assert.match(enh, /document\.removeEventListener\('mousedown', armedMouse, \{ capture: true \}\);/,
     'and it leaves with the capture - a listener outliving its screen is its own bug');
   assert.match(enh, /const code = mouseCode\(e\.button\);\s*\n\s*if \(code == null\) return;/,
-    'a fourth button is not a binding, and must not end the capture with nothing written');
+    'a sixth button is not a binding, and must not end the capture with nothing written');
 
   const classic = rd('src/ui/controlsWindow.js');
   assert.match(classic, /click\(vx, vy, right = false, middle = false\) \{/,

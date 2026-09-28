@@ -248,7 +248,7 @@ import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: th
 import { mobilePersonName, lootPileName } from '../systems/worldTooltips.js';   // WORLD-HOVER H2: MobilePersonNPC.NameNPC (.cs:299-302); M5: a dropped pile's word (.cs:534-548), outdoors too
 import { wagonHoverName } from '../player/eotbWagon.js';   // WORLD-HOVER M6: the cart's word, beside its producer
 import { waterSourceHoverName } from '../systems/survival/items.js';   // WORLD-HOVER M6: a water source's word, beside its producer
-import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, setEotbComeSailAway, mwViewHoldThird, mwViewHoldChanged, mwViewSaveCamera } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV; CSA-J: EOTB's boat
+import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, setEotbComeSailAway, mwViewHoldThird, mwViewHoldChanged, mwViewSaveCamera, mwViewTogglePerspective } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV; CSA-J: EOTB's boat
 import { mwCamera } from '../player/mwCamera.js';   // MW-D30: persistence
 import { pickActivatableHit, pickQuestFoe, pickFoe } from '../player/activate.js';   // G3: corpse loot; QG1: the foe-click door; TI1: the lock-on pick
 import { raceActivation } from '../player/activationRace.js';   // HARD2: one home for "the nearest thing under the one ray takes the click"
@@ -351,7 +351,7 @@ import { getPref } from '../systems/uiPrefs.js';
 import { landViewRead } from '../world/landView.js';   // LV1: the enhanced lane's own streamed radius; FT2: the read is the module's
 import { CityLightAnimator, SUN_RIG_COLOR, INDIRECT_LIGHT_COLOR, INDIRECT_LIGHT_RANGE, exteriorAmbient, indirectLightScale, isCityLightsOn, isNight, daylightScale, parseTimeOfDay, sunDirection, sunScale, windowStyleForTime } from '../world/worldClock.js';
 import { dungeonLocationFor } from '../world/smallerDungeons.js';   // AUDIT 28 F-B2: the quest layer sees the sized dungeon
-import { audio, QuestAudioSource, logarithmicRolloff, plainSourceGain } from '../systems/audio.js';   // E6: the QuestMachine's own DaggerfallAudioSource (PlaySound's busy-skip)
+import { audio, QuestAudioSource, logarithmicRolloff, plainSourceGain, placeAudio } from '../systems/audio.js';   // E6: the QuestMachine's own DaggerfallAudioSource (PlaySound's busy-skip)
 import { music } from '../systems/music.js';
 import { AmbientEffects, EXTERIOR_AMBIENT_WAITS, presetForExterior } from '../systems/ambientEffects.js';
 import { createWeatherFront, blendTerms, soundWeather } from '../systems/weatherFront.js';   // WX2: the front reaches the ground
@@ -513,6 +513,8 @@ import { LightningBoltsRenderer } from '../render/lightningBolts.js';   // BOLT:
 import { createDread, createDreadStorm, dreadLight, dreadCloudGlow, DREAD_KEY_DIM, DREAD_FLASH_COLOR } from '../world/dreadSky.js';   // EVENT1: the live event's sky and its red storm
 import { parseEventCommand } from '../net/chatCommands.js';   // EVENT1: /event, a dev's live event
 import { isStaff, parseStaffCommand, STAFF_HELP_LINES, findPlace, findPlayer } from '../net/staffCommands.js';   // STAFF1: the staff's own commands
+import { createProxVoice } from '../net/proxVoice.js';   // VOICE1: proximity voice - the links and the sound
+import { createVoiceHud, voiceHudLines } from '../ui/voiceHud.js';   // VOICE1: who is speaking
 import { fieldFromNative, nativeFromField, fieldOfPixelLocal } from '../systems/weatherField.js';   // WEATHER2b: the field's metres from the streaming world's natives, and back
 import { cellOfField, VC_PROFILE } from '../render/volumetricClouds.js';   // WEATHER2c: the field's cells as the clouds' cells   // W1: the live weather state (the save halves ride save.js); SAV3: the classic import's zone array
 import { classicSaveToSnapshot, takePendingClassicSave, peekPendingClassicSave } from '../systems/classicSave.js';   // SAV3: the classic-save import arm
@@ -10883,6 +10885,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   // un-draw (Mouse0) could never read true. mouseCode owns the
   // Unity/DOM middle-button crossover; the RELEASE is unconditional.
   addEventListener('mousedown', (e) => { if (isSwingButton(e.button)) rightHeld = true; const mc = mouseCode(e.button); if (mc) { keys.add(mc); noteKeyDown(latch.edge, mc); } if (isSwingButton(e.button) && !townTalk.overlayActive && walkMode && modeNow() === 'exterior') { if (magic.interceptAttack(true)) return; weaponRig.attackInput(0, 0, true); } });   // M2; FIX-F: the swing's button is the registry's (Mouse1 -> SwingWeapon by default)
+  // VOICE1: the mouse's side buttons are push-to-talk's (and any binding's) in the world - never the browser's Back/Forward
+  for (const kind of ['mousedown', 'mouseup']) addEventListener(kind, (e) => { if (e.button === 3 || e.button === 4) e.preventDefault(); });
+  // AUDIT VOICE1 A2: A PUSH-TO-TALK HELD INTO ANOTHER WINDOW never hears its release - the key stayed held and the
+  // microphone open in the other app. The window losing focus lets go of push-to-talk's codes (a hidden tab runs no
+  // frames, and the voice's own push-to-talk lapse and stall watch let go there - net/proxVoice.js).
+  const letGoOfTalk = () => { for (const c of [...keys]) if (held(new Set([c]), 'PushToTalk')) keys.delete(c); proxVoice?.setTalking(false); };
+  addEventListener('blur', letGoOfTalk);
   addEventListener('mouseup', (e) => { if (isSwingButton(e.button)) rightHeld = false; const mc = mouseCode(e.button); if (mc) { keys.delete(mc); noteKeyUp(latch.edge, mc); } if (isSwingButton(e.button) && walkMode && modeNow() === 'exterior') weaponRig.attackInput(0, 0, false); });   // the RELEASE is never gated - a window opened mid-swing must still let go
   const inputHooks = {   // GP1: one hooks object for the finger AND the pad   // mobile: stick synthesizes WASD; the right half is classified (TI1)
     look: (dx, dy) => {
@@ -12638,6 +12647,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the reset always found it null and always ended the run. This snapshot is taken the moment death starts
   // (the presenter above, and the frame below as a backstop) and the reset reads IT, not the cleared live state.
   let _deathWasOnline = null;
+  let proxVoice = null, voiceHud = null;   // VOICE1: made with the chat's frame below - declared here, above online.onRtc, its first reader (BOOT-TDZ)
+  let _voiceMutedUntil = 0;   // AUDIT VOICE1 A4: the relay's word that I am muted (epoch s) - my own voice goes quiet while it holds
+  let _voiceOut = null;   // AUDIT VOICE1 A7: { ctx, dest, el } - the voices' own way to the speakers
   let chatLog = null, chatPanel = null, chatLinks = null;   // CHAT1: the log, the panel, one channel session per tab (Map tabId -> OnlineSession)
   // ONE-SEAT (Mac: "the player can only have one character only at a time. Like they shouldnt be able to open multiple
   // tabs and join as different characters"): THIS TAB'S HOLD ON THE PLAYER'S ONE SEAT. Two arms say it is lost: the
@@ -13274,6 +13286,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!pageOffers.offer(id, d.page, peerName(id))) return;
       tradeSay(pageOfferText(peerName(id), pageReadHow()));
     };
+    online.onRtc = (id, d) => proxVoice?.receive(id, d);   // VOICE1: a voice link's offer, answer, ICE or goodbye
     online.onAct = (id, data) => { modes?.applyPlaceActions?.(id, data); };   // WORLD3: another's door, lever or platform; WORLD6a: in a building too
     // WORLD5: this save's time markers are set to the WORLD's time - a save a month behind catches up no loans and no
     // diseases on its first frame, one a year ahead reads no negative day - and the day's weather is rolled from the
@@ -13343,6 +13356,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // `mutedNotices` passes the first and the next real event.
     const mutedOnce = mutedNotices();
     const onMuted = ({ until }) => {
+      _voiceMutedUntil = Number(until) || 0;   // AUDIT VOICE1 A4: before the notice's once-gate - a lift must land too
       if (!mutedOnce(until, Date.now())) return;
       chatLog.push(chatLog.active, { text: mutedText(until, Math.floor(Date.now() / 1000)), system: true });
     };
@@ -15800,6 +15814,57 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (due === 'send' && link.sendTraveller(mark)) { travellerSent.last = mark; travellerSent.at = now; }
     else if (due === 'clear' && link.sendTraveller(null)) { travellerSent.last = null; travellerSent.at = now; }
   };
+  /** VOICE1 (2026-09-28, Mac: "develop prox chat" - push-to-talk, STUN only, nearby only): PROXIMITY VOICE
+   *  (net/proxVoice.js). Made where the browser can hold a voice link; the relay only introduces two players (`rtc`),
+   *  the voice goes browser to browser. On while the player's own switch is (Settings, on by default) and the relay routes the
+   *  frame; each voice placed at its speaker's head, heard from the camera (the listener every sound has). */
+  proxVoice = typeof globalThis.RTCPeerConnection === 'function' && globalThis.navigator?.mediaDevices?.getUserMedia
+    ? createProxVoice({
+      myId: () => online?.id ?? null,
+      send: (d) => online?.sendRtc(d) ?? false,
+      RTCPeerConnection: globalThis.RTCPeerConnection,
+      getUserMedia: (c) => globalThis.navigator.mediaDevices.getUserMedia(c),
+      ctx: () => audio.ctx,
+      // AUDIT VOICE1 A7: THE VOICES' OWN WAY OUT - a MediaStream destination played by an UNMUTED element, not the
+      // listener's bus: Chrome's echo cancellation takes only what a media element plays as its reference (WebAudio's
+      // output is not - crbug 687574), so a voice played through the bus came back out of a speaker player's
+      // microphone. Remade with the context.
+      bus: () => {
+        const ctx = audio.ctx;
+        if (!ctx?.createMediaStreamDestination) return null;
+        if (_voiceOut?.ctx !== ctx) {
+          const dest = ctx.createMediaStreamDestination();
+          const el = globalThis.document.createElement('audio');
+          el.srcObject = dest.stream;
+          el.play?.()?.catch?.(() => {});
+          _voiceOut = { ctx, dest, el };
+        }
+        if (_voiceOut.el.paused) _voiceOut.el.play?.()?.catch?.(() => {});   // an autoplay refusal before the first gesture is tried again
+        return _voiceOut.dest;
+      },
+      place: placeAudio,
+      // Chrome plays a remote WebRTC stream into WebAudio only while a media element also holds it - muted, never heard
+      makeSink: (stream) => { const a = globalThis.document.createElement('audio'); a.muted = true; a.srcObject = stream; a.play?.()?.catch?.(() => {}); return { stop: () => { a.srcObject = null; } }; },
+      onFail: (id) => townTalk.say(`Voice could not connect to ${peerName(id) ?? 'a player'} - their network or yours blocks it.`),
+      onMic: (st) => { if (st === 'denied') townTalk.say('The microphone is blocked - allow it in your browser to be heard.'); },
+    })
+    : null;
+  voiceHud = proxVoice ? createVoiceHud() : null;
+  globalThis.addEventListener?.('pagehide', () => proxVoice?.close());   // AUDIT VOICE1 A3: every voice link's goodbye as the page goes, and the microphone let go (offline, a held frame and a hidden tab are the module's own stall watch)
+  const voiceFrame = (nowMs) => {
+    if (!proxVoice) return;
+    const on = !!getPref('proxVoice') && !!online?.voiceOk && online.status === 'open' && !(_voiceMutedUntil > Date.now() / 1000);
+    const ear = cam.pos;
+    const peers = on ? (peersNear() ?? []).map((p) => {
+      const head = [p.feet[0], p.feet[1] + (p.height || 1.8) * 0.9, p.feet[2]];
+      return { id: p.id, head, d: Math.hypot(head[0] - ear[0], head[1] - ear[1], head[2] - ear[2]) };
+    }) : [];
+    proxVoice.setVolume(getPref('voiceVolume') ?? 1);
+    proxVoice.tick({ on, peers, now: nowMs });
+    const ptt = on && held(keys, 'PushToTalk');
+    proxVoice.setTalking(ptt);
+    voiceHud.render(on ? voiceHudLines({ talking: proxVoice.talking(), mic: proxVoice.micState(), held: ptt, speakers: proxVoice.speaking(nowMs).map((id) => peerName(id) ?? '') }) : []);
+  };
   const chatFrame = () => {
     if (!chatLinks) return;
     buildPoll(performance.now());
@@ -15830,6 +15895,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (socialPanel?.openLetters({ draft: _letterPending.draft })) _letterPending = null;
       else if (performance.now() - _letterPending.at > LETTER_PENDING_MS) { _letterPending = null; tradeSay('Your letters could not open - the page is still in your journal.'); }
     }
+    voiceFrame(performance.now());   // VOICE1: the voice links, their places and who is speaking
     partyTravel?.tick();   // PARTY-TRAVEL: the party's journey - throttled inside to PARTY_TRIP_TICK_MS
     partyRestFollowTick();   // PARTY-REST1: every frame, not throttled to the send cadence - a few property reads, and a follower's own countdown should start and end as promptly as the leader's does
     partyFrame(performance.now());   // SOC2: my party pose rides the chat frame - before the dead return with it, so a dead member's card says so as their vitals read zero
@@ -19710,6 +19776,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // third it is the reference's focal-and-pull-back with this host's
     // collider standing in for the sphere cast.
     // TV1: under the travel view the sprite turns to the view's eye (`eyeOverride`: last frame's - a lag nobody sees)
+    // VIEW-TOGGLE (Mac: "a force first person/third person toggle"): the other view, on the press edge of its action (the
+    // mouse's forward side button by default) - under no window, and never mid-load (hccActionPressed's gate)
+    if (hccActionPressed('TogglePerspective')) mwViewTogglePerspective();
     const mwv0 = mwViewFrame({
       eyeOverride: travelView?.eye ?? null,
       fpEye: cam.pos, feet: player.feetAt(), yaw: cam.yaw, pitch: cam.pitch,
