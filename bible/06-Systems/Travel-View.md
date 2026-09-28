@@ -1104,6 +1104,37 @@ Proof: `test/tv8_party_walk.test.js`, `tools/mutants/tv8.json` (17 records, all 
   `test/tv8_party_walk.test.js` (12), `prbow1_bow`, `mwhead1_window`, `eotb_view` (+1 each); `tools/mutants/ow3j.json`
   (28), `ow3d.json` (27), `ow3t.json` (18), `ow3p.json` (36) - all dead; the older sets re-aimed.
 
+**AUDIT OW4 (2026-09-28) - the second full audit of the branch (five lanes, the OW3 fixes included), verified, fixed.**
+- *Bands (B):* the bands were asked for at the MAP pixel, whose y runs the other way from their rows - every band stood
+  at the mirror of its latitude and almost nobody met one (`bandPixelOf`, in the list and in a peer's word). The land a
+  band may stand on is the maps' own places taken at boot (`_bandPlacePixels`), never the live index a spawn joins per
+  client. A stand counts only with a member placed; the bearing is kept from the first contact; a door ends every chase,
+  spent; death or a window HOLDS a chase, a boat ends it; no band drawn with the camps off; the spent list pruned by
+  life; the sight read by the bands' night. bandFrame/bandStand/bandHear are lifted from world.js and RUN in the tests.
+- *Journeys (J):* only the traveller's OWN peaks are left freely: `planRoute` flood-fills the start's connected
+  Mountain area (`peakAt`), and `openStepBlocked(..., leaving)` frees only its steps - a range entered by a road is
+  walked no further. The ladder ends on the whole map (`ROUTE_MARGINS` [6, 20, 60, 1000]); the ground is read once
+  (`routeGround`) and its land pieces answer "no way by land" once the first box misses. A won avoid roll takes the SAME
+  route up again (a spot's became "Following a road"). The map's Resume re-plans on the enhanced interface
+  (`travelViewResume`; a spawn's walk resumed is its door). An Overworld journey with its view down runs at x1 until the
+  view rises. A new disease stops through the panel. The grown Morrowind body's quad leans by the view's up.
+- *Dungeons (D):* a spawn's plate walks as a place's DOOR (`travelViewWalkTo` `{ door }`: never refused for the peaks,
+  its own pixel's step exempt), its edge facing where the route's last leg starts (`lastLegStart`); an expired spawn
+  (`tvSpawnGone`) is never listed; a load clears the announced spawns; found spawns past the stream stand again after a
+  reload (`filedSpawns`, `tvSpawnAt`, the shared `_spawnCloneAt`); the list keyed on the index's generation
+  (`_locIndexGen`); the cap of twelve taken found-first.
+- *Group travel (P, X):* a spot re-aimed in its pixel sets out again (members re-routed); a halt lapses after
+  PARTY_WALK_HALT_MS (5 min) and drops off the pose; a stop meaning the journey cannot run (WALK_BALKS: low health or
+  fatigue on cautious travel, stuck, blocked, the sea) halts the party once, then the leader's Resume passes that member
+  by until their own; a member stopped by a halt who takes the journey up leaves the walk; the question is tracked through
+  the window stack, withdrawn if buried, and an answer counts only while the round stands; nobody sets out mid-arrival.
+  A member walking to a place they have not found, or to a spawn, walks it as its door. The wire is unchanged (world123).
+- *Known, not changed:* some towns among the peaks with no road reaching them are now "no way by land" (the peaks' law
+  holds); the "historical" example numbers in test/citedrift.test.js move with every citation shift, as they always have.
+- Proof: `test/tv2_click_to_move.test.js` (32), `tv6_dungeons` (19), `tv7_bands` (15), `tv8_party_walk` (22),
+  `to1_travelOptions` (+1), `prbow1_bow` (+2); `tools/mutants/ow4j.json` (26), `ow4d.json` (38), `ow4t.json` (14),
+  `ow4p.json` (25), `ow4x.json` (3) - all dead; the older sets re-aimed.
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

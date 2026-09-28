@@ -71,6 +71,16 @@
 - Bands are Daggerfall's full encounter range again (their strongest picks never came before), no longer jump when they walk beside water, and give up at a town's edge or when you swim.
 - Group travel: a stop now stops the whole party properly and taking the journey up again sets everyone out again; the question never covers an open window, and nobody is sent off while in a dungeon, dead or mid-fight.
 
+## Third update
+- Roaming bands now actually roam around you - before, every band was placed at the mirror of its real position, often hundreds of kilometres away, so you almost never met one. Online, everyone sees the same bands no matter which land has loaded for them.
+- A band that reaches you always stands and fights on the side it came from; bands pause while you're dead or reading a window, give up when you board a boat or go through a door, and don't show at all with wilderness encounters switched off.
+- Routes no longer wander across a mountain range a road led into; long trips find their way round the big ranges, and a trip with no way by land says so at once.
+- Dodging a band no longer turns a trip to a spot into "Following a road", and Resume plans the way again from where you stand.
+- A journey running while the Overworld view is down goes at walking pace until the view rises.
+- The Morrowind body no longer looks squashed from above.
+- Spawned dungeons in the mountains can be walked to, expired ones vanish, found ones far away keep their plates after a reload, and found dungeons are never crowded out by "?" marks.
+- Group travel: re-aiming a spot takes the party with you, a halted walk expires after 5 minutes, a member too hurt or stuck to travel no longer halts the party on every Resume, your own Resume during a halt leaves the walk, the "Travel with them?" question can't reappear late or take a stale Yes, and a member can follow the leader to a town they haven't found yet - even in the mountains.
+
 ## Fixes before release
 - Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.
 - A journey to a far town keeps the town on screen: its flag is pinned to the edge with its distance, and clicking it takes the journey up again after a stop.

@@ -195,7 +195,7 @@ test('TV7 host: the bands about the traveller kept a life and a pixel; made once
   assert.match(w, /\}\)\.catch\(\(\) => null\);\n\s*\}\n\s*return placed > 0;\n\s*\};\n\s*const _standLooseFoe/, 'stood is a member placed (AUDIT OW4 B3)');
   assert.match(w, /if \(!spot\) continue;\n\s*placed\+\+;/);
   assert.match(w, /function bandYaw\(pos\) \{\n\s*const fx = player\.feetAt\(\), sp = tvSceneOf\(pos\.x, pos\.z, 0\);\n\s*return Math\.atan2\(sp\[0\] - fx\[0\], sp\[2\] - fx\[2\]\);/, 'the bearing it came from, read at the first contact (AUDIT OW4 B4)');
-  assert.match(w, /if \(modes\.frame\(dt, now\)\) \{\n\s*if \(_bandChase\.size\) bandDrop\(\);/, 'a door ends every chase, spent (AUDIT OW4 B5)');
+  assert.match(w, /if \(modes\.frame\(dt, now\)\) \{\n[\s\S]{0,5000}?\n\s*if \(_bandChase\.size\) bandDrop\(\);   \/\/ AUDIT OW4 B5/, 'a door ends every chase, spent (AUDIT OW4 B5) - inside the modal arm');
   assert.match(w, /const shown = getPref\('wildernessCamps'\) === false \|\| playerEntity\.preventEnemySpawns \? \[\] : \[\.\.\.travelViewBands\(\)\];/, 'none drawn where none can come (AUDIT OW4 B6)');
   assert.match(w, /for \(let i = _bandSpentAt\.length - 1; i >= 0; i--\) if \(bandLifeOf\(_bandSpentAt\[i\]\) < life - 1\) _bandSpentAt\.splice\(i, 1\);/, 'the spent list pruned with the rest (AUDIT OW4 B7)');
   assert.match(w, /const listed = travelViewBands\(\), sight = bandSight\(tvBandSeen\.night\);/, 'the sight of the night the bands were made in (AUDIT OW4 B8)');

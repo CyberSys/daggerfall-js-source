@@ -648,7 +648,7 @@ third was a thing the port never said out loud.
   (`PlayerEntity.cs:402-418`, and `systems/worldTick.js` verbatim), so
   the journey's vanilla drain IS DFU's - and Travel Options watches that
   very number with its own cautious stop (`TravelOptionsMod.cs:1079`,
-  ported at `travelOptions.js:980`). The NEEDS are this port's own
+  ported at `travelOptions.js:985`). The NEEDS are this port's own
   addition, from a mod Travel Options has never heard of, and they
   charged on top of it on a traveller who by construction never stops to
   eat, drink or sleep. An accelerated journey is sat as `resting` now -
@@ -751,7 +751,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:634-637`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:9382 -
+`locationTileRect` answered null for the neighbour (world.js:9407 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read

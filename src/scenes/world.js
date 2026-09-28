@@ -17942,7 +17942,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // (0x7d1), not a frame-tail chore.
     if (_mode() !== _torchesMode) { droppedTorches.destroyAll(); weaponRig.silenceTorch();   /* DISC6: the street's rig leaves (or retakes) the frame - its torch loop falls silent, and the rig that ticks starts its own */ if (_torchesMode === 'exterior') { closeBrokerDoor(); sigilBroker?.destroyAll(); }   /* AUDIT SET W2: the street left (the gate's court entered under the veil's 1.2 s, an interior, a travel) - her window shut and her post down, never carried in */ _torchesMode = _mode(); }   // HT1
     if (modes.frame(dt, now)) {
-      if (_bandChase.size) bandDrop();   // AUDIT OW4 B5: a door ends every chase, spent - the band frame never runs indoors, and a chase froze there to take up again on the way out
       if (_wodInside) { _wodInside = false; _wodArrival = wodArrivalOf([]); }   // WOD6: inside - the arrival's markers meet Start on the way out, from the player
       if (!skyInside) { skyInside = true; sky.setInside(true); }   // DS1: InteriorTransitionEvent
       // WM4c: the exterior parent is inactive indoors in DFU and its
@@ -17995,6 +17994,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // console.log. Drawn ABOVE the modal render, which is where
       // townTalk always draws.
       warmAshesFrame(gamePaused() ? 0 : dt * worldTimeScale());   // WA1: the mod's coroutine clock, in every mode (a MonoBehaviour's Time.deltaTime)
+      if (_bandChase.size) bandDrop();   // AUDIT OW4 B5: a door ends every chase, spent - the band frame never runs indoors, and a chase froze there to take up again on the way out
       hccTick(dt, now);   // AUDIT HCC H1: the runtime's LateUpdate indoors too - the hotkeys' "outdoors only", the settings, the switch
       townTalk.frame(dt);
       renderer.resolveFrame();   // AUDIT RETRO1 E5/C8: a frame that drew no screen quad (the enhanced skin, a sheathed weapon) is shown NOW, not at the next beginFrame
