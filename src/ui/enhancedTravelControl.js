@@ -157,7 +157,8 @@ export function paintJunction(canvas, buf, { mapPixel, direction, settings, deps
 
 /** The panel's frame. `state` is what the journey knows:
  *  { showing, covered, destination, following, accel, message, minutesLeft,
- *    from, to, junction: { on, mapPixel, direction, settings, deps, buf } }
+ *    from, to, junction: { on, mapPixel, direction, settings, deps, buf }, held }
+ *  (TV2: `held` the rate the travel view's governor holds the clock to, or null)
  *  `hooks` are the five controls, wired once at build.
  *
  *  AUDIT-TO1 F1: THE JUNCTION MAP OUTLIVES THE BAR. In the mod the
@@ -199,7 +200,12 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
   const eta = etaText(state.minutesLeft);
   const dist = distanceText(state.from, state.to);
   put(parts.sub, 'sub', [eta, dist].filter(Boolean).join('  ·  '));
-  put(parts.accel, 'accel', `×${state.accel ?? 1}`);
+  // TV2: under the travel view the clock may be HELD under the spinner (systems/travelGovernor.js) - the rate that
+  // runs, then the one asked for; the spinner stays the player's
+  const accel = state.accel ?? 1;
+  const held = state.held != null && state.held < accel ? state.held : null;
+  put(parts.accel, 'accel', held != null ? `×${held} / ×${accel}` : `×${accel}`);
+  cls(parts.accel, 'accelClass', held != null ? 'travelpanel-accel held' : 'travelpanel-accel');
   put(parts.msg, 'msg', String(state.message ?? ''));
   cls(parts.msg, 'msgClass', state.message && !junctionOnly ? 'travelpanel-msg show' : 'travelpanel-msg');
   const j = state.junction;

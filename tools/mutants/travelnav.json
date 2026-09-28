@@ -198,8 +198,8 @@
   {
     "name": "TN-resume-without-edge-arrival",
     "file": "src/systems/travelOptions.js",
-    "old": "{ grow: true, isLocation: true, edgeArrival: st.settings.avoidObstacles });",
-    "new": "{ grow: true, isLocation: true, edgeArrival: false });",
+    "old": "travelSpeedMultiplier(st.destinationCautious, st.settings), { grow: true, isLocation: true, edgeArrival: st.settings.avoidObstacles });",
+    "new": "travelSpeedMultiplier(st.destinationCautious, st.settings), { grow: true, isLocation: true, edgeArrival: false });",
     "tests": ["test/travelnav.test.js"]
   },
   {

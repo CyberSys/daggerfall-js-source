@@ -13,6 +13,9 @@
 //   4. THE INPUT IS THE VIEW'S. scenes/travelView.js on a real canvas, real pointer events from the browser: a click
 //      is a pick, a drag turns the view and picks nothing, the wheel zooms, and a listener the "host" put on the
 //      window's bubble phase hears none of it; the readout's Return button brings the view down. Two screenshots.
+//   5. TV2: THE PLACES AND THE WAY. A place's plate is a real button over the canvas - a click on it is the place's
+//      journey (onMark) and never a pick; the route line is drawn as an SVG path through the projected points; the
+//      trip's line is in the bar; the travel panel reads "x20 / x40" while the governor holds the clock.
 //
 // Usage: node tools/travelViewProbe.mjs [outDir]   (PNGs land in outDir, default scratch/tv1/)
 import { chromium } from 'playwright';
@@ -171,14 +174,19 @@ try {
     const canvas = document.createElement('canvas');
     canvas.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;background:#223';
     document.body.append(canvas);
-    const log = window.__tv = { picks: [], hostHeard: [], cursor: [] };
+    const log = window.__tv = { picks: [], hostHeard: [], cursor: [], marked: [] };
     for (const t of ['pointerdown', 'mousedown', 'wheel', 'contextmenu']) window.addEventListener(t, (e) => { if (e.target === canvas) log.hostHeard.push(t); });   // the host's own ladders: the bubble phase
     let yaw = 0;
     const tv = createTravelView({
       canvas, feet: () => [0, 0, 0], headView: () => ({ eye: [0, 1.7, 0], fwd: forwardOf(yaw, 0) }), yaw: () => yaw, setYaw: (y) => { yaw = y; },
       allowed: () => ({ ok: true }), windowUp: () => false, actionsOf: (e) => (e.code === 'Escape' ? ['Escape'] : []),
       freeCursor: (f) => log.cursor.push(f), where: () => 'Near Daggerfall, Daggerfall',
-      project: () => ({ x: innerWidth / 2, y: innerHeight / 2, front: true }), onPick: (x, y) => log.picks.push([Math.round(x), Math.round(y)]),
+      project: (p) => (p ? { x: innerWidth / 2 + p[0] * 4, y: innerHeight / 2 - p[2] * 4, front: true } : null),
+      onPick: (x, y) => log.picks.push([Math.round(x), Math.round(y)]),
+      onMark: (k) => log.marked.push(k),   // TV2: a plate's click
+      marks: () => [{ key: 'place:7', at: [60, 0, 40], label: 'Ripwych', kind: 'place', pick: true }],
+      route: () => [[0, 0, 0], [20, 0, 10], [40, 0, 30], [60, 0, 40]],
+      trip: () => 'To Ripwych, by the road',
       hud: { show: hud.showTravelViewHud, hide: hud.hideTravelViewHud, update: hud.updateTravelViewHud },
     });
     window.__tvObj = tv;
@@ -201,6 +209,14 @@ try {
   check(st.h < h0, `the wheel zoomed in (${h0.toFixed(0)} -> ${st.h.toFixed(0)})`);
   check(st.hostHeard.length === 0, `the host's own listeners heard nothing (${JSON.stringify(st.hostHeard)})`);
   check(JSON.stringify(st.cursor) === '[true]', 'the cursor freed once');
+  // TV2: the plate is a button over the canvas - its click is the place's journey, never a pick
+  const picksBefore = st.picks.length;
+  await page2.locator('.tview-mark.pick .tview-label').click();
+  const tv2 = await page2.evaluate(() => ({ marked: window.__tv.marked, picks: window.__tv.picks.length,
+    d: document.querySelector('.tview-route-line')?.getAttribute('d') ?? '', trip: document.querySelector('.tview-trip')?.textContent ?? '' }));
+  check(JSON.stringify(tv2.marked) === '["place:7"]' && tv2.picks === picksBefore, `a plate's click is the place's journey, not a pick (${JSON.stringify(tv2)})`);
+  check(/^M\d+ \d+ L/.test(tv2.d), `the route line is drawn (${tv2.d.slice(0, 40)})`);
+  check(tv2.trip === 'To Ripwych, by the road', `the trip is in the bar (${tv2.trip})`);
   const barBox = await page2.locator('.tview-bar').boundingBox();
   check(!!barBox && barBox.x >= 0 && barBox.x + barBox.width <= 1366 && barBox.y + barBox.height <= 768, `the readout's bar is on screen (${JSON.stringify(barBox)})`);
   const you = await page2.locator('.tview-you').boundingBox();
@@ -219,6 +235,18 @@ try {
     hud.updateTravelViewHud({ feet: { x: 195, y: 420, front: true }, heading: 30, yaw: 0.5, where: 'The wilds of the Wrothgarian Mountains', touch: true });
   });
   const pb = await phone.locator('.tview-bar').boundingBox();
+  // TV2: the travel panel says when the governor holds the clock under the spinner
+  const held = await phone.evaluate(async () => {
+    const { drawEnhancedTravelControl, hideEnhancedTravelControl } = await import('/src/ui/enhancedTravelControl.js');
+    drawEnhancedTravelControl({ showing: true, destination: 'Ripwych', accel: 40, held: 20 });
+    const a = document.querySelector('.travelpanel-accel');
+    const out = { text: a?.textContent, cls: a?.className };
+    drawEnhancedTravelControl({ showing: true, destination: 'Ripwych', accel: 40, held: null });
+    out.free = document.querySelector('.travelpanel-accel')?.textContent;
+    hideEnhancedTravelControl();
+    return out;
+  });
+  check(held.text === '×20 / ×40' && /held/.test(held.cls) && held.free === '×40', `the panel reads the held clock (${JSON.stringify(held)})`);
   check(!!pb && pb.x >= 0 && pb.x + pb.width <= 390, `the bar fits a phone (${JSON.stringify(pb)})`);
   await phone.screenshot({ path: join(OUT, 'tv1-hud-phone.png') });
   check(pageErrors.length === 0, `no page errors (${pageErrors.slice(0, 3).join(' | ')})`);

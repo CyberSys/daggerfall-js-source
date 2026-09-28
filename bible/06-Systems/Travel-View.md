@@ -280,6 +280,65 @@ and the mwViewFrame call's length AUDIT-EOTB F3b reads, is kept as it was.
   front door. A player who wants a direct key binds one in Controls.
 - **Being seen:** decided at TV3 (below), with the switch on by default as proposed.
 
+## TV2 - SHIPPED (2026-09-28)
+
+Mac's calls: **"Both, by target"** and **"Cap it to what loads cleanly"**.
+
+**A click, from the air.** The press the view takes as a pick (under TV_CLICK_SLOP) is a ray
+from the view's OWN eye through the frame's own matrices (`player/tapRay.js`
+rayDirFromScreen, the canvas's pixels) met with the BUILT ground by a march and a
+bisection (`player/travelPick.js` groundHit - nothing in the tree met a slanted ray with
+the terrain: the collider answers meshes, and outdoors the ground is not one). What it
+lands on decides the journey (`classifyPick`):
+
+| Under the click | Journey | Said |
+|---|---|---|
+| a known place (its rect grown 1.5 blocks) | by the roads, to the place | the trip line: "To X, by the road" / "across country" |
+| open ground | straight there | "To the marked spot" |
+| the water | none | "You cannot walk out onto the water." |
+| ground not yet built | none | "That lies beyond what you can see from here." |
+| the sky | none | - |
+
+A place is only a place once DISCOVERED - DFU's own law, the travel map's
+(`checkLocationDiscovered`): an undiscovered town is walked to as the ground it stands on.
+The known places about the traveller wear PLATES (the grid's own radius, rebuilt on a pixel
+change), and a plate's click is the same journey as a click on the town. No Travel Options
+(the mod switched off) is said, not silently ignored; foes near refuse it in the mod's words.
+
+**By the roads** (`systems/travelRoute.js`). A* over the 1000x500 grid on Hazelnut's bytes -
+the very bytes Travel Options' follow key walks - with a step ON the road only where both
+ends carry the edge; a road 1, a track 1.6, the open 3.5 (x sqrt 2 diagonally); the sea
+refused (roadsProducer's WATER_BYTE); a straight run on one kind of ground folded into one
+leg. It walks roads; `world/roadNetwork.js route()` lays them - two laws, one compass.
+
+**The journeys are Travel Options'.** Two of the port's own (Ledger A, "THE TRAVEL VIEW'S
+JOURNEYS"), built from the mod's parts: `beginTravelAlongRoute` (each leg a pixel's middle,
+the SAME autopilot re-aimed leg after leg - BeginPathTravel's own InitTargetRect - a road leg
+reckless, a track or the open cautious, the last leg the place itself with the arrival
+buffer; a NAMED journey, so LocationPause and the resume prompt know it; interrupted, it
+resumes from the nearest leg ahead) and `beginTravelToPoint` (a path's width about the spot).
+Every stop the mod's Update makes still stops them. Under the view the arrival is SAID on the
+notice line, not boxed: a box is a window, and a window brings the view down.
+
+**The cap, measured live** (`systems/travelGovernor.js`). TV0 planned a probe riding a long
+road for the highest clean rate; the probe needs ARENA2, CI has none, and one machine's
+number is wrong on every slower one. So the measurement runs on the player's machine, every
+journey: while the view is up over a running journey the host counts the pixels inside the
+view's reach (where the picture's top edge meets the ground, never past the grid) that are
+not built. Any for 0.25 s halves the clock (to the spinner's step of five); clean for 4 s it
+climbs a step back; walking pace is the floor; the spinner stays the player's and the
+travel panel reads `×20 / ×40` while held. Governed BEFORE the frame reads its scale, and
+handed back whole when the view comes down or the journey ends.
+
+**The way, drawn.** The route's line is an SVG path through its points (each leg sampled
+four times on the ground), broken behind the eye, under the plates and the destination flag
+- a readout, never occluded by the hills it crosses (a world-space line would need a line
+pass the renderer does not have; handheldTorches.js says the same).
+
+**Proof.** `test/tv2_click_to_move.test.js` (17), `tools/mutants/tv2.json` (20 dead),
+`tools/travelViewProbe.mjs` (TV2's four checks: the plate's click is a journey and not a
+pick, the route drawn, the trip in the bar, the held clock on the panel).
+
 ## Open, for Mac
 
 - **The name** on the button and in the Controls.

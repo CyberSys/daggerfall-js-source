@@ -27,7 +27,7 @@ import { bindWorldDataBlocks } from '../formats/worldDataReplacement.js';   // R
 import { loadModWorldData } from './modWorldData.js';   // RR3b
 import { DFPalette } from '../formats/dfPalette.js';
 import { MapsFile, getWorldClimateSettings, longitudeLatitudeToMapPixel, getPixelFromPixelID, REGION_RACES, LOCATION_TYPES, CLIMATES, REGION_NAMES } from '../formats/mapsFile.js';   // SPAWNED-DUNGEONS1: the ocean gate and the synthesized location's region name
-import { settlementsOf, loadModRoads, basicRoadsPathsPoint } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
+import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
 import { modSetting, modSettingsOf, modSettingsGeneration } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches
 import { hasPort } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
@@ -120,7 +120,7 @@ import { createTravelControlUI, preloadTravelControlArt, stripTakesClick } from 
 import { pointToNative, nativeMetrics } from '../ui/nativePanel.js';   // TO1: the travel panel's clicks land in the 320x200 panel's own coordinates
 import { createTravelJunctionMap } from '../ui/travelJunctionMap.js';
 import { drawEnhancedTravelControl, hideEnhancedTravelControl } from '../ui/enhancedTravelControl.js';
-import { setTimeScale as setWorldTimeScale, timeScale as worldTimeScale, resetTimeScale } from '../systems/timeScale.js';   // W1's classic art window + U61's overworld, one door
+import { setTimeScale as setWorldTimeScale, timeScale as worldTimeScale, resetTimeScale, MAX_TIME_SCALE } from '../systems/timeScale.js';   // W1's classic art window + U61's overworld, one door
 import { racialRestBlock, racialFastTravelBlock, cureVampirism, SUNLIGHT_TRAVEL_TEXT } from '../systems/vampirism.js';   // AUDIT 64 F21: the career rung and the racial one show the SAME sunlightDamageFastTravelDay box (DaggerfallUI.cs:619, VampirismEffect.cs:202)
 import { giveOffer } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI.GiveOffer, the rung in front of BOTH the rest and the fast-travel press   // V2b: the vampire's rest and daylight gates; V2d: $CUREVAM's cure arm
 import { cureLycanthropy, racialSuppressPopulationSpawns, racialSuppressTalk, lycanthropeMoveSound, isTransformedLycanthrope } from '../systems/lycanthropy.js';   // V2d: $CUREWER's cure arm; V4: the transformed gates; LM1: the 4-20s move-sound loop; DISC10-E L3: the inventory refusal moved INTO the window door
@@ -218,8 +218,11 @@ import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel oppon
 import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
-import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
+import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
 import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud } from '../ui/travelViewHud.js';   // TV1: its readout
+import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js';   // TV2: the click's ground
+import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   // TV2: the way by the roads
+import { createLoadGovernor, viewReach, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
 import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: the contents ladder's one law (AUDIT-WH H3)
@@ -15280,6 +15283,162 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const inside = loc?.name && _inAnyLocationRect(walkMode ? player.pos : cam.pos);
     return travelViewLine({ place: inside ? loc.name : null, near: !inside && loc?.name ? loc.name : null, region });
   };
+  // TV2 (2026-09-28, bible/06-Systems/Travel-View.md, Mac: "Even adding the option to tap/click to move to a specific
+  // location"; his calls: "Both, by target" and "Cap it to what loads cleanly"): THE CLICK, THE TRIP AND THE CAP.
+  // A click is a ray from the view's own eye through this frame's matrices (player/tapRay.js), met with the built
+  // ground (player/travelPick.js); what it lands on decides the journey - a known place is reached by the roads
+  // (systems/travelRoute.js over Hazelnut's bytes), open ground is walked to - and Travel Options walks it
+  // (beginTravelAlongRoute / beginTravelToPoint, the port's own two journeys built from the mod's parts). The places
+  // around the traveller wear plates a click also takes; the trip's way is the line under them.
+  const TV_PLACE_GROW = 6144;   // native units (1.5 RMB blocks): a click this near a town's walls is a click on the town
+  const TV_PLACE_LIFT = 24;   // m: a plate floats over its town
+  const tvTrip = { plan: null, natives: [], end: null, line: '' };   // the journey the view began (null once it ends)
+  let tvPlates = { at: null, list: [] };   // the known places about the traveller, rebuilt on a pixel change
+  const tvSceneOf = (nx, nz, lift = 0) => {
+    const [x, z] = state.localFromWorld(nx, nz);
+    const h = heightAt(x, z);
+    return [x, (Number.isFinite(h) ? h : player.feetAt()[1]) + lift, z];
+  };
+  const tvPlaceSummary = (px, py) => {
+    const loc = locationIndex.get(`${px},${py}`);
+    const row = loc?.name ? travelLocationSummaryAt(mapDict, px, py) : null;
+    if (!row || !travelCheckDiscovered(row)) return null;   // DFU's own law: an undiscovered place has no name to go to
+    return { pixel: { x: px, y: py }, name: loc.name, mapId: row.mapID, regionIndex: row.regionIndex, locationIndex: row.mapIndex, loc };
+  };
+  const tvPlaceRect = (summary) => {
+    const r = locationWorldRect(summary.loc, summary.pixel.x, summary.pixel.y);
+    return { minX: r.minX - TV_PLACE_GROW, maxX: r.maxX + TV_PLACE_GROW, minZ: r.minZ - TV_PLACE_GROW, maxZ: r.maxZ + TV_PLACE_GROW, cx: (r.minX + r.maxX) / 2, cz: (r.minZ + r.maxZ) / 2 };
+  };
+  const tvWater = (px, py) => px < 0 || py < 0 || px >= 1000 || py >= 500 || woods.getHeightMapValue(px, py) <= WATER_BYTE;
+  /** The trip is over when Travel Options no longer walks it - arrived, stopped, or replaced by a journey of its own. */
+  const tvTripLive = () => !!tvTrip.plan && !!travelOptions?.route && travelOptions.route === tvTrip.plan.route;
+  function travelViewRouteTo(summary) {
+    const from = playerTravelPixel();
+    const net = terrainGen.roads();
+    const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, isWater: tvWater });
+    if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
+    const ok = travelOptions.beginTravelAlongRoute({ legs: routeLegs(plan.pixels, plan.kinds), summary, name: summary.name }, false, { quiet: true });
+    if (!ok) return false;
+    const rect = tvPlaceRect(summary);
+    const mid = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return [o.x + 16384, o.z + 16384]; };
+    const me = state.worldCoords(player.pos);
+    tvTrip.plan = { route: travelOptions.route, summary, kinds: plan.kinds };
+    tvTrip.natives = [[me.x, me.z], ...plan.pixels.slice(1, -1).map(mid), [rect.cx, rect.cz]];
+    tvTrip.end = { x: rect.cx, z: rect.cz, label: summary.name, kind: 'dest' };
+    tvTrip.line = travelTripLine({ name: summary.name, share: roadShare(plan.kinds) });
+    return true;
+  }
+  function travelViewWalkTo(point, pix) {
+    const n = state.worldCoords(point);
+    const ok = travelOptions.beginTravelToPoint({ pixel: pix, x: n.x, z: n.z }, false, { quiet: true, name: TRAVEL_VIEW_TEXT.spot });
+    if (!ok) return false;
+    const me = state.worldCoords(player.pos);
+    tvTrip.plan = { route: travelOptions.route, summary: null, kinds: [] };
+    tvTrip.natives = [[me.x, me.z], [n.x, n.z]];
+    tvTrip.end = { x: n.x, z: n.z, label: '', kind: 'target' };
+    tvTrip.line = travelTripLine({ spot: true });
+    return true;
+  }
+  /** THE GATE every click passes first: a journey needs Travel Options, and the mod's own refusal when foes are near. */
+  function travelViewCanGo() {
+    if (!travelOptions) { townTalk.say(TRAVEL_VIEW_TEXT.noJourneys); return false; }
+    if (areEnemiesNearby(exteriorFoePool())) { townTalk.say(TRAVEL_VIEW_TEXT.enemies); return false; }
+    return true;
+  }
+  function onTravelViewPick(clientX, clientY) {
+    if (!travelView?.eye || !_lastProj || !_lastView) return;
+    if (!travelViewCanGo()) return;
+    const [sx, sy] = canvasPoint(clientX, clientY, canvas.getBoundingClientRect());
+    const dir = rayDirFromScreen(sx, sy, canvas.clientWidth, canvas.clientHeight, _lastProj, _lastView, travelView.eye, worldViewportRect(canvas.clientWidth, canvas.clientHeight));
+    if (!dir) return;
+    const hit = groundHit(travelView.eye, dir, (x, z) => heightAt(x, z));
+    let pix = null, place = null, water = false;
+    if (hit.point) {
+      const n = state.worldCoords(hit.point);
+      pix = worldCoordToMapPixel(n.x, n.z);
+      const summary = tvPlaceSummary(pix.x, pix.y);
+      if (summary) { const r = tvPlaceRect(summary); if (n.x >= r.minX && n.x <= r.maxX && n.z >= r.minZ && n.z <= r.maxZ) place = summary; }
+      water = !place && tvWater(pix.x, pix.y);
+    }
+    const what = classifyPick({ hit, place, water });
+    if (what.kind === 'place') travelViewRouteTo(what.place);
+    else if (what.kind === 'ground') travelViewWalkTo(hit.point, pix);
+    else if (what.kind === 'water') townTalk.say(TRAVEL_VIEW_TEXT.water);
+    else if (what.kind === 'far') townTalk.say(TRAVEL_VIEW_TEXT.far);
+  }
+  /** A plate's click: the same journey as a click on the town. */
+  function onTravelViewMark(key) {
+    const plate = tvPlates.list.find((p) => p.key === key);
+    if (plate && travelViewCanGo()) travelViewRouteTo(plate.summary);
+  }
+  /** The known places whose pixels lie in the view's reach (the grid's own radius), rebuilt when the traveller's pixel
+   *  changes; their plates stand over the town's middle. */
+  function travelViewPlaces() {
+    const at = playerTravelPixel();
+    if (tvPlates.at && tvPlates.at.x === at.x && tvPlates.at.y === at.y) return tvPlates.list;
+    const r = Math.max(1, state.terrainDistance ?? 3);
+    const list = [];
+    for (let y = at.y - r; y <= at.y + r; y++) {
+      for (let x = at.x - r; x <= at.x + r; x++) {
+        const summary = tvPlaceSummary(x, y);
+        if (!summary) continue;
+        const rect = tvPlaceRect(summary);
+        list.push({ key: `place:${summary.mapId}`, summary, x: rect.cx, z: rect.cz });
+      }
+    }
+    tvPlates = { at, list };
+    return list;
+  }
+  /** The readout's marks: the plates (the journey's own end hides its plate), and the end. World points - the view
+   *  projects them through the frame's matrices. */
+  function travelViewMarks() {
+    const live = tvTripLive();
+    if (!live) { tvTrip.plan = null; tvTrip.natives = []; tvTrip.end = null; tvTrip.line = ''; }
+    const endKey = live && tvTrip.plan.summary ? `place:${tvTrip.plan.summary.mapId}` : null;
+    const marks = [];
+    for (const p of travelViewPlaces()) {
+      if (p.key === endKey) continue;
+      marks.push({ key: p.key, at: tvSceneOf(p.x, p.z, TV_PLACE_LIFT), label: p.summary.name, kind: 'place', pick: true });
+    }
+    if (live && tvTrip.end) marks.push({ key: 'dest', at: tvSceneOf(tvTrip.end.x, tvTrip.end.z, tvTrip.end.kind === 'dest' ? TV_PLACE_LIFT : 0), label: tvTrip.end.label, kind: tvTrip.end.kind });
+    return marks;
+  }
+  /** The route line's world points: the natives re-read into the scene each frame (the floating origin moves), each
+   *  leg sampled four times so the line follows the ground it walks. The first point is the traveller's feet. */
+  function travelViewRoute() {
+    if (!tvTripLive() || tvTrip.natives.length < 2) return [];
+    const pts = [player.feetAt()];
+    const me = state.worldCoords(player.pos);
+    const n = tvTrip.natives;
+    const from = travelOptions.route?.i ?? 0;   // the legs behind the traveller are walked: the line starts at them
+    const rest = [[me.x, me.z], ...n.slice(Math.min(n.length - 1, from + 1))];
+    for (let i = 1; i < rest.length; i++) {
+      const [ax, az] = rest[i - 1], [bx, bz] = rest[i];
+      for (let k = 1; k <= 4; k++) pts.push(tvSceneOf(ax + (bx - ax) * (k / 4), az + (bz - az) * (k / 4), 1));
+    }
+    return pts;
+  }
+  // THE CAP (systems/travelGovernor.js): while the view is up and a journey drives, the clock runs no faster than the
+  // grid raises the ground the view can see. The spinner stays the player's; the panel says when it is held.
+  const travelGovernor = createLoadGovernor({ max: MAX_TIME_SCALE });
+  let tvHeld = null;   // the rate the governor holds the clock to, while it holds it under the spinner's
+  function travelViewGovern(dt) {
+    const journey = !!travelControlUI?.isShowing && !!travelOptions?.state?.autopilot;
+    if (!travelView?.active || !journey) {
+      if (tvHeld != null) { tvHeld = null; if (journey) setWorldTimeScale(travelControlUI.timeAcceleration); }
+      travelGovernor.reset();
+      return;
+    }
+    const cam0 = travelView.camera;
+    const reach = cam0 ? viewReach({ height: cam0.height, pitch: -cam0.tilt, fovY: fieldOfView(), far: Infinity }) : Infinity;
+    const grid = Math.max(1, state.terrainDistance ?? 3);
+    const radius = Math.max(1, Math.min(grid, Math.ceil(reach / TERRAIN_SIZE)));
+    const unbuilt = unbuiltAround(playerTravelPixel(), radius, (x, y) => x < 0 || y < 0 || x >= 1000 || y >= 500 || built.has(`${x},${y}`));
+    const want = travelControlUI.timeAcceleration;
+    const rate = travelGovernor.step(dt, { unbuilt, requested: want });
+    if (worldTimeScale() !== rate) setWorldTimeScale(rate);
+    tvHeld = rate < want ? rate : null;
+  }
   travelView = createTravelView({
     canvas,
     feet: () => player.feetAt(),
@@ -15302,6 +15461,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     say: (t) => townTalk.say(t),
     touch: !!touch,
     alive: () => frameAlive(_frameToken),   // the heartbeat's question: a loop a later boot killed is left quietly
+    onPick: (x, y) => onTravelViewPick(x, y),   // TV2
+    onMark: (key) => onTravelViewMark(key),
+    marks: travelViewMarks,
+    route: travelViewRoute,
+    trip: () => (tvTripLive() ? tvTrip.line : ''),
   });
   const lookGate = makeLookGate(canvas);
   const _frameToken = claimFrame();   // P0: this session owns the loop until someone claims after it
@@ -15631,6 +15795,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // the void"). The journey the player sees is the same: the ground
         // goes past at the acceleration, the clock keeps up with it, and
         // what interrupts a journey interrupts it on its own honest clock.
+        travelViewGovern(dt);   // TV2: under the travel view the clock runs no faster than the land loads
         const travelScale = worldTimeScale();
         const _overlayHeld = (modes?.dungeonCtx?.uiOverlayActive ?? false) || townTalk.overlayActive;   // chargen/windows/talk hold the motor - typing must not walk the player
         // TO1: THE MOD'S OWN FRAME - TravelOptionsMod.Update, in its
@@ -17675,6 +17840,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           destination: travelControlUI?.destinationName ?? '',
           following: !travelOptions?.destinationName,
           accel: travelControlUI?.timeAcceleration ?? 1,
+          held: tvHeld,   // TV2: the travel view's cap, while it holds the clock under the spinner
           message: travelControlUI?.message ?? '',
           minutesLeft: travelOptions?.minutesLeft ?? null,   // AUDIT-TO1 L5: the popup's estimate, run down on the world clock
           from: playerTravelPixel(),

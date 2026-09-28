@@ -75,10 +75,27 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   indoors: 'You can only survey the land from the open air.',
   underwater: 'You cannot survey the land from under the water.',
   enemies: 'You cannot survey the land with enemies nearby.',
+  // TV2: what a click says when it cannot be a journey, and the trip's own words
+  noJourneys: 'Turn on Travel Options to travel from the overworld.',
+  water: 'You cannot walk out onto the water.',
+  far: 'That lies beyond what you can see from here.',
+  noWay: 'There is no way there by land.',
+  spot: 'The marked spot',
+  byRoad: (name) => `To ${name}, by the road`,
+  acrossCountry: (name) => `To ${name}, across country`,
+  toSpot: 'To the marked spot',
+  held: (n, of) => `Held to ×${n} of ×${of} while the land loads`,
   inPlace: (place, region) => (region ? `${place}, ${region}` : place),
   nearPlace: (place, region) => (region ? `Near ${place}, ${region}` : `Near ${place}`),
   wilderness: (region) => (region ? `The wilds of ${region}` : 'The wilds'),
 });
+
+/** TV2: the trip's line - a place by the roads when half its way or more is road or track, across country otherwise;
+ *  a spot is a spot. */
+export function travelTripLine({ name = '', share = 0, spot = false } = {}) {
+  if (spot) return TRAVEL_VIEW_TEXT.toSpot;
+  return share >= 0.5 ? TRAVEL_VIEW_TEXT.byRoad(name) : TRAVEL_VIEW_TEXT.acrossCountry(name);
+}
 
 /** The readout's place line: inside a location's rect its name; on its pixel outside the rect "Near" it; else the
  *  region's wilds. */
@@ -107,8 +124,12 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  * @param {(free:boolean) => void} [deps.freeCursor] - the cursor out (up) and the look back (off)
  * @param {() => string} [deps.where] - the readout's line: the place and the region
  * @param {(p:number[]) => {x:number,y:number,front:boolean}} [deps.project] - a world point to the screen, this frame
- * @param {(x:number, y:number, e:any) => void} [deps.onPick] - TV2: a click on the ground
- * @param {() => any[]} [deps.marks] - TV2/TV3: the keyed marks the readout draws
+ * @param {(x:number, y:number, e:any) => void} [deps.onPick] - TV2: a click on the ground (viewport pixels)
+ * @param {(key:string) => void} [deps.onMark] - TV2: a click on a mark that takes one (a place's plate)
+ * @param {() => Array<{key:string, at:number[], label?:string, kind?:string, pick?:boolean}>} [deps.marks] - TV2/TV3: the
+ *   keyed marks the readout draws, at WORLD points (projected here, through the frame's own matrices)
+ * @param {() => number[][]} [deps.route] - TV2: the journey's way, world points from the feet on
+ * @param {() => string} [deps.trip] - TV2: the journey in words
  * @param {{show:Function, hide:Function, update:Function}} [deps.hud] - ui/travelViewHud.js
  * @param {(t:string) => void} [deps.say]
  * @param {boolean} [deps.touch]
@@ -231,7 +252,7 @@ export function createTravelView(deps) {
     heldBody = !!deps.holdBody?.(true);
     deps.freeCursor?.(true);
     listen(true);
-    deps.hud?.show({ onReturn: () => exit('button') });
+    deps.hud?.show({ onReturn: () => exit('button'), onMark: (key) => { if (state === 'up') deps.onMark?.(key); } });
     rearm();
     return true;
   }
@@ -320,9 +341,16 @@ export function createTravelView(deps) {
     const a = deps.project ? deps.project([feet[0] + ahead[0] * 4, feet[1], feet[2] + ahead[2] * 4]) : null;
     const h = f && a && f.front && a.front ? (Math.atan2(a.x - f.x, -(a.y - f.y)) * 180) / Math.PI : null;
     if (h != null) lastHeading = h;
+    const proj = (p) => (deps.project && p ? deps.project(p) : null);
+    const marks = [];
+    for (const m of deps.marks?.() ?? []) {
+      const at = proj(m.at);
+      marks.push({ key: m.key, x: at?.x ?? 0, y: at?.y ?? 0, front: !!at?.front, label: m.label, kind: m.kind, pick: !!m.pick });
+    }
     deps.hud.update({
       feet: f, heading: lastHeading, yaw: camera?.yaw ?? 0, where: deps.where?.() ?? '',
-      touch: !!deps.touch, fade: t, marks: deps.marks?.() ?? [],
+      touch: !!deps.touch, fade: t, marks,
+      route: (deps.route?.() ?? []).map(proj), trip: deps.trip?.() ?? '',
     });
   }
 

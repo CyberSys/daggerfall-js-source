@@ -2492,6 +2492,7 @@ ${badgeCss()}
   padding: 7px 14px; border-left: 1px solid rgba(192,138,62,0.25); }
 .travelpanel-stepper { display: flex; align-items: center; gap: 6px; }
 .travelpanel-accel { font-family: var(--display); font-size: 19px; min-width: 46px; text-align: center; color: var(--brass); }
+.travelpanel-accel.held { font-size: 15px; min-width: 84px; color: #d9a441; }   /* TV2: held while the land loads */
 .travelpanel-step { pointer-events: auto; width: 22px; height: 22px; line-height: 1;
   background: rgba(43,50,59,0.9); color: var(--bone); border: 1px solid rgba(192,138,62,0.4);
   border-radius: 2px; font-size: 14px; cursor: pointer; }
@@ -2524,6 +2525,21 @@ ${badgeCss()}
 .tview-mark.dest .tview-label { color: var(--brass); }
 .tview-mark.traveller .tview-dot { background: var(--verdigris); }
 .tview-mark.party .tview-dot { background: #6fb86a; }
+/* TV2: the places in the view - a plate that takes the pointer (a click is a journey there by the roads) - the
+   destination's flag, and the route line under the marks (a dark casing, the brass line dashed over it). */
+.tview-mark.place .tview-dot { width: 8px; height: 8px; left: -4px; top: -4px; background: var(--brass); }
+.tview-mark.place .tview-label { top: -24px; padding: 2px 7px; font-family: var(--display); font-size: 13px;
+  background: rgba(14,16,19,0.72); border: 1px solid rgba(192,138,62,0.35); border-radius: 2px; }
+.tview-mark.pick { pointer-events: auto; cursor: pointer; }
+.tview-mark.pick .tview-label { pointer-events: auto; }
+.tview-mark.pick:hover .tview-label { border-color: var(--brass); color: var(--brass); }
+.tview-mark.target .tview-dot { background: transparent; border: 2px solid var(--brass); width: 16px; height: 16px;
+  left: -10px; top: -10px; box-shadow: 0 0 6px rgba(192,138,62,0.7); }
+.tview-route { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.tview-route-casing { fill: none; stroke: rgba(0,0,0,0.55); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.tview-route-line { fill: none; stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 9 6; stroke-linecap: round;
+  stroke-linejoin: round; }
+.tview-trip { font-size: 11.5px; color: var(--brass); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   display: flex; align-items: center; gap: 12px; min-width: min(560px, 94vw); max-width: 94vw; padding: 8px 12px;
   background: linear-gradient(180deg, rgba(23,27,33,0.9), rgba(14,16,19,0.92));
