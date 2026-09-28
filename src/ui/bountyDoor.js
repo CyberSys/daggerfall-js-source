@@ -28,7 +28,9 @@ export function createBountyOverlay(kind, deps) {
   host.style.cssText = 'position:fixed;inset:0;z-index:13;background:transparent;overflow:hidden';
   document.body.append(host);
   let unregister = () => {};
-  const close = () => {
+  /** `read`: the window's own exit (its button, Escape, a tap outside) - false when it is taken down under the reader
+   *  (another window took the slot, a death came), which the host hears as unread (AUDIT 28 H12). */
+  const close = (read = false) => {
     if (fired) return;
     unregister();
     deps.detach?.();
@@ -37,9 +39,9 @@ export function createBountyOverlay(kind, deps) {
     host.remove();
     fired = true;   // last: `done` must not read true while the DOM is up
     if (_open === overlay) _open = null;
-    deps.onClose?.();
+    deps.onClose?.(read);
   };
-  unregister = registerOverlay(close);
+  unregister = registerOverlay(() => close(true));   // the overlay stack's Escape: the player's own dismissal
   const overlay = {
     isChoiceWindow: true,
     get done() { return fired; },
@@ -56,10 +58,10 @@ export function createBountyOverlay(kind, deps) {
   mountEnhancedChunk({
     load: () => import('./bountyWindow.js'),
     mount: (m) => {
-      view = kind === 'notice' ? m.mountBountyNotice(host, { ...deps, onExit: close }) : m.mountBountyBoard(host, { ...deps, onExit: close });
+      view = kind === 'notice' ? m.mountBountyNotice(host, { ...deps, onExit: () => close(true) }) : m.mountBountyBoard(host, { ...deps, onExit: () => close(true) });
       deps.attach?.(view);
     },
-    alive: () => !fired, host, onDismiss: () => { close(); }, label: `bounty-${kind}`,
+    alive: () => !fired, host, onDismiss: () => { close(false); }, label: `bounty-${kind}`,   // a chunk that never loaded: unread
   });
   return overlay;
 }

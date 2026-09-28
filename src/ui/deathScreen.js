@@ -34,7 +34,7 @@ import { isEnhanced } from '../systems/uiSkin.js';   // DEATH2: the enhanced ski
 import { drawEnhancedDeath, removeEnhancedDeath } from './enhancedDeath.js';
 import { EYE_HEIGHT } from '../player/motor.js';   // DEATH3: the standing eye the fall starts from
 import { isOnlinePage } from '../systems/onlineLane.js';   // DEATH4: the online screen counts down, the offline one waits
-import { deathGoldLoss, deathPenaltyLine } from '../systems/deathPenalty.js';   // DEATH-PENALTY: the screen says what the respawn is about to take
+import { stateDeathLoss, deathGoldLoss, deathPenaltyLine } from '../systems/deathPenalty.js';   // DEATH-PENALTY: the screen says what the respawn is about to take
 import { goldPiecesOf } from '../systems/inventory.js';   // DEATH-PENALTY: the purse the loss is read off
 
 /** DEATH4 (Discord, 2026-09-23: "don't let it fade away automatically in
@@ -89,7 +89,7 @@ export function fallCurve(elapsed) {
  *  and the reason the hint is drawn. `drop` is read by each host's
  *  frame to sink its camera - one player, one death, one law. */
 export class DeathScreen {
-  constructor({ eyeHeight, capsuleHeight, onReset = null, entity = playerEntity, hint = 'ENTER end   F11 load' } = {}) {
+  constructor({ eyeHeight, capsuleHeight, onReset = null, entity = playerEntity, hint = 'ENTER end   F11 load', online = undefined } = {}) {
     this.done = false;
     // RISE-STUCK: the screen keeps the top of its host's stack until it
     // goes - a box pushed while it is up waits beneath (ui/windowStack.js
@@ -103,12 +103,15 @@ export class DeathScreen {
     // hosts remember to pass a race they all already import.
     // DEATH3: the fall is the enhanced skin's; the classic keeps DFU's sink.
     this.fall = isEnhanced();
-    this.online = isOnlinePage();
+    // AUDIT 28 B5: a host whose death never respawns online (the fixed city, the standalone dungeon) says so - its
+    // screen counts no online respawn down and shows no loss it will never take
+    this.online = online ?? isOnlinePage();
     // DEATH-PENALTY (Mac: "and it should be shown in the death screen"): the gold the respawn will take,
-    // read HERE, once. The purse cannot change while the player is dead, so this is exactly what
-    // respawnOnlinePlayer's applyDeathPenalty takes from the same counter; offline there is no respawn
-    // and no penalty, so the screen has nothing to say.
+    // read HERE, once - and STATED (systems/deathPenalty.js stateDeathLoss): the respawn takes exactly this, capped
+    // at the purse, whatever the purse did while the player lay dead (AUDIT 28 B5: a mate's bounty clear pays the
+    // dead too, and the respawn took a quarter of the bigger purse). Offline there is no respawn and no penalty.
     this.goldLoss = this.online ? deathGoldLoss(goldPiecesOf(entity)) : 0;
+    if (this.online) stateDeathLoss(this.goldLoss);
     this.goldLossLine = deathPenaltyLine(this.goldLoss);   // drawn ONCE: the enhanced face redraws every frame and the words must not change under the player
     this.clock = 0;   // DEATH4: the enhanced screen's own clock (the sequence's stops short of its reset)
     this.eyeHeight = Number.isFinite(eyeHeight) ? eyeHeight : EYE_HEIGHT;

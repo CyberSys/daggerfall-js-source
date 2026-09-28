@@ -160,15 +160,18 @@ test('BOUNTY1: the party - a share is taken up, a mate\'s clear pays me, one pac
   });
   mateRows = [{ i: '900.300.200.2.4', s: 1 }];
   host.tick(1);
-  assert.deepEqual(host.held().map((h) => [h.id, h.from]), [['900.300.200.2.4', 'Aldric']], 'the share, at the sharer\'s level');
-  assert.deepEqual(host.poseField(), { bq: [{ i: '900.300.200.2.4', s: 1 }] });
+  assert.deepEqual(host.held().map((h) => [h.id, h.from]), [['900.300.200.2.5', 'Aldric']], 'the share, at MY level in its tier (AUDIT 28 B12)');
+  assert.deepEqual(host.poseField(), { bq: [{ i: '900.300.200.2.5', s: 1 }] });
   mateRows = [{ i: '900.300.200.2.4', c: 1 }];
+  host.tick(1);
+  assert.equal(host.held().length, 1, 'a clear that says not WHEN pays nobody (AUDIT 28 B1)');
+  mateRows = [{ i: '900.300.200.2.4', c: 1, t: 900 * 1440 + 60 }];
   host.tick(1);
   assert.equal(host.held().length, 0);
   const { postingFromId } = await import('../src/systems/bountyBoard.js');
-  const shared = postingFromId('900.300.200.2.4', { sites: bountySites(300, 200, allLand) });
-  assert.equal(entity.goldPieces, shared.gold, 'paid at the bounty\'s level (4) and pack');
-  assert.deepEqual(host.poseField(), { bq: [{ i: '900.300.200.2.4', c: 1 }] });
+  const shared = postingFromId('900.300.200.2.5', { sites: bountySites(300, 200, allLand) });
+  assert.equal(entity.goldPieces, shared.gold, 'paid at my level (5) and the hunt\'s pack');
+  assert.deepEqual(host.poseField(), { bq: [{ i: '900.300.200.2.5', c: 1, t: 900 * 1440 + 60 }] });
 });
 
 test('BOUNTY1: the wire carries `bq` in its law and drops what is not', () => {

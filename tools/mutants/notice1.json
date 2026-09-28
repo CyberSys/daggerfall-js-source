@@ -11,8 +11,8 @@
   {
     "name": "NOTICE1-2-a-muted-authors-notes-stay-up",
     "file": "server-account/src/board.js",
-    "old": "      AND (COALESCE(p.muted_until, 0) <= ? OR ? = 1)",
-    "new": "      AND (COALESCE(p.muted_until, 0) <= ? OR ? = 1 OR 1 = 1)",
+    "old": "      AND (COALESCE(p.muted_until, 0) <= ?2 OR ?3 = 1 OR n.author = ?4)",
+    "new": "      AND (COALESCE(p.muted_until, 0) <= ?2 OR ?3 = 1 OR n.author = ?4 OR 1 = 1)",
     "tests": [
       "test/notice1.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "NOTICE1-3-reports-never-hide",
     "file": "server-account/src/board.js",
-    "old": "      AND (n.hidden <> 1 OR ? = 1)",
-    "new": "      AND (n.hidden <> 9 OR ? = 1)",
+    "old": "      AND (n.hidden <> 1 OR ?3 = 1 OR n.author = ?4)",
+    "new": "      AND (n.hidden <> 9 OR ?3 = 1 OR n.author = ?4)",
     "tests": [
       "test/notice1.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "NOTICE1-4-the-reporter-still-sees-it",
     "file": "server-account/src/board.js",
-    "old": "WHERE r.note_id = n.id AND r.reporter = ?)",
-    "new": "WHERE r.note_id = n.id AND r.reporter = ? AND 1 = 0)",
+    "old": "WHERE r.note_id = n.id AND r.reporter = ?4)",
+    "new": "WHERE r.note_id = n.id AND r.reporter = ?4 AND 1 = 0)",
     "tests": [
       "test/notice1.test.js"
     ]
@@ -65,7 +65,7 @@
   {
     "name": "NOTICE1-8-a-gone-guilds-button-stays",
     "file": "server-account/src/board.js",
-    "old": "    button: n.button === 'guild' && !n.guild_name ? null : (n.button ?? null),",
+    "old": "    button: n.button === 'guild' && !guildOk ? null : (n.button ?? null),",
     "new": "    button: n.button ?? null,",
     "tests": [
       "test/notice1.test.js"
@@ -74,8 +74,8 @@
   {
     "name": "NOTICE1-9-the-third-report-does-not-hide",
     "file": "server-account/src/board.js",
-    "old": "    AND (SELECT COUNT(*) FROM board_reports WHERE note_id = ?) >= ?`)",
-    "new": "    AND (SELECT COUNT(*) FROM board_reports WHERE note_id = ?) > ?`)",
+    "old": "AND p.created_at <= ?2 - ?4) >= ?3`)",
+    "new": "AND p.created_at <= ?2 - ?4) > ?3`)",
     "tests": [
       "test/notice1.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "NOTICE1-10-a-restored-note-hides-again",
     "file": "server-account/src/board.js",
-    "old": "  await db.prepare(`UPDATE board_notes SET hidden = 1 WHERE id = ? AND hidden = 0",
-    "new": "  await db.prepare(`UPDATE board_notes SET hidden = 1 WHERE id = ? AND hidden <> 1",
+    "old": "  await db.prepare(`UPDATE board_notes SET hidden = 1 WHERE id = ?1 AND hidden = 0",
+    "new": "  await db.prepare(`UPDATE board_notes SET hidden = 1 WHERE id = ?1 AND hidden <> 1",
     "tests": [
       "test/notice1.test.js"
     ]
@@ -119,8 +119,8 @@
   {
     "name": "NOTICE1-14-anyone-posts-a-notice",
     "file": "server-account/src/board.js",
-    "old": "export async function postNotice({ db, rand, nowS }, dev, env, { subject, body, days } = {}) {\n  if (!isDeveloper(dev, env)) return { error: 'not-developer' };",
-    "new": "export async function postNotice({ db, rand, nowS }, dev, env, { subject, body, days } = {}) {\n  if (false) return { error: 'not-developer' };",
+    "old": "export async function postNotice({ db, rand, nowS }, dev, env, { subject, body, days, rid } = {}) {\n  if (!isDeveloper(dev, env)) return { error: 'not-developer' };",
+    "new": "export async function postNotice({ db, rand, nowS }, dev, env, { subject, body, days, rid } = {}) {\n  if (false) return { error: 'not-developer' };",
     "tests": [
       "test/notice1.test.js"
     ]
@@ -164,8 +164,8 @@
   {
     "name": "NOTICE1-19-a-closed-board-still-shown",
     "file": "src/net/noticeBook.js",
-    "old": "      if (r?.error === 'board-closed') { open = false; e.board = null; }",
-    "new": "      if (r?.error === 'board-closed') { open = false; }",
+    "old": "      if (SHUT.includes(r?.error)) { open = false; e.board = null; }",
+    "new": "      if (SHUT.includes(r?.error)) { open = false; }",
     "tests": [
       "test/notice1.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "NOTICE1-20-a-retry-a-new-note",
     "file": "src/net/noticeBook.js",
-    "old": "      const p = write(map, () => door.pin({ map, ...note }, id), 'Your note is pinned up.')",
-    "new": "      const p = write(map, () => door.pin({ map, ...note }, rid()), 'Your note is pinned up.')",
+    "old": "    pin: (map, note) => once(`pin:${map}`, note, (id) => door.pin({ map, ...note }, id), 'Your note is pinned up.', map),",
+    "new": "    pin: (map, note) => once(`pin:${map}`, note, () => door.pin({ map, ...note }, rid()), 'Your note is pinned up.', map),",
     "tests": [
       "test/notice1.test.js"
     ]

@@ -22,7 +22,7 @@ import {
 import { accountMarks, REFUSALS, SESSION_KEY } from '../src/net/accountClient.js';
 import { createMarksBook, MARKS_TEXT, MARKS_PENDING_KEY, mintMarksRid } from '../src/net/marksBook.js';
 import { createGateClaims } from '../src/net/gateClaims.js';
-import { creditMarksSale, createBankAccounts } from '../src/systems/banking.js';
+import { creditMarksSale, marksSaleCredit, createBankAccounts } from '../src/systems/banking.js';
 import { BankWindow, MARKS_ENTRY, MARKS_COUNTING } from '../src/ui/bankWindow.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -205,7 +205,7 @@ test('MARKS1 the Bank: Marks burnt for 8 gold each, never more than held, 300 a 
   const sell = (marks, r = rid()) => call('/v1/marks/exchange', { marks, rid: r }, a.secret);
   const r1 = rid();
   assert.deepEqual((await sell(200, r1)).body, { ok: true, marks: 200, gold: 1600, balance: 800, exchangedToday: 200 });
-  assert.deepEqual((await sell(200, r1)).body, { repeat: true, marks: 200, gold: 1600, balance: 800 }, 'its answer lost and asked again: answered again, never sold twice');
+  assert.deepEqual((await sell(200, r1)).body, { repeat: true, marks: 200, gold: 1600, balance: 800, exchangedToday: 200 }, 'its answer lost and asked again: answered again, never sold twice');
   assert.deepEqual(await sell(101), { status: 409, body: { error: 'marks-bank-cap' } }, '300 a day');
   assert.equal((await sell(100)).body.balance, 700);
   assert.deepEqual(await sell(1), { status: 409, body: { error: 'marks-bank-cap' } });
@@ -226,7 +226,7 @@ test('MARKS1 the Bank: Marks burnt for 8 gold each, never more than held, 300 a 
 
 // ─── A GUILD'S MARKS TREASURY ────────────────────────────────────────────────────────────────────────────────────────
 
-test('MARKS1 a guild\'s Marks treasury: any member puts Marks in from the account\'s balance; the guildmaster alone takes them out; the view shows it and its lines; a disband waits for it to be empty', async (t) => {
+test('MARKS1 a guild\'s Marks treasury: any member puts Marks in from the account\'s balance; the guildmaster alone takes them out; the view shows it and its lines; a disband gives what is left to the guildmaster (AUDIT 28 M3)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const { env, registered, call } = await stand();
   const seed = (who, n) => env.DB._raw.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
@@ -252,12 +252,13 @@ test('MARKS1 a guild\'s Marks treasury: any member puts Marks in from the accoun
   assert.equal(view.marks, 180);
   assert.deepEqual(view.marksLedger.map((l) => [l.who, l.kind, l.amount]), [['Aldric', 'withdraw', 120], ['Mara', 'deposit', 300]]);
   assert.deepEqual(await put({ ...mara, character: 'char-not-in-it' }, 1), { status: 404, body: { error: 'no-guild' } });
-  // a disband waits for the Marks too (PROF0 18)
+  // AUDIT 28 M3: a disband gives the Marks still held to the guildmaster - one line, in the disband's own batch
   await call('/v1/guilds/remove', { character: aldric.character, member: view.members.find((m) => m.name === 'Mara').member }, aldric.secret);
-  assert.deepEqual(await call('/v1/guilds/disband', { character: aldric.character }, aldric.secret), { status: 409, body: { error: 'guild-treasury' } }, 'Marks still held');
-  await take(aldric, 180);
-  assert.equal((await call('/v1/guilds/disband', { character: aldric.character }, aldric.secret)).status, 200, 'empty, it goes');
+  assert.equal((await call('/v1/guilds/disband', { character: aldric.character }, aldric.secret)).status, 200, 'it goes');
   assert.equal(env.DB._raw.prepare('SELECT COUNT(*) AS n FROM guild_marks').get().n, 0);
+  assert.equal(env.DB._raw.prepare('SELECT balance FROM marks WHERE account = ?').get(aldric.id).balance, 400, '220 held + the 180 the treasury held');
+  assert.deepEqual({ ...env.DB._raw.prepare("SELECT kind, amount, src_kind, dst_id FROM marks_ledger WHERE rid = ?").get(`disband:${guild.id}`) },
+    { kind: 'guild-withdraw', amount: 180, src_kind: 'guild', dst_id: aldric.id }, 'and the ledger says where they went');
 });
 
 // ─── THE WEEKLY REPORT ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -284,9 +285,9 @@ test('MARKS1 the weekly report: a developer\'s alone - struck by faucet, burnt b
 /** A JSON store as the host's (scenes/spoilsPool.js spoilsStore). */
 const jsonStore = () => { const m = new Map(); return { get: (k) => m.get(k), set: (k, v) => (v == null ? m.delete(k) : m.set(k, v)), _m: m }; };
 /** The door over the real Worker, as a signed-in device holds it. */
-const doorOver = (env, secret) => accountMarks({
+const doorOver = (env, who) => accountMarks({
   fetch: (u, i) => worker.fetch(new Request(u, i), env),
-  storage: { getItem: (k) => (k === SESSION_KEY ? JSON.stringify({ secret }) : null) },
+  storage: { getItem: (k) => (k === SESSION_KEY ? JSON.stringify({ secret: who.secret, id: who.id }) : null) },
 });
 const seedMarks = (env, who, n) => env.DB._raw.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
   VALUES ('mint', NULL, 'account', ?, 'test', ?, 1, 1, ?, NULL, ?)`).run(who.id, n, who.id, `seed-${who.handle}-${n}`);
@@ -311,9 +312,9 @@ test('MARKS1 the Bank\'s sale, end to end: the Marks burnt on the service and th
   const { env, registered } = await stand();
   const a = await registered('Anna');
   seedMarks(env, a, 1000);
-  const real = doorOver(env, a.secret);
+  const real = doorOver(env, a);
   const accounts = createBankAccounts(62);
-  const credit = (gold, region) => creditMarksSale(accounts, region, gold);
+  const credit = marksSaleCredit(() => accounts, () => 17);
   const store = jsonStore();
   let playing = 'char-anna';
   const book = createMarksBook({ door: real, store, character: () => playing });
@@ -405,8 +406,8 @@ test('MARKS1 the wiring: online the streaming host holds the book and hands it t
   assert.match(w, /marks: marksBook,   \/\/ MARKS1: the guild's Marks treasury/);
   assert.match(w, /onMarks: \(marks\) => marksBook\?\.strikeLine\(marks\) \?\? null,/);
   const m = src('src/scenes/worldModes.js');
-  assert.match(m, /sellMarks: host\.marks \? \(n\) => host\.marks\.sell\(n, \(gold, region\) => creditMarksSale\(playerEntity\.bankAccounts, region \?\? bankRegion\(\), gold\), bankRegion\(\)\) : null,/);
-  assert.match(m, /void host\.marks\.settle\(/, 'a kept sale settles as the counter opens');
+  assert.match(m, /sellMarks: host\.marks \? \(n\) => host\.marks\.sell\(n, marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion\), bankRegion\(\)\) : null,/);
+  assert.match(m, /void host\.marks\.settle\(marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion\)\)/, 'a kept sale settles as the counter opens');
   assert.match(src('src/ui/enhancedPorts.js'), /\{ label: w\.hooks\.marks\.pending\(\) \? 'Counting a sale\.\.\.' : 'Sell Marks', act: \(\) => w\._button\('sellMarks'\)/);
   assert.match(src('src/ui/socialPanel.js'), /if \(g\.marks\?\.state\?\.open === true\) \{\n\s*out\.push\(el\('div', 'dfsocial-sec', 'Marks treasury'\)\);/);
   assert.match(src('src/ui/enhancedAccount.js'), /if \(Number\.isSafeInteger\(flow\.account\.marks\)\) row\('Marks', marksText\(flow\.account\.marks\)\);/);

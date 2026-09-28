@@ -186,7 +186,7 @@ export const REFUSALS = Object.freeze({
   'guild-full': `The guild already holds ${GUILD_MEMBERS_MAX} members.`,
   'no-invite': 'That invitation is no longer open.',
   'guild-master-leaves': 'Hand the guild on to another member before you leave it.',
-  'guild-treasury': 'Take the gold and the Marks out of the treasury first.',
+  'guild-treasury': 'Take the gold out of the treasury first.',   // AUDIT 28 M3: the Marks go to the guildmaster with the guild
   'no-member': 'That member is no longer in the guild.',
   'bad-ranks': `Each rank needs a name of its own, 1 to ${GUILD_RANK_NAME_MAX} letters, digits, spaces, apostrophes or hyphens.`,
   'bad-gold': `Gold goes in or out 1 to ${GUILD_MOVE_MAX} at a time.`,
@@ -224,6 +224,7 @@ export const REFUSALS = Object.freeze({
   'own-note': 'That note is your own.',
   'bad-act': 'That could not be done.',
   'board-rate': 'You have pinned a great many notes this hour. Try again later.',
+  'board-ops-rate': 'You have done a great deal at the boards this hour. Try again later.',   // AUDIT 28 N14: a take-down's and a report's
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
 });
@@ -642,8 +643,7 @@ export const DECOR_LIST_WAIT_MS = 10_000;
  */
 export function accountDecor({ fetch, storage, listWaitMs = DECOR_LIST_WAIT_MS }) {
   const post = sessionPost({ fetch, storage });
-  const wait = () => (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(listWaitMs) : undefined);
-  const waited = sessionPost({ fetch: (url, init) => fetch(url, { ...init, signal: wait() }), storage });
+  const waited = waitedPost({ fetch, storage }, listWaitMs);
   return {
     list: (mapId, buildingKey) => waited('/v1/homes/decor', { mapId, buildingKey }),
     place: ({ mapId, buildingKey, character, piece }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece }),
@@ -677,14 +677,27 @@ export function accountGuilds({ fetch, storage }) {
   };
 }
 
+/** AUDIT 28 M6 / N6: how long one Marks or Notice Board request is waited for before it is given up as `offline` - a
+ *  line that stayed open with nothing coming back held the Bank's counting box (and a board's read) until the browser
+ *  gave up, minutes a try. Given up, the act is asked again with the SAME request id, or kept. */
+export const ACCOUNT_ACT_WAIT_MS = 15_000;
+/** A session POST that gives up after `ms` (AbortSignal.timeout - an abort is `call`'s `offline`). */
+function waitedPost({ fetch, storage }, ms) {
+  const wait = () => (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(ms) : undefined);
+  return sessionPost({ fetch: (url, init) => fetch(url, { ...init, signal: wait() }), storage });
+}
+
 /**
  * MARKS1: MARKS (server-account/src/marks.js) through the one door - the balance, the Bank's exchange (Marks for gold,
  * never the other way), a guild's Marks treasury and the developers' report. Every act carries its own request id, so an
- * answer lost and asked again is answered again, never charged twice. Every answer is `call`'s shape.
+ * answer lost and asked again is answered again, never charged twice. Every answer is `call`'s shape; each is waited
+ * for ACCOUNT_ACT_WAIT_MS at most. `account()` is the account this device is signed in as (AUDIT 28 M2: a kept sale is
+ * asked again only under the account that made it).
  */
-export function accountMarks({ fetch, storage }) {
-  const post = sessionPost({ fetch, storage });
+export function accountMarks({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);
   return {
+    account: () => storedSession(storage)?.id ?? null,
     balance: () => post('/v1/marks/balance', {}),
     exchange: (marks, rid) => post('/v1/marks/exchange', { marks, rid }),
     guildDeposit: (character, marks, rid) => post('/v1/marks/guild/deposit', { character, marks, rid }),
@@ -698,8 +711,8 @@ export function accountMarks({ fetch, storage }) {
  * (with its own request id, so a pin asked again is the note it made), taken down and reported; a moderator's remove
  * and restore; a developer's notice. Every answer is `call`'s shape.
  */
-export function accountBoard({ fetch, storage }) {
-  const post = sessionPost({ fetch, storage });
+export function accountBoard({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);   // AUDIT 28 N6: a read or a pin that hangs is given up, never wedged
   return {
     read: (map) => post('/v1/board/read', { map }),
     pin: ({ map, subject, body, days, button = null, character = null }, rid) => post('/v1/board/pin', { map, subject, body, days, button, character, rid }),
@@ -707,7 +720,7 @@ export function accountBoard({ fetch, storage }) {
     report: (id) => post('/v1/board/report', { id }),
     modRemove: (id) => post('/v1/board/mod/remove', { id }),
     modRestore: (id) => post('/v1/board/mod/restore', { id }),
-    notice: ({ subject, body, days }) => post('/v1/board/notice', { subject, body, days }),
+    notice: ({ subject, body, days }, rid) => post('/v1/board/notice', { subject, body, days, rid }),
     noticeRemove: (id) => post('/v1/board/notice/remove', { id }),
   };
 }

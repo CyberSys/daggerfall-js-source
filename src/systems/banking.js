@@ -427,6 +427,10 @@ export function creditMarksSale(accounts, regionIndex, gold) {
   return accounts[regionIndex].accountGold;
 }
 
+/** MARKS1 / AUDIT 28 M12: the Bank's credit as the Marks book calls it - `(gold, region)`, into the region the sale was
+ *  MADE at when the book names one (a kept sale settled at another bank), else this bank's (`here()`). */
+export const marksSaleCredit = (accounts, here) => (gold, region = null) => creditMarksSale(accounts(), Number.isSafeInteger(region) ? region : here(), gold);
+
 export function accountTotal(accounts, regionIndex) {
   mustValidate(accounts, regionIndex);
   return accounts[regionIndex].accountGold;

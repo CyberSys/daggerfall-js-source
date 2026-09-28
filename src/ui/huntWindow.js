@@ -99,7 +99,8 @@ export class HuntWindow {
     if (this.phase === HUNT_PHASE.Busy) {
       // AUDIT SURV C: Escape walks away from the search - nothing found, nothing charged (a foe that wanders in
       // under the window keeps its clock, WINFOE1, and the hunter must be able to turn and fight)
-      if (code === 'Escape' && this._escape) this._end(false);
+      // AUDIT 28 H7: townTalk hands a non-choice window the ACTION (`back`), never the raw key - Escape was never heard
+      if ((code === 'Escape' || code === 'back') && this._escape) this._end(false);
       return;
     }
     this._flow.input(code, e);

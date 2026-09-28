@@ -418,9 +418,12 @@ export function questBoardIndices(boards) {
  * A hunter's bounties: the ones held, and the slots already paid (a slot paid is not posted to that hunter again
  * that day). Plain data - it is the save record as it stands.
  * @typedef {{ id:string, takenAt:number, killed:number, shared?:boolean, from?:string }} HeldBounty
- * @typedef {{ held: HeldBounty[], paid: string[], dropped: string[] }} BountyLedger
+ * @typedef {{ held: HeldBounty[], paid: string[], dropped: string[], paidAt?: Record<string, number>, droppedKilled?: Record<string, number> }} BountyLedger
  */
-export const newBountyLedger = () => ({ held: [], paid: [], dropped: [] });
+/** AUDIT 28 B1/B2: `paidAt` - slotKey -> the minute it was paid (a mate's clear pays only a bounty held before it);
+ *  `droppedKilled` - slotKey -> the kills a bounty given up had (taken again, it goes on from them). */
+/** @returns {BountyLedger} */
+export const newBountyLedger = () => ({ held: [], paid: [], dropped: [], paidAt: /** @type {Record<string, number>} */ ({}), droppedKilled: /** @type {Record<string, number>} */ ({}) });
 
 /** A save record, read defensively - anything malformed is dropped rather than trusted. */
 export function readBountyLedger(rec) {
@@ -432,6 +435,11 @@ export function readBountyLedger(rec) {
     if (out.held.length >= BOUNTY_ACTIVE_MAX) break;
   }
   for (const k of ['paid', 'dropped']) for (const s of Array.isArray(rec[k]) ? rec[k] : []) if (typeof s === 'string' && s.length <= 40) out[k].push(s);
+  for (const k of /** @type {const} */ (['paidAt', 'droppedKilled'])) {
+    const src = rec[k] && typeof rec[k] === 'object' && !Array.isArray(rec[k]) ? rec[k] : {};
+    const into = /** @type {Record<string, number>} */ (out[k]);
+    for (const [slot, v] of Object.entries(src)) if (slot.length <= 40 && Number.isSafeInteger(v) && v >= 0) into[slot] = v;
+  }
   return out;
 }
 
@@ -455,9 +463,12 @@ export function takeBounty(ledger, id, nowMinutes, { shared = false, from = null
   if (heldSlot(ledger, b.slotKey)) return { ok: false, reason: 'held' };
   if (ledger.paid.includes(b.slotKey)) return { ok: false, reason: 'paid' };
   if (ledger.held.length >= BOUNTY_ACTIVE_MAX) return { ok: false, reason: 'full' };
-  const row = { id, takenAt: nowMinutes, killed: 0, ...(shared ? { shared: true } : {}), ...(from ? { from: String(from).slice(0, 24) } : {}) };
+  // AUDIT 28 B2: a notice given up and taken again goes on from the kills it had - never a fresh pack to farm
+  const killed = Math.max(0, ledger.droppedKilled?.[b.slotKey] ?? 0);
+  const row = { id, takenAt: nowMinutes, killed, ...(shared ? { shared: true } : {}), ...(from ? { from: String(from).slice(0, 24) } : {}) };
   ledger.held.push(row);
   ledger.dropped = ledger.dropped.filter((s) => s !== b.slotKey);
+  if (ledger.droppedKilled) delete ledger.droppedKilled[b.slotKey];
   return { ok: true, row };
 }
 
@@ -468,16 +479,18 @@ export function dropBounty(ledger, id) {
   const [row] = ledger.held.splice(i, 1);
   const k = parseBountyId(row.id)?.slotKey;
   if (k && !ledger.dropped.includes(k)) ledger.dropped.push(k);
+  if (k && row.killed > 0) (ledger.droppedKilled ??= {})[k] = row.killed;
   return true;
 }
 
 /** A bounty paid: out of the held list, its slot into the paid list. Answers the row, or null. */
-export function payBounty(ledger, id) {
+export function payBounty(ledger, id, nowMinutes = null) {
   const i = ledger.held.findIndex((h) => h.id === id);
   if (i < 0) return null;
   const [row] = ledger.held.splice(i, 1);
   const k = parseBountyId(row.id)?.slotKey;
   if (k && !ledger.paid.includes(k)) ledger.paid.push(k);
+  if (k && Number.isSafeInteger(nowMinutes)) (ledger.paidAt ??= {})[k] = nowMinutes;   // AUDIT 28 B1: WHEN - the pose's `t`
   return row;
 }
 
@@ -493,6 +506,7 @@ export function pruneBountyLedger(ledger, today) {
   const keep = (s) => { const d = Number(String(s).split('.')[0]); return Number.isFinite(d) && d >= today - 1; };
   ledger.paid = ledger.paid.filter(keep);
   ledger.dropped = ledger.dropped.filter(keep);
+  for (const k of ['paidAt', 'droppedKilled']) for (const slot of Object.keys(ledger[k] ?? {})) if (!keep(slot)) delete ledger[k][slot];
 }
 
 /** Minutes a held bounty has left. */
@@ -506,33 +520,65 @@ export function bountyTimeText(minutes) {
 // ── the party's word (net/wire.js validPartyPose `bq`) ────────────────
 /** The most bounty rows one pose carries - the wire's own bound (net/wire.js), one home. */
 /**
- * What my party pose says of my bounties: every one I hold (`s: 1` if I shared it) and every one paid today (`c: 1`),
- * so a mate holding the same bounty is paid when I clear it, and a mate I shared one with takes it up.
+ * What my party pose says of my bounties: every one I hold (`s: 1` if I shared it; AUDIT 28 B3/B4: `k` its kills, `a: 1`
+ * while its pack stands on my machine) and every one paid (`c: 1`, `t` the minute - AUDIT 28 B1), NEWEST PAID FIRST
+ * (B7: the oldest were kept and today's cut), so a mate holding the same hunt is paid when I clear it - if they held it
+ * before - and a mate I shared one with takes it up.
  * @param {BountyLedger} ledger @param {Map<string,string>} paidIds slotKey -> the id I was paid for
+ * @param {{ standing?: (id: string) => boolean }} [o]
  */
-export function bountyPoseField(ledger, paidIds) {
-  /** @type {Array<{ i:string, s?:number, c?:number }>} */
-  const rows = ledger.held.map((h) => (h.shared ? { i: h.id, s: 1 } : { i: h.id }));
-  for (const id of paidIds.values()) if (rows.length < BOUNTY_POSE_MAX) rows.push({ i: id, c: 1 });
+export function bountyPoseField(ledger, paidIds, { standing = () => false } = {}) {
+  /** @type {Array<{ i:string, s?:number, c?:number, k?:number, a?:number, t?:number }>} */
+  const rows = ledger.held.map((h) => ({ i: h.id, ...(h.shared ? { s: 1 } : {}), ...(h.killed > 0 ? { k: h.killed } : {}), ...(standing(h.id) ? { a: 1 } : {}) }));
+  const paid = [...paidIds.entries()].map(([slot, id]) => ({ id, t: ledger.paidAt?.[slot] ?? -1 })).sort((a, b) => b.t - a.t);
+  for (const { id, t } of paid) if (rows.length < BOUNTY_POSE_MAX) rows.push({ i: id, c: 1, ...(t >= 0 ? { t } : {}) });
   return rows.length ? { bq: rows.slice(0, BOUNTY_POSE_MAX) } : {};
 }
 
+/** AUDIT 28 B12: a bounty id at another level - the same notice and, where the tier fits, the same hunt; a mate's copy
+ *  taken up is rebuilt at the taker's own level, so the piece it pays is minted for them. */
+export function bountyIdAtLevel(id, level) {
+  const b = parseBountyId(id);
+  return b ? bountyId(b.day, b.px, b.py, b.slot, level) : null;
+}
+
 /**
- * Who stands the pack when several of a party are on its pixel at once: the lowest account among those holding the
- * bounty there - one answer on every client, no word on the wire - so a party hunts ONE pack, never one each.
+ * Who stands the pack when several of a party are on its pixel at once - one answer on every client, so a party hunts
+ * ONE pack, never one each. AUDIT 28 B3: a mate whose pack for the hunt STANDS (`a: 1`), wherever they are, owns it -
+ * the lowest account of those if two raced; else the lowest account among the living, online holders on the pixel. (By
+ * the lowest account alone, a holder arriving after the pack stood stood a second, and one who stepped off the pixel
+ * handed the hunt to a mate who stood another.)
  * @param {string|null} me my account (null offline: I always stand it)
- * @param {Array<{acct:string, p:any}>} mates the party's other members, with their poses
- * @param {string} huntKey bountyHuntKey - the slot and the tier @param {{px:number, py:number}} target
+ * @param {Array<{acct:string, p:any, online?:boolean}>} mates the party's other members, with their poses
+ * @param {string} huntKey bountyHuntKey - the slot and the tier @param {{px:number, py:number}} target where the pack
+ *   stands, as the poses say a place (the pose's own pixel)
  * @param {number} [inside] where the pack stands - 0 the open air, 1 a dungeon (the party pose's `in`)
  */
 export function bountyPackOwner(me, mates, huntKey, target, inside = 0) {
   if (!me) return me;
+  const rowOf = (p) => (Array.isArray(p?.bq) ? p.bq.find((r) => !r.c && bountyHuntKey(r.i) === huntKey) : null);   // BOUNTY-TIER: the same hunt - slot and tier
+  const live = (mates ?? []).filter((m) => m?.acct && m.p && m.online !== false && !(m.p.h === 0));   // the dead and the gone stand nothing
+  const standing = live.filter((m) => rowOf(m.p)?.a === 1).map((m) => String(m.acct)).sort();
+  if (standing.length) return standing[0];
   let owner = me;
-  for (const m of mates ?? []) {
-    const p = m?.p;
-    if (!m?.acct || !p || p.px !== target.px || p.py !== target.py || (p.in ?? 0) !== inside) continue;
-    const holds = Array.isArray(p.bq) && p.bq.some((r) => !r.c && bountyHuntKey(r.i) === huntKey);   // BOUNTY-TIER: the same hunt - slot and tier
-    if (holds && String(m.acct) < String(owner)) owner = m.acct;
+  for (const m of live) {
+    const p = m.p;
+    if (p.px !== target.px || p.py !== target.py || (p.in ?? 0) !== inside) continue;
+    if (rowOf(p) && String(m.acct) < String(owner)) owner = m.acct;
   }
   return owner;
+}
+
+/** AUDIT 28 B4: THE HUNT'S KILLS, the party's: the most any holder of the same hunt reports (a pose's `k`) - so an owner
+ *  who fell or walked off hands on a hunt part done, never a fresh one. */
+export function bountyPartyKills(mates, huntKey) {
+  let k = 0;
+  for (const m of mates ?? []) for (const r of Array.isArray(m?.p?.bq) ? m.p.bq : []) {
+    if (!r.c && Number.isSafeInteger(r.k) && bountyHuntKey(r.i) === huntKey) k = Math.max(k, r.k);
+  }
+  return k;
+}
+/** AUDIT 28 B1: whether a mate's clear of this hunt came after `takenAt` (the pose's `t`) - only then does it pay. */
+export function bountyClearPays(r, takenAt) {
+  return r?.c === 1 && Number.isSafeInteger(r.t) && Number.isFinite(takenAt) && r.t >= takenAt;
 }

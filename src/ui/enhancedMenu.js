@@ -4017,6 +4017,7 @@ export function mountEnhancedMenu(host, {
   // whole settings screen, Controls among its categories), not on the home face a press away from it.
   else if (at && sections.some((l) => idOf(l) === at)) section = at;
   questSel = null;
+  bountyAbandonArmed = null;   // AUDIT 28 B11: an armed Abandon never outlives the visit it was armed on
   statsSec = 'character';
   statsAllSkills = false;
   sysSec = 'save';

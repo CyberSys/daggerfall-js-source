@@ -36,7 +36,7 @@ test('AUDIT BOUNTY1 B1: the payday notice waits for EVERY window - the street sl
   const at = w.indexOf('showNotice: (notice) => {');
   assert.ok(at > 0, 'the host hands the bounty host its notice door');
   const door = w.slice(at, w.indexOf('\n    },', at));
-  assert.match(door, /if \(\(townTalk\.overlayActive && !townTalk\.overlayDone\) \|\| \(modes\?\.overlayHeld \?\? false\)\) return false;/,
+  assert.match(door, /if \(\(townTalk\.overlayActive && !townTalk\.overlayDone\) \|\| \(modes\?\.overlayHeld \?\? false\) \|\| \(modes\?\.deathUp\?\.\(\) \?\? false\)\) return false;/,
     'the modal stacks hold it too - `modes.overlayHeld`, the host\'s own gamePaused half');
 });
 
@@ -85,11 +85,12 @@ test('AUDIT BOUNTY1 B3: the archive\'s words that no longer said the law - the r
   assert.doesNotMatch(read('src/systems/bountyReward.js'), /from level 11/, 'bountyReward.js: nor the piece\'s header');
 });
 
-test('AUDIT BOUNTY1 B4: the relay pins say who moved it - BOUNTY1 (world122), then ONE-SEAT (world121)', () => {
+test('AUDIT BOUNTY1 B4: the relay pins say who moved it - AUDIT 28 (world123), then BOUNTY1 (world122), then ONE-SEAT (world121)', () => {
   for (const f of ['test/soc1_hub.test.js', 'test/allycast.test.js', 'test/guild1c.test.js', 'test/renown1.test.js']) {
     const t = read(f);
-    assert.ok(t.includes('world122'), `${f}: the pin is on world122`);
-    assert.ok(!/world122[^\n]*ONE-SEAT moved it on last/.test(t), `${f}: and does not still credit ONE-SEAT with the move`);
+    assert.ok(t.includes("RELAY_VERSION, 'world123'"), `${f}: the pin is on world123`);
+    assert.ok(/AUDIT 28 moved it on last \(world123[^\n]*BOUNTY1 \(world122/.test(t), `${f}: crediting AUDIT 28, then BOUNTY1`);
+    assert.ok(!/world12[23][^\n]*ONE-SEAT moved it on last/.test(t), `${f}: and does not still credit ONE-SEAT with the move`);
   }
 });
 

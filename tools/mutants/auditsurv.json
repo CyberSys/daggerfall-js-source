@@ -129,7 +129,7 @@
   {
     "name": "AUDITSURV-escape-cannot-leave-the-search",
     "file": "src/ui/huntWindow.js",
-    "old": "      if (code === 'Escape' && this._escape) this._end(false);\n",
+    "old": "      if ((code === 'Escape' || code === 'back') && this._escape) this._end(false);\n",
     "new": "",
     "tests": [
       "test/auditsurv.test.js"

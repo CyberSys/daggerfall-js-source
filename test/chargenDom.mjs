@@ -1,10 +1,11 @@
 // DISC10 (2026-09-23): a minimal DOM, enough to mount the enhanced chargen wizard and drive it as a browser does -
 // window capture listeners first, then the focused element's own handler. Imported for its side effect (globals).
 class Node_ {
-  constructor(tag) { this.tagName = String(tag).toUpperCase(); this.children = []; this.parentNode = null; this.style = {}; this.attrs = {}; this.listeners = {}; this._text = ''; this.className = ''; this.scrollTop = 0; this.scrollLeft = 0; this.disabled = false; this.value = ''; }
+  constructor(tag) { this.tagName = String(tag).toUpperCase(); this.children = []; this.parentNode = null; this.style = { setProperty() {} }; this.attrs = {}; this.listeners = {}; this._text = ''; this.className = ''; this.scrollTop = 0; this.scrollLeft = 0; this.disabled = false; this.value = ''; }
   append(...ns) { for (const raw of ns) { const n = toNode(raw); n.parentNode = this; this.children.push(n); } }   // AUDIT 68 X2-chargendom-append-throws: a string used to reassign the loop's const and throw
   appendChild(n) { this.append(n); return n; }
   prepend(...ns) { const nodes = ns.map(toNode); for (const n of nodes) n.parentNode = this; this.children.unshift(...nodes); }
+  replaceChildren(...ns) { for (const c of this.children) c.parentNode = null; this.children = []; this._text = ''; this.append(...ns); }   // AUDIT 28: the Notice Board's window repaints so
   remove() { if (this.parentNode) { this.parentNode.children = this.parentNode.children.filter((c) => c !== this); this.parentNode = null; } }
   set textContent(t) { this.children = []; this._text = String(t); }
   get textContent() { return this._text + this.children.map((c) => c.textContent).join(''); }
@@ -17,7 +18,7 @@ class Node_ {
   querySelector(sel) { return this.querySelectorAll(sel)[0] ?? null; }
   focus() { globalThis.document.activeElement = this; }
   blur() {}
-  click() { this.dispatch('click', {}); }
+  click() { this.dispatch('click', { stopPropagation() {}, preventDefault() {} }); }
   dispatch(type, ev) { ev.target ??= this; ev.type = type; if (this.disabled && type === 'click') return; if (type === 'click' && this.onclick) this.onclick(ev); if (type === 'input' && this.oninput) this.oninput(ev); if (type === 'keydown' && this.onkeydown) this.onkeydown(ev); for (const f of this.listeners[type] ?? []) f(ev); }
   getContext() { return new Proxy({}, { get: (t, k) => k === 'createImageData' ? (w, h) => ({ data: new Uint8ClampedArray(w * h * 4), width: w, height: h }) : k === 'getImageData' ? (x, y, w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }) : k === 'measureText' ? () => ({ width: 1 }) : (typeof k === 'string' ? () => {} : undefined), set: () => true }); }
   getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; }

@@ -116,7 +116,16 @@ export function mountBountyBoard(host, deps) {
   let word = null;
   let alive = true;
 
+  /** AUDIT 28 B11: the key the focus sits on (a notice's row, the card's act), kept through a repaint - every five
+   *  seconds the list is rebuilt, and a keyboard's place in it was dropped to the page. */
+  const FOCUS_RE = /\b(bounty-post-i\d+|bounty-take|bounty-share|bounty-drop)\b/;
+  const focusKey = () => { const m = FOCUS_RE.exec(String(globalThis.document?.activeElement?.className ?? '')); return m ? m[1] : null; };
   const render = () => {
+    const keep = focusKey();
+    draw();
+    if (keep) /** @type {HTMLElement|null} */ (win.querySelector?.(`.${keep}`))?.focus?.();
+  };
+  const draw = () => {
     if (!alive) return;
     const rows = deps.rows();
     const held = deps.held();
@@ -127,7 +136,7 @@ export function mountBountyBoard(host, deps) {
     if (!rows.length) list.append(el('li', 'bounty-empty', 'The board is bare - no hunt is posted in these parts today.'));
     rows.forEach((r, i) => {
       const p = r.posting;
-      const li = el('li', `bounty-post${i === picked ? ' on' : ''} st-${r.state}`);
+      const li = el('li', `bounty-post bounty-post-i${i}${i === picked ? ' on' : ''} st-${r.state}`);
       li.setAttribute('role', 'button');
       li.setAttribute('tabindex', '0');
       li.setAttribute('aria-pressed', i === picked ? 'true' : 'false');

@@ -78,7 +78,7 @@ test('FORAGE4: a wait is its game time at 8 real seconds an hour - Food 8 s, Cho
   for (const [gameSeconds, real] of [[3600, 8], [5400, 12], [7200, 16]]) {
     const { wait, entity } = rig();
     assert.equal(wait.add(gameSeconds, 'Chop and Gather Wood'), real);
-    assert.deepEqual(entity.foragingWait, { seconds: real, label: 'Chop and Gather Wood' });
+    assert.deepEqual(entity.foragingWait, { seconds: real, label: 'Chop and Gather Wood', held: [] });
   }
   assert.equal(waitLine('Chop and Gather Wood'), 'Chop and Gather Wood...', 'the page says the quest\'s own DisplayName');
   assert.equal(waitLine(null), 'Time passes...');
@@ -136,6 +136,8 @@ test('FORAGE4: the quest\'s boxes wait behind the page - held while it is pendin
   const page = wait.tick();
   assert.deepEqual(shown, []);
   page.tick(8);
+  assert.deepEqual(shown, [], 'the finished page leaves the slot first (AUDIT 28 H6)');
+  wait.tick();
   assert.deepEqual(shown, ['bonus', 'second']);
   assert.equal(wait.holds(), false);
 });
@@ -152,7 +154,7 @@ test('FORAGE4: a reload reopens the page with its seconds; offline a saved wait 
   assert.equal(off.wait.tick(), null);
   assert.equal(off.entity.foragingWait, null, 'the offline lane has no waits');
   assert.equal(FORAGING_WAIT_MAX_SECONDS, 64, 'eight game hours: the build\'s Mining quadruple, more than the patched pack raises');
-  assert.deepEqual(saneWait({ seconds: 86400, label: 'a'.repeat(100) }), { seconds: 64, label: 'a'.repeat(60) });
+  assert.deepEqual(saneWait({ seconds: 86400, label: 'a'.repeat(100) }), { seconds: 64, label: 'a'.repeat(60), held: [] });
   assert.equal(saneWait({ seconds: -1 }), null);
   assert.equal(saneWait({ seconds: NaN }), null);
   assert.equal(saneWait('12'), null);
@@ -160,7 +162,7 @@ test('FORAGE4: a reload reopens the page with its seconds; offline a saved wait 
   edited.entity.foragingWait = { seconds: 1e9, label: 7 };
   assert.equal(edited.wait.tick().remaining, 64);
   assert.equal(edited.wait.add(3600 * 100), 800);
-  assert.equal(edited.entity.foragingWait.seconds, 64, 'joined waits are cut too');
+  assert.equal(edited.entity.foragingWait.seconds, 864, 'a SAVED wait is cut; a wait joined in play is the sum (AUDIT 28 F1)');
 });
 
 test('FORAGE4: QAE\'s raise time is the host\'s wait online and the clock offline', () => {
@@ -202,7 +204,7 @@ test('FORAGE4 done-when: online, the Wood-Axe\'s quest gives a 12-second wait an
     for (let i = 0; i < 6; i++) m.tick();
   } finally { console.warn = ow; console.log = ol; }
   assert.deepEqual(clock, [], 'the shared clock never asked to move');
-  assert.deepEqual(entity.foragingWait, { seconds: 12, label: 'Chop and Gather Wood' });
+  assert.deepEqual(entity.foragingWait, { seconds: 12, label: 'Chop and Gather Wood', held: [] });
   assert.equal(entity.fatigue, 105 * FATIGUE_MULTIPLIER * 0.8, '20% of the maximum, as offline');
   const page = wait.tick();
   assert.equal(page.remaining, 12);
@@ -213,8 +215,8 @@ test('FORAGE4: the wiring - the streaming host builds the wait on its own slot a
   assert.match(w, /const foragingWait = createForagingWait\(\{\n\s*entity: playerEntity,\n\s*showOverlay: \(w\) => townTalk\.showOverlay\(w\),\n\s*overlayActive: \(\) => townTalk\.overlayActive \|\| !!modes\?\.overlayHeld,\n\s*enemiesNear: \(\) => duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\), \{ resting: true \}\),\n\s*online: \(\) => sharedClockOn\(\),/);
   assert.match(w, /hunting\.tick\(\);[^\n]*\n\s*foragingWait\.tick\(\);/, 'every frame, in every mode');
   assert.match(w, /waitOnline: \(seconds, quest\) => \{ foragingWait\.add\(seconds, quest\?\.displayName \?\? null\); \},/);
-  assert.match(w, /const showQuestBox = \(box\) => \{\n[^\n]*\n\s*if \(foragingWait\.holds\(\)\) \{ foragingWait\.hold\(\(\) => showQuestBox\(box\)\); return; \}/);
-  assert.match(w, /if \(open && foragingWait\.holds\(\)\) foragingWait\.hold\(give\);/, 'a reward\'s pile after its box, behind the wait');
+  assert.match(w, /const showQuestBox = \(box\) => \{\n[^\n]*\n\s*if \(foragingWait\.holds\(\)\) \{ foragingWait\.hold\(\(\) => showQuestBox\(box\), keptBox\(box\)\); return; \}/);
+  assert.match(w, /if \(foragingWait\.holds\(\)\) foragingWait\.hold\(\(\) => giveReward\(dfItem\), \{ reward: dfItem \}\);/, 'a reward\'s pile after its box, behind the wait - and kept in the save');
   assert.match(rd('src/systems/save.js'), /'restSimMinutes',[^\n]*\n\s*'foragingWait',/);
   assert.match(rd('src/systems/quest/questActionsExtension.js'), /if \(hooks\?\.sharedClock\?\.\(\)\) hooks\?\.waitOnline\?\.\(seconds, this\.parentQuest\);\n\s*else hooks\?\.raiseTime\?\.\(seconds\);/);
 });

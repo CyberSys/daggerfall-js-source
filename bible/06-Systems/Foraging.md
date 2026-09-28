@@ -71,8 +71,9 @@ and the Features row together, as `vendor/foraging/`:
    `src/net/wire.js`), so QAE's `raise time by` cannot run online. It becomes a wait the player sits through (13.1) -
    the rule Climates & Calories' hunt already follows (SURV6: `HUNT_WAIT_PER_HOUR`,
    `src/systems/survival/hunting.js`). Two small things change with it, both for the professions: the console
-   command refuses (8), and the six tools shelve whatever the switch says (law 6). Nothing else about Foraging changes
-   online.
+   command refuses (8), and - NOT YET BUILT, it comes with the professions (PROF1) - the six tools shelve whatever the
+   switch says (law 6). Nothing else about Foraging changes online. (AUDIT 28: this read as built; today the shelves
+   answer Foraging's items only while its switch is on, online as off, `systems/foragingInstall.js`.)
 4. **ONE ITEM, TWO GESTURES** - DECIDED. A Foraging tool **used from the inventory** is Foraging, both lanes. The same
    tool, **carried to a node** online, is the profession's tool: Interact at the node plays the profession's act
    (section 14). Neither gesture changes the other.
@@ -83,9 +84,11 @@ and the Features row together, as `vendor/foraging/`:
    screen (`src/ui/credits.js`); on by default (MO1). The switch governs Foraging's uses, its quests, its loot and
    shop hooks. The templates are registered whatever the switch says, so a saved tool never vanishes (a tool with the
    switch off is an inert item, as an unloaded mod's would be). **The shelves' registry answers Foraging's items only
-   while its switch is on** (RRI's answers nothing while off), with one exception: **online, the six tools shelve
-   whatever the switch says**, because the professions' acts need them and the professions are the server's, not a
-   player's preference; the acts never ask Foraging's switch.
+   while its switch is on** (RRI's answers nothing while off), with one exception DECIDED for PROF1 and NOT YET BUILT:
+   **online, the six tools shelve whatever the switch says**, because the professions' acts need them and the
+   professions are the server's, not a player's preference; the acts never ask Foraging's switch. A switched-off
+   Foraging has no console command either - no HELP line, "Command FORAGING_TOOLS not found." (AUDIT 28 F7,
+   `systems/consoleCommands.js` gateConsoleCommand).
 
 ## 3. What already stands (FACT)
 
@@ -556,9 +559,11 @@ quirks preserved", `01-Overview/Port-Ledger.md`) at the slice that ports it.
 | **Q13** | **The list files the fetch quests under `Commoner` and `Noble`**, which name no social group (9.8) - found by the FORAGE1 audit, 2026-09-28 | FetchWood01-04 **are never offered**, by anyone |
 
 **Q7-Q11 and Q13 are bugs a player would call broken.** DECIDED (Mac: "Your lead"): they are fixed, as **one Ledger A
-departure, FORAGE-FIX**, and everything else stays 1:1. **The vendored files stay verbatim**: the fixes are a patch
-table in the port's Foraging module, each patch naming its file, the exact old line and the new, applied when the quest
-pack loads and pinned, so the author's text is always in the tree as he shipped it.
+departure, FORAGE-FIX**, and everything else stays 1:1. **The vendored files stay verbatim**: the four fixes to the
+quest text (Q7, Q8, Q9, Q13) are a patch table in the port's Foraging module (`FORAGE_FIX_PATCHES`), each patch naming
+its file, the exact old line and the new, applied when the quest pack loads and pinned, so the author's text is always
+in the tree as he shipped it; Q10 is fixed in the port's Basket (`basketFind`) and Q11 in Quest Actions Extension's
+port (`questActionsExtension.js`), which were never the author's files. (AUDIT 28: this said all six were the table.)
 
 | Quirk | The fix |
 |---|---|
@@ -590,13 +595,20 @@ interruptWhen, result: false }`:
 | Mining (one task - FORAGE-FIX Q7; as built, four in Desert or Mountain, 8:00), Grave robbing | 2:00 | 16 s |
 | FishingQuest | none | none |
 
-- Waits queue: four `raise time by` lines make one wait of their sum.
+- Waits queue: four `raise time by` lines make one wait of their SUM - never cut (AUDIT 28 F1: the cap meant for a
+  save edited to a day of waiting cut every live join too, so twenty tool uses behind one page cost sixty-four seconds;
+  only a restored record is cut now).
 - **The order**: the tool's result box closes first; then the wait takes the overlay slot (THE SLOT IS EMPTIED
-  BEFORE THE OCCUPANT IS TOLD); the quest's popups (a bonus's line) queue behind it and show when it ends. A slot
-  takeover that disposes the page ends it as a foe would.
-- The quest machine does not pause for the wait; the page only holds the player.
+  BEFORE THE OCCUPANT IS TOLD); the quest's popups (a bonus's line) queue behind it and show once it has ended AND
+  left the slot (AUDIT 28 H6: released inside the page's own last tick, a box went under the finished page, which came
+  back over it). A slot takeover that disposes the page ends it as a foe would.
+- The quest machine PAUSES while the page holds the slot - the host's frame ticks it only with the slot free, under
+  every window alike (AUDIT 28 F3: this said it did not pause).
 - **It survives a reload**: the seconds left ride the save (a field of the player's own, like any quest state), and
-  loading reopens the page with them - so a relog does not skip it.
+  loading reopens the page with them - so a relog does not skip it. So do the boxes held behind it: a box of words and
+  a quest reward's item ride the record too (`held`), and a reload shows them after the page (AUDIT 28 F6: they were
+  held in memory alone, and a relog lost a bonus's line - or a reward - for good). A prompt's answer is a closure and
+  stays this page's.
 - **A foe near ends the wait** (the rest test, 5) with what is left of it forgiven - the wait is a cost, and a foe is
   a larger one. Esc does not end it: offline the hours are gone at once.
 - Fatigue is taken as offline (`reduce player fatigue by` is the player's own).
@@ -604,9 +616,9 @@ interruptWhen, result: false }`:
 - **Built by FORAGE4** (2026-09-28), with what the build settled: the page's line is the quest's own DisplayName
   ("Chop and Gather Wood..."), the author's words; the quest's boxes are held while the wait is PENDING too - behind
   the pack, before the page has opened - so a bonus's line always follows the work, and a quest reward's pile waits
-  behind its box; the busy page's caption says nothing when Escape does nothing; a saved wait is cut to eight game
-  hours' worth (64 s) and a malformed one dropped, so a save edited to a day of waiting is never obeyed; offline, a
-  wait saved online is forgiven (the offline lane has none).
+  behind its box; the busy page's caption says nothing when Escape does nothing; a SAVED wait is cut to eight game
+  hours' worth (64 s) and a malformed one dropped, so a save edited to a day of waiting is never obeyed (a wait built in
+  play is its sum - AUDIT 28 F1); offline, a wait saved online is forgiven (the offline lane has none).
 
 ### 13.2 Everything else, unchanged
 
@@ -790,7 +802,7 @@ The inventory's Use is host-agnostic (`src/systems/useItem.js`); the host answer
 | **THE MODAL CONTRACT** | The result box returns the same type from every exit (click anywhere is its only one) |
 | **THE SLOT IS EMPTIED BEFORE THE OCCUPANT IS TOLD** | The result box sits over the inventory in the overlay stack; the busy wait takes the host's overlay slot, nulled before it is disposed |
 | **ASYNC NEVER DROPS** | Offline nothing is async. Online the act's harvest is PROF0's request with its id |
-| **EVERY ALLOCATION HAS AN OWNER** | The seven textures are the texture door's, loaded lazily and gated on the switch; the tool in the hand is the weapon rig's for the act's length |
+| **EVERY ALLOCATION HAS AN OWNER** | The seven textures are the texture door's, loaded lazily - and registered whatever the switch says, so an inert saved tool still draws (AUDIT 28 F5: this said "gated on the switch"); the tool in the hand is the weapon rig's for the act's length |
 | **THE ONE CONSTRUCTION SEAM** | The busy wait is huntWindow's constructor, not a second one |
 | **THE NATIVE-WINDOW RULE** | The result box is DFU's `DaggerfallMessageBox`, drawn native (`src/ui/messageBox.js`) |
 | **A SLICE CLOSES ITS LEDGER ROW** | FORAGE1-2 added section A's FORAGING row (FORAGE-FIX and the other departures) and section B's FORAGING'S QUIRKS row (12); FORAGE3 ported the hooks' quirks that row already recorded (Q1, Q2, Q12) and marked them so; FORAGE4 writes its wait into the A row's departure (5) (13.1) |
@@ -993,17 +1005,19 @@ Online Foraging - the wait (13.1), and with it Foraging whole in both lanes:
   leaves at their defaults (`ask`, `escape`, `interruptWhen`, `result`), and `remaining` / `extend(seconds)` for the
   wait's queue. The busy page's caption says "Escape to walk away" only where Escape does.
 - **The wait**, `src/scenes/foragingWait.js` (`createForagingWait`): a quest's game seconds become real ones at
-  `huntRealSeconds` (8 s a game hour, imported); the record `{ seconds, label }` lives on the player
-  (`playerEntity.foragingWait`, one of `systems/save.js`'s ENTITY_FIELDS), so its seconds left ride the save and a
-  reload reopens the page; the page opens only when the slot is free; a second wait joins the first; the quest's boxes
-  are held (`holds` / `hold`) while the wait is pending or open and shown in order after it; a foe near or a window
-  taking the slot ends it with the rest forgiven; offline a saved wait is forgiven; a record is cut to 64 s.
+  `huntRealSeconds` (8 s a game hour, imported); the record `{ seconds, label, held }` lives on the player
+  (`playerEntity.foragingWait`, one of `systems/save.js`'s ENTITY_FIELDS), so its seconds left and the boxes held
+  behind it ride the save and a reload reopens the page; the page opens only when the slot is free; a second wait joins
+  the first, their sum; the quest's boxes are held (`holds` / `hold`) while the wait is pending or open and shown in
+  order once the page has left the slot; a foe near or a window taking the slot ends it with the rest forgiven; offline
+  a saved wait is forgiven; a RESTORED record is cut to 64 s, once.
 - **The door**, Quest Actions Extension's RaiseTime (`src/systems/quest/questActionsExtension.js`): under the shared
   clock its seconds go to the host's `waitOnline`, never to `raiseTime` - the quest machine's hook, the bridge's
   contract member (`scenes/questBridge.js`), and the streaming host's wiring.
 - **The four hosts**: `scenes/world.js` - the one host that runs the shared clock - builds the wait on townTalk's slot
   (the mode machine's held overlay counting as a full slot), its rest test with a duel's foe in it, ticks it every
-  frame in every mode, holds its quest boxes and a reward's pile behind it, and answers `waitOnline`; its interiors and
+  frame in every mode (the street's frame and the modal frame both - AUDIT 28 F2: the modal frame returned before the
+  street's tick, so a wait left pending indoors held every quest's boxes until the street), holds its quest boxes and a reward's pile behind it, and answers `waitOnline`; its interiors and
   dungeons (`scenes/worldModes.js`) are the same host's slot. **FLAGGED by name**: `scenes/exterior.js` (the fixed
   city) and `scenes/dungeonContext.js` standing alone never run the shared clock, so their RaiseTime is the offline
   advance and they wire no `waitOnline` (the fixed city's bridge reports it absent, with its other unwired seams).
@@ -1011,3 +1025,16 @@ Online Foraging - the wait (13.1), and with it Foraging whole in both lanes:
 - **Pins**: `test/forage4_wait.test.js` (10) - the hunt's defaults kept, the four options, the seconds, the slot, a
   foe, the held boxes, the reload and the cap, the door both ways, the done-when on the machine (ChopWoodQuest online:
   a 12-second wait, 20% fatigue, the clock never asked), the wiring; `tools/mutants/forage4.json`, 18 mutations, 18 dead.
+
+## AUDIT 28 (2026-09-28, Mac: "let's audit everything we have so far before we continue")
+
+Foraging's lens of the branch's audit (`06-Systems/Online-Arc.md` AUDIT 28), seven findings, each fixed where it was
+wrong and recorded above where it was said: **F1** joined waits are their sum (only a restored record is cut); **F2**
+the wait ticks in the modal frame too; **F3** the quest machine pauses under the page (said, not changed - it pauses
+under every window); **F4** the Features row says the quest pack takes effect on the next load (`questLists.js` reads it
+once); **F5** the textures are registered whatever the switch says (said); **F6** the boxes held behind the wait ride the
+save; **F7** a switched-off Foraging has no console command. With the hosts' lens: the held boxes wait until the
+finished page has left the slot (H6), and the hunt page hears Escape as townTalk hands it, `back` (H7) - C&C's own
+search's Escape was never heard either. The patch table's count corrected (Q10 and Q11 are the port's own code).
+`test/audit28_forage.test.js` (10); `tools/mutants/audit28.json` F1-F7, H6, H7, H11, H12; `forage4.json` and
+`auditsurv.json` re-aimed, every one dead.

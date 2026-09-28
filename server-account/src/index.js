@@ -130,7 +130,7 @@ import {
   depositToGuild, withdrawFromGuild, handOverGuild, disbandGuild, guildBadgeOf,
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
-import { strikeGateMarks, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
+import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
@@ -160,7 +160,7 @@ const GUILD_STATUS = Object.freeze({
   'guilds-need-account': 403, 'guild-rank': 403, 'guild-renown': 403,
   'no-guild': 404, 'no-invite': 404, 'no-member': 404, 'no-player': 404,
   'guild-already': 409, 'guild-name-taken': 409, 'guild-tag-taken': 409, 'guild-full': 409, 'guild-master-leaves': 409,
-  'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409,
+  'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409, 'marks-full': 409,
   'guild-rate': 429,
 });
 /** MARKS1: each Marks refusal's status - not this account's (a guest, the switch, a rank, a developer's) 403, no
@@ -178,7 +178,7 @@ const BOARD_STATUS = Object.freeze({
   'guild-rank': 403, 'guilds-need-account': 403,
   'no-note': 404, 'no-notice': 404, 'note-no-guild': 404,
   'notes-full': 409,
-  'board-rate': 429,
+  'board-rate': 429, 'board-ops-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
  *  character's guild now, `{}` for none - becomes `order`, which the actor's own client carries to the rooms it is in;
@@ -470,14 +470,16 @@ export default {
         // one row a (day, account). No public half here yet is the
         // service's own gap, not the player's: 503, and the client keeps
         // the receipt for the week it carries.
-        const r = await claimGate(ctx, who.player, body.receipt, await gatePublicKey(env, subtle));
+        const r = await claimGate(ctx, who.player, body.receipt, await gatePublicKey(env, subtle), { strike: (d) => gateStrikeStatement(ctx, who.player, env, d) });
         // AUDIT WB A5: a refused receipt says WHICH rung refused it - the client keeps one the service can mend (its key
         // not the relay's pair, a clock) and lets go of one it cannot
         if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, r.error === 'no-gate-key' ? 503 : r.error === 'not-yours' ? 403 : 400, origin);
-        // MARKS1: THE FIRST FAUCET - a receipt that made its row strikes the gate's Marks (marks.js strikeGateMarks: 50,
-        // two a UTC day, the gate's own day its line's id); `marks` null where Marks are not this account's
-        const { day, ...answer } = r;
-        return json(r.recorded ? { ...answer, marks: await strikeGateMarks(ctx, who.player, env, day) } : answer, 200, origin);
+        // MARKS1: THE FIRST FAUCET - a receipt that made its row strikes the gate's Marks, in the row's own batch
+        // (marks.js gateStrikeStatement: 50, two a UTC day, the gate's own day its line's id); `marks` null where Marks
+        // are not this account's
+        const answer = { ...r };
+        delete answer.day; delete answer.struck;   // the service's own: the line's day and whether the batch struck
+        return json(r.recorded ? { ...answer, marks: await gateStrikeAnswer(ctx, who.player, env, !!r.struck) } : answer, 200, origin);
       }
 
       if (path === '/v1/renown/xp' && request.method === 'POST') {
@@ -550,7 +552,7 @@ export default {
       if (path.startsWith('/v1/guilds/')) {
         if (request.method !== 'POST') return no('method', 405, origin);
         if (path === '/v1/guilds/mine') {
-          const r = await guildOf(ctx, who.player, body);
+          const r = await guildOf({ ...ctx, env }, who.player, body);   // AUDIT 28 M5: the switch says whether the Marks show
           return 'error' in r ? no(r.error, GUILD_STATUS[r.error] ?? 400, origin) : json(await guildOrdersOf(r, who.player.id, env, subtle, nowS), 200, origin);
         }
         if (path === '/v1/guilds/invites') return json(await invitesOf(ctx, who.player), 200, origin);
@@ -562,7 +564,7 @@ export default {
           '/v1/guilds/handover': handOverGuild, '/v1/guilds/disband': disbandGuild,
         }[path];
         if (!act) return no('not-found', 404, origin);
-        const r = await act(ctx, who.player, body);
+        const r = await act({ ...ctx, env }, who.player, body);
         if (!('error' in r)) return json(await guildOrdersOf(r, who.player.id, env, subtle, nowS), 200, origin);
         return no(r.error, GUILD_STATUS[r.error] ?? 400, origin);
       }

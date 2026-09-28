@@ -498,7 +498,7 @@
   {
     "name": "SURVTIERS3-the-rest-window-cite-input-rots",
     "file": "src/ui/restWindow.js",
-    "old": "exterior.js:3134, ui/input.js:912)",
+    "old": "exterior.js:3134, ui/input.js:918)",
     "new": "exterior.js:3131, ui/input.js:525)",
     "tests": [
       "test/citedrift.test.js"

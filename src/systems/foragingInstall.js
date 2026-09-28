@@ -29,7 +29,7 @@ import {
 import { registerCustomTemplates, registerItemUseHandler, registerCustomItemsForGroup, setItemFields, mintCondition, templateByIndex } from './itemTemplates.js';
 import { addVendorTextures } from './textureReplacement.js';
 import { registerQuestList } from './quest/questLists.js';
-import { registerCommand } from './consoleCommands.js';
+import { registerCommand, gateConsoleCommand } from './consoleCommands.js';
 import { modSetting } from './modSettings.js';
 import { hudText, popupMessage } from './notify.js';
 import { addItem } from './inventory.js';
@@ -233,6 +233,7 @@ export function installForaging({ fetchBytes = null } = {}) {
   eat.usable = () => foragingOn();
   for (const t of Object.keys(FOODS)) registerItemUseHandler(Number(t), eat);
   registerCommand(FORAGING_COMMAND.name, FORAGING_COMMAND.description, FORAGING_COMMAND.usage, () => foragingToolsCommand());
+  gateConsoleCommand(FORAGING_COMMAND.name, foragingOn);   // AUDIT 28 F7: off, the mod has no command - not even a HELP line
   // FORAGE3: Init's three subscriptions (IL_049a-IL_04f5), in its order - after every mod that loaded first (RRI's)
   registerContainerLootHandler(FORAGING_VENDOR, onForagingContainerLoot);
   registerTabledLootHandler(FORAGING_VENDOR, onForagingPileLoot);

@@ -79,7 +79,9 @@ async function stand({ open = 'on', developers = 'Devra', moderators = 'Mora' } 
   };
   const read = (who, map) => call('/v1/board/read', { map }, who.secret);
   const pin = (who, map, extra = {}) => call('/v1/board/pin', { map, subject: 'Hands wanted', body: 'Meet at the gate at dusk.', days: 7, rid: rid(), ...extra }, who.secret);
-  return { env, call, guest, registered, read, pin };
+  /** AUDIT 28 N3: accounts past their sprout's fortnight - the only reporters whose reports count toward hiding */
+  const seasoned = (...who) => { for (const w of who) env.DB._raw.prepare('UPDATE players SET created_at = ? WHERE id = ?').run(Math.floor(Date.now() / 1000) - 15 * 86400, w.id); };
+  return { env, call, guest, registered, read, pin, seasoned };
 }
 let _rid = 0;
 const rid = () => `pin-${String(++_rid).padStart(6, '0')}`;
@@ -176,9 +178,10 @@ test('NOTICE1 the switch: at dev the developers alone read and pin; off shuts ev
 });
 
 test('NOTICE1 take down and report: an author takes their own down and nobody else\'s; a reporter stops seeing a note at once; three reporters hide it from everyone; one\'s own cannot be reported', async () => {
-  const { read, pin, call, registered } = await stand();
+  const { read, pin, call, registered, seasoned } = await stand();
   const anna = await registered('Anna');
   const [b, c, d, e] = [await registered('Bran'), await registered('Cyra'), await registered('Dorn'), await registered('Eld')];
+  seasoned(b, c, d);
   const n = (await pin(anna, TOWN)).body.note;
   assert.deepEqual([(await call('/v1/board/take-down', { id: n.id }, b.secret)).status], [404], 'not Bran\'s to take down');
   assert.deepEqual([(await call('/v1/board/report', { id: n.id }, anna.secret)).status, (await call('/v1/board/report', { id: n.id }, anna.secret)).body.error], [403, 'own-note']);
@@ -190,16 +193,17 @@ test('NOTICE1 take down and report: an author takes their own down and nobody el
   assert.equal((await read(e, TOWN)).body.notes.length, 1, 'two reporters do not hide it');
   await call('/v1/board/report', { id: n.id }, d.secret);
   assert.equal((await read(e, TOWN)).body.notes.length, 0, 'the third hides it from everyone');
-  assert.equal((await read(anna, TOWN)).body.notes.length, 0, 'its author too');
+  assert.deepEqual((await read(anna, TOWN)).body.notes.map((x) => [x.id, x.hidden]), [[n.id, true]], 'its author still sees it, marked - and may take it down (AUDIT 28 N2)');
   const m = await pin(anna, TOWN);
   assert.equal((await call('/v1/board/take-down', { id: m.body.note.id }, anna.secret)).body.live, 1, 'taken down, and the room given back (the hidden one still counts)');
 });
 
 test('NOTICE1 moderation: a moderator sees what reports hid, with the count, and removes or restores it; a restored note is not hidden again; nobody else may; a muted author\'s notes leave every board while the mute stands', async () => {
-  const { read, pin, call, registered } = await stand();
+  const { read, pin, call, registered, seasoned } = await stand();
   const anna = await registered('Anna');
   const mora = await registered('Mora');
   const readers = [await registered('Bran'), await registered('Cyra'), await registered('Dorn')];
+  seasoned(...readers);
   const eld = await registered('Eld');
   const n = (await pin(anna, TOWN)).body.note;
   for (const r of readers) await call('/v1/board/report', { id: n.id }, r.secret);
@@ -245,9 +249,9 @@ test('NOTICE1 the server\'s word: a developer posts a notice to every board, for
   const { read, call, registered } = await stand();
   const devra = await registered('Devra');
   const anna = await registered('Anna');
-  assert.equal((await call('/v1/board/notice', { subject: 'Festival', body: 'Ale at noon.', days: 3 }, anna.secret)).body.error, 'not-developer');
-  assert.equal((await call('/v1/board/notice', { subject: 'Festival', body: 'Ale at noon.', days: 30 }, devra.secret)).body.error, 'bad-notice-days');
-  const posted = (await call('/v1/board/notice', { subject: 'Festival', body: 'Ale at noon.', days: 3 }, devra.secret)).body;
+  assert.equal((await call('/v1/board/notice', { subject: 'Festival', body: 'Ale at noon.', days: 3, rid: rid() }, anna.secret)).body.error, 'not-developer');
+  assert.equal((await call('/v1/board/notice', { subject: 'Festival', body: 'Ale at noon.', days: 30, rid: rid() }, devra.secret)).body.error, 'bad-notice-days');
+  const posted = (await call('/v1/board/notice', { subject: 'Festival', body: 'Ale at noon.', days: 3, rid: rid() }, devra.secret)).body;
   for (const map of [TOWN, OTHER]) assert.deepEqual((await read(anna, map)).body.notices.map((x) => [x.subject, x.from]), [['Festival', 'Devra']], 'on every board');
   assert.equal((await call('/v1/board/notice/remove', { id: posted.id }, anna.secret)).body.error, 'not-developer');
   assert.equal((await call('/v1/board/notice/remove', { id: posted.id }, devra.secret)).status, 200);

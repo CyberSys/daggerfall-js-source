@@ -176,7 +176,7 @@ export const DEATH_CSS = `
 .dth-line { margin: 0; font-family: var(--display, 'Cormorant', Georgia, serif); font-style: italic;
   font-size: clamp(16px, 2.2vw, 21px); color: #b3a893; letter-spacing: 0.04em;
   animation: dth-in 900ms ease-out 1300ms both; }
-.dth-lossline { max-width: min(760px, 92vw); line-height: 1.4; }   /* DEATH-PENALTY: the longest of the five lines wraps on a phone rather than running off it */
+.dth-lossline { max-width: min(760px, 92vw); line-height: 1.4; }   /* DEATH-PENALTY: the longest of the four lines wraps on a phone rather than running off it */
 
 .dth-count { margin: 2px 0 0; font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; font-size: 13px;
   letter-spacing: 0.18em; text-transform: uppercase; color: #7d6f5e; text-shadow: 2px 2px 0 #000;

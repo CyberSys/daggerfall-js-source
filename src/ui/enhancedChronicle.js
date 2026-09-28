@@ -500,6 +500,7 @@ export function mountEnhancedChronicle(hostEl, d = {}) {
   section = CHRONICLE_SECTIONS.some(([id]) => id === d.section) ? d.section : 'quests';
   draft = '';
   sharing = null; shareWord = '';   // JOURNAL1: a fresh open shares nothing yet
+  bountyArmed = null;   // AUDIT 28 B11: an armed Abandon never outlives the visit it was armed on
   folded.clear();   // MAC-F: a fresh open reads whole, as it always has
   render();
   window.addEventListener('keydown', onKey, true);
@@ -507,7 +508,7 @@ export function mountEnhancedChronicle(hostEl, d = {}) {
     render,
     destroy() {
       window.removeEventListener('keydown', onKey, true);
-      host = null; deps = {}; section = 'notes'; draft = ''; folded.clear(); sharing = null; shareWord = '';
+      host = null; deps = {}; section = 'notes'; draft = ''; folded.clear(); sharing = null; shareWord = ''; bountyArmed = null;
     },
   };
 }

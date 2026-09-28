@@ -11,8 +11,8 @@
   {
     "name": "FORAGE4-2-escape-walks-out-of-the-wait",
     "file": "src/ui/huntWindow.js",
-    "old": "      if (code === 'Escape' && this._escape) this._end(false);",
-    "new": "      if (code === 'Escape') this._end(false);",
+    "old": "      if ((code === 'Escape' || code === 'back') && this._escape) this._end(false);",
+    "new": "      if (code === 'Escape' || code === 'back') this._end(false);",
     "tests": [
       "test/forage4_wait.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "FORAGE4-7-the-page-over-the-pack",
     "file": "src/scenes/foragingWait.js",
-    "old": "    if (!pending() || overlayActive()) return null;",
-    "new": "    if (!pending()) return null;",
+    "old": "    if (pending()) return overlayActive() ? null : open();",
+    "new": "    if (pending()) return open();",
     "tests": [
       "test/forage4_wait.test.js"
     ]
@@ -65,7 +65,7 @@
   {
     "name": "FORAGE4-8-a-save-mid-wait-owes-all",
     "file": "src/scenes/foragingWait.js",
-    "old": "      if (!_win.done && entity.foragingWait) entity.foragingWait.seconds = _win.remaining;\n",
+    "old": "      if (!_win.done && record()) record().seconds = _win.remaining;\n",
     "new": "",
     "tests": [
       "test/forage4_wait.test.js"
@@ -74,8 +74,8 @@
   {
     "name": "FORAGE4-9-the-held-boxes-never-shown",
     "file": "src/scenes/foragingWait.js",
-    "old": "        if (entity) entity.foragingWait = null;   // done, or forgiven: a foe near, or the slot taken\n        release();",
-    "new": "        if (entity) entity.foragingWait = null;   // done, or forgiven: a foe near, or the slot taken",
+    "old": "    if (pending()) return overlayActive() ? null : open();\n    release();\n    return null;",
+    "new": "    if (pending()) return overlayActive() ? null : open();\n    return null;",
     "tests": [
       "test/forage4_wait.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "FORAGE4-10-a-bonus-before-the-work",
     "file": "src/scenes/foragingWait.js",
-    "old": "    holds: () => pending() || !!_win,",
-    "new": "    holds: () => !!_win,",
+    "old": "    holds: () => pending() || !!_win || _held.length > 0,",
+    "new": "    holds: () => !!_win || _held.length > 0,",
     "tests": [
       "test/forage4_wait.test.js"
     ]
@@ -92,7 +92,7 @@
   {
     "name": "FORAGE4-11-offline-keeps-a-wait",
     "file": "src/scenes/foragingWait.js",
-    "old": "      if (record()) entity.foragingWait = null;\n",
+    "old": "      if (pending()) write(0);\n",
     "new": "",
     "tests": [
       "test/forage4_wait.test.js"
@@ -101,8 +101,8 @@
   {
     "name": "FORAGE4-12-a-day-of-waiting-obeyed",
     "file": "src/scenes/foragingWait.js",
-    "old": "  return { seconds: Math.min(FORAGING_WAIT_MAX_SECONDS, r.seconds), label:",
-    "new": "  return { seconds: r.seconds, label:",
+    "old": "  const seconds = Number.isFinite(r.seconds) && r.seconds > 0 ? Math.min(FORAGING_WAIT_MAX_SECONDS, r.seconds) : 0;",
+    "new": "  const seconds = Number.isFinite(r.seconds) && r.seconds > 0 ? r.seconds : 0;",
     "tests": [
       "test/forage4_wait.test.js"
     ]
@@ -119,7 +119,7 @@
   {
     "name": "FORAGE4-14-the-box-over-the-wait",
     "file": "src/scenes/world.js",
-    "old": "    if (foragingWait.holds()) { foragingWait.hold(() => showQuestBox(box)); return; }\n",
+    "old": "    if (foragingWait.holds()) { foragingWait.hold(() => showQuestBox(box), keptBox(box)); return; }   // AUDIT 28 F6: a box of words rides the save\n",
     "new": "",
     "tests": [
       "test/forage4_wait.test.js"
@@ -135,10 +135,10 @@
     ]
   },
   {
-    "name": "FORAGE4-16-joined-waits-uncut",
+    "name": "FORAGE4-16-a-join-never-reaches-the-page",
     "file": "src/scenes/foragingWait.js",
-    "old": "      const joined = Math.min(FORAGING_WAIT_MAX_SECONDS, r.seconds + real);",
-    "new": "      const joined = r.seconds + real;",
+    "old": "      _win?.extend(real);\n",
+    "new": "",
     "tests": [
       "test/forage4_wait.test.js"
     ]
@@ -155,8 +155,8 @@
   {
     "name": "FORAGE4-18-the-page-says-nothing",
     "file": "src/scenes/foragingWait.js",
-    "old": "      entity.foragingWait = { seconds: real, label: label ?? null };",
-    "new": "      entity.foragingWait = { seconds: real, label: null };",
+    "old": "      own({ seconds: real, label: label ?? null, held: r?.held ?? [] });",
+    "new": "      own({ seconds: real, label: null, held: r?.held ?? [] });",
     "tests": [
       "test/forage4_wait.test.js"
     ]

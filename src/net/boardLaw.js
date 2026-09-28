@@ -35,7 +35,10 @@ export const NOTICE_DAYS_MAX = 14;
 export const NOTES_PINNED_MAX = 10;
 export const BOARD_OPS_MAX = 60;
 export const BOARD_WINDOW_S = 3600;
-/** A note hidden from everyone once this many different readers have reported it, until a moderator decides. */
+/** A note hidden from everyone once this many different readers have reported it, until a moderator decides. AUDIT 28
+ *  N3: only a report from an account that is neither muted nor a sprout (younger than titles.js SPROUT_S, fourteen
+ *  days) counts toward it - three accounts registered this minute hid any note, and a muted flood's reports counted.
+ *  Any registered reader's report still hides the note from that reader at once. */
 export const NOTE_REPORTS_HIDE = 3;
 /** How long the client keeps a board it has read before it asks again (PROF0 19: "a 60-second cache"). */
 export const BOARD_CACHE_MS = 60_000;
@@ -102,6 +105,18 @@ export function unseenCount(board, seenAt) {
 }
 /** "3 new" - or '' for none. */
 export const unseenText = (n) => (n > 0 ? `${n} new` : '');
+
+/**
+ * AUDIT 28 N15: THE SUBJECT OF A LETTER ANSWERING A NOTE - "Re: " and the note's, NEVER CUT (MAIL1's law: a subject is
+ * refused past its bound, never shortened): a subject that already answers something, or one "Re: " would carry past
+ * the bound, is the note's own, whole.
+ */
+export function noteReplySubject(subject) {
+  const s = String(subject ?? '');
+  if (/^re:/i.test(s.trim())) return s;
+  const re = `Re: ${s}`;
+  return re.length <= LETTER_SUBJECT_MAX ? re : s;
+}
 
 /** What the Notices tab pins under the rumour in a town that has a bounty board (PROF0 10.1, DECIDED). */
 export const BOUNTY_BOARD_LINE = "The town's bounties are posted on its Bounty Board.";

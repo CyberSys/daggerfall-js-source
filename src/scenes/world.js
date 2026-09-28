@@ -163,9 +163,9 @@ import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool
 import { createHunting } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
 import { createForagingWait } from './foragingWait.js';
 import { createMarksBook } from '../net/marksBook.js';   // MARKS1: the account's Marks - the balance, the Bank's sale, a guild's treasury   // FORAGE4: online, Foraging's quest time is a wait on the hunt's page
-import { createNoticeBook, parseNoteCommand } from '../net/noticeBook.js';   // NOTICE1: this device's Notice Boards - a town's board read, a note pinned
-import { createNoticeOverlay, closeNoticeDoor } from '../ui/noticeDoor.js';   // NOTICE1: the board's window, through its one door
-import { unseenText, NOTE_SUBJECT_MAX } from '../net/boardLaw.js';   // NOTICE1: the count over a board; a letter's subject in reply
+import { createNoticeBook, parseNoteCommand, planNoteAnswer, NOTE_LETTER_LOST } from '../net/noticeBook.js';   // NOTICE1: this device's Notice Boards - a town's board read, a note pinned
+import { createNoticeOverlay, closeNoticeDoor, noticeDoorOpen } from '../ui/noticeDoor.js';   // NOTICE1: the board's window, through its one door
+import { unseenText } from '../net/boardLaw.js';   // NOTICE1: the count over a board
 import { alignSurvival, shiftSurvival } from '../systems/survival/needs.js';   // SURV7: the needs' markers at an arrival; AUDIT SURV-TIERS (the third pass): and across a clock correction
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // SURV7: the env's lycanthrope and beast-form flags
 import { elementalResistanceChance, ELEMENTS, BODY_CAPSULE_RADIUS, EFFECT_FLAGS, savingThrow } from '../systems/spellcast.js';   // SURV7: the env's fire and frost resistances; WB4: the saving throw a boss's fire meets   // DW-E3: a foe's controller, as a fish's probe meets it
@@ -293,11 +293,11 @@ import { questActionsExtensionTemplates } from '../systems/quest/questActionsExt
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC
-import { applyDeathPenalty, deathPenaltyText } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a quarter of the purse
+import { applyDeathPenalty, deathPenaltyText, stateDeathLoss, statedDeathLoss } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a quarter of the purse
 import { createBountyHost } from './bountyHost.js';   // BOUNTY1: the town's bounty boards - the hunts, their packs, their purse
 import { createBountyFarms, farmSpotLocal, pickFarm } from './bountyFarms.js';   // BOUNTY-FARM: a farm on a farm bounty's pixel, while it is held
 import { questBoardIndices } from '../systems/bountyBoard.js';   // BOUNTY1: which of a town's boards post bounties (half)
-import { createBountyOverlay } from '../ui/bountyDoor.js';   // BOUNTY1: the board's window and the payday notice
+import { createBountyOverlay, closeBountyDoor, bountyDoorOpen } from '../ui/bountyDoor.js';   // BOUNTY1: the board's window and the payday notice
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
 import { totalWeight } from '../systems/inventory.js';   // HCC: PlayerEntity.WagonWeight
 import { WAGON_KG_LIMIT, planTake, CANNOT_CARRY_TEXT } from '../systems/itemTransfer.js';   // HCC: ItemHelper.WagonKgLimit; SET7: the Broker's sale asks the pack's own carry gate
@@ -4404,7 +4404,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     overlayActive: () => townTalk.overlayActive || !!modes?.overlayHeld,
     enemiesNear: () => duelEnemyNear() || areEnemiesNearby(exteriorFoePool(), { resting: true }),
     online: () => sharedClockOn(),
+    // AUDIT 28 F6: what a save kept behind the wait, given back - a quest's box of words, a quest's reward
+    revive: (keep) => { if (keep?.box) showQuestBox(keep.box); else if (keep?.reward) giveReward(keep.reward); },
   });
+  /** AUDIT 28 F6: a quest box the save can keep - its words alone (a prompt's answer is a closure, and stays this page's). */
+  const keptBox = (box) => {
+    if (!box || Object.values(box).some((v) => typeof v === 'function')) return null;
+    try { return { box: JSON.parse(JSON.stringify(box)) }; } catch { return null; }
+  };
   /** SURV3: the water sources under the ray - every built pixel's, in scene coordinates, and the list the pick indexes. */
   let _springs = [];
   // WORLD-HOVER: the port's OWN world objects, each named by the module
@@ -5447,6 +5454,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const y = collider.heightAt?.(x, z);
       if (!Number.isFinite(y)) continue;
       if (_inAnyLocationRect([x, y, z]) || _nearRoad([x, y, z], 8) || _overDeepWater(x, z)) continue;
+      if (bountyFarms?.occupied?.(x, z, 8)) continue;   // AUDIT 28 B13: never among a standing farm's buildings
       return [x, y, z];
     }
     return null;
@@ -7172,8 +7180,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     playerEntity.health = Math.max(1, Math.round((playerEntity.maxHealth ?? playerEntity.health) * RESURRECT_HEALTH_PCT / 100));
     player.stopAutorun();   // AUDIT 27h S2: SEA-RISE's law for every rise - a drowned autorunner raised on the seabed walked on
     _deathWasOnline = null;
+    const spared = statedDeathLoss() ?? 0;
+    stateDeathLoss(null);   // AUDIT 28 B5: a rescue is no respawn - the screen's loss is withdrawn, and said so
     closeDeathScreen();
     townTalk.say(RESURRECT_TEXT.raised(rez.name));
+    if (spared > 0) townTalk.say(RESURRECT_TEXT.spared(spared));
   }
   /** AUDIT RISE-REST F1: CLOSE WHICHEVER DEATH SCREEN IS UP - townTalk's slot (a death outdoors) or the mode's own (a
    *  building's, a dungeon's: modes.clearDeath), the fall's pitch handed back either way. The Resurrect's close and a
@@ -8792,7 +8803,7 @@ export async function bootWorld(canvas, renderer, params, status) {
      *  GameManager.Instance.WeaponManager.ToggleSheath() - a SINGLETON
      *  call with no scene gate at all, registered for both buttons at
      *  :211-212, so the panel is live on every screen the bar is drawn
-     *  on. Here routeAction's arm is optional (ui/input.js:809) and
+     *  on. Here routeAction's arm is optional (ui/input.js:815) and
      *  only dungeonContext.js carried the door, so above ground, in
      *  ?exterior and inside a building the click was swallowed by
      *  routeLargeHudClick's unconditional `return true` and nothing
@@ -9167,7 +9178,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         // gates the position now, not just the presence.
         // WEAPON-VIS2: this ladder never calls routeKey (the comment
         // above the Escape arm says so directly), so routeKey's own
-        // `POLLED_ACTIONS.has(act)` decline (ui/input.js:768) never
+        // `POLLED_ACTIONS.has(act)` decline (ui/input.js:774) never
         // touched this door. hudCtx carries toggleSheath (AUDIT 58, for
         // the large HUD's sheath panel), so 'ReadyWeapon' - Z - reached
         // routeAction from BOTH here AND the frame's own poll below
@@ -9698,13 +9709,34 @@ export async function bootWorld(canvas, renderer, params, status) {
   // only its tail. `push()` unshifts to the front, which is exactly
   // PushWindow.
   let _questBoxWin = null;
+  /** RW1 / FORAGE4: a quest's reward, given - its pile minted on the ground the player stands on now and opened, or,
+   *  while a quest box is being read, opened when that box closes (GivePc's OnClose). */
+  const giveReward = (dfItem) => {
+    // undefined = "not my mode" (this host mints); null = the mode
+    // owned the ground and could not mint (already warned) - the
+    // ?? shortcut would fold the two, so the split is explicit.
+    let open = modes?.mintRewardPile?.(dfItem);
+    if (open === undefined) {
+      open = () => {
+        const pile = droppedLoot.dropPile([dfItem], dropFeet(), `${playerTravelPixel().x},${playerTravelPixel().y}`);
+        if (!pile) return;
+        const w = makeInventoryWindow({
+          onClose: () => droppedLoot.releaseEmptied(),
+          loot: droppedLootHooks(pile),   // G5: DaggerfallLoot's own identity
+        });
+        if (w) townTalk.showOverlay(w);   // DISC10-E L3: a refused pack is null - the pile stays on the ground
+      };
+    }
+    if (open && _questBoxWin && !_questBoxWin.done && _liveQuestOverlay(_questBoxWin)) _onQuestBoxClosed = open;
+    else open?.();
+  };
   // RW1: GivePc's `messageBox.OnClose += QuestCompleteMessage_OnClose`
   // (GivePc.cs:173, :189-196) - ONE deferred act armed by offerReward
   // and fired when the box the player is reading closes.
   let _onQuestBoxClosed = null;
   const showQuestBox = (box) => {
     // FORAGE4 (FORAGE0 13.1): a quest's box waits behind Foraging's online wait - a bonus's line after the work
-    if (foragingWait.holds()) { foragingWait.hold(() => showQuestBox(box)); return; }
+    if (foragingWait.holds()) { foragingWait.hold(() => showQuestBox(box), keptBox(box)); return; }   // AUDIT 28 F6: a box of words rides the save
     if (_questBoxWin && !_questBoxWin.done && _liveQuestOverlay(_questBoxWin)) {
       _questBoxWin.push([box]);
       return;
@@ -10768,27 +10800,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // A reward left untaken stays a pile at the player's feet,
     // exactly as DFU's container persists.
     offerReward: (q, dfItem) => {
-      // undefined = "not my mode" (this host mints); null = the mode
-      // owned the ground and could not mint (already warned) - the
-      // ?? shortcut would fold the two, so the split is explicit.
-      let open = modes?.mintRewardPile?.(dfItem);
-      if (open === undefined) {
-        open = () => {
-          const pile = droppedLoot.dropPile([dfItem], dropFeet(), `${playerTravelPixel().x},${playerTravelPixel().y}`);
-          if (!pile) return;
-          const w = makeInventoryWindow({
-            onClose: () => droppedLoot.releaseEmptied(),
-            loot: droppedLootHooks(pile),   // G5: DaggerfallLoot's own identity
-          });
-          if (w) townTalk.showOverlay(w);   // DISC10-E L3: a refused pack is null - the pile stays on the ground
-        };
-      }
-      const give = () => {
-        if (open && _questBoxWin && !_questBoxWin.done && _liveQuestOverlay(_questBoxWin)) _onQuestBoxClosed = open;
-        else open?.();
-      };
-      if (open && foragingWait.holds()) foragingWait.hold(give);   // FORAGE4: behind the wait, after its box - the box's order kept
-      else give();
+      // FORAGE4: behind the wait, after its box - the box's order kept. AUDIT 28 F6: and KEPT - the item rides the wait's
+      // record in the save, so a reload mid-wait gives it still (a closure held in memory went with the page)
+      if (foragingWait.holds()) foragingWait.hold(() => giveReward(dfItem), { reward: dfItem });
+      else giveReward(dfItem);
     },
     // IsPlayerInTown(true, true), through the one closure S40 gave it.
     // That closure replaced `locationType <= 2`, which is City /
@@ -13669,8 +13684,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     showNotice: (notice) => {
       // the notice waits for the screen - the street's slot, and indoors or below the interior's and the dungeon's own
       // stacks (`modes.overlayHeld`): a mate's clear lands while a shop or the pack is open, and must not stand over it
-      if ((townTalk.overlayActive && !townTalk.overlayDone) || (modes?.overlayHeld ?? false)) return false;
-      const ov = createBountyOverlay('notice', { notice });
+      if ((townTalk.overlayActive && !townTalk.overlayDone) || (modes?.overlayHeld ?? false) || (modes?.deathUp?.() ?? false)) return false;
+      // AUDIT 28 H12: a notice taken down unread (another window took the slot, a death came) goes back in the queue
+      const ov = createBountyOverlay('notice', { notice, onClose: (read) => { if (!read) bountyHost?.requeue(notice); } });
       if (!ov) return true;
       townTalk.showOverlay(ov);
       return true;
@@ -13678,13 +13694,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     openBoardWindow: (deps) => { const ov = createBountyOverlay('board', deps); if (ov) townTalk.showOverlay(ov); },
     social: () => (social?.party ? {
       acct: social.acct ?? null, inParty: true,
-      mates: (social.others() ?? []).filter((m) => !!m.p).map((m) => ({ acct: m.acct, name: m.name, p: m.p })),
+      mates: (social.others() ?? []).filter((m) => !!m.p).map((m) => ({ acct: m.acct, name: m.name, p: m.p, online: m.online !== false })),   // AUDIT 28 B3: a mate gone offline stands nothing
     } : null),
+    posePixel: () => playerTravelPixel(),   // AUDIT 28 B8: the pixel my pose says (composePartyPose's)
   });
   // NOTICE1 (PROF0 10.1): THE NOTICE BOARD'S PRESS (scenes/worldModes.js activateBulletinBoard, after the bounty
   // board's). Online, a town's rumour board opens the Notice Board once the service has said it is open to this account
   // (BOARD_OPEN); until it has, and whenever it is not, the board is DFU's own - the rumour box - and the read that
   // settles it is asked (the town's board is read on arrival anyway, for the count over it).
+  /** AUDIT 28 H8: which of a built pixel's boards are bounty boards (systems/bountyBoard.js questBoardIndices), worked out
+   *  once a pixel - the count over the boards and the press's targets asked it every frame, a sort each time. A pixel's
+   *  boards are laid once, when it is built. */
+  const boardSplitOf = (p) => (p._boardSplit ??= questBoardIndices(p.boards ?? []));
   const openNoticeBoard = (town, rumour) => {
     if (!noticeBook || !town) return false;
     if (noticeBook.open !== true) { noticeBook.read(town.mapId); return false; }
@@ -13706,27 +13727,25 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** NOTICE1: A NOTE'S ONE BUTTON (net/boardLaw.js NOTE_BUTTONS), answered through the doors that stand: a duel
    *  challenge where the author stands within DUEL1's reach outdoors (its own challenge); otherwise - and for a party
    *  or a guild, whose way in is the author's invitation - a letter to the author, addressed and begun (MAIL1, the
-   *  social panel's draft: JOURNAL1's door). The board closes first, so the letter is what the player sees. */
-  const NOTE_LETTER_START = Object.freeze({
-    party: 'I would like to join your party.',
-    guild: 'I would like to join your guild.',
-    duel: 'I accept your challenge. Where shall we meet?',
-  });
+   *  social panel's draft). The plan is net/noticeBook.js planNoteAnswer's. AUDIT 28 N1: THE LETTER GOES THROUGH
+   *  JOURNAL1's PENDING DOOR (`_letterPending`), opened the first frame the panel may stand - the board it was pressed
+   *  on still held the slot this frame, so a direct open was refused, and the board closed on nothing at all. */
   const answerNote = (note) => {
-    if (note?.button === 'duel') {
-      const peer = [...(online?.peers?.values?.() ?? [])].find((q) => q?.name === note.from);
-      if (peer && duelCan() == null && duelNear(peer.id)) { closeNoticeDoor(); duelChallenge(peer.id); return { ok: true }; }
-    }
-    closeNoticeDoor();
-    const opened = socialPanel?.openLetters?.({ draft: { to: note.from, subject: `Re: ${note.subject}`.slice(0, NOTE_SUBJECT_MAX), body: NOTE_LETTER_START[note.button] ?? '' } });
-    return opened ? { ok: true } : { ok: false, text: 'The letters cannot be opened now.' };
+    const peer = note?.button === 'duel' ? [...(online?.peers?.values?.() ?? [])].find((q) => q?.name === note.from) : null;
+    const plan = planNoteAnswer(note, {
+      duelHere: !!peer && duelCan() == null && duelNear(peer.id),
+      mail: mail?.state ?? null, letters: !!socialPanel, signedOutText: LETTERS_SIGNED_OUT_TEXT,
+    });
+    if (plan.kind === 'duel') { closeNoticeDoor(); duelChallenge(peer.id); return { ok: true }; }
+    if (plan.kind === 'letter') { _letterPending = { draft: plan.draft, at: performance.now(), lost: NOTE_LETTER_LOST }; closeNoticeDoor(); return { ok: true }; }
+    return { ok: false, text: plan.text };
   };
   /** NOTICE1: the town the player stands in, when one of its boards is a Notice Board (not every one a bounty board). */
   const noticeTownHere = () => {
     const at = playerTravelPixel();
     const p = at ? built.get(`${at.x},${at.y}`) : null;
     if (!p?.boards?.length || !p.location) return null;
-    const bountyAt = questBoardIndices(p.boards);
+    const bountyAt = boardSplitOf(p);
     return bountyAt.size < p.boards.length ? noticeTownOf(p.px, p.py, bountyAt.size > 0) : null;
   };
   /** NOTICE1: HOW FAR the count over a board is read from, metres - across a town square, not across the town. */
@@ -13738,7 +13757,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const out = [];
     for (const p of built.values()) {
       if (!p.boards?.length || !p.location) continue;
-      const bountyAt = questBoardIndices(p.boards);
+      const bountyAt = boardSplitOf(p);
       if (bountyAt.size >= p.boards.length) continue;
       const town = noticeTownOf(p.px, p.py, bountyAt.size > 0);
       const n = town ? noticeBook.unseen(town.mapId) : 0;
@@ -13955,7 +13974,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // below, so the frame that opens it draws it (and ahead of the party's run, which SOC3/SOC4 pin as renders alone).
     if (_letterPending) {
       if (socialPanel?.openLetters({ draft: _letterPending.draft })) _letterPending = null;
-      else if (performance.now() - _letterPending.at > LETTER_PENDING_MS) { _letterPending = null; tradeSay('Your letters could not open - the page is still in your journal.'); }
+      else if (performance.now() - _letterPending.at > LETTER_PENDING_MS) { tradeSay(_letterPending.lost ?? 'Your letters could not open - the page is still in your journal.'); _letterPending = null; }   // AUDIT 28 N1: a note's letter says the note's words
     }
     partyTravel?.tick();   // PARTY-TRAVEL: the party's journey - throttled inside to PARTY_TRIP_TICK_MS
     partyRestFollowTick();   // PARTY-REST1: every frame, not throttled to the send cadence - a few property reads, and a follower's own countdown should start and end as promptly as the leader's does
@@ -15263,7 +15282,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (!p.boards?.length) continue;
         const t = state.pixelTranslation(p.px, p.py);
         // BOUNTY1: half the town's boards post its bounties - every client picks the same half (questBoardIndices)
-        const bountyAt = p.location ? questBoardIndices(p.boards) : new Set();
+        const bountyAt = p.location ? boardSplitOf(p) : new Set();
         const noticeTown = noticeBook && p.location ? noticeTownOf(p.px, p.py, bountyAt.size > 0) : null;
         p.boards.forEach((b, i) => {
           out.push({
@@ -15832,6 +15851,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       try { bountyHost?.tick(dt); } catch (e) { console.warn('[bounty] tick', e); }
       _farmSyncT -= dt;
       if (_farmSyncT <= 0) { _farmSyncT = 0.5; try { bountyFarms?.sync(bountyHost?.farmsWanted() ?? []); } catch (e) { console.warn('[bounty] farms', e); } }
+      foragingWait.tick();   // AUDIT 28 F2: Foraging's wait ticks in every mode - a wait left pending indoors held every quest's boxes until the street
+      // AUDIT 28 H12: a death in the building's or the dungeon's own slot is never under a DOM window of the street's -
+      // the board and the payday notice come down (an unread notice goes back in its queue)
+      if (modes?.deathUp?.() && (bountyDoorOpen() || noticeDoorOpen())) { closeBountyDoor(); closeNoticeDoor(); }
       // AUDIT F2-I1: the modal frame RETURNS, so an overlay held in the
       // townTalk slot got neither its clock nor its draw while the
       // player was inside a building or a dungeon - chargen mounts
@@ -15842,7 +15865,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // window held in the townTalk slot while the player was inside a
       // building or a dungeon, and gated it on the window existing -
       // but townTalk.frame ticks and draws the HUD TEXT LAYER too
-      // (townTalk.js:663, :671). So every HUD line raised in a modal
+      // (townTalk.js:666, :674). So every HUD line raised in a modal
       // mode had nowhere to land, which is why the interior weapon
       // rig's `say` was a console.warn and the interior ticker's was a
       // console.log. Drawn ABOVE the modal render, which is where

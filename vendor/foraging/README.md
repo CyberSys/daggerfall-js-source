@@ -51,9 +51,10 @@ PNG at their own size.
   read at.
 - `Quests/` - the quest list `QuestList-ForagingQuests.txt` and its 22
   quests, verbatim and named as the manifest names them. The six fixes
-  the port makes (FORAGE-FIX) are a patch table in the port's own module
-  and its own code - the quests' and the list's patches applied as they
-  load; these files are never edited.
+  the port makes (FORAGE-FIX): four quest-text patches in a table in the
+  port's own module (Q7, Q8, Q9, Q13), applied as the quests and the
+  list load, and two in the port's own code (Q10, Q11); these files are
+  never edited.
 - `Textures/` - the mod's seven textures, the author's own pixel art (no
   Daggerfall record): `11600_0-0.png` Wood-Axe, `11601_0-0.png`
   Pick-Axe, `11602_0-0.png` Sickle, `11603_0-0.png` Fishing-Net (128 x

@@ -16,14 +16,33 @@
 // the sale was made at: a sale lost is never gold lost, and never gold
 // twice.
 //
+// AUDIT 28 (M1, M2, M7, M8, M9). ONE ASK AT A TIME: a sale and its settle
+// share one promise, so two bank visits while the answer is slow ask once
+// and pay once (two settles in flight each paid the same sale). A KEPT SALE
+// IS ITS ACCOUNT'S: it carries the account id and is asked again only
+// under it - another account's session would have made a fresh sale from
+// its own balance - and it is let go only on a refusal the service gives
+// AFTER it looked for the sale's line (the service answers a line it
+// finds before the switch): short, capped, a bad amount, its hour spent,
+// an id another act took, the switch. No session, a session refused, a
+// guest: the line may be there, so the sale waits. Each (account,
+// character) keeps its own, so one waiting sale shuts no other's Bank. A
+// guild move keeps its id until an answer comes, so a press after a lost
+// answer is the same move, never a second.
+//
 // Pure - the door, the store and the ids are handed in - so the pins drive
 // it without a network.
 // ═══════════════════════════════════════════════════════════════════
 import { MARKS_BANK, MARKS_MOVE_MAX, marksAmountOk, marksText, exchangeGold } from './marksLaw.js';
 import { accountRefusalText } from './accountClient.js';
 
-/** A sale whose answer did not come, kept to be asked again. */
+/** The sales whose answers did not come, kept to be asked again - { [account|character]: sale }. */
 export const MARKS_PENDING_KEY = 'marks1.pendingSale';
+/** AUDIT 28 M2: the refusals the service gives only after it looked for the sale's line and found none - nothing was
+ *  burnt, nothing is owed, and the kept sale may go (the switch among them: the service answers a line it finds before
+ *  it asks the switch). Every other answer (the network, the service's fault, no session, a refused session, a guest)
+ *  says nothing about the line, and the sale is kept. */
+export const MARKS_FINAL = Object.freeze(['bad-marks', 'marks-short', 'marks-bank-cap', 'marks-rate', 'marks-rid', 'marks-closed']);
 /** How many times one press asks before the sale is left to settle later. */
 export const MARKS_TRIES = 3;
 /** The answers a sale is asked again after (the service did not say no): the network, the service's own fault. */
@@ -57,11 +76,44 @@ export function mintMarksRid(rand = (b) => globalThis.crypto.getRandomValues(b))
  */
 export function createMarksBook({ door, store = null, character = () => null, rid = () => mintMarksRid() }) {
   const state = { balance: /** @type {number|null} */ (null), today: /** @type {any} */ (null), open: /** @type {boolean|null} */ (null) };
-  let _memory = null;   // the kept sale, when the store refuses writes
-  const kept = () => { try { const v = store?.get(MARKS_PENDING_KEY); return v && typeof v === 'object' ? v : _memory; } catch { return _memory; } };
-  const keep = (v) => { _memory = v; try { store?.set(MARKS_PENDING_KEY, v); } catch { /* memory holds it */ } };
+  const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
+  /** The table as the store holds it - a store that refused a write is read from memory, and only then (AUDIT 28 M1:
+   *  a store that merely reads empty is another tab's settle, not a lost write). */
+  let _memory = null;
+  const table = () => {
+    if (_memory) return _memory;
+    let v = null;
+    try { v = store?.get(MARKS_PENDING_KEY) ?? null; } catch { v = null; }
+    if (!v || typeof v !== 'object') return {};
+    if (typeof v.rid === 'string') return { [`${v.account ?? ''}|${v.character ?? ''}`]: v };   // one sale, as MARKS1 kept it
+    return v;
+  };
+  const writeTable = (t) => {
+    _peekAt = -Infinity;   // what the face shows follows every write at once
+    const out = Object.keys(t).length ? t : null;
+    try { store?.set(MARKS_PENDING_KEY, out); _memory = null; } catch { _memory = { ...t }; }
+  };
+  const slot = () => `${account() ?? ''}|${character() ?? ''}`;
+  const kept = () => table()[slot()] ?? null;
+  /** AUDIT 28 H8: the Bank's face asks `pending` every frame - the store read (and parsed) at most once a second for it;
+   *  a sale and a settle read it fresh. */
+  let _peek = null, _peekAt = -Infinity;
+  const keptSoon = () => {
+    const now = Date.now();
+    if (now - _peekAt >= 1000) { _peek = kept(); _peekAt = now; }
+    return _peek;
+  };
+  const keep = (sale, key = slot()) => { const t = { ...table() }; if (sale) t[key] = sale; else delete t[key]; writeTable(t); };
+  /** The one ask in flight - a sale or a settle (AUDIT 28 M1). */
+  let busy = null;
+  const once = (fn) => { if (busy) return null; busy = Promise.resolve().then(fn).finally(() => { busy = null; }); return busy; };
 
-  const noteAnswer = (data) => { if (Number.isSafeInteger(data?.balance)) state.balance = data.balance; };
+  const noteAnswer = (data) => {
+    if (Number.isSafeInteger(data?.balance)) state.balance = data.balance;
+    if (Number.isSafeInteger(data?.exchangedToday)) state.today = { ...(state.today ?? {}), exchanged: data.exchangedToday };   // AUDIT 28 M9
+  };
+  /** Guild moves whose answers did not come, by what they move - a press after a lost answer is the same move. */
+  const moving = new Map();
 
   /** Asks one act until the service answers it (or says no), at most MARKS_TRIES times. */
   async function ask(fn) {
@@ -99,47 +151,69 @@ export function createMarksBook({ door, store = null, character = () => null, ri
      */
     async sell(marks, credit, where = null) {
       if (!marksAmountOk(marks, MARKS_BANK.perDay)) return { ok: false, text: accountRefusalText('bad-marks') };
-      if (kept()) return { ok: false, text: MARKS_TEXT.kept };   // one sale at a time - the last must settle first
-      const sale = { rid: rid(), marks, character: character(), where };
-      keep(sale);
-      const r = await ask(() => door.exchange(marks, sale.rid));
-      if (r?.ok) {
-        keep(null);
-        noteAnswer(r.data);
-        const gold = Number.isSafeInteger(r.data?.gold) ? r.data.gold : exchangeGold(marks);
-        credit(gold, where);
-        return { ok: true, gold, text: MARKS_TEXT.sold(marks, gold) };
-      }
-      if (RETRY.includes(r?.error)) return { ok: false, text: MARKS_TEXT.kept };
-      keep(null);   // the service said no: nothing burnt, nothing owed
-      return { ok: false, text: accountRefusalText(r?.error) };
+      if (!account()) return { ok: false, text: accountRefusalText('no-session') };
+      const run = once(async () => {
+        if (kept()) return { ok: false, text: MARKS_TEXT.kept };   // this account's and character's last sale must settle first
+        const key = slot();
+        const sale = { rid: rid(), marks, account: account(), character: character(), where };
+        keep(sale, key);
+        const r = await ask(() => door.exchange(marks, sale.rid));
+        if (r?.ok) {
+          keep(null, key);
+          noteAnswer(r.data);
+          const gold = Number.isSafeInteger(r.data?.gold) ? r.data.gold : exchangeGold(marks);
+          credit(gold, where);
+          return { ok: true, gold, text: MARKS_TEXT.sold(marks, gold) };
+        }
+        if (!MARKS_FINAL.includes(r?.error)) return { ok: false, text: MARKS_TEXT.kept };   // the line may be there: kept
+        keep(null, key);   // the service looked and said no: nothing burnt, nothing owed
+        return { ok: false, text: accountRefusalText(r?.error) };
+      });
+      return run ?? { ok: false, text: MARKS_TEXT.kept };   // one ask at a time - the one in flight answers
     },
-    /** A kept sale, asked again - paid to `credit` only while the character that made it plays. Answers the line, or null. */
+    /** A kept sale, asked again - under the account that made it, and paid to `credit` only while the character that
+     *  made it plays. Answers the line, or null. */
     async settle(credit) {
-      const sale = kept();
-      if (!sale || typeof sale.rid !== 'string' || !Number.isSafeInteger(sale.marks)) { if (sale) keep(null); return null; }
-      if (sale.character != null && sale.character !== character()) return null;   // another character's gold waits for it
-      const r = await ask(() => door.exchange(sale.marks, sale.rid));
-      if (r?.ok) {
-        keep(null);
-        noteAnswer(r.data);
-        const gold = Number.isSafeInteger(r.data?.gold) ? r.data.gold : exchangeGold(sale.marks);
-        credit(gold, sale.where ?? null);
-        return MARKS_TEXT.settled(sale.marks, gold);
-      }
-      if (!RETRY.includes(r?.error)) keep(null);
-      return null;
+      const run = once(async () => {
+        const key = slot();
+        const sale = kept();
+        if (!sale) return null;
+        if (typeof sale.rid !== 'string' || !Number.isSafeInteger(sale.marks)) { keep(null, key); return null; }
+        // (another account's sale, or another character's, is never found here: the kept table is keyed by the account
+        // signed in and the character playing - their gold waits for them)
+        const r = await ask(() => door.exchange(sale.marks, sale.rid));
+        if (r?.ok) {
+          keep(null, key);
+          noteAnswer(r.data);
+          const gold = Number.isSafeInteger(r.data?.gold) ? r.data.gold : exchangeGold(sale.marks);
+          credit(gold, sale.where ?? null);
+          return MARKS_TEXT.settled(sale.marks, gold);
+        }
+        if (MARKS_FINAL.includes(r?.error)) keep(null, key);
+        return null;
+      });
+      return run ?? null;   // the ask in flight settles it
     },
-    /** Whether a sale waits to settle. */
-    get pending() { return !!kept(); },
+    /** Whether a sale of this account's and character's waits to settle (or one is being asked). */
+    get pending() { return !!busy || !!keptSoon(); },
 
-    /** A guild's Marks treasury: in (any member) or out (the guildmaster's), from and to this account's balance. */
+    /** A guild's Marks treasury: in (any member) or out (the guildmaster's), from and to this account's balance. The
+     *  request id is kept until an answer comes (AUDIT 28 M8). */
     async moveGuild(characterId, marks, out = false) {
       if (!marksAmountOk(marks, MARKS_MOVE_MAX)) return { ok: false, text: accountRefusalText('bad-marks') };
-      const id = rid();
-      const r = await ask(() => (out ? door.guildWithdraw(characterId, marks, id) : door.guildDeposit(characterId, marks, id)));
-      if (r?.ok) { noteAnswer(r.data); return { ok: true, guildMarks: r.data.guildMarks, text: out ? MARKS_TEXT.movedOut(marks) : MARKS_TEXT.movedIn(marks) }; }
-      return { ok: false, error: r?.error ?? 'server', text: accountRefusalText(r?.error) };
+      const key = `${account() ?? ''}|${characterId}|${out ? 'out' : 'in'}|${marks}`;
+      let m = moving.get(key);
+      if (m?.promise) return m.promise;
+      if (!m) moving.set(key, m = { id: rid(), promise: null });
+      const id = m.id;
+      m.promise = (async () => {
+        const r = await ask(() => (out ? door.guildWithdraw(characterId, marks, id) : door.guildDeposit(characterId, marks, id)));
+        m.promise = null;
+        if (!RETRY.includes(r?.error)) moving.delete(key);   // answered - a lost answer keeps the id for the next press
+        if (r?.ok) { noteAnswer(r.data); return { ok: true, guildMarks: r.data.guildMarks, text: out ? MARKS_TEXT.movedOut(marks) : MARKS_TEXT.movedIn(marks) }; }
+        return { ok: false, error: r?.error ?? 'server', text: accountRefusalText(r?.error) };
+      })();
+      return m.promise;
     },
   };
 }

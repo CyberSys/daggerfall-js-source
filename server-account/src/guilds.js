@@ -63,6 +63,7 @@ import { CHAR_ID_RE } from './service.js';
 import { renownTrackOf } from './renownTracks.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
 import { MARKS_LEDGER_SHOWN } from '../../src/net/marksLaw.js';   // MARKS1: the guild's Marks lines shown
+import { marksOpenFor, guildMarksSweep } from './marks.js';   // AUDIT 28 M5: the Marks shown only where they are the viewer's; M3: a guild that goes sweeps them
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_RANK_NAMES, GUILD_RANK_MASTER, GUILD_RANK_OFFICER, GUILD_RANK_RECRUIT,
   GUILD_TREASURY_MAX, GUILD_LEDGER_SHOWN, GUILD_OPS_MAX, GUILD_OPS_WINDOW_S, GUILD_INVITE_TTL_S, GUILD_ID_RE, GUILD_MEMBER_RE,
@@ -115,8 +116,9 @@ async function actorOf(db, player, character) {
 }
 
 /** What a member sees of their guild: its name, tag, rank names and treasury; the roster; the invitations its
- *  officers have out; the latest of the ledger. */
-async function viewOf(db, guildId, me, nowS) {
+ *  officers have out; the latest of the ledger. AUDIT 28 M5: the Marks treasury and its lines only where Marks are the
+ *  viewer's (`marksOpen`, the service's switch) - at `dev` a member who is no developer saw who put in how much. */
+async function viewOf(db, guildId, me, nowS, marksOpen = false) {
   const g = await db.prepare('SELECT * FROM guilds WHERE id = ?').bind(guildId).first();
   if (!g) return null;
   const members = await db.prepare('SELECT rowid AS rid, name, rank, joined_at, player, char_id FROM guild_members WHERE guild_id = ? ORDER BY rank, joined_at, rowid')
@@ -127,9 +129,9 @@ async function viewOf(db, guildId, me, nowS) {
     : { results: [] };
   const ledger = await db.prepare('SELECT at, who, kind, amount, balance FROM guild_ledger WHERE guild_id = ? ORDER BY seq DESC LIMIT ?').bind(guildId, GUILD_LEDGER_SHOWN).all();
   // MARKS1: the Marks treasury beside the gold one, and its latest lines (0016_marks.sql - the one ledger)
-  const marks = await db.prepare('SELECT balance FROM guild_marks WHERE guild_id = ?').bind(guildId).first();
-  const marksLines = await db.prepare(`SELECT at, who, kind, amount FROM marks_ledger
-    WHERE (dst_kind = 'guild' AND dst_id = ?1) OR (src_kind = 'guild' AND src_id = ?1) ORDER BY seq DESC LIMIT ?2`).bind(guildId, MARKS_LEDGER_SHOWN).all();
+  const marks = marksOpen ? await db.prepare('SELECT balance FROM guild_marks WHERE guild_id = ?').bind(guildId).first() : null;
+  const marksLines = marksOpen ? await db.prepare(`SELECT at, who, kind, amount FROM marks_ledger
+    WHERE (dst_kind = 'guild' AND dst_id = ?1) OR (src_kind = 'guild' AND src_id = ?1) ORDER BY seq DESC LIMIT ?2`).bind(guildId, MARKS_LEDGER_SHOWN).all() : null;
   let ranks = GUILD_RANK_NAMES;
   try { ranks = guildRankNamesOf(JSON.parse(g.ranks)) ?? GUILD_RANK_NAMES; } catch { /* the defaults */ }
   return {
@@ -139,8 +141,10 @@ async function viewOf(db, guildId, me, nowS) {
     })),
     invites: (invites?.results ?? []).map((i) => ({ name: i.name, by: i.by_name, at: i.at })),
     ledger: (ledger?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind, amount: l.amount, balance: l.balance })),
-    marks: Number(marks?.balance ?? 0),
-    marksLedger: (marksLines?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind === 'guild-withdraw' ? 'withdraw' : 'deposit', amount: l.amount })),
+    ...(marksOpen ? {
+      marks: Number(marks?.balance ?? 0),
+      marksLedger: (marksLines?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind === 'guild-withdraw' ? 'withdraw' : 'deposit', amount: l.amount })),
+    } : {}),
   };
 }
 
@@ -187,15 +191,15 @@ export async function foundGuild(ctx, player, { character, name, tag } = {}) {
     return { error: 'guild-already' };
   }
   const me = await memberRow(db, player.id, character);
-  return { ok: true, guild: await viewOf(db, id, me, nowS), badge: badgeOfRow(me, t) };   // GUILD1c: the founder wears the tag now
+  return { ok: true, guild: await viewOf(db, id, me, nowS, marksOpenFor(player, ctx.env)), badge: badgeOfRow(me, t) };   // GUILD1c: the founder wears the tag now
 }
 
 /** THE CHARACTER'S GUILD, as its member sees it - `guild: null` for a character in none. */
-export async function guildOf({ db, nowS }, player, { character } = {}) {
+export async function guildOf({ db, nowS, env }, player, { character } = {}) {
   const a = await actorOf(db, player, character);
   if (a.error === 'no-guild') return { ok: true, guild: null, badge: {} };   // GUILD1c: and the look says what the rooms should read - none
   if (a.error) return a;
-  const guild = await viewOf(db, a.me.guild_id, a.me, nowS);
+  const guild = await viewOf(db, a.me.guild_id, a.me, nowS, marksOpenFor(player, env));
   return { ok: true, guild, badge: guild ? badgeOfRow(a.me, guild.tag) : {} };
 }
 
@@ -230,7 +234,7 @@ export async function inviteToGuild(ctx, player, { character, handle } = {}) {
 /** ANSWER AN INVITATION with one character: declined, it goes; accepted, the character joins as a recruit while the
  *  guild has room, and it goes with the join. A join refused - the character in a guild, the guild full - leaves it
  *  standing, for another character or a free place. */
-export async function answerInvite({ db, nowS }, player, { character, guild, accept } = {}) {
+export async function answerInvite({ db, nowS, env }, player, { character, guild, accept } = {}) {
   if (accountKind(player) !== 'linked') return { error: 'guilds-need-account' };
   if (typeof guild !== 'string' || !GUILD_ID_RE.test(guild)) return { error: 'no-invite' };
   const live = nowS - GUILD_INVITE_TTL_S;
@@ -259,24 +263,44 @@ export async function answerInvite({ db, nowS }, player, { character, guild, acc
   }
   if (!joined?.meta?.changes) return { error: (await standing()) ? 'guild-full' : 'no-invite' };
   const me = await memberRow(db, player.id, character);
-  const view = await viewOf(db, guild, me, nowS);
+  const view = await viewOf(db, guild, me, nowS, marksOpenFor(player, env));
   return { ok: true, guild: view, badge: view ? badgeOfRow(me, view.tag) : {} };   // GUILD1c: the joiner wears the tag now
 }
 
-/** LEAVE. The guildmaster leaves only a guild with nobody else in it, and only once its treasury is empty - that
- *  guild goes; one with members is handed on first. */
-export async function leaveGuild({ db }, player, { character } = {}) {
+/** The guild going: its Marks swept to the guildmaster (marks.js guildMarksSweep) and the row deleted, IN ONE BATCH -
+ *  the delete only once the guild's gold treasury is empty and its Marks treasury has been emptied into the
+ *  guildmaster's balance (AUDIT 28 M3: the leave's delete never looked at the Marks, and the cascade took them with no
+ *  line). `alone`: a leave - nobody else may be in it. Answers the delete's result. */
+async function endGuild(db, guildId, player, nowS, { alone = false } = {}) {
+  const [, gone] = await db.batch([
+    guildMarksSweep(db, guildId, player, nowS, { alone }),
+    db.prepare(`DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = ?1 AND balance > 0)
+      AND (?2 = 0 OR (SELECT COUNT(*) FROM guild_members WHERE guild_id = ?1) = 1)`).bind(guildId, alone ? 1 : 0),
+  ]);
+  return gone;
+}
+/** Why a guild did not go: its members, its gold, or Marks its guildmaster's balance has no room for. */
+async function whyNotGone(db, guildId, { alone = false } = {}) {
+  if (alone) {
+    const n = await db.prepare('SELECT COUNT(*) AS n FROM guild_members WHERE guild_id = ?').bind(guildId).first();
+    if ((n?.n ?? 0) > 1) return 'guild-master-leaves';
+  }
+  const g = await db.prepare('SELECT treasury FROM guilds WHERE id = ?').bind(guildId).first();
+  return g && g.treasury > 0 ? 'guild-treasury' : g ? 'marks-full' : 'no-guild';
+}
+
+/** LEAVE. The guildmaster leaves only a guild with nobody else in it, and only once its gold treasury is empty - that
+ *  guild goes, its Marks to the guildmaster (AUDIT 28 M3); one with members is handed on first. */
+export async function leaveGuild({ db, nowS }, player, { character } = {}) {
   const a = await actorOf(db, player, character);
   if (a.error) return a;
   if (a.me.rank === GUILD_RANK_MASTER) {
-    // one statement: nobody joins between the count and the going
-    const r = await db.prepare('DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND (SELECT COUNT(*) FROM guild_members WHERE guild_id = ?1) = 1')
-      .bind(a.me.guild_id).run();
+    // one batch: nobody joins between the count and the going, and the Marks go where the guild's gold went
+    const r = await endGuild(db, a.me.guild_id, player, nowS, { alone: true });
     // GUILD1c: nobody else was in it; AUDIT MERGE-PLUS A2: and the guild's out order, as a disbanding's (below) - the
     // hub takes it off every socket this account has open, not only the one that carried the act
     if (r?.meta?.changes) return { ok: true, disbanded: true, badge: {}, out: { s: player.id, gi: a.me.guild_id } };
-    const n = await db.prepare('SELECT COUNT(*) AS n FROM guild_members WHERE guild_id = ?').bind(a.me.guild_id).first();
-    return { error: (n?.n ?? 0) > 1 ? 'guild-master-leaves' : 'guild-treasury' };
+    return { error: await whyNotGone(db, a.me.guild_id, { alone: true }) };
   }
   const r = await db.prepare('DELETE FROM guild_members WHERE rowid = ? AND guild_id = ?').bind(a.me.rid, a.me.guild_id).run();
   if (!r?.meta?.changes) return { error: 'no-guild' };
@@ -382,13 +406,14 @@ export async function handOverGuild(ctx, player, { character, member } = {}) {
   return given?.meta?.changes ? { ok: true } : { error: 'no-member' };
 }
 
-/** DISBAND - the guildmaster's, once the treasury is empty - its gold and (MARKS1, PROF0 18) its Marks; everything of
- *  the guild goes with it. */
-export async function disbandGuild({ db }, player, { character } = {}) {
+/** DISBAND - the guildmaster's, once the gold treasury is empty; its Marks go to the guildmaster's balance in the same
+ *  batch (AUDIT 28 M3/M5 - never lost, and never locked behind a switch the guildmaster cannot pass). Everything else
+ *  of the guild goes with it. */
+export async function disbandGuild({ db, nowS }, player, { character } = {}) {
   const a = await actorOf(db, player, character);
   if (a.error) return a;
   if (!guildMay(a.me.rank, 'disband')) return { error: 'guild-rank' };
-  const r = await db.prepare('DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = ?1 AND balance > 0)').bind(a.me.guild_id).run();
+  const r = await endGuild(db, a.me.guild_id, player, nowS);
   // GUILD1c: the guildmaster wears no tag now, and the hub hears the guild gone - every member's chat with it
-  return r?.meta?.changes ? { ok: true, badge: {}, out: { s: player.id, gi: a.me.guild_id } } : { error: 'guild-treasury' };
+  return r?.meta?.changes ? { ok: true, badge: {}, out: { s: player.id, gi: a.me.guild_id } } : { error: await whyNotGone(db, a.me.guild_id) };
 }

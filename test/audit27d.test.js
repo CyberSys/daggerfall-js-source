@@ -58,7 +58,7 @@ test('AUDIT SPELL-GIFT B1 + B7: the receiver refuses my duel opponent\'s gift wh
 
 test('AUDIT REST-OPT C1: the switch is honoured only through a hub that carries `nr` (world120) - through an older one the party counted the member a voter to gather while the member\'s own client refused every rest; the link reads it off the hub\'s welcome, and the pose, the vote\'s words and the party\'s gate all read the switch as the party can hear it (mutants: the switch read raw; the welcome\'s word never kept)', () => {
   assert.equal(REST_OPT_RELAY_MIN, 120);
-  assert.deepEqual(['world119', 'world120', 'world122', 'nope', null].map(relaySupportsRestOpt), [false, true, true, false, false]);
+  assert.deepEqual(['world119', 'world120', 'world122', 'world123', 'nope', null].map(relaySupportsRestOpt), [false, true, true, true, false, false]);
   const O = src('src/net/online.js');
   assert.match(O, /this\.restOptOk = false;/);
   assert.match(O, /if \(primary\) this\.restOptOk = relaySupportsRestOpt\(relayV\);/);

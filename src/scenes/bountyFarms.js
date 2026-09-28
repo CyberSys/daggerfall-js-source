@@ -109,6 +109,16 @@ export function createBountyFarms(deps) {
 
   /** Where the farm's centre is in the scene now. */
   const centreOf = (f) => { const t = deps.pixelTranslation(f.px, f.py); return [t[0] + f.lx, t[1] + f.ly, t[2] + f.lz]; };
+  /** AUDIT 28 B13: whether scene point (x, z) falls within `r` metres of a standing farm's block (not `except`) - a
+   *  second farm's spot and a split hunt's trail spot keep out of one that stands. */
+  const occupied = (x, z, r = 0, except = null) => {
+    for (const f of farms.values()) {
+      if (f === except || !f.models || !Number.isFinite(f.half)) continue;
+      const c = centreOf(f);
+      if (Math.abs(x - c[0]) < f.half + r && Math.abs(z - c[2]) < f.half + r) return true;
+    }
+    return false;
+  };
   /** Where the farmhouse stands in the scene now. */
   const houseOf = (f) => { const t = deps.pixelTranslation(f.px, f.py); const h = f.house ?? [f.lx, f.ly, f.lz]; return [t[0] + h[0], t[1] + h[1], t[2] + h[2]]; };
 
@@ -125,7 +135,7 @@ export function createBountyFarms(deps) {
     let spot = null, best = Infinity, unbuilt = false;
     for (let k = 0; k < FARM_SPOT_TRIES; k++) {
       const [lx, lz] = farmSpotLocal(f.id, k);
-      if (!deps.spotOk(t[0] + lx, t[2] + lz, half + 4)) continue;
+      if (!deps.spotOk(t[0] + lx, t[2] + lz, half + 4) || occupied(t[0] + lx, t[2] + lz, half + 4, f)) continue;   // AUDIT 28 B13: nor on another farm
       let lo = Infinity, hi = -Infinity;
       for (const dx of [-half, 0, half]) for (const dz of [-half, 0, half]) {
         const h = col.heightAt(t[0] + lx + dx, t[2] + lz + dz);
@@ -135,7 +145,7 @@ export function createBountyFarms(deps) {
       if (hi - lo < best) { best = hi - lo; spot = [lx, lz]; }
     }
     if (!spot) { if (unbuilt) f.retry = FARM_RETRY_SYNCS; else f.failed = true; return; }   // a far pixel's ground is not up yet - try again
-    f.lx = spot[0]; f.lz = spot[1];
+    f.lx = spot[0]; f.lz = spot[1]; f.half = half;
     const centreGround = col.heightAt(t[0] + f.lx, t[2] + f.lz);
     f.ly = (Number.isFinite(centreGround) ? centreGround : 0) - t[1];
     // the block's own frame runs 0..side: its middle goes on the spot; each model's height is then its own ground's
@@ -223,5 +233,6 @@ export function createBountyFarms(deps) {
     /** Has this bounty's farm been tried and failed (no farm block, no clear spot)? Its pack then stands as any other. */
     failed: (id) => !!farms.get(id)?.failed,
     standing: () => [...farms.values()].filter((f) => f.models).map((f) => f.id),
+    occupied: (x, z, r = 0) => occupied(x, z, r),
   };
 }

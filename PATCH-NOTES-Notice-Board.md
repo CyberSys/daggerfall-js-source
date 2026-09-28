@@ -4,7 +4,7 @@
 - Online, a town's **rumour boards** (every board that is not a Bounty Board) now open the **Notice Board**: a corkboard of pinned notes in the Enhanced Plus style.
 - It shows, in order: the town's own news (the same words the classic board gives), a line pointing to the town's Bounty Board if it has one, **the server's notices** under a red seal (while an Oblivion Gate stands, and announcements from the developers), then **players' notes**, newest first.
 - A board belongs to its **town**: every rumour board in a town shows the same notes.
-- When a town's board has notes you have not read yet, **"N new"** floats over it as you approach.
+- When a town's board has notes or server notices you have not read yet, **"N new"** floats over it as you approach.
 
 ## Pinning a note
 - Registered players can **pin a note**: a subject and up to 800 characters, standing for **1, 3 or 7 days**. You can have **3 notes up** at a time, across every board.

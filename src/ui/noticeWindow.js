@@ -120,8 +120,9 @@ export function mountNoticeBoard(host, deps) {
   let board = null, stale = false, error = null, busy = false;
   const seenAtOpen = deps.book.seenAt(map);   // what was new when the window opened stays marked new while it is up
   let alive = true;
-  const draft = { subject: '', body: '', days: NOTE_DAYS[NOTE_DAYS.length - 1], button: '' };
-  const noticeDraft = { subject: '', body: '', days: 3 };
+  // AUDIT 28 N13: the book keeps what is being written, for the session - a stray tap outside throws nothing away
+  const draft = deps.book.draft?.(map) ?? { subject: '', body: '', days: NOTE_DAYS[NOTE_DAYS.length - 1], button: '' };
+  const noticeDraft = deps.book.noticeDraft?.() ?? { subject: '', body: '', days: 3 };
 
   const back = () => { if (view === 'board') exit(); else { view = 'board'; reading = null; render(); } };
   const onKey = (e) => {
@@ -142,9 +143,12 @@ export function mountNoticeBoard(host, deps) {
     render();
   }
 
-  async function act(p, after = 'board') {
+  /** One act at a time (AUDIT 28 N9: a double press of Report or Take it down sent it twice, and the second's "no such
+   *  note" overwrote the first's word). `start` is called only when nothing else is under way. */
+  async function act(start, after = 'board') {
+    if (busy) return;
     busy = true; render();
-    const r = await p;
+    const r = await start();
     if (!alive) return;
     busy = false;
     word = { ok: !!r?.ok, text: r?.text ?? '' };
@@ -199,7 +203,12 @@ export function mountNoticeBoard(host, deps) {
     const grid = el('ul', 'notice-grid');
     grid.setAttribute('role', 'list');
     cards.forEach((c, i) => grid.append(cardNode(c, i)));
-    if (!board && !busy && error) grid.append(el('li', 'notice-empty', 'The counting-house is not answering. The town\'s own news is all the board shows now.'));
+    if (!board && !busy && error) {
+      // AUDIT 28 N11: a board closed to this account says so - the next press is DFU's own sign again
+      grid.append(el('li', 'notice-empty', error === 'board-closed' || error === 'no-session' || error === 'auth'
+        ? 'The Notice Board is not open to you. The town\'s own news is all it shows.'
+        : 'The counting-house is not answering. The town\'s own news is all the board shows now.'));
+    }
     else if (board && !(board.notes?.length)) grid.append(el('li', 'notice-empty', me().canPin ? 'No player has pinned a note here. Yours could be the first.' : 'No player has pinned a note here.'));
     body.append(grid);
     return body;
@@ -216,6 +225,7 @@ export function mountNoticeBoard(host, deps) {
     const meta = el('p', 'notice-meta');
     meta.textContent = [c.from ? `Posted by ${c.from}${n?.title ? `, ${n.title}` : ''}` : NOTICE_SEALS[c.seal], c.expiresAt ? timeLeftText(c.expiresAt, nowS()) : ''].filter(Boolean).join(' · ');
     card.append(meta);
+    if (!me().moderator && n?.mine && n.hidden) card.append(el('p', 'notice-mod', 'Reports have hidden this note from other readers until a moderator looks at it. You may take it down.'));   // AUDIT 28 N2
     if (me().moderator && n?.hidden) card.append(el('p', 'notice-mod', `Hidden by ${n.reports} report${n.reports === 1 ? '' : 's'} · note ${n.id}`));
     else if (me().moderator && n) card.append(el('p', 'notice-mod', `Note ${n.id}${n.reports ? ` · ${n.reports} report${n.reports === 1 ? '' : 's'}` : ''}`));
     const acts = el('div', 'notice-acts');
@@ -227,13 +237,13 @@ export function mountNoticeBoard(host, deps) {
       if (!me().canPin) { b.disabled = true; b.title = 'A registered account answers a note'; }
       acts.append(b);
     }
-    if (n?.mine) acts.append(button('notice-takedown', 'Take it down', () => act(deps.book.takeDown(map, n.id))));
-    if (n && !n.mine && me().canPin) acts.append(button('notice-report', 'Report', () => act(deps.book.report(map, n.id))));
+    if (n?.mine) acts.append(button('notice-takedown', 'Take it down', () => act(() => deps.book.takeDown(map, n.id))));
+    if (n && !n.mine && me().canPin) acts.append(button('notice-report', 'Report', () => act(() => deps.book.report(map, n.id))));
     if (n && me().moderator) {
-      if (n.hidden) acts.append(button('notice-restore', 'Restore', () => act(deps.book.modRestore(map, n.id))));
-      acts.append(button('notice-remove', 'Remove', () => act(deps.book.modRemove(map, n.id))));
+      if (n.hidden) acts.append(button('notice-restore', 'Restore', () => act(() => deps.book.modRestore(map, n.id))));
+      acts.append(button('notice-remove', 'Remove', () => act(() => deps.book.modRemove(map, n.id))));
     }
-    if (c.notice && me().developer) acts.append(button('notice-remove', 'Take the notice down', () => act(deps.book.noticeRemove(map, c.notice.id))));
+    if (c.notice && me().developer) acts.append(button('notice-remove', 'Take the notice down', () => act(() => deps.book.noticeRemove(map, c.notice.id))));
     card.append(acts);
     body.append(card);
     return body;
@@ -266,8 +276,7 @@ export function mountNoticeBoard(host, deps) {
     form.append(el('p', 'notice-hint', 'A recruitment button needs a guild rank that may invite. The reader\'s answer comes to you as a letter.'));
     const acts = el('div', 'notice-acts');
     const pin = button('primary notice-dopin', busy ? 'Pinning...' : 'Pin it up', () => {
-      if (busy) return;
-      act(deps.book.pin(map, { subject: draft.subject, body: draft.body, days: draft.days, button: draft.button || null, character: deps.character?.() ?? null }))
+      act(() => deps.book.pin(map, { subject: draft.subject, body: draft.body, days: draft.days, button: draft.button || null, character: deps.character?.() ?? null }))
         .then(() => { if (word?.ok) { draft.subject = ''; draft.body = ''; draft.button = ''; } });
     });
     acts.append(pin);
@@ -293,7 +302,10 @@ export function mountNoticeBoard(host, deps) {
     form.append(field('Subject', subject), field('Notice', text), field(`Days (1 to ${NOTICE_DAYS_MAX})`, days));
     form.append(el('p', 'notice-hint', 'The server\'s word, under the red seal, on every board.'));
     const acts = el('div', 'notice-acts');
-    acts.append(button('primary notice-dopost', 'Post on every board', () => { if (!busy) act(deps.book.notice(map, { ...noticeDraft })); }));
+    acts.append(button('primary notice-dopost', 'Post on every board', () => {
+      // AUDIT 28 N7: posted, the draft is spent - a second press never puts the same notice up twice
+      act(() => deps.book.notice(map, { ...noticeDraft })).then(() => { if (word?.ok) { noticeDraft.subject = ''; noticeDraft.body = ''; } });
+    }));
     form.onsubmit = (e) => { e.preventDefault(); };
     form.append(acts);
     body.append(form);

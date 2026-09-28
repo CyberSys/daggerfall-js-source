@@ -27,9 +27,12 @@
 // ═══ REPORTS, AND WHO DECIDES ════════════════════════════════════════
 //
 // Any registered reader may report a note once; the reporter stops
-// seeing it at once, and NOTE_REPORTS_HIDE reporters hide it from
-// everyone until a moderator either removes it (the row goes) or
-// restores it (reports no longer hide it). Moderators - MODERATOR_HANDLES
+// seeing it at once, and NOTE_REPORTS_HIDE reporters - each neither
+// muted nor a sprout (AUDIT 28 N3) - hide it from everyone but its
+// author until a moderator either removes it (the row goes) or restores
+// it (reports no longer hide it). Its author still sees it, marked, and
+// may take it down (AUDIT 28 N2: hidden from them too, it held one of
+// their places for up to a week with nothing to take down). Moderators - MODERATOR_HANDLES
 // and DEVELOPER_HANDLES, titles.js canModerate - see hidden notes, with
 // their count, and may remove any note. The developers post the server's
 // notices (the red seal), on every board.
@@ -37,7 +40,7 @@
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═════════════════════════════════════════════════════════════════════
 import { mintId, accountKind, displayName, isMuted, overRate } from './accounts.js';
-import { isDeveloper, canModerate, titleWorn, glyphsOf } from './titles.js';
+import { isDeveloper, canModerate, titleWorn, glyphsOf, SPROUT_S } from './titles.js';
 import { guildActorOf } from './guilds.js';
 import { guildMay } from '../../src/net/guildLaw.js';
 import {
@@ -60,15 +63,22 @@ async function sweep(db, nowS) {
   await db.prepare('DELETE FROM board_notices WHERE id IN (SELECT id FROM board_notices WHERE expires_at <= ? LIMIT 50)').bind(nowS).run();
 }
 
-/** A note as a reader sees it. `mod` adds what a moderator needs to decide. */
+/** Whether a recruitment note still recruits: its guild stands, and the author's character is still in it at a rank
+ *  that may invite (AUDIT 28 N4 - NOTE_ROW's join). */
+const recruits = (n) => !!n.guild_name && n.author_rank != null && guildMay(Number(n.author_rank), 'invite');
+
+/** A note as a reader sees it. `mod` adds what a moderator needs to decide; the author's own note says when reports
+ *  have hidden it from everyone else. */
 function noteView(n, row, env, nowS, { mine = false, mod = false, reports = 0 } = {}) {
+  const guildOk = recruits(n);
   return {
     id: n.id, from: n.author_name, ...badgeOf(row, env, nowS), subject: n.subject, body: n.body,
-    // a recruitment note whose guild is gone keeps its words and loses its button (0017_board.sql: SET NULL)
-    button: n.button === 'guild' && !n.guild_name ? null : (n.button ?? null),
-    ...(n.guild_name ? { guild: { name: n.guild_name, tag: n.guild_tag } } : {}),
+    // a recruitment note whose guild is gone - or whose author can no longer invite to it - keeps its words and loses
+    // its button and its seal (0017_board.sql)
+    button: n.button === 'guild' && !guildOk ? null : (n.button ?? null),
+    ...(guildOk ? { guild: { name: n.guild_name, tag: n.guild_tag } } : {}),
     at: n.at, expiresAt: n.expires_at, mine,
-    ...(mod ? { hidden: n.hidden === 1, restored: n.hidden === 2, reports } : {}),
+    ...(mod ? { hidden: n.hidden === 1, restored: n.hidden === 2, reports } : mine && n.hidden === 1 ? { hidden: true } : {}),
   };
 }
 
@@ -87,15 +97,17 @@ export async function readBoard({ db, nowS }, reader, env, map) {
   if (!boardKeyOk(mapId)) return { error: 'bad-board' };
   await sweep(db, nowS);
   const mod = canModerate(reader, env);
-  const { results: notes = [] } = await db.prepare(`SELECT n.*, g.name AS guild_name, g.tag AS guild_tag,
+  // the author's own notes always (AUDIT 28 N2: muted or hidden, they still hold the author's places)
+  const { results: notes = [] } = await db.prepare(`SELECT n.*, g.name AS guild_name, g.tag AS guild_tag, gm.rank AS author_rank,
       (SELECT COUNT(*) FROM board_reports r WHERE r.note_id = n.id) AS reports
     FROM board_notes n JOIN players p ON p.id = n.author LEFT JOIN guilds g ON g.id = n.guild_id
-    WHERE n.map_id = ? AND n.expires_at > ?
-      AND (COALESCE(p.muted_until, 0) <= ? OR ? = 1)
-      AND (n.hidden <> 1 OR ? = 1)
-      AND NOT EXISTS (SELECT 1 FROM board_reports r WHERE r.note_id = n.id AND r.reporter = ?)
-    ORDER BY n.at DESC, n.id DESC LIMIT ?`)
-    .bind(mapId, nowS, nowS, mod ? 1 : 0, mod ? 1 : 0, reader.id, BOARD_NOTES_SHOWN).all();
+      LEFT JOIN guild_members gm ON gm.player = n.author AND gm.char_id = n.char_id AND gm.guild_id = n.guild_id
+    WHERE n.map_id = ?1 AND n.expires_at > ?2
+      AND (COALESCE(p.muted_until, 0) <= ?2 OR ?3 = 1 OR n.author = ?4)
+      AND (n.hidden <> 1 OR ?3 = 1 OR n.author = ?4)
+      AND NOT EXISTS (SELECT 1 FROM board_reports r WHERE r.note_id = n.id AND r.reporter = ?4)
+    ORDER BY n.at DESC, n.id DESC LIMIT ?5`)
+    .bind(mapId, nowS, mod ? 1 : 0, reader.id, BOARD_NOTES_SHOWN).all();
   const { results: notices = [] } = await db.prepare('SELECT * FROM board_notices WHERE expires_at > ? ORDER BY at DESC, id DESC LIMIT ?')
     .bind(nowS, BOARD_NOTICES_SHOWN).all();
   const authors = [...new Set(notes.map((n) => n.author))];
@@ -117,8 +129,10 @@ export async function readBoard({ db, nowS }, reader, env, map) {
   };
 }
 
-/** A note's row with its guild's name and tag (a recruitment note's), for every answer that shows one. */
-const NOTE_ROW = 'SELECT n.*, g.name AS guild_name, g.tag AS guild_tag FROM board_notes n LEFT JOIN guilds g ON g.id = n.guild_id';
+/** A note's row with its guild's name and tag and its author's rank in it now (a recruitment note's), for every answer
+ *  that shows one. */
+const NOTE_ROW = `SELECT n.*, g.name AS guild_name, g.tag AS guild_tag, gm.rank AS author_rank FROM board_notes n
+  LEFT JOIN guilds g ON g.id = n.guild_id LEFT JOIN guild_members gm ON gm.player = n.author AND gm.char_id = n.char_id AND gm.guild_id = n.guild_id`;
 
 /** An account's live notes, on every board. */
 async function liveCount(db, author, nowS) {
@@ -164,11 +178,15 @@ export async function pinNote({ db, rand, nowS }, author, env, { map, subject, b
   const expires = nowS + words.days * NOTE_DAY_S;
   let r;
   try {
-    r = await db.prepare(`INSERT INTO board_notes (id, map_id, author, author_name, subject, body, button, guild_id, at, expires_at, rid)
-      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM board_notes WHERE author = ? AND expires_at > ?) < ?`)
-      .bind(id, mapId, author.id, displayName(author), words.subject, words.body, words.button, guildId, nowS, expires, rid, author.id, nowS, NOTES_LIVE_MAX).run();
-  } catch {
-    r = null;   // (author, rid) taken by a twin that raced this one - answered below as the note it made
+    r = await db.prepare(`INSERT INTO board_notes (id, map_id, author, author_name, subject, body, button, guild_id, char_id, at, expires_at, rid)
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM board_notes WHERE author = ? AND expires_at > ?) < ?`)
+      .bind(id, mapId, author.id, displayName(author), words.subject, words.body, words.button, guildId, guildId ? character : null, nowS, expires, rid, author.id, nowS, NOTES_LIVE_MAX).run();
+  } catch (e) {
+    // (author, rid) taken by a twin that raced this one - answered below as the note it made. AUDIT 28 N8: that clash
+    // ALONE; anything else is the service's fault (500), which the client asks again with the same id - never
+    // `notes-full`, which it believes and gives up on
+    if (!/UNIQUE/i.test(String(/** @type {any} */ (e)?.message ?? e))) throw e;
+    r = null;
   }
   if (!r?.meta?.changes) {
     const again = await db.prepare(`${NOTE_ROW} WHERE n.author = ? AND n.rid = ?`).bind(author.id, rid).first();
@@ -183,7 +201,7 @@ export async function pinNote({ db, rand, nowS }, author, env, { map, subject, b
 export async function takeDownNote({ db, nowS }, author, env, id) {
   if (accountKind(author) !== 'linked') return { error: 'board-need-account' };
   if (typeof id !== 'string' || !NOTE_ID_RE.test(id)) return { error: 'no-note' };
-  if (await overRate({ db, nowS }, `board-ops:${author.id}`, BOARD_OPS_MAX, BOARD_WINDOW_S)) return { error: 'board-rate' };
+  if (await overRate({ db, nowS }, `board-ops:${author.id}`, BOARD_OPS_MAX, BOARD_WINDOW_S)) return { error: 'board-ops-rate' };
   const r = await db.prepare('DELETE FROM board_notes WHERE id = ? AND author = ?').bind(id, author.id).run();
   if (!r?.meta?.changes) return { error: 'no-note' };
   return { ok: true, id, live: await liveCount(db, author.id, nowS) };
@@ -191,20 +209,22 @@ export async function takeDownNote({ db, nowS }, author, env, id) {
 
 /**
  * REPORT A NOTE: once a reader, never one's own. The reporter stops seeing it at once; the NOTE_REPORTS_HIDE'th
- * reporter hides it from everyone - in one statement, which reads the count the INSERT just made - unless a
- * moderator has restored it.
+ * reporter that COUNTS hides it from everyone - in one statement, which reads the count the INSERT just made - unless
+ * a moderator has restored it. AUDIT 28 N3: a report counts only from an account neither muted nor a sprout (titles.js
+ * SPROUT_S) at the time of the count.
  */
 export async function reportNote({ db, nowS }, reader, env, id) {
   const shut = gate(reader, env, nowS);
   if (shut && shut.error !== 'muted') return shut;   // a muted reader may still report what they are shown
   if (typeof id !== 'string' || !NOTE_ID_RE.test(id)) return { error: 'no-note' };
-  if (await overRate({ db, nowS }, `board-ops:${reader.id}`, BOARD_OPS_MAX, BOARD_WINDOW_S)) return { error: 'board-rate' };
+  if (await overRate({ db, nowS }, `board-ops:${reader.id}`, BOARD_OPS_MAX, BOARD_WINDOW_S)) return { error: 'board-ops-rate' };
   const note = await db.prepare('SELECT author FROM board_notes WHERE id = ? AND expires_at > ?').bind(id, nowS).first();
   if (!note) return { error: 'no-note' };
   if (note.author === reader.id) return { error: 'own-note' };
   await db.prepare('INSERT OR IGNORE INTO board_reports (note_id, reporter, at) VALUES (?, ?, ?)').bind(id, reader.id, nowS).run();
-  await db.prepare(`UPDATE board_notes SET hidden = 1 WHERE id = ? AND hidden = 0
-    AND (SELECT COUNT(*) FROM board_reports WHERE note_id = ?) >= ?`).bind(id, id, NOTE_REPORTS_HIDE).run();
+  await db.prepare(`UPDATE board_notes SET hidden = 1 WHERE id = ?1 AND hidden = 0
+    AND (SELECT COUNT(*) FROM board_reports r JOIN players p ON p.id = r.reporter
+      WHERE r.note_id = ?1 AND COALESCE(p.muted_until, 0) <= ?2 AND p.created_at <= ?2 - ?4) >= ?3`).bind(id, nowS, NOTE_REPORTS_HIDE, SPROUT_S).run();
   return { ok: true, id };
 }
 
@@ -222,14 +242,21 @@ export async function moderateNote({ db }, mod, env, id, act) {
   return { ok: true, id, act };
 }
 
-/** THE SERVER'S WORD (a developer's): a notice on every board, for 1 to NOTICE_DAYS_MAX days. */
-export async function postNotice({ db, rand, nowS }, dev, env, { subject, body, days } = {}) {
+/** THE SERVER'S WORD (a developer's): a notice on every board, for 1 to NOTICE_DAYS_MAX days. AUDIT 28 N7: with its own
+ *  request id, as a pin - a notice posted again because its answer was lost is the notice it made (`repeat`). */
+export async function postNotice({ db, rand, nowS }, dev, env, { subject, body, days, rid } = {}) {
   if (!isDeveloper(dev, env)) return { error: 'not-developer' };
+  if (typeof rid !== 'string' || !BOARD_RID_RE.test(rid)) return { error: 'board-rid' };
   const words = noticeWords({ subject, body, days });
   if ('error' in words) return words;
   const id = mintId(rand);
-  await db.prepare('INSERT INTO board_notices (id, subject, body, author, author_name, at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(id, words.subject, words.body, dev.id, displayName(dev), nowS, nowS + words.days * NOTE_DAY_S).run();
+  // one statement decides: (author, rid) is written once - a notice asked again is answered the one it made
+  const r = await db.prepare('INSERT OR IGNORE INTO board_notices (id, subject, body, author, author_name, at, expires_at, rid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(id, words.subject, words.body, dev.id, displayName(dev), nowS, nowS + words.days * NOTE_DAY_S, rid).run();
+  if (!r?.meta?.changes) {
+    const made = await db.prepare('SELECT id FROM board_notices WHERE author = ? AND rid = ?').bind(dev.id, rid).first();
+    return made ? { ok: true, repeat: true, id: made.id } : { error: 'server' };
+  }
   return { ok: true, id };
 }
 /** Take a server notice down (a developer's). */

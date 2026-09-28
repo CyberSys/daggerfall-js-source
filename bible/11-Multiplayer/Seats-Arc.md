@@ -1,6 +1,8 @@
 # THE SEATS ARC - guilds hold the Iliac Bay (SEAT0, the design record)
 
-**Status: DESIGN RECORD, every question decided. Nothing here is built.** Opened 2026-09-28. This page is the whole
+**Status: DESIGN RECORD, every question decided. Nothing of SEAT's own is built** - the two slices it stands on are:
+MARKS1 (PROF0's currency) and NOTICE1 (PROF0's board) SHIPPED on the professions branch (AUDIT 28 corrected this line,
+which said nothing was). Opened 2026-09-28. This page is the whole
 design of guild town control - SEAT1 (holding a seat) and SEAT2 (sieges) of THE HOLDINGS ARC
 (`06-Systems/Online-Arc.md`, "THE HOLDINGS ARC") - written out before a line of it is built. Its companion is
 `06-Systems/Professions-Arc.md` (PROF0): the life skills, the materials, the Notice Board, the market and Marks.
@@ -185,7 +187,8 @@ DECIDED (Mac, the Holdings plan: "the holder's banners and colours in the city")
 - **The anchors**, derived from the town's own RMB layout (`src/world/rmbLayout.js`), at most 8 a town:
   1. one beside each city gate model (the gate's two posts, the banner on the town side);
   2. two flanking the palace's door (the building record's position and facing);
-  3. one pennant above each bulletin board (the Notice Board, PROF0 10.1);
+  3. one pennant above each Notice Board - a town's rumour boards, every board BOUNTY1 did not take for its bounty
+     board (PROF0 10.1, `systems/bountyBoard.js` questBoardIndices; AUDIT 28: this said "each bulletin board");
   4. crown seats: two more at the castle's entrance in the city.
 - **The banner**: the port's own cloth quad, 1 wide by 3 tall (in DFU's scale, a man's height and a half), its
   field the holder's first colour, a border in the second, the device centred; it sways on the weather's wind
@@ -594,7 +597,8 @@ and the Charter lapses and the seat is unheld; succeed, and Standing returns to 
 ### 7.9 The seat on the Notice Board
 
 DECIDED (Mac): "The new notice board should be a physical object that houses quests, the player auction house,
-etc". The board is PROF0 section 10; its **Seat** tab, at every board in a seat town, carries:
+etc". The board is PROF0 section 10; its **Seat** tab, at every Notice Board in a seat town (not its bounty boards -
+BOUNTY1 took one board in two for its hunts; AUDIT 28), carries:
 
 - the holder, its banner and device, Standing and its trend, the Tithe, this week's Edict;
 - **the standings**: every pledged guild's influence this week, live, and the claim and defence lines;
@@ -727,7 +731,7 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
 
 ## 12. The server's shape
 
-- **Account service (D1)**, migrations after 0015:
+- **Account service (D1)**, migrations after 0017 (0016 is MARKS1's, 0017 NOTICE1's - AUDIT 28):
   - `town_seats` (key PK, name, region, tier, pixel_x, pixel_y, confirmed_at, holder_guild, held_since, standing,
     tithe, edict, window_day, window_hour, legacy JSON)
   - `world_witness` (kind, key, account, report_hash, at) and `world_facts` (kind, key, data JSON, state -
@@ -760,8 +764,8 @@ bible updated in the same change, mutants recorded.
 |---|---|---|
 | **SEAT0** | This record | - |
 | **SEAT-COUNT** | The count tool (3.1) | Mac has run it; the count is recorded here |
-| **MARKS1** | PROF0's currency | PROF0 15 |
-| **NOTICE1** | PROF0's board | PROF0 15 |
+| **MARKS1** | PROF0's currency - **SHIPPED** (PROF0 10.5, `06-Systems/Online-Arc.md`) | PROF0 15 |
+| **NOTICE1** | PROF0's board - **SHIPPED** (PROF0 10.7) | PROF0 15 |
 | **GUILD1d** | Guild halls, the guild entry, heraldry (8) | A guild buys a hall, members enter, the banner draws on a test layout |
 | **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board | Each source's cap pinned; per-account war and the 7-day wait pinned |
@@ -791,7 +795,7 @@ its record - each either wired or FLAGGED by name." Every SEAT slice's record ca
 | Host | What a seat is there |
 |---|---|
 | `scenes/world.js` - the streaming world | The seats' derivation (the boot pass beside `pickRegionHubs`); the map rings; the arrival lines; the banners at their anchors; the Notice Boards; the Watch's poses; the siege and the Royal Tourney - fought in the town as the streaming world draws it, in their own `siege:` rooms |
-| `scenes/exterior.js` - the fixed city (`?exterior`) | The banners and the board of the one city it loads, if that city is a seat. **FLAGGED by name**: no siege, no Watch, no Turning notice - the fixed city is a development host that mints its own `town:` room and runs no streamer, the way it already says so about travel (Home.md's open flags, `exterior.js` TP2) |
+| `scenes/exterior.js` - the fixed city (`?exterior`) | The banners of the one city it loads, if that city is a seat - and DFU's own board, never the Notice Board or a bounty board (PROF0 10.7, Bounty-Boards 8: the fixed city keeps DFU's board; AUDIT 28 corrected "the board"). **FLAGGED by name**: no siege, no Watch, no Turning notice - the fixed city is a development host that mints its own `town:` room and runs no streamer, the way it already says so about travel (Home.md's open flags, `exterior.js` TP2) |
 | `scenes/worldModes.js` - building interiors | The palace hall: the Charter Room's decor (the building host's own decor pool, `scenes/decorRoom.js`), the roster board, the guild Stores chest, the Hall of Records book; guild halls (GUILD1d); the members' discount and Market Day at the seat town's shops (the `calculateCost` call sites, 7.2) |
 | `scenes/dungeonContext.js` - dungeons | The three castles (crown halls): the holder's banners in the throne room, the chest, the roster board and the Hall of Records book; **no decor, no siege, no revolt, no Tourney** inside - a castle is DFU's quest ground, and every seat act happens in its city |
 
@@ -819,10 +823,12 @@ Every law in Home.md's Process section, and what it demands of this arc:
 
 **Guilds**
 
-- **Disbanding while holding a seat.** GUILD1's law already refuses a disband with gold in the treasury; it grows
-  three more refusals: Marks in the Marks treasury, **any Charter held**, and **a Right of Siege or a Tourney
-  pending**. FACT: a guild also ends when its last member leaves (`leaveGuild`, `server-account/src/guilds.js`), so
-  that leave is refused on the same three grounds. The Guildmaster first **relinquishes** each
+- **Disbanding while holding a seat.** GUILD1's law already refuses a disband with gold in the treasury. FACT (MARKS1,
+  AUDIT 28): the Marks treasury refuses nothing - a guild that goes gives what it holds to its guildmaster in the same
+  batch, refused only past the guildmaster's cap (`server-account/src/guilds.js` endGuild, `marks.js`
+  guildMarksSweep). SEAT grows three more refusals: **any Charter held**, **a Right of Siege or a Tourney pending**, and
+  PROF0's **guild Stores holding anything** (PROF0 18 - the two records now list the same). FACT: a guild also ends
+  when its last member leaves (`leaveGuild`), so that leave is refused on the same grounds. The Guildmaster first **relinquishes** each
   Charter at its board - the seat is unheld at once, its fortifications stay, a history row says so.
 - **The Guildmaster leaves or is removed.** GUILD1's `succeed()` names a new one; the seat is untouched; the titles
   re-derive on the next tokens (the old Guildmaster stops wearing "Warden of"; the new one may choose it).

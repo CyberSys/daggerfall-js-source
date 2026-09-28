@@ -35,8 +35,11 @@
 -- CASCADE: an account that is gone takes its balance with it ("An account
 -- is deleted: its Marks go" - PROF0 18); its ledger lines stay, the
 -- economy's audit ("the Marks ledger ... forever" - PROF0 20). A guild's
--- Marks treasury goes with its guild - which GUILD1's disband refuses
--- while the treasury holds anything (guilds.js).
+-- Marks treasury row goes with its guild - EMPTY: a guild that goes (a
+-- disband, the last member's leave) first gives what it holds to its
+-- guildmaster, one `guild-withdraw` line in the delete's own batch
+-- (guilds.js endGuild, marks.js guildMarksSweep; AUDIT 28 - the leave's
+-- delete never looked, and the cascade took the Marks with no line).
 CREATE TABLE IF NOT EXISTS marks (
   account  TEXT PRIMARY KEY,
   balance  INTEGER NOT NULL DEFAULT 0 CHECK (balance >= 0 AND balance <= 10000000),

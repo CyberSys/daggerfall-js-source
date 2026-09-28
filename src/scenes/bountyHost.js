@@ -16,15 +16,17 @@
 //     read (`notice`) - queued while another window is up, never dropped.
 //
 // THE PARTY (online): my pose carries my bounties (`poseField` -> net/wire.js validPartyPose `bq`). A bounty I SHARE
-// is taken up by every mate with room for it; a bounty any of us clears pays every one of us who holds it; and when
-// several of us stand on its pixel only one stands the pack (bountyPackOwner) - the rest fight the owner's beasts as
-// the puppets every other foe of theirs already is.
+// is taken up by every mate with room for it; a bounty any of us clears pays every one of us who held it BEFORE the
+// clear (AUDIT 28 B1: a row's `t`); and one of us stands the pack (bountyPackOwner) - whoever's pack already stands,
+// else the lowest account on its pixel (AUDIT 28 B3: a row's `a`) - the rest fight the owner's beasts as the puppets
+// every other foe of theirs already is. The hunt's kills are the party's (AUDIT 28 B4: a row's `k`): an owner who
+// falls or walks off hands on a hunt part done.
 
 import {
   BOUNTY_VENDOR, bountyDay, bountySites, boardPostings, postingFromId, parseBountyId, postingState,
   bountyDungeons, newBountyLedger, readBountyLedger, takeBounty, dropBounty, payBounty, lapseBounties, pruneBountyLedger,
   bountyPoseField, bountyPackOwner, bountyHuntKey, bountyTierFits, bountyMinutesLeft, rewardStory, BOUNTY_REWARD_TITLE, BOUNTY_ACTIVE_MAX,
-  MINUTES_PER_DAY,
+  MINUTES_PER_DAY, bountyIdAtLevel, bountyPartyKills, bountyClearPays,
 } from '../systems/bountyBoard.js';
 import { mintBountyItem, bountyItemName, bountyRewardRows } from '../systems/bountyReward.js';
 import { registerModSaveData } from '../systems/modSaveData.js';
@@ -42,7 +44,8 @@ export const BOUNTY_RETRY_S = 4;
  *  stood once the first is dead and the hunter has followed the clue close. Which group stands is read off the kills
  *  alone, so a load, a party mate's machine and the wire need nothing new. A dungeon's pack (2-4) is never split. */
 export const BOUNTY_SPLIT_MIN = 6;
-/** The groups a posting is hunted in: [first, second] or [all]. */
+/** The groups a posting is hunted in: [first, second] or [all]. Which group stands is read off the hunt's kills - the
+ *  party's, since AUDIT 28 B4 (each holder's pose carries its `k`, and a holder takes the most any of them reports). */
 export function bountyGroups(p) {
   if (!p || p.kind === 'dungeon' || p.count < BOUNTY_SPLIT_MIN) return [p?.count ?? 0];
   const first = Math.ceil(p.count / 2);
@@ -62,6 +65,7 @@ export const BOUNTY_REFUSALS = Object.freeze({
   paid: 'You have already claimed this bounty today.',
   full: `You can hold no more than ${BOUNTY_ACTIVE_MAX} bounties at once.`,
   bad: 'That notice is too faded to read.',
+  party: 'Your party has already claimed this bounty today.',   // AUDIT 28 B1: a hunt a mate cleared is done
 });
 
 /**
@@ -83,7 +87,8 @@ export const BOUNTY_REFUSALS = Object.freeze({
  *   say: (line:string) => void,
  *   showNotice: (n:any) => boolean,          // raise the reward notice; false while another window holds the screen
  *   openBoardWindow: (deps:any) => void,     // raise the board's window
- *   social?: () => ({ acct:string|null, inParty:boolean, mates:Array<{acct:string, name:string, p:any}> } | null),
+ *   social?: () => ({ acct:string|null, inParty:boolean, mates:Array<{acct:string, name:string, p:any, online?:boolean}> } | null),
+ *   posePixel?: () => ({x:number, y:number} | null),   // the pixel my party pose says I stand on (AUDIT 28 B8)
  *   rolls?: () => number,
  * }} deps `standPack` answers `far` when the group waits at its spot (the farm, the second group's): the host names
  *   the way and asks again as the hunter closes in
@@ -107,6 +112,8 @@ export function createBountyHost(deps) {
   const clues = new Map();
   /** BOUNTY-TIER: the shares across tiers already told (said once) */
   const tierRefused = new Set();
+  /** AUDIT 28 B2: a pack whose bounty was given up, by its notice - taken again, its live beasts are the hunt's again */
+  const orphans = new Map();
 
   const sitesFor = (px, py) => {
     const k = `${px},${py}`;
@@ -138,8 +145,13 @@ export function createBountyHost(deps) {
       const b = parseBountyId(id);
       if (b && ledger.paid.includes(b.slotKey)) paidIds.set(b.slotKey, id);
     }
-    packs.clear();   // a pack is never saved (its beasts are transient); the kills are, on the row
+    // AUDIT 28 B6: a pack whose bounty the load still holds keeps its beasts - a same-dungeon load patches them in place
+    // (the dungeon's save carried them), and a second pack stood beside them doubled the hunt; a pack whose beasts the
+    // load took away is found empty by the next tick, and what is left stands again. The kills are on the row.
+    for (const k of [...packs.keys()]) if (k.startsWith('retry:') || !ledger.held.some((h) => h.id === k)) packs.delete(k);
+    orphans.clear();
     notices.length = 0;
+    clues.clear(); toldOwner.clear(); tierRefused.clear();   // AUDIT 28 B9: the ways named are this session's - named again
   };
   registerModSaveData(BOUNTY_VENDOR, {
     newSaveData: () => newBountyLedger(),
@@ -230,9 +242,34 @@ export function createBountyHost(deps) {
       .filter((r) => r.posting);
   };
 
-  function take(id) {
+  /** AUDIT 28 B1: a mate's cleared row for this hunt, if any - the hunt is done for the party today. */
+  const mateCleared = (huntKey) => {
+    const s = social();
+    if (!s?.inParty) return null;
+    for (const m of s.mates ?? []) for (const r of Array.isArray(m?.p?.bq) ? m.p.bq : []) if (r.c && bountyHuntKey(r.i) === huntKey) return r;
+    return null;
+  };
+  /** AUDIT 28 B12: a notice taken as MY bounty - a mate's copy (Join the hunt, a share) rebuilt at my level where its tier
+   *  is mine, so the piece it pays is minted for me; the hunt (slot and tier) is the same. */
+  const mine = (id) => { const lv = deps.level(); return bountyTierFits(id, lv) ? (bountyIdAtLevel(id, lv) ?? id) : id; };
+  /** AUDIT 28 B2: a pack given up and taken again - its live beasts are the hunt's again, never a second pack. */
+  const adopt = (slotKey, id) => {
+    const o = orphans.get(slotKey);
+    orphans.delete(slotKey);
+    if (!o?.foes) return;
+    const pool = deps.foePool?.() ?? null;
+    const alive = o.foes.filter((f) => !f._bountyCounted && !f.dead && (!pool || pool.includes(f)));
+    if (!alive.length) return;
+    for (const f of o.foes) f.bountyId = id;
+    packs.set(id, o);
+  };
+  function take(given) {
+    const id = mine(given);
+    if (mateCleared(bountyHuntKey(id))) return { ok: false, text: BOUNTY_REFUSALS.party };
     const done = takeBounty(ledger, id, deps.now());
     if (!done.ok) return { ok: false, text: BOUNTY_REFUSALS[done.reason] ?? BOUNTY_REFUSALS.bad };
+    const b = parseBountyId(id);
+    if (b) adopt(b.slotKey, id);
     const p = postingOf(id);
     if (p) deps.say(`Bounty taken: ${p.title}. It is marked on your map.`);
     repaint();
@@ -241,7 +278,9 @@ export function createBountyHost(deps) {
   function drop(id) {
     const p = postingOf(id);
     if (!dropBounty(ledger, id)) return { ok: false };
+    const pack = packs.get(id);
     packs.delete(id);
+    if (pack && p) orphans.set(p.slotKey, pack);   // AUDIT 28 B2: kept for a retake, with its kills (dropBounty)
     if (p) deps.say(`You gave up the bounty on the ${p.foes}.`);
     repaint();
     return { ok: true };
@@ -287,7 +326,7 @@ export function createBountyHost(deps) {
   // ── paying ────────────────────────────────────────────────────────
   function pay(id, { byMate = null } = {}) {
     const posting = postingOf(id);
-    const row = payBounty(ledger, id);
+    const row = payBounty(ledger, id, deps.now());
     if (!row || !posting) return false;
     paidIds.set(posting.slotKey, id);
     packs.delete(id);
@@ -319,9 +358,9 @@ export function createBountyHost(deps) {
         if (!b) continue;
         // BOUNTY-TIER: the same HUNT is the same slot in the same tier - a mate's clear in another tier is theirs alone
         const hunt = bountyHuntKey(r.i);
-        const mine = ledger.held.find((h) => bountyHuntKey(h.id) === hunt);
-        if (r.c) {   // a mate cleared it: whoever of us holds that hunt is paid
-          if (mine) pay(mine.id, { byMate: String(m.name ?? 'A companion') });
+        const held = ledger.held.find((h) => bountyHuntKey(h.id) === hunt);
+        if (r.c) {   // a mate cleared it: whoever of us held that hunt BEFORE the clear is paid (AUDIT 28 B1)
+          if (held && bountyClearPays(r, held.takenAt)) pay(held.id, { byMate: String(m.name ?? 'A companion') });
           continue;
         }
         if (!r.s || today - b.day > SHARE_MAX_AGE_DAYS) continue;
@@ -336,10 +375,18 @@ export function createBountyHost(deps) {
           continue;
         }
         if (ledger.paid.includes(b.slotKey) || ledger.dropped.includes(b.slotKey) || ledger.held.length >= BOUNTY_ACTIVE_MAX) continue;
-        const done = takeBounty(ledger, r.i, now, { shared: true, from: String(m.name ?? '') });
-        const p = done.ok ? postingOf(r.i) : null;
+        if (mateCleared(hunt)) continue;   // AUDIT 28 B1: a share of a hunt the party already cleared is done
+        const id = mine(r.i);   // AUDIT 28 B12: at my level
+        const done = takeBounty(ledger, id, now, { shared: true, from: String(m.name ?? '') });
+        const p = done.ok ? postingOf(id) : null;
         if (p) { deps.say(`${m.name ?? 'A companion'} shared a bounty with you: ${p.title}. It is marked on your map.`); repaint(); }
       }
+    }
+    // AUDIT 28 B4: the hunt's kills are the party's - the most any holder of it reports
+    for (const h of ledger.held) {
+      const p = postingOf(h.id);
+      const k = Math.min(p?.count ?? 0, bountyPartyKills(s.mates, bountyHuntKey(h.id)));
+      if (k > h.killed) { h.killed = k; repaint(); }
     }
   }
 
@@ -378,8 +425,10 @@ export function createBountyHost(deps) {
       const here = underground ? below : outside;
       if (!here || here.x !== p.target.px || here.y !== p.target.py) continue;
       if (underground ? !(deps.canStandDungeon?.() ?? false) : !deps.canStand()) continue;
-      // one pack for the party: the owner stands it, the others fight its puppets
-      const owner = bountyPackOwner(s?.inParty ? s.acct : null, s?.inParty ? s.mates : [], bountyHuntKey(row.id), p.target, underground ? 1 : 0);
+      // one pack for the party: the owner stands it, the others fight its puppets - the place as the POSES say it (AUDIT
+      // 28 B8: underground my pose's pixel, which is what my mates' poses carry, never the dungeon's map-table one)
+      const pose = deps.posePixel?.() ?? null;
+      const owner = bountyPackOwner(s?.inParty ? s.acct : null, s?.inParty ? s.mates : [], bountyHuntKey(row.id), pose ? { px: pose.x, py: pose.y } : p.target, underground ? 1 : 0);
       if (owner && s?.acct && owner !== s.acct) {
         if (!toldOwner.has(row.id)) { toldOwner.add(row.id); deps.say(`Your party is already on the trail of the ${p.foes} here.`); }
         continue;
@@ -434,6 +483,9 @@ export function createBountyHost(deps) {
     if (acc < BOUNTY_TICK_S) { showNextNotice(); return; }
     acc = 0;
     const now = deps.now();
+    // AUDIT 28 B10: a bounty taken "later" than now was taken on another clock (an offline save played online): it
+    // runs from now, never for days, and never lapses before it began
+    for (const h of ledger.held) if (h.takenAt > now) h.takenAt = now;
     for (const gone of lapseBounties(ledger, now)) {
       const p = postingOf(gone.id);
       packs.delete(gone.id);
@@ -473,10 +525,12 @@ export function createBountyHost(deps) {
       for (const p of [...ids].map((id) => postingOf(id))) if (p?.farm && !out.has(p.slotKey)) out.set(p.slotKey, { id: p.slotKey, px: p.target.px, py: p.target.py });
       return [...out.values()];
     },
-    /** My pose's `bq`. */
-    poseField: () => bountyPoseField(ledger, paidIds),
+    /** My pose's `bq` - a row's `a` while its pack stands here. */
+    poseField: () => bountyPoseField(ledger, paidIds, { standing: (id) => packs.has(id) }),
     held: () => heldRows(),
     pendingNotices: () => notices.length,
+    /** AUDIT 28 H12: a notice taken down unread goes back to the front of the queue - never dropped. */
+    requeue: (n) => { if (n && !notices.includes(n)) notices.unshift(n); },
     /** Test seams. */
     _ledger: () => ledger,
     _packs: () => packs,

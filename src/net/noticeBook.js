@@ -7,11 +7,14 @@
 //
 // ASYNC NEVER DROPS. A pin carries its own request id, kept until the service answers it; a lost answer is asked
 // again with the SAME id, which the service answers with the note it already made (`repeat`), never a second one. A
-// second press while one is in flight is the same press (the promise is shared).
+// second press while one is in flight is the same press (the promise is shared). AUDIT 28 N5/N7: "until the service
+// answers" means across presses - an id whose every try was lost stays with that note's words for the next press, and
+// a developer's notice carries one the same way; the tries wait between them. A take-down or a remove asked again after
+// a lost answer that finds the note gone was the first try's, and says so.
 //
 // Pure - the door, the storage and the clock are handed in - so the pins drive it without a network.
 // ═══════════════════════════════════════════════════════════════════
-import { BOARD_CACHE_MS, boardKeyOk, unseenCount, NOTE_ID_RE } from './boardLaw.js';
+import { BOARD_CACHE_MS, boardKeyOk, unseenCount, NOTE_ID_RE, NOTE_DAYS, noteReplySubject } from './boardLaw.js';
 import { accountRefusalText } from './accountClient.js';
 
 /** A moderator's chat word (PROF0 20: "`/note remove <id>`"): `{ op: 'remove', id }`, `{ error }` in words, or null
@@ -33,6 +36,34 @@ export const NOTICE_SEEN_MAX = 200;
 export const NOTICE_TRIES = 3;
 /** The answers a write is asked again after (the service did not say no): the network, the service's own fault. */
 const RETRY = Object.freeze(['offline', 'server']);
+/** How long each try waits before the next, ms (AUDIT 28 N5: three tries in the same millisecond were one outage). */
+export const NOTICE_RETRY_MS = Object.freeze([400, 1500]);
+/** AUDIT 28 N11: the answers that say the board is not open to THIS account now - it is DFU's own box again. */
+const SHUT = Object.freeze(['board-closed', 'no-session', 'auth']);
+
+/** The first words of a letter answering each button (a party's and a guild's way in is the author's invitation). */
+export const NOTE_LETTER_START = Object.freeze({
+  party: 'I would like to join your party.',
+  guild: 'I would like to join your guild.',
+  duel: 'I accept your challenge. Where shall we meet?',
+});
+/** What a letter that cannot open says once the minute is out (the host's pending letter). */
+export const NOTE_LETTER_LOST = 'Your letters could not open. The note is still on the board.';
+
+/**
+ * AUDIT 28 N1/N16: HOW A NOTE'S BUTTON IS ANSWERED - one plan, the same shape from every exit (THE MODAL CONTRACT):
+ * `{ kind: 'duel' }` where the author stands within a duel's reach, `{ kind: 'letter', draft }` for the host's pending
+ * letter (the board closes first; the letters open the first frame the panel may stand - JOURNAL1's door, which a
+ * direct open under the closing board never reached), or `{ kind: 'refuse', text }`.
+ * @param {any} note @param {{ duelHere?: boolean, mail?: string|null, letters?: boolean, signedOutText?: string }} o
+ */
+export function planNoteAnswer(note, { duelHere = false, mail = null, letters = false, signedOutText = '' } = {}) {
+  if (!note || typeof note.from !== 'string') return { kind: 'refuse', text: 'That note is too faded to answer.' };
+  if (note.button === 'duel' && duelHere) return { kind: 'duel' };
+  if (!letters || mail == null || mail === 'guest') return { kind: 'refuse', text: accountRefusalText('mail-needs-account') };
+  if (mail === 'signed-out') return { kind: 'refuse', text: signedOutText || accountRefusalText('no-session') };
+  return { kind: 'letter', draft: { to: note.from, subject: noteReplySubject(note.subject), body: NOTE_LETTER_START[note.button] ?? '' } };
+}
 
 /** A request id: `n` and fifteen of base 36, from the handed-in randomness (crypto's by default). */
 export function mintNoticeRid(rand = (b) => globalThis.crypto.getRandomValues(b)) {
@@ -47,34 +78,45 @@ export function mintNoticeRid(rand = (b) => globalThis.crypto.getRandomValues(b)
  *   storage?: { getItem: (k: string) => (string|null), setItem: (k: string, v: string) => void }|null,
  *   nowMs?: () => number,
  *   rid?: () => string,
- * }} deps
+ *   sleep?: (ms: number) => Promise<void>,
+ * }} deps `sleep` the wait between tries (a test hands in none)
  */
-export function createNoticeBook({ door, storage = null, nowMs = () => Date.now(), rid = () => mintNoticeRid() }) {
+export function createNoticeBook({ door, storage = null, nowMs = () => Date.now(), rid = () => mintNoticeRid(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
   /** mapId -> { board, at, error, pending } */
   const boards = new Map();
   /** whether the board is open to this account, as the last read said: true, false, or null not yet asked */
   let open = null;
-  let _seenMemory = null;   // the seen table, when the storage refuses writes
+  /** AUDIT 28 N12: the seen table, read from storage once and kept - the count over a board is asked every frame */
+  let _seen = null;
+  /** mapId -> { board, seen, n } - the count, recomputed only when the board or what was seen of it changes */
+  const counts = new Map();
 
   const seenTable = () => {
-    if (_seenMemory) return _seenMemory;
+    if (_seen) return _seen;
+    _seen = {};
     try {
       const v = JSON.parse(storage?.getItem?.(NOTICE_SEEN_KEY) ?? 'null');
-      if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+      if (v && typeof v === 'object' && !Array.isArray(v)) _seen = v;
     } catch { /* a bad key reads as none */ }
-    return {};
+    return _seen;
   };
   const writeSeen = (t) => {
     const keep = Object.entries(t).sort((a, b) => b[1] - a[1]).slice(0, NOTICE_SEEN_MAX);
-    const table = Object.fromEntries(keep);
-    try { storage?.setItem?.(NOTICE_SEEN_KEY, JSON.stringify(table)); _seenMemory = null; } catch { _seenMemory = table; }
+    _seen = Object.fromEntries(keep);
+    try { storage?.setItem?.(NOTICE_SEEN_KEY, JSON.stringify(_seen)); } catch { /* this page keeps it */ }
   };
 
-  async function ask(fn) {
-    let r = null;
+  /** One act, asked up to NOTICE_TRIES times with a wait between. `gone`: the refusals that, after a try whose answer
+   *  was lost, mean that try did it (a note already taken down) - answered as done. */
+  async function ask(fn, { gone = [] } = {}) {
+    let r = null, lost = false;
     for (let i = 0; i < NOTICE_TRIES; i++) {
+      if (i > 0) await sleep(NOTICE_RETRY_MS[Math.min(i - 1, NOTICE_RETRY_MS.length - 1)]);
       try { r = await fn(); } catch { r = { ok: false, error: 'offline' }; }
-      if (r?.ok || !RETRY.includes(r?.error)) return r;
+      if (r?.ok) return r;
+      if (lost && gone.includes(r?.error)) return { ok: true, data: null, gone: true };
+      if (!RETRY.includes(r?.error)) return r;
+      lost = true;
     }
     return r;
   }
@@ -86,7 +128,8 @@ export function createNoticeBook({ door, storage = null, nowMs = () => Date.now(
     const e = boards.get(map) ?? { board: null, at: -Infinity, error: null, pending: null };
     boards.set(map, e);
     if (!force && nowMs() - e.at < BOARD_CACHE_MS) return Promise.resolve({ board: e.board, error: e.error, stale: !!(e.error && e.board) });
-    if (e.pending) return e.pending;
+    // AUDIT 28 N10: a FORCED read (after a write) never takes one that set out before the write - it waits it out and asks
+    if (e.pending) return force ? e.pending.then(() => read(map, { force: true })) : e.pending;
     e.pending = (async () => {
       const r = await ask(() => door.read(map));
       e.pending = null;
@@ -94,7 +137,7 @@ export function createNoticeBook({ door, storage = null, nowMs = () => Date.now(
         open = true; e.board = r.data; e.at = nowMs(); e.error = null;
         return { board: e.board, error: null, stale: false };
       }
-      if (r?.error === 'board-closed') { open = false; e.board = null; }
+      if (SHUT.includes(r?.error)) { open = false; e.board = null; }   // AUDIT 28 N11: not this account's now - DFU's box
       e.error = r?.error ?? 'server';
       e.at = nowMs();   // a refusal is an answer too: asked again after the minute, not on the next frame
       return { board: e.board, error: e.error, stale: !!e.board };
@@ -118,48 +161,81 @@ export function createNoticeBook({ door, storage = null, nowMs = () => Date.now(
     t[String(map)] = newest;
     writeSeen(t);
   }
-  /** The count that floats over town `map`'s boards: what this device has not read. */
-  const unseen = (map) => { const b = cached(map); return b ? unseenCount(b, seenAt(map)) : 0; };
+  /** The count that floats over town `map`'s boards: what this device has not read - worked out again only when the
+   *  board or what was seen of it changed (AUDIT 28 N12: it is asked every frame, for every board in range). */
+  const unseen = (map) => {
+    const b = cached(map);
+    if (!b) return 0;
+    const seen = seenAt(map);
+    const c = counts.get(map);
+    if (c && c.board === b && c.seen === seen) return c.n;
+    const n = unseenCount(b, seen);
+    counts.set(map, { board: b, seen, n });
+    return n;
+  };
 
   /** A write, then the board read again (the answer the window repaints from). */
-  async function write(map, fn, okText) {
-    const r = await ask(fn);
+  async function write(map, fn, okText, opts) {
+    const r = await ask(fn, opts);
     if (r?.ok) { forget(map); await read(map, { force: true }); return { ok: true, data: r.data, text: okText }; }
     return { ok: false, error: r?.error ?? 'server', text: accountRefusalText(r?.error) };
   }
 
-  /** mapId -> the pin in flight (its promise), so a second press is the same press. */
-  const pinning = new Map();
+  /** AUDIT 28 N5/N7: a write that carries its own request id - the id kept with its words until the service ANSWERS
+   *  (anything but a lost answer), so a press after three lost tries is the same note. Keyed by `key` + the words. */
+  const kept = new Map();   // key -> { words, id, promise }
+  function once(key, words, send, okText, map) {
+    const w = JSON.stringify(words);
+    let k = kept.get(key);
+    if (k?.promise) return k.promise;
+    if (!k || k.words !== w) kept.set(key, k = { words: w, id: rid(), promise: null });
+    const id = k.id;
+    const entry = k;
+    entry.promise = (async () => {
+      const r = await ask(() => send(id));
+      entry.promise = null;
+      if (!RETRY.includes(r?.error) && kept.get(key) === entry) kept.delete(key);   // answered: the id is spent
+      if (r?.ok) { forget(map); await read(map, { force: true }); return { ok: true, data: r.data, text: okText }; }
+      return { ok: false, error: r?.error ?? 'server', text: accountRefusalText(r?.error) };
+    })();
+    return entry.promise;
+  }
+
+  /** AUDIT 28 N13: the note being written for each town, and the developer's notice - kept for the session, so a stray
+   *  tap outside the window or a second Escape throws nothing away. */
+  const drafts = new Map();
+  const noticeDraft = { subject: '', body: '', days: 3 };
 
   return {
     read, cached, markSeen, seenAt, unseen,
     /** Whether the board is open to this account, as the last read said (null before any). */
     get open() { return open; },
+    /** The note being written for town `map` - the window's form writes into it. */
+    draft(map) {
+      let d = drafts.get(map);
+      if (!d) drafts.set(map, d = { subject: '', body: '', days: NOTE_DAYS[NOTE_DAYS.length - 1], button: '' });
+      return d;
+    },
+    /** The developer's notice being written. */
+    noticeDraft: () => noticeDraft,
     /**
      * PIN A NOTE on town `map`'s board - its request id minted once and kept until the service answers it.
      * @param {number} map
      * @param {{ subject: string, body: string, days: number, button?: string|null, character?: string|null }} note
      */
-    pin(map, note) {
-      if (pinning.has(map)) return pinning.get(map);
-      const id = rid();
-      const p = write(map, () => door.pin({ map, ...note }, id), 'Your note is pinned up.')
-        .finally(() => pinning.delete(map));
-      pinning.set(map, p);
-      return p;
-    },
-    takeDown: (map, id) => write(map, () => door.takeDown(id), 'Your note is taken down.'),
+    pin: (map, note) => once(`pin:${map}`, note, (id) => door.pin({ map, ...note }, id), 'Your note is pinned up.', map),
+    takeDown: (map, id) => write(map, () => door.takeDown(id), 'Your note is taken down.', { gone: ['no-note'] }),
     /** The chat's `/note remove <id>`: a moderator's remove from anywhere - every cached board is read afresh after. */
     async modRemoveAnywhere(id) {
-      const r = await ask(() => door.modRemove(id));
+      const r = await ask(() => door.modRemove(id), { gone: ['no-note'] });
       for (const e of boards.values()) e.at = -Infinity;
       return r?.ok ? { ok: true, text: 'The note is removed.' } : { ok: false, error: r?.error ?? 'server', text: accountRefusalText(r?.error) };
     },
     report: (map, id) => write(map, () => door.report(id), 'Reported. You will not see that note again.'),
-    modRemove: (map, id) => write(map, () => door.modRemove(id), 'The note is removed.'),
+    modRemove: (map, id) => write(map, () => door.modRemove(id), 'The note is removed.', { gone: ['no-note'] }),
     modRestore: (map, id) => write(map, () => door.modRestore(id), 'The note is restored.'),
-    notice: (map, n) => write(map, () => door.notice(n), 'The notice is up on every board.'),
-    noticeRemove: (map, id) => write(map, () => door.noticeRemove(id), 'The notice is taken down.'),
+    notice: (map, n) => once('notice', n, (id) => door.notice(n, id), 'The notice is up on every board.', map),
+    noticeRemove: (map, id) => write(map, () => door.noticeRemove(id), 'The notice is taken down.', { gone: ['no-notice'] }),
     /** Test seam. */
     _entry: (map) => boards.get(map) ?? null,
   };

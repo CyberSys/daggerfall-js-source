@@ -948,8 +948,10 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     const acts = el('div', 'dfsocial-acts');
     const alone = v.members.length === 1;
     const master = guildMay(me, 'disband');
-    const leaveWhy = master && !alone ? 'hand the guild on first' : master && v.treasury > 0 ? 'take the gold out first' : master && (v.marks ?? 0) > 0 ? 'take the Marks out first' : 'a moment';
-    const canLeave = !busy && (!master || (alone && v.treasury === 0 && (v.marks ?? 0) === 0));   // MARKS1: a disband waits for the Marks too
+    const leaveWhy = master && !alone ? 'hand the guild on first' : master && v.treasury > 0 ? 'take the gold out first' : 'a moment';
+    const canLeave = !busy && (!master || (alone && v.treasury === 0));
+    // AUDIT 28 M3: the Marks treasury never holds a guild back - a guild that goes gives what it holds to its guildmaster
+    if (master && (v.marks ?? 0) > 0) out.push(el('div', 'dfsocial-note', `If the guild is disbanded, its ${marksText(Number(v.marks))} go to you.`));
     acts.append(armed('leave') ? btn('Sure?', { warn: true, enabled: canLeave, why: leaveWhy, run: () => guildDo(g.leave(), 'You left the guild.') })
       : btn('Leave', { enabled: canLeave, why: leaveWhy, run: () => arm('leave') }));
     if (master) {

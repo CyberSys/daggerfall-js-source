@@ -676,6 +676,12 @@ export function isTextEntryTarget(t) {
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable === true);
 }
 
+/** AUDIT 28 H11: a DOM window's own control (a button, a list, a link) with the keyboard's focus - its Enter and Space
+ *  are the BROWSER's press of it; a host that prevents them presses nothing. */
+export function isDomControlTarget(t) {
+  return !!t && (t.tagName === 'BUTTON' || t.tagName === 'SELECT' || t.tagName === 'SUMMARY' || (t.tagName === 'A' && !!t.href));
+}
+
 /**
  * MAC-L3: THE BROWSER MENU, SHUT ONCE.
  *

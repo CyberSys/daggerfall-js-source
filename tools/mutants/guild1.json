@@ -407,8 +407,8 @@
   {
     "name": "GUILD1-the-guildmaster-walking-out-on-members",
     "file": "server-account/src/guilds.js",
-    "old": "'DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND (SELECT COUNT(*) FROM guild_members WHERE guild_id = ?1) = 1'",
-    "new": "'DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND ?1 IS NOT NULL'",
+    "old": "    const r = await endGuild(db, a.me.guild_id, player, nowS, { alone: true });",
+    "new": "    const r = await endGuild(db, a.me.guild_id, player, nowS, { alone: false });",
     "tests": [
       "test/guild1.test.js"
     ]
@@ -416,8 +416,8 @@
   {
     "name": "GUILD1-the-treasury-left-to-vanish",
     "file": "server-account/src/guilds.js",
-    "old": "'DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND (SELECT COUNT(*) FROM guild_members WHERE guild_id = ?1) = 1'",
-    "new": "'DELETE FROM guilds WHERE id = ?1 AND (SELECT COUNT(*) FROM guild_members WHERE guild_id = ?1) = 1'",
+    "old": "    db.prepare(`DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND NOT EXISTS",
+    "new": "    db.prepare(`DELETE FROM guilds WHERE id = ?1 AND NOT EXISTS",
     "tests": [
       "test/guild1.test.js"
     ]
@@ -425,8 +425,8 @@
   {
     "name": "GUILD1-the-leaving-refusal-misnamed",
     "file": "server-account/src/guilds.js",
-    "old": "return { error: (n?.n ?? 0) > 1 ? 'guild-master-leaves' : 'guild-treasury' };",
-    "new": "return { error: 'guild-treasury' };",
+    "old": "    if ((n?.n ?? 0) > 1) return 'guild-master-leaves';\n",
+    "new": "",
     "tests": [
       "test/guild1.test.js"
     ]
@@ -586,11 +586,12 @@
   },
   {
     "name": "GUILD1-a-disband-with-gold-in-it",
-    "file": "server-account/src/guilds.js",
-    "old": "'DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND NOT EXISTS",
-    "new": "'DELETE FROM guilds WHERE id = ?1 AND 1 AND NOT EXISTS",
+    "file": "server-account/src/marks.js",
+    "old": "      AND EXISTS (SELECT 1 FROM guilds WHERE id = ?1 AND treasury = 0)\n",
+    "new": "",
     "tests": [
-      "test/guild1.test.js"
+      "test/guild1.test.js",
+      "test/audit28_marks.test.js"
     ]
   },
   {

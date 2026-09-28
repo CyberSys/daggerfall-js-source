@@ -27,11 +27,25 @@ export function deathGoldLoss(gold) {
   return Math.floor(g * DEATH_GOLD_FRACTION);
 }
 
-/** Takes the penalty off the player's purse. Returns the gold lost (0 when there was none to take). */
+/**
+ * AUDIT 28 B5: THE LOSS THE DEATH SCREEN SAID. The screen reads it once, as the player falls; the respawn takes THAT -
+ * never a quarter of a purse that grew while the player lay dead (a party mate's bounty clear pays the dead too) -
+ * capped at what the purse holds. A Resurrect spares it: the screen's word is for the respawn, and a rescue is none.
+ * One player a page, so one statement a page; null when no screen has spoken since the last respawn.
+ */
+let _stated = null;
+/** The death screen's word - or null to withdraw it (a Resurrect). */
+export function stateDeathLoss(lost) { _stated = Number.isSafeInteger(lost) && lost >= 0 ? lost : null; }
+/** What the screen said, if it has spoken since the last respawn (a test's seam, and the Resurrect's line). */
+export const statedDeathLoss = () => _stated;
+
+/** Takes the penalty off the player's purse - the loss the death screen said, if it spoke, else a quarter of the purse
+ *  now - never more than the purse holds. Returns the gold lost (0 when there was none to take). */
 export function applyDeathPenalty(player) {
   if (!player) return 0;
   const purse = goldPiecesOf(player);
-  const lost = deathGoldLoss(purse);
+  const lost = Math.max(0, Math.min(purse, _stated ?? deathGoldLoss(purse)));
+  _stated = null;   // spent: the next death speaks for itself
   if (lost > 0) player.goldPieces = purse - lost;
   return lost;
 }

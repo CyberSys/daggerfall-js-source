@@ -22,13 +22,17 @@
 -- reported it, until a moderator decides; 2 restored by a moderator, so
 -- reports no longer hide it. A moderator's removal deletes the row.
 --
--- A RECRUITMENT NOTE (button 'guild') names its guild: pinned only by a
--- rank that may invite (GUILD1's GUILD_POWERS.invite), and a guild that
--- is gone leaves the note standing without its button (SET NULL).
+-- A RECRUITMENT NOTE (button 'guild') names its guild and the author's
+-- character (`char_id`): pinned only by a rank that may invite (GUILD1's
+-- GUILD_POWERS.invite), and read with its button only while that
+-- character is still in that guild at such a rank (AUDIT 28 N4 - an
+-- officer removed or demoted went on recruiting). A guild that is gone
+-- leaves the note standing without its button (SET NULL).
 --
 -- CASCADE: an account that is gone takes its notes and its reports; a
 -- note that is gone takes its reports. A server notice names the
--- developer who posted it but outlives them - it is the server's word.
+-- developer who posted it but outlives them - it is the server's word;
+-- (author, rid) holds a notice posted twice to one (AUDIT 28 N7).
 -- Rows are deleted as they expire, on the board's own reads.
 CREATE TABLE IF NOT EXISTS board_notes (
   id          TEXT PRIMARY KEY,
@@ -39,6 +43,7 @@ CREATE TABLE IF NOT EXISTS board_notes (
   body        TEXT NOT NULL,
   button      TEXT CHECK (button IS NULL OR button IN ('party', 'guild', 'duel')),
   guild_id    TEXT,
+  char_id     TEXT,
   at          INTEGER NOT NULL,
   expires_at  INTEGER NOT NULL,
   hidden      INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1, 2)),
@@ -68,6 +73,8 @@ CREATE TABLE IF NOT EXISTS board_notices (
   author      TEXT,
   author_name TEXT NOT NULL,
   at          INTEGER NOT NULL,
-  expires_at  INTEGER NOT NULL
+  expires_at  INTEGER NOT NULL,
+  rid         TEXT NOT NULL,
+  UNIQUE (author, rid)
 );
 CREATE INDEX IF NOT EXISTS idx_board_notices_expires ON board_notices (expires_at);

@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:5048` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:5055` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7100,7 +7100,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1012`, `src/net/online.js:2057`):**
+**Now (`src/net/wire.js:1015`, `src/net/online.js:2057`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10441,22 +10441,29 @@ only for an act a server witnessed: the one thing a modified client cannot print
 - **The Bank of the Empire** (`/v1/marks/exchange`): Marks burnt, `gold` answered - paid by the client into THIS
   REGION'S bank account, as a deed's sale is paid (`systems/banking.js` creditMarksSale; a purse's weight never refuses
   it). `src/net/marksBook.js` carries a sale to its end: an answer lost is asked again with the same id; one never
-  answered is KEPT (on the device) and settles - paid into the region it was sold in, for the character that sold it -
-  the next time a bank counter opens (ASYNC NEVER DROPS); one sale at a time. The face: the Enhanced Plus bank's
+  answered is KEPT (on the device) and settles - paid into the region it was sold in, for the character that sold it,
+  under the account that made it - the next time a bank counter opens (ASYNC NEVER DROPS); one ask in flight at a time,
+  one kept sale an account and character (AUDIT 28 M1, M2, M7). The face: the Enhanced Plus bank's
   **Marks** group (held, sold today, the price) and **Sell Marks** (`ui/enhancedPorts.js`, `ui/bankWindow.js`'s port-only
-  `MARKS_ENTRY`); the counting box stays until the service answers. **FLAGGED by name**: the Classic skin's bank is
+  `MARKS_ENTRY`); the counting box stays until the service answers - fifteen seconds a try at most (AUDIT 28 M6). **FLAGGED by name**: the Classic skin's bank is
   DFU's own BANK00I0 panel, which has no room for it - Marks are sold under Enhanced Plus.
 - **A guild's Marks treasury** (`/v1/marks/guild/deposit`, `/withdraw`): any member puts Marks in from the account's
   balance; the guildmaster alone takes them out, into their account. The guild's view (`/v1/guilds/mine`) carries
-  `marks` and its latest lines; the Guild tab shows the treasury beside the gold one (`ui/socialPanel.js`,
-  `net/guildBook.js` moveMarks). A disband waits for it to be empty (PROF0 18), and the tab says so.
+  `marks` and its latest lines where Marks are the viewer's (AUDIT 28 M5); the Guild tab shows the treasury beside the
+  gold one (`ui/socialPanel.js`, `net/guildBook.js` moveMarks). A guild that goes - a disband, or its last member's
+  leave - gives what its Marks treasury holds to its guildmaster, one `guild-withdraw` line in the same batch as the
+  delete, and is refused only when that would pass the guildmaster's cap (AUDIT 28 M3: the leave's delete never looked
+  at the Marks and the cascade took them with no line; M5: behind a switch the guildmaster could not pass, a guild
+  holding Marks could never go). The tab says where they go.
 - **The account**: `/v1/marks/balance` (the balance, today's gate strikes and Bank sales against their caps), and the
   account card's **Marks** row (`/v1/account`'s `marks`, `ui/enhancedAccount.js`). A counted gate says its Marks in the
   chat (`net/gateClaims.js` onMarks).
 - **The weekly report** (`/v1/marks/report`, a developer's alone): the last seven UTC days' Marks struck by faucet, burnt
-  by sink, moved; what is in circulation; the day-by-day line; the accounts at a cap - what PROF0 16 steers by.
-- **The switch**: `MARKS_OPEN` in `server-account/wrangler.toml` - `off` (nothing strikes, nothing answers), `dev` (the
-  DEVELOPER_HANDLES alone) or `on`. **Shipped at `dev`**: struck and spent by the developers first, opened to everyone
+  by sink, moved; what is in circulation; the day-by-day line; the accounts at a cap, each once, with the account-days
+  beside them (AUDIT 28 M10) - what PROF0 16 steers by.
+- **The switch**: `MARKS_OPEN` in `server-account/wrangler.toml` - `off` (nothing strikes, nothing answers a balance or
+  shows a guild's Marks; a request whose line exists is still answered that line, and a guild that goes still gives
+  its Marks to its guildmaster - AUDIT 28 M2, M5), `dev` (the DEVELOPER_HANDLES alone) or `on`. **Shipped at `dev`**: struck and spent by the developers first, opened to everyone
   by one line. The service moved to `acct17`, and its deploy's path filter lists `src/net/marksLaw.js` (ACC4's walk).
 - **The four hosts**: the Bank and the Guild tab are the streaming host's (`scenes/world.js` builds the book online, over the spoils'
   ONE store (AUDIT WB A6), and hands it to `worldModes`' bank, the guild book and the gate claims); the fixed city, the standalone dungeon and the
@@ -10471,10 +10478,14 @@ the Bank window, the gate's line, the wiring. `tools/mutants/marks1.json`, 20 mu
 ## BOUNTY1 (2026-09-28, Mac: "all players see the same boardquests and it should be shareable") - the bounty boards' party half
 
 The record is `06-Systems/Bounty-Boards.md`; this is the online half. The party pose carries `bq` (a member's
-bounties, each {i, s?, c?}, at most 8) and `lv` (the member's level) - `net/wire.js` validPartyPose, and the relay moves
-to **`world122`** (a hand deploy, as every relay move). A share is taken up within its tier; one pack a hunt, stood by
-the lowest account on its pixel; a mate's clear pays every holder of that hunt - a peer's word paying gold into the
-save, FLAGGED there by name. Until the relay is redeployed a bounty is hunted alone.
+bounties, each {i, s?, c?}, at most 8) and `lv` (the member's level) - `net/wire.js` validPartyPose, and the relay moved
+to `world122`; AUDIT 28 added a row's `k` (its hunt's kills), `a` (its pack stands) and `t` (a cleared row's minute),
+and the relay moves to **`world123`**. The relay DEPLOYS ITSELF: `.github/workflows/relay-deploy.yml` runs on every push
+to main and deploys whenever the live relay's version is not `RELAY_VERSION` (AUDIT 28: this line said "a hand deploy",
+which was false). A share is taken up within its tier, at the taker's own level; one pack a hunt - a mate's pack that
+stands owns it, else the lowest living, online holder on its pixel; the hunt's kills are the party's; a mate's clear
+pays every holder of that hunt who held it before the clear - a peer's word paying gold into the save, FLAGGED there by
+name. Until the branch reaches main (and with it the relay's deploy) a bounty is hunted alone.
 
 ## DEATH-PENALTY (2026-09-24, Mac: "add deathpenalty 25% of the gold you have with you"; "online mode only ofc"; "and it should be shown in the death screen") - an online death costs a quarter of the purse
 
@@ -10490,11 +10501,15 @@ THE HOLDINGS ARC above left "the gold lost on death (the original pillars 5 and 
 - **Where**: `respawnOnlinePlayer` (`scenes/world.js`), once a death - the `_respawning` latch is what makes it once -
   and Privateer's Hold's in-place respawn (`scenes/worldModes.js`, online-gated). The waking line says it: "Death
   claimed N gold from your purse."
-- **The death screen** reads the same loss, once (the purse cannot change while the player is dead): the classic face
-  adds "DEATH CLAIMS N GOLD" under the hold; the Enhanced face puts one of four lines (Mac's wording, each carrying
-  the amount, "a coin" for one) in the tagline's place and font (Mac: "remove the tale line and use the same fonts for
-  the gold loss message in online mode"), drawn once a death, not once a frame. Offline, or a loss of nothing, the
-  screen keeps its words.
+- **The death screen** reads the loss once, and STATES it (`stateDeathLoss`): the respawn takes exactly what the screen
+  said, capped at the purse (AUDIT 28 B5: the purse CAN change while the player lies dead - a mate's bounty clear pays
+  the dead - and the respawn took a quarter of the bigger purse). A party member's Resurrect withdraws it and says the
+  gold is spared - a rescue is no respawn. The fixed city and the standalone dungeon never respawn online, and their
+  screens say so (`online: false`): no countdown, no loss. The classic face adds "DEATH CLAIMS N GOLD" under the hold;
+  the Enhanced face puts one of four lines (Mac's wording, each carrying the amount - "1 coin scatters" for one, never
+  "a coin") in the tagline's place and font (Mac: "remove the tale line and use the same fonts for the gold loss
+  message in online mode"), drawn once a death, not once a frame. Offline, or a loss of nothing, the screen keeps its
+  words.
 
 `test/deathpenalty.test.js` (5); `test/donline1_respawn.test.js` and `test/risestuck.test.js` allow the line;
 `tools/mutants/bounty1.json` DEATH-PENALTY-1 to 5, dead.
@@ -10507,21 +10522,72 @@ departure (`Port-Ledger.md` section A, THE BOARD, ONLINE).
 - **The law** (`src/net/boardLaw.js`, both ends): a note is MAIL1's letter (the same `letterWords`), 1, 3 or 7 days,
   three live an account, ten pins an hour, one button (party, guild, duel); thirty notes and twenty notices a board;
   three reports hide; a minute's cache; the switch.
-- **The store** (`server-account/migrations/0017_board.sql`): `board_notes` (a town's, keyed by its map id), their
-  `board_reports`, the server's `board_notices`. An account gone takes its notes and reports; a guild gone takes a
-  recruitment note's button (SET NULL).
+- **The store** (`server-account/migrations/0017_board.sql`): `board_notes` (a town's, keyed by its map id; a
+  recruitment note carries its author's character, `char_id`), their `board_reports`, the server's `board_notices`
+  (each with its request id). An account gone takes its notes and reports; a guild gone takes a recruitment note's
+  button (SET NULL).
 - **The service** (`server-account/src/board.js`, `/v1/board/*`, `acct18`): read by anyone `BOARD_OPEN` lets in;
   pinned by a registered, unmuted account, the live count held inside the one INSERT and a pin asked twice one note
-  (`rid`); taken down by its author; reported once a reader; removed or restored by a moderator; the developers'
-  notices. A muted author's notes leave every board while the mute stands. Expired rows go on the board's own reads.
-- **The client**: `src/net/noticeBook.js` (the cache, the last good board kept, what this device has read, a pin's one
-  request id through every retry, `/note remove`); `ui/noticeWindow.js` through `ui/noticeDoor.js` (the corkboard, the
-  one door into the host's overlay slot); the press (`scenes/worldModes.js`) routes a rumour board online to it once the
-  service has said open, else DFU's box; `scenes/world.js` carries the town on each board, reads the town underfoot on
-  arrival, answers a note's button (a letter through the social panel's draft, or DUEL1's challenge within reach) and
-  floats "3 new" over a board through the names' own pass (`net/remotePlayers.js` nameFrame's `extra`,
-  `ui/nameLayer.js`'s board face).
+  (`rid` - only that twin's clash reads as the note made; any other failure is the service's own, asked again - AUDIT
+  28 N8); taken down by its author; reported once a reader - the NOTE_REPORTS_HIDE'th report that counts (an account
+  neither muted nor a sprout) hides it from everyone but its author, who still sees it marked and may take it down
+  (AUDIT 28 N2, N3); removed or restored by a moderator; the developers' notices, each with its own request id (N7). A
+  recruitment note recruits only while its author's character can still invite to that guild (N4). A muted author's
+  notes leave every board while the mute stands. Expired rows go on the board's own reads. A take-down's and a
+  report's hour spent is `board-ops-rate`, in its own words (N14).
+- **The client**: `src/net/noticeBook.js` (the cache, the last good board kept, what this device has read - kept in
+  memory, read from storage once (N12) - a pin's and a notice's request id kept with its words until the service
+  answers, the tries waiting between them (N5, N7), a forced read never taking one that set out before its write (N10),
+  the board DFU's own again the moment the service says it is not this account's (N11), the note being written kept for
+  the session (N13), `/note remove`); `ui/noticeWindow.js` through `ui/noticeDoor.js` (the corkboard, the one door into
+  the host's overlay slot, one act at a time - N9); the press (`scenes/worldModes.js`) routes a rumour board online to
+  it once the service has said open, else DFU's box; `scenes/world.js` carries the town on each board, reads the town
+  underfoot on arrival, answers a note's button (`planNoteAnswer`: DUEL1's challenge within reach, else a letter through
+  JOURNAL1's pending door - AUDIT 28 N1: opened directly under the closing board, it never opened; its subject "Re: "
+  and the note's, never cut - N15) and floats "3 new" over a board - its notes AND the server's notices this device has
+  not read - through the names' own pass (`net/remotePlayers.js` nameFrame's `extra`, `ui/nameLayer.js`'s board face).
+  Every board request gives up after fifteen seconds (N6).
 - **The switch**: `BOARD_OPEN` in `server-account/wrangler.toml` - shipped at `dev`.
 - **Not built here**: the Work tab (PROF1), boards stood for a hub (NOTICE1b, if `tools/boardCount.mjs` names any).
 
-`test/notice1.test.js` (17); `tools/mutants/notice1.json`, 26 mutations, 26 dead.
+`test/notice1.test.js` (17); `tools/mutants/notice1.json`, 26 mutations, 26 dead. AUDIT 28 below.
+
+## AUDIT 28 (2026-09-28, Mac: "let's audit everything we have so far before we continue") - the professions branch audited
+
+Everything this branch built since it began - FORAGE1-4, MARKS1, BOUNTY1 with DEATH-PENALTY, NOTICE1 - audited in six
+lenses at once (the Marks, the Notice Board, the bounty boards and the death penalty, Foraging, the four hosts'
+seams, and the bible against the code), after main's #417 (DIAL-LOAD, MAP-KEEP) was merged in. 81 findings, about
+65 once the lenses' overlaps are folded; every one verified against the code, most reproduced by a probe over the real
+Worker or the real module, and fixed with a pin that fails on the code before it. `test/audit28_marks.test.js` (17),
+`test/audit28_notice.test.js` (14), `test/audit28_bounty.test.js` (12), `test/audit28_forage.test.js` (10), over the
+shared `test/accountDb.mjs` (the Worker on node:sqlite) and `test/chargenDom.mjs` (the minimal DOM, which gained
+`replaceChildren` and a click that can be stopped); `tools/mutants/audit28.json`, 62 mutations, 62 dead - and the
+records the fixes moved (marks1, guild1, guild1b, notice1, bounty1, forage4, auditsurv, auditdecorshell, soc1)
+re-aimed by content, every one dead.
+
+**MARKS1** (M1-M12): a kept sale asked twice at once paid twice (one ask in flight now, a sale's and a settle's alike;
+a store that reads empty is another tab's settle, never answered from memory); a kept sale was dropped on `no-session`,
+`auth`, the switch or a guest, or asked under another account (it carries its account now, the service answers a line
+it finds before it asks the switch, and only a refusal given after the line was looked for lets it go); the last
+member's Leave deleted a guild's Marks with no line, and a switch the guildmaster could not pass locked a guild holding
+Marks for good (a guild that goes gives them to its guildmaster in the delete's own batch); the gate's row and its Marks
+were two statements (one batch now - a strike that fails takes the row with it); the guild view showed Marks behind the
+switch; the counting box waited on a request with no end (fifteen seconds a try); one kept sale shut every character's
+Bank (one an account and character); a guild move re-pressed after a lost answer moved twice (its id kept); "Sold today"
+stood still; the report counted account-days as accounts; the gate's line id sat in the client's id space (`gate:N`
+now); one mutant was equivalent (re-aimed behavioural).
+
+**NOTICE1** (N1-N16): as the service and the client above. **BOUNTY1 and DEATH-PENALTY** (B1-B14): as
+`06-Systems/Bounty-Boards.md` AUDIT 28 records, and the death penalty's stated loss above. **Foraging** (F1-F7): as
+`06-Systems/Foraging.md` 13.1 records. **The hosts' seams** (H6, H7, H11, H12): the wait's boxes shown only once its
+finished page has left the slot; the hunt page hears Escape as townTalk hands it (`back`); Enter and Space on a DOM
+window's own button are the browser's press, never prevented by townTalk (`ui/input.js` isDomControlTarget); a payday
+notice taken down unread goes back in its queue, and a death in the building's or the dungeon's own slot takes the
+street's DOM windows down (`scenes/bountyHost.js` requeue, `ui/bountyDoor.js` close(read)); and what was asked every
+frame is worked out once - a pixel's bounty boards (`boardSplitOf`), the count over a board, the Bank face's kept sale
+(H8).
+
+**The relay** moves to `world123` (a bounty row's `k`, `a`, `t`), its law recorded in `test/relayversion.test.js`, the
+twelve pins that name the version moved with it. It deploys itself when this reaches main (`relay-deploy.yml`).
+**The account service** stays `acct18`: 0017 gained `board_notes.char_id` and `board_notices.rid` in place - no deploy
+has applied it (the account service deploys from main alone).

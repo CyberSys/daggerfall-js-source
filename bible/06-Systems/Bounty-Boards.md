@@ -1,6 +1,7 @@
 # BOUNTY BOARDS - the town's hunts (BOUNTY1, the record)
 
-**Status: BOUNTY1 SHIPPED on the branch (2026-09-28) - both lanes; the party's half online from `world122`.** Built
+**Status: BOUNTY1 SHIPPED on the branch (2026-09-28) - both lanes; the party's half online from `world122`, its
+AUDIT 28 fixes from `world123` (section 11).** Built
 under Mac's direction in its own lane and handed over as two archives ("Continue, I also want to fit these in since
 they're specifically made for our codebase"); taken in and audited the same day (section 9). A Ledger A departure
 (`01-Overview/Port-Ledger.md` section A, THE TOWN'S BOUNTY BOARDS). Not a DFU member and not a mod's port: the
@@ -99,40 +100,56 @@ Each is quoted where the code keeps it, beside the line it decided.
 4. **Two groups** (BOUNTY-TRAIL): an open pack of 6 to 8 is hunted as the first half (rounded up), then the rest at a
    spot of its own on the same pixel - the same spot for every holder of that hunt - stood once the hunter is within
    150 metres; the line names the way ("You find tracks leading away from the bodies...") and the journal keeps it.
-   Which group stands is read off the kills alone, so a load and the wire need nothing new.
+   Which group stands is read off the kills alone - the PARTY's kills, since AUDIT 28 (each holder's pose carries its
+   `k`, section 6), so a hunt handed to another holder goes on from where it stood.
 5. **Paid** on the last kill: gold into the purse, the piece into the pack, and the payday notice (the story, then the
-   reward in plain words) that holds the game until it is read - queued while ANY window holds the screen, never
-   dropped.
+   reward in plain words) that holds the game until it is read - queued while ANY window holds the screen or a death
+   screen is up, and put back in the queue if it is taken down unread (AUDIT 28 H12), never dropped.
 6. **In the journal** (BOUNTY1's journal ask): a held bounty rides the quest log as a side quest with its clock, in
    the pause window's Quests tab and the Chronicle - the notice, the kills, the place, the purse; **Abandon** (pressed
-   twice) and, in a party, **Share** (`systems/bountyJournal.js`, a leaf the lazy journal chunks reach without a
-   cycle).
+   twice - an armed Abandon never outlives the window's visit, AUDIT 28 B11) and, in a party, **Share**
+   (`systems/bountyJournal.js`, a leaf the lazy journal chunks reach without a cycle). Given up and taken again the same
+   day, a bounty goes on from its kills and its live beasts are the hunt's again - never a fresh pack (AUDIT 28 B2).
 
 ## 5. The farms (BOUNTY-FARM, `scenes/bountyFarms.js`)
 
 A notice whose words name a farm (granary, orchard, harvest, cattle, shepherd) stands a real Daggerfall farmstead on
 its pixel: the first RMB block of one of the 8 game-owned HomeFarms locations nearest the hunt, the notice's pick,
 climate-dressed by the pixel it stands on, solid (its own collider bucket). The spot is the flattest of sixteen rolls
-clear of roads, the sea and towns, and each model sits on the ground under itself. The first group waits in the
+clear of roads, the sea and towns and of any farm that already stands (AUDIT 28 B13 - two notices on one pixel stood two
+farms in one another), and each model sits on the ground under itself. The first group waits in the
 farmyard, 10 to 18 metres from the farmhouse, and stands within 150 metres.
 
-- **Seen by its holders** (and a party mate helping from another tier), never by a passer-by. One farm a NOTICE.
+- **Seen by its holders and by every member of their party** - a mate's farm stands for the whole party, whether or
+  not they took the notice (they may help), never for a passer-by. One farm a NOTICE. (AUDIT 28 corrected "seen by its
+  holders", which understated it.) A split hunt's second group never waits among a standing farm's buildings.
 - **Never saved or sent**: down when its pixel unloads and stood again on return; once the bounty ends it stays until
   the hunter is 200 metres off, so it never vanishes under the eyes; a fast travel, a dungeon, a building or a load
   takes every farm down.
 
 ## 6. The party (online)
 
-- **The pose** (`net/wire.js` validPartyPose, `world122`): `bq` - my bounties, at most 8 rows of {i: the id, s: 1
-  shared, c: 1 cleared today}, a row out of its law dropped - and `lv`, my level (1..99). A relay before `world122`
-  strips both: bounties work alone, a share is never taken up, and nothing breaks.
+- **The pose** (`net/wire.js` validPartyPose, `world122`; `world123` since AUDIT 28): `bq` - my bounties, at most 8
+  rows of {i: the id, s: 1 shared, c: 1 cleared, k: the hunt's kills, a: 1 its pack stands on my machine, t: the minute
+  a cleared row was paid}, a row out of its law dropped, cleared rows newest first (AUDIT 28 B7: the oldest were kept
+  and today's cut) - and `lv`, my level (1..99). A relay before `world123` strips `k`, `a` and `t`: a clear then pays
+  nobody else, and nothing breaks.
 - **Share within a tier alone**: a shared bounty is taken up by every mate in its tier with a free slot; a mate in
   another tier is told why (and the sharer is told who), and may still help - they see the beasts and the farm, and
-  are not paid for a bounty they cannot hold. **Join the hunt** on the board offers only hunts in the reader's tier.
-- **One pack a hunt**: holders of one notice in one tier are one hunt, whatever their levels inside it; when several
-  stand on its pixel, the lowest account stands the pack and the rest fight its puppets (bountyPackOwner - one answer
-  on every client, no word on the wire). Two tiers on one notice are two hunts.
-- **A mate's clear pays every holder of that hunt.** TRUST, FLAGGED by name: the clear is a peer's word (`c: 1`) and
+  are not paid for a bounty they cannot hold. **Join the hunt** on the board offers only hunts in the reader's tier. A
+  share taken up and a hunt joined are the taker's own, rebuilt at the taker's level - the same hunt, and the piece it
+  pays minted for the taker (AUDIT 28 B12: a level 6 got a mate's level-10 kit).
+- **One pack a hunt**: holders of one notice in one tier are one hunt, whatever their levels inside it. A mate whose
+  pack for it STANDS owns it, wherever they are (their row's `a`); else the lowest living, online account among the
+  holders on its pixel - the pixel as the poses say it, underground too - stands it, and the rest fight its puppets
+  (bountyPackOwner - one answer on every client). AUDIT 28 B3: by the lowest account alone, a holder arriving after
+  the pack stood stood a second, one who stepped off the pixel handed the hunt to a mate who stood another, and a mate
+  gone offline or dead on the pixel held it from everyone. The hunt's kills are the party's (B4): each holder takes
+  the most any of them reports, so an owner who falls or walks off hands on a hunt part done. Two tiers on one notice
+  are two hunts.
+- **A mate's clear pays every holder of that hunt who held it BEFORE the clear** (a row's `t` against the holder's
+  take - AUDIT 28 B1: taken after a mate's clear, a bounty paid on the next tick with no kill; now the board refuses a
+  hunt the party has cleared - "Your party has already claimed this bounty today."). TRUST, FLAGGED by name: the clear is a peer's word (`c: 1`) and
   its pay is gold and a piece into the SAVE, which is the client's as online gold always is ("The GOLD is the
   client's, the economy being the save's" - GUILD1); a modified client can pay its own party, never a stranger, and
   nothing a server holds (no Mark) is paid. The same trust as a shared quest's.
@@ -140,8 +157,12 @@ farmyard, 10 to 18 metres from the farmhouse, and stands within 150 metres.
 ## 7. The save
 
 `systems/modSaveData.js`'s per-mod slot, vendor `bountyBoard`: the held rows (id, when taken, kills, shared, from
-whom), the slots paid and given up (pruned past yesterday) and today's paid ids for the pose. Read defensively: a row
-out of its law is dropped. A pack is never saved; its kills are, on the row.
+whom), the slots paid and given up (pruned past yesterday), when each was paid and what each given up had killed
+(AUDIT 28), and today's paid ids for the pose. Read defensively: a row out of its law is dropped. An open-ground pack is
+never saved (`transient`); a DUNGEON pack is - the dungeon's save carries every loose foe - so a load that still holds
+the bounty keeps the pack it finds standing rather than stand a second beside it (AUDIT 28 B6: "a pack is never saved"
+was false underground, and a same-dungeon quickload doubled it). Its kills are on the row. A bounty taken on another
+clock (an offline save played online) runs from now (B10). The ways already named are named again after a load (B9).
 
 ## 8. The four hosts and the two lanes
 
@@ -187,3 +208,19 @@ broke, which the whole suite on its own base would have shown. What was paid:
 payday, the party, the wire, the circle, the dungeons, the farms, the journal, the two groups, the tiers.
 `test/auditbounty1.test.js` (5) - B1 to B4, and the wiring (the press, the plaque, the host alone).
 `tools/mutants/bounty1.json` - 25 mutations (the bounties' 20 and DEATH-PENALTY's 5), 25 dead.
+`test/audit28_bounty.test.js` (12) - section 11; `tools/mutants/audit28.json` B1-B13, dead.
+
+## 11. AUDIT 28 (2026-09-28, Mac: "let's audit everything we have so far before we continue")
+
+The bounty boards' and the death penalty's lens of the branch's audit (`06-Systems/Online-Arc.md` AUDIT 28), fourteen
+findings, each fixed and recorded where the section above says it: B1 a clear pays only a bounty held before it, and
+the board refuses a cleared hunt; B2 a retake goes on from its kills and re-adopts its beasts; B3 one pack a party -
+a standing pack owns the hunt, the gone and the dead own nothing; B4 the hunt's kills are the party's; B5 the respawn
+takes what the death screen said, a Resurrect takes nothing, and the fixed city and the standalone dungeon show no loss
+(`06-Systems/Online-Arc.md` DEATH-PENALTY); B6 a load keeps a standing dungeon pack; B7 the pose sends the newest clears
+first; B8 underground the owner is asked on the pose's pixel (a pin caught the host handing the rule `{x, y}` where it
+reads `{px, py}` - the type check found it, a behavioural pin holds it); B9 the ways are named again after a load; B10
+a bounty taken on another clock runs from now; B11 the board keeps the keyboard's place through its repaint, and an
+armed Abandon never outlives its visit; B12 a mate's copy taken up is rebuilt at the taker's level; B13 a farm never
+stands on a farm, nor a trail spot among its buildings; B14 the claims above corrected (the farm's viewers, "1 coin"
+never "a coin", the four lines). The relay moves to `world123`.

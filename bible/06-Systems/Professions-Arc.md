@@ -17,9 +17,10 @@ record's, at Mac's instruction), **FACT**, **MEASURED**.
 - "The new notice board should be a physical object that houses quests, the player auction house, etc"
 - **"I want you to make the decisions with the intent as being as detailed as possible."**
 
-Every number below lives in one of three pure law modules (to be written): src/net/professionLaw.js (tracks, ranks,
-caps, acts, quality), src/net/recipeLaw.js (every recipe as data) and src/net/nodeLaw.js (the nodes). Appendix B
-lists them in one place.
+Every number below lives in a pure law module: the Marks' in `src/net/marksLaw.js` and the board's in
+`src/net/boardLaw.js` (built - MARKS1, NOTICE1); the rest in three still to be written with their slices,
+src/net/professionLaw.js (tracks, ranks, caps, acts, quality), src/net/recipeLaw.js (every recipe as data) and
+src/net/nodeLaw.js (the nodes). Appendix B lists them in one place.
 
 ## 1. The laws this arc keeps
 
@@ -413,8 +414,9 @@ else Foraging's Fish (1605). A **trophy** is the species' own Deep Waters templa
   holds in the Motherlode pixel's cell room (a client's position is its own claim, so this is a bound, not a proof),
   and an account takes at most **one Motherlode a day**. A Motherlode, like a dungeon vein, keeps no hours: it may
   be struck by night.
-- **Hunting cannot be witnessed** - FACT, a foe's life and death are its spawner's client's alone ("the relay reads
-  none of this", WORLD6b). So Hunting is the one bounded profession: at most **30 hides a day** an account, of which
+- **Hunting cannot be witnessed** - FACT, a foe's life and death are its spawner's client's alone ("A FOE IS ITS
+  SPAWNER'S: the spawner steps it and streams it, everyone else in the cell puppets it", WORLD6b, `src/net/wire.js`;
+  AUDIT 28 replaced a quotation that is nowhere in the tree). So Hunting is the one bounded profession: at most **30 hides a day** an account, of which
   at most **3** of tiers 5-6; the tier is the foe's the client claims, and the cap is the whole defence. **Fishing**
   is the other: **40 hauls a day an account** (not a character), the water the client's own claim, the pixel's
   climate and region from the witnessed world; an unconfirmed pixel's hauls bring no Pearl and no Slaughterfish.
@@ -752,24 +754,34 @@ Mac: **"Go"**. What the design above left open, DECIDED here (the record's, at M
 - **Its one button** answers the author through the doors that stand. FACT: SOC1 has no request to join a party
   (`party.invite` is the inviter's act), GUILD1 joins by invitation alone, and DUEL1 challenges within 10 m outdoors.
   So a party's or a guild's button is a LETTER to the author, addressed and begun (MAIL1, the social panel's draft -
-  JOURNAL1's door); a duel's is DUEL1's own challenge when the author stands within reach, else the letter. A
-  recruitment note names its guild, and only a rank that may invite (Guildmaster, Officer) pins one; a guild that is
-  gone leaves its notes standing without the button. Commissions come with PROF6.
+  through JOURNAL1's pending door, opened the first frame the panel may stand: AUDIT 28 N1 found the letter opened
+  directly under the closing board, which the slot still held, so it never opened); its subject "Re: " and the note's,
+  or the note's own where "Re: " would not fit - never cut (N15); a duel's is DUEL1's own challenge when the author
+  stands within reach, else the letter. A recruitment note names its guild and its author's character, and only a
+  rank that may invite (Guildmaster, Officer) pins one; it recruits - its button and its seal - only while that
+  character is still in that guild at such a rank (N4), and a guild that is gone leaves its notes standing without the
+  button. Commissions come with PROF6.
 - **The author is the handle** (the letter's `from` rule): no account id leaves the service on a note.
 - **Reports** - new here (MAIL1 has none): a registered reader reports a note once and stops seeing
-  it at once; the third reporter hides it from everyone until a moderator removes it or restores it (a restored note is
-  not hidden again). Moderators (`MODERATOR_HANDLES` and `DEVELOPER_HANDLES`) see a hidden note with its count and its
+  it at once; the third reporter that COUNTS - an account neither muted nor a sprout (younger than fourteen days,
+  titles.js SPROUT_S) - hides it from everyone but its author until a moderator removes it or restores it (a restored
+  note is not hidden again). Its author still sees it, marked, and may take it down (AUDIT 28 N2, N3: three accounts
+  made that minute hid any note, and the author lost the note and its place for a week). Moderators (`MODERATOR_HANDLES` and `DEVELOPER_HANDLES`) see a hidden note with its count and its
   id, and remove it from the window or with `/note remove <id>` anywhere. A mute stops a pin and takes the author's
   notes off every board while it stands.
 - **The server's word**: a developer posts a notice to every board for 1 to 14 days. The gate's card is composed on
   the client from the law every client reads, so it needs no row.
 - **The count over a board**: "3 new", in the name layer's face and law (`src/net/remotePlayers.js` nameFrame's
-  `extra`), over a Notice Board within 40 metres, in front and in sight, whose town has notes this device has not
-  read; reading the board sets it to nought (`src/net/noticeBook.js`, the newest 200 towns remembered).
+  `extra`), over a Notice Board within 40 metres, in front and in sight, whose town has notes or server notices this
+  device has not read (both - a developer's new notice lights every board it hangs on; AUDIT 28 said so); reading the
+  board sets it to nought (`src/net/noticeBook.js`, the newest 200 towns remembered).
 - **Failures** (section 19): a minute's cache - of every answer, a refusal too, so a town stood in at `dev` is one read
-  a minute, not one a second; a slow service shows the last good board, marked; every write carries
-  its request id and a lost answer is asked again with it - never two notes - and a second press while one is in
-  flight is the same press.
+  a minute, not one a second; a slow service shows the last good board, marked; a pin and a developer's notice carry
+  their request id, kept with their words until the service answers - a lost answer asked again with it, across
+  presses, is never two - and a take-down or a removal asked again after a lost answer that finds the note gone was
+  the first try's; the tries wait between them, and every request gives up after fifteen seconds; a second press while
+  one is in flight is the same press, and the window does one act at a time (AUDIT 28 N5-N9 - "every write carries its
+  request id" was false: the notice and the take-down had none).
 - **The switch**: `BOARD_OPEN` in `server-account/wrangler.toml` - shipped at `dev`; one line opens it. The service is
   `acct18`.
 - **Boards stood for a hub - NOTICE1b.** 10.1 gives a hub whose blocks place no board one of its own, at the open block
@@ -783,7 +795,9 @@ Mac: **"Go"**. What the design above left open, DECIDED here (the record's, at M
 `test/notice1.test.js` (17) - the law, the schema, the switch, read and pin, take down and report, moderation and the
 mute, the recruitment note, the server's word, expiry and the hour, the book (the cache, the stale board, what was
 read, one request id through every retry), the refusals, the cards' order, the wiring and the one door, the count in
-the names' pass, the measure. `tools/mutants/notice1.json`, 26 mutations, 26 dead.
+the names' pass, the measure. `tools/mutants/notice1.json`, 26 mutations, 26 dead. AUDIT 28 (`06-Systems/Online-Arc.md`
+AUDIT 28): `test/audit28_notice.test.js` (14) - N1-N16 fixed, among them THE MODAL CONTRACT's pin this section owed (the
+note's answer plan, one shape from every exit) and the window driven on the minimal DOM.
 
 ## 11. Writs - the Work tab
 
@@ -850,14 +864,18 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 - `recipes_known` (player, char_id, recipe)
 - `products` (provenance PK, template, material, quality, maker, made_at, listed, condition, enchantments JSON) - a
   listing writes the item's condition and enchantments as the pack held them, and the buyer receives exactly that
-- `marks` (account, balance); `guild_marks` (guild_id, balance); `marks_ledger` (seq, from, to, kind, amount, at)
+- `marks` (account, balance); `guild_marks` (guild_id, balance); `marks_ledger` (seq, src_kind, src_id, dst_kind,
+  dst_id, kind, amount, day, at, actor, who, rid) - BUILT, `0016_marks.sql` (AUDIT 28: this line gave the first sketch)
 - `market_listings` (id, region, seller, material or provenance, qty, price, expires_at); `market_orders`;
   `couriers` (buyer, goods, arrives_at)
 - `writs` (id, kind, poster, region, key, material, qty, pay, escrow, expires_at, filled)
-- `board_notes` (id, map_id, author, text, button JSON, expires_at)
+- `board_notes` (id, map_id, author, author_name, subject, body, button, guild_id, char_id, at, expires_at, hidden,
+  rid), `board_reports` (note_id, reporter, at) and `board_notices` (id, subject, body, author, author_name, at,
+  expires_at, rid) - BUILT, `0017_board.sql` (AUDIT 28: this line gave the first sketch)
 - Endpoints: `/v1/prof/*` (harvest, craft, spec), `/v1/stores/*`, `/v1/marks/*` (balance, exchange, guild),
   `/v1/board/*` (notes), `/v1/market/*`, `/v1/writs/*`.
-- Law modules (pure, shared by client and service): professionLaw.js, recipeLaw.js, nodeLaw.js (to be written).
+- Law modules (pure, shared by client and service): marksLaw.js and boardLaw.js (built); professionLaw.js,
+  recipeLaw.js, nodeLaw.js (to be written).
 - The relay: the activity field on the pose (a `RELAY_VERSION` and LAW row); the in-person check for deliveries.
 
 ## 15. The slices, in order
@@ -898,7 +916,7 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
 | Host | What the professions are there |
 |---|---|
 | `scenes/world.js` - the streaming world | The wilderness nodes (trees, herb patches, veins, boulders, fishing spots and schools), placed as each terrain tile streams in and freed as it streams out; Motherlodes; gate-touched ground; the Notice Boards; every gathering act; Hunting's skinning outdoors |
-| `scenes/exterior.js` - the fixed city | The board of its one city. **FLAGGED by name**: no nodes - a fixed city has no wilderness around it and no streamer to place them |
+| `scenes/exterior.js` - the fixed city | DFU's own board of its one city - never the Notice Board, which is online's (10.7; AUDIT 28 corrected "the board"). **FLAGGED by name**: no nodes - a fixed city has no wilderness around it and no streamer to place them |
 | `scenes/worldModes.js` - building interiors | The stations (a home's, a guild hall's, a shop's for its use fee); the crafting acts; the Stores chest at a home, a hall or a seat's palace; a station's window in the host's overlay slot |
 | `scenes/dungeonContext.js` - dungeons | Dungeon veins on the RDB walls (Dwarven Scrap, Adamantium, Diamonds); Hunting's skinning of a dungeon's foes; the act rig as outdoors |
 
@@ -915,7 +933,7 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
 | **EVERY ALLOCATION HAS AN OWNER** | Node billboards are owned by their terrain tile's batch and freed at stream-out; a felled tree's falling flat by the node; the act meter by its overlay; the tool's sprite by the weapon rig |
 | **THE ONE CONSTRUCTION SEAM** | One constructor builds a station's window and one the board's, for every host; a test sweeps the source for a stray `new` |
 | **THE NATIVE-WINDOW RULE** | The offline bulletin board's parchment is native and keeps its ROAD A9 cites; DFU's potion and item makers stay native and untouched; every new window is the port's own Enhanced Plus window and cites `src/ui/enhancedStyle.js` |
-| **A SLICE CLOSES ITS LEDGER ROW** | MARKS1, NOTICE1 and PROF1 each add their Port-Ledger section A row (A SERVER CURRENCY; THE BOARD, ONLINE; PROFESSIONS); later slices narrow them |
+| **A SLICE CLOSES ITS LEDGER ROW** | MARKS1, NOTICE1 and PROF1 each add their Port-Ledger section A row (MARKS: THE SERVER'S CURRENCY; THE BOARD, ONLINE; PROFESSIONS); later slices narrow them |
 | **THE RELAY VERSION** | The activity field on the pose and the in-person check are relay changes: a `RELAY_VERSION` and a LAW row each |
 
 ## 18. Lifecycles and edge cases
@@ -924,8 +942,10 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
   them); its Marks stay, because Marks are the account's.
 - **An account is deleted**: its Marks go; its live listings are cancelled and their goods burnt; its buy orders'
   escrow is burnt; a guild it led runs GUILD1's `succeed()`.
-- **A guild disbands**: refused while its gold treasury, its Marks treasury or its guild Stores hold anything (GUILD1's
-  rule, grown two clauses) and while it holds a Charter (SEAT0 16).
+- **A guild disbands** (or its last member leaves): refused while its gold treasury or its guild Stores hold anything
+  (GUILD1's rule, grown a clause), while it holds a Charter and while a Right of Siege or a Tourney is pending (SEAT0
+  16). Its Marks refuse nothing: they go to its guildmaster in the same batch as the delete (AUDIT 28 M3/M5 - a switch
+  the guildmaster could not pass would otherwise lock the guild for good), refused only past the guildmaster's cap.
 - **The Stores are full** (5,000 of a material): the prompt says so before the act ("Stores full - Oak Logs"), so a
   harvest is never played for nothing.
 - **A crafted item changes hands.** The service keeps each provenance id's **owner**. TRADE1's confirm step, when a
@@ -955,7 +975,7 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
 ## 20. Rollout, moderation, data
 
 - **Switches**: `PROFESSIONS_OPEN`, `MARKS_OPEN` and `BOARD_OPEN` in the account service's config (off, dev, on); at
-  `dev` only the dev glyph sees them. `MARKS_OPEN` stands (MARKS1, `server-account/wrangler.toml`), shipped at `dev`. Season 0 (SEAT0 18) is the professions' beta too: Marks, the Stores and tracks
+  `dev` only the dev glyph sees them. `MARKS_OPEN` and `BOARD_OPEN` stand (MARKS1, NOTICE1, `server-account/wrangler.toml`), each shipped at `dev`. Season 0 (SEAT0 18) is the professions' beta too: Marks, the Stores and tracks
   are kept through its wipe.
 - **Moderation**: player notes pass MAIL1's letter law and its filter; moderators (MOD1) remove a note
   (`/note remove <id>`) and may mute its author; a listing may be reported and removed the same way (the goods
