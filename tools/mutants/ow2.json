@@ -32,7 +32,7 @@
   {
     "name": "OW-MOUNTAINS-never-asked",
     "file": "src/systems/travelRoute.js",
-    "old": "      if (kind === 'open' && openBlocked && (n !== goal || !goalExempt) && openBlocked(cx, cy, nx, ny)) continue;\n",
+    "old": "  if (kind === 2 && goal !== 2 && openBlocked && openBlocked(ax, ay, bx, by, leaving)) return -1;\n",
     "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js"
@@ -42,8 +42,8 @@
   {
     "name": "OW-MOUNTAINS-passes-closed",
     "file": "src/systems/travelRoute.js",
-    "old": "      if (kind === 'open' && openBlocked && (n !== goal",
-    "new": "      if (openBlocked && (n !== goal",
+    "old": "  if (kind === 2 && goal !== 2 && openBlocked && openBlocked(",
+    "new": "  if (goal !== 2 && openBlocked && openBlocked(",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -52,7 +52,7 @@
   {
     "name": "OW-MOUNTAINS-trapped-at-the-start",
     "file": "src/systems/travelRoute.js",
-    "old": "  if (climateAt(ax, ay) === TV_MOUNTAIN_CLIMATE) return false;\n",
+    "old": "  if (leaving) return false;\n",
     "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js"

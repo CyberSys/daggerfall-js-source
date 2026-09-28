@@ -4949,7 +4949,7 @@ export function createFpArm() {
      * (chirality-true by MW-D23's measurement) already shows it.
      * Winding is safe: drawCharacter disables CULL_FACE.
      */
-    drawThird(canvas, { proj, view, eye, feet, yaw, hitFlash = 0, conceal = null, grow = 1 }) {
+    drawThird(canvas, { proj, view, eye, feet, yaw, hitFlash = 0, conceal = null, grow = 1, up = null }) {
       if (!thirdActive() || !canvas || !feet) return false;
       const t = thirdBuilt;
       // AUDIT OW3 J6: `grow` - the travel view's OW-BIG, the body drawn that many times its size ABOUT ITS FEET (the root
@@ -5007,8 +5007,10 @@ export function createFpArm() {
       // MW-D43b: the body is a Morrowind MESH, so it takes the arm's
       // dial, not the sprite standard - the same fix MW-D43 made for
       // the first-person pass and missed here.
-      // INVIS-LOOK: `conceal` a concealed peer's draw (ECV1's visual, net/peerBodies.js drawVeiled) - the quad blends
-      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, anchor, hitFlash, conceal }, proj, view, eye, MW_ARM_PIXEL);   // HITFLASH1: a struck peer's body flashes
+      // INVIS-LOOK: `conceal` a concealed peer's draw (ECV1's visual, net/peerBodies.js drawVeiled) - the quad blends.
+      // AUDIT OW4 J6: `up` the travel view's leaned vertical (player/mwView.js, face.up) - the quad leans with the flats and
+      // the sprite lane's body, so the picture taken down the pitched ray is not foreshortened a second time
+      drawRigSpriteBox(renderer, canvas, thirdMesh, model, { center, halfW, halfH, anchor, hitFlash, conceal, up }, proj, view, eye, MW_ARM_PIXEL);   // HITFLASH1: a struck peer's body flashes
       return true;
     },
 

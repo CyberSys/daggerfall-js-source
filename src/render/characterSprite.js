@@ -12,6 +12,9 @@
 import { multiply, ortho, lookAt, perspective, transformPoint, trs } from '../world/mat4.js';
 import { CHAR_PIXEL, CHAR_SPRITE_RT_SIZE } from './renderer.js';
 
+/** The upright quad's vertical - every sprite's but a leaned one's (AUDIT OW4 J6). */
+const WORLD_UP = Object.freeze([0, 1, 0]);
+
 /**
  * @returns diagnostics {center, halfW, halfH, pw, ph} for probes
  */
@@ -58,7 +61,13 @@ export function drawCharacterSprite(renderer, canvas, rig, rigMat, proj, view, e
  *  then draws at a place that does not depend on the box at all, so the
  *  box is only the window and its resolution. No anchor - the voxel rigs,
  *  whose box is the body - is exactly what stood. */
-export function drawRigSpriteBox(renderer, canvas, mesh, rigMat, { center, halfW, halfH: boxH, anchor = null, hitFlash = 0, conceal = null }, proj, view, eye, pixel = CHAR_PIXEL) {
+/** AUDIT OW4 J6: `up`, optional - the quad's own vertical (the travel view's leaned up, player/travelCamera.js
+ *  leanedUp; world up when absent). The picture is taken along the PITCHED ray - already the body as the raised eye sees
+ *  it - and was pasted on an UPRIGHT quad, which the same eye then saw foreshortened again: at the Overworld's 52-75
+ *  degree tilt the grown Morrowind body stood a half to a quarter of its height, squashed. The sprite lane leans its quad
+ *  by the view's up (eotbBody.js, the flats' own lean); the body's quad now leans with it - built on `up`, the anchor
+ *  landed on itself along it, and its resolution read along it. */
+export function drawRigSpriteBox(renderer, canvas, mesh, rigMat, { center, halfW, halfH: boxH, anchor = null, hitFlash = 0, conceal = null, up = null }, proj, view, eye, pixel = CHAR_PIXEL) {
   const aim = anchor && Math.hypot(anchor[0] - eye[0], anchor[1] - eye[1], anchor[2] - eye[2]) > 1e-6 ? anchor : center;   // PR-BOW1: the ray the picture is taken along
   const dx = aim[0] - eye[0], dy = aim[1] - eye[1], dz = aim[2] - eye[2];
   const dist = Math.max(0.5, Math.hypot(dx, dy, dz));
@@ -79,7 +88,8 @@ export function drawRigSpriteBox(renderer, canvas, mesh, rigMat, { center, halfW
   const halfH = boxH * Math.sqrt(1 - tilt * tilt) + halfW * tilt;
   const rl = Math.hypot(camDir[0], camDir[2]) || 1;
   const right = [-camDir[2] / rl, 0, camDir[0] / rl];   // horizontal billboard right (classic Y-only rotation)
-  const at = aim === center ? center : landAnchor(center, anchor, camDir, right);   // PR-BOW1: where the quad stands
+  const qUp = up ?? WORLD_UP;   // AUDIT OW4 J6: the quad's vertical
+  const at = aim === center ? center : landAnchor(center, anchor, camDir, right, qUp);   // PR-BOW1: where the quad stands
   const pvS = multiply(proj, view);
   const prjY = (x, y, z) => { const w = pvS[3]*x + pvS[7]*y + pvS[11]*z + pvS[15]; return (pvS[1]*x + pvS[5]*y + pvS[9]*z + pvS[13]) / w; };
   // PR-BOW1: the resolution is read where the quad is drawn, so a texel stays `pixel` screen pixels. AUDIT RETRO1 C6:
@@ -88,7 +98,7 @@ export function drawRigSpriteBox(renderer, canvas, mesh, rigMat, { center, halfW
   // out 1 and 2 pixels wide and shimmered
   const span = renderer.retroImageSpan ?? null;
   const texel = span ? Math.max(1, Math.round(pixel * span[0] / span[1])) : pixel;
-  const screenPxH = Math.abs(prjY(at[0], at[1] + halfH, at[2]) - prjY(at[0], at[1] - halfH, at[2])) * (span ? span[0] : canvas.clientHeight) / 2;
+  const screenPxH = Math.abs(prjY(at[0] + qUp[0] * halfH, at[1] + qUp[1] * halfH, at[2] + qUp[2] * halfH) - prjY(at[0] - qUp[0] * halfH, at[1] - qUp[1] * halfH, at[2] - qUp[2] * halfH)) * (span ? span[0] : canvas.clientHeight) / 2;
   const ph = Math.min(CHAR_SPRITE_RT_SIZE, Math.max(2, Math.round(screenPxH / texel)));
   const pw = Math.min(CHAR_SPRITE_RT_SIZE, Math.max(2, Math.round(ph * halfW / halfH)));
   // AUDIT OW3 J6: the picture's depth holds the WHOLE box - no point of it lies farther along the ray from its centre than
@@ -97,7 +107,7 @@ export function drawRigSpriteBox(renderer, canvas, mesh, rigMat, { center, halfW
   const reach = Math.max(4, halfW + boxH + 1);
   const miniEye = [center[0] - camDir[0] * reach, center[1] - camDir[1] * reach, center[2] - camDir[2] * reach];
   const sTex = renderer.renderCharacterSprite(mesh, rigMat, ortho(halfW, halfH, 0.1, 2 * reach), lookAt(miniEye, center, [0, 1, 0]), pw, ph);
-  renderer.drawCharacterSpriteQuad(sTex, at, halfW, halfH, right, pw / CHAR_SPRITE_RT_SIZE, ph / CHAR_SPRITE_RT_SIZE, hitFlash, conceal);   // HITFLASH1: a struck body's red; INVIS-LOOK: a concealed peer's body blends   // sample the sub-rect (fixed RT, audit fix)
+  renderer.drawCharacterSpriteQuad(sTex, at, halfW, halfH, right, pw / CHAR_SPRITE_RT_SIZE, ph / CHAR_SPRITE_RT_SIZE, hitFlash, conceal, up);   // HITFLASH1: a struck body's red; INVIS-LOOK: a concealed peer's body blends; AUDIT OW4 J6: leaned by `up`   // sample the sub-rect (fixed RT, audit fix)
   return { center: at, halfW, halfH, pw, ph };
 }
 
@@ -109,8 +119,10 @@ export function drawRigSpriteBox(renderer, canvas, mesh, rigMat, { center, halfW
  *  centre Q. Q = anchor - right x.(anchor - center) - up y.(anchor - center)
  *  puts the anchor on itself, and then every P draws at
  *  anchor + right x.(P - anchor) + up y.(P - anchor): `center` has left
- *  the law. With anchor = center it is center. */
-export function landAnchor(center, anchor, dir, right) {
+ *  the law. With anchor = center it is center. AUDIT OW4 J6: `quadUp` the
+ *  quad's own vertical when it leans (drawRigSpriteBox's `up`) - Q moves
+ *  down IT, not world up; upright it is exactly what stood. */
+export function landAnchor(center, anchor, dir, right, quadUp = WORLD_UP) {
   const l = Math.hypot(dir[0], dir[1], dir[2]) || 1;
   const nx = dir[0] / l, ny = dir[1] / l, nz = dir[2] / l;
   const hl = Math.hypot(nx, nz) || 1;
@@ -118,7 +130,7 @@ export function landAnchor(center, anchor, dir, right) {
   const ax = anchor[0] - center[0], ay = anchor[1] - center[1], az = anchor[2] - center[2];
   const px = ax * right[0] + ay * right[1] + az * right[2];
   const py = ax * up[0] + ay * up[1] + az * up[2];
-  return [anchor[0] - right[0] * px, anchor[1] - py, anchor[2] - right[2] * px];
+  return [anchor[0] - right[0] * px - quadUp[0] * py, anchor[1] - right[1] * px - quadUp[1] * py, anchor[2] - right[2] * px - quadUp[2] * py];
 }
 
 /**

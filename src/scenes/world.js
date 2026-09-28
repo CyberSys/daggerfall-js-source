@@ -226,7 +226,7 @@ import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   /
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
 import { dungeonRows, spawnedPixels, nearDungeons, dungeonApproach, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them
-import { openStepBlocked, joinPoint, routeDrawPoints, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points
+import { routeGround, joinPoint, routeDrawPoints, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points; AUDIT OW4 J3: the ground read once
 import { bandsNear, wanderAt, bandSight, chaseStep, bandLabel, bandMakeSeed, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M, BAND_STAND_RETRY_MS, BAND_STAND_TRIES } from '../systems/travelBands.js';   // TV7: the roaming bands
 import { bandWordOf, validBandWord, chaseYields, bandLifeOf, bandNearMe, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
 import { walkBegin, leaderWalkStep, walkHeard, memberAnswer, memberFollowing, memberStopOf, memberWalkStep, walkAskStands, sameWalkDest, NO_WALK_ANSWER, PARTY_WALK_RADIUS_M } from '../systems/partyWalk.js';   // TV8: group travel, the leader drives (AUDIT OW3: the whole law, pure)
@@ -9437,6 +9437,21 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the answer, never the classic ground journey's nor DFU's fast travel (AUDIT OW3 J2: one question, both doors).
    *  Declared, not a const: the map's doors ask it from closures (BOOT-TDZ). */
   function tvOwnsJourneys() { return !!travelOptions && isEnhanced() && !!travelView; }
+  /** AUDIT OW4 J4: THE MAP'S RESUME, on the enhanced interface, is the journey PLANNED AGAIN from where the traveller
+   *  stands - a place by the roads round the peaks (travelViewRouteTo, as the Overworld's own 'dest' plate takes it up),
+   *  a spot walked to again (travelViewWalkTo) - refused, in the view's words, where the view may not rise. The mod's
+   *  resume (travelOptions.js resumeRoute) walks STRAIGHT from wherever the traveller is to the next leg, asking neither
+   *  the peaks nor the sea: after Return and a walk by hand, a fight or a respawn it headed over the mountains. The
+   *  classic skin, and a journey of the mod's own (no route), keep the mod's resume. */
+  function travelViewResume() {
+    const r = travelOptions?.route;
+    if (!tvOwnsJourneys() || !r) { travelOptions?.resumeTravel(); return; }
+    const why = travelViewAllowed();
+    if (!why.ok) { if (why.why) townTalk.say(why.why); return; }
+    if (!travelViewCanGo()) return;
+    if (r.summary) travelViewRouteTo(r.summary);
+    else if (r.point) travelViewWalkTo(tvSceneOf(r.point.x, r.point.z, 0), r.point.pixel);
+  }
   /** TO1: THE OTHER ARRIVAL. `fastTravelTo` is DFU's - gold, a
    *  teleport, a clock advanced by the estimate, a fade. This is the
    *  mod's: the player is put on the road and WALKS, and the clock
@@ -9610,7 +9625,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AUDIT-TO1 I4: ...and the door ACTS on the refusal it can still get
       // (the popup was minted before the online state could change).
       onTravelToCoords: (pick, opts) => { if (!beginAcceleratedTravel(pick, opts, { coords: true }) && !tvOwnsJourneys()) townTalk.say('You cannot travel there now.'); },   // AUDIT OW3 J2: the Overworld said its own refusal
-      onResumeTravel: () => { travelOptions?.resumeTravel(); },
+      onResumeTravel: () => { travelViewResume(); },   // AUDIT OW4 J4: the Overworld's journey planned again from where the traveller stands
       onForgetTravel: () => { travelOptions?.clearTravelDestination(); },   // RESUME-OUT: the held map's Forget it - the journey ended, asked no more
       // AUDIT-TO1 H1: the map's H boxes the help in the WINDOW'S OWN box
       // (the I key's slot), because a townTalk overlay over the map would
@@ -17082,7 +17097,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the follow key and the static's paths already hold (`source`): with none, the journey goes across country
     const raw = terrainGen.roads();
     const net = raw?.source === 'basic-roads' ? raw : null;
-    const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, isWater: tvWater, openBlocked: tvOpenBlocked });   // OW-MOUNTAINS: never across the peaks
+    const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround() });   // OW-MOUNTAINS: never across the peaks
     if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
     const legs = tvJoinedLegs(from, plan);
     const ok = travelOptions.beginTravelAlongRoute({ legs, summary, name: summary.name }, tvCautious(), { quiet: tvQuiet });
@@ -17102,8 +17117,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** A leg's pixel middle, native - the drawn route's point for a leg with no join of its own (routeDrawPoints). */
   const tvLegMid = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return [o.x + 16384, o.z + 16384]; };
   // OW-MOUNTAINS (2026-09-28, Mac: "You shouldnt be able to navigate mountains"): an open step into the Mountain climate,
-  // or up or down a steep rise, is refused (systems/travelRoute.js openStepBlocked); the roads go over the passes
-  const tvOpenBlocked = (ax, ay, bx, by) => openStepBlocked((x, y) => maps.getClimateIndex(x, y), (x, y) => woods.getHeightMapValue(x, y), ax, ay, bx, by);
+  // or up or down a steep rise, is refused (systems/travelRoute.js openStepBlocked); the roads go over the passes.
+  // AUDIT OW4 J3: the planner's ground READ ONCE (travelRoute.js routeGround: the climate and the small heightmap in two
+  // byte tables, the sea and the peaks' law off them, and the land's pieces that answer "no way by land" at once) - the
+  // two map files are the world's own, fixed for the session. J1: its `peakAt` is the start's own range's flood fill
+  let _tvRouteGround = null;
+  const tvRouteGround = () => (_tvRouteGround ??= routeGround((x, y) => maps.getClimateIndex(x, y), (x, y) => woods.getHeightMapValue(x, y), WATER_BYTE));
   /** OW-ROADSIDE (2026-09-28, Mac: routes "appear traveling alongside" the road): a route whose first step is a road's (or
    *  a track's) is joined first at the nearest point of that first run - never walked beside it to its far end. */
   function tvJoinedLegs(from, plan) {
@@ -17121,7 +17140,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const roadsRaw = terrainGen.roads(), wnet = roadsRaw?.source === 'basic-roads' ? roadsRaw : null;   // AUDIT DEEP T2-7's law: Hazelnut's bytes or none
     // AUDIT OW3 J5: the step onto a SPOT is asked too (`goalExempt: false`) - a spot on a plateau was reached straight up
     // its cliff (a rise of 60 against the law's 16: the lag and the fall Mac hit); a place's own pixel stays exempt
-    const plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, isWater: tvWater, openBlocked: tvOpenBlocked, goalExempt: false });
+    const plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: false });
     if (!plan) { townTalk.say(TRAVEL_VIEW_TEXT.noWay); return false; }
     const legs = tvJoinedLegs(from, plan);
     const ok = travelOptions.beginTravelAlongRoute({ legs, point: { pixel: pix, x: n.x, z: n.z }, name: TRAVEL_VIEW_TEXT.spot }, tvCautious(), { quiet: tvQuiet });
@@ -17566,6 +17585,17 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   const _tvFootMemo = { gen: -1, map: new Map() };   // PERF-TV: the curtains' lowest land (render/rainCurtains.js memo)
   function travelViewGovern(dt) {
     const journey = !!travelControlUI?.isShowing && !!travelOptions?.state?.autopilot;
+    // AUDIT OW4 J5: THE OVERWORLD'S JOURNEY ON THE GROUND RUNS AT WALKING PACE, until the view rises. A successful avoid
+    // roll (travelOptions.js attemptAvoidEncounter) takes the journey up again while the band that stopped it still
+    // stands near: the view stays down (its `danger`), tvJourneyUp will not raise it while a foe is near, and the mod's
+    // `ignoreEncounters` (15 s) let the autopilot drive ON THE GROUND at the spinner's full rate - through foes, into
+    // unbuilt ground, with no load governor: the lag Mac met. The classic skin's ground journey is untouched
+    if (journey && !travelView?.active && tvOwnsJourneys()) {
+      if (worldTimeScale() !== 1) setWorldTimeScale(1);
+      tvHeld = travelAsked > 1 ? 1 : null;   // the panel says the clock is held (the spinner stays the player's)
+      travelGovernor.reset();
+      return;
+    }
     if (!travelView?.active || !journey) {
       if (tvHeld != null) { tvHeld = null; if (journey) setWorldTimeScale(travelAsked); }
       travelGovernor.reset();

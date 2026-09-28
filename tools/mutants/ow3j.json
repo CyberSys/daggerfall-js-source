@@ -162,8 +162,8 @@
   {
     "name": "OW3-J5-start-exempt-again",
     "file": "src/systems/travelRoute.js",
-    "old": "if (kind === 'open' && openBlocked && (n !== goal || !goalExempt) &&",
-    "new": "if (kind === 'open' && openBlocked && c !== start && (n !== goal || !goalExempt) &&",
+    "old": ": goalExempt ? 2 : 1, leaving);",
+    "new": ": goalExempt ? 2 : 1, leaving || c === start);",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -172,8 +172,8 @@
   {
     "name": "OW3-J5-plateau-climbed",
     "file": "src/systems/travelRoute.js",
-    "old": "(n !== goal || !goalExempt)",
-    "new": "n !== goal",
+    "old": "n !== goal ? 0 : goalExempt ? 2 : 1, leaving);",
+    "new": "n !== goal ? 0 : 2, leaving);",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -182,8 +182,8 @@
   {
     "name": "OW3-J5-spot-goal-exempt",
     "file": "src/scenes/world.js",
-    "old": "openBlocked: tvOpenBlocked, goalExempt: false });",
-    "new": "openBlocked: tvOpenBlocked });",
+    "old": "...tvRouteGround(), goalExempt: false });",
+    "new": "...tvRouteGround() });",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -192,8 +192,8 @@
   {
     "name": "OW3-J6-mw-body-ungrown",
     "file": "src/player/mwView.js",
-    "old": "grow: face?.grow > 1 ? face.grow : 1 });",
-    "new": "grow: 1 });",
+    "old": "grow: face?.grow > 1 ? face.grow : 1, up: face?.up ?? null });",
+    "new": "grow: 1, up: face?.up ?? null });",
     "tests": [
       "test/eotb_view.test.js"
     ],
@@ -252,8 +252,8 @@
   {
     "name": "OW3-J8-spot-over-the-peaks",
     "file": "src/scenes/world.js",
-    "old": "isWater: tvWater, openBlocked: tvOpenBlocked, goalExempt: false });",
-    "new": "isWater: tvWater, goalExempt: false });",
+    "old": "tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: false });",
+    "new": "tracks: wnet?.tracks ?? null, isWater: tvWater, goalExempt: false });",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -262,8 +262,8 @@
   {
     "name": "OW3-J8-place-over-the-peaks",
     "file": "src/scenes/world.js",
-    "old": "isWater: tvWater, openBlocked: tvOpenBlocked });   // OW-MOUNTAINS",
-    "new": "isWater: tvWater });   // OW-MOUNTAINS",
+    "old": "tracks: net?.tracks ?? null, ...tvRouteGround() });   // OW-MOUNTAINS",
+    "new": "tracks: net?.tracks ?? null, isWater: tvWater });   // OW-MOUNTAINS",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -272,8 +272,8 @@
   {
     "name": "OW3-J8-law-misbound",
     "file": "src/scenes/world.js",
-    "old": "openStepBlocked((x, y) => maps.getClimateIndex(x, y), (x, y) => woods.getHeightMapValue(x, y), ax, ay, bx, by)",
-    "new": "openStepBlocked((x, y) => woods.getHeightMapValue(x, y), (x, y) => maps.getClimateIndex(x, y), ax, ay, bx, by)",
+    "old": "routeGround((x, y) => maps.getClimateIndex(x, y), (x, y) => woods.getHeightMapValue(x, y), WATER_BYTE)",
+    "new": "routeGround((x, y) => woods.getHeightMapValue(x, y), (x, y) => maps.getClimateIndex(x, y), WATER_BYTE)",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],

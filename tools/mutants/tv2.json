@@ -42,8 +42,8 @@
   {
     "name": "TV2-half-an-edge-is-a-road",
     "file": "src/systems/travelRoute.js",
-    "old": "  if (roads && (roads[a] & bit) && (roads[b] & back)) return 'road';",
-    "new": "  if (roads && (roads[a] & bit)) return 'road';",
+    "old": "  if (roads && (roads[a] & bit) && (roads[b] & back)) return 0;",
+    "new": "  if (roads && (roads[a] & bit)) return 0;",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -52,7 +52,7 @@
   {
     "name": "TV2-route-swims",
     "file": "src/systems/travelRoute.js",
-    "old": "      if (n !== goal && isWater(nx, ny)) continue;\n",
+    "old": "  if (goal === 0 && isWater(bx, by)) return -1;\n",
     "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js"
@@ -342,7 +342,7 @@
   {
     "name": "AUDIT-DEEP-T2-5-swim-the-corner",
     "file": "src/systems/travelRoute.js",
-    "old": "      if (dx && dy && isWater(cx + dx, cy) && isWater(cx, cy + dy)) continue;\n",
+    "old": "  if (ax !== bx && ay !== by && isWater(bx, ay) && isWater(ax, by)) return -1;\n",
     "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js"
