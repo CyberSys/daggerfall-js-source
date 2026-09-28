@@ -112,7 +112,7 @@
 // original note is STALE and is withdrawn: there are no screen-to-ray
 // conversions to fix. The port's activation ray is the CAMERA's own
 // forward vector (`townTalk.tryActivate(cam.pos, useFwd, ...)` -
-// scenes/world.js:16048 and scenes/exterior.js:4857, the only two
+// scenes/world.js:16057 and scenes/exterior.js:4860, the only two
 // hosts that carry the call, each over a useFwd that is the camera's
 // own forward from cam.yaw and cam.pitch - or, since TI1, the touch
 // tap's ray, which IS a pixel unprojected, but through the frame's
@@ -147,7 +147,11 @@ import { BssFile } from '../formats/bssFile.js';
 // module's two GEOMETRY CONSTANTS, which travel as arguments here too:
 // see drawHudLarge's barFill.
 import { bitmapToColor32 } from '../formats/color32Order.js';
-import { largeHudBar } from './hud.js';
+import { largeHudBar, activeSpellIconsPlaced } from './hud.js';   // BUFF-END: and the spell icons it placed this frame
+import { activeSpellAt, hudPointer } from './hudActiveSpells.js';   // BUFF-END: the tooltip's own hit
+import { endBundle, endedSpellText } from '../systems/mysticism.js';   // BUFF-END
+import { hudText } from '../systems/notify.js';
+import { playerEntity } from '../characters/playerEntity.js';
 import { drawVitalsBars } from './hudVitals.js';   // VB1: the nine-bar law - no cycle, hudVitals reads only the settings store
 import { raceArt } from '../systems/races.js';
 import { racialOverrideHeadArt } from '../systems/vampirism.js';   // V5: the curse heads, DFU's override-first order
@@ -634,6 +638,23 @@ export function trackLargeHudPointer(canvas, e, bar = largeHudBar()) {
     (e.clientY - r.top) * (canvas.height / r.height));
 }
 
+/**
+ * BUFF-END (Zerofyre on Discord: "An option to right click cancel buffs on yourself like most RPGs"): THE CLASSIC
+ * HUD'S SPELL ICONS, the enhanced widget's twin (ui/enhancedHud.js). With the mouse freed - DFU's own gate for the
+ * icon's tooltip (DaggerfallHUD.cs:141-147) - a right-click on a spell the player may end (systems/mysticism.js
+ * canEndBundle) ends it and says so. The hit is the tooltip's: the icon under the tracked pointer. Answers true when
+ * it took the press.
+ */
+export function routeSpellIconClick(button, { windowUp = false, entity = playerEntity, placed = activeSpellIconsPlaced() } = {}) {
+  if (button !== 2 || windowUp || !cursorActive()) return false;
+  const at = hudPointer();
+  const hit = at ? activeSpellAt(placed, at[0], at[1]) : null;
+  if (!hit?.endable) return false;
+  const name = endBundle(entity, hit.bundleId);
+  if (name) hudText(endedSpellText(name));
+  return true;
+}
+
 /** LargeHUD.ActiveMouseOverLargeHUD, for the activate gate's guard. */
 export const activeMouseOverLargeHUD = () =>
   _overBar && largeHudEnabled() && cursorActive();
@@ -703,7 +724,11 @@ export function largeHudOptions(deps, entity) {
  * answered by NOTHING, no action and no sound. It is the bar's hit
  * that swallows the click, not the handler behind it.
  */
-export function routeLargeHudClick(px, py, button, ctx, { windowUp = false } = {}) {
+export function routeLargeHudClick(px, py, button, ctx, { windowUp = false, event = null } = {}) {
+  // BUFF-END: the spell icons ride over the bar and are clicked first. A right-click that ends a spell is the icon's
+  // own press: the cancelled pointerdown raises no mousedown, so the swing and an armed cast (the hosts' window
+  // mousedown) never hear it.
+  if (routeSpellIconClick(button, { windowUp })) { event?.preventDefault?.(); return true; }
   if (!largeHudEnabled() || windowUp || !cursorActive()) return false;
   const hit = largeHudClick(largeHudBar(), px, py, button);
   if (!hit) return false;

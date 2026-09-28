@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6932` read, on one physical line:
+`src/scenes/worldModes.js:6946` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4994` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4995` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
