@@ -6777,6 +6777,7 @@ export function createWorldModes(host) {
         dfLocation, hit.blocksFile ?? blocks, dfLocation.climate.climateType, {   // WB3b: the court's blocks file answers its one made block
           automapFromLoad: fromLoad,   // MAP-KEEP: a load enters the saved record on the LOAD arm - its colour tier kept, nothing stamped or pruned
           placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
+          onStartLoad: () => host.cameraRecoilReset?.(),   // AUDIT DISC28: OnStartLoad's reel reset, the world's own camera (its load resets it too)
           breathHeld: () => !!townTalk?.overlayActive,   // AUDIT 27h S1: a street-slot window up over the dungeon (Recall's prompt) holds its breath too, as its own slot's do
           activateHeld: () => held(keys, 'ActivateCenterObject') || !!host.activateDown?.(),
           survivalEnv: () => host.survivalEnv?.() ?? null,   // SURV7: the outer host's env; the dungeon overrides the flags it owns

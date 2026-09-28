@@ -7148,6 +7148,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       }
       const extras = restorePlayer(playerEntity, snap, spellsByIndex);
       if (!extras) { hudText.add('Save version mismatch.'); return; }
+      // AUDIT DISC28 (27h's DIAL-LOAD read, recorded there): SaveLoadManager's OnStartLoad reaches the HOST's hands too -
+      // CameraRecoiler's own (ResetRecoil: the incoming character inherits no reel). The world's load resets the world's
+      // reel and the standalone host wraps this door to reset its own, but a world-hosted dungeon's own load (F12, the
+      // pause's Load underground) reached neither, and a hit's sway ran on over the loaded character.
+      opts.onStartLoad?.();
       opts.modSaveLoad?.(extras.modData ?? null);   // WA1: the registered mods' records (or their NewSaveData), as a world load restores them
       opts.horseCartLoad?.(extras.modData?.['horse-cart-and-cargo'] ?? null);   // AUDIT HCC H3: OnStartLoad, then RestoreSaveData - the same-dungeon load is a load too
       this.restoreSaved(extras, setPlayerPos);

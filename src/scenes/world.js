@@ -14732,6 +14732,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // rolls. The mode machine calls this once per modal frame (and from
     // its interior rest), which is where those minutes actually pass.
     encounterTick: () => runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos),
+    cameraRecoilReset: () => cameraRecoiler.reset(),   // AUDIT DISC28: a world-hosted dungeon's own load resets the reel, as worldQuickLoad does (CameraRecoiler's OnStartLoad)
     // G2: the arrest interception, for the mode machine's indoor
     // watch. The court flow and the overlay it opens are this host's,
     // so the interior pool asks through here instead of building a

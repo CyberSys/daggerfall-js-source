@@ -331,4 +331,6 @@ tests, none failing), lint, the types and the build are clean on the branch, and
   the camera's recoil sway running. The standalone host resets it at every `quickLoad` (dungeon.js wraps the door) and
   the world's load at its start (CameraRecoiler's OnStartLoad), but a world-hosted context's load reaches neither. It is
   under 0.6 degrees at the default High and gone within five seconds of the hit; the fix is a load-start seam across
-  the hosts, its own slice.
+  the hosts, its own slice. FIXED in the 2026-09-28 batch's audit (Field-Bugs-2026-09-28 ## AUDIT, Mac: "definitely fix
+  everything"): the context raises `onStartLoad` once its own load is under way, and worldModes hands it the world
+  host's `cameraRecoilReset`; the standalone host keeps its wrapper. Pinned in `test/dialload.test.js`.
