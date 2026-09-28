@@ -563,7 +563,18 @@ export function runDayChange({ entity, lastMinutes, nowMinutes, rolls = Math.ran
 export function empireJoin({ entity, nowMinutes, say = () => {} } = {}) {
   const accounts = entity?.bankAccounts;
   if (!accounts?.length) return null;
-  const call = callInEmpireDebt(accounts, { deductGold: (n) => deductGold(entity, n) }, { cap: calculateMaxBankLoan(entity.level ?? 1), nowMinutes: Math.floor(nowMinutes) });
+  // AUDIT REALM L3-F8: A LOAN DUE AT THE JOIN STANDS IN NO GOOD STANDING. Customs' unpaid call falls due at the save's own
+  // minute (realmCustoms.js), and the arrival carries that onto the world's clock - due now, so the Empire below kept it
+  // as its one loan in good standing when it fit the cap: no default, no reputation, "none for a newcomer" undone. A
+  // loan already due is settled first, as the day's sweep settles an overdue one; the Empire keeps only one not yet due.
+  const now = Math.floor(nowMinutes);
+  for (let r = 0; r < accounts.length; r++) {
+    const due = accounts[r]?.loanDueDate;
+    if (!(accounts[r]?.loanTotal > 0) || !due || due > now) continue;
+    const outcome = settleOverdueLoan(accounts, r, entity);
+    if (outcome.kind === 'defaulted') lowerRepForCrime(entity, r, outcome.crime);
+  }
+  const call = callInEmpireDebt(accounts, { deductGold: (n) => deductGold(entity, n) }, { cap: calculateMaxBankLoan(entity.level ?? 1), nowMinutes: now });
   for (const regionIndex of call.unpaid) {
     const outcome = settleOverdueLoan(accounts, regionIndex, entity);
     if (outcome.kind === 'defaulted') lowerRepForCrime(entity, regionIndex, outcome.crime);

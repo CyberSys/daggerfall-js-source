@@ -31,23 +31,35 @@ import { accountKind, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';
 import { homeMapIdOk, homeBuildingKeyOk } from '../../src/net/homeLaw.js';
 import { DECOR_CAP, DECOR_ID_RE, DECOR_OPS_MAX, DECOR_OPS_WINDOW_S, DECOR_STATION_FEES, decorPieceOf, decorPlaceOf, decorHiddenOf, decorRefund } from '../../src/net/decorLaw.js';
-import { prepareRealmRecord, realmSideOf, recordMovedOf, mustChange, dropObjects } from './realm.js';   // REALM P2.2b
+import { prepareRealmRecord, realmSideOf, realmActFirst, recordMovedOf, mustChange, dropObjects } from './realm.js';   // REALM P2.2b; AUDIT REALM L1-F2: the record asked first
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2b: the wallet's own order, over the record
 
 /**
  * REALM P2.2b: WHAT A PIECE'S CHANGE COSTS, as the client's wallet pays it - placed: what it cost (`paid`); grown: the
  * difference, shrunk: half the difference back (net/decorLaw.js decorRescale's arithmetic, off the service's own record
  * of what it cost); made a station or changed to another: that station's licence (DECOR_STATION_FEES, never given back);
- * removed: half of what it cost. Answers the gold the record gains (negative: pays).
+ * removed: half of what it cost. Answers the gold the record gains (negative: pays) - `delta` - and `ledger`, what
+ * records have now paid for the piece as it stands.
+ * AUDIT REALM L1-F3: WHAT COMES BACK IS HALF OF WHAT RECORDS PAID (`ledger`, home_decor.paid - migration 0018), never
+ * half of a cost a client named: a piece placed before the realm, or through the old lane, carries a `paid` no record
+ * ever paid, and customs carries its house in - its removal, its shrinking or its house's sale made gold. A piece a
+ * record placed has paid it all (`ledger` = `paid`, the default), and changes exactly as before; a shrink gives back
+ * half of the part records paid, and the ledger never stands above the piece's own cost.
+ * @param {any} was @param {any} now @param {number} [ledger]
  */
-export function decorGoldDelta(/** @type {any} */ was, /** @type {any} */ now) {
+export function decorGoldMove(was, now, ledger = was?.paid) {
   const paidWas = was ? Math.max(0, Number(was.paid) || 0) : 0;
-  if (!now) return decorRefund(paidWas);
+  const own = Math.min(paidWas, Math.max(0, Number(ledger) || 0));
+  if (!now) return { delta: decorRefund(own), ledger: 0 };
   const paidNow = Math.max(0, Number(now.paid) || 0);
-  let delta = paidNow >= paidWas ? paidWas - paidNow : Math.trunc((paidWas - paidNow) / 2);
+  let delta, next;
+  if (paidNow >= paidWas) { delta = paidWas - paidNow; next = own + paidNow - paidWas; }
+  else { const base = Math.min(paidWas - paidNow, own); delta = Math.trunc(base / 2); next = own - base; }
   if (now.station && now.station !== (was?.station ?? null)) delta -= DECOR_STATION_FEES[now.station] ?? 0;
-  return delta;
+  return { delta, ledger: next };
 }
+/** The gold alone (decorGoldMove's `delta`). */
+export const decorGoldDelta = (/** @type {any} */ was, /** @type {any} */ now, /** @type {number} */ ledger = was?.paid) => decorGoldMove(was, now, ledger).delta;
 
 /** REALM P2.2b: a realm character names its record only when gold moves - a free write (one's own item, a piece moved
  *  and no bigger, a station unmade) is no act on the record. Answers realmSideOf's answer, or a refusal's. */
@@ -83,7 +95,7 @@ async function realmDecorWrite(ctx, player, at, { mapId, buildingKey, delta, wri
   }
   await dropObjects(bucket, [prep.prev]);
   const piece = await after();
-  return piece ? { ok: true, piece, realm: { seq: prep.seq } } : { error: 'no-decor' };
+  return piece ? { ok: true, piece, gold: delta, realm: { seq: prep.seq } } : { error: 'no-decor' };   // AUDIT REALM L1-F3: the gold the record moved - the client takes it, never its own sum
 }
 
 /** The home is the caller's character's: map, key, account, character. */
@@ -162,22 +174,25 @@ export async function hideDecorBase(ctx, player, { mapId, buildingKey, character
  * @param {{db: any, nowS: number}} ctx
  */
 export async function placeDecor(ctx, player, { mapId, buildingKey, character, piece, realm = null } = {}) {
+  const { db, nowS } = ctx;
+  if (realm != null) {
+    const first = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before the door's rate
+    if (first.error) return first;
+  }
   const shut = await writeDoor(ctx, player, { mapId, buildingKey, character });
   if (shut) return { error: shut };
   const p = decorPieceOf(piece);
   if (!p) return { error: 'bad-decor' };
-  const delta = decorGoldDelta(null, p);
+  const { delta, ledger } = decorGoldMove(null, p);
   const side = decorSideOf(character, realm, delta);   // REALM P2.2b
   if (side.error) return side;
-  const { db, nowS } = ctx;
-  const insert = db.prepare(`INSERT OR IGNORE INTO home_decor (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at, item)
-    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${OWNS} AND (SELECT COUNT(*) FROM home_decor WHERE map_id = ? AND building_key = ?) < ?`)
+  // AUDIT REALM L1-F3: `paid`, what a record paid for it - the price, when a realm character's record pays it; nothing else
+  const insert = db.prepare(`INSERT OR IGNORE INTO home_decor (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at, item, paid)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${OWNS} AND (SELECT COUNT(*) FROM home_decor WHERE map_id = ? AND building_key = ?) < ?`)
     .bind(mapId, buildingKey, p.id, p.model, p.flat?.[0] ?? null, p.flat?.[1] ?? null, placeJson(p), nowS, p.item ? JSON.stringify(p.item) : null,
-      mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP);
+      side.at ? ledger : 0, mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP);
   if (side.at && delta !== 0) {
-    // REALM P2.2b: the piece and what it cost, together - a placement sent again finds the record one on and is answered so
-    const moved = await recordMovedOf(db, player.id, side.at);
-    if (moved) return moved;
+    // REALM P2.2b: the piece and what it cost, together - a placement sent again found the record one on above
     const had = await db.prepare('SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ?').bind(mapId, buildingKey, p.id).first();
     if (had) return JSON.stringify(pieceOfRow(had)) === JSON.stringify(p) ? { ok: true, repeat: true, piece: pieceOfRow(had), realm: { seq: side.at.seq } } : { error: 'decor-taken' };
     return realmDecorWrite(ctx, player, side.at, {
@@ -204,16 +219,16 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
  * @param {{db: any, nowS: number}} ctx
  */
 export async function moveDecor(ctx, player, { mapId, buildingKey, character, id, place, realm = null } = {}) {
+  if (realm != null) {
+    const first = await realmActFirst(ctx.db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before the door's rate
+    if (first.error) return first;
+  }
   const shut = await writeDoor(ctx, player, { mapId, buildingKey, character });
   if (shut) return { error: shut };
   if (typeof id !== 'string' || !DECOR_ID_RE.test(id)) return { error: 'no-decor' };
   const pl = decorPlaceOf(place);
   if (!pl) return { error: 'bad-decor' };
-  const named = realm == null ? null : realmSideOf(character, realm);   // REALM P2.2b: a record named is asked first
-  if (named?.error) return named;
   const { db } = ctx;
-  const moved = named?.at ? await recordMovedOf(db, player.id, named.at) : null;   // a move sent again after it landed: said so first
-  if (moved) return moved;
   const row = await db.prepare(`SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ? AND ${OWNS}`)
     .bind(mapId, buildingKey, id, mapId, buildingKey, player.id, character).first();
   if (!row) return { error: 'no-decor' };
@@ -221,15 +236,15 @@ export async function moveDecor(ctx, player, { mapId, buildingKey, character, id
   // gold or hold things (a piece the law refuses reads as nothing, and its cost would be owed at a sale)
   const was = pieceOfRow(row);
   if (!was || !decorPieceOf({ ...was, ...pl })) return { error: 'bad-decor' };
-  const delta = decorGoldDelta(was, pl);
+  const { delta, ledger } = decorGoldMove(was, pl, row.paid);   // AUDIT REALM L1-F3: half back of what records paid
   const side = decorSideOf(character, realm, delta);
   if (side.error) return side;
   if (side.at && delta !== 0) {
     // REALM P2.2b: a resize or a station, paid or given back on the record with the move - from the row as it was read
     return realmDecorWrite(ctx, player, side.at, {
       mapId, buildingKey, delta,
-      write: db.prepare(`UPDATE home_decor SET place = ? WHERE map_id = ? AND building_key = ? AND id = ? AND place = ? AND ${OWNS}`)
-        .bind(placeJson(pl), mapId, buildingKey, id, row.place, mapId, buildingKey, player.id, character),
+      write: db.prepare(`UPDATE home_decor SET place = ?, paid = ? WHERE map_id = ? AND building_key = ? AND id = ? AND place = ? AND paid = ? AND ${OWNS}`)
+        .bind(placeJson(pl), ledger, mapId, buildingKey, id, row.place, row.paid, mapId, buildingKey, player.id, character),
       after: async () => pieceOfRow(await db.prepare('SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ?').bind(mapId, buildingKey, id).first()),
       refusal: async () => 'no-decor',
     });
@@ -247,29 +262,27 @@ export async function moveDecor(ctx, player, { mapId, buildingKey, character, id
  * @param {{db: any, nowS: number}} ctx
  */
 export async function removeDecor(ctx, player, { mapId, buildingKey, character, id, realm = null } = {}) {
+  if (realm != null) {
+    const first = await realmActFirst(ctx.db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before the door's rate
+    if (first.error) return first;
+  }
   const shut = await writeDoor(ctx, player, { mapId, buildingKey, character });
   if (shut) return { error: shut };
   if (typeof id !== 'string' || !DECOR_ID_RE.test(id)) return { error: 'no-decor' };
   const { db } = ctx;
-  const named = realm == null ? null : realmSideOf(character, realm);   // REALM P2.2b
-  if (named?.error) return named;
-  if (named?.at) {
-    const moved = await recordMovedOf(db, player.id, named.at);   // a removal sent again after it landed: said so first
-    if (moved) return moved;
-  }
   {
     const row = await db.prepare(`SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ? AND ${OWNS}`)
       .bind(mapId, buildingKey, id, mapId, buildingKey, player.id, character).first();
     const was = row ? pieceOfRow(row) : null;
-    const delta = was ? decorGoldDelta(was, null) : 0;
+    const delta = was ? decorGoldMove(was, null, row.paid).delta : 0;   // AUDIT REALM L1-F3: half of what records paid
     const side = decorSideOf(character, realm, delta);
     if (side.error) return side;
     if (side.at && delta > 0) {
       // REALM P2.2b: half of what it cost, into the record's purse with the piece's going
       return realmDecorWrite(ctx, player, side.at, {
         mapId, buildingKey, delta,
-        write: db.prepare(`DELETE FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ? AND place = ? AND ${OWNS}`)
-          .bind(mapId, buildingKey, id, row.place, mapId, buildingKey, player.id, character),
+        write: db.prepare(`DELETE FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ? AND place = ? AND paid = ? AND ${OWNS}`)
+          .bind(mapId, buildingKey, id, row.place, row.paid, mapId, buildingKey, player.id, character),
         after: async () => was,
         refusal: async () => 'no-decor',
       });

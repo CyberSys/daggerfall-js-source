@@ -38,8 +38,8 @@
   {
     "name": "REALM1-no-bound",
     "file": "server-account/src/realm.js",
-    "old": "' SELECT ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM realm_characters WHERE player = ?) < ?',",
-    "new": "' SELECT ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM realm_characters WHERE player = ?) < ? + 100',",
+    "old": "' SELECT ?, ?, ?, ?, 0, 0, ?, ?, NULL, ?, ? WHERE (SELECT COUNT(*) FROM realm_characters WHERE player = ?) < ?',",
+    "new": "' SELECT ?, ?, ?, ?, 0, 0, ?, ?, NULL, ?, ? WHERE (SELECT COUNT(*) FROM realm_characters WHERE player = ?) < ? + 100',",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "REALM1-customs-no-track",
     "file": "server-account/src/realm.js",
-    "old": "  return track ? null : 'customs-never-online';",
-    "new": "  return null;",
+    "old": "' AND EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)',",
+    "new": "' AND (1 OR EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0))',",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "REALM1-customs-twice",
     "file": "server-account/src/realm.js",
-    "old": "  if (came) return 'customs-already';\n",
-    "new": "",
+    "old": " AND char_id = ? AND spent = 0)',",
+    "new": " AND char_id = ?)',",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "REALM1-customs-realm-origin",
     "file": "server-account/src/realm.js",
-    "old": "!ORIGIN_ID_RE.test(originId) || REALM_ID_RE.test(originId)) return 'body';",
-    "new": "!ORIGIN_ID_RE.test(originId)) return 'body';",
+    "old": "!ORIGIN_ID_RE.test(origin) || REALM_ID_RE.test(origin)) return { error: 'body' };",
+    "new": "!ORIGIN_ID_RE.test(origin)) return { error: 'body' };",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -164,7 +164,7 @@
   {
     "name": "REALM1-customs-leaves-life",
     "file": "server-account/src/realm.js",
-    "old": "  if (originId) await carryOnlineLife({ db }, playerId, originId, id);\n",
+    "old": "  await carryOnlineLife({ db }, playerId, origin, id);\n",
     "new": "",
     "tests": [
       "test/realm1.test.js"

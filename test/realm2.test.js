@@ -25,14 +25,21 @@ function d1() {
     _raw: db,
     prepare(sql) {
       const stmt = db.prepare(sql);
+      const writes = /^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(sql);
       let args = [];
       const api = {
         bind(...a) { args = a; return api; },
         async first() { return stmt.get(...args) ?? null; },
         async all() { return { results: stmt.all(...args) }; },
         async run() { const r = stmt.run(...args); return { meta: { changes: Number(r.changes) } }; },
+        _result() { const results = stmt.all(...args); return { results, meta: { changes: writes ? Number(db.prepare('SELECT changes() AS c').get().c) : 0 } }; },
       };
       return api;
+    },
+    // D1's batch is one transaction (test/realm4.test.js's face): all of it, or none - AUDIT REALM's delete and customs ride one
+    async batch(list) {
+      db.exec('BEGIN');
+      try { const out = list.map((st) => st._result()); db.exec('COMMIT'); return out; } catch (e) { db.exec('ROLLBACK'); throw e; }
     },
   };
 }

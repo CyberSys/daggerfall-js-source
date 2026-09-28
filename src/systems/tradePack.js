@@ -61,6 +61,11 @@ export function createTradePack(entity) {
      *  hands, and the lot is refused whole, the trade's own word for a forgery). */
     unwire(records) { const items = validLootList(records); return items && !items.some(isBound) ? items : null; },
 
+    /** AUDIT REALM L1-F1: where each offered item stands in the pack - its index in the list a save writes as `items`
+     *  (systems/save.js snapshotPlayer keeps the order) - read BEFORE the goods are reserved, so a realm trade's half
+     *  names the very records its checkpoint holds (net/realmTradeLaw.js realmTradePickOf); -1 for one not here. */
+    picks(entries) { const items = list(); return entries.map(({ item }) => items.indexOf(item)); },
+
     /** Take the goods OUT of the pack (reserve). All-or-nothing: a lot that is not entirely here comes back null. */
     take(entries, gold) {
       const items = list();

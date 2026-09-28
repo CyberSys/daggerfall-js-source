@@ -231,8 +231,13 @@ function decorRig({ gold = 100_000 } = {}) {
   const svc = {
     answer: null,
     async place(a) { calls.push(['place', a]); return svc.answer?.('place', a) ?? { ok: true, data: { piece: a.piece, ...(a.realm ? { realm: { seq: ++rec.seq } } : {}) } }; },
-    async move(a) { calls.push(['move', a]); return svc.answer?.('move', a) ?? { ok: true, data: { piece: { ...rig.standing.find((p) => p.id === a.id), ...a.place }, ...(a.realm ? { realm: { seq: ++rec.seq } } : {}) } }; },
-    async remove(a) { calls.push(['remove', a]); return svc.answer?.('remove', a) ?? { ok: true, data: { piece: { ...rig.standing.find((p) => p.id === a.id), paid: 200 }, ...(a.realm ? { realm: { seq: ++rec.seq } } : {}) } }; },
+    // AUDIT REALM L1-F3: the service answers the gold the record moved (`gold`), as server-account/src/decor.js does
+    async move(a) {
+      calls.push(['move', a]);
+      const was = rig.standing.find((p) => p.id === a.id), now = { ...was, ...a.place };
+      return svc.answer?.('move', a) ?? { ok: true, data: { piece: now, ...(a.realm ? { gold: decorGoldDelta(was, now), realm: { seq: ++rec.seq } } : {}) } };
+    },
+    async remove(a) { calls.push(['remove', a]); return svc.answer?.('remove', a) ?? { ok: true, data: { piece: { ...rig.standing.find((p) => p.id === a.id), paid: 200 }, ...(a.realm ? { gold: decorRefund(200), realm: { seq: ++rec.seq } } : {}) } }; },
   };
   const session = { seq: 5, async transact(call) { const r = await call({ id: 'r' + '0'.repeat(20), lease: 'a'.repeat(32), seq: session.seq }); if (r?.ok && r.seq > session.seq) session.seq = r.seq; return r; } };
   const checkpoints = [];
@@ -272,7 +277,8 @@ test('REALM P2.2b the decor tool for a realm character: a piece placed pays at o
   await settle(); await settle();
   assert.deepEqual([calls.at(-1)[0], !!calls.at(-1)[1].realm], ['remove', true]);
   assert.deepEqual(rig.w.credited.slice(creditedBefore), [decorRefund(200)], 'the service\'s half, credited once');
-  // a removal whose answer was lost after it landed: the half this client knows, once - a second piece from the catalogue
+  // a removal whose answer was lost after it landed: the half is the service's to say, so nothing is guessed - the act
+  // answers unknown and the session ends (AUDIT REALM L1-F3); a second piece from the catalogue
   const root = panelOf(rig);
   all(root, 'dfdecor-chip').find((c) => c.textContent === 'Catalogue').fire('click');
   rows(root).find((r) => r.dataset.key === 'm41000').fire('click');
@@ -281,12 +287,12 @@ test('REALM P2.2b the decor tool for a realm character: a piece placed pays at o
   assert.equal(await rig.tool.commit(), true);
   const second = rig.standing.at(-1);
   rig.tool.back();
-  let lostOnce = true;
-  svc.answer = (k, a) => (k === 'remove' && lostOnce ? ((lostOnce = false), { ok: false, error: 'seq', seq: a.realm.seq + 1 }) : null);
+  let asked = 0;
+  svc.answer = (k, a) => (k !== 'remove' ? null : ++asked === 1 ? { ok: false, error: 'offline' } : { ok: false, error: 'seq', seq: a.realm.seq + 1 });
   const before = rig.w.credited.length;
   roomPress(rig, second.id, 'Remove');
-  await settle(); await settle();
-  assert.deepEqual(rig.w.credited.slice(before), [decorRefund(second.paid)], 'landed: credited once, never twice');
+  await settle(); await settle(); await settle();
+  assert.deepEqual([asked, rig.w.credited.slice(before)], [2, []], 'landed with its answer lost: nothing guessed, never twice');
   svc.answer = null;
   // a third piece, grown and shrunk: the difference paid at once, the shrink's half on the answer
   const root2 = panelOf(rig);
@@ -319,6 +325,66 @@ test('REALM P2.2b the decor tool for a realm character: a piece placed pays at o
   roomPress(rig, third.id, /^Make station/);
   await settle(); await settle();
   assert.deepEqual([calls.at(-1)[0], calls.at(-1)[1].place.station, !!calls.at(-1)[1].realm, rig.w.paid.slice(feeBefore)], ['move', 'alchemy', true, [DECOR_STATION_FEES.alchemy]]);
+});
+
+test('AUDIT REALM L1-F3: the decor tool takes what the SERVICE paid the record - a placement answered `repeat` gives its price back, a shrink or a removal the service pays nothing for credits nothing, and one whose answer was lost guesses nothing and checkpoints no guess', async () => {
+  const { rig, svc, checkpoints } = decorRig();
+  await placeFrom(rig, 'm41000');
+  rig.frame();
+  const price = rig.tool.ghost().paid;
+  // the piece already standing (the service's `repeat`): no gold moved on the record, so none stays out of the purse
+  svc.answer = (k, a) => (k === 'place' ? { ok: true, data: { repeat: true, piece: a.piece, realm: { seq: a.realm.seq } } } : null);
+  assert.equal(await rig.tool.commit(), true);
+  assert.deepEqual([rig.w.paid.at(-1), rig.w.credited.at(-1)], [price, price], 'paid at once, given back on the repeat');
+  svc.answer = null;
+  const piece = rig.standing.at(-1);
+  rig.tool.back();
+  const moving = async () => { roomPress(rig, piece.id, 'Move'); rig.frame(); await settle(); rig.frame(); };
+  await moving();
+  for (let i = 0; i < 4; i++) decorKey(rig, 'Equal');
+  rig.frame();
+  decorKey(rig, 'KeyE');
+  await settle(); await settle();
+  // shrunk, and the service says the record was paid nothing (a piece from before the realm): the purse takes nothing
+  svc.answer = (k, a) => (k === 'move' ? { ok: true, data: { piece: { ...rig.standing.find((p) => p.id === a.id), ...a.place }, gold: 0, realm: { seq: a.realm.seq + 1 } } } : null);
+  await moving();
+  decorKey(rig, 'Minus'); rig.frame();
+  const before = rig.w.credited.length;
+  decorKey(rig, 'KeyE');
+  await settle(); await settle();
+  assert.deepEqual([rig.w.credited.slice(before)], [[]], 'the service\'s gold, not this client\'s half');
+  // shrunk, landed, its answer lost: the half is the service's to say - nothing guessed, and no checkpoint of a purse
+  // without it (it would write over the record that holds it): the act is unknown, and only a join reads it
+  let asked = 0;
+  svc.answer = (k, a) => (k !== 'move' ? null : ++asked === 1 ? { ok: false, error: 'offline' } : { ok: false, error: 'seq', seq: a.realm.seq + 1 });
+  await moving();
+  decorKey(rig, 'Minus'); rig.frame();
+  const marks = checkpoints.length;
+  decorKey(rig, 'KeyE');
+  await settle(); await settle(); await settle();
+  assert.deepEqual([asked, rig.w.credited.slice(before), checkpoints.length - marks], [2, [], 1], 'asked again, unknown - the checkpoint before it, none after');
+  // removed, and the service names no gold (a piece no record paid for): nothing back
+  svc.answer = (k, a) => (k === 'remove' ? { ok: true, data: { piece: { ...rig.standing.find((p) => p.id === a.id) } } } : null);
+  rig.tool.back();
+  roomPress(rig, piece.id, 'Remove');
+  await settle(); await settle();
+  assert.deepEqual(rig.w.credited.slice(before), [], 'the service\'s gold - none');
+  // removed, landed, its answer lost: as the shrink - nothing guessed, no checkpoint after
+  svc.answer = null;
+  const root = panelOf(rig);
+  all(root, 'dfdecor-chip').find((c) => c.textContent === 'Catalogue').fire('click');
+  rows(root).find((r) => r.dataset.key === 'm41000').fire('click');
+  all(root, 'dfdecor-btn').find((b) => b.textContent === 'Place').fire('click');
+  rig.frame(); await settle(); rig.frame();
+  assert.equal(await rig.tool.commit(), true);
+  const last = rig.standing.at(-1);
+  rig.tool.back();
+  let askedR = 0;
+  svc.answer = (k, a) => (k !== 'remove' ? null : ++askedR === 1 ? { ok: false, error: 'offline' } : { ok: false, error: 'seq', seq: a.realm.seq + 1 });
+  const creditedR = rig.w.credited.length, marksR = checkpoints.length;
+  roomPress(rig, last.id, 'Remove');
+  await settle(); await settle(); await settle();
+  assert.deepEqual([askedR, rig.w.credited.slice(creditedR), checkpoints.length - marksR], [2, [], 1]);
 });
 
 test('REALM P2.2b by source: the world host hands the realm act to the homes and the decor; the sale needs the service\'s answer', () => {

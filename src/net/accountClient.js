@@ -190,6 +190,7 @@ export const REFUSALS = Object.freeze({
   'bad-gold': `Gold goes in or out 1 to ${GUILD_MOVE_MAX} at a time.`,
   'guild-treasury-full': 'The treasury can hold no more.',
   'guild-treasury-short': 'The treasury does not hold that much.',
+  'guild-treasury-old': 'That much of the treasury came in before the realm - it stays in the treasury.',   // AUDIT REALM L1-F3
   // WB5b: a gate's kill receipt carried to the service. net/gateClaims.js says nothing of these to the player - it keeps
   // what they do not settle and lets go of what they do - but a word the service can say is a word with a sentence.
   'no-gate-key': 'The account service cannot check a gate\'s receipt right now. It is kept and tried again.',

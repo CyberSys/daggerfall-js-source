@@ -2,7 +2,7 @@
   {
     "name": "REALM2-no-resync",
     "file": "src/systems/realmSaves.js",
-    "old": "      if (!r.ok && r.error === 'seq' && r.seq === current + 1) {",
+    "old": "      if (!r.ok && r.error === 'seq' && r.seq === current + 1 && unsure) {",
     "new": "      if (false) {",
     "tests": [
       "test/realm2.test.js"

@@ -101,7 +101,7 @@
   {
     "name": "REALM4-never-expires",
     "file": "server-account/src/realmTrade.js",
-    "old": "  if (nowS - t.created_at > REALM_TRADE_TTL_S) return refuse(db, sid, 'expired', playerId, second);\n",
+    "old": "  if (nowS - t.created_at > REALM_TRADE_TTL_S) return refuse(db, sid, 'expired', playerId, asker, !first);   // either side learns it\n",
     "new": "",
     "tests": [
       "test/realm4.test.js"
@@ -119,8 +119,8 @@
   {
     "name": "REALM4-outcome-not-first",
     "file": "server-account/src/realmTrade.js",
-    "old": "  if (t && t.state !== 'waiting') return outcomeFor(t, playerId);\n\n",
-    "new": "\n",
+    "old": "  if (t && t.state !== 'waiting') return outcomeFor(t, playerId, asker);\n  if (row.seq !== seq",
+    "new": "  if (row.seq !== seq",
     "tests": [
       "test/realm4.test.js"
     ]
@@ -137,8 +137,8 @@
   {
     "name": "REALM4-second-unrecorded",
     "file": "server-account/src/realmTrade.js",
-    "old": "  const second = t.a_player === playerId ? null : { player: playerId, char: id };",
-    "new": "  const second = t.a_player === playerId ? null : null;",
+    "old": ".bind(why, second ? playerId : null, second ? asker.id : null, second ? asker.seq : null, second ? canon(asker.half) : null, sid).run();",
+    "new": ".bind(why, null, null, null, null, sid).run();",
     "tests": [
       "test/realm4.test.js"
     ]
@@ -200,7 +200,7 @@
   {
     "name": "REALM4-settled-gives-nothing",
     "file": "src/net/tradeSession.js",
-    "old": "      this.pack.give(items ?? [], r.gold ?? 0);\n",
+    "old": "      this.pack.give(items, r.gold ?? 0);\n",
     "new": "",
     "tests": [
       "test/realm4.test.js"

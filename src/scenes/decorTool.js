@@ -646,6 +646,9 @@ export function createDecorTool(deps) {
         const wallet = deps.wallet();
         const res = await act({
           reserve: () => { wallet.pay(price); return () => wallet.credit?.(price); },
+          // AUDIT REALM: a placement answered as the piece already standing (`repeat`) moved no gold on the record - the
+          // reserve comes back, or the next checkpoint would write the price paid twice
+          apply: (/** @type {any} */ a) => { if (a.data?.repeat) wallet.credit?.(price); },
           call: (/** @type {any} */ at) => deps.homeDecor.place({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), piece, realm: at }),
         });
         if (!res?.ok) { p.refused = { text: deps.refusal?.(res?.error) ?? 'The piece could not be placed.', at: now() }; return false; }
@@ -737,7 +740,11 @@ export function createDecorTool(deps) {
     const wallet = deps.wallet();
     const res = await act({
       reserve: pay > 0 ? () => { wallet.pay(pay); return () => wallet.credit?.(pay); } : null,
-      apply: refund > 0 ? () => deps.wallet().credit?.(refund) : null,
+      // AUDIT REALM L1-F3: a shrink's half comes back as the SERVICE paid it (`gold`: half of what records paid for the
+      // piece - nothing for a piece from before the realm), never this client's half of a cost the record never paid;
+      // and a shrink that landed with its answer lost cannot know it, so it ends the session instead (`needsAnswer`)
+      needsAnswer: refund > 0,
+      apply: refund > 0 ? (/** @type {any} */ a) => { const g = Number(a.data?.gold) || 0; if (g > 0) deps.wallet().credit?.(g); } : null,
       call: (/** @type {any} */ at) => deps.homeDecor.move({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id, place: placeOf(piece), realm: at }),
     });
     if (!res?.ok) { deps.say?.(deps.refusal?.(res?.error) ?? 'The piece could not be changed.'); return null; }
@@ -786,14 +793,17 @@ export function createDecorTool(deps) {
     if (act) {
       // REALM P2.2b: the piece's going and its half back are one write on the service; the purse takes the service's half
       const res = await act({
+        // AUDIT REALM L1-F3: the half the SERVICE paid the record (`gold`: half of what records paid for the piece), never
+        // this client's half of a cost the record may never have paid; a removal that landed with its answer lost cannot
+        // know it, and ends the session instead
+        needsAnswer: true,
         apply: (/** @type {any} */ a) => {
-          paid = decorPieceOf(a.data?.piece)?.paid ?? paid;
-          back = decorRefund(paid);
+          back = Math.max(0, Number(a.data?.gold) || 0);
           if (back > 0) deps.wallet?.().credit?.(back);
         },
         call: (/** @type {any} */ at) => deps.homeDecor.remove({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id, realm: at }),
       });
-      if (!res?.ok) { deps.say?.(deps.refusal?.(res?.error) ?? 'The piece could not be removed.'); return false; }   // a landed act's `apply` ran too, with the half this client knows
+      if (!res?.ok) { deps.say?.(deps.refusal?.(res?.error) ?? 'The piece could not be removed.'); return false; }
     } else {
       if (r.kind === 'home') {
         const res = await deps.homeDecor?.remove?.({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id });

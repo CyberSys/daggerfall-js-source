@@ -155,7 +155,7 @@
   {
     "name": "REALM5-landed-not-known",
     "file": "src/systems/realmSaves.js",
-    "old": "      if (r?.error === 'seq' && r.seq === at.seq + 1) return needsAnswer ? { ok: false, error: 'offline', unknown: true } : { ok: true, landed: true, seq: r.seq };   // this act, its answer lost\n",
+    "old": "      if (r?.error === 'seq') return i > 0 && r.seq === at.seq + 1 && !needsAnswer ? { ok: true, landed: true, seq: r.seq } : { ok: false, error: 'offline', unknown: true };\n",
     "new": "",
     "tests": [
       "test/realm5.test.js"

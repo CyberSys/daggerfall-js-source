@@ -139,9 +139,9 @@ test('REALM P0.2: the Mods pane locks a room dial as it locks a switch, with the
 });
 
 /** Accounts with loans and balances set by region: `{ 3: { loanTotal, accountGold, hasDefaulted } }`. */
-function bank(by) {
+function bank(by, due = 500_000) {
   const accounts = createBankAccounts();
-  for (const [r, v] of Object.entries(by)) Object.assign(accounts[r], { loanDueDate: v.loanTotal > 0 ? 500_000 : 0, ...v });
+  for (const [r, v] of Object.entries(by)) Object.assign(accounts[r], { loanDueDate: v.loanTotal > 0 ? due : 0, ...v });
   return accounts;
 }
 
@@ -230,7 +230,8 @@ test('REALM P0.3: a character joining online has the debt past the Empire\'s one
 
   onPage('?online=1', () => {
     assert.equal(calculateMaxBankLoan(10), cap);
-    const entity = { level: 10, goldPieces: 1_000, items: [], bankAccounts: bank({ 3: { loanTotal: 22_000 }, 7: { loanTotal: 110_000, accountGold: 30_000 }, 9: { loanTotal: 5_500 }, 12: { accountGold: 40_000 } }) };
+    // loans not yet due at the join (AUDIT REALM L3-F8: one already due is settled as overdue first - test/auditrealm.test.js)
+    const entity = { level: 10, goldPieces: 1_000, items: [], bankAccounts: bank({ 3: { loanTotal: 22_000 }, 7: { loanTotal: 110_000, accountGold: 30_000 }, 9: { loanTotal: 5_500 }, 12: { accountGold: 40_000 } }, 1_000_000) };
     const said = [];
     const joined = empireJoin({ entity, nowMinutes: 900_000.7, say: (l) => said.push(l) });
     assert.deepEqual([joined.owed, joined.unpaid], [11_500, [3, 9]]);

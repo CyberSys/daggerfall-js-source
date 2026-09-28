@@ -46,9 +46,15 @@ async function textOf(/** @type {any} */ object) {
   return new TextDecoder().decode(object?.body);
 }
 
-/** The outcome, as the side asking reads it - or 'trade-spent' for an account that was not a party to it. */
-function outcomeFor(/** @type {any} */ t, /** @type {string} */ playerId) {
-  const side = t.a_player === playerId ? 'a' : t.b_player === playerId ? 'b' : null;
+/** The outcome, as the side asking reads it - to the HALF THAT MADE IT alone (AUDIT REALM L1-F6): the account, the
+ *  character, the sequence it was made at and the half itself, word for word. A sid is the peers' own, so a trade after
+ *  it may ask with the same one - and was told the old trade's outcome, and each tab applied the old receipt again (a
+ *  dagger given once, received twice), while its own new goods were never given back. Any other half is 'trade-spent'.
+ *  @param {any} t @param {string} playerId @param {{ id: string, seq: number, half: any }} asker */
+function outcomeFor(t, playerId, { id, seq, half }) {
+  const said = canon(half);
+  const side = t.a_player === playerId && t.a_char === id && t.a_seq === seq && t.a_half === said ? 'a'
+    : t.b_player === playerId && t.b_char === id && t.b_seq === seq && t.b_half === said ? 'b' : null;
   if (!side) return { error: 'trade-spent' };
   if (t.state === 'refused') return { state: 'refused', why: t.why ?? 'refused' };
   let result = null;
@@ -58,12 +64,13 @@ function outcomeFor(/** @type {any} */ t, /** @type {string} */ playerId) {
 }
 
 /** A waiting trade refused - once: a refusal the same moment as a settle loses to it, and the row says which won. A
- *  second half that is refused is recorded as the second side, so it is told the outcome as the first is. */
-async function refuse(/** @type {any} */ db, /** @type {string} */ sid, /** @type {string} */ why, /** @type {string} */ playerId, /** @type {{ player: string, char: string } | null} */ second = null) {
-  await db.prepare("UPDATE realm_trades SET state = 'refused', why = ?, b_player = COALESCE(b_player, ?), b_char = COALESCE(b_char, ?) WHERE sid = ? AND state = 'waiting'")
-    .bind(why, second?.player ?? null, second?.char ?? null, sid).run();
+ *  second half that is refused is recorded as the second side (its account, character, sequence and half), so it is
+ *  told the outcome as the first is. */
+async function refuse(/** @type {any} */ db, /** @type {string} */ sid, /** @type {string} */ why, /** @type {string} */ playerId, /** @type {{ id: string, seq: number, half: any }} */ asker, /** @type {boolean} */ second) {
+  await db.prepare("UPDATE realm_trades SET state = 'refused', why = ?, b_player = COALESCE(b_player, ?), b_char = COALESCE(b_char, ?), b_seq = COALESCE(b_seq, ?), b_half = COALESCE(b_half, ?) WHERE sid = ? AND state = 'waiting'")
+    .bind(why, second ? playerId : null, second ? asker.id : null, second ? asker.seq : null, second ? canon(asker.half) : null, sid).run();
   const t = await db.prepare('SELECT * FROM realm_trades WHERE sid = ?').bind(sid).first();
-  return t ? outcomeFor(t, playerId) : { error: 'server' };
+  return t ? outcomeFor(t, playerId, asker) : { error: 'server' };
 }
 
 /**
@@ -80,14 +87,18 @@ export async function tradeRealm({ db, bucket, rand, nowS }, playerId, body) {
   const half = realmTradeHalfOf(body);
   if (!half) return { error: 'body' };
 
-  // AN OUTCOME IS ANSWERED FIRST, to either side and whatever its sequence now - a settled trade moved it
-  let t = await db.prepare('SELECT * FROM realm_trades WHERE sid = ?').bind(sid).first();
-  if (t && t.state !== 'waiting') return outcomeFor(t, playerId);
+  const asker = { id, seq, half };
 
-  // the caller's record: its lease, and the sequence its half was made at - the checkpoint the settle will read
+  // the caller's record FIRST - its lease (the tab that plays it) - and only THEN the trade (AUDIT REALM L1-F4): a settle
+  // lands both records and the trade's row in one batch, so a row read after the record sees any settle that moved it.
+  // The row read first let a settle land between the two reads, and the half was told 'seq' - the tab gave its goods
+  // back while the realm had moved them, and its next checkpoint wrote them over the settle.
   const row = await db.prepare('SELECT seq, lease, bytes, obj, prev FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
   if (row.lease !== lease) return { error: 'lease' };
+  // AN OUTCOME IS ANSWERED to the half that made it, whatever the record's sequence now - a settled trade moved it
+  let t = await db.prepare('SELECT * FROM realm_trades WHERE sid = ?').bind(sid).first();
+  if (t && t.state !== 'waiting') return outcomeFor(t, playerId, asker);
   if (row.seq !== seq || !row.bytes || !row.obj) return { error: 'seq', seq: row.seq };
 
   if (!t) {
@@ -100,29 +111,31 @@ export async function tradeRealm({ db, bucket, rand, nowS }, playerId, body) {
     if (put.meta.changes) return { state: 'waiting' };
     t = await db.prepare('SELECT * FROM realm_trades WHERE sid = ?').bind(sid).first();   // the other half came first, this very moment
     if (!t) return { error: 'server' };
-    if (t.state !== 'waiting') return outcomeFor(t, playerId);
+    if (t.state !== 'waiting') return outcomeFor(t, playerId, asker);
   }
-  const second = t.a_player === playerId ? null : { player: playerId, char: id };
-  if (nowS - t.created_at > REALM_TRADE_TTL_S) return refuse(db, sid, 'expired', playerId, second);
-  if (!second) return t.a_char === id ? { state: 'waiting' } : { error: 'trade-spent' };   // the first side, asking again
+  const first = t.a_player === playerId && t.a_char === id;
+  // the first side asks again with ITS half, or it is no half of this trade (another of its account's characters too)
+  if (first ? t.a_seq !== seq || t.a_half !== canon(half) : t.a_player === playerId) return { error: 'trade-spent' };
+  if (nowS - t.created_at > REALM_TRADE_TTL_S) return refuse(db, sid, 'expired', playerId, asker, !first);   // either side learns it
+  if (first) return { state: 'waiting' };
 
   // THE SECOND HALF: the two must be one trade
-  let first = null;
-  try { first = realmTradeHalfOf(JSON.parse(t.a_half)); } catch { first = null; }
-  if (!first || !halvesAgree(first, half)) return refuse(db, sid, 'mismatch', playerId, second);
+  let firstHalf = null;
+  try { firstHalf = realmTradeHalfOf(JSON.parse(t.a_half)); } catch { firstHalf = null; }
+  if (!firstHalf || !halvesAgree(firstHalf, half)) return refuse(db, sid, 'mismatch', playerId, asker, true);
   const other = await db.prepare('SELECT seq, lease, obj, prev FROM realm_characters WHERE id = ? AND player = ?').bind(t.a_char, t.a_player).first();
-  if (!other || other.lease !== t.a_lease || other.seq !== t.a_seq || !other.obj) return refuse(db, sid, 'moved', playerId, second);
+  if (!other || other.lease !== t.a_lease || other.seq !== t.a_seq || !other.obj) return refuse(db, sid, 'moved', playerId, asker, true);
 
   // EACH RECORD AS ITS OWN LAST CHECKPOINT LEFT IT
   const [objA, objB] = await Promise.all([bucket.get(other.obj), bucket.get(row.obj)]);
   let saveA = null, saveB = null;
   try { saveA = JSON.parse(await textOf(objA)); saveB = JSON.parse(await textOf(objB)); } catch { saveA = saveB = null; }
-  if (!saveA || !saveB || typeof saveA !== 'object' || typeof saveB !== 'object') return refuse(db, sid, 'no-data', playerId, second);
-  const s = settleRealmTrade(saveA, saveB, first, half);
-  if (!s.ok) return refuse(db, sid, s.why ?? 'goods', playerId, second);
+  if (!saveA || !saveB || typeof saveA !== 'object' || typeof saveB !== 'object') return refuse(db, sid, 'no-data', playerId, asker, true);
+  const s = settleRealmTrade(saveA, saveB, firstHalf, half);
+  if (!s.ok) return refuse(db, sid, s.why ?? 'goods', playerId, asker, true);
   const textA = JSON.stringify(s.a), textB = JSON.stringify(s.b);
   const bytesA = utf8Bytes(textA), bytesB = utf8Bytes(textB);
-  if (bytesA > REALM_MAX_BYTES || bytesB > REALM_MAX_BYTES) return refuse(db, sid, 'too-large', playerId, second);
+  if (bytesA > REALM_MAX_BYTES || bytesB > REALM_MAX_BYTES) return refuse(db, sid, 'too-large', playerId, asker, true);
 
   // BOTH RECORDS ONE ON, as new objects - then ONE batch moves both rows to them and seals the trade, or none of it
   const keyA = mintObjectKey(rand, t.a_player, t.a_char, t.a_seq + 1);
@@ -135,7 +148,7 @@ export async function tradeRealm({ db, bucket, rand, nowS }, playerId, body) {
     await db.batch([
       db.prepare(move).bind(t.a_seq + 1, bytesA, keyA, nowS, t.a_char, t.a_player, t.a_lease, t.a_seq),
       db.prepare(move).bind(seq + 1, bytesB, keyB, nowS, id, playerId, lease, seq),
-      db.prepare("UPDATE realm_trades SET state = 'done', result = ?, b_player = ?, b_char = ? WHERE sid = ? AND state = 'waiting'").bind(result, playerId, id, sid),
+      db.prepare("UPDATE realm_trades SET state = 'done', result = ?, b_player = ?, b_char = ?, b_seq = ?, b_half = ? WHERE sid = ? AND state = 'waiting'").bind(result, playerId, id, seq, canon(half), sid),
       // THE GUARD: both records at their new objects under their leases, and this trade sealed by this half - or the
       // insert happens, the CHECK refuses it, and the batch rolls back whole
       db.prepare(
@@ -147,7 +160,7 @@ export async function tradeRealm({ db, bucket, rand, nowS }, playerId, body) {
   } catch {
     // a record moved under the settle (a join elsewhere, a checkpoint), or the trade ended the same moment: nothing moved
     await dropObjects(bucket, [keyA, keyB]);
-    return refuse(db, sid, 'moved', playerId, second);
+    return refuse(db, sid, 'moved', playerId, asker, true);
   }
   await dropObjects(bucket, [other.prev, row.prev]);   // two back now, for both: the one before the trade stays
   return { state: 'done', seq: seq + 1, items: s.toB.items, gold: s.toB.gold };

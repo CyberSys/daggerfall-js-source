@@ -11,8 +11,8 @@
   {
     "name": "REALM6-shrink-whole",
     "file": "server-account/src/decor.js",
-    "old": "Math.trunc((paidWas - paidNow) / 2);\n  if (now.station",
-    "new": "(paidWas - paidNow);\n  if (now.station",
+    "old": "delta = Math.trunc(base / 2);",
+    "new": "delta = base;",
     "tests": [
       "test/realm6.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "REALM6-landed-claim-unsaid",
     "file": "server-account/src/homes.js",
-    "old": "  const moved = await recordMovedOf(db, player.id, at);\n  if (moved) return moved;\n  const held =",
-    "new": "  const held =",
+    "old": "  const side = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before the hour's claims",
+    "new": "  const side = await realmActFirst(db, player.id, character, realm).then((s) => (s.error === 'seq' ? { at: realmAtOf(realm) } : s));",
     "tests": [
       "test/realm6.test.js"
     ]
@@ -128,8 +128,8 @@
   {
     "name": "REALM6-tool-place-unreserved",
     "file": "src/scenes/decorTool.js",
-    "old": "          reserve: () => { wallet.pay(price); return () => wallet.credit?.(price); },\n          call: (/** @type {any} */ at) => deps.homeDecor.place(",
-    "new": "          call: (/** @type {any} */ at) => deps.homeDecor.place(",
+    "old": "          reserve: () => { wallet.pay(price); return () => wallet.credit?.(price); },\n          // AUDIT REALM: a placement answered",
+    "new": "          // AUDIT REALM: a placement answered",
     "tests": [
       "test/realm6.test.js"
     ]
@@ -146,8 +146,8 @@
   {
     "name": "REALM6-tool-removal-uncredited",
     "file": "src/scenes/decorTool.js",
-    "old": "          back = decorRefund(paid);\n          if (back > 0) deps.wallet?.().credit?.(back);\n        },",
-    "new": "          back = decorRefund(paid);\n        },",
+    "old": "          back = Math.max(0, Number(a.data?.gold) || 0);\n          if (back > 0) deps.wallet?.().credit?.(back);\n        },",
+    "new": "          back = Math.max(0, Number(a.data?.gold) || 0);\n        },",
     "tests": [
       "test/realm6.test.js"
     ]
@@ -155,7 +155,7 @@
   {
     "name": "REALM6-tool-shrink-unpaid",
     "file": "src/scenes/decorTool.js",
-    "old": "      apply: refund > 0 ? () => deps.wallet().credit?.(refund) : null,\n",
+    "old": "      apply: refund > 0 ? (/** @type {any} */ a) => { const g = Number(a.data?.gold) || 0; if (g > 0) deps.wallet().credit?.(g); } : null,\n",
     "new": "",
     "tests": [
       "test/realm6.test.js"
@@ -173,8 +173,8 @@
   {
     "name": "REALM6-act-guesses-a-landed-answer",
     "file": "src/systems/realmSaves.js",
-    "old": "return needsAnswer ? { ok: false, error: 'offline', unknown: true } : { ok: true, landed: true, seq: r.seq };",
-    "new": "return { ok: true, landed: true, seq: r.seq };",
+    "old": "r.seq === at.seq + 1 && !needsAnswer ? { ok: true, landed: true, seq: r.seq }",
+    "new": "r.seq === at.seq + 1 ? { ok: true, landed: true, seq: r.seq }",
     "tests": [
       "test/realm6.test.js"
     ]

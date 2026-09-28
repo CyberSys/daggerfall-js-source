@@ -124,10 +124,11 @@ export class TradeSession {
    * @param {() => void} [o.onChange]  called with nothing: the window re-reads the session it holds
    * @param {(s: TradeSession) => void} [o.onEnd]
    * @param {() => boolean|null} [o.near]
-   * @param {{ hold: () => { settle: (half: any) => Promise<any>, release?: () => void } } | null} [o.escrow]  REALM P2.1: the
-   *   realm's - it settles the commit (hold() checkpoints the save as it stands, before the goods leave the pack; settle()
-   *   answers `{ ok, items, gold }`, a refusal `{ ok: false, text }` - nothing moved - or `{ ok: false, unknown: true }`;
-   *   release() abandons a hold whose goods could not be reserved)
+   * @param {{ hold: () => ({ settle: (half: any) => Promise<any>, release?: () => void, abandon?: () => void } | null) } | null} [o.escrow]  REALM P2.1: the
+   *   realm's - it settles the commit (hold() checkpoints the save as it stands, before the goods leave the pack - null when
+   *   it cannot; settle() answers `{ ok, items, gold }`, a refusal `{ ok: false, text }` - nothing moved - or
+   *   `{ ok: false, unknown: true }`; release() abandons a hold whose goods could not be reserved; AUDIT REALM L2-F6:
+   *   abandon() ends the realm session when a settled trade's goods cannot be put in the pack as the record now holds them)
    */
   constructor({ sid, me, peer, peerName = 'Someone', initiator = false, pack, send, now = () => Date.now(), say = () => {}, onChange = () => {}, onEnd = () => {}, near = () => true, escrow = null }) {
     this.sid = sid; this.me = me; this.peer = peer; this.peerName = peerName; this.initiator = initiator;
@@ -140,6 +141,7 @@ export class TradeSession {
     this.rev = escrow ? REALM_TRADE_REV_BASE : 0;
     this.theirs = { items: [], gold: 0 }; this._theirRaw = []; this.theirRev = escrow ? REALM_TRADE_REV_BASE : 0;
     this._settling = false;     // REALM P2.1: the half is with the realm - only its answer ends this, and it restores nothing itself
+    this._ticket = null;        // AUDIT REALM L2-F6: the escrow's hold - its abandon() ends the realm session
     this.myLock = false; this.theirLock = false; this.myConfirm = false; this.theirConfirm = false;
     this._outbox = [];
     this._handle = null;        // my reserved goods
@@ -369,13 +371,18 @@ export class TradeSession {
    *  them, and an answer that never came keeps them out - the realm's copy decides, and a join reads it. */
   _settle() {
     const ticket = this._escrow.hold();
+    // AUDIT REALM L1-F1: the half is made against the save composed as the goods are held - a host that could not
+    // compose one (a duel, the seat another tab's) trades nothing
+    if (!ticket) { this._end('refused'); this._say('The realm cannot take a trade just now - nothing was traded.'); return; }
+    this._ticket = ticket;
+    const pick = this.pack.picks?.(this.mine.entries) ?? null;   // which of that save's records these are, before any leaves
     const handle = this.pack.take(this.mine.entries, this.mine.gold);
     if (!handle) { ticket.release?.(); this._end('refused'); this._say('Your goods changed - the trade is off.'); return; }
     this._handle = handle;
     this.phase = 'committing';
     this._committedAt = this._now();
     this._settling = true;
-    const half = { sid: this.sid, give: { items: this._mineWire, gold: this.mine.gold }, get: { items: this._theirRaw, gold: this.theirs.gold } };
+    const half = { sid: this.sid, give: { items: this._mineWire, gold: this.mine.gold }, get: { items: this._theirRaw, gold: this.theirs.gold }, pick };
     Promise.resolve()
       .then(() => ticket.settle(half))
       .catch(() => ({ ok: false, unknown: true }))
@@ -388,9 +395,16 @@ export class TradeSession {
     this._handle = null;
     if (r?.ok) {
       const items = r.items?.length ? this.pack.unwire(r.items) : [];
+      if (!items) {
+        // AUDIT REALM L2-F6: the realm moved goods into this character's record that this game will not mint (a sender's
+        // record carrying what its offer never showed). Taking only the gold left the tab without them, and its next
+        // checkpoint wrote over the record that holds them: the session ends as a lost answer does, and a join reads it.
+        this._ticket?.abandon?.();
+        this._finish('done', `The realm holds ${this.peerName}'s goods, but this game could not take them - join again to see the trade as the realm holds it.`);
+        return;
+      }
       this._applied = true;
-      this.pack.give(items ?? [], r.gold ?? 0);
-      if (!items) this._say(`${this.peerName}'s goods were not valid here - only their gold was kept.`);
+      this.pack.give(items, r.gold ?? 0);
       this._finish('done', `Trade with ${this.peerName} complete.`);
       return;
     }

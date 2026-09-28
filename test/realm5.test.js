@@ -290,5 +290,6 @@ test('REALM P2.2 by source: the world host\'s Guild book acts on the record for 
   assert.match(w, /realm: realmSession \? \{ act: \(o\) => realmGoldAct\(\{ session: realmSession, checkpoint: \(\) => onlineCheckpoint\(\), \.\.\.o \}\) \} : null,/);
   assert.match(w, /region: \(\) => _questRegionIndex\(\) \?\? 0,   \/\/ REALM P2\.2/);
   const g = src('server-account/src/guilds.js');
-  assert.equal((g.match(/realmSideOf\(character, realm\)/g) ?? []).length, 3, 'the founding, the deposit and the withdrawal each ask');
+  // AUDIT REALM L1-F2: each asks where the record stands FIRST (realm.js realmActFirst) - before the rate, the rank and the membership
+  assert.equal((g.match(/const side = await realmActFirst\(db, player\.id, character, realm\);/g) ?? []).length, 3, 'the founding, the deposit and the withdrawal each ask');
 });

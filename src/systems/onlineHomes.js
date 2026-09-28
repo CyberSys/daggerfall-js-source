@@ -274,8 +274,9 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     if (r?.ok) {
       wrote(id, buildingKey, null);
       const n = (v) => (Number.isSafeInteger(v) && v > 0 ? v : 0);
-      // DECOR1e: and its placed pieces, gone with it, and half of what they cost - the service's own sum
-      return { ok: true, price: n(r.data?.price), decorCount: n(r.data?.decorCount), decorBack: n(r.data?.decorBack), ...realmOf(r) };
+      // DECOR1e: and its placed pieces, gone with it, and half of what they cost - the service's own sum; AUDIT REALM
+      // L1-F3: and, for a realm character's record, the deed share the record was paid (`refund`)
+      return { ok: true, price: n(r.data?.price), decorCount: n(r.data?.decorCount), decorBack: n(r.data?.decorBack), ...(r.data?.refund != null ? { refund: n(r.data.refund) } : {}), ...realmOf(r) };
     }
     if (r?.error === 'no-home' || r?.error === 'seq') ensure(id, { force: true });
     return refused(r);
@@ -321,6 +322,9 @@ export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, 
       // back on a refusal (systems/realmSaves.js realmGoldAct); there is no claim to give back
       const r = await realm.act({
         reserve: () => { pay(price); return () => refund?.(price); },
+        // AUDIT REALM: a claim answered as the house already this character's (`repeat`) moved no gold on the record - the
+        // purse's reserve comes back, or the next checkpoint would write the price paid twice
+        apply: (/** @type {any} */ res) => { if (res?.repeat) refund?.(price); },
         call: (/** @type {any} */ at) => homes.claim({ mapId, buildingKey, region, price, realm: at }),
       });
       return r?.ok ? { ok: true } : { ok: false, error: r?.error ?? 'server' };
@@ -355,7 +359,10 @@ export async function sellOnlineHome(homes, { mapId, buildingKey, credit, realm 
     const r = await realm.act({
       needsAnswer: true,
       apply: (/** @type {any} */ res) => {
-        sold = { refund: homeRefund(res.price), decorBack: Math.max(0, Number(res.decorBack) || 0) };
+        // AUDIT REALM L1-F3: what the RECORD was paid (the service's `refund`: the deed share of what a record paid for the
+        // house - nothing for one from before the realm) - never this client's share of a price, which the record may
+        // never have paid, and which the next checkpoint would then write over it
+        sold = { refund: Math.max(0, Number(res.refund) || 0), decorBack: Math.max(0, Number(res.decorBack) || 0) };
         credit(sold.refund + sold.decorBack);
       },
       call: (/** @type {any} */ at) => homes.release(mapId, buildingKey, at),

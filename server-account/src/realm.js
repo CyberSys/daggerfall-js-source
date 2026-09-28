@@ -42,6 +42,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { SAVE_MAX_BYTES } from './service.js';
+import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';   // AUDIT REALM L1-F7: a deleted guildmaster hands the guild over first
 
 /** Realm characters an ACCOUNT may hold. A new one past it is refused; nothing is ever deleted to make room. */
 export const REALM_CHARACTERS_MAX = 6;
@@ -135,23 +136,22 @@ async function freeOthers({ db }, /** @type {string} */ playerId, /** @type {str
 }
 
 /**
- * A NEW REALM CHARACTER - born online, or brought in through customs (`originId`). The id and the lease are minted
- * here; the character is the caller's in play from this moment, at `seq` 0 with no save yet (its first checkpoint is
- * seq 1). The bound is asked IN the write, as saves.js's putCard asks it. Answers `{ id, lease, seq }` or `{ error }`.
- * @param {any} ctx @param {string} playerId @param {{ name: unknown, summary?: unknown, originId?: string | null }} at
+ * A NEW REALM CHARACTER, born online (customs is customsRealm's, below). The id and the lease are minted here; the
+ * character is the caller's in play from this moment, at `seq` 0 with no save yet (its first checkpoint is seq 1). The
+ * bound is asked IN the write, as saves.js's putCard asks it. Answers `{ id, lease, seq }` or `{ error }`.
+ * @param {any} ctx @param {string} playerId @param {{ name: unknown, summary?: unknown }} at
  */
-export async function createRealm({ db, rand, nowS }, playerId, { name, summary = null, originId = null }) {
+export async function createRealm({ db, rand, nowS }, playerId, { name, summary = null }) {
   const n = realmNameOf(name);
   if (!playerId || !n) return { error: 'body' };
   const id = mintRealmId(rand);
   const lease = mintLease(rand);
   const wrote = await db.prepare(
     'INSERT INTO realm_characters (id, player, name, summary, seq, bytes, lease, lease_at, origin_id, created_at, updated_at)'
-    + ' SELECT ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM realm_characters WHERE player = ?) < ?',
-  ).bind(id, playerId, n, realmSummaryOf(summary), lease, nowS, originId, nowS, nowS, playerId, REALM_CHARACTERS_MAX).run();
+    + ' SELECT ?, ?, ?, ?, 0, 0, ?, ?, NULL, ?, ? WHERE (SELECT COUNT(*) FROM realm_characters WHERE player = ?) < ?',
+  ).bind(id, playerId, n, realmSummaryOf(summary), lease, nowS, nowS, nowS, playerId, REALM_CHARACTERS_MAX).run();
   if (!wrote.meta.changes) return { error: 'too-many-characters' };
   await freeOthers({ db }, playerId, id);
-  if (originId) await carryOnlineLife({ db }, playerId, originId, id);
   return { id, lease, seq: 0 };
 }
 
@@ -169,19 +169,66 @@ async function carryOnlineLife({ db }, /** @type {string} */ playerId, /** @type
 }
 
 /**
- * CUSTOMS' GATE (decision 3: "Migrate once via customs"). An offline character may come into the realm once, and only
- * if it played online before the realm - it has a Renown track, which only an online session writes (renownTracks.js)
- * and which a realm character's own id could never own, since the service mints those. Answers null when it may, or
- * the refusal's word.
- * @param {any} ctx @param {string} playerId @param {unknown} originId
+ * WHY CUSTOMS REFUSED (decision 3: "Migrate once via customs"). An offline character may come into the realm once, and
+ * only if it played online before the realm. AUDIT REALM L1-F5 / L3-F2: "played online" is the CENSUS migration 0018
+ * took of the Renown tracks standing at the realm's start (`realm_census`) - never a track written since: any session
+ * files a track for any id, and a Copy to offline's new id, one report, brought the realm character in a second time.
+ * And "once" is the character's, on every account: a customs SPENDS its character's census rows everywhere
+ * (customsRealm), so a character copied onto two accounts before the realm, or a realm character deleted, never brings
+ * its origin in again. The gate itself is customsRealm's one guarded write; this reads, after it refused, which word is
+ * true: `customs-never-online` (this account counted no such character), `customs-already` (it came in, from here or
+ * from an account it was copied to), `too-many-characters` (the account's bound) - or null, when none is (the store
+ * failed, and the caller says so).
+ * @param {any} ctx @param {string} playerId @param {string} originId
  */
 export async function customsRefusal({ db }, playerId, originId) {
-  if (typeof originId !== 'string' || !ORIGIN_ID_RE.test(originId) || REALM_ID_RE.test(originId)) return 'body';
-  // asked first: customs carries the track to the realm's id, so a second try finds no track under the offline one
-  const came = await db.prepare('SELECT 1 AS one FROM realm_characters WHERE player = ? AND origin_id = ?').bind(playerId, originId).first();
-  if (came) return 'customs-already';
-  const track = await db.prepare('SELECT 1 AS one FROM renown_tracks WHERE player = ? AND char_id = ?').bind(playerId, originId).first();
-  return track ? null : 'customs-never-online';
+  const counted = await db.prepare('SELECT spent FROM realm_census WHERE player = ? AND char_id = ?').bind(playerId, originId).first();
+  if (!counted) return 'customs-never-online';
+  if (counted.spent) return 'customs-already';
+  const held = await db.prepare('SELECT COUNT(*) AS n FROM realm_characters WHERE player = ?').bind(playerId).first();
+  return (held?.n ?? 0) >= REALM_CHARACTERS_MAX ? 'too-many-characters' : null;
+}
+
+/**
+ * CUSTOMS, MADE (AUDIT REALM L3-F2, L3-F3): the realm character from `origin` in ONE guarded batch - its row written only
+ * while the account is under its bound and its census row for the origin stands unspent, and every census row of the
+ * origin spent with it, so two accounts (or two tabs) bringing one character in race to one winner. The law is that
+ * write, at one site; customsRefusal only names why it refused. A customs whose first save never landed (the door's PUT
+ * lost on the way) is RESUMED - the same row, a new lease - rather than refused for good, which left the character
+ * barred and its online life under a row nobody could play. Answers `{ id, lease, seq }` (`resumed` for the row taken
+ * up again) or `{ error }`.
+ * @param {any} ctx @param {string} playerId @param {{ origin: unknown, name: unknown, summary?: unknown }} at
+ */
+export async function customsRealm(ctx, playerId, { origin, name, summary = null }) {
+  const { db, rand, nowS } = ctx;
+  if (typeof origin !== 'string' || !ORIGIN_ID_RE.test(origin) || REALM_ID_RE.test(origin)) return { error: 'body' };
+  const mine = await db.prepare('SELECT id, bytes FROM realm_characters WHERE player = ? AND origin_id = ?').bind(playerId, origin).first();
+  if (mine && !(mine.bytes > 0)) {
+    const joined = await joinRealm(ctx, playerId, mine.id);
+    return joined.error ? joined : { id: joined.id, lease: joined.lease, seq: 0, resumed: true };
+  }
+  const n = realmNameOf(name);
+  if (!playerId || !n) return { error: 'body' };
+  const id = mintRealmId(rand);
+  const lease = mintLease(rand);
+  try {
+    await db.batch([
+      db.prepare(
+        'INSERT INTO realm_characters (id, player, name, summary, seq, bytes, lease, lease_at, origin_id, created_at, updated_at)'
+        + ' SELECT ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM realm_characters WHERE player = ?) < ?'
+        + ' AND EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)',
+      ).bind(id, playerId, n, realmSummaryOf(summary), lease, nowS, origin, nowS, nowS, playerId, REALM_CHARACTERS_MAX, playerId, origin),
+      mustChange(db),
+      db.prepare('UPDATE realm_census SET spent = 1 WHERE char_id = ?').bind(origin),
+    ]);
+  } catch (e) {
+    const why = await customsRefusal(ctx, playerId, origin);
+    if (why) return { error: why };
+    throw e;
+  }
+  await freeOthers({ db }, playerId, id);
+  await carryOnlineLife({ db }, playerId, origin, id);
+  return { id, lease, seq: 0 };
 }
 
 /**
@@ -316,6 +363,22 @@ export function realmSideOf(character, realm) {
   return { at };
 }
 
+/**
+ * AUDIT REALM L1-F2: THE RECORD, ASKED FIRST. An act that moves a realm character's gold answers where its record
+ * stands BEFORE any other word - a rank, a rate, a guild already joined, a house already held - because the client reads
+ * a lost answer by it: an act sent again finds its record one on (`seq`, the service's own), and that is the act,
+ * landed (systems/realmSaves.js realmGoldAct). Asked after them, a founding that landed was told 'guild-already' on its
+ * retry, a deposit 'rate', a claim 'home-rate' - each read as "nothing moved" - and the tab gave itself the gold back
+ * and checkpointed it over the record that had paid. Answers realmSideOf's `{ at }` (null for a character that is not
+ * the realm's), or `{ error }` - 'lease', or 'seq' with the service's sequence.
+ * @param {any} db @param {string} playerId @param {unknown} character @param {unknown} realm
+ */
+export async function realmActFirst(db, playerId, character, realm) {
+  const side = realmSideOf(character, realm);
+  if (side.error || !side.at) return side;
+  return (await recordMovedOf(db, playerId, side.at)) ?? side;
+}
+
 /** A LEAVE: the lease given up, if it is still this tab's. Answers `{ ok, released }`. */
 export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @type {{ id: unknown, lease: unknown }} */ { id, lease }) {
   if (typeof id !== 'string' || !REALM_ID_RE.test(id) || typeof lease !== 'string' || !LEASE_RE.test(lease)) return { error: 'body' };
@@ -325,11 +388,18 @@ export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @ty
 
 /** THE PLAYER'S OWN DELETE: its objects - the two the row names, and anything else under its prefix a lost write left
  *  - then the row: saves.js's order, so a failure halfway leaves a row whose bytes lie rather than objects nothing
- *  names. */
+ *  names. AUDIT REALM L1-F7 / L3-F5: AND ITS ONLINE LIFE WITH IT, as the door promises ("its Renown, its home and its
+ *  guild place with it"): the row's delete carries its homes (their pieces and hidden furniture go by the tables' own
+ *  cascade), its guild place and its Renown track in ONE batch. They stood under a dead id: a house nobody could buy
+ *  again nor its owner sell, a guild whose master could never be succeeded, a track that counted against the account.
+ *  A guildmaster with members hands the guild over first ('guild-master-leaves', the guild's own word for leaving). */
 export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId, /** @type {unknown} */ id) {
   if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return { error: 'body' };
   const row = await db.prepare('SELECT obj, prev FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
+  const master = await db.prepare(`SELECT (SELECT COUNT(*) FROM guild_members o WHERE o.guild_id = m.guild_id) AS n FROM guild_members m
+    WHERE m.player = ? AND m.char_id = ? AND m.rank = ?`).bind(playerId, id, GUILD_RANK_MASTER).first();
+  if ((master?.n ?? 0) > 1) return { error: 'guild-master-leaves' };
   if (bucket) {
     await dropObjects(bucket, [row.obj, row.prev]);   // an object that will not go is not a reason to keep the row
     if (typeof bucket.list === 'function') {
@@ -339,6 +409,11 @@ export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId
       } catch { /* the walk is the sweep's, not the delete's */ }
     }
   }
-  await db.prepare('DELETE FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).run();
+  await db.batch([
+    db.prepare('DELETE FROM homes WHERE player = ? AND char_id = ?').bind(playerId, id),
+    db.prepare('DELETE FROM guild_members WHERE player = ? AND char_id = ?').bind(playerId, id),
+    db.prepare('DELETE FROM renown_tracks WHERE player = ? AND char_id = ?').bind(playerId, id),
+    db.prepare('DELETE FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId),
+  ]);
   return { ok: true };
 }

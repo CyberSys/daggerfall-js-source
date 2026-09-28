@@ -380,8 +380,8 @@
   {
     "name": "DECOR1e-the-pieces-half-dropped",
     "file": "src/systems/onlineHomes.js",
-    "old": "decorBack: n(r.data?.decorBack), ...realmOf(r) };",
-    "new": "decorBack: 0, ...realmOf(r) };",
+    "old": "decorBack: n(r.data?.decorBack), ...(r.data?.refund != null",
+    "new": "decorBack: 0, ...(r.data?.refund != null",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -426,8 +426,8 @@
   {
     "name": "DECOR1e-the-bad-record-counted",
     "file": "server-account/src/homes.js",
-    "old": "SELECT COALESCE(SUM(CASE WHEN json_valid(place) THEN 1 ELSE 0 END), 0) AS n,",
-    "new": "SELECT COUNT(*) AS n,",
+    "old": "const decorBackStatement = (db, mapId, buildingKey) => db.prepare(`SELECT COALESCE(SUM(CASE WHEN json_valid(place) THEN 1 ELSE 0 END), 0) AS n,",
+    "new": "const decorBackStatement = (db, mapId, buildingKey) => db.prepare(`SELECT COUNT(*) AS n,",
     "tests": [
       "test/decor1.test.js"
     ]

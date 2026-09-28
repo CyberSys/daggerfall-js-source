@@ -49,6 +49,10 @@ export const REALM_TRADE_SID_RE = /^[A-Za-z0-9]{6,16}$/;
 export const REALM_TRADE_TTL_S = 60;
 /** The gold-piece template (systems/inventory.js GOLD_TEMPLATE, pinned equal): gold is offered as gold, never as an item. */
 export const GOLD_PIECES_TEMPLATE = 276;
+/** AUDIT REALM L1-F1: the rows whose record IS its value - the letter of credit (systems/inventory.js
+ *  LETTER_OF_CREDIT_TEMPLATE, pinned equal). Its price is no mere price: two letters differ in nothing else. The wire
+ *  keeps it exactly (systems/loot.js validLootItem floors a value at the row's base price, and a letter's is 0). */
+export const VALUE_IS_IDENTITY_TEMPLATES = Object.freeze([275]);
 /** The fields that are never part of what an item IS: its count and its price (the offer's own, which the wire floors),
  *  and the marks that are the RECEIVER's (systems/loot.js validLootItem strips them). */
 export const TRADE_VOLATILE_FIELDS = Object.freeze(['stackCount', 'value', 'equipSlot', 'questItem']);
@@ -76,14 +80,27 @@ export function realmTradeSideOf(/** @type {any} */ v) {
   return { items, gold };
 }
 
-/** A half as the service keeps it - what this side gives and what it takes - or null. An empty-for-empty trade is none
- *  (TradeSession never locks one). */
+/** AUDIT REALM L1-F1: WHICH OF ITS CHECKPOINT'S RECORDS A SIDE GIVES - for each record it offers, that record's index in
+ *  the save's `items` as the half's own checkpoint wrote them (systems/tradePack.js `picks`, read as the goods are
+ *  reserved), each index once - or null. The service matched an offer to the FIRST record of its kind, and two records
+ *  alike in every field the law compares (two letters of credit, a potion bought at twice the price) are not alike to
+ *  the tab that reserved one of them: the service moved the other, and the tab's next checkpoint wrote its own pack over
+ *  the settle - a 100,000-gold letter kept and given at once. */
+export function realmTradePickOf(/** @type {unknown} */ pick, /** @type {number} */ n) {
+  if (!Array.isArray(pick) || pick.length !== n || !pick.every((i) => Number.isSafeInteger(i) && i >= 0)) return null;
+  return new Set(pick).size === n ? pick : null;
+}
+
+/** A half as the service keeps it - what this side gives and what it takes, and which of its checkpoint's records it
+ *  gives (realmTradePickOf) - or null. An empty-for-empty trade is none (TradeSession never locks one). */
 export function realmTradeHalfOf(/** @type {any} */ v) {
   if (!plain(v)) return null;
   const give = realmTradeSideOf(v.give), get = realmTradeSideOf(v.get);
   if (!give || !get) return null;
   if (!give.items.length && !give.gold && !get.items.length && !get.gold) return null;
-  return { give, get };
+  const pick = realmTradePickOf(v.pick ?? [], give.items.length);
+  if (!pick) return null;
+  return { give, get, pick };
 }
 
 /** Do two halves describe ONE trade - each side taking exactly what the other gives? */
@@ -108,28 +125,30 @@ export function recordIsOffered(/** @type {any} */ rec, /** @type {any} */ offer
     if (TRADE_VOLATILE_FIELDS.includes(k)) continue;
     if (canon(offered[k]) !== canon(rec?.[k])) return false;
   }
+  // AUDIT REALM L1-F1: a letter of credit IS its value - named or not, the offer's must be the record's
+  if (VALUE_IS_IDENTITY_TEMPLATES.includes(rec?.templateIndex) && canon(offered.value) !== canon(rec?.value)) return false;
   return true;
 }
 
 /**
- * TAKE ONE SIDE'S GOODS out of a save, in place: each offered record from one the save holds that may leave, at no
+ * TAKE ONE SIDE'S GOODS out of a save, in place: each offered record from the very record the side picked
+ * (realmTradePickOf - AUDIT REALM L1-F1: never the first of its kind), when it may leave and IS what was offered, at no
  * more than it holds (a stack gives part of itself), and the gold from the purse. Answers the records as they leave -
  * the SAVE's own, at the count offered, the receiver's marks stripped - or null when the save cannot back the offer,
  * and then nothing is changed.
- * @param {any} save @param {{ items: any[], gold: number }} side
+ * @param {any} save @param {{ items: any[], gold: number }} side @param {number[]} pick
  */
-export function takeTradeGoods(save, side) {
+export function takeTradeGoods(save, side, pick) {
   const items = Array.isArray(save?.items) ? save.items : null;
-  if (!items) return null;
+  if (!items || realmTradePickOf(pick, side.items.length) == null) return null;
   const purse = Number.isSafeInteger(save.goldPieces) ? save.goldPieces : 0;
   if (side.gold > purse) return null;
   const left = items.map((rec) => (tradeableRecord(rec) ? recordCount(rec) : 0));   // what each record may still give
   /** @type {{ at: number, n: number }[]} */
   const picks = [];
-  for (const offered of side.items) {
-    const n = recordCount(offered);
-    const at = items.findIndex((rec, i) => left[i] >= n && recordIsOffered(rec, offered));
-    if (at < 0) return null;
+  for (let k = 0; k < side.items.length; k++) {
+    const offered = side.items[k], at = pick[k], n = recordCount(offered);
+    if (!(at < items.length) || left[at] < n || !recordIsOffered(items[at], offered)) return null;
     left[at] -= n;
     picks.push({ at, n });
   }
@@ -167,8 +186,8 @@ export function giveTradeGoods(/** @type {any} */ save, /** @type {any[]} */ mov
 export function settleRealmTrade(saveA, saveB, halfA, halfB) {
   if (!halvesAgree(halfA, halfB)) return { why: 'mismatch' };
   const a = JSON.parse(JSON.stringify(saveA)), b = JSON.parse(JSON.stringify(saveB));
-  const fromA = takeTradeGoods(a, halfA.give);
-  const fromB = fromA && takeTradeGoods(b, halfB.give);
+  const fromA = takeTradeGoods(a, halfA.give, halfA.pick);
+  const fromB = fromA && takeTradeGoods(b, halfB.give, halfB.pick);
   if (!fromA || !fromB) return { why: 'goods' };
   giveTradeGoods(a, fromB, halfB.give.gold);
   giveTradeGoods(b, fromA, halfA.give.gold);

@@ -117,7 +117,7 @@ import {
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';
 import {
-  listRealm, createRealm, customsRefusal, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm,
+  listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm,
   REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
 } from './realm.js';   // REALM P1: the realm's characters   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { tradeRealm, REALM_TRADE_BODY_MAX } from './realmTrade.js';   // REALM P2.1: a trade, settled here
@@ -150,6 +150,7 @@ const REALM_STATUS = Object.freeze({
   'no-realm-character': 404, 'no-data': 404, lease: 409, seq: 409, 'too-many-characters': 409,
   'customs-never-online': 403, 'customs-already': 409, 'no-storage': 503,
   'trade-spent': 409,   // REALM P2.1: a trade's sid another pair settled
+  'guild-master-leaves': 409,   // AUDIT REALM L1-F7: a guildmaster deleted hands the guild over first
 });
 /** GUILD1: each guild refusal's status - a bad shape 400 (the default), the wrong rank or too little Renown 403, a
  *  thing that is not there 404, a conflict with what is 409, the hour's writes spent 429. */
@@ -157,7 +158,7 @@ const GUILD_STATUS = Object.freeze({
   'guilds-need-account': 403, 'guild-rank': 403, 'guild-renown': 403,
   'no-guild': 404, 'no-invite': 404, 'no-member': 404, 'no-player': 404,
   'guild-already': 409, 'guild-name-taken': 409, 'guild-tag-taken': 409, 'guild-full': 409, 'guild-master-leaves': 409,
-  'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409,
+  'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409, 'guild-treasury-old': 409,   // AUDIT REALM L1-F3: gold no record paid in
   'guild-rate': 429,
   // REALM P2.2: a realm character's record moves with the act - where it stands, and whether it can pay
   'realm-needed': 400, 'realm-gold': 409, lease: 409, seq: 409, 'no-realm-character': 404, 'no-data': 404, 'no-storage': 503,
@@ -773,11 +774,7 @@ export default {
         }
         if (request.method !== 'POST') return no('method', 405, origin);
         if (path === '/v1/realm/create') return answer(await createRealm(rctx, me, { name: body.name, summary: body.summary }));
-        if (path === '/v1/realm/customs') {
-          const why = await customsRefusal(rctx, me, body.origin);
-          if (why) return no(why, REALM_STATUS[why] ?? 400, origin);
-          return answer(await createRealm(rctx, me, { name: body.name, summary: body.summary, originId: body.origin }));
-        }
+        if (path === '/v1/realm/customs') return answer(await customsRealm(rctx, me, { origin: body.origin, name: body.name, summary: body.summary }));   // AUDIT REALM L3-F2/F3: one guarded batch, and resumable
         if (path === '/v1/realm/join') return answer(await joinRealm(rctx, me, body.id));
         if (path === '/v1/realm/trade') {
           // REALM P2.1: a sequence refused says the service's own, as a checkpoint's does

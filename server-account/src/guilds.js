@@ -68,7 +68,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';
-import { prepareRealmRecord, realmSideOf, recordMovedOf, mustChange, dropObjects } from './realm.js';   // REALM P2.2
+import { prepareRealmRecord, realmActFirst, recordMovedOf, mustChange, dropObjects } from './realm.js';   // REALM P2.2; AUDIT REALM L1-F2: the record asked first
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2: the wallet's own order, over the record
 import { renownTrackOf } from './renownTracks.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
@@ -163,7 +163,7 @@ export async function foundGuild(ctx, player, { character, name, tag, realm = nu
   const { db, nowS, rand } = ctx;
   if (accountKind(player) !== 'linked') return { error: 'guilds-need-account' };
   if (!charOk(character)) return { error: 'guild-character' };
-  const side = realmSideOf(character, realm);   // REALM P2.2
+  const side = await realmActFirst(db, player.id, character, realm);   // REALM P2.2; AUDIT REALM L1-F2: where the record stands, before any other word
   if (side.error) return side;
   const n = guildNameOf(name);
   const t = guildTagOf(tag);
@@ -189,10 +189,12 @@ export async function foundGuild(ctx, player, { character, name, tag, realm = nu
     ]);
   } catch {
     if (prep) await dropObjects(ctx.bucket, [prep.key]);
-    // one of the uniques held: say which
+    // AUDIT REALM L1-F2: a record that moved under the founding says so first; else one of the uniques held: say which
+    const moved = side.at ? await recordMovedOf(db, player.id, side.at) : null;
+    if (moved) return moved;
     if (await db.prepare('SELECT 1 FROM guilds WHERE name_key = ?').bind(key).first()) return { error: 'guild-name-taken' };
     if (await db.prepare('SELECT 1 FROM guilds WHERE tag = ?').bind(t).first()) return { error: 'guild-tag-taken' };
-    return (side.at && await recordMovedOf(db, player.id, side.at)) || { error: 'guild-already' };
+    return { error: 'guild-already' };
   }
   if (prep) await dropObjects(ctx.bucket, [prep.prev]);
   const me = await memberRow(db, player.id, character);
@@ -342,14 +344,18 @@ async function moveTreasury(db, me, who, kind, gold, nowS) {
   const row = kind === 'deposit'
     ? await db.prepare('UPDATE guilds SET treasury = treasury + ?1, moved_by = ?4, moved_at = ?5 WHERE id = ?2 AND treasury + ?1 <= ?3 RETURNING treasury')
       .bind(gold, me.guild_id, GUILD_TREASURY_MAX, who, nowS).first()
-    : await db.prepare('UPDATE guilds SET treasury = treasury - ?1, moved_by = ?3, moved_at = ?4 WHERE id = ?2 AND treasury >= ?1 RETURNING treasury')
-      .bind(gold, me.guild_id, who, nowS).first();
+    : await db.prepare('UPDATE guilds SET treasury = treasury - ?1, realm_gold = MIN(realm_gold, treasury - ?1), moved_by = ?3, moved_at = ?4 WHERE id = ?2 AND treasury >= ?1 RETURNING treasury')
+      .bind(gold, me.guild_id, who, nowS).first();   // AUDIT REALM L1-F3: what realm records paid in is never more than the treasury holds
   return row ? row.treasury : null;
 }
 
 /** REALM P2.2: THE TREASURY AND A REALM CHARACTER'S RECORD MOVE TOGETHER - one batch: the record pays (a deposit, by the
  *  wallet's own order, `region`'s account last) or is paid (a withdrawal, to the purse), and the treasury moves by what
- *  it holds, each guarded; both or neither. Answers the balance and the record's new sequence. */
+ *  it holds, each guarded; both or neither. Answers the balance and the record's new sequence.
+ *  AUDIT REALM L1-F3: A RECORD IS PAID ONLY WHAT RECORDS PAID IN. `realm_gold` (migration 0018) is the part of the
+ *  treasury realm records deposited, and a realm withdrawal takes from it alone: the rest came in on a client's word -
+ *  before the realm, or through the old lane any other character still has (a million deposited by a character no
+ *  record stands behind, then taken out by the guildmaster's record, was a million made). */
 async function realmTreasury(ctx, player, me, at, kind, gold, region) {
   const { db, bucket, nowS } = ctx;
   const prep = await prepareRealmRecord(ctx, player.id, at, (save) => (kind === 'deposit'
@@ -357,13 +363,17 @@ async function realmTreasury(ctx, player, me, at, kind, gold, region) {
     : (creditSave(save, gold) ? null : 'bad-gold')));
   if (prep.error) return prep;
   const move = kind === 'deposit'
-    ? db.prepare('UPDATE guilds SET treasury = treasury + ?1, moved_by = ?4, moved_at = ?5 WHERE id = ?2 AND treasury + ?1 <= ?3').bind(gold, me.guild_id, GUILD_TREASURY_MAX, displayName(player), nowS)
-    : db.prepare('UPDATE guilds SET treasury = treasury - ?1, moved_by = ?3, moved_at = ?4 WHERE id = ?2 AND treasury >= ?1').bind(gold, me.guild_id, displayName(player), nowS);
+    ? db.prepare('UPDATE guilds SET treasury = treasury + ?1, realm_gold = realm_gold + ?1, moved_by = ?4, moved_at = ?5 WHERE id = ?2 AND treasury + ?1 <= ?3').bind(gold, me.guild_id, GUILD_TREASURY_MAX, displayName(player), nowS)
+    : db.prepare('UPDATE guilds SET treasury = treasury - ?1, realm_gold = realm_gold - ?1, moved_by = ?3, moved_at = ?4 WHERE id = ?2 AND treasury >= ?1 AND realm_gold >= ?1').bind(gold, me.guild_id, displayName(player), nowS);
   try {
     await db.batch([...prep.steps, move, mustChange(db)]);
   } catch {
     await dropObjects(bucket, [prep.key]);
-    return (await recordMovedOf(db, player.id, at)) || { error: kind === 'deposit' ? 'guild-treasury-full' : 'guild-treasury-short' };
+    const moved = await recordMovedOf(db, player.id, at);
+    if (moved) return moved;
+    if (kind === 'deposit') return { error: 'guild-treasury-full' };
+    const g = await db.prepare('SELECT treasury FROM guilds WHERE id = ?').bind(me.guild_id).first();
+    return { error: (g?.treasury ?? 0) >= gold ? 'guild-treasury-old' : 'guild-treasury-short' };   // it holds that much - but not of the realm's
   }
   await dropObjects(bucket, [prep.prev]);
   const g = await db.prepare('SELECT treasury FROM guilds WHERE id = ?').bind(me.guild_id).first();
@@ -374,12 +384,12 @@ async function realmTreasury(ctx, player, me, at, kind, gold, region) {
  *  character's record pays it here, with the treasury (REALM P2.2). */
 export async function depositToGuild(ctx, player, { character, gold, realm = null, region = null } = {}) {
   const { db, nowS } = ctx;
+  const side = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before any other word
+  if (side.error) return side;
   const a = await actorOf(db, player, character);
   if (a.error) return a;
   if (!guildMay(a.me.rank, 'deposit')) return { error: 'guild-rank' };
   if (!guildGoldOk(gold)) return { error: 'bad-gold' };
-  const side = realmSideOf(character, realm);
-  if (side.error) return side;
   if (await spend(ctx, player)) return { error: 'guild-rate' };
   if (side.at) return realmTreasury(ctx, player, a.me, side.at, 'deposit', gold, region);
   const treasury = await moveTreasury(db, a.me, displayName(player), 'deposit', gold, nowS);
@@ -390,12 +400,12 @@ export async function depositToGuild(ctx, player, { character, gold, realm = nul
  *  character's record takes it here, with the treasury (REALM P2.2). */
 export async function withdrawFromGuild(ctx, player, { character, gold, realm = null } = {}) {
   const { db, nowS } = ctx;
+  const side = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before any other word
+  if (side.error) return side;
   const a = await actorOf(db, player, character);
   if (a.error) return a;
   if (!guildMay(a.me.rank, 'withdraw')) return { error: 'guild-rank' };
   if (!guildGoldOk(gold)) return { error: 'bad-gold' };
-  const side = realmSideOf(character, realm);
-  if (side.error) return side;
   if (await spend(ctx, player)) return { error: 'guild-rate' };
   if (side.at) return realmTreasury(ctx, player, a.me, side.at, 'withdraw', gold, null);
   const treasury = await moveTreasury(db, a.me, displayName(player), 'withdraw', gold, nowS);

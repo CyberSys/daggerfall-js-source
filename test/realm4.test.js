@@ -137,7 +137,14 @@ test('REALM P2.1 law: a save\'s record may leave in a trade exactly when the pac
   assert.equal(realmTradeHalfOf({ give: { items: [], gold: 0 }, get: { items: [], gold: 0 } }), null, 'an empty-for-empty trade is none');
   assert.equal(realmTradeHalfOf({ give: { items: new Array(TRADE_ITEMS_MAX + 1).fill({ templateIndex: 1 }) }, get: {} }), null, 'past the wire\'s sixteen');
   assert.equal(realmTradeHalfOf({ give: { gold: -1 }, get: { gold: 5 } }), null);
-  assert.deepEqual(realmTradeHalfOf({ give: { gold: 5 }, get: {} }), { give: { items: [], gold: 5 }, get: { items: [], gold: 0 } });
+  assert.deepEqual(realmTradeHalfOf({ give: { gold: 5 }, get: {} }), { give: { items: [], gold: 5 }, get: { items: [], gold: 0 }, pick: [] });
+  // AUDIT REALM L1-F1: a side that gives records names which of its checkpoint's records they are, each once
+  const one = { give: { items: [{ templateIndex: 113 }] }, get: { gold: 1 } };
+  assert.equal(realmTradeHalfOf(one), null, 'no pick, no half');
+  assert.equal(realmTradeHalfOf({ ...one, pick: [-1] }), null);
+  assert.equal(realmTradeHalfOf({ ...one, pick: [0, 1] }), null, 'one pick a record');
+  assert.deepEqual(realmTradeHalfOf({ ...one, pick: [3] }).pick, [3]);
+  assert.equal(realmTradeHalfOf({ give: { items: [{ templateIndex: 113 }, { templateIndex: 113 }] }, get: {}, pick: [2, 2] }), null, 'never one record twice');
 });
 
 test('REALM P2.1 law: an honest offer IS its record - the port\'s own items through the wire\'s projection match the save\'s copy; a stack gives part of itself; what the save cannot back is refused and a refusal changes nothing', { timeout: 60_000 }, () => {
@@ -152,26 +159,28 @@ test('REALM P2.1 law: an honest offer IS its record - the port\'s own items thro
   const cheapOffer = wireOf([cheap], [{ item: cheap, count: 1 }])[0];
   assert.ok(cheapOffer.value > 0, 'the offer carries the floored price');
   assert.equal(recordIsOffered(JSON.parse(JSON.stringify(cheap)), cheapOffer), true, 'the price is never part of what an item is');
-  const moved = takeTradeGoods(save, { items: offer, gold: 30 });
+  const moved = takeTradeGoods(save, { items: offer, gold: 30 }, [1, 2]);
   assert.equal(moved.length, 2);
   assert.deepEqual([moved[0].templateIndex, moved[1].stackCount, 'equipSlot' in moved[0], save.goldPieces], [113, 5, false, 70], 'the receiver\'s marks stripped');
   assert.deepEqual(save.items.map((r) => [r.templateIndex, r.stackCount ?? 1]), [[worn.templateIndex, 1], [131, 15]], 'the dagger gone, fifteen arrows left, the worn piece untouched');
   // what the save cannot back
   const again = JSON.parse(JSON.stringify(save));
-  for (const bad of [
-    { items: offer.slice(0, 1), gold: 0 },                                  // the dagger has left
-    { items: [{ ...offer[1], stackCount: 16 }], gold: 0 },                  // more arrows than the stack holds
-    { items: [{ ...wireOf([worn], [{ item: { ...worn, equipSlot: null }, count: 1 }])[0] }], gold: 0 },   // the worn piece
-    { items: [{ stackCount: 1 }], gold: 0 },                                // an offer that names no template
-    { items: [], gold: 71 },                                                // a purse too thin
-    { items: [{ ...offer[1], enchantments: [{ type: 1, param: 1 }] }], gold: 0 },   // a field the record does not carry
-  ]) assert.equal(takeTradeGoods(again, bad), null);
+  for (const [bad, pick] of [
+    [{ items: offer.slice(0, 1), gold: 0 }, [1]],                                  // the dagger has left: the arrows stand at its place
+    [{ items: [{ ...offer[1], stackCount: 16 }], gold: 0 }, [1]],                  // more arrows than the stack holds
+    [{ items: [{ ...wireOf([worn], [{ item: { ...worn, equipSlot: null }, count: 1 }])[0] }], gold: 0 }, [0]],   // the worn piece
+    [{ items: [{ stackCount: 1 }], gold: 0 }, [1]],                                // an offer that names no template (picking the arrows it would otherwise be)
+    [{ items: [], gold: 71 }, []],                                                 // a purse too thin
+    [{ items: [{ ...offer[1], enchantments: [{ type: 1, param: 1 }] }], gold: 0 }, [1]],   // a field the record does not carry
+    [{ items: [offer[1]], gold: 0 }, [2]],                                         // a pick past the save's records
+    [{ items: [offer[1]], gold: 0 }, []],                                          // a record with no pick
+  ]) assert.equal(takeTradeGoods(again, bad, pick), null);
   assert.deepEqual(again, save, 'a refusal changed nothing');
-  // two entries from one stack draw on it together
+  // a pick names each record once - two entries never draw on one stack - and a whole stack leaves whole
   const twice = JSON.parse(JSON.stringify(save));
   const five = { ...offer[1], stackCount: 5 };
-  assert.equal(takeTradeGoods(JSON.parse(JSON.stringify(save)), { items: [five, five, five, five], gold: 0 }), null, 'twenty from fifteen: never overdrawn');
-  assert.equal(takeTradeGoods(twice, { items: [five, five, five], gold: 0 }).length, 3);
+  assert.equal(takeTradeGoods(JSON.parse(JSON.stringify(save)), { items: [five, five], gold: 0 }, [1, 1]), null, 'one record picked twice');
+  assert.equal(takeTradeGoods(twice, { items: [{ ...offer[1], stackCount: 15 }], gold: 0 }, [1]).length, 1);
   assert.equal(twice.items.length, 1, 'fifteen less fifteen: the stack is gone');
 });
 
@@ -180,7 +189,7 @@ test('REALM P2.1 law: the swap - each side takes what the other gives, as the gi
   const saveA = JSON.parse(JSON.stringify({ items: [d], goldPieces: 50 }));
   const saveB = JSON.parse(JSON.stringify({ items: [a], goldPieces: 5 }));
   const giveA = { items: wireOf([d], [{ item: d, count: 1 }]), gold: 20 }, giveB = { items: wireOf([a], [{ item: a, count: 4 }]), gold: 0 };
-  const hA = { give: giveA, get: giveB }, hB = { give: giveB, get: giveA };
+  const hA = { give: giveA, get: giveB, pick: [0] }, hB = { give: giveB, get: giveA, pick: [0] };
   assert.equal(halvesAgree(hA, hB), true);
   const s = settleRealmTrade(saveA, saveB, hA, hB);
   assert.equal(s.ok, true);
@@ -188,7 +197,7 @@ test('REALM P2.1 law: the swap - each side takes what the other gives, as the gi
   assert.deepEqual([s.a.items[0].templateIndex, s.a.items[0].stackCount, s.b.items[0].stackCount, s.b.items[1].templateIndex], [131, 4, 6, 113]);
   assert.deepEqual([s.toA.gold, s.toB.gold, s.toA.items[0].stackCount, s.toB.items[0].templateIndex], [0, 20, 4, 113]);
   assert.deepEqual([saveA.goldPieces, saveB.items[0].stackCount], [50, 10], 'the service\'s copies are never changed in place');
-  assert.deepEqual(settleRealmTrade(saveA, saveB, hA, { give: giveB, get: { ...giveA, gold: 19 } }), { why: 'mismatch' });
+  assert.deepEqual(settleRealmTrade(saveA, saveB, hA, { give: giveB, get: { ...giveA, gold: 19 }, pick: [0] }), { why: 'mismatch' });
   assert.deepEqual(settleRealmTrade(saveA, { items: [], goldPieces: 5 }, hA, hB), { why: 'goods' }, 'B\'s record holds no arrows');
   assert.match(realmTradeRefusalText('goods'), /nothing was traded/);
 });
@@ -203,7 +212,7 @@ async function pair() {
   A.char = await character(A.io, 'Arthago', { name: 'Arthago', items: [d], goldPieces: 50 });
   B.char = await character(B.io, 'Brisienna', { name: 'Brisienna', items: [a], goldPieces: 5 });
   const giveA = { items: wireOf([d], [{ item: d, count: 1 }]), gold: 20 }, giveB = { items: wireOf([a], [{ item: a, count: 4 }]), gold: 0 };
-  const ask = (P, sid, give, get, over = {}) => realmTradeCall(P.io, { id: P.char.id, lease: P.char.lease, seq: P.char.seq, sid, give, get, ...over });
+  const ask = (P, sid, give, get, over = {}) => realmTradeCall(P.io, { id: P.char.id, lease: P.char.lease, seq: P.char.seq, sid, give, get, pick: give.items.map((_, i) => i), ...over });
   return { ...r, A, B, giveA, giveB, ask };
 }
 
@@ -221,7 +230,9 @@ test('REALM P2.1: the service settles a trade - the first half waits, the second
   assert.equal(ra.save.name, 'Arthago', 'the rest of the save rides untouched');
   assert.equal(env.SAVES._map.size, 4, 'each character: the trade\'s save and the one before it');
   const C = await player();
-  assert.deepEqual([(await realmTradeCall(C.io, { id: A.char.id, lease: A.char.lease, seq: 2, sid: 'sidone01', give: giveA, get: giveB })).error], ['trade-spent']);
+  assert.deepEqual([(await realmTradeCall(C.io, { id: A.char.id, lease: A.char.lease, seq: 2, sid: 'sidone01', give: giveA, get: giveB, pick: [0] })).error], ['no-realm-character'], 'another account: the record is not its own, and the trade is never named');
+  C.char = await character(C.io, 'Cyrus', { name: 'Cyrus', items: [], goldPieces: 0 });
+  assert.equal((await ask(C, 'sidone01', giveB, giveA)).error, 'trade-spent', 'another account\'s own character, no party to it: told nothing');
   // the next checkpoint follows the trade's sequence
   assert.equal((await realmPut(A.io, A.char.id, { lease: A.char.lease, seq: 3 }, '{"after":1}')).ok, true);
 });

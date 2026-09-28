@@ -11,8 +11,8 @@
   {
     "name": "HOME1-claim-cap-unread",
     "file": "server-account/src/homes.js",
-    "old": "price, nowS, player.id, character, HOME_CAP);",
-    "new": "price, nowS, player.id, character, HOME_CAP + 1);",
+    "old": "price, nowS, paid, player.id, character, HOME_CAP);",
+    "new": "price, nowS, paid, player.id, character, HOME_CAP + 1);",
     "tests": [
       "test/home1.test.js"
     ]

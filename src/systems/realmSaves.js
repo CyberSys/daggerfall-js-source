@@ -100,7 +100,7 @@ export const realmPut = (/** @type {any} */ io, /** @type {string} */ id, /** @t
     headers: { 'x-realm-lease': lease, 'x-realm-seq': String(seq), ...(summary ? { 'x-realm-summary': JSON.stringify(summary) } : {}) },
   });
 
-/** REALM P2.1: a trade's half - `{ id, lease, seq, sid, give, get }`; answers `{ state: 'waiting' | 'done' | 'refused' }`. */
+/** REALM P2.1: a trade's half - `{ id, lease, seq, sid, give, get, pick }`; answers `{ state: 'waiting' | 'done' | 'refused' }`. */
 export const realmTradeCall = (/** @type {any} */ io, /** @type {any} */ half) => realmAsk(io, '/v1/realm/trade', { method: 'POST', json: half });
 
 /** The answers that end a session: the character is not this tab's to write any more. */
@@ -121,6 +121,10 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
   /** @type {string | null} */
   let lost = null;
   let holding = false;   // REALM P2: a transaction is in flight - no checkpoint goes until it is answered
+  // AUDIT REALM L1-F2 / L2-F1: a put of this session whose answer never came (offline, the service's own error) - it may
+  // have landed. Only then is the service one ahead of us our own write: any other move of the record is one this tab
+  // does not hold (a settle it read as refused, an act it read as undone), and a checkpoint over it would destroy it.
+  let unsure = false;
   const lose = (/** @type {string} */ error) => {
     if (lost) return;
     lost = error;
@@ -133,14 +137,17 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
       const job = pending;
       pending = null;
       let r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text);
-      if (!r.ok && r.error === 'seq' && r.seq === current + 1) {
+      if (!r.ok && r.error === 'seq' && r.seq === current + 1 && unsure) {
         // our own last checkpoint landed and its answer was lost: the service is one ahead - adopt it, and send this one
         current = r.seq;
+        unsure = false;
         r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text);
       }
-      if (r.ok) { current = r.data?.seq ?? current + 1; last = { ok: true, seq: current }; continue; }
+      if (r.ok) { unsure = false; current = r.data?.seq ?? current + 1; last = { ok: true, seq: current }; continue; }
       if (REALM_LOST.includes(r.error) || r.error === 'seq') { lose(r.error); last = { ok: false, error: r.error }; break; }
-      // offline, a busy service, the hour's bound: this save waits for the next checkpoint unless a newer one came
+      // offline, a busy service, the hour's bound: this save waits for the next checkpoint unless a newer one came - and
+      // an answer lost on the way (offline, the service's own error) may be a checkpoint that landed
+      if (r.error === 'offline' || r.error === 'server') unsure = true;
       if (!pending) pending = job;
       last = { ok: false, error: r.error };
       break;
@@ -187,6 +194,9 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
         holding = false;
       }
     },
+    /** AUDIT REALM L2-F6: THE TAB CANNOT HOLD WHAT THE REALM NOW HOLDS (a settle whose goods this game refuses): the
+     *  session ends as a lost answer does - to the door, where a join reads the record - never a checkpoint over it. */
+    abandon(/** @type {string} */ error = 'unknown') { lose(error); },
     /** The session's end: what is waiting is sent first (unless the page is going - `keepalive` sends the leave alone,
      *  which a browser can finish after the page is gone), then the lease given up. */
     async leave({ keepalive = false } = {}) {
@@ -338,12 +348,15 @@ export async function settleRealmTradeHalf({ session, half, wait = (ms) => new P
     if (!h) return { ok: false, why: 'abandoned' };
     const until = now() + REALM_TRADE_WAIT_MS;
     for (;;) {
-      const a = await realmTradeCall(at.io, { id: at.id, lease: at.lease, seq: at.seq, sid: h.sid, give: h.give, get: h.get });
+      const a = await realmTradeCall(at.io, { id: at.id, lease: at.lease, seq: at.seq, sid: h.sid, give: h.give, get: h.get, pick: h.pick });
       if (a.ok && a.data?.state === 'done') return { ok: true, seq: a.data.seq, items: Array.isArray(a.data.items) ? a.data.items : [], gold: a.data.gold ?? 0 };
       if (a.ok && a.data?.state === 'refused') return { ok: false, why: a.data.why ?? 'refused' };
       if (!a.ok && REALM_LOST.includes(a.error)) return { ok: false, error: a.error, why: a.error };
-      // a record that is not at the half's sequence, a sid another pair spent, a half that is no half: never registered
-      if (!a.ok && (a.error === 'seq' || a.error === 'trade-spent' || a.status === 400)) return { ok: false, why: a.error === 'seq' ? 'moved' : 'refused' };
+      // AUDIT REALM L2-F1: a record off the half's sequence - the service answers a settled trade's outcome before it looks
+      // at the sequence (server-account/src/realmTrade.js), so this is a move this tab never made: only a join reads it
+      if (!a.ok && a.error === 'seq') return { ok: false, unknown: true };
+      // a sid another pair spent, a half that is no half: never registered, nothing moved
+      if (!a.ok && (a.error === 'trade-spent' || a.status === 400)) return { ok: false, why: 'refused' };
       // waiting, or no answer at all (offline, the service busy): ask again - the half may have landed
       if (now() >= until) return { ok: false, unknown: true };
       await wait(REALM_TRADE_POLL_MS);
@@ -364,7 +377,9 @@ export async function settleRealmTradeHalf({ session, half, wait = (ms) => new P
 export function realmTradeEscrow({ session, checkpoint, wait, now }) {
   return {
     hold() {
-      checkpoint();
+      // AUDIT REALM L1-F1: the service settles against the save composed HERE (its records are what the half picks) - a
+      // host that refuses to compose one now (onlineCheckpoint: a duel, out of the seat) answers false, and nothing is held
+      if (checkpoint() === false) return null;
       /** @type {(half: any) => void} */
       let hand = () => {};
       const half = new Promise((resolve) => { hand = resolve; });
@@ -372,6 +387,7 @@ export function realmTradeEscrow({ session, checkpoint, wait, now }) {
       return {
         settle: (/** @type {any} */ h) => { hand(h); return outcome; },
         release: () => { hand(null); },
+        abandon: () => { session.abandon('unknown'); },   // AUDIT REALM L2-F6: a settle this tab cannot hold
       };
     },
   };
@@ -382,6 +398,9 @@ export function realmTradeEscrow({ session, checkpoint, wait, now }) {
 /** How many times an act asks again when its answer is lost, and how long it waits a time (ms, times the try). */
 export const REALM_ACT_TRIES = 4;
 export const REALM_ACT_RETRY_MS = 1_000;
+/** AUDIT REALM L1-F2: the answers that say nothing about the act - no answer (offline), the service's own error, and the
+ *  account's request rate, which the Worker answers before any route: asked again. */
+export const REALM_ACT_TRANSIENT = Object.freeze(['offline', 'server', 'rate']);
 
 /**
  * AN ACT THAT MOVES A REALM CHARACTER'S GOLD ON ITS RECORD - a guild's founding, deposit or withdrawal, a home, a piece
@@ -390,7 +409,9 @@ export const REALM_ACT_RETRY_MS = 1_000;
  * and answers its undo; `call(at)` asks the service, which moves the record's gold in the act's own batch - both or
  * neither. A refusal (the service's own word) undoes the reserve; an answer gives `apply()` its turn; either way the
  * outcome is checkpointed. A LOST ANSWER IS ASKED AGAIN with the same record: while the hold stands nothing else moves
- * the record, so a `seq` refusal one ahead is this act, landed. Still lost after REALM_ACT_TRIES, the session ends
+ * the record, and every realm act answers where the record stands before any other word (AUDIT REALM L1-F2), so a `seq`
+ * refusal one ahead, when the act was asked before, is this act, landed - and any other word is the act refused, nothing
+ * moved. A `seq` on the first asking is a move this tab never made. Still lost after REALM_ACT_TRIES, the session ends
  * (`unknown`) with the gold where it is - only a join reads how the act ended.
  * `apply(answer)` gets the service's answer; an act whose client needs it (`needsAnswer` - a sale, whose refund the
  * service's price decides) cannot take a landed act without it, and ends the session instead.
@@ -404,8 +425,11 @@ export async function realmGoldAct({ session, checkpoint, reserve = null, apply 
     for (let i = 0; i < REALM_ACT_TRIES; i++) {
       const r = await call(where);
       if (r?.ok) return { ...r, seq: r.data?.realm?.seq ?? at.seq };   // the service says when the record moved; unsaid, it did not
-      if (r?.error === 'seq' && r.seq === at.seq + 1) return needsAnswer ? { ok: false, error: 'offline', unknown: true } : { ok: true, landed: true, seq: r.seq };   // this act, its answer lost
-      if (r?.error !== 'offline' && r?.error !== 'server') return r;   // the service's own word: nothing moved
+      // AUDIT REALM L1-F2: every realm act answers where the record stands before any other word (server-account/src/
+      // realm.js realmActFirst) - so a record one on, when this act was asked before and its answer lost, is this act,
+      // landed; on its first asking, or any further on, it is a move nothing this tab sent made: only a join reads it
+      if (r?.error === 'seq') return i > 0 && r.seq === at.seq + 1 && !needsAnswer ? { ok: true, landed: true, seq: r.seq } : { ok: false, error: 'offline', unknown: true };
+      if (!REALM_ACT_TRANSIENT.includes(r?.error)) return r;   // the service's own word, asked where the record stands: nothing moved
       await wait(REALM_ACT_RETRY_MS * (i + 1));
     }
     return { ok: false, error: 'offline', unknown: true };
