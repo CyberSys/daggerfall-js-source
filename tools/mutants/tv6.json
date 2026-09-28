@@ -32,8 +32,8 @@
   {
     "name": "TV6-found-again",
     "file": "src/systems/travelDungeons.js",
-    "old": "    if (g.found) continue;\n    const m = mid(g);",
-    "new": "    const m = mid(g);",
+    "old": "    if (g.found || g.spawn) continue;\n    const m = mid(g);",
+    "new": "    if (g.spawn) continue;\n    const m = mid(g);",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],

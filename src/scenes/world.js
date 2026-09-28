@@ -225,7 +225,7 @@ import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js'; 
 import { planRoute, routeLegs, roadShare } from '../systems/travelRoute.js';   // TV2: the way by the roads
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
-import { dungeonPixels, nearDungeons, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach
+import { dungeonRows, spawnedPixels, nearDungeons, dungeonApproach, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them
 import { openStepBlocked, joinPoint, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE
 import { bandsNear, wanderAt, bandSight, chaseStep, bandLabel, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M } from '../systems/travelBands.js';   // TV7: the roaming bands
 import { bandWordOf, validBandWord, chaseYields, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
@@ -17127,6 +17127,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   function onTravelViewMark(key) {
     // AUDIT DEEP2 B-1: the journey's own flag - its place again, from where the traveller stands (a stop's resume)
     if (key === 'dest') { const summary = tvTripLive() ? tvTrip.plan?.summary : null; if (summary && travelViewCanGo()) travelViewRouteTo(summary); return; }
+    if (key.startsWith('spawn:')) { travelViewSpawnWalk(key); return; }   // AUDIT OW3 D1: a spawn's plate - a walk to its door
     const plate = tvPlates.list.find((p) => p.key === key) ?? tvFar.list.find((p) => p.key === key) ?? tvDng.list.find((p) => p.key === key && p.summary);   // TV5: a far place's plate is the same journey
     if (plate && travelViewCanGo()) travelViewRouteTo(plate.summary);
   }
@@ -17166,20 +17167,40 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // TV6 (2026-09-28, Mac: "Discover on approach"; systems/travelDungeons.js): THE DUNGEONS - every dungeon within the far
   // range, nearest first, rebuilt when the traveller's pixel changes or a place is found: a found one a far plate (its
   // name, its distance, a journey), the rest unnamed lairs where they lie. Within the grid a found one wears TV2's plate.
-  let _tvDungeonPx = null;   // the world's dungeons, gathered once, the first time they are asked for
+  // AUDIT OW3 D3: the fixed list is the MAP ROWS' (gathered once - MAPS.BSA does not change), never a snapshot of the
+  // live index (streaming and the spawns change it: a spawn in it at the first ask stood for good, a later one never
+  // did); the index is read afresh for each list, and the list is filtered before its twelve are taken (nearDungeons)
+  let _tvDungeonRows = null;
+  /** AUDIT OW3 D1: what the spawned feature has told the player of a spawn - its pixel's line (announceNearbySpawns, this
+   *  session), or the pixel entry's filing in the store (syncTopics' discoverLocation, the same crossing, saved): the
+   *  store's is its name too. Nothing else - a spawn not yet said is not marked (that feature never says one next door). */
+  const tvSpawnFound = (s) => hasDiscoveredLocationId(s.loc.mapTableData.mapId);
+  const tvSpawnKnown = (s) => tvSpawnFound(s) || _announcedSpawnPixels.has(`${s.x},${s.y}`);
   function travelViewDungeons() {
     const at = playerTravelPixel();
     const dg = discoveryGeneration();
-    if (tvDng.at && tvDng.at.x === at.x && tvDng.at.y === at.y && tvDng.dg === dg) return tvDng.list;
-    const list = nearDungeons({ at, dungeons: (_tvDungeonPx ??= dungeonPixels(locationIndex)), isFound: (x, y) => !!tvPlaceSummary(x, y) }).map((g) => {
-      const row = travelLocationSummaryAt(mapDict, g.x, g.y);
-      if (!row) return null;
+    // AUDIT OW3 D1/D3: and the grid's reach (what TV2 plates), and the index's churn - a spawn comes as its pixel streams
+    // and goes when its time runs out or a road takes it back, on a pixel the traveller has not left
+    const grid = Math.max(1, state.terrainDistance ?? 3), n = locationIndex.size;
+    if (tvDng.at && tvDng.at.x === at.x && tvDng.at.y === at.y && tvDng.dg === dg && tvDng.grid === grid && tvDng.n === n) return tvDng.list;
+    const list = nearDungeons({ at, grid, dungeons: (_tvDungeonRows ??= dungeonRows(mapDict)), locAt: (x, y) => locationIndex.get(`${x},${y}`),
+      isFound: (x, y) => !!tvPlaceSummary(x, y), spawns: spawnedPixels(locationIndex), spawnKnown: tvSpawnKnown, spawnFound: tvSpawnFound }).map((g) => {
       const r = locationWorldRect(g.loc, g.x, g.y);
-      return { key: `dng:${row.mapID}`, row, loc: g.loc, found: g.found, summary: g.found ? tvPlaceSummary(g.x, g.y) : null,
-        px: g.x, py: g.y, x: (r.minX + r.maxX) / 2, z: (r.minZ + r.maxZ) / 2 };
-    }).filter(Boolean);
-    tvDng = { at, dg, list };
+      return { key: g.key, row: g.row, loc: g.loc, found: g.found, spawn: g.spawn, summary: g.found && !g.spawn ? tvPlaceSummary(g.x, g.y) : null,
+        px: g.x, py: g.y, x: (r.minX + r.maxX) / 2, z: (r.minZ + r.maxZ) / 2, rect: r };
+    });
+    tvDng = { at, dg, grid, n, list };
     return list;
+  }
+  /** AUDIT OW3 D1: A SPAWN'S PLATE IS A WALK TO IT - TV2's spot journey (it stands in no MAPS table, so no place journey
+   *  names it), ending at its exterior's edge on the traveller's side (dungeonApproach). Asked of the live list: a spawn
+   *  whose time ran out since the plate was drawn is gone from it, and nothing is walked to. */
+  function travelViewSpawnWalk(key) {
+    const g = travelViewDungeons().find((p) => p.key === key && p.found);
+    if (!g || !travelViewCanGo()) return false;
+    const me = state.worldCoords(player.pos);
+    const a = dungeonApproach(g.rect, { x: me.x, z: me.z });
+    return travelViewWalkTo(tvSceneOf(a.x, a.z, 0), { x: g.px, y: g.py });
   }
   /** TV6: THE FIND - an undiscovered dungeon within a kilometre of the traveller is discovered (the port's own store, the
    *  map and the Overworld read it) and said on the screen; the enhanced interface, outdoors, a few times a second. */
@@ -17188,6 +17209,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (now - _tvFindAt < 250) return;
     _tvFindAt = now;
     if (!isEnhanced() || (modes?.mode ?? 'exterior') !== 'exterior' || !walkMode || !playerSpawned) return;
+    // AUDIT OW3 D2: NOT WHILE THE WORLD IS BEING MOVED - a fast travel, a Recall, a respawn or a load re-anchors the origin
+    // first and stands the player frames later (_teleportToPixel awaits the destination's build), so their feet read in
+    // the new frame lay up to a kilometre from where they land: a dungeon there was found, said and saved, unapproached
+    if (worldMoveBusy()) return;
     const n = state.worldCoords(player.pos);
     const g = dungeonToFind({ feet: { x: n.x, z: n.z }, list: travelViewDungeons(), mid: (d) => d });
     if (!g) return;
@@ -17284,6 +17309,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** THE BANDS' FRAME: a wanderer that sees me (under the view) chases; a chase closes (at the journey's pace), stands its
    *  foes at contact - the view's own reach, or the stand-off with the view down - or gives up. */
   function bandFrame(now) {
+    if (worldMoveBusy()) return;   // AUDIT OW3 D2: the feet read mid-arrival lie up to a kilometre from where they land - no sight, no chase, no stand
     const dt = Math.min(0.25, Math.max(0, (now - _bandLast) / 1000));
     _bandLast = now;
     const up = !!travelView?.active;
@@ -17354,13 +17380,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const km = (Math.hypot(f.x - here.x, f.z - here.z) / 32768) * PIXEL_KM;   // native units a pixel (MapsFile.WorldMapTerrainDim)
       marks.push({ key: f.key, at: tvSceneKept(f, f.x, f.z, TV_PLACE_LIFT), label: f.summary.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true });
     }
-    // TV6: THE DUNGEONS - a found one past the grid a far plate (within it TV2's plate stands), the rest unnamed lairs
-    const grid = Math.max(1, state.terrainDistance ?? 3), me0 = playerTravelPixel();
+    // TV6: THE DUNGEONS - a found one past the grid a far plate (within it TV2's plate stands - AUDIT OW3 D3: the list
+    // leaves those out, so they spend none of its twelve), the rest unnamed lairs. AUDIT OW3 D1: a spawn the player has
+    // been told of the same way - named once filed, its plate a walk to its door (travelViewSpawnWalk)
     for (const g of travelViewDungeons()) {
-      if (g.summary) {
-        if (Math.max(Math.abs(g.px - me0.x), Math.abs(g.py - me0.y)) <= grid || `far:${g.row.mapID}` === farEnd) continue;
+      if (g.found) {
+        if (!g.spawn && `far:${g.row.mapID}` === farEnd) continue;
         const km = (Math.hypot(g.x - here.x, g.z - here.z) / 32768) * PIXEL_KM;
-        marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: g.summary.loc.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true });
+        marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: g.loc.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true });
       } else marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: '?', kind: 'lair' });
     }
     // TV7: THE BANDS - each with its kind and number where it walks; one chasing me held at the edge, pointing
