@@ -52,6 +52,15 @@ export const GOLD_PIECES_TEMPLATE = 276;
 /** The fields that are never part of what an item IS: its count and its price (the offer's own, which the wire floors),
  *  and the marks that are the RECEIVER's (systems/loot.js validLootItem strips them). */
 export const TRADE_VOLATILE_FIELDS = Object.freeze(['stackCount', 'value', 'equipSlot', 'questItem']);
+/** AUDIT REALM F1: THE ROWS THAT BIND EVERY PIECE OF THEIR KIND - systems/itemBound.js isBound's other half (SS1: "Its
+ *  template row can say `bound`"), which this Worker cannot read, since the template table is the game's. The Sigil
+ *  Stone's row (systems/gateSpoils.js SIGIL_STONE_TEMPLATES) is the one; test/auditrealm.test.js holds this list equal to
+ *  every row the game registers with `bound`. The service read `rec.bound` alone, and a stone's record carries no mark
+ *  of its own - so two halves naming a stone moved it between two realm characters. */
+export const BOUND_TEMPLATES = Object.freeze([570]);
+/** A bound record, as systems/itemBound.js isBound reads a piece: its own mark (SS4), or its row's (SS1) - and no field
+ *  on the record unbinds what the row binds. */
+export const boundRecord = (/** @type {any} */ rec) => rec?.bound === true || BOUND_TEMPLATES.includes(rec?.templateIndex);
 
 const plain = (/** @type {unknown} */ v) => !!v && typeof v === 'object' && !Array.isArray(v);
 /** A record's count: its stack, or one. */
@@ -86,7 +95,7 @@ export function tradeableRecord(/** @type {any} */ rec) {
   if (rec.equipSlot != null) return false;                       // worn (equip.js isEquipped)
   if (rec.questItem) return false;                               // the quest's
   if ((rec.timeForItemToDisappear ?? 0) !== 0) return false;     // summoned (inventory.js isSummoned)
-  if (rec.bound === true) return false;                          // REALM P0.4 (itemLock.js isBound)
+  if (boundRecord(rec)) return false;                            // bound (itemBound.js isBound): its mark or its row's - AUDIT REALM F1
   if (rec.group === 'Currency' && rec.templateIndex === GOLD_PIECES_TEMPLATE) return false;   // gold (inventory.js isGoldPieces)
   return true;
 }

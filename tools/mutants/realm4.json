@@ -11,7 +11,7 @@
   {
     "name": "REALM4-bound-leaves",
     "file": "src/net/realmTradeLaw.js",
-    "old": "  if (rec.bound === true) return false;                          // REALM P0.4 (itemLock.js isBound)\n",
+    "old": "  if (boundRecord(rec)) return false;                            // bound (itemBound.js isBound): its mark or its row's - AUDIT REALM F1\n",
     "new": "",
     "tests": [
       "test/realm4.test.js"

@@ -1,0 +1,119 @@
+[
+  {
+    "name": "AUDIT-REALM-F1-the-row-unread",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "export const boundRecord = (/** @type {any} */ rec) => rec?.bound === true || BOUND_TEMPLATES.includes(rec?.templateIndex);",
+    "new": "export const boundRecord = (/** @type {any} */ rec) => rec?.bound === true;",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F1-the-stone-unlisted",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "export const BOUND_TEMPLATES = Object.freeze([570]);",
+    "new": "export const BOUND_TEMPLATES = Object.freeze([]);",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F1-the-mark-alone",
+    "file": "src/net/realmTradeLaw.js",
+    "old": "  if (boundRecord(rec)) return false;",
+    "new": "  if (rec.bound === true) return false;",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F2-no-stash-counted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "const carriedLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];",
+    "new": "const carriedLists = (/** @type {any} */ snap) => [...lists(snap?.wagonItems), ...lists(snap?.items)];",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F2-the-wagon-uncounted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "const carriedLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.wagonItems), ...lists(snap?.items)];",
+    "new": "const carriedLists = (/** @type {any} */ snap) => [...stashedItemLists(snap), ...lists(snap?.items)];",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F2-a-shop-shelf-counted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot, LOOT_CONTAINER_TYPES.HouseContainers]);",
+    "new": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot, LOOT_CONTAINER_TYPES.HouseContainers, LOOT_CONTAINER_TYPES.ShopShelves]);",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F2-a-house-chest-uncounted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot, LOOT_CONTAINER_TYPES.HouseContainers]);",
+    "new": "const PLAYER_FILLED = Object.freeze([LOOT_CONTAINER_TYPES.DroppedLoot]);",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F2-a-room-pile-uncounted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "    for (const pile of scene?.droppedPiles ?? []) out.push(...lists(pile?.items));\n",
+    "new": "",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F2-a-storage-piece-uncounted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "    for (const held of Object.values(scene?.decorItems ?? {})) out.push(...lists(held));\n",
+    "new": "",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F2-a-dungeon-s-treasure-counted",
+    "file": "src/systems/realmCustoms.js",
+    "old": "  for (const pile of (snap?.dungeon ? world?.droppedLoot : world?.piles) ?? []) out.push(...lists(pile?.items));",
+    "new": "  for (const pile of world?.piles ?? []) out.push(...lists(pile?.items));",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F2-the-stashes-never-taken",
+    "file": "src/systems/realmCustoms.js",
+    "old": "  for (const list of stashedItemLists(snap)) takeFrom(list);\n",
+    "new": "",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F2-the-stashes-after-the-purse",
+    "file": "src/systems/realmCustoms.js",
+    "old": "  for (const list of lists(snap.wagonItems, snap.items)) takeFrom(list);",
+    "new": "  for (const list of [...stashedItemLists(snap).reverse(), ...lists(snap.wagonItems, snap.items)].reverse()) takeFrom(list);",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-REALM-F2-an-emptied-record-kept",
+    "file": "src/systems/realmCustoms.js",
+    "old": "    for (let i = list.length - 1; i >= 0; i--) if (emptied.has(list[i])) list.splice(i, 1);",
+    "new": "    for (let i = list.length - 1; i >= 0; i--) if (emptied.has(list[i]) && false) list.splice(i, 1);",
+    "tests": [
+      "test/auditrealm.test.js"
+    ]
+  }
+]
