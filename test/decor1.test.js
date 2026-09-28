@@ -87,7 +87,7 @@ test('DECOR1 the law: a piece is WHAT it is (one model, or one flat\'s archive a
   assert.equal(DECOR_OPS_MAX, 600);
   assert.deepEqual(decorWhatOf({ model: 41000 }), { model: 41000, flat: null });
   assert.deepEqual(decorWhatOf({ flat: [205, 3] }), { model: null, flat: [205, 3] });
-  for (const bad of [{ model: 41000, flat: [205, 3] }, {}, { model: 0 }, { model: 1_000_000 }, { model: 1.5 }, { flat: [1000, 0] }, { flat: [205, 512] }, { flat: [205] }, { flat: [-1, 0] }]) {
+  for (const bad of [{ model: 41000, flat: [205, 3] }, {}, { model: 0 }, { model: 1_000_000 }, { model: 1.5 }, { flat: [100_000, 0] }, { flat: [205, 512] }, { flat: [205] }, { flat: [-1, 0] }]) {
     assert.equal(decorWhatOf(bad), null, JSON.stringify(bad));
   }
   const pl = decorPlaceOf({ pos: [1.23456, -0.0004, DECOR_POS_MAX], rot: [179.96, -90.04, 0], scale: 1.23456, light: null, storage: true, paid: 55 });
@@ -270,8 +270,11 @@ test('DECOR2c a mount in an online home: the service keeps a weapon or shield hu
   const r = await call('POST', '/v1/homes/decor/place', at({ piece: axe }), aldric);
   assert.deepEqual([r.status, r.body], [200, { ok: true, piece: axe }]);
   assert.deepEqual((await call('POST', '/v1/homes/decor', HOME, mara)).body.pieces, [axe], 'every visitor reads it hung');
-  const past = piece({ id: 'w2', model: null, flat: [1000, 0], item: { t: 120, g: 3, m: null, v: null, a: null, p: null }, paid: 0 });
+  const past = piece({ id: 'w2', model: null, flat: [100_000, 0], item: { t: 120, g: 3, m: null, v: null, a: null, p: null }, paid: 0 });   // DECOR-MODFLATS: past a mod's five digits
   assert.equal((await call('POST', '/v1/homes/decor/place', at({ piece: past }), aldric)).body.error, 'bad-decor');
+  // DECOR-MODFLATS: a mod's flat - Detailed Ships' own, "Decoration 49" onward - is a piece to the service too
+  const ship = piece({ id: 'w3', model: null, flat: [1210, 1], paid: 20 });
+  assert.deepEqual((await call('POST', '/v1/homes/decor/place', at({ piece: ship }), aldric)).body, { ok: true, piece: ship });
 });
 
 test('AUDIT HOME-STATIONS (the batch\'s cross-cutting audit, F8) the service: a station rides the piece\'s place - kept on a move and read back by every visitor, refused beside storage, gone on a move without it; placed with one it stands with it (mutants: the craft never stored; stored beside storage)', async (t) => {

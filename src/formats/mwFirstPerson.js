@@ -1382,8 +1382,17 @@ export function dfWeaponToMw(item, weaponsTable) {
   for (const [name, tmpl] of Object.entries(weaponsTable ?? {})) {
     if (tmpl === idx && name in DF_TO_MW_WEAPON) return DF_TO_MW_WEAPON[name];
   }
-  return MW_WEAPON_TYPE.None;
+  return MOD_WEAPON_TO_MW[idx] ?? MW_WEAPON_TYPE.None;   // MW-ASSIGN: a mod's weapon of a classic shape
 }
+
+/** MW-ASSIGN (2026-09-27, Discord: "Some sprites not assigned morrowind skin"): THE WEAPONS A MOD ADDS, by template -
+ *  Roleplay & Realism Items' Archer's Axe (ItemArchersAxe: one-handed, either hand) and Light Flail (ItemLightFlail: a
+ *  flail, as the classic one maps). Outside DFU's frozen WEAPONS, so the walk above never met them: in Morrowind first
+ *  person they drew EMPTY HANDS, and their icon and a wall's mount stood as the classic picture. */
+export const MOD_WEAPON_TO_MW = Object.freeze({
+  513: MW_WEAPON_TYPE.AxeOneHand,     // Archer's Axe
+  514: MW_WEAPON_TYPE.BluntOneHand,   // Light Flail
+});
 
 export function pickWeaponRecord(records, type, material = null, { has = null } = {}) {
   // AUDIT MW-A F3: id-sorted, for the face's own reason (D27) - file

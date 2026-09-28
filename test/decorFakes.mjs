@@ -124,7 +124,7 @@ export const ACTIONS = new Map([['KeyW', 'MoveForwards'], ['KeyS', 'MoveBackward
  * tool's clock (0, as before). AUDIT2 DECOR-SHELL 8: with a real `collider`, a model piece put stands SOLID in it as the
  * room stands it (scenes/decorRoom.js put) - its model's box, closed, under the piece's own matrix, in its own bucket.
  */
-export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null, getGpuMesh = async (id) => ({ gpu: id }), now = () => 0 } = {}) {
+export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null, getGpuMesh = async (id) => ({ gpu: id }), now = () => 0, extraFlats = [] } = {}) {
   const doc = fakeDoc();
   const win = fakeWin();
   const entries = catalogue();
@@ -187,7 +187,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
     room: () => state.room,
     base: () => base,   // BASE-HIDE: the room's own furniture (scenes/decorBase.js), none unless a pin hands one
     scanDeps: () => ({
-      blocks: fakeBlocks([{ type: TOWN, block: rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]) }, { type: TOWN, block: rmb([41000], [[209, 0]]) }]),
+      blocks: fakeBlocks([{ type: TOWN, block: rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]) }, { type: TOWN, block: rmb([41000], [[209, 0], ...extraFlats]) }]),   // DECOR-MODFLATS: `extraFlats`, a pin's own
       isTownBlock: (t) => t === TOWN, modelRadius: radius, flatRadius: async () => 0.2,
     }),
     getGpuMesh, cpuModels,

@@ -155,8 +155,8 @@
   {
     "name": "GUILD1b-found-on-a-bad-shape",
     "file": "src/ui/socialPanel.js",
-    "old": "const shapeOk = !!guildNameOf(d.name) && !!guildTagOf(d.tag);",
-    "new": "const shapeOk = true;",
+    "old": "enabled: !g.busy && !!guildNameOf(d.name) && !!guildTagOf(d.tag),",
+    "new": "enabled: !g.busy,",
     "tests": [
       "test/guild1b.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "GUILD1b-promote-offered-to-any",
     "file": "src/ui/socialPanel.js",
-    "old": "if (guildMayMove(me, m.rank, m.rank - 1)) r.append(btn('Promote'",
-    "new": "if (m.rank > 0) r.append(btn('Promote'",
+    "old": "const mayMove = [guildMayMove(me, m.rank, m.rank - 1),",
+    "new": "const mayMove = [m.rank > 0,",
     "tests": [
       "test/guild1b.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "GUILD1b-remove-in-one-press",
     "file": "src/ui/socialPanel.js",
-    "old": "r.append(armed(k) ? btn('Sure?', { warn: true, ...wait, run: () => guildDo(g.remove(m.member)",
-    "new": "r.append(true ? btn('Sure?', { warn: true, ...wait, run: () => guildDo(g.remove(m.member)",
+    "old": "racts.append(armed(k) ? btn('Sure?', { warn: true, ...wait, run: () => guildDo(g.remove(m.member)",
+    "new": "racts.append(true ? btn('Sure?', { warn: true, ...wait, run: () => guildDo(g.remove(m.member)",
     "tests": [
       "test/guild1b.test.js"
     ]
@@ -200,8 +200,8 @@
   {
     "name": "GUILD1b-remove-upward",
     "file": "src/ui/socialPanel.js",
-    "old": "if (guildMay(me, 'remove') && guildOutranks(me, m.rank)) {",
-    "new": "if (guildMay(me, 'remove')) {",
+    "old": "const mayRemove = guildMay(me, 'remove') && guildOutranks(me, m.rank);",
+    "new": "const mayRemove = guildMay(me, 'remove');",
     "tests": [
       "test/guild1b.test.js"
     ]
@@ -209,8 +209,8 @@
   {
     "name": "GUILD1b-withdraw-offered-to-an-officer",
     "file": "src/ui/socialPanel.js",
-    "old": "enabled: !busy && n > 0 && guildMay(me, 'withdraw')",
-    "new": "enabled: !busy && n > 0",
+    "old": "enabled: !g.busy && goldTyped() > 0 && guildMay(me, 'withdraw')",
+    "new": "enabled: !g.busy && goldTyped() > 0",
     "tests": [
       "test/guild1b.test.js"
     ]

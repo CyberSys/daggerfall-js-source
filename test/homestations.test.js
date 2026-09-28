@@ -37,7 +37,7 @@ const PLACE = Object.freeze({ pos: [1, 0, 2], rot: [90, 0, 0], scale: 1, light: 
 
 test('HOME-STATIONS the law: a piece serves one of three crafts, carried only when it serves one; a craft it does not know, a piece that holds things, and one\'s own item serve none (mutants: any word taken; storage and a station together; the key always written)', () => {
   assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant']);
-  assert.deepEqual({ ...DECOR_STATION_FEES }, { alchemy: 5000, spells: 10000, enchant: 20000 });
+  assert.deepEqual({ ...DECOR_STATION_FEES }, { alchemy: 50000, spells: 100000, enchant: 200000 });   // STATION-FEES: ten times the first pass
   assert.deepEqual({ ...DECOR_STATION_SERVICES }, { alchemy: 'guildServicePotionMaker', spells: 'guildServiceSpellMaker', enchant: 'guildServiceItemMaker' });
   assert.equal(DECOR_STATION_NAMES.spells, 'Spellmaking station');
   assert.equal(decorPlaceOf({ ...PLACE, station: 'alchemy' }).station, 'alchemy');
@@ -50,16 +50,16 @@ test('HOME-STATIONS the law: a piece serves one of three crafts, carried only wh
 });
 
 test('HOME-STATIONS the tool and the panel: a placed piece made a station for its licence, said in the room, the chooser cycling the craft free; short of the gold, refused in words and nothing paid; unmade, nothing back; one that holds things is no station, and a station holds nothing (mutants: the licence unpaid; paid short; a refund on unmaking)', async () => {
-  const rig = toolRig({ gold: 30_000 });
+  const rig = toolRig({ gold: 300_000 });
   const chair = await placedOne(rig);
   const paidBefore = rig.w.paid.length;
   let root = choose(rig, chair.id);
   assert.equal(btn(root, /^Station:/).textContent, 'Station: Alchemy >');
-  assert.equal(btn(root, /^Make station/).textContent, 'Make station - 5,000 gold');
+  assert.equal(btn(root, /^Make station/).textContent, 'Make station - 50,000 gold');
   btn(root, /^Make station/).fire('click');
   await settle();
   assert.equal(rig.standing[0].station, 'alchemy');
-  assert.deepEqual(rig.w.paid.slice(paidBefore), [5000], 'the licence, once');
+  assert.deepEqual(rig.w.paid.slice(paidBefore), [50000], 'the licence, once');
   assert.match(rig.said.at(-1), /: Alchemy station\.$/);
   root = choose(rig, chair.id);
   assert.equal(btn(root, /^Unmake station/).textContent, 'Unmake station (nothing back)', 'the chosen station\'s own act');
@@ -68,11 +68,11 @@ test('HOME-STATIONS the tool and the panel: a placed piece made a station for it
   // the chooser cycles free; a second craft is its own licence (AUDIT S6: and says the first one goes)
   btn(root, /^Station:/).fire('click');
   assert.equal(btn(root, /^Station:/).textContent, 'Station: Spellmaking >');
-  assert.equal(btn(root, /^Change station/).textContent, 'Change station - 10,000 gold (no refund)');
+  assert.equal(btn(root, /^Change station/).textContent, 'Change station - 100,000 gold (no refund)');
   assert.equal(rig.w.paid.length, paidBefore + 1, 'choosing is free');
   btn(root, /^Change station/).fire('click');
   await settle();
-  assert.deepEqual([rig.standing[0].station, rig.w.paid.at(-1)], ['spells', 10000]);
+  assert.deepEqual([rig.standing[0].station, rig.w.paid.at(-1)], ['spells', 100000]);
   // unmade: nothing back (AUDIT S4: asked twice)
   root = choose(rig, chair.id);
   const credited = rig.w.credited.length;
@@ -94,7 +94,7 @@ test('HOME-STATIONS the tool and the panel: a placed piece made a station for it
   await settle();
   assert.equal(rig.standing[0].station, undefined);
   assert.equal(rig.w.paid.length, paidNow);
-  assert.match(rig.said.at(-1), /^Enchanting station: 20,000 gold, and you have not that much\.$/);
+  assert.match(rig.said.at(-1), /^Enchanting station: 200,000 gold, and you have not that much\.$/);
   // a piece that holds things is no station
   root = choose(rig, chair.id);
   btn(root, /^Holds things/).fire('click');
@@ -113,7 +113,7 @@ test('HOME-STATIONS an online home: the account service first - a station it kee
     async move(a) { const piece = { ...rig.standing.find((p) => p.id === a.id), ...a.place }; if (!keeps) delete piece.station; return { ok: true, data: { piece } }; },
     async remove(a) { return { ok: true, data: { piece: rig.standing.find((p) => p.id === a.id) } }; },
   };
-  const rig = toolRig({ room: { kind: 'home', where: 'Your home', mapId: 77, buildingKey: 9 }, homeDecor: svc, gold: 30_000 });
+  const rig = toolRig({ room: { kind: 'home', where: 'Your home', mapId: 77, buildingKey: 9 }, homeDecor: svc, gold: 300_000 });
   const chair = await placedOne(rig);
   keeps = false;
   let root = choose(rig, chair.id);
@@ -127,7 +127,7 @@ test('HOME-STATIONS an online home: the account service first - a station it kee
   root = choose(rig, chair.id);
   btn(root, /^Make station/).fire('click');
   await settle();
-  assert.deepEqual([rig.standing[0].station, rig.w.paid.at(-1)], ['alchemy', 5000]);
+  assert.deepEqual([rig.standing[0].station, rig.w.paid.at(-1)], ['alchemy', 50000]);
 });
 
 test('HOME-STATIONS the room and the service: a station pressed opens its craft\'s maker for its owner alone, through the guild service\'s own door; the account service writes the craft with the place (mutants: the station never pressed; any visitor served; the craft never stored)', () => {
@@ -158,7 +158,7 @@ const onlineRig = (gold, hold = false) => {
 
 test('AUDIT HOME-STATIONS S1: a moved station stays one - the ghost is built from the piece, craft and all, and the move writes it; online the place the service is sent carries it (mutants: the ghost without the craft; the placer\'s piece without it)', async () => {
   for (const online of [false, true]) {
-    const o = online ? onlineRig(30_000) : { rig: toolRig({ gold: 30_000 }), sent: [] };
+    const o = online ? onlineRig(300_000) : { rig: toolRig({ gold: 300_000 }), sent: [] };
     const rig = o.rig;
     const chair = await placedOne(rig);
     let root = choose(rig, chair.id);
@@ -176,7 +176,7 @@ test('AUDIT HOME-STATIONS S1: a moved station stays one - the ghost is built fro
 });
 
 test('AUDIT HOME-STATIONS S2: one change of craft at a time - a second press while the account service still answers the first is refused: the licence paid once and the station kept, where it was paid twice or written back over (mutants: no in-flight guard)', async () => {
-  const { rig, sent, flush, holdOn } = onlineRig(8_000);   // one licence's gold, not two
+  const { rig, sent, flush, holdOn } = onlineRig(80_000);   // one licence's gold, not two
   const chair = await placedOne(rig);
   holdOn(true);
   const root = choose(rig, chair.id);
@@ -186,12 +186,12 @@ test('AUDIT HOME-STATIONS S2: one change of craft at a time - a second press whi
   btn(root, /^Make station/).fire('click');   // the double click, before the service answers
   await settle();
   await flush();
-  assert.deepEqual(rig.w.paid.slice(paid), [5000], 'paid once');
+  assert.deepEqual(rig.w.paid.slice(paid), [50000], 'paid once');
   assert.equal(rig.standing[0].station, 'alchemy', 'and it stands - the second press wrote nothing back');
   assert.equal(sent.length - asked, 1, 'one change asked of the service - not a second, and no roll-back of the one paid for');
   assert.equal(sent.at(-1).station, 'alchemy', 'the service keeps the station the room shows');
   // the gold spent elsewhere while the service answered: it stands as it was, nothing paid, and it says so
-  const o2 = onlineRig(30_000);
+  const o2 = onlineRig(300_000);
   const more = await placedOne(o2.rig);
   o2.holdOn(true);
   const root2 = choose(o2.rig, more.id);
@@ -206,7 +206,7 @@ test('AUDIT HOME-STATIONS S2: one change of craft at a time - a second press whi
 });
 
 test('AUDIT HOME-STATIONS S3 + S6 + S9: the room\'s view repaints when a piece\'s craft changes (its signature carries the craft), and the button acts as it is painted; a station\'s Remove says the licence does not come back; the chooser is named for a reader (mutants: the craft out of the signature; the act re-read from a newer piece)', async () => {
-  const rig = toolRig({ gold: 30_000 });
+  const rig = toolRig({ gold: 300_000 });
   const chair = await placedOne(rig);
   const root = choose(rig, chair.id);
   btn(root, /^Make station/).fire('click');
@@ -221,7 +221,7 @@ test('AUDIT HOME-STATIONS S3 + S6 + S9: the room\'s view repaints when a piece\'
   await settle();
   rig.frame({ overlayUp: true });
   assert.equal(rig.standing[0].station, undefined);
-  assert.equal(btn(root, /^Make station/)?.textContent, 'Make station - 5,000 gold', 'the button says what the piece now is');
+  assert.equal(btn(root, /^Make station/)?.textContent, 'Make station - 50,000 gold', 'the button says what the piece now is');
   const P = src('src/ui/decorPanel.js');
   assert.match(P, /const what = stationBtn\.dataset\.what;\s*\n\s*if \(what === 'arm'\) \{ stationArmed = it\.piece\.id; paintRoomSide\(\); return; \}\s*\n\s*stationArmed = null;\s*\n\s*if \(what\) onToggle\(it\.piece, what\);/, 'the act the button says');
   assert.match(P, /stationBtn\.dataset\.what = words\.what;/);

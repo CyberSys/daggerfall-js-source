@@ -56,8 +56,8 @@
   {
     "name": "DECOR1e-the-room-view-drawing-the-catalogue",
     "file": "src/ui/decorPanel.js",
-    "old": "    if (mode === 'room') {\n      const placed = view.placed ?? [];",
-    "new": "    if (false) {\n      const placed = view.placed ?? [];",
+    "old": "    if (mode === 'room') {\n      const placed = roomed(view.placed ?? []);",
+    "new": "    if (false) {\n      const placed = roomed(view.placed ?? []);",
     "tests": [
       "test/decor1e.test.js"
     ]

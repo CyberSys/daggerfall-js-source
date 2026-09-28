@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:6929` read, on one physical line:
+`src/scenes/worldModes.js:6935` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4885,9 +4885,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:4998` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:4999` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:320`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -8245,14 +8245,15 @@ and the dungeon's through worldModes into dungeonContext (THE FOUR HOSTS; exteri
 **THE LAW** (`net/decorLaw.js`). A placed piece's place may carry `station`, one of DECOR_STATIONS ('alchemy',
 'spells', 'enchant'), and only when it serves one, so every piece placed before this reads as it did. A piece holds
 things or serves a craft, never both (one press, one thing it does), and one's own item serves none (DECOR2a's
-law). The licence is DECOR_STATION_FEES - 5,000, 10,000 and 20,000 gold, a first pass for Mac to tune. It is paid
+law). The licence is DECOR_STATION_FEES - 50,000, 100,000 and 200,000 gold (STATION-FEES, 2026-09-27: ten times the
+first pass, below). It is paid
 once and is not the piece's own price (`paid`), so nothing of it comes back when the piece is unmade, removed, or
 its room sold, and the account service's sale arithmetic (decorSaleBack) is untouched. DECOR_STATION_SERVICES names
 the guild service each craft opens: the potion maker, the spell maker and the item maker.
 
 **THE PANEL AND THE TOOL** (`ui/decorPanel.js` decorStationWords, `scenes/decorTool.js` setStation). In the room
 view, "Station: Alchemy >" cycles the craft offered, free, and follows a newly chosen piece's own craft. "Make station
-- 5,000 gold" (or "Unmake station (nothing back)") acts on it through the panel's one change door (`onToggle`,
+- 50,000 gold" (or "Unmake station (nothing back)") acts on it through the panel's one change door (`onToggle`,
 `station:<craft>`):
 
 - Short of the gold, it is refused in words and nothing is paid.
@@ -10325,3 +10326,82 @@ Not closed: the memory is the host's alone and publishes every WORLD_PUBLISH_MS.
 re-enters inside that window reads the older memory, and a backgrounded host publishes nothing. A live loot word about a body whose rebuild is still loading its art is skipped too (no container yet), so that body takes the memory's record. That needs a design
 call (the host answering arrivals with its live loot words, or the relay keeping them). `01-Overview/Field-Bugs-2026-09-27f.md`;
 `test/corpsegold.test.js` mounts the real restore chain; `tools/mutants/corpsegold.json`.
+
+## THE 2026-09-27g DISCORD BATCH - one crash, the guild tab, the decorator, the bank, a visitor's magic
+
+Mac, with the Discord's list and a crash box. The batch's record is `01-Overview/Field-Bugs-2026-09-27g.md`; each slice
+below says what moved and where it is pinned. Mutants: `tools/mutants/fieldbugs27g.json`.
+
+**STATION-ROWS (the crash box: "TypeError: m.rows.map is not a function").** A home's Spellmaking station opens the
+spell maker through the guild dispatcher, whose maker arms hand their window back - and the spell maker keeps the
+host's TEXT.RSC reader as `rows`. Every reader of the dispatcher's answer took "has rows" for "is a box": the station
+mapped the reader as a list and threw on every press (the interior frame's crash), and the guild popup pushed the whole
+window onto itself as a message. One test now, `systems/guildServiceFlow.js` isServiceBox (rows that are a list),
+read by the station, the popup's onService, the probe door and both popups' own box pushes (`ui/guildServiceWindow.js`,
+`ui/covenWindow.js`). `test/stationrows.test.js`.
+
+**DECOR-MODFLATS ("Above #49 decorations stopped working. Most sprites decorations are invisable above this
+number").** The catalogue is read out of the world's own blocks, and the ships Detailed Ships lays in them carry its
+own flats (1210, 1230) and the DET flats the port stands in (10009 to 10027): named in id order, "Decoration 49"
+onward. The piece law's archive bound was 999, so none of them was ever a piece - no ghost drawn, and Place did
+nothing. `DECOR_ARCHIVE_MAX` is 99,999 now (the account service reads the same law, and takes it at its deploy). And
+the panel's row pictures ask `ui/textureCanvas.js` loadIcon, which read its answer four turns after the classic file's
+read - a race a mod's picture, which has no classic file and decodes in its own time, could lose, the panel keeping the
+null for good. The door waits for the picture now, landed or missed (a throw settles it too).
+`test/decormodflats.test.js`.
+
+**STATION-FEES ("Make crafting stations in interiors way more expensive").** DECOR_STATION_FEES is ten times the first
+pass: 50,000 gold for Alchemy, 100,000 for Spellmaking, 200,000 for Enchanting. `test/homestations.test.js`.
+
+**GUILD-LIVE and GUILD-WRAP ("Buttons not selectable until closed and reopened. Depositing stretches names a lot with a
+syllable on each line").** The Guild tab's draft buttons - Found, Invite, Deposit, Withdraw, Rename ranks - were
+enabled once, at the build, and a keystroke rebuilds nothing under the caret (the drafts' own law): an amount typed
+left Deposit dead until the panel was shut and opened. Each is a live button now (`ui/socialPanel.js` liveBtn): its
+state is read on every keystroke of the tab's fields and on the live pass, and what a press does reads the draft at
+the press (Deposit had captured the amount at the build). A dead button's press does nothing, by the button's own word.
+A roster row's acts - a guildmaster's four, an invitation's two - are one group that wraps below the name (MAIL1's
+friends-row law), so a deposit's "a moment" beside every button no longer squeezes a name to a syllable a line.
+`test/guildlive.test.js`.
+
+**HOME-MAGIC ("Players can use magic in player non owned houses").** A visitor casts nothing in someone else's online
+home: no spell readied (a free ready, an item's, included), none fired - a spell readied outside is not fired inside -
+and no item's spell on its user. The one cast engine asks its host's word on the place (`scenes/hostMagic.js`
+castRefusal, the refusal said and the ready dropped, the silence gate's shape); the world host's engine asks the
+building (`scenes/worldModes.js` visitorMagicRefusal, HOUSE-DROP's test of who is a visitor); an item about to cast
+asks first (`barCast`), so Cast When Used spends no durability on a spell that never goes (`systems/enchantments.js`).
+Potions are drunk as ever. THE FOUR HOSTS: `world.js` hands the seam; `worldModes.js` answers it; `exterior.js` (the
+offline viewer) and `dungeonContext.js` have no online homes and hand none. `test/homemagic.test.js`.
+
+**EMPIRE-BANK ("For online mode, the bank of daggerfall becomes the bank of the empire. The empire has come and has
+reduced loans substantially (90%)").** Online, every bank is "The Bank of the Empire" (`world/buildingNames.js`
+EMPIRE_BANK_OF), the Enhanced Plus teller's title with it (its town beneath), and a bank already discovered shows its
+name now on its door and its automap plate (`systems/discovery.js` shownBuildingName: the save keeps the name it was
+discovered by). And the Empire lends a tenth of whatever the cap is - DFU's level x 50,000, or Roleplay & Realism's
+per-level choice, which the lane keeps on online - rounded down (`systems/banking.js` calculateMaxBankLoan,
+EMPIRE_LOAN_DIVISOR). The interest and the year to repay are the classic ones; offline, the bank is Daggerfall's.
+`test/empirebank.test.js`.
+
+**DECOR-FLIP ("Some sprites flipped (allow rotation)").** A billboard turns to the eye whatever its record says, so a
+placed picture's turn did nothing. Turned more than a quarter either way, a placed flat is now drawn mirrored - the
+renderer's flip is the sign of a batch's width - the ghost as it will stand, and the bar says what a turn does to a
+picture (`net/decorLaw.js` decorFlatMirrored). A mount spins on its wall and a model turns in earnest; neither
+mirrors. `test/decorflip.test.js`.
+
+**MW-ASSIGN ("Some sprites not assigned morrowind skin").** With Morrowind data attached a hung weapon or piece of
+armour is its Morrowind picture (MW-MOUNT), but only what the item map could read. Now also: the port's own weapons
+(the Thunderlock's shipped model, on the icon and on a wall as in the hand - `combat/fpArm.js` iconRecordOf);
+Roleplay & Realism Items' two weapons and twelve pieces of armour (`formats/mwFirstPerson.js` MOD_WEAPON_TO_MW,
+`formats/mwItemMap.js` MOD_ARMOR_ROWS - by the classic row of each one's shape, worn by the Morrowind body too, a
+helm-shaped piece hiding the hair); and one's own thing set down - a garment - which stands as its Morrowind picture on
+the billboard pass (`scenes/decorRoom.js` MW_STAND_ARCHIVE, its ghost with it) where it stood as the classic pile of
+cloth. The census counts the mod's templates. `test/mwassign.test.js`.
+
+**DECOR-ROOMS ("For a house with multiple connects, add room switching tabs").** The decorator's flight starts at the
+eye, is leashed, and since DECOR-SHELL stops at every face - so a room behind a shut door was furnished by shutting
+the decorator, walking there and opening it again. `systems/decorRooms.js` finds a house's rooms in its own collider,
+a few hundred rays a frame while the panel is up: floors a body stands on (headroom, and a ceiling over them), joined
+where the rise is a step and nothing stands between them at waist height - a wall, or a door as it stands now, exactly
+what the flight cannot pass. A house of two rooms or more gets a tab a room (`ui/decorPanel.js`): the eye's own room
+chosen first; the room's placed pieces and own furniture listed (and "Take all out" / "Put all back" meaning the
+room's all); and the next flight begins over the chosen room's floor, a piece moved from its own room
+(`scenes/decorTool.js` flightStart). `player/collider.js` gained `bounds()`. `test/decorrooms.test.js`.
