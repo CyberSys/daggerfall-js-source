@@ -6594,7 +6594,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** AUDIT PRE-MERGE 0928 M1: a foe another player runs - a party member's own, a room foe while another holds the seat
    *  (the pre-merge audit's D1) - is its runner's to replace or destroy: its runner's abyss had it, and its stream says
    *  what stands. The abyss's doors below neither read it nor touch it. */
-  const runByAnother = (f) => f._ownFrom != null || (!_authority && isRoomFoe(f));
+  const runByAnother = (f) => isPuppetFoe(f);   // the frame's own puppet test (O6's isPuppetFoe): one expression, as isRoomFoe is
   /** OH-E: one enemy as There's a Hole in the Bottom of the Ocean reads it - its CURRENT type (a replacement is the
    *  new type the moment it is applied), the humanoid test's EntityType (EnemyClass: the 128..146 careers), its
    *  LoadID (the layout's blockData.Position + obj.Position; a spawn's the port's own counter) and QuestSpawn. */

@@ -81,7 +81,7 @@ const DECLS = ['isRoomFoe', 'onlineRoom', 'questPoolOps', 'abyssFoeView', 'ENCOU
   'SHARED_FOES_MAX', 'KILLED_BY_MS', 'FOES_FRAME_SLACK', 'ownLoose', 'ownQuestTag', 'ownShare', 'questTouched', 'ownPupKey', 'ownHeirIsMe', 'ownHeirElse'];
 const CTX_BODY = `
   ${DECLS.map(DC.declSrc).join('\n')}
-  ${['runByAnother', 'takeRoomPlace'].map(DC.optional).join('\n')}
+  ${['isPuppetFoe', 'runByAnother', 'takeRoomPlace'].map(DC.optional).join('\n')}
   ${FNS.map(DC.fnSrc).join('\n')}
   const abyss = ${DC.propSrc('api', 'abyss')};
   return { buildFoeAt, retypeFoe, _spawnEncounter, standSharedPuppet, applySharedRecords, foesFrame, isRoomFoe, spawnLooseFoe, ownLoose, ownFrame, standOwnPuppet, abyss };
