@@ -713,7 +713,7 @@ test('OH-E the loot events: EnemyEntity.OnLootSpawned carries the table key, the
   offT();
   assert.equal(t.length, 2);
   const ctx = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
-  assert.match(ctx, /addPileLootExtras\(items, lootKey, undefined, \{ where: 'dungeon' \}\);[^\n]*\n\s*rollLootRarity\(/, 'the dungeon\'s pile: the trio and the event, then the port\'s rarity roll');
+  assert.match(ctx, /addPileLootExtras\(items, lootKey, undefined, \{ level: playerEntity\.level, where: 'dungeon' \}\);[^\n]*\n\s*rollLootRarity\(/, 'the dungeon\'s pile: the trio and the event, then the port\'s rarity roll');
   const src = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   const body = src.slice(src.indexOf('const ohUpgrade = '), src.indexOf('_ohLootOff = () =>'));
   assert.ok(body.includes('ohAbyss.shouldUpgradeLoot()'), 'ShouldUpgradeLoot gates both');
@@ -811,7 +811,7 @@ test('AUDIT OH-F B4 the descent is one move: `entering` from the pit to the arri
   assert.equal(entries(q.log, 'teleport').length, 2);
   const src = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   assert.match(src, /function worldMoveBusy\(\) \{[^}]*\|\| !!ohAbyss\?\.entering;\s*\}/, 'loads, Recall, quests and jail wait for the descent');
-  assert.match(src, /function worldQuickSave\(saveName = QUICK_SAVE_NAME\) \{\s*(?:\/\/[^\n]*\n\s*)*if \(ohAbyss\?\.entering\) \{ townTalk\.say\('You cannot save now\.'\); return false; \}/, 'and a save refuses');
+  assert.match(src, /function worldQuickSave\(saveName = QUICK_SAVE_NAME, \{ quiet = false, sink = null \} = \{\}\) \{\s*(?:\/\/[^\n]*\n\s*)*if \(ohAbyss\?\.entering\) \{ if \(!quiet\) townTalk\.say\('You cannot save now\.'\); return false; \}/, 'and a save refuses (AUDIT REALM2 M5: saying so to a save pressed, never to the quiet checkpoint)');
 });
 
 test('AUDIT OH-F B5 online: the Recall renames before the room is joined; a death wakes at the pit; the hour never brings a destroyed foe back', async () => {

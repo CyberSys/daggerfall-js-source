@@ -97,11 +97,6 @@ export const PREF_DEFAULTS = Object.freeze({
   acceptStrangerSpells: true,
   restWithParty: true,   // REST-OPT: off - I rest alone, and the party rests without me
   showToTravellers: true,   // TV3: off - the region's travellers do not see where I am (my party always does)
-  // VOICE1 (2026-09-28, Mac: "develop prox chat"): proximity voice - ON by default (Mac: "Have it on by default"); a voice
-  // link is browser to browser and so tells the players near me my network address, which the row says; and its volume
-  // (1 = as spoken, 2 = twice). Nothing is SENT until push-to-talk is held - on, a player hears and is asked for nothing.
-  proxVoice: true,
-  voiceVolume: 1,
   // MWA4 (2026-09-25): `mwArms` (MWA1's arms switch) is retired - the attached Morrowind files are the switch, and
   // Remove data the off (combat/weaponRig.js autoBuildArms, ui/enhancedMenu.js morrowindCard). A stored value is
   // read by nothing.

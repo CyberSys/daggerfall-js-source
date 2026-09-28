@@ -25,7 +25,7 @@ import { ACCOUNT_VERSION, MAX_BODY_BYTES } from '../server-account/src/service.j
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import {
   createGuest, openSession, resolveSession, closeSession, closeAllSessions,
-  devicesOf, accountView, displayName, accountKind, hashSecret, mintId, handleRefusal, LOGIN_MAX,
+  devicesOf, accountView, displayName, accountKind, hashSecret, mintId, handleRefusal, LOGIN_MAX, LOGIN_WINDOW_S,
   SESSION_IDLE_S, ACCOUNT_MAX,
 } from '../server-account/src/accounts.js';
 import { guestName, GUEST_BANKS, pick, isGuestShaped, isHandleShaped } from '../server-account/src/guestName.js';
@@ -107,7 +107,14 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // RENOWN1 took it): one row a gate an account closed, keyed (day, account),
   // counted off it.
   // BASE-HIDE added `home_hidden` (0015): what an online home's owner took out of the room's own furniture
-  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'players', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'renown_tracks', 'saves', 'sessions']);
+  // REALM P1 added `realm_characters` (0018; 0016 on its branch): one row a realm character - an online character's truth, its save in R2
+  // REALM P2.1 added `realm_trades` (0019; 0017 on its branch): one row a trade the service settles, by the peers' sid - and
+  // `realm_tx_guard`, which never holds a row: its CHECK is what rolls a settling batch back whole
+  // AUDIT REALM added `realm_census` (0020; 0018 on its branch): the characters that played online before the realm, counted once as the
+  // migration is applied - customs' gate, which no session can write to since
+  // RENOWN-ACCOUNT added `renown_accounts` (0021): ONE row an account's Renown, keyed by the account alone - each account
+  // began at its best character's track, and `renown_tracks` stays beside it as history nothing writes again
+  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'players', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'realm_census', 'realm_characters', 'realm_trades', 'realm_tx_guard', 'renown_accounts', 'renown_tracks', 'saves', 'sessions']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.
   const cols = db._raw.prepare('PRAGMA table_info(players)').all().map((c) => c.name);
@@ -963,6 +970,10 @@ test('ACC1c: guessing is throttled, per handle and per address', async () => {
   const guest = (await call('POST', '/v1/auth/guest', {})).body;
   await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Barenziah', password: 'a good long one' });
 
+  // the window is aligned to the clock (overRate: floor(now / LOGIN_WINDOW_S)), so guesses that straddle its edge are
+  // counted from one again - 2026-09-28's full suite crossed 02:30:00 mid-loop and saw no 429. Begin past the edge.
+  const intoWindow = Math.floor(Date.now() / 1000) % LOGIN_WINDOW_S;
+  if (intoWindow > LOGIN_WINDOW_S - 15) await new Promise((r) => { setTimeout(r, (LOGIN_WINDOW_S - intoWindow + 1) * 1000); });
   let sawRate = false;
   for (let i = 0; i < LOGIN_MAX + 4; i++) {
     const r = await call('POST', '/v1/auth/login', { handle: 'Barenziah', password: `wrong ${i}` });

@@ -60,6 +60,7 @@ import { makeCityGate, updateCityGate } from '../world/cityGate.js';   // AUDIT 
 import { staticBuildingBox, staticBuildingWorldAabb } from '../world/staticBuildings.js';   // AUDIT 64 F11: RMBLayout's StaticBuilding array
 import { targetAimPoint, missileAimDirection, isLocalPlayerTarget, PLAYER_TARGET } from '../characters/enemyTargets.js';   // AUDIT WORLD6b-iii(a) C3: the ONE aim law for an enemy missile (the peer's transform, mine otherwise); HCC: CollectThreats' `senses.Target == player`
 import { collectExteriorNpcs, exteriorNpcRecord, setupExteriorQuestStaticNpcs } from '../characters/exteriorNpcs.js';   // C2 / AUDIT 26: RMBLayout's street StaticNPCs; E3: their quest pass
+import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity off draws a nude figure's clothed stand-in
 import { installConsoleProbe, registerCommand } from '../systems/consoleCommands.js';   // E3: the console's door; CSA-C: the mod's commands
 import { registerTravelMapConsoleCommands } from '../ui/travelMapWindow.js';   // E3: TravelMapConsoleCommands
 // E3: ...and the person HOST the quest machine's away arm writes through.
@@ -81,7 +82,7 @@ import { preloadSpellbookArt } from '../ui/spellbookWindow.js';   // U42: the cl
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { rangedDamageSpells } from '../systems/spellcast.js';   // U42: the flight probe's picker
-import { worldMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, setWorldPriceTilt } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
+import { worldMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, setWorldPriceTilt, empireJoin } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
@@ -293,7 +294,7 @@ import { preloadPaperDollArt } from '../ui/paperDoll.js';   // U8f: the avatar b
 import { seedStartingEquipment } from '../systems/equip.js';   // U8h: the worn-weapon binding
 import { createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex, applyHeadlessChargen } from '../systems/chargenSession.js';   // S3c/U9
 import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot, testRoomOnlineRefused, TEST_ROOM_OFFLINE_TEXT } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride; AUDIT SET D4: its character's online refusal
-import { publishBootParams } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads
+import { publishBootParams, refuseOnlinePowerFlags, BOOT_DOOR_KEYS } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads; REALM P0.1: the URL's powers stay offline
 import { preloadChargenArt } from '../ui/chargenArt.js';   // U10
 import { preloadMessageBoxArt } from '../ui/messageBox.js';   // U11
 import { buildingDataForDoor, locationBuildings, BUILDING_KEY_0 } from '../systems/talkTopics.js';   // E2: the shop identity   // H2: every building, with its key   // AUDIT 58: BuildingDirectory.buildingKey0, the key both ship interiors are filed under
@@ -317,7 +318,7 @@ import { createComeSailAwayAboard, CSA_ABOARD_GRACE } from './comeSailAwayAboard
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
 import { TRIGGER_MODEL as CSA_TRIGGER_MODEL, setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
-import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, BOAT_ACTIONS as CSA_BOAT_ACTIONS, HANDLING as CSA_HANDLING, hullFromMessage as csaHullFromMessage } from '../systems/comeSailAway.js';
+import { createComeSailAwayRuntime, comeSailAwayCarrier, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, BOAT_ACTIONS as CSA_BOAT_ACTIONS, HANDLING as CSA_HANDLING, hullFromMessage as csaHullFromMessage } from '../systems/comeSailAway.js';
 import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
@@ -351,11 +352,11 @@ import { getPref } from '../systems/uiPrefs.js';
 import { landViewRead } from '../world/landView.js';   // LV1: the enhanced lane's own streamed radius; FT2: the read is the module's
 import { CityLightAnimator, SUN_RIG_COLOR, INDIRECT_LIGHT_COLOR, INDIRECT_LIGHT_RANGE, exteriorAmbient, indirectLightScale, isCityLightsOn, isNight, daylightScale, parseTimeOfDay, sunDirection, sunScale, windowStyleForTime } from '../world/worldClock.js';
 import { dungeonLocationFor } from '../world/smallerDungeons.js';   // AUDIT 28 F-B2: the quest layer sees the sized dungeon
-import { audio, QuestAudioSource, logarithmicRolloff, plainSourceGain, placeAudio } from '../systems/audio.js';   // E6: the QuestMachine's own DaggerfallAudioSource (PlaySound's busy-skip)
+import { audio, QuestAudioSource, logarithmicRolloff, plainSourceGain } from '../systems/audio.js';   // E6: the QuestMachine's own DaggerfallAudioSource (PlaySound's busy-skip)
 import { music } from '../systems/music.js';
 import { AmbientEffects, EXTERIOR_AMBIENT_WAITS, presetForExterior } from '../systems/ambientEffects.js';
 import { createWeatherFront, blendTerms, soundWeather } from '../systems/weatherFront.js';   // WX2: the front reaches the ground
-import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, createDetectFeed, foeNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, adjustFallStart, offsetArrows, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag , raisePlayerSkills, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost } from './shared.js';   // TP1: PlayerEntity.RaiseSkills   // EC1: the live enchant pool + its sinks router; AUDIT 58: the membership question the Wabbajack door asks too
+import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, createDetectFeed, foeNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, adjustFallStart, offsetArrows, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag , raisePlayerSkills, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost, realmSaveSink, setRealmSaveSink, setBeforeTitleExit } from './shared.js';   // TP1: PlayerEntity.RaiseSkills   // EC1: the live enchant pool + its sinks router; AUDIT 58: the membership question the Wabbajack door asks too
 import { getNearbyObjects } from '../systems/nearbyObjects.js';   // X9: the dispel sweep filters the same scan
 import { dispelNearby, liveBundles, attemptSoulTrap, SOUL_TRAP_TEXT } from '../systems/mysticism.js';   // X9: the destroy law (destroyed, not killed); WBX7: the kill's soul trap roll, for the court's boss
 import { PlayerMotor, startRestGroundedCheck, motionBagOf, MAX_FRAME_DT, CAPSULE_HEIGHT, CAPSULE_RADIUS, RIDE_EYE_HEIGHT, afloatMessageStep, CANNOT_FLOAT_HUD_SECONDS } from '../player/motor.js';   // SPELLFX1: a peer's eye when its body has not said its height
@@ -399,6 +400,10 @@ import { itemLongName } from '../systems/itemInfo.js';   // SIGIL1: the weapon's
 import { partySizeOf, partyExtraFoes, partyGroupMembers } from '../systems/partyScale.js';   // PSCALE1: a fight weighs the party - its count, and the foes more an outdoor encounter stands
 import { GROUP_ROLL_RADIUS } from '../systems/campEncounters.js';   // PSCALE1: outdoors, the party a roll stands for is the camp's own group
 import { SOLITARY_TYPES } from '../characters/mobileFactions.js';   // AUDIT PSCALE1 COUNT-2: a solitary foe meets a party alone
+import {
+  realmIo, openRealmBoot, createRealmSession, realmSummaryOf, setRealmNotice, realmCreate, realmPut, realmBootSearch, realmRefusalText,
+  sayRealmSave, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, whenPageGoes, realmTradeEscrow, realmGoldAct,
+} from '../systems/realmSaves.js';   // REALM P1.3: an online character is the realm's - joined, loaded and checkpointed through the service
 import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that session lives - the app's store, not the tab's (a second tab is the same player)
 import { POSE_STRIKES, isWorldRoom, isCellRoom, cellHaloFor, actFrameFits, sharedClassicMinutes, wallMsForClassicMinutes } from '../net/wire.js';   // WORLD6b-iii(b): the cell seam's halo   // MAC7 #1: the swing's kind on the wire; AUDIT WORLD4 A1: whether an act frame can be said at all
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // MAC7 #2: the arrow bit on the wire - weaponRig's own read
@@ -436,6 +441,7 @@ import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's 
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
 import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
+import { checkpointAllowed, checkpointDue, checkpointedTradePack } from '../systems/onlineCheckpoint.js';   // REALM P0.5: the character saved as it plays online
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
 import { createTradePack } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack
 import { createPlayerTradeWindow, playerTradeReady } from '../ui/playerTradeDoor.js';   // TRADE1: the enhanced window two players share
@@ -513,8 +519,6 @@ import { LightningBoltsRenderer } from '../render/lightningBolts.js';   // BOLT:
 import { createDread, createDreadStorm, dreadLight, dreadCloudGlow, DREAD_KEY_DIM, DREAD_FLASH_COLOR } from '../world/dreadSky.js';   // EVENT1: the live event's sky and its red storm
 import { parseEventCommand } from '../net/chatCommands.js';   // EVENT1: /event, a dev's live event
 import { isStaff, parseStaffCommand, STAFF_HELP_LINES, findPlace, findPlayer } from '../net/staffCommands.js';   // STAFF1: the staff's own commands
-import { createProxVoice } from '../net/proxVoice.js';   // VOICE1: proximity voice - the links and the sound
-import { createVoiceHud, voiceHudLines } from '../ui/voiceHud.js';   // VOICE1: who is speaking
 import { fieldFromNative, nativeFromField, fieldOfPixelLocal } from '../systems/weatherField.js';   // WEATHER2b: the field's metres from the streaming world's natives, and back
 import { cellOfField, VC_PROFILE } from '../render/volumetricClouds.js';   // WEATHER2c: the field's cells as the clouds' cells   // W1: the live weather state (the save halves ride save.js); SAV3: the classic import's zone array
 import { classicSaveToSnapshot, takePendingClassicSave, peekPendingClassicSave } from '../systems/classicSave.js';   // SAV3: the classic-save import arm
@@ -618,19 +622,48 @@ export async function bootWorld(canvas, renderer, params, status) {
   // browser's own idle answer, swallows every failure (MENU1's notice is
   // the door's to show), and boots nothing if the player never opens one.
   void import('../ui/enhancedChunk.js').then((m) => m.warmEnhancedChunks()).catch(() => {});
+  // REALM P1.3 (bible/06-Systems/Realm-Arc.md section 2): AN ONLINE CHARACTER IS THE REALM'S. The Online door boots one
+  // with ?realm=<id>: joined under a new lease and its save read from the service before anything below reads a save -
+  // never a local slot. A join that fails says why at the door; an online boot with no realm character in it (a stale
+  // address, a local slot) is refused online and plays offline. ?realmnew is a character being born online: the online
+  // lane for its chargen and no relay until the realm holds it (realmBirth).
+  const realmNew = params.has('online') && params.has('realmnew');
+  const realmIoNow = () => realmIo({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() });
+  const realmBoot = params.has('online') && params.has('realm') && params.has('load') ? await openRealmBoot({ io: realmIoNow(), id: params.get('realm') }) : null;
+  if (realmBoot && !realmBoot.ok) { setRealmNotice(globalThis.sessionStorage, realmRefusalText(realmBoot.error)); exitToTitleMenu(); return; }
+  const realmRefused = params.has('online') && !realmBoot && !realmNew;
+  if (realmRefused) { params.delete('online'); publishBootParams(params); }
+  /** The playing tab's session over the realm character (systems/realmSaves.js): every save of it is the service's
+   *  checkpoint (the composers' sink, scenes/shared.js realmSaveSink), and its end - another tab joined it, it was
+   *  deleted, the account signed out - takes the player to the door with the reason. */
+  const realmSession = realmBoot ? createRealmSession({ io: realmIoNow(), id: params.get('realm'), lease: realmBoot.lease, seq: realmBoot.seq, onLost: (why) => realmLost(why) }) : null;
+  // REALM P1.3: a realm checkpoint that LANDS is a save that lands - the gate's spoils it was composed holding are then
+  // safe on the service, and their device record goes (scenes/spoilsPool.js saved, as onSlotSaved tells it for a slot).
+  // Without it no realm save ever cleared them, and every boot handed the same spoils back. The hooks are the spoils
+  // pool's, set once it stands (below).
+  const _realmSaveHooks = { held: () => null, landed: () => {} };
+  if (realmSession) setRealmSaveSink((snap) => {
+    const who = characterIdOf(playerEntity);
+    const holding = _realmSaveHooks.held(who);
+    return realmSession.checkpoint(JSON.stringify(snap), realmSummaryOf(playerEntity)).then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); return r; }).catch(() => ({ ok: false, error: 'server' }));   // AUDIT REALM2 C2: the outcome answered back - F9's word is the realm's answer
+  });
   // MW-EARLY: the save the load door at the end of this boot restores - its pick, and its ONE parse (AUDIT MW-EARLY F3,
   // below). AUDIT FINAL F9: declared here, first, so the Test Room's check below reads that same parse and that same
   // pick (the classic import's arm included) - it had parsed the save a second time, by a pick of its own.
   const bootLoadPick = !params.has('load') || (params.has('classicload') && peekPendingClassicSave()) ? null
+    : realmBoot ? { realm: true }   // REALM P1.3: the service's save, never a slot
     : params.has('loadkey')
       ? { key: Number(params.get('loadkey')) }
       : { mostRecent: true };
   let bootSnapRead;
   const bootSnap = () => (bootSnapRead === undefined ? (bootSnapRead = pickedSaveSnap(bootLoadPick ?? {})) : bootSnapRead);
+  if (realmBoot) { bootSnapRead = realmBoot.snap; realmBoot.snap = null; }   // REALM P1.3: the realm's save, parsed at the join, IS the one parse - held here alone, so the door lets it go
   // AUDIT SET D4: A TEST ROOM CHARACTER STAYS OFFLINE - asked before anything below reads `online` (the lane reads the
   // published URL, so the drop is published too), and said once the world stands
   const testRoomOffline = testRoomOnlineRefused(params, { snap: bootSnap });
   if (testRoomOffline) { params.delete('online'); publishBootParams(params); }
+  if (testRoomOffline && realmSession) { setRealmNotice(globalThis.sessionStorage, realmRefusalText('test-room')); exitToTitleMenu(); return; }   // REALM P1.3: never the realm's
+  if (refuseOnlinePowerFlags(params).length) publishBootParams(params);   // REALM P0.1: ?shot, ?fly, ?nofoes and the rest - dropped online before anything below reads them
   const regionName = params.get('region') || 'Daggerfall';
   const locationName = params.get('loc') || 'Daggerfall';
   // WORLD5 (Mac: "the shared clock and weather, and the quest clocks stood down online"): ONLINE, THE WORLD'S CLOCK IS
@@ -1588,7 +1621,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const centreY = alignBillboardToGround(y, hitDistance(hit), WOD_LOOT_ALIGN.sizeY, WOD_LOOT_ALIGN.distance);
       const lootKey = DUNGEON_LOOT_KEYS[WOD_LOOT_LOCATION_INDEX];
       const items = generateLootItems(lootKey, { level: playerEntity.level, gender: playerEntity.gender });
-      addPileLootExtras(items, lootKey);
+      addPileLootExtras(items, lootKey, undefined, { level: playerEntity.level });   // REALM P0.4: online, the level's gold divided back
       rollLootRarity(items, pileSource(dungeonRarityTier(WOD_LOOT_LOCATION_INDEX)), { luck: liveStat(playerEntity, 'luck') });   // LR1: every list a host mints, at its source - GenerateLoot's dungeon type
       stampWonWeapons(items, 1);   // SIGIL1: a pile found online, its weapons' sigils rolled at the mint
       // AUDIT BRANCH (WoD) m1: PIXEL-LOCAL until the art lands. The world
@@ -2866,6 +2899,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const lightSize = (record) =>
       billboardSize(light210, record);
     const addFlat = (archive, record, x, y, z) => {
+      [archive, record] = drawnFlat(archive, record);   // NUDE-FLATS: base-anchored, so the stand-in stands where the figure did
       const k = `${archive}_${record}`;
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k).push([x, y, z]);
@@ -3372,7 +3406,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT 26 (F019): the pixel's street StaticNPCs - identity inputs
     // + the billboard extent the activation ray needs, resolved the
     // way the interior host resolves its people's
-    // (interiorContext.js:434-455). FLATS.CFG is awaited because
+    // (interiorContext.js:435-456). FLATS.CFG is awaited because
     // SetLayoutData's exterior overload reads it for the gender
     // (StaticNPC.cs:185-194); loadFlats never throws and is warmed with
     // the scene, so this is a coalesced wait. The list rides the pixel,
@@ -3380,15 +3414,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     await pipeline.loadFlats();
     const pixelNpcs = [];
     for (const flat of pixelNpcFlats) {
-      const t = await getTexture(flat.archive);
-      if (!t || flat.record >= t.recordCount) continue;
-      const size = billboardSize(t, flat.record);
+      // NUDE-FLATS: the picture (and so the box) is the clothed stand-in's
+      // while Show Nudity is off - a coven's witches; the identity stays born.
+      const [drawArchive, drawRecord] = drawnFlat(flat.archive, flat.record);
+      const t = await getTexture(drawArchive);
+      if (!t || drawRecord >= t.recordCount) continue;
+      const size = billboardSize(t, drawRecord);
       const pn = exteriorNpcRecord(flat, pipeline.flatsFile()?.getFlatData(flat.archive, flat.record) ?? null);
       // E3: `active` is the GameObject's own state (the away arm's
       // SetActive(false)) and `questBehaviour` the component
       // SetupIndividualStaticNPC attaches; both are what the interior
       // host's people carry, so the click seam reads one shape.
-      pixelNpcs.push({ ...pn, width: size.w, height: size.h, active: true, questBehaviour: null, host: null });
+      pixelNpcs.push({ ...pn, drawArchive, drawRecord, width: size.w, height: size.h, active: true, questBehaviour: null, host: null });
       // The extent still belongs to the pixel's culling box even though
       // the billboard is batched later (a pixel whose only content near
       // an edge is a street NPC must not cull itself away).
@@ -3628,7 +3665,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const npcGroups = new Map();
     for (const pn of entry.npcs) {
       if (!pn.active) continue;
-      const k = `${pn.textureArchive}_${pn.textureRecord}`;
+      const k = `${pn.drawArchive ?? pn.textureArchive}_${pn.drawRecord ?? pn.textureRecord}`;   // NUDE-FLATS: the picture the build chose
       if (!npcGroups.has(k)) npcGroups.set(k, []);
       npcGroups.get(k).push([pn.x, pn.y, pn.z]);
     }
@@ -4626,6 +4663,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           surfacePlayer();
           questInitAtGameStart();   // Q4-v: OnStartGame for the new character
           autoBuildArms(playerEntity);   // MWA1: the new character's arms - race, sex and face are known now
+          if (realmNew) realmBirth().catch((e) => { console.error('[realm] the birth failed', e); realmLost('server'); });   // REALM P1.3: born online
         },
       }));
     }).catch((e) => console.warn('[chargen] CLASS*.CFG unavailable; the interim entity stands in', e));
@@ -4918,9 +4956,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   csaPeers.setPeerLook((id) => (_hiddenPeers.has(id) ? 'hidden' : (_veils.get(id) ?? null)));   // AUDIT PRE-MERGE 0928 O4: a concealed sailor's boat is concealed with them (the cart pool's I-B law; last frame's word)
   const csaAboard = createComeSailAwayAboard({ peers: csaPeers, geometry: (c) => csaColliderMesh(c), selfId: () => online?.id ?? null });   // CSA-K: another player's boat, stood on and carried by; and the others aboard, seen on the deck
   // CSA-C: THE RUNTIME - the boats placed, kept where they stand and saved (systems/comeSailAway.js). Made as the world
-  // mounts with the mod on ("Takes effect when the game next loads"), and only then does its record ride the save
-  // (OH-D's precedent: a mod DFU did not load writes none). The pool loads every hull's needs at once, so SpawnBoat
-  // runs straight through when the C# calls it.
+  // mounts with the mod on ("Takes effect when the game next loads"); with it off, no runtime, and its record is carried
+  // as the load handed it (AUDIT REALM2 C3 - OH-D's "a mod DFU did not load writes none" lost a realm character's boats
+  // for good). The pool loads every hull's needs at once, so SpawnBoat runs straight through when the C# calls it.
   /** A built pixel as the Terrain the runtime and the ray hand round - one object per pixel, so `==` is Unity's. */
   const _csaTerrains = new WeakMap();
   const csaTerrainOf = (p) => {
@@ -5458,6 +5496,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     playerTicker.subscribe((from, to) => { if (to > from) csaCall(() => csaRuntime.OnNewMagicRound()); });   // CSA-D: EntityEffectBroker.OnNewMagicRound - the cargo weighed again at the helm
     _onWeatherChange = (w) => csaCall(() => csaRuntime.OnWeatherChange(WEATHER_TYPES.indexOf(w)));   // CSA-E: WeatherManager.OnWeatherChange - a new wind
+  } else {
+    // AUDIT REALM2 C3: off, the mod's record is carried whole from the load to every save (the switch is the player's
+    // online, and a realm character's one record lost every boat at an off boot's first checkpoint); M3: and a lent ship
+    // taken back as it loads, before a bank can buy it (comeSailAway.js comeSailAwayCarrier)
+    registerModSaveData(COME_SAIL_AWAY_VENDOR, comeSailAwayCarrier({ ship: { assign: (type) => assignShipToPlayer(playerEntity, SHIP_TYPES[type], { addPermanentScene: shipPermanentScenes }), removePermanentScene: (name) => removePermanentScene(_sceneCache(), name) } }));
   }
   /** CSA-C: the runtime's call, as a MonoBehaviour's: an exception in it is logged and the frame goes on. */
   const csaCall = (fn) => { try { fn(); } catch (e) { console.error('[come-sail-away]', e); } };
@@ -6610,10 +6653,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2678 mounts the same one, gated on
+  // and dungeonContext.js:2680 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6331
+  // that context through modes.dungeonCtx - so worldModes.js:6348
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8890,10 +8933,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** Save(name, saveName) over the host's own envelope; F9 is the
    *  QuickSave name (QuickSave() = Save(Name, quickSaveName)) and the
    *  slot window's saveAs passes the typed one. */
-  function worldQuickSave(saveName = QUICK_SAVE_NAME) {
+  function worldQuickSave(saveName = QUICK_SAVE_NAME, { quiet = false, sink = null } = {}) {   // REALM P0.5: a quiet checkpoint takes no shot and says only a failure; P1.3: a realm character's goes to the service
     // AUDIT OH-F B4: never a save inside the descent (one frame in DFU): it would write the swimmer on the template's
-    // land with the mod's record not yet Active
-    if (ohAbyss?.entering) { townTalk.say('You cannot save now.'); return false; }   // cannotSaveNow (Internal_Strings)
+    // land with the mod's record not yet Active. AUDIT REALM2 M5: said to a save pressed, never to the quiet checkpoint
+    if (ohAbyss?.entering) { if (!quiet) townTalk.say('You cannot save now.'); return false; }   // cannotSaveNow (Internal_Strings)
     const pf = walkMode && playerSpawned ? player.pos : cam.pos;
     const wc = state.worldCoords(pf);
     // IS1 (AUDIT 26 F221): the inside-building half (SerializablePlayer
@@ -8922,7 +8965,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7361), so exterior mode and a
+    // composer, dungeonContext.js:7373), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -8979,13 +9022,15 @@ export async function bootWorld(canvas, renderer, params, status) {
         guards: cityGuards.snapshotWorld((pos) => state.worldCoords(pos)).map((sg) => ({ ...sg, y: sg.y - state.compensation[1] })),
       },
     });
+    const into = sink ?? realmSaveSink();   // REALM P1.3: a realm character's save is the service's checkpoint, never a local slot
+    if (into) { const said = into(snap); if (!quiet) sayRealmSave(said, (t) => townTalk.say(t)); return true; }   // AUDIT REALM2 C2: the realm's answer, not a hope
     const r = saveSlot(playerEntity.name, saveName, snap);
     // SS1: the shot is DEFERRED to frame end (SaveGame's two
     // WaitForEndOfFrame yields) - the frame loop's
     // capturePendingScreenshot delivers it once the save window has
     // popped, HUD in shot exactly as the C# leaves it.
-    if (r.ok) requestScreenshot(r.key);
-    townTalk.say(r.ok ? 'Game saved.' : 'Save failed (storage full or disabled).');
+    if (r.ok && !quiet) requestScreenshot(r.key);
+    if (!r.ok || !quiet) townTalk.say(r.ok ? 'Game saved.' : 'Save failed (storage full or disabled).');
     return r.ok;
   }
   /** AUDIT 63r F24, the EXTERIOR half of SerializableEnemy.cs
@@ -10842,9 +10887,79 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT DUEL1 D5 + B4: a duel in play ends here as `left` (the opponent is told now, not after DUEL_GONE_MS) and its
     // heal runs now - the exit autosave below must not keep a duel's 1 health or its opponent's spells
     try { duelLeaveNow(); } catch { /* no duel was built: nothing to end */ }
+    // REALM P1.3: a realm character writes no local slot. AUDIT REALM2 C2: nor gives its lease up here - this comes before
+    // the unload guard's "Leave site?" is answered, and a Stay played on in a session already left (every checkpoint
+    // refused, F9 saying "saved"); the leave is the page's going (pagehide, whenPageGoes below)
+    if (realmSession) return;   // the realm's: no slot
     const save = (saveName) => (modes ? modes?.quickSaveNow(saveName) : worldQuickSave(saveName));   // `?.` even inside the ternary: audit24 wave37's gate above the declaration is all-or-nothing
     for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })) save(saveName);
   });
+  /** REALM P0.5 (systems/onlineCheckpoint.js): THE CHARACTER SAVED AS IT PLAYS ONLINE - every slot the exit save above
+   *  writes, quietly (no "Game saved.", no shot), every ONLINE_CHECKPOINT_MS (onlineFrame) and at each change a trade
+   *  makes to the pack (checkpointedTradePack). Refused where the exit save is, and while a duel is in play. Answers
+   *  whether it wrote. */
+  let _checkpointAt = -Infinity;
+  const onlineCheckpoint = () => {
+    if (!checkpointAllowed({ online: !!online, spawned: playerSpawned, seatOut: seatOut(), duel: !!duelMgr?.duel })) return false;
+    _checkpointAt = performance.now();
+    try {
+      // REALM P1.3: a realm character's checkpoint is ONE, the service's - the composer's sink sends it, no slot is written
+      if (realmSession) return realmCheckpoint();
+      const names = exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() });
+      for (const saveName of names) {
+        if (modes) modes?.quickSaveNow(saveName, { quiet: true });   // `?.` inside the test: audit24 wave37's gate above the declaration is all-or-nothing
+        else worldQuickSave(saveName, { quiet: true });
+      }
+      return names.length > 0;
+    } catch (e) { console.error('[online] checkpoint failed', e); return false; }   // never the frame's end: the next is due in two minutes
+  };
+  /** REALM P1.3: THE REALM'S CHECKPOINT - the character composed by the standing host and handed to the session by the
+   *  composer's sink. Refused as the exit save is on the death screen: a dead character is never the realm's save. */
+  function realmCheckpoint() {
+    if (!realmSession || realmSession.lost) return false;
+    if (townTalk.overlay instanceof DeathScreen || modes?.deathUp?.() || !(playerEntity.health > 0)) return false;
+    // AUDIT REALM2 M5: the composer's own answer - a save it refused (the court, the Ocean Holes descent) is no checkpoint,
+    // and a trade's hold (realmTradeEscrow's `=== false`) must not begin over the older record the service holds
+    return !!(modes ? modes?.quickSaveNow(QUICK_SAVE_NAME, { quiet: true }) : worldQuickSave(QUICK_SAVE_NAME, { quiet: true }));   // `?.` even inside the ternary: audit24 wave37's gate above the declaration is all-or-nothing
+  }
+  /** REALM P1.3: THE CHARACTER IS NO LONGER THIS TAB'S (another tab or device joined it, it was deleted, the account
+   *  signed out): to the door, with the reason - a realm character never plays on offline. */
+  function realmLost(why) {
+    setRealmNotice(globalThis.sessionStorage, realmRefusalText(why));
+    exitToTitleMenu();
+  }
+  if (realmSession) {
+    // the door the game opens - the pause menu's Exit, the death's: the last checkpoint and the leave, then the menu
+    // (five seconds at most: the loop is already claimed, and a hung network must not hold the door shut). AUDIT REALM2
+    // C7: a duel ended first and P0.5's gate passed, as the page's end and the seat's - realmCheckpoint straight wrote a
+    // character that left mid-duel at the duel's 1 health, the opponent's spells on it
+    setBeforeTitleExit(async () => { if (!realmSession.lost) { try { duelLeaveNow(); } catch { /* no duel was built: nothing to end */ } onlineCheckpoint(); await Promise.race([realmSession.leave(), new Promise((r) => { setTimeout(r, REALM_EXIT_WAIT_MS); })]); } });
+    // a tab put away (a phone's home button, another tab) is checkpointed while the page still can be
+    whenPageHides(globalThis.document, () => { if (online) onlineCheckpoint(); });
+    // AUDIT REALM2 C2: the lease given up as the page GOES (pagehide, the unload guard answered) - the leave alone, with
+    // keepalive (the browser finishes it; a save that large it cannot, so the two-minute checkpoints bound what a close
+    // costs) - and taken again when a page the back-forward cache kept is shown
+    whenPageGoes(globalThis, () => { realmSession.leave({ keepalive: true }); }, () => { realmSession.rejoin(); });
+  }
+  /** REALM P1.3: A CHARACTER BORN ONLINE - made at the service once chargen is done, its first save the service's
+   *  checkpoint at sequence 1, and then the one online boot there is, from the service. Any refusal goes to the door. */
+  async function realmBirth() {
+    const io = realmIoNow();
+    if (!io) { realmLost('signed-out'); return; }
+    for (let i = 0; !playerSpawned && i < 240; i++) await new Promise((r) => { setTimeout(r, 250); });   // the world stands before it is saved
+    const made = await realmCreate(io, playerEntity.name || 'Traveller', realmSummaryOf(playerEntity));
+    if (!made.ok) { realmLost(made.error); return; }
+    playerEntity.characterId = made.data.id;   // the realm's id, never the client's
+    let text = null;
+    const sink = (snap) => { text = JSON.stringify(snap); };
+    if (modes) modes?.quickSaveNow(QUICK_SAVE_NAME, { quiet: true, sink });
+    else worldQuickSave(QUICK_SAVE_NAME, { quiet: true, sink });
+    if (!text) { realmLost('server'); return; }
+    const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(playerEntity) }, text);
+    if (!put.ok) { realmLost(put.error); return; }
+    releaseUnloadGuard();
+    location.replace(`${location.pathname}${realmBootSearch(location.search, made.data.id, BOOT_DOOR_KEYS)}`);
+  }
 
   addEventListener('mousemove', (e) => {
     // U37: a window frees the mouse, so an open overlay gets the
@@ -10885,13 +11000,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // un-draw (Mouse0) could never read true. mouseCode owns the
   // Unity/DOM middle-button crossover; the RELEASE is unconditional.
   addEventListener('mousedown', (e) => { if (isSwingButton(e.button)) rightHeld = true; const mc = mouseCode(e.button); if (mc) { keys.add(mc); noteKeyDown(latch.edge, mc); } if (isSwingButton(e.button) && !townTalk.overlayActive && walkMode && modeNow() === 'exterior') { if (magic.interceptAttack(true)) return; weaponRig.attackInput(0, 0, true); } });   // M2; FIX-F: the swing's button is the registry's (Mouse1 -> SwingWeapon by default)
-  // VOICE1: the mouse's side buttons are push-to-talk's (and any binding's) in the world - never the browser's Back/Forward
+  // VIEW-TOGGLE (from VOICE1, which is reverted): the mouse's side buttons are the bindings' in the world - never the browser's Back/Forward
   for (const kind of ['mousedown', 'mouseup']) addEventListener(kind, (e) => { if (e.button === 3 || e.button === 4) e.preventDefault(); });
-  // AUDIT VOICE1 A2: A PUSH-TO-TALK HELD INTO ANOTHER WINDOW never hears its release - the key stayed held and the
-  // microphone open in the other app. The window losing focus lets go of push-to-talk's codes (a hidden tab runs no
-  // frames, and the voice's own push-to-talk lapse and stall watch let go there - net/proxVoice.js).
-  const letGoOfTalk = () => { for (const c of [...keys]) if (held(new Set([c]), 'PushToTalk')) keys.delete(c); proxVoice?.setTalking(false); };
-  addEventListener('blur', letGoOfTalk);
   addEventListener('mouseup', (e) => { if (isSwingButton(e.button)) rightHeld = false; const mc = mouseCode(e.button); if (mc) { keys.delete(mc); noteKeyUp(latch.edge, mc); } if (isSwingButton(e.button) && walkMode && modeNow() === 'exterior') weaponRig.attackInput(0, 0, false); });   // the RELEASE is never gated - a window opened mid-swing must still let go
   const inputHooks = {   // GP1: one hooks object for the finger AND the pad   // mobile: stick synthesizes WASD; the right half is classified (TI1)
     look: (dx, dy) => {
@@ -11375,7 +11485,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9752-9816 -
+  // worldModes answers it in BOTH modes (worldModes.js:9769-9833 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -12483,6 +12593,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // ReligionTemple) - and which never tested `mustBeOutside` at all,
     // so "in town, outdoors" was true while standing in a shop.
     isPlayerInTown: () => _isPlayerInTownStrict(),
+    partySize: () => social?.party?.members?.length ?? 1,   // REALM P0.4: a shared quest's gold is paid in the party's shares (online; offline no party)
     getGuild: (fid) => {
       const dict = townTalk.factionDict ?? null;
       const g = guildOfFaction(fid, resolveVariantGuild(dict), dict);
@@ -12632,7 +12743,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // This host alone: the fixed city (exterior.js) is a dev route the
   // front door never boots, and its interior frame and town room
   // disagreed with this one's (AUDIT ONLINE D6/D8).
-  const onlineOn = params.has('online');
+  const onlineOn = params.has('online') && !realmNew;   // REALM P1.3: a character being born online joins no relay until the realm holds it
   // ECON1 / AUDIT ALL E1: the world's price walk is tilted by the game's own BASE faction powers (FACTION.TXT, the talk
   // host's file dict - never the player's store, which quests move) once the file is read; a modded file desyncs the
   // shared economy (recorded). Offline nothing is installed and the player's own tilted walk runs.
@@ -12647,9 +12758,6 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the reset always found it null and always ended the run. This snapshot is taken the moment death starts
   // (the presenter above, and the frame below as a backstop) and the reset reads IT, not the cleared live state.
   let _deathWasOnline = null;
-  let proxVoice = null, voiceHud = null;   // VOICE1: made with the chat's frame below - declared here, above online.onRtc, its first reader (BOOT-TDZ)
-  let _voiceMutedUntil = 0;   // AUDIT VOICE1 A4: the relay's word that I am muted (epoch s) - my own voice goes quiet while it holds
-  let _voiceOut = null;   // AUDIT VOICE1 A7: { ctx, dest, el } - the voices' own way to the speakers
   let chatLog = null, chatPanel = null, chatLinks = null;   // CHAT1: the log, the panel, one channel session per tab (Map tabId -> OnlineSession)
   // ONE-SEAT (Mac: "the player can only have one character only at a time. Like they shouldnt be able to open multiple
   // tabs and join as different characters"): THIS TAB'S HOLD ON THE PLAYER'S ONE SEAT. Two arms say it is lost: the
@@ -12952,12 +13060,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   // captured here: the links are built after this and rebuilt on rejoin.
   // ═══ RENOWN1 — THE RENOWN (Mac: "What if the leveling system was something seperate unique to online but
   // compatible"; the health and magicka "On top", a "Grind", offline earning "No") ═══════════════════════════════════
-  // The level this page knows for its character: the token's word at each mint (the minter names the character, and
-  // the service signs its level in) and the service's after each report - ONLY EVER UPWARD, because a total never
-  // falls and a token minted a moment before a rise must not take it back. Each rise puts the layer on at the new
+  // The level this page knows - the ACCOUNT's, whichever character plays (RENOWN-ACCOUNT, Mac: "can you make sure renown is account based and not character based?"):
+  // the token's word at each mint (the minter names the character coming online, and the service signs the level in) and the service's after each report - ONLY
+  // EVER UPWARD, because a total never falls and a token minted a moment before a rise must not take it back. Each rise puts the layer on at the new
   // level (systems/renownLayer.js: on top of Daggerfall's own maximums, never saved). Offline, none of this runs.
   let renownNow = null;
-  // RENOWN4: and the track's TOTAL, for my own bar (ui/hudRenown.js) - the mint's answer and every report's carry it,
+  // RENOWN4: and the account's TOTAL, for my own bar (ui/hudRenown.js) - the mint's answer and every report's carry it,
   // and like the level it only rises: a total never falls, and an answer that arrives late must not take one back.
   let renownXp = null;
   const renownXpAdopt = (xp) => {
@@ -13027,10 +13135,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     teleportTo(pick).catch((e) => { console.error('[staff] /tp failed:', e); hudFade.clearFade(); say('The teleport failed.'); });
   }
   const identityMinter = accountTokenMinter({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage(), onIssued: adoptIssued,
-    character: () => (onlineOn ? characterIdOf(playerEntity) : null) });   // RENOWN1: the character coming online, whose level the token carries
-  // RENOWN1: WHAT THIS CHARACTER EARNS - online only (the tracker is never built offline, and earns only while a session
-  // exists). A foe pays when it dies within RENOWN_ASSIST_MS of my own blow, whoever struck last (net/renownTracker.js - the
-  // one rule every kill door agrees on), with the party in my room counted (renownPartyXp); a quest pays on success, once.
+    character: () => (onlineOn ? characterIdOf(playerEntity) : null) });   // RENOWN1: the character coming online - RENOWN-ACCOUNT: the token carries the account's level, whichever is named
+  // RENOWN1: WHAT THIS CHARACTER EARNS, FOR ITS ACCOUNT (RENOWN-ACCOUNT) - online only (the tracker is never built offline, and earns only while a session
+  // exists). A foe pays when it dies within RENOWN_ASSIST_MS of my own blow, whoever struck last (net/renownTracker.js - the one rule every kill door agrees
+  // on), with the party in my room counted (renownPartyXp); a quest pays on success, once - each at three quarters (net/renown.js renownRate, RENOWN-ACCOUNT).
   // The report goes every RENOWN_REPORT_MS; the service's answer is the truth, and a rise is carried to my rooms.
   const renownAccount = accountRenown({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() });
   let _renownCapHour = null;
@@ -13286,7 +13394,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!pageOffers.offer(id, d.page, peerName(id))) return;
       tradeSay(pageOfferText(peerName(id), pageReadHow()));
     };
-    online.onRtc = (id, d) => proxVoice?.receive(id, d);   // VOICE1: a voice link's offer, answer, ICE or goodbye
     online.onAct = (id, data) => { modes?.applyPlaceActions?.(id, data); };   // WORLD3: another's door, lever or platform; WORLD6a: in a building too
     // WORLD5: this save's time markers are set to the WORLD's time - a save a month behind catches up no loans and no
     // diseases on its first frame, one a year ahead reads no negative day - and the day's weather is rolled from the
@@ -13296,7 +13403,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // did the markers stood at the uncorrected clock's time: a machine minutes off caught up (or froze for) the
     // difference on its first corrected tick. A room move's welcome says the same offset again and moves nothing.
     const onlineArrival = () => { alignEntityClocks(playerEntity, worldMinutes()); rollClimateWeathersForDay(worldMinutes()); refreshSeason(worldMinutes()); };
-    onlineArrival();
+    onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: worldMinutes(), say: (l, d) => townTalk.say(l, d) });   // REALM P0.3: the Empire calls in the debt it would not have lent, on the world's clock
     alignSurvival(playerEntity, Math.floor(worldMinutes()), Math.floor(worldMinutes()));   // SURV7: a record ahead of the world's clock starts fresh; the gap itself is save.js's load arm
     online.onClock = (offsetMs) => { const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; _sharedClockHeard = true; if (Math.abs(offsetMs - was) > 1000) { const before = playerEntity.lastGameMinutes; onlineArrival(); if (Number.isFinite(before)) shiftSurvival(playerEntity, Math.floor(worldMinutes()) - Math.floor(before)); alignSurvival(playerEntity, Math.floor(worldMinutes()), Math.floor(worldMinutes())); } };   // AUDIT SURV B: the correction re-aligns the needs too; AUDIT SURV-TIERS (the third pass): by the delta every other marker rode, first   // WORLD5: the relay's clock corrects this machine's
     remotePlayers = new RemotePlayers({ renderer, deps: { fetchBytes, palette, getTexture, uploadRecordFrame, audio } });   // 2026-09-17: uploadRecordFrame added for the class-enemy billboard path (net/remotePlayers.js _buildMobile/_syncMobilePeer) - the doll path never touches it
@@ -13356,7 +13463,6 @@ export async function bootWorld(canvas, renderer, params, status) {
     // `mutedNotices` passes the first and the next real event.
     const mutedOnce = mutedNotices();
     const onMuted = ({ until }) => {
-      _voiceMutedUntil = Number(until) || 0;   // AUDIT VOICE1 A4: before the notice's once-gate - a lift must land too
       if (!mutedOnce(until, Date.now())) return;
       chatLog.push(chatLog.active, { text: mutedText(until, Math.floor(Date.now() / 1000)), system: true });
     };
@@ -13684,8 +13790,12 @@ export async function bootWorld(canvas, renderer, params, status) {
           gold: () => totalGoldAmount(playerEntity) + (account?.accountGold ?? 0),
           pay: (n) => { const short = deductGold(playerEntity, n); if (account && short > 0) account.accountGold -= short; },
           credit: (n) => { addGold(playerEntity, n); },
+          region: () => _questRegionIndex() ?? 0,   // REALM P2.2: the account the record pays from is this one
         };
       },
+      // REALM P2.2: a realm character's founding, deposit and withdrawal move its record's gold on the service, in the
+      // guild's own batch - the purse checkpointed first, the hold standing until the answer (realmSaves.js realmGoldAct)
+      realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,
     });
     socialPanel = createSocialPanel({
       social,
@@ -13798,7 +13908,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const p = peersNear()?.find((x) => x.id === peerId);
     return !!p && inTradeRange(player.feetAt(), p.feet, TRADE_RANGE_M);   // feetAt(): the same interpolated feet PARTY_REST_RADIUS's distanceToPartyAccount measures from - the port's one "where am I, in metres"
   };
-  const tradePack = createTradePack(playerEntity);
+  const tradePack = checkpointedTradePack(createTradePack(playerEntity), () => onlineCheckpoint());   // REALM P0.5: the giver's loss on disk before the goods leave
   let tradeWin = null;
   const tradeMgr = createTradeManager({
     pack: tradePack,
@@ -13808,6 +13918,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     peerName: (id) => peerName(id),
     selfId: () => online?.id ?? '',
     near: tradeNear,   // the ONE range rule (TRADE_RANGE_M metres), asked by the ask, the accept, the lock, the confirm and every frame of a live trade
+    escrow: realmSession ? realmTradeEscrow({ session: realmSession, checkpoint: () => onlineCheckpoint() }) : null,   // REALM P2.1: both confirms hand the commit to the realm, which moves the goods between the two records at once - the checkpoint first, while the goods are still in the pack
     open: (session) => {
       tradeWin = createPlayerTradeWindow(session, { items: () => (playerEntity.items ??= []), entity: playerEntity, gold: () => tradePack.gold(),
         rows: (id, pick) => townTalk.lines(id, pick) });   // AUDIT TRADE-INFO D2: an artifact's powers are its TEXT.RSC words, as the pack's card reads them
@@ -14127,9 +14238,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     say: (text) => chatNotice(text),
   }) : null;
   /** RAID4: THE RAID RECEIPTS THIS DEVICE CARRIES TO THE ACCOUNT SERVICE (net/raidClaims.js) - each town the relay
-   *  signed my defence of, kept with the character that fought it until the service has counted it and paid that
-   *  character its Renown; a counted raid's Renown is the page's at once, as a report's is - when that character is
-   *  the one standing here (another's track moved, not this one's). */
+   *  signed my defence of, kept with the character that fought it until the service has counted it and paid its
+   *  Renown; a counted raid's Renown is the page's at once, as a report's is - RENOWN-ACCOUNT: WHOEVER IS STANDING
+   *  HERE, since the Renown is the account's (a raid another of my characters fought was dropped as another's track). */
   const _accountRaids = accountRaids({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() });
   const raidClaims = params.has('online') ? createRaidClaims({
     claim: _accountRaids.claim,
@@ -14139,7 +14250,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     say: (text) => chatNotice(text),
     onSpoils: (entry) => grantRaidSpoils(entry),   // AUDIT RAID R4: the town's thanks, once a raid and account - the service's word
     onRecorded: (data) => {
-      if (data?.renown?.character !== characterIdOf(playerEntity)) return;
+      if (!data?.renown) return;   // RENOWN-ACCOUNT: any claim's credit is the account's - adopted whichever character fought it
       const a = renownAnswer({ ...data.renown, order: data.order ?? null }, data.renown.credited ?? 0, renownSaid);
       if (a.xp !== null) renownXpAdopt(a.xp);
       if (a.level !== null) renownAdopt(a.level);
@@ -14187,6 +14298,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   // AUDIT WBX S3: a save that lands holds the pieces in the pack - their crash records clear on it, by the event
   onSlotSaved((characterId) => { try { spoilsPool.saved(characterId); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } });
+  // REALM P1.3: a realm checkpoint's spoils. AUDIT REALM2 C1: a town's thanks with them - RAID4b's own pool was cleared by a
+  // slot's save alone (onSlotSaved, below), which a realm character never writes, so every join handed the thanks back
+  _realmSaveHooks.held = (who) => { try { return [...(spoilsPool?.heldIds?.(who) ?? []), ...(raidSpoils?.heldIds?.(who) ?? [])]; } catch { return null; } };
+  _realmSaveHooks.landed = (who, ids) => { try { spoilsPool?.saved(who, ids); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } try { raidSpoils?.saved(who, ids); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } };
   onSlotSaved((characterId) => { try { raidSpoils.saved(characterId); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } });   // RAID4b
   /** AUDIT WBX S4: the spoils given outside a court, one tab at a time - two tabs of one account on one device each
    *  checked the store before the other had written it, and both gave them (the Web Locks API; without it, at once). */
@@ -15814,57 +15929,6 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (due === 'send' && link.sendTraveller(mark)) { travellerSent.last = mark; travellerSent.at = now; }
     else if (due === 'clear' && link.sendTraveller(null)) { travellerSent.last = null; travellerSent.at = now; }
   };
-  /** VOICE1 (2026-09-28, Mac: "develop prox chat" - push-to-talk, STUN only, nearby only): PROXIMITY VOICE
-   *  (net/proxVoice.js). Made where the browser can hold a voice link; the relay only introduces two players (`rtc`),
-   *  the voice goes browser to browser. On while the player's own switch is (Settings, on by default) and the relay routes the
-   *  frame; each voice placed at its speaker's head, heard from the camera (the listener every sound has). */
-  proxVoice = typeof globalThis.RTCPeerConnection === 'function' && globalThis.navigator?.mediaDevices?.getUserMedia
-    ? createProxVoice({
-      myId: () => online?.id ?? null,
-      send: (d) => online?.sendRtc(d) ?? false,
-      RTCPeerConnection: globalThis.RTCPeerConnection,
-      getUserMedia: (c) => globalThis.navigator.mediaDevices.getUserMedia(c),
-      ctx: () => audio.ctx,
-      // AUDIT VOICE1 A7: THE VOICES' OWN WAY OUT - a MediaStream destination played by an UNMUTED element, not the
-      // listener's bus: Chrome's echo cancellation takes only what a media element plays as its reference (WebAudio's
-      // output is not - crbug 687574), so a voice played through the bus came back out of a speaker player's
-      // microphone. Remade with the context.
-      bus: () => {
-        const ctx = audio.ctx;
-        if (!ctx?.createMediaStreamDestination) return null;
-        if (_voiceOut?.ctx !== ctx) {
-          const dest = ctx.createMediaStreamDestination();
-          const el = globalThis.document.createElement('audio');
-          el.srcObject = dest.stream;
-          el.play?.()?.catch?.(() => {});
-          _voiceOut = { ctx, dest, el };
-        }
-        if (_voiceOut.el.paused) _voiceOut.el.play?.()?.catch?.(() => {});   // an autoplay refusal before the first gesture is tried again
-        return _voiceOut.dest;
-      },
-      place: placeAudio,
-      // Chrome plays a remote WebRTC stream into WebAudio only while a media element also holds it - muted, never heard
-      makeSink: (stream) => { const a = globalThis.document.createElement('audio'); a.muted = true; a.srcObject = stream; a.play?.()?.catch?.(() => {}); return { stop: () => { a.srcObject = null; } }; },
-      onFail: (id) => townTalk.say(`Voice could not connect to ${peerName(id) ?? 'a player'} - their network or yours blocks it.`),
-      onMic: (st) => { if (st === 'denied') townTalk.say('The microphone is blocked - allow it in your browser to be heard.'); },
-    })
-    : null;
-  voiceHud = proxVoice ? createVoiceHud() : null;
-  globalThis.addEventListener?.('pagehide', () => proxVoice?.close());   // AUDIT VOICE1 A3: every voice link's goodbye as the page goes, and the microphone let go (offline, a held frame and a hidden tab are the module's own stall watch)
-  const voiceFrame = (nowMs) => {
-    if (!proxVoice) return;
-    const on = !!getPref('proxVoice') && !!online?.voiceOk && online.status === 'open' && !(_voiceMutedUntil > Date.now() / 1000);
-    const ear = cam.pos;
-    const peers = on ? (peersNear() ?? []).map((p) => {
-      const head = [p.feet[0], p.feet[1] + (p.height || 1.8) * 0.9, p.feet[2]];
-      return { id: p.id, head, d: Math.hypot(head[0] - ear[0], head[1] - ear[1], head[2] - ear[2]) };
-    }) : [];
-    proxVoice.setVolume(getPref('voiceVolume') ?? 1);
-    proxVoice.tick({ on, peers, now: nowMs });
-    const ptt = on && held(keys, 'PushToTalk');
-    proxVoice.setTalking(ptt);
-    voiceHud.render(on ? voiceHudLines({ talking: proxVoice.talking(), mic: proxVoice.micState(), held: ptt, speakers: proxVoice.speaking(nowMs).map((id) => peerName(id) ?? '') }) : []);
-  };
   const chatFrame = () => {
     if (!chatLinks) return;
     buildPoll(performance.now());
@@ -15895,7 +15959,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (socialPanel?.openLetters({ draft: _letterPending.draft })) _letterPending = null;
       else if (performance.now() - _letterPending.at > LETTER_PENDING_MS) { _letterPending = null; tradeSay('Your letters could not open - the page is still in your journal.'); }
     }
-    voiceFrame(performance.now());   // VOICE1: the voice links, their places and who is speaking
     partyTravel?.tick();   // PARTY-TRAVEL: the party's journey - throttled inside to PARTY_TRIP_TICK_MS
     partyRestFollowTick();   // PARTY-REST1: every frame, not throttled to the send cadence - a few property reads, and a follower's own countdown should start and end as promptly as the leader's does
     partyFrame(performance.now());   // SOC2: my party pose rides the chat frame - before the dead return with it, so a dead member's card says so as their vitals read zero
@@ -16456,6 +16519,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy(); peerCandlesFrame([], dt); return;   // PEERLIGHT2: and no candle hangs over the dead; AUDIT RIDE: and no rider stands frozen over it either
     }   // AUDIT WORLD B6: the dungeon's and the building's death screens stand in the mode's slot   // AUDIT MWBODY B7: and no body stands frozen over the death screen
     _rezSeen = null;   // AUDIT CONTRIB A6: alive - the next death takes its own snapshot of what the party's poses say
+    if (checkpointDue(now, _checkpointAt)) onlineCheckpoint();   // REALM P0.5: every two real minutes, alive and in the seat (the first such frame persists the join's call-in)
     const mode = modes?.mode ?? 'exterior';   // audit24_wave37: guarded on the OBJECT above its own declaration (the frame runs after it)
     const overworld = mode === 'exterior';
     const wc = state.worldCoords(player.pos);
@@ -17043,6 +17107,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     onlineHomes,
     homeDecor,   // DECOR1c: an online home's placed pieces (null offline - the house's and the ship's are the save's)
     decorCharacter: () => characterIdOf(playerEntity),   // DECOR1d: the character an online home's placements are written as
+    // REALM P2.2b: a realm character's home and decor acts move its record's gold on the service, in the act's own batch
+    realmAct: realmSession ? (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) : null,
     partyNames: () => (social?.others?.() ?? []).map((m) => m.name).filter((n) => typeof n === 'string' && n.length > 0),
     npcSession,   // TK-iv: the questor door on a static-NPC click
     // B4: the dungeon context quicksaves through the same composer
@@ -17198,7 +17264,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // same as every existing caller that hands none) so worldModes'
     // quickSaveNow can also update a character's AutoSave slot on the
     // way out, not only QuickSave - see its own header.
-    quickSave: (saveName) => worldQuickSave(saveName),
+    quickSave: (saveName, opts) => worldQuickSave(saveName, opts),
     loadRebuilds: (snap) => ohAbyss?.loadRebuilds(snap?.modData?.[OCEAN_HOLES_VENDOR] ?? null) ?? false,   // AUDIT OH-F B2
     loadSave: (key) => worldQuickLoad(key != null ? { key } : {}),   // CASTLE1: the dungeon's own load door hands a save from another place here (dungeonContext.js quickLoad)
     quickLoad: () => worldQuickLoad(),
@@ -17382,6 +17448,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (entered) playerSpawned = true;
   }
   if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // AUDIT SET D4: said once the world stands, the character loaded
+  if (realmRefused) townTalk.say(REALM_OFFLINE_TEXT);   // REALM P1.3: an online boot with no realm character plays offline, and says so
   // EOTB-IL: StartGameBehaviour.OnNewGame (the mod's handler, IL_0930) -
   // a boot that loaded nothing is a new game, wherever it starts
   if (!_loadedGame) mwViewNewGame((modes?.mode ?? 'exterior') !== 'exterior');
@@ -17402,7 +17469,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   // ...and the door itself (the recorded departure: DFU's console
   // WINDOW is the third-party UnityConsole prefab, not DFU source).
-  installConsoleProbe();
+  // AUDIT REALM2 M4: OFFLINE ONLY - REALM P0.1's law for ?shot's
+  // __addGold. LypyL_GameConsole ships True, and the door's verbs
+  // mint (Come Sail Away's giveboat and placeboat, a deed each).
+  if (!params.has('online')) installConsoleProbe();
   if (shotMode) { modes.installShotProbes(); installTownProbes(); }
   if (shotMode) {   // CASTLE1 probe surface (tools/castleProbe.mjs)
     window.__quickSave = (name) => modes.quickSaveNow(name);   // the standing host's OWN composer (the dungeon's underground)

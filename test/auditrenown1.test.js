@@ -27,8 +27,8 @@ import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { createGuest, overRate } from '../server-account/src/accounts.js';
 import { reportRenownXp } from '../server-account/src/renownTracks.js';
 import {
-  RENOWN_XP_MAX, RENOWN_XP_REPORT_MAX, RENOWN_XP_HOUR_MAX, RENOWN_TRACKS_MAX, RENOWN_REPORT_MS, RENOWN_RID_RE, renownRidOf,
-  renownXpFor, renownProgressText,
+  RENOWN_XP_MAX, RENOWN_XP_REPORT_MAX, RENOWN_XP_HOUR_MAX, RENOWN_REPORT_MS, RENOWN_RID_RE, renownRidOf,
+  renownXpFor, renownForXp, renownProgressText,
 } from '../src/net/renown.js';
 import { mintRenownOrder, ORDER_TTL_S } from '../src/net/identityToken.js';
 import {
@@ -129,24 +129,32 @@ test('AUDIT RENOWN1 (DATA-1\'s neighbour): the rate limiter\'s window only moves
   assert.equal(await overRate({ db, nowS: start + W + 1 }, 'login:mara', 10, W), false, 'a NEWER window still starts fresh');
 });
 
-test('AUDIT RENOWN1 DATA-3/DATA-7: the track bound is asked IN the write - fifty new characters reporting at once past 59 tracks make exactly one more; and a report the hour has spent makes no empty track (mutants: the bound read before the write; a track of 0 XP made)', async () => {
+test('AUDIT RENOWN1 DATA-3/DATA-7: the track bound was asked IN the write - RENOWN-ACCOUNT made it the KEY: fifty new characters reporting at once, fifty-nine tracks of history behind them, all land on the account\'s ONE track (it was one fit, and 109 tracks before the audit); and a report the hour has spent makes no empty track (mutants: a track of 0 XP made; a row a character again)', async () => {
   const db = d1();
   const me = await player(db);
-  for (let i = 0; i < RENOWN_TRACKS_MAX - 1; i++) {
+  for (let i = 0; i < 59; i++) {
     db._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, NULL, 10, ?, ?)').run(me.id, `char-${String(i).padStart(4, '0')}`, T0, T0);
   }
   const answers = await Promise.all(Array.from({ length: 50 }, (_, i) => reportRenownXp({ db, nowS: T0 + 10 }, me, { character: `new-${String(i).padStart(4, '0')}`, xp: 10 })));
-  assert.equal(answers.filter((a) => !a.error).length, 1, 'one fits');
-  assert.equal(answers.filter((a) => a.error === 'renown-full').length, 49, 'every other is refused');
-  assert.equal(db._raw.prepare('SELECT COUNT(*) AS n FROM renown_tracks WHERE player = ?').get(me.id).n, RENOWN_TRACKS_MAX, 'exactly the bound - it was 109');
-  assert.equal(windowOf(db, me.id).xp, 10, 'and a refused report spends none of the hour');
-  // the hour spent: an alt's kill is credited nothing, and makes no track to take one of the sixty places
+  assert.equal(answers.filter((a) => !a.error).length, 50, 'every one lands - no character is refused');
+  assert.equal(answers.reduce((a, r) => a + r.credited, 0), 500);
+  assert.equal(db._raw.prepare('SELECT COUNT(*) AS n FROM renown_accounts WHERE player = ?').get(me.id).n, 1, 'ONE track, by its key - there is no count to race');
+  assert.equal(db._raw.prepare('SELECT xp FROM renown_accounts WHERE player = ?').get(me.id).xp, 500);
+  assert.equal(db._raw.prepare('SELECT COUNT(*) AS n FROM renown_tracks WHERE player = ?').get(me.id).n, 59, 'the history untouched');
+  assert.equal(windowOf(db, me.id).xp, 500, 'and the hour charged what was credited');
+  // the hour spent: an alt's kill is credited nothing, and answered with the account's total
   const db2 = d1();
   const you = await player(db2);
-  for (let i = 0; i < 4; i++) await reportRenownXp({ db: db2, nowS: T0 + i }, you, { character: 'char-main', xp: 5000 });
+  for (let i = 0; i < RENOWN_XP_HOUR_MAX / RENOWN_XP_REPORT_MAX; i++) await reportRenownXp({ db: db2, nowS: T0 + i }, you, { character: 'char-main', xp: RENOWN_XP_REPORT_MAX });
   const alt = await reportRenownXp({ db: db2, nowS: T0 + 9 }, you, { character: 'char-alt1', xp: 10 });
-  assert.deepEqual([alt.credited, alt.xp, alt.level, alt.rose], [0, 0, 1, false]);
-  assert.deepEqual(db2._raw.prepare('SELECT char_id FROM renown_tracks').all().map((r) => r.char_id), ['char-main'], 'no empty track');
+  assert.deepEqual([alt.credited, alt.xp, alt.level, alt.rose], [0, RENOWN_XP_HOUR_MAX, renownForXp(RENOWN_XP_HOUR_MAX), false]);
+  // DATA-7: an account whose hour was spent before it earned a thing makes no empty track
+  const db3 = d1();
+  const them = await player(db3);
+  db3._raw.prepare('UPDATE players SET renown_hour = ?, renown_hour_xp = ? WHERE id = ?').run(Math.floor(T0 / 3600), RENOWN_XP_HOUR_MAX, them.id);
+  const none = await reportRenownXp({ db: db3, nowS: T0 + 1 }, them, { character: 'char-aaaa', xp: 10 });
+  assert.deepEqual([none.credited, none.xp, none.level, none.rose], [0, 0, 1, false]);
+  assert.equal(db3._raw.prepare('SELECT COUNT(*) AS n FROM renown_accounts').get().n, 0, 'no empty track');
 });
 
 test('AUDIT RENOWN1 DATA-4/GAME-9: a report is ONE transaction under its own id - the same report sent again (its answer lost) is answered as a repeat and credited once; a new id is a new report; an id out of its shape is refused; and a report that fails half-way spends none of the hour (mutants: the id unread; the repeat credited; the hour spent outside the transaction)', async () => {
@@ -163,19 +171,20 @@ test('AUDIT RENOWN1 DATA-4/GAME-9: a report is ONE transaction under its own id 
   assert.deepEqual([c.credited, c.xp], [100, 3100], 'a new id is a new report');
   assert.deepEqual(await reportRenownXp({ db, nowS: T0 + 12 }, me, { character: 'char-aaaa', xp: 100, rid: 'not-an-id' }), { error: 'renown-xp' });
   assert.equal((await reportRenownXp({ db, nowS: T0 + 13 }, me, { character: 'char-aaaa', xp: 5 })).credited, 5, 'a report with no id (a client before the audit) is answered as it always was');
-  // a failure between the hour and the track rolls the hour back with it
-  db._raw.exec("CREATE TRIGGER boom BEFORE INSERT ON renown_tracks WHEN NEW.char_id = 'char-boom' BEGIN SELECT RAISE(ABORT, 'boom'); END;");
+  // a failure between the hour and the track rolls the hour back with it (RENOWN-ACCOUNT: the account's track)
+  db._raw.exec("CREATE TRIGGER boom BEFORE UPDATE ON renown_accounts WHEN NEW.last_rid = '1111111111111111' BEGIN SELECT RAISE(ABORT, 'boom'); END;");
   const before = windowOf(db, me.id).xp;
   await assert.rejects(reportRenownXp({ db, nowS: T0 + 20 }, me, { character: 'char-boom', xp: 500, rid: '1111111111111111' }));
   assert.equal(windowOf(db, me.id).xp, before, 'the hour is as it was: the report is one transaction');
   assert.match(src('server-account/src/renownTracks.js'), /const \[decided, , , after\] = await db\.batch\(\[/, 'ONE batch - D1 runs it as one transaction');
-  assert.match(src('server-account/migrations/0009_renown.sql'), /\n {2}last_rid {3}TEXT,\n/, 'the track keeps the id of the last report it took');
+  assert.match(src('server-account/migrations/0009_renown.sql'), /\n {2}last_rid {3}TEXT,\n/, 'the track kept the id of the last report it took');
+  assert.match(src('server-account/migrations/0021_renown_account.sql'), /\n {2}last_rid {3}TEXT,\n/, 'and the account\'s track keeps it (RENOWN-ACCOUNT)');
 });
 
 test('AUDIT RENOWN1 DATA-5: reports racing near the cap are decided against the track as it stands INSIDE the transaction - the hour is charged what the track took, and only one says it rose (mutants: what the track can take read before the write)', async () => {
   const db = d1();
   const me = await player(db);
-  db._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, NULL, ?, ?, ?)').run(me.id, 'char-capp', RENOWN_XP_MAX - 10, T0, T0);
+  db._raw.prepare('INSERT INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)').run(me.id, RENOWN_XP_MAX - 10, T0, T0);   // RENOWN-ACCOUNT: the account's track
   const both = await Promise.all([1, 2].map(() => reportRenownXp({ db, nowS: T0 + 1 }, me, { character: 'char-capp', xp: 5000 })));
   assert.deepEqual(both.map((r) => r.credited).sort((x, y) => x - y), [0, 10], 'one took the ten, the other nothing - it was ten each, both charged');
   assert.equal(windowOf(db, me.id).xp, 10, 'the hour charged the ten the track kept - it was charged twenty');
@@ -213,8 +222,9 @@ test('AUDIT RENOWN1 DATA-4 at the route: `rid` rides the body to the report, and
   assert.deepEqual([first.credited, first.rose, typeof first.order], [5000, true, 'string']);
   const again = (await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 5000, rid }, me.secret)).body;
   assert.deepEqual([again.credited, again.repeat, again.level, typeof again.order], [0, true, 9, 'string'], 'a repeat is answered, credited nothing, and carries the order');
-  const fresh = (await call('POST', '/v1/renown/xp', { character: 'char-bbbb', xp: 1, rid: 'bbbbbbbbbbbbbbbb' }, me.secret)).body;
-  const freshAgain = (await call('POST', '/v1/renown/xp', { character: 'char-bbbb', xp: 1, rid: 'bbbbbbbbbbbbbbbb' }, me.secret)).body;
+  const you = (await call('POST', '/v1/auth/guest', {})).body;   // RENOWN-ACCOUNT: another ACCOUNT - my other characters stand at my level 9
+  const fresh = (await call('POST', '/v1/renown/xp', { character: 'char-bbbb', xp: 1, rid: 'bbbbbbbbbbbbbbbb' }, you.secret)).body;
+  const freshAgain = (await call('POST', '/v1/renown/xp', { character: 'char-bbbb', xp: 1, rid: 'bbbbbbbbbbbbbbbb' }, you.secret)).body;
   assert.deepEqual([freshAgain.repeat, freshAgain.order], [true, null], 'a repeat at level 1 has no rise to carry');
   assert.equal(fresh.credited, 1);
   const yml = src('.github/workflows/account-deploy.yml');
@@ -517,13 +527,13 @@ test('AUDIT RENOWN1 UI-1/UI-6/UI-8/UI-10: the account card\'s values shrink and 
   const storage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   const flow = AccountFlow({ io: { fetch: async () => { throw new Error('no network'); } }, storage });
   const card = accountCard({ createElement: mk }, flow);
-  flow.account = { id: 'p1', name: 'Lattymoy', kind: 'linked', handle: 'Lattymoy', playedS: 60, renown: [{ character: 'char-cccc', name: 'Old Hand', xp: RENOWN_XP_MAX, level: 50 }] };
+  flow.account = { id: 'p1', name: 'Lattymoy', kind: 'linked', handle: 'Lattymoy', playedS: 60, renown: { xp: RENOWN_XP_MAX, level: 50 } };   // RENOWN-ACCOUNT: the account's one
   flow.stage = 'in';
   card.paint();
   const rows = card.root.all.filter((n) => n.className === 'acctval').map((n) => n.textContent);
-  assert.ok(rows.includes('Old Hand - Renown 50, the highest there is'), rows.join(' | '));
+  assert.ok(rows.includes('Renown 50, the highest there is'), rows.join(' | '));
   const chip = card.root.all.find((n) => n.className === 'acctrenown');
-  assert.equal(chip.title, 'Renown 50 - Old Hand');
+  assert.equal(chip.title, 'Renown 50 - shared by all your characters', 'whose it is: the account\'s');
   flow.stage = 'password';
   card.paint();
   assert.equal(card.root.all.some((n) => n.className === 'acctrenown'), false, 'only signed in');

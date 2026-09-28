@@ -507,7 +507,7 @@ export function released(edges, keys, action) { return edgeAction(edges?.upFrame
  *  left/RIGHT/MIDDLE, MouseEvent.button as left/MIDDLE/right, so the
  *  two middle names cross. One table, so no host spells 'Mouse' +
  *  e.button and hands the wheel the right button's action. */
-export const MOUSE_CODES = Object.freeze(['Mouse0', 'Mouse2', 'Mouse1', 'Mouse3', 'Mouse4']);   // VOICE1: and the two side buttons (MouseEvent.button 3 back, 4 forward - Unity's Mouse3/Mouse4), push-to-talk's
+export const MOUSE_CODES = Object.freeze(['Mouse0', 'Mouse2', 'Mouse1', 'Mouse3', 'Mouse4']);   // VIEW-TOGGLE (from VOICE1, which is reverted): and the two side buttons (MouseEvent.button 3 back, 4 forward - Unity's Mouse3/Mouse4), the view toggle's
 /** The binding code for a MouseEvent.button, or null past the fifth. */
 export function mouseCode(button) { return MOUSE_CODES[button] ?? null; }
 

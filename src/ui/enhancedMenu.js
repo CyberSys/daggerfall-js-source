@@ -45,7 +45,7 @@
 // reload. Classic works that way because classic is a DOS program with
 // a fixed 320x200 screen. Neither reason survives here.
 //
-// This is ONE screen, under BOTH skins (main.js:118-234, FD1: the
+// This is ONE screen, under BOTH skins (main.js:118-242, FD1: the
 // launcher and its settings window are deleted; the classic rail is
 // Begin, which leads into the splash and PICK03I0 exactly as before).
 // Every destination is a press away from every other, settings
@@ -104,7 +104,12 @@ import { labelOf, helpOf, INSTEAD, TIER_TEXT } from '../ui/settingsCopy.js';
 import {
   effectiveSettings, setValue, saveSettings, resetToDefaults, tierOf, DEFAULTS,
 } from '../systems/settings.js';
-import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME } from '../systems/saveSlots.js';
+import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME, loadSlot, saveSlot } from '../systems/saveSlots.js';
+import {
+  realmIo, realmList, realmCustoms, realmPut, realmDelete, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
+} from '../systems/realmSaves.js';   // REALM P1.3: the Online door lists the realm's characters, the service's
+import { applyCustoms, customsLines } from '../systems/realmCustoms.js';   // REALM P1.5: an offline character comes in once, through customs
+import { mintCharacterId } from '../systems/characterId.js';   // REALM P1.4: a copy to offline is a new offline character
 import { exportSavesZip, collectSlots, importSlots, entriesFromFiles, slotPathOf, TRANSFER_ZIP_NAME } from '../systems/saveTransfer.js';   // SP1: saves move between the website and the app
 import { appStorage } from '../systems/appStorage.js';   // SP1: the store under this build - the browser's on the site, the file store in the app   // SAV4: the slot store; SLOTS1: every slot
 import { uiSkin, SKIN_NAMES, isEnhanced } from '../systems/uiSkin.js';   // FD1: which boot rail
@@ -144,9 +149,9 @@ import { openPlusPadBinds, plusPadLegend } from './plusPadBinds.js';   // PADPLU
 import { plusBindsOpen, resetPlusDpad } from './plusPad.js';
 import { peerBindBusy } from './peerMenuBindCard.js';   // PEERMENU1   // PADPLUS10: the window over this one answers its own keys
 import { modKeyRows } from '../systems/controlsConfig.js';   // UXB1-F: a mod's keys, read-only on its tile
-import { MOD_SETTINGS, modSetting, setModSetting, isIntKey, isFloatKey, isChoiceKey, isTextKey, isTupleKey } from '../systems/modSettings.js';
+import { MOD_SETTINGS, modSetting, setModSetting, onlineModSetting, isIntKey, isFloatKey, isChoiceKey, isTextKey, isTupleKey } from '../systems/modSettings.js';   // REALM P0.2: onlineModSetting, the room's value for a key it owns (whole mods included)
 import { keyCodeForDomCode, KEYCODE_NONE } from '../systems/keyCodes.js';   // HT1: a TextKey's capture spells the key as Unity would
-import { isOnlinePage, onlineForcedPref, onlineForcedModSetting, onlineForcedSetting } from '../systems/onlineLane.js';   // OL1: online is the enhanced lane, whole - a forced switch is shown locked   // ROADS 24; DS1: the integer keys; UL1: the choice keys
+import { isOnlinePage, onlineForcedPref, onlineForcedModSetting, onlineForcedSetting, onlineWholeModKey, ONLINE_ROOM_MOD_KEYS } from '../systems/onlineLane.js';   // OL1: online is the enhanced lane, whole - a forced switch is shown locked   // ROADS 24; DS1: the integer keys; UL1: the choice keys
 import { onlineSyncPlan, applyOnlineSync, lastOnlineSync, undoOnlineSync } from '../systems/onlineSync.js';   // UXB1-E: the room's rules, copied home
 import { CREDITS } from './credits.js';   // CR1: who made what the port carries
 // FIX-F (Mac: "changing keybinds in classic/enhanced do not work"): the
@@ -302,6 +307,16 @@ let _pickedSaveKey = null;
 let _pickedSaveName = null;
 let _saveNameDraft = '';
 export function takePickedSaveKey() { const k = _pickedSaveKey; _pickedSaveKey = null; return k; }
+/** REALM P1.3: the realm character the Online door's Play pressed - its id rides the boot (main.js ?realm). */
+let _pickedRealmId = null;
+export function takePickedRealmId() { const id = _pickedRealmId; _pickedRealmId = null; return id; }
+/** REALM P1.3: the realm's characters as the service listed them this visit (null: not asked yet), its bound, what the
+ *  last act said (a refusal, customs' report, a copy's word) and whether an act is running. Per VISIT, as the cloud's. */
+let realmRows = null;
+let realmAsked = false;
+let realmMax = 0;
+let realmWords = [];
+let realmBusy = false;
 export function takePickedSaveName() { const n = _pickedSaveName; _pickedSaveName = null; return n; }
 
 /** One slot as the cards draw it: the character's line and numbers, and the slot's own name. */
@@ -985,25 +1000,29 @@ function paneOnline(body) {
     c.append(go);
     body.append(c);
   }
+  // REALM P1.3 (Mac: "A true separation while allowing people to still play offline"; bible/06-Systems/Realm-Arc.md):
+  // THE REALM'S CHARACTERS COME FIRST. An online character's save is the service's, so this list is the service's -
+  // asked once a visit - and a character is played from here and nowhere else.
+  body.append(realmCard(who));
   if (!saves.length) {
-    body.append(empty('No saved games', 'Online brings a saved character in. Save a game and every slot of it appears here.'));
+    body.append(empty('No saved games', 'An offline character that played online before the realm can be brought in from here, once.'));
     body.append(onlineSyncCard());   // UXB1-E: the rules can come home before a character goes out
     return;
   }
-  // TILE2 (Mac: "a detailed tile based design for your saves"): the
-  // slots, with the character's own face on them, and the press brings
-  // that character in - its key rides the boot (takePickedSaveKey).
+  // REALM P1.5 (decision 3, "Migrate once via customs"): AN OFFLINE CHARACTER COMES IN ONCE. TILE2's tiles, with the
+  // character's own face on them - and the press is customs, not a boot: the realm settles its loans and caps what it
+  // carries (systems/realmCustoms.js) on a copy, the service makes the realm character, and it appears above to play.
+  // The offline character stays exactly what it was.
+  body.append(el('h4', null, 'Bring an offline character in (once)'));
   body.append(tileGrid(saves, (save) => ({
-    current: save.key === saves[0]?.key,
+    current: false,
     actions: [{
       // AUDIT SET D4: a Test Room character's button says why it is dead (the boot refuses it whatever door it comes by)
-      label: save.testRoom ? 'Test Room: offline only' : 'Play online',
-      primary: true,
+      label: save.testRoom ? 'Test Room: offline only' : 'Bring online',
       // ACC1g: signed out is a DEAD button with the reason one card up,
-      // not a live one that fails at the relay. The relay owns the rule
-      // and refuses an unverified hello whatever this pane does.
+      // not a live one that fails at the service.
       disabled: !who || save.testRoom,
-      onClick: () => { _pickedSaveKey = save.key; onAction('online'); },
+      onClick: () => { if (!realmBusy) bringOnline(save); },
     }],
   })));
   const field = (label, key, placeholder, maxLength) => {
@@ -1028,6 +1047,83 @@ function paneOnline(body) {
   foot.append(field('Relay', 'onlineServer', DEFAULT_SERVER, 200));
   body.append(foot);
   body.append(onlineSyncCard());   // UXB1-E: under the rules it copies
+}
+
+/** REALM P1.3: THE REALM CARD - the account's online characters as tiles (the service's list, asked once a visit), each
+ *  played, copied to offline or deleted from here; a new one born online; and what the last act said. */
+function realmCard(who) {
+  const box = el('div', 'svrealm');
+  box.append(el('h4', null, 'Your online characters'));
+  for (const w of realmWords) box.append(el('p', 'meta', w));
+  if (!who) return box;
+  if (!realmAsked) {
+    realmAsked = true;
+    realmList(realmIo({ fetch: (...a) => globalThis.fetch(...a), storage: appStorage() })).then((r) => {
+      realmRows = r.ok ? r.characters : [];
+      realmMax = r.ok ? r.max : 0;
+      if (!r.ok) realmWords = [...realmWords, realmRefusalText(r.error)];
+      render();
+    }).catch(() => {});
+  }
+  if (realmRows == null) { box.append(el('p', 'meta', 'Asking the realm...')); return box; }
+  if (realmRows.length) {
+    const grid = el('div', 'svgrid');
+    for (const row of realmRows) {
+      const save = realmRowAsSave(row, { dateText: (sec) => new Date(sec * 1000).toLocaleDateString() });
+      grid.append(saveTile(document, save, {
+        face: loadFace(save, { scale: 2, copy: true }),
+        actions: [
+          { label: save.unfinished ? 'Never saved' : 'Play', primary: true, disabled: realmBusy || save.unfinished, onClick: () => { _pickedRealmId = row.id; onAction('online'); } },
+          { label: 'Copy to offline', disabled: realmBusy || save.unfinished, onClick: () => copyToOffline(row) },
+          { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its home and its guild place with it. Your Renown belongs to your account and stays, as does a copy you made offline.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
+        ],
+      }));
+    }
+    box.append(grid);
+  } else box.append(el('p', 'meta', 'No online characters yet. Make one, or bring one of yours in below.'));
+  box.append(acts([{ label: 'New online character', primary: !realmRows.length, disabled: realmBusy || realmRows.length >= realmMax, onClick: () => onAction('online-new') }]));
+  return box;
+}
+const realmIoNow = () => realmIo({ fetch: (...a) => globalThis.fetch(...a), storage: appStorage() });
+/** One realm act at a time: busy while it runs, its words (or its refusal) shown after, and the list asked again. */
+function realmAct(run, words) {
+  realmBusy = true; render();
+  return Promise.resolve().then(run).then((r) => {
+    realmWords = r?.ok === false ? [realmRefusalText(r.error)] : (typeof words === 'function' ? words(r) : words);
+  }).catch(() => { realmWords = [realmRefusalText('server')]; }).finally(() => { realmBusy = false; realmAsked = false; realmRows = null; render(); });
+}
+/** REALM P1.5: CUSTOMS - the local save read, customs applied to a COPY (the offline character is untouched), the realm
+ *  character made from it once (the service refuses one never online, and a second try), its first save the copy. */
+function bringOnline(save) {
+  return realmAct(async () => {
+    const io = realmIoNow();
+    if (!io) return { ok: false, error: 'signed-out' };
+    const snap = loadSlot(save.key);
+    if (!snap) return { ok: false, error: 'no-data' };
+    if (typeof snap.characterId !== 'string' || !snap.characterId) return { ok: false, error: 'customs-load-once' };
+    if (snap.testRoom === true) return { ok: false, error: 'test-room' };   // AUDIT SET D4's law: the room's characters play offline
+    const copy = JSON.parse(JSON.stringify(snap));
+    const report = applyCustoms(copy);
+    const made = await realmCustoms(io, snap.characterId, copy.name || save.name, realmSummaryOf(copy));
+    if (!made.ok) return made;
+    copy.characterId = made.data.id;
+    const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(copy) }, JSON.stringify(copy));
+    return put.ok ? { ok: true, lines: customsLines(report) } : put;
+  }, (r) => [...r.lines, `${save.name} is in the realm now. Play them from above.`]);
+}
+/** REALM P1.4: COPY TO OFFLINE - the realm's save read and written as a NEW offline character (a new id), a slot like
+ *  any other. Nothing played on the copy ever goes back: the Online door loads only from the service. */
+function copyToOffline(row) {
+  return realmAct(async () => {
+    const got = await realmFetch(realmIoNow(), row.id);
+    if (!got.ok) return got;
+    let snap = null;
+    try { snap = JSON.parse(got.text); } catch { snap = null; }
+    if (!snap || typeof snap !== 'object') return { ok: false, error: 'no-data' };
+    snap.characterId = mintCharacterId();
+    const r = saveSlot(snap.name || row.name, 'Copied from the realm', snap, { storage: appStorage() });
+    return r.ok ? { ok: true } : { ok: false, error: 'no-room' };
+  }, [`${row.name} is copied to offline - a new offline character. Nothing played on it comes back to the realm.`]);
 }
 
 // UXB1-E (2026-09-25, the UX backlog: "Add a 'sync from server' option so players can ensure their offline play
@@ -1623,7 +1719,7 @@ const ONLINE_LOCK_NOTE = 'On while online - the shared world is the enhanced lan
 /** MODS-ONLINE-2: the Mods pane's own line. The lane's note (above)
  *  is about the PORT's switches and was wrong over the tiles the
  *  moment a mod stopped being forced. */
-const ONLINE_MODS_NOTE = 'Most of your mods are yours online: turn them on or off as you like. Thirty-seven switches are the room\u2019s - Basic Roads and World of Daggerfall (both shape the terrain, so everyone stands on the same ground), Detailed Ships (every owner\u2019s ship stands at one place, so its deck is shared), Iliac Puddle No More\u2019s sea and its depth (the seafloor is ground too) and There\u2019s a Hole in the Bottom of the Ocean\u2019s pits (cut into that seafloor); Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism: Items\u2019 item switches and the deep\u2019s foes and sunken loot, because a dungeon\u2019s foes are its host\u2019s and loot changes hands; and Roleplay & Realism\u2019s combat rules and the deep\u2019s swimming rules, because a room plays one ruleset.';
+const ONLINE_MODS_NOTE = 'Most of your mods are yours online: turn them on or off as you like. The room owns what shapes the ground and what decides balance - Basic Roads and World of Daggerfall (both shape the terrain, so everyone stands on the same ground), Detailed Ships (every owner\u2019s ship stands at one place, so its deck is shared), Iliac Puddle No More\u2019s sea and its depth (the seafloor is ground too) and There\u2019s a Hole in the Bottom of the Ocean\u2019s pits (cut into that seafloor) with the deep\u2019s foes, sunken loot and swimming; and every dial of Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism, Roleplay & Realism: Items and Oblivion leveling, because the realm plays one balance (who stands behind a counter and which leveling your character uses stay yours).';
 const ONLINE_GROUND_NOTE = 'Set while online - it shapes the ground itself (road beds smoothed in, camp sites levelled, the one deck every owner\u2019s ship shares, the seafloor carved to its depth and the pits cut into it), so every player in a room has to stand on the same ground. Your own choice returns when you play offline.';
 /** WOD1: the vendors whose room-owned switch is the GROUND's - the two
  *  that write terrain heights (roads' beds, World of Daggerfall's sites). */
@@ -1641,12 +1737,21 @@ const ONLINE_RULESET_KEYS = Object.freeze({
   'roleplay-realism': Object.freeze(['advancedArchery', 'weaponSpeed', 'weaponMaterials', 'classicStrengthDamageBonus', 'equipDamage', 'encumbranceEffects', 'RefinedTraining.intensiveTraining']),
   'iliac-puddle-no-more': Object.freeze(['General.SwimSpeedMultiplier', 'General.EnableSwimStroke', 'General.ArgonianInfiniteBreath']),   // DW-D: the swim and the breath
 });
+/** REALM P0.2: a dial of a balance mod the room owns whole (onlineLane.js ONLINE_WHOLE_MODS) - its own reason. */
+const ONLINE_BALANCE_NOTE = 'Set while online - the realm plays one balance, so a loot, leveling or combat dial one player turns for their own play would make one character stronger or richer than the rest. Your own choice returns when you play offline.';
 /** DISC22-A: a DFU setting the room plays by (onlineLane.js ONLINE_FORCED_SETTINGS) - its own reason. */
 const ONLINE_SETTING_NOTE = 'Set while online - every player in a room meets the same smiths, so a room plays one rule for mending enchanted items. Your own choice returns when you play offline.';
 /** RAID2: a world event the room shares - its own reason, not the ground's, the ruleset's or a host's foes'. */
 const ONLINE_WORLD_EVENT_VENDORS = Object.freeze(['world-events-raiding-parties']);
 const ONLINE_WORLD_EVENT_NOTE = 'On while online - a town\u2019s raid is the world\u2019s: every player in the town fights the same raiders, one player stands them and their deaths count for all, so a room has one. Your own choice returns when you play offline.';
 const onlineLockNote = (vendor, key) => (ONLINE_GROUND_VENDORS.includes(vendor) || ONLINE_GROUND_KEYS[vendor]?.includes(key) ? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS[vendor]?.includes(key) ? ONLINE_RULESET_NOTE : ONLINE_WORLD_EVENT_VENDORS.includes(vendor) ? ONLINE_WORLD_EVENT_NOTE : ONLINE_SHARED_NOTE);
+/** REALM P0.2: a key the room owns only because its mod is owned whole wears the balance note; a key the room table names keeps its own. */
+const modLockNote = (vendor, key) => (!Object.hasOwn(ONLINE_ROOM_MOD_KEYS[vendor] ?? {}, key) && onlineWholeModKey(vendor, key, undefined, { offline: true }) ? ONLINE_BALANCE_NOTE : onlineLockNote(vendor, key));
+/** REALM P0.2: a DIAL the room owns online - its steppers and buttons answer nothing, and say why. */
+function lockDial(ctl, note) {
+  for (const b of ctl.querySelectorAll('button')) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); b.title = note; }
+  ctl.title = note;
+}
 function lockOnline(b, main, { note = ONLINE_LOCK_NOTE, value = true } = {}) {
   b.textContent = value ? 'On (online)' : 'Off (online)';
   b.classList.toggle('primary', !!value);
@@ -2112,12 +2217,6 @@ function peerSpritesCard() {
     + 'overworld and the map, and you see them. Off: it is not shared - only your party and players close enough to see you '
     + 'know where you are (your name is still in the region\u2019s chat), and you still see those who show themselves. '
     + 'Nothing goes on the region\u2019s channel from indoors (your party still sees where you are). Kept on this device.', { home: true }));   // AUDIT DEEP2 C5: the party pose rides from indoors too
-  // VOICE1 (2026-09-28, Mac: "develop prox chat"): proximity voice - on by default (Mac), and what it costs said
-  c.append(prefRow('proxVoice', 'Proximity voice chat',
-    'On: hear the players near you speak, fading with distance, and hold Push to talk (the mouse\u2019s back side button; '
-    + 'Controls > Online to change it) to be heard - the microphone is asked for on your first press. Voice goes straight '
-    + 'from your browser to theirs, so the players near you can learn your network address. Off: no voice either way.', { home: true }));
-  c.append(stepRow('voiceVolume', 'Voice volume', 'How loud the players near you are.', { min: 0.1, max: 2, step: 0.1, fmt: (v) => `${Math.round(v * 100)}%` }));
   return c;
 }
 
@@ -2264,10 +2363,13 @@ function modRow(vendor, key, def, { name = null, note = null, home = false } = {
     const b = el('button', 'act rowact', on ? 'On' : 'Off');
     if (on) b.classList.add('primary');
     b.onclick = () => { setModSetting(vendor, key, !modSetting(vendor, key)); render(); };
-    const ground = onlineForcedModSetting(vendor, key);   // MODS-ONLINE-2: the road switches the room's ground depends on; every other mod switch is free online
-    if (ground !== undefined) lockOnline(b, null, { note: onlineLockNote(vendor, key), value: ground });   // MODS-ONLINE-5: the ground's, the ruleset's or the shared reason - a lock that gives the wrong reason is a refusal nobody can read
+    const ground = onlineModSetting(vendor, key);   // MODS-ONLINE-2: the road switches the room's ground depends on; REALM P0.2: and every key of a balance mod the room owns whole
+    if (ground !== undefined) lockOnline(b, null, { note: modLockNote(vendor, key), value: ground });   // MODS-ONLINE-5: the ground's, the ruleset's or the shared reason - a lock that gives the wrong reason is a refusal nobody can read
     ctl.append(b);
   }
+  // REALM P0.2: a DIAL the room owns online (a balance mod owned whole: Unleveled Loot's materials, Oblivion leveling's
+  // points) wears the lock too - the switch above locks itself
+  if ((isChoiceKey(def) || isTextKey(def) || isTupleKey(def) || isFloatKey(def) || isIntKey(def)) && onlineModSetting(vendor, key) !== undefined) lockDial(ctl, modLockNote(vendor, key));
   row.append(ctl);
   return row;
 }
@@ -4051,6 +4153,8 @@ export function mountEnhancedMenu(host, {
   cloudAsked = false;
   cloudArm = null;
   cloudWhy = null;   // the pre-merge audit (0927b): a refusal is last visit's news - this visit asks the service again
+  realmAsked = false; realmRows = null; realmBusy = false;   // REALM P1.3: the realm is asked again each visit
+  realmWords = [takeRealmNotice(globalThis.sessionStorage)].filter(Boolean);   // REALM P1.3: why the last online boot came back here
   sections = mode === 'pause' ? SECTIONS_PAUSE : isEnhanced() ? SECTIONS_BOOT : SECTIONS_CLASSIC;   // FD1: one door, two rails
   // WHICH PANE OPENS. Both doors open on the PIXEL HOME (PX1/PX2) -
   // the face itself, every section one press away. Pause used to open

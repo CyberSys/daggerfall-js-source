@@ -218,7 +218,7 @@
   {
     "name": "WB3b-a-save-in-the-court",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (isGateArena(dfLocation)) { hudText.add(COURT_TEXT.noSave); return false; }",
+    "old": "      if (isGateArena(dfLocation)) { if (!quiet) hudText.add(COURT_TEXT.noSave); return false; }",
     "new": "      void 0;",
     "tests": [
       "test/wb3b_gate_arena.test.js"
