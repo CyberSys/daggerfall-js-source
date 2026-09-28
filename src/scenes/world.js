@@ -15423,11 +15423,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   const _peerLights = [];
   const _peerLightPhase = new Map();
-  const peerTorchLights = () => {
+  const peerTorchLights = ({ torches = true } = {}) => {   // AUDIT PRE-MERGE 0928 M4: `torches` false - the abyss's torchOff: their candles alone
     _peerLights.length = 0;
     if (!online || !cam?.pos) return _peerLights;
     const now = performance.now() / 1000;
-    for (const p of online.peers.values()) {
+    for (const p of torches ? online.peers.values() : []) {
       if (!(p?.shown?.lt > 1) || !online.visible(p) || p.shown.dd) continue;
       const feet = onlineToScene(p.shown);
       if (!feet) continue;
@@ -15961,7 +15961,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         : !gateAdmits(g.day, Date.now() + _sharedOffsetMs) ? GATE_TEXT.sealed : null),
     drawPeerNames: ({ proj, view, eye }) => drawPeerNames(proj, view, eye),
     drawPeerBodies: ({ proj, view, eye }) => drawPeerBodies(proj, view, eye),
-    peerLights: () => peerTorchLights(),   // PEERLIGHT1: the others' torches, for the dungeon's and the interior's light lists   // MWBODY1: the others' bodies, after the player's own
+    peerLights: (o) => peerTorchLights(o),   // PEERLIGHT1: the others' torches, for the dungeon's and the interior's light lists   // MWBODY1: the others' bodies, after the player's own
     drawVeiledPeerBodies: () => drawVeiledPeerBodies(),   // INVIS-LOOK: and the concealed ones, after the opaque world
     // PEER-PLAQUE1: the plaque names another player in a building and underground too - the SAME pick and the SAME
     // words the street uses, over the mode's own eye (peersNear's feet are in whichever scene stands, onlineToScene)

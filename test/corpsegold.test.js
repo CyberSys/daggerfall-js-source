@@ -103,6 +103,7 @@ function restoreHarness(foes) {
     ${fnSrc('patchFoe')}
     ${fnSrc('applyWorld')}
     ${fnSrc('retypeFoe')}
+    ${fnSrc('takeRoomPlace')}   // AUDIT PRE-MERGE 0928 M1: stand()'s rebuild hands the old record's room identity on
     // buildFoeAt, as far as a rebuild reads it: the art's await, then a FRESH record with its own roll, stood in the
     // old one's place by the real stand()
     const buildFoeAt = async (e, fallbackFlat, { at = -1 } = {}) => {

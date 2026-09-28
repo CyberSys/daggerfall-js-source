@@ -848,7 +848,7 @@ test('AUDIT OH-F C6 the quota walks the hierarchy: each block\'s Fixed Enemies b
   const got = collectDungeonEnemies([block([fixedAt(1)]), block([fixedAt(2), fixedAt(3)])], { locationId: 7, dungeonType: 0, playerLevel: 1 });
   assert.deepEqual(got.map((e) => e.blockIndex), [0, 1, 1]);
   const dc = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
-  assert.match(dc, /foes: \(\) => enemyHierarchyOrder\(foes, _layoutFoes\)\.filter\(\(f\) => !f\.dead && f\.entity\)\.map\(abyssFoeView\),/);
+  assert.match(dc, /foes: \(\) => enemyHierarchyOrder\(foes, _layoutFoes\)\.filter\(\(f\) => !f\.dead && f\.entity && !runByAnother\(f\)\)\.map\(abyssFoeView\),/);   // AUDIT PRE-MERGE 0928 M1: the ones this player runs
 });
 
 test('AUDIT OH-F C3/C4/C7 the spawn\'s own marks at the build: a quest foe is QuestSpawn when OnEnemySpawn hears it, an ally is one, a Wabbajack\'s creature has LoadID 0', () => {
@@ -860,5 +860,5 @@ test('AUDIT OH-F C3/C4/C7 the spawn\'s own marks at the build: a quest foe is Qu
   assert.ok(ally > 0 && ally < dc.indexOf('stand(rec);', ally), 'the team turned before stand() raises OnEnemySpawn');
   assert.ok(stand > 0);
   assert.match(dc, /Promise\.resolve\(spawnLooseFoe\(mobileType, at, \{ loadID: 0 \}\)\)\.then\(\(nf\) => \{/, 'CreateEnemy sets no LoadID');
-  assert.match(dc, /if \(_layoutStood\) \{ if \(rec\.src\) rec\.src\.loadID \?\?= \+\+_spawnUid; opts\.onEnemySpawn\?\.\(rec\); \}/, 'the counter only fills an ABSENT LoadID - a 0 stays 0');
+  assert.match(dc, /if \(_layoutStood && !puppet\) \{ if \(rec\.src\) rec\.src\.loadID \?\?= \+\+_spawnUid; opts\.onEnemySpawn\?\.\(rec\); \}/, 'the counter only fills an ABSENT LoadID - a 0 stays 0 (AUDIT PRE-MERGE 0928 M1: and a puppet, another player\'s foe, is no spawn at all)');
 });
