@@ -106,5 +106,32 @@
     "tests": [
       "test/disc28_shopbox.test.js"
     ]
+  },
+  {
+    "name": "DISC28-D-rig-blind-to-speed",
+    "file": "src/combat/weaponRig.js",
+    "old": "new PlayerWeapon({ liveSpeed: () => (entity ? liveStat(entity, 'speed') : 50) })",
+    "new": "new PlayerWeapon({})",
+    "tests": [
+      "test/disc28_speed.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-D-speed-read-once",
+    "file": "src/combat/playerWeapon.js",
+    "old": "set liveSpeed(v) { this._liveSpeed = typeof v === 'function' ? v : () => v; }",
+    "new": "set liveSpeed(v) { const x = typeof v === 'function' ? v() : v; this._liveSpeed = () => x; }",
+    "tests": [
+      "test/disc28_speed.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-D-speed-ignored",
+    "file": "src/combat/playerWeapon.js",
+    "old": "get liveSpeed() { return this._liveSpeed(); }",
+    "new": "get liveSpeed() { return 50; }",
+    "tests": [
+      "test/disc28_speed.test.js"
+    ]
   }
 ]
