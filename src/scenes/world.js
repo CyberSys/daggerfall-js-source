@@ -307,7 +307,7 @@ import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: an
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
 import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
-import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
+import { createComeSailAwayRuntime, comeSailAwayCarrier, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
 import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
@@ -390,7 +390,7 @@ import { GROUP_ROLL_RADIUS } from '../systems/campEncounters.js';   // PSCALE1: 
 import { SOLITARY_TYPES } from '../characters/mobileFactions.js';   // AUDIT PSCALE1 COUNT-2: a solitary foe meets a party alone
 import {
   realmIo, openRealmBoot, createRealmSession, realmSummaryOf, setRealmNotice, realmCreate, realmPut, realmBootSearch, realmRefusalText,
-  REALM_SAVED_TEXT, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, realmTradeEscrow, realmGoldAct,
+  sayRealmSave, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, whenPageGoes, realmTradeEscrow, realmGoldAct,
 } from '../systems/realmSaves.js';   // REALM P1.3: an online character is the realm's - joined, loaded and checkpointed through the service
 import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that session lives - the app's store, not the tab's (a second tab is the same player)
 import { POSE_STRIKES, isWorldRoom, isCellRoom, cellHaloFor, actFrameFits, sharedClassicMinutes, wallMsForClassicMinutes } from '../net/wire.js';   // WORLD6b-iii(b): the cell seam's halo   // MAC7 #1: the swing's kind on the wire; AUDIT WORLD4 A1: whether an act frame can be said at all
@@ -632,7 +632,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (realmSession) setRealmSaveSink((snap) => {
     const who = characterIdOf(playerEntity);
     const holding = _realmSaveHooks.held(who);
-    realmSession.checkpoint(JSON.stringify(snap), realmSummaryOf(playerEntity)).then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); }).catch(() => {});
+    return realmSession.checkpoint(JSON.stringify(snap), realmSummaryOf(playerEntity)).then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); return r; }).catch(() => ({ ok: false, error: 'server' }));   // AUDIT REALM2 C2: the outcome answered back - F9's word is the realm's answer
   });
   // MW-EARLY: the save the load door at the end of this boot restores - its pick, and its ONE parse (AUDIT MW-EARLY F3,
   // below). AUDIT FINAL F9: declared here, first, so the Test Room's check below reads that same parse and that same
@@ -4904,9 +4904,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaPeers = createComeSailAwayPeers({ pool: csa, selfId: () => online?.id ?? null });   // CSA-J: the others' boats, in the pool's peer list
   csaPeers.setPeerLook((id) => (_hiddenPeers.has(id) ? 'hidden' : (_veils.get(id) ?? null)));   // AUDIT PRE-MERGE 0928 O4: a concealed sailor's boat is concealed with them (the cart pool's I-B law; last frame's word)
   // CSA-C: THE RUNTIME - the boats placed, kept where they stand and saved (systems/comeSailAway.js). Made as the world
-  // mounts with the mod on ("Takes effect when the game next loads"), and only then does its record ride the save
-  // (OH-D's precedent: a mod DFU did not load writes none). The pool loads every hull's needs at once, so SpawnBoat
-  // runs straight through when the C# calls it.
+  // mounts with the mod on ("Takes effect when the game next loads"); with it off, no runtime, and its record is carried
+  // as the load handed it (AUDIT REALM2 C3 - OH-D's "a mod DFU did not load writes none" lost a realm character's boats
+  // for good). The pool loads every hull's needs at once, so SpawnBoat runs straight through when the C# calls it.
   /** A built pixel as the Terrain the runtime and the ray hand round - one object per pixel, so `==` is Unity's. */
   const _csaTerrains = new WeakMap();
   const csaTerrainOf = (p) => {
@@ -5371,6 +5371,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     playerTicker.subscribe((from, to) => { if (to > from) csaCall(() => csaRuntime.OnNewMagicRound()); });   // CSA-D: EntityEffectBroker.OnNewMagicRound - the cargo weighed again at the helm
     _onWeatherChange = (w) => csaCall(() => csaRuntime.OnWeatherChange(WEATHER_TYPES.indexOf(w)));   // CSA-E: WeatherManager.OnWeatherChange - a new wind
+  } else {
+    // AUDIT REALM2 C3: off, the mod's record is carried whole from the load to every save (the switch is the player's
+    // online, and a realm character's one record lost every boat at an off boot's first checkpoint); M3: and a lent ship
+    // taken back as it loads, before a bank can buy it (comeSailAway.js comeSailAwayCarrier)
+    registerModSaveData(COME_SAIL_AWAY_VENDOR, comeSailAwayCarrier({ ship: { assign: (type) => assignShipToPlayer(playerEntity, SHIP_TYPES[type], { addPermanentScene: shipPermanentScenes }), removePermanentScene: (name) => removePermanentScene(_sceneCache(), name) } }));
   }
   /** CSA-C: the runtime's call, as a MonoBehaviour's: an exception in it is logged and the frame goes on. */
   const csaCall = (fn) => { try { fn(); } catch (e) { console.error('[come-sail-away]', e); } };
@@ -8720,8 +8725,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  slot window's saveAs passes the typed one. */
   function worldQuickSave(saveName = QUICK_SAVE_NAME, { quiet = false, sink = null } = {}) {   // REALM P0.5: a quiet checkpoint takes no shot and says only a failure; P1.3: a realm character's goes to the service
     // AUDIT OH-F B4: never a save inside the descent (one frame in DFU): it would write the swimmer on the template's
-    // land with the mod's record not yet Active
-    if (ohAbyss?.entering) { townTalk.say('You cannot save now.'); return false; }   // cannotSaveNow (Internal_Strings)
+    // land with the mod's record not yet Active. AUDIT REALM2 M5: said to a save pressed, never to the quiet checkpoint
+    if (ohAbyss?.entering) { if (!quiet) townTalk.say('You cannot save now.'); return false; }   // cannotSaveNow (Internal_Strings)
     const pf = walkMode && playerSpawned ? player.pos : cam.pos;
     const wc = state.worldCoords(pf);
     // IS1 (AUDIT 26 F221): the inside-building half (SerializablePlayer
@@ -8808,7 +8813,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       },
     });
     const into = sink ?? realmSaveSink();   // REALM P1.3: a realm character's save is the service's checkpoint, never a local slot
-    if (into) { into(snap); if (!quiet) townTalk.say(REALM_SAVED_TEXT); return true; }
+    if (into) { const said = into(snap); if (!quiet) sayRealmSave(said, (t) => townTalk.say(t)); return true; }   // AUDIT REALM2 C2: the realm's answer, not a hope
     const r = saveSlot(playerEntity.name, saveName, snap);
     // SS1: the shot is DEFERRED to frame end (SaveGame's two
     // WaitForEndOfFrame yields) - the frame loop's
@@ -10618,9 +10623,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT DUEL1 D5 + B4: a duel in play ends here as `left` (the opponent is told now, not after DUEL_GONE_MS) and its
     // heal runs now - the exit autosave below must not keep a duel's 1 health or its opponent's spells
     try { duelLeaveNow(); } catch { /* no duel was built: nothing to end */ }
-    // REALM P1.3: a realm character writes no local slot - the lease is given up as the page goes (the browser finishes
-    // the leave; a save that large it cannot, so the two-minute checkpoints bound what a close costs)
-    if (realmSession) { realmSession.leave({ keepalive: true }); return; }
+    // REALM P1.3: a realm character writes no local slot. AUDIT REALM2 C2: nor gives its lease up here - this comes before
+    // the unload guard's "Leave site?" is answered, and a Stay played on in a session already left (every checkpoint
+    // refused, F9 saying "saved"); the leave is the page's going (pagehide, whenPageGoes below)
+    if (realmSession) return;   // the realm's: no slot
     const save = (saveName) => (modes ? modes?.quickSaveNow(saveName) : worldQuickSave(saveName));   // `?.` even inside the ternary: audit24 wave37's gate above the declaration is all-or-nothing
     for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })) save(saveName);
   });
@@ -10648,9 +10654,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   function realmCheckpoint() {
     if (!realmSession || realmSession.lost) return false;
     if (townTalk.overlay instanceof DeathScreen || modes?.deathUp?.() || !(playerEntity.health > 0)) return false;
-    if (modes) modes?.quickSaveNow(QUICK_SAVE_NAME, { quiet: true });   // `?.` inside the test: audit24 wave37's gate above the declaration is all-or-nothing
-    else worldQuickSave(QUICK_SAVE_NAME, { quiet: true });
-    return true;
+    // AUDIT REALM2 M5: the composer's own answer - a save it refused (the court, the Ocean Holes descent) is no checkpoint,
+    // and a trade's hold (realmTradeEscrow's `=== false`) must not begin over the older record the service holds
+    return !!(modes ? modes?.quickSaveNow(QUICK_SAVE_NAME, { quiet: true }) : worldQuickSave(QUICK_SAVE_NAME, { quiet: true }));   // `?.` even inside the ternary: audit24 wave37's gate above the declaration is all-or-nothing
   }
   /** REALM P1.3: THE CHARACTER IS NO LONGER THIS TAB'S (another tab or device joined it, it was deleted, the account
    *  signed out): to the door, with the reason - a realm character never plays on offline. */
@@ -10660,10 +10666,16 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   if (realmSession) {
     // the door the game opens - the pause menu's Exit, the death's: the last checkpoint and the leave, then the menu
-    // (five seconds at most: the loop is already claimed, and a hung network must not hold the door shut)
-    setBeforeTitleExit(async () => { if (!realmSession.lost) { realmCheckpoint(); await Promise.race([realmSession.leave(), new Promise((r) => { setTimeout(r, REALM_EXIT_WAIT_MS); })]); } });
+    // (five seconds at most: the loop is already claimed, and a hung network must not hold the door shut). AUDIT REALM2
+    // C7: a duel ended first and P0.5's gate passed, as the page's end and the seat's - realmCheckpoint straight wrote a
+    // character that left mid-duel at the duel's 1 health, the opponent's spells on it
+    setBeforeTitleExit(async () => { if (!realmSession.lost) { try { duelLeaveNow(); } catch { /* no duel was built: nothing to end */ } onlineCheckpoint(); await Promise.race([realmSession.leave(), new Promise((r) => { setTimeout(r, REALM_EXIT_WAIT_MS); })]); } });
     // a tab put away (a phone's home button, another tab) is checkpointed while the page still can be
     whenPageHides(globalThis.document, () => { if (online) onlineCheckpoint(); });
+    // AUDIT REALM2 C2: the lease given up as the page GOES (pagehide, the unload guard answered) - the leave alone, with
+    // keepalive (the browser finishes it; a save that large it cannot, so the two-minute checkpoints bound what a close
+    // costs) - and taken again when a page the back-forward cache kept is shown
+    whenPageGoes(globalThis, () => { realmSession.leave({ keepalive: true }); }, () => { realmSession.rejoin(); });
   }
   /** REALM P1.3: A CHARACTER BORN ONLINE - made at the service once chargen is done, its first save the service's
    *  checkpoint at sequence 1, and then the one online boot there is, from the service. Any refusal goes to the door. */
@@ -13949,8 +13961,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   // AUDIT WBX S3: a save that lands holds the pieces in the pack - their crash records clear on it, by the event
   onSlotSaved((characterId) => { try { spoilsPool.saved(characterId); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } });
-  _realmSaveHooks.held = (who) => { try { return spoilsPool?.heldIds?.(who) ?? null; } catch { return null; } };   // REALM P1.3: a realm checkpoint's spoils
-  _realmSaveHooks.landed = (who, ids) => { try { spoilsPool?.saved(who, ids); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } };
+  // REALM P1.3: a realm checkpoint's spoils. AUDIT REALM2 C1: a town's thanks with them - RAID4b's own pool was cleared by a
+  // slot's save alone (onSlotSaved, below), which a realm character never writes, so every join handed the thanks back
+  _realmSaveHooks.held = (who) => { try { return [...(spoilsPool?.heldIds?.(who) ?? []), ...(raidSpoils?.heldIds?.(who) ?? [])]; } catch { return null; } };
+  _realmSaveHooks.landed = (who, ids) => { try { spoilsPool?.saved(who, ids); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } try { raidSpoils?.saved(who, ids); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } };
   onSlotSaved((characterId) => { try { raidSpoils.saved(characterId); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } });   // RAID4b
   /** AUDIT WBX S4: the spoils given outside a court, one tab at a time - two tabs of one account on one device each
    *  checked the store before the other had written it, and both gave them (the Web Locks API; without it, at once). */
@@ -16989,7 +17003,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   // ...and the door itself (the recorded departure: DFU's console
   // WINDOW is the third-party UnityConsole prefab, not DFU source).
-  installConsoleProbe();
+  // AUDIT REALM2 M4: OFFLINE ONLY - REALM P0.1's law for ?shot's
+  // __addGold. LypyL_GameConsole ships True, and the door's verbs
+  // mint (Come Sail Away's giveboat and placeboat, a deed each).
+  if (!params.has('online')) installConsoleProbe();
   if (shotMode) { modes.installShotProbes(); installTownProbes(); }
   if (shotMode) {   // CASTLE1 probe surface (tools/castleProbe.mjs)
     window.__quickSave = (name) => modes.quickSaveNow(name);   // the standing host's OWN composer (the dungeon's underground)

@@ -138,7 +138,7 @@ import { mintSharedStamp, hitPoisonOf, HIT_ARROWS_MAX, respawnDue, wallMsForClas
 import { spendPoolLowest } from '../systems/chargen.js';
 import { ClassFile } from '../formats/classFile.js';
 import { fetchBytes, ensureAudio, loadMagicRegistries, wireInfectionVideos, endRunToTitleMenu, exitToTitleMenu, sensesContext, wireDoorSpells, createDetectFeed, foeNearbyRecord, nearbyLootRecords, restFullyHealed, createRestDeps, fatigueLossMultiplierFor, realmSaveSink} from './shared.js';
-import { REALM_SAVED_TEXT } from '../systems/realmSaves.js';   // REALM P1.3: a save online lands in the realm
+import { sayRealmSave } from '../systems/realmSaves.js';   // REALM P1.3: a save online lands in the realm; AUDIT REALM2 C2: said once it has
 import { getNearbyObjects } from '../systems/nearbyObjects.js';   // X9: the dispel sweep filters the same scan
 import { preloadBookArt } from '../ui/bookReader.js'; import { makeOpenBookHook } from '../ui/bookDoor.js';   // B1; EB1: the reader's ONE door
 import { worldMinutes, setWorldMinutes, sharedClockOn } from '../systems/worldTick.js';   // WORLD8: the relay's clock stamps a death and a take
@@ -7441,7 +7441,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         modData: opts.horseCartSave || opts.modSaveRecords ? { ...(opts.horseCartSave ? { 'horse-cart-and-cargo': opts.horseCartSave() } : {}), ...(opts.modSaveRecords?.() ?? {}) } : null,
       });
       const into = sink ?? realmSaveSink();   // REALM P1.3: a realm character's save is the service's checkpoint, never a local slot
-      if (into) { into(snap); if (!quiet) hudText.add(REALM_SAVED_TEXT); return true; }
+      if (into) { const said = into(snap); if (!quiet) sayRealmSave(said, (t) => hudText.add(t)); return true; }   // AUDIT REALM2 C2: the realm's answer, not a hope
       const r = saveSlot(playerEntity.name, saveName, snap);
       // SS1: arm the deferred shot; the HOST's frame loop delivers it
       // (dungeon.js's tail) - this context owns no canvas of its own.

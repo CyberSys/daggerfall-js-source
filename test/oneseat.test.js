@@ -596,10 +596,11 @@ test('AUDIT ONESEAT H4: the page\'s exit save is never a tab\'s the seat was tak
   };
   assert.deepEqual(run(true), [], 'out of the seat: nothing written');
   assert.deepEqual(run(false), ['QuickSave', 'AutoSave', 'Before the crypt'], 'in it: every slot of the character, as ONLINE-AUTOSAVE1 says');
-  // REALM P1.3: a realm character's exit is the leave alone, the browser asked to finish it - no slot of it is written;
-  // and out of the seat it is nothing at all (the tab that took the seat joined, and a join frees the rest)
+  // REALM P1.3: a realm character's exit writes no slot of it. AUDIT REALM2 C2: nor gives its lease up - this event
+  // comes before the unload guard's "Leave site?" is answered; the leave is the page's going (pagehide,
+  // test/auditrealm2_client.test.js)
   const left = [];
   const realm = { leave: (o) => left.push(o) };
-  assert.deepEqual([run(false, realm), left], [[], [{ keepalive: true }]], 'a realm character: the leave, never a slot');
-  assert.deepEqual([run(true, realm), left.length], [[], 1], 'out of the seat: not even the leave');
+  assert.deepEqual([run(false, realm), left], [[], []], 'a realm character: never a slot, and no leave before the answer');
+  assert.deepEqual([run(true, realm), left.length], [[], 0], 'out of the seat: nothing');
 });
