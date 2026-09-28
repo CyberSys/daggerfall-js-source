@@ -58,7 +58,7 @@ import { getBinding as getBindingOf, isPadCode } from '../systems/inputActions.j
 // PADPLUS1: the Enhanced Plus controller layer - its layout, the crossbar, the menus, the prompts (ui/plusPad.js)
 import {
   plusPadActive, ensurePlusPadLayout, plusToggleRun, crossbarInForce, crossbarApi, crossbarSlot, CROSSBAR_CODES, CROSSBAR_HOLD,
-  LOOT_DPAD, plusDpadByCode, NEXT_MODE, plusStickSens, scaleStick, plusBindCapturing, lootPrompts, quickActApi, cycleTab, spatialStep, scrollAt, domTargetAt, domPointer, domHoverChange, interactiveAt, markHover, showPrompts, windowPrompts, activeTabStrip,
+  LOOT_DPAD, HELM_DPAD, plusDpadByCode, NEXT_MODE, plusStickSens, scaleStick, plusBindCapturing, lootPrompts, quickActApi, cycleTab, spatialStep, scrollAt, domTargetAt, domPointer, domHoverChange, interactiveAt, markHover, showPrompts, windowPrompts, activeTabStrip,
 } from './plusPad.js';
 import { GAUNTLET_POINT, GAUNTLET_PRESS } from './plusCursor.js';
 import { overlayOpen } from './enhancedOverlays.js';   // PADPLUS2: the enhanced doors' registry - a DOM window is up
@@ -166,7 +166,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
   // PADPLUS1: the Plus layer's own state - the run latch, the crossbar's held buttons, the menu buttons' last frame,
   // the DOM element the cursor pressed on and the one it is over
   const P = { layout: false, runLatch: false, runPrev: false, runIdle: 0, lbPrev: false, rbPrev: false, setOrder: 0,
-    stale: new Set(), lastOverlay: false, lootUp: false, lootRep: {}, xbSet: null, xbHeld: new Set(), xbPrev: new Set(), menuPrev: new Set(), dh: {}, padMap: null, padMapCode: null, padMapSeen: false, padMapAge: 0, scroll: 0, domOver: null, promptAt: 0, tabs: false, plusCursor: null };
+    stale: new Set(), lastOverlay: false, lootUp: false, lootRep: {}, helmUp: false, helm: {}, xbSet: null, xbHeld: new Set(), xbPrev: new Set(), menuPrev: new Set(), dh: {}, padMap: null, padMapCode: null, padMapSeen: false, padMapAge: 0, scroll: 0, domOver: null, promptAt: 0, tabs: false, plusCursor: null };
   let paneCapturing = () => false;   // the controls pane's capture (ui/enhancedControls.js captureArmed), loaded lazily - no import ring
   import('./enhancedControls.js').then((m) => { if (typeof m.captureArmed === 'function') paneCapturing = m.captureArmed; }).catch(() => {});
   const capturing = () => paneCapturing() || plusBindCapturing();   // PADPLUS10: and the Plus bindings window's
@@ -228,6 +228,10 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
   };
 
   const press = (code) => { if (!held.has(code)) { held.add(code); dispatch('keydown', code); } };
+  /** CSA-L: the helm's d-pad let go whole - a trim held ends with the helm, a window or a bumper over it. */
+  const helmLetGo = () => {
+    for (const [code, st] of Object.entries(P.helm)) { if (st.held) hooks.helm?.gesture?.(HELM_DPAD[code], 'release'); st.t = -1; st.held = false; }
+  };
   const releaseAll = (keep = null) => {
     for (const code of [...held]) if (!keep?.has(code)) { held.delete(code); dispatch('keyup', code); }
   };
@@ -281,6 +285,13 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
     // quickslot while a list is in front of you. A bumper held is still the crossbar's.
     const lootUp = !overlay && !lb && !rb && lootListed();
     P.lootUp = lootUp;
+    // CSA-L: AT THE HELM, THE D-PAD IS THE HELM'S (Come Sail Away's helm panel, ui/enhancedHelm.js): a tap, a hold past
+    // DPAD_HOLD_S and its let-go reported per direction to the host's helm, which names the mod's action - so none of the
+    // four reaches the bare d-pad's own actions (the map, the log, rest, Transport's hold) or a quickslot at the wheel. A
+    // bumper held is still the crossbar's; a loot plaque's list is still its own.
+    const helmUp = !overlay && !lb && !rb && !lootUp && !!hooks.helm?.up?.();
+    if (P.helmUp && !helmUp) helmLetGo();
+    P.helmUp = helmUp;
     const set = !xbOn ? null : lb && rb ? P.setOrder : lb ? 0 : rb ? 1 : null;
     const downNow = new Set();
     for (const code of CROSSBAR_CODES) if (padDown(code)) downNow.add(code);
@@ -292,7 +303,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
         if (P.xbHeld.has(code)) { swallowed.add(code); wanted.delete(code); continue; }
         // PADPLUS3: the bare d-pad never reaches a slot - it is its own actions, one press each
         const bare = dpad[code];
-        if (bare && !lootUp) {
+        if (bare && !lootUp && !helmUp) {
           wanted.delete(code); swallowed.add(code);
           // PADPLUS10: a direction with a HOLD fires its tap on the release (below); one without fires on the press
           if (bare.hold) continue;
@@ -306,8 +317,8 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
         const st = P.dh[code] ??= { t: -1, fired: false };
         if (!act.hold) { st.t = -1; continue; }
         const now = downNow.has(code);
-        if (now && !P.xbPrev.has(code)) { st.t = set === null && !lootUp ? 0 : -1; st.fired = false; }
-        if (st.t >= 0 && (set !== null || lootUp)) st.t = -1;   // a bumper or a loot plaque took the press
+        if (now && !P.xbPrev.has(code)) { st.t = set === null && !lootUp && !helmUp ? 0 : -1; st.fired = false; }
+        if (st.t >= 0 && (set !== null || lootUp || helmUp)) st.t = -1;   // a bumper, a loot plaque or the helm took the press
         if (st.t < 0) continue;
         if (now) {
           st.t += dt;
@@ -327,6 +338,23 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
           P.lootRep[code] = fresh ? 0.35 : (P.lootRep[code] ?? 0) - dt;
           if (fresh || P.lootRep[code] <= 0) { if (!fresh) P.lootRep[code] = 0.12; quickLootWheel(act === 'up' ? -1 : 1); }
         } else if (fresh) { const c = codeOf(b, act); if (c) wanted.add(c); }
+      }
+    }
+    if (helmUp) {
+      for (const [code, dir] of Object.entries(HELM_DPAD)) {
+        wanted.delete(code); swallowed.add(code);
+        const st = P.helm[code] ??= { t: -1, fired: false, held: false };
+        const down = downNow.has(code);
+        if (down && !P.xbPrev.has(code)) { st.t = 0; st.fired = false; st.held = false; }
+        if (st.t < 0) continue;
+        if (down) {
+          st.t += dt;
+          if (!st.fired && st.t >= DPAD_HOLD_S) { st.fired = true; st.held = !!hooks.helm?.gesture?.(dir, 'hold'); }   // true: a hold the let-go ends (the trim)
+        } else {
+          if (!st.fired) hooks.helm?.gesture?.(dir, 'tap');
+          else if (st.held) hooks.helm?.gesture?.(dir, 'release');
+          st.t = -1; st.held = false;
+        }
       }
     }
     P.xbPrev = downNow;
@@ -564,6 +592,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       if (P.promptAt <= 0) { P.promptAt = 0.25; P.tabs = !!activeTabStrip(); P.quick = !!quickActApi()?.available?.(); }
       showPrompts(windowPrompts({ tabs: P.tabs, quick: P.quick, uiBack: getJoystickUIBinding(b, 'Back') ?? 'JoystickButton1', uiClick: getJoystickUIBinding(b, 'LeftClick') ?? 'JoystickButton0' }), padFamilyOf(pad.id));
     } else if (plus && P.lootUp && usingController) showPrompts(lootPrompts({ take: getJoystickUIBinding(b, 'LeftClick') ?? 'JoystickButton0' }), padFamilyOf(pad.id));   // PADPLUS6
+    else if (plus && P.helmUp && usingController) showPrompts(hooks.helm?.prompts?.() ?? null, padFamilyOf(pad.id));   // CSA-L: the helm's d-pad
     else showPrompts(null);
     // the swing: RightClick's button held is the drag's button held -
     // its edges first, so the frame the button lifts is a look again

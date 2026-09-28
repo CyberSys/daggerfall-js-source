@@ -12,7 +12,7 @@ import { Boat, spawnBoat, TRIGGER_MODEL } from '../src/systems/comeSailAwayBoat.
 import {
   createComeSailAwayRuntime, NO_WATER_LEVEL, ACTIVATION_DISTANCE, ACTIVATIONS, activationModelOf, BOAT_ACTIONS, HANDLING,
   OAR_FATIGUE, CARGO_WEIGHTS, TEMPORARY_SHIP_SCENES, TIME_SCALES, vNormalized, vEquals, vProjectOnPlane, vMoveTowards,
-  mathfMoveTowards, mathfClamp, yawOfForward,
+  mathfMoveTowards, mathfClamp, yawOfForward, PASSENGERS_ABOARD_TEXT, NICE_BOAT_TEXT, boardPlaceOf, carriedPoint, yawDelta,
 } from '../src/systems/comeSailAway.js';
 import { quatRotate, quatAngleAxis } from '../src/world/quat.js';
 
@@ -729,4 +729,105 @@ test('CSA-D: CanTurnRight refuses a collision behind and to port too, IsBeached 
 test('CSA-D: Mathf.MoveTowards with a negative step moves away from the target, as Unity\'s does (Sign(0) is +1)', () => {
   assert.equal(mathfMoveTowards(5, 5, -1), 4);
   assert.equal(mathfMoveTowards(5, 7, -1), 4);
+});
+
+// ── CSA-K / CSA-L: sailing together, and the helm on screen ─────────────────────
+
+test('CSA-K: the pack refused while another player stands on the deck (DECLARED - the driver\'s refusal, in its words\' shape: a pack would drop them in the sea); with nobody aboard Steal packs it as ever', () => {
+  const s = scene();
+  const boat = s.place(1, 0);
+  let aboard = 1;
+  const asked = [];
+  s.deps.passengersAboard = (b) => { asked.push(b); return aboard; };
+  s.rt.activate(TRIGGER_MODEL.drive, { root: boat.GameObject, node: boat.DriveTrigger, distance: 2 }, 'steal');
+  assert.deepEqual(s.out.mid.at(-1), [PASSENGERS_ABOARD_TEXT, 1.5]);
+  assert.equal(PASSENGERS_ABOARD_TEXT, 'You cannot pack a boat with passengers aboard!');
+  assert.deepEqual(s.out.packed, [], 'not packed');
+  assert.ok(s.rt.AllBoats.includes(boat));
+  assert.ok(asked[0] === boat, 'asked about this boat');
+  aboard = 0;
+  s.rt.activate(TRIGGER_MODEL.drive, { root: boat.GameObject, node: boat.DriveTrigger, distance: 2 }, 'steal');
+  assert.deepEqual(s.out.packed.map((it) => it.templateIndex), [1320], 'nobody aboard: packed');
+  // the driver's own refusal still comes first
+  const d = scene();
+  const driven = d.place(1, 0);
+  d.deps.passengersAboard = () => 1;
+  d.rt.StartSailing(driven);
+  d.rt.activate(TRIGGER_MODEL.drive, { root: driven.GameObject, node: driven.DriveTrigger, distance: 2 }, 'steal');
+  assert.deepEqual(d.out.mid.at(-1), ['You cannot pack a boat you are driving!', 1.5]);
+});
+
+test('CSA-K: helmMotion - the boat at the helm\'s way as LateUpdate moves it (its velocity turned into the world, per Time.deltaTime second) and its turn; none ashore, none beached, none once the helm is left', () => {
+  const s = scene({ held: ['MoveForwards', 'MoveRight'] });
+  const boat = s.place(1, 0, [100, 34, 200], [1, 0, 0]);
+  assert.equal(s.rt.helmMotion(), null, 'no helm');
+  s.rt.StartSailing(boat);
+  s.frame(); s.frame();
+  const m = s.rt.helmMotion();
+  assert.ok(m && m.boat === boat);
+  closeV(m.velocity, quatRotate(boat.GameObject.rotation, s.rt.state.velocityCurrent), 1e-9, 'velocityCurrent turned into the world');
+  assert.ok(Math.hypot(m.velocity[0], m.velocity[2]) > 0.1, 'under way');
+  assert.equal(m.turn, s.rt.state.TurnCurrent);
+  // the next frame's move is that way times Time.deltaTime (0.25 here): the reader leads by the same
+  const before = boat.GameObject.position;
+  s.held.delete('MoveRight');
+  const m2 = s.rt.helmMotion();
+  s.frame();
+  const moved = boat.GameObject.position.map((v, i) => v - before[i]);
+  assert.ok(Math.hypot(moved[0], moved[2]) > 0, 'it moved');
+  // beached: stopped dead, no way
+  for (let i = 0; i < boat.NodeTileMapIndices.length; i++) boat.NodeTileMapIndices[i] = 1;
+  assert.equal(s.rt.helmMotion(), null, 'beached');
+  assert.ok(m2, 'the way was said before');
+});
+
+test('CSA-L: helmPanelState - what the helm panel shows, read and never written: the hull, the sails and whether they stand, the square sails\' own toggle (the key\'s chord: raised sails, square and fore-and-aft kinds, the assist off), the lanterns, the time scale\'s step and value, the trim\'s owner; none ashore', () => {
+  const s = scene({ settings: { 'SailingAssist.AutoTrimming': false, 'SailingAssist.AutoStowSquareSails': false } });
+  assert.equal(s.rt.helmPanelState(), null, 'no helm');
+  const boat = s.place(1, 0);
+  s.rt.StartSailing(boat);
+  const h = s.rt.helmPanelState();
+  assert.equal(h.hull, 1);
+  assert.equal(h.hasSails, boat.Sails.length > 0);
+  assert.equal(h.sailsUp, false);
+  assert.equal(h.light, !!boat.LightOn);
+  assert.deepEqual([h.timeScaleIndex, h.timeScale, h.timeScaleMax], [0, 1, TIME_SCALES.length - 1]);
+  assert.equal(h.manualTrim, true, 'AutoTrimming off: the trim is the player\'s');
+  assert.equal(h.squareOnly, !(boat.SailsLateen.length > 0 || boat.SailsGaff.length > 0));
+  assert.equal(h.hasSquare, boat.SailsSquare.length > 0);
+  assert.equal(h.squareToggle, false, 'sails stowed: the chord raises them all');
+  s.frame({ press: [BOAT_ACTIONS.toggleLight] });
+  assert.equal(s.rt.helmPanelState().light, !!boat.LightOn, 'the lanterns as they stand');
+  const assisted = scene();
+  const b2 = assisted.place(1, 0);
+  assisted.rt.StartSailing(b2);
+  assert.equal(assisted.rt.helmPanelState().manualTrim, false, 'the assist trims by default');
+  assisted.rt.StopSailing();
+  assert.equal(assisted.rt.helmPanelState(), null, 'the helm left');
+});
+
+test('CSA-K: the laws another player\'s boat shares with mine, one export each - BoardBoat\'s place (boardPlaceOf), the status box\'s words, the door\'s turn (turnDoor: its Animator over, its sound), the helm\'s carry of its child (carriedPoint, yawDelta)', () => {
+  const s = scene();
+  const boat = s.place(1, 0);
+  const board = boat.BoardTriggers[0];
+  s.rt.activate(TRIGGER_MODEL.board, { root: boat.GameObject, node: board, distance: 1 }, 'grab');
+  const at = boardPlaceOf(board);
+  closeV(s.player.position, at.position, 1e-9, 'BoardBoat stands the player at boardPlaceOf');
+  assert.ok(close(s.player.yaw, at.yaw, 1e-9));
+  s.rt.activate(TRIGGER_MODEL.status, { root: boat.GameObject, node: boat.StatusTrigger, distance: 1 }, 'grab');
+  assert.deepEqual(s.out.boxes, [NICE_BOAT_TEXT]);
+  assert.equal(NICE_BOAT_TEXT, 'Nice Boat!');
+  // the door: any hull with one - its trigger's parent's Animator turned over, and the clip
+  const withDoor = s.place(2, 0, [300, 34, 300]);   // the Small Ship's cabin door (the Carrack carries seven, the two smallest none)
+  const trigger = [...withDoor.GameObject.walk()].find((n) => activationModelOf(n.name) === TRIGGER_MODEL.door);
+  assert.ok(trigger, 'the Small Ship has a door');
+  const sounds = [];
+  s.deps.audio = { dfClipAtPoint: (id) => sounds.push(id) };
+  s.rt.turnDoor(trigger);
+  s.rt.turnDoor(trigger);
+  assert.deepEqual(sounds, [94, 93], 'opened (94), then shut (93)');
+  const before = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 10, 0, 0, 1];
+  const turned = [0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 10, 0, 5, 1];   // a quarter turn about up, moved five along z
+  closeV(carriedPoint(before, turned, [12, 1, 0]), [10, 1, 3], 1e-9, 'two metres off the root, carried round with it');
+  assert.equal(yawDelta(before, turned), 90);
 });

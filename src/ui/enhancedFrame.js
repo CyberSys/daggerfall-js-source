@@ -63,6 +63,8 @@ export const FRAME_ROLES = {
   window: ['.dlg-win', '.px-win', '.pack-win', '.loot-win', '.px-about', '.px-profile', '.hmbox',
     // PLUS8: the journey's bar (ui/enhancedTravelControl.js) - carved stone, brass fittings, the theme's ground
     '.travelpanel-bar',
+    // CSA-L: the helm's bar (ui/enhancedHelm.js) - the journey bar's kind, under the compass where it stands
+    '.helmpanel-bar',
     // PLUS-DRESS (2026-09-26, Mac: "ensure any of the new UI elements are also a part of how enhanced plus looks"): the
     // decorator (HOME2/DECOR1) is a whole window over the room - the pack's own carved frame, not a rounded card
     'body .dfdecor-card',
@@ -115,6 +117,8 @@ export const FRAME_ROLES = {
     '.trade-shell .packtab',
     // PLUS8: the journey bar's Map / Camp / Exit and the time stepper's two presses
     '.travelpanel-act', '.travelpanel-step',
+    // CSA-L: the helm's presses - the sails, the trim, the lanterns, the time, the position, leaving
+    '.helmpanel-btn',
     // PLUS-DRESS: the page's, the F-menu's (its Cancel stays a line of text), the duel's and the decorator's
     'body .dfpage-btn', 'body .dfpeer-btn:not(.cancel)', 'body .dfduel-btn', 'body .dfprofile-duel', 'body .dfdecor-btn', 'body .dfdecor-open'],
   primary: ['.lv-ok', '.hmroot .act', 'body .dfdecor-place'],   // PLUS-DRESS: Place is what the decorator is for

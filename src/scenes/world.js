@@ -121,6 +121,8 @@ import { createTravelControlUI, preloadTravelControlArt, stripTakesClick } from 
 import { pointToNative, nativeMetrics } from '../ui/nativePanel.js';   // TO1: the travel panel's clicks land in the 320x200 panel's own coordinates
 import { createTravelJunctionMap } from '../ui/travelJunctionMap.js';
 import { drawEnhancedTravelControl, hideEnhancedTravelControl } from '../ui/enhancedTravelControl.js';
+import { drawEnhancedHelm, hideEnhancedHelm, enhancedHelmMounted, helmPadGesture, helmPadPrompts } from '../ui/enhancedHelm.js';   // CSA-L: Come Sail Away's helm on screen (Enhanced Plus)
+import { buttonText as csaButtonText } from '../systems/controlsConfig.js';   // CSA-L: the helm panel's key hints, as the Controls page writes them
 import { setTimeScale as setWorldTimeScale, timeScale as worldTimeScale, resetTimeScale } from '../systems/timeScale.js';   // W1's classic art window + U61's overworld, one door
 import { racialRestBlock, racialFastTravelBlock, cureVampirism, SUNLIGHT_TRAVEL_TEXT } from '../systems/vampirism.js';   // AUDIT 64 F21: the career rung and the racial one show the SAME sunlightDamageFastTravelDay box (DaggerfallUI.cs:619, VampirismEffect.cs:202)
 import { giveOffer } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI.GiveOffer, the rung in front of BOTH the rest and the fast-travel press   // V2b: the vampire's rest and daylight gates; V2d: $CUREVAM's cure arm
@@ -282,20 +284,21 @@ import { ANIMALS_ARCHIVE, ANIMAL_SOUND_BY_RECORD } from '../systems/soundClips.j
 import { boxNearPath, pointNearPath, wodSiteClear, UNITS_PER_METRE, WOD_PIECE_ROAD_CLEAR, CAMP_ROAD_CLEAR_M } from '../world/roadClearance.js';   // ROADS-CLEAR: WoD sites and pieces, and the camps, off the painted roads
 import { StreamingWorldState, TerrainSlots, worldCoordToMapPixel, locationWorldRect, isInLocationRect, mapPixelToWorldCoords, SCENE_MAP_RATIO, nearestFirstFrom } from '../world/streamingWorld.js';   // HCC: StreamingWorld.SceneMapRatio; AUDIT BRANCH (WoD) L1-3: DFU's terrain array; AUDIT 68 S22: the load list's one order
 import { horseNameTooltip } from '../ui/horseNameTooltip.js';   // AUDIT HCC U6: the mod's HUD label, both skins
-import { createHorseCartPool } from './horseCartPool.js';
+import { createHorseCartPool, ownedLine } from './horseCartPool.js';
 import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerRiders.js';   // RIDE: another player in the saddle   // HCC: Horse Cart and Cargo's presentation - the wagon's five pieces, the horse's eight views, the peers' teams
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
 import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
+import { createComeSailAwayAboard, CSA_ABOARD_GRACE } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
-import { setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
+import { TRIGGER_MODEL as CSA_TRIGGER_MODEL, setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
-import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
+import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount } from '../systems/comeSailAway.js';
 import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
 import { particleMeshRotation as csaParticleMeshRotation, RENDER_MODE as CSA_RENDER_MODE } from '../world/unityParticles.js';   // CSA-F
-import { quatRotate as csaQuatRotate } from '../world/quat.js';   // CSA-F: the effects probe's flag forward
+import { quatRotate as csaQuatRotate, quatMultiply as csaQuatMultiply, quatAngleAxis as csaQuatAngleAxis } from '../world/quat.js';   // CSA-F: the effects probe's flag forward; CSA-K: the helm's turn a frame ahead
 import { classicRecordRgba } from '../formats/derivedTexture.js';   // CSA-F: the snow the waves' paints key
 import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js';   // CSA-E: a screen quad's PNG keeps its rows
 import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
@@ -497,10 +500,10 @@ import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfVie
 import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, pressed, released, actionsOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld } from '../ui/input.js';
 import { armUnloadGuard, releaseUnloadGuard } from '../systems/unloadGuard.js';   // MAC-L3: one door in front of every way out of a running game; AUDIT-MACL F3: ...and down for a door the game opened itself
 import { codeMeans, getBinding } from '../systems/inputActions.js';   // AUDIT-TO1 H2: the help's TravelMap binding, read through the store's own accessor   // FIX-E: the overlay's QuickLoad read, off the code alone   // I2: the rebindable registry; AUDIT 39r: the mouse half of the held set
-import { hudShortcutKey, retroToggleKey } from '../ui/hudShortcuts.js';   // AUDIT 64 F36/F37: DaggerfallHUD.Update's LargeHUDToggle / HUDToggle arms
+import { hudShortcutKey, retroToggleKey, hudRenderEnabled } from '../ui/hudShortcuts.js';   // AUDIT 64 F36/F37: DaggerfallHUD.Update's LargeHUDToggle / HUDToggle arms
 import { createActivateGate, activateFrame, setClickDelay } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';   // I3/I4; U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
-import { isEnhanced } from '../systems/uiSkin.js';   // WM2d: the mills are an enhanced-only addition
+import { isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // WM2d: the mills are an enhanced-only addition
 import { drawEnhancedStatusLine } from '../ui/enhancedHudText.js';   // FONT1: the online status line in the skin's own face
 import { rrRidingOn, rrRidingSetting, BED_MODELS, bedSleepingOn } from '../systems/rrRealism.js';   // RR2: EnhancedRiding's switches; CSA-G: the boat's bed is RR1's BedActivation
 import { createRrRidingContacts } from '../systems/rrRidingHost.js';   // RR2 / AUDIT-RR F15: the trample and the charge, one home for both outdoor hosts
@@ -2537,12 +2540,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1161),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1172),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:1729) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:1740) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -4796,6 +4799,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csa = createComeSailAwayPool({ renderer, pipeline, log: console });
   const csaPeers = createComeSailAwayPeers({ pool: csa, selfId: () => online?.id ?? null });   // CSA-J: the others' boats, in the pool's peer list
   csaPeers.setPeerLook((id) => (_hiddenPeers.has(id) ? 'hidden' : (_veils.get(id) ?? null)));   // AUDIT PRE-MERGE 0928 O4: a concealed sailor's boat is concealed with them (the cart pool's I-B law; last frame's word)
+  const csaAboard = createComeSailAwayAboard({ peers: csaPeers, geometry: (c) => csaColliderMesh(c), selfId: () => online?.id ?? null });   // CSA-K: another player's boat, stood on and carried by; and the others aboard, seen on the deck
   // CSA-C: THE RUNTIME - the boats placed, kept where they stand and saved (systems/comeSailAway.js). Made as the world
   // mounts with the mod on ("Takes effect when the game next loads"), and only then does its record ride the save
   // (OH-D's precedent: a mod DFU did not load writes none). The pool loads every hull's needs at once, so SpawnBoat
@@ -4853,7 +4857,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   function csaSyncColliders() {
     const col = csaModeCollider();
     const want = new Set();
-    for (const boat of csa.boats) {
+    const aboard = csaAboard.aboard?.boat ?? null;   // CSA-K: another player's boat stands in MY collider while I am aboard it, and never else (PR-WAGON1: another's never walls me out)
+    for (const boat of aboard ? [...csa.boats, aboard] : csa.boats) {
       if (!boat.GameObject?.activeSelf) continue;
       const id = csaBoatId(boat);
       let i = 0;
@@ -5000,7 +5005,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const hit = raycastColliders(boat.GameObject, eye, dir, RAY_DISTANCE, { triggers: true, geometry: csaColliderMesh });
       if (hit && (!best || hit.distance < best.hit.distance)) best = { boat, hit };
     }
-    if (!best) return null;
+    if (!best) return csaPeerActivationPick(eye, dir);   // CSA-K: another player's boat - only where none of mine is under the ray (theirs yields, PR-WAGON1)
     const wall = csaModeCollider()?.raycastHit(eye, dir, best.hit.distance, _csaBuckets.size ? { skip: _csaBuckets.keys() } : null);
     if (wall && Number.isFinite(wall.dist) && wall.dist < best.hit.distance) return null;
     const modelId = csaActivationModelOf(best.hit.node?.name);
@@ -5016,7 +5021,64 @@ export async function bootWorld(canvas, renderer, params, status) {
    * CSA-G: the bed's, silent past its reach too (PlayerActivate.cs:436-440): BedActivation is DaggerfallUI's rest gate
    * and then the Rest window over the bed clicked - the mode's own rest door (`restFromBed` indoors).
    */
+  /**
+   * CSA-K: THE ONE RAY ON ANOTHER PLAYER'S BOAT - the nearest of their boats' colliders, triggers taken, unless the
+   * static world stands nearer (my own buckets skipped - the deck I stand aboard among them - as mine are for mine). The
+   * pick YIELDS (PR-WAGON1): anything firm under the ray takes the press first, a boat of mine among them.
+   */
+  function csaPeerActivationPick(eye, dir) {
+    if (!csaOn()) return null;
+    const p = csaAboard.pick(eye, dir, RAY_DISTANCE);
+    if (!p) return null;
+    const wall = csaModeCollider()?.raycastHit(eye, dir, p.distance, _csaBuckets.size ? { skip: _csaBuckets.keys() } : null);
+    if (wall && Number.isFinite(wall.dist) && wall.dist < p.distance) return null;
+    const bed = p.modelId == null && bedSleepingOn() && csaCustomModelOf(p.hit.node?.name, BED_MODELS) != null;   // Roleplay Realism's BedActivation, anyone's bed
+    return {
+      key: `csaPeer:${p.owner}:${p.slot}:${p.modelId ?? (bed ? 'bed' : 'hull')}`, distance: p.distance, yields: true, peer: true,
+      reach: bed ? DEFAULT_ACTIVATION_DISTANCE : CSA_ACTIVATION_DISTANCE,
+      modelId: p.modelId, bed, boat: p.boat, owner: p.owner, slot: p.slot, hit: { ...p.hit, root: p.boat.GameObject },
+    };
+  }
+  /** CSA-K: SetHorizontalFacing - PlayerMouseLook.SetFacing's Init, the owed look dropped (the helm's own seam). */
+  const csaSetFacing = (yawDeg, pitchDeg) => { cam.yaw = (yawDeg * Math.PI) / 180; cam.pitch = (pitchDeg * Math.PI) / 180; lookFilter.settle(); };
+  /**
+   * CSA-K: BOARDBOAT ON ANOTHER PLAYER'S BOAT, statement for statement (systems/comeSailAway.js BoardBoat): stood at the
+   * sibling before the ladder's trigger, facing its forward, set on the ground within 3 m - their deck among what that
+   * ray meets - and aboard from here (CSA_ABOARD_GRACE: the motor has not stood there yet), its deck standing at once.
+   */
+  function csaBoardPeer(pick) {
+    const at = csaAboard.boardPlace(pick.hit);
+    csaSetPlayerPosition(at.position);
+    csaSetFacing(at.yaw, 0);
+    const c = dwPlayerObjectPosition();
+    const o = [c[0], c[1] + 0.2, c[2]];
+    const ground = csaRaycast(o, [0, -1, 0], 3, { triggers: true });
+    const deck = raycastColliders(pick.boat.GameObject, o, [0, -1, 0], 3, { triggers: true, geometry: csaColliderMesh });
+    const d = deck && (!ground || deck.distance < ground.distance) ? deck.distance : ground ? ground.distance : null;
+    csaSetPlayerPosition([c[0], alignControllerToGround(c[1], d, player.height ?? CAPSULE_HEIGHT, 3), c[2]]);
+    if (csaAboard.board(pick.boat, CSA_ABOARD_GRACE)) csaSyncColliders();
+    cam.pos = player.eyeAt();
+  }
+  /**
+   * CSA-K: a press on another player's boat, inside the mod's reach (silent past it, as its own boxes are). The ladder
+   * boards it; the status box says the mod's "Nice Boat!"; a door turns over for the one who pressed it (DECLARED: the
+   * owner's doors are not on the wire); the position box is the player's own instruments (the reading reads no boat,
+   * kept); the bed is Roleplay Realism's, anyone's; the helm, the cargo and the variant are the owner's, and the press
+   * says whose (a peer's wagon's HCC-TIP shape: "This Large Boat - owned by Ann.").
+   */
+  function csaPeerActivate(pick) {
+    if (pick.bed) { csaActivate({ ...pick, peer: false }); return; }
+    if (pick.modelId == null || !(pick.distance <= pick.reach)) return;
+    switch (pick.modelId) {
+      case CSA_TRIGGER_MODEL.board: csaBoardPeer(pick); break;
+      case CSA_TRIGGER_MODEL.status: messageBox([CSA_NICE_BOAT_TEXT]); break;
+      case CSA_TRIGGER_MODEL.door: csaCall(() => csaRuntime?.turnDoor(pick.hit.node)); break;
+      case CSA_TRIGGER_MODEL.position: csaCall(() => csaRuntime?.StartShowBoatPosition(pick.boat)); break;
+      default: { const owned = ownedLine(peerName(pick.owner)); townTalk.say(`This ${CSA_HULL_NAMES[pick.boat.hull] ?? 'boat'} - ${owned.charAt(0).toLowerCase()}${owned.slice(1)}.`); }
+    }
+  }
   const csaActivate = (pick) => {
+    if (pick?.peer) { csaPeerActivate(pick); return; }   // CSA-K
     if (pick?.bed) {
       if (pick.distance <= DEFAULT_ACTIVATION_DISTANCE) { if ((modes?.mode ?? 'exterior') === 'exterior') { _restFromBed = true; try { toggleRest(); } finally { _restFromBed = false; } } else modes?.restFromBed?.(); }
       return;
@@ -5025,12 +5087,21 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** CSA-D: the plaque's word for a boat - the port's own (DFU names nothing): the hull's name. */
   const csaHoverName = (key) => {
+    const peer = typeof key === 'string' ? /^csaPeer:(.+):(\d+):[^:]+$/.exec(key) : null;   // CSA-K: another player's boat - its hull, and whose (a peer's wagon's plaque, HCC-TIP)
+    if (peer) { const boat = csaPeers.boatAt(peer[1], Number(peer[2])); return boat ? { title: CSA_HULL_NAMES[boat.hull] ?? 'Boat', subs: [ownedLine(peerName(peer[1]))] } : null; }
     if (typeof key !== 'string' || !key.startsWith('csaBoat:')) return null;
     const id = Number(key.split(':')[1]);
     const boat = csa.boats.find((b) => _csaBoatIds.get(b) === id);
     return boat ? { title: CSA_HULL_NAMES[boat.hull] ?? 'Boat' } : null;
   };
   let _csaDt = 0;               // CSA-D: Time.deltaTime for the mod - zero while paused, scaled with the world
+  /** CSA-L: THE HELM PANEL'S PRESSES (ui/enhancedHelm.js, and the pad's helm d-pad) - the registry actions it presses,
+   *  handed to the mod beside the keys' own reads (the runtime's input seam): a tap is one frame's edge, its chord's
+   *  modifier held that frame (the square sails' End with the modifier), a hold held until it is let go. The mod's step
+   *  spends a frame's taps (csaUpdate). */
+  const csaHelmInput = { edges: new Set(), chord: new Set(), held: new Set() };
+  const csaHelmPress = (action, withHeld = null) => { if (typeof action !== 'string') return; csaHelmInput.edges.add(action); if (typeof withHeld === 'string') csaHelmInput.chord.add(withHeld); };
+  const csaHelmHold = (action, on) => { if (typeof action !== 'string') return; if (on) csaHelmInput.held.add(action); else csaHelmInput.held.delete(action); };
   let _csaAxes = { h: 0, v: 0 };   // CSA-D: InputManager's Horizontal and Vertical this frame (MoveAxes)
   let _csaFootstepsOff = false;   // CSA-D: PlayerFootsteps.enabled = false at the helm
   let _csaMovedPlayer = false;   // CSA-D: the helm wrote the player's transform this frame - the eye follows
@@ -5136,6 +5207,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   const csaRuntime = csaOn() ? createComeSailAwayRuntime({
     pool: csa,
+    passengersAboard: (boat) => { const i = csaRuntime?.AllBoats.filter((b) => b.GameObject?.activeSelf).indexOf(boat) ?? -1; return i < 0 || !online?.id ? 0 : csaAboard.passengersOn(online.id, i); },   // CSA-K: the others' words standing them on this boat of mine
     player: () => ({ position: dwPlayerObjectPosition(), rotation: [0, Math.sin(cam.yaw / 2), 0, Math.cos(cam.yaw / 2)] }),   // PlayerObject: the controller's centre, turned by the yaw
     camera: () => ({ position: [...cam.pos], forward: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),   // the activation's own ray (cam.pos, the look) - the F key's law in third person too
     currentMapPixel: () => { const px = playerTravelPixel(); return { X: px.x, Y: px.y }; },   // PlayerGPS.CurrentMapPixel, a new one each read
@@ -5165,8 +5237,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     dt: () => _csaDt,
     setting: (key) => { try { return modSetting(COME_SAIL_AWAY_VENDOR, key); } catch { return undefined; } },
     input: {
-      has: (action) => held(keys, action),   // InputManager.HasAction: the registry's held read (the mod's keys answer only while it is on)
-      started: (action) => pressed(latch.edge, keys, action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring
+      has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action),   // InputManager.HasAction: the registry's held read (the mod's keys answer only while it is on); CSA-L: and the helm panel's holds
+      started: (action) => pressed(latch.edge, keys, action) || csaHelmInput.edges.has(action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring; CSA-L: and the helm panel's taps
       horizontal: () => _csaAxes.h,
       vertical: () => _csaAxes.v,
       get toggleAutorun() { return !!player.toggleAutorun; },
@@ -5175,7 +5247,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     helm: {
       setPlayerPosition: csaSetPlayerPosition,
-      setFacing: (yawDeg, pitchDeg) => { cam.yaw = (yawDeg * Math.PI) / 180; cam.pitch = (pitchDeg * Math.PI) / 180; lookFilter.settle(); },   // PlayerMouseLook.SetFacing -> Init: the owed look dropped
+      setFacing: (yawDeg, pitchDeg) => csaSetFacing(yawDeg, pitchDeg),   // PlayerMouseLook.SetFacing -> Init: the owed look dropped
       turnPlayer: (deg) => { cam.yaw += (deg * Math.PI) / 180; },   // the child's world yaw turned with its parent's
       freeze: (seconds) => { player.freezeMotor = seconds; },
       frozen: () => (player.freezeMotor ?? 0) > 0,
@@ -5409,7 +5481,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       csaRuntime.update({ paused });
       csaRuntime.lateUpdate({ paused, activateComplete: released(latch.edge, keys, 'ActivateCenterObject') || _tapClick });   // AUDIT PRE-MERGE 0928 U2: a finger's tap is ActivateCenterObject to the gate (_tapArmed), never on the ring - its release frame places the boat too
     });
+    csaHelmInput.edges.clear(); csaHelmInput.chord.clear();   // CSA-L: the helm panel's taps were this frame's
     csaSyncColliders();
+    csaPeersFrame(dt);   // CSA-K: the others' boats posed, and the deck I stand aboard carrying me - after the motor, before the eye
     if (_csaMovedPlayer) cam.pos = player.eyeAt();
     csaCall(() => csaRuntime.checkSettings());   // CSA-G: LoadSettings' Audio arm, on a change
     csaAudioFrame();
@@ -5509,10 +5583,32 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (values) csaDrawList(values);
     });
   }
+  /**
+   * CSA-K: THE OTHERS' BOATS POSED, ONCE A FRAME, AND WHOEVER STANDS ABOARD ONE CARRIED. Posed off their words on the real
+   * clock (their owners' worlds run on); then the deck I stand aboard carries me by its move (scenes/comeSailAwayAboard.js
+   * - my feet at their place on it, my facing turned with it) and its colliders stand again where it now is, all before
+   * the eye is taken from the body: in the walking frame from the mod's own step (csaUpdate, after the motor), else from
+   * the pool's frame. A mode's frame (a building, a dungeon) stands no one's boat and puts me off any.
+   */
+  let _csaPeersPosed = false;
+  function csaPeersFrame(dt) {
+    if (_csaPeersPosed) return;
+    _csaPeersPosed = true;
+    csaPeers.setEnabled(csaOn());   // CSA-J: a disabled mod is one DFU never loaded - nothing of a peer's stands (AUDIT HCC O8's law)
+    if (csaOn()) csaPeers.frame(dt);
+    const boat = csaAboard.frame({
+      allowed: csaOn() && !!online && walkMode && playerSpawned && !_teleporting && !_traveling && (modes?.mode ?? 'exterior') === 'exterior' && !(playerEntity.health <= 0 || modes?.deathUp?.()),   // a death puts me off (DC1: the body does not move while the camera dies)
+      feet: () => player.pos, height: player.height ?? CAPSULE_HEIGHT, swimming: !!player.isPlayerSwimming,
+      ground: (b) => (!player.grounded ? null : typeof player.groundKey === 'string' && player.groundKey.startsWith(`csaBoat:${csaBoatId(b)}:`) ? 'boat' : 'other'),
+      carry: (d, yawDeg) => { player.carryBy(d[0], d[1], d[2]); cam.yaw += (yawDeg * Math.PI) / 180; _csaMovedPlayer = true; },   // the helm's turnPlayer: the child's world yaw turned with its parent's
+    });
+    if (boat || _csaBuckets.size) csaSyncColliders();   // the deck where it stands now - or gone with the one I left
+  }
   /** CSA-B: the boats' own LateUpdate and their lanterns' Updates (the pool), on Time.deltaTime. */
   function csaPoolFrame(dt) {
-    csaPeers.setEnabled(csaOn());   // CSA-J: a disabled mod is one DFU never loaded - nothing of a peer's stands (AUDIT HCC O8's law)
-    if (csaOn()) { csaPeers.frame(dt); csa.frame(gamePaused() ? 0 : dt * worldTimeScale(), { cityLightsOn: isCityLightsOn(minuteNow()), playerPosition: player.pos }); }   // CSA-J: the peers' boats posed off their words first, on the real clock (their owners' worlds run on)
+    csaPeersFrame(dt);   // CSA-K: here when the mod's own step did not run this frame (a free camera, a mode's frame)
+    _csaPeersPosed = false;
+    if (csaOn()) csa.frame(gamePaused() ? 0 : dt * worldTimeScale(), { cityLightsOn: isCityLightsOn(minuteNow()), playerPosition: player.pos });   // CSA-J: the peers' boats were posed off their words first, on the real clock (their owners' worlds run on)
   }
   /** CSA-J (the audit): a save's records with Come Sail Away's helm let go - for a load that landed elsewhere than its
    *  save (the online wake at a temple, a dungeon not found or with no door, a save of elsewhere), where RestoreSaveData's
@@ -5529,10 +5625,13 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  (foesStream's force): a sailing boat rides every FOES_MS, a still one the full frames alone. */
   function csaWord(frame, full) {
     if (!csaRuntime || !csaOn()) { if (!_csaWordKey) return false; if (frame) { frame.sa = null; _csaWordKey = ''; } return true; }
+    const way = csaRuntime.helmMotion?.() ?? null;   // CSA-K: the boat at the helm says its way - per game second, on the real clock at my time scale (nothing while a pause holds it)
+    const scale = way ? (gamePaused() ? 0 : worldTimeScale()) : 0;
     const view = csaRuntime.AllBoats.filter((b) => b.GameObject?.activeSelf).map((b) => ({
       hull: b.hull, variant: b.variant, position: b.GameObject.position, rotation: b.GameObject.rotation,
       sails: b.Sails.reduce((m, sail, k) => (csaAnimatorOf(sail) && !csaAnimatorOf(sail).GetBool('Stowed') ? m | (1 << k) : m), 0),
       helm: csaRuntime.isSailing() && b === csaRuntime.state.CurrentBoat, light: !!b.LightOn,
+      ...(way && way.boat === b ? { velocity: way.velocity.map((v) => v * scale), turn: way.turn * scale } : null),
     }));
     const rec = csaWireRecord(view, campToWire);
     const key = csaRecordKey(rec);
@@ -5540,8 +5639,59 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (frame) { frame.sa = rec; _csaWordKey = key; }
     return true;
   }
+  /** CSA-K: MY PLACE ABOARD ANOTHER'S BOAT, SAID - `ab` on my foes frame beside my boats' word: their owner, which of
+   *  their boats, my feet in its own frame (scenes/comeSailAwayAboard.js word). A changed word asks for the frame it
+   *  rides (standing still on a moving deck changes nothing); every full frame says it again, null aboard nothing. */
+  let _csaAboardKey = '';
+  function csaAboardWord(frame, full) {
+    const w = csaOn() ? csaAboard.word(player.pos) : null;
+    const key = w ? JSON.stringify(w) : '';
+    if (!full && key === _csaAboardKey) return false;
+    if (frame) { frame.ab = w; _csaAboardKey = key; }
+    return true;
+  }
+  /** CSA-K: the pose a boat of an owner's place will be drawn at this frame - mine (my word's own order), the helm's
+   *  move of this frame made ahead (the online frame runs before the mod's LateUpdate), or a peer's as their next frame
+   *  leads it - for the others aboard it, stood on its deck. Null where none stands. */
+  function csaPoseAhead(owner, slot, dt) {
+    if (owner === (online?.id ?? null)) {
+      const boat = csaRuntime?.AllBoats.filter((b) => b.GameObject?.activeSelf)[slot];
+      if (!boat) return null;
+      const pose = { position: boat.GameObject.position, rotation: boat.GameObject.rotation };
+      const way = csaRuntime.helmMotion?.();
+      if (!way || way.boat !== boat) return pose;
+      const gdt = gamePaused() ? 0 : dt * worldTimeScale();   // the mod's Time.deltaTime (csaUpdate's _csaDt)
+      return { position: pose.position.map((v, k) => v + way.velocity[k] * gdt), rotation: csaQuatMultiply(pose.rotation, csaQuatAngleAxis(way.turn * gdt, [0, 1, 0])) };
+    }
+    const boat = csaPeers.boatAt(owner, slot);
+    return boat ? (csaPeers.poseAhead(boat, dt) ?? { position: boat.GameObject.position, rotation: boat.GameObject.rotation }) : null;
+  }
   /** Both, in a mode's frame (a building, a dungeon), whose own motor and eye follow. */
   function csaFrame(dt) { csaUpdate(dt); csaPoolFrame(dt); }
+  /** CSA-L: the key the Controls page names for an action (the primary, else the secondary dict's), '' for none or a
+   *  pad's button - the helm panel's hints. */
+  const csaKeyLabel = (action) => { const b = bindings(); const c = getBinding(b, action) ?? getBinding(b, action, false); return c && !/^Joystick/.test(c) ? csaButtonText(c) : ''; };
+  /** CSA-L: THE HELM PANEL (ui/enhancedHelm.js) - Enhanced Plus, at the helm, or aboard another's boat (whose). Once a
+   *  frame from the frame's own top (every mode: a dungeon's water is sailed too), hidden under a window over the HUD,
+   *  the HUD toggled off, or a pause; taken down with the skin, the mod or the helm. */
+  const csaHelmHooks = {
+    press: (action, withHeld) => csaHelmPress(action, withHeld),
+    hold: (action, on) => csaHelmHold(action, on),
+    position: () => csaCall(() => { const b = csaRuntime?.state?.CurrentBoat; if (b) csaRuntime.StartShowBoatPosition(b); }),   // the position box's reading, from the wheel (DECLARED: the box itself is out of reach there)
+  };
+  function csaDrawHelmPanel() {
+    if (!csaRuntime || !csaOn() || !isEnhancedPlus() || typeof document === 'undefined' || !walkMode) { if (enhancedHelmMounted()) hideEnhancedHelm(); csaHelmInput.held.clear(); return; }
+    let helm = null;
+    csaCall(() => { helm = csaRuntime.helmPanelState(); });
+    if (!helm) csaHelmInput.held.clear();
+    const ab = helm ? null : csaAboard.aboard;
+    drawEnhancedHelm({
+      helm, aboard: ab ? { hull: ab.boat.hull, owner: peerName(ab.owner) } : null,
+      covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() || !hudRenderEnabled(),
+      touch: !!touch, mouseFree: cursorActive() || pointerSurfaces.size > 0 || !document.pointerLockElement,
+      freeKey: csaKeyLabel('FreeMouse'), keyOf: csaKeyLabel,
+    }, csaHelmHooks);
+  }
   /** AUDIT HCC H1: TrailingWagonRuntime.LateUpdate, ONCE a frame and in EVERY mode (the machine gates its own
    *  presentation on PlayerEnterExit.IsPlayerInside, and its hotkeys answer indoors with the mod's "outdoors only").
    *  Called from the modal branch (a building, a dungeon) and from the exterior frame after the motor and the
@@ -6420,7 +6570,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:480-485) never looks the record up in `foes`, and
+    // (exteriorFoes.js:482-487) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1493-1511) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -10528,6 +10678,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     cycleMode: () => townTalk.nextMode(),   // T3-touch: the phone's F1-F4
     socialInteract: () => socialInteract(),   // AUDIT SOC C9: the phone's F - the host's own door (a card over the body in front, else the friends panel; false with no account, and the layer's button then does nothing)
     overlayActive: () => townTalk.overlayActive,
+    // CSA-L: the pad's helm d-pad (ui/gamepadInput.js HELM_DPAD) - at the helm on Enhanced Plus, the helm panel's presses
+    helm: {
+      up: () => !!(csaRuntime?.isSailing() && csaOn() && isEnhancedPlus()),
+      gesture: (dir, kind) => { let r = false; csaCall(() => { r = helmPadGesture(dir, kind, csaRuntime?.helmPanelState() ?? null, { press: csaHelmPress, hold: csaHelmHold }); }); return r; },
+      prompts: () => { let r = null; csaCall(() => { r = helmPadPrompts(csaRuntime?.helmPanelState() ?? null); }); return r; },
+    },
     stickRuns: () => !csaRuntime?.isSailing(),   // AUDIT PRE-MERGE 0928 U3: at Come Sail Away's helm Run + a side key is the oars' strafe - the stick's throw runs nowhere there, so a full push turns the boat
     // AUDIT 62 F7: the finger's pause gate - the same predicate the
     // mouse arms carry (the mousemove look needs the pointer lock a
@@ -12360,9 +12516,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     _foesSentAt = now;   // AUDIT WORLD2 B11: the clock re-arms whether or not anything changed - a quiet room asked every frame
     const full = now - _foesFullAt >= FOES_FULL_MS;
     const csaMoved = cell && csaWord(null, full);   // AUDIT PRE-MERGE 0928 O2: my boats' moved word asks for a frame, as the team's does - a quiet sea built none, and a sailing boat rode the full frames alone
-    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved) : null) : modes?.dungeonFoesFrame?.(full);
+    const csaAboardMoved = cell && csaAboardWord(null, full);   // CSA-K: and my place aboard another's boat, as it moves on their deck
+    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved) : null) : modes?.dungeonFoesFrame?.(full);
     if (!frame) return false;
-    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
+    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full); if (cell) csaAboardWord(frame, full);   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way
     if (!online.sendFoes(frame)) { _foesFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9: a refused frame's deltas were already committed - the next frame carries every foe
     if (full) _foesFullAt = now;
     return true;
@@ -12677,6 +12834,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     exteriorFoes.setOnCamps((from, c, at) => camps.applyOwner(from, c, campToScene, at));   // SURV3: a peer's camps, off their foes frame past the pool's own room test, through validCampRecord
     exteriorFoes.setOnHcc((from, hv, at) => hcc.applyOwner(from, hv, campToScene, at), () => hcc.clearPeers());
     exteriorFoes.setOnCsa((from, sa, at) => csaPeers.applyOwner(from, sa, campToScene, at), () => csaPeers.clearPeers());   // CSA-J: a peer's boats, off their foes frame past the room test, through validCsaRecord
+    exteriorFoes.setOnCsaAboard((from, ab, at) => csaAboard.applyRider(from, ab, at), () => csaAboard.clearRiders());   // CSA-K: a peer's place aboard a boat, the same door's way
     // QUEST-PARTY (2026-09-26, Mac: "Party shares them"): a quest shared with the party streams its foes to the party,
     // a member stands a party peer's, a peer's blow and a quest foe's hunt reach only the party (a quest's own allies
     // take no blow), and my copy of the quest counts the injury and the kill it sees on a partner's foe
@@ -15756,6 +15914,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) camps.sweepOwners(ids, now, FOES_STALE_MS); }   // PERF11: the same list   // SURV3: a peer's camps go as their puppets do - the same liveness, the same answer-gate   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) hcc.sweepOwners(ids, now, FOES_STALE_MS); }   // HCC-ONLINE: a peer's team goes as their puppets and camps do - the same memoised list, the same liveness   // PERF11: the same list   // SURV3: a peer's camps go as their puppets do - the same liveness, the same answer-gate   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) csaPeers.sweepOwners(ids, now, FOES_STALE_MS); }   // CSA-J: a peer's boats go as their team does - the same memoised list, the same liveness
+    if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) csaAboard.sweepRiders(ids, now, FOES_STALE_MS); }   // CSA-K: and their place aboard a boat
     hcc.pruneKept(isCellRoom(online.room) ? [online.room, ...online.haloRooms()] : [], now);   // HCC-PARK: a kept team is its CELL's - it stands while I hold that cell's socket (mine or a halo's), and its welcome brings it back
     // INVIS-NET (2026-09-27, Mac relaying reports: "Other player's still see other players who are suppose to be
     // invisible"): a peer MAGICALLY CONCEALED (the pose's `cv` - invisible, blending, a shade) is drawn as DFU draws every
@@ -15766,7 +15925,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // concealed foe's look takes) a concealed peer is drawn in the look a concealed foe is - translucent, shimmering,
     // a shade dark - in whatever stands for them (the rider, the Morrowind body, the walker, the sprite, the doll), and
     // an invisible one takes the shimmer (systems/combatVisuals.js peerDraw). Still no name.
-    const drawable = online.drawable();
+    const drawable = isCellRoom(online.room) && csaOn() ? csaAboard.glue(online.drawable(), { poseOf: (o, i) => csaPoseAhead(o, i, dt), toWire: campToWire, dt }) : online.drawable();   // CSA-K: a peer aboard a boat stands on its deck as it is drawn here - its owner's (mine among them) or the one led here - never a stride behind it
     peerCastVisuals(drawable);   // SPELLFX1: a peer's new cast, drawn once
     _veilT += dt > 0 ? dt : 0;
     _veils.clear(); _hiddenPeers.clear();
@@ -16862,6 +17021,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // relay room's key (online.js roomKeyFor): the drowned dungeon never joins its dry template's room for a frame.
     if (oceanHoles) { _ohTime += gamePaused() ? 0 : dt * worldTimeScale(); oceanHoles.checkSettings(); ohAbyss?.update(); }
     spoilsRecoverFrame();   // WB5: a boss's spoils no save holds, back to their character as it stands up - before it can save, online or not
+    csaDrawHelmPanel();   // CSA-L: the helm panel, once a frame in every mode
     if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (_peerCandleLights.length) peerCandlesFrame([], dt);   /* PEERLIGHT2: offline, no one's candle stays lit */ if (!onlineOn && modes?.gateArenaDay?.() != null) { ejectFromCourt(COURT_TEXT.collapse); gateCourt?.leave(); /* AUDIT SS: and its floor into the pack - online, the frame's own court does it */ } if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
     deadlandsAirFrame();   // WB6b: after the court's ways out have run, online or not - the frame it is gone is the frame its air falls silent
     setCourtRules(modes?.gateArenaDay?.() != null);   // WBX6: the Deadlands keep no regeneration - set before any magic round of this frame, cleared the frame the court is gone

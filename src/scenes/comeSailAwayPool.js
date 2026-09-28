@@ -102,7 +102,8 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   let modelsLoading = null, modelsFailed = false;
   /** @type {any[]} */ const boats = [];
   /** CSA-J: the peers' boats (scenes/comeSailAwayPeers.js) - drawn, baked and lit as mine, but never in `boats`, so
-   *  the host's colliders, rays and activations (which read `boats`) never meet them. */
+   *  the host's colliders, rays and activations (which read `boats`) meet them only where CSA-K asks for one by name:
+   *  the deck the player stands aboard, and another's boat's own ray (scenes/comeSailAwayAboard.js). */
   /** @type {any[]} */ const peerBoats = [];
   const drawn = () => (peerBoats.length ? boats.concat(peerBoats) : boats);
   const meshes = new Map();      // rendererModelKey -> gpu mesh | null

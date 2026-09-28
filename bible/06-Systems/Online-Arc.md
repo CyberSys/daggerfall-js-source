@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6229` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6379` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10425,12 +10425,31 @@ it - DECLARED (36) on the mod's Port-Ledger row - under HCC-ONLINE's law and no 
   theirs alone and never mine; gone from the room or quiet past FOES_STALE_MS, their boats go with their puppets; a
   clear (a transition, a fast travel, a room change) takes every peer's; a viewer with the mod off stands nothing.
 - **The landing**: each boat built as SpawnBoat builds one into the pool's PEER list - drawn, baked and lit as a
-  boat of mine, never a collider, a ray's hit or an activation - and posed every frame off the word converted from
-  the wire frame (AUDIT HCC O1), eased between words (a step past 20 m snaps), its sails, crew and lanterns as the
-  word says. Nothing of the cargo, the wind or the time scale rides; the bob, the wake, the oars and the sounds are
+  boat of mine, a collider, a ray's hit and an activation only as CSA-K makes one (below) - and posed every frame off
+  the word converted from the wire frame (AUDIT HCC O1), eased between words (a step past 20 m snaps) and led along the
+  helm's way since CSA-K, its sails, crew and lanterns as the word says. Nothing of the cargo, the wind or the time scale rides; the bob, the wake, the oars and the sounds are
   the owner's own frame's.
 - **No relay change**: the relay reads nothing inside a foes frame (AUDIT WORLD2), so `sa` needs no version and no
   law row.
 
 Pinned: `test/csa_online.test.js` (6); mutants in `tools/mutants/csa_close.json`. Not verified in a browser with two
 players: no online session exists in this container.
+
+## CSA-K ONLINE (2026-09-28) - sailing together (a player's ask: "I want people to be able to sail together, to walk on board as it moves")
+
+DECLARED (40) on the mod's Port-Ledger row; the record is `03-World/Come-Sail-Away.md` Sailing together. Two words more
+on the foes frame, and no relay change - the relay reads nothing inside a foes frame, and it PROJECTS the pose frame
+field by field (`validPose`), so nothing rides there:
+
+- **The way**: `sa`'s `m`, a place for each of `b`'s - the boat at the helm's velocity through the wire frame and its
+  turn, on the real clock at the owner's time scale; only while a boat is under way, so a moored fleet's record is the
+  one an older reader reads. Readers lead the boat along it (`scenes/comeSailAwayPeers.js`, capped at 0.6 s).
+- **Aboard**: `ab` on the passenger's own frame - `[owner, place, x, y, z]`, their feet in that boat's own frame to
+  the centimetre; a word when it changes and on every full frame, null aboard nothing; the boats' owner law (gone,
+  stale, a clear). Every reader - the boat's owner among them - stands the passenger on its own copy of that boat
+  (`scenes/comeSailAwayAboard.js` glue over `online.drawable()`), a frame ahead as it will be drawn.
+- **Physics stays each client's**: another's boat stands in a player's collider only while that player is aboard it
+  (PR-WAGON1's law), the deck carrying them by its move; the owner's pack refuses while any `ab` stands on the boat.
+
+Pinned: `test/csa_together.test.js` (20); mutants in `tools/mutants/csa_together.json`. Not verified in a browser with
+two players, as CSA-J.
