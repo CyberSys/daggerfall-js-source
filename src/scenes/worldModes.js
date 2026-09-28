@@ -10260,6 +10260,9 @@ export function createWorldModes(host) {
       if (mode === 'interior') return interiorEnemyDatabase();
       return [];
     },
+    /** AUDIT PRE-MERGE 0928 O6: a foe of `insideFoes` that another client steps - the dungeon's own puppet test; a
+     *  building's peers' foes are its pool's `puppet`s, which every reader already skips. */
+    insideFoeIsPuppet(f) { return mode === 'dungeon' && !!dungeonCtx?.isPuppetFoe?.(f); },
     /** AUDIT 58 (EC1's third mode): the SINKS for a record `insideFoes`
      *  handed out - dungeonContext's `foeSinksFor` twin, for the host
      *  that had none. The enchant ctx is a session singleton mounted

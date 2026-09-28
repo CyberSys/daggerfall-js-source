@@ -90,11 +90,12 @@ test('CSA-J: a peer\'s boats stand in the pool\'s PEER list - built as SpawnBoat
   const peers = createComeSailAwayPeers({ pool, selfId: () => 'me' });
   const toScene = (p) => [p[0] - 5, p[1], p[2] - 7];
   assert.equal(peers.applyOwner('ann', { b: [word({ hull: 1, variant: 2, sails: 0b11, helm: 1, light: 1 })] }, toScene, 1000), true);
+  assert.equal(pool.peerBoats.length, 0, 'AUDIT PRE-MERGE 0928 O3: the handler keeps the word - the frame builds');
+  peers.frame(0.1);
   assert.equal(pool.boats.length, 0, 'not one of MY boats');
   assert.equal(pool.peerBoats.length, 1);
   const boat = pool.peerBoats[0];
   assert.deepEqual([boat.hull, boat.variant], [1, 2]);
-  peers.frame(0.1);
   assert.deepEqual(boat.GameObject.position.map((v) => +v.toFixed(6)), [5, 34, 13], 'the first frame stands it on its word');
   assert.ok(boat.Sails.length >= 2, 'the Large Boat has sails');
   assert.deepEqual(boat.Sails.map((s) => animatorOf(s)?.GetBool('Stowed')), boat.Sails.map((s, k) => !(k < 2)), 'the two bits raised the first two');
@@ -119,15 +120,20 @@ test('CSA-J: a peer\'s boats stand in the pool\'s PEER list - built as SpawnBoat
   assert.equal(boat.LightOn, false);
   // the owner's SetBoatVariant: the same boat, its variant object switched
   peers.applyOwner('ann', { b: [word({ hull: 1, variant: 4, x: 60 })] }, toScene, 1500);
+  peers.frame(0.05);
   assert.ok(pool.peerBoats[0] === boat, 'the same instance');
   assert.equal(boat.variant, 4);
   if (boat.VariantObject) assert.deepEqual(boat.VariantObject.children.map((c) => c.activeSelf), boat.VariantObject.children.map((c, i) => i === 4), 'variant 4 alone shown');
   // a different boat at that place in the list: the old one goes, another is built
   peers.applyOwner('ann', { b: [word({ hull: 0, variant: 0 })] }, toScene, 1600);
+  peers.frame(0.05);
   assert.equal(pool.peerBoats.length, 1);
   assert.ok(pool.peerBoats[0] !== boat && pool.peerBoats[0].hull === 0, 'a Rowboat now');
   // two owners, and the owner law
   peers.applyOwner('bob', { b: [word({ hull: 3 }), word({ hull: 4, x: 100 })] }, toScene, 1600);
+  peers.frame(0.05);
+  assert.equal(pool.peerBoats.length, 2, 'AUDIT PRE-MERGE 0928 O3: one build a frame');
+  peers.frame(0.05);
   assert.equal(pool.peerBoats.length, 3);
   assert.equal(peers.applyOwner('me', { b: [word()] }, toScene, 1600), false, 'my own word is never a peer\'s');
   assert.equal(peers.applyOwner('bob', { b: [word({ hull: 9 })] }, toScene, 1700), false, 'an invalid word drops bob\'s');
@@ -141,7 +147,7 @@ test('CSA-J: the owner law - gone from the room or quiet past the stale time, a 
   const peers = createComeSailAwayPeers({ pool, selfId: () => 'me' });
   peers.applyOwner('ann', { b: [word()] }, (p) => p, 1000);
   peers.applyOwner('bob', { b: [word({ hull: 0 })] }, (p) => p, 5000);
-  peers.frame(0.1);
+  peers.frame(0.1); peers.frame(0.1);   // AUDIT PRE-MERGE 0928 O3: one build a frame
   peers.sweepOwners(new Set(['ann', 'bob']), 6000, 6000);
   assert.equal(pool.peerBoats.length, 2, 'both in the room, neither quiet past six seconds');
   peers.sweepOwners(new Set(['ann', 'bob']), 7001, 6000);
@@ -154,6 +160,7 @@ test('CSA-J: the owner law - gone from the room or quiet past the stale time, a 
   peers.clearPeers();
   assert.equal(pool.peerBoats.length, 0);
   peers.applyOwner('bob', { b: [word()] }, (p) => p, 8500);
+  peers.frame(0.1);
   assert.equal(pool.peerBoats.length, 1);
   peers.setEnabled(false);
   assert.equal(pool.peerBoats.length, 0, 'the switch off takes what stood');
@@ -161,6 +168,7 @@ test('CSA-J: the owner law - gone from the room or quiet past the stale time, a 
   assert.equal(pool.peerBoats.length, 0);
   peers.setEnabled(true);
   assert.equal(peers.applyOwner('ann', { b: [word()] }, (p) => p, 9000), true);
+  peers.frame(0.1);
   pool.destroyAll();
   assert.equal(pool.peerBoats.length, 0, 'the pool\'s teardown takes the peers\' boats too');
 });
@@ -183,8 +191,10 @@ test('CSA-J: before the models are in, a word stands nothing - and the first fra
 test('CSA-J: the hosts - the foes frame carries my word beside the team\'s, the receiver lands a peer\'s past the room test, the sweep and the clear take theirs with the puppets, and the origin\'s shift and the pool\'s frame reach the peers', () => {
   const w = src('scenes/world.js');
   assert.match(w, /frame\.hv = hcc\.wireRecord\(campToWire\); _hccDirty = false; \} if \(cell\) duelRingWord\(frame, full\); if \(cell\) csaWord\(frame, full\);/);
-  assert.match(w, /function csaWord\(frame, full\) \{\n\s+if \(!csaRuntime \|\| !csaOn\(\)\) \{ if \(_csaWordKey\) \{ frame\.sa = null; _csaWordKey = ''; \} return; \}/);
-  assert.match(w, /const rec = csaWireRecord\(view, campToWire\);\n\s+const key = csaRecordKey\(rec\);\n\s+if \(!full && key === _csaWordKey\) return;\n\s+frame\.sa = rec;/);
+  assert.match(w, /function csaWord\(frame, full\) \{\n\s+if \(!csaRuntime \|\| !csaOn\(\)\) \{ if \(!_csaWordKey\) return false; if \(frame\) \{ frame\.sa = null; _csaWordKey = ''; \} return true; \}/);
+  assert.match(w, /const rec = csaWireRecord\(view, campToWire\);\n\s+const key = csaRecordKey\(rec\);\n\s+if \(!full && key === _csaWordKey\) return false;\n\s+if \(frame\) \{ frame\.sa = rec; _csaWordKey = key; \}\n\s+return true;/);
+  // AUDIT PRE-MERGE 0928 O2: the moved word asks for the frame it rides (test/audit0928_online.test.js drives it)
+  assert.match(w, /const csaMoved = cell && csaWord\(null, full\);[^\n]*\n\s+const frame = cell \? \(\(modes\?\.mode \?\? 'exterior'\) === 'exterior' \? exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved\) : null\)/);
   assert.match(w, /exteriorFoes\.setOnCsa\(\(from, sa, at\) => csaPeers\.applyOwner\(from, sa, campToScene, at\), \(\) => csaPeers\.clearPeers\(\)\);/);
   assert.match(w, /if \(ids\) hcc\.sweepOwners\(ids, now, FOES_STALE_MS\); \}[^\n]*\n\s+if \(isCellRoom\(online\.room\)\) \{ const ids = ownerIds\(\); if \(ids\) csaPeers\.sweepOwners\(ids, now, FOES_STALE_MS\); \}/);
   assert.match(w, /csaPeers\.rebase\(r\.offset\);/);
