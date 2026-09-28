@@ -1045,6 +1045,8 @@ export function alignEntityClocks(entity, nowMinutes) {
   const past = (v) => (Number.isFinite(v) && v !== 0 ? Math.min(now, delta === null ? now : v + delta) : v);
   const due = (v) => (Number.isFinite(v) && v !== 0 && delta !== null ? v + delta : v);
   const pastDay = (v) => (Number.isFinite(v) && dayDelta !== null ? Math.min(Math.floor(now / MINUTES_PER_DAY), v + dayDelta) : v);
+  // DISC28-F: the 112-day normalise is the one calendar arm this stamp cost the player (below).
+  if (delta !== null && delta > 0) normalizeAcross(entity, now - delta, now);
   entity.lastGameMinutes = now;
   resetMagicRoundMarker(now);
   _sharedLastTick = _sharedClock ? nowMinutes : null;
@@ -1106,6 +1108,54 @@ export function alignEntityClocks(entity, nowMinutes) {
   const store = entity.guildMemberships;
   const books = store && typeof store === 'object' ? (Object.hasOwn(store, 'mortal') && Object.hasOwn(store, 'vampire') ? [store.mortal, store.vampire] : [store]) : [];
   for (const book of books) for (const m of Object.values(book ?? {})) if (m && Number.isFinite(m.lastRankChange)) m.lastRankChange = pastDay(m.lastRankChange);
+  return true;
+}
+
+/** DISC28-F (Discord: arrested for Criminal Conspiracy over and over, the legal reputation never recovering). DFU's
+ *  NormalizeReputations - every region's legal reputation and every faction's one point toward zero - fires on the
+ *  exact minutes that are multiples of 161280 (PlayerEntity.cs:455-459, the per-minute loop above walks
+ *  [last, now)), and the single-player clock never runs while nobody plays, so no boundary is ever skipped. Online
+ *  the world's clock runs on through every absence and the stamps that end one (alignEntityClocks, skipDeadMinutes)
+ *  moved the marker to now without walking the span: a boundary that fell while the player was away was lost for
+ *  good, and with the shared clock's 12x a boundary is an instant roughly every nine real days. A player below -10
+ *  kept rolling conspiracy (encounters.js passiveGuardSpawns, DFU's own 5%) and the one road back was gone. Here
+ *  each boundary in [from, to) is paid once, under the prison skip's own one-jump shield. Answers how many. */
+export function normalizeAcross(entity, from, to) {
+  if (!entity || !Number.isFinite(from) || !Number.isFinite(to)) return 0;
+  const a = Math.floor(from), b = Math.floor(to);
+  if (!(b > a)) return 0;
+  // multiples of the interval in [a, b): the same minute VALUES the loop above tests (DFU's `(i + last) % N == 0`)
+  const n = Math.floor((b - 1) / NORMALIZE_INTERVAL_MINUTES) - Math.floor((a - 1) / NORMALIZE_INTERVAL_MINUTES);
+  if (n <= 0 || entity.preventNormalizingReputations) return 0;
+  for (let k = 0; k < n; k++) normalizeReputations(entity, entity.factionRep ?? null);
+  return n;
+}
+
+/** DISC28-E (Discord: "dying infinitely from fatigue ... respawn at 0% fatigue"): THE DEAD LIVE NO MINUTES.
+ *  PlayerEntity.Update returns while CurrentHealth <= 0 (PlayerEntity.cs:352-353), before its per-minute loop and
+ *  before the marker at its tail - nothing is charged to a dead body, and single-player death ends in a load that
+ *  re-anchors every clock. Online the death screen stands while the shared clock runs on, and nothing ticks under it
+ *  (the hosts hold their frame under a window), so the markers stayed at the minute of death and the first tick after
+ *  the respawn charged the revived body the WHOLE span: every minute of stamina drain and needs (runSurvivalMinutes
+ *  floors only the harms of a replay) and the magic rounds, against the half pool the revival had just given. Five
+ *  real minutes on the death screen in Hard is sixty game minutes of red needs, and the revived player collapsed on
+ *  the spot - by the watch, a death - and stood up to the same bill again.
+ *
+ *  The revival skips the span instead: the player's minute marker and the round broker's move to now, the needs'
+ *  timestamps ride forward over it (needs.js pauseSurvival - hunger and wakefulness did not age in a corpse) and a
+ *  112-day normalise the span crossed is still paid (normalizeAcross). The WORLD's markers are the world's and are
+ *  not moved: a room rented or a loan falling due runs on the world's clock through a death as through any hour. */
+export function skipDeadMinutes(entity, nowMinutes) {
+  if (!entity || !Number.isFinite(nowMinutes)) return false;
+  const now = Math.floor(nowMinutes);
+  const last = Number.isFinite(entity.lastGameMinutes) ? Math.floor(entity.lastGameMinutes) : now;
+  if (!(now > last)) return false;
+  normalizeAcross(entity, last, now);
+  const s = entity.survival;
+  pauseSurvival(entity, Number.isFinite(s?.lastMinute) ? Math.min(s.lastMinute, now) : last, now);
+  entity.lastGameMinutes = now;
+  resetMagicRoundMarker(now);
+  if (_sharedClock) _sharedLastTick = nowMinutes;
   return true;
 }
 

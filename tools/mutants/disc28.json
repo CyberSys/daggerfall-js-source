@@ -133,5 +133,77 @@
     "tests": [
       "test/disc28_speed.test.js"
     ]
+  },
+  {
+    "name": "DISC28-E-zero-test-again",
+    "file": "src/systems/deathRespawn.js",
+    "old": "if (dead || force) entity.fatigue = Math.max(entity.fatigue > 0 ? entity.fatigue : 0, respawnHealth(maxFatigue(entity)));",
+    "new": "if ((dead || force) && !(entity.fatigue > 0)) entity.fatigue = respawnHealth(maxFatigue(entity));",
+    "tests": [
+      "test/disc28_fatigue.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-E-dead-span-charged",
+    "file": "src/systems/deathRespawn.js",
+    "old": "const skipped = (dead || force) && sharedClockOn() ? skipDeadMinutes(entity, worldMinutes()) : false;",
+    "new": "const skipped = false;",
+    "tests": [
+      "test/disc28_fatigue.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-E-marker-not-moved",
+    "file": "src/systems/worldTick.js",
+    "old": "  pauseSurvival(entity, Number.isFinite(s?.lastMinute) ? Math.min(s.lastMinute, now) : last, now);\n  entity.lastGameMinutes = now;",
+    "new": "  pauseSurvival(entity, Number.isFinite(s?.lastMinute) ? Math.min(s.lastMinute, now) : last, now);",
+    "tests": [
+      "test/disc28_fatigue.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-E-needs-age-in-a-corpse",
+    "file": "src/systems/worldTick.js",
+    "old": "  pauseSurvival(entity, Number.isFinite(s?.lastMinute) ? Math.min(s.lastMinute, now) : last, now);\n",
+    "new": "",
+    "tests": [
+      "test/disc28_fatigue.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-F-arrival-skips-boundaries",
+    "file": "src/systems/worldTick.js",
+    "old": "  if (delta !== null && delta > 0) normalizeAcross(entity, now - delta, now);\n",
+    "new": "",
+    "tests": [
+      "test/disc28_fatigue.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-F-death-skips-boundaries",
+    "file": "src/systems/worldTick.js",
+    "old": "  normalizeAcross(entity, last, now);\n  const s = entity.survival;",
+    "new": "  const s = entity.survival;",
+    "tests": [
+      "test/disc28_fatigue.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-F-boundary-off-by-one",
+    "file": "src/systems/worldTick.js",
+    "old": "Math.floor((b - 1) / NORMALIZE_INTERVAL_MINUTES) - Math.floor((a - 1) / NORMALIZE_INTERVAL_MINUTES)",
+    "new": "Math.floor(b / NORMALIZE_INTERVAL_MINUTES) - Math.floor(a / NORMALIZE_INTERVAL_MINUTES)",
+    "tests": [
+      "test/disc28_fatigue.test.js"
+    ]
+  },
+  {
+    "name": "DISC28-F-shield-ignored",
+    "file": "src/systems/worldTick.js",
+    "old": "  if (n <= 0 || entity.preventNormalizingReputations) return 0;",
+    "new": "  if (n <= 0) return 0;",
+    "tests": [
+      "test/disc28_fatigue.test.js"
+    ]
   }
 ]
