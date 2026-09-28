@@ -12457,7 +12457,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // reads a foe's), the raid's puppets I may have struck, the raid's foes I took over, on the net's own clock
     selfId: () => online?.id ?? null,
     wallNow: () => performance.now(),
-    peersInTown: () => peersNear().filter((p) => _foeInTownRect({ ai: { feet: p.feet } })).map((p) => p.id),
+    peersInTown: () => (peersNear() ?? []).filter((p) => _foeInTownRect({ ai: { feet: p.feet } })).map((p) => p.id),   // FIELD-RAID-FT: no room open (a fast travel between the old cell's room and the new) is nobody in town, never a null walked - the crash Discord reported arriving in a raided town
     raidPuppets: () => exteriorFoes.foes.filter((f) => f.puppet && f._pupRaid && !f.dead),
     ownRaidFoes: () => exteriorFoes.foes.filter((f) => !f.puppet && f.raidKey && !f.dead),
     // RAID3: the relay's arm - does it keep this world's raids, and my word to the town's cell

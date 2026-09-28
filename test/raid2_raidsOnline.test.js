@@ -323,7 +323,7 @@ test('RAID2 the world host by source: my word rides my cell frame, a peer\'s rea
   assert.match(body, /selfId: \(\) => online\?\.id \?\? null,/);
   assert.match(body, /wallNow: \(\) => performance\.now\(\),/, 'the clock the pool hands the word on');
   assert.match(w, /now: \(\) => performance\.now\(\),\n\s+staleMs: FOES_STALE_MS,/, 'which is the net\'s own');
-  assert.match(body, /peersInTown: \(\) => peersNear\(\)\.filter\(\(p\) => _foeInTownRect\(\{ ai: \{ feet: p\.feet \} \}\)\)\.map\(\(p\) => p\.id\),/);
+  assert.match(body, /peersInTown: \(\) => \(peersNear\(\) \?\? \[\]\)\.filter\(\(p\) => _foeInTownRect\(\{ ai: \{ feet: p\.feet \} \}\)\)\.map\(\(p\) => p\.id\),/);
   assert.match(body, /raidPuppets: \(\) => exteriorFoes\.foes\.filter\(\(f\) => f\.puppet && f\._pupRaid && !f\.dead\),/);
   assert.match(body, /ownRaidFoes: \(\) => exteriorFoes\.foes\.filter\(\(f\) => !f\.puppet && f\.raidKey && !f\.dead\),/);
   const pool = rd('src/scenes/exteriorFoes.js');

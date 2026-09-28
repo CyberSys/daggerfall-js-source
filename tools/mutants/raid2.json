@@ -261,7 +261,7 @@
   {
     "name": "RAID2-host-no-one-in-town",
     "file": "src/scenes/world.js",
-    "old": "peersInTown: () => peersNear().filter((p) => _foeInTownRect({ ai: { feet: p.feet } })).map((p) => p.id),",
+    "old": "peersInTown: () => (peersNear() ?? []).filter((p) => _foeInTownRect({ ai: { feet: p.feet } })).map((p) => p.id),",
     "new": "peersInTown: () => [],",
     "tests": ["test/raid2_raidsOnline.test.js"]
   },
