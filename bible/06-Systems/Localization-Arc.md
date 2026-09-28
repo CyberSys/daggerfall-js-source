@@ -733,6 +733,14 @@ At its start: 5,121 such literals in 340 files. The largest: the mods' own setti
 door (`enhancedMenu.js`, 223), the Features screen (`features.js`, 208) and the settings screen's copy
 (`settingsCopy.js`, 184; `settingsText.js`, 156).
 
+**The drafts come in by one door.** Every machine-made language covers the English catalog exactly and records each row
+as the machine's, so a batch that adds keys ships its drafts in all 25 languages. `tools/l10nInSession.mjs` merges a
+`{ lang: { key: text } }` file through the pipeline's own placeholder law (a lost ICU argument is refused; a
+language's own plural categories are allowed), keeps a row a person edited, drops a row the catalog no longer has,
+writes the table in the catalog's order and records each row as `claude-in-session`; `--owed` lists what each
+language still owes, as a template to draft from. Pinned by `test/l10n4_insession.test.js` (2); mutants
+`l10n4insession` 6, all dead.
+
 ## L10N3g (2026-09-27): the French pack's grammar
 
 "DFU en français" writes its text with grammar tokens: `{.le}{.FS}épée`, `{Number?niveau#niveaux}`,
