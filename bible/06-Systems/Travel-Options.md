@@ -424,6 +424,14 @@ must be assigned there, never re-declared. Mutants
     rect only inside the destination pixel (`PlayerAutoPilot.cs:80`); a location eight blocks
     across fills its pixel, so its whole buffer lies in the neighbours and
     the traveller came up to the walls before the question was asked.
+20. **On the ship, the ports rule asks of the port it was boarded at**
+    (SHIP-PORT, 2026-09-28, below). `IsNotAtPort` (TravelOptionsPopUp.cs:87-91)
+    reads `PlayerGPS.CurrentLocation`, which on the player's own ship is
+    "Your Ship" (2,2 or 5,5) - in neither port list - so the mod refuses the
+    passage from the deck, while DFU reckons every trip from the deck from
+    the boarding pixel (TravelTimeCalculator.GetPlayerTravelPosition) and the
+    mod's own `HasNoOceanTravel` (:93-96) names `IsOnShip`, the passage it
+    meant. Ashore the rule reads exactly as the mod's.
 
 ## AUDIT-TO1 (2026-09-18) - the audit of TO1, and what it found
 
@@ -751,7 +759,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:643-646`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:9659 -
+`locationTileRect` answered null for the neighbour (world.js:9668 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read
@@ -1285,6 +1293,34 @@ screen) - the message another mod sends to stop a journey: CloseWindow -> Interr
 gone, the destination KEPT for the map's resume prompt. Not a departure: the mod's own door, from a caller DFU does
 not have. Why the journey climbed the wall at all was not looked into (TRAVEL-NAV's steering means to stop short).
 
+## SHIP-PORT (2026-09-28) - the deck is no port
+
+The Discord through Mac: *"a player is at a port but unable to set sail"*. The batch's record is
+`01-Overview/Field-Bugs-2026-09-28d.md`; the three this arc owns:
+
+- **The deck.** A player who bought a ship and boarded it in a harbour stands on "Your Ship" (the bank's
+  `SHIP_COORDS`, 2,2 or 5,5). The map's ship laws asked `IsNotAtPort` of that pixel, which neither list carries (the
+  mod's 378 harbours, or the MAPS byte's 343 - measured against the retail MAPS.BSA: every one of the 343 is among the
+  378, so the two lists never refuse a real port between them), so By ship was refused ("since there's no port") and
+  knocked off as the map opened - while the trip it priced was reckoned from the boarding pixel (`playerTravelOrigin`).
+  By land then walked from the deck onto the sea, into the mod's own ocean stop ("maybe you should travel on a ship").
+  The one dep bag both maps and a party's fare read (`travelFareDeps`) now hands the ship laws `travelOriginMapId`:
+  where the player stands, unless they stand on their own ship - then the place the ship was boarded at. Departure 20.
+- **The re-bill.** The enhanced map's card priced the trip, THEN ran the mod's OnPush guard, and never priced it again:
+  a guard that knocked the ship off left By land showing over the ship's days and fare, and Begin gold-checked that
+  fare - a walk refused for gold it does not cost. The classic window refreshes after its guard (`travelMapWindow.js`);
+  the card now re-bills whenever the guard moved the ship.
+- **The Overworld's line.** The Overworld sails the player's own boats alone (OWS2) and the map sells DFU's passage; a
+  place across the water with no boat to hand was refused with "a boat would carry you across the water" - at a port,
+  read as no way to sail. Where the map's passage would sail there, the line now says so: "There is no way there by
+  land - a ship sails there from here: choose By ship on the map." The question is the popup's own law
+  (`shipTravelRefusal`, the ports rule off meaning DFU's passage from anywhere) over the dep bag's reads and the trip
+  priced FIRST (`tvShipSails`), as the enhanced card prices it and as DFU's OnPush refreshes before the mod's guard
+  reads the ocean. Not `partyTripFare`: it guards before it prices, the classic window's order, which reads a fresh
+  popup's ocean as none - so both knock the ship off at open for a place with no harbour across the water, where DFU
+  does so only on the popup's first push (its later pushes refresh first). Found, not changed: the ship can still be
+  chosen after, and the order is pinned (`test/partytravel.test.js`).
+
 ## Pins
 
 `test/to1_travelOptions.test.js`. `tools/mutants/to1.json`.
@@ -1295,3 +1331,4 @@ not have. Why the journey climbed the wall at all was not looked into (TRAVEL-NA
 `tools/mutants/audittravelstrafe2.json` (AUDIT TRAVEL-STRAFE2, 11 dead).
 `test/spawntravel.test.js`, `tools/mutants/spawntravel.json` (SPAWN-TRAVEL).
 `test/risestuck.test.js`, `tools/mutants/rise_stuck.json` (RISE-STUCK).
+`test/disc28d_shipport.test.js`, `tools/mutants/disc28d.json` (SHIP-PORT's eight).

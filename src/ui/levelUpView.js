@@ -72,9 +72,10 @@ import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import { statUp, statDown, MAX_STAT_VALUE } from './chargen.js';
 import { MUST_DISTRIBUTE_BONUS_POINTS } from './charsheet.js';
 import { REMAINING_POINTS_ERROR, REMAINING_POINTS_LABEL, TAKE_ONE_BACK_HINT } from './virtueLevelUp.js';
-import { attributeOffset, canRaiseAttribute, canLowerAttribute, LEVELUP_TOTAL, levelingSettings } from '../systems/oblivionLeveling.js';   // ASCEND-ANYTIME: a mod-law view still needs the mod's own prices to draw a row
+import { attributeOffset, canRaiseAttribute, canLowerAttribute, LEVELUP_TOTAL, levelBarProgress, levelingSettings } from '../systems/oblivionLeveling.js';   // ASCEND-ANYTIME: a mod-law view still needs the mod's own prices to draw a row
 import { LEVELUP_SKILL_SUM_PER_LEVEL, skillRecentlyIncreased } from '../systems/advancement.js';
 import { SKILL_NAMES, skillValue } from '../systems/skills.js';
+import { liveStat } from '../systems/statMods.js';   // ASCEND-LIVE: what a star IS, beside what the rollout spends
 import { sheetModel } from './enhancedCharSheet.js';
 
 /** The three shapes a level-up can wear. They are not three laws -
@@ -298,6 +299,28 @@ export function viewOnlyScreen(entity, virtue = false) {
   };
 }
 
+/**
+ * ASCEND-LIVE (2026-09-28, Discord, Megatronism: "The permanent stat bonuses from being a werewolf (vampire, etc...)
+ * do not appear on the level up screen ... You can actually put points into an already maxed out attribute").
+ *
+ * WHAT AN ATTRIBUTE IS, with `permanent` in the rollout's hands: liveStat's one law - the curse's channel, the
+ * spells, the diseases, the folds, the clamp - read over a stand-in carrying the working value. Both lanes spend
+ * and cap the PERMANENT value, and that stays the law: DFU's StatsRollout draws and caps
+ * GetPermanentStatValue (:202, :237-249) and the mod reads `.base` (helper.lua:112-114). But a werewolf's +40 rides
+ * the live channel (LycanthropyEffect.cs:566-574 SetStatMod), so a star read off the permanent value said 63 on a
+ * character whose Stats page says 100, and a point spent there moved nothing the player has while the curse lasts.
+ * The star now wears the live value, beside the permanent one the presses move.
+ */
+export const liveAttribute = (entity, key, permanent) =>
+  liveStat({ stats: { [key]: permanent }, activeEffects: entity?.activeEffects, _mods: entity?._mods }, key);
+
+/** A row's live reading: the value, and whether a press the row allows would show in it - `capped` is a point the
+ *  law takes (the permanent value is under its ceiling) that the live value, already at its own, cannot show. */
+const liveOf = (entity, key, value, canRaise) => {
+  const live = liveAttribute(entity, key, value);
+  return { live, capped: canRaise && live >= MAX_STAT_VALUE };
+};
+
 export function rolloutRows(screen) {
   if (!screen) return [];
   const virtue = levelUpLane(screen) === LANE_VIRTUE;
@@ -306,25 +329,37 @@ export function rolloutRows(screen) {
       const stats = screen.entity?.stats ?? {};
       const base = stats[key] ?? 0;
       const delta = screen.deltas?.[key] ?? 0;
+      const canRaise = canRaiseAttribute(key, stats, screen.deltas ?? {}, screen.purse ?? 0, screen.s);
       return {
         key, index, label: attributeLabel(key),
         base, value: base + delta, delta,
+        ...liveOf(screen.entity, key, base + delta, canRaise),
         cost: attributeOffset(key, screen.s),
-        canRaise: canRaiseAttribute(key, stats, screen.deltas ?? {}, screen.purse ?? 0, screen.s),
+        canRaise,
         canLower: canLowerAttribute(key, screen.deltas ?? {}),
       };
     }
     const base = screen.base?.[key] ?? 0;
     const value = screen.working?.[key] ?? base;
     const pool = screen.pool ?? 0;
+    const canRaise = statUp(value, pool).working !== value;
     return {
       key, index, label: attributeLabel(key),
       base, value, delta: value - base,
+      ...liveOf(screen.entity, key, value, canRaise),
       cost: 1,
-      canRaise: statUp(value, pool).working !== value,
+      canRaise,
       canLower: statDown(value, base, pool).working !== value,
     };
   });
+}
+
+/** ASCEND-LIVE: the line under the chosen star's figure, when what the character HAS is not the permanent value the
+ *  presses move - and, where a point would not show, that it would not. Empty when the two agree. */
+export function liveNote(row) {
+  if (!row || row.live === row.value) return '';
+  if (row.capped) return `${row.live} with its bonus - a point here shows only once that ends`;
+  return row.live > row.value ? `${row.live} with its bonus` : `${row.live} for now`;
 }
 
 /** What is left to spend, in whichever currency this lane counts in. */
@@ -491,7 +526,7 @@ export function levelProgress(entity, screen) {
   const e = entity ?? {};
   if (levelUpLane(screen) === LANE_VIRTUE) {
     return {
-      now: Math.max(0, Math.min(LEVELUP_TOTAL, e.levelProgress ?? 0)),
+      now: levelBarProgress(e),
       max: LEVELUP_TOTAL,
       carried: e.levelRollUp ?? 0,
       label: 'Toward the next',
@@ -643,7 +678,9 @@ export function levelUpVitals(entity) {
 
 /** A star's brightness is its VALUE, against the same ceiling every
  *  rollout clamps to - so the figure a player sees is the character
- *  they have, and a maxed attribute is visibly a maxed attribute. */
+ *  they have, and a maxed attribute is visibly a maxed attribute. The
+ *  window hands it the LIVE value (ASCEND-LIVE): the permanent one
+ *  made a werewolf's 100 read as 63. */
 export const starBrightness = (value) => Math.max(0, Math.min(1, (value ?? 0) / MAX_STAT_VALUE));
 
 /**

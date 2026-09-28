@@ -2080,7 +2080,14 @@ export class HeldMapWindow {
       // AUDIT-TO1 C2: OnPush's guard (TravelOptionsPopUp.cs:53-67) over
       // the remembered toggles, with the trip now billed.
       const st = this._panelState;
-      if (st.to) enforceShipRestriction(st.to.settings, st.opts, this._shipCtx());
+      // SHIP-PORT (2026-09-28): a guard that knocked the ship off re-bills the trip, as the classic window refreshes
+      // after it (travelMapWindow.js). The card showed By land over the ship's days and fare, and Begin gold-checked
+      // that fare - a walk the purse could not "afford" was refused.
+      if (st.to) {
+        const wasShip = st.opts.travelShip;
+        enforceShipRestriction(st.to.settings, st.opts, this._shipCtx());
+        if (st.opts.travelShip !== wasShip) this._refreshTrip();
+      }
     } else if (kind === 'teleport') {
       // AUDIT-TO1 C3: ChargeForTeleport (TravelOptionsMapWindow.cs
       // :470-503) on the default skin - the fee below the rank the

@@ -5189,6 +5189,17 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
 .lv-pickname .f { display: block; font-size: 17px; margin-top: 2px; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .lv-pickname .c { display: block; font-size: 12px; color: #7d7460; letter-spacing: 0.14em;
   text-transform: uppercase; margin-top: 2px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+/* ASCEND-LIVE: a star wears what the character HAS, in the two colours the
+   classic sheet gives a live value above or below its permanent one
+   (DaggerfallUnityStatIncreasedTextColor / StatDrainedTextColor -
+   ui/charsheet.js STAT_INCREASED_COLOR, STAT_DRAINED_COLOR), and the pick
+   line under the chosen one says so in words. */
+.lv-star.boosted .lv-val { color: rgb(178,207,255); }
+.lv-star.lowered .lv-val { color: rgb(190,85,24); }
+.lv-pickname .l { display: block; font-size: 13px; color: rgb(178,207,255); margin-top: 2px;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+.lv-pickname .l.lowered { color: rgb(190,85,24); }
+.lv-pickname .l:empty { display: none; }
 .lv-blurb { color: #c5bda2; font-size: 16px; line-height: 1.5; margin: 2px 0 0; max-width: 62ch;
   text-align: center; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 

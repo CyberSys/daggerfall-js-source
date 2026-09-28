@@ -1,0 +1,191 @@
+[
+  {
+    "name": "LEVEL-PCT-sum-for-everyone",
+    "file": "src/ui/charsheet.js",
+    "old": "  if (usesVirtueLeveling(entity)) return Math.trunc((levelBarProgress(entity) * 100) / LEVELUP_TOTAL);\n",
+    "new": "",
+    "tests": [
+      "test/disc28d_levelpct.test.js"
+    ]
+  },
+  {
+    "name": "LEVEL-PCT-double-not-single",
+    "file": "src/ui/charsheet.js",
+    "old": "  const current = Math.fround(((entity?.currentLevelUpSkillSum ?? 0)",
+    "new": "  const current = (((entity?.currentLevelUpSkillSum ?? 0)",
+    "tests": [
+      "test/disc28d_levelpct.test.js"
+    ]
+  },
+  {
+    "name": "LEVEL-PCT-bar-unheld",
+    "file": "src/systems/oblivionLeveling.js",
+    "old": "export const levelBarProgress = (entity) => Math.max(0, Math.min(LEVELUP_TOTAL, entity?.levelProgress ?? 0));",
+    "new": "export const levelBarProgress = (entity) => Math.max(0, entity?.levelProgress ?? 0);",
+    "tests": [
+      "test/disc28d_levelpct.test.js"
+    ]
+  },
+  {
+    "name": "LEVEL-PCT-crown-own-copy",
+    "file": "src/ui/levelUpView.js",
+    "old": "      now: levelBarProgress(e),",
+    "new": "      now: e.levelProgress ?? 0,",
+    "tests": [
+      "test/disc28d_levelpct.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-PORT-deck-reads-deck",
+    "file": "src/scenes/world.js",
+    "old": "      currentLocationMapId: () => travelOriginMapId(),",
+    "new": "      currentLocationMapId: () => _musicLoc?.mapTableData?.mapId ?? null,",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-PORT-origin-ignored",
+    "file": "src/scenes/world.js",
+    "old": "    if (from.x === here.x && from.y === here.y) return _musicLoc?.mapTableData?.mapId ?? null;",
+    "new": "    if (true) return _musicLoc?.mapTableData?.mapId ?? null;",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-PORT-no-rebill",
+    "file": "src/ui/heldMap.js",
+    "old": "        if (st.opts.travelShip !== wasShip) this._refreshTrip();",
+    "new": "",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-PORT-no-passage-line",
+    "file": "src/scenes/world.js",
+    "old": "    townTalk.say(ship ? TRAVEL_VIEW_TEXT.needShip : boat ?",
+    "new": "    townTalk.say(false ? TRAVEL_VIEW_TEXT.needShip : boat ?",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-PORT-place-dropped",
+    "file": "src/scenes/world.js",
+    "old": "tvSeaNoWay(from, summary.pixel, means, net, 'land', summary)",
+    "new": "tvSeaNoWay(from, summary.pixel, means, net, 'land')",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "ASCEND-LIVE-live-is-permanent",
+    "file": "src/ui/levelUpView.js",
+    "old": "  liveStat({ stats: { [key]: permanent }, activeEffects: entity?.activeEffects, _mods: entity?._mods }, key);",
+    "new": "  permanent;",
+    "tests": [
+      "test/disc28d_ascendlive.test.js"
+    ]
+  },
+  {
+    "name": "ASCEND-LIVE-capped-never",
+    "file": "src/ui/levelUpView.js",
+    "old": "  return { live, capped: canRaise && live >= MAX_STAT_VALUE };",
+    "new": "  return { live, capped: false };",
+    "tests": [
+      "test/disc28d_ascendlive.test.js"
+    ]
+  },
+  {
+    "name": "ASCEND-LIVE-capped-unraisable",
+    "file": "src/ui/levelUpView.js",
+    "old": "  return { live, capped: canRaise && live >= MAX_STAT_VALUE };",
+    "new": "  return { live, capped: live >= MAX_STAT_VALUE };",
+    "tests": [
+      "test/disc28d_ascendlive.test.js"
+    ]
+  },
+  {
+    "name": "ASCEND-LIVE-classic-working-ignored",
+    "file": "src/ui/levelUpView.js",
+    "old": "      ...liveOf(screen.entity, key, value, canRaise),",
+    "new": "      ...liveOf(screen.entity, key, base, canRaise),",
+    "tests": [
+      "test/disc28d_ascendlive.test.js"
+    ]
+  },
+  {
+    "name": "ASCEND-LIVE-virtue-delta-ignored",
+    "file": "src/ui/levelUpView.js",
+    "old": "        ...liveOf(screen.entity, key, base + delta, canRaise),",
+    "new": "        ...liveOf(screen.entity, key, base, canRaise),",
+    "tests": [
+      "test/disc28d_ascendlive.test.js"
+    ]
+  },
+  {
+    "name": "ASCEND-LIVE-note-silent-when-capped",
+    "file": "src/ui/levelUpView.js",
+    "old": "  if (row.capped) return `${row.live} with its bonus - a point here shows only once that ends`;\n",
+    "new": "",
+    "tests": [
+      "test/disc28d_ascendlive.test.js"
+    ]
+  },
+  {
+    "name": "ASCEND-LIVE-note-lowered-as-bonus",
+    "file": "src/ui/levelUpView.js",
+    "old": "  return row.live > row.value ? `${row.live} with its bonus` : `${row.live} for now`;",
+    "new": "  return `${row.live} with its bonus`;",
+    "tests": [
+      "test/disc28d_ascendlive.test.js"
+    ]
+  },
+  {
+    "name": "ASCEND-LIVE-star-permanent",
+    "file": "src/ui/enhancedLevelUp.js",
+    "old": "      s.val.textContent = String(r.live);",
+    "new": "      s.val.textContent = String(r.value);",
+    "tests": [
+      "test/disc28d_ascendlive.test.js"
+    ]
+  },
+  {
+    "name": "ASCEND-LIVE-pick-unpainted",
+    "file": "src/ui/enhancedLevelUp.js",
+    "old": "    pickL.textContent = liveNote(row);",
+    "new": "    pickL.textContent = '';",
+    "tests": [
+      "test/disc28d_ascendlive.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-PORT-guard-before-price",
+    "file": "src/scenes/world.js",
+    "old": "destinationMapId: place.mapId ?? null, oceanPixels: trip.oceanPixels,",
+    "new": "destinationMapId: place.mapId ?? null, oceanPixels: 0,",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-PORT-rule-ignored",
+    "file": "src/scenes/world.js",
+    "old": "    if (!settings?.shipTravelPortsOnly) return true;\n",
+    "new": "",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-PORT-overworld-reads-nowhere",
+    "file": "src/scenes/world.js",
+    "old": "      settings, currentLocationMapId: travelOriginMapId(), destinationMapId",
+    "new": "      settings, currentLocationMapId: null, destinationMapId",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  }
+]

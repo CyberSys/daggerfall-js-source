@@ -104,6 +104,7 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   bySea: (name) => `To ${name}, by sea`,
   toSpotBySea: 'To the marked spot, by sea',
   needBoat: 'There is no way there by land - a boat would carry you across the water.',
+  needShip: 'There is no way there by land - a ship sails there from here: choose By ship on the map.',   // SHIP-PORT: the map's passage, where its law allows one
   passenger: 'You are aboard another\'s boat - its helmsman sets the course.',
   noLaunch: 'There is no water here for your boat to float in.',
   noWayAtSea: 'Your boat can make no way toward its mark.',

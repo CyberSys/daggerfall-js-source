@@ -200,7 +200,7 @@ import { saveSlot, loadSlot, quickLoadSlot, mostRecentRestorable, QUICK_SAVE_NAM
 import { frameBegin, frameEnd, frameAbort } from '../systems/frameClock.js';   // PERF1: the frame's script time; AUDIT-WH2 L1-F4: and the door an early return takes
 import { frameCapSkip } from '../systems/frameCap.js';   // FPS-CAP1: DFU's TargetFrameRate - a held frame re-arms before the clock and the input frame
 import { frameInterval, lastBusy, lendFrame, framesBegun } from '../systems/frameClock.js';   // PERF-EXT24: the frame's period and its own script, and the stream's slices lent back - those no frame ran inside
-import { arrivalClampMinutes, playerTravelPosition } from '../systems/travel.js';   // F-slice; F114: the ship-aware travel origin
+import { arrivalClampMinutes, playerTravelPosition, calculateTravelTime } from '../systems/travel.js';   // F-slice; F114: the ship-aware travel origin; SHIP-PORT: a trip priced as the map prices it
 import { hasSpecialAbility, SPECIAL_ABILITY } from '../systems/rest.js';   // F-slice: the NoRegen restore gate
 import { locationCompassDirection, buildingCompassDirection, findFactionByTypeAndRegion, directionHintString } from '../systems/talk.js';   // wave 26: %di's remote arm + the region-faction search; the LOCAL arm beside it; SPAWNED-DUNGEONS2b: the same eight-word compass
 import { seasonValue, SEASONS, MINUTES_PER_DAY, dateFromClassicMinutes, dateTimeString, midDateTimeString, isDayFromMinutes } from '../systems/gameDate.js';   // AUDIT 23 (wts-1); Q4-v: the notebook's header shapes
@@ -422,7 +422,7 @@ import { chooseTable, tableMoveSpeed } from '../player/eotbBillboard.js';   // A
 import { PARTY_READY_TIMEOUT_MS, memberPresent, latestStamp, voteStands, snapshotCancels, cancelRequestFor, mirrorKey, cooldownStamp, stampOf, restsAlone, partyRestsTogether, restAloneText, restsApart, REST_APART_TEXT } from '../systems/partyRestLaw.js';   // AUDIT PARTY-REST: the pure half of the party-rest mechanic, pinned by execution   // SOC2: the hub's room and the party pose's floor (a second wire import: AUDIT WORLD4 A1 pins the first as it stands)
 import { besideLandingOf, PARTY_TRAVEL_TEXT, BESIDE_LEVEL } from '../systems/partyTravelLaw.js';   // PARTY-TRAVEL: the party's journey - to the leader, and together
 import { createPartyTravel } from '../systems/partyTravel.js';   // PARTY-TRAVEL: its session, over this host's seams
-import { TravelPopUpWindow } from '../ui/travelPopUp.js';   // PARTY-TRAVEL: the map's own popup prices a party journey, headless
+import { TravelPopUpWindow, shipTravelRefusal } from '../ui/travelPopUp.js';   // PARTY-TRAVEL: the map's own popup prices a party journey, headless; SHIP-PORT: its ship law
 import { YesNoBoxWindow } from '../ui/yesNoBox.js';   // PARTY-TRAVEL: the journey's prompts - UXB1-M's box, either skin
 import { guildFastTravel } from '../systems/guildVariants.js';   // PARTY-TRAVEL: the popup's own blessed minutes, handed over as it hands them
 import { travelMapPopUpState } from '../systems/travelMapState.js';   // PARTY-TRAVEL: the toggles my own map last left - my way of travelling to the leader
@@ -7630,6 +7630,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   function playerTravelOrigin() {
     return playerTravelPosition(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel());
   }
+  /** SHIP-PORT (2026-09-28): the MapId the ship laws read as where the player is - PlayerGPS.CurrentLocation's (the
+   *  location of the pixel stood in, `_musicLoc`), unless the player stands on their own ship: then the location it
+   *  was boarded at, the pixel playerTravelOrigin reckons every trip from. Null in open wilderness (the C#'s
+   *  !Loaded). A DECLARATION for the same reason as its neighbour: the dep bag captures it by name. */
+  function travelOriginMapId() {
+    const here = playerTravelPixel(), from = playerTravelOrigin();
+    if (from.x === here.x && from.y === here.y) return _musicLoc?.mapTableData?.mapId ?? null;
+    return locationIndex.get(`${from.x},${from.y}`)?.mapTableData?.mapId ?? null;
+  }
   /** FS1 (2026-08-28) - THE TILE UNDER THE PLAYER, which this host has
    *  wanted since the FS-slice: the footstep block's own comment says
    *  "the path/water tile arms ride the tile-under-player flag", and
@@ -9856,7 +9865,16 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AUDIT-TO1 D1: PlayerGPS.CurrentLocation's MapId (null in open
       // wilderness, the C#'s !Loaded) and TransportManager.IsOnShip - the
       // two reads IsNotAtPort / HasNoOceanTravel need and never had.
-      currentLocationMapId: () => _musicLoc?.mapTableData?.mapId ?? null,
+      // SHIP-PORT (2026-09-28, Discord: "a player is at a port but unable
+      // to set sail"): ON THE SHIP, the port it was boarded at. The deck is
+      // "Your Ship" (2,2 or 5,5), in neither port list, so the passage was
+      // refused from the deck ("since there's no port") while every trip
+      // from it is reckoned from the boarding pixel - and By land walked
+      // out onto the sea into the mod's ocean stop ("maybe you should
+      // travel on a ship"). The mod reads PlayerGPS.CurrentLocation and
+      // meets the same dead end; its own HasNoOceanTravel names IsOnShip,
+      // the passage from the deck it meant (DEPARTURE, Travel-Options.md).
+      currentLocationMapId: () => travelOriginMapId(),
       isOnShip: () => isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel()),
     };
   }
@@ -17635,7 +17653,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const raw = terrainGen.roads();
     const net = raw?.source === 'basic-roads' ? raw : null;
     const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: tvSeaAsk(means, 'land') });   // OW-MOUNTAINS: never across the peaks; OWS2: across the water in a boat
-    if (!plan) { tvSeaNoWay(from, summary.pixel, means, net, 'land'); return false; }
+    if (!plan) { tvSeaNoWay(from, summary.pixel, means, net, 'land', summary); return false; }
     const legs = tvJoinedLegs(from, plan);
     const ok = travelOptions.beginTravelAlongRoute({ legs, summary, name: summary.name }, tvCautious(), { quiet: tvQuiet });
     if (!ok) return false;
@@ -17766,10 +17784,26 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   }
   /** The planner's ask: where the traveller starts, whether a landfall packs the boat, where the journey ends. */
   const tvSeaAsk = (means, goal) => (means ? { start: means.start, again: means.again, goal } : null);
-  /** No route: and would a boat have made one? Then that is said. */
-  function tvSeaNoWay(from, to, means, net, goal) {
+  /** SHIP-PORT (2026-09-28): would the map's ship passage sail to `place` from here? Its own law - Travel Options'
+   *  ports rule (shipTravelRefusal), off meaning DFU's passage from anywhere - over the reads the one dep bag hands
+   *  both maps and the trip priced FIRST, as the enhanced map's card prices it (DFU's OnPush refreshes before the
+   *  mod's guard reads the ocean; partyTripFare guards first, the classic window's order). */
+  function tvShipSails(place) {
+    const settings = travelOptions?.settings ?? null;
+    if (!settings?.shipTravelPortsOnly) return true;
+    const trip = calculateTravelTime(playerTravelOrigin(), place.pixel, { speedCautious: true, sleepModeInn: true, travelShip: true }, (x, y) => maps.getClimateIndex(x, y));
+    return !shipTravelRefusal({
+      settings, currentLocationMapId: travelOriginMapId(), destinationMapId: place.mapId ?? null, oceanPixels: trip.oceanPixels,
+      isOnShip: isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel()),
+    });
+  }
+  /** No route: and would a boat have made one? Then that is said - and, for a PLACE the map's ship passage reaches
+   *  from here, that a ship sails there (SHIP-PORT, 2026-09-28: the Overworld sails only the player's own boats, OWS2,
+   *  and the map sells Daggerfall's passage; "a boat would carry you" said at a port read as no way to set sail). */
+  function tvSeaNoWay(from, to, means, net, goal, place = null) {
     const boat = !means && !!csaRuntime && csaOn() && !!planRoute(from, to, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: { start: 'land', again: true, goal } });   // THE MERGE: a boat's way round the peaks too
-    townTalk.say(boat ? TRAVEL_VIEW_TEXT.needBoat : goal === 'sea' ? TRAVEL_VIEW_TEXT.water : TRAVEL_VIEW_TEXT.noWay);
+    const ship = boat && !!place && tvShipSails(place);
+    townTalk.say(ship ? TRAVEL_VIEW_TEXT.needShip : boat ? TRAVEL_VIEW_TEXT.needBoat : goal === 'sea' ? TRAVEL_VIEW_TEXT.water : TRAVEL_VIEW_TEXT.noWay);
   }
   /** The journey's hand let go of the helm. */
   function tvSeaRelease() { csaJourneyHelm.held.clear(); csaJourneyHelm.row = false; }

@@ -52,7 +52,7 @@ import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import {
   STAR_FIGURE, ATTRIBUTE_BLURB, attributeLabel, levelUpModel, levelUpFrame, levelUpVitals,
   focusAt, raiseAt, lowerAt, ascend, focusedKey, starBrightness, refusalText,
-  LANE_OGHMA,
+  LANE_OGHMA, liveNote,
 } from './levelUpView.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -313,7 +313,8 @@ export function mountEnhancedLevelUp(hostEl, d = {}) {
   const pickN = el('span', 'n');
   const pickF = el('span', 'f');
   const pickC = el('span', 'c');
-  pickName.append(pickN, pickF, pickC);
+  const pickL = el('span', 'l');   // ASCEND-LIVE: what the chosen attribute IS, when that is not what the presses move
+  pickName.append(pickN, pickF, pickC, pickL);
   pick.append(prev, minus, pickName, plus, next);
   const blurb = el('p', 'lv-blurb');
   choice.append(ask, pick, blurb);
@@ -422,17 +423,25 @@ export function mountEnhancedLevelUp(hostEl, d = {}) {
       s.node.classList.toggle('on', s.key === m.focus);
       s.node.classList.toggle('raised', r.delta > 0);
       s.node.classList.toggle('full', !r.canRaise && r.delta === 0 && m.pool > 0);
-      s.val.textContent = String(r.value);
+      // ASCEND-LIVE: the figure is the LIVE value - a werewolf's 100, not
+      // the 63 under its curse - tinted as the classic sheet tints a live
+      // value above or below its permanent one; the presses still move the
+      // permanent value, and the pick line below says both.
+      s.node.classList.toggle('boosted', r.live > r.value);
+      s.node.classList.toggle('lowered', r.live < r.value);
+      s.val.textContent = String(r.live);
       s.delta.textContent = r.delta > 0 ? `+${r.delta}` : '';
       // The star's own brightness is its VALUE - the figure is the
       // character, not the spend.
-      s.gem.style.opacity = String(0.45 + 0.55 * starBrightness(r.value));
+      s.gem.style.opacity = String(0.45 + 0.55 * starBrightness(r.live));
       // NOT `aria-pressed`: a star is not a toggle, and a control that
       // announces itself pressed when a point happens to sit in it
       // tells a screen reader the wrong kind of thing. The label
       // carries the same fact in words (LV1's audit).
       s.node.setAttribute('aria-label',
-        `${r.label} ${r.value}${r.delta > 0 ? `, raised by ${r.delta}` : ''}${r.canRaise ? '' : ', cannot raise'}`);
+        `${r.label} ${r.live}${r.live !== r.value ? ` (${r.value} of its own)` : ''}`
+        + `${r.delta > 0 ? `, raised by ${r.delta}` : ''}${r.canRaise ? '' : ', cannot raise'}`
+        + `${r.capped ? ', a point here will not show while its bonus lasts' : ''}`);
     }
     // A LINE LIGHTS WHEN BOTH ITS STARS HAVE RISEN. It is the one
     // thing on this screen that is pure celebration and it is also
@@ -456,6 +465,8 @@ export function mountEnhancedLevelUp(hostEl, d = {}) {
     // (attributeOffset), and a window that hid that would be lying
     // about what the next press costs.
     pickC.textContent = row.cost > 1 ? `${row.cost} per point` : '';
+    pickL.textContent = liveNote(row);
+    pickL.classList.toggle('lowered', row.live < row.value);
     blurb.textContent = ATTRIBUTE_BLURB[m.focus] ?? '';
     plus.disabled = !row.canRaise;
     minus.disabled = !row.canLower;
