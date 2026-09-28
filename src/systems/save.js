@@ -27,6 +27,7 @@ import { seedCustomSpellIndex } from './spellMaker.js';   // S1: made spells car
 import { seedBundleSeq } from './effects.js';   // X10: the live-bundle counter's restore half
 import { repairLostCurses } from './curseRepair.js';   // CURSE-REPAIR1: a curse the round clock pruned, given back
 import { repairUnmintedConditions } from './conditionRepair.js';   // DISC21-A: a wearable minted with no condition, minted
+import { restackStones } from './gateSpoils.js';   // SS1: Sigil Stones saved before they stacked, folded into one stack
 import { SOCIAL_GROUPS } from '../formats/factionFile.js';   // AUDIT 24
 import { travelMapSaveData, restoreTravelMapSaveData } from './travelMapState.js';   // U41: TravelMapSaveData
 import { getEscortFacesSaveData, restoreEscortFacesSaveData } from '../ui/hudEscortFaces.js';   // FE1: SaveData_v1.escortingFaces
@@ -682,6 +683,12 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
       entity.goldPieces += it.stackCount ?? 0;
       entity.items.splice(i, 1);
     }
+  }
+  // SS1: Sigil Stones won before the stone's row stacked are one stack - folded HERE, below both index-keyed relinks, for
+  // the gold migration's own reason: a record removed before `lightSourceIndex` is read slides every later item one place.
+  for (const list of [entity.items, entity.wagonItems]) {
+    const n = restackStones(list);
+    if (n) console.info(`[save] SS1: ${n} Sigil Stone record(s) folded into their stacks`);
   }
   entity.activeEffects = (snap.activeEffects ?? []).filter((a) => !a.heldItem && !a.bundleDuel).map(copyEffectEntry);   // E2: a stale pin in an old snapshot cannot re-link - drop it (DFU :2312); AUDIT DUEL1 B4: nor a duel's spell a save from before the filter kept
   // DISC10-D/E V11: THE DREAM'S PUSH IS NOT SAVED. CustomSaveData_v1 keeps

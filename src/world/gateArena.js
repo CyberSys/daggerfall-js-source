@@ -307,7 +307,28 @@ export function courtExitDoor() {
     centre: { x: 0, y: EXIT_H / 2, z: 0 },
     size: { x: 1, y: EXIT_H, z: EXIT_HALF_W * 2 },
     normal: { x: 0, y: 0, z: -1 },
+    court: true,   // AUDIT SS: pressed where its fire stands (courtDoorAabb)
   };
+}
+
+/** AUDIT SS: how far either side of a court exit's fire its press box reaches, metres. */
+export const COURT_DOOR_DEPTH = 0.3;
+/**
+ * AUDIT SS (2026-09-27, the audit of SS1-SS5): THE COURT'S TWO WAYS HOME ARE PRESSED WHERE THEIR FIRE STANDS. A dungeon
+ * door's press box (player/enterExit.js doorWorldAabb) is a square padded round any facing - 4.9 m across for these -
+ * and a press from INSIDE a box counts only where a collider surface meets the ray in it (player/activate.js, CASTLE1),
+ * which a sheet of fire has not: from 0.6 to 2.4 m before the portal, looking at it, a press did nothing, and the same
+ * before the bridge's membrane. SS3 made the press the portal's only way through, so the box is the fire's own: the
+ * opening's width and height, COURT_DOOR_DEPTH either side of its plane (both of the court's face along z - the
+ * matrices carry no turn). A press looking at the fire from anywhere within reach takes it; one looking elsewhere does
+ * not, and a player walking the spoils about it is never inside a box of it but in the fire itself.
+ */
+export function courtDoorAabb(door) {
+  const m = door.matrix;
+  const c = [m[12] + door.centre.x, m[13] + door.centre.y, m[14] + door.centre.z];
+  const faceZ = Math.abs(door.normal.z) >= Math.abs(door.normal.x);
+  const hx = faceZ ? EXIT_HALF_W : COURT_DOOR_DEPTH, hz = faceZ ? COURT_DOOR_DEPTH : EXIT_HALF_W, hy = EXIT_H / 2;
+  return { min: [c[0] - hx, c[1] - hy, c[2] - hz], max: [c[0] + hx, c[1] + hy, c[2] + hz] };
 }
 
 /** The ring the motor keeps a player inside (player/motor.js `arena`): the court's centre and the floor's radius. */
@@ -318,9 +339,11 @@ export const courtRing = () => ({ centre: [...COURT_CENTRE], radius: COURT_R });
  * there's no way to leave after ending"): THE WAY HOME, TORN OPEN WHERE HE FELL. Once his body is gone (world/gateBoss.js
  * FALL_MS and a breath - PORTAL_AFTER_MS after his fall) the gate's own fire (render/gatePass.js, the arch's opening and
  * its beacon, without the stone - no plinth rises over the spoils) stands on the floor where he fell and rises over
- * PORTAL_RISE_MS; walking through it or pressing it is the way home, the same step through fire as the bridge's
- * membrane (scenes/worldModes.js gateWayHome). The bridge's way stands as it always did; this one is where the fighters
- * are when the fight ends, and seen from anywhere on the floor by its beacon.
+ * PORTAL_RISE_MS; pressing it is the way home, the same step through fire as the bridge's membrane (scenes/worldModes.js
+ * gateWayHome, through the court's exit doors). SS3 (2026-09-27, "Oblivion gate exit on touch prevents looting"): it is
+ * never walked through - it stands where his spoils land, and a player going for them walked out of the court. The
+ * bridge's way stands as it always did; this one is where the fighters are when the fight ends, and seen from anywhere
+ * on the floor by its beacon.
  */
 export const PORTAL_AFTER_MS = 2600;
 export const PORTAL_RISE_MS = 1500;
@@ -336,6 +359,7 @@ export function portalDoor(at) {
     centre: { x: 0, y: EXIT_H / 2, z: 0 },
     size: { x: EXIT_HALF_W * 2, y: EXIT_H, z: 1 },
     normal: { x: 0, y: 0, z: 1 },
+    court: true,   // AUDIT SS: pressed where its fire stands (courtDoorAabb)
   };
 }
 

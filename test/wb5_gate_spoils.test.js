@@ -176,7 +176,7 @@ test('WB5 the roll: the seed\'s own - the same spoils every time, another seed\'
   assert.ok(custom > 0, `the custom pieces ride the roll: ${custom}`);
 });
 
-test('WB5 the Sigil Stone is its own row, not a renamed gem: template 570 (past DFU\'s 288, Climates & Calories\' 530-541 and the Thunderlock\'s 560/561), a gem by group at the gate\'s price with a gem\'s weight and wear and the Ruby\'s art; no ingredient, so it never stacks - a Ruby in the pack keeps its row and the stone its name; it rides the loot validator whole; and every host has the row, because the hosts\' shared module imports it (mutants: a renamed gem; the hosts\' import pulled)', () => {
+test('WB5 the Sigil Stone is its own row, not a renamed gem: template 570 (past DFU\'s 288, Climates & Calories\' 530-541 and the Thunderlock\'s 560/561), a gem by group at the gate\'s price with a gem\'s weight and wear and the Ruby\'s art; no ingredient, so it never joins a gem - a Ruby in the pack keeps its row and the stone its name - and (SS1) it stacks with its own kind alone; it rides the loot validator whole, a stack too; and every host has the row, because the hosts\' shared module imports it (mutants: a renamed gem; the hosts\' import pulled)', () => {
   assert.equal(SIGIL_STONE_TEMPLATE, 570);
   assert.ok(SIGIL_STONE_TEMPLATE >= ITEM_TEMPLATES.length && ![THUNDERLOCK_TEMPLATE, PELLET_TEMPLATE].includes(SIGIL_STONE_TEMPLATE) && (SIGIL_STONE_TEMPLATE < 530 || SIGIL_STONE_TEMPLATE > 541), 'past every other row');
   const t = templateByIndex(SIGIL_STONE_TEMPLATE);
@@ -187,12 +187,14 @@ test('WB5 the Sigil Stone is its own row, not a renamed gem: template 570 (past 
   assert.deepEqual(inventoryItemImage(stone).archive, 254); assert.equal(inventoryItemImage(stone).record, 0, 'the Ruby\'s art');
   const ruby = mintCondition(setItemFields({ group: 'Gems', templateIndex: 0 }));
   assert.equal(isStackable(ruby), true, 'a classic gem is an ingredient, and stacks');
-  assert.equal(isStackable(stone), false, 'the stone does not');
-  assert.equal(stacksWith(ruby, stone), false);
+  assert.equal(isStackable(stone), true, 'SS1: the stone stacks too - its row says so');
+  assert.equal(stacksWith(ruby, stone), false, 'but never with a gem');
+  assert.equal(stacksWith(stone, sigilStone()), true, 'with its own kind');
   const pack = [];
-  addItem(pack, ruby); addItem(pack, stone); addItem(pack, sigilStone());
-  assert.deepEqual(pack.map((i) => [i.name, i.stackCount ?? 1]), [['Ruby', 1], ['Sigil Stone', 1], ['Sigil Stone', 1]], 'a row each, the name kept');
+  addItem(pack, ruby); addItem(pack, stone); addItem(pack, sigilStone()); addItem(pack, mintCondition(setItemFields({ group: 'Gems', templateIndex: 0 })));
+  assert.deepEqual(pack.map((i) => [i.name, i.stackCount ?? 1]), [['Ruby', 2], ['Sigil Stone', 2]], 'a stack each, the names kept');
   assert.deepEqual(validLootItem(JSON.parse(JSON.stringify(stone))), stone, 'whole through the validator');
+  assert.equal(validLootItem(JSON.parse(JSON.stringify(stone))).stackCount, 2, 'a stack too');
   // THE WAY THE GAME ASKS: a process that imports the hosts' shared module and nothing else has the row
   const root = new URL('..', import.meta.url);
   const out = execFileSync(process.execPath, ['--input-type=module', '-e', "await import('./src/scenes/shared.js'); const { templateByIndex } = await import('./src/systems/itemTemplates.js'); process.stdout.write(String(templateByIndex(570)?.name ?? null));"], { cwd: root, encoding: 'utf8' });

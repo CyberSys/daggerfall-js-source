@@ -11,7 +11,7 @@
 //     sprite loaded, an idle record, her height a person's, and her pixels ON the frame (a frame drawn without her
 //     differs where she stands);
 //   - THE WINDOW: the REAL door (ui/brokerDoor.js - the lazy chunk through the one home) over the day's REAL stock, a
-//     pack of three spendable stones and a locked one, at a desktop, a laptop and a phone: it fits the screen; its title,
+//     pack of seven spendable stones in one stack and a locked one (SS1), at a desktop, a laptop and a phone: it fits the screen; its title,
 //     the line under it, the purse and Close clear of each other; six rows, each row's picture, name, set, price and Buy
 //     clear of each other (a refusal's sentence on the Buy once starved the name to "Ruh..." and ran the set into the
 //     price), every Buy inside its row and pressable or saying why not in a word, the pictures landed (the pack's own icon door), the
@@ -46,7 +46,7 @@ import { createGatePool, gateLocal } from '/src/scenes/gatePool.js';
 import { createSigilBroker, BROKER_SPOT } from '/src/scenes/sigilBrokerPool.js';
 import { IDLE_ANIMS } from '/src/characters/mobileUnit.js';
 import { perspective, mirrorProjectionX, lookAt } from '/src/world/mat4.js';
-import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn } from '/src/systems/sigilBroker.js';
+import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount } from '/src/systems/sigilBroker.js';
 import { sigilStone } from '/src/systems/gateSpoils.js';
 import { setLocked } from '/src/systems/itemLock.js';
 import { setSigilOnline, setSigilRenown } from '/src/systems/sigil.js';
@@ -98,8 +98,8 @@ try {
       px: Array.from(px), w: gl.drawingBufferWidth, h: gl.drawingBufferHeight };
   };
   // ── THE WINDOW ──
-  const pack = [sigilStone(), sigilStone(), sigilStone(), sigilStone()];
-  setLocked(pack[3], true);
+  const pack = [Object.assign(sigilStone(), { stackCount: 7 }), sigilStone()];   // SS1: the stones stack - seven in one, and a locked one
+  setLocked(pack[1], true);
   playerEntity.items = pack;
   const day = () => brokerDay(Date.now());
   const stock = brokerStock(day());
@@ -108,7 +108,7 @@ try {
     canvas.style.display = 'none';
     win = createBrokerOverlay({
       stock: () => stock, day, now: () => Date.now(),
-      items: () => spendableStonesIn(playerEntity.items), locked: () => lockedStonesIn(playerEntity.items).length,
+      items: () => spendableStonesIn(playerEntity.items), locked: () => stoneCount(lockedStonesIn(playerEntity.items)),
       bought: () => brokerBought(day()),
       buy: (o) => makeBrokerSale(o, { items: playerEntity.items, day: day() }),
       wearer: playerEntity, nameOf: (it) => itemLongName(it),
@@ -138,7 +138,7 @@ try {
   window.__buyFirst = () => { const b = [...document.querySelectorAll('.broker-buy')].find((x) => !x.disabled); if (!b) return null; const slot = b.closest('.broker-offer').dataset.slot; b.click(); return slot; };
   window.__press = (slot) => { document.querySelector('.broker-offer[data-slot="' + slot + '"]')?.click(); };
   window.__doorOpen = () => brokerDoorOpen();
-  window.__stones = () => ({ spendable: spendableStonesIn(playerEntity.items).length, locked: lockedStonesIn(playerEntity.items).length, items: playerEntity.items.length });
+  window.__stones = () => ({ spendable: stoneCount(spendableStonesIn(playerEntity.items)), locked: stoneCount(lockedStonesIn(playerEntity.items)), items: playerEntity.items.length });
 } catch (e) { window.__errs.push(String(e?.stack ?? e)); }
 window.__ready = true;
 </script></body></html>`;
@@ -235,7 +235,7 @@ try {
     console.log(`${v.name}: window ${s.win.w.toFixed(0)}x${s.win.h.toFixed(0)} purse "${s.purse}" - ${s.rows.map((r) => `${r.slot}:${r.name} (${r.set}) ${r.price} [${r.buyText}]${r.img ? '' : ' NO PICTURE'}`).join(' | ')}`);
     check(s.win.x >= -0.5 && s.win.r <= v.viewport.width + 0.5 && s.win.y >= -0.5 && s.win.b <= v.viewport.height + 0.5, `${v.name}: the window runs off the screen ${JSON.stringify(s.win)}`);
     check(s.rows.length === 6, `${v.name}: ${s.rows.length} rows`);
-    check(s.purse === '3 Sigil Stones · 1 locked', `${v.name}: the purse reads "${s.purse}"`);
+    check(s.purse === '7 Sigil Stones · 1 locked', `${v.name}: the purse reads "${s.purse}"`);
     check(/^Sigil Stones buy the day's stock · it turns in \d+(h \d\dm|m)$/.test(s.sub), `${v.name}: the sub line reads "${s.sub}"`);
     check(/Pixel|monospace|VT323|Press/i.test(s.font) || s.font.length > 0, `${v.name}: the window has no font (${s.font})`);
     check(s.border !== 'none', `${v.name}: the kit did not dress the window (border ${s.border})`);
@@ -259,7 +259,7 @@ try {
     check(Math.max(...priceXs) - Math.min(...priceXs) < 2, `${v.name}: the prices do not stand in a line: ${priceXs.map((x) => x.toFixed(0)).join(', ')}`);
     const buyWs = s.rows.map((r) => r.buy?.w ?? NaN);
     check(Math.max(...buyWs) - Math.min(...buyWs) < 1, `${v.name}: the Buys are not one width: ${buyWs.map((x) => x.toFixed(0)).join(', ')}`);
-    check(s.rows[5].buyText === 'Need 3 more' && s.rows[5].buyTitle === 'Not enough Sigil Stones' && s.rows[5].disabled, `${v.name}: the Regalia at six, a purse of three: "${s.rows[5].buyText}" (${s.rows[5].buyTitle})`);
+    check(s.rows[5].buyText === 'Need 5 more' && s.rows[5].buyTitle === 'Not enough Sigil Stones' && s.rows[5].disabled, `${v.name}: the Regalia at twelve, a purse of seven: "${s.rows[5].buyText}" (${s.rows[5].buyTitle})`);
     check(s.card && s.setbox && s.sigilbox, `${v.name}: the card has ${s.setbox ? '' : 'no set block '}${s.sigilbox ? '' : 'no sigil block'}`);
     check(s.card && s.card.x >= -0.5 && s.card.r <= v.viewport.width + 0.5, `${v.name}: the card runs off the screen sideways`);
     check(!/null|undefined|NaN/.test(s.cardText), `${v.name}: the card says null/undefined: ${s.cardText.slice(0, 200)}`);
@@ -280,8 +280,10 @@ try {
     const after = await page.evaluate(() => globalThis.__stones());
     const sold = s.rows.find((r) => r.slot === slot);
     console.log(`${v.name}: bought slot ${slot} - "${s.note}" stones ${before.spendable}->${after.spendable} (locked ${after.locked}) purse "${s.purse}"`);
-    check(slot != null && /^Bought: .+, for \d Sigil Stones?\.$/.test(s.note ?? ''), `${v.name}: the sale says "${s.note}"`);
-    check(after.locked === 1 && after.spendable < before.spendable && after.items === before.items - (before.spendable - after.spendable) + 1, `${v.name}: the stones ${JSON.stringify({ before, after })}`);
+    check(slot != null && /^Bought: .+, for \d+ Sigil Stones?\.$/.test(s.note ?? ''), `${v.name}: the sale says "${s.note}"`);
+    const paid = Number(/for (\d+) Sigil/.exec(s.note ?? '')?.[1]);
+    // SS1: the price out of the one stack, which keeps the rest - a record more in the pack (the piece), none fewer
+    check(after.locked === 1 && before.spendable - after.spendable === paid && after.items === before.items + 1, `${v.name}: the stones ${JSON.stringify({ before, after, paid })}`);
     check(sold?.buyText === 'Bought' && sold.buyTitle === 'Bought today' && sold.disabled, `${v.name}: the bought row reads "${sold?.buyText}" (${sold?.buyTitle})`);
     await page.screenshot({ path: join(OUT, `broker-${v.name}-sold.png`) });
     // the back key shuts it through the door

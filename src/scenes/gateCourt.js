@@ -23,8 +23,7 @@ import { bossAct, bossFrame, bossGlow, bossPlace, bossHop, bossLookOf, bossStand
 import { courtToDungeon, portalDoor, PORTAL_AFTER_MS, PORTAL_RISE_MS, PORTAL_DROP, COURT_TEXT } from '../world/gateArena.js';
 import { GateTelegraphRenderer, telegraphShape, markShape, poolShapes } from '../render/gateTelegraph.js';
 import { GatePassRenderer, gateSpinRate } from '../render/gatePass.js';   // WBX2: the portal's fire is the gate's own
-import { gateArchProfile, ARCH_Y0 } from '../world/gateModel.js';
-import { gateLocal, openingHalfWidth, GATE_STEP_M } from './gatePool.js';
+import { gateArchProfile } from '../world/gateModel.js';
 import { ONLINE_MINUTES_PER_MS } from '../net/wire.js';   // WBX7: a soul trap's rounds on the shared world's clock
 import { spoilsLevel } from './spoilsPool.js';   // AUDIT WBX S2: the spoils never rolled past the level the fight admitted
 import { bossBarModel, drawGateBossBar } from '../ui/gateBossBar.js';
@@ -89,12 +88,12 @@ export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBo
  *   hudHidden?: () => boolean,
  *   send?: (hit: { q: number, d: number, r: number }) => boolean,
  *   rng?: () => number,
- *   wayHome?: () => void,
  *   portalDoor?: (door: any) => void,
  *   soulTrap?: (trap: { chance: number, mobile: number, name: string }) => void,
  * }} deps
- *   WBX2: `wayHome` takes the way home (the mode machine's step through fire - the bridge membrane's own); `portalDoor`
- *   lays the risen portal's door into the court's exit doors, once, so the exit's own ray and name take it. WBX7:
+ *   WBX2: `portalDoor` lays the risen portal's door into the court's exit doors, once, so the exit's own ray, name and
+ *   press take it - the way home, the bridge membrane's own (SS3: the court no longer takes a way home of its own - the
+ *   portal is never walked through). WBX7:
  *   `soulTrap` rolls a soul trap of mine still on him at his fall (the host's attemptSoulTrap - a gem filled with his soul,
  *   and its words).
  */
@@ -102,7 +101,7 @@ export function createGateCourt({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   link, spoils = null, now, cam = () => null, feet = () => null, player = () => null, save = () => 100,
   strike = () => {}, say = () => {}, hudHidden = () => false, send = () => false, rng = Math.random,
-  wayHome = () => {}, portalDoor: layPortalDoor = () => {}, soulTrap = () => {},
+  portalDoor: layPortalDoor = () => {}, soulTrap = () => {},
 }) {
   let pass = null;
   try { if (gl) pass = new GateTelegraphRenderer(gl); } catch (e) { console.warn('[gate] the telegraph would not build', e?.message ?? e); pass = null; }
@@ -127,9 +126,9 @@ export function createGateCourt({
   let poolDraw = NONE;
   const _mark = markShape([0, 0], 0, MARK_COLOR);
   /** WBX2: the portal home once he has fallen - where it stands (the court's frame) and how far it has risen, its fire's
-   *  pass and the arch's opening (made the first time one stands), its fire's turn, my feet's side of it last frame,
-   *  and whether its door is laid and its rising said */
-  let portal = null, portalPass = null, portalTried = false, profile = null, spin = 0, portalLz = null, portalLaid = false, portalSaid = false;
+   *  pass and the arch's opening (made the first time one stands), its fire's turn, and whether its door is laid and its
+   *  rising said */
+  let portal = null, portalPass = null, portalTried = false, profile = null, spin = 0, portalLaid = false, portalSaid = false;
   /** WBX7: my soul trap on him - its chance (frozen at the cast) and when it runs out on the relay's clock - and whether
    *  his fall has rolled it */
   let trapMark = null, trapJudged = null;   // AUDIT WBX F6: the day whose fall rolled it - once a fight, across a walk out and back
@@ -141,7 +140,7 @@ export function createGateCourt({
     prevT = -Infinity; hurtAt = -Infinity; shape = null; standIn = null; spewed = false; spoilsSaid = false;
     stepFrom = null; strideRun = 0; growlAt = null; hpHeard = null; gruntAt = -Infinity; quaked = noMark(); thunderPhase = 0; thudCued = false;
     pools = []; pooled = noMark(); burnAt = -Infinity; inFire = false; outAt = -Infinity; mark = null; poolDraw = [];
-    portal = null; spin = 0; portalLz = null; portalLaid = false; portalSaid = false;
+    portal = null; spin = 0; portalLaid = false; portalSaid = false;
     if (d !== null && trapMark?.day !== d) trapMark = null;   // AUDIT WBX F6: a trap of this day's fight outlives a cast-out and a walk back in
   }
 
@@ -154,8 +153,11 @@ export function createGateCourt({
   }
 
   /** WBX2: THE PORTAL HOME - PORTAL_AFTER_MS into his fall it stands where he fell and rises; its door is laid into the
-   *  court's exit doors once (the ray and the plaque's name), the rising is said once, and my feet crossing its fire's
-   *  plane inside the opening take the way home (gatePool.js's own step law, the stone's plinth not under it). */
+   *  court's exit doors once (the ray, the plaque's name and the PRESS - the bridge membrane's own way home), and the
+   *  rising is said once. SS3 (2026-09-27, a player through Mac, "Oblivion gate exit on touch prevents looting": "I was
+   *  close to the guy when he died, got zoned out by touching the gate before I could pick up loot"): it is never WALKED
+   *  through. It stands where he fell - where his spoils leave him and land - so a player going for them stepped through
+   *  its fire and out of the court with the floor still full (gathered into the pack on the way out, never seen fall). */
   function portalFrame(s, t, dt) {
     if (!s.fell || t < s.fell.at + PORTAL_AFTER_MS) { portal = null; return; }
     const at = bossPlace(s, s.fell.at);
@@ -168,12 +170,6 @@ export function createGateCourt({
     spin = (spin + gateSpinRate(1) * Math.max(0, dt)) % 1;
     if (!portalLaid) { portalLaid = true; layPortalDoor(portalDoor(at)); }
     if (!portalSaid) { portalSaid = true; if (t < s.fell.at + PORTAL_AFTER_MS + PORTAL_RISE_MS + 1000) say(COURT_TEXT.portal); }   // said as it rises, never long after
-    const f = feet(), e = player();
-    if (!f || !e || !(e.health > 0) || portal.rise < 1) { portalLz = null; return; }
-    const [lx, ly, lz] = gateLocal({ origin: portal.origin, yaw: 0 }, f);
-    const inside = !!profile && Math.abs(lx) < openingHalfWidth(profile, Math.max(ARCH_Y0 + 0.05, ly + 0.9)) && Math.abs(lz) < GATE_STEP_M;
-    if (inside && portalLz !== null && Math.sign(lz) !== Math.sign(portalLz) && lz !== 0) { portalLz = null; wayHome(); return; }
-    portalLz = inside ? lz : null;
   }
 
   function sound(cue, s, t, atk) {
