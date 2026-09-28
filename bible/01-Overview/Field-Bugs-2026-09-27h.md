@@ -312,3 +312,23 @@ load never met it (worldQuickLoad places by itself); the standalone ?dungeon and
 `test/dialload.test.js` (2) runs `restoreSaved`, the pause bag and both hosts' laws out of the live source;
 `tools/mutants/dialload.json` (6, all dead). The pins that had copied the applier's text (audit23, mac6, overlayTyping,
 AUDIT 27h S2) read the law by name now, and S2's runs it.
+
+### DIAL-LOAD, read before the merge (2026-09-28)
+
+Mac: *"I wanna finish this"*. DIAL-LOAD came in after the five lanes, so it was read on its own before the merge: every
+door into the context's Load, both builders, every caller of `quickLoad` and `restoreSaved`. The fix stands, and it
+reaches further than its list: the fallback sits in `restoreSaved`, past every door, so it also covers the large HUD's
+head and Options panels, which the slice did not name. `routeLargeHudClick` hands `routeAction` no applier in both
+dungeon hosts, so a Load reached through either panel had also left the player where they stood. The suite (13,534
+tests, none failing), lint, the types and the build are clean on the branch, and `dialload.json` (6), `audit27h.json`
+(45) and `fieldbugs27h.json` (45) re-run all dead.
+
+- **The four hosts.** The dungeon context is the one host whose load takes its placement as an argument, and both its
+  builders hand it the law (dungeon.js, worldModes.js). world.js's load places the player itself (worldQuickLoad), and a
+  building's Load is that one (worldModes hands it the world's `host.quickLoad`); exterior.js's own pause has no Load (a
+  dev route; its building's panes are in What stands). None of their doors reads an applier.
+- **Recorded, not fixed (older than this batch):** a world-hosted dungeon's own load (F12, or Load underground) leaves
+  the camera's recoil sway running. The standalone host resets it at every `quickLoad` (dungeon.js wraps the door) and
+  the world's load at its start (CameraRecoiler's OnStartLoad), but a world-hosted context's load reaches neither. It is
+  under 0.6 degrees at the default High and gone within five seconds of the hit; the fix is a load-start seam across
+  the hosts, its own slice.
