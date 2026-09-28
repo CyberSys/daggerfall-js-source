@@ -177,6 +177,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | `LookUp` | INS |  | Look up |
 | `LookDown` | DEL |  | Look down |
 | `CenterView` | HOME |  | Centre the view |
+| `TogglePerspective` | MOUSE4 |  | First / third person |
 | `Jump` | SPACE | `JoystickButton5` | Jump |
 | `Crouch` | C | `JoystickButton4` | Crouch |
 | `Run` | LSHIFT | `JoystickButton8` | Run |
@@ -261,6 +262,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | Action | Key | Pad | What it does |
 |---|---|---|---|
 | `SocialInteract` | F |  | Interact with player |
+| `PushToTalk` | MOUSE3 |  | Push to talk (proximity voice) |
 
 ### Game
 
