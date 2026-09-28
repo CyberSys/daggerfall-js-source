@@ -63,15 +63,6 @@
     ]
   },
   {
-    "name": "SHIP-PORT-no-passage-line",
-    "file": "src/scenes/world.js",
-    "old": "    townTalk.say(ship ? TRAVEL_VIEW_TEXT.needShip : boat ?",
-    "new": "    townTalk.say(false ? TRAVEL_VIEW_TEXT.needShip : boat ?",
-    "tests": [
-      "test/disc28d_shipport.test.js"
-    ]
-  },
-  {
     "name": "SHIP-PORT-place-dropped",
     "file": "src/scenes/world.js",
     "old": "tvSeaNoWay(from, summary.pixel, means, net, 'land', summary)",
@@ -162,30 +153,156 @@
     ]
   },
   {
-    "name": "SHIP-PORT-guard-before-price",
+    "name": "SHIP-SAIL-never-offered",
     "file": "src/scenes/world.js",
-    "old": "destinationMapId: place.mapId ?? null, oceanPixels: trip.oceanPixels,",
-    "new": "destinationMapId: place.mapId ?? null, oceanPixels: 0,",
+    "old": "    if (boat && place && tvOfferPassage(place)) return;",
+    "new": "    if (false && boat && place && tvOfferPassage(place)) return;",
     "tests": [
       "test/disc28d_shipport.test.js"
     ]
   },
   {
-    "name": "SHIP-PORT-rule-ignored",
+    "name": "SHIP-SAIL-law-ignored",
     "file": "src/scenes/world.js",
-    "old": "    if (!settings?.shipTravelPortsOnly) return true;\n",
+    "old": "    if (!fare.opts.travelShip) return false;\n",
     "new": "",
     "tests": [
       "test/disc28d_shipport.test.js"
     ]
   },
   {
-    "name": "SHIP-PORT-overworld-reads-nowhere",
+    "name": "SHIP-SAIL-door-ignored",
     "file": "src/scenes/world.js",
-    "old": "      settings, currentLocationMapId: travelOriginMapId(), destinationMapId",
-    "new": "      settings, currentLocationMapId: null, destinationMapId",
+    "old": "    if (refused) { townTalk.say(refused); return true; }\n    if (!fare.afford)",
+    "new": "    if (!fare.afford)",
     "tests": [
       "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-SAIL-purse-ignored",
+    "file": "src/scenes/world.js",
+    "old": "    if (!fare.afford) { townTalk.say(`${TRAVEL_VIEW_TEXT.noWay} ${fareText(fare.computed, false)}`); return true; }\n",
+    "new": "",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-SAIL-priced-on-foot",
+    "file": "src/scenes/world.js",
+    "old": "partyTripFare(place.pixel, { ...travelMapPopUpState(), travelShip: true })",
+    "new": "partyTripFare(place.pixel, travelMapPopUpState())",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-SAIL-party-skipped",
+    "file": "src/scenes/world.js",
+    "old": "onYes: () => { if (!partyTravel?.propose(pick, fare.opts, fare.computed)) partyTravelJourney(pick, fare.opts, fare.computed); },",
+    "new": "onYes: () => { partyTravelJourney(pick, fare.opts, fare.computed); },",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-SAIL-online-counts-days",
+    "file": "src/scenes/world.js",
+    "old": "    const days = sharedClockOn() ? 0 : travelDays(fare.computed.minutes);",
+    "new": "    const days = travelDays(fare.computed.minutes);",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-SAIL-warning-dropped",
+    "file": "src/scenes/travelView.js",
+    "old": "  if (unwell) rows.push('You are diseased or poisoned.');\n  return rows;\n}",
+    "new": "  return rows;\n}",
+    "tests": [
+      "test/disc28d_shipport.test.js"
+    ]
+  },
+  {
+    "name": "FPS-VSYNC-never-lifted",
+    "file": "app/lib/frameRate.cjs",
+    "old": "  return savedVSync(userDataRoot) ? [] : [...VSYNC_OFF_SWITCHES];",
+    "new": "  return [];",
+    "tests": [
+      "test/disc28d_vsync.test.js"
+    ]
+  },
+  {
+    "name": "FPS-VSYNC-always-lifted",
+    "file": "app/lib/frameRate.cjs",
+    "old": "  return savedVSync(userDataRoot) ? [] : [...VSYNC_OFF_SWITCHES];",
+    "new": "  return [...VSYNC_OFF_SWITCHES];",
+    "tests": [
+      "test/disc28d_vsync.test.js"
+    ]
+  },
+  {
+    "name": "FPS-VSYNC-stored-junk-reads-on",
+    "file": "app/lib/frameRate.cjs",
+    "old": "    return String(v).trim().toLowerCase() === 'true';",
+    "new": "    return String(v).trim().toLowerCase() !== 'false';",
+    "tests": [
+      "test/disc28d_vsync.test.js"
+    ]
+  },
+  {
+    "name": "FPS-VSYNC-unreadable-lifts",
+    "file": "app/lib/frameRate.cjs",
+    "old": "  } catch {\n    return true;\n  }",
+    "new": "  } catch {\n    return false;\n  }",
+    "tests": [
+      "test/disc28d_vsync.test.js"
+    ]
+  },
+  {
+    "name": "FPS-VSYNC-one-wait-left",
+    "file": "app/lib/frameRate.cjs",
+    "old": "const VSYNC_OFF_SWITCHES = Object.freeze(['disable-gpu-vsync', 'disable-frame-rate-limit']);",
+    "new": "const VSYNC_OFF_SWITCHES = Object.freeze(['disable-gpu-vsync']);",
+    "tests": [
+      "test/disc28d_vsync.test.js"
+    ]
+  },
+  {
+    "name": "FPS-VSYNC-browser-offered-it",
+    "file": "src/systems/settings.js",
+    "old": "  if (key in SHELL_AT_LAUNCH && inDesktopShell()) return 'restart';",
+    "new": "  if (key in SHELL_AT_LAUNCH) return 'restart';",
+    "tests": [
+      "test/disc28d_vsync.test.js"
+    ]
+  },
+  {
+    "name": "FPS-VSYNC-app-never-offers-it",
+    "file": "src/systems/settings.js",
+    "old": "  if (key in SHELL_AT_LAUNCH && inDesktopShell()) return 'restart';",
+    "new": "  if (false) return 'restart';",
+    "tests": [
+      "test/disc28d_vsync.test.js"
+    ]
+  },
+  {
+    "name": "FPS-VSYNC-screen-hides-row",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "function drawsFlat(key) { const t = tierOf(key); return t === 'live' || t === 'restart'; }",
+    "new": "function drawsFlat(key) { const t = tierOf(key); return t === 'live'; }",
+    "tests": [
+      "test/disc28d_vsync.test.js"
+    ]
+  },
+  {
+    "name": "FPS-VSYNC-shell-never-asks",
+    "file": "app/main.cjs",
+    "old": "for (const s of frameRateSwitches(app.getPath('userData'))) app.commandLine.appendSwitch(s);\n",
+    "new": "",
+    "tests": [
+      "test/disc28d_vsync.test.js"
     ]
   }
 ]

@@ -36,6 +36,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, protocol, net, shell } = requ
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { frameRateSwitches } = require('./lib/frameRate.cjs');   // FPS-VSYNC: VSync off lifts Chromium's wait
 
 // DAGGER_USER_DATA points saves/config somewhere else - the probe's
 // door (tools/appShellProbe.mjs writes into a temp dir it can read
@@ -52,6 +53,11 @@ const { pathToFileURL } = require('node:url');
 // created with, whatever the product is called on the outside.
 if (process.env.DAGGER_USER_DATA) app.setPath('userData', process.env.DAGGER_USER_DATA);
 else app.setPath('userData', path.join(app.getPath('appData'), 'Daggerfall JavaScript'));
+
+// FPS-VSYNC (2026-09-28): the player's saved VSync, read BEFORE the app is ready - Chromium takes its switches at
+// launch or never. VSync off lifts the screen's wait, and the page's Frame Rate Cap holds the frames instead
+// (DFU's own law, app/lib/frameRate.cjs). VSync on - DFU's default - changes nothing.
+for (const s of frameRateSwitches(app.getPath('userData'))) app.commandLine.appendSwitch(s);
 
 // ONE instance per userData. Two shells over the same Saves folder
 // hold two independent storage indexes that go mutually stale (the

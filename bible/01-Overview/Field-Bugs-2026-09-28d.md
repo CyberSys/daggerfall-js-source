@@ -1,7 +1,8 @@
-# FIELD BUGS 2026-09-28d - the deck, the level box, the cursed stars; the phone's rows and the frame rate, read
+# FIELD BUGS 2026-09-28d - the deck, the level box, the cursed stars, the passage, the frame rate
 
 Mac, with four screenshots of the Discord's bug-reports threads and one line of Mac's own. This page is the batch's
-record; each fix has its own section below. Mutants: `tools/mutants/disc28d.json` (21, all dead).
+record; each fix has its own section below. Then Mac's answers to the page's own questions: SHIP-SAIL and FPS-VSYNC.
+Mutants: `tools/mutants/disc28d.json` (34, all dead).
 
 The list, as the screenshots carried it:
 
@@ -47,18 +48,15 @@ Two more on the same road:
   a walk refused for gold it does not cost. The card re-bills whenever the guard moved the ship, as the classic window
   refreshes after its guard.
 - **The Overworld's line.** The Overworld sails the player's own boats alone (OWS2); with none to hand, a place across
-  the water was refused with "a boat would carry you across the water" - which at a port reads as no way to sail.
-  Where the map's passage would sail there - its own law, `shipTravelRefusal`, over the trip priced first
-  (`tvShipSails`) - the line now says so: "There is no way there by land - a ship sails there from here: choose By
-  ship on the map."
+  the water was refused with "a boat would carry you across the water" - which at a port reads as no way to sail. At
+  first the line named the map's passage; Mac's answer made it the passage itself - SHIP-SAIL, below.
 
 Not changed, and why: Come Sail Away's "Unable to raise sail. Boat is obstructed." is the mod's own refusal while any
 of a boat's five nodes reads land (`03-World/Come-Sail-Away.md`, seen on Daggerfall's town pond), and its deeds want
-a port by the byte within its search square - both 1:1. And the classic window (and a party's fare, which prices
-through the same popup) runs the mod's guard BEFORE it prices the trip, so a fresh popup reads the ocean as none and
-knocks the ship off at open for a place with no harbour across the water - DFU does so only on its popup's first push.
-The ship can still be chosen after; the order is pinned by the party arc's own test, so it is recorded here, not
-changed. `test/disc28d_shipport.test.js` (4), eight mutants.
+a port by the byte within its search square - both 1:1. CORRECTED: this page first said the classic window and a
+party's fare run the mod's guard before pricing the trip, so a fresh popup read the ocean as none. They do not - the
+popup prices itself as it is built (`TravelPopUpWindow`'s constructor ends in `refresh()`), so its guard sees the
+water; `test/disc28d_shipport.test.js` pins it through the real popup. `test/disc28d_shipport.test.js` (5).
 
 ## LEVEL-PCT: the classic Level box reads the law that levels the character (2)
 
@@ -103,10 +101,10 @@ box has printed the event's own message since, so a repeat will name itself. Not
 
 ## THE READING: the frame rate (3)
 
-- **300 is 60 on a 60 Hz screen, by design.** The Frame Rate Cap holds frames back; it never runs faster than the
-  screen, because every frame waits on requestAnimationFrame, which waits on the screen (FPS-CAP1,
+- **300 is 60 on a 60 Hz screen, by design - in a browser.** The Frame Rate Cap holds frames back; it never runs
+  faster than the screen, because every frame waits on requestAnimationFrame, which waits on the screen (FPS-CAP1,
   `07-Rendering/Rendering-Arc.md`; the patch notes say "The game never runs faster than your screen"). The desktop app
-  is the same Chromium: `app/main.cjs` sets no switch that would lift the wait.
+  was the same Chromium with no switch to lift the wait - until FPS-VSYNC, below.
 - **The outdoors.** The report's counter reads "in frame 63.8 before 9.7 stream 0", 48 draws, and a GPU line ending
   "ACO), OpenGL ES 3..." at dpr 1 - an AMD card on Mesa (Linux). 63.8 ms inside the frame is SCRIPT-SPLIT's own
   reading (`07-Rendering/Performance-Exterior.md`): the time the frame callback takes, which includes waiting on the GPU.
@@ -117,25 +115,48 @@ box has printed the event's own message since, so a repeat will name itself. Not
   ran (the same shape as the recorded "'Ut' before initialization"). It can be read only against that build: the app's
   version names it, and the recorded way is to rebuild that commit and slice the bundle at the crash's line and column.
 
-Nothing changed for these three.
+Nothing changed for the outdoors or "uc"; the cap is FPS-VSYNC's.
+
+## SHIP-SAIL: the Overworld takes the passage (Mac's answer)
+
+Asked whether the Overworld should book the map's ship passage itself, Mac: *"Shouldn't it already function as such?"*
+It does now. Where the Overworld refuses a place across the water (no route by land, no boat of the player's own to
+hand) and the map's passage sails there from here, the Overworld OFFERS it in a Yes/No box - "There is no way to
+Wayrest by land. Sail there by ship?", the fare in the party prompts' own words, the days as the map counts them (none
+online, where the arrival is now), and the popup's warning to a diseased or poisoned traveller. It is priced by the
+map's own popup, headless (`partyTripFare`: the ports rule, the guild's blessing, the fare, the two-sided gold gate),
+refused by the map door's own rungs (foes near, the sun, indoors - `partyTravelRefusal`), and on Yes taken as the map
+takes it: a party gathered is asked first, then the fade and `fastTravelTo`. A purse that cannot pay is told so ("You
+cannot afford the journey (150 gold).") and not asked; where the passage's own law refuses the place - no port here -
+the boat's line stands. The same offer answers both doors to it: a town clicked in the Overworld, and a place picked
+on the map with By land chosen. `test/disc28d_shipport.test.js` (the offer and the popup's pricing), eight mutants.
+
+## FPS-VSYNC: the desktop app runs past the screen, as DFU does (Mac's answer)
+
+Asked whether the desktop app should run above the screen's refresh, Mac: *"Yes"*. Done by DFU's own law
+(StartGameBehaviour.cs:238-250) rather than beside it: with VSync on every frame waits for the screen and the cap
+does nothing; with VSync OFF the Frame Rate Cap is what holds them, and Off lets them run free. A page cannot stop
+waiting; the app's Chromium can, if told before it starts. So the shell reads the player's saved VSync at launch
+(`app/lib/frameRate.cjs`: the page's own settings blob in the shell's file store, read as the page's GetBool reads it)
+and, with it off, lifts both of Chromium's waits (`disable-gpu-vsync`, `disable-frame-rate-limit`); the page's cap
+(`systems/frameCap.js`) then holds the frames, up to its 300. VSync on - DFU's default - changes nothing, so no install
+runs uncapped unless its player turns VSync off. In the app the VSync row is a real switch now, said to take effect
+the next time the app starts (the settings screen's `restart` tier); in a browser it stays unavailable. The report's
+"300 FPS but limited to 60 (possibly by vsync)" is answered in the app: turn Wait For Screen Refresh off, restart.
+`test/disc28d_vsync.test.js` (4), nine mutants. Not proven on a real desktop GPU here (no display in this box).
 
 ## For Mac
 
 - **SHIP-PORT's deck is a departure from Travel Options** (departure 20): on the ship, the ports rule asks of the port
   the ship was boarded at. Kept unless you say otherwise.
-- **The Overworld names the passage; it does not take it.** A press that books the map's passage from the Overworld
-  (the card opened on that place with By ship set) would be a feature, and yours to call.
-- **Above the screen's refresh in the desktop app.** Chromium can run past the refresh (its frame-rate-limit and vsync
-  switches), and the cap would then mean something at 144 or 300 - but Off would then mean uncapped, a hot GPU on every
-  machine. Yours to call.
 - **A point into a curse-capped attribute is still allowed**, as DFU allows it (it counts after a cure). The window now
   says so where it happens; making the press refuse there would change the law, and is yours.
 
 ## Records
 
 - Tests: `test/disc28d_levelpct.test.js` (3), `test/disc28d_ascendlive.test.js` (4), `test/disc28d_shipport.test.js`
-  (4) - each red before its fix.
-- Mutants: `tools/mutants/disc28d.json` (21 dead); `lv1.json`'s `canRaise-restates-the-law-instead-of-asking-it`
+  (5), `test/disc28d_vsync.test.js` (4) - each red before its fix.
+- Mutants: `tools/mutants/disc28d.json` (34 dead); `lv1.json`'s `canRaise-restates-the-law-instead-of-asking-it`
   re-aimed by content (the row's `canRaise` is a const now), dead.
 - Citations: `tools/citeShift.mjs --apply` (93 moved) and the four struck `world.js` cites CD4 reads moved by hand;
   then, over the Overworld's ship question, `--apply --struck` against that state (20 moved).

@@ -1998,7 +1998,7 @@ function tierGroup(catId, tier, title, blurb, keys) {
 function categoryRows(catId) {
   const keys = paneKeys(catId);   // FT13: the moved keys are the home's
   const out = [...portRows(catId)];
-  for (const key of keys) if (tierOf(key) === 'live') { const r = settingRow(key); if (r) out.push(r); }
+  for (const key of keys) if (drawsFlat(key)) { const r = settingRow(key); if (r) out.push(r); }
   for (const [tier, title, blurb] of TIER_GROUPS) {
     const ks = keys.filter((k) => tierOf(k) === tier);
     if (ks.length) out.push(tierGroup(catId, tier, title, blurb, ks));
@@ -2006,8 +2006,12 @@ function categoryRows(catId) {
   return out;
 }
 
+/** FPS-VSYNC: a key the desktop shell reads at its next launch does something here too - drawn flat with the live
+ *  ones (never in Quick Settings, whose rows take effect at once). */
+function drawsFlat(key) { const t = tierOf(key); return t === 'live' || t === 'restart'; }
+
 /** What the sub-rail counts: the rows that DO something here. */
-const liveCount = (catId) => portRows(catId).filter((r) => r.dataset?.live !== '0').length + paneKeys(catId).filter((k) => tierOf(k) === 'live').length;   // FT13: what is drawn; QREPAIR: a row greyed here does nothing here
+const liveCount = (catId) => portRows(catId).filter((r) => r.dataset?.live !== '0').length + paneKeys(catId).filter(drawsFlat).length;   // FT13: what is drawn; QREPAIR: a row greyed here does nothing here
 
 /** MWA4: what the Morrowind files do, in the card's one line. */
 export const MW_CARD_LINE = 'Your own Morrowind files (Morrowind.bsa and Morrowind.esm, with Tribunal and Bloodmoon if you have them) '

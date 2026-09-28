@@ -323,6 +323,16 @@ in the app Load, Import a zip. If you played in the app, they are files
 in `%APPDATA%\Daggerfall JavaScript\Saves` (File > Open Saves Folder),
 and an update never touches that folder.
 
+## The frame rate: VSync read at launch (FPS-VSYNC, 2026-09-28)
+
+Mac, asked whether the app should run above the screen's refresh: "Yes". A page's frames always wait for the screen;
+the shell's Chromium can stop waiting, but only if told before it starts. So `main.cjs`, after pinning userData and
+before the app is ready, asks `lib/frameRate.cjs` for the player's saved `Video/VSync` (the page's settings blob,
+`Prefs/dagger.settings.v1`, through the same file store the page writes with) and, with it OFF, appends
+`disable-gpu-vsync` and `disable-frame-rate-limit`. The page's Frame Rate Cap then holds the frames, as DFU's
+targetFrameRate does with VSync off; VSync on, the default, launches exactly as before. The settings screen offers
+the VSync switch in the app only, and says it takes effect the next time the app starts.
+
 ## What deliberately did NOT move
 
 Music packs, texture packs and Morrowind data still live in IndexedDB

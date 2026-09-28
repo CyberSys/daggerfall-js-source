@@ -1310,16 +1310,17 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
   a guard that knocked the ship off left By land showing over the ship's days and fare, and Begin gold-checked that
   fare - a walk refused for gold it does not cost. The classic window refreshes after its guard (`travelMapWindow.js`);
   the card now re-bills whenever the guard moved the ship.
-- **The Overworld's line.** The Overworld sails the player's own boats alone (OWS2) and the map sells DFU's passage; a
-  place across the water with no boat to hand was refused with "a boat would carry you across the water" - at a port,
-  read as no way to sail. Where the map's passage would sail there, the line now says so: "There is no way there by
-  land - a ship sails there from here: choose By ship on the map." The question is the popup's own law
-  (`shipTravelRefusal`, the ports rule off meaning DFU's passage from anywhere) over the dep bag's reads and the trip
-  priced FIRST (`tvShipSails`), as the enhanced card prices it and as DFU's OnPush refreshes before the mod's guard
-  reads the ocean. Not `partyTripFare`: it guards before it prices, the classic window's order, which reads a fresh
-  popup's ocean as none - so both knock the ship off at open for a place with no harbour across the water, where DFU
-  does so only on the popup's first push (its later pushes refresh first). Found, not changed: the ship can still be
-  chosen after, and the order is pinned (`test/partytravel.test.js`).
+- **The Overworld takes the passage (SHIP-SAIL).** The Overworld sails the player's own boats alone (OWS2) and the
+  map sells DFU's passage; a place across the water with no boat to hand was refused with "a boat would carry you
+  across the water" - at a port, read as no way to sail. Mac, asked whether the Overworld should take the passage
+  itself: *"Shouldn't it already function as such?"* It does now: where the walk is refused and the passage sails
+  there, the Overworld OFFERS it - "There is no way to Wayrest by land. Sail there by ship?", the fare's row and the
+  days - priced by the map's own popup headless (`partyTripFare`, whose constructor prices the trip, so its guard sees
+  the water: the ports rule, the guild's blessing, the fare, the two-sided gold gate), refused by the map door's own
+  rungs (`partyTravelRefusal`: foes near, the sun, indoors), and on Yes taken as the map takes it - a party gathered
+  asked first, then the fade and `fastTravelTo`. A purse that cannot pay is told so and not asked; where the passage's
+  own law refuses the place (no port here), the boat's line stands. (A first draft of this record said the popup
+  priced AFTER its guard and so read no ocean; the constructor's own refresh makes that false - corrected.)
 
 ## Pins
 
@@ -1331,4 +1332,4 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
 `tools/mutants/audittravelstrafe2.json` (AUDIT TRAVEL-STRAFE2, 11 dead).
 `test/spawntravel.test.js`, `tools/mutants/spawntravel.json` (SPAWN-TRAVEL).
 `test/risestuck.test.js`, `tools/mutants/rise_stuck.json` (RISE-STUCK).
-`test/disc28d_shipport.test.js`, `tools/mutants/disc28d.json` (SHIP-PORT's eight).
+`test/disc28d_shipport.test.js`, `tools/mutants/disc28d.json` (SHIP-PORT's four, SHIP-SAIL's eight).

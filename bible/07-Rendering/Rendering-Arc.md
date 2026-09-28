@@ -2418,7 +2418,7 @@ beside them. Then the same shape turned up everywhere else:
 | `worldModes.js:8146` | the dungeon's flats, camps, torches and peers |
 | `worldModes.js:8341` | the interior's flats and peers |
 | `worldModes.js:8347-8414` | blood, torches, drops, foes, guards - **five separate uncut calls** |
-| `exterior.js:5328`, `world.js:20298` | the spell missiles |
+| `exterior.js:5328`, `world.js:20309` | the spell missiles |
 | `exterior.js:5404` | the fixed city's townspeople |
 | `interior.js:382`, `dungeon.js:1096` | the flats, the camps, the torches |
 
@@ -3299,3 +3299,16 @@ store read DFU's way, the stepped row, VSync unavailable, the four hosts'
 placement, the counter driven over a capped second); `perf1` and
 `audit39_dungeonshared` re-aimed at the gate's line between the guard and
 the stamp.
+
+### FPS-VSYNC (2026-09-28): the desktop app runs past the screen, by DFU's law
+
+The Discord (Regi: "Settings are also set for 300 FPS but it seems it's limited to 60 (possibly by vsync)") and Mac,
+asked whether the desktop app should run above the screen's refresh: "Yes". The departure above was a browser's: a
+page cannot stop waiting for the screen. The app's Chromium can, if told at launch, so the app now keeps DFU's own
+rule (StartGameBehaviour.cs:238-250): VSync on, frames wait for the screen; VSync off, they do not, and the Frame Rate
+Cap holds them (Off lets them run free). The shell reads the saved `Video/VSync` before it is ready
+(`app/lib/frameRate.cjs`, over the page's own settings blob and its GetBool reading) and, with it off, launches with
+`disable-gpu-vsync` and `disable-frame-rate-limit`; this file's gate then does the holding, up to 300. VSync on, the
+default, changes nothing. In the app the VSync row is a switch that takes effect at the next start (the settings
+tier `restart`, `systems/settings.js` SHELL_AT_LAUNCH); in a browser it stays unavailable. Record:
+`01-Overview/Field-Bugs-2026-09-28d.md`; pins `test/disc28d_vsync.test.js` (4).

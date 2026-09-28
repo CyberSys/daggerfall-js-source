@@ -13,6 +13,10 @@
 // reason (systems/settings.js UNAVAILABLE). Read DFU's way, the cap
 // could never do anything. So it holds frames BACK from the screen's
 // rate, which is the only thing a page can do - it never runs faster.
+// FPS-VSYNC (2026-09-28): EXCEPT IN THE DESKTOP APP WITH VSYNC OFF. The
+// shell lifts Chromium's wait at launch (app/lib/frameRate.cjs), rAF
+// then runs past the screen, and this gate is what holds the frames -
+// DFU's targetFrameRate exactly, Off letting them run free.
 //
 // HOW A FRAME IS HELD. Each host's rAF callback asks `frameCapSkip(now)`
 // before its clock stamp and its input frame (the pins in
