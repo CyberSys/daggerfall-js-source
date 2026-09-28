@@ -15,6 +15,7 @@ import { splitStack, addItem, itemWeight, totalWeight, carriedWeight, isSummoned
 import { isEquipped } from './equip.js';
 import { clearLightSourceOnLeave } from './itemTransfer.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';
+import { isBound } from './itemLock.js';   // REALM P0.4: a bound piece is its character's
 
 /** Why an item may not be put on the table, or null. Words a player can act on. */
 export function tradeRefusal(item) {
@@ -22,6 +23,7 @@ export function tradeRefusal(item) {
   if (isEquipped(item)) return 'Unequip that first.';
   if (item.questItem) return 'Quest items cannot be traded.';
   if (isSummoned(item)) return 'Summoned items cannot be traded.';
+  if (isBound(item)) return 'Bound items cannot be traded.';   // REALM P0.4: the pack's own law, behind the window's
   if (isGoldPieces(item)) return 'Offer gold with the gold box.';
   return null;
 }

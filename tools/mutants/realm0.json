@@ -430,5 +430,14 @@
     "tests": [
       "test/realm0.test.js"
     ]
+  },
+  {
+    "name": "REALM0-bound-trade-pack",
+    "file": "src/systems/tradePack.js",
+    "old": "  if (isBound(item)) return 'Bound items cannot be traded.';",
+    "new": "",
+    "tests": [
+      "test/realm0.test.js"
+    ]
   }
 ]

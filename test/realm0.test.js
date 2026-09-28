@@ -36,6 +36,7 @@ import { brokerStock, makeBrokerSale, _resetBrokerForTests } from '../src/system
 import { sigilStone } from '../src/systems/gateSpoils.js';
 import { shareQuestGold, GivePc } from '../src/systems/quest/actions.js';
 import { QuestMachine } from '../src/systems/quest/machine.js';
+import { tradeRefusal, createTradePack } from '../src/systems/tradePack.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 /** Runs `fn` as if the page were `search`, then restores the page. */
@@ -307,6 +308,11 @@ test('REALM P0.4: the Sigil Broker\'s piece is bound to its buyer - no drop, no 
   assert.ok(isDeclaredItemField('bound') && validItemField('bound', true) === true, 'the field rides the save and the wire');
   assert.match(src('src/ui/enhancedInventory.js'), /if \(isBound\(picked\)\) c\.append\(el\('p', 'lockline', BOUND_LINE\)\);/);
   assert.equal(BOUND_LINE, 'Bound to you - it will not be dropped, sold, traded or stored.');
+  // the trade pack's own law, behind the window's: a bound piece is never reserved for a peer
+  assert.equal(tradeRefusal(piece), 'Bound items cannot be traded.');
+  const holder = { items: [piece], goldPieces: 0 };
+  assert.equal(createTradePack(holder).take([{ item: piece, count: 1 }], 0), null);
+  assert.deepEqual(holder.items, [piece], 'nothing left the pack');
   for (const f of ['src/ui/nativeInventory.js', 'src/ui/nativeTrade.js', 'src/ui/enhancedInventory.js', 'src/ui/enhancedTrade.js', 'src/ui/enhancedPlayerTrade.js']) {
     for (const m of src(f).matchAll(/lockedText\(([^;]*)/g)) assert.match(m[1], /, (it|item)\)/, `${f} names the piece to the refusal`);
   }
