@@ -918,8 +918,8 @@
   {
     "name": "HUNT-parchment-drawn-under-the-panel",
     "file": "src/ui/huntWindow.js",
-    "old": "    if (noticeFrame(this, rows, { hint: 'Escape to walk away' })) { this._box = null; return; }",
-    "new": "    noticeFrame(this, rows, { hint: 'Escape to walk away' });",
+    "old": "    if (noticeFrame(this, rows, { hint: this._escape ? 'Escape to walk away' : false })) { this._box = null; return; }   // FORAGE4: no Escape, no promise of one",
+    "new": "    noticeFrame(this, rows, { hint: this._escape ? 'Escape to walk away' : false });   // FORAGE4: no Escape, no promise of one",
     "tests": [
       "test/surv6_hunting.test.js"
     ]

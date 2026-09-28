@@ -1,6 +1,6 @@
 # FORAGING - Harbinger451's mod, 1:1, and the professions' tools (FORAGE0, the design record)
 
-**Status: FORAGE1-FORAGE3 SHIPPED on the branch (2026-09-28) - offline Foraging whole: the tools, the foods, the quests, the shelves; audited the same day, which found a sixth mend (Q13) and nine smaller faults, all fixed; and FORAGE3's three loot hooks, on DFU's two loot events made one home each (see the records at the end).** Still to come: FORAGE4's online wait. Opened 2026-09-28
+**Status: FORAGE1-FORAGE4 SHIPPED on the branch (2026-09-28) - Foraging whole, both lanes: the tools, the foods, the quests, the shelves; audited the same day, which found a sixth mend (Q13) and nine smaller faults, all fixed; FORAGE3's three loot hooks, on DFU's two loot events made one home each; and FORAGE4's online wait (see the records at the end).** What is left is the professions' (section 14, PROF0). Opened 2026-09-28
 beside the professions (`06-Systems/Professions-Arc.md`, PROF0) and the seats (`11-Multiplayer/Seats-Arc.md`,
 SEAT0), whose marks it uses: **DECIDED (Mac)**, **DECIDED** (the record's, at Mac's instruction), **FACT** (read in
 this tree, the mod's IL or DFU's source), **MEASURED**.
@@ -601,6 +601,12 @@ interruptWhen, result: false }`:
   a larger one. Esc does not end it: offline the hours are gone at once.
 - Fatigue is taken as offline (`reduce player fatigue by` is the player's own).
 - The shared clock's hour answers the daylight check (WORLD5), so every player online forages by the same sun.
+- **Built by FORAGE4** (2026-09-28), with what the build settled: the page's line is the quest's own DisplayName
+  ("Chop and Gather Wood..."), the author's words; the quest's boxes are held while the wait is PENDING too - behind
+  the pack, before the page has opened - so a bonus's line always follows the work, and a quest reward's pile waits
+  behind its box; the busy page's caption says nothing when Escape does nothing; a saved wait is cut to eight game
+  hours' worth (64 s) and a malformed one dropped, so a save edited to a day of waiting is never obeyed; offline, a
+  wait saved online is forgiven (the offline lane has none).
 
 ### 13.2 Everything else, unchanged
 
@@ -767,8 +773,8 @@ Every FORAGE slice's record names all four (Home.md, THE FOUR HOSTS RULE), each 
 
 | Host | Foraging there |
 |---|---|
-| `scenes/world.js` - the streaming world | Every tool works: the checks read the pixel's climate and region, the location's rect and type, the hour, the foes (a duel's foe among them, as the rest test counts it), and the water state - the three-valued `ON_EXTERIOR_WATER`, handed to the net since FORAGE2. The corpse hook where the world's pools raise a death (`exteriorFoes`, `cityGuards`); the World of Daggerfall camps' piles at index 3 (FORAGE3, wired). The nodes and acts (PROF) |
-| `scenes/exterior.js` - the fixed city | The settlement check answers from the loaded location: its rect is the whole host (`_musicInLocationRect` is always true), so every tool refuses with its settlement line wherever the loaded location is a town type, and works at any other (a graveyard, a dungeon's exterior) - read at FORAGE2. The three-valued water state as in the streaming host (FORAGE2). Its foes' corpses, shelves, containers and interior piles are the shared pools' and `worldModes`' (FORAGE3, wired). **FLAGGED**: no nodes (PROF0 17.1) |
+| `scenes/world.js` - the streaming world | Every tool works: the checks read the pixel's climate and region, the location's rect and type, the hour, the foes (a duel's foe among them, as the rest test counts it), and the water state - the three-valued `ON_EXTERIOR_WATER`, handed to the net since FORAGE2. The corpse hook where the world's pools raise a death (`exteriorFoes`, `cityGuards`); the World of Daggerfall camps' piles at index 3 (FORAGE3, wired). Online, the wait (13.1) on townTalk's slot (FORAGE4, wired). The nodes and acts (PROF) |
+| `scenes/exterior.js` - the fixed city | The settlement check answers from the loaded location: its rect is the whole host (`_musicInLocationRect` is always true), so every tool refuses with its settlement line wherever the loaded location is a town type, and works at any other (a graveyard, a dungeon's exterior) - read at FORAGE2. The three-valued water state as in the streaming host (FORAGE2). Its foes' corpses, shelves, containers and interior piles are the shared pools' and `worldModes`' (FORAGE3, wired). **FLAGGED**: no shared clock, so no wait - its RaiseTime is the offline advance (FORAGE4); no nodes (PROF0 17.1) |
 | `scenes/worldModes.js` - building interiors | Every tool refuses with its "inside" line. The shelf and house-container hooks - `PlayerActivate.OnLootSpawned` raised at both shelf doors and at a stranger's container, before "If no contents" - and the building-interior piles' `LootTables.OnLootSpawned` at the location type's index (Q12), raised where `scenes/interiorContext.js` rolls them (FORAGE3, wired) |
 | `scenes/dungeonContext.js` - dungeons | Every tool refuses ("inside"; the net's dungeon arm dead, Q4). The dungeon-pile hook at the dungeon type's index, WORLD8's hourly re-roll included (one home, `rollPileItems`), and the corpse hook (FORAGE3, wired). **FLAGGED by name**: online, a joiner's copy of a body the host killed rolls its own C&C food (CORPSE-FOOD) but no Foraging tool - a death is raised where it happens - so a room whose first opener was a joiner keeps a list without the host's roll. The Pick-Axe's dungeon veins (PROF2) |
 
@@ -801,7 +807,7 @@ mod a player can actually use - tools that chop, quests that pay - never a switc
 | **FORAGE1** - SHIPPED 2026-09-28 | The files vendored (1.1) with the README, the registry row, the credit and the Features row; QAE's four actions (9.2) and the inert `update-quest-item`; the quest list and its 22 quests, gated on the switch | A fetch quest is offered by a commoner; a script's `raise time by 1:30` moves the clock 90 minutes |
 | **FORAGE2** - SHIPPED 2026-09-28 | The twelve templates; the seven textures; the six tools' uses (5, 6), the result box, the wear; the foods (7); the console command (8); the three-valued water state in the streaming host | Each tool, used in each host, gives the mod's line, yield and quest |
 | **FORAGE3** - SHIPPED 2026-09-28 | ~~`GetCustomItemsForGroup` as a registry~~ (shipped early, with FORAGE1); `PlayerActivate.OnLootSpawned` and `LootTables.OnLootSpawned` as registries (RRI's subscriber first); Foraging's three hooks | A Prison's pile holds a Spade; a General Store's hook adds 0-1 |
-| **FORAGE4** | Online: the wait (13.1) | Online, the Wood-Axe gives its bundles, a 12-second wait and 20% fatigue; the shared clock does not move |
+| **FORAGE4** - SHIPPED 2026-09-28 | Online: the wait (13.1) | Online, the Wood-Axe gives its bundles, a 12-second wait and 20% fatigue; the shared clock does not move |
 | **FORAGE-FIX** - SHIPPED 2026-09-28 | Q7-Q11 and Q13 (12), carried by the slice that ports each - the quest and list patches and Q11 in FORAGE1, Q10 in FORAGE2 - in section A's FORAGING row | Each patch pinned against the verbatim line it replaces, and each patched quest and the list run on the port's machine (`test/foragefix.test.js`) |
 
 The professions take the tools in their own slices: **PROF1** (Herbalism: the Sickle's steady hand, the Basket's
@@ -813,8 +819,8 @@ FORAGE2's three-valued water state (shipped).
 
 ## 18. The pins
 
-FORAGE1-3's stand in `test/forage1_law.test.js`, `test/forage2_tools.test.js`, `test/foragefix.test.js` and
-`test/forage3_loot.test.js` (the hooks, Q1, Q2 and Q12); the wait's arrive with FORAGE4.
+They stand in `test/forage1_law.test.js`, `test/forage2_tools.test.js`, `test/foragefix.test.js`,
+`test/forage3_loot.test.js` (the hooks, Q1, Q2 and Q12) and `test/forage4_wait.test.js` (the wait).
 
 - The templates: the twelve rows `deepEqual` the vendored `ItemTemplates.json`; group 9; none stackable.
 - The checks: for each tool, a fixture failing each check alone gives that check's exact line, and a fixture failing
@@ -839,7 +845,8 @@ FORAGE1-3's stand in `test/forage1_law.test.js`, `test/forage2_tools.test.js`, `
 - QAE: fatigue's percent, its floor of 1 and the maximum's clamp; `raise time by 1:30` is 5,400 s; `raise time by 2:00
   saying N` is the bare advance; `raise time by 0:00` is no action; `possesses` excludes quest items and counts the
   wagon.
-- Online: the wait's seconds (8, 12, 16), and the shared clock unmoved.
+- Online: the wait's seconds (8, 12, 16), and the shared clock unmoved; the page after the pack, the boxes behind it,
+  a foe's end, the reload, the cap.
 
 ## 19. What remains to read or measure
 
@@ -973,3 +980,30 @@ The three loot hooks, 1:1 off IL_0520-IL_0b8f, and the two DFU events they hang 
 - **Pins**: `test/forage3_loot.test.js` (12), the loot sites' older pins re-aimed at the one homes
   (`rri2_realism`, `roada2_itemseconomy`, `lr1_lootrarity`, `wod3_spawner`, `world8`); `tools/mutants/forage3.json`,
   22 mutations, 22 dead.
+
+## FORAGE4 - WHAT SHIPPED (2026-09-28, Mac: "Continue! Remember, this is your baby")
+
+Online Foraging - the wait (13.1), and with it Foraging whole in both lanes:
+
+- **The page**, `src/ui/huntWindow.js`: C&C's hunt page, THE ONE CONSTRUCTION SEAM - four constructor options the hunt
+  leaves at their defaults (`ask`, `escape`, `interruptWhen`, `result`), and `remaining` / `extend(seconds)` for the
+  wait's queue. The busy page's caption says "Escape to walk away" only where Escape does.
+- **The wait**, `src/scenes/foragingWait.js` (`createForagingWait`): a quest's game seconds become real ones at
+  `huntRealSeconds` (8 s a game hour, imported); the record `{ seconds, label }` lives on the player
+  (`playerEntity.foragingWait`, one of `systems/save.js`'s ENTITY_FIELDS), so its seconds left ride the save and a
+  reload reopens the page; the page opens only when the slot is free; a second wait joins the first; the quest's boxes
+  are held (`holds` / `hold`) while the wait is pending or open and shown in order after it; a foe near or a window
+  taking the slot ends it with the rest forgiven; offline a saved wait is forgiven; a record is cut to 64 s.
+- **The door**, Quest Actions Extension's RaiseTime (`src/systems/quest/questActionsExtension.js`): under the shared
+  clock its seconds go to the host's `waitOnline`, never to `raiseTime` - the quest machine's hook, the bridge's
+  contract member (`scenes/questBridge.js`), and the streaming host's wiring.
+- **The four hosts**: `scenes/world.js` - the one host that runs the shared clock - builds the wait on townTalk's slot
+  (the mode machine's held overlay counting as a full slot), its rest test with a duel's foe in it, ticks it every
+  frame in every mode, holds its quest boxes and a reward's pile behind it, and answers `waitOnline`; its interiors and
+  dungeons (`scenes/worldModes.js`) are the same host's slot. **FLAGGED by name**: `scenes/exterior.js` (the fixed
+  city) and `scenes/dungeonContext.js` standing alone never run the shared clock, so their RaiseTime is the offline
+  advance and they wire no `waitOnline` (the fixed city's bridge reports it absent, with its other unwired seams).
+- **The ledger**: section A's FORAGING row, departure (5), says the wait as built.
+- **Pins**: `test/forage4_wait.test.js` (10) - the hunt's defaults kept, the four options, the seconds, the slot, a
+  foe, the held boxes, the reload and the cap, the door both ways, the done-when on the machine (ChopWoodQuest online:
+  a 12-second wait, 20% fatigue, the clock never asked), the wiring; `tools/mutants/forage4.json`, 18 mutations, 18 dead.

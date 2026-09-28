@@ -113,6 +113,7 @@ const ENTITY_FIELDS = [
   // checks until the clock re-passed it.
   'lastSkillCheckTime',
   'restSimMinutes',   // MAC-LVL1: an online rest's unspent skill-clock credit (spent at the rest's end; a save mid-rest is the only way it is ever non-zero)
+  'foragingWait',   // FORAGE4: an online Foraging wait's { seconds, label } left - a relog reopens the page with them (scenes/foragingWait.js); null or absent: none
   // AUDIT 26 F219/F100: the coven's daedra-of-the-day. DFU persists
   // DaedraSummonDay and DaedraSummonIndex one for one
   // (SerializablePlayer.cs:164-165, restored :332-333);

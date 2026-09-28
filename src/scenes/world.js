@@ -161,6 +161,7 @@ import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's 
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
 import { createHunting } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
+import { createForagingWait } from './foragingWait.js';   // FORAGE4: online, Foraging's quest time is a wait on the hunt's page
 import { alignSurvival, shiftSurvival } from '../systems/survival/needs.js';   // SURV7: the needs' markers at an arrival; AUDIT SURV-TIERS (the third pass): and across a clock correction
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // SURV7: the env's lycanthrope and beast-form flags
 import { elementalResistanceChance, ELEMENTS, BODY_CAPSULE_RADIUS, EFFECT_FLAGS, savingThrow } from '../systems/spellcast.js';   // SURV7: the env's fire and frost resistances; WB4: the saving throw a boss's fire meets   // DW-E3: a foe's controller, as a fish's probe meets it
@@ -4353,6 +4354,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, null, true); },   // CAMP-REST: the search's minutes are spent through the tick as a skip - no group roll on the replay
     spawnBeast: ({ mobileType, count }) => { const feet = walkMode && playerSpawned ? player.pos : cam.pos; for (let i = 0; i < count; i++) _standEncounterFoe({ mobileType, ...SPAWNER_ARMS.wilderness }, feet); },
     inflictPoison, inflictDisease, tally: (id) => tallySkill(playerEntity, id, 1),
+  });
+  // FORAGE4 (bible/06-Systems/Foraging.md 13.1): online, QAE's `raise time by` is a wait on the hunt's busy page, in
+  // the same slot - opened only when the slot is free (the tool's box and the pack closed first), the quest's boxes
+  // held behind it, a foe near (the rest test, a duel's foe with it) ending it with the rest forgiven
+  const foragingWait = createForagingWait({
+    entity: playerEntity,
+    showOverlay: (w) => townTalk.showOverlay(w),
+    overlayActive: () => townTalk.overlayActive || !!modes?.overlayHeld,
+    enemiesNear: () => duelEnemyNear() || areEnemiesNearby(exteriorFoePool(), { resting: true }),
+    online: () => sharedClockOn(),
   });
   /** SURV3: the water sources under the ray - every built pixel's, in scene coordinates, and the list the pick indexes. */
   let _springs = [];
@@ -9517,6 +9528,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and fired when the box the player is reading closes.
   let _onQuestBoxClosed = null;
   const showQuestBox = (box) => {
+    // FORAGE4 (FORAGE0 13.1): a quest's box waits behind Foraging's online wait - a bonus's line after the work
+    if (foragingWait.holds()) { foragingWait.hold(() => showQuestBox(box)); return; }
     if (_questBoxWin && !_questBoxWin.done && _liveQuestOverlay(_questBoxWin)) {
       _questBoxWin.push([box]);
       return;
@@ -10418,6 +10431,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     getGoldPieces: () => goldAmount(playerEntity),
     deductGoldPieces: (n) => deductGoldPieces(playerEntity, n),
     raiseTime: (seconds) => setWorldMinutes(worldMinutes() + seconds / 60),
+    waitOnline: (seconds, quest) => { foragingWait.add(seconds, quest?.displayName ?? null); },   // FORAGE4: online, QAE's raise time
     // ROAD-B: through the host's ONE entry, so a quest that calls the
     // watch on a player standing in a tavern gets the indoor arm too.
     spawnCityGuards: (immediate) => _spawnGuards(!!immediate),
@@ -10594,8 +10608,12 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (w) townTalk.showOverlay(w);   // DISC10-E L3: a refused pack is null - the pile stays on the ground
         };
       }
-      if (open && _questBoxWin && !_questBoxWin.done && _liveQuestOverlay(_questBoxWin)) _onQuestBoxClosed = open;
-      else open?.();
+      const give = () => {
+        if (open && _questBoxWin && !_questBoxWin.done && _liveQuestOverlay(_questBoxWin)) _onQuestBoxClosed = open;
+        else open?.();
+      };
+      if (open && foragingWait.holds()) foragingWait.hold(give);   // FORAGE4: behind the wait, after its box - the box's order kept
+      else give();
     },
     // IsPlayerInTown(true, true), through the one closure S40 gave it.
     // That closure replaced `locationType <= 2`, which is City /
@@ -17077,6 +17095,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // while you cross it, which is what was asked for; anyone who would
     // rather ride through it turns the survival mod's hunting off.
     if (_mode() === 'exterior') hunting.tick();   // SURV6: the minute's hunting roll; the window takes the slot
+    foragingWait.tick();   // FORAGE4: online, a standing wait takes the slot when it is free, and writes its seconds left for the save
     // PERF-CROWD (2026-09-19): and the live crowd is culled too. This list
     // is the townspeople, the city watch, the exterior foes, the ground
     // piles, the blow effects, the dropped torches and the camps - every

@@ -81,7 +81,7 @@ lists them in one place.
 **Standing since FORAGE1-FORAGE3 (2026-09-28)**: Foraging (`06-Systems/Foraging.md`, `src/systems/foragingLaw.js`,
 `src/systems/foragingInstall.js`): the tools and their shelves, their checks (daylight, no foe near, not encumbered),
 the Basket's foods, the attribute pairs, and the tools in loot (a shelf's and a house's hook, every pile at its index,
-the corpses - FORAGE3). **Still to come**: FORAGE4's online wait.
+the corpses - FORAGE3), and online the quests' time as a wait (FORAGE4). Foraging stands whole in both lanes.
 
 ## 3. The professions
 

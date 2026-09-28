@@ -8,6 +8,7 @@
 // that needs it (Mac: "Your lead").
 //
 //   raise time by H:MM          RaiseTime.cs           WorldTime.Now.RaiseTime(seconds) - a bare clock advance
+//                                                      (online, FORAGE4: the host's wait - the clock is shared)
 //   reduce player fatigue by N  ReducePlayerFatigue.cs  N percent of the maximum, the floor 1 (raw x64 values)
 //   player possesses N items class C subclass S   PlayerPossesses.cs   an always-on trigger, pack and wagon
 //   player handsover N items class C subclass S   PlayerHandsover.cs   removes N, pack first then wagon
@@ -122,13 +123,20 @@ export class RaiseTime extends ActionTemplate {
   }
   update(_caller) {
     const hooks = this.parentQuest?.hooks;
+    let seconds = 0;
     if (this.minutes + this.hours > 0) {
-      hooks?.raiseTime?.(raiseTimeSeconds(this.hours, this.minutes));
+      seconds = raiseTimeSeconds(this.hours, this.minutes);
     } else if (this.minutesTo + this.hoursTo > 0) {
       const now = Math.floor((hooks?.nowSeconds?.() ?? 0) / 60);   // classic minutes: midnight on a whole day
       const current = 60 * (now % 60) + 3600 * (Math.floor(now / 60) % 24);
       const desired = 60 * this.minutesTo + 3600 * this.hoursTo;
-      hooks?.raiseTime?.(desired >= current ? desired - current : desired - current + 86400);
+      seconds = desired >= current ? desired - current : desired - current + 86400;
+    }
+    // FORAGE4 (the Ledger A FORAGING row's departure 5): online the shared clock is nobody's to move (WORLD5), so the
+    // seconds are the host's WAIT instead (scenes/foragingWait.js, FORAGE0 13.1); offline the clock moves, as QAE's
+    if (seconds > 0) {
+      if (hooks?.sharedClock?.()) hooks?.waitOnline?.(seconds, this.parentQuest);
+      else hooks?.raiseTime?.(seconds);
     }
     if (this.sayingID > 0) this.parentQuest.showMessagePopup(this.sayingID);
     this.setComplete();

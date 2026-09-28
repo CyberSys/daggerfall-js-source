@@ -16,7 +16,7 @@
 - Commoners and nobles may ask you to fetch firewood. Bundles in your wagon count too.
 - The console command `Foraging_Tools` gives you one of each tool (not online).
 - Foraging is on by default. You can turn it off on the Features screen.
-- Online, a foraging job's game time doesn't pass yet, because nobody can move the shared clock. A short wait in its place is coming.
+- Online, nobody can move the shared clock, so a foraging job's game time becomes a short wait instead: 8 seconds for each game hour, so 12 seconds for an hour and a half of chopping. The wait starts once you close your inventory. Any bonus find is shown when the wait ends. An enemy coming near ends the wait early, and the rest of it is forgiven. Logging out mid-wait keeps what was left for next time.
 
 ## Fixed from the original mod
 - The four firewood quests are now offered. Before, nobody ever gave them out.
