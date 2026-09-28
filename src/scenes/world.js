@@ -17408,8 +17408,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     _bandLast = now;
     const up = !!travelView?.active;
     if (!up && !_bandChase.size) return;
+    // AUDIT OW4 B9: dead, or a window holding the game, a chase HOLDS (the foe pools' own pause) - no pack stood by a death
+    // screen or under a quest box; aboard a boat it ends (a band never walks the sea to stand five refusals at the shore)
+    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) return;
+    const aboard = !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName));
     if (!isEnhanced() || (modes?.mode ?? 'exterior') !== 'exterior' || !walkMode || !playerSpawned || getPref('wildernessCamps') === false
-      || playerEntity.preventEnemySpawns || player.isPlayerSwimming
+      || playerEntity.preventEnemySpawns || player.isPlayerSwimming || aboard
       || _inAnyLocationRect(player.feetAt())) { bandDrop(); return; }   // AUDIT OW3 T7-7: nor into a town - a band gives up at its edge
     const ms = bandNowMs(), n = state.worldCoords(player.pos), feet = { x: n.x, z: n.z };
     const listed = travelViewBands(), sight = bandSight(tvBandSeen.night);   // AUDIT OW4 B8: the sight of the night the bands were made in

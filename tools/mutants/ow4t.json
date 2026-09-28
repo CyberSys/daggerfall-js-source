@@ -98,5 +98,45 @@
       "test/tv7_bands.test.js"
     ],
     "note": "The sight reads the moment's night, the bands their life's."
+  },
+  {
+    "name": "OW4-B9-no-hold",
+    "file": "src/scenes/world.js",
+    "old": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) return;\n",
+    "new": "",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A chase runs on under the death screen and a quest box."
+  },
+  {
+    "name": "OW4-B9-sails-on",
+    "file": "src/scenes/world.js",
+    "old": "      || playerEntity.preventEnemySpawns || player.isPlayerSwimming || aboard\n",
+    "new": "      || playerEntity.preventEnemySpawns || player.isPlayerSwimming\n",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A band walks the sea after a boat."
+  },
+  {
+    "name": "OW4-B10-stand-first-bearing-only",
+    "file": "src/scenes/world.js",
+    "old": "    for (const turn of [0, Math.PI / 2, -Math.PI / 2, Math.PI]) {",
+    "new": "    for (const turn of [0, 0, 0, 0]) {",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "The fallback bearings are the band's own again."
+  },
+  {
+    "name": "OW4-B10-no-room-stands",
+    "file": "src/scenes/world.js",
+    "old": "    if (members.length > (exteriorFoes.encounterRoom?.() ?? Infinity)) return false;\n    const fx = player.feetAt();",
+    "new": "    const fx = player.feetAt();",
+    "tests": [
+      "test/tv7_bands.test.js"
+    ],
+    "note": "A full foe pool is stood into."
   }
 ]
