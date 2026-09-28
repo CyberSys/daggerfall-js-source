@@ -624,7 +624,8 @@ test's bundle):
 Checked against the real French pack's ids (none of its text committed): all 288 item templates, 59 magic items (by
 stream position), 88 spells and the 73 CastWhen* ids are present, and every sampled row names the right thing. One save-side effect: a quickslot's item
 label is written at slot time, so in French it holds the French name; it shows only for an item that is gone and is
-never a key (L10N5 stores ids). Pinned by `test/l10n3e_things.test.js` (12); mutants `l10n3ethings` 9, all dead.
+never a key (L10N5 stores ids). Pinned by `test/l10n3e_things.test.js` (12); mutants `l10n3ethings` 9 (the lookups) and
+`l10n3ethings2` 22 (every call to the two helpers), all dead to that file alone.
 
 Left for later (files other batches own, or an import cycle): the trade and repair lists' `_itemLabel`, the Dispel
 pickers, the readied spell on the HUDs, quest items' artifact arm, the ally-cast sentences, `equip.js`'s broken line

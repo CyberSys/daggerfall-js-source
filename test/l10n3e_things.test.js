@@ -29,7 +29,9 @@ import { decorItemName } from '../src/systems/decorItems.js';
 import { SpellbookWindow, spellRowText, _setSpellbookArtForTests } from '../src/ui/spellbookWindow.js';
 import { _setSpellIconsForTests } from '../src/ui/spellIcons.js';
 import { bookModel, mountEnhancedSpellbook } from '../src/ui/enhancedSpellbook.js';
-import { setSpellQuickslot, resolveSpellQuickslot, quickslotSaveData, clearQuickslots, hotbarEntryForSpell, setHotbarSlot, hotbarView } from '../src/systems/quickslots.js';
+import { setSpellQuickslot, resolveSpellQuickslot, quickslotSaveData, clearQuickslots, hotbarEntryForSpell, setHotbarSlot, hotbarView, cycleQuickslot } from '../src/systems/quickslots.js';
+import { mountHotbarDock, hotbarDropSpell, toggleHotbarSpell } from '../src/ui/enhancedHotbar.js';
+import { withDom } from './invdrag.mjs';
 import { applySpell } from '../src/systems/effects.js';
 import { activeSpellIcons } from '../src/ui/hudActiveSpells.js';
 import { snapshotPlayer } from '../src/systems/save.js';
@@ -71,18 +73,21 @@ test('L10N3e things: an item\'s names - its template\'s by the template index (I
   const unknown = dagger({ name: '%it of Venom Antidote', magic: true, isIdentified: false, enchantments: [{ type: 0, param: 15 }] });
   const made = dagger({ name: 'Mac\'s Blade' });
   const arrow = { group: 'Weapons', templateIndex: ARROW_TEMPLATE, name: 'Arrow' };
+  // an identified book with no title to read (ResolveItemName's Books arm, :279-280): its shortName stands
+  const book = { group: 'Books', templateIndex: 277, name: 'Book', message: -1, isIdentified: true };
   const show = () => ({
     name: resolveItemName(d), long: itemLongName(d), part: itemNameParts(d).name, info: expandItemInfo('[%it]', d), own: shownItemName(d),
     unknown: [resolveItemName(unknown), expandItemInfo('%it', unknown)], made: itemLongName(made), arrow: itemLongName(arrow),
+    book: expandItemInfo('%it', book),
   });
-  const { en, fr } = inFrench({ Internal_Items: [['113', 'Poignard factice'], [String(ARROW_TEMPLATE), 'Trait factice']] }, show);
+  const { en, fr } = inFrench({ Internal_Items: [['113', 'Poignard factice'], [String(ARROW_TEMPLATE), 'Trait factice'], ['277', 'Livre factice']] }, show);
   assert.deepEqual(en, {
     name: 'Dagger', long: 'Steel Dagger', part: 'Dagger', info: '[Dagger]', own: 'Dagger',
-    unknown: ['Dagger', 'Dagger'], made: 'Steel Mac\'s Blade', arrow: 'Arrow',
+    unknown: ['Dagger', 'Dagger'], made: 'Steel Mac\'s Blade', arrow: 'Arrow', book: 'Book',
   });
   assert.deepEqual(fr, {
     name: 'Poignard factice', long: 'Steel Poignard factice', part: 'Poignard factice', info: '[Poignard factice]', own: 'Poignard factice',
-    unknown: ['Poignard factice', 'Poignard factice'], made: 'Steel Mac\'s Blade', arrow: 'Trait factice',
+    unknown: ['Poignard factice', 'Poignard factice'], made: 'Steel Mac\'s Blade', arrow: 'Trait factice', book: 'Livre factice',
   });
   // THE KEY PATH: the item still carries the canonical name, and the filters that test it for "Arrow" still find one
   tm.setLocale('fr');
@@ -335,10 +340,37 @@ test('L10N3e things: the spell slot, the hotbar and the active-spell icons draw 
   quietly(() => applySpell({ ...LEVITATE, effects: [{ ...effect(14, 255), durationBase: 10, durationMod: 1, durationPerLevel: 1, chanceBase: 100, chanceMod: 1, chancePerLevel: 1, magnitudeBaseLow: 1, magnitudeBaseHigh: 1, magnitudeLevelBase: 1, magnitudeLevelHigh: 1, magnitudePerLevel: 1 }, EMPTY, EMPTY] },
     1, entity, {}, () => 0.5, null, {}));
   const icon = () => [...activeSpellIcons(entity).self, ...activeSpellIcons(entity).other][0]?.displayName;
-  const show = () => ({ slot: resolveSpellQuickslot(entity).name, hotbar: hotbarView(entity)[0].name, icon: icon(), ghost: resolveSpellQuickslot({ spells: [] }).name });
+  const show = () => ({ slot: resolveSpellQuickslot(entity).name, hotbar: hotbarView(entity)[0].name, icon: icon(), ghost: resolveSpellQuickslot({ spells: [] }).name,
+    // a hotbar entry whose spell has left the book draws the name it was slotted with, as shown
+    hotbarGhost: hotbarView({ ...entity, spells: [] })[0].name,
+    // the slot's cycle says what it chose (the HUD's linger line)
+    cycled: cycleQuickslot('spell', { entity }).name });
   const { en, fr } = inFrench(SPELL_ROWS, show);
-  assert.deepEqual(en, { slot: 'Levitate', hotbar: 'Levitate', icon: 'Levitate', ghost: 'Levitate' });
-  assert.deepEqual(fr, { slot: 'Envol', hotbar: 'Envol', icon: 'Envol', ghost: 'Envol' });
+  assert.deepEqual(en, { slot: 'Levitate', hotbar: 'Levitate', icon: 'Levitate', ghost: 'Levitate', hotbarGhost: 'Levitate', cycled: 'Levitate' });
+  assert.deepEqual(fr, { slot: 'Envol', hotbar: 'Envol', icon: 'Envol', ghost: 'Envol', hotbarGhost: 'Envol', cycled: 'Envol' });
+  // the enhanced bar (under the inventory tests' DOM, as ui2_hotbar's own tests mount it): the caption a drop raises,
+  // and the toggle's two lines
+  const find = (n, cls) => (String(n?.className ?? '').split(/\s+/).includes(cls) ? n : (n?.children ?? []).map((c) => find(c, cls)).find(Boolean) ?? null);
+  const lines = withDom((dom) => {
+    const make = dom.doc.createElement;
+    dom.doc.createElement = (tag) => Object.assign(make(tag), { removeAttribute(k) { delete this.attrs[k]; } });
+    const dock = dom.mk('div'); dom.body.append(dock);
+    mountHotbarDock(dock);
+    const caption = find(dock, 'hb-caption');
+    assert.ok(caption, 'the bar\'s caption is mounted');
+    return inFrench(SPELL_ROWS, () => {
+      hotbarDropSpell(1, entity.spells[0]);
+      const dropped = caption.textContent;
+      const off = toggleHotbarSpell(entity.spells[0]);   // on slots 0 and 1 now: the first found comes off
+      const on = toggleHotbarSpell(entity.spells[0]);    // and goes back on the first free slot
+      toggleHotbarSpell(entity.spells[0]);
+      setHotbarSlot(0, hotbarEntryForSpell(entity.spells[0]));
+      setHotbarSlot(1, null);
+      return { dropped, off, on };
+    });
+  });
+  assert.deepEqual(lines.en, { dropped: 'Levitate is on hotbar slot 2.', off: 'Levitate is off the hotbar.', on: 'Levitate is on hotbar slot 1.' });
+  assert.deepEqual(lines.fr, { dropped: 'Envol is on hotbar slot 2.', off: 'Envol is off the hotbar.', on: 'Envol is on hotbar slot 1.' });
   tm.setLocale('fr');
   assert.deepEqual(quickslotSaveData().spell, { index: 4, name: 'Levitate' }, 'the save keeps the canonical name');
   assert.equal(quickslotSaveData().hotbar[0].name, 'Levitate');
