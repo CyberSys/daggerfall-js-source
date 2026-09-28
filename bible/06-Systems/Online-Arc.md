@@ -10405,3 +10405,22 @@ what the flight cannot pass. A house of two rooms or more gets a tab a room (`ui
 chosen first; the room's placed pieces and own furniture listed (and "Take all out" / "Put all back" meaning the
 room's all); and the next flight begins over the chosen room's floor, a piece moved from its own room
 (`scenes/decorTool.js` flightStart). `player/collider.js` gained `bounds()`. `test/decorrooms.test.js`.
+
+## THE 2026-09-28 DISCORD BATCH - the pause key, the arrest, the dead span, the swimmer, the flyer, the shared quest
+
+Mac, with eleven Discord screenshots. The batch's record is `01-Overview/Field-Bugs-2026-09-28.md`; its online halves:
+
+- **DISC28-B** - the world runs under the surrender box (WORLD5), so the arrival's crime clear withdraws a standing
+  question (`arrestFlow.crimeCleared`), and a court over no crime arms nothing.
+- **DISC28-E** - the shared clock runs through the death screen with nothing ticking; the revival skips the span
+  (`worldTick.skipDeadMinutes`) instead of charging it to the body just revived, and floors its fatigue.
+- **DISC28-F** - the stamps that end an absence (`alignEntityClocks`, the dead span) pay the 112-day normalise
+  boundaries the span crossed (`worldTick.normalizeAcross`); the single-player clock never skips one.
+- **DISC28-H** - a streamed flying puppet is built on the owner's feet (`feetGiven`), never re-hung as a centre.
+- **DISC28-I** - a shared quest's finish is its own frame (`sync` + `final`, from `machine.takeFinishedShares`), ending
+  every standing copy once; the sync watches `shareSignature`; a final envelope makes no copy.
+- **DISC28-J** - a party peer's quest foe stands for a linked copy of its quest alone (`questShareSeam.accepts`).
+
+No wire change: `final` rides the existing quest frame's `data`. A client that predates this build reads a finished
+envelope as a resync restored complete, and its copy is tombstoned without the reward - where before it heard nothing
+and its copy stayed open. Clients take a build on their next reload (EVENT1's note), so this lasts one session.
