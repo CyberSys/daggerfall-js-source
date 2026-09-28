@@ -90,9 +90,9 @@ async function stand() {
     const io = realmIo({ fetch, storage });
     const made = (await realmCreate(io, handle)).data;
     assert.equal((await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(save))).ok, true);
-    if (renown > 1) {
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(g.id, made.id, handle, renownXpFor(renown), T0, T0);
+    if (renown > 1) {   // RENOWN-ACCOUNT: the account's one track, which its realm character stands at
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(g.id, renownXpFor(renown), T0, T0);
     }
     const guilds = accountGuilds({ fetch, storage });
     return { id: g.id, handle, io, door, guilds, char: made.id, lease: made.lease, seq: 1, at: () => ({ id: made.id, lease: made.lease, seq: 1 }) };

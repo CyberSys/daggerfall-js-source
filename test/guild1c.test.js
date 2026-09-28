@@ -179,9 +179,9 @@ async function stand() {
     const secret = (await call('/v1/auth/guest', {})).body.secret;
     assert.equal((await call('/v1/auth/register', { secret, handle, password: 'a good long one' })).status, 200);
     const id = env.DB._raw.prepare('SELECT id FROM players WHERE handle_lc = ?').get(handle.toLowerCase()).id;
-    if (renown > 1) {
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(id, character, handle, renownXpFor(renown), 1, 1);
+    if (renown > 1) {   // RENOWN-ACCOUNT: the account's one track, which every one of its characters stands at
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(id, renownXpFor(renown), 1, 1);
     }
     return { secret, id, character, handle };
   };
