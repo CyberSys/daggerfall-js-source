@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7001` read, on one physical line:
+`src/scenes/worldModes.js:7005` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5078`). With the property missing that call is a
+(`dungeonContext.js:5117`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6422` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6470` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7094,13 +7094,13 @@ chat) the free tier's 13,000 GB-s a day was ~7 player-hours, and it was gone
 mid-stream. Paying (400,000 GB-s for $5) buys ~220 player-hours of the same
 waste; the waste is what this slice removes.
 
-**The relay already had the door.** `server/src/index.js:234` registers
+**The relay already had the door.** `server/src/index.js:240` registers
 `setWebSocketAutoResponse('{"t":"ping"}', '{"t":"pong"}')`: the RUNTIME
 answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1035`, `src/net/online.js:2130`):**
+**Now (`src/net/wire.js:1040`, `src/net/online.js:2199`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -7180,7 +7180,7 @@ hazards ruled out by reading, one transient recorded.
 - **H1 (does it break, RULED OUT): a presence room hibernating for the
   first time.** Before this slice a cell with anyone in it never slept, so
   every in-memory field of `Room` had only ever been exercised by chat rooms
-  and idle rooms. Read against `server/src/index.js:211`: every socket's
+  and idle rooms. Read against `server/src/index.js:217`: every socket's
   state rides its attachment (`serializeAttachment`, rebuilt by `_all()` from
   `getWebSockets()`), the keepalive floor `kept` and the tier `turn` ride the
   PASS patch on that attachment, and the instance fields are budgets and
@@ -10499,3 +10499,73 @@ Mac, with eleven Discord screenshots. The batch's record is `01-Overview/Field-B
 No wire change: `final` rides the existing quest frame's `data`. A client that predates this build reads a finished
 envelope as a resync restored complete, and its copy is tombstoned without the reward - where before it heard nothing
 and its copy stayed open. Clients take a build on their next reload (EVENT1's note), so this lasts one session.
+
+## RAID3 (2026-09-27, Mac on World Events - Raiding Parties online: "1. Server") - a town's raid, kept by its cell
+
+A relay change, world122. The `raid` frame: a player standing in a raided town says its word (the raid as the day's roll
+made it, its own raiders' deaths, its strike) to the town's CELL, and the cell object keeps the raid's LEDGER in its
+storage (`raid:<key>`, `net/raidLaw.js`) - the count, credited per verified account as the most it has said and no
+faster than raiders stand, kept when every socket leaves and across the object's sleep; the cleanse stamped once, with
+a receipt (`net/raidReceipt.js`, `w1`) minted under the gate's key for each account that struck and stood there, the
+ledger written with them before a word is said; `cl` fanned to the cell and told to the hub, which says it to everyone
+online and keeps the day's for a hello (`cls`). Cells had kept nothing but parked teams (HCC-PARK); a cell now arms an
+alarm for its ledgers' ends and a hub it must tell again. The design, the checks and the limits:
+`03-World/Raiding-Parties.md`, "The relay holds the raid (RAID3)". `test/raid3_raidLedger.test.js`;
+`tools/mutants/raid3.json`.
+
+## AUDIT RAID + AUDIT SETS (2026-09-28, Mac: "1. Audit this properly 2. Ensure online functionality is perfect") - world123
+
+A relay change, world123 (world122 never deployed; its raid frames carried no signature, so RAID_RELAY_MIN is 123). A
+town raid is its whole TUPLE - its key and its signature (`net/raidLaw.js raidSig`) - and its ledger is made only by a
+word from its town's own pixel; a cell's place is never taken from a cleansed raid or one being fought, one speaker
+holds two; a word is judged by its own law and time before any read; `st`, `cl` and `cls` carry the signature and the
+client hears only its own raid's; the receipts ride the cleanse to the hub, which keeps them a day under their account
+(`raidrc:`), hands each to the account's socket and its hellos, and sweeps them; the hub's list of cleanses is written
+before its copy moves; a halo's raid word waits on the halo's own relay. And a foe record carries `k`, its owner's
+maximum health (the exterior every record; the dungeon's full frame what its room holds and a delta at most twelve
+owed - the largest elite layout's worst case has no room for it on every record). `03-World/Raiding-Parties.md` "AUDIT RAID"; `11-Multiplayer/Sigil-Sets.md` "AUDIT SETS";
+`test/auditraid.test.js`, `test/auditsetsonline.test.js`.
+
+## RAID-ROLL + AUDIT ONLINE 2 (2026-09-28, Mac: "Fix it and do another audit") - world124
+
+A relay change, world124. The relay reads every raid word against the DAY'S OWN ROLL: its start, target and party
+against the day's draws with no game data (`net/raidLaw.js raidDaySlots` - one generator for relay and client,
+`raidDayRandom`, and one roll, `rollRaidTowns`), and, once the hub holds the towns table, its whole tuple against the
+day's roll (`raidDayIds`). The table is the player's game data, so the relay is given only its hash
+(`RAID_TOWNS_SHA256`, a [vars] entry - `tools/raidTowns.mjs` says it): the hub asks each hello for the table by it
+(`raid` `tw`), keeps the first whole table a client hands it (`raidtowns`, in pieces, on their own bucket) that hashes
+to the pin, and answers each cell's ask for a day (RAID_INTERNAL_DAY; a cell keeps the answer a day, a "none" a
+minute). An empty pin reads the slots alone. Beside it, on the client: a receipt's life is the relay's clock
+(the carriers kept a week-ahead device's receipts from ever being asked); a corpse grant the taker cannot read is
+answered `back` and put back on the body (a hit frame's field - the relay reads none of it). `03-World/
+Raiding-Parties.md` "RAID-ROLL" and "AUDIT ONLINE 2"; `test/raidroll.test.js`, `test/auditonline2.test.js`.
+
+
+## GATE-COLLAPSE (2026-09-28, Mac: "Count down to collapse") - world125
+
+A relay change by the law alone: `net/gateLaw.js` - the relay's since WB3 - counts the gate's sealed hours down to the
+collapse (`gateCountdown`'s `closed` arm, `countdownWords`) and its seal line says when the gate goes. Nothing the relay
+reads, keeps or sends changed and no wire shape moved, but the law is the whole bundle (SLAM13), so world125 is a new
+row in `test/relayversion.test.js` and the pins of the current version moved with it. It ships with the raids' own
+undeployed world124 (#414, folded into the same branch): one deploy, one drop of every connected player.
+`01-Overview/Field-Bugs-2026-09-28b.md`, `11-Multiplayer/World-Bosses.md` "THE GATE IN THE ROCK".
+
+## DISCORD-GATES (2026-09-28, Mac: "Discord live gates?") - world126
+
+The hub speaks outside the game for the first time: it posts each Oblivion Gate's omen (fifteen real minutes before
+the gate opens, pinging the opt-in role Mac named) and its kill to a Discord channel's webhook, off its own alarm
+(`net/gateHerald.js` joins the bundle). One new client word, to the hub alone: `gate` `site` - where this game found
+the gate the clock is about (`GATE_SITE_RELAY_MIN` 126; an older relay closes the socket on it, so a client says none
+there); the hub names the place two accounts agree on. The webhook is a Worker SECRET (`GATE_DISCORD_WEBHOOK`) and
+the role a var (`GATE_DISCORD_ROLE`); without the webhook the relay posts nothing and keeps nothing. Putting the secret
+redeploys the Worker - one more drop of every connected player. `11-Multiplayer/World-Bosses.md` "THE HERALD".
+
+## THE MERGE: the raids, the gates and Discord as world123 (2026-09-28)
+
+Main's TV3 + AUDIT DEEP + OVERWORLD NAMES took world122 while the batch above stood on its branch as world122 to
+world126, none of them deployed. At the merge they are ONE relay past main's: **world123** - the raids' ledger and
+receipts (RAID3, AUDIT RAID, RAID-ROLL), the gate's countdown words (GATE-COLLAPSE) and the herald (DISCORD-GATES),
+over main's traveller marks. `test/relayversion.test.js` keeps main's world122 row and names the merged bytes once,
+the branch rows' hashes in its note (the renumbering law of every merge before it); `RAID_RELAY_MIN` stays 123 (main's
+world122 holds no raid) and `GATE_SITE_RELAY_MIN` is 123 (126 on the branch). One deploy, one drop of every
+connected player.

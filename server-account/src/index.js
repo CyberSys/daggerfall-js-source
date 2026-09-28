@@ -110,6 +110,7 @@ import { signingKey, gatePublicKey } from './signing.js';
 import { titleWorn, glyphsOf } from './titles.js';
 import { sendLetter, inboxOf, readLetter, deleteLetter } from './letters.js';   // MAIL1: the letters' routes
 import { reportRenownXp, renownTrackOf, renownTracksOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track
+import { claimRaid, raidRecordOf } from './raids.js';   // RAID4: the towns defended
 import { claimHome, releaseHome, setHomeEntry, homesInTown, homesOf } from './homes.js';   // HOME1: the online homes' routes
 import {
   foundGuild, guildOf, invitesOf, inviteToGuild, answerInvite, leaveGuild, removeFromGuild, rankGuildMember, renameGuildRanks,
@@ -400,7 +401,7 @@ export default {
         return json({
           // DUEL1: and the duelling record, counted off the results (the profile card's K/D); WB5b: and the gates closed
           // RENOWN1: and Renown's tracks, the most recently earned first (the card's level and its row)
-          account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), renown: await renownTracksOf(ctx, who.player.id) },
+          account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), raids: await raidRecordOf(ctx, who.player.id), renown: await renownTracksOf(ctx, who.player.id) },
           wardrobe: accountWardrobe(who.player, env, nowS),
           devices: await devicesOf(ctx, who.player.id),
         }, 200, origin);
@@ -425,7 +426,7 @@ export default {
         const known = await db.prepare('SELECT 1 AS x FROM players WHERE id = ?1').bind(body.id).first();
         if (!known) return no('no-player', 404, origin);
         // WB5b: the gates closed ride the same answer - the Inspect card asks once and says both
-        return json({ id: body.id, ...(await duelRecordOf(ctx, body.id)), gates: await gateRecordOf(ctx, body.id) }, 200, origin);
+        return json({ id: body.id, ...(await duelRecordOf(ctx, body.id)), gates: await gateRecordOf(ctx, body.id), raids: await raidRecordOf(ctx, body.id) }, 200, origin);   // RAID4: and the towns defended
       }
 
       if (path === '/v1/gate/claim' && request.method === 'POST') {
@@ -441,6 +442,21 @@ export default {
         // not the relay's pair, a clock) and lets go of one it cannot
         if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, r.error === 'no-gate-key' ? 503 : r.error === 'not-yours' ? 403 : 400, origin);
         return json(r, 200, origin);
+      }
+
+      if (path === '/v1/raid/claim' && request.method === 'POST') {
+        // RAID4: THE ACCOUNT A RAID'S RECEIPT NAMES CARRIES IT HERE, with the character that fought it. The relay signed
+        // it at the cleanse (src/net/raidReceipt.js); the session says who is asking, never the body, and raids.js
+        // `claimRaid` holds the rest - the signature, the account, one row a (raid, account), the day's bound, the
+        // Renown. A level that ROSE comes back with a signed order, as a Renown report's does.
+        const r = await claimRaid(ctx, who.player, { receipt: body.receipt, character: body.character, name: body.name ?? null, cid: body.cid ?? null }, await gatePublicKey(env, subtle));   // AUDIT RAID R4: `cid` - the device's claim, which the town's thanks are keyed to
+        if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, r.error === 'no-gate-key' ? 503 : r.error === 'not-yours' ? 403 : 400, origin);
+        let order = null;
+        if (r.renown?.rose) {
+          const key = await signingKey(env, subtle);
+          if (key) order = await mintRenownOrder({ s: who.player.id, lv: r.renown.level }, key, { subtle, nowS });
+        }
+        return json({ ...r, order }, 200, origin);
       }
 
       if (path === '/v1/renown/xp' && request.method === 'POST') {

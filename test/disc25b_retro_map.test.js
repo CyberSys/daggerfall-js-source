@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { retroScreenRect, retroAspectViewportRect, RETRO_ASPECT } from '../src/systems/retroMode.js';
 import { setValue, resetToDefaults } from '../src/systems/settings.js';
-import { HeldMapWindow, HELD_MAP_HEIGHT, SPRITE_ART_FOOT, SPRITE } from '../src/ui/heldMap.js';
+import { HeldMapWindow, PAPER, heldStageRect } from '../src/ui/heldMap.js';
 
 /** Just enough document for the window's chrome (heldmap.test.js's own stub, trimmed). */
 function fakeDocument() {
@@ -88,10 +88,10 @@ test('DISC25-B: the held map stands inside the pillarbox - its root inset to the
     assert.equal(w._chrome.root.style.left, '240px');
     assert.equal(w._chrome.root.style.right, '240px');
     // the painting is laid across the 1440 the root now has: at this height it is wider than that, so it is fitted
-    const sh = 1080 * HELD_MAP_HEIGHT / SPRITE_ART_FOOT, sw = sh * SPRITE.w / SPRITE.h;
-    assert.ok(sw > 1440, 'the painting at full height is wider than the retro screen');
-    assert.equal(w._stage.w, 1440, 'so it is fitted to it');
-    assert.ok(w._stage.x >= 0 && w._stage.x + w._stage.w <= 1440, 'and lies inside the root, which lies inside the bars');
+    // HOLD-CLOSE: the paper is fitted to the 1440 the root now has, and the paper lies inside the bars (the
+    // gauntlets run off it, as they run off any screen, and the root's overflow keeps them off the bars)
+    assert.deepEqual(w._stage, heldStageRect(1440, 1080), 'laid out for the retro screen, not the whole window');
+    assert.ok(w._stage.x + w._stage.w * PAPER.x0 >= 0 && w._stage.x + w._stage.w * PAPER.x1 <= 1440, 'and the paper lies inside the root, which lies inside the bars');
     assert.ok(wide.w > 1440, `without the pillarbox it ran out over them (${wide.w})`);
     // the Morrowind arm's lane keeps the canvas (AUDIT RETRO1 C2)
     w._lane = 'hands';

@@ -74,11 +74,12 @@ const mount = (body, state) => new Function('__s', `with (__s) { ${body} }`)(sco
 const settle = async () => { for (let i = 0; i < 25; i++) await new Promise((r) => setTimeout(r, 0)); };
 
 const DC = sliced('../src/scenes/dungeonContext.js');
-const FNS = ['buildFoeAt', 'applySpawnAlliance', 'applyEliteScaling', 'eliteLootOpts', 'dropCandidate', 'freeCorpse', 'retypeFoe',
+const FNS = ['fitMaxima', 'buildFoeAt', 'applySpawnAlliance', 'applyEliteScaling', 'eliteLootOpts', 'dropCandidate', 'freeCorpse', 'retypeFoe',
   '_spawnEncounter', 'standSharedPuppet', 'applySharedRecords', 'applyFoeRecord', 'setFoeDead', 'dropSharedFoe', 'foesFrame', 'roomRecord',
   'spawnLooseFoe', 'ownFrame', 'standOwnPuppet', 'applyOwnRecord', 'dropOwnPuppet'];
 const DECLS = ['isRoomFoe', 'onlineRoom', 'questPoolOps', 'abyssFoeView', 'ENCOUNTER_PLACE_ATTEMPTS', 'GENDER_BIT', 'q2', 'q3', 'canStandFoe',
-  'SHARED_FOES_MAX', 'KILLED_BY_MS', 'FOES_FRAME_SLACK', 'ownLoose', 'ownQuestTag', 'ownShare', 'questTouched', 'ownPupKey', 'ownHeirIsMe', 'ownHeirElse'];
+  'SHARED_FOES_MAX', 'KILLED_BY_MS', 'FOES_FRAME_SLACK', 'ownLoose', 'ownQuestTag', 'ownShare', 'questTouched', 'ownPupKey', 'ownHeirIsMe', 'ownHeirElse',
+  'foeMaxOf', 'FOE_MAX_PER_FRAME', '_maxLeft'];   // THE MERGE: AUDIT SETS M1's own lane pays a foe's maximum through these
 const CTX_BODY = `
   ${DECLS.map(DC.declSrc).join('\n')}
   ${['isPuppetFoe', 'runByAnother', 'takeRoomPlace'].map(DC.optional).join('\n')}

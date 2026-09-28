@@ -40,14 +40,15 @@ const wear = (e, ...items) => { for (const it of items) { e.items.push(it); equi
 const BODY = [107, 106, 105, 102, 103, 104, 108];   // helm, right and left pauldron, cuirass, gauntlets, greaves, boots
 const XP = SIGIL_STAGES.map((s) => s.xp);           // 0, 5000, 12500, 22500, 37500
 
-test('SET1 the registry: five sets in the record\'s own order - the four of the world, then the gate boss\'s own (Aetheric) - each with three tiers at 2, 4 and 6 pieces, every number a whole pair from Faint to Ascendant, every tier\'s words whole at both ends (mutants: a set out of the record\'s order; a tier at the wrong count)', () => {
+test('SET1 the registry: the sets in the record\'s own order - the four of the world, then the gate boss\'s own (Aetheric), then (RAID4b) the raiding parties\' three (Aetheric) - each with three tiers at 2, 4 and 6 pieces, every number a whole pair from Faint to Ascendant, every tier\'s words whole at both ends (mutants: a set out of the record\'s order; a tier at the wrong count)', () => {
   assert.deepEqual(Object.keys(SIGIL_SETS), [...SIGIL_SET_IDS], 'the registry and the record name the same sets, in one order');
   assert.deepEqual(WORLD_SET_IDS, ['malacath', 'dagon', 'nocturnal', 'mora']);
+  assert.deepEqual(Object.values(SIGIL_SETS).filter((s) => s.aetheric).map((s) => s.id), ['ruhn', 'oath', 'thieftaker', 'orcsbane'], 'RAID4b: the gate boss\'s own, then the raids\' three');
   assert.deepEqual(SET_TIERS, [2, 4, 6]);
   assert.equal(SET_PLACES.length, 9, 'seven body pieces, the shield, the weapon');
   for (const set of Object.values(SIGIL_SETS)) {
     assert.equal(setById(set.id), set);
-    assert.equal(set.aetheric, set.id === 'ruhn', 'only the boss\'s own set is Aetheric');
+    assert.equal(set.aetheric, !WORLD_SET_IDS.includes(set.id), 'only the boss\'s own set is Aetheric - RAID4b: and the raids\' three');
     assert.match(set.colour, /^#[0-9a-f]{6}$/);
     assert.deepEqual(set.tiers.map((t) => t.at), [...SET_TIERS], set.id);
     for (const t of set.tiers) {

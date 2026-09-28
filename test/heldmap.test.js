@@ -27,7 +27,7 @@ import {
 import { createTravelMapWindow, travelMapDoorReady } from '../src/ui/travelMapDoor.js';
 import { hidesHud } from '../src/ui/windowStack.js';   // MAP-FIELD2: the window that takes the HUD away
 import {
-  HeldMapWindow, HELD_MAP_URL, appRootFrom, SPRITE, PAPER, THUMB_ZONES, HAND_CHROMA, THUMB_GROW, HELD_MAP_HEIGHT, HELD_MAP_BITE, SPRITE_ART_FOOT, CUFF_BAND, extendCuffs, keyThumbPixels, rgbaCss, wheelPixels,
+  HeldMapWindow, HELD_MAP_URL, appRootFrom, SPRITE, PAPER, THUMB_ZONES, HAND_CHROMA, THUMB_GROW, HELD_MAP_HEIGHT, HELD_MAP_BITE, SPRITE_ART_FOOT, heldStageRect, heldStageRectArm, HELD_MAP_CLOSE, CUFF_BAND, extendCuffs, keyThumbPixels, rgbaCss, wheelPixels,
   TRAVEL_VIEW_BUTTON,
 } from '../src/ui/heldMap.js';
 import { simplifyChain, traceChains } from '../src/ui/overworldModel.js';
@@ -46,7 +46,7 @@ import {
 import { PARTY_MARK_CSS } from '../src/ui/partyMapMarks.js';
 import { quadPlacement } from '../src/ui/quadMap.js';   // MAP3
 // EM1: one map, three sheets
-import { createSheetSlot, stripScale, isSheet } from '../src/ui/mapStrip.js';
+import { createSheetSlot, stripScale, isSheet, stripHit, STRIP } from '../src/ui/mapStrip.js';
 import { MAP_SHEETS } from '../src/systems/mapTabs.js';
 import { getPixelColorIndex } from '../src/ui/travelMapWindow.js';
 import { CLIMATES, LOCATION_TYPES, mapPixelToLongitudeLatitude } from '../src/formats/mapsFile.js';
@@ -465,13 +465,13 @@ test('AUDIT MAP-FIELD: the laws these commits argued for, which nothing was chec
   // law is not the literal 0.11 - it is that the painting's foot is
   // carried a real distance past the bottom edge, which 0.03 is not.
   assert.ok(HELD_MAP_BITE >= 0.08, `the sheet sits low: the bite is ${HELD_MAP_BITE}`);
+  // HOLD-CLOSE: the paper is fitted now and the painting follows; the foot is carried at least the bite past the
+  // edge wherever the paper has room, and past it at all on the shortest screen, where the paper's foot comes first
   for (const [vw, vh] of [[1600, 900], [1280, 720], [800, 1200], [640, 360]]) {
-    let sh = vh * HELD_MAP_HEIGHT / SPRITE_ART_FOOT, sw = sh * SPRITE.w / SPRITE.h;
-    if (sw > vw) { sw = vw; sh = sw * SPRITE.h / SPRITE.w; }
-    const sy = vh - ((SPRITE_ART_FOOT - HELD_MAP_BITE) * sh);
-    // the foot lands BITE * sh past the bottom edge, at every size
-    assert.ok((sy + (SPRITE_ART_FOOT * sh)) - vh >= 0.07 * sh,
-      `${vw}x${vh}: the painting's foot is carried well past the edge, not just over it`);
+    const { y: sy, h: sh } = heldStageRect(vw, vh);
+    const past = (sy + (SPRITE_ART_FOOT * sh)) - vh;
+    assert.ok(past > 0, `${vw}x${vh}: the painting's foot is past the edge`);
+    if (vh >= 720) assert.ok(past >= 0.07 * sh, `${vw}x${vh}: carried well past the edge, not just over it`);
   }
 
   // MAP-FIELD6 #3: the carets are RELIEF, not ink. The commit called
@@ -1336,13 +1336,14 @@ test('MAP1 window: pan, wheel and keys move the VIEW under a clamp, the search g
       // 4:3 at HELD_MAP_HEIGHT of the viewport, centred across it and
       // anchored to its BOTTOM, pushed HELD_MAP_OVERHANG of its own
       // height further down so the arms leave the frame.
-      const sh = 900 * HELD_MAP_HEIGHT / SPRITE_ART_FOOT, sw = sh * SPRITE.w / SPRITE.h;
-      assert.ok(sw < 1600, 'this viewport is wide enough that the height rules');
-      assert.deepEqual(win._stage, { x: (1600 - sw) / 2, y: 900 - (SPRITE_ART_FOOT - HELD_MAP_BITE) * sh, w: sw, h: sh });
+      // HOLD-CLOSE: the stage is heldStageRect's - the PAPER fitted to the screen and the painting following it
+      const g = heldStageRect(1600, 900), sh = g.h, sw = g.w;
+      assert.deepEqual(win._stage, g);
+      assert.ok(sw * (PAPER.x1 - PAPER.x0) <= 1600 * HELD_MAP_CLOSE.paperW + 1e-9, 'the paper fits across the screen');
       // THE LAW, not the arithmetic: it sits on the bottom edge and goes
       // PAST it, so there is no gap under the arms at any size.
       assert.ok(win._stage.y + win._stage.h * SPRITE_ART_FOOT > 900, 'the PAINTING\'s foot is below the viewport\'s - the file\'s foot is a fifth of matte lower and means nothing');
-      assert.ok(win._stage.y < 900 * 0.2, '...and its head is high on the screen, so the sheet is big enough to read');
+      assert.ok(win._stage.y + win._stage.h * PAPER.y0 <= 900 * 0.2, '...and the paper\'s head is high on the screen, so the sheet is big enough to read');
       const pw = sw * (PAPER.x1 - PAPER.x0), ph = sh * (PAPER.y1 - PAPER.y0);
       assert.ok(Math.abs(win._paper.w - pw) < 1e-9 && Math.abs(win._paper.h - ph) < 1e-9, 'the canvas is the paper\'s rectangle');
       assert.equal(win._chrome.ink.style.left, `${sw * PAPER.x0}px`);
@@ -2696,7 +2697,7 @@ test('AUDIT-MAP2 perf and polish: the kept static layer is not reset on every pa
   assert.doesNotMatch(src, /byRoad: false/);
   assert.doesNotMatch(src, /walkTravelPath\(/, 'the walk is calculateTravelTime\'s own');
   assert.match(src, /typeof maps\?\.getRegionIndexAt === 'function' \? maps\.getRegionIndexAt\(x, y\)/);
-  assert.match(read('src/ui/enhancedStyle.js'), /\.hmroot \.hmfoot \{ background: rgba\(10, 12, 17, 0\.72\);/, 'the foot has its own scrim over the world - MAP-FIELD2: on both lanes, neither having a black behind it');
+  assert.match(read('src/ui/enhancedStyle.js'), /\.hmroot \.hmfoot \{ background: rgba\(10, 12, 17, 0\.94\);/, 'the foot has its own scrim over the world - MAP-FIELD2: on both lanes, neither having a black behind it; EM3-3D fix: near-opaque, so the HUD does not read through it');
   withDocument(() => {
     // the region read: a host maps file whose getRegionIndexAt carries the fixups
     const politic = () => 64;   // the High Rock sea coast byte
@@ -2792,26 +2793,36 @@ test('MAP-FIELD2: the sheet is HELD - bottom-anchored with the arms past the edg
   // probe that measured it is tools/heldMapArtProbe.mjs.
   assert.ok(SPRITE_ART_FOOT > 0.7 && SPRITE_ART_FOOT < 0.95, `the painting ends at ${SPRITE_ART_FOOT} of the file`);
   assert.ok(SPRITE_ART_FOOT > CUFF_BAND, 'and the cuff band is above it - the cut cuffs end between the two');
-  const stageFor = (vw, vh) => {
-    let sh = vh * HELD_MAP_HEIGHT / SPRITE_ART_FOOT, sw = sh * SPRITE.w / SPRITE.h;
-    if (sw > vw) { sw = vw; sh = sw * SPRITE.h / SPRITE.w; }
-    return { x: (vw - sw) / 2, y: vh - (SPRITE_ART_FOOT - HELD_MAP_BITE) * sh, w: sw, h: sh };
-  };
+  // HOLD-CLOSE (Mac: "make the map hold bigger means closer to your face"): the PAPER is what is fitted, and the
+  // gauntlets run off the screen's sides; the paper itself is never cut, and the arms still leave no gap under them.
   for (const [vw, vh, why] of [[1600, 900, 'a desktop'], [1920, 1080, 'a bigger one'], [2400, 900, 'an ultrawide'],
     [800, 1200, 'a phone held upright'], [640, 360, 'a short landscape phone']]) {
-    const g = stageFor(vw, vh);
+    const g = heldStageRect(vw, vh);
+    const px0 = g.x + g.w * PAPER.x0, px1 = g.x + g.w * PAPER.x1, py0 = g.y + g.h * PAPER.y0, py1 = g.y + g.h * PAPER.y1;
     assert.ok(g.y + g.h * SPRITE_ART_FOOT > vh, `${why}: the PAINTING's foot goes past the bottom edge - there is no gap under the arms`);
-    assert.ok(g.w <= vw + 1e-9, `${why}: and the sheet never runs wider than the screen, which would cut the paper's sides off`);
+    assert.ok(px0 >= 0 && px1 <= vw + 1e-9 && py0 >= 0 && py1 <= vh, `${why}: and the PAPER lies wholly on the screen`);
     assert.ok(Math.abs(g.w / g.h - SPRITE.w / SPRITE.h) < 1e-9, `${why}: the painting keeps its own aspect`);
-    assert.ok(g.x >= 0, `${why}: centred across, never off the left`);
+    assert.ok(Math.abs((px0 + px1) / 2 - vw / 2) < 2, `${why}: centred across`);
+    // bigger than the old fit, which was the whole point
+    let osh = vh * HELD_MAP_HEIGHT / SPRITE_ART_FOOT, osw = osh * SPRITE.w / SPRITE.h;
+    if (osw > vw) { osw = vw; osh = osw * SPRITE.h / SPRITE.w; }
+    assert.ok(g.w > osw, `${why}: the sheet is held closer than it was`);
   }
-  // the ONE case where the height gives way: a viewport too narrow to
-  // hold the width the height asks for
-  const tall = stageFor(400, 2000);
-  assert.equal(tall.w, 400, 'a narrow viewport takes the width and the height follows');
-  assert.ok(tall.h < 2000 * HELD_MAP_HEIGHT / SPRITE_ART_FOOT, '...which is SHORTER than the height would have been');
-  assert.match(src, /if \(sw > vw\) \{ sw = vw; sh = sw \* SPRITE\.h \/ SPRITE\.w; \}/, 'and that clamp is in the layout, not only in this pin');
-  assert.match(src, /const sx = \(vw - sw\) \/ 2, sy = vh - \(SPRITE_ART_FOOT - HELD_MAP_BITE\) \* sh;/, 'anchored on the PAINTING\'s foot and carried past it');
+  assert.match(src, /heldStageRect\(vw, vh\)/, 'and the layout is the law this pin checks');
+  // EM3-3D merge: the OLD fit is not gone - the hands lane (MAP3, the Morrowind arms) still sizes its ink canvas and
+  // the map's scale by it (heldStageRectArm), and HOLD-CLOSE's pins above no longer reach it. The fit's own laws, on
+  // the function the lane calls.
+  for (const [vw, vh, why] of [[1600, 900, 'a desktop'], [2400, 900, 'an ultrawide'], [800, 1200, 'a phone held upright'],
+    [640, 360, 'a short landscape phone']]) {
+    const g = heldStageRectArm(vw, vh);
+    assert.ok(g.y + g.h * SPRITE_ART_FOOT > vh, `${why} (arm lane): the painting's foot goes past the bottom edge - no gap under the arms`);
+    assert.ok(g.y + g.h * SPRITE_ART_FOOT < vh + g.h * 0.2, `${why} (arm lane): by the bite, not by a centring that sinks the paper`);
+    assert.ok(g.w <= vw + 1e-9, `${why} (arm lane): never wider than the screen`);
+    assert.ok(Math.abs(g.w / g.h - SPRITE.w / SPRITE.h) < 1e-9, `${why} (arm lane): the painting keeps its aspect`);
+    assert.ok(Math.abs(g.x - (vw - g.w) / 2) < 1e-9, `${why} (arm lane): centred across`);
+  }
+  const armTall = heldStageRectArm(400, 2000);
+  assert.equal(armTall.w, 400, 'arm lane: a narrow viewport takes the width and the height follows');
 
   // 1b. AND THERE IS NO BLACK TO TAKE OFF. MAP-FIELD4: the first
   // painting was fully opaque on its own painted matte, and this module
@@ -3136,6 +3147,18 @@ test('EM1: a click on a tab switches the sheet and never picks the place under i
     assert.equal(win.markedMapId, markBefore);
     assert.equal(mounted, 1, 'a sheet is told when it goes up');
     assert.ok(inked >= 0);
+
+    // EM3-3D merge: THE RELEASE ARM. The patch's press arm takes every press that STARTS on a tab (a press on a
+    // control is a press); a press that starts off every tab is the map's, and one whose release still lands on a
+    // tab - a hand that drifted onto it - is that tab's alone, never also a pick under the word
+    win._selectSheet('world');
+    picked = 0;
+    const clear = tab.y + tab.h + STRIP.grab * win._strip.scale + 4;   // below the tab's grab box: a press the map takes
+    assert.equal(stripHit(win._strip, px, clear), null, 'the press starts off every tab');
+    fire(win._chrome.stage, 'pointerdown', { button: 0, pointerId: 12, clientX: px, clientY: clear });
+    fire(win._chrome.stage, 'pointerup', { button: 0, pointerId: 12, clientX: px, clientY: py });   // no move between: a click, not a pan
+    assert.equal(win._slot.live, 'town', 'released on the tab: the tab is pressed');
+    assert.equal(picked, 0, 'and the sheet is not asked what lies under it');
 
     // the same for the pointer's LABEL: a tab names itself, and the
     // sheet under it is never asked what is at that point

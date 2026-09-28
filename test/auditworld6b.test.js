@@ -376,7 +376,7 @@ test('AUDIT WORLD6b C4/C5: the day\'s rolls - online the walk is one day at a ti
   assert.notDeepEqual(off1.regionPrices, off2.regionPrices, 'offline the dice decide, the span whole (DFU\'s own)');
   const w = rd('src/systems/worldTick.js');
   const imports = w.match(/^import [^\n]* from '[^\n]*';/gm); assert.ok(w.indexOf('const SHARED_DAY_SEED') > w.lastIndexOf(imports.at(-1)), 'the constants sit below the imports');
-  assert.match(w, /export const DAY_SALT = Object\.freeze\(\{ prices: 1, powers: 2, priceInit: 3, conditions: 4 \}\);/);   // ECON1: two more consumers, salted apart
+  assert.match(w, /export const DAY_SALT = Object\.freeze\(\{ prices: 1, powers: 2, priceInit: 3, conditions: 4, raids: 5 \}\);/);   // ECON1: two more consumers, salted apart; RAID1: the day's raids, a fifth
   // the world host by source: the heartbeat (A9), the death branch (C8), the full kick (C7), the targets (B8), the Wabbajack (B9), the pane (C9)
   const h = rd('src/scenes/world.js');
   assert.match(h, /else if \(id && isWorldRoom\(online\.room\)\) _foesInAt = performance\.now\(\);/, 'A9');

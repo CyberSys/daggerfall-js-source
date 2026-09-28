@@ -170,6 +170,10 @@ export const DPAD_CHOICES = Object.freeze([
   ['CharacterSheet', 'Character sheet'], ['CastSpell', 'Spellbook'], ['RecastSpell', 'Recast spell'], ['Inventory', 'Inventory'],
   ['StealMode', 'Steal mode'], ['GrabMode', 'Grab mode'], ['InfoMode', 'Info mode'], ['TalkMode', 'Talk mode'],
   ['Jump', 'Jump'], ['Crouch', 'Crouch'], ['ReadyWeapon', 'Draw / sheathe'],
+  // Mac: "add mouselook and walk mode to the d-pad's tap and hold too" - the same two registry actions the
+  // Controller bindings window already lets you put on a single button (ui/plusPadBinds.js PLUS_BIND_ROWS), now
+  // also choosable per d-pad direction and per tap/hold, same as every other entry here.
+  ['FreeMouse', 'Mouselook on / off'], ['WalkMode', 'Walk mode on / off'],
 ]);
 export const dpadChoiceWord = (a) => DPAD_CHOICES.find(([v]) => v === (a ?? null))?.[1] ?? String(a);
 const DPAD_ACTION_OK = new Set(DPAD_CHOICES.map(([v]) => v));
