@@ -33,6 +33,11 @@
 - Storms stand where they really are: rain and snow hang in curtains under their clouds, and every player sees the same storm in the same place.
 - Lightning from a distant storm strikes the ground, not the air.
 
+## First update
+- The map's "Resume your journey?" question no longer comes back forever: it has a **Forget it** answer that ends the journey.
+- The Overworld's bar, Return button, compass and town plates follow your Enhanced Plus theme.
+- Your character is drawn much larger from the Overworld, so you can always find yourself at a glance.
+
 ## Fixes before release
 - Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.
 - A journey to a far town keeps the town on screen: its flag is pinned to the edge with its distance, and clicking it takes the journey up again after a stop.

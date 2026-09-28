@@ -1927,6 +1927,16 @@ test('MAP2 resume: a pending destination asks once on the first tick - Yes resum
     // the goal is the view centred on the player's pixel, under the clamp
     // (on a bay the sheet already holds whole, the clamp centres the bay)
     assert.deepEqual(active._goal, clampView(viewCentredOn(5.5, 5.5, active._view.scale, active._limits()), active._limits()), 'aimed at the player\'s pixel');
+    // RESUME-OUT (Mac: "option persists"): Forget it ends the journey - the mod's No kept it, asked at every open
+    let forgot = 0;
+    const out = mkWin(modDeps({ onResumeTravel: () => resumed++, onForgetTravel: () => forgot++ }, {}, { destinationName: 'Wayrest' }));
+    out.tick(0.05);
+    assert.deepEqual(out._chrome.box.children.at(-1).children.map((b) => b.textContent), ['Resume', 'Not now', 'Forget it'], 'three ways out');
+    out._chrome.box.children.at(-1).children[2].onclick();
+    assert.deepEqual([forgot, resumed, out._top, out._phase], [1, 1, null, 'opening'], 'the journey forgotten, nothing resumed, the map stays');
+    out.dispose();
+    const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+    assert.match(w, /onForgetTravel: \(\) => \{ travelOptions\?\.clearTravelDestination\(\); \},/, 'the host ends it through the mod\'s own ClearTravelDestination');
     const still = mkWin(modDeps({}, {}, { destinationName: null, isTravelActive: false }));
     still.tick(0.05);
     assert.deepEqual(still._goal, still._view, 'no journey: the view rests where it opened');

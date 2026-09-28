@@ -935,6 +935,69 @@ standing down), `test/tv5_far_places.test.js` (the marker's face: the title abov
 the Renown amber, the party's green, the tag's steel, a stranger's bone, a title won at rest
 redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
 
+## OW FIXES - the first field report on the Overworld (2026-09-28, Mac)
+
+- **RESUME-OUT** ("option persists"): the held map asked "Resume your journey to ...?" at EVERY open while a
+  stopped journey was pending - the mod's own behaviour (TravelOptionsMapWindow.cs: No closes the box and keeps
+  `DestinationName`), with no way to be rid of it. The prompt now has a third answer, **Forget it**, which ends the
+  journey through the mod's own `ClearTravelDestination` (`onForgetTravel`); Resume and Not now are the mod's.
+- **OW-THEME** ("The overworld ui needs to follow enhanced ui theme"): the bar (`.tview-bar`, the journey bar's
+  window role), its Return (`.tview-back`, a button) and its compass (`.tview-compass`, a well) are in the Enhanced
+  Plus frame roles (`ui/enhancedFrame.js` FRAME_ROLES - paint only), and the canvas's plates are drawn in the
+  theme's own stone (`themePlate`: the page's `--slate` at the plates' alpha, read at each open; a new stone lets
+  the old plate images go).
+- **OW-BIG** ("The player sprite needs to appear larger. Like it shouldnt be at the tiny scale"): under the view the
+  traveller's own sprite is drawn `tvOwnGrow(distance)` times its size (`player/travelCamera.js`: one more for every
+  `TV_OWN_GROW_M` = 32 m from the eye to the feet, never past `TV_OWN_GROW_MAX` = 12, 1 near the ground) - about
+  40-50 px tall at 1080p at every zoom, a Mount & Blade party's icon. The view hands the step (`frame().grow`), the
+  host passes it on the body's `face`, and the sprite lane (`player/eotbBody.js`) makes its batch again at each whole
+  step; a grown sprite casts no giant's shadow (`selfCard` off) and hangs no lantern on a waist that moved.
+
+**Proof.** `test/heldmap.test.js`, `test/tv5_far_places.test.js`, `test/eotb_body.test.js`,
+`test/tv1_travel_view.test.js`; `tools/mutants/ow1.json` (14 records, all dead).
+
+## THE OVERHAUL - a living Overworld (TV6-TV8, DESIGN, 2026-09-28)
+
+Mac (2026-09-28): "Random encounters and nearby dungeons implemented should somehow be detailed implemented into the
+new overworld. Like think mount and blade and how you can see enemies in the overworld. Like a true overhaul for the
+new overworld." His calls, the same day: **Roaming parties**, **Discover on approach**, **Leader drives**, **Shared per
+area**. Enhanced interface only (the Overworld's lane); the classic skin keeps DFU exactly.
+
+**TV6 - THE DUNGEONS, DISCOVERED ON APPROACH.** Every dungeon (`formats/mapsFile.js` LOCATION_TYPES: Labyrinth,
+Keep, Ruin, Graveyard, Coven - DFU's travel-map "dungeons" filter) within `TV_FAR_RANGE` (24 pixels, ~20 km) stands on
+the Overworld: a discovered one is a plate with its name and distance, held at the edge and clicked for a journey, as
+the far towns are; an UNDISCOVERED one is an unnamed mark (no name, no journey) at its place. Coming within
+`TV_DUNGEON_FIND_M` (1 km) of an undiscovered dungeon, outdoors on the enhanced interface, DISCOVERS it (the port's own
+store, `discoverLocation`) and says so on the screen ("You have found <name>."). A departure from DFU, Mac's call: DFU
+discovers on the location's rect (PlayerGPS.PlayerLocationRectCheck) and says nothing. The held map and the Overworld
+read the same store, so a dungeon found either way is named on both.
+
+**TV7 - THE ROAMING BANDS.** Enemy bands roam the wilderness and can be seen from above, as a Mount & Blade party is.
+- *Where and what:* a band is BORN of the land and the shared clock - a pure function of (map pixel, time bucket) and
+  WORLD_SEED on the shared minute (`sharedClassicMinutes`), as TV4's storms are - so every player in an area computes
+  the same bands with nothing sent. Its members come from Daggerfall's own tables: the climate x day/night table
+  (`encounters.js` resolveEncounterTableIndex - none in a town's rect by day), the group filled by
+  `rollGroupComposition` (2-5, solitary types alone), rolled from the band's own seed.
+- *How they move:* a band WANDERS a seeded path until it SPOTS a player (the sight radius from the band's kind, longer by
+  day); then it CHASES, and the chase is simulated by the chased player's client (the port's owner model - WORLD6b) and
+  streamed to the others under a key of its own in the foes frame (validated outside `wire.js`, the WoD camps' way: no
+  relay change). A chase gives up past a leash; a band that gave up or fought is spent for its bucket for everyone.
+- *Contact:* at `TV_BAND_CONTACT_M` the Overworld comes down (the view's own `danger`) and the band's members stand as
+  real foes around the traveller (`exteriorFoes.spawnFoe`, placed) - exactly the band that was seen. On a Travel Options
+  journey the band is the journey's `enemiesNearby`: the stop, and on a cautious journey the mod's own avoid roll
+  (luck + Stealth - 50) - success, the band loses the trail.
+- *Seen from above:* each band is a marker in the Overworld - its leader's sprite grown as the traveller's is (OW-BIG),
+  with its kind and number ("Orcs, 4"), red; a band that has spotted you wears the chase. Off the picture a chasing band
+  is held at the edge. In play (the view down) a band within the pose range stands as its foes, as a camp does.
+
+**TV8 - GROUP TRAVEL, THE LEADER DRIVES.** A party leader's Overworld journey (a town or a spot) is PROPOSED to the
+members through the party pose (PARTY-TRAVEL's own shape, a walked journey this time - a new field, so a relay version,
+world123); a member gathered with the leader (within PARTY_REST_RADIUS) who accepts starts the same journey (the same
+route legs) and travels it beside the leader. A stop for one is a stop for all - a stamp that only moves forward, as
+PARTY-REST5's `restEnemyAt` is; the leader's resume resumes them. A band that makes contact with one fights them all.
+
+**Order of the build:** TV6 (self-contained), TV7 (the bands, no relay change), TV8 (the party's journey, world123).
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

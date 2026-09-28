@@ -189,6 +189,9 @@ export function showTravelViewHud(hooks = {}, doc = globalThis.document) {
   }
   parts.back.onclick = (e) => { e.preventDefault(); hooks.onReturn?.(); };
   furniture.at = -Infinity;   // EDGE-FURNITURE: what stands at the edges now (a journey's panel may have come or gone)
+  // OW-THEME: the plates in the theme's own stone - read at each open (a theme is chosen with the view down)
+  const pf = themePlate(doc);
+  if (pf !== plateFill) { plateFill = pf; dropSprites(); canvasSig = []; }
   root.style.display = '';
   listenPointer(doc.defaultView, true);
   return true;
@@ -326,6 +329,16 @@ const lookOf = (m) => {
   const k = (m.kind ?? '').split(' ')[0];
   return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' ? k : 'traveller';
 };
+/** OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the plates' stone - the Enhanced
+ *  (Plus) theme's own `--slate`, at the plates' alpha; the kit's plate where the page names none. */
+export function themePlate(doc) {
+  const v = doc?.defaultView?.getComputedStyle?.(doc.documentElement)?.getPropertyValue?.('--slate')?.trim?.() ?? '';
+  const m = /^#([0-9a-f]{6})$/i.exec(v);
+  if (!m) return TRAVEL_VIEW_MARK_COLORS.plate;
+  const n = parseInt(m[1], 16);
+  return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, 0.78)`;
+}
+let plateFill = /** @type {string} */ (TRAVEL_VIEW_MARK_COLORS.plate);
 /** A label's image, made once (its shadow or its plate baked in) and kept by what it shows. */
 function labelSprite(doc, text, look, size, journey, hover, dpr) {
   const key = `${look}|${size}|${journey ? 1 : 0}|${hover ? 1 : 0}|${dpr}|${text}`;
@@ -346,7 +359,7 @@ function labelSprite(doc, text, look, size, journey, hover, dpr) {
   x.font = font; x.textBaseline = 'top';
   const C = TRAVEL_VIEW_MARK_COLORS;
   if (plate) {
-    x.fillStyle = C.plate; x.fillRect(0.5, 0.5, w - 1, h - 1);
+    x.fillStyle = plateFill; x.fillRect(0.5, 0.5, w - 1, h - 1);
     x.strokeStyle = hover ? C.brass : C.plateEdge; x.lineWidth = 1; x.strokeRect(0.5, 0.5, w - 1, h - 1);
     x.fillStyle = hover || look === 'far' ? C.brass : C.bone;
   } else {

@@ -56,7 +56,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import {
   TV_RISE_S, TV_FALL_S, TV_ZOOM_STEP, ceilingFor, initialCamera, stepCamera, zoomTarget, orbitBy, turnCamera, blendView,
-  anglesOf, rightOf, leanedUp, turnHeading, forwardOf,
+  anglesOf, rightOf, leanedUp, turnHeading, forwardOf, tvOwnGrow,
 } from '../player/travelCamera.js';
 
 /** A press that moves further than this (px) before it lifts is a drag (the orbit), not a click (a pick). */
@@ -406,11 +406,13 @@ export function createTravelView(deps) {
     shown = blendView(head, { eye: r.eye, fwd: r.fwd }, t);
     const ang = anglesOf(shown.fwd);
     const tilt = Math.max(0, -ang.pitch);
+    const f = deps.feet();
     return {
       eye: shown.eye, fwd: shown.fwd, yaw: ang.yaw, pitch: ang.pitch,
       right: rightOf(ang.yaw), up: leanedUp(ang.yaw, tilt * Math.min(1, t)),
       focus: [camera.focus[0], camera.focus[1], camera.focus[2]],
       blend: t, fullyUp: state === 'up', state,
+      grow: tvOwnGrow(Math.hypot(shown.eye[0] - f[0], shown.eye[1] - f[1], shown.eye[2] - f[2])),   // OW-BIG: the traveller's sprite, grown with the eye's distance
     };
   }
 
