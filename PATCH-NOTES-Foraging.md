@@ -12,13 +12,15 @@
 - Your attributes, the climate and the season decide what you find. Luck can turn up something extra.
 - Each tool lasts 50 uses.
 - Eat the fish, fruit, mushrooms and eggs for a little fatigue, health or magicka. With Climates & Calories on, your fish and fruit are C&C's own, to cook and eat as usual.
-- Commoners and nobles may ask you to fetch firewood.
+- Commoners and nobles may ask you to fetch firewood. Bundles in your wagon count too.
 - The console command `Foraging_Tools` gives you one of each tool (not online).
 - Foraging is on by default. You can turn it off on the Features screen.
+- Online, a foraging job's game time doesn't pass yet, because nobody can move the shared clock. A short wait in its place is coming.
 
 ## Fixed from the original mod
-- The four firewood quests can now be turned in. Before, they could never be completed.
-- Mining in deserts and mountains no longer costs a whole day and all your fatigue for one swing.
+- The four firewood quests are now offered. Before, nobody ever gave them out.
+- They can also be turned in now. Before, they could never be completed.
+- Mining in deserts and mountains no longer costs eight hours and all your fatigue for one swing.
 - A fifth and sixth plant found in summer no longer vanish when you finish.
 - With Climates & Calories on, the Basket no longer misses two kinds of egg find.
 - Handing over firewood from your wagon now takes it from the wagon.

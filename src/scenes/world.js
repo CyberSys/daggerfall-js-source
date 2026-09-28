@@ -10655,7 +10655,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         locationType: _musicLocationType(), inLocationRect: !!_musicInLocationRect(),
         hour: Math.floor((((wm % 1440) + 1440) % 1440) / 60),
         climate: maps.getClimateIndex(px.x, px.y), region: _questRegionIndex(),
-        enemiesNear: exterior ? areEnemiesNearby(exteriorFoePool(), { resting: true }) : false,
+        enemiesNear: exterior ? (duelEnemyNear() || areEnemiesNearby(exteriorFoePool(), { resting: true })) : false,   // DUEL1: no foraging through a duel, as no rest
         carriedWeight: carriedWeight(playerEntity), maxEncumbrance: entityMaxEncumbrance(playerEntity),
         swimming: exterior && !!(player.isPlayerSwimming || player.swimming),
         exteriorWater: exterior ? (player.onExteriorWaterMethod ?? 'None') : 'None',

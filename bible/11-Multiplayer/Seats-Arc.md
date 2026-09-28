@@ -149,11 +149,11 @@ disputed only by 2 who agree on another answer (the one dispute rule above) - in
 | Kind | Key | What is witnessed | Who uses it |
 |---|---|---|---|
 | a location | map id | name, region, pixel, kind, whether it is a seat (and its tier), whether it has a Notice Board | the seats (3.1), the bailiwicks (7.2), the boards (PROF0 10.1) |
-| a map pixel | x, y | climate, region | the nodes' tables (PROF0 6.1) |
+| a map pixel | x, y | climate, region | the nodes' tables (PROF0 6) |
 | a gate day | game day | the gate's region and pixel | gate kills (4.2), gate-touched ground (PROF0 4.7) |
 
 A disputed row keeps its confirmed worth until a moderator settles it - so no lone account can zero a rival's seat,
-board or gate day; an unconfirmed row is worth the least its kind allows (PROF0 6.1). Three colluding accounts can forge one row - which is why each kind's reward is bounded and every
+board or gate day; an unconfirmed row is worth the least its kind allows (PROF0 6). Three colluding accounts can forge one row - which is why each kind's reward is bounded and every
 confirmation is on the audit list.
 
 ### 3.3 The Charter, the words, the map
@@ -214,7 +214,7 @@ A region may hold several seats, so a guild's work in a region needs a target.
 |---|---|---|---|
 | **The Watch** | Relay-witnessed socket; the position is the client's own claim, so it is bounded | 1 per 2 minutes, capped **60 an account a day** | A registered member's socket in the seat's cell room whose pose lies in the seat's map pixel (FACT: a pose is an absolute world position inside `POSE_BOUND`; the relay maps it to its map pixel as `cellRoomOfWire` already does - x / `PIXEL_UNITS`, and 499 - z / `PIXEL_UNITS`, the map's y running the other way - with no game data; the registry carries the seat's pixel) and has moved in the last 5 minutes (a pose carries no rest state, and a resting player does not move). A client can lie about where it stands; the daily cap is what bounds the lie (420 a week, a fifth of an account's cap) |
 | **Gate kills** | Relay-signed receipt; its region witnessed | **300** a receipt | An `r1.` receipt claimed with the region the fighter's client derived for that day. FACT, the rhythm: a gate rises every game day (`GATE_EVERY_DAYS` 1), which is every **2 real hours** - twelve a real day, drawn from a shuffle bag of some forty regions - so a region sees a gate about **twice a week**. FACT: the gate's region is NOT a pure function of the day alone - `pickGateRegion(day, regions)` (`src/net/gateLaw.js`) draws from `gateRegions(scan)`, a client-side scan of MAPS.BSA (`src/systems/gateSite.js`) - so the service takes the day's region from the claims themselves: the region at least **3** of that day's receipts agree on. A claim naming another region earns nothing. **Attribution**: a receipt counts for the week holding its game day, only if claimed before that week's Turning (receipts live 7 days, so none is banked for a later week), and for its account's war-guild (a receipt names an account, not a character); at most **900 an account a week** (three receipts) |
-| **Writs** | Service-witnessed | **1 per Mark of the materials' value** | Materials delivered from the Stores to the seat's stockpile at its board (PROF0 section 11): to the holder as defence, to a pledged challenger as its Siege Camp. The **value** is the delivered materials' Marks value by PROF0 4.8's table - never the writ's pay, so a guild paying itself mints no influence. **Only** a delivery by a character 7 days in the posting guild, whose account is bound to it for the week, counts, and only its **own** units (PROF0 7: harvested or crafted by that character); **bought** units count at Tribute's rate inside Tribute's cap; a counter's goods never count. Anyone else's delivery earns the pay alone and binds nobody's war |
+| **Writs** | Service-witnessed | **1 per Mark of the materials' value** | Materials delivered from the Stores to the seat's stockpile at its board (PROF0 section 11): to the holder as defence, to a pledged challenger as its Siege Camp. The **value** is the delivered materials' Marks value by PROF0 4.8's table - never the writ's pay, so a guild paying itself mints no influence. **Only** a delivery by a character 7 days in the posting guild, whose account is bound to it for the week, counts, and only its **own** units (PROF0 7: harvested or crafted by that character, Essence from a provenance item it made, a Siege Honour's Spoils, or its own deposit withdrawn from the guild Stores); **bought** units count at Tribute's rate inside Tribute's cap; a counter's goods never count. Anyone else's delivery earns the pay alone and binds nobody's war |
 | **Homes** | Bounded, not witnessed | **25 a home a day**, at most 5 homes a guild a seat | Members' homes in the seat's town (`homes.map_id`). FACT: `homeLaw.js` checks only the ranges of the map id and building key, and a home is bought with save gold, so a modified client could register homes that do not exist; the cap (875 a week) is the defence, and a home counts only for a 7-day member bound to the guild |
 | **Renown in the region** | Client-reported, bounded | **1 per 20 Renown XP**, capped **400 an account a week** | The Renown report grows `region` (0-61); the service keeps a per-account, per-region, per-week sum beside the tracks |
 | **Tribute** | Service-witnessed (Marks) | **1 per 10 Marks**, capped at **20%** of the guild's week at that seat | Marks from the guild's Marks treasury, spent on the pledge by the Guildmaster, and **burnt** - a sink: the town's favour is bought, and nobody pockets it |
@@ -706,7 +706,7 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
 | A holder farms its own alt challenger | Forfeit Standing only once a Season per challenger; thresholds make a fake challenger cost 6,000 influence |
 | A parked tab farms the Watch | Movement in the last 5 minutes; 60 a day (4.2) |
 | A zerg takes everything | Per-account caps, Overreach, fixed team sizes, Unrest, Pacts against it |
-| A holder sets sieges for 4 a.m. | Windows start 16:00-02:00 UTC, fixed 48 hours ahead; crowns fixed Saturday evening |
+| A holder sets sieges for 4 a.m. | Windows start 16:00-02:00 UTC, fixed at the Turning, at least 70 hours ahead; crowns fixed Saturday evening |
 | A holder hoards and never builds | Upkeep, Standing, revolt |
 | Two readers settle a week at once | One transaction keyed by the week (5.2) |
 | A fake seat | The witnessed registry (3.2) |
@@ -766,7 +766,7 @@ bible updated in the same change, mutants recorded.
 | **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board | Each source's cap pinned; per-account war and the 7-day wait pinned |
 | **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
-| **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect | Every Standing row pinned; the Tithe routes only Marks. The Tithe needs PROF5 (the market) |
+| **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours | A headless 10v10 siege runs to both endings |
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
@@ -836,8 +836,8 @@ Every law in Home.md's Process section, and what it demands of this arc:
 
 - **A seat is struck** by a developer (3.2) while held: the Charter voids, the claim fee is refunded to the holder's
   Marks treasury if struck within the Season, and the history keeps the row.
-- **Neglect and Contested never meet at one Turning**: only an unheld seat can be Contested (5.2, step 1), and
-  Neglect is a held seat's (step 3). A seat whose Charter lapses from Neglect is unheld from the next week, and may be
+- **Neglect and Contested never meet at one Turning**: only an unheld seat can be Contested (5.2, step 2), and
+  Neglect is a held seat's (step 5). A seat whose Charter lapses from Neglect is unheld from the next week, and may be
   Contested at the Turning after that.
 - **Two seats in one town** cannot happen: one seat a location (3.1).
 - **A crown holder's own palaces**: kingdom reach raises the crown guild's influence at its own palace seats too, so
@@ -1037,4 +1037,3 @@ The model lives with Marks, in `06-Systems/Professions-Arc.md` Appendix C. What 
 | Palace upkeep | 1,000 | **2,500** | at 1,000 it was 6% of a 12-member guild's writ income - a seat that cost nothing; now a quarter |
 | Crown upkeep | 10,000 | **15,000 x the server's scale** | more than half a 30-member guild's income, scaled so a small server's crown is not starved |
 | Whole server, Marks minted / burnt | 2.3 | **1.00** (0.83 at 50 accounts, 0.81 at 300, Court writs scaling with the server) | the Bank's exchange is the voluntary valve at the edges |
-

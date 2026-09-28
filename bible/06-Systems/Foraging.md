@@ -1,6 +1,6 @@
 # FORAGING - Harbinger451's mod, 1:1, and the professions' tools (FORAGE0, the design record)
 
-**Status: FORAGE1-FORAGE2 SHIPPED on the branch (2026-09-28) - offline Foraging whole: the tools, the foods, the quests, the shelves (see the record at the end).** Still to come: FORAGE3's three loot hooks and FORAGE4's online wait. Opened 2026-09-28
+**Status: FORAGE1-FORAGE2 SHIPPED on the branch (2026-09-28) - offline Foraging whole: the tools, the foods, the quests, the shelves; audited the same day, which found a sixth mend (Q13) and nine smaller faults, all fixed (see the record at the end).** Still to come: FORAGE3's three loot hooks and FORAGE4's online wait. Opened 2026-09-28
 beside the professions (`06-Systems/Professions-Arc.md`, PROF0) and the seats (`11-Multiplayer/Seats-Arc.md`,
 SEAT0), whose marks it uses: **DECIDED (Mac)**, **DECIDED** (the record's, at Mac's instruction), **FACT** (read in
 this tree, the mod's IL or DFU's source), **MEASURED**.
@@ -62,7 +62,7 @@ and the Features row together, as `vendor/foraging/`:
 
 1. **1:1, IN BOTH LANES** - DECIDED (Mac). What a tool does from the inventory, what the quests do, what the loot and
    shop hooks add, and every message, are the mod's, offline and online. Every quirk the build carries is kept and
-   recorded (section 12) - a Ledger B row, "verbatim quirks preserved" - but the five a player would call broken,
+   recorded (section 12) - a Ledger B row, "verbatim quirks preserved" - but the six a player would call broken,
    which FORAGE-FIX mends (Mac: "Your lead").
 2. **THE BUILD, NOT THE README** - FACT: the readme and the build disagree in places (the Pick-Axe reads Agility, not
    Endurance; the readme names four foods the build has no template for). The port follows the build, as DFU would
@@ -101,7 +101,7 @@ and the Features row together, as `vendor/foraging/`:
 | `DaggerfallUnityItem.LowerCondition` | `lowerCondition` (`src/systems/equip.js`), DFU's "itemHasBroken" popup with it |
 | `DaggerfallUI.AddHUDText` | `hudText` (`src/systems/notify.js`) |
 | `DaggerfallMessageBox` | `src/ui/messageBox.js` |
-| `PlayerMotor.OnExteriorWater` (None / Swimming / WaterWalking) | `ON_EXTERIOR_WATER` (`src/player/exteriorSurface.js`); the streaming host classifies all three and today keeps only a Swimming boolean on the player |
+| `PlayerMotor.OnExteriorWater` (None / Swimming / WaterWalking) | `ON_EXTERIOR_WATER` (`src/player/exteriorSurface.js`); the streaming host classifies all three, and since FORAGE2 both exterior hosts keep them as `player.onExteriorWaterMethod` beside the Swimming boolean |
 | `WhenAttributeLevel`, `Climate`, `pc at any`, `pick one of`, `create foe`, `give pc`, `start timer`, `log`, `make permanent`, every Quests-Items class Foraging names | `src/systems/quest/actions.js`, `src/systems/quest/place.js` (`isPlayerAtDungeonType`) |
 | DFU's parser dropping a line no action matches ("Action not found. Ignoring") | `src/systems/quest/task.js` keeps such a line in `pendingActionLines`, which runs nothing |
 | Region 31, the sea's politic region | `src/formats/mapsFile.js` |
@@ -342,7 +342,7 @@ service never sees the pack, so this is a courtesy to honest players, not a defe
 ## 9. The quests
 
 `QuestList-ForagingQuests`: the 18 activity quests are group `None` (started only by the tools); the four fetch
-quests join the social pools (9.8). Registered by `Awake` (IL_02e5) with `RegisterQuestList("ForagingQuests")`.
+quests are meant for the social pools (9.8) - and as built are filed in none (Q13). Registered by `Awake` (IL_02e5) with `RegisterQuestList("ForagingQuests")`.
 
 ### 9.1 What the scripts rely on (FACT)
 
@@ -361,12 +361,13 @@ quests join the social pools (9.8). Registered by `Awake` (IL_02e5) with `Regist
 
 ### 9.2 The four actions to add, and the one to ignore
 
-From Quest Actions Extension (`Actions/*.cs` at `56a407e`), restated in `src/systems/quest/actions.js`, FORAGE1:
+From Quest Actions Extension (`Actions/*.cs` at `56a407e`), restated in `src/systems/quest/questActionsExtension.js`,
+FORAGE1:
 
 | Action | What it does |
 |---|---|
-| `raise time by H:MM` (RaiseTime) | `WorldTime.Now.RaiseTime(H * 3600 + MM * 60)`: a bare clock advance, no rest simulated. (QAE's pattern lacks a `|` between its second and third alternatives; the bare `raise time by` alternative still matches.) Online: 13.1 |
-| `reduce player fatigue by N` (ReducePlayerFatigue) | **N is a percent of the maximum**: `CurrentFatigue = max(1, (int)(CurrentFatigue - MaxFatigue * N / 100f))`, on the raw (x64) values |
+| `raise time by H:MM` (RaiseTime) | `WorldTime.Now.RaiseTime(H * 3600 + MM * 60)`: a bare clock advance, no rest simulated. (QAE's pattern lacks a `|` between its second and third alternatives, so it has three, not four: `raise time to H:MM saying N`, the glued `raise time to H:MMraise time by H:MM saying N`, and the bare `raise time by H:MM` - which is what `raise time by H:MM saying N` matches, its saying unread. CreateNew refuses a line whose four numbers are all 0.) Online: 13.1 |
+| `reduce player fatigue by N` (ReducePlayerFatigue) | **N is a percent of the maximum**: `CurrentFatigue = max(1, (int)(CurrentFatigue - MaxFatigue * N / 100f))`, on the raw (x64) values, and the setter then clamps it to the maximum |
 | `player possesses N items class C subclass S` (PlayerPossesses) | a trigger, true while `Items.Contains((ItemGroups)C, S)` and `SearchItems` count at least N, **quest items excluded, the wagon counted**; a match needs `item.ItemGroup == C` |
 | `player handsover N items class C subclass S` (PlayerHandsover) | removes N such items - **with QAE's own bug**: its wagon arm assigns `WagonItems = player.Items.SearchItems(...)`, so pack items are counted twice and the wagon's are never removed (Q11) |
 
@@ -453,15 +454,18 @@ instead. "Found nothing" fires on the tick after `end quest`, inside the grace.
 
 ### 9.8 The fetch quests
 
-| Quest | Pool | Min rep | Bundles | Time | Gold |
+| Quest | Pool (the list's word) | Min rep | Bundles | Time | Gold |
 |---|---|---|---|---|---|
-| FetchWood01 "Collect some Firewood" | Commoner | 0 | 2 | 2 days | 200-300 |
-| FetchWood02 "Source a Supply of Firewood" | Commoner | 10 | 4 | 3 days | 400-600 |
-| FetchWood03 "Collect Firewood for a Witch Burning" | Noble | 0 | 6 | 3 days | 600-800 |
-| FetchWood04 "Collect Wood for an Execution Scaffold" | Noble | 10 | 8 | 4 days | 800-1000 |
+| FetchWood01 "Collect some Firewood" | Commoners (`Commoner`) | 0 | 2 | 2 days | 200-300 |
+| FetchWood02 "Source a Supply of Firewood" | Commoners (`Commoner`) | 10 | 4 | 3 days | 400-600 |
+| FetchWood03 "Collect Firewood for a Witch Burning" | Nobility (`Noble`) | 0 | 6 | 3 days | 600-800 |
+| FetchWood04 "Collect Wood for an Execution Scaffold" | Nobility (`Noble`) | 10 | 8 | 4 days | 800-1000 |
 
-(03 and 04's own headers say Commoner; the list's Noble governs.) The turn-in asks `player possesses N items class 20
-subclass 1604` - and **can never be true** (12).
+(03 and 04's own headers say Commoner; the list's Noble governs.) As built, **they are never offered**: `Commoner`
+and `Noble` name no social group - DFU's are `Commoners` and `Nobility` - and `QuestListsManager.ParseQuestList`
+files a row only under a defined group name (QuestListsManager.cs:223-251), so the four rows are dropped (Q13). And
+were one offered, the turn-in asks `player possesses N items class 20 subclass 1604`, which **can never be true** (Q8).
+FORAGE-FIX mends both, and QAE's handsover with them (Q11).
 
 ## 10. Loot and shops
 
@@ -514,7 +518,7 @@ chanceMod is 50 in a General Store and 20 in a Pawn Shop:
 | General Store | **27%** each | **40%** each |
 | Pawn Shop | **11%** each | **16%** each |
 
-Fish, Apple and Orange (rarity 100) are never stocked. This is FORAGE3's first gap (3).
+Fish, Apple and Orange (rarity 100) are never stocked. This was FORAGE3's first gap (3), closed early by FORAGE1.
 
 ## 11. Other mods
 
@@ -525,7 +529,7 @@ Fish, Apple and Orange (rarity 100) are never stocked. This is FORAGE3's first g
 | Iliac Puddle No More | not asked; region 31 counts as water | the net works in the bay the mod carves into land-climate pixels | vendored (`vendor/iliac-puddle-no-more/`); region 31 is the politic sea, `mapsFile.js` |
 | The Penwick Papers | not asked | the grave's `dead_body` is its corpse | not in the port: a dead_body is DFU's own quest item |
 
-## 12. The quirks - kept, and four for Mac
+## 12. The quirks - kept, and six mended
 
 DECIDED (Mac: 1:1): every quirk below is ported as the build has it, and each gets a **Ledger B** row ("verbatim
 quirks preserved", `01-Overview/Port-Ledger.md`) at the slice that ports it.
@@ -544,8 +548,9 @@ quirks preserved", `01-Overview/Port-Ledger.md`) at the slice that ports it.
 | **Q10** | **The Basket under C&C: block C has no (2, Egg) case; block E's (4, Egg) is unreachable** | "You could not find any food to forage!" for a find the table drew |
 | Q11 | QAE's `player handsover` counts pack items twice and never takes the wagon's (9.2) | unreachable while Q8 stands; live the moment Q8 is fixed - 1 bundle in the pack and 1 in the wagon would complete FetchWood01 and keep the wagon's |
 | Q12 | A building-interior pile passes its location's type as Foraging's dungeon index (10) | tools in a city house's chest at a Crypt's rate; none in a tavern's |
+| **Q13** | **The list files the fetch quests under `Commoner` and `Noble`**, which name no social group (9.8) - found by the FORAGE1 audit, 2026-09-28 | FetchWood01-04 **are never offered**, by anyone |
 
-**Q7-Q11 are bugs a player would call broken.** DECIDED (Mac: "Your lead"): they are fixed, as **one Ledger A
+**Q7-Q11 and Q13 are bugs a player would call broken.** DECIDED (Mac: "Your lead"): they are fixed, as **one Ledger A
 departure, FORAGE-FIX**, and everything else stays 1:1. **The vendored files stay verbatim**: the fixes are a patch
 table in the port's Foraging module, each patch naming its file, the exact old line and the new, applied when the quest
 pack loads and pinned, so the author's text is always in the tree as he shipped it.
@@ -557,8 +562,10 @@ pack loads and pinned, so the author's text is always in the tree as he shipped 
 | Q9 | ForageSummerPlantsQuest's `_5plant_` and `_6plant_` make `_plant5_` and `_plant6_` permanent |
 | Q10 | The Basket's C&C branch uses the non-C&C branch's cases, its fruit templates still C&C's |
 | Q11 | The port's `player handsover` searches the wagon for the wagon's share and removes from it |
+| Q13 | The list's `, Commoner, ` and `, Noble, ` read `, Commoners, ` and `, Nobility, ` (two rows each) - the list patched as it is read, as the quests are |
 
-Q1-Q6 and Q12 stay: they are harmless or DFU's own (Q12), and the doctrine keeps what it can.
+A patch that no longer finds its line (a changed file) throws; the loader warns and loads the author's text as
+shipped, so one mod's patch never takes the quest pack down. Q1-Q6 and Q12 stay: they are harmless or DFU's own (Q12), and the doctrine keeps what it can.
 
 ## 13. Online - the second lane
 
@@ -575,8 +582,7 @@ interruptWhen, result: false }`:
 |---|---|---|
 | ForageFoodQuest | 1:00 | 8 s |
 | ChopWoodQuest, Plants | 1:30 | 12 s |
-| Mining (one task), Grave robbing | 2:00 | 16 s |
-| Mining in Desert or Mountain (Q7, four tasks) | 8:00 | 64 s |
+| Mining (one task - FORAGE-FIX Q7; as built, four in Desert or Mountain, 8:00), Grave robbing | 2:00 | 16 s |
 | FishingQuest | none | none |
 
 - Waits queue: four `raise time by` lines make one wait of their sum.
@@ -594,7 +600,7 @@ interruptWhen, result: false }`:
 ### 13.2 Everything else, unchanged
 
 A grave's Ghost or Wraith is the player's quest foe on the player's client, as any quest foe online. The fetch
-quests join the social pools as offline. The loot, shop and corpse hooks run where DFU's events do. Foraging's items
+quests are offered from the social pools as offline (Q13's mend with them). The loot, shop and corpse hooks run where DFU's events do. Foraging's items
 are pack items - save items - and **never enter the Stores** (PROF0 law 3): a Wood Bundle, a fish or an apple got
 this way is the player's, not the server's.
 
@@ -756,8 +762,8 @@ Every FORAGE slice's record names all four (Home.md, THE FOUR HOSTS RULE), each 
 
 | Host | Foraging there |
 |---|---|
-| `scenes/world.js` - the streaming world | Every tool works: the checks read the pixel's climate and region, the location's rect and type, the hour, the foes, and the water state - which must hand the three-valued `ON_EXTERIOR_WATER` to the net (FORAGE2), not the Swimming boolean it keeps today. The corpse hook where the world's pools raise a death; the World of Daggerfall camps' piles (FORAGE3, index 3). The nodes and acts (PROF) |
-| `scenes/exterior.js` - the fixed city | The settlement check answers from the city's own rect and type; it keeps the same Swimming boolean as the streaming host, so FORAGE2 hands the net the three-valued water state here too; whether any ground outside the rect is walkable there is read at FORAGE2 and the answer recorded. **FLAGGED**: no nodes (PROF0 17.1) |
+| `scenes/world.js` - the streaming world | Every tool works: the checks read the pixel's climate and region, the location's rect and type, the hour, the foes (a duel's foe among them, as the rest test counts it), and the water state - the three-valued `ON_EXTERIOR_WATER`, handed to the net since FORAGE2. The corpse hook where the world's pools raise a death; the World of Daggerfall camps' piles (FORAGE3, index 3). The nodes and acts (PROF) |
+| `scenes/exterior.js` - the fixed city | The settlement check answers from the loaded location: its rect is the whole host (`_musicInLocationRect` is always true), so every tool refuses with its settlement line wherever the loaded location is a town type, and works at any other (a graveyard, a dungeon's exterior) - read at FORAGE2. The three-valued water state as in the streaming host (FORAGE2). **FLAGGED**: no nodes (PROF0 17.1) |
 | `scenes/worldModes.js` - building interiors | Every tool refuses with its "inside" line. The shelf and house-container hooks, and the building-interior piles' `LootTables.OnLootSpawned` at the location type's index (Q12) - raised where `scenes/interiorContext.js` rolls them (FORAGE3) |
 | `scenes/dungeonContext.js` - dungeons | Every tool refuses ("inside"; the net's dungeon arm dead, Q4). The dungeon-pile hook, WORLD8's hourly re-roll included, and the corpse hook (FORAGE3). The Pick-Axe's dungeon veins (PROF2) |
 
@@ -767,8 +773,8 @@ The inventory's Use is host-agnostic (`src/systems/useItem.js`); the host answer
 
 | Law | What it means here |
 |---|---|
-| **ONE DFU MEMBER, ONE EXPORT** | `GetCustomItemsForGroup` moves to `itemTemplates.js`; the three `OnLootSpawned`/`OnEnemyDeath` events are one registry each; C&C's `TEMPLATE`, `survivalOn`, `HUNT_WAIT_PER_HOUR`, `ON_EXTERIOR_WATER`, `isPlayerInTown`, `areEnemiesNearby` and `lowerCondition` are imported, never re-typed. The IL's arrays live once, in the Foraging law module (`foragingLaw.js`, to be written), pinned against the vendored IL |
-| **A PIN MUST FAIL** | Each table is pinned `deepEqual` against the law module, and the law module's arrays against the IL text in `vendor/foraging/il/`; each slice's mutants (`tools/mutants/forage*.json`) flip a band edge, a check's order and a message |
+| **ONE DFU MEMBER, ONE EXPORT** | `GetCustomItemsForGroup` moved to `itemTemplates.js` (FORAGE1); the three `OnLootSpawned`/`OnEnemyDeath` events are one registry each (FORAGE3); C&C's `TEMPLATE`, `survivalOn`, `HUNT_WAIT_PER_HOUR`, `ON_EXTERIOR_WATER`, `isPlayerInTown`, `areEnemiesNearby` and `lowerCondition` are imported, never re-typed. The IL's arrays live once, in the Foraging law module (`src/systems/foragingLaw.js`) |
+| **A PIN MUST FAIL** | Each table is pinned `deepEqual` against values read off the IL and typed into the test (the IL's arrays are `stelem` runs, not text a test can parse), and every line the law speaks is checked against the IL's own string literals (`ldstr`, `vendor/foraging/il/`); each slice's mutants (`tools/mutants/forage*.json`) flip a band edge, a check's order and a message |
 | **TEST THE SHAPE THE PRODUCER MINTS** | A tool in a test is minted by the shelf, the loot hook or the console command, never an item literal |
 | **THE MODAL CONTRACT** | The result box returns the same type from every exit (click anywhere is its only one) |
 | **THE SLOT IS EMPTIED BEFORE THE OCCUPANT IS TOLD** | The result box sits over the inventory in the overlay stack; the busy wait takes the host's overlay slot, nulled before it is disposed |
@@ -776,7 +782,7 @@ The inventory's Use is host-agnostic (`src/systems/useItem.js`); the host answer
 | **EVERY ALLOCATION HAS AN OWNER** | The seven textures are the texture door's, loaded lazily and gated on the switch; the tool in the hand is the weapon rig's for the act's length |
 | **THE ONE CONSTRUCTION SEAM** | The busy wait is huntWindow's constructor, not a second one |
 | **THE NATIVE-WINDOW RULE** | The result box is DFU's `DaggerfallMessageBox`, drawn native (`src/ui/messageBox.js`) |
-| **A SLICE CLOSES ITS LEDGER ROW** | FORAGE1-3 add their Ledger B rows (12) and FORAGE4 its Ledger A row (THE FORAGING WAIT, 13.1) |
+| **A SLICE CLOSES ITS LEDGER ROW** | FORAGE1-2 added section A's FORAGING row (FORAGE-FIX and the other departures) and section B's FORAGING'S QUIRKS row (12); FORAGE3 ports the hooks' quirks that row already records (Q1, Q2, Q12), and FORAGE4 writes its wait into the A row's departure (5) (13.1) |
 | **THE RELAY VERSION** | Foraging needs none. The act's pose field is PROF's (PROF0 5.1) |
 
 ## 17. The slices, in order
@@ -789,16 +795,21 @@ mod a player can actually use - tools that chop, quests that pay - never a switc
 | **FORAGE0** | This record | - |
 | **FORAGE1** - SHIPPED 2026-09-28 | The files vendored (1.1) with the README, the registry row, the credit and the Features row; QAE's four actions (9.2) and the inert `update-quest-item`; the quest list and its 22 quests, gated on the switch | A fetch quest is offered by a commoner; a script's `raise time by 1:30` moves the clock 90 minutes |
 | **FORAGE2** - SHIPPED 2026-09-28 | The twelve templates; the seven textures; the six tools' uses (5, 6), the result box, the wear; the foods (7); the console command (8); the three-valued water state in the streaming host | Each tool, used in each host, gives the mod's line, yield and quest |
-| **FORAGE3** | ~~`GetCustomItemsForGroup` as a registry~~ (shipped early, with FORAGE1); `PlayerActivate.OnLootSpawned` and `LootTables.OnLootSpawned` as registries (RRI's subscriber first); Foraging's three hooks | A General Store shelves a Pick-Axe; a Prison's pile holds a Spade |
+| **FORAGE3** | ~~`GetCustomItemsForGroup` as a registry~~ (shipped early, with FORAGE1); `PlayerActivate.OnLootSpawned` and `LootTables.OnLootSpawned` as registries (RRI's subscriber first); Foraging's three hooks | A Prison's pile holds a Spade; a General Store's hook adds 0-1 |
 | **FORAGE4** | Online: the wait (13.1) | Online, the Wood-Axe gives its bundles, a 12-second wait and 20% fatigue; the shared clock does not move |
-| **FORAGE-FIX** | Q7-Q11 (12), carried by the slice that ports each - the quest patches and Q11 in FORAGE1, Q10 in FORAGE2 - with its Ledger A row (THE FORAGING FIXES) | Each patch pinned against the verbatim line it replaces |
+| **FORAGE-FIX** - SHIPPED 2026-09-28 | Q7-Q11 and Q13 (12), carried by the slice that ports each - the quest and list patches and Q11 in FORAGE1, Q10 in FORAGE2 - in section A's FORAGING row | Each patch pinned against the verbatim line it replaces, and each patched quest and the list run on the port's machine (`test/foragefix.test.js`) |
 
 The professions take the tools in their own slices: **PROF1** (Herbalism: the Sickle's steady hand, the Basket's
-search) **needs FORAGE3** - the tools reach shelves and loot only there, and Foraging's templates, checks and lines
-(FORAGE2) before it; so do PROF2 (the Pick-Axe), PROF4 (the Wood-Axe), PROF7 (the Skinning Knife: its template 603,
-its online shelves, its act) and PROF8 (the net), which also needs FORAGE2's three-valued water state.
+search) **needs FORAGE1-2 (shipped)** - Foraging's templates, checks and lines, and the tools on the shelves - and
+builds law 6's online exception (the six tools shelve online whatever the switch says); FORAGE3's loot hooks add a
+source, not a dependency. So do PROF2 (the Pick-Axe), PROF4 (the Wood-Axe), PROF7 (the Skinning Knife: its template
+603, its online shelves - the same exception, PROF7's for 603 - and its act) and PROF8 (the net), which also needs
+FORAGE2's three-valued water state (shipped).
 
-## 18. The pins (to be written)
+## 18. The pins
+
+FORAGE1-2's stand in `test/forage1_law.test.js`, `test/forage2_tools.test.js` and `test/foragefix.test.js`; the hooks'
+(Q1, Q2, Q12) arrive with FORAGE3 and the wait's with FORAGE4.
 
 - The templates: the twelve rows `deepEqual` the vendored `ItemTemplates.json`; group 9; none stackable.
 - The checks: for each tool, a fixture failing each check alone gives that check's exact line, and a fixture failing
@@ -816,11 +827,14 @@ its online shelves, its act) and PROF8 (the net), which also needs FORAGE2's thr
 - The break: a tool at condition 1 gives its yield, its quest, DFU's popup, "Your <Tool> broke.", and is gone.
 - The hooks: `Range(0, 1)`'s three call sites (four places) add nothing over 10,000 draws; the uniform one-in-seven;
   an interior pile at each location type's index (Q12).
-- The quests: the mining climate cases (224 and 226 fire four tasks; 225 and 230 one); `desert2` binds 224; the fetch
-  turn-in never fires (Q8); Summer plants 5 and 6 are orphaned (Q9).
-- QAE: fatigue's percent and its floor of 1; `raise time by 1:30` is 5,400 s; `possesses` excludes quest items and
-  counts the wagon.
-- Online: the wait's seconds (8, 12, 16, 64), and the shared clock unmoved.
+- The quests, as built and patched: the mining climate cases (as built 224 and 226 fire four tasks, patched one;
+  225 and 230 one either way); `desert2` binds 224; the fetch turn-in never fires as built (Q8) and does patched, from
+  the pack and the wagon (Q11); the list files the fetch quests only patched (Q13); Summer plants 5 and 6 orphaned as
+  built, kept patched (Q9); a CRLF checkout patches as LF.
+- QAE: fatigue's percent, its floor of 1 and the maximum's clamp; `raise time by 1:30` is 5,400 s; `raise time by 2:00
+  saying N` is the bare advance; `raise time by 0:00` is no action; `possesses` excludes quest items and counts the
+  wagon.
+- Online: the wait's seconds (8, 12, 16), and the shared clock unmoved.
 
 ## 19. What remains to read or measure
 
@@ -829,7 +843,7 @@ its online shelves, its act) and PROF8 (the net), which also needs FORAGE2's thr
   `Jagget/QuestActionsExtension` at `56a407e`, and Jagget is credited beside Harbinger451 on the About screen.
 - **The author's words.** FORAGE1's README carries Mac's word; its permission line stays open until Mac pastes
   Harbinger451's grant or a link (the registry's RECORD OPEN).
-- **The fixed city's edge** (15).
+- ~~**The fixed city's edge** (15).~~ Read at FORAGE2: the loaded location's type decides, its rect the whole host.
 - **The act numbers** (14.3-14.6) are the record's first values; PROF1's play test measures them.
 - **Mod init timing**: the IL does not show `Init`'s `[Invoke]` attribute; DFU's mods init at Start, and the port
   registers at boot, which is earlier and harmless.
@@ -894,23 +908,30 @@ Offline Foraging, whole, in one change - so the Features row switches a mod a pl
   share of GetCustomItemsForGroup - which moved to `src/systems/itemTemplates.js` (gap 1, closed), so a General Store
   and a Pawn Shop shelve the tools.
 - **Quest Actions Extension's four**, `src/systems/quest/questActionsExtension.js` (Q11 mended there).
-- **The quest pack**, `scenes/questData.js`: the list and the 22 quests, FORAGE-FIX applied as each is read.
+- **The quest pack**, `scenes/questData.js`: the list and the 22 quests, FORAGE-FIX applied as each is read - the
+  list's Q13 with them; a patch that fails warns and loads the author's text.
 - **The four hosts**: `scenes/world.js` registers the four actions on its machine and answers the checks in every mode
   it runs - the streaming world by its pixel, its location's rect and type, its hour, its foes, its load and its
   water; an interior (`scenes/worldModes.js`, which now writes the water's three-valued twin as None) and a dungeon
   (`scenes/dungeonContext.js` under it) as `inside`, which every tool refuses first. `scenes/exterior.js` does the same
-  for the fixed city, where every tool refuses with its settlement line (the town's rect is the whole host). **FLAGGED
+  for the fixed city, where every tool refuses with its settlement line wherever the loaded location is a town type
+(its rect is the whole host). **FLAGGED
   by name**: `scenes/dungeonContext.js` standing alone (`?dungeon`) sets no host, and a use there answers the no-host
   default, `inside` - the right refusal, reached by default rather than by a host's answer.
 - **The water**: both exterior hosts keep `player.onExteriorWaterMethod`, all three of PlayerMotor's values, beside the
   Swimming boolean they kept before; the net reads WaterWalking (a shallow shore tile) too.
-- **The ledger**: section A's FORAGING row (FORAGE-FIX, the templates whatever the switch, QAE restated, the console
-  refused online, the online clock) and section B's FORAGING'S QUIRKS row (Q1-Q6, Q12); the ENGINE-PRNG roster names
-  `foragingInstall.js`.
-- **Pins**: `test/forage1_law.test.js` (14) and `test/forage2_tools.test.js` (14); `tools/mutants/forage1.json`, 20
-  mutations, 20 dead.
+- **The ledger**: section A's FORAGING row (FORAGE-FIX's six, the templates whatever the switch, QAE restated, the
+  console refused online, the online clock) and section B's FORAGING'S QUIRKS row (Q3-Q6 ported, Q1, Q2 and Q12
+  recorded ahead of FORAGE3); the ENGINE-PRNG roster names `foragingInstall.js`.
+- **The audit** (2026-09-28, four passes: the law against an IL interpreter over 60,000 cases, the quests run on the
+  machine, every cite, every use path) found Q13 and nine smaller faults, all mended here: a CRLF checkout threw at
+  the patch; QAE's RaiseTime carried a fourth alternative the file does not have; the encumbrance test refused on an
+  unordered compare DFU passes; the console command answered with the switch off; fatigue could rise past the
+  maximum; a food ate one off a stack (DFU removes the item); a tool wore when its quest was not found; a refused use
+  from the hotbar flashed as used; a duel's foe was not an enemy near.
+- **Pins**: `test/forage1_law.test.js` (15), `test/forage2_tools.test.js` (15) and `test/foragefix.test.js` (5);
+  `tools/mutants/forage1.json`, 32 mutations, 32 dead.
 
-**Not yet**: FORAGE3's three loot hooks (a house container's, a dungeon pile's at its index - Q12 - and a corpse's), so
-a tool comes from a shop or the console, not yet from loot; and FORAGE4's online wait - online, `raise time by`
+**Not yet**: FORAGE3's hooks - the shelf and house-container hook, every pile at its index (dungeon, interior - Q12 -
+and camp), and the corpse - so a tool comes from a shop or the console, not yet from loot; and FORAGE4's online wait - online, `raise time by`
 leaves the shared clock where it is and waits for nothing, until FORAGE4 builds the busy page (13.1).
-

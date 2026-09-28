@@ -49,6 +49,17 @@ test('FORAGE1: the twelve templates are the vendored rows, group 9, and nothing 
   assert.ok(LITERALS.has(FORAGING_QUEST_LIST));
 });
 
+test('FORAGE1: the Wood-Axe\'s six refusals, word for word (ForagingMain.WoodAxe\'s ldstr, typed here from the IL)', () => {
+  assert.deepEqual(FORAGING_REFUSALS[FT.WoodAxe], {
+    inside: 'You cannot find wood to chop in here!',
+    town: 'You cannot chop wood in a settlement!',
+    daylight: 'You need daylight to chop wood effectively!',
+    sea: 'You cannot find wood to chop out here!',
+    enemies: 'You cannot chop wood with enemies nearby!',
+    encumbered: 'You cannot chop wood when fully encumbered!',
+  });
+});
+
 test('FORAGE1: every line the law speaks is one of the IL\'s own string literals', () => {
   const lines = [];
   for (const t of TOOL_TEMPLATES) lines.push(...Object.values(FORAGING_REFUSALS[t]), brokeMessage(t));
@@ -74,6 +85,8 @@ test('FORAGE1: each tool asks its checks in its own order, and the earlier failu
     assert.equal(foragingRefusal(t, { ...OPEN, climate: CLIMATES.Ocean }), FORAGING_REFUSALS[t].sea);
     assert.equal(foragingRefusal(t, { ...OPEN, enemiesNear: true }), FORAGING_REFUSALS[t].enemies);
     assert.equal(foragingRefusal(t, { ...OPEN, carriedWeight: 100 }), FORAGING_REFUSALS[t].encumbered);
+    assert.equal(foragingRefusal(t, { ...OPEN, carriedWeight: 99.9 }), null, 'under the maximum: not encumbered');
+    assert.equal(foragingRefusal(t, { ...OPEN, carriedWeight: NaN }), null, 'blt.un: an unordered compare passes');
     // two failing: the earlier one
     assert.equal(foragingRefusal(t, { ...OPEN, hour: 3, enemiesNear: true }), FORAGING_REFUSALS[t].daylight);
     assert.equal(foragingRefusal(t, { ...OPEN, climate: CLIMATES.Ocean, carriedWeight: 500 }), FORAGING_REFUSALS[t].sea);
@@ -160,9 +173,11 @@ test('FORAGE1: the Basket\'s five blocks, INT alone, and its finds - FORAGE-FIX 
   assert.equal(basketBlock(CLIMATES.HauntedWoodlands, 4), 'E');
   assert.deepEqual(BASKET_BLOCKS.A.counts, [[0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 1, 1], [0, 0, 0, 1, 1, 1], [0, 0, 1, 1, 1, 1]]);
   assert.deepEqual(BASKET_BLOCKS.C.counts, [[0, 0, 1, 2, 2, 3], [0, 1, 2, 2, 3, 3], [1, 2, 2, 3, 3, 4], [2, 2, 3, 3, 4, 4]]);
+  assert.deepEqual(BASKET_BLOCKS.B.counts, [[0, 0, 0, 1, 1, 2], [0, 0, 1, 1, 2, 2], [0, 1, 1, 2, 2, 3], [1, 1, 2, 2, 3, 3]]);
   assert.deepEqual(BASKET_BLOCKS.D.counts, BASKET_BLOCKS.B.counts);
   assert.deepEqual(BASKET_BLOCKS.E.counts, BASKET_BLOCKS.C.counts);
   assert.deepEqual([BASKET_BLOCKS.A.foods, BASKET_BLOCKS.B.foods, BASKET_BLOCKS.D.foods, BASKET_BLOCKS.E.foods], [[2, 3, 4], [2, 2, 3, 4], [2, 3, 3, 4, 4], [2, 3, 4]]);
+  assert.deepEqual(BASKET_BLOCKS.C.foods, [2, 2, 3, 4]);
   // Brannoc, FORAGE0 Appendix A: INT 62 in Woodlands in Frostfall - {0,1,1,2,2,3}[3] then {2,3,3,4,4}[1]
   let i = 0; const draws = [(3 + 0.5) / 6, (1 + 0.5) / 5];
   const d = basketDraw({ intelligence: 62, climate: CLIMATES.Woodlands, monthValue: 9 }, () => draws[i++]);
@@ -192,7 +207,7 @@ test('FORAGE1: Quest Actions Extension\'s arithmetic', () => {
 });
 
 test('FORAGE-FIX: every patch finds its verbatim line the named number of times, and changes only that', () => {
-  assert.deepEqual(Object.keys(FORAGE_FIX_PATCHES).sort(), ['FetchWood01', 'FetchWood02', 'FetchWood03', 'FetchWood04', 'ForageSummerPlantsQuest', 'MiningQuest', 'MiningQuestWeak', 'MiningQuestWeaker', 'MiningQuestWeakest']);
+  assert.deepEqual(Object.keys(FORAGE_FIX_PATCHES).sort(), ['FetchWood01', 'FetchWood02', 'FetchWood03', 'FetchWood04', 'ForageSummerPlantsQuest', 'MiningQuest', 'MiningQuestWeak', 'MiningQuestWeaker', 'MiningQuestWeakest', 'QuestList-ForagingQuests']);
   for (const name of Object.keys(FORAGE_FIX_PATCHES)) {
     const before = quest(name);
     const after = applyForageFix(name, before);
@@ -210,6 +225,10 @@ test('FORAGE-FIX: every patch finds its verbatim line the named number of times,
   assert.equal((quest('ForageSummerPlantsQuest').match(/make _plant4_ permanent/g) ?? []).length, 6, 'the build: the fourth plant made permanent six times');
   assert.equal((summer.match(/make _plant4_ permanent/g) ?? []).length, 3, 'the fix: once in each of _4plant_, _5plant_, _6plant_ - the fourth plant\'s own');
   assert.equal((summer.match(/make _plant6_ permanent/g) ?? []).length, 1);
+  const list = applyForageFix('QuestList-ForagingQuests', quest('QuestList-ForagingQuests'));
+  assert.match(list, /^FetchWood01, Commoners, N, 0, 0,/m, 'Q13');
+  assert.match(list, /^FetchWood04, Nobility, N, 10, 0,/m, 'Q13');
+  assert.doesNotMatch(list, /, (Commoner|Noble), /);
   assert.equal(applyForageFix('ChopWoodQuest', quest('ChopWoodQuest')), quest('ChopWoodQuest'), 'an unpatched quest is untouched');
   assert.throws(() => applyForageFix('FetchWood01', 'nothing here'), /FORAGE-FIX/);
 });

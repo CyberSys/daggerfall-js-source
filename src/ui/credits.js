@@ -365,7 +365,7 @@ export const CREDITS = Object.freeze({
       version: '1.7',
       author: 'Harbinger451',
       what: 'Work for a living in the wilderness (FORAGE1): use a Wood-Axe to chop wood, a Pick-Axe to mine gems and metals, a Sickle to cut plants, a Spade to rob graves, a Fishing-Net to fish and a Basket to forage for food - by daylight, away from towns and foes, as your attributes, the climate and the season allow - and fetch firewood for commoners and nobles. Its quests need four actions from Jagget\u2019s Quest Actions Extension, restated here with thanks.',
-      terms: 'Ported 1:1 from the shipped bundle - the quests verbatim, the script read off its IL, his own textures carried; five bugs mended and recorded - see vendor/foraging/README.md for the permission record.',
+      terms: 'Ported 1:1 from the shipped bundle - the quests verbatim, the script read off its IL, his own textures carried; six bugs mended and recorded - see vendor/foraging/README.md for the permission record.',
       vendor: Object.freeze(['foraging']),
     }),
   ]),

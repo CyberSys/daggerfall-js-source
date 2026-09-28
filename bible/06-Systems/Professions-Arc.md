@@ -78,8 +78,10 @@ lists them in one place.
 | Sigil Stones | template 570 (`src/systems/gateSpoils.js`) | Daedric smithing |
 | Gold | the save's; the guild treasury is the only gold a server holds | Why Marks exist (10.5) |
 
-**Not yet standing - built first**: Foraging (FORAGE1-FORAGE3, `06-Systems/Foraging.md`): the tools, their checks
-(daylight, no foe near, not encumbered), the Basket's foods, the attribute pairs.
+**Standing since FORAGE1-FORAGE2 (2026-09-28)**: Foraging (`06-Systems/Foraging.md`, `src/systems/foragingLaw.js`,
+`src/systems/foragingInstall.js`): the tools and their shelves, their checks (daylight, no foe near, not encumbered),
+the Basket's foods, the attribute pairs. **Still to come**: FORAGE3's loot hooks (a source of tools, not a
+dependency) and FORAGE4's online wait.
 
 ## 3. The professions
 
@@ -191,7 +193,7 @@ two rarities.
 | Ghostwood | 6 | HauntedWoodlands - 1 tree in 20 |
 
 A log saws to **2 planks** (Timberwright 3) at a workbench; a log burns to **1 Charcoal** (Charcoal Burner 2); every
-tree gives **1 Resin** in 4. A Clean Cut (5.2) may drop **Heartwood** (2%): a tier-up plank of the same wood, worth
+tree gives **1 Resin** in 4. Charcoal and Resin are tier 1 (**1** Mark each). A Clean Cut (5.2) may drop **Heartwood** (2%): a tier-up plank of the same wood, worth
 one quality step in any recipe.
 
 ### 4.3 Herbs - DFU's own plants
@@ -245,7 +247,8 @@ Hides cure to **Cured Leather** (tiers 1-3) or **Hardened Leather** (tiers 4-6) 
   potions. A Marks sink; its goods are **bought**, never own. (A fifth, not the Bank's eighth: the counter is never a
   better way to turn Marks into gold than the Bank's exchange.)
 - **Rough Stone** is quarried from rock fields (Mining); **Cut Stone** is cut from it **2:1** (Quarryman 1:1);
-  **Mortar** is made ten at a time from 1 Sulphur, 1 Lead and 5 Rough Stone.
+  **Mortar** is made ten at a time from 1 Sulphur, 1 Lead and 5 Rough Stone. Tiers and Marks values: Rough Stone
+  tier 1 (**1**), Cut Stone tier 2 (**2**), Mortar tier 2 (**2**).
 
 ### 4.6 Gems
 
@@ -318,7 +321,8 @@ DECIDED (Mac: "tree chopping, picking up ingredients, fishing, etc. Active playe
 - **Foraging's checks come first** (FORAGE0 14.3), each with Foraging's own refusal: not inside (except a dungeon
   vein and Hunting), not in a settlement, **daylight 07:00-17:59** (not a dungeon vein, a Motherlode, a gate-touched
   vein or Hunting), not at sea (but Fishing), no foe near (DFU's rest test), not fully encumbered. **The service
-  enforces daylight itself** (section 6); the tool, its wear, the foe and the load are the client's courtesy, which
+  enforces daylight itself** (section 6) - for a surface node other than a Motherlode or a gate-touched vein, and for
+  every Fishing haul; the tool, its wear, the foe and the load are the client's courtesy, which
   the service never sees.
 - **Wear**: a completed act lowers the tool's condition by 1, as a Foraging use does; a tool lasts 50 harvests.
 - **The attribute bands**: Foraging's attribute pair for the tool widens or narrows the act's skill window - x0.85,
@@ -437,16 +441,19 @@ else Foraging's Fish (1605). A **trophy** is the species' own Deep Waters templa
 - **The Stores tab** (section 8) is the only place a Stores material is seen. Moving to the pack is allowed (one-way, law 3);
   a pack item never moves into the Stores.
 - **Origin.** Every unit is **own** or **bought**. Own: this character's harvest (section 6), a craft whose every input
-  was own (section 9), Disenchanting's Essence, a Siege Honour's Spoils. Bought: a market purchase, a filled buy order,
-  a counter's goods (4.5), a craft with any bought input. A craft spends bought units first, so a character's own stay
-  for writs. A unit keeps its origin through a writ's refund and through the guild Stores (a member's own deposit stays
-  own - the guild's people gathered it). A sale makes it bought for the buyer. Only own units raise influence at their
+  was own (section 9), Disenchanting's Essence from an own provenance item (one this character made, never sold), a
+  Siege Honour's Spoils. Bought: a market purchase, a filled buy order, a counter's goods (4.5), a craft with any
+  bought input, Essence from any other provenance item. A craft spends bought units first, so a character's own stay
+  for writs. A unit keeps its origin through a writ's refund, and through the guild Stores only for its depositor: a
+  member's own deposit is own again when that member withdraws it, and bought to any other member who withdraws it -
+  so an Officer cannot turn a guildmate's harvest into their own influence. A sale makes it bought for the buyer. Only own units raise influence at their
   value (section 11; SEAT0 4.2), so Marks cannot buy influence past Tribute's rate and cap.
 - **Food keeps** in the Stores (a warehouse, not a pack); C&C's spoiling starts when it is withdrawn.
 - **Guild Stores**: a guild warehouse at its hall and any seat it holds: any member deposits from their Stores;
   Officers and the Guildmaster withdraw; every movement on a ledger (the guild ledger's trigger pattern).
-- **Seat stockpiles** (SEAT0 7.5): the holder's (fortifications) and each pledged challenger's **Siege Camp** (siege
-  works) - filled only by writs (section 11) and the Levy.
+- **Seat stockpiles** (SEAT0 7.5): the holder's (fortifications), filled by the seat's writs (section 11) and the
+  Levy - the Levy fills only the holder's - and each pledged challenger's **Siege Camp** (siege works), filled only by
+  its guild's writs and **spent at the Turning**: a Ram Kit to the siege it won, the rest burnt.
 
 ## 8. The interface
 
@@ -729,7 +736,7 @@ recruitment**, a **duel challenge**, or a **commission** (section 11).
   who has been in the posting guild 7 days, whose account is bound to that guild for the week (SEAT0 4.2's per-account
   war), and only for **own** units (section 7). Bought units count at Tribute's rate (1 per 10 Marks of value) inside
   Tribute's cap; a counter's goods never count; anyone else's delivery earns the pay alone. A Siege Camp's stock is
-  **burnt at the Turning** and never withdrawn; the holder's stockpile is spent by its projects, never withdrawn - so a
+  **spent at the Turning** - a Ram Kit to the siege it won, the rest burnt - and never withdrawn; the holder's stockpile is spent by its projects, never withdrawn - so a
   unit raises influence once.
 - **Commissions**: a player posts a writ naming a crafter and a product; only that crafter can fill it; the item
   passes through the board (its provenance kept).
@@ -791,15 +798,15 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF0** | This record | - |
 | **MARKS1** | Marks: balances, the guild Marks treasury, the ledger, the Bank's exchange, the weekly report; the first faucet is the gate's receipts (Court writs come with PROF1's Stores - a writ filled from the pack would be a save item bought with Marks) | Every faucet capped and pinned; gold never becomes Marks, pinned |
 | **NOTICE1** | The Notice Board: DFU's board opens it online, the rumour pinned first; boards stood where a seat or hub lacks one; the Notices and Work tabs; player notes | Offline the board is byte-for-byte DFU's (the ROAD A9 pins hold) |
-| **PROF1** | The Stores; **Herbalism** with its act; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack. **Needs FORAGE3** - the tools reach shelves and loot only there (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
-| **PROF2** | Mining and Quarrying with their acts; smelting; ores and ingots (610-630) | Veins placed on rock fields; signatures by kingdom. Needs FORAGE3 (the Pick-Axe) |
+| **PROF1** | The Stores; **Herbalism** with its act; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
+| **PROF2** | Mining and Quarrying with their acts; smelting; ores and ingots (610-630) | Veins placed on rock fields; signatures by kingdom. Needs FORAGE1-2 (shipped: the Pick-Axe) |
 | **PROF3** | Smithing with its act; quality; provenance; the forge | A crafted Mithril Longsword is DFU's, with its quality |
-| **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE3 (the Wood-Axe) |
+| **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
 | **PROF5** | The Market tab: listings, regional markets, couriers, buy orders, history | Needs MARKS1, NOTICE1, PROF3 |
 | **PROF5b** | Timed auctions for Masterworks | - |
 | **PROF6** | Writs: guild, seat, commissions, bounties | Needs SEAT1b for seat writs |
-| **PROF7** | Hunting (the trace), the Skinning Knife (603: its template, its online shelves); Outfitting | Needs FORAGE3 (the shelves' registry) |
-| **PROF8** | Fishing with the net (the throw, the tug, the haul) | Needs FORAGE3 (the net) and FORAGE2's three-valued water state in `scenes/world.js` |
+| **PROF7** | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | Needs FORAGE1-2 (shipped: the shelves' registry) |
+| **PROF8** | Fishing with the net (the throw, the tug, the haul) | Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
 | **PROF9** | Cooking | - |
 | **PROF10** | Jewelcrafting | - |
 | **PROF11** | Masonry | Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
@@ -918,10 +925,10 @@ Enhanced Plus windows, in its brass and bone; layouts, not art. The board's Seat
 | Search [mithril        ]   Family [Ores and Metals v]   Tier [any v]   Sort [price v]      |
 +--------------------------------------------------------------------------------------------+
 | Mithril Ore       x120    8 Marks each   here                    median 8.4   _/\_/        |
-| Mithril Ore       x40     7 Marks each   Wayrest  +3 courier, 45 minutes                   |
+| Mithril Ore       x40     7 Marks each   Wayrest  +26 courier, 45 minutes                  |
 | Mithril Ingot     x12    21 Marks each   here                    median 22    __/          |
 +--------------------------------------------------------------------------------------------+
-| Buy 40 Mithril Ore for 280 Marks + 3 courier?     [Buy]          Your Marks: 1,240         |
+| Buy 40 Mithril Ore for 280 Marks + 26 courier?    [Buy]          Your Marks: 1,240         |
 +--------------------------------------------------------------------------------------------+
 ```
 
@@ -990,7 +997,7 @@ Enhanced Plus windows, in its brass and bone; layouts, not art. The board's Seat
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven, when the wilderness opens. The board's Work tab has a
 Court writ for 30 Red Poppies (uncommon, tier 2: 30 x 2 x 1.2 = 72 Marks) and the Market's poppy median is 3. She walks
 the woods east of town: Woodlands pixels, four herb patches each. Kneeling at a Red Rose she holds the sickle steady -
-the meter fills, unbruised. By noon she has 34 Red Poppies (the march's +25%), 60 of 60 of today's herbs, and 1,800
+the meter fills, unbruised. By noon she has 34 Red Poppies (the march's +25%), 60 of 60 of today's herbs, and some 1,800
 Herbalism XP. She delivers 30 poppies at Anticlere's board (72 Marks and 150 Renown XP; a Court writ gives no
 influence - only a seat's own writs do), lists 4 Golden Poppies at 12 Marks each, and spends the afternoon at the vein
 on the hill: an Iron vein, the march's +25% on it - two strikes, both on the glint (a clean finish), and an Amber (Woodlands' gem).
@@ -1039,7 +1046,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Marks | ~10 gold of play; balance cap 10,000,000; Bank: 1 Mark -> 8 gold, 300 a day |
 | Faucets | Court writs 3 a day (from PROF1); gate 50 a receipt, 2 a UTC day; Honours 50 / 25; Motherlode 10, one a day |
 | Court writs | 6 x max(1, ceil(active / 100)) a region a day, witnessed materials only, 10-50 units, pay x 1.2, Renown 25 x tier x units / 10 |
-| Writ influence | own units at their value, from a 7-day member bound to the guild; bought at Tribute's rate in its cap; counter goods never; a Siege Camp burnt at the Turning |
+| Writ influence | own units at their value, from a 7-day member bound to the guild; bought at Tribute's rate in its cap; counter goods never; a Siege Camp spent at the Turning (a Ram Kit to the siege it won, the rest burnt) |
 | Player notes | 3 an account, 7 days; 30 a board |
 
 ## Appendix C - the economy model
@@ -1094,9 +1101,12 @@ What the table means, and why each number is where it is:
   at three hundred **0.81** - gently deflationary at the edges, which is safe, because the Bank's exchange is a
   voluntary valve: players stop selling Marks for gold when Marks grow scarce.
 - **Scaling every seat's upkeep** with the server was tried and rejected: seats held already grow with the server, so
-  it counted the growth twice (0.62 at three hundred). Only the crown's fixed cost is out of proportion on a small
+  it counted the growth twice (at three hundred accounts **0.73**, against 0.81; re-run with the fold). Only the crown's fixed cost is out of proportion on a small
   server, so only the crown scales (SEAT0 7.1).
+
+**What the model leaves out**: on the faucet side the Motherlodes (10 Marks, one a day) and the Honours (50 / 25); on
+the sink side the Tribute, the forts, Festivals, heraldry, respecs and the Board's counters. Each is small beside the
+writs and the Bank's exchange, and all of them are in the weekly report the re-run below reads.
 
 MEASURED: the model's players are assumptions. After four weeks of MARKS1 the weekly report (10.5) replaces them
 with the server's own, and the model is re-run on those.
-

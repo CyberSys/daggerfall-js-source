@@ -12,7 +12,7 @@
 // tables load from one place.
 
 import { loadQuestTables } from '../systems/quest/tables.js';
-import { applyForageFix } from '../systems/foragingLaw.js';   // FORAGE-FIX: Foraging's five mends, applied as its quests are read
+import { applyForageFix } from '../systems/foragingLaw.js';   // FORAGE-FIX: Foraging's quest and list patches, applied as they are read
 
 const tableFiles = import.meta.glob('../../vendor/dfu-quests/Tables/*.txt', { query: '?raw', import: 'default' });
 const questFiles = import.meta.glob('../../vendor/dfu-quests/Quests/*.txt', { query: '?raw', import: 'default' });
@@ -49,12 +49,16 @@ export async function loadQuestPack() {
     }));
     await Promise.all(Object.entries(modQuestFiles).map(async ([path, load]) => {
       const name = baseName(path);
-      if (name.startsWith('QuestList-')) tables.set(name, stripBom(await load()));
-      else {
-        const text = stripBom(await load());
-        // FORAGE-FIX (bible/06-Systems/Foraging.md 12): the five mends, over the author's own text - never an edit of it
-        quests.set(name, (path.includes('/vendor/foraging/') ? applyForageFix(name, text) : text).split(/\r?\n/));
+      const text = stripBom(await load());
+      // FORAGE-FIX (bible/06-Systems/Foraging.md 12): Foraging's quest and list patches (Q7-Q9, Q13) over the author's
+      // own text - never an edit of it. A patch that no longer finds its line is a changed file: it warns and the
+      // author's text loads as shipped, so one mod's patch can never take the whole pack (and the scene) down with it.
+      let patched = text;
+      if (path.includes('/vendor/foraging/')) {
+        try { patched = applyForageFix(name, text); } catch (e) { console.warn(`[questData] ${e.message} - loaded as shipped`); }
       }
+      if (name.startsWith('QuestList-')) tables.set(name, patched);
+      else quests.set(name, patched.split(/\r?\n/));
     }));
     loadQuestTables(Object.fromEntries(tables));
     return {

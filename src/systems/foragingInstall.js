@@ -89,7 +89,9 @@ function give(entity, templateIndex, n) {
     if (item) addItem(entity.items, item, 'back');
   }
 }
-const startQuest = (name) => { _host?.startQuest?.(name); };
+/** QuestMachine.StartQuest(GetQuest(name, 0)); false when no quest was found - DFU's StartQuest(null) throws there,
+ *  which ends the use before its wear, so the port wears nothing then either. */
+const startQuest = (name) => !!_host?.startQuest?.(name);
 
 // ---- the six tools -----------------------------------------------------
 
@@ -118,34 +120,35 @@ export function useForagingTool(item, collection, { entity } = {}) {
   const s = stats(entity);
   const cc = survivalOn();
   let text = null;
+  let started = false;
   switch (item.templateIndex) {
     case FT.WoodAxe: {
       const n = woodAxeBundles({ ...s, climate: w.climate }, _random);
       give(entity, FT.WoodBundle, n);
       text = woodAxeMessage(n);
-      startQuest(TOOL_QUESTS[FT.WoodAxe]);
+      started = startQuest(TOOL_QUESTS[FT.WoodAxe]);
       break;
     }
-    case FT.PickAxe: startQuest(pickAxeQuest(s)); break;
-    case FT.Sickle: startQuest(sickleQuest(w.climate, _host?.monthValue?.() ?? 0)); break;
+    case FT.PickAxe: started = startQuest(pickAxeQuest(s)); break;
+    case FT.Sickle: started = startQuest(sickleQuest(w.climate, _host?.monthValue?.() ?? 0)); break;
     case FT.FishingNet: {
       const n = fishingCount(s, _random);
       give(entity, fishTemplate(cc), n);
       text = fishingMessage(n);
-      startQuest(TOOL_QUESTS[FT.FishingNet]);
+      started = startQuest(TOOL_QUESTS[FT.FishingNet]);
       break;
     }
-    case FT.Spade: startQuest(spadeQuest(s, false)); break;   // Cheb's Necromancy is not in the port: never its family
+    case FT.Spade: started = startQuest(spadeQuest(s, false)); break;   // Cheb's Necromancy is not in the port: never its family
     case FT.Basket: {
       const find = basketFind(basketDraw({ intelligence: s.intelligence, climate: w.climate, monthValue: _host?.monthValue?.() ?? 0 }, _random), cc);
       give(entity, find.templateIndex, find.count);
       text = find.message;
-      startQuest(TOOL_QUESTS[FT.Basket]);
+      started = startQuest(TOOL_QUESTS[FT.Basket]);
       break;
     }
     default: return null;
   }
-  wear(item, collection, entity);
+  if (started) wear(item, collection, entity);
   return { kind: 'foraging', text };   // the box over the open inventory (ClickAnywhereToClose)
 }
 
@@ -160,10 +163,7 @@ export function eatForagingFood(item, collection, { entity } = {}) {
   entity.fatigue = Math.min(maxFatigue(entity), (entity.fatigue ?? 0) + f.fatigue * FATIGUE_MULTIPLIER);   // IncreaseFatigue(n, true)
   if (f.health) entity.health = Math.min(entity.maxHealth ?? Infinity, (entity.health ?? 0) + f.health);   // IncreaseHealth
   if (f.magicka) entity.magicka = Math.min(entity.maxMagicka ?? Infinity, (entity.magicka ?? 0) + f.magicka);   // IncreaseMagicka
-  if (collection) {
-    if ((item.stackCount ?? 1) > 1) item.stackCount -= 1;
-    else { const i = collection.indexOf(item); if (i >= 0) collection.splice(i, 1); }
-  }
+  if (collection) { const i = collection.indexOf(item); if (i >= 0) collection.splice(i, 1); }   // RemoveItem(this): the item whole (they never stack)
   return { kind: 'foraging' };
 }
 
@@ -171,6 +171,8 @@ export function eatForagingFood(item, collection, { entity } = {}) {
 
 /** Foraging_Tools: one of each tool, offline; refused online (FORAGE0 8). */
 export function foragingToolsCommand() {
+  // A switched-off mod has no command in DFU: answer as the console answers a name it does not know (GetCommand).
+  if (!foragingOn()) return `Command ${FORAGING_COMMAND.name.toUpperCase()} not found.`;
   if (isOnlinePage()) return FORAGING_COMMAND.refusedOnline;
   const entity = _host?.entity?.();
   if (!entity) return FORAGING_COMMAND.answer;

@@ -19,7 +19,7 @@ import {
 import { FT, FORAGING_REFUSALS, FORAGING_COMMAND, fishTemplate } from '../src/systems/foragingLaw.js';
 import { RaiseTime, ReducePlayerFatigue, PlayerPossesses, PlayerHandsover, questActionsExtensionTemplates, lengthOrStackCount } from '../src/systems/quest/questActionsExtension.js';
 import { applyForageFix } from '../src/systems/foragingLaw.js';
-import { itemUseHandler } from '../src/systems/itemTemplates.js';
+import { itemUseHandler, registerItemUseHandler } from '../src/systems/itemTemplates.js';
 import { registerPresenter } from '../src/systems/notify.js';
 import { setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
 import { survivalOn } from '../src/systems/survival/switch.js';
@@ -101,6 +101,12 @@ test('FORAGE2: at its last point the tool still works, then DFU\'s popup and the
   assert.deepEqual(started, ['MiningQuestWeaker'], '(62 + 50) / 2 = 56');
   assert.deepEqual(heard, ['Pick-Axe has broken.', 'Your Pick-Axe broke.']);
   assert.deepEqual(pack, []);
+  heard.length = 0;
+  setForagingHost({ world: () => OPEN, monthValue: () => 9, entity: () => e, startQuest: () => false });
+  const lost = createForagingItem(FT.PickAxe);
+  useForagingTool(lost, [lost], { entity: e });
+  assert.equal(lost.currentCondition, 50, 'no quest found: DFU\'s StartQuest(null) throws before the wear');
+  assert.deepEqual(heard, []);
 });
 
 test('FORAGE2: the Sickle by climate and month, the Spade in a cemetery by night, the net in water', () => {
@@ -147,6 +153,10 @@ test('FORAGE2: the foods - fatigue in points, health or magicka, one eaten, a HU
   assert.equal(e.fatigue, (40 + 15 + 5) * FATIGUE_MULTIPLIER);
   assert.deepEqual(pack, []);
   assert.deepEqual(heard, ['You eat an Egg and feel better for it!', 'You eat a Mushroom and feel better for it!']);
+  const two = createForagingItem(FT.Apple); two.stackCount = 2;
+  const shelf = [two];
+  eatForagingFood(two, shelf, { entity: e });
+  assert.deepEqual(shelf, [], 'RemoveItem(this): the item whole, as DFU - never one off a stack');
   const full = player(); full.fatigue = (55 + 50) * FATIGUE_MULTIPLIER; full.health = 99;
   eatForagingFood(createForagingItem(FT.Fish), [], { entity: full });
   assert.equal(full.fatigue, (55 + 50) * FATIGUE_MULTIPLIER, 'never past the maximum');
@@ -180,6 +190,10 @@ test('FORAGE1: Foraging_Tools - the six tools offline, refused online', () => {
   globalThis.location = { search: '?online=1' };
   try { assert.equal(foragingToolsCommand(), 'Foraging Tools are not given online.'); } finally { globalThis.location = was; }
   assert.equal(e.items.length, 6);
+  setModSetting('foraging', 'Enabled', false);
+  assert.equal(foragingToolsCommand(), 'Command FORAGING_TOOLS not found.', 'switched off: no command at all, as DFU');
+  assert.equal(e.items.length, 6);
+  _resetModSettings();
 });
 
 // ---- Quest Actions Extension ------------------------------------------------
@@ -190,7 +204,7 @@ const questWith = (entity, clock = { now: 0, raised: [] }) => ({
 });
 const bundle = () => createForagingItem(FT.WoodBundle);
 
-test('QAE: raise time by H:MM is a bare advance; "to H:MM" alone never parses (the missing |); "by ... saying" keeps its saying', () => {
+test('QAE: raise time by H:MM is a bare advance; "to H:MM" alone never parses (the missing |), nor "by ... saying" (its saying unread); 0:00 is refused', () => {
   const clock = { now: 0, raised: [] };
   const q = questWith(player(), clock);
   const t = new RaiseTime(null);
@@ -201,7 +215,8 @@ test('QAE: raise time by H:MM is a bare advance; "to H:MM" alone never parses (t
   assert.equal(t.createNew('raise time to 18:00', q), null);
   const saying = t.createNew('raise time by 2:00 saying 1013', q);
   assert.equal(saying.hours, 2);
-  assert.equal(saying.sayingID, 1013, '.NET tries the alternatives in order at each position: "by ... saying" comes before the bare "by"');
+  assert.equal(saying.sayingID, 0, 'the glued second alternative is the only "saying" after a "by": this line is the bare "by"');
+  assert.equal(t.createNew('raise time by 0:00', q), null, 'CreateNew: nothing to raise, no action');
 });
 
 test('QAE: reduce player fatigue by N takes N percent of the maximum, never below 1', () => {
@@ -213,6 +228,9 @@ test('QAE: reduce player fatigue by N takes N percent of the maximum, never belo
   const b = new ReducePlayerFatigue(null).createNew('reduce player fatigue by 25', q);
   for (let i = 0; i < 4; i++) { b.isComplete = false; b.update(null); }
   assert.equal(e.fatigue, 1, 'the floor of 1');
+  const over = player(); over.fatigue = 200 * FATIGUE_MULTIPLIER;   // a maximum that fell under the current (a lost buff)
+  new ReducePlayerFatigue(null).createNew('reduce player fatigue on 1', questWith(over)).update(null);
+  assert.equal(over.fatigue, (55 + 50) * FATIGUE_MULTIPLIER, 'CurrentFatigue\'s setter: never above the maximum');
 });
 
 test('QAE: player possesses counts pack and wagon, no quest items; handsover takes the pack first, then the wagon (Q11)', () => {
@@ -273,7 +291,9 @@ test('FORAGE1: the wiring - boot installs it, both exterior hosts register QAE\'
   assert.match(rd('src/scenes/worldModes.js'), /player\.onExteriorWaterMethod = 'None';/);
   const loader = rd('src/scenes/questData.js');
   assert.match(loader, /vendor\/foraging\/Quests\/\*\.txt/);
-  assert.match(loader, /path\.includes\('\/vendor\/foraging\/'\) \? applyForageFix\(name, text\) : text/);
+  assert.match(loader, /if \(path\.includes\('\/vendor\/foraging\/'\)\) \{\n\s*try \{ patched = applyForageFix\(name, text\); \} catch/, 'a failed patch warns and loads the shipped text');
+  assert.match(loader, /if \(name\.startsWith\('QuestList-'\)\) tables\.set\(name, patched\);/, 'Q13: the list is patched too');
+  assert.match(rd('src/scenes/world.js'), /enemiesNear: exterior \? \(duelEnemyNear\(\) \|\| areEnemiesNearby\(/, 'DUEL1: a duel is an enemy near');
 });
 
 test('FORAGE1: a General Store and a Pawn Shop shelve the tools by DFU\'s own custom-item loop, and not while the switch is off', async () => {
@@ -291,4 +311,29 @@ test('FORAGE1: a General Store and a Pawn Shop shelve the tools by DFU\'s own cu
   assert.deepEqual(customItemsForGroup('UselessItems2'), []);
   assert.deepEqual(foraging(stockShopShelf({ buildingType: BUILDING_TYPES.GeneralStore, quality: 20 }, player(), { rolls: () => 0 })), []);
   _resetModSettings();
+});
+
+test('FORAGE1: a tool pressed from the hotbar that its checks refuse flashes the refusal, never gold - the HUD line is the tool\'s own', async () => {
+  const HB = await import('../src/systems/quickslots.js');
+  _resetModSettings(); heard.length = 0;
+  const prev = itemUseHandler(FT.Sickle);
+  registerItemUseHandler(FT.Sickle, Object.assign((item, collection, ctx) => useForagingTool(item, collection, ctx), { usable: () => foragingOn() }));
+  const e = player();
+  const sickle = createForagingItem(FT.Sickle);
+  e.items.push(sickle);
+  e.isPlayer = true; e.activeEffects = []; e.spells = [];
+  const said = [];
+  const doors = { quickUse: () => { HB.useQuickslot('c1', { entity: e, items: e.items, say: (l) => said.push(l) }); return true; } };
+  try {
+    HB.clearQuickslots();
+    HB.setHotbarSlot(0, HB.hotbarEntryForItem(sickle));
+    host({ ...OPEN, hour: 20 });
+    assert.equal(HB.hotbarPress(0, { entity: e, doors, say: (l) => said.push(l) }).kind, 'refused');
+    assert.deepEqual(heard, [FORAGING_REFUSALS[FT.Sickle].daylight]);
+    assert.deepEqual(said, [], 'no "You cannot use" over the tool\'s own line');
+    heard.length = 0;
+    const started = host();
+    assert.equal(HB.hotbarPress(0, { entity: e, doors, say: (l) => said.push(l) }).kind, 'used', 'in daylight it works');
+    assert.equal(started.length, 1);
+  } finally { HB.clearQuickslots(); registerItemUseHandler(FT.Sickle, prev); }
 });

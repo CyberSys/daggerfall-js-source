@@ -146,8 +146,9 @@ function checkFails(check, w) {
     case 'daylight': return !isForagingDaylight(w.hour);
     case 'sea': return w.climate === CLIMATES.Ocean;
     case 'enemies': return !!w.enemiesNear;
-    // `(float)CarriedWeight < MaxEncumbrance` (blt.un) passes; anything else refuses.
-    case 'encumbered': return !(w.carriedWeight < w.maxEncumbrance);
+    // `(float)CarriedWeight < MaxEncumbrance` (blt.un) passes - and an unordered compare (NaN) passes too; only an
+    // ordered not-less refuses.
+    case 'encumbered': return w.carriedWeight >= w.maxEncumbrance;
     case 'cemetery': return !(w.inLocationRect && w.locationType === LOCATION_TYPES.Graveyard);
     case 'water': return !netHasWater(w);
     default: return false;
@@ -331,6 +332,13 @@ const fetchPatches = (n) => Object.freeze([
   { old: `\tplayer handsover ${n} items class 20 subclass 1604`, new: `\tplayer handsover ${n} items class 9 subclass 1604`, count: 1 },
 ].map(Object.freeze));
 export const FORAGE_FIX_PATCHES = Object.freeze({
+  // Q13: the list files the four fetch quests under `Commoner` and `Noble`, which name no social group - DFU's
+  // ParseQuestList files a row only under an exact FactionFile.SocialGroups name (QuestListsManager.cs:223-251), so the
+  // quests were never offered, in DFU or here. `Commoners` and `Nobility` are the groups the author meant.
+  'QuestList-ForagingQuests': Object.freeze([
+    { old: ', Commoner, ', new: ', Commoners, ', count: 2 },
+    { old: ', Noble, ', new: ', Nobility, ', count: 2 },
+  ].map(Object.freeze)),
   MiningQuest: miningPatches(), MiningQuestWeak: miningPatches(), MiningQuestWeaker: miningPatches(), MiningQuestWeakest: miningPatches(),
   FetchWood01: fetchPatches(2), FetchWood02: fetchPatches(4), FetchWood03: fetchPatches(6), FetchWood04: fetchPatches(8),
   // Q9: the fifth and sixth plants made permanent, not the fourth again.
@@ -340,11 +348,12 @@ export const FORAGE_FIX_PATCHES = Object.freeze({
   ].map(Object.freeze)),
 });
 
-/** A quest's text with its FORAGE-FIX patches applied (unchanged when it has none). Throws on a mismatch. */
+/** A quest's (or the list's) text with its FORAGE-FIX patches applied (unchanged when it has none). Line endings are
+ *  read as LF first - a checkout that turned the files to CRLF patches the same. Throws on a mismatch. */
 export function applyForageFix(questName, text) {
   const patches = FORAGE_FIX_PATCHES[questName];
   if (!patches) return text;
-  let out = text;
+  let out = text.replace(/\r\n?/g, '\n');
   for (const p of patches) {
     const found = out.split(p.old).length - 1;
     if (found !== p.count) throw new Error(`FORAGE-FIX: ${questName} holds "${p.old.trim()}" ${found} times, not ${p.count}`);

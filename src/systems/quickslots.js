@@ -366,6 +366,8 @@ function useQuickslotNow(slot, { entity = null, items = null, hooks = {}, say = 
     say?.(USE_PENDING[res.kind]);
     return { kind: 'refused', name: r.name, result: res };
   }
+  // FORAGE1: a mod's use that REFUSED (Foraging's checks - the HUD already said why) is a refusal, never gold
+  if (res?.refused) return { kind: 'refused', name: r.name, result: res };
   // UI2: AND WHAT HAS NO USE SAYS SO. UseItem's catch-all does nothing and says nothing (DFU's own - the pack's click
   // on a pair of prayer beads is silent), which from a slot on the HUD, with no window to look at, is a key that seems
   // dead. The slot names it and flashes the refusal.

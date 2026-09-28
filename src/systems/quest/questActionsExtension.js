@@ -88,11 +88,12 @@ function heldCounts(entity, itemClass, itemSubClass) {
 }
 
 const RAISE_TIME = Object.freeze([
-  // RaiseTime.cs's Pattern, alternative by alternative - with the `|` the file forgot between its second and third,
-  // so its second is `raise time to H:MMraise time by H:MM saying N` and a bare `raise time to H:MM` never matches.
+  // RaiseTime.cs's Pattern, alternative by alternative: THREE, not four - the file forgot the `|` between its second
+  // and third lines, so its second alternative is `raise time to H:MMraise time by H:MM saying N` and neither a bare
+  // `raise time to H:MM` nor `raise time by H:MM saying N` exists on its own (the latter matches as the bare `by`, its
+  // saying unread).
   /raise time to (?<hoursTo>\d+):(?<minutesTo>\d+) saying (?<sayingID>\d+)/,
   /raise time to (?<hoursTo>\d+):(?<minutesTo>\d+)raise time by (?<hours>\d+):(?<minutes>\d+) saying (?<sayingID>\d+)/,
-  /raise time by (?<hours>\d+):(?<minutes>\d+) saying (?<sayingID>\d+)/,
   /raise time by (?<hours>\d+):(?<minutes>\d+)/,
 ]);
 
@@ -104,7 +105,7 @@ export class RaiseTime extends ActionTemplate {
     super(parentQuest);
     this.hours = 0; this.minutes = 0; this.hoursTo = 0; this.minutesTo = 0; this.sayingID = 0;
   }
-  get pattern() { return RAISE_TIME[3]; }
+  get pattern() { return RAISE_TIME[2]; }
   test(source) { return matchAlternatives(RAISE_TIME, source)?.m ?? null; }
   createNew(source, parentQuest) {
     const m = this.test(source);
@@ -116,6 +117,7 @@ export class RaiseTime extends ActionTemplate {
     a.hoursTo = g.hoursTo != null ? Math.min(Math.max(Number(g.hoursTo), 0), 23) : 0;
     a.minutesTo = g.minutesTo != null ? Math.min(Math.max(Number(g.minutesTo), 0), 59) : 0;
     a.sayingID = g.sayingID != null ? Number(g.sayingID) : 0;
+    if (a.hours + a.minutes + a.hoursTo + a.minutesTo === 0) return null;   // CreateNew's own refusal: DFU drops the line
     return a;
   }
   update(_caller) {
@@ -157,7 +159,7 @@ export class ReducePlayerFatigue extends ActionTemplate {
       let fatigue = 0;
       if (this.percent > 0) fatigue = reduceFatigueBy(current, maxFatigue(e), this.percent);
       if (this.amount > 0) fatigue = current - this.amount;
-      e.fatigue = Math.max(1, fatigue);
+      e.fatigue = Math.min(maxFatigue(e), Math.max(1, fatigue));   // then CurrentFatigue's setter clamps to the maximum
     }
     this.setComplete();
   }
