@@ -136,12 +136,23 @@ export function createArrestFlow({
   // one-level replacement that leaves the backdrop beneath, which is
   // exactly what townTalk.showOverlay does now.
   let courtScreen = null;
+  /** AUDIT DISC28 AR-1: THE TRIAL UNDER WAY, as a token - the windows it has put up, and the one thing every step it
+   *  armed (a plea's answer, the verdict box's close, the prison's end and its close) asks before it acts: is my trial
+   *  still the one standing? A load ends it (`abandon`, below) without running it to its release, and a step armed for
+   *  a trial that is no longer standing does nothing at all - the boxes it drains and the keys that reach them before
+   *  the drain act on no game. Null between trials. */
+  let trial = null;
+  /** A window the trial puts up, remembered so `abandon` can take it down. */
+  const own = (win) => { trial?.windows.add(win); return win; };
+  /** A step of the trial now standing: it runs only while that same trial stands. */
+  const step = (fn) => { const t = trial; return (...args) => (t && trial === t ? fn(...args) : undefined); };
   function openCourtScreen() {
-    courtScreen = new CourtScreenWindow();
+    courtScreen = own(new CourtScreenWindow());
     townTalk.showOverlay(courtScreen);
   }
   /** One box of the trial, over the courtroom. */
   function courtBox(win, onClosed = null) {
+    own(win);
     if (courtScreen && townTalk.overlay === courtScreen) townTalk.pushOverlay(win, onClosed);
     else townTalk.showOverlay(win, onClosed);
   }
@@ -236,11 +247,15 @@ export function createArrestFlow({
       // (PostFastTravel, world.js) with the box still up. An answer read after that is a surrender to nothing: Y used
       // to march the player into a court with no crime. The answer re-reads the crime, and crimeCleared() below
       // withdraws the question the moment the crime goes - DFU cannot reach either, its box pauses the world.
+      // AUDIT DISC28 AR-1: and a WITHDRAWN question answers nothing. The box is withdrawn (withdrawQuestion, below: a
+      // cleared crime, or a load) by being marked done, and it drains on the next frame - a key, or the enhanced
+      // dialog's button, that reaches it before then must not surrender a character the box never asked (a load's,
+      // wanted for a crime of its own) nor land the departed guard's blow on them.
       const box = new ChoiceWindow({
         lines: text(TEXT_SURRENDER, 'Halt! You are under arrest. Do you surrender?'),
         options: [
-          { code: 'KeyY', label: 'Y - surrender', action: () => { awaitingSurrenderAnswer = false; if (crimeId() === 0) return; if (surrenderToCityGuards(playerEntity, region(), true, { setHealth1: () => { playerEntity.health = 1; } })) startCourtFlow(); } },
-          { code: 'KeyN', label: 'N - fight on', action: () => { awaitingSurrenderAnswer = false; if (crimeId() !== 0) applyDamage(); } },
+          { code: 'KeyY', label: 'Y - surrender', action: () => { if (surrenderBox !== box) return; awaitingSurrenderAnswer = false; if (crimeId() === 0) return; if (surrenderToCityGuards(playerEntity, region(), true, { setHealth1: () => { playerEntity.health = 1; } })) startCourtFlow(); } },
+          { code: 'KeyN', label: 'N - fight on', action: () => { if (surrenderBox !== box) return; awaitingSurrenderAnswer = false; if (crimeId() !== 0) applyDamage(); } },
         ],
       });
       // JAIL-HIT: the question is the box's. A box thrown away unanswered - another window REPLACED it, and
@@ -304,6 +319,7 @@ export function createArrestFlow({
     // courtroom with no box and `arrested` standing, which is every damage veto on and nothing that can close it.
     const court = startCourt(playerEntity, region(), crimeId(), { rolls });
     if (!court) return;
+    trial = { windows: new Set() };   // AUDIT DISC28 AR-1: this trial's token - its windows and its steps are its own
     // PlayerEntity.CourtWindow (:2341) sets `arrested` immediately before
     // the court window opens, and DaggerfallCourtWindow.OnPop (:435)
     // clears it. Its ONE consumer is the music: SongManager checks
@@ -340,8 +356,8 @@ export function createArrestFlow({
     courtBox(new ChoiceWindow({
       lines: [courtMacros(text(TEXT_COURT_START, 'You stand accused. How do you plead?')[0] ?? '', court)],
       options: [
-        { code: 'KeyG', label: 'G - guilty', action: () => finish(pleaGuilty(court, playerEntity), court) },
-        { code: 'KeyN', label: 'N - not guilty', action: () => notGuilty(court) },
+        { code: 'KeyG', label: 'G - guilty', action: step(() => finish(pleaGuilty(court, playerEntity), court)) },
+        { code: 'KeyN', label: 'N - not guilty', action: step(() => notGuilty(court)) },
       ],
     }));
   }
@@ -350,8 +366,8 @@ export function createArrestFlow({
     courtBox(new ChoiceWindow({
       lines: text(TEXT_HOW_CONVINCE, 'How will you convince the court?'),
       options: [
-        { code: 'KeyD', label: 'D - debate (Etiquette)', action: () => verdict(court, true) },
-        { code: 'KeyL', label: 'L - lie (Streetwise)', action: () => verdict(court, false) },
+        { code: 'KeyD', label: 'D - debate (Etiquette)', action: step(() => verdict(court, true)) },
+        { code: 'KeyL', label: 'L - lie (Streetwise)', action: step(() => verdict(court, false)) },
       ],
     }));
   }
@@ -381,7 +397,7 @@ export function createArrestFlow({
     }
     if (r.outcome === 'banished') { finish({ outcome: 'banished' }, court); return; }
     courtBox(new ChoiceWindow({ lines: courtLines(TEXT_FOUND_GUILTY, 'The court finds you guilty.', court) }),
-      () => finish(resolveGuiltyVerdict(court, playerEntity), court));
+      step(() => finish(resolveGuiltyVerdict(court, playerEntity), court)));
   }
 
   function finish(result, court) {
@@ -443,14 +459,14 @@ export function createArrestFlow({
       // found-guilty box it replaces is gone and the courtroom is still
       // underneath. Same screen, a different owner - named in
       // ui/prisonScreen.js's header.
-      townTalk.showOverlay(new PrisonScreenWindow({
+      townTalk.showOverlay(own(new PrisonScreenWindow({
         daysInPrison: days,
         localizedText,
         speedUp: backButtonHeld,
         // UpdatePrisonScreen's zero arm (:471-479), in ITS order:
         // both prevent flags, THEN the one RaiseTime of the whole
         // sentence, then InPrison clears and the vitals refill.
-        onEndPrisonTime: () => {
+        onEndPrisonTime: step(() => {
           // AUDIT 24 (the seven-slice sweep) put the normalizing flag
           // here; :473 is its twin, and the twin had no port at all.
           // The catch-up spawn loop reads it (encounters.js's
@@ -503,11 +519,11 @@ export function createArrestFlow({
           // this is still not the free heal C9 removed.
           if (!sharedClockOn()) fillVitalSigns(playerEntity);
           else reviveForPlay(playerEntity);
-        },
+        }),
       // The window closes into state 100 with InPrison false, which is
       // ReleaseFromPrison (:318) - and repositionPlayer was set back
       // at :260, so the release puts the player at the entrance.
-      }), () => release());
+      })), step(() => release()));
       return;
     }
     // AUDIT 18 F6: NO box here. The zero-days arms - the guilty plea
@@ -620,16 +636,50 @@ export function createArrestFlow({
    *  live one. */
   function dispose() { registerPlayerDamageVeto(null); }
 
-  /** DISC28-B: the crime a standing surrender question asks about is gone (the fast-travel arrival clears it,
-   *  world.js) - the question goes with it. The box is closed the way an answer closes it (`done`, drained by
-   *  townTalk's frame), and the damage veto it held drops now: a question nobody can usefully answer must not keep
-   *  the player unhittable. A trial already under way is not a question and is left to its own release. */
-  function crimeCleared() {
-    if (crimeId() !== 0 || !surrenderBox) return;
+  /** THE QUESTION WITHDRAWN, one home for the two doors that end it with no answer - a cleared crime
+   *  (`crimeCleared`) and a load (`abandon`). The box is closed the way an answer closes it (`done`, drained by
+   *  townTalk's frame), its two arms answer nothing from here on (AUDIT DISC28 AR-1's guard in onGuardHit), and the
+   *  damage veto it held drops now: a question nobody can usefully answer must not keep the player unhittable. */
+  function withdrawQuestion() {
     const box = surrenderBox;
     surrenderBox = null;
     awaitingSurrenderAnswer = false;
-    box.done = true;
+    if (box) box.done = true;
   }
-  return { onGuardHit, startCourtFlow, inCourt, crimeCleared, dispose };
+
+  /** DISC28-B: the crime a standing surrender question asks about is gone (the fast-travel arrival clears it,
+   *  world.js) - the question goes with it. A trial already under way is not a question and is left to its own
+   *  release. */
+  function crimeCleared() {
+    if (crimeId() !== 0 || !surrenderBox) return;
+    withdrawQuestion();
+  }
+
+  /**
+   * AUDIT DISC28 AR-1: A LOAD ENDS THE ARREST IT DID NOT SAVE.
+   *
+   * DFU never loads under the court: InputManager.Update returns before it reads any action while a window pauses
+   * the game - the surrender box and DaggerfallCourtWindow both do - and admits QuickLoad there only while
+   * PlayerDeath.DeathInProgress. The port takes a load from under any window (world.js's FIX-E arm: the death
+   * screen's F11 is every host's), so the flow has to be told. Offline, F11 under the plea box carried the trial into
+   * the loaded game: `arrested` stood, the old sentence was served on the loaded clock, and its release cleared the
+   * loaded save's own crime. Under the surrender box it asked the loaded character the departed guard's question.
+   *
+   * So the question is withdrawn and the trial ends the way DaggerfallCourtWindow.OnPop ends one - Arrested and
+   * InPrison false, the court's windows closed - and NOTHING of ReleaseFromPrison runs: no RaiseTime, no crime
+   * cleared, no PositionPlayerAtLocationEntrance, no ClearEnemies. Those belonged to the game that was replaced; the
+   * loaded one keeps its own clock, crime and place. The windows are marked done and drain on townTalk's frame; the
+   * trial's steps (the plea's answers, the verdict box's close, the prison's end and its close) no longer belong to
+   * the trial standing, so what drains - or a key that reaches a box before it drains - acts on nothing.
+   */
+  function abandon() {
+    withdrawQuestion();
+    const t = trial;
+    trial = null;
+    for (const win of t?.windows ?? []) win.done = true;
+    courtScreen = null;
+    playerEntity.arrested = false;   // OnPop
+    playerEntity.inPrison = false;   // OnPop
+  }
+  return { onGuardHit, startCourtFlow, inCourt, crimeCleared, abandon, dispose };
 }

@@ -612,6 +612,13 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     bowDrawback: getBool('Controls', 'BowDrawback'),
     swingHeld: _held,
     liveSpeed: entity ? liveStat(entity, 'speed') : 50,
+    // AUDIT DISC28 AR-2: and the rest of what the swing clock is asked with. The body's GetMeleeAnimTickTime asks
+    // FormulaHelper.GetMeleeWeaponAnimTime(PlayerEntity, ScreenWeapon.WeaponType, ScreenWeapon.WeaponHands) - the
+    // same call, through the same TryGetOverride, as the weapon's own GetAnimTickTime - so a registered override
+    // (Roleplay & Realism's weaponSpeed, Items' weaponBalance, both on by default) times the sprite's swing as it
+    // times the blow. Handed only the Speed, the body took DFU's line while the blow took the override: one blow, two
+    // swings on screen.
+    animCtx: playerWeapon.animCtx(),
     concealment: entity ? concealmentFlags(entity) : null,
     hipLantern: !!entity && lanternAtWaist(entity.lightSource),   // HT-WAIST: the lit lantern hangs at the sprite's hip, and swings as it walks
   });

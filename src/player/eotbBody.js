@@ -163,6 +163,7 @@ export function bodyState(s = {}) {
     bowDrawback: !!s.bowDrawback,
     swingHeld: !!s.swingHeld,
     liveSpeed: Number.isFinite(s.liveSpeed) ? s.liveSpeed : 50,
+    animCtx: s.animCtx ?? null,   // AUDIT DISC28 AR-2: the weapon the swing clock is asked about (weaponRig's eotbState)
     concealment: s.concealment ?? null,
     forward: m.forward || 0,
     strafe: m.strafe || 0,
@@ -473,11 +474,21 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   }
   /** [IL] `PlayMeleeAttackAnimation` (IL_5050-IL_514e): never in the
    *  saddle, never over a clip; PingPong by `usesPingPong`; the tick is
-   *  the weapon's own. */
+   *  the weapon's own.
+   *
+   *  AUDIT DISC28 AR-2: THE WEAPON'S OWN, overrides and all. [IL]
+   *  `GetMeleeAnimTickTime` (IL_545c-IL_548e) hands FormulaHelper
+   *  .GetMeleeWeaponAnimTime the PlayerEntity and the ScreenWeapon's
+   *  WeaponType and WeaponHands, so a registered override answers it
+   *  exactly as it answers the weapon. Asked with the Speed alone, the
+   *  override never answered (it reads the player and the hand), and
+   *  under Roleplay & Realism: Items' default weaponBalance the sprite
+   *  swung on DFU's line while the blow landed on the override's - a
+   *  clip that ended before the blow did, and a second one started. */
   function playMeleeAttack() {
     if (last.riding || isAnimating) return null;
     const n = frameCount('AttackMelee');
-    const animTime = getMeleeWeaponAnimTime(last.liveSpeed);
+    const animTime = getMeleeWeaponAnimTime(last.liveSpeed, last.animCtx);
     if (usesPingPong(cfg.attackStrings, pingpongCount)) {
       return startClip('AttackMelee', pingPongFrames(n, cfg.pingPongOffset), meleeAnimTickTime(animTime, pingPongTickFrames(n, cfg.pingPongOffset)), { kind: 'pingpong' });
     }

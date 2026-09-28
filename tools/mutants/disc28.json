@@ -56,8 +56,8 @@
   {
     "name": "DISC28-B-question-outlives-crime",
     "file": "src/scenes/arrestFlow.js",
-    "old": "    box.done = true;\n  }\n  return { onGuardHit",
-    "new": "  }\n  return { onGuardHit",
+    "old": "    if (box) box.done = true;\n",
+    "new": "",
     "tests": [
       "test/disc28_arrest.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "DISC28-B-withdrawn-question-still-shields",
     "file": "src/scenes/arrestFlow.js",
-    "old": "    awaitingSurrenderAnswer = false;\n    box.done = true;",
-    "new": "    box.done = true;",
+    "old": "    awaitingSurrenderAnswer = false;\n    if (box) box.done = true;",
+    "new": "    if (box) box.done = true;",
     "tests": [
       "test/disc28_arrest.test.js"
     ]
