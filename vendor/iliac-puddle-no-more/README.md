@@ -61,6 +61,10 @@ writes both from the shipped bundle.
   distance fog). Read back to GLSL and restated in the port's own
   renderer (`src/render/deepWatersRender.js`, `src/render/fogGlsl.js`),
   uniform for uniform - the decorations' program with the slice that
-  places them (DW-E); the compiled blobs are not carried.
+  places them (DW-E), and the clipped terrain as the port's own terrain
+  program with the mod's per-texel discard (`terrainClipFs` in
+  `src/render/renderer.js`, FAR-CLIP1 - until then the port had only left
+  whole clipped quads out of the ground's index set); the compiled blobs
+  are not carried.
 
 The page for the whole port is `bible/03-World/Deep-Waters.md`.

@@ -41,6 +41,15 @@ export function convertTilemap(tilemapData) {
   return out;
 }
 
+/** The byte the conversion above never writes (the tileset has 56
+ *  records: 55 << 2 | 3 is 223 at the most) - Iliac Puddle No More's
+ *  clipped texel, its (255, 0, 255, 0) Color32 mark in the port's R8UI
+ *  TileMap. world/deepWaterCap.js writes it; the terrain program's clip
+ *  variant discards it (render/renderer.js terrainClipFs, FAR-CLIP1). Its
+ *  one home is here, where both reach it: the renderer already reads this
+ *  module, and must not read the cap's (whose closure takes the bake). */
+export const CLIP_SENTINEL = 255;
+
 /** FD1 - StreamingWorld.PlayerTileMapIndex (StreamingWorld.cs:345):
  *  `playerTerrain.TileMap[...].r / 4`, where `.r` is what the job
  *  above writes. So the index is the CONVERTED byte >> 2, which is:

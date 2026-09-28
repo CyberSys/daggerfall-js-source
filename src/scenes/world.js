@@ -524,7 +524,7 @@ import { rrFortProximityLines, rrMasterArmorerDiscovery } from '../systems/rrQue
 import { getBuildingVariant, setLastLocationKeyTo } from '../systems/worldDataVariants.js';   // RR3: the shop variant the quest set
 import { createDeepWatersHost, deepWatersOn, DEEP_WATERS_VENDOR, deepWatersDecorationSettings, deepWatersFishSettings, deepWatersEnemySettings, deepWatersLootSettings, deepWatersEnemySettingsNear, standsTheDeep, DEEP_SHARE_RADIUS } from './deepWatersHost.js';   // DW-B: Iliac Puddle No More (jet082) - the deep bay
 import { DeepWatersRenderer, surfaceScrollAt, DECORATION_CUTOFF } from '../render/deepWatersRender.js';   // DW-C: its seafloor and its surface; DW-E5: the billboard's cut-out the sunken piles keep
-import { clippedTerrainIndices } from '../world/deepWaterCap.js';   // DW-C: the clip, as the ground's own index set
+import { clippedTerrainIndices } from '../world/deepWaterCap.js';   // DW-C: the clip's cull, out of the ground's own index set (FAR-CLIP1: the rest is the clip program's)
 import { lookSettings, surfaceLook, underwaterFogColor, sceneTint, seafloorTexture, seafloorTextureStrength, seafloorPalette, seafloorAmbientBoost, daylightFactor, SURFACE_TEXTURE, horizonAmbientColor, distanceFogUniforms, underwaterVisionDistance, topSurfaceOpaqueFadeEnd } from '../world/deepWaterLook.js';   // DW-C
 import { SURFACE_RENDER_Y_OFFSET } from '../world/deepWaterSurface.js';   // DW-C: the surface stands 3 cm over the sea
 import { createDeepWatersPlayer } from './deepWatersPlayer.js';   // DW-D: the swimmer in the carved sea
@@ -1658,6 +1658,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // is `heightAt`'s in a carved cell (above), the walls a collider bucket.
   const dwRender = deepWatersOn() ? new DeepWatersRenderer(renderer) : null;
   latchModLoaded(DEEP_WATERS_VENDOR, !!dwRender);   // AUDIT PRE-MERGE 0928 S4: the sea is built now or not at all - its fish's shelf rows answer the same (systems/deepWatersFishItems.js)
+  if (dwRender) renderer.prepareTerrainClip();   // FAR-CLIP1: the cap's clip program, built with the mod's own at mount - not inside the first frame that draws a coast
   // DW-E2: GameManager.IsPlayingGame for the Deep Waters runtime's gates - no window up. The overlay slot (townTalk) is
   // made further down; the first pixels promote before it exists, so the question is late-bound (nothing is up yet).
   let _dwOverlayUp = () => false;
@@ -2209,7 +2210,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     return t;
   }
-  /** DW-B: the cap's TileMap into the pixel's texture - and the clipped tiles out of the ground's index set (DW-C), and out of WATER1's (DW-F). */
+  /** DW-B: the cap's TileMap into the pixel's texture - the ground's cull rebuilt from it (DW-C; FAR-CLIP1: the ground draws
+   *  with the clip program while `_dwBytes` stands), and WATER1's index set (DW-F). */
   function dwSetTilemap(entry, bytes) {
     renderer.writeTilemapTexture(entry.tilemapTex, bytes, TERRAIN_TILE_DIM);
     entry._dwBytes = bytes === entry.tilemapBytes ? null : bytes;
@@ -2228,11 +2230,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     const idx = buildWaterIndices(p._dwBytes ?? p.tilemapBytes, p._stride ?? 1);
     p.water = idx ? renderer.createWaterSurface(p.terrain, idx) : null;
   }
+  // DW-C: THE CLIP'S CULL - a quad, and at a far stride a skirt segment, whose every tile the cap clipped leaves the
+  // ground's index set: the mod's discard exactly while a tile is a quad (stride 1). FAR-CLIP1: at EV4's far stride a
+  // quad is sixteen tiles and a part-clipped one stands - its clipped tiles are the clip program's to discard
+  // (render/renderer.js terrainClipFs), which draws the pixel's ground while the cap's TileMap stands on it (the drain below).
   function dwClipTerrain(p) {
     if (p.dwTerrain) { renderer.destroyWaterSurface(p.dwTerrain); p.dwTerrain._dead = true; p.dwTerrain = null; }
     const idx = p._dwBytes ? clippedTerrainIndices(p._dwBytes, p._stride ?? 1) : null;
     if (idx) { p.dwTerrain = renderer.createWaterSurface(p.terrain, idx); p.dwTerrain.bounds = p.terrain.bounds; }
   }
+  /** FAR-CLIP1: the ground queue's order - the cap's pixels after the rest (a stable sort: near first within each),
+   *  so the renderer swaps to the clip program once a frame, not at every coastal pixel. */
+  function dwClipLast(a, b) { return (a._dwBytes ? 1 : 0) - (b._dwBytes ? 1 : 0); }
   // DW-C: THE FRAME'S LOOK - the mod's settings (read again only when the
   // store moves), its daylight factor, the sea's height in the scene.
   let _dwLookGen = -1, _dwLook = null;
@@ -18991,7 +19000,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // share of it is under something; that share costs nothing now.
         // Queued here, drawn once the pixel walk is done, so a pixel's
         // ground also sits under the NEXT pixel's buildings - and the
-        // terrain program is bound once a frame instead of twice a pixel.
+        // terrain program is bound once a frame instead of twice a pixel
+        // (FAR-CLIP1: and its clip variant once more, after it).
         groundQueue.push(p);
         if (p.staticBatch) renderer.drawMesh(p.staticBatch, pixelMatrix, null);   // PERF4: every static model of the pixel, one call per texture (the keys are resolved in the merge)
         for (const m of p.models) {
@@ -19008,7 +19018,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       } else if (pixelCasts) {
         // SHADOW-REACH: the whole pixel is off screen but inside a shadow's reach - its ground, its merged statics
         // and its odd models go to the maps and nowhere else
-        if (!p.deepWaters?.hide) renderer.recordShadowTerrain(p.dwTerrain ?? p.terrain, pixelMatrix, renderer.tileArrays.get(p.groundArchive), p.tilemapTex, 6.4);   // DW-C: a pure-ocean pixel's ground is not drawn; a clipped one casts as it draws
+        if (!p.deepWaters?.hide) renderer.recordShadowTerrain(p.dwTerrain ?? p.terrain, pixelMatrix, renderer.tileArrays.get(p.groundArchive), p.tilemapTex, 6.4);   // DW-C: a pure-ocean pixel's ground is not drawn; a clipped one casts its index set (FAR-CLIP1: the clip whole at stride 1 - the depth program reads no tilemap)
         if (p.staticBatch) renderer.recordShadowMesh(p.staticBatch, pixelMatrix, null);
         for (const m of p.models) {
           if (m._batched || !renderer.shadowReach(m._box, t[0], t[1], t[2])) continue;
@@ -19071,11 +19081,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the water and the flats, as it always was: the water reads its depth
     // and the flats are cut-outs blended over it.
     renderer.setCloudShadow(sky?.cloudShadow ?? null);
+    if (deepWaters) groundQueue.sort(dwClipLast);   // FAR-CLIP1: the cap's pixels last - one swap to the clip program a frame
     for (const p of groundQueue) {
       if (p.deepWaters?.hide) continue;   // DW-C: DeepWaterTerrainCapRenderer.Apply - a pure-ocean pixel's drawHeightmap = false
       const pixelMatrix = p._pixelMatrix;
-      renderer.drawTerrain(p.dwTerrain ?? p.terrain, pixelMatrix,   // DW-C: the clipped tiles are out of the index set
-        renderer.tileArrays.get(p.groundArchive), p.tilemapTex, 6.4);
+      renderer.drawTerrain(p.dwTerrain ?? p.terrain, pixelMatrix,   // DW-C: what the cap clipped whole is out of the index set (the cull)
+        renderer.tileArrays.get(p.groundArchive), p.tilemapTex, 6.4, !!p._dwBytes);   // FAR-CLIP1: and the rest of its clip is the clip program's - DeepWaterTerrainCapRenderer.ApplyWaterTexelClip's material, per terrain it patched
     }
     if (deepWaters) drawDeepWatersFloors(groundQueue);   // DW-C: the seafloor, opaque, under the ground's holes (the sky's foreign span, below, covers it)
     if (oceanHoles) drawOceanHolesOpaque(groundQueue);   // OH-C: the pit's black and the surface's underside, with the floors
