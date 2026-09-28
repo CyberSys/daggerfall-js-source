@@ -218,7 +218,7 @@
   {
     "name": "QREPAIR-the-interior-pause-without-the-hook",
     "file": "src/scenes/worldModes.js",
-    "old": "        repairQuests: () => host.repairQuests?.() ?? null,   // QREPAIR: the host's own bridge\n",
+    "old": "    repairQuests: () => host.repairQuests?.() ?? null,   // QREPAIR: the host's own bridge\n",
     "new": "",
     "tests": [
       "test/qrepair.test.js"

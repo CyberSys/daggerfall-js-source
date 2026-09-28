@@ -82,9 +82,9 @@ test('AUDIT 39 #38: the dungeon pause doors call THIS host\'s builders, not memb
   // there, and the door must still spread it.
   assert.match(DC.slice(at, at + 400), /\.\.\.this\.pauseHooks\(setPlayerPos\),/, 'the door spreads the bag arm');
   const arm = DC.indexOf('pauseHooks(setPlayerPos = null) {');
-  const call = DC.slice(arm, arm + 1600);
-  assert.match(call, /openPack: \(\) => \{ const w = openInventory\(null\); if \(w\) activeOverlay = w; \},/);
-  assert.match(call, /openChronicle: \(\) => \{ const w = makeJournalWindow\('notebook'\); if \(w\) activeOverlay = w; \},/);
+  const call = DC.slice(arm, arm + 2000);   // AUDIT 27h A4: each arm answers whether it opened, and the Chronicle is withheld with no bridge
+  assert.match(call, /openPack: \(\) => \{ const w = openInventory\(null\); if \(w\) activeOverlay = w; return !!w; \},/);
+  assert.match(call, /openChronicle: opts\.questBridge \? \(\) => \{ const w = makeJournalWindow\('notebook'\); if \(w\) activeOverlay = w; return !!w; \} : undefined,/);
   // The names that were never there: the whole file, not just the call.
   assert.ok(!DC.includes('api.makeInventory'), 'no arm reads a member this context does not export');
   assert.ok(!DC.includes('api.makeJournal'));

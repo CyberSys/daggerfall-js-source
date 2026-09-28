@@ -30,7 +30,7 @@ test('the penalty comes off the purse counter and answers what it took', () => {
 test('it is taken by BOTH online respawn paths, once, and never by the offline end of run', () => {
   const world = read('src/scenes/world.js');
   const modes = read('src/scenes/worldModes.js');
-  assert.match(world, /reviveForPlay\(playerEntity, \{ force: true \}\);\s*\n\s*surfacePlayer\(\);\s*\n\s*const goldLost = applyDeathPenalty\(playerEntity\);/,
+  assert.match(world, /reviveForPlay\(playerEntity, \{ force: true \}\);\s*\n\s*surfacePlayer\(\);\s*\n\s*player\.stopAutorun\(\);[^\n]*\n\s*const goldLost = applyDeathPenalty\(playerEntity\);/,
     'respawnOnlinePlayer, after the _respawning guard');
   assert.match(world, /\[respawnFlavorText\(kind\), deathPenaltyText\(goldLost\)\]\.filter\(Boolean\)/, 'and says so on waking');
   assert.match(modes, /const goldLost = applyDeathPenalty\(playerEntity\);[\s\S]*?say\(deathPenaltyText\(goldLost\)\)/, "Privateer's Hold's in-place respawn");

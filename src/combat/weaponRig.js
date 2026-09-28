@@ -294,7 +294,7 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
  *                     (dungeonContext.js:3024), townTalk.say
- *                     (exterior.js:2144, world.js:4984) and
+ *                     (exterior.js:2144, world.js:4985) and
  *                     worldModes' own interior sink (worldModes.js:476,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
@@ -1610,6 +1610,11 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
         localVel = [v[0] * cy - v[2] * sy, v[1], v[0] * sy + v[2] * cy];   // InverseTransformVector: right, up, forward
       }
       const frameMotion = { grounded: mv.grounded !== false, crouching: !!mv.crouching, riding: !!mv.riding, standing: !!mv.standing, speedRatio: ratio, baseSpeed: base, localVel };
+      // AUDIT 27h S3b: THE SWITCHED-OFF FRAME IS COUNTED AT THE GATE, NOT INSIDE IT. S3 counted it as the `else` of the
+      // shield's own lateUpdate below, inside this block - and a profile with the Shield Widget alone (SW1-FEED's) shuts
+      // the whole block when the switch goes off, so nothing counted and the widget switched back on showed the shield it
+      // last read. Every frame that reaches this line is one the widget would have stepped with the switch on.
+      if (!shieldOn()) shield.offFrame();
       if (widgetOn() || _torchesOn || shieldOn() || thunderlockHeld()) {
         const held = activateHeld();
         _activateStarted = held && !_activatePrev; _activatePrev = held;

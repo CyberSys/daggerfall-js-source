@@ -981,7 +981,7 @@ set), where the player saw their beast.
 
 The wire was never at fault. `wb` goes out on its edge (`wire.js:1119`),
 through the door (`:1051`) and the easing (`online.js:213`), from the sender
-at `world.js:14602`.
+at `world.js:14608`.
 
 **Fix.** `peerRiders.js` takes a peer whose pose says `wb`, as it takes a
 rider:
@@ -999,10 +999,10 @@ The hand-off is RIDE's: `isRiding` is true only once the art is up, so while
 it loads or has failed, and in a build without it, DISC12's enemy sprite
 still stands for them. A beast is never nothing.
 
-The modal passes (`worldModes.js:7968` the dungeon, `:8167` the interior)
+The modal passes (`worldModes.js:7982` the dungeon, `:8181` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
-underground. It hands over both layers' batches now (`world.js:14805`). A
+underground. It hands over both layers' batches now (`world.js:14811`). A
 rider never reaches those passes: a door dismounts. The eye the layer turns
 its sprites to (`cam.pos`) is live in every mode, because worldModes shares
 world.js's `cam` and sets it each modal frame.
@@ -1069,13 +1069,13 @@ the scene the picture takes in:
 
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
 local player's goes through `mwView.mwViewDrawBody` (`mwView.js:359`,
-`:339`), which four files call: `world.js:16996`, `exterior.js:5170`,
-`worldModes.js:7960` and `:8059` (the dungeon and the interior passes),
-and `dungeon.js:1083`. `dungeonContext.js`, the fourth motor host, builds
+`:339`), which four files call: `world.js:17005`, `exterior.js:5173`,
+`worldModes.js:7974` and `:8073` (the dungeon and the interior passes),
+and `dungeon.js:1089`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:461` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
-calls it at `world.js:16997`, and the modal passes reach it through
-`host.drawPeerBodies` (`worldModes.js:7961`, `:8060`). The fix therefore
+calls it at `world.js:17006`, and the modal passes reach it through
+`host.drawPeerBodies` (`worldModes.js:7975`, `:8074`). The fix therefore
 sits in one place and reaches every host.
 
 The pins are `test/prbow1_bow.test.js`: seven tests, all failing on the
@@ -1099,7 +1099,7 @@ pins stand.
 
 **The portrait.** `fpArm.figure()` draws the enhanced inventory's model
 figure (`enhancedInventory.js:1615`), which is shown in a 110:184 cell with
-object-fit: contain (`enhancedStyle.js:3975`). It framed `meshBounds` over
+object-fit: contain (`enhancedStyle.js:3982`). It framed `meshBounds` over
 EVERY piece, then hid the unlit torch, the arrow off the string and the
 empty holster twin, so gear it did not show still moved the frame. Its width
 was the box's azimuth-safe diagonal, so a longsword pointing at the viewer,
