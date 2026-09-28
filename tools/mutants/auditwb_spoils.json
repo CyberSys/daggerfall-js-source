@@ -9,15 +9,15 @@
   {
     "name": "AUDWB-A2-a-grant-twice",
     "file": "src/scenes/spoilsPool.js",
-    "old": "    grant({ day, seed, level, acct = '' }) {\n      if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }",
-    "new": "    grant({ day, seed, level, acct = '' }) {\n      if (false) { if (spentBy(day, acct)) said(day); return false; }",
+    "old": "    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted }) {\n      if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }",
+    "new": "    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted }) {\n      if (false) { if (spentBy(day, acct)) said(day); return false; }",
     "tests": ["test/auditwb_spoils.test.js"]
   },
   {
     "name": "AUDWB-A2-a-grant-unrecorded",
     "file": "src/scenes/spoilsPool.js",
-    "old": "      const list = spoilsList(seed >>> 0, Math.max(1, level | 0));\n      const id = spend(day, acct, list);\n      for (const piece of list) take(piece);",
-    "new": "      const list = spoilsList(seed >>> 0, Math.max(1, level | 0));\n      const id = null;\n      for (const piece of list) take(piece);",
+    "old": "      const id = spend(day, acct, list);\n      for (const piece of list) take(piece);\n      held.set(id, { who: who(), day });",
+    "new": "      const id = null;\n      for (const piece of list) take(piece);\n      held.set(id, { who: who(), day });",
     "tests": ["test/auditwb_spoils.test.js"]
   },
   {
@@ -72,15 +72,15 @@
   {
     "name": "AUDWB-A7-one-slot",
     "file": "src/scenes/spoilsPool.js",
-    "old": "    keep(SPOILS_STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));",
-    "new": "    keep(SPOILS_STORE_KEY, [{ v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }]);",
+    "old": "    keep(STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));",
+    "new": "    keep(STORE_KEY, [{ v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }]);",
     "tests": ["test/auditwb_spoils.test.js"]
   },
   {
     "name": "AUDWB-A7-unbounded",
     "file": "src/scenes/spoilsPool.js",
-    "old": "    keep(SPOILS_STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));",
-    "new": "    keep(SPOILS_STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }]);",
+    "old": "    keep(STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));",
+    "new": "    keep(STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }]);",
     "tests": ["test/auditwb_spoils.test.js"]
   },
   {
@@ -123,8 +123,8 @@
   {
     "name": "AUDWB-A6-two-stores",
     "file": "src/scenes/world.js",
-    "old": "    try { if (recoverSpoils(_spoilsStore, takeSpoil,",
-    "new": "    try { if (recoverSpoils(spoilsStore(appStorage()), takeSpoil,",
+    "old": "    try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec) })) setMidScreenText(SPOILS_TEXT.gathered);",
+    "new": "    try { if (recoverSpoils(spoilsStore(appStorage()), takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec) })) setMidScreenText(SPOILS_TEXT.gathered);",
     "tests": ["test/auditwb_spoils.test.js"]
   },
   {

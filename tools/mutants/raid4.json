@@ -236,8 +236,8 @@
   {
     "name": "RAID4-world-receipt-unqueued",
     "file": "src/scenes/world.js",
-    "old": "    onRaidReceipt: (r) => { raidClaims?.add(r, characterIdOf(playerEntity), typeof playerEntity?.name === 'string' ? playerEntity.name : null); },",
-    "new": "    onRaidReceipt: (r) => { void r; },",
+    "old": "    onRaidReceipt: (r) => { raidClaims?.add(r, characterIdOf(playerEntity), typeof playerEntity?.name === 'string' ? playerEntity.name : null); grantRaidSpoils(r); },",
+    "new": "    onRaidReceipt: (r) => { grantRaidSpoils(r); },",
     "tests": [
       "test/raid4_rewards.test.js"
     ]

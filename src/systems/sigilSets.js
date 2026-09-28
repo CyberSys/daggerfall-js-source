@@ -77,12 +77,21 @@ export const CLEAVE_METRES = 3;
 export const WRATH_BELOW = 0.3;
 export const NOVA_METRES = 6;
 export const WRATH_SECONDS = 10;
+/** RAID4b, The Broken Oath (4): Riposte's window, after a foe's blow lands on you, for the one blow it sharpens. */
+export const RIPOSTE_SECONDS = 4;
+/** RAID4b, The Thief-Taker's Garb (6): No Escape marks the nearest other foe within this many metres, for this long. */
+export const MARK_METRES = 12;
+export const MARK_SECONDS = 10;
+/** RAID4b, Orcsbane Harness (4): Blood for Blood's stacks - each foe's blow that lands adds one and refreshes them all. */
+export const BLOOD_SECONDS = 8;
+export const BLOOD_STACKS = 5;
 
 const tier = (at, key, name, values, text) => Object.freeze({ at, key, name, values: Object.freeze(values), text });
 
 /**
  * THE SETS. Each: its id (the sigil's `set`), its name, its Prince, its colour, the one line that says what it is for,
- * `aetheric` for a boss's own, and its three tiers - each `{ at, key, name, values: { name: [faint, ascendant] },
+ * `aetheric` for a boss's own (and a raid's - RAID4b: `raid` names the raiding party whose raids pay it, the receipt's
+ * `y`: 0 knights, 1 bandits, 2 orcs), and its three tiers - each `{ at, key, name, values: { name: [faint, ascendant] },
  * text(v) }`, `text` saying the tier with the numbers of a stage.
  */
 export const SIGIL_SETS = Object.freeze({
@@ -146,10 +155,53 @@ export const SIGIL_SETS = Object.freeze({
         (v) => `When a blow takes you below ${Math.round(WRATH_BELOW * 100)}% health, a Flame Nova deals ${v.nova} damage to every foe within ${NOVA_METRES} m, and your weapon blows deal +${v.more}% for ${WRATH_SECONDS} s. Recovers in ${v.recover} s`),
     ]),
   }),
+  // RAID4b (2026-09-28, Mac on World Events - Raiding Parties online: "3. We can also add renown and it's own atheric +
+  // armor sets"): THE RAIDING PARTIES' OWN - three Aetheric sets no world drop, shelf or Broker rolls; a town defended
+  // pays a piece of the set of the party it was defended against (systems/raidSpoils.js). Their Prince is the Bay's
+  // towns: a raid is fought for them, not for a Daedra.
+  oath: Object.freeze({
+    id: 'oath', name: 'The Broken Oath', prince: 'The towns of the Bay', colour: '#a9bfd6', aetheric: true, raid: 0,
+    role: 'The shield the town stands behind',
+    tiers: Object.freeze([
+      tier(2, 'watch-oath', 'Oath of the Watch', { armor: [1, 4], willpower: [2, 6] },
+        (v) => `+${v.armor} armour on every part, +${v.willpower} Willpower`),
+      tier(4, 'riposte', 'Riposte', { more: [15, 40] },
+        (v) => `When a foe's blow lands on you, your next weapon blow within ${RIPOSTE_SECONDS} s deals +${v.more}% damage`),
+      tier(6, 'hold-the-line', 'Hold the Line', { less: [10, 25] },
+        (v) => `While you are under half health, you take ${v.less}% less damage`),
+    ]),
+  }),
+  thieftaker: Object.freeze({
+    id: 'thieftaker', name: "The Thief-Taker's Garb", prince: 'The towns of the Bay', colour: '#d2a45e', aetheric: true, raid: 1,
+    role: 'The one who runs them down',
+    tiers: Object.freeze([
+      tier(2, 'keen-eyed', 'Keen-Eyed', { agility: [2, 6], archery: [4, 12] },
+        (v) => `+${v.agility} Agility, +${v.archery} Archery`),
+      tier(4, 'run-them-down', 'Run Them Down', { more: [8, 20] },
+        (v) => `Your weapon blows deal +${v.more}% damage to a foe under half health, arrows too`),
+      tier(6, 'no-escape', 'No Escape', { more: [15, 40] },
+        (v) => `A kill marks the nearest other foe within ${MARK_METRES} m for ${MARK_SECONDS} s: your weapon blows deal it +${v.more}% damage`),
+    ]),
+  }),
+  orcsbane: Object.freeze({
+    id: 'orcsbane', name: 'Orcsbane Harness', prince: 'The towns of the Bay', colour: '#8aac5c', aetheric: true, raid: 2,
+    role: 'The one the horde breaks against',
+    tiers: Object.freeze([
+      tier(2, 'thick-skinned', 'Thick-Skinned', { endurance: [2, 6], blunt: [4, 12] },
+        (v) => `+${v.endurance} Endurance, +${v.blunt} Blunt Weapon`),
+      tier(4, 'blood-for-blood', 'Blood for Blood', { stack: [3, 8] },
+        (v) => `Each foe's blow that lands on you grants a stack for ${BLOOD_SECONDS} s, up to ${BLOOD_STACKS}: +${v.stack}% weapon damage a stack`),
+      tier(6, 'iron-hide', 'Iron Hide', { ward: [10, 40], recover: [60, 30] },
+        (v) => `A kill wards you: the next ${v.ward} damage you take is turned aside. Recovers in ${v.recover} s`),
+    ]),
+  }),
 });
 /** The sets of the world (the four any win may roll), and every set, in the registry's order. */
 export const WORLD_SET_IDS = Object.freeze(Object.values(SIGIL_SETS).filter((s) => !s.aetheric).map((s) => s.id));
 export const setById = (id) => (typeof id === 'string' && Object.hasOwn(SIGIL_SETS, id) ? SIGIL_SETS[id] : null);
+/** RAID4b: the set a raiding party's raids pay (the receipt's `y`), or null - only a set that names a party answers
+ *  (a world set names none: read bare, `undefined` would have matched every one of them). */
+export const raidSetOf = (party) => Object.values(SIGIL_SETS).find((s) => 'raid' in s && s.raid === party) ?? null;
 
 /** A number of a tier at a stage: its place on the line from Faint to Ascendant, rounded. Stage clamped to 0..4. */
 export function stageValue(pair, stage) {

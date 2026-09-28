@@ -301,7 +301,7 @@ test('RAID4 the world host by source: my receipt goes to the queue with the char
   const w = src('src/scenes/world.js');
   const at = w.indexOf('  setRaidingPartiesHost({');
   const body = w.slice(at, w.indexOf('\n  });', at));
-  assert.match(body, /onRaidReceipt: \(r\) => \{ raidClaims\?\.add\(r, characterIdOf\(playerEntity\), typeof playerEntity\?\.name === 'string' \? playerEntity\.name : null\); \},/);
+  assert.match(body, /onRaidReceipt: \(r\) => \{ raidClaims\?\.add\(r, characterIdOf\(playerEntity\), typeof playerEntity\?\.name === 'string' \? playerEntity\.name : null\); grantRaidSpoils\(r\); \},/);   // RAID4b: and the town's thanks
   assert.match(w, /const raidClaims = params\.has\('online'\) \? createRaidClaims\(\{\n\s+claim: _accountRaids\.claim,\n\s+me: _accountRaids\.me,/);
   assert.match(w, /if \(data\?\.renown\?\.character !== characterIdOf\(playerEntity\)\) return;/);
   assert.match(w, /raidClaims\?\.tick\(\);/);

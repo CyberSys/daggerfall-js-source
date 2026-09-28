@@ -39,6 +39,21 @@
 // after everything they rolled before - so every earlier spoils, gold
 // to the last Magic piece, stays exactly what it was for its seed: a
 // Regalia piece REGALIA_CHANCE of the time, which one by the same seed.
+//
+// ═══ RAID4b: THE RAIDING PARTIES' OWN (2026-09-28) ════════════════
+//
+// Mac, on World Events - Raiding Parties online: "3. We can also add
+// renown and it's own atheric + armor sets". Three more Aetheric sets,
+// one a raiding party (systems/sigilSets.js 'oath', 'thieftaker',
+// 'orcsbane'), nine fixed records each - the nine places, a one-handed
+// weapon and a shield worn together - of the party's own make: the
+// knights' Mithril, the bandits' Elven, the orcs' own Orcish (the horde's
+// metal turned on it). A town defended pays them (systems/raidSpoils.js,
+// off the relay's receipt), never a drop, a shelf or the Broker. Their
+// three affixes stand at the Legendary band's FLOOR (the Regalia's are
+// its top: a boss's set over a town's thanks), and a weapon's blow at
+// the Legendary band's floor too. EVERY RECORD NAMES ITS MAKE, and the
+// wire's check (validSetMarks) holds each to its own.
 // ═══════════════════════════════════════════════════════════════════
 
 import { setItemFields, mintCondition, itemBaseValue } from './itemTemplates.js';
@@ -47,8 +62,8 @@ import { WEAPON_MATERIALS } from '../characters/weapons.js';
 import { createWeapon } from '../combat/enemyEquipment.js';
 import { affixesWorth, validAffix, AFFIX_RANGES, registerAethericLore } from './lootRarity.js';
 import { SKILLS } from './skills.js';
-import { SIGIL_POWER_MAX } from './sigil.js';
-import { setPieceKind } from './sigilSets.js';   // AUDIT SET D6: the kinds a set counts, for the wire's cross-check
+import { SIGIL_POWER_MAX, SIGIL_BANDS } from './sigil.js';
+import { setPieceKind, setById, raidSetOf } from './sigilSets.js';   // AUDIT SET D6: the kinds a set counts, for the wire's cross-check
 
 /** The tier's id, as `item.rarity` wears it. */
 export const AETHERIC = 'aetheric';
@@ -68,9 +83,13 @@ export const REGALIA_FIRE_RESIST = 10;
 const armor = () => ({ id: 'armor', value: top('armor') });
 const fire = () => ({ id: 'resist', param: 'fire', value: REGALIA_FIRE_RESIST });
 const stat = (param) => ({ id: 'stat', param, value: top('stat') });
-const rec = (id, name, group, templateIndex, affixes, lore) => Object.freeze({
-  id, name, group, templateIndex, set: REGALIA_SET, affixes: Object.freeze(affixes.map((a) => Object.freeze(a))), lore,
+/** A record: its id, name, group and template, its set, its MAKE (a material's name - ARMOR_MATERIAL's and
+ *  WEAPON_MATERIALS' own), a weapon's blow, its affixes and its lore. */
+const record = (id, name, group, templateIndex, set, make, power, affixes, lore) => Object.freeze({
+  id, name, group, templateIndex, set, make, ...(group === 'Weapons' ? { power } : {}),
+  affixes: Object.freeze(affixes.map((a) => Object.freeze(a))), lore,
 });
+const rec = (id, name, group, templateIndex, affixes, lore) => record(id, name, group, templateIndex, REGALIA_SET, 'Daedric', SIGIL_POWER_MAX, affixes, lore);
 
 /** THE REGALIA, in the order a card lists the places (sigilSets.js SET_PLACES: the body, the shield, the weapon). */
 export const REGALIA = Object.freeze([
@@ -93,29 +112,100 @@ export const REGALIA = Object.freeze([
   rec('ruhn-gatecleaver', "Ruhn's Gatecleaver", 'Weapons', 127, [{ id: 'damage', value: top('damage') }, stat('strength'), { id: 'skill', param: SKILLS.Axe, value: top('skill') }],
     'The axe the Warden held the Burning Gate with. Its edge remembers the hinge.'),
 ]);
-export const aethericById = (id) => REGALIA.find((r) => r.id === id) ?? null;
+
+// ── RAID4b: the raiding parties' own ────────────────────────────────
+/** The raid sets' numbers: the Legendary band's floor, per affix kind, and a weapon's blow. */
+const floor = (id) => AFFIX_RANGES[id].legendary[0];
+export const RAID_SET_POWER = SIGIL_BANDS.legendary[0];
+const a = (id, param) => (param === undefined ? { id, value: floor(id) } : { id, param, value: floor(id) });
+const raidRec = (set, make) => (key, name, group, templateIndex, affixes, lore) => record(`${set}-${key}`, name, group, templateIndex, set, make, RAID_SET_POWER, affixes, lore);
+const oath = raidRec('oath', 'Mithril'), taker = raidRec('thieftaker', 'Elven'), orcs = raidRec('orcsbane', 'Orcish');
+/** THE RAIDING PARTIES' SETS, nine a set in the places' order (the body, the shield, the weapon): the Broken Oath (the
+ *  knights'), the Thief-Taker's Garb (the bandits'), Orcsbane Harness (the orcs'). */
+export const RAID_SET_PIECES = Object.freeze([
+  oath('helm', "The Oathkeeper's Helm", 'Armor', 107, [a('armor'), a('stat', 'willpower'), a('resist', 'magic')],
+    'Its visor was shut on a vow. The knight who broke it never lifted it again.'),
+  oath('right-pauldron', 'Oathbound Right Pauldron', 'Armor', 106, [a('armor'), a('stat', 'strength'), a('resist', 'shock')],
+    'The order\'s crest is filed away, all but one stubborn talon.'),
+  oath('left-pauldron', 'Oathbound Left Pauldron', 'Armor', 105, [a('armor'), a('stat', 'endurance'), a('resist', 'frost')],
+    'It still bears the dent of the blow that ended a knighthood.'),
+  oath('cuirass', "The Watch-Captain's Cuirass", 'Armor', 102, [a('armor'), a('stat', 'willpower'), a('stat', 'endurance')],
+    'Taken from a raider who swore to guard this town once, and came back to burn it.'),
+  oath('gauntlets', 'Gauntlets of the Sworn', 'Armor', 103, [a('armor'), a('stat', 'strength'), a('skill', SKILLS.LongBlade)],
+    'Clasped hands were pressed into them on the day of the oath.'),
+  oath('greaves', 'Greaves of the Last Stand', 'Armor', 104, [a('armor'), a('stat', 'endurance'), a('weight')],
+    'The town\'s smith hammered the mud of its square into them.'),
+  oath('boots', 'Boots of the Long Watch', 'Armor', 108, [a('armor'), a('stat', 'speed'), a('resist', 'poison')],
+    'They have walked every wall in the Bay, and never away from one.'),
+  oath('kite-shield', 'The Last Oath', 'Armor', 111, [a('armor'), a('stat', 'willpower'), a('resist', 'magic')],
+    'The words of the oath run round its rim. Someone has scratched out the last line.'),
+  oath('longsword', 'Oathsunder', 'Weapons', 120, [a('damage'), a('stat', 'strength'), a('skill', SKILLS.LongBlade)],
+    'The blade an oathbreaker carried into a town that trusted him. It serves the town now.'),
+  taker('helm', "The Thief-Taker's Helm", 'Armor', 107, [a('armor'), a('stat', 'agility'), a('skill', SKILLS.Streetwise)],
+    'Every fence in the Bay knows its shape, and leaves by the back door.'),
+  taker('right-pauldron', "Warrant-Bearer's Right Pauldron", 'Armor', 106, [a('armor'), a('stat', 'speed'), a('skill', SKILLS.Archery)],
+    'A reeve\'s seal is pressed into the leather beneath the plate.'),
+  taker('left-pauldron', "Warrant-Bearer's Left Pauldron", 'Armor', 105, [a('armor'), a('stat', 'agility'), a('skill', SKILLS.Dodging)],
+    'Light enough to run in, which is the whole of the trade.'),
+  taker('cuirass', "The Thief-Taker's Cuirass", 'Armor', 102, [a('armor'), a('stat', 'speed'), a('resist', 'poison')],
+    'Cut from the mail of a bandit captain who did not run fast enough.'),
+  taker('gauntlets', 'Collaring Gauntlets', 'Armor', 103, [a('armor'), a('stat', 'agility'), a('skill', SKILLS.CriticalStrike)],
+    'Made for a grip no cutpurse has ever twisted out of.'),
+  taker('greaves', 'Chase-Greaves', 'Armor', 104, [a('armor'), a('stat', 'speed'), a('skill', SKILLS.Running)],
+    'Elven work, and quiet. The quarry hears them only at the end.'),
+  taker('boots', 'Boots of the Long Pursuit', 'Armor', 108, [a('armor'), a('stat', 'agility'), a('skill', SKILLS.Jumping)],
+    'Their soles are worn smooth on the rooftops of three cities.'),
+  taker('buckler', "The Reeve's Buckler", 'Armor', 109, [a('armor'), a('stat', 'agility'), a('resist', 'shock')],
+    'Small enough to run with, stout enough to end the running.'),
+  taker('saber', "The Reeve's Warrant", 'Weapons', 119, [a('damage'), a('stat', 'agility'), a('skill', SKILLS.LongBlade)],
+    'Its edge is the only warrant a bandit in the Bay ever reads.'),
+  orcs('helm', 'Tusk-Crest Helm', 'Armor', 107, [a('armor'), a('stat', 'endurance'), a('resist', 'poison')],
+    'Crowned with the tusks of the warlord who led the raid.'),
+  orcs('right-pauldron', 'Orcsbane Right Pauldron', 'Armor', 106, [a('armor'), a('stat', 'strength'), a('skill', SKILLS.BluntWeapon)],
+    'Beaten from the horde\'s own blades, and heavier for it.'),
+  orcs('left-pauldron', 'Orcsbane Left Pauldron', 'Armor', 105, [a('armor'), a('stat', 'endurance'), a('resist', 'frost')],
+    'Its rivets are orc arrowheads, driven home.'),
+  orcs('cuirass', "The Horde-Breaker's Cuirass", 'Armor', 102, [a('armor'), a('stat', 'endurance'), a('stat', 'strength')],
+    'The horde broke against the one who wore it, and did not come back.'),
+  orcs('gauntlets', 'Knuckle-Breaker Gauntlets', 'Armor', 103, [a('armor'), a('stat', 'strength'), a('skill', SKILLS.CriticalStrike)],
+    'Orcish iron over the knuckles, and nothing gentle under it.'),
+  orcs('greaves', 'Orcsbane Greaves', 'Armor', 104, [a('armor'), a('stat', 'endurance'), a('weight')],
+    'Made to hold ground, not to give it.'),
+  orcs('boots', 'Boots of the Held Gate', 'Armor', 108, [a('armor'), a('stat', 'willpower'), a('resist', 'fire')],
+    'They stood in the town gate while it burned, and the gate held.'),
+  orcs('round-shield', "The Warlord's Last Sight", 'Armor', 110, [a('armor'), a('stat', 'endurance'), a('resist', 'magic')],
+    'Its boss is a warlord\'s helm, hammered flat.'),
+  orcs('mace', 'The Tuskbreaker', 'Weapons', 124, [a('damage'), a('stat', 'strength'), a('skill', SKILLS.BluntWeapon)],
+    'Flanged with Orcish steel. It has broken more tusks than any smith can count.'),
+]);
+/** EVERY AETHERIC RECORD - the Regalia, then the raiding parties' - and the one every reader asks. */
+export const AETHERIC_RECORDS = Object.freeze([...REGALIA, ...RAID_SET_PIECES]);
+export const aethericById = (id) => AETHERIC_RECORDS.find((r) => r.id === id) ?? null;
 registerAethericLore((item) => aethericById(item?.aetheric)?.lore ?? null);   // the card's last line, as a Legendary's
+/** A record's make as the item wears it: its material's id in its group's table. */
+export const aethericMaterial = (r) => (r.group === 'Weapons' ? WEAPON_MATERIALS[r.make] : ARMOR_MATERIAL[r.make]);
 /** Is this an Aetheric piece (its tier's own field)? */
 export const isAetheric = (item) => item?.rarity === AETHERIC;
 
 /**
- * Mint a record as an item: its Daedric make through the game's own minters (a weapon's CreateWeapon, a piece of
- * armour's SetItem and its condition), its name, its tier, its affixes (a copy), KNOWN, its set's sigil fresh at Faint
- * (the Gatecleaver's with the top blow too), and its price. A fresh item every call.
- * @param {{ id: string, name: string, group: string, templateIndex: number, set: string, affixes: readonly any[] }} r
+ * Mint a record as an item: its make (the Regalia's Daedric; RAID4b a raid set's own) through the game's own minters
+ * (a weapon's CreateWeapon, a piece of armour's SetItem and its condition), its name, its tier, its affixes (a copy),
+ * KNOWN, its set's sigil fresh at Faint (a weapon's with its record's blow too - the Gatecleaver's the widest band's
+ * top), and its price. A fresh item every call.
+ * @param {{ id: string, name: string, group: string, templateIndex: number, set: string, make: string, power?: number, affixes: readonly any[] }} r
  * @param {{ party?: number }} [opts]
  */
 export function mintAetheric(r, { party = 1 } = {}) {
   const item = r.group === 'Weapons'
-    ? createWeapon(r.templateIndex, WEAPON_MATERIALS.Daedric)
-    : mintCondition(setItemFields({ group: 'Armor', templateIndex: r.templateIndex, material: ARMOR_MATERIAL.Daedric, flags: 0 }));
+    ? createWeapon(r.templateIndex, aethericMaterial(r))
+    : mintCondition(setItemFields({ group: 'Armor', templateIndex: r.templateIndex, material: aethericMaterial(r), flags: 0 }));
   const affixes = r.affixes.filter(validAffix).map((a) => ({ ...a }));
   item.name = r.name;
   item.rarity = AETHERIC;
   item.aetheric = r.id;
   item.affixes = affixes;
   item.isIdentified = true;
-  item.sigil = r.group === 'Weapons' ? { power: SIGIL_POWER_MAX, set: r.set, party, xp: 0 } : { set: r.set, party, xp: 0 };
+  item.sigil = r.group === 'Weapons' ? { power: r.power, set: r.set, party, xp: 0 } : { set: r.set, party, xp: 0 };
   item.value = itemBaseValue(item) + affixesWorth(affixes) + AETHERIC_WORTH;
   return item;
 }
@@ -129,6 +219,8 @@ export function mintAetheric(r, { party = 1 } = {}) {
  *  - a sigil's power (SIGIL1's blow) only on a weapon, never ammunition - the one kind stampWonWeapons marks;
  *  - the Regalia's set only on an Aetheric piece, and an Aetheric piece only as its record mints it: a record that
  *    exists, on the record's own group and template, Daedric;
+ *  - RAID4b: every Aetheric set's (the raiding parties' too) only on an Aetheric piece; the piece of the record's own
+ *    MAKE (a raid set's Mithril, Elven or Orcish - the Regalia's Daedric), and a set's sigil on it the record's set;
  *  - the sigil PROJECTED to its own four keys, so nothing else rides a record every card and power reads.
  * Answers the item (its sigil projected) or null: a forged mark is no item, as a forged affix is none (LR4).
  * @param {any} item an item whose fields are each their declared kind (itemFields.js validItemFields)
@@ -140,13 +232,14 @@ export function validSetMarks(item) {
     const kind = setPieceKind(item);
     if (s.set !== undefined && !kind) return null;
     if (s.power !== undefined && kind !== 'weapon') return null;
-    if (s.set === REGALIA_SET && item.rarity !== AETHERIC) return null;
+    if (setById(s.set)?.aetheric && item.rarity !== AETHERIC) return null;   // RAID4b: every Aetheric set's, the Regalia's too
     item.sigil = { ...(s.power !== undefined ? { power: s.power } : {}), ...(s.set !== undefined ? { set: s.set } : {}), party: s.party, xp: s.xp };
   }
   if (item.rarity === AETHERIC || item.aetheric != null) {
     const r = aethericById(item.aetheric);
     if (!r || item.rarity !== AETHERIC || r.group !== item.group || r.templateIndex !== item.templateIndex) return null;
-    if (item.material !== (r.group === 'Weapons' ? WEAPON_MATERIALS.Daedric : ARMOR_MATERIAL.Daedric)) return null;
+    if (item.material !== aethericMaterial(r)) return null;
+    if (item.sigil?.set !== undefined && item.sigil.set !== r.set) return null;   // RAID4b: its own set, never another's
   }
   return item;
 }
@@ -156,4 +249,16 @@ export function validSetMarks(item) {
 export function rollRegalia(rolls = Math.random) {
   if (!(rolls() < REGALIA_CHANCE)) return null;
   return mintAetheric(REGALIA[Math.min(REGALIA.length - 1, Math.floor(rolls() * REGALIA.length))]);
+}
+
+/** RAID4b: the share of a town's thanks that carries a piece of the raiding party's own set. */
+export const RAID_SET_CHANCE = 1 / 4;
+/** RAID4b: the records of the set a raiding party's raids pay (the receipt's `y`) - [] for no such party. */
+export const raidSetPieces = (party) => { const set = raidSetOf(party); return set ? RAID_SET_PIECES.filter((r) => r.set === set.id) : []; };
+/** RAID4b, THE THANKS' LAST ROLL (systems/raidSpoils.js): null most times; else one piece of the party's own set, the
+ *  same seed choosing which. One roll when nothing drops, two when a piece does; none at all for no such party. */
+export function rollRaidSetPiece(party, rolls = Math.random) {
+  const recs = raidSetPieces(party);
+  if (!recs.length || !(rolls() < RAID_SET_CHANCE)) return null;
+  return mintAetheric(recs[Math.min(recs.length - 1, Math.floor(rolls() * recs.length))]);
 }

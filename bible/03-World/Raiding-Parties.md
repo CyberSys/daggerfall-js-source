@@ -203,8 +203,17 @@ receipt - one a raid, to each account that struck a raider and stood in the town
   outside the hour's bound (the receipt is the relay's word, not the client's), in the same transaction as the row, so
   a receipt claimed twice at once pays once. The chat says *The town will remember you. Towns defended: 3. +780 Renown
   XP.*; the account card and the Inspect card say *Towns defended: 3*. A guest is counted once it registers.
-- **RAID4b - the spoils and the raid's own sets**: next - the receipt's seed rolls a town's thanks, and the raiding
-  party's own Aetheric set (knights, bandits, orcs) can drop.
+- **RAID4b - a town's thanks and the raiding parties' own sets** (client only: no relay or service change). The
+  receipt the relay hands the socket at the cleanse rolls a town's thanks off its seed (`systems/raidSpoils.js`, the
+  gate's spoils' law): gold, 80 a level and a fifth either way; one piece Magic or better, known (a treasure pile's
+  source halfway up the ladder); and last, a quarter of the time, a piece of the raiding party's own Aetheric set -
+  the knights' **Broken Oath** (Mithril: Riposte, Hold the Line), the bandits' **Thief-Taker's Garb** (Elven: Run Them
+  Down, No Escape), the orcs' **Orcsbane Harness** (Orcish: Blood for Blood, Iron Hide) - nine pieces each, their
+  tiers at 2 / 4 / 6 (`11-Multiplayer/Sigil-Sets.md` section 6b). Straight into the pack, *The town's thanks are in
+  your pack.*, once a receipt and account (the relay hands the same receipt again after a reconnect), one tab at a
+  time, rolled for the character standing there at its level. The spoils pool carries it under keys of its own
+  (`raid4.spoils`, `raid4.spoilsDay`), so a town's receipts never push a boss's out of the list of those spent: the
+  pieces ride the device's record until a save holds them, and a crash hands them back at the next boot.
 
 ## Open
 

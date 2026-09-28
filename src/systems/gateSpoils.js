@@ -76,7 +76,9 @@ function makeBase(level, rolls) {
   return setItemFields({ group: 'Jewellery', templateIndex: pick(ITEM_GROUPS.Jewellery, rolls) });
 }
 
-/** A Magic-or-better tier by the source's own chances, the Common share cut away. */
+/** A Magic-or-better tier by the source's own chances, the Common share cut away (RAID4b: a town's thanks name their own
+ *  source - systems/raidSpoils.js).
+ * @param {() => number} rolls @param {{ kind?: string, tier?: number, boss?: boolean, luck?: number }} [source] */
 export function magicOrBetter(rolls, source = SPOILS_SOURCE) {
   const c = rarityChances(source);
   const r = rolls() * c.magic;

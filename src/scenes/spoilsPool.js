@@ -51,6 +51,11 @@
 // pillaged by others before I could ever realise boss died" - the spoils are this player's alone, and a fighter
 // standing where they fell had walked over them in the second they landed).
 //
+// RAID4b (2026-09-28): A TOWN'S THANKS COME THROUGH THIS DOOR TOO (systems/raidSpoils.js) - a pool of their own, made
+// with their own KEYS (so a town's receipts never push a boss's out of the list of those spent) and handed their own
+// roll and words at the grant; the crash's door asks their record by its own key. Its "day" is the raid's
+// (raidSpoilsDay - a string), and it tells the hub nothing: no `onSpent` (the hub never kept a raid's receipt).
+//
 // Not a DFU member. Ledger A (WB).
 import { rollSpoils } from '../systems/gateSpoils.js';
 import { seededRng } from '../systems/wind.js';
@@ -85,6 +90,8 @@ export const SPOILS_LIGHT = Object.freeze({ range: 5, k: 1.3, up: 0.6 });
 /** The device's record of spoils no save holds yet, and of the last day whose spoils left him. */
 export const SPOILS_STORE_KEY = 'wb5.spoils';
 export const SPOILS_DAY_KEY = 'wb5.spoilsDay';
+/** RAID4b: the two as a pool is made with them - a boss's; a town's thanks keep their own (raidSpoils.js). */
+export const SPOILS_KEYS = Object.freeze({ store: SPOILS_STORE_KEY, day: SPOILS_DAY_KEY });
 /** The Sigil Stone glows as the rarest thing there is. */
 export const SIGIL_TIER = 'artifact';
 
@@ -166,12 +173,13 @@ function keptPiece(p) {
  * one does; a save since the burst holds them, and the record is cleared; another character's record waits for them.
  * Answers how many pieces it handed over.
  * @param {{ get: (k: string) => any, remove: (k: string) => void, set?: (k: string, v: any) => void }} store @param {(piece: any) => void} take
- * @param {{ who?: string|null, saves?: Iterable<any>, onHanded?: ((rec: any) => void)|null }} [opts] this character's id, the
- *   save slots' infos, and who is told of each record of this build handed over (the pool's `adopt` - its next save clears it)
+ * @param {{ who?: string|null, saves?: Iterable<any>, onHanded?: ((rec: any) => void)|null, key?: string }} [opts] this character's id,
+ *   the save slots' infos, who is told of each record of this build handed over (the pool's `adopt` - its next save
+ *   clears it), and (RAID4b) the key the records are kept under - a boss's by default
  */
-export function recoverSpoils(store, take, { who = null, saves = [], onHanded = null } = {}) {
+export function recoverSpoils(store, take, { who = null, saves = [], onHanded = null, key = SPOILS_STORE_KEY } = {}) {
   let v = null;
-  try { v = store.get(SPOILS_STORE_KEY); } catch { v = null; }
+  try { v = store.get(key); } catch { v = null; }
   if (!v) return 0;
   const infos = [...(saves ?? [])];
   const all = recordsOf(v), left = [];
@@ -187,7 +195,7 @@ export function recoverSpoils(store, take, { who = null, saves = [], onHanded = 
     if (rec.v === SPOILS_RECORD_V) onHanded?.(rec);   // in the pack now: the next save of its character clears it
   }
   if (left.length !== all.length || !Array.isArray(v)) {
-    try { if (left.length) store.set?.(SPOILS_STORE_KEY, left); else store.remove(SPOILS_STORE_KEY); } catch { /* the pack has them either way */ }
+    try { if (left.length) store.set?.(key, left); else store.remove(key); } catch { /* the pack has them either way */ }
   }
   return n;
 }
@@ -202,18 +210,20 @@ export function recoverSpoils(store, take, { who = null, saves = [], onHanded = 
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void, remove: (k: string) => void, hold?: (k: string, v: any) => void, persisted?: (k: string) => boolean }|null,
  *   who?: () => string|null, wall?: () => number,
  *   iconOf?: ((item: any) => Promise<{key: string, width: number, height: number, colors: ArrayLike<number>}|null>)|null,
- *   onSpent?: (day: number) => void,
+ *   onSpent?: (day: number) => void, keys?: { store: string, day: string },
  * }} deps
  *   AUDIT WBX S1: `onSpent` is told each day whose receipt is spent here and safe (its record on the device, or a save
  *   holding its pieces) - and again whenever a spent one is offered - so the hub forgets its kept copy.
  *   WBX3: `iconOf` answers an item's own picture - the pack's (color32 order, and a `key` naming the picture: two pieces
  *   that look alike share one upload) - or null when it has none; without it every piece keeps its treasure pile.
+ *   RAID4b: `keys` the device keys its records and its spent receipts go under (SPOILS_KEYS, a boss's, by default).
  */
 export function createSpoilsPool({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   ray, feet = () => null, now, take, say = () => {}, store = null, who = () => null, wall = () => Date.now(), iconOf = null,
-  onSpent = () => {},
+  onSpent = () => {}, keys = SPOILS_KEYS,
 }) {
+  const STORE_KEY = keys.store, DAY_KEY = keys.day;   // RAID4b: a town's thanks keep their own
   let glow = null;
   try { if (gl) glow = new SpoilsGlowRenderer(gl); } catch (e) { console.warn('[gate] the spoils\' glow would not build', e?.message ?? e); glow = null; }
   /** the spew under way: its day, when it began, where it left from; each piece's flight, rest and batch */
@@ -239,7 +249,7 @@ export function createSpoilsPool({
    *  build's single day spent for anyone). */
   function spentOn(day, acct) {
     if (spentHere.has(spentKey(day, acct))) return true;
-    const kept = read(SPOILS_DAY_KEY);
+    const kept = read(DAY_KEY);
     return kept === day || (Array.isArray(kept) && (kept.includes(spentKey(day, acct)) || kept.includes(spentKey(day, '*'))));
   }
   /** AUDIT WBX2 M6: whether THIS account spent them - the only spend the hub is told of again. An older build's mark
@@ -247,7 +257,7 @@ export function createSpoilsPool({
    *  had the spoils of, on every device. */
   function spentBy(day, acct) {
     if (spentHere.has(spentKey(day, acct))) return true;
-    const kept = read(SPOILS_DAY_KEY);
+    const kept = read(DAY_KEY);
     return Array.isArray(kept) && kept.includes(spentKey(day, acct));
   }
   /** The receipt spent, here and on the device, and its pieces kept as rolled until a save holds them. AUDIT WBX S5: the
@@ -257,13 +267,13 @@ export function createSpoilsPool({
     spentHere.add(spentKey(day, acct));
     const w = who(), at = wall();
     const id = `${day}:${w ?? ''}:${at}`;
-    const recs = recordsOf(read(SPOILS_STORE_KEY)).filter((r) => r && !(r.day === day && r.who === w));
-    keep(SPOILS_STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));
-    const durable = store?.persisted?.(SPOILS_STORE_KEY) ?? true;
-    const kept = read(SPOILS_DAY_KEY);
+    const recs = recordsOf(read(STORE_KEY)).filter((r) => r && !(r.day === day && r.who === w));
+    keep(STORE_KEY, [...recs, { v: SPOILS_RECORD_V, id, day, at, who: w, pieces: list }].slice(-SPOILS_RECORDS_MAX));
+    const durable = store?.persisted?.(STORE_KEY) ?? true;
+    const kept = read(DAY_KEY);
     const marks = [...(Array.isArray(kept) ? kept : Number.isSafeInteger(kept) ? [spentKey(kept, '*')] : []), spentKey(day, acct)].slice(-SPOILS_SPENT_MAX);
-    if (durable) { keep(SPOILS_DAY_KEY, marks); said(day); }
-    else { try { store?.hold?.(SPOILS_DAY_KEY, marks); } catch { /* the session's own set holds it */ } ackOnSave.set(id, { day, acct }); }
+    if (durable) { keep(DAY_KEY, marks); said(day); }
+    else { try { store?.hold?.(DAY_KEY, marks); } catch { /* the session's own set holds it */ } ackOnSave.set(id, { day, acct }); }
     return id;
   }
 
@@ -335,14 +345,15 @@ export function createSpoilsPool({
     },
     /** AUDIT WB A2: THE SPOILS WITH NO FLOOR - a receipt that came while its court was not this player's to stand in
      *  (cast out before the kill, gone, told by the hub's next hello): the same pieces, straight into the pack, said
-     *  once. Once a receipt, as the burst is; answers whether they were given. */
-    grant({ day, seed, level, acct = '' }) {
+     *  once. Once a receipt, as the burst is; answers whether they were given. RAID4b: `roll` answers the pieces instead
+     *  (a town's thanks - raidSpoils.js raidSpoilsList), asked only for a receipt not yet spent, and `text` is said. */
+    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted }) {
       if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }   // AUDIT WBX S1: spent - said so again
-      const list = spoilsList(seed >>> 0, Math.max(1, level | 0));
+      const list = typeof roll === 'function' ? roll() : spoilsList(seed >>> 0, Math.max(1, level | 0));   // RAID4b: a town's thanks roll their own
       const id = spend(day, acct, list);
       for (const piece of list) take(piece);
       held.set(id, { who: who(), day });   // AUDIT WBX S3: in the pack - the next save holds them
-      say(SPOILS_TEXT.granted);
+      say(text);
       return true;
     },
     /** AUDIT WBX S3: records the crash's door handed over at boot (recoverSpoils' `onHanded`) - their pieces are in the
@@ -355,16 +366,16 @@ export function createSpoilsPool({
       if (whoSaved == null || !held.size) return 0;
       const ids = new Set([...held].filter(([, h]) => h.who === whoSaved).map(([id]) => id));
       if (!ids.size) return 0;
-      const all = recordsOf(read(SPOILS_STORE_KEY));
+      const all = recordsOf(read(STORE_KEY));
       const left = all.filter((r) => !(r && ids.has(r.id)));
-      if (left.length !== all.length) { if (left.length) keep(SPOILS_STORE_KEY, left); else { try { store?.remove(SPOILS_STORE_KEY); } catch { /* nothing to lose */ } } }
+      if (left.length !== all.length) { if (left.length) keep(STORE_KEY, left); else { try { store?.remove(STORE_KEY); } catch { /* nothing to lose */ } } }
       for (const id of ids) {
         held.delete(id);
         const a = ackOnSave.get(id);
         if (a) {
           ackOnSave.delete(id);
-          const kept = read(SPOILS_DAY_KEY);
-          keep(SPOILS_DAY_KEY, [...(Array.isArray(kept) ? kept : []), spentKey(a.day, a.acct)].filter((v, i, xs) => xs.indexOf(v) === i).slice(-SPOILS_SPENT_MAX));
+          const kept = read(DAY_KEY);
+          keep(DAY_KEY, [...(Array.isArray(kept) ? kept : []), spentKey(a.day, a.acct)].filter((v, i, xs) => xs.indexOf(v) === i).slice(-SPOILS_SPENT_MAX));
           said(a.day);
         }
       }
