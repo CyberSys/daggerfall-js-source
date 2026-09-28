@@ -461,7 +461,7 @@ test('E1: every window DFU reads on GetKeyUp answers on the RELEASE - all four, 
     // DaggerfallRestWindow.cs:193-196 and StopButton_OnKeyboardEvent :714-726
     { file: 'src/ui/restWindow.js', member: /^  keyup\(action, e = null\) \{$/m },
     // DaggerfallPauseOptionsWindow.cs:183-188
-    { file: 'src/ui/pauseWindow.js', member: /^  keyup\(code\) \{$/m },
+    { file: 'src/ui/pauseWindow.js', member: /^  keyup\(code, e = null\) \{$/m },   // AUDIT DISC28 UI-1: the release's event, as its siblings take it
     // D4 got there first, on the travel popup's EXIT (:482-495)
     { file: 'src/ui/travelPopUp.js', member: /^  keyup\(code, e = null\) \{$/m },
   ];

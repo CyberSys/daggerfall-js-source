@@ -11,8 +11,8 @@
   {
     "name": "DISC28-A-repeat-closes",
     "file": "src/ui/enhancedMenu.js",
-    "old": "mode === 'pause' && !e.repeat && eventMeans",
-    "new": "mode === 'pause' && eventMeans",
+    "old": "    if (!e.repeat) backArmed = e.code;\n    return;\n",
+    "new": "    if (!e.repeat) { backArmed = e.code; return; }\n",
     "tests": [
       "test/disc28_pause.test.js"
     ]

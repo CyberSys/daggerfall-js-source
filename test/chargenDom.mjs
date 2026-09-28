@@ -41,11 +41,20 @@ globalThis.matchMedia = () => ({ matches: true, addEventListener() {} });
 globalThis.innerWidth = 1280; globalThis.innerHeight = 720;
 /** dispatch a keydown the way a browser does: window capture listeners first */
 export function keydown(key, target = globalThis.document.activeElement ?? globalThis.document.body, extra = {}) {
-  const ev = { key, code: key, target, defaultPrevented: false, stopped: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...extra };
+  const ev = { type: 'keydown', key, code: key, target, defaultPrevented: false, stopped: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...extra };
   for (const f of winListeners.keydown ?? []) f(ev);
   if (!ev.stopped && target?.onkeydown) target.onkeydown(ev);
   return ev;
 }
+/** ...and its release, the same way (AUDIT DISC28 UI-2: the pause face answers on the keyup of a press it saw) */
+export function keyup(key, target = globalThis.document.activeElement ?? globalThis.document.body, extra = {}) {
+  const ev = { type: 'keyup', key, code: key, target, defaultPrevented: false, stopped: false, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...extra };
+  for (const f of winListeners.keyup ?? []) f(ev);
+  if (!ev.stopped && target?.onkeyup) target.onkeyup(ev);
+  return ev;
+}
+/** How many listeners of a type the window holds - an owner's teardown leaves none behind */
+export const windowListenerCount = (type) => (winListeners[type] ?? []).length;
 export const byClass = (root, c) => root.querySelectorAll('.' + c);
 export const text = (n) => n.textContent;
 export { Node_ };
