@@ -4,31 +4,39 @@
     "file": "src/scenes/cityGuards.js",
     "old": "    if (playerSparesPerson(best)) return false;",
     "new": "",
-    "tests": ["test/fb0929_raidguards.test.js"],
+    "tests": [
+      "test/fb0929_raidguards.test.js"
+    ],
     "note": "The swing's civilian arm struck a raid's walking guard: Assault, a watchman minted, the squad turned."
   },
   {
     "name": "RAID-GUARDS-NPC-spared-without-a-raid",
     "file": "src/scenes/cityGuards.js",
-    "old": "    return !!person?.guard && !!raidHere();",
-    "new": "    return !!person?.guard;",
-    "tests": ["test/fb0929_raidguards.test.js"],
-    "note": "Every walking guard spared, raid or not: DFU's Assault gone."
+    "old": "    return !!person && !!raidHere();",
+    "new": "    return !!person;",
+    "tests": [
+      "test/fb0929_raidguards.test.js"
+    ],
+    "note": "Every walker spared, raid or not: DFU's Assault and Murder gone."
   },
   {
-    "name": "RAID-GUARDS-NPC-townsperson-spared",
+    "name": "RAID-GUARDS-NPC-townsperson-unspared",
     "file": "src/scenes/cityGuards.js",
-    "old": "    return !!person?.guard && !!raidHere();",
-    "new": "    return !!raidHere();",
-    "tests": ["test/fb0929_raidguards.test.js"],
-    "note": "Townspeople spared too - a call left to Mac, not this fix's."
+    "old": "    return !!person && !!raidHere();",
+    "new": "    return !!person?.guard && !!raidHere();",
+    "tests": [
+      "test/fb0929_raidguards.test.js"
+    ],
+    "note": "Only the walking guard spared: a townsperson struck in a raid is still Murder (Mac: \"Spare townspeople in raid\")."
   },
   {
     "name": "RAID-GUARDS-NPC-trample-unfiltered",
     "file": "src/scenes/world.js",
     "old": "    livePersons: () => _livePersons.filter((seat) => !cityGuards.playerSparesPerson(seat.person)),",
     "new": "    livePersons: () => _livePersons,",
-    "tests": ["test/fb0929_raidguards.test.js"],
+    "tests": [
+      "test/fb0929_raidguards.test.js"
+    ],
     "note": "The riding trample still made Assault of a raid's walking guard."
   }
 ]

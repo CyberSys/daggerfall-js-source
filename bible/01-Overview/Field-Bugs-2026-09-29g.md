@@ -1,4 +1,4 @@
-# FIELD BUGS 2026-09-29g - ! OG's list: the raid's walking guard, the beast's levy, the Warden's strike, the hold on enemies
+# FIELD BUGS 2026-09-29g - ! OG's list: the raid's walkers, the beast's levy, the Warden's strike, the hold on enemies
 
 Two screenshots from the Discord (! OG, through Mac), one list. The rule for a batch like it: every report root-caused
 on the real modules, the port's own faults fixed and pinned, and what is Daggerfall's own, or a design call, said
@@ -6,7 +6,7 @@ plainly and left to Mac.
 
 | | Report | What it was | Done |
 |---|---|---|---|
-| 1 | "Protect bystanders ... Hit a guard killed him in a raid", "u can totaly kill citizens now, just fucked my rep in a raid" | RAID-GUARDS spared the raid's defenders, not the town's WALKING guard: one swing was Assault, minted a watchman from him, and the crime turned every defender into the crime watch | the guard: fixed (RAID-GUARDS-NPC). A townsperson: DFU's rule, for Mac |
+| 1 | "Protect bystanders ... Hit a guard killed him in a raid", "u can totaly kill citizens now, just fucked my rep in a raid" | RAID-GUARDS spared the raid's defenders, not the town's WALKING guard: one swing was Assault, minted a watchman from him, and the crime turned every defender into the crime watch | fixed (RAID-GUARDS-NPC): the guard, and the townsperson at Mac's word |
 | 2 | "Then changed ... Now all guards wont leave me alone" | the passive Criminal_Conspiracy levy went through SuppressCrime, which DFU's never does: a transformed beast drew the watch with no crime to answer | fixed (WERE-LEVY) |
 | 3 | "Serving time doesnt fix rep. Tried 8 times" | DFU's own arithmetic, ported exactly | for Mac |
 | 4 | "Rep in were form is separated from normal form" / "Were form rep transfer to non were form" | DFU's SuppressCrime, as the port has it: nothing done in beast form is a crime; a crime done as a man is still owed as a beast | Daggerfall's own; said |
@@ -17,7 +17,7 @@ plainly and left to Mac.
 | 9 | "Magic enchantments on strike from weapons broke" | no regression; the Warden's strike went nowhere in the real game (a port fault), and online only a strike's DAMAGE crosses to a foe another player owns | the Warden: fixed (WARDEN-STRIKE). Shared foes and duels: for Mac |
 | 10 | "Quest timer is fucked ... loitering around for hours nothing" | online a loiter moves the character's clock, and quest time reads the world's | Lived-Time OPEN 1, Mac's |
 
-## RAID-GUARDS-NPC: the town's walking guard is the raid's too (1)
+## RAID-GUARDS-NPC: the town's walkers are spared in a raid (1)
 
 **Reproduced first**, on the real `cityGuards` pool: a raid on, Protect Bystanders on, the raider out of reach, the
 two defenders off the look ray and a walking guard on it at 1.5 m. The watch's pass and the monsters' missed; the
@@ -31,11 +31,13 @@ watch - a DEFENDER - and held the damage door for a defender. The town's own wal
 MobilePersonNPC with `guard`, DFU's mobile-NPC branch (WeaponManager.cs:499-531), where a strike is Assault and makes
 him a watchman on the spot. The swing's third pass and the riding trample (EnhancedRiding.cs:135-165) both reached him.
 
-**The fix.** `scenes/cityGuards.js` `playerSparesPerson`: a walking guard while a raid is on here. The civilian arm
-passes him by - and, first on the look ray, he stops the swing, as a spared defender does (the body DFU's SphereCast
-meets first); the world host's trample list is filtered by the same rule. No raid, DFU's Assault stands. A townsperson
-is not a guard (For Mac 1). `test/fb0929_raidguards.test.js` (+1, failing on the code before it),
-`tools/mutants/fb0929g_raidguardnpc.json` (4, 4 dead).
+**The fix.** `scenes/cityGuards.js` `playerSparesPerson`: every walker while a raid is on here - the walking guard,
+and the townsperson at Mac's word on the first draft (*"Spare townspeople in raid"*; a townsperson struck in a raid was
+still DFU's Murder, and still turned the defenders). The civilian arm passes them by - and the first on the look ray
+stops the swing, as a spared defender does (the body DFU's SphereCast meets first); the world host's trample list is
+filtered by the same rule. No raid, DFU's Assault and Murder stand, whatever the setting.
+`test/fb0929_raidguards.test.js` (+1, failing on the code before it), `tools/mutants/fb0929g_raidguardnpc.json` (4, 4
+dead).
 
 ## WERE-LEVY: the passive levy writes the field, as DFU's does (2)
 
@@ -106,9 +108,8 @@ short of a band's sight, not 1280; on foot 168 m, not 280. The second "too early
 
 ## For Mac
 
-1. **A townsperson in a raid.** RAID-GUARDS-NPC spares the walking guard. A townsperson struck in a raid is still DFU's
-   Murder, and still turns the defenders; Protect Bystanders is DFU's box-pass rule, which leaves a body the swing
-   meets alone. Spare townspeople too while a raid is on (or under the setting always)?
+1. **A townsperson in a raid.** [ANSWERED: *"Spare townspeople in raid"* - RAID-GUARDS-NPC spares every walker while a
+   raid is on. Outside a raid Protect Bystanders stays DFU's box-pass rule.]
 2. **Serving time, the levy, banishment.** A refund of at least a Conspiracy's loss, a grace after release, no levy on
    the online clock, a way to lift the banish bit - any, or DFU's?
 3. **A reputation reset (5).** Its reach (a region's legal reputation and People, the banish bit, a guild's standing),

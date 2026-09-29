@@ -1,7 +1,7 @@
 # Patch Notes: Raids, beasts and the Warden
 
 ## Raids
-- **The town's own guards are safe from your blade during a raid.** A stray swing or your horse could still hit one of the guards walking the streets. That counted as Assault, turned him into a watchman, and turned the whole squad fighting beside you against you. While a raid is on, your swings and your horse now pass them by, just as they already passed the raid's defenders.
+- **The town's guards and townspeople are safe from your blade during a raid.** A stray swing or your horse could still hit a guard or a townsperson in the streets. That counted as Assault or Murder, turned the whole squad fighting beside you against you, and cost you your reputation. While a raid is on, your swings and your horse now pass everyone in the streets by, just as they already passed the raid's defenders. Outside a raid, nothing has changed.
 
 ## Lycanthropes
 - **A hated name is charged, even in beast form.** Where a region hates you or has banished you, the watch comes for you now and then on a charge of Criminal Conspiracy. In beast form the watch still came, but with no charge you could answer. They hunted you and never stood down. As in Daggerfall, the charge now stands, so the watch can halt you and the matter can be settled.

@@ -7195,7 +7195,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const rrRiding = createRrRidingContacts({
     playerEntity,
     feet: () => player.pos, yaw: () => cam.yaw,
-    livePersons: () => _livePersons.filter((seat) => !cityGuards.playerSparesPerson(seat.person)),   // RAID-GUARDS-NPC: the trample passes a raid's walking guard by
+    livePersons: () => _livePersons.filter((seat) => !cityGuards.playerSparesPerson(seat.person)),   // RAID-GUARDS-NPC: the trample passes a raid's walkers by (guards and townspeople)
     foes: () => exteriorFoes.foes, guards: () => cityGuards.guards.filter((g) => !cityGuards.playerSpares(g)),   // RAID-GUARDS: the charge passes a spared defender by
     isGuardRecord: (f) => f._encounter === undefined && cityGuards.guards.includes(f),
     splashBlood: (pos, fwd) => hitEffects.showBloodSplash(0, pos, fwd, LETHAL_HIT),
@@ -10055,7 +10055,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7458), so exterior mode and a
+    // composer, dungeonContext.js:7462), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {

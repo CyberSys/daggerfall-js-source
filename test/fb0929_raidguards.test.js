@@ -217,8 +217,9 @@ test('RAID-REP: a cleanse raises the raided region\'s own standing and touches n
 // just fucked my rep in a raid ... Protect bystanders was on tooo"). RAID-GUARDS spared the raid's defenders and left
 // the town's WALKING guard to DFU's mobile-NPC branch: one swing was Assault and minted a watchman from him, and the
 // crime turned every defender into the crime watch on the next frame. While a raid is on the walking guard is spared
-// too - the swing and the trample - and, first on the ray, he stops the swing as a defender does.
-test('RAID-GUARDS-NPC: while a raid is on, the town\'s walking guard takes none of the player\'s swing - no Assault, no watchman minted, the defenders still the player\'s, nobody behind him struck; no raid, DFU\'s Assault stands', async () => {
+// too - the swing and the trample - and, first on the ray, he stops the swing as a defender does. And (Mac, on 29g's
+// first draft: "Spare townspeople in raid") every townsperson the same: no Murder in a raid.
+test('RAID-GUARDS-NPC: while a raid is on, the town\'s walkers take none of the player\'s swing - the walking guard (no Assault, no watchman minted) and the townsperson (no Murder), the defenders still the player\'s, nobody behind struck; no raid, DFU\'s Assault and Murder stand', async () => {
   const p = townsman();
   let raid = true;
   const { guards, beside, front } = await raidStreet(p, { raidHere: () => raid });
@@ -231,17 +232,22 @@ test('RAID-GUARDS-NPC: while a raid is on, the town\'s walking guard takes none 
   let murders = 0;
   const before = guards.guards.length;
   assert.equal(guards.playerSparesPerson(guardNpc), true, 'a raid on: spared');
-  assert.equal(guards.playerSparesPerson(townsperson), false, 'a townsperson is not a guard');
+  assert.equal(guards.playerSparesPerson(townsperson), true, 'a townsperson too (Mac: "Spare townspeople in raid")');
   assert.equal(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [guardNpc, townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), false, 'the swing passes him by, and stops on him');
   assert.deepEqual([hit, murders, p.crimeCommitted, guards.guards.length], [[], 0, 0, before], 'no Assault, no watchman minted, nobody behind him struck');
+  assert.equal(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), false, 'the townsperson alone on the ray: spared');
+  assert.deepEqual([hit, murders, p.crimeCommitted], [[], 0, 0], 'no Murder, no guards called');
   guards.update(0.016, FEET0, EYE0);
   for (const d of [beside, front]) assert.deepEqual([d.defender, d.entity.team], [true, 'PlayerAlly'], 'the squad still the player\'s');
-  // the raid over: DFU's mobile-NPC branch - Assault, and the watchman minted from him
+  // the raid over: DFU's mobile-NPC branch - Assault, and the watchman minted from him; a townsperson, Murder
   raid = false;
   assert.equal(guards.playerSparesPerson(guardNpc), false);
+  assert.equal(guards.playerSparesPerson(townsperson), false);
   const r = await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [guardNpc], { inViewFn: inView });
   assert.equal(r.crime, 'assault');
   assert.deepEqual([hit, p.crimeCommitted], [['guard'], 4]);
+  assert.deepEqual(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), { crime: 'murder' });
+  assert.deepEqual([hit, murders, p.crimeCommitted], [['guard', 'townsperson'], 1, 5]);
   // THE HOST: the riding trample asks the same rule of the street's walkers
-  assert.match(rd('src/scenes/world.js'), /livePersons: \(\) => _livePersons\.filter\(\(seat\) => !cityGuards\.playerSparesPerson\(seat\.person\)\),/, 'the trample passes a raid\'s walking guard by');
+  assert.match(rd('src/scenes/world.js'), /livePersons: \(\) => _livePersons\.filter\(\(seat\) => !cityGuards\.playerSparesPerson\(seat\.person\)\),/, 'the trample passes a raid\'s walkers by');
 });

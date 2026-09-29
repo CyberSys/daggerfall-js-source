@@ -1188,10 +1188,10 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  where one swing or a riding trample is Assault and turns him into a watchman on the spot; and ANY crime turns
    *  every defender into the crime watch the next frame (update's enlist), which is how one stray swing in a raid
    *  became a squad to kill and a Halt to pay. While a raid is on here the player's blows pass such a guard by, as
-   *  they pass a defender (Mac: "Raids shouldnt let you damage the guards"). A townsperson is not a guard: his is
-   *  DFU's rule still. */
+   *  they pass a defender (Mac: "Raids shouldnt let you damage the guards") - and a townsperson too (Mac, on 29g's
+   *  first draft: "Spare townspeople in raid"): no Murder, the squad still the player's. No raid, DFU's rule. */
   function playerSparesPerson(person) {
-    return !!person?.guard && !!raidHere();
+    return !!person && !!raidHere();
   }
 
   /** The player's swing resolves against live guards (the dungeon's
@@ -1321,8 +1321,8 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // the ray in front of the person is the body DFU's SphereCast meets
     // first (WeaponManager.cs:1057-1064) - the swing stops on him.
     if (guards.some((g) => !g.dead && g.defender && rayPersonDistance(eye, lookDir, g.ai.feet) < bestD)) return false;
-    // RAID-GUARDS-NPC: a raid on here, the town's walking guard is spared - and, first on the ray, he stops the swing
-    // as a spared defender does (no Assault, no watchman minted, nobody behind him struck)
+    // RAID-GUARDS-NPC: a raid on here, the town's walkers are spared - guard or townsperson - and the first on the ray
+    // stops the swing as a spared defender does (no Assault, no Murder, no watchman minted, nobody behind struck)
     if (playerSparesPerson(best)) return false;
     if (!best.guard) {
       // WeaponManager.cs:504-508 - murdering a wandering civilian
