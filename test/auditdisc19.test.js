@@ -323,7 +323,7 @@ test('AUDIT DISC19: the summon converts the wandering GUARDS in range and nobody
   assert.equal(await g2.summonDefenders({ playerFeet: FEET0, playerFwd: FWD0, threats: [centaur], pool: [] }), 3, 'an empty street: the band');
 });
 
-test('AUDIT DISC19 W5: with MeleeAttackFriendlyProtection off the first pass strikes a defender in front like anything else, and the second has nothing to offer', async () => {
+test('AUDIT DISC19 W5: with MeleeAttackFriendlyProtection off the watch\'s pass strikes a defender in front like anything else - and on, it spares him (FB0929: no second pass offers him alone)', async () => {
   const p = townsman();
   const guards = createCityGuards(rig(p));
   const monsters = createExteriorFoes(rig(p));
@@ -331,16 +331,16 @@ test('AUDIT DISC19 W5: with MeleeAttackFriendlyProtection off the first pass str
   await guards.summonDefenders({ playerFeet: FEET0, playerFwd: FWD0, pool: [{ pos: [0, 0, 1.2], fwdYaw: Math.PI, guard: true, disable: () => {} }], threats: [centaur] });
   const d = guards.guards[0];
   d.entity.health = 10000;
+  assert.equal(guards.resolvePlayerHit(new PlayerWeapon({}), EYE0, FWD0, FEET0, () => true, null), false, 'protected: the watch\'s pass spares him');
+  assert.equal(d.entity.health, 10000);
+  assert.equal(d.defender, true, 'untouched');
   setValue('MeleeAttacks', 'MeleeAttackFriendlyProtection', false);
   try {
-    assert.equal(guards.resolvePlayerHit(new PlayerWeapon({}), EYE0, FWD0, FEET0, () => true, null, { defendersOnly: true }), false, 'the fallback pass has nothing to offer - the first already had him');
-    assert.equal(d.entity.health, 10000);
-    assert.equal(d.defender, true, 'untouched');
-    assert.equal(guards.resolvePlayerHit(new PlayerWeapon({}), EYE0, FWD0, FEET0, () => true, null, { spareDefenders: true }), true, 'no protection: the watch\'s own pass reaches him');
+    assert.equal(guards.resolvePlayerHit(new PlayerWeapon({}), EYE0, FWD0, FEET0, () => true, null), true, 'no protection: the watch\'s own pass reaches him');
   } finally { setValue('MeleeAttacks', 'MeleeAttackFriendlyProtection', true); }
 });
 
-test('AUDIT DISC19 W5: one swing, one attack grunt - the host offers it to the watch, the monsters and the defenders, and only the first pool with anyone in it rolls', async () => {
+test('AUDIT DISC19 W5: one swing, one attack grunt - the host offers it to the watch and the monsters, and only the first pool with anyone in it rolls', async () => {
   setValue('Enhancements', 'CombatVoices', true);
   try {
     const plays = [];
@@ -354,28 +354,31 @@ test('AUDIT DISC19 W5: one swing, one attack grunt - the host offers it to the w
     const AWAY = [0, 0, -1];   // a swing at the air behind: every pool misses
     const w = new PlayerWeapon({});
     const swing = {};
-    assert.equal(guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { spareDefenders: true, swing }), false);
+    assert.equal(guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing }), false);
     assert.equal(monsters.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing }), false);
-    assert.equal(guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { defendersOnly: true, swing }), false);
     assert.equal(plays.length, 1, 'one grunt');
     assert.equal(swing.voiced, true);
     plays.length = 0;
-    guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { defendersOnly: true });
+    monsters.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null);
     assert.equal(plays.length, 1, 'a pool offered a swing on its own still rolls its own');
     guards.guards[0].defender = false;   // a watchman of a crime stands in the watch's pool - it is the first with anyone in it
     plays.length = 0;
     const second = {};
-    guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { spareDefenders: true, swing: second });
+    guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing: second });
     monsters.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing: second });
     assert.equal(plays.length, 1, 'the watch rolled it, the monsters did not');
+    plays.length = 0;
+    const third = {};
+    monsters.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing: third });
+    guards.resolvePlayerHit(w, EYE0, AWAY, FEET0, () => true, null, { swing: third });   // the watch offered the swing after another pool - the Assault conversion's carried swing
+    assert.equal(plays.length, 1, 'the monsters rolled it, the watch after them did not');
   } finally { setValue('Enhancements', 'CombatVoices', false); }
 });
 
 test('AUDIT DISC19 W5 by source: every host that offers one swing to more than one pool hands them the one token', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const swing = \{\};\n(?:\s*\/\/[^\n]*\n)*\s*if \(duelMeleeHit\([^\n]*\n[^\n]*\n[^\n]*\n\s*\} else if \(!cityGuards\.resolvePlayerHit\([^\n]*\{ spareDefenders: true, swing \}\)\) \{/);   // DUEL1: my duel opponent is offered the swing first
+  assert.match(w, /const swing = \{\};\n(?:\s*\/\/[^\n]*\n)*\s*if \(duelMeleeHit\([^\n]*\n[^\n]*\n[^\n]*\n\s*\} else if \(!cityGuards\.resolvePlayerHit\([^\n]*\{ swing \}\)\) \{/);   // DUEL1: my duel opponent is offered the swing first
   assert.match(w, /if \(exteriorFoes\.resolvePlayerHit\([^\n]*guardHitSound, \{ swing \}\)\) \{/);
-  assert.match(w, /\{ defendersOnly: true, swing \}\)\)/);
   assert.match(w, /\{ onMurder: \(\) => _crimeResponse\(\), onHitSound: guardHitSound, swing \}\)\.then/);
   const e = rd('src/scenes/exterior.js');
   assert.equal((e.match(/guardHitSound, \{ swing \}\)\)/g) ?? []).length, 2, 'the fixed-city host\'s two pools');

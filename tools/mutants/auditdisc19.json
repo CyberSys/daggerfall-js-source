@@ -288,19 +288,10 @@
     ]
   },
   {
-    "name": "AUDIT-DISC19-W5-fallback-with-protection-off",
-    "file": "src/scenes/cityGuards.js",
-    "old": "    if (defendersOnly && !protect) return false;\n",
-    "new": "",
-    "tests": [
-      "test/auditdisc19.test.js"
-    ]
-  },
-  {
     "name": "AUDIT-DISC19-W5-spare-ignores-setting",
     "file": "src/scenes/cityGuards.js",
-    "old": "!(spareDefenders && protect && g.defender)",
-    "new": "!(spareDefenders && g.defender)",
+    "old": "(getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') || !!raidHere())",
+    "new": "true",
     "tests": [
       "test/auditdisc19.test.js"
     ]
@@ -344,8 +335,8 @@
   {
     "name": "AUDIT-DISC19-W5-host-token-dropped",
     "file": "src/scenes/world.js",
-    "old": "guardHitSound, { defendersOnly: true, swing }))",
-    "new": "guardHitSound, { defendersOnly: true }))",
+    "old": "guardHitSound, { swing })) {\n          // X-slice: encounter foes resolve after the watch, before civilians",
+    "new": "guardHitSound, {})) {\n          // X-slice: encounter foes resolve after the watch, before civilians",
     "tests": [
       "test/auditdisc19.test.js"
     ]

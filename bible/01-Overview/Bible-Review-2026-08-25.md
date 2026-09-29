@@ -163,7 +163,7 @@ per arc:
   `:3368`); `:4722` is now flatly false ("the interior host's
   char-sheet and inventory panels swallow their click and do
   nothing") and contradicts U43 in the same file
-  (`worldModes.js:5800-5801` routes them). UI-Arc carries no records
+  (`worldModes.js:5804-5805` routes them). UI-Arc carries no records
   at all for H1-H3 - the banking windows exist only in the Ledger.
 - *Combat.md*: the status head (first 51 lines) is the stale part -
   DrainMagicka "INTERIM no-op" (`:19`, real since S4a and
@@ -216,7 +216,7 @@ own AUDIT-18 correction.
 Doc review only, nothing fixed - but four code comments assert the
 opposite of their own code and deserve a slice's attention:
 - `src/ui/deathScreen.js:87-88` claims "`drop` is read by each host's
-  frame" - no host reads it (the Ledger row `:506` is right, the
+  frame" - no host reads it (the Ledger row `:508` is right, the
   comment is wrong).
 - `src/systems/mysticism.js:53` header "OPEN AND LOCK ARE NOT WIRED" -
   they are (X1, `actionSystem.js:930-931`).
@@ -233,7 +233,7 @@ opposite of their own code and deserve a slice's attention:
 
 ## Line-citation drift (low, batched)
 
-`Port-Ledger.md:602` (save.js:33/:561/:570 → :28/:620/:650), `:601`
+`Port-Ledger.md:604` (save.js:33/:561/:570 → :28/:620/:650), `:601`
 (world.js:4565 → :2412); `Quest-Arc.md:719`/`:2906`
 (worldModes.js:624 → :903); `Player-Arc.md:966` (worldModes.js:924 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`

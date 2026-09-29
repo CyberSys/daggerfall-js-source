@@ -767,6 +767,25 @@ held mark. 256 travellers cost two frames.
 on a move, the click boxes, the curtains' samples counted), `tools/mutants/tv5.json` (the
 PERF-TV records).
 
+**FB0929 - THE ROUTE LINE, BY ITS FRAMES (2026-09-29, the Discord through Mac: "The moment I go
+to my Travel Map and select a far away destination, the game drops to sub-10 FPS").** The timer
+above holds the update and the layout it owes, never the paint, and its route was 120 points on
+the screen. A pick on the travel map is a line of a hundred legs and more (400 pixels of
+Hazelnut's roads: 139 legs, 557 points), and a point of it beside the eye's plane projects
+hundreds of thousands of pixels out: the dashed brass line ran 1.5 million px, and the browser
+laid its 100,000 dashes, off the screen too, and rastered them again every frame the camera
+moved - 383-433 ms a frame in Chromium (the median, two runs; turned half round, 217-267), where a
+click in the view drew in 16.7. The JavaScript was never the cost (the update 0.1-0.4 ms; the
+plan is made once, at the pick). `routePath` now cuts the line to the screen grown by
+`ROUTE_CLIP_PX` (16 px, past the casing's round cap), a new stroke where it comes back on: the
+same line on the screen - byte for byte when it lies wholly there, its first stroke the old one's
+from the feet to the edge, dashes and all - and the far pick at 16.7 ms a frame. Where the line
+comes back onto the screen its dash pattern starts at the edge. The readout is world.js's alone
+(travelView.js names the FOUR HOSTS).
+**Proof.** `test/fb0929_farroute.test.js` (4: the planner on the vendored roads, the host's line
+lifted from world.js, the view's own camera and the readout), `tools/mutants/fb0929_farroute.json`
+(13, all dead), `tools/travelViewPerf.mjs` (a journey's line timed by its frames: 20 ms).
+
 ## AUDIT DEEP2 - the whole branch again, six reviewers, before the merge (2026-09-28, Mac: "Do another deep audit on everything before we decide to merge")
 
 Six read-only reviewers, one a lane (the view and its input; journeys; the region's
@@ -1286,6 +1305,20 @@ Each pinned (`test/ows2_crossing.test.js`, `test/ows3_raiders.test.js`) and each
 - The raiders are marks: no hull is drawn for them in the world (the pool's peer path could stand one; a later slice).
 - The raid's fight is the mod's own, on its ship's deck - the ship boarded - not the open sea.
 - The classic lane has no Overworld: DFU's map, its fast travel and Warm Ashes' roll, whole.
+
+## FB0929 - the mouse captured under the Overworld (2026-09-29, a field report)
+
+Satranath (Discord, relayed by Mac): "Y doesn't free the mouse on overworld until after you press Escape." OW-ONLY's
+rise came on the wrong frame for the lock: a journey begun or resumed on the map raises the view on the frame after the
+map goes down (`tvJourneyUp`), the very frame whose look gate has just asked for the lock back on the map's close edge.
+A browser answers that request a task later, so the view's `freeCursor` found nothing to release and the lock landed
+under a view whose cursor is its own - the mouse captured, Y refused under the view (TV1's law, which stands), until the
+browser's own Escape ended it. The map's Overworld button never raced: its commit raises the view a frame before the
+gate asks, and the freed cursor refuses. `player/pointerLock.js` now lets go of a lock that lands while the cursor is
+free. AUDIT OW5 V1 (below) landed the same law on main the same day, in `requestLook`'s one page-wide listener; the
+merge kept that one and dropped this branch's copy in the toggle's listener, and `test/fb0929_overworld_mouse.test.js`
+(3) drives it in every host that binds the toggle (world.js, with worldModes.js and dungeonContext.js under it;
+exterior.js; dungeon.js), every pin made to fail.
 
 ## TV-WASD - THE KEYS TRAVEL - SHIPPED (2026-09-28, Mac: "Also need to add the ability to travel faster with WASD")
 
