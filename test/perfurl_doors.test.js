@@ -9,7 +9,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { codeOnly } from './codeOnly.mjs';
 import { pageParam, pageHas } from '../src/systems/pageQuery.js';
 import { isOnlinePage, onlineForcedPref } from '../src/systems/onlineLane.js';
@@ -18,8 +19,13 @@ import { airOn, contactOn } from '../src/render/airPass.js';
 import { shadowCacheOn } from '../src/render/shadowPass.js';
 import { exposureFor, EL_EXPOSURE } from '../src/render/enhancedLighting.js';
 import { motionEnabled } from '../src/ui/windowMotion.js';
+import { swayDisabled } from '../src/systems/windDrive.js';
+import { cullDisabled } from '../src/render/frustum.js';
+import { BOOT_DOOR_KEYS, ONLINE_REFUSED_FLAGS } from '../src/systems/onlineLane.js';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+// AUDIT PERF-URL A2: a PATH, not a URL's pathname - `.pathname` is percent-encoded (a clone under "My Projects" read
+// My%20Projects and the sweep threw ENOENT), and the repo's other ~490 pins take fileURLToPath
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 /** Count every URLSearchParams minted while `fn` runs. */
 function minted(fn) {
@@ -53,9 +59,10 @@ test('PERF-URL: the frame’s doors read through it - the online lane, the skin,
       assert.equal(contactOn(search), true);
       assert.equal(shadowCacheOn(search), true);
       assert.equal(onlineForcedPref('perfurl-not-a-forced-key', search), undefined);
+      assert.equal(swayDisabled(search), false);   // AUDIT PERF-URL A4: PERF-SUN's door, through the one home too
     }
   });
-  assert.equal(n, 1, 'eight doors a hundred times each, off one search: one parse');
+  assert.equal(n, 1, 'nine doors a hundred times each, off one search: one parse');
 });
 
 test('PERF-URL: keyed on the search it READS, so the boot’s published URL is the answer the moment it lands (MAC-N3)', () => {
@@ -78,6 +85,12 @@ test('PERF-URL: keyed on the search it READS, so the boot’s published URL is t
     assert.equal(exposureFor(), 1.5);
     assert.equal(motionEnabled({ location: { search: '?motion' }, navigator: { webdriver: true } }), true, 'a window’s own search is read, not the page’s');
     assert.equal(motionEnabled({ location: { search: '?nomotion' }, navigator: {} }), false);
+    loc.search = '?cull=off';   // AUDIT PERF-URL A3: the frustum's escape hatch sniffed the search with its own regex
+    assert.equal(cullDisabled(), true);
+    loc.search = '?cull=on';
+    assert.equal(cullDisabled(), false);
+    loc.search = '?sway=off';
+    assert.equal(swayDisabled(), true);
   } finally {
     if (had) Object.defineProperty(globalThis, 'location', had); else delete globalThis.location;
   }
@@ -92,28 +105,49 @@ function sourceFiles(dir = join(ROOT, 'src'), out = []) {
   return out;
 }
 
-test('PERF-URL: no door parses the query on its own - src/ mints URLSearchParams only where it must, each for a reason', () => {
-  // The sites that may, and why. A LATCH reads once a page (the URL does not change after the boot's publish, which
-  // runs before any of them is asked); the rest build or edit a query rather than read one.
+test('PERF-URL: no door parses the query on its own - src/ reads the query only where it must, each for a reason', () => {
+  // AUDIT PERF-URL A3: EVERY SPELLING OF A READ, not the one literal. The first sweep matched `new URLSearchParams(` on
+  // one line, and the frustum's `?cull=off` hatch had been sniffing `location.search` with a regex all along; a
+  // `new URL(location.href).searchParams.get(...)`, an alias (`const P = URLSearchParams`) or a constructor split over
+  // two lines would have passed as well. A URL BUILT (`searchParams.set/delete` - the menu's links, the overhauls'
+  // reload) reads nothing and is not swept.
+  const READS = [
+    /\bURLSearchParams\b/,                                        // any spelling: `new URLSearchParams(`, split, aliased
+    /\.searchParams\s*\.\s*(?:get|getAll|has)\s*\(/,               // a URL object's query, read
+    /\.(?:test|exec)\(\s*(?:globalThis\.|window\.)?location\??\.search\b/,   // a regex over the page's search
+    /location\??\.search(?:\s*\?\?\s*'')?\)?\s*\.\s*(?:includes|indexOf|match|matchAll|search|startsWith|endsWith|split)\s*\(/,   // a string sniff of it
+  ];
+  // The sites that may, and why. A LATCH reads once a page by its own slice's contract ("read once", pinned where it
+  // was made); the rest build or edit a query rather than read one.
   const ALLOWED = [
     ['src/systems/pageQuery.js', /_params = new URLSearchParams\(search\);/, 'the one home'],
-    ['src/main.js', /const params = new URLSearchParams\(location\.search\);/, 'the boot’s own params, which it edits and publishes'],
+    ['src/main.js', /const params = new URLSearchParams\(location\.search\);/, 'the boot\u2019s own params, which it edits and publishes'],
     ['src/systems/realmSaves.js', /const p = new URLSearchParams\(search\);/, 'realmBootSearch BUILDS a search (deletes and sets)'],
-    ['src/systems/windDrive.js', /_swayOff = new URLSearchParams\(search\)\.get\('sway'\) === 'off';/, 'PERF-SUN’s own search-keyed memo, pinned by test/perfsun_fragment.test.js'],
-    ['src/systems/renderScale.js', /if \(_door === undefined\) _door = renderScaleOf\(new URLSearchParams\(/, 'a latch, once a page'],
-    ['src/systems/weatherSim.js', /UrlDoor \?\?= new URLSearchParams\(/, 'four latches, once a page'],
+    ['src/systems/renderScale.js', /if \(_door === undefined\) _door = renderScaleOf\(new URLSearchParams\(globalThis\.location\?\.search \?\? ''\)\.get\('(\w+)'\)\);/, 'a latch, once a page (test/perfscale.test.js: "read once")'],
+    ['src/systems/weatherSim.js', /UrlDoor \?\?= new URLSearchParams\(globalThis\.location\?\.search \?\? ''\)\.get\('(\w+)'\)/, 'four latches, once a page (test/clockArc.test.js: "read once")'],
   ];
   const offenders = [];
+  const latched = [];
   let allowed = 0;
   for (const file of sourceFiles()) {
-    const rel = file.slice(ROOT.length);
+    const rel = relative(ROOT, file).split(sep).join('/');
     const code = codeOnly(readFileSync(file, 'utf8'));
     for (const line of code.split('\n')) {
-      if (!line.includes('new URLSearchParams(')) continue;
+      if (!READS.some((re) => re.test(line))) continue;
       const ok = ALLOWED.find(([f, re]) => f === rel && re.test(line));
-      if (ok) allowed++; else offenders.push(`${rel}: ${line.trim().slice(0, 140)}`);
+      if (!ok) { offenders.push(`${rel}: ${line.trim().slice(0, 140)}`); continue; }
+      allowed++;
+      const key = line.match(ok[1])?.[1];
+      if (key) latched.push(key);
     }
   }
-  assert.deepEqual(offenders, [], 'a door that parses on its own - read it through systems/pageQuery.js (pageParam / pageHas)');
-  assert.equal(allowed, 9, 'the allowed sites are all still there - one each, and weatherSim’s four (a stale allowance is a hole in the sweep)');
+  assert.deepEqual(offenders, [], 'a door that reads the query on its own - read it through systems/pageQuery.js (pageParam / pageHas)');
+  assert.equal(allowed, 8, 'the allowed sites are all still there - one each, and weatherSim\u2019s four (a stale allowance is a hole in the sweep)');
+  // AUDIT PERF-URL A5: WHY A LATCH IS SAFE, HELD RATHER THAN SAID. The first cut claimed the boot's publish "runs before
+  // any of them is asked" - unverified. What is true: the publish (onlineLane.js publishBootParams) writes main.js's
+  // own params, which start from the page's search and edit only the boot's door keys (BOOT_DOOR_KEYS) and, online,
+  // the refused power flags - so a latched key reads the same on either side of it, whenever it is first asked.
+  assert.deepEqual(latched.sort(), ['evolve', 'renderscale', 'snowground', 'wxfield', 'wxmap']);
+  const published = new Set([...BOOT_DOOR_KEYS, ...ONLINE_REFUSED_FLAGS]);
+  assert.deepEqual(latched.filter((k) => published.has(k)), [], 'a latched key the boot publishes would keep the menu\u2019s answer for the session - the MAC-N3 bug; read it through pageParam');
 });

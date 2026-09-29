@@ -176,6 +176,46 @@ with the reason beside it - the hub laws, which are what the ceiling was for, ar
 middle of its object literal (`scenes/world.js`, beside `labGrassField.update`) and the two keys were inside it. They
 are code again, held by `test/perf2.test.js` through `codeOnly` (red on the old line).
 
+## AUDIT PERF-URL — the PR read before it merges (2026-09-29)
+
+Mac: "audit this". Nine findings came back from a reader over the branch's diff; each was checked against the tree
+before anything moved, and each fix was pinned RED first - a mutant that survived the old pins and dies on the new
+(`tools/mutants/audit_perfurl.json`: 7, all dead; five of them survived the pre-audit pins, the other two were live
+in the tree).
+
+**Fixed.**
+- **A3 - the sweep saw one spelling.** It matched `new URLSearchParams(` on a line, and `render/frustum.js`'s
+  `cullDisabled` had been sniffing `location.search` with a regex of its own all along; a URL object's
+  `searchParams.get`, an alias or a constructor split over two lines passed too. The sweep now reads every spelling
+  of a read (a URL BUILT - the menu's links, the overhauls' reload - reads nothing and is not swept), and
+  `cullDisabled` reads through the home.
+- **A4 - "ONE HOME" had a second.** PERF-SUN's `swayDisabled` kept its private search-keyed memo, allowed by the
+  sweep. It reads `pageParam('sway', search)` now; PERF-SUN's pins hold it by source and by count, and AUDIT F1's
+  declared-above-its-reader law moved with the state to `pageQuery.js`'s two `let`s. Three PERF-SUN mutant records
+  re-aimed by content (25 of 25 dead).
+- **A5 - the latches' reason was said, not held.** The allowance claimed the boot's publish "runs before any of them
+  is asked" - unverified. What is true is that the publish writes `main.js`'s own params, which edit only the boot's
+  door keys and, online, the refused power flags; the sweep now reads each latch's key off its line and holds it out
+  of those sets, so a latch reads the same on either side of the publish. The latches stay: "read once a page" is
+  their own slices' pinned contract (`test/perfscale.test.js`, `test/clockArc.test.js`).
+- **A8 - a presence test passed as a reader.** AUDIT 58's knob pin (`test/doctrine.test.js`) had been loosened to
+  accept `pageHas('k'`, and every knob there hands a VALUE: `pageParam('k'` only.
+- **A2 - a URL's pathname is not a path.** `test/perfurl_doors.test.js` took its root from `.pathname`
+  (percent-encoded); `fileURLToPath`, as the repo's other pins do.
+
+**Not changed, and why.**
+- **The cite quotes in `test/citedrift.test.js`'s comments moved (+1).** Pre-existing: `tools/citeShift.mjs` moves
+  them on every run - the same sentence read `world.js:13485` on 09-25, `:17553` on 09-28, `:17794` before this PR -
+  because it cannot tell a quoted stale cite from a live one (its own header says what it cannot do). Recorded for the
+  tool's next pass, not re-derived by hand here.
+- **The one-entry memo re-parses when two searches interleave.** The only reader of a search other than the page's is
+  `windowMotion.js`'s per-window check, which runs as a window opens and, in the game, is handed the page's own window.
+  A miss costs one parse - what every read cost before PERF-URL.
+- **BOOT2's ceiling at 64, not 61.** The test's own design: the ceiling "leaves room for a real need and none for a
+  hub", and the hub law is its own assertion; a ceiling at the exact reach would redden the next real leaf.
+- **`test/perf2.test.js`'s hook slice.** The `-1` case is unreachable: the assertion before it matches the same prefix
+  and fails first, with the right message.
+
 ## For Mac
 
 - **The cloud march** is the largest outdoor GPU cost left (21-29% of this GPU's frame, every weather, and the Render
