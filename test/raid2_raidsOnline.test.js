@@ -311,7 +311,7 @@ test('RAID2 the lane and the lock: the raids\' switch is the room\'s online, for
   assert.deepEqual({ ...ONLINE_ROOM_MOD_KEYS[RAIDING_PARTIES_VENDOR] }, { Enabled: true });
   assert.ok(!ONLINE_PLAYERS_OWN_MODS.includes(RAIDING_PARTIES_VENDOR));
   const menu = rd('src/ui/enhancedMenu.js');
-  assert.match(menu, /const ONLINE_WORLD_EVENT_NOTE = 'On while online - a town\\u2019s raid is the world\\u2019s[^']*';/);
+  assert.match(menu, /const ONLINE_WORLD_EVENT_NOTE = 'On for everyone online: a raid is shared[^']*';/);
 });
 
 test('RAID2 the world host by source: my word rides my cell frame, a peer\'s reaches the raids through the pool\'s room test, and the seams answer who I am, who stands in the town (the watch\'s own rect), the raid\'s puppets and my taken raiders on the net\'s clock', () => {

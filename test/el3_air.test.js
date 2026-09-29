@@ -282,5 +282,5 @@ test('EL3: the renderer\'s wiring - the air rides the lane and the door, the com
   assert.ok(!/this\.discard\(\);\n  \}\n\n  \/\*\* One map's worth/.test(sp), 'the shadow pass no longer drops the records itself - the renderer does, after the air');
   assert.match(read('src/render/enhancedLighting.js'), /renderer\.setAir\(airOn\(search\)\)/, 'the door is read at the one sync');
   const f = read('src/systems/features.js');
-  assert.match(f, /shadows, ambient occlusion in the corners, bloom on windows and flames, and '\n\s+\+ 'shafts of sunlight\./, 'the row says what the three tiers do');
+  assert.match(f, /darker corners, a glow on windows and flames, and rays of[\s\S]{0,12}sunlight\./, 'the row says what the three tiers do');
 });

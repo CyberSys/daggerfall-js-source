@@ -19,7 +19,7 @@ const read = (p) => readFileSync(join(root, p), 'utf8');
 const ROWS = [
   ['enemy-infighting', 'Enhancements/EnemyInfighting', 'True', 'Takes effect at once.'],
   ['varied-dungeon-monsters', 'Enhancements/AlternateRandomEnemySelection', 'False', 'Takes effect on the next dungeon you enter.'],
-  ['torches-from-items', 'Enhancements/PlayerTorchFromItems', 'False', 'Takes effect at once; a new character’s starting gear and a shop’s next stocking follow it.'],
+  ['torches-from-items', 'Enhancements/PlayerTorchFromItems', 'False', 'Takes effect at once; new characters and shop stock follow it.'],
 ];
 
 test('FT10: three DFU Classic rows over live DFU keys, titled as the settings pane titles them, sound', () => {
@@ -41,7 +41,7 @@ test('FT10: each note says what Daggerfall Unity ships it as, and the baked defa
     const [sec, k] = key.split('/');
     assert.equal(DEFAULTS[sec][k], def, `${key} ships ${def}`);
     const f = FEATURES.find((x) => x.id === id);
-    assert.match(f.note, def === 'True' ? /Daggerfall Unity ships it on\.$/ : /Daggerfall Unity ships it off\.$/, `${id}: the note's last sentence is the default`);
+    assert.match(f.note, def === 'True' ? /On by default in Daggerfall Unity\.$/ : /Off by default in Daggerfall Unity\.$/, `${id}: the note's last sentence is the default`);
   }
 });
 

@@ -186,12 +186,12 @@ test('MODS-ONLINE-2: the lock, the pane and the door all say the same true thing
   assert.match(menu, /const ground = onlineModSetting\(vendor, key\);/);   // REALM P0.2: the room table, then a balance mod owned whole
   // MODS-ONLINE-4: the three balance switches are not locked for the
   // GROUND's reason, so they do not wear the ground's words.
-  assert.match(menu, /const ONLINE_SHARED_NOTE = '[^']*belong to whoever is hosting it[^']*';/, 'the shared lock has its own words');
+  assert.match(menu, /const ONLINE_SHARED_NOTE = '[^']*belong to whoever hosts it[^']*';/, 'the shared lock has its own words');
   assert.match(menu, /if \(ground !== undefined\) lockOnline\(b, null, \{ note: modLockNote\(vendor, key\), value: ground \}\);/);
   // WOD1: the ground's words go to the two vendors that write terrain heights, and only them. DS1: and the ships' shared deck. OH-A: and the pits cut into the seafloor.
   assert.match(menu, /const ONLINE_GROUND_VENDORS = Object\.freeze\(\['roads-hazelnut', 'world-of-daggerfall', 'detailed-ships', 'ocean-holes'\]\);/);
   // MODS-ONLINE-5: the ruleset's reason is its own words, and only RR's seven wear them
-  assert.match(menu, /const ONLINE_RULESET_NOTE = '[^']*one ruleset[^']*';/, 'the ruleset lock has its own words');
+  assert.match(menu, /const ONLINE_RULESET_NOTE = '[^']*one set of combat, training and swimming rules[^']*';/, 'the ruleset lock has its own words');
   // DW-D: a vendor whose room keys are the ground's AND other reasons names its ground keys (the carved sea's switch and depth)
   assert.match(menu, /const ONLINE_GROUND_KEYS = Object\.freeze\(\{ 'iliac-puddle-no-more': Object\.freeze\(\['Enabled', 'General\.WaterDepth'\]\) \}\);/);
   assert.match(menu, /const onlineLockNote = \(vendor, key\) => \(ONLINE_GROUND_VENDORS\.includes\(vendor\) \|\| ONLINE_GROUND_KEYS\[vendor\]\?\.includes\(key\) \? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS\[vendor\]\?\.includes\(key\) \? ONLINE_RULESET_NOTE : ONLINE_WORLD_EVENT_VENDORS\.includes\(vendor\) \? ONLINE_WORLD_EVENT_NOTE : ONLINE_SHARED_NOTE\);/);
@@ -201,7 +201,7 @@ test('MODS-ONLINE-2: the lock, the pane and the door all say the same true thing
   // everyone. A player reading that and then toggling one would be
   // reading a lie the port no longer tells.
   assert.ok(!/every enhancement and every mod is on for everyone/.test(menu), 'the old claim is gone');
-  assert.match(menu, /Most of your mods stay yours - turn them on or off online as you like\. A few switches are the room\\u2019s: the ones that shape the ground/, 'the door says what is true');   // DW-D: "Six switches" had been false since RRI1/RR1 and DS1 - the door names the reasons, the pane the switches
+  assert.match(menu, /Most mods stay your choice online\. A few are the room\\u2019s: the ones that change the ground/, 'the door says what is true');   // DW-D: "Six switches" had been false since RRI1/RR1 and DS1 - the door names the reasons, the pane the switches
 });
 
 test('MODS-ONLINE-2: a mod the player owns reaches no wire, no save and no roll', () => {
