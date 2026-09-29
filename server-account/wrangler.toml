@@ -57,7 +57,7 @@ enabled = true
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct21"
+ACCOUNT_VERSION = "acct22"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
@@ -108,7 +108,8 @@ DUNGEON_MASTER_HANDLES = "SquidKamer"
 # title and its glyph. Dutchess and Satranath are the first Disciples (Mac); a tier that
 # lapses is a handle taken off, gone from that player's next token.
 # 2026-09-26, Mac: "Grant Flylighter the disciple title/glyph".
-DISCIPLE_HANDLES = "Dutchess,Satranath,Skibbster,Flylighter"
+# 2026-09-29, Mac: "Add valenvalarys as a disciple ingame".
+DISCIPLE_HANDLES = "Dutchess,Satranath,Skibbster,Flylighter,valenvalarys"
 # 2026-09-25, Mac: "Add SirMcMobdon as an Apostle ingame title/glyph";
 # 2026-09-26, Mac: "SirMcMobdon gets a brand new title/glyph. Remove them
 # from Apostle" - the list is empty again, and the grant is the line below.
@@ -119,6 +120,14 @@ HIEROPHANT_HANDLES = ""
 # player's. The same law as the tiers: a handle here grants the title and
 # the glyph, and taking it off takes both on the next token.
 SHADOW_FANG_HANDLES = "SirMcMobdon"
+# PENITENT (2026-09-29, Mac: "This new custom title/glyph is for the user
+# Diggleborf", whose ask it is: "Looking to do a Trinimac themed one, so
+# maybe "Penitent" for the title starting gold and ending a sky blue", with
+# a sketch for the glyph): Penitent - the gold-to-sky title and the sword in
+# its lozenge beside the name, one player's. The same law as the tiers: a
+# handle here grants the title and the glyph, and taking it off takes both
+# on the next token.
+PENITENT_HANDLES = "Diggleborf"
 # CUSTOMS-GRANT (2026-09-29, Mac: "Please activate ToxicTaco69 character for
 # online mode. He cant access it"): the accounts customs lets bring in ONE
 # offline character the realm's census never counted (src/realm.js

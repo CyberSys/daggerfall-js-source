@@ -250,7 +250,7 @@ Pinned: `test/restore.test.js` (6), `test/realm_restore.test.js` (5), T3's and H
     command it prints, and the next deploy lifts the hold. Needs D1 Time Travel to still hold 2026-09-29 03:09 UTC
     (thirty days on the Paid plan, seven on the Free one).
   - **Held accounts** are yours to decide; the homes of theirs the plan lists can be written by hand once you have.
-- **ToxicTaco69 (CUSTOMS-GRANT).** Rides the next account deploy (`acct21`, migration 0024). Then he presses **Bring
+- **ToxicTaco69 (CUSTOMS-GRANT).** Rides the next account deploy (`acct22`, migration 0024). Then he presses **Bring
   online** on his character's tile once. If what he saw was *not* "The realm has no record of this character..." - but
   "already been brought into the realm", or a "Never saved" tile - that is a different cause, and the grant does not
   touch it: say which.
