@@ -96,6 +96,12 @@
 - You can't save during a boarding or while standing on another ship's deck, because loading would have dropped you into the sea with the ship gone.
 - Ships keep fighting your ship while you're away from the wheel, a cask can be hauled in while swimming, and a rowboat's powder choice now says "No guns aboard".
 
+## Going down
+- A sunk ship now goes all the way under before she disappears. She lists, goes down by the bow or the stern, and her masts slide beneath the waves. Big ships used to vanish with their masts still standing.
+- In online play, everyone sees a ship sink. Before, only the player whose game ran that ship saw her go down; everyone else saw her disappear from the surface.
+- A burning ship keeps burning as she sinks, and each fire goes out as the water reaches it. A scuttled prize burns to the waterline and no further, and no smoke or embers rise from under the sea.
+- A sinking ship's flag goes down with her.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.

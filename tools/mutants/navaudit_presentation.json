@@ -1,0 +1,245 @@
+[
+  {
+    "name": "NAVP-sink-the-old-depth",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const depth = sinkK > 0 ? sinkDepth(sinkUnder(e), sinkK) : 0;\n",
+    "new": "    const depth = (hullBuild(s.hull).deck + 8) * sinkK * sinkK;\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-no-clearance",
+    "file": "src/scenes/navalHost.js",
+    "old": "    e.sinkUnder = (Number.isFinite(top) ? sp.lift + top : reach) + SINK_CLEAR;\n",
+    "new": "    e.sinkUnder = Number.isFinite(top) ? sp.lift + top : reach;\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-the-rest-pose-measured",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const { roll, pitch } = sinkAngles(e.ship.seed, 1);\n",
+    "new": "    const { roll, pitch } = sinkAngles(e.ship.seed, 0);\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-the-lift-dropped",
+    "file": "src/scenes/navalHost.js",
+    "old": "    e.sinkUnder = (Number.isFinite(top) ? sp.lift + top : reach) + SINK_CLEAR;\n",
+    "new": "    e.sinkUnder = (Number.isFinite(top) ? top : reach) + SINK_CLEAR;\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-one-measure-every-rig",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const key = `${e.ship.hull}:${e.ship.variant | 0}`;\n",
+    "new": "    const key = `${e.ship.hull}`;\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-the-builds-reach-untrimmed",
+    "file": "src/scenes/navalHost.js",
+    "old": " + Math.max(-build.aftZ, build.bowZ) * Math.sin(Math.abs(pitch) * NAVAL_DEG);\n",
+    "new": ";\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-spars-skinned-sails-counted",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const local = node.activeInHierarchy ? meshLocalBounds({ models }, node.getComponent('MeshFilter')?.m_Mesh) : null;\n",
+    "new": "    const local = node.activeInHierarchy ? meshLocalBounds({ models }, (node.getComponent('MeshFilter') ?? node.getComponent('SkinnedMeshRenderer'))?.m_Mesh) : null;\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-spars-the-rigs-off-counted",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const local = node.activeInHierarchy ? meshLocalBounds({ models }, node.getComponent('MeshFilter')?.m_Mesh) : null;\n",
+    "new": "    const local = meshLocalBounds({ models }, node.getComponent('MeshFilter')?.m_Mesh);\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-spars-no-lift",
+    "file": "src/scenes/navalHost.js",
+    "old": "  return { points, lift: mo.worldMatrix()[13] - boat.GameObject.worldMatrix()[13] };\n",
+    "new": "  return { points, lift: 0 };\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-trim-dropped",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const pitch = Math.sin(t * wl) * wl * 0.5 + sink.pitch;\n",
+    "new": "    const pitch = Math.sin(t * wl) * wl * 0.5;\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-trim-one-way",
+    "file": "src/systems/naval/navalDamage.js",
+    "old": "pitch: (seed & 2 ? -1 : 1) * SINK_PITCH * kk",
+    "new": "pitch: SINK_PITCH * kk",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-list-one-side",
+    "file": "src/systems/naval/navalDamage.js",
+    "old": "roll: (seed & 1 ? 1 : -1) * SINK_LIST * kk",
+    "new": "roll: SINK_LIST * kk",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-depth-not-squared",
+    "file": "src/systems/naval/navalDamage.js",
+    "old": "export const sinkDepth = (under, k) => Math.max(0, under) * clamp(Number.isFinite(k) ? k : 0, 0, 1) ** 2;",
+    "new": "export const sinkDepth = (under, k) => Math.max(0, under) * clamp(Number.isFinite(k) ? k : 0, 0, 1);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-colours-fly-on",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (b.FlagEmitter && sinkK > 0 && !e.colorsDown) { b.FlagEmitter.stop?.(); e.colorsDown = true; }\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-fires-no-awash",
+    "file": "src/scenes/navalHost.js",
+    "old": "        if (p[1] < seaY + FLAME_AWASH) { fire.handle?.retire?.(); fire.handle = null; fire.out = true; continue; }\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-fires-flat-on-the-sea",
+    "file": "src/scenes/navalHost.js",
+    "old": "        const p = mo.transformPoint([-lp[0], build.deck + 1 - lp[1], fire.at * len - lp[2]]);\n",
+    "new": "        const p = [pos[0] + forwardOfYaw(yaw)[0] * fire.at * len, seaY - depth + build.deck + 1, pos[2] + forwardOfYaw(yaw)[2] * fire.at * len];\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-fires-loop-never-stopped",
+    "file": "src/scenes/navalHost.js",
+    "old": "      } else if (e.fireLoop) { e.fireLoop.stop?.(); e.fireLoop = null; }\n",
+    "new": "      }\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sinking-douses",
+    "file": "src/systems/naval/navalDamage.js",
+    "old": "        if (s.hull <= 0) { s.state = SHIP_STATES.sinking; s.sinkT = 0; }   // AUDIT NAV1: her fires burn on as she goes down\n",
+    "new": "        if (s.hull <= 0) { s.state = SHIP_STATES.sinking; s.sinkT = 0; douse(); }\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-restore-resets-every-word",
+    "file": "src/systems/naval/navalDamage.js",
+    "old": "      if (s.state === SHIP_STATES.sinking && was !== SHIP_STATES.sinking) s.sinkT = 0;",
+    "new": "      if (s.state === SHIP_STATES.sinking) s.sinkT = 0;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-scuttle-restarts",
+    "file": "src/systems/naval/navalDamage.js",
+    "old": "    scuttle() { if (s.state !== SHIP_STATES.sunk && s.state !== SHIP_STATES.sinking) { s.state = SHIP_STATES.sinking; s.sinkT = 0; } },",
+    "new": "    scuttle() { if (s.state !== SHIP_STATES.sunk) { s.state = SHIP_STATES.sinking; s.sinkT = 0; } },",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sinkOn-unbounded",
+    "file": "src/systems/naval/navalDamage.js",
+    "old": "      s.sinkT = Math.min(SINK_SECONDS, s.sinkT + Math.max(0, Number.isFinite(dt) ? dt : 0));",
+    "new": "      s.sinkT = s.sinkT + Math.max(0, Number.isFinite(dt) ? dt : 0);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sinkOn-afloat-ticks",
+    "file": "src/systems/naval/navalDamage.js",
+    "old": "      if (s.state !== SHIP_STATES.sinking) return s.state === SHIP_STATES.sunk;\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-puppets-no-clock",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (e.ship.damage.sinkOn(d) && e.lost) drop(e);\n",
+    "new": "      if (e.lost && e.ship.damage.sinkT >= SINK_SECONDS) drop(e);\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-puppets-lost-never-dropped",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (e.ship.damage.sinkOn(d) && e.lost) drop(e);\n",
+    "new": "      e.ship.damage.sinkOn(d);\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-letgo-drops-at-once",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (e.ship.damage.state === SHIP_STATES.sinking) e.lost = true;\n    else drop(e);\n",
+    "new": "    drop(e);\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-letgo-keeps-afloat",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (e.ship.damage.state === SHIP_STATES.sinking) e.lost = true;\n    else drop(e);\n",
+    "new": "    e.lost = true;\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-lost-kept-when-seen",
+    "file": "src/scenes/navalHost.js",
+    "old": "      e.lost = false;\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  }
+]

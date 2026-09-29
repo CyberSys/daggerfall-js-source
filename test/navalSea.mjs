@@ -35,7 +35,8 @@ export async function readyPool() {
 
 /**
  * A sea: `hull` the player's boat at a helm (null: on foot), `water(x, z)` the land test, `wind`, `settings`, `level`,
- * `raidQuest(name)` the quest a raid starts (none: refused), `save` a save to restore first.
+ * `raidQuest(name)` the quest a raid starts (none: refused), `save` a save to restore first, `online` the room's seam
+ * (none: offline).
  * Answers `{ host, pool, boat, runtime, view, log, deps, run(seconds, dt) }`.
  */
 export async function sea(o = {}) {
@@ -68,7 +69,7 @@ export async function sea(o = {}) {
       giveItems: (items, b) => { log.given.push([items.length, b]); return { left: [] }; },
     },
     hold: (key, tier) => [{ name: `${key}@${tier}` }],
-    online: null, setting: (k) => (o.settings ?? { ShipsAtSea: 'off' })[k], random: seeded(o.seed ?? 5), shake: (a) => log.shake.push(a),
+    online: o.online ?? null, setting: (k) => (o.settings ?? { ShipsAtSea: 'off' })[k], random: seeded(o.seed ?? 5), shake: (a) => log.shake.push(a),
     raiderSpent: (id) => log.spent.push(id),
   };
   const host = createNavalHost(deps);

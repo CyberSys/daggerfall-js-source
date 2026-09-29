@@ -51,7 +51,7 @@ import { createNavalEffects } from '../systems/naval/navalEffects.js';
 import { createNavalDirector, DENSITY, seedBaseOf } from '../systems/naval/navalDirector.js';
 import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provoke, hostile, lookoutOf, RUN_OUT_S, RUN_OUT_DEG, BOW_RUN_OUT, SPARE_S } from '../systems/naval/navalAI.js';
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap
-import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost } from '../systems/naval/navalDamage.js';
+import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost } from '../systems/naval/navalDamage.js';
 import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S } from '../systems/naval/navalGunnery.js';
 import { hullBuild, batteryOf, batteriesOf, GUNS, classById, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
@@ -145,6 +145,9 @@ export const OWNER_STALE_S = 6;
 /** A ship another player stands that goes down within this of my last blow on her is mine to answer for (s): her
  *  stander lands the hurt (the victim's law), and my word never reaches it - the sinking does, in their next word. */
 export const SINK_CREDIT_S = 20;
+/** AUDIT NAV1 (the presentation): a deck fire whose place on her sinking hull is less than this over the sea is out (m)
+ *  - its flame, its embers and its smoke; the rest burn on until the sea reaches them. */
+export const FLAME_AWASH = 0.3;
 /** NAV-R: a raider given the slip sheers off for its life: it steers for a point this far on, away from who slipped it. */
 export const RAIDER_SHEER_M = 3000;
 /** AUDIT NAV1: a frame's time is stepped this finely (s), at most this many steps a frame - Come Sail Away's time scale
@@ -189,6 +192,30 @@ export function rigBoxesOf(boat) {
   return rig.map(([mn, mx]) => orientedBox(m, [(mn[0] + mx[0]) / 2 - lp[0], (mn[1] + mx[1]) / 2 - lp[1], (mn[2] + mx[2]) / 2 - lp[2]], [(mx[0] - mn[0]) / 2, (mx[1] - mn[1]) / 2, (mx[2] - mn[2]) / 2]));
 }
 
+/**
+ * AUDIT NAV1 (the presentation): a boat's spars and planking as points in her MeshObject's own frame - the corners of
+ * every rigid mesh of her rig and hull as it stands (a MeshFilter's model on an active node: another rig of a Large
+ * Boat's is off; a skinned sail carries none, and its bake's filter holds no model - its bind-pose box is not where it
+ * hangs, the Carrack's 101 m up, and a stowed sail lies along its yard) - and `lift`, that frame's origin over her root:
+ * what the sinking takes her highest point by at her last pose (the masts stand past the build's rig boxes: the
+ * galley's 1 m, the Carrack's 2.2). Null before any mesh of hers is known.
+ */
+export function sparsOf(boat, models) {
+  const mo = boat?.MeshObject;
+  if (!mo) return null;
+  const points = [];
+  for (const node of mo.walk()) {
+    const local = node.activeInHierarchy ? meshLocalBounds({ models }, node.getComponent('MeshFilter')?.m_Mesh) : null;
+    if (!local) continue;
+    for (let i = 0; i < 8; i++) {
+      const corner = [0, 1, 2].map((d) => local.center[d] + ((i >> d) & 1 ? local.extent[d] : -local.extent[d]));
+      points.push(mo.inverseTransformPoint(node.transformPoint(corner)));
+    }
+  }
+  if (!points.length) return null;
+  return { points, lift: mo.worldMatrix()[13] - boat.GameObject.worldMatrix()[13] };
+}
+
 const MY_BOAT = 'me';
 /** A boat of mine as the shots know it: its own id, so its balls never meet its own planking. */
 const myBoatId = (boat) => `${MY_BOAT}:${boat?.uid || 0}`;
@@ -213,9 +240,12 @@ export function createNavalHost(deps) {
   let enabled = true;
 
   // ── the sea's ships ──────────────────────────────────────────────────────────────────────────────────────────────
-  /** @type {Map<string, any>} id -> { id, n, owner, ship, boat, fires, fireLoop, target, seen, charged, ramAt, myBlowAt, hunter, deck, prize } */
+  /** @type {Map<string, any>} id -> { id, n, owner, ship, boat, fires, fireLoop, target, seen, charged, ramAt, myBlowAt, hunter, deck, prize,
+   *  lost, sinkUnder, colorsDown } */
   const sea = new Map();
   let seq = 0;
+  /** AUDIT NAV1 (the presentation): each hull and rig's spars, measured once (sparsOf) - `${hull}:${variant}` -> them. */
+  const spars = new Map();
   const myId = () => deps.online?.id?.() ?? 'local';
   const director = createNavalDirector({ random });
   const notoriety = createNotoriety();
@@ -597,7 +627,7 @@ export function createNavalHost(deps) {
     const num = n ?? (seq = (seq + 1) & 0xffff);
     const id = owner ? `${owner}:${num}` : `${myId()}:${num}`;
     const ship = createSeaShip({ id, seed: spec.seed, classId: spec.classId, variant: spec.variant ?? 0, pos: spec.pos, yaw: spec.yaw ?? 0, names, owner });
-    const entry = { id, n: num, owner, ship, boat: null, fires: null, fireLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, wake: false, deck: null, prize: null };
+    const entry = { id, n: num, owner, ship, boat: null, fires: null, fireLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colorsDown: false };
     sea.set(id, entry);
     return entry;
   }
@@ -630,7 +660,27 @@ export function createNavalHost(deps) {
     }
   }
 
-  /** A ship's hull stood where its record says - root, bob and heel, the sinking's settle - and its rigging alive. */
+  /**
+   * AUDIT NAV1 (the presentation): the depth her root settles to by SINK_SECONDS - her highest drawn point at her last
+   * pose (navalDamage.js sinkAngles at the end) SINK_CLEAR under the sea. Her spars measured once a hull and rig
+   * (sparsOf; the Large Boat's rigs stand 6 to 9.4 m), the depth once a ship; the build's rig if her meshes are unknown.
+   */
+  function sinkUnder(e) {
+    if (e.sinkUnder != null) return e.sinkUnder;
+    const key = `${e.ship.hull}:${e.ship.variant | 0}`;
+    let sp = spars.get(key);
+    if (!sp) { sp = sparsOf(e.boat, deps.pool.models); if (sp) spars.set(key, sp); }
+    const { roll, pitch } = sinkAngles(e.ship.seed, 1);
+    const q = quatEuler(pitch, 0, roll);
+    let top = -Infinity;
+    for (const p of sp?.points ?? []) { const y = quatRotate(q, p)[1]; if (y > top) top = y; }
+    const build = hullBuild(e.ship.hull);
+    const reach = Math.max(build.top, ...build.rig.map(([, mx]) => mx[1])) + Math.max(-build.aftZ, build.bowZ) * Math.sin(Math.abs(pitch) * NAVAL_DEG);
+    e.sinkUnder = (Number.isFinite(top) ? sp.lift + top : reach) + SINK_CLEAR;
+    return e.sinkUnder;
+  }
+  /** A ship's hull stood where its record says - root, bob and heel, the sinking's list, trim and settle - and its
+   *  rigging alive. */
   function poseShip(e, dt, seaY) {
     const b = e.boat;
     if (!b) return;
@@ -639,15 +689,15 @@ export function createNavalHost(deps) {
     const wl = Math.hypot(w[0], w[2]);
     const state = s.damage.state;
     const sinkK = state === SHIP_STATES.sinking ? clamp(s.damage.sinkT / SINK_SECONDS, 0, 1) : state === SHIP_STATES.sunk ? 1 : 0;
-    const depth = (hullBuild(s.hull).deck + 8) * sinkK * sinkK;
+    const sink = sinkAngles(s.seed, sinkK);
+    const depth = sinkK > 0 ? sinkDepth(sinkUnder(e), sinkK) : 0;
     const pos = s.pos;
     const yaw = s.yaw;
     b.GameObject.position = [pos[0], seaY - depth, pos[2]];
     b.GameObject.rotation = quatOfYaw(yaw);
     const t = clock + e.phase;
-    const lean = (s.seed & 1 ? 1 : -1) * 32 * sinkK;
-    const roll = s.heel + Math.sin(t * 0.5 * wl) * wl * 0.9 + lean;
-    const pitch = Math.sin(t * wl) * wl * 0.5 + 9 * sinkK;
+    const roll = s.heel + Math.sin(t * 0.5 * wl) * wl * 0.9 + sink.roll;
+    const pitch = Math.sin(t * wl) * wl * 0.5 + sink.pitch;
     if (b.MeshObject) b.MeshObject.localRotation = quatEuler(pitch, 0, roll);
     // the sails: set while she fights or runs, stowed struck, taken or going down
     const set = state === SHIP_STATES.afloat && s.sails > 0.5;
@@ -657,6 +707,9 @@ export function createNavalHost(deps) {
       if (a.GetBool('Stowed') === set) stowSail(a, !set);
       a.SetFloat('Wind', set ? Math.min(1, wl) : 0);
     }
+    // AUDIT NAV1 (the presentation): her colours go down with her - a flag flown on from a masthead under the sea showed
+    // through it
+    if (b.FlagEmitter && sinkK > 0 && !e.colorsDown) { b.FlagEmitter.stop?.(); e.colorsDown = true; }
     if (b.FlagObject) {
       const v = velocityOf(s);
       const f = [w[0] - v[0] * 0.1, 0, w[2] - v[2] * 0.1];
@@ -675,18 +728,27 @@ export function createNavalHost(deps) {
     if (b.LightOn !== lit && (b.Lights?.length ?? 0) > 0) setLights(b, lit);
     for (const a of boatAnimators(b)) a.update(dt);
     for (const ps of (b.particleSystems ??= boatParticleSystems(b))) ps.step(dt);
-    // her fires follow her; the burn breathes embers and smoke
+    // her fires follow her deck as she heels, lists and trims; the burn breathes embers and smoke. AUDIT NAV1 (the
+    // presentation): she burns on as she goes down, each fire out as the sea reaches its place on her (FLAME_AWASH) -
+    // not all doused the moment she was holed, nor a scuttled hull's flames burning on under the sea
     if (e.fires) {
-      const f = forwardOfYaw(yaw);
-      const deckY = seaY - depth + hullBuild(s.hull).deck + 1;
-      const len = (hullBuild(s.hull).beam || 4) * 1.6;
+      const build = hullBuild(s.hull);
+      const len = (build.beam || 4) * 1.6;
+      const mo = b.MeshObject;   // every built hull has one (spawnBoat throws without her collider's node)
+      const lp = mo.localPosition;
+      let burning = 0;
       for (const fire of e.fires) {
-        const p = [pos[0] + f[0] * fire.at * len, deckY, pos[2] + f[2] * fire.at * len];
+        if (fire.out) continue;
+        const p = mo.transformPoint([-lp[0], build.deck + 1 - lp[1], fire.at * len - lp[2]]);
+        if (p[1] < seaY + FLAME_AWASH) { fire.handle?.retire?.(); fire.handle = null; fire.out = true; continue; }
         fire.handle?.move?.(p);
         effects.burn(p, dt);
+        burning++;
       }
-      e.fireLoop ??= deps.audio?.loop3d?.(NAVAL_CLASSIC.burning, pos, 0.7, NAVAL_FIRE_LOOP) ?? null;
-      e.fireLoop?.move?.(pos);
+      if (burning) {
+        e.fireLoop ??= deps.audio?.loop3d?.(NAVAL_CLASSIC.burning, pos, 0.7, NAVAL_FIRE_LOOP) ?? null;
+        e.fireLoop?.move?.(pos);
+      } else if (e.fireLoop) { e.fireLoop.stop?.(); e.fireLoop = null; }
       if (s.damage.fire <= 0 || state === SHIP_STATES.sunk) douse(e);
     }
     if (state === SHIP_STATES.sinking) effects.founder([pos[0], seaY, pos[2]], dt, hullBuild(s.hull).beam);
@@ -1742,6 +1804,12 @@ export function createNavalHost(deps) {
       const slipped = e.raider.chased && e.ship.mode === 'cruise';
       if (slipped || e.ship.boarded || boarding?.shipId === e.id || e.ship.damage.state !== SHIP_STATES.afloat) spendRaider(e, slipped);
     }
+    // AUDIT NAV1 (the presentation): a ship another player stands goes down on my clock as well as theirs - her sinking
+    // run on between their words; one their word has let go of (`lost`, letGo) finishes going down, then is gone
+    for (const e of [...sea.values()]) {
+      if (!e.owner || e.ship.damage.state !== SHIP_STATES.sinking) continue;
+      if (e.ship.damage.sinkOn(d) && e.lost) drop(e);
+    }
     // the others' ships: eased toward their word
     for (const e of sea.values()) {
       if (!e.owner || !e.target || boarding?.shipId === e.id) continue;
@@ -1886,6 +1954,7 @@ export function createNavalHost(deps) {
       if (!e) e = launch({ seed: w.seed, classId: w.classId, variant: w.variant, pos: [pos[0], deps.seaY(), pos[2]], yaw: w.yaw }, owner, w.n);
       if (!e) continue;
       e.seen = clock;
+      e.lost = false;
       e.target = { pos: [pos[0], deps.seaY(), pos[2]], yaw: w.yaw };
       e.ship.speed = w.speed; e.ship.sails = w.sails; e.ship.heel = w.heel;
       const dmg = e.ship.damage;
@@ -1903,7 +1972,7 @@ export function createNavalHost(deps) {
         else if (!on) e.ship.runOut.delete(side);
       });
     }
-    for (const e of [...sea.values()]) if (e.owner === owner && !keep.has(e.id) && boarding?.shipId !== e.id) drop(e);
+    for (const e of [...sea.values()]) if (e.owner === owner && !keep.has(e.id) && boarding?.shipId !== e.id) letGo(e);
     let seen = seenVolleys.get(owner);
     if (!seen) { seen = new Set(); seenVolleys.set(owner, seen); }
     for (const v of rec.volleys) {
@@ -1923,8 +1992,17 @@ export function createNavalHost(deps) {
     return true;
   }
   function dropOwner(owner) {
-    for (const e of [...sea.values()]) if (e.owner === owner && boarding?.shipId !== e.id) drop(e);
+    for (const e of [...sea.values()]) if (e.owner === owner && boarding?.shipId !== e.id) letGo(e);
     seenVolleys.delete(owner);
+  }
+  /**
+   * A ship of another's let go of - gone from their word, or they from the room. AUDIT NAV1 (the presentation): one
+   * going down finishes going down first (her stander drops her the moment she is under, a word or two before my clock
+   * has her there, and she was removed whole from the surface), then the sinking's own step lets her go.
+   */
+  function letGo(e) {
+    if (e.ship.damage.state === SHIP_STATES.sinking) e.lost = true;
+    else drop(e);
   }
   /** A room change, a leave: every peer's ships go (the pool's puppets' own clear - exteriorFoes clearPuppets). */
   function clearPeers() {

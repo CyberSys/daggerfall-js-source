@@ -124,9 +124,10 @@ matrix so the masts heel with her) tears canvas and takes a man aloft, and FLIES
 hit above the waterline may start a FIRE (FIRE_CHANCE; a barrel's always does, hotter and longer); each fire burns its
 own bite for its own seconds and eats canvas (FIRE_SAIL) and men (one each FIRE_CREW_S) as well as timber, up to
 FIRE_STACK at once. At STRUCK_AT of her hull an AI ship STRIKES HER COLOURS - her bell rings, she heaves to, her crew
-puts her fires out - and can be boarded, or shot on until she SINKS over SINK_SECONDS, settling and heeling as her
-casks float free. The rest of the volley that struck her cannot sink her (STRUCK_GRACE_S): sinking a prize is a new
-volley, never the click that took her.
+puts her fires out - and can be boarded, or shot on until she SINKS over SINK_SECONDS as her casks float free:
+listing, going down by the head or the stern, until her highest spar is under the sea (`sinkAngles`, `sinkDepth`;
+AUDIT NAV1, "The presentation"), her fires burning on until the sea reaches them. The rest of the volley that struck
+her cannot sink her (STRUCK_GRACE_S): sinking a prize is a new volley, never the click that took her.
 
 **The player's boat never sinks.** At nought it is WRECKED: no sail will set, the oars at WRECKED_OARS, the guns
 silent, until it is repaired - at a port's shipwright, with a prize's timber, or by her own hands at sea. A boat
@@ -334,6 +335,10 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   reaches mine in their next word, and a ship that goes down within SINK_CREDIT_S of my last blow on her is charged to
   me too (`lawOf('sink')`: a lawful ship's notoriety, a pirate's reward). Two players who both fired on her both
   answer for her.
+- **A ship going down goes down on every screen** (AUDIT NAV1): her sinking runs on each peer's own clock between her
+  stander's words (`sinkOn`; a word that says she still sinks never starts her over), and one their word lets go of
+  while she sinks - her stander drops her the moment she is under, a word or two before a peer's clock has her there -
+  finishes going down before she is gone (`letGo`). A room left takes every peer's ship at once.
 - **Flotsam is the stander's**: a sunk ship's casks are dropped in the stander's world and are not on the wire, so only
   the stander's boats haul them in.
 - **The pirates fight every player's boat** - a peer at their helm is a contact (`comeSailAwayPeers.js helmBoats`),
@@ -412,7 +417,8 @@ zone's discs on the sea, a post of light over each (AIM_POST_HALF_W by AIM_POST_
 150 m off was 3.7 px tall), a mark where a ball meets a hull (AIM_STRIKE_HALF), in the tones of `aimTone` - brass laid,
 red on her, grey while the battery cannot fire. The textures are procedural
 (white, the shape in alpha). The deck fires are Daggerfall's own fire flat (TEXTURE.210 record 1, FLAME_SCALE the
-camp's size), carried with the ship; a muzzle flash and a burning deck light the scene (MUZZLE_FLASH_COLOR, BURN_COLOR,
+camp's size), carried on her deck as she heels, lists and trims, and out as the sea reaches each (FLAME_AWASH); a
+muzzle flash and a burning deck light the scene (MUZZLE_FLASH_COLOR, BURN_COLOR,
 BURN_LIGHTS). A sea ship's flag flies her colours (`navalShips.js` NAVAL_FACTIONS' `flag`, the one table; the renderer
 draws the flags in runs of one colour - `flagRuns` - the player's boats keeping FlagMaterial's orange).
 
@@ -573,6 +579,20 @@ online slice's:
 | a save mid-fight loads into the sea (B14) | F9 in a boarding: loaded at her deck's height over open water, the prize gone | `saveRefused`: a boarding under way, or feet on a ship of the sea's deck (DECK_REACH_M), and "You cannot save now." - F9, the checkpoints and the pause window's Save | - |
 | (minors) | a hostile ship lost the player off the helm (a second pirate 18 m off went to cruise); only a hull collected a cask; a rowboat's powder tile said "Your guns are loaded" | the boat the sea takes me by (`boatInPlay`): at her helm, the one I boarded from, the one under my feet; a swimmer's cask into the pack (SWIMMER, the world's `swimming`); "No guns aboard" | - |
 
+### The presentation (what a sea fight looks and sounds like)
+
+The presentation audit's findings (the real HUD, helm panel, readout and naval pass in headless Chromium; the host over
+Come Sail Away's real pool). Of its seventeen, the guns' and the helm's slices had already answered the broadside's
+warning (#6: the run-out and BROADSIDE over the crosshair), a fire on the player's own deck (#7's third part), the
+sea's ships on the compass (#14's second) and the aim's reasons (#5's readout); the rest, as each is fixed:
+
+| finding | before (the audit's measure) | the law now | after |
+|---|---|---|---|
+| a ship vanishes with her masts standing (#1) | she settled her deck and 8 m (`(deck + 8) k²`), then was removed: the last frame drawn left a brig's highest spar 19.5 m over the sea, a galley's 24.5, a carrack's 32.2 - only the Large Boat was under | GOING DOWN (`navalDamage.js` SINK_LIST, SINK_PITCH, SINK_CLEAR; `sinkAngles`, `sinkDepth`): she lists to her seed's side and goes down by the head or the stern (her seed's next bit) as the time grows, and her root settles by its square to `sinkUnder` - her highest point at her last pose, SINK_CLEAR under the sea. Her spars measured as they stand (`sparsOf`: every rigid mesh of her rig and hull under her mesh object - a skinned sail's bind pose is not where it hangs, the Carrack's reads 101 m - once a hull and rig, the Large Boat's 6 to 9.4 m apart) | every hull 1.6-2.3 m under at the last frame drawn; half her height still stands at half time |
+| a peer never sees a sinking (#1) | a puppet's damage was never stepped and every word's `restore` set her sinking clock to nought: a peer's brig stood whole at the surface for 22 s, then was removed from 40 m | her sinking run on the peer's own clock between the words (`sinkOn`, to SINK_SECONDS at most); `restore` starts it only on a new sinking; one the word lets go of while she sinks finishes going down (`letGo`, `lost`) - an afloat one goes at once, a room left takes them all; a second scuttle never starts her over | a peer's brig settles with the stander's; let go of at 18 s, gone at 21.9 s, 1.9 m under |
+| fire and sinking disagree (#7) | a burning ship holed to nought lost her flames and her loop within 0.1 s (`settle` doused her); a scuttled prize "burns to the waterline" kept hers at her deck's height as she settled - at 20 s they burned 5.1 m under the sea, and 62 embers and puffs were born under it (the sea writes no depth: they showed through) | her fires burn on as she goes down (the sinking douses nothing - a scuttling's torch), each flame on her deck as she lies (through her mesh object: heel, list and trim) and out as the sea reaches its place (FLAME_AWASH), no ember nor smoke born under the sea; the loop out with her last flame | holed: out at 7.9, 8.5, 9.1 s; scuttled: 6.9, 7.5, 8.1 s; nothing under the sea |
+| her colours as she goes down (#8, its sinking part) | her faction's flag flew on from a masthead under the sea | the flag's emitter stopped as she founders | - |
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
@@ -597,15 +617,18 @@ on a ship, the red where the balls strike her as she will stand, why the guns wi
 broadside camera, the world's wiring) and `navaudit_boarding` (the raids' names and their retreat, the real parser in
 the sea's region and a crown's, the world host's pin and endRaid and stand-down run, a crewed boat's hands, the win
 polled, the cast-off, the surrender, the fire's finish, the founder, no save mid-fight, the helm on return, the dealt
-deck, the fight's card, the prize's papers, the minors), on the shared sea of `test/navalSea.mjs`.
+deck, the fight's card, the prize's papers, the minors) and `navaudit_presentation` (going down - every hull under,
+her list and trim, her spars as they stand, a peer's sinking on their own clock and let go of, her fires to the
+waterline, her colours), on the shared sea of `test/navalSea.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
-`navaudit_helm.json` and `navaudit_boarding.json`, 508 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+`navaudit_helm.json`, `navaudit_boarding.json` and `navaudit_presentation.json`, 535 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
 audit's helm, and seven of other suites' re-aimed by content at the laws the helm keeps; 14 with the merge with
 main's OW6, and eight of the arc's own re-aimed by content at the lines the merge rewrote; 56 with the audit's
-boarding, and NAV-R's sheer-off and NAV-F's card foot re-aimed at the lines the boarding rewrote);
+boarding, and NAV-R's sheer-off and NAV-F's card foot re-aimed at the lines the boarding rewrote; 27 with the
+audit's presentation, going down);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 
