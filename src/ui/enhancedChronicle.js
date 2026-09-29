@@ -26,6 +26,7 @@ import { overlayAction, eventMeans } from './input.js';   // LV1's audit: the RE
 import { questRail, questTitleOf } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the pause window's Quests tab
 import { breakableNote } from '../systems/notebook.js';   // JOURNAL1: a note the notebook's wrap can take, whatever was typed
 import { pageOfNote, pageRefusalText } from '../net/journalPage.js';   // JOURNAL1: a note as the page it would be shown as, or why it cannot be
+import { isBountyQuestId, abandonBountyQuest, shareBountyQuest, bountyQuestShareable } from '../systems/bountyJournal.js';   // BOUNTY1: a bounty's Abandon and Share
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -43,6 +44,7 @@ let draft = '';   // PX24b: the note being written, kept across renders
 // position like a fold: kept across renders, cleared on mount.
 let sharing = null;
 let shareWord = '';
+let bountyArmed = null;   // BOUNTY1: the bounty whose Abandon was pressed once
 // MAC-F (Mac: "Quests and their tabs should be able to be minimized").
 // WHICH CARDS THE PLAYER HAS SHUT, as `section:index`. A quest's whole
 // trail is its body and twelve of them is a wall of text; the classic
@@ -400,7 +402,27 @@ function render() {
         // hand off) and ONLY with a party to offer it to
         // (deps.partyMembers, an online-only seam - a host with no
         // online layer supplies none, so this never draws offline).
-        if (section === 'quests' && e.uid != null && !e.main
+        // BOUNTY1: a bounty's own presses - Share (in a party) and Abandon (twice), never the quest share's
+        if (section === 'quests' && isBountyQuestId(e.uid)) {
+          if (bountyQuestShareable(e.uid)) {
+            const bs = el('button', 'cr-rm cr-share', 'Share');
+            bs.title = 'Share this bounty with your party';
+            bs.onclick = () => { shareBountyQuest(e.uid); render(); };
+            top.append(bs);
+          }
+          const armed = bountyArmed === e.uid;
+          const ab = el('button', 'cr-rm cr-share', armed ? 'Click again' : 'Abandon');
+          ab.title = 'Give up this bounty';
+          ab.setAttribute('aria-label', armed ? 'Click again to give up this bounty' : 'Abandon this bounty');
+          ab.onclick = () => {
+            if (bountyArmed !== e.uid) { bountyArmed = e.uid; render(); return; }
+            bountyArmed = null;
+            abandonBountyQuest(e.uid);
+            render();
+          };
+          top.append(ab);
+        }
+        if (section === 'quests' && e.uid != null && !e.main && !isBountyQuestId(e.uid)
           && (deps.partyMembers?.() ?? []).length) {
           const share = el('button', 'cr-rm cr-share', 'Share');
           share.title = 'Share this quest with your party';
@@ -478,6 +500,7 @@ export function mountEnhancedChronicle(hostEl, d = {}) {
   section = CHRONICLE_SECTIONS.some(([id]) => id === d.section) ? d.section : 'quests';
   draft = '';
   sharing = null; shareWord = '';   // JOURNAL1: a fresh open shares nothing yet
+  bountyArmed = null;   // AUDIT 28 B11: an armed Abandon never outlives the visit it was armed on
   folded.clear();   // MAC-F: a fresh open reads whole, as it always has
   render();
   window.addEventListener('keydown', onKey, true);
@@ -485,7 +508,7 @@ export function mountEnhancedChronicle(hostEl, d = {}) {
     render,
     destroy() {
       window.removeEventListener('keydown', onKey, true);
-      host = null; deps = {}; section = 'notes'; draft = ''; folded.clear(); sharing = null; shareWord = '';
+      host = null; deps = {}; section = 'notes'; draft = ''; folded.clear(); sharing = null; shareWord = ''; bountyArmed = null;
     },
   };
 }

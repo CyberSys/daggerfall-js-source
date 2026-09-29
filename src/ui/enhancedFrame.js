@@ -76,7 +76,11 @@ export const FRAME_ROLES = {
     // SET7: the Sigil Broker's window - a shop over the world, the pack's own carved frame
     'body .broker-win',
     // NAV-F: a taken ship's plunder window (ui/navalPlunderWindow.js) - a whole window over the sea
-    'body .dfnaval-win'],
+    'body .dfnaval-win',
+    // BOUNTY1: the bounty board and its payday notice - the Broker's carved frame
+    'body .bounty-win',
+    // NOTICE1: the Notice Board - the cork sits inside the same carved frame
+    'body .notice-win'],
   // the talk panel is a .px-win whose own ground rule outweighs .px-win's
   windowGround: ['.talk-shell .talk-panel'],
   panel: ['.port-host .port-card', '.pack-shell .packdetail .card', '.pack-shell .card', '.hmcard', '.px-sys .card', '.px-sys .dcard',
@@ -104,7 +108,8 @@ export const FRAME_ROLES = {
     // SET7: the Broker's card - the offer, whole, beside the list
     'body .broker-card',
     // NAV-F: the helm's readout (ui/navalHud.js) - the ship's plate and the target card, boxes over the sea
-    'body .dfnaval-plate', 'body .dfnaval-card'],
+    'body .dfnaval-plate', 'body .dfnaval-card',
+    'body .bounty-card'],   // BOUNTY1: the notice read whole, the reward box
   // panels that carry a brass edge on the left as their own mark
   panelAccent: ['.notice', '.inputbox', 'body .dfsocial-toast', 'body .dfdecor-bar'],   // PLUS-DRESS: the two that wore a brass line
   button: ['.port-host .port-btn', '.inv-info .act', '.pbind .act', '.px-sys .act', '.shell .act', '.px-win .card .act', '.pack-shell .act', '.px-setwrap .act',
@@ -112,6 +117,8 @@ export const FRAME_ROLES = {
     '.lv-pick .lv-press', '.shell .look-arrow', '.cr-shell .cr-rm', '.px-winclose', '.talk-head .act', '.talk-say .act',
     'body .dfsocial-btn', 'body .dfsocial-close', 'body .dfprofile-close', '.dlg-shell .dlg-btn',
     'body .broker-shell .act',   // SET7: the Broker's Buy and Close
+    'body .bounty-shell .act',   // BOUNTY1: Take, Give up, Share, Close, Take the reward
+    'body .notice-shell .act',   // NOTICE1: Pin a note, Pin it up, Report, Take it down, Close
     // PLUS3: the trade counter and the tavern panel (and the merchant/repair popup, which shares
     // .tavern-shell) never picked up a scoped role - their `.act` buttons fell through to the bare
     // base rule (flat outline, no bevel), which is the "still looks native" the shelf and the
@@ -135,7 +142,7 @@ export const FRAME_ROLES = {
     // PLUS-DRESS: the page's, the F-menu's (its Cancel stays a line of text), the duel's and the decorator's
     'body .dfpage-btn', 'body .dfpeer-btn:not(.cancel)', 'body .dfduel-btn', 'body .dfprofile-duel', 'body .dfdecor-btn', 'body .dfdecor-open',
     'body .dfnaval-btn'],   // NAV-F: the plunder window's presses
-  primary: ['.lv-ok', '.hmroot .act:not(.hmtool)', 'body .dfdecor-place',   // PLUS-MAP: the map's tools are plain stone   // PLUS-DRESS: Place is what the decorator is for
+  primary: ['.lv-ok', '.hmroot .act:not(.hmtool)', 'body .dfdecor-place', 'body .bounty-shell .act.primary', 'body .notice-shell .act.primary',   // BOUNTY1: Take bounty and Take the reward in brass   // PLUS-MAP: the map's tools are plain stone   // PLUS-DRESS: Place is what the decorator is for
     'body .dfnaval-take'],   // NAV-F: Take all (and a raid's Sail on) - what the plunder window is for
   // PLUS-DRESS: a press that COSTS something - leave or disband a guild, remove a member, challenge a player - the
   // button in blood rather than brass (the low-health frame's red). Each is a button above as well; this is its edge.
@@ -172,6 +179,8 @@ export const FRAME_ROLES = {
   header: ['.port-host .port-head', '.px-win .px-tabs', '.talk-head', '.sb-shell .sb-top', '.cr-shell .sb-top', '.trade-shell .sb-top',
     'body .broker-head',   // SET7: the Broker's header - who, the purse, the turn of the day
     'body .dfnaval-winhead',   // NAV-F: the prize's name, her colours and her captain
+    'body .bounty-head',   // BOUNTY1: the board's header - the town, the day's turn
+    'body .notice-head',   // NOTICE1: the Notice Board's header - the town, the notes up
     '.tavern-shell .sb-top', '.pack-shell .pack-id', '.hmbox-title', '.loot-win .remotehead',
     // PLUS4: the shelf's own "On the shelf / N items" band - the same header a loot window's
     // remotehead already wears, just never scoped for the trade counter's own copy of that markup
@@ -192,7 +201,8 @@ export const FRAME_ROLES = {
   listRow: ['.pack-shell .loot-win .itemrow', '.trade-shell .itemrow',   // PLUS6: the shop's shelf and basket rows too
     'body .dfdecor-row',   // PLUS-DRESS: the decorator's catalogue
     'body .broker-offer',   // SET7: the Broker's offers
-    'body .dfnaval-item'],   // NAV-F: a taken ship's hold, a line a piece
+    'body .dfnaval-item',   // NAV-F: a taken ship's hold, a line a piece
+    'body .bounty-post'],   // BOUNTY1: the board's notices
   // the fading wing rules and dividers of the quest page
   wing: ['.px-qwing'],
   wingFlip: ['.px-qwing.px-flip'],

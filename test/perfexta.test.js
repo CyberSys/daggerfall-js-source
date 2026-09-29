@@ -237,10 +237,14 @@ test('PERF-EXT1: the grid is the STATIC batch\'s alone - every placement once, a
   const born = [0, 1, 2, 3, 4].map((i) => [300 + i, 0, 300]);
   const flown = r.createBillboardBatch(504, 3, { w: 0.8, h: 1.2 }, born);
   assert.ok(flown._place, 'born with a grid');
+  const bornGrid = flown._place;
   r.moveBillboardBatch(flown, [0, 1, 2, 3, 4].map((i) => [1 + i * 0.3, 0, 1]));
-  assert.equal(flown._place, null, 'a move drops it');
+  // AUDIT 30 A6: a STATIC batch moved is gridded where it NOW is (PROF4's sunk tree: a grid dropped for good judged the
+  // pixel-wide wood by its sphere, near every lantern of its pixel) - never the grid it was born with
+  assert.ok(flown._place && flown._place !== bornGrid, 'a static move grids it again, where it is');
   const gib = r.createBillboardBatch(504, 2, { w: 0.8, h: 1.2 }, born, { dynamic: true });
   r.moveBillboardBatch(gib, [0, 1, 2, 3, 4].map((i) => [1 + i * 0.3, 0, -1]));
+  assert.equal(gib._place, null, 'a dynamic batch has none, moved or not');
   const draw = () => r.drawBillboards([flown, gib], RIGHT, UP);
   const lamp = new Float32Array([0, 2, 0, 14]);
   frame(draw, lamp);

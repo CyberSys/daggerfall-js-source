@@ -112,7 +112,9 @@ export function seedInteriorTreasure({ markers, building, locationType, pool, le
     if (pool.containerSeeded(key)) return;   // the cache already holds this container
     // LootTables.cs:146-159 - the matrix, then the J..O map/potion/
     // recipe tail, on the PLAYER's level and gender.
-    const items = rollLootRarity(addPileLootExtras(generateLootItems(lootKey, { level, gender }), lootKey, undefined, { level }), pileSource(INTERIOR_RARITY_TIER), { luck });   // LR1
+    // FORAGE3: OnLootSpawned at the LOCATION type's index, which Foraging reads as the dungeon type of that number (Q12);
+    // REALM P0.4: online, the level's gold divided back
+    const items = rollLootRarity(addPileLootExtras(generateLootItems(lootKey, { level, gender }), lootKey, Math.random, { locationIndex: locationType, luck, level }), pileSource(INTERIOR_RARITY_TIER), { luck });   // LR1
     stampWonWeapons(items, 1);   // SIGIL1: a pile found online, its weapons' sigils rolled at the mint
     minted.push(pool.seedPile(items, pos, { archive: DROP_ICON_ARCHIVES.clothing, record: 0 }, key));
   });

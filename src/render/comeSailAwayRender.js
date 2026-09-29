@@ -16,7 +16,7 @@
 //     back faces culled (Unity's winding, the port's world projection);
 //   - (FIELD BUGS 2026-09-29 (the sea) #4) in its place in the sea's stack of
 //     sheets in window depth: over the ground and the surface film
-//     (render/waterLayers.js).
+//     (render/waterSurface.js WATER_LAYER_UNITS).
 //
 // THE FRAME IS COMPOSED WHERE IT IS SAMPLED. Each of the 32 frames is one of
 // the author's two paints scrolled down its rows, the paint's key colour
@@ -49,7 +49,7 @@
 import { buildProgram } from './glProgram.js';
 import { FOG_GLSL } from './fogGlsl.js';
 import { BAYER_8X8, WAVE_MATERIAL, wavePaintLevels, wavePictureMean } from '../systems/comeSailAwayWaves.js';
-import { WATER_LAYER_UNITS } from './waterLayers.js';   // FIELD BUGS 2026-09-29 (the sea) #4: the breakers' place in the sea's stack
+import { WATER_LAYER_UNITS } from './waterSurface.js';   // FIELD BUGS 2026-09-29 (the sea) #4: the breakers' place in the sea's stack
 import { quatRotate } from '../world/quat.js';
 
 const WAVE_VS = `#version 300 es
@@ -618,7 +618,7 @@ export class ComeSailAwayRenderer {
     gl.depthMask(true);
     gl.disable(gl.BLEND);
     gl.enable(gl.CULL_FACE);   // Cull Back, the shader's default, on Unity's winding
-    gl.enable(gl.POLYGON_OFFSET_FILL);   // FIELD BUGS 2026-09-29 (the sea) #4: the breakers' place in the sea's stack (render/waterLayers.js)
+    gl.enable(gl.POLYGON_OFFSET_FILL);   // FIELD BUGS 2026-09-29 (the sea) #4: the breakers' place in the sea's stack (render/waterSurface.js WATER_LAYER_UNITS)
     gl.polygonOffset(0, WATER_LAYER_UNITS.breakers);
     gl.bindVertexArray(w.vao);
     gl.drawElements(gl.TRIANGLES, this._mesh.count, gl.UNSIGNED_INT, 0);

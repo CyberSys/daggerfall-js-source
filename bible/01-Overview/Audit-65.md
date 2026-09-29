@@ -360,9 +360,9 @@ half the lanes' own mutation tallies could not see.
   permanent `entity.skills` array while the hand-to-hand damage row four
   lines below it (AUDIT 63 F34) already read live, so a lycanthrope read
   `Hand-to-Hand 30%` on one line and a damage range computed from 60 on
-  the next. `charsheet.js:809` and `enhancedCharSheet.js:149` read
+  the next. `charsheet.js:812` and `enhancedCharSheet.js:149` read
   `skillValue` now, which moves the enhanced skin's meter with its
-  number (`enhancedMenu.js:2924-2925`) - correctly, since the attribute
+  number (`enhancedMenu.js:2930-2931`) - correctly, since the attribute
   bars beside it were already live. The art-less `_drawFallback` pane
   still prints `''` for an absent skill (both refuters: decide the
   blank case first); DFU has no such pane.
@@ -499,7 +499,7 @@ half the lanes' own mutation tallies could not see.
   purpose and is asserted bare: `PlayerMotor.cs:296-306` does not zero
   `moveDirection`, so a write there would be the divergence. The
   finding's headline fatigue-band consequence was FALSE and is not
-  repeated - `worldTick.js:729-730` is climb-first, matching
+  repeated - `worldTick.js:760-761` is climb-first, matching
   `PlayerEntity.cs:406-408`.
 - *Review round:* fixup. The "without the bob" half of the `feetAt`
   pin was vacuous - the fixture minted no bob, so both bob mutants
@@ -673,7 +673,7 @@ cites that were already wrong at the base (the mapper renumbers a wrong
 number onto a differently wrong line), the renderer's `setClearColor`
 self-cite (a bare `:N` inside its own file, which the mapper does not
 spell), and two escaped-regex cites in tests (`dungeon\.js:559`,
-`worldModes\.js:631`), which the mapper cannot see - the CS1 edge AUDIT
+`worldModes\.js:640`), which the mapper cannot see - the CS1 edge AUDIT
 64's integration hit first. The Suite line restamped once; the full
 suite green over the merged tree. Round two (after the reset) took the
 five remaining reviews and the activation lane, merged onto round one's

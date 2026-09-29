@@ -119,8 +119,14 @@ The online revival handed back a body the next tick killed. Two flaws:
    loop to roll the whole span on the first frame up after a Resurrect. The span now bills the body nothing and runs
    the world's calendar through, as this paragraph says.)
 
+[LIVED1 (2026-09-29) re-states DISC28-E as the clock's own: the character's clock stands under the death
+screen, so nothing of theirs is billed or moved and no pause or shift is needed; the rise walks the world's half
+of the span alone (`06-Systems/Lived-Time.md`).]
+
 Left for Mac (below): an online collapse charges no hour (`systems/rest.js`), so a Hard player whose sleep need is
-exhausted collapses every few game minutes until they rest - a survival-arc design question, not this loop.
+exhausted collapses every few game minutes until they rest - a survival-arc design question, not this loop. [SUPERSEDED BY
+LIVED1: online the collapse's RaiseTime moves the character's own clock, so it charges its hour and pays it in full,
+as offline.]
 
 `test/disc28_fatigue.test.js` (E: 6) drives the real tick and revival: a Hard body hunted to death by its own drain,
 12, 60 and 90 game minutes on the death screen, stands up at the floor and survives its first tick. AUDIT DISC19 S4's
@@ -141,7 +147,8 @@ was away was lost for good: the reputation never came back, and the player kept 
 `normalizeAcross(entity, from, to)` pays each boundary in `[from, to)` once - the same minute values the per-minute
 loop tests - under the prison skip's own one-jump shield. (AUDIT TM-1, Mac: "Recovery only": over an ABSENCE it pays
 the recovery half alone - a reputation below zero drifts back, a standing above zero is kept; the dead span is not an
-absence and pays both halves through the loop's own body.) The conspiracy roll itself is unchanged; whether to soften it
+absence and pays both halves through the loop's own body.) [LIVED1: the dead span pays neither half - the drift is the
+character's own, on a clock that stood under the screen.] The conspiracy roll itself is unchanged; whether to soften it
 is Mac's call (below).
 
 `test/disc28_fatigue.test.js` (F: 4): an arrival across three boundaries pays three points of recovery (a +3 kept since AUDIT TM-1), one inside an interval pays none
@@ -331,6 +338,8 @@ killer a fix touched re-run.
   check), a cost an absence never had. An absence now pays the recovery half alone (court.js `recoveryOnly`, the
   port's online time model): a reputation below zero drifts back, a standing above zero is kept. The dead span is not
   an absence - the player is on the death screen while the world runs - and pays both halves. Port-Ledger A.
+  [LIVED1: the dead span pays neither half - the drift is the character's own, on a clock that stood under the
+  screen. Stamped by AUDIT LIVED1b T14.]
 - **TM-2**: a party mate's Resurrect, the Privateer's Hold rise and the Burning Court's cast-out rolled every dead
   minute's encounters and the 5%-a-minute Criminal Conspiracy on the first frame up (a guard call at the rise in 46% of
   rises after twelve dead game minutes at -15): the encounter loop's marker is the host's, and only the respawn's own
@@ -340,10 +349,13 @@ killer a fix touched re-run.
   room sweep and loan check (a room that ran out before the midnight a corpse lay across was held a day more) and the
   loop's faction-power, regional-condition and racial override quest arms (the werewolf's and the vampire's cure
   roll). The loop's body is one function now (`runCalendarArms`), which the tick and the skip both walk, after the day
-  block, in Update's order.
+  block, in Update's order. [LIVED1: the rise walks the WORLD's arms alone - the landlord, the loans, the drift and the
+  racial quests are the character's and wait for the minutes they live.]
 - **TM-4**: the body's own effect clocks stood at the minute of death: three days of a hidden tab with the Plague stood
   the player up at half health and killed them on the first tick - DISC28-E's own bug by another road. The skip carries
-  them over the span with the walk an arrival already used (`carryOwnEffectClocks`); the world's markers stay put.
+  them over the span with the walk an arrival already used (`carryOwnEffectClocks`); the world's markers stay put. [SUPERSEDED
+  BY LIVED1: the effect clocks stand with the character's clock under the screen - there is nothing to carry, and
+  `carryOwnEffectClocks` is gone.]
 - **TM-5** (pin): a 100-round effect across a 60-minute death spends exactly one round at the rise.
 
 ### The swimmer and the flyer
@@ -457,4 +469,4 @@ killer a fix touched re-run.
 - Citations: `tools/citeMerge.mjs origin/main 408877576 --apply --struck` for the merge (224 moved); then
   `tools/citeShift.mjs --base 2a8b70b2a --apply --struck` once over the audit's fixes (318 moved); by hand, by
   content: chargenSession.js's overlayHover continuation (twice - a bare `(:N)` on its own line, which neither
-  mapper can pair) and audit58_pins' `court.js:203-204`; `discovery.js:83` still names the re-discover it means.
+  mapper can pair) and audit58_pins' `court.js:206-207`; `discovery.js:83` still names the re-discover it means.

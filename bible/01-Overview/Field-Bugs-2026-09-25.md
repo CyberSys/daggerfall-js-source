@@ -136,7 +136,8 @@ own timer and moves no world time, which RESTX2 decided ("online, sleeping
 is no longer a way to skip to tomorrow"). Letting an online loiter advance
 the player's OWN quest time is possible (MAC-LVL1 already credits a rest's
 minutes to the skill clock), but the quest's "midnight" would stop matching
-the shared sky - so it waits on Mac. Eighteen quests use `daily from`.
+the shared sky - so it waits on Mac. [LIVED1 (2026-09-29): a rest moves the character's own
+clock now, and the credit is gone; a quest's countdown on that clock is Lived-Time's OPEN 1.] Eighteen quests use `daily from`.
 
 What shipped: the Online pane said "the quest clocks stand still", false
 since WORLD7 (quest clocks charge played time online). It says what the

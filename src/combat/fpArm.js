@@ -17,7 +17,7 @@
 //
 // HOW IT DRAWS, and why this needs no renderer change at all: the port
 // has ALREADY shipped a first-person pass. renderCharacterSprite
-// (render/renderer.js:1311) binds an offscreen target with its OWN depth
+// (render/renderer.js:1319) binds an offscreen target with its OWN depth
 // renderbuffer, clears colour AND depth, swaps the frame's proj/view for
 // ones the caller supplies, draws, and restores; drawScreenOverlayQuad
 // (:987) composites it fullscreen with an alpha cut and no depth test.
@@ -570,7 +570,7 @@ export function armReach(eye, unionBounds) {
 /**
  * PACK THE ASSEMBLY for drawCharacter's vertex stream: 9 floats per
  * vertex, [pos.xyz, colour.rgb, normal.xyz], NON-INDEXED, because
- * drawCharacter issues drawArrays (renderer.js:1224). The MW readers hand
+ * drawCharacter issues drawArrays (renderer.js:1232). The MW readers hand
  * back indexed triangles, so the indices are expanded here.
  *
  * NORMALS ARE COMPUTED, not read. poseAssembly skins positions with a
@@ -584,7 +584,7 @@ export function armReach(eye, unionBounds) {
  * left arm is lit inside-out - dark where the right arm is bright - and
  * that is a lighting bug that reads as "the mesh is wrong" rather than
  * as "the mirror is wrong". drawCharacter disables back-face culling
- * (renderer.js:1222), so the winding costs nothing else.
+ * (renderer.js:1230), so the winding costs nothing else.
  */
 export function packFpArm(pieces, out = null) {
   let tris = 0;
@@ -1688,7 +1688,7 @@ async function buildTpBody({
       if (!arc) { missing.push(`${row.slot}: ${path} is not in your archives`); continue; }
       // partName rides along: a worn add's slot is a label carrying its
       // record id, and the binder's part rules key on the part itself.
-      partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, bytes: arc.get(path).slice() });
+      partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, restPose: row.restPose ?? false, bytes: arc.get(path).slice() });   // MW-BRIG1: a part fitted where it sits
     }
     if (!partBytes.length) {
       return { ok: false, stage: 'parts', error: werewolf ? 'no werewolf body mesh resolved - its robe, head and hair are Bloodmoon\'s' : `no third-person body mesh resolved for race "${race}"`, notes: missing, rows };
@@ -2121,7 +2121,7 @@ export async function buildFpArm({
       const path = `meshes/${add.model}`;
       const arc = find(path);
       if (!arc) { missing.push(`${add.slot}: ${path} is not in your archives`); continue; }
-      partBytes.push({ slot: add.slot, partName: add.partName, bones: add.bones, bytes: arc.get(path).slice() });
+      partBytes.push({ slot: add.slot, partName: add.partName, bones: add.bones, restPose: add.restPose ?? false, bytes: arc.get(path).slice() });   // MW-BRIG1
     }
     // MW-D9: THE WEAPON - resolveWeaponParts above, the one home MW-D19
     // gave it so a live weapon swap resolves through the very same door

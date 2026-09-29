@@ -968,7 +968,8 @@ before it was changed, and each is pinned by execution in
 - **V8 - resting through the change.** The deploy cancels the rest first.
 - **V9 - online clocks.** Going online shifts the infection's
   `startingDay` and the werewolf's kill/morph/urge stamps with the shared
-  clock (and `liveLycanthropy` survives a null effect entry).
+  clock (and `liveLycanthropy` survives a null effect entry). [SUPERSEDED BY LIVED1: nothing is shifted -
+  the stamps are on the character's own clock, which stood.]
 - **V11 - the dream lost on reload.** An unplayed dream is re-scheduled on
   restore, for both infections.
 - **L2 - the beast struck with a marker item.** `strikingWeapon` is the

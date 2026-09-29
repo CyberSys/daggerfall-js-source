@@ -292,7 +292,8 @@ cancelled touchmove. B4 the middle click's autoscroll is shut where the
 browser reads it (mousedown, auxclick). H1 ONLINE was ignored: the card
 billed inn nights and showed days the popup waives (`sleepModeInn &&
 !noWorldTime()`); no inn is paid, the journey reads "now", the popup's
-own line is on the card. H6 a box held only the stage - a search pick
+own line is on the card. [SUPERSEDED BY LIVED1: the journey counts its days
+online too - "N days of your time" - and the fare stands (TRAVEL-FARE).] H6 a box held only the stage - a search pick
 under the resume prompt could begin a second journey; the chrome is
 pointer-dead under any box. H7 a close during the opening fade snapped
 to full before lowering, and the boxes stayed painted through it; the

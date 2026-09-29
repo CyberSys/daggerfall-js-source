@@ -97,7 +97,7 @@ paint itself, past it the mean of the frame it composes, premultiplied, the snow
 texel spans 2^L of the record's). The wave shader picks the level NEAREST_MIPMAP_NEAREST would (GL ES 3.0 3.8.10): at
 level 0 - a texel a pixel and nearer - the mod's own read and cut, texel for texel; past it one fetch of the chain, its
 coverage dithered by the material's own Bayer table. A departure (Port-Ledger, the Come Sail Away row).
-`render/waterLayers.js`: the sea's stack in WINDOW depth - the surface film (Iliac Puddle No More's top, WATER1) two
+`render/waterSurface.js WATER_LAYER_UNITS`: the sea's stack in WINDOW depth - the surface film (Iliac Puddle No More's top, WATER1) two
 resolvable steps over the ground, the breakers four over the film, the constant term alone; the breakers are drawn
 before the film, written, so the film tests against them.
 

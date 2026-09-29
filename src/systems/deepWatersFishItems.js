@@ -23,8 +23,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import FISH_TEMPLATES_JSON from '../../vendor/iliac-puddle-no-more/ItemTemplates.json' with { type: 'json' };
-import { registerCustomTemplates, setItemFields, mintCondition } from './itemTemplates.js';
-import { registerCustomItemGroup } from './rriItems.js';   // CSA-H: DeepWaters.Init's RegisterCustomItem group, on the shelves' one table
+import { registerCustomTemplates, setItemFields, mintCondition, registerCustomItemGroup } from './itemTemplates.js';   // CSA-H: DeepWaters.Init's RegisterCustomItem group, on the shelves' one table (FORAGE1's one home)
 import { modSetting, modLatchedOn } from './modSettings.js';
 import { addVendorTextures, decodePng } from './textureReplacement.js';
 import { PASSIVE_FISH_SPECIES, isFishTemplateIndex, speciesOfTemplate, restoreIconAspect } from '../world/passiveFish.js';

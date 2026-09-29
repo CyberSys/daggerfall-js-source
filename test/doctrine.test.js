@@ -389,6 +389,18 @@ const PUBLIC_ALLOWLIST = new Map([
   ['src/assets/mw/source/Pellet_Shot.fbx', "OURS - Mac's own Blender export of the Dwarven Thunderlock, committed so the two files below are a DERIVATION the gate can re-run rather than a blob"],
   ['src/assets/mw/meshes/thunderlock.nif', "OURS - Mac's own Dwarven Thunderlock model, baked to a Morrowind NIF by tools/nifWrite.mjs; a Bethesda format, no Bethesda data"],
   ['src/assets/mw/textures/thunderlock.dds', 'OURS - generated from that mesh\'s own geometry by tools/meshTexture.mjs (position, normal and cast occlusion); no image input, no ARENA2 or Morrowind pixel in it'],
+  // MW-BRIG1 (2026-09-29): the Steel Brigandine, the port's own worn
+  // model, supplied by Mac for the Morrowind body. Unlike the
+  // Thunderlock it carries a PAINTED texture (the FBX names it
+  // Steel.png), so the DDS is that image mip-chained rather than grown
+  // from geometry. tools/bakeBrigandine.mjs re-makes the three shipped
+  // files from the two sources, and test/mwbrig1.test.js holds it to
+  // the bytes.
+  ['src/assets/mw/source/Brigandine_Steel.fbx', "SUPPLIED - Mac's Blender export of the steel brigandine, fitted on the Morrowind body in his scene (2026-09-29), committed so the files below are a DERIVATION the gate can re-run"],
+  ['src/assets/mw/source/Brigandine_Steel.png', "SUPPLIED - the brigandine's texture as Mac supplied it with the mesh (the FBX's Steel.png), committed as the DDS's source"],
+  ['src/assets/mw/meshes/brigandine_steel_chest.nif', 'SUPPLIED - the brigandine above the belt, baked to a Morrowind NIF by tools/bakeBrigandine.mjs; a Bethesda format, no Bethesda data'],
+  ['src/assets/mw/meshes/brigandine_steel_skirt.nif', 'SUPPLIED - the brigandine below the belt, baked to a Morrowind NIF by tools/bakeBrigandine.mjs; a Bethesda format, no Bethesda data'],
+  ['src/assets/mw/textures/brigandine_steel.dds', 'SUPPLIED - Brigandine_Steel.png mip-chained to an uncompressed DDS by tools/meshTexture.mjs writeDds; no ARENA2 or Morrowind pixel in it'],
 ]);
 
 test('doctrine: nothing ships out of public/ or src/assets/ that is not provably ours', () => {
@@ -455,6 +467,13 @@ test('doctrine: no raster of game data is tracked anywhere in the repo', () => {
 // claim about a file that is not there is not one) - see the pins
 // below.
 const BUNDLE_ART = new Map([
+  // FORAGE1 (2026-09-28): Foraging's seven pictures - the author's own
+  // pixel art (tools, a wood bundle, an egg), no Daggerfall record - taken
+  // out of the bundle's Texture2D objects. A directory row: membership is
+  // derived from the shipped manifest's Files, so it cannot widen.
+  ['vendor/foraging/Textures/',
+    { manifest: 'vendor/foraging/foraging.dfmod.json',
+      why: "THIRD-PARTY - Foraging 1.7 (Harbinger451), carried on Mac's word of the author's permission; the mod's own pixel art - the Wood-Axe, Pick-Axe, Sickle, Fishing-Net, Wood Bundle, Egg and Spade - written as PNG from the bundle's Texture2D objects (see vendor/foraging/README.md)" }],
   ['vendor/eye-of-the-beholder/Textures/',
     { manifest: 'vendor/eye-of-the-beholder/eyeofthebeholder.dfmod.json',
       why: "THIRD-PARTY - Eye Of The Beholder 2.1 (RedRoryOTheGlen); the mod's own player sprites, re-encoded as indexed PNG (lossless for every drawn pixel - see the vendor README)" }],

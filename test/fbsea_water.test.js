@@ -13,7 +13,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { WATER_LAYER_UNITS } from '../src/render/waterLayers.js';
+import { WATER_LAYER_UNITS } from '../src/render/waterSurface.js';
 import { DeepWatersRenderer } from '../src/render/deepWatersRender.js';
 import { ComeSailAwayRenderer, WAVE_FS } from '../src/render/comeSailAwayRender.js';
 import { boxLevels, wavePaintLevels, wavePictureMean } from '../src/systems/comeSailAwayWaves.js';

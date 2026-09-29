@@ -654,7 +654,16 @@ directory by `test/audit18_bible_docs.test.js`:
   pinned number. Not AmbientEffects (DFU's player, bug for bug, stays
   so): ticked beside it on the exterior frame and STOPPED on every modal
   frame, as the mills' hum is - the port's own sounds fall silent
-  indoors. THE SWAY: BB_VS takes the wind (`uFlatWind`, one upload a
+  indoors. **FIELD-WIND1 (2026-09-29) corrected the voice** (the
+  Discord: "A repetitive moaning sound in the open world"): those clips
+  are one-shots, short, shaped and pitched - the moan is 1.96 s that
+  swells and falls with a voice's pitch in it - and played end to end it
+  came back every 1.97 s under every breeze. The loop is a BED the port
+  makes now (`windBedSamples`: seeded white noise under a band-pass and a
+  low-pass, periodic so it has no seam, at the moan's own RMS) on the
+  engine's native loop (`audio.registerSamples`, `audio.loop` with a live
+  `setPitch`), one source for the whole blow; the gain law above stands.
+  `01-Overview/Field-Bugs-2026-09-29e.md`. THE SWAY: BB_VS takes the wind (`uFlatWind`, one upload a
   call) and a share per batch (`uSway`, uploaded when it changes), and
   leans the quad by the grass's own wave - the lab's 1.7 / -along*0.35
   gust running across the field, the 0.55/0.75 push - weighted by the
@@ -767,12 +776,11 @@ directory by `test/audit18_bible_docs.test.js`:
   water-corner table that inverts the marching squares, the swell, foam, Fresnel,
   glint and rain shader (`drawWaterSurface` in renderer.js), drawn after
   every opaque pass of a pixel and before the first flat, in both exterior
-  hosts. Switch `enhancedWater`, `?water=off`. `07-Rendering/Water-Arc.md`.
-- `waterLayers.js` - FIELD BUGS 2026-09-29 (the sea) #4 THE SEA'S STACK IN
-  WINDOW DEPTH: the one table of polygon offsets (constant term) the water
-  sheets a few centimetres apart are drawn at - the surface film (Iliac
-  Puddle No More's top, WATER1) over the ground, Come Sail Away's breakers
-  over the film - so a 24-bit buffer parts them at every distance.
+  hosts. Switch `enhancedWater`, `?water=off`. `07-Rendering/Water-Arc.md`. And
+  (FIELD BUGS 2026-09-29 (the sea) #4) THE SEA'S STACK IN WINDOW DEPTH,
+  `WATER_LAYER_UNITS`: the polygon offsets the water sheets a few
+  centimetres apart are drawn at - the surface film (Iliac Puddle No More's
+  top, WATER1) over the ground, Come Sail Away's breakers over the film.
 - `underwaterFog.js` - ROAD-B B3: UnderwaterFog.UpdateFog, the submerged fog/tint law shared by the dungeon and exterior hosts
 - `windowEmission.js` - R2 window emission.
 - `precipitation.js` - R13 rain/snow + storm lightning. TWO PROFILES,

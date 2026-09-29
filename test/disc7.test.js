@@ -94,7 +94,7 @@ test('ACT-MENU: the plaque draws the verbs as the loot list\'s rows, the lit one
   const w = rd('src/scenes/world.js');
   assert.match(w, /else if \(_tapLockOnly\) \{[^\n]*\}\s*\n\s*else if \(!_act\.pressCast && plaquePeerAct\(cam\.pos, useFwd\)\) \{/, 'the street: a player the plaque lit takes the press ahead of the ladder, on the press\'s ray, never on a cast');
   const m = rd('src/scenes/worldModes.js');
-  assert.match(m, /\(mode === 'dungeon' \? tryExitDungeon : tryExit\)\(\{ pressCast: _act\.pressCast \}\);/, 'the building and the dungeon hear whether the press cast');
+  assert.match(m, /\(mode === 'dungeon' \? tryExitDungeon : tryExit\)\(\{ pressCast: _act\.pressCast, interact: useEdge \}\);/, 'the building and the dungeon hear whether the press cast (and, AUDIT 29, whether it was Interact)');
   assert.equal((m.match(/if \(!pressCast && host\.plaquePeerAct\?\.\(eye, dir\)\) return true;/g) ?? []).length, 2, 'both ladders, after QG1 and the lock (AUDIT DISC7 A11)');
   for (const fn of ['function tryExit(', 'function tryExitDungeon(']) {
     const body = m.slice(m.indexOf(fn), m.indexOf(fn) + 6000);
@@ -186,7 +186,7 @@ test('DISC7 wire: the rider\'s half-speed bit rides the pose mounted and moving 
   assert.equal(poseChanged(validPose({ ...base, hs: 1 }), validPose(base)), true);
   assert.equal(lerpPose(validPose(base), validPose({ ...base, hs: 1 }), 0.5).hs, 1);
   assert.equal('hs' in lerpPose(validPose(base), validPose(base), 0.5), false);
-  assert.ok(['world100', 'world101', 'world102', 'world103', 'world104', 'world105', 'world106', 'world107', 'world108', 'world109', 'world110', 'world111', 'world112', 'world113', 'world114', 'world115', 'world116', 'world117', 'world118', 'world119', 'world120', 'world121', 'world122', 'world123', 'world124', 'world127', 'world128', 'world129', 'world130'].includes(RELAY_VERSION), 'world100 carried hs; DISC12 moved it on (world101) with lh and wb, and the community arc (world102) with its frames and AUDIT ATTACH\'s meters');
+  assert.ok(['world100', 'world101', 'world102', 'world103', 'world104', 'world105', 'world106', 'world107', 'world108', 'world109', 'world110', 'world111', 'world112', 'world113', 'world114', 'world115', 'world116', 'world117', 'world118', 'world119', 'world120', 'world121', 'world122', 'world123', 'world124', 'world127', 'world128', 'world129', 'world130', 'world131'].includes(RELAY_VERSION), 'world100 carried hs; DISC12 moved it on (world101) with lh and wb, and the community arc (world102) with its frames and AUDIT ATTACH\'s meters');
   assert.match(rd('src/scenes/world.js'), /hs: riding && moved && _hsLatch \? 1 : undefined,/);
   assert.match(rd('src/scenes/world.js'), /if \(movedThisFrame\) \{ _onlineMovingUntil = now \+ ONLINE_MOVE_HOLD_MS; _hsLatch = !!player\.movingLessThanHalfSpeed; \}/, 'AUDIT DISC7 B2: latched off a frame that moved');
   assert.equal('hs' in validPose({ ...base, hs: '0' }), false, 'AUDIT DISC7 B8: uint\'s law - a string zero is no bit'); assert.equal(validPose({ ...base, hs: 7 }).hs, 1);

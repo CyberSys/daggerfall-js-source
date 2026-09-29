@@ -250,7 +250,7 @@ test('REALM P0.3: a character joining online has the debt past the Empire\'s one
 
 test('REALM P0.3 by source: the join calls the debt in after the markers are aligned to the world\'s clock', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /onlineArrival\(\); empireJoin\(\{ entity: playerEntity, nowMinutes: worldMinutes\(\), say: \(l, d\) => townTalk\.say\(l, d\) \}\);/);
+  assert.match(w, /onlineArrival\(\); empireJoin\(\{ entity: playerEntity, nowMinutes: ownMinutes\(\), say: \(l, d\) => townTalk\.say\(l, d\) \}\);/);   // LIVED1: the loans run on the character's own clock
   assert.ok(w.indexOf('empireJoin({') > w.indexOf('const onlineArrival = () => { alignEntityClocks(playerEntity, worldMinutes());'), 'the loan due dates ride the shift first');
 });
 
@@ -260,9 +260,10 @@ test('REALM P0.4: online a shop pays at most half what it asks for the same piec
   const buy = calculateTradePrice(1_000, 1, loop, false, { online: false });
   assert.deepEqual([calculateTradePrice(1_000, 1, loop, true, { online: false }), buy], [488, 484], 'offline a quality-1 shop pays more than it asks');
   // MERC-RISE (Field-Bugs-2026-09-29d): the half is of the LEAST the counter asks - the best haggler's ask (100 in
-  // each, or the seller's own past it) - so no skill lowers a sale; flipped from P0.4's half of the seller's own ask
-  const best = (k) => ({ mercantile: Math.max(100, k.mercantile), personality: Math.max(100, k.personality) });
-  assert.equal(calculateTradePrice(1_000, 1, loop, true, { online: true }), Math.floor(calculateTradePrice(1_000, 1, best(loop), false, { online: false }) / 2), 'online half of what the counter asks the best haggler');
+  // each, the top of the range the haggle reads online since MERC-CAP, Field-Bugs-2026-09-29f) - so no skill lowers a
+  // sale; flipped from P0.4's half of the seller's own ask
+  const best = { mercantile: 100, personality: 100 };
+  assert.equal(calculateTradePrice(1_000, 1, loop, true, { online: true }), Math.floor(calculateTradePrice(1_000, 1, best, false, { online: false }) / 2), 'online half of what the counter asks the best haggler');
   assert.ok(calculateTradePrice(1_000, 1, loop, true, { online: true }) <= buy / 2, 'and at most half of this seller\'s own ask');
   assert.equal(calculateTradePrice(1_000, 1, loop, false, { online: true }), buy, 'buying is untouched');
   for (const q of [1, 5, 10, 15, 20]) {
@@ -271,7 +272,7 @@ test('REALM P0.4: online a shop pays at most half what it asks for the same piec
         const k = { mercantile, personality };
         const off = calculateTradePrice(777, q, k, true, { online: false });
         const on = calculateTradePrice(777, q, k, true, { online: true });
-        assert.equal(on, Math.min(off, Math.floor(calculateTradePrice(777, q, best(k), false, { online: false }) / 2)), `q${q} m${mercantile} p${personality}`);
+        assert.equal(on, Math.min(off, Math.floor(calculateTradePrice(777, q, best, false, { online: false }) / 2)), `q${q} m${mercantile} p${personality}`);
         assert.ok(on <= Math.floor(calculateTradePrice(777, q, k, false, { online: false }) / 2), `the buy-back loop stays shut: q${q} m${mercantile} p${personality}`);
       }
     }
@@ -290,7 +291,7 @@ test('REALM P0.4: online a pile\'s gold is divided back by the level, every key,
   for (const f of ['src/scenes/dungeonContext.js', 'src/scenes/interiorContext.js', 'src/scenes/world.js']) {
     const calls = [...src(f).matchAll(/addPileLootExtras\(([^\n]*)/g)].map((m) => m[1]);
     assert.ok(calls.length >= 1, `${f} mints a pile`);
-    for (const c of calls) assert.match(c, /\{ level(: playerEntity\.level)?(, where: '[a-z]+')? \}\)/, `${f}: ${c}`);   // THE MERGE: main's AUDIT OH-F B3 names the dungeon's own pile (`where`)
+    for (const c of calls) assert.match(c, /\{ (locationIndex: [^,]+, luck(: liveStat\(playerEntity, 'luck'\))?, )?level(: playerEntity\.level)?(, where: '[a-z]+')? \}\)/, `${f}: ${c}`);   // THE MERGE: main's AUDIT OH-F B3 names the dungeon's own pile (`where`); MERGE 2: FORAGE3's index and luck before the level
   }
 });
 
@@ -397,7 +398,7 @@ test('REALM P0.5 by source: the host checkpoints every slot the exit save writes
   const frame = w.slice(w.indexOf('const onlineFrame = (now, dt) => {'));
   assert.match(frame, /_rezSeen = null;[^\n]*\n\s*if \(checkpointDue\(now, _checkpointAt\)\) onlineCheckpoint\(\);/, 'each online frame, past the seat\'s and the dead\'s returns');
   assert.match(w, /const tradePack = checkpointedTradePack\(createTradePack\(playerEntity\), \(\) => onlineCheckpoint\(\)\);/);
-  assert.match(w, /if \(!checkpointAllowed\(\{ online: !!online, spawned: playerSpawned, seatOut: seatOut\(\), duel: !!duelMgr\?\.duel \}\)\) return false;/);
+  assert.match(w, /if \(!checkpointAllowed\(\{ online: !!online, spawned: playerSpawned, seatOut: seatOut\(\), duel: !!duelMgr\?\.duel, walkWaiting: ownWalkWaiting\(playerEntity\) \}\)\) return false;/);
   assert.match(w, /const names = exitAutosaveNames\(playerEntity, \{ deathUp: townTalk\.overlay instanceof DeathScreen \|\| !!modes\?\.deathUp\?\.\(\) \}\);\n\s*for \(const saveName of names\) \{\n\s*if \(modes\) modes\?\.quickSaveNow\(saveName, \{ quiet: true \}\);[^\n]*\n\s*else worldQuickSave\(saveName, \{ quiet: true \}\);/);
   // quiet: no shot and no "Game saved." - a failure still speaks
   assert.match(w, /if \(r\.ok && !quiet\) requestScreenshot\(r\.key\);\n\s*if \(!r\.ok \|\| !quiet\) townTalk\.say\(r\.ok \? 'Game saved\.' : 'Save failed/);

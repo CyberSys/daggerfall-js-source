@@ -228,8 +228,8 @@
   {
     "name": "NAV-H-the-guns-before-the-spell",
     "file": "src/scenes/world.js",
-    "old": "{ if (magic.interceptAttack(true)) return; if (naval?.attackInput(true)) return; weaponRig.attackInput(0, 0, true); }",
-    "new": "{ if (naval?.attackInput(true)) return; if (magic.interceptAttack(true)) return; weaponRig.attackInput(0, 0, true); }",
+    "old": "if (magic.interceptAttack(true)) return; if (naval?.attackInput(true)) return; weaponRig.attackInput(0, 0, true); }",
+    "new": "if (naval?.attackInput(true)) return; if (magic.interceptAttack(true)) return; weaponRig.attackInput(0, 0, true); }",
     "tests": [
       "test/nav_h_host.test.js",
       "test/hostmagic_wiring.test.js"

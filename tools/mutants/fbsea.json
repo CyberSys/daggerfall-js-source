@@ -217,7 +217,7 @@
   },
   {
     "name": "FBSEA-4-the-film-at-nought",
-    "file": "src/render/waterLayers.js",
+    "file": "src/render/waterSurface.js",
     "old": "  surface: -2,",
     "new": "  surface: 0,",
     "tests": [
@@ -226,7 +226,7 @@
   },
   {
     "name": "FBSEA-4-the-breakers-under-the-margin",
-    "file": "src/render/waterLayers.js",
+    "file": "src/render/waterSurface.js",
     "old": "  breakers: -6,",
     "new": "  breakers: -3,",
     "tests": [

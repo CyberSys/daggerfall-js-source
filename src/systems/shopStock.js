@@ -41,7 +41,7 @@ import { dice100 } from '../combat/formulas.js';
 import { rand } from '../formats/dfRandom.js';   // F209: StockHouseContainer's one classic-stream draw
 import { randomMaterial, randomArmorMaterial, createWeapon } from '../combat/enemyEquipment.js';
 import { groupTemplates, GROUP_TEMPLATE_INDICES, itemBaseValue, ITEM_TEMPLATES, mintCondition, rollPaintingMessage, setItemFields, templateByIndex, TRANSPORT_HORSE, TRANSPORT_SMALL_CART } from './itemTemplates.js';   // MAC-N1: SetItem's name + value, the one export
-import { customItemsForGroup } from './rriItems.js';   // AUDIT-RR F3: GetCustomItemsForGroup - the shelf's second loop (DaggerfallLoot.cs:255-287)
+import { customItemsForGroup } from './itemTemplates.js';   // AUDIT-RR F3: GetCustomItemsForGroup - the shelf's second loop (DaggerfallLoot.cs:255-287); FORAGE1: every mod's, from its one home
 import { createRandomBook } from './books.js';   // B1; A2: CreateRandomBook whole, priced off the book FILE
 import { isLeather, isPlate } from './armorMaterials.js';
 import { CLOTHING_DYES } from '../characters/dyes.js';
@@ -698,17 +698,33 @@ export const ONLINE_SALE_SHARE = 0.5;
  *  actually decreases" - 3499 gold at Mercantile 60, 2888 at 90, Personality 100): THE HALF IS OF THE LEAST THE
  *  COUNTER ASKS. P0.4 took half of the SELLER's own ask, and a seller's ask falls as their Mercantile and Personality
  *  rise - so the cap, which binds for nearly every seller online, fell with them (2888/3499 is 0.825, the two asks'
- *  own ratio). Half of what the counter asks the best haggler there is - 100 in each, DFU's maximum, or the seller's own
- *  where a spell or a curse lifts it higher - is still at most half of what it asks anyone, so buying back never pays
- *  (P0.4's law, whole), and it is a number of the counter and the piece: no skill lowers a sale. Under it DFU's haggle
- *  stands, and raises the sale with the seller's skills up to it. */
-export const ONLINE_SALE_REFERENCE_SKILL = 100;
+ *  own ratio). Half of what the counter asks the best haggler there is - ONLINE_HAGGLE_MAX in each - is still at most
+ *  half of what it asks anyone, so buying back never pays (P0.4's law, whole), and it is a number of the counter and
+ *  the piece: no skill lowers a sale. Under it DFU's haggle stands, and raises the sale with the seller's skills up to it.
+ *
+ *  MERC-CAP (FIELD BUGS 2026-09-29f, ValenValarys again, at 346 Mercantile: "Having to pay gold just to sell items feels
+ *  a bit too punishing!"): ONLINE THE HAGGLE READS A SKILL IN ITS OWN RANGE, 0 TO 100. CalculateTradePrice turns a
+ *  Mercantile or a Personality of 0..100 into a factor of 128..256 in 256 (FormulaHelper.cs:1992-2000), and DFU never
+ *  bounds the Mercantile it reads (DaggerfallSkills.cs:140: "TODO: Any other clamping or processing"), so the Enhances
+ *  Skill pieces and affixes that stack it past 100 ran the buying factor under 128, through 0 at 200 and below it: the
+ *  ask is nothing by 233 (Personality 100) and less after. MERC-RISE's half followed the seller's own ask past 100
+ *  to keep P0.4 whole, so there a sale fell with the skill and then went under nothing - at the field's counter a
+ *  seller at 346 paid 2311 gold to hand the lot over - and every purchase fell with it: the counter's gold a piece
+ *  (FB0929), a room free by 200 and paying its renter from 234, a cure, a spell. Online the haggle reads 100 past 100
+ *  and 0 under 0, so the least the counter asks anyone is the best haggler's ask, a sale never falls with a skill or
+ *  goes under nothing, and no price is under the best haggler's. Inside the range nothing moves; offline, DFU's reads
+ *  stand. */
+export const ONLINE_HAGGLE_MAX = 100;
 
-/** FormulaHelper.CalculateTradePrice, verbatim - the classic
+/** FormulaHelper.CalculateTradePrice, verbatim offline - the classic
  *  fixed-point haggle over the merchant's quality-derived levels vs
  *  the player's Mercantile + Personality. selling=false is the BUY
  *  price of a shelf item (applied over CalculateCost's cost). */
 export function calculateTradePrice(cost, shopQuality, { mercantile = 0, personality = 50 } = {}, selling = false, { online = isOnlinePage() } = {}) {
+  if (online) {   // MERC-CAP: the haggle's own range
+    mercantile = Math.min(Math.max(mercantile, 0), ONLINE_HAGGLE_MAX);
+    personality = Math.min(Math.max(personality, 0), ONLINE_HAGGLE_MAX);
+  }
   const merchantLevel = 5 * (shopQuality - 10) + 50;   // mercantile and personality alike
   let dm, dp;
   if (selling) {
@@ -716,10 +732,7 @@ export function calculateTradePrice(cost, shopQuality, { mercantile = 0, persona
     dp = ((Math.trunc(((100 - merchantLevel) << 8) / 200) + 128) * (Math.trunc((personality << 8) / 200) + 128)) >> 8;
     const sale = ((((179 * dm) >> 8) + ((51 * dp) >> 8)) * cost) >> 8;
     if (!online) return sale;
-    const best = {   // MERC-RISE: the best haggler this counter can meet
-      mercantile: Math.max(ONLINE_SALE_REFERENCE_SKILL, mercantile),
-      personality: Math.max(ONLINE_SALE_REFERENCE_SKILL, personality),
-    };
+    const best = { mercantile: ONLINE_HAGGLE_MAX, personality: ONLINE_HAGGLE_MAX };   // MERC-RISE: the best haggler this counter can meet
     return Math.min(sale, Math.floor(calculateTradePrice(cost, shopQuality, best, false) * ONLINE_SALE_SHARE));   // REALM P0.4; MERC-RISE: half the least it asks
   }
   dm = ((Math.trunc((merchantLevel << 8) / 200) + 128) * (Math.trunc(((100 - mercantile) << 8) / 200) + 128)) >> 8;
@@ -894,12 +907,22 @@ export function stockSoulGems({ quality = 0, gameMinutes = 0 } = {}, { soulPoint
 export function dayShelf(store, service, gameMinutes, mint) {
   const today = stockDayIndex(gameMinutes);
   const kept = store?.[service];
-  if (kept && kept.day === today && Array.isArray(kept.items)) return kept;
-  if (store) for (const k of Object.keys(store)) if (store[k]?.day !== today) delete store[k];   // AUDIT GUILD-SHELF A10: a past day's shelf is never shown again - it goes, and the save with it
+  if (shelfStands(kept, today)) return kept;
+  if (store) for (const k of Object.keys(store)) if (store[k]?.day !== today && !shelfStands(store[k], today)) delete store[k];   // AUDIT GUILD-SHELF A10: a past day's shelf is never shown again - it goes, and the save with it
   const shelf = { day: today, items: mint() };
+  _mintedThisSession.add(shelf);
   if (store) store[service] = shelf;
   return shelf;
 }
+/** AUDIT LIVED1b A3 (a sibling of AUDIT LIVED1 I, older than LIVED1): WHAT WAS BOUGHT STAYS GONE THROUGH A STEP BACK.
+ *  Online the day is the world's (the host reads worldMinutes), and the world's reading steps back - the relay's offset
+ *  corrected at a welcome, this machine's clock set back between two - so a step across a midnight minted yesterday's
+ *  shelf over today's bought-out one, and the day's turn a frame later minted today's afresh: five potions, all bought,
+ *  and five on the shelf again. A shelf THIS session minted for a later day stands while the reading is behind it; one
+ *  a save carried (a copy's, dated on another clock) is re-minted as ever, and offline nothing reads differently. */
+const _mintedThisSession = new WeakSet();
+const shelfStands = (kept, today) => !!kept && Array.isArray(kept.items)
+  && (kept.day === today || (isOnlinePage() && kept.day > today && _mintedThisSession.has(kept)));
 
 /**
  * GetMerchantPotions (:273-280). `n = quality; while (n-- >= 0)` is

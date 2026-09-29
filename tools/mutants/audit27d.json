@@ -92,7 +92,7 @@
   {
     "name": "AUDIT-A10-stale-day-kept",
     "file": "src/systems/shopStock.js",
-    "old": "  if (store) for (const k of Object.keys(store)) if (store[k]?.day !== today) delete store[k];",
+    "old": "  if (store) for (const k of Object.keys(store)) if (store[k]?.day !== today && !shelfStands(store[k], today)) delete store[k];",
     "new": "",
     "tests": [
       "test/guildshelf.test.js"

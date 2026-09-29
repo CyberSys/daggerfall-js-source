@@ -268,7 +268,7 @@ test('AUDIT SURV C: what the player is told - a vampire\'s strip has no hunger o
   assert.equal(isSurvivalItem(skin), true);
   assert.match(ENHANCED_CSS, /\.hud-stat:empty\s*\{\s*display:\s*none;?\s*\}/, 'no gap for an empty widget (UI3: the needs are its tiles)');
   const hud = read('src/ui/enhancedHud.js');
-  assert.match(hud, /survivalHudChips\(vitals, Math\.floor\(worldMinutes\(\)\), \{ vampire: !!liveVampirism\(vitals\), endurance: liveStat\(vitals, 'endurance'\) \}\)/);
+  assert.match(hud, /survivalHudChips\(vitals, Math\.floor\(ownMinutes\(\)\), \{ vampire: !!liveVampirism\(vitals\), endurance: liveStat\(vitals, 'endurance'\) \}\)/);   // LIVED1: the needs read the character's own clock
   // Mac (review): "Hide wear for non wearables. Same for use for non-usables"
   const wearer = { equip: null, activeEffects: [] };
   assert.equal(localPrimaryAct(skin, wearer), null, 'no slot takes a waterskin: no Wear');
@@ -292,7 +292,7 @@ test('AUDIT SURV B: the camps - the sweep spares them and the scene cache carrie
   assert.doesNotMatch(world, /camps\.collectPixel\(key\)/, 'a placed camp is not a dropped pile: the streaming sweep leaves it');
   assert.doesNotMatch(world, /camps: camps\.snapshot\(\(pos\) => \{ const wc = state\.worldCoords\(pos\); return \[wc\.x, pos\[1\] - state\.compensation\[1\], wc\.z\]; \}\),   \/\/ SURV3: my camps, in natives\n\s+\}\);\n\s+\}\n\s+function restoreExteriorScene|camps\.restore\(arrived\.camps/, 'the scene cache carries no camps - the pool is the truth');
   assert.match(world, /if \(cell && full\) frame\.c = camps\.wireRecords\(campToWire\);/, 'an empty list says "none stand"');
-  assert.match(world, /if \(Math\.abs\(offsetMs - was\) > 1000\) \{ const before = playerEntity\.lastGameMinutes; onlineArrival\(\); if \(Number\.isFinite\(before\)\) shiftSurvival\(playerEntity, Math\.floor\(worldMinutes\(\)\) - Math\.floor\(before\)\); alignSurvival\(playerEntity, Math\.floor\(worldMinutes\(\)\), Math\.floor\(worldMinutes\(\)\)\); \}/, 'a clock correction re-aligns the needs - by the delta every other marker rode, first (AUDIT SURV-TIERS, the third pass)');
+  assert.match(world, /if \(Math\.abs\(offsetMs - was\) > 1000\) onlineArrival\(\); (?:hearSharedClock\(\); )?\};/, 'LIVED1: the needs are on the character\'s own clock, which a correction does not move - the arrival alone; was: ' + 'a clock correction re-aligns the needs - by the delta every other marker rode, first (AUDIT SURV-TIERS, the third pass)');
   assert.match(dc, /const feed = survivalFeed\(playerEntity, survivalEnvNow\(\), \{ say: \(msg\) => hudText\.add\(msg\) \}\);\n\s+if \(feed\) runSurvivalMinutes\(playerEntity, start, Math\.floor\(end\), feed\.env, \{ \.\.\.feed\.deps, sinks: playerSinks, rolls: Math\.random \}\);/, 'the dungeon rest pays its night asleep, under the window');
   // AUDIT SURV-TIERS: the pool REFUSED a restore and a peer's word with the arc off, so a save loaded Off lost every
   // camp and an Off host dropped its peers' camps from the room it passes on. Off hides; it does not burn.

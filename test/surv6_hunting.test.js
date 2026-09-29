@@ -280,13 +280,13 @@ test('SURV6: composed - once a game minute the roll; the window in the slot, non
 test('SURV6: by source - the overworld host alone rolls, opens in the slot, passes the minutes, stands the beast on the wilderness arm; the leaf is pure; every overlay ticks', () => {
   const world = read('src/scenes/world.js'), ext = read('src/scenes/exterior.js'), leaf = read('src/systems/survival/hunting.js');
   assert.match(world, /const hunting = createHunting\(\{/);
-  assert.match(world, /minute: Math\.floor\(worldMinutes\(\)\), climateIndex: maps\.getClimateIndex\(playerTravelPixel\(\)\.x, playerTravelPixel\(\)\.y\),/);
+  assert.match(world, /minute: Math\.floor\(ownMinutes\(\)\), climateIndex: maps\.getClimateIndex\(playerTravelPixel\(\)\.x, playerTravelPixel\(\)\.y\),/);   // LIVED1: the hunt's minute is the body's
   assert.match(world, /luck: liveStat\(playerEntity, 'luck'\), winter: seasonValue\(dateFromClassicMinutes\(worldMinutes\(\)\)\) === SEASONS\.Winter,/);
   assert.match(world, /outdoors: _mode\(\) === 'exterior' && !\(walkMode && playerSpawned && player\.isPlayerSwimming\), inLocationRect: _musicInLocationRect\(\), night: isNight\(minuteNow\(\)\),/);
   assert.match(world, /enemiesNear: areEnemiesNearby\(exteriorFoePool\(\)\), resting: !!playerEntity\.isResting \|\| !!playerEntity\.preventEnemySpawns,/);
   assert.match(world, /hasBow: weaponTypeForItem\(weaponRig\.playerWeapon\.weapon\) === WEAPON_TYPES\.Bow,/);
   assert.match(world, /skills: \{ archery: skillValue\(playerEntity, SKILLS\.Archery\), stealth: skillValue\(playerEntity, SKILLS\.Stealth\), criticalStrike: skillValue\(playerEntity, SKILLS\.CriticalStrike\), climbing: skillValue\(playerEntity, SKILLS\.Climbing\) \},/);
-  assert.match(world, /showOverlay: \(w\) => townTalk\.showOverlay\(w\), overlayActive: \(\) => townTalk\.overlayActive,\n\s+advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode && playerSpawned \? player\.pos : cam\.pos, null, true\); \},/);   // CAMP-REST: the search's minutes are spent through the tick as a skip
+  assert.match(world, /showOverlay: \(w\) => townTalk\.showOverlay\(w\), overlayActive: \(\) => townTalk\.overlayActive,\n\s+advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode && playerSpawned \? player\.pos : cam\.pos, true\); \},/);   // CAMP-REST: the search's minutes are spent through the tick as a skip (LIVED1: on the character's own clock)
   assert.match(world, /for \(let i = 0; i < count; i\+\+\) _standEncounterFoe\(\{ mobileType, \.\.\.SPAWNER_ARMS\.wilderness \}, feet\);/);
   assert.match(world, /inflictPoison, inflictDisease, tally: \(id\) => tallySkill\(playerEntity, id, 1\),/);
   // TO-FIELD3 (Mac, 2026-09-18: "hunting rolls fire during travel

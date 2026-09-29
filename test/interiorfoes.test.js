@@ -203,7 +203,7 @@ test('IF: the pool is ARMED for targeting like every other pool, over its own da
   assert.equal((WM.match(/interiorFoes\?\.foes \?\? \[\]/g) ?? []).length, 2);
   assert.match(WM, /subscribeFoePools\(interiorTicker, \[\(\) => interiorFoes\?\.foes \?\? \[\], \(\) => interiorGuards\?\.guards \?\? \[\]\], insideFoeSinks\);/,
     'and the second is the fan-out, one thunk per pool');
-  assert.match(WM, /const _interiorSenses = \(\) => sensesContext\(playerEntity, interiorTicker\.classicMinutes, \{/,
+  assert.match(WM, /const _interiorSenses = \(\) => sensesContext\(playerEntity, interiorTicker\.ownMinutes, \{/,
     'through the ONE senses builder');
 assert.match(WM, /interiorFoes\.update\(foeDt, player\.pos, cam\.pos, _interiorSenses\(\)\)/,   // QUEST-POPUP-PAUSE re-aim: the pools' clock (0 offline under a quest box)
     'and the pool takes it (WINFOE1, 2026-09-17: on the frame\'s own dt - a window no longer zeroes the foes\' clock)');

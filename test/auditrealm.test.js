@@ -18,6 +18,8 @@ import { SIGIL_STONE_TEMPLATES, SIGIL_STONE_TEMPLATE, sigilStone } from '../src/
 import { THUNDERLOCK_TEMPLATES } from '../src/systems/thunderlock.js';
 import { CSA_ITEM_TEMPLATES } from '../src/systems/comeSailAwayItems.js';   // THE MERGE: main's Come Sail Away registers the sixth
 import { RRI_TEMPLATES, RRI_TEMPLATE_PATCHES } from '../src/systems/rriItems.js';
+import { FORAGING_TEMPLATES } from '../src/systems/foragingLaw.js';   // MERGE 2: the professions branch's two registrars (FORAGE1, PROF2-PROF4)
+import { MINING_TEMPLATE_ROWS, WOOD_TEMPLATE_ROWS, REPAIR_KIT_ROW } from '../src/systems/profTemplates.js';
 import { createTradePack, tradeRefusal } from '../src/systems/tradePack.js';
 import { createWeapon } from '../src/combat/enemyEquipment.js';
 import { realmIo, realmCreate, realmFetch, realmPut, realmTradeCall, realmJoin, realmDelete, createRealmSession, realmGoldAct, realmTradeEscrow } from '../src/systems/realmSaves.js';
@@ -140,14 +142,15 @@ test('AUDIT REALM F1: a Sigil Stone never changes hands through the realm - the 
   assert.deepEqual([await record(A.io, A.char.id), await record(B.io, B.char.id)], before, 'both records as they were: three stones with A, none with B');
 });
 
-test('AUDIT REALM F1: BOUND_TEMPLATES is every row the game registers with `bound` - the classic table, each registrar\'s rows and RRI\'s patches - and the registrars are the six it reads (Come Sail Away\'s the sixth, at the merge with main)', () => {
+test('AUDIT REALM F1: BOUND_TEMPLATES is every row the game registers with `bound` - the classic table, each registrar\'s rows and RRI\'s patches - and the registrars are the eight it reads (Come Sail Away\'s the sixth, at the merge with main; Foraging\'s and the professions\' the seventh and eighth, at MERGE 2)', () => {
   const rows = [
     ...ITEM_TEMPLATES.map((t, i) => ({ ...t, index: t.index ?? i })),
     ...SURVIVAL_TEMPLATES, ...DEEP_WATERS_FISH_TEMPLATES, ...SIGIL_STONE_TEMPLATES, ...THUNDERLOCK_TEMPLATES, ...CSA_ITEM_TEMPLATES, ...RRI_TEMPLATES, ...RRI_TEMPLATE_PATCHES,
+    ...FORAGING_TEMPLATES, ...MINING_TEMPLATE_ROWS, ...WOOD_TEMPLATE_ROWS, REPAIR_KIT_ROW,   // MERGE 2: Foraging's and the professions' rows - none bound: a material and a tool change hands
   ];
   assert.deepEqual(rows.filter((t) => t.bound === true).map((t) => t.index).sort((a, b) => a - b), [...BOUND_TEMPLATES]);
   assert.ok(BOUND_TEMPLATES.includes(SIGIL_STONE_TEMPLATE));
-  // a sixth registrar must join the list above, or its bound rows would pass the service unseen
+  // a ninth registrar must join the list above, or its bound rows would pass the service unseen
   const registrars = [];
   const walk = (dir) => {
     for (const e of readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })) {
@@ -157,7 +160,7 @@ test('AUDIT REALM F1: BOUND_TEMPLATES is every row the game registers with `boun
     }
   };
   walk('src');
-  assert.deepEqual(registrars.sort(), ['src/systems/comeSailAwayItems.js', 'src/systems/deepWatersFishItems.js', 'src/systems/gateSpoils.js', 'src/systems/rriInstall.js', 'src/systems/survival/items.js', 'src/systems/thunderlock.js']);
+  assert.deepEqual(registrars.sort(), ['src/systems/comeSailAwayItems.js', 'src/systems/deepWatersFishItems.js', 'src/systems/foragingInstall.js', 'src/systems/gateSpoils.js', 'src/systems/profTemplates.js', 'src/systems/rriInstall.js', 'src/systems/survival/items.js', 'src/systems/thunderlock.js']);
   // and the honest client never offers one: the window's pack refuses it before a half is ever written
   const holder = { items: [{ ...sigilStone(), stackCount: 2 }], goldPieces: 0 };
   assert.equal(createTradePack(holder).offerable(holder.items[0]), tradeRefusal(holder.items[0]));
@@ -319,8 +322,7 @@ async function registered() {
     const made = (await realmCreate(io, handle)).data;
     assert.equal((await realmPut(io, made.id, { lease: made.lease, seq: 1 }, JSON.stringify(freshSave({ name: handle })))).ok, true);
     layRecord(env, made.id, save);   // AUDIT REALM2 S1: the record the pins count from, over a new character's first save
-    env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)').run(g.id, renownXpFor(renown), 1, 1);   // RENOWN-ACCOUNT: the account's one track
-    env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(g.id, made.id, handle, renownXpFor(renown), 1, 1);   // and the character's history row, as customs carries one
+    env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(g.id, made.id, handle, renownXpFor(renown), 1, 1);   // RENOWN-CHAR: the character's own track
     const session = createRealmSession({ io, id: made.id, lease: made.lease, seq: 1 });
     return { id: g.id, io, door, char: made.id, lease: made.lease, session, guilds: accountGuilds({ fetch, storage }), homes: accountHomes({ fetch, storage }), decor: accountDecor({ fetch, storage }) };
   }
@@ -447,7 +449,7 @@ test('AUDIT REALM L1-F3: a placed piece pays back half of what records paid for 
   assert.equal((await s.saveOf(A)).goldPieces, 500_000 - 1_000 - 400 + decorRefund(400));
 });
 
-test('AUDIT REALM L1-F7: a realm character deleted takes its house, its guild place and its Renown history row with it - and a guildmaster with members hands the guild over first; RENOWN-ACCOUNT: the ACCOUNT\'s Renown stays whole', { timeout: 60_000 }, async () => {
+test('AUDIT REALM L1-F7: a realm character deleted takes its house, its guild place and its Renown with it - and a guildmaster with members hands the guild over first', { timeout: 60_000 }, async () => {
   const s = await registered();
   const A = await s.player('Arthago', { name: 'Arthago', goldPieces: 500_000, items: [] });
   const claimed = await A.homes.claim({ mapId: 7, buildingKey: 9, region: 17, character: A.char, price: 1_000, realm: { id: A.char, lease: A.lease, seq: 1 } });
@@ -459,13 +461,9 @@ test('AUDIT REALM L1-F7: a realm character deleted takes its house, its guild pl
   const held = await realmDelete(A.io, A.char);
   assert.deepEqual([held.ok, held.error], [false, 'guild-master-leaves'], 'a guildmaster with members hands the guild over first');
   s.env.DB._raw.prepare("DELETE FROM guild_members WHERE char_id = 'x-char-0001'").run();
-  const renownOf = () => s.env.DB._raw.prepare('SELECT xp FROM renown_accounts WHERE player = ?').get(A.id)?.xp ?? null;
-  const renown = renownOf();
-  assert.ok(renown > 0, 'the account stands at its Renown');
   assert.equal((await realmDelete(A.io, A.char)).ok, true);
   const left = (table) => s.env.DB._raw.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE char_id = ?`).get(A.char).n;
   assert.deepEqual([left('homes'), left('guild_members'), left('renown_tracks')], [0, 0, 0], 'nothing stands under the deleted id');
-  assert.equal(renownOf(), renown, 'RENOWN-ACCOUNT: and the account\'s Renown is whole - it was never the character\'s');
   assert.equal((await B.homes.claim({ mapId: 7, buildingKey: 9, region: 17, character: B.char, price: 1_000, realm: { id: B.char, lease: B.lease, seq: 1 } })).ok, true, 'the house is for sale again');
 });
 

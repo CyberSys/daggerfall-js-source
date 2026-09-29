@@ -359,6 +359,7 @@ uniform vec3 uOrigin;
 uniform vec2 uSize;
 uniform vec4 uFlatWind;   // WIND3: the wind's rate x, z (m/s, the lab's rate from systems/windDrive.js), the clock, the gust
 uniform float uSway;      // WIND3: this batch's share of the lean (0 = stands still)
+uniform vec3 uTip;        // PROF4: a felled tree's fall - x, z the way it falls, the angle it has leaned (0 = stands)
 uniform vec4 uFacePoint;  // DISC29-E: a lamp's position (w = 1) - each flat turns to face it; w = 0 in every other pass
 out vec2 vUV;
 out vec3 vBBWorld;
@@ -399,6 +400,13 @@ void main() {
     float push = wl * (0.55 + gust * 0.75) * 0.0015 * uSway;
     float top = aCorner.y + 0.5;
     world.xz += wdir * push * top * top * uSize.y;
+  }
+  // PROF4 (bible/06-Systems/Professions-Arc.md 25): A FELLED TREE TIPS OVER. The quad turns about its root, the height
+  // up it laid along the fall's way by the angle; 0 for every batch but a falling tree's.
+  if (uTip.z != 0.0) {
+    float up = (aCorner.y + 0.5) * uSize.y;
+    world = aCenter + uOrigin + uRight * (aCorner.x * uSize.x)
+      + vec3(uTip.x * sin(uTip.z) * up, cos(uTip.z) * up, uTip.y * sin(uTip.z) * up);
   }
   vBBWorld = world;
   // Textures are bottom-up (v=0 = image bottom), so the quad top
@@ -1124,7 +1132,7 @@ export const PANEL_CLEAR_RGBA = Object.freeze([49 / 255, 77 / 255, 121 / 255, 5 
 // see AUTOMAP_WATER_COLOR below for the seam DFU reads it across.
 import { WATER_MAP_COLOR } from './underwaterFog.js';
 import { WATER_SURFACE_VS, waterSurfaceFs } from './waterSurface.js';   // WATER1: the enhanced water pass over the terrain grid
-import { WATER_LAYER_UNITS } from './waterLayers.js';   // FIELD BUGS 2026-09-29 (the sea) #4: WATER1's offset is the sea's surface film's
+import { WATER_LAYER_UNITS } from './waterSurface.js';   // FIELD BUGS 2026-09-29 (the sea) #4: WATER1's offset is the sea's surface film's
 import { packWaterMask, WATER_DRAW_MASK_TABLE } from '../world/waterCorners.js';   // MAC2: the corner table's one home; WATER-DRAW1: the PASS takes the draw's table, not the feet's
 
 /** The automap render panel, DFU's own rect on the 320x200 native
@@ -1371,6 +1379,7 @@ export class Renderer {
     this._dwFog = new Float32Array(20);
     this._dwColumn = null;   // DW-F: the water column's frame for the flats (setWaterColumn), a frame's like the fog
     this._bbColumnOn = 0;   // LA-COST1 x DW-F: the billboard program's uColumnOn as last sent (the frame block resets it)
+    this._bbTipOn = false;   // PROF4: the billboard program's uTip as last sent - a falling tree's (the frame block resets it)
     this._dwCamFwd = new Float32Array(3);
     this._fogColor = new Float32Array([0, 0, 0]);
     this._camPos = new Float32Array(3);
@@ -1925,6 +1934,7 @@ export class Renderer {
     this.bbUIndirectColor = gl.getUniformLocation(this.bbProgram, 'uIndirectColor');
     this.bbUFlatWind = gl.getUniformLocation(this.bbProgram, 'uFlatWind');   // WIND3
     this.bbUSway = gl.getUniformLocation(this.bbProgram, 'uSway');   // WIND3
+    this.bbUTip = gl.getUniformLocation(this.bbProgram, 'uTip');   // PROF4: a felled tree's fall
     // DW-F: COLUMN_GLSL's (both lanes' flats declare it)
     this.bbColumn = Object.fromEntries(['uColumnOn', 'uSurfaceTex', 'uDwCamFwd', 'uSeaY', 'uTopColor', 'uTopVision', 'uSurfaceScroll', 'uPixelOrigin'].map((n) => [n, gl.getUniformLocation(this.bbProgram, n)]));
     // EL1: the lane's own uniforms, per program (null on the classic set, which never declares them)
@@ -4943,7 +4953,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     return {
       vao, indexCount: count * 6, archive, record, size, buffers: [vb, ib], origin: null, frame: null, bounds, _quads: count, _dyn: !!dynamic,
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
-      _box: undefined, sway: undefined, conceal: undefined, hitFlash: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
+      _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
       _shGen: undefined, _shAx: NaN, _shAy: NaN, _shAz: NaN, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,
       _shRec: undefined, _shFlip: undefined, _shDyn: undefined, _shSway: undefined, _shMovedAt: undefined, _shId: undefined,
@@ -4992,7 +5002,16 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // it was built casts nothing where it is (the draw lens's prover: a
     // gib's shadow gone in a cascade and three lantern faces). A batch that
     // moves is judged by its sphere, which follows it below.
-    batch._place = null;
+    // AUDIT 30 A6: that is a DYNAMIC batch - a gib's, moved every frame. A
+    // STATIC one moved once (PROF4: a felled tree's flat sunk in its wood,
+    // treeHost sinkFelled, and the day's turn standing it again) gets the
+    // grid of where it is NOW: dropped for good, the pixel-wide wood was
+    // judged by its sphere again - near every lantern in its pixel. And the
+    // static signature is told it moved: it folds the batch's id and its
+    // origin, neither of which a vertex move changes, so the cached shadow
+    // kept the fallen tree's. A fresh id is a new signature.
+    batch._place = !batch._dyn && count > 1 ? placementGrid(count === centers.length ? centers : centers.slice(0, count)) : null;
+    if (!batch._dyn) batch._shId = undefined;
     // THE SPHERE, WITHOUT BUILDING A FLAT ARRAY TO ASK FOR IT. This
     // runs every frame of every flight, and `boundsOf` wants one
     // packed list - so the box is walked here and the sphere written
@@ -5546,7 +5565,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // front of a boat or a far shore standing just above it. The lift
     // already carries the sloped case.
     gl.enable(gl.POLYGON_OFFSET_FILL);
-    gl.polygonOffset(0, WATER_LAYER_UNITS.surface);   // FIELD BUGS 2026-09-29 (the sea) #4: the sea's layers, one table (render/waterLayers.js)
+    gl.polygonOffset(0, WATER_LAYER_UNITS.surface);   // FIELD BUGS 2026-09-29 (the sea) #4: the sea's layers, one table (render/waterSurface.js WATER_LAYER_UNITS)
     gl.depthFunc(gl.LEQUAL);
     let bound = null;
     for (let i = 0; i < n; i++) {
@@ -5664,6 +5683,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       // DW-F: the column's frame rides the block (setWaterColumn moves the stamp); its switch starts the frame off
       gl.uniform1f(bc.uColumnOn, 0);
       this._bbColumnOn = 0;
+      gl.uniform3f(this.bbUTip, 0, 0, 0);   // PROF4: every flat stands until a felled tree says otherwise
+      this._bbTipOn = false;
       if (this._dwColumn && bc.uColumnOn) {
         const dw = this._dwColumn, v = this._view;
         this._dwCamFwd[0] = -v[2]; this._dwCamFwd[1] = -v[6]; this._dwCamFwd[2] = -v[10];   // the camera's forward: minus the view's third row
@@ -5741,6 +5762,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       if (o[0] !== lastOx || o[1] !== lastOy || o[2] !== lastOz) { gl.uniform3f(this.bbUOrigin, o[0], o[1], o[2]); lastOx = o[0]; lastOy = o[1]; lastOz = o[2]; }   // PERF-EXT11
       const sw = b.sway || 0;   // WIND3: the batch's share of the lean, uploaded when it changes between batches
       if (sw !== lastSway) { gl.uniform1f(this.bbUSway, sw); lastSway = sw; }
+      const tp = b.tip;   // PROF4: a felled tree's fall ([x, z, angle]); every other batch stands
+      if (tp || this._bbTipOn) { gl.uniform3f(this.bbUTip, tp ? tp[0] : 0, tp ? tp[1] : 0, tp ? tp[2] : 0); this._bbTipOn = !!tp; }
       const col = dwc && b.dwColumn ? 1 : 0;   // DW-F: a flat in a carved sea takes the column's share
       if (col !== this._bbColumnOn) { gl.uniform1f(bc.uColumnOn, col); this._bbColumnOn = col; }   // LA-COST1: the program's switch, sent when a flat changes it
       const hf = b.hitFlash || 0;   // HITFLASH1: a struck body's red, uploaded when it changes between batches

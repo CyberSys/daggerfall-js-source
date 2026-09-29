@@ -72,7 +72,7 @@ import { statusTiles, afflictionRows, statusGlyphSrc, statRoom, statSide, statPl
 import { sigilRuneTileSrc } from './sigilRune.js';   // UI3: a set power's tile is its set's rune
 import { liveVampirism } from '../systems/racialLive.js';   // AUDIT SURV C: no hunger or sleep chip on a vampire
 import { survivalOn } from '../systems/survival/switch.js';
-import { worldMinutes } from '../systems/worldTick.js';
+import { ownMinutes } from '../systems/worldTick.js';   // LIVED1: the needs' strip reads the character's own clock
 import { compassScroll, breathShortThreshold, compassMarkerLerp, DETECT_MARKER_RGB } from './hud.js';
 import { PARTY_GREEN_CSS } from '../net/social.js';   // COMPASS-PARTY: the party's one green
 import { maxBreath, maxFatigue, liveStat } from '../systems/statMods.js';   // PX30b/PX30d: DFU's own ceilings
@@ -264,19 +264,22 @@ function drawGateMark(gate, playerXZ, heading01) {
 // COMPASS-PARTY (2026-09-27, Discord - Ashley: "being able to see where party members are on compass? - just lil green
 // marks that point in that direction"): THE PARTY ON THE STRIP - the Detect markers' triangle, a pixel wider, and their
 // bearing law (compassMarkerLerp, clamp and all), in the party's one green. Pooled and hidden, never removed.
-const partyMarkCss = () => 'position:absolute;bottom:0;width:0;height:0;margin-left:-4px;'
+const partyMarkCss = (colour = PARTY_GREEN_CSS) => 'position:absolute;bottom:0;width:0;height:0;margin-left:-4px;'
   + 'border-left:4px solid transparent;border-right:4px solid transparent;'
-  + `border-top:5px solid ${PARTY_GREEN_CSS};filter:drop-shadow(0 0 1px rgba(0,0,0,0.9));pointer-events:none`;
-function drawPartyMarks(points, playerXZ, heading01) {
+  + `border-top:5px solid ${colour};filter:drop-shadow(0 0 1px rgba(0,0,0,0.9));pointer-events:none`;
+/** PROF2: the Prospector's veins on the strip (PROF0 3.3) - the party's mark in the veins' copper. */
+export const VEIN_MARK_CSS = '#d9894a';
+/** @param {'partyMarks'|'veinMarks'} pool */
+function drawPartyMarks(points, playerXZ, heading01, pool = 'partyMarks', colour = PARTY_GREEN_CSS) {
   const list = (points && playerXZ) ? points : [];
-  while (parts.partyMarks.length < list.length) {
-    const node = el('i', 'hud-party');
-    node.style.cssText = partyMarkCss();
+  while (parts[pool].length < list.length) {
+    const node = el('i', pool === 'partyMarks' ? 'hud-party' : 'hud-vein');
+    node.style.cssText = partyMarkCss(colour);
     parts.compass.append(node);
-    parts.partyMarks.push(node);
+    parts[pool].push(node);
   }
-  for (let i = 0; i < parts.partyMarks.length; i++) {
-    const node = parts.partyMarks[i];
+  for (let i = 0; i < parts[pool].length; i++) {
+    const node = parts[pool][i];
     if (i >= list.length) {
       if (node.style.display !== 'none') node.style.display = 'none';
       continue;
@@ -733,7 +736,7 @@ function build(doc) {
   cells.main.cell.addEventListener('pointerdown', tap(() => { liveOpts.quickSwitchHand?.(); }));
 
   doc.body.append(root);
-  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
+  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], veinMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
     stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
@@ -851,6 +854,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   drawGateMark(opts.gate ?? null, opts.playerXZ ?? null, heading01);   // WB1
   drawPartyMarks(opts.party ?? null, opts.playerXZ ?? null, heading01);   // COMPASS-PARTY
   drawShipMarks(opts.ships ?? null, opts.playerXZ ?? null, heading01);   // AUDIT NAV1: the sea's ships
+  drawPartyMarks(opts.veins ?? null, opts.playerXZ ?? null, heading01, 'veinMarks', VEIN_MARK_CSS);   // PROF2: the Prospector's veins
 
   // THE TARGET, when there is one.
   const t = foeTarget();
@@ -1034,7 +1038,7 @@ function drawStatus(vitals, opts) {
   const spells = effectRows(vitals);
   const powers = setPowerChips(vitals);   // SET5: the set powers (the host's - setHudSetChips)
   // SURV5: the needs - one a felt need (survival/status.js), none while every need is met, and none with the switch off
-  const needs = survivalOn() ? survivalHudChips(vitals, Math.floor(worldMinutes()), { vampire: !!liveVampirism(vitals), endurance: liveStat(vitals, 'endurance') }) : [];   // AUDIT SURV C: the vampire's strip, the page's drunk bands
+  const needs = survivalOn() ? survivalHudChips(vitals, Math.floor(ownMinutes()), { vampire: !!liveVampirism(vitals), endurance: liveStat(vitals, 'endurance') }) : [];   // AUDIT SURV C: the vampire's strip, the page's drunk bands
   const all = statusTiles({ spells, powers, afflictions: afflictionRows(vitals), needs });
   // a new window size or HUD scale is a new band at once (AUDIT UI C: a rotation left the old band for half a second)
   const vp = `${globalThis.innerWidth}x${globalThis.innerHeight}x${last.scale ?? 1}`;

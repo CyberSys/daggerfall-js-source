@@ -70,6 +70,7 @@ export const RESURRECT_TEXT = Object.freeze({
   aim: 'Look at a fallen party member\'s body and cast.',
   cast: (name) => `You call ${name || 'your companion'} back from death.`,
   raised: (name) => `${name || 'A companion'} has brought you back from death.`,
+  spared: (n) => `Death takes none of your gold: the ${n.toLocaleString('en-US')} it claimed stay in your purse.`,   // AUDIT 28 B5: the screen's loss, withdrawn
 });
 
 /** Does this spell carry the Resurrect effect? */

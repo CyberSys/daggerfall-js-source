@@ -265,15 +265,6 @@
     ]
   },
   {
-    "name": "SURVTIERS3-a-correction-moves-nothing",
-    "file": "src/systems/survival/needs.js",
-    "old": "  for (const k of ['lastAte', 'awakeSince', 'lastMinute', 'stiffUntil']) if (Number.isFinite(s[k]) && s[k] !== 0) s[k] += delta;",
-    "new": "",
-    "tests": [
-      "test/survtiers3.test.js"
-    ]
-  },
-  {
     "name": "SURVTIERS3-hard-charges-a-sleeper-by-the-fire",
     "file": "src/systems/survival/needs.js",
     "old": "  if (!resting || !env.byFire) {",
@@ -394,16 +385,6 @@
     ]
   },
   {
-    "name": "SURVTIERS3-an-off-absence-counts",
-    "file": "src/systems/save.js",
-    "old": "    if (!survivalOn() && at > saved) pauseSurvival(entity, saved, at);\n",
-    "new": "",
-    "tests": [
-      "test/survtiers3.test.js",
-      "test/surv7_feed.test.js"
-    ]
-  },
-  {
     "name": "SURVTIERS3-hard-sets-out-with-nothing",
     "file": "src/systems/startingGear.js",
     "old": "import { survivalOn } from './survival/switch.js';",
@@ -419,17 +400,6 @@
     "new": "import { survivalTier } from './survival/switch.js'; const survivalOn = () => survivalTier() === 'casual';",
     "tests": [
       "test/survtiers3.test.js"
-    ]
-  },
-  {
-    "name": "SURVTIERS3-the-clock-correction-skips-the-needs",
-    "file": "src/scenes/world.js",
-    "old": " if (Number.isFinite(before)) shiftSurvival(playerEntity, Math.floor(worldMinutes()) - Math.floor(before));",
-    "new": "",
-    "tests": [
-      "test/auditsurv.test.js",
-      "test/world5.test.js",
-      "test/auditworld5.test.js"
     ]
   },
   {
@@ -462,8 +432,8 @@
   {
     "name": "SURVTIERS3-the-kit-cite-world-seed-rots",
     "file": "src/systems/equip.js",
-    "old": "(world.js:4594, exterior.js:1294)",
-    "new": "(world.js:2460, exterior.js:1294)",
+    "old": "(world.js:4814, exterior.js:1297)",
+    "new": "(world.js:4813, exterior.js:1297)",
     "tests": [
       "test/citedrift.test.js"
     ]
@@ -480,8 +450,8 @@
   {
     "name": "SURVTIERS3-the-gear-cite-world-seed-rots",
     "file": "src/systems/startingGear.js",
-    "old": "world.js:4594 and exterior.js:1294 seed it",
-    "new": "world.js:2460 and exterior.js:1294 seed it",
+    "old": "world.js:4814 and exterior.js:1297 seed it",
+    "new": "world.js:4813 and exterior.js:1297 seed it",
     "tests": [
       "test/citedrift.test.js"
     ]
@@ -498,8 +468,8 @@
   {
     "name": "SURVTIERS3-the-rest-window-cite-input-rots",
     "file": "src/ui/restWindow.js",
-    "old": "exterior.js:3152, ui/input.js:912)",
-    "new": "exterior.js:3152, ui/input.js:525)",
+    "old": "exterior.js:3153, ui/input.js:918)",
+    "new": "exterior.js:3153, ui/input.js:525)",
     "tests": [
       "test/citedrift.test.js"
     ]
@@ -507,8 +477,8 @@
   {
     "name": "SURVTIERS3-the-mirror-overrides-tickVitals",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
-    "new": "    enemiesNearby: () => false,\n    tickVitals: () => {},\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    tickVitals: () => {},\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]

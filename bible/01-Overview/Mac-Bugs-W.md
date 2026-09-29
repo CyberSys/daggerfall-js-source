@@ -103,6 +103,10 @@ A zero `timeStarted` stays zero: the port's absent `repairData` **is**
 DFU's `timeStarted = 0` sentinel (`repairService.js` says so), so a zero
 means "not in repair" and must not be shifted into a date.
 
+[SUPERSEDED BY LIVED1 (2026-09-29): the arrival shifts nothing. A repair's `timeStarted` is on the
+character's own clock, which stood while they were away, so the job keeps its place in the queue by
+construction - there is no walk to forget a collection in.]
+
 ### What is NOT fixed, said plainly
 
 **The "for armor" half is not reproduced.** The repair engine was driven
@@ -267,9 +271,9 @@ Outside it is not.
 | host | collider | where the ground is |
 |---|---|---|
 | `dungeonContext.js:366` | `new Collider(() => -Infinity)` | floor meshes |
-| `interiorContext.js:328` | `new Collider(() => -Infinity)` | floor meshes |
-| `exterior.js:573` | `new Collider(() => GROUND_OFFSET * 0.025)` | **`heightAt`** |
-| `world.js:1802` | `new Collider(heightAt)` | **`heightAt`** |
+| `interiorContext.js:330` | `new Collider(() => -Infinity)` | floor meshes |
+| `exterior.js:576` | `new Collider(() => GROUND_OFFSET * 0.025)` | **`heightAt`** |
+| `world.js:1995` | `new Collider(heightAt)` | **`heightAt`** |
 
 `heightAt` is applied to the **capsule**, in `_resolveSphere`, and
 nowhere else. So every drop cast down outdoors met nothing — and

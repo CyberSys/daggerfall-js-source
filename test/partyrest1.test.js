@@ -69,8 +69,8 @@ test('PARTY-REST1: a follower\'s mirror never rolls its own encounter - enemiesN
   const deps = w.slice(w.indexOf('const partyRestMirrorDeps = (restKind, targetAcct) => {'), w.indexOf('const partyRestFollowTick = () => {'));
   assert.match(deps, /\.\.\.outdoorRestDeps,/, 'every OTHER hook (tickVitals, fullyHealed, onRestFinished, the message box, onClose) is this SAME player\'s own real deps - a mirror heals exactly as a real rest would');
   assert.match(deps, /enemiesNearby: \(\) => false,/);
-  assert.match(deps, /advanceMinutes: \(n, sharedEnd\) => \{ playerTicker\.advance\(n, sharedEnd\); \},/);   // REST-ROUNDS: the mirrored night's rounds ride its own session's minute
-  assert.doesNotMatch(deps, /runEncounterTick\(/, 'the one call that spawns anything is not reachable from a follower\'s deps at all - the doc comment above it names it, deliberately, but never calls it');
+  assert.match(deps, /advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode && playerSpawned \? player\.pos : cam\.pos, true, \{ spawns: false \}\); \},/);   // AUDIT LIVED1b P1: the follower's own watch walks the night; the wanderers' roll is left out (spawns: false)   // LIVED1: the mirrored night is the follower's own time; AUDIT LIVED1 H: and the encounter marker rides it - still no roll
+  assert.doesNotMatch(deps.replace('runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true, { spawns: false })', ''), /runEncounterTick\(/, 'the one call that spawns anything is not reachable from a follower\'s deps at all - AUDIT LIVED1b P1: its one call there asks no wanderer');
   assert.match(deps, /commitCrime: \(\) => \{\},/, 'a follower did not choose to trespass here themselves');
 });
 
@@ -311,7 +311,7 @@ test('RESTFIX1 (2026-09-21, the bug this closed): overlay.tick() no longer calls
   assert.doesNotMatch(js.slice(js.indexOf('overlay.tick = (dt) => {'), js.indexOf('overlay.dispose = ')), /render\(\)/,
     'render() is not named anywhere inside tick() at all - not called, not even in a comment that could hide a stray call');
   assert.match(js, /let _restingRefs = null;/, 'the three per-frame node references, kept across ticks - not rebuilt each one');
-  assert.match(js, /_restingRefs = \{ hourLabel: v, fill, vitalsLine \};\s*\n\s*updateRestingDisplay\(\);/,
+  assert.match(js, /_restingRefs = \{ hourLabel: v, fill, vitalsLine, clockLine \};\s*\n\s*updateRestingDisplay\(\);/,   // AUDIT LIVED1 O: and the clock line, a fourth node written the same way
     'restingCard() builds the structure ONCE (on the real state change into \'resting\') and immediately primes the first frame\'s numbers through the SAME update path tick() uses later - never a separate initial render of the text');
   assert.match(js, /function updateRestingDisplay\(\) \{\s*\n\s*if \(!_restingRefs\) return;/, 'safe to call before the resting card has ever built its nodes');
   assert.match(js, /_restingRefs\.hourLabel\.textContent = overlay\.mode === 'timed' \? `\$\{s\?\.hoursRemaining \?\? 0\}h` : `\$\{s\?\.totalHours \?\? 0\}h`;/, 'AUDIT PARTY-REST: a rest until healed counts the hours passed, as loiter does');

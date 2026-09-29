@@ -111,9 +111,9 @@ test('RENOWN-BAR the sheet: the row lit is a grid of three columns with the oute
   assert.match(PLUS_CSS, /\.hud-vital \.hud-fill \{ position: absolute; inset: 0; width: 100%;\n\s*background:\n\s*linear-gradient\(180deg, var\(--v-hi\) 0 2px, var\(--v-lite\) 2px 6px, var\(--v-body\) 6px 13px,\n\s*var\(--v-lo\) 13px 17px, var\(--v-deep\) 17px 100%\); \}/, '...which are these');
 });
 
-test('RENOWN-BAR the numbers are the profile menu\'s: its Renown row says how far into the level the account is (RENOWN-ACCOUNT: the one Renown, where there was a row a character) - "1,453 / 3,460 XP to Renown 13" - and the highest at the cap (mutants: the profile\'s row loses its numbers)', () => {
+test('RENOWN-BAR the numbers are the profile menu\'s: its Renown row says how far into the level the character is - "1,453 / 3,460 XP to Renown 13" - and the highest at the cap (mutants: the profile\'s row loses its numbers)', () => {
   assert.equal(renownProgressText(renownXpFor(12) + 1453), '1,453 / 3,460 XP to Renown 13');
   assert.equal(renownProgressText(renownXpFor(RENOWN_MAX)), 'the highest there is');
   const A = src('src/ui/enhancedAccount.js');
-  assert.match(A, /if \(renown\) row\('Renown', `Renown \$\{renown\.level\}, \$\{renownProgressText\(renown\.xp\)\}`\);/, 'the account\'s row: its Renown and the numbers');
+  assert.match(A, /row\('Renown', `\$\{typeof t\.name === 'string' && t\.name \? t\.name : 'A character'\} - Renown \$\{t\.level\}, \$\{renownProgressText\(t\.xp\)\}`\);/, 'each character\'s row: its name, its Renown and the numbers');
 });
