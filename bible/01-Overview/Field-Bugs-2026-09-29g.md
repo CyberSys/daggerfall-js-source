@@ -45,7 +45,21 @@ handed it to the static door behind him (`attemptExteriorDoorBash`: a bash, and 
 on the ray, whose parity this fix claims, carried the same fault since it landed. A stopped swing answers
 `{spared: true}` now; the hosts' tail whooshes it and bashes nothing, a swing that met nobody is still the door's, and a
 crime still surfaces. Pinned by running each host's own tail lifted off its source, both failing on the code before it.
-The review's other findings are all outside this batch (its local base was two days stale).
+The review's other findings lay outside this batch (its local base was two days stale); at Mac's *"Fix them now"*
+each was checked against main:
+- **The market's cache (fixed).** `net/marketBook.js` keyed a Materials search that matched nothing (`materials: []`,
+  which the service answers with no rows) as no search at all, so each was served the other's cached rows inside
+  the minute. The key tells them apart; `test/audit29g_marketkey.test.js` (1, failing on the code before it),
+  `tools/mutants/audit29g_marketkey.json` (2, 2 dead).
+- **The relay's world alarm and the raid sweep (not faults).** Both findings need a room that keeps a raid's ledger
+  AND a world room's memory. It has none: a raid frame is taken in a CELL room alone (`world:x,y`; server/src/index.js
+  junks it anywhere else), and the memory and its WORLD_TTL_MS alarm are a WORLD room's alone (`dungeon:` or
+  `interior:` - `isWorldRoom`, :1302 and :2164). A drain never re-arms a cell's alarm, and a cell has no `world:`
+  memory for the sweep to miss.
+- **The market's cache across accounts (not reachable).** The book is built once per world scene
+  (`scenes/world.js`), and another character or account is another scene.
+- **The History read's prune (left).** Every History read prunes the market's tables - write work on a read, which
+  the service's own schedule could carry. A cost, not a fault; for Mac.
 
 ## WERE-LEVY: the passive levy writes the field, as DFU's does (2)
 

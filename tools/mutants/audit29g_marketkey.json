@@ -1,0 +1,18 @@
+[
+  {
+    "name": "AUDIT29g-market-key-empty-search-as-none",
+    "file": "src/net/marketBook.js",
+    "old": "q.materials == null ? '' : `?${q.materials.join(',')}`].join('|');",
+    "new": "(q.materials ?? []).join(',')].join('|');",
+    "tests": ["test/audit29g_marketkey.test.js"],
+    "note": "The old key: a search that matched nothing served the whole cached market."
+  },
+  {
+    "name": "AUDIT29g-market-key-search-unkeyed",
+    "file": "src/net/marketBook.js",
+    "old": "q.materials == null ? '' : `?${q.materials.join(',')}`].join('|');",
+    "new": "q.materials == null ? '' : '?'].join('|');",
+    "tests": ["test/audit29g_marketkey.test.js"],
+    "note": "Every search one key, whatever it matched."
+  }
+]

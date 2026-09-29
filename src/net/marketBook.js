@@ -159,7 +159,9 @@ export function createMarketBook({ door, storage = null, character, now = () => 
 
   // ─── THE READS ─────────────────────────────────────────────────────
   const cache = new Map();
-  const keyOf = (view, q) => [view, q.region, q.family ?? '', q.tier ?? '', q.material ?? '', (q.materials ?? []).join(',')].join('|');
+  // AUDIT 29g: a search's matches are keyed APART from no search - a search that matched nothing (`materials: []`, which
+  // the service answers with no rows) was keyed as the unfiltered view, and each was served the other's cached rows
+  const keyOf = (view, q) => [view, q.region, q.family ?? '', q.tier ?? '', q.material ?? '', q.materials == null ? '' : `?${q.materials.join(',')}`].join('|');
   const pending = new Map();
   /** AUDIT 30 C6: the acts answered so far - a read begun before an act's answer is overtaken by it, and asked again. */
   let gen = 0;
