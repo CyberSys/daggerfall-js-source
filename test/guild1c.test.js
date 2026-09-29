@@ -219,8 +219,8 @@ test('GUILD1c the service: the mint signs the NAMED character\'s guild in - its 
   const bare = await mint({});
   assert.equal((await tokenOf(bare)).gi, undefined, 'a mint naming no character (an older build) carries none');
   assert.equal(bare.guild, null);
-  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct28'"), true);   // acct12 on the branch; main's BASE-HIDE took acct12 first; GUILD1c shipped at acct13, and SHADOW-FANG (acct14 - acct12 on its branch) moved it on after, then FOUNDER3 (acct15), HOME-STATIONS (acct16), MARKS1 (acct17), NOTICE1 (acct18), PROF1 (acct19), PROF2 (acct20) and AUDIT 29 (acct21) on the branch, RAID4 (acct17) and AUDIT RAID (acct18) on main, and the merge past both (acct22), then PROF3 (acct23)
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct28"/);
+  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct29'"), true);   // acct12 on the branch; main's BASE-HIDE took acct12 first; GUILD1c shipped at acct13, and SHADOW-FANG (acct14 - acct12 on its branch) moved it on after, then FOUNDER3 (acct15), HOME-STATIONS (acct16), MARKS1 (acct17), NOTICE1 (acct18), PROF1 (acct19), PROF2 (acct20) and AUDIT 29 (acct21) on the branch, RAID4 (acct17) and AUDIT RAID (acct18) on main, and the merge past both (acct22), then PROF3 (acct23)
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct29"/);
 });
 
 test('GUILD1c the service: every act that moves a membership answers a SIGNED order - founding, a join, a leave and the look say the actor\'s guild now (none after leaving), a removal an out order naming the member and its guild, a disbanding the guildmaster\'s none and an out order naming the guild; a declined invitation, a rank moved, a handover and the treasury answer none (mutants: a join answering none; a removal naming the remover; a disbanding naming one member; an order for an act that moved nobody)', async () => {

@@ -195,12 +195,14 @@ const boardData = () => ({
   },
   guild: { id: 'g1', name: 'The Silver Hand', tag: 'SH', rank: 1, mayPost: true, marks: 5_000, budget: 500, spent: 120, left: 380 },
   balance: 1_234,
+  writsOpen: true, me: 'Me',   // AUDIT 31 U5, U10: the service's word that they are this account's, and its name
 });
 
 test('PROF6 the Work tab: this region\'s guild writs under the guild blue (Deliver a number typed with no redraw, Withdraw where the rank may) and commissions under the green (the crafter\'s Fill with a piece of their make, and Decline; the poster\'s Withdraw); "Yours" every region; a press reads the list again', async () => {
   clock(T0);
   const sword = { item: { provenance: PV, quality: 3 }, where: 'pack', name: 'Silverthorn\'s Mithril Longsword', take: () => true, putBack() {} };
-  const { host, v, calls, reads } = workRig({ data: boardData(), pieces: [sword] });
+  // AUDIT 31 S6: the reader of another guild than the writs' - a guild's own Officers deliver to none of its writs
+  const { host, v, calls, reads } = workRig({ data: { ...boardData(), guild: { ...boardData().guild, id: 'g3' } }, pieces: [sword] });
   await ticks();
   byClass(host, 'notice-tab')[1].click();
   await ticks();
@@ -221,7 +223,7 @@ test('PROF6 the Work tab: this region\'s guild writs under the guild blue (Deliv
   await ticks();
   assert.deepEqual(calls.at(-1), ['supply', { region: DF, writ: 'W1', units: 40 }]);
   assert.ok(reads() > before, 'the list read again');
-  assert.match(host.textContent, /Delivered 40 Oak Logs: 114 Marks struck to your account, less 6 Marks tax\./);
+  assert.match(host.textContent, /Delivered 40 Oak Logs: 114 Marks struck to your account \(6 Marks tax taken\)\./, 'AUDIT 31 U13: never "114 less 6"');
   // the commission for me: Fill with the piece picked, and Decline
   const mineCard = byClass(host, 'notice-writ')[2];
   assert.match(mineCard.textContent, /For Silverthorn only: a Mithril Longsword, Fine or better/);
@@ -229,6 +231,9 @@ test('PROF6 the Work tab: this region\'s guild writs under the guild blue (Deliv
   byClass(mineCard, 'work-fill')[0].click();
   await ticks();
   assert.deepEqual(calls.at(-1), ['fulfil', { region: DF, commission: 'K1', provenance: PV, wear: 1000 }, 'Silverthorn\'s Mithril Longsword']);
+  byClass(byClass(host, 'notice-writ')[2], 'work-decline')[0].click();   // AUDIT 31 U11: armed by the first press
+  await ticks();
+  assert.notDeepEqual(calls.at(-1), ['decline', 'K1']);
   byClass(byClass(host, 'notice-writ')[2], 'work-decline')[0].click();
   await ticks();
   assert.deepEqual(calls.at(-1), ['decline', 'K1']);
@@ -245,16 +250,18 @@ test('PROF6 the Work tab: this region\'s guild writs under the guild blue (Deliv
   assert.match(yours.textContent, /Wayrest · withdrawn - Marks back/);
   assert.match(yours.textContent, /The Silver Hand \[SH\]: 50 more Oak Logs, 2 Marks each/);
   v.unmount();
-  // a commission naming me elsewhere: no Fill here; no piece of my make: said so
+  // a commission naming me elsewhere: in Yours, filled at its own region's boards (AUDIT 31 U4 - a card is always this
+  // region's); no piece of my make: said so
   const d2 = boardData();
-  d2.commissions[0] = { ...d2.commissions[0], region: WR };
+  d2.yours.commissions.push({ ...d2.commissions[0], region: WR });
+  d2.commissions.shift();
   const r2 = workRig({ data: d2, pieces: [] });
   await ticks(); byClass(r2.host, 'notice-tab')[1].click(); await ticks();
-  assert.match(byClass(r2.host, 'notice-writ')[2].textContent, /Filled at the boards of Wayrest/);
+  assert.match(byClass(r2.host, 'work-yours')[0].textContent, /Ann commissioned you: a Mithril Longsword, Fine or better, 900 MarksWayrest · 5 days leftFilled at the boards of Wayrest\./);
   r2.v.unmount();
   const r3 = workRig({ data: boardData(), pieces: [] });
   await ticks(); byClass(r3.host, 'notice-tab')[1].click(); await ticks();
-  assert.match(byClass(r3.host, 'notice-writ')[2].textContent, /You carry no Mithril Longsword, Fine or better of your make, unworn\./);
+  assert.match(byClass(r3.host, 'notice-writ')[2].textContent, /You carry no piece of your make that answers it - unworn, and on no sale\./);
   r3.v.unmount();
 });
 
@@ -400,8 +407,8 @@ test('PROF6 wiring: the routes behind a session and in the Worker\'s table with 
   assert.match(world, /const writBook = params\.has\('online'\)\n\s+\? createWritBook\(\{ door: accountWrits/);
   assert.match(world, /writs: writBook, regionNameOf: \(r\) => REGION_NAMES\[r\] \?\? 'another region', pieces: commissionPieces,/);
   assert.match(world, /settle: \(\) => writBook\.settle\(marketPutBack, marketDrop\)/);
-  assert.match(world, /profStores: writBook \? \{ writs: writBook, open: \(\) => profBook\?\.state\.open === true/);
-  assert.match(world, /pieceOfRecipe\(p\.item, c\.recipe\) && \(c\.quality == null \|\| \(p\.item\.quality \?\? -1\) >= c\.quality\) && wearOf\(p\.item\) === WEAR_WHOLE/);
+  assert.match(world, /profStores: writBook \? \{\n\s*writs: writBook, open: \(\) => profBook\?\.state\.open === true/);
+  assert.match(world, /\(!named \|\| named\.has\(it\.provenance\)\)\n\s*&& commissionFilledBy\(c, \{ recipe: pieceOfRecipe\(it, c\.recipe\) \? c\.recipe : null, quality: it\.quality \?\? null \}\) && wearOf\(it\) === WEAR_WHOLE/);
   assert.match(world, /const prof = professionName\(d\.track\?\.profession\) \|\| 'profession';/);
   assert.doesNotMatch(world, /Herbalism XP\./, 'the XP its writ\'s own profession\'s');
   const css = src('src/ui/enhancedPlusStyle.js');

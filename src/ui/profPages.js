@@ -474,7 +474,9 @@ function heatLoop(rerender, finish) {
     if (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault?.(); e.stopPropagation?.(); strike(); }
   };
   globalThis.document?.addEventListener?.('keydown', key, true);
-  next();
+  // AUDIT 31: the first frame once the page that drew the heat is in the document - a frame source that answers at once
+  // (a test's) ran it inside the draw, and a bar not yet attached read as "the page shut under the act"
+  Promise.resolve().then(() => { if (live) next(); });
   _anvil.off = () => { live = false; caf(id); globalThis.document?.removeEventListener?.('keydown', key, true); };
   return strike;
 }

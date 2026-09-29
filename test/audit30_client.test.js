@@ -145,7 +145,7 @@ test('AUDIT 30 U1 + U6 + U9 + U11: every answer\'s Stores told to the profession
   const prof = createProfBook({ door: { account: () => 'acct-1' }, storage: memStorage(), character: () => 'c', sleep: noWait });
   prof.applyStore({ material: 'ore:iron', own: 5, bought: 0 });
   assert.equal(prof.held('ore:iron'), 0, 'never read: nothing told');
-  assert.match(src('src/scenes/world.js'), /stores: \{ apply: \(st\) => profBook\?\.applyStore\(st\) \} \}\)/);
+  assert.match(src('src/scenes/world.js'), /stores: \{ apply: \(st\) => profBook\?\.applyStore\(st\) \},/);   // AUDIT 31: its holds beside it
   assert.match(src('src/scenes/world.js'), /marksBook\?\.set\(r\.data\.balance\); marketBook\.told\(r\.data\.balance\); \}/);
 });
 

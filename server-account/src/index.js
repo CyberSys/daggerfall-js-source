@@ -178,6 +178,7 @@ const GUILD_STATUS = Object.freeze({
   'guild-already': 409, 'guild-name-taken': 409, 'guild-tag-taken': 409, 'guild-full': 409, 'guild-master-leaves': 409,
   'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409, 'marks-full': 409,
   'guild-stores': 409, 'guild-writs': 409,   // PROF6: a guild keeping its Stores or a writ does not go (Professions-Arc 18)
+  'guild-writ-escrow': 409,   // AUDIT 31 A15: a closed writ's escrow waiting on a full treasury
   'guild-rate': 429,
 });
 /** MARKS1: each Marks refusal's status - not this account's (a guest, the switch, a rank, a developer's) 403, no
@@ -216,6 +217,8 @@ const PROF_STATUS = Object.freeze({
   'guild-writs-max': 409, 'guild-stores-full': 409, 'guild-stores-short': 409, 'commissions-max': 409, 'commissions-crafter-max': 409,
   'commission-self': 409, 'commission-piece': 409, 'commission-not-made': 409, 'commission-worn': 409, 'market-listed': 409,
   'market-standing': 409,
+  'writ-own-guild': 403, 'guild-stores-mine': 403, 'market-uncollected': 409, 'commission-unyielded': 409, 'market-no-record': 409,   // AUDIT 31
+  'commission-elsewhere': 409, 'market-unyielded': 409,
   'writ-rate': 429,
 });
 /** PROF5: each market refusal's status - not this account's (a guest, the switches, a moderator's act) 403, no such
@@ -229,7 +232,9 @@ const MARKET_STATUS = Object.freeze({
   'market-not-yours': 409, 'market-listed': 409, 'market-order-full': 409, 'market-elsewhere': 409, 'market-other-character': 409,
   'market-on-road': 409,
   'market-not-listable': 409, 'market-uncollected': 409, 'market-standing': 409, 'market-unyielded': 409,   // AUDIT 30
+  'market-no-record': 409,   // AUDIT 31 H1
   'auction-not-masterwork': 409, 'auction-low': 409, 'auction-leading': 409, 'auction-bid-standing': 409,   // PROF5b
+  'auction-moved': 409,   // AUDIT 31 S4
   'market-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's

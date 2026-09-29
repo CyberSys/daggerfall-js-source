@@ -180,6 +180,7 @@ import { smeltRecipe, stockOf, WEAVERS_STOCK, professionName } from '../net/prof
 import { createMarketBook } from '../net/marketBook.js';   // PROF5: the market's book
 import { createWritBook } from '../net/writBook.js';   // PROF6: guild writs, commissions, the guild Stores
 import { wearCondition, wearOf, WEAR_WHOLE } from '../net/marketLaw.js';   // PROF5: a bought piece's wear; PROF6: a commission's piece unworn
+import { commissionFilledBy } from '../net/writLaw.js';   // AUDIT 31 L8: a piece that answers a commission, the law's own test
 
 import { unseenText } from '../net/boardLaw.js';   // NOTICE1: the count over a board
 import { alignSurvival, shiftSurvival } from '../systems/survival/needs.js';   // SURV7: the needs' markers at an arrival; AUDIT SURV-TIERS (the third pass): and across a clock correction
@@ -993,7 +994,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   const marketBook = params.has('online')
     ? createMarketBook({ door: accountMarket({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
       character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, marks: marksBook,
-      stores: { apply: (st) => profBook?.applyStore(st) } })   // AUDIT 30 U1: what the market moves in the Stores, the Stores' count
+      stores: { apply: (st) => profBook?.applyStore(st) },   // AUDIT 30 U1: what the market moves in the Stores, the Stores' count
+      holds: (pv) => !!writBook?.holdsPiece(pv) })   // AUDIT 31 H1: a piece the writs' book keeps a fill of is not listed too
     : null;
   // PROF6 (bible/06-Systems/Professions-Arc.md 28): the writs' book - a guild writ posted, supplied, withdrawn; a
   // commission posted, filled (the piece KEPT before it is asked), cancelled, declined; the guild Stores (net/writBook.js).
@@ -1001,7 +1003,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const writBook = params.has('online')
     ? createWritBook({ door: accountWrits({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
       character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, marks: marksBook,
-      stores: { apply: (st) => profBook?.applyStore(st) } })
+      stores: { apply: (st) => profBook?.applyStore(st) },
+      market: marketBook,   // AUDIT 31 B5: the market's book told each balance, its reads begun before a writ act let go
+      holds: (pv) => !!marketBook?.holdsPiece(pv) })   // AUDIT 31 H1: a piece the market's book keeps a listing of is no fill
     : null;
   /** PROF1/PROF2: the gathering professions in the streaming world (scenes/gatherHost.js) - made below, once the rig
    *  stands; declared HERE, before the first pixel is built, because every pixel's publish tells it (BOOT-TDZ2: a `let`
@@ -1021,7 +1025,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (kept?.fee > 0) deductGold(playerEntity, Math.min(kept.fee, totalGoldAmount(playerEntity)));
     // PROF4: the home's things too - a crafted table waits there (DECOR2b's furnishings), never in the pack; arrows carry
     // no provenance and join the quiver
-    const have = new Set([...(playerEntity.items ?? []), ...(playerEntity.furnishings ?? [])].map((it) => it?.provenance).filter(Boolean));
+    const have = heldProvenances();   // AUDIT 31 H5: wherever in the save it lies
     const pieces = mintPieces(data).filter((it) => !it.provenance || !have.has(it.provenance));
     for (const it of pieces) {
       if (isCraftedFurniture(it)) (playerEntity.furnishings ??= []).push(it);
@@ -1029,13 +1033,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     if (pieces.length) townTalk.say(craftedText(pieces));
   };
+  /** AUDIT 31 H5: every list of the save a crafted piece can be in - the pack, the home's things, the wagon, and a
+   *  repairer's hands (DFU's OtherItems) - so a piece is minted, put back and dropped once wherever it lies. */
+  const pieceLists = () => [playerEntity.items, playerEntity.furnishings, playerEntity.wagonItems, playerEntity.otherItems].filter(Array.isArray);
+  const heldProvenances = () => new Set(pieceLists().flat().map((it) => it?.provenance).filter(Boolean));
   /** PROF5: A PIECE FROM THE MARKET (bought here, collected off the road, or come back from a listing): minted from its
    *  record as the anvil mints it, at its wear (marketLaw wearCondition), into the pack - or, furniture, the home's
    *  things - once by its provenance id. */
   const marketMint = (piece) => {
     if (!piece?.provenance) return;
-    const have = new Set([...(playerEntity.items ?? []), ...(playerEntity.furnishings ?? [])].map((it) => it?.provenance).filter(Boolean));
-    if (have.has(piece.provenance)) return;
+    if (heldProvenances().has(piece.provenance)) return;
     const it = mintPiece(piece, piece.provenance);
     if (!it) return;
     if (it.maxCondition > 0) it.currentCondition = wearCondition(it.maxCondition, piece.wear);
@@ -1054,16 +1061,31 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** PROF5: the crafted pieces this character may list - in the pack, none worn, locked or bound (TRADE1's refusals), and
    *  the home's crafted furniture not set down. AUDIT 30 C2: none enchanted since its craft - the market mints a piece
    *  again from its record, and the item maker's work would be lost on the way (smithItems asMinted). */
+  /** AUDIT 31 H1: a piece either book keeps an act on (a listing, an auction or a fill whose answer is still to come) - it
+   *  is offered to neither again until that answer comes. */
+  const pieceKept = (pv) => !!marketBook?.holdsPiece(pv) || !!writBook?.holdsPiece(pv);
   const marketPieces = () => [
-    ...(playerEntity.items ?? []).filter((it) => it?.provenance && asMinted(it) && !tradeRefusal(it) && !isLocked(it)).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),
-    ...(playerEntity.furnishings ?? []).filter((it) => it?.provenance && asMinted(it)).map((item) => ({ item, where: 'home', name: itemLongName(item) })),
+    ...(playerEntity.items ?? []).filter((it) => it?.provenance && asMinted(it) && !tradeRefusal(it) && !isLocked(it) && !pieceKept(it.provenance))
+      .map((item) => ({ item, where: 'pack', name: itemLongName(item) })),
+    ...(playerEntity.furnishings ?? []).filter((it) => it?.provenance && asMinted(it) && !pieceKept(it.provenance)).map((item) => ({ item, where: 'home', name: itemLongName(item) })),
   ];
   /** PROF6: the pieces in the save that answer a commission - listable as the market's are (as minted, not worn,
    *  locked or bound), of its recipe (smithItems pieceOfRecipe), at least its quality, and unworn (a commission is new
-   *  work, Professions-Arc 28) - each taken out of the save and put back as a listed piece is. */
-  const commissionPieces = (c) => marketPieces()
-    .filter((p) => pieceOfRecipe(p.item, c.recipe) && (c.quality == null || (p.item.quality ?? -1) >= c.quality) && wearOf(p.item) === WEAR_WHOLE)
-    .map((p) => ({ ...p, take: () => marketTake(p.item, p.where), putBack: marketPutBack }));
+   *  work, Professions-Arc 28) - each taken out of the save and put back as a listed piece is. AUDIT 31 U7: and, where
+   *  the service named the pieces that would fill it (`eligible` - its own make, on no sale), only those, the least
+   *  quality first. */
+  const commissionPieces = (c) => {
+    const named = Array.isArray(c.eligible) ? new Map(c.eligible.map((e, i) => [e.provenance, i])) : null;
+    // AUDIT 31 L8: the law's own test of a piece that answers it (writLaw commissionFilledBy), never its clause restated
+    const answers = (it) => (!named || named.has(it.provenance))
+      && commissionFilledBy(c, { recipe: pieceOfRecipe(it, c.recipe) ? c.recipe : null, quality: it.quality ?? null }) && wearOf(it) === WEAR_WHOLE;
+    const out = marketPieces()
+      .filter((p) => answers(p.item))
+      .sort((a, b) => (named ? named.get(a.item.provenance) - named.get(b.item.provenance) : (a.item.quality ?? 0) - (b.item.quality ?? 0)))
+      .map((p) => ({ ...p, quality: p.item.quality ?? null, take: () => marketTake(p.item, p.where), putBack: marketPutBack }));
+    // AUDIT 31 H8: one that answers it but will not leave the pack (equipped, locked, bound) - the tab says so
+    return Object.assign(out, { blocked: (playerEntity.items ?? []).filter((it) => it?.provenance && answers(it) && (tradeRefusal(it) || isLocked(it))).length });
+  };
   /** PROF5: a listed piece out of the save (the book keeps it until the service answers), and back on a refusal. */
   const marketTake = (item, where) => {
     const list = where === 'home' ? playerEntity.furnishings : playerEntity.items;
@@ -1076,8 +1098,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  kept since (a crash, a seat handed over), and the piece would stand both listed and in the pack. */
   const marketDrop = (item) => {
     if (!item?.provenance) return;
-    for (const list of [playerEntity.items, playerEntity.furnishings]) {
-      const i = (list ?? []).findIndex((it) => it?.provenance === item.provenance);
+    for (const list of pieceLists()) {   // AUDIT 31 H5: the wagon and a repairer's hands too
+      const i = list.findIndex((it) => it?.provenance === item.provenance);
       if (i < 0) continue;
       if (list === playerEntity.items) unequipItem(playerEntity, list[i]);
       list.splice(i, 1);
@@ -1085,8 +1107,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   const marketPutBack = (item, where) => {
     if (!item?.provenance) return;
-    const have = new Set([...(playerEntity.items ?? []), ...(playerEntity.furnishings ?? [])].map((it) => it?.provenance).filter(Boolean));
-    if (have.has(item.provenance)) return;
+    if (heldProvenances().has(item.provenance)) return;
     if (where === 'home') (playerEntity.furnishings ??= []).push(item); else addItem((playerEntity.items ??= []), item, 'back');
   };
   /** PROF5: every region's hub as this client derived it (HUB1) - the courier's road's ends, handed with every market
@@ -14165,7 +14186,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       marks: marksBook,   // MARKS1: the guild's Marks treasury moves through the account's Marks
       // PROF6: the guild Stores and the Officers' writ budget, through the writs' book, while the professions are this
       // account's
-      profStores: writBook ? { writs: writBook, open: () => profBook?.state.open === true, mine: () => profBook?.state.stores ?? new Map(), name: materialCountLabel } : null,
+      profStores: writBook ? {
+        writs: writBook, open: () => profBook?.state.open === true, mine: () => profBook?.state.stores ?? new Map(), name: materialCountLabel,
+        character: () => characterIdOf(playerEntity),   // AUDIT 31 H2: the guild Stores read are this character's
+      } : null,
       character: () => characterIdOf(playerEntity),
       // GUILD1c: what the service signed, to the rooms - my guild now down every socket I hold (the tag beside my name,
       // the hub's guild chat), and a member removed or a guild disbanded to the hub, where it reaches them
@@ -16073,6 +16097,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       ...(writBook && marksBook?.state?.open !== false ? {
         writs: writBook, regionNameOf: (r) => REGION_NAMES[r] ?? 'another region', pieces: commissionPieces,
         settle: () => writBook.settle(marketPutBack, marketDrop),
+        // AUDIT 31 B5: the Work read's balance the Bank's and the market's too
+        onList: (d) => { if (Number.isSafeInteger(d?.balance)) { marksBook?.set(d.balance); marketBook?.told(d.balance); } },
+        // AUDIT 31 H6: a filled commission's piece comes by the market's deliveries - its minute's cache let go
+        forgetMarket: () => marketBook?.forget(),
       } : {}),
     } : null;
     // PROF5: the Market tab - the board's region handed on its own (not through Work's), while the professions are this

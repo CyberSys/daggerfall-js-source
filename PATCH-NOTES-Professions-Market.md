@@ -33,14 +33,15 @@
 
 ## Auctions (Masterworks)
 - A new **Auctions** view sits beside Crafted. Only a **Masterwork** can be auctioned: choose **An auction (Masterworks)** under List on the market, and set an **opening bid** of 1 to 1,000,000 Marks. The fee is 1% of the opening bid (at least 1 Mark), and it isn't returned if you cancel.
-- An auction stands for **24 hours** in the region you posted it in, and every board shows it with its courier fee. It counts among your 30 listings.
+- An auction stands for **24 hours** in the region you posted it in, and every board shows it with its courier fee. It counts among your 30 listings until it ends.
 - Each bid must beat the one standing by **5%**, rounded up, and by at least 1 Mark. The first bid can be the opening bid itself. **Bid** fills in the lowest bid it will take.
-- A bid in the **last 2 minutes** adds 2 minutes to the auction, every time.
+- A bid with **less than 2 minutes** left adds 2 minutes to the auction, every time.
 - Your bid is **held** from your Marks while it stands, with the courier fee if the auction is in another region. "Your Marks" shows how much your bids hold. If you're outbid, the Marks come back the next time you open the market.
-- You can't bid on your own auction, or bid again while yours leads. If another bid gets in first, you're told, and the new lowest bid shows.
+- You can't bid on your own auction, or bid again while yours leads. If another bid gets in first, you're told, and the auction is shown again with its new lowest bid. A bid can be up to 10,000,000 Marks.
 - When an auction ends, the highest bid wins. The seller is paid the winning bid less the **5% sales tax**. The piece comes to the winner like any bought piece: at once from a board in the auction's region, otherwise after the courier's time. The auction is closed the next time anyone opens the market.
+- If the seller already holds the most Marks an account can, the sale waits for them to have room. After **7 days** it's called off: the winner's Marks come back and the piece goes back to the seller.
 - If nobody bids, your piece comes back the next time you open the market. You can cancel an auction until the first bid.
-- **My listings** shows your auctions and your bids: leading, outbid, won or lost. **Your trades** counts auctions you won or sold.
+- **My listings** shows your auctions and your bids: leading, outbid, won or void, and whether their Marks are back yet. **Your trades** counts auctions you won or sold.
 
 ## Moderation
 - Report a listing and a moderator will look at it. A moderator can remove a listing, and its goods go back to their seller.

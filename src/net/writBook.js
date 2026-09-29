@@ -18,6 +18,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { WRIT_RID_RE } from './writLaw.js';
+import { PIECE_GONE, PIECE_KEPT_ERROR } from './marketBook.js';
 
 export const WRIT_KEPT_KEY = 'prof6.kept';
 export const WRIT_TRIES = 3;
@@ -30,6 +31,8 @@ const RETRY = Object.freeze(['offline', 'server', 'rate']);
 const WAIT = Object.freeze(['no-session', 'auth']);
 /** The answers that say the board a press was made from has moved - the Work tab reads it again. */
 export const WRIT_MOVED = Object.freeze(['writ-gone', 'writ-short', 'writ-moved', 'no-writ']);
+/** AUDIT 31 B5: the acts that move this account's Marks - the market's reads begun before one are overtaken by it. */
+const MOVES_MARKS = Object.freeze(['supply', 'commission', 'cancel', 'decline', 'fulfil']);
 /** What the Work tab says while a kept fill waits for its answer. */
 export const WRIT_KEPT_TEXT = 'The counting-house has your piece and will settle the commission when it answers.';
 
@@ -46,15 +49,20 @@ export function mintWritRid() {
 /**
  * @param {{ door: any, storage?: Storage|null, character: () => (string|null), now?: () => number,
  *   marks?: { set?: (n: number) => void } | null, stores?: { apply?: (s: any) => void } | null,
+ *   market?: { told?: (n: number) => void, forget?: () => void } | null, holds?: ((provenance: string) => boolean) | null,
  *   sleep?: (ms: number) => Promise<void> }} o `marks` - the Marks book, told every balance an answer carries; `stores` -
- *   the professions' book, told every Stores count (a delivery's, a guild Stores move's)
+ *   the professions' book, told every Stores count (a delivery's, a guild Stores move's); `market` - AUDIT 31 B5: the
+ *   market's book, told the balance too and its reads let go (one begun before a writ act painted the older balance);
+ *   `holds` - AUDIT 31 H1: whether another book keeps an act on a piece (the market's kept listing)
  */
-export function createWritBook({ door, storage = null, character, now = () => Date.now(), marks = null, stores = null, sleep = wait }) {
+export function createWritBook({ door, storage = null, character, now = () => Date.now(), marks = null, stores = null, market = null, holds = null, sleep = wait }) {
   const state = {
     /** the guild Stores as last read (the Guild tab's), or null */
     guildStores: /** @type {any} */ (null),
     /** the Officers' writ budget this seat week as last heard - `{ budget, spent, left }` - or null */
     writBudget: /** @type {any} */ (null),
+    /** AUDIT 31 U12: the Work tab's forms' drafts (ui/workTab.js) - kept for the session, whatever closed the window */
+    workDrafts: /** @type {any} */ (null),
   };
   const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
   const slot = () => `${account() ?? ''}|${character() ?? ''}`;
@@ -75,8 +83,11 @@ export function createWritBook({ door, storage = null, character, now = () => Da
     if (list.length) t[key] = { fulfils: list }; else delete t[key];
     writeTable(t);
   };
-  const keep = (entry) => writeKept([...keptOf().filter((x) => x.rid !== entry.rid), entry]);
-  const letGo = (rid) => { const had = keptOf().some((x) => x.rid === rid); writeKept(keptOf().filter((x) => x.rid !== rid)); return had; };
+  /** AUDIT 31 B2: a kept fill's slot is the one it was pressed in, read once at the press. */
+  const keep = (entry, key = slot()) => writeKept([...keptOf(key).filter((x) => x.rid !== entry.rid), entry], key);
+  const letGo = (rid, key = slot()) => { const had = keptOf(key).some((x) => x.rid === rid); writeKept(keptOf(key).filter((x) => x.rid !== rid), key); return had; };
+  /** AUDIT 31 H1: the pieces this book keeps a fill of, this slot's. */
+  const keptPieces = () => new Set(keptOf().map((f) => f.body?.provenance).filter(Boolean));
 
   /** One ask, up to WRIT_TRIES times with a wait between; the service's no is final at once. */
   async function ask(fn) {
@@ -93,7 +104,10 @@ export function createWritBook({ door, storage = null, character, now = () => Da
   function heard(r) {
     const d = r?.ok ? r.data : null;
     if (!d) return r;
-    if (Number.isSafeInteger(d.balance)) { try { marks?.set?.(d.balance); } catch { /* the Marks book's own */ } }
+    if (Number.isSafeInteger(d.balance)) {
+      try { marks?.set?.(d.balance); } catch { /* the Marks book's own */ }
+      try { market?.told?.(d.balance); } catch { /* the market book's own */ }
+    }
     if (d.store && typeof d.store.material === 'string') { try { stores?.apply?.(d.store); } catch { /* the professions' book's own */ } }
     if (Array.isArray(d.rows)) state.guildStores = { rows: d.rows, moves: d.moves ?? [], mayWithdraw: !!d.mayWithdraw };
     // the Officers' writ budget this week - a guild Stores read's, a budget set's
@@ -112,16 +126,20 @@ export function createWritBook({ door, storage = null, character, now = () => Da
     return (_busy = (async () => { try { return await fn(); } finally { _busy = null; _busyKey = null; } })());
   };
   const ids = new Map();
+  /** AUDIT 31 B4: an id is its slot's - another character's press of the same act is never answered as this one's. */
   const idFor = (key) => {
     let v = ids.get(key);
     if (v && now() - v.at > WRIT_ID_MS) v = null;
     if (!v) ids.set(key, v = { id: mintWritRid(), at: now() });
     return v.id;
   };
-  /** An act with its id kept for a press asked again - let go on an answer, kept on silence. */
+  /** An act with its id kept for a press asked again - let go on an answer, kept on silence. AUDIT 31 B5: an act that
+   *  moves Marks lets the market's reads go, so none begun before it paints the older balance. */
   const idAct = (key, send) => once(key, async () => {
-    const r = heard(await ask(() => send(idFor(key))));
-    if (!kept(r)) ids.delete(key);
+    const k = `${slot()}|${key}`;
+    const r = heard(await ask(() => send(idFor(k))));
+    if (!kept(r)) ids.delete(k);
+    if (r?.ok && MOVES_MARKS.includes(key.split('|')[0])) { try { market?.forget?.(); } catch { /* the market book's own */ } }
     return r;
   });
 
@@ -151,14 +169,20 @@ export function createWritBook({ door, storage = null, character, now = () => Da
      */
     fulfil(req, piece) {
       return once(`fulfil|${JSON.stringify(req)}`, async () => {
-        if (!piece?.take?.()) return { ok: false, error: 'bad-provenance' };
+        // AUDIT 31 B1: never taken with no account to keep it under; H1: never a piece another kept act holds
+        if (!account()) return { ok: false, error: 'no-session' };
+        if (req?.provenance && (keptPieces().has(req.provenance) || holds?.(req.provenance))) return { ok: false, error: PIECE_KEPT_ERROR };
+        if (!piece?.take?.()) return { ok: false, error: 'piece-held' };   // AUDIT 31 H8: the save would not give it up - never "only a crafted piece lists"
+        const key = slot();
         const body = { character: character(), ...req, rid: mintWritRid() };
-        keep({ rid: body.rid, body, item: piece.item, where: piece.where });
+        keep({ rid: body.rid, body, item: piece.item, where: piece.where }, key);
         const r = heard(await ask(() => door.fulfil(body)));
-        if (r?.ok) { letGo(body.rid); return r; }
-        if (kept(r)) return { ok: false, kept: true, error: r?.error, text: WRIT_KEPT_TEXT };
-        letGo(body.rid);
-        try { piece.putBack(piece.item, piece.where); } catch (e) { console.warn('[writs] put back', e); }
+        if (r?.ok) { letGo(body.rid, key); try { market?.forget?.(); } catch { /* the market book's own */ } return r; }
+        // AUDIT 31 B2: a refusal heard in another character's save waits for this one's settle - never put back there
+        if (kept(r) || slot() !== key) return { ok: false, kept: true, error: r?.error, text: WRIT_KEPT_TEXT };
+        const had = letGo(body.rid, key);
+        // AUDIT 31 H1: a piece the service says is elsewhere was a copy in the save - never put back
+        if (had && !PIECE_GONE.includes(r?.error)) { try { piece.putBack(piece.item, piece.where); } catch (e) { console.warn('[writs] put back', e); } }
         return r ?? { ok: false, error: 'server' };
       });
     },
@@ -174,16 +198,28 @@ export function createWritBook({ door, storage = null, character, now = () => Da
      * @param {(item: any, where: string) => void} putBack @param {((item: any, where: string) => void)|null} [drop]
      */
     settle(putBack, drop = null) {
-      return once('settle', async () => {
+      const go = () => once('settle', async () => {
+        const key = slot();   // AUDIT 31 B2: the slot it began in - a quick-load mid-settle stops it
         let settled = 0;
-        for (const f of keptOf()) {
+        for (const f of keptOf(key)) {
           const r = heard(await ask(() => door.fulfil(f.body)));
-          if (r?.ok) { letGo(f.rid); try { drop?.(f.item, f.where); } catch (e) { console.warn('[writs] drop', e); } settled++; }
-          else if (!kept(r)) { letGo(f.rid); try { putBack(f.item, f.where); } catch (e) { console.warn('[writs] put back', e); } settled++; }
+          if (slot() !== key) break;
+          if (r?.ok) { letGo(f.rid, key); try { drop?.(f.item, f.where); } catch (e) { console.warn('[writs] drop', e); } settled++; }
+          else if (!kept(r)) {
+            letGo(f.rid, key);
+            if (PIECE_GONE.includes(r?.error)) { try { drop?.(f.item, f.where); } catch (e) { console.warn('[writs] drop', e); } }   // AUDIT 31 H1
+            else { try { putBack(f.item, f.where); } catch (e) { console.warn('[writs] put back', e); } }
+            settled++;
+          }
         }
+        if (settled) { try { market?.forget?.(); } catch { /* the market book's own */ } }
         return { ok: true, settled };
       });
+      // AUDIT 31 B10: asked while another act is under way, it waits for it - the tab's one settle is never refused
+      return _busy && _busyKey !== 'settle' ? _busy.then(go, go) : go();
     },
+    /** AUDIT 31 H1: whether this book keeps a fill of a piece (the market's book asks, and the host's pickers). */
+    holdsPiece: (provenance) => keptPieces().has(provenance),
     /** The kept fills of this slot (a test's). */
     _kept: () => keptOf(),
     /** The rid shape, for a test. */

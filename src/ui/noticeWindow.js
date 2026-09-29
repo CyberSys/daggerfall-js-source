@@ -112,7 +112,7 @@ function injectSkin(doc = document) {
  *   onExit?: (() => void) | null,
  *   work?: ({ book: any, region: number, regionName: string, countName: (key: string, n: number) => string,
  *     onTaken?: (r: any) => (string|void), writs?: any, regionNameOf?: (r: number) => string,
- *     pieces?: (c: any) => any[], settle?: () => any } | null),
+ *     pieces?: (c: any) => any[], settle?: () => any, onList?: (data: any) => void, forgetMarket?: () => void } | null),
  *   market?: (any | null),
  * }} deps `work` - PROF1's Court writs for the board's region (net/profBook.js), or null where the professions are not
  *   this account's; PROF6: with `writs` (net/writBook.js) the guild writs and commissions beside them (ui/workTab.js),
@@ -164,9 +164,10 @@ export function mountNoticeBoard(host, deps) {
   const workMore = work?.writs ? createWorkTab({
     writs: work.writs, held: (m) => work.book.held(m), region: work.region, regionName: work.regionName,
     regionNameOf: work.regionNameOf ?? ((r) => String(r)), countName: work.countName, pieces: work.pieces ?? (() => []),
-    reload: () => loadWrits(true),
+    reload: () => { work.book.forgetWrits?.(); loadWrits(true); },   // AUDIT 31 B7: a read begun before the act is read again
   }, {
     busy: () => workBusy || busy || !!work.writs.busy,
+    nowMs: () => nowS() * 1000,
     run: async (start) => {
       if (workBusy) return;
       workBusy = true; render();
@@ -188,7 +189,10 @@ export function mountNoticeBoard(host, deps) {
   const draft = deps.book.draft?.(map) ?? { subject: '', body: '', days: NOTE_DAYS[NOTE_DAYS.length - 1], button: '' };
   const noticeDraft = deps.book.noticeDraft?.() ?? { subject: '', body: '', days: 3 };
 
-  const back = () => { if (tab === 'work' || tab === 'market' || view === 'board') exit(); else { view = 'board'; reading = null; render(); } };
+  const back = () => {
+    if (tab === 'work' && workMore?.closeForm()) { render(); return; }   // AUDIT 31 U12: Escape closes an open form first
+    if (tab === 'work' || tab === 'market' || view === 'board') exit(); else { view = 'board'; reading = null; render(); }
+  };
   const onKey = (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (isTextEntryTarget(e.target) && e.key !== 'Escape') return;   // a field's keys are the field's
@@ -270,6 +274,9 @@ export function mountNoticeBoard(host, deps) {
     return tabs;
   }
 
+  /** AUDIT 31 U5: whether commissions are this account's here - the Work tab shown, and the service's word on its list
+   *  (read at the window's opening where it has not been). */
+  const commissionsOpen = () => !!workMore && workShown() && (writs ? workMore.open(writs) : true);
   /** The Work tab shown: PROF6's kept fills settled once (a commission's piece whose answer was lost), the list read. */
   let workSettled = false;
   function openWork() {
@@ -277,13 +284,21 @@ export function mountNoticeBoard(host, deps) {
     if (!writs && !writsBusy) loadWrits(false);
   }
 
+  /** AUDIT 31 B7: the Work list's reads in order - an older read that answers after a newer one paints nothing. */
+  let writsSeq = 0;
   async function loadWrits(force) {
     if (!work) return;
+    const seq = ++writsSeq;
     writsBusy = true; render();
     const r = await work.book.writs(work.region, { force });
-    if (!alive) return;
+    if (!alive || seq !== writsSeq) return;
     writsBusy = false;
     writs = r.data; writsError = r.error; writsStale = !!r.stale;
+    if (r.data && !r.stale) {
+      try { work.onList?.(r.data); } catch (e) { console.warn('[work] list', e); }   // AUDIT 31 B5: its balance the Bank's
+      // AUDIT 31 H6: a commission of this account's filled - its piece comes by the market's deliveries, read fresh there
+      if ((r.data.yours?.commissions ?? []).some((c) => c.mine && c.state === 'filled')) { try { work.forgetMarket?.(); } catch { /* the market's own */ } }
+    }
     render();
   }
 
@@ -300,7 +315,7 @@ export function mountNoticeBoard(host, deps) {
     if (w.state === 'open') {
       const full = (work.book.state.writs?.today ?? 0) >= (work.book.state.writs?.max ?? 3);
       const b = button('primary notice-take', 'Take', () => takeWrit(w));
-      b.disabled = busy || held < w.qty || full;
+      b.disabled = busy || workBusy || held < w.qty || full;   // AUDIT 31 B10: nor while a guild writ's or a commission's act is out
       if (held < w.qty) b.title = 'Your Stores do not hold enough';
       else if (full) b.title = 'You have filled all the Court writs a day allows';
       take.append(b);
@@ -311,7 +326,7 @@ export function mountNoticeBoard(host, deps) {
   }
 
   async function takeWrit(w) {
-    if (busy) return;
+    if (busy || workBusy) return;
     busy = true; render();
     const r = await work.book.deliver(w.id, work.region);
     if (!alive) return;
@@ -332,17 +347,21 @@ export function mountNoticeBoard(host, deps) {
     grid.setAttribute('role', 'list');
     const list = writs?.writs ?? [];
     list.forEach((w, i) => grid.append(writNode(w, i)));
+    // PROF6: this region's guild writs and commissions in the Court's own grid (AUDIT 31 U14 - the Court's stood alone)
+    const more = workMore ? workMore.cards(writs) : [];
+    for (const c of more) grid.append(c);
     if (writsBusy && !writs) grid.append(el('li', 'notice-empty', 'Reading the writs...'));
     else if (!writs && writsError) {
       const shut = writsError === 'prof-closed' || writsError === 'no-session' || writsError === 'auth';
       const li = el('li', 'notice-empty', shut ? 'The Court posts its writs for others. Its work is not open to you.'
-        : 'The counting-house is not answering. The Court\'s writs cannot be read now.');
+        : 'The counting-house is not answering. The writs cannot be read now.');   // AUDIT 31 U13: the guilds' and the commissions' too
       if (!shut) li.append(button('notice-retry', 'Try again', () => loadWrits(true)));   // AUDIT 29 C11: read now, not in a minute
       grid.append(li);
     }
     else if (writs && !list.length) grid.append(el('li', 'notice-empty', `The Court of ${work.regionName} posts no writs yet. When its lands are known to the counting-houses - gathered on, and witnessed - its writs go up here each day.`));
     body.append(grid);
-    if (workMore) body.append(workMore.node(writs));   // PROF6: this region's guild writs and commissions, "Yours", the forms
+    const yours = workMore ? workMore.node(writs) : null;   // PROF6: "Yours", the forms
+    if (yours) body.append(yours);
     const today = writs?.today ?? { filled: work.book.state.writs?.today ?? 0, max: work.book.state.writs?.max ?? 3 };
     body.append(el('p', 'notice-worktoday', `Court writs today: ${today.filled} of ${today.max}${writsStale ? ' - the list may be out of date' : ''}`));
     return body;
@@ -400,7 +419,7 @@ export function mountNoticeBoard(host, deps) {
       const b = button('primary notice-answer', NOTE_BUTTON_LABEL[n.button] ?? 'Answer', () => {
         // PROF6: a crafter's advertisement - the Work tab's commission form, its author named (10.6)
         if (n.button === 'commission') {
-          if (!workMore || !workShown()) { word = { ok: false, text: 'Commissions are not open to you here.' }; render(); return; }
+          if (!commissionsOpen()) { word = { ok: false, text: 'Commissions are not open to you here.' }; render(); return; }
           workMore.openCommission(n.from);
           tab = 'work'; view = 'board'; reading = null; word = null;
           openWork();
@@ -411,6 +430,8 @@ export function mountNoticeBoard(host, deps) {
         if (r && r.ok === false) { word = { ok: false, text: r.text ?? '' }; render(); }
       });
       if (!me().canPin) { b.disabled = true; b.title = 'A registered account answers a note'; }
+      // AUDIT 31 U5: a crafter's button only where commissions are this account's - never pressed to be refused
+      else if (n.button === 'commission' && !commissionsOpen()) { b.disabled = true; b.setAttribute('title', 'Commissions are not open to you here'); }
       acts.append(b);
     }
     if (n?.mine) acts.append(button('notice-takedown', 'Take it down', () => act(() => deps.book.takeDown(map, n.id))));
@@ -488,13 +509,38 @@ export function mountNoticeBoard(host, deps) {
     return body;
   }
 
+  /**
+   * AUDIT 31 U1: WHAT A REDRAW KEEPS - the field being typed in (its `data-focus` key, its caret) and how far the body is
+   * scrolled, taken BEFORE the window empties itself and given back after it is drawn. The tabs looked for the focused
+   * field themselves (AUDIT 30 U8) after the window had already emptied, when the focus had fallen to the page: every
+   * read's answer threw the reader out of the number they were typing and back to the top of the list.
+   */
+  function keptOf() {
+    const a = /** @type {any} */ (globalThis.document?.activeElement);
+    const key = a && win.contains?.(a) ? a.getAttribute?.('data-focus') ?? null : null;
+    let at = null;
+    if (key) { try { at = [a.selectionStart, a.selectionEnd]; } catch { /* a number field has none */ } }
+    const b = /** @type {any} */ (win.querySelector?.('.notice-body'));
+    return { key, at, top: b?.scrollTop ?? 0, where: `${tab}|${view}` };
+  }
+  function giveBack(k) {
+    const b = /** @type {any} */ (win.querySelector?.('.notice-body'));
+    if (b && k.top && k.where === `${tab}|${view}`) b.scrollTop = k.top;
+    if (!k.key) return;
+    const n = /** @type {any} */ ([...(win.querySelectorAll?.('input, select, textarea') ?? [])].find((x) => x.getAttribute?.('data-focus') === k.key));
+    if (!n) return;
+    try { n.focus?.({ preventScroll: true }); } catch { n.focus?.(); }
+    if (k.at && k.at[0] != null) { try { n.setSelectionRange(k.at[0], k.at[1]); } catch { /* none to set */ } }
+  }
   function render() {
     if (!alive) return;
+    const kept = keptOf();
     win.replaceChildren();
     win.append(...header());
-    if (tab === 'work' && workShown()) { win.append(workBody()); return; }
-    if (tab === 'market' && market && marketShown()) { win.append(market.body()); return; }
-    win.append(view === 'read' && reading ? readBody() : view === 'pin' ? pinBody() : view === 'notice' ? noticeBody() : boardBody());
+    if (tab === 'work' && workShown()) win.append(workBody());
+    else if (tab === 'market' && market && marketShown()) win.append(market.body());
+    else win.append(view === 'read' && reading ? readBody() : view === 'pin' ? pinBody() : view === 'notice' ? noticeBody() : boardBody());
+    giveBack(kept);
   }
 
   render();

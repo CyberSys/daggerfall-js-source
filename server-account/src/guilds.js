@@ -174,8 +174,10 @@ export async function foundGuild(ctx, player, { character, name, tag } = {}) {
   if ((track?.level ?? 1) < GUILD_FOUND_RENOWN) return { error: 'guild-renown' };
   if (await memberRow(db, player.id, character)) return { error: 'guild-already' };
   const key = guildNameKey(n);
-  // a guild nobody is left in holds its name and tag for no one
-  await db.prepare('DELETE FROM guilds WHERE (name_key = ? OR tag = ?) AND NOT EXISTS (SELECT 1 FROM guild_members m WHERE m.guild_id = guilds.id)').bind(key, t).run();
+  // a guild nobody is left in holds its name and tag for no one - AUDIT 31 S7: while it keeps nothing, as any going
+  // (endGuild's): its gold, its Marks, its guild Stores and its writs stay with the name until they are answered for
+  await db.prepare(`DELETE FROM guilds WHERE (name_key = ?1 OR tag = ?2) AND NOT EXISTS (SELECT 1 FROM guild_members m WHERE m.guild_id = guilds.id)
+    AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = guilds.id AND balance > 0) AND NOT ${guildKeepsSql('guilds.id')}`).bind(key, t).run();
   const id = mintGuildId(rand);
   try {
     await db.batch([
@@ -300,9 +302,9 @@ async function whyNotGone(db, guildId, { alone = false } = {}) {
   if (g && g.treasury > 0) return 'guild-treasury';
   // PROF6: its guild Stores, or its writs
   if (g && await db.prepare('SELECT 1 FROM guild_prof_stores WHERE guild_id = ?1 AND qty > 0').bind(guildId).first()) return 'guild-stores';
-  if (g && await db.prepare(`SELECT 1 FROM guild_writs WHERE guild_id = ?1 AND (state = 'open' OR (returned = 0 AND escrow > 0))`).bind(guildId).first()) {
-    return 'guild-writs';
-  }
+  if (g && await db.prepare(`SELECT 1 FROM guild_writs WHERE guild_id = ?1 AND state = 'open'`).bind(guildId).first()) return 'guild-writs';
+  // AUDIT 31 A15: a closed writ's pay still on its way home - the treasury full, not a writ standing
+  if (g && await db.prepare('SELECT 1 FROM guild_writs WHERE guild_id = ?1 AND returned = 0 AND escrow > 0').bind(guildId).first()) return 'guild-writ-escrow';
   return g ? 'marks-full' : 'no-guild';
 }
 

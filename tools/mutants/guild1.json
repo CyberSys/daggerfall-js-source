@@ -263,7 +263,7 @@
   {
     "name": "GUILD1-an-orphaned-name-held",
     "file": "server-account/src/guilds.js",
-    "old": "  await db.prepare('DELETE FROM guilds WHERE (name_key = ? OR tag = ?) AND NOT EXISTS (SELECT 1 FROM guild_members m WHERE m.guild_id = guilds.id)').bind(key, t).run();\n",
+    "old": "  await db.prepare(`DELETE FROM guilds WHERE (name_key = ?1 OR tag = ?2) AND NOT EXISTS (SELECT 1 FROM guild_members m WHERE m.guild_id = guilds.id)\n    AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = guilds.id AND balance > 0) AND NOT ${guildKeepsSql('guilds.id')}`).bind(key, t).run();\n",
     "new": "",
     "tests": [
       "test/guild1.test.js"
@@ -272,8 +272,8 @@
   {
     "name": "GUILD1-a-living-guilds-name-taken",
     "file": "server-account/src/guilds.js",
-    "old": "DELETE FROM guilds WHERE (name_key = ? OR tag = ?) AND NOT EXISTS (SELECT 1 FROM guild_members m WHERE m.guild_id = guilds.id)')",
-    "new": "DELETE FROM guilds WHERE (name_key = ? OR tag = ?)')",
+    "old": "DELETE FROM guilds WHERE (name_key = ?1 OR tag = ?2) AND NOT EXISTS (SELECT 1 FROM guild_members m WHERE m.guild_id = guilds.id)\n    AND treasury",
+    "new": "DELETE FROM guilds WHERE (name_key = ?1 OR tag = ?2)\n    AND treasury",
     "tests": [
       "test/guild1.test.js"
     ]

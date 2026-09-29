@@ -125,7 +125,7 @@ test('PROF5b service: only a Masterwork of a listable family, its owner\'s, on n
   assert.equal((await s.post(mac, P(2), 100)).body.error, 'market-not-listable');
   s.piece(ann, P(3));
   assert.equal((await s.post(mac, P(3), 100)).body.error, 'market-not-yours');
-  assert.equal((await s.post(mac, P(4), 100)).body.error, 'market-not-yours', 'no such piece');
+  assert.equal((await s.post(mac, P(4), 100)).body.error, 'market-no-record', 'no such piece (AUDIT 31 H1: its own word)');
   s.piece(mac, P(5));
   const listed = await s.call('/v1/market/list', { character: mac.character, region: DF, kind: 'piece', provenance: P(5), wear: 1000, price: 50, hubs: HUBS, rid: rid() }, mac.secret);
   assert.equal(listed.status, 200);

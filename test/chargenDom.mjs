@@ -5,11 +5,14 @@ class Node_ {
   append(...ns) { for (const raw of ns) { const n = toNode(raw); n.parentNode = this; this.children.push(n); } }   // AUDIT 68 X2-chargendom-append-throws: a string used to reassign the loop's const and throw
   appendChild(n) { this.append(n); return n; }
   prepend(...ns) { const nodes = ns.map(toNode); for (const n of nodes) n.parentNode = this; this.children.unshift(...nodes); }
-  replaceChildren(...ns) { for (const c of this.children) c.parentNode = null; this.children = []; this._text = ''; this.append(...ns); }   // AUDIT 28: the Notice Board's window repaints so
-  remove() { if (this.parentNode) { this.parentNode.children = this.parentNode.children.filter((c) => c !== this); this.parentNode = null; } }
-  set textContent(t) { this.children = []; this._text = String(t); }
+  replaceChildren(...ns) { for (const c of this.children) { unfocus(c); c.parentNode = null; } this.children = []; this._text = ''; this.append(...ns); }   // AUDIT 28: the Notice Board's window repaints so
+  remove() { if (this.parentNode) { unfocus(this); this.parentNode.children = this.parentNode.children.filter((c) => c !== this); this.parentNode = null; } }
+  set textContent(t) { for (const c of this.children) unfocus(c); this.children = []; this._text = String(t); }
   get textContent() { return this._text + this.children.map((c) => c.textContent).join(''); }
-  set innerHTML(v) { this.children = []; this._text = ''; }
+  set innerHTML(v) { for (const c of this.children) unfocus(c); this.children = []; this._text = ''; }
+  /** AUDIT 31 U1: as a browser's - whether `n` is this node or inside it, and whether this node is in the document. */
+  contains(n) { for (let x = n; x; x = x.parentNode) if (x === this) return true; return false; }
+  get isConnected() { let x = this; while (x.parentNode) x = x.parentNode; return x === globalThis.document.body || x === globalThis.document.head; }
   setAttribute(k, v) { this.attrs[k] = v; if (k === 'class') this.className = v; }
   getAttribute(k) { return this.attrs[k]; }
   addEventListener(t, f) { (this.listeners[t] ??= []).push(f); }
@@ -24,10 +27,22 @@ class Node_ {
   getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; }
   get classList() { const n = this; return { add: (c) => { n.className += ' ' + c; }, remove() {}, toggle() {}, contains: (c) => n.className.split(/\s+/).includes(c) }; }
 }
+/** AUDIT 31 U1: A NODE TAKEN OUT OF THE DOCUMENT TAKES THE FOCUS WITH IT, as a browser's does - the focus falls to the
+ *  body. Without it a window that emptied itself before a tab looked for the focused field found it still "focused",
+ *  and the Market and Work tabs' keep-the-focus (AUDIT 30 U8) passed here and never once worked in a browser. */
+function unfocus(n) {
+  const d = globalThis.document;
+  const a = d?.activeElement;
+  if (a && typeof n?.contains === 'function' && n.contains(a)) d.activeElement = d.body;
+}
 class Text_ { constructor(t) { this._t = t; this.children = []; this.parentNode = null; } get textContent() { return this._t; } }
 /** A string child is a text node, as the DOM's append/prepend make it. */
 const toNode = (n) => (typeof n === 'string' ? new Text_(n) : n);
-function matches(n, sel) { if (sel.startsWith('.')) return n.className.split(/\s+/).includes(sel.slice(1)); return n.tagName === sel.toUpperCase(); }
+function matches(n, sel) {
+  if (sel.includes(',')) return sel.split(',').some((s) => matches(n, s.trim()));   // AUDIT 31 U1: a list - 'input, select'
+  if (sel.startsWith('.')) return n.className.split(/\s+/).includes(sel.slice(1));
+  return n.tagName === sel.toUpperCase();
+}
 const docListeners = {};
 globalThis.document = {
   head: new Node_('head'), body: new Node_('body'), activeElement: null, pointerLockElement: null,

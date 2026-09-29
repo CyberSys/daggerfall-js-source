@@ -97,7 +97,7 @@ async function stand(extra = {}) {
 test('PROF6 DONE WHEN: a Guildmaster\'s writ for 100 Oak Logs at 3 Marks each in Daggerfall; an Officer\'s within the budget, refused past it; an outsider delivers 40 and a member 60, each paid pro rata less the tax, the logs in the guild Stores; the member\'s own deposit back own, the guild\'s bought; a crafter\'s note, a commission through its button, filled with a piece of their make, in the poster\'s pack', async () => {
   clock(T0);
   const s = await stand();
-  const { gm, officer, member, g, rank } = await s.guild(20_000);
+  const { gm, officer, member, g } = await s.guild(20_000);
   const out = await s.registered('Oswin');
   // the Guildmaster's writ: the whole pay held from the treasury
   const w = await s.post(gm);
@@ -127,11 +127,11 @@ test('PROF6 DONE WHEN: a Guildmaster\'s writ for 100 Oak Logs at 3 Marks each in
   // the member deposits their own 10; an Officer withdraws 105 - the guild's 100, then the member's 5, all bought
   assert.equal((await s.stores(member, 'deposit', OAK, 10)).status, 200);
   assert.deepEqual(s.guildHeld(g.id, OAK), { guild: 100, [`${member.id}:${member.character}`]: 10 });
-  assert.equal((await s.stores(member, 'withdraw', OAK, 5)).body.error, 'guild-rank', 'a Member deposits, never withdraws');
+  // AUDIT 31 R1: a Member takes out no more than their own deposit - the rest is an Officer's or the Guildmaster's
+  assert.equal((await s.stores(member, 'withdraw', OAK, 11)).body.error, 'guild-stores-mine', 'past their own 10');
   const o = await s.stores(officer, 'withdraw', OAK, 105);
   assert.deepEqual([o.status, o.body.move.own, s.held(officer, OAK)], [200, 0, { bought: 105 }]);
-  // promoted, the member's own deposit comes back own
-  await rank(member, 1);
+  // the member's own deposit comes back own - no rank asked
   const back = await s.stores(member, 'withdraw', OAK, 5);
   assert.deepEqual([back.body.move.own, s.held(member, OAK)], [5, { own: 5 }]);
   assert.deepEqual(s.guildHeld(g.id, OAK), {}, 'emptied, its rows gone');
@@ -163,13 +163,14 @@ test('PROF6 DONE WHEN: a Guildmaster\'s writ for 100 Oak Logs at 3 Marks each in
 
 // ─── GUILD WRITS ─────────────────────────────────────────────────────
 
-test('PROF6 service: a guild writ\'s refusals - a Member or Recruit, a material nothing yields, a pay past 1.5 x the value, the treasury short, twenty open; a delivery elsewhere, past what is left, from Stores short, past the guild Stores\' room or the Marks cap; one\'s own writ delivered to pays like anyone\'s', async () => {
+test('PROF6 service: a guild writ\'s refusals - a Member or Recruit, a material nothing yields, a pay past 1.5 x the value, the treasury short, twenty open; a delivery elsewhere, past what is left, from Stores short, past the guild Stores\' room or the Marks cap', async () => {
   clock(T0);
   const s = await stand();
   const { gm, officer, member, recruit, g } = await s.guild(1_000);
   assert.equal((await s.post(member)).body.error, 'guild-rank');
   assert.equal((await s.post(recruit)).body.error, 'guild-rank');
-  assert.equal((await s.post(gm, { material: 'ingot:daedric' })).body.error, 'bad-material', 'nothing yields it');
+  assert.equal((await s.post(gm, { material: 'ingot:daedric' })).body.error, 'market-unyielded', 'nothing yields it (AUDIT 31 L6: its own word)');
+  assert.equal((await s.post(gm, { material: 'no-such' })).body.error, 'bad-material');
   assert.equal((await s.post(gm, { pay: writPayMax(OAK) + 1 })).body.error, 'writ-pay');
   assert.equal((await s.post(gm, { units: 5_001 })).body.error, 'bad-units');
   assert.equal((await s.post(gm, { units: 400, pay: 3 })).body.error, 'guild-marks-short', '1,200 of 1,000');
@@ -362,7 +363,7 @@ test('PROF6 service: a commission\'s refusals - oneself, no such crafter, arrows
   s.piece(smith, P(1), { quality: 2 });
   s.piece(cid, P(2), { quality: 4 });
   assert.equal((await s.fulfil(cid, id, P(2))).body.error, 'commission-not-yours');
-  assert.equal((await s.fulfil(smith, id, P(1), { region: WR })).body.error, 'writ-elsewhere');
+  assert.equal((await s.fulfil(smith, id, P(1), { region: WR })).body.error, 'commission-elsewhere', 'AUDIT 31 L6: a commission\'s own word');
   assert.equal((await s.fulfil(smith, id, P(1), { wear: 999 })).body.error, 'commission-worn');
   s.piece(smith, P(3), { recipe: 'longsword:steel', quality: 4 });
   assert.equal((await s.fulfil(smith, id, P(3))).body.error, 'commission-piece', 'another recipe');

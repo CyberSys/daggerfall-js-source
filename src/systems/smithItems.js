@@ -81,6 +81,7 @@ export function mintPiece({ recipe, quality, seed, maker = null, marked = false 
     item.name = `${METALS[m]} Repair Kit`;
     item.kitMetal = m;
     item.value = kitValue(minedMaterial(r.metal).tier);
+    item.recipe = r.id;   // AUDIT 31 H3: the recipe it was minted of, read before any look-alike's
     item.provenance = provenance;
     if (mark) item.maker = mark;
     return item;
@@ -93,6 +94,7 @@ export function mintPiece({ recipe, quality, seed, maker = null, marked = false 
     item.value = Math.max(1, Math.round((base?.basePrice ?? item.value ?? 1) * QUALITY_EFFECTS[q].condition));
     if (base?.name) item.name = base.name;
     item.quality = q;
+    item.recipe = r.id;
     item.provenance = provenance;
     if (mark) item.maker = mark;
     if (marked === true && q !== MASTERWORK) item.marked = true;   // a Master Joiner's (a Masterwork's mark is its own)
@@ -111,6 +113,7 @@ export function mintPiece({ recipe, quality, seed, maker = null, marked = false 
     if (q === MASTERWORK && mark) item.name = templateByIndex(r.templateIndex)?.name ?? item.name;   // the mark is its name (itemNameParts)
   }
   item.quality = q;
+  item.recipe = r.id;   // AUDIT 31 H3: an Ebony and a Warforged piece mint the same template and material
   item.provenance = provenance;
   if (mark) item.maker = mark;
   return item;
@@ -137,6 +140,7 @@ export const mintPieces = (data) => (data?.pieces ?? []).map((p) => mintPiece(da
  *  metal) as the recipe mints them - so the Work tab offers a commission only the pieces that answer it (the service
  *  asks the piece's own record: writs.js fulfilCommission). */
 export function pieceOfRecipe(item, recipeId) {
+  if (typeof item?.recipe === 'string') return item.recipe === recipeId;   // AUDIT 31 H3: its own record's, where it keeps one
   const s = mintPiece({ recipe: recipeId, quality: 1, seed: 0 }, '0000000000000000');
   if (!s || !item) return false;
   return item.group === s.group && item.templateIndex === s.templateIndex && (item.material ?? 0) === (s.material ?? 0)

@@ -53,7 +53,8 @@ import {
   guildMay, guildMayMove, guildOutranks, guildNameOf, guildTagOf, guildRankNamesOf,
 } from '../net/guildLaw.js';   // GUILD1b: the Guild tab's rules are the service's
 import { GUILD_DEPOSIT_UNSURE } from '../net/guildBook.js';
-import { writMay } from '../net/writLaw.js';   // PROF6: the guild Stores' and the writ budget's ranks
+import { writMay, guildMoveOk, writBudgetOk, GUILD_STORES_MAX, WRIT_BUDGET_MAX } from '../net/writLaw.js';   // PROF6: the guild Stores' and the writ budget's ranks and bounds
+import { STORES_MAX } from '../net/professionLaw.js';   // AUDIT 31 U8: a character's Stores' most of a material
 import { marksText } from '../net/marksLaw.js';   // MARKS1: the Marks treasury's words   // MAIL1: the form's caps are the service's
 import { glyphBadges, glyphSvgNode, titleBadge } from './playerBadge.js';   // MAIL1: a sender's glyphs, in the one drawing every DOM face uses
 
@@ -353,6 +354,10 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   let noteMsg = '', noteAt = -Infinity;
   let ui = 0;                                  // the panel's OWN version - a tab, a confirm, an act just sent
   let painted = -1, paintedUi = -1, paintedMail = -1, paintedGuild = -1;
+  /** AUDIT 31 H2: the character the Guild tab was painted for - its guild Stores are that character's own (its deposit,
+   *  its Stores), so another character is a repaint whether or not the guild's view moved. */
+  let paintedWho = '';
+  const guildWho = () => { try { return String(guild?.profStores?.character?.() ?? ''); } catch { return ''; } };
   let paintedJourney = '';   // PARTY-UI: the journey the body was painted with (journeyKey)
   let ticking = [];                            // [{ el, expires }] - the countdowns drawn right now
   let liveSubs = [];                           // [{ el, of() }] - the sub-texts that go stale on the CLOCK alone (B8)
@@ -371,7 +376,8 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   // drafts kept on every keystroke as the letter's are, and the one dangerous act armed (`arm`: 'leave', 'disband',
   // 'remove:<member>', 'hand:<member>') - the first press arms it, the second does it, SOCIAL_CONFIRM_MS disarms it
   const guildUi = { word: '', bad: false, draft: { name: '', tag: '', handle: '', gold: '', ranks: null }, arm: null, armAt: -Infinity };
-  const lookAtGuild = () => { if (guild?.stale?.()) guild.refresh(); };
+  // AUDIT 31 H2: and the guild Stores read again at each look - they move while the tab is shut
+  const lookAtGuild = () => { guildUi.storesAsked = false; if (guild?.stale?.()) guild.refresh(); };
 
   /** One act out. A refusal that is the RATE GATE's (`send` answered false) is not the player's fault and not the
    *  row's: the button stays as it was and the note says so, because the act was right and the moment was not. */
@@ -851,20 +857,35 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     return out;
   };
 
-  /** PROF6: the guild Stores' section and the Officers' writ budget (the Guild tab's). */
+  /** PROF6: the guild Stores' section and the Officers' writ budget (the Guild tab's). AUDIT 31 H2: read again at each
+   *  look at the Guild tab (a writ delivered, another member's move, the week's budget spent) and kept per guild AND
+   *  character; a read refused says so, with Try again - it once said "Reading the guild Stores..." for the session's
+   *  life. R1: any member takes back their own deposit; U8: every number the service bounds, bounded here first. */
   const guildStoresNodes = (g, ps, me) => {
     const out = [];
     const W = ps.writs;
-    // another guild than the Stores last read were (a leave, a join, another character): read again
-    if (guildUi.storesFor !== g.guild?.id) { guildUi.storesFor = g.guild?.id; guildUi.storesAsked = false; W.state.guildStores = null; W.state.writBudget = null; }
+    const whose = `${g.guild?.id ?? ''}|${ps.character?.() ?? ''}`;
+    if (guildUi.storesFor !== whose) {
+      guildUi.storesFor = whose; guildUi.storesAsked = false; guildUi.storesError = null; W.state.guildStores = null; W.state.writBudget = null;
+    }
+    if (!guildUi.storesAsked) {
+      guildUi.storesAsked = true; guildUi.storesError = null;
+      Promise.resolve(W.guildStores()).then((r) => { guildUi.storesError = r?.ok ? null : (r?.error ?? 'server'); ui++; }, () => { guildUi.storesError = 'offline'; ui++; });
+    }
     const gs = W.state.guildStores;
-    if (!gs && !guildUi.storesAsked) { guildUi.storesAsked = true; Promise.resolve(W.guildStores()).then(() => { ui++; }); }
     const d = guildUi.draft;
     out.push(el('div', 'dfsocial-sec', 'Guild Stores'));
-    if (!gs) { out.push(el('div', 'dfsocial-note', 'Reading the guild Stores...')); return out; }
+    if (!gs) {
+      if (!guildUi.storesError) { out.push(el('div', 'dfsocial-note', 'Reading the guild Stores...')); return out; }
+      out.push(el('div', 'dfsocial-note', `The guild Stores cannot be read now: ${guildWordText(guildUi.storesError)}`));
+      const again = el('div', 'dfsocial-acts');
+      again.append(btn('Try again', { enabled: !W.busy, why: 'a moment', run: () => { guildUi.storesAsked = false; ui++; if (open) repaint(); } }));
+      out.push(again);
+      return out;
+    }
     if (!gs.rows.length) out.push(el('div', 'dfsocial-note', 'The guild Stores hold nothing yet. Any member may put in from their own Stores.'));
     for (const r of gs.rows) out.push(personRow({ name: `${Number(r.qty).toLocaleString('en-US')} ${ps.name(r.material, r.qty)}`, sub: r.mine ? `${Number(r.mine).toLocaleString('en-US')} of them yours` : '' }));
-    const unitsTyped = () => (/^\d{1,4}$/.test(String(d.storeUnits ?? '').trim()) ? Number(String(d.storeUnits).trim()) : 0);
+    const unitsTyped = () => { const t = String(d.storeUnits ?? '').trim(); const n = /^\d+$/.test(t) ? Number(t) : 0; return guildMoveOk(n) ? n : 0; };
     const pick = (label, options, value, onPick) => {
       const s = doc.createElement('select');
       s.className = 'dfsocial-field';
@@ -873,30 +894,50 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       s.addEventListener('change', () => { onPick(s.value); paintLiveBtns(); });
       return s;
     };
-    const mine = [...(ps.mine?.() ?? new Map()).values()].filter((v) => v.own + v.bought > 0);
+    const stores = ps.mine?.() ?? new Map();
+    const heldOf = (k) => { const v = [...stores.values()].find((x) => x.material === k); return v ? v.own + v.bought : 0; };
+    const guildOf = (k) => gs.rows.find((r) => r.material === k)?.qty ?? 0;
+    const mine = [...stores.values()].filter((v) => v.own + v.bought > 0);
+    // R1: what this character may take out - an Officer or the Guildmaster any of it, a member their own deposit
+    const takeable = gs.rows.filter((r) => gs.mayWithdraw || r.mine > 0);
+    const outMost = (k) => { const r = gs.rows.find((x) => x.material === k); return r ? (gs.mayWithdraw ? r.qty : r.mine) : 0; };
     const form = el('div', 'dfsocial-form');
     if (mine.length) {
       if (!mine.some((v) => v.material === d.storeIn)) d.storeIn = mine[0].material;
       form.append(el('div', 'dfsocial-label', 'Put in'), pick('A material of your Stores', mine.map((v) => [v.material, `${ps.name(v.material, 2)} (${(v.own + v.bought).toLocaleString('en-US')})`]), d.storeIn, (k) => { d.storeIn = k; }));
     }
-    if (gs.mayWithdraw && gs.rows.length) {
-      if (!gs.rows.some((r) => r.material === d.storeOut)) d.storeOut = gs.rows[0].material;
-      form.append(el('div', 'dfsocial-label', 'Take out'), pick('A material of the guild Stores', gs.rows.map((r) => [r.material, ps.name(r.material, 2)]), d.storeOut, (k) => { d.storeOut = k; }));
+    if (takeable.length) {
+      if (!takeable.some((r) => r.material === d.storeOut)) d.storeOut = takeable[0].material;
+      form.append(el('div', 'dfsocial-label', 'Take out'), pick('A material of the guild Stores', takeable.map((r) => [r.material, `${ps.name(r.material, 2)} (${outMost(r.material).toLocaleString('en-US')})`]), d.storeOut, (k) => { d.storeOut = k; }));
     }
-    guildField(form, 'Units', d.storeUnits ?? '', 4, (x) => { d.storeUnits = x; });
+    guildField(form, 'Units', d.storeUnits ?? '', String(STORES_MAX).length, (x) => { d.storeUnits = x; });
     out.push(form);
     const acts = el('div', 'dfsocial-acts');
     if (mine.length) {
-      acts.append(liveBtn('Put in', () => ({ enabled: !W.busy && unitsTyped() > 0, why: W.busy ? 'a moment' : 'a number' }), {
+      acts.append(liveBtn('Put in', () => {
+        const n = unitsTyped(), k = d.storeIn;
+        const why = W.busy ? 'a moment' : !n ? `a number from 1 to ${STORES_MAX.toLocaleString('en-US')}`
+          : n > heldOf(k) ? `your Stores hold ${heldOf(k).toLocaleString('en-US')}`
+            : guildOf(k) + n > GUILD_STORES_MAX ? `the guild Stores hold at most ${GUILD_STORES_MAX.toLocaleString('en-US')} of a material` : '';
+        return { enabled: !why, why };
+      }, {
         run: () => { const n = unitsTyped(), k = d.storeIn; if (n > 0 && k) guildDo(W.deposit(k, n), `${n.toLocaleString('en-US')} ${ps.name(k, n)} put in the guild Stores.`, () => { d.storeUnits = ''; }); },
       }));
     }
     if (gs.rows.length) {
-      acts.append(liveBtn('Take out', () => ({ enabled: !W.busy && unitsTyped() > 0 && gs.mayWithdraw, why: gs.mayWithdraw ? (W.busy ? 'a moment' : 'a number') : 'Officers and the guildmaster alone' }), {
+      acts.append(liveBtn('Take out', () => {
+        const n = unitsTyped(), k = d.storeOut;
+        const why = !takeable.length ? 'Officers and the guildmaster, or what you put in of your own'
+          : W.busy ? 'a moment' : !n ? `a number from 1 to ${STORES_MAX.toLocaleString('en-US')}`
+            : n > outMost(k) ? (gs.mayWithdraw ? `the guild Stores hold ${outMost(k).toLocaleString('en-US')}` : `you put in ${outMost(k).toLocaleString('en-US')} of your own`)
+              : heldOf(k) + n > STORES_MAX ? `your Stores hold at most ${STORES_MAX.toLocaleString('en-US')} of a material` : '';
+        return { enabled: !why, why };
+      }, {
         run: () => { const n = unitsTyped(), k = d.storeOut; if (n > 0 && k) guildDo(W.withdrawStores(k, n), `${n.toLocaleString('en-US')} ${ps.name(k, n)} taken into your Stores.`, () => { d.storeUnits = ''; }); },
       }));
     }
     out.push(acts);
+    if (gs.moves?.length) out.push(el('div', 'dfsocial-label', `The last ${gs.moves.length === 1 ? 'move' : `${gs.moves.length} moves`}`));
     for (const m of gs.moves ?? []) out.push(personRow({ name: `${m.who} ${m.delta > 0 ? 'put in' : 'took out'} ${Math.abs(m.delta).toLocaleString('en-US')} ${ps.name(m.material, Math.abs(m.delta))}` }));
     // THE OFFICERS' WRIT BUDGET (11): the Guildmaster sets it; an Officer reads what is left this week
     const b = W.state.writBudget;
@@ -904,11 +945,11 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       out.push(el('div', 'dfsocial-sec', 'Writ budget'));
       out.push(el('div', 'dfsocial-note', `What your Officers may post in guild writs a week, from the Marks treasury${b ? ` - ${marksText(b.budget)}, ${marksText(b.spent)} posted this week` : ''}. Your own writs are not counted.`));
       const bform = el('div', 'dfsocial-form');
-      guildField(bform, 'Marks a week', d.budget ?? '', 8, (x) => { d.budget = x; });
+      guildField(bform, 'Marks a week', d.budget ?? '', String(WRIT_BUDGET_MAX).length, (x) => { d.budget = x; });
       out.push(bform);
-      const typed = () => (/^\d{1,8}$/.test(String(d.budget ?? '').trim()) ? Number(String(d.budget).trim()) : null);
+      const typed = () => { const t = String(d.budget ?? '').trim(); const n = /^\d+$/.test(t) ? Number(t) : null; return n != null && writBudgetOk(n) ? n : null; };
       const bacts = el('div', 'dfsocial-acts');
-      bacts.append(liveBtn('Set', () => ({ enabled: !W.busy && typed() != null, why: W.busy ? 'a moment' : 'an amount' }), {
+      bacts.append(liveBtn('Set', () => ({ enabled: !W.busy && typed() != null, why: W.busy ? 'a moment' : `an amount from 0 to ${marksText(WRIT_BUDGET_MAX)}` }), {
         run: () => { const n = typed(); if (n != null) guildDo(W.budget(n), `The Officers' writ budget is ${marksText(n)} a week.`, () => { d.budget = ''; }); },
       }));
       out.push(bacts);
@@ -1066,7 +1107,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
 
   /** The whole body, and the tab badges over it. */
   const repaint = () => {
-    painted = social.version; paintedUi = ui; paintedMail = mail?.version ?? 0; paintedGuild = guild?.version ?? 0;
+    painted = social.version; paintedUi = ui; paintedMail = mail?.version ?? 0; paintedGuild = guild?.version ?? 0; paintedWho = guildWho();
     paintedJourney = journeyKey();   // PARTY-UI
     ticking = []; liveSubs = []; liveBtns = [];
     for (const [id, t] of tabBtns) {
@@ -1243,7 +1284,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
         // MAIL1: the Letters tab is drawn from the BOX, not the social picture - and the form from neither, so a presence
         // frame or a poll landing while a player types rebuilds nothing under their caret
         // GUILD1b: the Guild tab from the BOOK, as Letters is from the box
-        const moved = tab === 'guild' ? (guild?.version ?? 0) !== paintedGuild
+        const moved = tab === 'guild' ? (guild?.version ?? 0) !== paintedGuild || guildWho() !== paintedWho
           : tab !== 'letters' ? social.version !== painted : letters.mode !== 'write' && (mail?.version ?? 0) !== paintedMail;
         if (moved || ui !== paintedUi) repaint();
         // a countdown that just hit zero raises the panel's version from inside `paintLive`, and the row it belongs

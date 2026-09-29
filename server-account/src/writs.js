@@ -46,13 +46,22 @@ import { STORES_MAX } from '../../src/net/professionLaw.js';
 import { material, regionOk } from '../../src/net/nodeLaw.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
-import { saleTax, saleTaxOn, provenanceOk, WEAR_WHOLE } from '../../src/net/marketLaw.js';
+import { saleTax, saleTaxOn, provenanceOk, pieceListable, UNYIELDED, WEAR_WHOLE } from '../../src/net/marketLaw.js';
 import {
   WRIT_S, GUILD_WRITS_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, WRIT_WINDOW_S, WRIT_SETTLE_MAX, WRIT_SHOWN, WRIT_RECENT_S, WRIT_RID_RE,
   WRIT_ID_RE, GUILD_STORES_MAX, GUILD_STORE_MOVES_SHOWN, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX,
   writMaterialOk, writUnitsOk, writPayOk, writBudgetOk, seatWeek, guildMoveOk, commissionPayOk, commissionable,
-  commissionQualityOk, commissionFilledBy, writMay,
+  commissionUnyielded, commissionQualityOk, commissionFilledBy, writMay, guildTakeMay, writDeliverMay, WRIT_POWERS,
 } from '../../src/net/writLaw.js';
+
+/** AUDIT 31: the ranks that take the guild Stores out, in SQL (`rank IN (...)`) - WRIT_POWERS' own. */
+const TAKERS_SQL = WRIT_POWERS.storesWithdraw.join(', ');
+/** AUDIT 31 L9: what a guild's standing writs of a material still want - the guild Stores' room they hold (guild `g`,
+ *  material `m`, the moment `now`, in SQL). */
+const reservedSql = (g, m, now) => `COALESCE((SELECT SUM(left_units) FROM guild_writs WHERE guild_id = ${g} AND material = ${m} AND state = 'open'
+  AND expires_at > ${now}), 0)`;
+/** A guild's Stores of a material, in SQL. */
+const guildHeldSql = (g, m) => `COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = ${g} AND material = ${m}), 0)`;
 
 const INSERT_LINE = 'INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)';
 
@@ -82,19 +91,23 @@ async function rankIn(db, me, character, guildId) {
 
 // ─── WHAT A ROW LOOKS LIKE TO THE CLIENT ─────────────────────────────
 
-const WRIT_ROW = `SELECT w.*, g.name AS guild_name, g.tag AS guild_tag FROM guild_writs w JOIN guilds g ON g.id = w.guild_id`;
+const WRIT_ROW = `SELECT w.*, g.name AS guild_name, g.tag AS guild_tag, ${guildHeldSql('w.guild_id', 'w.material')} AS guild_held
+  FROM guild_writs w JOIN guilds g ON g.id = w.guild_id`;
 const guildWritView = (w, me, may = false) => ({
   id: w.id, kind: 'guild', guild: { id: w.guild_id, name: w.guild_name ?? null, tag: w.guild_tag ?? null }, region: Number(w.region),
   material: w.material, units: Number(w.units), left: Number(w.left_units), pay: Number(w.pay), escrow: Number(w.escrow),
   at: Number(w.at), expiresAt: Number(w.expires_at), state: w.state, mine: w.poster === me, may,
+  // AUDIT 31 U10: what the guild Stores can still take of its material - a delivery past it is refused
+  room: Math.max(0, GUILD_STORES_MAX - Number(w.guild_held ?? 0)),
 });
 const COMMISSION_ROW = `SELECT c.*, pp.handle AS poster_handle, cp.handle AS crafter_handle FROM commissions c
   JOIN players pp ON pp.id = c.poster LEFT JOIN players cp ON cp.id = c.crafter`;
-const commissionView = (c, me) => ({
+const commissionView = (c, me, eligible = null) => ({
   id: c.id, kind: 'commission', region: Number(c.region), recipe: c.recipe, quality: c.quality == null ? null : Number(c.quality),
   pay: Number(c.pay), poster: c.poster_handle ?? null, crafter: c.crafter_handle ?? null, at: Number(c.at), expiresAt: Number(c.expires_at),
   state: c.state, mine: c.poster === me, forMe: c.crafter != null && c.crafter === me, returned: Number(c.returned) === 1,
   ...(c.provenance ? { provenance: c.provenance } : {}),
+  ...(eligible ? { eligible } : {}),
 });
 async function guildWritOf(db, id, me, may = false) {
   const w = await db.prepare(`${WRIT_ROW} WHERE w.id = ?1`).bind(id).first();
@@ -150,11 +163,13 @@ async function closeGuildWrits({ db, nowS }) {
     ]);
   }
 }
-/** An account's own commissions settled: those past their days closed, those whose crafter is gone declined, and the
- *  escrow of each closed one (not filled) back, under the Marks cap. */
+/** An account's own commissions settled: those past their days closed - those it posted and (AUDIT 31 L1) those naming
+ *  it, so a crafter's Yours never shows one open that cannot be filled - those whose crafter is gone declined, and the
+ *  escrow of each closed one it posted (not filled) back, under the Marks cap. */
 async function settleCommissions({ db, nowS }, me) {
   await db.batch([
-    db.prepare(`UPDATE commissions SET state = 'expired', closed_at = ?2 WHERE poster = ?1 AND state = 'open' AND expires_at <= ?2`).bind(me, nowS),
+    db.prepare(`UPDATE commissions SET state = 'expired', closed_at = ?2 WHERE (poster = ?1 OR crafter = ?1) AND state = 'open' AND expires_at <= ?2`)
+      .bind(me, nowS),
     db.prepare(`UPDATE commissions SET state = 'declined', closed_at = ?2 WHERE poster = ?1 AND state = 'open' AND crafter IS NULL`).bind(me, nowS),
   ]);
   const { results: back = [] } = await db.prepare(`SELECT id FROM commissions WHERE poster = ?1 AND state IN ('withdrawn', 'declined', 'expired') AND returned = 0
@@ -188,20 +203,45 @@ export async function writBoard(ctx, player, env, { character, region } = {}) {
   const { results: asked = [] } = await db.prepare(`${COMMISSION_ROW} WHERE c.region = ?1 AND c.state = 'open' AND c.expires_at > ?2 AND c.crafter IS NOT NULL
     ORDER BY c.expires_at LIMIT ${WRIT_SHOWN}`).bind(region, nowS).all();
   const { results: mine = [] } = await db.prepare(`${COMMISSION_ROW} WHERE (c.poster = ?1 AND (c.state = 'open' OR c.closed_at > ?2))
-      OR (c.crafter = ?1 AND (c.state = 'open' OR (c.state = 'filled' AND c.closed_at > ?2)))
+      OR (c.crafter = ?1 AND (c.state = 'open' OR c.closed_at > ?2))   -- AUDIT 31 L1: a week of those closed, as the poster's
     ORDER BY c.at DESC LIMIT ${WRIT_SHOWN}`).bind(me, nowS - WRIT_RECENT_S).all();
   const ourGuild = member ? { guild: await guildOfMember(db, member, rank, nowS) } : { guild: null };
   const own = member?.guild_id ?? null;
+  const fits = await eligibleHere(db, me, region, nowS);
+  const view = (c) => commissionView(c, me, c.crafter === me && Number(c.region) === region && c.state === 'open' ? fits.get(c.id) ?? [] : null);
   return {
     guildWrits: here.map((w) => guildWritView(w, me, w.guild_id === own && mayWithdraw(rank, w, me))),
-    commissions: asked.map((c) => commissionView(c, me)),
+    commissions: asked.map(view),
     yours: {
-      commissions: mine.map((c) => commissionView(c, me)),
+      commissions: mine.map(view),
       guildWrits: ours.map((w) => guildWritView(w, me, mayWithdraw(rank, w, me))),
     },
     ...ourGuild,
     balance: await balanceOf(db, me),
+    // AUDIT 31 U5, U10: the Work tab offers its forms only while they are this account's, and names no crafter it is
+    writsOpen: true, me: displayName(player),
   };
+}
+/** AUDIT 31 U7: the pieces that would fill each commission naming this account in this region - of its own make, the
+ *  recipe asked, at least the quality, owned and on no sale, road or home (the fill's own guards) - the least quality
+ *  first, so the fill spends the least it must. A map of the commission's id to `{ provenance, quality }`s. */
+async function eligibleHere(db, me, region, nowS) {
+  const { results = [] } = await db.prepare(`SELECT c.id AS commission, p.provenance, p.quality FROM commissions c
+      JOIN products p ON p.owner = ?1 AND p.listed = 0 AND p.recipe = c.recipe AND (c.quality IS NULL OR p.quality >= c.quality)
+    WHERE c.crafter = ?1 AND c.region = ?2 AND c.state = 'open' AND c.expires_at > ?3
+      AND EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND (provenance = p.provenance OR provenance2 = p.provenance))
+      AND NOT EXISTS (SELECT 1 FROM market_listings WHERE provenance = p.provenance AND state = 'open')
+      AND NOT EXISTS (SELECT 1 FROM market_auctions WHERE provenance = p.provenance AND state = 'open')
+      AND NOT EXISTS (SELECT 1 FROM market_deliveries WHERE provenance = p.provenance AND collected = 0)
+      AND NOT EXISTS (SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = p.provenance)
+    ORDER BY p.quality, p.provenance LIMIT ${WRIT_SHOWN * 4}`).bind(me, region, nowS).all();
+  const out = new Map();
+  for (const r of results) {
+    const list = out.get(r.commission) ?? [];
+    if (list.length < WRIT_SHOWN) list.push({ provenance: r.provenance, quality: Number(r.quality) });
+    out.set(r.commission, list);
+  }
+  return out;
 }
 /** A member's guild as the Work tab reads it: its name and tag, the reader's rank, whether it may post, the treasury,
  *  and the Officers' budget this seat week - set, spent, left. */
@@ -240,7 +280,8 @@ export async function postGuildWrit(ctx, player, env, { character, region, mater
   const closed = shut(player, env);
   if (closed) return closed;
   if (!regionOk(region)) return { error: 'bad-region' };
-  if (!writMaterialOk(key)) return { error: 'bad-material' };
+  // AUDIT 31 L6: a material the Stores keep but nothing yields yet is its own word
+  if (!writMaterialOk(key)) return { error: material(key) && UNYIELDED.includes(key) ? 'market-unyielded' : 'bad-material' };
   if (!writUnitsOk(units)) return { error: 'bad-units' };
   if (!writPayOk(key, pay)) return { error: 'writ-pay' };
   const a = await guildActorOf(db, player, character);
@@ -261,11 +302,14 @@ export async function postGuildWrit(ctx, player, env, { character, region, mater
       SELECT ?3, ?4, ?1, ?2, ?5, ?6, ?7, ?8, ?9, ?9, ?10, ?11, ?12, ?13, ?14, ?15
       WHERE EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND char_id = ?2 AND guild_id = ?4 AND rank = ?16)
         AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?4), 0) >= ?11
-        AND (SELECT COUNT(*) FROM guild_writs WHERE guild_id = ?4 AND state = 'open') < ?17
+        -- AUDIT 31 L1: the twenty that stand - one past its seventh day, not yet swept, is not among them
+        AND (SELECT COUNT(*) FROM guild_writs WHERE guild_id = ?4 AND state = 'open' AND expires_at > ?12) < ?17
+        -- AUDIT 31 L9: the guild Stores' room for it, past what they hold and what the standing writs of it still want
+        AND ${guildHeldSql('?4', '?8')} + ${reservedSql('?4', '?8', '?12')} + ?9 <= ?18
         AND (?5 = 0 OR COALESCE((SELECT SUM(units * pay) FROM guild_writs WHERE guild_id = ?4 AND week = ?6 AND officer = 1), 0) + ?11
           <= COALESCE((SELECT budget FROM guild_writ_budgets WHERE guild_id = ?4), 0))
         AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?14 || ':wesc')`)
-      .bind(me, character, id, g, officer, week, region, key, units, pay, escrow, nowS, nowS + WRIT_S, rid, nonce, rank, GUILD_WRITS_MAX),
+      .bind(me, character, id, g, officer, week, region, key, units, pay, escrow, nowS, nowS + WRIT_S, rid, nonce, rank, GUILD_WRITS_MAX, GUILD_STORES_MAX),
     // the pay held: the treasury to the ledger's escrow end, the writ's id
     db.prepare(`${INSERT_LINE} SELECT 'guild', guild_id, 'escrow', id, 'writ-escrow', escrow, ?4, at, poster, material, rid || ':wesc'
       FROM guild_writs WHERE poster = ?1 AND rid = ?2 AND n = ?3`).bind(me, rid, nonce, utcDay(nowS)),
@@ -276,8 +320,10 @@ export async function postGuildWrit(ctx, player, env, { character, region, mater
   if (await spent(db, me, rid, ':wesc')) return { error: 'prof-rid' };
   if ((await rankIn(db, me, character, g)) !== rank) return { error: 'guild-rank' };
   if ((await guildBalanceOf(db, g)) < escrow) return { error: 'guild-marks-short' };
-  const open = await db.prepare(`SELECT COUNT(*) AS n FROM guild_writs WHERE guild_id = ?1 AND state = 'open'`).bind(g).first();
+  const open = await db.prepare(`SELECT COUNT(*) AS n FROM guild_writs WHERE guild_id = ?1 AND state = 'open' AND expires_at > ?2`).bind(g, nowS).first();
   if (Number(open?.n ?? 0) >= GUILD_WRITS_MAX) return { error: 'guild-writs-max' };
+  const room = await db.prepare(`SELECT ${guildHeldSql('?1', '?2')} + ${reservedSql('?1', '?2', '?3')} AS n`).bind(g, key, nowS).first();
+  if (Number(room?.n ?? 0) + units > GUILD_STORES_MAX) return { error: 'guild-stores-full' };
   return { error: 'writ-budget' };
 }
 
@@ -308,6 +354,7 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
   if (w.state !== 'open' || Number(w.expires_at) <= nowS) return { error: 'writ-gone' };
   if (Number(w.region) !== region) return { error: 'writ-elsewhere' };
   if (units > Number(w.left_units)) return { error: 'writ-short' };
+  if (!(await deliverMay(db, me, w.guild_id))) return { error: 'writ-own-guild' };
   const total = units * Number(w.pay);
   // the tax of the writ's running total - what it has bought before this delivery (AUDIT 30 L6's law)
   const tax = saleTaxOn((Number(w.units) - Number(w.left_units)) * Number(w.pay), total);
@@ -324,6 +371,8 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
       WHERE w.id = ?10 AND w.state = 'open' AND w.expires_at > ?7 AND w.region = ?11 AND w.left_units >= ?4 AND w.left_units = ?12
         AND w.escrow >= w.pay * ?4 AND w.pay * ?4 = ?5 + ?6
         AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?2 || ':wpay')
+        -- AUDIT 31 S6: no character of the account holds a rank that takes this guild's Stores out
+        AND NOT EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND guild_id = w.guild_id AND rank IN (${TAKERS_SQL}))
         AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?3 AND material = w.material), 0) >= ?4
         AND COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = w.guild_id AND material = w.material), 0) + ?4 <= ?13
         AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + ?5 <= ?14`)
@@ -353,10 +402,18 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
   if (!now || now.state !== 'open') return { error: 'writ-gone' };
   if (Number(now.left_units) < units) return { error: 'writ-short' };
   if (Number(now.left_units) !== Number(w.left_units)) return { error: 'writ-moved' };   // another delivered between
+  if (!(await deliverMay(db, me, w.guild_id))) return { error: 'writ-own-guild' };   // made an Officer between
   const held = await storeOf(db, me, character, w.material);
   if (held.own + held.bought < units) return { error: 'stores-short' };
   if ((await balanceOf(db, me)) + pay > MARKS_MAX) return { error: 'marks-full' };
   return { error: 'guild-stores-full' };
+}
+
+/** AUDIT 31 S6: whether this account may deliver to a writ of guild `g` - none of its characters of a rank that takes the
+ *  guild Stores out (writLaw writDeliverMay). */
+async function deliverMay(db, me, g) {
+  const { results = [] } = await db.prepare('SELECT rank FROM guild_members WHERE player = ?1 AND guild_id = ?2').bind(me, g).all();
+  return results.every((r) => writDeliverMay(Number(r.rank)));
 }
 
 /**
@@ -436,7 +493,8 @@ export async function postCommission(ctx, player, env, { character, region, craf
   const closed = shut(player, env);
   if (closed) return closed;
   if (!regionOk(region)) return { error: 'bad-region' };
-  if (!commissionable(recipe)) return { error: 'commission-recipe' };
+  // AUDIT 31 L2: a listable piece nothing yields the stuff of yet is its own word
+  if (!commissionable(recipe)) return { error: pieceListable(recipe) && commissionUnyielded(recipe) ? 'commission-unyielded' : 'commission-recipe' };
   if (!commissionQualityOk(recipe, quality)) return { error: 'bad-quality' };
   if (!commissionPayOk(pay)) return { error: 'bad-pay' };
   const name = typeof handle === 'string' ? handle.trim() : '';
@@ -453,8 +511,9 @@ export async function postCommission(ctx, player, env, { character, region, craf
     db.prepare(`INSERT OR IGNORE INTO commissions (id, poster, poster_char, crafter, region, recipe, quality, pay, at, expires_at, rid, n)
       SELECT ?3, ?1, ?2, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12
       WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?8
-        AND (SELECT COUNT(*) FROM commissions WHERE poster = ?1 AND state = 'open') < ?13
-        AND (SELECT COUNT(*) FROM commissions WHERE crafter = ?4 AND state = 'open') < ?14
+        -- AUDIT 31 L1: the five and the twenty that stand - one past its seventh day, not yet settled, is not among them
+        AND (SELECT COUNT(*) FROM commissions WHERE poster = ?1 AND state = 'open' AND expires_at > ?9) < ?13
+        AND (SELECT COUNT(*) FROM commissions WHERE crafter = ?4 AND state = 'open' AND expires_at > ?9) < ?14
         AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?11 || ':cesc')`)
       .bind(me, character, id, c.id, region, recipe, quality, pay, nowS, nowS + WRIT_S, rid, nonce, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX),
     db.prepare(`${INSERT_LINE} SELECT 'account', poster, 'escrow', id, 'commission-escrow', pay, ?4, at, poster, recipe, rid || ':cesc'
@@ -465,7 +524,7 @@ export async function postCommission(ctx, player, env, { character, region, craf
   if (made) return answer(made, { repeat: true });
   if (await spent(db, me, rid, ':cesc')) return { error: 'prof-rid' };
   if ((await balanceOf(db, me)) < pay) return { error: 'marks-short' };
-  const mine = await db.prepare(`SELECT COUNT(*) AS n FROM commissions WHERE poster = ?1 AND state = 'open'`).bind(me).first();
+  const mine = await db.prepare(`SELECT COUNT(*) AS n FROM commissions WHERE poster = ?1 AND state = 'open' AND expires_at > ?2`).bind(me, nowS).first();
   if (Number(mine?.n ?? 0) >= COMMISSIONS_MAX) return { error: 'commissions-max' };
   return { error: 'commissions-crafter-max' };
 }
@@ -495,9 +554,10 @@ export async function fulfilCommission(ctx, player, env, { character, region, co
   if (!c) return { error: 'no-writ' };
   if (c.state !== 'open' || Number(c.expires_at) <= nowS) return { error: 'writ-gone' };
   if (c.crafter !== me) return { error: 'commission-not-yours' };
-  if (Number(c.region) !== region) return { error: 'writ-elsewhere' };
+  if (Number(c.region) !== region) return { error: 'commission-elsewhere' };   // AUDIT 31 L6: a commission's own word
   const p = await db.prepare('SELECT * FROM products WHERE provenance = ?1').bind(provenance).first();
-  if (!p || p.owner !== me) return { error: 'market-not-yours' };
+  if (!p) return { error: 'market-no-record' };   // AUDIT 31 H1: no record at all - never "another owner's"
+  if (p.owner !== me) return { error: 'market-not-yours' };
   if (!commissionFilledBy({ recipe: c.recipe, quality: c.quality == null ? null : Number(c.quality) }, { recipe: p.recipe, quality: Number(p.quality) })) {
     return { error: 'commission-piece' };
   }
@@ -538,13 +598,17 @@ export async function fulfilCommission(ctx, player, env, { character, region, co
   const now = await db.prepare('SELECT state FROM commissions WHERE id = ?1').bind(id).first();
   if (now?.state !== 'open') return { error: 'writ-gone' };
   const q = await db.prepare('SELECT owner, listed FROM products WHERE provenance = ?1').bind(provenance).first();
-  if (!q || q.owner !== me) return { error: 'market-not-yours' };
+  if (!q) return { error: 'market-no-record' };
+  if (q.owner !== me) return { error: 'market-not-yours' };
   if (!(await db.prepare('SELECT 1 FROM prof_crafts WHERE player = ?1 AND (provenance = ?2 OR provenance2 = ?2)').bind(me, provenance).first())) {
     return { error: 'commission-not-made' };
   }
+  // AUDIT 31 S5: why the piece is held, each in its own word (a delivery waiting read "stands in a home")
   if (Number(q.listed) === 1) return { error: 'market-listed' };
+  if (await db.prepare('SELECT 1 FROM market_deliveries WHERE provenance = ?1 AND collected = 0').bind(provenance).first()) return { error: 'market-uncollected' };
+  if (await db.prepare("SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?1").bind(provenance).first()) return { error: 'market-standing' };
   if ((await balanceOf(db, me)) + pay > MARKS_MAX) return { error: 'marks-full' };
-  return { error: 'market-standing' };
+  return { error: 'writ-gone' };
 }
 
 /** A commission closed - `withdrawn` by its poster or `declined` by its crafter - while it stands; its pay back to the
@@ -609,11 +673,18 @@ export async function guildStores({ db, nowS }, player, env, { character } = {})
   };
 }
 
+/** What a character holds of its own deposit of a material in its guild's Stores. */
+async function ownDeposit(db, g, key, me, character) {
+  const r = await db.prepare('SELECT qty FROM guild_prof_stores WHERE guild_id = ?1 AND material = ?2 AND dep_player = ?3 AND dep_char = ?4')
+    .bind(g, key, me, character).first();
+  return Number(r?.qty ?? 0);
+}
+
 /**
  * A MOVE of the guild Stores: `{ character, material, units, rid }`. A deposit is any member's: from the character's
  * Stores, bought first - the bought units the guild's, the own kept under the character. A withdrawal is an Officer's
- * or the Guildmaster's: into the character's Stores (under its 5,000) - the character's own deposit first, back as
- * own; then the guild's, then the other members' deposits, bought.
+ * or the Guildmaster's - or any member's, up to their own deposit (AUDIT 31 R1) - into the character's Stores (under its
+ * 5,000): the character's own deposit first, back as own; then the guild's, then the other members' deposits, bought.
  */
 async function moveGuildStores(ctx, player, env, { character, material: key, units, rid } = {}, kind) {
   const { db, nowS, rand } = ctx;
@@ -634,9 +705,10 @@ async function moveGuildStores(ctx, player, env, { character, material: key, uni
   const a = await guildActorOf(db, player, character);
   if (a.error) return a;
   const rank = Number(a.me.rank);
-  if (kind === 'withdraw' && !writMay(rank, 'storesWithdraw')) return { error: 'guild-rank' };
-  if (await acting(ctx, player)) return { error: 'writ-rate' };
   const g = a.me.guild_id;
+  // AUDIT 31 R1: any member takes back their own deposit; the rest is an Officer's or the Guildmaster's
+  if (kind === 'withdraw' && !guildTakeMay(rank, units, await ownDeposit(db, g, key, me, character))) return { error: 'guild-stores-mine' };
+  if (await acting(ctx, player)) return { error: 'writ-rate' };
   const who = displayName(player);
   const nonce = mintId(rand);
   const moved = 'EXISTS (SELECT 1 FROM guild_store_moves WHERE player = ?1 AND rid = ?5 AND n = ?6)';
@@ -660,12 +732,15 @@ async function moveGuildStores(ctx, player, env, { character, material: key, uni
       ON CONFLICT (guild_id, material, dep_player, dep_char) DO UPDATE SET qty = guild_prof_stores.qty + excluded.qty,
         moved_by = excluded.moved_by, moved_at = excluded.moved_at`).bind(me, rid, nonce, who),
   ] : [
-    // THE DECISION: still of a rank that withdraws, the units in the guild Stores, the character's Stores' room - the
-    // own share what the character's own deposit holds
+    // THE DECISION: still of the rank read - one that takes the guild Stores out, or (AUDIT 31 R1) any, for no more than
+    // the character's own deposit - the units in the guild Stores, the character's Stores' room; the own share what the
+    // character's own deposit holds
     db.prepare(`INSERT OR IGNORE INTO guild_store_moves (player, rid, char_id, guild_id, kind, material, units, own, at, n)
       SELECT ?1, ?2, ?3, ?4, 'withdraw', ?5, ?6,
         MIN(?6, COALESCE((SELECT qty FROM guild_prof_stores WHERE guild_id = ?4 AND material = ?5 AND dep_player = ?1 AND dep_char = ?3), 0)), ?7, ?8
       WHERE EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND char_id = ?3 AND guild_id = ?4 AND rank = ?9)
+        AND (?9 IN (${TAKERS_SQL})
+          OR COALESCE((SELECT qty FROM guild_prof_stores WHERE guild_id = ?4 AND material = ?5 AND dep_player = ?1 AND dep_char = ?3), 0) >= ?6)
         AND COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = ?4 AND material = ?5), 0) >= ?6
         AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?3 AND material = ?5), 0) + ?6 <= ?10`)
       .bind(me, rid, character, g, key, units, nowS, nonce, rank, STORES_MAX),
@@ -697,10 +772,12 @@ async function moveGuildStores(ctx, player, env, { character, material: key, uni
     const held = await storeOf(db, me, character, key);
     return { error: held.own + held.bought < units ? 'stores-short' : 'guild-stores-full' };
   }
+  if (!guildTakeMay(rank, units, await ownDeposit(db, g, key, me, character))) return { error: 'guild-stores-mine' };   // taken out between
   const t = await db.prepare('SELECT COALESCE(SUM(qty), 0) AS n FROM guild_prof_stores WHERE guild_id = ?1 AND material = ?2').bind(g, key).first();
   return { error: Number(t?.n ?? 0) < units ? 'guild-stores-short' : 'stores-full' };
 }
 /** DEPOSIT to the guild Stores: `{ character, material, units, rid }` - any member's. */
 export const depositGuildStores = (ctx, player, env, body) => moveGuildStores(ctx, player, env, body, 'deposit');
-/** WITHDRAW from the guild Stores: `{ character, material, units, rid }` - an Officer's or the Guildmaster's. */
+/** WITHDRAW from the guild Stores: `{ character, material, units, rid }` - an Officer's or the Guildmaster's; any
+ *  member's, of their own deposit. */
 export const withdrawGuildStores = (ctx, player, env, body) => moveGuildStores(ctx, player, env, body, 'withdraw');

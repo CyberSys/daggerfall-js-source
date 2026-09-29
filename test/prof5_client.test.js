@@ -121,8 +121,9 @@ test('PROF5 book: a piece listed is taken out of the save before it is asked - s
   const piece = { item, where: 'pack', take: () => { pack.splice(pack.indexOf(item), 1); return true; }, putBack: (it) => pack.push(it) };
   const r = await a.list({ region: 17, kind: 'piece', provenance: PROV, wear: 1000, price: 5 }, piece);
   assert.deepEqual([r.ok, r.kept, r.text, pack.length, a.pending], [false, true, MARKET_KEPT_TEXT, 0, 1], 'out of the pack, kept');
-  // a refusal on the settle puts it back
-  online = true; answer = 'market-not-yours';
+  // a refusal on the settle puts it back (AUDIT 31 H1: one that says nothing of where the piece is - a piece the service
+  // says is elsewhere is dropped, test/audit31_client.test.js)
+  online = true; answer = 'market-listings-max';
   await a.settle(() => {}, (it) => pack.push(it));
   assert.deepEqual([pack.length, a.pending], [1, 0], 'refused: back in the pack');
   assert.equal(new Set(asked).size, 1, 'one id, asked again');
@@ -272,11 +273,11 @@ test('PROF5 window: the Market tab stands beside Notices while the market is thi
 test('PROF5 wiring: the host builds the market book online, its answers told to the Marks book; the board hands the Market its own region, the hubs, the pieces and the mint; a piece minted once at its wear; the smith\'s stock tells the Marks book (FOUND); a kept craft settles alone (FOUND); the plane dressed (FOUND)', () => {
   const w = src('src/scenes/world.js');
   assert.match(w, /const marketBook = params\.has\('online'\)\n\s*\? createMarketBook\(\{ door: accountMarket\(/);
-  assert.match(w, /now: \(\) => Date\.now\(\) \+ _sharedOffsetMs, marks: marksBook,\n\s*stores: \{ apply: \(st\) => profBook\?\.applyStore\(st\) \} \}\)/);   // AUDIT 30 U1: the Stores told too
+  assert.match(w, /now: \(\) => Date\.now\(\) \+ _sharedOffsetMs, marks: marksBook,\n\s*stores: \{ apply: \(st\) => profBook\?\.applyStore\(st\) \},/);   // AUDIT 30 U1: the Stores told too (AUDIT 31: its holds after)
   assert.match(w, /const market = marketBook && profBook\?\.state\.open === true && marksBook\?\.state\?\.open !== false && Number\.isInteger\(region\) \? \{/);   // AUDIT 30 U11
   assert.match(w, /character: \(\) => characterIdOf\(playerEntity\), work, market,\n/);
-  assert.match(w, /if \(have\.has\(piece\.provenance\)\) return;\n\s*const it = mintPiece\(piece, piece\.provenance\);\n\s*if \(!it\) return;\n\s*if \(it\.maxCondition > 0\) it\.currentCondition = wearCondition\(it\.maxCondition, piece\.wear\);/);
-  assert.match(w, /\.filter\(\(it\) => it\?\.provenance && asMinted\(it\) && !tradeRefusal\(it\) && !isLocked\(it\)\)/);   // AUDIT 30 C2
+  assert.match(w, /if \(heldProvenances\(\)\.has\(piece\.provenance\)\) return;\n\s*const it = mintPiece\(piece, piece\.provenance\);\n\s*if \(!it\) return;\n\s*if \(it\.maxCondition > 0\) it\.currentCondition = wearCondition\(it\.maxCondition, piece\.wear\);/);
+  assert.match(w, /\.filter\(\(it\) => it\?\.provenance && asMinted\(it\) && !tradeRefusal\(it\) && !isLocked\(it\) && !pieceKept\(it\.provenance\)\)/);   // AUDIT 30 C2
   assert.match(w, /const r = await profBook\.stock\(material, qty\);\n\s*if \(Number\.isSafeInteger\(r\?\.data\?\.balance\)\) marksBook\?\.set\(r\.data\.balance\);/);
   assert.match(src('src/ui/profPages.js'), /if \(\(book\.pendingWithdrawals \|\| book\.pendingCrafts\) && p\.settle/);
   assert.match(src('src/scenes/gatherHost.js'), /if \(book\.pendingWithdrawals \|\| book\.pendingCrafts\) deps\.onSettle\?\.\(\);/);

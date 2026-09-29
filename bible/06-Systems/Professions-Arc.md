@@ -826,7 +826,9 @@ note's answer plan, one shape from every exit) and the window driven on the mini
   passes through the board (its provenance kept).
 - **Bounties**: the Bounty Edict's camps (SEAT0 7.6).
 - **In person**: a writ is taken at any board and delivered at the board that posted it: the delivery comes out of
-  the Stores, and the deliverer must stand at that board (the relay knows it).
+  the Stores, and the deliverer must stand at that board (the relay knows it). AUDIT 31 R6: as built by PROF6 (28), a
+  guild writ is delivered at ANY board of its region, on the client's word - the relay's witness is SEAT1b's, where a
+  delivery raises influence; until then a lie buys a fast travel's worth, as a listing's does (26).
 
 ## 12. Why a player comes back
 
@@ -851,7 +853,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | A modified client gathers at night | The service checks the act's hour on the shared clock itself (section 6) |
 | Marks buy influence (materials bought at their value, then delivered to a seat) | Only **own** units count at their value; bought units at Tribute's rate inside its cap; counter goods never (section 7, 11) |
 | An alt or an outsider fills a guild's seat writ for influence | Only a 7-day member bound to the guild for the week earns influence by delivery; the rest earn the pay (section 11) |
-| An Officer drains the Marks treasury through writs to an alt | Writ posting is the Guildmaster's, or an Officer's within a budget; pay at most 1.5 x the materials' value (section 11) |
+| An Officer drains the Marks treasury through writs to an alt | Writ posting is the Guildmaster's, or an Officer's within a budget; pay at most 1.5 x the materials' value (section 11); and no rank that takes the guild Stores out delivers to its guild's writs, so the same units are never sold to the guild twice (AUDIT 31 S6, section 28) |
 | One character does everything | Two crafts above Journeyman (3.2) |
 | Crafting obsoletes loot | Rare at most (law 7) |
 
@@ -876,7 +878,8 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 - `prof_choices` (player, rid, char_id, profession, rank, spec, at, n) - BUILT, `0022_audit29.sql` (AUDIT 29: a free
   first specialisation's row, found by its id before the switch; a paid change keeps its Marks line, which names its
   track)
-- `recipes_known` (player, char_id, recipe) - not yet: every recipe unlocks by rank until the found ones come (PROF6)
+- `recipes_known` (player, char_id, recipe) - not yet: every recipe unlocks by rank until the found ones come (PROF6b -
+  AUDIT 31 R8: PROF6 gave them their own slice, 28)
 - `products` (provenance PK, template, material, quality, maker, made_at, listed) - BUILT, `0023_smithing.sql` (PROF3:
   provenance, owner, char_id, maker, recipe, template, material, quality, seed, record, made_at, listed), with
   `prof_crafts` (a craft's row) and `prof_stock` (a purchase from the smith's stock); `0024_logging.sql` (PROF4) adds
@@ -928,7 +931,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF4** - SHIPPED 2026-09-28 (at `dev`, section 25) | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
 | **PROF5** - SHIPPED 2026-09-29 (at `dev`, section 26) | The Market tab: listings, regional markets, couriers, buy orders, history; the Weavers' counter | A crafted Mithril Longsword listed in one region is bought from another by courier and reaches its buyer's pack, its owner moved. Needs MARKS1, NOTICE1, PROF3 (all shipped) |
 | **PROF5b** - SHIPPED 2026-09-29 (at `dev`, section 27) | Timed auctions for Masterworks: the Auctions view, bids escrowed, the last two minutes' two, settled on read | A Masterwork posted in Daggerfall is bid on from Wayrest and Daggerfall, the outbid escrow returned, and at its end the winner's piece is theirs, the seller paid less the tax. Needs PROF5 (shipped) |
-| **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT1b, bounties with SEAT1d's Edicts | A Guildmaster's and an Officer's writ delivered by an outsider and a member into the guild Stores; a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
+| **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT1b, bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
 | **PROF6b** | Found and writ-only recipes (9.1): the Recipe Scroll (695), the found recipes named, a guild's posted recipe reward | Needs a witnessed roll for loot's 1 in 500, and PROF2b's Motherlode for its 1 in 20 |
 | **PROF7** | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | Needs FORAGE1-2 (shipped: the shelves' registry) |
 | **PROF8** | Fishing with the net (the throw, the tug, the haul) | Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
@@ -978,9 +981,20 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
 - **A character is deleted**: its Stores, tracks, specialisations and recipes go with it (the delete dialog lists
   them); its Marks stay, because Marks are the account's.
 - **An account is deleted**: its Marks go; its live listings are cancelled and their goods burnt; its buy orders'
-  escrow is burnt; a guild it led runs GUILD1's `succeed()`.
+  escrow is burnt; a guild it led runs GUILD1's `succeed()`. **OPEN** (AUDIT 31 S1, S2, S7, R13): no route deletes an
+  account today (FACT: nothing deletes a `players` row), and its rows cascade, so the route that does must first answer
+  for what the cascade would strand - an auction it posted (its bids go with it, and every bidder's escrow with no
+  line: void and return them first), a bid it leads (the auction closes unsold at its end - BUILT, AUDIT 31 S1), a
+  commission it posted (its escrow returned or burnt by a line) or names (declined, its pay home - BUILT, PROF6), an
+  order's escrow (burnt by a line, as said), and a guild left with no one (never reclaimed for its name while it keeps
+  anything - BUILT, AUDIT 31 S7).
+- **The Tithe** (10.4) is nought until SEAT1 sets a holder's rate. **OPEN** (AUDIT 31 L5): a sale, an auction's close,
+  a guild writ's delivery and a commission's fill write no Tithe line - so SEAT1 writes the Tithe's line (to the
+  holder, or burnt) wherever it takes one BEFORE it raises the rate, or the Tithe is taken from a sale and credited to
+  no one (pinned at nought: `test/audit31_law.test.js`).
 - **A guild disbands** (or its last member leaves): refused while its gold treasury or its guild Stores hold anything
-  (GUILD1's rule, grown a clause - BUILT with PROF6, and while one of its writs stands: section 28), while it holds a Charter and while a Right of Siege or a Tourney is pending (SEAT0
+  (GUILD1's rule, grown a clause - BUILT with PROF6, and while one of its writs stands, or a closed one's pay waits for
+  the treasury's room - AUDIT 31 A15: section 28), while it holds a Charter and while a Right of Siege or a Tourney is pending (SEAT0
   16). Its Marks refuse nothing: they go to its guildmaster in the same batch as the delete (AUDIT 28 M3/M5 - a switch
   the guildmaster could not pass would otherwise lock the guild for good), refused only past the guildmaster's cap.
 - **The Stores are full** (5,000 of a material): the prompt says so before the act ("Stores full - Oak Logs"), so a
@@ -1357,7 +1371,7 @@ Mac: **"Lets keep moving"** (PROF3 after the merge of main). What the design abo
   Repair Kit - made at **the anvil**, each with **the heat** (9.4) or a quick craft; 9.2's **quality**, rolled by the
   service; a **provenance id** and a **signed product record** for every piece (9.1); the recipe law
   (`src/net/recipeLaw.js`, section 14's name for it). Not here, named: found and writ-only recipes (the Recipe Scroll
-  695 is PROF6's writs' and the Motherlode's, PROF2b), a seat's Forge step (SEAT1b), listing and trading a provenance
+  695 is PROF6b's - AUDIT 31 R8: PROF6 gave it its own slice, 28 - and the Motherlode's, PROF2b), a seat's Forge step (SEAT1b), listing and trading a provenance
   item (PROF5, and TRADE1's hand-over, section 18), Disenchanting and enchanting a provenance item (PROF12).
 - **The anvil is the forge's other half.** FACT: "the forge stands since PROF2" (section 15) - a Weaponsmith's or an
   Armorer's, or a home's forge station, the Stores page's Forge section (`ui/profPages.js`). DECIDED: the anvil stands
@@ -1646,7 +1660,8 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   and the law carries the Tithe's term at nought until SEAT1 sets it; Bandit Summer's doubled courier (SEAT0 9.3's
   Tides are not built); **the Apothecaries' counter** (4.5) - DECIDED: its sixteen ingredients are the brewing act's
   (9.3), so it stands with PROF12's Alchemy, where they have a use; TRADE1's hand-over of a provenance id (section 18,
-  TRADE1's own slice); the guild Stores' listings; commissions (PROF6).
+  TRADE1's own slice); the guild Stores' listings (AUDIT 31 R8: PROF6 built the guild Stores, 28, and lists nothing
+  from them - a member takes out and lists as any seller); commissions (PROF6, built).
 - **The Market tab** stands beside Notices and Work on every Notice Board, while the board, the professions and the
   Marks are all open to the account (`BOARD_OPEN`, `PROFESSIONS_OPEN`, `MARKS_OPEN` - DECIDED: no switch of its own,
   section 20 names three; the service's word when any is shut is `market-closed`). FOUND: the window learns its
@@ -1861,29 +1876,39 @@ hours, a 5% minimum raise, and a bid in the last 2 minutes adds 2"), DECIDED her
   own region's board, else after the courier's time (26's deliveries, collected by the book).
 - **The terms** (`src/net/marketLaw.js`): the opening bid 1 to 1,000,000 Marks (a listing's price bounds); a bid up to
   MARKS_MAX; the next bid is the opening while none stands, else the standing bid plus `max(1, ceil(5%))`
-  (`auctionNext`); a bid whose moment is within 120 seconds of the end moves the end 120 seconds on (`auctionEnd` -
-  "adds 2", as said, so a run of late bids keeps adding; the 5% raise and the Marks cap bound it). The **fee** is a
+  (`auctionNext`); a bid made with **less than** 120 seconds left moves the end 120 seconds on (`auctionEnd` - "adds
+  2", as said, so a run of late bids keeps adding; the 5% raise and the Marks cap bound it; AUDIT 31 L4: this line said
+  "within 120 seconds" - a bid with exactly 120 left adds nothing, and the service's own SQL is pinned at the edge). The **fee** is a
   listing's, 1% of the opening bid (at least 1), burnt when it is posted and kept if it is cancelled; the **sales tax**
   5% of the winning bid, the Tithe's term at nought as 26's.
 - **The Marks**: a bid is **escrowed** - its amount and its courier, one ledger line on 26's `escrow` end keyed by the
   bid's own id (`<rid>:bid`), so a bidder cannot spend them elsewhere while the bid stands. An outbid bid's escrow is
   returned on its bidder's next read of the market (under the Marks cap, else it waits, as an order's return does) -
   DECIDED: not in the new bid's own batch, because a return that broke the outbid bidder's cap would refuse the new
-  bid. The standing bidder may not bid again (`auction-leading`); the seller never (`market-own`). At its end the
+  bid. The standing bidder may not bid again (`auction-leading`); the seller never (`market-own`). A bid another bid
+  overtook between its read and its decision, though it would still beat the new one, is refused in its own word,
+  `auction-moved` (AUDIT 31 S4 - it read "no longer on the market" while the auction stood), and the view read again;
+  a bid past the Marks cap is `bad-bid` (AUDIT 31 L6 - it was a price's word, "1 to 1,000,000"), and the tab says so
+  where the next bid is past any balance. At its end the
   winner's escrow pays: the seller the bid less its tax, the tax burnt, the courier burnt - three lines keyed on the
   auction (`auction:<id>:sale`, `:tax`, `:courier`), so its close happens once.
 - **Settled on read** (26's law): an auction past its end is closed by the **next read of the market by anyone** -
   its seller, its winner and its outbid bidders each need it, so the sweep is every reader's, at most twenty a read,
   one batch each, keyed on a nonce. Sold, its owner moves to the winner and the winner's delivery is written; the
   seller's room under the Marks cap is asked first (else the close waits, re-asked each read - the winner's escrow
-  held). Unsold (no bid), or removed by a moderator, the piece goes back to its seller as a returned delivery on the
+  held; AUDIT 31 S3, DECIDED: **seven days at most** past its end, `AUCTION_GRACE_S` - then the winning bid is void,
+  its escrow back on its bidder's read, and the piece back to its seller unsold: a winner's Marks are never held
+  without end for a seller who does not spend). AUDIT 31 S1: an auction whose standing bid's row is gone (its bidder's
+  account deleted - no route does it, 18) closes unsold at its end, never a sale to no one - a product's owner written
+  NULL failed every market read after. Unsold (no bid), or removed by a moderator, the piece goes back to its seller as a returned delivery on the
   seller's next read, as an expired listing's does.
 - **Cancel**: the seller's, while no bid stands (`auction-bid-standing`) - the piece answered back to the pack, the fee
   kept. **Report and remove** (section 20): an auction is reportable as a listing is (its own report table - the
   listings' is keyed to `market_listings` by a foreign key), and a moderator's removal voids the standing bid (its
   escrow back on its bidder's next read) and returns the piece.
 - **Counts**: an open auction counts among the account's **thirty** listings (10.2's cap is the account's sales
-  standing). A bid counts among the market's acts an hour (`market:<id>`, MARKET_OPS_MAX); a post among its posts.
+  standing - AUDIT 31 L1: an auction past its end, a won one waiting on its seller's cap, stands no longer and counts
+  no longer). A bid counts among the market's acts an hour (`market:<id>`, MARKET_OPS_MAX); a post among its posts.
 - **Ids and repeats** (PROF1's law, AUDIT 30's lines): a post's row keyed `(seller, rid)`, a bid's `(bidder, rid)`,
   each looked up before the switch and answered `repeat`; every ledger line an auction writes under its own suffix
   (`:afee` - never a listing's `:fee`, which one id could otherwise hold twice - `:bid`, `bid-return:<id>`,
@@ -1893,7 +1918,7 @@ hours, a 5% minimum raise, and a bid in the last 2 minutes adds 2"), DECIDED her
   the picked row's **Bid** with the next bid filled in, or "Your bid leads", or "Your auction" with Cancel while none
   stands. **List on the market** offers "An auction (Masterworks)": the Masterworks in the pack and the home, an
   opening bid, the fee and the terms said. **My listings** shows the account's auctions and its bids (leading,
-  outbid, won, lost). "Your Marks" says what the bids hold. **Your trades** counts an auction won or sold.
+  outbid, won, void - AUDIT 31 R10: this said "lost", a state no bid has - each with whether its Marks are back). "Your Marks" says what the bids hold. **Your trades** counts an auction won or sold.
 - **The service** is `acct27`; `0026_auctions.sql` holds the auctions, the bids and the auction reports; the ledger's
   new kinds `bid-escrow`, `bid-return` and `auction-sale` move Marks, the fee and the tax are 26's burns.
 - **Done when**: a Masterwork posted in Daggerfall is bid on from Wayrest and from Daggerfall, the Wayrest bid outbid
@@ -1928,7 +1953,13 @@ As built:
 - **Pinned**: `test/prof5b_law.test.js` (3), `test/prof5b_service.test.js` (5), `test/prof5b_client.test.js` (4);
   `tools/mutants/prof5b.json`, 40 mutants, 35 dead and five recorded equivalent (the raise's floor of a Mark, which the
   ceiling of 5% of a whole Mark already gives; the post's Masterwork guard, the cancel's standing-bid word, the bid's
-  leader word and its low word - each an early refusal whose decision asks the same). The done-when is
+  leader word and its low word - each an early refusal whose decision asks the same). AUDIT 31 R5: the last two were
+  NOT equivalent - the early words come before the courier's road, so a leader's bid under the next, or a low bid from
+  a board with no known road, said the road; pinned (`test/audit31_service.test.js`), they are dead now (37 dead, three
+  equivalent).
+- **AUDIT 31** (Online-Arc "AUDIT 31") corrected this section in place, each line marked. **The four hosts** (17.1 -
+  AUDIT 31 H7: this section did not say): the streaming world wires the Auctions view as it wires the Market tab (26);
+  the fixed city keeps DFU's board; the interiors and dungeons have no boards. The done-when is
   `prof5b_service`'s DONE WHEN, through the real Worker; `prof5b_client`'s the books'.
 
 ## 28. PROF6 - Guild writs, the guild Stores and commissions, as built (SHIPPED 2026-09-29, at `dev`)
@@ -1963,12 +1994,18 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   catalogue - what something yields); **1 to 5,000 units** (a character's Stores' most of a material); **pay each a
   whole number of Marks, 1 to 1.5 x the material's value, rounded down** (11, 4.8 - "pay may not exceed 1.5 x the
   materials' value"; a tier-1 material pays 1); the whole pay **escrowed from the guild's Marks treasury** when it is
-  posted (a `guild` to `escrow` line, `writ-escrow`, keyed `<rid>:wesc`); **7 days**; **20 open a guild**; posted
-  at a Notice Board, for the boards of its region (the client's word, as a listing's - what a lie buys is a fast
+  posted (a `guild` to `escrow` line, `writ-escrow`, keyed `<rid>:wesc`); **7 days**; **20 open a guild** (AUDIT 31
+  L1: the twenty that STAND - one past its seventh day and not yet swept is not among them); and (AUDIT 31 L9) posted
+  only with **the guild Stores' room** for it - what they hold of the material and what its standing writs still want
+  (`guild-stores-full` at the post, never at the last deliveries); posted at a Notice Board, for the boards of its region (the client's word, as a listing's - what a lie buys is a fast
   travel's worth). Posts - a guild writ's and a commission's together - are **20 an hour** an account (20's "writ
   posts 20").
 - **Guild writs - a delivery.** Anyone with a character, in the guild or not (11: "anyone else's delivery earns the pay
-  alone"), at a board of the writ's region, delivers **any number of units up to what is left**, from the Stores,
+  alone") - **but for the ranks that take the guild Stores out** (AUDIT 31 S6, DECIDED): an account one of whose
+  characters is the writ's guild's Officer or Guildmaster delivers to none of its writs (`writ-own-guild`), for such a
+  rank could deliver, take the same units back out and deliver again, the Officers' budget (or the treasury) its own
+  Marks for no material spent - where GUILD1's law is that the Guildmaster alone withdraws Marks - at a board of the
+  writ's region, delivers **any number of units up to what is left**, from the Stores,
   **bought first** (a Court writ's rule, 22); **partial fills pay pro rata** (11) - the units times the pay each, less
   the **sales tax** (5%, reckoned on the writ's running total, as a buy order's fill - DECIDED: a guild writ is its
   guild's buy order at a bound price, so it pays the order's tax; untaxed it would be the one sale in the Bay that
@@ -1983,7 +2020,10 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   reader's settle reaches it), at most twenty a read, waiting while the treasury is full.
 - **The guild Stores** (7): a guild warehouse on the service, **50,000 of a material** at most (ten characters'
   Stores, since a seat's works ask for hundreds). **Any member deposits** from their character's Stores, bought units
-  first; **Officers and the Guildmaster withdraw** into theirs, under its 5,000. **Origin** (7): a member's own units
+  first; **Officers and the Guildmaster withdraw** into theirs, under its 5,000 - and (AUDIT 31 R1) **any member takes
+  back their own deposit**, no more than it (`guild-stores-mine`): the record promised every member their own back
+  while only an Officer could take it out (as bought), and a member who left stranded it. A member who leaves the
+  guild leaves their deposit in it - theirs again if they rejoin, an Officer's to take last meanwhile. **Origin** (7): a member's own units
   are kept under that member (the character) as their deposit - **own again when that member withdraws them, bought to
   any other**; bought units and a writ's units are the guild's, bought to whoever withdraws them. A withdrawal takes
   the withdrawer's own deposit first, then the guild's, then the other members' deposits (so a guildmate's harvest is
@@ -1993,13 +2033,18 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   guild hall exists to stand at (7 says "at its hall and any seat it holds"; a seat is SEAT1's); the Stores tab shows
   the character's own, as before.
 - **A guild disbands** (18): refused while its guild Stores hold anything (`guild-stores` - 18's grown clause) or a
-  writ of its stands (`guild-writs`), beside GUILD1's gold treasury.
+  writ of its stands (`guild-writs`), beside GUILD1's gold treasury - or (AUDIT 31 A15) while a closed writ's pay is
+  still on its way back to a full treasury (`guild-writ-escrow`: the escrow waits, no writ stands). AUDIT 31 S7: a
+  guild nobody is left in (every member's account gone - no route does it, 18) is reclaimed for its name and tag only
+  while it keeps nothing, as any going - never with its gold, its Marks, its guild Stores or a writ.
 - **Commissions** (11): a registered player posts one at a board, naming **a crafter by handle** (the letter's `to`
   rule - the author is the handle; never oneself) and **a piece**: a recipe of a listable crafted family (PROF5's -
-  weapons, armour, staves, bows, tools, kits, furniture; never arrows or siege works) and, where the recipe has a
+  weapons, armour, staves, bows, tools, kits, furniture; never arrows or siege works - and, AUDIT 31 L2, one someone
+  could make now: never a Daedric or Warforged piece, whose metal nothing yields, `commission-unyielded`) and, where the recipe has a
   quality (a kit has none), **the least quality** it will take (Crude to Masterwork). **Pay 1 to 1,000,000 Marks** (a
   listing's price bounds), escrowed from the poster's balance (`commission-escrow`, keyed `<rid>:cesc`); **7 days**;
-  **5 open an account**, and **20 open naming one crafter** (so no one can bury a crafter's list). No fee (a buy
+  **5 open an account**, and **20 open naming one crafter** (so no one can bury a crafter's list - AUDIT 31 L1: the
+  twenty that STAND; a crafter's own Work read closes those naming them that ran out, which their Yours then shows). No fee (a buy
   order has none); no words of its own (the recipe and the quality say it - so nothing to report).
 - **A commission filled**: **only the named crafter**, at a board of its region, hands over **a piece of their own
   make** - its product row their account's, crafted by it (`prof_crafts`, either of a craft's two pieces - so a
@@ -2008,7 +2053,14 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   client's `asMinted`, as a listing's), and **unworn** (DECIDED: a commission is new work; the wear is the client's
   word, as a listing's, and a lie mints the poster the whole piece of what the crafter made). The piece leaves the
   crafter's save kept before it is asked (the market's kept piece), its **owner moves** to the poster, and it reaches
-  the poster as a **delivery** (PROF5's) at once - collected on their next read, the Work tab's or the Market tab's.
+  the poster as a **delivery** (PROF5's) at once - collected at **the Market tab**, by the character that posted it
+  (AUDIT 31 R3, H6: the record said "the Work tab's or the Market tab's" - the Work tab collects nothing; its Yours
+  says "filled - collect it at the Market tab", and lets the market's minute of cache go when it shows one). A piece
+  that cannot go says where it is (AUDIT 31 S5): listed (`market-listed`), on its way to the crafter still
+  (`market-uncollected` - it read "stands in a home"), standing in a home (`market-standing`); a piece the service has
+  no record of at all, `market-no-record` (never "another owner's"). The Work read names, for the crafter, **the pieces
+  of their make that would fill each commission naming them** in the board's region (`eligible`, the least quality
+  first - AUDIT 31 U7), and the Fill offers those alone, each with its quality.
   The crafter is paid the pay less the **sales tax** (a sale is a sale), under their cap (`commission-pay`).
 - **Withdrawn, declined, expired**: the poster withdraws while it stands; **the crafter may decline it** (DECIDED: a
   crafter owes no one work); either way, and at its seventh day, the escrow returns to the poster
@@ -2019,29 +2071,44 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   needs 280 more Cut Stone - pays 2 Marks each - 520 / 800 delivered"; **Deliver** a number from the Stores), then this
   region's **commissions** (green: "For Silverthorn only: a Mithril Longsword, Fine or better - pays 900 Marks - 5
   days left"; **Fill** for the named crafter, with a piece chosen from the pack); **Yours**: the account's
-  commissions posted and naming it, every region (Withdraw, Decline, Fill here where the board is its region), and the
-  guild's open writs, every region (Withdraw where the rank may). **Post a guild writ** (a Guildmaster's or an
+  commissions posted and naming it, every region, and the guild's open writs, every region (Withdraw where the rank
+  may) - AUDIT 31 U4: the record said Yours had Withdraw, Decline and Fill; as built it had Withdraw alone. Yours
+  withdraws one's own, and declines one naming you (Decline is pressed twice, U11) and says where it is filled - "Fill
+  it on its card above" here, "Filled at the boards of Wayrest" elsewhere: a card is always this board's region's. **Post a guild writ** (a Guildmaster's or an
   Officer's - the escrow and the budget left said) and **Commission a piece** (the crafter, the recipe by family, the
-  least quality, the pay). "Court writs today: 1 of 3" stays at its foot.
+  least quality, the pay). "Court writs today: 1 of 3" stays at its foot. AUDIT 31: the guild writs and commissions
+  stand in the Court's own grid (U14); every field is named on the page, and a button the service would refuse says
+  why - the budget none, one's own name, the Marks, five standing, twenty writs, the guild Stores' room, one's own
+  guild's writ (U2, U10); none of it is offered while the service says it is not the account's (`writsOpen`, U5 - the
+  note's button too); the forms' drafts are the writs' book's, and Escape closes an open form before the window (U12);
+  the field being typed in, its caret and the list's scroll survive every redraw (U1 - the window emptied itself before
+  the tab looked for the focus, so AUDIT 30 U8's keeping never worked in a browser).
 - **The Guild tab** (social panel): **Guild Stores** - the materials and counts, "yours" beside a member's own deposit;
-  **Deposit** from the character's Stores; **Withdraw** for Officers and the Guildmaster; the last moves. **Writ
+  **Deposit** from the character's Stores; **Withdraw** for Officers and the Guildmaster, and (AUDIT 31 R1) a member's
+  own deposit; the last moves. AUDIT 31 H2: read again at each look at the tab and kept per guild AND character; a
+  read refused says why, with Try again (it said "Reading the guild Stores..." for the session's life); U8: every
+  number the service bounds - a move's 1 to 5,000, the Stores held, the guild Stores' room, one's own deposit - is
+  bounded before the press. **Writ
   budget**: the Guildmaster sets it; everyone of a rank that posts reads what is left this week.
 - **The note's button**: a note may carry **Commission a piece** (10.6) - a crafter's advertisement; pressed, the
   board's Work tab opens its commission form with the author named. FACT: `board_notes.button` is a CHECK of three
   kinds (`0019_board.sql`), so the table is rebuilt for the fourth.
-- **Ids and repeats** (PROF1's law, AUDIT 30's lines): every post, delivery, fill, withdrawal, decline, deposit and
-  withdrawal of the guild Stores is a row keyed `(account, rid)`, looked up before the switch and answered `repeat`;
+- **Ids and repeats** (PROF1's law, AUDIT 30's lines): every post, delivery, fill and guild Stores move is a row keyed
+  `(account, rid)`, looked up before the switch and answered `repeat` (AUDIT 31 R7: the record said every act - a
+  writ's withdrawal and a commission's cancel or decline answer their repeat off the row's own state, and a budget is
+  a set);
   every ledger line under its own suffix (`:wesc`, `:wpay`, `:wtax`, `:cesc`, `:cpay`, `:ctax`, and the service's own
   `writ-return:<id>`, `commission-return:<id>`), a plain INSERT; each decision refuses an id whose line the ledger
   holds (`prof-rid`).
 - **The weekly report** counts the Marks in escrow from the ledger's own escrow end (what went in, less what came out)
   - so the orders', the bids', the guild writs' and the commissions' are one number.
-- **The service** is `acct28`; `0027_writs.sql` holds the guild writs and their deliveries, the writ budgets, the guild
+- **The service** is `acct28` (`acct29` after AUDIT 31); `0027_writs.sql` holds the guild writs and their deliveries, the writ budgets, the guild
   Stores and their ledger and moves, the commissions, and the notes' rebuilt button; the ledger's six new kinds each
   move Marks (`writ-escrow`, `writ-pay`, `writ-return`, `commission-escrow`, `commission-pay`, `commission-return`).
 - **Done when**: a Guildmaster posts a writ for 100 Oak Logs at 3 Marks each in Daggerfall; an Officer posts one within
   the budget and is refused past it; an outsider delivers 40 and a member 60 - each paid pro rata less the tax, the
-  writ filled, the logs in the guild Stores; the member withdraws them bought, and their own deposit comes back own; a
+  writ filled, the logs in the guild Stores; an Officer withdraws them bought, and the member's own deposit comes back
+  own to the member (AUDIT 31 R1: this line said the member withdrew them - a Member could not); a
   crafter advertises with a note, a reader commissions a Mithril Longsword of Fine or better through its button, the
   crafter fills it with a piece of their own make and it reaches the poster's pack, its owner moved, the crafter paid
   less the tax - through the real Worker.
@@ -2077,6 +2144,13 @@ As built:
   `tools/mutants/prof6.json`, 77 mutants, 76 dead and one recorded equivalent (the budget's early rank word, whose
   decision asks the rank itself). The done-when is `prof6_service`'s DONE WHEN, through the real Worker; `prof6_client`'s
   the books'.
+- **The four hosts** (17.1 - AUDIT 31 H7: this section did not say): the streaming world wires the Work tab's guild
+  writs and commissions (the board's region, the writs' book, the pieces that answer a commission - pack, home's
+  things, wagon, a repairer's hands), and the Guild tab's guild Stores wherever the social panel opens; the fixed city
+  keeps DFU's board (NOTICE1's flag); the interiors and dungeons have no boards.
+- **AUDIT 31** (Online-Arc "AUDIT 31") corrected this section in place, each line marked; its pins are
+  `test/audit31_law.test.js`, `test/audit31_service.test.js`, `test/audit31_client.test.js` and
+  `test/audit31_tabs.test.js`, its mutants `tools/mutants/audit31.json`.
 
 ## Appendix A - a day of a gatherer
 

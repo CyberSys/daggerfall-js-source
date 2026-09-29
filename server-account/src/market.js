@@ -65,7 +65,7 @@ import {
   MARKET_VIEWS, CRAFTED_FAMILIES, unitsOk, priceOk, wearOk, provenanceOk, listingFee, saleTaxOn, saleTithe, hubReport, hubPixelOk,
   MARKET_WORTH_MAX, UNYIELDED, pieceListable, MARKET_TAX_PCT, MARKET_TITHE_PCT,
   hubPixel, roadPixels, courierFee, courierSeconds, medianOf, medianLine, marketCatalogue,
-  AUCTION_S, AUCTION_LATE_S, AUCTION_ADD_S, bidOk, auctionNext, auctionable,
+  AUCTION_S, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_GRACE_S, bidOk, auctionNext, auctionable,
 } from '../../src/net/marketLaw.js';
 import { MASTERWORK } from '../../src/net/recipeLaw.js';
 
@@ -171,9 +171,10 @@ const bidView = (b) => ({
 });
 /** PROF5b: a sale's tax and Tithe off its whole, in SQL - `x`'s floor of hundredths, as saleTax and saleTithe are. */
 const netSql = (x) => `${x} - (${x} * ${MARKET_TAX_PCT}) / 100 - (${x} * ${MARKET_TITHE_PCT}) / 100`;
-/** PROF5b: the open sales an account stands - its listings and its auctions (10.2's thirty are both). */
-const OPEN_SALES_SQL = `((SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND state = 'open')
-  + (SELECT COUNT(*) FROM market_auctions WHERE seller = ?1 AND state = 'open'))`;
+/** PROF5b: the open sales an account (`?1`) stands - its listings and its auctions (10.2's thirty are both); AUDIT 31
+ *  L1: an auction past its end, a won one waiting on its seller's Marks cap, stands no longer - the moment at `now`. */
+const openSalesSql = (now) => `((SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND state = 'open')
+  + (SELECT COUNT(*) FROM market_auctions WHERE seller = ?1 AND state = 'open' AND ends_at > ${now}))`;
 const orderView = (o, me) => ({
   id: o.id, region: Number(o.region), material: o.material, units: Number(o.units), left: Number(o.left_units), price: Number(o.price),
   escrow: Number(o.escrow), at: Number(o.at), expiresAt: Number(o.expires_at), state: o.state, mine: o.poster === me,
@@ -276,40 +277,64 @@ async function settle(ctx, player) {
  * PROF5b: THE AUCTIONS PAST THEIR END, closed - anyone's read runs it (the seller, the winner and the outbid bidders
  * each need it). Sold: the winner's escrow pays the seller the bid less its tax, the tax and the courier burnt, the
  * piece's owner moved and the winner's delivery written (at once from the auction's region, else after the courier's
- * time). Unsold: closed, its piece back on its seller's read. A sale the seller's Marks cap cannot take waits.
+ * time). Unsold: closed, its piece back on its seller's read. A sale the seller's Marks cap cannot take waits -
+ * AUDIT 31 S3: AUCTION_GRACE_S at most, then the winning bid is void (its escrow back on its bidder's read) and the
+ * auction closes unsold. AUDIT 31 S1: a standing bid whose row is gone (its bidder's account deleted - no route does
+ * it, Professions-Arc 18) closes it unsold too, never a sale to no one: the owner written NULL failed every read after.
  */
 async function closeAuctions(ctx) {
   const { db, nowS, rand } = ctx;
-  const { results: due = [] } = await db.prepare(`SELECT id, high, high_bid FROM market_auctions a WHERE state = 'open' AND ends_at <= ?1
-      AND (high_bid IS NULL OR COALESCE((SELECT balance FROM marks WHERE account = a.seller), 0) + ${netSql('high')} <= ?2)
-    ORDER BY ends_at LIMIT ${SETTLE_MAX}`).bind(nowS, MARKS_MAX).all();
+  const live = (a) => `EXISTS (SELECT 1 FROM market_bids WHERE id = ${a}.high_bid AND state = 'high')`;
+  const room = (a, gets) => `COALESCE((SELECT balance FROM marks WHERE account = ${a}.seller), 0) + ${gets} <= ?2`;
+  const { results: due = [] } = await db.prepare(`SELECT id, high, ${live('a')} AS live, ${room('a', netSql('high'))} AS room FROM market_auctions a
+      WHERE state = 'open' AND ends_at <= ?1
+        AND (NOT ${live('a')} OR ${room('a', netSql('high'))} OR ends_at + ?3 <= ?1)
+    ORDER BY ends_at LIMIT ${SETTLE_MAX}`).bind(nowS, MARKS_MAX, AUCTION_GRACE_S).all();
   const day = utcDay(nowS);
   for (const a of due) {
     const nonce = mintId(rand);
     const high = a.high == null ? null : Number(a.high);
     const tax = high == null ? 0 : saleTaxOn(0, high), gets = high == null ? 0 : high - tax - saleTithe(high);
-    const won = `FROM market_auctions a JOIN market_bids b ON b.id = a.high_bid WHERE a.id = ?1 AND a.cn = ?2`;
+    // the winning bid, once this close marked it won (the second statement) - every line and the owner keyed on it
+    const won = `FROM market_auctions a JOIN market_bids b ON b.id = a.high_bid AND b.state = 'won' WHERE a.id = ?1 AND a.cn = ?2`;
+    if (!Number(a.live) || !Number(a.room)) {
+      await db.batch([
+        // THE DECISION: still open, past its end, the standing bid the one read - none, or gone, or one the seller's cap
+        // has not taken in the grace
+        db.prepare(`UPDATE market_auctions SET state = 'unsold', closed_at = ?3, cn = ?2, returned = 0
+          WHERE id = ?1 AND state = 'open' AND ends_at <= ?3 AND high IS ?4
+            AND (NOT ${live('market_auctions')} OR (ends_at + ?5 <= ?3
+              AND COALESCE((SELECT balance FROM marks WHERE account = market_auctions.seller), 0) + ?6 > ?7))`)
+          .bind(a.id, nonce, nowS, high, AUCTION_GRACE_S, gets, MARKS_MAX),
+        // the winning bid void - its escrow back on its bidder's read (settle's)
+        db.prepare(`UPDATE market_bids SET state = 'void' WHERE id = (SELECT high_bid FROM market_auctions WHERE id = ?1 AND cn = ?2) AND state = 'high'`)
+          .bind(a.id, nonce),
+      ]);
+      continue;
+    }
     await db.batch([
-      // THE DECISION: still open, past its end, the standing bid the one read, the seller's room under the cap
-      db.prepare(`UPDATE market_auctions SET state = CASE WHEN high_bid IS NULL THEN 'unsold' ELSE 'sold' END, closed_at = ?3, cn = ?2,
-          returned = CASE WHEN high_bid IS NULL THEN 0 ELSE 1 END
-        WHERE id = ?1 AND state = 'open' AND ends_at <= ?3 AND high IS ?4
-          AND (high_bid IS NULL OR COALESCE((SELECT balance FROM marks WHERE account = market_auctions.seller), 0) + ?5 <= ?6)`)
+      // THE DECISION: still open, past its end, the standing bid the one read and standing, the seller's room under the cap
+      db.prepare(`UPDATE market_auctions SET state = 'sold', closed_at = ?3, cn = ?2, returned = 1
+        WHERE id = ?1 AND state = 'open' AND ends_at <= ?3 AND high IS ?4 AND ${live('market_auctions')}
+          AND COALESCE((SELECT balance FROM marks WHERE account = market_auctions.seller), 0) + ?5 <= ?6`)
         .bind(a.id, nonce, nowS, high, gets, MARKS_MAX),
-      ...(high == null ? [] : [
-        db.prepare(`UPDATE market_bids SET state = 'won' WHERE id = (SELECT high_bid FROM market_auctions WHERE id = ?1 AND cn = ?2) AND state = 'high'`).bind(a.id, nonce),
-        db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-          SELECT 'escrow', b.id, 'account', a.seller, 'auction-sale', ?3, ?4, ?5, b.bidder, a.id, 'auction:' || a.id || ':sale' ${won}`).bind(a.id, nonce, gets, day, nowS),
-        ...(tax > 0 ? [db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-          SELECT 'escrow', b.id, 'burn', NULL, 'market-tax', ?3, ?4, ?5, b.bidder, a.id, 'auction:' || a.id || ':tax' ${won}`).bind(a.id, nonce, tax, day, nowS)] : []),
-        db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-          SELECT 'escrow', b.id, 'burn', NULL, 'courier', b.courier, ?3, ?4, b.bidder, a.id, 'auction:' || a.id || ':courier' ${won} AND b.courier > 0`)
-          .bind(a.id, nonce, day, nowS),
-        db.prepare(`UPDATE products SET owner = (SELECT b.bidder ${won}), listed = 0
-          WHERE provenance = (SELECT provenance FROM market_auctions WHERE id = ?1 AND cn = ?2)`).bind(a.id, nonce),
-        db.prepare(`INSERT OR IGNORE INTO market_deliveries (id, player, char_id, provenance, wear, why, from_region, arrives_at, at)
-          SELECT ?3, b.bidder, b.char_id, a.provenance, a.wear, 'bought', a.region, ?4 + b.seconds, ?4 ${won}`).bind(a.id, nonce, mintId(rand), nowS),
-      ]),
+      db.prepare(`UPDATE market_bids SET state = 'won' WHERE id = (SELECT high_bid FROM market_auctions WHERE id = ?1 AND cn = ?2) AND state = 'high'`).bind(a.id, nonce),
+      db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+        SELECT 'escrow', b.id, 'account', a.seller, 'auction-sale', ?3, ?4, ?5, b.bidder, a.id, 'auction:' || a.id || ':sale' ${won}`)
+        .bind(a.id, nonce, gets, day, nowS),
+      ...(tax > 0 ? [db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+        SELECT 'escrow', b.id, 'burn', NULL, 'market-tax', ?3, ?4, ?5, b.bidder, a.id, 'auction:' || a.id || ':tax' ${won}`)
+        .bind(a.id, nonce, tax, day, nowS)] : []),
+      db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+        SELECT 'escrow', b.id, 'burn', NULL, 'courier', b.courier, ?3, ?4, b.bidder, a.id, 'auction:' || a.id || ':courier' ${won} AND b.courier > 0`)
+        .bind(a.id, nonce, day, nowS),
+      // the owner moved only to a bid that won - never to no one
+      db.prepare(`UPDATE products SET owner = (SELECT b.bidder ${won}), listed = 0
+        WHERE provenance = (SELECT provenance FROM market_auctions WHERE id = ?1 AND cn = ?2)
+          AND EXISTS (SELECT 1 ${won})`).bind(a.id, nonce),
+      db.prepare(`INSERT OR IGNORE INTO market_deliveries (id, player, char_id, provenance, wear, why, from_region, arrives_at, at)
+        SELECT ?3, b.bidder, b.char_id, a.provenance, a.wear, 'bought', a.region, ?4 + b.seconds, ?4 ${won}`)
+        .bind(a.id, nonce, mintId(rand), nowS),
     ]);
   }
 }
@@ -388,11 +413,11 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   }
   const base = async () => {
     // PROF5b: an open auction is among the thirty; the bids standing, and what every bid not yet back holds
-    const counts = await db.prepare(`SELECT ${OPEN_SALES_SQL} AS listings,
+    const counts = await db.prepare(`SELECT ${openSalesSql('?2')} AS listings,
         (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND state = 'open') AS orders,
         (SELECT COUNT(*) FROM market_bids WHERE bidder = ?1 AND state = 'high') AS bids,
         (SELECT COALESCE(SUM(amount + courier), 0) FROM market_bids WHERE bidder = ?1 AND (state = 'high' OR (state IN ('outbid', 'void') AND returned = 0))) AS held`)
-      .bind(me).first();
+      .bind(me, nowS).first();
     return {
       ok: true, view, region, road: await roadOf(db, me, nowS), balance: await balanceOf(db, me),
       counts: { listings: Number(counts?.listings ?? 0), orders: Number(counts?.orders ?? 0), bids: Number(counts?.bids ?? 0) },
@@ -484,7 +509,8 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     const { results: bids = [] } = await db.prepare(`SELECT b.*, a.state AS auction_state, a.ends_at, a.high, a.opening, a.bids AS count, a.region AS auction_region,
         a.wear, p.recipe, p.quality, p.seed, p.maker, p.marked, p.template, p.material AS dfu_material, p.provenance
       FROM market_bids b JOIN market_auctions a ON a.id = b.auction JOIN products p ON p.provenance = a.provenance
-      WHERE b.bidder = ?1 AND (b.state = 'high' OR b.at > ?2) ORDER BY b.state = 'high' DESC, b.at DESC LIMIT ${MARKET_SHOWN}`).bind(me, nowS - RECENT_S).all();
+      WHERE b.bidder = ?1 AND (b.state = 'high' OR b.at > ?2 OR a.closed_at > ?2)   -- AUDIT 31 S3: and a week from its auction's close
+      ORDER BY b.state = 'high' DESC, b.at DESC LIMIT ${MARKET_SHOWN}`).bind(me, nowS - RECENT_S).all();
     return {
       ...(await base()),
       rows: listings.map((l) => listingView(l, me, l.kind === 'piece' ? { piece: pieceOf({ ...l, material: l.dfu_material }, l.wear) } : {})),
@@ -595,7 +621,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
         CASE WHEN ?5 = 'material' THEN MIN(?8, ${boughtHeld}) ELSE 0 END,
         ?9, ?10, ?11, ?12, ?13, ?14, ?15
       WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?11
-        AND ${OPEN_SALES_SQL} < ?16   -- PROF5b: an auction is among the thirty
+        AND ${openSalesSql('?12')} < ?16   -- PROF5b: an auction is among the thirty
         AND ((?5 = 'material' AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?6), 0) >= ?8)
           OR (?5 = 'piece' AND EXISTS (SELECT 1 FROM products WHERE provenance = ?7 AND owner = ?1 AND listed = 0)
             AND NOT EXISTS (SELECT 1 FROM market_listings WHERE provenance = ?7 AND state = 'open')
@@ -621,11 +647,12 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
   if (made) return answer(made, { repeat: true });
   if (await spent(db, me, rid, ':fee')) return { error: 'prof-rid' };
   if ((await balanceOf(db, me)) < fee) return { error: 'marks-short' };
-  const open = await db.prepare(`SELECT ${OPEN_SALES_SQL} AS n`).bind(me).first();
+  const open = await db.prepare(`SELECT ${openSalesSql('?2')} AS n`).bind(me, nowS).first();
   if (Number(open?.n ?? 0) >= MARKET_LISTINGS_MAX) return { error: 'market-listings-max' };
   if (kind === 'material') return { error: 'stores-short' };
   const p = await db.prepare('SELECT owner, listed FROM products WHERE provenance = ?1').bind(provenance).first();
-  if (!p || p.owner !== me) return { error: 'market-not-yours' };
+  if (!p) return { error: 'market-no-record' };   // AUDIT 31 H1: no record at all - never "another owner's"
+  if (p.owner !== me) return { error: 'market-not-yours' };
   if (await db.prepare('SELECT 1 FROM market_deliveries WHERE provenance = ?1 AND collected = 0').bind(provenance).first()) return { error: 'market-uncollected' };
   if (await db.prepare("SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?1").bind(provenance).first()) return { error: 'market-standing' };
   return { error: 'market-listed' };
@@ -1021,7 +1048,7 @@ export async function marketAuction(ctx, player, env, { character, region, prove
     db.prepare(`INSERT OR IGNORE INTO market_auctions (id, seller, char_id, region, provenance, wear, opening, fee, at, ends_at, rid, n)
       SELECT ?3, ?1, ?2, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12
       WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?8
-        AND ${OPEN_SALES_SQL} < ?13
+        AND ${openSalesSql('?9')} < ?13
         AND EXISTS (SELECT 1 FROM products WHERE provenance = ?5 AND owner = ?1 AND listed = 0 AND quality = ?14)
         AND NOT EXISTS (SELECT 1 FROM market_listings WHERE provenance = ?5 AND state = 'open')
         AND NOT EXISTS (SELECT 1 FROM market_deliveries WHERE provenance = ?5 AND collected = 0)
@@ -1040,10 +1067,11 @@ export async function marketAuction(ctx, player, env, { character, region, prove
   if (row) return answer(row, { repeat: true });
   if (await spent(db, me, rid, ':afee')) return { error: 'prof-rid' };
   if ((await balanceOf(db, me)) < fee) return { error: 'marks-short' };
-  const open = await db.prepare(`SELECT ${OPEN_SALES_SQL} AS n`).bind(me).first();
+  const open = await db.prepare(`SELECT ${openSalesSql('?2')} AS n`).bind(me, nowS).first();
   if (Number(open?.n ?? 0) >= MARKET_LISTINGS_MAX) return { error: 'market-listings-max' };
   const p = await db.prepare('SELECT owner, listed, quality FROM products WHERE provenance = ?1').bind(provenance).first();
-  if (!p || p.owner !== me) return { error: 'market-not-yours' };
+  if (!p) return { error: 'market-no-record' };   // AUDIT 31 H1: no record at all - never "another owner's"
+  if (p.owner !== me) return { error: 'market-not-yours' };
   if (Number(p.quality) !== MASTERWORK) return { error: 'auction-not-masterwork' };
   return { error: 'market-listed' };
 }
@@ -1070,7 +1098,7 @@ export async function marketBid(ctx, player, env, { character, region, auction: 
   if (closed) return closed;
   if (!regionOk(region)) return { error: 'bad-region' };
   if (!idOk(id)) return { error: 'bad-listing' };
-  if (!bidOk(amount)) return { error: 'bad-price' };
+  if (!bidOk(amount)) return { error: 'bad-bid' };   // AUDIT 31 L6: a bid's bound is the Marks cap, never a price's
   if (await overRate(ctx, `market:${me}`, MARKET_OPS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
   const a = await db.prepare(`SELECT a.*, (SELECT bidder FROM market_bids WHERE id = a.high_bid) AS high_bidder FROM market_auctions a WHERE a.id = ?1`).bind(id).first();
   if (!a || a.state !== 'open' || Number(a.ends_at) <= nowS) return { error: 'market-gone' };
@@ -1120,7 +1148,9 @@ export async function marketBid(ctx, player, env, { character, region, auction: 
   const nowNext = auctionNext(now.high == null ? null : Number(now.high), Number(now.opening));
   if (amount < nowNext) return { error: 'auction-low' };   // another bid landed between: the refusal a word, the next on the re-read
   if ((await balanceOf(db, me)) < held) return { error: 'marks-short' };
-  return { error: 'market-gone' };
+  // AUDIT 31 S4: another bid landed between the read and the decision, and this one would still beat it - never "no
+  // longer on the market" while it stands; the tab reads it again
+  return { error: 'auction-moved' };
 }
 
 /** An auction cancelled by its seller while no bid stands - its piece answered back to the pack, the fee kept. */

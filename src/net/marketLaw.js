@@ -21,7 +21,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { STORES_MAX, MATERIAL_FAMILIES, MINED_KEYS, FOOD_KEYS, PLANT_GROUP_TEMPLATES } from './professionLaw.js';
-import { PROVENANCE_RE, recipeById, MASTERWORK } from './recipeLaw.js';
+import { PROVENANCE_RE, recipeById, takesQuality, MASTERWORK } from './recipeLaw.js';
 import { MARKS_MAX } from './marksLaw.js';
 import { witnessedFact, factConfirmed, material } from './nodeLaw.js';
 
@@ -132,12 +132,14 @@ export function courierFee(units, pixels) {
 export const courierSeconds = (pixels) => COURIER.baseS + 60 * Math.ceil(pixels / COURIER.pixelsAMinute);
 
 /** A piece's wear from the pack's item: its condition over its most, in thousandths - at least 1, a whole piece
- *  1,000 (a piece with no condition to wear is whole). */
+ *  1,000 (a piece with no condition to wear is whole). AUDIT 31 H9: whole only when it is - a piece worn by a point of
+ *  a condition past 2,000 rounded up to whole and was sold, and handed to a commission, as new work. */
 export function wearOf(item) {
   const max = Number(item?.maxCondition) || 0;
   if (max <= 0) return WEAR_WHOLE;
   const cur = Math.max(0, Number(item?.currentCondition) || 0);
-  return Math.max(1, Math.min(WEAR_WHOLE, Math.round((cur * WEAR_WHOLE) / max)));
+  if (cur >= max) return WEAR_WHOLE;
+  return Math.max(1, Math.min(WEAR_WHOLE - 1, Math.round((cur * WEAR_WHOLE) / max)));
 }
 /** A piece minted from its record takes its wear: the condition that share of its most, at least 1. */
 export function wearCondition(maxCondition, wear) {
@@ -210,5 +212,10 @@ export const bidOk = (n) => Number.isSafeInteger(n) && n >= 1 && n <= AUCTION_BI
 export const auctionNext = (high, opening) => (high == null ? opening : high + Math.max(1, Math.ceil((high * AUCTION_RAISE_PCT) / 100)));
 /** An auction's end after a bid at `atS`: moved AUCTION_ADD_S on when the bid came in its last AUCTION_LATE_S. */
 export const auctionEnd = (endsAt, atS) => (endsAt - atS < AUCTION_LATE_S ? endsAt + AUCTION_ADD_S : endsAt);
-/** What may be auctioned (10.2: "Masterworks only"): a Masterwork of a family the market lists. */
-export const auctionable = (recipeId, quality) => quality === MASTERWORK && pieceListable(recipeId);
+/** AUDIT 31 S3: how long past its end a won auction waits for its seller's Marks cap to take the sale. Past it, the
+ *  winning bid is void (its escrow back on its bidder's read) and the piece back to its seller, unsold - the winner's
+ *  Marks are never held without end for a seller who does not spend. */
+export const AUCTION_GRACE_S = 7 * 86_400;
+/** What may be auctioned (10.2: "Masterworks only"): a Masterwork of a family the market lists - a piece that takes a
+ *  quality (AUDIT 31 L9: a Repair Kit takes none, so no kit is a Masterwork). */
+export const auctionable = (recipeId, quality) => quality === MASTERWORK && pieceListable(recipeId) && takesQuality(/** @type {any} */ (recipeById(recipeId)));

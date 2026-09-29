@@ -50,8 +50,8 @@
   {
     "name": "PROF5b-law-any-quality",
     "file": "src/net/marketLaw.js",
-    "old": "export const auctionable = (recipeId, quality) => quality === MASTERWORK && pieceListable(recipeId);",
-    "new": "export const auctionable = (recipeId, quality) => pieceListable(recipeId);",
+    "old": "export const auctionable = (recipeId, quality) => quality === MASTERWORK && pieceListable(recipeId) &&",
+    "new": "export const auctionable = (recipeId, quality) => pieceListable(recipeId) &&",
     "tests": [
       "test/prof5b_law.test.js"
     ]
@@ -125,8 +125,8 @@
   {
     "name": "PROF5b-svc-sale-untaxed",
     "file": "server-account/src/market.js",
-    "old": "SELECT 'escrow', b.id, 'account', a.seller, 'auction-sale', ?3, ?4, ?5, b.bidder, a.id, 'auction:' || a.id || ':sale' ${won}`).bind(a.id, nonce, gets, day, nowS),",
-    "new": "SELECT 'escrow', b.id, 'account', a.seller, 'auction-sale', ?3, ?4, ?5, b.bidder, a.id, 'auction:' || a.id || ':sale' ${won}`).bind(a.id, nonce, high, day, nowS),",
+    "old": "'auction:' || a.id || ':sale' ${won}`)\n        .bind(a.id, nonce, gets, day, nowS),",
+    "new": "'auction:' || a.id || ':sale' ${won}`)\n        .bind(a.id, nonce, high, day, nowS),",
     "tests": [
       "test/prof5b_service.test.js",
       "test/prof5b_client.test.js"
@@ -144,8 +144,8 @@
   {
     "name": "PROF5b-svc-owner-kept",
     "file": "server-account/src/market.js",
-    "old": "        db.prepare(`UPDATE products SET owner = (SELECT b.bidder ${won}), listed = 0",
-    "new": "        db.prepare(`UPDATE products SET listed = 0",
+    "old": "      db.prepare(`UPDATE products SET owner = (SELECT b.bidder ${won}), listed = 0",
+    "new": "      db.prepare(`UPDATE products SET listed = 0",
     "tests": [
       "test/prof5b_service.test.js",
       "test/prof5b_client.test.js"
@@ -192,8 +192,8 @@
   {
     "name": "PROF5b-svc-thirty-without-auctions",
     "file": "server-account/src/market.js",
-    "old": "  + (SELECT COUNT(*) FROM market_auctions WHERE seller = ?1 AND state = 'open'))`;",
-    "new": "  + 0)`;",
+    "old": "  + (SELECT COUNT(*) FROM market_auctions WHERE seller = ?1 AND state = 'open' AND ends_at > ${now}))`;",
+    "new": "  + (SELECT COUNT(*) FROM market_auctions WHERE seller = ?1 AND 0 AND ends_at > ${now}))`;",
     "tests": [
       "test/prof5b_service.test.js"
     ]
@@ -262,10 +262,9 @@
     "old": "  if (a.high_bidder === me) return { error: 'auction-leading' };\n  const high = a.high == null",
     "new": "  const high = a.high == null",
     "tests": [
-      "test/prof5b_service.test.js"
-    ],
-    "equivalent": true,
-    "why": "the bid's decision refuses the standing bidder itself and its derivation answers auction-leading: the early word spares the courier's reads"
+      "test/prof5b_service.test.js",
+      "test/audit31_service.test.js"
+    ]
   },
   {
     "name": "PROF5b-svc-low-early",
@@ -273,10 +272,9 @@
     "old": "  if (amount < next) return { error: 'auction-low' };\n",
     "new": "",
     "tests": [
-      "test/prof5b_service.test.js"
-    ],
-    "equivalent": true,
-    "why": "the bid's decision asks `amount >= next` itself and its derivation answers auction-low: the early word spares the courier's reads"
+      "test/prof5b_service.test.js",
+      "test/audit31_service.test.js"
+    ]
   },
   {
     "name": "PROF5b-book-auction-as-listing",
@@ -290,8 +288,8 @@
   {
     "name": "PROF5b-book-overtaken-cached",
     "file": "src/net/marketBook.js",
-    "old": "'market-price-moved', 'auction-low']);",
-    "new": "'market-price-moved']);",
+    "old": "'market-price-moved', 'auction-low', 'auction-leading',",
+    "new": "'market-price-moved', 'auction-leading',",
     "tests": [
       "test/prof5b_client.test.js"
     ]
@@ -371,8 +369,8 @@
   {
     "name": "PROF5b-tab-overtaken-not-reread",
     "file": "src/ui/marketTab.js",
-    "old": "const MOVED = ['market-gone', 'market-short', 'market-price-moved', 'auction-low'];",
-    "new": "const MOVED = ['market-gone', 'market-short', 'market-price-moved'];",
+    "old": "const MOVED = MARKET_MOVED;",
+    "new": "const MOVED = MARKET_MOVED.filter((w) => w !== 'auction-low');",
     "tests": [
       "test/prof5b_client.test.js"
     ]

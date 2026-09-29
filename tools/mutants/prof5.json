@@ -239,8 +239,8 @@
   {
     "name": "PROF5-law-wear-nought",
     "file": "src/net/marketLaw.js",
-    "old": "  return Math.max(1, Math.min(WEAR_WHOLE, Math.round((cur * WEAR_WHOLE) / max)));",
-    "new": "  return Math.max(0, Math.min(WEAR_WHOLE, Math.round((cur * WEAR_WHOLE) / max)));",
+    "old": "  return Math.max(1, Math.min(WEAR_WHOLE - 1, Math.round((cur * WEAR_WHOLE) / max)));",
+    "new": "  return Math.max(0, Math.min(WEAR_WHOLE - 1, Math.round((cur * WEAR_WHOLE) / max)));",
     "tests": [
       "test/prof5_law.test.js"
     ]
@@ -454,8 +454,8 @@
   {
     "name": "PROF5-svc-thirty-one",
     "file": "server-account/src/market.js",
-    "old": "        AND ${OPEN_SALES_SQL} < ?16   -- PROF5b: an auction is among the thirty",
-    "new": "        AND ${OPEN_SALES_SQL} <= ?16   -- PROF5b: an auction is among the thirty",
+    "old": "        AND ${openSalesSql('?12')} < ?16",
+    "new": "        AND ${openSalesSql('?12')} <= ?16",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -773,8 +773,8 @@
   {
     "name": "PROF5-book-piece-lost",
     "file": "src/net/marketBook.js",
-    "old": "    letGo('lists', body.rid);\n    try { piece.putBack(piece.item, piece.where); } catch (e) { console.warn('[market] put back', e); }",
-    "new": "    letGo('lists', body.rid);",
+    "old": "    if (had && !PIECE_GONE.includes(r?.error)) { try { piece.putBack(piece.item, piece.where); } catch (e) { console.warn('[market] put back', e); } }",
+    "new": "",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -782,8 +782,8 @@
   {
     "name": "PROF5-book-settle-keeps-refused",
     "file": "src/net/marketBook.js",
-    "old": "          else if (!kept(r)) { letGo('lists', l.rid); try { putBack(l.item, l.where); } catch (e) { console.warn('[market] put back', e); } settled++; }",
-    "new": "          else if (!kept(r)) { letGo('lists', l.rid); settled++; }",
+    "old": "            else { try { putBack(l.item, l.where); } catch (e) { console.warn('[market] put back', e); } }",
+    "new": "            else { /* kept */ }",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -962,8 +962,8 @@
   {
     "name": "PROF5-host-worn-listed",
     "file": "src/scenes/world.js",
-    "old": "filter((it) => it?.provenance && asMinted(it) && !tradeRefusal(it) && !isLocked(it)).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),",
-    "new": "filter((it) => it?.provenance && asMinted(it)).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),",
+    "old": "filter((it) => it?.provenance && asMinted(it) && !tradeRefusal(it) && !isLocked(it) && !pieceKept(it.provenance))",
+    "new": "filter((it) => it?.provenance && asMinted(it) && !pieceKept(it.provenance))",
     "tests": [
       "test/prof5_client.test.js"
     ]

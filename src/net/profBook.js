@@ -167,8 +167,12 @@ export function createProfBook({ door, storage = null, character = () => null, n
   /** PROF2: the dungeons' states the same way: id -> { day, state, climate?, region? }. */
   const dungeons = new Map();
   let _pixelsBusy = null;
-  /** The writs' cache: region -> { at, data, error }. */
+  /** The writs' cache: `slot|region` -> { at, data, error } (AUDIT 31 B7: the list carries this account's and
+   *  character's own - PROF6's "yours", its guild, its balance). */
   const writCache = new Map();
+  /** AUDIT 31 B7: the Work list's generation - moved on by every act the list shows (a guild writ, a commission), so a
+   *  read begun before one is read again, never painted after it. */
+  let writGen = 0;
   /** A delivery's or a choice's request id, kept until an answer comes. */
   const ids = new Map();
   const idFor = (key, maxAgeMs = Infinity) => {
@@ -406,21 +410,27 @@ export function createProfBook({ door, storage = null, character = () => null, n
     },
 
     // ─── COURT WRITS ────────────────────────────────────────────────
+    /** AUDIT 31 B7: the Work list let go - an act it shows was answered (the writs' book's, through the Work tab). */
+    forgetWrits() { writCache.clear(); writGen++; },
     /** A region's Court writs through a minute's cache; `force` reads now. Answers `{ data, error, stale }`. */
     async writs(region, { force = false } = {}) {
       const c = character();
-      const hit = writCache.get(region);
+      // AUDIT 31 B7: the list is this account's and character's (PROF6's "yours", its guild, its balance) - kept per slot
+      const wk = `${slot()}|${region}`;
+      const hit = writCache.get(wk);
       if (!force && hit && now() - hit.at < PROF_WRITS_CACHE_MS) return { data: hit.data, error: hit.error, stale: false };
+      const g = writGen;
       const r = c ? await ask(() => door.writs(c, region)) : { ok: false, error: 'prof-character' };
+      if (g !== writGen) return book.writs(region, { force: true });   // an act answered while it was read: read again
       if (r?.ok) {
-        writCache.set(region, { at: now(), data: r.data, error: null });
+        writCache.set(wk, { at: now(), data: r.data, error: null });
         if (r.data?.today) state.writs = { today: r.data.today.filled | 0, max: r.data.today.max | 0 };
         return { data: r.data, error: null, stale: false };
       }
       shutBy(r);
       if (hit?.data) return { data: hit.data, error: r?.error ?? 'offline', stale: true };   // a slow service shows the last good list
       // AUDIT 29 C11: a read that failed is kept for the backoff, not the minute a good list is
-      writCache.set(region, { at: now() - PROF_WRITS_CACHE_MS + PROF_REFRESH_BACKOFF_MS, data: null, error: r?.error ?? 'offline' });
+      writCache.set(wk, { at: now() - PROF_WRITS_CACHE_MS + PROF_REFRESH_BACKOFF_MS, data: null, error: r?.error ?? 'offline' });
       return { data: null, error: r?.error ?? 'offline', stale: false };
     },
     /** A COURT WRIT TAKEN - delivered from the Stores. The id is the writ's own until an answer comes. Answers the
@@ -438,11 +448,11 @@ export function createProfBook({ door, storage = null, character = () => null, n
           applyStore(r.data?.store);
           applyTrack(r.data?.track);
           if (r.data?.today) state.writs = { today: r.data.today.filled | 0, max: r.data.today.max | 0 };
-          const hit = writCache.get(region);
+          const hit = writCache.get(`${slot()}|${region}`);
           if (hit?.data) hit.data = { ...hit.data, writs: hit.data.writs.map((w) => (w.id === writId ? { ...w, state: 'mine' } : w)), today: r.data?.today ?? hit.data.today };
         } else {
           shutBy(r);
-          if (r?.error === 'writ-taken') writCache.delete(region);   // the list read again shows who
+          if (r?.error === 'writ-taken') writCache.delete(`${slot()}|${region}`);   // the list read again shows who
         }
         return r;
       })();

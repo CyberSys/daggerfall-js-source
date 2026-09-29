@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6807` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6828` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11171,7 +11171,8 @@ Ledger A departure, extended (`Port-Ledger.md` section A, THE MARKET).
 - **Nothing on a clock**, as PROF5's law: an auction past its end is closed by the next market read, anyone's (the
   seller paid the bid less 5% when the cap has room, the tax and the courier burnt, the piece the winner's by
   delivery); an outbid bid's escrow comes back on its bidder's own read, under the cap.
-- **The Marks book is told** what the reader's bids hold (`held`), and "Your Marks" says it.
+- **The market book keeps** what the reader's bids hold (`held`), and "Your Marks" says it (AUDIT 31 R11: this line
+  said the Marks book was told - it is the market's own book).
 - **FOUND and fixed:** the Market tab did not read again on `auction-low` - a bid another overtook left the old next bid
   on screen; `MARKS1-13` had aimed at a trigger `0025_market.sql` rebuilt, and survived unseen since PROF5.
 - **Pinned:** `test/prof5b_law.test.js`, `test/prof5b_service.test.js`, `test/prof5b_client.test.js`;
@@ -11186,7 +11187,9 @@ departure (`Port-Ledger.md` section A, GUILD WRITS, THE GUILD STORES AND COMMISS
   budgets, the guild Stores (a row a material and a depositor) with their ledger (written by triggers) and moves, the
   commissions, and `board_notes` rebuilt for its fourth button (its reports carried across the drop). `/v1/writs/post`,
   `supply`, `withdraw`, `budget`, `commission`, `fulfil`, `cancel`, `decline` and `/v1/stores/guild`, `guild-deposit`,
-  `guild-withdraw` (writs.js) each decide by one statement keyed on its nonce; `/v1/writs/list` answers the region's
+  `guild-withdraw` (writs.js) each decide by one statement keyed on its nonce (AUDIT 31 R7: a writ's withdrawal and a
+  commission's cancel or decline answer a repeat off the row's own state, and the budget is a set - not a row an
+  id); `/v1/writs/list` answers the region's
   guild writs and commissions beside the Court's. Every Marks line a plain INSERT under its own suffix; the ledger's
   escrow end holds a writ's and a commission's pay.
 - **Nothing on a clock**: a guild writ past its seventh day is closed by anyone's Work read, its escrow home to the
@@ -11199,3 +11202,98 @@ departure (`Port-Ledger.md` section A, GUILD WRITS, THE GUILD STORES AND COMMISS
   - caught by the refusals pin, which held five, before it shipped).
 - **Pinned:** `test/prof6_law.test.js`, `test/prof6_service.test.js`, `test/prof6_client.test.js`;
   `tools/mutants/prof6.json`.
+
+## AUDIT 31 (2026-09-29, Mac: "let's first do a comprehensive audit and ensure everything so far is perfect") - PROF5b and PROF6 audited
+
+Everything built since AUDIT 30 - PROF5b (timed auctions for Masterworks) and PROF6 (guild writs, the guild Stores and
+commissions) and the seams they touch - audited in AUDIT 30's six lenses: the account service, the laws, the client's
+books, the acts and their hosts, the Work and Market tabs, and the records against the code. 67 findings, 55 once the
+lenses' overlaps are folded (the crafter's twenty found by three, the guild Stores' one read by three, the poster's
+collect by three, the Fill's picker and Yours by two each). Every one was verified - the service's by a probe over the
+real Worker (a race staged inside the batch where one was claimed), the tabs' in Chromium at 360 and 800 pixels - and
+fixed; each fix with a behaviour is pinned by a test that fails on the code before it: `test/audit31_law.test.js` (5),
+`test/audit31_service.test.js` (17), `test/audit31_client.test.js` (11), `test/audit31_tabs.test.js` (6); `acct29`
+(no migration: no table changed); `tools/mutants/audit31.json` (88: 86 dead, two recorded equivalent - a sold close's
+owner guard the batch's own order already holds, and the late window's add, both 120 s today). The records the fixes
+moved (guild1, prof1, prof5, prof5b, prof6: 32) were re-aimed by content, and the eleven lists whose code the fixes
+touched re-run whole (guild1, guild1b, prof1, prof3, prof4, prof5, prof5b, prof6, audit30, notice1, marks1 - 653
+mutants): 644 dead and nine recorded equivalent; the one survivor, the look of a piece minted before its recipe was
+stamped (PROF6-pieces-any-recipe - a minted piece no longer reaches it), given a pin of its own, dead.
+
+**The auctions** (S1, S3, S4, L1, L4, R5). An auction whose leading bid's row was gone (its bidder's account deleted -
+no route does it, but the cascade is the schema's) was still closed as sold: its piece's owner was written NULL and
+every market read after it failed, for every reader. It closes unsold now, its piece back to its seller. A won auction
+its seller's Marks cap could not take waited for ever, the winner's escrow with it: seven days past its end
+(`AUCTION_GRACE_S`) the winning bid is void, its Marks back on the bidder's read, the piece back unsold. A bid another
+bid overtook between its read and its decision was told "no longer on the market" while the auction stood:
+`auction-moved`, and the view read again. An auction past its end still counted among its seller's thirty, so a seller
+at the cap could list nothing: the thirty count what stands. The last two minutes' edge is strict ("less than 120
+seconds left"), and the service's SQL is pinned at it. Two of PROF5b's "equivalent" early words were not: they come
+before the courier's road, so a leader bidding under the next from a board with no known road was told the road -
+pinned, dead. A bid past the Marks cap has its own word (`bad-bid`), never a price's.
+
+**The guild writs and the guild Stores** (S6, R1, L1, L9, A15, S7). An Officer could post a writ within the week's
+budget, deliver to it, take the units back out of the guild Stores and deliver them again - the budget, or the
+treasury, their own Marks for no material spent, where GUILD1's law is that the Guildmaster alone withdraws: no account
+holding a rank that takes the guild Stores out delivers to its guild's writs (`writ-own-guild`), in the decision's SQL
+as well as before it (a promotion between the read and the decision is refused - staged). The record promised every
+member their own deposit back, and only an Officer could take anything out: any member takes back their own deposit,
+no more (`guild-stores-mine`; an Officer draining it between a member's read and their decision leaves the member
+refused, never taking another's - staged; and a refusal spends none of the hour's acts). The guild's twenty counted
+writs past their seventh day not yet swept; a writ was posted with no room in the guild Stores for its units, refused
+only at its last deliveries: the twenty count what stands, and a post asks the guild Stores' room less what the
+standing writs of it still want. A guild whose withdrawn writ's pay waited on a full treasury was told to withdraw its
+writs: `guild-writ-escrow`. A guild nobody was left in was reclaimed for its name with its writs, Stores and Marks:
+only while it keeps nothing. A daedric writ said "the Stores do not keep that": `market-unyielded`.
+
+**The commissions** (L1, L2, S5, U7, H3). A crafter's twenty counted commissions that had run out (only the poster's
+read closed them), so four posters' week-old commissions shut a crafter off: the twenty count what stands, and the
+crafter's own read closes those naming them. Fifty-three Daedric and Warforged recipes could be commissioned - no one
+can make them: `commission-unyielded`. A fill of a piece whose returned delivery waited was told the piece "stands in a
+home": each held piece says where. A fill at another region's board is `commission-elsewhere`. The Work read names,
+for the crafter, the pieces of their make that would fill each commission (`eligible`, least quality first), and the
+Fill offers those alone, with their quality; a crafted piece now keeps the recipe it was minted of (`recipe`, an item
+field), because an Ebony and a Warforged piece are the same template and material.
+
+**The books** (B1, B2, B4, B5, B7, B8, B10, H1, H8). With no account signed in a listing, an auction or a fill took the
+piece out of the save and kept it under no one's slot, lost at the sign-in: nothing is taken without an account. A kept
+act read its slot again after its await, so a quick-load between put a refused piece into the other character and left
+the first one's entry to be put back again: the slot is the press's, and a refusal heard in another save waits for its
+own character's settle. An act's id was the act's alone, so another character's same press was answered as the first
+one's repeat: the slot is in the id. A writ act's balance never reached the market's book, and a market read begun
+before it painted the older one: told, and the reads let go; the Work list is kept per account and character, and a
+read begun before an act is read again. The auction words that mean the view moved (`auction-leading`,
+`auction-bid-standing`, `auction-moved`) are the book's and the tab's one list. A settle asked while another act was
+out was refused and never asked again: it waits. A piece one book kept an act on could be handed to the other after a
+save was restored - a copy: neither book takes a piece the other keeps, the host's pickers leave it out, and a piece
+the service says is elsewhere (another's, listed, on its way, standing in a home) is never put back and a settle takes
+the save's copy out (`market-no-record` is its own word, so a piece with no record at all is not one of them). A take
+the save refused read "only a crafted piece lists": `piece-held`, and the Fill says when the piece that answers it is
+equipped, locked or bound.
+
+**The hosts** (H5, H9, H2). A piece was looked for in the pack and the home's things alone: the wagon and a
+repairer's hands too, where it is minted once, put back and dropped. A piece worn by a point of a large condition
+rounded to whole and sold as new work: whole only when it is. The Guild tab read the guild Stores once a session - a
+refused read said "Reading..." for ever, a character switch showed the last one's deposit: read at each look, per guild
+and character, with Try again, and the tab repaints on a switch; every number the service bounds is bounded before the
+press.
+
+**The tabs** (U1-U14, H6, L6, L7). THE WINDOW EMPTIED ITSELF BEFORE THE TABS LOOKED FOR THE FOCUS, so AUDIT 30 U8's
+"the field keeps the focus through a redraw" never once worked in a browser (the test DOM never let the focus go):
+every read's answer threw the reader out of the number they typed and back to the top of the list. The window takes
+the focus, its caret and the body's scroll before it empties itself and gives them back after, and the test DOM now
+drops the focus with the node, as a browser does (one test, the anvil's heat, had leaned on the old DOM: its first
+frame waits for its page to be in the document). The Work tab's cards stand in the Court's own grid; every field is
+named on the page; a Post, a Commission or a Deliver the service would refuse says why before the press (the budget
+none, one's own name, the Marks, five standing, twenty writs, the guild Stores' room, one's own guild); nothing of it is
+offered while the service says it is not the account's (`writsOpen`), the note's button included; Yours declines and
+says where a commission naming you is filled; Decline is pressed twice; the drafts are the book's, and Escape closes a
+form before the window; the note's commission lands on its pay; "114 Marks struck (6 Marks tax taken)", never "114 less
+6"; a filled commission of yours points to the Market tab. The Market tab: an auction's name and standing bid wrap at
+a phone's width; the List form's select no longer widens the page; a next bid past any balance is said; the terms say
+the add's own number; an empty auction view says its filter.
+
+**The records** (R1-R15, H7, L4, L5, L8, S2, R13). Professions-Arc 11, 13, 15, 18, 27 and 28 corrected in place, each
+line marked (the members' deposit, the Work tab's collect, Yours, the ids, the in-person line, 15's row, the stale
+PROF6 pointers, the four hosts); 18 records account deletion and the Tithe's line as OPEN (no route deletes an
+account; the Tithe is nought until SEAT1 writes its line); the patch notes say what shipped.

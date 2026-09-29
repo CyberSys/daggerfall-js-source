@@ -79,8 +79,8 @@
   {
     "name": "PROF6-law-arrows-commissioned",
     "file": "src/net/writLaw.js",
-    "old": "export const commissionable = (recipeId) => pieceListable(recipeId);",
-    "new": "export const commissionable = (recipeId) => !!recipeById(recipeId);",
+    "old": "export const commissionable = (recipeId) => pieceListable(recipeId) && !commissionUnyielded(recipeId);",
+    "new": "export const commissionable = (recipeId) => !!recipeById(recipeId) && !commissionUnyielded(recipeId);",
     "tests": [
       "test/prof6_law.test.js",
       "test/prof6_service.test.js"
@@ -146,8 +146,8 @@
   {
     "name": "PROF6-svc-twenty-one",
     "file": "server-account/src/writs.js",
-    "old": "        AND (SELECT COUNT(*) FROM guild_writs WHERE guild_id = ?4 AND state = 'open') < ?17\n",
-    "new": "        AND (SELECT COUNT(*) FROM guild_writs WHERE guild_id = ?4 AND state = 'open') <= ?17\n",
+    "old": "        AND (SELECT COUNT(*) FROM guild_writs WHERE guild_id = ?4 AND state = 'open' AND expires_at > ?12) < ?17\n",
+    "new": "        AND (SELECT COUNT(*) FROM guild_writs WHERE guild_id = ?4 AND state = 'open' AND expires_at > ?12) <= ?17\n",
     "tests": [
       "test/prof6_service.test.js"
     ]
@@ -329,8 +329,8 @@
   {
     "name": "PROF6-svc-six-commissions",
     "file": "server-account/src/writs.js",
-    "old": "        AND (SELECT COUNT(*) FROM commissions WHERE poster = ?1 AND state = 'open') < ?13\n",
-    "new": "        AND (SELECT COUNT(*) FROM commissions WHERE poster = ?1 AND state = 'open') <= ?13\n",
+    "old": "        AND (SELECT COUNT(*) FROM commissions WHERE poster = ?1 AND state = 'open' AND expires_at > ?9) < ?13\n",
+    "new": "        AND (SELECT COUNT(*) FROM commissions WHERE poster = ?1 AND state = 'open' AND expires_at > ?9) <= ?13\n",
     "tests": [
       "test/prof6_service.test.js"
     ]
@@ -338,7 +338,7 @@
   {
     "name": "PROF6-svc-crafter-unbounded",
     "file": "server-account/src/writs.js",
-    "old": "        AND (SELECT COUNT(*) FROM commissions WHERE crafter = ?4 AND state = 'open') < ?14\n",
+    "old": "        AND (SELECT COUNT(*) FROM commissions WHERE crafter = ?4 AND state = 'open' AND expires_at > ?9) < ?14\n",
     "new": "        AND ?14 = ?14\n",
     "tests": [
       "test/prof6_service.test.js"
@@ -347,8 +347,8 @@
   {
     "name": "PROF6-svc-commission-marks-unasked",
     "file": "server-account/src/writs.js",
-    "old": "      WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?8\n        AND (SELECT COUNT(*) FROM commissions WHERE poster = ?1",
-    "new": "      WHERE 1 = 1\n        AND (SELECT COUNT(*) FROM commissions WHERE poster = ?1",
+    "old": "      WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?8\n        -- AUDIT 31 L1",
+    "new": "      WHERE 1 = 1\n        -- AUDIT 31 L1",
     "tests": [
       "test/prof6_service.test.js"
     ]
@@ -440,7 +440,7 @@
   {
     "name": "PROF6-svc-commission-never-expired",
     "file": "server-account/src/writs.js",
-    "old": "    db.prepare(`UPDATE commissions SET state = 'expired', closed_at = ?2 WHERE poster = ?1 AND state = 'open' AND expires_at <= ?2`).bind(me, nowS),\n",
+    "old": "    db.prepare(`UPDATE commissions SET state = 'expired', closed_at = ?2 WHERE (poster = ?1 OR crafter = ?1) AND state = 'open' AND expires_at <= ?2`)\n      .bind(me, nowS),\n",
     "new": "",
     "tests": [
       "test/prof6_service.test.js"
@@ -476,10 +476,11 @@
   {
     "name": "PROF6-svc-member-withdraws",
     "file": "server-account/src/writs.js",
-    "old": "  if (kind === 'withdraw' && !writMay(rank, 'storesWithdraw')) return { error: 'guild-rank' };\n",
+    "old": "  if (kind === 'withdraw' && !guildTakeMay(rank, units, await ownDeposit(db, g, key, me, character))) return { error: 'guild-stores-mine' };\n",
     "new": "",
     "tests": [
-      "test/prof6_service.test.js"
+      "test/prof6_service.test.js",
+      "test/audit31_service.test.js"
     ]
   },
   {
@@ -539,7 +540,7 @@
   {
     "name": "PROF6-book-fill-unkept",
     "file": "src/net/writBook.js",
-    "old": "        keep({ rid: body.rid, body, item: piece.item, where: piece.where });\n",
+    "old": "        keep({ rid: body.rid, body, item: piece.item, where: piece.where }, key);\n",
     "new": "",
     "tests": [
       "test/prof6_client.test.js"
@@ -548,8 +549,8 @@
   {
     "name": "PROF6-book-refused-not-put-back",
     "file": "src/net/writBook.js",
-    "old": "        letGo(body.rid);\n        try { piece.putBack(piece.item, piece.where); } catch (e) { console.warn('[writs] put back', e); }",
-    "new": "        letGo(body.rid);",
+    "old": "        if (had && !PIECE_GONE.includes(r?.error)) { try { piece.putBack(piece.item, piece.where); } catch (e) { console.warn('[writs] put back', e); } }",
+    "new": "",
     "tests": [
       "test/prof6_client.test.js"
     ]
@@ -557,8 +558,8 @@
   {
     "name": "PROF6-book-late-yes-not-dropped",
     "file": "src/net/writBook.js",
-    "old": "          if (r?.ok) { letGo(f.rid); try { drop?.(f.item, f.where); } catch (e) { console.warn('[writs] drop', e); } settled++; }",
-    "new": "          if (r?.ok) { letGo(f.rid); settled++; }",
+    "old": "          if (r?.ok) { letGo(f.rid, key); try { drop?.(f.item, f.where); } catch (e) { console.warn('[writs] drop', e); } settled++; }",
+    "new": "          if (r?.ok) { letGo(f.rid, key); settled++; }",
     "tests": [
       "test/prof6_client.test.js"
     ]
@@ -566,8 +567,8 @@
   {
     "name": "PROF6-book-id-lost-on-silence",
     "file": "src/net/writBook.js",
-    "old": "    if (!kept(r)) ids.delete(key);",
-    "new": "    ids.delete(key);",
+    "old": "    if (!kept(r)) ids.delete(k);",
+    "new": "    ids.delete(k);",
     "tests": [
       "test/prof6_client.test.js"
     ]
@@ -575,7 +576,7 @@
   {
     "name": "PROF6-book-marks-untold",
     "file": "src/net/writBook.js",
-    "old": "    if (Number.isSafeInteger(d.balance)) { try { marks?.set?.(d.balance); } catch { /* the Marks book's own */ } }",
+    "old": "      try { marks?.set?.(d.balance); } catch { /* the Marks book's own */ }\n",
     "new": "",
     "tests": [
       "test/prof6_client.test.js"
@@ -629,17 +630,18 @@
   {
     "name": "PROF6-tab-fill-elsewhere",
     "file": "src/ui/workTab.js",
-    "old": "      if (c.region === w.region) bar.append(...fillNodes(c));",
-    "new": "      if (true) bar.append(...fillNodes(c));",
+    "old": "here ? 'Fill it on its card above.' : `Filled at the boards of ${where}.`",
+    "new": "'Fill it on its card above.'",
     "tests": [
-      "test/prof6_client.test.js"
+      "test/prof6_client.test.js",
+      "test/audit31_tabs.test.js"
     ]
   },
   {
     "name": "PROF6-tab-budget-unsaid",
     "file": "src/ui/workTab.js",
-    "old": "      go.disabled = ui.busy() || escrow > (g.marks ?? 0) || (officer && escrow > (g.left ?? 0));",
-    "new": "      go.disabled = ui.busy() || escrow > (g.marks ?? 0);",
+    "old": "              : officer && escrow > (g.left ?? 0) ? `That is past your writ budget this week",
+    "new": "              : false ? `That is past your writ budget this week",
     "tests": [
       "test/prof6_client.test.js"
     ]
@@ -647,8 +649,8 @@
   {
     "name": "PROF6-tab-kit-quality-sent",
     "file": "src/ui/workTab.js",
-    "old": "      region: w.region, crafter: f.crafter.trim(), recipe: f.recipe, quality: takes ? f.quality : null, pay: f.pay,",
-    "new": "      region: w.region, crafter: f.crafter.trim(), recipe: f.recipe, quality: f.quality, pay: f.pay,",
+    "old": "quality: takesQ ? f.quality : null, pay: f.pay,",
+    "new": "quality: f.quality, pay: f.pay,",
     "tests": [
       "test/prof6_client.test.js"
     ]
@@ -665,7 +667,7 @@
   {
     "name": "PROF6-window-sections-missing",
     "file": "src/ui/noticeWindow.js",
-    "old": "    if (workMore) body.append(workMore.node(writs));",
+    "old": "    if (yours) body.append(yours);",
     "new": "",
     "tests": [
       "test/prof6_client.test.js"
@@ -674,8 +676,8 @@
   {
     "name": "PROF6-guildtab-read-every-draw",
     "file": "src/ui/socialPanel.js",
-    "old": "    if (!gs && !guildUi.storesAsked) { guildUi.storesAsked = true;",
-    "new": "    if (true) { guildUi.storesAsked = true;",
+    "old": "    if (!guildUi.storesAsked) {\n      guildUi.storesAsked = true; guildUi.storesError = null;",
+    "new": "    if (true) {\n      guildUi.storesAsked = true; guildUi.storesError = null;",
     "tests": [
       "test/prof6_client.test.js"
     ]
@@ -683,8 +685,8 @@
   {
     "name": "PROF6-host-worn-offered",
     "file": "src/scenes/world.js",
-    "old": "&& (c.quality == null || (p.item.quality ?? -1) >= c.quality) && wearOf(p.item) === WEAR_WHOLE)",
-    "new": "&& (c.quality == null || (p.item.quality ?? -1) >= c.quality))",
+    "old": "&& commissionFilledBy(c, { recipe: pieceOfRecipe(it, c.recipe) ? c.recipe : null, quality: it.quality ?? null }) && wearOf(it) === WEAR_WHOLE;",
+    "new": "&& commissionFilledBy(c, { recipe: pieceOfRecipe(it, c.recipe) ? c.recipe : null, quality: it.quality ?? null });",
     "tests": [
       "test/prof6_client.test.js"
     ]
@@ -704,7 +706,8 @@
     "old": "  return item.group === s.group && item.templateIndex === s.templateIndex && (item.material ?? 0) === (s.material ?? 0)",
     "new": "  return item.group === s.group && item.templateIndex === s.templateIndex",
     "tests": [
-      "test/prof6_client.test.js"
+      "test/prof6_client.test.js",
+      "test/audit31_client.test.js"
     ]
   }
 ]

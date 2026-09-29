@@ -193,7 +193,7 @@ test('PROF5 service: a crafted piece listed by its owner alone, once, with its w
   s.piece(ann, 'fedcba9876543210');
   const sword = (extra = {}) => ({ character: mac.character, region: DF, kind: 'piece', provenance: '0123456789abcdef', wear: 620, price: 900, hubs: HUBS, rid: rid(), ...extra });
   assert.deepEqual((await s.call('/v1/market/list', sword({ provenance: 'fedcba9876543210' }), mac.secret)).body, { error: 'market-not-yours' });
-  assert.deepEqual((await s.call('/v1/market/list', sword({ provenance: 'aaaaaaaaaaaaaaaa' }), mac.secret)).body, { error: 'market-not-yours' });
+  assert.deepEqual((await s.call('/v1/market/list', sword({ provenance: 'aaaaaaaaaaaaaaaa' }), mac.secret)).body, { error: 'market-no-record' }, 'AUDIT 31 H1: no record at all, never another\'s');
   assert.equal((await s.call('/v1/market/list', sword({ wear: 0 }), mac.secret)).body.error, 'bad-wear');
   assert.equal((await s.call('/v1/market/list', sword({ provenance: 'NOT-HEX' }), mac.secret)).body.error, 'bad-provenance');
   const l = await s.call('/v1/market/list', sword(), mac.secret);

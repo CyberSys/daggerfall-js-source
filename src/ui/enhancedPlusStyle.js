@@ -1087,8 +1087,30 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .work-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .work-open.on { border-color: var(--brass, #c08a3e); background: rgba(192,138,62,0.16); }
 .work-none { font-style: italic; }
+/* AUDIT 31 U2: every field under its visible name; U14: a field as tall as a button beside it, a form's select never
+   clipped, an armed Decline marked */
+.work-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.work-label-text { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #cdbd9f; }
+.work-label-wide { flex: 1 1 150px; }
+.work-label .work-select, .work-label .work-text { width: 100%; }
+/* in the label's column a field's own flex-basis is its HEIGHT - a select 150px tall; the label takes the row's basis */
+.work-label > .work-select, .work-label > .work-text, .work-label > .work-num, .work-label > .work-label-text { flex: 0 0 auto; }
+.notice-writ .work-label-text { color: #5a4630; }
+.work-fields .work-num, .notice-writ .work-num, .market-num { min-height: 32px; box-sizing: border-box; }
+.work-decline.armed { border-color: #b8563a; color: #f3cf86; }
+.notice-writ .work-label { flex: 1 1 140px; }
+/* AUDIT 31 U14: a List form's select as wide as its form - a piece's long name set the form's width past a phone's */
+.market-listform .notice-select, .market-orderform .notice-select { min-width: 0; max-width: 100%; flex: 1 1 160px; text-overflow: ellipsis; }
+.market-listform, .market-orderform, .market-mine-view { min-width: 0; max-width: 100%; }
+/* AUDIT 31 U3: an auction's standing bid wraps under its name at a phone's width - "opening 500 Marks - no bids yet"
+   was cut to "opening 500 Marks - no" */
+.market-auction .market-price { white-space: normal; overflow-wrap: anywhere; }
+/* a long maker's name cut the piece's own ("Silverthorn-of-the-Iliac's Mithril Longs...") - a Masterwork's name wraps */
+.market-auction b { white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 640px) { .market-row, .market-piece { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .market-row > b { grid-column: 1 / -1; }
-  .market-line { display: none; } }
+  .market-line { display: none; }
+  .market-auction { grid-template-columns: minmax(0, 1fr); } .market-auction > * { grid-column: 1 / -1; }
+  .market-row b { white-space: normal; overflow-wrap: anywhere; } }
 @media (prefers-reduced-motion: reduce) { .prof-glint { animation: none; } .prof-toast { transition: none; } }`;
 export const ITEM_FRAME_CSS = `
 /* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */

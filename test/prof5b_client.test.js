@@ -192,14 +192,14 @@ test('PROF5b tab: Auctions - each Masterwork\'s standing bid, bids and end, wher
   kind.value = 'auction'; kind.onchange();
   const pick = [...root.querySelectorAll('select')].find((x) => x.getAttribute('aria-label') === 'Crafted piece');
   assert.deepEqual([...pick.querySelectorAll('option')].map((o) => o.textContent), ['Silverthorn\'s Mithril Longsword']);
-  assert.match(text(), new RegExp(`for ${AUCTION_S / 3600} hours; each bid must be 5% over the last, and a bid in its last 2 minutes adds 2 more`));
+  assert.match(text(), new RegExp(`for ${AUCTION_S / 3600} hours; each bid must be 5% over the last, and a bid with less than 2 minutes left adds 2 more`));   // AUDIT 31 L4, L7: strictly less, the add its own number
   await buttons().find((b) => b.textContent === 'List').onclick();
   assert.deepEqual(calls.at(-1)[0], 'auction');
   assert.equal(calls.at(-1)[1].provenance, PV);
   assert.match(text(), /Your auctionsSilverthorn's Mithril Longswordopening 50 Marks - no bids yetends in 10 minutes/);
   assert.match(text(), /900 Marks \(4 bids\)sold for 900 Marks/);
   assert.match(text(), /Your bidsSilverthorn's Mithril Longsword - 300 Marks \+ 17 courier - leading - ends in 25 hours/);
-  assert.match(text(), /80 Marks - outbid - returned when you next open the market/);
+  assert.match(text(), /80 Marks - outbid - your Marks come back at the next look/);   // AUDIT 31 U13
   assert.match(text(), /Your Marks: 1,000 Marks \(397 Marks held in bids\)/);
 });
 

@@ -49,8 +49,8 @@ import { HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, S
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
-import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
-import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
+import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, AUCTION_BID_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
+import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
  *  DEFAULT_SERVER (net/online.js), because they are two Workers and
@@ -267,7 +267,7 @@ export const REFUSALS = Object.freeze({
   // PROF5: the market (server-account/src/market.js)
   'market-closed': 'The market is not open yet.',
   'bad-price': `A price is 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Marks.`,
-  'bad-units': `List or order 1 to ${MARKET_UNITS_MAX.toLocaleString('en-US')} at a time.`,
+  'bad-units': `A number of units is 1 to ${MARKET_UNITS_MAX.toLocaleString('en-US')} at a time.`,   // AUDIT 31 L6: a listing's, an order's, a writ's, a guild Stores move's
   'bad-provenance': 'Only a crafted piece, with its maker\'s record, lists on the market.',
   'bad-wear': 'That piece could not be weighed for the market.',
   'bad-listing': 'That listing could not be read.',
@@ -299,6 +299,13 @@ export const REFUSALS = Object.freeze({
   'auction-low': 'Another bid came first. The next bid is higher now.',
   'auction-leading': 'Your bid already leads.',
   'auction-bid-standing': 'A bid stands on it, so it cannot be taken back now.',
+  // AUDIT 31
+  'auction-moved': 'Another bid landed as yours was weighed. The auction has been read again - bid again if you still would.',
+  'bad-bid': `A bid is 1 to ${AUCTION_BID_MAX.toLocaleString('en-US')} Marks.`,
+  'market-no-record': 'The counting-house has no record of that piece, so it cannot be sold or handed over.',
+  'piece-kept': 'The counting-house is still settling another business with that piece. It answers that first.',
+  'other-character': 'That was begun by another of your characters. It settles when they next open the board.',
+  'piece-held': 'That piece cannot leave your pack now - take it off, or unlock it, first.',   // AUDIT 31 H8
   // PROF6: guild writs, commissions and the guild Stores
   'writs-closed': 'Guild writs and commissions are not open to this account.',
   'writ-pay': 'A guild writ pays at most half again the material\'s worth a unit.',
@@ -307,21 +314,26 @@ export const REFUSALS = Object.freeze({
   'writ-elsewhere': 'That writ is delivered at the boards of the region that posted it.',
   'writ-short': 'That writ wants fewer than that now.',
   'writ-moved': 'Another delivered first. The writ has been read again.',
-  'writ-rate': 'You have posted or delivered as many writs as an hour allows.',
+  'writ-rate': `You have done as much with writs and commissions as an hour allows (${WRIT_POSTS_MAX} posted, ${WRIT_OPS_MAX} other acts). Try again later.`,
   'writ-busy': 'The counting-house is still settling your last writ.',
   'guild-writs-max': `A guild may have ${GUILD_WRITS_MAX} writs posted at once.`,
   'guild-stores-full': `The guild Stores hold at most ${GUILD_STORES_MAX.toLocaleString('en-US')} of a material.`,
   'guild-stores-short': 'The guild Stores do not hold that many.',
   'guild-stores': 'Empty the guild Stores first.',
   'guild-writs': 'Withdraw the guild\'s writs first.',
+  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the Marks treasury, which is full. Take Marks out of the treasury first.',   // AUDIT 31 A15
+  'writ-own-guild': 'Your guild\'s Officers and Guildmaster take its Stores out, so they do not deliver to its writs.',   // AUDIT 31 S6
+  'guild-stores-mine': 'A member takes out only what they put in of their own. The Officers and the Guildmaster take the rest.',   // AUDIT 31 R1
   'bad-budget': `A writ budget is 0 to ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
   'bad-quality': 'Ask a quality from Crude to Masterwork - or none, for a piece that takes none.',
-  'bad-pay': 'A commission pays 1 to 1,000,000 Marks.',
+  'bad-pay': `A commission pays 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Marks.`,
   'commission-recipe': 'Only a piece the market lists may be commissioned - never arrows or siege works.',
   'commission-crafter': 'There is no crafter by that name.',
   'commission-self': 'You cannot commission yourself.',
   'commissions-max': `You may have ${COMMISSIONS_MAX} commissions posted at once.`,
-  'commissions-crafter-max': 'That crafter has as many commissions waiting as they can be sent.',
+  'commissions-crafter-max': `That crafter has ${COMMISSIONS_FOR_MAX} commissions waiting already - the most one crafter may be sent.`,
+  'commission-unyielded': 'Nothing yields what that piece is made of yet, so no one could make it.',   // AUDIT 31 L2
+  'commission-elsewhere': 'That commission is filled at the boards of its own region.',   // AUDIT 31 L6
   'commission-not-yours': 'That commission names another crafter.',
   'commission-piece': 'That piece is not what the commission asks.',
   'commission-not-made': 'A commission is filled with a piece of your own make.',

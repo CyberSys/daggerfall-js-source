@@ -15,7 +15,7 @@
 import { material } from './nodeLaw.js';
 import { STORES_MAX } from './professionLaw.js';
 import { MARKS_MAX } from './marksLaw.js';
-import { marketCatalogue, pieceListable, priceOk } from './marketLaw.js';
+import { marketCatalogue, pieceListable, priceOk, UNYIELDED } from './marketLaw.js';
 import { recipeById, takesQuality, MASTERWORK } from './recipeLaw.js';
 
 const DAY_S = 86_400;
@@ -90,9 +90,12 @@ export const COMMISSIONS_MAX = 5;
 export const COMMISSIONS_FOR_MAX = 20;
 /** A commission's pay: a listing's price bounds, 1 to 1,000,000 Marks. */
 export const commissionPayOk = (n) => priceOk(n);
+/** AUDIT 31 L2: whether a recipe asks a material nothing yields yet (a Daedric or Warforged piece) - no one could make
+ *  it, so no one may be asked to. */
+export const commissionUnyielded = (recipeId) => !!recipeById(recipeId)?.inputs.some((i) => UNYIELDED.includes(i.key));
 /** Whether a recipe may be commissioned: a piece the market lists (weapons, armour, staves, bows, tools, kits,
- *  furniture) - never arrows or a siege work. */
-export const commissionable = (recipeId) => pieceListable(recipeId);
+ *  furniture) - never arrows or a siege work - that someone could make now. */
+export const commissionable = (recipeId) => pieceListable(recipeId) && !commissionUnyielded(recipeId);
 /** Whether a recipe's piece takes a quality - a kit does not, so its commission asks none. */
 export const commissionTakesQuality = (recipeId) => {
   const r = recipeById(recipeId);
@@ -117,9 +120,13 @@ export const WRIT_POWERS = Object.freeze({
   writBudget: Object.freeze([0]),
   storesWithdraw: Object.freeze([0, 1]),
 });
-/** Whether a rank may do one of PROF6's guild acts. */
-export const writMay = (rank, power) => (WRIT_POWERS[power] ?? []).includes(rank);
-
-/** The Work tab's seals (21): the Court's purple, a guild's (NOTICE1's guild blue - no guild's colours are stored
- *  until SEAT1c's heraldry), a commission's green. */
-export const WRIT_SEALS = Object.freeze({ court: 'court', guild: 'guild', commission: 'commission' });
+/** Whether a rank may do one of PROF6's guild acts (AUDIT 31 L9: a power's own name only - never `toString`'s). */
+export const writMay = (rank, power) => (Object.hasOwn(WRIT_POWERS, power) ? WRIT_POWERS[power] : []).includes(rank);
+/** AUDIT 31 R1: whether a character of this rank may take `units` of a material out of its guild's Stores, holding
+ *  `ownDeposit` of it there: an Officer or the Guildmaster any of it, any member back what they put in of their own. */
+export const guildTakeMay = (rank, units, ownDeposit) => writMay(rank, 'storesWithdraw')
+  || (Number.isSafeInteger(rank) && Number.isSafeInteger(ownDeposit) && units <= ownDeposit);
+/** AUDIT 31 S6: whether an account holding `rank` in a writ's guild (null, none) may deliver to that writ - not a rank
+ *  that takes the guild Stores out, which could sell the guild the same units again and again (its writ budget, or the
+ *  treasury, become its own Marks - GUILD1's law: only the Guildmaster withdraws). */
+export const writDeliverMay = (rank) => rank == null || !writMay(rank, 'storesWithdraw');

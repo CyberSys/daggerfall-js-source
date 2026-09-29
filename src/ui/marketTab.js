@@ -26,9 +26,10 @@
 // Cancel while no bid stands); "An auction (Masterworks)" in the List form; the account's auctions and bids under My
 // listings; what the bids hold beside "Your Marks".
 import { accountRefusalText } from '../net/accountClient.js';
+import { MARKET_MOVED } from '../net/marketBook.js';   // AUDIT 31 B8
 import {
   MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX,
-  listingFee, saleTax, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_BID_MAX,
+  listingFee, saleTax, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_BID_MAX,
 } from '../net/marketLaw.js';
 import { QUALITY_NAMES, MASTERWORK } from '../net/recipeLaw.js';
 import { marksText } from '../net/marksLaw.js';
@@ -65,7 +66,9 @@ const intOf = (s, lo, hi) => { const n = Math.floor(Number(s)); return Number.is
 /** The units a picked row offers first, and its courier quotes for (AUDIT 30 U18). */
 const PICK_UNITS = 20;
 /** AUDIT 30 U9: the words that say the view a press was made from has moved - it is read again. */
-const MOVED = ['market-gone', 'market-short', 'market-price-moved', 'auction-low'];   // PROF5b: a bid another overtook - its next read again
+/** The words that say the view a press was made from has moved - read again (AUDIT 31 B8: the book's own list, so the
+ *  tab and the book never disagree - a bid that leads, a bid standing, a bid overtaken as it was decided). */
+const MOVED = MARKET_MOVED;
 /** AUDIT 30 U11: the words that say the market is not this account's. */
 const SHUT = ['market-closed', 'prof-need-account'];
 const plural = (n, one) => `${n.toLocaleString('en-US')} ${one}${n === 1 ? '' : 's'}`;
@@ -332,6 +335,9 @@ export function createMarketTab(m, ui) {
     }
     if (a.leading) {
       bar.append(el('span', 'market-ask', `Your bid of ${marksText(a.high)} leads. It is held until you are outbid or the auction ends.`));
+    } else if (a.next > AUCTION_BID_MAX) {
+      // AUDIT 31 L6: the next bid past what any balance can hold - said, never a Bid that cannot be pressed for no reason
+      bar.append(el('span', 'market-ask', `The next bid would be ${marksText(a.next)} - more than any account can hold. It stands where it is.`));
     } else {
       const courier = courierOf({ ...a, kind: 'piece' }, 1);
       const amountNow = () => Math.max(a.next, intOf(st.bid[a.id] ?? a.next, a.next, AUCTION_BID_MAX));
@@ -424,7 +430,7 @@ export function createMarketTab(m, ui) {
       const fee = listingFee(worth());
       hint.textContent = full ? `You have ${MARKET_LISTINGS_MAX} listings standing, the most one account may. Cancel one, or wait for one to sell.`
         : st.list.kind === 'auction'
-          ? `Listing fee ${marksText(fee)}, kept if you cancel (only while no bid stands). It stands on the boards of ${m.regionName} for ${AUCTION_S / 3600} hours; each bid must be ${AUCTION_RAISE_PCT}% over the last, and a bid in its last ${AUCTION_LATE_S / 60} minutes adds ${AUCTION_LATE_S / 60} more. The highest bid buys it; you receive it less ${saleTax(100)}%.`
+          ? `Listing fee ${marksText(fee)}, kept if you cancel (only while no bid stands). It stands on the boards of ${m.regionName} for ${AUCTION_S / 3600} hours; each bid must be ${AUCTION_RAISE_PCT}% over the last, and a bid with less than ${AUCTION_LATE_S / 60} minutes left adds ${AUCTION_ADD_S / 60} more. The highest bid buys it; you receive it less ${saleTax(100)}%.`
           : `Listing fee ${marksText(fee)}, kept if you cancel. It stands on the boards of ${m.regionName} for 72 hours; a sale pays you its price less ${saleTax(100)}% (${marksText(worth() - saleTax(worth()))} if it all sells).`;
       b.disabled = ui.busy() || full || !can() || short(fee);
     };
@@ -522,8 +528,10 @@ export function createMarketTab(m, ui) {
       for (const b of bids) {
         const word = b.state === 'high' ? (b.auctionState === 'open' ? `leading - ${endsText(b.endsAt)}` : 'leading')
           : b.state === 'won' ? 'won - it comes to you'
-            : b.state === 'void' ? (b.returned ? 'the auction was removed - returned' : 'the auction was removed - returned when you next open the market')
-              : b.returned ? 'outbid - returned' : 'outbid - returned when you next open the market';
+            // AUDIT 31 S3: a void bid is a removed auction's, or a won one its seller could not be paid for in seven days;
+            // U13: its Marks come back when this tab is next read - never "when you next open the market", which it is
+            : b.state === 'void' ? (b.returned ? 'void - your Marks are back' : 'void - your Marks come back at the next look')
+              : b.returned ? 'outbid - your Marks are back' : 'outbid - your Marks come back at the next look';
         bl.append(el('li', `market-listing state-${b.state}`, `${m.pieceName(b.piece)} - ${marksText(b.amount)}${b.courier ? ` + ${b.courier} courier` : ''} - ${word}`));
       }
       box.append(bl);
@@ -568,28 +576,11 @@ export function createMarketTab(m, ui) {
     return box;
   }
 
-  /** AUDIT 30 U8, A12: the field that had the focus keeps it through a redraw (a read's answer redraws the tab). */
-  const focusNow = () => {
-    const a = /** @type {any} */ (globalThis.document?.activeElement);
-    const key = a?.getAttribute?.('data-focus');
-    if (!key) return null;
-    let at = null;
-    try { at = [a.selectionStart, a.selectionEnd]; } catch { /* a number field has none */ }
-    return { key, at };
-  };
-  const refocus = (box, was) => {
-    if (!was) return;
-    Promise.resolve().then(() => {
-      const n = /** @type {any} */ ([...box.querySelectorAll('input, select')].find((x) => x.getAttribute('data-focus') === was.key));
-      if (!n || !n.isConnected) return;
-      n.focus?.();
-      if (was.at && was.at[0] != null) { try { n.setSelectionRange(was.at[0], was.at[1]); } catch { /* none to set */ } }
-    });
-  };
+  // AUDIT 30 U8, A12: the field that had the focus keeps it through a redraw - AUDIT 31 U1: the window's to keep
+  // (ui/noticeWindow.js render), which looks before it empties itself; the tab only keys its fields (`data-focus`).
 
   /** The tab's body. */
   function body() {
-    const was = focusNow();
     const box = el('div', 'notice-body market-body');
     box.append(viewsNode());
     const road = roadNode();
@@ -612,7 +603,8 @@ export function createMarketTab(m, ui) {
         list.append(auctionRow(a));
         if (st.picked === a.id) list.append(auctionBar(a));
       }
-      if (st.data && !rows.length) list.append(el('p', 'notice-empty', 'No Masterwork is up for auction.'));
+      // AUDIT 31 U14: the empty words say the filter's kind, as the Crafted view's do
+      if (st.data && !rows.length) list.append(el('p', 'notice-empty', st.family ? 'No Masterwork of that kind is up for auction.' : 'No Masterwork is up for auction.'));
       box.append(list);
     } else if (st.view === 'materials' || st.view === 'crafted') {
       box.append(filtersNode(st.view === 'materials' ? MARKET_FAMILIES : CRAFTED_FAMILIES));
@@ -638,7 +630,6 @@ export function createMarketTab(m, ui) {
     const held = m.book.state.held ?? 0;
     const foot = el('p', 'market-foot', `Your Marks: ${balance() == null ? '-' : marksText(balance())}${held > 0 ? ` (${marksText(held)} held in bids)` : ''}${st.stale ? ' - the market may be out of date' : ''}`);
     box.append(foot);
-    refocus(box, was);
     return box;
   }
 

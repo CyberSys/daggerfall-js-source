@@ -13,11 +13,12 @@
 One line per arc, newest first within each group. Each entry names its own
 page; the page is the record, this is the way in.
 
+- `06-Systems/Online-Arc.md` AUDIT 31 - 2026-09-29, Mac ("let's first do a comprehensive audit and ensure everything so far is perfect"): PROF5b AND PROF6 AUDITED in AUDIT 30's six lenses, 67 findings, 55 folded, every one verified and fixed, 39 pins each run red on the code before it. The service's: an auction's gone leading bid wrote a NULL owner that failed every market read, a won auction held its winner's Marks for ever, an Officer could sell the guild the same units again and again, members could not take their own deposit back, the twenties and the thirty counted what had run out, unmakeable pieces commissioned. The books': a piece taken with no account and lost, a refusal put back into another character after a quick-load, another character's press answered as a repeat, one piece kept by two books (a copy). The tabs': the focus and the scroll lost on every redraw (AUDIT 30 U8 never worked in a browser), no labels, buttons greyed with no reason, commissions offered while shut, drafts lost. `acct29`; `test/audit31_law.test.js` (5), `test/audit31_service.test.js` (17), `test/audit31_client.test.js` (11), `test/audit31_tabs.test.js` (6); `tools/mutants/audit31.json`, 86 dead and two equivalent, and 653 neighbours re-run.
 - `06-Systems/Professions-Arc.md` 28 (PROF6) - 2026-09-29, Mac ("continue"): GUILD WRITS, THE GUILD STORES AND COMMISSIONS,
   SHIPPED on the branch behind the professions' and the Marks' switches: a guild's writ posted by its Guildmaster, or an
   Officer within the week's writ budget, from its Marks treasury (escrowed), delivered by anyone from their Stores into
-  the guild Stores and paid pro rata less the tax; the guild Stores (any member deposits, Officers withdraw, a member's
-  own deposit own again for them alone); a commission naming a crafter and a piece, filled only with a piece of their
+  the guild Stores and paid pro rata less the tax; the guild Stores (any member deposits and takes back their own
+  deposit, Officers and the Guildmaster take anything - AUDIT 31: this line said Officers alone withdrew); a commission naming a crafter and a piece, filled only with a piece of their
   own make, reaching the poster by delivery; the note's "Commission a piece" button. Seat writs wait on SEAT1b,
   bounties on SEAT1d, found recipes on PROF6b. `server-account/src/writs.js`, `net/writLaw.js`, `net/writBook.js`,
   `ui/workTab.js`. Migration 0027, `acct28` - `test/prof6_service.test.js`.
