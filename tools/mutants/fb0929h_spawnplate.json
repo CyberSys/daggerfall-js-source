@@ -1,0 +1,41 @@
+[
+  {
+    "name": "SPAWN-PLATE-built-ground-read-as-standing",
+    "file": "src/scenes/world.js",
+    "old": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && built.get(key)?.location == null; };",
+    "new": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && !built.has(key); };",
+    "tests": [
+      "test/fb0929h_spawnplate.test.js",
+      "test/tv6_dungeons.test.js"
+    ]
+  },
+  {
+    "name": "SPAWN-PLATE-the-ground-never-asked",
+    "file": "src/scenes/world.js",
+    "old": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && built.get(key)?.location == null; };",
+    "new": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key); };",
+    "tests": [
+      "test/fb0929h_spawnplate.test.js",
+      "test/tv6_dungeons.test.js"
+    ]
+  },
+  {
+    "name": "SPAWN-PLATE-the-player-inside-forgotten",
+    "file": "src/scenes/world.js",
+    "old": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && built.get(key)?.location == null; };",
+    "new": "return _spawnLedger.expired(key, _spawnClock()) && built.get(key)?.location == null; };",
+    "tests": [
+      "test/fb0929h_spawnplate.test.js",
+      "test/tv6_dungeons.test.js"
+    ]
+  },
+  {
+    "name": "SPAWN-PLATE-a-name-read-for-a-place",
+    "file": "src/scenes/world.js",
+    "old": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && built.get(key)?.location == null; };",
+    "new": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && !built.get(key)?.location; };",
+    "tests": [
+      "test/fb0929h_spawnplate.test.js"
+    ]
+  }
+]

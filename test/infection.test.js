@@ -20,7 +20,7 @@ import {
 } from '../src/systems/infection.js';
 import {
   PERMANENT_DISEASE_VALUE, COMPLETED_DISEASE_VALUE,
-  diseaseCount, updateDiseases, startDisease, DISEASES,
+  diseaseCount, updateDiseases, startDisease, DISEASES, curableDiseaseCount,
 } from '../src/systems/diseases.js';
 import { runMagicRoundsFor, MINUTES_PER_DAY } from '../src/systems/worldTick.js';
 import { snapshotPlayer, restorePlayer } from '../src/systems/save.js';
@@ -136,7 +136,7 @@ test('infection: the level-1 and non-player gates are DiseaseEffect.Start, reach
 // 3. IT IS A DISEASE - which is the Ledger correction
 // ---------------------------------------------------------------
 
-test('infection: an infection IS a disease bundle, so the temple already counts and cures it', () => {
+test('infection: an infection IS a disease bundle (GetDiseaseCount counts it) - and since INFECTION-KEPT a cure takes it after the plain diseases', () => {
   // The Ledger row that opened this arc said the cure-disease count is
   // short by one until a vampirism timer lands. It is not:
   // GetDiseaseCount (:1489-1499) counts every bundle of type Disease
@@ -149,8 +149,11 @@ test('infection: an infection IS a disease bundle, so the temple already counts 
   assert.equal(e.disease, null);                        // classicDiseaseType None
   assert.equal(e.daysOfSymptomsLeft, PERMANENT_DISEASE_VALUE);
   assert.equal(diseaseCount(p), 1);
+  assert.equal(curableDiseaseCount(p), 1, 'alone, the infection is the cure\'s');
   startDisease(p, DISEASES.Plague, 0);
   assert.equal(diseaseCount(p), 2, 'and it counts ALONGSIDE an ordinary disease');
+  // FIELD BUGS 29h (INFECTION-KEPT): the temple prices the diseases the next cure ENDS - the plain ones first
+  assert.equal(curableDiseaseCount(p), 1, 'the plague alone is the next cure\'s');
 
   // ...and the moment the player turns, there is nothing left to cure
   deployInfection(e, p);
