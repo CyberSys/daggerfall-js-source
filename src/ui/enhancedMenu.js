@@ -1005,7 +1005,7 @@ function paneOnline(body) {
   // asked once a visit - and a character is played from here and nowhere else.
   body.append(realmCard(who));
   if (!saves.length) {
-    body.append(empty('No saved games', 'An offline character that played online before the realm can be brought in from here, once.'));
+    body.append(empty('No saved games', 'An offline character the realm knew before it opened can be brought in from here, once.'));
     body.append(onlineSyncCard());   // UXB1-E: the rules can come home before a character goes out
     return;
   }
@@ -1092,9 +1092,19 @@ function realmAct(run, words) {
     realmWords = r?.ok === false ? [realmRefusalText(r.error)] : (typeof words === 'function' ? words(r) : words);
   }).catch(() => { realmWords = [realmRefusalText('server')]; }).finally(() => { realmBusy = false; realmAsked = false; realmRows = null; render(); });
 }
+/** REALM P1.5: CUSTOMS, ASKED FIRST (FIELD 2026-09-29, Dracula/Valentin: "HOW TF WAS I SUPPOSED TO KNOW YALL WOULD FORCE
+ *  THE LOANS TO BE PAID"). Customs is once, so the press says what it will do - customs run on a copy of the save,
+ *  nothing sent (systems/realmCustoms.js customsLines, `before`) - and runs it on the answer. A press customs would
+ *  refuse before the service (signed out, no save, no id, a Test Room character) goes straight on and says so. */
+function bringOnline(save) {
+  const snap = realmIoNow() ? loadSlot(save.key) : null;
+  if (!snap || typeof snap.characterId !== 'string' || !snap.characterId || snap.testRoom === true) return customsNow(save);
+  const preview = customsLines(applyCustoms(JSON.parse(JSON.stringify(snap))), { before: true });
+  return ask(`Bring ${save.name} online?`, preview.join(' '), 'Bring online', () => { customsNow(save); });
+}
 /** REALM P1.5: CUSTOMS - the local save read, customs applied to a COPY (the offline character is untouched), the realm
  *  character made from it once (the service refuses one never online, and a second try), its first save the copy. */
-function bringOnline(save) {
+function customsNow(save) {
   return realmAct(async () => {
     const io = realmIoNow();
     if (!io) return { ok: false, error: 'signed-out' };

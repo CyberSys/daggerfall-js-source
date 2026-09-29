@@ -134,9 +134,10 @@ test('U40: tradeCost walks the staged list per mode, and the button follows it (
   const buy = tradeCost('Buy', basket, ctx);
   assert.equal(buy.cost, calculateCost(100, 10) + calculateCost(50, 10));
   assert.equal(buy.modeActionEnabled, true);
-  // an EMPTY list leaves the button dead in every mode
+  // an EMPTY list leaves the button dead in every mode (FB0929: and
+  // counts no pieces for the purchase floor)
   for (const m of ['Buy', 'Sell', 'Repair', 'Identify', 'SellMagic']) {
-    assert.deepEqual(tradeCost(m, [], ctx), { cost: 0, modeActionEnabled: false }, m);
+    assert.deepEqual(tradeCost(m, [], ctx), { cost: 0, modeActionEnabled: false, pieces: 0 }, m);
   }
   // SELL multiplies by the stack...
   const five = [it(100, { stackCount: 5 })];
@@ -169,13 +170,14 @@ test('U40: Repair skips an item already in the shop; Identify skips one already 
   const already = it(1000, { currentCondition: 10, maxCondition: 100, inShop: true });
   // a list of NOTHING BUT skipped items totals zero AND cannot be
   // committed - one fact, because DFU sets the flag inside the arm
-  assert.deepEqual(tradeCost('Repair', [already], ctx), { cost: 0, modeActionEnabled: false });
+  assert.deepEqual(tradeCost('Repair', [already], ctx), { cost: 0, modeActionEnabled: false, pieces: 0 });
   const live = tradeCost('Repair', [broken], ctx);
   assert.ok(live.cost > 0);
   assert.equal(live.modeActionEnabled, true);
   // a MIXED list charges only for the live one but does enable
   assert.equal(tradeCost('Repair', [broken, already], ctx).cost, live.cost);
   assert.equal(tradeCost('Repair', [broken, already], ctx).modeActionEnabled, true);
+  assert.equal(tradeCost('Repair', [broken, already], ctx).pieces, 1, 'FB0929: the floor counts the live job alone');
 
   // Identify, same shape on isIdentified. X7: only an ENCHANTED item
   // can be unidentified - GetIsIdentified returns true outright for
@@ -185,15 +187,15 @@ test('U40: Repair skips an item already in the shop; Identify skips one already 
   // a mundane iron dagger came back FALSY and was charged to identify.
   const enchant = { enchantments: [{ type: 0, param: 1 }] };
   const known = it(1000, { ...enchant, isIdentified: true });
-  assert.deepEqual(tradeCost('Identify', [known], { quality: 10 }), { cost: 0, modeActionEnabled: false });
+  assert.deepEqual(tradeCost('Identify', [known], { quality: 10 }), { cost: 0, modeActionEnabled: false, pieces: 0 });
   const unknown = it(1000, enchant);
   assert.equal(tradeCost('Identify', [unknown], { quality: 10 }).cost, calculateItemIdentifyCost(1000));
   // and the mundane item is free AND unofferable, which is the fix
   assert.deepEqual(tradeCost('Identify', [it(1000)], { quality: 10 }),
-    { cost: 0, modeActionEnabled: false }, 'an unenchanted item is ALWAYS identified');
+    { cost: 0, modeActionEnabled: false, pieces: 0 }, 'an unenchanted item is ALWAYS identified');
   // the SPELL identifies free but still ENABLES the button (:479-481)
   assert.deepEqual(tradeCost('Identify', [unknown], { quality: 10, usingIdentifySpell: true }),
-    { cost: 0, modeActionEnabled: true });
+    { cost: 0, modeActionEnabled: true, pieces: 0 });
 });
 
 test('U40: GetTradePrice - buy, sell, and the mode that does not haggle (:492-509)', () => {

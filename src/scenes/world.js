@@ -126,7 +126,7 @@ import { createTravelJunctionMap } from '../ui/travelJunctionMap.js';
 import { drawEnhancedTravelControl, hideEnhancedTravelControl } from '../ui/enhancedTravelControl.js';
 import { drawEnhancedHelm, hideEnhancedHelm, enhancedHelmMounted, helmPadGesture, helmPadPrompts } from '../ui/enhancedHelm.js';   // CSA-L: Come Sail Away's helm on screen (Enhanced Plus)
 import { setTimeScale as setWorldTimeScale, timeScale as worldTimeScale, resetTimeScale, MAX_TIME_SCALE } from '../systems/timeScale.js';   // W1's classic art window + U61's overworld, one door
-import { racialRestBlock, racialFastTravelBlock, cureVampirism, SUNLIGHT_TRAVEL_TEXT } from '../systems/vampirism.js';   // AUDIT 64 F21: the career rung and the racial one show the SAME sunlightDamageFastTravelDay box (DaggerfallUI.cs:619, VampirismEffect.cs:202)
+import { racialRestBlock, racialFastTravelBlock, racialSunAverse, cureVampirism, SUNLIGHT_TRAVEL_TEXT } from '../systems/vampirism.js';   // AUDIT 64 F21: the career rung and the racial one show the SAME sunlightDamageFastTravelDay box (DaggerfallUI.cs:619, VampirismEffect.cs:202); VAMP-HOOD: the racial arm's hood
 import { giveOffer } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI.GiveOffer, the rung in front of BOTH the rest and the fast-travel press   // V2b: the vampire's rest and daylight gates; V2d: $CUREVAM's cure arm
 import { cureLycanthropy, racialSuppressPopulationSpawns, racialSuppressTalk, lycanthropeMoveSound, isTransformedLycanthrope } from '../systems/lycanthropy.js';   // V2d: $CUREWER's cure arm; V4: the transformed gates; LM1: the 4-20s move-sound loop; DISC10-E L3: the inventory refusal moved INTO the window door
 import { setRacialQuestHost } from '../systems/racialQuests.js';   // V2d: the quest-start seam (the machine is this host's)
@@ -6083,6 +6083,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const cityGuards = createCityGuards({
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects,
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
+    raidHere: () => raidDefendingHere(),   // RAID-GUARDS: a raid on in this town spares its defenders every blow of the player's
     say: (l) => townTalk.say(l),   // C-slice: equipment breaks speak
     currentMinute: () => Math.floor(playerTicker.classicMinutes),   // AUDIT 23 (hosts-3): the poison clock
     currentPixelKey: () => `${playerTravelPixel().x},${playerTravelPixel().y}`,   // TrackLooseObject's stamp - the pile seam's key, one shape
@@ -6392,7 +6393,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const rrRiding = createRrRidingContacts({
     playerEntity,
     feet: () => player.pos, yaw: () => cam.yaw,
-    livePersons: () => _livePersons, foes: () => exteriorFoes.foes, guards: () => cityGuards.guards,
+    livePersons: () => _livePersons, foes: () => exteriorFoes.foes, guards: () => cityGuards.guards.filter((g) => !cityGuards.playerSpares(g)),   // RAID-GUARDS: the charge passes a spared defender by
     isGuardRecord: (f) => f._encounter === undefined && cityGuards.guards.includes(f),
     splashBlood: (pos, fwd) => hitEffects.showBloodSplash(0, pos, fwd, LETHAL_HIT),
     playClip: (clip, volume) => audio.playOneShot(clip, volume),
@@ -6673,7 +6674,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2680 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6348
+  // that context through modes.dungeonCtx - so worldModes.js:6352
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -6761,9 +6762,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:492-497) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1525-1543) gives it -
+    // got exactly what removeGuard (cityGuards.js:1543-1561) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
-    // (cityGuards.js:979) and spliced out at the end of it (:1169).
+    // (cityGuards.js:981) and spliced out at the end of it (:1171).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
     // teardown of its own records so the two can diverge safely, and
     // removeFoe's `questBehaviour?.notifyDestroyed()` (exteriorFoes.js
@@ -8897,7 +8898,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         // sourced - the racial arm off the compound race, the career
         // arm off the class's own CFG bit (the burn read both until
         // VAMP-DAY left it the career's: passiveSpecials.js:126).
-        sunAverse: !!playerEntity.racialOverride?.sunDamage || careerSunDamage(playerEntity.career),
+        // VAMP-HOOD: the racial arm asks the hood (vampirism.js
+        // racialSunAverse), so a hooded vampire lands in the day it
+        // travelled into; the career's arm is its own and stands.
+        sunAverse: racialSunAverse(playerEntity) || careerSunDamage(playerEntity.career),
       });
       if (clamp > 0 && !sharedClockOn()) { setSyntheticTimeIncrease(true); playerTicker.advance(clamp); }   // AUDIT 63 F13: the arrival clamp is inside DFU's one shielded Update too
       _lastEncMinutes = Math.floor(playerTicker.classicMinutes);   // X-slice: PreventEnemySpawns parity - no spawn catch-up for the traveled window
@@ -9563,8 +9567,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // V2b: CheckFastTravel at the map's own door, where DFU calls it
     // (DaggerfallUI.cs:625) - a sun-damaged override cannot fast
     // travel by day, and the refusal is the override's own line.
+    // VAMP-HOOD: a bare-headed one - a raised hood opens the door
+    // (vampirism.js racialSunAverse), and the refusal says so after
+    // DFU's line. Online `nowMin` is the shared clock's, whose day is
+    // one real hour no rest or trip can shorten.
     const ftb = racialFastTravelBlock(playerEntity, nowMin);
-    if (ftb) { townTalk.say(ftb.text); return; }
+    if (ftb) { townTalk.say(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return; }
     // TO1: the fork. `playerControlled` is the popup's own word for a
     // trip its three toggles say is WALKED (ui/travelPopUp.js
     // callFastTravelGoldCheck); everything else is DFU's fast travel.
@@ -10797,7 +10805,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT 58 (f3/input) - THE ONE READER. This host builds the mode
   // machine unconditionally, and that machine used to register a
   // SECOND bindCursorToggle over the same module-global flag
-  // (player/pointerLock.js:89-286), so ONE Enter flipped it twice and
+  // (player/pointerLock.js:89-303), so ONE Enter flipped it twice and
   // `cursorActive()` could never rise here at all - the large HUD's
   // eleven panels were unreachable by mouse in this host, and the
   // second flip fired a releaseLook/requestLook pair inside one event.
@@ -11545,7 +11553,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9769-9833 -
+  // worldModes answers it in BOTH modes (worldModes.js:9773-9837 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -21088,11 +21096,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // AFTER the damage fork closes (:615), so a shaft that lost the
         // roll still enrages what it hit and wakes the area. ROAD-G G1
         // (review): the WATCH carries the pair now
-        // (cityGuards.js:732-737), so this seam ROUTES by pool exactly
+        // (cityGuards.js:733-738), so this seam ROUTES by pool exactly
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1256). DFU makes no pool distinction:
+        // (cityGuards.js:1270). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.
@@ -21158,9 +21166,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const guardHitSound = (g) => audio.play3d(hitSoundFor(weaponRig.playerWeapon.strikingWeapon), g.ai.feet, ENEMY_HIT_VOLUME, { maxDistance: 16 });   // DISC10-E: PlayHitSound(currentRightHandWeapon) (WeaponManager.cs:563-566) - the hand's item, never the claws marker
         // AUDIT 23 (combat-4): the host-side double tallies are gone -
         // resolvePlayerHit runs DFU's tally arm itself.
-        // DISC19-F: the town's defenders are spared on the watch's pass and
-        // offered alone once the monsters' pool missed - friendly
-        // protection across the two pools (cityGuards.resolvePlayerHit).
+        // DISC19-F / FB0929: under friendly protection the watch's pool
+        // spares the town's defenders on every pass (cityGuards
+        // .resolvePlayerHit) - no pass offers them the swing alone.
         // AUDIT DISC19: `swing` is the one swing's token - the attack
         // grunt rolls in the first pool that has anyone, not in each.
         const swing = {};
@@ -21169,12 +21177,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (duelMeleeHit(cam.pos, makeInView(proj, view, multiply))) {
           tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
           surfacePlayer();
-        } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { spareDefenders: true, swing })) {
+        } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // X-slice: encounter foes resolve after the watch, before civilians
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
             tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
             surfacePlayer();
-          } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { defendersOnly: true, swing }))
+          } else
           cityGuards.resolveCivilianHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, _guardPool(),
             { onMurder: () => _crimeResponse(), onHitSound: guardHitSound, swing }).then((r) => {
             if (r?.carriedHit) tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);

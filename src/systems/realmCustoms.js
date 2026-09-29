@@ -7,10 +7,11 @@
 // purse; liquid wealth - purse, letters of credit, banks - capped at an
 // allowance for the level; Renown from its existing track (the service
 // carries the track to the realm's id - server-account/src/realm.js
-// customsCarry; AUDIT REALM2 S2: never a home or a guild place, which
-// were the client's word before the realm; RENOWN-ACCOUNT: the Renown
-// itself is the account's, so the realm character stands at it from its
-// first minute, and the track that crosses is its history). Skills,
+// customsCarry; CUSTOMS-CARRY, Mac 2026-09-29: and its online homes and
+// its guild place, what stood before the realm, which AUDIT REALM2 S2
+// had left behind; RENOWN-ACCOUNT: the Renown itself is the account's,
+// so the realm character stands at it from its first minute, and the
+// track that crosses is its history). Skills,
 // attributes and items within the online caps, and a custom class
 // re-checked, arrive with phase 4's caps.
 //
@@ -100,15 +101,33 @@ export function applyCustoms(snap) {
   return { called: call.called, paid: call.paid, owed: call.owed, wealth, allowance, taken: wealth - liquidWealthOf(snap), deeds };
 }
 
-/** What customs did, in the Online door's words. */
-export function customsLines({ called, owed, wealth, allowance, taken, deeds = [] }) {
+/** CUSTOMS-CARRY (2026-09-29): what the door promises before customs runs, whatever it finds - what crosses beside the
+ *  save (the service carries the home and the guild place, realm.js CHARACTER_TABLES), what stays, and the once. */
+export const CUSTOMS_PROMISE = Object.freeze([
+  'Your online homes and your guild place come with you.',
+  'Your offline character stays exactly as it is, loans and gold included, and keeps playing offline.',
+  'A character comes into the realm once.',
+]);
+
+/** What customs did, in the Online door's words - or, `before` it runs (FIELD 2026-09-29, Dracula/Valentin: "HOW TF WAS
+ *  I SUPPOSED TO KNOW YALL WOULD FORCE THE LOANS TO BE PAID"), what it will do: the same report off a copy customs ran
+ *  on, told ahead, and the door's promise under it. */
+export function customsLines({ called, owed, wealth, allowance, taken, deeds = [] }, { before = false } = {}) {
   const lines = [];
-  if (called > 0) lines.push(owed > 0 ? `Customs called in ${called} gold of loans; ${owed} could not be paid and falls due.` : `Customs called in ${called} gold of loans, and they are paid.`);
-  if (taken > 0) lines.push(`You carried ${wealth} gold; the realm lets a character of this level bring ${allowance}. ${taken} stays behind.`);
+  if (called > 0) {
+    lines.push(before
+      ? (owed > 0 ? `Customs will call in ${called} gold of loans; ${owed} cannot be paid and falls due.` : `Customs will call in ${called} gold of loans and pay them from your bank and purse.`)
+      : (owed > 0 ? `Customs called in ${called} gold of loans; ${owed} could not be paid and falls due.` : `Customs called in ${called} gold of loans, and they are paid.`));
+  }
+  if (taken > 0) {
+    lines.push(before
+      ? `You carry ${wealth} gold; the realm lets a character of this level bring ${allowance}. ${taken} will stay behind.`
+      : `You carried ${wealth} gold; the realm lets a character of this level bring ${allowance}. ${taken} stays behind.`);
+  }
   // AUDIT REALM2 T3: and which deeds stayed behind with it
   const houses = deeds.filter((d) => d === 'house').length;
   const what = [deeds.includes('ship') ? 'your ship' : '', houses > 1 ? `${houses} houses` : houses ? 'a house' : ''].filter(Boolean).join(' and ');
-  if (what) lines.push(`Customs counts a deed at what the realm's bank pays for it: ${what} ${deeds.length > 1 ? 'stay' : 'stays'} behind.`);
-  if (!lines.length) lines.push('Customs found nothing to settle.');
-  return lines;
+  if (what) lines.push(`Customs counts a deed at what the realm's bank pays for it: ${what} ${before ? 'will stay' : deeds.length > 1 ? 'stay' : 'stays'} behind.`);
+  if (!lines.length) lines.push(before ? 'Customs finds nothing to settle.' : 'Customs found nothing to settle.');
+  return before ? [...lines, ...CUSTOMS_PROMISE] : lines;
 }
