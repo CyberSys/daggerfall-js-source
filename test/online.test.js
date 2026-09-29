@@ -320,13 +320,13 @@ test('ONLINE1: the others drawn through a fake renderer - the figure cropped to 
 test('ONLINE1: the compositor\'s door is PURE - composePaperDollPixels composes over its own art set and buffer, and the compose body reads nothing of the singleton (mutant: the peer composed through the inventory\'s doll)', () => {
   const pd = rd('src/ui/paperDoll.js');
   assert.match(pd, /export async function composePaperDollPixels\(deps, entity, \{ context = 'town', background = true \} = \{\}\)/);
-  const from = pd.indexOf('async function composeDoll(art, deps, entity, { background = true } = {}) {');
+  const from = pd.indexOf('async function composeDoll(art, deps, entity, { background = true, scale: S = 1 } = {}) {');
   assert.ok(from > 0, 'the compose is a function of its art and deps');
   const body = pd.slice(from, pd.indexOf('\nexport async function refreshPaperDoll(', from));
   const names = (text, list, what) => { for (const name of list) assert.ok(!new RegExp(`\\b${name}\\b`).test(text), `${what} ${name}`); };
   names(body, ['_art', '_deps', '_live', '_pixels', '_layout', '_identity', '_refreshing', '_pending'], 'the compose reads no');
-  assert.match(body, /for \(let y = 0; background && y < PAPERDOLL_H; y\+\+\) \{/, 'the background loop is skipped for a peer, the panel stays clear');
-  assert.match(pd, /export async function refreshPaperDoll\(entity\) \{[\s\S]*?const \{ out, layout, bgSize \} = await composeDoll\(_art, _deps, entity, \{ background: !packBg \}\);/, 'the inventory\'s doll rides the same compose (OVH2: on nothing, when a worn UI pack draws its backdrop under it)');
+  assert.match(body, /for \(let y = 0; background && y < OH; y\+\+\) \{/, 'the background loop is skipped for a peer, the panel stays clear');   // DFMOD4: OH = PAPERDOLL_H * S, and a peer composes at S = 1
+  assert.match(pd, /export async function refreshPaperDoll\(entity\) \{[\s\S]*?const \{ out, layout, bgSize, width: OW, height: OH \} = await composeDoll\(_art, _deps, entity, \{ background: !packBg, scale: composeScale\(\) \}\);/, 'the inventory\'s doll rides the same compose (OVH2: on nothing, when a worn UI pack draws its backdrop under it)');
   const door = pd.slice(pd.indexOf('export async function composePaperDollPixels('), pd.indexOf('/** Test seam. */'));
   names(door, ['_art', '_deps', '_live', '_pixels', '_layout', '_identity', 'refreshPaperDoll', 'preloadPaperDollArt'], 'the door touches no');
   assert.match(door, /_artSets\.set\(key, art\)/, 'an art set per identity');

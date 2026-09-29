@@ -97,7 +97,7 @@ test('V5: the three consumers order the override FIRST, as DFU does', () => {
   const pd = read('src/ui/paperDoll.js');
   assert.ok(pd.includes('const bg = (bgOverride ?? art.bg).bmp;'), 'the compose fills from the override background');
   assert.ok(pd.includes('for (const slot of suppress ? [] : [EQUIP_SLOTS.Cloak2, EQUIP_SLOTS.Cloak1])'), 'suppression skips the cloaks');
-  assert.ok(pd.includes('if (!suppress) {\n    blit(out, art.nude, art.palette);'), 'and the body');
+  assert.ok(pd.includes('if (!suppress) {\n    blit(out, art.nude, art.palette, { S });'), 'and the body');   // DFMOD4: at the compose's density
   assert.ok(pd.includes('const ordered = suppress ? [] : paperdollOrder('), 'and the items - the click mask empties with them');
-  assert.ok(pd.includes('blit(out, headArt ?? art.head, art.palette);'), 'the vampire head replaces the racial blit');
+  assert.ok(pd.includes('blit(out, headArt ?? art.head, art.palette, { S });'), 'the vampire head replaces the racial blit');   // DFMOD4
 });

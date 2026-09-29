@@ -332,7 +332,7 @@ async function storeAssets(store, files, accept, keyOf = null) {
     // so an archive is opened by RANGE at boot (mwBsaFile.js) instead of
     // being cloned whole. The other stores keep their bytes: a music or
     // texture file is read whole the one time it plays or paints.
-    const val = store === MW_STORE ? blobOf(f) : await f.arrayBuffer();
+    const val = (store === MW_STORE || /\.dfmod$/i.test(key)) ? blobOf(f) : await f.arrayBuffer();   // DFMOD1: a bundle is hundreds of MB - kept as the Blob it arrived as
     await new Promise((res, rej) => {
       const tx = d.transaction(store, 'readwrite');
       tx.objectStore(store).put(val, key);
@@ -418,6 +418,19 @@ async function clearAssets(store) {
   });
 }
 
+/** DFMOD1: drop some keys of a store (a pack that shares its store with another). */
+async function deleteAssets(store, names) {
+  if (!names.length) return 0;
+  const d = await getDb();
+  await new Promise((res, rej) => {
+    const tx = d.transaction(store, 'readwrite');
+    for (const n of names) tx.objectStore(store).delete(n);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+  return names.length;
+}
+
 export async function storeMusicFiles(files) {
   const { replacementEntry } = await import('../systems/musicReplacement.js');
   return storeAssets(MUSIC_STORE, files, (n) => !!replacementEntry(n));
@@ -449,6 +462,15 @@ export async function clearStoredSounds() {
   }
   setSoundReplacements([], null);
   return names.length;
+}
+
+/** DFMOD1: REMOVE THE MUSIC PACK - the song files leave the music store; a sound pack stored beside them stays
+ *  (clearStoredSounds' mirror). The registry is emptied, so the next song is Daggerfall's own. */
+export async function clearStoredMusic() {
+  const { replacementEntry, setMusicReplacements } = await import('../systems/musicReplacement.js');
+  const n = await deleteAssets(MUSIC_STORE, (await storedMusicNames()).filter((k) => replacementEntry(k)));
+  setMusicReplacements([], null);
+  return n;
 }
 
 /** One derived artifact, by key. Bytes in, bytes out - this door knows
@@ -911,8 +933,11 @@ export async function pickMorrowindFiles() {
 export function textureStoreKey(file, { textureEntry, seasonsAssetKey }) {
   const base = String(file?.name ?? '');
   if (textureEntry(base)) return base;
+  if (/\.dfmod$/i.test(base)) return DFMOD_KEY_OF(base);   // DFMOD1: ANY mod bundle, not only Seasons' - the generic door reads the rest
   return seasonsAssetKey(file?.webkitRelativePath || base);
 }
+
+const DFMOD_KEY_OF = (base) => `dfmod/${String(base).split('/').pop().toLowerCase()}`;   // dfmodTextures.dfmodStoreKey's spelling, kept import-free for the pin
 
 export async function storeTextureFiles(files) {
   const { textureEntry } = await import('../systems/textureReplacement.js');
@@ -926,6 +951,8 @@ export async function storeTextureFiles(files) {
 }
 export const storedTextureNames = () => assetNames(TEXTURE_STORE);
 export const loadTextureFile = (fileName) => assetBytes(TEXTURE_STORE, fileName);
+/** DFMOD2: a stored asset as its Blob - a .dfmod is opened by range from it, never read whole. */
+export const loadTextureBlob = (fileName) => assetBlob(TEXTURE_STORE, fileName);
 
 /**
  * The asset-pack pick, in the shape of the ARENA2 one. ONE overlay,
@@ -965,14 +992,14 @@ export const ASSET_PICKER_Z = 40;
 /** MWFIX: is the asset picker on screen? A modal opened FROM another
  *  overlay has to be able to say so, because the opener may own the
  *  keyboard - the enhanced shell takes Escape on `globalThis` in
- *  CAPTURE and stops it (enhancedMenu.js:4202), which is right for a
+ *  CAPTURE and stops it (enhancedMenu.js:4261), which is right for a
  *  screen with nothing above it and wrong the moment something is.
  *  Its own stated law is that a modal overlay owns its input; this is
  *  how the one above it says "that's me". */
 let _pickerOpen = false;
 export const assetPickerOpen = () => _pickerOpen;
 
-async function pickAssetFolder({ title, blurb, store, register }) {
+async function pickAssetFolder({ title, blurb, store, register, directory = true, accept = '', doneText = null }) {
   return new Promise((resolve) => {
     const ui = document.createElement('div');
     _pickerOpen = true;
@@ -981,7 +1008,7 @@ async function pickAssetFolder({ title, blurb, store, register }) {
       <div style="max-width:460px;text-align:center;border:1px solid #444;padding:24px">
         <h2 style="margin-top:0">${title}</h2>
         ${blurb}
-        <input type="file" id="pickassets" webkitdirectory multiple style="margin:8px">
+        <input type="file" id="pickassets" ${directory ? 'webkitdirectory' : ''} ${accept ? `accept="${accept}"` : ''} multiple style="margin:8px">
         <p id="amsg" style="color:#8a8"></p>
         <button id="adone" style="margin-top:8px">Close</button>
       </div>`;
@@ -992,9 +1019,10 @@ async function pickAssetFolder({ title, blurb, store, register }) {
       const files = [...e.target.files];
       msg.textContent = `reading ${files.length} files...`;
       try {
-        await store(files);
+        await store(files, (t) => { msg.textContent = t; });   // DFMOD1: a store may report as it goes
+        msg.textContent = 'registering...';
         count = await register();
-        msg.textContent = count ? `${count} files will be used` : 'nothing usable in that folder';
+        msg.textContent = doneText ?? (count ? `${count} files will be used` : 'nothing usable in that folder');   // IIL3: a picker that is not counting files says its own
       } catch (err) {
         // NEVER TRAPS: a storage failure costs the pack, not the game.
         msg.textContent = `could not store that: ${err?.message ?? err}`;
@@ -1056,11 +1084,134 @@ export async function pickSoundFolder() {
   });
 }
 
-export async function pickTextureFolder() {
+/** DFMOD1: EVERY REGISTRY THE TEXTURE STORE FEEDS, in one place - a pick, a removal and the boot all re-register
+ *  the same way. Resolves to how many replacements the store now carries. */
+export async function registerTextureStore() {
   const { setTextureReplacements } = await import('../systems/textureReplacement.js');
   const { setSeasonsSources } = await import('../systems/seasonsIliacBayAssets.js');
   const { setWeaponWidgetSources } = await import('../combat/weaponWidgetAssets.js');   // WW1
   const { setDiverseWeaponsSources } = await import('../combat/diverseWeaponsAssets.js');   // DW1
+  const { setDfmodSources, setDfmodDetailSource } = await import('../systems/dfmodTextures.js');   // DFMOD1
+  const { getPref } = await import('../systems/uiPrefs.js');
+  setDfmodDetailSource(() => getPref('dfmodTextureDetail'));   // DFMOD2: the packs card's detail choice
+  const names = await storedTextureNames();
+  const n = setTextureReplacements(names, loadTextureFile);
+  setWeaponWidgetSources(names, loadTextureFile);   // WW1: Weapon Widget's bundle, its double-scale textures
+  setDiverseWeaponsSources(names, loadTextureFile);   // DW1: Diverse Weapons' bundle, a sprite set per weapon
+  const seasons = setSeasonsSources(names, loadTextureFile);   // SIB1: the mod's own files (its bundle counts one)
+  const mods = await setDfmodSources(names, loadTextureFile, { saveIndex: saveTextureJson, loadBlob: loadTextureBlob, warm: true });   // DFMOD1: every other bundle; DFMOD2: by range, warmed
+  return n + seasons + mods;
+}
+/** DFMOD1: a small JSON beside the bundles (a bundle's name index), as a Blob in the texture store. */
+export async function saveTextureJson(key, json) {
+  const d = await getDb();
+  await new Promise((res, rej) => {
+    const tx = d.transaction(TEXTURE_STORE, 'readwrite');
+    tx.objectStore(TEXTURE_STORE).put(new Blob([json], { type: 'application/json' }), key);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+/** DFMOD1: store picked `.dfmod` bundles and index each once (opened in a worker, names written beside it), so a
+ *  boot registers from the index and opens a bundle only when one of its pictures is drawn. */
+export async function storeDfmodFiles(files, progress = null) {
+  const { dfmodStoreKey, dfmodIndexKey, indexDfmodBytes, hasOwnDoor } = await import('../systems/dfmodTextures.js');
+  const picked = [...files].filter((f) => dfmodStoreKey(f.name));
+  let kept = 0;
+  for (const f of picked) {
+    const key = dfmodStoreKey(f.name);
+    progress?.(`storing ${f.name} (${(f.size / 1e6).toFixed(0)} MB)...`);
+    await storeAssets(TEXTURE_STORE, [f], () => true, () => key);
+    if (!hasOwnDoor(key)) {
+      progress?.(`reading ${f.name}...`);
+      try {
+        const index = await indexDfmodBytes(f);   // DFMOD2: the File is a Blob - read by range in the worker, never whole
+        await saveTextureJson(dfmodIndexKey(key), JSON.stringify(index));
+      } catch (e) {
+        await deleteAssets(TEXTURE_STORE, [key]);   // a bundle this reader cannot open is not kept
+        throw new Error(`${f.name}: ${e?.message ?? e}`);
+      }
+    }
+    kept++;
+  }
+  return kept;
+}
+
+/** IIL3: the packs card's "Attach lighting mod" - the same store as the texture mods, one file, and it must BE the
+ *  lighting mod: anything else is taken back out, with a word, so the button never quietly attaches a texture pack. */
+export async function pickLightingModFiles() {
+  const { dfmodStoreKey, dfmodIndexKey } = await import('../systems/dfmodTextures.js');
+  const { isIilMod } = await import('../systems/improvedInteriorLighting.js');
+  return pickAssetFolder({
+    title: 'Attach lighting mod',
+    blurb: `<p>Pick the <b>Improved Interior Lighting</b> <b>.dfmod</b> file -
+      in its download it is inside the <b>Mods</b> folder (the original by
+      ShortBeard, or the fixed version by BlazeBlue32). Nothing is uploaded -
+      it is stored in this browser.</p>
+      <p style="color:#999">Then choose how it lights in Features &rarr; Sight
+      &rarr; Modded lighting: On, or With shadows.</p>`,
+    store: async (files, progress) => {
+      const picked = [...files].filter((f) => dfmodStoreKey(f.name)).slice(0, 1);
+      if (!picked.length) throw new Error('that is not a .dfmod file');
+      await storeDfmodFiles(picked, progress);
+      const key = dfmodStoreKey(picked[0].name);
+      let manifest = null;
+      try { manifest = JSON.parse(new TextDecoder().decode(await loadTextureFile(dfmodIndexKey(key)))); } catch { /* read below */ }
+      if (!isIilMod({ guid: manifest?.guid, title: manifest?.title })) {
+        await deleteAssets(TEXTURE_STORE, [key, dfmodIndexKey(key)]);
+        throw new Error(`${picked[0].name} is not Improved Interior Lighting${manifest?.title ? ` (it is ${manifest.title})` : ''} - texture mods go under Add texture mods`);
+      }
+    },
+    register: registerTextureStore,
+    directory: false,
+    accept: '.dfmod',
+    doneText: 'Improved Interior Lighting attached - choose On or With shadows in Features \u2192 Sight \u2192 Modded lighting',
+  });
+}
+
+export async function pickDfmodFiles() {
+  return pickAssetFolder({
+    title: 'Add texture mods',
+    blurb: `<p>Pick one or more Daggerfall Unity <b>.dfmod</b> files - texture
+      mods like <b>DREAM</b> (sprites, NPCs, mobs, paperdoll, portraits,
+      backgrounds, world textures). Nothing is uploaded - they are stored
+      in this browser.</p>
+      <p style="color:#999">Textures, billboard sizes (the mod's xml),
+      paperdoll pieces by dye, heads, bodies, backgrounds and talk
+      portraits are used. Mod scripts are not run, and normal/height/
+      emission maps are skipped. Big mods take a while to read the first
+      time.</p>`,
+    store: storeDfmodFiles,
+    register: registerTextureStore,
+    directory: false,
+    accept: '.dfmod',
+  });
+}
+
+/** DFMOD1: remove one attached bundle (and its index). */
+export async function removeStoredDfmod(key) {
+  const { dfmodIndexKey } = await import('../systems/dfmodTextures.js');
+  await deleteAssets(TEXTURE_STORE, [key, dfmodIndexKey(key)]);
+  return registerTextureStore();
+}
+/** DFMOD1: remove every attached bundle, the loose texture pack beside them stays. */
+export async function clearStoredDfmods() {
+  const names = (await storedTextureNames()).filter((n) => n.startsWith('dfmod/') || n.startsWith('dfmod-index/'));
+  await deleteAssets(TEXTURE_STORE, names);
+  await registerTextureStore();
+  return names.length;
+}
+/** DFMOD1: REMOVE THE TEXTURE PACK - the loose files a folder pick stored (DFU-named PNGs, a mod's Textures
+ *  folders); the attached .dfmod bundles stay (they have their own removal). */
+export async function clearStoredTexturePack() {
+  const names = (await storedTextureNames()).filter((n) => !n.startsWith('dfmod/') && !n.startsWith('dfmod-index/'));
+  await deleteAssets(TEXTURE_STORE, names);
+  await registerTextureStore();
+  return names.length;
+}
+
+export async function pickTextureFolder() {
   return pickAssetFolder({
     title: 'Your own textures',
     blurb: `<p>Pick a folder of PNGs to draw instead of Daggerfall's
@@ -1080,13 +1231,7 @@ export async function pickTextureFolder() {
       with the port; a folder holding a newer version's <b>.dfmod</b>
       makes that version's art win over the shipped set.</p>`,
     store: storeTextureFiles,
-    register: async () => {
-      const names = await storedTextureNames();
-      const n = setTextureReplacements(names, loadTextureFile);
-      setWeaponWidgetSources(names, loadTextureFile);   // WW1: Weapon Widget's bundle, its double-scale textures
-      setDiverseWeaponsSources(names, loadTextureFile);   // DW1: Diverse Weapons' bundle, a sprite set per weapon
-      return n + setSeasonsSources(names, loadTextureFile);   // SIB1: the mod's own files (its bundle counts one)
-    },
+    register: registerTextureStore,   // DFMOD1: one seam for every registry the store feeds
   });
 }
 

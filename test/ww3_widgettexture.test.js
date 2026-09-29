@@ -128,11 +128,11 @@ test('WW3 the regression, executed: the shape the door used to answer still thro
 
 test('WW3 the door and the site: the widget converts with toColor32 in both arms and holds no toColor32Order; the load failure is said out loud, as the rig\'s neighbours say theirs', () => {
   const door = rd('src/combat/weaponWidgetAssets.js');
-  assert.match(door, /import \{ toColor32, toScreenOrder \} from '\.\.\/formats\/color32Order\.js';/);   // HT3: one arm flips, one does not
+  assert.match(door, /import \{ toScreenOrder \} from '\.\.\/formats\/color32Order\.js';/);   // DWHD1: neither arm flips - both are top-first
   assert.ok(!/toColor32Order/.test(door.replace(/^\s*\*.*$/gm, '')), 'not in the code - the trap is named in the comment only');
-  assert.equal((door.match(/toColor32\(/g) ?? []).length, 1, 'the BUNDLE arm flips (Unity stores bottom-up)');
-  assert.equal((door.match(/toScreenOrder\(/g) ?? []).length, 1, 'and the loose PNG keeps its rows (HT3)');
-  assert.match(door, /try \{ return toColor32\(tex\.rgba\(\)\); \}/, 'the bundle arm');
+  assert.equal((door.match(/toColor32\(/g) ?? []).length, 0, 'DWHD1: no arm flips - the reader answers top-first');
+  assert.equal((door.match(/toScreenOrder\(/g) ?? []).length, 2, 'both keep their rows (HT3, DWHD1)');
+  assert.match(door, /try \{ return toScreenOrder\(tex\.rgba\(\)\); \}/, 'the bundle arm');
   assert.match(door, /return toScreenOrder\(await decodePng\(bytes\)\);/, 'the loose arm');
   assert.match(door, /`\{ width, height, colors \}` RGBA in the port's\n \*  color32 \(bottom-up\) order, the SHAPE renderer\.uploadTexture reads/, 'the door says which shape it answers');
   const site = rd('src/combat/weaponWidget.js');

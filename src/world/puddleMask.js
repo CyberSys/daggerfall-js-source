@@ -147,3 +147,33 @@ export function puddleWetAt(layer, byte, fx, fz) {
   const y = Math.min(layer.height - 1, Math.max(0, Math.floor(v * layer.height)));
   return bytesOf(layer)[(y * layer.width + x) * 4 + 3] >= 128;
 }
+
+/**
+ * GROUND1-W (a player's screenshot: a town's shallow water as brown mud under a blue sheen, with DREAM's ground
+ * attached): A MOD'S TILE SET TAKES ITS PUDDLES' SHAPES FROM THE CLASSIC ONE. The colour rule above reads a
+ * palette tile - record 0 paints a few dozen blues and a puddle's water is exactly those. A truecolour tile set
+ * (DREAM's 256x256 `302-TexArray`) paints tens of thousands of colours in its water, browns among them, so "within
+ * 24 of one of them" called half the sand wet and half the pool dry - and cost a colour search per texel against
+ * every one of them. DREAM repaints the same records in the same layout, so the shape is the classic record's:
+ * its mask, marked by the rule it was written for, is carried onto the mod's layer, stretched to its size.
+ * @param {Array<{width:number,height:number,colors:ArrayLike<number>}>} modLayers - the mod's layers, unmarked
+ * @param {Array<{width:number,height:number,colors:ArrayLike<number>}>} classicMarked - markPuddleWater(classic)
+ * @returns the mod's layers with each puddle record's alpha set from the classic mask
+ */
+export function carryPuddleMask(modLayers, classicMarked) {
+  const out = modLayers.slice();
+  for (const rec of PUDDLE_RECORDS) {
+    const m = modLayers[rec], c = classicMarked?.[rec];
+    if (!m || !c) continue;
+    const src = bytesOf(c), b = bytesOf(m).slice();
+    for (let y = 0; y < m.height; y++) {
+      const sy = Math.min(c.height - 1, Math.floor(y * c.height / m.height));
+      for (let x = 0; x < m.width; x++) {
+        const sx = Math.min(c.width - 1, Math.floor(x * c.width / m.width));
+        b[(y * m.width + x) * 4 + 3] = src[(sy * c.width + sx) * 4 + 3];
+      }
+    }
+    out[rec] = { ...m, colors: b };
+  }
+  return out;
+}

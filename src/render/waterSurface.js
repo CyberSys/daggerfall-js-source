@@ -343,6 +343,21 @@ void main() {
     float att = clamp(1.0 - d / uPointLights[i].w, 0.0, 1.0);
     pointAcc += att * att * max(dot(n, L / max(d, 1e-4)), 0.0) * uPointColors[i];
   }
+  // WATER-LIT1 (Mac, 2026-09-27, Gothway Garden at night with a torch: "the water tiles are buggy ... there for a long
+  // while"): WATER IS NOT LIT LIKE MUD. A lamp or the torch lit the water's own texel as if it were ground - the blue
+  // ripples times a warm flame is a brown field with the water's pattern in it, and inside the light's reach that is
+  // what the pool read as. Water sends back little light diffusely and a lot as a glint: the flame's share of the
+  // texel is cut to a quarter, and each light shows as a moving highlight on the waves (the sun's and moon's law).
+  vec3 pointSpec = vec3(0.0);
+  for (int i = 0; i < 16; i++) {
+    if (i >= uPointCount) break;
+    vec3 Lp = uPointLights[i].xyz - vWorldPos;
+    float dp = length(Lp);
+    float ap = clamp(1.0 - dp / uPointLights[i].w, 0.0, 1.0);
+    vec3 Hp = normalize(Lp / max(dp, 1e-4) + V);
+    pointSpec += ap * pow(max(dot(n, Hp), 0.0), 90.0) * uPointColors[i];
+  }
+  pointAcc *= 0.25;
   lit += tex * pointAcc;
   vec3 iL = uIndirect.xyz - vWorldPos;
   float iD = length(iL);
@@ -354,6 +369,7 @@ void main() {
   vec3 Hm = normalize(uMoonDir + V);
   float mspec = pow(max(dot(n, Hm), 0.0), 220.0) * uMoonScale;
   col += uSunColor * (1.6 * spec) + uMoonColor * (0.7 * mspec);
+  col += pointSpec * 1.2;   // WATER-LIT1: the lamps' and the torch's glints
   float alpha = (uOpacity + (1.0 - uOpacity) * F) * edge;
   outColor = vec4(dwWaterFog(mix(uFogColor, col, fogFactorAt(vWorldPos)), vWorldPos), alpha);   // DW-C: the sea's distance fog
 }`;
