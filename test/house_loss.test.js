@@ -8,9 +8,9 @@
 //      customs whose first save never landed is UNDONE by its delete (server-account/src/realm.js undoCustoms), and the
 //      door offers "Undo bringing in" on its own route (undoRealm).
 //   2. THE DEED STRIPPED FOR AN EXCESS THE GOLD COULD PAY. Customs stripped whole deeds - a house and every piece bought
-//      for its room, the ship - before a coin of the bank or the purse (AUDIT REALM2 T3's order). Now a deed goes only
-//      while the deeds by themselves are over the allowance, and the gold pays the rest (src/systems/realmCustoms.js
-//      applyCustoms). The cap is the same; what the player keeps is not.
+//      for its room, the ship - before a coin of the bank or the purse (AUDIT REALM2 T3's order). RESTORE (Mac: "Keep
+//      all, can't sell"): customs never takes a deed now - every one crosses marked, the realm's bank never buys a crossed
+//      one back, and the gold alone is capped (src/systems/realmCustoms.js applyCustoms, crossDeeds).
 // The service's pins drive the REAL Worker over the REAL migrations (node:sqlite behind a D1-shaped face whose batch is
 // one transaction), as test/fb0929_customs.test.js does.
 import { test } from 'node:test';
@@ -212,49 +212,45 @@ const garys = (level, { bank = 60_000, gold = 10_000 } = {}) => {
   return { snap: holder({ level, gold, bank, houses: [[17, 1017, 5]], scenes: [home] }), home };
 };
 
-test('HOUSE-LOSS 2: customs keeps a deed the gold can pay for - level 10, a furnished house, 60,000 in the bank: the house and every piece cross and the bank pays the excess, where T3 stripped the house and left the bank standing', () => {
+test('HOUSE-LOSS 2 / RESTORE: customs never takes a deed - GarySoup\'s shape (level 10, a house of twenty bought pieces, 60,000 in the bank) brings the house and every piece, marked crossed, and the bank stands; gold past the allowance is still taken, a house chest first', () => {
   const { snap, home } = garys(10);
-  assert.equal(liquidWealthOf(snap), 85_000 + 4_000 + 60_000 + 10_000);
   const r = applyCustoms(snap);
-  assert.deepEqual([r.wealth, r.allowance, r.taken, r.deeds], [159_000, 120_000, 39_000, []]);
-  assert.deepEqual([ownsHouse(snap.houses, 17), home.decor.length, snap.bankAccounts[0].accountGold, snap.goldPieces], [true, 21, 21_000, 10_000]);
-  assert.equal(liquidWealthOf(snap), 120_000);
-  assert.deepEqual(customsLines(r), ['You carried 159000 gold; the realm lets a character of this level bring 120000. 39000 stays behind.']);
-  // the stashes still pay before the bank (AUDIT REALM F2), and still after the deeds' own question: 50,000 in the
-  // house's chest makes the excess 89,000 - the chest pays its 50,000 (the emptied stack leaves it), the bank the rest
+  assert.deepEqual([r.wealth, r.allowance, r.taken, r.crossed], [70_000, 120_000, 0, ['house']]);
+  assert.deepEqual([ownsHouse(snap.houses, 17), snap.houses[17].crossed, home.decor.length, snap.bankAccounts[0].accountGold, snap.goldPieces], [true, true, 21, 60_000, 10_000]);
+  assert.deepEqual(home.decor.filter((p) => !p.item).map((p) => p.paid), Array(20).fill(0), 'the bought pieces pay nothing back now');
+  assert.deepEqual(customsLines(r), ['Your house came with you, every piece in it; the realm\'s bank does not buy back what comes through customs.']);
+  // gold past the allowance is still the allowance's: 100,000 in the house's chest makes 170,000 - the chest pays 50,000
   const { snap: stashed, home: h2 } = garys(10);
-  h2.lootContainers.push({ containerType: LOOT_CONTAINER_TYPES.HouseContainers, key: 'container:0', items: [goldStack(50_000)] });
+  h2.lootContainers.push({ containerType: LOOT_CONTAINER_TYPES.HouseContainers, key: 'container:0', items: [goldStack(100_000)] });
   const st = applyCustoms(stashed);
-  assert.deepEqual([st.deeds, ownsHouse(stashed.houses, 17), h2.lootContainers[0].items, stashed.bankAccounts[0].accountGold], [[], true, [], 21_000]);
+  assert.deepEqual([st.taken, ownsHouse(stashed.houses, 17), h2.lootContainers[0].items.map((i) => i.stackCount), stashed.bankAccounts[0].accountGold], [50_000, true, [50_000], 60_000]);
 });
 
-test('HOUSE-LOSS 2: a deed goes only while the deeds by themselves are over - level 5, the house alone past 70,000: it goes, its bought pieces with it and the owner\'s own left standing, and the gold under the allowance stands; the dearest first, and only until the deeds left fit', () => {
+test('HOUSE-LOSS 2 / RESTORE: the low levels, where a house alone was past the allowance - level 5 keeps its house and every piece and its gold; a Large ship and a house both cross', () => {
   const { snap, home } = garys(5);
   const r = applyCustoms(snap);
-  assert.deepEqual([r.deeds, ownsHouse(snap.houses, 17), home.decor.map((p) => p.id), snap.bankAccounts[0].accountGold, snap.goldPieces], [['house'], false, ['own'], 60_000, 10_000]);
+  assert.deepEqual([r.taken, r.crossed, ownsHouse(snap.houses, 17), home.decor.length, snap.bankAccounts[0].accountGold, snap.goldPieces], [0, ['house'], true, 21, 60_000, 10_000]);
   assert.equal(liquidWealthOf(snap), 70_000);
-  // a Large ship (170,000) and a house against 120,000: the ship goes, the house fits and stays, the gold pays the rest
   const shipRoom = room(interiorSceneName(SHIP_INTERIOR_MAP_IDS[SHIP_TYPES.Large], BUILDING_KEY_0));
-  const both = holder({ level: 10, gold: 50_000, ship: SHIP_TYPES.Large, houses: [[3, 1003, 4]], scenes: [shipRoom] });
+  const both = holder({ level: 1, gold: 50_000, ship: SHIP_TYPES.Large, houses: [[3, 1003, 4]], scenes: [shipRoom] });
   const b = applyCustoms(both);
-  assert.deepEqual([b.deeds, ownsShip(both), ownsHouse(both.houses, 3), both.goldPieces], [['ship'], false, true, 35_000]);
+  assert.deepEqual([b.crossed, ownsShip(both), both.shipCrossed, ownsHouse(both.houses, 3), both.goldPieces], [['ship', 'house'], true, true, true, 30_000]);
 });
 
-test('HOUSE-LOSS 2: the law, swept - whatever the level, the gold and the deeds, customs ends within the allowance; no deed goes while the deeds fit; a deed that went was needed (the deeds were over without it gone); and the service takes the first save customs made', async () => {
+test('HOUSE-LOSS 2 / RESTORE: the law, swept - whatever the level, the gold, the houses and the ship: every deed owned before customs is owned after it and marked crossed, the gold ends within the allowance, and the service takes the first save customs made', async () => {
   for (const level of [1, 3, 5, 8, 10, 15, 30]) {
     for (const [bank, gold] of [[0, 0], [5_000, 1_000], [60_000, 10_000], [400_000, 90_000]]) {
       for (const houses of [[], [[17, 1017, 5]], [[17, 1017, 5], [18, 1018, 6], [19, 1019, 7]]]) {
         for (const ship of [SHIP_TYPES.None, SHIP_TYPES.Small]) {
           const snap = holder({ level, bank, gold, ship, houses });
-          const deedsBefore = deedsOf(snap).reduce((t, d) => t + d.value, 0);
+          const owned = deedsOf(snap).length;
           const r = applyCustoms(snap);
-          const allowance = customsAllowance(level);
           const at = `level ${level}, bank ${bank}, purse ${gold}, ${houses.length} houses, ship ${ship}`;
-          assert.ok(liquidWealthOf(snap) <= allowance, at);
-          if (deedsBefore <= allowance) assert.deepEqual(r.deeds, [], `no deed goes while the deeds fit - ${at}`);
-          const left = deedsOf(snap).reduce((t, d) => t + d.value, 0);
-          assert.ok(left <= allowance, at);
-          if (r.deeds.length) assert.ok(deedsBefore > allowance, `a deed went only when the deeds were over - ${at}`);
+          assert.ok(liquidWealthOf(snap) <= customsAllowance(level), at);
+          assert.equal(r.crossed.length, owned, `every deed crossed - ${at}`);
+          assert.equal(houses.every(([region]) => ownsHouse(snap.houses, region) && snap.houses[region].crossed === true), true, `no house taken - ${at}`);
+          assert.equal(ownsShip(snap), ship !== SHIP_TYPES.None, `no ship taken - ${at}`);
+          assert.equal(deedsOf(snap).length, 0, `none left for the realm's bank to buy - ${at}`);
         }
       }
     }
@@ -269,5 +265,5 @@ test('HOUSE-LOSS 2: the law, swept - whatever the level, the gold and the deeds,
   const res = await worker.fetch(new Request(`https://accounts.invalid/v1/realm/${came.body.id}/data`, {
     method: 'PUT', headers: { authorization: `Bearer ${gary.secret}`, 'x-realm-lease': came.body.lease, 'x-realm-seq': '1' }, body: JSON.stringify(snap),
   }), s.env);
-  assert.equal(res.status, 200, 'the house and its pieces cross, within the allowance the service measures');
+  assert.equal(res.status, 200, 'the house and its pieces cross, the gold within the allowance the service measures');
 });

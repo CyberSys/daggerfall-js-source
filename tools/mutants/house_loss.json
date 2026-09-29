@@ -101,24 +101,6 @@
     ]
   },
   {
-    "name": "HOUSE-LOSS-a-deed-for-what-gold-can-pay",
-    "file": "src/systems/realmCustoms.js",
-    "old": "    if (held <= allowance) break;   // HOUSE-LOSS: the deeds left fit - the gold pays what is still over\n",
-    "new": "    if (!excess) break;\n",
-    "tests": [
-      "test/house_loss.test.js"
-    ]
-  },
-  {
-    "name": "HOUSE-LOSS-held-never-falls",
-    "file": "src/systems/realmCustoms.js",
-    "old": "    held -= deed.value;\n",
-    "new": "",
-    "tests": [
-      "test/house_loss.test.js"
-    ]
-  },
-  {
     "name": "HOUSE-LOSS-the-door-deletes",
     "file": "src/ui/enhancedMenu.js",
     "old": "realmAct(() => realmUndo(realmIoNow(), row.id)",

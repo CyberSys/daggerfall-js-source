@@ -161,22 +161,26 @@ const interiorSceneName = (/** @type {number} */ mapId, /** @type {number} */ bu
 
 /** AUDIT REALM2 T3: THE DEEDS THE REALM'S BANK BUYS BACK - the ship at shipSellPrice and each house at the deed's share
  *  of CUSTOMS_HOUSE_PRICE, each with what the pieces placed in its own room pay back (net/decorLaw.js decorSaleBack:
- *  half of each one's `paid`, on its removal or the sale; the owner's own things cost nothing) - the dearest first, the
- *  order customs strips them in. A room no deed of the character's stands for pays nothing: nobody can take a piece out.
+ *  half of each one's `paid`, on its removal or the sale; the owner's own things cost nothing). A room no deed of the
+ *  character's stands for pays nothing: nobody can take a piece out. (T3 sorted them dearest first, the order it took
+ *  them in; RESTORE takes none, so no order is asked.)
+ *  RESTORE (Mac: "Keep all, can't sell"): A DEED THAT CAME THROUGH CUSTOMS IS NONE OF THEM - its slot `crossed`, or the
+ *  ship's `shipCrossed` (systems/realmCustoms.js crossDeeds): the realm's bank buys it back for nothing (banking.js
+ *  sellHouse, sellShip), and the pieces bought for its room were set to pay nothing back as it crossed.
  *  @param {any} snap @returns {{ slot: any, room: any, value: number }[]} */
 export function deedsOf(snap) {
   const scenes = Array.isArray(snap?.sceneCache?.scenes) ? snap.sceneCache.scenes : [];
   const roomOf = (/** @type {string} */ name) => scenes.find((s) => s?.sceneName === name) ?? null;
   const deeds = [];
-  if (ownsShip(snap)) {
+  if (ownsShip(snap) && !snap.shipCrossed) {
     const ship = ownedShipType(snap);
     deeds.push({ slot: null, room: roomOf(interiorSceneName(SHIP_INTERIOR_MAP_IDS[ship], BUILDING_KEY_0)), value: shipSellPrice(ship) });
   }
   for (const slot of Array.isArray(snap?.houses) ? snap.houses : []) {
-    if (slot?.buildingKey > 0) deeds.push({ slot, room: roomOf(interiorSceneName(slot.mapId, slot.buildingKey)), value: Math.trunc(CUSTOMS_HOUSE_PRICE * DEED_SELL_MULT) });
+    if (slot?.buildingKey > 0 && !slot.crossed) deeds.push({ slot, room: roomOf(interiorSceneName(slot.mapId, slot.buildingKey)), value: Math.trunc(CUSTOMS_HOUSE_PRICE * DEED_SELL_MULT) });
   }
   for (const d of deeds) d.value += decorSaleBack(d.room?.decor);
-  return deeds.sort((a, b) => b.value - a.value);
+  return deeds;
 }
 
 /** The wealth a save holds that the realm pays out in gold: its purse, every bank account, every gold-piece item and

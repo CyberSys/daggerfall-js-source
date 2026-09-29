@@ -297,7 +297,8 @@ export function realmRowAsSave(row, { dateText = () => null } = {}) {
 /**
  * THE BOOT'S JOIN: a new lease on the character, then its save read from the service - never a local slot - and
  * parsed as a slot load parses. The character's id in the save is the realm's (a customs character's save still names
- * the offline id it came from). Answers `{ ok, snap, lease, seq }` or `{ ok: false, error }`.
+ * the offline id it came from). Answers `{ ok, snap, lease, seq, origin }` - `origin` the offline id a customs
+ * character came from, from the join (RESTORE) - or `{ ok: false, error }`.
  * @param {{ io: any, id: string }} at
  */
 export async function openRealmBoot({ io, id }) {
@@ -305,7 +306,7 @@ export async function openRealmBoot({ io, id }) {
   if (typeof id !== 'string' || !REALM_ID_SHAPE.test(id)) return { ok: false, error: 'no-realm-character' };
   const joined = await realmJoin(io, id);
   if (!joined.ok) return { ok: false, error: joined.error };
-  const { lease, seq, bytes } = joined.data ?? {};
+  const { lease, seq, bytes, origin = null } = joined.data ?? {};
   if (!(bytes > 0)) return { ok: false, error: 'no-data' };
   const got = await realmFetch(io, id);
   if (!got.ok) return { ok: false, error: got.error };
@@ -313,7 +314,7 @@ export async function openRealmBoot({ io, id }) {
   try { snap = JSON.parse(got.text); } catch { snap = null; }
   if (!snap || typeof snap !== 'object' || Array.isArray(snap)) return { ok: false, error: 'no-data' };
   snap.characterId = id;
-  return { ok: true, snap, lease, seq: got.seq ?? seq };
+  return { ok: true, snap, lease, seq: got.seq ?? seq, origin: typeof origin === 'string' ? origin : null };   // RESTORE: the offline id it came from
 }
 
 /** A word for the Online door, carried across the page's reload (sessionStorage - this tab's alone). */

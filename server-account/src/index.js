@@ -106,7 +106,7 @@ import {
   ACCOUNT_MAX, ACCOUNT_WINDOW_S,
 } from './accounts.js';
 import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrder, MAX_TTL_S, TOKEN_V, ID_RE } from '../../src/net/identityToken.js';
-import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES } from './service.js';
+import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES, maintaining } from './service.js';
 import { listSaves, putCard, putBlob, getBlob, deleteSave, saveCardOf } from './saves.js';
 import { signingKey, gatePublicKey } from './signing.js';
 import { titleWorn, glyphsOf } from './titles.js';
@@ -236,7 +236,7 @@ export default {
       });
     }
 
-    if (path === '/v1/health') return json({ ok: true, v: env.ACCOUNT_VERSION || ACCOUNT_VERSION }, 200, origin);
+    if (path === '/v1/health') return json({ ok: true, v: env.ACCOUNT_VERSION || ACCOUNT_VERSION, ...(maintaining(env) ? { maintenance: true } : {}) }, 200, origin);   // RESTORE: and whether it is held for maintenance
 
     // ACC1-CI: THE SERVICE PUBLISHES ITS OWN PUBLIC KEY, and that is the
     // whole point of it being public. The pair is minted by the deploy
@@ -254,6 +254,14 @@ export default {
         ? json({ alg: TOKEN_V, key: pub }, 200, origin)
         : no('no-signing-key', 503, origin);
     }
+
+    // RESTORE (2026-09-29, Mac: "I want people to get their stuff back"): HELD FOR MAINTENANCE. The history restore
+    // (.github/workflows/realm-restore.yml) rewinds the database for a minute to read what was lost, and puts it back;
+    // anything written in between would vanish with the rewind. So the job deploys this Worker with MAINTENANCE = "1"
+    // first, and every call but the two above is refused for that minute - 503, which a playing tab's checkpoint waits
+    // out and sends again (systems/realmSaves.js), never a write that is silently lost. The job's own last step deploys
+    // it again without the switch; any deploy does.
+    if (maintaining(env)) return no('maintenance', 503, origin);
 
     // A PATH NOBODY SERVES IS A 404, and it is answered HERE - before
     // the credential is looked at. The first cut checked auth first,

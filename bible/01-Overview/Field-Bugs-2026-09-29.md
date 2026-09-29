@@ -24,6 +24,7 @@ Mac answered the three calls the realm's reports asked for (`06-Systems/Realm-Ar
 Later the same day, Mac: *"Please activate ToxicTaco69 character for online mode. He cant access it"* (CUSTOMS-GRANT,
 below; decision 9).
 And: *"GarySoup lost his house and furniture. I suspect a lot of people lost a ton of belongings"* (HOUSE-LOSS, below).
+Then: *"I want people to get their stuff back"* (RESTORE, below).
 
 ## CUSTOMS-CARRY: who comes in, what comes with them, and the door says so first (1, 2)
 
@@ -208,41 +209,47 @@ real Worker over the real migrations:
 **Fixed** (`06-Systems/Realm-Arc.md` HOUSE-LOSS): a customs whose first save never landed is undone by its delete -
 home, pieces, hidden furniture and guild place back to the offline id, the census unspent, a grant given back - and the
 door says "Undo bringing in" on its own route; and a deed goes only while the deeds by themselves are over the allowance,
-the gold paying the rest. Nothing else in the service deletes these rows (claims and placements are INSERT OR IGNORE, the
+the gold paying the rest - superseded the same day by RESTORE (below): customs takes no deed at all. Nothing else in the service deletes these rows (claims and placements are INSERT OR IGNORE, the
 hidden list an upsert, the carries only re-key, sales and removals are the owner's own acts, no route deletes an account).
 
 **Not the cause, but a risk to check:** the first-save check parses the whole save (about 7.5 ms a MiB in node). On
 Workers' Free plan (10 ms of CPU a request) a first save past about a MiB would fail - a "Never saved" tile every time.
 
+## RESTORE: everything the two roads took comes back (Mac, later)
+
+Mac: *"I want people to get their stuff back"*, and, asked: the deeds **"Keep all, can't sell"**; the lost homes **"To the
+offline character"** (`06-Systems/Realm-Arc.md` RESTORE, decisions 10 and 11).
+
+- **Customs takes no deed again.** Every house, ship and piece crosses, marked; online the realm's bank buys none of it
+  back, so it carries no gold past the allowance and there was never a reason to take it. Gold over the allowance is
+  still the allowance's.
+- **What customs took comes back from the offline save**, on evidence: customs emptied a deed's slot but left its room
+  among the realm save's permanent scenes, where no sale ever leaves one - so a deed the offline character still owns
+  and whose room the realm character still keeps is one customs took. Given back at the realm boot, into the save
+  before anything reads it, and said once the world stands.
+- **The online homes a deleted customs character took** come back from D1's history through a workflow run by hand
+  (below): to the offline character, which can be brought in again, carrying them.
+
+Pinned: `test/restore.test.js` (6), `test/realm_restore.test.js` (5), T3's and HOUSE-LOSS's deed pins flipped;
+`tools/mutants/restore.json` (45 mutants, 45 dead).
+
 ## For Mac
 
-- **HOUSE-LOSS - what was lost, and what only you can bring back.** The fix stops both roads at the next deploy
-  (`acct20`); it cannot restore what already went. Run these read-only queries first
-  (`npx wrangler d1 execute daggerfall-accounts --remote --command "..."`), then decide:
-  - **Houses under an offline id** (intact - nothing lost, only unreachable):
-    `SELECT p.handle, h.player, h.char_id, h.map_id, h.building_key, CASE WHEN EXISTS (SELECT 1 FROM realm_characters r
-    WHERE r.player = h.player AND r.origin_id = h.char_id) THEN 'carry-missed' WHEN EXISTS (SELECT 1 FROM realm_census c
-    WHERE c.char_id = h.char_id AND c.spent = 1) THEN 'orphan' ELSE 'not-yet-customs' END AS state FROM homes h JOIN
-    players p ON p.id = h.player WHERE NOT (length(h.char_id) = 21 AND substr(h.char_id, 1, 1) = 'r' AND
-    substr(h.char_id, 2) NOT GLOB '*[^0-9a-f]*');`
-    `carry-missed` (a customs the old Worker served in the deploy's gap): re-run migration 0022's two carry statements
-    (its section 2) - they are safe to run again. `orphan` (its realm character was deleted): say which of the account's
-    realm characters takes it - `UPDATE homes SET char_id = '<realm id>' WHERE player = '<player>' AND char_id =
-    '<offline id>';` (the pieces and hidden list follow the building). `not-yet-customs` crosses when the character does.
-  - **Characters brought in and since deleted** - road 1's candidates, whose rows are gone:
-    `SELECT p.handle, c.char_id FROM realm_census c JOIN players p ON p.id = c.player WHERE c.spent = 1 AND NOT EXISTS
-    (SELECT 1 FROM realm_characters r WHERE r.origin_id = c.char_id) AND NOT EXISTS (SELECT 1 FROM homes h WHERE
-    h.char_id = c.char_id);` Only **D1 Time Travel** brings the rows back (30 days on the Paid plan - check the plan):
-    note the current bookmark (`wrangler d1 time-travel info`), restore to a moment before the delete (any time before
-    2026-09-28 23:38:54 UTC holds every pre-realm home under its offline id), export `homes`, `home_decor` and
-    `home_hidden`, restore back to the noted bookmark, and re-insert each lost home whose building is still free. The
-    restore is in place, so writes between the two restores are lost - do it at a quiet hour, quickly. For a character
-    whose deleted row never saved (its row had `bytes = 0` in the snapshot), also `UPDATE realm_census SET spent = 0
-    WHERE char_id = '<offline id>'`, so it can be brought in again with its home.
-  - **GarySoup**: run both filtered on `p.handle_lc = 'garysoup'`. If neither finds him, his was a bank-bought house
-    customs stripped (road 2): his offline save still has it. **Your call** for road 2's players: leave it, or restore by
-    hand on request - there is no record on the service of what customs stripped, and a player's word for it is a
-    forgeable save.
+- **RESTORE - getting everyone's stuff back** (`06-Systems/Realm-Arc.md` RESTORE, decisions 10 and 11). Two of the
+  three roads now mend themselves once this deploys; one needs you to press a button, twice.
+  - **Houses, ships and furniture customs kept back** (road 2): nothing to do. When a player plays that online character
+    in the browser or app that still holds its offline character, they come back - marked, so the realm's bank never
+    buys them back - and the player is told. If GarySoup's house was a bank-bought one, this is his.
+  - **Characters left "Never saved"**: nothing to do. Their tile says "Undo bringing in", which gives everything back.
+  - **Online homes a deleted customs character took with it** (road 1): Actions tab -> **Realm restore** -> Run workflow,
+    on main, at a quiet hour. Leave **apply** off the first time: the run's summary lists who gets what back, who is
+    **held for you** (an account whose deleted character traded in the realm - bringing it in again would bring its
+    items twice), and any building someone else bought since. Read it, then run again with **apply** on. The service is
+    held for maintenance for about a minute while the database is read back to before the loss and put back; players'
+    saves wait it out. If the run ever says THE PRESENT IS NOT BACK, the service stays held on purpose - type the one
+    command it prints, and the next deploy lifts the hold. Needs D1 Time Travel to still hold 2026-09-29 03:09 UTC
+    (thirty days on the Paid plan, seven on the Free one).
+  - **Held accounts** are yours to decide; the homes of theirs the plan lists can be written by hand once you have.
 - **ToxicTaco69 (CUSTOMS-GRANT).** Rides the next account deploy (`acct20`, migration 0023). Then he presses **Bring
   online** on his character's tile once. If what he saw was *not* "The realm has no record of this character..." - but
   "already been brought into the realm", or a "Never saved" tile - that is a different cause, and the grant does not

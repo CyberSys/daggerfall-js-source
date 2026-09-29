@@ -286,7 +286,8 @@ export async function customsRealm(ctx, playerId, { origin, name, summary = null
 
 /**
  * A JOIN: a new lease on the account's own character, taking it from any tab that held it and freeing the account's
- * others. Answers `{ id, lease, seq, bytes }` - `bytes` 0 is a character whose first save never landed - or `{ error }`.
+ * others. Answers `{ id, lease, seq, bytes, origin }` - `bytes` 0 is a character whose first save never landed, `origin`
+ * the offline id a customs character came from (null for one born online) - or `{ error }`.
  * @param {any} ctx @param {string} playerId @param {unknown} id
  */
 export async function joinRealm({ db, rand, nowS }, playerId, id) {
@@ -295,8 +296,10 @@ export async function joinRealm({ db, rand, nowS }, playerId, id) {
   const took = await db.prepare('UPDATE realm_characters SET lease = ?, lease_at = ? WHERE id = ? AND player = ?').bind(lease, nowS, id, playerId).run();
   if (!took.meta.changes) return { error: 'no-realm-character' };
   await freeOthers({ db }, playerId, id);
-  const row = await db.prepare('SELECT seq, bytes FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
-  return { id, lease, seq: row?.seq ?? 0, bytes: row?.bytes ?? 0 };
+  const row = await db.prepare('SELECT seq, bytes, origin_id FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  // RESTORE: and the offline id a customs character came from - the playing tab gives back what customs once kept, off
+  // that character's own save on its device (systems/realmCustoms.js reclaimFromDevice)
+  return { id, lease, seq: row?.seq ?? 0, bytes: row?.bytes ?? 0, origin: row?.origin_id ?? null };
 }
 
 /**
