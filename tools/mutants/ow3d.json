@@ -102,8 +102,8 @@
   {
     "name": "OW3D1-approach-the-middle",
     "file": "src/systems/travelDungeons.js",
-    "old": "    x: Math.min(Math.max(feet.x, rect.minX - grow), rect.maxX + grow),",
-    "new": "    x: (rect.minX + rect.maxX) / 2,",
+    "old": "  const x = Math.min(Math.max(feet.x, rect.minX - grow), rect.maxX + grow);",
+    "new": "  const x = (rect.minX + rect.maxX) / 2;",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -112,8 +112,8 @@
   {
     "name": "OW3D1-approach-no-buffer",
     "file": "src/systems/travelDungeons.js",
-    "old": "export function dungeonApproach(rect, feet, grow = ARRIVAL_BUFFER) {",
-    "new": "export function dungeonApproach(rect, feet, grow = 0) {",
+    "old": "export function dungeonApproach(rect, feet, grow = ARRIVAL_BUFFER, within = null) {",
+    "new": "export function dungeonApproach(rect, feet, grow = 0, within = null) {",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -132,8 +132,8 @@
   {
     "name": "OW3D3-rows-off-the-index",
     "file": "src/scenes/world.js",
-    "old": "(_tvDungeonRows ??= dungeonRows(mapDict))",
-    "new": "(_tvDungeonRows ??= dungeonRows(locationIndex))",
+    "old": "const list = nearDungeons({ at, grid, dungeons: (_tvDungeonRows ??= dungeonRows(mapDict)),",
+    "new": "const list = nearDungeons({ at, grid, dungeons: (_tvDungeonRows ??= dungeonRows(locationIndex)),",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -222,7 +222,7 @@
   {
     "name": "OW3D1-walk-into-walls",
     "file": "src/scenes/world.js",
-    "old": "if (door) n = dungeonApproach(door, lastLegStart(legs, state.worldCoords(player.pos), tvLegMid));",
+    "old": "if (door) n = dungeonApproach(door, lastLegStart(legs, state.worldCoords(player.pos), tvLegMid), undefined, pixelBox(pix.x, pix.y));",
     "new": "if (door) n = { x: (door.minX + door.maxX) / 2, z: (door.minZ + door.maxZ) / 2 };",
     "tests": [
       "test/tv6_dungeons.test.js"

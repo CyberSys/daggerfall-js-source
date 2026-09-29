@@ -126,7 +126,10 @@ it draws as the SPOP.RCI parchment and closes on any click
 as parchment with BUTTONS.RCI Yes/No. CM3: a shared
 `InputMessageBoxWindow`. CM4: the character sheet's four dead buttons
 (Name, Level, Health, Affiliations) get their popups, with
-LevelButton_OnMouseClick's arithmetic and ShowAffiliationsDialog's
+LevelButton_OnMouseClick's arithmetic (in DFU's own single precision
+since LEVEL-PCT, 2026-09-28 - `float currentLevel`; a double read 36
+and 39 a point off DFU's 40% and 59% - and, for a character ORL1's bar
+levels, that bar as a percent) and ShowAffiliationsDialog's
 table. CM5: the inventory's split popup, Control-forced included. CM6,
 CM7, CM8: the spellbook's rename, the spell maker's name and the travel
 map's Find each push the box instead of typing into the window.
@@ -947,14 +950,14 @@ does the pack's USE arm.
                         worldModes.js:2391 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1191, world.js:4055,
+                        dungeonContext.js:1191, world.js:4061,
                         exterior.js:2599. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:10154, dungeonContext.js:7935. A seam
+    / NOTEBOOK          world.js:10214, dungeonContext.js:7935. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -5360,7 +5363,11 @@ ini beside the executable, a browser has none, so the store keeps a
 DELTA against the defaults in localStorage, which also means a later
 DFU default still reaches a player who never touched that key. And
 the TIERS, which are a claim about this port rather than about DFU:
-`live`, `stored`, `unavailable`.
+`live`, `stored`, `unavailable`. (FPS-VSYNC, 2026-09-28, added a fourth,
+`restart`: a key the desktop shell reads at its next launch - in the app
+drawn flat with the live rows, its dot a live ring, and said to take
+effect the next time the app starts; in a browser the same key is
+`unavailable`.)
 
 **Seven settings went LIVE** - each one a real consumer, because a
 toggle that changes nothing is a lie: CombatVoices (the three voice
@@ -8787,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:4505 and
+questJournal.js from charSheetNav:53, world.js:4511 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -10664,9 +10671,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:10563`,
+the other half went stale unnoticed. (The rest cite named `world.js:10623`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:10569` now.)
+deleted the second and the cite is `world.js:10629` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -13179,7 +13186,8 @@ removed feature went with the pane.
 
 **TIER IS A GROUP**, as the Settings-Screen-Spec specified and the
 enhanced pane never built: in every category the port's rows and the
-LIVE store keys lie flat, and the two other tiers fold under a heading
+LIVE store keys lie flat (and, in the desktop app, the `restart` ones -
+FPS-VSYNC, 2026-09-28), and the two other tiers fold under a heading
 that carries the count - SAVED FOR LATER (stored, unread: 145 keys
 across the store) and NOT AVAILABLE HERE (fixed by the browser or a
 port choice) - closed by default, remembered per category on the
@@ -15564,9 +15572,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:8259` named a line that is 8950, `:1212` one that is
+read: `world.js:8293` named a line that is 8950, `:1215` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:7993-8025` and `dungeonContext.js:1612` were
+that is 8907. `world.js:8027-8059` and `dungeonContext.js:1612` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -16757,7 +16765,9 @@ port's own one-line description of what that attribute DOES, each
 line annotated in the source with the formula it is true of), the
 ribbon of skills across the foot, and the three vitals - health,
 fatigue, magicka, out of `sheetModel`, so this screen and the pause
-window's Stats page cannot disagree about a number.
+window's Stats page cannot disagree about a number. (The STARS read
+the permanent value until ASCEND-LIVE, below LV1's audit, and did
+disagree - a werewolf's 100 was a 63 here.)
 
 **The window writes nothing.** a11's law is that the Level++ and the
 health roll live in ONE place and never in a window, and this one does
@@ -17017,6 +17027,33 @@ The audit's own arithmetic: 28 pins (up from 22), `tools/mutants/lv1.json`
 which now stands a maxed character up and proves the way out is open,
 holds the chunk back and proves the pause is never blank, and proves a
 warm chunk never flashes the wait it makes unnecessary.
+
+### ASCEND-LIVE (2026-09-28): the stars wear what the character has
+
+The Discord (Megatronism): *"The permanent stat bonuses from being a werewolf (vampire, etc...) do not appear on the
+level up screen ... You can actually put points into an already maxed out attribute if you are not careful, and waste
+part of your level up"*. Every lane spends and caps the PERMANENT value - DFU's StatsRollout draws and caps
+GetPermanentStatValue (StatsRollout.cs:202, :237-249) and the mod reads `.base` (helper.lua:112-114) - and it still does:
+the law is not this window's. But the curse's +40 (LycanthropyEffect.cs:566-574, SetStatMod) and the vampire's +20 by
+night, -20 by day ride the LIVE channel, so a star read off the permanent value said 63 on a character whose Stats page
+says 100, and a point spent there moved nothing the player has while the curse lasts (it counts after a cure, and in
+the permanent Endurance a health roll reads). A row now carries `live` - liveStat's own law over the working permanent
+value (`liveAttribute`: the curse's channel, the spells, the diseases, the folds, the clamp) - and `capped`, a press the
+law allows whose point the live value cannot show. The star wears the live value, tinted as the classic sheet tints a
+live value above or below its permanent one (DaggerfallUnityStatIncreasedTextColor / StatDrainedTextColor); the chosen
+star's figure is still the permanent one the presses move, and the line under it says the rest: "100 with its bonus - a
+point here shows only once that ends", "93 with its bonus", "43 for now". A view (Ascend from the Stats page) now shows
+the Stats page's own numbers. The classic skin's rollout is DFU's window and is untouched (DFU blanks the sheet's
+labels while levelling, :406-421). AUDIT 28e: the tint and the star's screen-reader words are the rows' own
+(`liveTint`, `starLabel` in `ui/levelUpView.js`), pinned with the two colours and the folds' channel; the tint outranks
+a raised star's gold and yields to a full star's grey, by specificity; a point held at a FLOOR (a drained vampire by
+day, held at 1) is flagged as one at the ceiling is. THE LINE MOVED: in the pick name it wrapped to four lines on a
+phone and came and went with the choice, so the figure jumped and a tap landed on the wrong star. Each attribute's line
+now sits over its own blurb, and all eight lie in ONE grid cell with only the chosen one seen - the band is the
+tallest's whichever star is chosen, which also ends the blurbs' own jump (Luck's ran a line longer at some widths, and
+its blurb is a line shorter now); on a phone or a short screen the line takes its blurb's place. The level lane's
+probes, re-run: every aimed tap lands at every size tried, plain or cursed. `test/disc28e_ascendlive.test.js` (7),
+mutants in `tools/mutants/disc28e.json` (28).
 
 ## LV2 - THE RISING: the enhanced level-up notification (2026-09-19, Mac)
 

@@ -37,6 +37,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { Worker } = require('node:worker_threads');
+const { frameRateSwitches } = require('./lib/frameRate.cjs');   // FPS-VSYNC: VSync off lifts Chromium's wait
 
 // DAGGER_USER_DATA points saves/config somewhere else - the probe's
 // door (tools/appShellProbe.mjs writes into a temp dir it can read
@@ -53,6 +54,13 @@ const { Worker } = require('node:worker_threads');
 // created with, whatever the product is called on the outside.
 if (process.env.DAGGER_USER_DATA) app.setPath('userData', process.env.DAGGER_USER_DATA);
 else app.setPath('userData', path.join(app.getPath('appData'), 'Daggerfall JavaScript'));
+
+// FPS-VSYNC (2026-09-28): the player's saved VSync, read BEFORE the app is ready - Chromium takes its switches at
+// launch or never. VSync off lifts the screen's wait, and the page's Frame Rate Cap holds the frames instead
+// (DFU's own law, app/lib/frameRate.cjs). VSync on - DFU's default - changes nothing. Read ONCE: the page is told
+// what this launch runs with (dagger:frames-lifted, below) - its pacer is for a lifted wait only (AUDIT 28e).
+const FRAME_SWITCHES = frameRateSwitches(app.getPath('userData'));
+for (const s of FRAME_SWITCHES) app.commandLine.appendSwitch(s);
 
 // ONE instance per userData. Two shells over the same Saves folder
 // hold two independent storage indexes that go mutually stale (the
@@ -1277,6 +1285,9 @@ app.on('web-contents-created', (_e, contents) => {
 // The preload asks for its storage root synchronously at page boot -
 // storage must exist before the first module reads a setting.
 ipcMain.on('dagger:user-data-path', (e) => { e.returnValue = app.getPath('userData'); });
+// FPS-VSYNC (AUDIT 28e): whether this launch lifted Chromium's wait - the page paces its frames by the cap then
+// (src/systems/frameCap.js installFramePacer), since a held frame costs a whole refresh with the wait lifted
+ipcMain.on('dagger:frames-lifted', (e) => { e.returnValue = FRAME_SWITCHES.length > 0; });
 // ESC-LOCK (2026-09-27, Mac: "when you hit esc to leave a menu, your cursor remains on the screen"): Escape is no user
 // activation, and after the player ends a pointer lock the next one needs one - so a menu closed on Escape could not
 // take the look back. The page asks (preload relockPointer) and its own fixed hook runs here as a user gesture.

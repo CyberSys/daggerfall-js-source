@@ -26,6 +26,7 @@ import { createTravelOptions, SEA_LEG_SIZE, SEA_LEG_LO, SEA_SPOT_SIZE } from '..
 import { TRAVEL_VIEW_TEXT, travelTripLine } from '../src/scenes/travelView.js';
 import { quatRotate } from '../src/world/quat.js';
 
+// PIN MOVED (AUDIT OW5 G2): the Overworld's own lines are said through tvSay - held at the scale they are said at
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
 // ── THE PLANNER'S SEA ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -341,18 +342,22 @@ test('OWS2 host wiring by source: the boat a journey crosses in; the plan asked 
   assert.match(w, /it\?\.templateIndex === CSA_PARTS_TEMPLATE && tvSeaCrosses\(csa\.hullRig\?\.\(csaHullFromMessage\(it\.message \?\? 0\)\)\)/);
   // the plans
   // THE MERGE (OW4 x OWS2): the planner's ground is routeGround's (the sea and the peaks' law, read once), the boat beside it
-  assert.match(w, /const plan = planRoute\(from, summary\.pixel, \{ roads: net\?\.roads \?\? null, tracks: net\?\.tracks \?\? null, \.\.\.tvRouteGround\(\), sea: tvSeaAsk\(means, 'land'\) \}\);/);
-  assert.match(w, /const seaAsk = means && \(water \|\| means\.start === 'sea' \|\| !dryLine\(from, pix, tvWater\)\) \? tvSeaAsk\(means, water \? 'sea' : 'land'\) : null;\n\s*if \(water && !seaAsk\) \{ tvSeaNoWay\(from, pix, null, null, 'sea'\); return false; \}/);
-  assert.match(w, /const plan = planRoute\(from, pix, \{ roads: wnet\?\.roads \?\? null, tracks: wnet\?\.tracks \?\? null, \.\.\.tvRouteGround\(\), goalExempt: !!door, sea: seaAsk \}\);/);
-  assert.match(w, /else if \(what\.kind === 'water'\) \{ if \(travelOptions\?\.settings\?\.targetCoordsAllowed === false\) townTalk\.say\(TRAVEL_VIEW_TEXT\.placesOnly\); else travelViewWalkTo\(hit\.point, pix, \{ water: true \}\); \}/);
-  assert.match(w, /if \(csaAboard\.aboard\) \{ townTalk\.say\(TRAVEL_VIEW_TEXT\.passenger\); return false; \}/);
+  // PIN MOVED (AUDIT OW5 S3): a plan that never sails is planned again on land, the moored boat left where it lies
+  assert.match(w, /let plan = planRoute\(from, summary\.pixel, \{ roads: net\?\.roads \?\? null, tracks: net\?\.tracks \?\? null, \.\.\.tvRouteGround\(\), sea: tvSeaAsk\(means, 'land'\) \}\);[^\n]*\n\s*const dry = tvMooredDry\(means, plan, [^\n]*\n\s*if \(dry\) \{ plan = dry; means = null; \}/);
+  // PIN MOVED (AUDIT OW5 S3): a let - a plan that never sails drops the moored boat's ask
+  assert.match(w, /let seaAsk = means && \(water \|\| means\.start === 'sea' \|\| !dryLine\(from, pix, tvWater\)\) \? tvSeaAsk\(means, water \? 'sea' : 'land'\) : null;\n\s*if \(water && !seaAsk\) \{ tvSeaNoWay\(from, pix, null, null, 'sea'\); return false; \}/);
+  // PIN MOVED (AUDIT OW5 S3): a let
+  assert.match(w, /let plan = planRoute\(from, pix, \{ roads: wnet\?\.roads \?\? null, tracks: wnet\?\.tracks \?\? null, \.\.\.tvRouteGround\(\), goalExempt: !!door, sea: seaAsk \}\);/);
+  assert.match(w, /else if \(what\.kind === 'water'\) \{ if \(travelOptions\?\.settings\?\.targetCoordsAllowed === false\) tvSay\(TRAVEL_VIEW_TEXT\.placesOnly\); else travelViewWalkTo\(hit\.point, pix, \{ water: true \}\); \}/);
+  assert.match(w, /if \(csaAboard\.aboard\) \{ tvSay\(TRAVEL_VIEW_TEXT\.passenger\); return false; \}/);
   // the frame, before the mod's own
   const sea = w.indexOf('tvSeaFrame(dt);   // OWS2'), mod = w.indexOf('const report = travelOptions.update({'), govern = w.indexOf('travelViewGovern(dt);   // TV2');
   assert.ok(sea >= 0 && govern > sea && mod > govern && mod - sea < 3000, 'the crossing\'s frame first, then the cap\'s, then the mod\'s own update');
   // the seam: the helm reads the journey's keys and oars beside the rest
   assert.match(w, /\|\| csaJourneyHelm\.held\.has\(action\),/);
   assert.match(w, /get toggleAutorun\(\) \{ return !!player\.toggleAutorun \|\| csaJourneyHelm\.row; \},/);
-  assert.match(w, /atSea: \(\) => !!csaBoatUnderMe\(\) \|\| tvSea\.phase === 'landing',/, 'afloat, and coming ashore');
+  // PIN MOVED (AUDIT OW5 S1): the crossing's alone - a mod journey at a helm meets the mod's own ocean stop
+  assert.match(w, /atSea: \(\) => !!tvSea\.means && \(!!csaBoatUnderMe\(\) \|\| tvSea\.phase === 'landing'\),/, 'afloat, and coming ashore - on the crossing');
   // the launch, the landfall, ashore, the pack
   assert.match(w, /boat = csaRuntime\.LaunchFromParts\(parts, \(\) => playerEntity\.items, spot\.at, spot\.dir, csaTerrainOf\(csaPixelAt\(spot\.at\[0\], spot\.at\[2\]\)\)\);/);
   assert.match(w, /if \(boat\) csaCall\(\(\) => csaRuntime\.StartSailing\(boat\)\);/);
@@ -370,7 +375,7 @@ test('OWS2 host wiring by source: the boat a journey crosses in; the plan asked 
 test('AUDIT OWS A1/A2 by source: a load takes the crossing\'s hand off the helm and forgets the crossing (declared above the load - BOOT-TDZ); a journey\'s end forgets a landing it left, so the ocean stop is never held down after it', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /csaJourneyHelm\.held\.clear\(\); csaJourneyHelm\.row = false; tvSea\.means = null; tvSea\.phase = null; tvSea\.boat = null; tvSea\.wasLive = false;   \/\/ AUDIT OWS A1/);
-  const decl = w.indexOf('  const tvSea = { means: null,'), load = w.indexOf('tvSea.wasLive = false;   // AUDIT OWS A1'), reader = w.indexOf("atSea: () => !!csaBoatUnderMe() || tvSea.phase === 'landing',");
+  const decl = w.indexOf('  const tvSea = { means: null,'), load = w.indexOf('tvSea.wasLive = false;   // AUDIT OWS A1'), reader = w.indexOf("atSea: () => !!tvSea.means && (!!csaBoatUnderMe() || tvSea.phase === 'landing'),");
   assert.ok(decl >= 0 && decl < load && decl < reader, 'BOOT-TDZ: the state above the load that clears it and the stop that reads it');
   assert.match(w, /tvSea\.wasLive = false;\n\s*tvSea\.phase = null; tvSea\.boat = null;   \/\/ AUDIT OWS A2/);
 });

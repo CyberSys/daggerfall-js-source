@@ -203,8 +203,8 @@
   {
     "name": "HUB1-boot-collects-mod-rows",
     "file": "src/scenes/world.js",
-    "old": "if (l < baseCount) _hubRows.push(loc);",
-    "new": "_hubRows.push(loc);",
+    "old": "      if (l < baseCount) { _hubRows.push(loc); _bandPlacePixels.add(",
+    "new": "      { _hubRows.push(loc); _bandPlacePixels.add(",
     "tests": [
       "test/hub1.test.js"
     ]

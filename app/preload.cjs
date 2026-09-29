@@ -50,6 +50,8 @@ contextBridge.exposeInMainWorld('daggerShell', {
     updateListeners.push(cb);
     if (updateHeard) cb(updateHeard);
   },
+  // FPS-VSYNC (AUDIT 28e): this launch lifted Chromium's wait (VSync off when it started) - the page paces its frames
+  framesLifted: ipcRenderer.sendSync('dagger:frames-lifted') === true,
   storage: {
     length: () => store.length(),
     key: (i) => store.key(i),

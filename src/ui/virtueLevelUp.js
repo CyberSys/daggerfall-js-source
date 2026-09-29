@@ -43,7 +43,7 @@ import { drawText, measureText } from './text.js';
 import { nativeMetrics, NATIVE_W } from './nativePanel.js';
 import {
   levelingSettings, virtuePurse, canRaiseAttribute, canLowerAttribute,
-  attributeOffset, commitVirtueLevelUp, virtueSpendPlan, LEVELUP_TOTAL,
+  attributeOffset, commitVirtueLevelUp, virtueSpendPlan, LEVELUP_TOTAL, levelBarProgress,
 } from '../systems/oblivionLeveling.js';
 
 /** l10n/en.yaml:34 remaining_points_error, the author's own words. */
@@ -304,7 +304,8 @@ export class VirtueLevelUpScreen {
     at('[ OK ]', OK_X, PRESS_Y, this.purse === 0 ? hot : dim);
     // The bar the whole system is measured against, so a player can
     // see what carried over into the level they are starting.
-    at(`bar ${this.entity.levelProgress ?? 0}/${LEVELUP_TOTAL}`
+    // (levelBarProgress: the one reading the crown and the Level box draw - AUDIT 28e.)
+    at(`bar ${levelBarProgress(this.entity)}/${LEVELUP_TOTAL}`
       + `${(this.entity.levelRollUp ?? 0) > 0 ? `  (+${this.entity.levelRollUp} carried)` : ''}`,
     ROW_X, PRESS_Y + 12, dim);
     if (this.refused) {
