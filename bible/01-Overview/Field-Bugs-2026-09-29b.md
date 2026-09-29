@@ -66,6 +66,16 @@ or `DAGGER_SECRET`.
 
 Pinned: `test/customspass.test.js` (6), `tools/mutants/customspass.json` (14 mutants, 14 dead).
 
+## The realm6 flake, explained
+
+FIELD BUGS 2026-09-29 noted that `test/realm6.test.js`'s end-to-end sale failed once under load and could not say why.
+It failed again in this batch's second full run (the sequence 3 where 4 was asked). The cause: `realmSaves.js`
+`realmGoldAct` sends the outcome's checkpoint and does not wait for it - by design, as the host never does - and the pin
+read `session.seq` right after the act, so a checkpoint answered later than the record read beside it (a loaded
+machine's WebCrypto and SQLite) was not yet counted. Made to happen every time by answering the checkpoint's PUT 5 ms
+late, it failed; the pin now waits for the checkpoint the act sent, and passes so, and eight times at once. The game's
+code is unchanged: nothing there reads the sequence the pin did.
+
 ## For Mac
 
 - **Gryphoth, once this deploys:** `DAGGER_HANDLE=<yours> DAGGER_PASSWORD=<yours> node tools/customsPass.mjs <his
