@@ -221,6 +221,8 @@ await scenario('first run, nothing found', {}, async (shell, lp, dirs) => {
   check(actions.includes('Get it on Steam') && actions.includes('Get it on GOG'), `and says where to get it (got ${actions.join(' / ')})`);
   check(await lp.$eval('#play', (b) => b.disabled), 'DA10: no files, no Play');
   await lp.click('text=Choose in the game instead');
+  // AUDIT INSTALL R2-E (L5-20): POLLED after a click, never read at once - the shell answers in its own time
+  await waitFor(() => configOf(dirs).arena2InGame === true);
   check(configOf(dirs).arena2InGame === true, 'DA10: the game\'s own picker, chosen once, is kept');
   await pressPlay(shell);
   const game = await gameWindow(shell);
@@ -241,7 +243,10 @@ await scenario('a Steam library found', {
   const found = await lp.$$eval('.found .from', (e) => e.map((x) => x.textContent));
   check(found.length === 1 && found[0] === 'Steam', `offered once, as Steam's (got ${found.join(', ')})`);
   await lp.click('text=Use these files');
-  const files = (await lp.textContent('#files'))?.replace(/\u200E/g, '').trim();
+  // polled: the folder taken is looked at again, in a process of its own (R2-D1), before the row can name it
+  const filesRow = async () => (await lp.textContent('#files'))?.replace(/\u200E/g, '').trim();
+  await waitFor(async () => (await filesRow())?.endsWith('DF/DAGGER/ARENA2'));
+  const files = await filesRow();
   check(files?.endsWith('DF/DAGGER/ARENA2'), `DA10: the Game files row shows the folder taken (got ${files})`);
   await pressPlay(shell);
   const game = await gameWindow(shell);

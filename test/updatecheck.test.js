@@ -110,7 +110,8 @@ test('DA6: the wiring pins - one API, two gates, and probes never touch the netw
     'launch check honours the checkbox and the probe env');
   // DA8: the launch check is the LAUNCHER's, and silent - an error is "offline" (AUDIT INSTALL L2-1: or, under a
   // download, "failed") and the player plays on
-  assert.match(main, /launcherDispatch\(\{ type: launcher\?\.state\.update\.status === 'downloading' \? 'download-failed' : 'check-failed' \}\);/, 'and the launch check is the silent one');
+  // AUDIT INSTALL R2-A2: the CHECK's own promise says it - the error event cannot tell a check's failure from a download's
+  assert.match(main, /askUpdater\(\)\s*\.then\(\(r\) => \{ if \(!r\) launcherDispatch\(\{ type: 'check-failed' \}\); \}\)\s*\.catch\(\(\) => launcherDispatch\(\{ type: 'check-failed' \}\)\);/, 'and the launch check is the silent one');
   // The probe sets the env, so a green probe never depended on GitHub.
   const probe = fs.readFileSync(path.join(root, 'tools', 'appShellProbe.mjs'), 'utf8');
   assert.match(probe, /DAGGER_NO_UPDATE_CHECK: '1'/, 'the shell probe opts out of the check');

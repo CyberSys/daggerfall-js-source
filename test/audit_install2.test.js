@@ -9,7 +9,8 @@
 // bible/01-Overview/Audit-Install.md ("Round 2").
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
+import fsModule, { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -229,4 +230,197 @@ test('R2-C4: the notes read every name git has - an accent, a space, a quote, a 
     assert.equal(byFile['PATCH-NOTES-Linked.md'], '# Patch Notes: Linked, now a real file\n\n- Notes never published before.', 'a link that became a file brings the file whole');
     assert.doesNotMatch(composeReleaseNotes(Object.values(byFile).map((text) => ({ text }))), /\0|Old text/);
   } finally { rmSync(repo, { recursive: true, force: true }); }
+});
+
+// ---- ARENA2: every look at the disks off the main process (lane D) ---------------------------------------------
+
+const L = createRequire(import.meta.url)('../app/lib/launcherState.cjs');
+const { looseRoots, detectArena2 } = createRequire(import.meta.url)('../app/lib/arena2Detect.cjs');
+const state = (over = {}) => L.initialState({ current: '0.1.4700', transport: 'updater', checkEnabled: false, ...over });
+const apply = (s, ...events) => events.reduce(L.reduce, s);
+const body = (decl) => {
+  const at = main.indexOf(decl);
+  assert.ok(at >= 0, `${decl} is in app/main.cjs`);
+  const next = main.slice(at + decl.length).search(/\n(?:async )?function |\n\/\*\* |\nconst [A-Z_]+ = |\nlet |\nipcMain\.|\napp\./);
+  return next < 0 ? main.slice(at) : main.slice(at, at + decl.length + next);
+};
+
+test('R2-D1: the saved folder is looked at BESIDE the window, never before it - a share that is down kept the launcher off the screen', () => {
+  // round 1's L4-1 moved the search off the main process and left the saved folder on it: three blocking reads before
+  // the window, and on a hard mount that never answers, no window at all. Measured on lane D's hung share since: the
+  // launcher on screen in 0.36 s, "cannot be reached" at the deadline, and a quit with the probe stuck exits in 0.1 s.
+  const run = body('function runLauncher()');
+  assert.match(run, /setArena2\(null\);/);
+  assert.doesNotMatch(run, /readdirSync|existsSync|statSync|askArena2\(|judgeArena2|resolveArena2/, 'nothing on the disk before the window');
+  assert.ok(run.indexOf('win: openLauncherWindow()') < run.indexOf('if (savedDir) judgeSaved(launcher, savedDir);'), 'the window first');
+  assert.match(body('function judgeSaved('), /if \(r\.dir\) setArena2\(r\.dir\);\s*launcherDispatch\(\{ type: 'saved-judged', \.\.\.r \}\);/);
+  // meanwhile: the front door, Play held, the gem breathing - and a late answer changes nothing once decided
+  const checking = state({ savedDir: '/nas/ARENA2' });
+  assert.deepEqual([checking.setup.status, L.canPlay(checking), L.viewOf(checking).panel, L.viewOf(checking).busy], ['checking', false, 'news', true]);
+  assert.deepEqual(L.viewOf(checking).options.files, { path: '/nas/ARENA2', note: '', label: 'Change folder' });
+  // not whole with the game's own picker kept (the probe's env, a config from before): the picker, as before
+  assert.equal(apply(state({ savedDir: '/nas/ARENA2', inGamePicker: true }), { type: 'saved-judged', missing: null, unreadable: true }).setup.status, 'skipped');
+  assert.equal(apply(state({ savedDir: '/nas/ARENA2' }), { type: 'saved-judged', missing: null, unreadable: true }).setup.status, 'looking');
+  assert.equal(L.reduce(apply(checking, { type: 'saved-judged', dir: '/nas/ARENA2' }), { type: 'saved-judged', missing: null, unreadable: true }).setup.status, 'ready', 'judged once');
+  // a folder that did not answer in time is out of reach, and says so
+  assert.deepEqual(folderAnswerOf({ late: true }), { missing: null, unreadable: true, late: true, cut: false });
+  assert.deepEqual(folderAnswerOf({ failed: true }), { missing: null, unreadable: true, late: false, cut: false });
+  assert.deepEqual(folderAnswerOf({ dir: '/a/ARENA2', missing: ['X'] }), { dir: '/a/ARENA2' });
+  // an install downloaded meanwhile waits for the files to be SET - checking included (lane A A8)
+  const waiting = apply(state({ savedDir: '/nas/ARENA2', checkEnabled: true }), { type: 'check-available', version: '0.1.4701' }, { type: 'downloaded', version: '0.1.4701' });
+  assert.equal(L.nextStep(waiting), 'wait');
+  assert.equal(L.viewOf(waiting).status, 'v0.1.4701 is ready to install');
+  assert.equal(L.nextStep(apply(waiting, { type: 'saved-judged', dir: '/nas/ARENA2' })), 'install');
+});
+
+/** main.cjs's folderAnswer, run. */
+function folderAnswerOf(a) {
+  const src = main.slice(main.indexOf('function folderAnswer('), main.indexOf('/** The native folder dialog: the folder picked'));
+  return new Function(`${src}; return folderAnswer;`)()(a);
+}
+
+test('R2-D4: the search goes on past its deadline, and a later find is added - never "go and get it" for a search cut short', () => {
+  const looking = state();
+  const none = apply(looking, { type: 'found', found: [], searching: true });
+  assert.deepEqual([none.setup.status, none.setup.searching, L.viewOf(none).busy], ['none', true, true]);
+  assert.match(L.viewOf(none).setup.detail, /^Still looking on slower drives - they are added here if they turn up\./);
+  const late = apply(none, { type: 'found-more', found: { dir: '/mnt/steam/ARENA2', source: 'steam' } });
+  assert.deepEqual([late.setup.status, late.setup.found.map((f) => f.dir)], ['found', ['/mnt/steam/ARENA2']]);
+  assert.equal(L.viewOf(late).setup.found[0].primary, true, 'the one thing found is the card\'s answer');
+  assert.deepEqual(apply(late, { type: 'found-more', found: { dir: '/mnt/steam/ARENA2', source: 'steam' } }).setup.found.length, 1, 'once');
+  assert.equal(apply(late, { type: 'found-more', found: { dir: '/b/ARENA2', source: 'folder' } }).setup.found.length, 2);
+  const refused = apply(none, { type: 'picked-bad', missing: null }, { type: 'found-more', found: { dir: '/c/ARENA2', source: 'gog' } });
+  assert.deepEqual([refused.setup.status, refused.setup.found.length], ['bad', 1], 'offered on a refusal\'s card too');
+  // once the player has chosen - a folder, or the game's own picker - a late find is nothing
+  assert.equal(apply(apply(none, { type: 'picked', dir: '/x' }), { type: 'found-more', found: { dir: '/y', source: 'steam' } }).setup.found.length, 0);
+  assert.equal(apply(none, { type: 'skip-setup' }).setup.searching, false);
+  assert.equal(apply(none, { type: 'picked', dir: '/x' }).setup.searching, false, 'and the search is let go');
+  const done = apply(none, { type: 'detect-done' });
+  assert.equal(done.setup.searching, false);
+  assert.doesNotMatch(L.viewOf(done).setup.detail, /Still looking/, 'concluded: the card says where to get it, plainly');
+  assert.equal(L.viewOf(done).busy, false);
+  assert.equal(apply(looking, { type: 'found-more', found: { dir: '/z', source: 'dfu' } }).setup.found.length, 0, 'before the deadline the finds are the shell\'s to hold');
+});
+
+test('R2-D5: on a Mac the privacy-guarded folders are read LAST - after ~/Games, as "only when nothing else was found" says', () => {
+  const roots = looseRoots({ platform: 'darwin', home: '/Users/p', env: {} }, ['/Users/p/Downloads']);
+  assert.deepEqual(roots.map((r) => [r.dir, r.guarded]), [
+    ['/Users/p/Games', false], ['/Users/p/Downloads', true], ['/Users/p/Desktop', true], ['/Users/p/Documents', true],
+  ]);
+  assert.deepEqual(looseRoots({ platform: 'linux', home: '/h', env: {} }, []).map((r) => r.dir), ['/h/Downloads', '/h/Desktop', '/h/Documents', '/h/Games'], 'elsewhere the order stands');
+  // run: the files in ~/Games, and not one guarded folder read on the way (each read would be a system prompt)
+  const home = mkdtempSync(join(tmpdir(), 'r2-mac-'));
+  try {
+    const a2 = join(home, 'Games', 'Daggerfall', 'arena2');
+    for (const d of [a2, join(home, 'Downloads'), join(home, 'Desktop'), join(home, 'Documents')]) fsModule.mkdirSync(d, { recursive: true });
+    for (const n of ['ARCH3D.BSA', 'BLOCKS.BSA', 'MAPS.BSA', 'MONSTER.BSA', 'WOODS.WLD', 'TEXT.RSC', 'ART_PAL.COL']) writeFileSync(join(a2, n), 'x');
+    const read = [];
+    const fs2 = new Proxy(fsModule, { get: (t, k) => (k === 'readdirSync' ? (d, o) => { read.push(String(d)); return t.readdirSync(d, o); } : t[k]) });
+    const found = detectArena2({ platform: 'darwin', home, env: {}, fs: fs2, regQuery: () => [] });
+    assert.equal(found.length, 1);
+    const guarded = read.filter((d) => ['Downloads', 'Desktop', 'Documents'].some((g) => d.startsWith(join(home, g))));
+    assert.deepEqual(guarded, [], 'three prompts for files that were elsewhere');
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test('R2-D6/D7/D8: the doors - a refusal said where it can be seen, "cannot be read" said as such, a saved folder never lost to one launch\'s choice', () => {
+  // D7: decided once the answer is in - during the search a refusal meant for the card was dropped without a word
+  const choose = body('async function launcherChooseFolder()');
+  assert.doesNotMatch(choose, /const onCard = viewOf/, 'not decided before the dialog');
+  assert.match(choose, /if \(reduce\(l\.state, \{ type: 'picked-bad', \.\.\.r \}\)\.setup\.status === 'bad'\) \{ launcherDispatch\(\{ type: 'picked-bad', \.\.\.r \}\); return; \}\s*await launcherDialog\(\(\) => dialog\.showMessageBox\(l\.win,/);
+  assert.equal(L.reduce(state(), { type: 'picked-bad', missing: null }).setup.status, 'looking', 'the card while looking cannot say it - so the box does');
+  // D8: a found folder whose drive went away is "could not be read", not "holds no Daggerfall files"
+  const gone = apply(state(), { type: 'found', found: [{ dir: '/usb/ARENA2', source: 'folder' }] }, { type: 'picked-bad', missing: null, unreadable: true });
+  assert.equal(L.viewOf(gone).setup.title, 'That folder cannot be read');
+  assert.match(L.viewOf(gone).setup.detail, /^It could not be read - is its drive connected\?/);
+  // D3 (words): a pick that did not answer in time, or whose search ran out of budget, is never "no Daggerfall files"
+  assert.match(L.notArena2Detail(null, { unreadable: true, late: true }), /^It did not answer in time - is its drive asleep, or disconnected\?/);
+  assert.match(L.notArena2Detail(null, { cut: true }), /^It holds too many folders to look through them all\./);
+  assert.match(L.notArena2Detail(['MAPS.BSA'], { cut: true }), /^It has no MAPS\.BSA\./, 'a partial folder names what it lacks, cut or not');
+  // D6: the game's own picker chosen on the SAVED folder's card is this launch's alone - kept, it hid the folder for good
+  const acts = main.slice(main.indexOf("ipcMain.on('launcher:act'"), main.indexOf('// THE NAVIGATION FENCES'));
+  assert.match(acts, /saveConfig\(st\.setup\.saved \? \{ \.\.\.loadConfig\(\), arena2IngestClear: true \} : \{ \.\.\.loadConfig\(\), arena2InGame: true \}\);/);
+  // D8, the shell's half: the whole answer reaches the card - unreadable and late with it
+  assert.match(acts, /case 'use-found': \{[\s\S]*?if \(r\.dir\) useArena2\(r\.dir\);\s*else launcherDispatch\(\{ type: 'picked-bad', \.\.\.r \}\);/);
+  // one judgment at a time, and an install waits on it as on a dialog
+  const judge = body('async function judgeForLauncher(');
+  assert.match(judge, /if \(!l \|\| l\.judging\) return null;/);
+  assert.match(judge, /return await launcherDialog\(async \(\) => folderAnswer\(await askArena2\(question, \{ deadline, signal: l\.stop\.signal \}\)\)\);/);
+  assert.match(choose, /if \(!launcher \|\| launcher\.state\.launch \|\| launcher\.judging\) return;/);
+  assert.equal(L.viewOf(apply(state({ arena2Dir: '/a' }), { type: 'judging', on: true })).busy, true);
+});
+
+test('R2-E5: a Mac\'s refusal points at DaggerfallGameFiles.zip, never Steam or GOG, and keeps its door', () => {
+  const mac = L.notArena2Detail(['MAPS.BSA'], { platform: 'darwin' });
+  assert.match(mac, /Choose the arena2 folder inside the unpacked DaggerfallGameFiles\.zip\.$/);
+  assert.doesNotMatch(mac, /Steam|GOG/);
+  const bad = apply(state({ platform: 'darwin' }), { type: 'found', found: [] }, { type: 'picked-bad', missing: null });
+  assert.deepEqual(L.viewOf(bad).setup.actions.map((a) => [a.id, a.arg ?? null]), [['choose-folder', null], ['open', 'zip'], ['skip-setup', null]]);
+  assert.doesNotMatch(L.viewOf(bad).setup.detail, /Steam|GOG/);
+  const win = apply(state(), { type: 'found', found: [] }, { type: 'picked-bad', missing: null });
+  assert.deepEqual(L.viewOf(win).setup.actions.map((a) => a.id), ['choose-folder', 'skip-setup']);
+  assert.match(body('async function locateArena2('), /detail: notArena2Detail\(r\.missing, \{ \.\.\.r, platform: process\.platform \}\),/, 'the File menu\'s door says it the same way');
+});
+
+// ---- the update lifecycle (lane A) ------------------------------------------------------------------------------
+
+test('R2-A2: a check made while a download runs never takes the download\'s place - its token, and its end, stay the download\'s', async () => {
+  // askUpdater, run against electron-updater's own rule: a check during a download returns the SAME download under a
+  // NEW token that stops nothing (AppUpdater.downloadUpdate, 6.8.9)
+  const src = main.slice(main.indexOf('function askUpdater()'), main.indexOf('/** DA10: news.json'));
+  const events = [];
+  let settle = null;
+  let running = null;
+  let fail = false;
+  const au = {
+    checkForUpdates: async () => {
+      if (fail) throw new Error('HTTP 500');
+      const token = { id: Math.random() };
+      running ??= new Promise((res, rej) => { settle = { res, rej }; });
+      return { cancellationToken: token, downloadPromise: running, updateInfo: { version: '0.1.4701' } };
+    },
+  };
+  const shell = new Function('autoUpdater', 'stopStallWatch', 'launcherDispatch', `let downloading = null;\n${src}\nreturn { askUpdater, now: () => downloading };`)(
+    () => au, () => events.push('stop-watch'), (ev) => events.push(ev.type));
+  const first = await shell.askUpdater();
+  const token = shell.now().token;
+  assert.equal(token, first.cancellationToken, 'the check that STARTED the download keeps its token');
+  const second = await shell.askUpdater();
+  assert.notEqual(second.cancellationToken, token);
+  assert.equal(shell.now().token, token, 'a later check\'s token stops nothing - it is never taken');
+  fail = true;
+  await assert.rejects(shell.askUpdater(), /HTTP 500/, 'a CHECK that fails rejects its own promise');
+  assert.deepEqual(events, [], 'and is no download\'s failure');
+  settle.rej(new Error('ECONNRESET'));
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(events, ['stop-watch', 'download-failed'], 'the download breaking off is said once, by the download');
+  assert.equal(shell.now(), null, 'and the next check may start afresh');
+  // the hourly re-check never asks over a running download
+  assert.match(main, /if \(!updateReady && !installStarted && !downloading\) askUpdater\(\)\.catch\(\(\) => \{\}\);/);
+  assert.match(body('async function checkForUpdatesViaUpdater()'), /try \{ result = await askUpdater\(\); \}/, 'the File menu\'s check too - one place keeps the download');
+});
+
+test('R2-A1/A5: an update\'s quit hands the lock to the new copy - and a quit queued behind an install that already failed is held', () => {
+  const quitFor = main.slice(main.indexOf("require('electron').autoUpdater.on('before-quit-for-update'"), main.indexOf('/** AUDIT INSTALL L2-2/L2-3: THE ONE DOOR'));
+  // A5 first: the install already failed (NSIS: the spawn's error lands before electron-updater's queued quit) - held
+  assert.match(quitFor, /if \(installFault\) \{ holdQuit = true; return; \}\s*leaveForUpdate = true;/);
+  // A1: the new AppImage is started before this copy quits - the lock is released so its requestSingleInstanceLock is yes
+  assert.match(quitFor, /leaveForUpdate = true;\s*(\/\/[^\n]*\n\s*)*app\.releaseSingleInstanceLock\(\);\s*\}\);/);
+  assert.match(quitFor, /app\.on\('before-quit', \(e\) => \{ if \(holdQuit\) \{ holdQuit = false; e\.preventDefault\(\); \} \}\);/);
+  assert.match(body('function installNow('), /installStarted = true;\s*installFault = false;/, 'each try starts clean');
+  assert.match(body('function installFailed()'), /installStarted = false;\s*installFault = true;/);
+  assert.equal((main.match(/releaseSingleInstanceLock\(\)/g) ?? []).length, 1, 'only an update\'s quit gives it up');
+});
+
+test('R2-A6/A10: the in-game switch starts the hourly check; the File menu\'s check never says "up to date" off a check never made', () => {
+  const sw = body('function setCheckOnLaunch(');
+  assert.ok(sw.indexOf('if (on) startRechecks();') >= 0 && sw.indexOf('if (on) startRechecks();') < sw.indexOf('if (!launcher) return;'), 'before the launcher-only half returned');
+  const manual = body('async function checkForUpdatesViaUpdater()');
+  assert.match(manual, /if \(!result\) \{ await checkForUpdates\(\); return; \}/, 'electron-updater declined: GitHub is asked directly');
+  const loud = main.slice(main.indexOf('async function checkForUpdatesViaUpdater'), main.indexOf('/** { tag, url, download } of the latest release'))
+    + main.slice(main.indexOf('async function checkForUpdates()'), main.indexOf('/** While the app runs, ask again'));
+  assert.doesNotMatch(loud, /dialog\.showMessageBox\(/, 'no box without a window over it');
+  assert.match(body('function tellBox('), /const parent = BrowserWindow\.getFocusedWindow\(\) \?\? \(gameWindow && !gameWindow\.isDestroyed\(\) \? gameWindow : null\);\s*return parent \? dialog\.showMessageBox\(parent, opts\) : dialog\.showMessageBox\(opts\);/,
+    'over the window found - a parentless box can open behind a fullscreen game');
+  assert.match(main, /appImage: !!process\.env\.APPIMAGE,/, 'the table knows whether this copy runs as its AppImage');
 });

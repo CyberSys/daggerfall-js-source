@@ -2,15 +2,15 @@
   {
     "name": "DA9-1-a-partial-folder-passes-as-arena2",
     "file": "app/lib/arena2Detect.cjs",
-    "old": "  if (missingArena2(dir, fsImpl)?.length === 0) return dir;\n",
-    "new": "  if (missingArena2(dir, fsImpl)?.length < REQUIRED_ARENA2.length) return dir;\n",
+    "old": "  if (!top.length) return { dir };",
+    "new": "  if (top.length < REQUIRED_ARENA2.length) return { dir };",
     "tests": ["test/da9_arena2detect.test.js"],
     "note": "A2-WHOLE's fault, in the app: the palette served, the boot dead on ARCH3D.BSA, the shell never asking again."
   },
   {
     "name": "DA9-2-the-install-folder-is-not-descended",
     "file": "app/lib/arena2Detect.cjs",
-    "old": "    if (missingArena2(nested, fsImpl)?.length === 0) return nested;\n",
+    "old": "    if (!m.length) return { dir: nested };\n",
     "new": "",
     "tests": ["test/da9_arena2detect.test.js"]
   },
@@ -45,8 +45,8 @@
   {
     "name": "DA9-7-the-walk-has-no-cap",
     "file": "app/lib/arena2Detect.cjs",
-    "old": "  while (queue.length && opened.size < SEARCH_DIRS_MAX) {\n",
-    "new": "  while (queue.length) {\n",
+    "old": "    if (opened.size >= SEARCH_DIRS_MAX) return { dir: null, cut: true };\n",
+    "new": "",
     "tests": ["test/da9_arena2detect.test.js"]
   },
   {
@@ -59,8 +59,8 @@
   {
     "name": "DA9-9-the-shell-keeps-its-own-one-file-test",
     "file": "app/main.cjs",
-    "old": "const { findCaseInsensitive, resolveArena2, diagnoseArena2, missingArena2, searchArena2 } = require('./lib/arena2Detect.cjs');\n",
-    "new": "const { findCaseInsensitive, diagnoseArena2, missingArena2, searchArena2 } = require('./lib/arena2Detect.cjs');\nfunction resolveArena2(dir) { return dir && findCaseInsensitive(dir, 'ART_PAL.COL') ? dir : null; }\n",
+    "old": "const { findCaseInsensitive, answerArena2 } = require('./lib/arena2Detect.cjs');",
+    "new": "const { findCaseInsensitive, answerArena2 } = require('./lib/arena2Detect.cjs');\nfunction resolveArena2(dir) { return dir && findCaseInsensitive(dir, 'ART_PAL.COL') ? dir : null; }",
     "tests": ["test/da9_arena2detect.test.js"]
   },
   {

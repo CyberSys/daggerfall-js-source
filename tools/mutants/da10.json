@@ -25,8 +25,8 @@
   {
     "name": "DA10-4-the-install-cuts-off-the-players-own-card",
     "file": "app/lib/launcherState.cjs",
-    "old": "  if (s.update.status === 'installing') return SETUP_WAITING.has(s.setup.status) ? 'wait' : 'install';\n",
-    "new": "  if (s.update.status === 'installing') return 'install';\n",
+    "old": "  if (s.update.status === 'installing') return SETUP_DONE.has(s.setup.status) ? 'install' : 'wait';",
+    "new": "  if (s.update.status === 'installing') return 'install';",
     "tests": ["test/da10_launcher.test.js"],
     "note": "The app vanishes for a restart while the player is choosing their files."
   },
@@ -134,16 +134,16 @@
   {
     "name": "DA10-19-an-in-page-ingest-shadows-the-folder-chosen",
     "file": "app/main.cjs",
-    "old": "  pendingIngestClear = true;\n  launcherDispatch({ type: 'picked', dir });\n",
-    "new": "  launcherDispatch({ type: 'picked', dir });\n",
+    "old": "  if (arena2Dir && !win.isDestroyed() && await clearIngestIfPending(win.webContents) && !win.isDestroyed()) win.reload();\n",
+    "new": "",
     "tests": ["test/da10_launcher.test.js"],
     "note": "Audit DA F-DA2 through the launcher: the stored ingest answers first, and the folder the player chose changes nothing."
   },
   {
     "name": "DA10-20-every-boot-after-a-pick-reloads-for-nothing",
     "file": "app/main.cjs",
-    "old": "    if (await clearStoredArena2(win.webContents) && !win.isDestroyed()) win.reload();\n",
-    "new": "    await clearStoredArena2(win.webContents);\n    if (!win.isDestroyed()) win.reload();\n",
+    "old": "  return r === 'cleared';\n}",
+    "new": "  return true;\n}",
     "tests": ["test/da10_launcher.test.js"]
   },
   {
@@ -240,8 +240,8 @@
   {
     "name": "DA10-34-a-folder-picked-after-play-moves-the-game",
     "file": "app/lib/launcherState.cjs",
-    "old": "      if (ev.dir && !s.launch) { st.status = 'ready';",
-    "new": "      if (ev.dir) { st.status = 'ready';",
+    "old": "      if (ev.dir && !s.launch) {\n        st.status = 'ready';",
+    "new": "      if (ev.dir) {\n        st.status = 'ready';",
     "tests": ["test/da10_launcher.test.js"]
   },
   {

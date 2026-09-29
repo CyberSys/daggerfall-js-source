@@ -8,8 +8,9 @@
 // cuts - electron-updater now reads the release's latest.yml, downloads
 // the new installer in the background and installs it when the app
 // quits. macOS (an unsigned app cannot swap itself), the portable exe (a
-// bare file in %TEMP%, no app-update.yml inside it) and an unpackaged run
-// keep the notice. The transport table is pure (app/lib/autoUpdate.cjs)
+// bare file in %TEMP% - it carries an app-update.yml all the same, so its
+// launcher's own mark is the test: AUDIT INSTALL R2-C5), a Linux copy not
+// running as its AppImage, and an unpackaged run keep the notice. The transport table is pure (app/lib/autoUpdate.cjs)
 // and pinned by value; the wiring is pinned by source, because the
 // three things that make the updater find anything at all live in three
 // files that do not import each other: the shell's settings, the build's
@@ -31,6 +32,9 @@ test('DA7: the transport table - an installed NSIS or AppImage copy updates in p
   assert.equal(updateTransport({ packaged: true, platform: 'win32', portable: false }), 'updater', 'the NSIS install');
   assert.equal(updateTransport({ packaged: true, platform: 'linux', portable: false }), 'updater', 'the AppImage');
   assert.equal(updateTransport({ packaged: true, platform: 'win32', portable: true }), 'notice', 'the portable exe: a bare file, nothing to replace');
+  assert.equal(updateTransport({ packaged: true, platform: 'win32', portable: true, configured: true }), 'notice', 'R2-C5: it DOES carry app-update.yml - its mark decides, first');
+  assert.equal(updateTransport({ packaged: true, platform: 'linux', portable: false, appImage: false }), 'notice', 'R2-A10: not running as its AppImage - electron-updater declines to check at all');
+  assert.equal(updateTransport({ packaged: true, platform: 'win32', portable: false, appImage: false }), 'updater', 'APPIMAGE is Linux\'s alone');
   assert.equal(updateTransport({ packaged: true, platform: 'darwin', portable: false }), 'notice', 'macOS: unsigned, cannot swap itself');
   assert.equal(updateTransport({ packaged: false, platform: 'win32', portable: false }), 'notice', 'electron . - no installed copy');
   assert.equal(updateTransport({ packaged: false, platform: 'linux', portable: false }), 'notice');
@@ -43,8 +47,8 @@ test('DA7: the transport table - an installed NSIS or AppImage copy updates in p
 test('DA7: the shell - the updater downloads on its own, installs on quit, never a prerelease or a downgrade, and both transports sit behind DA6\'s two gates', () => {
   const main = read('app/main.cjs');
   assert.match(main, /const \{ updateTransport \} = require\('\.\/lib\/autoUpdate\.cjs'\);/, 'the table is the leaf\'s');
-  assert.match(main, /updateTransport\(\{\s*packaged: app\.isPackaged,\s*platform: process\.platform,\s*portable: !!process\.env\.PORTABLE_EXECUTABLE_DIR,[^}]*configured: !app\.isPackaged \|\| fs\.existsSync\(path\.join\(process\.resourcesPath, 'app-update\.yml'\)\),\s*\}\)/,
-    'the live facts: packaged, the platform, the portable launcher\'s mark - and whether the copy carries update metadata at all (AUDIT INSTALL L3-4)');
+  assert.match(main, /updateTransport\(\{\s*packaged: app\.isPackaged,\s*platform: process\.platform,\s*portable: !!process\.env\.PORTABLE_EXECUTABLE_DIR,[^}]*configured: !app\.isPackaged \|\| fs\.existsSync\(path\.join\(process\.resourcesPath, 'app-update\.yml'\)\),[^}]*appImage: !!process\.env\.APPIMAGE,\s*\}\)/,
+    'the live facts: packaged, the platform, the portable launcher\'s mark, whether the copy carries update metadata at all (AUDIT INSTALL L3-4) - and whether it runs as its AppImage (R2-A10)');
   const cfg = main.slice(main.indexOf('function autoUpdater()'), main.indexOf('async function checkForUpdatesViaUpdater'));
   assert.match(cfg, /require\('electron-updater'\)/, 'loaded lazily - a copy on the notice never loads it');
   assert.match(cfg, /au\.autoDownload = true;/, 'the download starts on its own');
@@ -56,8 +60,11 @@ test('DA7: the shell - the updater downloads on its own, installs on quit, never
   const routed = main.slice(main.indexOf('function onUpdaterEvent('), main.indexOf('/** DA10: news.json'));
   // AUDIT INSTALL L2-1: routed by where it lands - "offline" to a check, "failed" under a download (it was "check-failed"
   // whatever happened, which the launcher takes only while checking: a broken download held Play for ever)
-  assert.match(routed, /if \(kind === 'error'\) \{\s*stopStallWatch\(\);\s*if \(installStarted && !leaveForUpdate\) \{ installFailed\(\); return; \}\s*launcherDispatch\(\{ type: launcher\?\.state\.update\.status === 'downloading' \? 'download-failed' : 'check-failed' \}\);\s*return;\s*\}/,
-    'an error is "offline" to the launcher, "failed" under a download, and the install\'s own when it came from the installer');
+  // AUDIT INSTALL R2-A2: the event is heard only for an install that failed - a check's failure and a download's each
+  // reject their own promise (askUpdater), since this one event cannot tell them apart
+  assert.match(routed, /if \(kind === 'error'\) \{\s*(\/\/[^\n]*\n\s*)*if \(installStarted && !leaveForUpdate\) installFailed\(\);\s*return;\s*\}/,
+    'the install\'s own when it came from the installer, and nothing else');
+  assert.doesNotMatch(/if \(kind === 'error'\) \{[\s\S]*?\n {2}\}/.exec(routed)?.[0] ?? '', /'check-failed'|'download-failed'/, 'the error branch dispatches neither');
   assert.doesNotMatch(routed, /dialog\./, 'no dialog rides the automatic path');
   // THE LAUNCH (DA8: the launcher's): the same two gates DA6 had, then the transport fork - both arms inside them
   assert.match(main, /const updateChecksEnabled = \(\) => loadConfig\(\)\.updateCheck !== false && !process\.env\.DAGGER_NO_UPDATE_CHECK;/);

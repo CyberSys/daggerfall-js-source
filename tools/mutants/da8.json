@@ -2,8 +2,8 @@
   {
     "name": "DA8-1-the-launcher-never-installs-before-play",
     "file": "app/lib/launcherState.cjs",
-    "old": "  if (s.update.status === 'installing') return SETUP_WAITING.has(s.setup.status) ? 'wait' : 'install';\n",
-    "new": "  if (s.update.status === 'installing') return 'wait';\n",
+    "old": "  if (s.update.status === 'installing') return SETUP_DONE.has(s.setup.status) ? 'install' : 'wait';",
+    "new": "  if (s.update.status === 'installing') return 'wait';",
     "tests": ["test/da8_launcher.test.js"],
     "note": "Install-on-quit again: the player launches into the build before the last one, a protocol behind the relay."
   },
@@ -66,8 +66,8 @@
   {
     "name": "DA8-15-the-launcher-closes-before-the-game-shows",
     "file": "app/main.cjs",
-    "old": "  const lw = launcher?.win;\n  createWindow({\n",
-    "new": "  const lw = launcher?.win;\n  lw?.close();\n  createWindow({\n",
+    "old": "  const lw = l?.win;\n  createWindow({",
+    "new": "  const lw = l?.win;\n  lw?.close();\n  createWindow({",
     "tests": ["test/da8_launcher.test.js"],
     "note": "window-all-closed quits the app on Windows and Linux: the player would see the launcher vanish and nothing come."
   },

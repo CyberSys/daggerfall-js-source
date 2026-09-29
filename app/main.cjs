@@ -32,11 +32,10 @@
 
 'use strict';
 
-const { app, BrowserWindow, Menu, dialog, ipcMain, protocol, net, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, protocol, net, session, shell, utilityProcess } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { Worker } = require('node:worker_threads');
 const { frameRateSwitches } = require('./lib/frameRate.cjs');   // FPS-VSYNC: VSync off lifts Chromium's wait
 
 // DAGGER_USER_DATA points saves/config somewhere else - the probe's
@@ -104,7 +103,7 @@ function saveConfig(cfg) {
 // the first model - and was never asked about again. A pick of the
 // PARENT folder (the install root with an arena2/ inside it) is still
 // auto-descended - the honest mistake costs nothing.
-const { findCaseInsensitive, resolveArena2, diagnoseArena2, missingArena2, searchArena2 } = require('./lib/arena2Detect.cjs');
+const { findCaseInsensitive, answerArena2 } = require('./lib/arena2Detect.cjs');
 
 let arena2Dir = null;        // the validated folder, or null
 let arena2Names = null;      // UPPERCASE name -> on-disk name (the mixed-case law)
@@ -144,42 +143,118 @@ function arena2File(name) {
   try { return fs.statSync(p).isFile() ? p : null; } catch { return null; }
 }
 
-/** The native folder dialog, judged: { dir } for a whole ARENA2,
- *  { missing } for a folder that is not one (the files it lacks, or null
- *  when it holds no Daggerfall file at all), { unreadable } for one that
- *  cannot be read, { canceled } otherwise. The launcher words the answer
- *  itself; the File menu's door says it in a message box (pickArena2).
- *  AUDIT INSTALL L4-4: a whole ARENA2 further down is found, not refused -
- *  Steam's "Browse local files" opens the game folder, three levels above
- *  it, and "It holds no Daggerfall files" was the answer to picking it. */
-async function chooseArena2Folder(win) {
+// ---- the player's disks, asked in a process of their own ------------
+// AUDIT INSTALL R2-D1: EVERY look at the player's disks for Daggerfall's
+// files - the saved folder at launch, a folder picked, a found one taken,
+// the first run's search - runs in an Electron UTILITY PROCESS of its own
+// (lib/arena2Probe.cjs), never on this one. Round 1 moved only the search,
+// into a worker thread: the saved folder, every pick and every "Use these
+// files" stayed here, and a saved folder on a share that was down kept the
+// launcher's window off the screen for as long as the share was (on a hard
+// mount that never answers, for good). And a thread stuck in the kernel
+// cannot be terminated - the app could not quit while one was (measured).
+// A process can be let go: killed at its deadline, it holds nothing (the
+// app quit at once with a probe stuck on a hung share, measured). Answers
+// never throw: one that says nothing by its deadline is { late: true }, and
+// a probe that cannot start at all is answered here, as before round 2 -
+// slow on a slow disk, but never unanswered.
+const PROBE = path.join(__dirname, 'lib', 'arena2Probe.cjs');
+const probes = new Set();
+function askArena2(question, { deadline = 0, onFound, signal } = {}) {
+  return new Promise((resolve) => {
+    let child = null;
+    let timer = null;
+    let settled = false;
+    const here = () => {
+      try { return answerArena2(question, (f) => { try { onFound?.(f); } catch { /* the listener's fault */ } }); } catch { return { failed: true }; }
+    };
+    const settle = (answer) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', stop);
+      if (child) { probes.delete(child); try { child.kill(); } catch { /* gone already */ } }
+      resolve(answer);
+    };
+    const stop = () => settle({ stopped: true });
+    if (signal?.aborted) { resolve({ stopped: true }); return; }
+    signal?.addEventListener('abort', stop);
+    try {
+      child = utilityProcess.fork(PROBE, [], { serviceName: 'Daggerfall files', stdio: 'ignore' });
+      probes.add(child);
+      child.on('message', (m) => {
+        if (settled) return;
+        if (m?.found) { try { onFound?.(m.found); } catch { /* the listener's fault */ } }
+        if (m?.answer) settle(m.answer);
+      });
+      // gone without an answer (it could not start, or it died): answered here instead
+      child.once('exit', () => { if (!settled) settle(here()); });
+      child.postMessage(question);
+      if (deadline) timer = setTimeout(() => settle({ late: true }), deadline);
+    } catch { settle(here()); }
+  });
+}
+app.on('will-quit', () => { for (const p of probes) { try { p.kill(); } catch { /* gone already */ } } });
+
+/** A probe's answer about one folder, as the doors word it: { dir }, or
+ *  { missing, unreadable, late, cut } (launcherState notArena2Detail). A
+ *  folder that did not answer in time is out of reach too. */
+function folderAnswer(a) {
+  if (typeof a?.dir === 'string' && a.dir) return { dir: a.dir };
+  return {
+    missing: Array.isArray(a?.missing) ? a.missing : null,
+    unreadable: !!(a?.unreadable || a?.late || a?.failed),
+    late: !!a?.late,
+    cut: !!a?.cut,
+  };
+}
+
+/** The native folder dialog: the folder picked, or null. */
+async function askFolder(win) {
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
     title: 'Choose your ARENA2 folder',
     message: "Daggerfall's game data is freeware but can't be bundled. Choose your ARENA2 folder (or the install folder that contains it).",
     properties: ['openDirectory'],
   });
-  if (canceled || !filePaths.length) return { canceled: true };
-  const pick = filePaths[0];
-  const dir = resolveArena2(pick) ?? searchArena2(pick);
-  if (dir) return { dir };
-  return missingArena2(pick) === null ? { unreadable: true, missing: null } : { missing: diagnoseArena2(pick) };
+  return canceled || !filePaths.length ? null : filePaths[0];
+}
+
+/** The native folder dialog, judged: { dir } for a whole ARENA2 - AUDIT
+ *  INSTALL L4-4: one further down is found, not refused (Steam's "Browse
+ *  local files" opens the game folder, three levels above it) - otherwise
+ *  why not (folderAnswer), or { canceled }. The File menu's door says a
+ *  refusal in a message box (locateArena2); the launcher's, on its card. */
+async function chooseArena2Folder(win) {
+  const pick = await askFolder(win);
+  if (!pick) return { canceled: true };
+  return folderAnswer(await askArena2({ op: 'pick', dir: pick }, { deadline: PICK_DEADLINE_MS }));
 }
 
 /** The folder the shell reads from now on, kept - and a folder chosen ends
- *  the in-page choice (config.json arena2InGame), from any door. */
+ *  the in-page choice (config.json arena2InGame), from any door. Whatever
+ *  the game stored before - an in-page ingest (the game's own picker, here
+ *  or in a build before the launcher), or artifacts derived from another
+ *  folder - would shadow it (Audit DA F-DA2), so the next game boot that
+ *  serves the folder clears it: EVERY pick, not only a re-point, because a
+ *  player who used the in-page picker has no folder to re-point from.
+ *  AUDIT INSTALL R2-D2 (lanes A and D): that "next boot" is kept in
+ *  config.json (arena2IngestClear) until a clear has run to its end - held
+ *  in memory it died with the process, and DA10 installs an update right
+ *  after a pick, and a launcher closed after one ends the process too. */
 function keepArena2Path(dir) {
   const { arena2InGame: _picker, ...cfg } = loadConfig();
-  saveConfig({ ...cfg, arena2Path: dir });
+  saveConfig({ ...cfg, arena2Path: dir, arena2IngestClear: true });
 }
 
-async function pickArena2(win) {
+/** File > Locate ARENA2 Folder with the game running: the folder picked and judged, or a refusal said in a box. */
+async function locateArena2(win) {
   const r = await chooseArena2Folder(win);
   if (r.canceled) return null;
   if (!r.dir) {
     await dialog.showMessageBox(win, {
       type: 'warning',
       message: 'That folder is not a whole ARENA2',
-      detail: notArena2Detail(r.missing, r),
+      detail: notArena2Detail(r.missing, { ...r, platform: process.platform }),
     });
     return null;
   }
@@ -308,7 +383,7 @@ const { updateTransport } = require('./lib/autoUpdate.cjs');
 const { UNLOAD_ASK, leaves, restartAsk, reinstallAsk, installFailedAsk, goesAhead } = require('./lib/shellDialogs.cjs');
 const { latestDownloadUrl, manualDownloadFile } = require('./lib/downloads.cjs');
 const {
-  CHECK_TIMEOUT_MS, RECHECK_MS, INSTALL_NOTICE_MS, INSTALL_GIVEUP_MS, DOWNLOAD_STALL_MS, DETECT_DEADLINE_MS,
+  CHECK_TIMEOUT_MS, RECHECK_MS, INSTALL_NOTICE_MS, INSTALL_GIVEUP_MS, DOWNLOAD_STALL_MS, DETECT_DEADLINE_MS, JUDGE_DEADLINE_MS, PICK_DEADLINE_MS,
   initialState, reduce, nextStep, viewOf, newsFrom, cachedNews, notArena2Detail, installAttemptFor,
 } = require('./lib/launcherState.cjs');
 
@@ -322,6 +397,8 @@ function currentUpdateTransport() {
     portable: !!process.env.PORTABLE_EXECUTABLE_DIR,
     // L3-4: a build cut without a release has no app-update.yml, and must never replace itself with the public one
     configured: !app.isPackaged || fs.existsSync(path.join(process.resourcesPath, 'app-update.yml')),
+    // R2-A10: on Linux electron-updater replaces only the AppImage it runs from (APPIMAGE) - anything else declined
+    appImage: !!process.env.APPIMAGE,
   });
 }
 
@@ -333,7 +410,7 @@ const updateChecksEnabled = () => loadConfig().updateCheck !== false && !process
  *  updater transport), and a newer release this copy can only be told of
  *  (the notice transport). Each puts its door in the File menu. */
 let updateReady = null;    // { version, told }
-let manualUpdate = null;   // { version, download, told }
+let manualUpdate = null;   // { version, download, told: false | 'launcher' | 'game' }
 
 /** electron-updater, configured once and lazily - a copy on the notice
  *  transport never loads it. Downloads on its own, installs on quit,
@@ -371,9 +448,10 @@ function autoUpdater() {
  *  write) is the install's to answer (installFailed). */
 function onUpdaterEvent(kind, info) {
   if (kind === 'error') {
-    stopStallWatch();
-    if (installStarted && !leaveForUpdate) { installFailed(); return; }
-    launcherDispatch({ type: launcher?.state.update.status === 'downloading' ? 'download-failed' : 'check-failed' });
+    // AUDIT INSTALL R2-A2: heard only for what has no promise to say it - an install that failed (L2-4). A check's
+    // failure and a download's each reject their own promise (askUpdater): read off this one event, an hourly re-check
+    // that failed WHILE the launcher downloaded was taken for the download, and Play was freed on a download still running
+    if (installStarted && !leaveForUpdate) installFailed();
     return;
   }
   if (kind === 'none') { launcherDispatch({ type: 'check-none' }); return; }
@@ -399,32 +477,49 @@ function onUpdaterEvent(kind, info) {
   }
 }
 
-/** L2-1: a download that goes DOWNLOAD_STALL_MS without a byte is cancelled
- *  and called failed - electron-updater's own timeout never arms under
- *  Electron's net module. Armed when the launcher shows a download, again at
- *  every byte, and let go when it ends however it ends. */
+/** L2-1: a download that goes DOWNLOAD_STALL_MS without a progress event is
+ *  called failed and Play is freed - electron-updater's own timeout never
+ *  arms under Electron's net module. Armed when the launcher shows a
+ *  download, again at every progress event (they come a second or more
+ *  apart), and let go when it ends however it ends. Its token is cancelled
+ *  so the next check may start afresh - which is ALL a cancel does in
+ *  electron-updater 6.8.9: its download() never wires the token to its
+ *  request, so a stalled connection stays open, idle, until the app quits
+ *  (AUDIT INSTALL R2-A11, read in its source and measured by lane A). */
 let stallTimer = null;
-let downloadCancel = null;   // the running download's CancellationToken (checkForUpdates' result)
 function watchDownload() {
   clearTimeout(stallTimer);
   stallTimer = setTimeout(() => {
     stallTimer = null;
-    downloadCancel?.cancel();
+    downloading?.token?.cancel();
     launcherDispatch({ type: 'download-failed' });
   }, DOWNLOAD_STALL_MS);
   stallTimer.unref?.();
 }
 function stopStallWatch() { clearTimeout(stallTimer); stallTimer = null; }
 
-/** Ask electron-updater, keeping what its answer carries: the download's
- *  cancel (the stall watch's), and its promise answered here - a download
- *  that fails is reported by the 'error' event, never as an unhandled
- *  rejection. Resolves to the check's result, or null when it declined to
- *  check at all (an AppImage run outside its AppImage, say). */
+/** The download in flight - { token } - or null. One at a time, which is
+ *  electron-updater's own rule: a check made while one runs hands back the
+ *  SAME download under a new token that stops nothing (R2-A2: the stall
+ *  watch then cancelled nothing, and the "failed" download went on to
+ *  install). */
+let downloading = null;
+
+/** Ask electron-updater. Resolves to the check's result, or null when it
+ *  declined to check at all; rejects when the CHECK failed. A check that
+ *  starts a download keeps its token (the stall watch's) and hears the
+ *  download's own end: a download that breaks off (the connection, a
+ *  checksum, a full disk) frees Play (L2-1), and never as an unhandled
+ *  rejection. */
 function askUpdater() {
   return autoUpdater().checkForUpdates().then((r) => {
-    if (r?.cancellationToken) downloadCancel = r.cancellationToken;
-    r?.downloadPromise?.catch(() => {});
+    if (r?.downloadPromise && !downloading) {
+      const d = { token: r.cancellationToken };
+      downloading = d;
+      r.downloadPromise
+        .then(() => {}, () => { if (downloading === d) { stopStallWatch(); launcherDispatch({ type: 'download-failed' }); } })
+        .finally(() => { if (downloading === d) downloading = null; });
+    } else r?.downloadPromise?.catch(() => {});
     return r ?? null;
   });
 }
@@ -476,7 +571,23 @@ function tellGame(payload) {
  *  install that failed on the spot left it set for the rest of the session,
  *  and every close and reload after it left without asking. */
 let leaveForUpdate = false;
-require('electron').autoUpdater.on('before-quit-for-update', () => { leaveForUpdate = true; });
+/** AUDIT INSTALL R2-A5: the install this quit is for has already FAILED. On
+ *  Windows the installer is spawned and electron-updater queues the quit
+ *  behind it, and a spawn that fails says so first - the player read "stays
+ *  open on this version" and the app quit anyway (measured with the real
+ *  NsisUpdater). That queued quit is held. */
+let installFault = false;
+let holdQuit = false;
+require('electron').autoUpdater.on('before-quit-for-update', () => {
+  if (installFault) { holdQuit = true; return; }
+  leaveForUpdate = true;
+  // AUDIT INSTALL R2-A1: the new copy can start BEFORE this one has quit (an AppImage: electron-updater runs it, then
+  // quits), and one that asks for the single-instance lock while this one holds it is told no, and quits - the app
+  // closed and never came back (a game page slow to unload was enough, measured). From here this copy is leaving: the
+  // lock is the new one's.
+  app.releaseSingleInstanceLock();
+});
+app.on('before-quit', (e) => { if (holdQuit) { holdQuit = false; e.preventDefault(); } });
 
 /** AUDIT INSTALL L2-2/L2-3: THE ONE DOOR TO THE INSTALLER. electron-updater
  *  treats a second quitAndInstall as "ignored" and then CLEARS its own
@@ -491,6 +602,7 @@ let installStarted = false;
 function installNow(version) {
   if (installStarted) return;
   installStarted = true;
+  installFault = false;
   if (version) saveConfig({ ...loadConfig(), installAttempt: { version } });
   autoUpdater().quitAndInstall(true, true);
 }
@@ -501,6 +613,7 @@ function installNow(version) {
  *  Restart is told, rather than nothing happening. */
 function installFailed() {
   installStarted = false;
+  installFault = true;   // R2-A5: a quit electron-updater already queued for this install is held
   if (launcher) { launcherDispatch({ type: 'install-failed' }); return; }
   const parent = gameWindow && !gameWindow.isDestroyed() ? gameWindow : null;
   const opts = installFailedAsk();
@@ -531,24 +644,33 @@ async function restartToUpdate() {
   } finally { restartAsking = false; }
 }
 
+/** A box over the window the player is looking at - never behind a
+ *  fullscreen game (AUDIT INSTALL R2-A10, as L2-2 put the restart's). */
+function tellBox(opts) {
+  const parent = BrowserWindow.getFocusedWindow() ?? (gameWindow && !gameWindow.isDestroyed() ? gameWindow : null);
+  return parent ? dialog.showMessageBox(parent, opts) : dialog.showMessageBox(opts);
+}
+
 /** The manual check on the updater transport: starts the download if a
  *  newer release exists and says so out loud - DA6's three dialogs, the
  *  first reworded because the player has nothing to click. */
 async function checkForUpdatesViaUpdater() {
   let result;
-  try { result = await autoUpdater().checkForUpdates(); } catch {
-    dialog.showMessageBox({
+  try { result = await askUpdater(); } catch {
+    tellBox({
       type: 'warning',
       message: 'Could not check for updates',
       detail: `GitHub was unreachable. The releases page is ${RELEASES_PAGE}.`,
     });
     return;
   }
-  const v = result?.updateInfo?.version;
-  result?.downloadPromise?.catch(() => {});
+  // AUDIT INSTALL R2-A10 (L2-11 did not hold here): electron-updater DECLINED to check - GitHub is asked directly
+  // instead, never "You're up to date" off a check that was never made
+  if (!result) { await checkForUpdates(); return; }
+  const v = result.updateInfo?.version;
   // L2-8: a download already done is ready, not "downloading"
   if (v && updateReady?.version === v) {
-    dialog.showMessageBox({
+    tellBox({
       type: 'info',
       message: `Version ${v} is ready`,
       detail: 'It installs when you quit, or now from File > Restart to Update - your saves, settings and ARENA2 path all stay where they are.',
@@ -556,14 +678,14 @@ async function checkForUpdatesViaUpdater() {
     return;
   }
   if (v && isNewerRelease(app.getVersion(), `app-v${v}`)) {
-    dialog.showMessageBox({
+    tellBox({
       type: 'info',
       message: `Version ${v} is downloading`,
       detail: `You have v${app.getVersion()}. It installs itself the next time you quit - your saves, settings and ARENA2 path all stay where they are.`,
     });
     return;
   }
-  dialog.showMessageBox({
+  tellBox({
     type: 'info',
     message: `You're up to date`,
     detail: `Daggerfall Online v${app.getVersion()} is the latest release.`,
@@ -612,8 +734,8 @@ async function noticeCheck() {
 function tellNotice(r) {
   if (!r?.newer || !manualUpdate || manualUpdate.version !== r.version || manualUpdate.told) return;
   const u = launcher?.state.update;
-  if (launcher && !launcher.state.launch && u?.status === 'notice' && u.version === r.version) { manualUpdate.told = true; return; }
-  manualUpdate.told = tellGame({ version: r.version, manual: true });
+  if (launcher && !launcher.state.launch && u?.status === 'notice' && u.version === r.version) { manualUpdate.told = 'launcher'; return; }
+  manualUpdate.told = tellGame({ version: r.version, manual: true }) ? 'game' : false;
 }
 
 /** The loud check, from the File menu on the notice transport: DA6's
@@ -621,7 +743,7 @@ function tellNotice(r) {
 async function checkForUpdates() {
   const latest = await fetchLatestRelease();
   if (!latest) {
-    dialog.showMessageBox({
+    tellBox({
       type: 'warning',
       message: 'Could not check for updates',
       detail: `GitHub was unreachable. The releases page is ${RELEASES_PAGE}.`,
@@ -629,14 +751,14 @@ async function checkForUpdates() {
     return;
   }
   if (!isNewerRelease(app.getVersion(), latest.tag)) {
-    dialog.showMessageBox({
+    tellBox({
       type: 'info',
       message: `You're up to date`,
       detail: `Daggerfall Online v${app.getVersion()} is the latest release.`,
     });
     return;
   }
-  const { response } = await dialog.showMessageBox({
+  const { response } = await tellBox({
     type: 'info',
     message: `${latest.tag.replace(/^app-v/, 'Version ')} is out`,
     detail: `You have v${app.getVersion()}. Updating is a download and an install-over - your saves, settings and ARENA2 path all stay where they are.`,
@@ -659,7 +781,8 @@ function startRechecks() {
   recheckTimer = setInterval(async () => {
     if (!updateChecksEnabled()) return;
     if (currentUpdateTransport() === 'updater') {
-      if (!updateReady && !installStarted) askUpdater().catch(() => {});
+      // R2-A2: never over a download still running - its token and its end are the check's that started it
+      if (!updateReady && !installStarted && !downloading) askUpdater().catch(() => {});
       return;
     }
     const r = await noticeCheck();
@@ -697,13 +820,14 @@ function isLeaving(wc) {
  *  names are pinned against dataSource.js by the parity test so
  *  they cannot drift apart silently. */
 function clearStoredArena2(wc) {
-  // DA10: it answers whether the stores HELD anything, so a boot with nothing stored is not reloaded for nothing
+  // DA10: it answers whether the stores HELD anything, so a boot with nothing stored is not reloaded for nothing -
+  // 'cleared' or 'empty' - and R2-D2: 'failed' when the clear did not run to its end, so it is tried again
   return wc.executeJavaScript(`(async () => new Promise((res) => {
     const req = indexedDB.open('project-dagger');
     req.onsuccess = () => {
       const db = req.result;
       const names = ['arena2', 'derived'].filter((n) => db.objectStoreNames.contains(n));
-      if (!names.length) { db.close(); res(false); return; }
+      if (!names.length) { db.close(); res('empty'); return; }
       const tx = db.transaction(names, 'readwrite');
       let held = 0;
       for (const n of names) {
@@ -712,21 +836,26 @@ function clearStoredArena2(wc) {
         count.onsuccess = () => { held += count.result; };
         store.clear();
       }
-      tx.oncomplete = () => { db.close(); res(held > 0); };
-      // a clear that failed may have left the ingest standing: reload, and the boot reads what is there
-      tx.onerror = () => { db.close(); res(true); };
-      tx.onabort = () => { db.close(); res(true); };
+      tx.oncomplete = () => { db.close(); res(held > 0 ? 'cleared' : 'empty'); };
+      tx.onerror = () => { db.close(); res('failed'); };
+      tx.onabort = () => { db.close(); res('failed'); };
     };
-    req.onerror = () => res(false);
-    req.onblocked = () => res(false);
-  }))()`, true).catch(() => false /* page gone mid-clear; the next boot re-checks */);
+    req.onerror = () => res('failed');
+    req.onblocked = () => res('failed');
+  }))()`, true).catch(() => 'failed' /* page gone mid-clear */);
 }
 
-// A re-point made with NO game window open (macOS keeps the menu alive
-// after the last window closes; the launcher chooses before the game
-// exists) still needs the ingest wipe - it is deferred to the next game
-// window's boot.
-let pendingIngestClear = false;
+/** AUDIT INSTALL R2-D2: the clear a pick asked for (keepArena2Path), run on
+ *  the page - and forgotten only once it has run to its end. Answers
+ *  whether the page held a copy, and so must reload to read the folder. */
+async function clearIngestIfPending(wc) {
+  if (loadConfig().arena2IngestClear !== true) return false;
+  const r = await clearStoredArena2(wc);
+  if (r === 'failed') return false;   // kept: the next boot tries again
+  const { arena2IngestClear: _done, ...cfg } = loadConfig();
+  saveConfig(cfg);
+  return r === 'cleared';
+}
 
 /** File > Open Saves Folder, and the launcher's Saves door (DA10). */
 function openSavesFolder() {
@@ -741,6 +870,8 @@ function openSavesFolder() {
 function setCheckOnLaunch(on) {
   saveConfig({ ...loadConfig(), updateCheck: !!on });
   buildMenu();
+  // AUDIT INSTALL R2-A6: turned on from the game's File menu too - the hourly check starts (it returned first)
+  if (on) startRechecks();
   if (!launcher) return;
   launcherDispatch({ type: 'check-on-launch', on: !!on });
   if (on && updateChecksEnabled() && launcher?.state.update.status === 'skipped') {
@@ -772,15 +903,15 @@ function buildMenu() {
             // DA10: with the launcher open (the macOS menu bar is the app's), its own door - its Game files row says the answer
             if (launcher) { launcherChooseFolder(); return; }
             const target = liveWindow();
-            const dir = await pickArena2(target);
+            const dir = await locateArena2(target);
             if (!dir) return;
             setArena2(dir);
             keepArena2Path(dir);
+            // a window open: cleared now and reloaded onto the folder; none (macOS keeps the menu alive after the last
+            // window closes): the next window's boot clears it (createWindow)
             if (target) {
-              await clearStoredArena2(target.webContents);
+              await clearIngestIfPending(target.webContents);
               if (!target.isDestroyed()) target.reload();
-            } else {
-              pendingIngestClear = true;   // macOS zero-window state: the next window clears at boot
             }
           },
         },
@@ -887,10 +1018,13 @@ async function createWindow({ onShown = null } = {}) {
   }
   buildMenu();
   win.webContents.on('did-start-loading', invalidateArena2Names);
-  // DA8: an update that finished downloading before this window existed ("Play now" at 95%) is told at its first load
-  win.webContents.once('did-finish-load', () => {
-    if (updateReady && !updateReady.told) updateReady.told = tellGame({ version: updateReady.version, manual: false });
-    else if (manualUpdate && !manualUpdate.told) manualUpdate.told = tellGame({ version: manualUpdate.version, manual: true });
+  // DA8: an update that finished downloading before this window existed ("Play now" at 95%) is told at its load -
+  // AUDIT INSTALL R2-A4: at EVERY load, since a page that is replaced forgets what it was told (the clear-and-reload
+  // after a pick replaced the one the first load told). A notice the launcher already put in front of the player is
+  // not told again (L2-6: once, by whoever can).
+  win.webContents.on('did-finish-load', () => {
+    if (updateReady) updateReady.told = tellGame({ version: updateReady.version, manual: false });
+    else if (manualUpdate && manualUpdate.told !== 'launcher') manualUpdate.told = tellGame({ version: manualUpdate.version, manual: true }) ? 'game' : false;
   });
   // UNLOAD-ASK (DA8, found building Restart to Update): the game's unload guard
   // (src/systems/unloadGuard.js, MAC-L3) cancels an unload while progress is at risk,
@@ -924,10 +1058,8 @@ async function createWindow({ onShown = null } = {}) {
     return win;
   }
   await win.loadURL('dagger://game/play/index.html');
-  if (pendingIngestClear && !win.isDestroyed()) {
-    pendingIngestClear = false;
-    if (await clearStoredArena2(win.webContents) && !win.isDestroyed()) win.reload();
-  }
+  // a boot that serves a folder clears the copy a pick asked to be cleared (a game on the in-page picker keeps its own)
+  if (arena2Dir && !win.isDestroyed() && await clearIngestIfPending(win.webContents) && !win.isDestroyed()) win.reload();
   return win;
 }
 
@@ -993,6 +1125,7 @@ function openLauncherWindow() {
   win.on('closed', () => {
     if (launcher?.win !== win) return;
     const handingOver = launcher.state.launch === 'started';
+    launcher.stop.abort();   // R2-D1: its probes go with it - a search, a folder being looked at
     launcher = null;
     stopStallWatch();
     // AUDIT INSTALL L2-10: closed by the PLAYER while the game was still being built behind it (the handover's own
@@ -1014,6 +1147,11 @@ function renderLauncher() {
 function launcherDispatch(ev) {
   if (!launcher) return;
   launcher.state = reduce(launcher.state, ev);
+  // R2-D4: the search goes on past its deadline only while the card waits - once the player has chosen, it is let go
+  if (launcher.search && (launcher.state.setup.status === 'ready' || launcher.state.setup.status === 'skipped')) {
+    launcher.search.abort();
+    launcher.search = null;
+  }
   renderLauncher();
   advanceLauncher();
 }
@@ -1026,40 +1164,40 @@ function advanceLauncher() {
   if (step === 'detect') {
     if (launcher.detecting) return;
     launcher.detecting = true;
-    const l = launcher;
-    detectInBackground().then((found) => { if (launcher === l) launcherDispatch({ type: 'found', found }); });
+    detectInBackground(launcher);
   } else if (step === 'install') { if (!launcher.dialogs) installFromLauncher(); } else if (step === 'launch') launchGame();
 }
 
-/** DA9's search, in a worker thread under DETECT_DEADLINE_MS (AUDIT INSTALL
- *  L4-1: it blocked the main process - the launcher's own first paint - for
- *  as long as a sleeping drive or a hung reg.exe took). Finds stream in, so
- *  a search stopped at the deadline still offers what it had. The loose
- *  folders are the shell's to name: app.getPath follows Windows' Known
- *  Folder Move and a localized XDG Downloads. Never rejects. */
-function detectInBackground() {
-  return new Promise((resolve) => {
-    const found = [];
-    let worker = null;
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      clearTimeout(deadline);
-      worker?.terminate().catch(() => {});
-      resolve(found);
-    };
-    const deadline = setTimeout(finish, DETECT_DEADLINE_MS);
-    try {
-      const looseDirs = ['downloads', 'desktop', 'documents'].map((n) => { try { return app.getPath(n); } catch { return null; } }).filter(Boolean);
-      worker = new Worker(path.join(__dirname, 'lib', 'arena2DetectWorker.cjs'), { workerData: { looseDirs } });
-      worker.on('message', (m) => {
-        if (m?.found) found.push(m.found);
-        if (m?.done) finish();
-      });
-      worker.on('error', finish);
-      worker.on('exit', finish);
-    } catch { finish(); }
+/** DA9's search, in a process of its own (R2-D1; AUDIT INSTALL L4-1: on
+ *  the main process it held the launcher's first paint for as long as a
+ *  sleeping drive or a hung reg.exe took). Finds stream in; at
+ *  DETECT_DEADLINE_MS the card shows what there is, and the search GOES ON
+ *  (R2-D4: a Steam library on a drive spinning up, or a Mac's privacy
+ *  prompt answered after five seconds, was thrown away and the card said to
+ *  go and get the game) - a later find is added to the card, until the
+ *  player has chosen or the launcher closes. The loose folders are the
+ *  shell's to name: app.getPath follows Windows' Known Folder Move and a
+ *  localized XDG Downloads. */
+function detectInBackground(l) {
+  const found = [];
+  let shown = false;
+  l.search = new AbortController();
+  const deadline = setTimeout(() => {
+    shown = true;
+    if (launcher === l) launcherDispatch({ type: 'found', found: [...found], searching: true });
+  }, DETECT_DEADLINE_MS);
+  const looseDirs = ['downloads', 'desktop', 'documents'].map((n) => { try { return app.getPath(n); } catch { return null; } }).filter(Boolean);
+  askArena2({ op: 'detect', looseDirs }, {
+    signal: AbortSignal.any([l.stop.signal, l.search.signal]),
+    onFound: (f) => {
+      found.push(f);
+      if (shown && launcher === l) launcherDispatch({ type: 'found-more', found: f });
+    },
+  }).then(() => {
+    clearTimeout(deadline);
+    if (launcher !== l) return;
+    l.search = null;
+    launcherDispatch(shown ? { type: 'detect-done' } : { type: 'found', found, searching: false });
   });
 }
 
@@ -1091,34 +1229,50 @@ function installFromLauncher() {
 }
 
 /** The folder the player chose (or the found one they took) becomes the
- *  one the shell reads. Whatever the game stored before - an in-page
- *  ingest (the game's own picker, here or in a build before the launcher),
- *  or artifacts derived from another folder - would shadow it (Audit DA
- *  F-DA2), so the game's next boot clears it: EVERY pick, not only a
- *  re-point, because a player who used the in-page picker has no folder
- *  to re-point from. The boot reloads only when there was something. */
+ *  one the shell reads - and the game's next boot clears what it stored
+ *  before (keepArena2Path). */
 function useArena2(dir) {
   setArena2(dir);
   keepArena2Path(dir);
-  pendingIngestClear = true;
   launcherDispatch({ type: 'picked', dir });
 }
 
+/** A folder the player named, looked at (R2-D1) - one at a time: a door
+ *  pressed while an answer is awaited does nothing, and an install waits
+ *  for it as for a dialog. null when another is in hand or the launcher
+ *  went away. */
+async function judgeForLauncher(question, deadline) {
+  const l = launcher;
+  if (!l || l.judging) return null;
+  l.judging = true;
+  launcherDispatch({ type: 'judging', on: true });
+  try {
+    return await launcherDialog(async () => folderAnswer(await askArena2(question, { deadline, signal: l.stop.signal })));
+  } finally {
+    l.judging = false;
+    if (launcher === l) launcherDispatch({ type: 'judging', on: false });
+  }
+}
+
 /** The first run's "Choose the ARENA2 folder", and the Game files door at
- *  any time: the native dialog, judged. A folder that is not ARENA2 is
- *  said on the first run's card, or - from the door, where the game's
- *  folder stays as it was - in a message box. */
+ *  any time: the native dialog, then the folder looked at. A folder that is
+ *  not ARENA2 is said on the first run's card while the card waits on the
+ *  player - decided once the answer is in (R2-D7: during the search the
+ *  card was "Looking", and a refusal meant for it was dropped without a
+ *  word) - and otherwise in a message box, the game's folder as it was. */
 async function launcherChooseFolder() {
-  if (!launcher || launcher.state.launch) return;
-  const onCard = viewOf(launcher.state).panel === 'setup';
-  const r = await launcherDialog(() => chooseArena2Folder(launcher.win));
-  if (!launcher || r.canceled) return;
+  if (!launcher || launcher.state.launch || launcher.judging) return;
+  const l = launcher;
+  const pick = await launcherDialog(() => askFolder(l.win));
+  if (!pick || launcher !== l) return;
+  const r = await judgeForLauncher({ op: 'pick', dir: pick }, PICK_DEADLINE_MS);
+  if (!r || launcher !== l) return;
   if (r.dir) { useArena2(r.dir); return; }
-  if (onCard) { launcherDispatch({ type: 'picked-bad', missing: r.missing, unreadable: !!r.unreadable }); return; }
-  await launcherDialog(() => dialog.showMessageBox(launcher.win, {
+  if (reduce(l.state, { type: 'picked-bad', ...r }).setup.status === 'bad') { launcherDispatch({ type: 'picked-bad', ...r }); return; }
+  await launcherDialog(() => dialog.showMessageBox(l.win, {
     type: 'warning',
     message: 'That folder is not a whole ARENA2',
-    detail: notArena2Detail(r.missing, r),
+    detail: notArena2Detail(r.missing, { ...r, platform: process.platform }),
   }));
 }
 
@@ -1139,19 +1293,28 @@ async function reinstallFromLauncher() {
 function launchGame() {
   launcherDispatch({ type: 'launching' });
   saveConfig({ ...loadConfig(), lastPlayed: app.getVersion() });
-  const lw = launcher?.win;
+  const l = launcher;
+  const lw = l?.win;
   createWindow({
     onShown: () => {
       if (lw && !lw.isDestroyed()) lw.close();
+      l?.stop.abort();
       launcher = null;
     },
   });
 }
 
-/** Why the folder config.json keeps is not a whole ARENA2 any more: it
- *  cannot be read (a drive unplugged, a share not mounted), or what it lacks. */
-function savedArena2Fault(dir) {
-  return missingArena2(dir) === null ? { unreadable: true, missing: null } : { unreadable: false, missing: diagnoseArena2(dir) };
+/** R2-D1: the folder config.json keeps, looked at in a process of its own
+ *  while the launcher is already on screen - whole, it is the one the game
+ *  reads; not whole, it is named on the card (L4-5), as "cannot be reached"
+ *  when it did not answer by JUDGE_DEADLINE_MS. */
+function judgeSaved(l, dir) {
+  askArena2({ op: 'judge', dir }, { deadline: JUDGE_DEADLINE_MS, signal: l.stop.signal }).then((a) => {
+    if (launcher !== l) return;
+    const r = folderAnswer(a);
+    if (r.dir) setArena2(r.dir);
+    launcherDispatch({ type: 'saved-judged', ...r });
+  });
 }
 
 /** The launch check, inside DA6's two gates: the updater transport
@@ -1180,9 +1343,9 @@ function startLaunchCheck() {
 
 function runLauncher() {
   const cfg = loadConfig();
-  setArena2(resolveArena2(cfg.arena2Path));
-  // L4-5: a folder the player chose before that no longer answers is NAMED - not the first run's "Where is Daggerfall?"
-  const saved = typeof cfg.arena2Path === 'string' && !arena2Dir ? { dir: cfg.arena2Path, ...savedArena2Fault(cfg.arena2Path) } : null;
+  // R2-D1: the saved folder is NOT read here - the window comes first, and the folder is looked at beside it (judgeSaved)
+  setArena2(null);
+  const savedDir = typeof cfg.arena2Path === 'string' && cfg.arena2Path ? cfg.arena2Path : null;
   const checkEnabled = updateChecksEnabled();
   // an install the last launch handed over: still older than it, the installer did not take (L2-3)
   const attempt = installAttemptFor(cfg.installAttempt, app.getVersion());
@@ -1190,24 +1353,31 @@ function runLauncher() {
     const { installAttempt: _done, ...rest } = cfg;
     saveConfig(rest);
   }
+  // AUDIT INSTALL R2-A9: a config.json from BEFORE DA10 is the one mark of a returning player - a first run that chose
+  // its files or flipped the switch before ever pressing Play wrote one too, and was told "Updated to". So this launcher
+  // marks the config it has seen, once.
+  const returning = !cfg.lastPlayed && cfg.launcherSeen !== true && Object.keys(cfg).length > 0;
+  if (cfg.launcherSeen !== true) saveConfig({ ...loadConfig(), launcherSeen: true });
   launcher = {
     win: openLauncherWindow(),
     installing: false,
     dialogs: 0,
+    judging: false,
+    stop: new AbortController(),   // every probe this launcher started, let go when it closes or hands over
+    search: null,                  // the first run's search, let go once the player has chosen
     state: initialState({
       current: app.getVersion(),
       transport: currentUpdateTransport(),
       platform: process.platform,
       checkEnabled,
       checkOnLaunch: cfg.updateCheck !== false,
-      arena2Dir,
+      savedDir,
       // the player chose the game's own picker once (kept), or the headless probe skips the question
       inGamePicker: cfg.arena2InGame === true || !!process.env.DAGGER_SKIP_ARENA2_PROMPT,
-      savedArena2: saved,
       news: loadNews(),
       lastPlayed: cfg.lastPlayed,
       // a config.json written before DA10 has no lastPlayed: the build it runs now is new to that player
-      returning: !cfg.lastPlayed && Object.keys(cfg).length > 0,
+      returning,
       installFailedFor: attempt.failed,
     }),
   };
@@ -1217,6 +1387,7 @@ function runLauncher() {
     fetchNews();
     startRechecks();
   }
+  if (savedDir) judgeSaved(launcher, savedDir);
   advanceLauncher();
 }
 
@@ -1232,24 +1403,33 @@ ipcMain.on('launcher:act', async (e, msg) => {
     case 'play-now': stopStallWatch(); launcherDispatch({ type: 'play-now' }); break;
     case 'download': if (st.update.download) shell.openExternal(st.update.download); break;
     case 'skip-setup':
-      // the game's own picker, chosen once: kept, so the next launch does not ask again
-      if (reduce(st, { type: 'skip-setup' }).setup.status !== st.setup.status) saveConfig({ ...loadConfig(), arena2InGame: true });
+      if (reduce(st, { type: 'skip-setup' }).setup.status !== st.setup.status) {
+        // the game's own picker, chosen at the first run: kept, so the next launch does not ask again. Chosen on the
+        // SAVED folder's card it is this launch's alone (R2-D6: kept, the folder was never named again) - and the copy
+        // the game stores meanwhile is cleared at the first boot that serves the folder again
+        saveConfig(st.setup.saved ? { ...loadConfig(), arena2IngestClear: true } : { ...loadConfig(), arena2InGame: true });
+      }
       launcherDispatch({ type: 'skip-setup' });
       break;
     case 'use-found': {
+      // looked at again: a drive can go away while the window sits open - and said as such (R2-D8)
       const f = Number.isInteger(arg) ? st.setup.found[arg] : null;
-      const dir = f ? resolveArena2(f.dir) : null;   // judged again: a drive can go away while the window sits open
-      if (dir) useArena2(dir);
-      else launcherDispatch({ type: 'picked-bad', missing: f ? diagnoseArena2(f.dir) : null });
+      if (!f) break;
+      const r = await judgeForLauncher({ op: 'judge', dir: f.dir }, JUDGE_DEADLINE_MS);
+      if (!r || !launcher) break;
+      if (r.dir) useArena2(r.dir);
+      else launcherDispatch({ type: 'picked-bad', ...r });
       break;
     }
     case 'choose-folder': await launcherChooseFolder(); break;
     case 'retry-saved': {
       // the saved folder, asked again - its drive plugged back in, its share mounted
       const savedDir = loadConfig().arena2Path;
-      const dir = typeof savedDir === 'string' ? resolveArena2(savedDir) : null;
-      if (dir) useArena2(dir);
-      else if (typeof savedDir === 'string') launcherDispatch({ type: 'saved-bad', ...savedArena2Fault(savedDir) });
+      if (typeof savedDir !== 'string') break;
+      const r = await judgeForLauncher({ op: 'judge', dir: savedDir }, JUDGE_DEADLINE_MS);
+      if (!r || !launcher) break;
+      if (r.dir) useArena2(r.dir);
+      else launcherDispatch({ type: 'saved-bad', missing: r.missing, unreadable: r.unreadable });
       break;
     }
     case 'open-saves': openSavesFolder(); break;

@@ -186,5 +186,316 @@
     "old": "    if (/[\\0\\uFFFD]/.test(head)) {",
     "new": "    if (false) {",
     "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D1-the-saved-folder-read-before-the-window",
+    "file": "app/main.cjs",
+    "old": "  // R2-D1: the saved folder is NOT read here - the window comes first, and the folder is looked at beside it (judgeSaved)\n  setArena2(null);",
+    "new": "  setArena2(require('./lib/arena2Detect.cjs').resolveArena2(cfg.arena2Path));",
+    "tests": ["test/audit_install2.test.js"],
+    "note": "Lane D's P2: a saved folder on a share that is down kept the launcher off the screen (no window at 3, 10 or 20 s)."
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D1-the-saved-folder-waits-for-ever",
+    "file": "app/main.cjs",
+    "old": "  askArena2({ op: 'judge', dir }, { deadline: JUDGE_DEADLINE_MS, signal: l.stop.signal }).then((a) => {",
+    "new": "  askArena2({ op: 'judge', dir }, { signal: l.stop.signal }).then((a) => {",
+    "tests": ["test/da9_arena2detect.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D1-a-probe-is-never-let-go",
+    "file": "app/main.cjs",
+    "old": "      if (child) { probes.delete(child); try { child.kill(); } catch { /* gone already */ } }\n",
+    "new": "      if (child) probes.delete(child);\n",
+    "tests": ["test/da9_arena2detect.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D1-no-deadline-at-all",
+    "file": "app/main.cjs",
+    "old": "      if (deadline) timer = setTimeout(() => settle({ late: true }), deadline);\n",
+    "new": "",
+    "tests": ["test/da9_arena2detect.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D1-a-probe-that-cannot-start-leaves-no-answer",
+    "file": "app/main.cjs",
+    "old": "      child.once('exit', () => { if (!settled) settle(here()); });\n",
+    "new": "",
+    "tests": ["test/da9_arena2detect.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D1-a-closed-launcher-leaves-its-probes-running",
+    "file": "app/main.cjs",
+    "old": "    launcher.stop.abort();   // R2-D1: its probes go with it - a search, a folder being looked at\n",
+    "new": "",
+    "tests": ["test/audit_install.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D1-late-reads-as-whole-or-wrong",
+    "file": "app/main.cjs",
+    "old": "    unreadable: !!(a?.unreadable || a?.late || a?.failed),",
+    "new": "    unreadable: !!a?.unreadable,",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D1-checking-shows-the-card",
+    "file": "app/lib/launcherState.cjs",
+    "old": "    panel: SETUP_DONE.has(st.status) || st.status === 'checking' ? 'news' : 'setup',",
+    "new": "    panel: SETUP_DONE.has(st.status) ? 'news' : 'setup',",
+    "tests": ["test/audit_install2.test.js", "test/da9_arena2detect.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D1-a-saved-folder-that-fails-forgets-the-in-game-picker",
+    "file": "app/lib/launcherState.cjs",
+    "old": "        st.status = st.inGamePicker ? 'skipped' : 'looking';",
+    "new": "        st.status = 'looking';",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A8-the-install-cuts-off-the-files-being-checked",
+    "file": "app/lib/launcherState.cjs",
+    "old": "  if (s.update.status === 'installing') return SETUP_DONE.has(s.setup.status) ? 'install' : 'wait';",
+    "new": "  if (s.update.status === 'installing') return SETUP_WAITING.has(s.setup.status) ? 'wait' : 'install';",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A8-installing-said-while-it-waits",
+    "file": "app/lib/launcherState.cjs",
+    "old": "    v.progress = { percent: 100, label: 'Downloaded' };\n    if (!SETUP_DONE.has(st.status)) {",
+    "new": "    v.progress = { percent: 100, label: 'Downloaded' };\n    if (SETUP_WAITING.has(st.status)) {",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D2-the-clear-held-in-memory-again",
+    "file": "app/main.cjs",
+    "old": "  saveConfig({ ...cfg, arena2Path: dir, arena2IngestClear: true });",
+    "new": "  saveConfig({ ...cfg, arena2Path: dir });",
+    "tests": ["test/da10_launcher.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D2-a-failed-clear-is-forgotten",
+    "file": "app/main.cjs",
+    "old": "  if (r === 'failed') return false;   // kept: the next boot tries again\n",
+    "new": "",
+    "tests": ["test/da10_launcher.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D2-the-in-page-picker-s-own-copy-cleared",
+    "file": "app/main.cjs",
+    "old": "  if (arena2Dir && !win.isDestroyed() && await clearIngestIfPending(win.webContents) && !win.isDestroyed()) win.reload();",
+    "new": "  if (!win.isDestroyed() && await clearIngestIfPending(win.webContents) && !win.isDestroyed()) win.reload();",
+    "tests": ["test/da10_launcher.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A4-told-at-the-first-load-only",
+    "file": "app/main.cjs",
+    "old": "  win.webContents.on('did-finish-load', () => {\n    if (updateReady) updateReady.told",
+    "new": "  win.webContents.once('did-finish-load', () => {\n    if (updateReady) updateReady.told",
+    "tests": ["test/audit_install.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D3-breadth-first-again",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "    const [dir, d, lead] = leads.length ? leads.shift() : rest.shift();",
+    "new": "    const [dir, d, lead] = rest.length ? rest.shift() : leads.shift();",
+    "tests": ["test/da9_arena2detect.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D3-a-lead-s-children-are-not-leads",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "      const isLead = lead || LEAD_RE.test(path.basename(child));",
+    "new": "      const isLead = LEAD_RE.test(path.basename(child));",
+    "tests": ["test/da9_arena2detect.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D3-a-cut-walk-says-no-daggerfall-files",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "    if (opened.size >= SEARCH_DIRS_MAX) return { dir: null, cut: true };",
+    "new": "    if (opened.size >= SEARCH_DIRS_MAX) return { dir: null, cut: false };",
+    "tests": ["test/da9_arena2detect.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D3-cut-said-as-no-daggerfall-files",
+    "file": "app/lib/launcherState.cjs",
+    "old": "  if (cut) return `It holds too many folders to look through them all. ${where}`;\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D4-the-late-find-is-thrown-away",
+    "file": "app/main.cjs",
+    "old": "      if (shown && launcher === l) launcherDispatch({ type: 'found-more', found: f });\n",
+    "new": "",
+    "tests": ["test/da9_arena2detect.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D4-the-card-never-takes-a-late-find",
+    "file": "app/lib/launcherState.cjs",
+    "old": "        st.found = [...st.found, ev.found];\n        if (st.status === 'none') st.status = 'found';",
+    "new": "        st.found = [...st.found];",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D4-a-search-cut-short-says-go-and-get-it",
+    "file": "app/lib/launcherState.cjs",
+    "old": "    const still = st.searching ? 'Still looking on slower drives - they are added here if they turn up. ' : '';",
+    "new": "    const still = '';",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D4-the-search-runs-on-after-a-choice",
+    "file": "app/main.cjs",
+    "old": "    launcher.search.abort();\n    launcher.search = null;\n  }\n  renderLauncher();",
+    "new": "  }\n  renderLauncher();",
+    "tests": ["test/da9_arena2detect.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D5-the-mac-reads-its-guarded-folders-first",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "  return roots.sort((a, b) => Number(a.guarded) - Number(b.guarded));",
+    "new": "  return roots;",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D6-one-launch-s-choice-kept-for-good",
+    "file": "app/main.cjs",
+    "old": "        saveConfig(st.setup.saved ? { ...loadConfig(), arena2IngestClear: true } : { ...loadConfig(), arena2InGame: true });",
+    "new": "        saveConfig({ ...loadConfig(), arena2InGame: true });",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D7-a-refusal-during-the-search-dropped",
+    "file": "app/main.cjs",
+    "old": "  if (reduce(l.state, { type: 'picked-bad', ...r }).setup.status === 'bad') { launcherDispatch({ type: 'picked-bad', ...r }); return; }",
+    "new": "  if (true) { launcherDispatch({ type: 'picked-bad', ...r }); return; }",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D8-a-gone-drive-is-no-daggerfall-files",
+    "file": "app/main.cjs",
+    "old": "      if (r.dir) useArena2(r.dir);\n      else launcherDispatch({ type: 'picked-bad', ...r });",
+    "new": "      if (r.dir) useArena2(r.dir);\n      else launcherDispatch({ type: 'picked-bad', missing: r.missing });",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-D8-two-doors-at-once",
+    "file": "app/main.cjs",
+    "old": "  if (!l || l.judging) return null;",
+    "new": "  if (!l) return null;",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E5-a-mac-is-sent-to-steam",
+    "file": "app/lib/launcherState.cjs",
+    "old": "  const where = platform === 'darwin'\n    ? 'Choose the arena2 folder inside the unpacked DaggerfallGameFiles.zip.'\n    : ",
+    "new": "  const where = ",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E5-a-mac-s-refusal-loses-its-door",
+    "file": "app/lib/launcherState.cjs",
+    "old": "    actions: platform === 'darwin' ? [{ ...choose, primary: true }, zip, skip] : [{ ...choose, primary: true }, skip],",
+    "new": "    actions: [{ ...choose, primary: true }, skip],",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A1-the-new-copy-is-refused-the-lock",
+    "file": "app/main.cjs",
+    "old": "  app.releaseSingleInstanceLock();\n});",
+    "new": "});",
+    "tests": ["test/audit_install2.test.js"],
+    "note": "Linux: the new AppImage asks for the lock while this copy still holds it, is told no, and quits - measured, a game page slow to unload."
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A5-the-failed-install-quits-anyway",
+    "file": "app/main.cjs",
+    "old": "  if (installFault) { holdQuit = true; return; }\n  leaveForUpdate = true;",
+    "new": "  leaveForUpdate = true;",
+    "tests": ["test/audit_install2.test.js", "test/audit_install.test.js"],
+    "note": "Windows: the spawn's error says \"stays open on this version\", then electron-updater's queued quit closes the app."
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A5-the-held-quit-is-not-held",
+    "file": "app/main.cjs",
+    "old": "app.on('before-quit', (e) => { if (holdQuit) { holdQuit = false; e.preventDefault(); } });",
+    "new": "app.on('before-quit', () => { holdQuit = false; });",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A5-a-failure-is-not-remembered",
+    "file": "app/main.cjs",
+    "old": "  installFault = true;   // R2-A5: a quit electron-updater already queued for this install is held",
+    "new": "",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A2-a-later-check-takes-the-download-s-token",
+    "file": "app/main.cjs",
+    "old": "    if (r?.downloadPromise && !downloading) {",
+    "new": "    if (r?.downloadPromise) {",
+    "tests": ["test/audit_install2.test.js", "test/audit_install.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A2-a-broken-download-holds-play",
+    "file": "app/main.cjs",
+    "old": "        .then(() => {}, () => { if (downloading === d) { stopStallWatch(); launcherDispatch({ type: 'download-failed' }); } })",
+    "new": "        .then(() => {}, () => {})",
+    "tests": ["test/audit_install2.test.js", "test/audit_install.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A2-the-rechecks-ask-over-a-download",
+    "file": "app/main.cjs",
+    "old": "      if (!updateReady && !installStarted && !downloading) askUpdater().catch(() => {});",
+    "new": "      if (!updateReady && !installStarted) askUpdater().catch(() => {});",
+    "tests": ["test/audit_install2.test.js", "test/audit_install.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A2-a-check-s-error-read-as-the-download-s",
+    "file": "app/main.cjs",
+    "old": "    if (installStarted && !leaveForUpdate) installFailed();\n    return;\n  }",
+    "new": "    if (installStarted && !leaveForUpdate) { installFailed(); return; }\n    launcherDispatch({ type: launcher?.state.update.status === 'downloading' ? 'download-failed' : 'check-failed' });\n    return;\n  }",
+    "tests": ["test/autoupdate.test.js", "test/audit_install.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A6-the-in-game-switch-starts-nothing",
+    "file": "app/main.cjs",
+    "old": "  if (on) startRechecks();\n  if (!launcher) return;",
+    "new": "  if (!launcher) return;",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A9-a-first-run-is-told-updated",
+    "file": "app/main.cjs",
+    "old": "  const returning = !cfg.lastPlayed && cfg.launcherSeen !== true && Object.keys(cfg).length > 0;",
+    "new": "  const returning = !cfg.lastPlayed && Object.keys(cfg).length > 0;",
+    "tests": ["test/da10_launcher.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A10-up-to-date-off-a-check-never-made",
+    "file": "app/main.cjs",
+    "old": "  if (!result) { await checkForUpdates(); return; }\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A10-a-box-behind-the-game",
+    "file": "app/main.cjs",
+    "old": "  return parent ? dialog.showMessageBox(parent, opts) : dialog.showMessageBox(opts);\n}",
+    "new": "  return dialog.showMessageBox(opts);\n}",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A10-an-extracted-appimage-takes-the-updater",
+    "file": "app/lib/autoUpdate.cjs",
+    "old": "  if (platform === 'linux' && !appImage) return 'notice';\n",
+    "new": "",
+    "tests": ["test/autoupdate.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-A10-the-shell-never-says-whether-it-is-an-appimage",
+    "file": "app/main.cjs",
+    "old": "    appImage: !!process.env.APPIMAGE,\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js", "test/autoupdate.test.js"]
   }
 ]

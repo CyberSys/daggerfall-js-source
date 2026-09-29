@@ -244,7 +244,7 @@ test('DA8: the shell - a sandboxed window on its own origin, two words of bridge
   assert.ok(existsSync(new URL('../app/launcher/index.html', import.meta.url)));
   // the first run is the launcher's now: no bare native dialog before any window
   const ready = main.slice(main.indexOf('app.whenReady()'));
-  assert.doesNotMatch(ready, /pickArena2\(null\)/);
+  assert.doesNotMatch(ready, /locateArena2\(null\)/);
   assert.match(ready, /runLauncher\(\);/);
 });
 

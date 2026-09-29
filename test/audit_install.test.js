@@ -72,9 +72,12 @@ test('L2-1: a download that breaks off, or stalls, frees Play - it never holds t
   assert.match(route, /if \(kind === 'progress'\) \{\s*if \(stallTimer\) watchDownload\(\);/);
   assert.match(route, /launcherDispatch\(\{ type: 'check-available', version \}\);\s*if \(launcher\?\.state\.update\.status === 'downloading'\) watchDownload\(\);/);
   assert.match(route, /if \(kind === 'downloaded'\) \{\s*stopStallWatch\(\);/);
-  assert.match(body('function watchDownload()'), /stallTimer = setTimeout\(\(\) => \{\s*stallTimer = null;\s*downloadCancel\?\.cancel\(\);\s*launcherDispatch\(\{ type: 'download-failed' \}\);\s*\}, DOWNLOAD_STALL_MS\);/);
+  assert.match(body('function watchDownload()'), /stallTimer = setTimeout\(\(\) => \{\s*stallTimer = null;\s*downloading\?\.token\?\.cancel\(\);\s*launcherDispatch\(\{ type: 'download-failed' \}\);\s*\}, DOWNLOAD_STALL_MS\);/);
+  // AUDIT INSTALL R2-A2: the token and the end are the DOWNLOAD's own - kept by the check that started it, never
+  // replaced by a later check's (whose token stops nothing), and a failed download is its own promise's to say
   const ask = body('function askUpdater()');
-  assert.match(ask, /if \(r\?\.cancellationToken\) downloadCancel = r\.cancellationToken;\s*r\?\.downloadPromise\?\.catch\(\(\) => \{\}\);/, 'the cancel is kept, and a failed download is the error event\'s, never an unhandled rejection');
+  assert.match(ask, /if \(r\?\.downloadPromise && !downloading\) \{\s*const d = \{ token: r\.cancellationToken \};\s*downloading = d;\s*r\.downloadPromise\s*\.then\(\(\) => \{\}, \(\) => \{ if \(downloading === d\) \{ stopStallWatch\(\); launcherDispatch\(\{ type: 'download-failed' \}\); \} \}\)\s*\.finally\(\(\) => \{ if \(downloading === d\) downloading = null; \}\);\s*\} else r\?\.downloadPromise\?\.catch\(\(\) => \{\}\);/,
+    'never an unhandled rejection either');
   assert.match(main, /case 'play-now': stopStallWatch\(\); launcherDispatch\(\{ type: 'play-now' \}\); break;/, 'a download the player left to run in the background is not watched');
 });
 
@@ -86,7 +89,7 @@ test('L2-2: the installer has ONE door - a second Restart never runs it twice (o
   assert.match(restart, /if \(restartAsking \|\| installStarted\) return;\s*restartAsking = true;/, 'one question at a time');
   assert.match(restart, /\} finally \{ restartAsking = false; \}/);
   assert.match(restart, /const parent = gameWindow && !gameWindow\.isDestroyed\(\) \? gameWindow : null;/, 'over the game - a parentless box could open twice, behind a fullscreen window');
-  assert.match(main, /if \(!updateReady && !installStarted\) askUpdater\(\)\.catch\(\(\) => \{\}\);/, 'the hourly re-check does not ask while the installer is running');
+  assert.match(main, /if \(!updateReady && !installStarted && !downloading\) askUpdater\(\)\.catch\(\(\) => \{\}\);/, 'the hourly re-check does not ask while the installer is running - nor over a download (R2-A2)');
 });
 
 test('L2-3: a failing installer cannot close the app on every launch - the version tried is written down, and not tried before play again', () => {
@@ -113,10 +116,10 @@ test('L2-3: a failing installer cannot close the app on every launch - the versi
 });
 
 test('L2-4: the unload guard is waived only once the installer has REALLY taken over - a failed Restart leaves it standing, and is said', () => {
-  assert.match(main, /require\('electron'\)\.autoUpdater\.on\('before-quit-for-update', \(\) => \{ leaveForUpdate = true; \}\);/,
-    'electron-updater says so on Electron\'s autoUpdater just before it quits, and only after install() succeeded');
+  assert.match(main, /require\('electron'\)\.autoUpdater\.on\('before-quit-for-update', \(\) => \{\s*if \(installFault\) \{ holdQuit = true; return; \}\s*leaveForUpdate = true;/,
+    'electron-updater says so on Electron\'s autoUpdater just before it quits, and only after install() succeeded - unless the install already failed (R2-A5)');
   assert.equal((main.match(/leaveForUpdate = true/g) ?? []).length, 1, 'and nothing else waives it');
-  assert.match(body('function onUpdaterEvent('), /if \(installStarted && !leaveForUpdate\) \{ installFailed\(\); return; \}/);
+  assert.match(body('function onUpdaterEvent('), /if \(installStarted && !leaveForUpdate\) installFailed\(\);\s*return;/);
   const failed = body('function installFailed()');
   assert.match(failed, /installStarted = false;/, 'another try is allowed - the library cleared its own flag');
   assert.match(failed, /if \(launcher\) \{ launcherDispatch\(\{ type: 'install-failed' \}\); return; \}/);
@@ -126,13 +129,14 @@ test('L2-4: the unload guard is waived only once the installer has REALLY taken 
 test('L2-6/L2-8: a notice is told once, by whoever can - and a download reported twice is not news twice', () => {
   const tell = body('function tellNotice(');
   assert.match(tell, /if \(!r\?\.newer \|\| !manualUpdate \|\| manualUpdate\.version !== r\.version \|\| manualUpdate\.told\) return;/);
-  assert.match(tell, /if \(launcher && !launcher\.state\.launch && u\?\.status === 'notice' && u\.version === r\.version\) \{ manualUpdate\.told = true; return; \}/, 'the launcher took it');
-  assert.match(tell, /manualUpdate\.told = tellGame\(\{ version: r\.version, manual: true \}\);/, 'else the game - as a notice (manual: true), which says Download, never Restart');
+  assert.match(tell, /if \(launcher && !launcher\.state\.launch && u\?\.status === 'notice' && u\.version === r\.version\) \{ manualUpdate\.told = 'launcher'; return; \}/, 'the launcher took it');
+  assert.match(tell, /manualUpdate\.told = tellGame\(\{ version: r\.version, manual: true \}\) \? 'game' : false;/, 'else the game - as a notice (manual: true), which says Download, never Restart');
   assert.match(body('async function noticeCheck()'), /if \(fresh\) manualUpdate = \{ version, download: latest\.download, told: false \};\s*else manualUpdate\.download = latest\.download;/, 'a version once told stays told');
   assert.match(body('function startLaunchCheck()'), /launcherDispatch\(\{ type: 'check-available', version: r\.version, download: r\.download \}\);\s*tellNotice\(r\);/);
-  assert.match(main, /else if \(manualUpdate && !manualUpdate\.told\) manualUpdate\.told = tellGame\(\{ version: manualUpdate\.version, manual: true \}\);/, 'a game window that was not there yet is told at its first load');
-  // L5-7: the rest of the mid-session path, pinned where the audit found it free
-  assert.match(main, /if \(updateReady && !updateReady\.told\) updateReady\.told = tellGame\(\{ version: updateReady\.version, manual: false \}\);/);
+  // a game window that was not there yet is told at its load - AUDIT INSTALL R2-A4: at EVERY load (a replaced page forgets),
+  // but never a notice the launcher already put in front of the player
+  assert.match(main, /win\.webContents\.on\('did-finish-load', \(\) => \{\s*if \(updateReady\) updateReady\.told = tellGame\(\{ version: updateReady\.version, manual: false \}\);\s*else if \(manualUpdate && manualUpdate\.told !== 'launcher'\) manualUpdate\.told = tellGame\(\{ version: manualUpdate\.version, manual: true \}\) \? 'game' : false;\s*\}\);/);
+  assert.doesNotMatch(main, /webContents\.once\('did-finish-load'/, 'not at the first load only');
   assert.match(body('function startLaunchCheck()'), /setTimeout\(\(\) => launcherDispatch\(\{ type: 'check-timeout' \}\), CHECK_TIMEOUT_MS\)\.unref\?\.\(\);/, 'the 8-second law is the shell\'s too, not only the reducer\'s');
   assert.match(body('function startRechecks()'), /recheckTimer = setInterval\(async \(\) => \{\s*if \(!updateChecksEnabled\(\)\) return;/, 'a switch turned off mid-session stops the next ask');
   const manual = body('async function checkForUpdatesViaUpdater()');
@@ -141,7 +145,7 @@ test('L2-6/L2-8: a notice is told once, by whoever can - and a download reported
 
 test('L2-10: the launcher closed by the player while the game was still coming up is a leave - the hidden game does not appear after it', () => {
   const win = body('function openLauncherWindow()');
-  assert.match(win, /const handingOver = launcher\.state\.launch === 'started';\s*launcher = null;/);
+  assert.match(win, /const handingOver = launcher\.state\.launch === 'started';\s*launcher\.stop\.abort\(\);[^\n]*\n\s*launcher = null;/, 'and its probes go with it (R2-D1)');
   assert.match(win, /if \(handingOver && gameWindow && !gameWindow\.isDestroyed\(\) && !gameWindow\.isVisible\(\)\) gameWindow\.destroy\(\);/,
     'only a HIDDEN game - the handover\'s own close comes after the game shows');
 });

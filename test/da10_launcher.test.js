@@ -191,13 +191,16 @@ test('DA10: the shell - Play is the only way in, the news is the check\'s own re
     ['choose-folder', 'download', 'open', 'open-saves', 'play', 'play-now', 'reinstall', 'retry-saved', 'set-update-check', 'skip-setup', 'use-found']);
   assert.match(acts, /case 'set-update-check': setCheckOnLaunch\(arg === true\); break;/, 'only a real true turns it on');
   assert.match(acts, /const f = Number\.isInteger\(arg\) \? st\.setup\.found\[arg\] : null;/, 'a found folder by its index, and nothing else');
-  assert.match(acts, /const dir = f \? resolveArena2\(f\.dir\) : null;/, 'judged again when it is taken - a drive can go away while the window sits open (AUDIT INSTALL L5-21)');
-  assert.match(acts, /if \(reduce\(st, \{ type: 'skip-setup' \}\)\.setup\.status !== st\.setup\.status\) saveConfig\(\{ \.\.\.loadConfig\(\), arena2InGame: true \}\);/, 'the game\'s own picker is chosen once, and kept');
+  assert.match(acts, /const r = await judgeForLauncher\(\{ op: 'judge', dir: f\.dir \}, JUDGE_DEADLINE_MS\);/, 'judged again when it is taken - a drive can go away while the window sits open (AUDIT INSTALL L5-21) - in a process of its own (R2-D1)');
+  // the game's own picker: chosen at the first run, kept; chosen on the SAVED folder's card, this launch's alone (R2-D6)
+  assert.match(acts, /saveConfig\(st\.setup\.saved \? \{ \.\.\.loadConfig\(\), arena2IngestClear: true \} : \{ \.\.\.loadConfig\(\), arena2InGame: true \}\);/);
   assert.match(main, /inGamePicker: cfg\.arena2InGame === true \|\| !!process\.env\.DAGGER_SKIP_ARENA2_PROMPT,/);
   // the version last played, kept at the handover - the next launch's NEW marks
   const hand = main.slice(main.indexOf('function launchGame()'), main.indexOf('/** The launch check, inside DA6'));
   assert.match(hand, /saveConfig\(\{ \.\.\.loadConfig\(\), lastPlayed: app\.getVersion\(\) \}\);/);
-  assert.match(main, /returning: !cfg\.lastPlayed && Object\.keys\(cfg\)\.length > 0,/);
+  // AUDIT INSTALL R2-A9: returning is a config.json from BEFORE DA10 - not one a first run wrote before its first Play
+  assert.match(main, /const returning = !cfg\.lastPlayed && cfg\.launcherSeen !== true && Object\.keys\(cfg\)\.length > 0;\s*if \(cfg\.launcherSeen !== true\) saveConfig\(\{ \.\.\.loadConfig\(\), launcherSeen: true \}\);/);
+  assert.match(main, /\n\s*returning,\n/);
   // the news: the check's own request, asked beside it inside the gates, kept in news.json
   assert.match(main, /const RELEASES_LIST_API = 'https:\/\/api\.github\.com\/repos\/Lattymoy\/daggerfall-js-source\/releases\?per_page=20';/);
   const news = main.slice(main.indexOf('async function fetchNews()'), main.indexOf('/** An update, told to the game'));
@@ -239,19 +242,26 @@ test('DA10: the menu stays off the launcher, and a second launch shows what the 
 
 test('DA10: every pick clears what the game stored before - the in-page picker\'s ingest has no folder to re-point from', () => {
   const main = rd('app/main.cjs');
-  const use = main.slice(main.indexOf('function useArena2('), main.indexOf('/** The first run\'s "Choose'));
-  assert.match(use, /setArena2\(dir\);\s*keepArena2Path\(dir\);\s*pendingIngestClear = true;/,
-    'a folder chosen ends the in-page choice, and the next boot clears any ingest (Audit DA F-DA2)');
-  const keep = main.slice(main.indexOf('function keepArena2Path('), main.indexOf('async function pickArena2('));
-  assert.match(keep, /const \{ arena2InGame: _picker, \.\.\.cfg \} = loadConfig\(\);\s*saveConfig\(\{ \.\.\.cfg, arena2Path: dir \}\);/, 'from any door - the File menu\'s too (L4-11)');
-  assert.match(main, /setArena2\(dir\);\s*keepArena2Path\(dir\);\s*if \(target\) \{/, 'File > Locate ARENA2 keeps it the same way');
+  const use = main.slice(main.indexOf('function useArena2('), main.indexOf('/** A folder the player named, looked at'));
+  assert.match(use, /setArena2\(dir\);\s*keepArena2Path\(dir\);\s*launcherDispatch\(\{ type: 'picked', dir \}\);/);
+  // AUDIT INSTALL R2-D2: the clear the pick asks for is KEPT (config.json) until it has run - in memory it died with the
+  // process, and DA10 installs an update right after a pick
+  const keep = main.slice(main.indexOf('function keepArena2Path('), main.indexOf('/** File > Locate ARENA2 Folder with the game running'));
+  assert.match(keep, /const \{ arena2InGame: _picker, \.\.\.cfg \} = loadConfig\(\);\s*saveConfig\(\{ \.\.\.cfg, arena2Path: dir, arena2IngestClear: true \}\);/,
+    'a folder chosen ends the in-page choice, and the next boot clears any ingest (Audit DA F-DA2) - from any door, the File menu\'s too (L4-11)');
+  assert.match(main, /setArena2\(dir\);\s*keepArena2Path\(dir\);\s*(\/\/[^\n]*\n\s*)*if \(target\) \{\s*await clearIngestIfPending\(target\.webContents\);\s*if \(!target\.isDestroyed\(\)\) target\.reload\(\);/, 'File > Locate ARENA2 keeps it the same way');
+  assert.doesNotMatch(main, /pendingIngestClear/, 'nothing held in memory for a boot that may be in another process');
   assert.doesNotMatch(use, /before && before !== dir/, 'not only a re-point: a player who used the in-page picker had no folder before');
-  // and the boot reloads only when something was there to clear
-  assert.match(main, /if \(await clearStoredArena2\(win\.webContents\) && !win\.isDestroyed\(\)\) win\.reload\(\);/);
-  const clear = main.slice(main.indexOf('function clearStoredArena2('), main.indexOf('// A re-point made with NO game window'));
+  // a boot that SERVES a folder clears; it reloads only when something was there to clear
+  assert.match(main, /if \(arena2Dir && !win\.isDestroyed\(\) && await clearIngestIfPending\(win\.webContents\) && !win\.isDestroyed\(\)\) win\.reload\(\);/);
+  const pending = main.slice(main.indexOf('async function clearIngestIfPending('), main.indexOf('/** File > Open Saves Folder'));
+  assert.match(pending, /if \(loadConfig\(\)\.arena2IngestClear !== true\) return false;\s*const r = await clearStoredArena2\(wc\);\s*if \(r === 'failed'\) return false;[^\n]*\n\s*const \{ arena2IngestClear: _done, \.\.\.cfg \} = loadConfig\(\);\s*saveConfig\(cfg\);\s*return r === 'cleared';/,
+    'forgotten only once a clear ran to its end - a failed one is tried at the next boot');
+  const clear = main.slice(main.indexOf('function clearStoredArena2('), main.indexOf('async function clearIngestIfPending('));
   assert.match(clear, /const count = store\.count\(\);\s*count\.onsuccess = \(\) => \{ held \+= count\.result; \};\s*store\.clear\(\);/, 'counted, then cleared, in one transaction');
-  assert.match(clear, /tx\.oncomplete = \(\) => \{ db\.close\(\); res\(held > 0\); \};/);
-  assert.match(clear, /tx\.onerror = \(\) => \{ db\.close\(\); res\(true\); \};/, 'a failed clear reloads - the boot reads what is there');
+  assert.match(clear, /tx\.oncomplete = \(\) => \{ db\.close\(\); res\(held > 0 \? 'cleared' : 'empty'\); \};/);
+  assert.match(clear, /tx\.onerror = \(\) => \{ db\.close\(\); res\('failed'\); \};/);
+  assert.match(clear, /\.catch\(\(\) => 'failed'/, 'a page gone mid-clear is a clear not done');
 });
 
 test('DA10: the page - the news, the card, the options, the bar and PLAY; every action by name', () => {

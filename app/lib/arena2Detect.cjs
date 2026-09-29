@@ -108,33 +108,50 @@ function missingArena2(dir, fsImpl = fs) {
 }
 
 /**
- * THE ONE TEST. The ARENA2 folder at or directly inside `dir` - the
- * folder itself, or an arena2/ child of any case (a pick of the install
- * folder is the honest mistake and costs nothing) - when it is WHOLE;
- * otherwise null.
+ * THE ONE TEST, in one pass. A folder judged: { dir } when it - or an
+ * arena2/ child of any case (a pick of the install folder is the honest
+ * mistake and costs nothing; on Linux ARENA2 and arena2 can stand side by
+ * side, and the whole one may be either) - is a WHOLE ARENA2; otherwise
+ * { missing, unreadable }: the files the nearer of the two that holds ANY
+ * Daggerfall file lacks (a partial ARENA2 names what it lacks), null when
+ * neither holds one (a wrong folder, not a partial one), and whether the
+ * folder could be read at all.
+ *
+ * AUDIT INSTALL R2-D1: one answer for every door. Round 1 asked a saved
+ * folder three questions - is it whole, can it be read, what does it lack -
+ * each its own blocking read, and on a share that was down each one hung.
  */
-function resolveArena2(dir, fsImpl = fs) {
-  if (!dir || typeof dir !== 'string') return null;
-  if (missingArena2(dir, fsImpl)?.length === 0) return dir;
-  for (const nested of allCaseInsensitive(dir, 'arena2', fsImpl)) {
-    if (missingArena2(nested, fsImpl)?.length === 0) return nested;
+function judgeArena2(dir, fsImpl = fs) {
+  if (!dir || typeof dir !== 'string') return { missing: null, unreadable: false };
+  let names;
+  try { names = fsImpl.readdirSync(dir); } catch { return { missing: null, unreadable: true }; }
+  const lacks = (list) => {
+    const have = new Set(list.map((n) => String(n).toUpperCase()));
+    return REQUIRED_ARENA2.filter((n) => !have.has(n));
+  };
+  const top = lacks(names);
+  if (!top.length) return { dir };
+  let missing = top.length < REQUIRED_ARENA2.length ? top : null;
+  for (const n of names.filter((f) => String(f).toUpperCase() === 'ARENA2')) {
+    const nested = path.join(dir, n);
+    let inner;
+    try { inner = fsImpl.readdirSync(nested); } catch { continue; }
+    const m = lacks(inner);
+    if (!m.length) return { dir: nested };
+    if (!missing && m.length < REQUIRED_ARENA2.length) missing = m;
   }
-  return null;
+  return { missing, unreadable: false };
 }
 
-/**
- * Why a picked folder is not ARENA2, for the words the picker says: the
- * files missing from the nearer of the folder and its arena2/ child that
- * holds ANY of them (a partial ARENA2 names what it lacks), or null when
- * neither holds a Daggerfall file at all (a wrong folder, not a partial one).
- */
+/** The whole ARENA2 at or directly inside `dir`, or null (judgeArena2). */
+function resolveArena2(dir, fsImpl = fs) {
+  return judgeArena2(dir, fsImpl).dir ?? null;
+}
+
+/** Why a folder is not ARENA2, for the words the picker says: what it lacks, or null (judgeArena2). */
 function diagnoseArena2(dir, fsImpl = fs) {
-  for (const d of [dir, findCaseInsensitive(dir, 'arena2', fsImpl)]) {
-    if (!d) continue;
-    const missing = missingArena2(d, fsImpl);
-    if (missing && missing.length < REQUIRED_ARENA2.length) return missing;
-  }
-  return null;
+  const judged = judgeArena2(dir, fsImpl);
+  return judged.dir ? [] : judged.missing;
 }
 
 const realOf = (p, fsImpl) => { try { return fsImpl.realpathSync(p); } catch { return null; } };
@@ -150,22 +167,60 @@ function childDirs(dir, fsImpl) {
     .map((e) => path.join(dir, e.name));
 }
 
-/** A bounded breadth-first walk under `root` for a whole ARENA2 - each real
- *  folder opened once, so a link back up the tree is not a loop. */
-function searchArena2(root, fsImpl = fs, depth = SEARCH_DEPTH) {
-  const queue = [[root, 0]];
+/** A folder a search opens first: one named for Daggerfall, or for the
+ *  steps down to ARENA2 in Steam's and the CD's layouts. */
+const LEAD_RE = /daggerfall|^df$|^dagger$|^arena2$/i;
+
+/**
+ * A bounded walk under `root` for a whole ARENA2 - each real folder opened
+ * once, so a link back up the tree is not a loop - that opens LEADS first:
+ * folders named for Daggerfall, and everything under one, before any other.
+ * { dir } when it finds one; else { dir: null, cut } - whether the budget
+ * (SEARCH_DIRS_MAX folders) ran out before the folders did.
+ *
+ * AUDIT INSTALL R2-D3: breadth first alone, a pick of steamapps/common
+ * spent the whole budget on the thirty other games beside Daggerfall (it
+ * reached DF, three levels down, and never opened DAGGER) and said "It
+ * holds no Daggerfall files".
+ */
+function walkForArena2(root, fsImpl = fs, depth = SEARCH_DEPTH) {
+  const leads = [[root, 0, LEAD_RE.test(path.basename(root))]];
+  const rest = [];
   const opened = new Set();
-  while (queue.length && opened.size < SEARCH_DIRS_MAX) {
-    const [dir, d] = queue.shift();
+  while (leads.length || rest.length) {
+    if (opened.size >= SEARCH_DIRS_MAX) return { dir: null, cut: true };
+    const [dir, d, lead] = leads.length ? leads.shift() : rest.shift();
     const real = realOf(dir, fsImpl) ?? dir;
     if (opened.has(real)) continue;
     opened.add(real);
     const found = resolveArena2(dir, fsImpl);
-    if (found) return found;
+    if (found) return { dir: found, cut: false };
     if (d >= depth) continue;
-    for (const child of childDirs(dir, fsImpl)) queue.push([child, d + 1]);
+    for (const child of childDirs(dir, fsImpl)) {
+      const isLead = lead || LEAD_RE.test(path.basename(child));
+      (isLead ? leads : rest).push([child, d + 1, isLead]);
+    }
   }
-  return null;
+  return { dir: null, cut: false };
+}
+
+/** The whole ARENA2 somewhere under `root`, or null (walkForArena2). */
+function searchArena2(root, fsImpl = fs, depth = SEARCH_DEPTH) {
+  return walkForArena2(root, fsImpl, depth).dir;
+}
+
+/**
+ * A folder the player PICKED, judged: itself or its arena2/ child when
+ * whole, else a whole ARENA2 further down (AUDIT INSTALL L4-4: Steam's
+ * "Browse local files" opens the game folder, three levels above it) - or
+ * why not: the folder's own judgment, and `cut` when the walk ran out of
+ * budget before it ran out of folders.
+ */
+function pickArena2(dir, fsImpl = fs) {
+  const judged = judgeArena2(dir, fsImpl);
+  if (judged.dir || judged.unreadable) return judged;
+  const walked = walkForArena2(dir, fsImpl);
+  return walked.dir ? { dir: walked.dir } : { ...judged, cut: walked.cut };
 }
 
 /** Valve's KeyValues text: every value of `key`, unescaped. Enough for
@@ -291,7 +346,9 @@ function looseRoots({ platform, home, env }, looseDirs = []) {
   const roots = [...new Set(named)].map((dir) => ({ dir, guarded: platform === 'darwin' }));
   roots.push({ dir: path.join(home, 'Games'), guarded: false });
   if (platform === 'win32') roots.push({ dir: path.join(env.SystemDrive ? `${env.SystemDrive}\\` : 'C:\\', 'Games'), guarded: false });
-  return roots;
+  // AUDIT INSTALL R2-D5: the unguarded ones FIRST (a stable sort) - "only when nothing else was found" must mean
+  // ~/Games too, or a Mac with the files there met three privacy prompts on the way to them
+  return roots.sort((a, b) => Number(a.guarded) - Number(b.guarded));
 }
 
 /**
@@ -373,8 +430,25 @@ function detectArena2(opts = {}) {
   return found;
 }
 
+/**
+ * The probe's one question, answered (app/lib/arena2Probe.cjs asks it in a
+ * process of its own): { op: 'judge', dir } a folder as it stands,
+ * { op: 'pick', dir } a folder the player picked, { op: 'detect', looseDirs }
+ * the whole search - each find to `onFound` as it is made, then { done }.
+ */
+function answerArena2(question, onFound) {
+  const q = question ?? {};
+  if (q.op === 'judge') return judgeArena2(q.dir);
+  if (q.op === 'pick') return pickArena2(q.dir);
+  if (q.op === 'detect') {
+    detectArena2({ looseDirs: Array.isArray(q.looseDirs) ? q.looseDirs : [], onFound });
+    return { done: true };
+  }
+  return { failed: true };
+}
+
 module.exports = {
   REQUIRED_ARENA2, STEAM_APP_ID, GOG_PRODUCT_ID, SEARCH_DEPTH, SEARCH_DIRS_MAX,
-  findCaseInsensitive, allCaseInsensitive, missingArena2, resolveArena2, diagnoseArena2, searchArena2,
-  vdfValues, dfuDaggerfallPath, regFileValues, detectArena2,
+  findCaseInsensitive, allCaseInsensitive, missingArena2, judgeArena2, resolveArena2, diagnoseArena2,
+  walkForArena2, searchArena2, pickArena2, vdfValues, dfuDaggerfallPath, regFileValues, looseRoots, detectArena2, answerArena2,
 };

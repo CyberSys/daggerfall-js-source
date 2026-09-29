@@ -60,8 +60,16 @@ const INSTALL_NOTICE_MS = 1500;
  *  it decides the install never started, and frees Play. */
 const INSTALL_GIVEUP_MS = 15000;
 /** How long the first run waits on the search for the player's files
- *  before it offers what it has found (app/lib/arena2DetectWorker.cjs). */
+ *  before it offers what it has found. The search goes on past it (AUDIT
+ *  INSTALL R2-D4: a Steam library on a drive spinning up, a Mac's privacy
+ *  prompt answered late) and a later find is added to the card. */
 const DETECT_DEADLINE_MS = 5000;
+/** How long a look at ONE folder - the saved one at launch, a found one
+ *  taken, the saved one tried again - may take before it is called out of
+ *  reach (app/lib/arena2Probe.cjs, a process of its own). */
+const JUDGE_DEADLINE_MS = 5000;
+/** ...and a folder the player picked, which may be searched under. */
+const PICK_DEADLINE_MS = 15000;
 /** How long a download may go without a byte before the launcher calls it
  *  failed and frees Play. electron-updater's own socket timeout never arms
  *  under Electron's net module (it waits on a `socket` event that
@@ -100,15 +108,22 @@ const cmpV = (a, b) => { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a
  *               cannot close the app on every launch.
  *   notice      the notice transport found one: Download it, or Play this one
  * setup.status
+ *   checking the folder config.json keeps (setup.dir) is being looked at, in
+ *            a process of its own (AUDIT INSTALL R2-D1) - the front door
+ *            shows, Play waits; whole it is ready, not whole it is named
  *   ready    a whole ARENA2 is configured (setup.dir)
  *   skipped  the player chose the game's own picker - the website's path
  *            (kept in config.json, so it is asked once)
  *   looking  there is none: detection runs
  *   found    detection found whole folders - OFFERED, never picked silently
- *   none     detection found nothing
+ *   none     detection found nothing - yet: `searching` while it goes on past
+ *            its deadline, and a later find is added (found-more)
  *   bad      the folder picked is not a whole ARENA2 (missing: which files,
  *            or null when it held no Daggerfall file at all; unreadable when
- *            it could not be read)
+ *            it could not be read, `late` when it did not answer in time;
+ *            `cut` when the search under it ran out of budget)
+ *   judging  (beside any of the above) a folder the player named is being
+ *            looked at
  *   saved    (beside any of the above) the folder config.json keeps, which is
  *            no longer whole - { dir, missing, unreadable } - named on the
  *            card with a Try again, never met with the first run's "Where is
@@ -121,9 +136,10 @@ const cmpV = (a, b) => { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a
  * launch: null, 'requested' (Play), 'started' (the game's window is coming up)
  */
 function initialState({
-  current, transport, platform = 'win32', checkEnabled, checkOnLaunch = checkEnabled,
-  arena2Dir = null, inGamePicker = false, savedArena2 = null, news = [], lastPlayed = null, returning = false, installFailedFor = null,
+  current, transport, platform = 'win32', checkEnabled, checkOnLaunch = checkEnabled, arena2Dir = null, savedDir = null,
+  inGamePicker = false, savedArena2 = null, news = [], lastPlayed = null, returning = false, installFailedFor = null,
 }) {
+  const checking = !arena2Dir && typeof savedDir === 'string' && savedDir !== '';
   return {
     current: String(current ?? ''),
     transport,
@@ -134,12 +150,17 @@ function initialState({
     returning: !!returning,
     update: { status: checkEnabled ? 'checking' : 'skipped', version: null, percent: 0, transferred: 0, total: 0, download: null },
     setup: {
-      status: arena2Dir ? 'ready' : inGamePicker ? 'skipped' : 'looking',
-      dir: arena2Dir || null,
+      status: arena2Dir ? 'ready' : checking ? 'checking' : inGamePicker ? 'skipped' : 'looking',
+      dir: arena2Dir || (checking ? savedDir : null),
       found: [],
       missing: null,
       unreadable: false,
-      saved: !arena2Dir && typeof savedArena2?.dir === 'string'
+      late: false,
+      cut: false,
+      inGamePicker: !!inGamePicker,
+      searching: false,
+      judging: false,
+      saved: !arena2Dir && !checking && typeof savedArena2?.dir === 'string'
         ? { dir: savedArena2.dir, missing: Array.isArray(savedArena2.missing) ? savedArena2.missing : null, unreadable: !!savedArena2.unreadable }
         : null,
     },
@@ -221,21 +242,49 @@ function reduce(state, ev) {
       // the installer never took over (it would have closed the app): Play is free, and the installer is offered
       if (u.status === 'installing') u.status = 'stuck';
       break;
+    case 'saved-judged':
+      // the saved folder, looked at: whole it is the one; not whole it is NAMED on the card (L4-5), and the search runs
+      if (st.status === 'checking') {
+        if (typeof ev.dir === 'string' && ev.dir) { st.status = 'ready'; st.dir = ev.dir; break; }
+        st.saved = { dir: st.dir, missing: Array.isArray(ev.missing) ? ev.missing : null, unreadable: !!ev.unreadable };
+        st.dir = null;
+        st.status = st.inGamePicker ? 'skipped' : 'looking';
+      }
+      break;
     case 'found':
       if (st.status === 'looking') {
         st.found = Array.isArray(ev.found) ? ev.found : [];
         st.status = st.found.length ? 'found' : 'none';
+        st.searching = !!ev.searching;
       }
+      break;
+    case 'found-more':
+      // R2-D4: a find after the deadline - offered, while the card still waits on the player
+      if (SETUP_WAITING.has(st.status) && typeof ev.found?.dir === 'string' && !st.found.some((f) => f.dir === ev.found.dir)) {
+        st.found = [...st.found, ev.found];
+        if (st.status === 'none') st.status = 'found';
+      }
+      break;
+    case 'detect-done':
+      st.searching = false;
+      break;
+    case 'judging':
+      st.judging = !!ev.on;
       break;
     case 'picked':
       // from the first run's card, or the Game files door at any time
-      if (ev.dir && !s.launch) { st.status = 'ready'; st.dir = ev.dir; st.found = []; st.missing = null; st.unreadable = false; st.saved = null; }
+      if (ev.dir && !s.launch) {
+        st.status = 'ready'; st.dir = ev.dir; st.found = []; st.missing = null; st.unreadable = false; st.late = false; st.cut = false; st.saved = null;
+        st.searching = false;   // the search is moot once the player has chosen (the shell lets its process go)
+      }
       break;
     case 'picked-bad':
       if (SETUP_WAITING.has(st.status)) {
         st.status = 'bad';
         st.missing = Array.isArray(ev.missing) ? ev.missing : null;
         st.unreadable = !!ev.unreadable;
+        st.late = !!ev.late;
+        st.cut = !!ev.cut;
       }
       break;
     case 'saved-bad':
@@ -245,7 +294,7 @@ function reduce(state, ev) {
       }
       break;
     case 'skip-setup':
-      if (SETUP_WAITING.has(st.status)) st.status = 'skipped';
+      if (SETUP_WAITING.has(st.status)) { st.status = 'skipped'; st.searching = false; }
       break;
     case 'play':
       if (canPlay(s)) s.launch = 'requested';
@@ -279,7 +328,8 @@ function reduce(state, ev) {
 function nextStep(s) {
   if (s.launch === 'started') return 'wait';
   if (s.setup.status === 'looking') return 'detect';
-  if (s.update.status === 'installing') return SETUP_WAITING.has(s.setup.status) ? 'wait' : 'install';
+  // AUDIT INSTALL R2-A8: until the game's files are SET - the saved folder still being looked at included
+  if (s.update.status === 'installing') return SETUP_DONE.has(s.setup.status) ? 'install' : 'wait';
   if (s.launch === 'requested') return 'launch';
   return 'wait';
 }
@@ -395,13 +445,22 @@ function installAttemptFor(saved, current) {
 
 /** What a folder that is not a whole ARENA2 lacks, and where the whole one
  *  is - the launcher's card, its Game files door and File > Locate ARENA2
- *  say it in the same words. `missing` is diagnoseArena2's: the files it
- *  lacks, or null when it held no Daggerfall file at all. */
-function notArena2Detail(missing, { unreadable = false } = {}) {
+ *  say it in the same words. `missing` is judgeArena2's: the files it
+ *  lacks, or null when it held no Daggerfall file at all. A folder that did
+ *  not answer in time (`late`) or whose search ran out of budget (`cut`) is
+ *  never told it "holds no Daggerfall files" (AUDIT INSTALL R2-D3). On a
+ *  Mac the whole one is in DaggerfallGameFiles.zip - Steam and GOG sell
+ *  Daggerfall for Windows only (L5-3, R2-E5). */
+function notArena2Detail(missing, { unreadable = false, late = false, cut = false, platform = 'win32' } = {}) {
   // Steam's is DF/DAGGER/ARENA2; GOG's sits in the game's own folder, beside FALL.EXE (AUDIT INSTALL L4-6)
-  const where = 'Choose the ARENA2 folder inside your Daggerfall install - on Steam it is under DF/DAGGER/ARENA2, on GOG it is in the game\'s own folder.';
+  const where = platform === 'darwin'
+    ? 'Choose the arena2 folder inside the unpacked DaggerfallGameFiles.zip.'
+    : 'Choose the ARENA2 folder inside your Daggerfall install - on Steam it is under DF/DAGGER/ARENA2, on GOG it is in the game\'s own folder.';
+  if (late) return `It did not answer in time - is its drive asleep, or disconnected? ${where}`;
   if (unreadable) return `It could not be read - is its drive connected? ${where}`;
-  return Array.isArray(missing) && missing.length ? `It has no ${missing.join(', ')}. ${where}` : `It holds no Daggerfall files. ${where}`;
+  if (Array.isArray(missing) && missing.length) return `It has no ${missing.join(', ')}. ${where}`;
+  if (cut) return `It holds too many folders to look through them all. ${where}`;
+  return `It holds no Daggerfall files. ${where}`;
 }
 
 /** The first run's card: what was found, or where to get it, or what the
@@ -435,27 +494,31 @@ function setupView(st, platform) {
       actions: [choose, skip],
     };
   }
+  const zip = { id: 'open', arg: 'zip', label: 'Get DaggerfallGameFiles.zip' };
   if (st.status === 'none') {
+    // R2-D4: a search still going on past its deadline says so - it has not concluded the files are not here
+    const still = st.searching ? 'Still looking on slower drives - they are added here if they turn up. ' : '';
     if (platform === 'darwin') {
       return {
         title: 'Where is Daggerfall?',
-        detail: 'Daggerfall Online plays from the original game\'s ARENA2 folder. The Elder Scrolls II: Daggerfall has been free since 2009 - on a Mac, get DaggerfallGameFiles.zip, unpack it, and choose the arena2 folder inside.',
+        detail: `${still}Daggerfall Online plays from the original game's ARENA2 folder. The Elder Scrolls II: Daggerfall has been free since 2009 - on a Mac, get DaggerfallGameFiles.zip, unpack it, and choose the arena2 folder inside.`,
         found,
-        actions: [choose, { id: 'open', arg: 'zip', label: 'Get DaggerfallGameFiles.zip' }, skip],
+        actions: [choose, zip, skip],
       };
     }
     return {
       title: 'Where is Daggerfall?',
-      detail: 'Daggerfall Online plays from the original game\'s ARENA2 folder. The Elder Scrolls II: Daggerfall has been free since 2009 - get it from Steam or GOG, then choose its ARENA2 folder.',
+      detail: `${still}Daggerfall Online plays from the original game's ARENA2 folder. The Elder Scrolls II: Daggerfall has been free since 2009 - get it from Steam or GOG, then choose its ARENA2 folder.`,
       found,
       actions: [choose, { id: 'open', arg: 'steam', label: 'Get it on Steam' }, { id: 'open', arg: 'gog', label: 'Get it on GOG' }, skip],
     };
   }
   return {
     title: st.unreadable ? 'That folder cannot be read' : 'That folder is not a whole ARENA2',
-    detail: notArena2Detail(st.missing, st),
+    detail: notArena2Detail(st.missing, { ...st, platform }),
     found,
-    actions: [{ ...choose, primary: true }, skip],
+    // R2-E5: a Mac's refusal keeps the one door to the files a Mac can get
+    actions: platform === 'darwin' ? [{ ...choose, primary: true }, zip, skip] : [{ ...choose, primary: true }, skip],
   };
 }
 
@@ -470,11 +533,12 @@ function viewOf(s) {
     progress: null,
     statusActions: [],
     play: { enabled: canPlay(s), label: 'Play' },
-    panel: SETUP_DONE.has(st.status) ? 'news' : 'setup',
+    // the saved folder being looked at shows the front door - on a healthy disk the answer is back before the first paint
+    panel: SETUP_DONE.has(st.status) || st.status === 'checking' ? 'news' : 'setup',
     setup: null,
     news: newsView(s),
     options: {
-      files: st.status === 'ready' ? { path: st.dir, note: '', label: 'Change folder' }
+      files: st.status === 'ready' || st.status === 'checking' ? { path: st.dir, note: '', label: 'Change folder' }
         : st.status === 'skipped' ? { path: '', note: 'Chosen in the game', label: 'Choose folder' }
           : { path: '', note: 'Not set yet', label: 'Choose folder' },
       checkOnLaunch: s.checkOnLaunch,
@@ -486,7 +550,7 @@ function viewOf(s) {
     v.busy = true;
   } else if (u.status === 'installing') {
     v.progress = { percent: 100, label: 'Downloaded' };
-    if (SETUP_WAITING.has(st.status)) {
+    if (!SETUP_DONE.has(st.status)) {
       v.status = `v${u.version} is ready to install`;
       v.detail = 'It installs once your game files are set - then Daggerfall Online reopens by itself.';
     } else {
@@ -529,11 +593,13 @@ function viewOf(s) {
   } else {
     v.status = 'Up to date';
   }
-  if (st.status === 'looking') v.busy = true;
+  // the gem breathes while anything is being looked for or at
+  if (st.status === 'looking' || st.status === 'checking' || st.searching || st.judging) v.busy = true;
   return v;
 }
 
 module.exports = {
-  CHECK_TIMEOUT_MS, RECHECK_MS, NEWS_MAX, INSTALL_NOTICE_MS, INSTALL_GIVEUP_MS, DOWNLOAD_STALL_MS, DETECT_DEADLINE_MS, SOURCE_LABEL, installAttemptFor,
+  CHECK_TIMEOUT_MS, RECHECK_MS, NEWS_MAX, INSTALL_NOTICE_MS, INSTALL_GIVEUP_MS, DOWNLOAD_STALL_MS, DETECT_DEADLINE_MS, JUDGE_DEADLINE_MS,
+  PICK_DEADLINE_MS, SOURCE_LABEL, installAttemptFor,
   initialState, reduce, nextStep, viewOf, canPlay, justUpdated, dateLabel, playerNotes, newsFrom, cachedNews, notArena2Detail,
 };

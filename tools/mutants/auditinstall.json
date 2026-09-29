@@ -38,8 +38,8 @@
   {
     "name": "AUDIT-INSTALL-L2-1-a-broken-download-holds-play-for-ever",
     "file": "app/main.cjs",
-    "old": "    launcherDispatch({ type: launcher?.state.update.status === 'downloading' ? 'download-failed' : 'check-failed' });",
-    "new": "    launcherDispatch({ type: 'check-failed' });",
+    "old": "        .then(() => {}, () => { if (downloading === d) { stopStallWatch(); launcherDispatch({ type: 'download-failed' }); } })",
+    "new": "        .then(() => {}, () => { if (downloading === d) { stopStallWatch(); launcherDispatch({ type: 'check-failed' }); } })",
     "tests": ["test/audit_install.test.js", "test/autoupdate.test.js", "test/updatecheck.test.js"],
     "note": "The audit's own finding: a download error was 'check-failed', which the launcher takes only while checking."
   },
@@ -53,7 +53,7 @@
   {
     "name": "AUDIT-INSTALL-L2-1-a-stalled-download-is-never-cancelled",
     "file": "app/main.cjs",
-    "old": "    downloadCancel?.cancel();\n    launcherDispatch({ type: 'download-failed' });",
+    "old": "    downloading?.token?.cancel();\n    launcherDispatch({ type: 'download-failed' });",
     "new": "    launcherDispatch({ type: 'download-failed' });",
     "tests": ["test/audit_install.test.js"]
   },
@@ -68,15 +68,15 @@
   {
     "name": "AUDIT-INSTALL-L2-1-a-failed-download-is-an-unhandled-rejection",
     "file": "app/main.cjs",
-    "old": "    r?.downloadPromise?.catch(() => {});\n    return r ?? null;",
-    "new": "    return r ?? null;",
+    "old": "    } else r?.downloadPromise?.catch(() => {});\n    return r ?? null;",
+    "new": "    }\n    return r ?? null;",
     "tests": ["test/audit_install.test.js"]
   },
   {
     "name": "AUDIT-INSTALL-L2-2-the-installer-runs-twice",
     "file": "app/main.cjs",
-    "old": "  if (installStarted) return;\n  installStarted = true;\n  if (version)",
-    "new": "  installStarted = true;\n  if (version)",
+    "old": "  if (installStarted) return;\n  installStarted = true;\n  installFault = false;",
+    "new": "  installStarted = true;\n  installFault = false;",
     "tests": ["test/audit_install.test.js"],
     "note": "On Linux the second install deletes the AppImage the first put in place."
   },
@@ -134,29 +134,29 @@
   {
     "name": "AUDIT-INSTALL-L2-4-a-failed-restart-is-silent",
     "file": "app/main.cjs",
-    "old": "    if (installStarted && !leaveForUpdate) { installFailed(); return; }",
-    "new": "    if (installStarted && !leaveForUpdate) { return; }",
+    "old": "    if (installStarted && !leaveForUpdate) installFailed();\n    return;\n  }",
+    "new": "    return;\n  }",
     "tests": ["test/audit_install.test.js", "test/autoupdate.test.js"]
   },
   {
     "name": "AUDIT-INSTALL-L2-6-a-late-notice-is-told-to-no-one",
     "file": "app/main.cjs",
-    "old": "  manualUpdate.told = tellGame({ version: r.version, manual: true });\n}",
-    "new": "  manualUpdate.told = true;\n}",
+    "old": "  manualUpdate.told = tellGame({ version: r.version, manual: true }) ? 'game' : false;\n}",
+    "new": "  manualUpdate.told = 'game';\n}",
     "tests": ["test/audit_install.test.js"]
   },
   {
     "name": "AUDIT-INSTALL-L2-6-a-mac-player-is-told-to-restart",
     "file": "app/main.cjs",
-    "old": "  manualUpdate.told = tellGame({ version: r.version, manual: true });\n}",
-    "new": "  manualUpdate.told = tellGame({ version: r.version, manual: false });\n}",
+    "old": "  manualUpdate.told = tellGame({ version: r.version, manual: true }) ? 'game' : false;\n}",
+    "new": "  manualUpdate.told = tellGame({ version: r.version, manual: false }) ? 'game' : false;\n}",
     "tests": ["test/audit_install.test.js"],
     "note": "The HUD says File > Restart to Update, which a notice copy does not have."
   },
   {
     "name": "AUDIT-INSTALL-L2-6-the-first-load-forgets-the-notice",
     "file": "app/main.cjs",
-    "old": "    else if (manualUpdate && !manualUpdate.told) manualUpdate.told = tellGame({ version: manualUpdate.version, manual: true });\n",
+    "old": "    else if (manualUpdate && manualUpdate.told !== 'launcher') manualUpdate.told = tellGame({ version: manualUpdate.version, manual: true }) ? 'game' : false;\n",
     "new": "",
     "tests": ["test/audit_install.test.js"]
   },
@@ -320,15 +320,15 @@
   {
     "name": "AUDIT-INSTALL-L4-1-the-search-never-gives-up",
     "file": "app/main.cjs",
-    "old": "    const deadline = setTimeout(finish, DETECT_DEADLINE_MS);",
-    "new": "    const deadline = null;",
+    "old": "  const deadline = setTimeout(() => {\n    shown = true;\n    if (launcher === l) launcherDispatch({ type: 'found', found: [...found], searching: true });\n  }, DETECT_DEADLINE_MS);",
+    "new": "  const deadline = null;",
     "tests": ["test/da9_arena2detect.test.js"]
   },
   {
     "name": "AUDIT-INSTALL-L4-1-finds-before-the-deadline-are-lost",
     "file": "app/main.cjs",
-    "old": "        if (m?.found) found.push(m.found);\n",
-    "new": "",
+    "old": "      found.push(f);\n      if (shown && launcher === l)",
+    "new": "      if (shown && launcher === l)",
     "tests": ["test/da9_arena2detect.test.js"]
   },
   {
@@ -362,16 +362,16 @@
   },
   {
     "name": "AUDIT-INSTALL-L4-4-a-picked-game-folder-is-refused",
-    "file": "app/main.cjs",
-    "old": "  const dir = resolveArena2(pick) ?? searchArena2(pick);",
-    "new": "  const dir = resolveArena2(pick);",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "  const walked = walkForArena2(dir, fsImpl);\n  return walked.dir ? { dir: walked.dir } : { ...judged, cut: walked.cut };",
+    "new": "  return { ...judged, cut: false };",
     "tests": ["test/da9_arena2detect.test.js"]
   },
   {
     "name": "AUDIT-INSTALL-L4-4-any-picked-folder-is-taken",
-    "file": "app/main.cjs",
-    "old": "  const dir = resolveArena2(pick) ?? searchArena2(pick);",
-    "new": "  const dir = pick;",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "function pickArena2(dir, fsImpl = fs) {\n  const judged = judgeArena2(dir, fsImpl);\n  if (judged.dir || judged.unreadable) return judged;",
+    "new": "function pickArena2(dir, fsImpl = fs) {\n  const judged = judgeArena2(dir, fsImpl);\n  if (!judged.unreadable) return { dir };",
     "tests": ["test/da9_arena2detect.test.js"],
     "note": "A2-WHOLE's partial folder, accepted from the picker again (lane 5 #6)."
   },
@@ -399,8 +399,8 @@
   {
     "name": "AUDIT-INSTALL-L4-9-the-last-case-variant-wins",
     "file": "app/lib/arena2Detect.cjs",
-    "old": "  for (const nested of allCaseInsensitive(dir, 'arena2', fsImpl)) {\n    if (missingArena2(nested, fsImpl)?.length === 0) return nested;\n  }",
-    "new": "  const nested = findCaseInsensitive(dir, 'arena2', fsImpl);\n  if (nested && missingArena2(nested, fsImpl)?.length === 0) return nested;",
+    "old": "  for (const n of names.filter((f) => String(f).toUpperCase() === 'ARENA2')) {",
+    "new": "  for (const n of names.filter((f) => String(f).toUpperCase() === 'ARENA2').slice(0, 1)) {",
     "tests": ["test/da9_arena2detect.test.js"]
   },
   {
@@ -477,8 +477,8 @@
   {
     "name": "AUDIT-INSTALL-L5-21-a-found-folder-is-taken-unjudged",
     "file": "app/main.cjs",
-    "old": "      const dir = f ? resolveArena2(f.dir) : null;",
-    "new": "      const dir = f ? f.dir : null;",
+    "old": "      const r = await judgeForLauncher({ op: 'judge', dir: f.dir }, JUDGE_DEADLINE_MS);",
+    "new": "      const r = { dir: f.dir };",
     "tests": ["test/da10_launcher.test.js"]
   },
   {
