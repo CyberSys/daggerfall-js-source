@@ -167,7 +167,7 @@
   {
     "name": "WB8b-the-feeding-unsaid",
     "file": "src/net/gateBrain.js",
-    "old": "      out.push({ k: 'fed', n: p.name, h: Math.round(f.hp), m: Math.round(f.max), at: now });\n",
+    "old": "      out.push({ k: 'fed', ns, h: Math.round(f.hp), m: Math.round(f.max), at: now });\n",
     "new": "",
     "tests": [
       "test/wb8b_gate_marks.test.js"
@@ -249,8 +249,8 @@
   {
     "name": "WB8b-colossal-slam-old-reach",
     "file": "src/net/gateBrain.js",
-    "old": "      r: A === ATTACKS.slam && colossal ? colossal.slamR : A.r,",
-    "new": "      r: A.r,",
+    "old": "      r: A === ATTACKS.slam && colossal ? colossal.slamR : A.shape === 'cone' ? A.r + BOSS_R * (size - 1) : A.r,",
+    "new": "      r: A.shape === 'cone' ? A.r + BOSS_R * (size - 1) : A.r,",
     "tests": [
       "test/wb8b_gate_marks.test.js",
       "test/wb8c_gate_detail.test.js"
@@ -307,8 +307,8 @@
   {
     "name": "WB8b-the-fed-name-raw",
     "file": "src/net/wire.js",
-    "old": "{ k: 'fed', n: sanitizeName(m.n), h: m.h, m: m.m, at: m.at }",
-    "new": "{ k: 'fed', n: m.n, h: m.h, m: m.m, at: m.at }",
+    "old": "{ k: 'fed', ns: m.ns.map(sanitizeName), h: m.h, m: m.m, at: m.at }",
+    "new": "{ k: 'fed', ns: m.ns, h: m.h, m: m.m, at: m.at }",
     "tests": [
       "test/wb8b_gate_marks.test.js"
     ]

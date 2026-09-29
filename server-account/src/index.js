@@ -37,7 +37,7 @@
 //
 //   GET  /v1/health                       -> { ok, v }
 //   GET  /v1/pubkey                       -> { alg, key }   (not a secret)
-//   POST /v1/auth/guest   { label? }      -> { id, secret, sessionId, name, kind }
+//   POST /v1/auth/guest   { label?, terms, privacy } -> { id, secret, sessionId, name, kind }   (TERMS1: the versions ticked, legalLaw.js)
 //   POST /v1/auth/token   { secret }      -> { token, name, kind, expiresAt }
 //   POST /v1/auth/session { secret, label? } -> { secret, sessionId }   (a second device)
 //   GET  /v1/account      Authorization: Bearer <secret> -> { account, wardrobe, devices[] }

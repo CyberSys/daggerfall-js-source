@@ -74,8 +74,15 @@ test('DISC21-A: a save made since - the questions\' dagger at 0 with no maxCondi
   // idempotent
   assert.equal(repairUnmintedConditions(q.items), 0, 'a second load mints nothing');
   assert.deepEqual(WEARABLE_GROUPS, ['Weapons', 'Armor', 'MensClothing', 'WomensClothing', 'Jewellery']);
-  // the load door runs it over the pack, the wagon and the repairer's shelf
-  assert.match(rd('src/systems/save.js'), /for \(const list of \[entity\.items, entity\.wagonItems, entity\.otherItems\]\) \{\s+const n = repairUnmintedConditions\(list\);/);
+  // the load door runs it over the pack, the wagon and the repairer's shelf - and (AUDIT PRE-MERGE 0929 D3) every list
+  // of the character's own things the save carries beside them, the one walk DISC29-B's name repair takes
+  assert.match(rd('src/systems/save.js'), /const repairLists = \[entity\.items, entity\.wagonItems, entity\.otherItems, \.\.\.stashedItemLists\(snap\)\];[\s\S]*?for \(const list of repairLists\) \{\s+const n = repairUnmintedConditions\(list\);/);
+  const snap = JSON.parse(JSON.stringify(snapshotPlayer(P(), { classicMinutes: 100 })));
+  snap.sceneCache = { scenes: [{ sceneName: 'DaggerfallInterior [MapID=1, BuildingKey=2]', lootContainers: [{ items: [{ ...stuck, UID: 7 }] }] }] };
+  const r = {};
+  restorePlayer(r, snap);
+  const chest = r.sceneCache.scenes.get('DaggerfallInterior [MapID=1, BuildingKey=2]').lootContainers[0].items[0];
+  assert.deepEqual([chest.maxCondition, chest.currentCondition], [EBONY_DAGGER_MAX, Math.trunc(EBONY_DAGGER_MAX * 0.2)], 'the questions\' dagger kept in a house chest, minted as the pack\'s is');
 });
 
 // ── DISC21-B: "Can't access wagon from dungeon entrance - Clicking 'yes' on the prompt only closes it" ──

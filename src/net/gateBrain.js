@@ -180,6 +180,10 @@ export const ABSENT_RETIRE_MS = 30_000;
 /** AUDIT WBX R2: what keeps a seat in a full court - a blow worth RECEIPT_SHARE of its share, or this long stood. One
  *  beat stood, or one blow of nothing, held a seat for the day; 256 throwaway accounts held the court. */
 export const SEAT_KEEP_MS = 30_000;
+/** A REAL PART IN THE FIGHT (AUDIT WBX R2's bar): a blow worth RECEIPT_SHARE of the fighter's share, or SEAT_KEEP_MS
+ *  stood alive in the court. It keeps a seat in a full court, and (AUDIT PRE-MERGE 0929 W1-1) it is what a fall must
+ *  have behind it to feed a Soul-Hungry Warden. */
+export const hasPart = (p) => p.dealt >= RECEIPT_SHARE * p.share || p.stoodMs >= SEAT_KEEP_MS;
 
 // ── WB8b: the Warden's marks, as law ────────────────────────────────────
 /** WB8b: SCARRED GROUND - under the Scarring trial his Ground Slam leaves it at his feet and his Crushing Leap where it
@@ -223,7 +227,11 @@ export function fightProfile(md) {
   for (const A of /** @type {ReadonlyArray<GateAttack>} */ (ATTACK_BY_ID)) {
     const el = A.el === 'fire' && A !== ATTACKS.wrath ? aspect.el : A.el;   // his fire is his aspect's; Dagon's Wrath is Dagon's
     atk[A.key] = Object.freeze({
-      r: A === ATTACKS.slam && colossal ? colossal.slamR : A.r,
+      // AUDIT PRE-MERGE 0929 W1-2: a cone reaches from his body, as far past it as it ever did - its range is measured
+      // past his body (attacksFor), and a Colossal Warden chose the Cleave at fighters up to 9.25 m from his centre with
+      // a cone of 9: cleaving air all phase one at a fighter standing just outside it, never walking in (R3's law -
+      // "its cone of 9 always reached" - for every body he wears)
+      r: A === ATTACKS.slam && colossal ? colossal.slamR : A.shape === 'cone' ? A.r + BOSS_R * (size - 1) : A.r,
       phase: T('favoured') && FAVOURED_PHASE[A.key] != null ? FAVOURED_PHASE[A.key] : A.phase,
       el, name: aspect.names[A.key] ?? A.name,
       pool: ground(A.pool ?? (scarring ? SCAR_POOLS[A.key] : null)),
@@ -235,8 +243,9 @@ export function fightProfile(md) {
     size, bossR: BOSS_R * size, bossH: BOSS_H * size, hpX: colossal?.hp ?? 1,
     shieldMs: unyielding?.shieldMs ?? SHIELD_MS, hitX: unyielding?.hit ?? 1, dmgX,
     threatPick: grudge?.threatPick ?? THREAT_PICK, threatDecay: grudge?.threatDecay ?? THREAT_DECAY,
-    feed: hungry?.heal ?? 0, echo: !!T('echoing'),
+    feed: hungry?.heal ?? 0, feedsMax: hungry?.feeds ?? 0, echo: !!T('echoing'),
     atk: Object.freeze(atk),
+    trialsLine: trials.map((t) => t.name).join(' - '),   // AUDIT PRE-MERGE 0929 W2-2: said by the bar every frame, joined once
   });
   _profiles.set(key, P);
   return P;
@@ -246,7 +255,20 @@ const _profiles = new Map();
 /** The Warden unmarked: the constants exactly. */
 export const BASE_PROFILE = fightProfile(null);
 /** A fight's profile (its own marks), or a state's - the brain's fight and the court's state alike carry `md`. */
-export const profileOf = (f) => fightProfile(f?.md);
+export const profileOf = (f) => {
+  // AUDIT PRE-MERGE 0929 W2-2: FOUND ONCE A MARKS ARRAY. The profile was cached and finding it was not - every call
+  // copied the marks (validGateMods), read them (readGateMods) and joined a key, ~1.9 KB a call, and the court asks
+  // every frame (the bar, the glow, the telegraphs, target() on every swing and missile): a marked court's frame made
+  // three and a half times the garbage of an unmarked one. The fight's `md` and the fold's are one array for as long
+  // as they stand (the relay's is made at newFight, the screen's once an `st`), so the profile is kept by that array.
+  const md = f?.md;
+  if (md == null || typeof md !== 'object') return fightProfile(md);
+  let P = _profileByMd.get(md);
+  if (!P) { P = fightProfile(md); _profileByMd.set(md, P); }
+  return P;
+};
+/** The profile each marks array was read as (arrays drop out with the states that hold them). */
+const _profileByMd = new WeakMap();
 /** What an attack is under a profile - its line (reach, phase, element, name, ground, share, base). */
 export const attackUnder = (A, P = BASE_PROFILE) => P.atk[A.key];
 
@@ -270,6 +292,9 @@ export function newFight(day, now, wrathAt, boss, md = null) {
     /** WB8b: the Warden's marks this fight is fought under (net/gateLaw.js gateModsOf - the relay's draw at the fight's
      *  birth), or null for none; said in every state */
     md: validGateMods(md) ?? null,
+    /** AUDIT PRE-MERGE 0929 W1-1: the feedings a Soul-Hungry Warden has had this fight (at most GATE_FEEDS_MAX) - a
+     *  fight checkpointed before it counts from none */
+    feeds: 0,
     pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, nextAt: now + OPENING_MS, seq: 0,
     target: null, targetAt: 0,
     /** WBX5: a phase's turn still to come - PHASE_TURN's entries after the one in flight - and the next of them, begun
@@ -357,7 +382,7 @@ export function restoreShare(f, p) {
 export function freeSeat(f, present) {
   if (!present) return false;
   for (const [sub, p] of Object.entries(f.players)) {
-    if (present.has(sub) || p.dealt >= RECEIPT_SHARE * p.share || p.stoodMs >= SEAT_KEEP_MS) continue;   // AUDIT WBX R2: a real part in the fight keeps a seat
+    if (present.has(sub) || hasPart(p)) continue;   // AUDIT WBX R2: a real part in the fight keeps a seat
     if (!p.retired) shareOut(f, p.share);
     delete f.players[sub];
     delete f.threat[sub];
@@ -505,14 +530,25 @@ export function stepBrain(f, now, bodies, rng) {
   for (const b of bodies) { const p = f.players[b.sub]; if (p) { p.seenAt = now; restoreShare(f, p); } }
   for (const p of Object.values(f.players)) if (!p.retired && now - (p.seenAt ?? p.joinedAt) > ABSENT_RETIRE_MS) retireShare(f, p);
   // WB8b: SOUL-HUNGRY - each challenger who falls in the court feeds him, once a fight (a fall again, a death and a
-  // walk back in, feeds him nothing more): a share of the health he stands for, never past it, said to the court
+  // walk back in, feeds him nothing more): a share of the health he stands for, never past it, said to the court.
+  // AUDIT PRE-MERGE 0929 W1-1: a fall is the fighter's own word (the pose's `dd`), and a heal sized to the whole fight
+  // outlives the share of one who leaves - twenty-five throwaway guests that said `in` dead and went took him from a
+  // fifth of his health to all but full, for good. So only a fall with a REAL PART behind it feeds him (hasPart: the
+  // blows or the time a seat is kept by), and no more than the trial's feedings a fight (GATE_FEEDS_MAX), however many
+  // accounts come. W1-3: and the beat's feedings are ONE word naming every one of them - two falls in a beat were two
+  // words with one moment, and the court said the first name alone.
   if (P.feed > 0) {
+    let ns = null;
     for (const b of bodies) {
       const p = f.players[b.sub];
-      if (!p || !b.dead || p.fed || !(f.max > 0)) continue;
+      if (!p || !b.dead || p.fed || !(f.max > 0) || !hasPart(p) || (f.feeds ?? 0) >= P.feedsMax) continue;
       p.fed = true;
+      f.feeds = (f.feeds ?? 0) + 1;
       f.hp = Math.min(f.max, f.hp + P.feed * f.max);
-      out.push({ k: 'fed', n: p.name, h: Math.round(f.hp), m: Math.round(f.max), at: now });
+      (ns ??= []).push(p.name);
+    }
+    if (ns) {
+      out.push({ k: 'fed', ns, h: Math.round(f.hp), m: Math.round(f.max), at: now });
       f.lastHpSent = Math.round(f.hp); f.lastHpAt = now;   // the word says the health: no `hp` beside it this beat
     }
   }

@@ -27,8 +27,12 @@
 // the price of never recording a version the service does not hold.
 //
 // THE URLS ARE ABSOLUTE ON PURPOSE. The desktop app loads the game from
-// its own dagger:// scheme and hands only http(s) links to the system
-// browser (app/main.cjs), so a relative link would open nothing there.
+// its own dagger:// scheme, and a relative link would open the copy
+// bundled with that build, in a window of the app (app/main.cjs allows
+// dagger:// window-opens) - the text as it stood when the app was built.
+// An http(s) link goes to the system browser, which shows the live text:
+// the one the service holds. (AUDIT PRE-MERGE 0929 T4: this said a
+// relative link "would open nothing there".)
 // ═══════════════════════════════════════════════════════════════════
 
 /** The Terms of Service a new account agrees to - its Last Updated date. */

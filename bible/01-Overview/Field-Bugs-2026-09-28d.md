@@ -37,6 +37,17 @@ Activate relays, DoorText plaques, Hurt23/Hurt24 rooms, CastSpell rooms - and ea
 players will notice. Every other flag keeps the box's top (they admit no WalkOn: the arm only decides a refusal).
 `03-World/Player-Arc.md` DISC29-A.
 
+**AUDIT PRE-MERGE 0929 D1/D2** (`Audit-PreMerge-0929.md`). The fix read DFU half-way. WalkOn is the contact's DIRECTION
+from the controller's centre (`dir.y < -0.9`, :68-71) for EVERY flag, and the ray is only Collision01's second test: the
+box's top and a ray under the capsule's centre missed a staircase, where a body rides the treads' edges (N0000007's
+Hurt22 staircase, in 69 dungeons, bit 2 times walking all sixteen steps down, 4 up), and a MultiTrigger floor stood on
+was WalkInto, and fired - Orsinium's castle floor (S0000020 object 10406, a DoorText with a trespass on it) turned the
+castle hostile at the first steps across it, pre-existing and kept by the fix above. The pass is OnCharacterCollided
+whole now (`world/actionSystem.js actionContact`, on the collider's own contact, `player/collider.js capsuleContact`):
+beneath is WalkOn for every flag, a Collision01 casts its ray, else WalkInto, and a side is heard only while the body
+moves into it. Every collision-trigger model's triangles are in `triggerSurfaces`. Over BLOCKS.BSA's 1,546 resting
+spots the port agrees with DFU on 1,537 (983 before); the staircase bites 9 times down, 13 up.
+
 ## DISC29-B: a rarity name keeps the word the mint wrote (Julian)
 
 **What the report is.** A light-set piece of Roleplay & Realism: Items in a plate material is BRIGANDINE, and the
@@ -51,6 +62,12 @@ given it back on load (`repairRarityNames`: only a name that is the old bare bui
 read by two other mods: Immersive Footsteps and Better Ambience read `NativeMaterialValue` - the property the mod
 overrides - where the port read the raw material, so brigandine boots walked in plate and a mail hauberk clanked as
 plate. Both read `rriNativeMaterialValue` now. `06-Systems/Roleplay-Realism-Items.md` DISC29-B.
+
+**AUDIT PRE-MERGE 0929 D3.** The load's repair (and DISC21-A's beside it) walked the pack, the wagon and the
+repairer's alone; a piece kept in a house chest, a dropped pile, a dead foe's pack or a boat's hold kept the name its
+make had lost, and kept it once carried out. Both repairs walk every list of the character's own things the save
+carries now (`net/realmGoldLaw.js stashedItemLists`, customs' own walk), in the save before the scene cache, the world
+and the mods' data are restored from it.
 
 ## DISC29-C: fatigue at 1% is Roleplay & Realism's own round (lumin) - Mac's call
 
@@ -113,6 +130,14 @@ crossed a wall in the browser). What does light through a wall is a CARRIED ligh
 spell, a peer's - which has no shadow map: a map redrawn every frame for it is a cost left to Mac.
 `07-Rendering/Enhanced-Lighting-Arc.md` DISC29-E.
 
+**AUDIT PRE-MERGE 0929 E1-E3.** "An idler whose place is still" was every flat an origin places, the moment it stood -
+a dungeon foe, a peer, the Warden - and the lo tier rebuilds two faces a frame, so each time one walked on the lamps
+outside the eight kept its silhouette where it had stood (a ghost on 4.7% of a fight's frames under fourteen lamps, 49%
+under thirty with six), and every stop and start rebuilt every lo map in its reach. Only a flat that cannot walk - its
+centre in its vertices, no origin - is in place now (E1). The player's card is noted as it is recorded, not found by a
+walk of every batch (E2), and its two lamps are the two casting lights nearest the CARD, made casters in place of the
+eye's farthest picks (E3): ranked among the eight nearest the eye, a camera pulled back left them out.
+
 ## DISC29-F: a mode change stops the riding loop, as UpdateMode does (Skibbster)
 
 **Reproduced** on the real worldModes with a real Mages Guild interior: a gallop, a door, the mode Foot - and the loop
@@ -140,7 +165,10 @@ insane", and then "Do whatever is the most detailed. I dont care about departure
 the HEFT of the weapon's base weight against the arm's Strength, times the HANDLING of its kind (quick daggers, fists and
 claws; slower maces, flails, axes and warhammers; both hands a little slower), held to 0.45-2 s a blow. The weapon is read
 off the equip table (`combat/swingLaw.js`); Roleplay & Realism's weaponSpeed and Items' weaponBalance keep their own
-weight-and-Strength arithmetic as the Speed the swing is read at and answer through the same curve and handling. A foe's
+weight-and-Strength arithmetic as the Speed the swing is read at and answer through the same curve and handling
+(AUDIT PRE-MERGE 0929 S3: Roleplay & Realism's blend has no weight in it, and takes the port's heft; S1: the body swings
+once a blow - the report's werewolf clawed two and three times a blow in third person; S5, S6: the reader is registered
+as its module loads, and reads without writing). A foe's
 machine, a peer's walker and the viewers keep DFU's line (DFU never asks it for a foe at all). Measured on the real rig
 at the mods' defaults: an average fighter's longsword 1.08 s a blow; live Speed 95 with a dagger - this report's
 werewolf - 1.71 a second (DFU's line: 3.3); nothing past two a second at the cap, mods on or off. Pins
@@ -168,11 +196,11 @@ summon-and-kill quest forward for the party. `06-Systems/Quest-Arc.md` DISC29-H.
 
 `test/disc29_throne.test.js` (5, one on the real N0000037), `test/disc29_rarity.test.js` (6),
 `test/disc29_watchdog.test.js` (5), `test/disc29_gallop.test.js` (4), `test/disc29_questinfo.test.js` (3),
-`test/disc29_swing.test.js` (2), `test/disc29_lamps.test.js` (4); one test added to
+`test/disc29_swing.test.js` (2), `test/disc29_lamps.test.js` (4, 5 since AUDIT PRE-MERGE 0929 E3); one test added to
 `test/if1_immersivefootsteps.test.js`. E: DISC24-C's walk re-aimed (the card walks with the eye), the SC1 and WEEDS1
 source pins, and seven older mutant records (auditlight, auditreach 2, el8, perfexta, perfextb, weeds1) re-aimed by
 content; its two batch fields born with the batch (PERF-EXT10, `render/contract.js`; `test/hard3_types.test.js`
-counts 40); `test/el2_shadows.test.js`'s point guard pinned by `pointShadowAt`'s own head, its record aimed at one
+counts 40 - 39 since AUDIT PRE-MERGE 0929 E1 retired `_shPlacedAt`); `test/el2_shadows.test.js`'s point guard pinned by `pointShadowAt`'s own head, its record aimed at one
 site and off `test/mutantdrift.test.js`'s CARRIED_AIM. Re-aimed to the new laws:
 `test/enhancedNotice.test.js`, `test/worldhover.test.js`, `test/uxb1m_privateproperty.test.js`,
 `test/resourcesafety.test.js`, `test/auditretro1.test.js`, `test/dungeonquestclick.test.js`.

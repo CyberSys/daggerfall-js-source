@@ -272,10 +272,15 @@ try {
   ok('a guest is a real row from first contact', Boolean(guest?.id && guest?.secret));
   ok('...under a name from Daggerfall\'s own banks, with exactly one space',
     /^\S+ \S+$/.test(guest?.name ?? ''), guest?.name);
-  // TERMS1: and no row without the documents ticked - asked of the runtime that will ask it
+  // TERMS1: and no row without the documents ticked - asked of the runtime that will ask it. AUDIT PRE-MERGE 0929 T1: a
+  // body naming NEITHER document is a game from before the boxes, answered `not-found` (the word every shipped build
+  // renders "The game may need updating"); one named and not the other is `terms-unaccepted`.
   const unticked = await post('/v1/auth/guest', { label: 'probe-unticked' });
-  ok('no account opens without the Terms of Service and the Privacy Policy ticked',
-    unticked.status === 400 && unticked.body?.error === 'terms-unaccepted', `${unticked.status} ${JSON.stringify(unticked.body)}`);
+  ok('no account opens for a game from before the boxes - told it may need updating',
+    unticked.status === 400 && unticked.body?.error === 'not-found', `${unticked.status} ${JSON.stringify(unticked.body)}`);
+  const half = await post('/v1/auth/guest', { label: 'probe-half', terms: ACCEPTED.terms });
+  ok('...nor with one document ticked and not the other',
+    half.status === 400 && half.body?.error === 'terms-unaccepted', `${half.status} ${JSON.stringify(half.body)}`);
 
   const tokRes = await post('/v1/auth/token', { secret: guest.secret });
   const tok = tokRes.body;

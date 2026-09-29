@@ -129,8 +129,8 @@
   {
     "name": "WB8c-a-stale-feeding-said",
     "file": "src/scenes/gateCourt.js",
-    "old": "if (!first) { say(COURT_MARKS_TEXT.fed(bossOf(s).name, s.fed.n));",
-    "new": "if (true) { say(COURT_MARKS_TEXT.fed(bossOf(s).name, s.fed.n));",
+    "old": "if (t - s.fed.at <= FED_LATE_MS) { say(COURT_MARKS_TEXT.fed(bossOf(s).name, s.fed.ns));",
+    "new": "if (true) { say(COURT_MARKS_TEXT.fed(bossOf(s).name, s.fed.ns));",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]
@@ -138,8 +138,8 @@
   {
     "name": "WB8c-a-feeding-said-every-frame",
     "file": "src/scenes/gateCourt.js",
-    "old": "const first = fedHeard === null && t - s.fed.at > 2000; fedHeard = s.fed.at;",
-    "new": "const first = fedHeard === null && t - s.fed.at > 2000;",
+    "old": "{ fedHeard = s.fed.at; if (t - s.fed.at <= FED_LATE_MS)",
+    "new": "{ if (t - s.fed.at <= FED_LATE_MS)",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]
@@ -300,7 +300,7 @@
   {
     "name": "WB8c-the-card-without-marks",
     "file": "src/systems/gateOmen.js",
-    "old": ": [`${boss.name}, ${boss.title}`, `${marks.charAt(0).toUpperCase()}${marks.slice(1)}`])] };",
+    "old": ": [`${boss.name}, ${boss.title}`, marksLineOf(c.t.day)])] };",
     "new": ": [`${boss.name}, ${boss.title}`])] };",
     "tests": [
       "test/wb8c_gate_detail.test.js"
@@ -346,7 +346,7 @@
   {
     "name": "WB8c-the-feeding-unfolded",
     "file": "src/net/gateLink.js",
-    "old": "    case 'fed': return { ...s, hp: g.h, max: g.m, fed: { n: g.n, at: g.at }, heardAt: now };",
+    "old": "    case 'fed': return { ...s, hp: g.h, max: g.m, fed: { ns: g.ns, at: g.at }, heardAt: now };",
     "new": "    case 'fed': return s;",
     "tests": [
       "test/wb8c_gate_detail.test.js"

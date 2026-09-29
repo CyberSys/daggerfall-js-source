@@ -74,7 +74,7 @@ export function bossBarModel(s, now, boss) {
   const toWrath = Number.isFinite(s.wrathAt) ? s.wrathAt - now : Infinity;
   return {
     name: boss.name, title: boss.title, frac, marks: [...PHASE_AT], phase: s.phase,
-    epithet: P.md ? P.aspect.epithet : '', trials: P.trials.map((t) => t.name).join(' - '),
+    epithet: P.md ? P.aspect.epithet : '', trials: P.trialsLine,   // AUDIT PRE-MERGE 0929 W2-2: joined once, on the profile
     warded: !s.fell && now < s.shieldUntil, fallen: !!s.fell, callout,
     wrath: !s.fell && s.wrath == null && toWrath <= WRATH_WARN_MS ? BOSS_BAR_TEXT.wrathIn(countdownText(toWrath)) : null,
     fighters: s.fighters | 0,

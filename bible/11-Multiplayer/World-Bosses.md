@@ -798,18 +798,18 @@ a frost-resistant character stands the Rime-Wrought better and a Breton's magic 
 
 | Trial | Its law (net/gateBrain.js fightProfile) |
 |---|---|
-| Colossal | his body a quarter larger (radius 2.25 m, height 7 m - the relay's melee reach, the cone, the lane and the walk all measure from it), each share a quarter more (the kill a quarter longer at the same bucket), his Ground Slam 8.5 m |
+| Colossal | his body a quarter larger (radius 2.25 m, height 7 m - the relay's melee reach, the cone, the lane and the walk all measure from it; the Cleave's cone reaches as far past his body as it ever did, 9.45 m from his centre), each share a quarter more (the kill a quarter longer at the same bucket), his Ground Slam 8.5 m |
 | Unyielding | his ward at a phase's turn holds 6 s, and every blow on him lands 15% lighter (before the caps; what it takes off is his, never counted as clipped) |
 | Vengeful | his blows and his ground take a quarter more (share and base) |
 | Scarring | his Ground Slam scars the floor at his feet (3 m) and his Crushing Leap where it lands (3.5 m), and all his ground lasts half again as long |
 | Grudge-Bearer | his threat never fades, and he goes at the one who hurt him most 85 times in a hundred |
-| Soul-Hungry | each challenger who falls in the court feeds him 3% of the health he stands for - once an account a fight, never past his whole - said to the court (`fed`) |
+| Soul-Hungry | each challenger who falls in the court with a real part in the fight behind them (`hasPart`, AUDIT WBX R2's bar: a blow worth 2% of their share, or 30 s stood) feeds him 3% of the health he stands for - once an account a fight, at most five feedings a fight (GATE_FEEDS_MAX), never past his whole - said to the court (`fed`, one word a beat naming every one who fed him) |
 | Dagon's Favoured | Hellfire and the meteor from the first phase, the Spokes from the second |
 | Echoing | every meteor falls again a breath after the first - on the fighter it fell for, where they stand now, or where the first fell if they have fallen; an echo has no echo, and a phase's turn clears it |
 
 THE DRAW IS A CYCLE (`net/gateLaw.js gateModsOf`): every aspect with every pair of trials ONCE each - 4 x 28 = 112
 gates, nine and a third real days - in an order where no two gates running share an aspect or a trial (the cycle's own
-wrap too), every four gates bring all four aspects and all eight trials, and a pair of trials rests 25 gates at least,
+wrap too), each round of four gates (gates 4k to 4k+3) brings all four aspects and all eight trials, and a pair of trials rests 25 gates at least,
 coming back under another aspect. Built from the round-robin's seven perfect matchings of the eight trials (relabelled
 by the salt's shuffle), each under the four turns of the aspects, each round's gates in its own shuffled order and its
 first and last chosen depth first so the seams share nothing. A function of the day alone: every client and the relay
@@ -839,7 +839,8 @@ his frost as fire, so it is told to reload (GATE-RELOAD's words). Relay world126
   in thunder; his frost, lightning and venom land on me unflashed, each in its element's cast, as his fire always did
   in the Burning clip; a full resist says what was resisted ("You resist the frost of the Rimefall."); each phase's
   turn says the floor in his aspect's words ("the floor will freeze - keep out of the rime"); and a Soul-Hungry
-  Warden's feeding is said by name ("Valkynaz Ruhn feeds on Ann's soul.") with his growl, heard live, never a stale one.
+  Warden's feeding is said by name ("Valkynaz Ruhn feeds on Ann's soul."; two in one beat, "feeds on the souls of Ann
+  and Bran") with his growl, heard live - never one older than FED_LATE_MS (2 s).
 
 Pinned: `test/wb8a_never_swayed.test.js` (4), `test/wb8b_gate_marks.test.js` (15 - the tables, the cycle, the profile
 against the constants, each trial in the brain, every attack escapable under every set of marks, the wire, the
@@ -847,6 +848,28 @@ relay's draw), `test/wb8c_gate_detail.test.js` (10 - the strike, the ground, the
 the look and voice, the telegraph and bar, the omen, card and herald, the fold, the seams); mutants
 `tools/mutants/wb8a.json` (12, all dead), `tools/mutants/wb8b.json` (36: 35 dead, the cycle's wrap check equivalent as
 recorded - belt and braces for another salt), `tools/mutants/wb8c.json` (41, all dead).
+
+### AUDIT PRE-MERGE 0929 (2026-09-29)
+
+Read before PR 418 merged (`bible/01-Overview/Audit-PreMerge-0929.md`, lenses W1 and W2). What moved:
+
+- **W1-1 - a Soul-Hungry Warden fed by throwaway guests.** A fall is the fighter's own word (the pose's `dd`), and each
+  fed him 3% of his whole health and outlived the fighter's share: twenty-five guests that said `in` dead and went
+  took him from a fifth to all but full. Only a fall with a real part behind it feeds him now (`hasPart`), and no more
+  than GATE_FEEDS_MAX (5) a fight.
+- **W1-2, W2-1 - a Colossal Warden cleaving air.** The Cleave is chosen at a gap of its range past his body; Colossal
+  grew the body and not the cone, and a fighter standing 9.0-9.25 m off was cleaved at 39 times in two minutes, struck
+  by none, and never walked in on. The cone reaches from his body now (`A.r + BOSS_R * (size - 1)`, 9.45 m), and AUDIT
+  WBX R3's law - wherever the Cleave may be chosen, a still fighter stands inside it - holds for all 112 sets.
+- **W1-3** - two falls in one beat are one `fed` word naming both (`ns`); **W2-3** - a feeding is judged late by its
+  age alone (FED_LATE_MS), not by whether another was heard this entry.
+- **W2-2** - the profile is kept by its marks array (a WeakMap), its trials line joined once; the card's marks line
+  once a day (a marked court's frame made 8.9 KB of garbage to an unmarked one's 2.5).
+- **W1-4** - the cycle's words: each ROUND of four gates brings every aspect and trial; a pair rests 25 gates at least.
+
+Pinned: `test/audit0929_gate.test.js` (3), and in `test/wb8b_gate_marks.test.js` (the part a fall needs, the ceiling,
+one word a beat, the cone for all 112 sets) and `test/wb8c_gate_detail.test.js` (the court's words); mutants
+`tools/mutants/audit0929_gate.json` (11, all dead).
 
 ## Shipped
 

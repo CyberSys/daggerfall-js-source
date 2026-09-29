@@ -142,12 +142,30 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
 
   const root = el('div', 'card acct');
 
+  /**
+   * AUDIT TERMS1 T3 — THE KEYBOARD SURVIVES A REDRAW. paint() builds the
+   * card anew, and a control built anew is one the keyboard is no longer
+   * on. A refusal is cleared by the first keystroke or tick that answers
+   * it (flow.set, flow.agree), and that repaint came under the player's
+   * fingers: after "Type your username" the rest of "Nystul" went nowhere
+   * but its N, and a Space on the Terms box - the one answer its refusal
+   * has - left the next Tab on Username. So every control is built under
+   * a name (`keyed`), and the one that held the focus, with its caret, is
+   * found again under that name. One the redraw disabled (a button while
+   * its press is out) is kept in mind, and handed the focus back when the
+   * card that follows has it again, if the player has not moved it.
+   */
+  let keyed = new Map();
+  let wanted = null;   // { key, stage, caret } - the control the focus goes back to, on a card of that stage
+  let painted = null;  // the stage the card on screen was built for
+  const keyedAs = (n, key) => { n.acctKey = key; keyed.set(key, n); return n; };
+
   /** One field, wearing exactly the shape ONLINE1 and NAME-F2 built. */
   function field(key) {
     const spec = FIELD_SPEC[key];
     const wrap = el('label', 'field');
     wrap.append(el('span', 'fieldlabel', spec.label));
-    const input = el('input');
+    const input = keyedAs(el('input'), `field:${key}`);
     input.type = spec.secret ? 'password' : 'text';
     input.maxLength = spec.max;
     input.value = flow.values[key] ?? '';
@@ -190,11 +208,11 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
   function agreement(key) {
     const spec = AGREEMENT_SPEC[key];
     const wrap = el('label', 'acctagree');
-    const box = el('input');
+    const box = keyedAs(el('input'), `agree:${key}`);
     box.type = 'checkbox';
     box.checked = flow.agreed?.[key] === true;
     box.onchange = () => flow.agree(key, box.checked);
-    const link = el('a', null, spec.label);
+    const link = keyedAs(el('a', null, spec.label), `doc:${key}`);
     link.href = spec.url;
     link.target = '_blank';
     link.rel = 'noopener';
@@ -204,8 +222,8 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     return wrap;
   }
 
-  function act(label, onclick, { primary = false, disabled = false } = {}) {
-    const b = el('button', `act${primary ? ' primary' : ''}`, label);
+  function act(label, onclick, { primary = false, disabled = false, key = label } = {}) {
+    const b = keyedAs(el('button', `act${primary ? ' primary' : ''}`, label), `act:${key}`);
     b.type = 'button';
     if (disabled) b.disabled = true;
     b.onclick = onclick;
@@ -250,7 +268,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         // its own, which is the rule ACC1e was built under.
         // SHADOW-FANG: the word in a span of its own, so a gradient title's paint clips to the letters and leaves
         // the button's border in its plain colour (ui/playerBadge.js badgeCss)
-        const b = el('button', `acttitle ${badgeClass('tl', key)}${worn ? ' worn' : ''}`);
+        const b = keyedAs(el('button', `acttitle ${badgeClass('tl', key)}${worn ? ' worn' : ''}`), `title:${key}`);
         b.append(el('span', 'acttitleword', TITLE_TEXT[key] ?? key));
         b.type = 'button';
         b.disabled = !!flow.busy;
@@ -282,8 +300,33 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
   }
 
   function paint() {
-    root.textContent = '';
     const stage = STAGES.includes(flow.stage) ? flow.stage : 'out';
+    // AUDIT TERMS1 T3: what the keyboard is on, before the card it is on is taken down
+    const on = /** @type {any} */ (doc.activeElement);
+    if (on && typeof on.acctKey === 'string' && keyed.get(on.acctKey) === on) {
+      wanted = { key: on.acctKey, stage: painted, caret: typeof on.selectionStart === 'number' ? [on.selectionStart, on.selectionEnd] : null };
+    } else if (on && on !== doc.body && on !== doc.documentElement) wanted = null;   // the player moved it elsewhere
+    keyed = new Map();
+    root.textContent = '';
+    build(stage);
+    painted = stage;
+    focusBack(stage);
+  }
+
+  /** AUDIT TERMS1 T3: the focus back where it was - the same control, the same caret - on a card of the same stage. */
+  function focusBack(stage) {
+    if (!wanted) return;
+    if (wanted.stage !== stage) { wanted = null; return; }
+    const n = keyed.get(wanted.key);
+    if (!n || n.disabled || typeof n.focus !== 'function') return;   // kept for the card that has it again
+    n.focus();
+    if (wanted.caret && typeof n.setSelectionRange === 'function') {
+      try { n.setSelectionRange(wanted.caret[0], wanted.caret[1]); } catch { /* a box or a button has no caret */ }
+    }
+    wanted = null;
+  }
+
+  function build(stage) {
     const copy = STAGE_COPY[stage];
 
     // The tag earns its place only where it is NOT a restatement of the
@@ -384,7 +427,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       } else {
         acts.append(act('Give it a username', () => flow.go('register'), { primary: true, disabled: busy }));
       }
-      acts.append(act(busy ? 'Signing out…' : 'Sign out', () => flow.signOut(false), { disabled: busy }));
+      acts.append(act(busy ? 'Signing out…' : 'Sign out', () => flow.signOut(false), { disabled: busy, key: 'signout' }));
       acts.append(act('Sign out everywhere', () => flow.signOut(true), { disabled: busy }));
     } else if (stage === 'code') {
       // THE ONLY WAY OFF THIS STAGE. No cancel, no close, no second
@@ -395,7 +438,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // nothing to press yet
     } else {
       const spec = STAGE_ACTS[stage];
-      acts.append(act(busy ? 'Working…' : spec.submit, () => flow.submit(), { primary: true, disabled: busy }));
+      acts.append(act(busy ? 'Working…' : spec.submit, () => flow.submit(), { primary: true, disabled: busy, key: 'submit' }));
       acts.append(act('Back', () => flow.go(spec.back), { disabled: busy }));
       if (stage === 'login') {
         acts.append(act('Lost your password?', () => flow.go('recover'), { disabled: busy }));

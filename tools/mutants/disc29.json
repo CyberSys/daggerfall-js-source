@@ -146,7 +146,7 @@
   {
     "name": "DISC29-A-host-no-trigger-surfaces",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (standable?.triggerFlag === TRIGGER_FLAGS.Collision01) triggerSurfaces.addMesh(standable.key, cpu.positions, cpu.indices, matrix);   // DISC29-A\n",
+    "old": "      if (standable && hasActionCollision(standable)) triggerSurfaces.addMesh(standable.key, cpu.positions, cpu.indices, matrix);   // DISC29-A; AUDIT PRE-MERGE 0929 D1/D2: every collision-trigger model's, for its contact\n",
     "new": "",
     "tests": [
       "test/disc29_throne.test.js"
@@ -155,8 +155,8 @@
   {
     "name": "DISC29-A-host-box-top-only",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      const standingOn = standsOnAction(o, playerFeet, a, o.kind === 'effect' || o.kind === 'relay' ? triggerSurfaces : collider);",
-    "new": "      const standingOn = playerFeet[1] >= a.max[1] - 0.15;",
+    "old": "        : actionContact(o, playerFeet, playerHeight, o.kind === 'effect' || o.kind === 'relay' ? triggerSurfaces : collider, wish);",
+    "new": "        : (playerFeet[1] >= a.max[1] - 0.15 ? 'WalkOn' : 'WalkInto');",
     "tests": [
       "test/disc29_throne.test.js"
     ]
@@ -362,8 +362,8 @@
   {
     "name": "DISC29-E-walker-in-place",
     "file": "src/render/shadowPass.js",
-    "old": " && !(b._shPlacedAt != null && this.frameNo - b._shPlacedAt < SHADOW_DYNAMIC_HOLD);",
-    "new": ";",
+    "old": "      const anim = moving && !swaying && b._dyn !== true && b.selfCard !== true && o == null;",
+    "new": "      const anim = moving && !swaying && b._dyn !== true && b.selfCard !== true;",
     "tests": [
       "test/disc29_lamps.test.js"
     ]
@@ -373,6 +373,8 @@
     "file": "src/render/shadowPass.js",
     "old": "const anim = moving && !swaying && b._dyn !== true && b.selfCard !== true &&",
     "new": "const anim = moving && !swaying && b._dyn !== true &&",
+    "equivalent": true,
+    "why": "AUDIT PRE-MERGE 0929 E1 made in-place a flat with no origin, and the player's card always has one (player/eotbBody.js mints it with `origin = [0, 0, 0]` and places it by that origin every frame), so `o == null` already keeps the card out of the lo tier. The clause stays as DISC24-C's law said where the class is decided - the card casts only into the maps redrawn every frame - for the day a card is made without an origin.",
     "tests": [
       "test/disc29_lamps.test.js"
     ]

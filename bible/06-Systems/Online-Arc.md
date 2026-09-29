@@ -10631,12 +10631,20 @@ and the relay is the one that fights under them, so the relay moved:
 - **The fight is born marked**: the gate's room calls `newFight(..., gateModsOf(day))` and keeps the marks on the
   checkpointed fight (`md`); a fight woken from a checkpoint made before this deploy stays unmarked.
 - **The `st` frame carries `md`** - known words, one aspect at most, or none (a state with any other is refused) - so
-  every screen fights the fight's own marks. **A new kind, `fed`** - a Soul-Hungry Warden's feeding: the fallen
-  challenger's name (sanitised as every name), his health after, the relay's moment.
+  every screen fights the fight's own marks. **A new kind, `fed`** - a Soul-Hungry Warden's feeding: the names of the
+  beat's fallen who fed him (`ns`, each sanitised as every name - AUDIT PRE-MERGE 0929 W1-3: two falls in one beat were
+  two words with one moment, and the court said the first name alone), his health after, the relay's moment.
 - **The brain's law is 3** (GATE_BRAIN_V, GATE_BRAIN_MIN): an `in` saying 2 is refused with GATE-RELOAD's words - a game
   that does not know the marks would judge a colossus's slam at the old reach and his frost as fire.
 - **The hub's omen post names tonight's marks** (`net/gateHerald.js omenPost`), in the tables' words alone.
 
-Relay world126 (its row in `test/relayversion.test.js` - world125 is VOICE1's, which main reverted before it deployed; the version pins of the suites that name it moved,
+Relay world126 (its row in `test/relayversion.test.js` - world125 is VOICE1's, deployed with PR #427 and reverted with #416 forty minutes later; the version pins of the suites that name it moved,
 each with its history). Pinned in `test/wb8b_gate_marks.test.js` (the wire and the relay's draw on the real Room).
+
+AUDIT PRE-MERGE 0929 (`01-Overview/Audit-PreMerge-0929.md`, lens W1): only a fall with a real part in the fight behind
+it feeds a Soul-Hungry Warden (`hasPart`, AUDIT WBX R2's bar - a fall is the fighter's own word, and twenty-five
+throwaway guests that said `in` dead and went took him from a fifth to all but full), no more than GATE_FEEDS_MAX (5) a
+fight; a Colossal Warden's cone reaches from his body (9.45 m), so R3's law holds under every set of marks. World126's
+row is restated with the audit's bytes - still undeployed. `test/audit0929_gate.test.js` (3, the throwaway guests on
+the real Room).
 

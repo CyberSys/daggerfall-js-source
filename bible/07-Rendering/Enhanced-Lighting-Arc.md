@@ -1978,3 +1978,20 @@ view through it. Recorded, not changed - a carried light's map redrawn every fra
 `test/disc29_lamps.test.js` (4); DISC24-C's walk re-aimed so the card walks with the eye; the SC1 and WEEDS1 source
 pins re-aimed. `tools/mutants/disc29.json` (DISC29-E, 11); seven older records re-aimed by content (auditlight,
 auditreach 2, el8, perfexta, perfextb, weeds1). `01-Overview/Field-Bugs-2026-09-28d.md` DISC29-E.
+
+**AUDIT PRE-MERGE 0929 E1-E3** (`01-Overview/Audit-PreMerge-0929.md`, lens E, on the real ShadowPass).
+- **E1 - a walker's ghost in the lo lamps.** "A flat whose place is still" was every flat an ORIGIN places, the moment
+  it stood: a dungeon foe, a peer, the Warden. The lo tier's maps are rebuilt two faces a frame, nearest the eye first,
+  so each time one walked on, the lamps outside the eight - the maps they read - kept its silhouette where it had stood:
+  a ghost on 4.7% of the frames of a fight of three under fourteen lamps, 49% under thirty with six; and every stop and
+  start rebuilt every lo map in its reach (+20% script time). Only a flat that cannot walk - its centre baked into its
+  vertices, no origin - is in place now; a flat an origin places stays the eight's, as before DISC29-E. `_shPlacedAt`
+  has no reader and is gone (39 fields a batch, `test/hard3_types.test.js`).
+- **E2** - finding the player's card walked every batch of every record, every frame, lamp or none: recordBillboards
+  notes it as it passes it (`_selfCard`), and the lamps read it only when one casts.
+- **E3 - the card's lamps were the eye's.** The card's two were ranked among the eight nearest the EYE, so with the
+  camera 4 m or more away the lamps nearest a still player were often not casters, and the silhouette still hopped as
+  the camera circled (MAGEAA00: 12 of 39 spots at 6 m). The two casting lights nearest the card, by the pick's own
+  measure and DISC6's hold, are made casters (`reserveSelfCasters`), each in place of the eye's farthest pick.
+`test/disc29_lamps.test.js` (5), `test/lightnear1.test.js`'s source pin; `tools/mutants/audit0929_render.json` (4, all
+dead).

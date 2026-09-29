@@ -18,8 +18,11 @@
  * @typedef {{id: string, name: string, epithet: string, el: string, ground: string, names: Readonly<Record<string, string>>,
  *   omen: string, arrive: string, floor: string, stuff: string}} GateAspect
  * @typedef {{id: string, name: string, text: string, size?: number, hp?: number, slamR?: number, shieldMs?: number,
- *   hit?: number, dmg?: number, groundMs?: number, threatPick?: number, threatDecay?: number, heal?: number}} GateTrial
+ *   hit?: number, dmg?: number, groundMs?: number, threatPick?: number, threatDecay?: number, heal?: number, feeds?: number}} GateTrial
  */
+/** AUDIT PRE-MERGE 0929 W1-1: the most challengers a Soul-Hungry Warden feeds on in one fight - no number of accounts
+ *  buys him more than this many feedings (the wire's `fed` word names at most this many). */
+export const GATE_FEEDS_MAX = 5;
 /** The ASPECTS: the element his elemental blows (and the ground they leave) carry, the epithet he wears, what each of
  *  those blows is called under it, and the words the court says of it (`omen` beside the omen, `arrive` as a fighter
  *  steps through, `floor` and `stuff` in the phases' lines - "the floor will burn - keep out of the fire"). Burning is
@@ -61,7 +64,7 @@ export const GATE_TRIALS = Object.freeze([
   Object.freeze({ id: 'vengeful', name: 'Vengeful', text: 'His blows and his ground take a quarter more', dmg: 1.25 }),
   Object.freeze({ id: 'scarring', name: 'Scarring', text: 'His Ground Slam and Crushing Leap scar the floor, and all his ground lasts half again as long', groundMs: 1.5 }),
   Object.freeze({ id: 'grudge', name: 'Grudge-Bearer', text: 'He never forgets who hurt him most, and hunts them', threatPick: 0.85, threatDecay: 0 }),
-  Object.freeze({ id: 'soulhungry', name: 'Soul-Hungry', text: 'Each challenger who falls in the court feeds him', heal: 0.03 }),
+  Object.freeze({ id: 'soulhungry', name: 'Soul-Hungry', text: 'Each challenger who falls in the court feeds him', heal: 0.03, feeds: GATE_FEEDS_MAX }),
   Object.freeze({ id: 'favoured', name: 'Dagon\'s Favoured', text: 'The Burning Court\'s arsenal comes early - meteors and his marks from the first phase, the Spokes from the second' }),
   Object.freeze({ id: 'echoing', name: 'Echoing', text: 'Every meteor falls twice' }),
 ]);

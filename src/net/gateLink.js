@@ -15,7 +15,7 @@ import { readReceipt } from './gateReceipt.js';
 /**
  * @typedef {{day: number|null, boss: string|null, phase: number, hp: number, max: number, x: number, z: number, yaw: number,
  *   move: any, atk: any, shieldUntil: number, wrathAt: number|null, fighters: number, fell: any, wrath: number|null, heardAt: number,
- *   md: ReadonlyArray<string>|null, fed: {n: string, at: number}|null}} GateState
+ *   md: ReadonlyArray<string>|null, fed: {ns: ReadonlyArray<string>, at: number}|null}} GateState
  *   WB8b: `md` his marks (net/gateMods.js - the fight's profile is made from them, net/gateBrain.js fightProfile), `fed`
  *   the last fallen challenger a Soul-Hungry Warden fed on (their name, the relay's moment).
  */
@@ -51,7 +51,7 @@ export function foldGate(s, g, now, place = bossAt) {
     case 'hp': return { ...s, hp: g.h, max: g.m, heardAt: now };
     case 'ph': return { ...s, phase: g.n, shieldUntil: g.until, heardAt: now };
     case 'wrath': return { ...s, wrath: g.at, atk: null, heardAt: now };
-    case 'fed': return { ...s, hp: g.h, max: g.m, fed: { n: g.n, at: g.at }, heardAt: now };   // WB8b: the health his feeding left, and who fed him
+    case 'fed': return { ...s, hp: g.h, max: g.m, fed: { ns: g.ns, at: g.at }, heardAt: now };   // WB8b: the health his feeding left, and who fed him (AUDIT PRE-MERGE 0929 W1-3: every one of the beat's)
     case 'fell': {
       if (g.d !== undefined && g.d !== s.day) return s;
       if (s.fell) return { ...s, heardAt: now };   // said again (the hub's echo): he has already fallen where he fell

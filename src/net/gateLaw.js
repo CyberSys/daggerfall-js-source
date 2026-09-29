@@ -249,8 +249,11 @@ const marksApart = (x, y) => x.a !== y.a && !x.t.some((k) => y.t.includes(k));
 /**
  * WB8b (2026-09-28, Mac: "give him unique and different modifers on every 2 hour spawn"): THE CYCLE OF MARKS - every
  * aspect with every pair of trials, ONCE EACH (4 x 28 = 112 gates, nine and a third real days), in an order where no two
- * gates running share an aspect or a trial, every four gates bring all four aspects and all eight trials, and a pair of
- * trials comes back every 28 gates (56 real hours), under another aspect each time. Built so: the eight trials
+ * gates running share an aspect or a trial, each round of four gates (gates 4k to 4k+3) brings all four aspects and all
+ * eight trials, and a pair of trials rests 25 gates at least (fifty real hours) before it comes back, under another
+ * aspect each time. (AUDIT PRE-MERGE 0929 W1-4: this said "every four gates" - any four running do NOT, gates 1-4 are
+ * venom, storm, rime, storm, and no cycle of 112 different sets could - and "every 28 gates", where 25 is the least.)
+ * Built so: the eight trials
  * (relabelled by the salt's shuffle) fall into the round-robin's seven perfect matchings - four pairs each, every pair in
  * exactly one; a ROUND is one matching under one turn of the aspects (pair j wears aspect j + s), so its four gates share
  * nothing; the seven matchings, in the salt's order, run under the first turn, then the same seven under the next, and

@@ -67,13 +67,16 @@ export function swingHeft(weightKg, strength) {
 }
 /** THE HANDLING: each weapon's own tempo apart from its weight, by DFU's WeaponTypes (combat/fpsWeapon.js WEAPON_TYPES -
  *  pinned equal; this module is a leaf): a dagger, bare hands and a beast's claws are quick; a sword is the measure; a
- *  mace, a flail, an axe and a warhammer come round a little slower; a staff sweeps a little quicker. A two-handed
- *  weapon takes SWING_TWO_HANDED on top of its kind. Anything else (the bow's draw, the port's own gun, which keep their
- *  own clocks) reads 1. */
+ *  mace, a flail, an axe and a warhammer come round a little slower; a staff sweeps quicker than the other two-handers
+ *  (every staff takes both hands: 0.97 x 1.06, against a claymore's 1.06 and a warhammer's 1.06 x 1.06 - a sword's
+ *  1.0 is still quicker). A two-handed weapon takes SWING_TWO_HANDED on top of its kind. Anything else (the bow's draw,
+ *  the port's own gun, which keep their own clocks) reads 1. (AUDIT PRE-MERGE 0929 S2: this said a staff was "a little
+ *  quicker", and the table's dagger row "and the tanto" - DFU draws the tanto as a long blade, fpsWeapon.js, and it
+ *  handles as one.) */
 export const SWING_HANDLING = Object.freeze({
-  0: 1, 1: 1,           // LongBlade (every sword the sprites draw as one: shortsword to dai-katana)
+  0: 1, 1: 1,           // LongBlade (every sword the sprites draw as one: the tanto and the shortsword to the dai-katana)
   2: 0.97, 3: 0.97,     // Staff
-  4: 0.9, 5: 0.9,       // Dagger (and the tanto)
+  4: 0.9, 5: 0.9,       // Dagger
   6: 1.03, 7: 1.03,     // Mace
   8: 1.05, 9: 1.05,     // Flail
   10: 1.06, 11: 1.06,   // Warhammer
@@ -91,7 +94,8 @@ export function swingFrameSeconds(speed, { heft = 1, handling = 1 } = {}) {
   return Math.max(SWING_FRAME_MIN, Math.min(SWING_FRAME_MAX, SWING_BASE_FRAME * swingTempo(speed) * heft * handling));
 }
 /** The weapon in the hand as the law reads it - `(ctx) => {weaponType, weight, strength, twoHanded}` or null - from a
- *  module that can read the equip table (combat/swingLaw.js installSwingLaw); this module is a leaf. Without one the
+ *  module that can read the equip table (combat/swingLaw.js, which registers it as it loads - combat/weaponRig.js
+ *  imports it: AUDIT PRE-MERGE 0929 S5); this module is a leaf. Without one the
  *  law reads no heft, and the handling off `ctx.weaponType` alone. */
 let _swingReader = null;
 export function registerSwingReader(fn) { _swingReader = typeof fn === 'function' ? fn : null; }

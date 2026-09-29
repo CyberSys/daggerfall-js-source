@@ -161,9 +161,9 @@
   },
   {
     "name": "SWING-LAW-the-reader-never-installed",
-    "file": "src/scenes/shared.js",
-    "old": "  installSwingLaw();   // SWING-LAW",
-    "new": "  // installSwingLaw();   // SWING-LAW",
+    "file": "src/combat/swingLaw.js",
+    "old": "export function installSwingLaw() { registerSwingReader(readSwing); }",
+    "new": "export function installSwingLaw() { }",
     "tests": [
       "test/swinglaw.test.js"
     ]
@@ -171,8 +171,8 @@
   {
     "name": "SWING-LAW-RR-blend-blind-to-hands",
     "file": "src/systems/rrRealism.js",
-    "old": "  return swingFrameSeconds(blend, { handling: swingHandling(weaponType, hands === 'Both') });",
-    "new": "  return swingFrameSeconds(blend, { handling: swingHandling(weaponType, false) });",
+    "old": "  return swingFrameSeconds(blend, { heft: swingHeft(weight, liveStrength), handling: swingHandling(weaponType, hands === 'Both') });",
+    "new": "  return swingFrameSeconds(blend, { heft: swingHeft(weight, liveStrength), handling: swingHandling(weaponType, false) });",
     "tests": [
       "test/rr1_realism.test.js",
       "test/swinglaw.test.js"
@@ -181,7 +181,7 @@
   {
     "name": "SWING-LAW-RR-keeps-its-hyperbola",
     "file": "src/systems/rrRealism.js",
-    "old": "  return swingFrameSeconds(blend, { handling: swingHandling(weaponType, hands === 'Both') });",
+    "old": "  return swingFrameSeconds(blend, { heft: swingHeft(weight, liveStrength), handling: swingHandling(weaponType, hands === 'Both') });",
     "new": "  return (3 * (115 - blend)) / 980;",
     "tests": [
       "test/rr1_realism.test.js",

@@ -130,10 +130,20 @@ test('DISC29-B: across a load - a save\'s pack and wagon come back with the word
     items: [{ ...piece, name: old }], wagonItems: [{ ...piece, name: old, UID: 2 }], spells: [], activeEffects: [],
   };
   const snap = JSON.parse(JSON.stringify(snapshotPlayer(entity, { position: [0, 0, 0], classicMinutes: 0, locationKey: 'world' })));
+  // AUDIT PRE-MERGE 0929 D3: and the pieces kept outside the pack - a house chest, a pile dropped in a room, a dead
+  // foe's pack, a boat's hold (net/realmGoldLaw.js stashedItemLists) - loaded with the name their make had lost
+  snap.sceneCache = { scenes: [{ sceneName: 'DaggerfallInterior [MapID=1, BuildingKey=2]', lootContainers: [{ items: [{ ...piece, name: old, UID: 3 }] }], droppedPiles: [{ pos: [1, 0, 1], items: [{ ...piece, name: old, UID: 4 }] }] }] };
+  snap.world = { piles: [], droppedLoot: [], foes: [{ dead: true, items: [{ ...piece, name: old, UID: 5 }] }] };
+  snap.modData = { 'come-sail-away': { placedBoats: [{ Items: [{ ...piece, name: old, UID: 6 }] }], packedCargoes: {} } };
   const loaded = {};
-  restorePlayer(loaded, snap, new Map());
+  const extras = restorePlayer(loaded, snap, new Map());
   assert.equal(loaded.items[0].name, fixed);
   assert.equal(loaded.wagonItems[0].name, fixed);
+  const kept = loaded.sceneCache.scenes.get('DaggerfallInterior [MapID=1, BuildingKey=2]');
+  assert.equal(kept.lootContainers[0].items[0].name, fixed, 'a house chest\'s piece, as the restored cache holds it');
+  assert.equal(kept.droppedPiles[0].items[0].name, fixed, 'a dropped pile\'s piece, as the restored cache holds it');
+  assert.equal(extras.world.foes[0].items[0].name, fixed, 'a dead foe\'s piece, handed back to the world as repaired');
+  assert.equal(extras.modData['come-sail-away'].placedBoats[0].Items[0].name, fixed, 'a boat\'s piece');
 });
 
 test('DISC29-B: Better Footsteps\' HasArmor reads the class\'s NativeMaterialValue - an iron brigandine jerkin walks quiet, a mail hauberk clanks', () => {

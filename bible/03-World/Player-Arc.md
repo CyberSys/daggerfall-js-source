@@ -2178,3 +2178,22 @@ among them), 8 Hurt23/Hurt24 rooms (model 67017 in N0000006 and N0000008), 4 Cas
 room), 2 DrainMagicka, a Teleport and an Unknown32 among the 49. Stood on, each now fires as DFU's does.
 `test/disc29_throne.test.js` (5, one on the real N0000037); `tools/mutants/disc29.json` (DISC29-A, 7).
 `01-Overview/Field-Bugs-2026-09-28d.md` DISC29-A.
+
+**AUDIT PRE-MERGE 0929 D1/D2** (`01-Overview/Audit-PreMerge-0929.md`) - the review above, due at once. DFU's WalkOn is
+the contact's DIRECTION from the controller's centre (`dir.y < -0.9`, :68-71) for EVERY flag; the ray (:74-85) is only
+Collision01's second test. The box's top and a ray under the capsule's centre missed a staircase, where a body rides the
+treads' edges - N0000007's Hurt22 staircase (object 20798, in 69 dungeons) bit 2 times walking all sixteen steps down, 4
+up - and a MultiTrigger floor stood on was WalkInto, and fired: Orsinium's castle floor (S0000020 object 10406, a
+DoorText with a trespass on it) turned the castle hostile at the first steps across it. OnCharacterCollided is whole
+now (`world/actionSystem.js actionContact`). The contact is the collider's (`player/collider.js capsuleContact`: the
+nearest point of the object's own triangles within the skin of the sphere chain the motor resolves the capsule as);
+beneath is WalkOn for every flag, a Collision01 casts its ray, else WalkInto; a box touched with nothing of the object
+touched hears nothing; and a side is heard only while the body moves INTO it - the pass hands the contact the direction
+the body presses, the motor's own sin and cos of forward and strafe from the yaw the motor moved it by (its own word,
+`moveYaw`, carried in the one motion bag), as a ControllerColliderHit only comes of a Move into its collider: walking along a
+wall bumps nothing. Every collision-trigger model's triangles are in `triggerSurfaces`. Over BLOCKS.BSA's 1,546 resting
+spots the port agrees with DFU on 1,537 (983 before); the nine left are a lip or an arm beside the body, where DFU's
+answer too depends on which way the body moves. The staircase bites 9 times down, 13 up; the throne is WalkOn at the
+motor's own rest (0.078 over the seat, where DISC29-A's pins stood the feet by hand at 0.027). The acting FLATS keep
+their box - DFU gives a flat's action a trigger BoxCollider (RDBLayout.cs:977-987). `test/audit0929_actions.test.js`
+(6, three on the real BLOCKS.BSA); `tools/mutants/audit0929_actions.json` (11, all dead - D3's among them).

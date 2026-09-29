@@ -358,8 +358,10 @@ the bare TEMPLATE's name (`systems/lootRarity.js rarityName`), so the long name 
   of the Bear"). Every roll mints through `setItemFields` first (`createRandomArmor`, the corpse's kit, the Broker, the
   gate's spoils, the Test Room), so the word is never written twice.
 - **A save's names are given it back** (`repairRarityNames`, run on load over the pack, the wagon and the repair
-  shelf, beside DISC21-A's repair): only a Magic or Rare name that IS the old bare build moves - idempotent, and a
-  name that is anything else is left.
+  shelf, beside DISC21-A's repair - and, since AUDIT PRE-MERGE 0929 D3, over every list of the character's own things
+  the save carries: a cached scene's chests, piles and storage pieces, the world's piles and dead foes' packs, Come Sail
+  Away's boats and cargoes, `net/realmGoldLaw.js stashedItemLists`): only a Magic or Rare name that IS the old bare
+  build moves - idempotent, and a name that is anything else is left.
 - **The same class value, read by two other mods**: Immersive Footsteps (`boots.NativeMaterialValue`,
   ImmersiveFootstepsMain.cs:502-532) and Better Ambience's HasArmor (`chest.NativeMaterialValue`,
   BetterFootstepsComponent.cs:256-259) read the PROPERTY this mod overrides; the port read the raw `material`, so

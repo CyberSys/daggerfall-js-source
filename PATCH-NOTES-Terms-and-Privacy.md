@@ -7,5 +7,6 @@
 - Accounts that already exist are not asked. Signing in and recovering a password work as before.
 
 ## If creating an account fails
-- If it says the account service had a problem, reload the game: the version you have open is from before this update.
-- If it says the documents have changed, reload to read the current versions, then tick the boxes again.
+- If it says the game may need updating, reload the game (in the desktop app, update the app): the version you have open is from before this update.
+- If it says the documents have changed, reload the game (or update the desktop app) to read the current versions, then tick the boxes again.
+- While you type or tick a box on the form, the cursor stays where it was when a message clears.

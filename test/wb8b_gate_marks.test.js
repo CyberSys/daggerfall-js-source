@@ -4,7 +4,8 @@
 // Every gate (a game day, two real hours online) the Warden comes under ONE ASPECT - the element his elemental blows and
 // his ground carry (Burning, Rime-Wrought, Storm-Crowned, Venom-Blooded) - and TWO TRIALS (Colossal, Unyielding,
 // Vengeful, Scarring, Grudge-Bearer, Soul-Hungry, Dagon's Favoured, Echoing). The day's draw is a cycle: every aspect
-// with every pair of trials ONCE each in 112 gates, no two gates running sharing a mark, every four gates all of them
+// with every pair of trials ONCE each in 112 gates, no two gates running sharing a mark, each round of four gates all of
+// them (AUDIT PRE-MERGE 0929 W1-4: a round - gates 4k to 4k+3 - not any four running)
 // (net/gateLaw.js gateModsOf). The relay's brain fights under the fight's own marks (net/gateBrain.js fightProfile), says
 // them in its state (`md`), and every screen resolves and draws the same law from them.
 //
@@ -14,13 +15,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  GATE_ASPECTS, GATE_TRIALS, GATE_TRIALS_A_DAY, gateAspectOf, gateTrialOf, readGateMods, validGateMods, gateModsWords,
+  GATE_ASPECTS, GATE_TRIALS, GATE_TRIALS_A_DAY, gateAspectOf, gateTrialOf, readGateMods, validGateMods, gateModsWords, GATE_FEEDS_MAX,
 } from '../src/net/gateMods.js';
 import { gateModsOf, gateMarksCycleLength, gateTimes, gateRoomKey, gateIndex, GATE_EVERY_DAYS } from '../src/net/gateLaw.js';
 import {
   newFight, joinFight, applyHit, stepBrain, stateOf, attacksFor, pickTarget, windupOf, fightProfile, profileOf, attackUnder,
   BASE_PROFILE, SCAR_POOLS, FAVOURED_PHASE, ATTACKS, ATTACK_BY_ID, POOLS, BOSS_R, BOSS_H, SHIELD_MS, THREAT_PICK, THREAT_DECAY,
   BOSS_TTK_S, dpsRef, HIT_KINDS, MELEE_REACH, POSE_SLACK, PHASE_AT, COURT_CENTRE, BRAIN_TICK_MS, OPENING_MS, TURN_BREATH_MS,
+  SEAT_KEEP_MS, RECEIPT_SHARE, hasPart,
 } from '../src/net/gateBrain.js';
 import { validGateOut, GATE_OUT_KINDS, GATE_BRAIN_V, GATE_BRAIN_MIN, RELAY_VERSION } from '../src/net/wire.js';
 import { fakeRooms } from './fakeRoom.mjs';
@@ -82,7 +84,7 @@ test('WB8b the tables: four aspects, each an element, an epithet, a name for eac
 
 // ═══ THE DRAW ═════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('WB8b the draw: a CYCLE of 112 gates - every aspect with every pair of trials exactly once - where no two gates running share an aspect or a trial (the cycle\'s wrap too), every four gates bring all four aspects and all eight trials, a pair comes back no sooner than 25 gates on and a whole set only after 112; a pure function of the day (mutants: the seam unchecked; a round\'s turn of the aspects dropped; the wrap unchecked)', () => {
+test('WB8b the draw: a CYCLE of 112 gates - every aspect with every pair of trials exactly once - where no two gates running share an aspect or a trial (the cycle\'s wrap too), each round of four gates (4k to 4k+3) brings all four aspects and all eight trials, a pair comes back no sooner than 25 gates on and a whole set only after 112; a pure function of the day (mutants: the seam unchecked; a round\'s turn of the aspects dropped; the wrap unchecked)', () => {
   const N = gateMarksCycleLength();
   assert.equal(N, GATE_ASPECTS.length * (GATE_TRIALS.length * (GATE_TRIALS.length - 1)) / 2, '4 x 28');
   const seen = new Set();
@@ -152,7 +154,15 @@ test('WB8b the aspects: his fire is his aspect\'s element under his aspect\'s na
 test('WB8b the trials, as numbers: Colossal a quarter larger and harder to fell with a longer slam; Unyielding\'s ward twice as long and blows 15% lighter; Vengeful\'s blows and ground a quarter heavier; Scarring\'s slam and leap scarring the floor and all ground half again as long; the Grudge-Bearer never forgetting; Soul-Hungry fed; Dagon\'s Favoured early; Echoing (mutants: each number unread)', () => {
   const C = fightProfile(['burning', 'colossal']);
   assert.deepEqual([C.size, C.bossR, C.bossH, C.hpX, C.atk.slam.r], [1.25, BOSS_R * 1.25, BOSS_H * 1.25, 1.25, 8.5]);
-  assert.equal(C.atk.cleave.r, ATTACKS.cleave.r, 'his blade reaches as it did');
+  // AUDIT PRE-MERGE 0929 W1-2: his blade reaches as far past his body as it did - the cone grows with it
+  assert.equal(C.atk.cleave.r, ATTACKS.cleave.r + (C.bossR - BOSS_R), 'his blade reaches past his body as it did');
+  assert.equal(BASE_PROFILE.atk.cleave.r, ATTACKS.cleave.r, 'unmarked, the constant exactly');
+  // R3's law for every body he wears: wherever the Cleave may be chosen (a gap of its range past his body), a still
+  // fighter stands inside its cone - a Colossal Warden cleaved air all phase one at 9.0-9.25 m, never walking in
+  for (let i = 0; i < gateMarksCycleLength(); i++) {
+    const P = fightProfile(gateModsOf(i));
+    assert.ok(ATTACKS.cleave.range + P.bossR <= P.atk.cleave.r, `${P.md}: the Cleave is chosen at ${ATTACKS.cleave.range + P.bossR} m and reaches ${P.atk.cleave.r}`);
+  }
   const U = fightProfile(['burning', 'unyielding']);
   assert.deepEqual([U.shieldMs, U.hitX], [6000, 0.85]);
   const V = fightProfile(['burning', 'vengeful']);
@@ -250,25 +260,58 @@ test('WB8b the Grudge-Bearer in the brain: his threat never forgets, and he goes
   assert.ok(Math.abs(top / 4000 - (0.85 + 0.15 / 2)) < 0.03, `${top / 4000}: the grudge's pick, and a fair share of the rest`);
 });
 
-test('WB8b Soul-Hungry in the brain: a challenger who falls in the court feeds him a share of the health he stands for, ONCE a fight - said to the court (`fed`: their name, his health after) - never past his whole, never unmarked (mutants: fed every beat; fed past his whole; the word unsaid)', () => {
+test('WB8b Soul-Hungry in the brain: a challenger who falls in the court feeds him a share of the health he stands for, ONCE a fight - said to the court (`fed`: the beat\'s names, his health after) - never past his whole, never unmarked. AUDIT PRE-MERGE 0929 W1-1: only a fall with a real part in the fight behind it (hasPart - AUDIT WBX R2\'s bar), and no more than GATE_FEEDS_MAX a fight; W1-3: one word a beat, naming every one (mutants: fed every beat; fed past his whole; the word unsaid; a fall with no part feeding; the ceiling unread; a word a name)', () => {
   const f = fightOf(['burning', 'soulhungry'], [10, 10]);
   f.hp = f.max / 2;
+  // a fall with NO PART - no blow of note, no seat\'s worth stood: the throwaway guest\'s, and nothing
+  assert.equal(hasPart(f.players.s1), false);
+  assert.equal(stepBrain(f, T0 + 250, [body('s1', 0, 8, true), body('s2', 4, 4)], seeded(1)).filter((o) => o.k === 'fed').length, 0, 'a fall with no part in the fight feeds him');
+  assert.equal(f.hp, f.max / 2);
+  assert.equal(f.players.s1.fed, undefined, 'and is spent on nothing - a part earned later still counts');
+  f.players.s1.stoodMs = SEAT_KEEP_MS;   // a seat\'s worth stood alive
+  assert.equal(hasPart(f.players.s1), true);
   const out = stepBrain(f, T0 + 500, [body('s1', 0, 8, true), body('s2', 4, 4)], seeded(1));
   const fed = out.filter((o) => o.k === 'fed');
-  assert.deepEqual(fed, [{ k: 'fed', n: 'P1', h: Math.round(f.max * 0.53), m: Math.round(f.max), at: T0 + 500 }]);
+  assert.deepEqual(fed, [{ k: 'fed', ns: ['P1'], h: Math.round(f.max * 0.53), m: Math.round(f.max), at: T0 + 500 }]);
   assert.ok(Math.abs(f.hp - f.max * 0.53) < 1e-6);
   assert.deepEqual(validGateOut(fed[0]), fed[0], 'the wire takes it');
   assert.ok(!out.some((o) => o.k === 'hp'), 'the word says the health - no `hp` beside it');
   assert.equal(stepBrain(f, T0 + 750, [body('s1', 0, 8, true), body('s2', 4, 4)], seeded(1)).filter((o) => o.k === 'fed').length, 0, 'once');
   stepBrain(f, T0 + 1000, [body('s1', 0, 8), body('s2', 4, 4)], seeded(1));
   assert.equal(stepBrain(f, T0 + 1250, [body('s1', 0, 8, true), body('s2', 4, 4)], seeded(1)).filter((o) => o.k === 'fed').length, 0, 'a fall again, after a walk back in, feeds nothing more');
+  // a part by blows: RECEIPT_SHARE of the fighter\'s own share dealt
+  f.players.s2.dealt = RECEIPT_SHARE * f.players.s2.share;
+  assert.equal(hasPart(f.players.s2), true);
   const whole = fightOf(['burning', 'soulhungry']);
+  whole.players.s1.stoodMs = SEAT_KEEP_MS;
   stepBrain(whole, T0 + 500, [body('s1', 0, 8, true)], seeded(1));
   assert.equal(whole.hp, whole.max, 'never past his whole');
   const plain = fightOf(null);
   plain.hp = plain.max / 2;
+  plain.players.s1.stoodMs = SEAT_KEEP_MS;
   assert.equal(stepBrain(plain, T0 + 500, [body('s1', 0, 8, true)], seeded(1)).filter((o) => o.k === 'fed').length, 0);
   assert.equal(plain.hp, plain.max / 2, 'unmarked, the fallen feed nothing');
+  // W1-3: two falls in one beat are ONE word naming both
+  const two = fightOf(['burning', 'soulhungry'], [10, 10, 10]);
+  two.hp = two.max / 2;
+  for (const p of Object.values(two.players)) p.stoodMs = SEAT_KEEP_MS;
+  const both = stepBrain(two, T0 + 500, [body('s1', 0, 8, true), body('s2', 3, 8, true), body('s3', 4, 4)], seeded(1)).filter((o) => o.k === 'fed');
+  assert.deepEqual(both.map((o) => o.ns), [['P1', 'P2']], 'two words with one moment - the court said the first name alone');
+  assert.equal(both[0].h, Math.round(two.max * 0.56));
+  // W1-1: THE CEILING - however many accounts fall, GATE_FEEDS_MAX feedings a fight (the throwaway army measured at
+  // twenty-five: a fifth of his health to all but full)
+  const lvs = Array.from({ length: GATE_FEEDS_MAX + 4 }, () => 10);
+  const crowd = fightOf(['burning', 'soulhungry'], lvs);
+  crowd.hp = crowd.max / 5;
+  for (const p of Object.values(crowd.players)) p.stoodMs = SEAT_KEEP_MS;
+  const fallen = lvs.map((_, i) => body(`s${i + 1}`, i, 8, true));
+  const words = stepBrain(crowd, T0 + 500, fallen, seeded(1)).filter((o) => o.k === 'fed');
+  assert.equal(words.length, 1);
+  assert.equal(words[0].ns.length, GATE_FEEDS_MAX);
+  assert.equal(crowd.feeds, GATE_FEEDS_MAX);
+  assert.ok(Math.abs(crowd.hp - crowd.max * (0.2 + 0.03 * GATE_FEEDS_MAX)) < 1e-6);
+  assert.equal(stepBrain(crowd, T0 + 750, fallen, seeded(1)).filter((o) => o.k === 'fed').length, 0, 'past the ceiling, a fall feeds nothing');
+  assert.equal(GATE_FEEDS_MAX, 5);
 });
 
 test('WB8b Dagon\'s Favoured in the brain: the meteor and his marks from the first phase, the Spokes from the second (mutants: the phases unread)', () => {
@@ -322,9 +365,13 @@ test('WB8b the wire: the brain\'s law is 3 - a game that does not know the marks
   assert.equal(GATE_BRAIN_V, 3); assert.equal(GATE_BRAIN_MIN, 3);
   assert.equal(RELAY_VERSION, 'world126');
   assert.ok(GATE_OUT_KINDS.includes('fed'));
-  assert.deepEqual(validGateOut({ k: 'fed', n: 'Ann', h: 5, m: 10, at: 99, x: 1 }), { k: 'fed', n: 'Ann', h: 5, m: 10, at: 99 });
-  assert.equal(validGateOut({ k: 'fed', n: '  Ann\u0007\u202e ', h: 5, m: 10, at: 99 }).n, 'Ann', 'a name as the wire says every name');
-  for (const bad of [{ k: 'fed', n: 3, h: 5, m: 10, at: 99 }, { k: 'fed', n: 'Ann', h: 11, m: 10, at: 99 }, { k: 'fed', n: 'Ann', h: 5, m: 10, at: 0 }, { k: 'fed', n: 'Ann', h: -1, m: 10, at: 9 }]) assert.equal(validGateOut(bad), null, JSON.stringify(bad));
+  assert.deepEqual(validGateOut({ k: 'fed', ns: ['Ann'], h: 5, m: 10, at: 99, x: 1 }), { k: 'fed', ns: ['Ann'], h: 5, m: 10, at: 99 });
+  assert.deepEqual(validGateOut({ k: 'fed', ns: ['  Ann\u0007\u202e ', 'Bran'], h: 5, m: 10, at: 99 }).ns, ['Ann', 'Bran'], 'each name as the wire says every name');
+  const most = Array.from({ length: GATE_FEEDS_MAX }, (_, i) => `P${i}`);
+  assert.equal(validGateOut({ k: 'fed', ns: most, h: 5, m: 10, at: 99 }).ns.length, GATE_FEEDS_MAX);
+  for (const bad of [{ k: 'fed', ns: 'Ann', h: 5, m: 10, at: 99 }, { k: 'fed', ns: [], h: 5, m: 10, at: 99 }, { k: 'fed', ns: [...most, 'one more'], h: 5, m: 10, at: 99 },
+    { k: 'fed', ns: [3], h: 5, m: 10, at: 99 }, { k: 'fed', n: 'Ann', h: 5, m: 10, at: 99 },
+    { k: 'fed', ns: ['Ann'], h: 11, m: 10, at: 99 }, { k: 'fed', ns: ['Ann'], h: 5, m: 10, at: 0 }, { k: 'fed', ns: ['Ann'], h: -1, m: 10, at: 9 }]) assert.equal(validGateOut(bad), null, JSON.stringify(bad));
 });
 
 test('WB8b the relay: a gate\'s room fights under THE DAY\'S MARKS (gateModsOf - kept on the fight, said in the state every joiner is told), and refuses a game that says the old law (mutants: the fight born unmarked; the old law let in)', async () => {

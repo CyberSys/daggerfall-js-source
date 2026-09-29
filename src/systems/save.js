@@ -48,6 +48,7 @@ import { STREAMING_TERRAIN_SCALE } from '../world/terrainSampler.js';   // TERRA
 import { reviveForPlay } from './deathRespawn.js';   // ONLINE-DEATH-FIX: the SAME half-health an online respawn leaves
 import { setLightSource } from './lightSource.js';   // DISC7: the light in hand's one door
 import { renownHpOf, renownMpOf, offlineVitals } from './renownLayer.js';   // RENOWN1: the online layer never reaches a save
+import { stashedItemLists } from '../net/realmGoldLaw.js';   // AUDIT PRE-MERGE 0929 D3: every list of the character's own things a save carries
 
 /** One membership book, rows copied (GuildMembership_v1's shape). */
 const copyMembershipBook = (book) => Object.fromEntries(
@@ -608,15 +609,22 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.wagonItems = (snap.wagonItems ?? []).map((it) => setItemFields(it));   // W-slice (pre-W saves restore empty); JAN1: set on the way in
   entity.furnishings = (snap.furnishings ?? []).map((it) => setItemFields(it));   // DECOR2b: a save written before holds none
   entity.otherItems = (snap.otherItems ?? []).map((it) => setItemFields(it));   // R1: the in-repair collection (pre-R1 saves restore empty); JAN1: set on the way in
+  // AUDIT PRE-MERGE 0929 D3: THE LOAD'S ITEM REPAIRS REACH EVERY LIST THE SAVE CARRIES - the pack, the wagon and the
+  // repairer's, and every list of the character's own things outside them (net/realmGoldLaw.js stashedItemLists, the
+  // one walk customs takes: a cached scene's chests, piles and storage pieces, the world's piles and dead foes' packs,
+  // Come Sail Away's boats and cargoes), repaired in the save itself before the scene cache is restored from it and
+  // before the world and the mods' data go back to their hosts. A piece kept in a house chest loaded with the name its
+  // make had lost, and kept it once carried out - "pieces you already have are renamed when you load".
+  const repairLists = [entity.items, entity.wagonItems, entity.otherItems, ...stashedItemLists(snap)];
   // DISC21-A: a biography item was minted with no condition until DISC21, and Roleplay & Realism wore the questions'
   // ebony dagger to 20% of nothing - broken, and undamaged to the repairer. Minted now, by the law it missed.
-  for (const list of [entity.items, entity.wagonItems, entity.otherItems]) {
+  for (const list of repairLists) {
     const n = repairUnmintedConditions(list);
     if (n) console.info(`[save] DISC21-A: ${n} item(s) given the condition they were never minted with`);
   }
   // DISC29-B: a Magic or Rare piece of Roleplay & Realism: Items armour rolled before the fix lost Brigandine, Fur or
   // Mail from its name (lootRarity.js rarityName) - given back, so the piece a class check refuses says what it is.
-  for (const list of [entity.items, entity.wagonItems, entity.otherItems]) {
+  for (const list of repairLists) {
     const n = repairRarityNames(list);
     if (n) console.info(`[save] DISC29-B: ${n} item name(s) given back the word their make wrote`);
   }

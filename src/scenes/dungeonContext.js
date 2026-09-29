@@ -39,7 +39,7 @@ import { customModelFor, emptyModel } from '../world/customModels.js';   // DS1:
 import { RDB_SIDE, MOVE_ACTION_FLAGS, ACTION_FLAGS, TRIGGER_FLAGS } from '../world/rdbLayout.js';   // WAVE D: the move family - an acting FLAT tweens like the model beside it
 import { NPC_CONTEXT } from '../characters/staticNpc.js';   // AUDIT 64 F13: StaticNPC.SetLayoutData(RdbObject) stamps Context.Dungeon
 import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity off draws a nude figure's clothed stand-in
-import { EFFECT_ACTION_FLAGS, COLLISION_TIMEOUT_S, isActionDoorObject, hasActionCollision, standsOnAction, classifyPlacementAction, lookAtLockText, LOCKPICKING_SUCCESS_TEXT, LOCKPICKING_FAILURE_TEXT, DOOR_TEXT_HUD_DELAY_S, sharedRecord, validActionRecord } from '../world/actionSystem.js';   // AUDIT WORLD3 B1: the shared half of a record - the picker's latch stays home; AUDIT WORLD34 C2: and the memory's records projected like an act's
+import { EFFECT_ACTION_FLAGS, COLLISION_TIMEOUT_S, isActionDoorObject, hasActionCollision, standsOnAction, actionContact, classifyPlacementAction, lookAtLockText, LOCKPICKING_SUCCESS_TEXT, LOCKPICKING_FAILURE_TEXT, DOOR_TEXT_HUD_DELAY_S, sharedRecord, validActionRecord } from '../world/actionSystem.js';   // AUDIT WORLD3 B1: the shared half of a record - the picker's latch stays home; AUDIT WORLD34 C2: and the memory's records projected like an act's
 import { TextRsc } from '../formats/textRsc.js';
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';
 import { releaseUnloadGuard } from '../systems/unloadGuard.js';   // AUDIT-MACL F3: the chargen Cancel is a door the game opened   // U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
@@ -665,7 +665,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (cpu.normals && cpu.uvs) { staticBuilder.add(cpu, matrix, resolveTexKey); drawList[drawList.length - 1]._batched = true; }
       automapEntries.push(amapRow(`${bi}:${p.position}`, aabb, !!p.action, cpu, matrix));
       collider.addMesh('dungeon', cpu.positions, cpu.indices, matrix);
-      if (standable?.triggerFlag === TRIGGER_FLAGS.Collision01) triggerSurfaces.addMesh(standable.key, cpu.positions, cpu.indices, matrix);   // DISC29-A
+      if (standable && hasActionCollision(standable)) triggerSurfaces.addMesh(standable.key, cpu.positions, cpu.indices, matrix);   // DISC29-A; AUDIT PRE-MERGE 0929 D1/D2: every collision-trigger model's, for its contact
       colliderTris += cpu.indices.length / 3;
     }
     for (const d of b.layout.actionDoors) {
@@ -5511,7 +5511,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // the object's BOX, and a Collision01 object's surface can stand well
   // under it (N0000037's two thrones: the box tops the backrest at
   // 34.08, the seat is at 32.55). The ray is its own arm, as in the C#.
-  function collisionTriggers(dt, playerFeet, moveHeld) {
+  const _wish = [0, 0];   // AUDIT PRE-MERGE 0929 D1/D2: the pass's one scratch for the direction the body presses
+  function collisionTriggers(dt, playerFeet, moveHeld, playerHeight = CAPSULE_HEIGHT, playerMove = null) {
     if (!playerFeet) return;
     // Verbatim DaggerfallActionCollision: fires only while a MOVE
     // action is HELD (up/down/jump excluded) - not on position delta.
@@ -5520,6 +5521,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // cancels the motion, the delta is zero, and the trigger never
     // fired. Input-held is the source's rule and covers it.
     if (!moveHeld) return;
+    // AUDIT PRE-MERGE 0929 D1/D2: THE DIRECTION THE BODY PRESSES - the motor's own sin/cos of forward and strafe
+    // (PlayerMotor.update's ground arm) - so a side of the object is heard only when the body moves into it, as a
+    // ControllerColliderHit only comes of a Move into its collider. A host that names no yaw presses every side.
+    let wish = null;
+    if (playerMove && Number.isFinite(playerMove.yaw) && (playerMove.forward || playerMove.strafe)) {
+      const sn = Math.sin(playerMove.yaw), cs = Math.cos(playerMove.yaw);
+      _wish[0] = sn * playerMove.forward + cs * playerMove.strafe;
+      _wish[1] = cs * playerMove.forward - sn * playerMove.strafe;
+      wish = _wish;
+    }
     const R = 0.45, H = 1.8;   // the player capsule
     for (const o of actions.objects.values()) {
       if (!o.aabb) continue;
@@ -5552,10 +5563,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!overlapXZ) continue;
       const overlapY = playerFeet[1] + H > a.min[1] && playerFeet[1] < a.max[1] + 0.15;
       if (!overlapY) continue;
-      // DISC29-A: the box's top, or - a Collision01 object - its own surface under the feet (actionSystem.js
-      // standsOnAction). A mover or a door is its own bucket in `collider`; an effect or relay keeps one in triggerSurfaces.
-      const standingOn = standsOnAction(o, playerFeet, a, o.kind === 'effect' || o.kind === 'relay' ? triggerSurfaces : collider);
-      actions.receive(o, standingOn ? 'WalkOn' : 'WalkInto');
+      // AUDIT PRE-MERGE 0929 D1/D2: THE TOUCH ITSELF, as DFU hears it (actionSystem.js actionContact) - the contact's
+      // direction beneath the body (WalkOn, every flag), a Collision01's standing ray, or a bump - off the object's own
+      // triangles: a mover or a door is its own bucket in `collider`, an effect or relay keeps one in triggerSurfaces.
+      // The box above is only the broad phase: a box touched with nothing of the object touched hears nothing. An
+      // acting flat has no triangles and keeps its box's top (standsOnAction).
+      const touch = o.isFlat
+        ? (standsOnAction(o, playerFeet, a, triggerSurfaces) ? 'WalkOn' : 'WalkInto')
+        : actionContact(o, playerFeet, playerHeight, o.kind === 'effect' || o.kind === 'relay' ? triggerSurfaces : collider, wish);
+      if (!touch) continue;
+      actions.receive(o, touch);
       o._colTimer = 0;
     }
   }
@@ -5940,7 +5957,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // stat-zero kill is a FOE law too - a drained-to-zero Strength kills
     // the thing you drained. Off the frame's dt, not the minute loop.
     for (const f of foes) if (!f.dead) killIfAnyLiveStatZero(f.entity, foeSinks(f, false), dt);   // AUDIT 68 S19-round-ticks-player-provenance: SetHealth(0), no source
-    collisionTriggers(dt, playerFeet, moveHeld);
+    collisionTriggers(dt, playerFeet, moveHeld, playerHeight, playerMove);
     updateMissiles(dt, playerFeet, playerHeight);
     // X11: the look direction and the capsule height ride along now -
     // the engine hangs the Light effect's magic candle 1.4 units in

@@ -422,7 +422,7 @@ test('TERMS1: the migration adds what an agreement is - two versions and a momen
 test('TERMS1: the guest route opens NO row for a request that has not ticked the current documents (mutant: the guest route unasked)', async () => {
   const { call, rows } = service();
   const cases = [
-    [{}, 'terms-unaccepted', 'nothing ticked'],
+    [{}, 'not-found', 'AUDIT PRE-MERGE 0929 T1: neither document named - a game from before the boxes, told in a word it renders ("The game may need updating")'],
     [{ terms: TERMS_VERSION }, 'terms-unaccepted', 'the Privacy Policy unticked'],
     [{ privacy: PRIVACY_VERSION }, 'terms-unaccepted', 'the Terms unticked'],
     [{ terms: true, privacy: true }, 'terms-unaccepted', 'a tick is a version, not a flag'],
@@ -455,7 +455,9 @@ test('TERMS1: the register route names nobody who has not ticked, and records th
   assert.equal(rows()[0].terms_version, null, 'a row made with nothing ticked claims an agreement');
   const bare = await call('/v1/auth/register', { handle: 'Nystul', password: 'a good long one' }, old.secret);
   assert.equal(bare.status, 400);
-  assert.deepEqual(bare.body, { error: 'terms-unaccepted' });
+  assert.deepEqual(bare.body, { error: 'not-found' }, 'AUDIT PRE-MERGE 0929 T1: a game from before the boxes is told it may need updating');
+  const half = await call('/v1/auth/register', { handle: 'Nystul', password: 'a good long one', terms: TERMS_VERSION }, old.secret);
+  assert.deepEqual(half.body, { error: 'terms-unaccepted' });
   const stale = await call('/v1/auth/register', { handle: 'Nystul', password: 'a good long one', terms: '2000-01-01', privacy: '2000-01-01' }, old.secret);
   assert.deepEqual(stale.body, { error: 'terms-stale' });
   assert.equal(rows()[0].handle, null, 'a refused registration still named the account');
@@ -485,7 +487,8 @@ test('TERMS1: a row records only an agreement to the CURRENT documents, and nami
   const ctx = { db: env.DB, subtle: crypto.subtle, rand: (b) => crypto.getRandomValues(b), nowS: nowS() };
   assert.equal(legalRefusal(ACCEPTED), null);
   assert.deepEqual(legalRefusal({ terms: '2000-01-01', privacy: PRIVACY_VERSION }), { error: 'terms-stale' });
-  assert.deepEqual(legalRefusal(null), { error: 'terms-unaccepted' });
+  assert.deepEqual(legalRefusal(null), { error: 'not-found' }, 'AUDIT PRE-MERGE 0929 T1: a body naming neither document');
+  assert.deepEqual(legalRefusal({ terms: null, privacy: PRIVACY_VERSION }), { error: 'terms-unaccepted' });
   await createGuest(ctx, { legal: { terms: '2000-01-01', privacy: '2000-01-01' } });
   assert.deepEqual([rows()[0].terms_version, rows()[0].legal_accepted_at], [null, null], 'a row recorded an agreement to text the service does not hold');
   const g = await createGuest({ ...ctx, nowS: ctx.nowS + 1 }, { legal: ACCEPTED });

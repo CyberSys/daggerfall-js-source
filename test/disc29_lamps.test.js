@@ -81,18 +81,27 @@ function hall(lamps, { every = false } = {}) {
 function drawsInto(calls, fbos) {
   const into = new Set(fbos);
   const out = [];
-  let bound = false, origin = null, face = null;
+  let bound = false, origin = null, face = null, vao = null;
   for (const c of calls) {
     if (c[0] === 'bindFramebuffer' && c[1] === FB) bound = into.has(c[2]);
     else if (c[0] === 'bindFramebuffer' && c[1] !== DRAW_FB) bound = false;
     else if (c[0] === 'uniform3f' && c[1] === 'uOrigin') origin = [c[2], c[3], c[4]];
     else if (c[0] === 'uniformMatrix4fv' && c[1] === 'uModel') origin = null;   // a mesh's draw
     else if (c[0] === 'uniform4f' && c[1] === 'uFacePoint') face = [c[2], c[3], c[4], c[5]];
-    else if (c[0] === 'drawElements' && bound) out.push({ origin, face });
+    else if (c[0] === 'bindVertexArray') vao = c[1]?.id ?? null;
+    else if (c[0] === 'drawElements' && bound) out.push({ origin, face, vao });
   }
   return out;
 }
 const at = (x) => (d) => d.origin && d.origin[0] === x;
+const of = (b) => (d) => d.vao === b.vao.id;
+/** AUDIT PRE-MERGE 0929 E1: a mage idling where the interior's build stood him - his centre baked into the vertices
+ *  (no origin: nothing can walk him), as an interior's and a dungeon's flats are. */
+function bakedIdler(x, z) {
+  const b = { archive: 201, record: 1, vao: { id: `vao-mage-${x}` }, indexCount: 6, size: { w: 0.8, h: 1.8 }, origin: null, bounds: new Float32Array([x, 0.9, z, 1]) };
+  b.idle = () => { b.record = b.record === 1 ? 2 : 1; };
+  return b;
+}
 /** A townsman idling where he stands: the record turns (an idle's frames), the place never moves. */
 function idler(x, z) {
   const b = { archive: 201, record: 1, vao: { id: `vao-idler-${x}` }, indexCount: 6, size: { w: 0.8, h: 1.8 }, origin: [x, 0, z], bounds: new Float32Array([0, 0.9, 0, 1]) };
@@ -141,50 +150,78 @@ test('DISC29-E: BB_VS faces the lamp per vertex - right = up x (lamp - flat) off
   assert.match(rd('src/render/shadowPass.js'), /const face = perBatchRight && !b\.selfCard;/, 'the replay\'s word, per flat');
 });
 
-test('DISC29-E: a flat idling in place is its own class - a mover to the eight, kept by the lo tier; a walker is not', () => {
+test('DISC29-E: a flat idling in place is its own class - a mover to the eight, kept by the lo tier; a walker is not. AUDIT PRE-MERGE 0929 E1: and only a flat that cannot walk - a foe, a peer or the Warden standing a second is still the eight\'s, and its walking off rebuilds no lo map and leaves no silhouette behind (mutants: the class for an origin\'s flat; the class judged by stillness)', () => {
   const lamps = [];
   for (let i = 0; i < 12; i++) lamps.push(i * 1.5, 2, 3, 15);
   const h = hall(lamps, { every: true });
-  const man = idler(4, 3), feet = walker(7, 3);
-  const draw = (rr) => rr.drawBillboards([man, feet], new Float32Array([1, 0, 0]), new Float32Array([0, 1, 0]));
+  const mage = bakedIdler(4, 3), foe = idler(10, 3), feet = walker(7, 3);
+  const draw = (rr) => rr.drawBillboards([mage, foe, feet], new Float32Array([1, 0, 0]), new Float32Array([0, 1, 0]));
   h.frame(draw);   // the entry frame
   // the walker's first step takes him out of every lamp's still set, and the lo tier catches up SHADOW_LO_REBUILDS a
-  // frame (DISC15's own budget) - let it settle
+  // frame (DISC15's own budget) - let it settle, and the foe stand past the hold that once made him an idler
   const warm = [];
-  for (let f = 0; f < 12; f++) { man.idle(); feet.step(); warm.push(...h.frame(draw).calls); }
+  for (let f = 0; f < SHADOW_DYNAMIC_HOLD + 12; f++) { mage.idle(); foe.idle(); feet.step(); warm.push(...h.frame(draw).calls); }
   const warmLo = drawsInto(warm, h.sp._loFbos);
-  assert.ok(warmLo.some(at(4)), 'the lamps within his reach drew him into their lo maps');
-  assert.equal(warmLo.some(at(0)), false, 'and never the player\'s own card, a mover that stands still as often as not (DISC24-C: every frame, the eight alone)');
-  assert.equal(man._shDyn, true, 'the idle is a mover to the 512 maps (its silhouette changes)');
-  assert.equal(man._shAnim, true, 'and animating IN PLACE');
+  assert.ok(warmLo.some(of(mage)), 'the lamps within his reach drew the mage into their lo maps');
+  assert.equal(warmLo.some(of(h.self)), false, 'and never the player\'s own card, a mover that stands still as often as not (DISC24-C: every frame, the eight alone)');
+  // (the foe stood still on the entry frame, before his first idle - a static caster then, in the lo maps as on main;
+  // his first idle made him a mover and took him out of them, as it always did)
+  assert.equal(mage._shDyn, true, 'the idle is a mover to the 512 maps (its silhouette changes)');
+  assert.equal(mage._shAnim, true, 'and animating IN PLACE');
+  assert.equal(foe._shDyn, true);
+  assert.equal(foe._shAnim, false, 'an origin places him: never in place, however long he stands');
   assert.equal(feet._shAnim, false, 'a walker is not');
   // the idle's frames are no rebuild of any lo map
-  for (let f = 0; f < 3; f++) { man.idle(); feet.step(); const st = h.frame(draw); assert.equal(st.loFaces, 0, `frame ${f}: no lo face redrawn for a new frame`); }
-  // a lamp arrives: its lo map is drawn now, with the idler in it and the walker not
+  for (let f = 0; f < 3; f++) { mage.idle(); foe.idle(); feet.step(); const st = h.frame(draw); assert.equal(st.loFaces, 0, `frame ${f}: no lo face redrawn for a new frame`); }
+  // the foe walks on: no lo map held him, so none is rebuilt and none shows him where he stood (the ghost E1 found)
+  for (let f = 0; f < 6; f++) {
+    mage.idle(); feet.step(); foe.origin = [foe.origin[0] + 0.3, 0, foe.origin[2]]; foe.idle();
+    const st = h.frame(draw);
+    assert.equal(st.loFaces, 0, `frame ${f}: the foe's walking off rebuilt a lo map`);
+    assert.equal(drawsInto(st.calls, h.sp._loFbos).some(of(foe)), false);
+  }
+  // a lamp arrives: its lo map is drawn now, with the mage in it and neither the foe nor the walker
   const more = [...lamps, 18, 2, 3, 15];
   h.setLamps(more);
-  man.idle(); feet.step();
+  mage.idle(); foe.idle(); feet.step();
   const st = h.frame(draw);
   const sl = h.sp._loSlotLight;
   let j = -1;
   for (let k = 0; k < h.sp._loCap; k++) if (sl[k * 4] === 18 && sl[k * 4 + 1] === 2 && sl[k * 4 + 2] === 3) j = k;
   assert.ok(j >= 0, 'the new lamp holds a lo slot');
   const lo = drawsInto(st.calls, h.sp._loFbos.slice(j * 6, j * 6 + 6));
-  assert.ok(lo.some(at(4)), 'the idler casts into the lo map (the bug: a lamp past the eight lost his shadow)');
-  assert.equal(lo.some(at(7)), false, 'the walker does not - the lo tier keeps what stands still');
+  assert.ok(lo.some(of(mage)), 'the mage casts into the lo map (the bug: a lamp past the eight lost his shadow)');
+  assert.equal(lo.some(of(feet)), false, 'the walker does not - the lo tier keeps what stands still');
+  assert.equal(lo.some(of(foe)), false, 'nor the foe');
   // he is part of every lo map's signature (by his id and place), so when he is gone the maps that held him are
   // redrawn - a signature blind to him would leave his silhouette on the wall
-  const gone = (rr) => rr.drawBillboards([feet], new Float32Array([1, 0, 0]), new Float32Array([0, 1, 0]));
+  const gone = (rr) => rr.drawBillboards([foe, feet], new Float32Array([1, 0, 0]), new Float32Array([0, 1, 0]));
   let redrawn = 0;
   for (let f = 0; f < 8; f++) { feet.step(); redrawn += h.frame(gone).loFaces; }
   assert.ok(redrawn > 0, 'the lo maps that held him are drawn again without him');
-  h.frame(draw);   // he is back
-  // and it is the last hold's worth of stillness that makes the class: a step, and he is a walker again
-  man.origin = [4, 0, 3.5];
-  h.frame(draw);
-  assert.equal(man._shAnim, false, 'moved: no longer in place');
-  for (let f = 0; f < SHADOW_DYNAMIC_HOLD + 1; f++) { man.idle(); h.frame(draw); }
-  assert.equal(man._shAnim, true, 'still again for the hold: in place again');
+});
+
+test('DISC29-E / AUDIT PRE-MERGE 0929 E3: the card\'s two lamps are CASTERS - a camera far off (the setting runs to 10 m) picked the eight lamps nearest IT, the card\'s own were not among them, and the silhouette hopped from lamp to lamp as it circled (mutants: the card\'s lamps not reserved; a reserved lamp in place of another of the card\'s)', () => {
+  // two lamps beside the card (x -1 and 1) and ten about a point 10 m off, nearer every camera below
+  const lamps = [-1, 2.5, 0, 12, 1, 2.5, 0, 12];
+  for (let i = 0; i < 10; i++) lamps.push(8 + (i % 5) * 1.5, 2.5, i < 5 ? -3 : 3, 12);
+  const { sp, self, frame, setEye } = hall(lamps);
+  self.origin = [0, 0, 0];
+  frame(); frame(); frame();
+  const holdsCard = (st, slot) => drawsInto(st.calls, sp.pointFbos.slice(slot * 6, slot * 6 + 6)).some(at(0));
+  for (const [x, z] of [[10, 0], [8, 6], [7, -7], [10, 3]]) {
+    setEye(x, 1.6, z);   // the camera circles far off; the player does not move
+    frame(); frame();
+    const idx = [...sp.shadowIndex];
+    const west = idx.indexOf(0), east = idx.indexOf(1);
+    assert.ok(west >= 0 && east >= 0, `eye at ${x},${z}: the card's lamps are not casters (${idx})`);
+    assert.equal(sp._slotSelf[west], 1, `eye at ${x},${z}: the west lamp holds the card`);
+    assert.equal(sp._slotSelf[east], 1, `eye at ${x},${z}: the east lamp holds the card`);
+    assert.ok(holdsCard(frame(), west), `eye at ${x},${z}: drawn into the west lamp`);
+    assert.equal(idx.filter((i) => i >= 0).length, 8, 'eight casters still - the eye\'s farthest gave way');
+  }
+  // the card is noted as it is recorded, not looked for (AUDIT PRE-MERGE 0929 E2: every batch of every record, every frame)
+  assert.doesNotMatch(rd('src/render/shadowPass.js').slice(rd('src/render/shadowPass.js').indexOf('  _selfCardAt(out) {'), rd('src/render/shadowPass.js').indexOf('  _selfCardAt(out) {') + 400), /for \(/, 'no walk in _selfCardAt');
 });
 
 test('DISC29-E: the player\'s card casts into the two lamps nearest IT - a camera circling a still player moves nothing', () => {

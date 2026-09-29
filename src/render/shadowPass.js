@@ -524,6 +524,23 @@ export function nearestRank(casters, lights, eye, rank) {
   for (let r = 0; r < casters.length; r++) if (r !== rank) { const d = d2(casters[r]); if (d < mine || (d === mine && r < rank)) n++; }
   return n;
 }
+/** AUDIT PRE-MERGE 0929 E3: THE CARD'S LAMPS ARE CASTERS. DISC29-E cast the player's own card into the two lamps nearest
+ *  IT - ranked among the casters, which are the lamps nearest the EYE: with the camera 4 m or more away (the setting
+ *  runs to 10), the lamps nearest a still player were often not among them, and his silhouette still hopped from lamp
+ *  to lamp as the camera circled (MAGEAA00: 12 of 39 spots, 33 hops, an orbit at 6 m). So the `n` casting lights nearest
+ *  `self` - by the pick's own measure, DISC6's hold and all - are made casters, each in place of the eye's farthest pick
+ *  that is not one of them, or beside the picks while there is room. `casters` is the pick's own array; without a card
+ *  it is answered untouched. */
+export function reserveSelfCasters(casters, lights, self, n, max, carried = null, held = null, heldN = 0) {
+  if (!self || !n) return casters;
+  const mine = pickShadowCasters(lights, self, n, carried, held, heldN);
+  for (const i of mine) {
+    if (casters.includes(i)) continue;
+    if (casters.length < max) { casters.push(i); continue; }
+    for (let r = casters.length - 1; r >= 0; r--) if (!mine.includes(casters[r])) { casters[r] = i; break; }
+  }
+  return casters;
+}
 /** DISC6: remember this frame's casters for the next pick - their positions into `held`, the count returned. */
 export function holdCasters(held, lights, casters) {
   for (let r = 0; r < casters.length; r++) { const i = casters[r]; held[r * 4] = lights[i * 4]; held[r * 4 + 1] = lights[i * 4 + 1]; held[r * 4 + 2] = lights[i * 4 + 2]; }
@@ -847,6 +864,7 @@ export class ShadowPass {
     this._planes = new Float32Array(24);   // EL5: the replay's frustum
     this._bSphere = new Float64Array(4);   // AUDIT 68 S16-batch-sphere-dup: batchSphere's scratch for the SC1 scans
     this._selfAt = new Float64Array(3);    // DISC29-E: where the player's own card stands this frame (_selfCardAt)
+    this._selfCard = null;                 // AUDIT PRE-MERGE 0929 E2: the card, noted as recordBillboards meets it (cleared by discard)
     this._slotOfScratch = new Int32Array(SHADOW_POINT_CASTERS);   // SC1: rank -> slot
     this._heldCasters = new Float64Array(4 * SHADOW_POINT_CASTERS);   // DISC6: last frame's casters, by position (Float64: an exact copy of whatever the host sent, so the match by position holds)
     this._heldCasterN = 0;
@@ -1196,22 +1214,29 @@ export class ShadowPass {
       const placeChanged = b._shSeen === true && !(Math.abs(b._shOx - ox) <= SHADOW_STILL_EPS && Math.abs(b._shOy - oy) <= SHADOW_STILL_EPS && Math.abs(b._shOz - oz) <= SHADOW_STILL_EPS);
       const lookChanged = b._shSeen === true && !(b._shFrame === fr && b._shRec === rec && b._shFlip === flip);
       if (placeChanged || lookChanged) b._shMovedAt = this.frameNo;
-      if (placeChanged) b._shPlacedAt = this.frameNo;   // DISC29-E: the last frame its PLACE changed
       const moving = b._dyn === true || b.selfCard === true || (b._shMovedAt != null && this.frameNo - b._shMovedAt < SHADOW_DYNAMIC_HOLD);   // built dynamic, the player's own card (DISC24-C), moved now, or within the hold
       const dyn = moving || swaying;
       // DISC29-E: ANIMATING IN PLACE - a mover only because its silhouette changes where it stands (an idling mage, a
-      // 211 prop): never built dynamic, never the player's card, never swaying, its place still for the hold. The lo
-      // tier keeps it (REPLAY_LO) - the eight 512 maps redraw it as a mover, and a lamp that leaves them kept nothing of
-      // it, so its silhouette vanished as the camera turned (worst in a Mages Guild: nine people a hall, half of them idling)
-      const anim = moving && !swaying && b._dyn !== true && b.selfCard !== true && !(b._shPlacedAt != null && this.frameNo - b._shPlacedAt < SHADOW_DYNAMIC_HOLD);
+      // 211 prop): never built dynamic, never the player's card, never swaying. The lo tier keeps it (REPLAY_LO) - the
+      // eight 512 maps redraw it as a mover, and a lamp that leaves them kept nothing of it, so its silhouette vanished
+      // as the camera turned (worst in a Mages Guild: nine people a hall, half of them idling).
+      // AUDIT PRE-MERGE 0929 E1: AND A FLAT THAT CANNOT WALK - its centre baked into its vertices, no origin. It was one
+      // whose place had been still for the hold, which let in every flat an origin places: a dungeon foe, a peer, the
+      // Warden, the moment they stood a second. The lo tier's maps are rebuilt two faces a frame, nearest the eye first,
+      // so each time one of those walked on, the lamps outside the eight - the maps they read - kept its silhouette
+      // where it had stood (a ghost on half the frames of a torchlit fight of six), and every stop and start rebuilt
+      // every lo map in its reach. A flat an origin places stays the eight's, as it was before DISC29-E.
+      const anim = moving && !swaying && b._dyn !== true && b.selfCard !== true && o == null;
       b._shSeen = true; b._shOx = ox; b._shOy = oy; b._shOz = oz; b._shFrame = fr; b._shRec = rec; b._shFlip = flip; b._shDyn = dyn; b._shSway = swaying && !moving; b._shAnim = anim;   // sway alone: the slow cadence
       if (dyn) anyDyn = true;
+      if (b.selfCard === true) this._selfCard = b;   // AUDIT PRE-MERGE 0929 E2: met here, where every batch is met already
     }
     r.dynamic = anyDyn;   // the record carries a dynamic batch (the replay reads each batch's own word)
   }
   discard() {
     for (let i = 0; i < this.count; i++) { const r = this.records[i]; r.mesh = null; r.surface = null; r.batches = null; r.texRemap = null; }
     this.count = 0;
+    this._selfCard = null;
   }
 
 
@@ -1255,7 +1280,9 @@ export class ShadowPass {
     // EL5: THE LANTERNS CAST TOO, sun or no sun - the nearest SHADOW_POINT_CASTERS
     // of them, each into its six layers; the replays are culled to the
     // lantern's range and the face's frustum, so a caster costs what it lights
-    const casters = pickShadowCasters(f.pointLights, f.eye, SHADOW_POINT_CASTERS, f.carried, this._heldCasters, this._heldCasterN);   // MAC-T1; LIGHT-NEAR1; DISC6: last frame's casters keep their maps on a tie
+    const selfAt = f.pointLights?.length ? this._selfCardAt(this._selfAt) : null;   // DISC29-E: the player's own card's place, or null (none drawn)
+    const casters = reserveSelfCasters(pickShadowCasters(f.pointLights, f.eye, SHADOW_POINT_CASTERS, f.carried, this._heldCasters, this._heldCasterN),   // MAC-T1; LIGHT-NEAR1; DISC6: last frame's casters keep their maps on a tie
+      f.pointLights, selfAt, SHADOW_NEAR_CASTERS, SHADOW_POINT_CASTERS, f.carried, this._heldCasters, this._heldCasterN);   // AUDIT PRE-MERGE 0929 E3
     this._heldCasterN = holdCasters(this._heldCasters, f.pointLights, casters);
     if (this.cacheOn && casters.length) this._ensureCache();   // AUDIT SC1
     const L = f.pointLights;
@@ -1279,7 +1306,6 @@ export class ShadowPass {
     }
     // LA-SHADOW4: each rank's far - the one its slot's map was drawn to, held across the flicker, when the slot is its own
     const farOf = this._farOf;
-    const selfAt = this._selfCardAt(this._selfAt);   // DISC29-E: the player's own card's place, or null (none drawn)
     for (let rank = 0; rank < casters.length; rank++) {
       const i = casters[rank], o = slotOf[rank] * 4;
       const same = sl[o] === L[i * 4] && sl[o + 1] === L[i * 4 + 1] && sl[o + 2] === L[i * 4 + 2];
@@ -1448,20 +1474,16 @@ export class ShadowPass {
     return this._sigOneOut;
   }
   /** DISC29-E: where the player's own card (DISC24-C's SELF CARD) stands this frame - its sphere's centre into `out` -
-   *  or null when none is drawn. The lamps it casts into are ranked from here. */
+   *  or null when none is drawn. The lamps it casts into are ranked from here.
+   *  AUDIT PRE-MERGE 0929 E2: the card recordBillboards met this frame - this walked every batch of every record, every
+   *  frame, lamp or none (5.7 us of the pass's 7.6 over two thousand batches), for the one it had already passed. */
   _selfCardAt(out) {
-    for (let i = 0; i < this.count; i++) {
-      const r = this.records[i];
-      if (r.kind !== REC_BB || !r.batches) continue;
-      for (const b of r.batches) {
-        if (!b?.selfCard || !b.vao || b._dead || b.conceal) continue;
-        const c = batchSphere(b, this._bSphere);
-        if (!c) continue;
-        out[0] = c[0]; out[1] = c[1]; out[2] = c[2];
-        return out;
-      }
-    }
-    return null;
+    const b = this._selfCard;
+    if (!b || !b.vao || b._dead || b.conceal) return null;
+    const c = batchSphere(b, this._bSphere);
+    if (!c) return null;
+    out[0] = c[0]; out[1] = c[1]; out[2] = c[2];
+    return out;
   }
   /** SC1: is any dynamic caster in the lantern's reach.
    *  AUDIT SC1: a dynamic the replay would not DRAW is no reason to replay - the first cut counted a moving flame

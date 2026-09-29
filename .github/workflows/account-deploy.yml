@@ -481,6 +481,28 @@ jobs:
           echo "::error::the account service never reported $want - the deploy did not take"
           exit 1
 
+      # ═══ AUDIT PRE-MERGE 0929 T-CI: THE SMOKE AGREES AS A PLAYER DOES ══
+      #
+      # TERMS1 (acct20) refuses a guest row or a name without the Terms
+      # of Service and the Privacy Policy ticked - and the smoke below
+      # opened its guest, and named it, with `{"label":"deploy-smoke"}`
+      # alone: 400 `terms-unaccepted` under `curl -f`, every step after
+      # the Worker went live red, and the checks they are (the gate's
+      # half, a password route on the platform, the public key and the
+      # relay's copy of it) never run on this deploy or any after it.
+      # The versions are read off the one home both ends read
+      # (src/net/legalLaw.js), never typed here - a smoke with its own
+      # copy is the drift the file exists to refuse. The smoke's rows
+      # record an agreement: they are the deploy's own throwaways.
+      - name: Read the documents a new account agrees to
+        run: |
+          set -euo pipefail
+          terms=$(grep -oP "^export const TERMS_VERSION = '\K[^']+" src/net/legalLaw.js)
+          privacy=$(grep -oP "^export const PRIVACY_VERSION = '\K[^']+" src/net/legalLaw.js)
+          test -n "$terms" && test -n "$privacy" || { echo "::error::could not read TERMS_VERSION and PRIVACY_VERSION from src/net/legalLaw.js"; exit 1; }
+          { echo "LEGAL_TERMS=$terms"; echo "LEGAL_PRIVACY=$privacy"; } >> "$GITHUB_ENV"
+          echo "the smoke agrees to the Terms of Service $terms and the Privacy Policy $privacy"
+
       # GATE-KEYS: AND THE SERVICE HOLDS THE GATE'S HALF. A claim is asked
       # with a receipt no relay signed: a service holding the public half
       # refuses it as not a receipt (400 `receipt`); one holding none
@@ -493,7 +515,7 @@ jobs:
           set -euo pipefail
           base="${{ steps.deploy.outputs.base }}"
           guest=$(curl -fsS --max-time 15 -X POST "$base/v1/auth/guest" \
-            -H 'content-type: application/json' -d '{"label":"deploy-smoke"}')
+            -H 'content-type: application/json' -d "{\"label\":\"deploy-smoke\",\"terms\":\"$LEGAL_TERMS\",\"privacy\":\"$LEGAL_PRIVACY\"}")
           secret=$(echo "$guest" | sed -n 's/.*"secret":"\([^"]*\)".*/\1/p')
           test -n "$secret" || { echo "::error::no guest session - /v1/auth/guest did not answer a secret"; echo "$guest"; exit 1; }
           # AUDIT (the pre-merge audit, S3): one ask - a timeout or a reset is an answer to ask again (000), never the
@@ -539,7 +561,7 @@ jobs:
           set -euo pipefail
           base="${{ steps.deploy.outputs.base }}"
           guest=$(curl -fsS --max-time 15 -X POST "$base/v1/auth/guest" \
-            -H 'content-type: application/json' -d '{"label":"deploy-smoke"}')
+            -H 'content-type: application/json' -d "{\"label\":\"deploy-smoke\",\"terms\":\"$LEGAL_TERMS\",\"privacy\":\"$LEGAL_PRIVACY\"}")
           secret=$(echo "$guest" | sed -n 's/.*"secret":"\([^"]*\)".*/\1/p')
           test -n "$secret" || { echo "::error::no guest session - /v1/auth/guest did not answer a secret"; echo "$guest"; exit 1; }
 
@@ -638,7 +660,7 @@ jobs:
           handle="smoke$(date +%s | tail -c 7)"
           code=$(curl -sS --max-time 25 -o /tmp/reg.json -w '%{http_code}' -X POST "$base/v1/auth/register" \
             -H 'content-type: application/json' \
-            -d "{\"secret\":\"$secret\",\"handle\":\"$handle\",\"password\":\"a-long-enough-password\"}")
+            -d "{\"secret\":\"$secret\",\"handle\":\"$handle\",\"password\":\"a-long-enough-password\",\"terms\":\"$LEGAL_TERMS\",\"privacy\":\"$LEGAL_PRIVACY\"}")
           echo "register -> $code"
           cat /tmp/reg.json || true
           echo

@@ -72,7 +72,6 @@ import { setWeaponWidgetSources } from '../combat/weaponWidgetAssets.js';   // W
 import { setDiverseWeaponsSources } from '../combat/diverseWeaponsAssets.js';   // DW1: Diverse Weapons' per-weapon sprites, from the player's own bundle
 import { installDiverseWeaponsIcons } from '../combat/diverseWeaponsIcons.js';
 import { installRoleplayRealismItems } from '../systems/rriInstall.js';
-import { installSwingLaw } from '../combat/swingLaw.js';   // SWING-LAW: the swing law's reader of the weapon in the hand
 import { installDetailedShipsArt } from '../systems/detailedShips.js';   // DS1: Detailed Ships' pictures and xml scales
 import { installWarmAshesShips } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships' quest list and save slot
 import { installRaidingParties } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties' save slot
@@ -1204,7 +1203,6 @@ export function ensureAudio(fetch = fetchBytes) {
   const replacements = storedMusicNames()
     .then((names) => { if (setSoundReplacements(names, loadMusicFile)) audio.preloadReplacements?.(); return setMusicReplacements(names, loadMusicFile); })   // SNDREP1: a sound pack rides the music store
     .catch(() => 0);
-  installSwingLaw();   // SWING-LAW: the swing law's reader of the weapon in the hand (combat/swingLaw.js)
   // M-TEX: textures register on the SAME seam, for the same reason.
   // Registration is a name list and a loader - no PNG is read until an
   // archive that has replacements is actually loaded.

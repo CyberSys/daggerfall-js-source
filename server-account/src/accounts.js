@@ -393,16 +393,26 @@ export function handleRefusal(handle) {
  * this before anything is written: `/v1/auth/guest` opens the row and
  * `/v1/auth/register` names it. No other route makes one.
  *
- * TWO REFUSALS, because a player needs two different sentences.
- * `terms-unaccepted`: nothing ticked, or a client from before the boxes
- * existed. `terms-stale`: dated versions that are not these - a player
+ * THREE REFUSALS, because a player needs three different sentences.
+ * `terms-unaccepted`: a box unticked, or an answer that is not a
+ * version. `terms-stale`: dated versions that are not these - a player
  * who ticked text this service no longer holds (an old tab, a cached
  * build), who must reload to read the current text rather than tick a
  * box they already ticked.
+ *
+ * AUDIT PRE-MERGE 0929 T1: AND A REQUEST THAT NAMES NEITHER DOCUMENT is
+ * a game from before the boxes - the form never sends one, since its own
+ * check stops a press with a box unticked - and a game that old has no
+ * sentence for either word above: it said "The account service had a
+ * problem. Try again." at every press, for ever, and the desktop app's
+ * reload brings back the same bundled game. It is answered in the word
+ * every shipped build renders as "The game may need updating"
+ * (accountClient.js REFUSALS `not-found`), which is the truth.
  */
 export function legalRefusal(body) {
   const terms = body?.terms, privacy = body?.privacy;
   if (terms === TERMS_VERSION && privacy === PRIVACY_VERSION) return null;
+  if (terms === undefined && privacy === undefined) return { error: 'not-found' };
   const dated = (v) => typeof v === 'string' && LEGAL_VERSION_RE.test(v);
   if (dated(terms) && dated(privacy)) return { error: 'terms-stale' };
   return { error: 'terms-unaccepted' };

@@ -96,7 +96,7 @@ export const REFUSALS = Object.freeze({
   'not-registered': 'This account has no password yet.',
   // TERMS1: the two routes that make an account refuse a request that has not ticked the documents they hold
   'terms-unaccepted': 'Tick both boxes to agree to the Terms of Service and the Privacy Policy.',
-  'terms-stale': 'The Terms of Service or the Privacy Policy has changed. Reload to read the current version, then tick the boxes again.',
+  'terms-stale': 'The Terms of Service or the Privacy Policy has changed. Reload the game (or update the app) to read the current version, then tick the boxes again.',   // AUDIT PRE-MERGE 0929 T1: a reload brings the desktop app's own bundled copy back - the app is updated
   'no-account': 'That account no longer exists.',
   'bad-login': 'That username and password do not match.',
   'bad-code': 'That username and recovery code do not match.',

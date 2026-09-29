@@ -193,7 +193,7 @@ test('HARD3: the renderer\'s contract is types only, and the shapes it names are
   // at the top level instead of pattern-matching around the separators.
   const minted = returned.slice(returned.indexOf('{') + 1, returned.lastIndexOf('}'))
     .split(/,(?![^[\]]*\])/).map((part) => /^\s*(\w+)/.exec(part)?.[1]).filter(Boolean);
-  assert.equal(minted.length, 40, `the factory mints ${minted.length} fields and the walk should see every one: ${minted}`);   // EL5: `bounds`; BLOOD1b: `_quads` and `_dyn`; HITFLASH1: `hitFlash`; PERF-EXT10: the 23 a batch used to gain after birth, minted undefined - the shadow origin triple NaN, a double slot (one hidden class); PERF-EXT1: `_place`; LA-COST2: `_bbKeyId`, the key's interned id; DW-F: `dwColumn`; DISC29-E: `_shPlacedAt` and `_shAnim`
+  assert.equal(minted.length, 39, `the factory mints ${minted.length} fields and the walk should see every one: ${minted}`);   // EL5: `bounds`; BLOOD1b: `_quads` and `_dyn`; HITFLASH1: `hitFlash`; PERF-EXT10: the 23 a batch used to gain after birth, minted undefined - the shadow origin triple NaN, a double slot (one hidden class); PERF-EXT1: `_place`; LA-COST2: `_bbKeyId`, the key's interned id; DW-F: `dwColumn`; DISC29-E: `_shAnim` (and `_shPlacedAt`, which AUDIT PRE-MERGE 0929 E1 took out again)
   for (const field of minted) {
     assert.ok(declared.has(field), `the batch is minted with \`${field}\` and contract.js does not declare it`);
   }

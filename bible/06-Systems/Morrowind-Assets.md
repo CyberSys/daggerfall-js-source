@@ -223,9 +223,9 @@ die. One numbering across both slices (the code cites
   counts the store (and `autoBuildArms` measures it) before that; a
   restore landing in the gap passed every gate and queued the same body
   behind the first. `prebuildArmsForSave` now gives its word before its
-  first await (`weaponRig.js:215` `_armsIntent`), hands it to its own
+  first await (`weaponRig.js:216` `_armsIntent`), hands it to its own
   build, and gives it back in `finally`; every other `autoBuildArms`
-  waits it out before its gates (`weaponRig.js:271` - an `if`, not a
+  waits it out before its gates (`weaponRig.js:272` - an `if`, not a
   loop, so a stale word can never spin), and by then the body stands or
   was never started, and the gates say which.
 - **F2 - the garments' colours were still decoded on the frame's

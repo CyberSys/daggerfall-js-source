@@ -20,7 +20,7 @@ import {
 } from '../src/world/gateBoss.js';
 import { telegraphShape, markShape, BOSS_MARK_R } from '../src/render/gateTelegraph.js';
 import { bossBarModel, drawGateBossBar, destroyGateBossBar } from '../src/ui/gateBossBar.js';
-import { createGateCourt, COURT_STRIKE_TEXT, COURT_PHASE_TEXT, COURT_MARKS_TEXT, courtPhaseText, MARK_COLOR } from '../src/scenes/gateCourt.js';
+import { createGateCourt, COURT_STRIKE_TEXT, COURT_PHASE_TEXT, COURT_MARKS_TEXT, courtPhaseText, MARK_COLOR, FED_LATE_MS } from '../src/scenes/gateCourt.js';
 import { courtToDungeon } from '../src/world/gateArena.js';
 import { gateTip } from '../src/systems/gateOmen.js';
 import { omenPost } from '../src/net/gateHerald.js';
@@ -135,14 +135,27 @@ test('WB8c the court\'s words: his marks said as I step through (his aspect\'s o
   await tick(late, 1000, state({ md, fell: { at: 500, top: [], n: 1 } }));
   assert.ok(!late.said.includes(COURT_MARKS_TEXT.arrive(fightProfile(md))), 'he has already gone');
   // feeding
-  await tick(h, 2000, state({ md, fed: { n: 'Ann', at: 1999 } }));
-  await tick(h, 2100, state({ md, fed: { n: 'Ann', at: 1999 } }));
-  assert.equal(h.said.filter((s) => s === COURT_MARKS_TEXT.fed('Valkynaz Ruhn', 'Ann')).length, 1, 'said once');
-  assert.equal(COURT_MARKS_TEXT.fed('Valkynaz Ruhn', 'Ann'), 'Valkynaz Ruhn feeds on Ann\'s soul.');
-  assert.equal(COURT_MARKS_TEXT.fed('Valkynaz Ruhn', ''), 'Valkynaz Ruhn feeds on a fallen challenger\'s soul.');
+  await tick(h, 2000, state({ md, fed: { ns: ['Ann'], at: 1999 } }));
+  await tick(h, 2100, state({ md, fed: { ns: ['Ann'], at: 1999 } }));
+  assert.equal(h.said.filter((s) => s === COURT_MARKS_TEXT.fed('Valkynaz Ruhn', ['Ann'])).length, 1, 'said once');
+  assert.equal(COURT_MARKS_TEXT.fed('Valkynaz Ruhn', ['Ann']), 'Valkynaz Ruhn feeds on Ann\'s soul.');
+  assert.equal(COURT_MARKS_TEXT.fed('Valkynaz Ruhn', []), 'Valkynaz Ruhn feeds on a fallen challenger\'s soul.');
+  // AUDIT PRE-MERGE 0929 W1-3: a beat's feedings, every name
+  assert.equal(COURT_MARKS_TEXT.fed('Valkynaz Ruhn', ['Ann', 'Bran']), 'Valkynaz Ruhn feeds on the souls of Ann and Bran.');
+  assert.equal(COURT_MARKS_TEXT.fed('Valkynaz Ruhn', ['Ann', 'Bran', 'Cyrus']), 'Valkynaz Ruhn feeds on the souls of Ann, Bran and Cyrus.');
+  await tick(h, 3000, state({ md, fed: { ns: ['Bran', 'Cyrus'], at: 2999 } }));
+  assert.ok(h.said.includes('Valkynaz Ruhn feeds on the souls of Bran and Cyrus.'), 'both of a beat\'s fallen named');
   const stale = court();
-  await tick(stale, 9000, state({ md, fed: { n: 'Ann', at: 1999 } }));
+  await tick(stale, 9000, state({ md, fed: { ns: ['Ann'], at: 1999 } }));
   assert.ok(!stale.said.some((s) => s.includes('feeds on')), 'a feeding long past, heard on entering, is not news');
+  // AUDIT PRE-MERGE 0929 W2-3: and a feeding long past is not news AFTER one that was - a tab hidden through Bob's fall
+  // said it, and growled, a minute late
+  const hidden = court();
+  await tick(hidden, 2000, state({ md, fed: { ns: ['Ann'], at: 1999 } }));
+  assert.equal(hidden.said.filter((s) => s.includes('feeds on')).length, 1);
+  await tick(hidden, 62000, state({ md, fed: { ns: ['Bob'], at: 12000 } }));
+  assert.ok(!hidden.said.some((s) => s.includes('Bob')), 'a feeding 50 s old said as news');
+  assert.ok(FED_LATE_MS >= 1000 && FED_LATE_MS <= 5000);
   // the turns
   assert.equal(courtPhaseText(2, gateAspectOf('burning')), COURT_PHASE_TEXT[2]);
   assert.equal(courtPhaseText(3, gateAspectOf('burning')), COURT_PHASE_TEXT[3]);
@@ -243,12 +256,12 @@ test('WB8c the fold: a state says his marks; a feeding moves his health and name
   const st = { k: 'st', d: 9, b: 'ruhn', ph: 1, h: 50, m: 100, x: 0, z: 0, yw: 0, mv: null, atk: null, sh: 0, wr: 5, n: 1, fell: null, wrath: null, md: ['venom', 'soulhungry'] };
   let s = foldGate(GATE_STATE_EMPTY, st, 1);
   assert.deepEqual(s.md, ['venom', 'soulhungry']); assert.equal(s.fed, null);
-  s = foldGate(s, { k: 'fed', n: 'Bran', h: 53, m: 100, at: 77 }, 2);
-  assert.deepEqual([s.hp, s.max, s.fed], [53, 100, { n: 'Bran', at: 77 }]);
+  s = foldGate(s, { k: 'fed', ns: ['Bran'], h: 53, m: 100, at: 77 }, 2);
+  assert.deepEqual([s.hp, s.max, s.fed], [53, 100, { ns: ['Bran'], at: 77 }]);
   s = foldGate(s, { ...st, h: 53 }, 3);
-  assert.deepEqual(s.fed, { n: 'Bran', at: 77 }, 'the same fight keeps what was heard');
+  assert.deepEqual(s.fed, { ns: ['Bran'], at: 77 }, 'the same fight keeps what was heard');
   assert.equal(foldGate(s, { ...st, d: 10 }, 4).fed, null, 'another fight forgets it');
-  assert.equal(foldGate(GATE_STATE_EMPTY, { k: 'fed', n: 'Bran', h: 1, m: 2, at: 3 }, 5), GATE_STATE_EMPTY, 'nothing but a whole state starts a fight');
+  assert.equal(foldGate(GATE_STATE_EMPTY, { k: 'fed', ns: ['Bran'], h: 1, m: 2, at: 3 }, 5), GATE_STATE_EMPTY, 'nothing but a whole state starts a fight');
   assert.equal(foldGate(GATE_STATE_EMPTY, { ...st, md: null }, 1).md, null);
 });
 

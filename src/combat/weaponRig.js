@@ -81,6 +81,7 @@ import { modSetting } from '../systems/modSettings.js';   // WW1: its Enabled
 import { takeFrameLook } from '../player/lookFilter.js';   // WW1: the frame's look for the widget's inertia
 import { cursorActive } from '../player/pointerLock.js';   // WW1: PlayerMouseLook.cursorActive
 import { liveStat } from '../systems/statMods.js';   // WW1: the widget's speed ratio
+import './swingLaw.js';   // AUDIT PRE-MERGE 0929 S5: SWING-LAW's reader of the weapon in the hand, registered as it loads - every rig's
 import { walkSpeed } from '../player/motor.js';   // WW1: GetBaseSpeed's walk arm
 
 /**
@@ -607,6 +608,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     died: !!entity && (entity.health ?? 1) <= 0,
     motion: camera?.()?.move ?? null,
     attacking: playerWeapon.machine.state !== 'Idle',
+    swingN: swing.n,   // AUDIT PRE-MERGE 0929 S1: the blow the machine is in (MAC7 #1's count) - one sprite swing a blow
     castPlaying: !!fpsSpellCasting.isPlayingAnim,
     bowDrawback: getBool('Controls', 'BowDrawback'),
     swingHeld: _held,

@@ -55,7 +55,12 @@ export const COURT_PHASE_TEXT = Object.freeze({
  *  a Soul-Hungry Warden's feeding on a fallen challenger - by their name (the relay's `fed`), or none it may say. */
 export const COURT_MARKS_TEXT = Object.freeze({
   arrive: (P) => `${P.aspect.arrive}${P.trials.length ? ` His marks tonight: ${P.trials.map((t) => t.name).join(', ')}.` : ''}`,
-  fed: (boss, who) => `${boss} feeds on ${who ? `${who}'s` : 'a fallen challenger\'s'} soul.`,
+  // AUDIT PRE-MERGE 0929 W1-3: the beat's feedings, every name - "on Ann's soul", "on the souls of Ann and Bran"
+  fed: (boss, names) => {
+    const ns = (Array.isArray(names) ? names : [names]).filter(Boolean);
+    if (ns.length <= 1) return `${boss} feeds on ${ns.length ? `${ns[0]}'s` : 'a fallen challenger\'s'} soul.`;
+    return `${boss} feeds on the souls of ${ns.slice(0, -1).join(', ')} and ${ns[ns.length - 1]}.`;
+  },
 });
 /** WBX7: a magic round on the shared world's clock, ms - one game minute (net/wire.js ONLINE_MINUTES_PER_MS: TimeScale
  *  12, five seconds) - so a soul trap laid on him lasts its rounds as it would on any foe in the same world. */
@@ -71,6 +76,9 @@ export const RECEIPT_WAIT_MS = 4000;
 /** AUDIT WB B7: his death cry is heard only this near his fall - a player who comes to the court (or back to it) after
  *  he fell hears the thud's own late rule, not a cry from minutes ago. */
 export const FALL_CRY_LATE_MS = 1500;
+/** WB8c: a Soul-Hungry feeding heard later than this after it happened is not said (nor growled) - heard live, never a
+ *  stale one (AUDIT PRE-MERGE 0929 W2-3: for every feeding, not the entry's first alone). */
+export const FED_LATE_MS = 2000;
 
 /** AUDIT WB B4: AN ATTACK IS ITS NUMBER AND ITS MOMENT. The relay numbers a fight's attacks, and a room woken from its
  *  checkpoint numbers them from there again - the next attack would wear the number of one this screen already judged,
@@ -259,7 +267,9 @@ export function createGateCourt({
     if (s.phase > phaseHeard) { if (phaseHeard > 0) { sound(BOSS_CUES.roar, s, t, null); const line = courtPhaseText(s.phase, P.aspect); if (line) say(line); } phaseHeard = s.phase; }   // WBX5: and the turn said, by its name; WB8b: in his aspect's words
     // WB8c: his marks said as I step into his court (never to a court whose Warden has already gone), and a feeding said
     if (!marksSaid) { marksSaid = true; if (P.md && !s.fell && s.wrath == null) say(COURT_MARKS_TEXT.arrive(P)); }   // an unmarked Warden (an older relay's) says nothing new
-    if (s.fed && s.fed.at !== fedHeard) { const first = fedHeard === null && t - s.fed.at > 2000; fedHeard = s.fed.at; if (!first) { say(COURT_MARKS_TEXT.fed(bossOf(s).name, s.fed.n)); sound(BOSS_CUES.growl, s, t, null); } }
+    // AUDIT PRE-MERGE 0929 W2-3: a feeding is said while it is news, judged by its age alone - "the first of this
+    // entry" stood in for "stale", and a tab hidden through a second feeding said it, and growled, a minute late
+    if (s.fed && s.fed.at !== fedHeard) { fedHeard = s.fed.at; if (t - s.fed.at <= FED_LATE_MS) { say(COURT_MARKS_TEXT.fed(bossOf(s).name, s.fed.ns)); sound(BOSS_CUES.growl, s, t, null); } }
     if (s.fell && !fellCued) { fellCued = true; if (t < s.fell.at + FALL_CRY_LATE_MS) sound(BOSS_CUES.fall, s, t, null); }   // AUDIT WB B7: never a cry from long ago
     bodySounds(s, t, A);
   }

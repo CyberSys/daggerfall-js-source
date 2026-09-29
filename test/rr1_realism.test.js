@@ -22,7 +22,7 @@ import { ITEM_GROUPS } from '../src/characters/equipRules.js';
 import { climbingChanceOverride, climbingChance } from '../src/player/climbing.js';
 import { setWeaponPoseProbe } from '../src/combat/playerWeapon.js';
 import { getMeleeWeaponAnimTime, CLASSIC_FRAME_UPDATE, swingFrameSeconds, swingHandling, swingHeft, SWING_FRAME_MIN } from '../src/characters/weaponStates.js';
-import { installSwingLaw } from '../src/combat/swingLaw.js';
+import { installSwingLaw, readSwing } from '../src/combat/swingLaw.js';
 import { calculateMaxBankLoan, LOAN_MAX_PER_LEVEL } from '../src/systems/banking.js';
 import { isShipAvailable } from '../src/systems/ship.js';
 import { computeEntityMods } from '../src/systems/entityMods.js';
@@ -146,10 +146,20 @@ test('RR1 weaponSpeed: the speed/strength blend by hands (:350-387), behind Role
   const ctx = { entity: player, weaponType: 0, usingRightHand: true };
   const itemsTime = getMeleeWeaponAnimTime(50, ctx);
   setModSetting('roleplay-realism-items', 'weaponBalance', false);
-  assert.equal(getMeleeWeaponAnimTime(50, ctx), t({ liveSpeed: 50, liveStrength: 50 }), 'Items\' weaponBalance off: this mod\'s blend (a longsword is one-handed)');
+  assert.equal(getMeleeWeaponAnimTime(50, ctx), t({ liveSpeed: 50, liveStrength: 50, weight: readSwing(ctx).weight }), 'Items\' weaponBalance off: this mod\'s blend (a longsword is one-handed), and its weight (AUDIT PRE-MERGE 0929 S3)');
+  assert.ok(readSwing(ctx).weight > 2.5, 'a longsword heavier than any arm carries free');
   assert.notEqual(itemsTime, getMeleeWeaponAnimTime(50, ctx));
   equipTableOf(player)[EQUIP_SLOTS.RightHand] = mint({ group: 'Weapons', templateIndex: WEAPONS.Claymore, material: 0 });
-  assert.equal(getMeleeWeaponAnimTime(50, ctx), t({ liveSpeed: 50, liveStrength: 50, hands: 'Both' }), 'a claymore: both hands');
+  assert.equal(getMeleeWeaponAnimTime(50, ctx), t({ liveSpeed: 50, liveStrength: 50, hands: 'Both', weight: 7.5 }), 'a claymore: both hands, and its 7.5 kg');
+  // AUDIT PRE-MERGE 0929 S3: with this module answering alone, a heavier blade swings SLOWER - the blend has no weight
+  // in it, and a 2 kg shortsword, a 4.5 kg longsword and a 5 kg broadsword all swung at 0.995 s
+  const byWeight = [WEAPONS.Shortsword, WEAPONS.Longsword, WEAPONS.Broadsword].map((w) => {
+    equipTableOf(player)[EQUIP_SLOTS.RightHand] = mint({ group: 'Weapons', templateIndex: w, material: 0 });
+    return getMeleeWeaponAnimTime(50, ctx);
+  });
+  assert.ok(byWeight[0] < byWeight[1] && byWeight[1] < byWeight[2], `shortsword < longsword < broadsword: ${byWeight}`);
+  equipTableOf(player)[EQUIP_SLOTS.RightHand] = mint({ group: 'Weapons', templateIndex: WEAPONS.Claymore, material: 0 });
+  assert.equal(rrMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50 }), rrMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50, weight: 2.5 }), 'bare of weight (or under what an arm carries free), no heft');
   on('weaponSpeed', false);
   assert.equal(getMeleeWeaponAnimTime(50, ctx), swingFrameSeconds(50, { heft: swingHeft(7.5, 50), handling: swingHandling(0, true) }), 'both off: the port\'s own law - the claymore\'s heft against the arm, a two-hander\'s handling');
   assert.equal(getMeleeWeaponAnimTime(50), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE, 'no wielder: DFU\'s line');

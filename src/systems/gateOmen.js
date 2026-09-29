@@ -98,8 +98,18 @@ export function gateTip(c, cd, fell = null, boss = gateBossOf(c.t.day)) {
   const when = cd
     ? (cd.to === 'open' ? `Opens in ${countdownText(cd.ms)}` : cd.to === 'seal' ? `Open - seals in ${countdownText(cd.ms)}` : `Sealed - collapses in ${countdownText(cd.ms)}`)
     : (c.phase === 'collapsing' ? 'Collapsing' : null);
-  const marks = gateModsWords(gateModsOf(c.t.day));
-  return { title: 'Oblivion Gate', lines: [`Near ${c.site.place}`, ...(when ? [when] : []), ...(Number.isFinite(fell) ? [`${boss.name} has fallen`] : [`${boss.name}, ${boss.title}`, `${marks.charAt(0).toUpperCase()}${marks.slice(1)}`])] };
+  return { title: 'Oblivion Gate', lines: [`Near ${c.site.place}`, ...(when ? [when] : []), ...(Number.isFinite(fell) ? [`${boss.name} has fallen`] : [`${boss.name}, ${boss.title}`, marksLineOf(c.t.day)])] };
+}
+/** AUDIT PRE-MERGE 0929 W2-2: a day's marks as the card says them, worded once a day - the card is asked every frame a
+ *  gate stands on the map, and the marks were read and joined anew each time. */
+let _marksDay = null, _marksLine = '';
+function marksLineOf(day) {
+  if (day !== _marksDay) {
+    const marks = gateModsWords(gateModsOf(day));
+    _marksLine = `${marks.charAt(0).toUpperCase()}${marks.slice(1)}`;
+    _marksDay = day;
+  }
+  return _marksLine;
 }
 
 /** The phases that say a line on arrival, and the line each says. */
