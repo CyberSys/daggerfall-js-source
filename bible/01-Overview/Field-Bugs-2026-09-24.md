@@ -967,7 +967,7 @@ included (`eotbBillboard.js:337` `chooseTable`, `:343`), and it draws the
 mod's lycan archives: 112380 for the werewolf, 112381 for the wereboar
 (`eotbBillboard.js:75` `lycanArchive`, `:142` `tableArchive`). That art is a
 hunched, dark-furred, Bloodmoon-style beast, and it is the "Morrowind sprite"
-of the report. The Morrowind rig has no werewolf body (`fpArm.js:218`), so
+of the report. The Morrowind rig has no werewolf body (`fpArm.js:219`), so
 this is the only Morrowind-looking werewolf in the port. (WEREWOLF1, 2026-09-26, imported Bloodmoon's:
 `04-Characters/Werewolf-Body.md`.)
 
@@ -983,7 +983,7 @@ set), where the player saw their beast.
 
 The wire was never at fault. `wb` goes out on its edge (`wire.js:1147`),
 through the door (`:1051`) and the easing (`online.js:214`), from the sender
-at `world.js:16505`.
+at `world.js:16682`.
 
 **Fix.** `peerRiders.js` takes a peer whose pose says `wb`, as it takes a
 rider:
@@ -1001,10 +1001,10 @@ The hand-off is RIDE's: `isRiding` is true only once the art is up, so while
 it loads or has failed, and in a build without it, DISC12's enemy sprite
 still stands for them. A beast is never nothing.
 
-The modal passes (`worldModes.js:8040` the dungeon, `:8240` the interior)
+The modal passes (`worldModes.js:8057` the dungeon, `:8257` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
-underground. It hands over both layers' batches now (`world.js:16716`). A
+underground. It hands over both layers' batches now (`world.js:16893`). A
 rider never reaches those passes: a door dismounts. The eye the layer turns
 its sprites to (`cam.pos`) is live in every mode, because worldModes shares
 world.js's `cam` and sets it each modal frame.
@@ -1060,24 +1060,24 @@ the scene the picture takes in:
   (`characterSprite.js:125` `landAnchor`). Every point then draws at a place
   that does not depend on the box. The voxel rigs pass no anchor and draw as
   they did.
-- `drawThird` (`fpArm.js:4952`) anchors on the actor's own axis (MW x = y =
+- `drawThird` (`fpArm.js:4955`) anchors on the actor's own axis (MW x = y =
   0, where the root stands at `feet`), at the body's mid-height. That
-  height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:720`:
+  height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:721`:
   the hand's weapon and round, the torch, the held sheet, Weapon Sheathing's
   three), so gear moves neither coordinate.
-- The box is folded only over the ranges the pass draws (`fpArm.js:730`
-  `visibleRangeBounds`), off a box kept per range (`fpArm.js:704`
+- The box is folded only over the ranges the pass draws (`fpArm.js:731`
+  `visibleRangeBounds`), off a box kept per range (`fpArm.js:705`
   `foldRangeBoxes`, refolded at every upload, `:2808`).
 
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
-local player's goes through `mwView.mwViewDrawBody` (`mwView.js:370`,
-`:339`), which four files call: `world.js:19575`, `exterior.js:5156`,
-`worldModes.js:8031` and `:8131` (the dungeon and the interior passes),
+local player's goes through `mwView.mwViewDrawBody` (`mwView.js:380`,
+`:339`), which four files call: `world.js:17267`, `exterior.js:5158`,
+`worldModes.js:8048` and `:8148` (the dungeon and the interior passes),
 and `dungeon.js:1091`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:461` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
-calls it at `world.js:20056`, and the modal passes reach it through
-`host.drawPeerBodies` (`worldModes.js:8032`, `:8132`). The fix therefore
+calls it at `world.js:20328`, and the modal passes reach it through
+`host.drawPeerBodies` (`worldModes.js:8049`, `:8149`). The fix therefore
 sits in one place and reaches every host.
 
 The pins are `test/prbow1_bow.test.js`: seven tests, all failing on the

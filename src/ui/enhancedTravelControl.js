@@ -40,8 +40,11 @@ let host = null;
 let parts = null;
 let last = null;
 
-/** TV2 (AUDIT DEEP X-6): the held clock, in words - the rate the travel view's governor lets run, of the one asked for. */
-export const TRAVEL_HELD_TEXT = (n, of) => `Held to ×${n} of ×${of} while the land loads`;
+/** TV2 (AUDIT DEEP X-6): the held clock, in words - the rate the travel view's governor lets run, of the one asked for.
+ *  AUDIT OW5 G1: and why - the load (TV2's governor), or the ground (AUDIT OW4 J5: an Overworld journey walks at x1 on the
+ *  ground until the view can rise), which the load's words called loading while nothing was. */
+export const TRAVEL_HELD_TEXT = (n, of, why = 'load') => (why === 'ground'
+  ? `Held to ×${n} of ×${of} until the Overworld rises` : `Held to ×${n} of ×${of} while the land loads`);
 
 /** enhancedHud.js:316 - write only on a change. */
 function put(node, key, value) {
@@ -214,7 +217,7 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
   put(parts.accel, 'accel', held != null ? `×${held} / ×${accel}` : `×${accel}`);
   cls(parts.accel, 'accelClass', held != null ? 'travelpanel-accel held' : 'travelpanel-accel');
   // AUDIT DEEP X-6: and says why, under the pointer (the travel view's own words - they were written, and never shown)
-  const why = held != null ? TRAVEL_HELD_TEXT(held, accel) : '';
+  const why = held != null ? TRAVEL_HELD_TEXT(held, accel, state.heldWhy) : '';
   if (parts.accel && last.accelTitle !== why) { last.accelTitle = why; parts.accel.title = why; }
   put(parts.msg, 'msg', String(state.message ?? ''));
   cls(parts.msg, 'msgClass', state.message && !junctionOnly ? 'travelpanel-msg show' : 'travelpanel-msg');

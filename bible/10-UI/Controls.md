@@ -154,6 +154,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | `LookUp` | INS |  | Look up |
 | `LookDown` | DEL |  | Look down |
 | `CenterView` | HOME |  | Centre the view |
+| `TogglePerspective` | MOUSE4 |  | First / third person |
 | `Jump` | SPACE | `JoystickButton5` | Jump |
 | `Crouch` | C | `JoystickButton4` | Crouch |
 | `Run` | LSHIFT | `JoystickButton8` | Run |

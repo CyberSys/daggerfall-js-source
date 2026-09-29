@@ -222,6 +222,59 @@ test('CSA-C: PlaceBoatAtRayHit, Iliac Puddle No More\'s sea - a "DeepWaters" col
   assert.equal(s.rt.placing, false);
 });
 
+test('FIELD-CSA1 (Julian: "first attempt just didn\'t spawn in the boat and the deed disappeared"): a "DeepWaters" hit under the sea\'s top is the carved floor - the boat floats on the water over it, where the look crosses the sea, else straight above the floor it met; the sea\'s top rides the vertical compensation', () => {
+  // a swimmer's eye just under the surface, looking down: the ray never meets the surface's box from inside it, and goes on to the seabed
+  const s = scene({ ipnm: true });
+  const deed = { templateIndex: BOAT_DEED_TEMPLATE, UID: 31, message: 10 };   // a Large Boat's: no crew, spent on placing
+  const bag = [deed];
+  s.rt.StartPlacing(deed, bag);
+  s.cam.position = [5, 33.5, 900];
+  s.cam.forward = unit([0, -1, 1]);
+  const floor = [5, 33.5 - 8 / Math.SQRT2, 900 + 8 / Math.SQRT2];
+  s.deps.raycast = (o, d, r, q) => { s.out.rays.push({ o: [...o], d: [...d] }); return q.triggers ? { distance: 8, point: [...floor], name: 'DeepWaters_Seafloor', terrain: null, root: null } : null; };
+  s.rt.PlaceBoatAtRayHit(1, 0);
+  assert.deepEqual(s.out.hud, ['Boat placed!']);
+  closeV(s.rt.AllBoats[0].GameObject.position, [floor[0], WATER_LEVEL, floor[2]], 1e-3, 'straight above the floor it met, on the water - not on the seabed');
+  closeV(s.out.rays[1].o, [floor[0], WATER_LEVEL, floor[2]], 1e-3, 'the terrain under it asked from where it floats');
+  assert.deepEqual(bag, [], 'the deed spent on a boat that stands where it can be boarded');
+  // an eye over the water with no surface to meet (Spawn Water Surfaces off): the boat stands where the look crossed the sea
+  const t = scene({ ipnm: true });
+  t.cam.position = [0, 44, 0];
+  t.cam.forward = unit([0, -1, 1]);
+  t.deps.raycast = (o, d, r, q) => (q.triggers ? { distance: 30 * Math.SQRT2, point: [0, 14, 30], name: 'DeepWaters_Seafloor', terrain: null, root: null } : null);
+  t.rt.PlaceBoatAtRayHit(1, 0);
+  closeV(t.rt.AllBoats[0].GameObject.position, [0, WATER_LEVEL, 10], 1e-3, 'where the look crossed the sea');
+  // the vertical compensation: after a recentre on a mountain the sea stands 501 m lower in the scene than the mod's 34
+  const c = scene({ ipnm: true, compensation: () => [0, -501, 0] });
+  c.cam.position = [5, -467.5, 900];
+  c.cam.forward = [0, -1, 0];
+  c.deps.raycast = (o, d, r, q) => (q.triggers ? { distance: 10, point: [5, -477.5, 900], name: 'DeepWaters_Seafloor', terrain: null, root: null } : null);
+  c.rt.PlaceBoatAtRayHit(1, 0);
+  closeV(c.rt.AllBoats[0].GameObject.position, [5, WATER_LEVEL - 501, 900], 1e-3, 'the sea\'s top in the scene, not 34 m over it');
+});
+
+test('FIELD-CSA1: the sea plane (nothing hit) is met within the placing ray\'s reach, as the dungeon\'s plane is - a look out to sea past it places nothing and keeps the deed ("Placement aborted!", the dungeon plane\'s own log line)', () => {
+  const s = scene({ ipnm: true });
+  const deed = { templateIndex: BOAT_DEED_TEMPLATE, UID: 5, message: 10 };
+  const bag = [deed];
+  s.rt.StartPlacing(deed, bag);
+  s.cam.position = [0, 36, 0];
+  s.cam.forward = unit([0, -0.01, 1]);   // two metres over the water, the look a hair under the horizon: the sea met 200 m out
+  s.deps.raycast = () => null;
+  s.rt.PlaceBoatAtRayHit(1, 0);
+  assert.equal(s.rt.AllBoats.length, 0, 'no boat two hundred metres off, out of sight');
+  assert.deepEqual(bag, [deed], 'the deed kept');
+  assert.deepEqual(s.out.hud, [['Placement aborted!', 3]]);
+  assert.match(s.out.log.at(-1), /^COME SAIL AWAY - INTERSECTION WITH WATER PLANE IS TOO FAR AT 200\./);
+  assert.equal(s.rt.placing, false);
+  // within the reach it places, as before
+  s.rt.StartPlacing(deed, bag);
+  s.cam.forward = unit([0, -0.1, 1]);   // met 20 m out
+  s.rt.PlaceBoatAtRayHit(1, 0);
+  assert.equal(s.rt.AllBoats.length, 1);
+  closeV(s.rt.AllBoats[0].GameObject.position, [0, WATER_LEVEL, 20], 1e-3);
+});
+
 test('CSA-C: PlaceBoatAtRayHit - a deed repositions the boat it placed before (its UID), its packed cargo comes aboard, and the item is spent unless the boat is crewed', () => {
   const s = scene({ ipnm: true });
   const collection = [];
@@ -440,19 +493,55 @@ test('CSA-C: UpdateBoatNodes - inside a dungeon with water every node is water, 
   assert.deepEqual(b.NodeTileMapIndices, [7, 7, 7, 7, 7]);
 });
 
-test('CSA-C: OnPositionUpdate moves each active boat by the offset - and, kept bug for bug, a boat out of sight before and after its visibility is asked stays where the old origin had it', () => {
-  const s = scene();
+test('CSA-C / FIELD-CSA1: OnPositionUpdate moves EVERY boat by the offset - active, coming into sight, or out of sight before and after (the C#\'s kept bug left that one at the old origin\'s numbers, and a player who came back by another pixel never found it) - but a dungeon\'s boat out of sight, which stands in its dungeon\'s frame', () => {
+  const s = scene({ persistent: true });
   const near = s.rt.PlaceBoat([10, 34, 10], [0, 0, 1]);
   const far = s.rt.PlaceBoat([20, 34, 20], [0, 0, 1]); far.MapPixel = { X: 13, Y: 20 };
   const back = s.rt.PlaceBoat([30, 34, 30], [0, 0, 1]); back.MapPixel = { X: 12, Y: 20 };
+  const dun = s.rt.PlaceBoat([40, -5, 40], [0, 0, 1]); dun.inside = true;   // Persistent Dungeon Boats: kept, in the dungeon's frame
   s.rt.UpdateBoatVisibility();
-  assert.deepEqual([near.GameObject.activeSelf, far.GameObject.activeSelf, back.GameObject.activeSelf], [true, false, false]);
+  assert.deepEqual([near.GameObject.activeSelf, far.GameObject.activeSelf, back.GameObject.activeSelf, dun.GameObject.activeSelf], [true, false, false, false]);
   s.setPixel(11, 20);   // the player crossed east: `back` comes within a pixel, `far` stays two off
   s.rt.OnPositionUpdate([-819.2, 0, 0]);
   closeV(near.GameObject.position, [10 - 819.2, 34, 10], 1e-3, 'active: moved');
-  closeV(far.GameObject.position, [20, 34, 20], 1e-9, 'inactive before and after: NOT moved (kept)');
+  closeV(far.GameObject.position, [20 - 819.2, 34, 20], 1e-3, 'inactive before and after: moved with the world all the same');
   closeV(back.GameObject.position, [30 - 819.2, 34, 30], 1e-3, 'inactive, made active by its visibility: moved');
-  assert.equal(back.GameObject.activeSelf, true);
+  assert.deepEqual([near.GameObject.activeSelf, far.GameObject.activeSelf, back.GameObject.activeSelf], [true, false, true]);
+  closeV(dun.GameObject.position, [40, -5, 40], 1e-9, 'a dungeon\'s boat out of sight: its dungeon\'s frame, which no recentre moves');
+  assert.equal(dun.GameObject.activeSelf, false);
+  // the round the player takes back to `far` by ANOTHER pixel than the one they left it from: east, north, west, south
+  const home = [...far.GameObject.position];
+  for (const [px, py, off] of [[12, 20, [-819.2, 0, 0]], [12, 19, [0, 0, -819.2]], [11, 19, [819.2, 0, 0]], [11, 20, [0, 0, 819.2]]]) {
+    s.setPixel(px, py);
+    s.rt.OnPositionUpdate(off);
+  }
+  closeV(far.GameObject.position, home, 1e-3, 'back where the round began, the boat stands where it stood');
+});
+
+test('FIELD-CSA1: OnWorldReanchored (a teleport\'s new frame) carries every boat by the frame\'s move and shows or hides it for the new pixel - the helm is not asked, and a dungeon\'s boat out of sight stays in its dungeon\'s frame', () => {
+  const s = scene({ persistent: true });
+  const here = s.rt.PlaceBoat([100, 34, 200], [0, 0, 1]);
+  const away = s.rt.PlaceBoat([300, 34, 400], [0, 0, 1]); away.MapPixel = { X: 40, Y: 20 };
+  const dun = s.rt.PlaceBoat([40, -5, 40], [0, 0, 1]); dun.inside = true;
+  s.rt.UpdateBoatVisibility();
+  assert.deepEqual([here.GameObject.activeSelf, away.GameObject.activeSelf], [true, false]);
+  // the player woke at a temple 30 pixels west: the old frame's origin stands 30 pixels east of the new one's
+  s.setPixel(-20, 20);
+  const moves = [];
+  s.deps.helm = { setPlayerPosition: (p) => moves.push(p) };
+  s.rt.state.CurrentBoat = here;   // as if the teleport found them at its helm: OnPositionUpdateBoat's arm would set them back aboard
+  s.rt.OnWorldReanchored([30 * 819.2, 0, 0]);
+  s.rt.state.CurrentBoat = null;
+  closeV(here.GameObject.position, [100 + 30 * 819.2, 34, 200], 1e-2, 'carried by the frame\'s move');
+  closeV(away.GameObject.position, [300 + 30 * 819.2, 34, 400], 1e-2, 'in sight or not');
+  assert.deepEqual([here.GameObject.activeSelf, away.GameObject.activeSelf], [false, false], 'thirty pixels off: hidden (and silent)');
+  assert.deepEqual(moves, [], 'nobody set back at a helm');
+  closeV(dun.GameObject.position, [40, -5, 40], 1e-9, 'the dungeon\'s boat: not the streaming world\'s to move');
+  // and the teleport home stands it again where it was placed
+  s.setPixel(10, 20);
+  s.rt.OnWorldReanchored([-30 * 819.2, 0, 0]);
+  closeV(here.GameObject.position, [100, 34, 200], 1e-2);
+  assert.equal(here.GameObject.activeSelf, true);
 });
 
 // ── ComeSailAwaySaveData ──────────────────────────────────────────────────────

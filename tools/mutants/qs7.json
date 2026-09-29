@@ -16,8 +16,8 @@
   {
     "name": "QS7-the-social-arm-takes-the-mode-gate-too-so-F-dies-in-a-tavern-again",
     "file": "src/scenes/world.js",
-    "old": "      if (!townTalk.overlayActive && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }",
-    "new": "      if (!townTalk.overlayActive && (modes?.mode ?? 'exterior') === 'exterior' && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }",
+    "old": "      if (!townTalk.overlayActive && !travelView?.active && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }   // AUDIT OW5 V2: nor F on a body in front of the hidden head",
+    "new": "      if (!townTalk.overlayActive && !travelView?.active && (modes?.mode ?? 'exterior') === 'exterior' && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }   // AUDIT OW5 V2: nor F on a body in front of the hidden head",
     "tests": ["test/qs7_one_dispatch.test.js"]
   },
   {

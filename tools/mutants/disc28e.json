@@ -420,7 +420,7 @@
   {
     "name": "SHIP-SAIL-door-ignored",
     "file": "src/scenes/world.js",
-    "old": "    if (refused) { townTalk.say(refused); return true; }\n    if (giveOffer())",
+    "old": "    if (refused) { tvSay(refused); return true; }\n    if (giveOffer())",
     "new": "    if (giveOffer())",
     "tests": [
       "test/disc28e_shipport.test.js"
@@ -429,7 +429,7 @@
   {
     "name": "SHIP-SAIL-purse-ignored",
     "file": "src/scenes/world.js",
-    "old": "    if (!fare.afford) { townTalk.say(`${TRAVEL_VIEW_TEXT.noWay} ${fareText(fare.computed, false, fare.coinsShort)}`); return true; }\n",
+    "old": "    if (!fare.afford) { tvSay(`${TRAVEL_VIEW_TEXT.noWay} ${fareText(fare.computed, false, fare.coinsShort)}`); return true; }\n",
     "new": "",
     "tests": [
       "test/disc28e_shipport.test.js"

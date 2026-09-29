@@ -51,7 +51,7 @@ export const isOnlinePage = (search = globalThis.location?.search ?? '') => new 
 /** The keys main.js's front door DECIDES per choice (F12's law: set on
  *  the door that wants them, deleted on every other) - and so the keys
  *  a stale URL must not carry into the menu that decides them. */
-export const BOOT_DOOR_KEYS = Object.freeze(['load', 'online', 'loadkey', 'test', 'classic', 'classicload']);
+export const BOOT_DOOR_KEYS = Object.freeze(['load', 'online', 'loadkey', 'test', 'classic', 'classicload', 'realm', 'realmnew']);   // REALM P1.3: the realm character's id, and a character born online
 
 /**
  * MAC-N3 (2026-09-16, Mac: "Chat UI not visable with classic in online
@@ -89,6 +89,25 @@ export function publishBootParams(params, { history = globalThis.history, locati
   try { history.replaceState(history.state ?? null, '', `${location.pathname}${search}${location.hash ?? ''}`); }
   catch (e) { console.warn('[boot] the URL could not be written - the online lane reads it and will not see this session:', e?.message ?? e); }
   return search;
+}
+
+/** REALM P0.1 (2026-09-28, Mac: "eliminate duping, eliminate true overpowered builds online"): THE URL'S POWERS STAY
+ *  OFFLINE. F304 left the shipped build's URL flags ungated ("URL flags are fine, no need"), because a single-player
+ *  game's cheats are the player's business. Online they are every other player's too:
+ *  - `?shot` installs the probe seams, `window.__addGold` among them;
+ *  - `?fly` and `?nofoes` walk a shared world with no walls and no foes, and `?tp` teleports;
+ *  - `?class`, `?spell` and `?weapon` hand a character what it never earned;
+ *  - `?spawn`, `?region` and `?loc` choose where a fresh character stands;
+ *  - `?tod`, `?timescale`, `?weather`, `?wseed` and `?season` stand against the shared clock and sky.
+ *  An online boot drops every one of them before anything reads them (scenes/world.js, beside the Test Room's refusal),
+ *  and publishes the drop so every later reader of the URL agrees. Offline, F304 stands (bible/06-Systems/Realm-Arc.md). */
+export const ONLINE_REFUSED_FLAGS = Object.freeze(['shot', 'fly', 'nofoes', 'tp', 'class', 'spell', 'weapon', 'spawn', 'region', 'loc', 'tod', 'timescale', 'weather', 'wseed', 'season']);
+/** Drops the refused flags from an online boot's params, in place. Answers the flags it dropped (none offline). */
+export function refuseOnlinePowerFlags(params) {
+  if (!params?.has?.('online')) return [];
+  const dropped = ONLINE_REFUSED_FLAGS.filter((k) => params.has(k));
+  for (const k of dropped) params.delete(k);
+  return dropped;
 }
 
 /** Every port-owned switch the online lane forces, and the value it
@@ -380,6 +399,33 @@ export const ONLINE_PLAYERS_OWN_MODS = [
   'come-sail-away',         // CSA-A: a boat is a possession in my save, placed and sailed by me - HCC's wagon's shape: whose boat stands where is the player's own, and a peer only SEES me move (my pose); its wind is my machine's own roll (ComeSailAway.UpdateWind, UnityEngine.Random), as it is each DFU player's
 ];
 
+/**
+ * REALM P0.2 (2026-09-28, Mac: "eliminate true overpowered builds online, and overall bring the experience more in
+ * line with a balanced MMO"): THE BALANCE MODS ARE THE ROOM'S WHOLE, NOT THEIR ENABLE SWITCH.
+ *
+ * MODS-ONLINE-4/5 forced these mods on and left their DIALS the player's, reading each dial as the player's own run.
+ * A realm with one ruleset has no "own run" for power and loot. The dials left free were exactly the holes the REALM
+ * research found (bible/06-Systems/Realm-Arc.md):
+ *   - Unleveled Loot's material remaps: Iron -> Daedric turns a 300-gold cuirass into a 153,600-gold one, handed to
+ *     peers through corpses, shared piles and shop shelves;
+ *   - PCAAO's modules: `fixedStrengthDamageModifier` off doubles the strength bonus, and `fadingEnchantedItems` off
+ *     keeps broken enchanted gear;
+ *   - Roleplay & Realism's `loanAmountPerLevel`, which EMPIRE-BANK's cap reads;
+ *   - RRI's `conditionBasedPrices`: off, worn loot sells for up to 5x more;
+ *   - Oblivion leveling's dials: up to 40 attribute points a level.
+ * So online, every key of these mods reads its SHIPPED default, apart from the keys named here, which stay the
+ * player's. A key ONLINE_ROOM_MOD_KEYS names keeps its own value (RR's classic strength bonus and intensive training
+ * are forced off whatever they ship as).
+ */
+export const ONLINE_WHOLE_MODS = Object.freeze({
+  meanerMonsters: Object.freeze([]),
+  pcaao: Object.freeze([]),
+  unleveledLoot: Object.freeze([]),
+  'roleplay-realism-items': Object.freeze([]),
+  'roleplay-realism': Object.freeze(['variantNpcs', 'variantResidents']),   // who stands behind a counter and in a house: looks
+  'oblivion-remaster-leveling': Object.freeze(['Enabled']),                 // which leveling a character uses stays its own; the dials are the room's
+});
+
 /** The forced value of a mod's switch on an online page, else undefined -
  *  the table above, by vendor AND key, so a mod may have one switch the
  *  room owns and the rest the player's. */
@@ -387,4 +433,11 @@ export function onlineForcedModSetting(vendor, key, search) {
   const room = ONLINE_ROOM_MOD_KEYS[vendor];
   if (!room || !Object.hasOwn(room, key)) return undefined;
   return isOnlinePage(search) ? room[key] : undefined;
+}
+/** REALM P0.2: a key the room owns WHOLE (ONLINE_WHOLE_MODS) - its value online is its shipped default, which
+ *  modSettings.js onlineModSetting reads (this lane cannot read the table without a cycle). `offline` asks the table
+ *  alone, for the offline sync's copy of the room's rules. */
+export function onlineWholeModKey(vendor, key, search, { offline = false } = {}) {
+  const whole = Object.hasOwn(ONLINE_WHOLE_MODS, vendor) ? ONLINE_WHOLE_MODS[vendor] : null;
+  return !!whole && !whole.includes(key) && (offline || isOnlinePage(search));
 }

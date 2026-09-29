@@ -3,6 +3,8 @@
 ## A new way to look at the land (enhanced interface)
 - Open your map (the Enhanced map) and press **Overworld (O)**. The camera rises about 150-450 m above you - lower in fog and sandstorms, higher over steep hills - kept under the clouds, and you watch yourself cross the real world - the same ground, the same towns, the same weather.
 - Drag to turn, wheel or pinch to zoom, your movement keys to walk (they walk the way the screen faces). Esc or Return brings you back down.
+- Your movement keys travel at your travel speed on the Overworld - the speed Travel Options' travel bar was last set to (x10 to start). Time passes as it does on a journey, and the speed holds back while land is loading, the same way. The Overworld's bar says how fast ("Travelling at ×10"). Let go and you're back to walking pace. Not while swimming or at a boat's helm.
+- Prefer to travel the old way? Travel Options' tile in the Features menu has a new switch, First Person Travel. Turn it on and a journey you pick on the travel map is walked in first person again, at speed, and the Overworld no longer rises with it or stops it when you bring it down. It is off by default, and takes effect as soon as you switch it.
 - Fog and shadows are yours, not the camera's: the valley you stand in stays clear in the rain, and the hills a league off are grey.
 - You can also bind a key to it in Controls (it ships unbound) - with the Enhanced map turned off, the key is the way in. Press it again to come back down.
 
@@ -21,7 +23,7 @@
 
 ## Travel together (online)
 - When a party leader sets off in the Overworld, party members standing with them are asked to come along. Say yes and you travel the same road in your own Overworld, side by side.
-- A stop for one is a stop for all: if the leader stops, everyone stops; if a band catches one of you, the whole party halts. When the leader sets off again, everyone who came along sets off again too. When the leader arrives, the others walk on to the same place.
+- A stop for one is a stop for all: if the leader stops, everyone stops; if a band catches one of you, the whole party halts - and "The party has stopped." says so. When the leader sets off again, everyone who came along sets off again too. When the leader arrives, or gives the journey up, the others walk on to the same place.
 - This needs the server update that ships with it; until then the leader simply travels alone.
 
 ## Towns beyond the horizon
@@ -54,7 +56,7 @@
 
 ## Enemies on the road
 - Bands of enemies roam the wilderness, and you can see them from the Overworld: a red mark with what they are and how many ("Orc, 4").
-- They're Daggerfall's own encounters for the land and the hour - more of them at night, none in towns - and every player sees the same bands in the same places.
+- They're Daggerfall's own encounters for the land and the hour - more of them at night, none in towns - and every player sees the same bands in the same places (what a band is made of follows your own level and party).
 - Online, everyone nearby sees the same chase: a band hunting a friend is seen running at them, and a band someone has fought is gone for everyone.
 - A band that spots you gives chase. On foot they'll catch you; on horseback you can outrun them. If one reaches you, the camera comes down and you fight exactly the band you saw coming. A band chasing you from off-screen is pinned to the edge, pointing at it.
 
@@ -110,3 +112,19 @@
 - Your own character faces the camera from above, and trees no longer pop at the edge of the screen.
 - Resuming a road journey never sets off across the water the road goes around.
 - A save made from the Overworld keeps your own camera.
+
+## The audit before release
+- Dungeons you pass within a kilometre of are found again even where you have already found many nearby.
+- Opening a window at sea (your inventory, the map, a quest box) no longer lets pirates give up the chase. Roaming bands keep chasing after a long look at your inventory too.
+- Fast travelling, teleporting, recalling or respawning in the middle of an Overworld journey now stops the journey - resume it from the map and it is planned again from where you are. It used to walk you back toward where you had been.
+- Starting or resuming a journey from the map no longer leaves the mouse locked under the Overworld.
+- E, F and the loot keys do nothing while the Overworld is up. They used to use or talk to whatever stood in front of your hidden character.
+- A party member standing on your boat, or one who can't raise the Overworld, is no longer asked to walk with you - or walked off your deck. Your party shows on the Overworld wherever they are, as on your map.
+- A journey begun near your moored boat only takes the boat when the way crosses water. Clicking the sea close by from your helm sails there, instead of landing and packing the boat under you.
+- Long journeys that must go the long way round a mountain range are found, instead of "There is no way there by land".
+- Your enlarged figure on the Overworld no longer casts a giant shadow.
+- The travel bar says why the speed is held: "until the Overworld rises", or "while the land loads".
+- The Overworld's messages stay up long enough to read while you travel fast.
+- Holding a movement key on the Overworld shows your speed on the bar even after a stopped journey, and switching to another window stops the fast walk.
+- With First Person Travel on: a journey you start at your boat's helm stops at the sea as Travel Options does, instead of drifting on at speed; a crossing you started from the Overworld keeps its speed after you bring the view down.
+- A party walk to a spot at sea is sailed by the members too. A walk to a large town you haven't found yet now arrives.

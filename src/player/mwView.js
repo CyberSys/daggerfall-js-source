@@ -262,6 +262,24 @@ export function mwViewFirstPerson() {
 }
 
 /**
+ * VIEW-TOGGLE (2026-09-28, Mac: "add a force first person/third person toggle"): ONE PRESS, THE OTHER VIEW - for
+ * whichever body answers, beside the wheel (EOTB's own `Camera.TogglePerspective` key, IL_1230-IL_124d, which the port
+ * had left inert for the wheel - Mac's call, now reversed for a key of the player's choosing). The EOTB lane takes the
+ * mod's own ToggleOffset; the Morrowind lane goes out by the restore door the travel view's hold uses and in by
+ * MAP-POV's `mwIntoHead`. Refused (false) while the travel view holds the body, in the saddle on the Morrowind body
+ * (RIDE-POV: no saddle to show), and where no body can show at all.
+ */
+export function mwViewTogglePerspective() {
+  if (heldThird) return false;
+  if (eotbLane()) { eotbCamera.toggleOffset(!eotbCamera.thirdPerson()); return true; }
+  if (mwCamera.thirdPerson()) return mwIntoHead();
+  if (!fpArm.canThirdPerson() || mounted) return false;
+  mwCamera.restore({ firstPerson: false, baseDistance: mwCamera.baseDistance() });
+  fpArm.setViewMode('third');
+  return true;
+}
+
+/**
  * TV1 (2026-09-27, bible/06-Systems/Travel-View.md): THE BODY OUT OF THE HEAD FOR THE TRAVEL VIEW, AND BACK. The
  * view's eye stands hundreds of metres over the traveller, and the traveller is what it looks at - so whichever body
  * can answer is held in third person for the view's length (the EOTB sprite by its own ToggleOffset, the Morrowind
@@ -348,6 +366,9 @@ export function mwViewFootstep() {
  *  untouched. */
 export function mwViewTransition(kind) {
   if (!eotbLane()) return false;
+  // AUDIT OW5 V3: a door taken under the travel view - a row that DECIDES the POV decides it for the view's hold too; the
+  // view's release at the door came a frame later and put the head back (a player's "interior: third person" undone)
+  if (heldThird?.lane === 'eotb' && eotbCamera.transitionDecides(kind)) heldThird.changed = false;
   eotbCamera.transition(kind);
   return true;
 }

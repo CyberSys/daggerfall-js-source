@@ -390,7 +390,7 @@
     "name": "OWS2-host-water-refused",
     "file": "src/scenes/world.js",
     "old": "else travelViewWalkTo(hit.point, pix, { water: true }); }",
-    "new": "else townTalk.say(TRAVEL_VIEW_TEXT.water); }",
+    "new": "else tvSay(TRAVEL_VIEW_TEXT.water); }",
     "tests": [
       "test/ows2_crossing.test.js"
     ]
@@ -416,7 +416,7 @@
   {
     "name": "OWS2-host-no-atsea",
     "file": "src/scenes/world.js",
-    "old": "atSea: () => !!csaBoatUnderMe() || tvSea.phase === 'landing',",
+    "old": "atSea: () => !!tvSea.means && (!!csaBoatUnderMe() || tvSea.phase === 'landing'),",
     "new": "atSea: () => false,",
     "tests": [
       "test/ows2_crossing.test.js"
@@ -452,8 +452,8 @@
   {
     "name": "OWS2-host-passenger-steers",
     "file": "src/scenes/world.js",
-    "old": "    if (csaAboard.aboard) { townTalk.say(TRAVEL_VIEW_TEXT.passenger); return false; }",
-    "new": "    if (false) { townTalk.say(TRAVEL_VIEW_TEXT.passenger); return false; }",
+    "old": "    if (csaAboard.aboard) { tvSay(TRAVEL_VIEW_TEXT.passenger); return false; }",
+    "new": "    if (false) { tvSay(TRAVEL_VIEW_TEXT.passenger); return false; }",
     "tests": [
       "test/ows2_crossing.test.js"
     ]
@@ -470,8 +470,8 @@
   {
     "name": "OWS2-host-landing-ocean-stop",
     "file": "src/scenes/world.js",
-    "old": "atSea: () => !!csaBoatUnderMe() || tvSea.phase === 'landing',",
-    "new": "atSea: () => !!csaBoatUnderMe(),",
+    "old": "atSea: () => !!tvSea.means && (!!csaBoatUnderMe() || tvSea.phase === 'landing'),",
+    "new": "atSea: () => !!tvSea.means && !!csaBoatUnderMe(),",
     "tests": [
       "test/ows2_crossing.test.js"
     ]

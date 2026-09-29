@@ -92,8 +92,8 @@
   {
     "name": "DISC19-C-handler-reads-no-death",
     "file": "src/scenes/world.js",
-    "old": "exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })",
-    "new": "exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen })",
+    "old": "for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })) save(saveName);",
+    "new": "for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen })) save(saveName);",
     "tests": [
       "test/disc19.test.js"
     ]

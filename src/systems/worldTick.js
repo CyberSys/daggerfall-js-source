@@ -149,8 +149,8 @@ import { seededRng } from './wind.js';   // WORLD6b: the shared day's own genera
 import { removeExpiredRooms } from './tavern.js';                 // PlayerEntity.RemoveExpiredRentedRooms (:257)
 import { removeExpiredItems } from './createItem.js';             // X11b: ItemCollection.RemoveExpiredItems (:125), the per-minute sweep
 import { tickPlayerTorch } from './playerTorch.js';               // T1: EnablePlayerTorch.Update, on the REAL clock
-import { checkOverdueLoans, settleOverdueLoan } from './banking.js';   // LoanChecker.CheckOverdueLoans (:17)
-import { lowerRepForCrime } from './court.js';                    // OverdueLoan's LowerRepForCrime (:70)
+import { checkOverdueLoans, settleOverdueLoan, callInEmpireDebt, empireCallInLines, calculateMaxBankLoan } from './banking.js';   // LoanChecker.CheckOverdueLoans (:17); REALM P0.3: the Empire's call at the join
+import { lowerRepForCrime, deductGold } from './court.js';                    // OverdueLoan's LowerRepForCrime (:70); REALM P0.3: the call's purse
 import { REGION_NAMES } from '../formats/mapsFile.js';            // loanReminder2's %s
 
 import { handleStartingCrimeGuildQuests } from './crimeGuilds.js';   // CG2: PlayerEntity.Update:531
@@ -554,6 +554,33 @@ export function runDayChange({ entity, lastMinutes, nowMinutes, rolls = Math.ran
     }
   }
   return { daysPast, loanReminders, loanDefaults };
+}
+
+/** REALM P0.3: THE EMPIRE'S CALL AS A CHARACTER JOINS (banking.js callInEmpireDebt). The debt brought online past the
+ *  Empire's one loan is paid from the accounts and the purse (DeductGoldAmount's coins, then letters), and a call left
+ *  unpaid is settled as the day's sweep above settles an overdue loan: a default, with the region's reputation. Run on
+ *  the world's clock, after the markers are aligned to it. Answers the call; its lines go to the HUD. */
+export function empireJoin({ entity, nowMinutes, say = () => {} } = {}) {
+  const accounts = entity?.bankAccounts;
+  if (!accounts?.length) return null;
+  // AUDIT REALM L3-F8: A LOAN DUE AT THE JOIN STANDS IN NO GOOD STANDING. Customs' unpaid call falls due at the save's own
+  // minute (realmCustoms.js), and the arrival carries that onto the world's clock - due now, so the Empire below kept it
+  // as its one loan in good standing when it fit the cap: no default, no reputation, "none for a newcomer" undone. A
+  // loan already due is settled first, as the day's sweep settles an overdue one; the Empire keeps only one not yet due.
+  const now = Math.floor(nowMinutes);
+  for (let r = 0; r < accounts.length; r++) {
+    const due = accounts[r]?.loanDueDate;
+    if (!(accounts[r]?.loanTotal > 0) || !due || due > now) continue;
+    const outcome = settleOverdueLoan(accounts, r, entity);
+    if (outcome.kind === 'defaulted') lowerRepForCrime(entity, r, outcome.crime);
+  }
+  const call = callInEmpireDebt(accounts, { deductGold: (n) => deductGold(entity, n) }, { cap: calculateMaxBankLoan(entity.level ?? 1), nowMinutes: now });
+  for (const regionIndex of call.unpaid) {
+    const outcome = settleOverdueLoan(accounts, regionIndex, entity);
+    if (outcome.kind === 'defaulted') lowerRepForCrime(entity, regionIndex, outcome.crime);
+  }
+  for (const line of empireCallInLines(call)) say(line, LOAN_REMINDER_HUD_DELAY);
+  return call;
 }
 
 export function tickPlayerMinutes({

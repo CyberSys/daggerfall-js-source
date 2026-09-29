@@ -17,8 +17,8 @@
 // MI (magic items) rolls need the MAGIC.DEF registry
 // (setMagicItemTemplates), and EVERY host that can generate loot now
 // loads it: scenes/shared.js:126-129 (loadMagicRegistries) feeds the
-// module table this file reads, called from dungeonContext.js:1437,
-// world.js:4454 and exterior.js:1301 - interiors run inside those hosts
+// module table this file reads, called from dungeonContext.js:1439,
+// world.js:4499 and exterior.js:1303 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
 // that is DFU's own answer rather than a stand-in: shared.js:137
 // records it, the category simply stays empty.
@@ -37,6 +37,7 @@ import { createRandomBook, BOOK_TEMPLATE } from './books.js';   // IM1: CreateRa
 import { potionRecipeByKey, POTION_DEFAULT_TEXTURE_RECORD } from './potions.js';   // F103: PotionRecipeKey's price side effect; AUDIT 63 F20: and its texture-record half
 import { RANDOM_TREASURE_ARCHIVE, RANDOM_TREASURE_ICONS, DROP_ICON_ARCHIVES, DROP_ICON_IDXS } from './lootDataTables.js';   // G5: DaggerfallLootDataTables.cs, its own file again
 import { themedIngredientPool } from './lootThemes.js';   // MOD: a monster's CreatureIngredients roll draws from ITS OWN curated subset, not the full mismatched pool
+import { isOnlinePage } from './onlineLane.js';   // REALM P0.4: online, a pile's gold is not the level's
 import { rriLootMatrix, rriEnemyLootTableKey, conditionBasedPricesOn, randomConditionLootItems } from './rriRealism.js';   // RRI2: LootRealismTables over DefaultLootTables, MobLootKeys over the basics' key, the condition roll on tabled loot
 
 // LootChanceMatrix rows, verbatim (22 keys, '-' included).
@@ -759,14 +760,26 @@ export function addEnemyLootExtras(items, basics, rolls = Math.random) {
   return items;
 }
 
+/** REALM P0.4 (2026-09-28, bible/06-Systems/Realm-Arc.md "Pile gold divided by level"): ONLINE A PILE'S GOLD IS NOT
+ *  THE LEVEL'S. GenerateRandomLoot rolls a pile's gold times the player's level, so a level-30 character found thirty
+ *  times a level-1 one's in the same pile, and the hour's respawn (WORLD8) paid it again. Unleveled Loot's own arm
+ *  divides it back (unleveledLoot.js unleveledGoldLootPiles), and DFU never calls it; online the division runs for
+ *  every pile, the mod on or off, never under one piece. Answers the items. */
+export function unlevelPileGold(items, level) {
+  const by = Math.max(1, Math.trunc(level) || 1);
+  for (const it of items) if (it?.group === 'Currency') it.stackCount = Math.max(1, Math.trunc((it.stackCount ?? 0) / by));
+  return items;
+}
+
 /** LootTables.GenerateLoot (:145-160) - the DUNGEON PILE half, which
  *  is a different trio: the map chance comes from a six-entry table
  *  indexed by the loot key, and only keys J through O roll at all.
  *  The potion chance is FOUR here, not three. */
 export const PILE_MAP_CHANCES = Object.freeze([2, 1, 1, 2, 2, 15]);   // J, K, L, M, N, O
 
-export function addPileLootExtras(items, lootTableKey, rolls = Math.random, { where = null } = {}) {
+export function addPileLootExtras(items, lootTableKey, rolls = Math.random, { level = 1, online = isOnlinePage(), where = null } = {}) {
   if (!items || !lootTableKey) return items;
+  if (online) unlevelPileGold(items, level);   // REALM P0.4: every pile, whatever its key
   // `int alphabetIndex = key - 64` on the FIRST character: 'A' is 1,
   // so J is 10 and O is 15.
   const alphabetIndex = lootTableKey.charCodeAt(0) - 64;

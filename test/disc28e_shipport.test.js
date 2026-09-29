@@ -124,7 +124,8 @@ test('SHIP-SAIL: where the walk is refused and the passage sails, the Overworld 
   const view = { state: 'up', enter: () => { log.push('view up'); view.state = 'rising'; } };
   const d = {
     csaRuntime: {}, csaOn: () => csa, planRoute: () => route, tvRouteGround: () => ({}),
-    townTalk: { say: (t) => said.push(t), showOverlay: (w, onClosed) => { shown.push(w); closers.push(onClosed); } }, TRAVEL_VIEW_TEXT,
+    townTalk: { showOverlay: (w, onClosed) => { shown.push(w); closers.push(onClosed); } }, TRAVEL_VIEW_TEXT,
+    tvSay: (t) => said.push(t),   // the Overworld's own say (a line held as long at x10 as at x1)
     travelView: view, travelOptions: { clearTravelDestination: () => log.push('journey cleared') },
     giveOffer: () => { if (!offerPending) return false; offerPending = false; log.push('offer handed over'); return true; },
     partyTripFare: (to, opts) => { asked.push({ to, opts }); return fare; },

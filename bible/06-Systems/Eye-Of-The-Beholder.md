@@ -200,6 +200,20 @@ Three, each marked where it lands in `src/systems/modSettings.js`.
    like how we handle morrowind."* The key is still listed, because the
    pane is a record of what the mod ships and a key quietly deleted is
    a key nobody can ask about.
+   **VIEW-TOGGLE (2026-09-28, Mac: "Also add a force first person/third
+   person toggle")** gives the idea back as the PORT's own action beside
+   the wheel, not the mod's key: `TogglePerspective` (Controls >
+   Movement, "First / third person"), default the mouse's FORWARD side
+   button (`Mouse4` - every letter is spent; push-to-talk has the back
+   one), read on its press edge by the world host under no window
+   (`hccActionPressed`) and answered by `player/mwView.js`
+   `mwViewTogglePerspective` for whichever body can show: this lane's
+   own ToggleOffset both ways; the Morrowind lane out by the restore
+   door and in by `mwIntoHead`; refused in the Morrowind saddle
+   (RIDE-POV), while the travel view holds the body, and where no body
+   can show. The mod's `KeypadEnter` stays inert (Numpad Enter is Come
+   Sail Away's time-scale reset). `test/viewtoggle.test.js`,
+   `tools/mutants/viewtoggle.json`.
 3. **`Camera.SwitchShoulder` ships `Tab`; the port binds `B`.** HT4's
    finding again, same author, same key: Tab is free in Daggerfall
    Unity and spent here - PX15 gave it to the port's own pixel dial.

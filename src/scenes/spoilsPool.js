@@ -372,12 +372,16 @@ export function createSpoilsPool({
     /** AUDIT WBX S3: records the crash's door handed over at boot (recoverSpoils' `onHanded`) - their pieces are in the
      *  pack, and the next save of their character clears them. */
     adopt(recOrId) { const r = typeof recOrId === 'string' ? { id: recOrId } : recOrId; if (r?.id) held.set(r.id, { who: r.who ?? who(), day: r.day }); },
+    /** REALM P1.3: the records of `whoSaved` whose pieces are in the pack NOW - what a realm checkpoint composed at this
+     *  moment holds, handed back to `saved` when it lands (a realm save lands later than it is made). */
+    heldIds(whoSaved) { return [...held].filter(([, h]) => h.who === whoSaved).map(([id]) => id); },
     /** AUDIT WBX S3: A SAVE LANDED for character `whoSaved` (systems/saveSlots.js onSlotSaved): every record of theirs
      *  whose pieces are in the pack is held by it - cleared from the device, its receipt's mark made fast, and (AUDIT
-     *  WBX S1) said spent to the hub if it was not yet. Answers how many were cleared. */
-    saved(whoSaved) {
+     *  WBX S1) said spent to the hub if it was not yet. Answers how many were cleared. REALM P1.3: a realm checkpoint
+     *  names the records it was composed holding (`only`, from heldIds), since it lands after pieces may have come in. */
+    saved(whoSaved, only = null) {
       if (whoSaved == null || !held.size) return 0;
-      const ids = new Set([...held].filter(([, h]) => h.who === whoSaved).map(([id]) => id));
+      const ids = new Set([...held].filter(([id, h]) => h.who === whoSaved && (!only || only.includes(id))).map(([id]) => id));
       if (!ids.size) return 0;
       const all = recordsOf(read(STORE_KEY));
       const left = all.filter((r) => !(r && ids.has(r.id)));

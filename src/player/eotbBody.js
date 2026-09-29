@@ -873,6 +873,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
           batch = renderer.createBillboardBatch(s.archive, s.rec, grow > 1 ? { w: size.w * grow, h: size.h * grow } : size, [[0, 0, 0]]);
           batch.origin = [0, 0, 0];
           batch.selfCard = grow === 1;   // DISC24-C: the player's own body - it casts as drawn, into the maps redrawn every frame (render/shadowPass.js SELF CARD); OW-BIG: a grown one casts no giant's shadow
+          batch.noShadow = grow > 1;   // AUDIT OW5 R2: OW-BIG's giant casts NOTHING - selfCard off was never that (render/shadowPass.js: it only keeps the card out of the lamps' maps when it is not the player's own; the sun's cascades drew the tenfold card, a fifty-metre shadow at a low sun, and the lamps' maps baked it)
           batchRec = key;
         }
         batchSize = size;
