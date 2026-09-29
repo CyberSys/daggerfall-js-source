@@ -5502,7 +5502,7 @@ whole route could therefore never latch and never fire. The pair the
 other two engine-owning hosts wire (`world.js:7251-7252`,
 `dungeonContext.js:2514-2515`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:12717-12720`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:12727-12730`),
 absent which the action self-completes at *parse*
 (`actions.js:2781`/`:2788`) and the task can never arm at all.
 
