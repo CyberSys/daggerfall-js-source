@@ -766,6 +766,25 @@ held mark. 256 travellers cost two frames.
 on a move, the click boxes, the curtains' samples counted), `tools/mutants/tv5.json` (the
 PERF-TV records).
 
+**FB0929 - THE ROUTE LINE, BY ITS FRAMES (2026-09-29, the Discord through Mac: "The moment I go
+to my Travel Map and select a far away destination, the game drops to sub-10 FPS").** The timer
+above holds the update and the layout it owes, never the paint, and its route was 120 points on
+the screen. A pick on the travel map is a line of a hundred legs and more (400 pixels of
+Hazelnut's roads: 139 legs, 557 points), and a point of it beside the eye's plane projects
+hundreds of thousands of pixels out: the dashed brass line ran 1.5 million px, and the browser
+laid its 100,000 dashes, off the screen too, and rastered them again every frame the camera
+moved - 383-433 ms a frame in Chromium (the median, two runs; turned half round, 217-267), where a
+click in the view drew in 16.7. The JavaScript was never the cost (the update 0.1-0.4 ms; the
+plan is made once, at the pick). `routePath` now cuts the line to the screen grown by
+`ROUTE_CLIP_PX` (16 px, past the casing's round cap), a new stroke where it comes back on: the
+same line on the screen - byte for byte when it lies wholly there, its first stroke the old one's
+from the feet to the edge, dashes and all - and the far pick at 16.7 ms a frame. Where the line
+comes back onto the screen its dash pattern starts at the edge. The readout is world.js's alone
+(travelView.js names the FOUR HOSTS).
+**Proof.** `test/fb0929_farroute.test.js` (4: the planner on the vendored roads, the host's line
+lifted from world.js, the view's own camera and the readout), `tools/mutants/fb0929_farroute.json`
+(13, all dead), `tools/travelViewPerf.mjs` (a journey's line timed by its frames: 20 ms).
+
 ## AUDIT DEEP2 - the whole branch again, six reviewers, before the merge (2026-09-28, Mac: "Do another deep audit on everything before we decide to merge")
 
 Six read-only reviewers, one a lane (the view and its input; journeys; the region's

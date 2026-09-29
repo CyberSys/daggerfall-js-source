@@ -26,8 +26,9 @@
 // click on it is a journey there by the roads, the same as a click on the
 // town itself), the journey's end wears the destination mark, and the
 // route it walks is a line under them: an SVG path through the route's
-// projected points, broken where a point falls behind the eye. The bar
-// carries the trip in words under the place line.
+// projected points, broken where a point falls behind the eye (and, since
+// FB0929, cut to the screen). The bar carries the trip in words under the
+// place line.
 // ═══════════════════════════════════════════════════════════════════
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { titleBadge, glyphBadges, cssRgba, GLYPH_STROKE, GLYPH_EDGE_W } from './playerBadge.js';   // OVERWORLD NAMES: a player's name as it reads over their head in play
@@ -42,6 +43,9 @@ export const TRAVEL_VIEW_TITLE = 'Overworld';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 /** TV3: how far in from the screen's edge a mark held at the edge stands (px). */
 export const TV_EDGE_MARGIN = 28;
+/** FB0929: how far past the screen's edge the route line is kept (px) - past the casing's reach (its width's half, a
+ *  round cap's), so where the line is cut never shows. */
+export const ROUTE_CLIP_PX = 16;
 /** AUDIT DEEP T1-12: the mouse's hint, naming the keys the player really has - the movement keys and the way down
  *  (KB1: the registry's Escape action, wherever it is bound) - the defaults' words when the host names none. */
 export function travelViewMouseHint({ move = 'WASD', out = 'Esc' } = {}) {
@@ -96,18 +100,53 @@ export function edgeHold(p, w, h, margin = TV_EDGE_MARGIN, top = margin, foot = 
   return { x: cx + dx * k, y: cy + dy * k, angle: (Math.atan2(dx, -dy) * 180) / Math.PI };
 }
 
+/** FB0929: where the line from (ax, ay) to (bx, by) comes onto the box [lo, hx] x [lo, hy] and where it leaves it, as
+ *  fractions along it (Liang-Barsky) - written to `_span`, both 0..1; false when it misses the box. */
+const _span = [0, 1];
+function spanIn(ax, ay, bx, by, lo, hx, hy) {
+  const dx = bx - ax, dy = by - ay;
+  let t0 = 0, t1 = 1;
+  for (let e = 0; e < 4; e++) {
+    const p = e === 0 ? -dx : e === 1 ? dx : e === 2 ? -dy : dy;
+    const q = e === 0 ? ax - lo : e === 1 ? hx - ax : e === 2 ? ay - lo : hy - ay;
+    if (p === 0) { if (q < 0) return false; continue; }
+    const r = q / p;
+    if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+    else { if (r < t0) return false; if (r < t1) t1 = r; }
+  }
+  _span[0] = t0; _span[1] = t1;
+  return true;
+}
+
 /**
  * TV2: THE ROUTE LINE's path data through projected points: a move to the first point in front of the eye, a line to
  * each after it, and a new move after any point behind the eye (a line across it would be drawn through the camera).
+ * FB0929 (the Discord: "The moment I go to my Travel Map and select a far away destination, the game drops to sub-10
+ * FPS"): CUT TO THE SCREEN - `w` x `h`, grown by ROUTE_CLIP_PX - each line kept only where it crosses it, a new move
+ * where it comes back on. A pick across the map is a line of a hundred legs and more, and a point of it beside the
+ * eye's plane projects hundreds of thousands of pixels out; the browser dashed ALL of it, off the screen too, and
+ * rastered it again every frame the camera moved (1.5 million px, 100,000 dashes: 220-430 ms a frame in Chromium, the
+ * median - tools/travelViewPerf.mjs). On the screen the line is the one it was. No screen given, nothing is cut.
  * @param {Array<{x:number, y:number, front:boolean}|null>} points
  */
-export function routePath(points) {
+export function routePath(points, w = Infinity, h = Infinity) {
+  const lo = Number.isFinite(w) && Number.isFinite(h) ? -ROUTE_CLIP_PX : -Infinity, hx = w + ROUTE_CLIP_PX, hy = h + ROUTE_CLIP_PX;
   let d = '';
-  let pen = false;
+  let pen = false;   // the last point was in front of the eye: a line runs on from it
+  let on = false;    // ...and it lay on the grown screen: the stroke stands there
+  let ax = 0, ay = 0;
   for (const p of points ?? []) {
     if (!p?.front || !Number.isFinite(p.x) || !Number.isFinite(p.y)) { pen = false; continue; }
-    d += `${pen ? 'L' : 'M'}${Math.round(p.x)} ${Math.round(p.y)} `;
-    pen = true;
+    if (!pen) {
+      on = p.x >= lo && p.x <= hx && p.y >= lo && p.y <= hy;
+      if (on) d += `M${Math.round(p.x)} ${Math.round(p.y)} `;
+    } else if (spanIn(ax, ay, p.x, p.y, lo, hx, hy)) {
+      const t0 = _span[0], t1 = _span[1];
+      if (!on) d += `M${Math.round(ax + (p.x - ax) * t0)} ${Math.round(ay + (p.y - ay) * t0)} `;   // it comes on: a stroke from there
+      d += t1 === 1 ? `L${Math.round(p.x)} ${Math.round(p.y)} ` : `L${Math.round(ax + (p.x - ax) * t1)} ${Math.round(ay + (p.y - ay) * t1)} `;
+      on = t1 === 1;   // it ends on the screen, or goes off it (a line that misses the screen starts off it: `on` is false already)
+    }
+    ax = p.x; ay = p.y; pen = true;
   }
   return d.trim();
 }
@@ -266,7 +305,7 @@ export function updateTravelViewHud(f) {
   style(parts.trip, 'trip-d', 'display', f.trip ? '' : 'none');
   if (`${last.where}|${last.hint}|${last.trip}` !== words) furniture.at = -Infinity;   // the bar's words changed: its height may have (a line wrapped, a journey's line came) - measured again next frame
   if (parts.line) {
-    const d = routePath(f.route ?? []);
+    const d = routePath(f.route ?? [], vw, vh);   // FB0929: cut to the screen read above - a far journey's line dashed off it cost the frame
     if (last.route !== d) {
       last.route = d;
       parts.line.setAttribute('d', d);
