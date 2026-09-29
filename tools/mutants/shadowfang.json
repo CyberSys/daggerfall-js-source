@@ -56,8 +56,8 @@
   {
     "name": "SHADOWFANG-glyph-without-the-title",
     "file": "server-account/src/titles.js",
-    "old": "hierophant: 'hierophant', shadowfang: 'shadowfang' });",
-    "new": "hierophant: 'hierophant', shadowfang: 'apostle' });",
+    "old": "hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent' });",
+    "new": "hierophant: 'hierophant', shadowfang: 'apostle', penitent: 'penitent' });",
     "tests": [
       "test/shadowfang.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "SHADOWFANG-vocabulary-without-the-glyph",
     "file": "src/net/identityToken.js",
-    "old": "'apostle', 'hierophant', 'shadowfang']);   // TITLE-N: each new title has its own glyph",
-    "new": "'apostle', 'hierophant']);   // TITLE-N: each new title has its own glyph",
+    "old": "'apostle', 'hierophant', 'shadowfang', 'penitent']);   // TITLE-N: each new title has its own glyph",
+    "new": "'apostle', 'hierophant', 'penitent']);   // TITLE-N: each new title has its own glyph",
     "tests": [
       "test/shadowfang.test.js"
     ]
@@ -164,7 +164,7 @@
   {
     "name": "SHADOWFANG-classic-edge-dropped",
     "file": "src/net/remotePlayers.js",
-    "old": "          drawText(renderer, font, title.text, tx + Math.max(1, Math.round(s)), ty + Math.max(1, Math.round(s)), s, title.rgba ?? [1, 1, 1, 1]);\n",
+    "old": "          drawText(renderer, font, title.text, tx + Math.max(1, Math.round(s)), ty + Math.max(1, Math.round(s)), s, title.edge ?? title.rgba ?? [1, 1, 1, 1]);\n",
     "new": "          \n",
     "tests": [
       "test/shadowfang.test.js"
