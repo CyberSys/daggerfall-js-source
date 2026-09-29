@@ -1,0 +1,92 @@
+[
+  {
+    "name": "DRAKES-the-old-name-back",
+    "file": "src/net/marksLaw.js",
+    "old": "${n === 1 ? 'Drake' : 'Drakes'}",
+    "new": "${n === 1 ? 'Mark' : 'Marks'}",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-one-drakes",
+    "file": "src/net/marksLaw.js",
+    "old": "${n === 1 ? 'Drake' : 'Drakes'}",
+    "new": "${n === 1 ? 'Drakes' : 'Drakes'}",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-the-bank-button-old",
+    "file": "src/ui/enhancedPorts.js",
+    "old": "'Sell Drakes'",
+    "new": "'Sell Marks'",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-the-account-card-old",
+    "file": "src/ui/enhancedAccount.js",
+    "old": "row('Drakes', marksText",
+    "new": "row('Marks', marksText",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-the-treasury-old",
+    "file": "src/ui/socialPanel.js",
+    "old": "'dfsocial-sec', 'Drake treasury'",
+    "new": "'dfsocial-sec', 'Marks treasury'",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-a-refusal-old",
+    "file": "src/net/accountClient.js",
+    "old": "'marks-short': 'You do not hold that many Drakes.',",
+    "new": "'marks-short': 'You do not hold that many Marks.',",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-a-market-label-old",
+    "file": "src/ui/marketTab.js",
+    "old": "'Price in Drakes', 'list-price'",
+    "new": "'Price in Marks', 'list-price'",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-a-work-label-old",
+    "file": "src/ui/workTab.js",
+    "old": "labelled('Pay (Drakes)', pay)",
+    "new": "labelled('Pay (Marks)', pay)",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-a-host-line-old",
+    "file": "src/scenes/world.js",
+    "old": "at the Weavers' counter for ${r.data.marks} Drakes.`",
+    "new": "at the Weavers' counter for ${r.data.marks} Marks.`",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  },
+  {
+    "name": "DRAKES-the-gate-line-old",
+    "file": "src/net/marksBook.js",
+    "old": "The counting-houses strike Drakes for two gates a day.",
+    "new": "The counting-houses strike Marks for two gates a day.",
+    "tests": [
+      "test/drakes.test.js"
+    ]
+  }
+]

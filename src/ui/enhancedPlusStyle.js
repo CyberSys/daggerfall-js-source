@@ -1149,8 +1149,8 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 /* AUDIT 31 U14: a List form's select as wide as its form - a piece's long name set the form's width past a phone's */
 .market-listform .notice-select, .market-orderform .notice-select { min-width: 0; max-width: 100%; flex: 1 1 160px; text-overflow: ellipsis; }
 .market-listform, .market-orderform, .market-mine-view { min-width: 0; max-width: 100%; }
-/* AUDIT 31 U3: an auction's standing bid wraps under its name at a phone's width - "opening 500 Marks - no bids yet"
-   was cut to "opening 500 Marks - no" */
+/* AUDIT 31 U3: an auction's standing bid wraps under its name at a phone's width - "opening 500 Drakes - no bids yet"
+   was cut to "opening 500 Drakes - no" */
 .market-auction .market-price { white-space: normal; overflow-wrap: anywhere; }
 /* a long maker's name cut the piece's own ("Silverthorn-of-the-Iliac's Mithril Longs...") - a Masterwork's name wraps */
 .market-auction b { white-space: normal; overflow-wrap: anywhere; }

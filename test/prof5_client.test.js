@@ -65,7 +65,7 @@ test('PROF5 DONE WHEN: a crafted Mithril Longsword listed at a board in Daggerfa
   assert.equal(listed.ok, true, JSON.stringify(listed));
   assert.deepEqual([pack.length, listed.data.listing.wear], [0, 620], 'out of the save, its wear on the listing');
   assert.equal((await macBook.list({ region: DF, kind: 'material', material: 'ore:mithril', units: 40, price: 8, hubs: HUBS })).ok, true);
-  assert.deepEqual(macMarks.slice(-1), [100 - 9 - 4], 'the Marks book told the balance');
+  assert.deepEqual(macMarks.slice(-1), [100 - 9 - 4], 'the Drakes book told the balance');
   // Ann, at a board in Wayrest, reads the sword with its courier and buys it
   const annPack = [];
   const annBook = createMarketBook({ door: accountMarket({ fetch: s.fetch, storage: sessionStorageOf(SESSION_KEY, ann) }), storage: memStorage(), character: () => ann.character, sleep: noWait });
@@ -215,32 +215,32 @@ test('PROF5 tab: the five views - Materials (cheapest first, here or its region 
   const buttons = () => [...root.querySelectorAll('button')];
   assert.deepEqual(buttons().filter((b) => b.className.includes('market-view')).map((b) => b.textContent), MARKET_VIEWS.map(([, l]) => l));
   assert.match(text(), /On the road40 Mithril Ore from Wayrest - 32 minutes/);
-  assert.match(text(), /Mithril Ore x1208 Marks eachheremedian 8\.5/);
+  assert.match(text(), /Mithril Ore x1208 Drakes eachheremedian 8\.5/);
   // AUDIT 30 U18: a row's courier is its pick's (twenty at most); U16: cheapest landed first - Wayrest's 7 and its courier's share under here's 8
-  assert.match(text(), new RegExp(`Mithril Ore x407 Marks eachWayrest \\+${courierFee(20, ROAD)} courier for 20, ${arrivalText(courierSeconds(ROAD), 0)}median 8\\.5Mithril Ore x120`));
+  assert.match(text(), new RegExp(`Mithril Ore x407 Drakes eachWayrest \\+${courierFee(20, ROAD)} courier for 20, ${arrivalText(courierSeconds(ROAD), 0)}median 8\\.5Mithril Ore x120`));
   assert.ok(root.querySelector('.market-line'), 'the median\'s line');
-  assert.match(text(), /The Weavers' counterLinen Bolt2 Marks a bolt/);
-  assert.match(text(), /Your Marks: 1,240 Marks/);
+  assert.match(text(), /The Weavers' counterLinen Bolt2 Drakes a bolt/);
+  assert.match(text(), /Your Drakes: 1,240 Drakes/);
   // picked: "Buy 20 for 140 Marks + C courier?"
   buttons().find((b) => b.textContent.startsWith('Mithril Ore x40')).onclick();
-  assert.match(text(), new RegExp(`Buy 20 Mithril Ore for 140 Marks \\+ ${courierFee(20, ROAD)} courier\\?`));
+  assert.match(text(), new RegExp(`Buy 20 Mithril Ore for 140 Drakes \\+ ${courierFee(20, ROAD)} courier\\?`));
   await buttons().find((b) => b.textContent === 'Buy').onclick();
   assert.deepEqual(calls.at(-1), ['buy', { region: 17, listing: 'B', units: 20, max: 140 + courierFee(20, ROAD), hubs: HUBS }]);
   // Crafted
   await buttons().find((b) => b.textContent === 'Crafted').onclick();
   await new Promise((r) => setTimeout(r, 0));
-  assert.match(text(), /Silverthorn's Mithril LongswordMasterwork · made by Silverthorn · worn to 62%900 Marks/);
+  assert.match(text(), /Silverthorn's Mithril LongswordMasterwork · made by Silverthorn · worn to 62%900 Drakes/);
   // My listings: the fee said, Cancel
   buttons().find((b) => b.textContent === 'My listings').onclick();
   await new Promise((r) => setTimeout(r, 0));
-  assert.match(text(), /Iron Ore - 5 of 10 left3 Marks each/);
-  assert.match(text(), /Listing fee 1 Mark, kept if you cancel\. It stands on the boards of Daggerfall for 72 hours/);
+  assert.match(text(), /Iron Ore - 5 of 10 left3 Drakes each/);
+  assert.match(text(), /Listing fee 1 Drake, kept if you cancel\. It stands on the boards of Daggerfall for 72 hours/);
   await buttons().find((b) => b.textContent === 'Cancel').onclick();
   assert.deepEqual(calls.at(-1)[0], 'cancel');
   // Orders: Fill from the Stores
   buttons().find((b) => b.textContent === 'Orders').onclick();
   await new Promise((r) => setTimeout(r, 0));
-  assert.match(text(), /Mithril Ore140 of 200 wanted at 8 Marks eachmedian 8\.5/);
+  assert.match(text(), /Mithril Ore140 of 200 wanted at 8 Drakes eachmedian 8\.5/);
   await buttons().find((b) => b.textContent.startsWith('Fill 50')).onclick();
   assert.deepEqual(calls.at(-1), ['fill', { region: 17, order: 'O', units: 50, hubs: HUBS }]);
   assert.match(text(), /Post a buy order/);
@@ -248,7 +248,7 @@ test('PROF5 tab: the five views - Materials (cheapest first, here or its region 
   buttons().find((b) => b.textContent === 'History').onclick();
   await new Promise((r) => setTimeout(r, 0));
   assert.match(text(), /Mithril Ore21 sold this weekmedian 10/);
-  assert.match(text(), /Your tradesBought 11 Mithril Ore - 110 Marks paid - just now/, 'AUDIT 30 U15: the Marks the trade moved, and which way');
+  assert.match(text(), /Your tradesBought 11 Mithril Ore - 110 Drakes paid - just now/, 'AUDIT 30 U15: the Drakes the trade moved, and which way');
   assert.equal(medianLineNode([null, 5]), null, 'no line from one day');
 });
 

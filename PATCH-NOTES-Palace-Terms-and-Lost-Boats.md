@@ -5,7 +5,7 @@
 
 ## Boats
 - **A boat deed works in every port town.** It looks for a port all around you now (it used to look mostly west and north), and every harbour the map shows counts. If there is no port near, it tells you the nearest one and which way it lies.
-- **Boats lost before the sea update's fixes are given back.** A Large Boat or Rowboat stood under the ground or on the seabed (you could hear it, but never find it) is packed into its parts in your inventory the next time you come near it. Use the parts to place it again on the water. A crewed ship is left where it is: use its deed at a port to call it.
+- **Boats lost before the sea update's fixes are given back.** A Large Boat or Rowboat stuck under the ground or on the seabed (you could hear it, but never find it) is packed into its parts in your inventory the next time you come near it. Use the parts to place it again on the water. A crewed ship is left where it is: use its deed at a port to call it.
 
 ## Temples
 - **Temple libraries open at the rank the temple promises.** A temple's bookshelves refused every member at every rank. They now let you read from the library rank your deity grants (Curate, rank 4, for Stendarr).

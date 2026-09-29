@@ -206,16 +206,16 @@ export const REFUSALS = Object.freeze({
   receipt: 'That gate\'s receipt was not signed by the gate, or it has run out.',
   'not-yours': 'That gate\'s receipt names another account.',
   // MARKS1: Marks, the server's currency (server-account/src/marks.js)
-  'marks-need-account': 'Marks are kept by registered accounts. Add a username to hold them.',
-  'marks-closed': 'The counting-houses are not striking Marks yet.',
+  'marks-need-account': 'Drakes are kept by registered accounts. Add a username to hold them.',
+  'marks-closed': 'The counting-houses are not striking Drakes yet.',
   'marks-rid': 'That request could not be read. Try again.',
-  'bad-marks': `Marks move 1 to ${MARKS_MOVE_MAX.toLocaleString('en-US')} at a time, and the Bank buys at most ${MARKS_BANK.perDay} a day.`,
-  'marks-short': 'You do not hold that many Marks.',
-  'marks-bank-cap': `The Bank buys at most ${MARKS_BANK.perDay} Marks from you a day.`,
-  'marks-full': `An account holds at most ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
-  'guild-marks-short': 'The treasury does not hold that many Marks.',
-  'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
-  'marks-rate': 'You have moved a great many Marks this hour. Try again later.',
+  'bad-marks': `Drakes move 1 to ${MARKS_MOVE_MAX.toLocaleString('en-US')} at a time, and the Bank buys at most ${MARKS_BANK.perDay} a day.`,
+  'marks-short': 'You do not hold that many Drakes.',
+  'marks-bank-cap': `The Bank buys at most ${MARKS_BANK.perDay} Drakes from you a day.`,
+  'marks-full': `An account holds at most ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
+  'guild-marks-short': 'The treasury does not hold that many Drakes.',
+  'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
+  'marks-rate': 'You have moved a great many Drakes this hour. Try again later.',
   'not-developer': 'Only a developer may do that.',   // MARKS1's report, NOTICE1's notices, CUSTOMS-PASS's grant
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
@@ -271,7 +271,7 @@ export const REFUSALS = Object.freeze({
   'prof-rate': 'You have done a great deal at your crafts this hour. Try again later.',
   // PROF5: the market (server-account/src/market.js)
   'market-closed': 'The market is not open yet.',
-  'bad-price': `A price is 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Marks.`,
+  'bad-price': `A price is 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Drakes.`,
   'bad-units': `A number of units is 1 to ${MARKET_UNITS_MAX.toLocaleString('en-US')} at a time.`,   // AUDIT 31 L6: a listing's, an order's, a writ's, a guild Stores move's
   'bad-provenance': 'Only a crafted piece, with its maker\'s record, lists on the market.',
   'bad-wear': 'That piece could not be weighed for the market.',
@@ -284,7 +284,7 @@ export const REFUSALS = Object.freeze({
   'market-short': 'There are not that many left.',
   'market-no-road': 'The couriers do not know the road there yet.',
   'market-price-moved': 'The market has moved since you looked. Look again.',
-  'market-seller-full': 'The seller cannot hold any more Marks just now.',
+  'market-seller-full': 'The seller cannot hold any more Drakes just now.',
   'market-listings-max': `You have ${MARKET_LISTINGS_MAX} listings up already. Cancel one first.`,
   'market-orders-max': `You have ${MARKET_ORDERS_MAX} buy orders up already. Withdraw one first.`,
   'market-not-yours': 'That piece is not yours to sell: its record names another owner.',
@@ -306,7 +306,7 @@ export const REFUSALS = Object.freeze({
   'auction-bid-standing': 'A bid stands on it, so it cannot be taken back now.',
   // AUDIT 31
   'auction-moved': 'Another bid landed as yours was weighed. The auction has been read again - bid again if you still would.',
-  'bad-bid': `A bid is 1 to ${AUCTION_BID_MAX.toLocaleString('en-US')} Marks.`,
+  'bad-bid': `A bid is 1 to ${AUCTION_BID_MAX.toLocaleString('en-US')} Drakes.`,
   'market-no-record': 'The counting-house has no record of that piece, so it cannot be sold or handed over.',
   'piece-kept': 'The counting-house is still settling another business with that piece. It answers that first.',
   'other-character': 'That was begun by another of your characters. It settles when they next open the board.',
@@ -326,12 +326,12 @@ export const REFUSALS = Object.freeze({
   'guild-stores-short': 'The guild Stores do not hold that many.',
   'guild-stores': 'Empty the guild Stores first.',
   'guild-writs': 'Withdraw the guild\'s writs first.',
-  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the Marks treasury, which is full. Take Marks out of the treasury first.',   // AUDIT 31 A15
+  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the Drake treasury, which is full. Take Drakes out of the treasury first.',   // AUDIT 31 A15
   'writ-own-guild': 'Your guild\'s Officers and Guildmaster take its Stores out, so they do not deliver to its writs.',   // AUDIT 31 S6
   'guild-stores-mine': 'A member takes out only what they put in of their own. The Officers and the Guildmaster take the rest.',   // AUDIT 31 R1
-  'bad-budget': `A writ budget is 0 to ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
+  'bad-budget': `A writ budget is 0 to ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
   'bad-quality': 'Ask a quality from Crude to Masterwork - or none, for a piece that takes none.',
-  'bad-pay': `A commission pays 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Marks.`,
+  'bad-pay': `A commission pays 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Drakes.`,
   'commission-recipe': 'Only a piece the market lists may be commissioned - never arrows or siege works.',
   'commission-crafter': 'There is no crafter by that name.',
   'commission-self': 'You cannot commission yourself.',

@@ -54,7 +54,7 @@ test('PROF6 DONE WHEN (the books): a Guildmaster\'s writ posted and an outsider\
   assert.equal(p.ok, true, JSON.stringify(p));
   const d = await outBook.supply({ region: DF, writ: p.data.writ.id, units: 40 });
   assert.equal(d.ok, true, JSON.stringify(d));
-  assert.deepEqual(told.marks.at(-1), ['Oswin', 120 - saleTax(120)], 'the Marks book told the balance');
+  assert.deepEqual(told.marks.at(-1), ['Oswin', 120 - saleTax(120)], 'the Drakes book told the balance');
   assert.deepEqual(told.stores.at(-1), ['Oswin', { material: OAK, own: 0, bought: 0 }], 'the professions\' book told the Stores');
   assert.equal((await gmBook.guildStores()).ok, true);
   assert.deepEqual(gmBook.state.guildStores.rows, [{ material: OAK, qty: 40, mine: 0 }]);
@@ -209,7 +209,7 @@ test('PROF6 the Work tab: this region\'s guild writs under the guild blue (Deliv
   const cards = byClass(host, 'notice-writ');
   assert.deepEqual(cards.map((c) => c.className.match(/seal-\w+/)[0]), ['seal-guild', 'seal-guild', 'seal-commission', 'seal-commission']);
   assert.match(cards[0].textContent, /Guild writThe Silver Hand \[SH\] needs 280 more Oak Logs/);
-  assert.match(cards[0].textContent, /Pays 3 Marks each - 520 \/ 800 delivered/);
+  assert.match(cards[0].textContent, /Pays 3 Drakes each - 520 \/ 800 delivered/);
   assert.match(cards[0].textContent, /5 days left/);
   assert.match(cards[0].textContent, /50 in your Stores/);
   assert.equal(byClass(cards[1], 'work-withdraw').length, 0, 'another guild\'s: no Withdraw');
@@ -223,11 +223,11 @@ test('PROF6 the Work tab: this region\'s guild writs under the guild blue (Deliv
   await ticks();
   assert.deepEqual(calls.at(-1), ['supply', { region: DF, writ: 'W1', units: 40 }]);
   assert.ok(reads() > before, 'the list read again');
-  assert.match(host.textContent, /Delivered 40 Oak Logs: 114 Marks struck to your account \(6 Marks tax taken\)\./, 'AUDIT 31 U13: never "114 less 6"');
+  assert.match(host.textContent, /Delivered 40 Oak Logs: 114 Drakes struck to your account \(6 Drakes tax taken\)\./, 'AUDIT 31 U13: never "114 less 6"');
   // the commission for me: Fill with the piece picked, and Decline
   const mineCard = byClass(host, 'notice-writ')[2];
   assert.match(mineCard.textContent, /For Silverthorn only: a Mithril Longsword, Fine or better/);
-  assert.match(mineCard.textContent, /Pays 900 Marks - from Ann/);
+  assert.match(mineCard.textContent, /Pays 900 Drakes - from Ann/);
   byClass(mineCard, 'work-fill')[0].click();
   await ticks();
   assert.deepEqual(calls.at(-1), ['fulfil', { region: DF, commission: 'K1', provenance: PV, wear: 1000 }, 'Silverthorn\'s Mithril Longsword']);
@@ -246,9 +246,9 @@ test('PROF6 the Work tab: this region\'s guild writs under the guild blue (Deliv
   assert.deepEqual(calls.at(-1), ['cancel', 'K2']);
   // Yours, every region
   const yours = byClass(host, 'work-yours')[0];
-  assert.match(yours.textContent, /You commissioned Joiner: a Small Oak Table, Standard or better, 60 Marks/);
-  assert.match(yours.textContent, /Wayrest · withdrawn - Marks back/);
-  assert.match(yours.textContent, /The Silver Hand \[SH\]: 50 more Oak Logs, 2 Marks each/);
+  assert.match(yours.textContent, /You commissioned Joiner: a Small Oak Table, Standard or better, 60 Drakes/);
+  assert.match(yours.textContent, /Wayrest · withdrawn - Drakes back/);
+  assert.match(yours.textContent, /The Silver Hand \[SH\]: 50 more Oak Logs, 2 Drakes each/);
   v.unmount();
   // a commission naming me elsewhere: in Yours, filled at its own region's boards (AUDIT 31 U4 - a card is always this
   // region's); no piece of my make: said so
@@ -257,7 +257,7 @@ test('PROF6 the Work tab: this region\'s guild writs under the guild blue (Deliv
   d2.commissions.shift();
   const r2 = workRig({ data: d2, pieces: [] });
   await ticks(); byClass(r2.host, 'notice-tab')[1].click(); await ticks();
-  assert.match(byClass(r2.host, 'work-yours')[0].textContent, /Ann commissioned you: a Mithril Longsword, Fine or better, 900 MarksWayrest · 5 days leftFilled at the boards of Wayrest\./);
+  assert.match(byClass(r2.host, 'work-yours')[0].textContent, /Ann commissioned you: a Mithril Longsword, Fine or better, 900 DrakesWayrest · 5 days leftFilled at the boards of Wayrest\./);
   r2.v.unmount();
   const r3 = workRig({ data: boardData(), pieces: [] });
   await ticks(); byClass(r3.host, 'notice-tab')[1].click(); await ticks();
@@ -278,9 +278,9 @@ test('PROF6 the Work tab\'s forms: an Officer\'s guild writ - the escrow, the pa
   const field = (key) => form().querySelectorAll('input').find((i) => i.getAttribute('data-focus') === key);
   field('writ|units').value = '100'; field('writ|units').oninput();
   field('writ|pay').value = '3'; field('writ|pay').oninput();
-  assert.match(form().textContent, /Holds 300 Marks from the guild's treasury \(it holds 5,000 Marks\)/);
-  assert.match(form().textContent, /At most 3 Marks each - half again the material's worth\./);
-  assert.match(form().textContent, /Your writ budget this week: 380 Marks of 500 Marks left\./);
+  assert.match(form().textContent, /Holds 300 Drakes from the guild's treasury \(it holds 5,000 Drakes\)/);
+  assert.match(form().textContent, /At most 3 Drakes each - half again the material's worth\./);
+  assert.match(form().textContent, /Your writ budget this week: 380 Drakes of 500 Drakes left\./);
   field('writ|units').value = '200'; field('writ|units').oninput();
   assert.equal(byClass(form(), 'work-post')[0].disabled, true, '600 is past the 380 left');
   field('writ|units').value = '100'; field('writ|units').oninput();
@@ -297,7 +297,7 @@ test('PROF6 the Work tab\'s forms: an Officer\'s guild writ - the escrow, the pa
   assert.equal(byClass(form(), 'work-post')[0].disabled, true, 'no crafter, no commission');
   who.value = 'Silverthorn'; who.oninput();
   field('comm|pay').value = '900'; field('comm|pay').oninput();
-  assert.match(form().textContent, /the crafter receives it less 45 Marks tax/);
+  assert.match(form().textContent, /the crafter receives it less 45 Drakes tax/);
   byClass(form(), 'work-post')[0].click();
   await ticks();
   assert.deepEqual(calls.at(-1), ['commission', { region: DF, crafter: 'Silverthorn', recipe: 'dagger:iron', quality: 2, pay: 900 }]);
@@ -383,7 +383,7 @@ test('PROF6 the Guild tab: the guild Stores read once, each material\'s count an
   await ticks();
   assert.deepEqual(calls.at(-1), ['withdraw', OAK, 10]);
   panel.render();
-  const budget = byClass(panel.root, 'dfsocial-field').find((f) => f.getAttribute('aria-label') === 'Marks a week');
+  const budget = byClass(panel.root, 'dfsocial-field').find((f) => f.getAttribute('aria-label') === 'Drakes a week');
   budget.value = '750'; budget.dispatch('input', {});
   btn('Set').click();
   await ticks();

@@ -154,19 +154,19 @@ test('PROF5b tab: Auctions - each Masterwork\'s standing bid, bids and end, wher
   buttons().find((b) => b.textContent === 'Auctions').onclick();
   await tick();
   const text = () => root.textContent;
-  assert.match(text(), /Silverthorn's Mithril LongswordMasterwork · made by Silverthorn · worn to 90%opening 500 Marks - no bids yethere · ends in 2 hours/);
-  assert.match(text(), /300 Marks \(3 bids\)Wayrest \+17 courier, \d+ minutes · ends in 25 hoursyour bid leads/);
+  assert.match(text(), /Silverthorn's Mithril LongswordMasterwork · made by Silverthorn · worn to 90%opening 500 Drakes - no bids yethere · ends in 2 hours/);
+  assert.match(text(), /300 Drakes \(3 bids\)Wayrest \+17 courier, \d+ minutes · ends in 25 hoursyour bid leads/);
   // the first: Bid at the next, a typed amount pressed with no redraw
   buttons().find((b) => b.textContent.includes('no bids yet')).onclick();
-  assert.match(text(), /Bid 500 Marks\? At least 500 Marks\./);
+  assert.match(text(), /Bid 500 Drakes\? At least 500 Drakes\./);
   const n = [...root.querySelectorAll('input')].find((i) => i.getAttribute('data-focus') === 'bid|A');
   const before = redraws;
   n.value = '640'; n.oninput();
   assert.equal(redraws, before);
-  assert.match(text(), /Bid 640 Marks\?/);
+  assert.match(text(), /Bid 640 Drakes\?/);
   await buttons().find((b) => b.textContent === 'Bid').onclick();
   assert.deepEqual(calls.at(-1), ['bid', { region: DF, auction: 'A', amount: 640, hubs: {} }]);
-  assert.match(words.at(-1), /Your bid of 640 Marks leads/);
+  assert.match(words.at(-1), /Your bid of 640 Drakes leads/);
   // another bid came first: its word, and the view read again at once - the new next on the row
   book.bid = async (req) => { calls.push(['bid', req]); return { ok: false, error: 'auction-low' }; };
   data.auctions.rows[0] = { ...data.auctions.rows[0], high: 520, bids: 1, next: 546 };
@@ -176,13 +176,13 @@ test('PROF5b tab: Auctions - each Masterwork\'s standing bid, bids and end, wher
   await tick();
   assert.equal(reads.length, readsBefore + 1, 'read again');
   assert.match(words.at(-1), /Another bid came first\. The next bid is higher now\./);
-  assert.match(text(), /520 Marks \(1 bid\)/);
+  assert.match(text(), /520 Drakes \(1 bid\)/);
   book.bid = async (req) => { calls.push(['bid', req]); return { ok: true, data: {} }; };
   // the leader's word; the seller's Cancel while no bid stands
   buttons().find((b) => b.textContent.includes('your bid leads')).onclick();
-  assert.match(text(), /Your bid of 300 Marks leads\. It is held until you are outbid or the auction ends\./);
+  assert.match(text(), /Your bid of 300 Drakes leads\. It is held until you are outbid or the auction ends\./);
   assert.equal(buttons().some((b) => b.textContent === 'Bid'), false);
-  buttons().find((b) => b.textContent.includes('opening 50 Marks')).onclick();
+  buttons().find((b) => b.textContent.includes('opening 50 Drakes')).onclick();
   await buttons().find((b) => b.textContent === 'Cancel').onclick();
   assert.deepEqual(calls.at(-1), ['cancel', 'C']);
   // My listings: the auction form offers the Masterwork alone; the auctions and the bids
@@ -196,11 +196,11 @@ test('PROF5b tab: Auctions - each Masterwork\'s standing bid, bids and end, wher
   await buttons().find((b) => b.textContent === 'List').onclick();
   assert.deepEqual(calls.at(-1)[0], 'auction');
   assert.equal(calls.at(-1)[1].provenance, PV);
-  assert.match(text(), /Your auctionsSilverthorn's Mithril Longswordopening 50 Marks - no bids yetends in 10 minutes/);
-  assert.match(text(), /900 Marks \(4 bids\)sold for 900 Marks/);
-  assert.match(text(), /Your bidsSilverthorn's Mithril Longsword - 300 Marks \+ 17 courier - leading - ends in 25 hours/);
-  assert.match(text(), /80 Marks - outbid - your Marks come back at the next look/);   // AUDIT 31 U13
-  assert.match(text(), /Your Marks: 1,000 Marks \(397 Marks held in bids\)/);
+  assert.match(text(), /Your auctionsSilverthorn's Mithril Longswordopening 50 Drakes - no bids yetends in 10 minutes/);
+  assert.match(text(), /900 Drakes \(4 bids\)sold for 900 Drakes/);
+  assert.match(text(), /Your bidsSilverthorn's Mithril Longsword - 300 Drakes \+ 17 courier - leading - ends in 25 hours/);
+  assert.match(text(), /80 Drakes - outbid - your Drakes come back at the next look/);   // AUDIT 31 U13
+  assert.match(text(), /Your Drakes: 1,000 Drakes \(397 Drakes held in bids\)/);
 });
 
 test('PROF5b wiring: the two routes behind a session and in the Worker\'s table, their refusals\' statuses; the door\'s two calls; the auction row dressed', () => {

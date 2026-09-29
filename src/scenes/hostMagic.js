@@ -336,7 +336,16 @@ export function createPlayerMagic({
   // landing that dropped the Soul Trap line and the Calm/Charm flag.
   function applySpellToFoe(spell, casterLevel, foe, caster = null, ctx = undefined, sinks = foeSinks(foe, !caster || caster.entity === playerEntity)) {   // AUDIT WORLD2 B7: a foe's spell is not the player's blow (AUDIT 68 X4: every host's sinks read the second arg)
     const r = applySpell(spell, casterLevel, foe.entity, sinks, rolls, caster, ctx);
-    if (r.trapAlert) say(SOUL_TRAP_TEXT[r.trapAlert]);
+    // STRIKE-SHARED (2026-09-29): ANOTHER PLAYER'S strike spell, landed here on the foe I own (`ctx.peerCaster` its id).
+    // The trap's line is its caster's and not mine to speak, and a new trap is marked with whose it is - its soul goes
+    // to that caster's pack, never mine (mysticism.js peerSoulTrapOf). An incumbent trap keeps its own caster, as it
+    // keeps its own chance (AddState stacks rounds alone).
+    const peerCaster = typeof ctx?.peerCaster === 'string' ? ctx.peerCaster : null;
+    if (r.trapAlert && !peerCaster) say(SOUL_TRAP_TEXT[r.trapAlert]);
+    if (peerCaster && r.trapAlert === 'trapActive') {
+      const trap = (foe.entity.activeEffects ?? []).find((a) => a.kind === 'soulTrap' && !a.ended);
+      if (trap) trap.by = peerCaster;
+    }
     // X8: PACIFY / CHARM. The effect answers whether the target was
     // pacified; the AI flag lives on the foe RECORD rather than the
     // entity, so this door - the one place that holds both - is where
@@ -352,7 +361,7 @@ export function createPlayerMagic({
     // `casterEffectManager.AssignBundle(sourceBundle)`: the seam that
     // holds both parties, which is why the re-target lives here and
     // not inside the effect module.
-    if (r.reflected && caster?.entity) {
+    if (r.reflected && caster?.entity && !peerCaster) {   // STRIKE-SHARED: a peer's caster is not in this world - its stand-in has no body to take the bundle back
       const back = { ...(ctx ?? {}), reflectedCount: 1 };
       if (caster.entity === playerEntity) applySpellToPlayer(spell, casterLevel, caster, back);
       else applySpell(spell, casterLevel, caster.entity, caster.sinks ?? {}, rolls, caster, back);
