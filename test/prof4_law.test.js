@@ -96,9 +96,9 @@ test('PROF4 law: the forge burns a log to a Charcoal (a Charcoal Burner two) and
   assert.deepEqual([WORKBENCH_FEE, FORGE_FEE], [50, 50]);
   assert.deepEqual(FURNISHER_STOCK.map((x) => [x.key, x.marks, x.counter]), [['cloth:linen', 2, 'furnisher']]);
   assert.ok(SMITH_STOCK.every((x) => x.counter === 'smith'));
-  assert.deepEqual(STOCKS.map((x) => x.key), ['leather:cured', 'plank:oak', 'plank:pine', 'wood:charcoal', 'cloth:linen']);
+  assert.deepEqual(STOCKS.map((x) => x.key), ['leather:cured', 'plank:oak', 'plank:pine', 'wood:charcoal', 'cloth:linen', 'cloth:linen', 'cloth:wool']);   // PROF5: the Weavers' counter's two after them
   assert.equal(stockOf('cloth:linen').counter, 'furnisher');
-  assert.deepEqual([...NO_PACK_FORM], ['leather:cured', 'hide:bear', 'cloth:linen']);
+  assert.deepEqual([...NO_PACK_FORM], ['leather:cured', 'hide:bear', 'cloth:linen', 'cloth:wool']);   // PROF5: Wool Bolt beside the Linen
   assert.deepEqual(['leather:cured', 'cloth:linen', 'hide:bear', 'plank:oak', 'log:teak', 'wood:charcoal', 'ingot:iron'].map(withdrawable), [false, false, false, true, true, true, true]);
 });
 

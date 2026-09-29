@@ -175,8 +175,8 @@
   {
     "name": "PROF4-linen-withdrawn",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen']);",
-    "new": "export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear']);",
+    "old": "export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen', 'cloth:wool']);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:wool']);",
     "tests": [
       "test/prof4_law.test.js",
       "test/prof4_service.test.js"

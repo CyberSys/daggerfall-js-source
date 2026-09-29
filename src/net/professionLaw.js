@@ -385,6 +385,9 @@ export const WOOD_TEMPLATES = Object.freeze([...LOGS, ...PLANKS, CHARCOAL, RESIN
  *  PROF7. Linen (4.5: 668, tier 1) - never gathered: the furnisher's stock sells it until the Weavers' counter stands. */
 export const BEAR_HIDE = made('hide:bear', 'hides', 2, 657, 'Bear Hide', null, null);
 export const LINEN = made('cloth:linen', 'hides', 1, 668, 'Linen Bolt', null, null);
+/** PROF5 (PROF0 26): Wool Bolt (4.5: 669, tier 2 - 9.3's cloth steps, Linen 1, Wool 2) - never gathered: the Weavers'
+ *  counter sells it. */
+export const WOOL = made('cloth:wool', 'hides', 2, 669, 'Wool Bolt', null, null);
 
 // ─── THE SMITH'S STOCK (PROF0 24) ────────────────────────────────────
 
@@ -402,20 +405,27 @@ export const SMITH_STOCK = Object.freeze([CURED_LEATHER, OAK_PLANK, PINE_PLANK, 
 /** PROF4 (PROF0 25): the furnisher's stock - a Furniture Store's counter, the bed's Linen (4.5's 2 Marks) until the
  *  Weavers' counter stands on the Market tab (PROF5). */
 export const FURNISHER_STOCK = Object.freeze([LINEN].map(stock('furnisher')));
+/** PROF5 (PROF0 26): the Weavers' counter on the Market tab (4.5) - Linen Bolt 2 and Wool Bolt 3 Marks a bolt, 4.5's own
+ *  prices (twice the value would make Wool 4). Linen at the furnisher's stock the same 2, so the counters never part. */
+export const WEAVERS_STOCK = Object.freeze([
+  Object.freeze({ key: LINEN.key, marks: 2, counter: 'weavers' }), Object.freeze({ key: WOOL.key, marks: 3, counter: 'weavers' }),
+]);
 /** Every counter's goods. The service cannot see a counter (as it cannot see the forge): it sells any of them wherever
  *  it is asked, and the client asks at the counter's shop - a lie buys the same goods at the same price. */
-export const STOCKS = Object.freeze([...SMITH_STOCK, ...FURNISHER_STOCK]);
+export const STOCKS = Object.freeze([...SMITH_STOCK, ...FURNISHER_STOCK, ...WEAVERS_STOCK]);
 export const stockOf = (key) => STOCKS.find((s) => s.key === key) ?? null;
 /** Units a purchase, at most. */
 export const STOCK_MAX = 100;
 /** The materials with no pack form yet: Hunting's Cured Leather and Bear Hide (PROF7) and the Weavers' Linen
- *  (Outfitting's) - PROF4 registered the planks' and Charcoal's templates, so they withdraw now. */
-export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen']);
+ *  (Outfitting's), and PROF5's Wool beside it - PROF4 registered the planks' and Charcoal's templates, so they withdraw now. */
+export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen', 'cloth:wool']);
 /** Whether the Stores may give a material to the pack. */
 export const withdrawable = (key) => !NO_PACK_FORM.includes(key);
-const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, ...WOOD_TEMPLATES, CURED_LEATHER, BEAR_HIDE, LINEN].map((m) => [m.key, m]));
+const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, ...WOOD_TEMPLATES, CURED_LEATHER, BEAR_HIDE, LINEN, WOOL].map((m) => [m.key, m]));
 /** A mined (or smelted) material's row, or null. */
 export const minedMaterial = (key) => MINED.get(key) ?? null;
+/** PROF5: every registered material's key, in the registry's order - the market's catalogue beside the herbs and foods. */
+export const MINED_KEYS = Object.freeze([...MINED.keys()]);
 
 /**
  * A material's standing: `{ key, family, tier, value, group?, templateIndex? }`, or null for a key the Stores never

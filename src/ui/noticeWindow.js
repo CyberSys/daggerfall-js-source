@@ -18,6 +18,10 @@
 // 21, 22: a Court writ is filled whole by the first to deliver, so taking it is delivering it); under them "Court writs
 // today: 1 of 3". Shown only while the professions are this account's (`work`, the host's).
 //
+// PROF5 (2026-09-29, Mac: "Continue"): THE MARKET TAB beside them (ui/marketTab.js) - the Bay's listings, the region's
+// buy orders, this account's own and the History - shown while the market is this account's (`market`, the host's: the
+// board, the professions and the Marks all open to it). Its region is handed to it on its own, not through Work's.
+//
 // THE HOUSE'S SHAPE, as the bounty board's (ui/bountyWindow.js) and the Broker's before it: a lazy chunk the door
 // (ui/noticeDoor.js) mounts in its own host - `mountNoticeBoard(host, deps)` answers `{ repaint, unmount }` - the back
 // key and a tap on the scrim leave through the door's own close. On the classic skins the window lays its own sheet,
@@ -35,6 +39,7 @@ import {
   BOUNTY_BOARD_LINE, noteIsNew,
 } from '../net/boardLaw.js';
 import { accountRefusalText } from '../net/accountClient.js';   // PROF1: a writ's refusal, in words
+import { createMarketTab } from './marketTab.js';   // PROF5: the Market tab
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {
@@ -106,8 +111,10 @@ function injectSkin(doc = document) {
  *   onExit?: (() => void) | null,
  *   work?: ({ book: any, region: number, regionName: string, countName: (key: string, n: number) => string,
  *     onTaken?: (r: any) => (string|void) } | null),
+ *   market?: (any | null),
  * }} deps `work` - PROF1's Court writs for the board's region (net/profBook.js), or null where the professions are not
- *   this account's
+ *   this account's; `market` - PROF5's Market tab's host (ui/marketTab.js createMarketTab's `m`), or null where the
+ *   market is not
  */
 export function mountNoticeBoard(host, deps) {
   const exit = () => deps.onExit?.();
@@ -124,10 +131,29 @@ export function mountNoticeBoard(host, deps) {
   host.append(shell);
 
   let view = 'board';   // 'board' | 'read' | 'pin' | 'notice'
-  let tab = 'notices';  // PROF1: 'notices' | 'work'
+  let tab = 'notices';  // PROF1: 'notices' | 'work'; PROF5: 'market'
   let writs = null, writsError = null, writsStale = false, writsBusy = false;   // PROF1: the Work tab's list
   const work = deps.work ?? null;
   const workShown = () => !!work && work.book?.state?.open === true;
+  // PROF5: the Market tab - its own state and views, the window's one-at-a-time door and its status line
+  const marketHost = deps.market ?? null;
+  const marketShown = () => !!marketHost && marketHost.book?.state?.open !== false;
+  const market = marketHost ? createMarketTab(marketHost, {
+    busy: () => busy,
+    run: async (start) => {
+      if (busy) return;
+      busy = true; render();
+      const r = await start();
+      if (!alive) return;
+      busy = false;
+      word = { ok: !!r?.ok, text: r?.text ?? '' };
+      render();
+    },
+    rerender: () => render(),
+    nowS,
+    alive: () => alive,
+  }) : null;
+  let marketOpened = false;
   let reading = null;   // the card read large
   let word = null;      // { ok, text } - the status line
   let board = null, stale = false, error = null, busy = false;
@@ -137,7 +163,7 @@ export function mountNoticeBoard(host, deps) {
   const draft = deps.book.draft?.(map) ?? { subject: '', body: '', days: NOTE_DAYS[NOTE_DAYS.length - 1], button: '' };
   const noticeDraft = deps.book.noticeDraft?.() ?? { subject: '', body: '', days: 3 };
 
-  const back = () => { if (tab === 'work' || view === 'board') exit(); else { view = 'board'; reading = null; render(); } };
+  const back = () => { if (tab === 'work' || tab === 'market' || view === 'board') exit(); else { view = 'board'; reading = null; render(); } };
   const onKey = (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (isTextEntryTarget(e.target) && e.key !== 'Escape') return;   // a field's keys are the field's
@@ -183,7 +209,7 @@ export function mountNoticeBoard(host, deps) {
     line.setAttribute('aria-live', 'polite');
     title.append(line);
     const acts = el('div', 'notice-headacts');
-    if (tab === 'work') {
+    if (tab === 'work' || tab === 'market') {
       acts.append(button('notice-close', 'Close', exit));
       head.append(title, acts);
       return [head, tabsNode()];
@@ -195,17 +221,24 @@ export function mountNoticeBoard(host, deps) {
     return [head, tabsNode()];
   }
 
-  /** The tabs: Notices alone, or Notices and Work while the professions are this account's (PROF1). */
+  /** The tabs: Notices alone, or Notices and Work while the professions are this account's (PROF1), and Market while
+   *  the market is (PROF5). */
   function tabsNode() {
     const tabs = el('nav', 'notice-tabs');
-    const shown = workShown() ? [['notices', 'Notices'], ['work', 'Work']] : [['notices', 'Notices']];
-    if (!workShown()) tab = 'notices';
+    const shown = [['notices', 'Notices'], ...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : [])];
+    if (!shown.some(([id]) => id === tab)) tab = 'notices';
     for (const [id, label] of shown) {
       const t = el(shown.length > 1 ? 'button' : 'span', `notice-tab${tab === id ? ' on' : ''}`, label);
       if (tab === id) t.setAttribute('aria-current', 'page');
       if (shown.length > 1) {
         t.setAttribute('type', 'button');
-        t.onclick = () => { if (tab === id) return; tab = id; word = null; if (id === 'work' && !writs && !writsBusy) loadWrits(false); render(); };
+        t.onclick = () => {
+          if (tab === id) return;
+          tab = id; word = null;
+          if (id === 'work' && !writs && !writsBusy) loadWrits(false);
+          if (id === 'market' && market && !marketOpened) { marketOpened = true; market.open(); }
+          render();
+        };
       }
       tabs.append(t);
     }
@@ -418,6 +451,7 @@ export function mountNoticeBoard(host, deps) {
     win.replaceChildren();
     win.append(...header());
     if (tab === 'work' && workShown()) { win.append(workBody()); return; }
+    if (tab === 'market' && market && marketShown()) { win.append(market.body()); return; }
     win.append(view === 'read' && reading ? readBody() : view === 'pin' ? pinBody() : view === 'notice' ? noticeBody() : boardBody());
   }
 

@@ -1012,6 +1012,42 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
   font-family: ${PIXEL_STACK}; font-size: calc(18px * var(--hud-scale, 1)); letter-spacing: 0.12em; text-transform: uppercase; color: #f3cf86;
   background: rgba(10,8,6,0.82); border: 2px solid var(--brass, #c08a3e); text-shadow: 2px 2px 0 #050608; }
 .prof-banner:empty { display: none; }
+/* PROF5 (FOUND): PROF4's plane was drawn undressed - an SVG polyline with no rule fills black and strokes nothing */
+.prof-plane { display: flex; flex-direction: column; gap: 6px; }
+.prof-board { position: relative; height: 96px; touch-action: none; cursor: crosshair; background: linear-gradient(#8a6a44, #6f5233);
+  box-shadow: inset 0 0 0 2px #050608, inset 0 0 12px rgba(5,6,8,0.5); }
+.prof-board svg { display: block; width: 100%; height: 100%; }
+.prof-grain { fill: none; stroke: #3b2a18; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.prof-trail { fill: none; stroke: #f3cf86; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.prof-boardhead { fill: rgba(239,224,184,0.22); stroke: none; }
+/* ── PROF5: THE MARKET TAB ── */
+.market-body { display: flex; flex-direction: column; gap: 8px; }
+.market-views, .market-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.market-search { flex: 1 1 140px; min-width: 0; }
+.market-num { width: 5.5em; }
+.market-rows, .market-list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.market-row { display: grid; grid-template-columns: minmax(0, 1.6fr) auto minmax(0, 1.4fr) auto 60px; gap: 2px 10px; align-items: center;
+  padding: 5px 8px; text-align: left; font: inherit; font-size: 12px; color: var(--bone, #e9e4d9); background: rgba(10,8,6,0.55);
+  border: 1px solid rgba(192,138,62,0.25); cursor: pointer; }
+.market-row.on { border-color: var(--brass, #c08a3e); background: rgba(192,138,62,0.16); }
+.market-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.market-price { color: #f3cf86; white-space: nowrap; }
+.market-where, .market-quality, .market-units, .market-state { color: #b9ab93; font-size: 11px; }
+.market-median { color: #cdbd9f; font-size: 11px; white-space: nowrap; }
+.market-mine, .market-mod { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe0b8; }
+.market-line { width: 60px; height: 16px; }
+.market-line polyline { fill: none; stroke: #f3cf86; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.market-bar, .market-counterrow, .market-order, .market-listing, .market-histrow { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center;
+  padding: 5px 8px; font-size: 12px; color: var(--bone, #e9e4d9); background: rgba(10,8,6,0.4); border-left: 2px solid var(--brass, #c08a3e); }
+.market-ask { flex: 1 1 200px; }
+.market-road, .market-counter, .market-listform, .market-orderform { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center;
+  padding: 6px 10px; background: rgba(10,8,6,0.5); border: 1px solid rgba(192,138,62,0.3); color: var(--bone, #e9e4d9); font-size: 12px; }
+.market-road h4, .market-counter h4, .market-listform h4, .market-orderform h4, .market-body > h4, .market-mine-view h4, .market-history h4 {
+  flex: 1 1 100%; margin: 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #efe0b8; }
+.market-roadline { flex: 1 1 100%; margin: 0; }
+.market-listing.state-sold, .market-listing.state-cancelled, .market-listing.state-expired, .market-listing.state-removed { opacity: 0.62; }
+.market-foot { margin: 4px 0 0; font-size: 12px; letter-spacing: 0.08em; color: #e6dccb; text-shadow: 1px 1px 0 #050608; }
+@media (max-width: 640px) { .market-row { grid-template-columns: minmax(0, 1fr) auto; } .market-line { display: none; } }
 @media (prefers-reduced-motion: reduce) { .prof-glint { animation: none; } .prof-toast { transition: none; } }`;
 export const ITEM_FRAME_CSS = `
 /* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */

@@ -380,7 +380,8 @@ export function createGatherHost(deps) {
       // read (AUDIT 29 C4: once a session, a withdrawal kept mid-session waited for a reload)
       if (book.stale() && now >= refreshAt) {
         refreshAt = now + 30_000;
-        book.refresh().then((r) => { if (r?.ok) { refreshAt = 0; restandAll(); if (book.pendingWithdrawals) deps.onSettle?.(); } }, () => {});
+        // PROF5 (FOUND): a kept craft settles too, not only beside a kept withdrawal
+        book.refresh().then((r) => { if (r?.ok) { refreshAt = 0; restandAll(); if (book.pendingWithdrawals || book.pendingCrafts) deps.onSettle?.(); } }, () => {});
       }
       const d = utcDayOfMs(now);
       if (d !== day) { day = d; restandAll(); }

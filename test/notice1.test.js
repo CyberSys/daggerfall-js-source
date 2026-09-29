@@ -134,9 +134,9 @@ test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHE
   for (const r of ['/v1/board/read', '/v1/board/pin', '/v1/board/take-down', '/v1/board/report', '/v1/board/mod/remove', '/v1/board/mod/restore', '/v1/board/notice', '/v1/board/notice/remove']) {
     assert.ok(ROUTES.has(r), r);
   }
-  assert.equal(ACCOUNT_VERSION, 'acct24');   // the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that
+  assert.equal(ACCOUNT_VERSION, 'acct25');   // the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that, PROF5 after that
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /^ACCOUNT_VERSION = "acct24"$/m);
+  assert.match(toml, /^ACCOUNT_VERSION = "acct25"$/m);
   assert.match(toml, /^BOARD_OPEN = "dev"$/m, 'the board ships at dev');
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/boardLaw\.js"/, 'the law the Worker bundles deploys it');
 });

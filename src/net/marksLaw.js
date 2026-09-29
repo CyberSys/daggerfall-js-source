@@ -63,6 +63,13 @@ export const MARKS_KINDS = Object.freeze({
   writ: 'mint',               // PROF1: a Court writ filled from the Stores - an act the service witnessed (it took the units)
   respec: 'burn',             // PROF1: a specialisation changed (PROF0 3.3: 1,000 Marks)
   stock: 'burn',              // PROF3: the smith's stock - the fittings no profession yields yet, bought into the Stores (PROF0 24)
+  'market-fee': 'burn',       // PROF5: a listing's fee, 1% of its worth, at least 1 (PROF0 10.4)
+  'market-tax': 'burn',       // PROF5: a sale's tax, 5% of it - the seller's, from the proceeds
+  courier: 'burn',            // PROF5: a courier's fee, the buyer's, on top of the price
+  'market-sale': 'move',      // PROF5: a sale's proceeds, the buyer's balance into the seller's
+  'order-escrow': 'move',     // PROF5: a buy order's Marks, held while it stands (the ledger's `escrow` end, the order's id)
+  'order-fill': 'move',       // PROF5: a fill's pay, out of the order's escrow into the filler's balance
+  'order-return': 'move',     // PROF5: what is left of an order's escrow, back to its poster at a cancel or its seventh day
 });
 
 /** The switch the service's config holds (MARKS_OPEN): off, dev (the developers alone), on. */

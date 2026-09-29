@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6717` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6774` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11022,3 +11022,27 @@ Ledger A departure (`Port-Ledger.md` section A, LOGGING, CARPENTRY AND THE FURNI
 - **FOUND and fixed:** PROF3 left Smithing unpractised on the Professions page - its specialisation cards locked.
 - **Pinned:** `test/prof4_law.test.js`, `test/prof4_service.test.js`, `test/prof4_client.test.js`;
   `tools/mutants/prof4.json` (87: 86 dead, one recorded equivalent).
+
+## PROF5 (2026-09-29, Mac: "Continue") - The Market: listings, regional markets, couriers, buy orders and history
+
+The record is `06-Systems/Professions-Arc.md` 10.2-10.5 and 26; this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, THE MARKET).
+
+- **The service** is `acct25`, its tables `0025_market.sql`: the listings, the sales (a purchase's row and its courier),
+  the deliveries (a piece on its way to a pack), the buy orders and their fills, the prices' day table and the reports;
+  and three rebuilds - the Marks ledger admits an `escrow` end (an order's Marks held, its id the order's, no balance
+  moved by trigger), the witness admits the kind `hub` (a region's hub town's map pixel, the courier's road), and
+  `products` no longer cascades with its owner's account. `/v1/market/*` decides every act by one statement keyed on its
+  nonce; nothing runs on a clock - an expired listing or order and a courier's arrival are settled on their owner's next
+  read, one row a batch.
+- **Open where the board, the professions and the Marks all are** - no switch of its own. The board's region is the
+  client's word (as a Court writ's and a home's are); what a lie buys is a fast travel's worth, since the Stores are
+  the character's in every town.
+- **A crafted piece changes hands**: listed only by the account its product row names, once (a unique index on the
+  open listings' ids), its wear carried; the sale moves the owner in its own batch; the buyer's piece is minted from its
+  record at that wear, here on the answer, by courier when collected.
+- **The Marks book is told** every balance a market or stock answer carries (FOUND: the smith's stock never told it).
+- **FOUND and fixed:** a kept craft settled only beside a kept withdrawal; PROF4's plane board had no CSS; the
+  `products` cascade against "forever".
+- **Pinned:** `test/prof5_law.test.js`, `test/prof5_service.test.js`, `test/prof5_client.test.js`;
+  `tools/mutants/prof5.json` (109: 106 dead, three recorded equivalent).

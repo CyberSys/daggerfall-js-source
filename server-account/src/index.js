@@ -143,6 +143,7 @@ import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './de
 import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
 import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, smeltAtForge, craftAtAnvil, buyStock, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions; PROF2: the forge; PROF3: the anvil and the smith's stock
+import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove } from './market.js';   // PROF5: the market
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -203,6 +204,18 @@ const PROF_STATUS = Object.freeze({
   'prof-later': 409,   // PROF4: a recipe whose slice is to come - the Ram Kit (PROF0 25)
   'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
   'prof-rate': 429,
+});
+/** PROF5: each market refusal's status - not this account's (a guest, the switches, a moderator's act) 403, no such
+ *  listing, order or delivery 404, a conflict with what stands (the Marks, the Stores, the units, the road, the price
+ *  moved, one's own goods) 409, the hour's acts spent 429, a bad shape 400 (the default). */
+const MARKET_STATUS = Object.freeze({
+  'prof-need-account': 403, 'market-closed': 403, 'not-moderator': 403,
+  'market-gone': 404,
+  'marks-short': 409, 'marks-full': 409, 'stores-full': 409, 'stores-short': 409, 'market-own': 409, 'market-short': 409,
+  'market-no-road': 409, 'market-price-moved': 409, 'market-seller-full': 409, 'market-listings-max': 409, 'market-orders-max': 409,
+  'market-not-yours': 409, 'market-listed': 409, 'market-order-full': 409, 'market-elsewhere': 409, 'market-other-character': 409,
+  'market-on-road': 409,
+  'market-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
  *  character's guild now, `{}` for none - becomes `order`, which the actor's own client carries to the rooms it is in;
@@ -674,6 +687,29 @@ export default {
           return json({ ...r, order: key ? await mintRenownOrder({ s: who.player.id, lv: r.renown.level }, key, { subtle, nowS }) : null }, 200, origin);
         }
         return json(r, 200, origin);
+      }
+
+      // ═══ PROF5: THE MARKET ══════════════════════════════════════════
+      //
+      // A registered account's, and the board's, the professions' and the Marks' switches together (market.js asks
+      // each first); a moderator's removal. Every act carries its request id, and one asked twice is one.
+      if (path.startsWith('/v1/market/')) {
+        if (request.method !== 'POST') return no('method', 405, origin);
+        const act = {
+          '/v1/market/read': () => marketRead(ctx, who.player, env, body),
+          '/v1/market/list': () => marketList(ctx, who.player, env, body),
+          '/v1/market/buy': () => marketBuy(ctx, who.player, env, body),
+          '/v1/market/cancel': () => marketCancel(ctx, who.player, env, body),
+          '/v1/market/order': () => marketOrder(ctx, who.player, env, body),
+          '/v1/market/fill': () => marketFill(ctx, who.player, env, body),
+          '/v1/market/unorder': () => marketUnorder(ctx, who.player, env, body),
+          '/v1/market/collect': () => marketCollect(ctx, who.player, env, body),
+          '/v1/market/report': () => marketReport(ctx, who.player, env, body),
+          '/v1/market/remove': () => marketRemove(ctx, who.player, env, body),
+        }[path];
+        if (!act) return no('not-found', 404, origin);
+        const r = await act();
+        return 'error' in r ? no(r.error, MARKET_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
       }
 
       if (path === '/v1/account/title' && request.method === 'POST') {

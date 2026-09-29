@@ -60,6 +60,7 @@ on:
       - "src/net/kingdomLaw.js"
       - "src/net/recipeLaw.js"
       - "src/net/productRecord.js"
+      - "src/net/marketLaw.js"
       - "src/net/gateLaw.js"
       - "src/formats/mapsTables.js"
       - "src/systems/foragingCore.js"

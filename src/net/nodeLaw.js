@@ -488,12 +488,14 @@ export function parseReport(s) {
  * WHAT THE WITNESSES SAY a pixel is: `rows` its reports (`{ account, report, at }`, one an account). The first answer
  * three accounts give is CONFIRMED, and stands; another answer two accounts give after it makes the pixel DISPUTED,
  * the confirmed answer still standing (SEAT0 3.2's one dispute rule). Unconfirmed, the answer most give (the earliest
- * on a tie) is what the pixel is taken to be, at the least its kind allows. `none` with no report.
+ * on a tie) is what the pixel is taken to be, at the least its kind allows. `none` with no report. PROF5: `parse`
+ * reads another kind's report - a hub's pixel (marketLaw.js parseHubReport) - by the same law.
  * @param {Array<{ account: string, report: string, at: number }>} rows
- * @returns {{ state: 'none'|'unconfirmed'|'confirmed'|'disputed', climate: number|null, region: number|null }}
+ * @param {(report: string) => object|null} [parse]
+ * @returns {{ state: 'none'|'unconfirmed'|'confirmed'|'disputed', climate?: number|null, region?: number|null, x?: number, y?: number }}
  */
-export function witnessedFact(rows) {
-  const sorted = [...(rows ?? [])].filter((r) => parseReport(r?.report)).sort((a, b) => (a.at - b.at) || (a.account < b.account ? -1 : a.account > b.account ? 1 : 0));
+export function witnessedFact(rows, parse = parseReport) {
+  const sorted = [...(rows ?? [])].filter((r) => parse(r?.report)).sort((a, b) => (a.at - b.at) || (a.account < b.account ? -1 : a.account > b.account ? 1 : 0));
   if (!sorted.length) return { state: 'none', climate: null, region: null };
   const byReport = new Map();
   /** AUDIT 29 A9: the other answers given AFTER the confirmation - a dissent before it is no dispute of it */
@@ -512,10 +514,10 @@ export function witnessedFact(rows) {
       if (seen.size >= WITNESS.dispute) disputed = true;
     }
   }
-  if (confirmed) return { state: disputed ? 'disputed' : 'confirmed', ...parseReport(confirmed) };
+  if (confirmed) return { state: disputed ? 'disputed' : 'confirmed', ...parse(confirmed) };
   let best = null, bestN = 0;
   for (const [report, seen] of byReport) if (seen.size > bestN) { best = report; bestN = seen.size; }
-  return { state: 'unconfirmed', ...parseReport(best) };
+  return { state: 'unconfirmed', ...parse(best) };
 }
 /** A confirmed answer stands for a disputed pixel too. */
 export const factConfirmed = (fact) => fact?.state === 'confirmed' || fact?.state === 'disputed';

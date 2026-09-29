@@ -13,6 +13,13 @@
 One line per arc, newest first within each group. Each entry names its own
 page; the page is the record, this is the way in.
 
+- `06-Systems/Professions-Arc.md` 26 (PROF5) - 2026-09-29, Mac ("Continue"): THE MARKET, SHIPPED on the branch behind the
+  board's, the professions' and the Marks' switches together: the Notice Board's Market tab (`ui/marketTab.js`) - a Stores
+  material or a crafted piece listed for Marks and bought here or from another region by courier (the road witnessed,
+  `world_witness` kind `hub`), buy orders escrowed on the ledger's new `escrow` end, the History's 7-day medians and their
+  lines, the Weavers' counter; `server-account/src/market.js`, `net/marketLaw.js`, `net/marketBook.js`. Migration 0025,
+  `acct25`. Done when a crafted Mithril Longsword listed in one region is bought from another by courier and reaches its
+  buyer's pack, its owner moved - `test/prof5_client.test.js`.
 - `06-Systems/Professions-Arc.md` 25 (PROF4) - 2026-09-28, Mac ("Continue"): LOGGING, CARPENTRY AND THE FURNITURE,
   SHIPPED on the branch behind PROF1's switch: the forest's own trees felled with the ring (`systems/chopAct.js`) and
   falling in the billboard shader (`scenes/treeHost.js`, `uTip`), their stumps and logs; seven woods' logs, planks,

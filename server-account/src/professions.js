@@ -109,8 +109,8 @@ function trackView(row, profession, nowS) {
 }
 const trackRow = (db, player, character, profession) =>
   db.prepare('SELECT * FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = ?3').bind(player, character, profession).first();
-/** One material's count in a character's Stores, own and bought. */
-async function storeOf(db, player, character, key) {
+/** One material's count in a character's Stores, own and bought. PROF5: the market's answers read it too. */
+export async function storeOf(db, player, character, key) {
   const { results = [] } = await db.prepare('SELECT origin, qty FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?3')
     .bind(player, character, key).all();
   const out = { material: key, own: 0, bought: 0 };
@@ -507,8 +507,9 @@ export async function chooseSpec(ctx, player, env, { character, profession, rank
 
 /** Spend `qtySql` units of a material from a character's Stores - bought units first, so a character's own stay for
  *  writs (PROF0 7) - where `guard` holds; the rows left at 0 deleted. Three statements, in this order: the own row is
- *  charged what the bought row cannot cover, reading the bought row before it is charged. */
-function spendStatements(db, { player, character, materialSql, qtySql, guard, binds }) {
+ *  charged what the bought row cannot cover, reading the bought row before it is charged. PROF5: a listing's units
+ *  and a fill's leave the Stores by it too. */
+export function spendStatements(db, { player, character, materialSql, qtySql, guard, binds }) {
   const bought = `COALESCE((SELECT b.qty FROM prof_stores b WHERE b.player = ?1 AND b.char_id = ?2 AND b.material = ${materialSql} AND b.origin = 'bought'), 0)`;
   return [
     db.prepare(`UPDATE prof_stores SET qty = qty - MAX(0, ${qtySql} - ${bought})

@@ -275,7 +275,7 @@ test('MARKS1 the weekly report: a developer\'s alone - struck by faucet, burnt b
   const r = (await call('/v1/marks/report', {}, d.secret)).body;
   assert.deepEqual([r.minted, r.burnt, r.moved], [{ gate: 150 }, { exchange: 40 }, {}]);
   assert.deepEqual([r.mintedTotal, r.burntTotal, r.ratio], [150, 40, 3.75]);
-  assert.deepEqual(r.circulation, { accounts: 110, guilds: 0, holders: 2 });
+  assert.deepEqual(r.circulation, { accounts: 110, guilds: 0, escrow: 0, holders: 2 });   // PROF5: the buy orders' escrow beside the balances
   assert.deepEqual(r.days, [{ day: utcDay(T0), minted: 150, burnt: 40 }]);
   assert.deepEqual(r.capped, { gate: 1, bank: 0 });
   assert.equal(r.to - r.from, 6, 'seven UTC days');

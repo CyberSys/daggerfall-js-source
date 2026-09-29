@@ -75,8 +75,8 @@
   {
     "name": "AUDIT28-M6-a-marks-request-waited-for-ever",
     "file": "src/net/accountClient.js",
-    "old": "  const post = waitedPost({ fetch, storage }, waitMs);\n  return {\n    account:",
-    "new": "  const post = sessionPost({ fetch, storage });\n  return {\n    account:",
+    "old": "export function accountMarks({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {\n  const post = waitedPost({ fetch, storage }, waitMs);\n  return {\n    account:",
+    "new": "export function accountMarks({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {\n  const post = sessionPost({ fetch, storage });\n  return {\n    account:",
     "tests": [
       "test/audit28_marks.test.js"
     ]

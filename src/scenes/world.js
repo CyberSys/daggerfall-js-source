@@ -176,7 +176,10 @@ import { mineKind, PROSPECT_M } from './mineHost.js';   // PROF2: Mining's veins
 import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
-import { smeltRecipe, stockOf } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's
+import { smeltRecipe, stockOf, WEAVERS_STOCK } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
+import { createMarketBook } from '../net/marketBook.js';   // PROF5: the market's book
+import { wearCondition } from '../net/marketLaw.js';   // PROF5: a bought piece's wear
+
 import { unseenText } from '../net/boardLaw.js';   // NOTICE1: the count over a board
 import { alignSurvival, shiftSurvival } from '../systems/survival/needs.js';   // SURV7: the needs' markers at an arrival; AUDIT SURV-TIERS (the third pass): and across a clock correction
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // SURV7: the env's lycanthrope and beast-form flags
@@ -327,7 +330,7 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, answered by this host
 import { registerContainerLootHandler } from '../systems/containerLoot.js';   // THE MERGE: CSA-H's shelf subscriber, by its mod's name, on PlayerActivate.OnLootSpawned's one home
-import { mintPieces, craftedText, CRAFT_KEPT_TEXT, isCraftedFurniture } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things
+import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, isCraftedFurniture } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things
 import { heatBand, planeBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
@@ -406,7 +409,7 @@ import { createWorldModes } from './worldModes.js';
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: Ambient Text's one component - this host claims it and feeds it the frame
 import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
 import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../net/oneSeat.js';   // ONE-SEAT: one tab of a player online - the browser's arm, beside the hub's
-import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
+import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids, accountMarket } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
 import { renownKillXp, renownQuestXp, renownPartyXp, renownText } from '../net/renown.js';   // RENOWN1: what a kill and a quest are worth, and the party's bonus (RENOWN3: read against my Renown)
@@ -462,7 +465,8 @@ import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationTe
 import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
-import { createTradePack } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack
+import { createTradePack, tradeRefusal } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack; PROF5: what may not be sold
+import { isLocked } from '../systems/itemLock.js';   // PROF5: a locked piece is not listed
 import { createPlayerTradeWindow, playerTradeReady } from '../ui/playerTradeDoor.js';   // TRADE1: the enhanced window two players share
 import { createPeerMenuReader } from '../systems/peerMenuBind.js';   // PEERMENU1: the player menu opens on a bind (hold E / hold A)
 import { createSocialMenu, socialPlaqueRows, plaqueRowFor } from '../ui/socialMenu.js';   // SOC5: the F-menu over that body - Add friend, Invite to party
@@ -982,6 +986,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     ? createProfBook({ door: accountProf({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
       character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs })
     : null;
+  // PROF5 (bible/06-Systems/Professions-Arc.md 26): the market's book - the Market tab's reads through a minute's cache,
+  // a piece listed, bought, cancelled back or collected KEPT before it is asked (net/marketBook.js). Its answers tell the
+  // Marks book the balance. Online only.
+  const marketBook = params.has('online')
+    ? createMarketBook({ door: accountMarket({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
+      character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, marks: marksBook })
+    : null;
   /** PROF1/PROF2: the gathering professions in the streaming world (scenes/gatherHost.js) - made below, once the rig
    *  stands; declared HERE, before the first pixel is built, because every pixel's publish tells it (BOOT-TDZ2: a `let`
    *  read before its line is a dead zone, whatever `?.` says). The pixels built before it stand their nodes when the
@@ -1006,6 +1017,51 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     if (pieces.length) townTalk.say(craftedText(pieces));
   };
+  /** PROF5: A PIECE FROM THE MARKET (bought here, collected off the road, or come back from a listing): minted from its
+   *  record as the anvil mints it, at its wear (marketLaw wearCondition), into the pack - or, furniture, the home's
+   *  things - once by its provenance id. */
+  const marketMint = (piece) => {
+    if (!piece?.provenance) return;
+    const have = new Set([...(playerEntity.items ?? []), ...(playerEntity.furnishings ?? [])].map((it) => it?.provenance).filter(Boolean));
+    if (have.has(piece.provenance)) return;
+    const it = mintPiece(piece, piece.provenance);
+    if (!it) return;
+    if (it.maxCondition > 0) it.currentCondition = wearCondition(it.maxCondition, piece.wear);
+    const home = isCraftedFurniture(it);
+    if (home) (playerEntity.furnishings ??= []).push(it); else addItem((playerEntity.items ??= []), it, 'back');
+    townTalk.say(`${itemLongName(it)} is ${home ? 'among your home\'s things' : 'in your pack'}.`);
+  };
+  /** PROF5: a piece's name as its record mints it (the Crafted view's and the road's), kept by its provenance id. */
+  const _pieceNames = new Map();
+  const marketPieceName = (piece) => {
+    if (!piece?.provenance) return 'a crafted piece';
+    let n = _pieceNames.get(piece.provenance);
+    if (!n) { const it = mintPiece(piece, piece.provenance); n = it ? itemLongName(it) : 'a crafted piece'; _pieceNames.set(piece.provenance, n); }
+    return n;
+  };
+  /** PROF5: the crafted pieces this character may list - in the pack, none worn, locked or bound (TRADE1's refusals), and
+   *  the home's crafted furniture not set down. */
+  const marketPieces = () => [
+    ...(playerEntity.items ?? []).filter((it) => it?.provenance && !tradeRefusal(it) && !isLocked(it)).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),
+    ...(playerEntity.furnishings ?? []).filter((it) => it?.provenance).map((item) => ({ item, where: 'home', name: itemLongName(item) })),
+  ];
+  /** PROF5: a listed piece out of the save (the book keeps it until the service answers), and back on a refusal. */
+  const marketTake = (item, where) => {
+    const list = where === 'home' ? playerEntity.furnishings : playerEntity.items;
+    const i = (list ?? []).indexOf(item);
+    if (i < 0 || (where === 'pack' && (tradeRefusal(item) || isLocked(item)))) return false;
+    list.splice(i, 1);
+    return true;
+  };
+  const marketPutBack = (item, where) => {
+    if (!item?.provenance) return;
+    const have = new Set([...(playerEntity.items ?? []), ...(playerEntity.furnishings ?? [])].map((it) => it?.provenance).filter(Boolean));
+    if (have.has(item.provenance)) return;
+    if (where === 'home') (playerEntity.furnishings ??= []).push(item); else addItem((playerEntity.items ??= []), item, 'back');
+  };
+  /** PROF5: every region's hub as this client derived it (HUB1) - the courier's road's ends, handed with every market
+   *  request for the service to witness (PROF0 26). */
+  const marketHubs = Object.fromEntries([...(regionHubs?.byRegion?.values?.() ?? [])].map((h) => [h.regionIndex, [h.pixel.x, h.pixel.y]]));
   /** NOTICE1: the town a board on map pixel (px, py) belongs to - its map id (unsigned), its name, and whether one of its
    *  boards is a bounty board (the Notices tab then pins the line that sends the reader there) - or null off a location. */
   const noticeTownOf = (px, py, bountyLine = false) => {
@@ -6603,6 +6659,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         },
         stock: async (material, qty) => {
           const r = await profBook.stock(material, qty);
+          if (Number.isSafeInteger(r?.data?.balance)) marksBook?.set(r.data.balance);   // PROF5 (FOUND): the Bank's balance told too
           const who = stockOf(material)?.counter === 'furnisher' ? 'furnisher' : 'smith';   // PROF4: the furnisher's Linen
           return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(material, r.data.qty)} from the ${who} for ${r.data.marks} Marks.` } : { ok: false, text: accountRefusalText(r?.error) };
         },
@@ -15977,10 +16034,23 @@ export async function bootWorld(canvas, renderer, params, status) {
       book: profBook, region, regionName: REGION_NAMES[region] ?? 'the region', countName: materialCountLabel,
       onTaken: (r) => profWritTaken(r),
     } : null;
+    // PROF5: the Market tab - the board's region handed on its own (not through Work's), while the professions are this
+    // account's; the service says whether the market is (its book's `open`)
+    const market = marketBook && profBook?.state.open === true && Number.isInteger(region) ? {
+      book: marketBook, stores: () => profBook.state.stores, region, regionName: REGION_NAMES[region] ?? 'the region',
+      regionNameOf: (r) => REGION_NAMES[r] ?? 'another region', hubs: marketHubs, name: (k) => materialLabel(k), countName: materialCountLabel,
+      pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName,
+      weavers: WEAVERS_STOCK,
+      stock: async (key, n) => {
+        const r = await profBook.stock(key, n);
+        if (Number.isSafeInteger(r?.data?.balance)) marksBook?.set(r.data.balance);
+        return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(key, r.data.qty)} at the Weavers' counter for ${r.data.marks} Marks.` } : { ok: false, text: accountRefusalText(r?.error) };
+      },
+    } : null;
     const ov = createNoticeOverlay({
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), book: noticeBook, answer: (note) => answerNote(note),
-      character: () => characterIdOf(playerEntity), work,
+      character: () => characterIdOf(playerEntity), work, market,
     });
     if (!ov) return false;
     townTalk.showOverlay(ov);

@@ -255,7 +255,9 @@ export function drawStoresPage(detail, rerender, kit) {
   const book = p.book;
   readStale(book, rerender);
   // AUDIT 29 C4: a withdrawal kept (its answer lost) is asked again when the Stores are opened - not only at the next read
-  if (book.pendingWithdrawals && p.settle && Date.now() - _stores.settledAt > 30_000) { _stores.settledAt = Date.now(); p.settle().then(rerender, () => {}); }
+  // PROF5 (FOUND): a kept craft settles too - `pendingCrafts` had no reader, so a craft whose answer was lost waited for an
+  // unrelated withdrawal
+  if ((book.pendingWithdrawals || book.pendingCrafts) && p.settle && Date.now() - _stores.settledAt > 30_000) { _stores.settledAt = Date.now(); p.settle().then(rerender, () => {}); }
   const head = el('div', 'prof-storehead');
   const search = el('input', 'prof-search');
   search.type = 'search'; search.placeholder = 'Search'; search.value = _stores.query;

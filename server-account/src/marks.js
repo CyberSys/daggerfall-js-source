@@ -53,6 +53,7 @@ import {
   marksSwitchOf, utcDay, marksAmountOk, exchangeGold,
 } from '../../src/net/marksLaw.js';
 import { guildMay } from '../../src/net/guildLaw.js';
+import { medianOf, MARKET_REPORT_MEDIANS } from '../../src/net/marketLaw.js';   // PROF5: the report's medians
 
 /** Whether Marks are open to this account: the switch, and at `dev` the developers alone. */
 export function marksOpenFor(player, env) {
@@ -266,8 +267,8 @@ export function guildMarksSweep(db, guildId, player, nowS, { alone = false } = {
  * PROF0 10.5's report, a developer's alone: the last seven UTC days' Marks struck by faucet and burnt by sink, what
  * moved between accounts and guilds, what is in circulation now, the day-by-day line, and the accounts that reached a
  * cap (a faucet's or the Bank's), each once, with the account-days beside them - the numbers PROF0 16 steers the
- * economy by. The market's median prices join it with
- * the market (PROF5).
+ * economy by. PROF5: the median prices of the twenty most-traded materials over the same days (10.5), and the Marks held
+ * in buy orders' escrow beside the balances in circulation.
  */
 export async function marksReport({ db, nowS }, player, env) {
   if (!isDeveloper(player, env)) return { error: 'not-developer' };
@@ -281,6 +282,16 @@ export async function marksReport({ db, nowS }, player, env) {
   const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
   const acc = await db.prepare('SELECT COALESCE(SUM(balance), 0) AS s, COUNT(*) AS n FROM marks WHERE balance > 0').first();
   const gld = await db.prepare('SELECT COALESCE(SUM(balance), 0) AS s FROM guild_marks').first();
+  const esc = await db.prepare('SELECT COALESCE(SUM(escrow), 0) AS s FROM market_orders').first();
+  // PROF5: the market's twenty most-traded materials, each its units and its median over the report's days
+  const { results: traded = [] } = await db.prepare(`SELECT material, SUM(units) AS u FROM market_prices WHERE day >= ?1 GROUP BY material
+    ORDER BY u DESC, material LIMIT ?2`).bind(from, MARKET_REPORT_MEDIANS).all();
+  const { results: priced = [] } = traded.length ? await db.prepare(`SELECT material, price, units FROM market_prices WHERE day >= ?1 AND material IN
+    (${traded.map((_, i) => `?${i + 2}`).join(', ')})`).bind(from, ...traded.map((t) => t.material)).all() : { results: [] };
+  const medians = traded.map((t) => ({
+    material: t.material, units: Number(t.u),
+    median: medianOf(priced.filter((r) => r.material === t.material).map((r) => ({ price: Number(r.price), units: Number(r.units) }))),
+  }));
   const days = ((await db.prepare(`SELECT day,
       SUM(CASE WHEN src_kind = 'mint' THEN amount ELSE 0 END) AS minted,
       SUM(CASE WHEN dst_kind = 'burn' THEN amount ELSE 0 END) AS burnt
@@ -294,8 +305,9 @@ export async function marksReport({ db, nowS }, player, env) {
   const m = sum(minted), b = sum(burnt);
   return {
     from, to: today, minted, burnt, moved, mintedTotal: m, burntTotal: b, ratio: b > 0 ? Math.round((m / b) * 100) / 100 : null,
-    circulation: { accounts: Number(acc?.s ?? 0), guilds: Number(gld?.s ?? 0), holders: Number(acc?.n ?? 0) },
+    circulation: { accounts: Number(acc?.s ?? 0), guilds: Number(gld?.s ?? 0), escrow: Number(esc?.s ?? 0), holders: Number(acc?.n ?? 0) },
     days, capped: { gate: Number(gateCapped?.n ?? 0), bank: Number(bankCapped?.n ?? 0) },
     cappedDays: { gate: Number(gateCapped?.d ?? 0), bank: Number(bankCapped?.d ?? 0) },
+    medians,
   };
 }

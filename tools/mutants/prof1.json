@@ -211,8 +211,8 @@
   {
     "name": "PROF1-23-a-dispute-overturns",
     "file": "src/net/nodeLaw.js",
-    "old": "  if (confirmed) return { state: disputed ? 'disputed' : 'confirmed', ...parseReport(confirmed) };",
-    "new": "  if (confirmed && !disputed) return { state: 'confirmed', ...parseReport(confirmed) };",
+    "old": "  if (confirmed) return { state: disputed ? 'disputed' : 'confirmed', ...parse(confirmed) };",
+    "new": "  if (confirmed && !disputed) return { state: 'confirmed', ...parse(confirmed) };",
     "tests": [
       "test/prof1_law.test.js"
     ]

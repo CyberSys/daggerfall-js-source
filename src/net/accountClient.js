@@ -49,6 +49,7 @@ import { HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, S
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
+import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
  *  DEFAULT_SERVER (net/online.js), because they are two Workers and
@@ -262,6 +263,30 @@ export const REFUSALS = Object.freeze({
   'prof-spec': 'That specialisation is not one this craft offers.',
   'prof-respec-pending': `A change of specialisation is already on its way (${RESPEC.days} days).`,
   'prof-rate': 'You have done a great deal at your crafts this hour. Try again later.',
+  // PROF5: the market (server-account/src/market.js)
+  'market-closed': 'The market is not open yet.',
+  'bad-price': `A price is 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Marks.`,
+  'bad-units': `List or order 1 to ${MARKET_UNITS_MAX.toLocaleString('en-US')} at a time.`,
+  'bad-provenance': 'Only a crafted piece, with its maker\'s record, lists on the market.',
+  'bad-wear': 'That piece could not be weighed for the market.',
+  'bad-listing': 'That listing could not be read.',
+  'bad-order': 'That order could not be read.',
+  'bad-delivery': 'That delivery could not be read.',
+  'market-rate': 'You have done a great deal at the market this hour. Try again later.',
+  'market-gone': 'That is no longer on the market.',
+  'market-own': 'That is your own. Cancel it from My listings instead.',
+  'market-short': 'There are not that many left.',
+  'market-no-road': 'The couriers do not know the road there yet.',
+  'market-price-moved': 'The price has changed. Look again before you buy.',
+  'market-seller-full': 'The seller cannot hold any more Marks just now.',
+  'market-listings-max': `You have ${MARKET_LISTINGS_MAX} listings up already. Cancel one first.`,
+  'market-orders-max': `You have ${MARKET_ORDERS_MAX} buy orders up already. Withdraw one first.`,
+  'market-not-yours': 'That piece is not yours to sell: its record names another owner.',
+  'market-listed': 'That piece is on the market already.',
+  'market-order-full': 'The buyer\'s Stores cannot hold that many more.',
+  'market-elsewhere': 'That order is filled at the boards of its own region.',
+  'market-other-character': 'That is on its way to another of your characters.',
+  'market-on-road': 'The courier has not arrived yet.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
 });
@@ -801,6 +826,25 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
     writs: (character, region) => post('/v1/writs/list', { character, region }),
     deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),
+  };
+}
+
+/** PROF5: the market's door (server-account/src/market.js) - the Market tab's views and every act, each with the
+ *  board's region and the hubs this client derived (the courier's road, witnessed - PROF0 26). */
+export function accountMarket({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);
+  return {
+    account: () => storedSession(storage)?.id ?? null,
+    read: (req) => post('/v1/market/read', req),
+    list: (req) => post('/v1/market/list', req),
+    buy: (req) => post('/v1/market/buy', req),
+    cancel: (character, listing, rid) => post('/v1/market/cancel', { character, listing, rid }),
+    order: (req) => post('/v1/market/order', req),
+    fill: (req) => post('/v1/market/fill', req),
+    unorder: (order, rid) => post('/v1/market/unorder', { order, rid }),
+    collect: (character, delivery, rid) => post('/v1/market/collect', { character, delivery, rid }),
+    report: (listing) => post('/v1/market/report', { listing }),
+    remove: (listing) => post('/v1/market/remove', { listing }),
   };
 }
 
