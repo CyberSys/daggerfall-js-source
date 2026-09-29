@@ -1,4 +1,4 @@
-// WW-LID (FIELD BUGS 2026-09-29c, Cruor on Discord: "Water walking is still evil" - "I fell out the map again..", with
+// WW-LID (FIELD BUGS 2026-09-29d, Cruor on Discord: "Water walking is still evil" - "I fell out the map again..", with
 // Water Walking, Tongues, Free Action and Light on the effect list and the dungeon seen from outside it).
 //
 // Found by fuzzing a water walker through every flooded RDB block with a probe that asks whether the body's centre

@@ -9943,7 +9943,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the page to load again (a save loaded in play kept the old answer).
    *  Declared, not a const: the map's doors ask it from closures (BOOT-TDZ). */
   function tvOwnsJourneys() { return !!travelOptions && !modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravel') && isEnhanced() && !!travelView; }
-  /** TO-ROADS (FIELD BUGS 2026-09-29c, SylviaBun on the Discord: "Travel Options First Person doesn't follow roads like
+  /** TO-ROADS (FIELD BUGS 2026-09-29d, SylviaBun on the Discord: "Travel Options First Person doesn't follow roads like
    *  Overworld Travel Options does"): whether a walked trip picked on the map is ROUTED - the Overworld's own planner and
    *  leg walker (travelViewRouteTo / travelViewWalkTo, the one construction: no second planner), with its gates, its
    *  refusals said and done (never the straight walk, never DFU's fast travel) and its party walk (TV8). The Overworld's

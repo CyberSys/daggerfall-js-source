@@ -1086,7 +1086,7 @@ body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; lett
 :root[data-plus-theme="stone"] body .dfdecor-row.dim .dfdecor-row-price { color: ${STONE_RED}; }
 `;
 
-/** AC-COMPARE (FIELD BUGS 2026-09-29c): THE CHARACTER'S ARMOUR ON THE PACK, AND THE CARD'S COMPARISON
+/** AC-COMPARE (FIELD BUGS 2026-09-29d): THE CHARACTER'S ARMOUR ON THE PACK, AND THE CARD'S COMPARISON
  *  (ui/armourCard.js). A body part's number is a small plate in its panel's top-right corner, stepping off the rune's
  *  when the piece carries one (the padlock keeps the top left; a part's panel never holds a family's count; the foot is
  *  the name's, which a half panel centres there) - brass-rimmed, dim at 0. The overall figure is a plaque at the

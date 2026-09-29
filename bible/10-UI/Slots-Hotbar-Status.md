@@ -289,7 +289,7 @@ dead.
   pointer-locked player has no cursor). The Status box (the I key) and the sheet say every effect in words (UI3).
 - The game's own timings stay unsaid: a poison's minutes and a disease's days have no foot, as DFU shows neither (UI3).
 
-## AC-COMPARE - the character's armour at a glance, and what a wear would change (FIELD BUGS 2026-09-29c)
+## AC-COMPARE - the character's armour at a glance, and what a wear would change (FIELD BUGS 2026-09-29d)
 
 > SylviaBun on the Discord (#suggestions, "Total AC counter and comparison features for hovering items"), Althea's
 > idea: "when in the player inventory we should be able to see the total AC of equipped items on our characters.
@@ -344,5 +344,5 @@ over two weapons, a shield over a two-hander and clothing boots over iron ones, 
 - A weapon's rarity damage affix stays its own line on both cards: the Damage delta compares the Damage rows.
 - The shop's and a player trade's detail strips draw no comparison.
 
-Pinned: `test/fb0929c_accompare.test.js` (5), `tools/mutants/fb0929c_accompare.json` (35 mutants, 35 dead). Seen in
+Pinned: `test/fb0929d_accompare.test.js` (5), `tools/mutants/fb0929d_accompare.json` (35 mutants, 35 dead). Seen in
 Chromium with the real ARENA2's icons at 1366x768 and on a phone (a scratch probe, not committed).

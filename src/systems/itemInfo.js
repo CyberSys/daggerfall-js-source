@@ -275,7 +275,7 @@ export const itemHandsLine = (item) => (
  *  `itemArmorValue` the paperdoll totals. */
 export const itemArmourLine = (item) => (item?.group === 'Armor' ? armourModString(item) : null);
 
-/** AC-COMPARE (FIELD BUGS 2026-09-29c): WeaponDamage()'s two NUMBERS (:150-154) - the template's base damage, both ends
+/** AC-COMPARE (FIELD BUGS 2026-09-29d): WeaponDamage()'s two NUMBERS (:150-154) - the template's base damage, both ends
  *  shifted by the material modifier - which weaponDamageString prints and the enhanced pack's card sets against the
  *  weapon a wear would replace (ui/armourCard.js), so the card's Damage row and its comparison are one law. */
 export function weaponDamageRange(item) {

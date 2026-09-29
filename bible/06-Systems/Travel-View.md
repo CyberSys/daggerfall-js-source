@@ -1384,7 +1384,7 @@ store, both ways; the live read; the governor mounted both ways), `tools/mutants
 OW-ONLY pins (`tvOwnsJourneys`, `onLower`, `tvJourneyUp`), to1's key-set pin, and four mutant records (ow2
 OW-ONLY-down-and-on, ow3j J1 and J2, travelnav TN-switch-off-the-tile) re-aimed to the grown lines, never loosened.
 
-## TO-ROADS - FIRST-PERSON TRAVEL FOLLOWS THE ROADS, A SECOND SWITCH - SHIPPED (2026-09-29, FIELD BUGS 2026-09-29c, SylviaBun on the Discord: "Travel Options First Person doesn't follow roads like Overworld Travel Options does")
+## TO-ROADS - FIRST-PERSON TRAVEL FOLLOWS THE ROADS, A SECOND SWITCH - SHIPPED (2026-09-29, FIELD BUGS 2026-09-29d, SylviaBun on the Discord: "Travel Options First Person doesn't follow roads like Overworld Travel Options does")
 
 SylviaBun: *"When traveling in first person, however, the travel route always just goes the straightest shot to your
 destination running you through the forest etc. A way to toggle this behavior to match or not would be nice."*
@@ -1426,10 +1426,10 @@ exactly that - so it stays the default, and the road is a second switch.
   refused in the view's words ("You cannot survey the land from under the water."), as the Resume of any route already
   is (AUDIT OW5 J1); and a spot's panel reads the Overworld's "The marked spot", not the mod's map coordinates.
 
-Proof: `test/fb0929c_toroads.test.js` (6: the key; REPRODUCED and fixed on world.js's doors and the Overworld's route
+Proof: `test/fb0929d_toroads.test.js` (6: the key; REPRODUCED and fixed on world.js's doors and the Overworld's route
 LIFTED from its source and run over the real planner, a real Travel Options and the real settings store, on a map of its
 own - a road bent round a square of forest, a peak, an island; the journey's life and the governor; the refusal; both
-switches both ways, the classic skin and the live read; the seam swept in the source), `tools/mutants/fb0929c_toroads.json`
+switches both ways, the classic skin and the live read; the seam swept in the source), `tools/mutants/fb0929d_toroads.json`
 (16: 14 dead, 2 equivalent as recorded). TV2's three fork pins, to1's two and its key-set pin, OW-TOGGLE's rig, and five
 mutant records (ow2 OW-ONLY-ground-travel, ow3j's two J2, ow_toggle and travelnav off-the-tile) re-aimed to the grown
 lines, never loosened. Not seen in a browser.

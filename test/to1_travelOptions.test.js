@@ -144,7 +144,7 @@ test('TO1: the settings are the mod\'s own modsettings.json, key for key, type f
   // not ship (HT-WAIST's shape on Handheld Torches), named so a third
   // cannot ride in unnoticed
   // PIN MOVED (OW-TOGGLE): and its first-person switch (test/ow_toggle.test.js)
-  // PIN MOVED (TO-ROADS): and that switch's roads (test/fb0929c_toroads.test.js)
+  // PIN MOVED (TO-ROADS): and that switch's roads (test/fb0929d_toroads.test.js)
   assert.equal(Object.keys(ours).length, n + 4, 'and the port declares them all, plus Enabled, its own AvoidObstacles, FirstPersonTravel and FirstPersonTravelFollowsRoads');
   assert.deepEqual(Object.keys(ours).filter((k) => !shippedNames.has(k)).sort(), ['Enabled', 'GeneralOptions.AvoidObstacles', 'GeneralOptions.FirstPersonTravel', 'GeneralOptions.FirstPersonTravelFollowsRoads'],
     'the port\'s four keys, and nothing else');

@@ -1,4 +1,4 @@
-// AC-COMPARE (FIELD BUGS 2026-09-29c - SylviaBun on the Discord, #suggestions, Althea's idea: "when in the player
+// AC-COMPARE (FIELD BUGS 2026-09-29d - SylviaBun on the Discord, #suggestions, Althea's idea: "when in the player
 // inventory we should be able to see the total AC of equipped items on our characters. Hovering our cursor over an item
 // ... should also allow us to see comparative stats ... a straight up + or - stat next to the items stats in green and
 // red so we can quickly see what is better or worse"): THE CHARACTER'S ARMOUR, READ AT A GLANCE, AND WHAT A WEAR WOULD

@@ -617,7 +617,7 @@ test('OW-ONLY (Mac: "Remove the ground travel alltogether. Now selecting a locat
   assert.deepEqual(lowered, ['button'], 'cut (a door, a window, a death): not a choice - nothing said');
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   // PIN MOVED (TO-ROADS): the map's three forks ask whether the trip is ROUTED - the Overworld's, or First-Person Travel's
-  // with its roads on (tvRoutesJourneys grows from tvOwnsJourneys; test/fb0929c_toroads.test.js mounts both ways)
+  // with its roads on (tvRoutesJourneys grows from tvOwnsJourneys; test/fb0929d_toroads.test.js mounts both ways)
   assert.match(w, /if \(tvRoutesJourneys\(\)\) \{\n\s*const why = travelViewAllowed\(\);\n\s*if \(!why\.ok\) \{ if \(why\.why\) tvSay\(why\.why\); return false; \}\n\s*if \(!travelViewCanGo\(\)\) return false;\n\s*if \(!coords\) \{\n\s*const summary = tvPlaceSummary\(pick\.pixel\.x, pick\.pixel\.y\);\n\s*return summary \? travelViewRouteTo\(summary, \{ roads: tvMapForcesRoads\(\) \}\) : false;[^\n]*/, 'the map\'s pick: the Overworld\'s road journey');
   assert.match(w, /function tvRoutesJourneys\(\) \{ return tvOwnsJourneys\(\) \|\| \(/, 'TO-ROADS: every journey the Overworld owns is routed');
   assert.match(w, /const at = tvSceneOf\(o\.x \+ 16384, o\.z \+ 16384, 0\);\n(?:\s*\/\/[^\n]*\n)*\s*if \(tvWater\(pick\.pixel\.x, pick\.pixel\.y\) \|\| at\[1\] <= tvSeaY\(\) \+ TV_SEA_EPS_M\) \{ tvSay\(TRAVEL_VIEW_TEXT\.water\); return false; \}\n\s*return travelViewWalkTo\(at, pick\.pixel, \{ roads: tvMapForcesRoads\(\) \}\);/, 'the map\'s spot: the Overworld\'s walk - AUDIT OW3 J7: never out onto the water, refused in the view\'s own words');

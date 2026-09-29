@@ -345,7 +345,7 @@ export function seedStartingEquipment(entity) {
   if (survivalOn()) for (const it of startingProvisions()) entity.items.push(it);
 }
 
-/** AC-COMPARE (FIELD BUGS 2026-09-29c): WHAT A WEAR TAKES OFF - EquipItem's three unequip arms
+/** AC-COMPARE (FIELD BUGS 2026-09-29d): WHAT A WEAR TAKES OFF - EquipItem's three unequip arms
  *  (ItemEquipTable.cs:117-137), in its own order, as the slots they empty: a two-hander clears both hands (:117-122),
  *  a LeftOnly piece - a shield, or a bow under BowLeftHandWithSwitching - bumps a two-hander held right (:125-131), and
  *  the destination's occupant swaps out (alwaysEquip, :134-137). ONE LAW: equipItem takes off exactly these, and the

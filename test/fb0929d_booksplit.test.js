@@ -1,4 +1,4 @@
-// BOOK-SPLIT (FIELD BUGS 2026-09-29c, Janome on Discord): "some of the books i would add to be sold would appear under
+// BOOK-SPLIT (FIELD BUGS 2026-09-29d, Janome on Discord): "some of the books i would add to be sold would appear under
 // the wrong title, and then i was able to remove them from the sell window to like, duplicate them? somehow?"
 //
 // Two faults, one on each side of the counter.

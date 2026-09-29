@@ -8268,5 +8268,5 @@ ItemCollection.Transfer -> AddItem (:473-480), which merges a lot into its own s
 `nativeTrade.js` `_move` add it now, so a book taken back is the third of its stack again, not a second row. AddItem
 also gained FindExistingStack's first term, `checkItem != item`: a record already held is never its own stack-mate.
 A2's and ROAD-Ar R5's pins flipped to the new law (the R5 re-merge now on a potion the producer mints).
-`test/fb0929c_booksplit.test.js` (4); `tools/mutants/fb0929c_booksplit.json`, 11 mutants, 11 dead.
-`01-Overview/Field-Bugs-2026-09-29c.md` BOOK-SPLIT.
+`test/fb0929d_booksplit.test.js` (4); `tools/mutants/fb0929d_booksplit.json`, 11 mutants, 11 dead.
+`01-Overview/Field-Bugs-2026-09-29d.md` BOOK-SPLIT.

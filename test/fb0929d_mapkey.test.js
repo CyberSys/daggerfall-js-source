@@ -1,4 +1,4 @@
-// FIELD BUGS 2026-09-29c - MAP-KEY (Jigglehimmer on Discord, #suggestions: "Enhanced map needs filterable key like
+// FIELD BUGS 2026-09-29d - MAP-KEY (Jigglehimmer on Discord, #suggestions: "Enhanced map needs filterable key like
 // the default Daggerfall world map" - "cemeteries were red dots, and dungeons were orange dots"). The held map's KEY:
 // the classic window's four filters as toggles on the SAME live store, through the classic window's own flip
 // (ui/travelMapWindow.js flipTravelMapFilter, DFU's FilterButtonClickHandler); every glyph inked in its classic dot's
@@ -154,7 +154,7 @@ function deltaE(p, q) {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 }
 
-test('MAP-KEY: the key is the classic window\'s four filters, each with the kinds GetPixelColorIndex hides under it - asked of the law, never copied (mutants: FB0929C-MAPKEY-the-filter-asks-nothing, FB0929C-MAPKEY-the-label-is-the-store-word)', () => {
+test('MAP-KEY: the key is the classic window\'s four filters, each with the kinds GetPixelColorIndex hides under it - asked of the law, never copied (mutants: FB0929D-MAPKEY-the-filter-asks-nothing, FB0929D-MAPKEY-the-label-is-the-store-word)', () => {
   // DFU's own ranges (DaggerfallTravelMapWindow.cs:1421-1430) through markKind's glyphs, in the bar's order (:122-125)
   assert.deepEqual(mapKeyGroups().map((g) => ({ ...g, buckets: [...g.buckets], kinds: [...g.kinds] })), [
     { filter: 'dungeons', label: 'Dungeons', buckets: [0, 1, 2, 3, 4], kinds: ['dungeon', 'graveyard', 'coven'] },
@@ -173,7 +173,7 @@ test('MAP-KEY: the key is the classic window\'s four filters, each with the kind
   assert.match(code('src/ui/inkMap.js'), /getPixelColorIndex\(t, \{ \[filter\]: true \}\) < 0/);
 });
 
-test('MAP-KEY: a press flips the LIVE store through the classic window\'s own flip - the sheet re-inks without the kinds, the save carries it, the classic window agrees both ways (mutants: FB0929C-MAPKEY-the-flip-only-hides, FB0929C-MAPKEY-the-flip-takes-any-name, FB0929C-MAPKEY-the-press-leaves-the-marks, FB0929C-MAPKEY-the-press-flips-a-copy, FB0929C-MAPKEY-the-classic-flips-its-own-copy)', () => {
+test('MAP-KEY: a press flips the LIVE store through the classic window\'s own flip - the sheet re-inks without the kinds, the save carries it, the classic window agrees both ways (mutants: FB0929D-MAPKEY-the-flip-only-hides, FB0929D-MAPKEY-the-flip-takes-any-name, FB0929D-MAPKEY-the-press-leaves-the-marks, FB0929D-MAPKEY-the-press-flips-a-copy, FB0929D-MAPKEY-the-classic-flips-its-own-copy)', () => {
   // the law itself: TRUE hides (DFU's inversion), a name that is no filter changes nothing
   const f = { dungeons: false, towns: true };
   assert.equal(flipTravelMapFilter(f, 'dungeons'), true);
@@ -213,7 +213,7 @@ test('MAP-KEY: a press flips the LIVE store through the classic window\'s own fl
   assert.doesNotMatch(code('src/ui/heldMap.js'), /filters\[[^\]]+\]\s*=[^=]/, 'no second copy of the flip');
 });
 
-test('MAP-KEY: the key holds none of the sheet\'s keys or presses - M and Escape still close, no toggle takes the focus, a press under a box or before the sheet is up does nothing, it steps aside for a phone\'s card, and it is the bay\'s alone (mutants: FB0929C-MAPKEY-a-toggle-takes-the-tab, FB0929C-MAPKEY-a-toggle-takes-the-focus, FB0929C-MAPKEY-a-box-does-not-hold-the-key, FB0929C-MAPKEY-the-key-sits-on-the-card, FB0929C-MAPKEY-the-key-stands-over-the-card, FB0929C-MAPKEY-the-key-stays-on-the-town, FB0929C-MAPKEY-the-key-never-comes-back, FB0929C-MAPKEY-the-key-lets-presses-through, FB0929C-MAPKEY-the-key-floats)', () => {
+test('MAP-KEY: the key holds none of the sheet\'s keys or presses - M and Escape still close, no toggle takes the focus, a press under a box or before the sheet is up does nothing, it steps aside for a phone\'s card, and it is the bay\'s alone (mutants: FB0929D-MAPKEY-a-toggle-takes-the-tab, FB0929D-MAPKEY-a-toggle-takes-the-focus, FB0929D-MAPKEY-a-box-does-not-hold-the-key, FB0929D-MAPKEY-the-key-sits-on-the-card, FB0929D-MAPKEY-the-key-stands-over-the-card, FB0929D-MAPKEY-the-key-stays-on-the-town, FB0929D-MAPKEY-the-key-never-comes-back, FB0929D-MAPKEY-the-key-lets-presses-through, FB0929D-MAPKEY-the-key-floats)', () => {
   withDocument(() => {
     const win = mkWin();
     // a press while the sheet is still rising is not a press on the map
@@ -276,7 +276,7 @@ test('MAP-KEY: the key holds none of the sheet\'s keys or presses - M and Escape
     'on a narrow screen the key steps aside for the card');
 });
 
-test('MAP-KEY: each glyph is inked in its classic dot\'s hue walked toward the pen - off the classic loader\'s own colours, its kind\'s FIRST bucket (the ruin in the labyrinth\'s), the halo the paper\'s; no palette, the pen (mutants: FB0929C-MAPKEY-the-unpack-swaps-green, FB0929C-MAPKEY-a-kind-takes-its-last-bucket, FB0929C-MAPKEY-the-mark-ink-is-the-quarters, FB0929C-MAPKEY-the-glyph-strokes-in-the-pen, FB0929C-MAPKEY-the-glyph-fills-in-the-pen, FB0929C-MAPKEY-the-paint-drops-the-inks, FB0929C-MAPKEY-the-sheet-hands-no-inks)', async () => {
+test('MAP-KEY: each glyph is inked in its classic dot\'s hue walked toward the pen - off the classic loader\'s own colours, its kind\'s FIRST bucket (the ruin in the labyrinth\'s), the halo the paper\'s; no palette, the pen (mutants: FB0929D-MAPKEY-the-unpack-swaps-green, FB0929D-MAPKEY-a-kind-takes-its-last-bucket, FB0929D-MAPKEY-the-mark-ink-is-the-quarters, FB0929D-MAPKEY-the-glyph-strokes-in-the-pen, FB0929D-MAPKEY-the-glyph-fills-in-the-pen, FB0929D-MAPKEY-the-paint-drops-the-inks, FB0929D-MAPKEY-the-sheet-hands-no-inks)', async () => {
   await loadClassicArt();
   // the door to the palette answers the loader's own colours, per bucket
   assert.deepEqual(travelMapDotColors(), LOCATION_PIXEL_COLOR_INDICES.map((_, b) => { const [r, g, bl] = INVENTED(b); return { r, g, b: bl }; }));
@@ -319,7 +319,7 @@ test('MAP-KEY: each glyph is inked in its classic dot\'s hue walked toward the p
   });
 });
 
-test('MAP-KEY: a palette that lands after the sheet rose tints it at once - asked every tick until it answers, the kept ink and the key both repainted (mutants: FB0929C-MAPKEY-the-palette-is-asked-once, FB0929C-MAPKEY-the-kept-ink-ignores-the-palette, FB0929C-MAPKEY-the-landing-leaves-the-sheet-clean, FB0929C-MAPKEY-the-clock-never-asks)', async () => {
+test('MAP-KEY: a palette that lands after the sheet rose tints it at once - asked every tick until it answers, the kept ink and the key both repainted (mutants: FB0929D-MAPKEY-the-palette-is-asked-once, FB0929D-MAPKEY-the-kept-ink-ignores-the-palette, FB0929D-MAPKEY-the-landing-leaves-the-sheet-clean, FB0929D-MAPKEY-the-clock-never-asks)', async () => {
   withDocument(() => {
     _setTravelMapArtForTests(null);
     const win = open(mkWin());
@@ -343,7 +343,7 @@ test('MAP-KEY: a palette that lands after the sheet rose tints it at once - aske
   });
 });
 
-test('MAP-KEY: a key chip IS the sheet\'s glyph - paintGlyph\'s own path at the sheet\'s own size, haloed then inked in the kind\'s ink, on a square of the parchment (mutants: FB0929C-MAPKEY-the-chip-is-in-the-pen, FB0929C-MAPKEY-the-chip-has-no-paper)', async () => {
+test('MAP-KEY: a key chip IS the sheet\'s glyph - paintGlyph\'s own path at the sheet\'s own size, haloed then inked in the kind\'s ink, on a square of the parchment (mutants: FB0929D-MAPKEY-the-chip-is-in-the-pen, FB0929D-MAPKEY-the-chip-has-no-paper)', async () => {
   await loadClassicArt();
   const inks = markInks(travelMapDotColors());
   withDocument(() => {
@@ -368,7 +368,7 @@ test('MAP-KEY: a key chip IS the sheet\'s glyph - paintGlyph\'s own path at the 
   });
 });
 
-test('MAP-KEY: what the key says at each band - the far band inks the cities alone, so every other kind is dimmed with the reason; a hidden filter\'s row is struck; and it is rebuilt only when that changes (mutants: FB0929C-MAPKEY-the-key-reads-no-band, FB0929C-MAPKEY-the-toggle-lights-hidden, FB0929C-MAPKEY-the-key-is-rebuilt-every-tick, FB0929C-MAPKEY-the-dim-gives-no-reason)', () => {
+test('MAP-KEY: what the key says at each band - the far band inks the cities alone, so every other kind is dimmed with the reason; a hidden filter\'s row is struck; and it is rebuilt only when that changes (mutants: FB0929D-MAPKEY-the-key-reads-no-band, FB0929D-MAPKEY-the-toggle-lights-hidden, FB0929D-MAPKEY-the-key-is-rebuilt-every-tick, FB0929D-MAPKEY-the-dim-gives-no-reason)', () => {
   withDocument(() => {
     const win = open(mkWin());
     const dims = () => itemsOf(win).filter((i) => /\bdim\b/.test(i.className)).map((i) => i.dataset.kind);
@@ -404,7 +404,7 @@ test('MAP-KEY: what the key says at each band - the far band inks the cities alo
 // colour is written in the port or in this file - the real loader reads them here, off ARENA2_PATH, as the game does.
 const ARENA2 = process.env.ARENA2_PATH;
 const skipReal = !ARENA2 || !existsSync(join(ARENA2, 'FMAP_PAL.COL')) ? 'ARENA2_PATH has no FMAP_PAL.COL' : false;
-test('MAP-KEY (the player\'s FMAP_PAL.COL): every kind stands off the paper by EM7\'s floor at the SMALLEST mix that does; the dungeon and the graveyard stand apart by EM7\'s ink floor - where the ruin in its own hue could not (mutants: FB0929C-MAPKEY-the-mix-too-light, FB0929C-MAPKEY-the-mix-past-the-smallest)', { skip: skipReal }, async () => {
+test('MAP-KEY (the player\'s FMAP_PAL.COL): every kind stands off the paper by EM7\'s floor at the SMALLEST mix that does; the dungeon and the graveyard stand apart by EM7\'s ink floor - where the ruin in its own hue could not (mutants: FB0929D-MAPKEY-the-mix-too-light, FB0929D-MAPKEY-the-mix-past-the-smallest)', { skip: skipReal }, async () => {
   _setTravelMapArtForTests(null);
   await preloadTravelMapArt({
     renderer: { uploadTexture: () => 'tex', releaseTexture: () => {}, drawScreenQuad: () => {} },

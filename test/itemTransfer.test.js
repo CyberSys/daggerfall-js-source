@@ -202,7 +202,7 @@ test('U56 applyTransfer: the split leaves a remainder, the whole move keeps its 
 // a TEMPLATE, not a copy. The ladder used to re-spell the member as
 // `{ ...item, stackCount }`, which is the fourth re-spelling a2 set out
 // to remove and the only one on the main path.
-// BOOK-SPLIT (2026-09-29, Field-Bugs-2026-09-29c): the mint keeps the
+// BOOK-SPLIT (2026-09-29, Field-Bugs-2026-09-29d): the mint keeps the
 // stack's IDENTITY - message, recipe, expiry, and the price a book's id
 // or a potion's recipe set - a Port-Ledger A departure; this pin was
 // flipped to it (the half split off a potion stack is that potion).

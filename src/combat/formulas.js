@@ -1010,7 +1010,7 @@ export function weaponKnockbackSpeed(damage, weightClassic) {
   return ks < floor ? floor : ks;
 }
 
-/** AC-COMPARE (FIELD BUGS 2026-09-29c): THE STRUCK-PART TABLE A BLOW IS DRAWN FROM, under the core in force. A
+/** AC-COMPARE (FIELD BUGS 2026-09-29d): THE STRUCK-PART TABLE A BLOW IS DRAWN FROM, under the core in force. A
  *  registered core that draws a blow's part from a table of its own registers the table beside the core, on the core's
  *  own switch, and declines with it (the combat overhaul's twenty - combat/pcaao.js); FormulaHelper's STRUCK_BODY_PARTS
  *  (:869 - the head 2, each arm 3, the chest 4, the hands 4, the legs 3, the feet 1) stands otherwise. The enhanced

@@ -259,7 +259,7 @@ test('REALM P0.4: online a shop pays at most half what it asks for the same piec
   const loop = { mercantile: 2, personality: 50 };
   const buy = calculateTradePrice(1_000, 1, loop, false, { online: false });
   assert.deepEqual([calculateTradePrice(1_000, 1, loop, true, { online: false }), buy], [488, 484], 'offline a quality-1 shop pays more than it asks');
-  // MERC-RISE (Field-Bugs-2026-09-29c): the half is of the LEAST the counter asks - the best haggler's ask (100 in
+  // MERC-RISE (Field-Bugs-2026-09-29d): the half is of the LEAST the counter asks - the best haggler's ask (100 in
   // each, or the seller's own past it) - so no skill lowers a sale; flipped from P0.4's half of the seller's own ask
   const best = (k) => ({ mercantile: Math.max(100, k.mercantile), personality: Math.max(100, k.personality) });
   assert.equal(calculateTradePrice(1_000, 1, loop, true, { online: true }), Math.floor(calculateTradePrice(1_000, 1, best(loop), false, { online: false }) / 2), 'online half of what the counter asks the best haggler');

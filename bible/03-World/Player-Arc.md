@@ -2227,9 +2227,9 @@ lifting the body onto such a rib. Four laws in `player/collider.js`, the rest of
 - **L - a refused rung is no headroom.** The too-tight revert hands a raised rung back at the raised height, which the
   ladder read as room gained.
 
-Each is held by its own case in `test/fb0929c_waterwalk.test.js` (6: the motor at the doorway, the stride sweep, the
+Each is held by its own case in `test/fb0929d_waterwalk.test.js` (6: the motor at the doorway, the stride sweep, the
 high doorway for S, the ribs for B, H and L, the crawl slot for H, the real block's step behind ARENA2); every scene is
-built there in the doorway's shape, never read off the block. `tools/mutants/fb0929c_waterwalk.json`, 10 mutants, 10
+built there in the doorway's shape, never read off the block. `tools/mutants/fb0929d_waterwalk.json`, 10 mutants, 10
 dead. The fuzz over all 32 flooded blocks (W0000000-W0000029, S0000160-S0000161), 1152 runs (6 spawns, 3 seeds, water
 walking and not, 20 seconds each): before, 10 bodies out through a face (7 water walking, 3 swimming; W0000012,
 W0000021, W0000024); after, none.
