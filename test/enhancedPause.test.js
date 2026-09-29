@@ -426,8 +426,11 @@ test('PX22: the timer PX5 designed is still there, and only when there is one', 
   const src = read('src/ui/enhancedMenu.js');
   // THE WORDS. Days show days and hours; under a day, hours and
   // minutes; under an hour, minutes alone, never zero.
-  assert.match(src, /function remainWords\(s\) \{/);
-  const words = src.slice(src.indexOf('function remainWords(s) {'), src.indexOf('function remainWords(s) {') + 420);
+  // GUIDE2: the words live in ui/questRail.js now, shared with the chronicle's deadline.
+  const rail = read('src/ui/questRail.js');
+  assert.match(rail, /export function remainWords\(s\) \{/);
+  assert.match(src, /remainWords \} from '\.\/questRail\.js'/);
+  const words = rail.slice(rail.indexOf('function remainWords(s) {'), rail.indexOf('function remainWords(s) {') + 420);
   assert.match(words, /if \(d > 0\) return `\$\{d\} day\$\{d === 1 \? '' : 's'\}/);
   assert.match(words, /if \(h > 0\) return `\$\{h\} hour/);
   assert.match(words, /return `\$\{Math\.max\(1, m2\)\} min`;/, 'never "0 min" - a live clock always has a minute left');

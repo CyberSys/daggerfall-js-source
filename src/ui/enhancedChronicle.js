@@ -23,7 +23,8 @@
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1
 import { overlayAction, eventMeans } from './input.js';   // LV1's audit: the REGISTRY's answer (AUDIT KB1: `eventAction`, the event's own read) for the key this window is named after
-import { questRail, questTitleOf } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the pause window's Quests tab
+import { questRail, questTitleOf, remainWords, QUEST_URGENT_SECONDS } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the pause window's Quests tab
+import { entryTarget, targetWords, WHERE_TEXT } from './questLens.js';   // GUIDE2: where a quest points, said the way every face says it
 import { breakableNote } from '../systems/notebook.js';   // JOURNAL1: a note the notebook's wrap can take, whatever was typed
 import { pageOfNote, pageRefusalText } from '../net/journalPage.js';   // JOURNAL1: a note as the page it would be shown as, or why it cannot be
 
@@ -51,6 +52,11 @@ let shareWord = '';
 // and across a tab change, cleared on mount - a fold is a reading
 // position, not a saved setting, and nothing on disk should learn it.
 const folded = new Set();
+// GUIDE2: THE DEADLINES, LIVE - QT-LIVE1's law, this window's copy of its arming: once a second the host's walk is
+// read again for each running clock (the walk alone - no entry's text is read for it) and the words rewritten in place.
+// One owner: cleared by every render and by destroy.
+let clockTimer = null;
+const clockSpans = new Map();   // quest id -> its timer span, this render's
 
 // MAC-K2 (Mac: "Logbook not reflecting quests"). QUESTS GOES FIRST,
 // and it is the section this window was missing entirely. The L key
@@ -137,13 +143,24 @@ export function chronicleModel(d = {}) {
   const log = d.questLog?.() ?? null;
   const rail = log ? questRail(log) : { active: [], finished: [] };
   const quests = [
-    ...rail.active.map((q) => ({
-      head: questTitleOf(q.name),
-      body: [...q.entries].reverse().flat(),
-      uid: q.id,
-      questName: q.questName,
-      main: q.main,
-    })),
+    ...rail.active.map((q) => {
+      // GUIDE2: WHERE THE QUEST POINTS NOW - the latest entry's target (ui/questLens.js: DFU's own
+      // GetLastPlaceMentionedInMessage, and of that place only the names the entry says or DFU's find-place box would),
+      // in the words every face says it in, with the door's payload; and the deadline the pause tab has carried since
+      // PX5, which this window - the one the L key opens - never showed.
+      const said = targetWords(entryTarget(q.written.at(-1)?.message, { canFindPlace: d.canFindPlace, currentLocationName: d.currentLocationName }));
+      return {
+        head: questTitleOf(q.name),
+        body: [...q.entries].reverse().flat(),
+        uid: q.id,
+        questName: q.questName,
+        main: q.main,
+        where: said?.where ?? null,
+        note: said?.note ?? null,
+        find: said?.find ?? null,
+        clockSeconds: q.clockSeconds,
+      };
+    }),
     ...rail.finished.map((q) => ({
       head: `${questTitleOf(q.name)}${q.when ? ` \u2014 ${q.success === false ? 'ended' : 'completed'} ${q.when}` : ''}`,
       body: [...q.lines],
@@ -223,7 +240,59 @@ function shareStrip(share, index) {
   return box;
 }
 
+/** GUIDE2: a live quest's state line under its head - where the latest entry sends the player, the way there where
+ *  the host has a map to open, the note when the player's map is known not to have it, and the deadline. Null when
+ *  there is none of it to say. */
+function questState(e) {
+  if (!e.where && e.clockSeconds == null) return null;
+  const box = el('div', 'cr-where');
+  if (e.where) {
+    box.append(el('span', 'cr-whereplace', e.where));
+    // THE WAY THERE - HandleQuestClicks' Yes (FindPlace_OnButtonClick, DaggerfallQuestJournalWindow.cs:353-363): the
+    // journal closes, THEN the map is asked for with the place. DFU's order: a map the host refuses (indoors, an
+    // enemy near, the sun) says why in its own words over a closed journal, as the classic logbook's Yes does. The
+    // door is read BEFORE the close, because the close empties this module's deps.
+    const door = deps.showQuestPlace;
+    if (e.find && typeof door === 'function') {
+      const go = el('button', 'act', WHERE_TEXT.show);
+      go.type = 'button';
+      go.title = WHERE_TEXT.showLabel(e.where);
+      go.setAttribute('aria-label', WHERE_TEXT.showLabel(e.where));
+      const find = e.find;
+      go.onclick = () => { onExit(); door(find); };
+      box.append(go);
+    }
+    if (e.note) box.append(el('span', 'cr-wherenote', e.note));
+  }
+  if (e.clockSeconds != null) {
+    const t = el('span', `cr-timer${e.clockSeconds < QUEST_URGENT_SECONDS ? ' urgent' : ''}`, `Time remains: ${remainWords(e.clockSeconds)}`);
+    clockSpans.set(String(e.uid), t);
+    box.append(t);
+  }
+  return box;
+}
+
+/** GUIDE2: arm the once-a-second rewrite over this render's timer spans, if it drew any. A clock that has stopped under
+ *  the window (a quest ended, a timer fired) is a stale CARD, and that repaints, as the pause tab's does. */
+function armClocks() {
+  if (!clockSpans.size) return;
+  clockTimer = setInterval(() => {
+    const live = new Map((deps.questLog?.()?.active ?? []).map((q) => [String(q.id), q.clockSeconds]));
+    for (const [id, span] of clockSpans) {
+      const left = live.get(id);
+      if (!Number.isFinite(left)) { render(); return; }
+      span.textContent = `Time remains: ${remainWords(left)}`;
+      span.className = `cr-timer${left < QUEST_URGENT_SECONDS ? ' urgent' : ''}`;
+    }
+  }, 1000);
+}
+function disarmClocks() {
+  if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+  clockSpans.clear();
+}
+
 function render() {
+  disarmClocks();   // GUIDE2: this render's spans replace the last one's
   if (!host) return;
   host.innerHTML = '';
   const model = chronicleModel(deps);
@@ -409,6 +478,12 @@ function render() {
           top.append(share);
         }
         entry.append(top);
+        // GUIDE2: a live quest's WHERE and WHEN, under its head and standing when the card is shut - they are the
+        // quest's state, as its title is, and a folded list of quests is most useful as titles with where they point.
+        if (section === 'quests' && e.uid != null) {
+          const state = questState(e);
+          if (state) entry.append(state);
+        }
         if (share && sharing === e.index) entry.append(shareStrip(share, e.index));
         if (!isFolded(folded, section, i)) {
           for (const line of e.body) entry.append(el('p', null, line));
@@ -424,6 +499,7 @@ function render() {
   shell.append(win);
   host.append(shell);
   closeOnOutsideTap(shell, '.px-win', () => onExit());   // OT1 (Mac: a tap outside the window closes it)
+  armClocks();   // GUIDE2: after the spans exist
 }
 
 function onKey(e) {
@@ -484,6 +560,7 @@ export function mountEnhancedChronicle(hostEl, d = {}) {
   return {
     render,
     destroy() {
+      disarmClocks();
       window.removeEventListener('keydown', onKey, true);
       host = null; deps = {}; section = 'notes'; draft = ''; folded.clear(); sharing = null; shareWord = '';
     },

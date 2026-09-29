@@ -65,8 +65,8 @@
   {
     "name": "VAMPHOOD-the-door-keeps-the-hint",
     "file": "src/scenes/world.js",
-    "old": "    if (ftb) { townTalk.say(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return; }",
-    "new": "    if (ftb) { townTalk.say(ftb.text); return; }",
+    "old": "    if (ftb) { townTalk.say(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return false; }",
+    "new": "    if (ftb) { townTalk.say(ftb.text); return false; }",
     "tests": [
       "test/fb0929_vampirehood.test.js"
     ]

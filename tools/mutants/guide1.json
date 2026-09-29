@@ -119,7 +119,7 @@
   {
     "name": "GUIDE1-town-named-unsaid",
     "file": "src/ui/questLens.js",
-    "old": "  const named = onMap || here || said.has(MACRO_TYPES.NameMacro2) || said.has(MACRO_TYPES.NameMacro3);",
+    "old": "  const named = onMap === true || here || said.has(MACRO_TYPES.NameMacro2) || said.has(MACRO_TYPES.NameMacro3);",
     "new": "  const named = true;",
     "tests": [
       "test/guide1_questLens.test.js"
@@ -128,8 +128,8 @@
   {
     "name": "GUIDE1-town-underfoot-unnamed",
     "file": "src/ui/questLens.js",
-    "old": "  const named = onMap || here || said.has(MACRO_TYPES.NameMacro2) || said.has(MACRO_TYPES.NameMacro3);",
-    "new": "  const named = onMap || said.has(MACRO_TYPES.NameMacro2) || said.has(MACRO_TYPES.NameMacro3);",
+    "old": "  const named = onMap === true || here || said.has(MACRO_TYPES.NameMacro2) || said.has(MACRO_TYPES.NameMacro3);",
+    "new": "  const named = onMap === true || said.has(MACRO_TYPES.NameMacro2) || said.has(MACRO_TYPES.NameMacro3);",
     "tests": [
       "test/guide1_questLens.test.js"
     ]
@@ -155,8 +155,8 @@
   {
     "name": "GUIDE1-find-where-you-stand",
     "file": "src/ui/questLens.js",
-    "old": "    find: onMap && !here ? {",
-    "new": "    find: onMap ? {",
+    "old": "    find: onMap === true && !here ? {",
+    "new": "    find: onMap === true ? {",
     "tests": [
       "test/guide1_questLens.test.js"
     ]
@@ -164,7 +164,7 @@
   {
     "name": "GUIDE1-find-off-the-map",
     "file": "src/ui/questLens.js",
-    "old": "    find: onMap && !here ? {",
+    "old": "    find: onMap === true && !here ? {",
     "new": "    find: !here ? {",
     "tests": [
       "test/guide1_questLens.test.js"

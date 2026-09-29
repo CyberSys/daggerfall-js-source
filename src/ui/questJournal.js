@@ -20,7 +20,7 @@ import { FntFile } from '../formats/fntFile.js';
 import { drawScreenDimBackdrop } from './chargenArt.js';
 import { MAX_LINES_QUESTS, MAX_LINES_SMALL, MAX_LINE_LENGTH } from '../systems/notebook.js';
 import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, messageBoxArtLoaded } from './messageBox.js';
-import { lastPlaceMentionedInMessage } from './questLens.js';   // GetLastPlaceMentionedInMessage (:469-485) - GUIDE1: its one home, shared with the quest lens
+import { lastPlaceMentionedInMessage, locationInRegionText } from './questLens.js';   // GetLastPlaceMentionedInMessage (:469-485) - GUIDE1: its one home, shared with the quest lens; GUIDE2: and locationInRegionProvince's
 import { REGION_NAMES, patchRegionIndex } from '../formats/mapsFile.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
@@ -143,8 +143,9 @@ export const FIND_PLACE_TEXT = Object.freeze({
   head: 'Travel to location',
   action: 'Do you want to open the world map to travel to:',
   note: '(Note: you can cancel travel from the world map)',
-  /** locationInRegionProvince, "{0} in {1} province". */
-  locationInRegion: (locationName, regionName) => `${locationName} in ${regionName} province`,
+  /** locationInRegionProvince, "{0} in {1} province" - GUIDE2: its one
+   *  home is the quest lens now, which the enhanced faces say it through. */
+  locationInRegion: locationInRegionText,
 });
 
 /** F160: CreateDialogBox's six strings and the note prompt -

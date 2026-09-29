@@ -73,6 +73,17 @@ export function parseFinished(entry, index) {
  *  one home. */
 export const QUEST_URGENT_SECONDS = 86400;
 
+/** PX5: remaining game seconds as words - days+hours above a day,
+ *  hours+minutes below it, minutes alone under an hour. GUIDE2: moved here
+ *  from the pause window, so the chronicle's deadline - the window the L
+ *  key opens - reads exactly as the pause tab's does. */
+export function remainWords(s) {
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m2 = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d} day${d === 1 ? '' : 's'}${h ? ` ${h} hour${h === 1 ? '' : 's'}` : ''}`;
+  if (h > 0) return `${h} hour${h === 1 ? '' : 's'}${m2 ? ` ${m2} min` : ''}`;
+  return `${Math.max(1, m2)} min`;
+}
+
 /** GUIDE1: the order a row's entries were WRITTEN, as indices into its
  *  `messages`. The machine keeps its log in a Map keyed by step and
  *  `addLogStep` re-sets an existing step IN PLACE (quest.js addLogStep;

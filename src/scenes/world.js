@@ -6757,7 +6757,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2694 mounts the same one, gated on
+  // and dungeonContext.js:2698 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6372
@@ -7504,6 +7504,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       currentLocationName: () => _questLoc()?.name ?? '',
       canFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name),
       gotoPlace: (place) => toggleTravelMap(place),
+      // GUIDE2: the ENHANCED chronicle's way there - offered only where the map can open. This builder is the
+      // interior host's too (host.makeJournal), and indoors DFU's own door refuses the map (IsPlayerInside), so a
+      // journal opened in a building draws the where line and no door, rather than a door that only ever says no.
+      // The classic logbook keeps gotoPlace above and DFU's box-then-refusal.
+      showQuestPlace: (modes?.mode ?? 'exterior') === 'exterior' ? (find) => showQuestPlace(find) : undefined,
     });
   };
   /** S40: THE REST KEY, OUTDOORS. CanRest's FIRST arm - the one that
@@ -9108,7 +9113,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7415), so exterior mode and a
+    // composer, dungeonContext.js:7422), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -9611,12 +9616,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   // first tick (DaggerfallTravelMapWindow.Update), whoever opened it.
   let _travelGoto = null;
   const toggleTravelMap = (gotoPlace = null) => {
+    // GUIDE2: THE DOOR ANSWERS WHETHER A MAP OPENED - true once it is in the slot, false for every refusal (each of
+    // which says why, in DFU's words, before it returns) - the contract every door the enhanced journal hands off to
+    // keeps (AUDIT 27h A4: a page that goes down for a window that could not open resumes).
     // FindPlace_OnButtonClick (DaggerfallQuestJournalWindow.cs:353-363)
     // closes the journal and posts dfuiOpenTravelMapWindow in the same
     // breath, so the journal is still the mounted overlay when the map
     // is asked for - a goto opens past the "an overlay is up" guard the
     // M key answers to.
-    if (!gotoPlace && townTalk.overlayActive) return;
+    if (!gotoPlace && townTalk.overlayActive) return false;
     if (gotoPlace) _travelGoto = gotoPlace;
     // AUDIT PARTY-UI 1: IsPlayerInside, dfuiOpenTravelMapWindow's FIRST
     // test, asked by the DOOR. The keydown ladder's exterior-only gate
@@ -9628,13 +9636,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     // DFU says it - AddHUDText with `cannotTravelIndoors`, whose door
     // here is townTalk.say. It was silent: a Find Place taken in a
     // building closed the journal on nothing.
-    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return; }
+    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return false; }
     // W1/U61: the DOOR decides which map this skin wears. The classic
     // window needs its art - without it there is no map to click, so
     // the door says so rather than opening a blank one (the HUD/pause
     // law: a missing IMG closes a door, never the game); the enhanced
     // overworld reads no art at all.
-    if (!travelMapDoorReady()) { townTalk.say('(the travel map art is unavailable)'); return; }
+    if (!travelMapDoorReady()) { townTalk.say('(the travel map art is unavailable)'); return false; }
     // AUDIT 39: the refusal that sits ten lines ABOVE CheckFastTravel
     // in the same switch arm (DaggerfallUI.cs:604-609) - IsPlayerInside
     // first (the door's own test above, AUDIT PARTY-UI 1),
@@ -9647,14 +9655,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     // no travelling out of a duel by map
     if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes])) {
       townTalk.say(CANNOT_TRAVEL_ENEMIES_TEXT);
-      return;
+      return false;
     }
     // AUDIT 58: the rung the comment above already named and the code
     // did not carry - `if (!GiveOffer())` (DaggerfallUI.cs:612) sits
     // between AreEnemiesNearby and the sun-damage box. A pending
     // `give pc _item_ notify` offer is handed over HERE and the press
     // is spent: the map does not open, and the next press travels.
-    if (giveOffer()) return;
+    if (giveOffer()) return false;
     // ONE clock for both sun rungs, so the two cannot disagree across a
     // minute boundary the way two separate reads could.
     const nowMin = Math.floor(worldMinutes());
@@ -9670,7 +9678,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so the box says the same sentence.
     if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) {
       townTalk.say(SUNLIGHT_TRAVEL_TEXT);
-      return;
+      return false;
     }
     // V2b: CheckFastTravel at the map's own door, where DFU calls it
     // (DaggerfallUI.cs:625) - a sun-damaged override cannot fast
@@ -9680,13 +9688,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     // DFU's line. Online `nowMin` is the shared clock's, whose day is
     // one real hour no rest or trip can shorten.
     const ftb = racialFastTravelBlock(playerEntity, nowMin);
-    if (ftb) { townTalk.say(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return; }
+    if (ftb) { townTalk.say(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return false; }
     // TO1: the fork. `playerControlled` is the popup's own word for a
     // trip its three toggles say is WALKED (ui/travelPopUp.js
     // callFastTravelGoldCheck); everything else is DFU's fast travel.
     // PARTY-TRAVEL (2026-09-25, Mac: "Implementing a prompt for online to travel to party leader"): a member away from
     // the leader is asked first whether the journey is to the leader - No opens the map (systems/partyTravel.js mapOffer)
-    if (!gotoPlace && partyTravel?.mapOffer()) return;
+    if (!gotoPlace && partyTravel?.mapOffer()) return false;
     _travelMap = buildTravelMapWindow({ onTravel: (pick, opts, computed) => {
       if (partyTravel?.propose(pick, opts, computed)) { hudFade.clearFade(); return; }   // PARTY-TRAVEL: "...the option for party members to ready up and travel together" - the leader's Begin with the party gathered asks them first (a walked trip is never a round: the session says no to it)
       if (opts?.playerControlled && beginAcceleratedTravel(pick, opts, { estimateMinutes: computed?.minutes ?? null })) return;   // AUDIT-TO1 L5: the popup's estimate rides along for the panel's ETA
@@ -9695,10 +9703,15 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (opts?.playerControlled && tvOwnsJourneys()) return;
       fastTravelTo(pick, opts, computed);
     } });
-    if (!_travelMap) { townTalk.say('(the travel map art is unavailable)'); return; }
+    if (!_travelMap) { townTalk.say('(the travel map art is unavailable)'); return false; }
     if (_travelGoto) { _travelMap.gotoPlace(_travelGoto); _travelGoto = null; }   // GotoPlace (:214-217), consumed on the map's first tick - AUDIT PARTY-UI2 1: this open's, or one a refused open kept
     townTalk.showOverlay(_travelMap);
+    return true;
   };
+  /** GUIDE2: THE JOURNAL'S WAY THERE on the enhanced skin - HandleQuestClicks' Yes (FindPlace_OnButtonClick), for a
+   *  face that has already said where: the map door with the quest lens's `find` (the find-place box's own payload,
+   *  ui/questLens.js entryTarget), which both maps read off `siteDetails`. Answers whether a map opened. */
+  const showQuestPlace = (find) => toggleTravelMap({ siteDetails: find });
   /** G5: the map the guild's TELEPORT service opens - the same
    *  window, armed. Only this host answers, because only this host
    *  has a streaming world to land in; the interior arm reads it off
@@ -10424,6 +10437,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // than a copied walk survives.
     questLog: () => questBridge?.questLog() ?? { active: [], finished: [] },
     repairQuests: () => questBridge?.repair?.() ?? null,   // QREPAIR: the Settings' Repair active quests
+    // GUIDE2: the Quests tab's WHERE and its way there - HandleQuestClicks' two world questions (the same two the
+    // logbook is handed, makeJournalWindow) and the door itself: this bag is the street's, where the map opens.
+    currentLocationName: () => _questLoc()?.name ?? '',
+    canFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name),
+    showQuestPlace: (find) => showQuestPlace(find),
   });
   const keys = new Set();
   // C9: the modal machine binds below AFTER these listeners exist -
@@ -11661,7 +11679,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9793-9857 -
+  // worldModes answers it in BOTH modes (worldModes.js:9801-9865 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -17393,6 +17411,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     partyMembers: () => partyMembersHere(),
     shareQuest: (uid, questName, displayName) => shareQuestWithParty(uid, questName, displayName),
     pageShare: () => pageShareHere(),   // JOURNAL1: a note's Share, delegated the same way into the dungeon's own chronicle
+    // GUIDE2: the journal's two world questions for the hosts that cannot answer them - is a place on the player's map,
+    // and which town is the player in - delegated into the interior's pause and the dungeon's journal the same way.
+    // The way there is not delegated: the map opens on the street alone.
+    questCanFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name),
+    questLocationName: () => _questLoc()?.name ?? '',
     useMagicItem: (item) => useMagicItem(item),   // UI1: MagicItemPicker's use, through the world host's one seam
     // TR5: the interior hosts dismount through the world host, which
     // owns the motor, the animator and the mount's art together.

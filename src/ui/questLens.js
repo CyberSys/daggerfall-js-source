@@ -160,6 +160,9 @@ function saidOf(message, symbolName) {
  * `where` is the classic logbook's own two gates, the host's:
  * `canFindPlace(regionName, locationName)` (the travel map's
  * CanFindPlace - is it on the player's map?) and `currentLocationName()`.
+ * GUIDE2: `onMap` is null - not false - where the host has no map to ask
+ * (the dungeon's own journal, the fixed-town route): a face must not tell
+ * the player a place is missing from a map nobody looked at.
  *
  * Each name is there only when the entry says it or DFU would: the
  * location (and its kind) when the entry names it, when the place is on
@@ -172,13 +175,15 @@ function saidOf(message, symbolName) {
  * map, and not where the player already is.
  */
 export function entryTarget(message, where = {}) {
+  // A raw token array (a host's filed entry, a test's fixture) has no resources to name: it points nowhere.
+  if (typeof message?.getTextTokens !== 'function') return null;
   const place = lastPlaceMentionedInMessage(message, QUIET_ROLL);
   const site = place?.siteDetails ?? null;
   if (!site?.locationName) return null;
   const said = saidOf(message, place.symbol?.name);
-  const onMap = !!where.canFindPlace?.(site.regionName, site.locationName);
+  const onMap = where.canFindPlace ? !!where.canFindPlace(site.regionName, site.locationName) : null;
   const here = !!where.currentLocationName && site.locationName === where.currentLocationName();
-  const named = onMap || here || said.has(MACRO_TYPES.NameMacro2) || said.has(MACRO_TYPES.NameMacro3);
+  const named = onMap === true || here || said.has(MACRO_TYPES.NameMacro2) || said.has(MACRO_TYPES.NameMacro3);
   const regionIndex = patchRegionIndex(site.regionIndex ?? 0, site.regionName ?? '');   // :474-481's legacy-save workaround, both sides of the seam
   return {
     symbol: place.symbol?.name ?? null,
@@ -188,7 +193,51 @@ export function entryTarget(message, where = {}) {
     buildingName: said.has(MACRO_TYPES.NameMacro1) ? (site.buildingName ?? null) : null,
     onMap,
     here,
-    find: onMap && !here ? { regionIndex: site.regionIndex ?? 0, regionName: site.regionName ?? '', locationName: site.locationName } : null,
+    find: onMap === true && !here ? { regionIndex: site.regionIndex ?? 0, regionName: site.regionName ?? '', locationName: site.locationName } : null,
+  };
+}
+
+/** Internal_Strings `locationInRegionProvince`, "{0} in {1} province" -
+ *  the find-place box's own entry line (DaggerfallQuestJournalWindow.cs:
+ *  474-481). ONE HOME: the classic logbook's FIND_PLACE_TEXT reads it from
+ *  here, and every enhanced face says a target's place in the same words. */
+export const locationInRegionText = (locationName, regionName) => `${locationName} in ${regionName} province`;
+
+/** GUIDE2: the port's own words around a target - the enhanced faces'
+ *  where line, its note and its door. */
+export const WHERE_TEXT = Object.freeze({
+  somewhere: (regionName) => `Somewhere in ${regionName} province`,
+  here: 'you are here',
+  offMap: 'Not on your map yet. Ask around for directions.',
+  show: 'Show on map',
+  showLabel: (place) => `Show ${place} on the travel map`,
+});
+
+/**
+ * GUIDE2 - A TARGET IN WORDS, the same words on every face: `{ where, note,
+ * find }`, or null when the target says nothing a player could use.
+ *
+ *   where  the building the entry names, then the place in DFU's own
+ *          phrase ("Llugwych in Wayrest province") - or, with only the
+ *          region said, "Somewhere in Devilrock province"; "(you are
+ *          here)" when the player stands in it.
+ *   note   the place is named and the player's map is KNOWN not to have
+ *          it: Daggerfall's answer is to ask - "Where is ...?" in talk,
+ *          and an NPC marks it (06-Systems/Talk-Arc.md, THE COMPASS
+ *          MARK). Never when the map was not asked (`onMap` null).
+ *   find   the target's own - the door's payload, or null.
+ */
+export function targetWords(target) {
+  if (!target) return null;
+  const place = target.locationName
+    ? (target.regionName ? locationInRegionText(target.locationName, target.regionName) : target.locationName)
+    : (target.regionName ? WHERE_TEXT.somewhere(target.regionName) : null);
+  if (!place && !target.buildingName) return null;
+  const where = [target.buildingName, place].filter(Boolean).join(', ');
+  return {
+    where: target.here ? `${where} (${WHERE_TEXT.here})` : where,
+    note: target.locationName && target.onMap === false && !target.here ? WHERE_TEXT.offMap : null,
+    find: target.find ?? null,
   };
 }
 

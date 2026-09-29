@@ -2398,7 +2398,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // instance indoors, in every shop entered from it - `cast X spell do`
     // and `cast X effect do` could never latch and never fire. The other
     // two engine-owning hosts wire the identical pair (world.js:6527-6528,
-    // dungeonContext.js:2476-2477); `questBridge` is assigned below this
+    // dungeonContext.js:2480-2481); `questBridge` is assigned below this
     // mount, so the chain is optional both ways.
     onNewReadySpell: (sp) => questBridge?.machine?.notifyNewReadySpell?.(sp),
     onCastReadySpell: (sp) => questBridge?.machine?.notifyCastReadySpell?.(sp),
@@ -2777,6 +2777,10 @@ export async function bootExterior(canvas, renderer, params, status) {
     questMessages: pauseQuestMessages,
     questLog: pauseQuestLog,
     repairQuests: () => questBridge?.repair?.() ?? null,   // QREPAIR
+    // GUIDE2: the Quests tab's WHERE - the one world question this route can answer, the city it stands in (the
+    // chronicle's questJournalHooks hands the same one). It builds no travel map, so it asks no map and opens none: a
+    // target here is named only where its entry says it.
+    currentLocationName: () => dfLocation.name ?? locationName,
   });
   const keys = new Set();
   // P15: AltLeft is Sneak (DFU default) - preventDefault on BOTH edges
@@ -3493,14 +3497,14 @@ export async function bootExterior(canvas, renderer, params, status) {
     // below) has always been the clone, so a read off the file was a
     // read of a different Map: `change repute with _npc_ by 30` landed
     // on one and `when repute with _npc_ is at least N` asked the
-    // other. world.js:11871 is the same line.
+    // other. world.js:11889 is the same line.
     getFactionData: (id) => _questStore()?.dict.get(id) ?? null,
     /** PersistentFactionData.FindFactions by type - Person.cs's
      *  _getRandomFactionOfType (:967-1018). Unmounted, a Person
      *  declared `factiontype Temple/Daedra/Witches_Coven` threw. */
     findFactionsOfType: (type) => { const s = _questStore(); return s ? [...s.dict.values()].filter((f) => f.type === type) : []; },
     /** FindFactionByTypeAndRegion (PersistentFactionData.cs:236-265),
-     *  %rn/%rt's producer - world.js:11767-11780. */
+     *  %rn/%rt's producer - world.js:11785-11798. */
     findFactionByTypeAndRegion: (type, regionIndex) => {
       const s = _questStore();
       return s ? findFactionByTypeAndRegion(s.dict, type, regionIndex) : null;
@@ -3539,7 +3543,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     currentWeatherKey: () => currentWeather() ?? null,   // Q5: the Weather trigger's read
     isPlayerInLocationRect: () => _musicInLocationRect(),
     playerPixel: () => _locPixel,   // F114: the quest clock's travel arm
-    // QG1: CastSpellDo's two world reads, world.js:11679-11682's pair.
+    // QG1: CastSpellDo's two world reads, world.js:11697-11700's pair.
     // Without them the action self-completes at parse (actions.js:2781/:2788)
     // and a `cast X spell do` on this route could never be armed, whatever
     // the ready-spell doors above raise.
@@ -3570,7 +3574,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     /** Place.AssignQuestResource's hot-place tail (Place.cs:508-527) -
      *  AddQuestResourceObjects over whatever site the player already
      *  stands in. The mode machine owns the mount and is already
-     *  mode-aware (worldModes:1258), so this is world.js:11652's line
+     *  mode-aware (worldModes:1258), so this is world.js:11670's line
      *  over this host's own modes bag. */
     mountCurrentSiteQuestResources: () => modes?.mountQuestResources?.(),
     /** AUDIT 63 F1: the same static-NPC behaviour cache
@@ -3583,7 +3587,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // meets a Foe could complete on this route.
     /** GameObjectHelper.CreateFoeGameObjects (:1243-1305), data side:
      *  `count` inactive handles, activation deferred to placement.
-     *  Bridge-only, no host state - world.js:11660's call verbatim. */
+     *  Bridge-only, no host state - world.js:11678's call verbatim. */
     createFoeGameObjects: (foe, count) => mintQuestFoeWave(questBridge.machine, foe, count),
     /** CreateFoe.TryPlacement (:183-211), ALL THREE ARMS. The INSIDE
      *  two are the mode machine's - worldModes.tryPlaceQuestFoe places
@@ -3598,7 +3602,7 @@ export async function bootExterior(canvas, renderer, params, status) {
      *  city's rect for its whole life (`_musicInLocationRect` is
      *  `() => true`), so the wilderness arm (:252-257) has no reachable
      *  branch here at all and the ring is the default one, unqualified.
-     *  Everything else is world.js:11768's arm term for term: the cast
+     *  Everything else is world.js:11786's arm term for term: the cast
      *  origin is the controller CENTRE (DFU rays from
      *  PlayerObject.transform.position, not the feet), the FOV is
      *  handed over in DEGREES (`fieldOfView()` answers radians), the
@@ -3702,7 +3706,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // to the pending pile rather than straight into the pack. The
     // flagless form is a different question and has its own caller
     // below (`inTownLocation`, CanRest's second arm). This is the
-    // closure S40 gave this host, and world.js:12441's line.
+    // closure S40 gave this host, and world.js:12459's line.
     isPlayerInTown: () => _isPlayerInTownStrict(),
     // Q5: the un-pended quest actions' doors, all of them this host's
     // own arms - the crime setter (V4's SuppressCrime gate), the gold
@@ -3727,7 +3731,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // which is the one seam that really does ask the narrower question.
     makeEnemiesHostile: _makeEnemiesHostile,
     // GameManager.ClearEnemies destroys every active enemy object; the
-    // encounter half is world.js:12537's line and the watch half is this
+    // encounter half is world.js:12555's line and the watch half is this
     // host's own (cityGuards owns its live list).
     clearEnemies: () => { cityGuards.clearLive?.(); for (const f of [...exteriorFoes.foes]) { if (!f.dead) exteriorFoes.removeFoe(f); } lockOn.unlock(); },   // AUDIT 62 F16: a removed foe is never flagged dead, so the lock must be let go here
     // MT-iii/MT-iv: ChangeFoeInfighting / ChangeFoeTeam's instance walk
@@ -3752,13 +3756,13 @@ export async function bootExterior(canvas, renderer, params, status) {
   // (:6459) alone, so on ?exterior every HUD line this host and its
   // interior arm spoke was dropped from the journal's Messages page -
   // a page exterior.js:1102 wires up and can reach. Same moment and
-  // same order as world.js:12752/:12757, for the same reason: the
+  // same order as world.js:12770/:12775, for the same reason: the
   // notebook only exists once the bridge above is built.
   townTalk.hudMessageSink = (t) => questBridge?.notebook?.addMessage(t);
   // AUDIT 63 F5: DaggerfallTalkWindow.OnPop's notebook filing
   // (DaggerfallTalkWindow.cs:319). townTalk holds the one talk-window
   // door and no notebook; the bridge holds the notebook and is built
-  // here, so the sink is handed down at this moment - world.js:12736's
+  // here, so the sink is handed down at this moment - world.js:12754's
   // line for this host.
   townTalk.notebookSink = (tokens) => questBridge?.notebook?.addNoteTokens(tokens);
   questBridge.onInitWorld();   // QuestMachine's OnInitWorld - this route's ONE city is its world
@@ -3989,7 +3993,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // search; an empty list means an owned house never resolves even
       // in its OWN town, so this host sold every deed for nothing
       // before F26's guard and would refuse every sale after it. Same
-      // two inputs the world host uses (world.js:17202).
+      // two inputs the world host uses (world.js:17220).
       buildings: locationBuildings(dfLocation.exterior?.buildings ?? [], loc.blocks, { locationIndex: dfLocation.locationIndex ?? 0 }),
       mapId: dfLocation?.mapTableData?.mapId ?? 0,
       regionIndex: dfLocation.regionIndex ?? 0,
@@ -5271,7 +5275,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // ROAD-G G2: THE ENEMY ARM EXISTS NOW - the note here said "this
     // host mounts no bow-armed pool", which stopped being true with the
     // encounter mount above, and an archer's shaft would have flown
-    // through the player for ever. world.js:20601-20858 is the shape.
+    // through the player for ever. world.js:20624-20881 is the shape.
     arrows.update(dt, {
       // enemy arrows hunt only a WALKING player - the fly camera has no
       // capsule to hit
@@ -5528,7 +5532,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         const swing = {};   // AUDIT DISC19: one swing, one attack grunt, however many pools it is offered to
         if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // ROAD-G G2: encounter foes resolve AFTER the watch and
-          // BEFORE civilians - world.js:20984's order, and the order
+          // BEFORE civilians - world.js:21007's order, and the order
           // matters because a watchman standing over a quest foe must
           // still be the one the swing finds.
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {

@@ -106,6 +106,7 @@ export const FRAME_ROLES = {
   button: ['.port-host .port-btn', '.inv-info .act', '.pbind .act', '.px-sys .act', '.shell .act', '.px-win .card .act', '.pack-shell .act', '.px-setwrap .act',
     '.px-setwrap .step', '.shell .step', '.wizard .bigbtn', '.wizard .reflexbtn', '.lv-pick .lv-arrow',
     '.lv-pick .lv-press', '.shell .look-arrow', '.cr-shell .cr-rm', '.px-winclose', '.talk-head .act', '.talk-say .act',
+    '.px-qwhere .act', '.px-qentry-where .act', '.cr-shell .cr-where .act',   // GUIDE2: the journal's way there
     'body .dfsocial-btn', 'body .dfsocial-close', 'body .dfprofile-close', '.dlg-shell .dlg-btn',
     'body .broker-shell .act',   // SET7: the Broker's Buy and Close
     // PLUS3: the trade counter and the tavern panel (and the merchant/repair popup, which shares

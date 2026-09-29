@@ -587,7 +587,7 @@
   {
     "name": "PT-host-no-map-offer",
     "file": "src/scenes/world.js",
-    "old": "    if (!gotoPlace && partyTravel?.mapOffer()) return;\n",
+    "old": "    if (!gotoPlace && partyTravel?.mapOffer()) return false;\n",
     "new": "",
     "tests": [
       "test/partytravel.test.js"

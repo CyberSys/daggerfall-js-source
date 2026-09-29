@@ -20,11 +20,11 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadQuestTables } from '../src/systems/quest/tables.js';
 import { QuestMachine } from '../src/systems/quest/machine.js';
 import { resetUid, ensureUidAtLeast } from '../src/systems/quest/quest.js';
 import { createQuestBridge } from '../src/scenes/questBridge.js';
-import { REGION_NAMES, REGION_TEMPLES } from '../src/formats/mapsFile.js';
+import { REGION_TEMPLES } from '../src/formats/mapsFile.js';
+import { REGION, RI, makeWorld, seededRolls } from './guideWorld.mjs';   // the crafted world, the tables loaded
 import { getSeed, setSeed, srand } from '../src/formats/dfRandom.js';
 import { QuestLens, quietLines, entryTarget, lastPlaceMentionedInMessage } from '../src/ui/questLens.js';
 import { questRail, writtenOrder, journalLines, QUEST_URGENT_SECONDS } from '../src/ui/questRail.js';
@@ -35,79 +35,6 @@ const VENDOR = join(ROOT, 'vendor', 'dfu-quests');
 const read = (p) => readFileSync(p, 'utf8').replace(/^﻿/, '');
 const rd = (p) => readFileSync(join(ROOT, p), 'utf8');
 const quiet = (fn) => { const w = console.warn, i = console.info; console.warn = () => {}; console.info = () => {}; try { return fn(); } finally { console.warn = w; console.info = i; } };
-
-{
-  const sources = {};
-  for (const f of readdirSync(join(VENDOR, 'Tables'))) if (f.endsWith('.txt')) sources[f.replace('.txt', '')] = read(join(VENDOR, 'Tables', f));
-  loadQuestTables(sources);
-}
-
-// ---------------------------------------------------------------
-// The crafted world - the MapsFile/BlocksFile shapes Place resolves
-// against (test/questplaces.test.js's, cut to what these quests use):
-// Bigtown, one block of a tavern (spawn + item markers) and a house
-// (a spawn marker, a questor's home); Llugwych, the FIXED town at
-// Quests-Places p1 0xc352; Smallville, the same block, for a questor
-// whose home rolls remote. Devilrock is a region with no dominant
-// temple, so %god takes DFU's random arm - the quest's own rolls.
-// ---------------------------------------------------------------
-
-const REGION = 'Devilrock';
-const RI = REGION_NAMES.indexOf(REGION);
-const flat = (record) => ({ textureArchive: 199, textureRecord: record, xPos: 40, yPos: 8, zPos: 60 });
-const building = (buildingType, o = {}) => ({ buildingType, factionId: 0, nameSeed: 777, locationId: 0, sector: 0, quality: 9, ...o });
-
-function makeWorld() {
-  const townBlock = {
-    position: 5000,
-    rmbBlock: {
-      fldHeader: { buildingDataList: [building(15), building(17)], otherNames: null },
-      subRecords: [{ interior: { blockFlatObjectRecords: [flat(11), flat(18)] } }, { interior: { blockFlatObjectRecords: [flat(11)] } }],
-    },
-  };
-  const loc = ({ index, name, mapId, locationId, locationType = 0, blockNames = [], buildings = [] }) => ({
-    loaded: true, regionIndex: RI, regionName: REGION, name, locationIndex: index, hasDungeon: false,
-    mapTableData: { mapId, locationType, dungeonType: -1 },
-    exterior: { buildings, recordElement: { header: { x: 0, y: 0 } }, exteriorData: { locationId, width: blockNames.length, height: blockNames.length ? 1 : 0, blockNames } },
-    dungeon: null,
-  });
-  const locations = [
-    loc({ index: 0, name: 'Bigtown', mapId: 111, locationId: 0x400, blockNames: ['GUIDAA00.RMB'], buildings: [building(15)] }),
-    loc({ index: 1, name: 'Llugwych', mapId: 444, locationId: 0xc352 }),
-    loc({ index: 2, name: 'Smallville', mapId: 333, locationId: 0x402, locationType: 2, blockNames: ['GUIDAA00.RMB'], buildings: [building(15)] }),
-  ];
-  const region = { name: REGION, locationCount: locations.length, mapTable: locations.map((l) => ({ mapId: l.mapTableData.mapId, locationType: l.mapTableData.locationType, dungeonType: -1 })) };
-  return {
-    maps: {
-      regionCount: 1,
-      getRegion: () => region,
-      getLocation: (r, l) => locations[l] ?? null,
-      getLocationByName: (rn, ln) => locations.find((l) => l.name === ln) ?? null,
-      getRmbBlockName: (l, x, y) => l.exterior.exteriorData.blockNames[y * l.exterior.exteriorData.width + x],
-      readLocationIdFast: (r, l) => locations[l].exterior.exteriorData.locationId,
-      getClimateIndex: () => 231,
-    },
-    getBlock: (name) => (name === 'GUIDAA00.RMB' ? townBlock : null),
-    currentLocation: () => locations[0],
-    currentRegionIndex: () => RI,
-    currentLocationIndex: () => 0,
-    currentRegionName: () => REGION,
-    isPlayerInLocationRect: () => true,
-    playerInside: () => null,
-    isHouseOwned: () => false,
-    playerPixel: () => ({ x: 100, y: 100 }),
-    buildingNameOpts: () => ({}),
-    discoverLocation: () => {},
-  };
-}
-
-/** A seeded stream for a quest's rolls, and a count of its draws. */
-function seededRolls(seed = 7) {
-  let s = seed >>> 0;
-  const rolls = () => { rolls.calls++; s = (Math.imul(s, 1103515245) + 12345) >>> 0; return s / 4294967296; };
-  rolls.calls = 0;
-  return rolls;
-}
 
 const LENS_SRC = [
   'Quest: __GLENS', 'DisplayName: Main Quest - The Lens', 'QRC:',
@@ -454,7 +381,7 @@ test('GUIDE1 NOTHING THE JOURNAL HAS NOT SAID - the target over producer-minted 
 
 test('GUIDE1 ONE WALK, ONE HOME - the classic logbook takes GetLastPlaceMentionedInMessage from the lens and keeps no copy; the bridge makes the one lens and a host makes none; Message.getTextTokens still reveals by default (C#\'s literal true) and does not when told; the pause window\'s urgent line is QUEST_URGENT_SECONDS - not urgent at a day, urgent a second under (mutants: the default reveal off; the argument ignored; the literal back)', () => {
   const journal = rd('src/ui/questJournal.js');
-  assert.match(journal, /import \{ lastPlaceMentionedInMessage \} from '\.\/questLens\.js';/);
+  assert.match(journal, /import \{ lastPlaceMentionedInMessage\b[^}]*\} from '\.\/questLens\.js';/);
   assert.doesNotMatch(journal, /getMessageResources|_lastPlaceMentionedInMessage/, 'no private copy of the law');
   assert.match(journal, /const place = lastPlaceMentionedInMessage\(message\);/);
   for (const host of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/worldModes.js', 'src/scenes/dungeonContext.js']) {

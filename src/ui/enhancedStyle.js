@@ -1824,6 +1824,21 @@ ${badgeCss()}
 .px-qtimer { color: #c5bda2; font-size: 14px; letter-spacing: 0.1em;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .px-qtimer.urgent { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
+/* GUIDE2: THE WHERE LINE - where the quest's latest entry sends the player, in the find-place box's own words, the way
+   there beside it where a map can open, and the note when the player's map is known not to have the place. The place is
+   the reading; the button is set off from it, never drawn inside the prose. */
+.px-qwhere { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px;
+  margin: -4px 0 14px; }
+.px-qwhere-place { color: #d8cfae; font-size: 15px; letter-spacing: 0.04em; overflow-wrap: anywhere; text-align: center;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.px-qwhere-place::before { content: '\\25c8'; margin-right: 8px; color: var(--brass); }
+.px-qwhere .act, .px-qentry-where .act { min-height: 32px; padding: 2px 12px; font-size: 13px; }
+.px-qwhere-note { flex-basis: 100%; text-align: center; color: #b9b094; font-size: 13px; line-height: 1.5;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+/* GUIDE2: an older entry's own place, the classic logbook's click on any entry - quieter than the quest's where. */
+.px-qentry-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 2px 0 4px; }
+.px-qentry-where-place { color: #9d9479; font-size: 13px; overflow-wrap: anywhere; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+@media (pointer: coarse) { .px-qwhere .act, .px-qentry-where .act { min-height: 44px; } }
 /* PX5: the world's date and time, bottom-right on the scrim. */
 .px-clock { position: absolute; right: 18px; bottom: 12px; text-align: right;
   display: flex; flex-direction: column; gap: 2px;
@@ -3293,6 +3308,19 @@ ${badgeCss()}
    a small action set off from the prose below it, not another line of
    journal text. */
 .cr-shell .cr-share { min-width: 60px; }
+/* GUIDE2: A LIVE QUEST'S WHERE AND WHEN - under its head, standing when the card is shut (they are the quest's state, as
+   its title is): the place in the find-place box's words, the way there, the note, and the deadline the pause tab has
+   carried since PX5. */
+.cr-shell .cr-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 10px; max-width: 66ch; }
+.cr-shell .cr-whereplace { color: #d8cfae; font-size: 14px; overflow-wrap: anywhere; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.cr-shell .cr-whereplace::before { content: '\\25c8'; margin-right: 8px; color: var(--brass); }
+.cr-shell .cr-where .act { min-height: 30px; padding: 2px 10px; font-size: 13px; }
+.cr-shell .cr-wherenote { flex-basis: 100%; color: #b9b094; font-size: 13px; line-height: 1.5; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.cr-shell .cr-timer { color: #c5bda2; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.cr-shell .cr-timer.urgent { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
+.cr-shell .cr-entry.cr-shut .cr-where { margin: 8px 0 0; }
+@media (pointer: coarse) { .cr-shell .cr-where .act { min-height: 44px; } }
 /* JOURNAL1: A NOTE'S SHARE - the strip under the note's head: who the page can be held out to (the players near
    enough to talk to, a button each, which wraps as the names do), and the letter. What the last press did is said
    under it in the journal's dim hand. A name at its widest breaks inside its button rather than out of the card. */

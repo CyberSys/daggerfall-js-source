@@ -173,9 +173,104 @@ the enhanced faces call "latest", which is what PX4 specified.
 NOT SEEN IN A BROWSER - GUIDE1 has no face. The one visible change (the
 latest entry) is pinned through the real walk.
 
-## THE SLICES AHEAD (each waits for Mac's word; none is built)
+## GUIDE2 - THE WAY THERE (SHIPPED 2026-09-29)
 
-In the order proposed. Every one reads the lens and nothing else.
+DFU's logbook has always taken a click on an entry to the place it names
+(HandleQuestClicks: "Travel to location?", then the travel map opened on
+the place). The enhanced skin - the default - never had it: only the
+classic logbook ever called `gotoPlace`, so the held map's consumer
+(`heldMap._consumeGotoPlace`) was never reached. GUIDE2 gives both
+enhanced journal faces the way there, and says the place beside it.
+
+**What the player sees.**
+
+- **The pause window's Quests tab** (`ui/enhancedMenu.js` `questWhere`):
+  under the quest's name and deadline, the WHERE LINE - the latest
+  entry's target in the find-place box's own phrase ("Llugwych in
+  Wayrest province", "The Feather and Dog, Bigtown in ... province",
+  "Somewhere in ... province" with the region alone, "(you are here)"
+  underfoot) - with **Show on map** beside it where a map can open, and
+  "Not on your map yet. Ask around for directions." where the player's
+  map is KNOWN not to have a named place (Daggerfall's own answer: ask,
+  and an NPC marks it - `06-Systems/Talk-Arc.md`, THE COMPASS MARK). An
+  OLDER entry naming a different place that is on the map carries its
+  own small Show on map in the trail, because the classic logbook takes
+  a click on any entry.
+- **The chronicle** (the window the L key opens, `ui/enhancedChronicle.js`
+  `questState`): the same line and the same way there on every live
+  quest's card, under its head and standing when the card is folded -
+  and the DEADLINE the pause tab has carried since PX5, which this
+  window never showed, live once a second off the host's walk alone (no
+  entry's text is read for it), gold under a day, a stopped clock
+  repainting the card. One owner for its interval: every render and
+  destroy clear it.
+
+**The way there is DFU's own door, in DFU's order** (FindPlace_OnButtonClick):
+the journal goes down, THEN the map is asked for with the place -
+`gotoPlace({ siteDetails: find })`, the payload both maps already read.
+The pause page keeps its own door law (AUDIT 27h A4): a HANDOFF, then the
+door, and a map the host refuses resumes the game with DFU's refusal on
+the notice stack. The chronicle closes itself first and reads the door
+before the close (its destroy empties the module's deps). The street's
+map door, `toggleTravelMap`, now answers whether a map opened - `true`
+once it is in the slot, `false` from each of its nine refusals (every
+one says why first); the travel callback inside it is untouched.
+
+**THE FOUR HOSTS.**
+
+| Host | The questions (is it on the map, is the player in it) | The way there |
+|---|---|---|
+| `scenes/world.js` - the street | its own (`canFindPlace` over the maps, `_questLoc`) | the door; the journal builder offers it only in exterior mode, because the same builder serves the interior host |
+| `scenes/worldModes.js` - buildings | the street's (`host.questCanFindPlace`, `host.questLocationName`) | none: indoors DFU's map door refuses (IsPlayerInside), and a door that only ever says no is not drawn |
+| `scenes/dungeonContext.js` - dungeons | the street's, delegated through worldModes the way the quest Share button's hooks are | none: this context owns no map |
+| `scenes/exterior.js` - the fixed-town route | the city it stands in; no map to ask | none: it builds no travel map |
+
+**THE THREE-STATE MAP.** A host with no map to ask hands no
+`canFindPlace`, and the lens's `onMap` is now `null` there rather than
+`false`: a face must not tell a player that a place is missing from a
+map nobody looked at. With `null` the line names only what the entry
+says, and offers no note and no way there.
+
+**ONE HOMES.** DFU's `locationInRegionProvince` phrase moved from the
+classic logbook into the lens (`locationInRegionText`; FIND_PLACE_TEXT
+reads it); `remainWords` moved from the pause window into
+`ui/questRail.js`, so the chronicle's deadline reads exactly as the tab's.
+
+**Found on the way.** `test/chargenDom.mjs` had no `childNodes`, which
+the Quests tab's PX22 meta line reads - so the tab had never been mounted
+headless with a live quest in it; the minimal DOM carries it now. The
+refusals' new `false` re-aimed three suites' door pins
+(`test/audit64_travel.test.js`, `test/audit58_magic.test.js`,
+`test/partytravel.test.js`) and five other slices' mutant records by
+content (`auditpartyui`, `auditpartyui2`, `party-travel`, `vamphood`,
+`qtlive1`).
+
+**NO LIVE TIMER IN A FACE'S SUITE** - learned the hard way, and a law for
+every suite this arc adds. The first mutation campaign over GUIDE2 hung:
+the pressed-chronicle pin mounted the window without a `finally`, so a
+mutant that failed an assertion before the press left the chronicle's
+real once-a-second interval armed, and the test process never exited
+(`tools/mutate.mjs` waits on it with no timeout of its own). The suite
+now RECORDS every interval instead of arming it - a pin fires one by
+hand, and every mount asserts none is left standing - so a leak fails a
+pin instead of holding the run open.
+
+**Pins.** `test/guide2_wayThere.test.js` (6): the words over producer-
+minted Places; the pause tab mounted and pressed (the handoff before the
+door, the resume on a refusal, no door no button, the note, the unasked
+map); the trail's older places (offered once); the chronicle mounted and
+pressed (close before the map, the door read before the close, the line
+on a shut card); the chronicle's live deadline; the four hosts by
+source. `tools/mutants/guide2.json`: 25 mutants, 25 dead. Ledger A:
+THE JOURNAL SAYS WHERE, AND TAKES YOU THERE.
+
+NOT SEEN IN A BROWSER: both faces are driven headless over the minimal
+DOM; the dress (`.px-qwhere`, `.cr-where`, the Plus button role) is
+unlooked at on a real screen.
+
+## THE SLICES (Mac, 2026-09-29: "This is your baby. Take your time")
+
+In order. Every one reads the lens and nothing else. SHIPPED: GUIDE2 (below).
 
 | Slice | What the player gets | DFU? | Switch |
 |---|---|---|---|
@@ -188,12 +283,30 @@ In the order proposed. Every one reads the lens and nothing else.
 | **GUIDE8 GUIDANCE TIERS** | Off by default: *Journal* (GUIDE5's law) / *Town* (the building the entry names, marked when the player is in its town) / *Exact* (the marker a quest resource stands on, DFU's quest-debugger knowledge, on the dungeon map). The one tier that can spoil; its own row. | Departure | `quest-guidance` |
 | **GUIDE9 DFU'S QUEST DEBUGGER** | HUDQuestDebugger behind the inert `GUI/EnableQuestDebugger`: tasks, timers and globals per quest - for quest authors and bug reports. | 1:1 - DFU's | DFU's own key |
 
-## QUESTIONS FOR MAC
+## DECISIONS (2026-09-29, Mac: "This is your baby. Take your time")
 
-1. Which slices, in what order? GUIDE2 is parity and could go first.
-2. The herald and the tracker: on or off by default on the enhanced skin?
-3. Guidance tiers (GUIDE8): is *Exact* allowed at all?
-4. Text size: revive `textScale` for the whole enhanced UI or for quest
-   text alone? And `user-scalable=no` on the game page - keep it (the
-   touch layer's pinch) or give low-vision players the browser's zoom?
-5. Read-aloud (speechSynthesis) for quest text - wanted?
+Mac handed the arc's open questions back with the arc. Each call is
+recorded here as the arc's own, with its reason, so a later slice - or
+Mac - can see what was decided and reverse it where it stands.
+
+1. **The order** is the table's: GUIDE2 first (it is DFU's own feature,
+   missing on the default skin), then the news, the tracker, the marks,
+   the accessible journal and the shelf, the guidance tiers, the debugger.
+2. **The herald is on by default** on the enhanced skin: the silence it
+   answers is a reported bug (DISC6), and a notice is the enhanced skin's
+   own idiom (ENH-NOTICE1/3). **The tracker is on by default too**, but
+   quiet - it follows the quest the journal last changed until the player
+   pins one, and says nothing when there is no quest to follow. Both are
+   switches in the Features rows.
+3. **The *Exact* guidance tier is allowed, off by default**, behind its
+   own row: DFU itself has the knowledge (its quest debugger draws the
+   markers) and a player who cannot read a dungeon should be able to ask
+   for it; a player who wants Daggerfall never meets it.
+4. **Text size starts with the quest faces** (GUIDE7's row), not a
+   revived global `textScale` - one surface done properly before the
+   whole UI is scaled. `user-scalable=no` stays on the game page: the
+   touch layer's pinch and drag own the gesture, and the quest text size
+   is the escape hatch it lacked.
+5. **Read-aloud is in, and opt-in** (speechSynthesis, which the browser
+   and the desktop shell both carry): off by default, never a voice a
+   player did not ask for.

@@ -5,7 +5,7 @@
 // game that charged correctly, because it booted the exterior host
 // WITHOUT a class parameter - so the chargen wizard mounted, took
 // townTalk's overlay slot, and townTalk.keydown (first in that host's
-// keydown ladder, exterior.js:2976-2979) swallowed every
+// keydown ladder, exterior.js:2980-2983) swallowed every
 // page.keyboard.press the probe made. Staging passed, the offer box
 // appeared, and the Yes never arrived, which reads exactly like a
 // broken commit.
@@ -191,7 +191,7 @@ test('T3: the eyeball-tool allowlist is honest on both sides', () => {
 });
 
 // ---------------------------------------------------------------------------
-// ROAD-E E8: THE THREE STALE PROBES OF Port-Ledger.md:763, closed.
+// ROAD-E E8: THE THREE STALE PROBES OF Port-Ledger.md:764, closed.
 //
 // A probe that drives a window the port no longer HAS is the same lie
 // as a probe that cannot fail: it reports a failure the game does not
