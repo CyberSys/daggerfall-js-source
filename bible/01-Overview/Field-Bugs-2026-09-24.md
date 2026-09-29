@@ -1060,7 +1060,7 @@ the scene the picture takes in:
   (`characterSprite.js:125` `landAnchor`). Every point then draws at a place
   that does not depend on the box. The voxel rigs pass no anchor and draw as
   they did.
-- `drawThird` (`fpArm.js:4955`) anchors on the actor's own axis (MW x = y =
+- `drawThird` (`fpArm.js:4961`) anchors on the actor's own axis (MW x = y =
   0, where the root stands at `feet`), at the body's mid-height. That
   height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:721`:
   the hand's weapon and round, the torch, the held sheet, Weapon Sheathing's
@@ -1092,7 +1092,7 @@ every posed frame, for every body (the local player's and each peer's). It
 ran straight after `poseAssembly` had already walked every one of them for
 `assembly.bounds`. That is the same kind of repeated walk AUDIT MWBODY A4
 removed. The per-piece boxes are now folded inside `poseAssembly`'s own walk
-(`mwFirstPerson.js:1826` `foldPieceBounds`, called at `:2482`). Each piece
+(`mwFirstPerson.js:1827` `foldPieceBounds`, called at `:2486`). Each piece
 keeps one box, rewritten each pose. A range copies its piece's six numbers,
 and only a piece no pose has touched yet (a part bound since the last pose)
 is folded off its positions. The fold's results are unchanged:
