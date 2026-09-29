@@ -164,3 +164,12 @@
 - A hit on another player's ship is no longer lost when the connection hiccups. It is sent again a moment later.
 - When players share a sea, it has the fewest ships any of them chose under Ships at sea. Before, the choice of the player whose game ran the sea applied to everyone.
 - Features > Naval Combat has settings for how many ships sail, whether pirates board you, the raiders' plunder and the broadside camera.
+
+## Fixes from player reports (2026-09-29)
+
+- Other players now stand on their ship's deck as it sails and rocks. Before, a player at their own wheel trailed behind it, and a passenger drifted off the deck as it rolled.
+- Other players standing still on a moving ship no longer look like they are walking.
+- Sea creatures no longer get caught inside your ship when you sail over them.
+- At the helm you can zoom out much farther, far enough to see your whole ship. The camera no longer gets stuck against your own masts and rails. On foot the zoom is unchanged.
+- The breaking waves along the coast no longer shimmer and flicker in the distance, and the far beach no longer flickers when you zoom out at sea. Up close the waves look exactly as before.
+- The Test Room has a new Sea battle option: you start at the helm of an armed ship on the open Bay with a pirate brig coming in to fight. It turns on Come Sail Away and Naval Combat.

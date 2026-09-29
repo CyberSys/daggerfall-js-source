@@ -768,6 +768,11 @@ directory by `test/audit18_bible_docs.test.js`:
   glint and rain shader (`drawWaterSurface` in renderer.js), drawn after
   every opaque pass of a pixel and before the first flat, in both exterior
   hosts. Switch `enhancedWater`, `?water=off`. `07-Rendering/Water-Arc.md`.
+- `waterLayers.js` - FIELD BUGS 2026-09-29 (the sea) #4 THE SEA'S STACK IN
+  WINDOW DEPTH: the one table of polygon offsets (constant term) the water
+  sheets a few centimetres apart are drawn at - the surface film (Iliac
+  Puddle No More's top, WATER1) over the ground, Come Sail Away's breakers
+  over the film - so a 24-bit buffer parts them at every distance.
 - `underwaterFog.js` - ROAD-B B3: UnderwaterFog.UpdateFog, the submerged fog/tint law shared by the dungeon and exterior hosts
 - `windowEmission.js` - R2 window emission.
 - `precipitation.js` - R13 rain/snow + storm lightning. TWO PROFILES,

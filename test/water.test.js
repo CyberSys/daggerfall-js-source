@@ -206,7 +206,8 @@ test('WATER1: the renderer - one program, the deck\'s shadow key, and a draw sta
     assert.ok(body.includes(`this.${k}`), `the ground's ${k}`);
   }
   assert.match(body, /gl\.enable\(gl\.BLEND\);\s*\n\s*gl\.blendFunc\(gl\.SRC_ALPHA, gl\.ONE_MINUS_SRC_ALPHA\);\s*\n\s*gl\.depthMask\(false\);\s*\n\s*gl\.disable\(gl\.CULL_FACE\);/, 'drawWater\'s state');
-  assert.match(body, /gl\.enable\(gl\.POLYGON_OFFSET_FILL\);\s*\n\s*gl\.polygonOffset\(0, -2\);\s*\n\s*gl\.depthFunc\(gl\.LEQUAL\);/, 'nudged toward the eye in window depth by the constant term only (WATER-AUDIT M3: a slope factor pulled the water over a far shore), and equal is the surface');
+  // FIELD BUGS 2026-09-29 (the sea) #4: the offset is the sea's surface film's, from the one table (render/waterLayers.js, -2)
+  assert.match(body, /gl\.enable\(gl\.POLYGON_OFFSET_FILL\);\s*\n\s*gl\.polygonOffset\(0, WATER_LAYER_UNITS\.surface\);[^\n]*\n\s*gl\.depthFunc\(gl\.LEQUAL\);/, 'nudged toward the eye in window depth by the constant term only (WATER-AUDIT M3: a slope factor pulled the water over a far shore), and equal is the surface');
   // WATER-AUDIT (M2): the ground's point lights and indirect light reach the water
   assert.match(body, /gl\.uniform1i\(L\.pointCount, count\);[\s\S]*?gl\.uniform4fv\(L\.indirect, this\._indirect\);\s*\n\s*gl\.uniform3fv\(L\.indirectColor, this\._indirectColor\);/);
   assert.match(body, /gl\.uniform1i\(L\.tileDim, tileDim\);/, 'WATER-AUDIT (L2): the tilemap\'s own side, not a hardcoded 127');

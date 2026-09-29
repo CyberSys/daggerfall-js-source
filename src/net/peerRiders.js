@@ -371,14 +371,18 @@ export function createPeerWalkers({ renderer = null, urlFor = eotbSpriteUrl, dec
   function hangLantern(r, pose, feet, view, eye, right, dt, ft) {
     if (!pose.hl) {
       if (r.lantern) { dropSpriteLantern(r.lantern, store.renderer); r.lantern = null; }
-      r.pace = 0; r.paceFeet = null;
+      r.pace = 0; r.paceFeet = null; r.paceKey = null;
       return;
     }
     const l = r.lantern ?? (r.lantern = createSpriteLantern());
-    // the pace off the drawn feet, eased (a jump resets it), and last frame's feet kept - copied, never held
-    r.pace = stepPeerPace(r.pace, r.paceFeet, feet, dt);
+    // the pace off the drawn feet, eased (a jump resets it), and last frame's feet kept - copied, never held. FIELD BUGS
+    // 2026-09-29 (the sea) #1: a walker stood on a deck (the glue's `deck`, scenes/comeSailAwayAboard.js) paces by
+    // their place on it - the deck's own way is no stride - and a change of deck (or onto one, or off) starts afresh
+    const on = pose.deckKey ?? null, at = on ? pose.deck : feet;
+    r.pace = stepPeerPace(r.pace, r.paceKey === on ? r.paceFeet : null, at, dt);
     const pf = r.paceFeet ?? (r.paceFeet = [0, 0, 0]);
-    pf[0] = feet[0]; pf[1] = feet[1]; pf[2] = feet[2];
+    pf[0] = at[0]; pf[1] = at[1]; pf[2] = at[2];
+    r.paceKey = on;
     const fx = Math.sin(pose.yaw), fz = Math.cos(pose.yaw);   // the facing viewOf turns the sprite by
     const stride = spriteStride(!!pose.mv && !r.shot, r.pace, r.frame, r.clock, ft, frameCount(r.table));
     stepSpriteLantern(l, dt, fx, fz, r.pace, stride);

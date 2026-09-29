@@ -258,6 +258,7 @@ import { mobilePersonName, lootPileName } from '../systems/worldTooltips.js';   
 import { wagonHoverName } from '../player/eotbWagon.js';   // WORLD-HOVER M6: the cart's word, beside its producer
 import { waterSourceHoverName } from '../systems/survival/items.js';   // WORLD-HOVER M6: a water source's word, beside its producer
 import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, setEotbComeSailAway, mwViewHoldThird, mwViewHoldChanged, mwViewSaveCamera, mwViewTogglePerspective } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV; CSA-J: EOTB's boat
+import { seaZoomReach } from '../player/seaZoom.js';   // FIELD BUGS 2026-09-29 (the sea) #3: the zoom at a helm
 import { mwCamera } from '../player/mwCamera.js';   // MW-D30: persistence
 import { pickActivatableHit, pickQuestFoe, pickFoe } from '../player/activate.js';   // G3: corpse loot; QG1: the foe-click door; TI1: the lock-on pick
 import { raceActivation } from '../player/activationRace.js';   // HARD2: one home for "the nearest thing under the one ray takes the click"
@@ -301,7 +302,7 @@ import { CONTAINER_IMAGES } from '../ui/targetIconPanel.js';   // DW-E3: a fish'
 import { preloadPaperDollArt } from '../ui/paperDoll.js';   // U8f: the avatar base
 import { seedStartingEquipment } from '../systems/equip.js';   // U8h: the worn-weapon binding
 import { createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex, applyHeadlessChargen } from '../systems/chargenSession.js';   // S3c/U9
-import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot, testRoomOnlineRefused, TEST_ROOM_OFFLINE_TEXT } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride; AUDIT SET D4: its character's online refusal
+import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot, testRoomOnlineRefused, TEST_ROOM_OFFLINE_TEXT, TEST_SEA, TEST_SEA_TEXT, enableTestSea } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride; AUDIT SET D4: its character's online refusal
 import { publishBootParams, refuseOnlinePowerFlags, BOOT_DOOR_KEYS } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads; REALM P0.1: the URL's powers stay offline
 import { preloadChargenArt } from '../ui/chargenArt.js';   // U10
 import { preloadMessageBoxArt } from '../ui/messageBox.js';   // U11
@@ -322,9 +323,9 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
 import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
-import { createComeSailAwayAboard, CSA_ABOARD_GRACE } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded
+import { createComeSailAwayAboard, CSA_ABOARD_GRACE, deckPose as csaDeckPose, helmWord as csaHelmWordOf, localOf as csaLocalOf } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded; FIELD BUGS 2026-09-29 (the sea) #1: the deck's frame, the helmsman's place
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
-import { TRIGGER_MODEL as CSA_TRIGGER_MODEL, setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
+import { TRIGGER_MODEL as CSA_TRIGGER_MODEL, setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf, meshLocalBounds as csaMeshLocalBounds } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
 import { createComeSailAwayRuntime, comeSailAwayCarrier, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, BOAT_ACTIONS as CSA_BOAT_ACTIONS, HANDLING as CSA_HANDLING, hullFromMessage as csaHullFromMessage, tileMapIndexAtPosition as csaTileMapIndexAtPosition } from '../systems/comeSailAway.js';   // NAV-H: the tile a sea ship floats on
 import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
@@ -4683,6 +4684,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (!playerEntity.chargenDone && params.has('test') && !testPreset) {
     console.warn(`[testroom] no preset "${params.get('test')}" - the wizard stands`);
   }
+  // FIELD BUGS 2026-09-29 (the sea) #5: the sea battle's two switches, turned on before Come Sail Away's latch below
+  // reads its own at this load (systems/testRoom.js enableTestSea)
+  if (testEntry?.sea) enableTestSea();
   // TSR4: RIDE OUT. Runs from the frame loop's spawn gate and never
   // before the player stands: re-lands at the location's EDGE (the
   // fast-travel arrival's own law - outside the walls, facing in; a
@@ -4703,6 +4707,47 @@ export async function bootWorld(canvas, renderer, params, status) {
   // there, it mounts where the player stands and says so.
   let rideOutWanted = false;
   let rideOutEdge = null;   // resolved once the start pixel stands (its locOrigin exists by then); false = no location
+  // FIELD BUGS 2026-09-29 (the sea) #5: THE SEA BATTLE (systems/testRoom.js TEST_SEA), from the frame loop's spawn gate,
+  // a stage at a time: the Bay stood (the teleport's own build awaited), her hull put on the water under the player -
+  // her bow along the way with the most sea before land - and her helm taken (Come Sail Away's PlaceBoat and
+  // StartSailing, as the Overworld's launch takes them), then a pirate launched on open water off her bow (the naval
+  // host's own door, spawnShip). A door that finds no sea fight to stand (Come Sail Away's boats unbuilt) says so and
+  // leaves the player standing, never a half-made fight.
+  let seaTestWanted = false, seaTestStage = 0;
+  const seaTest = () => {
+    if (seaTestStage === 0) {
+      if (!navalOn()) { seaTestWanted = false; townTalk.say(TEST_SEA_TEXT.refused); return; }
+      seaTestStage = 1;
+      _teleportToPixel(TEST_SEA.pixel.x, TEST_SEA.pixel.y).then(() => { seaTestStage = 2; }, (e) => { seaTestWanted = false; console.warn('[testroom] sea battle: the Bay was not reached', e); });
+      return;
+    }
+    if (seaTestStage === 1 || !csa.ready()) return;   // the Bay still standing, or her hulls still loading
+    if (seaTestStage === 2) {
+      const at = [player.pos[0], tvSeaY(), player.pos[2]];
+      let bow = [0, 0, 1], sea = -1;
+      for (let k = 0; k < 8; k++) {   // the way with the most sea before land
+        const a = (k * Math.PI) / 4, run = tvSeaLandAlong(at, Math.sin(a), Math.cos(a));
+        if (run > sea) { sea = run; bow = [Math.sin(a), 0, Math.cos(a)]; }
+      }
+      let boat = null;
+      csaCall(() => { boat = csaRuntime.PlaceBoat(at, bow, TEST_SEA.hull, 0, csaTerrainOf(csaPixelAt(at[0], at[2]))); });
+      if (!boat) { seaTestWanted = false; townTalk.say(TEST_SEA_TEXT.refused); return; }
+      csaCall(() => csaRuntime.StartSailing(boat));
+      seaTestStage = 3;
+      return;
+    }
+    if (!csaRuntime?.isSailing() || !naval) return;   // at her helm first
+    seaTestWanted = false;
+    const f = player.pos, heading = Math.atan2(csaRuntime.state.CurrentBoat.GameObject.worldMatrix()[8], csaRuntime.state.CurrentBoat.GameObject.worldMatrix()[10]);
+    for (const off of [0.6, -0.6, 1.1, -1.1, 0, 1.6, -1.6, Math.PI]) {   // off her bow, on open water
+      const b = heading + off;
+      if (!navalIsWater(f[0] + Math.sin(b) * TEST_SEA.range, f[2] + Math.cos(b) * TEST_SEA.range, TEST_SEA.hull)) continue;
+      naval.spawnShip(TEST_SEA.foe, { range: TEST_SEA.range, bearing: b });
+      townTalk.say(TEST_SEA_TEXT.begun);
+      return;
+    }
+    townTalk.say(TEST_SEA_TEXT.noRoom);
+  };
   const rideOut = () => {
     if (rideOutEdge === null) rideOutEdge = locationLandingFor(startPixel.x, startPixel.y, { noMarkers: true }) ?? false;
     const edge = rideOutEdge;
@@ -4733,6 +4778,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // TSR4: the horse in the pack now; the landing and the mount wait
       // for the first stand (the frame loop's spawn gate calls rideOut).
       if (testEntry.ride) { seedTestMount(playerEntity); rideOutWanted = true; }
+      if (testEntry.sea) seaTestWanted = true;   // FIELD BUGS 2026-09-29 (the sea) #5: the Bay, her helm and a pirate wait for the first stand
       if (testEntry.loot) console.log(`[testroom] loot ladder: ${seedTestLoot(playerEntity).length} rolled items in the pack`);   // LR3
       // The Morrowind rigs, WITHOUT the trip to the pause card - the
       // room exists to look at them. Only when the data is attached;
@@ -5303,7 +5349,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           position: () => [ai.feet[0], ai.feet[1] + (ai.centreOffset ?? (ai.height ?? CAPSULE_HEIGHT) / 2), ai.feet[2]],
           setPosition: (c) => { ai.feet[0] = c[0]; ai.feet[1] = c[1] - (ai.centreOffset ?? (ai.height ?? CAPSULE_HEIGHT) / 2); ai.feet[2] = c[2]; },
           turn: (deg) => { ai.yaw = (ai.yaw ?? 0) + (deg * Math.PI) / 180; },
-          grounded: () => ai.velY === 0 && !ai.flies,   // CharacterController.isGrounded: the last move stood it on something
+          grounded: () => !!ai.isGrounded,   // CharacterController.isGrounded: the last Move stood it on something - the motor's own, every branch's (FIELD BUGS 2026-09-29 sea #2: `velY === 0` read a swimmer, whose WaterMove never touches it, as standing, so one a hull sailed over rode inside it)
         };
         _csaEnemyHandles.set(ai, h);
       }
@@ -5994,8 +6040,18 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  their boats, my feet in its own frame (scenes/comeSailAwayAboard.js word). A changed word asks for the frame it
    *  rides (standing still on a moving deck changes nothing); every full frame says it again, null aboard nothing. */
   let _csaAboardKey = '';
+  /** FIELD BUGS 2026-09-29 (the sea) #1: my place at my OWN helm, said as a passenger's is (scenes/comeSailAwayAboard.js
+   *  helmWord) - the boat I sail (my word's own order: the active boats), the helm in her deck's frame. Null ashore,
+   *  aboard nothing of mine, or offline. */
+  function csaHelmWord() {
+    const boat = csaRuntime?.isSailing() ? csaRuntime.state.CurrentBoat : null;
+    const id = online?.id ?? null;
+    if (!boat || !id) return null;
+    const slot = csaRuntime.AllBoats.filter((b) => b.GameObject?.activeSelf).indexOf(boat);
+    return slot < 0 ? null : csaHelmWordOf(id, slot, boat, player.height);
+  }
   function csaAboardWord(frame, full) {
-    const w = csaOn() ? csaAboard.word(player.pos) : null;
+    const w = csaOn() ? (csaAboard.word(player.pos) ?? csaHelmWord()) : null;   // #1: or where I stand at my own helm
     const key = w ? JSON.stringify(w) : '';
     if (!full && key === _csaAboardKey) return false;
     if (frame) { frame.ab = w; _csaAboardKey = key; }
@@ -6005,20 +6061,45 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  move of this frame made ahead (the online frame runs before the mod's LateUpdate), or a peer's as their next frame
    *  leads it - for the others aboard it, stood on its deck. Null where none stands. */
   function csaPoseAhead(owner, slot, dt) {
+    // FIELD BUGS 2026-09-29 (the sea) #1: the frame the words are stood in - the root's pose ahead, carried by her deck's
+    // bob (scenes/comeSailAwayAboard.js deckPose: the one Come Sail Away rocks my boats by; a peer's copy rocks none)
     if (owner === (online?.id ?? null)) {
       const boat = csaRuntime?.AllBoats.filter((b) => b.GameObject?.activeSelf)[slot];
       if (!boat) return null;
       const pose = { position: boat.GameObject.position, rotation: boat.GameObject.rotation };
       const way = csaRuntime.helmMotion?.();
-      if (!way || way.boat !== boat) return pose;
+      if (!way || way.boat !== boat) return csaDeckPose(boat, pose);
       const gdt = gamePaused() ? 0 : dt * worldTimeScale();   // the mod's Time.deltaTime (csaUpdate's _csaDt)
-      return { position: pose.position.map((v, k) => v + way.velocity[k] * gdt), rotation: csaQuatMultiply(pose.rotation, csaQuatAngleAxis(way.turn * gdt, [0, 1, 0])) };
+      return csaDeckPose(boat, { position: pose.position.map((v, k) => v + way.velocity[k] * gdt), rotation: csaQuatMultiply(pose.rotation, csaQuatAngleAxis(way.turn * gdt, [0, 1, 0])) });
     }
     const boat = csaPeers.boatAt(owner, slot);
-    return boat ? (csaPeers.poseAhead(boat, dt) ?? { position: boat.GameObject.position, rotation: boat.GameObject.rotation }) : null;
+    return boat ? csaDeckPose(boat, csaPeers.poseAhead(boat, dt) ?? { position: boat.GameObject.position, rotation: boat.GameObject.rotation }) : null;
   }
   /** Both, in a mode's frame (a building, a dungeon), whose own motor and eye follow. */
   function csaFrame(dt) { csaUpdate(dt); csaPoolFrame(dt); }
+  /** FIELD BUGS 2026-09-29 (the sea) #3: the zoom's reach at a boat's helm (player/seaZoom.js) - her hull mesh's own
+   *  bounds, its largest half-extent, once a boat. */
+  const _csaSeaReach = new WeakMap();
+  function csaSeaReach(boat) {
+    let r = _csaSeaReach.get(boat);
+    if (r == null) {
+      const e = csaMeshLocalBounds({ models: csa.models }, boat.MeshCollider?.m_Mesh)?.extent;
+      r = e ? seaZoomReach(Math.max(Math.abs(e[0]), Math.abs(e[1]), Math.abs(e[2]))) : 0;
+      _csaSeaReach.set(boat, r);
+    }
+    return r;
+  }
+  /** #3: the camera's cast filter at a boat's helm - her own buckets passed by (the collider's `skip`), kept while the
+   *  buckets stand as they were. */
+  let _csaCamFilter = null, _csaCamFor = null, _csaCamSize = -1;
+  function csaCameraFilter(boat) {
+    if (_csaCamFor !== boat || _csaCamSize !== _csaBuckets.size) {
+      const skip = [];
+      for (const [key, b] of _csaBuckets) if (b.boat === boat) skip.push(key);
+      _csaCamFilter = skip.length ? { skip } : null; _csaCamFor = boat; _csaCamSize = _csaBuckets.size;
+    }
+    return _csaCamFilter;
+  }
   // ── NAV-H (2026-09-28, Mac: "enhance the newly integrated ships by adding proper naval combat with a huge reference
   // to assassins creed black flag. Being able to aim and fire when viewing from the side. Along with this, I want to
   // introduce actual sailing ships to the world that players can encounter and pillage ... All UI elements should follow
@@ -13372,7 +13453,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (onlineOn) townTalk.ensureFactions?.().then(() => { if (townTalk.factionDict) setWorldPriceTilt(worldPriceTiltOf(townTalk.factionDict)); }).catch(() => {});
   let peerRiders = null;   // RIDE: another player in the saddle, drawn as Eye Of The Beholder's mounted sprite (net/peerRiders.js)
   let peerWalkers = null;   // DISC23-B: another player on foot, drawn as the Eye Of The Beholder set they chose (net/peerRiders.js)
-  let online = null, remotePlayers = null, peerBodies = null, nameLayer = null, nameSight = null, _onlineLast = null, _onlineKey = null, _onlineKeySince = 0, _onlineMovingUntil = 0, _onlineLookAt = -Infinity;
+  let online = null, remotePlayers = null, peerBodies = null, nameLayer = null, nameSight = null, _onlineLast = null, _onlineLastOn = null, _onlineKey = null, _onlineKeySince = 0, _onlineMovingUntil = 0, _onlineLookAt = -Infinity;
   let _hsLatch = false;   // AUDIT DISC7 B2: the motor's half-speed flag off the last frame that MOVED - a stop reads it true (standing), and the move hold must not send that as a slow trot
   // D-ONLINE1 (2026-09-17, a player: "still see you have died then main menu"): `onlineFrame` LEAVES the room the
   // instant the death screen goes up (AUDIT ONLINE D12: the dead broadcast nothing and see no one), every frame,
@@ -17243,10 +17324,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     // quarter second of lag on the transition TO idle is not
     // perceptible walking to a stop; a walk cycle restarting every few
     // packets is.
-    const movedThisFrame = _onlineLast ? (player.pos[0] - _onlineLast[0]) ** 2 + (player.pos[2] - _onlineLast[2]) ** 2 > 1e-6 : false;
+    // FIELD BUGS 2026-09-29 (the sea) #1: MOVED ON WHAT CARRIES ME - a deck I stand aboard (another's boat) or the one I
+    // sail - never by its way: the helmsman pinned at the wheel and a passenger standing on a ship under way were sent as
+    // walking, and the others drew a walk on a still body. Measured in that boat's frame as her bob carries it
+    // (scenes/comeSailAwayAboard.js deckPose), at the body's centre - the transform the helm pins; a new carrier (aboard,
+    // ashore, a boat changed) measures from the next frame
+    const carrier = csaOn() ? (csaAboard.aboard?.boat ?? (csaRuntime?.isSailing() ? csaRuntime.state.CurrentBoat : null) ?? null) : null;
+    const here = (carrier && csaLocalOf(csaDeckPose(carrier), [player.pos[0], player.pos[1] + player.height / 2, player.pos[2]])) || player.pos;
+    const movedThisFrame = _onlineLast && _onlineLastOn === carrier ? (here[0] - _onlineLast[0]) ** 2 + (here[2] - _onlineLast[2]) ** 2 > 1e-6 : false;
     if (movedThisFrame) { _onlineMovingUntil = now + ONLINE_MOVE_HOLD_MS; _hsLatch = !!player.movingLessThanHalfSpeed; }
     const moved = now < _onlineMovingUntil;
-    _onlineLast = [player.pos[0], player.pos[1], player.pos[2]];
+    _onlineLast = [here[0], here[1], here[2]]; _onlineLastOn = carrier;
     if (key !== _onlineKey) { _onlineKey = key; _onlineKeySince = now; }
     // PROFILE2 (Mac: "make the profile icon visible somehow on the pause menu and allow changes"): MY LOOK, KEPT CURRENT.
     // A skin chosen on the pause screen or a coat put on is a look changed mid-session, and the look rode the hello
@@ -20195,6 +20283,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         csaOnTeleport();   // CSA-F: and Come Sail Away's waves
       }
       if (rideOutWanted && playerSpawned) rideOut();   // TSR4: after the first stand, whichever of the two came second
+      if (seaTestWanted && playerSpawned) seaTest();   // FIELD BUGS 2026-09-29 (the sea) #5: the same gate, a stage a frame
       if (playerSpawned) {
         const jumpHeld = held(keys, 'Jump');
         const swingKey = swingKeyHeld(keys);   // MAC-SWING1: a swing bound to a KEY or pad code has no mousedown - the latch is polled here, and fed to the rig on the change
@@ -21039,13 +21128,19 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // VIEW-TOGGLE (Mac: "a force first person/third person toggle"): the other view, on the press edge of its action (the
     // mouse's forward side button by default) - under no window, and never mid-load (hccActionPressed's gate)
     if (hccActionPressed('TogglePerspective')) mwViewTogglePerspective();
+    // FIELD BUGS 2026-09-29 (the sea) #3: AT A HELM the wheel zooms out to frame the hull sailed (player/seaZoom.js) and
+    // the camera's casts pass her own buckets by - her masts, rails and deckhouses pinned it at the wheel and held the
+    // zoom (camera.lua:153's no-op while pinned); the world and every other boat still pull it in
+    const csaHelm = csaOn() && csaRuntime?.isSailing() ? csaRuntime.state.CurrentBoat : null;
+    const camFilter = csaHelm ? csaCameraFilter(csaHelm) : null;
     const mwv0 = mwViewFrame({
       eyeOverride: travelView?.eye ?? null,
       fpEye: cam.pos, feet: player.feetAt(), yaw: cam.yaw, pitch: cam.pitch,
       dt, riding: !!player.riding,   // AUDIT-EOTB F3/F4: the host's own clock, and the one state only it has
       cart: player.transportMode === TRANSPORT_MODES.Cart, onExteriorPath: _surfPath,   // EOTB-IL: UpdateWagon's two host facts
-      raycast: (o, d, m) => collider.raycast(o, d, m),
-      spherecast: (o, r, d, m) => { const h = collider.sphereCast(o, r, d, m).dist; return Number.isFinite(h) ? h : null; },   // MAC-A: castSphere's seam beside the ray - the camera's two obstacle guards are sphere casts (camera.cpp:186, :200)
+      raycast: (o, d, m) => collider.raycast(o, d, m, camFilter),
+      spherecast: (o, r, d, m) => { const h = collider.sphereCast(o, r, d, m, camFilter).dist; return Number.isFinite(h) ? h : null; },   // MAC-A: castSphere's seam beside the ray - the camera's two obstacle guards are sphere casts (camera.cpp:186, :200)
+      seaReach: csaHelm ? csaSeaReach(csaHelm) : 0,   // #3
     });
     // TV1: THE TRAVEL VIEW'S EYE, when it is up - risen out of the body's own camera (`ownEye`, the one the frame would
     // draw) and blended back into it on the way down. Every reader below that asks where the picture is taken from

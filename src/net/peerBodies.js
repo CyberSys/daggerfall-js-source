@@ -318,8 +318,12 @@ export class PeerBodies {
   /** A body's feet, pace, range and camera for this frame. */
   _place(b, peer, toScene, dt, near) {
     const f = toScene(peer.shown);
-    // the ground speed off the drawn pose, eased; a jump (a snap, a recenter missed) resets it rather than reading as a sprint
-    b.speed = stepPeerPace(b.speed, b.feet, f, dt);   // HT-WAIST-BACK: net/peerPace.js, the one home
+    // the ground speed off the drawn pose, eased; a jump (a snap, a recenter missed) resets it rather than reading as a sprint.
+    // FIELD BUGS 2026-09-29 (the sea) #1: one stood on a deck (the glue's `deck`) paces by their place on it - a body standing
+    // on a moving deck stood in a walk at the ship's speed - and a change of deck (or onto one, or off) starts afresh
+    const on = peer.shown.deckKey ?? null, at = on ? peer.shown.deck : f;
+    b.speed = stepPeerPace(b.speed, b.paceKey === on ? b.paceAt : null, at, dt);   // HT-WAIST-BACK: net/peerPace.js, the one home
+    b.paceAt = at; b.paceKey = on;
     b.feet = f;
     // the yaw eased toward the pose's (AUDIT MWBODY A8): the rig reads turning off the yaw's change frame to frame,
     // and a pose eased over one send interval stops between arrivals, so the turn clip stuttered

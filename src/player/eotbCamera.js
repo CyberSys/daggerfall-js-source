@@ -63,6 +63,7 @@
 
 import { MOD_SETTINGS, modSettingsGeneration } from '../systems/modSettings.js';
 import { AUTO_TOGGLE_ROWS, AUTO_TOGGLE, autoToggleRows } from './eotbBillboard.js';   // [IL] LateUpdate's table
+import { seaZoomStep } from './seaZoom.js';   // FIELD BUGS 2026-09-29 (the sea) #3: the zoom at a helm
 
 /** `eyeRadius` is a field initialiser in the mod's own .ctor, not a
  *  setting - the clearance the camera keeps off a wall. */
@@ -263,6 +264,8 @@ export function createEotbCamera() {
   let isSailing = false;
   let boatMeshObject = null, boatDriveObject = null, boatFlagObject = null;
   let boatMeshObjectCenter = [0, 0, 0], boatMeshObjectExtent = 0;
+  /** FIELD BUGS 2026-09-29 (the sea) #3: the helm's reach (m; 0 off it), said by the host each frame (setSeaReach). */
+  let seaReach = 0;
   /** Debug.Log, as the host hands it in (null: unheard) */
   let log = null;
   /** `spellCasting.enabled`, the FPS spell hands - false in third person */
@@ -503,6 +506,8 @@ export function createEotbCamera() {
     /** CSA-J: OnUpdateSailing's fields - PlayerBillboard reads three off `EyeOfTheBeholder.Instance` (UpdateOrientation,
      *  IL_471c-IL_4765). */
     sailing: () => ({ isSailing, boatMeshObject, boatDriveObject, boatFlagObject, boatMeshObjectCenter: [...boatMeshObjectCenter], boatMeshObjectExtent }),
+    /** #3: the helm's reach (m; 0 or less off it) - the far end the wheel zooms to at a helm, past the mod's own. */
+    setSeaReach(metres) { seaReach = Number.isFinite(metres) && metres > 0 ? metres : 0; },
     /** The mod's OnToggleOffset event - MessageReceiver's subscribers. */
     onToggleOffset(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 
@@ -632,9 +637,17 @@ export function createEotbCamera() {
       // per Update and branches `> 0` / `< 0`; it never scales by the
       // reading's magnitude, so three notches inside one frame move the
       // camera exactly as far as one does.
+      // FIELD BUGS 2026-09-29 (the sea) #3: AT A HELM THE FAR END IS THE HULL'S REACH (player/seaZoom.js) - past the
+      // mod's own MAX_Z a notch is a ratio, one a frame and by its sign as the mod reads a notch, down to MAX_Z coming
+      // in; the mod's own boat override (CameraOverrideBoat) keeps its own ladder, scaled by the hull already
+      const far = seaReach > -MAX_Z && !(cfg.overrides.Boat.enabled && isSailing) ? -seaReach : MAX_Z;
+      if (far < MAX_Z && clicks && (z < MAX_Z || (clicks < 0 && z <= MAX_Z))) {
+        offsetScroll += z + seaZoomStep(-z, clicks > 0 ? 1 : -1, -MAX_Z, -far);
+        return offset;
+      }
       if (clicks > 0) offsetScroll -= cfg.increment;
       else if (clicks < 0) offsetScroll += cfg.increment;
-      if (z < MAX_Z) offsetScroll = -MAX_Z + (posOffset(state)[2] + offsetScroll);
+      if (z < far) offsetScroll = -far + (posOffset(state)[2] + offsetScroll);
       else if (z > nearEnd) toggleOffset(false);
       return offset;
     },

@@ -237,8 +237,9 @@ async function boot() {
     // dev boot in the U31 sense: it keeps the named start (the city's
     // exterior) and never asks for the classic path. Every other menu
     // door still begins where Daggerfall begins.
-    const { TEST_RIDE } = await import('./systems/testRoom.js');
-    if (params.get('test') === TEST_RIDE.id) params.delete('classic');
+    // FIELD BUGS 2026-09-29 (the sea) #5: the sea battle is a spawn outdoors too - the room's own list (testStartsOutdoors)
+    const { testStartsOutdoors } = await import('./systems/testRoom.js');
+    if (testStartsOutdoors(params.get('test'))) params.delete('classic');
     else params.set('classic', '1');
     // MAC-N3: THE DECIDED PARAMS ARE THE URL before the world boots.
     // `online` above was set on this in-memory copy alone, and the

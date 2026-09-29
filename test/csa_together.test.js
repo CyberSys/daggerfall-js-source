@@ -14,6 +14,7 @@ import { createComeSailAwayPool } from '../src/scenes/comeSailAwayPool.js';
 import { createComeSailAwayPeers, CSA_PEER_LEAD_MAX, CSA_PEER_SNAP_M } from '../src/scenes/comeSailAwayPeers.js';
 import {
   createComeSailAwayAboard, validAboardWord, localOf, worldOf, poseMatrix, CSA_ABOARD_BELOW, CSA_ABOARD_STEP, CSA_ABOARD_NEAR, CSA_ABOARD_GRACE, CSA_ABOARD_LOCAL_MAX,
+  deckPose,
 } from '../src/scenes/comeSailAwayAboard.js';
 import { csaWireRecord, validCsaRecord, csaRecordKey, CSA_WIRE_SPEED_MAX, CSA_WIRE_TURN_MAX } from '../src/systems/comeSailAwayWire.js';
 import { TRIGGER_MODEL } from '../src/systems/comeSailAwayBoat.js';
@@ -389,7 +390,7 @@ test('CSA-K: the host - the deck I stand aboard stands in MY collider beside my 
 
 test('CSA-K: the host - my place aboard rides my foes frame as `ab` (a changed word asks for the frame, every full frame says it, null aboard nothing), the receiver lands a peer\'s past the room test and a clear takes it, and the glue stands them on the deck as drawn', () => {
   // the word, mounted: world.js's own csaAboardWord and foesStream over a stand-in pool
-  let aboardWord = null;
+  let aboardWord = null, helmAt = null;
   const sent = [];
   const scope = {
     online: { status: 'open', room: 'world:3,12', isHost: () => false, sendFoes: (f) => { sent.push(f); return true; } },
@@ -397,6 +398,7 @@ test('CSA-K: the host - my place aboard rides my foes frame as `ab` (a changed w
     exteriorFoes: { foesFrame: (full, force) => (full || force ? { n: 1, k: 'world:3,12', full: full ? 1 : 0, f: [] } : null) },
     _hccDirty: false, camps: { wireRecords: () => [] }, hcc: { wireRecord: () => null }, duelRingWord: () => {}, campToWire: (p) => p,
     csaWord: () => false, csaOn: () => true, csaAboard: { word: () => aboardWord }, player: { pos: [0, 0, 0] }, _csaAboardKey: '',
+    csaHelmWord: () => helmAt,   // FIELD BUGS 2026-09-29 (the sea) #1: my place at my own helm, when aboard nothing else
     raidWireWord: () => null,   // THE MERGE: RAID2's word rides the same line
     bandWord: () => false,   // THE MERGE (TV7b): no band chases on this deck
     navalWord: () => false,   // THE MERGE with NAV-G: the sea's word rides beside it - no sea here, this pin is the aboard word's
@@ -417,6 +419,17 @@ test('CSA-K: the host - my place aboard rides my foes frame as `ab` (a changed w
   aboardWord = null;
   foesStream(1200);
   assert.equal(sent.at(-1).ab, null, 'off: said at once');
+  // FIELD BUGS 2026-09-29 (the sea) #1: at my own helm my place is the helm's - said once, then nothing while I sail on
+  helmAt = ['me', 0, 0, 9.1, -15.2];
+  foesStream(1500);
+  assert.deepEqual(sent.at(-1).ab, ['me', 0, 0, 9.1, -15.2], 'the helmsman says where they stand');
+  const n = sent.length;
+  foesStream(1800);
+  assert.equal(sent.length, n, 'sailing on at the wheel: no word');
+  aboardWord = ['ann', 1, 2, 0.5, 3];
+  foesStream(2100);
+  assert.deepEqual(sent.at(-1).ab, ['ann', 1, 2, 0.5, 3], 'aboard another\'s boat, that place first');
+  aboardWord = null; helmAt = null;
   // the receiver: past the room test, the same law as the boats; the clears
   const foes = rd('src/scenes/exteriorFoes.js');
   assert.match(foes, /if \(data\.sa !== undefined\) _onCsa\?\.\(from, data\.sa, _now\(\)\);[^\n]*\n\s+if \(data\.ab !== undefined\) _onCsaAboard\?\.\(from, data\.ab, _now\(\)\);/);
@@ -429,6 +442,7 @@ test('CSA-K: the host - my place aboard rides my foes frame as `ab` (a changed w
   const s2 = {
     online: { id: 'me' }, csaRuntime: { AllBoats: [{ GameObject: { activeSelf: false } }, boat], helmMotion: () => ({ boat, velocity: [2, 0, 0], turn: 90 }) },
     gamePaused: () => false, worldTimeScale: () => 5, csaQuatMultiply: quatMultiply, csaQuatAngleAxis: quatAngleAxis, csaPeers: { boatAt: () => null },
+    csaDeckPose: deckPose,   // #1: a boat with no bob answers her root's own pose
   };
   const ahead = mount(s2, cut(WORLD, 'function csaPoseAhead(owner, slot, dt) {', '\n  }\n'), 'csaPoseAhead');
   const p = ahead('me', 0, 0.1);

@@ -44,7 +44,7 @@ test('VIEW-TOGGLE action: a port action, appended, on the mouse\'s forward side 
   assert.ok(isBindableKeyCode('Mouse4'), 'and a key the controls pane can name');
   assert.ok(ACTION_GROUPS.find((g) => g.title === 'Movement').rows.some((r) => r.action === 'TogglePerspective' && r.label === 'First / third person'));
   const w = rd('src/scenes/world.js');
-  assert.match(w, /if \(hccActionPressed\('TogglePerspective'\)\) mwViewTogglePerspective\(\);\n\s*const mwv0 = mwViewFrame\(\{/);
+  assert.match(w, /if \(hccActionPressed\('TogglePerspective'\)\) mwViewTogglePerspective\(\);\n(?:\s*\/\/[^\n]*\n)*\s*const csaHelm = [^\n]*\n\s*const camFilter = [^\n]*\n\s*const mwv0 = mwViewFrame\(\{/);   // FIELD BUGS 2026-09-29 (the sea) #3: the helm's reach and filter between, nothing else
   assert.match(w, /for \(const kind of \['mousedown', 'mouseup'\]\) addEventListener\(kind, \(e\) => \{ if \(e\.button === 3 \|\| e\.button === 4\) e\.preventDefault\(\); \}\);/, 'the side buttons are never the browser\'s Back and Forward in the world');
   assert.match(w, /const hccActionPressed = \(action\) => !gamePaused\(\) && !pointerSurfaces\.size && !_loading && pressed\(latch\.edge, keys, action\);/, 'the gate it rides');
 });

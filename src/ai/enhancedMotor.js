@@ -20,7 +20,7 @@
 // enemyMelee.js htClose (the waypoint advance), at project-final
 // 8ba9100. The constants are his numbers with his comments; the two
 // functions are his bodies, re-homed on `this` instead of `e` because
-// the port's foe IS its motor. navWalkable is main.js:331 verbatim.
+// the port's foe IS its motor. navWalkable is main.js:332 verbatim.
 // Where the port's shape forced a change it is named below; there are
 // exactly two, and neither touches how a route is chosen or held.
 //
@@ -125,7 +125,7 @@ export const PATH_BUDGET_PER_FRAME = 3; // cap findPath (poly A* + funnel) calls
  *  number; the port's, not his. */
 export const PROJECT_MARGIN = 0.05;
 
-/** project-final main.js:331, verbatim: a cell is walkable iff it holds
+/** project-final main.js:332, verbatim: a cell is walkable iff it holds
  *  a walkable, regioned span (or its bit is set in a hydrated map's
  *  walkmask). */
 export function navWalkable(chf, x, z) {
@@ -213,7 +213,7 @@ export class EnhancedEnemyAI extends EnemyAI {
       const drop = this.fallDetected;
       this.obstacleDetected = od; this.foundUpwardSlope = us; this.foundDoor = fd; this.fallDetected = false;
       if (drop) continue;
-      this.collider.move(this.feet, nx - this.feet[0], 0, nz - this.feet[2], this.height);
+      this.isGrounded = this.collider.move(this.feet, nx - this.feet[0], 0, nz - this.feet[2], this.height).grounded;   // a Move like any other: isGrounded is its (FIELD BUGS 2026-09-29 sea #2)
       break;
     }
     this.path = null; this.repathT = 0;

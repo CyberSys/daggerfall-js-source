@@ -318,8 +318,8 @@
   {
     "name": "CSAK-aboard-glue-axis",
     "file": "src/scenes/comeSailAwayAboard.js",
-    "old": "return { ...d, shown: { ...d.shown, x: w[0], y: w[1], z: w[2] } };",
-    "new": "return { ...d, shown: { ...d.shown, x: w[0], y: w[1], z: w[1] } };",
+    "old": "shown: { ...d.shown, x: w[0], y: w[1], z: w[2], deck: [r.shown[0], r.shown[1], r.shown[2]]",
+    "new": "shown: { ...d.shown, x: w[0], y: w[1], z: w[1], deck: [r.shown[0], r.shown[1], r.shown[2]]",
     "tests": [
       "test/csa_together.test.js"
     ]
@@ -490,8 +490,8 @@
   {
     "name": "CSAK-host-ahead-real-clock",
     "file": "src/scenes/world.js",
-    "old": "return { position: pose.position.map((v, k) => v + way.velocity[k] * gdt),",
-    "new": "return { position: pose.position.map((v, k) => v + way.velocity[k] * dt),",
+    "old": "return csaDeckPose(boat, { position: pose.position.map((v, k) => v + way.velocity[k] * gdt),",
+    "new": "return csaDeckPose(boat, { position: pose.position.map((v, k) => v + way.velocity[k] * dt),",
     "tests": [
       "test/csa_together.test.js"
     ]

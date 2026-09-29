@@ -13,7 +13,10 @@
 //     one texel a pixel);
 //   - tinted (0.5, 0.75, 1), Lambert-lit and fogged (the FORWARDBASE pass's
 //     FOG_LINEAR / FOG_EXP / FOG_EXP2 variants), opaque, writing its depth,
-//     back faces culled (Unity's winding, the port's world projection).
+//     back faces culled (Unity's winding, the port's world projection);
+//   - (FIELD BUGS 2026-09-29 (the sea) #4) in its place in the sea's stack of
+//     sheets in window depth: over the ground and the surface film
+//     (render/waterLayers.js).
 //
 // THE FRAME IS COMPOSED WHERE IT IS SAMPLED. Each of the 32 frames is one of
 // the author's two paints scrolled down its rows, the paint's key colour
@@ -24,6 +27,19 @@
 // same integer arithmetic, point-sampled either way - so the port uploads
 // the two paints and the snow, not 32 frames of 640x640.
 //
+// FIELD BUGS 2026-09-29 (the sea) #4 - AND FROM AFAR, THE CHAIN'S TEXEL. The
+// mod's frames carry one level (m_MipCount 1), so a strip seen from a few
+// hundred metres picked one texel of dozens a pixel and boiled as the deck
+// bobbed the camera. Each paint is uploaded as its chain instead
+// (systems/comeSailAwayWaves.js wavePaintLevels): level 0 the paint itself,
+// and past it the mean of the frame it composes, premultiplied - the snow at
+// its record's mean. The shader picks the level NEAREST_MIPMAP_NEAREST would
+// (GL ES 3.0 3.8.10, from the texel footprint): at level 0 - a texel a pixel
+// and nearer - the mod's own read and cut, texel for texel; past it one fetch
+// of the chain, its coverage dithered by the material's own Bayer table (a hard
+// cut at a level's mean would fill the strip solid). A departure, in the
+// Port-Ledger's Come Sail Away row.
+//
 // LIT AS THE PORT LIGHTS ITS FLATS (Port-Ledger, the Come Sail Away row):
 // the scene's ambient plus the sun's Lambert term, where Unity's forward
 // path adds its spherical-harmonic ambient, its vertex lights and the
@@ -32,7 +48,8 @@
 
 import { buildProgram } from './glProgram.js';
 import { FOG_GLSL } from './fogGlsl.js';
-import { BAYER_8X8, WAVE_MATERIAL } from '../systems/comeSailAwayWaves.js';
+import { BAYER_8X8, WAVE_MATERIAL, wavePaintLevels, wavePictureMean } from '../systems/comeSailAwayWaves.js';
+import { WATER_LAYER_UNITS } from './waterLayers.js';   // FIELD BUGS 2026-09-29 (the sea) #4: the breakers' place in the sea's stack
 import { quatRotate } from '../world/quat.js';
 
 const WAVE_VS = `#version 300 es
@@ -61,10 +78,11 @@ precision highp int;
 in vec2 vUv;
 in vec3 vNormal;
 in vec3 vWorldPos;
-uniform highp sampler2D uPaint;   // the frame's paint, its rows top-down as the picture has them
+uniform highp sampler2D uPaint;   // the frame's paint, its rows top-down as the picture has them (#4: its chain - past level 0 the frame's means)
 uniform highp sampler2D uSnow;    // TEXTURE.303 record 1, top-down
 uniform ivec2 uFrameSize;
 uniform ivec2 uSnowSize;
+uniform int uLastLevel;           // #4: the chain's last level
 uniform int uScroll;
 uniform ivec2 uTileOffset;
 const float BAYER[64] = float[64](${BAYER_8X8.map((v) => `${v}.0`).join(', ')});   // _DitherPattern's red, unorm8
@@ -84,28 +102,44 @@ uniform vec2 uFogRange;
 out vec4 outColor;
 ${FOG_GLSL}
 int wrapi(int a, int n) { int m = a % n; return m < 0 ? m + n : m; }
+// #4: the level NEAREST_MIPMAP_NEAREST picks (GL ES 3.0 3.8.10-11, the magnification filter NEAREST): lambda from the
+// texel footprint along the unwrapped uv, level 0 at magnification and to half a level past it
+int waveLevel(vec2 uv) {
+  vec2 t = uv * vec2(uFrameSize);
+  vec2 dx = dFdx(t), dy = dFdy(t);
+  float lambda = min(0.5 * log2(max(dot(dx, dx), dot(dy, dy))), 32.0);   // bounded: int() of an infinity is undefined
+  return lambda > 0.5 ? min(int(ceil(lambda + 0.5)) - 1, uLastLevel) : 0;
+}
+// #4: a level-0 texel's texel at level L - floor((c + 0.5) * size_L / size_0), the map the chain was built by
+ivec2 atLevel(ivec2 c, ivec2 size0, ivec2 sizeL) { return min(ivec2((vec2(c) + 0.5) * vec2(sizeL) / vec2(size0)), sizeL - 1); }
 // the frame's texel under uv - composeTiledPicture's pixel: Unity's point sample with Repeat picks texel
-// floor(frac(uv) * size), its row 0 the picture's bottom
-vec4 waveTexel(vec2 uv) {
+// floor(frac(uv) * size), its row 0 the picture's bottom. Premultiplied, its alpha the frame's coverage there (level 0's
+// 0 or 1 - the paint's own alpha is 0 or 255 in every one of the author's texels); #4: past level 0, the chain's mean
+vec4 waveTexel(vec2 uv, int L) {
   ivec2 t = clamp(ivec2(floor(fract(uv) * vec2(uFrameSize))), ivec2(0), uFrameSize - 1);
   int x = t.x;
   int y = uFrameSize.y - 1 - t.y;
-  vec4 p = texelFetch(uPaint, ivec2(x, wrapi(y + uScroll, uFrameSize.y)), 0);
+  ivec2 at = ivec2(x, wrapi(y + uScroll, uFrameSize.y));
+  if (L > 0) return texelFetch(uPaint, atLevel(at, uFrameSize, textureSize(uPaint, L)), L);
+  vec4 p = texelFetch(uPaint, at, 0);
   if (p == vec4(1.0, 0.0, 1.0, 1.0)) {   // the key, ff00ffff: the record's pixel, opaque
     vec3 s = texelFetch(uSnow, ivec2(wrapi(x + uTileOffset.x, uSnowSize.x), wrapi(y + uTileOffset.y, uSnowSize.y)), 0).rgb;
     return vec4(s, 1.0);
   }
-  return p;
+  return vec4(p.rgb * p.a, p.a);
 }
 void main() {
+  int L = waveLevel(vUv);   // #4: before any discard - the derivatives are the quad's
   float d = abs(vUv.y * 0.100000001 - 0.5) * 2.0 - uDitherStart;
   float x = clamp(d * (1.0 / (uDitherEnd - uDitherStart)), 0.0, 1.0);
   float a = 1.0 - (3.0 - 2.0 * x) * (x * x);
   ivec2 px = ivec2(gl_FragCoord.xy) & 7;
   if (a - BAYER[px.y * 8 + px.x] / 255.0 < 0.0) discard;
-  vec4 tex = waveTexel(vUv);
-  if (tex.a * uColor.a - uCutoff < 0.0) discard;
-  vec4 c = tex * uColor;
+  vec4 tex = waveTexel(vUv, L);
+  if (L == 0) {
+    if (tex.a * uColor.a - uCutoff < 0.0) discard;
+  } else if (tex.a * uColor.a - BAYER[((px.y + 4) & 7) * 8 + ((px.x + 4) & 7)] / 255.0 < 0.0) discard;   // #4: a minified texel's coverage, dithered
+  vec4 c = vec4(tex.rgb / tex.a, tex.a) * uColor;
   vec3 lit = c.rgb * (uAmbient + uSunColor * (uSunScale * max(dot(vNormal, uLightDir), 0.0)));
   outColor = vec4(dwWaterFog(mix(uFogColor, lit, fogFactorAt(vWorldPos)), vWorldPos), c.a);   // and Iliac Puddle No More's water, under it
 }`;
@@ -264,6 +298,23 @@ export function softParticleTexture(size = 64) {
 const locs = (gl, p, names) => Object.fromEntries(names.map((n) => [n, gl.getUniformLocation(p, n)]));
 const LIGHT_FOG = ['uAmbient', 'uSunColor', 'uSunScale', 'uLightDir', 'uCamPos', 'uFogColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uDwFog', 'uFocus'];   // TV1: and the travel view's focus (fogGlsl.js FOCUS_GLSL)
 
+/** #4: a chain of levels (systems/comeSailAwayWaves.js wavePaintLevels), every level uploaded - texelFetch reads it,
+ *  at a level the shader picks. */
+const uploadLevels = (gl, levels) => {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  levels.forEach((l, i) => gl.texImage2D(gl.TEXTURE_2D, i, gl.RGBA8, l.width, l.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, l.data));
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, levels.length - 1);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST);   // complete; texelFetch names its own level
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+  return tex;
+};
+
 const uploadPicture = (gl, pic) => {
   const tex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -285,7 +336,7 @@ export class ComeSailAwayRenderer {
     this.renderer = renderer;
     this.gl = renderer.gl;
     this._wave = null;
-    /** @type {{ paints: WebGLTexture[], snow: WebGLTexture, snowSize: number[], specs: any[] } | null} */
+    /** @type {{ paints: WebGLTexture[], lastLevel: number, snow: WebGLTexture, snowSize: number[], specs: any[] } | null} */
     this._frames = null;
     this._mesh = null;   // the mesh uploaded, and the one it was uploaded from
     this._part = null;
@@ -477,7 +528,10 @@ export class ComeSailAwayRenderer {
    */
   setWaveFrames(frames) {
     const gl = this.gl;
-    this._frames = { paints: frames.paints.map((p) => uploadPicture(gl, p)), snow: uploadPicture(gl, frames.snow), snowSize: [frames.snow.width, frames.snow.height], specs: frames.specs };
+    // #4: each paint as its chain - level 0 itself, past it the frame's means with the snow at its own mean
+    const snowMean = wavePictureMean(frames.snow);
+    const chains = frames.paints.map((p) => wavePaintLevels(p, snowMean));
+    this._frames = { paints: chains.map((c) => uploadLevels(gl, c)), lastLevel: chains[0] ? chains[0].length - 1 : 0, snow: uploadPicture(gl, frames.snow), snowSize: [frames.snow.width, frames.snow.height], specs: frames.specs };
     this.renderer.markForeignPass?.();
   }
   get hasWaveFrames() { return !!this._frames; }
@@ -486,7 +540,7 @@ export class ComeSailAwayRenderer {
     if (this._wave) return this._wave;
     const gl = this.gl;
     const p = buildProgram(gl, WAVE_VS, WAVE_FS, 'come sail away waves');
-    this._wave = { p, u: locs(gl, p, ['uProj', 'uView', 'uOrigin', 'uScale', 'uTile', 'uPaint', 'uSnow', 'uFrameSize', 'uSnowSize', 'uScroll', 'uTileOffset',
+    this._wave = { p, u: locs(gl, p, ['uProj', 'uView', 'uOrigin', 'uScale', 'uTile', 'uPaint', 'uSnow', 'uFrameSize', 'uSnowSize', 'uLastLevel', 'uScroll', 'uTileOffset',
       'uColor', 'uCutoff', 'uDitherStart', 'uDitherEnd', 'uAmbient', 'uSunColor', 'uSunScale', 'uLightDir', 'uCamPos', 'uFogColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uDwFog', 'uFocus']),
     vao: gl.createVertexArray(), vbo: gl.createBuffer(), ebo: gl.createBuffer() };
     return this._wave;
@@ -535,6 +589,7 @@ export class ComeSailAwayRenderer {
     gl.uniform2f(u.uTile, WAVE_MATERIAL.tile[0], WAVE_MATERIAL.tile[1]);
     gl.uniform2i(u.uFrameSize, spec.size[0], spec.size[1]);
     gl.uniform2i(u.uSnowSize, this._frames.snowSize[0], this._frames.snowSize[1]);
+    gl.uniform1i(u.uLastLevel, this._frames.lastLevel);   // #4
     gl.uniform1i(u.uScroll, spec.scroll);
     gl.uniform2i(u.uTileOffset, spec.tile[0], spec.tile[1]);
     gl.uniform4fv(u.uColor, WAVE_MATERIAL.color);
@@ -563,9 +618,12 @@ export class ComeSailAwayRenderer {
     gl.depthMask(true);
     gl.disable(gl.BLEND);
     gl.enable(gl.CULL_FACE);   // Cull Back, the shader's default, on Unity's winding
+    gl.enable(gl.POLYGON_OFFSET_FILL);   // FIELD BUGS 2026-09-29 (the sea) #4: the breakers' place in the sea's stack (render/waterLayers.js)
+    gl.polygonOffset(0, WATER_LAYER_UNITS.breakers);
     gl.bindVertexArray(w.vao);
     gl.drawElements(gl.TRIANGLES, this._mesh.count, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
