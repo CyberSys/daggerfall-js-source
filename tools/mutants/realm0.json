@@ -218,7 +218,7 @@
   {
     "name": "REALM0-join-not-wired",
     "file": "src/scenes/world.js",
-    "old": "    onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: worldMinutes(), say: (l, d) => townTalk.say(l, d) });",
+    "old": "    onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: ownMinutes(), say: (l, d) => townTalk.say(l, d) });",
     "new": "    onlineArrival();",
     "tests": [
       "test/realm0.test.js"

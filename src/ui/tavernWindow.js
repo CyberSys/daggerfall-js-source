@@ -39,7 +39,7 @@
 //
 // The three clauses that stood here are all closed (D1):
 // - the TALK button routes to TalkManager.TalkToStaticNPC (:263):
-//   worldModes.js:3134 supplies `onTalk: () => openStaticNpc(pn,
+//   worldModes.js:3137 supplies `onTalk: () => openStaticNpc(pn,
 //   { forceTalk: true })`, which this file consumes at :256 and :265.
 // - AddPermanentScene (:246) shipped at P1 - systems/tavern.js:143
 //   addPermanentScene / :93 removePermanentScene, with this window
@@ -115,29 +115,33 @@ const inRect = ([rx, ry, rw, rh], x, y) => x >= rx + TAVERN_PANEL_X && y >= ry +
 
 /** A plain string as one centred row - the chain's own idiom. */
 const line = (text) => [{ text, center: true }];
-/** OL3: the offer's real-time row, online. */
-export const REAL_TIME_UNTIL = 'The room is yours until';
-export const REAL_TIME_NOTE = ' by your clock - the world\'s time runs while you are away.';
+/** OL3's row under the offer, online. LIVED1: the room runs on the character's own clock - resting in it spends its
+ *  days and time away does not - so the row says it in their time and in play (worldTick.js ownTimeLeftText). */
+export const OWN_TIME_ROOM = 'The room is yours for';
+export const OWN_TIME_ROOM_NOTE = ' - resting spends it, time away does not.';
 
 /**
  * hooks:
  *   entity            the player (gold, health, the rooms and the clock live on it)
  *   rows(textId)      -> [{text,center}]   the host's TEXT.RSC reader
- *   now()             -> classic minutes (the ONE clock; the day of
- *                        year for the room formula is derived from it)
+ *   now()             -> classic minutes (the ONE clock offline; LIVED1:
+ *                        the character's own online - the room, the
+ *                        meal's stamp, the needs)
  *   mapId(), buildingKey(), buildingName(), quality(), bedCount()
  *   freeRooms()       -> KnightlyOrder.FreeTavernRooms
  *   skills()          -> { mercantile, personality } for CalculateTradePrice
  *   heal(amount)      the host's SetHealth (clamped by the entity's law)
  *   onTalk(), onClose()
  *   rolls()           the bed-marker roll
- *   realTimeOf(minutes) -> OL3: the real time (this machine's clock) at
- *                        which the world reads a classic minute, or null
- *                        offline - the offer says when the room ends,
- *                        because online the world's clock runs while the
- *                        player is away and a week's lodging is fourteen
- *                        real hours; a host that answers nothing offers
- *                        as DFU does
+ *   ownTimeOf(minutes) -> LIVED1 (OL3's row): the time left until a
+ *                        minute on the character's own clock, as words,
+ *                        or null offline - the offer says how long the
+ *                        room is theirs; a host that answers nothing
+ *                        offers as DFU does
+ *   worldNow()        -> LIVED1: the WORLD's clock, for the calendar
+ *                        (Heart's Day, a meal's holiday) and the
+ *                        kitchen's hours; defaults to now(), the one
+ *                        clock offline
  */
 export class TavernWindow {
   constructor(hooks) {
@@ -202,12 +206,13 @@ export class TavernWindow {
   /** InputMessageBox_OnGotUserInput (:173-208), through the law. */
   _decide(text, room, now) {
     const h = this.hooks;
-    // The day of year comes off the SAME classic-minute counter as
-    // everything else here rather than from a second `date()` hook -
-    // DFU reads one WorldTime, and two clocks is how a room's Heart's
-    // Day and a meal's holiday end up disagreeing.
+    // The day of year comes off ONE counter for every holiday here -
+    // DFU reads one WorldTime, and two calendars is how a room's Heart's
+    // Day and a meal's holiday end up disagreeing. LIVED1: that one is
+    // the WORLD's (worldNow; now() offline), the room's own time the
+    // character's.
     const d = rentalDecision(text, {
-      room, nowMinutes: now, date: { dayOfYear: dayOfYearFromMinutes(now) },
+      room, nowMinutes: now, date: { dayOfYear: dayOfYearFromMinutes(h.worldNow?.() ?? now) },
       quality: h.quality?.() ?? 0, free: !!h.freeRooms?.(), skills: h.skills?.(),
     });
     if (d.kind === 'ignore') return null;          // int.TryParse: nothing at all
@@ -220,7 +225,7 @@ export class TavernWindow {
     // CalculateRoomCost (:1871), i.e. BEFORE the price offer - so the
     // player sees it and is then still asked to confirm a 0-gold room.
     const offer = {
-      rows: [...this._rows(OFFER_PRICE_ID, { amount: d.price, room, now }), ...this._realTimeRows(room, d.days, now)],
+      rows: [...this._rows(OFFER_PRICE_ID, { amount: d.price, room, now }), ...this._ownTimeRows(room, d.days, now)],
       buttons: 'YesNo',
       onYes: () => this._confirm(room, d),
       onNo: () => null,      // the chain empties, which closes the tavern (:212)
@@ -228,14 +233,15 @@ export class TavernWindow {
     return d.heartsDay ? [{ rows: line(ROOM_FREE_HEARTS_DAY) }, offer] : [offer];
   }
 
-  /** OL3: the room's end in real time, under the offer - RentRoom's own
-   *  expiry (a renewal EXTENDS the standing expiry, a fresh rental runs
-   *  from now, tavern.js rentRoom) through the host's realTimeOf; no
-   *  rows when the host answers nothing (offline). */
-  _realTimeRows(room, days, now) {
+  /** OL3's row under the offer: RentRoom's own expiry (a renewal EXTENDS
+   *  the standing expiry, a fresh rental runs from now, tavern.js
+   *  rentRoom) through the host's ownTimeOf - LIVED1: said in the
+   *  character's own time and in play; no rows when the host answers
+   *  nothing (offline). */
+  _ownTimeRows(room, days, now) {
     const expiry = (room ? room.expiryMinutes : now) + 24 * 60 * days;
-    const t = this.hooks.realTimeOf?.(expiry);
-    return t ? [{ text: `${REAL_TIME_UNTIL} ${t}${REAL_TIME_NOTE}`, center: true }] : [];
+    const t = this.hooks.ownTimeOf?.(expiry);
+    return t ? [{ text: `${OWN_TIME_ROOM} ${t}${OWN_TIME_ROOM_NOTE}`, center: true }] : [];
   }
 
   /** ConfirmRenting_OnButtonClick's Yes arm (:213-223). */
@@ -270,7 +276,7 @@ export class TavernWindow {
   _survivalFood() {
     const h = this.hooks;
     const now = h.now();
-    const menu = tavernMenu({ climateIndex: h.climateIndex(), quality: h.quality?.() ?? 5, hour: Math.trunc((now % 1440) / 60) });
+    const menu = tavernMenu({ climateIndex: h.climateIndex(), quality: h.quality?.() ?? 5, hour: Math.trunc((((h.worldNow?.() ?? now) % 1440) + 1440) % 1440 / 60) });   // LIVED1: the kitchen keeps the sky's hours
     // AUDIT SURV C/D: before six the kitchen refuses in the mod's two words and the drinks still pour (the picker
     // follows the refusal); the Drinks divider is not a door out - a header pick keeps the picker up
     const box = {
@@ -315,7 +321,7 @@ export class TavernWindow {
       picker: [...TAVERN_MENU],
       onPick: (i) => {
         audio.playOneShot(SOUND.ButtonClick, 1);   // F145: FoodAndDrink_OnItemPicked (:307)
-        const r = eatOrDrink(i, { gold: totalGoldAmount(h.entity), gameMinutes: now });   // F103: GetGoldAmount (:324)
+        const r = eatOrDrink(i, { gold: totalGoldAmount(h.entity), gameMinutes: h.worldNow?.() ?? now });   // F103: GetGoldAmount (:324); LIVED1: the meal's holiday is the world's calendar
         if (r.kind === 'ignore') return null;
         if (r.kind === 'poor') return [{ rows: this._rows(NOT_ENOUGH_GOLD_ID) }];
         if (r.spend) deductGold(h.entity, r.spend);

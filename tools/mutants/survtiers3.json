@@ -265,15 +265,6 @@
     ]
   },
   {
-    "name": "SURVTIERS3-a-correction-moves-nothing",
-    "file": "src/systems/survival/needs.js",
-    "old": "  for (const k of ['lastAte', 'awakeSince', 'lastMinute', 'stiffUntil']) if (Number.isFinite(s[k]) && s[k] !== 0) s[k] += delta;",
-    "new": "",
-    "tests": [
-      "test/survtiers3.test.js"
-    ]
-  },
-  {
     "name": "SURVTIERS3-hard-charges-a-sleeper-by-the-fire",
     "file": "src/systems/survival/needs.js",
     "old": "  if (!resting || !env.byFire) {",
@@ -394,16 +385,6 @@
     ]
   },
   {
-    "name": "SURVTIERS3-an-off-absence-counts",
-    "file": "src/systems/save.js",
-    "old": "    if (!survivalOn() && at > saved) pauseSurvival(entity, saved, at);\n",
-    "new": "",
-    "tests": [
-      "test/survtiers3.test.js",
-      "test/surv7_feed.test.js"
-    ]
-  },
-  {
     "name": "SURVTIERS3-hard-sets-out-with-nothing",
     "file": "src/systems/startingGear.js",
     "old": "import { survivalOn } from './survival/switch.js';",
@@ -419,17 +400,6 @@
     "new": "import { survivalTier } from './survival/switch.js'; const survivalOn = () => survivalTier() === 'casual';",
     "tests": [
       "test/survtiers3.test.js"
-    ]
-  },
-  {
-    "name": "SURVTIERS3-the-clock-correction-skips-the-needs",
-    "file": "src/scenes/world.js",
-    "old": " if (Number.isFinite(before)) shiftSurvival(playerEntity, Math.floor(worldMinutes()) - Math.floor(before));",
-    "new": "",
-    "tests": [
-      "test/auditsurv.test.js",
-      "test/world5.test.js",
-      "test/auditworld5.test.js"
     ]
   },
   {
@@ -498,8 +468,8 @@
   {
     "name": "SURVTIERS3-the-rest-window-cite-input-rots",
     "file": "src/ui/restWindow.js",
-    "old": "exterior.js:3147, ui/input.js:912)",
-    "new": "exterior.js:3147, ui/input.js:525)",
+    "old": "exterior.js:3145, ui/input.js:912)",
+    "new": "exterior.js:3145, ui/input.js:525)",
     "tests": [
       "test/citedrift.test.js"
     ]
@@ -507,8 +477,8 @@
   {
     "name": "SURVTIERS3-the-mirror-overrides-tickVitals",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
-    "new": "    enemiesNearby: () => false,\n    tickVitals: () => {},\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
+    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n) => { playerTicker.advance(n); },",
+    "new": "    enemiesNearby: () => false,\n    tickVitals: () => {},\n    advanceMinutes: (n) => { playerTicker.advance(n); },",
     "tests": [
       "test/partyrest1.test.js"
     ]

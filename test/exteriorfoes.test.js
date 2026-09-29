@@ -74,7 +74,7 @@ test('exteriorfoes: the world host - the cadence loop, the travel reset, the fac
   assert.ok(fn.includes('inLocationRect: _musicInLocationRect(),'), 'the town branch reads the rect');
   assert.ok(fn.includes('maps.getClimateIndex('), 'the climate feeds the table pick');
   assert.ok(fn.includes('Math.min(now - _lastEncMinutes, 1440)'), 'the catch-up is bounded');
-  assert.ok(s.includes('_lastEncMinutes = Math.floor(playerTicker.classicMinutes);   // X-slice: PreventEnemySpawns parity'),
+  assert.ok(s.includes('_lastEncMinutes = Math.floor(playerTicker.ownMinutes);   // X-slice: PreventEnemySpawns parity'),
     'fast travel suppresses the traveled window, as DFU does');
   // encounter foes are spell targets and the sinks route by pool
   assert.ok(s.includes('[...cityGuards.guards, ...exteriorFoes.foes]'), 'magic.foes() sees both pools');
@@ -168,7 +168,7 @@ test('exteriorfoes: the FIXED-CITY host carries the catch-up loop too, both host
   // (PlayerEntity.cs:653-654, :776-777 over a disabled ExteriorParent)
   // and there is no location object underground (:768-770).
   for (const [f, body] of [['exterior.js', fn], ['world.js', wfn]]) assert.match(body, _sweepLatch, `${f}: the sweep sits INSIDE the once-per-Update latch (:513-516) and asks a population that is actually active`);
-  assert.match(e, /advanceMinutes: \(n, sharedEnd\) => \{ playerTicker\.advance\(n, sharedEnd\); runEncounterTick\(walkMode \? player\.pos : cam\.pos, sharedEnd, true\); \},/);   // RESTX2: the rest's own sim-minute rides to the roll; CAMP1-REST: flagged as a rest, so the group roll stands down
+  assert.match(e, /advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode \? player\.pos : cam\.pos, true\); \},/);   // LIVED1: the rest's minutes are the character's own, on the ticker's clock   // RESTX2: the rest's own sim-minute rides to the roll; CAMP1-REST: flagged as a rest, so the group roll stands down
   // the watch's Wabbajack transform on this route (WabbajackEffect.cs:64 - Knight_CityWatch is an EnemyEntity)
   assert.match(e, /if \(cityGuards\.guards\.includes\(f\)\) cityGuards\.removeGuard\(f\);\n\s*else exteriorFoes\.removeFoe\(f\);/, 'a struck watchman is removed by its own pool');
   assert.match(e, /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true \}\)/, 'and re-stood by the encounter pool, past its cap (AUDIT 62 F12)');

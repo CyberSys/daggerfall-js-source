@@ -32,9 +32,8 @@ import { SOCIAL_GROUPS } from '../formats/factionFile.js';   // AUDIT 24
 import { travelMapSaveData, restoreTravelMapSaveData } from './travelMapState.js';   // U41: TravelMapSaveData
 import { getEscortFacesSaveData, restoreEscortFacesSaveData } from '../ui/hudEscortFaces.js';   // FE1: SaveData_v1.escortingFaces
 import { quickslotSaveData, restoreQuickslotSaveData } from './quickslots.js';   // QS1: the quickslot diamond rides the one composer
-import { resetMagicRoundMarker, sharedClockOn, worldMinutes, alignEntityClocks } from './worldTick.js';   // EntityEffectBroker.InitMagicRoundTimer, on the LOAD arm (:230-233); AUDIT WORLD5 C4: a load online is an arrival
-import { alignSurvival, pauseSurvival } from './survival/needs.js';   // SURV7: the needs' markers on the load arm
-import { survivalOn } from './survival/switch.js';   // AUDIT SURV-TIERS (the third pass): an Off player's absence is Off's
+import { resetMagicRoundMarker, sharedClockOn, worldMinutes, alignEntityClocks, setOwnMinutes } from './worldTick.js';   // EntityEffectBroker.InitMagicRoundTimer, on the LOAD arm (:230-233); AUDIT WORLD5 C4: a load online is an arrival
+import { alignSurvival, ALIGN_GRACE_MINUTES } from './survival/needs.js';   // SURV7: the needs' markers on the load arm
 import { isMembershipStore } from './guilds.js';   // V2e: the two-book membership store rides the save whole
 import { createBankAccounts, createHouses } from './banking.js';   // JAN1: a save with no accounts restores the full table - an EMPTY one is truthy and the host's `??=` never minted it
 import { setItemFields } from './itemTemplates.js';   // JAN1: an item saved before MAC-N1 (no value) is set on the way in, so the trade strip never sums NaN
@@ -113,7 +112,6 @@ const ENTITY_FIELDS = [
   // it a backward load left a FUTURE marker that froze all skill-raise
   // checks until the clock re-passed it.
   'lastSkillCheckTime',
-  'restSimMinutes',   // MAC-LVL1: an online rest's unspent skill-clock credit (spent at the rest's end; a save mid-rest is the only way it is ever non-zero)
   // AUDIT 26 F219/F100: the coven's daedra-of-the-day. DFU persists
   // DaedraSummonDay and DaedraSummonIndex one for one
   // (SerializablePlayer.cs:164-165, restored :332-333);
@@ -173,7 +171,7 @@ export const newSkillsRecentlyRaised = () => [0, 0];
  *  enchantmentMagicRound clears the player's array at the head of
  *  every magic round (enchantments.js:851, DFU's ClearReactionMods at
  *  PlayerEntity.cs:1567-1570) and the folds re-apply it in the same
- *  pass, off worldTick.js:397 - so a load lands DFU's own shape, the
+ *  pass, off worldTick.js:399 - so a load lands DFU's own shape, the
  *  live mods left standing until the next DoMagicRound re-derives
  *  them eleven wide. An older snapshot's key is simply ignored (the
  *  restore loop skips what REP_ARRAYS does not name), so the envelope
@@ -263,6 +261,11 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // world host re-stands its heights on today's ground as it lands them (world.js restandHeight). Additive: SAVE_VERSION
   // does not move, and an older build ignores the field.
   const snap = { v: SAVE_VERSION, position, pose, classicMinutes, readiedSpellIndex, world, locationKey, quest, talk, interior, dungeon, travelMap, escortingFaces, quickslots, spawns, smallerDungeonsState, modData, terrainScale: STREAMING_TERRAIN_SCALE };
+  // LIVED1: `classicMinutes` is the CHARACTER's clock - the hosts hand their own (worldTick.ownMinutes): offline the
+  // one clock, online theirs, and every marker the envelope holds is on it. Online the WORLD's minute rides beside it,
+  // the minute the character left the world at, which is what the arrival's one arm for an absence measures (AUDIT
+  // DISC28 TM-1). Additive: an older build ignores it, and a save without it read the world's minute as its own.
+  if (sharedClockOn()) snap.worldMinutes = Math.floor(worldMinutes());
   // W1: DFU persists exactly ONE weather value (playerPosition.weather)
   // and re-rolls the six-zone array on the next date change - the sim
   // is a module singleton, so the envelope reads it here and every
@@ -899,19 +902,24 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // expiring restored buffs on the spot and bursting a restored
   // continuous-damage effect over a window the saved game never lived.
   resetMagicRoundMarker(Math.floor(snap.classicMinutes ?? 0));
-  // AUDIT WORLD5 C4: under the shared clock a LOAD is an arrival, in every host and through this one door - the
-  // restored markers shifted to the world's time (alignEntityClocks) and the day's sky rolled from the shared day's
-  // seed over the one the save carried. WORLD5 aligned the session's first save at the online start and nothing
-  // after it: a quick load, a boot ?load or a dungeon's own load restored the save's own clock into every marker,
-  // and the next tick caught up the distance to the world (or read it negative).
-  if (sharedClockOn()) { alignEntityClocks(entity, worldMinutes()); rollClimateWeathersForDay(worldMinutes()); }
+  // AUDIT WORLD5 C4: under the shared clock a LOAD is an arrival, in every host and through this one door.
+  // LIVED1: an arrival that moves nothing of the character's. The save's clock IS their own clock (snapshotPlayer's
+  // classicMinutes), so it is restored as it stood - the markers above were stamped on it and stay in tune, and the
+  // time away is not theirs: nothing ages and nothing is carried across. [SUPERSEDES C4's alignment of every marker to
+  // the world's time.] The WORLD's half of an arrival stays: the tick's world reading re-anchors (the absence walks
+  // none of the world's arms), the absence's one arm is paid over the world's minutes from the one the character left
+  // at (AUDIT DISC28 TM-1 - a save from before LIVED1 carried the world's minute as its own, so it answers for both),
+  // and the day's sky is rolled from the shared day's seed over the one the save carried.
   if (sharedClockOn()) {
-    const at = Math.floor(worldMinutes()), saved = Math.floor(snap.classicMinutes ?? 0);
-    // AUDIT SURV-TIERS (the third pass): WORLD5's short absence keeps its hunger because the arc was ON for it. An Off
-    // player's is Off's, and pauses the needs as the world tick pauses every span it walks with the arc Off: an hour
-    // and a half logged off came back hungry and nineteen hours awake, in the tier that promises no needs at all.
-    if (!survivalOn() && at > saved) pauseSurvival(entity, saved, at);
-    alignSurvival(entity, at, saved);   // SURV7: the needs' markers - a save from more than a day ago starts fed, watered and rested (WORLD5's law for these)
+    const own = Math.floor(snap.classicMinutes ?? 0), at = Math.floor(worldMinutes());
+    const left = Number.isFinite(snap.worldMinutes) ? Math.floor(snap.worldMinutes) : own;
+    setOwnMinutes(own);
+    alignEntityClocks(entity, at, { worldLeft: left });
+    rollClimateWeathersForDay(at);
+    // SURV7 (WORLD5's law for these markers): the needs stood with the character's clock, so an hour away costs no
+    // hunger; a break longer than the world's day still comes back fed, watered and rested, and a record ahead of the
+    // character's own clock (a save from the RESTX2 era, whose online night left it ahead of the world) starts fresh.
+    alignSurvival(entity, own, at - left > ALIGN_GRACE_MINUTES ? null : own);
   }
   // AUDIT 39: the three extras above ride back out too - a save from
   // before they were carried reads the same null/0 they used to.

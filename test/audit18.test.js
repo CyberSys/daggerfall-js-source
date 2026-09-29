@@ -552,7 +552,9 @@ test('AUDIT 21 F2: exactly ONE accumulator exists under src/', () => {
     const text = readFileSync(file, 'utf8');
     if (/let\s+_worldMinutes\s*=/.test(text)) { holders++; continue; }
     for (const m of text.matchAll(/(?:let|const|var)\s+(classicMinutes\w*)\s*=\s*([^;]*)/g)) {
-      if (!/worldMinutes\s*\(/.test(m[2])) owners.push(`${file}: ${m[1]} = ${m[2].trim().slice(0, 60)}`);
+      // LIVED1: the character's own clock (worldTick.js ownMinutes) is the same module's - the world's offline, one
+      // variable - so a view on it is a view on the one home, not a private count
+      if (!/(?:worldMinutes|ownMinutes)\s*\(/.test(m[2])) owners.push(`${file}: ${m[1]} = ${m[2].trim().slice(0, 60)}`);
     }
   }
   assert.deepEqual(owners, [],

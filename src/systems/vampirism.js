@@ -204,10 +204,10 @@ export function consumeVampirismPending(entity, { now = 0 } = {}) {
  * night's +20, the day's -20 on the same stats (`nowMinutes` is the
  * world clock, worldTick's `clockMinutes`).
  */
-export function vampirismMagicRound(entity, { nowMinutes = 0 } = {}) {
+export function vampirismMagicRound(entity, { nowMinutes = 0, skyMinutes = nowMinutes } = {}) {
   const entry = liveVampirism(entity);
   if (!entry) return;
-  const mod = vampireStatMod(nowMinutes);
+  const mod = vampireStatMod(skyMinutes);   // LIVED1: VAMP-DAY's day and night are the world's sky; the thirst below is the character's own clock
   entry.statMods = {};
   for (const stat of VAMPIRE_STATS) entry.statMods[stat] = mod;
   if (entry.clan === VAMPIRE_CLANS.Anthotis) entry.statMods.intelligence = mod;

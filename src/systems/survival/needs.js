@@ -649,19 +649,6 @@ export function pauseSurvival(entity, from, to) {
   if (s.offFor > ALIGN_GRACE_MINUTES) { alignSurvival(entity, Math.floor(to), null); delete s.offFor; }   // AUDIT SURV-TIERS (the third pass): gone, not nought - a 0 rode every save after
   return true;
 }
-/**
- * AUDIT SURV-TIERS (the third pass): A CORRECTION IS NOT AN ABSENCE. The relay's clock stepping this machine's by
- * `delta` minutes moved the world under the needs' timestamps - worldTick.js alignEntityClocks moves every other
- * marker by it - so a player fed a minute before the socket opened on a clock three hours slow read Starving, and in
- * Hard lost two from every attribute. The record rides the same delta: the needs stand where they were. (A LOAD's
- * gap is different, and save.js keeps it: an hour away is an hour hungrier - WORLD5.)
- */
-export function shiftSurvival(entity, delta) {
-  const s = entity?.survival;
-  if (!s || typeof s !== 'object' || !Number.isFinite(delta) || delta === 0) return false;
-  for (const k of ['lastAte', 'awakeSince', 'lastMinute', 'stiffUntil']) if (Number.isFinite(s[k]) && s[k] !== 0) s[k] += delta;
-  return true;
-}
 /** AUDIT SURV A: the feed stopped (the mod off, a host with no reader) - the drains the last minute wrote go with it. */
 export function clearSurvivalMods(entity) {
   if (!entity?.activeEffects?.some((a) => a && a.kind === 'survival')) return false;

@@ -49,7 +49,7 @@ test('AUDIT 23 hosts-3: the guards take the classic clock and refuse to run with
   assert.throws(() => createCityGuards({ renderer: {}, collider: {}, playerEntity: {} }),
     /currentMinute/, 'the () => 0 default is gone - a missing clock fails loudly');
   for (const [name, text] of [['exterior', EXTERIOR], ['world', WORLD]]) {
-    assert.ok(text.includes('currentMinute: () => Math.floor(playerTicker.classicMinutes)'), `${name} passes the clock`);
+    assert.ok(text.includes('currentMinute: () => Math.floor(playerTicker.ownMinutes)'), `${name} passes the clock`);
   }
 });
 

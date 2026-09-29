@@ -41,12 +41,13 @@ test('OL2 (5): the clock line says the world\'s time of day (RESTX2: and that a 
   // hour here is 5 real minutes" stopped being true and the line says
   // the one thing that still is: the world's clock, which a rest online
   // never moves. REAL_MINUTES_PER_WORLD_HOUR went with the sentence.
-  assert.equal(restClockLine(CLASSIC_GAME_START_TIME), 'World time 13:30 - resting does not move it', 'the classic start, 13:30');
-  assert.equal(restClockLine(CLASSIC_GAME_START_TIME + 95), 'World time 15:05 - resting does not move it', 'padded');
+  // LIVED1 (2026-09-29): and the hours are the character's own - the line says whose time the counter spends
+  assert.equal(restClockLine(CLASSIC_GAME_START_TIME), 'World time 13:30 - you rest on your own clock', 'the classic start, 13:30');
+  assert.equal(restClockLine(CLASSIC_GAME_START_TIME + 95), 'World time 15:05 - you rest on your own clock', 'padded');
   assert.ok(!rd('src/ui/restWindow.js').includes('REAL_MINUTES_PER_WORLD_HOUR'), 'no spelled pace on the page, and no constant left to drift');
   void ONLINE_MINUTES_PER_MS;
   const on = resting({ sharedMinutes: () => CLASSIC_GAME_START_TIME + 95, vitals: () => ({ health: 10, maxHealth: 20, fatigue: 5, magicka: 6 }) });
-  assert.deepEqual(on.restingLines(), ['Resting...', 'Hours remaining: 4', 'World time 15:05 - resting does not move it', 'Health 10/20  Fatigue 5  Magicka 6', '', 'Esc - stop'], 'the text page, between the hours and the vitals');
+  assert.deepEqual(on.restingLines(), ['Resting...', 'Hours remaining: 4', 'World time 15:05 - you rest on your own clock', 'Health 10/20  Fatigue 5  Magicka 6', '', 'Esc - stop'], 'the text page, between the hours and the vitals');
   const off = resting({ vitals: () => ({ health: 10, maxHealth: 20, fatigue: 5, magicka: 6 }) });
   assert.deepEqual(off.restingLines(), ['Resting...', 'Hours remaining: 4', 'Health 10/20  Fatigue 5  Magicka 6', '', 'Esc - stop'], 'offline: the page it always was');
   const src = rd('src/ui/restWindow.js');
@@ -54,7 +55,7 @@ test('OL2 (5): the clock line says the world\'s time of day (RESTX2: and that a 
   assert.match(src, /lines = this\.restingLines\(\);/, 'one body for the text page and the pin');
 });
 
-test('OL2 (6) + TRAVEL-FARE: online the trip\'s countdown is empty and it begins on the next tick, the FARE is still billed, the days label says now and the line under the panel says why; a host that says nothing travels as DFU does', () => {
+test('OL2 (6) + TRAVEL-FARE + LIVED1: online the trip\'s days are the traveller\'s own - the countdown counts them as offline, the FARE is billed, the days label says them and the line under the panel says whose they are; a host that says nothing travels as DFU does', () => {
   const mk = (noWorldTime) => {
     const traveled = [];
     const w = new TravelPopUpWindow({ x: 10, y: 0 }, {
@@ -79,27 +80,25 @@ test('OL2 (6) + TRAVEL-FARE: online the trip\'s countdown is empty and it begins
   assert.ok(on.w.trip.piecesCost >= 5, 'the inn is billed online - DFU\'s "always at least one stay" included');
   assert.equal(on.w.trip.totalCost, on.w.trip.piecesCost, 'no ocean on this path, so the fare is the inn alone');
   assert.ok(on.w.travelTimeTotalMins > 0, 'the trip\'s DFU minutes are still computed (the host reads them offline only)');
-  assert.equal(on.w.countdownValueTravelTimeDays, 0, 'no days to count down');
-  on.w.input('KeyB');
-  on.w.tick(0.016);
-  assert.equal(on.traveled.length, 1, 'the trip begins on the first tick');
-  assert.ok(on.traveled[0].computed.piecesCost >= 5, 'and the trip that BEGINS carries the same fare the card quoted');
   const off = mk(null);
   assert.ok(off.w.trip.piecesCost >= 5 && off.w.countdownValueTravelTimeDays >= 1, 'offline: the inn night and the countdown, as DFU');
-  // TRAVEL-FARE: the SAME journey, so the same fare - what online
-  // still waives is the DAYS, and only the days.
+  // TRAVEL-FARE: the SAME journey, so the same fare. LIVED1: and the same days - they pass on the traveller's own
+  // clock online (the host's advance), so nothing about the popup differs but the line under it.
   assert.equal(on.w.trip.piecesCost, off.w.trip.piecesCost, 'billed at exactly the offline fare');
-  assert.equal(on.w.countdownValueTravelTimeDays, 0);
-  assert.ok(off.w.countdownValueTravelTimeDays >= 1, '...and that is the ONE thing that still differs');
+  assert.equal(on.w.countdownValueTravelTimeDays, off.w.countdownValueTravelTimeDays, 'the days counted, online as offline');
+  on.w.input('KeyB'); on.w.tick(0.016);
   off.w.input('KeyB'); off.w.tick(0.016);
-  assert.equal(off.traveled.length, 0, 'offline the trip waits for the counter');
+  assert.deepEqual([on.traveled.length, off.traveled.length], [0, 0], 'both trips wait for the counter');
+  for (let i = 0; i < 400 && !on.traveled.length; i++) on.w.tick(0.05);
+  assert.equal(on.traveled.length, 1, 'and the online trip begins when its days are counted');
+  assert.ok(on.traveled[0].computed.piecesCost >= 5, 'the trip that BEGINS carries the same fare the card quoted');
   // the labels: 'now' where the days go, and the line under the panel
   const painted = [];
   const font = { fnt: { glyphs: new Map(), ascent: 6, lineHeight: 8 }, texture: 't', drawGlyph: () => {}, glyphWidth: () => 4 };
   const renderer = { drawScreenQuad: () => {}, uploadTexture: () => 't', releaseTexture: () => {} };
   const orig = on.w.draw; void orig;
   const src = rd('src/ui/travelPopUp.js');
-  assert.match(src, /shadowText\(renderer, font, this\.noWorldTime\(\) \? 'now' : String\(this\.countdownValueTravelTimeDays\), m, LABEL_POS\.time\[0\], LABEL_POS\.time\[1\]\);/);
+  assert.match(src, /shadowText\(renderer, font, String\(this\.countdownValueTravelTimeDays\), m, LABEL_POS\.time\[0\], LABEL_POS\.time\[1\]\);/, 'LIVED1: the days, online too - OL2\'s "now" is gone');
   // TO-ONLINE (2026-09-19): ...and NOT over a walked trip. This line is DFU's
   // FAST TRAVEL talking, and while Travel Options stood down on the shared
   // clock the teleport was the only online arrival there was, so it was true
@@ -114,11 +113,11 @@ test('OL2 (6) + TRAVEL-FARE: online the trip\'s countdown is empty and it begins
   assert.match(src, /sleepModeInn: this\.sleepModeInn,   \/\/ TRAVEL-FARE: billed online too/);
   assert.doesNotMatch(src, /sleepModeInn: this\.sleepModeInn && !this\.noWorldTime\(\)/,
     'OL2\'s inn clause is retired - the fare is the price of the journey, not rent on elapsed time');
-  assert.match(src, /this\.countdownValueTravelTimeDays = this\.noWorldTime\(\) \? 0 : travelDays\(this\.travelTimeTotalMins\);/);
+  assert.match(src, /this\.countdownValueTravelTimeDays = travelDays\(this\.travelTimeTotalMins\);/);
   // TRAVEL-FARE: the line said "no inn is paid" and that is not true
   // any more - a claim a player can read has to move with the law it
   // describes, or the window is lying about the number beside it.
-  assert.equal(ONLINE_TRAVEL_LINE, 'Online: the world\'s clock does not wait. You arrive now - the journey is still paid for.');
+  assert.equal(ONLINE_TRAVEL_LINE, 'Online: the days pass on your own clock. You arrive in the world\'s present.', 'LIVED1: whose days, and where the arrival lands');
   assert.deepEqual(LABEL_POS.time, [129, 117]);
   void painted; void font; void renderer;
   assert.match(rd('src/ui/travelMapWindow.js'), /noWorldTime: this\.deps\.noWorldTime,/, 'threaded through the map window');

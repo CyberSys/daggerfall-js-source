@@ -288,24 +288,23 @@ test('DISC10-E L4: the accessor is installed where MaxMagicka\'s is - chargen an
 
 // ── V9 / V11: THE CURSE'S CLOCKS ──────────────────────────────────────────────────────────────────────────────────
 
-test('DISC10-E V9: going online SHIFTS the werewolf\'s kill clock and the lycanthropy infection\'s start day with the rest', () => {
+test('DISC10-E V9 (LIVED1): going online moves neither the werewolf\'s kill clock nor the lycanthropy infection\'s start day - they are the character\'s own, on a clock that stood while they were away, so the kill is as long ago as it was and the incubation neither jumps nor freezes', () => {
   const p = werewolf();
   p.lastGameMinutes = 523530 + 10;
   const entry = liveLycanthropy(p);
   entry.lastKilledInnocent = 523530;
   entry.lastCastMorphSelf = 523530 + 5;
   const shift = 100 * MINUTES_PER_DAY;
-  alignEntityClocks(p, 523530 + 10 + shift);
-  assert.equal(entry.lastKilledInnocent, 523530 + shift, 'the kill is as long ago as it was');
-  assert.equal(entry.lastCastMorphSelf, 523530 + 5 + shift, 'and so is the last change');
+  alignEntityClocks(p, 523530 + 10 + shift, { worldLeft: 523530 + 10 });
+  assert.equal(entry.lastKilledInnocent, 523530, 'the kill is as long ago as it was - on the character\'s own clock');
+  assert.equal(entry.lastCastMorphSelf, 523530 + 5, 'and so is the last change');
   const q = { isPlayer: true, level: 5, activeEffects: [], lastGameMinutes: 523530 + 10 };
   const inf = startInfection(q, INFECTION.Werewolf, { day: Math.floor((523530 + 10) / MINUTES_PER_DAY) });
   const day0 = inf.startingDay;
-  alignEntityClocks(q, 523530 + 10 + shift);
-  assert.equal(inf.startingDay, day0 + 100, 'the incubation neither jumps nor freezes');
+  alignEntityClocks(q, 523530 + 10 + shift, { worldLeft: 523530 + 10 });
+  assert.equal(inf.startingDay, day0, 'the incubation neither jumps nor freezes: its days are the ones the character lives');
   resetMagicRoundMarker(null);
 });
-
 test('DISC10-E V11: a save taken while the dream is up restores with the dream UNSCHEDULED, so the infection dreams again rather than stalling', () => {
   const p = { isPlayer: true, level: 5, activeEffects: [], health: 50, maxHealth: 50 };
   const inf = startInfection(p, INFECTION.Werewolf, { day: 100 });

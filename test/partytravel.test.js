@@ -901,7 +901,7 @@ test('PARTY-TRAVEL host by source: world.js wires the session - the map door\'s 
   assert.match(bag, /\.\.\.travelFareDeps\(\),/, 'both maps read the same bag the party prices with');
   const refusal = w.slice(w.indexOf('function partyTravelRefusal() {'), w.indexOf('const partyTravelJourney'));
   assert.match(refusal, /if \(duelEnemyNear\(\) \|\| areEnemiesNearby\(\[\.\.\.cityGuards\.guards, \.\.\.exteriorFoes\.foes\]\)\) return CANNOT_TRAVEL_ENEMIES_TEXT;/, 'the door\'s own rungs, in its own words');
-  assert.match(refusal, /return racialFastTravelBlock\(playerEntity, nowMin\)\?\.text \?\? null;/);
+  assert.match(refusal, /const sun = racialFastTravelBlock\(playerEntity, nowMin\)\?\.text \?\? null;\s*\n\s*return sun \? withNightfall\(sun\) : null;/, 'the door\'s own words, and (LIVED1) when the world\'s night falls');
   const travel = w.slice(w.indexOf('async function fastTravelTo(pick, opts, computed)'), w.indexOf('\n  }\n', w.indexOf('async function fastTravelTo(pick, opts, computed)')));
   assert.match(travel, /const beside = walkMode && pick\.besideAt \? partyBesideLanding\(pick\.besideAt\(\), pick\.besideSeat\) : null;\s*\n\s*if \(beside\) \{\s*\n\s*player\.spawn\(beside\.pos\[0\], beside\.pos\[1\], beside\.pos\[2\]\);/, 'beside the leader, after the core built the pixel');
   assert.ok(travel.indexOf('const beside = ') > travel.indexOf('await _teleportToPixel('), 'read after the build');

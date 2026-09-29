@@ -160,11 +160,14 @@ export const restArtLoaded = () => !!_art;
  *  clock. RESTX2 (2026-09-17) retired the pace half of the line ("an
  *  hour here is 5 real minutes"): online a rest paces on the window's
  *  own timer now, exactly as offline, and the world's clock is what it
- *  always was under a rest - untouched. The line says that instead. */
+ *  always was under a rest - untouched. LIVED1 (2026-09-29): and the
+ *  hours are the character's OWN - their clock runs through the night
+ *  (worldTick.js ownMinutes) while the world's sky stays where it is -
+ *  so the line says whose time the counter is spending. */
 export function restClockLine(worldMinutes) {
   const d = dateFromClassicMinutes(worldMinutes);
   const two = (n) => String(n).padStart(2, '0');
-  return `World time ${two(d.hour)}:${two(d.minute)} - resting does not move it`;
+  return `World time ${two(d.hour)}:${two(d.minute)} - you rest on your own clock`;
 }
 
 export class RestWindow {
@@ -233,7 +236,7 @@ export class RestWindow {
     // (InputManager.cs:634-637) - so the opening release is already
     // spent when DFU's window first runs, and :193's bare `GetKeyUp`
     // is safe there. Every host here opens on the key DOWN
-    // (world.js:10665, exterior.js:3147, ui/input.js:912), and that same
+    // (world.js:10669, exterior.js:3145, ui/input.js:912), and that same
     // key's release is then routed straight into the freshly mounted
     // window, so the release door needs the deferral DFU gives every
     // window whose open edge IS the down: DaggerfallAutomapWindow.cs
@@ -758,6 +761,8 @@ export class RestWindow {
     // modes off the shared clock; RESTX2 put every mode on the window's
     // own timer, online included. The read below is unchanged: the
     // page says the world's time, which a rest online never moves.
+    // (LIVED1: the session no longer reads this dep - its hours move the
+    // character's own clock - and the window's line is its one reader.)
     const shared = this.deps.sharedMinutes?.();
     if (Number.isFinite(shared)) st.worldMinutes = shared;
     return st;

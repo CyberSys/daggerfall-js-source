@@ -404,7 +404,7 @@ test('RR1 bedSleeping and the wiring: the three bed models, listed by the interi
   assert.match(wm, /if \(bedSleepingOn\(\)\) interiorCtx\.beds\?\.forEach\(\(bd, i\) => \{/, 'a bed is a target only while the module is on');
   assert.match(wm, /if \(key\.startsWith\('bed:'\)\) \{\n        restFromInteriorBed\(\);/, 'BedActivation is the rest gate');
   assert.match(wm, /const restFromInteriorBed = \(\) => \{ _restFromBed = true; try \{ interiorKeyCtx\.toggleRest\(\{ ignoreAllocatedBed: true \}\); \} finally \{ _restFromBed = false; \} \};/, 'and `new DaggerfallRestWindow(uiManager, true)` (:524) - AUDIT-RR F6 (CSA-J: through the bed\'s own door, which drops the GiveOffer rung)');
-  assert.match(wm, /joinGuild\(memberships, guild, gameDate\(\), store\);/);
+  assert.match(wm, /joinGuild\(memberships, guild, ownDate\(\), store\);/);   // LIVED1: a join is dated on the character's own clock (the rank wait's)
   assert.match(wm, /const doused = rrDouseOnDungeonExit\(playerEntity, \{ isDay: isDayFromMinutes\(Math\.floor\(worldMinutes\(\)\)\) \}\);\n      if \(doused\) townTalk\?\.showOverlay\?\.\(new ActionTextBox\(\[expandItemMacro\(USE_TEXT\.lightDouse, doused\)\]\)\);/, 'the douse on the dungeon exit with the light\'s own box');
   assert.match(wm, /setRrHostSeams\(\{ spawnFoe: \(mobileType, opts\) => standInteriorLooseFoe\(mobileType, opts\) \}\);/);
   assert.match(rd('src/combat/formulas.js'), /chanceToHitMod \+= _overrides\.get\('calculateWeaponToHit'\)\?\.\(weapon\) \?\? \(WEAPON_MATERIAL_MODIFIER\[weapon\.material\] \?\? 0\) \* 10;/);

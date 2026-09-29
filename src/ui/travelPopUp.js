@@ -136,8 +136,9 @@ export const TRAVEL_TOGGLE_COLOR = Object.freeze([85 / 255, 117 / 255, 48 / 255,
 export const LABEL_POS = Object.freeze({ gold: [148, 97], cost: [117, 107], time: [129, 117] });
 /** secondsCountdownTickFastTravel (:31). */
 export const COUNTDOWN_TICK = 0.05;
-/** OL2: the line under the panel while the trip takes no world time. */
-export const ONLINE_TRAVEL_LINE = 'Online: the world\'s clock does not wait. You arrive now - the journey is still paid for.';
+/** OL2: the line under the panel while the world's clock stands. LIVED1: the journey's days are the traveller's own
+ *  time (worldTick.js ownMinutes) - they pass for the body and its contracts, and the world is where it was. */
+export const ONLINE_TRAVEL_LINE = 'Online: the days pass on your own clock. You arrive in the world\'s present.';
 /** notEnoughGoldTextId (:396) and the diseased warning's record (:422). */
 export const NOT_ENOUGH_GOLD_TEXT_ID = 454;
 export const DISEASED_WARNING_TEXT_ID = 1010;
@@ -264,10 +265,13 @@ export class TravelPopUpWindow {
 
   /** OL2 (AUDIT WORLD5's sixth recorded item, paid): ONLINE THE TRIP
    *  TAKES NO WORLD TIME - the clock is the world's (WORLD5) and the
-   *  arrival is now. The host says so through `deps.noWorldTime`
-   *  (world.js: sharedClockOn); a host that says nothing travels as
-   *  DFU does. While it is true the day countdown is empty (the trip
-   *  begins on the next tick) and the window says so under the panel.
+   *  arrival is the world's now. The host says so through
+   *  `deps.noWorldTime` (world.js: sharedClockOn); a host that says
+   *  nothing travels as DFU does. While it is true the window says so
+   *  under the panel. LIVED1: the days themselves are the traveller's
+   *  own - the host's advance moves their clock by the trip - so the
+   *  day countdown counts them as DFU's does, online too. [SUPERSEDES
+   *  OL2's empty countdown and its "now".]
    *
    *  TRAVEL-FARE (2026-09-22): the FARE is no longer waived. This used
    *  to read "no inn night is paid (there are no nights)", which was
@@ -412,7 +416,7 @@ export class TravelPopUpWindow {
       return;
     }
     this.walkedTrip = false;
-    this.countdownValueTravelTimeDays = this.noWorldTime() ? 0 : travelDays(this.travelTimeTotalMins);   // OL2: online the arrival is now
+    this.countdownValueTravelTimeDays = travelDays(this.travelTimeTotalMins);   // LIVED1: the days are the traveller's own, online too
   }
 
   /** TO1 - TravelTimeCalculatorTO.cs:24-40, CalculateTripCost. The mod
@@ -685,7 +689,7 @@ export class TravelPopUpWindow {
       shadowText(renderer, font, toFormat(TO_TEXT.MsgTimeFormat, hours, mins), m, LABEL_POS.time[0], LABEL_POS.time[1]);
     } else {
       shadowText(renderer, font, String(this.trip.totalCost), m, LABEL_POS.cost[0], LABEL_POS.cost[1]);
-      shadowText(renderer, font, this.noWorldTime() ? 'now' : String(this.countdownValueTravelTimeDays), m, LABEL_POS.time[0], LABEL_POS.time[1]);   // OL2: the days label says "now" online
+      shadowText(renderer, font, String(this.countdownValueTravelTimeDays), m, LABEL_POS.time[0], LABEL_POS.time[1]);   // LIVED1: the days, online too - the line below says whose
     }
     // TO-ONLINE: ...and NOT over a walked trip. The line says "you
     // arrive now, and no inn is paid", which was true of every online

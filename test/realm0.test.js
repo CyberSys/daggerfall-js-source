@@ -250,7 +250,7 @@ test('REALM P0.3: a character joining online has the debt past the Empire\'s one
 
 test('REALM P0.3 by source: the join calls the debt in after the markers are aligned to the world\'s clock', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /onlineArrival\(\); empireJoin\(\{ entity: playerEntity, nowMinutes: worldMinutes\(\), say: \(l, d\) => townTalk\.say\(l, d\) \}\);/);
+  assert.match(w, /onlineArrival\(\); empireJoin\(\{ entity: playerEntity, nowMinutes: ownMinutes\(\), say: \(l, d\) => townTalk\.say\(l, d\) \}\);/);   // LIVED1: the loans run on the character's own clock
   assert.ok(w.indexOf('empireJoin({') > w.indexOf('const onlineArrival = () => { alignEntityClocks(playerEntity, worldMinutes());'), 'the loan due dates ride the shift first');
 });
 

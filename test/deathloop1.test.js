@@ -109,8 +109,11 @@ test('DEATHLOOP1: EVERY path that puts a living player back in the world ends th
     ['src/scenes/world.js', 'the online respawn'],
     ['src/scenes/worldModes.js', "Privateer's Hold's in-place respawn"],
     ['src/systems/save.js', 'an online load of a dead save'],
-    ['src/scenes/arrestFlow.js', 'the prison release'],
+    // LIVED1 (2026-09-29): the prison release left this list - its days are served online too, on the prisoner's own
+    // clock, so it refills in full in both lanes as DFU does (arrestFlow's fillVitalSigns); nobody walks out dead
   ];
+  assert.match(readFileSync(new URL('../src/scenes/arrestFlow.js', import.meta.url), 'utf8'), /playerEntity\.inPrison = false;\s*(?:\/\/[^\n]*\n\s*)*fillVitalSigns\(playerEntity\);/,
+    'the prison release refills in both lanes - the sentence\'s price, served');
   for (const [file, what] of SITES) {
     const src = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
     assert.match(src, /reviveForPlay\(/, `${what} (${file}) revives through the one law`);
@@ -125,11 +128,12 @@ test('DEATHLOOP1: EVERY path that puts a living player back in the world ends th
   assert.ok(!/playerEntity\.health = respawnHealth\(/.test(modes),
     "Privateer's Hold no longer sets health behind the law");
 
-  // The prison release is the one trashBattery hit: offline still gets
-  // the full refill, online gets the floor.
+  // The prison release is the one trashBattery hit. LIVED1 (2026-09-29): the sentence is SERVED online now - its days
+  // on the prisoner's own clock - so the full refill is its price in both lanes, and a full pool is above any floor.
   const arrest = readFileSync(new URL('../src/scenes/arrestFlow.js', import.meta.url), 'utf8');
-  assert.match(arrest, /if \(!sharedClockOn\(\)\) fillVitalSigns\(playerEntity\);\n\s*else reviveForPlay\(playerEntity\);/,
-    'a served sentence online lets nobody out dead, and still is not a free heal');
+  assert.doesNotMatch(arrest, /if \(!sharedClockOn\(\)\) fillVitalSigns/, 'no lane is let out without the days\' refill');
+  assert.match(arrest, /advanceDays = \(days\) => advanceOwnMinutes\(days \* MINUTES_PER_DAY\),/,
+    'a served sentence online lets nobody out dead - its days are served, and the refill is their price');
 });
 
 test('DEATHLOOP1: endLethalDrains reports only what it actually removed', () => {

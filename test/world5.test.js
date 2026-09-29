@@ -26,7 +26,7 @@ import { RELAY_VERSION } from '../src/net/wire.js';   // LOCALDEV1: the worker e
 import { relayVersionAtLeast } from './relayVersion.mjs';
 import { OnlineSession } from '../src/net/online.js';
 import { CLASSIC_GAME_START_TIME, MINUTES_PER_DAY } from '../src/systems/gameDate.js';
-import { CLASSIC_MINUTES_PER_SECOND, worldMinutes, setWorldMinutes, advanceWorldMinutes, setSharedClock, sharedClockOn, alignEntityClocks, resetMagicRoundMarker, tickPlayerMinutes } from '../src/systems/worldTick.js';
+import { CLASSIC_MINUTES_PER_SECOND, worldMinutes, setWorldMinutes, advanceWorldMinutes, setSharedClock, sharedClockOn, alignEntityClocks, resetMagicRoundMarker, tickPlayerMinutes, ownMinutes, setOwnMinutes } from '../src/systems/worldTick.js';
 import { createPlayerTicker } from '../src/scenes/shared.js';
 import { setSharedWeather, sharedWeatherOn, resetWeatherSim, rollClimateWeathersForDay, weatherForClimate, ZONE_CLIMATES, tickWeather, weatherRespawn, currentWeatherEnum } from '../src/systems/weatherSim.js';
 import { RestSession, MINUTES_PER_TICK, REST_WAIT_PER_HOUR, LOITER_WAIT_PER_HOUR } from '../src/systems/restSession.js';
@@ -97,36 +97,39 @@ test('WORLD5: the ticker under the shared clock - worldMinutes reads the source,
     assert.equal(r.classicMinutes, 1003);
     r = tickPlayerMinutes({ entity, classicMinutes: 0, dt: 3000, sinks: sinks(), rolls: () => 0.5 });
     assert.equal(r.rounds, 0, 'a frame of 3000 real seconds owes nothing the clock did not move');
-    // the ticker's jump: RaiseTime is refused, the owed rounds run
+    // the ticker's jump: the WORLD's RaiseTime is refused - and LIVED1 (2026-09-29): the hours are the CHARACTER's own
     const ticker = createPlayerTicker(entity, {});
     t = 1010;
     const j = ticker.advance(480);
-    assert.equal(j.rounds, 7, 'the seven minutes the clock moved since the last reading, not the eight hours asked for');
-    assert.equal(worldMinutes(), 1010, 'and the clock stands where the world has it');
+    assert.equal(j.rounds, 487, 'the eight hours asked for, on the character\'s own clock, and the seven minutes the world moved since the last reading');
+    assert.equal(worldMinutes(), 1010, 'and the world\'s clock stands where the world has it');
     assert.equal(ticker.classicMinutes, 1010);
+    assert.equal(ticker.ownMinutes, 1490, 'the character\'s clock: 1003, the world\'s seven, the night\'s 480');
   } finally { setSharedClock(null); }
   assert.equal(sharedClockOn(), false);
   setWorldMinutes(7); assert.equal(worldMinutes(), 7, 'offline the clock is the player\'s own again');
   setWorldMinutes(CLASSIC_GAME_START_TIME);
 });
 
-test('WORLD5: the markers aligned at the online boot - the day marker, the broker\'s, every disease\'s day and every poison\'s minute set to the world\'s time, so a save a month behind catches up nothing and one a year ahead reads no negative day', () => {
+test('WORLD5 (LIVED1): the online boot restores the CHARACTER\'s own clock with the save - a save a month behind the world or a year ahead catches up nothing and reads no negative day, because every marker it carries is on that clock, and nothing is moved to make it so', () => {
   const now = CLASSIC_GAME_START_TIME + 40 * MINUTES_PER_DAY + 17;
-  const entity = { ...tickEntity(), lastGameMinutes: 12, activeEffects: [{ key: 'Disease-Plague', lastDay: 3 }, { key: 'Poison-Nux', lastMinute: 99 }, { key: 'Spell', rounds: 5 }, null] };
-  try {
-    setSharedClock(() => now);
-    assert.equal(alignEntityClocks(entity, worldMinutes()), true);
-    assert.equal(entity.lastGameMinutes, Math.floor(now));
-    assert.equal(entity.activeEffects[0].lastDay, Math.floor(now / MINUTES_PER_DAY));
-    assert.equal(entity.activeEffects[1].lastMinute, Math.floor(now));
-    assert.deepEqual(entity.activeEffects[2], { key: 'Spell', rounds: 5 }, 'an effect with no day or minute marker is untouched');
-    const r = tickPlayerMinutes({ entity, classicMinutes: 0, dt: 5, sinks: sinks(), rolls: () => 0.5 });
-    assert.equal(r.rounds, 0, 'the first online frame owes nothing');
-  } finally { setSharedClock(null); }
-  assert.equal(alignEntityClocks(null, 5), false); assert.equal(alignEntityClocks(entity, NaN), false);
+  for (const saved of [CLASSIC_GAME_START_TIME + 12, now + 365 * MINUTES_PER_DAY]) {
+    const entity = { ...tickEntity(), lastGameMinutes: saved, activeEffects: [{ key: 'Disease-Plague', lastDay: Math.floor(saved / MINUTES_PER_DAY) }, { key: 'Poison-Nux', lastMinute: saved - 1 }, { key: 'Spell', rounds: 5 }, null] };
+    const before = JSON.parse(JSON.stringify(entity));
+    try {
+      setSharedClock(() => now);
+      setOwnMinutes(saved);   // save.js's load arm
+      resetMagicRoundMarker(saved);
+      assert.equal(alignEntityClocks(entity, worldMinutes(), { worldLeft: saved }), true);
+      assert.deepEqual(JSON.parse(JSON.stringify(entity)), before, 'no marker moved');
+      const r = tickPlayerMinutes({ entity, classicMinutes: 0, dt: 5, sinks: sinks(), rolls: () => 0.5 });
+      assert.equal(r.rounds, 0, 'the first online frame owes nothing');
+      assert.equal(ownMinutes(), saved, 'and the character\'s clock runs on from the save');
+    } finally { setSharedClock(null); }
+  }
+  assert.equal(alignEntityClocks(null, 5), false); assert.equal(alignEntityClocks({}, NaN), false);
   setWorldMinutes(CLASSIC_GAME_START_TIME);
 });
-
 test('WORLD5: the shared weather - two clients under one date roll one sky (the day change\'s roll, the boot\'s, a respawn\'s), another date may roll another, and offline the roll is the caller\'s own again', () => {
   const day = (n) => CLASSIC_GAME_START_TIME + n * MINUTES_PER_DAY;
   const arrayOn = (fn) => { resetWeatherSim(); setSharedWeather(true); fn(); return ZONE_CLIMATES.map((c) => weatherForClimate(c)); };
@@ -174,20 +177,20 @@ test('WORLD5 (RESTX2: retired): a session online paces on the WINDOW\'S OWN TIME
   const sub = LOITER_WAIT_PER_HOUR / MINUTES_PER_TICK;
   s.tick(sub);
   assert.equal(d.minutes, MINUTES_PER_TICK, 'one of the timer\'s sub-ticks: ten minutes, the owed rounds asked of the host');
-  assert.deepEqual(d.ends, [5610], 'handed the session\'s own sim-minute as the end: the shared reading at the first sub-tick, plus ten - not the live clock');
+  assert.deepEqual(d.ends, [undefined], 'LIVED1: handed the minutes alone - the host\'s advance moves the character\'s own clock');
   s.tick(sub * 5);
   assert.deepEqual([d.minutes, d.vitals, s.totalHours], [60, 0, 1], 'six sub-ticks of the timer: one hour counted (a loiter recovers nothing, which is its own law)');
   clock += 5000;
   s.tick(sub * 12);
   assert.equal(s.totalHours, 3, 'two more hours of the timer, and the clock\'s leap in between changed nothing');
-  assert.equal(d.ends.at(-1), 5610 + 17 * MINUTES_PER_TICK, 'the sim-minute ran on from its seed, ten a sub-tick, and never re-read the clock');
+  assert.equal(d.minutes, 18 * MINUTES_PER_TICK, 'eighteen sub-ticks, ten minutes each, and the clock\'s leap in between is not in them');
   // offline: the timer
   const e = deps();
   const off = new RestSession('timed', 2, e);
   const rsub = REST_WAIT_PER_HOUR / MINUTES_PER_TICK;   // the timer's sub-tick, real seconds
   off.tick(rsub * 5.5); assert.equal(e.minutes, 50, 'five sub-ticks of the timer: not an hour yet');
   off.tick(rsub); assert.ok(e.minutes === 60 && off.totalHours === 1, 'the timer\'s hour');
-  assert.deepEqual(e.ends, new Array(6).fill(null), 'offline the host reads its own clock');
+  assert.deepEqual(e.ends, new Array(6).fill(undefined), 'offline the same law');
 });
 
 test('WORLD5 (superseded by WORLD7): the stand-down is gone - a quest clock charges played time online, the time away forgiven; a quest with no seam charges as ever', () => {
@@ -215,15 +218,15 @@ test('WORLD5: the hosts by source - the shared clock installed at the boot befor
   assert.match(w, /let _sharedOffsetMs = 0;[^\n]*\n\s*if \(params\.has\('online'\)\) \{ setSharedClock\(\(\) => sharedClassicMinutes\(Date\.now\(\) \+ _sharedOffsetMs\), \(m\) => wallMsForClassicMinutes\(m\) - _sharedOffsetMs\); setSharedWeather\(true\); \}/, 'installed at the boot, the shared weather with it (OL3: the inverse beside the source)');
   assert.match(w, /if \(bootTod != null && !sharedClockOn\(\)\) setWorldMinutes\(/, '?tod stands down');
   assert.match(w, /const timeScaleMult = params\.has\('timescale'\) && !sharedClockOn\(\) \? Number\(params\.get\('timescale'\)\) \/ 12 : 1;/, '?timescale stands down');
-  assert.match(w, /online\.onClock = \(offsetMs\) => \{ const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; (?:_sharedClockHeard = true; )?if \(Math\.abs\(offsetMs - was\) > 1000\) \{ const before = playerEntity\.lastGameMinutes; onlineArrival\(\); if \(Number\.isFinite\(before\)\) shiftSurvival\(playerEntity, Math\.floor\(worldMinutes\(\)\) - Math\.floor\(before\)\); alignSurvival\(playerEntity, Math\.floor\(worldMinutes\(\)\), Math\.floor\(worldMinutes\(\)\)\); \} \};/, 'the relay\'s clock corrects this machine\'s (AUDIT WORLD5 C2: and a correction is an arrival)');
+  assert.match(w, /online\.onClock = \(offsetMs\) => \{ const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; (?:_sharedClockHeard = true; )?if \(Math\.abs\(offsetMs - was\) > 1000\) onlineArrival\(\); \};/, 'the relay\'s clock corrects this machine\'s (AUDIT WORLD5 C2: and a correction is an arrival - LIVED1: which moves nothing of the character\'s)');
   assert.match(w, /const onlineArrival = \(\) => \{ alignEntityClocks\(playerEntity, worldMinutes\(\)\); rollClimateWeathersForDay\(worldMinutes\(\)\); refreshSeason\(worldMinutes\(\)\); \};\s*onlineArrival\(\);/, 'the session\'s start: the markers, the day\'s roll, the season');
   assert.match(w, /\{ arriveMinutes: sharedClockOn\(\) \? worldMinutes\(\) : worldMinutes\(\) \+ computed\.minutes,/, 'the trip takes no world time');
-  assert.match(w, /if \(!sharedClockOn\(\)\) \{ setSyntheticTimeIncrease\(true\); playerTicker\.advance\(computed\.minutes\); \}/, 'no jump');
+  assert.match(w, /\n\s*setSyntheticTimeIncrease\(true\); playerTicker\.advance\(computed\.minutes\);/, 'LIVED1: the trip\'s days are the character\'s own - advanced online too');
   assert.match(w, /if \(clamp > 0 && !sharedClockOn\(\)\) \{ setSyntheticTimeIncrease\(true\); playerTicker\.advance\(clamp\); \}/, 'no arrival clamp');
   assert.match(w, /questClockStepMax: \(\) => \(sharedClockOn\(\) \? PLAYED_STEP_MAX_SECONDS : Infinity\),/, 'the bridge\'s dep (WORLD7: the played step, not the stand-down)');
   const sh = rd('src/scenes/shared.js');
-  assert.match(sh, /advance\(minutes, sharedEnd = null\) \{\s*if \(!\(minutes > 0\)\) return null;\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\) && Number\.isFinite\(sharedEnd\)\) \{\n(?:(?! {6}\}\n)[^\n]*\n)*? {6}\}\n\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) return this\.tick\(0, undefined, 0\);/, 'RaiseTime under the shared clock runs the owed rounds and fabricates nothing - REST-ROUNDS: only a rest\'s sub-tick brings a minute of its own');
-  assert.match(sh, /sharedMinutes: \(\) => \(sharedClockOn\(\) \? worldMinutes\(\) : null\),/, 'every host\'s rest deps pace by the clock');
+  assert.match(sh, /advance\(minutes\) \{\s*if \(!\(minutes > 0\)\) return null;\s*if \(sharedClockOn\(\)\) return this\.tick\(0, undefined, 0, minutes\);/, 'LIVED1: RaiseTime under the shared clock raises the character\'s own clock, and the tick walks it');
+  assert.match(sh, /sharedMinutes: \(\) => \(sharedClockOn\(\) \? worldMinutes\(\) : null\),/, 'every host\'s rest deps say the world\'s clock (the window\'s line, the session\'s quest gate)');
   assert.match(rd('src/scenes/questBridge.js'), /questClockStepMax: \(\) => ctx\.questClockStepMax\?\.\(\) \?\? Infinity,/);
   const m = rd('src/systems/quest/machine.js');
   assert.equal((m.match(/questClockStepMax: \(\) => this\.deps\.questClockStepMax\?\.\(\) \?\? Infinity/g) ?? []).length, 4, 'every door a live quest is born through');   // QUEST1: the fourth is receiveSharedQuest

@@ -1904,7 +1904,10 @@ the ticker's `advance` (RaiseTime: the exhaustion collapse, a training
 session, a sentence), `?tod`, `?timescale`. The tick claims what the
 clock owes between two readings (the rounds, the days) and fabricates
 not one minute from dt, so a frame that comes late owes what passed and
-a frame of fabricated time owes nothing.
+a frame of fabricated time owes nothing. [SUPERSEDED BY LIVED1 (2026-09-29) for
+the character: the ticker's `advance` - the collapse, training, a sentence, a rest, a journey - moves
+the character's OWN clock online (`advanceOwnMinutes`), and the tick walks it as offline; the
+world's clock still refuses every write.]
 
 **THE SAVE ARRIVES, IT DOES NOT CATCH UP.** A save a month behind the
 world would have fired a month of loans, diseases and price walks on
@@ -2013,7 +2016,9 @@ night again: every poison, disease and continuous-damage effect twice
 per rested hour, in the dungeon only. The claim now moves the tick's
 reading with it (`worldTick.js`, in `claimMagicRounds` under
 `_sharedClock`); executed: the arm's claim of ten minutes, then the
-tick owing nothing, then two more minutes owing two.
+tick owing nothing, then two more minutes owing two. [SUPERSEDED BY LIVED1: the claim
+moves no world reading any more. The arm and the tick both claim on the character's own clock, which
+the arm moved, so what the arm claimed the tick finds claimed.]
 
 **C2 - A SOURCE THAT STEPPED BACKWARDS FROZE THE TICK.** `next =
 max(reading, source)`: when the relay's offset corrected this machine's
@@ -2050,7 +2055,11 @@ was due is due now; a "last" marker never lands ahead of now; a zero
 stays zero (the letter clocks, a summoned item's hour, a first skill
 check - zero means none); a fresh character with no day marker moves
 nothing. Executed both ways, and through `liveVampirism`, which now
-steps over a hole in the effects list rather than throwing on it.
+steps over a hole in the effects list rather than throwing on it. [SUPERSEDED BY
+LIVED1: every one of those markers is on the character's own clock, which stood while they were
+away, so an arrival shifts nothing and there is no list of markers to keep or to forget. MAC-BUG3's
+repairs, DISC10-D/E V9's infection and werewolf stamps and TM-4's body clocks were each a marker
+added to the shift late.]
 
 **C4 - A LOAD ONLINE WAS NOT AN ARRIVAL.** The alignment ran once, at
 the session's start, over the save the boot restored - a quick load, a
@@ -2086,7 +2095,9 @@ drain reached zero. The one home (`rest.js exhaustionOutcome`) pays
 the fatigue hour every collapse - it is what stands the player up; the
 next frame collapses again without it - and the health and the magicka
 once per WORLD hour, which is what an hour's rest yields over the same
-five real minutes. Offline unchanged.
+five real minutes. Offline unchanged. [SUPERSEDED BY LIVED1: the collapse's RaiseTime
+moves the character's own clock online, so its hour is charged and it pays in full every time, as
+offline (`rest.js exhaustionOutcome`).]
 
 **C7 - A COVERED REST BANKED THE WORLD'S TIME AND RESOLVED THE NIGHT
 IN ONE FRAME.** The rest lens executed it: a nine-hour rest covered by
@@ -2113,14 +2124,18 @@ the clock, once per sub-tick (a night whose window missed the
 The session now hands `advanceMinutes` the sub-tick's own END (the
 reading just counted; null offline) and the arm derives `[start, end)`
 from it for the spawner and the broker alike. Executed: two sub-ticks,
-two ends ten apart.
+two ends ten apart. [SUPERSEDED BY LIVED1: the session hands no end. The arm's `[start,
+end)` is the character's own clock before and after its advance (`dungeonContext.js _restAdvance`).]
 
 **C9 - A SENTENCE SERVED NO DAYS AND REFILLED THE POOLS.** The prison's
 refill lands "when daysInPrisonLeft hits 0, after the RaiseTime" - the
 days are its price, and online `advanceDays` is refused. A surrender
 was a free full heal of all three pools for the walk to the guardhouse.
 Online the sentence refills nothing; the rescue's and the acquittal's
-refills stand (neither costs a day offline either).
+refills stand (neither costs a day offline either). [SUPERSEDED BY
+LIVED1: the sentence's days are served on the prisoner's own clock online (`advanceOwnMinutes`), so
+the refill is their price in both lanes again, as DFU pays it, and DEATHLOOP1's online floor is
+inside it.]
 
 **C10 - `exterior.js`'S BRIDGE SAID NOTHING.** Its quest bridge ctx
 carried no `questClocksStoodDown`, and the bridge's fallback is
@@ -2158,7 +2173,9 @@ trip takes no world time, and Cautious + Camp Out is a zero fare
 (`calculateTripCost` executed: `{piecesCost: 0, totalCost: 0}`), so
 every pool refilled in full on a 1.5-second black screen, repeatable,
 which retired resting, potions and the temples as a healing economy.
-The heal is the trip's nights, and online there are none.
+The heal is the trip's nights, and online there are none. [SUPERSEDED BY LIVED1:
+online the trip's nights pass on the traveller's own clock, so the cautious heal is theirs again in
+both lanes.]
 
 **Recorded, not paid.** (1, PAID BY OL3) Every world-time deadline now runs on wall
 time INCLUDING while the player is logged off: a room rented for a day
@@ -2378,7 +2395,8 @@ The five is DERIVED from the wire's one rate
 (`REAL_MINUTES_PER_WORLD_HOUR = round(60 / (ONLINE_MINUTES_PER_MS *
 60000))`), not spelled, so a rate change cannot leave a stale number
 on the page. The text page's lines moved into `restingLines()` so the
-pin reads the same body the page draws.
+pin reads the same body the page draws. [The line is LIVED1's now: "World time 15:05 - you
+rest on your own clock".]
 
 **(6) THE TRIP SAYS IT ARRIVES NOW.** Online the trip takes no world
 time (WORLD5) and the popup still counted down the trip's days,
@@ -2395,7 +2413,10 @@ fare for a ship's passage stands, because a crossing is a crossing,
 and the trip's DFU minutes are still computed because the host reads
 them offline. `arrivalClampMinutes` is still computed and discarded
 online (the sun-averse traveller arrives when they arrive, WORLD5's own
-record) - two source pins hold that line and it costs nothing.
+record) - two source pins hold that line and it costs nothing. [SUPERSEDED BY LIVED1: online the
+trip's days pass on the traveller's own clock. The countdown counts them, the inn nights are slept,
+and the line says "Online: the days pass on your own clock. You arrive in the world's present." The
+arrival clamp stays offline-only: the sky is the world's.]
 
 ## OL3 (2026-09-14): the clock does not punish absence
 
@@ -2423,7 +2444,12 @@ a host that answers nothing offers as DFU does). The bank's due-by
 label carries the real time in brackets beside DFU's date, since a
 default lowers reputation and brings the guards; offline it is the
 date alone. The loan reminder letters are the safety net and are
-untouched.
+untouched. [SUPERSEDED BY LIVED1 for rooms, loans and repairs: they run on the
+character's own clock, which stands while they are away - the per-player deadline this called a
+different design is that design. The row says the time left in THEIR time and in play ("The room is
+yours for 7 days of your time (14h of play) - resting spends it, time away does not.",
+`ownTimeLeftText` through the tavern's `ownTimeOf`), and the bank's due-by the same. The real-time
+words stand for the world's own dates.]
 
 **(2) `CreateFoe` STANDS DOWN WITH THE CLOCK.** Mac's WORLD1 word was
 that quest time limits should not punish being online, and a quest
@@ -4743,7 +4769,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7022` read, on one physical line:
+`src/scenes/worldModes.js:7028` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4784,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5129`). With the property missing that call is a
+(`dungeonContext.js:5134`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4911,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6551` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6549` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -6813,7 +6839,9 @@ clock). Nothing here is visible to another player or survives past
 the rest; it only has to look, from the inside, like an hour passed.
 After the rest the host's `_lastEncMinutes` sits ahead of the standing
 clock until it catches up, and those frames roll nothing - the rest
-already rolled them.
+already rolled them. [SUPERSEDED BY LIVED1: the session keeps no counter. The
+host's advance moves the character's own clock by each sub-tick's minutes, and the encounter roll,
+the rounds and the needs read that clock.]
 
 **The quest tick alone stays offline-only.** A quest clock is
 cross-player-visible state; ticking it against a locally simulated
@@ -8417,6 +8445,12 @@ online against offline). Re-aimed by content: `world5`
 (RaiseTime online), `restx2_online_rest`, `camp1_groups`, `exteriorfoes`, `partyrest1`, `restwhere`, `audit62_hosts`
 (which had been matching the camp meal's twin line since the rest's changed). Mutants `tools/mutants/rest_rounds.json`
 (9, all dead). `01-Overview/Field-Bugs-2026-09-27c.md`.
+
+[SUPERSEDED BY LIVED1 (2026-09-29): the online arm above is gone. The ticker's `advance(minutes)`
+runs the same tick online as offline, on the character's own clock, so a rested night's rounds,
+needs and calendar are theirs through the one path - nothing claims a window beside the tick and no
+`sharedEnd` is handed over. The file's laws stand, re-aimed; the rest's own real seconds are lived
+too.]
 
 ## HCC-ONLINE (2026-09-23, Mac: "Next mod I want to implement 1 to 1 and also enhance its online integration functionality") - a peer's horse and wagon stand in the cell
 
@@ -10616,3 +10650,52 @@ forward side button), and the side-button plumbing it rides, which came with VOI
 - the world host keeping the side buttons from the browser's Back and Forward.
 
 `test/viewtoggle.test.js` pins all three.
+
+## LIVED1 (2026-09-29, Mac: "We need a better system for time online instead of a band aid fix. Something detailed and that really makes sense") - your own time, no relay change
+
+The record is `06-Systems/Lived-Time.md`. The law is TWO CLOCKS.
+
+**The world's clock** is WORLD5's shared clock, unchanged. Nobody moves it.
+
+**The character's own clock** (`systems/worldTick.js ownMinutes`) works like this:
+
+- Offline it is the world's clock: one variable, DFU exactly.
+- Online:
+  - it runs with the world's clock while the character is here and alive;
+  - it runs ahead by every RaiseTime (`advanceOwnMinutes`, the tickers' `advance`);
+  - it stands while they are away or dead.
+
+**Who reads which clock.** The body, its magic, its needs, its contracts and its standing read the
+character's clock. The sky, the calendar and the shared world read the world's.
+
+**`tickPlayerMinutes` walks two windows online.** The world's arms walk the world's minutes: the day
+block's price flags and zones, the hourly climate, and the powers and conditions. Everything of the
+character's walks their own minutes. The magic rounds read the world's sky (`skyMinutes`).
+
+**What an arrival does now:**
+- it re-anchors the world reading;
+- it pays TM-1's recovery over the world's absence;
+- it shifts nothing.
+
+**What a death does now:** it walks the world's half of the dead span, and nothing of the
+character's.
+
+**Stamped superseded above, each at its own words:**
+
+- WORLD5's "fabricates no minutes online" for a raise;
+- C1 (the claim moving the world reading);
+- C3 (the arrival shift);
+- C6 (the once-a-world-hour collapse);
+- C8 (the rest session's sim minute);
+- C9 (no prison days);
+- C14 (the withheld cautious heal);
+- OL2's "now";
+- OL3's real-time deadlines (said now in the character's time and in play, `ownTimeLeftText`);
+- RESTX2's `_onlineSimMinutes`, REST-ROUNDS / RISE-REST F2's online arm, and MAC-LVL1's credit.
+
+**WORLD7 stands:** quest clocks charge played time. Moving the countdowns onto the character's clock
+is Lived-Time's OPEN 1.
+
+The vampire's daylight refusals now add when the world's night falls (`worldNightfallText`).
+
+Not verified in a browser: no online session exists in this container.

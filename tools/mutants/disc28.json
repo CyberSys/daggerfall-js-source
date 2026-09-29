@@ -153,19 +153,19 @@
     ]
   },
   {
-    "name": "DISC28-E-marker-not-moved",
+    "name": "DISC28-E-the-rise-moves-the-day-marker",
     "file": "src/systems/worldTick.js",
-    "old": "  pauseSurvival(entity, Number.isFinite(s?.lastMinute) ? Math.min(s.lastMinute, now) : last, now);\n  entity.lastGameMinutes = now;",
-    "new": "  pauseSurvival(entity, Number.isFinite(s?.lastMinute) ? Math.min(s.lastMinute, now) : last, now);",
+    "old": "  entity.preventEnemySpawns = true;   // AUDIT DISC28 TM-2: every host's encounter loop reads it and lowers it - raised on every rise\n",
+    "new": "  entity.preventEnemySpawns = true;   // AUDIT DISC28 TM-2: every host's encounter loop reads it and lowers it - raised on every rise\n  entity.lastGameMinutes = now;\n",
     "tests": [
       "test/disc28_fatigue.test.js"
     ]
   },
   {
-    "name": "DISC28-E-needs-age-in-a-corpse",
+    "name": "DISC28-E-the-rise-moves-the-needs-marker",
     "file": "src/systems/worldTick.js",
-    "old": "  pauseSurvival(entity, Number.isFinite(s?.lastMinute) ? Math.min(s.lastMinute, now) : last, now);\n",
-    "new": "",
+    "old": "  entity.preventEnemySpawns = true;   // AUDIT DISC28 TM-2: every host's encounter loop reads it and lowers it - raised on every rise\n",
+    "new": "  entity.preventEnemySpawns = true;   // AUDIT DISC28 TM-2: every host's encounter loop reads it and lowers it - raised on every rise\n  if (entity.survival) entity.survival.lastMinute = now;\n",
     "tests": [
       "test/disc28_fatigue.test.js"
     ]
@@ -173,17 +173,17 @@
   {
     "name": "DISC28-F-arrival-skips-boundaries",
     "file": "src/systems/worldTick.js",
-    "old": "  if (delta !== null && delta > 0) normalizeAcross(entity, now - delta, now);\n",
+    "old": "  if (Number.isFinite(worldLeft) && now > Math.floor(worldLeft)) normalizeAcross(entity, Math.floor(worldLeft), now);\n",
     "new": "",
     "tests": [
       "test/disc28_fatigue.test.js"
     ]
   },
   {
-    "name": "DISC28-F-death-skips-boundaries",
+    "name": "DISC28-F-the-death-walks-the-characters-drift",
     "file": "src/systems/worldTick.js",
-    "old": "  runCalendarArms(entity, last, now, { rolls });",
-    "new": "",
+    "old": "    runCalendarArms(entity, last, now, { rolls, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms",
+    "new": "    runCalendarArms(entity, last, now, { rolls, arms: DAY_ARMS.all });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms",
     "tests": [
       "test/disc28_fatigue.test.js",
       "test/auditdisc28_time.test.js"

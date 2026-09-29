@@ -93,7 +93,7 @@ test('audit24 wave36: every exterior pool is handed the full context', () => {
     const src = rd(f);
     assert.equal(src.includes('{ playerInvisible: isInvisible(playerEntity) }'), false,
       `${f}: the one-field object is gone`);
-    assert.ok(src.includes('const _foeSenses = () => sensesContext(playerEntity, playerTicker.classicMinutes, {'),
+    assert.ok(src.includes('const _foeSenses = () => sensesContext(playerEntity, playerTicker.ownMinutes, {'),
       `${f}: builds the real one`);
     assert.ok(src.includes('movingLessThanHalfSpeed: player.movingLessThanHalfSpeed ?? true,'),
       `${f}: including the half-speed flag the odd-minute skip reads`);

@@ -160,15 +160,15 @@ test('AUDIT 63 F13: the four raisers - prison, both fast-travel advances, the va
   // ONE broker Update covers the lot. The port spends the jump in TWO
   // advances, each of which claims its own window, so both are armed.
   const world = src('src/scenes/world.js');
-  assert.match(world, /if \(!sharedClockOn\(\)\) \{ setSyntheticTimeIncrease\(true\); playerTicker\.advance\(computed\.minutes\); \}/,   // WORLD5: the jump and its flag both stand down under the shared clock
+  assert.match(world, /\n\s*setSyntheticTimeIncrease\(true\); playerTicker\.advance\(computed\.minutes\);/,   // LIVED1: the jump is the character's own online too, and armed in both lanes
     'the travel advance is armed');
   assert.match(world, /if \(clamp > 0 && !sharedClockOn\(\)\) \{ setSyntheticTimeIncrease\(true\); playerTicker\.advance\(clamp\); \}/,
     'and so is the arrival clamp (WORLD5: both stand down under the shared clock)');
 
   // VampirismInfection.cs:161-162 - RaiseTime then the flag, in that order.
   assert.match(src('src/scenes/shared.js'),
-    /raiseTime: \(seconds\) => \{ setSyntheticTimeIncrease\(true\); return advanceWorldMinutes\(seconds \/ 60\); \}/,
-    'the infection host\'s clock raise arms it too');
+    /raiseTime: \(seconds\) => \{ setSyntheticTimeIncrease\(true\); return advanceOwnMinutes\(seconds \/ 60\); \}/,
+    'the infection host\'s clock raise arms it too (LIVED1: the fortnight is the new vampire\'s own)');
 });
 
 // ── F14: SoulBound ───────────────────────────────────────────────────

@@ -1204,8 +1204,8 @@ test('TO1: the wiring - one construction, the fork on the popup\'s word, the pan
     'the journey asks only whether the mod is there');
   assert.doesNotMatch(w, /if \(!travelOptions \|\| sharedClockOn\(\)\) return false;/, 'and not whether the clock is shared');
   // not vacuous: WORLD5's law is what makes this safe, so read it
-  assert.match(read('src/systems/worldTick.js'), /if \(_sharedClock\) \{\s*\n\s*classicMinutes = _sharedLastTick \?\? _sharedClock\(\);/,
-    'the shared clock is READ, never advanced from dt - which is why an accelerated journey cannot move it');
+  assert.match(read('src/systems/worldTick.js'), /if \(_sharedClock\) \{\s*\n\s*const reading = _sharedClock\(\);/,
+    'the shared clock is READ, never advanced from dt - which is why an accelerated journey cannot move it (LIVED1: nor the character\'s clock, which moves by the world\'s reading and by a raise alone)');
   // THE COMPATIBILITY CHECK Mac asked for: following is handed HIS network alone
   assert.match(w, /roads: \(\) => \{ const net = terrainGen\.roads\(\); return net\?\.source === 'basic-roads' \? net : null; \},/,
     'the port\'s own generated network is never followed');

@@ -144,7 +144,7 @@ test('SURV7: by source - the four hosts feed their env (the roof, the floor, the
   }
   assert.match(world, /climateIndex: maps\.getClimateIndex\(playerTravelPixel\(\)\.x, playerTravelPixel\(\)\.y\),\n\s+month: dateFromClassicMinutes\(wm\)\.month/, 'world: the pixel\'s climate');
   assert.match(ext, /climateIndex: locClimateIndex,\n\s+month: dateFromClassicMinutes\(wm\)\.month/, 'exterior: the location\'s climate');
-  assert.match(world, /alignSurvival\(playerEntity, Math\.floor\(worldMinutes\(\)\), Math\.floor\(worldMinutes\(\)\)\);/, 'world: the arrival');
+  assert.match(world, /alignSurvival\(playerEntity, Math\.floor\(ownMinutes\(\)\), Math\.floor\(ownMinutes\(\)\)\);/, 'world: the arrival (LIVED1: against the character\'s own clock)');
   // HEARTH1 (2026-09-19): the interior's `byFire` was a hard FALSE, and
   // this pin held it that way. It was right while the only fire the law
   // knew was a placed camp - camping indoors is refused - and wrong the
@@ -157,7 +157,7 @@ test('SURV7: by source - the four hosts feed their env (the roof, the floor, the
   assert.match(dc, /byFire: !!\(_fpFeet && camps\.byFire\(_fpFeet\)\),/, 'dungeon: its own fire');
   assert.match(dc, /survival: survivalFeed\(playerEntity, survivalEnvNow\(\), \{ say: \(msg\) => hudText\.add\(msg\) \}\),/, 'dungeon: its own tick feeds');
   assert.match(dc, /installSurvivalGate\(registerPreventRestCondition, \(\) => playerEntity, survivalEnvNow\);/, 'dungeon: its own gate');
-  assert.match(save, /if \(sharedClockOn\(\)\) \{\n\s+const at = Math\.floor\(worldMinutes\(\)\), saved = Math\.floor\(snap\.classicMinutes \?\? 0\);[\s\S]{0,600}?if \(!survivalOn\(\) && at > saved\) pauseSurvival\(entity, saved, at\);\n\s+alignSurvival\(entity, at, saved\);/, 'the load arm (AUDIT SURV-TIERS, the third pass: an Off player\'s absence pauses first)');
+  assert.match(save, /if \(sharedClockOn\(\)\) \{\n\s+const own = Math\.floor\(snap\.classicMinutes \?\? 0\), at = Math\.floor\(worldMinutes\(\)\);[\s\S]{0,1400}?alignSurvival\(entity, own, at - left > ALIGN_GRACE_MINUTES \? null : own\);/, 'the load arm (LIVED1: the needs stood with the character\'s clock - a long break still comes back fresh)');
   assert.match(read('src/systems/worldTick.js'), /felt = runSurvivalMinutes\(entity, lastMinutes, nowMinutes, survival\.env \?\? \{\}, /, 'the tick runs the minutes');
   assert.doesNotMatch(read('src/systems/survival/env.js'), /from '\.\.\/\.\.\/scenes\/|from '\.\.\/\.\.\/ui\/|from '\.\.\/\.\.\/combat\/|from '\.\.\/spellcast|from '\.\.\/diseases|from '\.\.\/effects|from '\.\.\/lycanthropy|document\.|window\./);
 });

@@ -194,7 +194,9 @@ export function intermittentEnemySpawn(ctx, rolls = Math.random) {
 function intermittentEnemySpawnOnce(ctx, rolls) {
   // :560 - `if (!timeForSpawn || preventEnemySpawns) return false;`
   if (!timeForSpawn(ctx.gameMinutes) || ctx.preventEnemySpawns) return null;
-  const timeOfDay = ctx.gameMinutes % 1440;
+  // LIVED1: the cadence above is the minute the player lives (their own clock online); night and day are the SKY's -
+  // `skyMinutes`, the world's clock, when the host hands it (offline the one clock, so the minute itself).
+  const timeOfDay = ((Number.isFinite(ctx.skyMinutes) ? ctx.skyMinutes : ctx.gameMinutes) % 1440 + 1440) % 1440;
   if (!ctx.inside) {
     if (ctx.inLocationRect) {
       if ((timeOfDay < 360 || timeOfDay > 1080) && rollLocationNight(rolls()) === 0) {
