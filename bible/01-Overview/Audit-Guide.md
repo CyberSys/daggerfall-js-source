@@ -140,6 +140,11 @@ The whole suite then found two pins the audit's own fixes had moved, both red fo
 - GUIDE2's four-hosts pin forbids a bare `return;` in the street's map door, and D6's first wording of its comment
   said "before they return;". Reworded.
 
+Last, on that green baseline, every committed record on a file the audit changed - 2,489 on twenty files, the GUIDE
+and audit records among them: 2,476 dead, 7 equivalent as recorded, 6 survived, and none of the six is the audit's.
+Two FB0929D-MAPKEY records are killed only by a measurement against the player's own FMAP_PAL.COL (their `why` says
+so; below). Four tv5 records survive on main (below).
+
 ## Found at the integration
 
 Main was red on one test of its own: TO-ROADS x OW-PATH (`9921c7901`) gave `travelViewWalkTo` a `roads` option and
@@ -178,6 +183,10 @@ Main was red on one test of its own: TO-ROADS x OW-PATH (`9921c7901`) gave `trav
   now. The classic logbook's own wrong cite was D4's and is fixed.
 - `test/da9_arena2detect.test.js` DA9-Windows fails whenever the TMPDIR path contains "daggerfall"
   (`app/lib/arena2Detect.cjs`).
+- Four tv5 records - `EDGE-FURNITURE-stale-on-show`, `AUDIT-DEEP2-E6-bands-unshared`, `-E7-corner-piece-ignored`
+  and `-E8-foot-ends-overlap` - survive on main: the Overworld Block (`4150578f3`) left `test/tv5_far_places.test.js`
+  unable to fail them. At its parent all four die; at it, and at main today (#446), all four stand. The travel
+  view's readout is not this arc's, and its pins are left to its own next pass.
 - A press on a raid's blades falls to the map-coordinates arm as a quest's diamond did (K1).
 - The party list stands over the Overworld's block on a touch screen (`.dfparty.touch`).
 - A video that holds the frame, and the realm's exit wait, leave the DOM HUD standing.
@@ -187,7 +196,9 @@ Main was red on one test of its own: TO-ROADS x OW-PATH (`9921c7901`) gave `trav
 ## What this audit could not see
 
 A running game: every lens drove the real modules headless or in Chromium over a harness page - ARENA2 is not in the
-tree. The screen-reader findings were read off the accessibility tree, not heard.
+tree. The screen-reader findings were read off the accessibility tree, not heard. And the two FB0929D-MAPKEY records
+on the marks' ink mix (`MARK_INK_MIX`), which only the player's own FMAP_PAL.COL can kill: without ARENA2 their pin
+has nothing to measure, so they stand here as they stand on main.
 
 ## The deploy
 
