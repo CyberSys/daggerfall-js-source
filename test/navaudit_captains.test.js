@@ -8,10 +8,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ENGAGE_RANGE, DISENGAGE, CHASE_GIVE_UP_S, SPARE_S, GRAPPLE_STILL_S, GRAPPLE_GAP, GRAPPLE_CREW, BOARD_SAILS, WRECK_SPARE_S, ACCEL,
+  ENGAGE_RANGE, DISENGAGE, CHASE_GIVE_UP_S, SPARE_S, GRAPPLE_STILL_S, GRAPPLE_GAP, GRAPPLE_CREW, BOARD_SAILS, WRECK_SPARE_S, ACCEL, DECEL,
   WIND_RATED, WIND_SHARE, CLOSE_HAULED, TACK_MIN_S, TACK_FLIP, TURN_RADIUS_K, TURN_TAU, TURN_FLOOR, OARS_TURN, TURN_SPEED_LOSS, HEEL_MAX,
   AVOID_SHIP_SWING, AVOID_HOLD_S, NAV_EVERY_S, SCAN_STEP, PURSUIT_LEAD_S, RANGE_BEND, WEAR_BELOW, TACK_FROM, IRONS_DEG, PAYOFF_TURN,
-  WAYPOINT_REACHED, ADRIFT_SPEED, AGROUND_WAY, SIDE_HOLD_S, AVOID_HEAD_ON,
+  WAYPOINT_REACHED, ADRIFT_SPEED, AGROUND_WAY, SIDE_HOLD_S, AVOID_HEAD_ON, SWEEP_RANGE, SWEEP_WAY, SWEEP_TURN, GRAPPLE_STILL,
   createSeaShip, stepCaptain, windShare, windFactor, maxTurnRate, turnRadius, hullLength, courseClear, avoidLand, tackCourse, sailable,
   trafficCourse, intercept, hullGap, broadsideReach, velocityOf,
 } from '../src/systems/naval/navalAI.js';
@@ -407,6 +407,87 @@ test('AUDIT NAV1 M1/G3 alongside to board: a pirate with men comes up to a playe
   few.damage.apply({ hull: 0, sail: 0, crew: few.damage.crew - (GRAPPLE_CREW - 1) });
   stepCaptain(few, world({ contacts: [player([0, 0, 0], { crippled: true })] }));
   assert.notEqual(few.mode, 'board');
+});
+
+test('AUDIT NAV1 (online #10) HER SWEEPS: a pirate coming to board a boat lying still gets out her long oars within SWEEP_RANGE of the berth - straight for it, pulled round the short way at SWEEP_TURN at least, through the wind\'s eye as readily as from it, SWEEP_WAY of way whatever the wind (the pace that stops her short of the berth under it). Under sail alone she beat and wore round a wreck 60 m off for two minutes and more in a third of the winds (180 of 512 approaches never closed in 120 s, the player stuck with a hostile ship in sight); now every approach from 60 m in eight winds grapples (mutants: no sweeps, the eye still worn round or tacked, no way under them, their way unpaced, never shipped, the stern approach to a still boat, the sweeps past their range or for a boat under way)', () => {
+  const wreck = (o = {}) => player([0, 0, 0], { yaw: 0, hull: HULL.SmallShip, crippled: true, ...o });
+  const run = (s, w, limit) => {
+    let far = 0;
+    for (let t = 0; t < limit; t += w.dt) {
+      const o = stepCaptain(s, w);
+      far = Math.max(far, Math.hypot(s.pos[0], s.pos[2]));
+      if (o.grapple) return { t, far };
+    }
+    return { t: null, far };
+  };
+  // the two the audit's sweep lost: the berth dead to windward, and her stern to it with no way on
+  for (const [pos, yaw] of [[[23, 0, 55], 68], [[55, 0, -23], 157]]) {
+    const s = ship('pirateBrig', { pos, yaw: yaw * DEG });
+    const r = run(s, world({ wind: [0, 0, 0.9], contacts: [wreck()] }), 120);
+    assert.ok(r.t != null && r.t < 60, `from ${pos} she grapples (${r.t?.toFixed(1)} s)`);
+    assert.ok(r.far < 95, `no loop out and back (${r.far.toFixed(0)} m at most)`);
+  }
+  // eight winds, four bearings, two headings: every one alongside
+  let worst = 0;
+  for (let wi = 0; wi < 8; wi++) {
+    const wa = wi * Math.PI / 4;
+    for (let bi = 0; bi < 4; bi++) {
+      const ba = bi * Math.PI / 2 + Math.PI / 8;
+      for (const turn of [-1, 1]) {
+        const s = ship('pirateBrig', { pos: [Math.sin(ba) * 60, 0, Math.cos(ba) * 60], yaw: ba + Math.PI + turn * Math.PI / 2 });
+        const r = run(s, world({ wind: [Math.sin(wa) * 0.9, 0, Math.cos(wa) * 0.9], contacts: [wreck()] }), 120);
+        assert.ok(r.t != null, `wind ${wi * 45}, bearing ${(bi * 90 + 22.5).toFixed(1)}, turned ${turn}: never alongside`);
+        worst = Math.max(worst, r.t);
+      }
+    }
+  }
+  assert.ok(worst < 100, `the worst ${worst.toFixed(1)} s`);
+  // the laws: out within SWEEP_RANGE of the berth of a boat lying still - straight for it, the short way round
+  const s = ship('pirateBrig', { pos: [55, 0, -23], yaw: 157 * DEG });
+  const w = world({ wind: [0, 0, 0.9], contacts: [wreck()] });
+  stepCaptain(s, w);
+  assert.ok(s.sweeps > 0 && s.sweeps <= SWEEP_WAY, `her sweeps out (${s.sweeps})`);
+  const y0 = s.yaw;
+  steps(s, w, 3);
+  assert.ok(s.yaw > y0 && s.turnWay == null, 'round the short way - through the eye, never worn round the long');
+  assert.ok(maxTurnRate(s) < SWEEP_TURN * DEG && Math.abs(s.yawRate) > maxTurnRate(s), 'pulled round faster than her way alone would turn her');
+  steps(s, w, 12);
+  assert.ok(s.speed >= s.sweeps * 0.9 && s.sweeps === SWEEP_WAY, `her way under them (${s.speed.toFixed(2)} m/s)`);
+  // straight for the berth - the boat's starboard side, both halves' width and BERTH_GAP off - never the point astern
+  // of it a boat under way is met from (from 150 m on her beam that lay 17 degrees off)
+  const beam = ship('pirateBrig', { pos: [150, 0, 0], yaw: -90 * DEG });
+  const bw = world({ wind: [0, 0, -0.9], contacts: [wreck()] });
+  steps(beam, bw, 4);
+  const gap = hullBuild(beam.hull).halfWidth + hullBuild(HULL.SmallShip).halfWidth + BERTH_GAP;
+  const toBerth = Math.atan2(gap - beam.pos[0], 0 - beam.pos[2]);
+  const off = Math.abs(Math.atan2(Math.sin(beam.yaw - toBerth), Math.cos(beam.yaw - toBerth))) / DEG;
+  assert.ok(beam.sweeps > 0 && off < 4, `her head on the berth (${off.toFixed(1)} degrees off)`);
+  // in irons, the sweeps still carry her
+  const irons = ship('pirateBrig', { pos: [0, 0, -120], yaw: 0 });
+  const iw = world({ wind: [0, 0, -0.9], contacts: [wreck()] });   // blowing toward the south: the wreck dead to windward
+  steps(irons, iw, 20);
+  assert.ok(irons.sweeps > 0 && irons.speed > SWEEP_WAY * 0.8 && irons.pos[2] > -110, `into the wind's eye on her sweeps (${irons.speed.toFixed(2)} m/s, ${irons.pos[2].toFixed(0)})`);
+  const ironsGap = hullBuild(irons.hull).halfWidth + hullBuild(HULL.SmallShip).halfWidth + BERTH_GAP;
+  const upwind = Math.atan2((irons.berthSide || 1) * ironsGap - irons.pos[0], 0 - irons.pos[2]);
+  assert.ok(Math.abs(Math.atan2(Math.sin(irons.yaw - upwind), Math.cos(irons.yaw - upwind))) < 10 * DEG, `her head on the berth, not a tack 45 degrees off it (${(irons.yaw / DEG).toFixed(0)} vs ${(upwind / DEG).toFixed(0)})`);
+  // near the berth the sweeps' way is the pace that stops her short of it
+  const close = ship('pirateBrig', { pos: [hullBuild(HULL.SmallShip).halfWidth * 2 + BERTH_GAP + 2, 0, -17], yaw: 0 });   // 17 m astern of the berth
+  stepCaptain(close, world({ contacts: [wreck()] }));
+  const d = Math.hypot(close.pos[0] - (hullBuild(close.hull).halfWidth + hullBuild(HULL.SmallShip).halfWidth + BERTH_GAP), close.pos[2]);
+  near(close.sweeps, Math.min(SWEEP_WAY, Math.sqrt(2 * DECEL * Math.max(0, d - BOARD_SAILS.from))), 0.05, 'her sweeps paced to the berth');
+  assert.ok(close.sweeps < SWEEP_WAY, `slowing for the berth (${close.sweeps.toFixed(2)})`);
+  // past SWEEP_RANGE of the berth, or the boat under way: sail alone
+  const far = ship('pirateBrig', { pos: [0, 0, SWEEP_RANGE + 60] });
+  stepCaptain(far, world({ contacts: [wreck()] }));
+  assert.equal(far.mode, 'board');
+  assert.equal(far.sweeps, 0, 'past SWEEP_RANGE: her sails');
+  const under = ship('pirateBrig', { pos: [0, 0, 100] });
+  stepCaptain(under, world({ contacts: [wreck()] }));
+  assert.ok(under.sweeps > 0);
+  stepCaptain(under, world({ contacts: [wreck({ vel: [0, 0, GRAPPLE_STILL + 1], speed: GRAPPLE_STILL + 1 })] }));
+  assert.equal(under.mode, 'board');
+  assert.equal(under.sweeps, 0, 'the boat under way: her sweeps shipped, and she is met under sail, up from astern');
+  assert.ok(SWEEP_TURN > PAYOFF_TURN - 1e-9 && SWEEP_RANGE > GRAPPLE_GAP);
 });
 
 test('AUDIT NAV1 M1 the wreck: no captain fires on a crippled player\'s boat, and one that will not board her (a navy, Boarders off) leaves her after WRECK_SPARE_S (mutants: the wreck fired on, never left)', () => {

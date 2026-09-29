@@ -561,6 +561,7 @@ The movement audit's twelve findings, and the guns' and boarding's that were the
 | the sea falls behind the time scale (M8) | 60% of the world's pace at x10, 20% at x30 | FRAME_STEP_S steps, FRAME_STEPS_MAX a frame (`stepSea`) | one long frame = ten short ones |
 | the intercept minutes ahead, range overshot (M11) | the brig led a 5 m/s player by 162 s, 810 m | `intercept` solves the meeting (PURSUIT_LEAD_S past it); the enemy's way smoothed (TARGET_VEL_TAU); the bend (RANGE_BEND) only while reloading | first broadside at 92 s against a 3 m/s player (was 206-222) |
 | never alongside - a wreck shelled forever (M1, G3) | a sloop 55 m off a wreck for 300 s, 59 broadsides, never grappled | a pirate comes ALONGSIDE on the side she approaches from, her way falling to stop her short, broadsides held; grapples across GRAPPLE_GAP; no captain fires on a wreck, and one that will not board her leaves it (WRECK_SPARE_S) | the sloop grapples at 94 s, the brig at 69 s |
+| still never alongside in a third of the winds (the online audit's #10, offline too) | a brig 60 m off a wreck lying still - her stern to the wind's eye, or the berth to windward - beat and wore round it (a brig wears through a circle of 150 m): 180 of 512 approaches (8 winds by 8 bearings by 4 headings, from 60 and 150 m) never grappled in 120 s, the rest at a median 42 s; the player sat with a hostile ship in sight, so no journey and no rest | HER SWEEPS (`navalAI.js` SWEEP_RANGE, SWEEP_WAY, SWEEP_TURN): within SWEEP_RANGE of the berth of a boat lying still she gets out her long oars - pulled round the short way at SWEEP_TURN at least, through the wind's eye as readily as from it, SWEEP_WAY of way whatever the wind, paced to stop her short of the berth - and makes straight for the berth, never the point astern of it that a boat under way is met from | 512 of 512 grapple, at a median 34 s, the worst 96 s |
 | no giving up (M12) | a chase ended only at 750 m | DISENGAGE hysteresis; a chase that gains nothing in CHASE_GIVE_UP_S (past her fighting range) given up, the chased left SPARE_S | the 7 m/s runner given up at 150 s |
 | paths depend on frame rate | a galley duel ended 0.7-1.5 km apart between 60 and 144 fps | the lookout on her own clock (NAV_EVERY_S), the heel stepped at 0.05 s | 5 m at most on the same draw (a spit 43 m) |
 | a galley never rams (G9) | - | `checkShipRams`: a galley's stem into a hull at RAM_SPEED is the ram's own law (braced, half) | - |
@@ -688,7 +689,7 @@ host's wiring, and the merge with OW6 - a peer's hold, the held ships said, the 
 hostile ships as a journey's threats and the map, run through the world host's own lifted code; the governor's own
 run in `ow6_slowdown`) - and the audit's own suites: `navaudit_captains` (the way, the turn and the heel, the wind's eye, other
 hulls and the land, the intercept, the side that bears soonest, giving up, alongside to board, the wreck, the cruise,
-a prize adrift, the berths, the hulls kept apart, a galley's ram, the sea's time, a boarder chasing) and
+a prize adrift, the berths, the hulls kept apart, a galley's ram, the sea's time, a boarder chasing, her sweeps) and
 `navaudit_guns` (the run-out and its promise, the fire's window, never over her nor short, no friend across the line,
 the lay, station alongside, the helm's lead, the prize kept a prize, no feud from a stray, fire, the rig, the shots'
 own, the guns' reach, the warning, the tell heard and seen, the tally) and `navaudit_helm` (the look's reach, a look
@@ -704,7 +705,7 @@ centre column's sheet, the pad at the guns, the skins and the words; the arcs as
 ships' tags, the lookout, the tags drawn, her list and canvas, her smoke and planks, and her groan going down), on the
 shared sea of `test/navalSea.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
-`navaudit_helm.json`, `navaudit_boarding.json` and `navaudit_presentation.json`, 669 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+`navaudit_helm.json`, `navaudit_boarding.json` and `navaudit_presentation.json`, 679 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
@@ -717,7 +718,9 @@ the plate over the presses, the finger's root, the warning - re-aimed by content
 with the sea at a glance, whose one survivor was a lookout test whose nearer ship was also the first seen, and six of
 the arc's own - the flat quad, the quad's u, the build, the last frame's hulls, the ram before the poses, the card's own
 key - re-aimed by content at the lines it rewrote, two more made single again by the code: the tag's words the card's,
-the spars' measure one helper's);
+the spars' measure one helper's; 10 with a boarding pirate's sweeps, whose two survivors named a test that never
+checked her sweeps' way at the berth nor her head into the wind's eye, and the captains' turn-cost record re-aimed at
+the line the sweeps split);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

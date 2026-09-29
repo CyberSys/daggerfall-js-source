@@ -43,9 +43,11 @@
 // a chase that gains nothing in CHASE_GIVE_UP_S, and leaves that one be for SPARE_S. A merchant runs from a threat on
 // the fastest point of sail away from it, and fires only what bears as it runs; a pirate short of hull runs too - a
 // flagship never. A PIRATE COMES ALONGSIDE a player's boat that is crippled, holed under GRAPPLE_HULL or lying still
-// GRAPPLE_STILL_S: to her lee side, BERTH_GAP of water between the planks, shortening sail as she closes, her
-// broadsides held - and grapples within GRAPPLE_RANGE (the boarding is the host's: NAV-D, Warm Ashes' raid). A wreck
-// no one aboard will board (no pirate, no men, the Boarders setting off) is not fired on and is left WRECK_SPARE_S on.
+// GRAPPLE_STILL_S: on the side she comes up from, BERTH_GAP of water between the planks - up from astern to a boat
+// under way, straight for the berth of one lying still, and within SWEEP_RANGE of it on her SWEEPS (pulled round the
+// short way, a little way whatever the wind) - shortening sail as she closes, her broadsides held, and grapples across
+// GRAPPLE_GAP of open water (the boarding is the host's: NAV-D, Warm Ashes' raid). A wreck no one aboard will board
+// (no pirate, no men, the Boarders setting off) is not fired on and is left WRECK_SPARE_S on.
 //
 // WHO FIGHTS WHOM. Pirates take anything; a navy takes pirates, and the player when their notoriety in its crown's
 // waters has reached NAVY_HUNTS (NAV-D) or they have fired on it or on a lawful ship it saw; a merchant fights no
@@ -140,6 +142,14 @@ export const GRAPPLE_CREW = 6;
 /** Coming alongside to board: she makes the pace that stops her BOARD_SAILS.from metres short of the berth at DECEL -
  *  never under .min of her sail - and matches the boat's own way. */
 export const BOARD_SAILS = Object.freeze({ min: 0.3, from: 15 });
+/** AUDIT NAV1 (online #10): HER SWEEPS - within SWEEP_RANGE of the berth of a boat lying still, a boarding pirate gets
+ *  out her long oars: she is pulled round the short way at SWEEP_TURN degrees a second at least, through the wind's eye
+ *  as readily as from it, and keeps SWEEP_WAY m/s of way whatever the wind (the pace that stops her short of the berth
+ *  under it). Under sail alone she beat and wore round a wreck 60 m off for two minutes and more in a third of the
+ *  winds - a brig wears through a circle of 150 m. */
+export const SWEEP_RANGE = 250;
+export const SWEEP_WAY = 1.4;
+export const SWEEP_TURN = 5;
 /** A crippled boat no one here will board is not fired on, and left after this (s). */
 export const WRECK_SPARE_S = 30;
 /** A navy hunts a player whose notoriety in its crown has reached this (0..100, NAV-D). */
@@ -279,6 +289,8 @@ export function createSeaShip({ id, seed, classId, variant = 0, pos, yaw = 0, na
      *  through the wind's eye she has committed to (tack or wear) */
     avoid: { swing: 0, heading: null, clearFor: 0, at: -Infinity, dir: 0 },
     tack: null, chase: null, tvel: null, present: null, wreck: null, berthSide: 0, aground: 0, turnWay: null,
+    /** AUDIT NAV1 (online #10): the way her sweeps give her while she is pulled alongside (m/s; 0 under sail alone) */
+    sweeps: 0,
     /** AUDIT NAV1 (the guns): the heading she steered for last step, and its rate - the presented helm's lead */
     wantPrev: null, wantRate: 0,
     /** AUDIT NAV1 (the guns): side -> her clock when that battery began to run out; side -> the clock it was run in */
@@ -608,6 +620,7 @@ export function stepCaptain(ship, world) {
     ship.berthSide = 0;
     plan = { want: cruiseCourse(ship, world.wind, isWater, world.random ?? Math.random), goal: ship.course ? [ship.course[0], 0, ship.course[1]] : ship.waypoint ? [ship.waypoint[0], 0, ship.waypoint[1]] : null, sails: 1 };
   }
+  ship.sweeps = plan.sweeps ?? 0;   // AUDIT NAV1 (online #10): her sweeps out, or in
   let want = plan.sailable ? plan.want : tackCourse(ship, plan.want, plan.goal, world.wind);
   want = trafficCourse(ship, want, world.contacts, ship.mode === 'board' ? ship.target : null);
   want = avoidLand(ship, want, isWater, world.wind);
@@ -697,7 +710,7 @@ function helm(ship, want, dt, world, power, lead = 0) {
   // the rate she went in with
   const wind = world.wind;
   const wl0 = Math.hypot(wind?.[0] ?? 0, wind?.[2] ?? 0);
-  if (power > 0 && ship.hull !== HULL.LargeGalley && wl0 > 1e-6) {
+  if (power > 0 && ship.hull !== HULL.LargeGalley && !ship.sweeps && wl0 > 1e-6) {
     const toEye = wrapAngle(Math.atan2(wind[0], wind[2]) + Math.PI - ship.yaw);
     const through = Math.sign(toEye) === Math.sign(err) && Math.abs(toEye) < Math.abs(err);
     const off = offRunOf(ship.yaw, wind);
@@ -715,6 +728,7 @@ function helm(ship, want, dt, world, power, lead = 0) {
     maxRate = Math.max(maxRate, PAYOFF_TURN * DEG);   // boxed in or aground: warped round where she lies
     ship.turnWay = null;
   }
+  if (power > 0 && ship.sweeps > 0) maxRate = Math.max(maxRate, SWEEP_TURN * DEG);   // AUDIT NAV1 (online #10): pulled round on her sweeps
   // a big turn under the land goes round on the side the lookout found open (avoidLand's `dir`)
   if (ship.avoid.dir) {
     if (Math.abs(err) < 30 * DEG) ship.avoid.dir = 0;
@@ -730,7 +744,8 @@ function helm(ship, want, dt, world, power, lead = 0) {
     let best = ship.cls.speed * windFactor(offRunOf(ship.yaw, wind)) * windShare(wl) * ship.damage.wayShare();
     if (ship.hull === HULL.LargeGalley) best = Math.max(best, ship.cls.speed * OARS_FLOOR);
     const helmShare = maxRate > 0 ? Math.min(1, Math.abs(ship.yawRate) / maxRate) : 0;
-    const target = best * ship.sails * (1 - TURN_SPEED_LOSS * helmShare) * (ship.aground > 0 ? AGROUND_WAY : 1);
+    const sailed = best * ship.sails * (1 - TURN_SPEED_LOSS * helmShare);
+    const target = Math.max(sailed, ship.sweeps) * (ship.aground > 0 ? AGROUND_WAY : 1);   // AUDIT NAV1 (online #10): her sweeps' way where the wind gives less
     const heavy = ship.hull === HULL.Carrack || ship.hull === HULL.LargeGalley ? 0.5 : 1;
     ship.speed = ship.speed < target ? Math.min(target, ship.speed + ACCEL * heavy * dt) : Math.max(target, ship.speed - DECEL * dt);
   }
@@ -892,10 +907,15 @@ function boardCourse(ship, enemy, wind) {
   const pace = Math.sqrt(2 * DECEL * Math.max(0, d - BOARD_SAILS.from)) + along;
   const best = Math.max(0.5, paceOf(ship, wind));
   const sails = clamp(pace / best, BOARD_SAILS.min, 1);
-  if (d < 8) return { want: eYaw, goal: berth, sails };
-  const lead = Math.min(60, d) * 0.8, ahead = Math.min(10, d / Math.max(1, ship.speed));
+  // AUDIT NAV1 (online #10): to a boat lying still, straight for the berth - her stern is no course to match (with it
+  // to the wind's eye the point astern lay dead to windward) - and within SWEEP_RANGE on her sweeps
+  const still = Math.hypot(v[0], v[2]) < GRAPPLE_STILL;
+  const sweeps = still && d <= SWEEP_RANGE ? Math.min(SWEEP_WAY, pace) : 0;
+  if (d < 8) return { want: eYaw, goal: berth, sails, sweeps, sailable: sweeps > 0 };
+  // up from astern to match a boat under way
+  const lead = still ? 0 : Math.min(60, d) * 0.8, ahead = Math.min(10, d / Math.max(1, ship.speed));
   const aim = [berth[0] - f[0] * lead + v[0] * ahead, 0, berth[2] - f[2] * lead + v[2] * ahead];
-  return { want: headingTo(ship.pos, aim), goal: aim, sails };
+  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps, sailable: sweeps > 0 };
 }
 
 /** The open water between two hulls on the flat (m): the widest gap along any of their four axes - 0 or less when

@@ -35,6 +35,7 @@
 - Ships keep off the land. They no longer cut across spits and headlands, scrape along islands or run aground, and a ship boxed in at the end of a channel turns round where she lies.
 - A ship in a fight shows you the broadside that will fire soonest, holds you square on her beam while it is loaded and closes the range while it reloads. Near a coast she keeps to the open-water side.
 - Pirates come alongside to board a boat that is crippled, badly holed or lying still, holding their broadsides as they close. No ship keeps firing on a crippled boat, and one that will not board it leaves it be.
+- Close to a boat lying still, a boarding pirate gets out her sweeps (long oars) and pulls herself round and alongside from any quarter of the wind. Before, one could circle a wreck for minutes and never close, leaving you unable to travel or rest with her in sight.
 - A pirate who cannot catch you gives up the chase.
 - War galleys and corsair galleys ram. Brace to take half the blow.
 - Taking prizes no longer empties the sea: new ships keep coming over the horizon, and a prize you cast adrift drifts away on the wind.

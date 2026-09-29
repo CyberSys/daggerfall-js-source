@@ -47,8 +47,8 @@
   {
     "name": "NAV1-the-turn-costs-nothing",
     "file": "src/systems/naval/navalAI.js",
-    "old": "    const target = best * ship.sails * (1 - TURN_SPEED_LOSS * helmShare) * (ship.aground > 0 ? AGROUND_WAY : 1);",
-    "new": "    const target = best * ship.sails * (ship.aground > 0 ? AGROUND_WAY : 1);",
+    "old": "    const sailed = best * ship.sails * (1 - TURN_SPEED_LOSS * helmShare);",
+    "new": "    const sailed = best * ship.sails;",
     "tests": [
       "test/navaudit_captains.test.js"
     ]
@@ -481,6 +481,96 @@
     "file": "src/scenes/navalHost.js",
     "old": "  const chasesMe = (e) => (e.ship.mode === 'engage' || e.ship.mode === 'board') && e.ship.target === myId();",
     "new": "  const chasesMe = (e) => e.ship.mode === 'engage' && e.ship.target === myId();",
+    "tests": [
+      "test/navaudit_captains.test.js"
+    ]
+  },
+  {
+    "name": "NAV1C-sweeps-never",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "  const sweeps = still && d <= SWEEP_RANGE ? Math.min(SWEEP_WAY, pace) : 0;",
+    "new": "  const sweeps = 0;",
+    "tests": [
+      "test/navaudit_captains.test.js"
+    ]
+  },
+  {
+    "name": "NAV1C-sweeps-past-range",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "  const sweeps = still && d <= SWEEP_RANGE ? Math.min(SWEEP_WAY, pace) : 0;",
+    "new": "  const sweeps = still ? Math.min(SWEEP_WAY, pace) : 0;",
+    "tests": [
+      "test/navaudit_captains.test.js"
+    ]
+  },
+  {
+    "name": "NAV1C-sweeps-under-way",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "  const sweeps = still && d <= SWEEP_RANGE ? Math.min(SWEEP_WAY, pace) : 0;",
+    "new": "  const sweeps = d <= SWEEP_RANGE ? Math.min(SWEEP_WAY, pace) : 0;",
+    "tests": [
+      "test/navaudit_captains.test.js"
+    ]
+  },
+  {
+    "name": "NAV1C-sweeps-unpaced",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "  const sweeps = still && d <= SWEEP_RANGE ? Math.min(SWEEP_WAY, pace) : 0;",
+    "new": "  const sweeps = still && d <= SWEEP_RANGE ? SWEEP_WAY : 0;",
+    "tests": [
+      "test/navaudit_captains.test.js"
+    ]
+  },
+  {
+    "name": "NAV1C-sweeps-never-shipped",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "  ship.sweeps = plan.sweeps ?? 0;",
+    "new": "  ship.sweeps = Math.max(ship.sweeps, plan.sweeps ?? 0);",
+    "tests": [
+      "test/navaudit_captains.test.js"
+    ]
+  },
+  {
+    "name": "NAV1C-sweeps-eye-worn-round",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "  if (power > 0 && ship.hull !== HULL.LargeGalley && !ship.sweeps && wl0 > 1e-6) {",
+    "new": "  if (power > 0 && ship.hull !== HULL.LargeGalley && wl0 > 1e-6) {",
+    "tests": [
+      "test/navaudit_captains.test.js"
+    ]
+  },
+  {
+    "name": "NAV1C-sweeps-no-turn",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "  if (power > 0 && ship.sweeps > 0) maxRate = Math.max(maxRate, SWEEP_TURN * DEG);",
+    "new": "  if (false) maxRate = Math.max(maxRate, SWEEP_TURN * DEG);",
+    "tests": [
+      "test/navaudit_captains.test.js"
+    ]
+  },
+  {
+    "name": "NAV1C-sweeps-no-way",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "    const target = Math.max(sailed, ship.sweeps) * (ship.aground > 0 ? AGROUND_WAY : 1);",
+    "new": "    const target = sailed * (ship.aground > 0 ? AGROUND_WAY : 1);",
+    "tests": [
+      "test/navaudit_captains.test.js"
+    ]
+  },
+  {
+    "name": "NAV1C-still-met-from-astern",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "  const lead = still ? 0 : Math.min(60, d) * 0.8,",
+    "new": "  const lead = Math.min(60, d) * 0.8,",
+    "tests": [
+      "test/navaudit_captains.test.js"
+    ]
+  },
+  {
+    "name": "NAV1C-sweeps-unsailable",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps, sailable: sweeps > 0 };",
+    "new": "  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps };",
     "tests": [
       "test/navaudit_captains.test.js"
     ]
