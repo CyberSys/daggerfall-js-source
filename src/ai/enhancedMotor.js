@@ -213,7 +213,8 @@ export class EnhancedEnemyAI extends EnemyAI {
       const drop = this.fallDetected;
       this.obstacleDetected = od; this.foundUpwardSlope = us; this.foundDoor = fd; this.fallDetected = false;
       if (drop) continue;
-      this.isGrounded = this.collider.move(this.feet, nx - this.feet[0], 0, nz - this.feet[2], this.height).grounded;   // a Move like any other: isGrounded is its (FIELD BUGS 2026-09-29 sea #2)
+      const moveResult = this.collider.move(this.feet, nx - this.feet[0], 0, nz - this.feet[2], this.height);   // a Move like any other: isGrounded is its (FIELD BUGS 2026-09-29 sea #2)
+      this.isGrounded = moveResult.grounded;
       break;
     }
     this.path = null; this.repathT = 0;

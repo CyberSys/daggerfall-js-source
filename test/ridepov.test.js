@@ -101,7 +101,7 @@ test('RIDE-POV by source: one door into the head for the Morrowind lane, shared 
     const src = rd(`src/scenes/${h}.js`);
     if (!/mwViewFrame\(/.test(src)) continue;
     callers.push(h);
-    const call = /mwViewFrame\(\{[\s\S]{0,700}?\}\)/.exec(src);
+    const call = /mwViewFrame\(\{[\s\S]{0,1000}?\}\)/.exec(src);   // FIELD BUGS 2026-09-29 (the sea) #3: the call carries the helm's reach and its camera filter too
     assert.match(call[0], /riding: !!player\.riding/, `${h}.js hands the seam the saddle`);
   }
   assert.equal(callers.length, 4);

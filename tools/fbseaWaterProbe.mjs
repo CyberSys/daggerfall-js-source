@@ -203,3 +203,13 @@ delete out.shots;
 console.log(JSON.stringify(out, null, 2));
 await browser.close();
 await server.close();
+// the judgement (the fixed tree's law): the sheets under the top hold still wherever they span more than one row of
+// pixels, and the breakers from 150 m out change in no more than a fifth of their pixels from bob to bob
+const band = (s) => { const m = /^(\d+) of (\d+) flicker \(([\d.]+)%\)/.exec(s); return { n: Number(m[2]), pct: Number(m[3]) }; };
+const fail = (msg) => { console.error(`FAIL ${msg}`); process.exitCode = 1; };
+for (const r of out.results ?? []) {
+  for (const k of ['shelf', 'beachUnderTop']) { const b = band(r[k]); if (b.n > 1280 && b.pct > 0) fail(`${r.label}: ${k} ${r[k]}`); }
+  const w = band(r.wavesFar);
+  if (!solid && w.n > 3 * 1280 && w.pct > 20) fail(`${r.label}: the breakers ${r.wavesFar}`);
+  if (solid && w.n > 3 * 1280 && w.pct > 1) fail(`${r.label}: the breakers' depth ${r.wavesFar}`);
+}
