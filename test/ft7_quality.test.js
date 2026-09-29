@@ -23,7 +23,7 @@ test('FT7: grass density - the four fractions, the full field by default, off a 
   assert.equal(f.control.key, 'grassDensity');
   assert.deepEqual(f.control.tiers.map(([v]) => v), [1, 0.5, 0.25, 0]);
   assert.equal(PREF_DEFAULTS.grassDensity, 1, 'the full field by default - the enhanced look is the law, the dial is the escape (PERF1)');
-  assert.match(f.note, /under the enhanced outdoors/, 'the dial says what it is under');
+  assert.match(f.note, /in the enhanced outdoors/, 'the dial says what it is under');
   assert.deepEqual(checkFeature(f), []);
   assert.equal(featureForControl('prefs', 'grassDensity'), f);
   // the world host reads the fraction and builds no field at zero (PERF1's law, unchanged)
@@ -41,7 +41,7 @@ test('FT7: cloud quality - the tiers are the march table\'s own keys, default by
   for (const k of keys) assert.ok(Object.hasOwn(QUALITY, k), `${k} is a QUALITY the clouds can be built at`);
   assert.deepEqual(Object.keys(QUALITY).sort(), [...keys].sort(), 'and every QUALITY has a tier - no hidden third setting');
   assert.equal(PREF_DEFAULTS.cloudQuality, 'default');
-  assert.match(f.note, /over the enhanced outdoors/);
+  assert.match(f.note, /in the enhanced outdoors/);
   assert.deepEqual(checkFeature(f), []);
   assert.equal(featureForControl('prefs', 'cloudQuality'), f);
   assert.match(read('src/scenes/shared.js'), /Object\.hasOwn\(CLOUD_QUALITY, getPref\('cloudQuality'\)\) \? getPref\('cloudQuality'\) : 'default'/, 'the host reads the pref and falls back to default (PERF1, unchanged)');

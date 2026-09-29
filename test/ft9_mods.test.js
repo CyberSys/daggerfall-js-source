@@ -69,10 +69,10 @@ test('FT9: when each switch lands, as the port knows it', () => {
   const effect = (v) => featureForControl('mods', 'Enabled', v).effect;
   assert.equal(effect('seasons-iliac-bay'), 'Takes effect when the world next loads.', 'read at the world host\'s mount');
   assert.equal(effect('roads-hazelnut'), 'Takes effect when the world next loads.', 'the network is built at mount (ROADS 24 / BR3)');
-  assert.equal(effect('meanerMonsters'), 'Takes effect on monsters spawned after the switch.');
+  assert.equal(effect('meanerMonsters'), 'Takes effect on monsters that appear after the change.');
   assert.ok(!/Takes effect/.test(MOD_SETTINGS.meanerMonsters.keys.Enabled.description), 'the effect line left the description - one sentence, one place');
   assert.equal(effect('pcaao'), 'Takes effect at once.', 'the registered arms read the switches live (pcaao.js)');
-  assert.equal(effect('unleveledLoot'), 'Takes effect on the next roll.');
+  assert.equal(effect('unleveledLoot'), 'Takes effect on the next drop or shop restock.');
   // and the rows are pointed at from the Mods pane, not doubled there: the covered vendor resolves, the mod's other knobs do not
   assert.ok(featureForControl('mods', 'Enabled', 'pcaao'));
   assert.equal(featureForControl('mods', 'armorHitFormulaRedone', 'pcaao'), null, 'the overhaul\'s modules stay the mod\'s own rows on the Mods page');

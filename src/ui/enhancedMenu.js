@@ -832,7 +832,7 @@ function paneNew(body) {
 function paneBegin(body) {
   const c = el('div', 'card');
   c.append(el('h3', null, 'Daggerfall'));
-  c.append(el('p', 'meta', 'The classic start, as it always was: the title, the opening, and the menu Daggerfall shipped with \u2013 Load Game, Start New Game, Exit.'));
+  c.append(el('p', 'meta', 'The classic start: the title, the intro and Daggerfall\u2019s original menu (Load Game, Start New Game, Exit).'));
   c.append(acts([{ label: 'Begin', primary: true, onClick: () => onAction('begin') }]));
   body.append(c);
 }
@@ -1006,7 +1006,7 @@ function paneOnline(body) {
   const who = storedSession(appStorage());
   if (!who) {
     const c = el('div', 'card');
-    c.append(el('p', 'meta bad', 'Online needs an account, so a name over a head is one nobody else can wear. A guest takes one press and no email.'));
+    c.append(el('p', 'meta bad', 'Online needs an account, so no one else can use your name. Playing as a guest takes one click and no email.'));
     const go = el('button', 'act primary');
     go.type = 'button';
     go.textContent = 'Sign in or continue as guest';
@@ -1059,7 +1059,7 @@ function paneOnline(body) {
   // agreeing to are still on the surface they enter through, where a
   // page in the bible cannot reach them.
   const foot = el('div', 'card svonlinefoot');
-  foot.append(el('p', 'meta', 'Everyone brings their own save; you see each other everywhere and can talk. A dungeon is one shared world: its foes, doors, levers, platforms and every chest anyone has opened are the same for everyone in it, and it remembers. A building is a shared world too: its doors, and every shelf and cupboard anyone has opened, are the same for everyone in it, and it remembers. Towns and the open country share who is there and the creatures that find you: what one player meets, everyone nearby sees and fights - and its creatures can hurt you too. The clock and the sky are the world\'s and run on real time: a rest, a trip, a sentence or a lesson takes none of it, so a quest that waits for an hour of the day waits for that hour of the world. Your character keeps their own time beside it: it runs while you play, a rest, a trip, a sentence or a lesson spends it, and it stands still while you are logged off - your wounds, spells, hunger, diseases and curses, your guild ranks, and your rooms, loans and repairs run on it. Quest timers run while you play. The shared world is the enhanced lane: every enhancement the port owns in the world is on for everyone. The screens you play through are your own - your UI Overhaul, with the chat, your friends, the party and trading in their own panels over it. Most of your mods stay yours - turn them on or off online as you like. A few switches are the room\u2019s: the ones that shape the ground (Basic Roads, World of Daggerfall, Detailed Ships\u2019 deck, Iliac Puddle No More\u2019s sea), the ones that decide whose foes and whose loot (Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, and the items and foes of Roleplay & Realism and of the deep), and the rules a room plays by - the Mods pane marks each.'));   // AUDIT WORLD5 C12: the shared clock, said at the door; OL1: the lane, said at the door
+  foot.append(el('p', 'meta', 'Everyone plays their own save, and you can see and talk to each other anywhere. Dungeons and buildings are shared: enemies, doors, levers and every chest, shelf or cupboard someone has opened are the same for everyone, and stay that way. In towns and the wilds you share who is around: what one player meets, everyone nearby sees and can fight, and those monsters can hurt you too. The world\u2019s clock and sky run on real time: resting, travelling, jail time or training don\u2019t move them, so a quest that waits for a time of day waits for the world\u2019s. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off. Your wounds, spells, hunger, diseases, curses, guild ranks, rented rooms, loans and repairs run on it. Quest timers run while you play. Every enhancement is on for everyone in the shared world, but your UI is your own, with chat, friends, the party and trading in their own panels. Most mods stay your choice online. A few are the room\u2019s: the ones that change the ground, the ones that change monsters and loot, and the rules everyone plays by. The Mods page marks each one.'));   // AUDIT WORLD5 C12: the shared clock, said at the door; OL1: the lane, said at the door
   foot.append(field('Relay', 'onlineServer', DEFAULT_SERVER, 200));
   body.append(foot);
   body.append(onlineSyncCard());   // UXB1-E: under the rules it copies
@@ -1162,7 +1162,7 @@ function copyToOffline(row) {
 // systems/onlineSync.js's; this is the card - what differs, the one press, and the way back. Every relay plays by
 // the same rules (they are this build's, not the server's), so there is no host to pick: the card says so.
 export const ONLINE_SYNC_TITLE = 'Sync from server';
-export const ONLINE_SYNC_NOTE = 'Play offline by the rules every online room plays by. Online, some switches are the room\u2019s whatever yours say; this sets yours the same way. They are this version\u2019s rules, the same on every server. Everything else stays yours.';
+export const ONLINE_SYNC_NOTE = 'Play offline by the same rules as online. Some settings are fixed online; this sets yours to match. They are the same on every server, and everything else stays your choice.';
 export const ONLINE_SYNC_SAME = 'Your offline game already plays by the online rules.';
 const syncWord = (v) => (v === true || /^true$/i.test(String(v)) ? 'On' : v === false || /^false$/i.test(String(v)) ? 'Off' : String(v));
 export function onlineSyncCard() {
@@ -1743,15 +1743,15 @@ function write(key, next) {
 /** OL1: the lock a forced switch wears online - the button says so and
  *  answers nothing, so a player who presses it learns why rather than
  *  watching a press change nothing. */
-const ONLINE_LOCK_NOTE = 'On while online - the shared world is the enhanced lane, whole. Your own choice returns when you play offline.';
+const ONLINE_LOCK_NOTE = 'Always on online: the shared world uses every enhancement. Your own choice comes back offline.';
 /** MODS-ONLINE-2: a mod switch wears a lock for a DIFFERENT reason - not
  *  the lane, the floor - and a lock that gives the wrong reason is a
  *  refusal nobody can read. The two road switches say which. */
 /** MODS-ONLINE-2: the Mods pane's own line. The lane's note (above)
  *  is about the PORT's switches and was wrong over the tiles the
  *  moment a mod stopped being forced. */
-const ONLINE_MODS_NOTE = 'Most of your mods are yours online: turn them on or off as you like. The room owns what shapes the ground and what decides balance - Basic Roads and World of Daggerfall (both shape the terrain, so everyone stands on the same ground), Detailed Ships (every owner\u2019s ship stands at one place, so its deck is shared), Iliac Puddle No More\u2019s sea and its depth (the seafloor is ground too) and There\u2019s a Hole in the Bottom of the Ocean\u2019s pits (cut into that seafloor) with the deep\u2019s foes, sunken loot and swimming; and every dial of Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism, Roleplay & Realism: Items and Oblivion leveling, because the realm plays one balance (who stands behind a counter and which leveling your character uses stay yours).';
-const ONLINE_GROUND_NOTE = 'Set while online - it shapes the ground itself (road beds smoothed in, camp sites levelled, the one deck every owner\u2019s ship shares, the seafloor carved to its depth and the pits cut into it), so every player in a room has to stand on the same ground. Your own choice returns when you play offline.';
+const ONLINE_MODS_NOTE = 'Most mods are your choice online. A few are set for everyone in the room so everyone plays on the same ground by the same rules: the ones that change the ground (Basic Roads, World of Daggerfall, Detailed Ships, Iliac Puddle No More\u2019s sea and depth, and There\u2019s a Hole in the Bottom of the Ocean), and every setting of Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, Roleplay & Realism, Roleplay & Realism: Items and Oblivion leveling (who stands behind a counter and which leveling your character uses stay yours).';
+const ONLINE_GROUND_NOTE = 'Set for everyone online: it changes the ground itself (roads, camp sites, the shared ship deck, the seafloor and its pits), and everyone in a room has to stand on the same ground. Your own choice comes back offline.';
 /** WOD1: the vendors whose room-owned switch is the GROUND's - the two
  *  that write terrain heights (roads' beds, World of Daggerfall's sites). */
 const ONLINE_GROUND_VENDORS = Object.freeze(['roads-hazelnut', 'world-of-daggerfall', 'detailed-ships', 'ocean-holes']);   // DS1: the ships' shared deck   // OH-A: the pits cut into the seafloor
@@ -1760,21 +1760,21 @@ const ONLINE_GROUND_VENDORS = Object.freeze(['roads-hazelnut', 'world-of-daggerf
 const ONLINE_GROUND_KEYS = Object.freeze({ 'iliac-puddle-no-more': Object.freeze(['Enabled', 'General.WaterDepth']) });
 /** MODS-ONLINE-4: the other three, and their reason is not the ground -
  *  it is that this switch would be spending somebody else's evening. */
-const ONLINE_SHARED_NOTE = 'On while online - a dungeon\u2019s monsters belong to whoever is hosting it and loot passes between players, so a room has to agree on this one. Your own choice returns when you play offline.';
+const ONLINE_SHARED_NOTE = 'On for everyone online: a dungeon\u2019s monsters belong to whoever hosts it and loot passes between players, so the room has to agree. Your own choice comes back offline.';
 /** MODS-ONLINE-5: one ruleset per room - the reason PCAAO is forced whole, and RR's six combat overrides and its
  *  intensive training with it. Not the ground's reason and not the host's foes', so its own words. */
-const ONLINE_RULESET_NOTE = 'Set while online - a room plays one ruleset, so a combat, training or swimming rule one player changes for their own play would be two games in one world. Your own choice returns when you play offline.';
+const ONLINE_RULESET_NOTE = 'Set for everyone online: a room plays by one set of combat, training and swimming rules. Your own choice comes back offline.';
 const ONLINE_RULESET_KEYS = Object.freeze({
   'roleplay-realism': Object.freeze(['advancedArchery', 'weaponSpeed', 'weaponMaterials', 'classicStrengthDamageBonus', 'equipDamage', 'encumbranceEffects', 'RefinedTraining.intensiveTraining']),
   'iliac-puddle-no-more': Object.freeze(['General.SwimSpeedMultiplier', 'General.EnableSwimStroke', 'General.ArgonianInfiniteBreath']),   // DW-D: the swim and the breath
 });
 /** REALM P0.2: a dial of a balance mod the room owns whole (onlineLane.js ONLINE_WHOLE_MODS) - its own reason. */
-const ONLINE_BALANCE_NOTE = 'Set while online - the realm plays one balance, so a loot, leveling or combat dial one player turns for their own play would make one character stronger or richer than the rest. Your own choice returns when you play offline.';
+const ONLINE_BALANCE_NOTE = 'Set for everyone online, so no one\u2019s character ends up stronger or richer than the rest from a setting. Your own choice comes back offline.';
 /** DISC22-A: a DFU setting the room plays by (onlineLane.js ONLINE_FORCED_SETTINGS) - its own reason. */
-const ONLINE_SETTING_NOTE = 'Set while online - every player in a room meets the same smiths, so a room plays one rule for mending enchanted items. Your own choice returns when you play offline.';
+const ONLINE_SETTING_NOTE = 'Set for everyone online: everyone uses the same smiths, so enchanted items are mended by one rule. Your own choice comes back offline.';
 /** RAID2: a world event the room shares - its own reason, not the ground's, the ruleset's or a host's foes'. */
 const ONLINE_WORLD_EVENT_VENDORS = Object.freeze(['world-events-raiding-parties']);
-const ONLINE_WORLD_EVENT_NOTE = 'On while online - a town\u2019s raid is the world\u2019s: every player in the town fights the same raiders, one player stands them and their deaths count for all, so a room has one. Your own choice returns when you play offline.';
+const ONLINE_WORLD_EVENT_NOTE = 'On for everyone online: a raid is shared, so everyone in the town fights the same raiders and every kill counts for all. Your own choice comes back offline.';
 const onlineLockNote = (vendor, key) => (ONLINE_GROUND_VENDORS.includes(vendor) || ONLINE_GROUND_KEYS[vendor]?.includes(key) ? ONLINE_GROUND_NOTE : ONLINE_RULESET_KEYS[vendor]?.includes(key) ? ONLINE_RULESET_NOTE : ONLINE_WORLD_EVENT_VENDORS.includes(vendor) ? ONLINE_WORLD_EVENT_NOTE : ONLINE_SHARED_NOTE);
 /** REALM P0.2: a key the room owns only because its mod is owned whole wears the balance note; a key the room table names keeps its own. */
 const modLockNote = (vendor, key) => (!Object.hasOwn(ONLINE_ROOM_MOD_KEYS[vendor] ?? {}, key) && onlineWholeModKey(vendor, key, undefined, { offline: true }) ? ONLINE_BALANCE_NOTE : onlineLockNote(vendor, key));
@@ -1906,7 +1906,7 @@ function slotChoiceRow(key, name, note, choices, current) {
 function hudScaleRow() {
   const row = el('div', 'row');
   const main = el('div', 'row-main');
-  main.append(el('div', 'row-name', 'Gameplay HUD scale'), el('div', 'row-note', 'The compass, the bars and the effect chips together. Takes effect at once; half size still reads and double fills a phone.'));
+  main.append(el('div', 'row-name', 'Gameplay HUD scale'), el('div', 'row-note', 'The size of the compass, health bars and effect icons. Takes effect at once.'));
   row.append(main);
   const ctl = el('div', 'ctl');
   const val = el('span', 'val', `${hudScaleNow().toFixed(2)}\u00d7`);
@@ -2231,10 +2231,8 @@ function peerSpritesCard() {
   const c = el('div', 'card');
   c.append(el('h3', null, 'Other players'));
   c.append(el('p', 'meta',
-    'How a player without a Morrowind body is drawn: as the Eye of the Beholder sprite they chose '
-    + 'for themselves, or - if they play without it - as their character\u2019s class (a Warrior looks like a Warrior, '
-    + 'a Mage like a Mage), animated and puppeted by what they\u2019re actually doing. Off: the flat paperdoll portrait '
-    + 'instead, standing still.'));   // DISC23-B: the chosen set first, the class only for a player without one
+    'Players without a Morrowind body are drawn as the Eye of the Beholder sprite they picked, or, without one, '
+    + 'as their class (a Warrior looks like a Warrior, a Mage like a Mage), moving as they move.'));   // DISC23-B: the chosen set first, the class only for a player without one
   c.append(prefRow('peerClassSprites', 'Animated sprite', 'On: the sprite above. Off: the paperdoll.', { home: true }));
   c.append(prefRow('peerAttackSounds', 'Attack sounds', 'On: hear other players\u2019 weapon swings. Off: silent, no matter how close.', { home: true }));   // PEER-FS1: the two peer-sound switches, beside the sprite one
   c.append(prefRow('peerFootsteps', 'Footstep sounds', 'On: hear other players\u2019 footsteps as they walk. Off: silent, no matter how close.', { home: true }));
@@ -2248,10 +2246,9 @@ function peerSpritesCard() {
     + 'and the party rests without you. A leader who turns it off leaves everyone to rest for themselves.', { home: true }));
   // TV3 (2026-09-28, bible/06-Systems/Travel-View.md): being SEEN - the region's travellers see where you are
   c.append(prefRow('showToTravellers', 'Show me to travellers in my region',
-    'On: while you are outdoors, where you stand is shared on your region\u2019s channel - anyone on it sees you on the '
-    + 'overworld and the map, and you see them. Off: it is not shared - only your party and players close enough to see you '
-    + 'know where you are (your name is still in the region\u2019s chat), and you still see those who show themselves. '
-    + 'Nothing goes on the region\u2019s channel from indoors (your party still sees where you are). Kept on this device.', { home: true }));   // AUDIT DEEP2 C5: the party pose rides from indoors too
+    'On: when you are outdoors, players in your region see you on the overworld and the map, and you see them. '
+    + 'Off: only your party and players nearby know where you are, and you still see those who show themselves. '
+    + 'Nothing is shared from indoors except with your party. Kept on this device.', { home: true }));   // AUDIT DEEP2 C5: the party pose rides from indoors too
   return c;
 }
 
@@ -3013,7 +3010,7 @@ function overhaulPanel(p) {
     const row = el('div', 'look-colours');
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', 'Enhanced Plus colour');
-    row.append(el('span', 'look-colours-label', 'Colour'));
+    row.append(el('span', 'look-colours-label', 'UI colour'));   // Mac, 2026-09-29
     const now = plusTheme();
     for (const [id, th] of Object.entries(PLUS_THEMES)) {
       const b = el('button', 'look-colour');
@@ -3090,7 +3087,7 @@ function plusControllerRows() {
   };
   const xb = ['on', 'off'].includes(getPref('plusCrossbar')) ? getPref('plusCrossbar') : 'auto';
   wrap.append(row('Controller crossbar', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], xb, (v) => setPref('plusCrossbar', v)));
-  wrap.append(row('Run on the left stick', [[true, 'Toggle'], [false, 'Hold']], getPref('plusToggleRun') !== false, (v) => setPref('plusToggleRun', v)));
+  wrap.append(row('Left stick run', [[true, 'Toggle'], [false, 'Hold']], getPref('plusToggleRun') !== false, (v) => setPref('plusToggleRun', v)));
   const fam = livePadFamily() ?? 'xbox';
   const legend = el('div', 'look-padlegend');
   legend.setAttribute('aria-label', 'Controller layout');

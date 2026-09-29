@@ -1,0 +1,25 @@
+[
+  {
+    "name": "WERE-LEVY-world-through-the-setter",
+    "file": "src/scenes/world.js",
+    "old": "        playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;\n        _witnessResponse();",
+    "new": "        setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);\n        _witnessResponse();",
+    "tests": [
+      "test/audit26_dungeonfoes.test.js",
+      "test/exteriorfoes.test.js",
+      "test/beastform.test.js"
+    ],
+    "note": "The levy asked SuppressCrime: a transformed lycanthrope drew the watch with no crime to answer."
+  },
+  {
+    "name": "WERE-LEVY-fixed-city-through-the-setter",
+    "file": "src/scenes/exterior.js",
+    "old": "        playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;   // WERE-LEVY",
+    "new": "        setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);   // WERE-LEVY",
+    "tests": [
+      "test/exteriorfoes.test.js",
+      "test/beastform.test.js"
+    ],
+    "note": "The ?town route's levy asked SuppressCrime."
+  }
+]

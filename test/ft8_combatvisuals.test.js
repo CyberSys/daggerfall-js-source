@@ -24,7 +24,7 @@ test('FT8: the registry row - Enhanced, over the pref, on by default, taking eff
   assert.deepEqual(f.control, { store: 'prefs', key: 'enhancedCombatVisuals', initial: true, online: true });   // RF4
   assert.equal(PREF_DEFAULTS.enhancedCombatVisuals, true);
   assert.equal(f.effect, 'Takes effect at once.', 'read once per frame by every foe host - no reload');
-  assert.match(f.note, /Off keeps the 1:1 draw/); assert.match(f.note, /Nothing about the rules changes/);
+  assert.match(f.note, /Off hides them as the original does/); assert.match(f.note, /The rules don’t change/);
   assert.deepEqual(checkFeature(f), []);
   assert.equal(featureForControl('prefs', 'enhancedCombatVisuals'), f);
   // the switch's law is untouched: the kill door, the skin, the pref (ECV1)
