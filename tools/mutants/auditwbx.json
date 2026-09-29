@@ -195,7 +195,7 @@
   {
     "name": "AUDWBX-F7-the-lane-at-half-its-width",
     "file": "src/render/gateTelegraph.js",
-    "old": "halfW: A.shape === 'lane' ? Math.max((A.width ?? 0) / 2, BOSS_R) : (A.width ?? 0) / 2,",
+    "old": "halfW: A.shape === 'lane' ? Math.max((A.width ?? 0) / 2, P.bossR) : (A.width ?? 0) / 2,",
     "new": "halfW: (A.width ?? 0) / 2,",
     "tests": [
       "test/auditwbx.test.js",

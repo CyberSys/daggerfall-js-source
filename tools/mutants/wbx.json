@@ -149,7 +149,7 @@
   {
     "name": "WBX5-the-turn-unsaid",
     "file": "src/scenes/gateCourt.js",
-    "old": " if (COURT_PHASE_TEXT[s.phase]) say(COURT_PHASE_TEXT[s.phase]); }",
+    "old": " const line = courtPhaseText(s.phase, P.aspect); if (line) say(line); }",
     "new": " }",
     "tests": [
       "test/wbx_gate_fixes.test.js"

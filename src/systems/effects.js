@@ -303,6 +303,8 @@ export const PACIFY_GROUP = Object.freeze({
 });
 export const isPacifyEffect = (e) => e.type === 33 && PACIFY_GROUP[classicSub(e)] != null;
 export const isCharmEffect = (e) => e.type === 34 && classicSub(e) === 255;
+/** WB8a: a spell that would sway its target - any Pacify or Charm in it (the one home the boss's doors ask). */
+export const spellSways = (sp) => (sp?.effects ?? []).some((e) => e && (isPacifyEffect(e) || isCharmEffect(e)));
 /** X7: Identify (40,255) - a window opener, not a lasting effect. */
 export const isIdentifyEffect = (e) => e.type === 40 && classicSub(e) === 255;
 /** Identify.cs:54-55 - the refund never drops below 5. */
@@ -1486,6 +1488,9 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     if (isPacifyEffect(e) || isCharmEffect(e)) {
       const mt = target?.mobileType;
       if (mt == null) continue;                 // not an enemy: IsGroupMatch/IsEnemyClass both refuse
+      // WB8a (2026-09-28, Mac: "Make the oblivion gate boss not be able to be pacified"): a target that cannot be swayed
+      // (world/gateBoss.js bossStandIn - the gate's Warden) refuses it before any roll: no chance, no save, no flag
+      if (target.pacifyImmune) { out.swayRefused = (out.swayRefused ?? 0) + 1; continue; }
       const matches = isCharmEffect(e)
         ? mt >= 128                             // IsClassEnemyId - Charm is enemy CLASSES only
         : enemyGroupOf(mt) === PACIFY_GROUP[classicSub(e)];

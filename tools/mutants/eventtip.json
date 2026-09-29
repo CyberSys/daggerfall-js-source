@@ -173,8 +173,8 @@
   {
     "name": "EVENT-TIP-the-fall-never-said",
     "file": "src/systems/gateOmen.js",
-    "old": "Number.isFinite(fell) ? `${boss.name} has fallen` : `${boss.name}, ${boss.title}`",
-    "new": "`${boss.name}, ${boss.title}`",
+    "old": "...(Number.isFinite(fell) ? [`${boss.name} has fallen`] : [`${boss.name}, ${boss.title}`, `${marks.charAt(0).toUpperCase()}${marks.slice(1)}`])",
+    "new": "...([`${boss.name}, ${boss.title}`, `${marks.charAt(0).toUpperCase()}${marks.slice(1)}`])",
     "tests": [
       "test/eventtip.test.js"
     ]

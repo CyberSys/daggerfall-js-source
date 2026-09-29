@@ -603,6 +603,14 @@ let _ohLootOff = null;
  *  line dfuiOpenTravelMapWindow's FIRST test puts on the HUD
  *  (AddHUDText) when the travel map is asked for inside. Verbatim. */
 const CANNOT_TRAVEL_INDOORS_TEXT = 'You cannot travel while indoors.';
+/** WB8b: the saving throw a gate Warden's blow meets, by his aspect's element (net/gateMods.js `el`): the classic element
+ *  and the effect flag DFU's SavingThrow reads for it (systems/spellcast.js - poison is DiseaseOrPoison's, flagged Poison). */
+const GATE_SAVES = Object.freeze({
+  fire: Object.freeze([ELEMENTS.Fire, EFFECT_FLAGS.Fire]),
+  frost: Object.freeze([ELEMENTS.Frost, EFFECT_FLAGS.Frost]),
+  shock: Object.freeze([ELEMENTS.Shock, EFFECT_FLAGS.Shock]),
+  poison: Object.freeze([ELEMENTS.DiseaseOrPoison, EFFECT_FLAGS.Poison]),
+});
 
 // Milestone 9 scene: floating-origin streaming world. Terrain pixels
 // stream in nearest-first around the camera within TERRAIN_DISTANCE,
@@ -6610,7 +6618,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2688 mounts the same one, gated on
+  // and dungeonContext.js:2692 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6351
@@ -8922,7 +8930,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7377), so exterior mode and a
+    // composer, dungeonContext.js:7386), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -14259,7 +14267,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     cam: () => cam.pos,
     feet: () => (playerSpawned && modes?.gateArenaDay?.() != null ? player.feetAt() : null),
     player: () => playerEntity,
-    save: (e) => savingThrow(ELEMENTS.Fire, EFFECT_FLAGS.Fire, e),
+    save: (e, el = 'fire') => { const w = GATE_SAVES[el] ?? GATE_SAVES.fire; return savingThrow(w[0], w[1], e); },   // WB8b: the throw against his aspect's element
     strike: (dmg, how) => modes?.dungeonCtx?.strikePlayer?.(dmg, how),
     say: (text) => setMidScreenText(text),
     hudHidden: () => gamePaused() || !!townTalk.hudHidden,

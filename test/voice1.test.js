@@ -59,7 +59,7 @@ test('VOICE1 wire: four kinds - offer and answer carry an SDP, ice a candidate w
   assert.ok(validRtcData(JSON.parse(widest).data), 'the widest SDP is an SDP');
   assert.ok(widest.length <= RTC_FRAME_MAX, `and its frame fits: ${widest.length} of ${RTC_FRAME_MAX}`);
   assert.ok(RTC_FRAME_MAX <= MAX_FRAME_BYTES);
-  assert.equal(RELAY_VERSION, 'world125');
+  assert.equal(RELAY_VERSION, 'world126');
   assert.equal(VOICE_RELAY_MIN, 125);   // world124 on its branch; main's TV8 took it first
   assert.equal(relaySupportsVoice('world125'), true);
   assert.equal(relaySupportsVoice('world124'), false, 'never said to a relay that would close the socket on it');

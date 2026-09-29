@@ -761,6 +761,93 @@ Mac: *"Discord live gates?"*, then the moments - *"Omen (15 min before), Boss sl
 
 Relay world123 (world126 on its branch, renumbered at the merge with main). Pinned in `test/discordgates.test.js` (11); mutants `tools/mutants/discordgates.json` (45, all dead).
 
+## 13. The Warden's marks (WB8, 2026-09-28)
+
+Mac: "Make the oblivion gate boss not be able to be pacified, continue to refine and add detail to his encounters, and
+give him unique and different modifers on every 2 hour spawn."
+
+### Never swayed (WB8a)
+
+No path swayed him before this, but only by accident: he is in no foe pool, so the language roll (DFU's EnemySenses
+pacification) never met him; his spell door took harmful families and a Soul Trap alone; and the relay keeps no
+hostility. Yet his stand-in is a Daedra Lord's entity (mobile 31, the Daedra group), which a Pacify Daedra matches the
+moment anything routes a spell to it. Now it is his own word - `pacifyImmune` on the stand-in (`world/gateBoss.js
+bossStandIn`) - and every door that could sway anything refuses a target that says it: the language seam
+(`scenes/hostCombat.js tryLanguagePacification`, the edge consumed, no tongue asked), the Pacify/Charm arm
+(`systems/effects.js`, no chance rolled, counted as `swayRefused`) and the flag's door (`scenes/hostMagic.js`). A sway
+aimed at him now REACHES his door (`spellSways` joins his marks) to be refused there in words - "Valkynaz Ruhn cannot be
+swayed." (BOSS_SWAY_TEXT, at most every BOSS_SWAY_TELL_MS, 4 s, for a Cast When Strikes rides every blow) - and the
+missile is spent on him; the rest of a mixed spell lands as it would.
+
+### The marks (WB8b)
+
+Every gate - a game day, two real hours online - the Warden comes under ONE ASPECT and TWO TRIALS (`net/gateMods.js`,
+a leaf the relay bundles):
+
+| Aspect | Element | His elemental blows | His ground |
+|---|---|---|---|
+| the Burning | fire | Hellfire, Flame Nova, Meteor of Oblivion, Spokes of Dagon | Burning ground |
+| the Rime-Wrought | frost | Rimefall, Frost Nova, Hailstone of Oblivion, Spokes of Rime | Rime |
+| the Storm-Crowned | shock | Stormfall, Thunder Nova, Thunderbolt of Oblivion, Spokes of Storm | Storm-scorched ground |
+| the Venom-Blooded | poison | Venomfall, Venom Nova, Plague Star of Oblivion, Spokes of Venom | Venom |
+
+His blade, his slam, his charge and his leap stay plain; Dagon's Wrath is Dagon's fire whatever he wears. An aspect
+is more than a colour: a struck player's SAVING THROW is the aspect's element's (`net/gateStrike.js blowOf` - any
+element saved now, not fire alone; `scenes/world.js GATE_SAVES`, poison DFU's DiseaseOrPoison with the Poison flag), so
+a frost-resistant character stands the Rime-Wrought better and a Breton's magic resistance meets none of them.
+
+| Trial | Its law (net/gateBrain.js fightProfile) |
+|---|---|
+| Colossal | his body a quarter larger (radius 2.25 m, height 7 m - the relay's melee reach, the cone, the lane and the walk all measure from it), each share a quarter more (the kill a quarter longer at the same bucket), his Ground Slam 8.5 m |
+| Unyielding | his ward at a phase's turn holds 6 s, and every blow on him lands 15% lighter (before the caps; what it takes off is his, never counted as clipped) |
+| Vengeful | his blows and his ground take a quarter more (share and base) |
+| Scarring | his Ground Slam scars the floor at his feet (3 m) and his Crushing Leap where it lands (3.5 m), and all his ground lasts half again as long |
+| Grudge-Bearer | his threat never fades, and he goes at the one who hurt him most 85 times in a hundred |
+| Soul-Hungry | each challenger who falls in the court feeds him 3% of the health he stands for - once an account a fight, never past his whole - said to the court (`fed`) |
+| Dagon's Favoured | Hellfire and the meteor from the first phase, the Spokes from the second |
+| Echoing | every meteor falls again a breath after the first - on the fighter it fell for, where they stand now, or where the first fell if they have fallen; an echo has no echo, and a phase's turn clears it |
+
+THE DRAW IS A CYCLE (`net/gateLaw.js gateModsOf`): every aspect with every pair of trials ONCE each - 4 x 28 = 112
+gates, nine and a third real days - in an order where no two gates running share an aspect or a trial (the cycle's own
+wrap too), every four gates bring all four aspects and all eight trials, and a pair of trials rests 25 gates at least,
+coming back under another aspect. Built from the round-robin's seven perfect matchings of the eight trials (relabelled
+by the salt's shuffle), each under the four turns of the aspects, each round's gates in its own shuffled order and its
+first and last chosen depth first so the seams share nothing. A function of the day alone: every client and the relay
+draw the same marks, and every screen can name them from the omen on.
+
+THE RELAY'S WORD: the fight is born on the day's marks (`server/src/index.js`, `newFight(..., gateModsOf(day))`) and
+keeps them (`md`, checkpointed with it); every `st` says them, and the client fights the fight's own marks, whatever
+the day's draw would say. A fight checkpointed before WB8, or an older relay's, is the Warden unmarked - the profile of
+no marks is the constants exactly (BASE_PROFILE), so nothing about an unmarked fight moved. The brain's law is 3
+(GATE_BRAIN_V, GATE_BRAIN_MIN): a game that does not know the marks would judge a colossus's slam at the old reach and
+his frost as fire, so it is told to reload (GATE-RELOAD's words). Relay world126: `net/gateMods.js` joins the bundle
+(wire.js validates `md` - known words, one aspect at most - and projects `fed` field by field, the name as every name).
+
+### The detail (WB8c)
+
+- **Before the gate**: tonight's marks beside the first line of a gate still to be fought (the omen, else the rise,
+  else the opening) - "Valkynaz Ruhn comes the Rime-Wrought tonight. His fire burns cold - frost, not flame. Colossal:
+  larger and harder to fell; his Ground Slam reaches further. ..." (`net/gateLaw.js marksLine`, once a day); the map's
+  card (EVENT-TIP) carries them while he stands ("The Rime-Wrought - Colossal, Unyielding"); and the Discord omen names
+  them in the tables' words alone ("Tonight he comes **the Rime-Wrought**, Colossal and Unyielding.").
+- **Stepping through**: his aspect's own line and his trials - "The air rimes as you step through: the Warden's fire
+  burns cold tonight. His marks tonight: Colossal, Echoing." - once an entry, never to a court whose Warden has gone,
+  never for an unmarked one.
+- **In the fight**: his bar says his epithet after his name and his trials under it, each attack called by his
+  aspect's name in its colour; his telegraphs, his glow (at his own chest), his mark and his ground wear his aspect's
+  colours - ice, violet and a bolt's white, green; his elemental cues are his element's own cast, and the storm lands
+  in thunder; his frost, lightning and venom land on me unflashed, each in its element's cast, as his fire always did
+  in the Burning clip; a full resist says what was resisted ("You resist the frost of the Rimefall."); each phase's
+  turn says the floor in his aspect's words ("the floor will freeze - keep out of the rime"); and a Soul-Hungry
+  Warden's feeding is said by name ("Valkynaz Ruhn feeds on Ann's soul.") with his growl, heard live, never a stale one.
+
+Pinned: `test/wb8a_never_swayed.test.js` (4), `test/wb8b_gate_marks.test.js` (15 - the tables, the cycle, the profile
+against the constants, each trial in the brain, every attack escapable under every set of marks, the wire, the
+relay's draw), `test/wb8c_gate_detail.test.js` (10 - the strike, the ground, the court's strikes and words and body,
+the look and voice, the telegraph and bar, the omen, card and herald, the fold, the seams); mutants
+`tools/mutants/wb8a.json` (12, all dead), `tools/mutants/wb8b.json` (36: 35 dead, the cycle's wrap check equivalent as
+recorded - belt and braces for another salt), `tools/mutants/wb8c.json` (41, all dead).
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,
@@ -1090,3 +1177,13 @@ audit, older than SS3: leaving the court OFFLINE never gathered its floor - onli
 after an ejection (`gateCourt.leave` -> `spoils.gather`), offline nothing did until the next online frame or boot; the
 offline ejection now leaves the court too (`world.js`). Pinned: `test/wbx_gate_fixes.test.js` (the press),
 `test/ss1_stones.test.js` (the offline gather); `tools/mutants/auditss.json`.
+
+**WB8 (2026-09-28) - never swayed, and marked.** Section 13 above, whole: `world/gateBoss.js` (his `pacifyImmune`, his
+refusal's words, his aspect's colours and voice), `systems/effects.js`, `scenes/hostCombat.js`, `scenes/hostMagic.js`,
+`scenes/dungeonContext.js` (the doors that sway anything refuse him; his door refuses in words; his elements land
+unflashed in their casts), `net/gateMods.js` (the marks' tables), `net/gateLaw.js` (the cycle, the marks' line),
+`net/gateBrain.js` (the fight's profile and each trial's law), `net/wire.js` (`md`, `fed`, the brain's law 3,
+world126), `server/src/index.js`, `net/gateStrike.js`, `net/gateLink.js`, `scenes/gateCourt.js`,
+`render/gateTelegraph.js`, `ui/gateBossBar.js`, `systems/gateOmen.js`, `net/gateHerald.js`, `scenes/world.js`.
+Not seen in a browser or on the deployed relay: the colours and the cues are the tables' until a court under each
+aspect has been looked at and heard.

@@ -9,11 +9,12 @@
 // The game day is the gate's number; its arena is the room `gate:<day>`.
 //
 // PURE, and the relay's too (WB3 imports it to hold a boss room to its day's window): this file imports wire.js
-// alone, and wire.js is already the relay's. Nothing here reads a map file - the site is the CLIENT's to find, over
+// and (WB8b) the marks' leaf, net/gateMods.js, which imports nothing - wire.js is already the relay's. Nothing here reads a map file - the site is the CLIENT's to find, over
 // the world's own data (systems/gateSite.js), with the rolls below; the relay never needs to know where a gate is.
 //
 // Not a DFU member: Daggerfall has no other players and no world events. Ledger A (WB).
 import { sharedClassicMinutes, wallMsForClassicMinutes } from './wire.js';
+import { GATE_ASPECTS, GATE_TRIALS, readGateMods } from './gateMods.js';   // WB8b: the Warden's marks, drawn by the day
 
 /** Classic minutes in a game day (gameDate.js MINUTES_PER_DAY - pinned equal; not imported, the relay's graph stays flat). */
 export const GATE_DAY_MINUTES = 1440;
@@ -231,6 +232,79 @@ export const GATE_BOSSES = Object.freeze([
 /** @param {number} day */
 export const gateBossOf = (day) => GATE_BOSSES[gateRoll(day, 5) % GATE_BOSSES.length];
 
+/** WB8b: the streams the marks' cycle is shuffled on (gateHash(GATE_SALT, round, key, i) - the provinces' bag is 11). */
+const ASPECT_BAG = 12, TRIAL_BAG = 13, ROUND_BAG = 14, GATE_BAG = 15;
+/** One round of a bag of `n`: Fisher-Yates on the round's own rolls in stream `key` (bagRound's law). */
+function shuffledRound(round, key, n) {
+  const a = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = gateHash(GATE_SALT, round, key, i) % (i + 1);
+    const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+/** Do two gates' marks share nothing - neither the aspect nor a trial? */
+const marksApart = (x, y) => x.a !== y.a && !x.t.some((k) => y.t.includes(k));
+
+/**
+ * WB8b (2026-09-28, Mac: "give him unique and different modifers on every 2 hour spawn"): THE CYCLE OF MARKS - every
+ * aspect with every pair of trials, ONCE EACH (4 x 28 = 112 gates, nine and a third real days), in an order where no two
+ * gates running share an aspect or a trial, every four gates bring all four aspects and all eight trials, and a pair of
+ * trials comes back every 28 gates (56 real hours), under another aspect each time. Built so: the eight trials
+ * (relabelled by the salt's shuffle) fall into the round-robin's seven perfect matchings - four pairs each, every pair in
+ * exactly one; a ROUND is one matching under one turn of the aspects (pair j wears aspect j + s), so its four gates share
+ * nothing; the seven matchings, in the salt's order, run under the first turn, then the same seven under the next, and
+ * so on - the 112. Each round's gates stand in its own shuffled order, its first and last chosen, depth first, so the
+ * seam between two rounds shares nothing either - the cycle's last gate and its first included, for it comes round again. The same cycle on every
+ * client and the relay; made once. It needs the tables' shape - twice as many trials as aspects, two a gate (pinned).
+ * @returns {ReadonlyArray<ReadonlyArray<string>>}
+ */
+function marksCycle() {
+  if (_marksCycle) return _marksCycle;
+  const nA = GATE_ASPECTS.length, nT = GATE_TRIALS.length;
+  const pi = shuffledRound(0, TRIAL_BAG, nT), sig = shuffledRound(0, ASPECT_BAG, nA), fo = shuffledRound(0, ROUND_BAG, nT - 1);
+  const matchings = fo.map((i) => {
+    const pairs = [[i, nT - 1]];
+    for (let j = 1; j < nT / 2; j++) pairs.push([(i + j) % (nT - 1), (i - j + nT - 1) % (nT - 1)]);
+    return pairs.map(([x, y]) => [pi[x], pi[y]].sort((u, v) => u - v));
+  });
+  const rounds = [];
+  for (let s = 0; s < nA; s++) for (const m of matchings) rounds.push(m.map((t, j) => ({ a: sig[(j + s) % nA], t })));
+  const seq = [];
+  const place = (p, last) => {
+    if (p === rounds.length) return marksApart(last, seq[0][0]);   // the wrap: the cycle comes round
+    const R = shuffledRound(p, GATE_BAG, rounds[p].length).map((k) => rounds[p][k]);   // the round's gates in its own order
+    for (let f = 0; f < R.length; f++) {
+      if (last && !marksApart(last, R[f])) continue;
+      for (let l = R.length - 1; l >= 0; l--) {
+        if (l === f) continue;
+        seq[p] = [R[f], ...R.filter((_, k) => k !== f && k !== l), R[l]];
+        if (place(p + 1, R[l])) return true;
+      }
+    }
+    return false;
+  };
+  if (!place(0, null)) throw new Error('gateLaw: the marks have no cycle');   // the tables' shape and the salt pinned: never
+  _marksCycle = Object.freeze(seq.flat().map((g) => Object.freeze([GATE_ASPECTS[g.a].id, ...g.t.map((k) => GATE_TRIALS[k].id)])));
+  return _marksCycle;
+}
+/** @type {ReadonlyArray<ReadonlyArray<string>>|null} */
+let _marksCycle = null;
+/** How many gates the cycle of marks runs before a set comes again. */
+export const gateMarksCycleLength = () => marksCycle().length;
+
+/**
+ * WB8b: THE WARDEN'S MARKS for a gate's day - `[aspect, trial, trial]` (net/gateMods.js ids), what the relay's brain
+ * fights under (net/gateBrain.js fightProfile) and every screen names before the gate opens: its place in the cycle
+ * (marksCycle - no set of marks comes again for 112 gates, and no two gates running share one), from the day alone.
+ * @param {number} day
+ * @returns {ReadonlyArray<string>}
+ */
+export function gateModsOf(day) {
+  const c = marksCycle(), g = gateIndex(day);
+  return c[((g % c.length) + c.length) % c.length];
+}
+
 // ═══ THE WORDS ════════════════════════════════════════════════════════
 //
 // The lines the chat says at the gate's moments - each client says its own, off the clock (bible World-Bosses.md
@@ -242,3 +316,11 @@ export const riseLine = ({ near, left }) => `An Oblivion Gate has risen near ${n
 export const openLine = ({ near, at }) => `The Oblivion Gate near ${near} stands open until ${clock(GATE_SEAL_MINUTE)} (${at} your time).`;
 export const sealLine = ({ near, at }) => `The Oblivion Gate near ${near} has sealed. It collapses at ${clock(GATE_WRATH_MINUTE)} (${at} your time).`;   // GATE-COLLAPSE: and says when it goes
 export const wrathLine = ({ near, boss }) => `The Oblivion Gate near ${near} collapses. ${boss} returns to the Deadlands.`;
+/** WB8c: the Warden's marks said beside the omen (and to a player who comes in later, beside the line they hear first):
+ *  his aspect's omen and each trial by its name and its words - "Valkynaz Ruhn comes the Rime-Wrought tonight. His fire
+ *  burns cold - frost, not flame. Colossal: larger and harder to fell; ... Echoing: every meteor falls twice." */
+export const marksLine = ({ boss, md }) => {
+  const { aspect, trials } = readGateMods(md);
+  const said = trials.map((t) => `${t.name}: ${t.text.charAt(0).toLowerCase()}${t.text.slice(1)}.`).join(' ');
+  return `${boss} comes ${aspect.epithet} tonight. ${aspect.omen}${said ? ` ${said}` : ''}`;
+};

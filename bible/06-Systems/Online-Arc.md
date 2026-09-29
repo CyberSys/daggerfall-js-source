@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1295`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1299`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5127`). With the property missing that call is a
+(`dungeonContext.js:5136`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6508` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6516` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7103,7 +7103,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1040`, `src/net/online.js:2227`):**
+**Now (`src/net/wire.js:1041`, `src/net/online.js:2227`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10680,3 +10680,24 @@ relay arm and the host, found twelve; each is fixed and pinned (`test/voice1_aud
 - **A12 the rests were never pruned**: ended on their time (memory - `voicePlan` already read them by time).
 
 `hi` is a new wire kind inside world125 (never deployed), so the version stands; its law's bytes are re-recorded.
+
+## WB8 (2026-09-28, Mac: "give him unique and different modifers on every 2 hour spawn") - world126
+
+The gate's Warden comes MARKED - an aspect and two trials every gate (`11-Multiplayer/World-Bosses.md` section 13) -
+and the relay is the one that fights under them, so the relay moved:
+
+- **`net/gateMods.js` JOINS THE BUNDLE** (a leaf - the marks' tables): `net/gateLaw.js` draws each gate's marks from
+  its 112-gate cycle (`gateModsOf`, from the day alone), `net/gateBrain.js` fights under them (`fightProfile` - the
+  unmarked profile is the constants exactly), and `net/wire.js` validates them.
+- **The fight is born marked**: the gate's room calls `newFight(..., gateModsOf(day))` and keeps the marks on the
+  checkpointed fight (`md`); a fight woken from a checkpoint made before this deploy stays unmarked.
+- **The `st` frame carries `md`** - known words, one aspect at most, or none (a state with any other is refused) - so
+  every screen fights the fight's own marks. **A new kind, `fed`** - a Soul-Hungry Warden's feeding: the fallen
+  challenger's name (sanitised as every name), his health after, the relay's moment.
+- **The brain's law is 3** (GATE_BRAIN_V, GATE_BRAIN_MIN): an `in` saying 2 is refused with GATE-RELOAD's words - a game
+  that does not know the marks would judge a colossus's slam at the old reach and his frost as fire.
+- **The hub's omen post names tonight's marks** (`net/gateHerald.js omenPost`), in the tables' words alone.
+
+Relay world126 (its row in `test/relayversion.test.js`; the version pins of the seventeen suites that name it moved,
+each with its history). Pinned in `test/wb8b_gate_marks.test.js` (the wire and the relay's draw on the real Room).
+
