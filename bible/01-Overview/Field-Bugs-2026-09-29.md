@@ -22,7 +22,7 @@ Mac answered the three calls the realm's reports asked for (`06-Systems/Realm-Ar
 **"Any pre-realm trace"**, homes and guild places **"Carry them"**, and customs **"Call in all loans"** - told first.
 
 Later the same day, Mac: *"Please activate ToxicTaco69 character for online mode. He cant access it"* (CUSTOMS-GRANT,
-below; decision 9).
+below - retired at the merge for main's CUSTOMS-PASS, decision 9).
 And: *"GarySoup lost his house and furniture. I suspect a lot of people lost a ton of belongings"* (HOUSE-LOSS, below).
 Then: *"I want people to get their stuff back"* (RESTORE, below).
 
@@ -167,7 +167,7 @@ in minutes.
 
 
 
-## CUSTOMS-GRANT: a character the census never saw, let in by a grant (Mac, later)
+## CUSTOMS-GRANT: a character the census never saw, let in by a pass (Mac, later)
 
 **What refuses him.** The only per-character gate on the way into the realm is customs' census: an offline character
 comes in once, and only if the service holds a trace of it from before the realm began (migrations 0020 and 0022). The
@@ -175,19 +175,23 @@ census is frozen at the realm's start - that is what keeps a Copy to offline's n
 character with no such trace is refused `customs-never-online` ("The realm has no record of this character from before it
 opened"), and nobody had any way to let it in.
 
-**Ruled out first, so a grant is not a band-aid over a bug.** Every table that holds a character id is already counted
+**Ruled out first, so a pass is not a band-aid over a bug.** Every table that holds a character id is already counted
 (0022), with its time in seconds and a cloud backup's `created_at` kept across re-uploads; a cloud restore and an import
 keep a character's id (only a legacy save, chargen, a classic import and Copy to offline mint one, each on purpose); and
 the client's customs cap and the service's first-save check are one measure (`net/realmGoldLaw.js`), so a character is
 never left in a "Never saved" loop. What is left is a character the service never saw on this account - played online
 with no kill, home, guild place, raid or backup, or with its traces under another account.
 
-**The grant** (`06-Systems/Realm-Arc.md` CUSTOMS-GRANT, decision 9): a handle on `CUSTOMS_GRANT_HANDLES` in the service's
-config brings in ONE character the census never counted, once, through customs in full - loans, allowance, the account's
-bound - its use on the record (migration 0024, `customs_grants`). ToxicTaco69 is the first. A character the census counts
-never spends it, and a character in from any account never comes in twice.
+**The pass** (`06-Systems/Realm-Arc.md` CUSTOMS-GRANT and CUSTOMS-PASS, decision 9). This branch first let such a
+character in by a handle list in the service's config (`CUSTOMS_GRANT_HANDLES`, with a `customs_grants` table). Main's
+CUSTOMS-PASS (`Field-Bugs-2026-09-29b.md`, Mac: "Staff customs pass") landed the same day and does the same by a
+developer's act: ONE character an account, once, through customs in full - loans, allowance, the account's bound - its
+use on the record (`realm_passes`, migration 0024). The realm keeps one way past the census, not two, so the grant was
+retired at the merge, never deployed, and ToxicTaco69 comes in on a pass (`node tools/customsPass.mjs ToxicTaco69`). A
+character the census counts never spends one, and a character in from any account never comes in twice.
 
-Pinned: `test/customs_grant.test.js` (5), `tools/mutants/customs_grant.json` (13 mutants, 13 dead).
+Pinned: main's `test/customspass.test.js`; what this branch keeps of it, the undo giving a spent pass back, is
+`test/house_loss.test.js`.
 
 ## HOUSE-LOSS: two roads took players' houses at customs (Mac, later)
 
@@ -207,7 +211,7 @@ real Worker over the real migrations:
    level). The offline character keeps everything - customs runs on a copy - but customs is once.
 
 **Fixed** (`06-Systems/Realm-Arc.md` HOUSE-LOSS): a customs whose first save never landed is undone by its delete -
-home, pieces, hidden furniture and guild place back to the offline id, the census unspent, a grant given back - and the
+home, pieces, hidden furniture and guild place back to the offline id, the census unspent, a customs pass given back - and the
 door says "Undo bringing in" on its own route; and a deed goes only while the deeds by themselves are over the allowance,
 the gold paying the rest - superseded the same day by RESTORE (below): customs takes no deed at all. Nothing else in the service deletes these rows (claims and placements are INSERT OR IGNORE, the
 hidden list an upsert, the carries only re-key, sales and removals are the owner's own acts, no route deletes an account).
@@ -250,10 +254,11 @@ Pinned: `test/restore.test.js` (6), `test/realm_restore.test.js` (5), T3's and H
     command it prints, and the next deploy lifts the hold. Needs D1 Time Travel to still hold 2026-09-29 03:09 UTC
     (thirty days on the Paid plan, seven on the Free one).
   - **Held accounts** are yours to decide; the homes of theirs the plan lists can be written by hand once you have.
-- **ToxicTaco69 (CUSTOMS-GRANT).** Rides the next account deploy (`acct22`, migration 0024). Then he presses **Bring
-  online** on his character's tile once. If what he saw was *not* "The realm has no record of this character..." - but
-  "already been brought into the realm", or a "Never saved" tile - that is a different cause, and the grant does not
-  touch it: say which.
+- **ToxicTaco69 (CUSTOMS-GRANT, now a pass).** Grant him a customs pass, signed in as yourself (a developer):
+  `DAGGER_HANDLE=<your handle> DAGGER_PASSWORD=<your password> node tools/customsPass.mjs ToxicTaco69` (the tool's header says the rest).
+  Then he presses **Bring online** on his character's tile once. If what he saw was *not* "The realm has no record of
+  this character..." - but "already been brought into the realm", or a "Never saved" tile - that is a different cause,
+  and the pass does not touch it: say which.
 - **The deploy.** Migration 0022 rides the account service's next deploy (it applies on the push to main, ACC1-CI): the
   census widens and every customs character already made takes its home and guild place at that moment.
 - **Left open:** a home or guild place under an origin whose realm character was since DELETED still stands under the

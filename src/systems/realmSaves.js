@@ -27,6 +27,7 @@
 
 import { storedSession, serviceBase, forgetSession, accountRefusalText } from '../net/accountClient.js';
 import { realmTradeRefusalText } from '../net/realmTradeLaw.js';   // REALM P2.1: a trade the realm settles
+import { REALM_DOOR_WORD } from '../net/wire.js';   // REALM-DOOR: the relay's word for a token that names no realm character
 
 /**
  * The service, as this device can reach it - or null when nobody is signed in (cloudSaves.js cloudIo's shape).
@@ -375,6 +376,13 @@ export function realmRefusalText(/** @type {string} */ error) {
 }
 /** Said once the world stands, when an online boot carried no realm character (a stale address, a local save). */
 export const REALM_OFFLINE_TEXT = 'Online characters live in the realm now, so this one plays offline. The Online door brings it in, once.';
+
+/** REALM-DOOR: HAS THE RELAY SHUT ITS DOOR ON THIS SESSION AS NO REALM CHARACTER'S? - a socket closed for good with the
+ *  relay's own word (net/wire.js REALM_DOOR_WORD). The words are written for a build from before the realm, which prints
+ *  them as they stand; a realm-era tab meets them only when its character stopped being its account's under it (deleted
+ *  elsewhere, the account signed out and another in) - the realm's own end, which goes to the Online door with the
+ *  realm's word, never the old build's "out of date". */
+export const realmDoorShut = (/** @type {any} */ session) => !!session?.terminal && session.error === REALM_DOOR_WORD;
 
 /** How long the door to the title menu waits for a realm character's last checkpoint and leave (scenes/world.js). */
 export const REALM_EXIT_WAIT_MS = 5_000;

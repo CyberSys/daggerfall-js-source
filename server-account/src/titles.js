@@ -96,10 +96,8 @@ export function moderatorHandles(env) {
 }
 
 /** One reading of a comma list of handles, so the two lists cannot
- *  come to disagree about case or spaces. CUSTOMS-GRANT: exported, so
- *  the realm's grant list (realm.js holdsCustomsGrant) is read the
- *  same way. */
-export function handleList(raw) {
+ *  come to disagree about case or spaces. */
+function handleList(raw) {
   if (typeof raw !== 'string' || !raw) return new Set();
   return new Set(raw.split(',').map((h) => h.trim().toLowerCase()).filter(Boolean));
 }

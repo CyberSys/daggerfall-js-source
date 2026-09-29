@@ -210,7 +210,9 @@ export const REFUSALS = Object.freeze({
   seq: 'This character was saved from somewhere else in the meantime. Rejoin to carry on.',
   // CUSTOMS-CARRY (2026-09-29): the census is every trace the realm has from before it began (migration 0022) - said as
   // what counts, since "played online" read false to a player who had and never killed there
-  'customs-never-online': 'The realm has no record of this character from before it opened - no Renown, online home, guild place, raid or cloud backup - so it cannot come in. Make a new online character instead.',
+  // CUSTOMS-PASS (2026-09-29): and the one way past it, a developer's pass - named for the case it exists for, a character
+  // played online on an older version of the game after the realm opened (which the relay admitted until REALM-DOOR)
+  'customs-never-online': 'The realm has no record of this character from before it opened - no Renown, online home, guild place, raid or cloud backup - so it cannot come in. Make a new online character instead. If you played it online on an older version of the game after the realm opened, ask the developers on the Discord.',
   'customs-already': 'That character has already been brought into the realm.',
   // AUDIT REALM2 S1: a first save the realm reads - a new character's, or customs' own
   'realm-birth': 'The realm takes a new character only as character creation makes one. Delete it and make it again.',
@@ -222,6 +224,9 @@ export const REFUSALS = Object.freeze({
   // REALM P2.2: an act that moves a realm character's gold on its record (server-account/src/realm.js)
   'realm-needed': 'This online character must be playing in the realm to do that. Rejoin and try again.',
   'realm-gold': 'The realm holds less gold for this character than that costs.',
+  // CUSTOMS-PASS: the developer's route (server-account/src/realm.js grantCustomsPass), said by tools/customsPass.mjs
+  'not-developer': 'Only a developer can grant a customs pass.',
+  ambiguous: 'More than one account goes by that name - name the account by its id instead.',
 });
 
 /** The sentence for a refusal, never `undefined` and never the raw

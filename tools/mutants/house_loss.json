@@ -36,22 +36,44 @@
     ]
   },
   {
-    "name": "HOUSE-LOSS-undo-keeps-the-grant",
+    "name": "HOUSE-LOSS-undo-keeps-the-pass-spent",
     "file": "server-account/src/realm.js",
-    "old": "      db.prepare('DELETE FROM customs_grants WHERE player = ? AND char_id = ?').bind(playerId, originId),\n",
+    "old": "      db.prepare('UPDATE realm_passes SET origin_id = NULL, spent_at = NULL WHERE player = ? AND origin_id = ?'\n        + ' AND NOT EXISTS (SELECT 1 FROM realm_passes WHERE player = ? AND spent_at IS NULL)').bind(playerId, originId, playerId),\n",
     "new": "",
     "tests": [
       "test/house_loss.test.js"
-    ]
+    ],
+    "note": "CUSTOMS-PASS (at the merge with main, which retired CUSTOMS-GRANT's grant for the pass): the undone customs' pass stays spent - the account's one character through customs lost to a customs that never stood."
   },
   {
-    "name": "HOUSE-LOSS-undo-keeps-the-grants-census-row",
+    "name": "HOUSE-LOSS-undo-opens-a-second-pass",
     "file": "server-account/src/realm.js",
-    "old": "      db.prepare('DELETE FROM realm_census WHERE player = ? AND char_id = ? AND EXISTS (SELECT 1 FROM customs_grants WHERE player = ? AND char_id = ?)')\n        .bind(playerId, originId, playerId, originId),\n",
+    "old": "' AND NOT EXISTS (SELECT 1 FROM realm_passes WHERE player = ? AND spent_at IS NULL)').bind(playerId, originId, playerId),",
+    "new": "'').bind(playerId, originId),",
+    "tests": [
+      "test/house_loss.test.js"
+    ],
+    "note": "CUSTOMS-PASS: reopened beside the open pass a developer granted since - the partial unique index refuses it and the whole undo with it."
+  },
+  {
+    "name": "HOUSE-LOSS-undo-keeps-a-spent-record-that-never-stood",
+    "file": "server-account/src/realm.js",
+    "old": "      db.prepare('DELETE FROM realm_passes WHERE player = ? AND origin_id = ?').bind(playerId, originId),\n",
     "new": "",
     "tests": [
       "test/house_loss.test.js"
-    ]
+    ],
+    "note": "CUSTOMS-PASS: beside a newer open pass, the undone customs' spent row stays - a record of a character let in that is not in."
+  },
+  {
+    "name": "HOUSE-LOSS-undo-keeps-the-pass-census-row",
+    "file": "server-account/src/realm.js",
+    "old": "      db.prepare('DELETE FROM realm_census WHERE player = ? AND char_id = ? AND EXISTS (SELECT 1 FROM realm_passes WHERE player = ? AND origin_id = ?)')\n        .bind(playerId, originId, playerId, originId),\n",
+    "new": "",
+    "tests": [
+      "test/house_loss.test.js"
+    ],
+    "note": "CUSTOMS-PASS: the census row the pass wrote stays, unspent after the undo - the character would come in on the census and the pass again."
   },
   {
     "name": "HOUSE-LOSS-undo-unspends-under-a-character",

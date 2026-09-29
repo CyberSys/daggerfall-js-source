@@ -50,6 +50,8 @@
 //   POST /v1/account/played {}            -> { playedS }
 // MOD1, moderation. The caller must be a moderator or a developer:
 //   POST /v1/mod/mute { target, minutes } -> { ok, target, name, until, order }
+// CUSTOMS-PASS, a developer alone - one character of one account through customs (tools/customsPass.mjs):
+//   POST /v1/mod/customs-pass { name | account, revoke? } -> { ok, target, name, open, changed }
 // DUEL1, the duelling record. The caller of `loss` is the loser:
 //   POST /v1/duel/loss   { winner }       -> { recorded, wins, losses }
 //   POST /v1/duel/record { id }           -> { id, wins, losses, gates }
@@ -61,6 +63,7 @@
 // the character it brings online:
 //   POST /v1/renown/xp { xp, rid? }       -> { xp, level, credited, rose, order, max?, repeat? }
 //   POST /v1/auth/token { character? }    -> { ..., level, xp }   (RENOWN4: xp, the account's total)
+//   (REALM-DOOR: the token says whether that character is one of the account's realm characters, `rc`)
 //
 // ACC2, and every one of them needs a REGISTERED account (the wall):
 //   GET    /v1/saves                                   -> { saves[] }
@@ -120,8 +123,8 @@ import {
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';
 import {
-  listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, undoRealm, holdsCustomsGrant,
-  REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
+  listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, undoRealm,
+  realmCharacterHeld, grantCustomsPass, REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
 } from './realm.js';   // REALM P1: the realm's characters   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { tradeRealm, REALM_TRADE_BODY_MAX } from './realmTrade.js';   // REALM P2.1: a trade, settled here
 
@@ -157,6 +160,9 @@ const REALM_STATUS = Object.freeze({
   'guild-treasury': 409,   // AUDIT REALM2 S8: and a lone one empties the treasury first
   'realm-birth': 403, 'customs-allowance': 403,   // AUDIT REALM2 S1: a first save the realm's law refuses
 });
+/** CUSTOMS-PASS: a pass's refusals - a bad shape 400 (the default), a caller who is no developer 403, no such account
+ *  404, a guest's name two accounts wear 409. */
+const PASS_STATUS = Object.freeze({ 'not-developer': 403, 'no-player': 404, ambiguous: 409 });
 /** GUILD1: each guild refusal's status - a bad shape 400 (the default), the wrong rank or too little Renown 403, a
  *  thing that is not there 404, a conflict with what is 409, the hour's writes spent 429. */
 const GUILD_STATUS = Object.freeze({
@@ -404,8 +410,13 @@ export default {
         // too (RENOWN1), and a token wearing a guild is what the hub routes the guild's lines to - that build knows no
         // guild channel and filed them on its World tab, where a reply goes to everyone. It wears no guild instead.
         const guild = renownCharacterOk(body.character) && body.guild === true ? await guildBadgeOf(ctx, who.player.id, body.character) : null;
+        // REALM-DOOR (2026-09-29, the field): AND WHETHER THAT CHARACTER IS THE REALM'S. A realm-era tab goes online only
+        // as a realm character and names it here; a build from before the realm names its offline character, or none.
+        // The relay refuses a 0 at its door, so online is the realm's at the servers too. Stamped on every mint, a 0
+        // included: a token with no `rc` is a service from before this, which the relay still admits.
+        const rc = (await realmCharacterHeld(ctx, who.player.id, body.character)) ? 1 : 0;
         const token = await mintToken(
-          { s: who.player.id, n: displayName(who.player), k: accountKind(who.player), ...wardrobe, mu, lv, ...(guild ?? {}) },
+          { s: who.player.id, n: displayName(who.player), k: accountKind(who.player), ...wardrobe, mu, lv, ...(guild ?? {}), rc },
           key, { subtle, nowS },
         );
         return json({
@@ -625,6 +636,14 @@ export default {
         return json({ ...r, order }, 200, origin);
       }
 
+      if (path === '/v1/mod/customs-pass' && request.method === 'POST') {
+        // CUSTOMS-PASS (2026-09-29, Mac, asked what becomes of a character a build from before the realm stranded:
+        // "Staff customs pass"): A DEVELOPER GRANTS ONE ACCOUNT ONE CHARACTER THROUGH CUSTOMS (realm.js). 403 for a
+        // caller who is not one - the credential is good, the right is not theirs, as the save wall reads it.
+        const r = await grantCustomsPass(ctx, who.player, env, { name: body.name, account: body.account, revoke: body.revoke });
+        return r.error ? no(r.error, PASS_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
+      }
+
       if (path === '/v1/account/played' && request.method === 'POST') {
         // ACC4: A BEAT, AND NOTHING IN IT IS READ. Whatever the body
         // says, the credit is the gap by THIS clock (accounts.js
@@ -820,7 +839,7 @@ export default {
         }
         if (request.method !== 'POST') return no('method', 405, origin);
         if (path === '/v1/realm/create') return answer(await createRealm(rctx, me, { name: body.name, summary: body.summary }));
-        if (path === '/v1/realm/customs') return answer(await customsRealm(rctx, me, { origin: body.origin, name: body.name, summary: body.summary }, holdsCustomsGrant(who.player, env)));   // AUDIT REALM L3-F2/F3: one guarded batch, and resumable; CUSTOMS-GRANT: the account's grant, off the config
+        if (path === '/v1/realm/customs') return answer(await customsRealm(rctx, me, { origin: body.origin, name: body.name, summary: body.summary }));   // AUDIT REALM L3-F2/F3: one guarded batch, and resumable
         if (path === '/v1/realm/join') return answer(await joinRealm(rctx, me, body.id));
         if (path === '/v1/realm/trade') {
           // REALM P2.1: a sequence refused says the service's own, as a checkpoint's does

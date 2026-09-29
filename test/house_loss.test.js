@@ -170,20 +170,32 @@ test('HOUSE-LOSS 1: the door\'s undo is its own route - it undoes a customs that
   assert.deepEqual(s.house(11), { homes: [racing2.body.id], pieces: 3, hidden: 1 });
 });
 
-test('HOUSE-LOSS 1: an undo gives back everything customs spent - on every account a copy of the character was counted on, and a grant, whose census row goes with it, so the grant brings the character in again', async () => {
-  const s = await stand({ CUSTOMS_GRANT_HANDLES: 'GrantedOne' });
-  const a = await s.account('GrantedOne'), b = await s.account();
-  // counted on b's account (its traces there), never on a's: a's grant brings it in, and spends b's row too
+test('HOUSE-LOSS 1 / CUSTOMS-PASS: an undo gives back everything customs spent - on every account a copy of the character was counted on, and a developer\'s pass, whose census row goes with it, so the pass brings the character in again; an account granted another since keeps one open pass, never two', async () => {
+  const s = await stand({ DEVELOPER_HANDLES: 'StaffDev' });
+  const dev = await s.account('StaffDev'), a = await s.account('PassHolder'), b = await s.account();
+  const grant = async () => assert.deepEqual((await s.call('/v1/mod/customs-pass', { name: 'PassHolder' }, dev.secret)).body?.open, true);
+  const passes = () => s.rows('SELECT origin_id, spent_at IS NOT NULL AS spent FROM realm_passes WHERE player = ? ORDER BY id', a.id);
+  await grant();
+  // counted on b's account (its traces there), never on a's: a's pass brings it in, and spends b's row too
   s.exec('INSERT INTO realm_census (player, char_id) VALUES (?, ?)', b.id, 'shared-o');
   const came = await s.customs(a, 'shared-o');
   assert.equal(came.status, 200);
   assert.deepEqual(s.rows('SELECT player, spent FROM realm_census WHERE char_id = ? ORDER BY player = ?', 'shared-o', a.id), [{ player: b.id, spent: 1 }, { player: a.id, spent: 1 }]);
+  assert.deepEqual(passes(), [{ origin_id: 'shared-o', spent: 1 }], 'the pass spent on it');
   assert.deepEqual((await s.call('/v1/realm/undo', { id: came.body.id }, a.secret)).body, { ok: true, undone: true });
-  assert.deepEqual(s.rows('SELECT player, spent FROM realm_census WHERE char_id = ?', 'shared-o'), [{ player: b.id, spent: 0 }], 'b\'s row unspent; the grant\'s row gone');
-  assert.deepEqual(s.rows('SELECT * FROM customs_grants'), [], 'the grant given back');
+  assert.deepEqual(s.rows('SELECT player, spent FROM realm_census WHERE char_id = ?', 'shared-o'), [{ player: b.id, spent: 0 }], 'b\'s row unspent; the pass\'s row gone');
+  assert.deepEqual(passes(), [{ origin_id: null, spent: 0 }], 'the pass open again');
   const again = await s.customs(a, 'shared-o');
-  assert.equal(again.status, 200, 'the grant brings it in again');
-  assert.deepEqual(s.rows('SELECT player, char_id FROM customs_grants'), [{ player: a.id, char_id: 'shared-o' }]);
+  assert.equal(again.status, 200, 'the pass brings it in again');
+  assert.deepEqual(passes(), [{ origin_id: 'shared-o', spent: 1 }]);
+  // spent again, and a developer grants another: the undo opens no second - the spent one's record goes, since the
+  // customs it recorded never stood, and the new one stays the account's one open pass
+  await grant();
+  assert.deepEqual(passes(), [{ origin_id: 'shared-o', spent: 1 }, { origin_id: null, spent: 0 }]);
+  assert.deepEqual((await s.call('/v1/realm/undo', { id: again.body.id }, a.secret)).body, { ok: true, undone: true });
+  assert.deepEqual(passes(), [{ origin_id: null, spent: 0 }], 'one open pass, never two');
+  assert.deepEqual(s.rows('SELECT player, spent FROM realm_census WHERE char_id = ?', 'shared-o'), [{ player: b.id, spent: 0 }]);
+  assert.equal((await s.customs(a, 'shared-o')).status, 200, 'and that one brings it in');
 });
 
 test('HOUSE-LOSS 1: the door - a character brought in whose first save never landed offers "Undo bringing in" on the undo\'s own route, never Delete; the never-saved word sends one brought in back to its offline tile', () => {
