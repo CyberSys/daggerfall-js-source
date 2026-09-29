@@ -412,7 +412,7 @@ const service = () => {
 const nowS = () => Math.floor(Date.now() / 1000);
 
 test('TERMS1: the migration adds what an agreement is - two versions and a moment, nothing else', () => {
-  const sql = read('server-account/migrations/0022_terms.sql');
+  const sql = read('server-account/migrations/0023_terms.sql');
   const added = [...sql.matchAll(/^ALTER TABLE players ADD COLUMN (\w+) (\w+);$/gm)].map((m) => `${m[1]} ${m[2]}`);
   assert.deepEqual(added, ['terms_version TEXT', 'privacy_version TEXT', 'legal_accepted_at INTEGER']);
   assert.doesNotMatch(sql.replace(/^--.*$/gm, ''), /DEFAULT|NOT NULL|UPDATE /i,

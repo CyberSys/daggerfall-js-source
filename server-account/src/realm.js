@@ -157,17 +157,20 @@ export async function createRealm({ db, rand, nowS }, playerId, { name, summary 
 }
 
 /** THE TABLES CUSTOMS CARRIES from the offline id to the realm's: the Renown track (renownTracks.js) - the plan's
- *  "Renown starts from its existing track".
- *  AUDIT REALM2 S2: AND NO HOME AND NO GUILD PLACE - the safe choice of the two ("only what stood before the realm, or
- *  none"). Nothing on a home or a membership row says it stood before the realm (the census counted Renown tracks
- *  alone), and what did stand was bought on the client's word: a house at a price it named, pieces and stations whose
- *  cost no record paid, a founding whose fee nobody checked - the two-write lane any id had until the realm, and the
- *  free lane an offline id kept after it (a 200,000 station, carried in). The allowance caps a character's gold; it
- *  cannot count a house, so a house never crosses. The track does: the census proves it stood at the realm's start.
+ *  "Renown starts from its existing track" - and the character's online homes (homes.js) and its guild place
+ *  (guilds.js).
+ *  CUSTOMS-CARRY (2026-09-29, Mac, of the two AUDIT REALM2 S2 weighed - "only what stood before the realm, or none":
+ *  "Carry them"): what an offline id holds IS what stood before the realm, because since the realm a claim, a placement
+ *  and a founding are a realm character's alone (S2's rule, which stands), and it pays out nothing that was not the
+ *  realm's - a house from before the realm sells for its `paid` (0), a piece gives back half its `paid` (0), and a
+ *  guild's realm withdrawal takes from `realm_gold` alone (migration 0020, L1-F3). S2 left them under the offline id,
+ *  where they were lost to everyone: a building exclusive to nobody who could walk in, a guild without its master and
+ *  its name and tag kept from any founding (Dracula/Valentin, the field). Migration 0022 carried them for every
+ *  character customs had already made.
  *  RENOWN-ACCOUNT: THE TRACK IS HISTORY NOW - the Renown itself is the account's (renown_accounts, migration 0021, keyed
  *  by the account alone), so no character's customs or delete can move it or take it away, and a realm character stands
  *  at it from its first minute. */
-export const CHARACTER_TABLES = Object.freeze(['renown_tracks']);
+export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);
 
 /** CUSTOMS CARRIES A CHARACTER'S TRACK IN, re-keyed from the offline id to the realm's - the account's own rows only, and
  *  never over a track the realm's id already holds (OR IGNORE: a resume carries again, AUDIT REALM2 S6). Statements, for
@@ -177,9 +180,11 @@ const customsCarry = (/** @type {any} */ db, /** @type {string} */ playerId, /**
 
 /**
  * WHY CUSTOMS REFUSED (decision 3: "Migrate once via customs"). An offline character may come into the realm once, and
- * only if it played online before the realm. AUDIT REALM L1-F5 / L3-F2: "played online" is the CENSUS migration 0020
- * took of the Renown tracks standing at the realm's start (`realm_census`) - never a track written since: any session
- * files a track for any id, and a Copy to offline's new id, one report, brought the realm character in a second time.
+ * only if the realm saw it before the realm began. AUDIT REALM L1-F5 / L3-F2: that is the CENSUS (`realm_census`),
+ * taken at the realm's start - never a trace written since: any session files a track for any id, and a Copy to
+ * offline's new id, one report, brought the realm character in a second time. Migration 0020 took it of the Renown
+ * tracks; CUSTOMS-CARRY (migration 0022, Mac 2026-09-29: "Any pre-realm trace") widened it to every trace stamped before
+ * the realm - an online home, a guild place, a raid fought, a cloud backup - since a track needs a first online kill.
  * And "once" is the character's, on every account: a customs SPENDS its character's census rows everywhere
  * (customsRealm), so a character copied onto two accounts before the realm, or a realm character deleted, never brings
  * its origin in again. The gate itself is customsRealm's one guarded write; this reads, after it refused, which word is

@@ -4042,7 +4042,7 @@ username, meets the same form.
 document - a game from before the boxes, which renders it "The game may need updating" (AUDIT PRE-MERGE 0929 T1; the
 form never sends one) - `terms-unaccepted` for one named and not the other, `terms-stale` for dated versions that are
 not these. The row records `terms_version`,
-`privacy_version` and `legal_accepted_at` (migration 0022). Only the current versions are ever written, and naming an
+`privacy_version` and `legal_accepted_at` (migration 0023 - 0022 until main's CUSTOMS-CARRY took that number). Only the current versions are ever written, and naming an
 account never erases the agreement its row already holds. Signing in and recovering ask nothing: those accounts exist.
 Every account made before TERMS1 keeps NULL - it was never asked, and a default would invent that it was. The recorded
 version is what a later revision would ask again against; asking again is not built.

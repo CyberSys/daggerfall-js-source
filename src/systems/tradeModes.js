@@ -221,6 +221,11 @@ export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holida
  * other. Repair skips an item already being repaired and Identify
  * skips one already identified, so a list of nothing BUT those totals
  * zero AND cannot be committed - the two are one fact.
+ *
+ * FB0929: the same walk counts the PIECES a purchase pays for - the
+ * basket's, and the live repair jobs', a stack piece by piece - which
+ * is what getTradePrice's floor below asks a gold for. The sale and
+ * identify arms count none.
  */
 export function tradeCost(mode, staged = [], {
   quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None,
@@ -229,12 +234,14 @@ export function tradeCost(mode, staged = [], {
 } = {}) {
   let cost = 0;
   let modeActionEnabled = false;
+  let pieces = 0;
   for (const item of staged) {
     const stack = item.stackCount ?? 1;
     switch (mode) {
       case 'Buy':
         modeActionEnabled = true;
         cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId });
+        pieces += stack;
         break;
       case 'Sell':
         modeActionEnabled = true;
@@ -256,6 +263,7 @@ export function tradeCost(mode, staged = [], {
         modeActionEnabled = true;
         cost += calculateItemRepairCost(itemValueOf(item), quality, item.currentCondition ?? 0, item.maxCondition ?? 0,
           { reducedRepairCost, priceAdjustment }) * stack;
+        pieces += stack;
         break;
       case 'Identify':
         if (itemIsIdentified(item)) break;
@@ -270,19 +278,45 @@ export function tradeCost(mode, staged = [], {
         break;
     }
   }
-  return { cost, modeActionEnabled };
+  return { cost, modeActionEnabled, pieces };
 }
+
+/** FB0929: the least a purchase asks for each piece it buys or mends -
+ *  see getTradePrice. */
+export const MIN_PRICE_PER_PIECE = 1;
 
 /** GetTradePrice (:492-509). Buy and Repair haggle as a PURCHASE,
  *  Sell and SellMagic as a SALE, and Identify does not haggle at all -
  *  its cost is the price. DFU THROWS on any other mode rather than
  *  returning the cost, so Inventory mode reaching here is a bug and
- *  says so. */
-export function getTradePrice(mode, cost, quality, skills) {
+ *  says so.
+ *
+ *  FB0929 - A PURCHASE IS NEVER FREE (Port-Ledger A; lumin on Discord,
+ *  relayed by Mac: "There should be a hard minimum of 1 gold for
+ *  anything"). CalculateTradePrice's buying `amount` (FormulaHelper.cs
+ *  :2000) is the cost times 66/256 to 256/256, truncated, and
+ *  CalculateCost floors a piece at 2 (1 after a holiday's halving) - so
+ *  a piece at that floor (a candle, the General Store's parchment worth
+ *  0, a bandage in a cheap province, a cheap blade's repair) came to 0
+ *  gold wherever the haggle fell under 128/256, and a stack to less than
+ *  a gold a piece. Both PURCHASE modes ask at least MIN_PRICE_PER_PIECE
+ *  for each piece tradeCost priced (`pieces`; a caller with no walk
+ *  still never asks nothing), and Daggerfall's number wherever it is
+ *  more. The lot is still haggled once, as DFU does, so a candle bought
+ *  beside a horse rounds into the horse's price like any piece of a lot;
+ *  no price a counter quotes is under a gold a piece.
+ *
+ *  THE SALE IS NOT FLOORED. Online REALM P0.4 pays at most half the
+ *  asking price (shopStock.js ONLINE_SALE_SHARE), and half a one-gold
+ *  ask is nothing; offline that candle rode the horse for no gold, so a
+ *  gold for selling it alone would be minted. The floor only raises an
+ *  asking price, so no buy-and-sell-back gains by it. Identify keeps its
+ *  cost - the Witches Festival's free one is DFU's design. */
+export function getTradePrice(mode, cost, quality, skills, pieces = cost > 0 ? 1 : 0) {
   switch (mode) {
     case 'Buy':
     case 'Repair':
-      return calculateTradePrice(cost, quality, skills, false);
+      return Math.max(pieces * MIN_PRICE_PER_PIECE, calculateTradePrice(cost, quality, skills, false));
     case 'Sell':
     case 'SellMagic':
       return calculateTradePrice(cost, quality, skills, true);
@@ -408,7 +442,7 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 //    (:161) feeds worldModes.js:2274-2294, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:9317), the entry point the magic arc owed.
+//    (worldModes.js:9325), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
 //    inventory.js:69, summed by creditAmount at systems/court.js:219,
 //    spent letters-before-coins by deductGold at court.js:261, and

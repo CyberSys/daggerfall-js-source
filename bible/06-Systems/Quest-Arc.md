@@ -5470,7 +5470,7 @@ lesson one host over.
 **What did NOT ship:** PlayerEntity.Update's per-minute *intermittent
 spawn* roll (:486-492) still has no caller on this route. It is not
 this pool's dependency — it is a loop that carries the passive-guard
-spawns and the NPC-guard conversion with it (world.js:6046-6142) — and
+spawns and the NPC-guard conversion with it (world.js:6141-6238) — and
 it is named at the mount so the absence reads as a fact.
 
 **(c) The find-place seam's absence, narrowed to one sentence.**
@@ -5494,10 +5494,10 @@ ready-spell events (`hostMagic.js:92-93`), and those two doors are the
 (`machine.js:890`/`:873`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:6434-6435`,
+other two engine-owning hosts wire (`world.js:6530-6531`,
 `dungeonContext.js:2476-2477`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:11502-11505`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:11670-11673`),
 absent which the action self-completes at *parse*
 (`actions.js:2781`/`:2788`) and the task can never arm at all.
 
@@ -6402,4 +6402,4 @@ Not changed, and Mac's to decide: a PARTNER's kill of a shared quest's foe is cr
 (`onPuppetDied` -> `incrementKills`), so `_S.07_` - and its -50 - runs for a member who never touched the mage. That
 same credit is what carries an ordinary summon-and-kill quest forward for the whole party.
 `test/disc29_questinfo.test.js` (3); `test/dungeonquestclick.test.js`'s one-home pin re-aimed to the shared builder;
-`tools/mutants/disc29.json` (DISC29-H, 3). `01-Overview/Field-Bugs-2026-09-28d.md` DISC29-H.
+`tools/mutants/disc29.json` (DISC29-H, 3). `01-Overview/Field-Bugs-2026-09-28f.md` DISC29-H.

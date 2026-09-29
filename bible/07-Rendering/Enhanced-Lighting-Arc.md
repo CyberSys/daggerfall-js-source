@@ -1977,7 +1977,7 @@ candle, and a peer's), which has no map at all: a torch behind MAGEAA00's corrid
 view through it. Recorded, not changed - a carried light's map redrawn every frame is a cost for Mac to weigh.
 `test/disc29_lamps.test.js` (4); DISC24-C's walk re-aimed so the card walks with the eye; the SC1 and WEEDS1 source
 pins re-aimed. `tools/mutants/disc29.json` (DISC29-E, 11); seven older records re-aimed by content (auditlight,
-auditreach 2, el8, perfexta, perfextb, weeds1). `01-Overview/Field-Bugs-2026-09-28d.md` DISC29-E.
+auditreach 2, el8, perfexta, perfextb, weeds1). `01-Overview/Field-Bugs-2026-09-28f.md` DISC29-E.
 
 **AUDIT PRE-MERGE 0929 E1-E3** (`01-Overview/Audit-PreMerge-0929.md`, lens E, on the real ShadowPass).
 - **E1 - a walker's ghost in the lo lamps.** "A flat whose place is still" was every flat an ORIGIN places, the moment

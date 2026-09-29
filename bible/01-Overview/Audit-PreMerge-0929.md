@@ -155,6 +155,6 @@ With every lens's fix in, the whole suite and a re-run of every committed mutant
 
 ## The deploy
 
-The relay is world126 (undeployed; its row restated with the audit's bytes). The account service is acct20, migration
-0022, and its deploy's smoke now agrees to the documents it serves. The site waits for the account service. Players
+The relay is world126 (undeployed; its row restated with the audit's bytes) - world128 at the merge with #428-#432, one relay past main's OW6L (world127), the two laws in one relay. The account service is acct20, migration
+0023 (0022 until the merge with #428-#432, where main's CUSTOMS-CARRY holds it), and its deploy's smoke now agrees to the documents it serves. The site waits for the account service. Players
 reload for the gate (GATE-RELOAD's words), and desktop players on a build from before TERMS1 are told to update.

@@ -217,7 +217,7 @@
   },
   {
     "name": "TERMS1-a-default-invents-agreement",
-    "file": "server-account/migrations/0022_terms.sql",
+    "file": "server-account/migrations/0023_terms.sql",
     "old": "ALTER TABLE players ADD COLUMN terms_version TEXT;",
     "new": "ALTER TABLE players ADD COLUMN terms_version TEXT DEFAULT '2026-09-28';",
     "tests": ["test/terms1.test.js"],

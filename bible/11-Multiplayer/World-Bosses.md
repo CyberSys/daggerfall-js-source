@@ -820,7 +820,7 @@ keeps them (`md`, checkpointed with it); every `st` says them, and the client fi
 the day's draw would say. A fight checkpointed before WB8, or an older relay's, is the Warden unmarked - the profile of
 no marks is the constants exactly (BASE_PROFILE), so nothing about an unmarked fight moved. The brain's law is 3
 (GATE_BRAIN_V, GATE_BRAIN_MIN): a game that does not know the marks would judge a colossus's slam at the old reach and
-his frost as fire, so it is told to reload (GATE-RELOAD's words). Relay world126: `net/gateMods.js` joins the bundle
+his frost as fire, so it is told to reload (GATE-RELOAD's words). Relay world128 (world126 on its branch, one relay past main's OW6L - world127 - at the merge): `net/gateMods.js` joins the bundle
 (wire.js validates `md` - known words, one aspect at most - and projects `fed` field by field, the name as every name).
 
 ### The detail (WB8c)
@@ -1206,7 +1206,7 @@ refusal's words, his aspect's colours and voice), `systems/effects.js`, `scenes/
 `scenes/dungeonContext.js` (the doors that sway anything refuse him; his door refuses in words; his elements land
 unflashed in their casts), `net/gateMods.js` (the marks' tables), `net/gateLaw.js` (the cycle, the marks' line),
 `net/gateBrain.js` (the fight's profile and each trial's law), `net/wire.js` (`md`, `fed`, the brain's law 3,
-world126), `server/src/index.js`, `net/gateStrike.js`, `net/gateLink.js`, `scenes/gateCourt.js`,
+world128 - world126 on its branch), `server/src/index.js`, `net/gateStrike.js`, `net/gateLink.js`, `scenes/gateCourt.js`,
 `render/gateTelegraph.js`, `ui/gateBossBar.js`, `systems/gateOmen.js`, `net/gateHerald.js`, `scenes/world.js`.
 Not seen in a browser or on the deployed relay: the colours and the cues are the tables' until a court under each
 aspect has been looked at and heard.

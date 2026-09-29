@@ -299,6 +299,11 @@ export function requestLook(canvas) {
     document.addEventListener('pointerlockerror', () => {
       console.warn('[input] pointer lock refused (focus/cooldown); the next gesture retries');
     }, false);
+    // AUDIT OW5 V1: A LOCK GRANTED AFTER THE CURSOR WAS FREED IS LET GO. The browser answers a request frames later, and
+    // a free cursor asked for between (the travel view risen on the frame after a window closed, over the look gate's
+    // relock: its release found no lock yet to let go) had the lock land under it - no cursor over the Overworld, a drag
+    // turned the traveller's head, a click picked where the Begin button had been. Only this module asks for the lock.
+    document.addEventListener('pointerlockchange', () => { if (_cursorActive && document.pointerLockElement) releaseLook(); }, false);
     _errBound = true;
   }
   try {

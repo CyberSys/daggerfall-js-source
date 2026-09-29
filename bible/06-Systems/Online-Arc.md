@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7042` read, on one physical line:
+`src/scenes/worldModes.js:7046` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6559` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6655` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7097,13 +7097,13 @@ chat) the free tier's 13,000 GB-s a day was ~7 player-hours, and it was gone
 mid-stream. Paying (400,000 GB-s for $5) buys ~220 player-hours of the same
 waste; the waste is what this slice removes.
 
-**The relay already had the door.** `server/src/index.js:240` registers
+**The relay already had the door.** `server/src/index.js:244` registers
 `setWebSocketAutoResponse('{"t":"ping"}', '{"t":"pong"}')`: the RUNTIME
 answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1041`, `src/net/online.js:2201`):**
+**Now (`src/net/wire.js:1041`, `src/net/online.js:2248`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10620,7 +10620,7 @@ forward side button), and the side-button plumbing it rides, which came with VOI
 
 `test/viewtoggle.test.js` pins all three.
 
-## WB8 (2026-09-28, Mac: "give him unique and different modifers on every 2 hour spawn") - world126
+## WB8 (2026-09-28, Mac: "give him unique and different modifers on every 2 hour spawn") - world128 (world126 on its branch)
 
 The gate's Warden comes MARKED - an aspect and two trials every gate (`11-Multiplayer/World-Bosses.md` section 13) -
 and the relay is the one that fights under them, so the relay moved:
@@ -10638,7 +10638,7 @@ and the relay is the one that fights under them, so the relay moved:
   that does not know the marks would judge a colossus's slam at the old reach and his frost as fire.
 - **The hub's omen post names tonight's marks** (`net/gateHerald.js omenPost`), in the tables' words alone.
 
-Relay world126 (its row in `test/relayversion.test.js` - world125 is VOICE1's, deployed with PR #427 and reverted with #416 forty minutes later; the version pins of the suites that name it moved,
+Relay world128 - world126 on its branch, never deployed, and one relay past main's OW6L (world127, the cell's overworld ledger) at the merge with #428-#432, the two in one relay (its row in `test/relayversion.test.js` - world125 is VOICE1's, deployed with PR #427 and reverted with #416 forty minutes later; the version pins of the suites that name it moved,
 each with its history). Pinned in `test/wb8b_gate_marks.test.js` (the wire and the relay's draw on the real Room).
 
 AUDIT PRE-MERGE 0929 (`01-Overview/Audit-PreMerge-0929.md`, lens W1): only a fall with a real part in the fight behind

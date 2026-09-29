@@ -38,7 +38,7 @@
   {
     "name": "PERF-EXT10-5-the-shadow-records-memory-is-gained-at-the-first-record",
     "file": "src/render/renderer.js",
-    "old": "      _shGen: undefined, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,\n",
+    "old": "      _shGen: undefined, _shAx: NaN, _shAy: NaN, _shAz: NaN, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,\n",
     "new": "",
     "tests": [
       "test/perfextb.test.js"
@@ -74,8 +74,8 @@
   {
     "name": "PERF-EXT10-9-the-shadow-pass-remembers-a-new-field-on-the-batch",
     "file": "src/render/shadowPass.js",
-    "old": "      b._shGen = this._shiftGen;\n",
-    "new": "      b._shGen = this._shiftGen; b._shLast = this.frameNo;\n",
+    "old": "      if (b._shGen !== this._shiftGen) this._shiftSeen(b);\n",
+    "new": "      if (b._shGen !== this._shiftGen) this._shiftSeen(b); b._shLast = this.frameNo;\n",
     "tests": [
       "test/perfextb.test.js"
     ]

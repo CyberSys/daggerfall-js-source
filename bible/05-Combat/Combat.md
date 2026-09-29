@@ -1360,19 +1360,19 @@ the step, and the dip only ever makes `|dir|` larger.
 `onAttackFromPlayer` the sentence is about is `:215`, which is where the
 sibling comment in `cityGuards.js` was pointed in the same round). The
 dungeon's three-host sentence had its `exterior.js` number re-resolved
-and its `world.js:18970` left naming a `WorldTime`/`PauseWhileOpen` note
-800 lines from the host's `onPlayerArrowHitFoe` (`world.js:20769`); all
+and its `world.js:19495` left naming a `WorldTime`/`PauseWhileOpen` note
+800 lines from the host's `onPlayerArrowHitFoe` (`world.js:21303`); all
 three halves are read in `citedrift.test.js` now, the shape AUDIT 62's
 review had to apply to `pauseWindow`/`restWindow`. And `listPicker.js`'s
 "three routers that mount a bare picker" named three lines, none of
 which was a router — the round bumped the dungeon's `:4112` to `:4113`
 mechanically, and a wrong number moved by the right offset is still
 wrong. All three are resolved by content (`townTalk.js:1251`,
-`worldModes.js:9865`, `dungeonContext.js:7811`) and pinned as a set.
+`worldModes.js:9869`, `dungeonContext.js:7811`) and pinned as a set.
 
 The `worldModes.js` fix inserts one line, so cites into that host past
-it move by one: the dungeon's `worldModes.js:8349` and
-`chargenSession.js`'s `worldModes.js:9978` are bumped and pinned. Four
+it move by one: the dungeon's `worldModes.js:8353` and
+`chargenSession.js`'s `worldModes.js:9982` are bumped and pinned. Four
 `worldModes.js` cites elsewhere (`interior.js`, `world.js`,
 `tradeModes.js`, `saveWindow.js`) and `UI-Arc.md`'s notebook trio were
 ALREADY stale before this round and are left as found rather than
@@ -1483,7 +1483,7 @@ Mac: "swing speed is insane", then "Do whatever is the most detailed. I dont car
 do it better". **What changed:** DISC28-D (861462d2) gave the rig the player's live Speed, which it had never read - every
 player had swung at the number 50 - and DFU's line (FormulaHelper.GetMeleeWeaponAnimTime, `3 * (115 - LiveSpeed) / 980`
 a frame, five frames a blow) is a hyperbola in the swing rate: one blow a second at 50, 3.3 at 95, four at the cap, where
-a lycanthrope's +40 Speed puts any base of 60 or more (DISC29-G, `01-Overview/Field-Bugs-2026-09-28d.md`).
+a lycanthrope's +40 Speed puts any base of 60 or more (DISC29-G, `01-Overview/Field-Bugs-2026-09-28f.md`).
 
 **The law** (`characters/weaponStates.js` - a leaf, so the build-viewer's paste of it still stands):
 

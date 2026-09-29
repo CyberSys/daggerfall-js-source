@@ -215,8 +215,12 @@ import { mintRaidReceipt, readRaidReceipt } from '../../src/net/raidReceipt.js';
 // gateLaw.js and wire.js, both here). The hub posts off its own alarm; bible/11-Multiplayer/World-Bosses.md, "THE
 // HERALD".
 import { heraldWebhook, heraldRole, omenPost, fellPost, heraldOmenDue, heraldFellLive, gateSiteDayOk, foldGateSite, agreedGateSite, HERALD_RETRY_MS, HERALD_TIMEOUT_MS } from '../../src/net/gateHerald.js';
+// OW6L (2026-09-29, the product owner: "Everything needs that persistence between players in the overworld."): ONE FILE
+// JOINS THE BUNDLE - net/overworldLaw.js (a cell's overworld ledger: the bands and raiders spent in it, its spawned
+// dungeons' clocks - pure law; it imports wire.js, gateLaw.js and raidLaw.js, all three here already).
+import { owIdInCell, owRowInCell, owRowSane, owFoldSpent, owFoldRows, owRowsBehind, owPrune, owLedgerOf, owLedgerEmpty, toWelcome } from '../../src/net/overworldLaw.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX, owGate, owRoomGate, OW_LEDGER_KEY } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -381,6 +385,8 @@ export class Room {
     this._raidDayRolls = new Map(); // RAID-ROLL: the hub's day -> [raid identity] off the kept table - a few days at most
     this._raidTownsUp = new Map();  // RAID-ROLL: the hub's table pieces in flight, a socket's - ws -> { n, parts }
     this._raidCleans = undefined;   // RAID3: the hub's cleansed raids ([key, at, sig] - AUDIT RAID R1), read once - undefined: not read yet
+    this._owLoad = null;            // OW6L: a cell's overworld ledger (net/overworldLaw.js) - the one storage read an instance life, its promise shared by every word and hello that lands while it runs; storage is the truth, written at every change
+    this._roomOw = null;            // OW6L: a cell's budget for fanning its ledger's changes (OW_ROOM_HZ_MAX) - on the instance, as the chat's is
     this._herald = undefined;       // DISCORD-GATES: the hub's door to Discord ({hook, role}), read once - undefined: not read yet, null: none (no posts)
     this._gateSiteRec = undefined;  // DISCORD-GATES: the hub's record of where the gate stands, as accounts said it (net/gateHerald.js foldGateSite) - undefined: not read yet
     try {
@@ -1246,11 +1252,17 @@ export class Room {
       // AUDIT WORLD34 C1: whether this welcome carried a memory rides the attachment - a socket whose welcome carried
       // NONE (the room was empty-handed, or the host had not published yet) is handed the next one the host publishes
       if (isWorldRoom(a.key)) this._setAttach(ws, { ...this._attach(ws), worldSeen: !!world });
+      // OW6L: a CELL's welcome carries its overworld ledger (`ow`: the bands and raiders spent here, its spawned
+      // dungeons' clocks), so a player who walks in later agrees with the ones who were here - a halo's hello too (a
+      // player at the seam hears the next cell's). No field is an empty ledger; no other room has one. Read BEFORE the
+      // welcome is built, so its `now` stays the build's (AUDIT WORLD5 C11, below), and set before `world`, so the
+      // memory, the clock and the version close the frame as they always have
+      const ow = isCellRoom(a.key) ? await this._owWelcome(Date.now()) : '';
       // WORLD5: the relay's clock rides the welcome, so a client whose machine's clock is off reads the shared world time through the offset
       // AUDIT WORLD5 C11: stamped as the welcome is BUILT, not as the hello began - four storage awaits sit between the
       // two, and every millisecond of them was an offset the client carried as the relay's clock
       // SRV-N / SLAM13 (AUDIT SLAM A5): the relay's VERSION rides it (`v`, last), so a client can tell a restarted relay from the one it was talking to, and one built against another law can say so
-      const welcome = `{"t":"welcome","id":${JSON.stringify(m.id)},"peers":${JSON.stringify(roster)},"host":${JSON.stringify(host)},"world":${world ?? 'null'},"now":${Date.now()},"v":${JSON.stringify(RELAY_VERSION)}}`;
+      const welcome = `{"t":"welcome","id":${JSON.stringify(m.id)},"peers":${JSON.stringify(roster)},"host":${JSON.stringify(host)}${ow},"world":${world ?? 'null'},"now":${Date.now()},"v":${JSON.stringify(RELAY_VERSION)}}`;
       if (!this._send(ws, welcome)) return;
       // HCC-PARK: the cell's parked teams, after the welcome that resets the joiner's session (a halo's hello included)
       // AUDIT HCC-PARK (client C3): ALWAYS, an empty list included - a reconnect's welcome is the whole truth, and a
@@ -1583,6 +1595,16 @@ export class Room {
       if (!this._spend(ws, now, raidTownsGate, 'raidTownsBucket', 'raidTownsDrops', 'too many raid town frames')) return;
       if (!isSocialRoom(a.key)) { this._junk(ws); return; }
       try { await this._raidTownsPiece(ws, m); } catch (e) { console.warn('[hub] raid towns failed', e?.message ?? e); }
+      return;
+    }
+    if (m.t === 'ow') {
+      // OW6L: A WORD ON THE CELL'S OVERWORLD LEDGER - the bands and raiders its speaker spent, the spawned dungeons it
+      // first saw or cleared (net/overworldLaw.js) - to the cell it stands in, whose object keeps the ledger. On its own
+      // bucket (the same strikes), in a cell alone (anywhere else junk: a correct client says none there)
+      const now = Date.now();
+      if (!this._spend(ws, now, owGate, 'owBucket', 'owDrops', 'too many overworld frames')) return;
+      if (!isCellRoom(a.key)) { this._junk(ws); return; }
+      try { await this._owWord(ws, a, m, now); } catch (e) { console.warn('[ow] word failed', e?.message ?? e); }
       return;
     }
     if (m.t === 'look') {
@@ -2788,6 +2810,68 @@ export class Room {
     if (!kept.length) { await this.state.storage.delete(k); return; }
     if (!Array.isArray(v) || kept.length !== v.length) await this.state.storage.put(k, kept);
     for (const e of kept) this._send(ws, JSON.stringify({ t: 'raid', k: 'rc', r: e.r }));
+  }
+
+  // ───────────────────────────── OW6L: THE OVERWORLD'S LEDGER ─────────────────────────────
+  /** A cell's overworld ledger (net/overworldLaw.js) - read from storage ONCE an instance life, the read's promise shared
+   *  by every word and hello that lands while it runs (two first words racing each read an empty ledger, and the second
+   *  wrote over the first); pruned as it is read, and written back when the prune let anything go. A read that failed is
+   *  asked again by the next word or hello. The ledger outlives every socket in the cell and the object's own sleep. */
+  _owLedger(now) {
+    if (!this._owLoad) {
+      this._owLoad = (async () => {
+        const led = owLedgerOf(await this.state.storage.get(OW_LEDGER_KEY));
+        if (owPrune(led, now)) await this._owWrite(led);
+        return led;
+      })();
+      this._owLoad.catch(() => { this._owLoad = null; });
+    }
+    return this._owLoad;
+  }
+  /** The ledger to storage - a COPY (owLedgerOf: the runtime keeps what was put, never this instance's live object) - or
+   *  its key let go once it holds nothing. */
+  async _owWrite(led) {
+    if (owLedgerEmpty(led)) await this.state.storage.delete(OW_LEDGER_KEY);
+    else await this.state.storage.put(OW_LEDGER_KEY, owLedgerOf(led));
+  }
+  /** A cell's welcome's `ow` field - `,"ow":{sp, dg}` - or '' when the ledger holds nothing, or could not be read (a
+   *  welcome is never refused over it; the next word or hello reads again). */
+  async _owWelcome(now) {
+    try {
+      const w = toWelcome(await this._owLedger(now), now);
+      return w.sp.length || w.dg.length ? `,"ow":${JSON.stringify(w)}` : '';
+    } catch (e) { console.warn('[ow] welcome failed', e?.message ?? e); return ''; }
+  }
+  /**
+   * A PLAYER'S WORD on its cell's overworld ledger (net/overworldLaw.js). JUNK, struck, when anything in it is what no
+   * honest machine says in this room: an id whose cell origin lies outside the cell's square widened by
+   * OW_CELL_MARGIN_PX, a row off that square, on a pixel the spawn roll leaves empty, or cleared before it was seen (the
+   * session holds its word to the same law before it sends, so an honest client is never struck). Otherwise it is
+   * folded in - an id of another life, a row out of its time, dropped quietly (a clock at the edge, a stale save). What
+   * CHANGED is written, then said to everyone hello'd in the cell - THE SPEAKER TOO, as the raid's count is: its machine
+   * min-merges the ledger's word back (the cell's clocks may be earlier than its own), and hearing it is how a speaker
+   * knows the cell took it. Over the cell's fan budget a change is said to its speaker alone (the ledger holds it; the
+   * next welcome says it to the rest). A row the word was BEHIND is answered to its speaker alone, with the ledger's own
+   * (RAID3's law: a word that moves nothing is answered to its speaker) - a machine that forgot a spawn and met it again.
+   */
+  async _owWord(ws, a, m, now) {
+    const junk = m.k === 'sp' ? !m.ids.every((id) => owIdInCell(id, a.key)) : !m.rows.every((r) => owRowSane(r) && owRowInCell(r, a.key));
+    if (junk) { this._junk(ws); return; }
+    const led = await this._owLedger(now);
+    const moved = m.k === 'sp' ? owFoldSpent(led, m.ids, now) : owFoldRows(led, m.rows, sharedClassicMinutes(now));
+    if (moved.length) {
+      owPrune(led, now);
+      await this._owWrite(led);
+      const out = JSON.stringify(m.k === 'sp' ? { t: 'ow', k: 'sp', ids: moved } : { t: 'ow', k: 'dg', rows: moved });
+      const room = owRoomGate(this._roomOw, now);
+      this._roomOw = room.bucket;
+      if (room.pass) { for (const [other, b] of [...this._all()]) if (b.id) this._send(other, out); }
+      else this._send(ws, out);
+    }
+    if (m.k === 'dg') {
+      const behind = owRowsBehind(led, m.rows, moved);
+      if (behind.length) this._send(ws, JSON.stringify({ t: 'ow', k: 'dg', rows: behind }));
+    }
   }
 
   // ───────────────────────────── SOC1: THE HUB ─────────────────────────────

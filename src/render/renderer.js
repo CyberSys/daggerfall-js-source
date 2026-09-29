@@ -4902,7 +4902,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // CARRY. This literal minted eleven, and the rest arrived later in
     // whatever order a path first touched them - a producer's `_box`,
     // `sway`, `conceal`, `noShadow`, `selfCard`; the shadow record's ten
-    // `_sh*`; the key's four `_bbKey*` (LA-COST2: five, its interned id); the signature's `_shId`; a move's
+    // `_sh*` (AUDIT OW5 R4: thirteen - `_shAx`/`_shAy`/`_shAz`, the origin it last saw, doubles born NaN as `_shO*` are);
+    // the key's four `_bbKey*` (LA-COST2: five, its interned id); the signature's `_shId`; a move's
     // `_shMovedAt`; a gib's `_moveScratch`; a free's `_dead`. Every order is
     // its own hidden class to V8: three by day and five at night in the
     // synthetic town, twelve to fifteen with the game's mix of producers. So every
@@ -4939,7 +4940,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
       _box: undefined, sway: undefined, conceal: undefined, hitFlash: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
-      _shGen: undefined, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,
+      _shGen: undefined, _shAx: NaN, _shAy: NaN, _shAz: NaN, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,
       _shRec: undefined, _shFlip: undefined, _shDyn: undefined, _shSway: undefined, _shMovedAt: undefined, _shId: undefined,
       _shAnim: undefined,
     };

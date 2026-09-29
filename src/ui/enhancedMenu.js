@@ -45,7 +45,7 @@
 // reload. Classic works that way because classic is a DOS program with
 // a fixed 320x200 screen. Neither reason survives here.
 //
-// This is ONE screen, under BOTH skins (main.js:118-242, FD1: the
+// This is ONE screen, under BOTH skins (main.js:120-244, FD1: the
 // launcher and its settings window are deleted; the classic rail is
 // Begin, which leads into the splash and PICK03I0 exactly as before).
 // Every destination is a press away from every other, settings
@@ -798,7 +798,7 @@ function paneContinue(body) {
 // settings, because they are questions about the game you are about to
 // start and nowhere else. StartInDungeon in particular is the answer
 // to "do I begin in Privateer's Hold" - a new-game question wearing a
-// settings key's clothes (systems/settings.js:90-95).
+// settings key's clothes (systems/settings.js:94-99).
 function paneNew(body) {
   const c = el('div', 'card');
   c.append(el('h3', null, 'A new character'));
@@ -1005,7 +1005,7 @@ function paneOnline(body) {
   // asked once a visit - and a character is played from here and nowhere else.
   body.append(realmCard(who));
   if (!saves.length) {
-    body.append(empty('No saved games', 'An offline character that played online before the realm can be brought in from here, once.'));
+    body.append(empty('No saved games', 'An offline character the realm knew before it opened can be brought in from here, once.'));
     body.append(onlineSyncCard());   // UXB1-E: the rules can come home before a character goes out
     return;
   }
@@ -1092,9 +1092,19 @@ function realmAct(run, words) {
     realmWords = r?.ok === false ? [realmRefusalText(r.error)] : (typeof words === 'function' ? words(r) : words);
   }).catch(() => { realmWords = [realmRefusalText('server')]; }).finally(() => { realmBusy = false; realmAsked = false; realmRows = null; render(); });
 }
+/** REALM P1.5: CUSTOMS, ASKED FIRST (FIELD 2026-09-29, Dracula/Valentin: "HOW TF WAS I SUPPOSED TO KNOW YALL WOULD FORCE
+ *  THE LOANS TO BE PAID"). Customs is once, so the press says what it will do - customs run on a copy of the save,
+ *  nothing sent (systems/realmCustoms.js customsLines, `before`) - and runs it on the answer. A press customs would
+ *  refuse before the service (signed out, no save, no id, a Test Room character) goes straight on and says so. */
+function bringOnline(save) {
+  const snap = realmIoNow() ? loadSlot(save.key) : null;
+  if (!snap || typeof snap.characterId !== 'string' || !snap.characterId || snap.testRoom === true) return customsNow(save);
+  const preview = customsLines(applyCustoms(JSON.parse(JSON.stringify(snap))), { before: true });
+  return ask(`Bring ${save.name} online?`, preview.join(' '), 'Bring online', () => { customsNow(save); });
+}
 /** REALM P1.5: CUSTOMS - the local save read, customs applied to a COPY (the offline character is untouched), the realm
  *  character made from it once (the service refuses one never online, and a second try), its first save the copy. */
-function bringOnline(save) {
+function customsNow(save) {
   return realmAct(async () => {
     const io = realmIoNow();
     if (!io) return { ok: false, error: 'signed-out' };
@@ -1691,7 +1701,7 @@ function write(key, next) {
 }
 
 // ── MODS ─────────────────────────────────────────────────────────
-// There is NO mod system (Ledger C, Not planned - and settings.js:166
+// There is NO mod system (Ledger C, Not planned - and settings.js:170
 // blocks four keys on exactly that ground). The section still exists,
 // because Mac's call was to set the menus up now, and because a rail
 // that quietly omits mods teaches the player they are impossible.
@@ -2098,12 +2108,12 @@ function tierGroup(catId, tier, title, blurb, keys) {
   return g;
 }
 
-/** A category's rows, in order: the port's own, the live store keys
- *  flat, then the two folded tiers. */
+/** A category's rows, in order: the port's own, the store keys that do
+ *  something here flat (drawsFlat), then the two folded tiers. */
 function categoryRows(catId) {
   const keys = paneKeys(catId);   // FT13: the moved keys are the home's
   const out = [...portRows(catId)];
-  for (const key of keys) if (tierOf(key) === 'live') { const r = settingRow(key); if (r) out.push(r); }
+  for (const key of keys) if (drawsFlat(key)) { const r = settingRow(key); if (r) out.push(r); }
   for (const [tier, title, blurb] of TIER_GROUPS) {
     const ks = keys.filter((k) => tierOf(k) === tier);
     if (ks.length) out.push(tierGroup(catId, tier, title, blurb, ks));
@@ -2111,8 +2121,12 @@ function categoryRows(catId) {
   return out;
 }
 
+/** FPS-VSYNC: a key the desktop shell reads at its next launch does something here too - drawn flat with the live
+ *  ones (never in Quick Settings, whose rows take effect at once). */
+function drawsFlat(key) { const t = tierOf(key); return t === 'live' || t === 'restart'; }
+
 /** What the sub-rail counts: the rows that DO something here. */
-const liveCount = (catId) => portRows(catId).filter((r) => r.dataset?.live !== '0').length + paneKeys(catId).filter((k) => tierOf(k) === 'live').length;   // FT13: what is drawn; QREPAIR: a row greyed here does nothing here
+const liveCount = (catId) => portRows(catId).filter((r) => r.dataset?.live !== '0').length + paneKeys(catId).filter(drawsFlat).length;   // FT13: what is drawn; QREPAIR: a row greyed here does nothing here
 
 /** MWA4: what the Morrowind files do, in the card's one line. */
 export const MW_CARD_LINE = 'Your own Morrowind files (Morrowind.bsa and Morrowind.esm, with Tribunal and Bloodmoon if you have them) '

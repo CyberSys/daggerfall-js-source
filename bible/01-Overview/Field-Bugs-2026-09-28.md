@@ -89,7 +89,7 @@ Roleplay & Realism's and RR Items' registered anim-time overrides receive the sa
 `test/disc28_speed.test.js` (4): the swing lasts five of the formula's ticks at Speed 20, 50 and 100; a Speed that
 changes mid-life changes the next swing; a number still fixes it; the rig's reader by source.
 
-SUPERSEDED FOR THE PLAYER by SWING-LAW (`05-Combat/Combat.md`, DISC29-G in `Field-Bugs-2026-09-28d.md`): the formula
+SUPERSEDED FOR THE PLAYER by SWING-LAW (`05-Combat/Combat.md`, DISC29-G in `Field-Bugs-2026-09-28f.md`): the formula
 is a hyperbola in the swing rate, and the player's swing is the port's own law now. AUDIT PRE-MERGE 0929 S5 moved this
 file's first-person pins onto the weapon as the rig builds it - with the swing's ctx, so they time SWING-LAW's clock
 (Speed 100 swings 1/0.6 as often as 50, not four times) - and kept DFU's line pinned where it still runs: a machine

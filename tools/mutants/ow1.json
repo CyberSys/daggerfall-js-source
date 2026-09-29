@@ -102,12 +102,22 @@
   {
     "name": "OW-BIG-giant-shadow",
     "file": "src/player/eotbBody.js",
+    "old": "          batch.noShadow = grow > 1;",
+    "new": "          batch.noShadow = false;",
+    "tests": [
+      "test/eotb_body.test.js"
+    ],
+    "note": "The grown sprite casts a giant's shadow across the land (AUDIT OW5 R2: re-aimed from selfCard, which never kept it from casting)."
+  },
+  {
+    "name": "OW-BIG-self-card",
+    "file": "src/player/eotbBody.js",
     "old": "          batch.selfCard = grow === 1;",
     "new": "          batch.selfCard = true;",
     "tests": [
       "test/eotb_body.test.js"
     ],
-    "note": "The grown sprite casts a giant's shadow across the land."
+    "note": "The grown card is taken for the player's own at the lamps."
   },
   {
     "name": "OW-BIG-lantern-adrift",

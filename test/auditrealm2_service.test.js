@@ -198,7 +198,7 @@ test('AUDIT REALM2 S1: the service measures a save as customs does - ONE law (ne
 
 // ---- S2: A HOUSE, A PIECE AND A FOUNDING ARE A REALM CHARACTER'S --------------------------------------------------------
 
-test('AUDIT REALM2 S2: a house, a piece and a founding are a realm character\'s - any other id is refused and writes nothing (no building squatted at a price of 1, no free station, no free guild); customs carries the census\'s Renown track in, and no home and no guild place; a realm character claims, places and founds on its record', async () => {
+test('AUDIT REALM2 S2: a house, a piece and a founding are a realm character\'s - any other id is refused and writes nothing (no building squatted at a price of 1, no free station, no free guild); customs carries the census\'s Renown track in - and, since CUSTOMS-CARRY (Mac 2026-09-29: "Carry them"), its home and its guild place from before the realm; a realm character claims, places and founds on its record', async () => {
   const s = await stand();
   const P = await s.account();
   const house = { mapId: 12345, buildingKey: 777, region: 17 };
@@ -219,8 +219,8 @@ test('AUDIT REALM2 S2: a house, a piece and a founding are a realm character\'s 
   const came = await s.call('/v1/realm/customs', { origin, name: 'Carried' }, P.secret);
   assert.equal(came.status, 200);
   assert.deepEqual(s.rows('SELECT char_id, xp FROM renown_tracks WHERE player = ?', P.id), [{ char_id: came.body.id, xp: renownXpFor(12) }], 'its Renown comes in');
-  assert.deepEqual(s.rows('SELECT char_id FROM homes'), [{ char_id: origin }], 'its house stays with the offline character');
-  assert.deepEqual(s.rows('SELECT char_id, rank FROM guild_members'), [{ char_id: origin, rank: 0 }], 'and its guild place');
+  assert.deepEqual(s.rows('SELECT char_id FROM homes'), [{ char_id: came.body.id }], 'CUSTOMS-CARRY: its house from before the realm comes in');
+  assert.deepEqual(s.rows('SELECT char_id, rank FROM guild_members'), [{ char_id: came.body.id, rank: 0 }], 'and its guild place');
   // a realm character does all three on its record
   const R = await s.character(P, 'Realmer', { name: 'Realmer', level: 5, goldPieces: 100_000, items: [] });
   s.renown(P, R.id);

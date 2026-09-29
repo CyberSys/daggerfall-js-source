@@ -314,7 +314,8 @@ test('U41: the world host mounts the art window and keeps performFastTravel\'s o
   // PIN MOVED (DW-F), 7400 -> 7800: the sweep frees the rubble a rebuild
   // carried and forgets the wrecks' guards, with their notes, above the
   // needles.
-  const core = src.slice(k, k + 7800);
+  // PIN MOVED (AUDIT OW5 J2), 7800 -> 8800: a jump stops a route's walk first thing, with its note
+  const core = src.slice(k, k + 8800);
   for (const needle of ['destroyPixel(bx, by)', 'state.init(px, py)', 'awaitedBuild(first.px']) {
     assert.ok(core.includes(needle), `the core carries ${needle}`);
   }

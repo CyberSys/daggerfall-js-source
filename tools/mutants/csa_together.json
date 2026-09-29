@@ -481,8 +481,8 @@
   {
     "name": "CSAK-host-word-no-force",
     "file": "src/scenes/world.js",
-    "old": "exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved || bandMoved)",
-    "new": "exteriorFoes.foesFrame(full, _hccDirty || csaMoved || bandMoved)",
+    "old": "exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved || bandMoved || seaRaidMoved)",
+    "new": "exteriorFoes.foesFrame(full, _hccDirty || csaMoved || bandMoved || seaRaidMoved)",
     "tests": [
       "test/csa_together.test.js"
     ]

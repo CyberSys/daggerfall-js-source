@@ -171,10 +171,10 @@
     ]
   },
   {
-    "name": "REALM1-customs-carries-the-guild",
+    "name": "REALM1-customs-leaves-the-guild",
     "file": "server-account/src/realm.js",
-    "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks']);",
-    "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);",
+    "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);",
+    "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks']);",
     "tests": [
       "test/realm1.test.js"
     ]

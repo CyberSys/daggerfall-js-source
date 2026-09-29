@@ -1709,7 +1709,7 @@ at the shipped `Mouse2` default, and handed it to the input lane.
 `worldModes` has no `keys` Set of its own: it destructures one from
 `host` (`worldModes.js:463`), and its only two callers are `world.js`
 (`:6147`) and `exterior.js` (`:2769`), both of which pass their own Set
-and both of whose WINDOW-level handlers (`world.js:10820-10821`,
+and both of whose WINDOW-level handlers (`world.js:10988-10989`,
 `exterior.js:3314-3315`) call `mouseCode(e.button)` and add/delete
 unconditionally - outside every mode and overlay gate. `MOUSE_CODES`
 maps button 2 to `Mouse2` (`input.js:510`), which is the shipped
@@ -1728,7 +1728,7 @@ not gate on `HasAction`; it gates on `playerMotor.IsStandingStill`
 that `GroundedMovement` writes straight into `moveDirection`, so DFU
 plays the stride. The port walked the autorunner forward in silence in
 every host. All four now pass `standingStill: player.standing`, the
-motor's own mirror of that getter (`world.js:21005` already did at its
+motor's own mirror of that getter (`world.js:21539` already did at its
 other footstep site) - which is also still the paralysis answer,
 because the hosts zero both axes for a frozen player.
 
@@ -2177,7 +2177,7 @@ Measured on BLOCKS.BSA: of the 104 Collision01 objects (52 models), 49 have no u
 among them), 8 Hurt23/Hurt24 rooms (model 67017 in N0000006 and N0000008), 4 CastSpell (the two thrones, N0000007's
 room), 2 DrainMagicka, a Teleport and an Unknown32 among the 49. Stood on, each now fires as DFU's does.
 `test/disc29_throne.test.js` (5, one on the real N0000037); `tools/mutants/disc29.json` (DISC29-A, 7).
-`01-Overview/Field-Bugs-2026-09-28d.md` DISC29-A.
+`01-Overview/Field-Bugs-2026-09-28f.md` DISC29-A.
 
 **AUDIT PRE-MERGE 0929 D1/D2** (`01-Overview/Audit-PreMerge-0929.md`) - the review above, due at once. DFU's WalkOn is
 the contact's DIRECTION from the controller's centre (`dir.y < -0.9`, :68-71) for EVERY flag; the ray (:74-85) is only

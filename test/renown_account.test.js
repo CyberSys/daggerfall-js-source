@@ -262,7 +262,7 @@ test('RENOWN-ACCOUNT the migration: over the real migrations, each account start
   assert.equal(MIGRATIONS[i20 + 1], ACCOUNT_MIGRATION, '0021 follows 0020: the census is taken first');
   migrate(raw, MIGRATIONS.slice(0, i20));
   const db = wrap(raw);
-  // accounts made before 0020 were written by the service as it was then - TERMS1's columns (migration 0022, after
+  // accounts made before 0020 were written by the service as it was then - TERMS1's columns (migration 0023, after
   // these) did not exist yet, so the guest row is the one it wrote before them
   const before = () => { const id = mintId(rand); raw.prepare('INSERT INTO players (id, handle, handle_lc, guest_name, created_at, last_seen) VALUES (?, NULL, NULL, ?, ?, ?)').run(id, 'Guest', T0, T0); return { id }; };
   const A = before(), B = before(), C = before(), D = before();

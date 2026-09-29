@@ -207,7 +207,9 @@ export const REFUSALS = Object.freeze({
   'no-realm-character': 'That online character is not on this account.',
   lease: 'This character is being played somewhere else now - another tab or device took it.',
   seq: 'This character was saved from somewhere else in the meantime. Rejoin to carry on.',
-  'customs-never-online': 'Only a character that has already played online can be brought into the realm.',
+  // CUSTOMS-CARRY (2026-09-29): the census is every trace the realm has from before it began (migration 0022) - said as
+  // what counts, since "played online" read false to a player who had and never killed there
+  'customs-never-online': 'The realm has no record of this character from before it opened - no Renown, online home, guild place, raid or cloud backup - so it cannot come in. Make a new online character instead.',
   'customs-already': 'That character has already been brought into the realm.',
   // AUDIT REALM2 S1: a first save the realm reads - a new character's, or customs' own
   'realm-birth': 'The realm takes a new character only as character creation makes one. Delete it and make it again.',

@@ -2,8 +2,8 @@
   {
     "name": "OW3-J1-bare-interrupt",
     "file": "src/scenes/world.js",
-    "old": "&& travelOptions?.isTravelActive) travelOptions.messages.pauseTravel(); },",
-    "new": "&& travelOptions?.isTravelActive) travelOptions.interruptTravel(); },",
+    "old": "&& travelOptions?.isTravelActive && tvOwnsJourneys()) travelOptions.messages.pauseTravel(); },",
+    "new": "&& travelOptions?.isTravelActive && tvOwnsJourneys()) travelOptions.interruptTravel(); },",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -12,8 +12,8 @@
   {
     "name": "OW3-J1-rises-over-a-stop",
     "file": "src/scenes/world.js",
-    "old": " || !travelOptions?.isTravelActive || !travelOptions.state?.autopilot) return;",
-    "new": " || !travelOptions?.isTravelActive) return;",
+    "old": " || !travelOptions.isTravelActive || !travelOptions.state?.autopilot) return;",
+    "new": " || !travelOptions.isTravelActive) return;",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -52,7 +52,7 @@
   {
     "name": "OW3-J2-no-owner",
     "file": "src/scenes/world.js",
-    "old": "function tvOwnsJourneys() { return !!travelOptions && isEnhanced() && !!travelView; }",
+    "old": "function tvOwnsJourneys() { return !!travelOptions && !modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravel') && isEnhanced() && !!travelView; }",
     "new": "function tvOwnsJourneys() { return false; }",
     "tests": [
       "test/tv2_click_to_move.test.js"
@@ -223,7 +223,7 @@
   {
     "name": "OW3-J7-walked-into-the-sea",
     "file": "src/scenes/world.js",
-    "old": "      if (tvWater(pick.pixel.x, pick.pixel.y) || at[1] <= tvSeaY() + TV_SEA_EPS_M) { townTalk.say(TRAVEL_VIEW_TEXT.water); return false; }\n",
+    "old": "      if (tvWater(pick.pixel.x, pick.pixel.y) || at[1] <= tvSeaY() + TV_SEA_EPS_M) { tvSay(TRAVEL_VIEW_TEXT.water); return false; }\n",
     "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js"

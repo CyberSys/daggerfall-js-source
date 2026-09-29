@@ -368,7 +368,7 @@ the bare TEMPLATE's name (`systems/lootRarity.js rarityName`), so the long name 
   brigandine boots walked in plate and a mail hauberk clanked as plate. Both read `rriNativeMaterialValue` now.
 
 `test/disc29_rarity.test.js` (6), `test/if1_immersivefootsteps.test.js` (the boots' ladder);
-`tools/mutants/disc29.json` (DISC29-B, 11). `01-Overview/Field-Bugs-2026-09-28d.md`, DISC29-B.
+`tools/mutants/disc29.json` (DISC29-B, 11). `01-Overview/Field-Bugs-2026-09-28f.md`, DISC29-B.
 
 ## Record
 
