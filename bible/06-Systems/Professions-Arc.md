@@ -808,8 +808,9 @@ note's answer plan, one shape from every exit) and the window driven on the mini
   writ asks for a material from the region's own **witnessed** tables - metals, wood, herbs (4.1-4.3) and stone (4.5),
   never hides or fish, which are bounded, not witnessed (section 6), since a Mark is minted only for a witnessed act
   (law 8) - mostly tiers 1-4, one a day of tier 5-6; **10-50** units, fewer at higher tiers. **Pay**: units x the material's Marks value x
-  1.2, and Renown XP 25 x tier x units / 10 (MERGE 2: at main's RENOWN-ACCOUNT rate, three quarters floored, and to the
-  ACCOUNT's one Renown - `net/professionLaw.js` writRenown). Each writ is filled once, by the first to deliver; at most **3** an
+  1.2, and Renown XP 25 x tier x units / 10 (MERGE 2: at main's RENOWN-ACCOUNT rate, three quarters floored -
+  `net/professionLaw.js` writRenown - and to the delivering character's own track since RENOWN-CHAR; MERGE 2 had paid
+  the ACCOUNT's one Renown). Each writ is filled once, by the first to deliver; at most **3** an
   account a day. (The economy model, Appendix C, set 3 and 1.2: at 5 and 1.5 the Marks minted ran at 2.3 times the
   Marks burnt.)
 - **Guild and seat writs**: their pay is escrowed from the guild's Marks treasury, so posting one is a withdrawal:

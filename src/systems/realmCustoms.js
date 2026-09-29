@@ -9,9 +9,9 @@
 // carries the track to the realm's id - server-account/src/realm.js
 // customsCarry; CUSTOMS-CARRY, Mac 2026-09-29: and its online homes and
 // its guild place, what stood before the realm, which AUDIT REALM2 S2
-// had left behind; RENOWN-ACCOUNT: the Renown itself is the account's,
-// so the realm character stands at it from its first minute, and the
-// track that crosses is its history). Skills,
+// had left behind; RENOWN-CHAR: its Renown track crosses with it, the
+// character's own again - RENOWN-ACCOUNT had made it the account's for
+// a day). Skills,
 // attributes and items within the online caps, and a custom class
 // re-checked, arrive with phase 4's caps.
 //

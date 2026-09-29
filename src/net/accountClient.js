@@ -50,6 +50,7 @@ import {
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
 import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, AUCTION_BID_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
 import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
+import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence (RENOWN-CHAR: back with the tracks)
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
  *  DEFAULT_SERVER (net/online.js), because they are two Workers and
@@ -157,12 +158,10 @@ export const REFUSALS = Object.freeze({
   'body-long': `A letter is at most ${LETTER_BODY_MAX} characters.`,
   'body-lines': `A letter is at most ${LETTER_LINES_MAX} lines.`,
   // RENOWN1, Renown. Each is a build or a device the service does not believe, never a player's mistake:
-  // the words say what happened, since there is nothing to retype. RENOWN-ACCOUNT: the service answers only
-  // 'renown-xp' now - Renown is the account's - and the other two are a service's from before it (a track a
-  // character, sixty at most), kept for as long as one may still answer.
+  // the words say what happened, since there is nothing to retype. (RENOWN-CHAR: all three are this service's again.)
   'renown-character': 'The account service could not tell which character earned that.',
   'renown-xp': 'The account service refused that experience report.',
-  'renown-full': 'This account already has Renown for as many characters as the account service keeps.',
+  'renown-full': `This account already has Renown for ${RENOWN_TRACKS_MAX} characters, the most it keeps.`,
   // HOME1, the online homes (server-account/src/homes.js). A player meets these at a front door, beside the price.
   'homes-need-account': 'Owning a home needs a username and a password. Give this account one and you can buy one.',
   'home-taken': 'Somebody else owns this home now.',
@@ -506,7 +505,7 @@ export const muteAccount = (io, target, minutes) => call(io, '/v1/mod/mute', { t
  *  holds - this side does not get to say what goes in it, which is the
  *  whole point of the seam. A service with no signing pair answers
  *  `no-signing-key` rather than minting something the relay refuses. */
-export const mintIdentity = (io, character = null) => call(io, '/v1/auth/token', character ? { character, guild: true } : {});   // RENOWN1: naming the character brought online signs the Renown in (RENOWN-ACCOUNT: the account's, whichever is named); AUDIT MERGE-PLUS A6: and this build knows the guild's channel, so it asks for the guild
+export const mintIdentity = (io, character = null) => call(io, '/v1/auth/token', character ? { character, guild: true } : {});   // RENOWN1: naming the character brought online signs its Renown in; AUDIT MERGE-PLUS A6: and this build knows the guild's channel, so it asks for the guild
 
 // ── THE SESSION ON THIS DEVICE ──────────────────────────────────────
 
@@ -630,9 +629,8 @@ export function forgetSession(storage) {
  *
  * RENOWN1: `character` answers the id of the character being brought
  * online (systems/characterId.js), read at EACH mint - the service signs
- * the Renown into the token (RENOWN-ACCOUNT: the account's, whichever
- * character is named), and `who.level` carries it back - RENOWN4: and
- * `who.xp` the account's total, which the
+ * that character's Renown into the token, and `who.level`
+ * carries it back - RENOWN4: and `who.xp` the track's total, which the
  * answer carries beside the token and never in it. GUILD1c: and
  * `who.guild` the character's guild's tag, signed into the token beside
  * the level. A getter that answers nothing mints as before.
@@ -739,9 +737,7 @@ export function accountGates({ fetch, storage }) {
 }
 
 /** RAID4: a town raid's receipt the relay signed for this account, carried to the service with the character that
- *  fought it - `{ recorded, defended, renown, order }`, or `{ recorded: false, why }` (`claimed`, `guest`, `day-full`).
- *  RENOWN-ACCOUNT: the Renown is paid to the account; the character is the claim's record (and a service from before it
- *  refused a claim naming none). */
+ *  fought it - `{ recorded, defended, renown, order }`, or `{ recorded: false, why }` (`claimed`, `guest`, `day-full`). */
 export const claimRaidReceipt = (io, receipt, character, name = null, cid = null) => call(io, '/v1/raid/claim', { receipt, character, name, ...(cid ? { cid } : {}) });   // AUDIT RAID R4: `cid` this device's claim of it - the thanks' key
 
 /**
@@ -758,9 +754,7 @@ export function accountRaids({ fetch, storage }) {
   };
 }
 
-/** RENOWN1: what one of this account's characters earned online - RENOWN-ACCOUNT: credited to the ACCOUNT, answered
- *  `{ xp, level, credited, rose, order }` (the account's track after it). The character and its name still ride the
- *  report for a service from before it, which kept a track a character; this one reads neither. */
+/** RENOWN1: what one of this account's characters earned online - `{ character, xp, level, credited, rose, order }`. */
 export const reportRenownXp = (io, character, xp, name = null, rid = null) => call(io, '/v1/renown/xp', { character, xp, name, ...(rid ? { rid } : {}) });   // AUDIT RENOWN1 DATA-4: `rid` the report's own id
 
 /**

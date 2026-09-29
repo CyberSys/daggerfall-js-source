@@ -17,10 +17,9 @@
 //
 // ═══ THE RENOWN IS THE SERVICE'S OWN ═══════════════════════════════
 //
-// Founding asks the account's Renown of the service's own track
-// (renownTracks.js - RENOWN-ACCOUNT: one Renown an account, so any of
-// its characters stands at it), never the client's word. The GOLD is the
-// client's:
+// Founding asks the character's Renown of the service's own track
+// (renownTracks.js - RENOWN-CHAR: the founding character's again), never
+// the client's word. The GOLD is the client's:
 // the economy is the save's, so the service writes first and the client
 // pays after (HOME1's order) - the founder short of it disbands the
 // guild it just founded. A deposit is the other way round: the client
@@ -170,8 +169,8 @@ async function targetOf(db, me, member) {
 const spend = (ctx, player) => overRate(ctx, `guild:${player.id}`, GUILD_OPS_MAX, GUILD_OPS_WINDOW_S);
 
 /**
- * FOUND ONE. The account must stand at Renown GUILD_FOUND_RENOWN on the service's own track (RENOWN-ACCOUNT: the
- * account's one Renown, whichever of its characters founds) and the character belong to no guild;
+ * FOUND ONE. The character must stand at Renown GUILD_FOUND_RENOWN on the service's own track (RENOWN-CHAR: its own
+ * again) and belong to no guild;
  * the name and the tag must be free. The founder is its guildmaster; the client pays the fee after (HOME1's order).
  * @param {{db: any, nowS: number, rand: (b: Uint8Array) => void}} ctx
  */
@@ -188,7 +187,7 @@ export async function foundGuild(ctx, player, { character, name, tag, realm = nu
   const t = guildTagOf(tag);
   if (!n || !t) return { error: 'bad-guild' };
   if (await spend(ctx, player)) return { error: 'guild-rate' };
-  const track = await renownTrackOf({ db }, player.id);   // RENOWN-ACCOUNT: the account's, never the character's
+  const track = await renownTrackOf({ db }, player.id, character);   // RENOWN-CHAR: the founding character's own
   if ((track?.level ?? 1) < GUILD_FOUND_RENOWN) return { error: 'guild-renown' };
   if (await memberRow(db, player.id, character)) return { error: 'guild-already' };
   const key = guildNameKey(n);

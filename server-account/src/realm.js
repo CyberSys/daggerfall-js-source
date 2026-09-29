@@ -180,9 +180,9 @@ export async function createRealm({ db, rand, nowS }, playerId, { name, summary 
  *  where they were lost to everyone: a building exclusive to nobody who could walk in, a guild without its master and
  *  its name and tag kept from any founding (Dracula/Valentin, the field). Migration 0022 carried them for every
  *  character customs had already made.
- *  RENOWN-ACCOUNT: THE TRACK IS HISTORY NOW - the Renown itself is the account's (renown_accounts, migration 0021, keyed
- *  by the account alone), so no character's customs or delete can move it or take it away, and a realm character stands
- *  at it from its first minute. */
+ *  RENOWN-CHAR: THE TRACK IS THE CHARACTER'S RENOWN AGAIN (RENOWN-ACCOUNT kept one an account for a day, renown_accounts,
+ *  migration 0021 - history now; migration 0035 gave each track back its share): customs carries it in with the rest, so
+ *  the plan's "Renown starts from its existing track" holds, and a delete takes it with the character. */
 export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);
 
 /** CUSTOMS CARRIES A CHARACTER'S TRACK IN, re-keyed from the offline id to the realm's - the account's own rows only, and
@@ -536,10 +536,9 @@ export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @ty
  *  - then the row: saves.js's order, so a failure halfway leaves a row whose bytes lie rather than objects nothing
  *  names. AUDIT REALM L1-F7 / L3-F5: AND ITS ONLINE LIFE WITH IT, as the door promises ("its home and its guild place
  *  with it"): the row's delete carries its homes (their pieces and hidden furniture go by the tables' own cascade), its
- *  guild place and its Renown history row in ONE batch. They stood under a dead id: a house nobody could buy again nor
- *  its owner sell, a guild whose master could never be succeeded, a track that counted against the account.
- *  RENOWN-ACCOUNT: THE ACCOUNT'S RENOWN STAYS WHOLE - it is renown_accounts', keyed by the account alone, and nothing
- *  here names that table; a character deleted takes only its own history row.
+ *  guild place and its Renown track in ONE batch. They stood under a dead id: a house nobody could buy again nor its
+ *  owner sell, a guild whose master could never be succeeded, a track that counted against the account's sixty
+ *  (RENOWN-CHAR: the character's Renown goes with it again, as the door said before RENOWN-ACCOUNT).
  *  A guildmaster with members hands the guild over first ('guild-master-leaves', the guild's own word for leaving).
  *  AUDIT REALM2 S8: AND A LONE ONE EMPTIES THE TREASURY FIRST ('guild-treasury'), as leaving asks (guilds.js leaveGuild).
  *  The delete let it go with gold inside: a guild nobody is in, holding what its records paid in, until the next founder

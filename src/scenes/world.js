@@ -13809,8 +13809,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // captured here: the links are built after this and rebuilt on rejoin.
   // ═══ RENOWN1 — THE RENOWN (Mac: "What if the leveling system was something seperate unique to online but
   // compatible"; the health and magicka "On top", a "Grind", offline earning "No") ═══════════════════════════════════
-  // The level this page knows - the ACCOUNT's, whichever character plays (RENOWN-ACCOUNT, Mac: "can you make sure renown is account based and not character based?"):
-  // the token's word at each mint (the minter names the character coming online, and the service signs the level in) and the service's after each report - ONLY
+  // The level this page knows for its character (RENOWN-CHAR, Mac: "Can we make renown per character again" - RENOWN-ACCOUNT made it the account's for a day):
+  // the token's word at each mint (the minter names the character, and the service signs its level in) and the service's after each report - ONLY
   // EVER UPWARD, because a total never falls and a token minted a moment before a rise must not take it back. Each rise puts the layer on at the new
   // level (systems/renownLayer.js: on top of Daggerfall's own maximums, never saved). Offline, none of this runs.
   let renownNow = null;
@@ -13884,8 +13884,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     teleportTo(pick).catch((e) => { console.error('[staff] /tp failed:', e); hudFade.clearFade(); say('The teleport failed.'); });
   }
   const identityMinter = accountTokenMinter({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage(), onIssued: adoptIssued,
-    character: () => (onlineOn ? realmSession?.id ?? null : null) });   // RENOWN1: the character coming online - RENOWN-ACCOUNT: the token carries the account's level, whichever is named. REALM-DOOR: it is the realm character this tab JOINED (online is never without one), which the service signs as the realm's and the relay's door reads - never an id the save carries or characterIdOf mints
-  // RENOWN1: WHAT THIS CHARACTER EARNS, FOR ITS ACCOUNT (RENOWN-ACCOUNT) - online only (the tracker is never built offline, and earns only while a session
+    character: () => (onlineOn ? realmSession?.id ?? null : null) });   // RENOWN1: the character coming online, whose level the token carries (RENOWN-CHAR: its own again). REALM-DOOR: it is the realm character this tab JOINED (online is never without one), which the service signs as the realm's and the relay's door reads - never an id the save carries or characterIdOf mints
+  // RENOWN1: WHAT THIS CHARACTER EARNS (RENOWN-CHAR: its own track again) - online only (the tracker is never built offline, and earns only while a session
   // exists). A foe pays when it dies within RENOWN_ASSIST_MS of my own blow, whoever struck last (net/renownTracker.js - the one rule every kill door agrees
   // on), with the party in my room counted (renownPartyXp); a quest pays on success, once - each at three quarters (net/renown.js renownRate, RENOWN-ACCOUNT).
   // The report goes every RENOWN_REPORT_MS; the service's answer is the truth, and a rise is carried to my rooms.
@@ -15010,8 +15010,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   }) : null;
   /** RAID4: THE RAID RECEIPTS THIS DEVICE CARRIES TO THE ACCOUNT SERVICE (net/raidClaims.js) - each town the relay
    *  signed my defence of, kept with the character that fought it until the service has counted it and paid its
-   *  Renown; a counted raid's Renown is the page's at once, as a report's is - RENOWN-ACCOUNT: WHOEVER IS STANDING
-   *  HERE, since the Renown is the account's (a raid another of my characters fought was dropped as another's track). */
+   *  Renown; a counted raid's Renown is the page's at once, as a report's is - when that character is the one
+   *  standing here (another's track moved, not this one's - RENOWN-CHAR: as before RENOWN-ACCOUNT). */
   const _accountRaids = accountRaids({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() });
   const raidClaims = params.has('online') ? createRaidClaims({
     claim: _accountRaids.claim,
@@ -15021,7 +15021,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     say: (text) => chatNotice(text),
     onSpoils: (entry) => grantRaidSpoils(entry),   // AUDIT RAID R4: the town's thanks, once a raid and account - the service's word
     onRecorded: (data) => {
-      if (!data?.renown) return;   // RENOWN-ACCOUNT: any claim's credit is the account's - adopted whichever character fought it
+      if (data?.renown?.character !== characterIdOf(playerEntity)) return;   // RENOWN-CHAR: the fighting character's track, adopted only by that character
       const a = renownAnswer({ ...data.renown, order: data.order ?? null }, data.renown.credited ?? 0, renownSaid);
       if (a.xp !== null) renownXpAdopt(a.xp);
       if (a.level !== null) renownAdopt(a.level);

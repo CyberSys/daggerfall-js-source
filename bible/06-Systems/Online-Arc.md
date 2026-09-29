@@ -11489,7 +11489,8 @@ numbered, is one now:
   credits the account's track in its own batch (made where it has none, as a raid's claim makes it; outside the hour's
   bound, the writ being the service's own to prove - its units spent from the Stores in the same batch), answers as
   `/v1/renown/xp` does (no `character`, `max` at the cap), and `net/professionLaw.js` writRenown passes through
-  renownRate: a tier-2 writ of 30 units pays 112, 150 at the full rate.
+  renownRate: a tier-2 writ of 30 units pays 112, 150 at the full rate. (RENOWN-CHAR, below, made it the delivering
+  character's track again, under the tracks' bound.)
 - **The loot pile's call carries both sides' arguments** (`systems/loot.js` addPileLootExtras): FORAGE3's
   `locationIndex` and `luck` for OnLootSpawned's subscribers, and REALM P0.4's `level` (online, a pile's gold divided
   back by the level) - at the dungeon's pile, the camp's and a tavern's.
@@ -11532,6 +11533,26 @@ numbered, is one now:
    not checkpointed at once, as a trade is (REALM P0.5): the two-minute checkpoint and the exit save carry it, and the
    market's settle takes a listed piece's copy out of a restored save. Checkpointing them as trades are would close the
    window.
-3. A realm character's delete takes its homes, its guild place and its Renown history; the professions' rows keyed by it
+3. A realm character's delete takes its homes, its guild place and its Renown (its own track again since RENOWN-CHAR); the professions' rows keyed by it
    (its Stores, its tracks, a delivery on the road to it) stay, unreachable. The delete could refuse while any stands,
    as it refuses a guildmaster with members.
+
+## RENOWN-CHAR (2026-09-29, Mac: "Can we make renown per character again") - Renown a character's again
+
+Asked how each character should start, Mac chose "Own + recent gains". The record is
+`06-Systems/Accounts-And-Cloud-Saves-Arc.md` RENOWN-CHAR. In short:
+
+- **The account service is acct31.** Renown is a track a character again: RENOWN1's `renownTracks.js`, `raids.js`, and
+  the client's tracker, raid queue and bar, restored as they were before RENOWN-ACCOUNT. The report, the token's `lv`,
+  the card's list, a raid's pay, a guild's founding and a Court writ's pay are each the character's.
+- **What stays from RENOWN-ACCOUNT:** every source at three quarters, and the hour's bound of 15,000, which is still the
+  account's across its characters. `RENOWN_TRACKS_MAX` (60) is back.
+- **Migration 0035** gives each track its own XP plus the account's gains while Renown was the account's. A realm
+  character with no track gets the gains alone, under the bound, most recently played first. Every track takes the
+  account's last report id, and `renown_accounts` stays as history.
+- **The relay is untouched** (world131): `src/net/renown.js` is not in its bundle, and a level beside a name was
+  always the token's.
+- Pins: `test/renown_char.test.js` (7); `test/renown_account.test.js` keeps RENOWN-ACCOUNT's rate and 0021 (3); the
+  pins RENOWN-ACCOUNT had rewritten put back. Mutants: `tools/mutants/renown_char.json` (17 dead, 1 recorded
+  equivalent); 211 restored records across RENOWN1, AUDIT RENOWN1, RAID4, AUDIT RAID, RENOWN-BAR, RENOWN3 and RENOWN4,
+  all dead. Patch notes: `PATCH-NOTES-Renown-Per-Character.md`.

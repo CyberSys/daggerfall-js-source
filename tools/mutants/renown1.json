@@ -56,8 +56,8 @@
   {
     "name": "RENOWN1-hour-spend-matches-nothing",
     "file": "server-account/src/renownTracks.js",
-    "old": "       WHERE id = ?1\n       RETURNING renown_last_credit AS credit, (${track}) AS before, ${repeat} AS repeat`,",
-    "new": "       WHERE id = ?1 AND ?2 IS NULL\n       RETURNING renown_last_credit AS credit, (${track}) AS before, ${repeat} AS repeat`,",
+    "old": "       WHERE id = ?1\n       RETURNING renown_last_credit AS credit, (${track}) AS before, ${repeat} AS repeat, ${refused} AS refused`,",
+    "new": "       WHERE id = ?1 AND ?2 IS NULL\n       RETURNING renown_last_credit AS credit, (${track}) AS before, ${repeat} AS repeat, ${refused} AS refused`,",
     "tests": [
       "test/renown1.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "RENOWN1-hour-window-never-resets",
     "file": "server-account/src/renownTracks.js",
-    "old": "  const room = 'CASE WHEN renown_hour >= ?5 THEN MAX(0, ?4 - renown_hour_xp) ELSE ?4 END';",
-    "new": "  const room = 'MAX(0, ?4 - renown_hour_xp)';",
+    "old": "  const room = 'CASE WHEN renown_hour >= ?6 THEN MAX(0, ?5 - renown_hour_xp) ELSE ?5 END';",
+    "new": "  const room = 'MAX(0, ?5 - renown_hour_xp)';",
     "tests": [
       "test/renown1.test.js"
     ]
@@ -81,10 +81,10 @@
     ]
   },
   {
-    "name": "RENOWN1-account-track-made-twice",
+    "name": "RENOWN1-tracks-unbounded",
     "file": "server-account/src/renownTracks.js",
-    "old": "       WHERE id = ?1 AND renown_last_credit > 0\n         AND NOT EXISTS (SELECT 1 FROM renown_accounts WHERE player = ?1)`,",
-    "new": "       WHERE id = ?1 AND renown_last_credit > 0`,",
+    "old": "  const refused = `(NOT EXISTS (${track}) AND (SELECT COUNT(*) FROM renown_tracks WHERE player = ?1) >= ?7)`;",
+    "new": "  const refused = `(NOT EXISTS (${track}) AND (SELECT COUNT(*) FROM renown_tracks WHERE player = ?1) > ?7)`;",
     "tests": [
       "test/renown1.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "RENOWN1-report-of-zero-taken",
     "file": "server-account/src/renownTracks.js",
-    "old": "  if (!Number.isSafeInteger(xp) || /** @type {number} */ (xp) < 1 || /** @type {number} */ (xp) > RENOWN_XP_REPORT_MAX) return { error: 'renown-xp' };",
-    "new": "  if (!Number.isSafeInteger(xp) || /** @type {number} */ (xp) < 0 || /** @type {number} */ (xp) > RENOWN_XP_REPORT_MAX) return { error: 'renown-xp' };",
+    "old": "  if (!Number.isSafeInteger(xp) || xp < 1 || xp > RENOWN_XP_REPORT_MAX) return { error: 'renown-xp' };",
+    "new": "  if (!Number.isSafeInteger(xp) || xp < 0 || xp > RENOWN_XP_REPORT_MAX) return { error: 'renown-xp' };",
     "tests": [
       "test/renown1.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "RENOWN1-cap-spends-the-hour",
     "file": "server-account/src/renownTracks.js",
-    "old": "  const want = `CASE WHEN ${repeat} THEN 0 ELSE MIN(?2, MAX(0, ?3 - COALESCE((${track}), 0))) END`;",
-    "new": "  const want = `CASE WHEN ${repeat} THEN 0 ELSE ?2 END`;",
+    "old": "  const want = `CASE WHEN ${repeat} OR ${refused} THEN 0 ELSE MIN(?3, MAX(0, ?4 - COALESCE((${track}), 0))) END`;",
+    "new": "  const want = `CASE WHEN ${repeat} OR ${refused} THEN 0 ELSE ?3 END`;",
     "tests": [
       "test/renown1.test.js"
     ]
@@ -306,10 +306,10 @@
     ]
   },
   {
-    "name": "RENOWN1-card-chip-reads-the-total",
+    "name": "RENOWN1-card-shows-the-oldest-track",
     "file": "src/ui/enhancedAccount.js",
-    "old": "    const lvText = renownText(renown?.level);",
-    "new": "    const lvText = renownText(renown?.xp);",
+    "old": "    const lvText = renownText(tracks[0]?.level);",
+    "new": "    const lvText = renownText(tracks.at(-1)?.level);",
     "tests": [
       "test/renown1.test.js"
     ]
