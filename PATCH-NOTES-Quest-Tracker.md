@@ -6,5 +6,5 @@
 - **Or choose one.** Press **Track** beside a quest in the journal (the Quests tab of the pause menu, or the chronicle) to keep that quest on the card. Press it again to stop. The quest your HUD follows says "On the HUD" beside its button. Your choice is saved with your character, and let go when the quest is over.
 - **The journal opens where you are.** The Quests tab now opens on the quest the card is showing.
 - **Online,** the party list moves down to make room for the card.
-- **It stays out of the way.** The card steps aside for the Overworld's panel, a journey's junction and, on a phone, the chat, and grows with your HUD scale.
+- **It stays out of the way.** The card steps aside for the Overworld's panel, a journey's junction and, on a phone, the chat, and moves down when a larger HUD scale grows the compass.
 - Turn it off under Features, Interface, "Quest tracker". The Classic interface is unchanged.
