@@ -1893,7 +1893,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:13842 / exterior.js:3738), set
+  // host's own townTalk sink (world.js:13843 / exterior.js:3738), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2048,7 +2048,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   let _motorYaw = 0;   // A1: the automap window's player-arrow heading
   let _mouseState = 'no events';
   let _inputState = '';
-  const _activity = { running: false, runningTally: false, swimming: false, climbing: false, jumped: false, movingLessThanHalfSpeed: true };   // AUDIT 64 F7: the tally's gate is PlayerEntity.cs:311, the fatigue band's is :408   // AUDIT 26 F083: + climbing   // P11 fatigue state; P13 sneak state; C6 jump edge
+  const _activity = { running: false, runningTally: false, swimming: false, climbing: false, standing: false, jumped: false, movingLessThanHalfSpeed: true };   // AUDIT 64 F7: the tally's gate is PlayerEntity.cs:311, the fatigue band's is :408   // AUDIT 26 F083: + climbing   // P11 fatigue state; P13 sneak state; C6 jump edge
   let _grounded = true;   // U7: the rest gate reads the motor's live grounded flag
   // U7: the rest session's scene seams. tickVitals = one rested hour
   // (the S20 rates + the Medical tally, clamped); enemiesNearby is
@@ -3717,8 +3717,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:23126,
-              // exterior.js:5349 and worldModes.js:8328 already ran;
+              // playerArrowHitFoe is the one copy world.js:23128,
+              // exterior.js:5350 and worldModes.js:8329 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -7459,13 +7459,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // jump fatigue/tally (PlayerEntity: 11 x multiplier + Jumping
     // tally once per jump), and the state the per-minute fatigue
     // drain reads.
-    reportActivity({ running = false, runningTally = false, swimming = false, climbing = false, jumped = false, movingLessThanHalfSpeed = true, fell = 0 } = {}) {
+    reportActivity({ running = false, runningTally = false, swimming = false, climbing = false, standing = false, jumped = false, movingLessThanHalfSpeed = true, fell = 0 } = {}) {
       // AUDIT 58: PlayLargeSplash is PlayOneShot(SplashLargeSound, 0,
       // FootstepVolumeScale) - PlayerFootsteps.cs:323-326.
       if (swimming && !_activity.swimming && !immersiveFootsteps.playLargeSplash()) audio.playOneShot(SOUND.SplashLarge, FOOTSTEP_VOLUME);   // PlayLargeSplash on entry; IF1: the mod's Water_Landing when it owns the stride
       _activity.running = running; _activity.runningTally = runningTally;   // AUDIT 64 F7: the tally's gate is PlayerEntity.cs:311 (IsRunning && !IsRiding, no standing test), the band's is :408
       _activity.swimming = swimming;
       _activity.climbing = climbing;   // AUDIT 26 F083: ClimbingFatigueLoss's live flag
+      _activity.standing = standing;   // FATIGUE-IDLE: standing still on the ground pays no minute's band (worldTick.js); a host that says nothing is moving
       _activity.movingLessThanHalfSpeed = movingLessThanHalfSpeed;   // P13: IsMovingLessThanHalfSpeed (the motor computes it)
       // AUDIT 23 (C6): the jump drain+tally moved into tickPlayerMinutes
       // (PlayerEntity.cs:425-430 is the entity update) - the edge rides

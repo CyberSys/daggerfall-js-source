@@ -38,6 +38,7 @@ import { WIND_ROW_CALM, WIND_ROW_SPAN } from '../systems/wind.js';
 import { getPref } from '../systems/uiPrefs.js';   // FT6: the switch, read here alone
 import { isEnhanced } from '../systems/uiSkin.js';
 import { FOG_GLSL } from './fogGlsl.js';   // AUDIT 68 S17-fog-glsl-dup: the fog every world pass takes, one home
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** FT6 (2026-09-14, the Features arc): THE SWITCH, ONE HOME. Both
  *  exterior hosts composed "the enhanced skin, the pref, the kill door"
@@ -47,7 +48,7 @@ import { FOG_GLSL } from './fogGlsl.js';   // AUDIT 68 S17-fog-glsl-dup: the fog
  *  still asks tilemapRectHasWater beside it - that is the town's, not
  *  the switch's. */
 export function waterSwitchOn(search = globalThis.location?.search ?? '') {
-  return isEnhanced() && !!getPref('enhancedWater') && new URLSearchParams(search).get('water') !== 'off';
+  return isEnhanced() && !!getPref('enhancedWater') && pageParam('water', search) !== 'off';   // PERF-URL
 }
 
 // ═══════════════════════════════════════════════════════════════════

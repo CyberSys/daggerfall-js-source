@@ -157,8 +157,8 @@
   {
     "name": "switch-no-skin",
     "file": "src/render/enhancedLighting.js",
-    "old": "  return isEnhanced() && !!getPref('enhancedLighting') && new URLSearchParams(search).get('lighting') !== 'classic';",
-    "new": "  return !!getPref('enhancedLighting') && new URLSearchParams(search).get('lighting') !== 'classic';",
+    "old": "  return isEnhanced() && !!getPref('enhancedLighting') && pageParam('lighting', search) !== 'classic';",
+    "new": "  return !!getPref('enhancedLighting') && pageParam('lighting', search) !== 'classic';",
     "tests": [
       "test/el1_enhancedlighting.test.js"
     ]
@@ -166,7 +166,7 @@
   {
     "name": "switch-no-door",
     "file": "src/render/enhancedLighting.js",
-    "old": "  return isEnhanced() && !!getPref('enhancedLighting') && new URLSearchParams(search).get('lighting') !== 'classic';",
+    "old": "  return isEnhanced() && !!getPref('enhancedLighting') && pageParam('lighting', search) !== 'classic';",
     "new": "  return isEnhanced() && !!getPref('enhancedLighting');",
     "tests": [
       "test/el1_enhancedlighting.test.js"

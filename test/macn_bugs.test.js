@@ -445,6 +445,6 @@ test('MAC-N3 + OVH3: the chat mounts on either skin (the online panels keep thei
   const world = rd('src/scenes/world.js');
   assert.match(world, /if \(typeof document !== 'undefined'\) chatStart\(\);/);
   assert.match(rd('src/systems/uiSkin.js'), /return skinOverride\(search\) \?\? clean\(getPref\('skin'\)\)/, 'the skin reads no lane');
-  assert.match(rd('src/systems/onlineLane.js'), /export const isOnlinePage = \(search = globalThis\.location\?\.search \?\? ''\) => new URLSearchParams\(search\)\.has\('online'\);/,
+  assert.match(rd('src/systems/onlineLane.js'), /export const isOnlinePage = \(search = globalThis\.location\?\.search \?\? ''\) => pageHas\('online', search\);/,   // PERF-URL: parsed once a search
     'the one read, off location.search - the copy main.js edits is not it');
 });

@@ -594,6 +594,7 @@ import { hudShortcutKey, retroToggleKey, hudRenderEnabled } from '../ui/hudShort
 import { createActivateGate, activateFrame, setClickDelay } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';   // I3/I4; U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
 import { isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // WM2d: the mills are an enhanced-only addition
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 import { drawEnhancedStatusLine } from '../ui/enhancedHudText.js';   // FONT1: the online status line in the skin's own face
 import { rrRidingOn, rrRidingSetting, BED_MODELS, bedSleepingOn } from '../systems/rrRealism.js';   // RR2: EnhancedRiding's switches; CSA-G: the boat's bed is RR1's BedActivation
 import { createRrRidingContacts } from '../systems/rrRidingHost.js';   // RR2 / AUDIT-RR F15: the trample and the charge, one home for both outdoor hosts
@@ -1529,7 +1530,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // PERF1: the density pref is a fraction of the lab's field; 0 is the
   // same as ?grass=off - no renderer, no field, nothing drawn.
   const grassDensity = Math.max(0, Math.min(1, Number(getPref('grassDensity')) || 0)) * LAB_GRASS.density;
-  const labGrass = isEnhanced() && getPref('enhancedEnvironments') && grassDensity > 0 && new URLSearchParams(globalThis.location?.search ?? '').get('grass') !== 'off'
+  const labGrass = isEnhanced() && getPref('enhancedEnvironments') && grassDensity > 0 && pageParam('grass') !== 'off'
     ? new LabGrassRenderer(renderer.gl) : null;
   let labGrassField = null;   // GR5: the world-anchored field, filled a cell or two a frame
   if (labGrass) discSlotCount(LAB_GRASS.span);   // PERF-EXT20: the field's one sweep, paid here behind the loading screen - every createGrassField after reads the memo
@@ -10092,7 +10093,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7471), so exterior mode and a
+    // composer, dungeonContext.js:7472), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12730,7 +12731,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9886-9950 -
+  // worldModes answers it in BOTH modes (worldModes.js:9887-9951 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -21305,6 +21306,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const walkRaise = sharedClockOn() && travelScale > 1 ? dt * CLASSIC_MINUTES_PER_SECOND * (travelScale - 1) : 0;
       if (!_overlayHeld) playerTicker.tick(dt * timeScaleMult * travelScale, {   // TO1: ...and the calendar keeps up with the miles
         running: player.isRunning && !player.standing,   // AUDIT 23 (entity-2): PlayerEntity.cs:408
+        standing: !!player.standing,   // FATIGUE-IDLE: standing still on the ground pays no minute's band (worldTick.js)
         // AUDIT 64 F7 - PlayerEntity.cs:311, the TALLY's own gate:
         // `playerMotor.IsRunning && !playerMotor.IsRiding`, with NO
         // standing test. The fatigue arm at :408 is the one that
@@ -23018,7 +23020,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       };
       if (!labGrassField) labGrassField = createGrassField(labGrass, { keep, ground, density: grassDensity });   // PERF1: the pref's fraction of the lab's field
       labGrassField.update(ex, ez, keep, ground);
-      window.__grassStats = () => ({ blades: labGrass.count, drawn: labGrass.drawn, vertsPerBlade: labGrass._oneQuad ? labGrass.vertsFar : labGrass.verts, nearPixels: nearPieces().length,   // GRASS AUDIT 1: `verts` below is the near blade's; the frame's is this cells: labGrassField?.live.size ?? 0, slots: labGrassField?.slots ?? 0,
+      window.__grassStats = () => ({ blades: labGrass.count, drawn: labGrass.drawn, vertsPerBlade: labGrass._oneQuad ? labGrass.vertsFar : labGrass.verts, nearPixels: nearPieces().length, cells: labGrassField?.live.size ?? 0, slots: labGrassField?.slots ?? 0,   // GRASS AUDIT 1: `verts` below is the near blade's; `vertsPerBlade` is the frame's. PERF-URL: `cells` and `slots` had been swallowed by this comment - the hook answered without them
         perCell: labGrass.perCell, range: LAB_GRASS.range, height: LAB_GRASS.height, verts: labGrass.verts,
         // GRASS2: what the field HOLDS, against what a slot-sized draw
         // would have submitted - the pad, measured rather than assumed.
