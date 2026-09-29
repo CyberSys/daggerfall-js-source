@@ -142,7 +142,7 @@ test('audit24 wave30: the dungeon rest advance runs BOTH halves of the broker ev
   const src = rd('src/scenes/dungeonContext.js');
   // S40: the other five rest deps moved to shared.js' one composition,
   // so this arm is a named function now and ends at its own close.
-  const i = src.indexOf('const _restAdvance = (n, sharedEnd = null) => {');
+  const i = src.indexOf('const _restAdvance = (n) => {');
   const arm = src.slice(i, src.indexOf('\n  };', i));
   assert.ok(i > 0 && arm.length > 200, 'the rest advance arm was found');
   // wave 32 reshaped this: the window is CLAIMED once (that is the broker) and

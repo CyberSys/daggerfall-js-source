@@ -208,7 +208,7 @@ test('F145: the travel map prices the trip AFTER the guild blessing', () => {
   // GuildManager.FastTravel, THEN CalculateTripCost, so the Temple of
   // Akatosh's rank shortens the fare and the days as well as the
   // journey (Temple.cs:430-436). The classic popup already folds it at
-  // ui/travelPopUp.js:247; the enhanced map skipped the middle step.
+  // ui/travelPopUp.js:253; the enhanced map skipped the middle step.
   const s = src('ui/heldMap.js');   // MAP1: the held map, the relief map's successor
   assert.match(s, /import \{ guildFastTravel \} from '\.\.\/systems\/guildVariants\.js';/);
   const trip = s.slice(s.indexOf('_refreshTrip() {'), s.indexOf('_toggleOpt(key) {'));
@@ -222,7 +222,7 @@ test('F145: the travel map prices the trip AFTER the guild blessing', () => {
   // hands st.trip.minutes to the clock.
   // AUDIT-MAP D2/H1: the fare is the mod's SCALED one and online counts no
   // days - the blessed minutes still ride the trip, which is this pin's law
-  assert.match(trip, /st\.trip = \{ \.\.\.time, minutes, \.\.\.scaled, days: nwt \? 0 : travelDays\(minutes\), online: nwt \};/);
+  assert.match(trip, /st\.trip = \{ \.\.\.time, minutes, \.\.\.scaled, days: travelDays\(minutes\), online: nwt \};/);   // LIVED1: the days are the traveller's own, online too
   assert.match(trip, /const scaled = scaleTripCost\(cost, st\.to\?\.settings, this\.deps\.playerEntity\?\.\(\) \?\? null\);/, 'scaled AFTER calculateTripCost, off the same blessed minutes');
 });
 

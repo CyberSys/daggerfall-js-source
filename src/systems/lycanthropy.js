@@ -227,13 +227,15 @@ export function consumeRacialOverridePending(entity, { now = 0 } = {}) {
  * the HUD line seam; `refreshHead` the portrait's (both optional -
  * the headless charter).
  */
-export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = nowMinutes, say = null, refreshHead = null } = {}) {
+export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = nowMinutes, skyMinutes = clockMinutes, say = null, refreshHead = null } = {}) {
   const entry = liveLycanthropy(entity);
   if (!entry) return;
   // DISC10-E V1: `clockMinutes` is WorldTime.Now, the clock every catch-up
   // round of one broker Update reads (EntityEffectBroker.cs:210-232): the
   // moon (:565-575) and the kill clock (TimeSinceLastInnocentKilled) are
   // its. `nowMinutes`, the round's number, keeps the nag's real-time fold.
+  // LIVED1: online the kill clock is the character's own time and the moon
+  // the world's - `skyMinutes`, which offline is the same clock.
   entry.wearingHircineRing = isWearingHircineRing(entity);
 
   // ApplyLycanthropeAdvantages (:520-537) - re-applied every round,
@@ -249,7 +251,7 @@ export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = n
   // a forced change already reads the beast; the port's fold is
   // per-round, so the order inside the round is what keeps silver
   // from lagging the change by a round.
-  if (!entry.wearingHircineRing && isFullMoonFromMinutes(clockMinutes) && !entry.isTransformed) {
+  if (!entry.wearingHircineRing && isFullMoonFromMinutes(skyMinutes) && !entry.isTransformed) {
     say?.(YOU_DREAM_OF_THE_MOON);
     morphSelf(entity, { force: true, nowMinutes: clockMinutes, refreshHead });
   }

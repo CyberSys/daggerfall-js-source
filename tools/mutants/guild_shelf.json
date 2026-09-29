@@ -2,7 +2,7 @@
   {
     "name": "GUILD-SHELF-every-open-mints",
     "file": "src/systems/shopStock.js",
-    "old": "  if (kept && kept.day === today && Array.isArray(kept.items)) return kept;\n  if (store) for",
+    "old": "  if (shelfStands(kept, today)) return kept;\n  if (store) for",
     "new": "  if (store) for",
     "tests": [
       "test/guildshelf.test.js"
@@ -11,7 +11,7 @@
   {
     "name": "GUILD-SHELF-never-restocks",
     "file": "src/systems/shopStock.js",
-    "old": "  if (kept && kept.day === today && Array.isArray(kept.items)) return kept;",
+    "old": "  if (shelfStands(kept, today)) return kept;",
     "new": "  if (kept && Array.isArray(kept.items)) return kept;",
     "tests": [
       "test/guildshelf.test.js"

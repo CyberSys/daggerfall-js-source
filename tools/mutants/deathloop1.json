@@ -54,19 +54,19 @@
     ]
   },
   {
-    "name": "prison-release-online-does-nothing",
+    "name": "prison-release-online-refills-nothing",
     "file": "src/scenes/arrestFlow.js",
-    "old": "          if (!sharedClockOn()) fillVitalSigns(playerEntity);\n          else reviveForPlay(playerEntity);",
-    "new": "          if (!sharedClockOn()) fillVitalSigns(playerEntity);",
+    "old": "          // floor it replaced is inside the refill (a full pool is above it).\n          fillVitalSigns(playerEntity);",
+    "new": "          // floor it replaced is inside the refill (a full pool is above it).\n          if (!sharedClockOn()) fillVitalSigns(playerEntity);",
     "tests": [
       "test/deathloop1.test.js"
     ]
   },
   {
-    "name": "prison-release-becomes-a-free-heal",
+    "name": "prison-release-refills-nobody",
     "file": "src/scenes/arrestFlow.js",
-    "old": "          if (!sharedClockOn()) fillVitalSigns(playerEntity);\n          else reviveForPlay(playerEntity);",
-    "new": "          fillVitalSigns(playerEntity);",
+    "old": "          // floor it replaced is inside the refill (a full pool is above it).\n          fillVitalSigns(playerEntity);",
+    "new": "          // floor it replaced is inside the refill (a full pool is above it).",
     "tests": [
       "test/deathloop1.test.js"
     ]

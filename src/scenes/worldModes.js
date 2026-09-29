@@ -64,7 +64,7 @@ import { collectHearths } from '../systems/survival/hearth.js';   // AUDIT HEART
 import { lanternColor, dungeonAmbient, dungeonTrilight, dungeonFog } from '../render/enhancedLighting.js';   // EL1: the world host installed the lane; this reads it; EL4: the dark; AUDIT-EL F6: the fog with it
 import { INTERIOR_AMBIENT, INTERIOR_NIGHT_AMBIENT, INTERIOR_LIGHT_DIR } from '../world/interiorLights.js';
 import { isNight } from '../world/worldClock.js';   // AUDIT 23 (C12)
-import { worldMinutes, setWorldMinutes, sharedRealTimeText } from '../systems/worldTick.js';   // AUDIT 23 (C12); OL3: the prices said in real time online: the one clock; G4's probe moves it
+import { worldMinutes, setWorldMinutes, ownMinutes, ownTimeLeftText, ownTimeLeftShort, sharedClockOn } from '../systems/worldTick.js';   // AUDIT 23 (C12): the one clock; G4's probe moves it; LIVED1: the character's own clock, and its deadlines said in their time; AUDIT LIVED1b K1: the collapse box's guard is online's
 import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';   // AUDIT 23 (C5)
 import { ActionTextBox } from '../ui/actionText.js';   // AUDIT 23 (C5)
 import { registerPresenter } from '../systems/notify.js';   // ENH-NOTICE3: the modal modes' slot, offered to the one door every message goes through
@@ -389,8 +389,11 @@ export function createWorldModes(host) {
    *  offer rung, and the window told the bed is the one clicked (`new DaggerfallRestWindow(uiManager, true)`). */
   let _restFromBed = false;
   const restFromInteriorBed = () => { _restFromBed = true; try { interiorKeyCtx.toggleRest({ ignoreAllocatedBed: true }); } finally { _restFromBed = false; } };
+  // AUDIT LIVED1b K1: DFU's popup guard, online (world.js onExhaustedExterior's twin says why)
+  let _exhaustedBox = null;
+  const exhaustedShowing = () => !!_exhaustedBox && !_exhaustedBox.done && interiorWindows.containsWindow(_exhaustedBox);
   function onExhaustedInterior() {
-    if (_inExhaustion) return;
+    if (_inExhaustion || (sharedClockOn() && exhaustedShowing())) return;
     _inExhaustion = true;
     host.csaOnPlayerDeath?.();   // CSA-J (the audit): PlayerEntity.OnExhausted -> ComeSailAway.OnPlayerDeath, indoors too
     try {
@@ -407,7 +410,8 @@ export function createWorldModes(host) {
       // the inventory, the map and the spellbook alike, and the
       // refusal meant the one message that explains the lost hour (or
       // the drowning) was dropped.
-      mountInterior(new ActionTextBox(out.inWater ? [EXHAUSTED_IN_WATER] : ['You collapse from exhaustion.']));
+      _exhaustedBox = new ActionTextBox(out.inWater ? [EXHAUSTED_IN_WATER] : ['You collapse from exhaustion.']);
+      mountInterior(_exhaustedBox);
       if (out.kind === 'rest') {
         interiorTicker.advance(60);
         playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + out.health);
@@ -491,7 +495,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3811 hands
+   * record these hosts mint spells it `name` (exterior.js:3810 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1089,7 +1093,7 @@ export function createWorldModes(host) {
       // indoors exactly as it does in the other three hosts.
       hitEffects: interiorHitEffects,
       playerWeaponSheathed: () => !!interiorWeapon.playerWeapon.sheathed,
-      currentMinute: () => Math.floor(interiorTicker.classicMinutes),
+      currentMinute: () => Math.floor(interiorTicker.ownMinutes),
       // exterior.js's arm, and for the same reason: a host whose
       // corpses never leave streaming range hands nothing to
       // TrackLooseObject (GameObjectHelper.cs:836-839).
@@ -1238,7 +1242,7 @@ export function createWorldModes(host) {
    *
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
-   *  (worldTick.js:389-390), and no killIfAnyLiveStatZero. Both pools
+   *  (worldTick.js:391-392), and no killIfAnyLiveStatZero. Both pools
    *  READ the effect list every frame (exteriorFoes.js:1050-1054 and
    *  cityGuards.js:989-995 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
@@ -1257,7 +1261,7 @@ export function createWorldModes(host) {
    *  active-enemy database (MT's join): a watchman called into a shop
    *  and a summoned daedra standing in it are one database, exactly as
    *  the street's two pools are one for the exterior host. */
-  const _interiorSenses = () => sensesContext(playerEntity, interiorTicker.classicMinutes, {
+  const _interiorSenses = () => sensesContext(playerEntity, interiorTicker.ownMinutes, {
     movingLessThanHalfSpeed: player.movingLessThanHalfSpeed ?? true, playerHeight: player.height, playerCrouching: !!player.crouching,   // AUDIT 62 F23: playerHeight is the LIVE capsule (crouch 0.9, ride 2.6, swim), not the standing constant   // ROAD-H H1b: PlayerMotor.IsCrouching, the LATCHED state an enemy archer's dip reads (DaggerfallMissile.cs:584) - a swimming player is 0.9 tall too and takes none
     candidates: () => interiorEnemyDatabase(),
     playerEntity,
@@ -1274,7 +1278,7 @@ export function createWorldModes(host) {
       isActionDoor: (key) => key != null && isActionDoorObject(ctx.actions?.objects.get(key)),
       hitEffects: interiorHitEffects,
       playerWeaponSheathed: () => !!interiorWeapon.playerWeapon.sheathed,
-      currentMinute: () => Math.floor(interiorTicker.classicMinutes),
+      currentMinute: () => Math.floor(interiorTicker.ownMinutes),
       // interiorFoes' arm, for the same reason: a host whose corpses
       // never leave streaming range hands nothing to TrackLooseObject.
       currentPixelKey: () => null,
@@ -2422,8 +2426,8 @@ export function createWorldModes(host) {
       // remoteItems in REPAIR mode (:392) and the filtered view over it
       // (:705-724), which is repairService's own repairJobsAt.
       otherItems: () => (playerEntity.otherItems ??= []),
-      repairItems: () => repairJobsAt(playerEntity, b.buildingKey ?? 0, Math.floor(worldMinutes())),
-      nowMinutes: () => Math.floor(worldMinutes()),
+      repairItems: () => repairJobsAt(playerEntity, b.buildingKey ?? 0, Math.floor(ownMinutes())),
+      nowMinutes: () => Math.floor(ownMinutes()),
       accepts: (it) => shopBuysItem(b.buildingType, it),
       enchanted: (it) => isEnchanted(it),
       isBeingRepaired: (it) => isBeingRepaired(it),
@@ -2539,7 +2543,7 @@ export function createWorldModes(host) {
       }
     } else if (mode === 'Repair') {
       deductGold(playerEntity, price);
-      const now = Math.floor(worldMinutes());
+      const now = Math.floor(ownMinutes());
       const bk = interiorBuilding?.buildingKey ?? 0;
       // D7 - ConfirmTrade's Repair arm, whole (:1057-1074). `staged` is
       // remoteItemsFiltered: every job at THIS shop plus whatever was
@@ -2803,8 +2807,13 @@ export function createWorldModes(host) {
   /** The live date the guild rank gate reads (S28). AUDIT 21 F2 made
    *  every ticker a VIEW on one absolute world clock, so this reads
    *  straight through - the epoch is already in it, and S28's
-   *  elapsed-minute bridge is retired. */
+   *  elapsed-minute bridge is retired. [AUDIT LIVED1b R: LIVED1 moved
+   *  the rank gate to ownDate below; this is the WORLD's date - the
+   *  day's stock (stockedToday) and the shelves' day read it.] */
   const gameDate = () => dateFromClassicMinutes(interiorTicker.classicMinutes);
+  /** LIVED1: the CHARACTER's date - a guild's rank wait (lastRankChange, the 28-day gate) and a join are theirs, on
+   *  their own clock; the day's stock (stockedToday, below) stays the world's. Offline the two are one date. */
+  const ownDate = () => dateFromClassicMinutes(interiorTicker.ownMinutes);
 
   /** A2 - DaggerfallLoot.CreateStockedDate over the live date (:68-71).
    *  PlayerActivate's three loot arms read it on EVERY activation
@@ -3642,7 +3651,7 @@ export function createWorldModes(host) {
       // probe caught it as a house that had a price and no owner.
       regionIndex: () => bankRegion(),
       level: () => playerEntity.level ?? 1,
-      now: () => Math.floor(worldMinutes()),
+      now: () => Math.floor(ownMinutes()),
       player: bankPurse(),
       wagonGold: () => (playerEntity.wagonItems ?? []).find((i) => i.group === 'Currency')?.stackCount ?? 0,
       rows: (id, pick) => townTalk?.lines?.(id, pick) ?? [],
@@ -3659,14 +3668,20 @@ export function createWorldModes(host) {
       regionName: () => buildingDirectory?.()?.regionName ?? '',
       // GetLoanDueDateString (:571-580) - empty when nothing is owed,
       // otherwise DateString(), which carries no year.
-      // OL3: and online, the real time beside it - the loan runs on the
-      // world's clock through a logout, and a default lowers reputation
-      // and brings the guards, so the date the player must be back by is
-      // said by their own clock.
-      dueDateText: (minutes) => {
+      // OL3: and online the player is told plainly when it falls due, since
+      // a default lowers reputation and brings the guards. LIVED1: the loan
+      // runs on the character's own clock (a rest or a journey spends its
+      // days, time away does not), so online the due-by is that time left,
+      // in their time and in play - a calendar date on their own clock is
+      // not the world's calendar on the HUD, and would read as a wrong one.
+      // AUDIT LIVED1 P (U5): `short` for the classic parchment, which has no room for the play (the long form ran 99 px
+      // past its edge) - the enhanced face keeps the whole words. AUDIT LIVED1 L (K5): a loan already due says so.
+      dueDateText: (minutes, { short = false } = {}) => {
         if (!(minutes > 0)) return '';
-        const real = sharedRealTimeText(minutes);
-        return dateString(dateFromClassicMinutes(minutes)) + (real ? ` (${real})` : '');
+        const left = ownTimeLeftShort(minutes);
+        if (left === 'now') return short ? 'now' : 'due now';   // AUDIT LIVED1b U3: the short form follows the classic parchment's painted "Loan due by:" - "Loan due by: due now" said it twice
+        const own = short ? (left && `${left} of your time`) : ownTimeLeftText(minutes);
+        return own ? `in ${own}` : dateString(dateFromClassicMinutes(minutes));
       },
       // H1: house ownership is live. D6: so is SHIP ownership - the
       // two fixed ship scenes were never the blocker (H3 wired both,
@@ -3832,8 +3847,9 @@ export function createWorldModes(host) {
     win = createTavernWindow({
       entity: playerEntity,
       rows: (id, pick) => townTalk?.lines?.(id, pick) ?? [],
-      now: () => Math.floor(worldMinutes()),
-      realTimeOf: (m) => sharedRealTimeText(m),   // OL3: online the offer says when the room ends by the player's clock; null offline
+      now: () => Math.floor(ownMinutes()),
+      ownTimeOf: (m) => ownTimeLeftText(m),   // OL3/LIVED1: online the offer says how long the room is theirs, in their own time and in play; null offline
+      worldNow: () => Math.floor(worldMinutes()),   // LIVED1: the calendar (Heart's Day, a meal's holiday) and the kitchen's hours are the world's
       mapId: () => questSceneCtx?.()?.mapId ?? 0,
       buildingKey: () => b?.buildingKey ?? 0,
       buildingName: () => b?.name ?? '',
@@ -3853,7 +3869,7 @@ export function createWorldModes(host) {
       // SetHealth, through the entity's own ceiling.
       heal: (n) => { playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + n); },
       // SURV5: the mod's menu - the climate keys it, the tavern's quality tiers it, a meal or a drink takes its minutes
-      // off this host's clock (a blackout the night; online the ticker stands, WORLD5), the endurance bands the drink
+      // off this host's clock (a blackout the night; online the character's own, LIVED1), the endurance bands the drink
       climateIndex: () => host.climateIndex?.() ?? 232,
       advanceMinutes: (n) => interiorTicker.advance(n),
       endurance: () => liveStat(playerEntity, 'endurance'),
@@ -4136,7 +4152,7 @@ export function createWorldModes(host) {
       service: () => service,
       rows,
       // OnPush (:158-205) runs once, on construction.
-      steps: () => onPushEffects(playerEntity, guild, memberships, store, gameDate(), {
+      steps: () => onPushEffects(playerEntity, guild, memberships, store, ownDate(), {
         freeHealing: freeHealing(guild, membershipOf(memberships, guild)),
         freeMagickaRecharge: freeMagickaRecharge(guild, membershipOf(memberships, guild), playerEntity),
         revealLocation,   // G8: the TG/DB map reveals - MACRO-4: through the popup's own wrapper, which keeps the name for %dng
@@ -4159,7 +4175,7 @@ export function createWorldModes(host) {
           rows: rows(decision.textId),
           buttons: 'YesNo',
           onYes: () => {
-            joinGuild(memberships, guild, gameDate(), store);   // RR1: the store, for a mod's join floor
+            joinGuild(memberships, guild, ownDate(), store);   // RR1: the store, for a mod's join floor
             let welcome = new GuildServiceWindow(_welcomeHooks(guild, rows, () => welcome));  welcome = enhancedWindow(welcome, 'guild');   // PORT4: the enhanced skin's face; the classic window unchanged
             mountServiceWindow(welcome);
           },
@@ -4247,7 +4263,7 @@ export function createWorldModes(host) {
     const membership = guild ? membershipOf(memberships, guild) : null;
     const b = interiorBuilding;
     const closeSelf = () => closeSpellWindow(flow);
-    const now = () => interiorTicker.classicMinutes;   // already CLASSIC minutes (AUDIT 21 F2)
+    const now = () => interiorTicker.ownMinutes;   // already CLASSIC minutes (AUDIT 21 F2); LIVED1: a service's clock (training's cooldown, a blessing) is the character's own
     const godName = guild?.divine ?? '';
     let flow = null;
     // R1: the guild repair service - the same keyed flow the repair
@@ -4763,7 +4779,10 @@ export function createWorldModes(host) {
       });
     } else if (destination === 'guildServiceCureDisease') {
       flow = buildCureDiseaseFlow(playerEntity, guild, membership, {
-        rows, now, onClose: () => closeSelf(), godName,
+        // AUDIT LIVED1 C (R4/P4): the cure's one clock read is the HOLIDAY (GetHolidayId - the free and the half-price
+        // cure days), and holidays are the WORLD's calendar - on the character's clock a player rested onto South Winds
+        // Prayer for a free cure while the temple charged on the world's announced one
+        rows, now: () => interiorTicker.classicMinutes, onClose: () => closeSelf(), godName,
         // MAC-BUG2: the cure offer speaks a TRADE record, and those
         // quote the SHOP and the TOWN back at the player - see the
         // `identity` note in ui/guildServiceWindows.js.
@@ -4871,7 +4890,7 @@ export function createWorldModes(host) {
     return showRepairList(0, ctx);
   }
   function showRepairList(page, ctx) {
-    const now = Math.floor(worldMinutes());
+    const now = Math.floor(ownMinutes());
     const jobs = repairJobsAt(playerEntity, interiorBuilding?.buildingKey ?? 0, now);
     // FilterLocalItems' one repair gate is !IsEquipped (:672-703);
     // the condition/enchant/not-repairable refusals land at CLICK
@@ -4922,7 +4941,7 @@ export function createWorldModes(host) {
     if (getBool('Controls', 'InstantRepairs')) {
       it.currentCondition = it.maxCondition;   // the InstantRepairs branch (:1062-1065)
     } else {
-      const now = Math.floor(worldMinutes());
+      const now = Math.floor(ownMinutes());
       // DFU's commit pass runs over remoteItemsFiltered - EVERY job at
       // this shop plus the new one - which is what makes the longest-job
       // queue stretch and the never-decrease clamp real laws rather
@@ -4942,7 +4961,7 @@ export function createWorldModes(host) {
     showRepairList(0, ctx);
   }
   function showRepairJobs(ctx, page = 0) {
-    const now = Math.floor(worldMinutes());
+    const now = Math.floor(ownMinutes());
     const jobs = repairJobsAt(playerEntity, interiorBuilding?.buildingKey ?? 0, now);
     if (!jobs.length) { showRepairList(0, ctx); return; }
     const per = 8;
@@ -4957,7 +4976,7 @@ export function createWorldModes(host) {
     mountServiceWindow(new ChoiceWindow({ lines: ['Items left for repair:'], options }));
   }
   function collectJob(it, ctx) {
-    const now = Math.floor(worldMinutes());
+    const now = Math.floor(ownMinutes());
     const takeBack = () => {
       const i = (playerEntity.otherItems ?? []).indexOf(it);
       if (i >= 0) playerEntity.otherItems.splice(i, 1);
@@ -7054,7 +7073,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7439), so the OUTER host's one rides in.
+          // (dungeonContext.js:7448), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -8222,7 +8241,7 @@ export function createWorldModes(host) {
         tallySkill(playerEntity, SKILLS.Dodging, 1);
         const dmg = shooter && !shooter.dead ? calculateAttackDamage(shooter.entity, playerEntity, {
           weapon: m.weapon,
-          onInflictPoison: (att, tgt, pt) => inflictPoison(playerEntity, pt, false, { currentMinute: Math.floor(interiorTicker.classicMinutes) }),
+          onInflictPoison: (att, tgt, pt) => inflictPoison(playerEntity, pt, false, { currentMinute: Math.floor(interiorTicker.ownMinutes) }),
           say: (l) => say(l),
         }) : 0;
         if (dmg > 0) {
@@ -8231,7 +8250,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:12559's own wave-46 note); the interior
+          // a blow (world.js:12577's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8262,7 +8281,7 @@ export function createWorldModes(host) {
           ? interiorFoes?.damageFoe(f, d, player.pos, m.dir, { kind: 'arrow' })   // WORLD6b-iii(e): the kind rides the hit
           : interiorGuards?.hurtGuard(f, d, player.pos, m.dir)),
         audio, hitEffects: interiorHitEffects, say: (l) => say(l),
-        onInflictPoison: (att, tgt, pt) => (t._encounter ? interiorFoes?.poisonFoe(t, pt) : inflictPoison(tgt, pt, false, { currentMinute: Math.floor(interiorTicker.classicMinutes) })),   // WORLD6b-iii(e): the pool's one poison door, split by pool as the damage door above
+        onInflictPoison: (att, tgt, pt) => (t._encounter ? interiorFoes?.poisonFoe(t, pt) : inflictPoison(tgt, pt, false, { currentMinute: Math.floor(interiorTicker.ownMinutes) })),   // WORLD6b-iii(e): the pool's one poison door, split by pool as the damage door above
         // AUDIT 58: WeaponManager.cs:630 after the damage fork - a
         // zero-damage shaft still enrages its mark and the room.
         // ROAD-G G1 (review): the interior WATCH carries the pair now
@@ -8741,7 +8760,7 @@ export function createWorldModes(host) {
     window.__joinGuild = (group = GUILD_GROUPS.MagesGuild, rank = 6, buildingFactionId = 0) => {
       const guild = createGuildForGroup(group, buildingFactionId, townTalk?.factionDict ?? null);
       const memberships = activeMemberships(playerEntity);   // V2e: the vampire-aware book
-      const m = joinGuild(memberships, guild, Math.floor(worldMinutes()));
+      const m = joinGuild(memberships, guild, Math.floor(ownMinutes()));
       m.rank = rank;
       return JSON.stringify(m);
     };
@@ -9161,7 +9180,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3873`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3872`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -9249,7 +9268,7 @@ export function createWorldModes(host) {
     return interiorRestPlace({
       inTownLocation: host.inTownLocation?.() ?? false,
       building: b,
-      nowMinutes: Math.floor(worldMinutes()),
+      nowMinutes: Math.floor(ownMinutes()),
       // Interior.FindMarkers(InteriorMarkerTypes.Rest) - the same read
       // rentRoom's bedCount makes, so the stored index lines up with
       // the list it indexes. canRest wants the COUNT and answers an
@@ -9299,7 +9318,7 @@ export function createWorldModes(host) {
     // whole point - they must not be left banked for the door.
     // REST-ROUNDS: and the sub-tick's end reaches the rounds - online it
     // is the only clock a rented night has (scenes/shared.js advance).
-    advanceMinutes: (n, sharedEnd) => { interiorTicker.advance(n, sharedEnd); host.encounterTick?.(); },
+    advanceMinutes: (n) => { interiorTicker.advance(n); host.encounterTick?.(); },   // LIVED1: online the sub-tick's minutes are the character's own
     // TickRest :379 - QuestMachine.Instance.Tick() rides the same
     // sub-tick as the clock, UNPACED (DFU calls the machine directly,
     // not through QuestMachine.Update's ticksPerSecond timer). This
@@ -9337,7 +9356,7 @@ export function createWorldModes(host) {
     // innkeeper is asked again, and its held scene goes with it.
     onRentExpired: () => {
       playerEntity.rentedRooms = removeExpiredRooms(
-        playerEntity.rentedRooms ?? [], Math.floor(worldMinutes()), sceneCache());
+        playerEntity.rentedRooms ?? [], Math.floor(ownMinutes()), sceneCache());
     },
     // ROAD-B B5 - OnPop's UpdateNpcPresence (DaggerfallRestWindow.cs
     // :277-280). DFU's guard is `IsPlayerInsideBuilding && interior !=
@@ -9536,7 +9555,7 @@ export function createWorldModes(host) {
         lines: (id) => townTalk?.lines?.(id) ?? [],
         macroContext: questBridge?.machine?.macroContext?.() ?? null,
         entity: playerEntity,
-        survival: survivalOn() ? { minutes: Math.floor(worldMinutes()), vampire: !!liveVampirism(playerEntity), endurance: liveStat(playerEntity, 'endurance') } : null,   // SURV5
+        survival: survivalOn() ? { minutes: Math.floor(ownMinutes()), vampire: !!liveVampirism(playerEntity), endurance: liveStat(playerEntity, 'endurance') } : null,   // SURV5
       });
     },
     toggleInventory() { mountInterior(interiorInventory()); },
@@ -9626,7 +9645,7 @@ export function createWorldModes(host) {
     // have made loitering in a city a crime.
     toggleRest({ ignoreAllocatedBed = false } = {}) {   // AUDIT-RR F6: the bed's own click hands DFU's second constructor argument through
       if (interiorOverlay) return;
-      const rb = racialRestBlock(playerEntity, Math.floor(interiorTicker.classicMinutes));   // V2b
+      const rb = racialRestBlock(playerEntity, Math.floor(interiorTicker.ownMinutes));   // V2b
       const d = restDecision({
         enemiesNearby: interiorEnemiesNearby({ resting: true }),   // IF: rest asks the pool now
         swimming: false,        // nor water
@@ -9653,7 +9672,7 @@ export function createWorldModes(host) {
         // street (world.js, exterior.js) and underground
         // (dungeonContext.js) raised it, so an interior refusal never
         // armed the flag intermittentEnemySpawn rolls on.
-        if (d.kind === 'enemies') setEnemyAlert(playerEntity, true, Math.floor(interiorTicker.classicMinutes));
+        if (d.kind === 'enemies') setEnemyAlert(playerEntity, true, Math.floor(interiorTicker.ownMinutes));
         // AUDIT 58: the offer took the press - the item was handed
         // over inside GiveOffer() and there is nothing to say.
         if (d.kind === 'offer') return;
@@ -10142,7 +10161,7 @@ export function createWorldModes(host) {
           setLastCreateItemIndex(i);   // the static, updated in ItemPicker_OnItemPicked (:113)
           const made = grantCreatedItem(playerEntity, i, {
             gender: playerEntity.gender ?? 'male',
-            nowMinutes: Math.floor(worldMinutes()),
+            nowMinutes: Math.floor(ownMinutes()),
             rounds: rounds ?? 0,
           });
           if (made) townTalk?.say?.(`${made.name}${made.stackCount > 1 ? ` (${made.stackCount})` : ''} conjured.`);
@@ -10827,9 +10846,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3448-3470), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3446-3468), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:9123). So an F9 pressed in a shop
+     *  unconditionally (world.js:9139). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10868,7 +10887,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:9234)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:9250)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10878,8 +10897,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:8038`
-     *  and `dungeonContext.js:7450` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:8050`
+     *  and `dungeonContext.js:7459` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

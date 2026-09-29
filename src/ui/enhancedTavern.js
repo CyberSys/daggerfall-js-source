@@ -34,6 +34,7 @@ import { SOUND } from '../systems/soundClips.js';
 import { macroRows } from './guildServiceWindows.js';
 import { totalGoldAmount, deductGold } from '../systems/court.js';
 import { dayOfYearFromMinutes } from '../systems/gameDate.js';
+import { OWN_TIME_ROOM, OWN_TIME_ROOM_NOTE } from './tavernWindow.js';   // LIVED1: the offer's own-time row, one home for its words
 import {
   TOO_MANY_DAYS_ID, OFFER_PRICE_ID, NOT_ENOUGH_GOLD_ID,
   HOW_MANY_DAYS_ID, HOW_MANY_ADDITIONAL_DAYS_ID,
@@ -138,7 +139,7 @@ function openRoom() {
 function submitRoom() {
   const { room, now } = currentRoom();
   const d = rentalDecision(roomDraft, {
-    room, nowMinutes: now, date: { dayOfYear: dayOfYearFromMinutes(now) },
+    room, nowMinutes: now, date: { dayOfYear: dayOfYearFromMinutes(deps.worldNow?.() ?? now) },   // LIVED1: Heart's Day is the world's calendar, the room the character's own time
     quality: deps.quality?.() ?? 0, free: !!deps.freeRooms?.(), skills: deps.skills?.(),
   });
   if (d.kind === 'ignore') return;   // int.TryParse: nothing at all
@@ -150,17 +151,18 @@ function submitRoom() {
   }
   const offerRows = [
     ...rows(OFFER_PRICE_ID, { amount: d.price, roomHours: room ? roomRemainingHours(room, now) : null }),
-    ...realTimeRows(room, d.days, now),
+    ...ownTimeRows(room, d.days, now),
   ];
   const raise = () => ask(offerRows, () => confirmRoom(room, d));
   if (d.heartsDay) { say(line(ROOM_FREE_HEARTS_DAY), { onDismiss: raise }); return; }
   raise();
 }
 
-function realTimeRows(room, days, now) {
+/** OL3's row, the classic window's own words (ui/tavernWindow.js OWN_TIME_ROOM) - LIVED1: in the character's own time. */
+function ownTimeRows(room, days, now) {
   const expiry = (room ? room.expiryMinutes : now) + 24 * 60 * days;
-  const t = deps.realTimeOf?.(expiry);
-  return t ? [{ text: `The room is yours until ${t} by your clock - the world's time runs while you are away.`, center: true }] : [];
+  const t = deps.ownTimeOf?.(expiry);
+  return t ? [{ text: `${OWN_TIME_ROOM} ${t}${OWN_TIME_ROOM_NOTE}`, center: true }] : [];
 }
 
 function confirmRoom(room, d) {
@@ -200,7 +202,7 @@ function openFood() {
 function pickClassic(i, now) {
   audio.playOneShot(SOUND.ButtonClick, 1);
   const h = deps;
-  const r = eatOrDrink(i, { gold: totalGoldAmount(h.entity), gameMinutes: now });
+  const r = eatOrDrink(i, { gold: totalGoldAmount(h.entity), gameMinutes: h.worldNow?.() ?? now });   // LIVED1: the meal's holiday is the world's calendar
   if (r.kind === 'ignore') return;
   menu = null;
   if (r.kind === 'poor') { say(rows(NOT_ENOUGH_GOLD_ID)); return; }
@@ -213,7 +215,7 @@ function pickClassic(i, now) {
 function openSurvivalMenu() {
   const h = deps;
   const now = h.now();
-  const m = tavernMenu({ climateIndex: h.climateIndex(), quality: h.quality?.() ?? 5, hour: Math.trunc((now % 1440) / 60) });
+  const m = tavernMenu({ climateIndex: h.climateIndex(), quality: h.quality?.() ?? 5, hour: Math.trunc((((h.worldNow?.() ?? now) % 1440) + 1440) % 1440 / 60) });   // LIVED1: the kitchen keeps the sky's hours
   menu = { rows: m.rows, pick: (i) => pickSurvival(m.rows[i], now) };
   // AUDIT SURV-TIERS (the second pass): before six the kitchen refuses in the mod's two words and the DRINKS STILL
   // POUR - the classic window's picker follows its refusal (AUDIT SURV C/D), and this one returned on the words and
@@ -415,7 +417,7 @@ function render() {
     for (const b of win.querySelectorAll('button, input')) b.disabled = true;
     const scrim = boxScrim();
     (scrim.className.includes('sb-screen') ? shell : win).append(scrim);   // the panel's arm catches the press over the whole screen (AUDIT ENH-NOTICE3 B1)
-  } else noticeRelease(noticeOwner);   // ENH-NOTICE3: no box, no panel - the same `} else noticeRelease(this)` the classic windows keep (ui/restWindow.js:873)
+  } else noticeRelease(noticeOwner);   // ENH-NOTICE3: no box, no panel - the same `} else noticeRelease(this)` the classic windows keep (ui/restWindow.js:878)
   shell.append(win);
   host.append(shell);
   unregisterOutside();

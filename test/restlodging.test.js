@@ -466,7 +466,7 @@ test('S40 restVitals: one home for the rested hour, and the dungeon host uses it
   // that hardcoded the flags inside restVitals, or dropped them from
   // createRestDeps' tickVitals, passed. RapidHealing InLight is the
   // ONE place they differ: +100 instead of +60, and only by daylight
-  // OUTDOORS. (rest.js:46-58.)
+  // OUTDOORS. (rest.js:45-57.)
   const lit = (over) => ({
     isPlayer: true, level: 5, health: 0, maxHealth: 50, magicka: 40, maxMagicka: 40,
     fatigue: 0, stats: { strength: 50, endurance: 50, willpower: 50 }, skills: 30,
@@ -517,7 +517,7 @@ test('S40 restVitals: one home for the rested hour, and the dungeon host uses it
   // other host and keeps only advanceMinutes, which is a dungeon law.
   const dc = src('src/scenes/dungeonContext.js');
   assert.match(dc, /const _restDeps = createRestDeps\(playerEntity, \{/);
-  assert.match(dc, /advanceMinutes: \(n, sharedEnd\) => _restAdvance\(n, sharedEnd\),/);
+  assert.match(dc, /advanceMinutes: \(n\) => _restAdvance\(n\),/);
   assert.doesNotMatch(dc, /fatigueRecoveryRate\(maxFatigue/);
   for (const gone of ['fullyHealed: _restFullyHealed', 'dead: () => playerEntity.health <= 0',
     'onRestFinished: () => raisePlayerSkills']) {
@@ -729,7 +729,7 @@ test('S40 restDecision: it is SCENE-FREE - all four hosts run it before opening'
   }
   // and the interior host uses ITS OWN clock for the stamp - the one
   // racialRestBlock takes one line above (the 8h decay reads it back)
-  assert.match(wm, /if \(d\.kind === 'enemies'\) setEnemyAlert\(playerEntity, true, Math\.floor\(interiorTicker\.classicMinutes\)\);/);
+  assert.match(wm, /if \(d\.kind === 'enemies'\) setEnemyAlert\(playerEntity, true, Math\.floor\(interiorTicker\.ownMinutes\)\);/);
   assert.doesNotMatch(src('src/scenes/dungeonContext.js'), /if \(_restDeps\.enemiesNearby\(\)\) \{/);
   // Every host that HAS motor state feeds it LIVE, not as a constant.
   // AUDIT 65 XL-1: the member is PlayerEnterExit.IsPlayerSwimming

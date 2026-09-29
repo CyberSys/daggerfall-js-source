@@ -366,7 +366,9 @@ export function createDroppedTorches({
     // (OnRestWindowClose, 0x45b-0x48c). The pool re-latches wherever
     // the clock can move without the player living through it (a
     // restore, a transition sweep), so a rest still ages the torches
-    // and a load never does.
+    // and a load never does. [AUDIT LIVED1b R: offline. Online the burn
+    // reads the WORLD's clock, which a rest does not move - a torch on
+    // the ground burns with the world's minutes alone.]
     const burn = _lastMinutes == null ? 0 : Math.max(0, (now - _lastMinutes) * 60 / 12);
     _lastMinutes = now;
     for (let i = dropped.length - 1; i >= 0; i--) {

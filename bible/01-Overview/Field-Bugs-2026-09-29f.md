@@ -96,6 +96,8 @@ the balance (marked there).
   (`roads = false`), and AUDIT OW4 D1/D6's pin still lifted the function by its two-option signature ("the walk, with
   its one option"). The one-line re-aim LIVED1 (#442) and SPAWN-SHORE (#441) both carry was ported here, byte for byte;
   SPAWN-SHORE has since landed it on main, and the merge took it clean.
+- **realm0's Testing row said "65 dead"; the list holds 57.** `tools/mutants/realm0.json` had 57 records at this batch's
+  base and still has; all 57 die on the merged tree. The row this batch edits now says 57.
 
 ## For Mac
 

@@ -619,8 +619,10 @@ export function runSurvivalMinutes(entity, from, to, env, deps) {
  * audit found both ways that was wrong: a meal eaten while Off (which
  * writes `lastAte` inside the gap) was moved a second time, days into
  * the future; and WORLD5's online load (worldTick.js alignEntityClocks)
- * leaves exactly such a gap for a short absence ON PURPOSE - "an hour
- * away keeps its hunger" - which the shift forgave in every tier. Paused
+ * left exactly such a gap for a short absence ON PURPOSE - "an hour
+ * away keeps its hunger" - which the shift forgave in every tier.
+ * [LIVED1: online an absence leaves no gap at all - the needs stand on
+ * the character's own clock, which stood while they were away.] Paused
  * here, per span, only while Off, neither can happen: a meal writes a
  * marker the next span carries, and a gap the arc was on for is not
  * touched. A player with no record is given none.
@@ -647,19 +649,6 @@ export function pauseSurvival(entity, from, to) {
   // classic game's days - fed, watered, rested, dry and sober - and the needs start again from there.
   s.offFor = (s.offFor ?? 0) + span;
   if (s.offFor > ALIGN_GRACE_MINUTES) { alignSurvival(entity, Math.floor(to), null); delete s.offFor; }   // AUDIT SURV-TIERS (the third pass): gone, not nought - a 0 rode every save after
-  return true;
-}
-/**
- * AUDIT SURV-TIERS (the third pass): A CORRECTION IS NOT AN ABSENCE. The relay's clock stepping this machine's by
- * `delta` minutes moved the world under the needs' timestamps - worldTick.js alignEntityClocks moves every other
- * marker by it - so a player fed a minute before the socket opened on a clock three hours slow read Starving, and in
- * Hard lost two from every attribute. The record rides the same delta: the needs stand where they were. (A LOAD's
- * gap is different, and save.js keeps it: an hour away is an hour hungrier - WORLD5.)
- */
-export function shiftSurvival(entity, delta) {
-  const s = entity?.survival;
-  if (!s || typeof s !== 'object' || !Number.isFinite(delta) || delta === 0) return false;
-  for (const k of ['lastAte', 'awakeSince', 'lastMinute', 'stiffUntil']) if (Number.isFinite(s[k]) && s[k] !== 0) s[k] += delta;
   return true;
 }
 /** AUDIT SURV A: the feed stopped (the mod off, a host with no reader) - the drains the last minute wrote go with it. */
