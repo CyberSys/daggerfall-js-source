@@ -12,8 +12,8 @@
   {
     "name": "TV6-no-cap",
     "file": "src/systems/travelDungeons.js",
-    "old": "  return out.slice(0, max).sort(nearer);",
-    "new": "  return out.sort(nearer);",
+    "old": "...rest.slice(0, max)].sort(nearer);",
+    "new": "...rest].sort(nearer);",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -132,8 +132,8 @@
   {
     "name": "TV6-lair-a-traveller",
     "file": "src/ui/travelViewHud.js",
-    "old": "k === 'party' || k === 'lair' || k === 'band' || k === 'raider' ? k : 'traveller';",
-    "new": "k === 'party' || k === 'band' || k === 'raider' ? k : 'traveller';",
+    "old": "k === 'party' || k === 'lair' || k === 'band' || k === 'raider' || k === 'camp' ? k : 'traveller';",
+    "new": "k === 'party' || k === 'band' || k === 'raider' || k === 'camp' ? k : 'traveller';",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],

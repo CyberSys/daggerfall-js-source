@@ -886,7 +886,8 @@ export function createTravelOptions(deps = {}) {
    *  up again on a success. The enemies arm closes the panel first (:1413), and its Camp (the host's onClose ->
    *  interruptTravel) ends a SPOT's route (AUDIT TV A4: nothing resumes a journey with no name) - so the mod's own
    *  answer for a journey with no destination, `followPath()`, turned a map's coordinate pick, a click on the ground, a
-   *  spawn's walk or a party member's spot walk into "Following a road" (or "no path"), and split a TV8 walk. */
+   *  spawn's walk or a party member's spot walk into "Following a road" (or "no path"), and split a TV8 walk.
+   *  AUDIT OW5b E1: whether the roll was won (the journey goes on). */
   function attemptAvoidEncounter(route = null) {
     const e = deps.entity?.() ?? {};
     const chance = avoidEncounterChance(e.luck ?? 50, e.stealth ?? 0, st.settings.maxAvoidChance);
@@ -898,9 +899,45 @@ export function createTravelOptions(deps = {}) {
       else if (st.destinationName != null) resumeTravel();
       else followPath();
       ui?.showMessage(T.MsgAvoidSuccess);
-    } else {
-      messageBox(T.MsgAvoidFail);
+      return true;
     }
+    messageBox(T.MsgAvoidFail);
+    return false;
+  }
+
+  /** :1409-1410 - the won roll's grace, lapsed on the unscaled clock: whether encounters are still passed by. */
+  function ignoringEncounters() {
+    if (st.ignoreEncounters && now() >= st.ignoreEncountersTime) st.ignoreEncounters = false;
+    return st.ignoreEncounters;
+  }
+
+  /** :1411-1424 - THE ENEMIES STOP, one home for its two askers: the panel closed (its Camp - the host's onClose
+   *  interrupts, the destination kept), then a cautious traveller's avoid roll, or the reckless one's box. Whether the
+   *  journey goes on (a won roll). */
+  function enemiesStop() {
+    const route = st.route;   // AUDIT OW4 J2: held before the panel's Camp - a spot's route dies in interruptTravel
+    ui?.closeWindow();
+    if (st.destinationCautious) return attemptAvoidEncounter(route);
+    messageBox(T.MsgEnemies);
+    return false;
+  }
+
+  /** AUDIT OW5b E1 (Mac, 2026-09-28: "Need to get pullout of fast travel little sooner for encounters. U run thru
+   *  them"): THE ENEMIES STOP, ASKED BY THE ENCOUNTER THAT MEETS THE TRAVELLER - the Update sweep's own arm, the frame
+   *  the host knows an encounter has met a walking journey (the Overworld's band at its contact, a wanderer the spawner
+   *  has placed), never a frame later. The sweep asks the FOES (AreEnemiesNearby: seen, or inside the classic spawn
+   *  band), and in the port they answer late: they stand after their career and sprites load, and they sense on their
+   *  own real-time classic tick, while the port scales the traveller alone (world.js TO1's clock, the slice's one
+   *  departure) - so the answer DFU's timeScale gives within a fraction of a metre came after twenty to a hundred times
+   *  the ground: the band the traveller was seen running at was run through, and a foe the journey carried out of its
+   *  reach first (the classic band's 27 m outdoors, a band's 60 m of sight) was never met at all. Null: no journey walks
+   *  (nothing to stop). 'ignored': a won roll's grace still runs, and passes the encounter by as the sweep would.
+   *  'avoided': a cautious traveller's roll was won, and the journey goes on. 'stopped': the journey is stopped, and
+   *  says why. */
+  function encounter() {
+    if (!st.autopilot || !ui?.isShowing) return null;
+    if (ignoringEncounters()) return 'ignored';
+    return enemiesStop() ? 'avoided' : 'stopped';
   }
 
   /** :1215-1233 / :1235-1271 - what an accelerated journey turns off
@@ -1008,12 +1045,8 @@ export function createTravelOptions(deps = {}) {
       // on one; the Overworld's crossing sails its sea legs
       if ((deps.climateIndex?.() ?? 0) === CLIMATE_OCEAN && !deps.atSea?.()) { stopTravelWithMessage(T.MsgOcean); return { drive, handled: true, stopped: 'ocean' }; }
       // :1409-1424 - encounters
-      if (st.ignoreEncounters && now() >= st.ignoreEncountersTime) st.ignoreEncounters = false;
-      if (!st.ignoreEncounters && deps.enemiesNearby?.()) {
-        const route = st.route;   // AUDIT OW4 J2: held before the panel's Camp - a spot's route dies in interruptTravel
-        ui?.closeWindow();
-        if (st.destinationCautious) attemptAvoidEncounter(route);
-        else messageBox(T.MsgEnemies);
+      if (!ignoringEncounters() && deps.enemiesNearby?.()) {
+        enemiesStop();
         return { drive, handled: true, stopped: 'enemies' };
       }
       // :1426-1437 - a new disease stops the journey and shows the
@@ -1126,5 +1159,6 @@ export function createTravelOptions(deps = {}) {
     onEncounter, onEnterLocationRect, onMapPixelChanged, onRegionIndexChanged,
     drawJunctionMap, updateJunctionMap, disableJunctionMap,
     attemptAvoidEncounter,
+    encounter,   // AUDIT OW5b E1: the enemies stop, asked by the encounter that meets the traveller
   };
 }

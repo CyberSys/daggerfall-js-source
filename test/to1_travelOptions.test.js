@@ -998,6 +998,65 @@ test('AUDIT OW4 J7: a new disease stops the journey THROUGH THE PANEL (its Camp 
   assert.deepEqual([bare.to.isTravelActive, !!bare.to.state.autopilot], [false, false]);
 });
 
+test('AUDIT OW5b E1: THE ENEMIES STOP ASKED BY THE ENCOUNTER THAT MEETS THE TRAVELLER (Mac: "Need to get pullout of fast travel little sooner for encounters. U run thru them") - the sweep\'s own arm, the moment the host asks: no journey walking, nothing; reckless, stopped through the panel with the box; cautious, the roll - lost, stopped; won, the journey goes on and the grace passes the next one by until it lapses', () => {
+  const walking = (over = {}) => {
+    const hold = {};
+    const ui = new TravelControlUI({ defaultStartingAccel: 10, accelerationLimit: 60, onClose: () => hold.to.interruptTravel() });   // the world host's own: Camp is InterruptTravel
+    const r = rig({ ...over, deps: { ui, ...over.deps } });
+    hold.to = r.to;
+    return { ...r, ui };
+  };
+  // nothing walks: nothing to stop, nothing said - the panel alone over a stopped journey is no journey (AUDIT OW3 P1)
+  {
+    const { to, boxed } = walking();
+    assert.equal(to.encounter(), null, 'no journey');
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, false);
+    to.interruptTravel();
+    assert.equal(to.encounter(), null, 'the autopilot gone: not walking');
+    assert.deepEqual(boxed, []);
+  }
+  // reckless: stopped THROUGH THE PANEL (its Camp - the destination kept for the map's Resume), the box says why
+  {
+    const { to, ui, boxed, scales } = walking();
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, false);
+    assert.equal(to.encounter(), 'stopped');
+    assert.deepEqual([ui.isShowing, !!to.state.autopilot, to.destinationName], [false, false, 'Nowhere'], 'stopped at once, kept for the Resume');
+    assert.equal(scales.at(-1), 1, 'the clock back to walking pace the same moment');
+    assert.deepEqual(boxed, [TRAVEL_OPTIONS_TEXT.MsgEnemies]);
+  }
+  // cautious, the roll lost: stopped, the mod's own words
+  {
+    const { to, ui, boxed } = walking({ roll: 100 });
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, true);
+    assert.equal(to.encounter(), 'stopped');
+    assert.equal(ui.isShowing, false);
+    assert.deepEqual(boxed, [TRAVEL_OPTIONS_TEXT.MsgAvoidFail]);
+  }
+  // cautious, the roll won: the journey walks on, and the grace passes the next encounter by - until it lapses
+  {
+    const { to, ui, state, boxed } = walking({ roll: 1 });
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, true);
+    assert.equal(to.encounter(), 'avoided');
+    assert.deepEqual([ui.isShowing, !!to.state.autopilot], [true, true], 'taken up again');
+    assert.equal(ui.message, TRAVEL_OPTIONS_TEXT.MsgAvoidSuccess);
+    assert.deepEqual(boxed, []);
+    state.now = IGNORE_ENCOUNTERS_SECONDS - 1;
+    assert.equal(to.encounter(), 'ignored', 'within the grace: passed by');
+    assert.deepEqual([ui.isShowing, !!to.state.autopilot], [true, true], 'and nothing stopped');
+    state.now = IGNORE_ENCOUNTERS_SECONDS;
+    assert.equal(to.encounter(), 'avoided', 'the grace lapsed: a new encounter, a new roll');
+  }
+  // one home: the frame's sweep and the asked stop are the same arm (its grace included)
+  {
+    const { to, state, boxed } = walking({ roll: 1 });
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, true);
+    assert.equal(to.encounter(), 'avoided');
+    state.enemies = true;
+    assert.equal(to.update({ topWindowIsTravelUI: true }).stopped, undefined, 'the sweep keeps the same grace');
+    assert.deepEqual(boxed, []);
+  }
+});
+
 test('TO1: the follow key - a road under the feet and a facing that matches begins a leg; nothing under the feet says so', () => {
   const { to, ui, net, state, said } = rig();
   const at = (x, y) => x + y * 1000;

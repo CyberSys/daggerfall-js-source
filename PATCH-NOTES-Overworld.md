@@ -83,6 +83,28 @@
 - Spawned dungeons in the mountains can be walked to, expired ones vanish, found ones far away keep their plates after a reload, and found dungeons are never crowded out by "?" marks.
 - Group travel: re-aiming a spot takes the party with you, a halted walk expires after 5 minutes, a member too hurt or stuck to travel no longer halts the party on every Resume, your own Resume during a halt leaves the walk, the "Travel with them?" question can't reappear late or take a stale Yes, and a member can follow the leader to a town they haven't found yet - even in the mountains.
 
+## Fourth update
+- A band that reaches you on a journey stops it the moment it arrives, and the camera comes down right there - you no longer run straight through it at speed (on a horse, sometimes past it altogether). The same goes for a wandering monster that turns up beside you on the road.
+- Travelling cautiously, a successful escape now truly leaves the band behind: it never stands in your way.
+- A band chasing you no longer gains extra ground when the game stutters, and if you bring the view down mid-chase it stands where it really is, not right beside you.
+- Bands are the same for every player whatever mods they have switched on.
+- The "?" of an undiscovered dungeon close by always shows on the Overworld, however many you've already found in the area.
+- Spawned dungeons that expire are really gone now - they used to come straight back on the same spot. One still standing in front of you keeps its plate until you leave.
+- Resuming a journey to a spawned dungeon, or following your party leader to one, walks you to its door.
+- Pirates: when they come alongside you're taken off your helm first, so you're really boarded (before, you were snapped back to your own boat's helm). A lent ship works as it does on a fast travel.
+- A pirate chase no longer ends because you stepped off the helm onto your own deck, and a passenger on someone else's boat isn't chased. A pirate ship chasing you always shows on the map.
+- Pirate ships no longer jump across capes or sail off the edge of the world, and aren't shown at all if you can't sail.
+
+## Fifth update
+- More bands roam the wilds - half as many again by day, a third more by night - and they move about visibly now instead of seeming to stand still.
+- Bands come in every size: a lone beast (a giant on the road, an imp, a mummy abroad by night), the usual handful, and now and then a warband of six. A lone one is named alone ("Giant"); the rest say what and how many ("Orc, 4").
+- Online, every player sees the same band - the same creatures and the same number over it, whatever their own level. (Offline, bands still match your level.) A party that meets a band still brings more of it to the fight, as always.
+- Travelling fast, you slow down as enemies near: always a few seconds' warning before a band's sight, a pirate's lookout or a camp, down to walking pace as you come into their reach. It picks up again as you pass. The travel panel shows the slower rate ("×5 / ×40"; hover it: "with enemies near"), and the first time it happens you're told. This works on the classic travel panel too, and when you travel fast with the movement keys on the Overworld (the bar shows the slower speed; walking away from them doesn't slow you).
+- Camps show on the Overworld: every camp, pack or band standing about is marked where it stands, with what and how many ("Orc camp, 4"), and its mark goes when the last of them falls. Online, other players' camps show too.
+- Online, a camp stays a camp for everyone: if the player who found it leaves (through a door, or by dying), whoever takes it over keeps it together as one camp. If they walk away from a camp you're standing by, it's handed to you instead of vanishing from under you.
+- Online, pirate ships are shared like bands: a ship chasing another player is seen chasing them, one ship never chases two players at once, and a ship someone has fought or escaped is gone for everyone.
+- Online, the world remembers: a band or pirate ship someone has fought or escaped stays gone for everyone in the area - even players who arrive later - and spawned dungeons run out on the same clock for every player (the earliest anyone found them, and the first time anyone cleared them), so you and your friends always agree which are still there. (This needs the server update that ships with it; until then, only players nearby at the time hear it.)
+
 ## Fixes before release
 - Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.
 - A journey to a far town keeps the town on screen: its flag is pinned to the edge with its distance, and clicking it takes the journey up again after a stop.

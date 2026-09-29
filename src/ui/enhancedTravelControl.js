@@ -40,11 +40,12 @@ let host = null;
 let parts = null;
 let last = null;
 
-/** TV2 (AUDIT DEEP X-6): the held clock, in words - the rate the travel view's governor lets run, of the one asked for.
- *  AUDIT OW5 G1: and why - the load (TV2's governor), or the ground (AUDIT OW4 J5: an Overworld journey walks at x1 on the
- *  ground until the view can rise), which the load's words called loading while nothing was. */
-export const TRAVEL_HELD_TEXT = (n, of, why = 'load') => (why === 'ground'
-  ? `Held to ×${n} of ×${of} until the Overworld rises` : `Held to ×${n} of ×${of} while the land loads`);
+/** TV2 (AUDIT DEEP X-6): the held clock, in words - the rate the travel view's governor lets run, of the one asked for,
+ *  and why. AUDIT OW5 G1: the load (TV2's governor), or the ground (AUDIT OW4 J5: an Overworld journey walks at x1 on the
+ *  ground until the view can rise), which the load's words called loading while nothing was; OW6: or an enemy near
+ *  (systems/travelThreat.js). */
+export const TRAVEL_HELD_WHY = Object.freeze({ load: 'while the land loads', ground: 'until the Overworld rises', foes: 'with enemies near' });
+export const TRAVEL_HELD_TEXT = (n, of, why = 'load') => `Held to ×${n} of ×${of} ${TRAVEL_HELD_WHY[why] ?? TRAVEL_HELD_WHY.load}`;
 
 /** enhancedHud.js:316 - write only on a change. */
 function put(node, key, value) {
