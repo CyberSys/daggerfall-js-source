@@ -143,7 +143,7 @@ confirmed, 21 refuted.**
 
 **The road height smoother wrote the transposed heightmap index.** The
 port's heightmap is x-major with z fastest - `data[x * hDim + y]`
-(`src/world/terrainSampler.js:155`, DFU's `JobA.Idx(y, x, hDim)` at
+(`src/world/terrainSampler.js:160`, DFU's `JobA.Idx(y, x, hDim)` at
 `TerrainSampler.cs:123`) - and every consumer in the tree obeys it.
 `smoothRoadHeights` read its tile correctly at `tilemap[y * tDim + x]` and
 then wrote the four corner samples from `y * hDim + x`, the mirror. A

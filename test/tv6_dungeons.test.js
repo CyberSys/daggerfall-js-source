@@ -443,11 +443,11 @@ test('AUDIT OW4 D2/D4 host: a spawn is GONE by the feature\'s own test (the ledg
   assert.ok(a, 'the stand');
   let net = {};
   const cloned = [];
-  const at = new Function('d', `const { maps, CLIMATES, tvSpawnGone, terrainGen, pathFreePixel, _spawnCloneAt } = d; return ${a[1]};`)({
-    maps: { getClimateIndex: (x) => (x === 1 ? CLIMATES.Ocean : 231) }, CLIMATES, tvSpawnGone: (x) => x === 2, terrainGen: { roads: () => net },
+  const at = new Function('d', `const { maps, CLIMATES, _spawnGround, tvSpawnGone, terrainGen, pathFreePixel, _spawnCloneAt } = d; return ${a[1]};`)({
+    maps: { getClimateIndex: (x) => (x === 1 ? CLIMATES.Ocean : 231) }, CLIMATES, _spawnGround: (x) => x !== 5, tvSpawnGone: (x) => x === 2, terrainGen: { roads: () => net },
     pathFreePixel: (n, x) => x !== 3, _spawnCloneAt: (x, y) => { cloned.push(x); return { name: `S${x},${y}` }; },
   });
-  assert.deepEqual([at(1, 0), at(2, 0), at(3, 0)], [null, null, null], 'the sea, a spent clock, a path across the pixel: nothing');
+  assert.deepEqual([at(1, 0), at(2, 0), at(3, 0), at(5, 0)], [null, null, null, null], 'the sea, a spent clock, a path across the pixel, a shore whose plateau is wet (SPAWN-SHORE): nothing');
   assert.deepEqual(at(4, 0), { name: 'S4,0' }, 'else the feature\'s own clone');
   net = null;
   assert.deepEqual(at(3, 0), { name: 'S3,0' }, 'before the network lands, as the feature stands it (provisional)');
@@ -485,9 +485,9 @@ test('AUDIT OW4 D5/D3 host: every write to the index after the boot\'s fill bump
   assert.ok(seen, 'its first-sight door (OW6L)');
   const ledger = createSpawnLedger(), index = new Map(), unroaded = new Set();
   let clock = 0;
-  const env = new Function('d', `let _locIndexGen = 0; const { params, spawnsDungeon, _spawnSalt, maps, CLIMATES, terrainGen, pathFreePixel, _spawnLedger, _spawnClock, _insideSpawn,
+  const env = new Function('d', `let _locIndexGen = 0; const { params, spawnsDungeon, _spawnSalt, maps, CLIMATES, _spawnGround, terrainGen, pathFreePixel, _spawnLedger, _spawnClock, _insideSpawn,
     locationIndex, _spawnCloneAt, _spawnUnroaded, owSayRow } = d; ${seen[1]} ${s[1]} return { at: spawnedDungeonAt, gen: () => _locIndexGen };`)({
-    params: { has: () => true }, spawnsDungeon: () => true, _spawnSalt: 1, maps: { getClimateIndex: () => 231 }, CLIMATES, terrainGen: { roads: () => ({}) },
+    params: { has: () => true }, spawnsDungeon: () => true, _spawnSalt: 1, maps: { getClimateIndex: () => 231 }, CLIMATES, _spawnGround: () => true, terrainGen: { roads: () => ({}) },
     pathFreePixel: () => true, _spawnLedger: ledger, _spawnClock: () => clock, _insideSpawn: () => false, locationIndex: index,
     _spawnCloneAt: (x, y) => spawnLoc(x, y), _spawnUnroaded: unroaded, owSayRow: () => {},
   });

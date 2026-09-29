@@ -133,7 +133,9 @@ The first audit's own record is corrected where this one found its fixes short (
   record whose tests this branch changed in code - 1,190: 1,180 dead, 9 equivalent as recorded, one survivor,
   `DISC10-E-V9-a-hole-is-read-as-a-curse` (dead on main): its only kill was WORLD5's arrival shift, which LIVED1
   retired. `auditlived1b_t.test.js` pins the accessor stepping over a hole, as main pins liveVampirism's, and the
-  record names it: dead.]
+  record names it: dead. Then #441 (SPAWN-SHORE, and main's own fix of the same `tv6_dungeons` pin, identical): 62
+  files, 130 hunks - 129 cite-only (179 cites moved) and the Suite line; two survtiers3 cite records re-aimed. It adds
+  no time reader.]
 - **Process (T15, beside the first audit's T13):** `test/auditworld34.test.js`'s "A1 executed" waits a fixed 25 ms
   between its async steps and failed 2 of 3 unmutated runs under `--jobs` load; a list that names it reads those
   failures as deaths (39 false deaths in lane T's second stage, hiding two real survivors). No list here names it. A lane
