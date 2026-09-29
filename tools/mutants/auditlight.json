@@ -48,8 +48,8 @@
   {
     "name": "sc1-shift-noop",
     "file": "src/render/shadowPass.js",
-    "old": "    this._shiftAcc.push([a[0] + offset[0], a[1] + offset[1], a[2] + offset[2]]);\n    this._shiftGen++;",
-    "new": "    this._shiftAcc.push([a[0], a[1], a[2]]);\n    this._shiftGen++;",
+    "old": "    a[0] += offset[0]; a[1] += offset[1]; a[2] += offset[2];\n    this._shiftGen++;",
+    "new": "    this._shiftGen++;",
     "tests": [
       "test/audit_lighting.test.js"
     ]
@@ -57,7 +57,7 @@
   {
     "name": "sc1-batch-origin-left-behind",
     "file": "src/render/shadowPass.js",
-    "old": "      if (b._shSeen === true && b._shGen !== this._shiftGen) { const d = this._shiftDelta(b._shGen ?? 0); b._shOx += d[0]; b._shOy += d[1]; b._shOz += d[2]; }",
+    "old": "      if (b._shSeen === true && b._shGen !== this._shiftGen) { const d = this._shiftDelta(b); b._shOx += d[0]; b._shOy += d[1]; b._shOz += d[2]; }",
     "new": "",
     "tests": [
       "test/audit_lighting.test.js"

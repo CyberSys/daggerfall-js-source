@@ -208,7 +208,6 @@ test('TO1: LoadSettings - the speed penalty is a multiplier, the fatigue floor i
     'GeneralOptions.AllowTargetingMapCoordinates': true, 'GeneralOptions.AllowWeather': false,
     'GeneralOptions.AllowAnnoyingSounds': false, 'GeneralOptions.AllowRealGrass': false,
     'GeneralOptions.LocationPause': 1, 'GeneralOptions.AvoidObstacles': true,   // TRAVEL-NAV1: the port's own
-    'GeneralOptions.FirstPersonTravel': false,   // OW-TOGGLE: the port's own
     'CautiousTravel.PlayerControlledCautiousTravel': true, 'CautiousTravel.SpeedPenalty': 20,
     'CautiousTravel.MaxChanceToAvoidEncounter': 95, 'CautiousTravel.HealthMinimumPercentage': 5,
     'CautiousTravel.FatigueMinimumValue': 5,
@@ -250,8 +249,6 @@ test('TO1: LoadSettings - the speed penalty is a multiplier, the fatigue floor i
   assert.equal(s.locationPause, LOC_PAUSE_NEAR);
   assert.equal(s.avoidObstacles, true, 'TRAVEL-NAV1: the port\'s steering switch rides the same bag');
   assert.equal(readTravelOptionsSettings(reader({ 'GeneralOptions.AvoidObstacles': false })).avoidObstacles, false, '...and off is off');
-  assert.equal(s.firstPersonTravel, false, 'OW-TOGGLE: the first-person switch rides the same bag');
-  assert.equal(readTravelOptionsSettings(reader({ 'GeneralOptions.FirstPersonTravel': true })).firstPersonTravel, true, '...and on is on');
   // KB1: the follow key is the registry's FollowPaths action, not a setting - :224-232's six and the custom bind are
   // read once, by the carry into the registry (systems/inputActions.js migrateKeyBinds, test/kb1_keybinds.test.js).
   assert.equal(s.followKey, undefined, 'no key field');

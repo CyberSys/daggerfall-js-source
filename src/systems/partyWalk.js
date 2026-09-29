@@ -41,6 +41,9 @@ export const PARTY_WALK_GRACE_MS = 10_000;
  *  every yes-member, wherever they were, started without being asked; a halted spot walk rode the pose for ever. The
  *  leader's next journey after it is a new round, asked of whoever is gathered. */
 export const PARTY_WALK_HALT_MS = 5 * 60_000;
+/** AUDIT OW5 P4: how far past the walk's own clock a member's stop may stand and still halt the party (ms) - the hub's
+ *  clock is shared, so a stamp further ahead is no stop of this walk's. */
+export const PARTY_WALK_TS_SKEW_MS = 30_000;
 /** A member's answer to no round. AUDIT OW4 P4: an answer may carry `balk` (absent: none) - my own journey on the walk
  *  stopped because it cannot run as I am (WALK_BALKS), and the party sets me out no more until I take it up myself. */
 export const NO_WALK_ANSWER = Object.freeze({ at: null, yes: false, go: null });
@@ -133,7 +136,7 @@ export function leaderWalkStep({ tw, journeying, dest, ended, stops, now }) {
   if (tw.h == null) {
     if (!journeying) return { tw: { ...tw, h: Math.round(now) }, halt: false };
     if (!mine) return { tw: null, halt: false };
-    if (leaderMustHalt(tw, stops)) return { tw: { ...tw, h: Math.round(now) }, halt: true };
+    if (leaderMustHalt(tw, stops, now)) return { tw: { ...tw, h: Math.round(now) }, halt: true };
     return { tw, halt: false };
   }
   if (walkHaltLapsed(tw, now)) return { tw: null, halt: false };   // AUDIT OW4 P2: off the pose, never set out again
@@ -147,10 +150,14 @@ export function leaderWalkStep({ tw, journeying, dest, ended, stops, now }) {
  * journey stops, and its halt reaches everyone.
  * @param {any} tw the leader's walk
  * @param {Array<number|null|undefined>} stops the present members' `ts`
+ * @param {number} [now] the walk's clock - a stop past it by more than PARTY_WALK_TS_SKEW_MS is none (AUDIT OW5 P4)
  */
-export function leaderMustHalt(tw, stops) {
+export function leaderMustHalt(tw, stops, now = Infinity) {
   if (!tw || tw.h != null) return false;
-  for (const s of stops ?? []) if (Number.isFinite(s) && /** @type {number} */ (s) > tw.go) return true;
+  // AUDIT OW5 P4: never a stamp from the future - the wire bounds `ts` from below alone, so one member's pose stamped far
+  // ahead (a clock off by hours, a client made to) read as a stop after EVERY set-out and halted the party at once
+  const latest = now + PARTY_WALK_TS_SKEW_MS;
+  for (const s of stops ?? []) if (Number.isFinite(s) && /** @type {number} */ (s) > tw.go && /** @type {number} */ (s) <= latest) return true;
   return false;
 }
 

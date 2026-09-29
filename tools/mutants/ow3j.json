@@ -52,7 +52,7 @@
   {
     "name": "OW3-J2-no-owner",
     "file": "src/scenes/world.js",
-    "old": "function tvOwnsJourneys() { return !!travelOptions && !travelOptions.settings?.firstPersonTravel && isEnhanced() && !!travelView; }",
+    "old": "function tvOwnsJourneys() { return !!travelOptions && !modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravel') && isEnhanced() && !!travelView; }",
     "new": "function tvOwnsJourneys() { return false; }",
     "tests": [
       "test/tv2_click_to_move.test.js"
@@ -223,7 +223,7 @@
   {
     "name": "OW3-J7-walked-into-the-sea",
     "file": "src/scenes/world.js",
-    "old": "      if (tvWater(pick.pixel.x, pick.pixel.y) || at[1] <= tvSeaY() + TV_SEA_EPS_M) { townTalk.say(TRAVEL_VIEW_TEXT.water); return false; }\n",
+    "old": "      if (tvWater(pick.pixel.x, pick.pixel.y) || at[1] <= tvSeaY() + TV_SEA_EPS_M) { tvSay(TRAVEL_VIEW_TEXT.water); return false; }\n",
     "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js"

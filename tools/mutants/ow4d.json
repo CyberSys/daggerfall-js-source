@@ -262,8 +262,8 @@
   {
     "name": "OW4D5-size-again",
     "file": "src/scenes/world.js",
-    "old": "n = _locIndexGen;",
-    "new": "n = locationIndex.size;",
+    "old": "const grid = Math.max(1, state.terrainDistance ?? 3), n = _locIndexGen;",
+    "new": "const grid = Math.max(1, state.terrainDistance ?? 3), n = locationIndex.size;",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],

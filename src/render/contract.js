@@ -67,6 +67,9 @@
  * @property {number|null} [_bbKeyFrame]              ...the frame
  * @property {number} [_bbKeyArchive]                 ...the archive
  * @property {number} [_shGen]                        SC1: the floating origin's generation the pass last saw it in
+ * @property {number} [_shAx]                         AUDIT OW5 R4: the floating origin's cumulative offset the pass last saw it at, x (NaN until then - a double from birth)
+ * @property {number} [_shAy]                         AUDIT OW5 R4: ...y
+ * @property {number} [_shAz]                         AUDIT OW5 R4: ...z
  * @property {boolean} [_shSeen]                      SC1: recorded at least once
  * @property {number} [_shOx]                         SC1: the origin it was last recorded at, x (NaN until then - a double from birth, read only once `_shSeen`)
  * @property {number} [_shOy]                         ...y

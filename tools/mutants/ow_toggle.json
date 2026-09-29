@@ -2,7 +2,7 @@
   {
     "name": "OW-TOGGLE-owner-ignores-the-switch",
     "file": "src/scenes/world.js",
-    "old": "function tvOwnsJourneys() { return !!travelOptions && !travelOptions.settings?.firstPersonTravel && isEnhanced() && !!travelView; }",
+    "old": "function tvOwnsJourneys() { return !!travelOptions && !modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravel') && isEnhanced() && !!travelView; }",
     "new": "function tvOwnsJourneys() { return !!travelOptions && isEnhanced() && !!travelView; }",
     "tests": [
       "test/ow_toggle.test.js"
@@ -12,8 +12,8 @@
   {
     "name": "OW-TOGGLE-owner-inverted",
     "file": "src/scenes/world.js",
-    "old": "function tvOwnsJourneys() { return !!travelOptions && !travelOptions.settings?.firstPersonTravel && isEnhanced() && !!travelView; }",
-    "new": "function tvOwnsJourneys() { return !!travelOptions && !!travelOptions.settings?.firstPersonTravel && isEnhanced() && !!travelView; }",
+    "old": "function tvOwnsJourneys() { return !!travelOptions && !modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravel') && isEnhanced() && !!travelView; }",
+    "new": "function tvOwnsJourneys() { return !!travelOptions && !!modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravel') && isEnhanced() && !!travelView; }",
     "tests": [
       "test/ow_toggle.test.js"
     ],
@@ -50,16 +50,6 @@
     "note": "Mac: \"Off by default\" - the Overworld's journeys are gone for everyone who never touched the switch."
   },
   {
-    "name": "OW-TOGGLE-never-read",
-    "file": "src/systems/travelOptions.js",
-    "old": "    firstPersonTravel: !!get('GeneralOptions.FirstPersonTravel'),",
-    "new": "    firstPersonTravel: false,",
-    "tests": [
-      "test/ow_toggle.test.js"
-    ],
-    "note": "The switch on the tile turns nothing."
-  },
-  {
     "name": "OW-TOGGLE-off-the-tile",
     "file": "src/systems/features.js",
     "old": "    'GeneralOptions.AvoidObstacles', 'GeneralOptions.FirstPersonTravel',\n  ]),",
@@ -68,5 +58,15 @@
       "test/ow_toggle.test.js"
     ],
     "note": "Declared but on no screen: a key nobody can turn (TORCH-BIND's lesson)."
+  },
+  {
+    "name": "OW-TOGGLE-reads-another-key",
+    "file": "src/scenes/world.js",
+    "old": "!modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravel')",
+    "new": "!modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.AvoidObstacles')",
+    "tests": [
+      "test/ow_toggle.test.js"
+    ],
+    "note": "The switch reads another key - AvoidObstacles, on by default: the Overworld owns nothing."
   }
 ]

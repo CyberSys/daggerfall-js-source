@@ -95,6 +95,16 @@ the port's own key on Travel Options' pane, OFF and on the tile; on, every walke
 journey again - a map pick begun on the ground, the mod's resume, the view neither raised with it nor stopping it, its
 clock never held at x1 under a lowered view. `test/ow_toggle.test.js` (5), `tools/mutants/ow_toggle.json` 7/7 dead.
 
+## AUDIT OW5: the Overworld audited before the merge (Mac's ask)
+
+Mac: *"Before we merge. Can we do a comprehensive audit on the overworld, just want to make sure it's perfect."* Seven
+read-only lenses on one snapshot; every finding verified before it was fixed; the record, finding by finding, is
+`06-Systems/Travel-View.md` AUDIT OW5 - ten MAJORs fixed (the find behind a dozen found dungeons, a window freeing the
+pirates, a jump walking a route back to its old leg, the lock under a risen view, E and F from under the view, a
+passenger walked off the deck, a moored boat boarded for a walk inland, an own-pixel sea spot landing the boat mid-sea,
+the whole map's rung cut short, the giant's shadow), the MINORs with them, and five left for Mac with their reasons.
+`test/ow5_audit.test.js` (14) beside the suites it touched; `tools/mutants/ow5.json`.
+
 ## Found on the way, not this batch's
 
 - The doctrine pin on `src/net/staffCommands.js` (STAFF1), red on main when this batch began, is green: main's REALM

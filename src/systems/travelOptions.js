@@ -131,9 +131,6 @@ export function readTravelOptionsSettings(read = modSetting) {
     // - the mod has none): the journey steers round what stands in its way
     // and stops short of what it cannot (systems/travelSteer.js).
     avoidObstacles: !!get('GeneralOptions.AvoidObstacles'),
-    // OW-TOGGLE: the port's own switch too - the journey walked in first person, as before OW-ONLY
-    // (scenes/world.js tvOwnsJourneys answers no).
-    firstPersonTravel: !!get('GeneralOptions.FirstPersonTravel'),
     // :209-215. The speed penalty is a PERCENTAGE off, so 20 is x0.8,
     // and the fatigue minimum is the setting PLUS ONE (:214).
     cautiousTravel: !!get('CautiousTravel.PlayerControlledCautiousTravel'),

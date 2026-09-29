@@ -35,7 +35,8 @@ test('TV-WASD: the bar says the speed, and the load governor\'s hold beside it',
   assert.equal(TRAVEL_VIEW_TEXT.travelling(10), 'Travelling at ×10');
   assert.equal(TRAVEL_VIEW_TEXT.travelling(10, 5), 'Travelling at ×5 of ×10');
   assert.equal(TRAVEL_VIEW_TEXT.travelling(10, 10), 'Travelling at ×10', 'a hold at the full speed is no hold');
-  assert.match(WORLD, /trip: \(\) => \(tvTripLive\(\) \? tvTrip\.line : tvWalking \? TRAVEL_VIEW_TEXT\.travelling\(tvWalking, tvHeld\) : ''\),/, 'a journey\'s own line first');
+  // PIN MOVED (AUDIT OW5 G3): the keys' speed first - it runs only with no journey driving, and a stopped route kept for the Resume hid it
+  assert.match(WORLD, /trip: \(\) => \(tvWalking \? TRAVEL_VIEW_TEXT\.travelling\(tvWalking, tvHeld\) : tvTripLive\(\) \? tvTrip\.line : ''\),/, 'the keys\' speed, else a journey\'s own line');
 });
 
 /** world.js's governor, mounted from its own source: `let tvHeld` through the end of travelViewGovern. */
@@ -84,6 +85,26 @@ test('TV-WASD host: the world\'s own governor (mounted) runs the clock at the ke
   assert.equal(g.walking(), 0);
   assert.equal(g.holds(), false);
   resetTimeScale();
+});
+
+test('TV-WASD host (AUDIT OW5 G4): the page losing the focus with a key held lets the keys\' travel go - the key\'s keyup never comes, and the clock ran on at the spinner\'s rate', () => {
+  resetTimeScale();
+  const { w, g } = rig();
+  const had = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  let focused = true;
+  Object.defineProperty(globalThis, 'document', { value: { hasFocus: () => focused }, configurable: true, writable: true });
+  try {
+    w.keys.add('MoveForwards');
+    g.govern(1 / 60);
+    assert.equal(timeScale(), 10, 'W held, the page focused: x10');
+    focused = false;
+    g.govern(1 / 60);
+    assert.equal(timeScale(), 1, 'the focus lost with W still held: x1 at once');
+    assert.equal(g.walking(), 0);
+  } finally {
+    if (had) Object.defineProperty(globalThis, 'document', had); else delete globalThis.document;
+    resetTimeScale();
+  }
 });
 
 test('TV-WASD host: the load governor holds the keys\' travel to what the land raises, as it holds a journey - and the bar is told', () => {

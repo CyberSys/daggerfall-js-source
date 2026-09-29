@@ -72,7 +72,8 @@ test('TV5 host wiring: the far places are rebuilt on a pixel (or a reach) change
   assert.match(w, /const farEnd = endKey \? `far:\$\{tvTrip\.plan\.summary\.mapId\}` : null;/, 'the journey\'s own end is the flag\'s, not a plate at the edge');
   assert.match(w, /for \(const f of travelViewFarPlaces\(\)\) \{\n\s*if \(f\.key === farEnd\) continue;/);
   assert.match(w, /const plate = tvPlates\.list\.find\(\(p\) => p\.key === key\) \?\? tvFar\.list\.find\(\(p\) => p\.key === key\)( \?\? tvDng\.list\.find\(\(p\) => p\.key === key && p\.summary\))?;/);   // TV6: and a found dungeon's
-  assert.match(w, /tvFar = \{ at: null, near: -1, list: \[\] \};   \/\/ TV5: nor the far places\n\s*(tvDng = \{ at: null, dg: -1, list: \[\] \};   \/\/ TV6: nor the dungeons\n\s*)?(tvBandSeen = [^\n]*\n\s*)?travelView\?\.exit\('load', true\);/);
+  // PIN MOVED (AUDIT OW5 D1): the find's own list emptied beside the dungeons'
+  assert.match(w, /tvFar = \{ at: null, near: -1, list: \[\] \};   \/\/ TV5: nor the far places\n\s*(tvDng = \{ at: null, dg: -1, list: \[\] \};   \/\/ TV6: nor the dungeons\n\s*tvFind = \{ at: null, dg: -1, n: -1, list: \[\] \};[^\n]*\n\s*)?(tvBandSeen = [^\n]*\n\s*)?travelView\?\.exit\('load', true\);/);
 });
 
 // ── PERF-TV: THE READOUT, DRAWN ─────────────────────────────────────────────────────────────────────────────────────
@@ -377,6 +378,24 @@ test('AUDIT DEEP2 E6/E7 readout: a corner piece stops the marks along its edge s
     const h = hud.travelViewHudState().hits[0];
     assert.ok(h.y0 + 24 >= panel.bottom + 12 - 1, `ahead: below the panel, not inside it (${h.y0 + 24})`);
   } finally { hud.disposeTravelViewHud(); }
+});
+
+test('AUDIT OW5 R3: the places are said again at once when the SET changes, a distance alone at most every TV_SAID_DISTANCE_MS - a journey\'s ticking tenths rebuilt the hidden list on a third of the frames at speed', async () => {
+  const hud = await import('../src/ui/travelViewHud.js');
+  const { doc } = fakeDoc();
+  hud.showTravelViewHud({}, doc);
+  const at = (sub, extra = []) => hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [
+    { key: 'far:in', x: 640, y: 400, front: true, label: 'Ripwych', sub, kind: 'far', pick: true }, ...extra] });
+  try {
+    at('6.4 km');
+    assert.equal(hud.travelViewHudState().said, 'Ripwych, 6.4 km\n');
+    at('6.3 km');
+    assert.equal(hud.travelViewHudState().said, 'Ripwych, 6.4 km\n', 'a distance alone: it waits its turn');
+    at('6.2 km', [{ key: 'far:b', x: 700, y: 420, front: true, label: 'Bhoriane', sub: '8.0 km', kind: 'far', pick: true }]);
+    assert.match(hud.travelViewHudState().said, /Bhoriane, 8\.0 km/, 'a new place: said at once');
+    assert.match(hud.travelViewHudState().said, /Ripwych, 6\.2 km/, '...with the distances as they are');
+  } finally { hud.disposeTravelViewHud(); }
+  assert.equal(hud.TV_SAID_DISTANCE_MS, 5000);
 });
 
 test('AUDIT DEEP2 E5/E9/E11/E15 readout: the held arrow is notched; a far place in the picture wears its distance above its dot; the labels wear the enhanced face; the places are said in words; a NaN mark spoils nothing', async () => {
