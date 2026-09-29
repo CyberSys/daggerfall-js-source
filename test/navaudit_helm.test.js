@@ -385,7 +385,7 @@ test('AUDIT NAV1 H8 the broadside camera: while a broadside is laid the eye ease
 
 test('AUDIT NAV1 H9 the world wires it: the broadside camera\'s eye is the frame\'s - the view built from it, the look\'s ray started from it through _dwEyeOffset - never the travel view\'s; the Broadside camera is a part of the Naval Combat row, each player\'s own, read as AimCamera (mutants: the eye unwired, the part unread)', () => {
   const w = src('scenes/world.js');
-  assert.match(w, /renderer\.setFocus\(tvf \? cam\.pos : null, !!tvf && tvf\.blend >= 0\.5\);[^\n]*\n(\s*\/\/[^\n]*\n)+\s*if \(naval && !tvf\) mwv\.eye = naval\.aimEye\(mwv\.eye, dt\);\n\s*const view = betterAmbience\.view\(lookAt\(mwv\.eye,/);
+  assert.match(w, /renderer\.setFocus\(tvf \? cam\.pos : null, !!tvf && tvf\.blend >= 0\.5\);[^\n]*\n(\s*\/\/[^\n]*\n)+\s*if \(naval && !tvf\) mwv\.eye = naval\.aimEye\(mwv\.eye, dt\);\n(\s*tvBandSpritesStep\(dt, tvf, mwv\.eye\);[^\n]*\n)?\s*const view = betterAmbience\.view\(lookAt\(mwv\.eye,/);   // THE MERGE (OW-FOES): the bands' sprites stepped between, off the view's eye as it stands
   assert.match(w, /for \(let i = 0; i < 3; i\+\+\) _dwEyeOffset\[i\] = mwv\.eye\[i\] - cam\.pos\[i\];/);
   assert.match(w, /origin: \[cam\.pos\[0\] \+ _dwEyeOffset\[0\], cam\.pos\[1\] \+ _dwEyeOffset\[1\], cam\.pos\[2\] \+ _dwEyeOffset\[2\]\]/);
   assert.match(w, /key === 'AimCamera' \? getPref\('naval-aim-camera'\) !== false/);

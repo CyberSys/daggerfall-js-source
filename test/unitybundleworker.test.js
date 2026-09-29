@@ -136,7 +136,7 @@ test('DW1 client: the same answers on this thread - no Worker, a factory that th
   assert.equal(bundleThreadDisabled(undefined), false);
 });
 
-test('DW1 door: through the client end to end - the bundle found by GUID in a worker, a texture flipped into color32 order, a miss null, a decode failure a miss said once, and a source change closes the worker', async () => {
+test('DW1 door: through the client end to end - the bundle found by GUID in a worker, a texture handed over top-first (DWHD1: a screen quad keeps its rows), a miss null, a decode failure a miss said once, and a source change closes the worker', async () => {
   const manifest = { ModTitle: DIVERSE_WEAPONS_MOD.title, GUID: DIVERSE_WEAPONS_MOD.guid, ModVersion: DIVERSE_WEAPONS_MOD.version, ModAuthor: DIVERSE_WEAPONS_MOD.author, Files: [] };
   const bytes = unityFs(serializedFile([
     { typeIndex: 0, body: texture2dBody('LONGSWORD.CIF_0-0_Iron', 2, 2, TEXTURE_FORMAT.RGBA32, RGBA_2x2) },
@@ -156,7 +156,9 @@ test('DW1 door: through the client end to end - the bundle found by GUID in a wo
     const img = await diverseWeaponsImage('LONGSWORD.CIF_0-0_Iron');
     assert.deepEqual([img.width, img.height], [2, 2]);
     assert.ok(img.colors instanceof Uint8ClampedArray, 'the port\'s color32 shape');
-    assert.deepEqual([...img.colors], [10, 11, 12, 13, 20, 21, 22, 23, 30, 31, 32, 33, 40, 41, 42, 43], 'flipped back into the port\'s bottom-up order (WW3)');
+    // DWHD1 (a player: "all weapons are overhead"): the reader already answers top-first (decodeTexture2D's own flip),
+    // and a first-person frame is a SCREEN quad - so the door keeps the rows. The flip that was here drew them upside down.
+    assert.deepEqual([...img.colors], [30, 31, 32, 33, 40, 41, 42, 43, 10, 11, 12, 13, 20, 21, 22, 23], 'top-first, as the reader answers it (DWHD1)');
     assert.equal(workers.length, 1);
     assert.equal(workers[0].posted.filter((p) => p.msg.t === 'rgba').length, 1);
     assert.equal(await diverseWeaponsImage('LONGSWORD.CIF_0-0_Iron'), img, 'cached per name');
@@ -215,7 +217,9 @@ test('DW1 spellings: the worker is spelled the way the bundler reads, imports on
   const client = rd('src/formats/unityBundleClient.js');
   assert.match(client, /new Worker\(new URL\('\.\/unityBundleWorker\.js', import\.meta\.url\), \{ type: 'module' \}\)/, 'the literal spelling Vite bundles');
   assert.equal((client.match(/new Worker\(new URL\('\.\//g) ?? []).length, 1, 'spelled once');
-  assert.match(client, /const copy = bytes\.slice\(\);\n\s+const opened = await ask\(\{ t: 'open', bytes: copy \}, \[copy\.buffer\]\);/, 'a copy crosses, its buffer transferred');
+  // DFMOD2: bytes still cross as a copy with the buffer transferred; a Blob crosses as the handle it is (read by range)
+  assert.match(client, /const copy = bytes\.slice\(\); opened = await ask\(\{ t: 'open', bytes: copy, maxTextureSize, knownTextures \}, \[copy\.buffer\]\);/, 'a copy crosses, its buffer transferred');
+  assert.match(client, /if \(isBlob\) opened = await ask\(\{ t: 'open', blob: bytes, maxTextureSize, knownTextures \}\);/, 'a Blob crosses whole, never read here');
   const worker = rd('src/formats/unityBundleWorker.js');
   const imports = [...worker.matchAll(/^import .* from '([^']+)';/gm)].map((m) => m[1]);
   assert.deepEqual(imports, ['./unityBundle.js'], 'the worker\'s whole import graph is the reader');
@@ -223,7 +227,7 @@ test('DW1 spellings: the worker is spelled the way the bundler reads, imports on
   const door = rd('src/combat/diverseWeaponsAssets.js');
   assert.match(door, /import \{ openUnityBundle \} from '\.\.\/formats\/unityBundleClient\.js';/);
   assert.ok(!/readUnityBundle/.test(door), 'the door never opens on this thread itself');
-  assert.match(door, /const img = await b\.bundle\.rgba\(name\); if \(img\) return toColor32\(img\);/, 'the flip is on this side of the wire');
+  assert.match(door, /const img = await b\.bundle\.rgba\(name\); if \(img\) return toScreenOrder\(img\);/, 'rows kept on this side of the wire (DWHD1)');
   assert.match(door, /if \(!manifest\) \{ bundle\.close\(\); continue; \}/, 'a bundle that is not a mod is closed, not leaked');
   // Weapon Widget's small bundle keeps its own in-thread door - nothing here reached into it
   assert.match(rd('src/combat/weaponWidgetAssets.js'), /readUnityBundle\(/);

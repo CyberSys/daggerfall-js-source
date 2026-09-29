@@ -109,7 +109,7 @@ import {
   ACCOUNT_MAX, ACCOUNT_WINDOW_S,
 } from './accounts.js';
 import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrder, MAX_TTL_S, TOKEN_V, ID_RE } from '../../src/net/identityToken.js';
-import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES } from './service.js';
+import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES, maintaining } from './service.js';
 import { listSaves, putCard, putBlob, getBlob, deleteSave, saveCardOf } from './saves.js';
 import { signingKey, gatePublicKey } from './signing.js';
 import { titleWorn, glyphsOf } from './titles.js';
@@ -123,7 +123,7 @@ import {
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';
 import {
-  listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm,
+  listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, undoRealm,
   realmCharacterHeld, grantCustomsPass, REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
 } from './realm.js';   // REALM P1: the realm's characters   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { tradeRealm, REALM_TRADE_BODY_MAX } from './realmTrade.js';   // REALM P2.1: a trade, settled here
@@ -242,7 +242,7 @@ export default {
       });
     }
 
-    if (path === '/v1/health') return json({ ok: true, v: env.ACCOUNT_VERSION || ACCOUNT_VERSION }, 200, origin);
+    if (path === '/v1/health') return json({ ok: true, v: env.ACCOUNT_VERSION || ACCOUNT_VERSION, ...(maintaining(env) ? { maintenance: true } : {}) }, 200, origin);   // RESTORE: and whether it is held for maintenance
 
     // ACC1-CI: THE SERVICE PUBLISHES ITS OWN PUBLIC KEY, and that is the
     // whole point of it being public. The pair is minted by the deploy
@@ -260,6 +260,14 @@ export default {
         ? json({ alg: TOKEN_V, key: pub }, 200, origin)
         : no('no-signing-key', 503, origin);
     }
+
+    // RESTORE (2026-09-29, Mac: "I want people to get their stuff back"): HELD FOR MAINTENANCE. The history restore
+    // (.github/workflows/realm-restore.yml) rewinds the database for a minute to read what was lost, and puts it back;
+    // anything written in between would vanish with the rewind. So the job deploys this Worker with MAINTENANCE = "1"
+    // first, and every call but the two above is refused for that minute - 503, which a playing tab's checkpoint waits
+    // out and sends again (systems/realmSaves.js), never a write that is silently lost. The job's own last step deploys
+    // it again without the switch; any deploy does.
+    if (maintaining(env)) return no('maintenance', 503, origin);
 
     // A PATH NOBODY SERVES IS A 404, and it is answered HERE - before
     // the credential is looked at. The first cut checked auth first,
@@ -840,7 +848,8 @@ export default {
           return answer(r);
         }
         if (path === '/v1/realm/leave') return answer(await leaveRealm(rctx, me, { id: body.id, lease: body.lease }));
-        return answer(await deleteRealm(rctx, me, body.id));   // /v1/realm/delete
+        if (path === '/v1/realm/undo') return answer(await undoRealm(rctx, me, body.id));   // HOUSE-LOSS: a customs that never landed, undone
+        return answer(await deleteRealm(rctx, me, body.id));   // /v1/realm/delete - HOUSE-LOSS: which undoes one too, for a door that asks a delete
       }
 
       // a path this service serves, reached with a method it does not

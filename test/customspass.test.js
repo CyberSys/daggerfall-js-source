@@ -127,10 +127,12 @@ test('CUSTOMS-PASS never admits a character already in, from any account, and a 
   s.exec('DELETE FROM realm_census WHERE char_id = ?', 'ystanding01');
   assert.deepEqual((await s.customs(A, 'ystanding01')).body, { error: 'customs-already' }, 'nor one a realm character stands on');
   // a realm character DELETED: nothing stands on its origin any more, and its census stays spent - it never comes in
-  // again (L3-F2), and a pass does not bring it back either
+  // again (L3-F2), and a pass does not bring it back either. HOUSE-LOSS (at the merge): one whose first save never landed
+  // is UNDONE by its delete - the realm as it stood before that customs - so this one's first save lands first
   s.counted(B, 'wdeleted001');
   const gone = await s.customs(B, 'wdeleted001');
   assert.equal(gone.status, 200);
+  assert.equal((await s.put(gone.body.id, JSON.stringify(freshSave({ name: 'Carried', level: 3 })), B.secret, { lease: gone.body.lease, seq: 1 })).status, 200, 'its first save lands: a realm character');
   assert.equal((await s.call('/v1/realm/delete', { id: gone.body.id }, B.secret)).status, 200, 'B deletes the character it brought in');
   assert.deepEqual((await s.customs(A, 'wdeleted001')).body, { error: 'customs-already' }, 'nor one whose realm character was deleted');
   assert.deepEqual((await s.customs(A, `r${'1a'.repeat(10)}`)).body, { error: 'body' }, 'nor a realm id - never an origin');

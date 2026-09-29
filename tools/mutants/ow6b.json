@@ -2,8 +2,8 @@
   {
     "name": "OW6-B-old-day-chance",
     "file": "src/systems/travelBands.js",
-    "old": "export const BAND_CHANCE_DAY = 0.45;",
-    "new": "export const BAND_CHANCE_DAY = 0.3;",
+    "old": "export const BAND_CHANCE_DAY = 0.75;",
+    "new": "export const BAND_CHANCE_DAY = 0.45;",
     "tests": [
       "test/ow6_bands.test.js"
     ],
@@ -12,8 +12,8 @@
   {
     "name": "OW6-B-old-night-chance",
     "file": "src/systems/travelBands.js",
-    "old": "export const BAND_CHANCE_NIGHT = 0.6;",
-    "new": "export const BAND_CHANCE_NIGHT = 0.45;",
+    "old": "export const BAND_CHANCE_NIGHT = 0.9;",
+    "new": "export const BAND_CHANCE_NIGHT = 0.6;",
     "tests": [
       "test/ow6_bands.test.js"
     ],
