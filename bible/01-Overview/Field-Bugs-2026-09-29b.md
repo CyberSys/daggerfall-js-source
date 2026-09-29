@@ -11,7 +11,7 @@ port's own faults fixed and pinned, and what is Daggerfall's own said plainly, w
 | 3 | a higher Mercantile sells for less (3499 gold at 60, 2888 at 90) | ValenValarys | REALM P0.4's cap was half the SELLER's ask, which falls as the skill rises | fixed (MERC-RISE) |
 | 4 | first-person journeys go straight through the forest; the Overworld follows roads | SylviaBun | First-Person Travel is Travel Options' own journey, which walks straight at a place | a second switch (TO-ROADS) |
 | 5 | the pack should show total armour, and an item's stats against what is worn | SylviaBun (Althea's idea) | AC-COMPARE | see below |
-| 6 | the enhanced map needs the classic map's filters and its colours | Jigglehimmer | MAP-KEY | see below |
+| 6 | the enhanced map needs the classic map's filters and its colours | Jigglehimmer | the held map kept the classic filters' store but gave it no control, and inked every place in one pen | the key, and each place in its classic colour (MAP-KEY) |
 
 ## BOOK-SPLIT: a book split off a stack is that book (1)
 
@@ -95,6 +95,22 @@ in the Overworld's words, never walked straight or teleported; a leader's routed
 and `!!travelView`, which no caller reaches false). Four suites' pins and five mutant records re-aimed to the moved
 lines, none loosened. `06-Systems/Travel-View.md` TO-ROADS, `06-Systems/Travel-Options.md`, Port-Ledger A's TO1 row.
 
+## MAP-KEY: the sheet's key - the classic filters, and a dungeon in orange (6)
+
+Jigglehimmer (#suggestions): *"Enhanced map needs filterable key like the default Daggerfall world map"* - on the held
+map every place was the one brown pen, and a new dungeon's hollow triangle had to be hovered to be told from a
+graveyard. The filters were never gone: MAP1 kept the classic window's live store under the sheet and gave it no
+control. The key now stands on the map's foot: DFU's four filters as toggles, each pressing the classic window's own
+flip (`flipTravelMapFilter`, FilterButtonClickHandler :1024-1045, which the classic button presses too) on that store,
+so both maps always agree and the save carries it; beside each, a chip of every glyph it hides in the ink the sheet
+lays it in. Each glyph is inked in its classic dot's hue walked toward the pen (EM7's law, `MARK_INK_MIX` 0.58, the
+smallest walk that keeps every kind ink), read at runtime off the player's own FMAP_PAL.COL (no palette, the plain
+pen; no colour of it is written anywhere in the port) - one hue per kind, because the ruin's classic dot is 10.9
+(CIE76) from the graveyard's; inked, the labyrinth's orange stands 20.9 from the graveyard's red. The far band still
+inks the cities alone, and the key dims the rest. `test/fb0929b_mapkey.test.js` (8), `tools/mutants/fb0929b_mapkey.json`
+(39, 39 dead). Two cites into `travelMapWindow.js` that named the filter handler for the buffer flip (wrong before this
+change) now name the flip. `10-UI/Held-Map-Arc.md` MAP-KEY, Port-Ledger A's HELD MAP row.
+
 ## For Mac
 
 - **MERC-RISE's price is flat for most sellers.** Your 50% and "no skill lowers a sale" together force it: the best
@@ -107,5 +123,10 @@ lines, none loosened. `06-Systems/Travel-View.md` TO-ROADS, `06-Systems/Travel-O
   three-way choice (Overworld / first person straight / first person by road) may read better than two switches. A
   route the roads refuse is said and dropped - never the straight walk (that would be the report itself) - and a pick
   made indoors or under water is refused in the Overworld's words ("You can only survey the land from the open air.").
+- **MAP-KEY, zoomed all the way out, draws the cities alone** (as before), so with Towns hidden that view is empty;
+  dungeons show from mid zoom, graveyards, covens and homes close in. Should the far view draw whatever the filters
+  leave? And a keep and a ruin share the labyrinth's orange - their own classic oranges, inked, sit too near the
+  graveyard's red (the ruin's 7.3 from it). The key is always open (about 115px, lower left); the path filters (roads,
+  tracks, rivers, streams) still have no control on the sheet.
 - **BOOK-SPLIT departs from DFU** (Port-Ledger A): DFU's own split loses the same three terms. The counters' merge on
   the way back is DFU's law restored, not a departure.
