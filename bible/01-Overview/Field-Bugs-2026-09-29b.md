@@ -1,4 +1,4 @@
-# FIELD BUGS 2026-09-29b - the book that changed its title, the skill that sold for less, the lintel over the water
+# FIELD BUGS 2026-09-29b - the book that changed its title, the skill that sold for less, the lintel over the water; and the roads, the armour and the map's key
 
 From the Discord (#bug-reports and #suggestions), through Mac: six screenshots and no words, the rule for a batch like
 it - every report root-caused on the real modules (and the real ARENA2 where the report lives in the data), the
@@ -95,6 +95,21 @@ in the Overworld's words, never walked straight or teleported; a leader's routed
 and `!!travelView`, which no caller reaches false). Four suites' pins and five mutant records re-aimed to the moved
 lines, none loosened. `06-Systems/Travel-View.md` TO-ROADS, `06-Systems/Travel-Options.md`, Port-Ledger A's TO1 row.
 
+## AC-COMPARE: the character's armour, and what a wear would change (5)
+
+SylviaBun's suggestion, Althea's idea: the pack should say the character's total armour, and an item's card how it
+compares with what is worn, green better and red worse. Daggerfall keeps no total - its armour is seven numbers, one a
+body part, and a blow meets one of them (CalculateStruckBodyPart, then CalculateArmorToHit) - so the enhanced pack now
+shows the seven where the classic doll does, each on the worn map's panel for its part, and one figure made of them: the
+armour a blow meets on average, each part weighed by the struck-part table of the combat core in force
+(FormulaHelper's 2/3/3/4/4/3/1 in 20, or the overhaul's own), on a plaque at the figure's head. The item card, hovered or
+picked, says what the wear would replace (EquipItem's three arms - one export, `wearLeavers`, which `equipItem` itself now
+runs), a weapon's damage against the one it replaces, the overall figure and every part it moves, now and after - and
+what the card says is what the wear then does, pinned. An unidentified piece's affixes stay out of its comparison until
+it is identified. No modifier key: the card is always the item's. The classic window is untouched.
+`test/fb0929b_accompare.test.js` (5), `tools/mutants/fb0929b_accompare.json` (35, 35 dead).
+`10-UI/Slots-Hotbar-Status.md` AC-COMPARE, Port-Ledger A.
+
 ## MAP-KEY: the sheet's key - the classic filters, and a dungeon in orange (6)
 
 Jigglehimmer (#suggestions): *"Enhanced map needs filterable key like the default Daggerfall world map"* - on the held
@@ -110,21 +125,6 @@ pen; no colour of it is written anywhere in the port) - one hue per kind, becaus
 inks the cities alone, and the key dims the rest. `test/fb0929b_mapkey.test.js` (8), `tools/mutants/fb0929b_mapkey.json`
 (39, 39 dead). Two cites into `travelMapWindow.js` that named the filter handler for the buffer flip (wrong before this
 change) now name the flip. `10-UI/Held-Map-Arc.md` MAP-KEY, Port-Ledger A's HELD MAP row.
-
-## AC-COMPARE: the character's armour, and what a wear would change (5)
-
-SylviaBun's suggestion, Althea's idea: the pack should say the character's total armour, and an item's card how it
-compares with what is worn, green better and red worse. Daggerfall keeps no total - its armour is seven numbers, one a
-body part, and a blow meets one of them (CalculateStruckBodyPart, then CalculateArmorToHit) - so the enhanced pack now
-shows the seven where the classic doll does, each on the worn map's panel for its part, and one figure made of them: the
-armour a blow meets on average, each part weighed by the struck-part table of the combat core in force
-(FormulaHelper's 2/3/3/4/4/3/1 in 20, or the overhaul's own), on a plaque at the figure's head. The item card, hovered or
-picked, says what the wear would replace (EquipItem's three arms - one export, `wearLeavers`, which `equipItem` itself now
-runs), a weapon's damage against the one it replaces, the overall figure and every part it moves, now and after - and
-what the card says is what the wear then does, pinned. An unidentified piece's affixes stay out of its comparison until
-it is identified. No modifier key: the card is always the item's. The classic window is untouched.
-`test/fb0929b_accompare.test.js` (5), `tools/mutants/fb0929b_accompare.json` (35, 35 dead).
-`10-UI/Slots-Hotbar-Status.md` AC-COMPARE, Port-Ledger A.
 
 ## Found on the way, not touched
 
@@ -145,13 +145,13 @@ it is identified. No modifier key: the card is always the item's. The classic wi
   three-way choice (Overworld / first person straight / first person by road) may read better than two switches. A
   route the roads refuse is said and dropped - never the straight walk (that would be the report itself) - and a pick
   made indoors or under water is refused in the Overworld's words ("You can only survey the land from the open air.").
+- **AC-COMPARE's "total" is the armour a blow meets on average** (the seven weighed by where blows land), because a
+  blow meets one part; a plain mean or a sum of the seven are the other choices, and neither means anything in combat.
+  Only the pack's own card compares (not the shop or trade cards yet), with no modifier key.
 - **MAP-KEY, zoomed all the way out, draws the cities alone** (as before), so with Towns hidden that view is empty;
   dungeons show from mid zoom, graveyards, covens and homes close in. Should the far view draw whatever the filters
   leave? And a keep and a ruin share the labyrinth's orange - their own classic oranges, inked, sit too near the
   graveyard's red (the ruin's 7.3 from it). The key is always open (about 115px, lower left); the path filters (roads,
   tracks, rivers, streams) still have no control on the sheet.
-- **AC-COMPARE's "total" is the armour a blow meets on average** (the seven weighed by where blows land), because a
-  blow meets one part; a plain mean or a sum of the seven are the other choices, and neither means anything in combat.
-  Only the pack's own card compares (not the shop or trade cards yet), with no modifier key.
 - **BOOK-SPLIT departs from DFU** (Port-Ledger A): DFU's own split loses the same three terms. The counters' merge on
   the way back is DFU's law restored, not a departure.
