@@ -1370,7 +1370,7 @@ export class PlayerMotor {
     // next FixedUpdate (PlayerMotor.cs:278) out of the collisionFlags
     // ClimbingMotor.cs:767 writes after its own controller.Move, so the
     // collider's LIVE grounded written above IS DFU's answer, one step
-    // lagged on both sides (the SWIM branch is the one that latches: Player-Arc.md:1890).
+    // lagged on both sides (the SWIM branch is the one that latches: Player-Arc.md:1903).
     this.standing = this.grounded;   // PlayerMotor.cs:325 - moveDirection zeroed, so :113-125 collapses to grounded
     this.movingLessThanHalfSpeed = this.grounded
       ? true

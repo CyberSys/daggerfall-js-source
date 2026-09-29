@@ -1455,6 +1455,7 @@ import {
 } from '../src/formats/mwItemMap.js';
 import { armorRecords, clothingRecords, raceBeastFlag, pickWeaponRecord, facePools, MOD_WEAPON_TO_MW } from '../src/formats/mwFirstPerson.js';
 import { OWN_MW_MODELS } from '../src/characters/ownWeaponModels.js';   // FIELD-GUN-MW2: counted off the table, not typed
+import { OWN_MW_ARMOR } from '../src/characters/ownArmorModels.js';   // MW-BRIG1: and the armour
 import { ARMOR_ENUM } from '../src/combat/enemyEquipment.js';
 import { ARMOR_MATERIAL } from '../src/systems/armorMaterials.js';
 
@@ -1481,8 +1482,10 @@ test('MW-D28: the map is TOTAL - every DF equippable x material answers, or the 
   // about, and this pin reported total coverage while the gun drew
   // empty hands in Morrowind first person.
   const own = cover.filter((c) => c.kind === 'own');
-  assert.equal(own.length, Object.keys(OWN_MW_MODELS).length, 'every own-model weapon answers a row');
-  assert.ok(own.every((o) => o.model && o.item), 'an own row names its mesh and its weapon');
+  // MW-BRIG1: and the port's own ARMOUR, one row per template x material it dresses, inside the mod's space
+  assert.equal(own.length, Object.keys(OWN_MW_MODELS).length + OWN_MW_ARMOR.length, 'every own-model weapon and armour piece answers a row');
+  assert.ok(own.every((o) => o.model && o.item), 'an own row names its mesh and its item');
+  assert.deepEqual(own.filter((o) => o.own === 'ownArmorModels').map((o) => o.index), OWN_MW_ARMOR.map((a) => a.templateIndex));
   // Declared sprites are present, named, and reasoned.
   const sprites = cover.filter((c) => c.kind === 'sprite');
   assert.ok(sprites.length >= 10, 'the Arrow rows are not declared');

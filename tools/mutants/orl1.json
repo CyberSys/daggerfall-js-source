@@ -563,7 +563,7 @@
   {
     "name": "the-tile-ships-a-placeholder-note",
     "file": "src/systems/modSettings.js",
-    "old": "        description: 'Oblivion Remastered’s leveling in place of Daggerfall’s: every skill you raise fills a 100-point bar, and levelling up hands you a purse of virtues to spend where you choose. New characters are asked which system they want.',",
+    "old": "        description: 'Level up like Oblivion Remastered: every skill you raise fills a 100-point bar, and each level gives '\n          + 'you virtues to spend on the attributes you choose. New characters are asked which system they want.',",
     "new": "        description: 'TODO',",
     "tests": [
       "test/orl1_leveling.test.js"

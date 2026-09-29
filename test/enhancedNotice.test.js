@@ -470,9 +470,10 @@ test('ENH-NOTICE2: THE ROSTER - the eight windows drawn on both skins that raise
   // nobody else imports the seam: the two homes take noticeDraw; the
   // PopupText model takes drawEnhancedToasts (ENH-NOTICE3 - the HUD line
   // as a toast); the DOM-native windows that raise a box of their own
-  // take noticeHold; the hunt window's busy page takes noticeFrame.
+  // take noticeHold; the hunt window's busy page takes noticeFrame; the
+  // quest herald (GUIDE3) takes drawEnhancedToasts as PopupText does.
   const importers = readdirSync(new URL('../src/ui/', import.meta.url)).filter((f) => f.endsWith('.js') && /from '\.\/enhancedNotice\.js'/.test(rd(`src/ui/${f}`))).map((f) => f.replace(/\.js$/, '')).sort();
-  assert.deepEqual(importers, [...ROSTER, 'actionText', 'talkWindow', 'hudText', 'enhancedTavern', 'enhancedInventory', 'heldMap', 'huntWindow'].sort());
+  assert.deepEqual(importers, [...ROSTER, 'actionText', 'talkWindow', 'hudText', 'enhancedTavern', 'enhancedInventory', 'heldMap', 'huntWindow', 'questHerald'].sort());
 });
 
 // ── ENH-NOTICE3 (2026-09-21, Mac: "All mods, including climates and

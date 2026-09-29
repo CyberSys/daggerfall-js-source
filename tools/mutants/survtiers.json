@@ -941,8 +941,8 @@
   {
     "name": "SURVTIERS-the-note-grows-a-third-sentence",
     "file": "src/systems/features.js",
-    "old": "and repay it when met; ",
-    "new": "and repay it when met. ",
+    "old": "comes back once you’ve seen to them; on Hard",
+    "new": "comes back once you’ve seen to them. On Hard",
     "tests": [
       "test/survtiers.test.js"
     ]

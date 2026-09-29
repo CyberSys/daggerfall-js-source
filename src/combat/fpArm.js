@@ -17,7 +17,7 @@
 //
 // HOW IT DRAWS, and why this needs no renderer change at all: the port
 // has ALREADY shipped a first-person pass. renderCharacterSprite
-// (render/renderer.js:1320) binds an offscreen target with its OWN depth
+// (render/renderer.js:1321) binds an offscreen target with its OWN depth
 // renderbuffer, clears colour AND depth, swaps the frame's proj/view for
 // ones the caller supplies, draws, and restores; drawScreenOverlayQuad
 // (:987) composites it fullscreen with an alpha cut and no depth test.
@@ -570,7 +570,7 @@ export function armReach(eye, unionBounds) {
 /**
  * PACK THE ASSEMBLY for drawCharacter's vertex stream: 9 floats per
  * vertex, [pos.xyz, colour.rgb, normal.xyz], NON-INDEXED, because
- * drawCharacter issues drawArrays (renderer.js:1233). The MW readers hand
+ * drawCharacter issues drawArrays (renderer.js:1234). The MW readers hand
  * back indexed triangles, so the indices are expanded here.
  *
  * NORMALS ARE COMPUTED, not read. poseAssembly skins positions with a
@@ -584,7 +584,7 @@ export function armReach(eye, unionBounds) {
  * left arm is lit inside-out - dark where the right arm is bright - and
  * that is a lighting bug that reads as "the mesh is wrong" rather than
  * as "the mirror is wrong". drawCharacter disables back-face culling
- * (renderer.js:1231), so the winding costs nothing else.
+ * (renderer.js:1232), so the winding costs nothing else.
  */
 export function packFpArm(pieces, out = null) {
   let tris = 0;
@@ -1675,8 +1675,13 @@ async function buildTpBody({
     // reads synchronously - every third-person skin part and worn add
     // (the loop's own `meshes/${row.model}`), and the weapon and arrow
     // meshes resolveWeaponParts reads further down.
+    // MW-BRIG2: the body a worn model is skinned from - the player's own skin parts for the slots it names, SHADOWED
+    // OR NOT (the cuirass hides the very chest it copies; hidden is not drawn, and the skin is still the body's).
+    const bodyUnder = (add) => (add.skinFrom ?? []).flatMap((slot) => rows
+      .filter((r) => r.record && r.slot === slot).map((r) => ({ slot, path: `meshes/${r.record.model}` })));
     await loadFromArchives(archives, [
       ...[...skinRows, ...worn.adds].map((row) => `meshes/${row.model}`),
+      ...worn.adds.flatMap(bodyUnder).map((b) => b.path),   // MW-BRIG2
       ...weaponPartPaths({ weapon, hasAmmo, allWeapons, has: archiveHas(archives) }),   // MW-D50
       ...torchPartPaths({ torch, allLights, has: archiveHas(archives) }),   // MW-D51
       ...hipLanternPartPaths({ hipLight, allLights, has: archiveHas(archives) }),   // HT-WAIST
@@ -1688,7 +1693,8 @@ async function buildTpBody({
       if (!arc) { missing.push(`${row.slot}: ${path} is not in your archives`); continue; }
       // partName rides along: a worn add's slot is a label carrying its
       // record id, and the binder's part rules key on the part itself.
-      partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, bytes: arc.get(path).slice() });
+      partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, bytes: arc.get(path).slice(),
+        ...(row.skinFrom ? { skinFrom: bodyUnder(row).map((b) => ({ slot: b.slot, bytes: find(b.path)?.get(b.path)?.slice() })).filter((b) => b.bytes) } : {}) });   // MW-BRIG2
     }
     if (!partBytes.length) {
       return { ok: false, stage: 'parts', error: werewolf ? 'no werewolf body mesh resolved - its robe, head and hair are Bloodmoon\'s' : `no third-person body mesh resolved for race "${race}"`, notes: missing, rows };

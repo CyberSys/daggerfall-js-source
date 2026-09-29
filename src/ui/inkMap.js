@@ -42,6 +42,7 @@ import { getPixelColorIndex, FILTER_SRC } from './travelMapWindow.js';   // MAP-
 import { GATE_RING_CSS, GATE_FILL_CSS } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, in the omen's own colours
 import { BOUNTY_RING_CSS, BOUNTY_FILL_CSS } from './bountyMapMark.js';   // BOUNTY1: a held bounty's black circle
 import { RAID_MARK_CSS } from './eventMapMarks.js';   // EVENT-TIP: a town under attack
+import { QUEST_MARK_CSS, QUEST_MARK_LIFT } from './questMarks.js';   // GUIDE5: where a quest points
 
 // ── THE INK (skin): the pen and its washes ───────────────────────────────────────────────
 /** THE TWO GROUNDS EVERY COLOUR ON THIS SHEET IS MIXED FROM. The pen
@@ -1059,6 +1060,9 @@ export function paintInkOverlay(ctx, view, opts) {
   for (const b of opts.bounties ?? []) if (visible(b.cx, b.cy, b.r + 2)) paintBountyRing(ctx, view, b, pulse);
   // EVENT-TIP: the towns under attack, over the ring and under the party - a member standing in one reads over it
   for (const m of opts.raids ?? []) if (visible(m.x, m.y)) paintRaidMark(ctx, view, m, pulse);
+  // GUIDE5: where the quests point, over the raids and under the party - the diamond above its place, the followed
+  // quest's filled
+  for (const m of opts.quests ?? []) if (visible(m.x, m.y)) paintQuestMark(ctx, view, m);
   // TV3: the region's travellers, under the party - a smaller ring and a smaller name, a stranger's; OWS1: one at sea
   // inked as a ship
   for (const t of opts.travellers ?? []) {
@@ -1194,6 +1198,31 @@ export function paintRaidMark(ctx, view, m, pulse = 0) {
   ctx.moveTo(x + s, cy - s); ctx.lineTo(x - s, cy + s);   // the other, its hilt at the lower left
   ctx.moveTo(x + h - g, cy + h + g); ctx.lineTo(x + h + g, cy + h - g);   // each guard square across its blade
   ctx.moveTo(x - h - g, cy + h - g); ctx.lineTo(x - h + g, cy + h + g);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** GUIDE5: A QUEST'S MARK - a diamond in the journal's gold standing QUEST_MARK_LIFT above its place's own mark (over a
+ *  raided town the mark's `lift`, QUEST_RAID_LIFT, clear of the raid's blades), outlined in the pen's ink so it reads
+ *  on any parchment, and FILLED with the ink for the quest the tracker follows, hollow for the rest - the shape and the
+ *  fill say it, not the colour alone. A thin stroke joins it to the place it names. */
+export function paintQuestMark(ctx, view, m) {
+  const [x, y] = toPaper(view, m.x, m.y);
+  const cy = y - (m.lift ?? QUEST_MARK_LIFT), r = 6;   // AUDIT GUIDE K7: a raided town's quest stands over the blades
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = PEN.soft;
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x, cy + r); ctx.stroke();   // the tie to the place
+  ctx.beginPath();
+  ctx.moveTo(x, cy - r); ctx.lineTo(x + r, cy); ctx.lineTo(x, cy + r); ctx.lineTo(x - r, cy); ctx.closePath();
+  // AUDIT GUIDE U16: the followed quest's diamond filled with the pen's INK - gold on the paper is 2:1, the ink 8:1
+  if (m.tracked) { ctx.fillStyle = PEN.line; ctx.fill(); }
+  ctx.strokeStyle = PEN.line;
+  ctx.lineWidth = 2.4;
+  ctx.stroke();
+  ctx.strokeStyle = QUEST_MARK_CSS;
+  ctx.lineWidth = 1.4;
   ctx.stroke();
   ctx.restore();
 }

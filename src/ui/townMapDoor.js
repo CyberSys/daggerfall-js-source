@@ -66,6 +66,9 @@ export function createTownMapWindow(deps = {}) {
         revealAll: deps.revealAll ?? null,
         player: deps.townPlayer ?? null,
         party: deps.townParty ?? null,   // DISC23-A: the party in these streets, feet in the location's frame (the classic window ignores it)
+        boards: deps.townBoards ?? null,   // TOWN-MARKS: the Notice Boards, feet in the location's frame (the classic window ignores them)
+        homes: deps.townHomes ?? null,   // TOWN-MARKS: the player housing, by building key
+        homesVersion: deps.townHomesVersion ?? null,
         title: deps.locationName ?? '',
       },
     });

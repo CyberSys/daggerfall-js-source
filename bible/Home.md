@@ -188,6 +188,7 @@ cited anywhere fails to resolve, that is why, and Mac holds the map.
 - `04-Characters/Werewolf-Body.md` - WEREWOLF1 (2026-09-26, Mac: "it's the 3d model" / "it needs to be imported if its not"): Bloodmoon's werewolf in the Morrowind rig, read off OpenMW - the wolf's skeletons and its own .kf, the `werewolfrobe` as its body, WerewolfHead/Hair, the rig and the peers following the curse, the Eye Of The Beholder fallback without Bloodmoon; and SHADOW-FANG's skin, a law over its textures for the Shadow Fang glyph's holder
 - `05-Combat/` - FormulaHelper port, weapons, hit resolution
 - `06-Systems/` - quests, items, magic, guilds, calendar, save format
+- `06-Systems/Quest-Guide-Arc.md` - THE QUEST GUIDE (GUIDE, opened 2026-09-29, Mac: "How can we set the foundation and improve the quest system substantially? Like really modernize it, make it more accessible"): the player's side of the 1:1 quest machine, built over it and never in it - GUIDE1 the quest lens (the one read-only picture every modern quest face draws from, invisible to the machine, saying nothing the journal has not said), GUIDE2 the way there (the enhanced journal says where and takes you there), GUIDE3 the herald (a quest's news as a notice), GUIDE4 the tracker (the quest you follow, on the HUD), GUIDE5 the marks (where a quest points, on the map and the compass), then the accessible journal, the accessibility shelf
 - `07-Rendering/` - WebGL2 renderer, palettes, lighting, sky
 - `08-Audio/` - music (HMI/XMI), sound effects, audio state machine
 - `09-Testing/` - test doctrine, harnesses, data validation
@@ -267,7 +268,7 @@ combat line numbers below are refreshed with it.
 - `src/scenes/exterior.js:2278` - TP2 INTERIM - THE ONE ARM THIS HOST CANNOT TAKE: a jump to an anchor on ANOTHER map pixel. Teleport.cs:145-163 respawns at the anchor's world position, which is StreamingWorld's job (scenes/world.js's `_teleportToPixel`, the door `teleportPrompt -> teleportTo` opens); `?exterior` loads ONE fixed city and runs no streamer, so there is no arrival to build - and it says so instead of eating the cast, the way the standalone dungeon says so about its two windows.
 - `src/systems/playerTorch.js:12` - arm is FLAGGED here rather than guessed - see the note below.
 - `src/systems/playerTorch.js:51` - FLAGGED (blocked on data this reference tree does not carry): the
-- `src/ui/enhancedMenu.js:4082` - FLAGGED: the rest of the keyboard. The wizard walks to `done` with
+- `src/ui/enhancedMenu.js:4122` - FLAGGED: the rest of the keyboard. The wizard walks to `done` with
 - `src/ui/pauseWindow.js:65` - FLAGGED: PauseOptionsDropdown (:83-84) - DFU's own quick-settings
 - `src/ui/profPages.js:74` - *  menu, the one the Stores page is on (the classic skin's pause has no pages - FLAGGED). A home's Forge station is
 

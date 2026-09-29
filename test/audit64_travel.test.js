@@ -241,11 +241,11 @@ test('AUDIT 64 F21: the travel map door refuses a career sun-damaged class by da
   const i = world.indexOf('const toggleTravelMap = (gotoPlace = null) =>');
   assert.ok(i > 0);
   const door = world.slice(i, world.indexOf('/** G5: the map the guild', i));
-  assert.match(door, /if \(careerSunDamage\(playerEntity\.career\) && isDayFromMinutes\(nowMin\)\) \{\s*\n\s*sayWithNightfall\(SUNLIGHT_TRAVEL_TEXT\);\s*\n\s*return;\s*\n\s*\}/,   // LIVED1: and, online, when the world's night falls (AUDIT LIVED1 M: on its own HUD row)
+  assert.match(door, /if \(careerSunDamage\(playerEntity\.career\) && isDayFromMinutes\(nowMin\)\) \{\s*\n\s*sayWithNightfall\(SUNLIGHT_TRAVEL_TEXT\);\s*\n\s*return false;\s*\n\s*\}/,   // LIVED1: and, online, when the world's night falls (AUDIT LIVED1 M: on its own HUD row)
     'the career box, with the same localized key both DFU sites use');
   // ORDER, DaggerfallUI.cs's own: GiveOffer (:612), the career box
   // (:614), then CheckFastTravel (:625).
-  const offer = door.indexOf('if (giveOffer()) return;');
+  const offer = door.indexOf('if (giveOffer()) return false;');   // GUIDE2: the door answers whether a map opened
   const careerRung = door.indexOf('careerSunDamage(playerEntity.career)');
   const racial = door.indexOf('racialFastTravelBlock(playerEntity');
   assert.ok(offer > 0 && careerRung > offer && racial > careerRung,

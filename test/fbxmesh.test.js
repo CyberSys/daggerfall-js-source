@@ -17,7 +17,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFbx, nodeAt, childNamed, objectName, property70, FBX_MAGIC } from '../tools/fbxRead.mjs';
-import { bakeMesh, polygonsOf, eulerXYZ, basisMap, axisVector } from '../tools/fbxMesh.mjs';
+import { bakeMesh, polygonsOf, eulerXYZ, basisMap, axisVector, earClip, isConvexPolygon } from '../tools/fbxMesh.mjs';
 
 // ── a minimal binary-FBX writer, for fixtures only ───────────────────
 const S = (v) => ({ t: 'S', v });
@@ -109,10 +109,15 @@ const UVS = [0, 0, 1, 0, 1, 1, 0, 1, 0.5, 0.5];
 const UVIDX = [0, 1, 2, 3, 1, 0, 2, 3, 4, 0];
 const SCALE = [2, 3, 5];
 
+// MW-BRIG1: `translation`, `modelProps` (extra Properties70 rows on the
+// Model), `globals` (GlobalSettings rows, as [name, value]) and
+// `connections` (C rows) exist for the scene placement's questions.
+const P70 = (name, ...v) => ({ name: 'P', props: [S(name), S(name), S(''), S('A'), ...v.map((x) => (typeof x === 'number' ? D(x) : x))] });
 function fixture({ positions = VERTS, pvi = PVI, scale = SCALE, rotation = [10, 20, 30],
-  uvIndex = UVIDX, normalIndex = null } = {}) {
+  uvIndex = UVIDX, normalIndex = null, translation = [-179, -31, -31], modelProps = [], globals = null, connections = null } = {}) {
   const nIdx = normalIndex ?? (pvi === PVI ? NORMIDX : pvi.map(() => 0));
   return writeFbx([
+    ...(globals ? [{ name: 'GlobalSettings', children: [{ name: 'Properties70', children: globals.map(([k, v]) => ({ name: 'P', props: [S(k), S('int'), S('Integer'), S(''), Number.isInteger(v) ? I(v) : D(v)] })) }] }] : []),
     { name: 'Objects',
       children: [
         { name: 'Geometry',
@@ -142,12 +147,14 @@ function fixture({ positions = VERTS, pvi = PVI, scale = SCALE, rotation = [10, 
           children: [
             { name: 'Properties70',
               children: [
-                { name: 'P', props: [S('Lcl Translation'), S('Lcl Translation'), S(''), S('A'), D(-179), D(-31), D(-31)] },
+                { name: 'P', props: [S('Lcl Translation'), S('Lcl Translation'), S(''), S('A'), D(translation[0]), D(translation[1]), D(translation[2])] },
                 { name: 'P', props: [S('Lcl Rotation'), S('Lcl Rotation'), S(''), S('A'), D(rotation[0]), D(rotation[1]), D(rotation[2])] },
                 { name: 'P', props: [S('Lcl Scaling'), S('Lcl Scaling'), S(''), S('A'), D(scale[0]), D(scale[1]), D(scale[2])] },
+                ...modelProps,
               ] },
           ] },
       ] },
+    ...(connections ? [{ name: 'Connections', children: connections.map((c) => ({ name: 'C', props: [S(c[0]), I(c[1]), I(c[2])] })) }] : []),
   ]);
 }
 
@@ -309,27 +316,156 @@ test('FIELD-GUN-MW1: the scene PLACEMENT is dropped, and the basis is the one th
   near(XY[7], 0, 1e-9, 'z of Rxy*(0,1,0)');
 });
 
-test('FIELD-GUN-MW1: a CONCAVE n-gon is refused, because a fan would tear it', () => {
-  // A dart: A(0,0) B(3,0) C(1,1) D(0,3), whose C corner is reflex. A
-  // fan from A emits triangle A-C-D, which lies OUTSIDE the face - the
-  // shard of stray geometry that is invisible in a diff and obvious
-  // on screen.
-  const bad = fixture({
+test('MW-BRIG1: a CONCAVE n-gon is EAR-CLIPPED, because a fan would tear it', () => {
+  // A dart: A(0,0) B(3,0) C(1,1) D(0,3), whose C corner is reflex.
+  // Wound from B - B, C, D, A - a fan from B emits B-C-D, which lies
+  // OUTSIDE the face across the dart's notch: the shard of stray
+  // geometry that is invisible in a diff and obvious on screen.
+  // (Wound from A the fan happens to be right, because A sees every
+  // corner - so the fixture starts where it is wrong.)
+  const dart = fixture({
     positions: [0, 0, 0, 3, 0, 0, 1, 1, 0, 0, 3, 0],
-    pvi: [0, 1, 2, ~3],
+    pvi: [1, 2, 3, ~0],
     scale: [1, 1, 1],
     uvIndex: [0, 1, 2, 3],
   });
-  assert.throws(() => bakeMesh(readFbx(bad)), /CONCAVE/);
-  // ...and the same four corners wound convexly are fine, so the pin
-  // is about the SHAPE and not about n-gons in general.
+  const m = bakeMesh(readFbx(dart), { forward: '+y', up: '+z', normalise: false });
+  assert.equal(m.bake.clipped, 1, 'the dart is clipped, not fanned');
+  assert.equal(m.indices.length / 3, 2);
+  // THE TRIANGULATION COVERS THE FACE EXACTLY: its triangles' areas sum
+  // to the dart's (3 - the notch = 3 square units by the shoelace), a
+  // fan's would be 4.5 with the outside shard counted in, and every
+  // triangle keeps the polygon's winding (+Z here), so no face flips.
+  const P = (i) => m.positions.slice(i * 3, i * 3 + 3);
+  let area = 0;
+  for (let t = 0; t < m.indices.length; t += 3) {
+    const [a, b, c] = [P(m.indices[t]), P(m.indices[t + 1]), P(m.indices[t + 2])];
+    const z = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    assert.ok(z > 0, `triangle ${t / 3} keeps the polygon's winding`);
+    area += z / 2;
+  }
+  near(area, 3, 1e-9, 'the triangles cover the dart and nothing else');
+  // ...and the reflex corner C is in both triangles: the only
+  // diagonal inside a dart runs from its reflex corner.
+  // (The object bake re-centres on the bounds, so C is found against
+  // the anchor it recorded.)
+  const [ax, ay] = m.bake.anchor;
+  const cAt = m.positions.findIndex((_, i) => i % 3 === 0 && Math.abs(m.positions[i] + ax - 1) < 1e-9 && Math.abs(m.positions[i + 1] + ay - 1) < 1e-9) / 3;
+  assert.ok(cAt >= 0, 'C is a vertex of the bake');
+  assert.equal(m.indices.filter((i) => i === cAt).length, 2);
+
+  // A CONVEX polygon still FANS, corner for corner - which is what
+  // keeps every mesh that baked before on the bytes it had.
   const good = fixture({
     positions: [0, 0, 0, 3, 0, 0, 3, 3, 0, 0, 3, 0],
     pvi: [0, 1, 2, ~3],
     scale: [1, 1, 1],
     uvIndex: [0, 1, 2, 3],
   });
-  assert.equal(bakeMesh(readFbx(good)).indices.length / 3, 2);
+  const g = bakeMesh(readFbx(good));
+  assert.equal(g.bake.clipped, 0);
+  assert.deepEqual(g.indices, [0, 1, 2, 0, 2, 3]);
+
+  // A polygon that CROSSES ITSELF - a bow tie - has no triangulation
+  // to find, and is refused by name rather than folded.
+  const tie = fixture({
+    positions: [0, 0, 0, 2, 2, 0, 2, 0, 0, 0, 2, 0, 1, 3, 0],
+    pvi: [0, 1, 2, 3, ~4],
+    scale: [1, 1, 1],
+    uvIndex: [0, 1, 2, 3, 4],
+  });
+  assert.throws(() => bakeMesh(readFbx(tie)), /crosses itself \(edges \d and \d\).*corner 0/);
+});
+
+test('MW-BRIG1: earClip on its own - a notched pentagon, every triangle inside', () => {
+  // An arrow: its notch at (2,1) is the one reflex corner. n-2 triangles,
+  // area 6 - 1 = 5 by the shoelace, all counter-clockwise.
+  const pts = [[0, 0, 0], [4, 0, 0], [4, 2, 0], [2, 1, 0], [0, 2, 0]];
+  const tris = earClip(pts);
+  assert.equal(tris.length, 3);
+  let area = 0;
+  for (const [a, b, c] of tris) {
+    const z = (pts[b][0] - pts[a][0]) * (pts[c][1] - pts[a][1]) - (pts[b][1] - pts[a][1]) * (pts[c][0] - pts[a][0]);
+    assert.ok(z > 0);
+    area += z / 2;
+  }
+  near(area, 6, 1e-9, 'area');
+  assert.equal(isConvexPolygon(pts), false);
+  assert.equal(isConvexPolygon([[0, 0, 0], [4, 0, 0], [4, 2, 0], [0, 2, 0]]), true);
+  // The same polygon wound the other way, and seen from below (-Z),
+  // still clips - the projection follows the polygon's own normal.
+  const flipped = pts.slice().reverse();
+  assert.equal(earClip(flipped).length, 3);
+});
+
+test('MW-BRIG1: a SCENE placement keeps where the modeller put it, in the scene\'s own axes and units', () => {
+  // Blender's own export, in miniature: Y-up FBX world, a centimetre
+  // unit, and every object carrying Lcl Rotation -90 about X (the
+  // Z-up-to-Y-up turn) and Lcl Scaling 100 (metres to centimetres).
+  // The object sat 64 units up in the scene: translation (0, 6400, 0).
+  const BLENDER = [['UpAxis', 1], ['UpAxisSign', 1], ['FrontAxis', 2], ['FrontAxisSign', 1],
+    ['CoordAxis', 0], ['CoordAxisSign', 1], ['UnitScaleFactor', 1.0]];
+  const src = fixture({ scale: [100, 100, 100], rotation: [-90, 0, 0], translation: [0, 6400, 0],
+    globals: BLENDER, connections: [['OO', 2, 0], ['OO', 1, 2]] });
+  const m = bakeMesh(readFbx(src), { placement: 'scene', forward: '+y', up: '+z' });
+  // Every vertex comes back as it was in the SCENE: local + (0, 0, 64),
+  // no normalise, no re-centre - v2 (1, 0, 2) is at (1, 0, 66).
+  const P = (i) => m.positions.slice(i * 3, i * 3 + 3);
+  const all = Array.from({ length: m.positions.length / 3 }, (_, i) => P(i));
+  const v2 = all.find((p) => Math.abs(p[0] - 1) < 1e-6 && Math.abs(p[2] - 66) < 1e-6);
+  assert.ok(v2, `v2 lands at (1, 0, 66): ${JSON.stringify(all)}`);
+  near(m.bounds.min[2], 64, 1e-6, 'the lowest vertex, at the object origin');
+  near(m.bounds.max[0], 2, 1e-6, 'v4 keeps its x: no normalise');
+  assert.deepEqual(m.bake.sceneTranslation, [0, 0, 64]);
+  assert.equal(m.bake.placement, 'scene');
+  assert.equal(m.bake.origin, 'scene');
+  // The normals come back in the scene too: NORMAL[1] is local +Z, which
+  // the scene reads as +Z - not the FBX world's +Y it was exported as.
+  const up = Array.from({ length: m.normals.length / 3 }, (_, i) => m.normals.slice(i * 3, i * 3 + 3))
+    .filter((n) => Math.abs(n[2] - 1) < 1e-6);
+  assert.ok(up.length > 0, 'a local +Z normal is a scene +Z normal');
+
+  // THE BASIS STILL APPLIES ON TOP: facing the other way (forward -Y)
+  // is a half turn about Z - x and y negate, height does not move.
+  const turned = bakeMesh(readFbx(src), { placement: 'scene', forward: '-y', up: '+z' });
+  for (let i = 0; i < m.positions.length; i += 3) {
+    near(turned.positions[i], -m.positions[i], 1e-9, 'x');
+    near(turned.positions[i + 1], -m.positions[i + 1], 1e-9, 'y');
+    near(turned.positions[i + 2], m.positions[i + 2], 1e-9, 'z');
+  }
+
+  // THE UNIT IS READ, NOT ASSUMED: a file in metres (UnitScaleFactor
+  // 100) whose object carries no 100 comes back the same size.
+  const metres = fixture({ scale: [1, 1, 1], rotation: [-90, 0, 0], translation: [0, 64, 0],
+    globals: BLENDER.map(([k, v]) => [k, k === 'UnitScaleFactor' ? 100.0 : v]) });
+  const mm = bakeMesh(readFbx(metres), { placement: 'scene', forward: '+y', up: '+z' });
+  for (let i = 0; i < m.positions.length; i++) near(mm.positions[i], m.positions[i], 1e-9, `metres ${i}`);
+
+  // THE AXES ARE READ, NOT ASSUMED: a Z-up file (UpAxis 2) is already
+  // the scene's frame, so the same geometry needs no -90 to land there.
+  const zUp = fixture({ scale: [100, 100, 100], rotation: [0, 0, 0], translation: [0, 0, 6400],
+    globals: [['UpAxis', 2], ['UpAxisSign', 1], ['CoordAxis', 0], ['CoordAxisSign', 1], ['UnitScaleFactor', 1.0]] });
+  const mz = bakeMesh(readFbx(zUp), { placement: 'scene', forward: '+y', up: '+z' });
+  for (let i = 0; i < m.positions.length; i++) near(mz.positions[i], m.positions[i], 1e-9, `z-up ${i}`);
+
+  // The object placement is untouched by all this: it still drops the
+  // placement and re-centres, exactly as FIELD-GUN-MW1 pinned.
+  assert.equal(bakeMesh(readFbx(src)).bake.placement, 'object');
+});
+
+test('MW-BRIG1: a scene placement refuses a transform it cannot read whole', () => {
+  // Parented: its Lcl transform is not its world transform.
+  const child = fixture({ connections: [['OO', 2, 7]] });
+  assert.throws(() => bakeMesh(readFbx(child), { placement: 'scene' }), /parented under object 7/);
+  // A pivot: T*R*S is not the whole transform.
+  const pivot = fixture({ modelProps: [P70('RotationPivot', 1, 0, 0)] });
+  assert.throws(() => bakeMesh(readFbx(pivot), { placement: 'scene' }), /RotationPivot/);
+  // An identity pivot is no pivot at all.
+  assert.doesNotThrow(() => bakeMesh(readFbx(fixture({ modelProps: [P70('RotationPivot', 0, 0, 0)] })), { placement: 'scene' }));
+  // A rotation order eulerXYZ does not compute.
+  const zyx = fixture({ modelProps: [{ name: 'P', props: [S('RotationOrder'), S('enum'), S(''), S(''), I(5)] }] });
+  assert.throws(() => bakeMesh(readFbx(zyx), { placement: 'scene' }), /RotationOrder 5/);
+  assert.throws(() => bakeMesh(readFbx(fixture()), { placement: 'world' }), /not object or scene/);
 });
 
 test('FIELD-GUN-MW1: the bake refuses a SCENE, and refuses a mapping it cannot honour', () => {

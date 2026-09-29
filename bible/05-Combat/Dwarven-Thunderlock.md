@@ -747,7 +747,7 @@ the orb is, so the two answers cannot drift apart.
 **One residual, named rather than half-fixed:** the multiplayer wire
 carries a hit's `kind` (`'arrow'`), not its weapon, so a peer-owned
 puppet struck by a Thunderlock still gains a shaft on its owner's
-client (`exteriorFoes.js:2239`, `dungeonContext.js:4571`, both gated on
+client (`exteriorFoes.js:2239`, `dungeonContext.js:4575`, both gated on
 `data.ar === 1`). Fixing it means widening the hit packet, which is a
 protocol change and not this slice's.
 
@@ -1122,7 +1122,10 @@ plausible on screen:
 - **Triangulates.** FBX stores n-gons, ended by a ones'-complement
   index. A fan is only a triangulation of a CONVEX polygon, so a
   concave one is **refused by name** rather than folded inside out —
-  the shard of stray geometry that is invisible in a diff.
+  the shard of stray geometry that is invisible in a diff. (MW-BRIG1,
+  2026-09-29: it is **ear-clipped** now instead, the triangulation
+  Blender itself draws; a convex face still fans, so this weapon's
+  bytes did not move. See `04-Characters/Steel-Brigandine.md`.)
 - **Welds on the (position, normal, uv) TRIPLE.** 543 corners, 199
   positions, 539 vertices: a hard edge and a UV seam are splits that
   have to survive, and a shared corner is a split that must not.

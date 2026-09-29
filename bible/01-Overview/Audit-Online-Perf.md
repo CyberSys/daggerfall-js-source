@@ -27,8 +27,8 @@ for (const b of batches) if (!spectral && !conceal) {
 ```
 
 `keyOf` is not this pass's private bookkeeping. **Two other passes read
-`b._bbKey`** — the shadow replay (`shadowPass.js:1651`) and the air pass's
-emitters (`airPass.js:1799`) — and both take it as it stands:
+`b._bbKey`** — the shadow replay (`shadowPass.js:1652`) and the air pass's
+emitters (`airPass.js:1800`) — and both take it as it stands:
 
 ```js
 const key = b._bbKey ?? (b.frame == null ? `${archive}_${record}` : `${archive}_${record}#${frame}`);

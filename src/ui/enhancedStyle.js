@@ -1719,7 +1719,14 @@ ${badgeCss()}
   .hmhint { display: none; }
   .hmcard { right: 12px; bottom: 76px; }
   .hmfoot { left: 12px; bottom: 12px; flex-wrap: wrap; max-width: calc(100vw - 24px); }
+  /* AUDIT GUIDE K6: the legend wraps inside the foot - it ran nowrap off a phone's edge, the quest's word first lost */
+  .hmlegend { flex: 1 1 auto; flex-wrap: wrap; min-width: 0; }
 }
+/* AUDIT GUIDE K3: while a place is picked the card stands above the foot - a foot grown by the legend or the Overworld's
+   button lay over the card's Travel press, and took it */
+.hmroot.hmcardup .hmcard { z-index: 1; }
+/* AUDIT GUIDE K8: the quests that point at the picked place, named on its card */
+.hmquest { color: #c9962c; font-size: 13px; margin: 2px 0; text-align: center; }
 
 /* ── PX1: THE PIXEL HOME (Mac, 2026-08-27) ──────────────────
    The boot menu's front face in Daggerfall's own idiom, adopted from
@@ -1825,6 +1832,21 @@ ${badgeCss()}
 .px-qtimer { color: #c5bda2; font-size: 14px; letter-spacing: 0.1em;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .px-qtimer.urgent { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
+/* GUIDE2: THE WHERE LINE - where the quest's latest entry sends the player, in the find-place box's own words, the way
+   there beside it where a map can open, and the note when the player's map is known not to have the place. The place is
+   the reading; the button is set off from it, never drawn inside the prose. */
+.px-qwhere { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px;
+  margin: -4px 0 14px; }
+.px-qwhere-place { color: #d8cfae; font-size: 15px; letter-spacing: 0.04em; overflow-wrap: anywhere; text-align: center;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.px-qwhere-place::before { content: '\\25c8'; content: '\\25c8' / ''; margin-right: 8px; color: var(--brass); }   /* AUDIT GUIDE U18: decorative - its alt text empty */
+.px-qwhere .act, .px-qentry-where .act { min-height: 32px; padding: 2px 12px; font-size: 13px; }
+.px-qwhere-note { flex-basis: 100%; text-align: center; color: #b9b094; font-size: 13px; line-height: 1.5;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+/* GUIDE2: an older entry's own place, the classic logbook's click on any entry - quieter than the quest's where. */
+.px-qentry-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 2px 0 4px; }
+.px-qentry-where-place { color: #9d9479; font-size: 13px; overflow-wrap: anywhere; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+@media (pointer: coarse) { .px-qwhere .act, .px-qentry-where .act { min-height: 44px; } }
 /* PX5: the world's date and time, bottom-right on the scrim. */
 .px-clock { position: absolute; right: 18px; bottom: 12px; text-align: right;
   display: flex; flex-direction: column; gap: 2px;
@@ -3368,6 +3390,19 @@ ${badgeCss()}
    a small action set off from the prose below it, not another line of
    journal text. */
 .cr-shell .cr-share { min-width: 60px; }
+/* GUIDE2: A LIVE QUEST'S WHERE AND WHEN - under its head, standing when the card is shut (they are the quest's state, as
+   its title is): the place in the find-place box's words, the way there, the note, and the deadline the pause tab has
+   carried since PX5. */
+.cr-shell .cr-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 10px; max-width: 66ch; }
+.cr-shell .cr-whereplace { color: #d8cfae; font-size: 14px; overflow-wrap: anywhere; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.cr-shell .cr-whereplace::before { content: '\\25c8'; content: '\\25c8' / ''; margin-right: 8px; color: var(--brass); }   /* AUDIT GUIDE U18 */
+.cr-shell .cr-where .act { min-height: 30px; padding: 2px 10px; font-size: 13px; }
+.cr-shell .cr-wherenote { flex-basis: 100%; color: #b9b094; font-size: 13px; line-height: 1.5; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.cr-shell .cr-timer { color: #c5bda2; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.cr-shell .cr-timer.urgent { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
+.cr-shell .cr-entry.cr-shut .cr-where { margin: 8px 0 0; }
+@media (pointer: coarse) { .cr-shell .cr-where .act { min-height: 44px; } }
 /* JOURNAL1: A NOTE'S SHARE - the strip under the note's head: who the page can be held out to (the players near
    enough to talk to, a button each, which wraps as the names do), and the letter. What the last press did is said
    under it in the journal's dim hand. A name at its widest breaks inside its button rather than out of the card. */
@@ -5142,6 +5177,86 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
   background: rgba(10,12,17,0.82);
 }
 .notice.notice-toast .notice-row { font-size: 14px; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); text-align: center; }
+/* GUIDE3: THE HERALD'S NOTICE (ui/questHerald.js) - a quest's news as one
+   toast of three rows, read at a glance, so three weights are the whole
+   design: what happened in the sheet's small brass caps, to which quest in
+   the toast's own yellow, and the one thing to know (the new entry's
+   opening, the time left) in the box's quiet bone, capped to a readable
+   measure. A main-quest title wears the brass beside it. */
+.notice.notice-toast .notice-row.herald-kind { font-size: 11px; line-height: 1.5; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass); text-shadow: 1px 1px 0 rgba(0,0,0,0.85); }
+.notice.notice-toast .notice-row.herald-title.main { color: #e8c170; }
+.notice.notice-toast .notice-row.herald-line { font-size: 13px; color: #d8cfae; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); max-width: 30em; margin: 0 auto; }
+/* GUIDE4: THE TRACKER'S CARD (ui/questTracker.js) - the quest the HUD
+   follows, at the right-upper edge on the party list's own line (92, which
+   clears the FPS read-out; ui/partyPanel.js steps under it by the height
+   the card publishes). Read against the world, so it is right-aligned to
+   its edge on a plate that fades out toward the middle of the screen, and
+   quiet: the title in bone (a main quest's in brass), the entry's opening
+   in the dim, where it points after the lens's place mark, and the time
+   left in the journal's own words, gold under a day as the journal's is.
+   A touch screen keeps the party list's 76; a phone takes it under the
+   compass and the foe blade; a short screen keeps the title and the time. */
+.qtrack {
+  position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(92px + env(safe-area-inset-top, 0px));
+  z-index: 5; pointer-events: none; box-sizing: border-box; width: 260px; max-width: calc(100vw - 16px);
+  display: flex; flex-direction: column; gap: 2px; padding: 5px 10px 6px 18px; text-align: right;
+  /* AUDIT GUIDE U9: the toast's own plate (0.82) - at 0.6 the dim rows fell under 4.5:1 over a bright sky or snow */
+  background: linear-gradient(90deg, rgba(10,12,17,0) 0%, rgba(10,12,17,0.82) 32%);
+  border-right: 3px solid rgba(192,138,62,0.75);
+  font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
+  font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;
+  color: #d8cfae; text-shadow: 2px 2px 0 rgba(0,0,0,0.85);
+  /* AUDIT GUIDE U8: where the compass ends at the HUD's own scale (ui/questTracker.js copies --hud-scale here) - the
+     travel panel's --tp-top sum, less its gap - so a scaled-up compass or foe frame never stands on the card */
+  --qt-clear: calc(18px + 28px * var(--hud-scale, 1) + 30px);
+}
+.qtrack.touch { top: calc(max(76px, var(--qt-clear)) + env(safe-area-inset-top, 0px)); }
+@media (max-width: 900px) {
+  body:has(.hud-foe.on) .qtrack { --qt-clear: calc(18px + 28px * var(--hud-scale, 1) + 30px + 46px * var(--hud-scale, 1)); }
+  body:has(.hud-foe.on.blade) .qtrack { --qt-clear: calc(18px + 28px * var(--hud-scale, 1) + 30px + 76px * var(--hud-scale, 1)); }
+}
+/* AUDIT GUIDE T1/D1, U1, U7: the card steps aside - keeping its line, so the party list never jumps - for what stands
+   in its corner a while: the Overworld's block at the top of a touch screen, a narrow screen's chat lines, a journey's
+   junction disc */
+:root[data-tview-block="top"] .qtrack,
+body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
+@media (max-width: 720px) { body:has(.dfchat-peek:not(:empty)) .qtrack { visibility: hidden; } }
+/* AUDIT GUIDE U10: under forced colours a background image goes; the card keeps a plate of the system's own */
+@media (forced-colors: active) { .qtrack { background-color: Canvas; } }
+.qtrack-head { display: flex; justify-content: flex-end; align-items: baseline; gap: 6px; }
+.qtrack-mark { font-size: 11px; color: var(--brass); }
+.qtrack-title { font-size: 14px; line-height: 1.3; color: #e9e4d9; }
+.qtrack.main .qtrack-title { color: #e8c170; }
+.qtrack-line { font-size: 12px; line-height: 1.3; color: #cdc3a7;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }   /* the cap (TRACKER_OPENING_MAX) keeps it to two; a wide face wraps to three, and a clamp at two cut it mid-word - seen in Chromium */
+.qtrack-where { font-size: 12px; line-height: 1.3; color: #d6b36b; }
+.qtrack-where::before { content: '\\25c8'; content: '\\25c8' / ''; margin-right: 5px; }   /* AUDIT GUIDE U18 */
+/* GUIDE5: a place the entry names but the player's map does not hold - no mark; the talk arc's answer, quietly */
+.qtrack-note { font-size: 11px; line-height: 1.3; color: #b0a993; font-style: italic; }   /* AUDIT GUIDE U9: lighter dim rows */
+.qtrack-time { font-size: 12px; letter-spacing: 0.08em; color: #c5bda2; }
+.qtrack.urgent .qtrack-time { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
+/* the journal's Track toggle (ui/questTracker.js trackButton): pressed, it wears the card's brass edge and the card's
+   filled diamond - AUDIT GUIDE T6/U13: its word never changes; the diamond is drawn, not read (its alt text empty) */
+.qtrack-pinbox { display: inline-flex; align-items: center; gap: 8px; }
+.act.qtrack-pin.on { color: var(--brass); border-color: rgba(192,138,62,0.75); }
+.act.qtrack-pin.on::before { content: '\\25c6 '; content: '\\25c6 ' / ''; }
+/* AUDIT GUIDE U14: the quest the HUD follows, said where the choice is made */
+.qtrack-on { font-size: 11px; letter-spacing: 0.08em; color: var(--brass); }
+.qtrack-on:empty { display: none; }
+@media (max-width: 560px) {
+  .qtrack, .qtrack.touch { top: calc(max(104px, var(--qt-clear)) + env(safe-area-inset-top, 0px)); width: min(260px, calc(100vw - 16px)); }
+}
+@media (max-height: 500px) {
+  .qtrack-line, .qtrack-where, .qtrack-note { display: none; }
+}
+/* AUDIT GUIDE H8: a short screen keeps the herald's kind and title - its stack is capped at 90vh and a three-row notice
+   was clipped whole, or clipped the HUD's own lines beside it */
+@media (max-height: 520px) {
+  .notice.notice-toast .notice-row.herald-line { display: none; }
+}
+/* AUDIT GUIDE H3: the herald's own voice - read, never seen */
+.qherald-live { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 /* AUDIT HCC U5: THE FIELD'S OWN WINDOW (ui/enhancedInputBox.js) - DaggerfallInputMessageBox in the skin's face.
    ENH-NOTICE1's law: a field is a decision, not a notice, so it is not in the right-edge stack; it stands where the
    player looks while typing - centred, or at the top for showAtTopOfScreen - in the box's own panel and rule. It

@@ -30,9 +30,9 @@ import { PIXEL_STACK } from './pixelifyFive.js';
 /** The rebindable rows. `sec` is the secondary-dict action, `ui` the joystick-UI action; a row with both keeps them
  *  on one button (B: the pack in the world, Back in a window). `keep` rows cannot be left unbound. */
 export const PLUS_BIND_ROWS = Object.freeze([
-  { id: 'activate', label: 'Activate · Select', ui: 'LeftClick', keep: true },
+  { id: 'activate', label: 'Activate / Select', ui: 'LeftClick', keep: true },
   { id: 'attack', label: 'Attack', ui: 'RightClick', keep: true },
-  { id: 'inventory', label: 'Inventory · Back', sec: 'Inventory', ui: 'Back', keep: true },
+  { id: 'inventory', label: 'Inventory / Back', sec: 'Inventory', ui: 'Back', keep: true },
   { id: 'jump', label: 'Jump', sec: 'Jump' },
   { id: 'weapon', label: 'Draw / sheathe', sec: 'ReadyWeapon' },
   { id: 'spellbook', label: 'Spellbook', sec: 'CastSpell' },
@@ -113,7 +113,7 @@ export function plusPadLegend(store, { crossbar = crossbarInForce() } = {}) {
   const dp = plusDpadMap();
   for (const [dir, code] of Object.entries(DPAD_CODES)) {
     const { tap, hold } = dp[dir];
-    const words = [tap ? dpadChoiceWord(tap) : null, hold ? `hold: ${dpadChoiceWord(hold)}` : null].filter(Boolean).join(' · ');
+    const words = [tap ? dpadChoiceWord(tap) : null, hold ? `hold: ${dpadChoiceWord(hold)}` : null].filter(Boolean).join(' / ');   // Mac: a slash between a button's uses, as Draw / sheathe has
     if (words) out.push([[code], words]);
   }
   return out;

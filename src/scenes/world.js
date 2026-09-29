@@ -30,6 +30,8 @@ import { bindWorldDataBlocks } from '../formats/worldDataReplacement.js';   // R
 import { loadModWorldData } from './modWorldData.js';   // RR3b
 import { DFPalette } from '../formats/dfPalette.js';
 import { MapsFile, getWorldClimateSettings, longitudeLatitudeToMapPixel, getPixelFromPixelID, REGION_RACES, LOCATION_TYPES, CLIMATES, REGION_NAMES } from '../formats/mapsFile.js';   // SPAWNED-DUNGEONS1: the ocean gate and the synthesized location's region name
+import { questTracker } from '../ui/questTracker.js';   // GUIDE5: the quest the player follows - its places, marked
+import { marksOn, questMapMarks } from '../ui/questMarks.js';   // GUIDE5: where the quests point, on the held map and the compass
 import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
 import { hasPort } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
@@ -112,7 +114,7 @@ import {
 } from '../systems/sceneCache.js';
 import { WORLD_CONTEXT, makeAnchor, teleportPlan } from '../systems/teleportAnchor.js';   // A10: the Recall anchor's law - shape, IsSameInterior, the cross-context plan
 import { isPlayerInTown } from '../systems/nearbyObjects.js';
-import { createTravelMapWindow, travelMapDoorReady, preloadTravelMapArt, travelMapPickerData, canFindPlace } from '../ui/travelMapDoor.js';
+import { createTravelMapWindow, travelMapDoorReady, preloadTravelMapArt, travelMapPickerData, canFindPlace, placePixelMemo } from '../ui/travelMapDoor.js';
 import { checkLocationDiscovered as travelCheckDiscovered, getPixelColorIndex as travelPixelColorIndex } from '../ui/travelMapWindow.js';
 import { travelMapFilters, travelMapMarkedMapId } from '../systems/travelMapState.js';   // AUDIT-TO1 F2: the junction map honours the map's four filters; AUDIT-MAP: and reads the mark from the store
 import { shortcutBinding, sequenceString } from '../systems/dialogShortcuts.js';   // AUDIT-TO1 H2: TravelExit is a dialog SHORTCUT, as DFU reads it   // TO1: the junction map draws by the same two laws the page does
@@ -441,6 +443,7 @@ import { setRenownLayer } from '../systems/renownLayer.js';   // RENOWN1: the le
 import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown and its bar, under the vitals
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
 import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
+import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
 import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
 import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips
@@ -837,6 +840,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // SmoothLocationNeighbourhood is HasLocation's other caller and has
   // to run before the first pixel streams.
   const mapDict = buildMapDict(maps);
+  const questPlacePixel = placePixelMemo();   // AUDIT GUIDE O3: a quest place's map pixel, read once a session (ui/travelMapWindow.js)
   // AUDIT 58 F4: StreamingWorld.ReadyCheck's two runtime data repairs
   // (StreamingWorld.cs:1676-1685), which had no port. Both mutate the
   // in-memory reader buffers ONCE, before anything streams: the
@@ -7114,7 +7118,11 @@ export async function bootWorld(canvas, renderer, params, status) {
         severePunishmentFlags: playerEntity.regionConditions?.[_region]?.severePunishmentFlags ?? 0,
       });
       for (let s = 0; s < _owed; s++) {
-        setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);   // V4: through the one setter (SuppressCrime)
+        // WERE-LEVY (FIELD BUGS 2026-09-29g): :502/:509 assign the FIELD (`crimeCommitted = ...`), not the setter -
+        // DFU's one crime write that SuppressCrime is never asked of. V4 routed it through the setter, so a transformed
+        // lycanthrope with a hated name drew the watch with NO crime to answer: never halted, never charged, and the
+        // watch never stood down (EnemyEntity keeps guards while transformed) - "now all guards won't leave me alone".
+        playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;
         _witnessResponse();
       }
       // ROAD-B: :513-516, the THIRD statement of the same minute -
@@ -7192,7 +7200,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   const rrRiding = createRrRidingContacts({
     playerEntity,
     feet: () => player.pos, yaw: () => cam.yaw,
-    livePersons: () => _livePersons, foes: () => exteriorFoes.foes, guards: () => cityGuards.guards.filter((g) => !cityGuards.playerSpares(g)),   // RAID-GUARDS: the charge passes a spared defender by
+    livePersons: () => _livePersons.filter((seat) => !cityGuards.playerSparesPerson(seat.person)),   // RAID-GUARDS-NPC: the trample passes a raid's walkers by (guards and townspeople)
+    foes: () => exteriorFoes.foes, guards: () => cityGuards.guards.filter((g) => !cityGuards.playerSpares(g)),   // RAID-GUARDS: the charge passes a spared defender by
     isGuardRecord: (f) => f._encounter === undefined && cityGuards.guards.includes(f),
     splashBlood: (pos, fwd) => hitEffects.showBloodSplash(0, pos, fwd, LETHAL_HIT),
     playClip: (clip, volume) => audio.playOneShot(clip, volume),
@@ -7560,7 +7569,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2728 mounts the same one, gated on
+  // and dungeonContext.js:2732 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6427
@@ -7651,7 +7660,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:497-502) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1543-1561) gives it -
+    // got exactly what removeGuard (cityGuards.js:1564-1582) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
     // (cityGuards.js:981) and spliced out at the end of it (:1171).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
@@ -8032,6 +8041,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       foeSinks: (f) => enchantFoeSinks(f),
       feet: () => enchantFeet(),
       standLooseFoe: _standLooseFoe,
+      bossSpell: (record) => { modes?.dungeonCtx?.spellOnBoss?.(record); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted)
       // V3: Azura's TEXT.RSC popup.
       // ENH-NOTICE3: through the one door, and the ROUTING CHANGES -
       // this was `townTalk.showOverlay`, a REPLACE of the outdoor slot
@@ -8433,6 +8443,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       currentLocationName: () => _questLoc()?.name ?? '',
       canFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name),
       gotoPlace: (place) => toggleTravelMap(place),
+      // GUIDE2: the ENHANCED chronicle's way there - offered only where the map can open. This builder is the
+      // interior host's too (host.makeJournal), and indoors DFU's own door refuses the map (IsPlayerInside), so a
+      // journal opened in a building draws the where line and no door, rather than a door that only ever says no.
+      // The classic logbook keeps gotoPlace above and DFU's box-then-refusal.
+      showQuestPlace: (modes?.mode ?? 'exterior') === 'exterior' ? (find) => showQuestPlace(find) : undefined,
     });
   };
   /** S40: THE REST KEY, OUTDOORS. CanRest's FIRST arm - the one that
@@ -10050,7 +10065,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7459), so exterior mode and a
+    // composer, dungeonContext.js:7470), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -10554,12 +10569,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   // first tick (DaggerfallTravelMapWindow.Update), whoever opened it.
   let _travelGoto = null;
   const toggleTravelMap = (gotoPlace = null) => {
+    // GUIDE2: THE DOOR ANSWERS WHETHER A MAP OPENED - true once it is in the slot, false for every refusal - the
+    // contract every door the enhanced journal hands off to keeps (AUDIT 27h A4: a page that goes down for a window that
+    // could not open resumes). AUDIT GUIDE D6: six refusals first say why, in DFU's words. A window already up with no
+    // place to go is silent, a pending quest offer is shown instead (GiveOffer, DaggerfallUI.cs:612), and a party's
+    // travel question is asked - the journal's door always carries its place, so it meets only the offer.
     // FindPlace_OnButtonClick (DaggerfallQuestJournalWindow.cs:353-363)
     // closes the journal and posts dfuiOpenTravelMapWindow in the same
     // breath, so the journal is still the mounted overlay when the map
     // is asked for - a goto opens past the "an overlay is up" guard the
     // M key answers to.
-    if (!gotoPlace && townTalk.overlayActive) return;
+    if (!gotoPlace && townTalk.overlayActive) return false;
     if (gotoPlace) _travelGoto = gotoPlace;
     // AUDIT PARTY-UI 1: IsPlayerInside, dfuiOpenTravelMapWindow's FIRST
     // test, asked by the DOOR. The keydown ladder's exterior-only gate
@@ -10571,13 +10591,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     // DFU says it - AddHUDText with `cannotTravelIndoors`, whose door
     // here is townTalk.say. It was silent: a Find Place taken in a
     // building closed the journal on nothing.
-    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return; }
+    if ((modes?.mode ?? 'exterior') !== 'exterior') { townTalk.say(CANNOT_TRAVEL_INDOORS_TEXT); return false; }
     // W1/U61: the DOOR decides which map this skin wears. The classic
     // window needs its art - without it there is no map to click, so
     // the door says so rather than opening a blank one (the HUD/pause
     // law: a missing IMG closes a door, never the game); the enhanced
     // overworld reads no art at all.
-    if (!travelMapDoorReady()) { townTalk.say('(the travel map art is unavailable)'); return; }
+    if (!travelMapDoorReady()) { townTalk.say('(the travel map art is unavailable)'); return false; }
     // AUDIT 39: the refusal that sits ten lines ABOVE CheckFastTravel
     // in the same switch arm (DaggerfallUI.cs:604-609) - IsPlayerInside
     // first (the door's own test above, AUDIT PARTY-UI 1),
@@ -10590,14 +10610,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     // no travelling out of a duel by map
     if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]) || navalHostileNear()) {   // NAV-H: a hostile ship in reach too
       townTalk.say(CANNOT_TRAVEL_ENEMIES_TEXT);
-      return;
+      return false;
     }
     // AUDIT 58: the rung the comment above already named and the code
     // did not carry - `if (!GiveOffer())` (DaggerfallUI.cs:612) sits
     // between AreEnemiesNearby and the sun-damage box. A pending
     // `give pc _item_ notify` offer is handed over HERE and the press
     // is spent: the map does not open, and the next press travels.
-    if (giveOffer()) return;
+    if (giveOffer()) return false;
     // ONE clock for both sun rungs, so the two cannot disagree across a
     // minute boundary the way two separate reads could.
     const nowMin = Math.floor(worldMinutes());
@@ -10615,7 +10635,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // rungs add when the world's night falls, in real minutes (worldTick.js worldNightfallText; nothing offline).
     if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) {
       sayWithNightfall(SUNLIGHT_TRAVEL_TEXT);
-      return;
+      return false;
     }
     // V2b: CheckFastTravel at the map's own door, where DFU calls it
     // (DaggerfallUI.cs:625) - a sun-damaged override cannot fast
@@ -10625,13 +10645,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     // DFU's line. Online `nowMin` is the shared clock's, whose day is
     // one real hour no rest or trip can shorten.
     const ftb = racialFastTravelBlock(playerEntity, nowMin);
-    if (ftb) { sayWithNightfall(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return; }
+    if (ftb) { sayWithNightfall(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return false; }
     // TO1: the fork. `playerControlled` is the popup's own word for a
     // trip its three toggles say is WALKED (ui/travelPopUp.js
     // callFastTravelGoldCheck); everything else is DFU's fast travel.
     // PARTY-TRAVEL (2026-09-25, Mac: "Implementing a prompt for online to travel to party leader"): a member away from
     // the leader is asked first whether the journey is to the leader - No opens the map (systems/partyTravel.js mapOffer)
-    if (!gotoPlace && partyTravel?.mapOffer()) return;
+    if (!gotoPlace && partyTravel?.mapOffer()) return false;
     _travelMap = buildTravelMapWindow({ onTravel: (pick, opts, computed) => {
       if (partyTravel?.propose(pick, opts, computed)) { hudFade.clearFade(); return; }   // PARTY-TRAVEL: "...the option for party members to ready up and travel together" - the leader's Begin with the party gathered asks them first (a walked trip is never a round: the session says no to it)
       if (opts?.playerControlled && beginAcceleratedTravel(pick, opts, { estimateMinutes: computed?.minutes ?? null })) return;   // AUDIT-TO1 L5: the popup's estimate rides along for the panel's ETA
@@ -10641,10 +10661,15 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (opts?.playerControlled && tvRoutesJourneys()) return;
       fastTravelTo(pick, opts, computed);
     } });
-    if (!_travelMap) { townTalk.say('(the travel map art is unavailable)'); return; }
+    if (!_travelMap) { townTalk.say('(the travel map art is unavailable)'); return false; }
     if (_travelGoto) { _travelMap.gotoPlace(_travelGoto); _travelGoto = null; }   // GotoPlace (:214-217), consumed on the map's first tick - AUDIT PARTY-UI2 1: this open's, or one a refused open kept
     townTalk.showOverlay(_travelMap);
+    return true;
   };
+  /** GUIDE2: THE JOURNAL'S WAY THERE on the enhanced skin - HandleQuestClicks' Yes (FindPlace_OnButtonClick), for a
+   *  face that has already said where: the map door with the quest lens's `find` (the find-place box's own payload,
+   *  ui/questLens.js entryTarget), which both maps read off `siteDetails`. Answers whether a map opened. */
+  const showQuestPlace = (find) => toggleTravelMap({ siteDetails: find });
   /** G5: the map the guild's TELEPORT service opens - the same
    *  window, armed. Only this host answers, because only this host
    *  has a streaming world to land in; the interior arm reads it off
@@ -11092,6 +11117,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       // running now on the raids' own clock, at its town, with the card a hover asks for (ui/eventMapMarks.js). A
       // function for the gate's reason; none while the mod is off. The enhanced map alone draws them.
       raids: () => (raidingPartiesOn() ? raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '' }) : []),
+      // GUIDE5: WHERE THE QUESTS POINT - every active quest's place the player's map holds, the followed one filled
+      // (ui/questMarks.js); a function for the gate's reason (a step logged while the map stands open). The enhanced
+      // map alone draws them: a player who chose DFU's own maps chose DFU's look.
+      quests: () => (marksOn() ? questMapMarks(questTracker.views, questTracker.tracked()?.id ?? null, questPixel) : []),
       // BOUNTY1 (Mac: "board quests can be a green circle", then black - green is the party's): each held bounty's pixel, on both maps
       bounties: () => bountyHost?.mapMarks() ?? [],
       // HUB1: each region's hub, marked and named - online alone (systems/regionHubs.js); offline the map is DFU's
@@ -11269,7 +11298,24 @@ export async function bootWorld(canvas, renderer, params, status) {
       // DISC23-A: the party in these streets, their feet taken into the location's frame by the SAME subtraction the
       // player's `local` is (the translation and the origin read at open, which the held motor keeps true)
       townParty: () => partyOnMaps().map((m) => ({ ...m, feet: [m.feet[0] - t[0] - b.locOrigin[0], m.feet[1] - t[1] - b.locOrigin[1], m.feet[2] - t[2] - b.locOrigin[2]] })),
+      // TOWN-MARKS (ui/townMapMarks.js): the town's Notice Boards, while the board is open (the boards noticeCountPoints
+      // counts over), with its unread count; and its player housing - the online homes and the bank's house
+      townBoards: () => townBoardMarks(b),
+      townHomes: () => townHomeRows({
+        buildings: summaries, mapId: dfLoc.mapTableData?.mapId, regionIndex: dfLoc.regionIndex, houses: playerEntity.houses ?? null,
+        homeAt: onlineHomes ? (mapId, buildingKey) => onlineHomes.homeAt(mapId, buildingKey) : null,
+      }),
+      townHomesVersion: () => onlineHomes?.version() ?? 0,
     }));
+    onlineHomes?.ensure(dfLoc.mapTableData?.mapId);   // TOWN-MARKS: a town heard from long ago is asked again, and its homes mark when it answers
+  };
+  /** TOWN-MARKS: a built pixel's Notice Boards for the town map - none while the board is closed (the town's boards are
+   *  then Daggerfall's rumour boards) or off a location. */
+  const townBoardMarks = (p) => {
+    if (!noticeBook || noticeBook.open !== true || !p?.boards?.length || !p.location) return [];
+    const bountyAt = boardSplitOf(p);
+    const town = noticeTownOf(p.px, p.py, bountyAt.size > 0);
+    return town ? townBoardRows(p, bountyAt, noticeBook.unseen(town.mapId)) : [];
   };
   /** SetCustomBuildingName (ExteriorAutomap.cs:867-899): the plate's
    *  double-click raises DFU's DaggerfallInputMessageBox over the open
@@ -11393,6 +11439,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // than a copied walk survives.
     questLog: () => questBridge?.questLog() ?? { active: [], finished: [] },
     repairQuests: () => questBridge?.repair?.() ?? null,   // QREPAIR: the Settings' Repair active quests
+    // GUIDE2: the Quests tab's WHERE and its way there - HandleQuestClicks' two world questions (the same two the
+    // logbook is handed, makeJournalWindow) and the door itself: this bag is the street's, where the map opens.
+    currentLocationName: () => _questLoc()?.name ?? '',
+    canFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name),
+    showQuestPlace: (find) => showQuestPlace(find),
   });
   const keys = new Set();
   // C9: the modal machine binds below AFTER these listeners exist -
@@ -12658,7 +12709,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9875-9939 -
+  // worldModes answers it in BOTH modes (worldModes.js:9883-9947 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -13523,6 +13574,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   questBridge = createQuestBridge({
     data: questPack,
     world: questWorld,
+    // GUIDE4: the two questions the quest lens asks of a target (GUIDE2's gates, the pause bag's own answers) - is the
+    // place on the player's map, and which place does the player stand in - so the HUD's quest card can say "(you are
+    // here)" and name only what the map holds.
+    questWhere: { canFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name, questPlacePixel), currentLocationName: () => _questLoc()?.name ?? '' },   // AUDIT GUIDE O3: every tick, so through the host's memo
     // TK-ii: the topic/dialog seams land in the tree (TalkManager's
     // own methods, 1:1; the machine's dialogLink/addDialog arg shapes
     // are already the C# ones)
@@ -15830,6 +15885,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     gone: () => closeBrokerDoor(),   // the gate fell under her open window: it is shut, and she says so
   }) : null;
   /** WB1: the compass's mark - the gate's spot in THIS scene, while the gate stands and the player is in its ring. */
+  // GUIDE5: a quest target's place to its map pixel (the held map's own goto law) - AUDIT GUIDE O3: through the host's
+  // one memo, which the look's map question shares, so the compass (every street frame) and the held map's poll never
+  // re-read a region (MapsFile keeps one in memory)
+  const questPixel = (find) => questPlacePixel(maps, find?.regionName ?? '', find?.locationName ?? '');
+  /** GUIDE5: the tracker's quest's place on the compass - the centre of its map pixel in THIS scene's frame (the
+   *  streaming host's pixelTranslation, the gate's own sum), on the street only (buildings and dungeons steer by
+   *  their own frames), and only while the marks are on and the place is on the player's map. */
+  const questCompassMark = () => {
+    if (!marksOn() || (modes?.mode ?? 'exterior') !== 'exterior') return null;
+    const find = questTracker.tracked()?.target?.find;
+    const p = find ? questPixel(find) : null;
+    if (!p) return null;
+    const t = state.pixelTranslation(p.x, p.y);
+    return [t[0] + TERRAIN_SIZE / 2, t[2] + TERRAIN_SIZE / 2];
+  };
   const gateCompassMark = () => {
     const g = gateOmen?.standing();
     const mark = g ? gateOmen.mapMark() : null;
@@ -18715,6 +18785,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     partyMembers: () => partyMembersHere(),
     shareQuest: (uid, questName, displayName) => shareQuestWithParty(uid, questName, displayName),
     pageShare: () => pageShareHere(),   // JOURNAL1: a note's Share, delegated the same way into the dungeon's own chronicle
+    // GUIDE2: the journal's two world questions for the hosts that cannot answer them - is a place on the player's map,
+    // and which town is the player in - delegated into the interior's pause and the dungeon's journal the same way.
+    // The way there is not delegated: the map opens on the street alone.
+    questCanFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name),
+    questLocationName: () => _questLoc()?.name ?? '',
     useMagicItem: (item) => useMagicItem(item),   // UI1: MagicItemPicker's use, through the world host's one seam
     // TR5: the interior hosts dismount through the world host, which
     // owns the motor, the animator and the mount's art together.
@@ -23013,7 +23088,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1270). DFU makes no pool distinction:
+        // (cityGuards.js:1285). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.
@@ -23099,7 +23174,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           cityGuards.resolveCivilianHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, _guardPool(),
             { onMurder: () => _crimeResponse(), onHitSound: guardHitSound, swing }).then((r) => {
             if (r?.carriedHit) tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
-            if (r) surfacePlayer();
+            if (r?.crime) surfacePlayer();
             // ROAD-B: WeaponManager.WeaponEnvDamage (:474-477) - a
             // swing that met no living thing is offered to the STATIC
             // DOORS, and a door under it is BASHED (PlayerActivate
@@ -23110,7 +23185,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             // AUDIT 23 (C9): the no-enemy swing sound at the hit frame -
             // and NOT when the env arm consumed the swing, which is
             // what WeaponEnvDamage returning true means (:1066).
-            else if (!modes?.attemptExteriorDoorBash?.(cam.pos, lookFwd)) audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);
+            // AUDIT 29g: a swing that stopped on a spared body (r.spared) met someone - no door behind him is bashed
+            else if (r?.spared || !modes?.attemptExteriorDoorBash?.(cam.pos, lookFwd)) audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);
           }).catch((e) => console.error('[civil]', e));
         }
       }
@@ -23129,7 +23205,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // layer, because a talk window is a modal above the vitals.
     // AUDIT 39: THE CALL IS UNCONDITIONAL. drawHud runs the damage
     // flash and the enhanced DOM HUD ABOVE its own `!art` return
-    // (hud.js:435-463) because neither reads ARENA2 - "a player whose
+    // (hud.js:437-465) because neither reads ARENA2 - "a player whose
     // HUD art failed to load still has vitals". Wrapping the whole
     // call in `if (hudArt)` inverted that: hudArt starts null and is
     // filled by a fire-and-forget load whose failure leaves it null
@@ -23236,6 +23312,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           hudHidden: townTalk.hudHidden,   // MAP-FIELD2: the held map takes the vitals and the status icons with it, on both skins
           detected: _detected, playerXZ: [enchantFeet()[0], enchantFeet()[2]],
           gate: gateCompassMark(),   // WB1: the Oblivion Gate on the compass, while the player stands in its ring
+          quest: questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street
           party: partyCompass(),   // COMPASS-PARTY: the party's marks - the bodies drawn here, the rest where their poses say
           ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null,   // AUDIT NAV1 (the helm): the sea's ships on the compass
           veins: prospectorVeins(),   // PROF2: a Prospector's veins within 200 m (PROF0 3.3)
