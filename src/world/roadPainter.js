@@ -9,7 +9,7 @@
 // 128-grid is the geometry, whoever writes it.
 //
 // THE GRID. Map Y runs south, and inside a pixel's 128x128 tilemap row 0
-// is the SOUTH edge and row 127 the NORTH (terrainSampler.js:166-167:
+// is the SOUTH edge and row 127 the NORTH (terrainSampler.js:171-172:
 // "y=0 of py equals y=128 of py+1"). So the N bit paints from the
 // centre UP in y, S paints down, E right, W left. Diagonals follow.
 //
@@ -428,8 +428,8 @@ export function classify(x, y, mask) {
  *  TILEMAP is JobA.Idx(x, y, tDim) = x + y*tDim (TerrainHelper.cs:170,
  *  with JobHelpers.cs:19-22 Idx(r, c, dim) = r + c*dim) and the
  *  HEIGHTMAP is JobA.Idx(y, x, hDim) = y + x*hDim (TerrainSampler
- *  .cs:123) - which is what terrainSampler.js:155 writes and what every
- *  consumer in this tree reads (terrainTiles.js:146 and :317,
+ *  .cs:123) - which is what terrainSampler.js:160 writes and what every
+ *  consumer in this tree reads (terrainTiles.js:149 and :317,
  *  terrainSurface.js:258-259, terrainNature.js:68 and :136). The mod
  *  reads its tile at Idx(x, y, tDim) and its corner base at
  *  Idx(y, x, hDim) - BOTH in the layout that owns them - and so does
@@ -447,10 +447,10 @@ export function classify(x, y, mask) {
  *  record, and the one on record here for six days was a false entry.
  *
  * @param {Float32Array} samples - 129x129 corner heights in the SAMPLER's
- *   layout, sample(x, y) = samples[x * hDim + y] (terrainSampler.js:155);
+ *   layout, sample(x, y) = samples[x * hDim + y] (terrainSampler.js:160);
  *   mutated in place.
  * @param {Uint8Array} tilemap - 128x128 after the painter, tile(x, y) =
- *   tilemap[y * tDim + x] (terrainTiles.js:263). The two differ.
+ *   tilemap[y * tDim + x] (terrainTiles.js:266). The two differ.
  * @returns {number} corner samples smoothed (with repeats, as his counts).
  */
 export const SMOOTHED_TILES = Object.freeze(new Set([46, 0xff]));
