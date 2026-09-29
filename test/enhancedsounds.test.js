@@ -61,7 +61,7 @@ test('MAC-O6 + ES1 + SND1 by source: the enhanced inventory plays DoTransferItem
   // the classic window's own call is the reference, unchanged
   assert.match(rd('src/ui/nativeInventory.js'), /audio\.playOneShot\(plan\.sound === 'gold' \? SOUND\.GoldPieces : SOUND\.ButtonClick, 1\);/, 'the classic window plays it always, as DFU does');
   const wind = rd('src/systems/windAudio.js');
-  assert.match(wind, /return enhancedSoundsOn\(\) && new URLSearchParams\(search\)\.get\('windaudio'\) !== 'off';/, 'the wind reads the one switch');
+  assert.match(wind, /return enhancedSoundsOn\(\) && pageParam\('windaudio', search\) !== 'off';/, 'the wind reads the one switch (PERF-URL: its door through the page query\'s one parse)');
   assert.doesNotMatch(wind, /getPref\('windSound'\)/, 'no pref of its own any more');
   assert.doesNotMatch(rd('src/systems/features.js'), /key: 'windSound'/, 'and no row declares one');
 });

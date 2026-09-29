@@ -20,8 +20,8 @@
  {
   "name": "EM3-MAPCHOICE-the-kill-door-inverted",
   "file": "src/ui/mapSkin.js",
-  "old": "return new URLSearchParams(globalThis.location?.search ?? '').get('dungeonmap') === 'flat';",
-  "new": "return new URLSearchParams(globalThis.location?.search ?? '').get('dungeonmap') !== 'flat';",
+  "old": "return pageParam('dungeonmap') === 'flat';",
+  "new": "return pageParam('dungeonmap') !== 'flat';",
   "tests": [
    "test/em3_mapchoice.test.js"
   ]

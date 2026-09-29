@@ -37,6 +37,7 @@ import { PLUS_CSS, PLUS_STYLE_ID, applyPlusTheme } from './enhancedPlusStyle.js'
 import { installPlusCursor } from './plusCursor.js';   // PLUS7: the gauntlet cursor
 import { installWindowMotion } from './windowMotion.js';   // PLUS1/WM1: windows unfold and fold - Enhanced Plus only
 import { isEnhancedPlus } from '../systems/uiSkin.js';   // PLUS1: the Plus sheet is laid only under Plus
+import { pageHas } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /**
  * QUICK-LOOT-STATS: THE PLAQUE'S LAYOUT NUMBERS LIVE WITH THE DRESS.
@@ -5490,7 +5491,7 @@ export function injectEnhancedStyle(doc = document) {
  *  slice: it costs bytes in the repo and that is Mac's call, not
  *  mine. */
 export function injectEnhancedFonts(doc = document, search = globalThis.location?.search ?? '') {
-  if (new URLSearchParams(search).has('nofonts')) return;
+  if (pageHas('nofonts', search)) return;   // PERF-URL
   if (doc.getElementById('dagger-enhanced-fonts')) return;
   const link = doc.createElement('link');
   link.id = 'dagger-enhanced-fonts';

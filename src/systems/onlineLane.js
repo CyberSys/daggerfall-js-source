@@ -41,12 +41,14 @@
 // ride (`?sky=classic`, `?water=off`, `?evolve=off`) stay doors: an
 // online page never carries one.
 
+import { pageHas } from './pageQuery.js';   // PERF-URL: the page's query, parsed once a search
+
 /** The page is online: `?online` is on the URL (main.js sets it for
  *  Play Online and deletes it on every other door - and WRITES IT TO
  *  THE URL through publishBootParams below, which is what makes this
  *  read true). Injectable for node; a page without a location is never
  *  online. */
-export const isOnlinePage = (search = globalThis.location?.search ?? '') => new URLSearchParams(search).has('online');
+export const isOnlinePage = (search = globalThis.location?.search ?? '') => pageHas('online', search);   // PERF-URL: parsed once a search (systems/pageQuery.js)
 
 /** The keys main.js's front door DECIDES per choice (F12's law: set on
  *  the door that wants them, deleted on every other) - and so the keys

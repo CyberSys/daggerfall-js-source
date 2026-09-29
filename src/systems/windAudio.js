@@ -27,6 +27,7 @@
 import { audio as defaultAudio } from './audio.js';
 import { SOUND } from './soundClips.js';
 import { enhancedSoundsOn } from './enhancedSounds.js';   // ES1: the wind rides the one Enhanced sounds switch
+import { pageParam } from './pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** The loudest the wind ever is, as a loop gain (the rain loop plays at
  *  1, the birds at their clips' own level). */
@@ -66,7 +67,7 @@ export function windPitchFor(strength01) {
  *  loop's own `windSound` row folded into it), and `?windaudio=off` the
  *  kill door. */
 export function windSoundOn(search = globalThis.location?.search ?? '') {
-  return enhancedSoundsOn() && new URLSearchParams(search).get('windaudio') !== 'off';
+  return enhancedSoundsOn() && pageParam('windaudio', search) !== 'off';   // PERF-URL
 }
 
 /** The loop's driver: `update(wd, dt, on)` once a frame with

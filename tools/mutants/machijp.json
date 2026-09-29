@@ -114,7 +114,7 @@
   {
     "name": "MAC-I-the-kill-door-does-not-close",
     "file": "src/combat/fpsWeapon.js",
-    "old": "  return !!getPref('firstPersonLighting') && new URLSearchParams(search).get('fplight') !== 'off';",
+    "old": "  return !!getPref('firstPersonLighting') && pageParam('fplight', search) !== 'off';",
     "new": "  return !!getPref('firstPersonLighting');",
     "tests": [
       "test/machij_sprites_and_chat.test.js"

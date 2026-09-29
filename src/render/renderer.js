@@ -476,7 +476,7 @@ export function groundSamplerFor(tier, driverMax = 1) {
  *  .mjs, a fresh browser with an empty shelf every run) can be pointed
  *  at each tier - without it the dial could not be measured at all. */
 export function groundSharpnessTier(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('ground') ?? getPref('groundSharpness');
+  return pageParam('ground', search) ?? getPref('groundSharpness');   // PERF-URL
 }
 /** PERF-SCALE (2026-09-25): THE GPU THE BROWSER DRAWS ON, as its driver names it - WEBGL_debug_renderer_info's
  *  UNMASKED_RENDERER_WEBGL where the browser hands it out, gl.RENDERER otherwise (a browser that masks it answers
@@ -1125,6 +1125,7 @@ export const PANEL_CLEAR_RGBA = Object.freeze([49 / 255, 77 / 255, 121 / 255, 5 
 import { WATER_MAP_COLOR } from './underwaterFog.js';
 import { WATER_SURFACE_VS, waterSurfaceFs } from './waterSurface.js';   // WATER1: the enhanced water pass over the terrain grid
 import { packWaterMask, WATER_DRAW_MASK_TABLE } from '../world/waterCorners.js';   // MAC2: the corner table's one home; WATER-DRAW1: the PASS takes the draw's table, not the feet's
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** The automap render panel, DFU's own rect on the 320x200 native
  *  screen (DaggerfallAutomapWindow's dummyPanelRenderAutomap /

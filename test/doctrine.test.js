@@ -786,7 +786,8 @@ test('AUDIT 58: every URL knob the world render gate hands the page has a live r
   const src = tracked('src').filter((f) => f.endsWith('.js'))
     .map((f) => readFileSync(join(root, f), 'utf8')).join('\n');
   for (const k of knobs) {
-    assert.ok(src.includes(`get('${k}')`) || src.includes(`get("${k}")`),
+    // PERF-URL (2026-09-29): a door reads the page through systems/pageQuery.js's one parse - `pageParam('k'` is a reader
+    assert.ok(src.includes(`get('${k}')`) || src.includes(`get("${k}")`) || src.includes(`pageParam('${k}'`) || src.includes(`pageHas('${k}'`),
       `--${k} hands the page ?${k}=<v> and nothing in src/ reads it: a knob with no reader `
       + 'gates nothing, and the gate\u2019s own pass line then claims it did');
   }

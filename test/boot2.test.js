@@ -61,5 +61,9 @@ test('BOOT2: the entry\'s static reach touches neither hub and stays under the c
     assert.ok(!reach.has(hub), `${hub} is on the entry's static graph again (${reach.size} files reached)`);
   }
   // 259 before the cut, 43 after; the ceiling leaves room for a real need and none for a hub.
-  assert.ok(reach.size <= 60, `the entry statically reaches ${reach.size} files - BOOT2 measured 43 and holds the ceiling at 60`);
+  // PERF-URL (2026-09-29): 61 - the renderer's own static graph had grown the reach to exactly 60 by then, and
+  // systems/pageQuery.js (the one parse every URL door reads through - onlineLane, uiSkin, the render doors) is a leaf
+  // that imports nothing, so it can bring no hub with it (the hub law above is what holds that). The ceiling moves to
+  // 64: the same promise, room for a real need, measured again.
+  assert.ok(reach.size <= 64, `the entry statically reaches ${reach.size} files - BOOT2 measured 43, PERF-URL 61, and holds the ceiling at 64`);
 });
