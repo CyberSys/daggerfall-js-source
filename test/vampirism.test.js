@@ -201,6 +201,6 @@ test('V2b: THE FOUR HOSTS wire the vampire\'s rest gate, and only the world host
   }
   const world = read('src/scenes/world.js');
   assert.match(world, /racialFastTravelBlock\(playerEntity/, 'the map door asks the daylight gate');
-  assert.match(world, /sunAverse: !!playerEntity\.racialOverride\?\.sunDamage/,
-    'the arrival clamp\'s sunAverse parameter is finally wired');
+  assert.match(world, /sunAverse: racialSunAverse\(playerEntity\)/,
+    'the arrival clamp\'s sunAverse parameter is finally wired (VAMP-HOOD: through the hood\'s law)');
 });

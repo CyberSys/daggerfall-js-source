@@ -353,8 +353,8 @@
   {
     "name": "AUDIT-REALM2-T3-one-deed-said-as-many",
     "file": "src/systems/realmCustoms.js",
-    "old": "${deeds.length > 1 ? 'stay' : 'stays'}",
-    "new": "stay",
+    "old": "deeds.length > 1 ? 'stay' : 'stays'} behind",
+    "new": "'stay'} behind",
     "tests": [
       "test/auditrealm2_customs.test.js"
     ]

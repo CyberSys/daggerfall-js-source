@@ -3878,6 +3878,20 @@ at a live 1 where the stat is read so a dawn never kills
 (`systems/statMods.js` liveStat). Holy ground still burns, the career
 bit still burns, and the flag still keys the travel rules.
 
+VAMP-HOOD (2026-09-29, #suggestions, Starempire42: "adds the ability
+to travel during the day if you a wearing a cloak or robe with a hood
+up"; Sir McMobdon: "nice, good idea"; sent in by Mac) - a second section A
+departure: the flag keys the travel rules only for a bare head. Both
+rules ask `systems/vampirism.js` racialSunAverse - the flag, unless
+`survival/temperature.js` cloakState says the hood is up (the felt
+temperature's own law: a cloak's variants 1, 2 and 5, plain robes'
+variant 1, raised on the paper doll) - so a hooded vampire opens the
+map by day and its arrival is not pushed to dusk. Bare-headed, the
+door says DFU's line and then "Raise the hood of a cloak or robe to
+travel by day." Online this was the whole wait: the shared clock's day
+is one real hour, and no rest or trip moves it. The day's -20 is the
+hour's, not the sun's, and stays.
+
 THE SEAM IS REGISTERED BY THE MODE MACHINE. worldModes owns mode and
 interiorBuilding for BOTH town pages - world.js and exterior.js each
 build it at boot - so the one registration there answers all three
@@ -5561,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:8351` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:8352` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -8182,3 +8196,39 @@ exactly that). A ruin minted then is PROVISIONAL (`_spawnUnroaded`), and
 entry and its TTL clock, never the one the player is standing in (TTL1's own
 exception) - then rebuilds the pixels, which ask again. Pinned in
 `test/spawnroads.test.js`, mutants in `tools/mutants/spawnroads.json`.
+
+### FEATHERWEIGHT - THE MARK THAT READ "ERROR" (2026-09-29)
+
+Discord, Cruor, through Mac: *"Bugged Mark item with an error! I have no
+idea what this does but it scares me."* - an Enhanced card reading "Cast
+when used: ERROR". THE ITEM IS DFU'S OWN AND WHOLE: MAGIC.DEF's *%it of
+Featherweight* is one CastWhenUsed slot at classic spell 37, Slowfalling
+(DFU's MagicItemTemplates.txt carries the same record), and used, it
+casts Slowfalling on its user for 10 of its 1500 condition; the 0.25 kg
+is the Mark's own weight. THE READER WAS WRONG. MagicPowers
+(DaggerfallUnityItemMCP.cs:345-363) finds a CastWhen* spell in the whole
+of SPELLS.STD; MACRO-3's `itemPowers.js` asked the item maker's list for
+that one power, and the maker offers Slowfalling only as Cast When Held
+- of the 36 regular records, the one spell filed under another power.
+It reads the SPELLS.STD registry now - the one G4's value sum already
+read for the same slot - and, until that lands, the catalogue's three
+CastWhen* lists as one table of names by id. Nothing to migrate: a saved
+Mark carries the same `{0, 37}` and reads right on load. Pinned in
+`test/fb0929_featherweight.test.js` (5; the fifth over the real files);
+`tools/mutants/fb0929_featherweight.json`, 4 mutants, 4 dead.
+
+### FB0929 - A PURCHASE IS NEVER FREE (2026-09-29)
+
+lumin on Discord, through Mac: "Vendors selling items for 0 gold ... There should be a hard minimum of 1 gold for
+anything." E1's cost law and E2's haggle are Daggerfall's to the bit: CalculateCost floors a piece at 2 gold and
+CalculateTradePrice's buying arm scales the lot by 66/256 to 256/256 and truncates, so a piece at that floor - a
+candle, the General Store's parchment (worth 0), a Climates & Calories apple, a bandage in a cheap province, a cheap
+blade's repair - went for nothing over a third of the counters and hagglers it meets, and a stack for less than a gold
+a piece. Mac's call, Port-Ledger A: `tradeModes.js` `getTradePrice` asks both purchase modes, Buy and Repair, for a
+gold a piece at least - `tradeCost` counts the pieces in the walk that totals the cost - and Daggerfall's number
+wherever it is more. The classic and enhanced counters, the enhanced quote and the keyed fallback's rows all price
+through it, so what a counter shows is what it takes; only worldModes owns a counter (the dungeon's one trade window
+is the Identify spell's, paid in magicka, and both exterior hosts hand a shop's door to it). The sale is not floored:
+online P0.4 pays half the ask at most, and half a gold is nothing. The floor only raises an ask - and it shut a loop
+Daggerfall had, a quality-1 counter in a cheap province asking nothing for a bandage and paying a gold for it back.
+`test/fb0929_min_price.test.js`, `tools/mutants/fb0929.json`.

@@ -20,9 +20,55 @@
 // Measured before PERF-TV (2026-09-28, every mark a DOM node, the screen read per held mark): 64 moving marks 5.8 ms,
 // 256 moving 35.7 ms - the screen's size read after each mark's writes forced a layout per held mark.
 //
+// FB0929 (2026-09-29, the Discord: "The moment I go to my Travel Map and select a far away destination, the game drops
+// to sub-10 FPS"): THE ROUTE LINE, BY ITS FRAMES. The timer above holds the update and the layout it owes; a line's
+// cost is the browser's paint and raster, after it - the route above was a 120-point line on the screen, and a far
+// journey's dashed line running a million pixels off it was never timed. So the line is measured by the frames
+// themselves: the readout updated in requestAnimationFrame under a moving camera, the median interval (16.7 ms at
+// 60 Hz). The routes are Hazelnut's own roads through the planner - a click on the ground in view, and a pick 400
+// pixels across the map (139 legs), the camera behind the traveller and dragged half round - drawn as the host draws
+// them (the feet, four points a leg, flat ground) through the view's camera at its defaults.
+//   a journey's line, any length, moving   <= 20 ms a frame (median)
+// Measured before FB0929 (the line uncut, two runs): the far pick 383 and 433 ms a frame (the median), turned 267 and
+// 217; in view 16.7. After: 16.7 all three.
+//
 // Usage: node tools/travelViewPerf.mjs            (prints the table; exits 1 on a blown budget)
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
+import { planRoute, routeLegs, routeDrawPoints } from '../src/systems/travelRoute.js';
+import { eyeFor, TV_TILT_DEFAULT, TV_HEIGHT_DEFAULT } from '../src/player/travelCamera.js';
+import { projectToScreen } from '../src/player/tapRay.js';
+import { perspective, lookAt, mirrorProjectionX } from '../src/world/mat4.js';
+import { StreamingWorldState, mapPixelToWorldCoords } from '../src/world/streamingWorld.js';
+
+/** FB0929: a journey's line as the readout is handed it, frame by frame - the traveller 3 m further along its first leg
+ *  each frame, the camera behind them at the view's defaults turned `turn`, the frame's lens (DFU's 65 degrees). */
+function routeFrames({ from, goal, spot = null, turn = 0, frames = 120, w = 1366, h = 768 }) {
+  const bytes = (n) => new Uint8Array(readFileSync(new URL(`../vendor/roads-hazelnut/${n}`, import.meta.url)));
+  const plan = planRoute(from, goal, { roads: bytes('roadData.bytes'), tracks: bytes('trackData.bytes') });
+  const mid = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return [o.x + 16384, o.z + 16384]; };   // world.js tvLegMid
+  const me = mid(from), end = spot ?? mid(goal);
+  const natives = routeDrawPoints({ x: me[0], z: me[1] }, routeLegs(plan.pixels, plan.kinds), { x: end[0], z: end[1] }, mid);
+  const state = new StreamingWorldState(5);
+  state.mapOrigin = { ...from }; state.current = { ...from };
+  const proj = mirrorProjectionX(perspective((65 * Math.PI) / 180, w / h, 0.2, 6000));
+  const out = [];
+  for (let t = 0; t < frames; t++) {
+    const [ax, az] = natives[0], [bx, bz] = natives[1];
+    const f = Math.min(0.9, (t * 3 * 40) / Math.hypot(bx - ax, bz - az));
+    const [fx, fz] = state.localFromWorld(ax + (bx - ax) * f, az + (bz - az) * f);
+    const pts = [[fx, 0, fz]];
+    const leg = (a, b) => { for (let k = 1; k <= 4; k++) { const [x, z] = state.localFromWorld(a[0] + (b[0] - a[0]) * (k / 4), a[1] + (b[1] - a[1]) * (k / 4)); pts.push([x, 1, z]); } };
+    leg([ax + (bx - ax) * f, az + (bz - az) * f], natives[1]);
+    for (let i = 2; i < natives.length; i++) leg(natives[i - 1], natives[i]);
+    const [nx, nz] = state.localFromWorld(bx, bz);
+    const { eye, fwd } = eyeFor(pts[0], Math.atan2(nx - fx, nz - fz) + turn, TV_TILT_DEFAULT, TV_HEIGHT_DEFAULT);
+    const view = lookAt(eye, [eye[0] + fwd[0], eye[1] + fwd[1], eye[2] + fwd[2]], [0, 1, 0]);
+    out.push(pts.map((p) => { const q = projectToScreen(p, w, h, proj, view, null, true); return { x: q.x, y: q.y, front: q.front }; }));
+  }
+  return out;
+}
 
 const server = await createServer({ server: { port: 5233, strictPort: true }, logLevel: 'silent' });
 await server.listen();
@@ -84,6 +130,39 @@ try {
   check(r.m256 <= 1.5, `20 places + 256 moving travellers within 1.50 ms (${r.m256.toFixed(3)})`);
   check(r.s64 <= 0.15, `20 places + 64 travellers at rest within 0.15 ms (${r.s64.toFixed(3)})`);
   check(r.canvas === 84 && r.nodes === 0 && r.hits === 20, `every mark on the canvas (${r.canvas} handed, ${r.nodes} DOM nodes), the 20 places taking clicks (${r.hits} boxes)`);
+  // FB0929: the route line by its frames - paint and raster included
+  const from = { x: 195, y: 172 }, o = mapPixelToWorldCoords(from.x, from.y);
+  const lines = {
+    'a click in view, 300 m': routeFrames({ from, goal: from, spot: [o.x + 16384, o.z + 16384 + 300 * 40] }),
+    'a pick across the map, 139 legs': routeFrames({ from, goal: { x: 595, y: 5 } }),
+    'the same, the camera turned': routeFrames({ from, goal: { x: 595, y: 5 }, turn: Math.PI }),
+  };
+  const framed = await page.evaluate(async (sets) => {
+    const hud = await import('/src/ui/travelViewHud.js');
+    hud.showTravelViewHud({});
+    const base = { heading: 30, yaw: 0.5, where: 'Near Daggerfall, Daggerfall', trip: 'To Sentinel, by the road', fade: 1, marks: [] };
+    const run = (fr, n = 90) => new Promise((done) => {
+      const at = [];
+      let t = 0;
+      const step = (now) => {
+        at.push(now);
+        const f = fr[t % fr.length];
+        hud.updateTravelViewHud({ ...base, feet: { ...f[0] }, route: f });
+        if (++t < n) requestAnimationFrame(step);
+        else { const iv = at.slice(11).map((s, i) => s - at[10 + i]).sort((a, b) => a - b); done(iv[iv.length >> 1]); }
+      };
+      requestAnimationFrame(step);
+    });
+    const out = {};
+    for (const [k, fr] of Object.entries(sets)) out[k] = await run(fr);
+    hud.hideTravelViewHud();
+    return out;
+  }, lines);
+  console.log(`a journey's route line, ms a frame (median requestAnimationFrame interval: paint and raster included):`);
+  for (const [k, ms] of Object.entries(framed)) {
+    console.log(`  ${k.padEnd(34)} ${ms.toFixed(1)}`);
+    check(ms <= 20, `${k}: within 20 ms a frame (${ms.toFixed(1)})`);
+  }
   check(pageErrors.length === 0, `no page errors (${pageErrors.join('; ')})`);
 } finally {
   await browser.close();
