@@ -23,3 +23,6 @@
 
 ## Items
 - The **Mark of Featherweight** reads "Cast when used: Slowfalling", not "ERROR". It always worked.
+
+## Sound
+- **The wind outdoors no longer moans over and over.** With Enhanced sounds on, the wind was one of Daggerfall's short dungeon sounds played back to back: the same two-second moan, every two seconds. It is now a soft, steady rush that rises and falls with the wind, at the moan's old volume. It is still silent indoors, and the Enhanced sounds switch still turns it off.

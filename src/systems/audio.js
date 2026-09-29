@@ -335,6 +335,19 @@ export class AudioEngine {
     }
   }
 
+  /** FIELD-WIND1: a sound the port MAKES rather than decodes - mono `samples` at `sampleRate` - registered under a
+   *  string key as registerSound registers a decoded WAV, so every entry point takes it in place of an index (the
+   *  wind's bed rides `loop`). True once it stands; false with no context to make it on yet (the caller asks again). */
+  registerSamples(key, samples, sampleRate) {
+    this._ensureCtx();
+    if (!this.ctx) return false;
+    if (this.buffers.get(key)) return true;
+    const b = this.ctx.createBuffer(1, samples.length, sampleRate);
+    b.getChannelData(0).set(samples);
+    this.buffers.set(key, b);
+    return true;
+  }
+
   _ready() {
     this._ensureCtx();
     return this.enabled && this.ctx && this.ctx.state === 'running';
@@ -433,6 +446,9 @@ export class AudioEngine {
       },
       /** WX2: the loop's gain, live - the rain loop fades with the front. */
       setVolume(v) { gain.gain.value = Math.max(0, Math.min(1, v)); },
+      /** FIELD-WIND1: the loop's pitch, live (Unity's AudioSource.pitch, WebAudio's playbackRate) - the wind's bed
+       *  brightens as the wind gets up. */
+      setPitch(p) { src.playbackRate.value = p; },
     };
   }
 
