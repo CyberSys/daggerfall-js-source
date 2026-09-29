@@ -162,6 +162,23 @@ function aimTail(a) {
   }
 }
 
+/**
+ * AUDIT NAV1 (B9) - THE FIGHT'S CARD, in the target card's place under the compass: Black Flag's objective line. Over
+ * her rail - whose deck, her captain standing or down, how many of her crew are down and at what count the rest
+ * yield; boarded - the boarders and where from, their tally (a Warm Ashes raid keeps its own); the haul first.
+ */
+function fightCard(b) {
+  if (b.kind === 'board') {
+    if (b.phase !== 'fight') return { name: `Grappling ${b.name}`, sub: 'Hauling her alongside', state: '', kind: '' };
+    return {
+      name: `Boarding ${b.name}`, sub: b.captain ? `Captain ${b.captain} - ${b.captainDown ? 'down' : 'standing'}` : '',
+      state: `${b.down} of ${b.total} down - ${b.captainDown ? `they yield at ${b.yieldAt}` : 'cut down her captain'}`, kind: 'board',
+    };
+  }
+  if (b.phase !== 'fight') return { name: `${b.name} grapples you`, sub: 'Stand by to repel boarders', state: '', kind: 'sinking' };
+  return { name: 'Repel the boarders', sub: `From ${b.name}`, state: b.raid ? 'Hold your deck' : `${b.down} of ${b.total} down`, kind: 'sinking' };
+}
+
 /** The card's state line: what she is doing, and - when she is in reach - the key that goes over her rail. */
 function cardState(t, board, key) {
   const mine = board?.name === t.name;
@@ -228,7 +245,8 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
     hits: `${tl.hits} of ${tl.balls} ${tl.balls === 1 ? 'ball' : 'balls'} struck`, miss: tl.hits === 0,
     rest: [tl.holed ? `${tl.holed} below her waterline` : null, tl.rig ? `${tl.rig} through her rigging` : null].filter(Boolean).map((x) => ` - ${x}`).join(''),
   } : null;
-  return { plate, aim, card, warn, tally };
+  const fight = model.boarding?.name ? fightCard(model.boarding) : null;
+  return { plate, aim, card, warn, tally, fight };
 }
 const CHIP_WORDS = Object.freeze({ wreck: 'Crippled', fire: 'On fire', brace: 'Braced', mend: 'Mending' });
 
@@ -357,8 +375,10 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
   show('root', root, want);
   if (!want) { shown.braceBtn = false; touchBrace = false; return; }
   const t = navalHudText(model, keys, { touch });
+  // the card: a ship's, else the fight's (AUDIT NAV1 B9) - one place under the compass
+  const c = t.card ?? t.fight;
   // the helm panel's foot, read before this frame's writes here and only while the card and the panel both stand
-  const foot = t.card ? (under?.getBoundingClientRect?.()?.bottom ?? 0) : 0;
+  const foot = c ? (under?.getBoundingClientRect?.()?.bottom ?? 0) : 0;
   if (shown.scale !== scale) { shown.scale = scale; root.style.setProperty?.('--hud-scale', String(scale)); }
   cls('rootc', root, touch ? 'dfnaval-hud touch' : 'dfnaval-hud');
   const p = t.plate;
@@ -412,18 +432,20 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
     put('tallyr', parts.tallyRest, t.tally.rest);
   }
   // the card - under the compass by the sheet's law (--nc-top), under the helm panel's foot while it stands
-  show('card', parts.card, !!t.card);
-  if (t.card) {
+  show('card', parts.card, !!c);
+  if (c) {
     const top = foot > 0 ? `${Math.ceil(foot) + NAVAL_CARD_GAP}px` : '';
     if (shown.cardTop !== top) { shown.cardTop = top; parts.card.style.top = top; }
-    cls('cardc', parts.card, `dfnaval-card ${t.card.faction}${t.card.hostile ? ' hostile' : ''}`);
-    put('cardn', parts.cardName, t.card.name);
-    put('cards', parts.cardSub, t.card.sub);
-    width('cardh', parts.cardHullFill, t.card.hull);
-    show('cardsail', parts.cardSail, t.card.sail != null);
-    if (t.card.sail != null) width('cardsl', parts.cardSailFill, t.card.sail);
-    put('cardst', parts.cardState, t.card.state);
-    cls('cardstc', parts.cardState, `dfnaval-card-state${t.card.stateKind ? ` ${t.card.stateKind}` : ''}`);
+    cls('cardc', parts.card, t.card ? `dfnaval-card ${t.card.faction}${t.card.hostile ? ' hostile' : ''}` : 'dfnaval-card fight');
+    put('cardn', parts.cardName, c.name);
+    put('cards', parts.cardSub, c.sub);
+    show('cardhull', parts.cardHull, !!t.card);
+    if (t.card) width('cardh', parts.cardHullFill, t.card.hull);
+    show('cardsail', parts.cardSail, t.card?.sail != null);
+    if (t.card?.sail != null) width('cardsl', parts.cardSailFill, t.card.sail);
+    put('cardst', parts.cardState, t.card ? t.card.state : c.state);
+    const kind = t.card ? t.card.stateKind : c.kind;
+    cls('cardstc', parts.cardState, `dfnaval-card-state${kind ? ` ${kind}` : ''}`);
   }
 }
 

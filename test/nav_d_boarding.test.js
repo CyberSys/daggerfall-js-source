@@ -157,7 +157,7 @@ test('NAV-D the hold: one lot a tier of her cargo, each a key of her trade drawn
 });
 
 test('NAV-D the captor\'s one choice, as the window offers it: what it would make good NOW, bounded by what is missing - timber for the hull and canvas, powder for every gun and the barrels, pressed men for the losses - refused (greyed, with why) when it would make nothing good (mutants: the bound dropped, a loaded deck offered powder, the plural)', () => {
-  assert.deepEqual([...CHOICES], ['repair', 'powder', 'press']);
+  assert.deepEqual([...CHOICES], ['repair', 'powder', 'press', 'papers']);   // AUDIT NAV1 (B13): her papers the fourth (test/navaudit_boarding.test.js)
   assert.deepEqual(Object.keys(CHOICE_TITLES), [...CHOICES]);
   const mine = { maxHull: 400, hull: 380, maxSail: 100, sail: 20, maxCrew: 24, crew: 14 };
   assert.deepEqual(choiceEffect('repair', mine), { repair: { hull: 400 * REPAIR_SHARE, sail: 100 * REPAIR_SHARE } });

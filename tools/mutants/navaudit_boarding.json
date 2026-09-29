@@ -56,8 +56,8 @@
   {
     "name": "NAVB-B2-the-fallback-hands-never-stood",
     "file": "src/scenes/navalHost.js",
-    "old": "    const hands = handsOf(myBoatState(boat)?.damage.crew ?? 0, crewed);\n    for (let i = 0; i < hands; i++) {\n      const spot = spots[(n + i)",
-    "new": "    const hands = 0;\n    for (let i = 0; i < hands; i++) {\n      const spot = spots[(n + i)",
+    "old": "    const hands = handsOf(myBoatState(boat)?.damage.crew ?? 0, crewed);\n    for (let i = 0; i < hands; i++) {\n      const spot = deal();",
+    "new": "    const hands = 0;\n    for (let i = 0; i < hands; i++) {\n      const spot = deal();",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -200,8 +200,8 @@
   {
     "name": "NAVB-B3-the-late-one-left-hostile",
     "file": "src/scenes/world.js",
-    "old": "else { handle.foe = f; if (handle.yielded) navalStandDown(handle); } })",
-    "new": "else { handle.foe = f; } })",
+    "old": "        if (handle.yielded) navalStandDown(handle);\n",
+    "new": "",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -283,6 +283,223 @@
     "file": "src/scenes/navalHost.js",
     "old": "      if (quest) { raidUids.delete(quest.uid); deps.board?.endRaid?.(quest, { withdraw: false }); }\n      return;\n    }\n    const was = b.phase;",
     "new": "      return;\n    }\n    const was = b.phase;",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B14-the-fight-saved",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (!enabled) return false;\n    if (boarding) return true;\n    const feet = deps.feet();",
+    "new": "    if (!enabled) return false;\n    const feet = deps.feet();",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B14-her-deck-saved",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (box && insideGrown(box, feet, DECK_REACH_M)) return true;",
+    "new": "      if (false) return true;",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B14-F9-around-it",
+    "file": "src/scenes/world.js",
+    "old": "    if (naval?.saveRefused?.()) { if (!quiet) townTalk.say('You cannot save now.'); return false; }\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B14-the-pause-around-it",
+    "file": "src/scenes/world.js",
+    "old": "    savingPrevented: () => !!naval?.saveRefused?.(),",
+    "new": "    savingPrevented: () => false,",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B11-the-wheel-never-taken",
+    "file": "src/scenes/navalHost.js",
+    "old": "    deps.board?.takeHelm?.(boat);\n  }",
+    "new": "  }",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B11-leave-a-plain-close",
+    "file": "src/ui/navalPlunderWindow.js",
+    "old": "() => exit(m.raid ? 'close' : 'leave')",
+    "new": "() => exit('close')",
+    "tests": [
+      "test/navaudit_boarding.test.js",
+      "test/nav_f_ui.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B11-leave-unheard",
+    "file": "src/scenes/world.js",
+    "old": " if (reason === 'leave') model.leave?.(); },",
+    "new": " },",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B11-leave-stays-aboard",
+    "file": "src/scenes/navalHost.js",
+    "old": "      leave() { if (boat) returnAboard(boat); },",
+    "new": "      leave() {},",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B10-a-spot-stacked",
+    "file": "src/scenes/navalHost.js",
+    "old": "const deal = () => (deck.length ? deck[k++ % deck.length] : null);",
+    "new": "const deal = () => (deck.length ? deck[0] : null);",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B10-a-held-spot-taken",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (spot && (!isFree || isFree(spot))) return spot;",
+    "new": "      if (spot) return spot;",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B10-the-ring-for-a-raid-that-is-over",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (!b) return quest && raidUids.has(quest.uid) ? false : null;",
+    "new": "    if (!b) return null;",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B10-the-wave-never-waits",
+    "file": "src/scenes/world.js",
+    "old": "      if (_deck === false) return false;\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B10-the-muster-stacked",
+    "file": "src/scenes/navalHost.js",
+    "old": "        const spot = deal() ?? first;\n        // AUDIT NAV1 (B9)",
+    "new": "        const spot = first;\n        // AUDIT NAV1 (B9)",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B9-the-fight-undrawn",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (boarding) return { ship: null, armed: false, batteries: [], aim: null, aiming: false, target: null, board: null, boarding: fightOf(boarding), notoriety: notorietyWord };\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B9-the-captain-unnamed",
+    "file": "src/scenes/navalHost.js",
+    "old": "const named = i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : undefined;",
+    "new": "const named = undefined;",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B9-the-tally-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "captainDown: b.foes.some((f) => f.captain && down(f)), down: b.foes.filter(down).length,",
+    "new": "captainDown: false, down: 0,",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B9-the-card-undrawn",
+    "file": "src/ui/navalHud.js",
+    "old": "  const c = t.card ?? t.fight;",
+    "new": "  const c = t.card;",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B9-the-captain-off-the-bar",
+    "file": "src/scenes/world.js",
+    "old": "        if (name && f.entity) f.entity.name = name;",
+    "new": "        void name;",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B13-the-papers-unread",
+    "file": "src/systems/naval/navalPlunder.js",
+    "old": "  if (choice === 'papers') return { notoriety: -Math.min(Math.max(0, notoriety), PAPERS_NOTORIETY) };\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B13-the-notoriety-unlowered",
+    "file": "src/scenes/navalHost.js",
+    "old": "        if (fx.notoriety) notoriety.add(crownName, fx.notoriety);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-B13-the-pirate-papers-unnamed",
+    "file": "src/systems/naval/navalPlunder.js",
+    "old": "const title = choice === 'papers' && !lawful ? PIRATE_PAPERS_TITLE : CHOICE_TITLES[choice] ?? choice;",
+    "new": "const title = CHOICE_TITLES[choice] ?? choice;",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-minor-the-boat-lost-off-the-helm",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const boat = boatInPlay();\n    if (boat) {",
+    "new": "    const boat = myBoat();\n    if (boat) {",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-minor-the-swimmer-never-a-collector",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (deps.swimming?.()) {",
+    "new": "      if (false) {",
+    "tests": [
+      "test/navaudit_boarding.test.js"
+    ]
+  },
+  {
+    "name": "NAVB-minor-powder-on-a-rowboat",
+    "file": "src/systems/naval/navalPlunder.js",
+    "old": "    if (!guns) return { id: choice, title, useful: false, detail: 'No guns aboard' };   // AUDIT NAV1: a rowboat's, never \"loaded\"\n",
+    "new": "",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]

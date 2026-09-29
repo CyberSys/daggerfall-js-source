@@ -6006,6 +6006,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** Where a boat's deck is walkable: `n` standing spots from rays down onto its own colliders, spread along and across
    *  her, each [feet, yaw] facing her centre - the boarding's musters and a player set over her rail. */
+  /** AUDIT NAV1 (B10): a deck spot is held while a body's capsule stands within this of it (m, questFoeHost.js
+   *  entityOccupancy's own radius beside the capsule's). */
+  const NAVAL_DECK_BODY_R = 0.45;
   function navalDeckSpots(boat, n = 8) {
     if (!boat?.GameObject) return [];
     const box = navalHullBoxOf(boat, csa.models);
@@ -6027,10 +6030,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     return [...out.filter((_, k) => k % 2 === 0), ...out.filter((_, k) => k % 2 === 1)].slice(0, n);
   }
   /** A boarding's foe, stood where the host says, on the side it names - the handle fills when its stand lands. */
-  const navalSpawnFoe = (mobile, feet, yaw, side) => {
+  const navalSpawnFoe = (mobile, feet, yaw, side, { name = null } = {}) => {
     const handle = { foe: null, gone: false, yielded: false };
     exteriorFoes.spawnFoe(mobile, feet, { yaw, feetGiven: true, placed: true, allied: side === 'ally' })
-      .then((f) => { if (!f) return; if (handle.gone) exteriorFoes.removeFoe(f); else { handle.foe = f; if (handle.yielded) navalStandDown(handle); } })
+      .then((f) => {
+        if (!f) return;
+        if (handle.gone) { exteriorFoes.removeFoe(f); return; }
+        handle.foe = f;
+        if (name && f.entity) f.entity.name = name;   // AUDIT NAV1 (B9): her captain by name - the target bar reads it (hudFoeTarget.js)
+        if (handle.yielded) navalStandDown(handle);
+      })
       .catch((e) => console.warn('[naval] a boarder would not stand', e?.message ?? e));
     return handle;
   };
@@ -6059,7 +6068,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     let why = 'close';
     const win = createNavalPlunderOverlay({
       model, nameOf: (item) => itemLongName(item),
-      onClose: (reason) => { why = reason; if (reason !== 'hold' && model.raid && !model.fated()) model.fate('sail'); },   // a voyage's raid never waits on a window shut
+      onClose: (reason) => { why = reason; if (reason !== 'hold' && model.raid && !model.fated()) model.fate('sail'); if (reason === 'leave') model.leave?.(); },   // a voyage's raid never waits on a window shut; AUDIT NAV1 (B11): Leave her - back to my own helm
     });
     if (!win) return false;
     townTalk.showOverlay(win, () => { if (why === 'hold') navalOpenHold(model); });
@@ -6113,6 +6122,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       foeDown: (h) => !!h?.foe?.dead,
       removeFoe: (h) => { if (!h) return; h.gone = true; if (h.foe && !h.foe.dead) exteriorFoes.removeFoe(h.foe); },
       standDown: navalStandDown,
+      takeHelm: (boat) => { if (boat && csaRuntime) csaCall(() => csaRuntime.StartSailing(boat)); },   // AUDIT NAV1 (B11): "You control the boat!"
       startRaid: (name) => {
         if (warmAshesRaidUnderWay()) return null;   // THE MERGE (NAV-D, OWS3): one raid at a time - the boarders come over as the arc's own party
         const q = waRaidQuest(name);   // AUDIT NAV1 (B2): parsed where its places stand - at sea, the crown's region
@@ -6149,6 +6159,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       return { id: () => online?.id ?? null, peers: () => peersNear() ?? [], sendHit: (data) => !!online?.sendHit?.(data) };
     },
     peerBoats: () => csaPeers.helmBoats(),
+    swimming: () => walkMode && playerSpawned && !!player.isPlayerSwimming,   // AUDIT NAV1: a cask hauled in by a swimmer
     warmAshesOn: () => warmAshesOn(),
     raiderSpent: (id) => { seaRaidSpend(id); tvRaid.chase.delete(id); },   // NAV-R: the Overworld's law - spent for its life; THE MERGE (OW6): and said to the cell
     setting: (key) => (key === 'ShipsAtSea' ? getPref('naval-ships') : key === 'RaidPrize' ? getPref('naval-raid-prize') !== false : key === 'Boarders' ? getPref('naval-boarders') !== false
@@ -9340,6 +9351,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT OH-F B4: never a save inside the descent (one frame in DFU): it would write the swimmer on the template's
     // land with the mod's record not yet Active. AUDIT REALM2 M5: said to a save pressed, never to the quiet checkpoint
     if (ohAbyss?.entering) { if (!quiet) townTalk.say('You cannot save now.'); return false; }   // cannotSaveNow (Internal_Strings)
+    // AUDIT NAV1 (B14): nor in a boarding or on a ship of the sea's deck - the sea is never a save's, and the load set the
+    // player over open water, the ship and her prize gone
+    if (naval?.saveRefused?.()) { if (!quiet) townTalk.say('You cannot save now.'); return false; }
     const pf = walkMode && playerSpawned ? player.pos : cam.pos;
     const wc = state.worldCoords(pf);
     // IS1 (AUDIT 26 F221): the inside-building half (SerializablePlayer
@@ -10649,6 +10663,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     quickSave: worldQuickSave,
     quickLoad: worldQuickLoad,
     relock: () => requestLook(canvas),   // MAC1: the pointer comes back with the resume gesture (ui/pauseDoor.js)
+    savingPrevented: () => !!naval?.saveRefused?.(),   // AUDIT NAV1 (B14): the pause's Save says why, as worldQuickSave refuses it
     // ONLINE-LOAD1: this host's own live-session flag (`online`,
     // not `onlineOn` - see worldQuickLoad's own header for why),
     // for the enhanced Load pane (enhancedMenu.js paneLoad) to
@@ -12288,9 +12303,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       // NAV-D: a raid the sea fight started (a pirate grappled a crewed boat) stands its waves on the deck they board -
       // the boat's own, not the wilderness ring (scenes/navalHost.js placeQuestFoe): Warm Ashes' "Your crew quickly
       // spring into action!" is a fight on your planks
-      const _deck = naval?.placeQuestFoe(handle.foe?.parentQuest ?? null);
+      // AUDIT NAV1 (B10): a spot held - a body on it, or one standing up there (the ring's own two tests) - is passed
+      // over, and the one taken held while its foe stands up; none free, the wave waits (`false`)
+      const _held = entityOccupancy((f) => f.ai?.feet, () => [...exteriorFoePool(), ...heldSpots(collider)], player.pos);
+      const _deck = naval?.placeQuestFoe(handle.foe?.parentQuest ?? null, (s) => !_held({ x: s[0][0], y: s[0][1] + 0.9, z: s[0][2] }, NAVAL_DECK_BODY_R));
+      if (_deck === false) return false;
       if (_deck) {
-        exteriorFoes.spawnFoe(handle.foe.foeType, _deck[0], { gender: questFoeGender(handle.foe), yaw: _deck[1], questBehaviour: handle.behaviour, feetGiven: true })
+        holdSpotWhile(collider, { x: _deck[0][0], y: _deck[0][1] + 0.9, z: _deck[0][2] }, () => exteriorFoes.spawnFoe(handle.foe.foeType, _deck[0], { gender: questFoeGender(handle.foe), yaw: _deck[1], questBehaviour: handle.behaviour, feetGiven: true }))
           .catch((e) => console.error('[quest] naval deck foe stand failed:', e?.message ?? e));
         return true;
       }

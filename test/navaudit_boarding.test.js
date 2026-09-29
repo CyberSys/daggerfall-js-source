@@ -4,6 +4,7 @@
 // hang for ever, a raid let go of ending with its boarders, a crewed boat's hands in every repel - the laws, the real
 // quest parser, the world host's own code lifted and run, and the host through real frames over Come Sail Away's real
 // pool (test/navalSea.mjs).
+import { byClass } from './chargenDom.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -12,7 +13,9 @@ import { raidQuestWon, raidQuestRetreated, raidQuestOf, handsOf, HAND, GRAPPLE_S
 import { WA_RAID_QUESTS, WA_SEA_REGION, LeaveShip } from '../src/systems/warmAshesShips.js';
 import { SPARE_S } from '../src/systems/naval/navalAI.js';
 import { crownOf, classById } from '../src/systems/naval/navalShips.js';
-import { RAIDER_SHEER_M, STRUCK_GRACE_S } from '../src/scenes/navalHost.js';
+import { RAIDER_SHEER_M, STRUCK_GRACE_S, DECK_SPOTS, SWIMMER } from '../src/scenes/navalHost.js';
+import { navalHudText, drawNavalHud, destroyNavalHud } from '../src/ui/navalHud.js';
+import { choiceOffer, choiceEffect, CHOICES, PAPERS_NOTORIETY, PIRATE_PAPERS_TITLE } from '../src/systems/naval/navalPlunder.js';
 import { SHIP_STATES, STRUCK_AT } from '../src/systems/naval/navalDamage.js';
 import { navalHitData } from '../src/systems/naval/navalWire.js';
 import { NAVAL_CLASSIC } from '../src/systems/naval/navalSounds.js';
@@ -357,7 +360,7 @@ test('AUDIT NAV1 (B4, B6) a raider\'s ship gone under her boarders: they fight o
 
 test('AUDIT NAV1 (B3) the world host\'s stand-down, run: a boarder who yields is hostile no more where he stands (the quest system\'s own restrain), one still standing up yields as he arrives, and one who is gone never comes (mutants: the late one left hostile)', async () => {
   const pick = (re) => { const m = re.exec(WORLD); assert.ok(m, `${re} lifted`); return m[1]; };
-  const spawnSrc = pick(/\n {2}const navalSpawnFoe = (\(mobile, feet, yaw, side\) => \{\n[\s\S]*?\n {2}\});\n/);
+  const spawnSrc = pick(/\n {2}const navalSpawnFoe = (\(mobile, feet, yaw, side, \{ name = null \} = \{\}\) => \{\n[\s\S]*?\n {2}\});\n/);
   const downSrc = pick(/\n {2}const navalStandDown = (\(handle\) => \{\n[\s\S]*?\n {2}\});\n/);
   let arrive = null;
   const removed = [];
@@ -374,4 +377,137 @@ test('AUDIT NAV1 (B3) the world host\'s stand-down, run: a boarder who yields is
   assert.equal(late.foe, f);
   assert.equal(f.ai.isHostile, false, 'yields as he arrives');
   assert.match(WORLD, /standDown: navalStandDown,/);
+  // AUDIT NAV1 (B9): her captain by name - the target bar reads the entity's
+  const named = h.navalSpawnFoe(7, [0, 0, 0], 0, 'enemy', { name: 'Captain Irna Vosk' });
+  const cap = { dead: false, ai: { isHostile: true }, entity: { name: undefined } };
+  arrive(cap);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(named.foe.entity.name, 'Captain Irna Vosk');
+});
+
+// ── the fight's flow (B9-B14, the minors) ───────────────────────────────────────────────────────────────────────
+
+test('AUDIT NAV1 (B14) NO SAVE MID-FIGHT: a boarding under way, or the player on a ship of the sea\'s deck (a prize\'s among them), refuses a save - the sea is never a save\'s and the load set them over open water, the ship and her prize gone; my own deck, or the sea, saves; F9 and the pause window both ask it (mutants: the fight saved, her deck saved, a door around it)', async () => {
+  const { h, e, enemies } = await boarding();
+  assert.equal(h.host.saveRefused(), true, 'the fight');
+  for (const f of enemies) f.dead = true;
+  h.run(0.2);
+  assert.equal(h.host.boarding, null, 'taken');
+  const box = h.host._sea.get(e.id).boat && (await import('../src/scenes/navalHost.js')).hullBoxOf(e.boat, h.pool.models);
+  h.view.feet = [box.c[0], box.c[1] + box.h[1], box.c[2]];   // on her deck
+  assert.equal(h.host.saveRefused(), true, 'her deck, the prize window open over it');
+  h.view.feet = [0, 0, -400];
+  assert.equal(h.host.saveRefused(), false, 'away from her');
+  h.host.setEnabled(false);
+  assert.equal(h.host.saveRefused(), false, 'no sea');
+  assert.match(WORLD, /if \(naval\?\.saveRefused\?\.\(\)\) \{ if \(!quiet\) townTalk\.say\('You cannot save now\.'\); return false; \}/, 'F9 and the checkpoints');
+  assert.match(WORLD, /savingPrevented: \(\) => !!naval\?\.saveRefused\?\.\(\),/, 'the pause window greys its Save');
+});
+
+test('AUDIT NAV1 (B11) BACK AT THE HELM: her fate decided, "Leave her" pressed, or her going down under the fight - over my own rail and at my wheel (Come Sail Away\'s StartSailing); the back key and the scrim only shut her window, her deck still underfoot (mutants: the wheel never taken, Leave her a plain close)', async () => {
+  const { h, enemies } = await boarding();
+  for (const f of enemies) f.dead = true;
+  h.run(0.2);
+  const m = h.log.plunder.at(-1);
+  assert.deepEqual(h.log.helm, [], 'on her deck while her window stands');
+  m.leave();
+  assert.deepEqual(h.log.helm, [h.boat], 'Leave her: my wheel');
+  m.fate('adrift');
+  assert.deepEqual(h.log.helm, [h.boat, h.boat], 'her fate decided: my wheel');
+  assert.equal(h.runtime.sailing, true);
+  assert.match(WORLD, /if \(reason === 'leave'\) model\.leave\?\.\(\);/, 'the door\'s Leave her reaches the model');
+  assert.match(WORLD, /takeHelm: \(boat\) => \{ if \(boat && csaRuntime\) csaCall\(\(\) => csaRuntime\.StartSailing\(boat\)\); \},/);
+});
+
+test('AUDIT NAV1 (B10) THE DECK DEALT: a raid\'s waves take the boarded deck\'s DECK_SPOTS shuffled once and dealt round - never a spot a body holds (the world\'s occupancy asked); every spot held, the wave waits; a raid of mine whose fight is over is stood nowhere, never the open ground\'s ring; her muster and my hands each a spot of their own (mutants: a spot stacked, a held spot taken, the ring for a raid that is over)', async () => {
+  const { h, quest } = await boarded('pirateBrig', { quest: 908 });
+  const held = new Set();
+  const key = (sp) => sp[0].join(',');
+  const wave = [];
+  for (let i = 0; i < 13; i++) { const sp = h.host.placeQuestFoe(quest, (x) => !held.has(key(x))); wave.push(key(sp)); held.add(key(sp)); }
+  assert.equal(new Set(wave).size, 13, 'a wave of thirteen on thirteen spots');
+  for (let i = 0; i < DECK_SPOTS - 13; i++) held.add(key(h.host.placeQuestFoe(quest, (x) => !held.has(key(x)))));
+  assert.equal(held.size, DECK_SPOTS);
+  assert.equal(h.host.placeQuestFoe(quest, (x) => !held.has(key(x))), false, 'every spot held: the wave waits');
+  assert.equal(h.host.placeQuestFoe({ uid: 1 }), null, 'not a raid of mine');
+  trip(quest, 'winner');
+  h.run(0.2);
+  assert.equal(h.host.placeQuestFoe(quest), false, 'its fight over: stood nowhere');
+  // the arc's own boarding: every body its own spot
+  const { h: b } = await boarding();
+  const spots = b.log.foes.map((f) => f.pos.join(','));
+  assert.equal(new Set(spots).size, spots.length, 'her muster and my hands apart');
+  assert.match(WORLD, /const _deck = naval\?\.placeQuestFoe\(handle\.foe\?\.parentQuest \?\? null, \(s\) => !_held\(/);
+  assert.match(WORLD, /if \(_deck === false\) return false;/);
+  assert.match(WORLD, /holdSpotWhile\(collider, \{ x: _deck\[0\]\[0\], y: _deck\[0\]\[1\] \+ 0\.9, z: _deck\[0\]\[2\] \}, \(\) => exteriorFoes\.spawnFoe\(/);
+});
+
+test('AUDIT NAV1 (B9) THE FIGHT ON SCREEN: on foot over her rail the HUD\'s card is the fight - whose deck, her captain standing or down, how many of her crew are down and at what count the rest yield; her captain by name on the target bar; the haul, the boarders, a raid\'s own count, each in words (mutants: the fight undrawn, the captain unnamed, the tally unread)', async () => {
+  const { h, e, enemies } = await boarding();
+  assert.equal(enemies[0].name, `Captain ${e.ship.names.captain}`, 'her captain named');
+  assert.ok(enemies.slice(1).every((f) => f.name === null));
+  const m = h.host.hudModel();
+  const n = enemies.length;
+  assert.deepEqual(m.boarding, { kind: 'board', phase: 'fight', name: e.ship.names.name, captain: e.ship.names.captain, captainDown: false, down: 0, total: n, yieldAt: Math.ceil(n * SURRENDER_SHARE), raid: false });
+  enemies[0].dead = true; enemies[1].dead = true;
+  h.host.frame(0.05);
+  assert.deepEqual([h.host.hudModel().boarding.captainDown, h.host.hudModel().boarding.down], [true, 2]);
+  const t = navalHudText(h.host.hudModel());
+  assert.deepEqual(t.fight, { name: `Boarding ${e.ship.names.name}`, sub: `Captain ${e.ship.names.captain} - down`, state: `2 of ${n} down - they yield at ${Math.ceil(n * SURRENDER_SHARE)}`, kind: 'board' });
+  assert.equal(navalHudText({ ...m, boarding: { ...m.boarding, captainDown: false } }).fight.state, `0 of ${n} down - cut down her captain`);
+  assert.equal(navalHudText({ ...m, boarding: { ...m.boarding, phase: 'grapple' } }).fight.name, `Grappling ${e.ship.names.name}`);
+  const repel = navalHudText({ ...m, boarding: { kind: 'repel', phase: 'fight', name: 'Red Wake', captain: null, captainDown: false, down: 1, total: 4, yieldAt: 3, raid: false } }).fight;
+  assert.deepEqual(repel, { name: 'Repel the boarders', sub: 'From Red Wake', state: '1 of 4 down', kind: 'sinking' });
+  assert.equal(navalHudText({ ...m, boarding: { kind: 'repel', phase: 'fight', name: 'Red Wake', raid: true } }).fight.state, 'Hold your deck', 'a raid keeps its own count');
+  // drawn in the card's place, its ship's bars put away
+  destroyNavalHud();
+  drawNavalHud(h.host.hudModel());
+  const [root] = byClass(globalThis.document.body, 'dfnaval-hud');
+  const [card] = byClass(root, 'dfnaval-card');
+  assert.equal(card.style.display, '');
+  assert.equal(card.className, 'dfnaval-card fight');
+  assert.equal(byClass(card, 'dfnaval-card-name')[0].textContent, `Boarding ${e.ship.names.name}`);
+  assert.equal(byClass(card, 'dfnaval-track')[0].style.display, 'none', 'no hull bar for a fight');
+  destroyNavalHud();
+});
+
+test('AUDIT NAV1 (B13) THE PRIZE\'S FOURTH CHOICE - Black Flag\'s "lower your wanted level": a lawful prize\'s papers burned, a pirate\'s crew handed to the crown - PAPERS_NOTORIETY off my notoriety in her crown\'s waters, never below nought, greyed where no one hunts me; the one choice as ever (mutants: the papers unread, the notoriety unlowered)', async () => {
+  assert.deepEqual([...CHOICES], ['repair', 'powder', 'press', 'papers']);
+  const mine = { maxHull: 100, hull: 100, maxSail: 50, sail: 50, maxCrew: 10, crew: 10 };
+  assert.deepEqual(choiceEffect('papers', mine, { notoriety: 40 }), { notoriety: -PAPERS_NOTORIETY });
+  assert.deepEqual(choiceEffect('papers', mine, { notoriety: 6 }), { notoriety: -6 });
+  assert.deepEqual(choiceOffer('papers', mine, {}, { notoriety: 30, lawful: true, crown: 'Wayrest' }), { id: 'papers', title: 'Burn her papers', useful: true, detail: `Your notoriety in Wayrest's waters falls by ${PAPERS_NOTORIETY}` });
+  assert.deepEqual(choiceOffer('papers', mine, {}, { notoriety: 0, lawful: false, crown: 'Sentinel' }), { id: 'papers', title: PIRATE_PAPERS_TITLE, useful: false, detail: "No one hunts you in Sentinel's waters" });
+  // through the host: a merchantman taken - Piracy's notoriety, then her papers burned
+  const { h, e, enemies } = await boarding();
+  for (const f of enemies) f.dead = true;
+  h.run(0.2);
+  const crown = e.ship.names.crown ?? 'Wayrest';
+  const before = h.host.notoriety.get(crown);
+  assert.ok(before >= PAPERS_NOTORIETY, 'taking a lawful ship made me wanted');
+  const m = h.log.plunder.at(-1);
+  const offer = m.offers().find((o) => o.id === 'papers');
+  assert.deepEqual([offer.title, offer.useful], ['Burn her papers', true]);
+  assert.equal(m.choose('papers'), true);
+  assert.equal(h.host.notoriety.get(crown), before - PAPERS_NOTORIETY);
+  assert.ok(h.log.say.some((t) => t.startsWith('Her papers burn')));
+  assert.equal(m.choose('repair'), false, 'one choice');
+});
+
+test('AUDIT NAV1 (the boarding audit\'s minors): the sea keeps track of my boat off her helm - a fight on her deck, the boat I boarded from; a swimmer hauls a cask in by hand, into the pack; a rowboat\'s powder is for no gun (mutants: the boat lost off the helm, the swimmer never a collector, "your guns are loaded" on a rowboat)', async () => {
+  const { h } = await boarding();
+  assert.equal(h.runtime.sailing, false, 'off the helm, over her rail');
+  const pirate = place(h, 'pirateBrig', [0, 0, 300], 0);
+  h.run(3);
+  assert.equal(pirate.ship.target, 'local', 'a pirate still has my boat for her enemy');
+  // a swimmer's cask
+  const s = await sea({ hull: null });
+  s.deps.swimming = () => true;
+  s.host._shots.dropFlotsam({ id: 'c1', pos: [0.3, 0, 0.2], lot: 'merchant_goods', from: 'merchantGalleon' });
+  s.run(0.3);
+  assert.ok(s.log.given.some(([n, b]) => n > 0 && b === null), 'into the pack');
+  assert.ok(s.log.say.some((t) => t.startsWith('You break open a floating cask')));
+  assert.equal(SWIMMER, 'me:swim');
+  const mine = { maxHull: 10, hull: 10, maxSail: 0, sail: 0, maxCrew: 0, crew: 0 };
+  assert.deepEqual(choiceOffer('powder', mine, { guns: false, loaded: true }), { id: 'powder', title: 'Powder and shot', useful: false, detail: 'No guns aboard' });
 });

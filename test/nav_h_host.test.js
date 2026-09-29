@@ -242,7 +242,7 @@ test('NAV-H boarding at the helm: a struck ship alongside and the way off, Activ
   assert.equal(m.raid, false);
   assert.ok(m.items.length > 0, 'her hold, drawn');
   assert.equal(m.mine().name, 'Small Ship');
-  assert.deepEqual(m.offers().map((x) => x.id), ['repair', 'powder', 'press']);
+  assert.deepEqual(m.offers().map((x) => x.id), ['repair', 'powder', 'press', 'papers']);   // AUDIT NAV1 (B13)
   const took = m.takeAll();
   assert.equal(took.where, 'hold');
   assert.equal(h.log.given.at(-1)[1], h.boat, 'into my own ship\'s hold');
@@ -412,7 +412,7 @@ test('NAV-H the world host: one naval host on Come Sail Away\'s pool, its record
   assert.equal((w.match(/thunderlockMuzzleLight\(playerEntity, player\.feetAt\(\), cam\.yaw\), \.\.\.\(naval\?\.enabled \? naval\.lights\(\) : \[\]\), \.\.\.peerTorchLights\(\)/g) ?? []).length, 2, 'both light lists');
   assert.match(w, /csaPeers\.rebase\(r\.offset\);[^\n]*\n\s+naval\?\.offsetAll\(r\.offset\); navalFlames\.offsetAll\(r\.offset\);/);
   assert.ok((w.match(/navalTransition\(\);/g) ?? []).length >= 4, 'every transition empties the sea');
-  assert.match(w, /naval\?\.placeQuestFoe\(handle\.foe\?\.parentQuest \?\? null\)/);
+  assert.match(w, /naval\?\.placeQuestFoe\(handle\.foe\?\.parentQuest \?\? null, /);   // AUDIT NAV1 (B10): and the held spots passed over (test/navaudit_boarding.test.js)
   assert.match(w, /naval\?\.raidEnded\(q\);/);
   assert.match(w, /leaveShipGate: \(quest\) => naval\?\.leaveShipGate\(quest\) \?\? 'proceed',/);
   assert.match(w, /const csaColliderBoats = \(\) => \(naval\?\.enabled \? \[\.\.\.csa\.boats, \.\.\.naval\.collidable\(\)\] : csa\.boats\);/, 'her deck walkable, her hull a thing to strike');

@@ -89,6 +89,12 @@
 - A ship finished off by fire now strikes her colours and goes down like one sunk by shot: you hear her bell, her cargo floats free, and the law and rewards count. A fire you didn't start isn't counted against you.
 - If the ship you boarded starts sinking under the fight, you're sent back to your own deck.
 - Throwing the grapples puts out a ship's fires.
+- A boarding fight now shows on screen: whose deck you're on, whether her captain still stands, how many of her crew are down and how many more before the rest surrender. Her captain is named on the target bar.
+- Boarders and crews no longer pile onto the same few spots on a deck.
+- When you've dealt with a prize, or press "Leave her", you're put back at your own ship's wheel. Escape still just closes the window, so you can walk her deck.
+- A prize has a fourth choice: burn her papers (a lawful ship), or hand her crew to the crown (a pirate). Either lowers your notoriety in those waters, like lowering your wanted level.
+- You can't save during a boarding or while standing on another ship's deck, because loading would have dropped you into the sea with the ship gone.
+- Ships keep fighting your ship while you're away from the wheel, a cask can be hauled in while swimming, and a rowboat's powder choice now says "No guns aboard".
 
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.

@@ -317,6 +317,7 @@ function prizeModel(o = {}) {
       { id: 'repair', title: 'Timber and cordage', useful: true, detail: 'Mend 20 of hull' },
       { id: 'powder', title: 'Powder and shot', useful: false, detail: 'Your guns are loaded' },
       { id: 'press', title: 'Press her crew', useful: true, detail: '4 hands to your guns' },
+      { id: 'papers', title: 'Hand her to the crown', useful: true, detail: "Your notoriety in Wayrest's waters falls by 15" },   // AUDIT NAV1 (B13)
     ],
     takeAll: () => { log.push('takeAll'); const n = m.items.length; m.items.length = 0; return { taken: n, left: 0, where: 'hold' }; },
     chosen: () => chosen,
@@ -343,7 +344,7 @@ test('NAV-F the plunder window, driven: it opens on Take All; Take All empties h
   assert.equal(take.textContent, 'Take all to your Carrack');
   assert.equal(globalThis.document.activeElement, take, 'the press the window is for');
   const tiles = byClass(shell, 'dfnaval-choice');
-  assert.deepEqual(tiles.map((t) => t.dataset.choice), ['repair', 'powder', 'press']);
+  assert.deepEqual(tiles.map((t) => t.dataset.choice), ['repair', 'powder', 'press', 'papers']);   // AUDIT NAV1 (B13)
   assert.equal(tiles[1].getAttribute('disabled'), '', 'useless: greyed');
   assert.equal(tiles[1].getAttribute('title'), 'Your guns are loaded', 'with why');
   // take all
@@ -378,7 +379,7 @@ test('NAV-F the plunder window, driven: it opens on Take All; Take All empties h
   keydown('Escape');
   assert.deepEqual(exits, ['fate', 'fate', 'close', 'close']);
   press(byClass(shell, 'dfnaval-close')[0]);
-  assert.equal(exits.at(-1), 'close');
+  assert.equal(exits.at(-1), 'leave', 'Leave her: back to my own helm (AUDIT NAV1 B11) - the back key and the scrim only shut it');
   view.unmount();
   assert.equal(byClass(host, 'dfnaval-shell').length, 0);
   assert.equal(windowListenerCount('keydown'), keysBefore, 'no listener left behind');

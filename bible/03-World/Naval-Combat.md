@@ -554,7 +554,8 @@ The helm audit's aiming findings (the player at the guns; 1080p, DFU's default F
 ### Boarding (the grapple, the raid, the prize)
 
 The boarding audit's findings (Warm Ashes' real quest files through the port's own parser and machine; the host over
-Come Sail Away's real pool):
+Come Sail Away's real pool) - B1, prizes filling the sea, was the captains' (above); B8, a boarding online, is the
+online slice's:
 
 | finding | before (the audit's measure) | the law now | after |
 |---|---|---|---|
@@ -564,6 +565,13 @@ Come Sail Away's real pool):
 | boarders who cast off stay alongside (B7) | swimming away: "Her crew stands down" (a line for boarding her), and a fresh grapple at once; the raid's hour out: "cast off", and she grappled again | `castOff`: her boarders withdrawn, SPARE_S before she will take me again, and she sheers off RAIDER_SHEER_M (`sheerOff`, NAV-R's own); my own deck left: "You leave your deck to them" | no grapple in the next 20 s |
 | "her crew surrenders", and fights on (B3) | the prize window opened over three survivors still swinging; rest and travel refused while they stood | `board.standDown` for each living man before her window - the quest system's own restrain (hostile no more, where he stands); one still standing up yields as he arrives | - |
 | the fire's finish unannounced (B4) | a burning struck brig went struck, sinking, sunk: no bell, no "going down", no cask, no reward; boarded and burning, she foundered 6 s in, the fight ran 22 s on a sinking deck and ended without a word | one arm for a ball's change and her fires' own (`stateChanged`), charged to who set her afire (`fireBy`) - another's fire never mine; the grapple puts her fires out; a boarded ship going down ends the fight, her men over the side and the player set on their own deck ("Back to your ship!", `founderUnderFight`) | - |
+| nothing on screen in the fight (B9) | `hudModel` answered null on foot during a boarding, in a board and a repel fight alike; the captain the win asks for a plain Spellsword among the rest | THE FIGHT'S CARD in the target card's place (`fightOf`, navalHud.js `fightCard`): whose deck, her captain standing or down, her crew down and the count they yield at (SURRENDER_SHARE); the boarders and where from, their tally (a raid's its own); the haul; her captain by name on the target bar (`spawnFoe`'s `name`) | - |
+| a wave on a heap (B10) | a raid's spot drawn at random from 12 with no test: of a wave's opening 13, a median of 5 on a spot already taken | the deck DEALT (`dealer`): DECK_SPOTS shuffled once, taken round, for her muster, my hands, the arc's boarders and a raid's waves; the world passes over a spot a body holds or one standing up there (the ring's own `entityOccupancy`, `holdSpotWhile`); every spot held, the wave waits; a raid of mine whose fight is over is stood nowhere - never the open ground's ring round the player | a wave of 13 on 13 spots |
+| after the prize, not at the helm (B11) | "Leave her" left the player on her deck with 2.2 m of water between the hulls; back aboard at a deck spot, off the wheel | her fate decided, "Leave her" pressed ('leave', its own way out - the back key and the scrim only shut the window, her deck still to walk) or her going down under the fight: over my rail and at my wheel (`takeHelm`, Come Sail Away's StartSailing) | - |
+| too fast to board, and nothing says so (B12) | the card stayed at "Colours struck" | answered by the helm's HEAVE TO (H11): "Colours struck - E: heave to" | - |
+| no "lower your wanted level" (B13) | notoriety fell only by its day's decay; a taken lawful ship added more and no choice lowered it | the prize's FOURTH CHOICE (`papers`): a lawful prize's papers burned, a pirate's crew handed to the crown - PAPERS_NOTORIETY (the boarding's own weight) off my notoriety in her crown's waters, greyed where no one hunts me; the one choice as ever; the tiles two by two | - |
+| a save mid-fight loads into the sea (B14) | F9 in a boarding: loaded at her deck's height over open water, the prize gone | `saveRefused`: a boarding under way, or feet on a ship of the sea's deck (DECK_REACH_M), and "You cannot save now." - F9, the checkpoints and the pause window's Save | - |
+| (minors) | a hostile ship lost the player off the helm (a second pirate 18 m off went to cruise); only a hull collected a cask; a rowboat's powder tile said "Your guns are loaded" | the boat the sea takes me by (`boatInPlay`): at her helm, the one I boarded from, the one under my feet; a swimmer's cask into the pack (SWIMMER, the world's `swimming`); "No guns aboard" | - |
 
 ## The tests
 
@@ -588,15 +596,16 @@ own, the guns' reach, the warning, the tell heard and seen, the tally) and `nava
 on a ship, the red where the balls strike her as she will stand, why the guns will not fire yet, the aim drawn, the
 broadside camera, the world's wiring) and `navaudit_boarding` (the raids' names and their retreat, the real parser in
 the sea's region and a crown's, the world host's pin and endRaid and stand-down run, a crewed boat's hands, the win
-polled, the cast-off, the surrender, the fire's finish, the founder), on the shared sea of `test/navalSea.mjs`.
+polled, the cast-off, the surrender, the fire's finish, the founder, no save mid-fight, the helm on return, the dealt
+deck, the fight's card, the prize's papers, the minors), on the shared sea of `test/navalSea.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
-`navaudit_helm.json` and `navaudit_boarding.json`, 484 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+`navaudit_helm.json` and `navaudit_boarding.json`, 508 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
 audit's helm, and seven of other suites' re-aimed by content at the laws the helm keeps; 14 with the merge with
-main's OW6, and eight of the arc's own re-aimed by content at the lines the merge rewrote; 32 with the audit's
-boarding, and NAV-R's sheer-off re-aimed at the one the cast-off shares);
+main's OW6, and eight of the arc's own re-aimed by content at the lines the merge rewrote; 56 with the audit's
+boarding, and NAV-R's sheer-off and NAV-F's card foot re-aimed at the lines the boarding rewrote);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

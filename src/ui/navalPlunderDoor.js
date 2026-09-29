@@ -8,7 +8,8 @@
 //
 // THE WAY OUT SAYS WHY. The window leaves through `onExit(reason)`: 'hold' (Open her hold - the host lays the pack's
 // loot window over the hold and brings this one back when it shuts), 'fate' (she was scuttled, cast off, or the voyage
-// sails on), 'close' (the back key, the scrim, the Close press, or anything that put it away). The host hears it
+// sails on), 'leave' (AUDIT NAV1: Leave her - back to the captor's own helm), 'close' (the back key, the scrim, the
+// Close press, or anything that put it away). The host hears it
 // through `onClose(reason)` before its slot drops the overlay. One stands at a time.
 //
 // AUDIT NAV1 (the helm): THE SHIPWRIGHT'S WINDOW (ui/navalYardWindow.js) opens through the same door - one shape for the

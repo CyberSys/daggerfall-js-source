@@ -174,7 +174,7 @@
   {
     "name": "NAV-F-the-foot-read-with-no-card",
     "file": "src/ui/navalHud.js",
-    "old": "  const foot = t.card ? (under?.getBoundingClientRect?.()?.bottom ?? 0) : 0;",
+    "old": "  const foot = c ? (under?.getBoundingClientRect?.()?.bottom ?? 0) : 0;",
     "new": "  const foot = under?.getBoundingClientRect?.()?.bottom ?? 0;",
     "tests": [
       "test/nav_f_ui.test.js"

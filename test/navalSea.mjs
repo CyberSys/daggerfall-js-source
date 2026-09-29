@@ -41,7 +41,7 @@ export async function readyPool() {
 export async function sea(o = {}) {
   const pool = await readyPool();
   pool.destroyAll();
-  const log = { say: [], mid: [], sounds: [], foes: [], removed: [], placed: [], raids: [], ended: [], plunder: [], given: [], hits: [], shake: [], spent: [], left: 0 };
+  const log = { say: [], mid: [], sounds: [], foes: [], removed: [], placed: [], raids: [], ended: [], plunder: [], given: [], hits: [], shake: [], spent: [], helm: [], left: 0 };
   const boat = o.hull == null ? null : pool.spawnNow(Object.assign(new Boat(o.hull, 0), { uid: 42 }), { position: [0, 0, 0], rotation: [0, 0, 0, 1] });
   const runtime = boat ? {
     sailing: true, state: { CurrentBoat: boat, AllBoats: [boat], velocityCurrent: [0, 0, 0], windVectorCurrent: o.wind ?? [0.6, 0, 0.8], sailPosition: 0 },
@@ -59,8 +59,9 @@ export async function sea(o = {}) {
       leaveHelm: () => { log.left++; if (runtime) runtime.sailing = false; },
       placePlayer: (p, y) => log.placed.push([p, y]),
       deckSpots: (_b, n) => Array.from({ length: n }, (_, i) => [[i, 5, 0], 0]),
-      spawnFoe: (mobile, pos, yaw, side) => { const h = { mobile, side, dead: false }; log.foes.push(h); return h; },
+      spawnFoe: (mobile, pos, yaw, side, opts) => { const h = { mobile, side, dead: false, pos, name: opts?.name ?? null }; log.foes.push(h); return h; },
       foeDown: (h) => h.dead, removeFoe: (h) => log.removed.push(h), standDown: (h) => { h.yielded = true; },
+      takeHelm: (b) => { log.helm.push(b); if (runtime && b === boat) runtime.sailing = true; },
       startRaid: (name) => { log.raids.push(name); return o.raidQuest?.(name) ?? null; },
       endRaid: (quest, opts) => log.ended.push([quest, opts]),
       openPlunder: (m) => { log.plunder.push(m); return true; },

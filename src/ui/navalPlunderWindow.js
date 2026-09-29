@@ -11,10 +11,14 @@
 //               alongside, into your pack as far as it carries; OPEN HER HOLD lays it in the pack's own loot window, to
 //               pick through a piece at a time, and this window comes back when that one shuts
 //   TAKE FROM HER - one (a prize, with a ship of yours to take it to): her timber and cordage (your hull and canvas
-//               mended), her powder and shot (every gun loaded, the fire barrels filled), or her crew pressed to your
-//               guns - each tile saying what it would make good NOW, greyed with why when it would make nothing good
+//               mended), her powder and shot (every gun loaded, the fire barrels filled), her crew pressed to your
+//               guns, or - AUDIT NAV1 (B13), Black Flag's "lower your wanted level" - her papers burned (a pirate's:
+//               her crew handed to the crown), your notoriety in her crown's waters down - each tile saying what it
+//               would make good NOW, greyed with why when it would make nothing good; two by two
 //   HER FATE    scuttle her (the press that costs something: the warn role's blood edge) or cast her adrift; shut the
-//               window without either and she lies taken where she is - Activate opens her again.
+//               window without either and she lies taken where she is - Activate opens her again. AUDIT NAV1 (B11):
+//               LEAVE HER is its own way out ('leave') - she lies taken as she is, and the host puts the captor back
+//               at their own helm; the back key or the scrim only shut the window, her deck still underfoot.
 // A RAID'S PRIZE (Warm Ashes' voyage ambush beaten: scenes/navalHost.js leaveShipGate) has a hold and no choice, and
 // its one way on is SAIL ON - the voyage waits on this window, so shutting it sails on too (the door's host says so).
 //
@@ -26,7 +30,7 @@
 // deps = { model, nameOf(item) -> string, onExit(reason) } - `model` the host's (navalHost.js openPrize /
 // leaveShipGate): { name, captain, classLine, faction, raid, items (the live hold), mine() -> { name, hull, sail,
 // crew } | null, offers() -> [{ id, title, detail, useful }], takeAll() -> { taken, left, where }, chosen() -> id |
-// null, fated() -> string | null, choose(id) -> bool, fate(which) }.
+// null, fated() -> string | null, choose(id) -> bool, fate(which), leave()? }.
 import { closeOnOutsideTap } from './enhancedOverlays.js';
 import { overlayAction } from './input.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
@@ -69,7 +73,7 @@ export const NAVAL_PLUNDER_CSS = `
 .dfnaval-acts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .dfnaval-btn { min-width: 136px; padding: 6px 14px; font: inherit; font-size: 14px; letter-spacing: 0.06em; color: #e9e4d9; border: 2px solid; cursor: pointer; text-shadow: 1px 1px 0 #050608; }
 .dfnaval-btn:disabled { cursor: default; color: #7d7460; }
-.dfnaval-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.dfnaval-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .dfnaval-choice { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 8px 9px; font: inherit; text-align: center; color: #e9e4d9;
   border: 2px solid; background-color: ${T.groundButton}; cursor: pointer; }
 .dfnaval-choice b { font-weight: normal; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #efe8d6; text-shadow: 1px 1px 0 #050608; }
@@ -166,7 +170,7 @@ export function mountNavalPlunderWindow(host, deps) {
   const noteLine = el('p', 'dfnaval-note');
   noteLine.setAttribute('aria-live', 'polite');
   title.append(h2, sub, noteLine);
-  const close = button(m.raid ? 'Close' : 'Leave her', 'dfnaval-btn dfnaval-close', () => exit('close'));
+  const close = button(m.raid ? 'Close' : 'Leave her', 'dfnaval-btn dfnaval-close', () => exit(m.raid ? 'close' : 'leave'));
   close.style.minWidth = '0';
   head.append(flag, title, close);
   const body = el('div', 'dfnaval-winbody');
