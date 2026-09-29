@@ -275,7 +275,7 @@ test('SHADOW-FANG the account card: the button keeps the plain crimson (its bord
   assert.ok(badgeCss().includes(rule), 'the word\'s rule');
   assert.ok(ENHANCED_CSS.includes(rule), 'and it reached the skin');
   assert.ok(ENHANCED_CSS.includes(`.card button.acttitle.${badgeClass('tl', 'shadowfang')} { color: #d3193c; }`));
-  assert.equal((badgeCss().match(/\.acttitleword/g) ?? []).length, 1, 'only a gradient title gets a word rule');
+  assert.equal((badgeCss().match(/\.acttitleword/g) ?? []).length, Object.keys(TITLE_GRADIENT).length, 'only a gradient title gets a word rule - Shadow Fang\'s, and since PENITENT Penitent\'s');
   const js = rd('src/ui/enhancedAccount.js');
   const wardrobe = js.slice(js.indexOf('function wardrobe()'), js.indexOf('function paint()'));
   assert.match(wardrobe, /b\.append\(el\('span', 'acttitleword', TITLE_TEXT\[key\] \?\? key\)\);/);

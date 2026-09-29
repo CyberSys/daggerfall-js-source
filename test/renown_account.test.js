@@ -223,8 +223,8 @@ test('RENOWN-ACCOUNT the worker: the token\'s level is the ACCOUNT\'s whichever 
   const lowly = await seatRealm(env, low.secret, 'Lowly', { name: 'Lowly', level: 9, goldPieces: 100_000, items: [] });
   assert.equal((await call('POST', '/v1/renown/xp', { character: lowly.id, xp: 5000 }, low.secret)).status, 200);
   assert.deepEqual(await call('POST', '/v1/guilds/found', { character: lowly.id, name: 'Low Band', tag: 'LOW', realm: lowly.at() }, low.secret), { status: 403, body: { error: 'guild-renown' } }, 'Renown 9 is not 10, whichever character asks');
-  assert.equal(ACCOUNT_VERSION, 'acct20', 'RENOWN-ACCOUNT rode REALM\'s undeployed acct19; TERMS1, merged after it, moved it to acct20');
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct20"/);
+  assert.equal(ACCOUNT_VERSION, 'acct21', 'RENOWN-ACCOUNT rode REALM\'s undeployed acct19; TERMS1, merged after it, moved it to acct20, and PENITENT to acct21');
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct21"/);
 });
 
 test('RENOWN-ACCOUNT the raid: a town defended is paid to the ACCOUNT - onto the total the reports grew, whichever character the claim names, at the account\'s level before it; the answer says the account\'s total and the character that fought, whose row keeps it; a claim naming none, or one out of shape, is paid too (mutants: the claim keyed by its character; the character left off its row)', async () => {

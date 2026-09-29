@@ -58,6 +58,7 @@ export const GLYPH_LABEL = Object.freeze({
   apostle: 'Apostle',
   hierophant: 'Hierophant',
   shadowfang: 'Shadow Fang',   // SHADOW-FANG: the wolf's head beside SirMcMobdon's name
+  penitent: 'Penitent',   // PENITENT: the sword in its lozenge beside Diggleborf's name
 });
 
 /** ACC4: THE TWO FACTS MAC ASKED FOR, as words. Pure, so node pins
