@@ -116,7 +116,7 @@ test('AUDIT 28 F7: a switched-off mod has no console command - no HELP line, no 
 });
 
 test('AUDIT 28 F4: Foraging\'s Features row says when each half takes effect', () => {
-  assert.match(src('src/systems/features.js'), /modFeature\('foraging', 'Takes effect at once for the tools, the foods and the loot; for the quest pack when the game next loads\.', 'world'\)/);
+  assert.match(src('src/systems/features.js'), /modFeature\('foraging', 'Takes effect at once; its quests when the game next loads\.', 'world'\)/);
 });
 
 test('AUDIT 28 H11: Enter and Space on a DOM window\'s own button are the browser\'s press - never prevented', () => {

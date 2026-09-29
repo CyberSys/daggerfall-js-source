@@ -321,7 +321,7 @@ test('GRASS-PX: the row, its default, and the host reading it live', () => {
   assert.deepEqual({ ...part, tiers: part.tiers.map((t) => [...t]) }, { key: 'grassStyle', label: 'Style', tiers: [['pixel', 'Pixel'], ['smooth', 'Smooth']] });
   assert.deepEqual({ ...row.control.also.find((a) => a.key === 'grassStyle') }, { store: 'prefs', key: 'grassStyle', initial: 'pixel', online: 'player' });
   assert.equal(row.group, 'sight'); assert.deepEqual([...row.kinds], ['enhanced']); assert.match(row.effect, /the style at once\.$/);
-  assert.ok(row.note.includes('under the enhanced outdoors'), 'GRASS AUDIT 1: the row says what it is inert without');
+  assert.ok(row.note.includes('in the enhanced outdoors'), 'GRASS AUDIT 1: the row says what it is inert without');
   assert.ok(world.includes('vertsPerBlade: labGrass._oneQuad ? labGrass.vertsFar : labGrass.verts'), 'GRASS AUDIT 1: the stats say which blade the frame drew');
   assert.equal(FEATURE_PREF_DEFAULTS.grassStyle, 'pixel', 'the shelf\'s default is the row\'s');
   assert.deepEqual(['pixel', 'smooth', undefined, 'junk'].map(pixelGrass), [true, false, true, true]);

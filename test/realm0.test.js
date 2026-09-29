@@ -121,7 +121,7 @@ test('REALM P0.2: the holes the research found are closed - Iron as Daedric, the
 
 test('REALM P0.2: the Mods pane locks a room dial as it locks a switch, with the balance reason, and the offline sync copies the dials home', () => {
   const menu = src('src/ui/enhancedMenu.js');
-  assert.match(menu, /const ONLINE_BALANCE_NOTE = '[^']*one balance[^']*';/, 'the balance lock has its own words');
+  assert.match(menu, /const ONLINE_BALANCE_NOTE = '[^']*stronger or richer than the rest[^']*';/, 'the balance lock has its own words');
   assert.match(menu, /const modLockNote = \(vendor, key\) => \(!Object\.hasOwn\(ONLINE_ROOM_MOD_KEYS\[vendor\] \?\? \{\}, key\) && onlineWholeModKey\(vendor, key, undefined, \{ offline: true \}\) \? ONLINE_BALANCE_NOTE : onlineLockNote\(vendor, key\)\);/);
   assert.match(menu, /if \(\(isChoiceKey\(def\) \|\| isTextKey\(def\) \|\| isTupleKey\(def\) \|\| isFloatKey\(def\) \|\| isIntKey\(def\)\) && onlineModSetting\(vendor, key\) !== undefined\) lockDial\(ctl, modLockNote\(vendor, key\)\);/, 'a dial is locked too');
   assert.match(menu, /function lockDial\(ctl, note\) \{\s*for \(const b of ctl\.querySelectorAll\('button'\)\) \{ b\.disabled = true;/);

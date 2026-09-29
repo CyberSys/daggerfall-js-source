@@ -422,7 +422,7 @@ test('AUDIT DEEP T1-1: through the host\'s REAL lens (mirrored, 52 degrees down)
   // AUDIT DEEP T3-9: the held map rings my party as theirs - a party member is never drawn a second time as a stranger
   assert.match(rd('src/scenes/world.js'), /travellers: \(\) => travellerBook\.live\(Date\.now\(\)\)\.filter\(\(t\) => !social\?\.inMyParty\(social\.accountOfPeer\(t\.id\)\)\)\.map\(/);
   // AUDIT DEEP T3-4/T3-7: the switch says what it shares, and with whom, truly
-  assert.match(rd('src/ui/enhancedMenu.js'), /where you stand is shared on your region\\u2019s channel - anyone on it sees you/);
+  assert.match(rd('src/ui/enhancedMenu.js'), /players in your region see you on the overworld and the map/);
   assert.match(rd('src/ui/enhancedMenu.js'), /Kept on this device\./);
   assert.match(rd('src/scenes/world.js'), /project: \(p\) => \(_lastProj && _lastView \? projectToScreen\(p, canvas\.clientWidth, canvas\.clientHeight, _lastProj, _lastView, worldViewportRect\(canvas\.clientWidth, canvas\.clientHeight\), true\) : null\),/, 'the view\'s own projection asks for the mirror');
   // the default stays the hide: every other caller never draws a mirror
@@ -486,7 +486,7 @@ test('AUDIT DEEP2 C4/C5 by source: a Region link that moves empties the book (th
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   assert.match(w, /if \(link\.room !== travellerSent\.room\) \{ travellerSent\.room = link\.room; travellerSent\.last = null; travellerSent\.at = 0; travellerBook\.clear\(\); \}/);
   const menu = readFileSync(new URL('../src/ui/enhancedMenu.js', import.meta.url), 'utf8');
-  assert.match(menu, /Nothing goes on the region\\u2019s channel from indoors \(your party still sees where you are\)\./);
+  assert.match(menu, /Nothing is shared from indoors except with your party\./);
   assert.doesNotMatch(menu, /'Nothing is shared from indoors\./);
 });
 

@@ -60,7 +60,7 @@ test('MAP-TOGGLE by source: the Features row - interface (FT18; sight before), e
   assert.ok(row, 'the row exists');
   assert.equal(row.group, 'interface'); assert.deepEqual([...row.kinds], ['enhanced']);   // FT18: a map is drawn over the world, not in it
   assert.deepEqual({ ...row.control }, { store: 'prefs', key: 'heldMap', initial: true, online: 'player' });
-  assert.match(row.note, /Off is Daggerfall/, 'the note says what off is');
+  assert.match(row.note, /Off uses Daggerfall/, 'the note says what off is');
   const gate = rd('src/ui/mapSkin.js');
   assert.match(gate, /export const enhancedMapOn = \(\) => !!getPref\('heldMap'\);/);
   assert.match(gate, /export const heldMapChosen = \(\) => isEnhanced\(\) && enhancedMapOn\(\);/);

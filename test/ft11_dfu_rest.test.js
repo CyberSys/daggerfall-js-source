@@ -34,7 +34,7 @@ test('FT11: the four booleans - DFU Classic, live, titled as Settings titles the
     assert.equal(f.title, labelOf(key));
     const [sec, k] = key.split('/');
     assert.equal(DEFAULTS[sec][k], def);
-    assert.match(f.note, def === 'True' ? /Daggerfall Unity ships it on\.$/ : /Daggerfall Unity ships it off\.$/, id);
+    assert.match(f.note, def === 'True' ? /On by default in Daggerfall Unity\.$/ : /Off by default in Daggerfall Unity\.$/, id);
     assert.match(f.effect, /^Takes effect /);
     assert.deepEqual(checkFeature(f), []);
     assert.equal(featureForControl('settings', key), f);
@@ -50,7 +50,7 @@ test('FT11: dungeon wall style - the one choice, its five modes the settings law
   assert.deepEqual(ENUM_LAW[key].values, ['Classic', 'Climate', 'Climate Only', 'Random', 'Random Only']);
   assert.equal(DEFAULTS.Video.RandomDungeonTextures, '0', 'Classic');
   for (const w of ['Classic', 'Climate', 'Random', 'Climate Only', 'Random Only']) assert.match(f.note, new RegExp(w), `the note names ${w}`);
-  assert.match(f.note, /Daggerfall Unity ships it Classic\.$/);
+  assert.match(f.note, /Classic by default in Daggerfall Unity\.$/);
   assert.equal(f.effect, 'Takes effect on the next dungeon you enter.');
   assert.deepEqual(checkFeature(f), []);
   // the law the note describes (DaggerfallDungeon.cs:174-196): main-story dungeons stay classic unless the mode is 2 or 4
