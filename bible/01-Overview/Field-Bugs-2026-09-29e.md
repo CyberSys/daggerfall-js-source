@@ -97,6 +97,9 @@ is the clip's own length either way: at a player's frame rate, the moan came bac
   rate, left silent, claimed with no context) - all dead.
 - Re-aimed by content, never loosened: `test/wind3_windworld.test.js`'s loop test - the gain law's pins as they were,
   the driver's from the clip swap on the riding loop to the one native loop of the bed.
+- Beside it, on Mac's word: `test/audit18_ui_native.test.js`'s stub renderer answers `endUiRun`. 5ad5b481 (Texture Mods)
+  made PERF-2D's close the talk window draw's last call, and the file's two pins that draw it over the ARENA2 art (F8/F9,
+  F10b) threw on the stub from then on - on main too, unseen, since CI runs without the data. 17 of 17 with it now.
 - The live probes were scratch, not committed: a vite server over the tree and over a worktree of main, Playwright's
   Chromium on SwiftShader with autoplay allowed, `?world&shot&play&class=16&novideo`, the intro's window put away by
   its keys; the first traced `audio._buffer` and `audio.setLoop`, the second wrapped
