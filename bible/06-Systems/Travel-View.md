@@ -1277,6 +1277,18 @@ Each pinned (`test/ows2_crossing.test.js`, `test/ows3_raiders.test.js`) and each
 - The raid's fight is the mod's own, on its ship's deck - the ship boarded - not the open sea.
 - The classic lane has no Overworld: DFU's map, its fast travel and Warm Ashes' roll, whole.
 
+## FB0929 - the mouse captured under the Overworld (2026-09-29, a field report)
+
+Satranath (Discord, relayed by Mac): "Y doesn't free the mouse on overworld until after you press Escape." OW-ONLY's
+rise came on the wrong frame for the lock: a journey begun or resumed on the map raises the view on the frame after the
+map goes down (`tvJourneyUp`), the very frame whose look gate has just asked for the lock back on the map's close edge.
+A browser answers that request a task later, so the view's `freeCursor` found nothing to release and the lock landed
+under a view whose cursor is its own - the mouse captured, Y refused under the view (TV1's law, which stands), until the
+browser's own Escape ended it. The map's Overworld button never raced: its commit raises the view a frame before the
+gate asks, and the freed cursor refuses. `player/pointerLock.js` now lets go of a lock that lands while the cursor is
+free - the toggle's law, so every host binding it holds it (world.js, with worldModes.js and dungeonContext.js under
+it; exterior.js; dungeon.js). `test/fb0929_overworld_mouse.test.js` (3), every pin made to fail.
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

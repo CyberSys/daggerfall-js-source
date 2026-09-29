@@ -201,6 +201,22 @@ export function bindCursorToggle(canvas, isWindowUp = () => false, actionsOf = n
   // keyup), so the hosts' ladders open the pause on the ONE press. It
   // waits ESCAPE_DELIVERY_MS for the browser that hands the page its
   // own Escape - that one is not delivered twice.
+  //
+  // FB0929 (2026-09-29, Satranath: "Y doesn't free the mouse on
+  // overworld until after you press Escape"): A LOCK THAT LANDS UNDER A
+  // FREED CURSOR IS LET GO. Unity's lock is a property; a browser's is
+  // a request answered a task later, and releaseLook lets go only of a
+  // lock that is HELD. A cursor freed while a request was in flight -
+  // the Overworld rising on the very frame the look gate asked for the
+  // lock back (world.js tvJourneyUp, after the map's journey), or Y
+  // pressed before a click's relock was answered - was captured a
+  // moment later with the flag still saying free: the mouse gone, Y
+  // refused under the view, only the browser's own Escape giving it
+  // back. U45's precedence covers the request already made: the flag
+  // wins (and the loss that follows is the page's, not an Escape).
+  // Every host binding this toggle holds it: world.js (its interiors
+  // and dungeons, worldModes.js and dungeonContext.js, under its bind),
+  // exterior.js, and dungeon.js.
   let held = typeof document !== 'undefined' && document.pointerLockElement === canvas;
   let pending = null;
   const quiet = () => isWindowUp() || overlayOpen() || _cursorActive || !pageHasFocus();
@@ -208,6 +224,7 @@ export function bindCursorToggle(canvas, isWindowUp = () => false, actionsOf = n
     const now = typeof document !== 'undefined' && document.pointerLockElement === canvas;
     const lost = held && !now;
     held = now;
+    if (now && _cursorActive) releaseLook();   // FB0929
     if (!lost) return;
     const at = nowMs();
     if (at - _pageReleaseAt < PAGE_RELEASE_MS || quiet()) return;

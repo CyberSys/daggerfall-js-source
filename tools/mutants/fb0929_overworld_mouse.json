@@ -1,0 +1,23 @@
+[
+  {
+    "name": "FB0929-lock-kept-under-a-freed-cursor",
+    "file": "src/player/pointerLock.js",
+    "old": "    if (now && _cursorActive) releaseLook();   // FB0929\n",
+    "new": "",
+    "tests": ["test/fb0929_overworld_mouse.test.js"]
+  },
+  {
+    "name": "FB0929-lock-let-go-whatever-the-cursor",
+    "file": "src/player/pointerLock.js",
+    "old": "    if (now && _cursorActive) releaseLook();   // FB0929\n",
+    "new": "    if (now) releaseLook();   // FB0929\n",
+    "tests": ["test/fb0929_overworld_mouse.test.js"]
+  },
+  {
+    "name": "FB0929-lock-let-go-when-lost",
+    "file": "src/player/pointerLock.js",
+    "old": "    if (now && _cursorActive) releaseLook();   // FB0929\n",
+    "new": "    if (!now && _cursorActive) releaseLook();   // FB0929\n",
+    "tests": ["test/fb0929_overworld_mouse.test.js"]
+  }
+]
