@@ -19,5 +19,5 @@
 - Moderators can remove any note from the board or with **/note remove <id>**. A muted player cannot pin notes, and their notes leave every board while the mute lasts.
 
 ## Rollout
-- The Notice Board opens to the developers first. Everyone else's rumour boards stay exactly as before until it is switched on for all.
+- The Notice Board is **open to everyone** online.
 - Offline, nothing changes: a rumour board is Daggerfall's own.

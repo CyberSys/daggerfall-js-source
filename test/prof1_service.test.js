@@ -11,6 +11,7 @@ import { herbPatches, nodeKey, utcDayOfMs, pixelKey } from '../src/net/nodeLaw.j
 import { herbKey, rankOfXp, writXp, HARVESTS_PER_DAY, STORES_MAX, COURT_WRITS_PER_DAY, RESPEC, xpForRank } from '../src/net/professionLaw.js';
 import { sharedClassicMinutes } from '../src/net/wire.js';
 import { utcDay } from '../src/net/marksLaw.js';
+import { RENOWN_TRACKS_MAX } from '../src/net/renown.js';   // RENOWN-CHAR: a writ's Renown makes a track only under the tracks' bound
 
 const DAY = 86_400;
 const WOODS = 231, SWAMP = 228, ANTICLERE = 21, DAGGERFALL = 17;
@@ -278,8 +279,9 @@ test('PROF1 service: a Court writ taken - filled whole from the Stores (bought f
   assert.equal(r.body.balance, w.pay);
   assert.deepEqual(r.body.store, { material: w.material, own: 12, bought: 0 }, 'bought first, then own');
   assert.equal(r.body.track.xp, writXp(w.pay));
-  assert.deepEqual(r.body.renown, { xp: w.renown, level: r.body.renown.level, credited: w.renown, rose: r.body.renown.rose });   // MERGE 2: the ACCOUNT's Renown (RENOWN-ACCOUNT) - no character; the Renown in renown_accounts
-  assert.equal(s.raw.prepare('SELECT xp FROM renown_accounts WHERE player = ?').get(mac.id).xp, w.renown, 'the account\'s one track');
+  assert.deepEqual(r.body.renown, { character: mac.character, xp: w.renown, level: r.body.renown.level, credited: w.renown, rose: r.body.renown.rose });   // RENOWN-CHAR: the delivering character's track again (MERGE 2 paid RENOWN-ACCOUNT's)
+  assert.deepEqual(s.raw.prepare('SELECT char_id, xp FROM renown_tracks WHERE player = ?').all(mac.id).map((x) => ({ ...x })), [{ char_id: mac.character, xp: w.renown }], 'the character\'s own track, made by the writ');
+  assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM renown_accounts').get().n, 0, 'and never RENOWN-ACCOUNT\'s table - history now');
   assert.deepEqual(r.body.today, { filled: 1, max: COURT_WRITS_PER_DAY });
   assert.equal(r.body.writ.state, 'mine');
   const line = s.raw.prepare("SELECT * FROM marks_ledger WHERE kind = 'writ'").all();
@@ -302,6 +304,32 @@ test('PROF1 service: a Court writ taken - filled whole from the Stores (bought f
       filled++;
     } else { assert.deepEqual(d.body, { error: 'writ-cap' }); break; }
   }
+});
+
+test('RENOWN-CHAR a Court writ\'s Renown is the delivering character\'s own track - onto the one it has, another character of the account untouched; at the tracks\' bound a character with none is filled and paid, and given no track (mutants: the writ paid onto no track; the first track never made; the bound unread)', async () => {
+  const s = await stand();
+  await witnessed(s);
+  const mac = await s.registered('Mac');
+  const [w1, w2] = (await s.call('/v1/writs/list', { character: mac.character, region: ANTICLERE }, mac.secret)).body.writs;
+  const track = (id) => s.raw.prepare('SELECT xp FROM renown_tracks WHERE player = ? AND char_id = ?').get(mac.id, id)?.xp ?? null;
+  const seat = s.raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 1)');
+  seat.run(mac.id, mac.character, 'Mac', 500);
+  seat.run(mac.id, 'char-alt1', 'Alt', 9000);
+  s.give(mac, w1.material, 'own', w1.qty);
+  const r = await s.call('/v1/writs/deliver', { character: mac.character, id: w1.id, rid: rid() }, mac.secret);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual([r.body.renown.character, r.body.renown.xp, r.body.renown.credited], [mac.character, 500 + w1.renown, w1.renown], 'onto its own 500');
+  assert.deepEqual([track(mac.character), track('char-alt1')], [500 + w1.renown, 9000], 'another character of the account is untouched');
+  // THE TRACKS' BOUND: sixty an account - a character with none past it is filled and paid, and no track made
+  for (let i = s.raw.prepare('SELECT COUNT(*) AS n FROM renown_tracks WHERE player = ?').get(mac.id).n; i < RENOWN_TRACKS_MAX; i++) seat.run(mac.id, `char-b${String(i).padStart(3, '0')}`, null, 0);
+  const fresh = { ...mac, character: 'char-fresh' };
+  s.give(fresh, w2.material, 'own', w2.qty);
+  const f = await s.call('/v1/writs/deliver', { character: fresh.character, id: w2.id, rid: rid() }, mac.secret);
+  assert.equal(f.status, 200, JSON.stringify(f.body));
+  assert.equal(f.body.pay, w2.pay, 'filled and paid its Marks');
+  assert.deepEqual([f.body.renown.character, f.body.renown.xp, f.body.renown.credited, f.body.renown.rose], [fresh.character, 0, 0, false], 'no room for a sixty-first track: no Renown');
+  assert.equal(track(fresh.character), null);
+  assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM renown_tracks WHERE player = ?').get(mac.id).n, RENOWN_TRACKS_MAX);
 });
 
 test('PROF1 service: a Court writ raced - one account fills it between another\'s read and its UPDATE; the UPDATE refuses the second, who keeps its Stores', async () => {

@@ -70,9 +70,9 @@ export async function standService(extra = {}) {
     const g = await guest();
     assert.equal((await call('/v1/auth/register', { handle, password: 'a good long one', ...ACCEPTED }, g.secret)).status, 200, `${handle} registers`);
     if (renown > 1) {
-      // MERGE 2: main's RENOWN-ACCOUNT - the Renown is the account's one track (renown_accounts), whichever character
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
-        .run(g.id, renownXpFor(renown), T0, T0);
+      // RENOWN-CHAR: the character's own track again (MERGE 2 had seeded RENOWN-ACCOUNT's one track an account)
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(g.id, character, handle, renownXpFor(renown), T0, T0);
     }
     return { secret: g.secret, id: g.id, character, handle };
   };
@@ -86,6 +86,8 @@ export async function standService(extra = {}) {
    *  and the founding asks the real route with where its record stands. Answers the route's `{ status, body }`. */
   const found = async (who, { name, tag }) => {
     const R = await seatRealm(env, who.secret, who.handle, { name: who.handle, level: 9, goldPieces: GUILD_FOUND_GOLD * 10, items: [] });
+    // RENOWN-CHAR: a founding asks the founder's OWN track - carried to the realm character it plays from here, as customs carries one
+    env.DB._raw.prepare('UPDATE renown_tracks SET char_id = ? WHERE player = ? AND char_id = ?').run(R.id, who.id, who.character);
     who.character = R.id; who.at = R.at;
     return call('/v1/guilds/found', { character: R.id, name, tag, realm: R.at() }, who.secret);
   };

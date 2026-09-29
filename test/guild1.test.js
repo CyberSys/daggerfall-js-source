@@ -65,9 +65,9 @@ async function stand() {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const guest = async () => (await call('/v1/auth/guest', { ...ACCEPTED })).body.secret;
-  /** A registered account at `renown` (the service's own track - RENOWN-ACCOUNT: the account's, which every one of its
-   *  characters stands at), and one of its characters. AUDIT REALM2 S2: a founder is a REALM character (`realm: true`) -
-   *  a founding is paid on its record - and `at()` where that stands. */
+  /** A registered account, and one of its characters seated at `renown` (the service's own track - the character's
+   *  again since RENOWN-CHAR). AUDIT REALM2 S2: a founder is a REALM character (`realm: true`) - a founding is paid on
+   *  its record - and `at()` where that stands. */
   const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN, realm = false } = {}) => {
     const secret = await guest();
     const reg = await call('/v1/auth/register', { secret, handle, password: 'a good long one', ...ACCEPTED });
@@ -76,13 +76,15 @@ async function stand() {
     if (realm) {
       const R = await seatRealm(env, secret, handle, { name: handle, level: 9, goldPieces: GUILD_FOUND_GOLD * 10, items: [] });
       character = R.id;
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
-        .run(id, renownXpFor(renown), T0, T0);
+      if (renown > 1) {   // RENOWN-CHAR: the realm character's own track
+        env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(id, character, handle, renownXpFor(renown), T0, T0);
+      }
       return { secret, id, character, handle, at: R.at };
     }
     if (renown > 1) {
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
-        .run(id, renownXpFor(renown), T0, T0);
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(id, character, handle, renownXpFor(renown), T0, T0);
     }
     return { secret, id, character, handle };
   };

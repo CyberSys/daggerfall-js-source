@@ -185,9 +185,9 @@ async function stand() {
     const id = env.DB._raw.prepare('SELECT id FROM players WHERE handle_lc = ?').get(handle.toLowerCase()).id;
     let at = null;
     if (realm) ({ id: character, at } = await seatRealm(env, secret, handle, { name: handle, level: 9, goldPieces: 100_000, items: [] }));
-    if (renown > 1) {   // RENOWN-ACCOUNT: the account's one track, which every one of its characters stands at
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
-        .run(id, renownXpFor(renown), 1, 1);
+    if (renown > 1) {
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(id, character, handle, renownXpFor(renown), 1, 1);
     }
     return { secret, id, character, handle, at };
   };
@@ -225,8 +225,8 @@ test('GUILD1c the service: the mint signs the NAMED character\'s guild in - its 
   const bare = await mint({});
   assert.equal((await tokenOf(bare)).gi, undefined, 'a mint naming no character (an older build) carries none');
   assert.equal(bare.guild, null);
-  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct30'"), true);   // MERGE 2 moved it on last (acct30: the professions branch - Marks, the Notice Board, the professions, the market and its auctions, the guild writs - acct22 to acct29 on its branch, never deployed, its migrations 0025-0034 behind main's 0018-0024); before it HOUSE-LOSS and RESTORE moved it on (acct23 - acct20, then acct21 and acct22, on their branch, which TERMS1, PENITENT and REALM-DOOR took first); before it REALM-DOOR and CUSTOMS-PASS moved it on (acct22: the mint signs whether the named character is the realm's, and a developer's customs pass); before it PENITENT's title and glyph and a fifth Disciple moved it on last (acct21); before it acct12 on the branch; main's BASE-HIDE took acct12 first; GUILD1c shipped at acct13, and SHADOW-FANG (acct14 - acct12 on its branch) moved it on after, then FOUNDER3 (acct15)
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct30"/);
+  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct31'"), true);   // RENOWN-CHAR moved it on last (acct31: Renown a character's again, migration 0035); before it MERGE 2 moved it on (acct30: the professions branch - Marks, the Notice Board, the professions, the market and its auctions, the guild writs - acct22 to acct29 on its branch, never deployed, its migrations 0025-0034 behind main's 0018-0024); before it HOUSE-LOSS and RESTORE moved it on (acct23 - acct20, then acct21 and acct22, on their branch, which TERMS1, PENITENT and REALM-DOOR took first); before it REALM-DOOR and CUSTOMS-PASS moved it on (acct22: the mint signs whether the named character is the realm's, and a developer's customs pass); before it PENITENT's title and glyph and a fifth Disciple moved it on last (acct21); before it acct12 on the branch; main's BASE-HIDE took acct12 first; GUILD1c shipped at acct13, and SHADOW-FANG (acct14 - acct12 on its branch) moved it on after, then FOUNDER3 (acct15)
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct31"/);
 });
 
 test('GUILD1c the service: every act that moves a membership answers a SIGNED order - founding, a join, a leave and the look say the actor\'s guild now (none after leaving), a removal an out order naming the member and its guild, a disbanding the guildmaster\'s none and an out order naming the guild; a declined invitation, a rank moved, a handover and the treasury answer none (mutants: a join answering none; a removal naming the remover; a disbanding naming one member; an order for an act that moved nobody)', async () => {

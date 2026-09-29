@@ -72,9 +72,9 @@ async function stand({ open = 'on', developers = 'Devra', moderators = 'Mora' } 
     assert.equal((await call('/v1/auth/register', { handle, password: 'a good long one', ...ACCEPTED }, g.secret)).status, 200, `${handle} registers`);
     const character = `char-${handle.toLowerCase()}`;
     if (renown > 1) {
-      // MERGE 2: main's RENOWN-ACCOUNT - the Renown is the account's one track (renown_accounts), whichever character
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
-        .run(g.id, renownXpFor(renown), T0, T0);
+      // RENOWN-CHAR: the character's own track again (MERGE 2 had seeded RENOWN-ACCOUNT's one track an account)
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(g.id, character, handle, renownXpFor(renown), T0, T0);
     }
     return { secret: g.secret, id: g.id, character, handle };
   };
@@ -135,10 +135,10 @@ test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHE
   for (const r of ['/v1/board/read', '/v1/board/pin', '/v1/board/take-down', '/v1/board/report', '/v1/board/mod/remove', '/v1/board/mod/restore', '/v1/board/notice', '/v1/board/notice/remove']) {
     assert.ok(ROUTES.has(r), r);
   }
-  assert.equal(ACCOUNT_VERSION, 'acct30');   // MERGE 2 moved it on past main's realm (acct23); the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that, PROF5 after that, AUDIT 30 after that, PROF5b after that, PROF6 after that, AUDIT 31 after that
+  assert.equal(ACCOUNT_VERSION, 'acct31');   // RENOWN-CHAR moved it on last (acct31); MERGE 2 before it moved it on past main's realm (acct23); the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that, PROF5 after that, AUDIT 30 after that, PROF5b after that, PROF6 after that, AUDIT 31 after that
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /^ACCOUNT_VERSION = "acct30"$/m);
-  assert.match(toml, /^BOARD_OPEN = "dev"$/m, 'the board ships at dev');
+  assert.match(toml, /^ACCOUNT_VERSION = "acct31"$/m);
+  assert.match(toml, /^BOARD_OPEN = "on"$/m, 'BOARD-ON: shipped at dev, opened to everyone (Mac: "Board now, rest after fixes")');
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/boardLaw\.js"/, 'the law the Worker bundles deploys it');
 });
 
@@ -233,6 +233,8 @@ test('NOTICE1 a recruitment note names its guild: only a rank that may invite pi
   const lone = await registered('Cyra');
   // MERGE 2: a founding is a realm character's, paid on its record (main's AUDIT REALM2 S2) - Aldric plays one from here
   const R = await seatRealm(env, gm.secret, gm.handle, { name: gm.handle, level: 9, goldPieces: GUILD_FOUND_GOLD * 10, items: [] });
+  // RENOWN-CHAR: a founding asks the founder's OWN track - carried to the realm character it plays from here, as customs carries one
+  env.DB._raw.prepare('UPDATE renown_tracks SET char_id = ? WHERE player = ? AND char_id = ?').run(R.id, gm.id, gm.character);
   gm.character = R.id;
   const founded = await call('/v1/guilds/found', { character: R.id, name: 'The Hound', tag: 'HND', realm: R.at() }, gm.secret);
   const { guild } = founded.body ?? {};

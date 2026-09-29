@@ -808,8 +808,9 @@ note's answer plan, one shape from every exit) and the window driven on the mini
   writ asks for a material from the region's own **witnessed** tables - metals, wood, herbs (4.1-4.3) and stone (4.5),
   never hides or fish, which are bounded, not witnessed (section 6), since a Mark is minted only for a witnessed act
   (law 8) - mostly tiers 1-4, one a day of tier 5-6; **10-50** units, fewer at higher tiers. **Pay**: units x the material's Marks value x
-  1.2, and Renown XP 25 x tier x units / 10 (MERGE 2: at main's RENOWN-ACCOUNT rate, three quarters floored, and to the
-  ACCOUNT's one Renown - `net/professionLaw.js` writRenown). Each writ is filled once, by the first to deliver; at most **3** an
+  1.2, and Renown XP 25 x tier x units / 10 (MERGE 2: at main's RENOWN-ACCOUNT rate, three quarters floored -
+  `net/professionLaw.js` writRenown - and to the delivering character's own track since RENOWN-CHAR; MERGE 2 had paid
+  the ACCOUNT's one Renown). Each writ is filled once, by the first to deliver; at most **3** an
   account a day. (The economy model, Appendix C, set 3 and 1.2: at 5 and 1.5 the Marks minted ran at 2.3 times the
   Marks burnt.)
 - **Guild and seat writs**: their pay is escrowed from the guild's Marks treasury, so posting one is a withdrawal:
@@ -1027,7 +1028,7 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
 ## 20. Rollout, moderation, data
 
 - **Switches**: `PROFESSIONS_OPEN`, `MARKS_OPEN` and `BOARD_OPEN` in the account service's config (off, dev, on); at
-  `dev` only the dev glyph sees them. `MARKS_OPEN` and `BOARD_OPEN` stand (MARKS1, NOTICE1, `server-account/wrangler.toml`), each shipped at `dev`. Season 0 (SEAT0 18) is the professions' beta too: Marks, the Stores and tracks
+  `dev` only the dev glyph sees them. `MARKS_OPEN` and `BOARD_OPEN` stand (MARKS1, NOTICE1, `server-account/wrangler.toml`), each shipped at `dev`; `BOARD_OPEN` is `on` since BOARD-ON (2026-09-29, Mac: "Board now, rest after fixes" - `06-Systems/Online-Arc.md` BOARD-ON), `MARKS_OPEN` and `PROFESSIONS_OPEN` still `dev` until the pack is saved after a professions act and a deleted character's Stores are no longer stranded. Season 0 (SEAT0 18) is the professions' beta too: Marks, the Stores and tracks
   are kept through its wipe.
 - **Moderation**: player notes pass MAIL1's letter law and its filter; moderators (MOD1) remove a note
   (`/note remove <id>`) and may mute its author; a listing may be reported and removed the same way (the goods

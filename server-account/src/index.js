@@ -80,12 +80,12 @@
 //   POST /v1/stores/withdraw { character, material, qty, rid }         -> { ok, material, qty, store } | { repeat, ... }
 //   POST /v1/writs/list { character, region }                          -> { region, day, endsAt, writs, today }
 //   POST /v1/writs/deliver { character, id, rid }                      -> { ok, writ, pay, balance, track, store, today, renown, order } | { repeat, ... }
-// RENOWN1, Renown - RENOWN-ACCOUNT: the ACCOUNT's, one track whichever
-// character earns (a `character` and `name` from an older client are
-// taken and never read); the level rides the token when the mint names
-// the character it brings online:
-//   POST /v1/renown/xp { xp, rid? }       -> { xp, level, credited, rose, order, max?, repeat? }
-//   POST /v1/auth/token { character? }    -> { ..., level, xp }   (RENOWN4: xp, the account's total)
+// RENOWN1, Renown. The caller's own character, by the id its
+// save carries (RENOWN-CHAR: a track a character again - RENOWN-ACCOUNT
+// kept one an account for a day); the level rides the token when the
+// mint names one:
+//   POST /v1/renown/xp { character, xp, name?, rid? } -> { character, xp, level, credited, rose, order, max?, repeat? }
+//   POST /v1/auth/token { character? }    -> { ..., level, xp }   (RENOWN4: xp, the track's total)
 //   (REALM-DOOR: the token says whether that character is one of the account's realm characters, `rc`)
 //
 // ACC2, and every one of them needs a REGISTERED account (the wall):
@@ -137,7 +137,7 @@ import { listSaves, putCard, putBlob, getBlob, deleteSave, saveCardOf } from './
 import { signingKey, gatePublicKey } from './signing.js';
 import { titleWorn, glyphsOf } from './titles.js';
 import { sendLetter, inboxOf, readLetter, deleteLetter } from './letters.js';   // MAIL1: the letters' routes
-import { reportRenownXp, renownTrackOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track - RENOWN-ACCOUNT: the account's one
+import { reportRenownXp, renownTrackOf, renownTracksOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track - RENOWN-CHAR: a character's again
 import { claimRaid, raidRecordOf } from './raids.js';   // RAID4: the towns defended
 import { claimHome, releaseHome, setHomeEntry, homesInTown, homesOf } from './homes.js';   // HOME1: the online homes' routes
 import {
@@ -483,14 +483,15 @@ export default {
         // it runs: a mute that has ended is simply absent.
         const mu = isMuted(who.player, nowS) ? mutedUntil(who.player) : undefined;
         // RENOWN1: AND THE LEVEL, when the client names the character it is
-        // bringing online - RENOWN-ACCOUNT: the ACCOUNT's, derived from its
-        // one track now (1 for an account that has earned nothing yet),
-        // WHICHEVER character is named: the name only says a character is
-        // coming online, and the number is this service's. A mint naming
-        // none (an older build) carries none.
+        // bringing online - that character's, derived from its track now
+        // (1 for a character that has earned nothing yet). The client's
+        // word is only WHICH of its own characters; the number is this
+        // service's. A mint naming none (an older build) carries none.
+        // (RENOWN-CHAR: the named character's again - RENOWN-ACCOUNT read
+        // the account's one track whichever was named.)
         // RENOWN4: and the track's TOTAL beside it in the answer (never in the token - a room needs the level, not the
         // XP): the page's own bar is drawn from it the moment the character comes online (ui/hudRenown.js).
-        const track = renownCharacterOk(body.character) ? ((await renownTrackOf(ctx, who.player.id)) ?? { xp: 0, level: 1 }) : null;
+        const track = renownCharacterOk(body.character) ? ((await renownTrackOf(ctx, who.player.id, body.character)) ?? { xp: 0, level: 1 }) : null;
         const lv = track ? track.level : undefined;
         // GUILD1c: AND THE GUILD, the named character's - its id, its tag and its member row off the roster as it
         // stands now - so a room reads the tag beside the name off the signature, and routes the guild's chat to its
@@ -537,11 +538,10 @@ export default {
         // service's config and clock, which is why it alone takes env.
         return json({
           // DUEL1: and the duelling record, counted off the results (the profile card's K/D); WB5b: and the gates closed
-          // RENOWN1: and Renown (the card's level and its row) - RENOWN-ACCOUNT: the account's one, `{ xp, level }`, or null
-          // while it has earned none (it was a list of the characters' tracks; a card from before it reads no list, and
-          // says nothing, as for a service before RENOWN1)
+          // RENOWN1: and Renown's tracks, the most recently earned first (the card's level and its row) - RENOWN-CHAR: a
+          // list of the characters' tracks again (RENOWN-ACCOUNT sent the account's one, `{ xp, level }`)
           // MARKS1: and the Marks balance, where Marks are this account's (null where not - a guest, the switch)
-          account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), raids: await raidRecordOf(ctx, who.player.id), renown: await renownTrackOf(ctx, who.player.id), marks: await marksCardOf(ctx, who.player, env) },
+          account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), raids: await raidRecordOf(ctx, who.player.id), renown: await renownTracksOf(ctx, who.player.id), marks: await marksCardOf(ctx, who.player, env) },
           wardrobe: accountWardrobe(who.player, env, nowS),
           devices: await devicesOf(ctx, who.player.id),
         }, 200, origin);
@@ -590,12 +590,12 @@ export default {
       }
 
       if (path === '/v1/raid/claim' && request.method === 'POST') {
-        // RAID4: THE ACCOUNT A RAID'S RECEIPT NAMES CARRIES IT HERE, with the character that fought it (RENOWN-ACCOUNT:
-        // its row's record - the Renown is the account's). The relay signed it at the cleanse (src/net/raidReceipt.js);
-        // the session says who is asking, never the body, and raids.js `claimRaid` holds the rest - the signature, the
-        // account, one row a (raid, account), the day's bound, the Renown. A level that ROSE comes back with a signed
-        // order, as a Renown report's does.
-        const r = await claimRaid(ctx, who.player, { receipt: body.receipt, character: body.character ?? null, cid: body.cid ?? null }, await gatePublicKey(env, subtle));   // AUDIT RAID R4: `cid` - the device's claim, which the town's thanks are keyed to
+        // RAID4: THE ACCOUNT A RAID'S RECEIPT NAMES CARRIES IT HERE, with the character that fought it. The relay signed
+        // it at the cleanse (src/net/raidReceipt.js); the session says who is asking, never the body, and raids.js
+        // `claimRaid` holds the rest - the signature, the account, one row a (raid, account), the day's bound, the
+        // Renown (RENOWN-CHAR: the fighting character's again). A level that ROSE comes back with a signed order, as a
+        // Renown report's does.
+        const r = await claimRaid(ctx, who.player, { receipt: body.receipt, character: body.character, name: body.name ?? null, cid: body.cid ?? null }, await gatePublicKey(env, subtle));   // AUDIT RAID R4: `cid` - the device's claim, which the town's thanks are keyed to
         if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, r.error === 'no-gate-key' ? 503 : r.error === 'not-yours' ? 403 : 400, origin);
         let order = null;
         if (r.renown?.rose) {
@@ -606,9 +606,8 @@ export default {
       }
 
       if (path === '/v1/renown/xp' && request.method === 'POST') {
-        // RENOWN1: WHAT THE CALLER EARNED ONLINE - RENOWN-ACCOUNT: credited
-        // to the ACCOUNT, whichever character earned it (a `character` and
-        // `name` from an older client ride the body and are never read). The
+        // RENOWN1: WHAT ONE OF THE CALLER'S CHARACTERS EARNED ONLINE
+        // (RENOWN-CHAR: credited to that character's track again). The
         // account is the session's, never the body's; the bounds are all
         // in renownTracks.js `reportRenownXp`. A level that ROSE comes back
         // with a signed order the client carries to the rooms it is in,
@@ -618,8 +617,8 @@ export default {
         // AUDIT RENOWN1 DATA-4: `rid` the report's own id, so a report sent again because its answer was lost is
         // answered again (`repeat`) rather than credited twice - and a repeat carries an order too, since the
         // answer that was lost may have been the one with the rise in it.
-        const r = await reportRenownXp(ctx, who.player, { xp: body.xp, rid: body.rid ?? null });
-        if (r.error) return no(r.error, 400, origin);
+        const r = await reportRenownXp(ctx, who.player, { character: body.character, xp: body.xp, name: body.name ?? null, rid: body.rid ?? null });
+        if (r.error) return no(r.error, r.error === 'renown-full' ? 409 : 400, origin);
         let order = null;
         if (r.rose || (r.repeat && r.level > 1)) {
           const key = await signingKey(env, subtle);
