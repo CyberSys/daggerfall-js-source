@@ -244,6 +244,7 @@ function walkRig({ sea = () => false, means = null } = {}) {
     partyWalkBegin: () => {}, travelGovernor: { reset: () => {} }, tvTrip: {}, routeDrawPoints: () => [], travelTripLine: () => '',
     tvSeaMeans: () => means, dryLine: (a, b, w) => !w(b.x, b.y) && !w(a.x, a.y), tvSeaAsk: (m, goal) => (m ? { start: m.start, again: m.again, goal } : null),
     tvSeaBegin: (m, kinds) => armed.push([m?.how ?? null, crossesWater(kinds)]), tvSeaNoWay: () => said.push('no way'), crossesWater,
+    travelPathUsesRoads: () => true, TRAVEL_PATH_TEXT: { fellBack: 'fell back' },   // OW-PATH: the Roads mode, the default
   };
   const host = mount(env, `${fnSource('tvMooredDry')}\n${fnSource('travelViewWalkTo')}\nreturn travelViewWalkTo;`);
   return { walkTo: host, begun, armed, said };

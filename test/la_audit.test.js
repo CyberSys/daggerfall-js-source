@@ -182,9 +182,9 @@ test('LA-AUDIT A5: THE CAP FADES IN THE DUNGEONS AND IN THE MOD\'S TOWNS - capFa
   assert.equal(capFadePairs(lit, 3, pos, 3, colors), null, 'the hand fills the cap');
   const wm = rd('src/scenes/worldModes.js'), dg = rd('src/scenes/dungeon.js'), w = rd('src/scenes/world.js');
   assert.match(wm, /const _dgFade = !!renderer\.lightingLane && !isGateArena\(dungeonLoc\);/);
-  assert.match(wm, /const _dgNear = nearestLights\(dungeonCtx\.lights, cam\.pos, renderer\.maxPointLights \+ \(_dgFade \? 1 : 0\), /);
+  assert.match(wm, /const _dgNear = _iilDg \? nearestLights\(_iilDg\.lights, cam\.pos, renderer\.maxPointLights, _iilDg\.ranges, _iilDg\.colorOf\) : nearestLights\(dungeonCtx\.lights, cam\.pos, renderer\.maxPointLights \+ \(_dgFade \? 1 : 0\), /);
   assert.match(wm, /renderer\.setPointLights\(_dgLit\.data, null, \(_dgFade && capFadePairs\(_dgLit\.data, _dgLit\.data\.length \/ 4 - _dgNear\.data\.length \/ 4, cam\.pos, renderer\.maxPointLights, _dgLit\.colors\)\) \|\| _dgLit\.colors\);/);
-  assert.match(dg, /const _near = nearestLights\(ctx\.lights, cam\.pos, renderer\.maxPointLights \+ \(renderer\.lightingLane \? 1 : 0\), /);
+  assert.match(dg, /const _near = _iilDg \? [^\n]*: nearestLights\(ctx\.lights, cam\.pos, renderer\.maxPointLights \+ \(renderer\.lightingLane \? 1 : 0\), /);
   assert.match(dg, /renderer\.setPointLights\(_lit, DUNGEON_LANTERN_F32, renderer\.lightingLane \? capFadeColors\(_lit, _lit\.length \/ 4 - _near\.length \/ 4, cam\.pos, renderer\.maxPointLights, DUNGEON_LANTERN_F32\) : null\);/);
   assert.match(w, /return nearestLights\(_sceneLights, cam\.pos, renderer\.maxPointLights \+ \(renderer\.lightingLane \? 1 : 0\), _litRanges, \(l, i\) =>/);
   assert.match(w, /renderer\.setPointLights\(data, CITY_LIGHT_COLOR_F32, \(renderer\.lightingLane && capFadePairs\(data, lead, cam\.pos, renderer\.maxPointLights, colors\)\) \|\| colors\);/);

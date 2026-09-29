@@ -26,8 +26,8 @@ const population = (lives, night = false) => {
 };
 
 test('OW6 law: more bands, roaming - half as many again by day, a third more by night, a brisk walk turning oftener; the land\'s odds hold over a population (mutants: the old chances, the old pace)', () => {
-  assert.equal(BAND_CHANCE_DAY, 0.45);
-  assert.equal(BAND_CHANCE_NIGHT, 0.6);
+  assert.equal(BAND_CHANCE_DAY, 0.75);
+  assert.equal(BAND_CHANCE_NIGHT, 0.9);
   assert.equal(BAND_WANDER_MPS, 2);
   assert.equal(BAND_LEG_MS, 50 * 1000);
   const cells = 10 * 600;

@@ -145,7 +145,7 @@ test('DISC19-B: the world host\'s dungeon frame lights the DUNGEON engine\'s can
   assert.ok(at > 0 && branch.includes('dungeonCtx.drawFoes('), 'the branch was found whole');
   const lights = branch.slice(branch.indexOf('const _dgLit = withPlayerLights('));
   assert.match(lights.slice(0, lights.indexOf('renderer.setClearColor')), /^const _dgLit = withPlayerLights\(\n(?:\s*\/\/[^\n]*\n)*\s*_dgNear,[^\n]*\n\s*abyssCandle\(dungeonCtx\.candleLight\(\), _abyss\), _abyss\?\.torchOff \? null : _dgTint\(playerTorchLight\(/);   // AUDIT DISC19: the pair channel, the candle untinted (LA-AUDIT A5: the selection is _dgNear, one past the cap for its fade; OH-E: the abyss's half, off its own white)
-  assert.match(branch, /const _dgNear = nearestLights\(dungeonCtx\.lights, [^\n]*, \(\) => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE\);/, 'the selection rides the pair channel');
+  assert.match(branch, /const _dgNear = _iilDg \? [^\n]*: nearestLights\(dungeonCtx\.lights, [^\n]*, \(\) => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE\);/, 'the selection rides the pair channel');
   assert.ok(!branch.includes('magic?.candleLight()') && !branch.includes('magic.candleLight()'), 'this host\'s own engine is not updated underground');
   assert.ok(!/\bmagic\??\.update\(/.test(branch), 'and nothing here updates it - so its candle is never the dungeon\'s');
   assert.match(rd('src/scenes/dungeonContext.js'), /candleLight: \(\) => magic\.candleLight\(\),/, 'the context hands out its own engine\'s candle');

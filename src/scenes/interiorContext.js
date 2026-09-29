@@ -16,6 +16,7 @@
 //   - a fresh Collider over every placement and action-door mesh,
 //   - enter markers and interior static doors for the landing math.
 
+import { IIL_FIREPLACE_MODELS } from '../systems/improvedInteriorLighting.js';   // IIL1
 import { FlatAnimator, armFlatAnim } from '../render/flatAnimation.js';   // FA1: the flats that move
 import { layoutInterior, INTERIOR_MARKER, PROP_MODEL_TYPE } from '../world/interiorLayout.js';
 import { multiply, transformPoint, identity } from '../world/mat4.js';
@@ -331,6 +332,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
   // and put back while the room stands (scenes/decorBase.js). Every other room is built as it always was. The ladder and
   // the mill's machinery are the building's workings, not its furniture.
   const base = opts.baseEditable ? createBaseRoom({ drawList, batches: () => billboardBatches, lights: () => lights, collider }) : null;
+  const iilFireplaces = [];   // IIL1: the fireplace models' centres (Improved Interior Lighting)
   for (const [pi, p] of interior.placements.entries()) {
     const matrix = parent(p.matrix);
     // NEVER TRAPS: getGpuMesh returns NULL for a model id this data set
@@ -361,6 +363,8 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       floorMaterials.push(unityMaterialName(a, r));
     }
     const aabb = worldAabb(cpu.positions, matrix);
+    // IIL1: ImproveFireplaces.cs finds its hearths by mesh id - the port keeps where they stand
+    if (IIL_FIREPLACE_MODELS.has(p.modelIdNum)) iilFireplaces.push({ x: (aabb.min[0] + aabb.max[0]) / 2, y: (aabb.min[1] + aabb.max[1]) / 2, z: (aabb.min[2] + aabb.max[2]) / 2 });
     const key = `int:${pi}`;
     const baseKey = base && p.objectType === PROP_MODEL_TYPE && p.modelIdNum !== LADDER_MODEL_ID && p.modelIdNum !== MACHINERY_MODEL_ID
       ? decorBaseModelKey(pi, p.modelIdNum) : null;   // BASE-HIDE: a piece its owner may take out
@@ -824,6 +828,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     rotors,      // WM4b: the machinery's moving parts; the host turns and draws them
     parentPt,   // Q4-v: the quest mount parents marker positions through the same transform
     lights,
+    iilFireplaces,   // IIL1
     texRemap,
     floorMaterials,   // IF1: the combined mesh's material names, for Immersive Footsteps' floor walk
     markers,
