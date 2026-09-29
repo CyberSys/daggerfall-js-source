@@ -6744,7 +6744,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:492-497) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1525-1543) gives it -
+    // got exactly what removeGuard (cityGuards.js:1532-1550) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
     // (cityGuards.js:979) and spliced out at the end of it (:1169).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
@@ -20896,7 +20896,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1256). DFU makes no pool distinction:
+        // (cityGuards.js:1259). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.
@@ -20962,9 +20962,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const guardHitSound = (g) => audio.play3d(hitSoundFor(weaponRig.playerWeapon.strikingWeapon), g.ai.feet, ENEMY_HIT_VOLUME, { maxDistance: 16 });   // DISC10-E: PlayHitSound(currentRightHandWeapon) (WeaponManager.cs:563-566) - the hand's item, never the claws marker
         // AUDIT 23 (combat-4): the host-side double tallies are gone -
         // resolvePlayerHit runs DFU's tally arm itself.
-        // DISC19-F: the town's defenders are spared on the watch's pass and
-        // offered alone once the monsters' pool missed - friendly
-        // protection across the two pools (cityGuards.resolvePlayerHit).
+        // DISC19-F / FB0929: under friendly protection the watch's pool
+        // spares the town's defenders on every pass (cityGuards
+        // .resolvePlayerHit) - no pass offers them the swing alone.
         // AUDIT DISC19: `swing` is the one swing's token - the attack
         // grunt rolls in the first pool that has anyone, not in each.
         const swing = {};
@@ -20973,12 +20973,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (duelMeleeHit(cam.pos, makeInView(proj, view, multiply))) {
           tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
           surfacePlayer();
-        } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { spareDefenders: true, swing })) {
+        } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // X-slice: encounter foes resolve after the watch, before civilians
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
             tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
             surfacePlayer();
-          } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { defendersOnly: true, swing }))
+          } else
           cityGuards.resolveCivilianHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, _guardPool(),
             { onMurder: () => _crimeResponse(), onHitSound: guardHitSound, swing }).then((r) => {
             if (r?.carriedHit) tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);

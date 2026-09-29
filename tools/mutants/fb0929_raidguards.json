@@ -1,0 +1,47 @@
+[
+  {
+    "name": "FB0929-spare-only-a-pacified-defender",
+    "file": "src/scenes/cityGuards.js",
+    "old": "const live = guards.filter((g) => !g.dead && !(protect && g.defender));",
+    "new": "const live = guards.filter((g) => !g.dead && !(protect && g.defender && g.ai.isHostile === false));",
+    "tests": [
+      "test/fb0929_raidguards.test.js"
+    ]
+  },
+  {
+    "name": "FB0929-spare-whatever-the-setting",
+    "file": "src/scenes/cityGuards.js",
+    "old": "const live = guards.filter((g) => !g.dead && !(protect && g.defender));",
+    "new": "const live = guards.filter((g) => !g.dead && !g.defender);",
+    "tests": [
+      "test/fb0929_raidguards.test.js"
+    ]
+  },
+  {
+    "name": "FB0929-no-body-on-the-ray-stays-the-swing",
+    "file": "src/scenes/cityGuards.js",
+    "old": "    if (guards.some((g) => !g.dead && g.defender && rayPersonDistance(eye, lookDir, g.ai.feet) < bestD)) return false;\n",
+    "new": "",
+    "tests": [
+      "test/fb0929_raidguards.test.js"
+    ]
+  },
+  {
+    "name": "FB0929-the-defender-behind-stays-it",
+    "file": "src/scenes/cityGuards.js",
+    "old": "rayPersonDistance(eye, lookDir, g.ai.feet) < bestD)) return false;",
+    "new": "rayPersonDistance(eye, lookDir, g.ai.feet) > bestD)) return false;",
+    "tests": [
+      "test/fb0929_raidguards.test.js"
+    ]
+  },
+  {
+    "name": "FB0929-a-dismissed-defender-still-stays-it",
+    "file": "src/scenes/cityGuards.js",
+    "old": "guards.some((g) => !g.dead && g.defender && rayPersonDistance(",
+    "new": "guards.some((g) => g.defender && rayPersonDistance(",
+    "tests": [
+      "test/fb0929_raidguards.test.js"
+    ]
+  }
+]

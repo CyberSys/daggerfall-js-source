@@ -1172,22 +1172,25 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
 
   /** The player's swing resolves against live guards (the dungeon's
    *  resolvePlayerHit shape over playerWeapon.resolveHit). */
-  function resolvePlayerHit(playerWeapon, eye, lookDir, playerFeet, inViewFn, onHitSound, { spareDefenders = false, defendersOnly = false, swing = null } = {}) {
+  function resolvePlayerHit(playerWeapon, eye, lookDir, playerFeet, inViewFn, onHitSound, { swing = null } = {}) {
     if (inViewFn) _lastInView = inViewFn;   // the assault-carry swing below reaches here without one
     const view = inViewFn ?? _lastInView;
-    // DISC19-F: THE DEFENDERS ARE PROTECTED ACROSS POOLS. MeleeDamage's
-    // friendly protection strikes a PlayerAlly only when nothing else is
-    // in front of the player (WeaponManager.cs:930-944, :1057-1064), but
-    // the host resolves this pool BEFORE the monsters' - so a defender in
-    // reach beside the centaur was the only thing in THIS pool and took
-    // the swing meant for the monster. The host spares them on the first
-    // pass and offers them alone after the monsters' pool missed. The
-    // protection is a setting (AUDIT DISC19): with it off DFU's pass
-    // strikes an ally like anything else, so the first pass keeps them
-    // and the second has nothing left to offer.
+    // DISC19-F / FB0929: UNDER FRIENDLY PROTECTION A DEFENDER TAKES NONE
+    // OF THE SWING, whatever pass a host makes - as he takes none of the
+    // player's spells, shafts and torches (AUDIT DISC19 W4). The host
+    // resolves this pool BEFORE the monsters', so a defender in reach
+    // beside the centaur took the swing meant for it; the pass that then
+    // offered the defenders alone handed them to resolveHit's protected
+    // fallback, whose nearest-in-reach stand-in for DFU's look ray
+    // (WeaponManager.cs:1057-1064, Audit 28) put every swing that met no
+    // raider on a defender - and a blow on one is Assault (the door
+    // below), so a raid's squad arrested the player holding the town
+    // (Discord, 2026-09-29). DFU's ray would still strike an ally alone
+    // in front: Port-Ledger A. The protection is a setting (AUDIT
+    // DISC19): with it off DFU's box pass strikes an ally like anything
+    // else.
     const protect = getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection');
-    if (defendersOnly && !protect) return false;
-    const live = guards.filter((g) => !g.dead && (defendersOnly ? g.defender : !(spareDefenders && protect && g.defender)));
+    const live = guards.filter((g) => !g.dead && !(protect && g.defender));
     if (!live.length) return false;
     const canSee = (g) => {
       const c = [g.ai.feet[0], g.ai.feet[1] + (g.ai.height ?? 1.8) / 2, g.ai.feet[2]];   // REVIEW 2026-09-05: the watchman's own capsule centre
@@ -1291,6 +1294,10 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     if (!best || bestD > WEAPON_REACH) return false;
     const wall = collider.raycast(eye, lookDir, bestD);
     if (Number.isFinite(wall) && wall < bestD - 1e-3) return false;   // occluded
+    // FB0929: a defender the swing spared (resolvePlayerHit) standing on
+    // the ray in front of the person is the body DFU's SphereCast meets
+    // first (WeaponManager.cs:1057-1064) - the swing stops on him.
+    if (guards.some((g) => !g.dead && g.defender && rayPersonDistance(eye, lookDir, g.ai.feet) < bestD)) return false;
     if (!best.guard) {
       // WeaponManager.cs:504-508 - murdering a wandering civilian
       // splashes record 0, NOT a BloodIndex: a MobilePersonNPC has no

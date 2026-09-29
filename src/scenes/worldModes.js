@@ -8230,7 +8230,7 @@ export function createWorldModes(host) {
         // (cityGuards.js:732-737), so this seam splits by pool exactly
         // as `dealDamage` above it does rather than dropping the
         // non-encounter half - the zero-damage SWING already reaches
-        // that door (cityGuards.js:1256) and the shaft owes the same.
+        // that door (cityGuards.js:1259) and the shaft owes the same.
         onAttackFromPlayer: (f) => (f._encounter
           ? interiorFoes?.attackFromPlayer(f, player.pos, 'arrow')   // AUDIT WORLD6b-iii(e) A2: the pool's one door, the shaft's kind on it
           : interiorGuards?.handleAttackFromPlayer(f, player.pos)),
