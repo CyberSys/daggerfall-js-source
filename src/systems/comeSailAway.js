@@ -1566,19 +1566,27 @@ export function createComeSailAwayRuntime(deps) {
   /** portSearchRange (276): LoadSettings' Controls/PortLocationSearchRange (823), read live. */
   const portSearchRange = () => Number(setting('Controls.PortLocationSearchRange', 3)) | 0;
   /**
-   * IsNearPort (1095-1117): a location with a port within the square round the player's pixel - the C#'s loops run
-   * from X - range while `< X + range - 1`, so the square reaches range pixels west and north and range - 2 east and
-   * south (kept); the `break` leaves the inner loop only (kept: the answer is the same).
+   * IsNearPort (1095-1117): a location with a port within the square round the player's pixel. FIELD BUGS 29h
+   * (DEED-PORT, the port's own; Swordsman: "I have been ALL over the coast trying to drop my boat at a port ... it
+   * tells me I'm not near a port"; Mac: "Dont worry abour DFU"): the square is CENTRED on the player now, `range`
+   * pixels every way. The C#'s loops ran from X - range while `< X + range - 1` - range pixels west and north, range - 2
+   * east and south - so a port two pixels east or south was never near, and a range of 1 never asked the player's own.
    */
   function IsNearPort(range = 3) {
-    let result = false;
     const currentMapPixel = deps.currentMapPixel();
-    for (let i = currentMapPixel.X - range; i < currentMapPixel.X + range - 1; i++) {
-      for (let j = currentMapPixel.Y - range; j < currentMapPixel.Y + range - 1; j++) {
-        if (deps.isPortTown?.(i, j)) { result = true; break; }
+    for (let i = currentMapPixel.X - range; i <= currentMapPixel.X + range; i++) {
+      for (let j = currentMapPixel.Y - range; j <= currentMapPixel.Y + range; j++) {
+        if (deps.isPortTown?.(i, j)) return true;
       }
     }
-    return result;
+    return false;
+  }
+  /** DEED-PORT: a refusal for want of a port says where one is - the host's nearest (`deps.nearestPort`: its name and
+   *  the way to it), the mod's own line alone where the host names none; long enough on screen to be read. */
+  function sayNoPort(text) {
+    const near = deps.nearestPort?.() ?? null;
+    if (near) deps.midScreenText(`${text}. The nearest port is ${near.name}, to the ${near.way}`, f(4));
+    else deps.midScreenText(text, f(1.5));
   }
   /**
    * PackBoat (6130-6158): as an item, the boat's parts - `hull * 10 + variant`, the hull's price and weight, its name
@@ -1623,7 +1631,7 @@ export function createComeSailAwayRuntime(deps) {
    *  number, over the top window. */
   function OpenBoatVariantPicker(boat) {
     if (boat.VariantObject == null || boat.GetVariantCount < 1) { deps.midScreenText('This boat has no variants', f(1.5)); return; }
-    if (!IsNearPort(portSearchRange())) { deps.midScreenText('There is no port nearby', f(1.5)); return; }
+    if (!IsNearPort(portSearchRange())) { sayNoPort('There is no port nearby'); return; }
     state.variantBoatTarget = boat;
     const rows = [];
     for (let i = 0; i < boat.GetVariantCount; i++) rows.push(String(i));
@@ -1658,11 +1666,11 @@ export function createComeSailAwayRuntime(deps) {
     if (placedBoatWithUID != null) {
       const here = deps.currentMapPixel();
       if ((placedBoatWithUID.MapPixel?.X !== here.X || placedBoatWithUID.MapPixel?.Y !== here.Y) && !IsNearPort(portSearchRange())) {
-        deps.midScreenText('There is no port nearby or ship is in another location', f(1.5));
+        sayNoPort('There is no port nearby or ship is in another location');
         return false;
       }
     } else if (!IsNearPort(portSearchRange())) {
-      deps.midScreenText('There is no port nearby', f(1.5));
+      sayNoPort('There is no port nearby');
       return false;
     }
     StartPlacing(item, collection);

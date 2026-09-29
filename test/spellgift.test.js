@@ -191,7 +191,13 @@ test('AUDIT SPELL-GIFT B6: a STRANGER\'s Cure Disease leaves an incubating infec
   const p1 = infected();
   magicRig(p1).magic.applySpellToPlayer(cure, 10, null, { allyCast: true, strangerCast: true });
   assert.deepEqual(p1.activeEffects.filter((a) => a.kind === 'disease').map((a) => !!a.infection), [true], 'the infection stays, the plain disease is cured');
+  magicRig(p1).magic.applySpellToPlayer(cure, 10, null, { allyCast: true, strangerCast: true });
+  assert.deepEqual(p1.activeEffects.filter((a) => a.kind === 'disease').map((a) => !!a.infection), [true], 'the infection alone: a stranger\'s still leaves it');
   const p2 = infected();
   magicRig(p2).magic.applySpellToPlayer(cure, 10, null, { allyCast: true, strangerCast: false });
-  assert.equal(p2.activeEffects.filter((a) => a.kind === 'disease').length, 0, 'a mate\'s cures both');
+  // FIELD BUGS 29h (INFECTION-KEPT; Mac: "Dont worry abour DFU"): PIN MOVED - a mate's cure takes the plain disease
+  // first, as every cure does, and the infection when it is all there is
+  assert.deepEqual(p2.activeEffects.filter((a) => a.kind === 'disease').map((a) => !!a.infection), [true], 'a mate\'s first cure takes the plain disease');
+  magicRig(p2).magic.applySpellToPlayer(cure, 10, null, { allyCast: true, strangerCast: false });
+  assert.equal(p2.activeEffects.filter((a) => a.kind === 'disease').length, 0, 'a mate\'s second cures the infection, as ever');
 });

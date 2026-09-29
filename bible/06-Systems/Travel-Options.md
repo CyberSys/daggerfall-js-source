@@ -337,6 +337,11 @@ must be assigned there, never re-declared. Mutants
    ignores it. Offline the spinner buys real time and charges game-days;
    online it buys both. Named here rather than capped: capping it would
    be an online rule, and this slice was asked not to make one.
+   [SUPERSEDED for the character's clock by FIELD BUGS 2026-09-29h
+   WALK-CLOCK (Mac: *"Dont worry abour DFU."*): online the journey's
+   minutes past the world's are raised on the character's own clock
+   (LIVED1), so the traveller lives the ride's days as offline; the
+   world's clock still moves its real minutes alone.]
 
    AUDITED BEFORE MERGE, and one consequence named rather than fixed.
    The journey machinery itself is online-agnostic - `travelOptions`,
@@ -762,7 +767,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:643-646`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:10836 -
+`locationTileRect` answered null for the neighbour (world.js:10859 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read

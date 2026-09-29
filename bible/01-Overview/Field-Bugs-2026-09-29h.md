@@ -2,24 +2,25 @@
 
 Eleven screenshots of the Discord's #bug-reports, through Mac. The rule for a batch like it: every report root-caused
 on the real modules, the port's own faults fixed and pinned, and what is Daggerfall's own (or a mod's), or a design
-call, said plainly and left to Mac. The letter after the date is this batch's own: PR #452 holds 29g.
+call, said plainly and left to Mac. The letter after the date is this batch's own: PR #452 holds 29g. Mac, on the
+first answer's three "Daggerfall's own" (2, 4, 8): *"Dont worry abour DFU."* - so they are fixed too, as departures.
 
 | | Report | Reporter | What it was | Done |
 |---|---|---|---|---|
 | 1 | "(Mobile) Can't accept terms of entry for palaces. The onscreen keyboard won't pop up" | QuinsmQuansm | a castle is the world host's dungeon mode, and the host's `overlayActive` read the town's window slot and the travel view, never the modes' own stacks: the touch layer's nav row - its abc field (the phone's keyboard) and its Return - never stood over the guard's box | fixed (TOUCH-HELD) |
-| 2 | "Boat deed not working in port towns ... it tells me I'm not near a port" | Swordsman | Come Sail Away's own IsNearPort, ported 1:1: a location MAPS.BSA flags PortTownAndUnknown (343 of 15,251) inside a square three pixels west and north of the player and one east and south; the map's harbours are Travel Options' list, 35 of whose 378 carry no flag; no pane sets the range | the mod's own; for Mac |
+| 2 | "Boat deed not working in port towns ... it tells me I'm not near a port" | Swordsman | Come Sail Away's own IsNearPort, ported 1:1: a location MAPS.BSA flags PortTownAndUnknown (343 of 15,251) inside a square three pixels west and north of the player and one east and south; the map's harbours are Travel Options' list, 35 of whose 378 carry no flag; the refusal named no port | fixed, a departure (DEED-PORT) |
 | 3 | "Boat Noises at Kinging Court ... the large boats floating underneath the town ... They'll likely need to be de-spawned" | Julian (weerdo27) | two Large Boats the port lost before FIELD-CSA1 (a respawn's teleport left them in the old frame's numbers - under the town), kept in the save where they stood and restored there, their loops heard whenever the pixel is near; the deed of a Large Boat is spent on placing | fixed (LOST-BOAT) |
-| 4 | "Lycanthropy still tied to server clock ... resting did not progress the disease ... I had gotten another disease ... and had to cure it which likely wiped my lycanthropy progress" | Julian | no clock fault: the infection is stamped and read on the character's own clock and an online rest moves it (LIVED1, `test/lived1.test.js`); the cure ended it - DFU's own law, an infection is a disease bundle and Cure Disease ends every one | Daggerfall's own; said |
+| 4 | "Lycanthropy still tied to server clock ... resting did not progress the disease ... I had gotten another disease ... and had to cure it which likely wiped my lycanthropy progress" | Julian | no clock fault: the infection is stamped and read on the character's own clock and an online rest moves it (LIVED1, `test/lived1.test.js`); the cure ended it - DFU's own law, an infection is a disease bundle and Cure Disease ends every one | fixed, a departure (INFECTION-KEPT) |
 | 5 | "Elite Dungeons that despawn stay on map ... no entrance anymore but are still marked on overworld map" | Cruor | the Overworld's `tvSpawnGone` excused a spawn on any BUILT pixel - and a pixel built after the spawn's clock ran out is built empty | fixed (SPAWN-PLATE) |
 | 6 | "The interior lighting flickers and shadows are cast through walls. The MG is especially noticeable" (with MD-Geist: switch Enhanced Lighting off; LostMyLeg: the Improved Interior Lighting patch "as a 2nd option") | Kristian B | the same report 28f answered (DISC29-E), fixed by PR #418 the morning after it was posted; what it left is a carried light's leak through a wall; the second option shipped as Modded lighting (PR #437) | nothing new; said |
 | 7 | "I hit rank 4 (Curate) in the temple of Stendarr ... Bookshelves were telling me I was the wrong rank" | ThetaDecay | the shelf read the building faction's own `ggroup` - a temple's is its divine's, None - instead of GetGuildGroup's walk to the templar child: every temple shelf refused every member at every rank | fixed (TEMPLE-SHELF) |
-| 8 | "Guild rank time not advancing (online) ... traveling back and forth between towns, which took 32 total days" | ThetaDecay | the 28 days are DFU's (Guild.cs), stamped and read on the character's clock (LIVED1): an instant trip (Inns, Ship) counts its days; a walked one online (Camp Out, the Overworld) counts the real minutes it took - AUDIT LIVED1's and LIVED1b's open question; and until LIVED1 the wait never held online at all | for Mac |
+| 8 | "Guild rank time not advancing (online) ... traveling back and forth between towns, which took 32 total days" | ThetaDecay | the 28 days are DFU's (Guild.cs), stamped and read on the character's clock (LIVED1): an instant trip (Inns, Ship) counts its days; a walked one online (Camp Out, the Overworld) counted the real minutes it took - AUDIT LIVED1's and LIVED1b's open question; and until LIVED1 the wait never held online at all | fixed, a departure (WALK-CLOCK) |
 | 9 | "Bounty targets can spawn in inaccessible parts of dungeons" | Skibbster | a dungeon hunt's lair was anchored on any of the dungeon's own foes, and a foe stands at every enemy marker of every block - sealed rooms, water, the far side of a held door | fixed (BOUNTY-LAIR) |
 | 10 | "I'm stuck in a perpetual 'World: Sign in to play online' & 'World: Connecting' state ... I am currently updated" | MD-Geist | "sign in to play online" is the relay's refusal of a hello with no token; the client waited ACC1d's 2.5 s for its token, a budget set when an unsigned hello still got in - ACC1g made it a refusal and left the budget, so a token slower than 2.5 s was a refusal every time, and the World link's rejoin every thirty seconds met it again | fixed (TOKEN-WAIT) |
 | 11 | "CRASH (2) ReferenceError: Cannot access 'be' before initialization" at `world-BEJ_VH7s.js:1690:4227`, from HTMLDocument | Joctaed | the realm's page-hide hook read `online` (`be`) while `bootWorld` still waited on the quest pack, 1,900 lines before `let online` | fixed (BOOT-HIDE) |
 
-Pins: `test/fb0929h_{boothide,touchheld,templeshelf,spawnplate,tokenwait,bountylair,lostboat}.test.js` (19), each red
-on the code before it. Mutants: `tools/mutants/fb0929h_*.json`, 39 records, 39 dead.
+Pins: `test/fb0929h_{boothide,touchheld,templeshelf,spawnplate,tokenwait,bountylair,lostboat,infectionkept,walkclock,
+deedport}.test.js` (27), each red on the code before it. Mutants: `tools/mutants/fb0929h_*.json`, 57 records, 57 dead.
 
 ## BOOT-HIDE: the checkpoint's doors stand below what they read (11)
 
@@ -146,19 +147,61 @@ Boats under a town given back, a boat afloat (and on a recentred sea) kept, a ke
 the seabed given back, a boat whose ground is not built asked when it is, a boat asked once, the pixel's row read
 against the scene's z.
 
+## INFECTION-KEPT: a cure takes the plain diseases first (4)
+
+**Reproduced.** Rested hours online gave the dream at 23 hours and the turn at 95 with the world's clock still: the
+incubation is the character's (LIVED1), and no clock held it. The cure of the dungeon's disease ended it -
+`cureAllDiseases` ends every `kind: 'disease'` bundle, as DFU's CureAllDiseases does, and an infection is a disease
+bundle there (`systems/infection.js`). What stays on the world's clock is the full moon alone, by LIVED1's design.
+
+**The fix** (Mac: *"Dont worry abour DFU."*; Port-Ledger A). A cure of disease takes the plain diseases first: while
+one runs, the cure - the temple's paid and holiday arms (`guildServiceActions.js`), a Cure Disease cast or potion
+(`effects.js`) - ends the plain ones and leaves a lycanthropy or vampirism infection to its turn; a cure with nothing
+else to end ends the infection, so a bitten player who does not want the curse still cures it before the turn, as in
+the classic game. The temple prices what the cure takes (`curableDiseaseCount`): the plague beside an infection is one
+disease's price. A stranger's cast still never ends it (AUDIT SPELL-GIFT B6), and the turn's CureAll of the old life
+(`lycanthropy.js` endOldLifeEffects) still ends every disease. `test/fb0929h_infectionkept.test.js` (3): the report's
+sequence through the real temple (bitten, the dream, the plague, the cure, the turn on the fourth day), the escape at
+the temple, on a holiday and cast, and the turn; the `infection`, `spellgift` and `audit27d` pins moved (a mate's first
+cure takes the plague, a second the infection) and B6's record re-aimed.
+
+## WALK-CLOCK: online, a journey's hours are the traveller's (8)
+
+**Reproduced.** An instant trip of 32 days opened the wait; thirty real minutes walked at x40 online added a quarter of
+a day to the character's clock (offline, ten). Before LIVED1 (from WORLD5, 2026-09-14) the wait never held online at
+all - the old arrival shift clamped `lastRankChange` in the classic day's units, far under `daySinceZero`'s - so the
+wait itself is new to online players.
+
+**Why.** A guild's 28 days (Guild.cs) are stamped and read on the character's own clock (LIVED1). Online the shared
+clock is the world's and moves for nobody (WORLD5), and the frame's tick read it alone, so an accelerated journey
+charged the character's clock its real minutes: thirty-two days on the map were hours lived, and the guild's wait, an
+infection's days and every need stood still behind them (AUDIT LIVED1 For Mac 2, AUDIT LIVED1b For Mac 5).
+
+**The fix** (Mac: *"Dont worry abour DFU."*; Port-Ledger A). Online, while the clock is accelerated (a Travel Options
+journey, the Overworld's walk, the helm's time scale), the frame raises its minutes past the world's on the
+character's own clock (`walkRaise`, handed to `playerTicker.tick` - LIVED1's door a rest already uses, so the needs,
+the rounds and the letters walk them); the world's clock still moves its real minutes alone, and offline nothing
+changes. No faster than a rest already moves it. `test/fb0929h_walkclock.test.js` (2): the frame's own raise lifted off
+world.js, and thirty-two days at x40 through the real ticker - the character lives them and a rank's wait opens.
+
+## DEED-PORT: the deed asks the map's harbours, round the player (2)
+
+**Why.** Come Sail Away's IsNearPort, ported loop for loop by CSA-H (`03-World/Come-Sail-Away.md`, Variants and
+ports): from X - range while below X + range - 1 on each axis - three pixels west and north at the default, one east
+and south, so a flagged port two pixels east or south was never near - asking MAPS.BSA's PortTownAndUnknown byte, which
+343 of 15,251 locations carry. What the map draws as a harbour is Travel Options' list (`systems/travelPorts.js`), and
+35 of its 378 carry no byte. The refusal said nothing of where to go. No water is asked: the reporter's guess (the
+coast pushed back) is not it.
+
+**The fix** (Mac: *"Dont worry abour DFU."*; Port-Ledger A). The square is centred on the player (range pixels every
+way: 7 x 7 at the default); a harbour the map draws is a port beside a flagged location (`csaIsPortTown`, which the
+naval shipwright and the port traffic read too); a refusal of the deed or the variant box names the nearest harbour and
+the way to it ("There is no port nearby. The nearest port is Daggerfall, to the north-west"). The range is still the
+mod's slider (1-10, 3). `test/fb0929h_deedport.test.js` (3): the host's port test and nearest-port finder lifted off
+world.js over the real port list, and the runtime's square and refusal; CSA-H's square pin and four of its records
+re-aimed.
+
 ## Said, not changed
-
-**2 - the deed's port.** Come Sail Away's IsNearPort is ported loop for loop (`03-World/Come-Sail-Away.md`, Variants
-and ports): from X - range while below X + range - 1 on each axis - three pixels west and north at the default, one east
-and south - asking MAPS.BSA's PortTownAndUnknown byte, which 343 of 15,251 locations carry. Nothing in it has changed
-since CSA-H; the reporter's guess (the coast pushed back) is not it - no water is asked. What the map draws as a harbour
-is Travel Options' list (`systems/travelPorts.js`), and 35 of its 378 carry no byte. The range is the mod's slider
-(1-10, 3), not in the Features pane.
-
-**4 - the infection.** Reproduced: rested hours online gave the dream at 23 hours and the turn at 95 with the world's
-clock still. The cure of the dungeon's disease ended the infection - `cureAllDiseases` ends every `kind: 'disease'`
-bundle, as DFU's CureAllDiseases does (the infection is a disease bundle there). What stays on the world's clock is the
-full moon alone, by LIVED1's design.
 
 **6 - the lighting.** Kristian B's thread is 28f's DISC29-E; its fixes merged in PR #418 (2026-09-29, 05:55 EDT), the
 morning after it was posted. A desktop build from before (macOS and the portable exe do not update themselves) shows
@@ -166,22 +209,14 @@ all of it still. What DISC29-E left is the fourth cause: a carried light (a torc
 torch) has no shadow map and lights through a wall. The second option shipped as Modded lighting (PR #437), which acts
 with Enhanced lighting off (its patch notes say so; its Features note does not).
 
-**8 - the rank wait.** Reproduced: an instant trip of 32 days opened the wait; thirty real minutes walked at x40 online
-added a quarter of a day to the character's clock (offline, ten). Before LIVED1 (from WORLD5, 2026-09-14) the wait never
-held online at all - the old arrival shift clamped `lastRankChange` in the classic day's units, far under
-`daySinceZero`'s - so the wait itself is new to online players.
-
 ## For Mac
 
-1. **The deed's port (2).** Four ways, any of them a departure from the mod: the range at 5 (the reporter's ask) or in
-   the Features pane; the square centred on the player; Travel Options' harbours counted as ports; the refusal naming
-   the nearest port.
-2. **A walked journey online (8).** Should Camp Out and an Overworld journey count on the character's own clock at
-   their speed, as a rest does? (AUDIT LIVED1 For Mac 2, AUDIT LIVED1b For Mac 5.) And a question for the reporter:
-   Inns, Ship or Camp Out?
-3. **A carried light's shadow (6).** DISC29-E's cost question, open.
-4. **A crewed hull lost before FIELD-CSA1 (3)** still plays where it stands until its deed calls it to a port.
-5. **The World line (10).** If it goes on for MD-Geist after this ships, their console now says which: no sign-in
+1. **The cure's order (4).** A cure takes the plain diseases first and an infection only when it is all that is left,
+   so a player with both who wants rid of the curse cures twice (the temple prices each). The other way - no cure ends
+   an infection before the turn - would take away the classic escape.
+2. **A carried light's shadow (6).** DISC29-E's cost question, open.
+3. **A crewed hull lost before FIELD-CSA1 (3)** still plays where it stands until its deed calls it to a port.
+4. **The World line (10).** If it goes on for MD-Geist after this ships, their console now says which: no sign-in
    stored, the service's refusal and its status, or a token slower than 8 s.
 
 Found on the way, not changed: a spawn stood on the boot's own pixel before the spawn clock starts gets no ledger row,

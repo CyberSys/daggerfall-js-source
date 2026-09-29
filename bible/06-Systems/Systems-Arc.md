@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9403` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9426` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -6512,7 +6512,7 @@ settles it: DFU draws both rolls, so the line goes.
 **REVIEW ROUND (2026-09-08).** Moving the line left a stale cite in
 someone else's pin. `test/audit58_pins2.test.js`'s
 "IsImmuneToDisease reads the PENDING marker" test quoted
-"`diseases.js:240 if (target.racialOverride || target.racialOverridePending)`"
+"`diseases.js:247 if (target.racialOverride || target.racialOverridePending)`"
 - the exact line this fix deleted. The pin still passes, because
 `isEntityImmuneToDisease` reads the pending marker and `inflictDisease`
 now reaches it through `startDisease`, so the record cited source that
