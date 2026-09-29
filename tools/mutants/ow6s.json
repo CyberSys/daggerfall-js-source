@@ -2,8 +2,8 @@
   {
     "name": "OW6-S-warn-short",
     "file": "src/systems/travelThreat.js",
-    "old": "export const THREAT_WARN_S = 5;",
-    "new": "export const THREAT_WARN_S = 2;",
+    "old": "export const THREAT_WARN_S = 2;",
+    "new": "export const THREAT_WARN_S = 5;",
     "tests": [
       "test/ow6_slowdown.test.js"
     ],
@@ -152,8 +152,8 @@
   {
     "name": "OW6-S-chase-uncounted",
     "file": "src/scenes/world.js",
-    "old": "      for (const c of _bandChase.values()) { const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: BAND_CONTACT_M, chasing: true, mps: BAND_CHASE_MPS }); }",
-    "new": "",
+    "old": "if (_tvAttack?.kind === 'band' && _tvAttack.id === c.band.id) continue; const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: BAND_CONTACT_M, chasing: true, mps: BAND_CHASE_MPS });",
+    "new": "if (_tvAttack?.kind === 'band' && _tvAttack.id === c.band.id) continue;",
     "tests": [
       "test/ow6_slowdown.test.js"
     ],

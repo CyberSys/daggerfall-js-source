@@ -101,7 +101,8 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   placesOnly: 'Travel Options only travels to places - click a town.',   // AUDIT DEEP T2-8: coordinate targeting off
   spot: 'The marked spot',
   theSpot: 'the marked spot',   // AUDIT OW5 P5: inside a sentence ("L leads the party to the marked spot.")
-  partyHalted: 'The party has stopped.',   // AUDIT OW5 P5: a halt said - the panel only closed, and nobody knew why
+  partyHalted: 'The party has stopped.',
+  attackAsk: (name) => [`Attack ${name || 'them'}?`, 'You will travel straight to them.'],   // OW-ATTACK: the box on an enemy's double-click   // AUDIT OW5 P5: a halt said - the panel only closed, and nobody knew why
   byRoad: (name) => `To ${name}, by the road`,
   acrossCountry: (name) => `To ${name}, across country`,
   toSpot: 'To the marked spot',
@@ -189,7 +190,7 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  * @param {() => string} [deps.where] - the readout's line: the place and the region
  * @param {(p:number[]) => {x:number,y:number,front:boolean}} [deps.project] - a world point to the screen, this frame
  * @param {(x:number, y:number, e:any) => void} [deps.onPick] - TV2: a click on the ground (viewport pixels)
- * @param {(key:string) => void} [deps.onMark] - TV2: a click on a mark that takes one (a place's plate)
+ * @param {(key:string, e?:any) => void} [deps.onMark] - TV2: a click on a mark that takes one (a place's plate); OW-ATTACK: with the press
  * @param {() => Array<{key:string, at:number[], label?:string, sub?:string, kind?:string, pick?:boolean, edge?:boolean, badge?:any}>} [deps.marks] - TV2/TV3/TV5: the
  *   keyed marks the readout draws, at WORLD points (projected here, through the frame's own matrices)
  * @param {() => number[][]} [deps.route] - TV2: the journey's way, world points from the feet on
@@ -197,6 +198,7 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  * @param {() => {move?:string, out?:string}} [deps.hintKeys] - AUDIT DEEP T1-12: the keys the hint names, read on the way up
  * @param {{show:Function, hide:Function, update:Function, pickAt?:(x:number, y:number) => string|null}} [deps.hud] -
  *   ui/travelViewHud.js (PERF-TV: `pickAt`, the pickable mark drawn under a click)
+ * @param {() => void} [deps.openMap] - OW-BLOCK: the block's Map button
  * @param {(t:string) => void} [deps.say]
  * @param {boolean} [deps.touch]
  * @param {any} [deps.win] - the event target listeners go on (the window)
@@ -276,7 +278,7 @@ export function createTravelView(deps) {
       // PERF-TV: the marks are drawn, so a click on a plate is found by where it landed - a place's (or TV5's far
       // place's) journey, never the ground's pick
       const key = deps.hud?.pickAt?.(e.clientX, e.clientY) ?? null;
-      if (key) deps.onMark?.(key); else deps.onPick?.(e.clientX, e.clientY, e);
+      if (key) deps.onMark?.(key, e); else deps.onPick?.(e.clientX, e.clientY, e);   // OW-ATTACK: the press with the mark (an enemy's single click is the ground's)
     }
   }
   function onMouse(e) {   // the host's window mousedown/mouseup (the swing, Mouse0) - the canvas's are the view's
@@ -379,7 +381,7 @@ export function createTravelView(deps) {
       deps.freeCursor?.(true);
     }
     listen(true);
-    deps.hud?.show({ onReturn: () => exit('button') });
+    deps.hud?.show({ onReturn: () => exit('button'), onMap: () => deps.openMap?.() });   // OW-BLOCK: the block's Map
     rearm();
     return true;
   }

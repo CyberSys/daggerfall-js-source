@@ -372,8 +372,8 @@
   {
     "name": "AUDIT-DEEP-T2-7-the-generated-roads",
     "file": "src/scenes/world.js",
-    "old": "const net = raw?.source === 'basic-roads' ? raw : null;",
-    "new": "const net = raw;",
+    "old": "let net = travelPathUsesRoads() ? roadNet : null;",
+    "new": "let net = travelPathUsesRoads() ? raw : null;",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],

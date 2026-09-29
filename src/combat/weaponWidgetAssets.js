@@ -21,7 +21,7 @@
 // (the classic frame at double size).
 
 import { readUnityBundle } from '../formats/unityBundle.js';
-import { toColor32, toScreenOrder } from '../formats/color32Order.js';   // WW3: the ORDER *and* the shape the upload path reads - `{ colors }`, never a decoded PNG's `{ data }`
+import { toScreenOrder } from '../formats/color32Order.js';   // WW3: the ORDER *and* the shape the upload path reads - `{ colors }`, never a decoded PNG's `{ data }`
 import { decodePng } from '../systems/textureReplacement.js';
 import { MATERIAL_NAMES } from '../systems/itemInfo.js';   // MetalTypes' names, Iron..Daedric
 import { WEAPON_MATERIALS } from '../characters/weapons.js';
@@ -136,7 +136,10 @@ export function weaponWidgetImage(name) {
       const b = await weaponWidgetBundle();
       const tex = b?.bundle?.textures?.find((t) => t.name === name);
       if (tex) {
-        try { return toColor32(tex.rgba()); } catch (e) { console.warn(`[weapon widget] ${name} would not decode:`, e?.message ?? e); }
+        // DWHD1 (a player: "all weapons are overhead"): rows KEPT. The bundle reader (unityBundle.decodeTexture2D)
+        // already answers top-first; the flip that was here turned every Weapon Widget frame upside down on its
+        // screen quad - the same fault HT3 fixed for the loose PNG below
+        try { return toScreenOrder(tex.rgba()); } catch (e) { console.warn(`[weapon widget] ${name} would not decode:`, e?.message ?? e); }
       }
       if (!_load) return null;
       const loose = _names.find((n) => isPng(n) && n.slice(n.lastIndexOf('/') + 1).replace(/\.png$/i, '') === name);
