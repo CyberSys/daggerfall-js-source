@@ -25,9 +25,10 @@
 // THE OVERHAUL: the mod skipped the clock an hour behind a box; the
 // port's event is REAL-TIME (Mac's brief) - a Yes/No prompt, then a
 // busy page that runs its game minutes at HUNT_WAIT_PER_HOUR real
-// seconds an hour (ui/huntWindow.js), then the outcome box. Offline
-// the minutes then pass on the clock; online the clock is nobody's
-// (WORLD5) and the wait alone is the cost. The beast stands when the
+// seconds an hour (ui/huntWindow.js), then the outcome box. The minutes
+// then pass on the character's clock - the one clock offline, their own
+// online (LIVED1; AUDIT LIVED1 K: this said "online the clock is
+// nobody's"). The beast stands when the
 // box closes, not under it - a foe keeps its clock under a window
 // (WINFOE1) and would have had the first blow free.
 //

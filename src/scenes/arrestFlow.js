@@ -41,11 +41,10 @@ import {
 } from '../systems/court.js';
 import { guildOfFaction, membershipOf, activeMemberships } from '../systems/guilds.js';   // CR1: the rescue arms' member reads
 import { resolveVariantGuild } from '../systems/guildVariants.js';
-import { advanceWorldMinutes, MINUTES_PER_DAY, sharedClockOn } from '../systems/worldTick.js';   // AUDIT WORLD5 C9: a sentence online serves no days
+import { advanceOwnMinutes, MINUTES_PER_DAY } from '../systems/worldTick.js';   // LIVED1: a sentence is served on the prisoner's own clock, online too
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallCourtWindow_OnEndPrisonTime (EntityEffectBroker.cs:841-842)
 import { fillVitalSigns } from '../systems/statMods.js';
 import { registerPlayerDamageVeto } from '../characters/playerEntity.js';   // ARREST-SHIELD: the one damage door consults this flow while a trial is up online
-import { reviveForPlay } from '../systems/deathRespawn.js';   // DEATHLOOP1: nobody leaves a cell dead   // F038: the acquittal's refill; F98: every other non-execution exit's
 import { SEVERE_PUNISHMENT_BANISHED, SEVERE_PUNISHMENT_EXECUTED } from '../systems/encounters.js';   // F99: the court's own two bits
 import { PrisonScreenWindow, CourtScreenWindow } from '../ui/prisonScreen.js';   // the serving-time presentation (SwitchToPrisonScreen + UpdatePrisonScreen)   // ROAD-B B5: Setup's courtPanel, the backdrop the trial stands on
 
@@ -64,8 +63,10 @@ export const RELEASE_MINUTES = 240;
 // default is now the real thing.
 export function createArrestFlow({
   townTalk, playerEntity, regionIndex,
-  advanceDays = (days) => advanceWorldMinutes(days * MINUTES_PER_DAY),
-  advanceMinutes = (m) => advanceWorldMinutes(m),
+  // LIVED1: the days are the PRISONER's - their own clock, which is the world's offline and theirs online, where the
+  // world's sky does not wait for anyone's sentence. [SUPERSEDES AUDIT WORLD5 C9's "a sentence online serves no days".]
+  advanceDays = (days) => advanceOwnMinutes(days * MINUTES_PER_DAY),
+  advanceMinutes = (m) => advanceOwnMinutes(m),
   rolls = Math.random,
   // DaggerfallCourtWindow.OnCourtScreen, whose one subscriber is
   // CameraRecoiler (:193-197) - the sway is cleared when the court
@@ -493,32 +494,14 @@ export function createArrestFlow({
           // (:478) the refill lands when daysInPrisonLeft hits 0,
           // AFTER the RaiseTime - the day the sentence ends, not the
           // day it began.
-          // AUDIT WORLD5 C9: and the days are its price. Online the
-          // sentence serves none (advanceDays is refused; the world's
-          // clock is not this player's), so it refills nothing - a
-          // surrender was a free full heal, three pools for the walk to
-          // the guardhouse.
-          //
-          // DEATHLOOP1 (trashBattery, 2026-09-22: "Dying while falling
-          // with guards nearby to arrest you will place you in a
-          // deathloop once your jail sentence ends. You cannot access a
-          // menu while in this mode. The only way to stop the game now
-          // is to force-kill the process."): C9 WAS RIGHT ABOUT THE
-          // FREE HEAL AND LEFT A HOLE UNDER IT. Withholding the refill
-          // online also withholds the FLOOR, so a player who was
-          // already at zero when the guards took them - killed by the
-          // fall they were arrested during - walks out of the cell
-          // dead. The frame loop's death watcher sees a dead player
-          // with no death screen, raises death, and the release runs
-          // again; the death screen owns input while it is up, which is
-          // why no menu would open.
-          //
-          // Serving no days must not mean being let out dead. Offline
-          // keeps the full refill; online gets the floor and nothing
-          // more - the health only moves if it is at or below zero, so
-          // this is still not the free heal C9 removed.
-          if (!sharedClockOn()) fillVitalSigns(playerEntity);
-          else reviveForPlay(playerEntity);
+          // AUDIT WORLD5 C9 withheld the refill online because the sentence
+          // served no days there, and DEATHLOOP1 then put a floor under it
+          // (trashBattery, 2026-09-22: arrested while dying of a fall, let
+          // out dead into a deathloop). LIVED1: the days are served online
+          // too - on the prisoner's own clock, advanceDays above - so the
+          // refill is their price again, as DFU pays it, in both lanes; the
+          // floor it replaced is inside the refill (a full pool is above it).
+          fillVitalSigns(playerEntity);
         }),
       // The window closes into state 100 with InPrison false, which is
       // ReleaseFromPrison (:318) - and repositionPlayer was set back

@@ -211,7 +211,7 @@ test('AUDIT 65 XL-1: every IsPlayerSwimming reader moved to the host flag, and e
     // PlayerEntity.cs:2406/:2426, CollapseFromExhaustion
     [/swimming: !!player\.isPlayerSwimming, entity: playerEntity,/, 'the exhaustion collapse'],
     // PlayerEntity.cs:489, "Don't spawn encounters while player is swimming"
-    [/player\.isPlayerSwimming\) \? null : intermittentEnemySpawn\(\{|const hit = player\.isPlayerSwimming \? null : intermittentEnemySpawn\(\{/, 'the encounter roll'],
+    [/player\.isPlayerSwimming\)+ \? null : intermittentEnemySpawn\(\{|const hit = player\.isPlayerSwimming \? null : intermittentEnemySpawn\(\{/, 'the encounter roll'],   // AUDIT LIVED1b P1: world.js's also asks `spawns`
     // DaggerfallUI.cs:661, cannotRestNow
     [/enemiesNearby: outdoorRestDeps\.enemiesNearby\(\),\s*\n\s*swimming: !!player\.isPlayerSwimming,/, 'the rest refusal'],
     // HeadBobber.cs:101 GetBobbingStyle + :215 ApplySimpleBouncing

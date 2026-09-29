@@ -282,15 +282,15 @@
   {
     "name": "RAID2-the-worlds-day-ignored",
     "file": "src/systems/raidingParties.js",
-    "old": "  if (day > state.lastSelectedDay || (sharedClockOn() && day !== state.lastSelectedDay)) {",
+    "old": "  if (day > state.lastSelectedDay || (sharedClockOn() && _dayFromSave && day !== state.lastSelectedDay)) {",
     "new": "  if (day > state.lastSelectedDay) {",
     "tests": ["test/raid2_raidsOnline.test.js"]
   },
   {
     "name": "RAID2-the-rollover-rule-taken-offline",
     "file": "src/systems/raidingParties.js",
-    "old": "(sharedClockOn() && day !== state.lastSelectedDay)",
-    "new": "(day !== state.lastSelectedDay)",
+    "old": "(sharedClockOn() && _dayFromSave && day !== state.lastSelectedDay)",
+    "new": "(_dayFromSave && day !== state.lastSelectedDay)",
     "tests": ["test/raid2_raidsOnline.test.js", "test/raid1_raidingParties.test.js"]
   }
 ]

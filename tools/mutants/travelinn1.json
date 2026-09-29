@@ -45,10 +45,10 @@
     ]
   },
   {
-    "name": "the-online-line-stops-mentioning-the-fare",
+    "name": "the-online-line-stops-saying-whose-days",
     "file": "src/ui/travelPopUp.js",
-    "old": "You arrive now - the journey is still paid for.';",
-    "new": "You arrive now.';",
+    "old": "'Online: the days pass on your own clock.",
+    "new": "'Online: the journey is instant.",
     "tests": [
       "test/travelinn.test.js"
     ]

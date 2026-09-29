@@ -46,7 +46,7 @@ test('DISC25-D: a guild quest refused to a non-member names the guild - a temple
 test('DISC25-D: the Online pane says what the shared clock does to a quest - and no longer that the quest clocks stand still', () => {
   const menu = rd('src/ui/enhancedMenu.js');
   assert.doesNotMatch(menu, /the quest clocks stand still/, 'false since WORLD7: quest clocks count played time');
-  assert.match(menu, /a quest that waits for an hour of the day waits for that hour of the world\. Quest timers run while you play\./);
+  assert.match(menu, /a quest that waits for an hour of the day waits for that hour of the world\. Your character keeps their own time beside it[^.]*\. Quest timers run while you play\./);   // LIVED1: the character's own time, said between
   // the law the sentence says: online a quest clock charges played time (WORLD7), and a rest moves no world time
   assert.match(rd('src/systems/quest/clock.js'), /export const PLAYED_STEP_MAX_SECONDS = 30 \* 60;/);
 });

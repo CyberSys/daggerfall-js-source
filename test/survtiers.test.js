@@ -701,7 +701,7 @@ test('SURV-TIERS: composed - the feed hands the live tier\'s rules, and a Casual
   // the composition points hand the tier - by source
   assert.match(read('src/systems/survival/env.js'), /const deps = \{ worn: entity\.equip\?\.slots \?\? null, ctx: survivalCtx\(entity, full\), rules \};/);
   assert.match(read('src/scenes/hunting.js'), /huntOutcome\(ev, \{ hasBow: !!now\.hasBow, skills: now\.skills \?\? \{\}, luck: now\.luck \?\? 50, rolls, rules: survivalRules\(\) \?\? undefined \}\);/);
-  assert.match(read('src/scenes/shared.js'), /stiffen\(entity, worldMinutes\(\), REST_KIND\.Rough, _rules\)/);
+  assert.match(read('src/scenes/shared.js'), /stiffen\(entity, ownMinutes\(\), REST_KIND\.Rough, _rules\)/);   // LIVED1: the body's morning, on its own clock
 });
 
 // ═══ AUDIT SURV-TIERS: THE LAWS HARD SHARES ══════════════════════════

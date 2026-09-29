@@ -278,6 +278,10 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .rest-shell .card .acts { margin-top: 22px; padding-top: 16px; border-top: 2px solid rgba(5,6,8,0.5);
   box-shadow: inset 0 1px 0 rgba(163,152,128,0.2); justify-content: center; }
 .rest-shell .card > p:not(.vitals-line) { text-align: center; }
+/* AUDIT LIVED1b U7: the rest's clock line (AUDIT LIVED1 O) - one centred line under the readouts; empty offline, and gone */
+.rest-shell .clock-line { margin: 10px 0 0; text-align: center; font-size: 12px; letter-spacing: 0.02em; color: #d8cfae;
+  text-shadow: 1px 1px 0 #050608; }
+.rest-shell .clock-line:empty { display: none; }
 
 /* PLUS6: THE REST WINDOW WHILE RESTING - a title, the hours as a large gold readout, a sunk track with a banded
    brass fill, the three vitals as readouts, and Stop in its own foot under an engraved rule (it sat on the text). */

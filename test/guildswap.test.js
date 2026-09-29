@@ -136,7 +136,7 @@ test('V2e: the transfer arm is the WORLD host\'s, and survives worldModes\' re-r
   assert.ok(w.includes('function transferToCemeteryArm()'), 'the world host implements it');
   assert.ok(w.includes('randomCemeteryLocationIndex(mapTable)'), 'over the pure pick');
   assert.ok(w.includes("(modes?.mode ?? 'exterior') !== 'exterior'"), 'interior/dungeon modes skip loudly');
-  assert.ok(w.includes('_lastEncMinutes = Math.floor(playerTicker.classicMinutes);'),
+  assert.ok(w.includes('_lastEncMinutes = Math.floor(playerTicker.ownMinutes);'),
     'PreventEnemySpawns parity - the player is the monster in the crypt');
   assert.ok(w.includes('transferToCemetery: transferToCemeteryArm'), 'wired at the infection mount AND the modes bag');
   const wm = read('src/scenes/worldModes.js');

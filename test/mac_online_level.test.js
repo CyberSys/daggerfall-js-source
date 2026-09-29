@@ -10,15 +10,21 @@
 // shared minutes, the gate stayed shut, and the second, third and
 // fourth rests of a heal-up loop advanced nothing. The rest's
 // simulated minutes are CREDITED to the skill-check clock now.
+//
+// LIVED1 (2026-09-29) retired the credit and kept the law: the gate
+// reads the CHARACTER's own clock (worldTick.js ownMinutes), which the
+// rest's hours move online as the one clock moves offline - so a night
+// opens it by RaiseSkills' own arithmetic, and nothing is banked on the
+// entity, spent at the rest's end or carried in the save.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RestSession, MINUTES_PER_TICK, REST_WAIT_PER_HOUR } from '../src/systems/restSession.js';
-import { raisePlayerSkills, createRestDeps } from '../src/scenes/shared.js';
+import { raisePlayerSkills, createRestDeps, createPlayerTicker } from '../src/scenes/shared.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { createCharacter } from '../src/systems/chargen.js';
 import { CLASSIC_GAME_START_TIME } from '../src/systems/gameDate.js';
-import { setWorldMinutes, worldMinutes } from '../src/systems/worldTick.js';
+import { setWorldMinutes, worldMinutes, setSharedClock, setOwnMinutes, ownMinutes, resetMagicRoundMarker } from '../src/systems/worldTick.js';
 import { SKILL_RAISE_CHECK_INTERVAL } from '../src/systems/advancement.js';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -43,48 +49,46 @@ const deps = (over = {}) => ({
   enemiesNearby: () => false, fullyHealed: () => false, dead: () => false, ...over,
 });
 
-test('MAC-LVL1: an ONLINE rest credits every simulated ten minutes to the skill-check clock; an offline rest credits nothing (its clock moved)', () => {
-  let credited = 0;
-  const on = new RestSession('timed', 1, deps({ sharedMinutes: () => 8000, creditSkillMinutes: (n) => { credited += n; } }));
-  for (let i = 0; i < 6; i++) on.tick(SUB + 1e-6);
-  assert.equal(credited, 60, 'mutants: the credit dropped, or not ten a sub-tick');
-  credited = 0;
-  const off = new RestSession('timed', 1, deps({ sharedMinutes: () => null, creditSkillMinutes: (n) => { credited += n; } }));
-  for (let i = 0; i < 6; i++) off.tick(SUB + 1e-6);
-  assert.equal(credited, 0, 'mutants: the offline lane credited too (double time)');
-  // the deps the hosts hand the session accumulate it on the ENTITY
-  const entity = { restSimMinutes: 0 };
-  const d = createRestDeps(entity, {});
-  d.creditSkillMinutes(10); d.creditSkillMinutes(10);
-  assert.equal(entity.restSimMinutes, 20);
-});
-
-test('MAC-LVL1: raisePlayerSkills spends the credit - a night that moved the shared clock 43 minutes still opens the 360-minute gate, once', () => {
-  const had = worldMinutes();
+test('MAC-LVL1 (LIVED1): an ONLINE rest\'s hours are the character\'s own - the ticker\'s advance moves their clock by the night, the session credits nothing and the deps bank nothing', () => {
+  const T0 = CLASSIC_GAME_START_TIME + 10000;
+  const world = { t: T0 };
   try {
-    const T0 = CLASSIC_GAME_START_TIME + 10000;
-    // the stall: the last check was 43 shared minutes ago and nothing is credited
-    const stalled = mkPlayer();
-    stalled.lastSkillCheckTime = T0 - 43;
-    setWorldMinutes(T0);
-    assert.deepEqual(raisePlayerSkills(stalled, { rolls: seq(0) }), [], 'the gate is shut (43 <= 360) - the bug as the player saw it');
-    // the fix: the rest simulated 480 minutes
-    const rested = mkPlayer();
-    rested.lastSkillCheckTime = T0 - 43;
-    rested.restSimMinutes = 480;
-    const raised = raisePlayerSkills(rested, { rolls: seq(0) });
-    assert.ok(raised.length >= 1, 'mutants: the credit not spent - no pass after a night');
-    assert.equal(rested.restSimMinutes, 0, 'the credit is spent, not kept (or the next check would be free)');
-    assert.equal(rested.lastSkillCheckTime, T0, 'the marker is stamped NOW, in the shared clock, never in its future');
-    // and it does not buy a second pass on its own
-    assert.deepEqual(raisePlayerSkills(rested, { rolls: seq(0) }), []);
-    assert.ok(SKILL_RAISE_CHECK_INTERVAL === 360);
-  } finally { setWorldMinutes(had); }
+    setSharedClock(() => world.t);
+    setOwnMinutes(T0);
+    const p = mkPlayer();
+    p.lastGameMinutes = T0;
+    resetMagicRoundMarker(T0);
+    const ticker = createPlayerTicker(p, {});
+    const s1 = new RestSession('timed', 8, deps({ sharedMinutes: () => world.t, advanceMinutes: (n) => ticker.advance(n) }));
+    for (let i = 0; i < 60; i++) s1.tick(SUB + 1e-6);
+    assert.equal(Math.floor(ownMinutes()), T0 + 480, 'eight hours on the character\'s clock, the world\'s standing');
+    assert.equal(worldMinutes(), T0, 'and the world\'s clock untouched');
+    assert.equal('creditSkillMinutes' in createRestDeps({}, {}), false, 'the deps bank nothing');
+  } finally { setSharedClock(null); }
 });
 
-test('MAC-LVL1: the credit rides the save envelope, and the marker it pulls back is never pushed past the clock', () => {
-  assert.match(rd('src/systems/save.js'), /'lastSkillCheckTime',\n\s*'restSimMinutes',/, 'a save mid-rest keeps the owed minutes');
-  assert.match(rd('src/scenes/shared.js'), /entity\.lastSkillCheckTime = \(entity\.lastSkillCheckTime \?\? 0\) - entity\.restSimMinutes;\n\s*entity\.restSimMinutes = 0;/,
-    'spent by pulling the marker BACK - alignEntityClocks\' past() clamp (worldTick.js) would eat a marker stamped ahead of the shared clock');
-  assert.match(rd('src/systems/restSession.js'), /this\.deps\.creditSkillMinutes\?\.\(MINUTES_PER_TICK\);/);
+test('MAC-LVL1 (LIVED1): the gate reads the character\'s clock - shut 43 minutes after a check (the bug as the player saw it), open after a rested night, stamped at the character\'s now, and one night is one pass', () => {
+  const had = worldMinutes();
+  const T0 = CLASSIC_GAME_START_TIME + 10000;
+  try {
+    setSharedClock(() => T0 + 43);
+    setOwnMinutes(T0 + 43);
+    const stalled = mkPlayer();
+    stalled.lastSkillCheckTime = T0;
+    assert.deepEqual(raisePlayerSkills(stalled, { rolls: seq(0) }), [], 'the gate is shut (43 <= 360)');
+    setOwnMinutes(T0 + 43 + 480);   // the rested night, on the character's clock
+    const raised = raisePlayerSkills(stalled, { rolls: seq(0) });
+    assert.ok(raised.length >= 1, 'mutants: the gate read the world\'s clock - no pass after a night');
+    assert.equal(stalled.lastSkillCheckTime, T0 + 43 + 480, 'the marker is stamped at the character\'s now');
+    assert.deepEqual(raisePlayerSkills(stalled, { rolls: seq(0) }), [], 'and the night does not buy a second pass');
+    assert.ok(SKILL_RAISE_CHECK_INTERVAL === 360);
+  } finally { setSharedClock(null); setWorldMinutes(had); }
+});
+
+test('MAC-LVL1 (LIVED1) by source: no credit is banked, spent or saved - the gate reads the character\'s own clock', () => {
+  assert.doesNotMatch(rd('src/systems/save.js'), /'restSimMinutes'/, 'the save carries no credit');
+  const sh = rd('src/scenes/shared.js');
+  assert.doesNotMatch(sh, /restSimMinutes/, 'nothing banks or spends it');
+  assert.match(sh, /return raiseSkills\(entity, Math\.floor\(ownMinutes\(\)\), rolls, onLevelUp,/, 'RaiseSkills\' gate on the character\'s clock');
+  assert.doesNotMatch(rd('src/systems/restSession.js'), /creditSkillMinutes/);
 });

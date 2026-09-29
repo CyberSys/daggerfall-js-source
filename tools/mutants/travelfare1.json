@@ -11,12 +11,12 @@
     "old": "      sleepModeInn: st.opts.sleepModeInn, hasShip: st.hasShip, travelShip: st.opts.travelShip,",
     "new": "      sleepModeInn: st.opts.sleepModeInn && !nwt, hasShip: st.hasShip, travelShip: st.opts.travelShip,",
     "tests": ["test/heldmap.test.js"] },
-  { "name": "online-starts-counting-days-again", "file": "src/ui/heldMap.js",
-    "old": "days: nwt ? 0 : travelDays(minutes), online: nwt };",
-    "new": "days: travelDays(minutes), online: nwt };",
+  { "name": "online-stops-counting-days", "file": "src/ui/heldMap.js",
+    "old": "days: travelDays(minutes), online: nwt };",
+    "new": "days: nwt ? 0 : travelDays(minutes), online: nwt };",
     "tests": ["test/heldmap.test.js"] },
   { "name": "the-line-still-claims-no-inn-is-paid", "file": "src/ui/travelPopUp.js",
-    "old": "You arrive now - the journey is still paid for.';",
-    "new": "You arrive now, and no inn is paid.';",
+    "old": "'You arrive in the world\\'s present.']);",
+    "new": "'You arrive now, and no inn is paid.']);",
     "tests": ["test/ol2.test.js", "test/travelinn.test.js"] }
 ]
