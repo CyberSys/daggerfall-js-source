@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6657` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6684` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10979,3 +10979,27 @@ both built, or both numbered, is one now:
   member was placed, the object otherwise - every caller's truth test holds.
 - **The act choice is on the up arrow.** PROF1 shipped it on `;`, which main's Come Sail Away took for its lantern
   (CSA-D) first; the up arrow is read by no action in play.
+
+## PROF3 (2026-09-28, Mac: "Lets keep moving") - Smithing: the anvil, quality and provenance
+
+The record is `06-Systems/Professions-Arc.md` 9 and 24; this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, SMITHING: THE ANVIL, QUALITY AND PROVENANCE).
+
+- **The service** is `acct23`, its tables `0023_smithing.sql`: `prof_crafts` (a craft's row, found by its id before the
+  switch), `products` (every crafted piece - its provenance id, its owner, its maker, what it is and its signed record)
+  and `prof_stock` (a purchase from the smith's stock). `/v1/prof/craft` decides a craft by one INSERT (every input held;
+  the XP under the crafter's limit, the first craft's 500 read in it) and `/v1/prof/stock` a purchase by another (the
+  Marks held, the Stores' room); each writes the rest on its nonce. The quality is the service's roll; the client's heat
+  moves it one step at most (`clean`, and only `true`).
+- **The product record** (`net/productRecord.js`, `p1`) is signed with the identity key - the key that signs tokens and
+  orders, its version inside the signed bytes and its claims disjoint from theirs and from the relay's receipts. The
+  piece carries its provenance id alone: a signature outruns the trade wire's string bound.
+- **The smith's stock** burns Marks (a `stock` line in the one ledger - MARKS_KINDS) for the fittings Hunting and
+  Logging do not yet yield, into the Stores as bought units, which the Stores do not withdraw until those professions
+  register their templates.
+- **A craft asked is kept** on the device before it is asked (`net/profBook.js`), its pieces minted once on the answer by
+  the tab that lets it go, and never twice into one pack (the host's provenance check).
+- **FOUND and fixed:** a Quartermaster's smelt yielded one ingot a unit - PROF2 offered the choice and built no doubling.
+- **Pinned:** `test/prof3_law.test.js`, `test/prof3_service.test.js`, `test/prof3_client.test.js`;
+  `tools/mutants/prof3.json` (59, every one dead).
+

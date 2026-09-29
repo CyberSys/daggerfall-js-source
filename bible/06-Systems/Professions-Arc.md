@@ -872,9 +872,12 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 - `prof_choices` (player, rid, char_id, profession, rank, spec, at, n) - BUILT, `0022_audit29.sql` (AUDIT 29: a free
   first specialisation's row, found by its id before the switch; a paid change keeps its Marks line, which names its
   track)
-- `recipes_known` (player, char_id, recipe)
+- `recipes_known` (player, char_id, recipe) - not yet: every recipe unlocks by rank until the found ones come (PROF6)
 - `products` (provenance PK, template, material, quality, maker, made_at, listed, condition, enchantments JSON) - a
-  listing writes the item's condition and enchantments as the pack held them, and the buyer receives exactly that
+  listing writes the item's condition and enchantments as the pack held them, and the buyer receives exactly that -
+  BUILT, `0023_smithing.sql` (PROF3: provenance, owner, char_id, maker, recipe, template, material, quality, seed, record,
+  made_at, listed; condition and enchantments come with the listing, PROF5), with `prof_crafts` (a craft's row) and
+  `prof_stock` (a purchase from the smith's stock)
 - `marks` (account, balance); `guild_marks` (guild_id, balance); `marks_ledger` (seq, src_kind, src_id, dst_kind,
   dst_id, kind, amount, day, at, actor, who, rid) - BUILT, `0018_marks.sql` (AUDIT 28: this line gave the first sketch)
 - `market_listings` (id, region, seller, material or provenance, qty, price, expires_at); `market_orders`;
@@ -885,10 +888,10 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 - `board_notes` (id, map_id, author, author_name, subject, body, button, guild_id, char_id, at, expires_at, hidden,
   rid), `board_reports` (note_id, reporter, at) and `board_notices` (id, subject, body, author, author_name, at,
   expires_at, rid) - BUILT, `0019_board.sql` (AUDIT 28: this line gave the first sketch)
-- Endpoints: `/v1/prof/*` (harvest, craft, spec; `smelt` BUILT with PROF2), `/v1/stores/*`, `/v1/marks/*` (balance,
+- Endpoints: `/v1/prof/*` (harvest, spec; `smelt` BUILT with PROF2; `craft` and `stock` BUILT with PROF3), `/v1/stores/*`, `/v1/marks/*` (balance,
   exchange, guild), `/v1/board/*` (notes), `/v1/market/*`, `/v1/writs/*`.
 - Law modules (pure, shared by client and service): marksLaw.js, boardLaw.js, professionLaw.js, nodeLaw.js and
-  kingdomLaw.js (built - the last PROF2's, SEAT0 4.3's map); recipeLaw.js (to be written, with PROF3).
+  kingdomLaw.js (built - the last PROF2's, SEAT0 4.3's map); recipeLaw.js (built, PROF3) and productRecord.js (PROF3's signed record).
 - The relay: the activity field on the pose (a `RELAY_VERSION` and LAW row); the in-person check for deliveries.
 
 ## 15. The slices, in order
@@ -901,7 +904,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **NOTICE1b** | Boards stood where a hub lacks one (10.1), if `tools/boardCount.mjs` names any; a seat's with SEAT1 | Mac's run of the measure |
 | **PROF1** - SHIPPED 2026-09-28 (at `dev`, section 22) | The Stores; **Herbalism** with its act; the board's **Work tab**; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
 | **PROF2** - SHIPPED 2026-09-28 (at `dev`, section 23) | Mining and Quarrying with their acts; the dungeon veins and the witnessed dungeon; gems; smelting at a forge (a smith's, or a home's forge station); ores and ingots (610-630) and stone (673-674); the Prospector's compass; metal and stone writs. Motherlodes and gate-touched ground are PROF2b. Needs FORAGE1-2 (shipped: the Pick-Axe) | Veins placed on rock fields; signatures by kingdom |
-| **PROF3** | Smithing with its act; quality; provenance; the anvil (the forge stands since PROF2) | A crafted Mithril Longsword is DFU's, with its quality |
+| **PROF3** - SHIPPED 2026-09-28 (at `dev`, section 24) | Smithing with its act; quality; provenance; the anvil (the forge stands since PROF2); the smith's stock (the fittings the professions do not yet yield) | A crafted Mithril Longsword is DFU's, with its quality |
 | **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
 | **PROF5** | The Market tab: listings, regional markets, couriers, buy orders, history | Needs MARKS1, NOTICE1, PROF3 |
 | **PROF5b** | Timed auctions for Masterworks | - |
@@ -1322,6 +1325,119 @@ As built:
   Wayrest pixel's first vein stood at its rock piece is Mithril, mined through the real Worker, smelted at a forge into
   a Mithril Ingot and withdrawn as its registered template.
 
+## 24. PROF3 - Smithing: the anvil, quality and provenance, as built (SHIPPED 2026-09-28, at `dev`)
+
+Mac: **"Lets keep moving"** (PROF3 after the merge of main). What the design above left open for PROF3, DECIDED here
+(the record's, at Mac's instruction - "make the decisions ... This is your baby"), and what was found (FACT):
+
+- **What PROF3 is.** 9.3's Smithing recipes - the weapons, the plate, the shields, the chain, Foraging's tools and the
+  Repair Kit - made at **the anvil**, each with **the heat** (9.4) or a quick craft; 9.2's **quality**, rolled by the
+  service; a **provenance id** and a **signed product record** for every piece (9.1); the recipe law
+  (`src/net/recipeLaw.js`, section 14's name for it). Not here, named: found and writ-only recipes (the Recipe Scroll
+  695 is PROF6's writs' and the Motherlode's, PROF2b), a seat's Forge step (SEAT1b), listing and trading a provenance
+  item (PROF5, and TRADE1's hand-over, section 18), Disenchanting and enchanting a provenance item (PROF12).
+- **The anvil is the forge's other half.** FACT: "the forge stands since PROF2" (section 15) - a Weaponsmith's or an
+  Armorer's, or a home's forge station, the Stores page's Forge section (`ui/profPages.js`). DECIDED: the anvil stands
+  wherever the forge does - smelting is the forge's, smithing the anvil's - as its own section of the Stores page (named,
+  not pictured - as built, below). A smith's anvil asks the forge's use fee (50 gold a craft, the purse's,
+  paid on the service's answer and never on a repeat - the smelt's rule); a home's asks none.
+- **The fittings the professions do not yet yield** (FOUND): 9.3 asks Cured Leather of every blade from a Broadsword up
+  and of every piece of plate, Oak Plank of the axes, hammers, shields and the Spade, Pine Plank of the tools, and
+  Charcoal of Steel - Hunting (PROF7) and Logging (PROF4) come after this slice, so only a dagger or a shortsword could
+  be made, and the done-when's Mithril Longsword not at all. DECIDED: **the smith's stock** - the forge's own counter
+  (4.5's precedent: a counter's goods, **bought**, never own, a Marks sink, never purse gold - law 3) sells the four into
+  the Stores at a smith's forge: **Cured Leather 4 Marks, Oak Plank 4, Pine Plank 2, Charcoal 2** (twice each one's
+  Marks value - Cured Leather tier 2, the cure of 4.4's tier 1-3 hides; Oak 2; Pine and Charcoal 1 - so a gatherer's own
+  will always undersell it once the professions come), up to 100 a purchase. So Steel is smelted now, and chain made.
+  Their pack forms wait for their professions: the Stores hold them and the anvil and the forge spend them; the Stores
+  page does not withdraw them until PROF4 and PROF7 register their templates (FACT: none of 645, 646, 652, 665 is a
+  template yet). The service cannot see the forge (FACT, section 23): it sells wherever it is asked, and the client asks
+  only at a smith's - a lie buys the same goods at the same price.
+- **The recipes** (9.3), each a product at a metal: the weapons (Dagger, Tanto; Shortsword, Wakizashi; Broadsword,
+  Saber, Longsword, Katana, Mace, Flail; Warhammer, Battle Axe, War Axe; Claymore, Dai-katana - DFU's templates 113-128
+  but the Staff, a carpenter's), the plate (Cuirass, Greaves, Helm, Left and Right Pauldron, Gauntlets, Boots) and the
+  shields (Buckler, Round, Kite, Tower - DFU 102-112), at the ingot's material: Iron, Steel, Silver, Elven (Moonstone),
+  Dwarven, Mithril, Adamantium, Ebony, Orcish (Orichalcum) and Daedric; Warforged Steel counts as Ebony with a step
+  (4.7). The chain pieces (the plate's seven, not the shields - DFU has no chain shield): the plate piece's ingots x
+  0.75 rounded up, Steel only, nothing else. Foraging's tools at Iron (FORAGE0 14.7): the Wood-Axe and the Pick-Axe 2
+  Iron Ingot and 1 Pine Plank, the Sickle 1 and 1, at rank 0; the Spade 2 Iron Ingot and 1 Oak Plank at rank 10 (the
+  Skinning Knife is PROF7's, its template with it). The Repair Kit (692) at every metal: 1 of the metal's ingot and 1
+  Cured Leather. A recipe's rank is its material's tier's (3.2: 0, 10, 25, 40, 55, 70, 90); every recipe unlocks by rank
+  in PROF3 - the found ones come with the writs.
+- **The quality** (9.2), rolled by the service's CSPRNG on the margin (the smith's rank minus the recipe's), then a
+  step each, at most, for: a clean act (the honest bound: one step, 5.1); the family's specialisation (Weaponsmith the
+  weapons; Armoursmith the plate, the chain and the shields); a Warforged ingot among the inputs. Nothing passes
+  Masterwork. Masterwright's 5 points of Masterwork come off the row's lowest quality. A tool's quality is its life (FORAGE0
+  14.7: Crude 37 uses, Standard 50, Fine 57, Superior 65, Masterwork 65 and the maker's mark; no Loot Rarity roll). A
+  Repair Kit has no quality (DECIDED: it is measured by its work, a quarter of an item's condition, once) - and a
+  Quartermaster's kit is two (3.3).
+- **The piece** (9.2): DFU's own item, minted by DFU's own law (`combat/enemyEquipment.js` weaponOfMaterial,
+  armorOfMaterial - its material, its value, its condition) and then the quality on it: Crude condition x0.75; Fine
+  x1.15 and weight x0.95; Superior x1.30, x0.90 and one Loot Rarity **Magic** roll; Masterwork Superior's and one
+  **Rare** roll and the maker's mark in its name ("Silverthorn's Mithril Longsword" - the Rare's powers stand, listed in
+  its info; the mark is its name). The rolls are the record's seed's (`seededRng`, as a gate's and a raid's spoils are),
+  so the piece is the record's on every client. It carries `quality`, `provenance` and `maker` (declared item fields,
+  riding the save as Loot Rarity's `rarity` does - section 18).
+- **The product record** (9.1): `p1.<claims>.<signature>` - the provenance id (16 hex digits, the service's CSPRNG,
+  unique across the server), the account, the character, the recipe, the quality, the maker and the seed - signed with
+  the account service's identity key (a raid receipt's shape, `net/raidReceipt.js`: the version inside the signed bytes,
+  claim fields disjoint from every other signed shape's). The service keeps it in `products` (section 14: provenance,
+  owner, template, material, quality, maker, made at) and the piece carries only its id - a signature is longer than the
+  trade wire's string bound (FACT, `systems/loot.js` validLootItem: 128).
+- **The heat** (9.4): at the anvil, the ingot's glow rises and falls; strike three times while it is in the band. The
+  band's width is Smithing's attribute pair, (STR + AGI) / 2, on Foraging's four bands (5.1). Space, Enter or a click
+  strikes; Esc lets the act go with nothing spent. Three strikes in the band are a clean act (one step); fewer are a
+  plain craft. **Quick craft** skips the act; **Gentle acts** crafts plain; under reduced motion the glow is a still bar
+  with the heat's marker.
+- **The XP** (3.2): 20 x the recipe's tier a craft, +500 the first time the character makes the recipe, a quarter for a
+  recipe more than two tiers below the rank's top, under the crafter's limit; answered as credited (AUDIT 29).
+- **Quartermaster's ingots** (FOUND): 3.3's Quartermaster doubles ingots and Repair Kits; PROF2 shipped the smelt with
+  the choice offered and the doubling unbuilt. A Quartermaster's smelt of an ingot yields two a unit now (Brass is a
+  metal, not an ingot); the XP stays the smelt's.
+
+As built:
+
+- **Behind PROF1's switch.** `PROFESSIONS_OPEN`, at `dev`; the smith's stock behind MARKS1's too (`MARKS_OPEN`). The
+  service is `acct23`; the tables are `0023_smithing.sql` (`prof_crafts`, a craft's row - its quality, its pieces' ids,
+  its seed, the XP it credited and whether it was the character's first of the recipe; `products`, every piece's
+  provenance, owner, maker, template, material, quality, seed and signed record; `prof_stock`, a purchase); the routes
+  `/v1/prof/craft` and `/v1/prof/stock`. A craft's decision is one INSERT - every input held, the XP under the crafter's
+  limit with the first craft's 500 read in the same statement - and the spends, the pieces and the track follow it in
+  the batch, keyed on its nonce; a purchase's is one INSERT too (the Marks held, the Stores' room), its `stock` line in
+  the one ledger and its bought units keyed the same way. The Stores refuse to withdraw the stock (`prof-no-pack-form`).
+- **The law** is `src/net/recipeLaw.js` (the recipes, 307 of them; the quality's rows, steps and effects; the XP; the
+  heat; the maker's name; a piece's lines) and `src/net/productRecord.js` (`p1`, minted by the service, read by the
+  client, verified with the identity key); the smith's stock is `professionLaw.js`'s (SMITH_STOCK, withdrawable).
+- **The piece** is `src/systems/smithItems.js`: DFU's mint, then the quality (the Loot Rarity roll off the record's seed,
+  `wind.js` seededRng - the same generator the gate's and the raid's spoils roll with); `quality`, `provenance`, `maker`
+  and a kit's `kitMetal` are declared item fields (`itemFields.js`). A Masterwork's long name is its mark before its
+  material (`itemInfo.js` itemNameParts); a crafted piece's tooltip and card open with its quality and "Made by" line
+  (`recipeLaw.js` pieceLines, `ui/itemScroller.js`, `ui/enhancedInventory.js`).
+- **The book** (`net/profBook.js`) KEEPS a craft before it asks it - its pieces are the save's once the service answers,
+  so a lost answer is asked again (the same id; the service's row answers the same pieces) and the pieces are minted on
+  the answer, once: the tab that lets the craft go mints it (AUDIT 29 C5's law), and the host mints a piece only when the
+  pack holds no piece of its provenance (`scenes/world.js` profMintCraft). A kept craft is settled where a kept
+  withdrawal is (the Stores page opened, the book's settle). One craft at a time.
+- **The anvil** is a section of the Stores page under the Forge (`ui/profPages.js` drawAnvil): the families (Weapons,
+  Armour, Tools, Repair Kits) and the metals, each recipe with "can make now", "wants its inputs" or the rank it asks;
+  the chosen recipe's inputs as the Stores hold them, and at a smith's forge a "Buy N from the smith" beside a short
+  fitting; the odds at the smith's margin; **Craft** (the heat, unless Gentle acts) and **Quick craft**. The heat is a
+  bar the glow's marker runs along with the band on it and the three strikes under it; Space, Enter or Strike strikes;
+  "Let it cool" lets it go; the page shut under it lets it go too. The piece's picture of DFU's anvil (INVE's) is not
+  drawn - FACT: the Stores page is the Enhanced menu's DOM, and DFU's container images are classic-window art
+  (`ui/targetIconPanel.js`), so the section is named, not pictured.
+- **The Repair Kit** (692) is registered with the ores and ingots (`systems/profTemplates.js`), DFU's Warhammer's world
+  picture dyed by its metal. DECIDED: **used from the pack, it mends the most-worn weapon or armour of its metal** (the
+  lowest share of its condition left, an equipped piece first on a tie) by a quarter of its condition, never past whole,
+  and is spent; with nothing of its metal to mend it is kept and says so ("Nothing of Mithril here wants mending"). A
+  Steel kit mends the chain too. No picker: DFU's use is one press, and the most-worn piece is the one a smith would take
+  up first. Offline as online - a kit is the pack's (`scenes/shared.js` installs its use in every host).
+- **Pinned**: `test/prof3_law.test.js` (6), `test/prof3_service.test.js` (5), `test/prof3_client.test.js` (7);
+  `tools/mutants/prof3.json`, 59 mutants, every one dead. The done-when is `prof3_client`'s DONE WHEN: a Mithril
+  Longsword's Cured Leather bought from the smith for Marks and the sword made at the anvil with a clean heat through the
+  real Worker, its piece minted from the answer - DFU's template 120 at Mithril (5), its damage DFU's, its condition its
+  quality's, its provenance the signed record's.
+
 ## Appendix A - a day of a gatherer
 
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven, when the wilderness opens. The board's Work tab has a
@@ -1367,7 +1483,11 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | The Basket | three glints of 1.0-1.4 s; clean +50%, two +25% |
 | Stores cap | 5,000 a material |
 | Board's counters | Linen 2, Wool 3 Marks a bolt; the Apothecaries' sixteen at a fifth of DFU's price in Marks, rounded up (4.5) |
-| Quality | the margin table (9.2) |
+| Quality | the margin table (9.2); a step each, at most, for a clean heat, the family's specialisation and a Warforged ingot; Masterwright +5 Masterwork off the row's lowest (PROF3) |
+| The heat (PROF3) | three strikes; the glow's breath 2.0 s; the band from 0.62, 0.2 wide x (STR + AGI) / 2's band; 0.35 s between strikes |
+| The smith's stock (PROF3) | Cured Leather 4, Oak Plank 4, Pine Plank 2, Charcoal 2 Marks a unit (twice the Marks value), 100 a purchase, bought units |
+| A piece's quality (PROF3) | condition x0.75 / 1 / 1.15 / 1.30 / 1.30; weight x1 / 1 / 0.95 / 0.90 / 0.90; Superior a Magic roll, Masterwork a Rare roll and the maker's mark; a tool's life 37 / 50 / 57 / 65 / 65 |
+| The Repair Kit (PROF3) | 1 ingot + 1 Cured Leather; a quarter of the most-worn piece of its metal, once; a Quartermaster's two; 10 gold + 10 a tier |
 | Station use fee in town | 50 gold |
 | Alchemy | 2 / 3 potions; Potent +25%, 10% / 20%, +5% an unbruised herb |
 | Enchanting | -10% / -20%; 1 Essence per 100 points |

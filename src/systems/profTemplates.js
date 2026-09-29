@@ -26,9 +26,10 @@
 // registration, so a shop's shelf and a pile never mint one - the Stores
 // are the one door (law 3).
 // ═══════════════════════════════════════════════════════════════════
-import { registerCustomTemplates } from './itemTemplates.js';
+import { registerCustomTemplates, registerKitDye } from './itemTemplates.js';
 import { DYE_COLORS } from '../characters/dyes.js';
 import { ORES, INGOTS, STONES, TIER_VALUES } from '../net/professionLaw.js';
+import { REPAIR_KIT_TEMPLATE } from '../net/recipeLaw.js';
 
 /** The group every new material mints in: DFU's miscellany (UselessItems2), where Foraging's own items sit - not an
  *  ingredient group, so no maker takes one for an ingredient. */
@@ -65,3 +66,20 @@ export const MINING_TEMPLATE_ROWS = Object.freeze([...ORES, ...INGOTS, ...STONES
   ...(m.dye ? { iconDye: DYE_COLORS[m.dye] } : {}),
 })));
 registerCustomTemplates(MINING_TEMPLATE_ROWS);
+
+// ─── PROF3: THE REPAIR KIT (PROF0 4.8: 692, DFU's Warhammer picture) ───
+/** The anvil's consumable (systems/smithItems.js): the Warhammer's own world picture (TEXTURE.214 record 3), dyed per
+ *  kit by the metal it mends (`kitDye`: the item's `kitMetal`, DFU's DyeColor for that material). Not stackable - each
+ *  kit is its own piece, its own provenance. */
+export const REPAIR_KIT_ROW = Object.freeze({
+  index: REPAIR_KIT_TEMPLATE, name: 'Repair Kit', baseWeight: 1.5, hitPoints: 1, capacityOrTarget: 0, basePrice: 20,
+  enchantmentPoints: 0, rarity: 10, variants: 0, drawOrderOrEffect: 0, isBluntWeapon: false, isLiquid: false,
+  isOneHanded: false, isIngredient: false, worldTextureArchive: 214, worldTextureRecord: 3, playerTextureArchive: 0,
+  playerTextureRecord: 0, stackable: false, kitDye: true,
+});
+registerCustomTemplates([REPAIR_KIT_ROW]);
+/** DFU's metal names by material, the dye each kit takes. */
+const KIT_DYES = Object.freeze(['Iron', 'Steel', 'Silver', 'Elven', 'Dwarven', 'Mithril', 'Adamantium', 'Ebony', 'Orcish', 'Daedric']);
+/** A kit's dye, by the metal it mends, or null. */
+export const kitDye = (item) => (Number.isInteger(item?.kitMetal) ? DYE_COLORS[KIT_DYES[item.kitMetal]] ?? null : null);
+registerKitDye(kitDye);

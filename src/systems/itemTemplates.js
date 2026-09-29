@@ -268,6 +268,10 @@ export function registerCustomItemGroup(templateIndex, group, isOn = () => true)
  *  a template, asked by DaggerfallInventoryWindow.UseItem ahead of the
  *  normal-items ladder (:1703-1709). RRI2: the bandage. */
 const _useHandlers = new Map();
+/** PROF3: the Repair Kit's dye by its metal - profTemplates.js registers it (it imports this module, so this one
+ *  cannot import it). */
+let _kitDye = null;
+export function registerKitDye(fn) { _kitDye = typeof fn === 'function' ? fn : null; }
 export function registerItemUseHandler(templateIndex, handler) { if (typeof handler === 'function') _useHandlers.set(templateIndex, handler); else _useHandlers.delete(templateIndex); }
 export const itemUseHandler = (templateIndex) => _useHandlers.get(templateIndex) ?? null;
 
@@ -402,5 +406,7 @@ export function inventoryItemImage(item, identity = undefined) {
   // PROF2: a new material's picture is DFU's own, dyed by DFU's own law - its metal's DyeColor over the WeaponsAndArmor
   // swatch (systems/profTemplates.js `iconDye`), as an Ebony blade is told from an Iron one
   if (Number.isFinite(t.iconDye)) return { archive, record, dye: t.iconDye, dyeTarget: DYE_TARGETS.WeaponsAndArmor };
+  // PROF3: a Repair Kit's picture is the Warhammer's, dyed by the metal it mends (the item's `kitMetal`, profTemplates.js kitDye)
+  if (t.kitDye && Number.isFinite(_kitDye?.(item))) return { archive, record, dye: _kitDye(item), dyeTarget: DYE_TARGETS.WeaponsAndArmor };
   return { archive, record, dye: itemDyeColor(item), dyeTarget: itemDyeTarget(item) };
 }

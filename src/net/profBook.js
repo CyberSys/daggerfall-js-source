@@ -97,6 +97,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
     stores: new Map(),
     writs: { today: 0, max: 3 },
     caps: /** @type {any} */ (null),
+    /** PROF3: the account's Marks as the smith's stock last answered them, or null */
+    marks: /** @type {number|null} */ (null),
   };
   const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
   const slot = () => `${account() ?? ''}|${character() ?? ''}`;
@@ -115,11 +117,14 @@ export function createProfBook({ door, storage = null, character = () => null, n
   };
   const keptOf = (key = slot()) => {
     const k = table()[key];
-    return { harvests: Array.isArray(k?.harvests) ? k.harvests : [], withdrawals: Array.isArray(k?.withdrawals) ? k.withdrawals : [] };
+    return {
+      harvests: Array.isArray(k?.harvests) ? k.harvests : [], withdrawals: Array.isArray(k?.withdrawals) ? k.withdrawals : [],
+      crafts: Array.isArray(k?.crafts) ? k.crafts : [],   // PROF3: a craft asked and not yet answered - its pieces minted on the answer
+    };
   };
   const writeKept = (kept, key = slot()) => {
     const t = { ...table() };
-    if (kept.harvests.length || kept.withdrawals.length) t[key] = kept; else delete t[key];
+    if (kept.harvests.length || kept.withdrawals.length || kept.crafts?.length) t[key] = kept; else delete t[key];
     writeTable(t);
   };
 
@@ -181,6 +186,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
   /** PROF2: the kept harvests on the wire - a pump never asks one again while its first ask waits (its answer said once). */
   const sending = new Set();
   let _withdrawBusy = null;
+  let _craftBusy = null;   // PROF3: one craft at a time, asked or settled
 
   const book = {
     state,
@@ -330,8 +336,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
       })().finally(() => { _withdrawBusy = null; });
       return _withdrawBusy;
     },
-    /** The kept withdrawals of this account's character, asked again - their items minted as each is answered. */
-    async settle(mint) {
+    /** The kept withdrawals of this account's character, asked again - their items minted as each is answered; and,
+     *  given `mintPieces` (PROF3), its kept crafts, their pieces minted as each is answered. */
+    async settle(mint, mintPieces = null) {
       if (_withdrawBusy) return [];
       const key = slot();
       const out = [];
@@ -340,9 +347,58 @@ export function createProfBook({ door, storage = null, character = () => null, n
         return out;
       })().finally(() => { _withdrawBusy = null; });
       await _withdrawBusy;
+      if (mintPieces && !_craftBusy && keptOf(key).crafts.length) {
+        _craftBusy = (async () => {
+          const done = [];
+          for (const w of keptOf(key).crafts) done.push(await craftOne(w, key, mintPieces));
+          return done;
+        })().finally(() => { _craftBusy = null; });
+        out.push(...await _craftBusy);
+      }
       return out;
     },
     get pendingWithdrawals() { return keptOf().withdrawals.length; },
+
+    // ─── A CRAFT AT THE ANVIL (PROF3) ───────────────────────────────
+    /**
+     * A recipe made at the anvil (net/recipeLaw.js): `clean` the heat's report (the service lays one step on it at most),
+     * `name` the maker's mark. The craft is KEPT before it is asked - its pieces are the save's once the service answers,
+     * so a lost answer is asked again (the same id, the same pieces) and `mint` makes them on the answer, once: the tab
+     * that lets the craft go mints it (AUDIT 29 C5's law). One at a time.
+     * @returns {Promise<{ ok: boolean, data?: any, error?: string, kept?: boolean, elsewhere?: boolean }>}
+     */
+    async craft(recipe, { clean = false, name = null } = {}, mint) {
+      if (_craftBusy) return { ok: false, error: 'prof-busy' };
+      const key = slot();
+      const c = character();
+      if (!c || !account()) return { ok: false, error: 'no-session' };
+      _craftBusy = (async () => {
+        const w = { rid: rid(), recipe, clean: clean === true, name: typeof name === 'string' ? name : null, character: c };
+        const kept = keptOf(key);
+        kept.crafts.push(w);
+        writeKept(kept, key);
+        return craftOne(w, key, mint);
+      })().finally(() => { _craftBusy = null; });
+      return _craftBusy;
+    },
+    get pendingCrafts() { return keptOf().crafts.length; },
+    /** The smith's stock (PROF3): `qty` of a fitting bought into the Stores for Marks. The id is kept until an answer
+     *  comes, so a press after a lost answer is the same purchase. Answers the service's answer; the Stores moved. */
+    async stock(material, qty) {
+      const c = character();
+      if (!c) return { ok: false, error: 'prof-character' };
+      const key = `stock|${slot()}|${material}|${qty}`;
+      const m = idFor(key, PROF_QUEUE_MS);
+      if (m.promise) return m.promise;
+      m.promise = (async () => {
+        const r = await ask(() => door.stock(c, material, qty, m.id));
+        m.promise = null;
+        if (!keptAnswer(r)) ids.delete(key);
+        if (r?.ok) { applyStore(r.data?.store); if (Number.isSafeInteger(r.data?.balance)) state.marks = r.data.balance; } else shutBy(r);
+        return r;
+      })();
+      return m.promise;
+    },
 
     // ─── COURT WRITS ────────────────────────────────────────────────
     /** A region's Court writs through a minute's cache; `force` reads now. Answers `{ data, error, stale }`. */
@@ -463,6 +519,27 @@ export function createProfBook({ door, storage = null, character = () => null, n
     const kept = keptOf(key);
     kept.harvests = kept.harvests.filter((x) => x.rid !== id);
     writeKept(kept, key);
+  }
+  /** A kept craft's ask (PROF3): its pieces minted and the craft let go on an answer, let go on a refusal, kept on
+   *  silence - the service's row answers the same id with the same pieces whenever it is asked again. */
+  async function craftOne(w, key, mint) {
+    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid));
+    const kept = keptOf(key);
+    if (r?.ok) {
+      const had = kept.crafts.some((x) => x.rid === w.rid);
+      kept.crafts = kept.crafts.filter((x) => x.rid !== w.rid);
+      writeKept(kept, key);   // let go BEFORE the pieces are made: a mint that threw is never a second mint
+      for (const st of r.data?.stores ?? []) applyStore(st);
+      applyTrack(r.data?.track);
+      if (!had) return { ok: true, data: r.data, elsewhere: true };
+      try { mint(r.data); } catch (e) { console.warn('[prof] a craft would not mint', e); }
+      return { ok: true, data: r.data };
+    }
+    if (keptAnswer(r)) return { ok: false, error: r?.error ?? 'offline', kept: true };
+    kept.crafts = kept.crafts.filter((x) => x.rid !== w.rid);
+    writeKept(kept, key);
+    shutBy(r);
+    return { ok: false, error: r?.error ?? 'server' };
   }
   /** A kept withdrawal's ask: minted and let go on an answer, let go on a refusal, kept on silence. */
   async function settleOne(w, key, mint) {

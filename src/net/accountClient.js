@@ -249,6 +249,8 @@ export const REFUSALS = Object.freeze({
   'node-taken': 'You have already gathered here today.',
   'bad-material': 'The Stores do not keep that.',
   'bad-recipe': 'The forge knows no such work.',   // PROF2
+  'prof-no-pack-form': 'That stays at the bench until its own craft is practised.',   // PROF3: the smith's stock
+  'prof-busy': 'The anvil is still ringing from your last work.',   // PROF3: one craft at a time
   'bad-qty': `Take 1 to ${WITHDRAW_MAX} at a time.`,
   'bad-pixels': 'That land could not be read.',
   'bad-region': 'That region could not be read.',
@@ -794,6 +796,8 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
     withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
     smelt: (character, recipe, count, rid) => post('/v1/prof/smelt', { character, recipe, count, rid }),   // PROF2: the forge
+    craft: (character, recipe, clean, name, rid) => post('/v1/prof/craft', { character, recipe, clean, name, rid }),   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark
+    stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
     writs: (character, region) => post('/v1/writs/list', { character, region }),
     deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),
   };

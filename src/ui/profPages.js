@@ -28,7 +28,10 @@
 import {
   PROFESSIONS, SPECIALISATIONS, SPEC_RANKS, RESPEC, xpForRank, rankName, PROF_RANK_MAX, TIER_RANKS, CRAFTS_ABOVE_JOURNEYMAN,
   JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
+  withdrawable, stockOf, STOCK_MAX,
 } from '../net/professionLaw.js';
+import { RECIPES, recipeOpen, qualityOdds, QUALITY_NAMES, HEAT_ACT, takesQuality } from '../net/recipeLaw.js';
+import { createHeatAct } from '../systems/heatAct.js';
 import { material } from '../net/nodeLaw.js';
 import { accountRefusalText } from '../net/accountClient.js';
 import { getPref, setPref } from '../systems/uiPrefs.js';
@@ -42,6 +45,10 @@ import { isEnhanced } from '../systems/uiSkin.js';
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [forge]   PROF2: the forge the player stands at, or null
  * @property {(recipe: string, count: number) => Promise<{ ok: boolean, text: string }>} [smelt]   PROF2: a smelt, its fee paid
  * @property {() => Promise<any>} [settle]   AUDIT 29 C4: the kept withdrawals asked again (the Stores page opened)
+ * @property {(recipe: string, opts: { clean: boolean }) => Promise<{ ok: boolean, text: string }>} [craft]   PROF3: a craft at
+ *   the anvil, its pieces into the pack and its fee paid
+ * @property {(material: string, qty: number) => Promise<{ ok: boolean, text: string }>} [stock]   PROF3: the smith's stock
+ * @property {() => number} [heatBand]   PROF3: the heat's attribute band (recipeLaw heatBand)
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
@@ -69,8 +76,19 @@ let _profWord = null;
 const _stores = { family: null, query: '', sort: 'tier', picked: null, qty: 1, word: null, busy: false, settledAt: -Infinity };
 /** PROF2: the forge's counts by recipe, a smelt in flight, and its last word. */
 const _forge = { counts: /** @type {Record<string, number>} */ ({}), busy: false, word: /** @type {string|null} */ (null) };
+/** PROF3: the anvil's family and metal shown, the recipe chosen, the heat being struck, a craft in flight and its word. */
+const _anvil = {
+  family: 'weapons', metal: 'ingot:iron', picked: /** @type {string|null} */ (null), act: /** @type {any} */ (null),
+  busy: false, word: /** @type {string|null} */ (null), els: /** @type {any} */ (null), off: /** @type {(() => void)|null} */ (null),
+  strike: /** @type {(() => void)|null} */ (null),
+};
+/** What a Stores material of the smith's stock says in place of a withdrawal. */
+export const STOCK_STAYS_LINE = 'The smith\'s stock stays at the bench: the anvil and the forge spend it, and it comes to the pack once its own craft is practised.';
 /** A fresh visit starts plain (the menu calls it with its own reset). */
-export function resetProfPages() { _armed = null; _profWord = null; _stores.word = null; _stores.picked = null; _stores.qty = 1; _forge.word = null; _forge.counts = {}; }
+export function resetProfPages() {
+  _armed = null; _profWord = null; _stores.word = null; _stores.picked = null; _stores.qty = 1; _forge.word = null; _forge.counts = {};
+  endHeat(); _anvil.word = null; _anvil.picked = null;
+}
 
 /** What the Professions page says a harvest earns for each profession PROF1 gathers, by tier. */
 const UNLOCKS = Object.freeze({
@@ -253,7 +271,7 @@ export function drawStoresPage(detail, rerender, kit) {
     qty.oninput = () => { _stores.qty = Math.max(1, Math.min(WITHDRAW_MAX, pick.total, Math.floor(Number(qty.value) || 1))); };
     const go = el('button', 'act primary', _stores.busy ? 'Sending...' : 'Withdraw to pack');
     go.type = 'button';
-    go.disabled = _stores.busy;
+    go.disabled = _stores.busy || !withdrawable(pick.material);   // PROF3: the smith's stock stays at the bench
     go.onclick = async () => {
       if (_stores.busy) return;
       _stores.busy = true; rerender();
@@ -264,10 +282,13 @@ export function drawStoresPage(detail, rerender, kit) {
     };
     bar.append(qty, go);
     detail.append(bar);
-    detail.append(el('p', 'px-note', 'Withdrawn, a material is an item in your pack and never goes back into the Stores. Writs are delivered at a Notice Board\'s Work tab.'));
+    detail.append(el('p', 'px-note', withdrawable(pick.material)
+      ? 'Withdrawn, a material is an item in your pack and never goes back into the Stores. Writs are delivered at a Notice Board\'s Work tab.'
+      : STOCK_STAYS_LINE));
   }
   if (_stores.word) detail.append(el('p', 'prof-word', _stores.word));
   drawForge(detail, rerender, kit);
+  drawAnvil(detail, rerender, kit);   // PROF3
 }
 
 /** What the Stores make of a recipe now: the most it can smelt (every input's units over its need), to SMELT_MAX. */
@@ -325,3 +346,196 @@ function drawForge(detail, rerender, { el, divider }) {
 }
 /** Whether the Steel line needs its word: no Charcoal held. */
 const r0Charcoal = (book) => book.held('wood:charcoal') < 1;
+
+// ─── PROF3: THE ANVIL (bible/06-Systems/Professions-Arc.md 9, 24) ─────
+
+/** The anvil's families, in its row's order, and the metals a family is made in. */
+export const ANVIL_FAMILIES = Object.freeze([['weapons', 'Weapons'], ['armour', 'Armour'], ['tools', 'Tools'], ['kits', 'Repair Kits']]);
+const METAL_ROW = Object.freeze([
+  ['ingot:iron', 'Iron'], ['ingot:steel', 'Steel'], ['ingot:silver', 'Silver'], ['ingot:moonstone', 'Elven'], ['ingot:dwarven', 'Dwarven'],
+  ['ingot:mithril', 'Mithril'], ['ingot:adamantium', 'Adamantium'], ['ingot:ebony', 'Ebony'], ['ingot:orichalcum', 'Orcish'],
+  ['ingot:daedric', 'Daedric'], ['ingot:warforged', 'Warforged'],
+]);
+/** The recipes the anvil lists for a family at a metal (the tools are Iron's alone; the chain is Steel's). */
+export const anvilRecipes = (family, metal) => RECIPES.filter((r) => r.family === family && (family === 'tools' || r.metal === metal));
+/** How many of a recipe the Stores make now. */
+export const craftable = (r, held) => r.inputs.every((inp) => held(inp.key) >= inp.n);
+
+/** The heat let go: its loop and its keys. */
+function endHeat() {
+  _anvil.off?.();
+  _anvil.off = null;
+  _anvil.strike = null;
+  _anvil.act = null;
+  _anvil.els = null;
+}
+/** The heat's frame: the glow ticked, its bar drawn, the act ended when the page is gone; the craft asked on the third
+ *  strike. */
+function heatLoop(rerender, finish) {
+  const raf = globalThis.requestAnimationFrame?.bind(globalThis) ?? ((fn) => setTimeout(() => fn(Date.now()), 16));
+  const caf = globalThis.cancelAnimationFrame?.bind(globalThis) ?? clearTimeout;
+  let last = null, id = 0, live = true, inStep = false;
+  const reduced = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const clock = () => globalThis.performance?.now?.() ?? Date.now();
+  // the next frame - never inside this one (a frame source that answers at once, as a test's does, is a timer's then)
+  const next = () => { id = raf(() => { if (inStep) setTimeout(step, 16); else step(); }); };
+  const step = () => {
+    if (!live || !_anvil.act) return;
+    inStep = true;
+    try {
+      const els = _anvil.els;
+      if (!els?.bar || els.bar.isConnected === false) { _anvil.act.cancel(); endHeat(); return; }   // the page shut under the act: nothing spent
+      const t = clock();
+      const dt = last == null ? 0 : Math.min(0.1, (t - last) / 1000);
+      last = t;
+      _anvil.act.tick(dt);
+      const g = _anvil.act.glow;
+      els.marker.style.left = `${(g * 100).toFixed(1)}%`;
+      if (!reduced) els.bar.style.setProperty?.('--heat', g.toFixed(3));
+      els.bar.classList.toggle('prof-inband', _anvil.act.inBand);
+      next();
+    } finally { inStep = false; }
+  };
+  const strike = () => {
+    const a = _anvil.act;
+    if (!a) return;
+    const hit = a.strike();
+    if (hit == null) return;
+    _anvil.els?.marks?.[a.state.strikes.length - 1]?.classList.add(hit ? 'hit' : 'miss');
+    if (a.state.done) { const clean = a.report().clean; endHeat(); finish(clean); }
+  };
+  const key = (e) => {
+    if (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault?.(); e.stopPropagation?.(); strike(); }
+  };
+  globalThis.document?.addEventListener?.('keydown', key, true);
+  next();
+  _anvil.off = () => { live = false; caf(id); globalThis.document?.removeEventListener?.('keydown', key, true); };
+  return strike;
+}
+
+/**
+ * PROF3: THE ANVIL - beside the forge (section 24: the anvil stands wherever the forge does), named and not pictured: the
+ * families and the metals, each recipe with its inputs as the Stores hold them, the rank it asks and the odds the smith's
+ * margin rolls on; the smith's stock where a fitting is short (a smith's forge alone); Craft (the heat) and Quick craft.
+ * @param {HTMLElement} detail @param {() => void} rerender @param {{ el: Function, divider: (w: string) => HTMLElement }} kit
+ */
+function drawAnvil(detail, rerender, { el, divider }) {
+  const p = _provider;
+  if (!p?.forge || !p.craft) return;
+  const book = p.book;
+  const forge = p.forge();
+  detail.append(divider('The Anvil'));
+  if (!forge) {
+    endHeat();
+    detail.append(el('p', 'px-note', `Smithing is done at an anvil, beside a forge: a Weaponsmith's or an Armorer's (${FORGE_FEE} gold a craft), or your own home's forge.`));
+    return;
+  }
+  const rank = book.track('smithing')?.rank ?? 0;
+  const specs = book.track('smithing')?.specs ?? {};
+  detail.append(el('p', 'px-note', `${forge.kind === 'shop' ? `The smith's anvil - ${forge.fee} gold a craft.` : 'Your anvil.'} Smithing ${rank} (${rankName(rank)}).`));
+  const held = (k) => book.held(k);
+  const fams = el('div', 'prof-families');
+  for (const [id, word] of ANVIL_FAMILIES) {
+    const b = el('button', `prof-family${_anvil.family === id ? ' on' : ''}`, word);
+    b.type = 'button';
+    b.onclick = () => { _anvil.family = id; _anvil.picked = null; rerender(); };
+    fams.append(b);
+  }
+  detail.append(fams);
+  if (_anvil.family !== 'tools') {
+    const metals = el('div', 'prof-families prof-metals');
+    for (const [id, word] of METAL_ROW) {
+      if (_anvil.family === 'kits' && id === 'ingot:warforged') continue;
+      const b = el('button', `prof-family${_anvil.metal === id ? ' on' : ''}`, word);
+      b.type = 'button';
+      b.onclick = () => { _anvil.metal = id; _anvil.picked = null; rerender(); };
+      metals.append(b);
+    }
+    detail.append(metals);
+  }
+  const list = anvilRecipes(_anvil.family, _anvil.metal);
+  for (const r of list) {
+    const open = recipeOpen(r, rank);
+    const can = open && craftable(r, held);
+    const row = el('button', `prof-recipe${_anvil.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
+    row.type = 'button';
+    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));
+    row.onclick = () => { _anvil.picked = r.id; rerender(); };
+    detail.append(row);
+  }
+  const r = list.find((x) => x.id === _anvil.picked);
+  if (r) {
+    const box = el('div', 'prof-craft');
+    box.append(el('b', null, `${r.name} - rank ${r.rank}`));
+    for (const inp of r.inputs) {
+      const have = held(inp.key);
+      const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
+      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      const sale = stockOf(inp.key);
+      if (sale && have < inp.n && forge.kind === 'shop' && p.stock) {
+        const need = inp.n - have;
+        const buy = el('button', 'act', `Buy ${need} from the smith - ${sale.marks * need} Marks`);
+        buy.type = 'button';
+        buy.disabled = _anvil.busy;
+        buy.onclick = async () => {
+          if (_anvil.busy) return;
+          _anvil.busy = true; rerender();
+          const res = await p.stock(inp.key, Math.min(STOCK_MAX, need));
+          _anvil.busy = false; _anvil.word = res?.text ?? null; rerender();
+        };
+        line.append(buy);
+      }
+      box.append(line);
+    }
+    if (takesQuality(r) && recipeOpen(r, rank)) {
+      const odds = qualityOdds(rank - r.rank, { masterwright: specs[100] === 'masterwright' });
+      box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean heat is a step better.`));
+    } else if (!takesQuality(r)) box.append(el('p', 'px-note', 'A Repair Kit mends a quarter of a piece\'s condition, once - a weapon or armour of its metal.'));
+    const gentle = getPref('gentleActs') === true;
+    const ready = recipeOpen(r, rank) && craftable(r, held) && !_anvil.busy && !_anvil.act;
+    const finish = async (clean) => {
+      _anvil.busy = true; rerender();
+      const res = await p.craft(r.id, { clean });
+      _anvil.busy = false; _anvil.word = res?.text ?? null; rerender();
+    };
+    if (_anvil.act) {
+      // THE HEAT: the glow's bar, its band, the strikes so far
+      const panel = el('div', 'prof-heat');
+      const bar = el('div', 'prof-heatbar');
+      const band = el('div', 'prof-heatband');
+      band.style.left = `${(_anvil.act.state.lo * 100).toFixed(1)}%`;
+      band.style.width = `${((_anvil.act.state.hi - _anvil.act.state.lo) * 100).toFixed(1)}%`;
+      const marker = el('div', 'prof-heatmark');
+      bar.append(band, marker);
+      const marks = el('div', 'prof-strikes');
+      const dots = [];
+      for (let i = 0; i < HEAT_ACT.strikes; i++) { const d = el('span', `prof-strike${i < _anvil.act.state.strikes.length ? (_anvil.act.state.strikes[i] ? ' hit' : ' miss') : ''}`, 'o'); dots.push(d); marks.append(d); }
+      const hit = el('button', 'act primary', 'Strike');
+      hit.type = 'button';
+      const cancel = el('button', 'act', 'Let it cool');
+      cancel.type = 'button';
+      cancel.onclick = () => { _anvil.act?.cancel(); endHeat(); _anvil.word = 'You let the ingot cool; nothing is spent.'; rerender(); };
+      panel.append(el('span', 'prof-heatword', 'The heat - strike while the glow is in the band (Space)'), bar, marks, hit, cancel);
+      box.append(panel);
+      _anvil.els = { bar, marker, marks: dots };
+      if (!_anvil.off) _anvil.strike = heatLoop(rerender, finish);
+      hit.onclick = () => _anvil.strike?.();
+    } else {
+      const go = el('button', 'act primary', _anvil.busy ? 'At the anvil...' : 'Craft');
+      go.type = 'button';
+      go.disabled = !ready;
+      go.onclick = () => {
+        if (gentle) { void finish(false); return; }   // Gentle acts: a plain craft, no heat
+        _anvil.act = createHeatAct({ band: p.heatBand?.() ?? 1 });
+        rerender();
+      };
+      const quick = el('button', 'act', 'Quick craft');
+      quick.type = 'button';
+      quick.disabled = !ready;
+      quick.onclick = () => { void finish(false); };
+      box.append(go, quick);
+    }
+    detail.append(box);
+  }
+  if (_anvil.word) detail.append(el('p', 'prof-word', _anvil.word));
+}

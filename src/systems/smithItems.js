@@ -1,0 +1,145 @@
+// @ts-check
+// ═══════════════════════════════════════════════════════════════════
+// PROF3 (2026-09-28, Mac: "Lets keep moving") - THE PIECE A CRAFT MADE
+// (bible/06-Systems/Professions-Arc.md 9.2, 24): minted as DFU mints
+// it and the quality laid on it after.
+//
+// DFU'S OWN ITEM FIRST. A weapon is ItemBuilder.CreateWeapon's
+// (combat/enemyEquipment.js weaponOfMaterial - its material's value and
+// condition), a piece of armour CreateArmor's (armorOfMaterial - plate
+// 0x0200 + the metal, chain 0x0100), a tool Foraging's own mint
+// (foragingInstall.js createForagingItem). THEN THE QUALITY: the
+// condition's and the weight's multipliers, and for a Superior and a
+// Masterwork one Loot Rarity roll (lootRarity.js applyRarity), rolled
+// off the product record's seed so the piece is the record's on every
+// client; a Masterwork takes the maker's mark for its name
+// (itemInfo.js itemNameParts). A tool's quality is its life.
+//
+// THE PIECE CARRIES `quality`, `provenance` and `maker` (itemFields.js),
+// riding the save as Loot Rarity's `rarity` does; the signed record is
+// the service's (`products`), the id the piece's.
+//
+// THE REPAIR KIT (692): the anvil's consumable - a quarter of an item's
+// condition, once, on the most-worn weapon or armour of its metal the
+// pack holds. Its row is registered with the ores and ingots
+// (profTemplates.js), so any scene the save loads in knows it.
+// ═══════════════════════════════════════════════════════════════════
+import {
+  recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, INGOT_MATERIAL, ARMOR_PLATE,
+  ARMOR_CHAIN, PROVENANCE_RE, makerName, QUALITY_NAMES,
+} from '../net/recipeLaw.js';
+import { minedMaterial } from '../net/professionLaw.js';
+import { weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';
+import { setItemFields, mintCondition, templateByIndex, registerItemUseHandler } from './itemTemplates.js';
+import { itemLongName } from './itemInfo.js';
+import './profTemplates.js';   // the Repair Kit's row (692), registered with the ores and ingots
+import { applyRarity, rarityEligible } from './lootRarity.js';
+import { unitWeightInKg } from './inventory.js';
+import { seededRng } from './wind.js';
+import { createForagingItem } from './foragingInstall.js';
+
+/** DFU's metal names by material (itemInfo.js MATERIAL_NAMES' first ten) - a kit's word and its dye. */
+const METALS = Object.freeze(['Iron', 'Steel', 'Silver', 'Elven', 'Dwarven', 'Mithril', 'Adamantium', 'Ebony', 'Orcish', 'Daedric']);
+
+/** A kit's worth: 10 gold and 10 a tier of its metal. */
+const kitValue = (tier) => 10 + 10 * tier;
+
+// ─── THE PIECE ───────────────────────────────────────────────────────
+
+/**
+ * One piece of a craft's answer - `{ recipe, quality, seed, maker }` and the piece's `provenance` - as the pack holds it,
+ * or null for a recipe this client does not know.
+ * @param {{ recipe: string, quality: number, seed: number, maker?: string|null }} made
+ * @param {string} provenance
+ */
+export function mintPiece({ recipe, quality, seed, maker = null }, provenance) {
+  const r = recipeById(recipe);
+  if (!r || typeof provenance !== 'string' || !PROVENANCE_RE.test(provenance)) return null;
+  const mark = makerName(maker);
+  /** @type {any} */
+  let item;
+  if (r.kind === 'kit') {
+    const m = INGOT_MATERIAL[r.metal];
+    item = mintCondition(setItemFields({ group: 'UselessItems2', templateIndex: REPAIR_KIT_TEMPLATE, material: 0, flags: 0, variant: 0, message: 0, stackCount: 1 }));
+    item.name = `${METALS[m]} Repair Kit`;
+    item.kitMetal = m;
+    item.value = kitValue(minedMaterial(r.metal).tier);
+    item.provenance = provenance;
+    if (mark) item.maker = mark;
+    return item;
+  }
+  const q = Math.max(0, Math.min(MASTERWORK, quality | 0));
+  if (r.kind === 'tool') {
+    item = createForagingItem(r.templateIndex);
+    if (!item) return null;
+    item.maxCondition = item.currentCondition = TOOL_LIFE[q];   // FORAGE0 14.7: a tool's quality is its life
+  } else {
+    item = r.kind === 'weapon' ? weaponOfMaterial(r.templateIndex, r.material) : armorOfMaterial(r.templateIndex, r.material);
+    const eff = QUALITY_EFFECTS[q];
+    if (eff.rarity && rarityEligible(item)) { applyRarity(item, eff.rarity, seededRng(seed >>> 0)); item.isIdentified = true; }
+    item.maxCondition = item.currentCondition = Math.max(1, Math.round(item.maxCondition * eff.condition));
+    if (eff.weight !== 1) item.weightInKg = Math.round(unitWeightInKg({ ...item, weightInKg: undefined }) * eff.weight * 100) / 100;
+    if (q === MASTERWORK && mark) item.name = templateByIndex(r.templateIndex)?.name ?? item.name;   // the mark is its name (itemNameParts)
+  }
+  item.quality = q;
+  item.provenance = provenance;
+  if (mark) item.maker = mark;
+  return item;
+}
+
+/** Every piece of a craft's answer, minted - two of a Quartermaster's kit. @param {any} data */
+export const mintPieces = (data) => (data?.pieces ?? []).map((p) => mintPiece(data, p.provenance)).filter(Boolean);
+
+// ─── THE REPAIR KIT'S USE ────────────────────────────────────────────
+
+/** Whether a kit of metal `m` mends an item: a weapon of the metal, a plate piece of it, and Steel's the chain too. */
+export function kitMends(m, item) {
+  if (!item || !Number.isInteger(m) || !(item.maxCondition > 0)) return false;
+  if (item.group === 'Weapons') return item.material === m;
+  if (item.group === 'Armor') return item.material === ARMOR_PLATE + m || (m === 1 && item.material === ARMOR_CHAIN);
+  return false;
+}
+/**
+ * A KIT USED (PROF0 9.3: "repairs 25% of an item's condition, once"): the most-worn item of its metal the list holds - the
+ * lowest share of its condition left, an equipped one first on a tie - mended by a quarter of its condition, never past
+ * whole; the kit spent. Answers the item mended and its share before and after, or null when nothing of the metal wants
+ * mending (the kit kept).
+ * @param {any} kit
+ * @param {any[]} items
+ */
+export function useRepairKit(kit, items) {
+  if (!kit || kit.templateIndex !== REPAIR_KIT_TEMPLATE || !Array.isArray(items)) return null;
+  const want = items.filter((it) => it !== kit && kitMends(kit.kitMetal, it) && it.currentCondition < it.maxCondition);
+  if (!want.length) return null;
+  const share = (it) => it.currentCondition / it.maxCondition;
+  want.sort((a, b) => share(a) - share(b) || (b.equipSlot != null ? 1 : 0) - (a.equipSlot != null ? 1 : 0));
+  const it = want[0];
+  const before = share(it);
+  it.currentCondition = Math.min(it.maxCondition, it.currentCondition + Math.ceil(it.maxCondition * KIT_REPAIR));
+  const i = items.indexOf(kit);
+  if (i >= 0) items.splice(i, 1);
+  return { item: it, before, after: share(it) };
+}
+/** The kit's metal's word, for its refusal ("Nothing of Mithril here wants mending."). */
+export const kitMetalName = (kit) => METALS[kit?.kitMetal] ?? 'its metal';
+
+/** A kit used from the pack (useItem.js's delegate arm): the most-worn piece of its metal mended, or the kit kept and
+ *  said so. Offline as online - a kit is the pack's, and mending asks no service. */
+export function repairKitUse(item, collection) {
+  const done = useRepairKit(item, collection);
+  if (!done) return { kind: 'repairKit', text: `Nothing of ${kitMetalName(item)} here wants mending.` };
+  return { kind: 'repairKit', text: `The ${itemLongName(done.item)} is mended: ${Math.round(done.before * 100)}% to ${Math.round(done.after * 100)}%.` };
+}
+/** Every host's install (scenes/shared.js): the Repair Kit's use on the item-use door. */
+export function installSmithing() { registerItemUseHandler(REPAIR_KIT_TEMPLATE, repairKitUse); }
+
+/** What a craft says it made: "You made a Fine Mithril Longsword." - "two Mithril Repair Kits" for a Quartermaster's. */
+export function craftedText(pieces) {
+  if (!pieces.length) return 'You made nothing.';
+  const it = pieces[0];
+  const word = Number.isInteger(it.quality) && !Number.isInteger(it.kitMetal) && it.quality !== MASTERWORK ? `${QUALITY_NAMES[it.quality]} ` : '';
+  const name = itemLongName(it);
+  return pieces.length > 1 ? `You made ${pieces.length} ${name}s` : `You made ${/^[AEIOU]/.test(word || name) ? 'an' : 'a'} ${word}${name}`;
+}
+/** What a craft whose answer did not come says: kept, and made when it does. */
+export const CRAFT_KEPT_TEXT = 'The anvil rang, but no word came back - the work is kept, and made when the word comes.';

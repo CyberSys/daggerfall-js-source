@@ -77,7 +77,7 @@ export async function standService(extra = {}) {
   const seedMarks = (who, n, tag = 'seed') => env.DB._raw.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
     VALUES ('mint', NULL, 'account', ?, 'test', ?, 1, 1, ?, NULL, ?)`).run(who.id, n, who.id, `${tag}-${who.handle}-${n}`);
   const fetch = (u, i) => worker.fetch(new Request(u, i), env);
-  return { env, call, guest, registered, claim, seedMarks, fetch };
+  return { env, call, guest, registered, claim, seedMarks, fetch, identityPublic: kp.publicKey };   // PROF3: the identity key's public half, a product record's verifier
 }
 
 /** A device's storage holding `who`'s session (net/accountClient.js SESSION_KEY). */

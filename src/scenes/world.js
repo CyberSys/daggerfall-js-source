@@ -326,6 +326,8 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, answered by this host
 import { registerContainerLootHandler } from '../systems/containerLoot.js';   // THE MERGE: CSA-H's shelf subscriber, by its mod's name, on PlayerActivate.OnLootSpawned's one home
+import { mintPieces, craftedText, CRAFT_KEPT_TEXT } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack
+import { heatBand } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
@@ -989,6 +991,14 @@ export async function bootWorld(canvas, renderer, params, status) {
   const profMint = (key, n) => {
     const got = withdrawIntoPack(playerEntity, key, n);
     if (got) townTalk.say(`${got} ${materialCountLabel(key, got)} taken from the Stores into your pack.`);
+  };
+  /** PROF3: a craft's pieces into the pack (systems/smithItems.js) - each once, by its provenance id: a piece the pack
+   *  already holds (another tab minted it) is not minted again. */
+  const profMintCraft = (data) => {
+    const have = new Set((playerEntity.items ?? []).map((it) => it?.provenance).filter(Boolean));
+    const pieces = mintPieces(data).filter((it) => !have.has(it.provenance));
+    for (const it of pieces) addItem((playerEntity.items ??= []), it, 'back');
+    if (pieces.length) townTalk.say(craftedText(pieces));
   };
   /** NOTICE1: the town a board on map pixel (px, py) belongs to - its map id (unsigned), its name, and whether one of its
    *  boards is a bounty board (the Notices tab then pins the line that sends the reader there) - or null off a location. */
@@ -6548,14 +6558,31 @@ export async function bootWorld(canvas, renderer, params, status) {
         input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon'), choice: pressed(latch.edge, keys, 'ActChoice') }),
         active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning,
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
-        onSettle: () => { profBook.settle(profMint).catch(() => {}); },
+        onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); },
       });
       setProfessionsPages({
         book: profBook, name: (k) => materialLabel(k), withdraw: (k, n) => profBook.withdraw(k, n, profMint),
-        settle: () => profBook.settle(profMint),   // AUDIT 29 C4: a kept withdrawal asked again when the Stores page opens
+        settle: () => profBook.settle(profMint, profMintCraft),   // AUDIT 29 C4: a kept withdrawal asked again when the Stores page opens; PROF3: and a kept craft
         // PROF2 (bible/06-Systems/Professions-Arc.md 23): THE FORGE - the one the player stands at (a Weaponsmith's or an
         // Armorer's, its fee a smelt from the purse, paid on the service's answer; a home's forge), and a smelt through it
         forge: () => modes?.forgeHere?.() ?? null,
+        // PROF3 (bible/06-Systems/Professions-Arc.md 24): THE ANVIL beside it - a craft through the book, its pieces into
+        // the pack (kept until minted), the smith's fee a craft on the service's answer, as a smelt's; the smith's stock;
+        // the heat's band, Smithing's attribute pair
+        craft: async (recipe, { clean }) => {
+          const f = modes?.forgeHere?.() ?? null;
+          if (!f) return { ok: false, text: 'You are not at an anvil.' };
+          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The smith asks ${f.fee} gold for the use of the anvil.` };
+          const r = await profBook.craft(recipe, { clean, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null }, profMintCraft);
+          if (!r?.ok) return { ok: false, text: r?.kept ? CRAFT_KEPT_TEXT : accountRefusalText(r?.error) };
+          if (f.fee > 0) deductGold(playerEntity, f.fee);
+          return { ok: true, text: `${craftedText(mintPieces(r.data))} (+${r.data.xp} Smithing XP)${f.fee > 0 ? `, and paid the smith ${f.fee} gold` : ''}.` };
+        },
+        stock: async (material, qty) => {
+          const r = await profBook.stock(material, qty);
+          return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(material, r.data.qty)} from the smith for ${r.data.marks} Marks.` } : { ok: false, text: accountRefusalText(r?.error) };
+        },
+        heatBand: () => heatBand({ strength: liveStat(playerEntity, 'strength'), agility: liveStat(playerEntity, 'agility') }),
         smelt: async (recipe, count) => {
           const f = modes?.forgeHere?.() ?? null;
           if (!f) return { ok: false, text: 'You are not at a forge.' };

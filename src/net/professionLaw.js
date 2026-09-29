@@ -286,7 +286,7 @@ export const HERB_VALUES = Object.freeze([1, 2, 5]);
 
 /**
  * @typedef {{ key: string, family: string, tier: number, templateIndex: number, group?: string, name?: string,
- *   icon?: readonly number[], dye?: string|null }} MinedRow a mined (or smelted) material's row
+ *   icon?: readonly number[]|null, dye?: string|null }} MinedRow a mined (or smelted) material's row - or a stock's (PROF3)
  */
 /** A DFU item's material row: its key, family, tier, DFU group and template. @returns {MinedRow} */
 const dfu = (key, family, tier, group, templateIndex) => Object.freeze({ key, family, tier, group, templateIndex });
@@ -348,11 +348,30 @@ export const GEMS = Object.freeze([
   dfu('gem:jade', 'gems', gemTierOfPrice(10), 'Gems', 4), dfu('gem:turquoise', 'gems', gemTierOfPrice(50), 'Gems', 5),
   dfu('gem:malachite', 'gems', gemTierOfPrice(25), 'Gems', 6), dfu('gem:amber', 'gems', gemTierOfPrice(100), 'Gems', 7),
 ]);
-/** Charcoal (PROF0 4.2): Logging's, tier 1 - the Steel recipe names it now; the Stores hold it from PROF4. */
+/** Charcoal (PROF0 4.2): Logging's, tier 1 - the Steel recipe names it; the smith's stock sells it (PROF3). */
 export const CHARCOAL = made('wood:charcoal', 'wood', 1, 652, 'Charcoal', ICON_LODESTONE, null);
 /** Every new template PROF2 registers, by template. */
 export const MINING_TEMPLATES = Object.freeze([...ORES, ...INGOTS, ...STONES]);
-const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, CHARCOAL].map((m) => [m.key, m]));
+
+// ─── THE SMITH'S STOCK (PROF0 24) ────────────────────────────────────
+
+/** PROF3: the fittings Smithing's recipes ask (PROF0 9.3) that no profession yields yet - Hunting's Cured Leather
+ *  (665: 4.4's cure of tier 1-3 hides, their middle, tier 2) and Logging's Oak and Pine Planks (646 tier 2, 645 tier
+ *  1) and Charcoal. The smith's forge sells them into the Stores for Marks: a counter's goods (4.5), bought, never own. */
+export const CURED_LEATHER = made('leather:cured', 'hides', 2, 665, 'Cured Leather', null, null);
+export const OAK_PLANK = made('plank:oak', 'wood', 2, 646, 'Oak Plank', null, null);
+export const PINE_PLANK = made('plank:pine', 'wood', 1, 645, 'Pine Plank', null, null);
+/** The smith's price, a unit: twice the material's Marks value (4.8) - a gatherer's own undersells it once the
+ *  professions that yield it come (PROF4, PROF7). In the stock window's order. */
+export const SMITH_STOCK = Object.freeze([CURED_LEATHER, OAK_PLANK, PINE_PLANK, CHARCOAL]
+  .map((m) => Object.freeze({ key: m.key, marks: 2 * TIER_VALUES[m.tier - 1] })));
+export const stockOf = (key) => SMITH_STOCK.find((s) => s.key === key) ?? null;
+/** Units a purchase, at most. */
+export const STOCK_MAX = 100;
+/** Whether the Stores may give a material to the pack: not the stock's four, whose templates their own professions
+ *  register (FACT: none of 645, 646, 652, 665 is a template before PROF4 and PROF7). */
+export const withdrawable = (key) => !stockOf(key);
+const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, CHARCOAL, CURED_LEATHER, OAK_PLANK, PINE_PLANK].map((m) => [m.key, m]));
 /** A mined (or smelted) material's row, or null. */
 export const minedMaterial = (key) => MINED.get(key) ?? null;
 

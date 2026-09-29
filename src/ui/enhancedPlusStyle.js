@@ -932,6 +932,31 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
   padding: 4px 0; border-bottom: 1px solid rgba(192,138,62,0.18); font-size: 12px; color: #d9cfbd; }
 .prof-smelt b { color: #efe0b8; font-weight: normal; }
 @media (max-width: 560px) { .prof-smelt { grid-template-columns: 1fr 64px auto; } .prof-smelt .prof-split { grid-column: 1 / -1; } }
+/* PROF3: the anvil - its recipes, a recipe's inputs, and the heat (a bar the glow's marker runs along, the band on it) */
+.prof-metals { margin-top: 4px; }
+.prof-recipe { display: grid; grid-template-columns: 1fr auto; width: 100%; gap: 2px 8px; padding: 4px 8px; margin: 2px 0; text-align: left; font: inherit;
+  font-size: 12px; color: var(--bone, #e9e4d9); background: rgba(10,8,6,0.6); border: 1px solid rgba(192,138,62,0.25); cursor: pointer; }
+.prof-recipe.on { border-color: var(--brass, #c08a3e); background: rgba(192,138,62,0.16); }
+.prof-recipe b { color: #efe0b8; font-weight: normal; }
+.prof-recipe .prof-split { grid-column: auto; }
+.prof-craft { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; padding: 8px; font-size: 12px; color: #d9cfbd;
+  border: 1px solid rgba(192,138,62,0.3); background: rgba(10,8,6,0.5); }
+.prof-craft > b { color: #efe0b8; font-weight: normal; }
+.prof-input { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.prof-input.prof-short { color: #d98b6e; }
+.prof-heat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.prof-heatword { flex: 1 1 100%; color: #efe0b8; }
+.prof-heatbar { --heat: 0; position: relative; flex: 1 1 220px; height: 18px; border: 1px solid rgba(192,138,62,0.5);
+  background: linear-gradient(90deg, #2a1a12, #7a2e10 45%, #d86a18 70%, #f6d58a 88%, #fff6e0);
+  box-shadow: 0 0 calc(var(--heat) * 14px) rgba(246,160,60, calc(var(--heat) * 0.8)); }
+.prof-heatband { position: absolute; top: -3px; bottom: -3px; border: 2px solid #efe0b8; box-sizing: border-box; }
+.prof-heatmark { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1px; background: #fff; }
+.prof-heatbar.prof-inband .prof-heatband { border-color: #fff6e0; box-shadow: 0 0 6px #f6d58a; }
+.prof-strikes { display: flex; gap: 4px; font-size: 14px; color: #6f6456; }
+.prof-strike.hit { color: #f6d58a; }
+.prof-strike.miss { color: #d98b6e; }
+@media (prefers-reduced-motion: reduce) { .prof-heatbar { box-shadow: none; } }
+@media (pointer: coarse) { .prof-recipe { min-height: 40px; } }
 .prof-matline { flex: 1 1 220px; }
 @media (max-width: 720px) { .prof-cols { grid-template-columns: 1fr; } .prof-specs { grid-template-columns: 1fr; } }
 @media (pointer: coarse) { .prof-row, .prof-mat, .prof-spec, .prof-family { min-height: 40px; } }

@@ -120,7 +120,9 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // Court writs, written down for the day)
   // PROF2 added one (0021): `prof_smelts` (one row a smelt). AUDIT 29 added one (0022): `prof_choices` (one row a free
   // first specialisation, found by its id before the switch)
-  assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'marks', 'marks_ledger', 'node_harvests', 'players', 'prof_choices', 'prof_smelts', 'prof_stores', 'prof_tracks', 'prof_withdrawals', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'renown_tracks', 'saves', 'sessions', 'world_witness', 'writ_days', 'writs']);
+  // PROF3 added three (0023): `prof_crafts` (one row a craft at the anvil), `products` (every crafted piece - its
+  // provenance id, owner and signed record) and `prof_stock` (one row a purchase from the smith's stock)
+  assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'marks', 'marks_ledger', 'node_harvests', 'players', 'products', 'prof_choices', 'prof_crafts', 'prof_smelts', 'prof_stock', 'prof_stores', 'prof_tracks', 'prof_withdrawals', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'renown_tracks', 'saves', 'sessions', 'world_witness', 'writ_days', 'writs']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.
   const cols = db._raw.prepare('PRAGMA table_info(players)').all().map((c) => c.name);

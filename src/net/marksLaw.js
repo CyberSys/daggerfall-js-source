@@ -62,6 +62,7 @@ export const MARKS_KINDS = Object.freeze({
   'guild-withdraw': 'move',   // the guildmaster's, out of it
   writ: 'mint',               // PROF1: a Court writ filled from the Stores - an act the service witnessed (it took the units)
   respec: 'burn',             // PROF1: a specialisation changed (PROF0 3.3: 1,000 Marks)
+  stock: 'burn',              // PROF3: the smith's stock - the fittings no profession yields yet, bought into the Stores (PROF0 24)
 });
 
 /** The switch the service's config holds (MARKS_OPEN): off, dev (the developers alone), on. */
