@@ -4090,3 +4090,24 @@ also stores an optional email (ACC1c), cloud save backups with a screenshot each
   code does not; corrected.
 Pinned: `test/audit0929_terms.test.js` (6), `test/terms1.test.js`'s refusals; `tools/mutants/audit0929_terms.json` (14,
 all dead).
+
+## REALM-DOOR and CUSTOMS-PASS — the mint's realm word, and a developer's pass through customs (2026-09-29, acct21)
+
+From the field (`01-Overview/Field-Bugs-2026-09-29b.md`): Gryphoth made and played a character online on a build from
+before the realm, after the census froze - the relay still admitted such a build - and Bring online refused it.
+
+- **REALM-DOOR: every identity token says whether its character is the realm's.** `/v1/auth/token` stamps `rc`: 1 when
+  the character the mint names is one of the account's realm characters (`realm.js` `realmCharacterHeld` - a realm id,
+  the caller's own, standing), else 0 - an offline id, another account's character, one deleted, none. The relay
+  refuses a 0 at its door (`06-Systems/Online-Arc.md` REALM-DOOR, world129).
+- **CUSTOMS-PASS (Mac: "Staff customs pass"): `POST /v1/mod/customs-pass { name | account, revoke? }`**, a developer's
+  alone (`DEVELOPER_HANDLES`; a moderator's mute is not enough to let a character into the realm's economy). The account
+  is named as the game shows it - a handle, case-folded, or a guest's two-word name when one account without a handle
+  wears it (`ambiguous`, 409, when two do) - or by its id. It holds one open pass (`realm_passes`, migration 0024: a row
+  a grant, `granted_by` and `granted_at`; a partial unique index keeps one open an account), and customs spends it on the
+  account's next character its census does not count, inside `customsRealm`'s own guarded batch, writing that
+  character's id and the moment (`origin_id`, `spent_at`). Never spent on a character the census admits anyway; never
+  lets in one already brought in from any account. A revoke takes back an open pass only. `tools/customsPass.mjs` is the
+  developer's end of it.
+- `acct21`. Pins: `test/realmdoor.test.js` (6), `test/customspass.test.js` (6); `test/accountworker.test.js` names the
+  new table.

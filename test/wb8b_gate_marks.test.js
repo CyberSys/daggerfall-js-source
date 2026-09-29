@@ -363,7 +363,7 @@ test('WB8b Echoing in the brain: a meteor falls again a breath after the first -
 
 test('WB8b the wire: the brain\'s law is 3 - a game that does not know the marks is refused and told to reload; the room says `fed`, projected field by field; the relay is world128 - world126 on its branch, one relay past main\'s OW6L (world127) at the merge (mutants: the law not raised; a `fed` taken raw)', () => {
   assert.equal(GATE_BRAIN_V, 3); assert.equal(GATE_BRAIN_MIN, 3);
-  assert.equal(RELAY_VERSION, 'world128');
+  assert.equal(RELAY_VERSION, 'world129');   // REALM-DOOR moved it on past WB8's world128 (the door refuses a token the account service signed as naming no realm character); the brain's law is unchanged
   assert.ok(GATE_OUT_KINDS.includes('fed'));
   assert.deepEqual(validGateOut({ k: 'fed', ns: ['Ann'], h: 5, m: 10, at: 99, x: 1 }), { k: 'fed', ns: ['Ann'], h: 5, m: 10, at: 99 });
   assert.deepEqual(validGateOut({ k: 'fed', ns: ['  Ann\u0007\u202e ', 'Bran'], h: 5, m: 10, at: 99 }).ns, ['Ann', 'Bran'], 'each name as the wire says every name');
