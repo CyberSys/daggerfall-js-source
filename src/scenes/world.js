@@ -405,8 +405,9 @@ import { GROUP_ROLL_RADIUS } from '../systems/campEncounters.js';   // PSCALE1: 
 import { SOLITARY_TYPES } from '../characters/mobileFactions.js';   // AUDIT PSCALE1 COUNT-2: a solitary foe meets a party alone
 import {
   realmIo, openRealmBoot, createRealmSession, realmSummaryOf, setRealmNotice, realmCreate, realmPut, realmBootSearch, realmRefusalText,
-  sayRealmSave, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, whenPageGoes, realmTradeEscrow, realmGoldAct,
+  sayRealmSave, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, whenPageGoes, realmTradeEscrow, realmGoldAct, realmDoorShut,
 } from '../systems/realmSaves.js';   // REALM P1.3: an online character is the realm's - joined, loaded and checkpointed through the service
+import { reclaimFromDevice, reclaimLines } from '../systems/realmCustoms.js';   // RESTORE: what customs once kept back, given back at the boot
 import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that session lives - the app's store, not the tab's (a second tab is the same player)
 import { POSE_STRIKES, isWorldRoom, isCellRoom, cellHaloFor, actFrameFits, sharedClassicMinutes, wallMsForClassicMinutes } from '../net/wire.js';   // WORLD6b-iii(b): the cell seam's halo   // MAC7 #1: the swing's kind on the wire; AUDIT WORLD4 A1: whether an act frame can be said at all
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // MAC7 #2: the arrow bit on the wire - weaponRig's own read
@@ -669,6 +670,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let bootSnapRead;
   const bootSnap = () => (bootSnapRead === undefined ? (bootSnapRead = pickedSaveSnap(bootLoadPick ?? {})) : bootSnapRead);
   if (realmBoot) { bootSnapRead = realmBoot.snap; realmBoot.snap = null; }   // REALM P1.3: the realm's save, parsed at the join, IS the one parse - held here alone, so the door lets it go
+  const realmGiven = realmBoot?.origin ? reclaimFromDevice(bootSnapRead, realmBoot.origin) : null;   // RESTORE: what customs once kept, back into the one parse (systems/realmCustoms.js)
   // AUDIT SET D4: A TEST ROOM CHARACTER STAYS OFFLINE - asked before anything below reads `online` (the lane reads the
   // published URL, so the drop is published too), and said once the world stands
   const testRoomOffline = testRoomOnlineRefused(params, { snap: bootSnap });
@@ -6760,7 +6762,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2694 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6372
+  // that context through modes.dungeonCtx - so worldModes.js:6374
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -11661,7 +11663,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9793-9857 -
+  // worldModes answers it in BOTH modes (worldModes.js:9795-9859 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -13312,7 +13314,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     teleportTo(pick).catch((e) => { console.error('[staff] /tp failed:', e); hudFade.clearFade(); say('The teleport failed.'); });
   }
   const identityMinter = accountTokenMinter({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage(), onIssued: adoptIssued,
-    character: () => (onlineOn ? characterIdOf(playerEntity) : null) });   // RENOWN1: the character coming online - RENOWN-ACCOUNT: the token carries the account's level, whichever is named
+    character: () => (onlineOn ? realmSession?.id ?? null : null) });   // RENOWN1: the character coming online - RENOWN-ACCOUNT: the token carries the account's level, whichever is named. REALM-DOOR: it is the realm character this tab JOINED (online is never without one), which the service signs as the realm's and the relay's door reads - never an id the save carries or characterIdOf mints
   // RENOWN1: WHAT THIS CHARACTER EARNS, FOR ITS ACCOUNT (RENOWN-ACCOUNT) - online only (the tracker is never built offline, and earns only while a session
   // exists). A foe pays when it dies within RENOWN_ASSIST_MS of my own blow, whoever struck last (net/renownTracker.js - the one rule every kill door agrees
   // on), with the party in my room counted (renownPartyXp); a quest pays on success, once - each at three quarters (net/renown.js renownRate, RENOWN-ACCOUNT).
@@ -16701,6 +16703,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     renownTracker?.tick();   // RENOWN1: what this character earned, to the account service when a report is due
     peerMenuFrame();   // PEERMENU1: the bind's hold timer
     peerFxFrame();   // PEERFX1: the others' blows and hurts, played
+    // REALM-DOOR: the relay shut its door on this tab's token as naming no realm character of its account - the character
+    // deleted elsewhere, or the account signed out and another in: the realm's own end, to the Online door with the realm's
+    // word (the relay's words are for a build from before the realm), before anything else this frame draws over it
+    if (realmSession && !realmSession.lost && realmDoorShut(online)) { realmLost('no-realm-character'); return; }
     // ONE-SEAT (Mac: "the player can only have one character only at a time"): another tab or window of this player has
     // the seat - out of every room once, then nobody drawn and nothing sent, the dead's own law (D12), until the player
     // presses Play online here
@@ -17671,6 +17677,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // AUDIT SET D4: said once the world stands, the character loaded
   if (realmRefused) townTalk.say(REALM_OFFLINE_TEXT);   // REALM P1.3: an online boot with no realm character plays offline, and says so
+  for (const line of reclaimLines(realmGiven)) townTalk.say(line);   // RESTORE: what came back, said once the world stands
   // EOTB-IL: StartGameBehaviour.OnNewGame (the mod's handler, IL_0930) -
   // a boot that loaded nothing is a new game, wherever it starts
   if (!_loadedGame) mwViewNewGame((modes?.mode ?? 'exterior') !== 'exterior');

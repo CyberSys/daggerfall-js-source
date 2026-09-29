@@ -503,7 +503,7 @@ step, the steps over the quad's two triangles (GetInterpolatedHeight, the
 drawn ground's own cut), the height a step times size.y over kMaxHeight.
 Declared: the port rounds a height to its step (Unity's own rounding is in
 no source the port has; the sea is step 579 either way).
-`01-Overview/Field-Bugs-2026-09-29b.md`. The Terrain form reads the player's
+`01-Overview/Field-Bugs-2026-09-29c.md`. The Terrain form reads the player's
 terrain unless one is given; the pixel form reads its own pixel's, and
 nothing where none is built. UpdateAllBoatsNodes is kept as the C# has
 it: nothing calls it, and its `MapPixel == CurrentMapPixel` compares two

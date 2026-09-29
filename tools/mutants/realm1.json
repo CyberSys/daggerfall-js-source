@@ -47,8 +47,8 @@
   {
     "name": "REALM1-customs-no-track",
     "file": "server-account/src/realm.js",
-    "old": "' AND EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)',",
-    "new": "' AND (1 OR EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0))',",
+    "old": "' AND (EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)'",
+    "new": "' AND (1 OR EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)'",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "REALM1-customs-twice",
     "file": "server-account/src/realm.js",
-    "old": " AND char_id = ? AND spent = 0)',",
-    "new": " AND char_id = ?)',",
+    "old": "' AND (EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)'",
+    "new": "' AND (EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ?)'",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "REALM1-delete-keeps-objects",
     "file": "server-account/src/realm.js",
-    "old": "  if (bucket) {\n    await dropObjects(bucket, [row.obj, row.prev]);",
-    "new": "  if (false) {\n    await dropObjects(bucket, [row.obj, row.prev]);",
+    "old": "  if (!bucket) return;\n  await dropObjects(bucket, named);",
+    "new": "  if (bucket) return;\n  await dropObjects(bucket, named);",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "REALM1-delete-walk-skipped",
     "file": "server-account/src/realm.js",
-    "old": "    if (typeof bucket.list === 'function') {",
-    "new": "    if (false) {",
+    "old": "  if (typeof bucket.list !== 'function') return;",
+    "new": "  if (typeof bucket.list === 'function') return;",
     "tests": [
       "test/realm1.test.js"
     ]

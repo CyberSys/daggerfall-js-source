@@ -1,120 +1,90 @@
-# FIELD BUGS 2026-09-29 (b) - the boats that never left the shore (FIELD-CSA2)
+# FIELD BUGS 2026-09-29b - the character an old build stranded
 
-One screenshot of the Discord's #general, through Mac, on the morning after the 28e batch:
+From the Discord, through Mac, as one screenshot. Gryphoth:
 
-1. ItMustBeMonday: *"I can't get my boat to work"*.
-2. SylviaBun: *"I mentioned in game but you may have been crashed at the time, people are saying Ports are bugged for
-   player boats. I believe it has a bug report open atm"* - and, answered that the night's fixes should have it:
-   *"People were saying it was bugged around 2am (4 hours ago)"*.
+> "Hey I had an issue I think came from a version mismatch, I was playing online on a new character, went to trade
+> with someone and it said my client was outdated. So I logged out, updated and when I logged back in my character was
+> no longer online, and when I go to bring him online it says he has no renown or guilds and cant be brought online."
 
-The night's fixes were live by then: the deploys of #430 (FIELD-CSA1), #431 (SHIP-PORT, SHIP-SAIL) and #432 finished by
-03:12 UTC and #428's at 03:35; the reports are from about 07:00 UTC. So the fault was in the tree as it stood - and it
-was: no Come Sail Away boat could move on the open sea with the mods at their defaults.
+Mac, asked what becomes of a character stranded that way, chose **"Staff customs pass"** (`06-Systems/Realm-Arc.md`
+Decision 9).
 
-## FIELD-CSA2: every boat on the sea read its nodes as land
+## REALM-DOOR: online is the realm's at the servers, not only in the new build (the root cause)
 
-**Reproduced first, live.** A headless Chromium over the real game and the retail data, every mod at its default
-(Iliac Puddle No More on), standing at Daggerfall: `giveboat 2 0` - "Deed to Small Ship 'I'" - used on the water south
-of the city set the placing going (Daggerfall's 207, 213 is in the deed's search square from there, so "a port is
-near"), and `placeboat` - the placing click's own PlaceBoatAtRayHit - said "Boat placed!". Then, spot by spot, a Small
-Ship stood on the sea's top through the runtime's own PlaceBoat and its helm taken ("You control the boat!"). On the open
-Bay a pixel off the coast - the centres of 209, 216 and 210, 217 - the ground under the whole hull read 34.000001 m (the
-sea's clamp, the pixel's roads pass and all) and the five nodes read `[1, 1, 1, 1, 1]`: land. The same probe over the
-fixed tree, the same spots: 33.994 m and `[0, 0, 0, 0, 0]`. (The first spot tried, at the south-west corner of the
-coast pixel 208, 215, is not open sea: its roads pass stands the ground there at 34.8 m, and both trees read it land,
-rightly.) The earlier live probes of the helm
-(CSA-D and CSA-E, 2026-09-27) ran with Iliac Puddle No More OFF - its tile arm reads the Bay as water - and the height
-arm, the default, had never been seen on open water; CSA-J's audit read it as standing.
+**Reproduced first**, on the base, over the real account Worker and the real relay Room under one key pair: the
+service signed an identity token for an offline character's id - what a build from before the realm names at its
+mint - and the relay WELCOMED it, in a place room and in the hub; customs refused the same character
+`customs-never-online`. `test/realmdoor.test.js`'s first pin is that story, with the door now shut.
 
-**Why.** With Iliac Puddle No More on, Come Sail Away reads a node as water when `Terrain.SampleHeight(node) < 34`
-(`nodeReadingAt`; ComeSailAway.WaterLevel, the sea's own height over the terrain). Daggerfall's terrain sampler clamps
-the whole sea to the ocean elevation, 27.2 x 1.25 = 34 m over the terrain - the line and the sea are one height. DFU
-hands those heights to Unity as floats, and Unity does not keep them: a TerrainData heightmap holds each height as a
-16-bit step, kMaxHeight (32766) of them to the terrain's full height, and SampleHeight reads the steps. The flat sea is
-579.105 steps, held as 579: 33.994 m, under the line - water. The port's stand-in (`scenes/world.js` `csaTerrainOf`)
-read the drawn ground's floats: 34.00000097 m, never under it - and the open sea is that height wherever the sampler
-clamped it (south of Daggerfall, whole pixels of the Bay are nothing else: 208 to 212 on row 216, among others). So on
-the port:
+**Why.** The realm (REALM P1, main at f4dc60ce, 2026-09-28 23:38:54 UTC) was the new build's law alone. Its boot never
+takes a local slot online (`world.js` `realmRefused`) and its Online door lists realm characters only - but neither
+server ever asked. `/v1/auth/token` minted for whatever character a client named, and the relay admitted any token it
+could verify; the realm never touched the relay at all (world124 before and after it). So a build from before the
+realm - a tab left open across the deploy, or the desktop app's portable exe and macOS copies, which never update
+themselves (`01-Overview/Desktop-App.md`) - went on playing online exactly as before, a character made after the
+census froze included. Nothing told its player until a trade with a realm-era peer failed: the realm side cancels a
+hand-to-hand trade with "They are playing an older build - both must reload to trade." (`tradeSession.js`
+`OLDER_BUILD_TRADE_TEXT`), and an older build offered a piece it does not know says "reload for the newest version"
+(`tradeUnreadableText`) - Gryphoth's "my client was outdated", whichever of the two he read. Updated, the new build
+found an offline character (a local slot, which the Online door offers only through customs), and customs refused it:
+the census is frozen at the realm's start (AUDIT REALM L1-F5 - a Copy to offline's new id gathers traces too), and a
+character made after it has no trace from before it. Customs was right; the door was open.
 
-- **No boat on the sea could move.** More than three nodes off water is beached (IsBeached): the oars' move is zeroed
-  each frame and LateUpdate moves nothing. A deed's boat, a Rowboat from its parts, the boat a port put in the water:
-  the same.
-- **No sail could be raised.** RaiseSails wants all five on water: "Unable to raise sail. Boat is obstructed."
-- **The Overworld's crossing never put to sea.** Its launch waits for all five nodes on water by the same law
-  (`tvSeaLaunch`, `tvSeaWaterAt`), so a journey across the water walked on at the shore.
+**The fix.**
 
-Why "ports": a deed wants a port within its search square (IsNearPort), so every deed's boat went into the water beside a
-port and sat there. The screenshot's own answer - *"I pushed a ton of bug fixes last night for it"* - ties the report to
-Mac's line on 2026-09-28e, *"a player is at a port but unable to set sail"*: SHIP-PORT fixed a real fault on the bank's
-ship's deck and set Come Sail Away's "Unable to raise sail. Boat is obstructed." aside as the mod's own refusal. On the
-open sea it was the port's. Corrected in place there.
+- **The service signs the realm's word on the character** (`server-account/src/index.js` `/v1/auth/token`, `realm.js`
+  `realmCharacterHeld`): `rc` 1 when the character the mint names is one of the account's realm characters, else 0 -
+  an offline id, another account's character, one deleted, none named. Stamped on every mint from acct22.
+- **The relay refuses a 0 at its door** (`server/src/index.js` `_named`, world130): in every room, before anything is
+  written, with `REALM_DOOR_WORD` (`net/wire.js`) - "this game is out of date - update it to play online (restart the
+  app, or reload the page)". A build from before the realm prints a relay's refusal as it stands ("online: ..." on the
+  HUD, "chat: ..." under the chat box) and never retries a policy close, so its player is told the one thing to do. A
+  token with no `rc` is a service from before acct22 - the relay and the service deploy on their own, in either order -
+  and is admitted as it was; once acct22 stands no mint lacks it, and a token lives five minutes.
+- **A realm-era tab names the realm character it joined** at the mint (`world.js` identity minter: the realm session's
+  id, never an id the save carries or `characterIdOf` mints), and one the door refuses anyway - its character deleted
+  elsewhere, or its account signed out and another in - goes to the Online door with the realm's own word
+  (`realmSaves.js` `realmDoorShut`, the online frame's first question), never the old build's "out of date".
 
-It is the trap WATER1 (2026-09-08) found in the tile job: a comparison the reference holds because of how it stores a
-number (there float32, here Unity's 16-bit heightmap) and a double misses.
+Pinned: `test/realmdoor.test.js` (6), `tools/mutants/realmdoor.json` (12 mutants, 12 dead).
 
-**The fix.** `world/terrainSurface.js` `terrainSampleHeightAt`: Terrain.SampleHeight at the precision Unity holds a
-heightmap in - each corner as its step (`unityHeightmapStep`, `UNITY_HEIGHTMAP_MAX_HEIGHT` 32766), the steps
-interpolated over the quad's two triangles (GetInterpolatedHeight, cut on the drawn ground's own diagonal), the height a
-step times size.y over kMaxHeight, in floats. `csaTerrainOf`'s `sampleHeight` reads it; the terrain's clamp to its
-edge (CSA-J) and its stride stand. It is the one stand-in for Terrain.SampleHeight whose reader draws a line at the sea:
-the node law, the placing's and the Overworld's probes through it. No departure - the port reads the height the
-reference reads.
+## CUSTOMS-PASS: the characters already stranded (Mac: "Staff customs pass")
 
-Seen live, the one probe over the tree before the fix and the tree after it (the open Bay, 209, 216, a Small Ship at
-the sea's top, the helm taken, the intro's window put away so the keys reach it; the world had re-centred under the
-player, the terrain's own y at -10.8):
+The census stays frozen: it is the law that keeps a Copy to offline from coming back in. The exception is a person's.
+A developer grants an account ONE open pass (`POST /v1/mod/customs-pass`, `realm.js` `grantCustomsPass`, migration
+0024), and that account's next Bring online of a character its census does not count comes in once - through customs
+exactly as any does: the loans called in, the wealth capped at the level's allowance, the first save read, all in
+`customsRealm`'s own guarded write. The pass is spent on that character and keeps whom and when (`origin_id`,
+`spent_at`); it is never spent on a character the census admits anyway, and it never lets in a character already
+brought in from any account - its census spent, or a realm character standing on it. One open pass an account; a
+revoke takes back an open one and never a spent one. The refusal a stranded player meets now says where to ask.
 
-| | before | after |
-|---|---|---|
-| the ground under the hull (the drawn floats) | 34.000001 m | 34.000001 m |
-| the host's Terrain.SampleHeight there | 34.000001 m | 33.994 m |
-| the five nodes | `[1, 1, 1, 1, 1]` | `[0, 0, 0, 0, 0]` |
-| the sails' key (End) | "Unable to raise sail. Boat is obstructed." | "Sail raised!" |
-| the oars held, 24 frames | 0.00 m | 2.86 m, under way |
+**The tool** (`tools/customsPass.mjs`): `node tools/customsPass.mjs <name>` - a handle, or a guest's two-word name
+exactly as the game shows it; `--account <id>` when two guests share a name; `--revoke` to take one back. Signed in
+as a developer (a handle in `DEVELOPER_HANDLES`) with `DAGGER_HANDLE` and `DAGGER_PASSWORD`, which it signs out again,
+or `DAGGER_SECRET`.
 
-**Declared.** Whether Unity's SetHeights rounds a height to its step or truncates it is in no source the port has; the
-port rounds. The sea is step 579 either way (579.105), and the two readings part only for a height in the upper half
-of a step - 2.9 cm of the coast's first rise.
+Pinned: `test/customspass.test.js` (6), `tools/mutants/customspass.json` (14 mutants, 14 dead).
 
-**Not changed, and why.**
-- The node law is the mod's own, 1:1; so is the shore: ground a step above the sea (34.05 m) is land, as in DFU. A
-  town's pond (Daggerfall's stands at 320 m) still reads land with the mod on, as the CSA-D probe recorded.
-- The drawn ground, the collider and the swimmer's clamp over the vanilla ground (`dwVanillaGroundY`, DW-D) keep the
-  floats: a step is 6 cm, and none of them draws a line at the sea's height.
-- Boats already placed need nothing: a boat's record is its place, and its nodes are read again where it stands.
+## The realm6 flake, explained
+
+FIELD BUGS 2026-09-29 noted that `test/realm6.test.js`'s end-to-end sale failed once under load and could not say why.
+It failed again in this batch's second full run (the sequence 3 where 4 was asked). The cause: `realmSaves.js`
+`realmGoldAct` sends the outcome's checkpoint and does not wait for it - by design, as the host never does - and the pin
+read `session.seq` right after the act, so a checkpoint answered later than the record read beside it (a loaded
+machine's WebCrypto and SQLite) was not yet counted. Made to happen every time by answering the checkpoint's PUT 5 ms
+late, it failed; the pin now waits for the checkpoint the act sent, and passes so, and eight times at once. The game's
+code is unchanged: nothing there reads the sequence the pin did.
 
 ## For Mac
 
-- **The deploy.** A client change (`src/`): the site on the push to main, the desktop app with its next release. The
-  relay and the account service are untouched.
-- **The rounding** (above) is the one reading not proven against Unity; it is recorded, pinned and harmless for the
-  sea. A Unity install could settle it: SetHeights(0.5 / 32766 + a little), GetHeights.
-- **The bug report thread** SylviaBun mentions was not in the screenshot. If it names anything beyond "the boat will
-  not move or sail" - a port that refuses a deed, a boat placed out of sight - it is a second fault, and wanted.
-
-## Records
-
-- Tests: `test/field_csa2.test.js` (6) - the sampler's sea at the drawn ground's 34.000001; the law (the flat sea at
-  step 579 under the line, a step up land, the port's rounding, any ground within a step of the drawn one, the far
-  ring's stride); the host's own `csaTerrainOf`, mounted from its source over a real StreamingWorldState and a vertical
-  recentre; the real runtime over the vendored hulls, the mod on: all four hulls a shelf or parts give read the sea,
-  raise their sails and row; the shore stays land; and on the retail data (ARENA2_PATH) the open Bay the probe sailed
-  (209, 216) - the deed's port found by world.js's own `csaIsPortTown` over MAPS.BSA, the Small Ship's nodes on the
-  Bay, its sail raised, the coast's first rise (208, 215) land. Red before the fix: four of the six (the reading and the
-  shore's guard hold either way).
-- Mutants: `tools/mutants/field_csa2.json` (11: the host back on the drawn ground, the step unheld, truncated, or of
-  65535, the prefab's terrain scale, the height unrounded to a float, the other triangle, each half's axes swapped,
-  the corners one apart, the stride dropped) - all dead.
-- Re-aimed by content, never loosened: `test/csa_close.test.js`'s CSA-J pin (the terrain's clamp to its edge, on the call
-  the stand-in makes now) and its record `csa_close.json::CSA-J-host-terrain-unclamped`; `grass3.json`'s two
-  `surfaceHeightAt` records, each given a line beside it only the drawn ground's sampler has (the new sampler repeats
-  their one) - all three dead.
-- The live probes were scratch, not committed: a vite server over the tree (and over a worktree of the base for the
-  before), Playwright's Chromium on SwiftShader, `?world&shot&play&class=16`, the `__csa*` hooks (`__csaConsole`'s
-  giveboat and placeboat, `__csaUseItem`, `__csaSpawn`, `__csaNodes`, `__csaActivateAt`, `__csaHelm`) and a read-only
-  hook for the ground under a point, the keys through the page once the intro's window was put away. A headless page's
-  click never reached ActivateCenterObject, so the placing click was the console's `placeboat` - the same
-  PlaceBoatAtRayHit.
-- Docs: `03-World/Come-Sail-Away.md` (the nodes; the close's Iliac Puddle No More arms; Tests),
-  `01-Overview/Field-Bugs-2026-09-28e.md` (SHIP-PORT's "Not changed" corrected), `09-Testing/Testing.md`,
-  `01-Overview/Active-Arcs.md`, the Sea Update's and the Overworld's patch notes.
+- **Gryphoth, once this deploys:** `DAGGER_HANDLE=<yours> DAGGER_PASSWORD=<yours> node tools/customsPass.mjs <his
+  account's name>` (his handle, or his guest name exactly as the game shows it), then ask him to press **Bring online**
+  on that character. It asks first, as every Bring online does, showing what customs calls in and caps.
+- **The deploy drops every connected player once** (world130, as every relay bump does), and the account service
+  deploys acct22 with migration 0024. Either may land first; until both have, the door stands open as before.
+- **Anyone still on a build from before the realm is refused online from then on**, told to update. The macOS app and
+  the portable exe never update themselves: their players download the new build.
+- **Left open:** a build from before the realm still reports Renown XP to its account while it plays on shut out
+  (the report names no character since RENOWN-ACCOUNT) - bounded by the hour's cap, and Renown XP is already on
+  Realm-Arc's list of what the client is trusted with until phase 3's budgets.

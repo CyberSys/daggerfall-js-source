@@ -58,7 +58,7 @@ but on the open sea it was the port's fault - with Iliac Puddle No More on (the 
 sea at the drawn ground's 34.000001 m, never under the mod's 34 as Unity's 16-bit heightmap reads it (33.994), so every
 boat a deed put in the water beside a port read land, would not row, and refused its sail. That was the report's
 "at a port but unable to set sail" too; the town pond it was seen on (with the mod off) read land for its own reason.
-`01-Overview/Field-Bugs-2026-09-29b.md`. CORRECTED: this page first said the classic window and a
+`01-Overview/Field-Bugs-2026-09-29c.md`. CORRECTED: this page first said the classic window and a
 party's fare run the mod's guard before pricing the trip, so a fresh popup read the ocean as none. They do not - the
 popup prices itself as it is built (`TravelPopUpWindow`'s constructor ends in `refresh()`), so its guard sees the
 water; `test/disc28e_shipport.test.js` pins it through the real popup. `test/disc28e_shipport.test.js` (5).

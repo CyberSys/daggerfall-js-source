@@ -122,6 +122,7 @@ const inRect = ([rx, ry, rw, rh], x, y) => x >= rx + BANK_PANEL_X && y >= ry + B
  *                    token verbatim
  *   ownsHouse(), ownsShip(), housesForSale(), isPortTown(), houseSellPrice()
  *   ownedHouseResolved() -> AUDIT 64 F26: GetBuildingSummary's bool
+ *   crossedDeed(kind) -> RESTORE: the bank's words for a deed that came through customs, or null
  *   openPurchase()  -> H2: mounts the purchase window; false if it cannot
  *   onClose()
  */
@@ -304,6 +305,9 @@ export class BankWindow {
       // that wires no resolver is a host with NO building directory,
       // which is :446's silent false arm - hence `=== true`, not a
       // lenient default DFU has no counterpart for.
+      // RESTORE: a house that came through customs is never bought back online - said, not offered (banking.js crossedDeedLines)
+      const crossed = this.hooks.crossedDeed?.('house');
+      if (crossed) { this._lines(crossed); return; }
       const resolved = this.hooks.ownedHouseResolved?.() === true;
       const d = sellDecision('house', {
         owns: !!this.hooks.ownsHouse?.() && resolved,
@@ -313,6 +317,8 @@ export class BankWindow {
       return;
     }
     if (name === 'sellShip') {
+      const crossed = this.hooks.crossedDeed?.('ship');   // RESTORE: nor a ship
+      if (crossed) { this._lines(crossed); return; }
       const ship = this.hooks.ownedShip?.() ?? -1;
       const d = sellDecision('ship', { owns: ship >= 0, price: shipSellPrice(ship) });
       if (d.kind === 'offer') this._popup(d.result, d.price);
