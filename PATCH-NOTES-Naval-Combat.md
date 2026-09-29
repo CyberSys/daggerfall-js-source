@@ -119,6 +119,14 @@
 - With a controller in hand, the hints name your controller's buttons ("Hold RT to aim - LB: brace"), and the button bar at the helm shows fire, brace and board.
 - Words are easier to read on the Stone theme, and a greyed-out plunder choice still shows why. Fixed "The Crimson Gannet are coming alongside" and made the prize's hold hint read the same everywhere.
 
+## The sea at a glance
+- Every ship in sight, out to 700 metres, has a tag over her masts: her name, a small hull bar, and whether her colours are struck, she's taken, boarded or going down. A hostile ship's name is red, and the ship on your target panel is ringed. Tags hide behind land, under any window and when the HUD is hidden.
+- Your lookout calls "Sail ho!" when a ship turns hostile within 900 metres, naming her and where she lies ("off the port bow", "on the starboard beam").
+- The arcs of your aim are now clean lines that read the same at any range, instead of a ribbon that vanished at 150 metres and filled the screen beside your ship. A dash runs out along each ball's flight.
+- A battered ship shows it. Below 60% hull she smokes along her deck, below 40% she starts to list toward the side she'll sink on, her sails come down as they're shot away (the highest first), and planks break off and float where your balls hole her.
+- A ship going down groans as the sea rushes in, right up until she's gone. Before, one gurgle as she started to sink was all you heard.
+- Ships far away cost much less to animate, so a busy bay runs smoother.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.

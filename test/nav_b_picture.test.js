@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { createNavalEffects, PARTICLE_BUDGET } from '../src/systems/naval/navalEffects.js';
 import {
   NAVAL_STRIDE, NAVAL_MAX_QUADS, NAVAL_TEX_SIZE, NAVAL_FS, NAVAL_TEXTURES, navalSmokeTexture, pictureOf, writeQuad, viewAxes, particleAxes,
-  writeRibbon, NavalRenderer,
+  writeRibbon, NavalRenderer, ARC_WIDTH_VH, ARC_DASH_DIM,
 } from '../src/render/navalRender.js';
 import { createNavalFlames, FLAME_SCALE } from '../src/scenes/navalFlames.js';
 import { FIRE_FLAT } from '../src/systems/survival/camp.js';
@@ -129,6 +129,14 @@ test('NAV-B the pictures, made at load and never shipped: white, their shape in 
   const disc = NAVAL_TEXTURES.disc();
   assert.ok(at(disc, 0.8, 0) === 255 && at(disc, 0, 0) === 255, 'solid to its edge');
   assert.deepEqual(navalSmokeTexture().data, navalSmokeTexture().data);
+  // AUDIT NAV1 (the presentation, #4): the arcs' line - solid across its middle, nothing at its edge, the same along
+  // each half, the second half dimmed, repeated along
+  const line = NAVAL_TEXTURES.line();
+  assert.ok(at(line, -0.5, 0) === 255 && at(line, -0.5, 0.5) === 255, 'solid across its middle');
+  assert.equal(at(line, -0.5, 0.99), 0, 'nothing at its edge');
+  assert.ok(at(line, -0.9, 0) === at(line, -0.1, 0), 'the same along it');
+  assert.equal(at(line, 0.5, 0), Math.round(255 * ARC_DASH_DIM), 'the dash\'s dim half');
+  assert.equal(line.repeatS, true);
   assert.equal(pictureOf({ kind: 'smoke' }), 'smoke');
   assert.equal(pictureOf({ kind: 'foam' }), 'ring');
   assert.equal(pictureOf({ kind: 'debris', solid: true }), 'disc');
@@ -157,14 +165,32 @@ test('NAV-B the quads: six vertices of place, picture corner, colour and the lit
   const flat = particleAxes({ size: 4, rot: 0, flat: true }, axes);
   assert.deepEqual(flat, { ax: [2, 0, 0], ay: [-0, 0, 2] });
   assert.ok(flat.ax[1] === 0 && flat.ay[1] === 0, 'on the sea');
+  // AUDIT NAV1 (the presentation, #15): a plank - `aspect` times as long as it is wide, along its turn
+  const plank = particleAxes({ size: 2, rot: Math.PI / 2, flat: true, aspect: 4 }, axes);
+  near(Math.hypot(...plank.ax), 4, 1e-12, 'long');
+  near(Math.hypot(...plank.ay), 1, 1e-12, 'narrow');
+  near(plank.ax[2], 4, 1e-12, 'along its turn');
+  // a quad's u from u0 to u1 along its first axis (a line repeated along its length)
+  writeQuad(out, 0, [0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 1, 1], false, 2.5, 4);
+  assert.deepEqual([out[3], out[NAVAL_STRIDE + 3]], [2.5, 4]);
   // a ribbon along x, seen from above: its width runs across the arc (z), never along it
   const rib = new Float32Array(6 * NAVAL_STRIDE * 8);
   const pts = [[0, 0, 0], [2, 0, 0], [4, 0, 0], [6, 0, 0]];
-  assert.equal(writeRibbon(rib, 0, pts, [3, 50, 0], 0.5, [1, 1, 1, 0.8], 2), 18);
+  assert.equal(writeRibbon(rib, 0, pts, [3, 50, 0], 0.5, [1, 1, 1, 0.8], { period: 4, offset: 1 }), 18);
   const zs = [0, 1, 2, 3, 4, 5].map((i) => rib[i * NAVAL_STRIDE + 2]);
   near(Math.max(...zs) - Math.min(...zs), 0.5, 1e-6, 'its width across');
-  near(rib[8], 0.8, 1e-6, 'the first dash bright');
-  near(rib[6 * NAVAL_STRIDE + 8], 0.8 * 0.35, 1e-6, 'the next dimmed');
+  near(rib[8], 0.8, 1e-6, 'its colour whole - the dash is the picture\'s');
+  // AUDIT NAV1 (the presentation, #4): the dash by the metres flown - each segment's u the metres over the period
+  const u = (quad, corner) => rib[(quad * 6 + corner) * NAVAL_STRIDE + 3];
+  assert.deepEqual([u(0, 0), u(0, 1), u(1, 0), u(1, 1), u(2, 1)].map((x) => +x.toFixed(6)), [-0.25, 0.25, 0.25, 0.75, 1.25], 'continuous along the arc');
+  // ...and one width on the screen: a share of the view's height at each segment's own distance
+  const vh = 2 / 1.5;
+  writeRibbon(rib, 0, [[-10, 0, -30], [10, 0, -30]], [0, 0, 0], ARC_WIDTH_VH, [1, 1, 1, 1], { vh });
+  const ys = [0, 1, 2, 3, 4, 5].map((i) => rib[i * NAVAL_STRIDE + 1]);
+  near(Math.max(...ys) - Math.min(...ys), ARC_WIDTH_VH * vh * 30, 1e-6, 'at 30 m, as wide as the view\'s share there');
+  writeRibbon(rib, 0, [[-10, 0, -300], [10, 0, -300]], [0, 0, 0], ARC_WIDTH_VH, [1, 1, 1, 1], { vh });
+  const far = [0, 1, 2, 3, 4, 5].map((i) => rib[i * NAVAL_STRIDE + 1]);
+  near(Math.max(...far) - Math.min(...far), ARC_WIDTH_VH * vh * 300, 1e-5, 'ten times as far, ten times as wide - the same on the screen');
   assert.equal(writeRibbon(rib, 0, [[0, 0, 0], [0, 0, 0]], [0, 5, 0], 1, [1, 1, 1, 1]), 0, 'a segment of no length draws nothing');
 });
 

@@ -902,5 +902,556 @@
     "tests": [
       "test/navaudit_presentation.test.js"
     ]
+  },
+  {
+    "name": "NAVP-arc-width-in-metres",
+    "file": "src/render/navalRender.js",
+    "old": "v = writeRibbon(this.data, v, arc, eye, ARC_WIDTH_VH, tone.arc, { vh, period: ARC_DASH_M, offset });",
+    "new": "v = writeRibbon(this.data, v, arc, eye, 0.12, tone.arc, { period: ARC_DASH_M, offset });",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-arc-soft-dot-again",
+    "file": "src/render/navalRender.js",
+    "old": "push('line|add', start);",
+    "new": "push('soft|add', start);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-arc-dash-per-segment",
+    "file": "src/render/navalRender.js",
+    "old": "const u0 = period > 0 ? (run - offset) / period : 0, u1 = period > 0 ? (run + len - offset) / period : 1;",
+    "new": "const u0 = period > 0 ? -offset / period : 0, u1 = period > 0 ? (len - offset) / period : 1;",
+    "tests": [
+      "test/navaudit_presentation.test.js",
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-arc-line-clamped",
+    "file": "src/render/navalRender.js",
+    "old": "gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, pic.repeatS ? gl.REPEAT : gl.CLAMP_TO_EDGE);",
+    "new": "gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-arc-clock-unread",
+    "file": "src/render/navalRender.js",
+    "old": "const offset = (frame.time ?? 0) * ARC_DASH_SPEED;",
+    "new": "const offset = 0;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-arc-width-unscaled-by-distance",
+    "file": "src/render/navalRender.js",
+    "old": "const w = vh > 0 ? width * vh * Math.hypot(e[0], e[1], e[2]) : width;",
+    "new": "const w = vh > 0 ? width * vh : width;",
+    "tests": [
+      "test/navaudit_presentation.test.js",
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-line-edge-fringe",
+    "file": "src/render/navalRender.js",
+    "old": "Math.max(0, Math.min(1, (0.97 - Math.abs(v)) / 0.3))",
+    "new": "Math.max(0, Math.min(1, (1.2 - Math.abs(v)) / 0.3))",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-line-undashed",
+    "file": "src/render/navalRender.js",
+    "old": "* (u < 0 ? 1 : ARC_DASH_DIM)), repeatS: true });",
+    "new": "), repeatS: true });",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-host-clock-unhanded",
+    "file": "src/scenes/navalHost.js",
+    "old": "aim: aimDraw, time: clock };",
+    "new": "aim: aimDraw };",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-idle-system-asked",
+    "file": "src/world/unityParticles.js",
+    "old": "  if (!ps.playing && !ps.particles.length) return;\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-animators-walked-every-frame",
+    "file": "src/scenes/navalHost.js",
+    "old": "for (const a of (b.animators ??= boatAnimators(b))) a.update(e.lifeDt);",
+    "new": "for (const a of (b.animators = boatAnimators(b))) a.update(e.lifeDt);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-far-stride-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (!eye || dist2d(s.pos, eye) <= NEAR_LIFE_M || (e.lifeN = (e.lifeN + 1) % FAR_LIFE_EVERY) === 0) {",
+    "new": "if (true) {",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-far-missed-time-dropped",
+    "file": "src/scenes/navalHost.js",
+    "old": "for (const a of (b.animators ??= boatAnimators(b))) a.update(e.lifeDt);",
+    "new": "for (const a of (b.animators ??= boatAnimators(b))) a.update(dt);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-every-ship",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (d <= NAVAL_TAG_RANGE && d >= NAVAL_TAG_NEAR) near.push({ e, d });",
+    "new": "if (d >= NAVAL_TAG_NEAR) near.push({ e, d });",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-near-tagged",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (d <= NAVAL_TAG_RANGE && d >= NAVAL_TAG_NEAR) near.push({ e, d });",
+    "new": "if (d <= NAVAL_TAG_RANGE) near.push({ e, d });",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-far-first",
+    "file": "src/scenes/navalHost.js",
+    "old": "near.sort((a, b) => a.d - b.d);",
+    "new": "near.sort((a, b) => b.d - a.d);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-uncapped",
+    "file": "src/scenes/navalHost.js",
+    "old": "return near.slice(0, NAVAL_TAG_MAX).map(({ e, d }) => {",
+    "new": "return near.map(({ e, d }) => {",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-spar-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "point: [root[0], root[1] + mastTop(e) + TAG_LIFT, root[2]]",
+    "new": "point: [root[0], root[1] + hullBuild(s.hull).top + TAG_LIFT, root[2]]",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-sinking-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "point: [root[0], root[1] + mastTop(e) + TAG_LIFT, root[2]]",
+    "new": "point: [root[0], mastTop(e) + TAG_LIFT, root[2]]",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-hostile-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "hostile: s.damage.state === SHIP_STATES.afloat && hostile(s, me, law),",
+    "new": "hostile: s.damage.state === SHIP_STATES.afloat,",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-card-unmarked",
+    "file": "src/scenes/navalHost.js",
+    "old": "lastCardId = target?.id ?? null;",
+    "new": "lastCardId = null;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-hail-every-ship",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (s.damage.state !== SHIP_STATES.afloat || s.boarded || !hostile(s, me, law)) { e.hailed = false; continue; }",
+    "new": "if (s.damage.state !== SHIP_STATES.afloat || s.boarded) { e.hailed = false; continue; }",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-hail-again",
+    "file": "src/scenes/navalHost.js",
+    "old": "best.hailed = true;",
+    "new": "best.hailed = false;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-hail-gap-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (!best || clock - lastHail < SAIL_HO_GAP_S) return;",
+    "new": "if (!best) return;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-hail-bearing-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "const where = boat ? ` ${bearingWords(bearingOf([s.pos[0] - from[0], 0, s.pos[2] - from[2]], boat.GameObject.rotation))}` : '';",
+    "new": "const where = '';",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-hail-range-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (e.hailed || d > SAIL_HO_RANGE) continue;",
+    "new": "if (e.hailed) continue;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-hail-far-first",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (d < bestD) { bestD = d; best = e; }",
+    "new": "if (!best) { bestD = d; best = e; }",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-rebuilt",
+    "file": "src/ui/navalHud.js",
+    "old": "  while (tagSlots.length < want.length) {",
+    "new": "  tagSlots.forEach((x) => x.n.remove()); tagSlots = [];\n  while (tagSlots.length < want.length) {",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-scale-unread",
+    "file": "src/ui/navalHud.js",
+    "old": "scale(${scale}) translate(-50%, -100%)",
+    "new": "scale(1) translate(-50%, -100%)",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-never-covered",
+    "file": "src/ui/navalHud.js",
+    "old": "const want = covered ? [] : points ?? [];",
+    "new": "const want = points ?? [];",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-fade-reversed",
+    "file": "src/ui/navalHud.js",
+    "old": "export const tagAlpha = (d, reach) => 1 - (1 - TAG_FADE_TO) *",
+    "new": "export const tagAlpha = (d, reach) => TAG_FADE_TO + (1 - TAG_FADE_TO) *",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-state-unsaid",
+    "file": "src/ui/navalHud.js",
+    "old": "  return t.state === 'afloat' && !t.boarded ? '' : cardState(t, null, '').text;",
+    "new": "  return '';",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-state-says-hostile",
+    "file": "src/ui/navalHud.js",
+    "old": "  return t.state === 'afloat' && !t.boarded ? '' : cardState(t, null, '').text;",
+    "new": "  return cardState(t, null, '').text;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-tags-left-on-clear",
+    "file": "src/scenes/world.js",
+    "old": "drawNavalHud(null); drawNavalTags([]); };",
+    "new": "drawNavalHud(null); };",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-hurt-list-one-side",
+    "file": "src/scenes/navalHost.js",
+    "old": "const listed = Math.sign(sinkAngles(s.seed, 1).roll) * Math.max(Math.abs(sink.roll), e.list);",
+    "new": "const listed = Math.sign(sink.roll || 1) * Math.max(Math.abs(sink.roll), e.list);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-list-unscaled",
+    "file": "src/scenes/navalHost.js",
+    "old": "const want = DAMAGE_LIST_MAX * clamp((DAMAGE_LIST_FROM - hull) / DAMAGE_LIST_FROM, 0, 1);",
+    "new": "const want = hull < DAMAGE_LIST_FROM ? DAMAGE_LIST_MAX : 0;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-list-snapped",
+    "file": "src/scenes/navalHost.js",
+    "old": "e.list = e.list == null ? want : e.list + (want - e.list) * (1 - Math.exp(-dt / DAMAGE_LIST_EASE_S));",
+    "new": "e.list = want;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-list-first-pose-eased",
+    "file": "src/scenes/navalHost.js",
+    "old": "e.list = e.list == null ? want : e.list + (want - e.list) * (1 - Math.exp(-dt / DAMAGE_LIST_EASE_S));",
+    "new": "e.list = (e.list ?? 0) + (want - (e.list ?? 0)) * (1 - Math.exp(-dt / DAMAGE_LIST_EASE_S));",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-list-added-to-the-sinking",
+    "file": "src/scenes/navalHost.js",
+    "old": "* Math.max(Math.abs(sink.roll), e.list);",
+    "new": "* (Math.abs(sink.roll) + e.list);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sails-all-kept",
+    "file": "src/scenes/navalHost.js",
+    "old": "const shown = s.damage.maxSail > 0 ? sailsShown(sails.length, s.damage.sailShare()) : sails.length;",
+    "new": "const shown = sails.length;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sails-lowest-first",
+    "file": "src/scenes/navalHost.js",
+    "old": ".sort((p, q) => q.worldMatrix()[13] - p.worldMatrix()[13]);",
+    "new": ".sort((p, q) => p.worldMatrix()[13] - q.worldMatrix()[13]);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sails-rounded-down",
+    "file": "src/scenes/navalHost.js",
+    "old": "Math.ceil(n * Math.max(0, share) - 1e-9)",
+    "new": "Math.floor(n * Math.max(0, share))",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-smoke-rate-unscaled",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "if (r() >= SMOLDER_RATE * clamp(k, 0, 1) * clamp(dt, 0, 0.1)) return;",
+    "new": "if (r() >= SMOLDER_RATE * clamp(dt, 0, 0.1)) return;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-smoke-a-point",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "    const u = r();\n    push({ kind: 'smoke', pos: [a[0] + (b[0] - a[0]) * u",
+    "new": "    const u = 0.5;\n    push({ kind: 'smoke', pos: [a[0] + (b[0] - a[0]) * u",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-smoke-from-amidships",
+    "file": "src/scenes/navalHost.js",
+    "old": "mo.transformPoint([-lp[0], y, build.aftZ * SMOKE_SPAN - lp[2]]), mo.transformPoint([-lp[0], y, build.bowZ * SMOKE_SPAN - lp[2]])",
+    "new": "mo.transformPoint([-lp[0], y, -lp[2]]), mo.transformPoint([-lp[0], y, -lp[2]])",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-smoke-awash-uncut",
+    "file": "src/scenes/navalHost.js",
+    "old": ", seaY + FLAME_AWASH);\n      if (deck) effects.smolder",
+    "new": ", -Infinity);\n      if (deck) effects.smolder",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-smoke-whole-ship",
+    "file": "src/scenes/navalHost.js",
+    "old": "const smokeK = clamp((SMOKE_FROM - hull) / SMOKE_FROM, 0, 1);",
+    "new": "const smokeK = 1;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-line-over-uncut",
+    "file": "src/scenes/navalHost.js",
+    "old": "  const cut = [a[0] + (b[0] - a[0]) * k, floor, a[2] + (b[2] - a[2]) * k];\n  return ua ? [a, cut] : [cut, b];",
+    "new": "  return [a, b];",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-timber-none",
+    "file": "src/scenes/navalHost.js",
+    "old": "effects.timber([e.point[0], seaY, e.point[2]], TIMBER_PER_HIT + (e.gun === 'heavy' ? 1 : 0));",
+    "new": "void 0;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-timber-heavy-dropped",
+    "file": "src/scenes/navalHost.js",
+    "old": "effects.timber([e.point[0], seaY, e.point[2]], TIMBER_PER_HIT + (e.gun === 'heavy' ? 1 : 0));",
+    "new": "effects.timber([e.point[0], seaY, e.point[2]], TIMBER_PER_HIT);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-timber-off-the-rig",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (e.zone === 'rig') { effects.tear(e.point, e.dir ?? [0, 0, 1]);",
+    "new": "if (e.zone === 'rig') { effects.tear(e.point, e.dir ?? [0, 0, 1]); effects.timber([e.point[0], seaY, e.point[2]], TIMBER_PER_HIT);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-timber-still",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "vel: [Math.sin(a) * sp, 0, Math.cos(a) * sp],",
+    "new": "vel: [0, 0, 0],",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-timber-square",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "kind: p.kind, aspect: p.aspect ?? 1 };",
+    "new": "kind: p.kind };",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-plank-square-drawn",
+    "file": "src/render/navalRender.js",
+    "old": "const hl = h * (p.aspect ?? 1);",
+    "new": "const hl = h;",
+    "tests": [
+      "test/nav_b_picture.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-loop-never",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (state === SHIP_STATES.sinking) { e.sinkLoop ??= deps.audio?.loop3d?.(NAVAL_SFX.sinking, pos, 0.85, NAVAL_SINK_LOOP) ?? null; e.sinkLoop?.move?.(pos); }",
+    "new": "if (state === SHIP_STATES.sinking) { e.sinkLoop?.move?.(pos); }",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-loop-never-stopped",
+    "file": "src/scenes/navalHost.js",
+    "old": "    entry.sinkLoop?.stop?.();   // AUDIT NAV1 (#15): her groaning gone with her\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-loop-fire-profile",
+    "file": "src/scenes/navalHost.js",
+    "old": "loop3d?.(NAVAL_SFX.sinking, pos, 0.85, NAVAL_SINK_LOOP)",
+    "new": "loop3d?.(NAVAL_SFX.sinking, pos, 0.85, NAVAL_FIRE_LOOP)",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-loop-unmoved",
+    "file": "src/scenes/navalHost.js",
+    "old": "NAVAL_SINK_LOOP) ?? null; e.sinkLoop?.move?.(pos); }",
+    "new": "NAVAL_SINK_LOOP) ?? null; }",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-loop-asked-once",
+    "file": "src/scenes/navalHost.js",
+    "old": "e.sinkLoop ??= deps.audio?.loop3d?.(NAVAL_SFX.sinking, pos, 0.85, NAVAL_SINK_LOOP) ?? null;",
+    "new": "if (!e.sinkAsked) { e.sinkAsked = true; e.sinkLoop = deps.audio?.loop3d?.(NAVAL_SFX.sinking, pos, 0.85, NAVAL_SINK_LOOP) ?? null; }",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-clip-unregistered",
+    "file": "src/systems/naval/navalSounds.js",
+    "old": "  [NAVAL_SFX.sinking]: 'naval-sinking.wav',\n",
+    "new": "",
+    "tests": [
+      "test/nav_e_sounds.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-sink-loop-unjoined",
+    "file": "tools/navalSfx.mjs",
+    "old": "  for (let i = 0; i < j; i++) out[i] = out[i] * (i / j) + out[n + i] * (1 - i / j);\n",
+    "new": "",
+    "tests": [
+      "test/nav_e_sounds.test.js"
+    ]
   }
 ]

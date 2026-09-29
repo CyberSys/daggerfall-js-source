@@ -122,7 +122,7 @@ test('CD1: Ledger A row TB1 exists, in section A, STRUCK by the classic-modals c
   // closed the sentence with "(Ledger A: VersionInfo strings are DFU's
   // identity, not this port's)" - a live departure claiming an approval
   // nobody had written: section A carried no version row at all, and
-  // doctrine.test.js:371 skips the file because it shouts no DEPARTURE
+  // doctrine.test.js:372 skips the file because it shouts no DEPARTURE
   // token. The row exists now and, like TB1, is cited BY NAME.
   const verRows = rows.filter((r) => /THE PAUSE WINDOW'S VERSION LINE IS THE PORT'S OWN BUILD TAG/.test(r.s));
   assert.equal(verRows.length, 1, 'section A carries exactly one pause-window version row');
@@ -566,7 +566,7 @@ const SOURCE_CITES = [
   // the line goes red at the citation instead of at a reader.
   ['src/characters/playerEntity.js', /exterior\.js:(\d+) and applyHeadlessChargen/,
     EX, /createChargenFlow\(fetchBytes\)\.then/],
-  ['src/combat/weaponRig.js', /\(exterior\.js:(\d+), world\.js:6883\)/,
+  ['src/combat/weaponRig.js', /\(exterior\.js:(\d+), world\.js:6900\)/,
     EX, /^ {4}say: \(l\) => townTalk\.say\(l\),$/],
   ['src/scenes/dungeonContext.js', /exterior\.js:(\d+) and worldModes\.js:\d+/,
     EX, /onPlayerArrowHitFoe: \(m, t\) => playerArrowHitFoe\(/],
@@ -679,9 +679,9 @@ const SOURCE_CITES = [
   ['src/ui/restWindow.js', /exterior\.js:\d+, ui\/input\.js:(\d+)\)/,
     'src/ui/input.js', /case 'Rest': return ctx\.toggleRest \? \(ctx\.toggleRest\(\), true\) : false;/],   // KB1: the arm answers its door
   ['test/daychange.test.js', /exterior\.js:(\d+), world\.js:2749/, EX, /playerTicker\.advance\(60\);/],
-  ['test/overlayreentry.test.js', /exterior\.js:(\d+) and world\.js:6474/,
+  ['test/overlayreentry.test.js', /exterior\.js:(\d+) and world\.js:6491/,
     EX, /if \(townTalk\.overlay\?\.isRestWindow\) townTalk\.closeOverlay\?\.\(\);/],
-  ['test/overlayreentry.test.js', /exterior\.js:(\d+), world\.js:6474/,
+  ['test/overlayreentry.test.js', /exterior\.js:(\d+), world\.js:6491/,
     EX, /if \(townTalk\.overlay\?\.isRestWindow\) townTalk\.closeOverlay\?\.\(\);/],
   ['test/probehygiene.test.js', /keydown ladder, exterior\.js:(\d+)-\d+/,
     EX, /addEventListener\('keydown', \(e\) => \{/],
@@ -700,7 +700,7 @@ const SOURCE_CITES = [
   // and the table captured ONE, with a sixth number baked into the pick - so
   // citeMerge bumped the LITERAL at the BOX1/TI3 merge and left the doc, and
   // four of the five had been stale for waves (`worldModes.js:7768` for a line
-  // that is 5921, `world.js:18114` for 8836, `interior.js:325` for 329,
+  // that is 5921, `world.js:18131` for 8836, `interior.js:325` for 329,
   // `dungeon.js:976` for 959). Every one is captured now, against the
   // projection each host really builds.
   ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:(\d+)`, `dungeon\.js:\d+`/, EX, /^ {6}fieldOfView\(\),$/],
@@ -722,7 +722,7 @@ const SOURCE_CITES = [
   // PAIRS never checked. Five Ledger rows cite `world.js:N`, `exterior.js:M`
   // and this table captured M alone - so M was resolved at every wave and N
   // was never read at all. All five N's were stale by thousands of lines
-  // (`world.js:8687` for a line that is 8950; `:1308` for 1215; `:3127` for
+  // (`world.js:8704` for a line that is 8950; `:1308` for 1215; `:3127` for
   // 2194; `:3903` for 3066; `:3920` for 8907), and citeMerge rewrote one of
   // them INSIDE THE PICK REGEX at the QS6 merge - which is WM3's hazard
   // exactly: a literal in the pick decides whether the entry matches at all,
@@ -974,7 +974,7 @@ test('CD6: every `src/` line Port-Status cites is the line it describes', () => 
 //
 // The G1 lane re-resolved ~180 `:NNN` cites after moving code in four
 // hosts, and the pass advanced only the LEADING number of every
-// multi-number citation: `cityGuards.js:967-874`, `world.js:12016-11990`,
+// multi-number citation: `cityGuards.js:967-874`, `world.js:12033-12007`,
 // `worldModes.js:1455 against :1231`. Forty of them came out as ranges
 // that cannot exist, and every pin in this file was green throughout,
 // because each one resolves a single number a human chose to list.

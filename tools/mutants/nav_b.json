@@ -56,7 +56,7 @@
   {
     "name": "NAV-B-the-foam-upright",
     "file": "src/render/navalRender.js",
-    "old": "  if (p.flat) return { ax: [c * h, 0, s * h], ay: [-s * h, 0, c * h] };",
+    "old": "  if (p.flat) return { ax: [c * hl, 0, s * hl], ay: [-s * h, 0, c * h] };",
     "new": "",
     "tests": [
       "test/nav_b_picture.test.js"
@@ -111,8 +111,8 @@
   {
     "name": "NAV-B-the-uv-flipped",
     "file": "src/render/navalRender.js",
-    "old": "    out[o + 3] = (sx + 1) / 2; out[o + 4] = (1 - sy) / 2;",
-    "new": "    out[o + 3] = (sx + 1) / 2; out[o + 4] = (sy + 1) / 2;",
+    "old": "    out[o + 3] = u0 + (u1 - u0) * (sx + 1) / 2; out[o + 4] = (1 - sy) / 2;",
+    "new": "    out[o + 3] = u0 + (u1 - u0) * (sx + 1) / 2; out[o + 4] = (sy + 1) / 2;",
     "tests": [
       "test/nav_b_picture.test.js"
     ]

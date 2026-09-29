@@ -75,6 +75,10 @@ carries its row instead. It stands on three things the port already had:
   most ("Colours struck - E: heave to", then "heaving to").
 - **Taken, she opens**: the plunder window - her hold, one thing to take from her, and her fate. Shut it and she lies
   taken where she is; Interact opens her again.
+- **The sea at a glance** (AUDIT NAV1): a tag stands over each ship in sight out to NAVAL_TAG_RANGE - her name, what
+  she is to you, her hull and her state - and the lookout calls "Sail ho!" as a ship turns hostile, naming where she
+  bears. A battered ship shows it: she smokes, lists, loses her canvas from the top down and sheds planks where a ball
+  holes her; one going down groans until she is gone.
 
 ## The guns (NAV-A)
 
@@ -372,6 +376,17 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   (a bow's triangle in what she is to me); THE WARNING over the crosshair -
   BROADSIDE and the brace's key, pulsing in the kit's blood edge - while a run-out bears on you and until its balls are
   down; THE TALLY under the aim for TALLY_S once your volley's last ball is down.
+- **The ships' tags and the lookout** (AUDIT NAV1, the presentation, #14): a TAG over each ship within NAVAL_TAG_RANGE
+  of the eye and past NAVAL_TAG_NEAR (nearer, she fills the view), NAVAL_TAG_MAX of them nearest first (the host's
+  `tags`): her name in her trade's colour (a hostile ship's red), her hull's bar, her state in the card's words
+  (Colours struck, Taken, Boarded, Going down - none while she sails: her red says hostile), the card's ship ringed - TAG_LIFT over her highest spar as she stands, so it settles as she
+  goes down. The world projects them through the frame's own matrices behind a sight cache of their own (the peers'
+  names' law, NAME1) and hides them under every window, a pause, the HUD hidden and the travel view (`navalTags`);
+  the readout's tag layer wears them (`drawNavalTags`: one node a slot, moved, never rebuilt, at the HUD's scale,
+  fading from TAG_FADE_FROM to TAG_FADE_TO at the tags' reach). THE LOOKOUT (`hailSails`, every SAIL_HO_CHECK_S):
+  "Sail ho! A Pirate Brigantine on the starboard beam!" as a ship afloat turns hostile within SAIL_HO_RANGE - her
+  class, and at the helm where she bears off the bow (`bearingWords`) - the nearest first, once while she stays
+  hostile, SAIL_HO_GAP_S after the last.
 - **Where the card stands** (THE MERGE with CSA-L): by the house law for what stands under the compass (the journey
   bar's PLUS8, the helm panel's CSA-L) - the compass's foot times the HUD scale and a gap (NAVAL_CARD_TOP), a step
   lower while the foe's bar is up under the compass and further under its blade. Come Sail Away's HELM PANEL stands
@@ -426,15 +441,18 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
 
 ## The sounds (NAV-E)
 
-Eight clips, OURS, synthesised from noise and sine by `tools/navalSfx.mjs` on the gun lab's kit (`tools/sfxSynth.mjs`,
+Nine clips, OURS, synthesised from noise and sine by `tools/navalSfx.mjs` on the gun lab's kit (`tools/sfxSynth.mjs`,
 moved out of `tools/gunSfx.mjs` unchanged - its three clips come out byte for byte as before) and baked to DAGGER.SND's
 own 11025 Hz 8-bit mono by `tools/sndify.mjs`: the long gun near, a broadside across the bay (past NEAR_BOOM_M), the
 swivel, a ball into oak, a powder barrel, the grapnels - and AUDIT NAV1's seventh, a battery RUNNING OUT (four gun
 carriages' trucks rumbling over the deck seams one after another, the tackles creaking, the carriages brought up hard
 against the sills: the tell before a broadside, carried to 900 m), and its eighth, a battery of mine READY (the rammer's
-head rapped twice on the muzzle, the gun captain's iron tapped on the breech - heard at my own helm). DAGGER.SND's own
-play by index: the splashes, the ship's bell as the colours come down, the bubbles of a ship going down, the burning
-loop. Every sound carries its own range (`navalSounds.js` NAVAL_SOUND_RANGE: the bus's footstep profile would have made
+head rapped twice on the muzzle, the gun captain's iron tapped on the breech - heard at my own helm), and its ninth, a
+ship GOING DOWN - a loop: the sea rushing into her, her timbers groaning under it, the air leaving her in bubbles, its
+tail crossfaded into its head so it joins itself - played from her founder until she is gone at its own profile
+(NAVAL_SINK_LOOP, linear to 420 m: further than her fire's loop, short of a ball's crack). DAGGER.SND's own play by
+index: the splashes, the ship's bell as the colours come down, the bubbles of a ship going down (her first gurgle),
+the burning loop. Every sound carries its own range (`navalSounds.js` NAVAL_SOUND_RANGE: the bus's footstep profile would have made
 a broadside at 300 m silence), and none is played past its range's end (AUDIT NAV1: the bus's inverse law never
 reaches silence). THE MIX (AUDIT NAV1, "The presentation"): each report its own pitch and level, my own ripple at one
 over the root of its guns, the far roll once a volley and crossfaded in equal power with the near reports over
@@ -446,7 +464,11 @@ One program (`render/navalRender.js`): soft quads premultiplied, the muzzle flam
 world's (FOG_GLSL); depth tested, never written, drawn after the sea's transparent top. The aim (AUDIT NAV1): the
 zone's discs on the sea, a post of light over each (AIM_POST_HALF_W by AIM_POST_HALF_H, turned to the eye - a disc
 150 m off was 3.7 px tall), a mark where a ball meets a hull (AIM_STRIKE_HALF), in the tones of `aimTone` - brass laid,
-red on her, grey while the battery cannot fire. The textures are procedural
+red on her, grey while the battery cannot fire - and each ball's ARC a LINE (#4): ARC_WIDTH_VH of the view's height
+across at each segment's own distance (`writeRibbon`'s `vh`), in the line picture (NAVAL_TEXTURES `line`: solid across
+its middle, nothing at its edge texels, the same along it but for the dash), repeated along the arc by its metres
+flown (ARC_DASH_M, the second half ARC_DASH_DIM; `repeatS`, the one picture wrapped) and marching out on the sea's
+clock (the frame's `time`) at ARC_DASH_SPEED. The textures are procedural
 (white, the shape in alpha). The deck fires are Daggerfall's own fire flat (TEXTURE.210 record 1, FLAME_SCALE the
 camp's size), carried on her deck as she heels, lists and trims, and out as the sea reaches each (FLAME_AWASH); a
 muzzle flash and a burning deck light the scene (MUZZLE_FLASH_COLOR, BURN_COLOR,
@@ -454,7 +476,16 @@ BURN_LIGHTS). A sea ship's flag flies her colours (`navalShips.js` NAVAL_FACTION
 draws the flags in runs of one colour - `flagRuns` - the player's boats keeping FlagMaterial's orange) - by her state
 (AUDIT NAV1): her faction's while she sails, down when she strikes or founders, the captor's orange once taken; a hull the
 mod gave no flag (the Carrack) is given the Small Ship's at her tallest mast's truck (`comeSailAwayPool.js`
-graftColours, FLAG_DONOR_HULL). A hull hit's burst is grown for an eye far off (HIT_BURST_M, HIT_BURST_MAX).
+graftColours, FLAG_DONOR_HULL). A hull hit's burst is grown for an eye far off (HIT_BURST_M, HIT_BURST_MAX). HER HURTS
+(AUDIT NAV1, #15): under SMOKE_FROM of her hull, grey smoke along SMOKE_SPAN of her deck each way from amidships
+(`navalEffects.js` smolder, SMOLDER_RATE puffs a second at the worst) from the part the sea has not reached
+(`lineOver`); under DAMAGE_LIST_FROM a list to her going-down side (to DAMAGE_LIST_MAX, over DAMAGE_LIST_EASE_S; the
+sinking's own list takes it on); her canvas down with her sail share, her highest sails first (`sailsShown` - a sail
+node holds its skinned canvas alone, so her yards stand); and a ball into her hull sheds TIMBER_PER_HIT planks, laid
+long on the sea (a particle's `aspect`), drifting, gone after TIMBER_LIFE or so. FAR SHIPS (#17): past NEAR_LIFE_M of
+the eye a ship's animators and particle systems step every FAR_LIFE_EVERY frames with the time they missed, each ship
+on her own frame of the stride; her animators found once; an idle particle system (stopped, nothing alive) returns
+before any question (`unityParticles.js` stepSystem).
 
 **Found on the way, fixed at the root**: Come Sail Away's stand-in for Unity's Default-Particle was a WHITE disc with
 its shape in alpha, sampled by the drops' "Alpha Blended Premultiply" material (One, OneMinusSrcAlpha), whose `One`
@@ -636,13 +667,17 @@ sea's ships on the compass (#14's second) and the aim's reasons (#5's readout); 
 | the HUD scale (#11) | the plate over the vitals at 1.5 on a 1280 or 1366 screen and at 2 on 1920; the card, the aim and the helm panel's bar one size at every scale; three of the HUD's notice lines over her at 1.5 on 1280x720 | the plate over the vitals where she would meet them, never shrunk for them; her scale capped by her room and clear of the centre column's bands; the card, the aim, the tally and the warning at the HUD's scale, the card capped by its column's room above the warning (`cardScale`), aside under CARD_SCALE_MIN; the stack no wider than its room | nothing over anything from 0.5 to 2 at 1280x720, 1366x768 and 1920x1080 (the card at 1.21 in 1366x768's column; at 2 on 1280x720 the plate 1.57, the aim in two lines); the notices (ENH-NOTICE3's panel, over every HUD part by its own z) still meet her top at 1.5 on 720 lines for their seconds |
 | contrast off Slate, two wording slips (#12) | the plate's hint (which carries "E: board her") 1.9:1 on Stone, 3.7 on Iron, 4.1 on Forest; on Stone the waters 2.9, the labels and the card's sub-line 3.8, the plunder window's sub-line, lede and counts 3.3-3.5; a refused choice's reason 2.3 (3.2 on Slate); "The Crimson Gannet are coming alongside"; the card's "Taken - E: her hold" to the plate's "open X's hold" | the hint in the waters' tone; the sea fight's dim words joined to MERGE-PLUS D3's Stone rule; a refused tile greyed by its title and ground, its reason whole; "X is coming alongside"; the hold one wording, "open her hold" | the hint 5.1 on Stone, 5.5 on Iron, 6.2 on Forest; the plunder window's 5.8 on Stone, a refused reason 6.5 (10.8 on Slate) |
 | a pad player told keyboard keys (#13) | "Hold RIGHT CLICK to aim - C: brace", "E: board The Red Wake"; the helm's pad prompts the d-pad's alone | with a pad in hand the readout names its buttons (`hdGlyphName`); at an armed helm the prompt bar shows the guns' rows (`navalPadPrompts`) | "Hold RT to aim - LB: brace", "A: board The Red Wake"; the bar's RT, LB and A |
+| the firing zone at range (#4) | each ball's arc a 0.12 m ribbon: 0.7 px across at 150 m, ~30 px beside the eye where the broadside's arcs leave her side; drawn in the soft dot a segment (beads, nought at every joint); its 2.5 m dash judged once a segment - each 8 m of it - aliasing to 1, .35, 1, .35, .35, 1 | THE ARCS AS LINES (`navalRender.js` ARC_WIDTH_VH, `writeRibbon`'s `vh`): ARC_WIDTH_VH of the view's height across at each segment's own distance, in the LINE picture (solid across its middle, the same all along it), repeated along the arc by its metres flown (ARC_DASH_M, the second half ARC_DASH_DIM) and marching out on the sea's clock at ARC_DASH_SPEED | 3.2 px across on 1080 lines at any distance; the dash one run from the muzzle to the splash |
+| the sea says nothing (#14) | one card, for the ship within 6 degrees of the look, was all the sea said: a ship off the look was nameless, and a pirate turning on me said nothing | THE SHIPS' TAGS (The UI, above: the host's `tags`, the world's `navalTags`, `drawNavalTags`) over each ship in reach, nearest first, her name, hull and state, the card's ringed; THE LOOKOUT's "Sail ho!" (`hailSails`) as a ship afloat turns hostile within SAIL_HO_RANGE, where she bears | eight ships tagged to 700 m; "Sail ho! A Pirate Brigantine on the starboard beam!" |
+| a ship's hurts unseen (#15) | her hurts showed nowhere but the card - no smoke, no list, no canvas lost, no wreckage; a gurgle at her founder was all, then silence for the rest of her going | HER HURTS SEEN (The picture, above): smoke along her deck under SMOKE_FROM, a list under DAMAGE_LIST_FROM taken on as she fills and taken on in turn by the sinking's (her last pose unchanged), her canvas down with her sail share from the top, planks off a holed hull; SHE GROANS AS SHE GOES DOWN - the ninth clip, a loop at NAVAL_SINK_LOOP from her founder until she is gone (asked again each frame until the bus has it), a peer's ship too | a Small Ship at a fifth of her hull lists 4 degrees and smokes along 26.5 m of her deck; a carrack at 40% of her canvas shows her two lowest sails; two planks a ball, three a heavy one |
+| the far ships' cost (#17) | five war galleys 650-1,900 m off cost 5.7 ms of a frame on the CPU: their rigging stepped as a near one's, each ship's tree walked for her animators every frame (0.44 ms a galley), and each of a galley's 224 particle systems (one live) asked whether it was active before doing nothing (0.45 ms) | an idle system (stopped, nothing alive) returns before any question; a ship's animators found once; past NEAR_LIFE_M her rigging stepped every FAR_LIFE_EVERY frames with the time it missed, each ship on her own frame of the stride | 0.9 ms for the five far galleys (five galleons 0.67; five galleys alongside, stepped every frame, 2.1) |
 
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
 life, the shot field), `nav_b_picture` (the effects, the pass on a recording GL, the deck fires, the colours),
 `nav_c_ships` (the classes, names and crowns, the captains, the traffic), `nav_d_boarding` (the muster, the berth, the
-reckoning, the raids' win, the hold, the choice, the law, notoriety, THE GATE, one raid at a time), `nav_e_sounds` (the seven files, the
+reckoning, the raids' win, the hold, the choice, the law, notoriety, THE GATE, one raid at a time), `nav_e_sounds` (the nine files, the
 bake regenerated byte for byte, the ranges, the one registration), `nav_f_ui` (the readout's words and node, the kit's
 cut, the plunder window driven on the suite's DOM, its door, the card's place, a finger's screen), `nav_g_online` (the word, its door, the blow frame, the
 helm boats, the doors) and `nav_h_host` (the host through real frames over Come Sail Away's real pool - the guns, the
@@ -665,9 +700,11 @@ deck, the fight's card, the prize's papers, the minors) and `navaudit_presentati
 her list and trim, her spars as they stand, a peer's sinking on their own clock and let go of, her fires to the
 waterline, her colours; the mix, a hit that registers, the ready, her bar's loss, her colours by her state and the
 Carrack's; the plate's place, the card's column, the draw by the screen, the places written, the Brace's press, the
-centre column's sheet, the pad at the guns, the skins and the words), on the shared sea of `test/navalSea.mjs`.
+centre column's sheet, the pad at the guns, the skins and the words; the arcs as lines, the far ships' cost, the
+ships' tags, the lookout, the tags drawn, her list and canvas, her smoke and planks, and her groan going down), on the
+shared sea of `test/navalSea.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
-`navaudit_helm.json`, `navaudit_boarding.json` and `navaudit_presentation.json`, 608 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+`navaudit_helm.json`, `navaudit_boarding.json` and `navaudit_presentation.json`, 669 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
@@ -676,7 +713,11 @@ main's OW6, and eight of the arc's own re-aimed by content at the lines the merg
 boarding, and NAV-R's sheer-off and NAV-F's card foot re-aimed at the lines the boarding rewrote; 27 with the
 audit's presentation, going down; 32 with its feedback, and NAV-H's reload record re-aimed at the line the kick
 left; 41 with its layout and words, and five of the arc's own - the card under the panel, the panel read with no card,
-the plate over the presses, the finger's root, the warning - re-aimed by content at the lines the layout rewrote);
+the plate over the presses, the finger's root, the warning - re-aimed by content at the lines the layout rewrote; 61
+with the sea at a glance, whose one survivor was a lookout test whose nearer ship was also the first seen, and six of
+the arc's own - the flat quad, the quad's u, the build, the last frame's hulls, the ram before the poses, the card's own
+key - re-aimed by content at the lines it rewrote, two more made single again by the code: the tag's words the card's,
+the spars' measure one helper's);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 
@@ -707,4 +748,5 @@ sides whole. What each met of the other, and what was decided:
 ## Not seen
 
 Not seen on a GPU in this session: the pass, the flags' colours and the deck fires are verified by their pins and by
-the Node harness, not by eye.
+the Node harness, not by eye. The aim's arcs as lines (AUDIT NAV1, #4) were drawn by the pass itself in headless
+Chromium's SwiftShader - WebGL2 in software - and read off its pixels; the tags' layer was laid in the same browser.

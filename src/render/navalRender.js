@@ -33,6 +33,18 @@ export const NAVAL_TEX_SIZE = 64;
 export const AIM_POST_HALF_W = 0.45;
 export const AIM_POST_HALF_H = 1.7;
 export const AIM_STRIKE_HALF = 1.1;
+/**
+ * AUDIT NAV1 (the presentation, #4) - THE ARCS AS LINES. A ball's arc is ARC_WIDTH_VH of the view's height across at
+ * any distance (a 0.12 m ribbon was 0.7 px at 150 m and ~30 px beside the eye, where the broadside's arcs leave her
+ * side), in the LINE picture - solid across its middle, the same all along it (the soft dot a segment drew it as beads,
+ * nought at every joint) - and dashed by its own metres: the picture repeats every ARC_DASH_M of flight, its second
+ * half ARC_DASH_DIM, marching out along the flight at ARC_DASH_SPEED (a 2.5 m dash judged once a segment - each 8 m
+ * of it - aliased to 1, .35, 1, .35, .35, 1).
+ */
+export const ARC_WIDTH_VH = 0.003;
+export const ARC_DASH_M = 6;
+export const ARC_DASH_DIM = 0.35;
+export const ARC_DASH_SPEED = 9;
 
 /**
  * The aim's colours: brass laid, red when its guns strike a ship, grey while the battery cannot fire (loading, braced,
@@ -141,23 +153,28 @@ export function navalSmokeTexture() {
 export const navalRingTexture = () => picture((u, v) => { const r = Math.hypot(u, v); return Math.max(0, 1 - Math.abs(r - 0.7) / 0.28) * (r < 1 ? 1 : 0); });
 /** The hard disc: a ball's, a splinter's and the zone's mark - solid to its edge, a pixel's fall there. */
 export const navalDiscTexture = () => picture((u, v) => { const r = Math.hypot(u, v); return Math.max(0, Math.min(1, (1 - r) * 12)); });
-export const NAVAL_TEXTURES = Object.freeze({ soft: navalSoftTexture, smoke: navalSmokeTexture, ring: navalRingTexture, disc: navalDiscTexture });
+/** AUDIT NAV1 (the presentation, #4): the arcs' line - solid across its middle, falling to nothing by its edge texels,
+ *  the same along its length but for the dash (the first half of a repeat lit, the second ARC_DASH_DIM); repeated
+ *  along (`repeatS`). */
+export const navalLineTexture = () => ({ ...picture((u, v) => Math.max(0, Math.min(1, (0.97 - Math.abs(v)) / 0.3)) * (u < 0 ? 1 : ARC_DASH_DIM)), repeatS: true });
+export const NAVAL_TEXTURES = Object.freeze({ soft: navalSoftTexture, smoke: navalSmokeTexture, ring: navalRingTexture, disc: navalDiscTexture, line: navalLineTexture });
 
 /** Which picture a particle kind wears. */
 export const pictureOf = (p) => (p.kind === 'smoke' ? 'smoke' : p.kind === 'foam' ? 'ring' : p.solid ? 'disc' : 'soft');
 
 /**
- * Lays a quad into `out` at vertex `v`: centre `c`, half-axes `ax` and `ay` (world), the colour and the lit flag.
- * Answers the next vertex. Pure - the tests read the layout off it.
+ * Lays a quad into `out` at vertex `v`: centre `c`, half-axes `ax` and `ay` (world), the colour and the lit flag - its
+ * picture's u from `u0` to `u1` along `ax` (0 to 1 but for a line repeated along its length). Answers the next vertex.
+ * Pure - the tests read the layout off it.
  */
-export function writeQuad(out, v, c, ax, ay, color, lit) {
+export function writeQuad(out, v, c, ax, ay, color, lit, u0 = 0, u1 = 1) {
   const corners = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]];
   for (const [sx, sy] of corners) {
     const o = v * NAVAL_STRIDE;
     out[o] = c[0] + ax[0] * sx + ay[0] * sy;
     out[o + 1] = c[1] + ax[1] * sx + ay[1] * sy;
     out[o + 2] = c[2] + ax[2] * sx + ay[2] * sy;
-    out[o + 3] = (sx + 1) / 2; out[o + 4] = (1 - sy) / 2;
+    out[o + 3] = u0 + (u1 - u0) * (sx + 1) / 2; out[o + 4] = (1 - sy) / 2;
     out[o + 5] = color[0]; out[o + 6] = color[1]; out[o + 7] = color[2]; out[o + 8] = color[3];
     out[o + 9] = lit ? 1 : 0;
     v++;
@@ -170,10 +187,12 @@ export function viewAxes(view) {
   return { right: [view[0], view[4], view[8]], up: [view[1], view[5], view[9]] };
 }
 
-/** A particle's two half-axes: facing the eye (turned by its roll) or, `flat`, lying on the sea. */
+/** A particle's two half-axes: facing the eye (turned by its roll) or, `flat`, lying on the sea - AUDIT NAV1 (#15):
+ *  `aspect` times as long as it is wide along its first (a plank). */
 export function particleAxes(p, axes) {
   const h = p.size * 0.5, c = Math.cos(p.rot ?? 0), s = Math.sin(p.rot ?? 0);
-  if (p.flat) return { ax: [c * h, 0, s * h], ay: [-s * h, 0, c * h] };
+  const hl = h * (p.aspect ?? 1);
+  if (p.flat) return { ax: [c * hl, 0, s * hl], ay: [-s * h, 0, c * h] };
   const { right: R, up: U } = axes;
   return {
     ax: [(R[0] * c + U[0] * s) * h, (R[1] * c + U[1] * s) * h, (R[2] * c + U[2] * s) * h],
@@ -182,10 +201,13 @@ export function particleAxes(p, axes) {
 }
 
 /**
- * A ribbon along `points` - each segment a quad turned about its own length toward the eye, `width` across, its
- * colour dashed along the arc (every other `dash` metres dimmed) - into `out` from vertex `v`. Answers the next.
+ * A ribbon along `points` - each segment a quad turned about its own length toward the eye - into `out` from vertex
+ * `v`. `width` across: metres, or with `vh` (the view's height in metres a metre from the eye, `2 / proj[5]`) a share
+ * of the view's height at the segment's own distance - one width on the screen, near or far (AUDIT NAV1, #4). With a
+ * `period` its picture's u runs the metres flown over it from `offset` - a line picture repeated along the arc by its
+ * own length. Answers the next vertex.
  */
-export function writeRibbon(out, v, points, eye, width, color, dash = 0) {
+export function writeRibbon(out, v, points, eye, width, color, { vh = 0, period = 0, offset = 0 } = {}) {
   let run = 0;
   for (let i = 0; i + 1 < points.length; i++) {
     const a = points[i], b = points[i + 1];
@@ -196,10 +218,11 @@ export function writeRibbon(out, v, points, eye, width, color, dash = 0) {
     const e = [eye[0] - mid[0], eye[1] - mid[1], eye[2] - mid[2]];
     let s = [d[1] * e[2] - d[2] * e[1], d[2] * e[0] - d[0] * e[2], d[0] * e[1] - d[1] * e[0]];
     const sl = Math.hypot(s[0], s[1], s[2]) || 1;
-    s = [s[0] / sl * width / 2, s[1] / sl * width / 2, s[2] / sl * width / 2];
-    const lit = dash > 0 && Math.floor(run / dash) % 2 === 1 ? 0.35 : 1;
+    const w = vh > 0 ? width * vh * Math.hypot(e[0], e[1], e[2]) : width;
+    s = [s[0] / sl * w / 2, s[1] / sl * w / 2, s[2] / sl * w / 2];
+    const u0 = period > 0 ? (run - offset) / period : 0, u1 = period > 0 ? (run + len - offset) / period : 1;
     run += len;
-    v = writeQuad(out, v, mid, [d[0] / 2, d[1] / 2, d[2] / 2], s, [color[0], color[1], color[2], color[3] * lit], false);
+    v = writeQuad(out, v, mid, [d[0] / 2, d[1] / 2, d[2] / 2], s, color, false, u0, u1);
   }
   return v;
 }
@@ -242,7 +265,7 @@ export class NavalRenderer {
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, pic.repeatS ? gl.REPEAT : gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       this._tex.set(name, tex);
     }
@@ -271,7 +294,7 @@ export class NavalRenderer {
   /**
    * One frame's drawing. `frame` = { particles (navalEffects drawList), balls ([{ pos, gun }]), floaters ([{ kind,
    * pos }]), aim: { arcs: point[][], zone: point[], strikes?: point[], hot: boolean, ready?: boolean, posts?: boolean,
-   * radius?: number } | null } - every list optional.
+   * radius?: number } | null, time? (the host's clock, s: the arcs' dash marches on it) } - every list optional.
    */
   draw(frame) {
     this.drawn = 0;
@@ -317,12 +340,15 @@ export class NavalRenderer {
     }
     lay(add, 'add');
     if (aim?.arcs?.length) {
+      // AUDIT NAV1 (the presentation, #4): one width on the screen, dashed by the metres flown and marching out
       const start = v;
+      const vh = 2 / (r._proj[5] || 1);
+      const offset = (frame.time ?? 0) * ARC_DASH_SPEED;
       for (const arc of aim.arcs) {
         if (v + arc.length * 6 > cap) break;
-        v = writeRibbon(this.data, v, arc, eye, 0.12, tone.arc, 2.5);
+        v = writeRibbon(this.data, v, arc, eye, ARC_WIDTH_VH, tone.arc, { vh, period: ARC_DASH_M, offset });
       }
-      push('soft|add', start);
+      push('line|add', start);
     }
     // AUDIT NAV1 (the helm): a ball's fall stood up over its mark - a disc on the sea 150 m off is a line, a post of
     // light is not - and a ball that meets a hull marked where it strikes her

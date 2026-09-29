@@ -6,10 +6,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { sea } from './navalSea.mjs';
-import { sparsOf, FLAME_AWASH, BLAST_SHAKE, NEAR_BOOM_M, FAR_FADE_M, FAR_MATCH, GUN_PITCH_JITTER, GUN_GAIN_JITTER_DB, HIT_CONFIRM_REF_M, HIT_BURST_MAX, GUN_KICK } from '../src/scenes/navalHost.js';
+import { sea, seeded } from './navalSea.mjs';
+import { sparsOf, FLAME_AWASH, BLAST_SHAKE, NEAR_BOOM_M, FAR_FADE_M, FAR_MATCH, GUN_PITCH_JITTER, GUN_GAIN_JITTER_DB, HIT_CONFIRM_REF_M, HIT_BURST_MAX, GUN_KICK, NEAR_LIFE_M, FAR_LIFE_EVERY,
+  NAVAL_TAG_RANGE, NAVAL_TAG_NEAR, NAVAL_TAG_MAX, TAG_LIFT, SAIL_HO_RANGE, SAIL_HO_GAP_S, SAIL_HO_CHECK_S, bearingWords, withArticle,
+  SMOKE_FROM, SMOKE_SPAN, DAMAGE_LIST_FROM, DAMAGE_LIST_MAX, DAMAGE_LIST_EASE_S, TIMBER_PER_HIT, sailsShown, lineOver } from '../src/scenes/navalHost.js';
+import { createNavalEffects, TIMBER_LIFE, SMOLDER_RATE } from '../src/systems/naval/navalEffects.js';
+import { drawNavalTags, tagState, tagAlpha, TAG_FADE_FROM, TAG_FADE_TO } from '../src/ui/navalHud.js';
+import { NAVY_HUNTS } from '../src/systems/naval/navalAI.js';
+import { NavalRenderer, NAVAL_TEXTURES, NAVAL_STRIDE, ARC_WIDTH_VH, ARC_DASH_M, ARC_DASH_SPEED } from '../src/render/navalRender.js';
 import { READY_FLASH_S } from '../src/systems/naval/navalGunnery.js';
-import { NAVAL_SFX, NAVAL_SOUND_RANGE } from '../src/systems/naval/navalSounds.js';
+import { NAVAL_SFX, NAVAL_SOUND_RANGE, NAVAL_CLASSIC, NAVAL_SINK_LOOP } from '../src/systems/naval/navalSounds.js';
 import { navalHudText, drawNavalHud, destroyNavalHud, NAVAL_HUD_CSS, CARD_HIT_S, platePlace, cardScale, cardTopPx, navalPadPrompts, NAVAL_PLATE_BOTTOM, NAVAL_PLATE_TOUCH_BOTTOM,
   PLATE_GAP, PLATE_SCALE_MIN, PLATE_LAYOUT_S, NAVAL_SHORT_H, NAVAL_CARD_H, CARD_SCALE_MIN, NAVAL_CARD_GAP, NAVAL_WARN_UP, NAVAL_WARN_UP_SHORT, NAVAL_AIM_DOWN, NAVAL_AIM_DOWN_SHORT,
   NAVAL_CROSS_R, NAVAL_STACK_H, NAVAL_STACK_HALF, NAVAL_WARN_H, NAVAL_WARN_HALF, NAVAL_WARN_HALF_TOUCH, NAVAL_BRACE_H, NAVAL_BRACE_W, NAVAL_CARD_ASIDE_H, NAVAL_PLATE_W } from '../src/ui/navalHud.js';
@@ -238,8 +244,9 @@ test('AUDIT NAV1 (the presentation) she burns as she goes down: a burning ship h
   assert.ok(outs.every((t) => t != null && t > 3), `each out as the sea reached it, never at the hole (${outs.map((t) => t?.toFixed(1)).join(', ')})`);
   assert.ok(outs[2] - outs[0] > 0.3, 'one by one - by the head, her forward fire first');
   assert.equal(under, 0, 'no ember nor smoke born under the sea');
-  assert.equal(loops.length, 1);
-  assert.ok(Math.abs(loops[0].stopped - outs[2]) < 0.15, `her loop stops with her last flame (${loops[0].stopped?.toFixed(1)})`);
+  const fire = loops.filter((l) => l.k === NAVAL_CLASSIC.burning);
+  assert.equal(fire.length, 1);
+  assert.ok(Math.abs(fire[0].stopped - outs[2]) < 0.15, `her loop stops with her last flame (${fire[0].stopped?.toFixed(1)})`);
   // the flames follow her deck as she heels: a fire's place is her deck's, not the calm sea's
   const g = await sea({ hull: 2 });
   const log2 = flameLog(g);
@@ -755,4 +762,403 @@ test('AUDIT NAV1 (the presentation) THE SKINS AND THE WORDS: the kit\'s face on 
   assert.equal(56, (72 + 48 + 8 - 16) / 2, 'centred in what is left');
   const host = readFileSync(new URL('../src/scenes/navalHost.js', import.meta.url), 'utf8');
   assert.ok(host.includes("`Grappling hooks! ${entry.ship.names?.name ? `${entry.ship.names.name} is` : 'The pirates are'} coming alongside - repel boarders!`"));
+});
+
+// ── the sea at a glance (5d) ──────────────────────────────────────────────────────────────────────────────────────
+
+/** A recording GL whose wraps and textures are told apart by name. */
+function namedGl() {
+  const calls = [];
+  let ids = 0;
+  const named = new Set(['ARRAY_BUFFER', 'TRIANGLES', 'TEXTURE_2D', 'TEXTURE_WRAP_S', 'TEXTURE_WRAP_T', 'REPEAT', 'CLAMP_TO_EDGE', 'ONE', 'ONE_MINUS_SRC_ALPHA', 'BLEND', 'DEPTH_TEST', 'CULL_FACE', 'LEQUAL']);
+  const gl = new Proxy({}, {
+    get(_, k) {
+      if (named.has(k)) return k;
+      if (k === 'getShaderParameter' || k === 'getProgramParameter') return () => true;
+      if (k === 'getUniformLocation') return (_p, n) => n;
+      if (k === 'createShader' || k === 'createProgram' || k === 'createBuffer' || k === 'createVertexArray' || k === 'createTexture') return () => { const o = { id: ++ids }; calls.push([k, o]); return o; };
+      if (typeof k === 'string' && k.toUpperCase() === k) return 1;
+      return (...args) => { calls.push([k, ...args]); };
+    },
+  });
+  return { gl, calls };
+}
+
+test('AUDIT NAV1 (the presentation) THE ARCS AS LINES (#4): each ball\'s arc ARC_WIDTH_VH of the view\'s height across at its own distance (a 0.12 m ribbon was 0.7 px at 150 m and ~30 px beside the eye), in the LINE picture - repeated along it, so its dash runs by the metres flown (a 2.5 m dash judged once an 8 m segment aliased), marching out on the sea\'s clock at ARC_DASH_SPEED - bound with the arcs alone; the host hands the pass its clock (mutants: the width in metres, the soft dot again, the dash per segment, the line clamped, the clock unread)', () => {
+  const { gl, calls } = namedGl();
+  const view = new Float32Array(16); view[0] = 1; view[5] = 1; view[10] = 1; view[15] = 1;
+  const proj = new Float32Array(16); proj[5] = 1.57;
+  const r = { gl, _proj: proj, _view: view, _camPos: [0, 0, 0], _ambient: [0.3, 0.3, 0.3], _sunColor: [1, 1, 1], _sunScale: 1, _lightDir: [0, 1, 0], _fogColor: [0.5, 0.5, 0.6], _fogMode: 1, _fogDensity: 0.001, _fogRange: [10, 900], _dwFog: new Float32Array(4), _focus: new Float32Array(4), markForeignPass() {} };
+  const pass = new NavalRenderer(r);
+  const arc = [[-10, 5, -40], [10, 6, -40], [30, 5, -40]];   // across the view, 40 m out
+  pass.draw({ particles: [], aim: { arcs: [arc], zone: [], hot: true, radius: 2 }, time: 2 });
+  // the pictures: the line alone repeated along
+  const made = calls.filter((c) => c[0] === 'createTexture').map((c) => c[1]);
+  const names = Object.keys(NAVAL_TEXTURES);
+  const wrapS = new Map();
+  let bound = null;
+  for (const c of calls) {
+    if (c[0] === 'bindTexture') bound = c[2];
+    if (c[0] === 'texParameteri' && c[2] === 'TEXTURE_WRAP_S' && bound) wrapS.set(names[made.indexOf(bound)], c[3]);
+  }
+  assert.equal(wrapS.get('line'), 'REPEAT');
+  for (const n of names.filter((x) => x !== 'line')) assert.equal(wrapS.get(n), 'CLAMP_TO_EDGE', n);
+  // the arc's two segments drawn with the line bound
+  const line = made[names.indexOf('line')];
+  const draws = [];
+  bound = null;
+  for (const c of calls) { if (c[0] === 'bindTexture') bound = c[2]; if (c[0] === 'drawArrays') draws.push([bound, c[2], c[3]]); }
+  assert.deepEqual(draws.filter((d) => d[0] === line).map((d) => d[2]), [12], 'its two segments, and nothing else');
+  // one width on the screen at its own distance; the u the metres flown from the marching offset
+  const d = pass.data;
+  const vtx = (i) => [d[i * NAVAL_STRIDE], d[i * NAVAL_STRIDE + 1], d[i * NAVAL_STRIDE + 2]];
+  const across = Math.hypot(...vtx(0).map((x, k) => x - vtx(5)[k]));   // the corners that differ across it alone
+  assert.ok(Math.abs(across - ARC_WIDTH_VH * (2 / 1.57) * Math.hypot(0, 5.5, -40)) < 1e-4, 'its width the view\'s share at its distance');
+  const seg = Math.hypot(20, 1);
+  const off = 2 * ARC_DASH_SPEED;
+  assert.ok(Math.abs(d[3] - (0 - off) / ARC_DASH_M) < 1e-5 && Math.abs(d[NAVAL_STRIDE + 3] - (seg - off) / ARC_DASH_M) < 1e-5, 'u by the metres flown');
+  assert.ok(Math.abs(d[6 * NAVAL_STRIDE + 3] - (seg - off) / ARC_DASH_M) < 1e-5, 'continuous into the next segment');
+  const host = readFileSync(new URL('../src/scenes/navalHost.js', import.meta.url), 'utf8');
+  assert.match(host, /return \{ particles: effects\.drawList\(\), balls: shots\.balls\(\), floaters: shots\.floaters\(\), aim: aimDraw, time: clock \};/);
+});
+
+test('AUDIT NAV1 (the presentation) THE FAR SHIPS\' COST (#17): an idle particle system - stopped, nothing alive - is stepped without a question (it walked up its node\'s parents to ask whether it was active, then did nothing: a war galley\'s 224 systems, one live, cost 0.45 ms a far frame), a playing or living one as ever; a ship\'s animators found once (her tree walked for them every frame: 0.44 ms); past NEAR_LIFE_M her rigging stepped every FAR_LIFE_EVERY frames with the time it missed - five far galleys 5.7 ms a frame, now 0.9 (mutants: the idle system asked, the walk every frame, the far stride unread, the missed time dropped)', async () => {
+  const h = await sea({ hull: 2, settings: { ShipsAtSea: 'off' } });
+  const near = place(h, 'navyGalley', [0, 0, 300]);
+  const far = place(h, 'navyGalley', [0, 0, 1000]);
+  h.run(FAR_LIFE_EVERY * 2 / 60, 1 / 60);   // the far one's parts first stepped on her stride
+  // an idle system: stepped without a question and left as it was
+  const idle = far.boat.particleSystems.find((ps) => !ps.isPlaying && !ps.particleCount);
+  assert.ok(idle, 'a galley carries idle systems');
+  let asked = 0;
+  Object.defineProperty(idle.node, 'activeInHierarchy', { get: () => { asked += 1; return true; }, configurable: true });
+  const list = idle.particles;
+  idle.step(1 / 60);
+  assert.equal(asked, 0, 'no question asked');
+  assert.equal(idle.particles, list, 'nothing changed');
+  // a living one, stopped, still ages its particles; a playing one runs its clock
+  const live = near.boat.particleSystems.find((ps) => ps.isPlaying);
+  assert.ok(live, 'her flag or wake plays');
+  const t0 = live.time;
+  live.step(0.1);
+  assert.ok(live.time > t0, 'a playing system runs');
+  idle.particles = [{ remainingLifetime: 5, startLifetime: 5, position: [0, 0, 0], velocity: [0, 0, 0], size: 1, rotation: 0, randomSeed: 1, startSize: 1, startColor: [1, 1, 1, 1] }];
+  idle.step(0.5);
+  assert.ok(Math.abs(idle.particles[0].remainingLifetime - 4.5) < 1e-9, 'a stopped one with the living ages them');
+  // her animators found once: her tree unwalked frame to frame
+  let walks = 0;
+  const walk = near.boat.GameObject.walk.bind(near.boat.GameObject);
+  near.boat.GameObject.walk = function* () { walks += 1; yield* walk(); };
+  h.run(10 / 60, 1 / 60);
+  assert.equal(walks, 0, 'no walk a frame');
+  // the stride: the far one every FAR_LIFE_EVERY frames with the time it missed, the near one every frame
+  const seen = (e) => { const dts = []; for (const a of e.boat.animators) { const up = a.update.bind(a); a.update = (dt) => { dts.push(+dt.toFixed(6)); up(dt); }; } return dts; };
+  const nd = seen(near), fd = seen(far);
+  const perFrame = (e) => e.boat.animators.length;
+  for (let i = 0; i < FAR_LIFE_EVERY * 2; i++) h.host.frame(1 / 60);
+  assert.equal(nd.length, FAR_LIFE_EVERY * 2 * perFrame(near), 'near: every frame');
+  assert.equal(fd.length, 2 * perFrame(far), 'far: every FAR_LIFE_EVERY frames');
+  assert.ok(fd.every((dt) => Math.abs(dt - FAR_LIFE_EVERY / 60) < 1e-5), 'with the time it missed');
+  assert.equal(NEAR_LIFE_M, 600);
+});
+
+test('AUDIT NAV1 (the presentation) THE SHIPS\' TAGS (#14): one card within 6 degrees of the look was all the sea said - now a tag over each ship within NAVAL_TAG_RANGE of the eye and past NAVAL_TAG_NEAR, NAVAL_TAG_MAX of them nearest first: her name, what she is to me (a pirate hostile, a merchant not), her hull and state, the card\'s ship marked - TAG_LIFT over her highest spar as she stands, settling as she goes down (mutants: every ship tagged, the far first, the near one tagged, the spar unread, the sinking unread)', async () => {
+  const h = await sea({ hull: 2, settings: { ShipsAtSea: 'off' } });
+  const a = place(h, 'pirateBrig', [0, 0, 200]);
+  const b = place(h, 'merchantGalleon', [300, 0, 0]);
+  place(h, 'navyGalley', [0, 0, -(NAVAL_TAG_RANGE + 100)]);
+  place(h, 'pirateSloop', [NAVAL_TAG_NEAR / 2, 0, 5]);
+  h.host.frame(0.05);
+  let tags = h.host.tags();
+  assert.deepEqual(tags.map((t) => t.id), [a.id, b.id], 'in reach, past the near, nearest first');
+  const [ta, tb] = tags;
+  assert.equal(ta.name, a.ship.names.name);
+  assert.deepEqual([ta.faction, ta.hostile, tb.faction, tb.hostile], ['pirate', true, 'merchant', false]);
+  assert.deepEqual([ta.hull, ta.state, ta.boarded], [1, 'afloat', false]);
+  const sp = sparsOf(a.boat, h.pool.models);
+  const top = sp.lift + Math.max(...sp.points.map((q) => q[1]));
+  const root = a.boat.GameObject.position;
+  assert.ok(Math.abs(ta.point[1] - (root[1] + top + TAG_LIFT)) < 1e-9 && ta.point[0] === root[0] && ta.point[2] === root[2], 'over her highest spar');
+  assert.ok(ta.distance > 150 && ta.distance < 250);
+  // the card's ship marked
+  h.view.look = { origin: [0, 5, 0], dir: [0, 0, 1] };
+  h.host.hudModel();
+  assert.deepEqual(h.host.tags().map((t) => t.target), [true, false]);
+  // going down: her tag settles with her
+  a.ship.damage.apply({ hull: 1e6, sail: 0, crew: 0 }, 0);
+  h.run(3, 0.1);
+  const sunkBy = h.host.tags().find((t) => t.id === a.id);
+  assert.equal(sunkBy.state, 'sinking');
+  assert.ok(sunkBy.point[1] < ta.point[1] - 0.5, 'lower as she goes');
+  // the cap
+  for (let i = 0; i < NAVAL_TAG_MAX + 2; i++) place(h, 'merchantGalleon', [-100 - i * 40, 0, 100]);
+  h.host.frame(0.05);
+  assert.equal(h.host.tags().length, NAVAL_TAG_MAX);
+});
+
+test('AUDIT NAV1 (the presentation) THE LOOKOUT (#14): a pirate turning on me said nothing - now "Sail ho!" as a ship afloat turns hostile within SAIL_HO_RANGE, her class and where she bears off my bow (dead ahead, off the bow, on the beam, off the quarter, dead astern), the nearest first, once while she stays hostile, SAIL_HO_GAP_S after the last; never a merchant; a navy when my notoriety turns her; one out of range when she comes within it (mutants: every ship hailed, hailed again, the gap unread, the bearing unread, the range unread)', async () => {
+  assert.deepEqual([0, 30, -40, 90, -100, 130, -150, 170, -179].map(bearingWords), ['dead ahead', 'off the starboard bow', 'off the port bow', 'on the starboard beam', 'on the port beam', 'off the starboard quarter', 'off the port quarter', 'dead astern', 'dead astern']);
+  assert.deepEqual(['Pirate Brigantine', 'Iliac Cutter'].map(withArticle), ['A Pirate Brigantine', 'An Iliac Cutter']);
+  const h = await sea({ hull: 2, settings: { ShipsAtSea: 'off' } });
+  const hails = () => h.log.say.filter((l) => l.startsWith('Sail ho'));
+  // both out of the lookout's range, the further one seen first; then both within it on one frame: the nearer hailed
+  const sloop = place(h, 'pirateSloop', [-1500, 0, 0]);
+  const brig = place(h, 'pirateBrig', [1600, 0, 0]);
+  place(h, 'merchantGalleon', [0, 0, -300]);
+  sloop.ship.pos = [-300, 0, 300 + 150];
+  brig.ship.pos = [400, 0, 0];
+  const far = place(h, 'pirateSloop', [0, 0, -(SAIL_HO_RANGE + 200)]);
+  h.run(SAIL_HO_CHECK_S * 2, 0.05);
+  assert.deepEqual(hails(), ['Sail ho! A Pirate Brigantine on the starboard beam!'], 'the nearest, where she bears');
+  h.run(SAIL_HO_GAP_S - 2, 0.1);
+  assert.equal(hails().length, 1, 'not again inside the gap');
+  h.run(2.5, 0.1);
+  assert.equal(hails()[1], 'Sail ho! A Pirate Sloop off the port bow!', 'the next after it');
+  h.run(SAIL_HO_GAP_S + 1, 0.1);
+  assert.equal(hails().length, 2, 'each once while she stays hostile; never the merchant; the far one not yet');
+  far.ship.pos = [0, 0, -(SAIL_HO_RANGE - 100)];
+  h.run(SAIL_HO_CHECK_S * 2, 0.05);
+  assert.equal(hails()[2], 'Sail ho! A Pirate Sloop dead astern!', 'within the range: hailed');
+  // a navy my notoriety turns
+  const navy = place(h, 'navyGalley', [0, 0, 350]);
+  h.run(SAIL_HO_GAP_S + 1, 0.1);
+  assert.equal(hails().length, 3, 'a lawful navy: no hail');
+  h.host.notoriety.add(navy.ship.names.crown, NAVY_HUNTS);
+  h.run(SAIL_HO_CHECK_S * 2, 0.05);
+  assert.match(hails()[3], /^Sail ho! A \w+ War Galley dead ahead!$/);
+});
+
+test('AUDIT NAV1 (the presentation) THE TAGS DRAWN (#14): one node a slot, moved, never rebuilt - her name in her trade\'s colour (a hostile ship red), her hull, her state in the card\'s words, the card\'s ship ringed, at the HUD\'s scale over her point, fading with her distance to the tags\' reach; a window over the world hides them all; the world projects them through the frame\'s own matrices behind a sight cache of their own, after the names, and every clear hides them (mutants: rebuilt each frame, the scale unread, never hidden, the fade reversed, the state unsaid or saying hostile)', () => {
+  destroyNavalHud();
+  const pt = (o = {}) => ({ id: 'a:1', name: 'The Red Wake', faction: 'pirate', hostile: true, hull: 0.62, state: 'afloat', boarded: false, target: false, distance: 150, x: 400, y: 200, ...o });
+  drawNavalTags([pt(), pt({ id: 'b:2', name: 'Salt Maid', faction: 'merchant', hostile: false, hull: 1, x: 900, y: 240, distance: 500, target: true })], { scale: 1.5, reach: 700 });
+  const [layer] = byClass(globalThis.document.body, 'dfnaval-tags');
+  const nodes = byClass(layer, 'dfnaval-tag');
+  assert.equal(nodes.length, 2);
+  assert.deepEqual(nodes.map((n) => n.className), ['dfnaval-tag pirate hostile', 'dfnaval-tag merchant target']);
+  assert.deepEqual(nodes.map((n) => byClass(n, 'dfnaval-tag-name')[0].textContent), ['The Red Wake', 'Salt Maid']);
+  assert.equal(byClass(nodes[0], 'dfnaval-tag-bar')[0].children[0].style.width, '62%');
+  assert.equal(nodes[0].style.transform, 'translate(400px, 200px) scale(1.5) translate(-50%, -100%)');
+  assert.deepEqual(nodes.map((n) => n.style.opacity), ['1', String(Math.round(tagAlpha(500, 700) * 100) / 100)]);
+  // moved, never rebuilt
+  drawNavalTags([pt({ x: 420, state: 'struck', hostile: false })], { scale: 1.5, reach: 700 });
+  const again = byClass(layer, 'dfnaval-tag');
+  assert.equal(again[0], nodes[0], 'the same node');
+  assert.equal(again[0].style.transform, 'translate(420px, 200px) scale(1.5) translate(-50%, -100%)');
+  assert.equal(byClass(again[0], 'dfnaval-tag-state')[0].textContent, 'Colours struck');
+  assert.equal(again[1].style.display, 'none', 'a slot with no ship hidden');
+  drawNavalTags([pt()], { covered: true });
+  assert.ok(byClass(layer, 'dfnaval-tag').every((n) => n.style.display === 'none'), 'covered: all hidden');
+  destroyNavalHud();
+  assert.equal(byClass(globalThis.document.body, 'dfnaval-tags').length, 0);
+  // the words and the fade
+  assert.deepEqual([{ state: 'sinking' }, { state: 'prize' }, { state: 'afloat', boarded: true }, { state: 'struck' }, { state: 'afloat', hostile: true }].map((t) => tagState({ name: 'The Red Wake', ...t })),
+    ['Going down', 'Taken', 'Boarded', 'Colours struck', ''], 'the card\'s words; none sailing - her red says hostile');
+  assert.equal(tagState({ state: 'struck' }), 'Colours struck', 'a nameless ship with no board in reach is not mine');
+  assert.equal(tagAlpha(TAG_FADE_FROM, 700), 1);
+  assert.equal(tagAlpha(700, 700), TAG_FADE_TO);
+  assert.equal(tagAlpha(2000, 700), TAG_FADE_TO);
+  // the world's pass
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /drawPeerNames\(proj, view, mwv\.eye\);[^\n]*\n\s+navalTags\(proj, view, mwv\.eye\);/);
+  assert.match(w, /const covered = townTalk\.overlayActive \|\| gamePaused\(\) \|\| !!townTalk\.hudHidden \|\| _mode\(\) !== 'exterior' \|\| !!travelView\?\.active;/);
+  assert.match(w, /const at = projectToScreen\(t\.point, w, h, proj, view, rect\);/);
+  assert.match(w, /if \(shipSight\.blocked\(player\.collider, eye, t\.id, t\.point\)\) continue;/);
+  assert.match(w, /drawNavalTags\(points, \{ covered, scale: enhancedHudScale\(\), reach: NAVAL_TAG_RANGE \}\);/);
+  assert.match(w, /drawNavalHud\(null\); drawNavalTags\(\[\]\); \};/, 'the clear hides them');
+  assert.match(w, /drawNavalHud\(null\); drawNavalTags\(\[\]\); \} \}/, 'the switch off hides them');
+});
+
+test('AUDIT NAV1 (the presentation) HER HURTS SEEN, her list and her canvas (#15): her hurts showed nowhere but the card - now under DAMAGE_LIST_FROM of her hull she lists to the side she will go down on, to DAMAGE_LIST_MAX at nought, taken on as she fills (a hit would snap her over) and at it from her first pose; the sinking\'s own list takes it on with no snap back, her last pose the sinking\'s own; her canvas comes down with her sail share, her highest sails first, and goes back up mended (mutants: one side for all, the list unscaled, the list snapped, the sinking\'s list dropped, every sail kept, the lowest furled first)', async () => {
+  assert.deepEqual([1, 0.81, 0.8, 0.41, 0.4, 0.01, 0, -1, 2].map((k) => sailsShown(5, k)), [5, 5, 4, 3, 2, 1, 0, 0, 5]);
+  assert.equal(sailsShown(1, 0.01), 1, 'a rag of canvas left: her one sail');
+  const h = await sea({ hull: 2, wind: [0, 0, 0] });   // no wind: no bob, her pose her heel and her list alone
+  const near = (a, b) => a.every((x, i) => Math.abs(x - b[i]) < 1e-9);
+  const posed = (e, pitch, roll) => near(e.boat.MeshObject.localRotation, quatEuler(pitch, 0, e.ship.heel + roll));
+  const e = place(h, 'merchantCarrack', [0, 0, 300], { seed: 1 });
+  const lean = Math.sign(sinkAngles(1, 1).roll);
+  const d = e.ship.damage;
+  h.run(0.5);
+  assert.ok(posed(e, 0, 0), 'whole: upright');
+  d.apply({ hull: d.maxHull * 0.5, sail: 0, crew: 0 }, 0);
+  h.run(0.5);
+  assert.ok(posed(e, 0, 0), 'half her hull: upright still');
+  d.apply({ hull: d.maxHull * 0.3, sail: 0, crew: 0 }, 0);   // 0.2: half way from DAMAGE_LIST_FROM to nought
+  const want = DAMAGE_LIST_MAX * (DAMAGE_LIST_FROM - d.hullShare()) / DAMAGE_LIST_FROM;
+  assert.ok(Math.abs(want - DAMAGE_LIST_MAX / 2) < 0.05, `about half DAMAGE_LIST_MAX (${want.toFixed(3)})`);
+  h.host.frame(0.1);
+  const first = want * (1 - Math.exp(-0.1 / DAMAGE_LIST_EASE_S));
+  assert.ok(Math.abs(e.list - first) < 1e-9 && posed(e, 0, lean * first), 'taken on as she fills - not snapped over');
+  h.run(DAMAGE_LIST_EASE_S * 6);
+  assert.ok(Math.abs(e.list - want) < 0.02 && posed(e, 0, lean * e.list), `half DAMAGE_LIST_MAX at half way to nought (${e.list.toFixed(2)})`);
+  // the other side for the other seed, and a ship first seen battered at her list at once
+  const id = h.host.spawnShip('merchantCarrack', { range: 300, bearing: -1, yaw: 0 });
+  const o = h.host._sea.get(id);
+  o.ship.pos = [300, 0, 0];
+  o.ship.seed = 0;
+  o.ship.damage.apply({ hull: o.ship.damage.maxHull * 0.8, sail: 0, crew: 0 }, 0);
+  h.host.frame(0.1);
+  assert.ok(o.boat && Math.abs(o.list - want) < 1e-9, 'first seen battered: at her list');
+  assert.ok(posed(o, 0, Math.sign(sinkAngles(0, 1).roll) * want) && Math.sign(sinkAngles(0, 1).roll) === -lean, 'to her own going-down side');
+  // she founders: the sinking's list takes hers on, never back toward upright, and ends as the sinking's own
+  d.apply({ hull: 1e6, sail: 0, crew: 0 }, 0);
+  let prev = e.list, last = null;
+  while (h.host._sea.has(e.id) && d.sinkT < SINK_SECONDS - 0.15) {
+    h.host.frame(0.1);
+    const sink = sinkAngles(1, d.sinkT / SINK_SECONDS);
+    const roll = Math.max(Math.abs(sink.roll), e.list);
+    assert.ok(posed(e, sink.pitch, lean * roll), `her pose at ${d.sinkT.toFixed(1)} s`);
+    assert.ok(roll >= prev - 1e-9, 'never back toward upright');
+    prev = roll;
+    last = { roll, sink: Math.abs(sink.roll) };
+  }
+  assert.ok(last && last.roll === last.sink && last.sink > DAMAGE_LIST_MAX, 'her last pose the sinking\'s own');
+  // her canvas by her sail share, the highest first
+  const c = place(h, 'merchantCarrack', [-300, 0, 0], { seed: 2 });
+  const sails = [...c.boat.Sails];
+  assert.equal(sails.length, 5);
+  const high = (n) => n.worldMatrix()[13];
+  c.ship.damage.apply({ hull: 0, sail: c.ship.damage.maxSail - Math.floor(c.ship.damage.maxSail * 0.4), crew: 0 }, 0);   // 0.4 of her canvas left, or a hair under
+  h.host.frame(0.1);
+  const shown = sails.filter((n) => n.activeSelf), gone = sails.filter((n) => !n.activeSelf);
+  assert.equal(shown.length, sailsShown(5, c.ship.damage.sailShare()));
+  assert.equal(shown.length, 2);
+  assert.ok(Math.min(...gone.map(high)) > Math.max(...shown.map(high)), 'her highest furled away first');
+  c.ship.damage.repair();
+  h.host.frame(0.1);
+  assert.ok(sails.every((n) => n.activeSelf), 'mended: all her canvas back');
+});
+
+test('AUDIT NAV1 (the presentation) HER HURTS SEEN, her smoke and her planks (#15): under SMOKE_FROM of her hull she smokes along SMOKE_SPAN of her deck each way from amidships (one point would be a chimney on a 93 m galley), more as she is hurt, from the part of it the sea has not reached - none born under it as she goes down; a ball into her hull sheds TIMBER_PER_HIT planks afloat where she was struck, laid long, a heavy ball one more, a ball through her canvas none; they drift and are gone by half again TIMBER_LIFE (mutants: the rate unscaled, a point not a line, the awash cut dropped, no planks, the heavy one dropped, planks off the rig)', async () => {
+  // the line over the sea
+  assert.deepEqual(lineOver([0, 2, 0], [10, 4, 0], 1), [[0, 2, 0], [10, 4, 0]]);
+  assert.deepEqual(lineOver([0, 0, 0], [10, 4, 0], 1), [[2.5, 1, 0], [10, 4, 0]]);
+  assert.deepEqual(lineOver([0, 4, 0], [10, 0, 0], 1), [[0, 4, 0], [7.5, 1, 0]]);
+  assert.equal(lineOver([0, 0, 0], [10, 0.5, 0], 1), null);
+  // the effects' smolder: SMOLDER_RATE puffs a second at the worst, by her hurt, each on the line
+  const born = (k) => {
+    const fx = createNavalEffects({ random: seeded(7) });
+    for (let i = 0; i < 400; i++) fx.smolder([0, 5, -20], [0, 5, 20], 0.1, k);
+    return fx.drawList();
+  };
+  const worst = born(1), light = born(0.25);
+  assert.ok(Math.abs(worst.length - SMOLDER_RATE * 40) < SMOLDER_RATE * 40 * 0.25, `${worst.length} puffs in 40 s at the worst`);
+  assert.ok(Math.abs(light.length - SMOLDER_RATE * 40 / 4) < SMOLDER_RATE * 40 / 4 * 0.45, `${light.length} at a quarter`);
+  assert.ok(worst.every((p) => p.kind === 'smoke' && p.pos[1] === 5 && Math.abs(p.pos[0]) <= 1.2 && Math.abs(p.pos[2]) <= 20 + 1.2), 'on the line');
+  const zs = worst.map((p) => p.pos[2]);
+  assert.ok(Math.min(...zs) < -12 && Math.max(...zs) > 12, 'along the whole of it');
+  // the host: her deck line by her hull, cut where the sea has reached
+  const h = await sea({ hull: 2, wind: [0, 0, 0] });
+  const calls = new Map();
+  const fx = h.host._effects, smolder = fx.smolder;
+  let tag = null;
+  fx.smolder = (a, b, dt, k) => { calls.get(tag)?.push({ a, b, k }); smolder(a, b, dt, k); };
+  const whole = place(h, 'merchantGalleon', [0, 0, 300]);
+  const hurt = place(h, 'merchantGalleon', [300, 0, 0], { seed: 0 });   // by the head
+  hurt.ship.damage.apply({ hull: hurt.ship.damage.maxHull * 0.7, sail: 0, crew: 0 }, 0);
+  const seen = [];
+  fx.smolder = (a, b, dt, k) => { seen.push({ a, b, k }); smolder(a, b, dt, k); };
+  h.run(1);
+  const build = hullBuild(hurt.ship.hull);
+  assert.ok(seen.length >= 9, 'every frame');
+  for (const { a, b, k } of seen) {
+    assert.ok(Math.abs(k - (SMOKE_FROM - hurt.ship.damage.hullShare()) / SMOKE_FROM) < 1e-9, 'her hurt');
+    assert.ok(Math.abs(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) - (build.bowZ - build.aftZ) * SMOKE_SPAN) < 1e-6, 'SMOKE_SPAN of her length');
+    assert.ok(Math.hypot(a[0] - hurt.ship.pos[0], a[2] - hurt.ship.pos[2]) > 5, 'from her deck, not her root');
+  }
+  assert.ok(!seen.some(({ a }) => Math.hypot(a[0] - whole.ship.pos[0], a[2] - whole.ship.pos[2]) < 40), 'a whole ship none');
+  // she goes down by the head: her deck line cut at the sea, then none; no puff born under it
+  seen.length = 0;
+  hurt.ship.damage.apply({ hull: 1e6, sail: 0, crew: 0 }, 0);
+  let under = 0, cut = 0;
+  while (h.host._sea.has(hurt.id)) {
+    h.host.frame(0.1);
+    under = Math.max(under, fx.drawList().filter((p) => p.kind === 'smoke' && p.pos[1] < 0).length);
+  }
+  for (const { a, b } of seen) {
+    assert.ok(a[1] >= FLAME_AWASH - 1e-9 && b[1] >= FLAME_AWASH - 1e-9, 'the part over the sea');
+    if (Math.abs(Math.min(a[1], b[1]) - FLAME_AWASH) < 1e-9) cut++;
+  }
+  assert.ok(cut > 5, `cut at the sea as she went (${cut})`);
+  assert.equal(under, 0, 'no smoke born under the sea');
+  // planks off a holed hull: TIMBER_PER_HIT at her waterline where she was struck, a heavy ball one more; none off her canvas
+  const strike = async (gun, y) => {
+    const g = await sea({ hull: 2, wind: [0, 0, 0] });
+    const e = place(g, 'merchantGalleon', [150, 0, 0], { yaw: 0 });
+    const hits = [];
+    const hit = g.host._effects.hit;
+    g.host._effects.hit = (p, ...rest) => { hits.push([...p]); hit(p, ...rest); };
+    g.host._shots.fireVolley({ id: 'v1', shooter: 'me:42', launches: [{ delay: 0, p0: [150 - hullBuild(e.ship.hull).halfWidth - 3, y, 0], v0: [60, 0.5, 0], gun, index: 0 }], resolve: true });
+    g.run(0.3);
+    return { g, hits, planks: g.host._effects.drawList().filter((p) => p.kind === 'timber'), shreds: g.host._effects.drawList().filter((p) => p.kind === 'shred') };
+  };
+  const long = await strike('long', 3);
+  assert.equal(long.hits.length, 1, 'struck her hull');
+  assert.equal(long.planks.length, TIMBER_PER_HIT);
+  for (const p of long.planks) {
+    assert.ok(p.flat && p.solid && p.aspect >= 3 && p.aspect <= 5, 'a plank laid long on the sea');
+    assert.ok(Math.abs(p.pos[1] - 0.06) < 1e-9, 'afloat');
+    assert.ok(Math.hypot(p.pos[0] - long.hits[0][0], p.pos[2] - long.hits[0][2]) < 3, 'where she was struck');
+  }
+  // each plank followed by its own place (she fires back: planks off my own hull join them)
+  const mine = long.planks.map((p) => p.pos), at = mine.map((q) => [...q]);
+  const alive = () => { const all = new Set(long.g.host._effects.drawList().map((p) => p.pos)); return mine.filter((q) => all.has(q)); };
+  long.g.run(5);
+  assert.equal(alive().length, TIMBER_PER_HIT);
+  assert.ok(mine.every((q, i) => Math.hypot(q[0] - at[i][0], q[2] - at[i][2]) > 0.3 && q[1] === at[i][1]), 'drifting on the sea');
+  long.g.run(TIMBER_LIFE * 1.5 - 5 + 0.2, 0.5);
+  assert.equal(alive().length, 0, 'gone by half again TIMBER_LIFE');
+  assert.equal((await strike('heavy', 3)).planks.length, TIMBER_PER_HIT + 1, 'a heavy ball one more');
+  const rig = await strike('long', 20);
+  assert.ok(rig.shreds.length > 0 && rig.planks.length === 0, 'through her canvas: shreds, no planks');
+});
+
+test('AUDIT NAV1 (the presentation) SHE GROANS AS SHE GOES DOWN (#15): a gurgle at her founder was all, then silence for the rest of her going - now NAVAL_SFX.sinking loops from her founder under NAVAL_SINK_LOOP\'s profile, moved with her, until she is gone; asked again each frame until the bus has it; none for a struck ship; a peer\'s ship going down the same, and a room left or a clear stops it (mutants: never looped, never stopped, the fire\'s profile, never moved, asked once)', async () => {
+  const h = await sea({ hull: 2 });
+  const loops = [];
+  let ready = false;
+  h.deps.audio.loop3d = (k, p, v, opts) => {
+    if (!ready) return null;
+    const l = { k, v, opts, at: [...p], moves: 0, stopped: false, move(q) { l.moves++; l.at = [...q]; }, stop() { l.stopped = true; } };
+    loops.push(l);
+    return l;
+  };
+  const e = place(h, 'merchantGalleon', [200, 0, 0]);
+  const d = e.ship.damage;
+  d.apply({ hull: d.maxHull * 0.8, sail: 0, crew: 0 }, 0);
+  h.run(1);
+  assert.equal(d.state, SHIP_STATES.struck);
+  assert.equal(loops.length, 0, 'struck: no groan');
+  d.apply({ hull: 1e6, sail: 0, crew: 0 }, 0);
+  h.run(0.3);
+  assert.equal(loops.length, 0, 'the bus not ready');
+  ready = true;
+  h.host.frame(0.1);
+  assert.equal(loops.length, 1, 'asked again: heard');
+  const [l] = loops;
+  assert.deepEqual([l.k, l.v, l.opts], [NAVAL_SFX.sinking, 0.85, NAVAL_SINK_LOOP]);
+  const moves = l.moves;
+  e.ship.pos = [210, 0, 5];
+  h.run(1);
+  assert.equal(loops.length, 1, 'one loop');
+  assert.ok(l.moves >= moves + 9 && l.at[0] === 210 && l.at[2] === 5, 'moved with her');
+  while (h.host._sea.has(e.id)) h.host.frame(0.1);
+  assert.equal(l.stopped, true, 'gone with her');
+  // a peer's ship going down: the same, stopped when the room is left
+  const o = await sea({ hull: 2, online: ONLINE });
+  const heard = [];
+  o.deps.audio.loop3d = (k) => { const x = { k, stopped: false, move() {}, stop() { x.stopped = true; } }; heard.push(x); return x; };
+  o.host.applyWord('a-player', peerWord(WIRE_CLASS.pirateBrig, 2, 0), (p) => p);
+  o.run(0.5);
+  const theirs = heard.filter((x) => x.k === NAVAL_SFX.sinking);
+  assert.equal(theirs.length, 1, 'their ship groans on my screen');
+  o.host.clearPeers();
+  assert.equal(theirs[0].stopped, true, 'a room left: silent');
+  // a clear stops it too
+  o.host.applyWord('a-player', peerWord(WIRE_CLASS.pirateBrig, 2, 0), (p) => p);
+  o.run(0.5);
+  const again = heard.filter((x) => x.k === NAVAL_SFX.sinking && !x.stopped);
+  assert.equal(again.length, 1);
+  o.host.clear();
+  assert.equal(again[0].stopped, true, 'a clear: silent');
 });

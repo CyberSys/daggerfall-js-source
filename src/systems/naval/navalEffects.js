@@ -14,11 +14,18 @@
 //   glint  - AUDIT NAV1 (the guns): a battery running out - a warm point at each port, flickering and brightening as the
 //            guns come out, the tell before her broadside (added); and SHREDS - canvas torn by a ball passing through
 //            her rig: pale scraps fluttering down (blended)
+//   timber - AUDIT NAV1 (the presentation, #15): planks off a holed hull, laid long on the sea (`aspect`), drifting
+//            slow and gone after TIMBER_LIFE or so; and a battered hull's SMOLDER - grey smoke along her deck, more as
+//            she is hurt
 // Every particle ages to its `life` and is gone; the whole field is held under PARTICLE_BUDGET - past it the oldest
 // go first, so a long broadside never costs the frame more than its budget.
 
 /** The most particles alive at once. */
 export const PARTICLE_BUDGET = 900;
+/** AUDIT NAV1 (the presentation, #15): a plank's life afloat (s, and up to half again), and a battered hull's smoke at
+ *  its worst (puffs a second). */
+export const TIMBER_LIFE = 18;
+export const SMOLDER_RATE = 3;
 /** Gravity on spray and debris (m/s^2). */
 const G = 9.81;
 
@@ -111,6 +118,23 @@ export function createNavalEffects({ random = Math.random, wind = () => [0, 0, 0
       push({ kind: 'shred', pos: [...pos], vel: [d[0] * sp + jitter(1.2), d[1] * sp + jitter(0.8), d[2] * sp + jitter(1.2)], age: 0, life: 2 + r() * 1.5, size0: 0.3 + r() * 0.35, size1: 0.25, drag: 1.6, gravity: 1.6, color: [0.86 + jitter(0.04), 0.82 + jitter(0.04), 0.7], alpha: 0.95, rot: r() * 6.28, spin: jitter(6), blend: 'alpha', solid: true });
     }
   }
+  /** AUDIT NAV1 (the presentation, #15): planks off a holed hull - `n` afloat about where she was struck (`pos` on the
+   *  sea), laid long, drifting slow. */
+  function timber(pos, n = 2) {
+    for (let i = 0; i < n; i++) {
+      const a = r() * 6.28, sp = 0.3 + r() * 0.5, size = 0.8 + r() * 0.6;
+      push({ kind: 'timber', flat: true, solid: true, aspect: 3 + r() * 2, pos: [pos[0] + jitter(2), pos[1] + 0.06, pos[2] + jitter(2)], vel: [Math.sin(a) * sp, 0, Math.cos(a) * sp],
+        age: 0, life: TIMBER_LIFE * (1 + r() * 0.5), size0: size, size1: size, drag: 0.25, lift: 0, color: [0.3 + jitter(0.04), 0.2 + jitter(0.03), 0.12], alpha: 1, rot: r() * 6.28, spin: jitter(0.1), blend: 'alpha' });
+    }
+  }
+  /** AUDIT NAV1 (the presentation, #15): a battered hull's breath along her deck, `a` to `b` - `k` her hurt (0..1):
+   *  grey smoke, SMOLDER_RATE puffs a second at the worst, each somewhere along it, rising and drifting on the wind. */
+  function smolder(a, b, dt, k) {
+    if (r() >= SMOLDER_RATE * clamp(k, 0, 1) * clamp(dt, 0, 0.1)) return;
+    const u = r();
+    push({ kind: 'smoke', pos: [a[0] + (b[0] - a[0]) * u + jitter(1.2), a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u + jitter(1.2)], vel: [jitter(0.3), 1.1 + r() * 0.8, jitter(0.3)],
+      age: 0, life: 4 + r() * 3, size0: 1.2, size1: 5.5, drag: 0.6, lift: 0.25, color: [0.36, 0.35, 0.34], alpha: 0.45, rot: r() * 6.28, spin: jitter(0.2), blend: 'alpha' });
+  }
   /** A sinking hull's last breath: foam and bubbles where she goes under. */
   function founder(pos, dt, spread = 6) {
     if (r() < 10 * clamp(dt, 0, 0.1)) push({ kind: 'foam', flat: true, pos: [pos[0] + jitter(spread), pos[1] + 0.04, pos[2] + jitter(spread)], vel: [0, 0, 0], age: 0, life: 2.4, size0: 1.2, size1: 4, drag: 0, lift: 0, color: [0.9, 0.95, 1], alpha: 0.6, rot: r() * 6.28, spin: 0, blend: 'alpha' });
@@ -142,15 +166,16 @@ export function createNavalEffects({ random = Math.random, wind = () => [0, 0, 0
     return parts.map((p) => {
       const k = p.age / p.life;
       const size = p.size0 + (p.size1 - p.size0) * (p.kind === 'smoke' ? Math.sqrt(k) : k);
-      const fade = p.kind === 'flash' || p.kind === 'glint' ? 1 - k : p.kind === 'smoke' ? Math.min(1, k * 6) * (1 - k) : p.kind === 'debris' || p.kind === 'shred' ? 1 - Math.max(0, k - 0.7) / 0.3 : 1 - k * k;
-      return { pos: p.pos, size, color: [p.color[0], p.color[1], p.color[2], p.alpha * fade], rot: p.rot, blend: p.blend, flat: !!p.flat, solid: !!p.solid, kind: p.kind };
+      const fade = p.kind === 'flash' || p.kind === 'glint' ? 1 - k : p.kind === 'smoke' ? Math.min(1, k * 6) * (1 - k) : p.kind === 'debris' || p.kind === 'shred' ? 1 - Math.max(0, k - 0.7) / 0.3
+        : p.kind === 'timber' ? 1 - Math.max(0, k - 0.8) / 0.2 : 1 - k * k;
+      return { pos: p.pos, size, color: [p.color[0], p.color[1], p.color[2], p.alpha * fade], rot: p.rot, blend: p.blend, flat: !!p.flat, solid: !!p.solid, kind: p.kind, aspect: p.aspect ?? 1 };
     });
   }
 
   function offsetAll(o) { for (const p of parts) { p.pos[0] += o[0]; p.pos[1] += o[1]; p.pos[2] += o[2]; } }
 
   return {
-    muzzle, flash, smoke, splash, hit, blast, burn, glint, tear, founder, step, drawList, offsetAll,
+    muzzle, flash, smoke, splash, hit, blast, burn, glint, tear, founder, timber, smolder, step, drawList, offsetAll,
     clear() { parts = []; },
     get count() { return parts.length; },
   };

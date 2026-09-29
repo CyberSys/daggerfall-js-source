@@ -325,10 +325,10 @@ import { createComeSailAwayRuntime, comeSailAwayCarrier, WATER_WALKING_SILENT, C
 import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
-import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR } from './navalHost.js';   // NAV-H: the sea fight - the Iliac Bay's ships, the guns, boarding, the law and the word
+import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR, NAVAL_TAG_RANGE } from './navalHost.js';   // NAV-H: the sea fight - the Iliac Bay's ships, the guns, boarding, the law and the word
 import { createNavalFlames } from './navalFlames.js';   // NAV-B: a burning ship's deck fires
 import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke, the spray, the balls in flight and the aim
-import { drawNavalHud, navalTouchBrace, navalPadPrompts } from '../ui/navalHud.js';
+import { drawNavalHud, navalTouchBrace, navalPadPrompts, drawNavalTags } from '../ui/navalHud.js';   // AUDIT NAV1 (#14): and the ships' tags
 import { padFamily } from '../ui/padGlyphs.js';   // AUDIT NAV1 (the presentation): the pad in hand's family - the readout names its buttons
 import { hdGlyphName } from '../ui/padGlyphsHD.js';   // NAV-F: the helm's readout; AUDIT NAV1: its Brace under a finger
 import { createNavalPlunderOverlay, closeNavalPlunder, createNavalYardOverlay, closeNavalYard } from '../ui/navalPlunderDoor.js';   // NAV-F: a taken ship's window, behind its door; AUDIT NAV1: the shipwright's
@@ -6172,13 +6172,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   naval.setEnabled(navalOn());   // the switch's state from the first frame (navalFrame follows it after)
   registerModSaveData(NAVAL_SAVE_VENDOR, naval);   // the player's boats' hurts, the crowns' notoriety, a raid a load carries
   /** The sea emptied: a transition, a teleport, the arc switched off - its window with it. */
-  const navalClear = () => { naval?.clear(); navalFlames.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); };
+  const navalClear = () => { naval?.clear(); navalFlames.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); };
   const navalTransition = () => navalClear();
   let _navalWasOn = null;
   /** The frame: the switch read, the sounds loaded at the first sea, the host's step, the flames' clock. */
   function navalFrame(dt) {
     const on = navalOn();
-    if (on !== _navalWasOn) { _navalWasOn = on; naval.setEnabled(on); if (!on) { navalFlames.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); } }
+    if (on !== _navalWasOn) { _navalWasOn = on; naval.setEnabled(on); if (!on) { navalFlames.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); } }
     if (!on) return;
     if (csa.seaBoats.length || csaRuntime.isSailing()) installNavalSounds(audio);   // once: the first sea (the loader keeps its promise)
     naval.frame(dt * worldTimeScale(), { paused: gamePaused() || _loading, outdoors: _mode() === 'exterior', brace: csaRuntime.isSailing() && (held(keys, 'Crouch') || navalTouchBrace()) });   // the brace: ducking behind the rail - the Crouch action at the helm (AUDIT NAV1: or the plate's Brace under a finger)
@@ -6203,6 +6203,23 @@ export async function bootWorld(canvas, renderer, params, status) {
     const s = hudScale(canvas.width, canvas.height), k = canvas.width > 0 && canvas.clientWidth > 0 ? canvas.clientWidth / canvas.width : 1;
     return { w: hudArt.compassBox.w * s * k, h: hudArt.compassBox.h * s * k };
   };
+  /** AUDIT NAV1 (the presentation, #14): THE SHIPS' TAGS - the host's tagged ships through the frame's own matrices
+   *  and the docked HUD's rect, hidden behind the land by a sight cache of their own (the names' law: NAME1), under
+   *  every window, a pause, the HUD hidden and the travel view; the readout's tag layer wears them. */
+  const shipSight = createSightCache();   // the ships' own, the session's - made once with the host (NAME1: never a frame's)
+  function navalTags(proj, view, eye) {
+    if (!navalOn() || typeof document === 'undefined') return;
+    const covered = townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden || _mode() !== 'exterior' || !!travelView?.active;
+    const w = canvas.clientWidth, h = canvas.clientHeight, rect = worldViewportRect(w, h);
+    const points = [];
+    for (const t of covered ? [] : naval.tags()) {
+      const at = projectToScreen(t.point, w, h, proj, view, rect);
+      if (!at.front || at.x < -60 || at.x > w + 60 || at.y < -40 || at.y > h + 40) continue;
+      if (shipSight.blocked(player.collider, eye, t.id, t.point)) continue;
+      points.push({ ...t, x: at.x, y: at.y });
+    }
+    drawNavalTags(points, { covered, scale: enhancedHudScale(), reach: NAVAL_TAG_RANGE });
+  }
   /** The helm's readout, under every window and with the HUD - `dt` the frame's (the card's hull bar's loss readout). */
   function navalHud(dt = 0) {
     if (!navalOn()) return;
@@ -21994,6 +22011,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // head covered the hand and the blade's root. Drawn here, after the mount and before drawHud.
       if (walkMode && playerSpawned && !tvf) weaponRig.draw({ paralyzed });   // TV1: no hand on a camera 450 m up
       drawPeerNames(proj, view, mwv.eye);   // ONLINE1: the names over the heads
+      navalTags(proj, view, mwv.eye);   // AUDIT NAV1 (#14): the ships' tags
       // WORLD-HOVER: the plaque, where this host already draws its HUD.
       // It races EXACTLY what the press races - the same six live picks
       // against the same door/person/board set, settled by the same

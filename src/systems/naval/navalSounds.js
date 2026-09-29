@@ -1,5 +1,5 @@
 // @ts-check
-// NAV-E (2026-09-28) - THE SEA FIGHT'S SOUNDS, at run time: the eight clips tools/navalSfx.mjs synthesises (public/sfx/
+// NAV-E (2026-09-28) - THE SEA FIGHT'S SOUNDS, at run time: the nine clips tools/navalSfx.mjs synthesises (public/sfx/
 // naval-*.wav, provenance in public/sfx/SOURCES.md) registered on the audio bus under string keys - the door a mod's
 // WAV already uses (audio.registerSound, MW-D40; the Thunderlock's own loader in systems/thunderlock.js) - and the
 // distances every sound the naval host plays is heard over. DAGGER.SND's own (the splashes, the ship's bell that
@@ -21,6 +21,7 @@ export const NAVAL_SFX = Object.freeze({
   grapple: 'naval:grapple',
   runout: 'naval:runout',
   ready: 'naval:ready',
+  sinking: 'naval:sinking',
 });
 /** Each key's file under public/sfx. */
 export const NAVAL_SFX_FILES = Object.freeze({
@@ -32,6 +33,7 @@ export const NAVAL_SFX_FILES = Object.freeze({
   [NAVAL_SFX.grapple]: 'naval-grapple.wav',
   [NAVAL_SFX.runout]: 'naval-runout.wav',
   [NAVAL_SFX.ready]: 'naval-ready.wav',
+  [NAVAL_SFX.sinking]: 'naval-sinking.wav',
 });
 /** DAGGER.SND's own, by index (SoundClips): the splashes, the bell, the bubbles, the fire. */
 export const NAVAL_CLASSIC = Object.freeze({ splashLarge: 342, splashSmall: 346, bell: 107, bubbles: 114, burning: 420 });
@@ -55,13 +57,16 @@ export const NAVAL_SOUND_RANGE = Object.freeze({
 });
 /** A burning ship's loop: heard close by, linear to silence (a torch's profile, a ship's size). */
 export const NAVAL_FIRE_LOOP = Object.freeze({ refDistance: 6, maxDistance: 90, distanceModel: 'linear' });
+/** AUDIT NAV1 (the presentation, #15): a ship going down, the loop she groans in until she is gone - a hull's size,
+ *  heard across a fight (one gurgle at the start was all, then silence for the rest of her going). */
+export const NAVAL_SINK_LOOP = Object.freeze({ refDistance: 18, maxDistance: 420, distanceModel: 'linear' });
 /** The range a key is played with - its own, or the bus's default for anything else. */
 export const navalSoundRange = (key) => NAVAL_SOUND_RANGE[/** @type {any} */ (key)] ?? null;
 
 export const navalSfxUrl = (file) => new URL(`sfx/${file}`, APP_ROOT ?? globalThis.document?.baseURI ?? 'http://localhost/').href;
 
 let _sounds = null;
-/** Register the eight clips, once (the first ship seen). Answers how many took; a clip that will not load is silence,
+/** Register the nine clips, once (the first ship seen). Answers how many took; a clip that will not load is silence,
  *  never a stopped fight. */
 export function installNavalSounds(audio, { fetchBytes = null } = {}) {
   if (!audio?.registerSound) return Promise.resolve(0);

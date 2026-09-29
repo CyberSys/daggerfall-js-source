@@ -29,7 +29,7 @@
   {
     "name": "NAV-F-another-ships-key",
     "file": "src/ui/navalHud.js",
-    "old": "  const mine = board?.name === t.name;",
+    "old": "  const mine = board != null && board.name === t.name;",
     "new": "  const mine = !!board;",
     "tests": [
       "test/nav_f_ui.test.js"

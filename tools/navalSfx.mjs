@@ -5,8 +5,8 @@
 // and put through the one bake - tools/sndify.mjs, down to DAGGER.SND's own 11025 Hz unsigned 8-bit mono - so a
 // broadside sits IN Daggerfall's world rather than on top of it: nothing above 5 kHz that matters, transients shaped
 // to survive the decimation, the tails a black-powder gun has in open air. DAGGER.SND has splashes, bells, bubbles
-// and fire (the naval host plays those by index), and no cannon, no splintering oak, no grapnel, no gun carriage and
-// no gun captain's word - these eight.
+// and fire (the naval host plays those by index), and no cannon, no splintering oak, no grapnel, no gun carriage, no
+// gun captain's word and no ship going down - these nine.
 //
 //   naval-cannon      a long gun near: the crack off the muzzle, the gas leaving (a body falling 2.4 kHz -> 180 Hz),
 //                     the chest-deep thump (75 -> 34 Hz), and the roll across open water with its slap back off the
@@ -27,6 +27,9 @@
 //   naval-ready       AUDIT NAV1 (the presentation) - a battery loaded, the gun captain's word that she is ready: the
 //                     rammer's head rapped twice on the muzzle (two hollow wooden raps a beat apart), then his iron
 //                     tapped on the breech - a small bright ring; short, so a side coming ready is heard over a fight
+//   naval-sinking     AUDIT NAV1 (the presentation) - a ship going down, A LOOP: the sea rushing into her (a low swell
+//                     that ebbs and comes again), her timbers groaning under it (two long moans, their pitch sagging),
+//                     and the air leaving her in bubbles - its tail crossfaded into its head, so it joins itself
 //
 //     node tools/navalSfx.mjs            # writes public/sfx/naval-*.wav
 //     node tools/navalSfx.mjs --raw=dir  # also the 44.1 kHz source
@@ -247,6 +250,41 @@ function ready() {
   return softClip(out, 1.6);
 }
 
+// ---- a ship going down (a loop) -------------------------------------
+function sinking() {
+  const rand = rng(0x51c4ed0);
+  const LEN = 4, JOIN = 0.3;
+  const out = buf(LEN + JOIN);
+  // the sea rushing into her: low noise, one swell a loop
+  const rush = biquad(noise(out.length, rand), { type: 'lowpass', f0: 380, q: 0.7 });
+  envelope(rush, (i) => 0.55 + 0.45 * Math.sin((2 * Math.PI * i) / seconds(LEN)));
+  mix(out, rush, 0, 0.55);
+  // her timbers groaning: a slow saw through a woody band, its pitch sagging, a tremble in it
+  for (const [at, f0, len] of [[0.25, 96, 1.6], [2.2, 82, 1.45]]) {
+    const g = buf(len);
+    let ph = 0;
+    for (let i = 0; i < g.length; i++) {
+      const t = i / RATE;
+      ph += (f0 * (1 - 0.18 * (t / len)) * (1 + 0.025 * Math.sin(2 * Math.PI * 5 * t))) / RATE;
+      g[i] = 2 * (ph % 1) - 1;
+    }
+    envelope(g, (i) => attack(i, 200) * Math.min(1, (len - i / RATE) / 0.35));
+    mix(out, biquad(g, { type: 'bandpass', f0: 330, q: 2.2 }), at, 0.75);
+  }
+  // the air leaving her: short rising chirps at uneven times
+  for (let k = 0; k < 18; k++) {
+    const at = rand() * (LEN - 0.1), f0 = 180 + rand() * 380, len = 0.03 + rand() * 0.05;
+    const b = buf(len);
+    let ph = 0;
+    for (let i = 0; i < b.length; i++) { ph += (2 * Math.PI * f0 * (1 + (1.8 * i) / b.length)) / RATE; b[i] = Math.sin(ph) * decay(i, len / 3); }
+    mix(out, b, at, 0.22 + rand() * 0.2);
+  }
+  // the loop's join: its last JOIN seconds crossfaded into its first, and cut there
+  const n = seconds(LEN), j = seconds(JOIN);
+  for (let i = 0; i < j; i++) out[i] = out[i] * (i / j) + out[n + i] * (1 - i / j);
+  return softClip(out.slice(0, n), 1.5);
+}
+
 // ---- write ----------------------------------------------------------
 export const CLIPS = [
   ['naval-cannon', cannon, 0.95],
@@ -257,6 +295,7 @@ export const CLIPS = [
   ['naval-grapple', grapple, 0.85],
   ['naval-runout', runout, 0.82],
   ['naval-ready', ready, 0.8],
+  ['naval-sinking', sinking, 0.8],
 ];
 
 const rawDir = process.argv.find((a) => a.startsWith('--raw='))?.split('=')[1] ?? null;

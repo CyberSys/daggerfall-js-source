@@ -164,8 +164,8 @@
   {
     "name": "NAV-H-the-build-never-done",
     "file": "src/scenes/navalHost.js",
-    "old": "    buildOne();\n    for (const e of sea.values()) poseShip(e, total, seaY);",
-    "new": "    for (const e of sea.values()) poseShip(e, total, seaY);",
+    "old": "    buildOne();\n    const eye = deps.look?.()?.origin ?? deps.feet();",
+    "new": "    const eye = deps.look?.()?.origin ?? deps.feet();",
     "tests": [
       "test/nav_h_host.test.js"
     ]

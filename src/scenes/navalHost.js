@@ -66,7 +66,7 @@ import { quatEuler } from '../world/unityAnimator.js';
 import { quatRotate, quatLookRotation } from '../world/quat.js';
 import { constantCurve } from '../world/unityParticles.js';
 import { amGroupRollOwner } from '../systems/campEncounters.js';
-import { NAVAL_SFX, NAVAL_CLASSIC, NAVAL_FIRE_LOOP, navalSoundRange } from '../systems/naval/navalSounds.js';
+import { NAVAL_SFX, NAVAL_CLASSIC, NAVAL_FIRE_LOOP, NAVAL_SINK_LOOP, navalSoundRange } from '../systems/naval/navalSounds.js';
 import { raiderPlan, raiderClassOf } from '../systems/naval/navalRaiders.js';
 
 /** The record's name in the save's per-mod slot (systems/modSaveData.js) - the port's own, as the Sigil Broker's is. */
@@ -101,6 +101,65 @@ export const HIT_BURST_MAX = 3;
  *  1.6, under a holed ball's 2.5). */
 export const GUN_KICK = Object.freeze({ long: 1.1, heavy: 1.6, swivel: 0.45, chain: 0.9 });
 export const BLAST_SHAKE = 3.2;
+/** AUDIT NAV1 (the presentation, #17): HER RIGGING'S LIFE BY HER RANGE - past NEAR_LIFE_M of the eye a ship's animators
+ *  and particle systems step every FAR_LIFE_EVERY frames with the time they missed: her sails' billow and her flag's
+ *  wisps are too small to see there, and the traffic sits 650-1900 m out (five far war galleys cost 5.7 ms a frame on
+ *  the CPU, their rigging stepped as a near one's). */
+export const NEAR_LIFE_M = 600;
+export const FAR_LIFE_EVERY = 4;
+/**
+ * AUDIT NAV1 (the presentation, #14) - THE SEA AT A GLANCE (one card for the ship within 6 degrees of the look was all
+ * the sea said, and a pirate turning on me said nothing). A TAG over each ship within NAVAL_TAG_RANGE of the eye and
+ * past NAVAL_TAG_NEAR (nearer, she fills the view), NAVAL_TAG_MAX of them nearest first - her name, her hull, what
+ * she is to me and her state - TAG_LIFT over her highest spar as she stands (the host's `tags`; the world projects
+ * them, ui/navalHud.js drawNavalTags wears them). And the lookout's SAIL HO! as a ship afloat turns hostile within
+ * SAIL_HO_RANGE - her class, and where she bears off my bow at the helm - SAIL_HO_GAP_S apart at the least, looked
+ * for every SAIL_HO_CHECK_S.
+ */
+export const NAVAL_TAG_RANGE = 700;
+export const NAVAL_TAG_NEAR = 25;
+export const NAVAL_TAG_MAX = 8;
+export const TAG_LIFT = 2.5;
+export const SAIL_HO_RANGE = 900;
+export const SAIL_HO_GAP_S = 8;
+export const SAIL_HO_CHECK_S = 0.5;
+/**
+ * AUDIT NAV1 (the presentation, #15) - HER HURTS SEEN (they showed nowhere but the card: no smoke, no list, no canvas
+ * lost, no wreckage). Under SMOKE_FROM of her hull she smokes along SMOKE_SPAN of her deck each way from amidships, more
+ * as it falls (the effects' `smolder`), from the part the sea has not reached; under DAMAGE_LIST_FROM she lists, to
+ * DAMAGE_LIST_MAX at nought, to the side she will go down on, taken on as she fills (DAMAGE_LIST_EASE_S - a hit
+ * snapped her over) and the sinking's own list takes it on from there (its last pose unchanged); her canvas comes down
+ * with her sail share, her highest sails first; and a ball into her hull sheds TIMBER_PER_HIT planks that float and
+ * drift (a heavy ball one more).
+ */
+export const SMOKE_FROM = 0.6;
+export const SMOKE_SPAN = 0.6;
+export const DAMAGE_LIST_FROM = 0.4;
+export const DAMAGE_LIST_MAX = 8;
+export const DAMAGE_LIST_EASE_S = 2.5;
+export const TIMBER_PER_HIT = 2;
+/** The part of the line `a`-`b` over `floor` (its y): the whole, the part up to where it meets it, or null under it. */
+export function lineOver(a, b, floor) {
+  const ua = a[1] >= floor, ub = b[1] >= floor;
+  if (ua && ub) return [a, b];
+  if (!ua && !ub) return null;
+  const k = (floor - a[1]) / (b[1] - a[1]);
+  const cut = [a[0] + (b[0] - a[0]) * k, floor, a[2] + (b[2] - a[2]) * k];
+  return ua ? [a, cut] : [cut, b];
+}
+/** The sails she shows for her sail share: her highest furled away first - `n` of them, `share` 0..1. */
+export const sailsShown = (n, share) => Math.max(0, Math.min(n, Math.ceil(n * Math.max(0, share) - 1e-9)));
+/** A bearing off the bow (degrees, starboard positive) in a lookout's words. */
+export function bearingWords(b) {
+  const a = Math.abs(b), side = b > 0 ? 'starboard' : 'port';
+  if (a < 22.5) return 'dead ahead';
+  if (a < 67.5) return `off the ${side} bow`;
+  if (a < 112.5) return `on the ${side} beam`;
+  if (a < 157.5) return `off the ${side} quarter`;
+  return 'dead astern';
+}
+/** "A Pirate Brigantine", "An Iliac ..." */
+export const withArticle = (w) => `${/^[aeiou]/i.test(w) ? 'An' : 'A'} ${w}`;
 /** A muzzle's light: its reach (m) and its life (s). */
 export const MUZZLE_FLASH_RANGE = 26;
 export const MUZZLE_FLASH_S = 0.12;
@@ -266,8 +325,8 @@ export function createNavalHost(deps) {
   let enabled = true;
 
   // ── the sea's ships ──────────────────────────────────────────────────────────────────────────────────────────────
-  /** @type {Map<string, any>} id -> { id, n, owner, ship, boat, fires, fireLoop, target, seen, charged, ramAt, myBlowAt, hunter, deck, prize,
-   *  lost, sinkUnder, colours } */
+  /** @type {Map<string, any>} id -> { id, n, owner, ship, boat, fires, fireLoop, sinkLoop, target, seen, charged, ramAt, myBlowAt, hunter,
+   *  lifeDt, lifeN, list, deck, prize, lost, sinkUnder, colours } */
   const sea = new Map();
   let seq = 0;
   /** AUDIT NAV1 (the presentation): each hull and rig's spars, measured once (sparsOf) - `${hull}:${variant}` -> them. */
@@ -278,6 +337,7 @@ export function createNavalHost(deps) {
   let lastDecayDay = null;
   let standing = true;
   let lastSweep = 0;
+  let lastHail = -Infinity, lastHailCheck = -Infinity, lastCardId = null;   // AUDIT NAV1 (#14): the lookout, and the card's ship
 
   // ── the player's boats: each its own hurts and gun deck, by the boat's own deed UID (a console boat by itself) ──
   const boatState = new Map();   // uid (non-zero) -> { damage, guns }
@@ -445,7 +505,10 @@ export function createNavalHost(deps) {
         // splinters are thrown as far as the eye can read them - a hit and a miss had felt alike
         const confirm = isMine(e.shooter) ? { refDistance: HIT_CONFIRM_REF_M } : {};
         if (e.zone === 'rig') { effects.tear(e.point, e.dir ?? [0, 0, 1]); sound(NAVAL_SFX.hit, e.point, 0.3, confirm); }   // through her canvas: shreds and a crack of spars
-        else { effects.hit(e.point, e.dir ?? [0, 0, 1], e.gun === 'heavy', burstScale(e.point)); sound(NAVAL_SFX.hit, e.point, 0.9, confirm); }
+        else {
+          effects.hit(e.point, e.dir ?? [0, 0, 1], e.gun === 'heavy', burstScale(e.point)); sound(NAVAL_SFX.hit, e.point, 0.9, confirm);
+          effects.timber([e.point[0], seaY, e.point[2]], TIMBER_PER_HIT + (e.gun === 'heavy' ? 1 : 0));   // AUDIT NAV1 (#15): planks afloat
+        }
       }
       landHit(e);
       return;
@@ -682,13 +745,15 @@ export function createNavalHost(deps) {
     const num = n ?? (seq = (seq + 1) & 0xffff);
     const id = owner ? `${owner}:${num}` : `${myId()}:${num}`;
     const ship = createSeaShip({ id, seed: spec.seed, classId: spec.classId, variant: spec.variant ?? 0, pos: spec.pos, yaw: spec.yaw ?? 0, names, owner });
-    const entry = { id, n: num, owner, ship, boat: null, fires: null, fireLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colours: null };
+    const entry = { id, n: num, owner, ship, boat: null, fires: null, fireLoop: null, sinkLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, lifeDt: 0, lifeN: num % FAR_LIFE_EVERY, list: null, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colours: null };
     sea.set(id, entry);
     return entry;
   }
   /** A ship gone: its hull out of the pool, its fires out, and whoever fell on her deck with her. */
   function drop(entry) {
     douse(entry);
+    entry.sinkLoop?.stop?.();   // AUDIT NAV1 (#15): her groaning gone with her
+    entry.sinkLoop = null;
     for (const h of entry.deck ?? []) deps.board?.removeFoe?.(h);
     entry.deck = null;
     if (entry.boat) deps.pool.remove(entry.boat);
@@ -715,6 +780,13 @@ export function createNavalHost(deps) {
     }
   }
 
+  /** Her hull and rig's spars (sparsOf), measured once a hull and rig - null while no mesh of hers is known. */
+  function sparsFor(e) {
+    const key = `${e.ship.hull}:${e.ship.variant | 0}`;
+    let sp = spars.get(key);
+    if (!sp) { sp = sparsOf(e.boat, deps.pool.models); if (sp) spars.set(key, sp); }
+    return sp ?? null;
+  }
   /**
    * AUDIT NAV1 (the presentation): the depth her root settles to by SINK_SECONDS - her highest drawn point at her last
    * pose (navalDamage.js sinkAngles at the end) SINK_CLEAR under the sea. Her spars measured once a hull and rig
@@ -722,9 +794,7 @@ export function createNavalHost(deps) {
    */
   function sinkUnder(e) {
     if (e.sinkUnder != null) return e.sinkUnder;
-    const key = `${e.ship.hull}:${e.ship.variant | 0}`;
-    let sp = spars.get(key);
-    if (!sp) { sp = sparsOf(e.boat, deps.pool.models); if (sp) spars.set(key, sp); }
+    const sp = sparsFor(e);
     const { roll, pitch } = sinkAngles(e.ship.seed, 1);
     const q = quatEuler(pitch, 0, roll);
     let top = -Infinity;
@@ -736,7 +806,7 @@ export function createNavalHost(deps) {
   }
   /** A ship's hull stood where its record says - root, bob and heel, the sinking's list, trim and settle - and its
    *  rigging alive. */
-  function poseShip(e, dt, seaY) {
+  function poseShip(e, dt, seaY, eye = null) {
     const b = e.boat;
     if (!b) return;
     const s = e.ship;
@@ -751,11 +821,21 @@ export function createNavalHost(deps) {
     b.GameObject.position = [pos[0], seaY - depth, pos[2]];
     b.GameObject.rotation = quatOfYaw(yaw);
     const t = clock + e.phase;
-    const roll = s.heel + Math.sin(t * 0.5 * wl) * wl * 0.9 + sink.roll;
+    // AUDIT NAV1 (the presentation, #15): her list by her hurt, to her going-down side, taken on as she fills (her first
+    // pose at it) - the sinking's own list over it
+    const hull = s.damage.hullShare();
+    const want = DAMAGE_LIST_MAX * clamp((DAMAGE_LIST_FROM - hull) / DAMAGE_LIST_FROM, 0, 1);
+    e.list = e.list == null ? want : e.list + (want - e.list) * (1 - Math.exp(-dt / DAMAGE_LIST_EASE_S));
+    const listed = Math.sign(sinkAngles(s.seed, 1).roll) * Math.max(Math.abs(sink.roll), e.list);
+    const roll = s.heel + Math.sin(t * 0.5 * wl) * wl * 0.9 + listed;
     const pitch = Math.sin(t * wl) * wl * 0.5 + sink.pitch;
     if (b.MeshObject) b.MeshObject.localRotation = quatEuler(pitch, 0, roll);
-    // the sails: set while she fights or runs, stowed struck, taken or going down
+    // the sails: set while she fights or runs, stowed struck, taken or going down. AUDIT NAV1 (#15): her canvas shown by
+    // her sail share, her highest sails gone first
     const set = state === SHIP_STATES.afloat && s.sails > 0.5;
+    const sails = e.sailsByHeight ??= [...(b.Sails ?? [])].sort((p, q) => q.worldMatrix()[13] - p.worldMatrix()[13]);
+    const shown = s.damage.maxSail > 0 ? sailsShown(sails.length, s.damage.sailShare()) : sails.length;
+    sails.forEach((sail, i) => { const on = i >= sails.length - shown; if (sail.activeSelf !== on) sail.setActive(on); });
     for (const sail of b.Sails ?? []) {
       const a = animatorOf(sail);
       if (!a) continue;
@@ -791,8 +871,15 @@ export function createNavalHost(deps) {
     }
     const lit = !!where().cityLights;
     if (b.LightOn !== lit && (b.Lights?.length ?? 0) > 0) setLights(b, lit);
-    for (const a of boatAnimators(b)) a.update(dt);
-    for (const ps of (b.particleSystems ??= boatParticleSystems(b))) ps.step(dt);
+    // AUDIT NAV1 (the presentation, #17): her animators found once, as her particle systems are (her whole tree was
+    // walked for them every frame: 0.44 ms of a far galley's, for her three); past NEAR_LIFE_M both step every
+    // FAR_LIFE_EVERY frames, with the time they missed - each ship on her own frame of the stride (her number's)
+    e.lifeDt += dt;
+    if (!eye || dist2d(s.pos, eye) <= NEAR_LIFE_M || (e.lifeN = (e.lifeN + 1) % FAR_LIFE_EVERY) === 0) {
+      for (const a of (b.animators ??= boatAnimators(b))) a.update(e.lifeDt);
+      for (const ps of (b.particleSystems ??= boatParticleSystems(b))) ps.step(e.lifeDt);
+      e.lifeDt = 0;
+    }
     // her fires follow her deck as she heels, lists and trims; the burn breathes embers and smoke. AUDIT NAV1 (the
     // presentation): she burns on as she goes down, each fire out as the sea reaches its place on her (FLAME_AWASH) -
     // not all doused the moment she was holed, nor a scuttled hull's flames burning on under the sea
@@ -817,6 +904,17 @@ export function createNavalHost(deps) {
       if (s.damage.fire <= 0 || state === SHIP_STATES.sunk) douse(e);
     }
     if (state === SHIP_STATES.sinking) effects.founder([pos[0], seaY, pos[2]], dt, hullBuild(s.hull).beam);
+    // AUDIT NAV1 (#15): she groans as she goes down - the loop from her founder until she is gone (a gurgle at the start
+    // was all, then silence for the rest of her going); a peer's too, on the same pose
+    if (state === SHIP_STATES.sinking) { e.sinkLoop ??= deps.audio?.loop3d?.(NAVAL_SFX.sinking, pos, 0.85, NAVAL_SINK_LOOP) ?? null; e.sinkLoop?.move?.(pos); }
+    else if (e.sinkLoop) { e.sinkLoop.stop?.(); e.sinkLoop = null; }
+    // AUDIT NAV1 (#15): a battered hull smokes along her deck as she lies, from the part the sea has not reached
+    const smokeK = clamp((SMOKE_FROM - hull) / SMOKE_FROM, 0, 1);
+    if (smokeK > 0) {
+      const build = hullBuild(s.hull), mo = b.MeshObject, lp = mo.localPosition, y = build.deck + 0.5 - lp[1];
+      const deck = lineOver(mo.transformPoint([-lp[0], y, build.aftZ * SMOKE_SPAN - lp[2]]), mo.transformPoint([-lp[0], y, build.bowZ * SMOKE_SPAN - lp[2]]), seaY + FLAME_AWASH);
+      if (deck) effects.smolder(deck[0], deck[1], dt, smokeK);
+    }
   }
 
   // ── the sea's share (NAV-G): who stands it ────────────────────────────────────────────────────────────────────────
@@ -1777,7 +1875,9 @@ export function createNavalHost(deps) {
     // an owner gone from the room takes their ships with them (checked every OWNER_SWEEP_S)
     if (deps.online && clock - lastSweep >= OWNER_SWEEP_S) { lastSweep = clock; sweepOwners(new Set((deps.online.peers?.() ?? []).map((p) => p.id))); }
     buildOne();
-    for (const e of sea.values()) poseShip(e, total, seaY);
+    const eye = deps.look?.()?.origin ?? deps.feet();   // AUDIT NAV1 (#17): her rigging's life by her range from it
+    for (const e of sea.values()) poseShip(e, total, seaY, eye);
+    if (clock - lastHailCheck >= SAIL_HO_CHECK_S) { lastHailCheck = clock; hailSails(boat); }   // AUDIT NAV1 (#14)
     // the ram and the aim, on the hulls as this frame stands them (AUDIT NAV1: both read the last frame's, a ship's way
     // behind - my stem where it is, her planking where it was)
     checkRams(boat);
@@ -2127,6 +2227,64 @@ export function createNavalHost(deps) {
     return true;
   }
 
+  // ── AUDIT NAV1 (the presentation, #14): the sea at a glance ─────────────────────────────────────────────────────
+  /** Her highest point standing upright over her root (m): her spars as they stand, else her build's reach. */
+  function mastTop(e) {
+    if (e.mastTop != null) return e.mastTop;
+    const build = hullBuild(e.ship.hull);
+    const reach = Math.max(build.top, ...build.rig.map(([, mx]) => mx[1]));
+    if (!e.boat) return reach;
+    const sp = sparsFor(e);
+    let top = -Infinity;
+    for (const p of sp?.points ?? []) if (p[1] > top) top = p[1];
+    e.mastTop = Number.isFinite(top) ? sp.lift + top : reach;
+    return e.mastTop;
+  }
+  /** The ships the tags stand over: NAVAL_TAG_MAX within NAVAL_TAG_RANGE of the eye and past NAVAL_TAG_NEAR, nearest
+   *  first, each `{ id, name, faction, hostile, hull, state, boarded, target, distance, point }` - `point` TAG_LIFT
+   *  over her highest spar where she stands (settling as she goes down). */
+  function tagsModel() {
+    if (!enabled) return [];
+    const eye = deps.look?.()?.origin ?? deps.feet();
+    const near = [];
+    for (const e of sea.values()) {
+      if (!e.boat || e.ship.damage.state === SHIP_STATES.sunk) continue;
+      const d = dist2d(e.ship.pos, eye);
+      if (d <= NAVAL_TAG_RANGE && d >= NAVAL_TAG_NEAR) near.push({ e, d });
+    }
+    near.sort((a, b) => a.d - b.d);
+    const me = { kind: 'player', id: myId() }, law = { notoriety: (c) => notoriety.get(c), now: clock };
+    return near.slice(0, NAVAL_TAG_MAX).map(({ e, d }) => {
+      const s = e.ship;
+      const root = e.boat.GameObject.position;
+      return {
+        id: e.id, name: s.names?.name ?? classLine(s.cls, s.names?.crown), faction: s.cls.faction,
+        hostile: s.damage.state === SHIP_STATES.afloat && hostile(s, me, law), hull: s.damage.hullShare(), state: s.damage.state,
+        boarded: !!s.boarded, target: e.id === lastCardId, distance: Math.round(d), point: [root[0], root[1] + mastTop(e) + TAG_LIFT, root[2]],
+      };
+    });
+  }
+  /** The lookout: the nearest ship afloat turned hostile within SAIL_HO_RANGE and not yet hailed, SAIL_HO_GAP_S after
+   *  the last - her class, and at the helm where she bears off my bow. A ship no longer hostile may be hailed again. */
+  function hailSails(boat) {
+    const from = boat ? boatPose(boat).position : deps.feet();
+    const me = { kind: 'player', id: myId() }, law = { notoriety: (c) => notoriety.get(c), now: clock };
+    let best = null, bestD = Infinity;
+    for (const e of sea.values()) {
+      const s = e.ship;
+      if (s.damage.state !== SHIP_STATES.afloat || s.boarded || !hostile(s, me, law)) { e.hailed = false; continue; }
+      const d = dist2d(s.pos, from);
+      if (e.hailed || d > SAIL_HO_RANGE) continue;
+      if (d < bestD) { bestD = d; best = e; }
+    }
+    if (!best || clock - lastHail < SAIL_HO_GAP_S) return;
+    best.hailed = true;
+    lastHail = clock;
+    const s = best.ship;
+    const where = boat ? ` ${bearingWords(bearingOf([s.pos[0] - from[0], 0, s.pos[2] - from[2]], boat.GameObject.rotation))}` : '';
+    deps.say?.(`Sail ho! ${withArticle(classLine(s.cls, s.names?.crown))}${where}!`, 3);
+  }
+
   // ── the HUD's model ──────────────────────────────────────────────────────────────────────────────────────────────
   /**
    * What the naval HUD draws this frame (ui/navalHud.js). At a helm: the plate, the rose, the aim, the card and the
@@ -2161,6 +2319,7 @@ export function createNavalHost(deps) {
       return { side, gun: b.gun, guns: b.muzzles.length, progress: st.guns.progress(side), ready: st.guns.ready(side), loaded: loadedNow(st, b), fresh, active: side === look, barrels: b.gun === 'barrel' ? st.guns.barrels : null };
     }).filter(Boolean);
     const target = targetCard(boat);
+    lastCardId = target?.id ?? null;   // AUDIT NAV1 (#14): her tag marked as the card's
     const state = aim ? aimState(st, aim.side, boat) : null;
     const hot = !!aimHit && state === 'ready';
     const nb = boarding ? null : boardable(boat);
@@ -2247,7 +2406,7 @@ export function createNavalHost(deps) {
       const boat = myBoat();
       aimDraw = { arcs: [], zone: aim.landings.map((l) => l.point), hot: false, radius: 2, ready: !!boat && aimState(myBoatState(boat), aim.side, boat) === 'ready', posts: false };
     }
-    return { particles: effects.drawList(), balls: shots.balls(), floaters: shots.floaters(), aim: aimDraw };
+    return { particles: effects.drawList(), balls: shots.balls(), floaters: shots.floaters(), aim: aimDraw, time: clock };   // AUDIT NAV1 (#4): the arcs' dash marches on the sea's clock
   }
   /** The muzzles' light this frame, and the burning ships' glow (the nearest BURN_LIGHTS of them, flickering), for
    *  the host's light list - carried lights: no shadow caster, no glare. */
@@ -2336,6 +2495,7 @@ export function createNavalHost(deps) {
     hostileNear: () => hostileNearMe(),
     saveRefused,   // AUDIT NAV1 (B14): no save in a boarding or on a sea ship's deck
     threats,   // THE MERGE (OW6): the hostile ships a journey slows for
+    tags: tagsModel,   // AUDIT NAV1 (#14): the ships the tags stand over (the world projects them)
     /** AUDIT NAV1 (the helm): the sea's ships on the compass (ui/hud.js drawShipCompassMarks, ui/enhancedHud.js) -
      *  within COMPASS_SHIP_RANGE of the player, afloat or struck: `[{ x, z, kind }]` in scene XZ, `kind` 'hostile' (a
      *  ship afloat that would take me), 'struck' (her colours down, or taken) or 'ship'. None with the arc off. */

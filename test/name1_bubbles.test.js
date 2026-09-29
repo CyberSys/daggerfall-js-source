@@ -421,7 +421,8 @@ test('NAME1 + BUBBLE1: the wiring in scenes/world.js - the layer is made ONCE be
   assert.match(bare, /if \(typeof document !== 'undefined'\) chatStart\(\);/, '...the same gate the chat takes');
   assert.equal((w.match(/createNameLayer\(/g) ?? []).length, 1, 'called in exactly one place - never per frame');
   assert.match(bare, /nameSight = createSightCache\(\);/, 'AUDIT NAME1 F2/F5: and the sight cache is the session\'s, made once beside it');
-  assert.equal((w.match(/createSightCache\(/g) ?? []).length, 1, 'never per frame either - a cache rebuilt every frame is no cache');
+  assert.equal((w.match(/createSightCache\(/g) ?? []).length, 2, 'never per frame either - a cache rebuilt every frame is no cache: the names\' and (AUDIT NAV1) the ships\' tags\', each made once');
+  assert.match(bare, /\n  const shipSight = createSightCache\(\);/, 'the ships\' tags\' own made with the host, at its top level - offline too, where the names\' is never made');
   assert.match(bare, /const blocked = \(head, id\) => nameSight\.blocked\(player\.collider, eye, id, head\);/);
   // AUDIT NAME1 F1/F14: ONE call, into the pass the test below drives end to end.
   assert.match(bare, /remotePlayers\.nameFrame\(\{/, 'the whole pass in one call');

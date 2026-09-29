@@ -68,6 +68,11 @@ export const NAVAL_BRACE_W = 96;
  *  gunnery's READY_FLASH_S. */
 export const CARD_CHUNK_MIN_LOSS = 1;
 export const CARD_HIT_S = 0.24;
+/** AUDIT NAV1 (the presentation, #14): a ship's tag - its hull bar's width, and its fade with her distance: whole to
+ *  TAG_FADE_FROM metres, TAG_FADE_TO of it at the tags' reach (the host's NAVAL_TAG_RANGE, the world's to hand). */
+export const NAVAL_TAG_BAR_W = 44;
+export const TAG_FADE_FROM = 150;
+export const TAG_FADE_TO = 0.55;
 /**
  * AUDIT NAV1 (the presentation) - THE LAYOUT, measured in a real browser over the real HUD and helm panel (1920x1080 to
  * a 740x360 phone, HUD scale 0.5 to 2): no part of the readout covers another, or the HUD, and a finger's press never
@@ -295,6 +300,18 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-tally { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED}; text-wrap: balance; }
 .dfnaval-tally .dfnaval-tally-hits { color: ${T.brassHi}; }
 .dfnaval-hud.short .dfnaval-tally-rest { display: none; }
+.dfnaval-tags { position: fixed; inset: 0; pointer-events: none; z-index: 4; overflow: hidden; ${PIXEL_FONT_CSS} }
+.dfnaval-tag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap;
+  transform-origin: 0 0; will-change: transform, opacity; }
+.dfnaval-tag-name { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED}; }
+.dfnaval-tag.navy .dfnaval-tag-name { color: #f1d0c6; }
+.dfnaval-tag.merchant .dfnaval-tag-name { color: #f6e3a6; }
+.dfnaval-tag.hostile .dfnaval-tag-name { color: #ffb4a6; }
+.dfnaval-tag-bar { position: relative; width: ${NAVAL_TAG_BAR_W}px; height: 4px; background: #140d0a; box-shadow: 0 0 0 1px #050608; }
+.dfnaval-tag-bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #f2a597 0 1px, #b53a2e 1px); }
+.dfnaval-tag.target .dfnaval-tag-bar { box-shadow: 0 0 0 1px #050608, 0 0 0 2px ${T.brassHi}; }
+.dfnaval-tag-state { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED}; }
+.dfnaval-tag-state:empty { display: none; }
 .dfnaval-tally.miss .dfnaval-tally-hits { color: #b3a684; }
 `;
 
@@ -333,7 +350,7 @@ function fightCard(b) {
 
 /** The card's state line: what she is doing, and - when she is in reach - the key that goes over her rail. */
 function cardState(t, board, key) {
-  const mine = board?.name === t.name;
+  const mine = board != null && board.name === t.name;
   if (t.state === 'sinking') return { text: 'Going down', kind: 'sinking' };
   // AUDIT NAV1 (the presentation): one wording with the plate's hint ("open ... hold") - it read "her hold" here
   if (t.state === 'prize') return mine && board.kind === 'hold' ? { text: `Taken - ${key}: open her hold`, kind: 'board' } : { text: 'Taken', kind: '' };
@@ -731,8 +748,59 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
   }
 }
 
+// ── AUDIT NAV1 (the presentation, #14): THE SHIPS' TAGS ──────────────────────────────────────────────────────────
+let tagRoot = null;
+/** @type {any[]} */
+let tagSlots = [];
+/** A tag's state in words - the card's for a ship out of reach (going down, taken, boarded, her colours struck) - and
+ *  none while she sails: her red says hostile. */
+export function tagState(t) {
+  return t.state === 'afloat' && !t.boarded ? '' : cardState(t, null, '').text;
+}
+/** A tag's opacity by her distance: whole to TAG_FADE_FROM, TAG_FADE_TO at the tags' `reach`. */
+export const tagAlpha = (d, reach) => 1 - (1 - TAG_FADE_TO) * Math.max(0, Math.min(1, ((d ?? 0) - TAG_FADE_FROM) / Math.max(1, reach - TAG_FADE_FROM)));
+/**
+ * The tags over the sea's ships (the host's `tags`, projected by the world onto the screen - `x`, `y` the point over
+ * her highest spar in CSS px): her name in her trade's colour (a hostile ship's red), her hull, her state - the card's
+ * ship ringed - at the HUD's `scale`, fading with her distance to the tags' `reach`. One node a slot, moved, never
+ * rebuilt (the names' discipline); `covered` (a window, a pause, the HUD hidden) hides them all.
+ */
+export function drawNavalTags(points, { covered = false, doc = globalThis.document, scale = 1, reach = 700 } = {}) {
+  const want = covered ? [] : points ?? [];
+  if (!tagRoot) {
+    if (!want.length || !doc?.createElement) return;
+    injectSheets(doc);
+    tagRoot = el(doc, 'div', 'dfnaval-tags');
+    tagRoot.setAttribute?.('aria-hidden', 'true');
+    (doc.body ?? doc.documentElement)?.append(tagRoot);
+  }
+  while (tagSlots.length < want.length) {
+    const n = el(doc, 'div', 'dfnaval-tag');
+    const name = el(doc, 'span', 'dfnaval-tag-name'), bar = el(doc, 'span', 'dfnaval-tag-bar'), fill = el(doc, 'i'), state = el(doc, 'span', 'dfnaval-tag-state');
+    bar.append(fill);
+    n.append(name, bar, state);
+    tagRoot.append(n);
+    tagSlots.push({ n, name, fill, state, k: {} });
+  }
+  tagSlots.forEach((slot, i) => {
+    const t = want[i];
+    const on = !!t;
+    if (slot.k.on !== on) { slot.k.on = on; slot.n.style.display = on ? '' : 'none'; }
+    if (!t) return;
+    const set = (key, v, write) => { if (slot.k[key] !== v) { slot.k[key] = v; write(v); } };
+    set('cls', `dfnaval-tag ${t.faction}${t.hostile ? ' hostile' : ''}${t.target ? ' target' : ''}`, (v) => { slot.n.className = v; });
+    set('name', t.name, (v) => { slot.name.textContent = v; });
+    set('hull', pct(t.hull), (v) => { slot.fill.style.width = `${v}%`; });
+    set('state', tagState(t), (v) => { slot.state.textContent = v; });
+    set('at', `translate(${Math.round(t.x)}px, ${Math.round(t.y)}px) scale(${scale}) translate(-50%, -100%)`, (v) => { slot.n.style.transform = v; });
+    set('a', String(Math.round(tagAlpha(t.distance, reach) * 100) / 100), (v) => { slot.n.style.opacity = v; });
+  });
+}
+
 /** The page is going (a test's reset, the host's teardown): the node leaves with it. */
 export function destroyNavalHud() {
   root?.remove?.();
   root = null; parts = null; shown = {}; touchBrace = false; loss = null; hudClock = 0;
+  tagRoot?.remove?.();
+  tagRoot = null; tagSlots = [];
 }

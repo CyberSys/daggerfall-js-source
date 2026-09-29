@@ -98,6 +98,7 @@ const PUBLIC_ALLOWLIST = new Map([
   ['public/sfx/naval-grapple.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
   ['public/sfx/naval-runout.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
   ['public/sfx/naval-ready.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-sinking.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
   ['public/skin/skin-intensity.png', 'OURS - intensity baked from our own generated turnaround'],
   ['public/skin/skin-uv.json', "OURS - UVs over our own rig's geometry, no pixels at all"],
   ['public/skin/skin-layout.json', 'OURS - atlas cell rectangles, no pixels at all'],
