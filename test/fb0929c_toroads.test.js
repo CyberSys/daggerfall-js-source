@@ -35,7 +35,7 @@ import { DIR_DELTA } from '../src/world/roadNetwork.js';
 import { worldCoordToMapPixel } from '../src/formats/mapsFile.js';
 import { TRAVEL_VIEW_TEXT, travelTripLine, travelWalkRate, TV_MOVE_ACTIONS } from '../src/scenes/travelView.js';
 import { createLoadGovernor, unbuiltAround } from '../src/systems/travelGovernor.js';
-import { travelPathUsesRoads, TRAVEL_PATH_TEXT } from '../src/systems/travelPathMode.js';
+import { travelPathUsesRoads, TRAVEL_PATH_TEXT, setTravelPathMode } from '../src/systems/travelPathMode.js';
 import { timeScale, setTimeScale, resetTimeScale, MAX_TIME_SCALE } from '../src/systems/timeScale.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -102,7 +102,7 @@ const HOST = [
   lineSource('const TV_SEA_EPS_M = '), lineSource('const tvQuiet = '), lineSource('const tvTrip = '), lineSource('const tvWater = '),
   lineSource('let _tvRouteGround = null;'), lineSource('const tvRouteGround = '), lineSource('const tvLegMid = '), lineSource('const tvSeaAsk = '),
   constBlock('travelViewAllowed'),
-  fnSource('tvOwnsJourneys'), fnSource('tvRoutesJourneys'), fnSource('travelViewResume'), fnSource('beginAcceleratedTravel'),
+  fnSource('tvOwnsJourneys'), fnSource('tvRoutesJourneys'), fnSource('tvMapForcesRoads'), fnSource('travelViewResume'), fnSource('beginAcceleratedTravel'),
   fnSource('travelViewRouteTo'), fnSource('tvFreePull'), fnSource('tvJoinedLegs'), fnSource('travelViewWalkTo'), fnSource('tvJourneyUp'),
   fnSource('tvMooredDry'), fnSource('tvSeaNoWay'), fnSource('travelViewCanGo'),
   `const onLower = ${ON_LOWER};`, `const onTravel = ${ON_TRAVEL};`, `const onTravelToCoords = ${ON_COORDS};`,
@@ -346,8 +346,53 @@ test('TO-ROADS, THE ONE CONSTRUCTION SEAM, swept in the source: the planner is a
   assert.ok(plans.length >= 5, 'the planner\'s calls read');
   assert.deepEqual(plans.filter((n) => n === null), [], 'no second planner: every route the host plans is the Overworld\'s');
   assert.deepEqual([...WORLD.matchAll(/\.beginTravelAlongRoute\(|\.beginTravelToPoint\(/g)].map((m) => homeOf(m.index)), ['travelViewRouteTo', 'travelViewWalkTo'], 'no second leg walker');
-  assert.match(fnSource('beginAcceleratedTravel'), /\n\s*if \(tvRoutesJourneys\(\)\) \{\n[\s\S]*?\n\s*return summary \? travelViewRouteTo\(summary\) : false;\n[\s\S]*?\n\s*return travelViewWalkTo\(at, pick\.pixel\);\n\s*\}\n/, 'the fork hands a place to travelViewRouteTo and a spot to travelViewWalkTo');
+  assert.match(fnSource('beginAcceleratedTravel'), /\n\s*if \(tvRoutesJourneys\(\)\) \{\n[\s\S]*?\n\s*return summary \? travelViewRouteTo\(summary, \{ roads: tvMapForcesRoads\(\) \}\) : false;[^\n]*\n[\s\S]*?\n\s*return travelViewWalkTo\(at, pick\.pixel, \{ roads: tvMapForcesRoads\(\) \}\);\n\s*\}\n/, 'the fork hands a place to travelViewRouteTo and a spot to travelViewWalkTo');
   for (const [what, src] of [['tvJourneyUp', fnSource('tvJourneyUp')], ['the view\'s onLower', ON_LOWER], ['travelViewGovern', fnSource('travelViewGovern')]]) {
     assert.ok(src.includes('tvOwnsJourneys()') && !src.includes('tvRoutesJourneys'), `${what} asks who owns the journey: a first-person route walks with the view left down`);
+  }
+});
+
+test('TO-ROADS x OW-PATH: the Overworld\'s Path switch on FREE leaves First-Person Travel\'s roads the roads - the map\'s pick, a spot and the map\'s Resume all by the road, never pulled taut, nothing "fell back"; the Overworld\'s own journey is the switch\'s, across country (mutants: TO-ROADS-free-wins-the-pick, TO-ROADS-free-wins-the-spot, TO-ROADS-free-wins-the-resume, TO-ROADS-the-route-ignores-roads, TO-ROADS-the-walk-ignores-roads, TO-ROADS-a-forced-route-pulled-taut, TO-ROADS-forced-for-the-overworld-too)', () => {
+  const legs = (h) => h.to.route.legs.map((l) => [l.x, l.y, l.kind]);
+  // the Roads switch's own spot journey, the law a forced route keeps: the planner's grid, bends and all
+  setTravelPathMode('roads');
+  const ref = host();
+  ref.onTravelToCoords(pick(507, 256), WALKED);
+  const bent = legs(ref);
+  assert.ok(bent.length > 1 && bent.every((l) => l[2] === 'open'), `a spot the roads do not help, bent on the grid: ${JSON.stringify(bent)}`);
+  setTravelPathMode('free');
+  try {
+    assert.equal(travelPathUsesRoads(), false, 'the Overworld\'s bar says Free');
+    const on = host({ firstPerson: true, roads: true });
+    on.onTravel(pick(510, 250), WALKED, { minutes: 90 });
+    assert.deepEqual(legs(on), [[500, 250, 'open'], [500, 245, 'road'], [510, 245, 'road'], [510, 250, 'road']], 'the named place by the road - the key is named for the roads, and the Path switch is the Overworld\'s bar\'s');
+    assert.deepEqual(on.talk, [], 'never "no free way" - it never asked for one');
+    on.enemies = true; on.frame(); on.enemies = false;
+    on.stand(at(505, 245));
+    on.travelViewResume();
+    assert.deepEqual(legs(on), [[505, 245, 'open'], [510, 245, 'road'], [510, 250, 'road']], 'the map\'s Resume, by the road again - joined where the traveller stands (a FREE plan is one straight leg)');
+    // a spot the roads do not help: walked as the Roads switch walks it - the grid's bend kept, never pulled taut
+    const spot = host({ firstPerson: true, roads: true });
+    spot.onTravelToCoords(pick(507, 256), WALKED);
+    assert.deepEqual(legs(spot), bent, 'the spot by the Roads switch\'s law - its bends kept');
+    // a spot the road DOES help: by the road, Free notwithstanding (a Free walk goes straight past it)
+    const byRoad = host({ firstPerson: true, roads: true });
+    byRoad.onTravelToCoords(pick(511, 245), WALKED);
+    assert.ok(legs(byRoad).some((l) => l[2] === 'road'), `the spot by the road: ${JSON.stringify(legs(byRoad))}`);
+    // the Overworld's own journey (First-Person Travel off) is the switch's: FREE, across country, the road never asked
+    const ow = host();
+    ow.onTravel(pick(510, 250), WALKED, { minutes: 90 });
+    assert.deepEqual(legs(ow), [[510, 250, 'open']], 'the Overworld\'s journey: free, straight across, pulled taut');
+    const owSpot = host();
+    owSpot.onTravelToCoords(pick(507, 256), WALKED);
+    assert.deepEqual(legs(owSpot), [[507, 256, 'open']], 'and its spot pulled taut');
+    // and on ROADS, the two agree
+    setTravelPathMode('roads');
+    const same = host();
+    same.onTravel(pick(510, 250), WALKED, { minutes: 90 });
+    assert.deepEqual(legs(same), [[500, 250, 'open'], [500, 245, 'road'], [510, 245, 'road'], [510, 250, 'road']]);
+  } finally {
+    setTravelPathMode('roads');
+    _resetModSettings();
   }
 });

@@ -106,7 +106,7 @@
   {
     "name": "TO-ROADS-a-second-planner",
     "file": "src/scenes/world.js",
-    "old": "        return summary ? travelViewRouteTo(summary) : false;",
+    "old": "        return summary ? travelViewRouteTo(summary, { roads: tvMapForcesRoads() }) : false;",
     "new": "        return summary ? travelOptions.beginTravelAlongRoute({ legs: routeLegs(planRoute(playerTravelPixel(), summary.pixel, { roads: terrainGen.roads()?.roads ?? null })?.pixels ?? []), summary, name: summary.name }, !!opts?.speedCautious) : false;",
     "tests": ["test/fb0929c_toroads.test.js"],
     "note": "THE ONE CONSTRUCTION SEAM broken: the fork plans its own route - no join, no peaks' law, no sea, no party, no trip line - beside the Overworld's."
@@ -128,5 +128,61 @@
     "tests": ["test/fb0929c_toroads.test.js"],
     "equivalent": true,
     "why": "Belt and braces, tvOwnsJourneys' own term: the view is built at the host's boot, before any map can open or a Resume be asked for, so no caller ever finds it missing."
+  },
+  {
+    "name": "TO-ROADS-free-wins-the-pick",
+    "file": "src/scenes/world.js",
+    "old": "return summary ? travelViewRouteTo(summary, { roads: tvMapForcesRoads() }) : false;",
+    "new": "return summary ? travelViewRouteTo(summary) : false;",
+    "tests": ["test/fb0929c_toroads.test.js"],
+    "note": "The map's first-person pick asks the Overworld's Path switch: on Free, \"First Person Travel Follows Roads\" walks across country."
+  },
+  {
+    "name": "TO-ROADS-free-wins-the-spot",
+    "file": "src/scenes/world.js",
+    "old": "return travelViewWalkTo(at, pick.pixel, { roads: tvMapForcesRoads() });",
+    "new": "return travelViewWalkTo(at, pick.pixel);",
+    "tests": ["test/fb0929c_toroads.test.js"],
+    "note": "A first-person spot pick follows the Path switch: on Free it is pulled taut across country."
+  },
+  {
+    "name": "TO-ROADS-free-wins-the-resume",
+    "file": "src/scenes/world.js",
+    "old": "const roads = tvMapForcesRoads();   // TO-ROADS x OW-PATH",
+    "new": "const roads = false;   // TO-ROADS x OW-PATH",
+    "tests": ["test/fb0929c_toroads.test.js"],
+    "note": "The map's Resume of a first-person route re-plans it by the Path switch: on Free, across country."
+  },
+  {
+    "name": "TO-ROADS-the-route-ignores-roads",
+    "file": "src/scenes/world.js",
+    "old": "let net = (roads || travelPathUsesRoads()) ? roadNet : null;",
+    "new": "let net = travelPathUsesRoads() ? roadNet : null;",
+    "tests": ["test/fb0929c_toroads.test.js"],
+    "note": "The place's route drops the forced roads: the first-person pick on Free never asks the road network."
+  },
+  {
+    "name": "TO-ROADS-the-walk-ignores-roads",
+    "file": "src/scenes/world.js",
+    "old": "let wnet = (roads || travelPathUsesRoads()) ? roadNet : null;",
+    "new": "let wnet = travelPathUsesRoads() ? roadNet : null;",
+    "tests": ["test/fb0929c_toroads.test.js"],
+    "note": "The spot's walk drops the forced roads (a Free walk, the roads never asked)."
+  },
+  {
+    "name": "TO-ROADS-a-forced-route-pulled-taut",
+    "file": "src/scenes/world.js",
+    "old": "if (roads || travelPathUsesRoads() || !plan?.pixels",
+    "new": "if (travelPathUsesRoads() || !plan?.pixels",
+    "tests": ["test/fb0929c_toroads.test.js"],
+    "note": "A forced-roads route the roads do not help is pulled taut as a Free one is - not the Roads switch's law."
+  },
+  {
+    "name": "TO-ROADS-forced-for-the-overworld-too",
+    "file": "src/scenes/world.js",
+    "old": "function tvMapForcesRoads() { return !tvOwnsJourneys() && tvRoutesJourneys(); }",
+    "new": "function tvMapForcesRoads() { return tvRoutesJourneys(); }",
+    "tests": ["test/fb0929c_toroads.test.js"],
+    "note": "The Overworld's own journeys are forced onto the roads too: its Path switch on Free no longer frees them."
   }
 ]

@@ -91,7 +91,7 @@ route - the road joined first, round the peaks, its legs on the mod's autopilot 
 the Overworld's `travelViewRouteTo` / `travelViewWalkTo`, and the view's own doors still ask `tvOwnsJourneys`, so it
 stays down. The map's Resume plans it again from where the traveller stands; a place the roads cannot reach is refused
 in the Overworld's words, never walked straight or teleported; a leader's routed pick leads the party.
-`test/fb0929c_toroads.test.js` (6), `tools/mutants/fb0929c_toroads.json` (16: 14 dead, 2 equivalent - `!!travelOptions`
+Main's Overworld Path switch (OW-PATH, Roads or Free) landed alongside: a first-person map pick, a spot and the map's Resume go by the roads whatever it says (`tvMapForcesRoads` - the key is named for the roads, and the switch is on the Overworld's bar), while the Overworld's own journeys keep it. `test/fb0929c_toroads.test.js` (7), `tools/mutants/fb0929c_toroads.json` (23: 21 dead, 2 equivalent - `!!travelOptions`
 and `!!travelView`, which no caller reaches false). Four suites' pins and five mutant records re-aimed to the moved
 lines, none loosened. `06-Systems/Travel-View.md` TO-ROADS, `06-Systems/Travel-Options.md`, Port-Ledger A's TO1 row.
 
