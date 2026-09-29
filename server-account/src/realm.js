@@ -44,6 +44,10 @@
 import { SAVE_MAX_BYTES } from './service.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';   // AUDIT REALM L1-F7: a deleted guildmaster hands the guild over first
 import { liquidWealthOf, customsAllowance, REALM_BIRTH_LEVEL, REALM_BIRTH_WEALTH_MAX } from '../../src/net/realmGoldLaw.js';   // AUDIT REALM2 S1: the first save, measured as customs measures it
+import { ID_RE } from '../../src/net/identityToken.js';   // CUSTOMS-PASS: an account named by its id
+import { isGuestShaped, isHandleShaped } from '../../src/net/handleShape.js';   // CUSTOMS-PASS: a handle and a guest's name, told apart by their shape alone
+import { isDeveloper } from './titles.js';   // CUSTOMS-PASS: a developer grants one
+import { displayName } from './accounts.js';
 
 /** Realm characters an ACCOUNT may hold. A new one past it is refused; nothing is ever deleted to make room. */
 export const REALM_CHARACTERS_MAX = 6;
@@ -131,6 +135,15 @@ export async function listRealm({ db, nowS }, /** @type {string} */ playerId) {
   return (r?.results ?? []).map((row) => view(row, nowS));
 }
 
+/** REALM-DOOR (2026-09-29, the field): IS THIS ONE OF THE ACCOUNT'S REALM CHARACTERS? The identity mint asks it of the
+ *  character a client names and signs the answer (`rc`), and the relay's door refuses a no - so online is the realm's at
+ *  the servers, not only in the new build's boot. A realm id of this account's own, standing; anything else is not: an
+ *  offline character's id (what a build from before the realm names), another account's character, one deleted, none. */
+export async function realmCharacterHeld({ db }, /** @type {string} */ playerId, /** @type {unknown} */ id) {
+  if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return false;
+  return !!(await db.prepare('SELECT 1 FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first());
+}
+
 /** ONE CHARACTER IN PLAY AN ACCOUNT: every lease of this account but `keep`'s is dropped. */
 async function freeOthers({ db }, /** @type {string} */ playerId, /** @type {string} */ keep) {
   await db.prepare('UPDATE realm_characters SET lease = NULL WHERE player = ? AND id != ? AND lease IS NOT NULL').bind(playerId, keep).run();
@@ -178,6 +191,59 @@ export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_
 const customsCarry = (/** @type {any} */ db, /** @type {string} */ playerId, /** @type {string} */ originId, /** @type {string} */ id) =>
   CHARACTER_TABLES.map((table) => db.prepare(`UPDATE OR IGNORE ${table} SET char_id = ? WHERE player = ? AND char_id = ?`).bind(id, playerId, originId));
 
+// ═══ CUSTOMS-PASS (2026-09-29, the field - Mac, asked, "Staff customs pass") ══════════════════════════════════════════
+//
+// The census is frozen at the realm's start (L1-F5: a Copy to offline's new id gathers traces too), and REALM-DOOR keeps
+// every character made since off the relay unless the realm made it. But until REALM-DOOR a build from before the realm
+// played online unchecked, and a character made on one after the census froze (Gryphoth's) has no trace the census
+// could count - it cannot come in, by the law that stops the dupe. The pass is the one exception, and a PERSON's: a
+// developer grants an account one (grantCustomsPass), and that account's next customs of a character its census does
+// not count is let in through customsRealm's own guarded write - the loans called in, the allowance applied, the first
+// save read, exactly as any customs is. It is spent on that character (`origin_id`, `spent_at`: the grant's record),
+// never on one the census admits anyway, and it never lets in a character already in from any account - so a Copy to
+// offline cannot come back through one either. One open pass an account (migration 0024's partial unique index).
+
+/** CUSTOMS-PASS: the account's open pass, or null. */
+const openPassOf = (/** @type {any} */ db, /** @type {string} */ playerId) =>
+  db.prepare('SELECT id FROM realm_passes WHERE player = ? AND spent_at IS NULL').bind(playerId).first();
+
+/** CUSTOMS-PASS: is this character already in - its census spent on any account, or a realm character standing on it? */
+const originIn = async (/** @type {any} */ db, /** @type {string} */ originId) => !!(await db.prepare(
+  'SELECT 1 AS here WHERE EXISTS (SELECT 1 FROM realm_census WHERE char_id = ? AND spent = 1) OR EXISTS (SELECT 1 FROM realm_characters WHERE origin_id = ?)',
+).bind(originId, originId).first());
+
+/**
+ * CUSTOMS-PASS, GRANTED OR TAKEN BACK - a developer's act alone (a pass lets a character into the realm's economy, which
+ * is more than a moderator's mute). The account is named as the game shows it: a handle (case-folded, as its unique index
+ * is), or a guest's two-word name when exactly one account without a handle wears it - the two never overlap
+ * (net/handleShape.js) - or else by its id. A second grant is the same open pass; a revoke takes back an open one and
+ * never a spent one, which is the record of whom it let in. Answers `{ ok, target, name, open, changed }` or `{ error }`:
+ * 'not-developer', 'body', 'no-player', 'ambiguous' (two guests wear the name: name the account by its id).
+ * @param {any} ctx @param {any} actor the caller's player row
+ * @param {any} env @param {{ name?: unknown, account?: unknown, revoke?: unknown }} at
+ */
+export async function grantCustomsPass({ db, nowS }, actor, env, { name, account, revoke = false } = {}) {
+  if (!isDeveloper(actor, env)) return { error: 'not-developer' };
+  if ((name === undefined) === (account === undefined) || (revoke !== true && revoke !== false)) return { error: 'body' };
+  let found;
+  if (account !== undefined) {
+    if (typeof account !== 'string' || !ID_RE.test(account)) return { error: 'body' };
+    found = await db.prepare('SELECT * FROM players WHERE id = ?').bind(account).all();
+  } else if (isHandleShaped(name)) {
+    found = await db.prepare('SELECT * FROM players WHERE handle_lc = ?').bind(/** @type {string} */ (name).toLowerCase()).all();
+  } else if (isGuestShaped(name)) {
+    found = await db.prepare('SELECT * FROM players WHERE guest_name = ? AND handle_lc IS NULL LIMIT 2').bind(name).all();
+  } else return { error: 'body' };
+  const rows = found?.results ?? [];
+  if (!rows.length) return { error: 'no-player' };
+  if (rows.length > 1) return { error: 'ambiguous' };
+  const target = rows[0];
+  const wrote = revoke
+    ? await db.prepare('DELETE FROM realm_passes WHERE player = ? AND spent_at IS NULL').bind(target.id).run()
+    : await db.prepare('INSERT OR IGNORE INTO realm_passes (player, granted_by, granted_at) VALUES (?, ?, ?)').bind(target.id, actor.id, nowS).run();
+  return { ok: true, target: target.id, name: displayName(target), open: !revoke, changed: wrote.meta.changes > 0 };
+}
+
 /**
  * WHY CUSTOMS REFUSED (decision 3: "Migrate once via customs"). An offline character may come into the realm once, and
  * only if the realm saw it before the realm began. AUDIT REALM L1-F5 / L3-F2: that is the CENSUS (`realm_census`),
@@ -190,13 +256,17 @@ const customsCarry = (/** @type {any} */ db, /** @type {string} */ playerId, /**
  * its origin in again. The gate itself is customsRealm's one guarded write; this reads, after it refused, which word is
  * true: `customs-never-online` (this account counted no such character), `customs-already` (it came in, from here or
  * from an account it was copied to), `too-many-characters` (the account's bound) - or null, when none is (the store
- * failed, and the caller says so).
+ * failed, and the caller says so). CUSTOMS-PASS: a character this account's census never counted is `customs-never-online`
+ * unless the account holds a developer's open pass - and `customs-already` then if any account brought it in.
  * @param {any} ctx @param {string} playerId @param {string} originId
  */
 export async function customsRefusal({ db }, playerId, originId) {
   const counted = await db.prepare('SELECT spent FROM realm_census WHERE player = ? AND char_id = ?').bind(playerId, originId).first();
-  if (!counted) return 'customs-never-online';
-  if (counted.spent) return 'customs-already';
+  if (counted?.spent) return 'customs-already';
+  if (!counted) {
+    if (!(await openPassOf(db, playerId))) return 'customs-never-online';
+    if (await originIn(db, originId)) return 'customs-already';
+  }
   const held = await db.prepare('SELECT COUNT(*) AS n FROM realm_characters WHERE player = ?').bind(playerId).first();
   return (held?.n ?? 0) >= REALM_CHARACTERS_MAX ? 'too-many-characters' : null;
 }
@@ -226,12 +296,24 @@ export async function customsRealm(ctx, playerId, { origin, name, summary = null
   const lease = mintLease(rand);
   try {
     await db.batch([
+      // THE GATE: the census's unspent row for this account and character - or (CUSTOMS-PASS) the account's open pass, for
+      // a character no account has brought in: none's census spent on it, no realm character standing on it (L3-F2)
       db.prepare(
         'INSERT INTO realm_characters (id, player, name, summary, seq, bytes, lease, lease_at, origin_id, created_at, updated_at)'
         + ' SELECT ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM realm_characters WHERE player = ?) < ?'
-        + ' AND EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)',
-      ).bind(id, playerId, n, realmSummaryOf(summary), lease, nowS, origin, nowS, nowS, playerId, REALM_CHARACTERS_MAX, playerId, origin),
+        + ' AND (EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)'
+        + ' OR (EXISTS (SELECT 1 FROM realm_passes WHERE player = ? AND spent_at IS NULL)'
+        + ' AND NOT EXISTS (SELECT 1 FROM realm_census WHERE char_id = ? AND spent = 1)'
+        + ' AND NOT EXISTS (SELECT 1 FROM realm_characters WHERE origin_id = ?)))',
+      ).bind(id, playerId, n, realmSummaryOf(summary), lease, nowS, origin, nowS, nowS, playerId, REALM_CHARACTERS_MAX, playerId, origin, playerId, origin, origin),
       mustChange(db),
+      // CUSTOMS-PASS: the pass is spent on the character it let in - only when the census did not (asked before the census
+      // is spent below), and it keeps whom and when, the record of the grant's one use
+      db.prepare(
+        'UPDATE realm_passes SET origin_id = ?, spent_at = ? WHERE player = ? AND spent_at IS NULL'
+        + ' AND NOT EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)',
+      ).bind(origin, nowS, playerId, playerId, origin),
+      db.prepare('INSERT OR IGNORE INTO realm_census (player, char_id, spent) VALUES (?, ?, 1)').bind(playerId, origin),   // CUSTOMS-PASS: counted in - once, on every account
       db.prepare('UPDATE realm_census SET spent = 1 WHERE char_id = ?').bind(origin),
       // AUDIT REALM2 S6: THE CARRY IS IN THE CENSUS'S OWN BATCH. It ran after it, a statement at a time, so a failure
       // there (a transient D1 error, the request cancelled) left the census spent and the track under an id the realm
@@ -249,7 +331,8 @@ export async function customsRealm(ctx, playerId, { origin, name, summary = null
 
 /**
  * A JOIN: a new lease on the account's own character, taking it from any tab that held it and freeing the account's
- * others. Answers `{ id, lease, seq, bytes }` - `bytes` 0 is a character whose first save never landed - or `{ error }`.
+ * others. Answers `{ id, lease, seq, bytes, origin }` - `bytes` 0 is a character whose first save never landed, `origin`
+ * the offline id a customs character came from (null for one born online) - or `{ error }`.
  * @param {any} ctx @param {string} playerId @param {unknown} id
  */
 export async function joinRealm({ db, rand, nowS }, playerId, id) {
@@ -258,8 +341,10 @@ export async function joinRealm({ db, rand, nowS }, playerId, id) {
   const took = await db.prepare('UPDATE realm_characters SET lease = ?, lease_at = ? WHERE id = ? AND player = ?').bind(lease, nowS, id, playerId).run();
   if (!took.meta.changes) return { error: 'no-realm-character' };
   await freeOthers({ db }, playerId, id);
-  const row = await db.prepare('SELECT seq, bytes FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
-  return { id, lease, seq: row?.seq ?? 0, bytes: row?.bytes ?? 0 };
+  const row = await db.prepare('SELECT seq, bytes, origin_id FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  // RESTORE: and the offline id a customs character came from - the playing tab gives back what customs once kept, off
+  // that character's own save on its device (systems/realmCustoms.js reclaimFromDevice)
+  return { id, lease, seq: row?.seq ?? 0, bytes: row?.bytes ?? 0, origin: row?.origin_id ?? null };
 }
 
 /**
@@ -458,25 +543,19 @@ export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @ty
  *  A guildmaster with members hands the guild over first ('guild-master-leaves', the guild's own word for leaving).
  *  AUDIT REALM2 S8: AND A LONE ONE EMPTIES THE TREASURY FIRST ('guild-treasury'), as leaving asks (guilds.js leaveGuild).
  *  The delete let it go with gold inside: a guild nobody is in, holding what its records paid in, until the next founder
- *  of its name or tag cleared it away, gold and all. */
+ *  of its name or tag cleared it away, gold and all.
+ *  HOUSE-LOSS: a customs character whose first save never landed is not deleted but UNDONE (undoCustoms, below). */
 export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId, /** @type {unknown} */ id) {
   if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return { error: 'body' };
-  const row = await db.prepare('SELECT obj, prev FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  const row = await db.prepare('SELECT obj, prev, bytes, origin_id FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
+  if (row.origin_id && !(row.bytes > 0)) return undoCustoms({ db, bucket }, playerId, id, row.origin_id);
   const master = await db.prepare(`SELECT (SELECT COUNT(*) FROM guild_members o WHERE o.guild_id = m.guild_id) AS n,
     (SELECT treasury FROM guilds g WHERE g.id = m.guild_id) AS treasury FROM guild_members m
     WHERE m.player = ? AND m.char_id = ? AND m.rank = ?`).bind(playerId, id, GUILD_RANK_MASTER).first();
   if ((master?.n ?? 0) > 1) return { error: 'guild-master-leaves' };
   if ((master?.treasury ?? 0) > 0) return { error: 'guild-treasury' };
-  if (bucket) {
-    await dropObjects(bucket, [row.obj, row.prev]);   // an object that will not go is not a reason to keep the row
-    if (typeof bucket.list === 'function') {
-      try {
-        const listed = await bucket.list({ prefix: `${realmPrefix(playerId)}${id}/` });
-        await dropObjects(bucket, (listed?.objects ?? []).map((/** @type {any} */ o) => o.key));
-      } catch { /* the walk is the sweep's, not the delete's */ }
-    }
-  }
+  await dropCharacterObjects(bucket, playerId, id, [row.obj, row.prev]);
   await db.batch([
     db.prepare('DELETE FROM homes WHERE player = ? AND char_id = ?').bind(playerId, id),
     db.prepare('DELETE FROM guild_members WHERE player = ? AND char_id = ?').bind(playerId, id),
@@ -484,4 +563,70 @@ export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId
     db.prepare('DELETE FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId),
   ]);
   return { ok: true };
+}
+
+/** A character's objects: the ones its row names, and anything else under its prefix a lost write left. Best effort -
+ *  an object that will not go is not a reason to keep the row. */
+async function dropCharacterObjects(/** @type {any} */ bucket, /** @type {string} */ playerId, /** @type {string} */ id, /** @type {(string | null | undefined)[]} */ named) {
+  if (!bucket) return;
+  await dropObjects(bucket, named);
+  if (typeof bucket.list !== 'function') return;
+  try {
+    const listed = await bucket.list({ prefix: `${realmPrefix(playerId)}${id}/` });
+    await dropObjects(bucket, (listed?.objects ?? []).map((/** @type {any} */ o) => o.key));
+  } catch { /* the walk is the sweep's, not the delete's */ }
+}
+
+/**
+ * HOUSE-LOSS (2026-09-29, the field through Mac: "GarySoup lost his house and furniture. I suspect a lot of people lost a
+ * ton of belongings"): A CUSTOMS THAT NEVER LANDED IS UNDONE BY ITS DELETE, never a delete of what it carried. Customs
+ * carries the origin's home, guild place and track to the realm's id in the census's own batch, before the first save is
+ * sent (CUSTOMS-CARRY), and a first save can fail - refused, too large, lost on the way. The door then showed a "Never
+ * saved" tile whose one live button was Delete, and said "Delete it and make it again"; the delete took the home, its
+ * pieces and its hidden furniture with it (the tables' cascade) and left the census spent, so the character could never
+ * come in again to take them back. Nothing of a character whose first save never landed ever played in the realm - it
+ * has no record, and every act, trade and purchase asks one at sequence 1 or on - so its undoing is the realm as it stood
+ * before that customs, exactly: what customs carried goes back to the offline id, and the census rows customs spent are
+ * unspent (it spent every one of the character's). CUSTOMS-PASS: a pass spent on the character is given back with the
+ * census row it wrote - open again, or, when a developer has granted the account another since (one open pass an
+ * account, 0024's index), its record dropped, since the customs it recorded never stood. The row goes only while its
+ * first save still has not landed (`bytes = 0`, guarded): a save landing in the same moment keeps the character, and the
+ * delete says so (`seq`).
+ * @param {any} ctx @param {string} playerId @param {string} id @param {string} originId
+ */
+async function undoCustoms({ db, bucket }, playerId, id, originId) {
+  try {
+    await db.batch([
+      db.prepare('DELETE FROM realm_characters WHERE id = ? AND player = ? AND bytes = 0').bind(id, playerId),
+      mustChange(db),
+      ...customsCarry(db, playerId, id, originId),   // the carry, run back: from the realm's id to the offline one
+      // the pass's census row (a pass is spent only where this account's census counted no such character), asked before
+      // the pass comes back below
+      db.prepare('DELETE FROM realm_census WHERE player = ? AND char_id = ? AND EXISTS (SELECT 1 FROM realm_passes WHERE player = ? AND origin_id = ?)')
+        .bind(playerId, originId, playerId, originId),
+      db.prepare('UPDATE realm_passes SET origin_id = NULL, spent_at = NULL WHERE player = ? AND origin_id = ?'
+        + ' AND NOT EXISTS (SELECT 1 FROM realm_passes WHERE player = ? AND spent_at IS NULL)').bind(playerId, originId, playerId),
+      db.prepare('DELETE FROM realm_passes WHERE player = ? AND origin_id = ?').bind(playerId, originId),
+      db.prepare('UPDATE realm_census SET spent = 0 WHERE char_id = ? AND NOT EXISTS (SELECT 1 FROM realm_characters WHERE origin_id = ?)').bind(originId, originId),
+    ]);
+  } catch (e) {
+    const now = await db.prepare('SELECT seq FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+    if (now) return { error: 'seq', seq: now.seq };   // its first save landed in the meantime: a character now, kept
+    throw e;
+  }
+  await dropCharacterObjects(bucket, playerId, id, []);
+  return { ok: true, undone: true };
+}
+
+/** HOUSE-LOSS: THE DOOR'S OWN UNDO - "Undo bringing in", on a customs character whose first save never landed. Its own
+ *  route, so a door newer than its service is told `not-found` by the old one rather than handed a delete that takes
+ *  what customs carried; and it never deletes anything else - one born online is no customs to undo (`body`), and one
+ *  whose first save has landed is `seq`, by undoCustoms' own guard.
+ *  @param {any} ctx @param {string} playerId @param {unknown} id */
+export async function undoRealm({ db, bucket }, playerId, id) {
+  if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return { error: 'body' };
+  const row = await db.prepare('SELECT origin_id FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  if (!row) return { error: 'no-realm-character' };
+  if (!row.origin_id) return { error: 'body' };
+  return undoCustoms({ db, bucket }, playerId, id, row.origin_id);
 }

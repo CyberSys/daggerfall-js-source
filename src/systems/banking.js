@@ -198,6 +198,7 @@ export function allocateHouseToPlayer(houses, regionIndex, { buildingKey, mapId,
   slot.location = location;
   slot.mapId = mapId;
   slot.buildingKey = buildingKey;
+  delete slot.crossed;   // RESTORE: a house bought is the buyer's own, whatever crossed customs in this slot before
   discoverBuilding?.(buildingKey, `${playerName}'s residence`);
   addPermanentScene?.(mapId, buildingKey);
   addNote?.(`Deed to a house in ${location}, ${regionName}.`);
@@ -259,11 +260,12 @@ export function purchaseHouse(accounts, houses, regionIndex, house, player, {
  *  the building and zeroed the slot - the deed destroyed for nothing.
  *  `found` is GetBuildingSummary's bool; it defaults TRUE so a caller
  *  that has already resolved the building need not say so twice. */
-export function sellHouse(accounts, houses, regionIndex, { meshRadius = 0, found = true } = {}, {
+export function sellHouse(accounts, houses, regionIndex, { meshRadius = 0, found = true, online = isOnlinePage() } = {}, {
   removePermanentScene = null, undiscoverBuilding = null,
 } = {}) {
   const slot = houses[regionIndex];
   if (!(slot.buildingKey > 0)) return { kind: 'none' };
+  if (online && slot.crossed) return { kind: 'crossed' };   // RESTORE: what came through customs is never bought back online
   if (!found) return { kind: 'none' };   // :454-456 falls to :464 - the miss arm has no effects at all
   const price = houseSellPrice(meshRadius);
   accounts[regionIndex].accountGold += price;
@@ -314,6 +316,7 @@ export const shipCameraDist = (ship) => (ship >= 0 ? SHIP_CAMERA_DIST[ship] : 0)
  */
 export function assignShipToPlayer(player, shipType, { addPermanentScene = null } = {}) {
   player.ownedShip = shipType;
+  delete player.shipCrossed;   // RESTORE: a ship bought is the buyer's own, whatever crossed customs before it
   if (shipType !== SHIP_TYPES.None) addPermanentScene?.(shipType);
   return shipType;
 }
@@ -321,7 +324,7 @@ export function assignShipToPlayer(player, shipType, { addPermanentScene = null 
 /** ResetShip (:128) - `ownedShip = ShipType.None` and nothing else: the
  *  permanent scenes stay listed, as they do in DFU. WA1: Warm Ashes -
  *  Ships takes back the ship it lends with this. */
-export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; }
+export function resetShip(player) { player.ownedShip = SHIP_TYPES.None; delete player.shipCrossed; }
 
 /**
  * PurchaseShip (:467-486). The ladder is PurchaseHouse's, with one
@@ -353,13 +356,15 @@ export function purchaseShip(accounts, regionIndex, shipType, player, purse, hoo
  * the `ship >= 0` guard, so the arithmetic is harmless; the port
  * refuses it outright instead, which is Ledger A.
  */
-export function sellShip(accounts, regionIndex, player, { removePermanentScene = null } = {}) {
+export function sellShip(accounts, regionIndex, player, { removePermanentScene = null, online = isOnlinePage() } = {}) {
   const ship = ownedShipType(player);
   if (ship === SHIP_TYPES.None) return { kind: 'none' };
+  if (online && player.shipCrossed) return { kind: 'crossed' };   // RESTORE: what came through customs is never bought back online
   const price = shipSellPrice(ship);
   accounts[regionIndex].accountGold += price;
   removePermanentScene?.(ship);
   player.ownedShip = SHIP_TYPES.None;
+  delete player.shipCrossed;
   return { kind: 'sold', price };
 }
 
@@ -459,6 +464,27 @@ export const calculateMaxBankLoan = (level) => {
 /** CalculateBankLoanRepayment (:2017-2024) - `(int)(amount + amount *
  *  .1)`, a FLOAT sum truncated once at the end. */
 export const calculateBankLoanRepayment = (amount) => Math.trunc(amount + amount * 0.1);
+
+// ── RESTORE: what came through customs is never bought back online ──
+
+/** RESTORE (2026-09-29, Mac: "I want people to get their stuff back", and of what customs does with a house, a ship and
+ *  their pieces: "Keep all, can't sell"): CUSTOMS KEEPS EVERY DEED AND MARKS IT - a house's slot `crossed`, the ship's
+ *  `shipCrossed` (systems/realmCustoms.js crossDeeds) - and, online, the bank of the Empire buys none of them back, so a
+ *  deed carries no gold into the realm past the allowance and customs has no reason to take one. (AUDIT REALM2 T3 took
+ *  them off the copy instead - a house and every piece in its room, for an excess the purse could often pay.) A house
+ *  or ship bought in the realm is the buyer's own and sells (allocateHouseToPlayer, assignShipToPlayer clear the mark);
+ *  offline, a copy is an offline character's, and every deed of it sells. */
+export const CROSSED_DEED_LINES = Object.freeze([
+  'That came into the realm through customs.',
+  'The bank of the Empire does not buy it back.',
+]);
+/** The words the bank says for a sale it will not make here, or null: a crossed house in this region, a crossed ship. */
+export function crossedDeedLines(kind, { houses = null, regionIndex = 0, player = null, online = isOnlinePage() } = {}) {
+  if (!online) return null;
+  const slot = houses?.[regionIndex];
+  const crossed = kind === 'ship' ? ownsShip(player) && !!player?.shipCrossed : slot?.buildingKey > 0 && !!slot.crossed;
+  return crossed ? CROSSED_DEED_LINES : null;
+}
 
 // ── REALM P0.3: online, the Empire is one lender ───────────────────
 /** REALM P0.3 (2026-09-28, Mac: "I want to make sure players cant take an offline character and bring in massive
@@ -860,7 +886,7 @@ export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
 //    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3007
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
-//    3D model panel, and ui/bankWindow.js:266-279 routes BUY HOUSE's
+//    3D model panel, and ui/bankWindow.js:267-280 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to
 //    DFU's own missing-directory answer, :433-434).
 //  - ReadNativeBankData (:584-614) IS PORTED, verbatim quirks and all:
