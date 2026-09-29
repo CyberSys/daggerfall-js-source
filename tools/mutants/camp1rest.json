@@ -40,8 +40,8 @@
   {
     "name": "CAMP1REST-the-gate-defaults-on-so-the-walking-roll-dies-too",
     "file": "src/scenes/world.js",
-    "old": "  function runEncounterTick(playerFeet, isResting = false) {",
-    "new": "  function runEncounterTick(playerFeet, isResting = true) {",
+    "old": "  function runEncounterTick(playerFeet, isResting = false, { spawns = true } = {}) {",
+    "new": "  function runEncounterTick(playerFeet, isResting = true, { spawns = true } = {}) {",
     "tests": [
       "test/camp1_groups.test.js",
       "test/restx2_online_rest.test.js"

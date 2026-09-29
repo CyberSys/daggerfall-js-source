@@ -3156,6 +3156,8 @@ ${badgeCss()}
   font-size: 34px; text-align: center; background: #0e1013; color: var(--bone, #e9e4d9);
   border: 1px solid var(--iron, #2b323b); border-radius: 3px; padding: 6px 8px; }
 .rest-shell .vitals-line { margin: 10px 0 0; font-size: 14px; color: var(--dim, #8b8578); font-variant-numeric: tabular-nums; }
+.rest-shell .clock-line { margin: 8px 0 0; font-size: 13px; color: var(--dim, #8b8578); text-align: center; }   /* AUDIT LIVED1b U7 */
+.rest-shell .clock-line:empty { display: none; }
 .tavern-shell .px-body { flex: 0 1 auto; overflow-y: auto; padding: 18px 22px 22px; }
 .tavern-shell .sb-top { display: grid; grid-template-columns: 1fr auto 1fr;
   align-items: center; padding: 12px 16px;

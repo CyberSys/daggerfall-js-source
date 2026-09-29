@@ -39,7 +39,7 @@
 //
 // The three clauses that stood here are all closed (D1):
 // - the TALK button routes to TalkManager.TalkToStaticNPC (:263):
-//   worldModes.js:3137 supplies `onTalk: () => openStaticNpc(pn,
+//   worldModes.js:3143 supplies `onTalk: () => openStaticNpc(pn,
 //   { forceTalk: true })`, which this file consumes at :256 and :265.
 // - AddPermanentScene (:246) shipped at P1 - systems/tavern.js:143
 //   addPermanentScene / :93 removePermanentScene, with this window
@@ -116,9 +116,11 @@ const inRect = ([rx, ry, rw, rh], x, y) => x >= rx + TAVERN_PANEL_X && y >= ry +
 /** A plain string as one centred row - the chain's own idiom. */
 const line = (text) => [{ text, center: true }];
 /** OL3's row under the offer, online. LIVED1: the room runs on the character's own clock - resting in it spends its
- *  days and time away does not - so the row says it in their time and in play (worldTick.js ownTimeLeftText). */
+ *  days and time away does not - so the row says it in their time and in play (worldTick.js ownTimeLeftText).
+ *  AUDIT LIVED1b U8: "logging off" - a tab left hidden still runs the character's clock (Audit-Lived1's For Mac 5),
+ *  so "time away" promised what only a logout keeps; the note measures what the old one did on the parchment. */
 export const OWN_TIME_ROOM = 'The room is yours for';
-export const OWN_TIME_ROOM_NOTE = ' - resting spends it, time away does not.';
+export const OWN_TIME_ROOM_NOTE = ' - a rest spends it, logging off does not.';
 
 /**
  * hooks:

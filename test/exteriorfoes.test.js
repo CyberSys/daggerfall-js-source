@@ -152,7 +152,7 @@ test('exteriorfoes: the FIXED-CITY host carries the catch-up loop too, both host
   assert.ok(fn.includes('const hit = player.isPlayerSwimming ? null : intermittentEnemySpawn({'), 'the fixed city skips the roll while swimming');
   const wi = w.indexOf('function runEncounterTick');
   const wfn = w.slice(wi, w.indexOf('\n  }\n', wi));
-  assert.ok(wfn.includes('const hit = (walkMode && playerSpawned && player.isPlayerSwimming) ? null : intermittentEnemySpawn({'), 'the world host skips it too');
+  assert.ok(wfn.includes('const hit = (!spawns || (walkMode && playerSpawned && player.isPlayerSwimming)) ? null : intermittentEnemySpawn({'), 'the world host skips it too');   // AUDIT LIVED1b P1: and a mirror's night asks no wanderer
   // the placement: DFU's own ring with the arm's band, a FLYING foe lifted 1.5
   assert.match(e, /const _standEncounterFoe = \(hit, feet\) => \{[^]*minDistance: hit\.minDistance, maxDistance: hit\.maxDistance,\n\s*lineOfSightCheck: hit\.lineOfSightCheck,/);
   // the callers: this host's exterior frame, its rest advance, and -

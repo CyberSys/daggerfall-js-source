@@ -168,7 +168,7 @@ test('RESTX2 by source: the free lane and the shared-clock lane are gone from th
   // THE FOUR HOSTS: the two exterior hosts' encounter roll reads the character's own clock, which the rest moves
   for (const host of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
     const h = read(host);
-    assert.match(h, /function runEncounterTick\(playerFeet, isResting = false\) \{/, `${host}: the roll knows it's a rest`);
+    assert.match(h, /function runEncounterTick\(playerFeet, isResting = false(?:, \{ spawns = true \} = \{\})?\) \{/, `${host}: the roll knows it's a rest`);   // AUDIT LIVED1b P1: a mirror's night walks it with the wanderers left out
     assert.match(h, /const now = Math\.floor\(playerTicker\.ownMinutes\);/, `${host}: ...and its now is the character's own clock (LIVED1)`);
     // RESTING GATE: the rest deps pass isResting=true, so camps/packs (MIN_CAMP_SPAWN_DISTANCE always
     // outside RESTING_DISTANCE - see encounters.js/campEncounters.js) never silently outflank the

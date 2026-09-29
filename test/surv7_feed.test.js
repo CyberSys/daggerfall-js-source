@@ -157,7 +157,7 @@ test('SURV7: by source - the four hosts feed their env (the roof, the floor, the
   assert.match(dc, /byFire: !!\(_fpFeet && camps\.byFire\(_fpFeet\)\),/, 'dungeon: its own fire');
   assert.match(dc, /survival: survivalFeed\(playerEntity, survivalEnvNow\(\), \{ say: \(msg\) => hudText\.add\(msg\) \}\),/, 'dungeon: its own tick feeds');
   assert.match(dc, /installSurvivalGate\(registerPreventRestCondition, \(\) => playerEntity, survivalEnvNow\);/, 'dungeon: its own gate');
-  assert.match(save, /if \(sharedClockOn\(\)\) \{\n\s+const own = Math\.floor\(snap\.classicMinutes \?\? 0\), at = Math\.floor\(worldMinutes\(\)\);[\s\S]{0,1400}?alignSurvival\(entity, own, at - left > ALIGN_GRACE_MINUTES \? null : own\);/, 'the load arm (LIVED1: the needs stood with the character\'s clock - a long break still comes back fresh)');
+  assert.match(save, /if \(sharedClockOn\(\)\) \{\n(?:\s*\/\/[^\n]*\n)*\s+const own = Math\.floor\(snap\.classicMinutes \?\? 0\), at = worldMinutes\(\);[\s\S]{0,2200}?alignSurvival\(entity, own, own\);[\s\S]{0,700}?if \(now - left > ALIGN_GRACE_MINUTES\) alignSurvival\(entity, Math\.floor\(ownMinutes\(\)\), null\);/, 'the load arm (LIVED1: the needs stood with the character\'s clock - a long break still comes back fresh; AUDIT LIVED1b P4: measured on the relay\'s clock, when it is heard)');
   assert.match(read('src/systems/worldTick.js'), /felt = runSurvivalMinutes\(entity, lastMinutes, nowMinutes, survival\.env \?\? \{\}, /, 'the tick runs the minutes');
   assert.doesNotMatch(read('src/systems/survival/env.js'), /from '\.\.\/\.\.\/scenes\/|from '\.\.\/\.\.\/ui\/|from '\.\.\/\.\.\/combat\/|from '\.\.\/spellcast|from '\.\.\/diseases|from '\.\.\/effects|from '\.\.\/lycanthropy|document\.|window\./);
 });

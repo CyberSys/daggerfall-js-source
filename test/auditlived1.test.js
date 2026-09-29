@@ -215,7 +215,7 @@ test('AUDIT LIVED1 E (S3/R5, S5/U4) + G (R6): the doors between the lanes rebase
   const m = rd('src/ui/enhancedMenu.js');
   assert.match(m, /snap = offlineCopyOf\(snap\);/, 'Copy to offline goes through the door');
   assert.match(m, /const copy = onlineCopyOf\(snap, sharedClassicMinutes\(Date\.now\(\)\)\);/, 'and so does Bring online');
-  assert.equal((m.match(/const date = Number\.isFinite\(snap\.classicMinutes\) \? dateFromClassicMinutes\(snap\.classicMinutes\) : null;/g) ?? []).length, 2, 'both cards read the one clock the slot loads at (T: R8)');
+  assert.equal((m.match(/const date = Number\.isFinite\(snap\.classicMinutes\) \? dateFromClassicMinutes\(snap\.classicMinutes\) : null;/g) ?? []).length, 2, 'both cards read the one clock the slot loads at (E: S5/U4)');
 });
 
 test('AUDIT LIVED1 F (K3/S4): a save from before LIVED1 whose disease day sat ahead of its clock is brought back to it - no day given back and rolled again', () => {
@@ -241,7 +241,8 @@ test('AUDIT LIVED1 F (K3/S4): a save from before LIVED1 whose disease day sat ah
 });
 
 test('AUDIT LIVED1 H (P2): the party mirror\'s night carries the follower\'s encounter marker with it - the first frame up rolls no night as walking minutes', () => {
-  assert.match(rd('src/scenes/world.js'), /advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); if \(_lastEncMinutes !== null\) _lastEncMinutes = Math\.floor\(playerTicker\.ownMinutes\); \},   \/\/ local effects\/quest catch-up only/);
+  // AUDIT LIVED1b P1: the marker now rides the loop itself - the mirror walks each sub-tick through it, the wanderers left out
+  assert.match(rd('src/scenes/world.js'), /advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode && playerSpawned \? player\.pos : cam\.pos, true, \{ spawns: false \}\); \},/);
 });
 
 test('AUDIT LIVED1 J (K6): an hour raised from INSIDE a tick is a bare move of the character\'s clock - no nested tick runs its rounds ahead of the window in hand', () => {
@@ -254,7 +255,10 @@ test('AUDIT LIVED1 J (K6): an hour raised from INSIDE a tick is a bare move of t
   t.clock += 1;
   ticker.tick(1 / 60);
   assert.equal(inside, true, 'the collapse fired inside the tick');
-  assert.equal(ticks, 1, 'one tick ran - the raise did not run a second one inside it');
+  // AUDIT LIVED1b K1: ...and its walk is the ticker's catch-up the moment the window in hand is done - a second tick,
+  // AFTER the first (never inside it), in the same frame, so no save can come between the raise and its walk
+  assert.equal(ticks, 2, 'the window in hand, then the raise\'s own walk - no tick inside a tick');
+  assert.equal(e.lastGameMinutes, Math.floor(ownMinutes()), 'the hour walked this frame');
   assert.equal(Math.floor(ownMinutes()), 300 * D + 1 + H, 'and the hour is the character\'s');
   assert.equal(tickInFlight(), false);
 });
@@ -272,7 +276,7 @@ test('AUDIT LIVED1 L/P/Q (K5, U5, U6/R7): a due-by says the time left in words t
   setSharedClock(null);
   assert.equal(ownTimeLeftShort(900), null, 'offline DFU says its dates');
   const m = rd('src/scenes/worldModes.js');
-  assert.match(m, /if \(left === 'now'\) return 'due now';/);
+  assert.match(m, /if \(left === 'now'\) return short \? 'now' : 'due now';/);   // AUDIT LIVED1b U3: the parchment paints "Loan due by:" itself
   assert.match(m, /const own = short \? \(left && `\$\{left\} of your time`\) : ownTimeLeftText\(minutes\);/);
   assert.match(rd('src/ui/bankWindow.js'), /loanBy: this\.hooks\.dueDateText\?\.\(loanDueDate\(a, r\), \{ short: true \}\) \?\? '',/);
   assert.match(rd('src/ui/charsheet.js'), /dueText: loanDueShort \}\),/);
@@ -316,7 +320,7 @@ test('AUDIT LIVED1 T3/T4/T6/T7/T8 + V: by source, every host read LIVED1 re-poin
     [w, /now: \(\) => playerTicker\.ownMinutes,   \/\/ V2a: MorphSelf's once-a-day clock/, 'MorphSelf'],
     [w, /setCrimeGuildClock\(\(\) => Math\.floor\(playerTicker\.ownMinutes\)\);/, 'the letters'],
     [w, /const rb = racialRestBlock\(playerEntity, Math\.floor\(ownMinutes\(\)\)\);/, 'the vampire\'s rest gate'],
-    [w, /cureVampirism\(playerEntity, \{ advanceMinutes: \(m\) => advanceOwnMinutes\(m\) \}\)/, 'the cure\'s hour'],
+    [w, /cureVampirism\(playerEntity, \{ advanceMinutes: \(m\) => advanceOwnMinutes\(m\) \}\)/, 'the cure\'s minute (AUDIT LIVED1b D3)'],
     [w, /!!q\?\.questSuccess, dateFromClassicMinutes\(playerTicker\.ownMinutes\), _questStore\(\)\);/, 'a quest\'s join date'],
     [w, /drinkAtSource\(playerEntity, Math\.floor\(ownMinutes\(\)\)\)\.text/, 'a drink at a source'],
     [m, /const rb = racialRestBlock\(playerEntity, Math\.floor\(interiorTicker\.ownMinutes\)\);   \/\/ V2b/, 'the interior vampire rest gate'],

@@ -646,8 +646,9 @@ function tickPlayerMinutesOnce({
     classicMinutes = _ownMinutes ?? worldFrom;
     _ownMinutes = classicMinutes + (worldTo - worldFrom) + (raiseMinutes > 0 ? raiseMinutes : 0);
   }
-  // AUDIT LIVED1 I: the world's arms start at the world's high-water mark, never below it
-  const worldArmsFrom = _sharedClock ? Math.max(Math.floor(worldFrom), _worldArmsTo ?? -Infinity) : null;
+  // AUDIT LIVED1 I: the world's arms walk no world minute twice - AUDIT LIVED1b P3: and lose none lived; they walk the
+  // parts of the reading's window no walk this session covered (worldArmsPieces)
+  const worldPieces = _sharedClock ? worldArmsPieces(Math.floor(worldFrom), Math.floor(worldTo)) : null;
   const next = _sharedClock ? _ownMinutes : classicMinutes + dt * CLASSIC_MINUTES_PER_SECOND;
   // AUDIT 39: the clock as it stood when this tick began. A sink can move
   // the WORLD clock from inside this call (the exhaustion collapse -
@@ -836,7 +837,8 @@ function tickPlayerMinutesOnce({
   // index, the six zones' roll) over the world's window, the character's (the landlord's sweep, the loan check) over
   // their own - in DFU's order, the world's half first as UpdateRegionalPrices and SetClimateWeathers lead the block.
   if (_sharedClock) {
-    runDayChange({ entity, lastMinutes: worldArmsFrom, nowMinutes: Math.floor(worldTo), rolls, say, arms: DAY_ARMS.world });
+    for (const [s, e] of worldPieces) runDayChange({ entity, lastMinutes: s, nowMinutes: e, rolls, say, arms: DAY_ARMS.world });
+    rollWorldZonesAcross(worldFrom, worldTo);   // AUDIT LIVED1b K3
     runDayChange({ entity, lastMinutes, nowMinutes, rolls, say, arms: DAY_ARMS.own });
   } else runDayChange({ entity, lastMinutes, nowMinutes, rolls, say });
   // CLK2: the enhanced lane's HOURLY evolution of the six zones, on the
@@ -866,8 +868,7 @@ function tickPlayerMinutesOnce({
   // conditions, off the shared day's rolls) over the world's.
   if (_sharedClock) {
     runCalendarArms(entity, lastMinutes, nowMinutes, { rolls, arms: DAY_ARMS.own });
-    runCalendarArms(entity, worldArmsFrom, Math.floor(worldTo), { rolls, arms: DAY_ARMS.world });
-    _worldArmsTo = Math.max(_worldArmsTo ?? -Infinity, Math.floor(worldTo));   // AUDIT LIVED1 I
+    for (const [s, e] of worldPieces) runCalendarArms(entity, s, e, { rolls, arms: DAY_ARMS.world });   // AUDIT LIVED1 I, LIVED1b P3
   } else runCalendarArms(entity, lastMinutes, nowMinutes, { rolls });
 
   // PlayerEntity.cs:528-530, the tail of the SAME update: the flag is a
@@ -1082,7 +1083,83 @@ let _sharedLastTick = null;
 // thirty-eight-day conditions walk, neither of them idempotent - then walked the minutes between again. The per-minute
 // loop's own marker (lastGameMinutes, monotonic) guarded them while they walked the one clock; online they walk the
 // world's, so the world's own high-water mark guards them: only ever raised, and the arms start at it.
-let _worldArmsTo = null;
+// AUDIT LIVED1b P3 (A4, K3): ...AND ONE MARK COUNTED AS WALKED MINUTES NO WALK HAD COVERED. The boot's frames read a
+// machine clock running fast (the relay's offset arrives with its welcome) and walked the world's arms ahead of the
+// world; the welcome stepped the reading back, and the minutes between - lived now - sat under the mark and were never
+// walked: a faction power's day lost, the six zones kept yesterday's sky for the world's day. A correction forward skips
+// its gap as an arrival does, and one back into the gap found it under the mark too. The walks are kept as the SPANS they
+// covered - [from, to] pairs of whole world minutes, sorted and disjoint, joined where they touch - and a reading walks
+// exactly the parts of its window no span holds: no world minute twice (I's law), none lived lost. The spans are this
+// session's (a new one starts at its first reading); the oldest two join when there are more than eight.
+let _worldWalked = [];
+const WORLD_WALKED_SPANS = 8;
+/** AUDIT LIVED1b P3: the parts of the world's window [from, to] no walk this session has covered, in order, as [s, e]
+ *  pairs for the world's arms (each walked as the whole window would be - consecutive pieces share their ends, so the
+ *  day block's and the calendar loop's own conventions count a boundary once) - and the window is walked from here. */
+export function worldArmsPieces(from, to) {
+  if (!Number.isFinite(from) || !Number.isFinite(to) || !(to > from)) return [];
+  const pieces = [];
+  let s = from;
+  for (const [a, b] of _worldWalked) {
+    if (a >= to) break;
+    if (b <= s) continue;
+    if (a > s) pieces.push([s, a]);
+    s = Math.max(s, b);
+  }
+  if (s < to) pieces.push([s, to]);
+  let lo = from, hi = to;
+  const spans = [];
+  for (const [a, b] of _worldWalked) {
+    if (b < lo || a > hi) spans.push([a, b]);
+    else { lo = Math.min(lo, a); hi = Math.max(hi, b); }
+  }
+  spans.push([lo, hi]);
+  spans.sort((x, y) => x[0] - y[0]);
+  while (spans.length > WORLD_WALKED_SPANS) spans.splice(0, 2, [spans[0][0], spans[1][1]]);
+  _worldWalked = spans;
+  return pieces;
+}
+/** AUDIT LIVED1b K3 (A4): THE SIX ZONES ARE THE WORLD'S DAY'S, WHATEVER WAS WALKED. Online the day's roll is a function of
+ *  the shared day alone (weatherSim rollsFor), so it is rolled on every midnight the READING crosses - not only on one
+ *  the arms walk: an arrival that corrected the reading back across a midnight re-rolled the day before (world.js
+ *  onlineArrival), and the midnight itself, walked once already, was then held off the arms and the day's sky with it. */
+function rollWorldZonesAcross(from, to) {
+  if (Math.floor(Math.floor(to) / MINUTES_PER_DAY) > Math.floor(Math.floor(from) / MINUTES_PER_DAY)) rollClimateWeathersForDay(Math.floor(to));
+}
+// AUDIT LIVED1b P4 (the first audit's recorded suspect, reproduced by lane P as an exploit): THE ABSENCE IS MEASURED ON
+// THE RELAY'S CLOCK. The boot loads, and paid the absence, before the socket opens - on THIS machine's clock, the relay's
+// offset arriving with its welcome: an OS clock set eleven months fast at each boot paid TM-1's recovery for months that
+// never passed (a legal reputation of -80, then -44, -8 and 0 in three boots) and SURV7's fresh start beside it. The load
+// hands its absence here, and it is paid when the host hears the relay's clock (hearSharedClock) - over [left, the
+// corrected now) - and until then an online save keeps the world's minute the character left at
+// (worldMinutesToSave), so no save written on the machine's clock moves the next absence either.
+let _sharedClockHeard = false;
+let _absenceWaiting = null;   // { left, pay }: a loaded character's absence, waiting for the relay's clock
+export const sharedClockHeard = () => _sharedClockHeard;
+/** AUDIT LIVED1b P4: the load's absence - `pay(nowMinutes)` runs once the relay's clock is heard (at once if it has
+ *  been). Answers whether it was taken. */
+export function payAbsenceWhenHeard(left, pay) {
+  if (!_sharedClock || !Number.isFinite(left) || typeof pay !== 'function') return false;
+  _absenceWaiting = { left: Math.floor(left), pay };
+  if (_sharedClockHeard) settleAbsence();
+  return true;
+}
+function settleAbsence() {
+  const waiting = _absenceWaiting;
+  _absenceWaiting = null;
+  if (waiting) waiting.pay(worldMinutes());
+}
+/** AUDIT LIVED1b P4: the host has heard the relay's clock (its offset is in the source) - the waiting absence is paid on
+ *  it. Answers whether a shared clock stands to hear. */
+export function hearSharedClock() {
+  if (!_sharedClock) return false;
+  _sharedClockHeard = true;
+  settleAbsence();
+  return true;
+}
+/** AUDIT LIVED1b P4: the world's minute an online save stamps - the one the character left at while their absence
+ *  waits for the relay's clock, the world's now once it is paid. */
+export const worldMinutesToSave = () => (_absenceWaiting ? _absenceWaiting.left : Math.floor(worldMinutes()));
 // AUDIT LIVED1 J (K6): a tick in flight - the exhaustion collapse's RaiseTime can fire from INSIDE one (a poison
 // draining fatigue within a round), and online the ticker's advance then ran a nested tick whose hour of rounds landed
 // before the outer window's own: a disease day rolled in the nested hour was given back by the outer round
@@ -1095,7 +1172,9 @@ export function setSharedClock(source, wallOf = null) {
   _sharedClock = typeof source === 'function' ? source : null;
   _sharedWall = _sharedClock && typeof wallOf === 'function' ? wallOf : null;
   _sharedLastTick = null;
-  _worldArmsTo = null;   // AUDIT LIVED1 I: a new session's world arms start at its first reading
+  _worldWalked = [];   // AUDIT LIVED1 I, LIVED1b P3: a new session's world arms start at its first reading
+  _sharedClockHeard = false;   // AUDIT LIVED1b P4: and it has not heard the relay's clock yet
+  _absenceWaiting = null;
   _ownMinutes = null;   // LIVED1: a clock installed or removed is a new session - the character's own time comes from its load
   // ECON1: the world's prices stand with the world's clock - every consumer of regionPriceAdjustment reads today's
   // world index while the clock stands, and the player's own again when it goes
@@ -1131,9 +1210,14 @@ export function setOwnMinutes(v) {
 export function advanceOwnMinutes(delta) {
   const d = Number(delta) || 0;
   if (!_sharedClock) return setWorldMinutes(_worldMinutes + d);
+  if (!Number.isFinite(d)) return ownMinutes();   // AUDIT LIVED1b F3: an Infinity would set a clock the calendar loop never ends on
   _ownMinutes = ownMinutes() + d;
   return _ownMinutes;
 }
+/** AUDIT LIVED1b S1: whether a raise waits for its walk online - the character's clock a whole minute past the minute
+ *  the tick last walked (`lastGameMinutes`, which every tick brings to its floor). Offline, never: the host saves on
+ *  its own and a raise is walked by the frame it is walked by, as before. */
+export const ownWalkWaiting = (entity) => !!_sharedClock && Number.isFinite(entity?.lastGameMinutes) && Math.floor(ownMinutes()) > entity.lastGameMinutes;
 
 // OL3 (Mac, 2026-09-14): THE CLOCK DOES NOT PUNISH ABSENCE - the price is
 // said in real time. Under the shared clock every world-time deadline (a
@@ -1149,17 +1233,9 @@ export function advanceOwnMinutes(delta) {
 let _sharedWall = null;
 /** This machine's wall-clock ms for a classic minute under the shared clock, else null. */
 export const sharedWallMs = (classicMinutes) => (_sharedWall && Number.isFinite(classicMinutes) ? _sharedWall(classicMinutes) : null);
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-/** "Tue 15 Sep 18:00" on this machine's clock, in the game font's own ASCII (no locale, no glyph the font lacks). */
-export function realTimeText(ms) {
-  const d = new Date(ms);
-  if (!Number.isFinite(d.getTime())) return null;
-  const two = (n) => String(n).padStart(2, '0');
-  return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${two(d.getHours())}:${two(d.getMinutes())}`;
-}
-/** The real time a classic minute falls at, as words, under the shared clock; null offline. */
-export const sharedRealTimeText = (classicMinutes) => { const ms = sharedWallMs(classicMinutes); return ms == null ? null : realTimeText(ms); };
+// [AUDIT LIVED1b U6: OL3's `realTimeText` and `sharedRealTimeText` - a classic minute as this machine's wall-clock words
+// - went with their last reader (LIVED1 moved the room's and the loan's words to the character's clock); the gates
+// and the raids read `sharedWallMs` itself.]
 /** LIVED1: THE SUN IS EVERYONE'S. A single player waits out the day with a rest; online a rest moves their own clock
  *  and not the sky, so a refusal that waits on the night (the vampire's CheckFastTravel, a sun-damaged career's box)
  *  says when the world's night falls, in real minutes at the wire's one rate. Null offline, or when it is night. */
@@ -1184,7 +1260,9 @@ export function ownTimeLeftText(untilMinutes) {
   const days = Math.floor(left / MINUTES_PER_DAY), hours = Math.floor((left % MINUTES_PER_DAY) / 60);
   const own = days > 0 ? n(days, 'day') + (hours > 0 ? ` ${n(hours, 'hour')}` : '') : hours > 0 ? n(hours, 'hour') : n(left % 60, 'minute');
   const playMinutes = Math.ceil(left / ONLINE_MINUTES_PER_MS / 60000);
-  const play = playMinutes >= 2880 ? `${Math.round(playMinutes / 60)} hours`
+  // AUDIT LIVED1b U5: "the most it can take" is never rounded DOWN - from two days of play the hours went to the
+  // nearest, and "(48 hours of play)" stood for up to 48h 29m
+  const play = playMinutes >= 2880 ? `${Math.ceil(playMinutes / 60)} hours`
     : playMinutes >= 60 ? `${Math.floor(playMinutes / 60)}h${playMinutes % 60 ? ` ${playMinutes % 60}m` : ''}` : `${playMinutes}m`;
   return `${own} of your time (${play} of play)`;
 }
@@ -1267,6 +1345,7 @@ export function alignEntityClocks(entity, nowMinutes, { worldLeft = null } = {})
  *  next rank check - a cost an absence never had. [AUDIT LIVED1 K: the minutes spent DEAD pay neither half - the
  *  drift is the character's own and their clock stands under the death screen (skipDeadMinutes walks the world's
  *  arms alone); a lived minute pays both, on the character's clock, as the tick walks it.] */
+export const NORMALIZE_ACROSS_MAX = 200;
 export function normalizeAcross(entity, from, to) {
   if (!entity || !Number.isFinite(from) || !Number.isFinite(to)) return 0;
   const a = Math.floor(from), b = Math.floor(to);
@@ -1274,7 +1353,9 @@ export function normalizeAcross(entity, from, to) {
   // multiples of the interval in [a, b): the same minute VALUES the loop above tests (DFU's `(i + last) % N == 0`)
   const n = Math.floor((b - 1) / NORMALIZE_INTERVAL_MINUTES) - Math.floor((a - 1) / NORMALIZE_INTERVAL_MINUTES);
   if (n <= 0 || entity.preventNormalizingReputations) return 0;
-  for (let k = 0; k < n; k++) normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });
+  // AUDIT LIVED1b F3: at most NORMALIZE_ACROSS_MAX walks - a tampered save's -1e308 asked for ~1e300 and the load never
+  // returned; a reputation is clamped to +-100 and each walk moves it one point, so no more can change anything
+  for (let k = 0; k < Math.min(n, NORMALIZE_ACROSS_MAX); k++) normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });
   return n;
 }
 
@@ -1299,15 +1380,16 @@ export function normalizeAcross(entity, from, to) {
 export function skipDeadMinutes(entity, nowMinutes, { rolls = Math.random, say = () => {} } = {}) {
   if (!entity || !Number.isFinite(nowMinutes)) return false;
   const now = Math.floor(nowMinutes);
-  // AUDIT LIVED1 I: from the last reading, and never below the world's high-water mark
-  const last = _sharedClock && Number.isFinite(_sharedLastTick) ? Math.max(Math.floor(_sharedLastTick), _worldArmsTo ?? -Infinity) : now;
+  // AUDIT LIVED1 I: from the last reading, walking no world minute twice - AUDIT LIVED1b P3: over what no walk covered
+  const from = _sharedClock && Number.isFinite(_sharedLastTick) ? Math.floor(_sharedLastTick) : null;
+  const pieces = from === null ? [] : worldArmsPieces(from, now);
   if (_sharedClock) _sharedLastTick = nowMinutes;
   entity.preventEnemySpawns = true;   // AUDIT DISC28 TM-2: every host's encounter loop reads it and lowers it - raised on every rise
-  if (now > last) {
-    runDayChange({ entity, lastMinutes: last, nowMinutes: now, rolls, say, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: the day block first, as Update orders it
-    runCalendarArms(entity, last, now, { rolls, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms
-    if (_sharedClock) _worldArmsTo = Math.max(_worldArmsTo ?? -Infinity, now);   // AUDIT LIVED1 I
+  for (const [s, e] of pieces) {
+    runDayChange({ entity, lastMinutes: s, nowMinutes: e, rolls, say, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: the day block first, as Update orders it
+    runCalendarArms(entity, s, e, { rolls, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms
   }
+  if (from !== null) rollWorldZonesAcross(from, now);   // AUDIT LIVED1b K3
   return true;
 }
 
@@ -1316,7 +1398,9 @@ export function skipDeadMinutes(entity, nowMinutes, { rolls = Math.random, say =
  *  this a restored save would fire the cap's worth of rounds on its first
  *  frame against effects that already expired in the saved game. */
 export function resetMagicRoundMarker(v = null) {
-  _lastMagicRoundMinute = v === null ? null : Math.floor(v);
+  // AUDIT LIVED1b F3: a marker that is no number is none - a tampered save's "abc" left NaN here, and `here < NaN`
+  // never re-anchors, so no magic round ran again that session
+  _lastMagicRoundMinute = v === null || !Number.isFinite(Number(v)) ? null : Math.floor(Number(v));
   // AUDIT 63 F13: a load is a fresh broker, and nothing in DFU
   // serialises SyntheticTimeIncrease - a flag raised in the session
   // being replaced must not shield the restored one's first window.

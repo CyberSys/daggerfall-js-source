@@ -49,7 +49,7 @@
   {
     "name": "AUDITDISC28-TM3-the-rise-walks-no-day-block",
     "file": "src/systems/worldTick.js",
-    "old": "    runDayChange({ entity, lastMinutes: last, nowMinutes: now, rolls, say, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: the day block first, as Update orders it\n",
+    "old": "    runDayChange({ entity, lastMinutes: s, nowMinutes: e, rolls, say, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: the day block first, as Update orders it\n",
     "new": "",
     "tests": [
       "test/auditdisc28_time.test.js"
@@ -58,8 +58,8 @@
   {
     "name": "AUDITDISC28-TM3-the-arms-before-the-day-block",
     "file": "src/systems/worldTick.js",
-    "old": "    runDayChange({ entity, lastMinutes: last, nowMinutes: now, rolls, say, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: the day block first, as Update orders it\n    runCalendarArms(entity, last, now, { rolls, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms",
-    "new": "    runCalendarArms(entity, last, now, { rolls, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms\n    runDayChange({ entity, lastMinutes: last, nowMinutes: now, rolls, say, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: the day block first, as Update orders it",
+    "old": "    runDayChange({ entity, lastMinutes: s, nowMinutes: e, rolls, say, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: the day block first, as Update orders it\n    runCalendarArms(entity, s, e, { rolls, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms",
+    "new": "    runCalendarArms(entity, s, e, { rolls, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms\n    runDayChange({ entity, lastMinutes: s, nowMinutes: e, rolls, say, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: the day block first, as Update orders it",
     "tests": [
       "test/auditdisc28_time.test.js"
     ]

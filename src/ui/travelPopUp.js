@@ -138,7 +138,12 @@ export const LABEL_POS = Object.freeze({ gold: [148, 97], cost: [117, 107], time
 export const COUNTDOWN_TICK = 0.05;
 /** OL2: the line under the panel while the world's clock stands. LIVED1: the journey's days are the traveller's own
  *  time (worldTick.js ownMinutes) - they pass for the body and its contracts, and the world is where it was. */
-export const ONLINE_TRAVEL_LINE = 'Online: the days pass on your own clock. You arrive in the world\'s present.';
+/** AUDIT LIVED1b U1: ...in TWO rows on the classic panel, one sentence each - whole, the line measured about 348 native
+ *  px against a 320-px screen, and its first letters ("Onli") were off the canvas at 16:10 and 5:4 (centring measures
+ *  a space a pixel wider than it draws, so the whole loss fell at the left). The enhanced skin says the line whole. */
+export const ONLINE_TRAVEL_ROWS = Object.freeze(['Online: the days pass on your own clock.', 'You arrive in the world\'s present.']);
+export const ONLINE_TRAVEL_LINE = ONLINE_TRAVEL_ROWS.join(' ');
+const ONLINE_TRAVEL_ROW_H = 9;
 /** notEnoughGoldTextId (:396) and the diseased warning's record (:422). */
 export const NOT_ENOUGH_GOLD_TEXT_ID = 454;
 export const DISEASED_WARNING_TEXT_ID = 1010;
@@ -699,7 +704,7 @@ export class TravelPopUpWindow {
     // a real ride now (scenes/world.js beginAcceleratedTravel), so over
     // that one the sentence is simply false - the branch above has
     // already said the mod's own words and an hours:minutes estimate.
-    if (this.noWorldTime() && !this.walkedTrip) shadowText(renderer, font, ONLINE_TRAVEL_LINE, m, 0, POPUP_RECTS.native[1] + POPUP_RECTS.native[3] + 4, { align: 'center', w: NATIVE_W });
+    if (this.noWorldTime() && !this.walkedTrip) ONLINE_TRAVEL_ROWS.forEach((row, i) => shadowText(renderer, font, row, m, 0, POPUP_RECTS.native[1] + POPUP_RECTS.native[3] + 4 + i * ONLINE_TRAVEL_ROW_H, { align: 'center', w: NATIVE_W }));   // AUDIT LIVED1b U1
     if (!_art) {
       // art-less fallback: the option rows the classic art labels
       const rows = [

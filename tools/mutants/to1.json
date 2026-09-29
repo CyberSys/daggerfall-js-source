@@ -1153,8 +1153,8 @@
   {
     "name": "to-online-the-teleport-line-sits-over-a-walked-ride",
     "file": "src/ui/travelPopUp.js",
-    "old": "    if (this.noWorldTime() && !this.walkedTrip) shadowText(renderer, font, ONLINE_TRAVEL_LINE,",
-    "new": "    if (this.noWorldTime()) shadowText(renderer, font, ONLINE_TRAVEL_LINE,",
+    "old": "    if (this.noWorldTime() && !this.walkedTrip) ONLINE_TRAVEL_ROWS.forEach(",
+    "new": "    if (this.noWorldTime()) ONLINE_TRAVEL_ROWS.forEach(",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]

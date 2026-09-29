@@ -207,7 +207,10 @@ export function dungeonSightLine(metres, direction, elite = false) {
 //
 // THE CLOCK IS THE GAME'S. Everything here is in the same classic
 // minutes `playerTicker.classicMinutes` counts, so resting through a
-// week expires what a week of walking would.
+// week expires what a week of walking would. [AUDIT LIVED1b R: offline.
+// Online those minutes are the WORLD's (the ticker's classicMinutes is
+// worldMinutes), which a rest does not move - the ledger ages with the
+// world alone, as every player sees it.]
 
 /** Emptied, and left alone this long: gone. */
 export const CLEARED_TTL_DAYS = 2;

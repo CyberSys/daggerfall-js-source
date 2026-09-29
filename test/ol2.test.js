@@ -107,7 +107,7 @@ test('OL2 (6) + TRAVEL-FARE + LIVED1: online the trip\'s days are the traveller\
   // that branch carries the mod's own words and an hours:minutes estimate.
   // What OL2 (6) pins is unchanged: the line still says why, wherever the
   // trip really is DFU's.
-  assert.match(src, /if \(this\.noWorldTime\(\) && !this\.walkedTrip\) shadowText\(renderer, font, ONLINE_TRAVEL_LINE, m, 0, POPUP_RECTS\.native\[1\] \+ POPUP_RECTS\.native\[3\] \+ 4, \{ align: 'center', w: NATIVE_W \}\);/);
+  assert.match(src, /if \(this\.noWorldTime\(\) && !this\.walkedTrip\) ONLINE_TRAVEL_ROWS\.forEach\(\(row, i\) => shadowText\(renderer, font, row, m, 0, POPUP_RECTS\.native\[1\] \+ POPUP_RECTS\.native\[3\] \+ 4 \+ i \* ONLINE_TRAVEL_ROW_H, \{ align: 'center', w: NATIVE_W \}\)\);/);   // AUDIT LIVED1b U1: two rows
   // TRAVEL-FARE: the clause is GONE, and its absence is the law now -
   // the toggle reaches the formula unconditioned, online or not.
   assert.match(src, /sleepModeInn: this\.sleepModeInn,   \/\/ TRAVEL-FARE: billed online too/);

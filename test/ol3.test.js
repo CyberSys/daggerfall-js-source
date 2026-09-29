@@ -24,7 +24,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sharedClassicMinutes, wallMsForClassicMinutes, ONLINE_EPOCH_MS, PIXEL_UNITS, RELAY_VERSION } from '../src/net/wire.js';
-import { setSharedClock, sharedWallMs, realTimeText, sharedRealTimeText, sharedClockOn, ownTimeLeftText, setOwnMinutes } from '../src/systems/worldTick.js';
+import { setSharedClock, sharedWallMs, sharedClockOn, ownTimeLeftText, setOwnMinutes } from '../src/systems/worldTick.js';
 import { TavernWindow, OWN_TIME_ROOM, OWN_TIME_ROOM_NOTE, TAVERN_RECTS, TAVERN_PANEL_X, TAVERN_PANEL_Y } from '../src/ui/tavernWindow.js';
 import { OFFER_PRICE_ID } from '../src/systems/tavern.js';
 import { MINUTES_PER_DAY } from '../src/systems/gameDate.js';
@@ -36,18 +36,15 @@ import { fakeSocketClass } from './fakeSocket.mjs';
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const quiet = (fn) => { const info = console.info, warn = console.warn; console.info = () => {}; console.warn = () => {}; try { return fn(); } finally { console.info = info; console.warn = warn; } };
 
-test('OL3 (1): the shared clock has an inverse at the wire, and the ticker carries it beside the source - a classic minute reads as this machine\'s wall-clock time, in the font\'s own ASCII, and offline as nothing', () => {
+test('OL3 (1): the shared clock has an inverse at the wire, and the ticker carries it beside the source - a classic minute reads as this machine\'s wall-clock ms, and offline as nothing [AUDIT LIVED1b U6: the words over it, realTimeText and sharedRealTimeText, went with their last reader]', () => {
   for (const ms of [ONLINE_EPOCH_MS, ONLINE_EPOCH_MS + 123456789, ONLINE_EPOCH_MS - 5000]) assert.ok(Math.abs(wallMsForClassicMinutes(sharedClassicMinutes(ms)) - ms) < 1e-3, 'the inverse round-trips');
   const local = new Date(2026, 8, 15, 18, 5).getTime();   // Tue 15 Sep 2026, 18:05, whatever this machine\'s zone
-  assert.equal(realTimeText(local), 'Tue 15 Sep 18:05');
-  assert.equal(realTimeText(NaN), null);
   assert.equal(sharedWallMs(1000), null, 'offline: no wall clock');
-  assert.equal(sharedRealTimeText(1000), null);
   try {
     setSharedClock(() => 5000, (m) => local + (m - 5000) * 5000);   // five real seconds a minute, anchored so minute 5000 is 18:05
     assert.equal(sharedClockOn(), true);
     assert.equal(sharedWallMs(5000), local);
-    assert.equal(sharedRealTimeText(5012), 'Tue 15 Sep 18:06', 'twelve minutes of the world are one real minute');
+    assert.equal(sharedWallMs(5012), local + 60000, 'twelve minutes of the world are one real minute');
     assert.equal(sharedWallMs(NaN), null);
   } finally { setSharedClock(null); }
   assert.equal(sharedWallMs(5000), null, 'uninstalled with the clock');
@@ -78,7 +75,7 @@ test('OL3 (1) + LIVED1: the tavern\'s offer says how long the room is theirs in 
   // AUDIT LIVED1 N (U2): two rows, split at the play's bracket - the classic box lays its rows out unwrapped
   assert.equal(offer.rows.length, 3);
   assert.deepEqual(offer.rows.slice(1).map((r) => r.text), [`${OWN_TIME_ROOM} 3 days of your time`, `(6h of play)${OWN_TIME_ROOM_NOTE}`]);
-  assert.deepEqual(offer.rows.slice(1).map((r) => r.text), ['The room is yours for 3 days of your time', '(6h of play) - resting spends it, time away does not.']);
+  assert.deepEqual(offer.rows.slice(1).map((r) => r.text), ['The room is yours for 3 days of your time', '(6h of play) - a rest spends it, logging off does not.']);
   assert.equal(offer.rows[1].center, true);
   assert.equal(offer.rows[2].center, true);
   assert.deepEqual(asked, [now + 3 * MINUTES_PER_DAY], 'a fresh rental ends three days from now');
@@ -89,7 +86,7 @@ test('OL3 (1) + LIVED1: the tavern\'s offer says how long the room is theirs in 
   const off = mk(null);
   assert.equal(offerFor(off, 3).rows.length, 1, 'offline: the offer it always was');
   assert.match(rd('src/scenes/worldModes.js'), /ownTimeOf: \(m\) => ownTimeLeftText\(m\),/, 'the host\'s word');
-  assert.match(rd('src/scenes/worldModes.js'), /dueDateText: \(minutes, \{ short = false \} = \{\}\) => \{\s*if \(!\(minutes > 0\)\) return '';\s*const left = ownTimeLeftShort\(minutes\);\s*if \(left === 'now'\) return 'due now';\s*const own = short \? \(left && `\$\{left\} of your time`\) : ownTimeLeftText\(minutes\);\s*return own \? `in \$\{own\}` : dateString\(dateFromClassicMinutes\(minutes\)\);/, 'the bank\'s due-by says the time left in the character\'s own time online (short on the classic parchment, "due now" once due: AUDIT LIVED1 P/L), and is the date alone offline');
+  assert.match(rd('src/scenes/worldModes.js'), /dueDateText: \(minutes, \{ short = false \} = \{\}\) => \{\s*if \(!\(minutes > 0\)\) return '';\s*const left = ownTimeLeftShort\(minutes\);\s*if \(left === 'now'\) return short \? 'now' : 'due now';[^\n]*\n\s*const own = short \? \(left && `\$\{left\} of your time`\) : ownTimeLeftText\(minutes\);\s*return own \? `in \$\{own\}` : dateString\(dateFromClassicMinutes\(minutes\)\);/, 'the bank\'s due-by says the time left in the character\'s own time online (short on the classic parchment, "due now" once due: AUDIT LIVED1 P/L), and is the date alone offline');
   // the words themselves: the character's clock and the most play it can take (the wire's one rate)
   try {
     setSharedClock(() => 900000);

@@ -182,8 +182,8 @@
   {
     "name": "DISC28-F-the-death-walks-the-characters-drift",
     "file": "src/systems/worldTick.js",
-    "old": "    runCalendarArms(entity, last, now, { rolls, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms",
-    "new": "    runCalendarArms(entity, last, now, { rolls, arms: DAY_ARMS.all });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms",
+    "old": "    runCalendarArms(entity, s, e, { rolls, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms",
+    "new": "    runCalendarArms(entity, s, e, { rolls, arms: DAY_ARMS.all });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms",
     "tests": [
       "test/disc28_fatigue.test.js",
       "test/auditdisc28_time.test.js"

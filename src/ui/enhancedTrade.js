@@ -64,7 +64,7 @@ import { lockRefuses, lockedText } from '../systems/itemLock.js';   // LOCK1: a 
 import { isBound, boundText } from '../systems/itemBound.js';   // SS4: nor a bound one - a Sigil Stone, the Broker's wares
 import { getBool } from '../systems/settings.js';   // UXB1-K: InstantRepairs - no clock to count down
 import { dateFromClassicMinutes, dateString } from '../systems/gameDate.js';
-import { ownTimeLeftText } from '../systems/worldTick.js';   // UXB1-K: online, the ready time in the player's own terms (LIVED1: their own clock)
+import { ownTimeLeftText, ownTimeLeftShort } from '../systems/worldTick.js';   // UXB1-K: online, the ready time in the player's own terms (LIVED1: their own clock)
 import { shopliftAttempt } from '../systems/theft.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';
 import { CANNOT_REMOVE_ITEM_TEXT } from '../systems/createItem.js';
@@ -676,7 +676,16 @@ function repairEstimatesNow() {
 function repairWhen(item, now) {
   if (!repairEst) return null;
   const c = repairCountdown(item, now, repairEst.get(item) ?? null);
-  return c ? { ...c, text: repairCountdownText(c) } : null;
+  return c ? { ...c, text: repairRowText(c) } : null;
+}
+/** AUDIT LIVED1b U2: the row's words beside the detail line's - online both count the job down on the character's
+ *  clock in whole units FLOORED (ownTimeLeftShort, the long form's leading unit), where the row ceiled as DFU's
+ *  daysUntil does: "Ready in 2 days" stood over "Ready in 1 day of your time" for the same job. Offline the row is
+ *  UXB1-K's, DFU's unit and ceiling. */
+export function repairRowText(c) {
+  const own = !c.done ? ownTimeLeftShort(c.doneAt) : null;
+  if (!own || own === 'now') return repairCountdownText(c);
+  return c.estimate ? `About ${own}` : `Ready in ${own}`;
 }
 const pad2 = (n) => String(n).padStart(2, '0');
 /** The detail strip's line: the hour and the day it is ready. LIVED1: online the job runs on the character's own

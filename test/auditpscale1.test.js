@@ -261,6 +261,7 @@ function stands(over = {}) {
     playerEntity: { isResting: false, level: 1 }, _musicInLocationRect: () => false, maps: { getClimateIndex: () => 0 }, playerTravelPixel: () => ({ x: 0, y: 0 }),
     SOLITARY_TYPES, partyExtraFoes, partySize: () => 1, _standEncounterFoe: (hit) => out.push(hit.mobileType), playerFeet: [0, 0, 0],
     sharedClockOn: () => false, worldMinutes: () => 0,   // LIVED1: the spawn roll's sky (the world's clock online)
+    spawns: true,   // AUDIT LIVED1b P1: the loop's own parameter - a solo tick asks for its wanderers
     ...over,
   }, '}');
   return out;

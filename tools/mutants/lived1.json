@@ -2,8 +2,8 @@
   {
     "name": "LIVED1-the-rest-is-not-the-characters",
     "file": "src/scenes/shared.js",
-    "old": "      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } return this.tick(0, undefined, 0, minutes); }",
-    "new": "      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } return this.tick(0, undefined, 0); }",
+    "old": "if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); _raiseWaiting = true; return null; } return this.tick(0, undefined, 0, minutes); }",
+    "new": "if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); _raiseWaiting = true; return null; } return this.tick(0, undefined, 0); }",
     "tests": [
       "test/lived1.test.js"
     ]
@@ -139,7 +139,7 @@
   {
     "name": "LIVED1-the-save-forgets-the-worlds-minute",
     "file": "src/systems/save.js",
-    "old": "  if (sharedClockOn()) snap.worldMinutes = Math.floor(worldMinutes());\n",
+    "old": "  if (sharedClockOn()) snap.worldMinutes = worldMinutesToSave();\n",
     "new": "",
     "tests": [
       "test/lived1.test.js"
@@ -148,8 +148,8 @@
   {
     "name": "LIVED1-the-absence-is-measured-on-the-characters-clock",
     "file": "src/systems/save.js",
-    "old": "    const left = Number.isFinite(snap.worldMinutes) ? Math.floor(snap.worldMinutes) : own;",
-    "new": "    const left = own;",
+    "old": "const left = snap.joinFresh ? null : Number.isFinite(snap.worldMinutes) ? Math.floor(snap.worldMinutes) : own;",
+    "new": "const left = snap.joinFresh ? null : own;",
     "tests": [
       "test/lived1.test.js"
     ]
@@ -157,8 +157,8 @@
   {
     "name": "LIVED1-the-load-reads-the-needs-on-the-worlds-clock",
     "file": "src/systems/save.js",
-    "old": "    alignSurvival(entity, own, at - left > ALIGN_GRACE_MINUTES ? null : own);",
-    "new": "    alignSurvival(entity, at, at - left > ALIGN_GRACE_MINUTES ? null : at);",
+    "old": "    alignSurvival(entity, own, own);",
+    "new": "    alignSurvival(entity, Math.floor(at), Math.floor(at));",
     "tests": [
       "test/lived1.test.js"
     ]

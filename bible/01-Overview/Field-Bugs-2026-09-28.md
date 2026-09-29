@@ -332,6 +332,8 @@ killer a fix touched re-run.
   check), a cost an absence never had. An absence now pays the recovery half alone (court.js `recoveryOnly`, the
   port's online time model): a reputation below zero drifts back, a standing above zero is kept. The dead span is not
   an absence - the player is on the death screen while the world runs - and pays both halves. Port-Ledger A.
+  [LIVED1: the dead span pays neither half - the drift is the character's own, on a clock that stood under the
+  screen. Stamped by AUDIT LIVED1b T14.]
 - **TM-2**: a party mate's Resurrect, the Privateer's Hold rise and the Burning Court's cast-out rolled every dead
   minute's encounters and the 5%-a-minute Criminal Conspiracy on the first frame up (a guard call at the rise in 46% of
   rises after twelve dead game minutes at -15): the encounter loop's marker is the host's, and only the respawn's own

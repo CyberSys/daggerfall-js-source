@@ -689,8 +689,8 @@
   {
     "name": "SURVTIERS-the-mirror-overrides-a-vital",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },",
-    "new": "    enemiesNearby: () => false,\n    fullyHealed: () => false,\n    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    fullyHealed: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]
@@ -923,8 +923,8 @@
   {
     "name": "SURVTIERS-the-mirror-overrides-dead",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },",
-    "new": "    enemiesNearby: () => false,\n    dead: () => false,\n    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    dead: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]
@@ -932,8 +932,8 @@
   {
     "name": "SURVTIERS-the-mirror-overrides-vitals",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },",
-    "new": "    enemiesNearby: () => false,\n    vitals: () => null,\n    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    vitals: () => null,\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]

@@ -277,7 +277,7 @@ export function mountEnhancedRest(hostEl, deps, ignoreAllocatedBed = false) {
     c.append(vitalsLine);
     // AUDIT LIVED1 O (U3): the world's time and whose clock the rest spends, as the classic window's resting page says it
     // (restWindow.js restClockLine) - this card is the default skin's every rest and every party mirror, and it said none
-    const clockLine = el('p', 'vitals-line');
+    const clockLine = el('p', 'clock-line');   // AUDIT LIVED1b U7: its own dress - the vitals' flex row and word spacing wrapped "clock" onto a row of its own, flush against the readouts
     c.append(clockLine);
     const acts = el('div', 'acts');
     const stop = el('button', 'act', 'Stop');

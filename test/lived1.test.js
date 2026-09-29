@@ -20,6 +20,7 @@ import { createPlayerTicker } from '../src/scenes/shared.js';
 import {
   setSharedClock, setWorldMinutes, worldMinutes, ownMinutes, setOwnMinutes, advanceOwnMinutes, sharedClockOn,
   alignEntityClocks, skipDeadMinutes, resetMagicRoundMarker, ownTimeLeftText, worldNightfallText, MINUTES_PER_DAY,
+  hearSharedClock,
 } from '../src/systems/worldTick.js';
 import { createInfection, INFECTION } from '../src/systems/infection.js';
 import { startDisease, DISEASES } from '../src/systems/diseases.js';
@@ -175,6 +176,8 @@ test('LIVED1 (seam 2): a load straight after an online rest keeps the needs - th
   setSharedClock(() => world + 2 * D);
   const rested = player();
   restorePlayer(rested, later);
+  assert.equal(rested.survival.thirst, 40, 'AUDIT LIVED1b P4: the break is measured on the relay\'s clock, once it is heard');
+  hearSharedClock();
   assert.equal(rested.survival.thirst, 0, 'two world days away: fresh');
 });
 
@@ -209,6 +212,8 @@ test('LIVED1: arrival and death move NOTHING of the character\'s - the clock tha
   restorePlayer(back, snap);
   assert.equal(ownMinutes(), own, 'their clock is where they left it');
   assert.equal(back.rentedRooms[0].expiryMinutes, own + 600, 'the room keeps its ten hours');
+  assert.equal(back.legalRep[0], -15, 'AUDIT LIVED1b P4: the absence waits for the relay\'s clock');
+  hearSharedClock();
   assert.equal(back.legalRep[0], -12, 'the absence\'s one arm, measured on the WORLD\'s minutes: three of its boundaries, three points back');
   // death: the corpse lies an hour under the screen; the rise moves nothing of theirs
   const { e, t } = lane(true, { own: 5000, world: 9000 });
@@ -266,10 +271,14 @@ test('LIVED1: the tavern\'s calendar is the WORLD\'s - a Heart\'s Day room is fr
 
 test('LIVED1 by source: every RaiseTime online is the character\'s - the ticker\'s advance, the journey, the sentence, the cures, a quest\'s RaiseTime and the turn\'s fortnight - and the sky reads stay the world\'s', () => {
   const shared = rd('src/scenes/shared.js'), w = rd('src/scenes/world.js'), arrest = rd('src/scenes/arrestFlow.js'), tick = rd('src/systems/worldTick.js');
-  assert.match(shared, /advance\(minutes\) \{\s*if \(!\(minutes > 0\)\) return null;\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) \{ if \(tickInFlight\(\)\) \{ advanceOwnMinutes\(minutes\); return null; \} return this\.tick\(0, undefined, 0, minutes\); \}/, 'the ticker\'s advance: the same tick, on the character\'s clock (AUDIT LIVED1 J: a bare move from inside a tick)');
+  assert.match(shared, /advance\(minutes\) \{\s*if \(!\(minutes > 0\)\) return null;\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) \{ if \(tickInFlight\(\)\) \{ advanceOwnMinutes\(minutes\); _raiseWaiting = true; return null; \} return this\.tick\(0, undefined, 0, minutes\); \}/, 'the ticker\'s advance: the same tick, on the character\'s clock (AUDIT LIVED1 J: a bare move from inside a tick - AUDIT LIVED1b K1: walked the moment the window in hand is done)');
   assert.match(shared, /raiseTime: \(seconds\) => \{ setSyntheticTimeIncrease\(true\); return advanceOwnMinutes\(seconds \/ 60\); \}/, 'the vampire\'s fortnight');
   assert.match(w, /setSyntheticTimeIncrease\(true\); playerTicker\.advance\(computed\.minutes\);/, 'the journey, in both lanes');
   assert.match(arrest, /advanceDays = \(days\) => advanceOwnMinutes\(days \* MINUTES_PER_DAY\),/, 'the sentence');
+  // AUDIT LIVED1b T5: the cures and a quest's RaiseTime, which this title named and the body did not assert
+  assert.match(w, /cureVampirism\(playerEntity, \{ advanceMinutes: \(m\) => advanceOwnMinutes\(m\) \}\)/, 'the vampirism cure\'s minute');
+  assert.match(w, /cureLycanthropy\(playerEntity, \{\n\s*nowMinutes: Math\.floor\(ownMinutes\(\)\),\n\s*advanceMinutes: \(m\) => advanceOwnMinutes\(m\),/, 'the lycanthropy cure\'s stamp and minute');
+  assert.match(w, /raiseTime: \(seconds\) => advanceOwnMinutes\(seconds \/ 60\),/, 'a quest\'s RaiseTime');
   // the tick's two windows: the broker, the loop and the needs on the character's; the sky on the world's
   assert.match(tick, /_ownMinutes = classicMinutes \+ \(worldTo - worldFrom\) \+ \(raiseMinutes > 0 \? raiseMinutes : 0\);/);
   assert.match(tick, /const magicRoundWindow = claimMagicRounds\(classicMinutes, next\);/);

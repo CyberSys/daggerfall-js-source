@@ -432,7 +432,7 @@
   {
     "name": "SURVTIERS3-the-kit-cite-world-seed-rots",
     "file": "src/systems/equip.js",
-    "old": "(world.js:4471, exterior.js:1289)",
+    "old": "(world.js:4479, exterior.js:1289)",
     "new": "(world.js:2460, exterior.js:1289)",
     "tests": [
       "test/citedrift.test.js"
@@ -450,7 +450,7 @@
   {
     "name": "SURVTIERS3-the-gear-cite-world-seed-rots",
     "file": "src/systems/startingGear.js",
-    "old": "world.js:4471 and exterior.js:1289 seed it",
+    "old": "world.js:4479 and exterior.js:1289 seed it",
     "new": "world.js:2460 and exterior.js:1289 seed it",
     "tests": [
       "test/citedrift.test.js"
@@ -477,8 +477,8 @@
   {
     "name": "SURVTIERS3-the-mirror-overrides-tickVitals",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },",
-    "new": "    enemiesNearby: () => false,\n    tickVitals: () => {},\n    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    tickVitals: () => {},\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]

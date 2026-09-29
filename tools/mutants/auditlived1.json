@@ -111,8 +111,8 @@
   {
     "name": "AUDITLIVED1-E-the-distance-the-wrong-way",
     "file": "src/systems/offlineCopy.js",
-    "old": "return rebaseWorldStamps(copy, Math.floor(own) - Math.floor(world));",
-    "new": "return rebaseWorldStamps(copy, Math.floor(world) - Math.floor(own));",
+    "old": "return rebaseWorldStamps(copy, Math.floor(own) - Math.floor(world), daysBetween(own, world));",
+    "new": "return rebaseWorldStamps(copy, Math.floor(world) - Math.floor(own), daysBetween(own, world));",
     "tests": [
       "test/auditlived1.test.js"
     ]
@@ -175,53 +175,28 @@
   {
     "name": "AUDITLIVED1-H-the-mirror-leaves-the-marker-at-the-nights-start",
     "file": "src/scenes/world.js",
-    "old": "playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },   // local effects",
-    "new": "playerTicker.advance(n); },   // local effects",
+    "old": "playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true, { spawns: false }); },",
+    "new": "playerTicker.advance(n); },",
     "tests": [
       "test/auditlived1.test.js",
-      "test/partyrest1.test.js"
+      "test/partyrest1.test.js",
+      "test/auditlived1b.test.js"
     ]
   },
   {
     "name": "AUDITLIVED1-I-the-world-arms-start-below-their-mark",
     "file": "src/systems/worldTick.js",
-    "old": "const worldArmsFrom = _sharedClock ? Math.max(Math.floor(worldFrom), _worldArmsTo ?? -Infinity) : null;",
-    "new": "const worldArmsFrom = _sharedClock ? Math.floor(worldFrom) : null;",
+    "old": "const worldPieces = _sharedClock ? worldArmsPieces(Math.floor(worldFrom), Math.floor(worldTo)) : null;",
+    "new": "const worldPieces = _sharedClock ? (worldTo > worldFrom ? [[Math.floor(worldFrom), Math.floor(worldTo)]] : []) : null;",
     "tests": [
-      "test/auditlived1.test.js"
-    ]
-  },
-  {
-    "name": "AUDITLIVED1-I-the-tick-never-raises-the-mark",
-    "file": "src/systems/worldTick.js",
-    "old": "    _worldArmsTo = Math.max(_worldArmsTo ?? -Infinity, Math.floor(worldTo));   // AUDIT LIVED1 I\n",
-    "new": "",
-    "tests": [
-      "test/auditlived1.test.js"
-    ]
-  },
-  {
-    "name": "AUDITLIVED1-I-the-rise-starts-below-the-mark",
-    "file": "src/systems/worldTick.js",
-    "old": "Math.max(Math.floor(_sharedLastTick), _worldArmsTo ?? -Infinity) : now;",
-    "new": "Math.floor(_sharedLastTick) : now;",
-    "tests": [
-      "test/auditlived1.test.js"
-    ]
-  },
-  {
-    "name": "AUDITLIVED1-I-the-rise-never-raises-the-mark",
-    "file": "src/systems/worldTick.js",
-    "old": "    if (_sharedClock) _worldArmsTo = Math.max(_worldArmsTo ?? -Infinity, now);   // AUDIT LIVED1 I\n",
-    "new": "",
-    "tests": [
-      "test/auditlived1.test.js"
+      "test/auditlived1.test.js",
+      "test/auditlived1b.test.js"
     ]
   },
   {
     "name": "AUDITLIVED1-J-a-raise-in-flight-runs-a-nested-tick",
     "file": "src/scenes/shared.js",
-    "old": "if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } ",
+    "old": "if (tickInFlight()) { advanceOwnMinutes(minutes); _raiseWaiting = true; return null; } ",
     "new": "",
     "tests": [
       "test/auditlived1.test.js"
@@ -248,7 +223,7 @@
   {
     "name": "AUDITLIVED1-L-the-bank-says-nothing-is-due",
     "file": "src/scenes/worldModes.js",
-    "old": "        if (left === 'now') return 'due now';\n",
+    "old": "        if (left === 'now') return short ? 'now' : 'due now';   // AUDIT LIVED1b U3: the short form follows the classic parchment's painted \"Loan due by:\" - \"Loan due by: due now\" said it twice\n",
     "new": "",
     "tests": [
       "test/auditlived1.test.js",
@@ -358,7 +333,7 @@
   {
     "name": "AUDITLIVED1-T1-the-world-day-block-over-the-characters-window",
     "file": "src/systems/worldTick.js",
-    "old": "runDayChange({ entity, lastMinutes: worldArmsFrom, nowMinutes: Math.floor(worldTo), rolls, say, arms: DAY_ARMS.world });",
+    "old": "for (const [s, e] of worldPieces) runDayChange({ entity, lastMinutes: s, nowMinutes: e, rolls, say, arms: DAY_ARMS.world });",
     "new": "runDayChange({ entity, lastMinutes, nowMinutes, rolls, say, arms: DAY_ARMS.world });",
     "tests": [
       "test/auditlived1.test.js"
@@ -367,10 +342,11 @@
   {
     "name": "AUDITLIVED1-T2-the-rise-walks-nothing",
     "file": "src/systems/worldTick.js",
-    "old": "const last = _sharedClock && Number.isFinite(_sharedLastTick) ? Math.max(Math.floor(_sharedLastTick), _worldArmsTo ?? -Infinity) : now;",
-    "new": "const last = now;",
+    "old": "const pieces = from === null ? [] : worldArmsPieces(from, now);",
+    "new": "const pieces = [];",
     "tests": [
-      "test/auditlived1.test.js"
+      "test/auditlived1.test.js",
+      "test/auditlived1b.test.js"
     ]
   },
   {

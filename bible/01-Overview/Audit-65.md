@@ -499,7 +499,7 @@ half the lanes' own mutation tallies could not see.
   purpose and is asserted bare: `PlayerMotor.cs:296-306` does not zero
   `moveDirection`, so a write there would be the divergence. The
   finding's headline fatigue-band consequence was FALSE and is not
-  repeated - `worldTick.js:759-760` is climb-first, matching
+  repeated - `worldTick.js:760-761` is climb-first, matching
   `PlayerEntity.cs:406-408`.
 - *Review round:* fixup. The "without the bob" half of the `feetAt`
   pin was vacuous - the fixture minted no bob, so both bob mutants
@@ -673,7 +673,7 @@ cites that were already wrong at the base (the mapper renumbers a wrong
 number onto a differently wrong line), the renderer's `setClearColor`
 self-cite (a bare `:N` inside its own file, which the mapper does not
 spell), and two escaped-regex cites in tests (`dungeon\.js:558`,
-`worldModes\.js:630`), which the mapper cannot see - the CS1 edge AUDIT
+`worldModes\.js:634`), which the mapper cannot see - the CS1 edge AUDIT
 64's integration hit first. The Suite line restamped once; the full
 suite green over the merged tree. Round two (after the reset) took the
 five remaining reviews and the activation lane, merged onto round one's

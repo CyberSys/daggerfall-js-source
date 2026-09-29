@@ -63,7 +63,7 @@ import { collectHearths } from '../systems/survival/hearth.js';   // AUDIT HEART
 import { lanternColor, dungeonAmbient, dungeonTrilight, dungeonFog } from '../render/enhancedLighting.js';   // EL1: the world host installed the lane; this reads it; EL4: the dark; AUDIT-EL F6: the fog with it
 import { INTERIOR_AMBIENT, INTERIOR_NIGHT_AMBIENT, INTERIOR_LIGHT_DIR } from '../world/interiorLights.js';
 import { isNight } from '../world/worldClock.js';   // AUDIT 23 (C12)
-import { worldMinutes, setWorldMinutes, ownMinutes, ownTimeLeftText, ownTimeLeftShort } from '../systems/worldTick.js';   // AUDIT 23 (C12): the one clock; G4's probe moves it; LIVED1: the character's own clock, and its deadlines said in their time
+import { worldMinutes, setWorldMinutes, ownMinutes, ownTimeLeftText, ownTimeLeftShort, sharedClockOn } from '../systems/worldTick.js';   // AUDIT 23 (C12): the one clock; G4's probe moves it; LIVED1: the character's own clock, and its deadlines said in their time; AUDIT LIVED1b K1: the collapse box's guard is online's
 import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';   // AUDIT 23 (C5)
 import { ActionTextBox } from '../ui/actionText.js';   // AUDIT 23 (C5)
 import { registerPresenter } from '../systems/notify.js';   // ENH-NOTICE3: the modal modes' slot, offered to the one door every message goes through
@@ -388,8 +388,11 @@ export function createWorldModes(host) {
    *  offer rung, and the window told the bed is the one clicked (`new DaggerfallRestWindow(uiManager, true)`). */
   let _restFromBed = false;
   const restFromInteriorBed = () => { _restFromBed = true; try { interiorKeyCtx.toggleRest({ ignoreAllocatedBed: true }); } finally { _restFromBed = false; } };
+  // AUDIT LIVED1b K1: DFU's popup guard, online (world.js onExhaustedExterior's twin says why)
+  let _exhaustedBox = null;
+  const exhaustedShowing = () => !!_exhaustedBox && !_exhaustedBox.done && interiorWindows.containsWindow(_exhaustedBox);
   function onExhaustedInterior() {
-    if (_inExhaustion) return;
+    if (_inExhaustion || (sharedClockOn() && exhaustedShowing())) return;
     _inExhaustion = true;
     host.csaOnPlayerDeath?.();   // CSA-J (the audit): PlayerEntity.OnExhausted -> ComeSailAway.OnPlayerDeath, indoors too
     try {
@@ -406,7 +409,8 @@ export function createWorldModes(host) {
       // the inventory, the map and the spellbook alike, and the
       // refusal meant the one message that explains the lost hour (or
       // the drowning) was dropped.
-      mountInterior(new ActionTextBox(out.inWater ? [EXHAUSTED_IN_WATER] : ['You collapse from exhaustion.']));
+      _exhaustedBox = new ActionTextBox(out.inWater ? [EXHAUSTED_IN_WATER] : ['You collapse from exhaustion.']);
+      mountInterior(_exhaustedBox);
       if (out.kind === 'rest') {
         interiorTicker.advance(60);
         playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + out.health);
@@ -490,7 +494,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3801 hands
+   * record these hosts mint spells it `name` (exterior.js:3802 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -2780,10 +2784,12 @@ export function createWorldModes(host) {
   /** The live date the guild rank gate reads (S28). AUDIT 21 F2 made
    *  every ticker a VIEW on one absolute world clock, so this reads
    *  straight through - the epoch is already in it, and S28's
-   *  elapsed-minute bridge is retired. */
+   *  elapsed-minute bridge is retired. [AUDIT LIVED1b R: LIVED1 moved
+   *  the rank gate to ownDate below; this is the WORLD's date - the
+   *  day's stock (stockedToday) and the shelves' day read it.] */
   const gameDate = () => dateFromClassicMinutes(interiorTicker.classicMinutes);
   /** LIVED1: the CHARACTER's date - a guild's rank wait (lastRankChange, the 28-day gate) and a join are theirs, on
-   *  their own clock; the day's stock above stays the world's. Offline the two are one date. */
+   *  their own clock; the day's stock (stockedToday, below) stays the world's. Offline the two are one date. */
   const ownDate = () => dateFromClassicMinutes(interiorTicker.ownMinutes);
 
   /** A2 - DaggerfallLoot.CreateStockedDate over the live date (:68-71).
@@ -3650,7 +3656,7 @@ export function createWorldModes(host) {
       dueDateText: (minutes, { short = false } = {}) => {
         if (!(minutes > 0)) return '';
         const left = ownTimeLeftShort(minutes);
-        if (left === 'now') return 'due now';
+        if (left === 'now') return short ? 'now' : 'due now';   // AUDIT LIVED1b U3: the short form follows the classic parchment's painted "Loan due by:" - "Loan due by: due now" said it twice
         const own = short ? (left && `${left} of your time`) : ownTimeLeftText(minutes);
         return own ? `in ${own}` : dateString(dateFromClassicMinutes(minutes));
       },
@@ -8205,7 +8211,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:12351's own wave-46 note); the interior
+          // a blow (world.js:12365's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9135,7 +9141,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3863`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3864`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -10803,7 +10809,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3441-3463), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:8967). So an F9 pressed in a shop
+     *  unconditionally (world.js:8981). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10842,7 +10848,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:9078)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:9092)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10852,7 +10858,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:7886`
+     *  HARD2c: this used to spell them out, and named `world.js:7900`
      *  and `dungeonContext.js:7413` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

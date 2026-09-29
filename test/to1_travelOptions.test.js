@@ -1851,7 +1851,7 @@ test('TO-ONLINE: an online trip the toggles call WALKED is a ride, and the "you 
   // online trip while the journey stood down and the teleport was the
   // only arrival there was. It is false over a walked one.
   const pop = read('src/ui/travelPopUp.js');
-  assert.match(pop, /if \(this\.noWorldTime\(\) && !this\.walkedTrip\) shadowText\(renderer, font, ONLINE_TRAVEL_LINE,/,
+  assert.match(pop, /if \(this\.noWorldTime\(\) && !this\.walkedTrip\) ONLINE_TRAVEL_ROWS\.forEach\(\(row, i\) => shadowText\(renderer, font, row,/,   // AUDIT LIVED1b U1: the line in two rows
     'the classic popup gates the line off the walked trip');
   // and the enhanced skin bills the same trip, so it says the same thing
   assert.match(read('src/ui/heldMap.js'), /if \(t\?\.online && !t\.walked\) card\.append\(el\('p', 'hmmeta', ONLINE_TRAVEL_LINE\)\);/,

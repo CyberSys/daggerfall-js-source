@@ -880,12 +880,22 @@ export function stockSoulGems({ quality = 0, gameMinutes = 0 } = {}, { soulPoint
 export function dayShelf(store, service, gameMinutes, mint) {
   const today = stockDayIndex(gameMinutes);
   const kept = store?.[service];
-  if (kept && kept.day === today && Array.isArray(kept.items)) return kept;
-  if (store) for (const k of Object.keys(store)) if (store[k]?.day !== today) delete store[k];   // AUDIT GUILD-SHELF A10: a past day's shelf is never shown again - it goes, and the save with it
+  if (shelfStands(kept, today)) return kept;
+  if (store) for (const k of Object.keys(store)) if (store[k]?.day !== today && !shelfStands(store[k], today)) delete store[k];   // AUDIT GUILD-SHELF A10: a past day's shelf is never shown again - it goes, and the save with it
   const shelf = { day: today, items: mint() };
+  _mintedThisSession.add(shelf);
   if (store) store[service] = shelf;
   return shelf;
 }
+/** AUDIT LIVED1b A3 (a sibling of AUDIT LIVED1 I, older than LIVED1): WHAT WAS BOUGHT STAYS GONE THROUGH A STEP BACK.
+ *  Online the day is the world's (the host reads worldMinutes), and the world's reading steps back - the relay's offset
+ *  corrected at a welcome, this machine's clock set back between two - so a step across a midnight minted yesterday's
+ *  shelf over today's bought-out one, and the day's turn a frame later minted today's afresh: five potions, all bought,
+ *  and five on the shelf again. A shelf THIS session minted for a later day stands while the reading is behind it; one
+ *  a save carried (a copy's, dated on another clock) is re-minted as ever, and offline nothing reads differently. */
+const _mintedThisSession = new WeakSet();
+const shelfStands = (kept, today) => !!kept && Array.isArray(kept.items)
+  && (kept.day === today || (isOnlinePage() && kept.day > today && _mintedThisSession.has(kept)));
 
 /**
  * GetMerchantPotions (:273-280). `n = quality; while (n-- >= 0)` is

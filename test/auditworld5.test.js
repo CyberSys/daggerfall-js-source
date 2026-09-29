@@ -81,7 +81,7 @@ test('AUDIT WORLD5 C2: a source that steps BACKWARDS re-anchors the tick\'s read
   assert.match(rd('src/systems/worldTick.js'), /if \(reading < worldFrom\) worldFrom = reading;/, 'the re-anchor');
   const w = rd('src/scenes/world.js');
   // LIVED1: the arrival re-anchors the world's reading and moves nothing of the character's, so a correction needs no shift of its own
-  assert.match(w, /online\.onClock = \(offsetMs\) => \{ const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; (?:_sharedClockHeard = true; )?if \(Math\.abs\(offsetMs - was\) > 1000\) onlineArrival\(\); \};/, 'a correction over a second is an arrival');
+  assert.match(w, /online\.onClock = \(offsetMs\) => \{ const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; (?:_sharedClockHeard = true; )?if \(Math\.abs\(offsetMs - was\) > 1000\) onlineArrival\(\); (?:hearSharedClock\(\); )?\};/, 'a correction over a second is an arrival');
   assert.match(w, /const onlineArrival = \(\) => \{ alignEntityClocks\(playerEntity, worldMinutes\(\)\); rollClimateWeathersForDay\(worldMinutes\(\)\); refreshSeason\(worldMinutes\(\)\); \};\s*onlineArrival\(\);/, 'the same arrival the session\'s start runs');
 });
 
@@ -151,7 +151,7 @@ test('AUDIT WORLD5 C4 (LIVED1): a LOAD under the shared clock is an arrival thro
     assert.equal(currentWeatherEnum(), weatherForClimate(ZONE_CLIMATES[0]));
     assert.notEqual(currentWeatherEnum(), WEATHER_ENUM.snow);
   } finally { offline(); resetWeatherSim(); setWeatherMapLaw(false); }
-  assert.match(rd('src/systems/save.js'), /resetMagicRoundMarker\(Math\.floor\(snap\.classicMinutes \?\? 0\)\);\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) \{\s*const own = Math\.floor\(snap\.classicMinutes \?\? 0\), at = Math\.floor\(worldMinutes\(\)\);\s*const left = [^\n]*\n\s*setOwnMinutes\(own\);\s*if \(!Number\.isFinite\(snap\.worldMinutes\)\) clampMarkersAheadOf\(entity, own\);[^\n]*\n\s*alignEntityClocks\(entity, at, \{ worldLeft: left \}\);\s*rollClimateWeathersForDay\(at\);/, 'the one door every host loads through');
+  assert.match(rd('src/systems/save.js'), /resetMagicRoundMarker\(Math\.floor\(snap\.classicMinutes \?\? 0\)\);\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) \{\s*(?:\/\/[^\n]*\n\s*)*const own = Math\.floor\(snap\.classicMinutes \?\? 0\), at = worldMinutes\(\);\s*(?:\/\/[^\n]*\n\s*)*const left = [^\n]*\n\s*setOwnMinutes\(own\);\s*if \(!Number\.isFinite\(snap\.worldMinutes\)\) clampMarkersAheadOf\(entity, own\);[^\n]*\n\s*alignEntityClocks\(entity, at\);\s*rollClimateWeathersForDay\(Math\.floor\(at\)\);/, 'the one door every host loads through (AUDIT LIVED1b F1: at the unfloored reading; P4: its absence paid once the relay\'s clock is heard)');
 });
 
 test('AUDIT WORLD5 C5: the shared roll is THE DAY\'S - stamped at the day\'s first minute, so a joiner\'s drain at noon is a jump and a midnight roll\'s is a front; and the evolution replays from the day\'s first hour, so a client that joined at noon carries the sky the one that stood under it since midnight does', () => {
@@ -279,7 +279,7 @@ test('AUDIT WORLD5 by source: the sentence refills in both lanes (C9; LIVED1: it
   assert.match(rd('server/src/index.js'), /"now":\$\{Date\.now\(\)\},"v":/, 'C11: not the hello\'s start, four awaits earlier');
   assert.ok(relayVersionAtLeast(66), 'C11: the relay bumped, and has not gone backwards since (SRV-N: asked monotonically - five pins used to retype one moving number)');
   // DISC25-D: the last clause ("the quest clocks stand still") had been false since WORLD7 - they count played time
-  assert.match(rd('src/ui/enhancedMenu.js'), /The clock and the sky are the world\\'s and run on real time: a rest, a trip, a sentence or a lesson takes none of it, so a quest that waits for an hour of the day waits for that hour of the world\. Your character keeps their own time beside it: it runs while you play, a rest, a trip, a sentence or a lesson spends it, and it stands still while you are away[^.]*\. Quest timers run while you play\./, 'C12 (LIVED1: and the character\'s own time)');
+  assert.match(rd('src/ui/enhancedMenu.js'), /The clock and the sky are the world\\'s and run on real time: a rest, a trip, a sentence or a lesson takes none of it, so a quest that waits for an hour of the day waits for that hour of the world\. Your character keeps their own time beside it: it runs while you play, a rest, a trip, a sentence or a lesson spends it, and it stands still while you are logged off[^.]*\. Quest timers run while you play\./, 'C12 (LIVED1: and the character\'s own time; AUDIT LIVED1b U8: logged off, not away)');
   const w = rd('src/scenes/world.js');
   const install = w.indexOf("if (params.has('online')) { setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs); setSharedWeather(true); }");
   const boot = w.indexOf('export async function bootWorld(');

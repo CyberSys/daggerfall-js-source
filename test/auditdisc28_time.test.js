@@ -209,10 +209,11 @@ test('AUDIT DISC28 TM-3 (LIVED1): the dead span walks the WORLD\'s calendar alon
   const t = rd('src/systems/worldTick.js');
   const tick = fnText(t, 'tickPlayerMinutesOnce'), rise = fnText(t, 'skipDeadMinutes'), arrive = fnText(t, 'alignEntityClocks');   // AUDIT LIVED1 J: the tick's body (tickPlayerMinutes wraps it, counting the tick in flight)
   assert.match(tick, /runCalendarArms\(entity, lastMinutes, nowMinutes, \{ rolls \}\);/, 'the tick\'s loop is runCalendarArms (offline, whole)');
-  assert.match(tick, /runCalendarArms\(entity, lastMinutes, nowMinutes, \{ rolls, arms: DAY_ARMS\.own \}\);\s*\n\s*runCalendarArms\(entity, worldArmsFrom, Math\.floor\(worldTo\), \{ rolls, arms: DAY_ARMS\.world \}\);/, 'online, the character\'s arms on their clock and the world\'s on the world\'s (from its high-water mark: AUDIT LIVED1 I)');
+  assert.match(tick, /runCalendarArms\(entity, lastMinutes, nowMinutes, \{ rolls, arms: DAY_ARMS\.own \}\);\s*\n\s*for \(const \[s, e\] of worldPieces\) runCalendarArms\(entity, s, e, \{ rolls, arms: DAY_ARMS\.world \}\);/, 'online, the character\'s arms on their clock and the world\'s on the world\'s (over what no walk covered: AUDIT LIVED1 I, LIVED1b P3)');
   assert.ok(rise.indexOf('runDayChange(') >= 0 && rise.indexOf('runDayChange(') < rise.indexOf('runCalendarArms('), 'the rise walks the day block, then the arms');
-  assert.match(rise, /runDayChange\(\{ entity, lastMinutes: last, nowMinutes: now, rolls, say, arms: DAY_ARMS\.world \}\);/, '...the world\'s half of the day block');
-  assert.match(rise, /runCalendarArms\(entity, last, now, \{ rolls, arms: DAY_ARMS\.world \}\);/, '...and of the arms');
+  // AUDIT LIVED1b P3: over each piece of the span no walk this session covered
+  assert.match(rise, /runDayChange\(\{ entity, lastMinutes: s, nowMinutes: e, rolls, say, arms: DAY_ARMS\.world \}\);/, '...the world\'s half of the day block');
+  assert.match(rise, /runCalendarArms\(entity, s, e, \{ rolls, arms: DAY_ARMS\.world \}\);/, '...and of the arms');
   assert.equal(t.split('i % NORMALIZE_INTERVAL_MINUTES === 0').length - 1, 1, 'the normalise arm has one home');
   assert.equal(arrive.includes('runCalendarArms('), false, 'an absence walks no arm but the recovery half (recorded, not DFU\'s)');
 });

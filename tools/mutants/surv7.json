@@ -47,7 +47,7 @@
  {
   "name": "SURV7-the-ticker-feeds-nothing",
   "file": "src/scenes/shared.js",
-  "old": "        survival: survivalFeed(entity, survivalEnv?.() ?? null, { say }),   // SURV7: the needs' minute, when the host says where the player stands\n",
+  "old": "      survival: survivalFeed(entity, survivalEnv?.() ?? null, { say }),   // SURV7: the needs' minute, when the host says where the player stands\n",
   "new": "",
   "tests": [
    "test/surv7_feed.test.js"
@@ -102,7 +102,7 @@
  {
   "name": "SURV7-the-load-aligns-nothing",
   "file": "src/systems/save.js",
-  "old": "    alignSurvival(entity, own, at - left > ALIGN_GRACE_MINUTES ? null : own);\n",
+  "old": "    alignSurvival(entity, own, own);\n",
   "new": "",
   "tests": [
    "test/surv7_feed.test.js"

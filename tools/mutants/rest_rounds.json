@@ -2,8 +2,8 @@
   {
     "name": "REST-ROUNDS-online-rest-runs-no-rounds",
     "file": "src/scenes/shared.js",
-    "old": "      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } return this.tick(0, undefined, 0, minutes); }",
-    "new": "      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } return this.tick(0, undefined, 0); }",
+    "old": "if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); _raiseWaiting = true; return null; } return this.tick(0, undefined, 0, minutes); }",
+    "new": "if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); _raiseWaiting = true; return null; } return this.tick(0, undefined, 0); }",
     "tests": [
       "test/restrounds.test.js"
     ]
@@ -20,7 +20,7 @@
   {
     "name": "REST-ROUNDS-foe-pools-not-fanned",
     "file": "src/scenes/shared.js",
-    "old": "      for (const fn of subscribers) fn(r.magicRoundWindow.from, r.magicRoundWindow.to, dt);\n",
+    "old": "    for (const fn of subscribers) fn(r.magicRoundWindow.from, r.magicRoundWindow.to, dt);\n",
     "new": "",
     "tests": [
       "test/restrounds.test.js"
@@ -38,8 +38,8 @@
   {
     "name": "REST-ROUNDS-party-mirror-spends-nothing",
     "file": "src/scenes/world.js",
-    "old": "    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },   // local effects/quest catch-up only",
-    "new": "    advanceMinutes: (n) => { if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },   // local effects/quest catch-up only",
+    "old": "    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true, { spawns: false }); },",
+    "new": "    advanceMinutes: (n) => { runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true, { spawns: false }); },",
     "tests": [
       "test/restrounds.test.js"
     ]

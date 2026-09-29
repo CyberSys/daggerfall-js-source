@@ -1419,6 +1419,31 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
   // SURV7: the rest gate on DFU's RegisterPreventRestCondition seam, with this host's readers - too cold without a
   // fire or a roof, too hot anywhere (survival/rest.js restBlock); inert but in Hard (SURV-TIERS: env.js survivalGateOn)
   if (survivalEnv) installSurvivalGate(registerPreventRestCondition, () => entity, survivalEnv);
+  // AUDIT LIVED1b K1 (K2): a raise J moved barely - the collapse's hour, fired from inside a round - waits here for its
+  // walk, and the walk is THIS frame's, run the moment the window in hand is done (tick, below). J left it to the next
+  // tick, which the collapse's own box holds until it is dismissed: the handler's latch was long down by then, so every
+  // remaining round of the drain that emptied the pool again was a collapse of its own (a Somnalius dose 6.8 of them
+  // against DFU's 3, a sixty-round fatigue drain 59 hours on the character's clock in half an hour of play), and a save
+  // taken under the box wrote the hour without its walk. DFU walks a RaiseTime on the next Update, popup or not, and
+  // the popup refuses a second collapse (the hosts' box guard) - so the hour's rounds fall under the box, as there.
+  let _raiseWaiting = false;
+  const DEFERRED_WALKS_MAX = 4;
+  const tickOnce = (dt, activity, realSeconds, raiseMinutes) => {
+    const r = tickPlayerMinutes({
+      entity, classicMinutes: worldMinutes(), dt, sinks, activity, realSeconds, raiseMinutes,   // LIVED1: an online raise's minutes, the character's own
+      fatigueMultiplier: fatigueLossMultiplierFor(entity),
+      say, inside: isInside(),
+      survival: survivalFeed(entity, survivalEnv?.() ?? null, { say }),   // SURV7: the needs' minute, when the host says where the player stands
+    });
+    setWorldMinutes(r.classicMinutes);
+    // PlayerEntity.Update:380-384's 8-hour alert decay used to be
+    // called here. It is part of the player's per-minute update, so
+    // it moved INTO tickPlayerMinutes above - this ticker is only
+    // three of the four hosts, and the dungeon calls that function
+    // directly.
+    for (const fn of subscribers) fn(r.magicRoundWindow.from, r.magicRoundWindow.to, dt);
+    return r;
+  };
 
   return {
     get classicMinutes() { return worldMinutes(); },
@@ -1437,19 +1462,10 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
      *  all, and a pool that built its own would miss the collapse. */
     get sinks() { return sinks; },
     tick(dt, activity = { running: false, runningTally: false, swimming: false }, realSeconds = dt, raiseMinutes = 0) {
-      const r = tickPlayerMinutes({
-        entity, classicMinutes: worldMinutes(), dt, sinks, activity, realSeconds, raiseMinutes,   // LIVED1: an online raise's minutes, the character's own
-        fatigueMultiplier: fatigueLossMultiplierFor(entity),
-        say, inside: isInside(),
-        survival: survivalFeed(entity, survivalEnv?.() ?? null, { say }),   // SURV7: the needs' minute, when the host says where the player stands
-      });
-      setWorldMinutes(r.classicMinutes);
-      // PlayerEntity.Update:380-384's 8-hour alert decay used to be
-      // called here. It is part of the player's per-minute update, so
-      // it moved INTO tickPlayerMinutes above - this ticker is only
-      // three of the four hosts, and the dungeon calls that function
-      // directly.
-      for (const fn of subscribers) fn(r.magicRoundWindow.from, r.magicRoundWindow.to, dt);
+      const r = tickOnce(dt, activity, realSeconds, raiseMinutes);
+      // AUDIT LIVED1b K1 (K2): the raise J moved barely inside that window, walked now (online only - offline a raise
+      // from inside a tick still nests, K6's recorded twin)
+      for (let n = 0; _raiseWaiting && !tickInFlight() && n < DEFERRED_WALKS_MAX; n++) { _raiseWaiting = false; tickOnce(0, undefined, 0, 0); }
       return r;
     },
     /** U24: DaggerfallDateTime.RaiseTime. Guild training eats three
@@ -1478,7 +1494,8 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
       if (!(minutes > 0)) return null;
       // AUDIT LIVED1 J (K6): raised from INSIDE a tick (the collapse, out of a round's fatigue drain) the hour is a bare
       // move of the character's clock, as DFU's RaiseTime is - the next tick walks it in order after the window in hand
-      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } return this.tick(0, undefined, 0, minutes); }
+      // (AUDIT LIVED1b K1: and walked the moment that window is done - `_raiseWaiting`, tick above)
+      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); _raiseWaiting = true; return null; } return this.tick(0, undefined, 0, minutes); }
       // T1 (AUDIT 39): the dt below is FABRICATED game time - a jump
       // costs no REAL seconds, because DFU's RaiseTime does not advance
       // Time.deltaTime. The third argument is what the two real-time

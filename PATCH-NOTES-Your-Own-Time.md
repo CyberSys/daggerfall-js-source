@@ -2,7 +2,7 @@
 
 **Your character now keeps their own clock online.** The world's clock is still shared: sun, moons, calendar, weather, shops and events. Nobody can move it.
 - Your clock runs while you play, and jumps ahead when you rest, wait, fast travel, train, serve a sentence, eat, drink, cook or hunt.
-- It stops while you're logged off or dead. Time away is never charged to you.
+- It stops while you're logged off or dead. Time logged off is never charged to you.
 - On your clock: wounds, spells, hunger, thirst, sleep, diseases, poisons, vampirism and lycanthropy, skill checks, training, guild rank waits, guild letters, rented rooms, loans and repairs.
 - On the world's clock: the sky, day and night, full moons, holidays, prices, shops, events, respawns and quest timers (played time only).
 

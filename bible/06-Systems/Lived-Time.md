@@ -110,11 +110,19 @@ Everything DFU calls RaiseTime:
 - the vampire's turn: the fortnight to dusk;
 - a tavern meal, a drink, a blackout night, a camp's cooking and the hunting search;
 - the exhaustion collapse (an hour);
-- the cures' hour.
+- the cures' minute (DFU's `RaiseTime(60)` is seconds - AUDIT LIVED1b D3).
 
 The world's clock stands through all of them. The next tick walks the span on the character's clock,
 exactly as the offline tick walks a raised clock: the broker (capped, under the synthetic shield), the
 per-minute loop, the day block's own half, the calendar's own arms, the letters and the needs.
+
+A raise from inside a tick (the collapse, fired out of a round's fatigue drain) is walked the moment the
+window in hand is done - a second tick in the same frame, never inside the first - and the collapse's box
+refuses a second collapse while it stands, DFU's popup guard: the hour's rounds fall under the box, as in
+DFU (AUDIT LIVED1b K1). [SUPERSEDES AUDIT LIVED1 J's "walked in order by the next tick": the next tick is
+the one the box holds, and a draining poison collapsed again under every round of it.] Until a raise is
+walked, no online checkpoint is written (AUDIT LIVED1b S1): the load would re-anchor every marker to the
+moved clock and the span would never be walked.
 
 ## What it retires
 
@@ -140,11 +148,14 @@ still does is the world's:
 - the tick's world reading re-anchors, so the absence walks none of the world's arms (the standing
   rule);
 - TM-1 stands (Mac, 2026-09-28: *"Recovery only"*): over the world's minutes from the one the save
-  left at, a reputation below zero moves back one point per 112-day boundary;
+  left at, a reputation below zero moves back one point per 112-day boundary - measured on the RELAY's
+  clock, paid when the world host hears it (AUDIT LIVED1b P4: the boot loads on this machine's clock, and
+  one set months fast bought months of recovery; until the relay is heard a save keeps the minute the
+  character left at);
 - the day's sky is rolled from the shared day's seed.
 
 The needs keep SURV7's kindness: a break longer than the world's day comes back fed, watered and
-rested. An hour away no longer costs an hour of hunger - the clock does not punish absence (OL3), now
+rested (that break measured on the relay's clock too). An hour away no longer costs an hour of hunger - the clock does not punish absence (OL3), now
 by construction.
 
 **Dead.** The character's clock stood under the death screen, so the body is billed nothing and
@@ -214,19 +225,26 @@ available as a named constant if play shows it is needed. The credit is gone; th
 writes `worldMinutes`, the world's minute it left at. That field is additive: an older build ignores
 it.
 
-- **Online load:** the character's clock is restored from `classicMinutes`. The absence is
-  `worldMinutes` to the world's now. A save from before LIVED1 carried the world's minute as its own,
-  and every marker in it was stamped on that clock, so it answers for both.
+- **Online load:** the character's clock is restored from `classicMinutes` (before the held enchantments
+  recast - AUDIT LIVED1b S5). The absence is `worldMinutes` to the world's now, on the relay's clock
+  (P4). A save from before LIVED1 carried the world's minute as its own, and every marker in it was
+  stamped on that clock, so it answers for both. The envelope's clocks are read once: an unsigned count
+  below 2^31 or none, the clock that stands taken for a tampered one (`offlineCopy.js saneSaveClock`,
+  AUDIT LIVED1b F3).
 - **Copy to offline:** the offline world's clock is the character's, so every marker of theirs stays
   in tune - and the WORLD's stamps the envelope carries (a quest clock's sample, a CreateFoe's last
-  wave, the rumours' limits, the spawned dungeons' ledger, a fire's hours) are rebased onto it by the
+  wave, the rumours' limits, the spawned dungeons' ledger, a fire's hours; AUDIT LIVED1b: a journal
+  step's date (R3) and a cached building's stock days, by whole days (D2)) are rebased onto it by the
   distance between the two clocks at the save; `worldMinutes` goes (`systems/offlineCopy.js
-  offlineCopyOf`, AUDIT LIVED1 E).
+  offlineCopyOf`, AUDIT LIVED1 E). The raids' schedule is the shared day's and means nothing on another
+  clock: it is dropped, and the offline game rolls its own (AUDIT LIVED1b R1).
 - **Bring online:** the offline clock becomes the character's; the world's stamps move onto the shared
   clock, and the envelope says it joined at the world's minute, so the first join pays no absence the
-  character never had (`onlineCopyOf`, AUDIT LIVED1 G).
+  character never had (`onlineCopyOf`, AUDIT LIVED1 G) - and says it JOINS FRESH (`joinFresh`): the
+  menu's minute is this machine's clock, and a clock set back there bought TM-1's recovery for the
+  distance (AUDIT LIVED1b P2).
 - **Save cards:** a card is a local slot's, and a local slot plays offline on its one clock - so every
-  card says `classicMinutes`' date, the date it loads at. [AUDIT LIVED1 T corrected this line: it said
+  card says `classicMinutes`' date, the date it loads at. [AUDIT LIVED1 E corrected this line: it said
   the world's date, which no local slot but a copy carried.]
 - **A save from before LIVED1** whose disease day, poison minute or curse clock sat ahead of its clock
   (RESTX2's checkpoint under a rest) is brought back to it on the online load (`save.js
@@ -240,10 +258,17 @@ it.
   - `runDayChange` and `runCalendarArms` take `arms` (`DAY_ARMS.world` / `own` / `all`);
   - `runMagicRoundsFor`' `skyMinutes`;
   - arrival and death: `alignEntityClocks` (arrival), `skipDeadMinutes` (the world's half), and the
-    world arms' high-water mark both respect (AUDIT LIVED1 I);
-  - `tickInFlight`: an online raise from inside a tick is a bare move (AUDIT LIVED1 J);
+    world's walked spans both walk by (`worldArmsPieces`: no world minute twice, none lived lost - AUDIT
+    LIVED1b P3, SUPERSEDING AUDIT LIVED1 I's one high-water mark); the six zones roll on every midnight
+    the reading crosses (`rollWorldZonesAcross`);
+  - `tickInFlight`: an online raise from inside a tick is a bare move (AUDIT LIVED1 J), walked by the
+    ticker at once (AUDIT LIVED1b K1); `ownWalkWaiting`, which the checkpoint asks (S1);
+  - the absence on the relay's clock: `payAbsenceWhenHeard`, `hearSharedClock`, `worldMinutesToSave`
+    (AUDIT LIVED1b P4);
   - words: `ownTimeLeftText`, `ownTimeLeftShort`, `worldNightfallText`.
-- `systems/offlineCopy.js`: the two doors between the lanes (AUDIT LIVED1 E, G).
+- `systems/offlineCopy.js`: the two doors between the lanes (AUDIT LIVED1 E, G), and `saneSaveClock`
+  (AUDIT LIVED1b F3).
+- `systems/onlineCheckpoint.js`: `walkWaiting` (AUDIT LIVED1b S1).
 - `scenes/shared.js`:
   - the ticker's `ownMinutes`, and `advance` online;
   - RaiseSkills on the character's clock;
@@ -291,5 +316,11 @@ No relay change. The servers keep the save opaque, and `RELAY_VERSION` does not 
   does not (14: the arrival's and the correction's shifts and pauses, the session counter and its seed,
   the rest arm's second window).
 - Audited: `01-Overview/Audit-Lived1.md` - six lanes, every finding reproduced and fixed or recorded;
-  `test/auditlived1.test.js` (13), `tools/mutants/auditlived1.json` (67, all dead).
+  `test/auditlived1.test.js` (13), `tools/mutants/auditlived1.json` (67, all dead; three of I's retired
+  with the mark they tested by AUDIT LIVED1b, their law held by its P3 records).
+- Audited again, comprehensively: `01-Overview/Audit-Lived1b.md` - eleven lanes (the clock core, a
+  604-site census, the save, party and exploits, the words, systematic mutants, the merge with main, DFU
+  fidelity, offline parity, a fuzzer, the first audit's own fixes); `test/auditlived1b.test.js` (17) and
+  lane T's `test/auditlived1b_t.test.js` (15: the laws 53 of its 237 new mutants found unpinned),
+  `tools/mutants/auditlived1b.json` (118, all dead).
 - Not verified in a browser: no online session exists in this container.
