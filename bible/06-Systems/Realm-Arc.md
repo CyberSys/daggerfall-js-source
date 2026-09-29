@@ -381,6 +381,12 @@ source and sink tallies. Tune by data rather than by guess.
   - **Loans are still called in, and the door says so first.** "Bring online" shows what customs will do - the loans it calls in, what the allowance leaves behind, the deeds that stay, that the homes and the guild place cross, that the offline character keeps everything - off customs run on a copy, and runs it on the answer (`enhancedMenu.js` `bringOnline`, `realmCustoms.js` `customsLines(report, { before: true })`, `CUSTOMS_PROMISE`).
   - `test/fb0929_customs.test.js` (5); `tools/mutants/fb0929_customs.json` (13 mutants, 13 dead). S2's pins flipped to the new law (`realm1`, `auditrealm2_service`), their mutants re-aimed.
   - **Left open:** a home or guild place under an origin whose realm character was deleted still stands under the dead id (a building nobody can buy); 0022 moves nothing that no realm character stands on.
+- **CUSTOMS-GRANT done (2026-09-29, the field through Mac: "Please activate ToxicTaco69 character for online mode. He cant access it" - `01-Overview/Field-Bugs-2026-09-29.md`): a character the census never saw can be let in, by a grant.**
+  - **Why it was needed.** The census is frozen at the realm's start - that is what keeps a Copy to offline's new id out (L1-F5) - so a character the service holds no pre-realm trace of is refused `customs-never-online`, and nobody had any way to let it in: every trace the service keeps was already counted (0022), cloud restores and imports keep a character's id (`systems/characterId.js`), and the client's customs cap and the service's first-save check are one measure (`net/realmGoldLaw.js`), so it is not a loop either.
+  - **A grant is a handle in the config**, `CUSTOMS_GRANT_HANDLES` in `server-account/wrangler.toml` - the titles' law (`titles.js`): a reviewed, deployed edit, never a write into the live database; a guest holds none. ToxicTaco69 is the first.
+  - **One character, once, and on the record** (`realm.js` `holdsCustomsGrant`, `customsRealm`; migration 0023, `customs_grants`, one row an account: whose, which character, when). The grant rides customs' own guarded batch: its row is keyed by the account, so a second grant throws and rolls the batch back; the character must have come in from no account (no census row of it spent anywhere); and it gets a census row, spent with every other row of it, so "once" stays the census's on every account. An open grant would be L1-F5's dupe for that account.
+  - **Nothing else bends.** A character the census counts goes the census's way and never spends the grant; the loans, the allowance (`firstSaveRefusal`), the account's bound and the resume are customs' own. Taking a handle off stops a grant not yet spent; a spent one stays spent.
+  - `test/customs_grant.test.js` (5); `tools/mutants/customs_grant.json` (13 mutants, 13 dead). The account service is `acct20`.
 
 ## Decisions
 
@@ -397,6 +403,11 @@ Mac, 2026-09-29, answering the field (CUSTOMS-CARRY):
 6. **Who customs admits:** "Any pre-realm trace". A character the service saw before the realm - a Renown track, an online home, a guild place, a raid fought or a cloud backup - comes in once; the census stays frozen at the realm's start.
 7. **Homes and guild places:** "Carry them". They cross with the character, and those already brought in get theirs.
 8. **Loans at customs:** "Call in all loans", as section 6 says - with a confirm screen first.
+
+Mac, 2026-09-29, the field again (CUSTOMS-GRANT):
+
+9. **A character the census never saw:** "Please activate ToxicTaco69 character for online mode. He cant access it". A
+   grant, named in the config (`CUSTOMS_GRANT_HANDLES`): one character an account, once, through customs in full.
 
 ### As asked
 

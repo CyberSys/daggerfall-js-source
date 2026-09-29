@@ -44,6 +44,7 @@
 import { SAVE_MAX_BYTES } from './service.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';   // AUDIT REALM L1-F7: a deleted guildmaster hands the guild over first
 import { liquidWealthOf, customsAllowance, REALM_BIRTH_LEVEL, REALM_BIRTH_WEALTH_MAX } from '../../src/net/realmGoldLaw.js';   // AUDIT REALM2 S1: the first save, measured as customs measures it
+import { handleList } from './titles.js';   // CUSTOMS-GRANT: a handle list read the one way the service reads them
 
 /** Realm characters an ACCOUNT may hold. A new one past it is refused; nothing is ever deleted to make room. */
 export const REALM_CHARACTERS_MAX = 6;
@@ -190,15 +191,39 @@ const customsCarry = (/** @type {any} */ db, /** @type {string} */ playerId, /**
  * its origin in again. The gate itself is customsRealm's one guarded write; this reads, after it refused, which word is
  * true: `customs-never-online` (this account counted no such character), `customs-already` (it came in, from here or
  * from an account it was copied to), `too-many-characters` (the account's bound) - or null, when none is (the store
- * failed, and the caller says so).
- * @param {any} ctx @param {string} playerId @param {string} originId
+ * failed, and the caller says so). CUSTOMS-GRANT: an account holding a grant (`granted`) is refused a character the
+ * census never counted only for grantRefusal's reasons.
+ * @param {any} ctx @param {string} playerId @param {string} originId @param {boolean} [granted]
  */
-export async function customsRefusal({ db }, playerId, originId) {
+export async function customsRefusal({ db }, playerId, originId, granted = false) {
   const counted = await db.prepare('SELECT spent FROM realm_census WHERE player = ? AND char_id = ?').bind(playerId, originId).first();
-  if (!counted) return 'customs-never-online';
-  if (counted.spent) return 'customs-already';
+  if (!counted) {
+    const why = granted ? await grantRefusal(db, playerId, originId) : 'customs-never-online';
+    if (why) return why;
+  } else if (counted.spent) return 'customs-already';
   const held = await db.prepare('SELECT COUNT(*) AS n FROM realm_characters WHERE player = ?').bind(playerId).first();
   return (held?.n ?? 0) >= REALM_CHARACTERS_MAX ? 'too-many-characters' : null;
+}
+
+/**
+ * CUSTOMS-GRANT (2026-09-29, Mac: "Please activate ToxicTaco69 character for online mode. He cant access it"): DOES THIS
+ * ACCOUNT HOLD A CUSTOMS GRANT - one offline character the census never counted, brought in once (customsRealm)? The
+ * census is frozen at the realm's start, so without this nobody could let such a character in. A handle list in the
+ * service's config, CUSTOMS_GRANT_HANDLES, by the titles' law and for their reason (titles.js): granting one is a
+ * reviewed, deployed edit, never a reach into the live database. A guest holds none - the list names people. Taking a
+ * handle off stops a grant not yet spent; a spent one is its `customs_grants` row (migration 0023) and stays spent.
+ * @param {any} player @param {any} env
+ */
+export const holdsCustomsGrant = (player, env) =>
+  typeof player?.handle === 'string' && !!player.handle && handleList(env?.CUSTOMS_GRANT_HANDLES).has(player.handle.toLowerCase());
+
+/** CUSTOMS-GRANT: why the grant's lane refused a character the census never counted here - it came in already, from any
+ *  account (`customs-already`: a grant never brings a character in twice), or this account's one grant is spent
+ *  (`customs-never-online`, the census's own word for this character) - or null, for the account's bound to answer. */
+async function grantRefusal(/** @type {any} */ db, /** @type {string} */ playerId, /** @type {string} */ originId) {
+  if (await db.prepare('SELECT 1 AS x FROM realm_census WHERE char_id = ? AND spent = 1').bind(originId).first()) return 'customs-already';
+  if (await db.prepare('SELECT 1 AS x FROM customs_grants WHERE player = ?').bind(playerId).first()) return 'customs-never-online';
+  return null;
 }
 
 /**
@@ -209,9 +234,16 @@ export async function customsRefusal({ db }, playerId, originId) {
  * lost on the way) is RESUMED - the same row, a new lease - rather than refused for good, which left the character
  * barred and its online life under a row nobody could play. Answers `{ id, lease, seq }` (`resumed` for the row taken
  * up again) or `{ error }`.
+ * CUSTOMS-GRANT: an account holding a grant (`granted`, holdsCustomsGrant) brings in a character the census never
+ * counted HERE through this same batch, on the grant's own gate: the grant spent (`customs_grants` is keyed by the
+ * account, so a second one throws and rolls the whole batch back), the character come in from no account (no census row
+ * of it spent anywhere), and a census row for it, spent with every other row of it - so "once" stays the census's, on
+ * every account, whatever let the character in. A character the census counts here goes the census's way and never
+ * spends the grant.
  * @param {any} ctx @param {string} playerId @param {{ origin: unknown, name: unknown, summary?: unknown }} at
+ * @param {boolean} [granted]
  */
-export async function customsRealm(ctx, playerId, { origin, name, summary = null }) {
+export async function customsRealm(ctx, playerId, { origin, name, summary = null }, granted = false) {
   const { db, rand, nowS } = ctx;
   if (typeof origin !== 'string' || !ORIGIN_ID_RE.test(origin) || REALM_ID_RE.test(origin)) return { error: 'body' };
   const mine = await db.prepare('SELECT id, bytes FROM realm_characters WHERE player = ? AND origin_id = ?').bind(playerId, origin).first();
@@ -222,16 +254,21 @@ export async function customsRealm(ctx, playerId, { origin, name, summary = null
   }
   const n = realmNameOf(name);
   if (!playerId || !n) return { error: 'body' };
+  const byGrant = granted && !(await db.prepare('SELECT 1 AS x FROM realm_census WHERE player = ? AND char_id = ?').bind(playerId, origin).first());
   const id = mintRealmId(rand);
   const lease = mintLease(rand);
   try {
     await db.batch([
+      ...(byGrant ? [db.prepare('INSERT INTO customs_grants (player, char_id, at) VALUES (?, ?, ?)').bind(playerId, origin, nowS)] : []),
       db.prepare(
         'INSERT INTO realm_characters (id, player, name, summary, seq, bytes, lease, lease_at, origin_id, created_at, updated_at)'
         + ' SELECT ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM realm_characters WHERE player = ?) < ?'
-        + ' AND EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)',
-      ).bind(id, playerId, n, realmSummaryOf(summary), lease, nowS, origin, nowS, nowS, playerId, REALM_CHARACTERS_MAX, playerId, origin),
+        + (byGrant
+          ? ' AND NOT EXISTS (SELECT 1 FROM realm_census WHERE char_id = ? AND spent = 1)'
+          : ' AND EXISTS (SELECT 1 FROM realm_census WHERE player = ? AND char_id = ? AND spent = 0)'),
+      ).bind(id, playerId, n, realmSummaryOf(summary), lease, nowS, origin, nowS, nowS, playerId, REALM_CHARACTERS_MAX, ...(byGrant ? [origin] : [playerId, origin])),
       mustChange(db),
+      ...(byGrant ? [db.prepare('INSERT INTO realm_census (player, char_id) VALUES (?, ?)').bind(playerId, origin)] : []),   // spent on the next line, with every row of it
       db.prepare('UPDATE realm_census SET spent = 1 WHERE char_id = ?').bind(origin),
       // AUDIT REALM2 S6: THE CARRY IS IN THE CENSUS'S OWN BATCH. It ran after it, a statement at a time, so a failure
       // there (a transient D1 error, the request cancelled) left the census spent and the track under an id the realm
@@ -239,7 +276,7 @@ export async function customsRealm(ctx, playerId, { origin, name, summary = null
       ...customsCarry(db, playerId, origin, id),
     ]);
   } catch (e) {
-    const why = await customsRefusal(ctx, playerId, origin);
+    const why = await customsRefusal(ctx, playerId, origin, granted);
     if (why) return { error: why };
     throw e;
   }

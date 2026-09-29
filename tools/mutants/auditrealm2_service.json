@@ -110,8 +110,8 @@
   {
     "name": "AUDIT-REALM2-S6-the-carry-after-the-batch",
     "file": "server-account/src/realm.js",
-    "old": "      ...customsCarry(db, playerId, origin, id),\n    ]);\n  } catch (e) {\n    const why = await customsRefusal(ctx, playerId, origin);\n    if (why) return { error: why };\n    throw e;\n  }\n  await freeOthers({ db }, playerId, id);\n",
-    "new": "    ]);\n  } catch (e) {\n    const why = await customsRefusal(ctx, playerId, origin);\n    if (why) return { error: why };\n    throw e;\n  }\n  await freeOthers({ db }, playerId, id);\n  await db.batch(customsCarry(db, playerId, origin, id));\n",
+    "old": "      ...customsCarry(db, playerId, origin, id),\n    ]);\n  } catch (e) {\n    const why = await customsRefusal(ctx, playerId, origin, granted);\n    if (why) return { error: why };\n    throw e;\n  }\n  await freeOthers({ db }, playerId, id);\n",
+    "new": "    ]);\n  } catch (e) {\n    const why = await customsRefusal(ctx, playerId, origin, granted);\n    if (why) return { error: why };\n    throw e;\n  }\n  await freeOthers({ db }, playerId, id);\n  await db.batch(customsCarry(db, playerId, origin, id));\n",
     "tests": [
       "test/auditrealm2_service.test.js"
     ]

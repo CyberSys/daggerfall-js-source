@@ -392,8 +392,8 @@
   {
     "name": "AUDIT-REALM-L3F2-a-spent-census-says-never",
     "file": "server-account/src/realm.js",
-    "old": "  if (counted.spent) return 'customs-already';\n",
-    "new": "",
+    "old": "  } else if (counted.spent) return 'customs-already';\n",
+    "new": "  }\n",
     "tests": [
       "test/realm1.test.js"
     ]

@@ -120,7 +120,7 @@ import {
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';
 import {
-  listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm,
+  listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, holdsCustomsGrant,
   REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
 } from './realm.js';   // REALM P1: the realm's characters   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { tradeRealm, REALM_TRADE_BODY_MAX } from './realmTrade.js';   // REALM P2.1: a trade, settled here
@@ -800,7 +800,7 @@ export default {
         }
         if (request.method !== 'POST') return no('method', 405, origin);
         if (path === '/v1/realm/create') return answer(await createRealm(rctx, me, { name: body.name, summary: body.summary }));
-        if (path === '/v1/realm/customs') return answer(await customsRealm(rctx, me, { origin: body.origin, name: body.name, summary: body.summary }));   // AUDIT REALM L3-F2/F3: one guarded batch, and resumable
+        if (path === '/v1/realm/customs') return answer(await customsRealm(rctx, me, { origin: body.origin, name: body.name, summary: body.summary }, holdsCustomsGrant(who.player, env)));   // AUDIT REALM L3-F2/F3: one guarded batch, and resumable; CUSTOMS-GRANT: the account's grant, off the config
         if (path === '/v1/realm/join') return answer(await joinRealm(rctx, me, body.id));
         if (path === '/v1/realm/trade') {
           // REALM P2.1: a sequence refused says the service's own, as a checkpoint's does

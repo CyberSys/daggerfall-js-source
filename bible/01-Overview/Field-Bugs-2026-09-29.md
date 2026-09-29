@@ -21,6 +21,9 @@ first eight were being worked:
 Mac answered the three calls the realm's reports asked for (`06-Systems/Realm-Arc.md` Decisions 6-8): the census admits
 **"Any pre-realm trace"**, homes and guild places **"Carry them"**, and customs **"Call in all loans"** - told first.
 
+Later the same day, Mac: *"Please activate ToxicTaco69 character for online mode. He cant access it"* (CUSTOMS-GRANT,
+below; decision 9).
+
 ## CUSTOMS-CARRY: who comes in, what comes with them, and the door says so first (1, 2)
 
 **Reproduced first.** `test/fb0929_customs.test.js` drives the real Worker over the real migrations: a character with a
@@ -162,8 +165,34 @@ in minutes.
 
 
 
+## CUSTOMS-GRANT: a character the census never saw, let in by a grant (Mac, later)
+
+**What refuses him.** The only per-character gate on the way into the realm is customs' census: an offline character
+comes in once, and only if the service holds a trace of it from before the realm began (migrations 0020 and 0022). The
+census is frozen at the realm's start - that is what keeps a Copy to offline's new id out (AUDIT REALM L1-F5) - so a
+character with no such trace is refused `customs-never-online` ("The realm has no record of this character from before it
+opened"), and nobody had any way to let it in.
+
+**Ruled out first, so a grant is not a band-aid over a bug.** Every table that holds a character id is already counted
+(0022), with its time in seconds and a cloud backup's `created_at` kept across re-uploads; a cloud restore and an import
+keep a character's id (only a legacy save, chargen, a classic import and Copy to offline mint one, each on purpose); and
+the client's customs cap and the service's first-save check are one measure (`net/realmGoldLaw.js`), so a character is
+never left in a "Never saved" loop. What is left is a character the service never saw on this account - played online
+with no kill, home, guild place, raid or backup, or with its traces under another account.
+
+**The grant** (`06-Systems/Realm-Arc.md` CUSTOMS-GRANT, decision 9): a handle on `CUSTOMS_GRANT_HANDLES` in the service's
+config brings in ONE character the census never counted, once, through customs in full - loans, allowance, the account's
+bound - its use on the record (migration 0023, `customs_grants`). ToxicTaco69 is the first. A character the census counts
+never spends it, and a character in from any account never comes in twice.
+
+Pinned: `test/customs_grant.test.js` (5), `tools/mutants/customs_grant.json` (13 mutants, 13 dead).
+
 ## For Mac
 
+- **ToxicTaco69 (CUSTOMS-GRANT).** Rides the next account deploy (`acct20`, migration 0023). Then he presses **Bring
+  online** on his character's tile once. If what he saw was *not* "The realm has no record of this character..." - but
+  "already been brought into the realm", or a "Never saved" tile - that is a different cause, and the grant does not
+  touch it: say which.
 - **The deploy.** Migration 0022 rides the account service's next deploy (it applies on the push to main, ACC1-CI): the
   census widens and every customs character already made takes its home and guild place at that moment.
 - **Left open:** a home or guild place under an origin whose realm character was since DELETED still stands under the

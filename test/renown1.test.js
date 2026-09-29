@@ -230,7 +230,7 @@ test('RENOWN1 the worker: /v1/renown/xp behind a session, the account the sessio
   assert.equal((await verifyToken(tok.token, pub, { subtle, nowS: T0 })).claims.lv, 9, 'another character of the account: the same Renown');
   const acct = (await call('GET', '/v1/account', undefined, me.secret)).body.account;
   assert.deepEqual(acct.renown, { xp: 5001, level: 9 }, 'the card\'s ONE Renown - it was a list of the characters\' tracks');
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct19"/);   // acct9 on the branch; main's FOUNDER2 took acct9; WB5b's gates closed moved it on (acct11); BASE-HIDE (acct12); RENOWN4 and GUILD1c (acct13 - acct11 and acct12 on their branch); SHADOW-FANG (acct14 - acct12 on its branch); FOUNDER3 (acct15); FOUNDER3 (acct15), then HOME-STATIONS (acct16 - acct15 on its branch)
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct20"/);   // CUSTOMS-GRANT moved it on (acct20: one offline character the census never counted, by grant - migration 0023). acct9 on the branch; main's FOUNDER2 took acct9; WB5b's gates closed moved it on (acct11); BASE-HIDE (acct12); RENOWN4 and GUILD1c (acct13 - acct11 and acct12 on their branch); SHADOW-FANG (acct14 - acct12 on its branch); FOUNDER3 (acct15); FOUNDER3 (acct15), then HOME-STATIONS (acct16 - acct15 on its branch)
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/renown\.js"/, 'the Worker bundles the curve, so a change to it deploys');
 });
 
