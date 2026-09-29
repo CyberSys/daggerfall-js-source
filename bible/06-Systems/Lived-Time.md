@@ -112,6 +112,10 @@ Everything DFU calls RaiseTime:
 - the exhaustion collapse (an hour);
 - the cures' minute (DFU's `RaiseTime(60)` is seconds - AUDIT LIVED1b D3).
 
+And one of the port's own, where DFU's single clock simply runs faster: while the clock is accelerated online (a
+Travel Options journey, the Overworld's walk, the helm's time scale), the frame raises the minutes past the world's
+(FIELD BUGS 2026-09-29h WALK-CLOCK, `world.js` `walkRaise`), so a journey's days are the traveller's as offline.
+
 The world's clock stands through all of them. The next tick walks the span on the character's clock,
 exactly as the offline tick walks a raised clock: the broker (capped, under the synthetic shield), the
 per-minute loop, the day block's own half, the calendar's own arms, the letters and the needs.

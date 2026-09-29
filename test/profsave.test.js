@@ -86,6 +86,7 @@ test('PROF-SAVE the host: every professions act that changes the save asks saveS
   assert.match(w, /if \(f\.fee > 0\) \{ deductGold\(playerEntity, f\.fee\); saveSoon\.changed\(\); \}\n {10}const out = smeltRecipe/, 'a smelt\'s fee');
   const built = w.indexOf('  const onlineCheckpoint = () => {');
   const handed = w.indexOf('  saveSoon.ready(() => onlineCheckpoint());');
-  assert.ok(built > 0 && handed > built && handed < w.indexOf('function realmCheckpoint()'), 'handed in right after the checkpoint is built');
+  // FIELD BUGS 29h (BOOT-HIDE): handed in with the checkpoint's other doors, where what it reads (the duel's last) exists
+  assert.ok(built > 0 && handed > w.indexOf('  const duelHeal = () => {') && handed > built, 'handed in once the checkpoint and what it reads are built');
   assert.match(src('src/systems/onlineCheckpoint.js'), /export function createSaveSoon\(schedule = \(run\) => setTimeout\(run, 0\)\)/, 'the next task by default');
 });

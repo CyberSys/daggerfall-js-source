@@ -195,9 +195,10 @@ test('AUDIT DUEL1 B2 + B4 + C1 + D2 + D5 the hosts by source: a swing bashes no 
   assert.match(heal, /if \(playerEntity\.health > 0 && !modes\?\.deathUp\?\.\(\)\)/, 'the dead are not raised by a duel');
   assert.match(w, /onHeal: \(\) => duelHeal\(\),/, 'the law\'s heal is this heal');
   // D5: the page's end
-  const bu = w.indexOf("addEventListener('beforeunload'");
+  const bu = w.indexOf('  const exitAutosave = () => {');   // FIELD BUGS 29h (BOOT-HIDE): named, registered with the checkpoint's doors
   const leave = w.indexOf('try { duelLeaveNow(); }', bu);
   const save = w.indexOf('for (const saveName of exitAutosaveNames(', bu);
   assert.ok(bu > 0 && leave > bu && save > leave, 'the duel ends and heals BEFORE the exit autosave');
+  assert.ok(w.includes("\n  addEventListener('beforeunload', exitAutosave);\n"), 'and it is the page\'s end');
   assert.match(w, /const duelLeaveNow = \(\) => \{\n\s+const had = !!duelMgr\.duel;\n\s+duelMgr\.reset\(\);\n\s+if \(had\) duelHeal\(\);\n\s+\};/);
 });
