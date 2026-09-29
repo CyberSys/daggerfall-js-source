@@ -24,6 +24,7 @@ import {
   createRaidClaims, raidClaimVerdict, raidRecordText, RAID_CLAIMS_KEY, RAID_CLAIMS_MAX, RAID_CLAIM_RETRY_MS, RAID_CLAIM_TEXT,
 } from '../src/net/raidClaims.js';
 import { profileView, profileRaidLine, createProfileWindow } from '../src/ui/profileWindow.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -186,9 +187,9 @@ test('RAID4 the worker: /v1/raid/claim behind a session and never open - the ses
   const { priv, pub } = await relayPair();
   const { call, identity } = await stand({ gateKey: pub });
   assert.ok(ROUTES.has('/v1/raid/claim') && !OPEN_ROUTES.has('/v1/raid/claim'));
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
-  const them = (await call('POST', '/v1/auth/guest', {})).body;
-  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Warden', password: 'correct horse battery' }, me.secret)).status, 200);
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  const them = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Warden', password: 'correct horse battery', ...ACCEPTED }, me.secret)).status, 200);
   const r = await raidFor(me.id, `3:7:${DAY}`, priv, T0);
   assert.equal((await call('POST', '/v1/raid/claim', { receipt: r, character: CH })).status, 401, 'a stranger claims nothing');
   const ok = await call('POST', '/v1/raid/claim', { receipt: r, character: CH, name: 'Ann' }, me.secret);
@@ -204,7 +205,7 @@ test('RAID4 the worker: /v1/raid/claim behind a session and never open - the ses
   assert.deepEqual((await call('GET', '/v1/account', undefined, me.secret)).body.account.raids, { defended: 1 });
   assert.deepEqual((await call('POST', '/v1/duel/record', { id: me.id }, them.secret)).body.raids, { defended: 1 }, 'the Inspect card\'s record');
   const bare = await stand();
-  const g = (await bare.call('POST', '/v1/auth/guest', {})).body;
+  const g = (await bare.call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   assert.equal((await bare.call('POST', '/v1/raid/claim', { receipt: r, character: CH }, g.secret)).status, 503, 'no public half: the service\'s gap');
 });
 

@@ -43,6 +43,7 @@ import {
   storedSession, keepSession, forgetSession, accountRefusalText, handleShapeOk,
   PASSWORD_MIN_LEN,
 } from '../net/accountClient.js';
+import { ACCEPTED, TERMS_URL, PRIVACY_URL } from '../net/legalLaw.js';   // TERMS1: the documents a new account agrees to
 
 /** Every stage this card can be on. Exported because a pin that
  *  enumerates them by hand is a pin that stops covering the one added
@@ -79,6 +80,27 @@ export const FIELD_SPEC = Object.freeze({
   code: { label: 'Recovery code', secret: false, max: 40, hint: 'The code shown once when you registered.' },
 });
 
+/** TERMS1 — WHAT EACH STAGE ASKS A PLAYER TO AGREE TO, in the order it
+ *  asks. "I wanna make sure these need to be reviewed and checked off by
+ *  players before creating an account". Walked by the renderer as FIELDS
+ *  is, so a stage cannot ask for a box the card does not draw.
+ *
+ *  ONLY REGISTERING ASKS. It is the one stage that makes an account - the
+ *  guest row is opened inside it - and an account that already exists is
+ *  not asked again on signing in (new accounts only, the request's own
+ *  answer). The service asks the same question of both routes that make
+ *  one (server-account/src/accounts.js `legalRefusal`), so a client that
+ *  skipped the boxes would still make nothing. */
+export const AGREEMENTS = Object.freeze({
+  register: ['terms', 'privacy'],
+});
+
+/** What each box agrees to, and where that document is read. */
+export const AGREEMENT_SPEC = Object.freeze({
+  terms: { label: 'Terms of Service', url: TERMS_URL },
+  privacy: { label: 'Privacy Policy', url: PRIVACY_URL },
+});
+
 /** THE CLIENT'S OWN REFUSALS - the ones the service cannot make,
  *  because it never sees them. `confirm` is not sent anywhere: the
  *  service takes one password and has no idea a second box existed. */
@@ -89,6 +111,9 @@ export const LOCAL_REFUSALS = Object.freeze({
   'code-empty': 'Type the recovery code you were given.',
   'password-empty': 'Type your password.',
   'handle-empty': 'Type your username.',
+  // TERMS1: one sentence a box, naming the document - "tick the boxes" under two boxes says nothing about which
+  'terms-unticked': 'Read and agree to the Terms of Service to create an account.',
+  'privacy-unticked': 'Read and agree to the Privacy Policy to create an account.',
 });
 
 /**
@@ -121,6 +146,10 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     busy: false,
     /** what the player has typed */
     values: /** @type {Record<string,string>} */ ({}),
+    /** TERMS1: the boxes the player has ticked. Wiped on every move, as
+     *  `values` is, so a box is only ever ticked by the player, on the
+     *  stage in front of them - never carried in from one they left. */
+    agreed: /** @type {Record<string,boolean>} */ ({}),
   };
 
   const changed = () => { onChange(); };
@@ -138,6 +167,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     self.error = error;
     self.note = note;
     self.values = {};
+    self.agreed = {};
     if (stage !== 'code') self.recoveryCode = null;
     changed();
   }
@@ -178,6 +208,14 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     // The error belongs to the press, not to the keystroke: it is
     // cleared as soon as the player starts fixing it, so a stale
     // sentence never sits under a field they have already corrected.
+    if (self.error) { self.error = ''; changed(); }
+  };
+
+  /** TERMS1: a box ticked or unticked. Only `true` ticks it - a box is an
+   *  agreement, and nothing that is merely truthy gets to be one. Clears a
+   *  refusal as a keystroke does, for the same reason. */
+  self.agree = (key, on) => {
+    self.agreed[key] = on === true;
     if (self.error) { self.error = ''; changed(); }
   };
 
@@ -293,7 +331,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
   /** The checks the service cannot make, in the order a player meets
    *  them. Done BEFORE the request, because a round trip to learn the
    *  two boxes differ is a round trip that told nobody anything. */
-  function localRefusal(fields) {
+  function localRefusal(fields, agreements = []) {
     if (fields.includes('handle') && !v('handle')) return LOCAL_REFUSALS['handle-empty'];
     if (fields.includes('handle') && !handleShapeOk(v('handle'))) return LOCAL_REFUSALS['handle-shape'];
     if (fields.includes('code') && !v('code')) return LOCAL_REFUSALS['code-empty'];
@@ -301,6 +339,11 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     if (fields.includes('password') && !pw('password')) return LOCAL_REFUSALS['password-empty'];
     if (fields.includes('password') && [...pw('password')].length < PASSWORD_MIN_LEN) return LOCAL_REFUSALS['password-short'];
     if (fields.includes('confirm') && pw('password') !== pw('confirm')) return LOCAL_REFUSALS['confirm-mismatch'];
+    // TERMS1: the boxes sit under the fields, so they are met after them.
+    // NO REQUEST LEAVES WITHOUT BOTH - the guest row the service opens
+    // first is itself an account, and a player who has not agreed is
+    // not one the form may make.
+    for (const key of agreements) if (self.agreed[key] !== true) return LOCAL_REFUSALS[`${key}-unticked`];
     return null;
   }
 
@@ -313,11 +356,13 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
    * that one rather than opening a second.
    */
   async function doRegister() {
-    const bad = localRefusal(FIELDS.register);
+    const bad = localRefusal(FIELDS.register, AGREEMENTS.register);
     if (bad) return refuse(bad);
 
+    // TERMS1: both requests carry the versions the player just ticked -
+    // the service opens no row, and names none, without them.
     if (!secret()) {
-      const made = await ask(() => openGuest(io));
+      const made = await ask(() => openGuest(io, null, ACCEPTED));
       if (!made) return false;
       if (!made.ok) return refuse(accountRefusalText(made.error));
       // KEPT BEFORE THE UPGRADE IS ATTEMPTED. If `register` fails on
@@ -327,7 +372,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       keepSession(storage, made.data);
     }
 
-    const r = await ask(() => register(door(), v('handle'), pw('password')));
+    const r = await ask(() => register(door(), v('handle'), pw('password'), ACCEPTED));
     if (!r) return false;
     if (!r.ok) return refuse(accountRefusalText(r.error));
 
@@ -335,6 +380,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     self.recoveryCode = r.data.recoveryCode;
     self.stage = 'code';
     self.values = {};
+    self.agreed = {};
     self.error = '';
     changed();
     return true;

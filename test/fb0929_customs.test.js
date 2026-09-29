@@ -19,6 +19,7 @@ import { applyCustoms, customsLines, CUSTOMS_PROMISE } from '../src/systems/real
 import { createBankAccounts } from '../src/systems/banking.js';
 import { accountRefusalText } from '../src/net/accountClient.js';
 import { GUILD_RANK_MASTER } from '../src/net/guildLaw.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1 (at the merge with PR 418): a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -76,8 +77,8 @@ async function stand() {
   let n = 0;
   /** A registered account (homes and guilds are a registered account's). */
   const account = async () => {
-    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
-    assert.equal((await call('/v1/auth/register', { secret: g.secret, handle: `carrier${++n}x`, password: 'a good long one' }, g.secret)).status, 200);
+    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
+    assert.equal((await call('/v1/auth/register', { secret: g.secret, handle: `carrier${++n}x`, password: 'a good long one', ...ACCEPTED }, g.secret)).status, 200);
     return { id: g.id, secret: g.secret };
   };
   const rows = (sql, ...a) => env.DB._raw.prepare(sql).all(...a).map((r) => ({ ...r }));

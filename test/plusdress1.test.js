@@ -124,15 +124,15 @@ test('PLUS-DRESS the gate: the boss\'s bar and the countdown paint from CLASSES 
   drawGateBossBar({ ...model, frac: 0.4 }, { doc });
   const root = doc.body.children[0];
   assert.equal(root.className, 'wb-boss-bar');
-  assert.deepEqual(root.children.map((c) => c.className), ['wb-boss-name', 'wb-boss-track', 'wb-boss-callout', 'wb-boss-foot']);
-  const track = root.children[1];
+  assert.deepEqual(root.children.map((c) => c.className), ['wb-boss-name', 'wb-boss-trials', 'wb-boss-track', 'wb-boss-callout', 'wb-boss-foot']);   // WB8b: his trials under his name
+  const track = root.children[2];
   assert.deepEqual(track.children.map((c) => c.className), ['wb-boss-fill', 'wb-boss-mark', 'wb-boss-mark', 'wb-boss-ward']);
   assert.equal(track.children[0].style.width, '40.0%');
   assert.equal(track.children[3].style.display, 'none');
   assert.ok(made.every((n) => n.style.cssText === undefined), 'no part carries its paint inline');
   assert.equal(styles.filter((s) => s.id === BOSS_BAR_STYLE_ID).length, 1, 'the sheet, once');
   assert.equal(styles[0].textContent, BOSS_BAR_CSS);
-  for (const c of ['wb-boss-bar', 'wb-boss-name', 'wb-boss-track', 'wb-boss-fill', 'wb-boss-mark', 'wb-boss-ward', 'wb-boss-callout', 'wb-boss-foot']) {
+  for (const c of ['wb-boss-bar', 'wb-boss-name', 'wb-boss-trials', 'wb-boss-track', 'wb-boss-fill', 'wb-boss-mark', 'wb-boss-ward', 'wb-boss-callout', 'wb-boss-foot']) {
     assert.match(BOSS_BAR_CSS, new RegExp(`\\.${c} \\{`), c);
     assert.match(ONLINE_DRESS_CSS, new RegExp(`body \\.${c}\\b`), `${c} is dressed under Plus`);
   }

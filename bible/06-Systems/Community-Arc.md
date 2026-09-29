@@ -678,7 +678,8 @@ Each is aimed now by a line only its own site has, and dies.
 already named more than one are carried in a map with their count of sites, so a copy added or taken away fails as
 well; the map can only shrink. Two of them need more than an aim, and are recorded for their arcs:
 - `el2` glsl-point-off-dark: the point guard is pinned by a regex over the whole shader, which the other copy satisfies
-  whichever one is mutated.
+  whichever one is mutated. Closed at DISC29-E (2026-09-28, found by its rerun of the render files' mutants): pinned
+  by `pointShadowAt`'s own head (VOL1 pins `pointShadowOne`'s), the record aimed at that one site and off the map.
 - `macbugw5` W5-13 is named for the pool's gate and mutates the drip's. Aimed at each of the four gates in turn, only
   `place()`'s dies (14 failing). Its tests (`test/blood1_decals.test.js`) never fail the drip, the footprint or the pool
   asking for `raycastHit`, the door MAC-BUG W5 took them off.
@@ -689,8 +690,8 @@ The sixth merge's conflicts showed a Ledger row whose DFU message ids read "8076
 The struck row above it still reads "8076/8077", and DFU's TalkManager.cs answers with records 8075, 8076 and 8077
 (:2029-2035). `tools/citeShift.mjs` and `tools/citeMerge.mjs` had been moving it for as far back as the history goes.
 - **CITE-SLASH.** RF3's grammar read a bare `/N` after a cite, anywhere up to the next cite, as that cite's line. So
-  "8076/8077", a sentence after `world.js:6464`, was world.js:11246 to both tools, and it moved whenever that line did.
-  A bare `/N` now continues only the chain it touches: `world.js:9667/9668`, `:14/16`. The colon forms keep RF3's
+  "8076/8077", a sentence after `world.js:6472`, was world.js:11181 to both tools, and it moved whenever that line did.
+  A bare `/N` now continues only the chain it touches: `world.js:9675/9676`, `:14/16`. The colon forms keep RF3's
   reach, because the colon says what they are.
 - **CITE-CS.** RF3 ends a cite's region at a `.cs:N` cite, but DFU's members are mostly written without their file:
   "| TalkManager.GetReactionToPlayer_0_1_2 (:689-693) |" in the Ledger's DFU column, and
@@ -747,7 +748,7 @@ Main moved thirty commits while the arc was in review. Merged, not rebased; 106 
 - **Six of main's mutant records, re-aimed by content.** Each is aimed at the site its name gives, and each dies
   against a green baseline.
   - Four SURV-TIERS records mutate line cites in source comments, and the merge had moved those cites
-    (`world.js:4559` is `:4570` now).
+    (`world.js:4567` is `:4578` now).
   - MUT-AIM found two that name two sites each:
     - DISC10-D-H1's stamp, which the hit's defaults and the kill's share;
     - DISC9's heard word, which DISC11's rain gain repeats below it.

@@ -218,6 +218,67 @@ export const COLLISION_TRIGGER_FLAGS = Object.freeze([
  *  add DaggerFallActionCollision component". */
 export const hasActionCollision = (o) => !!o && COLLISION_TRIGGER_FLAGS.includes(o.triggerFlag ?? TRIGGER_FLAGS.None);
 
+/** DISC29-A: THE STANDING RAY (DaggerfallActionCollision.cs:74-85). A hit that is not beneath the player is WalkInto -
+ *  except on a Collision01 object, where DFU first casts "straight down from the controller's bottom, skinWidth long,
+ *  against THIS object's collider": "see if player standing on this action object w/ raycast ... to avoid player being
+ *  able to push against wall to avoid". Standing on the object is WalkOn wherever its surface is - a throne's seat, a
+ *  room's floor - not only at the top of its box. `surfaces` holds the object's triangles in a bucket of its own
+ *  (`key`); the ray starts TRIGGER_RAY_LIFT above the feet, so a body resting exactly on the face (a ray's t of 0,
+ *  which the triangle test refuses) is still standing on it. Unity's CharacterController skinWidth default. */
+export const TRIGGER_SKIN_WIDTH = 0.08;
+export const TRIGGER_RAY_LIFT = 0.01;
+const DOWN = Object.freeze([0, -1, 0]);
+export function ownSurfaceUnderFeet(surfaces, key, feet, skin = TRIGGER_SKIN_WIDTH) {
+  if (!surfaces || key == null || !feet) return false;
+  const origin = [feet[0], feet[1] + TRIGGER_RAY_LIFT, feet[2]];
+  return Number.isFinite(surfaces.raycast(origin, DOWN, skin + TRIGGER_RAY_LIFT, { only: [key] }));
+}
+/** AUDIT PRE-MERGE 0929 D1/D2: OnCharacterCollided, WHOLE (DaggerfallActionCollision.cs:62-89) - what a body touching
+ *  the object `o` makes of the touch, or null when it touches nothing of it (no ControllerColliderHit: the component
+ *  hears nothing, and fires nothing).
+ *
+ *  "check if hit point beneath player": the contact's direction from the controller's centre, `dir.y < -0.9`, is a
+ *  WalkOn, for EVERY flag. Else a Collision01 object casts its standing ray (ownSurfaceUnderFeet); else WalkInto.
+ *  The port read "beneath" as "within 0.15 of the top of the object's BOX", and added the ray at DISC29-A: a body on
+ *  a staircase rides the treads' edges well under its box's top (N0000007's Hurt22 stairs took 2 hits walking all
+ *  16 steps down), a seat between two arms sits under theirs - and a body crossing a MultiTrigger's floor under
+ *  its walls was bumping INTO it (Orsinium's castle, S0000020 object 10406, a DoorText with a trespass on it: the
+ *  whole castle hostile at the first steps over its floor, where DFU's floor is beneath and refused).
+ *
+ *  The contact is the collider's (capsuleContact): the nearest point of the object's own triangles within the
+ *  skin of the capsule the motor resolves - a wall leaned on is nearer than the floor rested on, which is how a push
+ *  against a wall is WalkInto in DFU too (the reason Collision01 has its ray: "to avoid player being able to push
+ *  against wall to avoid"). A SIDE is heard only while the body moves into it (`wish`, the direction it presses -
+ *  a ControllerColliderHit only comes of a Move into the collider): a body resting against a lip, or walking along
+ *  a wall, is heard by what holds it up - the nearest contact beneath - or not at all. `surfaces` holds the object's
+ *  own bucket; `height` is the body's stance; no `wish` presses every side. */
+export const WALK_ON_DIR_Y = -0.9;
+const _contact = [0, 0, 0];
+const _beneath = [0, 0, 0];
+export function actionContact(o, feet, height, surfaces, wish = null) {
+  if (!surfaces || o?.key == null || !feet) return null;
+  const only = { only: [o.key] };
+  const at = surfaces.capsuleContact(feet, height, TRIGGER_SKIN_WIDTH, only, _contact);
+  if (!at) return null;
+  const dx = at[0] - feet[0], dy = at[1] - (feet[1] + height / 2), dz = at[2] - feet[2];
+  const len = Math.hypot(dx, dy, dz);
+  if (len > 0 && dy / len < WALK_ON_DIR_Y) return 'WalkOn';
+  if (wish && !(wish[0] * dx + wish[1] * dz > 0)) {
+    return surfaces.capsuleContact(feet, height, TRIGGER_SKIN_WIDTH, only, _beneath, WALK_ON_DIR_Y) ? 'WalkOn' : null;
+  }
+  if (o.triggerFlag === TRIGGER_FLAGS.Collision01 && ownSurfaceUnderFeet(surfaces, o.key, feet)) return 'WalkOn';
+  return 'WalkInto';
+}
+
+/** OnCharacterCollided's WalkOn arm for an ACTING FLAT (it has no triangles): a body whose box already touches the
+ *  flat's `box` is on it when its feet are within 0.15 of the box's top. (AUDIT PRE-MERGE 0929 D1/D2: every model
+ *  now takes actionContact; a flat keeps the box - DFU gives a flat's action a BoxCollider with isTrigger, RDBLayout.cs
+ *  :977-987, which the port has always read as a box.) */
+export function standsOnAction(o, feet, box, surfaces) {
+  if (feet[1] >= box.max[1] - 0.15) return true;
+  return o?.triggerFlag === TRIGGER_FLAGS.Collision01 && ownSurfaceUnderFeet(surfaces, o.key, feet);
+}
+
 export const DOOR_OPEN_ANGLE = -90;
 export const DOOR_OPEN_DURATION = 1.5;
 

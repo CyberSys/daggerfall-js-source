@@ -50,8 +50,8 @@
   {
     "name": "ACC1e-7-a-password-outlives-the-stage-that-asked-for-it",
     "file": "src/ui/accountFlow.js",
-    "old": "    self.values = {};\n    if (stage !== 'code') self.recoveryCode = null;",
-    "new": "    if (stage !== 'code') self.recoveryCode = null;",
+    "old": "    self.values = {};\n    self.agreed = {};\n    if (stage !== 'code') self.recoveryCode = null;",
+    "new": "    self.agreed = {};\n    if (stage !== 'code') self.recoveryCode = null;",
     "tests": ["test/accountflow.test.js"],
     "note": "A password left in the flow is a password left in the DOM."
   },

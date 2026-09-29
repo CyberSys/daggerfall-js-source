@@ -38,6 +38,7 @@ import { accountTokenMinter, SESSION_KEY } from '../src/net/accountClient.js';
 import { PEER_HEIGHT } from '../src/net/remotePlayers.js';
 import { perspective, mirrorProjectionX, lookAt } from '../src/world/mat4.js';
 import { r2, seatRealm } from './realmSeat.mjs';   // AUDIT REALM2 S2: a founding is a realm character's, paid on its record
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -119,7 +120,7 @@ test('GUILD1c the wire: the guild frames are shapes only, as the renown order\'s
   assert.equal(readGuildTag({ gt: '<b>' }), null, 'a stranger\'s word about themselves');
   assert.equal(readGuildTag({ gt: ['HND'] }), null);
   assert.equal(readGuildTag({}), null);
-  assert.equal(RELAY_VERSION, 'world127');   // OW6L moved it on last (world127: the overworld ledger of a cell, the ow frame - never world125 (VOICE1, reverted) nor world126 (DISCORD-GATES on its branch)); before it TV8 (world124: the party's Overworld walk - world123 on its branch, renumbered past THE MERGE's); before it THE MERGE (world123: the raids, the gates and Discord - world122 to world126 on their branch, never deployed - one relay past main's TV3); before it TV3 (world122: a region's traveller marks); ONE-SEAT before it (world121 - world119, then world120, on its branch, renumbered past main's AUDIT SET (world119) and PARTY-BUFFS + REST-OPT (world120) at the merges: a hub hello's claim - one tab of an account online); before it PARTY-BUFFS + REST-OPT + the batch audit (world120 - world119, world120 and world121 on their branch, renumbered past main AUDIT SET at the merge: fx, rs and nr on the party pose, TRADE_REV_MAX and REST_OPT_RELAY_MIN named); before it AUDIT SET (world119 - world117 on its branch, renumbered past main's SHADOW-FANG (world117) and OWN1 + INVIS-NET (world118) at the merge: the dungeon foe record carries `v`, the joiner whose blow killed it); OWN1 + INVIS-NET moved it on before (world118 - world114 on their branch, renumbered past main's world114-117 at the merge); SHADOW-FANG's badge vocabulary moved it on before (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
+  assert.equal(RELAY_VERSION, 'world128');   // WB8 moved it on last (world128: marks on the gate state, the fed word - world126 on its branch, never deployed, renumbered past OW6L at the merge); before it OW6L (world127: the overworld ledger of a cell, the ow frame - never world125 (VOICE1, reverted) nor world126 (DISCORD-GATES on its branch)); before it TV8 (world124: the party's Overworld walk - world123 on its branch, renumbered past THE MERGE's); before it THE MERGE (world123: the raids, the gates and Discord - world122 to world126 on their branch, never deployed - one relay past main's TV3); before it TV3 (world122: a region's traveller marks); ONE-SEAT before it (world121 - world119, then world120, on its branch, renumbered past main's AUDIT SET (world119) and PARTY-BUFFS + REST-OPT (world120) at the merges: a hub hello's claim - one tab of an account online); before it PARTY-BUFFS + REST-OPT + the batch audit (world120 - world119, world120 and world121 on their branch, renumbered past main AUDIT SET at the merge: fx, rs and nr on the party pose, TRADE_REV_MAX and REST_OPT_RELAY_MIN named); before it AUDIT SET (world119 - world117 on its branch, renumbered past main's SHADOW-FANG (world117) and OWN1 + INVIS-NET (world118) at the merge: the dungeon foe record carries `v`, the joiner whose blow killed it); OWN1 + INVIS-NET moved it on before (world118 - world114 on their branch, renumbered past main's world114-117 at the merge); SHADOW-FANG's badge vocabulary moved it on before (world117 - world114 on its branch, world116 at its first merge; main's Oblivion Gate WBX took world116 first); the Oblivion Gate's WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116); GUILD1c was world115 - world113 on the branch; main's AUDIT WB (world113) and the Enhanced Plus patch (world114) took the numbers first
   assert.equal(relaySupportsGuild('world120'), true, 'the merged relay still routes the guild');
   assert.equal(relaySupportsGuild('world118'), true, 'a later relay still routes the guild');
   assert.equal(relaySupportsGuild('world116'), true);
@@ -179,8 +180,8 @@ async function stand() {
   /** AUDIT REALM2 S2: a founder is a REALM character (`realm: true`) - a founding is paid on its record - and `at()` where
    *  that record stands. */
   const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN, realm = false } = {}) => {
-    const secret = (await call('/v1/auth/guest', {})).body.secret;
-    assert.equal((await call('/v1/auth/register', { secret, handle, password: 'a good long one' })).status, 200);
+    const secret = (await call('/v1/auth/guest', { ...ACCEPTED })).body.secret;
+    assert.equal((await call('/v1/auth/register', { secret, handle, password: 'a good long one', ...ACCEPTED })).status, 200);
     const id = env.DB._raw.prepare('SELECT id FROM players WHERE handle_lc = ?').get(handle.toLowerCase()).id;
     let at = null;
     if (realm) ({ id: character, at } = await seatRealm(env, secret, handle, { name: handle, level: 9, goldPieces: 100_000, items: [] }));
@@ -224,8 +225,8 @@ test('GUILD1c the service: the mint signs the NAMED character\'s guild in - its 
   const bare = await mint({});
   assert.equal((await tokenOf(bare)).gi, undefined, 'a mint naming no character (an older build) carries none');
   assert.equal(bare.guild, null);
-  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct19'"), true);   // acct12 on the branch; main's BASE-HIDE took acct12 first; GUILD1c shipped at acct13, and SHADOW-FANG (acct14 - acct12 on its branch) moved it on after, then FOUNDER3 (acct15)
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct19"/);
+  assert.equal(src('server-account/src/service.js').includes("export const ACCOUNT_VERSION = 'acct20'"), true);   // acct12 on the branch; main's BASE-HIDE took acct12 first; GUILD1c shipped at acct13, and SHADOW-FANG (acct14 - acct12 on its branch) moved it on after, then FOUNDER3 (acct15)
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct20"/);
 });
 
 test('GUILD1c the service: every act that moves a membership answers a SIGNED order - founding, a join, a leave and the look say the actor\'s guild now (none after leaving), a removal an out order naming the member and its guild, a disbanding the guildmaster\'s none and an out order naming the guild; a declined invitation, a rank moved, a handover and the treasury answer none (mutants: a join answering none; a removal naming the remover; a disbanding naming one member; an order for an act that moved nobody)', async () => {

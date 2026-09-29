@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1287`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1301`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7026` read, on one physical line:
+`src/scenes/worldModes.js:7046` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5129`). With the property missing that call is a
+(`dungeonContext.js:5148`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6963` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6971` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -5218,7 +5218,10 @@ is not yet a pin; no live relay and no second player were involved.**
   `peerCamera` writes `c.pitch = 0`.
 - `getMeleeWeaponAnimTime` returns 0 at speed 115 and the loop that
   reads it never terminates; unreachable only because `liveStat` clamps
-  to 100 in another module.
+  to 100 in another module. **SWING-LAW (2026-09-28)**: the player's swing
+  is the port's own law now, which is never under 0.09 s a frame whatever
+  the Speed; DFU's line still answers a foe's machine, a peer's walker
+  and the viewers, all read through `liveStat`.
 - Six accumulator loops (`acc += dt; while (acc >= step)`) with no
   `MAX_FRAME_DT` clamp, where `player/motor.js` and
   `characters/enemyMotor.js` have one.
@@ -7100,7 +7103,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1040`, `src/net/online.js:2248`):**
+**Now (`src/net/wire.js:1041`, `src/net/online.js:2248`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10616,3 +10619,32 @@ forward side button), and the side-button plumbing it rides, which came with VOI
 - the world host keeping the side buttons from the browser's Back and Forward.
 
 `test/viewtoggle.test.js` pins all three.
+
+## WB8 (2026-09-28, Mac: "give him unique and different modifers on every 2 hour spawn") - world128 (world126 on its branch)
+
+The gate's Warden comes MARKED - an aspect and two trials every gate (`11-Multiplayer/World-Bosses.md` section 13) -
+and the relay is the one that fights under them, so the relay moved:
+
+- **`net/gateMods.js` JOINS THE BUNDLE** (a leaf - the marks' tables): `net/gateLaw.js` draws each gate's marks from
+  its 112-gate cycle (`gateModsOf`, from the day alone), `net/gateBrain.js` fights under them (`fightProfile` - the
+  unmarked profile is the constants exactly), and `net/wire.js` validates them.
+- **The fight is born marked**: the gate's room calls `newFight(..., gateModsOf(day))` and keeps the marks on the
+  checkpointed fight (`md`); a fight woken from a checkpoint made before this deploy stays unmarked.
+- **The `st` frame carries `md`** - known words, one aspect at most, or none (a state with any other is refused) - so
+  every screen fights the fight's own marks. **A new kind, `fed`** - a Soul-Hungry Warden's feeding: the names of the
+  beat's fallen who fed him (`ns`, each sanitised as every name - AUDIT PRE-MERGE 0929 W1-3: two falls in one beat were
+  two words with one moment, and the court said the first name alone), his health after, the relay's moment.
+- **The brain's law is 3** (GATE_BRAIN_V, GATE_BRAIN_MIN): an `in` saying 2 is refused with GATE-RELOAD's words - a game
+  that does not know the marks would judge a colossus's slam at the old reach and his frost as fire.
+- **The hub's omen post names tonight's marks** (`net/gateHerald.js omenPost`), in the tables' words alone.
+
+Relay world128 - world126 on its branch, never deployed, and one relay past main's OW6L (world127, the cell's overworld ledger) at the merge with #428-#432, the two in one relay (its row in `test/relayversion.test.js` - world125 is VOICE1's, deployed with PR #427 and reverted with #416 forty minutes later; the version pins of the suites that name it moved,
+each with its history). Pinned in `test/wb8b_gate_marks.test.js` (the wire and the relay's draw on the real Room).
+
+AUDIT PRE-MERGE 0929 (`01-Overview/Audit-PreMerge-0929.md`, lens W1): only a fall with a real part in the fight behind
+it feeds a Soul-Hungry Warden (`hasPart`, AUDIT WBX R2's bar - a fall is the fighter's own word, and twenty-five
+throwaway guests that said `in` dead and went took him from a fifth to all but full), no more than GATE_FEEDS_MAX (5) a
+fight; a Colossal Warden's cone reaches from his body (9.45 m), so R3's law holds under every set of marks. World126's
+row is restated with the audit's bytes - still undeployed. `test/audit0929_gate.test.js` (3, the throwaway guests on
+the real Room).
+

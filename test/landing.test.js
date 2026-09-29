@@ -412,7 +412,9 @@ test('U63: the page is the pixel face\'s own idioms, not the shell it replaced',
     .map((m) => [m[1], /\bhref="([^"]*)"/.exec(m[0])?.[1] ?? null]);
   assert.deepEqual(doorPlaques, [
     ['Play', './play/'],
-    ['Install', 'https://github.com/Lattymoy/daggerfall-js-source/releases/latest'],
+    // REL5 (2026-09-29): Install lands on the desktop app's own entry, where each platform's file is
+    // one click - it used to open a GitHub release page of eleven files, updater manifests among them
+    ['Install', '#desktop'],
     ['Discord', 'https://discord.gg/daggerfallonline'],
   ], 'the door carries Play, Install and Discord, and nothing else wears the plaque');
   assert.match(skin, /\.px-about \{[\s\S]{0,400}border: 2px solid #7d7460/, '...which is the About plaque\'s own shape');

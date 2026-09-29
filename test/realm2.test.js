@@ -15,6 +15,7 @@ import {
   realmIo, realmList, realmCreate, realmJoin, realmFetch, realmDelete, realmCustoms, createRealmSession, REALM_LOST,
 } from '../src/systems/realmSaves.js';
 import { freshSave } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 /** AUDIT REALM2 S1: a first save the realm takes, `tag` to tell two apart. */
@@ -63,7 +64,7 @@ function fakeStorage() {
 async function device() {
   _resetKeyForTests();
   const env = { DB: d1(), SAVES: r2(), ACCOUNT_VERSION: 'test1' };
-  const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
+  const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
   const storage = fakeStorage();
   storage.setItem(SESSION_KEY, JSON.stringify({ id: g.id, secret: g.secret }));
   const door = { mode: 'ok', inits: [] };

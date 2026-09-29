@@ -22,7 +22,8 @@ import { useItem } from '../src/systems/useItem.js';
 import { calculateCost } from '../src/systems/shopStock.js';
 import { calculateItemRepairCost } from '../src/systems/repairService.js';
 import { weaponMinDamage, weaponMaxDamage, WEAPONS, WEAPON_MATERIALS } from '../src/characters/weapons.js';
-import { getMeleeWeaponAnimTime, CLASSIC_FRAME_UPDATE } from '../src/characters/weaponStates.js';
+import { getMeleeWeaponAnimTime, CLASSIC_FRAME_UPDATE, swingFrameSeconds, swingHandling, swingHeft } from '../src/characters/weaponStates.js';
+import { installSwingLaw } from '../src/combat/swingLaw.js';
 import { assignEnemyStartingEquipment, equipmentItems } from '../src/combat/enemyEquipment.js';
 import { assignRriEnemyEquipment, convertOrcish, getArmorTemplateIndex, RRI_ITEM } from '../src/combat/rriEnemyEquipment.js';
 import { onShopShelfStocked, assignSkillEquipment, assignSkillSpellbook, RRI_SPELLS, useBandage, KIT } from '../src/systems/rriKits.js';
@@ -201,26 +202,31 @@ test('RRI2 weaponBalance: the two damage overrides (:312-379) answer ahead of DF
   assert.equal(weaponMaxDamage(WEAPONS.Claymore), 19, 'on: the override (DFU says 18)');
   assert.equal(weaponMinDamage(WEAPONS.Arrow), 0, 'the override\'s default arm: 0');
   assert.equal(weaponMinDamage(513), 2, 'a custom class answers its own GetBaseDamageMin ahead of the formula');
-  // GetMeleeWeaponAnimTime: speed 50, strength 50, a 4 kg weapon
+  // GetMeleeWeaponAnimTime: speed 50, strength 50, a 4 kg weapon. SWING-LAW (2026-09-28): the adjusted speed is the Speed
+  // the swing is read at; the port's law turns it into time (its bounded curve, the weapon's handling), not the mod's
+  // `3 * (115 - speed)`
+  installSwingLaw();
+  const law = (speed, type = 0, both = false) => swingFrameSeconds(speed, { handling: swingHandling(type, both) });
   assert.equal(SPEED_REDUCTION_FACTOR, 3.4);
-  const t = rriMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50, weaponWeight: 4 }, CLASSIC_FRAME_UPDATE);
+  const t = rriMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50, weaponWeight: 4 });
   // strWeightPerc 100 -> adjustedWeight 4 -> reduction 13.6 -> 50 - (int)(50 * 13.6 / 90) = 42
-  assert.equal(t, 3 * (115 - 42) / CLASSIC_FRAME_UPDATE);
-  assert.equal(rriMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50, melee: true }, CLASSIC_FRAME_UPDATE), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE, 'bare hands: the live speed');
-  assert.equal(rriMeleeWeaponAnimTime({ liveSpeed: 100, liveStrength: 50, weaponWeight: 0 }, CLASSIC_FRAME_UPDATE), 3 * (115 - 98) / CLASSIC_FRAME_UPDATE, 'speed capped at 98');
+  assert.equal(t, law(42));
+  assert.equal(rriMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50, melee: true }), law(50, 15), 'bare hands: the live speed, a fist\'s handling');
+  assert.equal(rriMeleeWeaponAnimTime({ liveSpeed: 100, liveStrength: 50, weaponWeight: 0 }), law(98), 'speed capped at 98');
+  assert.equal(rriMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50, weaponWeight: 7.5, weaponType: 0, twoHanded: true }), law(Math.trunc(50 - (50 * (7.5 * 3.4)) / 90), 0, true), 'a two-hander: its weight in the speed, its hands in the handling');
   // through the registered override, off a player wielding a longsword (4 kg)
   const player = { stats: { strength: 50, speed: 50 }, activeEffects: [], items: [] };
   const sword = mint({ group: 'Weapons', templateIndex: WEAPONS.Longsword, material: 0 });
   equipTableOf(player)[EQUIP_SLOTS.RightHand] = sword;
-  const swordTime = rriMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50, weaponWeight: templateByIndex(WEAPONS.Longsword).baseWeight }, CLASSIC_FRAME_UPDATE);
+  const swordTime = rriMeleeWeaponAnimTime({ liveSpeed: 50, liveStrength: 50, weaponWeight: templateByIndex(WEAPONS.Longsword).baseWeight });
   assert.equal(templateByIndex(WEAPONS.Longsword).baseWeight, 4.5, 'ItemTemplate.baseWeight, the C#\'s read');
   assert.equal(getMeleeWeaponAnimTime(50, { entity: player, weaponType: 0, usingRightHand: true }), swordTime, 'the widget\'s ctx reaches the override');
   assert.equal(getMeleeWeaponAnimTime(50), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE, 'no ctx: DFU\'s line');
-  assert.equal(getMeleeWeaponAnimTime(50, { entity: player, weaponType: 15, usingRightHand: true }), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE, 'WeaponTypes.Melee: the live speed');
+  assert.equal(getMeleeWeaponAnimTime(50, { entity: player, weaponType: 15, usingRightHand: true }), law(50, 15), 'WeaponTypes.Melee: the live speed');
   on('weaponBalance', false);
   assert.equal(weaponMinDamage(WEAPONS.Saber), 3, 'off: DFU');
   assert.equal(weaponMaxDamage(WEAPONS.Claymore), 18);
-  assert.equal(getMeleeWeaponAnimTime(50, { entity: player, weaponType: 0, usingRightHand: true }), 3 * (115 - 50) / CLASSIC_FRAME_UPDATE);
+  assert.equal(getMeleeWeaponAnimTime(50, { entity: player, weaponType: 0, usingRightHand: true }), swingFrameSeconds(50, { heft: swingHeft(4.5, 50), handling: 1 }), 'off: the port\'s own law - the longsword\'s heft against the arm');
   reset();
 });
 
