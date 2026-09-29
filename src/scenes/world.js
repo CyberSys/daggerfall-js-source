@@ -9691,8 +9691,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (partyTravel?.propose(pick, opts, computed)) { hudFade.clearFade(); return; }   // PARTY-TRAVEL: "...the option for party members to ready up and travel together" - the leader's Begin with the party gathered asks them first (a walked trip is never a round: the session says no to it)
       if (opts?.playerControlled && beginAcceleratedTravel(pick, opts, { estimateMinutes: computed?.minutes ?? null })) return;   // AUDIT-TO1 L5: the popup's estimate rides along for the panel's ETA
       // AUDIT OW3 J2: a walked trip the OVERWORLD refused (no way by land, the peaks, the water, foes near) is refused -
-      // said, and done. It fell through to the fast travel below: a paid teleport straight past the mountain rule
-      if (opts?.playerControlled && tvOwnsJourneys()) return;
+      // said, and done. It fell through to the fast travel below: a paid teleport straight past the mountain rule.
+      // TO-ROADS: a first-person route's refusal the same - never the straight walk, never the teleport
+      if (opts?.playerControlled && tvRoutesJourneys()) return;
       fastTravelTo(pick, opts, computed);
     } });
     if (!_travelMap) { townTalk.say('(the travel map art is unavailable)'); return; }
@@ -9918,14 +9919,26 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  Declared, not a const: the map's doors say through it from closures (BOOT-TDZ). */
   function tvSay(line, seconds = HUD_TEXT_POP_DELAY) { townTalk.say(line, seconds * Math.max(1, worldTimeScale())); }
   /** OW-ONLY: whether a walked trip is the OVERWORLD's (the enhanced interface, Travel Options on) - its refusal then is
-   *  the answer, never the classic ground journey's nor DFU's fast travel (AUDIT OW3 J2: one question, both doors).
+   *  the answer, never the classic ground journey's nor DFU's fast travel (AUDIT OW3 J2: one question, both doors; since
+   *  TO-ROADS a first-person route refuses so too, and the doors ask tvRoutesJourneys, below).
    *  OW-TOGGLE (2026-09-28, Mac: "bring back the original travel option as a toggle. Off by default."): never while
    *  First-Person Travel is on (the port's own key on the mod's pane) - the journey is then the mod's own, on the ground,
-   *  as before OW-ONLY, and the view neither rises with it (tvJourneyUp) nor stops it (the view's onLower), nor holds its
-   *  clock at x1 (travelViewGovern), all asking this. AUDIT OW5 T1: read LIVE, so a flip takes effect at once - read with
-   *  the mod's settings at boot, it waited for the page to load again (a save loaded in play kept the old answer).
+   *  as before OW-ONLY (TO-ROADS: or, with its roads on, the Overworld's route walked there), and the view neither rises
+   *  with it (tvJourneyUp) nor stops it (the view's onLower), nor holds its clock at x1 (travelViewGovern), all asking
+   *  this. AUDIT OW5 T1: read LIVE, so a flip takes effect at once - read with the mod's settings at boot, it waited for
+   *  the page to load again (a save loaded in play kept the old answer).
    *  Declared, not a const: the map's doors ask it from closures (BOOT-TDZ). */
   function tvOwnsJourneys() { return !!travelOptions && !modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravel') && isEnhanced() && !!travelView; }
+  /** TO-ROADS (FIELD BUGS 2026-09-29b, SylviaBun on the Discord: "Travel Options First Person doesn't follow roads like
+   *  Overworld Travel Options does"): whether a walked trip picked on the map is ROUTED - the Overworld's own planner and
+   *  leg walker (travelViewRouteTo / travelViewWalkTo, the one construction: no second planner), with its gates, its
+   *  refusals said and done (never the straight walk, never DFU's fast travel) and its party walk (TV8). The Overworld's
+   *  journeys always are (tvOwnsJourneys); First-Person Travel's are while its roads key is on (the port's own, OFF, read
+   *  live) - walked in first person with the view left down, because the view's own doors (tvJourneyUp, the view's
+   *  onLower, travelViewGovern) ask tvOwnsJourneys and never this. The classic skin keeps Travel Options exactly. THE FOUR
+   *  HOSTS: this one alone, as TO1's seam is (its record, above the mod's construction, names the other three). Declared,
+   *  not a const: the map's doors ask it from closures (BOOT-TDZ). */
+  function tvRoutesJourneys() { return tvOwnsJourneys() || (!!travelOptions && !!modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravelFollowsRoads') && isEnhanced() && !!travelView); }
   /** AUDIT OW4 J4: THE MAP'S RESUME, on the enhanced interface, is the journey PLANNED AGAIN from where the traveller
    *  stands - a place by the roads round the peaks (travelViewRouteTo, as the Overworld's own 'dest' plate takes it up),
    *  a spot walked to again (travelViewWalkTo) - refused, in the view's words, where the view may not rise. The mod's
@@ -9933,7 +9946,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the peaks nor the sea: after Return and a walk by hand, a fight or a respawn it headed over the mountains. The
    *  classic skin, and a journey of the mod's own (no route), keep the mod's resume. AUDIT OW5 J1: the re-plan is the
    *  ROUTE's, whoever owns the journey - under First Person Travel a route the Overworld planned (a click in the view
-   *  raised by hand, a party's walk) walked straight over the peaks again; a map pick under the switch has no route. */
+   *  raised by hand, a party's walk) walked straight over the peaks again; a map pick under the switch has no route, but
+   *  with its roads on (TO-ROADS), and then it is this one's too. */
   function travelViewResume() {
     const r = travelOptions?.route;
     if (!r || !isEnhanced() || !travelView) { travelOptions?.resumeTravel(); return; }
@@ -9983,8 +9997,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!travelOptions) return false;
     // OW-ONLY (2026-09-28, Mac: "Remove the ground travel alltogether. Now selecting a location should immediately
     // transition you to the overworld"): on the enhanced interface a picked place is the Overworld's own journey - by the
-    // roads, round the peaks - and the view rises the moment the map is down (tvJourneyUp); a picked spot the same
-    if (tvOwnsJourneys()) {
+    // roads, round the peaks - and the view rises the moment the map is down (tvJourneyUp); a picked spot the same.
+    // TO-ROADS: and First-Person Travel's with its roads on - the same journey, the view left down
+    if (tvRoutesJourneys()) {
       const why = travelViewAllowed();
       if (!why.ok) { if (why.why) tvSay(why.why); return false; }
       if (!travelViewCanGo()) return false;
@@ -10131,7 +10146,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // TO1: the mod itself rides travelFareDeps (above); the reads its additions to this window need follow.
       // AUDIT-TO1 I4: ...and the door ACTS on the refusal it can still get
       // (the popup was minted before the online state could change).
-      onTravelToCoords: (pick, opts) => { if (!beginAcceleratedTravel(pick, opts, { coords: true }) && !tvOwnsJourneys()) townTalk.say('You cannot travel there now.'); },   // AUDIT OW3 J2: the Overworld said its own refusal
+      onTravelToCoords: (pick, opts) => { if (!beginAcceleratedTravel(pick, opts, { coords: true }) && !tvRoutesJourneys()) townTalk.say('You cannot travel there now.'); },   // AUDIT OW3 J2: the Overworld said its own refusal (TO-ROADS: a first-person route's too)
       onResumeTravel: () => { travelViewResume(); },   // AUDIT OW4 J4: the Overworld's journey planned again from where the traveller stands
       onForgetTravel: () => { travelOptions?.clearTravelDestination(); },   // RESUME-OUT: the held map's Forget it - the journey ended, asked no more
       // AUDIT-TO1 H1: the map's H boxes the help in the WINDOW'S OWN box
