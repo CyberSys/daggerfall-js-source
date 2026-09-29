@@ -84,9 +84,12 @@ export function getNoise(x, y, frequency, amplitude, persistance, octaves, seed 
  * happen once here; the returned closure is the loop body of
  * generateSamples verbatim - same reads, same arithmetic, same order,
  * so the sampler's numeric pins hold through the refactor.
+ * `groundNoise` false leaves out the extra ground-noise term (never negative), so every sample is at
+ * or under the real one - a strict LOWER bound for less than half the cost (spawnedDungeons.js's
+ * dry-ground gate); the default is the reference's kernel, unchanged.
  * @returns {(x: number, y: number) => number} normalized sample.
  */
-export function sampleKernel(woods, mapPixelX, mapPixelY, hDim = HEIGHTMAP_DIMENSION) {
+export function sampleKernel(woods, mapPixelX, mapPixelY, hDim = HEIGHTMAP_DIMENSION, groundNoise = true) {
   // Divisor ensures continuous 0-1 range of height samples.
   const div = (hDim - 1) / 3;
   const sd = 4;
@@ -125,11 +128,13 @@ export function sampleKernel(woods, mapPixelX, mapPixelY, hDim = HEIGHTMAP_DIMEN
       scaledHeight += noiseHeight * NOISE_MAP_SCALE;
 
       // Additional noise mask for small terrain features at ground level.
-      const noisex = mapPixelX * (hDim - 1) + x;
-      const noisey = (MAX_MAP_PIXEL_Y - mapPixelY) * (hDim - 1) + y;
-      const lowFreq = getNoise(noisex, noisey, 0.3, 0.5, 0.5, 1);
-      const highFreq = getNoise(noisex, noisey, 0.9, 0.5, 0.5, 1);
-      scaledHeight += (lowFreq * highFreq) * EXTRA_NOISE_SCALE;
+      if (groundNoise) {
+        const noisex = mapPixelX * (hDim - 1) + x;
+        const noisey = (MAX_MAP_PIXEL_Y - mapPixelY) * (hDim - 1) + y;
+        const lowFreq = getNoise(noisex, noisey, 0.3, 0.5, 0.5, 1);
+        const highFreq = getNoise(noisex, noisey, 0.9, 0.5, 0.5, 1);
+        scaledHeight += (lowFreq * highFreq) * EXTRA_NOISE_SCALE;
+      }
 
       // Clamp lower values to ocean elevation.
       if (scaledHeight < SCALED_OCEAN_ELEVATION) scaledHeight = SCALED_OCEAN_ELEVATION;
