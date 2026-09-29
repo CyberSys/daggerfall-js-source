@@ -1999,6 +1999,32 @@ Plus only; the classic skin keeps the mod's keys as the mod drew them.
 It is dressed by the kit (`ui/enhancedFrame.js` FRAME_ROLES: the bar a
 window, the presses buttons); its own sheet only places and letters.
 
+## The arrows are the helm (HELM-KEYS, 2026-09-29 - DECLARED)
+
+The player: "Arrow keys should not only control your ship, but also setting
+and raising your sails. I also want to find a way to make the ship controls
+more intuitive instead of a bunch of buttons and key binds." The port's own,
+on the mod's own states (`bible/10-UI/Controls.md` HELM-KEYS has the keys):
+
+- **More sail and less sail** (`MoreSail`, `LessSail`; `BoatSailUp` on the up
+  arrow, `BoatSailDown` on the down): stowed, raised - and where the square
+  sails are the player's own (the assist's AutoStowSquareSails off, a hull
+  with both kinds) all her canvas, the fore-and-aft alone, none: RaiseSails
+  and ToggleSquareSails up, ToggleSquareSails and LowerSails down, each with
+  the mod's own words. A step with nowhere to go says so ("All sail is set.",
+  "The sails are stowed."); a sailless boat says what ToggleSails says.
+- **The turn keys are the rudder's at a helm** (the world's input seam:
+  `has('MoveLeft')` answers `TurnLeft` too, `horizontal()` swings the rudder
+  with them), and the keyboard look leaves them be there.
+- **In irons** (`IRONS_TELL_DEG` of the wind's eye, under `IRONS_TELL_WAY`, her sails
+  up): the helm is told once how she comes out (`IRONS_TEXT`), again only
+  after she has been out of them; `helmPanelState().inIrons` puts it, with the
+  keys, on the panel's line while it lasts (`ui/enhancedHelm.js helmHint`).
+- **The panel teaches the arrows**: its line is the helm's hand at a glance,
+  and its sails' button presses More sail to raise and Less sail to stow (the
+  mod's own toggle where the square sails are the player's, which strikes all
+  her canvas as its label says) - so its key hint is the arrow.
+
 ## The Overworld's crossing (OWS2, 2026-09-28)
 
 The player's ask: *"You should transition to your boat if traveling across water then back onto land when hitting

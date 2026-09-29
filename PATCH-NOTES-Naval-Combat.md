@@ -173,3 +173,19 @@
 - At the helm you can zoom out much farther, far enough to see your whole ship. The camera no longer gets stuck against your own masts and rails. On foot the zoom is unchanged.
 - The breaking waves along the coast no longer shimmer and flicker in the distance, and the far beach no longer flickers when you zoom out at sea. Up close the waves look exactly as before.
 - The Test Room has a new Sea battle option: you start at the helm of an armed ship on the open Bay with a pirate brig coming in to fight. It turns on Come Sail Away and Naval Combat.
+
+## A living Bay (2026-09-29)
+
+- Ships no longer treat you as an enemy while you're off every ship. Ashore, on a quay or swimming, a pirate out on the water no longer stops you resting or travelling, no longer triggers "Sail ho!", and no longer halts a journey along the coast. Once you're aboard a ship again, at the helm or on a deck, the sea's dangers apply as before.
+- Not every pirate attacks on sight. Some are bold and take on anything, but most are wary: they only come for a ship they outgun, or one that's already crippled or badly holed, and they run from a ship that outguns them. A small boat is still fair game for them. A well-armed ship is often left alone.
+- Merchantmen and the crowns' navies stay peaceful unless you give them a reason, as before.
+- Ships fight each other on their own. You'll see pirates running down merchantmen and navy ships hunting pirates without you taking part. When a ship strikes her colours to another, the winner comes alongside, boards her and sets her on fire. You can intervene: a ship tied up to her prize is a sitting target, and she lets go of the prize to fight back once she's hit.
+- The navy hears cannon fire and sails toward it, so a fight near a crown's ship often brings help.
+- Ships chase properly. A pirate chasing a fleeing ship now runs her down from astern with her bow guns firing, then comes alongside for the broadside. Before, she kept turning to fire and lost the chase.
+- News of fights between other ships reaches you only when they're close enough to see.
+
+## The helm, simpler (2026-09-29)
+
+- **The arrow keys are the helm.** Up makes more sail and down takes it in. With square sails you handle yourself, that steps through all sails, then fore-and-aft only, then none. Left and right steer, like A and D. At the helm the arrows no longer turn your view. End still raises and stows the sails, and every key can be rebound under Controls > Come Sail Away.
+- The helm panel shows your controls at a glance (sails and steering, with your current keys), and its sails button uses the arrows.
+- In irons: if your sails are up and your bow points into the wind with no speed, the helm tells you how to get out: strike sail and row round.

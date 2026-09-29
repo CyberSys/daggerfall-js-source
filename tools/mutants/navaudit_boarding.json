@@ -290,8 +290,8 @@
   {
     "name": "NAVB-B14-the-fight-saved",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (!enabled) return false;\n    if (boarding) return true;\n    const feet = deps.feet();",
-    "new": "    if (!enabled) return false;\n    const feet = deps.feet();",
+    "old": "    if (!enabled) return false;\n    if (boarding) return true;\n    return !!seaDeckUnderMe();",
+    "new": "    if (!enabled) return false;\n    return !!seaDeckUnderMe();",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -299,8 +299,8 @@
   {
     "name": "NAVB-B14-her-deck-saved",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (box && insideGrown(box, feet, DECK_REACH_M)) return true;",
-    "new": "      if (false) return true;",
+    "old": "      if (box && insideGrown(box, feet, DECK_REACH_M)) return e;",
+    "new": "      if (false) return e;",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]

@@ -52,8 +52,22 @@
 // WHO FIGHTS WHOM. Pirates take anything; a navy takes pirates, and the player when their notoriety in its crown's
 // waters has reached NAVY_HUNTS (NAV-D) or they have fired on it or on a lawful ship it saw; a merchant fights no
 // one and fires back only at who fired on it. `hostile(a, b)` is that table; `provoke` records a blow.
+//
+// SEA-PEACE (2026-09-29, the player: "some ships should be passive, not all should be hostile. Enemy AI and Friendly
+// AI should engage in their own encounters naturally") - A CAPTAIN'S TEMPER (`temperOf`), drawn off her seed so every
+// client in a room reads the same one: a merchant is PEACEFUL, a navy DUTIFUL (the table above), and a pirate BOLD -
+// she takes anything her trade takes, as every pirate did - or, all but BOLD_SHARE of them (never the flagship, nor
+// Warm Ashes' raiders, whom the host makes bold), WARY: she takes only a prize she outguns - her FIGHTING POWER
+// (`fightingPower`: her weight of metal, her gunners' and her crew's share, times the hull she has left - the
+// Lanchester product, so of two ships the greater wins the duel) at least WARY_ODDS of the quarry's - or one crippled
+// or holed under GRAPPLE_HULL; a quarry she cannot size up she leaves be, and from a threat that outguns her she runs.
+// A blow is answered by every temper. THE ENDS OF A FIGHT: a ship that struck to a captain (`struckTo`) is boarded
+// by her - alongside on the board course, grappled across GRAPPLE_GAP, and held there (`lashed`) while the host takes
+// her (navalHost.js takePrize). THE GUNS ARE HEARD: a navy with no enemy in sight answers gunfire within HEAR_GUNS_M
+// of her fired in the last HEAR_S (`world.gunfire`), and sails for it until its fight is in her own lookout.
 
 import { classById, batteryOf, hullBuild, GUNS, HULL } from './navalShips.js';
+import { mulberry32 } from '../../combat/bloodArt.js';   // SEA-PEACE: the temper's draw (navalShips.js names on the same stream kind)
 import { createShipDamage, SHIP_STATES } from './navalDamage.js';
 import { createGunDeck, aimSolution } from './navalGunnery.js';
 import { NAVAL_DEG, rangeAt, SHOT_GRAVITY } from './navalBallistics.js';
@@ -124,6 +138,13 @@ export const ENGAGE_RANGE = 750;
  *  threats). */
 export const lookoutOf = (ship) => ship.sight ?? ENGAGE_RANGE;
 export const DISENGAGE = 1.35;
+/** SEA-PEACE: a quarry runs from her while its way along her line of sight, away, is over this share of her own pace;
+ *  and she lies abaft its beam more than ABAFT_DEG off its bow - the stern chase (engageCourse). */
+export const CHASE_AWAY = 0.5;
+export const ABAFT_DEG = 110;
+/** SEA-PEACE: a stern chase runs the quarry down dead astern until within this many of her fighting ranges, then
+ *  sheers out for a berth off the quarry's beam. */
+export const CHASE_SHEER = 1.4;
 export const FLEE_RANGE = 320;
 export const CHASE_GIVE_UP_S = 150;
 export const CHASE_GAIN = 0.1;
@@ -159,6 +180,17 @@ export const ACCEL = 0.35;
 export const DECEL = 0.25;
 /** How long a blow keeps a ship provoked by who struck it (s). */
 export const PROVOKED_S = 300;
+/** SEA-PEACE: the tempers; the share of pirates drawn bold (the rest wary); the odds a wary pirate wants on a prize; the
+ *  gunners' skill a player's boat is sized up at (a class's `skill` is her own); and how far and how long a navy hears
+ *  gunfire (m, s). */
+export const TEMPERS = Object.freeze({ peaceful: 'peaceful', dutiful: 'dutiful', bold: 'bold', wary: 'wary' });
+export const BOLD_SHARE = 0.4;
+export const WARY_ODDS = 1.25;
+export const PLAYER_GUN_SKILL = 0.6;
+export const HEAR_GUNS_M = 1600;
+export const HEAR_S = 40;
+/** The temper's own salt on her seed (never the name's stream, navalShips.js shipNames). */
+const TEMPER_SALT = 0x7e3a9e1d;
 /** The wind the classes' speeds are rated at - Come Sail Away's Random.Range(1, 2), its middle - and the bounds of the
  *  share a stronger or lighter wind makes of them. */
 export const WIND_RATED = 1.5;
@@ -263,9 +295,10 @@ export function windFactor(offRun) {
 export const windShare = (windLen) => clamp(windLen / WIND_RATED, WIND_SHARE[0], WIND_SHARE[1]);
 
 /**
- * A new ship at sea. `spec` - `{ id, seed, classId, variant, pos, yaw, names, owner }`; the class decides the rest.
+ * A new ship at sea. `spec` - `{ id, seed, classId, variant, pos, yaw, names, owner, temper }`; the class decides the
+ * rest - SEA-PEACE: her temper her seed's (temperOf) unless one is named.
  */
-export function createSeaShip({ id, seed, classId, variant = 0, pos, yaw = 0, names = null, owner = null }) {
+export function createSeaShip({ id, seed, classId, variant = 0, pos, yaw = 0, names = null, owner = null, temper = null }) {
   const cls = classById(classId);
   if (!cls) throw new Error(`navalAI: no ship class '${classId}'`);
   const damage = createShipDamage({ hullHp: cls.hullHp, sailHp: cls.sailHp, crew: cls.crew });
@@ -275,6 +308,9 @@ export function createSeaShip({ id, seed, classId, variant = 0, pos, yaw = 0, na
     /** AUDIT NAV1: the helm's rate (rad/s), the heel's (degrees a second), the sail she wants, her own clock (s) */
     yawRate: 0, heelVel: 0, sailsWant: 1, clock: 0,
     mode: 'cruise', target: null, waypoint: null, damage,
+    /** SEA-PEACE: her temper (temperOf - the host makes a raider bold), the prize she lies lashed to while the host takes
+     *  her ({ id } | null), and the gunfire she answers ({ pos, at } | null) */
+    temper: Object.values(TEMPERS).includes(temper) ? temper : temperOf(cls, seed), lashed: null, heard: null,
     /** NAV-R: a raider's own lookout (m; null: ENGAGE_RANGE) and the course it sails ([x, z]; null: a waypoint of its own) */
     sight: null, course: null,
     guns: createGunDeck(cls.hull, { crewed: true, crewShare: () => damage.crewShare() }),
@@ -310,24 +346,86 @@ export const velocityOf = (ship) => { const f = forwardOfYaw(ship.yaw); return [
 /**
  * Whether faction `a`'s ship takes `b` (a contact: `{ kind: 'ship'|'player', faction?, id }`) for an enemy - a player
  * by the notoriety their contact carries (AUDIT NAV1, online #6: a peer's own word's), else by `opts.notoriety`.
+ * SEA-PEACE: a pirate by her temper - a wary one only a prize she outguns (`takesPrize`); a blow is answered by all.
  * @param {any} ship
- * @param {{ kind: string, faction?: string, id: string, notoriety?: (crown: string | null) => number }} contact
+ * @param {{ kind: string, faction?: string, id: string, notoriety?: (crown: string | null) => number, power?: number | null,
+ *   hullShare?: number, crippled?: boolean, ship?: any }} contact - SEA-PEACE: `power` her fighting power (a player's
+ *   boat: the host's; a ship: her own, off `ship`), `hullShare`/`crippled` a hull a wary pirate falls on
  * @param {{ notoriety?: (crown: string | null) => number, now?: number }} [opts]
  */
 export function hostile(ship, contact, { notoriety = () => 0, now = 0 } = {}) {
   const f = ship.cls.faction;
-  const provokedBy = (ship.provoked.get(contact.id) ?? -Infinity) > now - PROVOKED_S;
+  if ((ship.provoked.get(contact.id) ?? -Infinity) > now - PROVOKED_S) return true;   // a blow, answered by every temper
   if (contact.kind === 'player') {
-    if (f === 'pirate') return true;
+    if (f === 'pirate') return takesPrize(ship, contact);
     // AUDIT NAV1 (online #6): a player by their own notoriety - a peer's contact carries it, else the law handed in
-    if (f === 'navy') return provokedBy || (contact.notoriety ?? notoriety)(ship.names?.crown ?? null) >= NAVY_HUNTS;
-    return provokedBy;   // a merchant: only who fired on it
+    if (f === 'navy') return (contact.notoriety ?? notoriety)(ship.names?.crown ?? null) >= NAVY_HUNTS;
+    return false;   // a merchant: only who fired on it
   }
   const g = contact.faction;
-  if (f === 'pirate') return g === 'merchant' || g === 'navy' || provokedBy;
-  if (f === 'navy') return g === 'pirate' || provokedBy;
-  return provokedBy;
+  if (f === 'pirate') return (g === 'merchant' || g === 'navy') && takesPrize(ship, contact);
+  if (f === 'navy') return g === 'pirate';
+  return false;
 }
+
+/** SEA-PEACE: whether a pirate takes this quarry - a bold one any; a wary one a prize she outguns WARY_ODDS to one, or
+ *  one crippled or holed under GRAPPLE_HULL - never one she cannot size up. */
+function takesPrize(ship, contact) {
+  if (ship.temper !== TEMPERS.wary) return true;
+  const share = contact.hullShare ?? contact.ship?.damage?.hullShare?.() ?? 1;
+  if (contact.crippled || share < GRAPPLE_HULL) return true;
+  const theirs = contact.power ?? (contact.ship ? shipPower(contact.ship) : null);
+  return theirs != null && shipPower(ship) >= WARY_ODDS * theirs;
+}
+
+/** SEA-PEACE: whether a threat outguns her - its fighting power over hers (a player's boat by the power the host sized
+ *  it at; one that cannot be sized up never does). */
+export function outguns(threat, ship) {
+  const theirs = threat.power ?? (threat.ship ? shipPower(threat.ship) : null);
+  return theirs != null && theirs > shipPower(ship);
+}
+
+/**
+ * SEA-PEACE: a captain's temper off her class and seed - a merchant peaceful, a navy dutiful, a pirate flagship bold,
+ * and any other pirate bold on BOLD_SHARE of her seed's own draw, else wary (the host makes a raider bold).
+ * @param {{ faction: string, flagship?: boolean }} cls
+ * @param {number} seed
+ */
+export function temperOf(cls, seed) {
+  if (cls.faction === 'merchant') return TEMPERS.peaceful;
+  if (cls.faction === 'navy') return TEMPERS.dutiful;
+  if (cls.flagship) return TEMPERS.bold;
+  return mulberry32(((seed >>> 0) ^ TEMPER_SALT) >>> 0)() < BOLD_SHARE ? TEMPERS.bold : TEMPERS.wary;
+}
+
+/** SEA-PEACE: a hull's weight of metal - what one broadside, her bow guns and her stern guns do to a hull a salvo
+ *  (GUNS.hull each); a fire barrel is none (it floats to whom it meets). */
+export function metalOf(hull) {
+  let m = METAL.get(hull);
+  if (m !== undefined) return m;
+  m = 0;
+  for (const side of ['starboard', 'bow', 'stern']) {
+    const bat = batteryOf(hull, side);
+    if (bat && bat.gun !== 'barrel') m += bat.muzzles.length * GUNS[bat.gun].hull;
+  }
+  METAL.set(hull, m);
+  return m;
+}
+/** A hull's metal, reckoned once (the builds are frozen) - sized up every frame, never re-walked. */
+const METAL = new Map();
+/**
+ * SEA-PEACE: a ship's fighting power - how fast she beats a hull down (her metal, her gunners' hit share 0.5 + skill,
+ * her crew's share of the reload) times how long her own stands (the hull she has left): of two ships, the one with the
+ * greater product wins the duel (each other's hull over each other's rate).
+ * @param {{ hull: number, hullHp: number, hullShare?: number, crewShare?: number, skill?: number }} o
+ */
+export function fightingPower({ hull, hullHp, hullShare = 1, crewShare = 1, skill = PLAYER_GUN_SKILL }) {
+  return metalOf(hull) * (0.5 + skill) * clamp(crewShare, 0.2, 1) * Math.max(0, hullHp) * clamp(hullShare, 0, 1);
+}
+/** SEA-PEACE: a sea ship's own fighting power, as she stands. */
+export const shipPower = (ship) => fightingPower({ hull: ship.hull, hullHp: ship.damage.maxHull, hullShare: ship.damage.hullShare(), crewShare: ship.damage.crewShare(), skill: ship.cls.skill });
+/** SEA-PEACE: a class's power fresh from port - what the director pairs a staged encounter by. */
+export const classPower = (cls) => fightingPower({ hull: cls.hull, hullHp: cls.hullHp, skill: cls.skill });
 
 /** A blow from `by` at `now`: the ship remembers who struck it. */
 export function provoke(ship, by, now) { if (by != null) ship.provoked.set(String(by), now); }
@@ -577,19 +675,34 @@ export function stepCaptain(ship, world) {
     if (ship.adrift && st === SHIP_STATES.prize) drift(ship, dt, world.wind, isWater);
     return out;
   }
+  // SEA-PEACE: lashed alongside a prize she is taking - her guns in, her way off, until the host has taken her
+  if (ship.lashed) {
+    ship.mode = 'board';
+    ship.target = ship.lashed.id;
+    ship.runOut.clear();
+    ship.sweeps = 0;
+    ship.sails = Math.max(0, ship.sails - dt * 0.5);
+    ship.speed = Math.max(0, ship.speed - DECEL * 2 * dt);
+    helm(ship, ship.yaw, dt, world, 0);
+    moveShip(ship, dt, isWater);
+    return out;
+  }
 
   // who is out there, and who is an enemy - the one she fights kept until it is past DISENGAGE of its reach
   const sight = lookoutOf(ship);
-  let enemy = null, enemyD = Infinity, threat = null, threatD = Infinity;
+  let enemy = null, enemyD = Infinity, threat = null, threatD = Infinity, prize = null, prizeD = Infinity;
   for (const c of world.contacts ?? []) {
     if (c.id === ship.id || c.gone) continue;
     const { dist } = bearingTo(ship, c.pos);
+    // SEA-PEACE: a ship struck to HER is her prize to board - nobody's enemy, nobody's threat
+    if (c.struck) { if (c.struckTo === ship.id && dist < prizeD) { prize = c; prizeD = dist; } continue; }
     const held = c.id === ship.target && (ship.mode === 'engage' || ship.mode === 'board');
     if (hostile(ship, c, world) && !((ship.spare.get(c.id) ?? -Infinity) > ship.clock)) {
       if (dist < (held ? sight * DISENGAGE : sight) && (held ? dist * 0.8 : dist) < enemyD) { enemy = c; enemyD = held ? dist * 0.8 : dist; }
     }
-    // a threat is anything hostile that would take US
-    const theyTakeUs = c.kind === 'ship' ? c.ship && hostile(c.ship, { kind: 'ship', faction: ship.cls.faction, id: ship.id }, world) : ship.cls.faction !== 'pirate' && (ship.provoked.get(c.id) ?? -Infinity) > world.now - PROVOKED_S;
+    // a threat is anything hostile that would take US - SEA-PEACE: sized up by her own power, and a player who fired on
+    // her a threat to a pirate too (a wary one runs from a stronger one; a bold one fights it out, as she did)
+    const theyTakeUs = c.kind === 'ship' ? c.ship && hostile(c.ship, { kind: 'ship', faction: ship.cls.faction, id: ship.id, ship }, world) : (ship.provoked.get(c.id) ?? -Infinity) > world.now - PROVOKED_S;
     if (theyTakeUs && dist < FLEE_RANGE && dist < threatD) { threat = c; threatD = dist; }
   }
   if (enemy) enemyD = bearingTo(ship, enemy.pos).dist;
@@ -604,7 +717,8 @@ export function stepCaptain(ship, world) {
   if (!enemy) enemyD = Infinity;
 
   const runs = (ship.cls.faction === 'merchant' && (threat || enemy))
-    || (ship.cls.faction === 'pirate' && !ship.cls.flagship && ship.damage.hullShare() < PIRATE_RUNS_AT && (threat || enemy));
+    || (ship.cls.faction === 'pirate' && !ship.cls.flagship && ship.damage.hullShare() < PIRATE_RUNS_AT && (threat || enemy))
+    || (ship.cls.faction === 'pirate' && ship.temper === TEMPERS.wary && !!threat && outguns(threat, ship));   // SEA-PEACE: a wary pirate runs from a stronger ship
   let plan;
   if (runs) {
     const from = threat ?? enemy;
@@ -616,11 +730,24 @@ export function stepCaptain(ship, world) {
     ship.target = enemy.id;
     if (boards) { ship.mode = 'board'; plan = boardCourse(ship, enemy, world.wind); }
     else { ship.mode = 'engage'; ship.berthSide = 0; plan = engageCourse(ship, enemy, enemyD, world, isWater); }
+  } else if (prize && ship.damage.crew > 0) {
+    // SEA-PEACE: the end of her fight - alongside the ship that struck to her, to take her: she has surrendered, so any
+    // men to send will do (GRAPPLE_CREW is for carrying a deck that fights - a player's)
+    ship.mode = 'board';
+    ship.target = prize.id;
+    plan = boardCourse(ship, prize, world.wind);
   } else {
-    ship.mode = 'cruise';
     ship.target = null;
     ship.berthSide = 0;
-    plan = { want: cruiseCourse(ship, world.wind, isWater, world.random ?? Math.random), goal: ship.course ? [ship.course[0], 0, ship.course[1]] : ship.waypoint ? [ship.waypoint[0], 0, ship.waypoint[1]] : null, sails: 1 };
+    // SEA-PEACE: a navy with no enemy in sight sails for the guns she hears
+    ship.heard = ship.cls.faction === 'navy' ? heardGuns(ship, world) : null;
+    if (ship.heard) {
+      ship.mode = 'answer';
+      plan = { want: headingTo(ship.pos, ship.heard.pos), goal: [ship.heard.pos[0], 0, ship.heard.pos[2]], sails: 1 };
+    } else {
+      ship.mode = 'cruise';
+      plan = { want: cruiseCourse(ship, world.wind, isWater, world.random ?? Math.random), goal: ship.course ? [ship.course[0], 0, ship.course[1]] : ship.waypoint ? [ship.waypoint[0], 0, ship.waypoint[1]] : null, sails: 1 };
+    }
   }
   ship.sweeps = plan.sweeps ?? 0;   // AUDIT NAV1 (online #10): her sweeps out, or in
   let want = plan.sailable ? plan.want : tackCourse(ship, plan.want, plan.goal, world.wind);
@@ -641,10 +768,25 @@ export function stepCaptain(ship, world) {
   // the grapple: a pirate with men to send, alongside a crippled, holed or stopped boat - GRAPPLE_GAP of water between
   // the hulls where both are known, else within GRAPPLE_RANGE
   if (ship.mode === 'board') {
-    const close = enemy.hull != null && Number.isFinite(enemy.yaw) ? hullGap(ship.pos, ship.yaw, ship.hull, enemy.pos, enemy.yaw, enemy.hull) <= GRAPPLE_GAP : enemyD <= GRAPPLE_RANGE;
-    if (close) out.grapple = enemy.id;
+    const q = enemy ?? prize;   // SEA-PEACE: or the prize she comes alongside
+    const close = q.hull != null && Number.isFinite(q.yaw) ? hullGap(ship.pos, ship.yaw, ship.hull, q.pos, q.yaw, q.hull) <= GRAPPLE_GAP : bearingTo(ship, q.pos).dist <= GRAPPLE_RANGE;
+    if (close) out.grapple = q.id;
   }
   return out;
+}
+
+/** SEA-PEACE: the gunfire a navy answers (`world.gunfire`: `[{ pos, at, by }]`) - the nearest fired by another within
+ *  HEAR_GUNS_M of her in the last HEAR_S, and not yet within half her lookout (there the table decides who she fights). */
+function heardGuns(ship, world) {
+  const near = lookoutOf(ship) * 0.5;
+  let best = null, bestD = Infinity;
+  for (const g of world.gunfire ?? []) {
+    if (g.by === ship.id || !(world.now - g.at <= HEAR_S)) continue;
+    const d = Math.hypot(g.pos[0] - ship.pos[0], g.pos[2] - ship.pos[2]);
+    if (d > HEAR_GUNS_M || d < near || d >= bestD) continue;
+    best = g; bestD = d;
+  }
+  return best;
 }
 
 /** A pirate's boarding: a player's boat - AUDIT NAV1 (online #10): another player's too, whose own word lets pirates
@@ -835,6 +977,28 @@ function engageCourse(ship, enemy, d, world, isWater) {
   const { bearing } = bearingTo(ship, enemy.pos);
   const my = velocityOf(ship);
   const rel = [vel[0] - my[0], 0, vel[2] - my[2]];
+  // SEA-PEACE: A STERN CHASE is closed up her quarter - she runs from us (her way along our line of sight, away, over
+  // CHASE_AWAY of OUR pace: a quarry that slow is presented to as ever) and we lie abaft her beam (more than ABAFT_DEG
+  // off her bow): a side turned to her there gives
+  // the chase up (a pirate on a fleeing merchantman fell from 169 m to 220 and gave her up), so she is run down dead
+  // astern - the intercept of the quarry herself, sails full, the chasers bearing (a berth off her beam held them
+  // silent 100 s, the bow 11 to 21 degrees off her) - and within CHASE_SHEER of her range she sheers out for a berth
+  // her range off our side of the quarry's beam, to present from abeam
+  const ev = Math.hypot(vel[0], vel[2]);
+  if (ev > 0.3) {   // at any range: astern of her, a side turned to her only opens it (she wove 93-113 m off her stern)
+    const los = [(enemy.pos[0] - ship.pos[0]) / Math.max(1e-6, d), 0, (enemy.pos[2] - ship.pos[2]) / Math.max(1e-6, d)];
+    const eYaw = Math.atan2(vel[0], vel[2]);
+    const offBow = Math.abs(wrapAngle(headingTo(enemy.pos, ship.pos) - eYaw));
+    if ((vel[0] * los[0] + vel[2] * los[2]) > CHASE_AWAY * paceOf(ship, world.wind) && offBow > ABAFT_DEG * DEG) {
+      const f = forwardOfYaw(eYaw), r = [f[2], 0, -f[0]];
+      const onSide = ((ship.pos[0] - enemy.pos[0]) * r[0] + (ship.pos[2] - enemy.pos[2]) * r[2]) >= 0 ? 1 : -1;
+      const out = d > range * CHASE_SHEER ? 0 : range;
+      const berth = [enemy.pos[0] + r[0] * onSide * out, enemy.pos[1] ?? 0, enemy.pos[2] + r[2] * onSide * out];
+      const i = intercept(ship.pos, paceOf(ship, world.wind), berth, vel);
+      ship.present = null;
+      return { want: i.heading, goal: i.point, sails: 1 };
+    }
+  }
   // a galley fights over its stem: its great guns loaded, the enemy in their reach and within BOW_SWING of the bow,
   // it turns its bow on where its guns must be laid - the enemy's lead for their flight
   const bowReach = batteryReach(ship, 'bow', world.seaY);

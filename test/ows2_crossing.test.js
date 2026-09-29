@@ -354,7 +354,7 @@ test('OWS2 host wiring by source: the boat a journey crosses in; the plan asked 
   const sea = w.indexOf('tvSeaFrame(dt);   // OWS2'), mod = w.indexOf('const report = travelOptions.update({'), govern = w.indexOf('travelViewGovern(dt);   // TV2');
   assert.ok(sea >= 0 && govern > sea && mod > govern && mod - sea < 3000, 'the crossing\'s frame first, then the cap\'s, then the mod\'s own update');
   // the seam: the helm reads the journey's keys and oars beside the rest
-  assert.match(w, /\|\| csaJourneyHelm\.held\.has\(action\),/);
+  assert.match(w, /\|\| csaJourneyHelm\.held\.has\(action\)(?: \|\| \(!!HELM_RUDDER_ACTIONS\[action\] && helmTurnKeys\(\) && held\(keys, HELM_RUDDER_ACTIONS\[action\]\)\))?,/);   // HELM-KEYS: the turn keys beside it at a helm
   assert.match(w, /get toggleAutorun\(\) \{ return !!player\.toggleAutorun \|\| csaJourneyHelm\.row; \},/);
   // PIN MOVED (AUDIT OW5 S1): the crossing's alone - a mod journey at a helm meets the mod's own ocean stop
   assert.match(w, /atSea: \(\) => !!tvSea\.means && \(!!csaBoatUnderMe\(\) \|\| tvSea\.phase === 'landing'\),/, 'afloat, and coming ashore - on the crossing');

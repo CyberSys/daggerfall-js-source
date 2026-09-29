@@ -28,7 +28,8 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''}
 const open = () => true;
 const world = (o = {}) => ({ now: 0, dt: 0.1, seaY: 0, wind: [0, 0, WIND_RATED], isWater: open, contacts: [], random: () => 0.5, ...o });
 const player = (pos, o = {}) => ({ id: 'me', kind: 'player', pos, vel: [0, 0, 0], speed: 0, ...o });
-const ship = (classId, o = {}) => createSeaShip({ id: o.id ?? classId, seed: 1, classId, pos: o.pos ?? [0, 0, 0], yaw: o.yaw ?? 0 });
+// SEA-PEACE: the audit's captains are bold - a temper is the traffic's, pinned in test/seapeace.test.js
+const ship = (classId, o = {}) => createSeaShip({ id: o.id ?? classId, seed: 1, classId, pos: o.pos ?? [0, 0, 0], yaw: o.yaw ?? 0, temper: o.temper ?? 'bold' });
 const steps = (s, w, seconds) => { let out = null; for (let t = 0; t < seconds - 1e-9; t += w.dt) out = stepCaptain(s, w); return out; };
 
 // ── the way and the turn ───────────────────────────────────────────────────────────────────────────────────────────

@@ -30,12 +30,13 @@ import { BOAT_ACTIONS } from '../systems/comeSailAway.js';
 export const ENHANCED_HELM_ID = 'enhanced-helm';
 const HELM_STYLE_ID = 'enhanced-helm-style';
 
-/** The registry actions the panel presses - the mod's own nine, by the panel's names for them (one home for the
- *  names: systems/comeSailAway.js BOAT_ACTIONS). */
+/** The registry actions the panel presses - the mod's own nine and HELM-KEYS' more and less sail, by the panel's names
+ *  for them (one home for the names: systems/comeSailAway.js BOAT_ACTIONS). */
 export const HELM_ACTIONS = Object.freeze({
   sail: BOAT_ACTIONS.toggleSail, light: BOAT_ACTIONS.toggleLight, disembark: BOAT_ACTIONS.disembark,
   trimLeft: BOAT_ACTIONS.trimLeft, trimRight: BOAT_ACTIONS.trimRight, trimModifier: BOAT_ACTIONS.trimModifier,
   slower: BOAT_ACTIONS.timeScaleDown, faster: BOAT_ACTIONS.timeScaleUp, normal: BOAT_ACTIONS.timeScaleReset,
+  more: BOAT_ACTIONS.sailUp, less: BOAT_ACTIONS.sailDown,
 });
 const A = HELM_ACTIONS;
 const PAD_CODE = Object.fromEntries(Object.entries(HELM_DPAD).map(([code, dir]) => [dir, code]));
@@ -84,7 +85,10 @@ export function helmPadPrompts(h) {
 export function helmButtons(h) {
   if (!h) return [];
   const out = [];
-  if (h.hasSails) out.push({ act: 'sails', label: h.sailsUp ? 'Stow sails' : 'Raise sails', kind: 'tap', action: A.sail });
+  // HELM-KEYS: the sails' button presses what the arrows press - more sail to raise them, less to stow them - so its
+  // hint teaches the arrows; where the square sails are the player's own (the square button's), stowing is the mod's
+  // own toggle, which strikes all her canvas as its label says
+  if (h.hasSails) out.push({ act: 'sails', label: h.sailsUp ? 'Stow sails' : 'Raise sails', kind: 'tap', action: !h.sailsUp ? A.more : h.squareToggle ? A.sail : A.less });
   if (h.squareToggle) out.push({ act: 'square', label: h.squareUp ? 'Stow square sails' : 'Raise square sails', kind: 'tap', action: A.sail, withHeld: A.trimModifier });
   if (h.manualTrim && h.hasSails) {
     out.push({ act: 'trimLeft', label: '◀ Trim', kind: 'hold', action: A.trimLeft }, { act: 'trimRight', label: 'Trim ▶', kind: 'hold', action: A.trimRight });
@@ -255,7 +259,7 @@ export function drawEnhancedHelm(state = {}, hooks = {}, { doc = globalThis.docu
   if (last.rootClass !== rootClass) { last.rootClass = rootClass; parts.root.className = rootClass; }
   const title = h ? `At the helm - ${HULL_NAMES[h.hull] ?? 'Boat'}` : `Aboard ${aboard.owner ? `${aboard.owner}'s` : "another player's"} ${HULL_NAMES[aboard.hull] ?? 'boat'}`;
   if (last.title !== title) { last.title = title; parts.name.textContent = title; }
-  const hint = h && !state.touch && !state.mouseFree ? `Free the mouse (${state.freeKey || 'Y'}) to use these` : '';
+  const hint = h ? helmHint(h, state) : '';
   if (last.hint !== hint) { last.hint = hint; parts.hint.textContent = hint; }
   const list = helmButtons(h);
   const sig = list.map((b) => b.act).join(',');
@@ -274,6 +278,27 @@ export function drawEnhancedHelm(state = {}, hooks = {}, { doc = globalThis.docu
     }
   }
   return parts.root;
+}
+
+/**
+ * HELM-KEYS (2026-09-29, the player: "make the ship controls more intuitive instead of a bunch of buttons and key
+ * binds"): the bar's line under its name - in irons, how she comes out (the key that strikes sail and the one that
+ * rows); else, on a keyboard, the helm's whole hand at a glance - the sails on the arrows, the rudder on the turn keys -
+ * and while the look holds the mouse, how to free it for the buttons. A finger reads the buttons themselves. Every key
+ * is the one bound now (`keyOf`); one bound to nothing is left out.
+ * @param {any} h - helmPanelState() @param {{ touch?: boolean, mouseFree?: boolean, freeKey?: string, keyOf?: (a: string) => string }} state
+ */
+export function helmHint(h, state = {}) {
+  const key = (a) => (state.touch ? '' : (state.keyOf?.(a) ?? ''));
+  if (h.inIrons) {
+    const strike = key(A.less), row = key('MoveForwards');
+    return `In irons - strike sail${strike ? ` (${strike})` : ''} and row her round${row ? ` (${row})` : ''}`;
+  }
+  if (state.touch) return '';
+  const pair = (label, a, b) => (key(a) || key(b) ? `${label} ${[key(a), key(b)].filter(Boolean).join(' ')}` : '');
+  const parts = [h.hasSails ? pair('Sails', A.more, A.less) : '', pair('Steer', 'TurnLeft', 'TurnRight')];
+  if (!state.mouseFree) parts.push(`Free the mouse (${state.freeKey || 'Y'}) to use these`);
+  return parts.filter(Boolean).join(' · ');
 }
 
 /** Taken down: at the helm no longer, aboard nothing, the skin or the mod off. Every hold is let go first. */

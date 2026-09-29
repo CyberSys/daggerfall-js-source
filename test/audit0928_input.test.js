@@ -21,7 +21,7 @@ import { comeSailAwayModels } from '../src/systems/comeSailAwayModels.js';
 import { spawnBoat, TRIGGER_MODEL } from '../src/systems/comeSailAwayBoat.js';
 import { createComeSailAwayRuntime, NO_WATER_LEVEL, BOAT_PARTS_TEMPLATE } from '../src/systems/comeSailAway.js';
 import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, released, held, setBindings } from '../src/ui/input.js';
-import { createBindings, resetDefaults, ACTION_GROUPS, DEFAULT_BINDINGS, DEFAULT_SECONDARY_BINDINGS, HIDDEN_ACTIONS } from '../src/systems/inputActions.js';
+import { createBindings, resetDefaults, ACTION_GROUPS, DEFAULT_BINDINGS, DEFAULT_SECONDARY_BINDINGS, DEFAULT_SHARES, HIDDEN_ACTIONS } from '../src/systems/inputActions.js';
 import { buttonText } from '../src/systems/controlsConfig.js';
 import { attachTouch } from '../src/ui/touch.js';
 import { setPref, _resetForTests as resetPrefs } from '../src/systems/uiPrefs.js';
@@ -347,7 +347,7 @@ test('AUDIT PRE-MERGE 0928 D2/U5: Controls.md\'s defaults ARE generated from the
       if (m) rows.push([m[1], m[2], m[3], m[4]]);
     }
     const want = g.rows.filter((r) => !hidden(r.action)).map((r) => {
-      const key = firstCode(DEFAULT_BINDINGS, r.action), pad = firstCode(DEFAULT_SECONDARY_BINDINGS, r.action);
+      const key = firstCode(DEFAULT_BINDINGS, r.action) ?? DEFAULT_SHARES.find(([, a]) => a === r.action)?.[0] ?? null, pad = firstCode(DEFAULT_SECONDARY_BINDINGS, r.action);   // HELM-KEYS: a default share's key is its key
       return [r.action, key ? buttonText(key, true) : '(unbound)', pad ? `\`${pad}\`` : '', r.label];
     });
     assert.deepEqual(rows, want, `${g.title}: the page's table is the registry's`);

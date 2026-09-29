@@ -166,7 +166,7 @@
   {
     "name": "NAV1O-raider-seed-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (!e.owner && !e.raider && e.ship.cls.faction === 'pirate') { const r = list.find((x) => (x.seed >>> 0) === e.ship.seed); if (r) e.raider = { id: r.id, chased: false, spent: spent.has(r.id) }; }\n",
+    "old": "      if (!e.owner && !e.raider && e.ship.cls.faction === 'pirate') { const r = list.find((x) => (x.seed >>> 0) === e.ship.seed); if (r) { e.raider = { id: r.id, chased: false, spent: spent.has(r.id) }; e.ship.temper = TEMPERS.bold; } }   // SEA-PEACE: a raider is bold\n",
     "new": "",
     "tests": [
       "test/navaudit_online.test.js"
@@ -346,8 +346,8 @@
   {
     "name": "NAV1O-contact-hull-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "hullShare: self?.me?.hull ?? 1, crippled",
-    "new": "hullShare: 1, crippled",
+    "old": "      const share = self?.me?.hull ?? 1;",
+    "new": "      const share = 1;",
     "tests": [
       "test/navaudit_online.test.js"
     ]

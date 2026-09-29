@@ -270,7 +270,17 @@ export const BOAT_ACTIONS = Object.freeze({
   toggleSail: 'BoatToggleSail', trimRight: 'BoatTrimRight', trimLeft: 'BoatTrimLeft', trimModifier: 'BoatTrimModifier',
   // CSA-G: the time scale's three (Controls.IncreaseTimeScale, DecreaseTimeScale, ResetTimeScale)
   timeScaleUp: 'BoatTimeScaleUp', timeScaleDown: 'BoatTimeScaleDown', timeScaleReset: 'BoatTimeScaleReset',
+  // HELM-KEYS (the port's, DECLARED): the arrows' more and less sail (MoreSail, LessSail)
+  sailUp: 'BoatSailUp', sailDown: 'BoatSailDown',
 });
+/** HELM-KEYS (the port's, DECLARED): a helm IN IRONS - her sails up, her bow within IRONS_TELL_DEG of the wind's eye and
+ *  her way under IRONS_TELL_WAY m/s for IRONS_TELL_S running: the sails cannot draw and the rudder cannot turn a hull
+ *  that makes no way, so the helm is told once how she comes out (IRONS_TEXT) - and the panel says it while it lasts
+ *  (helmPanelState). The dwell: a sail just raised, or a tack through the wind's eye, is not lying in irons. */
+export const IRONS_TELL_DEG = 40;
+export const IRONS_TELL_WAY = 0.4;
+export const IRONS_TELL_S = 2;
+export const IRONS_TEXT = 'In irons - the wind is dead ahead. Strike sail and row her round.';
 /** The C#'s field initializers (262-276): the oars' and the sails' speeds, accelerations and turns. */
 export const HANDLING = Object.freeze({
   moveSpeedOar: 2, moveSpeedSail: 2, moveAccelOar: 1, moveAccelSail: f(0.2),
@@ -526,6 +536,9 @@ export function createComeSailAwayRuntime(deps) {
     // CSA-E: the manual trim's two angles (318-320)
     trimAngle: 0,
     trimAngleSquare: 0,
+    // HELM-KEYS (the port's): the seconds she has lain in irons, and the word said for this spell of them
+    ironsFor: 0,
+    ironsTold: false,
     /** windDirectionWidgetTextureCurrent (1076): the frame the widget draws, its textures' index. */
     windWidgetFrame: 0,
     /** @type {Map<any, { enemy:any, boat:Boat }>} FixedUpdate's parentedObjects: each enemy riding a hull, by the host's key. */
@@ -1061,6 +1074,35 @@ export function createComeSailAwayRuntime(deps) {
     deps.hudText('Square sails lowered!');
     for (const item2 of b.SailsSquare) { const component2 = animatorOf(item2); if (component2 != null) stow(component2, true); }
   }
+  /**
+   * HELM-KEYS (2026-09-29, the player: "Arrow keys should not only control your ship, but also setting and raising
+   * your sails. I also want to find a way to make the ship controls more intuitive") - MORE SAIL and LESS SAIL, the
+   * port's own two steps through the mod's own sail states (DECLARED, the Port-Ledger's Come Sail Away row): the
+   * sails stowed, a hull's fore-and-aft canvas alone (its square sails stowed by hand - the assist's AutoStow off), all
+   * her canvas. More sail raises what is stowed - RaiseSails, then ToggleSquareSails - and less sail takes in the
+   * square sails first where the fore-and-aft stand without them, then LowerSails. With the assist's square sails
+   * (the default) the steps are the two ToggleSails makes. A step with nowhere to go says so.
+   */
+  const squareHandled = (b) => b.SailsSquare.length > 0 && (b.SailsLateen.length > 0 || b.SailsGaff.length > 0) && !trimAutoSquareUpwind();
+  const squareStowed = (b) => animatorOf(b.SailsSquare[0])?.GetBool('Stowed') !== false;
+  function MoreSail(b) {
+    if (b.Sails.length < 1) { deps.hudText('Boat does not have any sail.'); return; }
+    if (state.sailPosition === 0) { RaiseSails(); return; }
+    if (squareHandled(b) && squareStowed(b)) { ToggleSquareSails(); return; }
+    deps.hudText('All sail is set.');
+  }
+  function LessSail(b) {
+    if (b.Sails.length < 1) { deps.hudText('Boat does not have any sail.'); return; }
+    if (state.sailPosition === 0) { deps.hudText('The sails are stowed.'); return; }
+    if (squareHandled(b) && !squareStowed(b)) { ToggleSquareSails(); return; }
+    LowerSails();
+  }
+  /** HELM-KEYS: whether her helm is in irons (IRONS_TELL_DEG, IRONS_TELL_WAY) - her sails up and the wind's eye dead ahead. */
+  function inIrons(b) {
+    if (state.sailPosition === 0 || b.Sails.length < 1) return false;
+    const toWind = Math.abs(vSignedAngle(flat(forwardOf(b.GameObject)), flat(state.windVectorCurrent), V_UP));   // the wind blows TO: 180 is dead into it
+    return toWind >= 180 - IRONS_TELL_DEG && vMagnitude(state.velocityCurrent) < IRONS_TELL_WAY;
+  }
   /** Update's manual trim (4370-4410): the brackets turn the fore-and-aft booms to 90 each way, or the square ones
    *  to 45 (with the modifier, or on a boat with neither lateen nor gaff), at 15 degrees a second; every boom set. */
   function manualTrim(boat) {
@@ -1219,6 +1261,14 @@ export function createComeSailAwayRuntime(deps) {
       if (state.sailPosition > 0 && boat.SailsSquare.length > 0 && !trimAutoSquareUpwind() && has(BOAT_ACTIONS.trimModifier) && (boat.SailsLateen.length > 0 || boat.SailsGaff.length > 0)) ToggleSquareSails();
       else ToggleSails();
     }
+    // HELM-KEYS (the port's, DECLARED): the arrows' more and less sail
+    if (deps.input?.started?.(BOAT_ACTIONS.sailUp)) MoreSail(boat);
+    if (deps.input?.started?.(BOAT_ACTIONS.sailDown)) LessSail(boat);
+    // HELM-KEYS: in irons IRONS_TELL_S running, the helm told once how she comes out (again once she has been out of them)
+    const irons = inIrons(boat);
+    state.ironsFor = irons ? f(state.ironsFor + dt()) : 0;
+    if (state.ironsFor >= IRONS_TELL_S && !state.ironsTold) { state.ironsTold = true; deps.hudText(IRONS_TEXT); }
+    else if (!irons) state.ironsTold = false;
     if (deps.input?.started?.(BOAT_ACTIONS.disembark) || deps.input?.started?.('Transport')) StopSailingDelayed();
     if (deps.input?.started?.(BOAT_ACTIONS.toggleLight)) setLights(boat, !boat.LightOn);
     if (!trimAuto()) manualTrim(boat);
@@ -2650,6 +2700,8 @@ export function createComeSailAwayRuntime(deps) {
         squareToggle: state.sailPosition !== 0 && boat.SailsSquare.length > 0 && foreAft && !trimAutoSquareUpwind(), squareUp: squareRaised,
         light: !!boat.LightOn, timeScaleIndex: state.timeScaleIndex, timeScale: TIME_SCALES[state.timeScaleIndex], timeScaleMax: TIME_SCALES.length - 1,
         manualTrim: !trimAuto(), squareOnly: !foreAft,
+        // HELM-KEYS: whether more sail can be made (a sail stowed that the arrows' step raises), and whether she lies in irons
+        moreSail: boat.Sails.length > 0 && (state.sailPosition === 0 || (squareHandled(boat) && squareStowed(boat))), inIrons: inIrons(boat) && state.ironsFor >= IRONS_TELL_S,
       };
     },
     StartPlacing, StopPlacing,

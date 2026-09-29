@@ -12,7 +12,7 @@ import {
   INTERNAL_DUPE_COLOR, CROSS_DUPE_COLOR, SHARED_KEY_COLOR,
 } from '../src/systems/controlsConfig.js';
 import {
-  createBindings, resetDefaults, setBinding, getBinding, actionForCode, actionsForCode, ACTIONS,
+  createBindings, resetDefaults, setBinding, getBinding, actionForCode, actionsForCode, ACTIONS, DEFAULT_SHARES,
 } from '../src/systems/inputActions.js';
 import { KEY_GROUPS, KEY_BTN, TAB_RECTS, MLOOK_ALT_RECT, gridButtons } from '../src/ui/controlsWindow.js';
 
@@ -111,7 +111,7 @@ test('I4 + UXB1-S: the SAME key on two actions is a SHARE - marked, never blocki
   const store = freshStore();
   const u = createUnsavedKeybinds(store);
   assert.equal(checkDuplicates(u).ok, true, 'the defaults are clean');
-  assert.equal(checkDuplicates(u).shared.size, 0, '...and share nothing');
+  assert.deepEqual([...checkDuplicates(u).shared], DEFAULT_SHARES.map(([c]) => c), '...and share only the default shares (HELM-KEYS: the up arrow)');
   // two actions on one code, in the SHOWN dict: a share
   setUnsavedBinding(u, 'Rest', 'KeyW');
   let d = checkDuplicates(u);
@@ -120,7 +120,7 @@ test('I4 + UXB1-S: the SAME key on two actions is a SHARE - marked, never blocki
   assert.equal(d.ok, true, 'a share does not block the exit');
   assert.equal(internalDuplicatesExist(u), true, '(the raw same-code test still sees it - the pages ask checkDuplicates)');
   setUnsavedBinding(u, 'Rest', 'KeyR');
-  assert.equal(checkDuplicates(u).shared.size, 0);
+  assert.equal(checkDuplicates(u).shared.has('KeyW'), false);
   // the same code in the OTHER dict: a share across the two, not DFU's blue
   u.secondary.set('Jump', 'KeyW');
   d = checkDuplicates(u);
@@ -130,7 +130,7 @@ test('I4 + UXB1-S: the SAME key on two actions is a SHARE - marked, never blocki
   u.secondary.set('Jump', null);
   // ...and an action on one key in both its slots is that action twice, not a share
   u.secondary.set('MoveForwards', 'KeyW');
-  assert.equal(checkDuplicates(u).shared.size, 0, 'one action, both slots: nothing shared');
+  assert.equal(checkDuplicates(u).shared.has('KeyW'), false, 'one action, both slots: nothing shared');
   u.secondary.set('MoveForwards', null);
   // THE LAW STILL STANDING: a combo against its own modifier bound bare - Shift+T beside Run's bare Shift
   setUnsavedBinding(u, 'Rest', 'ShiftLeft+KeyT');
@@ -148,7 +148,7 @@ test('I4 + UXB1-S: the SAME key on two actions is a SHARE - marked, never blocki
   setUnsavedBinding(u2, 'Rest', null);
   setUnsavedBinding(u2, 'Jump', null);
   assert.equal(checkDuplicates(u2).ok, true, 'two unbound actions are not duplicates');
-  assert.equal(checkDuplicates(u2).shared.size, 0, '...nor a share');
+  assert.deepEqual([...checkDuplicates(u2).shared], DEFAULT_SHARES.map(([c]) => c), '...nor a share (the default share alone stands)');
   assert.equal(getDuplicates([null, null, 'KeyW']).size, 0);
   // the two colours are DFU's own; the share's is the port's, and neither of them
   assert.deepEqual([...INTERNAL_DUPE_COLOR], [1, 0, 0, 1]);

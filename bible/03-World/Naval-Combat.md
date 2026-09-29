@@ -318,6 +318,8 @@ time scale will not run past one, the travel map and a party's trip refuse ("You
 nearby."), a Travel Options journey stops for her - so main's Overworld crossing (OWS2) is brought up short by a pirate
 bearing down, as a road journey is by a bandit - and nobody rests under her guns (`world.js navalHostileNear`, one
 helper at the five doors). A merchantman, a navy that is not hunting the player, a struck or sinking ship is no enemy.
+SEA-PEACE: and none at all while the player stands aboard no ship (`aboardShip`, below) - ashore her guns cannot reach
+them, and no captain takes them for a contact.
 
 ## Online (NAV-G)
 
@@ -802,6 +804,62 @@ own, on the same probes:
 | the hulls drawn (#13) | every sea hull drawn whole every frame, all round, out to 1.9 km; a war galley 136 meshes, 107 of them her oars | culled as the world's meshes are; her still parts as one mesh | eight ships round the eye: 382 mesh draws, now four (the four astern none, each one ahead one); a batch made again in under a millisecond |
 | the minors (#14) | targets built for every ball; the land sounded every frame; the word built and keyed twice a tick; a word's twelve new volleys | the targets once a step (the wire's slice); the soundings every NAV_EVERY_S (the captains' slice) - the three a ship a frame left are her grounding; the word once a tick; PEER_VOLLEYS_MAX (the wire's slice) | the HUD's model (26 KB a frame) and its draw's (16-42 KB) measured and kept: young garbage, no collection in the measure |
 
+## SEA-PEACE (2026-09-29) - the sea's guns for those aboard, a captain's temper, the Bay's own fights
+
+The player: "People shouldnt get attacked if not on a ship, some ships should be passive, not all should be hostile.
+Enemy AI and Friendly AI should engage in their own encounters naturally". Measured first on the real host over Come
+Sail Away's hulls (`test/navalSea.mjs`): a player on the beach with a pirate brig 400 m off heard "Sail ho!", could
+neither rest nor travel ("enemies nearby") and saw a journey stop; every pirate took every player's boat on sight; and
+a fight between two ships ended with the winner sailing off and the loser lying struck for good (a navy took a pirate
+to 24% in 180 s, then cruised away).
+
+- **THE SEA'S GUNS ARE FOR THOSE ABOARD** (`navalHost.js aboardShip`: at a helm, on a boat of mine - `boatInPlay` - or on
+  a sea ship's deck). The captains' contacts already asked it; now so does everything else that asked a pirate's
+  hostility alone - `hostileNear` (the time scale, a rest, the five doors, the shipwright, the mending's quiet), the
+  journey's `threats`, and the lookout's "Sail ho!" (hailed once the player is aboard). Ashore, on a quay or in the
+  water, nobody at sea is an enemy of theirs.
+- **A CAPTAIN'S TEMPER** (`navalAI.js temperOf`, off her seed on its own salt, so every client reads the same): a
+  merchantman PEACEFUL, a navy DUTIFUL (every pirate; a player by the law), a pirate BOLD - the flagship, Warm Ashes'
+  raiders (the host's), a hand-launched one (the Sea battle's foe) and BOLD_SHARE of the rest - or WARY. A wary pirate
+  takes only a prize she OUTGUNS WARY_ODDS to one, or one crippled or holed under GRAPPLE_HULL; one she cannot size up
+  (a player off every boat) she leaves be; from a threat that outguns her she RUNS. Every temper answers a blow.
+- **FIGHTING POWER** (`fightingPower`): the hull's weight of metal (`metalOf` - one broadside, the bow and the stern
+  guns, never a fire barrel) x the gunners' hit share (0.5 + skill) x the crew's share x the hull left - the Lanchester
+  product: of two ships the greater wins the duel. A player's boat is sized off her build and her hurts
+  (`myPowerOf`; single-handed without her crew, `RELOAD_SINGLEHANDED`), a peer's off their word's. The numbers at full
+  health: sloop 3,135, brig 35,721, corsair galley 64,532, flagship 80,371; coaster 2,025, galleon 24,192, merchant
+  carrack 41,933; cutter 47,250, war galley 91,104; the player's Large Boat 3,300, Small Ship 41,580, Large Galley
+  83,512, Carrack 64,064 (crewed). So a wary brig takes a Large Boat and leaves a sound Small Ship; a wary corsair
+  galley takes the Small Ship; a wary sloop takes a coaster, never a galleon.
+- **THE STERN CHASE** (`engageCourse`): a quarry running from her - her way along the line of sight, away, over
+  CHASE_AWAY of the pursuer's own pace - with the pursuer abaft her beam (past ABAFT_DEG off her bow) is run down dead
+  astern (the intercept of the quarry herself: the chasers bear) and, within CHASE_SHEER of the pursuer's range, by a
+  berth her range off the quarry's beam on the side she lies - so the broadside is presented from abeam. A side turned
+  to a runner from astern gave the chase up: a pirate on a fleeing galleon fell back from 169 m to 220 and quit after
+  CHASE_GIVE_UP_S; now she closes at her own margin, cuts the galleon's canvas with chain from the bow (sail 0.87 to
+  0.44) and takes her. A slow quarry is presented to as ever.
+- **THE ENDS OF A FIGHT** (`stepCaptain`'s prize; the host's `lashPrize`, `stepPrizes`): a ship that struck to a captain
+  of mine is her prize - listed to her alone (`struckTo`), she comes alongside on the board course and grapples across
+  GRAPPLE_GAP, the two lie LASHED PRIZE_TAKE_S, then the prize is fired (she burns and founders) and the victor's crew is
+  thinned by PRIZE_COST of the men the prize had left (never her last man). A struck ship has surrendered, so any men
+  to send will do (GRAPPLE_CREW is for carrying a deck that fights - a player's). A victor struck by a ball CASTS OFF to
+  fight; a prize I board is never hers; a prize her taker comes for, or takes, and the taker are in a fight - the
+  director lets neither go.
+- **THE GUNS ARE HEARD** (`heardGuns`; the host keeps every volley's first report GUNFIRE_KEEP deep for HEAR_S): a navy
+  with no enemy in sight sails for gunfire within HEAR_GUNS_M (mode `answer`) - never her own, never a stale report,
+  never one inside half her lookout, where the table decides. A pirate raiding a merchantman draws the crown's ship.
+- **THE BAY'S OWN FIGHTS** (`navalDirector.js encounterSpawn`): ENCOUNTER_CHANCE of the rolls that launch with room for
+  two launch a PAIR already at it - a pirate on a merchantman she outguns WARY_ODDS to one (`plunder`), or a navy on a
+  pirate (`patrol`), ENCOUNTERS' weights - the quarry ENCOUNTER_GAP ahead of her hunter on the hunter's course, crossing
+  the player's waters as any ship does. Drawn on the spawn's own ENCOUNTER_SALT stream, so a roll that launches one ship
+  draws what it always drew.
+- **THE NEWS** of a fight between ships (her colours struck, going down, a grapple, a prize fired) reaches my HUD only
+  within NEWS_RANGE of it, or when it is mine; the bell and the sinking are heard where they happen.
+
+Measured after, over 30 minutes of the director's own traffic at level 8 (`some`): a player idle at a Small Ship's
+helm met a peaceful coaster, a wary sloop that ran down a coaster, took and fired her on her own, and one bold corsair
+galley that came for them; on foot beside the same waters nobody engaged or hailed, and no rest or journey was held.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
@@ -819,6 +877,8 @@ hostile ships as a journey's threats and the map, run through the world host's o
 run in `ow6_slowdown`) - and the audit's own suites: `navaudit_captains` (the way, the turn and the heel, the wind's eye, other
 hulls and the land, the intercept, the side that bears soonest, giving up, alongside to board, the wreck, the cruise,
 a prize adrift, the berths, the hulls kept apart, a galley's ram, the sea's time, a boarder chasing, her sweeps) and
+`seapeace` (SEA-PEACE: aboard or not, the tempers, the power, the odds, the host's sizing, a wary pirate's flight, the
+stern chase, a prize taken and cast off, the guns heard, the director's pairs, the host standing a pair) and
 `navaudit_guns` (the run-out and its promise, the fire's window, never over her nor short, no friend across the line,
 the lay, station alongside, the helm's lead, the prize kept a prize, no feud from a stray, fire, the rig, the shots'
 own, the guns' reach, the warning, the tell heard and seen, the tally) and `navaudit_helm` (the look's reach, a look

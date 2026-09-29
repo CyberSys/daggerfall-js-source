@@ -1057,7 +1057,7 @@
   {
     "name": "NAV1H-the-hostile-unmarked",
     "file": "src/scenes/navalHost.js",
-    "old": "          : hostile(e.ship, { kind: 'player', id: myId() }, { notoriety: (c) => notoriety.get(c), now: clock }) ? 'hostile' : 'ship';\n        out.push",
+    "old": "          : hostile(e.ship, me, { notoriety: (c) => notoriety.get(c), now: clock }) ? 'hostile' : 'ship';\n        out.push",
     "new": "          : 'ship';\n        out.push",
     "tests": [
       "test/navaudit_helm.test.js"

@@ -29,7 +29,8 @@ const open = () => true;
 const world = (o = {}) => ({ now: 0, dt: 0.1, seaY: 0, wind: [0, 0, WIND_RATED], isWater: open, contacts: [], random: () => 0.5, ...o });
 /** The player's boat as a captain sees it: a Small Ship heading +z unless told otherwise. */
 const player = (pos, o = {}) => ({ id: 'me', kind: 'player', pos, vel: [0, 0, 0], speed: 0, yaw: 0, hull: HULL.SmallShip, ...o });
-const ship = (classId, o = {}) => createSeaShip({ id: o.id ?? classId, seed: 1, classId, pos: o.pos ?? [0, 0, 0], yaw: o.yaw ?? 0 });
+// SEA-PEACE: the audit's captains are bold - a temper is the traffic's, pinned in test/seapeace.test.js
+const ship = (classId, o = {}) => createSeaShip({ id: o.id ?? classId, seed: 1, classId, pos: o.pos ?? [0, 0, 0], yaw: o.yaw ?? 0, temper: o.temper ?? 'bold' });
 /** Steps a captain `seconds`, gathering her volleys and run-outs with her clock. */
 function run(s, w, seconds, each = null) {
   const out = { volleys: [], runOuts: [] };

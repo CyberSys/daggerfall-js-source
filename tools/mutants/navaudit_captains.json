@@ -326,8 +326,8 @@
   {
     "name": "NAV1-the-gap-unread",
     "file": "src/systems/naval/navalAI.js",
-    "old": "    const close = enemy.hull != null && Number.isFinite(enemy.yaw) ? hullGap(ship.pos, ship.yaw, ship.hull, enemy.pos, enemy.yaw, enemy.hull) <= GRAPPLE_GAP : enemyD <= GRAPPLE_RANGE;",
-    "new": "    const close = enemyD <= GRAPPLE_RANGE;",
+    "old": "    const close = q.hull != null && Number.isFinite(q.yaw) ? hullGap(ship.pos, ship.yaw, ship.hull, q.pos, q.yaw, q.hull) <= GRAPPLE_GAP : bearingTo(ship, q.pos).dist <= GRAPPLE_RANGE;",
+    "new": "    const close = bearingTo(ship, q.pos).dist <= GRAPPLE_RANGE;",
     "tests": [
       "test/navaudit_captains.test.js"
     ]
@@ -416,8 +416,8 @@
   {
     "name": "NAV1-a-prize-engaged",
     "file": "src/scenes/navalHost.js",
-    "old": "engaged: e.ship.mode === 'engage' || e.ship.mode === 'board' || boarding?.shipId === e.id || !!e.raider,",
-    "new": "engaged: e.ship.mode === 'engage' || e.ship.mode === 'board' || boarding?.shipId === e.id || !!e.raider || e.ship.damage.state === SHIP_STATES.prize,",
+    "old": "engaged: e.ship.mode === 'engage' || e.ship.mode === 'board' || boarding?.shipId === e.id || !!e.raider || !!e.takenBy",
+    "new": "engaged: e.ship.mode === 'engage' || e.ship.mode === 'board' || boarding?.shipId === e.id || !!e.raider || e.ship.damage.state === SHIP_STATES.prize || !!e.takenBy",
     "tests": [
       "test/navaudit_captains.test.js"
     ]

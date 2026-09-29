@@ -40,7 +40,10 @@ test('FIX-F: the keyboard look reads the four turn/look actions off the registry
   // (worldModes.js and dungeonContext.js own no filter); this is the
   // seam's own set, and DFU has ONE InputManager for all of them.
   for (const h of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeon.js', 'src/scenes/interior.js']) {
-    assert.match(read(h), /else lookFilter\.tick\(dt, cam\);\s*\n(?:\s*\/\/[^\n]*\n)*\s*const kb = keyboardLook\(keys\);\s*\n\s*if \(kb\.x \|\| kb\.y\) lookFilter\.add\(kb\.x \* keyboardLookRate\(\) \* dt, kb\.y \* keyboardLookRate\(\) \* dt \* lookInvert\(\)\);/, `${h}: the keyboard look feeds the same filter the mouse does, every frame, owed to the next tick`);
+    // HELM-KEYS: the streaming world's helm takes the turn keys for the rudder (inputActions.js HELM_RUDDER_ACTIONS) - the
+    // one line between the read and the feed, and only there
+    assert.match(read(h), /else lookFilter\.tick\(dt, cam\);\s*\n(?:\s*\/\/[^\n]*\n)*\s*const kb = keyboardLook\(keys\);\s*\n(?:\s*if \(helmTurnKeys\(\)\) kb\.x = 0;[^\n]*\n)?\s*if \(kb\.x \|\| kb\.y\) lookFilter\.add\(kb\.x \* keyboardLookRate\(\) \* dt, kb\.y \* keyboardLookRate\(\) \* dt \* lookInvert\(\)\);/, `${h}: the keyboard look feeds the same filter the mouse does, every frame, owed to the next tick`);
+    assert.equal(/if \(helmTurnKeys\(\)\) kb\.x = 0;/.test(read(h)), h === 'src/scenes/world.js', `${h}: the helm's rudder takes the turn keys in the streaming world alone`);
   }
 });
 
