@@ -34,13 +34,14 @@ export async function readyPool() {
 }
 
 /**
- * A sea: `hull` the player's boat at a helm (null: on foot), `water(x, z)` the land test, `wind`, `settings`, `level`.
+ * A sea: `hull` the player's boat at a helm (null: on foot), `water(x, z)` the land test, `wind`, `settings`, `level`,
+ * `raidQuest(name)` the quest a raid starts (none: refused), `save` a save to restore first.
  * Answers `{ host, pool, boat, runtime, view, log, deps, run(seconds, dt) }`.
  */
 export async function sea(o = {}) {
   const pool = await readyPool();
   pool.destroyAll();
-  const log = { say: [], mid: [], sounds: [], foes: [], removed: [], placed: [], raids: [], plunder: [], given: [], hits: [], shake: [], spent: [], left: 0 };
+  const log = { say: [], mid: [], sounds: [], foes: [], removed: [], placed: [], raids: [], ended: [], plunder: [], given: [], hits: [], shake: [], spent: [], left: 0 };
   const boat = o.hull == null ? null : pool.spawnNow(Object.assign(new Boat(o.hull, 0), { uid: 42 }), { position: [0, 0, 0], rotation: [0, 0, 0, 1] });
   const runtime = boat ? {
     sailing: true, state: { CurrentBoat: boat, AllBoats: [boat], velocityCurrent: [0, 0, 0], windVectorCurrent: o.wind ?? [0.6, 0, 0.8], sailPosition: 0 },
@@ -59,8 +60,9 @@ export async function sea(o = {}) {
       placePlayer: (p, y) => log.placed.push([p, y]),
       deckSpots: (_b, n) => Array.from({ length: n }, (_, i) => [[i, 5, 0], 0]),
       spawnFoe: (mobile, pos, yaw, side) => { const h = { mobile, side, dead: false }; log.foes.push(h); return h; },
-      foeDown: (h) => h.dead, removeFoe: (h) => log.removed.push(h),
-      startRaid: (name) => { log.raids.push(name); return null; },
+      foeDown: (h) => h.dead, removeFoe: (h) => log.removed.push(h), standDown: (h) => { h.yielded = true; },
+      startRaid: (name) => { log.raids.push(name); return o.raidQuest?.(name) ?? null; },
+      endRaid: (quest, opts) => log.ended.push([quest, opts]),
       openPlunder: (m) => { log.plunder.push(m); return true; },
       giveItems: (items, b) => { log.given.push([items.length, b]); return { left: [] }; },
     },
@@ -69,6 +71,7 @@ export async function sea(o = {}) {
     raiderSpent: (id) => log.spent.push(id),
   };
   const host = createNavalHost(deps);
+  if (o.save) host.restoreSaveData(o.save);
   const run = (seconds, dt = 0.1) => { for (let t = 0; t < seconds - 1e-9; t += dt) host.frame(dt); };
   return { host, pool, boat, runtime, view, log, deps, run };
 }

@@ -265,8 +265,9 @@ test('NAV-D THE GATE (DECLARED): Warm Ashes\' LeaveShip asks the host\'s leaveSh
 });
 
 test('NAV-D ONE RAID AT A TIME (THE MERGE with OWS3): Warm Ashes\' module answers for every starter - an ambush armed or boarding, a lent ship out, or a raid quest running whoever started it (the host\'s word off the quest machine); an Overworld raider alongside is refused while the sea fight\'s raid runs, and the sea fight\'s boarders start none over an armed ambush - they come over as the arc\'s own party (mutants: the running raid unasked, the boarders\' raid over an ambush, the host\'s word never given)', () => {
-  // the two quests are the sea fight's own two names
-  assert.deepEqual([...WA_RAID_QUESTS], [WA_SMALLRAID, WA_ATTACK_PIRATE]);
+  // the two quests as the machine names them (AUDIT NAV1 B5: the pirate attack's file, WA_ATTACK_PIRATE, names itself
+  // WAQ_SHIP_PIRATEATTACK - test/navaudit_boarding.test.js reads each file's header)
+  assert.deepEqual([...WA_RAID_QUESTS], [WA_SMALLRAID, 'WAQ_SHIP_PIRATEATTACK']);
   _resetWarmAshesShips();
   let running = false;
   const calls = [];

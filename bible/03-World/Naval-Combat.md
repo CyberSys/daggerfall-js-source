@@ -551,6 +551,20 @@ The helm audit's aiming findings (the player at the guns; 1080p, DFU's default F
 | her hurts never in her handling (H8) | WRECKED_OARS read by nothing; a shot-up rig kept its whole way to the last of its canvas; wrecked, the host struck the sails every frame they went up - a line a press on top of the mod's own | Come Sail Away's seams: `wayScale` (moveSpeed times `wayShare` under sail - BARE_POLES and the rest by the canvas left - and WRECKED_OARS on a wreck's oars) and `sailRefused` (RaiseSails refused with one line: a wreck, a rig shot away); a rig lost with the canvas set struck once | - |
 | (the slice's own) the aim and the ram read the last frame's hulls | computed before the ships were posed: a ship's way behind | both after the poses | - |
 
+### Boarding (the grapple, the raid, the prize)
+
+The boarding audit's findings (Warm Ashes' real quest files through the port's own parser and machine; the host over
+Come Sail Away's real pool):
+
+| finding | before (the audit's measure) | the law now | after |
+|---|---|---|---|
+| Warm Ashes' raid never starts on the open sea (B2) | both raids threw in the sea's region - 31 holds no house for the raid's `_KnightlyGuard_` (message 1013's "on your way to ...") - so the sea fight's boarders fell back to the arc's own party and a crewed Small Ship (24 men) met 4 boarders with no hand of hers beside the player | `waRaidQuest`: a raid parsed while the player's region is the sea's (Warm Ashes' WA_SEA_REGION) reads the crown of these waters' region for the length of its parse alone - the mod parses it on a voyage's arrival, in the destination's land region; both starters through it (the sea fight's boarders, and Warm Ashes' own coroutine for an Overworld raider alongside); every repel the raid does not run brings her hands (`handsOf`) | both raids parse in a crown's region; a refused raid's repel has 4 hands beside the player |
+| the flagship's raid invisible, and endless (B5) | its file WAQ_SHIP_ATTACK_PIRATE names itself WAQ_SHIP_PIRATEATTACK: "one raid at a time" never read it running. Slower than its hour after the second wave, its `_retreat_` cleared the waves and stopped its own end - no leader, no end, and the boarding that waited on it held every other off; a win reached the sea fight 25 s after its leader fell | WA_RAID_QUESTS the machine's own names (each file's `Quest:` header); the raid WON the frame a winning task fires (`raidQuestWon`, polled); its retreat - the mod's own unfinished clock - the boarders falling back (`raidQuestRetreated`, `castOff`) | - |
+| a raid let go of runs on (B6) | swimming 200 m away, a transition or a respawn: its quest kept running, its waves round the player (8 Rogues grown to 10 in ten game minutes) | `board.endRaid` - QuestMachine's own TombstoneQuest - from every early end: the cast-off, my deck left to them, the sea emptied, her ship gone; its living boarders withdrawn by their quest's UID (a tombstone leaves the foes it made standing), except her stranded ones | - |
+| boarders who cast off stay alongside (B7) | swimming away: "Her crew stands down" (a line for boarding her), and a fresh grapple at once; the raid's hour out: "cast off", and she grappled again | `castOff`: her boarders withdrawn, SPARE_S before she will take me again, and she sheers off RAIDER_SHEER_M (`sheerOff`, NAV-R's own); my own deck left: "You leave your deck to them" | no grapple in the next 20 s |
+| "her crew surrenders", and fights on (B3) | the prize window opened over three survivors still swinging; rest and travel refused while they stood | `board.standDown` for each living man before her window - the quest system's own restrain (hostile no more, where he stands); one still standing up yields as he arrives | - |
+| the fire's finish unannounced (B4) | a burning struck brig went struck, sinking, sunk: no bell, no "going down", no cask, no reward; boarded and burning, she foundered 6 s in, the fight ran 22 s on a sinking deck and ended without a word | one arm for a ball's change and her fires' own (`stateChanged`), charged to who set her afire (`fireBy`) - another's fire never mine; the grapple puts her fires out; a boarded ship going down ends the fight, her men over the side and the player set on their own deck ("Back to your ship!", `founderUnderFight`) | - |
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
@@ -572,14 +586,17 @@ a prize adrift, the berths, the hulls kept apart, a galley's ram, the sea's time
 the lay, station alongside, the helm's lead, the prize kept a prize, no feud from a stray, fire, the rig, the shots'
 own, the guns' reach, the warning, the tell heard and seen, the tally) and `navaudit_helm` (the look's reach, a look
 on a ship, the red where the balls strike her as she will stand, why the guns will not fire yet, the aim drawn, the
-broadside camera, the world's wiring), on the shared sea of `test/navalSea.mjs`.
-Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`
-and `navaudit_helm.json`, 452 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+broadside camera, the world's wiring) and `navaudit_boarding` (the raids' names and their retreat, the real parser in
+the sea's region and a crown's, the world host's pin and endRaid and stand-down run, a crewed boat's hands, the win
+polled, the cast-off, the surrender, the fire's finish, the founder), on the shared sea of `test/navalSea.mjs`.
+Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
+`navaudit_helm.json` and `navaudit_boarding.json`, 484 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
 audit's helm, and seven of other suites' re-aimed by content at the laws the helm keeps; 14 with the merge with
-main's OW6, and eight of the arc's own re-aimed by content at the lines the merge rewrote);
+main's OW6, and eight of the arc's own re-aimed by content at the lines the merge rewrote; 32 with the audit's
+boarding, and NAV-R's sheer-off re-aimed at the one the cast-off shares);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

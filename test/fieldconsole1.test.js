@@ -21,9 +21,10 @@ test('FIELD-CONSOLE1: the region read townTalk makes at load is a hoisted declar
   const build = w.indexOf('const townTalk = createTownTalk({');
   assert.ok(build > 0);
   assert.match(w.slice(build, build + 2000), /regionIndex: \(\) => _questRegionIndex\(\),/, 'the load reads it');
-  assert.match(w, /\n  function _questRegionIndex\(\) \{\n    const px = playerTravelPixel\(\);\n    return maps\.getRegionIndexAt\(px\.x, px\.y\);\n  \}/);
+  // AUDIT NAV1 (B2): a raid parsed at sea reads the crown's region through its pin, for the length of the parse
+  assert.match(w, /\n  function _questRegionIndex\(\) \{\n    if \(_questRegionPin != null\) return _questRegionPin;[^\n]*\n    const px = playerTravelPixel\(\);\n    return maps\.getRegionIndexAt\(px\.x, px\.y\);\n  \}/);
   // everything its body reads is declared before townTalk is built (the load may resume at any later await)
-  for (const decl of ['function playerTravelPixel()', 'const maps = new MapsFile();', 'const state = new StreamingWorldState(', 'const cam = {', 'const walkMode = ', 'const player = new PlayerMotor(']) {
+  for (const decl of ['function playerTravelPixel()', 'let _questRegionPin = null;', 'const maps = new MapsFile();', 'const state = new StreamingWorldState(', 'const cam = {', 'const walkMode = ', 'const player = new PlayerMotor(']) {
     const at = w.indexOf(decl);
     assert.ok(at > 0, decl);
     if (!decl.startsWith('function')) assert.ok(at < build, `${decl} is declared before townTalk is built`);

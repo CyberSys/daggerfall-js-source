@@ -70,6 +70,21 @@ export function raidQuestWon(quest) {
   if (!tasks?.get) return false;
   return RAID_WIN_TASKS.some((name) => tasks.get(name)?.getTriggerValue?.() === true);
 }
+/**
+ * AUDIT NAV1 (B5) - THE TASK A RAID IS GIVEN UP BY: the pirate attack's `_retreat_` clock, started with its second wave
+ * (an hour of the world's clock). It clears the waves' triggers, so its leader never comes, and it stops the `_cooldown_`
+ * that would have ended it: a player slower than the hour met no leader and a quest that never ended, and the boarding
+ * that waited on it held every other boarding off. The mod left it unfinished (its lines 2025-2029 unwritten, its notes
+ * "Add Retreat Timer"); here it is what it names - the boarders fall back and cast off, and the raid ends
+ * (scenes/navalHost.js castOff). The small raid declares the clock and never starts it.
+ */
+export const RAID_RETREAT_TASKS = Object.freeze(['retreat']);
+/** Whether a raid quest was given up: its retreat triggered and it was not won. */
+export function raidQuestRetreated(quest) {
+  const tasks = quest?.tasks;
+  if (!tasks?.get || raidQuestWon(quest)) return false;
+  return RAID_RETREAT_TASKS.some((name) => tasks.get(name)?.getTriggerValue?.() === true);
+}
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 

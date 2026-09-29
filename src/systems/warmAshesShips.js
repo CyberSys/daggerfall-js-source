@@ -45,9 +45,12 @@ export const warmAshesOn = () => modSetting(WARM_ASHES_VENDOR, 'Enabled') === tr
 export const WA_QUEST_LIST = 'WA_Ships';
 /** The one quest the code starts [IL_0630]. */
 export const WA_RAID_QUEST = 'WAQ_SHIP_SMALLRAID';
-/** THE MERGE of NAV-D and OWS3: the raids a running quest makes - the ambush's, and a pirate flagship's, which the sea
- *  fight's boarders start (scenes/navalHost.js; systems/naval/navalBoarding.js WA_SMALLRAID, WA_ATTACK_PIRATE). */
-export const WA_RAID_QUESTS = Object.freeze([WA_RAID_QUEST, 'WAQ_SHIP_ATTACK_PIRATE']);
+/** THE MERGE of NAV-D and OWS3: the raids a running quest makes, AS THE QUEST MACHINE NAMES THEM - each file's own
+ *  `Quest:` header (quest/parser.js): the ambush's, and a pirate flagship's, which the sea fight's boarders start from
+ *  its file WAQ_SHIP_ATTACK_PIRATE.txt (scenes/navalHost.js; systems/naval/navalBoarding.js WA_ATTACK_PIRATE) and whose
+ *  header names it WAQ_SHIP_PIRATEATTACK. AUDIT NAV1 (B5): listed by its file's name, a flagship's raid was never read
+ *  as running, and "one raid at a time" let an Overworld raider start a second on top of it. */
+export const WA_RAID_QUESTS = Object.freeze([WA_RAID_QUEST, 'WAQ_SHIP_PIRATEATTACK']);
 /** The two blocks the variants are set on, with AnyLocationKey (-8) [IL_047f, IL_03aa]. */
 export const WA_SHIP_BLOCKS = Object.freeze(['SHIPAA00.RMB', 'SHIPAA01.RMB']);
 export const WA_VARIANT_RAID = '_smallraid';

@@ -332,7 +332,7 @@ import { drawNavalHud, navalTouchBrace } from '../ui/navalHud.js';   // NAV-F: t
 import { createNavalPlunderOverlay, closeNavalPlunder, createNavalYardOverlay, closeNavalYard } from '../ui/navalPlunderDoor.js';   // NAV-F: a taken ship's window, behind its door; AUDIT NAV1: the shipwright's
 import { installNavalSounds } from '../systems/naval/navalSounds.js';   // NAV-E: the guns' own sounds
 import { navalRecordKey } from '../systems/naval/navalWire.js';   // NAV-G: my sea's word, said when it changed
-import { CROWNS as NAVAL_CROWNS } from '../systems/naval/navalShips.js';   // NAV-C: the three crowns, whose capitals name the waters
+import { CROWNS as NAVAL_CROWNS, crownOf as navalCrownOf } from '../systems/naval/navalShips.js';   // NAV-C: the three crowns, whose capitals name the waters; AUDIT NAV1 (B2): a raid at sea parsed in theirs
 import { particleMeshRotation as csaParticleMeshRotation, RENDER_MODE as CSA_RENDER_MODE } from '../world/unityParticles.js';   // CSA-F
 import { quatRotate as csaQuatRotate, quatMultiply as csaQuatMultiply, quatAngleAxis as csaQuatAngleAxis } from '../world/quat.js';   // CSA-F: the effects probe's flag forward; CSA-K: the helm's turn a frame ahead
 import { classicRecordRgba } from '../formats/derivedTexture.js';   // CSA-F: the snow the waves' paints key
@@ -340,7 +340,7 @@ import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js'; 
 import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
 import { raycastColliders, rayBoxEntry, collidersOf, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
-import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
+import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
 import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
@@ -775,6 +775,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   arch.load(archBytes);
   const maps = new MapsFile();
   maps.load(mapsBytes, climateBytes, politicBytes);
+  // AUDIT NAV1 (B2): a Warm Ashes raid parsed at sea reads the crown of these waters' region (waRaidQuest) - declared up
+  // here with maps, before townTalk's load can reach _questRegionIndex (FIELD 2026-09-27's order, below)
+  let _questRegionPin = null;
   const woods = new WoodsFile();
   if (!woods.load(woodsBytes)) throw new Error('WOODS.WLD failed to load');
   // W1: the window reads the map through ContentReader's own
@@ -6025,11 +6028,18 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** A boarding's foe, stood where the host says, on the side it names - the handle fills when its stand lands. */
   const navalSpawnFoe = (mobile, feet, yaw, side) => {
-    const handle = { foe: null, gone: false };
+    const handle = { foe: null, gone: false, yielded: false };
     exteriorFoes.spawnFoe(mobile, feet, { yaw, feetGiven: true, placed: true, allied: side === 'ally' })
-      .then((f) => { if (!f) return; if (handle.gone) exteriorFoes.removeFoe(f); else handle.foe = f; })
+      .then((f) => { if (!f) return; if (handle.gone) exteriorFoes.removeFoe(f); else { handle.foe = f; if (handle.yielded) navalStandDown(handle); } })
       .catch((e) => console.warn('[naval] a boarder would not stand', e?.message ?? e));
     return handle;
+  };
+  /** AUDIT NAV1 (B3): a boarder who yields - hostile no more (the quest system's own `restrain foe`, questFoeHost.js
+   *  setNonHostile), standing on her deck; one still standing up yields as he arrives. */
+  const navalStandDown = (handle) => {
+    if (!handle) return;
+    handle.yielded = true;
+    if (handle.foe?.ai && !handle.foe.dead) handle.foe.ai.isHostile = false;
   };
   /** The hold's goods into a boat's own hold (Come Sail Away's cargo) - or with no boat, into the pack as far as it
    *  carries (the pack's own gate, itemTransfer.js planTake). Answers what would not go. */
@@ -6102,12 +6112,22 @@ export async function bootWorld(canvas, renderer, params, status) {
       spawnFoe: navalSpawnFoe,
       foeDown: (h) => !!h?.foe?.dead,
       removeFoe: (h) => { if (!h) return; h.gone = true; if (h.foe && !h.foe.dead) exteriorFoes.removeFoe(h.foe); },
+      standDown: navalStandDown,
       startRaid: (name) => {
         if (warmAshesRaidUnderWay()) return null;   // THE MERGE (NAV-D, OWS3): one raid at a time - the boarders come over as the arc's own party
-        const q = questBridge?.questLists?.getQuest(name, 0) ?? null;
+        const q = waRaidQuest(name);   // AUDIT NAV1 (B2): parsed where its places stand - at sea, the crown's region
         if (!q) return null;
         try { questBridge.machine.startQuestImmediate(q); } catch (e) { console.warn('[naval] the raid would not start', e); return null; }
         return q;
+      },
+      // AUDIT NAV1 (B6): a raid the sea fight let go of - its boarders cast off, the deck left to them, the sea emptied -
+      // ends with it (QuestMachine's own TombstoneQuest), never its waves following the player about; `withdraw`: its
+      // living boarders go back over the rail with it (a tombstoned quest leaves the foes it made standing)
+      endRaid: (quest, { withdraw = false } = {}) => {
+        if (!quest || !questBridge) return;
+        if (withdraw) for (const f of [...exteriorFoes.foes]) if (!f.dead && f.questBehaviour?.questUID === quest.uid) exteriorFoes.removeFoe(f);
+        if (quest.questTombstoned) return;   // ended by its own clock: its boarders withdrawn, nothing more to end
+        try { questBridge.machine.tombstoneQuest(quest); } catch (e) { console.warn('[naval] the raid would not end', e); }
       },
       openPlunder: (model) => navalOpenPlunder(model),
       giveItems: navalGiveItems,
@@ -11890,8 +11910,24 @@ export async function bootWorld(canvas, renderer, params, status) {
   // here would exist, so the read threw and the region's people never loaded. Everything the body reads
   // (playerTravelPixel, maps, state, cam, player, walkMode, modes) is declared before townTalk is built.
   function _questRegionIndex() {
+    if (_questRegionPin != null) return _questRegionPin;   // AUDIT NAV1 (B2): only for the length of a raid's parse
     const px = playerTravelPixel();
     return maps.getRegionIndexAt(px.x, px.y);
+  }
+  /** AUDIT NAV1 (B2) - WARM ASHES' RAID, PARSED WHERE ITS PLACES STAND. The mod parses its raid on arrival from a
+   *  voyage, in the destination's land region, and the raid's Person `_KnightlyGuard_` (message 1013's "on your way to
+   *  ...") takes a home among that region's houses. Started at sea - the sea fight's boarders (navalHost.js beginFight),
+   *  an Overworld raider alongside (raidAtSea's coroutine) - the player's region is the sea's (WA_SEA_REGION: no town,
+   *  no People) and the parse threw: no raid on the open sea, ever, and a crewed ship's crew never fought. There the
+   *  quest is parsed in the crown of these waters' region (navalShips.js crownOf), the region the rest of the sea's law
+   *  already answers to; the pin lasts the parse alone (a parse is synchronous). */
+  function waRaidQuest(name, factionId = 0) {
+    const lists = questBridge?.questLists;
+    if (!lists) return null;
+    if (_questRegionIndex() !== WA_SEA_REGION) return lists.getQuest(name, factionId);
+    const p = playerTravelPixel();
+    _questRegionPin = navalCrownOf(p.x, p.y, navalCapitals(), WA_SEA_REGION).region;
+    try { return lists.getQuest(name, factionId); } finally { _questRegionPin = null; }
   }
   /** PersistentFactionData.GetRegionFaction (:272-287): FindFactions
    *  (Province, -1, -1, region) and take the first row - the record
@@ -13065,7 +13101,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     ownsShip: () => ownsShip(playerEntity),
     assignShip: (shipType) => assignShipToPlayer(playerEntity, shipType, { addPermanentScene: shipPermanentScenes }),
     resetShip: () => resetShip(playerEntity),
-    getQuest: (name, factionId) => questBridge.questLists.getQuest(name, factionId),
+    getQuest: (name, factionId) => waRaidQuest(name, factionId),   // AUDIT NAV1 (B2): the raid, parsed where its places stand
     startQuest: (quest) => questBridge.machine.startQuestImmediate(quest),
     setTransportModeShip: () => shipTransportMode(),
     currentRegionIndex: () => _questRegionIndex(),

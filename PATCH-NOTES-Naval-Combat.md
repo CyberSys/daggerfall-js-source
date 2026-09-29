@@ -79,6 +79,17 @@
 - He mends your hull and sails, hires new crew and sells fire barrels, each priced per piece. Buy as much as you can afford, or press "Make her whole" to fix everything at once.
 - Between fights your crew slowly patches the hull and sails, up to half strength, once no enemy is near and nothing has hit you for a while. Your panel shows "Mending" while they work. A crippled ship floats again once they have patched enough, so you can sail it to a shipwright. Crew can only be hired, not patched.
 
+## Boarding - the fight and its end
+- Warm Ashes' pirate raids now start anywhere at sea, not only in coastal waters, whether pirates board you in a sea fight or catch up with you on the Overworld.
+- When your crewed ship is boarded and the raid can't run (another raid is already under way, or Warm Ashes is off), your crew still fights beside you.
+- The pirate flagship's attack no longer hangs. It ends the moment its leader falls, and if you're too slow the pirates fall back to their ship and cast off.
+- Pirates who give up, or whose raid runs out of time, now go back to their ship and sail away. They don't grapple you again for five minutes, and the raid's waves stop coming.
+- Swim away from your boarded ship and the pirates fall back and cast off, instead of vanishing and grappling you again at once.
+- When a boarded ship's crew surrenders, the survivors throw down their arms before the plunder window opens.
+- A ship finished off by fire now strikes her colours and goes down like one sunk by shot: you hear her bell, her cargo floats free, and the law and rewards count. A fire you didn't start isn't counted against you.
+- If the ship you boarded starts sinking under the fight, you're sent back to your own deck.
+- Throwing the grapples puts out a ship's fires.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.
