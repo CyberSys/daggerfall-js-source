@@ -109,6 +109,7 @@ function d1() {
   db.exec('PRAGMA foreign_keys = ON');
   for (const f of MIGRATIONS) db.exec(src(`server-account/migrations/${f}`));
   return {
+    _raw: db,   // AUDIT REALM2 S2: a house from before the realm is laid in by hand
     prepare(sql) {
       const stmt = db.prepare(sql);
       let args = [];
@@ -143,16 +144,20 @@ async function stand() {
     assert.equal((await call('/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one' })).status, 200);
     return guest.secret;
   };
-  return { call, registered };
+  /** AUDIT REALM2 S2: a house from before the realm, the account `handle`'s `character`'s - a claim is a realm
+   *  character's now; clearing its room is still its owner's character's, whichever it is. */
+  const oldHome = (handle, character) => env.DB._raw.prepare("INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at) VALUES (?, ?, (SELECT id FROM players WHERE handle = ?), ?, ?, 17, 'private', 42000, 1)")
+    .run(HOME.mapId, HOME.buildingKey, handle, character, handle);
+  return { call, registered, oldHome };
 }
 const HOME = { mapId: 1291010263, buildingKey: 0x10203 };
 
 test('BASE-HIDE the service: a home\'s list of what is out is read with its pieces by every session; written WHOLE by the owner\'s character alone; refused whole when the law would; and the home released takes it (mutants: a stranger\'s write kept, a bad list kept, the list unread, the cascade dropped)', async () => {
-  const { call, registered } = await stand();
+  const { call, registered, oldHome } = await stand();
   assert.ok(ROUTES.has('/v1/homes/decor/hidden'), 'the route is the service\'s');
   const aldric = await registered('Aldric');
   const mara = await registered('Mara');
-  assert.equal((await call('/v1/homes/claim', { ...HOME, region: 17, character: 'char-aldric', price: 42000 }, aldric)).status, 200);
+  oldHome('Aldric', 'char-aldric');
   assert.deepEqual((await call('/v1/homes/decor', HOME, mara)).body.hidden, [], 'nothing out yet');
   const at = (keys, character = 'char-aldric') => ({ ...HOME, character, keys });
   const w = await call('/v1/homes/decor/hidden', at(['m12:41000', 'f3:210.4']), aldric);
@@ -169,7 +174,7 @@ test('BASE-HIDE the service: a home\'s list of what is out is read with its piec
   assert.deepEqual((await call('/v1/homes/decor/hidden', at([]), aldric)).body.hidden, [], 'everything put back');
   await call('/v1/homes/decor/hidden', at(['m5:41001']), aldric);
   assert.equal((await call('/v1/homes/release', HOME, aldric)).status, 200);
-  assert.equal((await call('/v1/homes/claim', { ...HOME, region: 17, character: 'char-mara', price: 42000 }, mara)).status, 200);
+  oldHome('Mara', 'char-mara');
   assert.deepEqual((await call('/v1/homes/decor', HOME, mara)).body.hidden, [], 'the next owner walks into the room as Daggerfall furnished it');
   // the client's door: the whole list, the owner's character
   const posts = [];

@@ -102,8 +102,8 @@
   {
     "name": "ACC2-11-the-save-routes-stop-existing",
     "file": "server-account/src/index.js",
-    "old": "    const slot = savePathOf(path);\n    if (!ROUTES.has(path) && !slot) return no('not-found', 404, origin);",
-    "new": "    const slot = savePathOf(path);\n    if (!ROUTES.has(path)) return no('not-found', 404, origin);",
+    "old": "    if (!ROUTES.has(path) && !slot && !realmSlot) return no('not-found', 404, origin);",
+    "new": "    if (!ROUTES.has(path) && !realmSlot) return no('not-found', 404, origin);",
     "tests": [
       "test/cloudsaves.test.js"
     ],

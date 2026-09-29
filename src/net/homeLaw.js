@@ -44,6 +44,11 @@ export const homeBuildingKeyOk = (v) => Number.isSafeInteger(v) && v > 0 && v <=
 export const homeRegionOk = (v) => Number.isSafeInteger(v) && v >= 0 && v <= HOME_REGION_MAX;
 export const homePriceOk = (v) => Number.isSafeInteger(v) && v > 0 && v <= HOME_PRICE_MAX;
 export const homeEntryOk = (v) => typeof v === 'string' && HOME_ENTRIES.includes(v);
+/** REALM P2.2b: the share of what a home cost that selling it pays back - Daggerfall's deed share (systems/banking.js
+ *  DEED_SELL_MULT, pinned equal) - so the service credits a realm character's record the sum its client credits. */
+export const HOME_SALE_SHARE = 0.85;
+/** What selling a home bought for `price` pays back (systems/onlineHomes.js homeRefund, pinned equal). */
+export const homeSaleRefund = (price) => Math.trunc((Number.isSafeInteger(price) && price > 0 ? price : 0) * HOME_SALE_SHARE);
 
 const sameName = (a, b) => typeof a === 'string' && typeof b === 'string' && a.length > 0 && a.toLowerCase() === b.toLowerCase();
 

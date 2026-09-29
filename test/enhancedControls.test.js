@@ -364,7 +364,7 @@ test('MAC-K1: arming from a click cannot itself be the bound BUTTON, but the nex
 
 test('MAC-K1: a SIXTH button is not a binding, and the capture stays armed for one that is', () => {
   // mouseCode answers null past the fifth button (ui/input.js's
-  // MOUSE_CODES is five long since VOICE1 - Unity's Mouse0-Mouse4, the side buttons push-to-talk's). A thumb
+  // MOUSE_CODES is five long since VOICE1, kept for VIEW-TOGGLE - Unity's Mouse0-Mouse4, the side buttons the bindings'). A thumb
   // button must not silently bind nothing and end the capture - the
   // row would go blank and the player would never know why.
   withPane(({ doc, view }) => {

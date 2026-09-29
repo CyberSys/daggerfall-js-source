@@ -197,14 +197,22 @@ async function boot() {
     // F12's law - the first cut wired it into the classic start window's
     // branch below, which never answers 'online', so PLAY ONLINE booted a
     // new character with no relay at all.
-    if (choice === 'online') params.set('online', '1');
+    if (choice === 'online' || choice === 'online-new') params.set('online', '1');   // REALM P1.3: and a character born online
     else params.delete('online');
     // SLOTS1: the Load and Online panes pick a slot; the boot's load arm
     // reads the key (world.js, the SAV4 arm). The same SET-or-DELETE law.
-    const { takePickedSaveKey } = await import('./ui/enhancedMenu.js');
+    const { takePickedSaveKey, takePickedRealmId } = await import('./ui/enhancedMenu.js');
     const picked = takePickedSaveKey();
-    if ((choice === 'load' || choice === 'online') && picked != null) params.set('loadkey', String(picked));
+    if (choice === 'load' && picked != null) params.set('loadkey', String(picked));   // REALM P1.3: never online - a local slot is not the realm's
     else params.delete('loadkey');
+    // REALM P1.3 (bible/06-Systems/Realm-Arc.md section 2): THE ONLINE DOOR'S CHARACTER IS THE REALM'S - its id rides the
+    // boot, which joins it and reads its save from the service; a character born online boots the online lane with no
+    // save, its chargen, and the realm makes it (world.js realmBirth). The same SET-or-DELETE law.
+    const realmId = choice === 'online' ? takePickedRealmId() : null;
+    if (realmId) params.set('realm', realmId);
+    else params.delete('realm');
+    if (choice === 'online-new') params.set('realmnew', '1');
+    else params.delete('realmnew');
     // TR3: the Test Room door - the pane answers 'test:<preset>' and
     // the world host seeds the character and the armory off the same
     // testRoom home the pane showed. The param family follows F12's

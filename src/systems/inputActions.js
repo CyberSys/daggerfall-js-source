@@ -137,9 +137,6 @@ export const ACTIONS = Object.freeze([
   // quiet walk (Sneak) - on and off (player/walkMode.js). Appended, like every port action before it. Ships unbound;
   // the Controls pane and the Controller bindings window (ui/plusPadBinds.js) both draw its row.
   'WalkMode',
-  // VOICE1 (Mac: "develop prox chat" - push-to-talk, and the mouse's side button for it): held, my microphone is heard
-  // by the players near me (net/proxVoice.js). Appended, like every port action before it.
-  'PushToTalk',
   // VIEW-TOGGLE (Mac: "a force first person/third person toggle"): one press, the other view, for whichever body
   // answers (player/mwView.js mwViewTogglePerspective). Appended, like every port action before it.
   'TogglePerspective',
@@ -159,7 +156,7 @@ export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'Quick
   'Interact', 'QuickDial', 'Hotbar5', 'Hotbar6', 'Hotbar7', 'Hotbar8', 'Hotbar9', 'Hotbar10',
   'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay',
   'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
-  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'PushToTalk', 'TogglePerspective']);   // KB1; TV1; PADWALK; VOICE1; VIEW-TOGGLE   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'TogglePerspective']);   // KB1; TV1; PADWALK; VIEW-TOGGLE   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -268,10 +265,8 @@ export const DEFAULT_BINDINGS = Object.freeze([
   // lesson: a key-literal table there made four rebindable rows inert
   // in both directions).
   ['KeyY', 'FreeMouse'],
-  // VOICE1 (Mac chose it): the mouse's BACK side button - the push-to-talk button most gaming mice carry, and every
-  // letter is spent (FREEMOUSE's sweep, below). The world host stops the browser's own Back on it.
-  ['Mouse3', 'PushToTalk'],
-  // VIEW-TOGGLE: and the FORWARD side button beside it - first person or third, one press (every letter is spent)
+  // VIEW-TOGGLE: the mouse's FORWARD side button - first person or third, one press (every letter is spent; the world
+  // host stops the browser's own Forward on it)
   ['Mouse4', 'TogglePerspective'],
   // QS2: THE NUMBER ROW, which is the one place a Souls player's hand already
   // goes. Digit1-Digit4 are unspent by SetupDefaults, unspent by the port
@@ -448,7 +443,7 @@ export const ACTION_GROUPS = Object.freeze([
     ['ActivateCursor', 'Free the mouse (offline) / open chat (online)'], ['FreeMouse', 'Free the mouse (press again to look)'],
   ]),
   g('Online', [
-    ['SocialInteract', 'Interact with player'], ['PushToTalk', 'Push to talk (proximity voice)'],
+    ['SocialInteract', 'Interact with player'],
   ]),
   g('Game', [
     ['QuickSave', 'Quick save'], ['QuickLoad', 'Quick load'], ['PrintScreen', 'Screenshot'], ['DebugOverlay', 'Diagnostics readout'],

@@ -286,7 +286,7 @@ test('audit24: LOAD GAME is read by the host that now boots', () => {
   // MW-EARLY: the pick is decided ONCE at the boot's top (the arms'
   // early build reads it there) and the door restores that same pick.
   const world = read('src/scenes/world.js');
-  assert.match(world, /const bootLoadPick = !params\.has\('load'\) \|\| \(params\.has\('classicload'\) && peekPendingClassicSave\(\)\) \? null\n\s*: params\.has\('loadkey'\)\n\s*\? \{ key: Number\(params\.get\('loadkey'\)\) \}\n\s*: \{ mostRecent: true \};/,
+  assert.match(world, /const bootLoadPick = !params\.has\('load'\) \|\| \(params\.has\('classicload'\) && peekPendingClassicSave\(\)\) \? null\n\s*: realmBoot \? \{ realm: true \}[^\n]*\n\s*: params\.has\('loadkey'\)\n\s*\? \{ key: Number\(params\.get\('loadkey'\)\) \}\n\s*: \{ mostRecent: true \};/,   // REALM P1.3: a realm character's save first, the service's
     'the world host reads `load` - a picked slot by its key, a bare ?load the most recent');
   assert.match(world, /if \(params\.has\('load'\)\) \{[\s\S]{0,600}await worldQuickLoad\(\{ \.\.\.bootLoadPick, snap \}\);\s*\n\s*\} else if \(params\.has\('classic'\)/,
     'and a load takes the classic start\'s PLACE - a load is not a new game');
