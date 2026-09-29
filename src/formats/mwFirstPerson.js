@@ -167,6 +167,7 @@ export { MW_BODY_PARTS, isFirstPersonId } from './mwEsmFile.js';
 import { MW_BODY_PARTS, isFirstPersonId } from './mwEsmFile.js';
 import FACE_TABLE from './mwFaceTable.json' with { type: 'json' };
 import { GRAPH_ROOT, ACCUM_ROOT_NAMES } from './mwSkin.js';
+import { transferSkin, sourceSkin } from './mwSkinTransfer.js';   // MW-BRIG2: a worn model skinned from the body under it
 import { getTextKeyTime, animVelocity } from './mwAnim.js';
 import { mat33Mul } from './mwNifMesh.js';   // AUDIT 68 S11-affine-dup: the one row-major 3x3 product
 
@@ -2036,6 +2037,9 @@ export function bindPartsInto(assembly, parts) {
     // `part.bones` overrides the table so a test can drive real assembly
     // against a fixture skeleton whose bone names are not Morrowind's.
     const bones = part.bones ?? mod.PART_BONES[part.slot] ?? [];
+    // MW-BRIG2: a worn model of the port's own is SKINNED FROM THE BODY under it (formats/mwSkinTransfer.js) - it
+    // moves by the body's own bones and binds, never by an attach node the body does not use.
+    if (part.skinFrom) { bindSkinnedFromBody(assembly, part, bones); continue; }
     let nif;
     try {
       nif = mod.parseNif(part.bytes);
@@ -2585,6 +2589,58 @@ export function armPieceRows(pieces) {
     triangles: p.indices ? p.indices.length / 3 : 0,
     bounds: meshBounds([p]),
   }));
+}
+
+/**
+ * MW-BRIG2: bind a garment SKINNED FROM THE BODY. `part.skinFrom` lists the body parts it is fitted over (the
+ * player's own skin meshes, `{ slot, bones?, bytes }`); each is bound exactly as the body binds it - a skinned
+ * shape by rule 15's filter per bone, a rigid one at its bone with rule 13's mirror and rule 14's offset - and the
+ * garment copies their skins (formats/mwSkinTransfer.js), solved against the skeleton's rest pose, where the
+ * modeller fitted it. A garment with no body under it is a note and is not drawn: floating free of the body is
+ * exactly the failure this exists to end.
+ */
+function bindSkinnedFromBody(assembly, part, bones) {
+  const mod = assembly.fns;
+  const { skeleton, pieces, notes } = assembly;
+  let nif;
+  try { nif = mod.parseNif(part.bytes); } catch (err) { notes.push(`${part.slot}: ${err.message}`); return; }
+  const sources = [];
+  for (const src of part.skinFrom) {
+    let srcNif;
+    try { srcNif = mod.parseNif(src.bytes); } catch (err) { notes.push(`${part.slot}: body ${src.slot}: ${err.message}`); continue; }
+    let tookNameless = false;
+    for (const bone of src.bones ?? mod.PART_BONES[src.slot] ?? []) {
+      if (!skeleton.byName.has(bone.toLowerCase())) continue;
+      let bound;
+      try { bound = mod.bindPart(skeleton, srcNif, { attachBone: bone }); } catch { continue; }
+      for (const b of bound.skinned) {
+        const nameless = !String(b.name || '').trim();
+        if (nameless ? tookNameless : !shapeMatchesBone(b.name, bone)) continue;
+        if (nameless) tookNameless = true;
+        sources.push(b);
+      }
+      if (bound.skinned.length) continue;   // a rig file's rigid shapes are not drawn (MW-D31), so they are no body
+      const ref = skeleton.byName.get(bone.toLowerCase());
+      const mirrored = (skeleton.nodes.get(ref)?.name ?? '').includes('Left');
+      for (const b of bound.attached) sources.push(sourceSkin(b, { attachRef: bound.attachRef, mirrored, boneOffset: bound.boneOffset || null }));
+    }
+  }
+  if (!sources.length) {
+    notes.push(`${part.slot}: no body part to skin it from (${part.skinFrom.map((x) => x.slot).join(', ') || 'none named'}) - not drawn`);
+    return;
+  }
+  let garment;
+  try { garment = mod.bindPart(skeleton, nif, bones[0] ? { attachBone: bones[0] } : {}); } catch (err) { notes.push(`${part.slot}: ${err.message}`); return; }
+  const pose = mod.poseSkeleton(skeleton, null, null, 0, {});
+  const ctx = { skeleton, pose, mats: mod.skelMats(skeleton, pose, GRAPH_ROOT), skinBatch: mod.skinBatch };
+  for (const g of [...garment.attached, ...garment.skinned]) {
+    for (const batch of transferSkin(g, sources, ctx)) {
+      pieces.push({ slot: part.slot, bone: bones[0] ?? null, kind: 'skinned', mirrored: false,
+        batch, source: null, attachRef: null,
+        uvs: batch.uvs || null, colors: null, material: batch.material || null,
+        positions: new Float32Array(batch.positions.length), indices: batch.indices });
+    }
+  }
 }
 
 /** MW-D16: bake a part's pre-transform into its authored vertices. Null
