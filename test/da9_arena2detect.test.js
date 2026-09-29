@@ -20,9 +20,10 @@ import { REQUIRED_ARENA2 as GAME_REQUIRED } from '../src/scenes/dataSource.js';
 
 const require = createRequire(import.meta.url);
 const {
-  REQUIRED_ARENA2, STEAM_APP_ID, SEARCH_DIRS_MAX, resolveArena2, diagnoseArena2, missingArena2, searchArena2,
-  vdfValues, dfuDaggerfallPath, detectArena2,
+  REQUIRED_ARENA2, STEAM_APP_ID, GOG_PRODUCT_ID, SEARCH_DIRS_MAX, resolveArena2, diagnoseArena2, missingArena2, searchArena2,
+  vdfValues, dfuDaggerfallPath, regFileValues, detectArena2,
 } = require('../app/lib/arena2Detect.cjs');
+const L = require('../app/lib/launcherState.cjs');
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'da9-'));
 /** A folder holding `names` (default: a whole ARENA2), in the case given. */
@@ -88,15 +89,15 @@ test('DA9: Steam - every library in libraryfolders.vdf, at the installdir app 18
     const lib2 = path.join(home, 'drive2', 'SteamLibrary');
     write(path.join(root, 'steamapps', 'libraryfolders.vdf'),
       `"libraryfolders"\n{\n\t"0"\n\t{\n\t\t"path"\t\t"${root}"\n\t}\n\t"1"\n\t{\n\t\t"path"\t\t"${lib2}"\n\t}\n}\n`);
-    const manifest = '"AppState"\n{\n\t"appid"\t\t"1812390"\n\t"installdir"\t\t"The Elder Scrolls II Daggerfall"\n}\n';
+    const manifest = '"AppState"\n{\n\t"appid"\t\t"1812390"\n\t"installdir"\t\t"The Elder Scrolls Daggerfall"\n}\n';
     // the main library holds one copy - and ~/.steam/steam is a LINK to it, so it is reachable twice
     write(path.join(root, 'steamapps', `appmanifest_${STEAM_APP_ID}.acf`), manifest);
-    const inRoot = arena2At(path.join(root, 'steamapps', 'common', 'The Elder Scrolls II Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
+    const inRoot = arena2At(path.join(root, 'steamapps', 'common', 'The Elder Scrolls Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
     fs.mkdirSync(path.join(home, '.steam'), { recursive: true });
     fs.symlinkSync(root, path.join(home, '.steam', 'steam'));
     // a second library, on another drive, holds another - only libraryfolders.vdf knows it is there
     write(path.join(lib2, 'steamapps', `appmanifest_${STEAM_APP_ID}.acf`), manifest);
-    const inLib2 = arena2At(path.join(lib2, 'steamapps', 'common', 'The Elder Scrolls II Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
+    const inLib2 = arena2At(path.join(lib2, 'steamapps', 'common', 'The Elder Scrolls Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
     assert.deepEqual(detectArena2({ platform: 'linux', home, env: {}, regQuery: noReg }), [
       { dir: fs.realpathSync(inRoot), source: 'steam' },
       { dir: fs.realpathSync(inLib2), source: 'steam' },
@@ -108,10 +109,11 @@ test('DA9: Windows - Steam where the registry says it is, GOG where Galaxy says,
   const home = tmp();
   try {
     const steam = path.join(home, 'D', 'Steam');   // not under Program Files: only the registry knows
-    write(path.join(steam, 'steamapps', `appmanifest_${STEAM_APP_ID}.acf`), '"AppState" { "installdir" "The Elder Scrolls II Daggerfall" }');
-    const viaSteam = arena2At(path.join(steam, 'steamapps', 'common', 'The Elder Scrolls II Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
+    write(path.join(steam, 'steamapps', `appmanifest_${STEAM_APP_ID}.acf`), '"AppState" { "installdir" "The Elder Scrolls Daggerfall" }');
+    const viaSteam = arena2At(path.join(steam, 'steamapps', 'common', 'The Elder Scrolls Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
+    // GOG 1.07's own layout: arena2 in the game folder, beside FALL.EXE - no DF/DAGGER (lane 4 #6)
     const gog = path.join(home, 'GOG', 'Daggerfall');
-    const viaGog = arena2At(path.join(gog, 'DAGGER', 'ARENA2'));
+    const viaGog = arena2At(path.join(gog, 'arena2'));
     const partialGog = path.join(home, 'GOG', 'Daggerfall Demo');
     arena2At(path.join(partialGog, 'ARENA2'), ['ART_PAL.COL']);
     // a game Galaxy lists that is NOT Daggerfall is never walked - whatever it holds
@@ -135,7 +137,8 @@ test('DA9: Windows - Steam where the registry says it is, GOG where Galaxy says,
 
 test('DA9: the shell takes its ARENA2 law from the detector - one test for a whole folder, no second spelling in main.cjs', () => {
   const main = fs.readFileSync(new URL('../app/main.cjs', import.meta.url), 'utf8');
-  assert.match(main, /const \{ findCaseInsensitive, resolveArena2, diagnoseArena2, detectArena2 \} = require\('\.\/lib\/arena2Detect\.cjs'\);/);
+  assert.match(main, /const \{ findCaseInsensitive, resolveArena2, diagnoseArena2, missingArena2, searchArena2 \} = require\('\.\/lib\/arena2Detect\.cjs'\);/);
+  assert.doesNotMatch(main, /detectArena2\(/, 'AUDIT INSTALL L4-1: the search itself runs in its worker, never on the main process');
   assert.doesNotMatch(main, /function (resolveArena2|findCaseInsensitive)\(/, 'the one-file test is gone, not shadowed');
   assert.doesNotMatch(main, /'ART_PAL\.COL'/, 'no file stands in for the whole set');
   assert.match(main, /setArena2\(resolveArena2\(cfg\.arena2Path\)\);/, 'a saved folder is held to the law on every launch - a partial one is asked about again');
@@ -168,4 +171,139 @@ test('DA9: the walk is bounded - a vast folder costs at most SEARCH_DIRS_MAX ope
     assert.equal(searchArena2(path.join(root, 'deep')), null, 'six levels down is past the reach');
     assert.equal(searchArena2(path.join(root, 'deep', 'a')), deep, 'five is within it - a Steam install\'s DF/DAGGER/ARENA2 is three');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+// ---- AUDIT INSTALL, lane 4 (2026-09-29): where the files really are, and a search that cannot freeze the app ----
+
+test('L4-1: the search runs in a worker thread under a deadline - finds stream out, so a search stopped early still offers what it had', () => {
+  const worker = fs.readFileSync(new URL('../app/lib/arena2DetectWorker.cjs', import.meta.url), 'utf8');
+  assert.match(worker, /detectArena2\(\{ looseDirs: workerData\?\.looseDirs \?\? \[\], onFound: \(found\) => parentPort\.postMessage\(\{ found \}\) \}\);\s*parentPort\.postMessage\(\{ done: true \}\);/);
+  const main = fs.readFileSync(new URL('../app/main.cjs', import.meta.url), 'utf8');
+  const bg = main.slice(main.indexOf('function detectInBackground()'), main.indexOf('/** A dialog over the launcher'));
+  assert.match(bg, /const deadline = setTimeout\(finish, DETECT_DEADLINE_MS\);/, 'the deadline');
+  assert.match(bg, /worker = new Worker\(path\.join\(__dirname, 'lib', 'arena2DetectWorker\.cjs'\), \{ workerData: \{ looseDirs \} \}\);/, 'a worker (it loads from inside app.asar - measured, Electron 42)');
+  assert.match(bg, /if \(m\?\.found\) found\.push\(m\.found\);/, 'each find kept as it comes');
+  assert.match(bg, /worker\.on\('error', finish\);\s*worker\.on\('exit', finish\);/, 'a worker that dies is a search that ended, never a hang');
+  assert.match(bg, /\['downloads', 'desktop', 'documents'\]\.map\(\(n\) => \{ try \{ return app\.getPath\(n\); \} catch \{ return null; \} \}\)/, 'the loose folders are the shell\'s to name');
+  assert.match(main, /if \(launcher\.detecting\) return;\s*launcher\.detecting = true;/, 'one search per launcher');
+  assert.ok(L.DETECT_DEADLINE_MS >= 2000 && L.DETECT_DEADLINE_MS <= 10000, `${L.DETECT_DEADLINE_MS} ms`);
+  // a find is heard the moment it is made, and a listener's fault is not the search's
+  const home = tmp();
+  try {
+    const heard = [];
+    const unpacked = arena2At(path.join(home, 'Downloads', 'Daggerfall', 'arena2'));
+    detectArena2({ platform: 'linux', home, env: {}, regQuery: noReg, onFound: (f) => { heard.push(f); throw new Error('listener fault'); } });
+    assert.deepEqual(heard, [{ dir: fs.realpathSync(unpacked), source: 'folder' }]);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test('L4-3: a zip unpacked with "Extract Here" (a bare arena2 in Downloads), the shell\'s own folder names, links and junctions - all found', () => {
+  const home = tmp();
+  try {
+    // "Extract Here": arena2/ straight into Downloads, beside everything else - no folder named for Daggerfall
+    const bare = arena2At(path.join(home, 'Downloads', 'arena2'));
+    assert.deepEqual(detectArena2({ platform: 'linux', home, env: {}, regQuery: noReg }), [{ dir: fs.realpathSync(bare), source: 'folder' }]);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+  const home2 = tmp();
+  try {
+    // OneDrive's Known Folder Move, a localized XDG Downloads: only the shell (app.getPath) knows where it is
+    const moved = path.join(home2, 'OneDrive', 'Documentos');
+    const inMoved = arena2At(path.join(moved, 'DaggerfallGameFiles', 'arena2'));
+    assert.deepEqual(detectArena2({ platform: 'win32', home: home2, env: { USERPROFILE: home2 }, regQuery: noReg, looseDirs: [moved, 'relative/nope'] }),
+      [{ dir: fs.realpathSync(inMoved), source: 'folder' }], 'the named folder is read - and a relative one is not');
+    // a link (a symlink, a Windows junction - libuv types both as links) to the install is followed, once
+    const target = arena2At(path.join(home2, 'elsewhere', 'DAGGER', 'ARENA2'));
+    fs.mkdirSync(path.join(home2, 'Games'), { recursive: true });
+    fs.symlinkSync(path.join(home2, 'elsewhere'), path.join(home2, 'Games', 'Daggerfall'));
+    fs.symlinkSync(path.join(home2, 'Games'), path.join(home2, 'elsewhere', 'loop'));   // a link back up the tree
+    const found = detectArena2({ platform: 'linux', home: home2, env: {}, regQuery: noReg });
+    assert.ok(found.some((f) => f.dir === fs.realpathSync(target)), `a linked install is found (got ${JSON.stringify(found)})`);
+  } finally { fs.rmSync(home2, { recursive: true, force: true }); }
+});
+
+test('L4-3/L4-10: on a Mac the privacy-guarded folders are read only when nothing else was found, and an app bundle is never walked', () => {
+  const home = tmp();
+  try {
+    const dfuPath = path.join(home, 'DFU-data', 'DAGGER');
+    const viaDfu = arena2At(path.join(dfuPath, 'ARENA2'));
+    write(path.join(home, 'Library', 'Application Support', 'Daggerfall Workshop', 'Daggerfall Unity', 'settings.ini'), `[Daggerfall]\nMyDaggerfallPath = ${dfuPath}\n`);
+    arena2At(path.join(home, 'Downloads', 'Daggerfall', 'arena2'));   // would be a second find - and a system prompt to get it
+    let reads = [];
+    const watching = { ...fs, readdirSync: (p, ...a) => { reads.push(String(p)); return fs.readdirSync(p, ...a); } };
+    assert.deepEqual(detectArena2({ platform: 'darwin', home, env: {}, fs: watching, regQuery: noReg }), [{ dir: fs.realpathSync(viaDfu), source: 'dfu' }]);
+    for (const guarded of ['Downloads', 'Desktop', 'Documents']) {
+      assert.ok(!reads.some((p) => p === path.join(home, guarded) || p.startsWith(path.join(home, guarded) + path.sep)), `${guarded} is not read - a prompt the player did not need`);
+    }
+    // with nothing else found, they are
+    fs.rmSync(path.join(home, 'Library'), { recursive: true, force: true });
+    reads = [];
+    assert.equal(detectArena2({ platform: 'darwin', home, env: {}, fs: watching, regQuery: noReg }).length, 1);
+    assert.ok(reads.some((p) => p === path.join(home, 'Downloads')));
+    // and "Daggerfall Online.app" - this app, in /Applications - is no install
+    arena2At(path.join(home, 'Games', 'Daggerfall Online.app', 'Contents', 'arena2'));
+    assert.ok(!detectArena2({ platform: 'darwin', home, env: {}, regQuery: noReg }).some((f) => f.dir.includes('.app')));
+    // Daggerfall Unity's older macOS folder (the bundle id Unity used before)
+    const old = path.join(home, 'old-dfu', 'DAGGER');
+    arena2At(path.join(old, 'arena2'));
+    write(path.join(home, 'Library', 'Application Support', 'unity.Daggerfall Workshop.Daggerfall Unity', 'settings.ini'), `[Daggerfall]\nMyDaggerfallPath = ${old}\n`);
+    assert.equal(detectArena2({ platform: 'darwin', home, env: {}, regQuery: noReg })[0].source, 'dfu', 'L4-12');
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test('L4-7/L4-8: GOG by Daggerfall\'s own product key, whatever the folder is called; reg.exe by its own path; its file read as UTF-16', () => {
+  const home = tmp();
+  try {
+    const tes2 = path.join(home, 'D', 'Games', 'TES2');   // a folder the player named - nothing says "daggerfall"
+    const inTes2 = arena2At(path.join(tes2, 'arena2'));
+    const regQuery = (key, value) => (key.endsWith(`\\GOG.com\\Games\\${GOG_PRODUCT_ID}`) && value === 'path' ? [tes2] : []);
+    assert.deepEqual(detectArena2({ platform: 'win32', home, env: { USERPROFILE: home, SystemDrive: path.join(home, 'C') }, regQuery }),
+      [{ dir: fs.realpathSync(inTes2), source: 'gog' }]);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+  assert.equal(GOG_PRODUCT_ID, '1435829353');
+  // a `reg export` file: [sections], "name"="value" with backslashes doubled - a Cyrillic path intact
+  const text = '\uFEFFWindows Registry Editor Version 5.00\r\n\r\n[HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games]\r\n\r\n'
+    + '[HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1435829353]\r\n"gameName"="The Elder Scrolls II: Daggerfall"\r\n"path"="D:\\\\Игры\\\\TES2"\r\n\r\n'
+    + '[HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1207658924]\r\n"PATH"="C:\\\\GOG Games\\\\Witcher"\r\n';
+  const games = 'HKLM\\SOFTWARE\\WOW6432Node\\GOG.com\\Games';
+  assert.deepEqual(regFileValues(text, games, 'path', { recursive: true }), ['D:\\Игры\\TES2', 'C:\\GOG Games\\Witcher'], 'every key below, any case of the name');
+  assert.deepEqual(regFileValues(text, games, 'path'), [], 'the key itself holds none');
+  assert.deepEqual(regFileValues(text, `${games}\\1435829353`, 'path'), ['D:\\Игры\\TES2']);
+  assert.deepEqual(regFileValues(null, games, 'path'), []);
+  const src = fs.readFileSync(new URL('../app/lib/arena2Detect.cjs', import.meta.url), 'utf8');
+  assert.match(src, /const regExe = \(env\) => path\.join\(env\.SystemRoot \|\| env\.windir \|\| 'C:\\\\Windows', 'System32', 'reg\.exe'\);/, 'a bare `reg` runs whatever reg.exe sits in the current folder');
+  assert.match(src, /execFileSync\(regExe\(process\.env\), \['export', key, tmp, '\/y'\]/);
+  assert.match(src, /regFileValues\(fs\.readFileSync\(tmp\)\.toString\('utf16le'\), key, value, \{ recursive \}\)/, '`reg query` writes a pipe in the OEM code page');
+  assert.doesNotMatch(src, /execFileSync\('reg'/);
+});
+
+test('L4-9: ARENA2 and arena2 side by side (Linux): whichever is whole is the one', () => {
+  const root = tmp();
+  try {
+    arena2At(path.join(root, 'install', 'arena2'), ['ART_PAL.COL']);
+    const whole = arena2At(path.join(root, 'install', 'ARENA2'));
+    assert.equal(resolveArena2(path.join(root, 'install')), whole);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('L4-4/L4-5: a picked game folder is searched, not refused; an unreadable one is said as such; a saved folder that fails is NAMED', () => {
+  const main = fs.readFileSync(new URL('../app/main.cjs', import.meta.url), 'utf8');
+  const choose = main.slice(main.indexOf('async function chooseArena2Folder('), main.indexOf('/** The folder the shell reads from now on'));
+  assert.match(choose, /const dir = resolveArena2\(pick\) \?\? searchArena2\(pick\);/, 'Steam\'s "Browse local files" opens the game folder, three levels above ARENA2');
+  assert.match(choose, /return missingArena2\(pick\) === null \? \{ unreadable: true, missing: null \} : \{ missing: diagnoseArena2\(pick\) \};/);
+  assert.match(main, /const saved = typeof cfg\.arena2Path === 'string' && !arena2Dir \? \{ dir: cfg\.arena2Path, \.\.\.savedArena2Fault\(cfg\.arena2Path\) \} : null;/);
+  assert.match(main, /case 'retry-saved': \{[\s\S]*?if \(dir\) useArena2\(dir\);\s*else if \(typeof savedDir === 'string'\) launcherDispatch\(\{ type: 'saved-bad', \.\.\.savedArena2Fault\(savedDir\) \}\);/);
+  // the words: unreadable, and GOG's own layout
+  assert.match(L.notArena2Detail(null, { unreadable: true }), /^It could not be read - is its drive connected\?/);
+  assert.match(L.notArena2Detail(['MAPS.BSA']), /on Steam it is under DF\/DAGGER\/ARENA2, on GOG it is in the game's own folder\.$/);
+  // the saved folder's card: named, with a Try again - never the first run's "Where is Daggerfall?"
+  const st = L.initialState({ current: '0.1.1', transport: 'notice', checkEnabled: false, savedArena2: { dir: 'E:/Games/ARENA2', unreadable: true } });
+  const card = L.viewOf(L.reduce(st, { type: 'found', found: [] })).setup;
+  assert.equal(card.title, 'Your Daggerfall folder cannot be reached');
+  assert.match(card.detail, /E:\/Games\/ARENA2/);
+  assert.deepEqual(card.actions.map((a) => [a.id, !!a.primary]), [['retry-saved', true], ['choose-folder', false], ['skip-setup', false]]);
+  const partial = L.reduce(L.reduce(st, { type: 'found', found: [] }), { type: 'saved-bad', missing: ['MAPS.BSA'], unreadable: false });
+  assert.match(L.viewOf(partial).setup.detail, /has no MAPS\.BSA\./, 'Try again says what it found this time');
+  assert.equal(L.viewOf(L.reduce(partial, { type: 'picked', dir: '/new/ARENA2' })).panel, 'news', 'a folder picked ends it');
+  const unreadable = L.reduce(L.reduce(L.initialState({ current: '0.1.1', transport: 'notice', checkEnabled: false }), { type: 'found', found: [] }), { type: 'picked-bad', missing: null, unreadable: true });
+  assert.equal(L.viewOf(unreadable).setup.title, 'That folder cannot be read');
 });

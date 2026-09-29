@@ -10,7 +10,7 @@
   {
     "name": "DA9-2-the-install-folder-is-not-descended",
     "file": "app/lib/arena2Detect.cjs",
-    "old": "  if (nested && missingArena2(nested, fsImpl)?.length === 0) return nested;\n",
+    "old": "    if (missingArena2(nested, fsImpl)?.length === 0) return nested;\n",
     "new": "",
     "tests": ["test/da9_arena2detect.test.js"]
   },
@@ -31,8 +31,8 @@
   {
     "name": "DA9-5-every-gog-game-is-walked",
     "file": "app/lib/arena2Detect.cjs",
-    "old": "      ? regQuery('HKLM\\\\SOFTWARE\\\\WOW6432Node\\\\GOG.com\\\\Games', 'path', { recursive: true }).filter((p) => DAGGERFALL_DIR_RE.test(p))\n",
-    "new": "      ? regQuery('HKLM\\\\SOFTWARE\\\\WOW6432Node\\\\GOG.com\\\\Games', 'path', { recursive: true })\n",
+    "old": "        ...regQuery('HKLM\\\\SOFTWARE\\\\WOW6432Node\\\\GOG.com\\\\Games', 'path', { recursive: true }).filter((p) => DAGGERFALL_DIR_RE.test(p)),\n",
+    "new": "        ...regQuery('HKLM\\\\SOFTWARE\\\\WOW6432Node\\\\GOG.com\\\\Games', 'path', { recursive: true }),\n",
     "tests": ["test/da9_arena2detect.test.js"]
   },
   {
@@ -45,7 +45,7 @@
   {
     "name": "DA9-7-the-walk-has-no-cap",
     "file": "app/lib/arena2Detect.cjs",
-    "old": "  while (queue.length && opened < SEARCH_DIRS_MAX) {\n",
+    "old": "  while (queue.length && opened.size < SEARCH_DIRS_MAX) {\n",
     "new": "  while (queue.length) {\n",
     "tests": ["test/da9_arena2detect.test.js"]
   },
@@ -59,8 +59,8 @@
   {
     "name": "DA9-9-the-shell-keeps-its-own-one-file-test",
     "file": "app/main.cjs",
-    "old": "const { findCaseInsensitive, resolveArena2, diagnoseArena2, detectArena2 } = require('./lib/arena2Detect.cjs');\n",
-    "new": "const { findCaseInsensitive, diagnoseArena2, detectArena2 } = require('./lib/arena2Detect.cjs');\nfunction resolveArena2(dir) { return dir && findCaseInsensitive(dir, 'ART_PAL.COL') ? dir : null; }\n",
+    "old": "const { findCaseInsensitive, resolveArena2, diagnoseArena2, missingArena2, searchArena2 } = require('./lib/arena2Detect.cjs');\n",
+    "new": "const { findCaseInsensitive, diagnoseArena2, missingArena2, searchArena2 } = require('./lib/arena2Detect.cjs');\nfunction resolveArena2(dir) { return dir && findCaseInsensitive(dir, 'ART_PAL.COL') ? dir : null; }\n",
     "tests": ["test/da9_arena2detect.test.js"]
   },
   {

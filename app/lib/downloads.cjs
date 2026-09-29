@@ -41,10 +41,12 @@ const DOWNLOAD_FILES = Object.freeze({
 /** The URL that always serves the newest release's copy of `file`. */
 const latestDownloadUrl = (file) => `${RELEASES_URL}/latest/download/${file}`;
 
-/** The file a copy on the NOTICE transport (lib/autoUpdate.cjs) downloads
- *  to update by hand: the dmg on macOS, the portable exe for the portable,
- *  and null where there is no one file to name (an unpackaged run). The
- *  installed Windows and Linux copies update themselves and never ask. */
+/** The file THIS copy runs from, by the name that never moves: the dmg on
+ *  macOS, the portable exe for the portable, the setup exe for an
+ *  installed Windows copy, the AppImage on Linux - and null where there
+ *  is no one file to name (an unpackaged run). What a copy on the NOTICE
+ *  transport (lib/autoUpdate.cjs) downloads to update by hand, and what
+ *  the launcher's Reinstall downloads (DA10). */
 function manualDownloadFile({ platform, portable, packaged }) {
   if (!packaged) return null;
   if (platform === 'darwin') return DOWNLOAD_FILES.mac;

@@ -33,15 +33,15 @@
   {
     "name": "DA7-5-the-launch-always-takes-the-notice",
     "file": "app/main.cjs",
-    "old": "  if (currentUpdateTransport() === 'updater') {\n    autoUpdater().checkForUpdates().catch(() => launcherDispatch({ type: 'check-failed' }));\n    return;\n  }\n",
-    "new": "",
+    "old": "  if (currentUpdateTransport() === 'updater') {\n    // null is electron-updater declining",
+    "new": "  if (false) {\n    // null is electron-updater declining",
     "tests": ["test/autoupdate.test.js"]
   },
   {
     "name": "DA7-6-the-launch-check-escapes-the-gate",
     "file": "app/main.cjs",
-    "old": "      checkEnabled: updateChecksEnabled(),\n",
-    "new": "      checkEnabled: true,\n",
+    "old": "  const checkEnabled = updateChecksEnabled();\n",
+    "new": "  const checkEnabled = true;\n",
     "tests": ["test/autoupdate.test.js"],
     "note": "The checkbox and the probe env must hold BOTH transports - a probe that reaches GitHub is the thing DA6's gate exists to prevent."
   },

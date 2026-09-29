@@ -29,12 +29,20 @@
 // and publishes it in one step - `latest` never names a release that is
 // half there. The body is the patch notes the release brings, with
 // GitHub's list of merged changes below them for the record; the
-// desktop app's launcher shows the same body as "What's new".
+// desktop app's launcher shows the same body in its news (DA10).
+//
+// AUDIT INSTALL (2026-09-29): the notes are read from git's OWN OBJECTS,
+// never the working tree - a PATCH-NOTES file committed as a symlink to
+// .git/config would have published the checkout's write token in the
+// release body (lane 1). And a file the release only CHANGED brings only
+// what was ADDED to it: the Overworld notes, first shipped in
+// app-v0.1.4556, were republished whole by every release that appended a
+// line, and the launcher's news listed them twice (lane 3).
 //
 //   node scripts/desktopRelease.mjs check <dir>           exit 1 naming any file missing
 //   node scripts/desktopRelease.mjs notes <tag>           the release body, markdown, to stdout
 //   node scripts/desktopRelease.mjs latest <tag> [<cur>]  "true" when <tag> should be marked latest
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { isMain } from '../tools/lib/isMain.mjs';
@@ -61,8 +69,12 @@ export const missingReleaseFiles = (names) => {
   return EXPECTED_RELEASE_FILES.filter((f) => !have.has(f));
 };
 
-/** A patch-notes file at the repository root - the only files `notes` reads. */
-export const PATCH_NOTES_RE = /^PATCH-NOTES-[A-Za-z0-9-]+\.md$/;
+/** A patch-notes file at the repository root - the only files `notes` reads
+ *  (any name, but never a path: nothing below the root, nothing above it). */
+export const PATCH_NOTES_RE = /^PATCH-NOTES-[^/\\]+\.md$/;
+
+/** The most of one file a release body carries. */
+export const NOTES_FILE_MAX = 64 * 1024;
 
 /** What a release says when no patch notes came with it. On GitHub the
  *  generated list of merged changes follows it; the launcher's "What's
@@ -105,7 +117,7 @@ export function shouldMarkLatest(tag, currentLatest) {
   return true;
 }
 
-const git = (args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+const git = (args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }).trim();
 
 /** The release tag before `tag` in this checkout's history, or null. */
 export function previousReleaseTag(tag, run = git) {
@@ -116,13 +128,87 @@ export function previousReleaseTag(tag, run = git) {
   }
 }
 
-/** The patch-notes files added or changed between `from` and HEAD. With
- *  no previous release there is nothing to diff against, and the body
- *  says "fixes and improvements" rather than every note ever written. */
+/** A heading line of the PATCH-NOTES markdown. */
+const HEADING_RE = /^#{1,6}\s/;
+
+/**
+ * What a CHANGED patch-notes file adds: from `git diff -U0` of it, the
+ * lines each hunk adds beyond the ones it rewrites (a hunk that removes b
+ * lines and adds d rewrites b of them - a typo fixed, a line reworded, a
+ * last line given its newline - and adds d - b), each under the nearest
+ * heading above it in the file as it is now, the file's title first. ''
+ * when the change added nothing (a correction is not news).
+ *
+ * @param {string} headText the file at HEAD
+ * @param {string} diffText `git diff -U0` of it, previous release to HEAD
+ */
+export function addedNotes(headText, diffText) {
+  const lines = String(headText ?? '').replace(/\r\n/g, '\n').split('\n');
+  const hunks = [];
+  let hunk = null;
+  for (const raw of String(diffText ?? '').replace(/\r\n/g, '\n').split('\n')) {
+    const at = /^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(raw);
+    if (at) {
+      hunk = { removed: at[1] === undefined ? 1 : Number(at[1]), start: Number(at[2]), added: [] };
+      hunks.push(hunk);
+      continue;
+    }
+    if (hunk && raw.startsWith('+') && !raw.startsWith('+++')) hunk.added.push(raw.slice(1));
+  }
+  const out = [];
+  const title = lines.find((l) => /^#\s/.test(l));
+  let under = null;
+  for (const h of hunks) {
+    const fresh = h.added.slice(Math.min(h.removed, h.added.length));
+    if (!fresh.some((l) => l.trim())) continue;
+    // the heading this addition sits under, when it does not open with its own
+    const first = h.start + (h.added.length - fresh.length) - 1;   // 0-based index of its first fresh line
+    let heading = null;
+    for (let i = first - 1; i >= 0; i--) if (HEADING_RE.test(lines[i])) { heading = lines[i]; break; }
+    if (out.length && out[out.length - 1].trim()) out.push('');   // one addition, one paragraph
+    if (heading && heading !== title && heading !== under && !HEADING_RE.test(fresh.find((l) => l.trim()) ?? '')) {
+      out.push(heading);
+      under = heading;
+    }
+    out.push(...fresh);
+  }
+  const body = out.join('\n').trim();
+  return body ? `${title ? `${title}\n\n` : ''}${body}` : '';
+}
+
+/** At most NOTES_FILE_MAX of a text, cut at a line. */
+const capped = (text) => {
+  if (text.length <= NOTES_FILE_MAX) return text;
+  return text.slice(0, text.lastIndexOf('\n', NOTES_FILE_MAX) + 1 || NOTES_FILE_MAX);
+};
+
+/**
+ * The patch notes a release brings, from `from` (the previous release's
+ * tag) to HEAD, newest change first: [{ file, text }]. An added file whole;
+ * a changed (or renamed-and-changed) file only what it adds (addedNotes).
+ * Read from git's objects: a file that is not a regular file at HEAD - a
+ * symlink, a submodule - is never read. With no previous release there is
+ * nothing to diff against, and the body says "fixes and improvements"
+ * rather than every note ever written.
+ */
 export function patchNotesSince(from, run = git) {
   if (!from) return [];
-  const out = run(['diff', '--name-only', '--diff-filter=AM', from, 'HEAD', '--', 'PATCH-NOTES-*.md']);
-  return out.split('\n').map((s) => s.trim()).filter((f) => PATCH_NOTES_RE.test(f)).sort();
+  const raw = run(['diff', '--raw', '--no-abbrev', '-M', '--diff-filter=AMR', from, 'HEAD', '--', 'PATCH-NOTES-*.md']);
+  const notes = [];
+  for (const line of raw.split('\n')) {
+    // :<old mode> <new mode> <old sha> <new sha> <status>\t<path>[\t<new path>]
+    const m = /^:\d{6} (\d{6}) [0-9a-f]+ [0-9a-f]+ ([AMR])\d*\t([^\t]+)(?:\t([^\t]+))?$/.exec(line.trim());
+    if (!m) continue;
+    const [, mode, status, first, second] = m;
+    const file = second ?? first;
+    if (!PATCH_NOTES_RE.test(file) || (mode !== '100644' && mode !== '100755')) continue;
+    const head = run(['show', `HEAD:${file}`]);
+    const text = status === 'A' ? head
+      : addedNotes(head, run(['diff', '-U0', '--no-color', '-M', from, 'HEAD', '--', ...(second ? [first, second] : [file])]));
+    const when = Number(run(['log', '-1', '--format=%ct', `${from}..HEAD`, '--', file])) || 0;
+    if (text.trim()) notes.push({ file, text: capped(text), when });
+  }
+  return notes.sort((a, b) => b.when - a.when || a.file.localeCompare(b.file)).map(({ file, text }) => ({ file, text }));
 }
 
 function main(argv) {
@@ -137,8 +223,7 @@ function main(argv) {
     return 0;
   }
   if (cmd === 'notes') {
-    const files = patchNotesSince(previousReleaseTag(a));
-    process.stdout.write(composeReleaseNotes(files.map((file) => ({ file, text: readFileSync(file, 'utf8') }))));
+    process.stdout.write(composeReleaseNotes(patchNotesSince(previousReleaseTag(a))));
     return 0;
   }
   if (cmd === 'latest') {

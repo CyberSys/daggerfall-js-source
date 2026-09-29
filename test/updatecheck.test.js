@@ -26,10 +26,13 @@ test('DA6/REL1/REL3: the release\'s number is ONE variable - the tag and the sta
   const wf = fs.readFileSync(path.join(root, '.github/workflows/release-desktop.yml'), 'utf8');
   assert.match(wf, /TAG="app-v\$\{BASE\}\.\$\(git rev-list --count HEAD\)"/, 'a main push derives the tag from the base and the commit count');
   assert.match(wf, /BASE=\$\(node -p "require\('\.\/app\/package\.json'\)\.version\.split\('\.'\)\.slice\(0,2\)\.join\('\.'\)"\)/, 'the base is the committed MAJOR.MINOR');
-  assert.match(wf, /case "\$TAG" in app-v\*\) VERSION="\$\{TAG#app-v\}" ;;/, 'the version IS the tag, less its prefix');
+  // AUDIT INSTALL L1-5: the tag is app-v<n>.<n>.<n> EXACTLY or the run fails - a tag name can carry quotes and `$`
+  assert.ok(wf.includes('if [ -n "$TAG" ] && ! [[ "$TAG" =~ ^app-v[0-9]+\\.[0-9]+\\.[0-9]+$ ]]; then'), 'the tag is held to its shape before anything reads it');
+  assert.ok(wf.includes('VERSION="${TAG#app-v}"'), 'the version IS the tag, less its prefix');
   // REL4: resolved ONCE, by the `version` job, whose outputs ARE the step's - every leg and the publish job read them
   assert.match(wf, /\n  version:\n[\s\S]*?outputs:\n\s+tag: \$\{\{ steps\.reltag\.outputs\.tag \}\}\n\s+version: \$\{\{ steps\.reltag\.outputs\.version \}\}/, 'the version job hands the one number on');
-  assert.match(wf, /npm version "\$\{\{ needs\.version\.outputs\.version \}\}" --no-git-tag-version --allow-same-version/, 'the stamp reads the same output');
+  assert.match(wf, /env:\n\s+VERSION: \$\{\{ needs\.version\.outputs\.version \}\}\n\s+run: npm version "\$VERSION" --no-git-tag-version --allow-same-version/,
+    'the stamp reads the same output - from the environment, never pasted into the script');
   assert.match(wf, /tag_name: \$\{\{ needs\.version\.outputs\.tag \}\}/, 'the release is cut at the same output');
   // REL4: in the job that COUNTS - the publish job's own full checkout (for the notes' diff) must not stand in for it
   const versionJob = wf.slice(wf.indexOf('\n  version:\n'), wf.indexOf('\n  gate:\n'));
@@ -48,7 +51,10 @@ test('DA6/REL1/REL3: the release\'s number is ONE variable - the tag and the sta
   const on = wf.slice(wf.indexOf('\non:'), wf.indexOf('\npermissions:'));
   assert.match(on, /branches:\n\s+- main\n/, 'main pushes cut releases');
   assert.doesNotMatch(on, /paths:/, 'every merge, not a marker');
-  assert.match(wf, /concurrency:\n  group: release-desktop\n  cancel-in-progress: false/, 'a release half uploaded is worse than one late');
+  // a release half uploaded is worse than one late - and AUDIT INSTALL L3-6: main pushes share one group (the newest
+  // waiting merge is cut next), while a manual door is a group of its own that no merge cancels
+  assert.match(wf, /concurrency:\n  group: \$\{\{ github\.event_name == 'push' && github\.ref == 'refs\/heads\/main' && 'release-desktop-main' \|\| format\('release-desktop-\{0\}', github\.run_id\) \}\}\n  cancel-in-progress: false/,
+    'a release half uploaded is worse than one late');
 });
 
 test('DA6: only the app-v shape release-desktop cuts parses as a release tag', () => {
@@ -101,8 +107,9 @@ test('DA6: the wiring pins - one API, two gates, and probes never touch the netw
   // ON, off is `updateCheck: false`) and the probe env.
   assert.match(main, /loadConfig\(\)\.updateCheck !== false && !process\.env\.DAGGER_NO_UPDATE_CHECK/,
     'launch check honours the checkbox and the probe env');
-  // DA8: the launch check is the LAUNCHER's, and silent - an error is "offline" and the player plays on
-  assert.match(main, /if \(kind === 'error'\) \{ launcherDispatch\(\{ type: 'check-failed' \}\); return; \}/, 'and the launch check is the silent one');
+  // DA8: the launch check is the LAUNCHER's, and silent - an error is "offline" (AUDIT INSTALL L2-1: or, under a
+  // download, "failed") and the player plays on
+  assert.match(main, /launcherDispatch\(\{ type: launcher\?\.state\.update\.status === 'downloading' \? 'download-failed' : 'check-failed' \}\);/, 'and the launch check is the silent one');
   // The probe sets the env, so a green probe never depended on GitHub.
   const probe = fs.readFileSync(path.join(root, 'tools', 'appShellProbe.mjs'), 'utf8');
   assert.match(probe, /DAGGER_NO_UPDATE_CHECK: '1'/, 'the shell probe opts out of the check');

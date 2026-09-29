@@ -27,7 +27,7 @@ const require = createRequire(import.meta.url);
 const L = require('../app/lib/launcherState.cjs');
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const run = (state, ...events) => events.reduce(L.reduce, state);
-const fresh = (over = {}) => L.initialState({ current: '0.1.4613', transport: 'updater', checkEnabled: true, arena2Ready: true, skipArena2: false, ...over });
+const fresh = (over = {}) => L.initialState({ current: '0.1.4613', transport: 'updater', checkEnabled: true, arena2Dir: '/games/DF/DAGGER/ARENA2', ...over });
 
 test('DA8: the updater transport installs BEFORE play - check, download (shown), install, and the app reopens', () => {
   let s = fresh();
@@ -38,139 +38,104 @@ test('DA8: the updater transport installs BEFORE play - check, download (shown),
   assert.equal(L.nextStep(s), 'wait');
   s = run(s, { type: 'progress', percent: 62.4, transferred: 2.9e6, total: 4.6e6 });
   let v = L.viewOf(s);
-  assert.equal(v.title, 'Updating to v0.1.4684');
+  assert.equal(v.status, 'Downloading v0.1.4684');
   assert.deepEqual(v.progress, { percent: 62.4, label: '2.9 of 4.6 MB' });
-  assert.deepEqual(v.actions.map((a) => a.id), ['play-now'], 'the one way out: play now, update at quit');
-  assert.ok(!v.actions[0].primary, 'and it is NOT the default - Enter does not skip the update');
+  assert.equal(v.play.enabled, false, 'DA10: Play waits for the update');
+  assert.deepEqual(v.statusActions.map((a) => a.id), ['play-now'], 'the one way past it: play now, update at quit');
+  assert.ok(!v.statusActions[0].primary, 'and it is NOT the default - Enter does not skip the update');
   s = run(s, { type: 'downloaded', version: '0.1.4684' });
   assert.equal(s.update.status, 'installing');
   assert.equal(L.nextStep(s), 'install');
   v = L.viewOf(s);
-  assert.equal(v.stage, 'installing');
-  assert.match(v.detail, /close and reopen by itself/, 'the player is told the app comes back on its own');
-  assert.deepEqual(v.actions, [], 'nothing to press - it is happening');
-  // an installer that never took over does not strand the player on "Installing"
+  assert.equal(v.status, 'Installing v0.1.4684');
+  assert.match(v.detail, /closes and reopens by itself/, 'the player is told the app comes back on its own');
+  assert.deepEqual(v.statusActions, [], 'nothing to press - it is happening');
+  assert.equal(v.play.enabled, false);
+  // an installer that never took over does not strand the player on "Installing" - AUDIT INSTALL L2-3: and it is
+  // said, with the installer to run by hand (it tries again at quit, DA7)
   s = run(s, { type: 'install-failed' });
-  assert.equal(s.update.status, 'background');
-  assert.equal(L.nextStep(s), 'launch', 'play on - it installs at quit (DA7)');
+  assert.equal(s.update.status, 'stuck');
+  assert.equal(L.viewOf(s).play.enabled, true, 'Play is free');
+  assert.deepEqual(L.viewOf(s).statusActions.map((a) => a.id), ['reinstall']);
 });
 
-test('DA8: silence is not a reason to wait - an error, a timeout, "Play now", or no check at all lets the player in', () => {
-  assert.equal(run(fresh(), { type: 'check-failed' }).update.status, 'offline');
-  assert.equal(L.nextStep(run(fresh(), { type: 'check-timeout' })), 'launch');
-  assert.equal(L.nextStep(run(fresh(), { type: 'check-none' })), 'launch');
-  const late = run(fresh(), { type: 'check-timeout' }, { type: 'check-available', version: '0.1.4684' });
-  assert.equal(late.update.status, 'offline', 'an answer after the timeout is the running game\'s to hear, not the launcher\'s');
+test('DA8: silence is not a reason to wait - an error, a timeout, or no check at all frees Play; a download is never cut off', () => {
+  for (const ev of ['check-failed', 'check-timeout']) {
+    const s = run(fresh(), { type: ev });
+    assert.equal(s.update.status, 'offline', ev);
+    assert.equal(L.viewOf(s).play.enabled, true, `${ev}: Play`);
+  }
+  assert.equal(L.viewOf(run(fresh(), { type: 'check-none' })).play.enabled, true);
   const midDownload = run(fresh(), { type: 'check-available', version: '0.1.4684' }, { type: 'check-timeout' });
   assert.equal(midDownload.update.status, 'downloading', 'a timeout never cuts off a download the player can see');
   const skipped = run(fresh(), { type: 'check-available', version: '0.1.4684' }, { type: 'play-now' }, { type: 'downloaded', version: '0.1.4684' });
-  assert.equal(skipped.update.status, 'background', 'after "Play now" a finished download does not install from under the player');
-  assert.equal(L.nextStep(skipped), 'launch');
+  assert.equal(skipped.update.status, 'background', 'after "Play without updating" a finished download does not install from under the player');
+  assert.equal(L.nextStep(skipped), 'launch', 'and the one click played');
   const off = fresh({ checkEnabled: false });
-  assert.equal(off.update.status, 'skipped', 'the File-menu checkbox and the probe env (DA6\'s gates)');
-  assert.equal(L.nextStep(off), 'launch');
+  assert.equal(off.update.status, 'skipped', 'the toggle, the File-menu checkbox and the probe env (DA6\'s gates)');
+  assert.equal(L.viewOf(off).play.enabled, true);
   assert.ok(L.CHECK_TIMEOUT_MS >= 5000 && L.CHECK_TIMEOUT_MS <= 10000, `a slow check is waited on, a dead one is not (${L.CHECK_TIMEOUT_MS} ms)`);
   assert.equal(L.RECHECK_MS, 60 * 60 * 1000, 'a running copy asks again within the hour');
 });
 
-test('DA8: the notice transport offers its own file and the choice - Download, or play this version', () => {
+test('DA8: the notice transport offers its own file beside Play - Download it, or play this version', () => {
   let s = fresh({ transport: 'notice' });
   s = run(s, { type: 'check-available', version: '0.1.4684', download: 'https://github.com/Lattymoy/daggerfall-js-source/releases/latest/download/DaggerfallOnline-mac-arm64.dmg' });
   assert.equal(s.update.status, 'notice');
   assert.equal(L.nextStep(s), 'wait', 'the player decides');
   const v = L.viewOf(s);
-  assert.equal(v.title, 'Version 0.1.4684 is out');
+  assert.equal(v.status, 'Version 0.1.4684 is out');
   assert.match(v.detail, /^You have v0\.1\.4613\./);
-  assert.deepEqual(v.actions.map((a) => [a.id, !!a.primary]), [['download', true], ['dismiss', false]]);
+  assert.deepEqual(v.statusActions.map((a) => [a.id, !!a.primary]), [['download', true]]);
+  assert.equal(v.play.enabled, true, 'DA10: this version plays - Play is the other answer');
   assert.equal(s.update.download.endsWith('/DaggerfallOnline-mac-arm64.dmg'), true, 'REL5: the file, not a page of eleven');
-  s = run(s, { type: 'dismiss-notice' });
-  assert.equal(L.nextStep(s), 'launch');
-  // notes arrive on their own request, and only for the version they are for
-  const n = [{ version: '0.1.4684', text: '# Patch Notes: X' }];
-  assert.deepEqual(run(fresh({ transport: 'notice' }), { type: 'check-available', version: '0.1.4684' }, { type: 'notes', version: '0.1.4600', notes: n }).update.notes, []);
-  assert.deepEqual(run(fresh({ transport: 'notice' }), { type: 'check-available', version: '0.1.4684' }, { type: 'notes', version: '0.1.4684', notes: n }).update.notes, n);
 });
 
-test('DA8/DA9: the first run - detection runs after the update, and a folder is OFFERED, never taken silently', () => {
-  let s = fresh({ arena2Ready: false });
-  assert.equal(L.nextStep(s), 'wait', 'the update comes first - a folder asked for and then a restart is a worse first minute');
-  s = run(s, { type: 'check-none' });
-  assert.equal(L.nextStep(s), 'detect');
-  assert.equal(L.viewOf(s).title, 'Looking for your Daggerfall files');
+test('DA8/DA9: the first run - detection runs at once, and a folder is OFFERED, never taken silently', () => {
+  const s = fresh({ arena2Dir: null });
+  assert.equal(L.nextStep(s), 'detect', 'DA10: detection is local - the player chooses while the update is asked for');
+  assert.equal(L.viewOf(s).setup.title, 'Looking for your Daggerfall files');
   const found = [{ dir: '/steam/DF/DAGGER/ARENA2', source: 'steam' }, { dir: '/home/me/.config/DFU/ARENA2', source: 'dfu' }];
-  const withFound = run(s, { type: 'found', found });
+  const withFound = run(s, { type: 'found', found }, { type: 'check-none' });
   assert.equal(withFound.setup.status, 'found');
   assert.equal(L.nextStep(withFound), 'wait', 'the player chooses');
   const v = L.viewOf(withFound);
-  assert.equal(v.title, 'Found Daggerfall on this computer');
-  assert.deepEqual(v.found, [{ index: 0, dir: '/steam/DF/DAGGER/ARENA2', from: 'Steam' }, { index: 1, dir: '/home/me/.config/DFU/ARENA2', from: 'from Daggerfall Unity' }]);
-  assert.deepEqual(v.actions.map((a) => a.id), ['choose-folder', 'skip-setup']);
-  assert.equal(L.viewOf(run(s, { type: 'found', found: found.slice(0, 1) })).title, 'Found your Daggerfall files');
+  assert.equal(v.panel, 'setup');
+  assert.equal(v.play.enabled, false, 'no files, no Play');
+  assert.equal(v.setup.title, 'Found Daggerfall on this computer');
+  assert.deepEqual(v.setup.found, [
+    { index: 0, dir: '/steam/DF/DAGGER/ARENA2', from: 'Steam', primary: false },
+    { index: 1, dir: '/home/me/.config/DFU/ARENA2', from: 'from Daggerfall Unity', primary: false },
+  ], 'two finds: the player picks - neither is the card\'s answer');
+  assert.deepEqual(v.setup.actions.map((a) => a.id), ['choose-folder', 'skip-setup']);
+  assert.equal(L.viewOf(run(s, { type: 'found', found: found.slice(0, 1) })).setup.title, 'Found your Daggerfall files');
   // nothing found: where to get it, and the website's own picker - never a dead end
-  const none = run(s, { type: 'found', found: [] });
+  const none = run(s, { type: 'found', found: [] }, { type: 'check-none' });
   assert.equal(none.setup.status, 'none');
   const nv = L.viewOf(none);
-  assert.equal(nv.title, 'Where is Daggerfall?');
-  assert.deepEqual(nv.actions.map((a) => [a.id, a.arg ?? null, !!a.primary]),
+  assert.equal(nv.setup.title, 'Where is Daggerfall?');
+  assert.deepEqual(nv.setup.actions.map((a) => [a.id, a.arg ?? null, !!a.primary]),
     [['choose-folder', null, true], ['open', 'steam', false], ['open', 'gog', false], ['skip-setup', null, false]]);
   // a partial folder says which files it lacks - A2-WHOLE's words
   const bad = run(none, { type: 'picked-bad', missing: ['ARCH3D.BSA', 'MAPS.BSA'] });
-  assert.equal(L.viewOf(bad).title, 'That folder is not a whole ARENA2');
-  assert.match(L.viewOf(bad).detail, /^It has no ARCH3D\.BSA, MAPS\.BSA\. .*DF\/DAGGER\/ARENA2/);
-  assert.match(L.viewOf(run(none, { type: 'picked-bad', missing: null })).detail, /^It holds no Daggerfall files\./);
-  assert.equal(L.nextStep(run(bad, { type: 'picked', dir: '/x/ARENA2' })), 'launch');
-  assert.equal(L.nextStep(run(none, { type: 'skip-setup' })), 'launch', 'the in-page picker takes over, as on the website');
+  assert.equal(L.viewOf(bad).setup.title, 'That folder is not a whole ARENA2');
+  assert.match(L.viewOf(bad).setup.detail, /^It has no ARCH3D\.BSA, MAPS\.BSA\. .*DF\/DAGGER\/ARENA2/);
+  assert.match(L.viewOf(run(none, { type: 'picked-bad', missing: null })).setup.detail, /^It holds no Daggerfall files\./);
+  assert.equal(L.notArena2Detail(['MAPS.BSA']), L.viewOf(run(none, { type: 'picked-bad', missing: ['MAPS.BSA'] })).setup.detail, 'one set of words, card and menu alike');
+  const picked = run(bad, { type: 'picked', dir: '/x/ARENA2' });
+  assert.equal(picked.setup.status, 'ready');
+  assert.equal(L.viewOf(picked).play.enabled, true);
+  assert.equal(L.viewOf(run(none, { type: 'skip-setup' })).play.enabled, true, 'the in-page picker takes over, as on the website');
   // the probe's skip, and a whole folder already configured, ask nothing
-  assert.equal(fresh({ arena2Ready: false, skipArena2: true }).setup.status, 'ready');
+  assert.equal(fresh({ arena2Dir: null, inGamePicker: true }).setup.status, 'skipped');
   assert.equal(run(fresh(), { type: 'found', found }).setup.status, 'ready', 'detection never runs over a configured folder');
 });
 
-test('DA8: "What\'s new" - shown by the launch that runs the update, once; kept until it installs; dropped once superseded', () => {
-  const notes = [{ version: '0.1.4684', text: '# Patch Notes: X' }];
-  assert.deepEqual(L.whatsNewFor({ version: '0.1.4684', notes }, '0.1.4684'), { show: { version: '0.1.4684', notes }, keep: false });
-  assert.deepEqual(L.whatsNewFor({ version: '0.1.4684', notes }, '0.1.4649'), { show: null, keep: true }, 'downloaded, not yet installed');
-  assert.deepEqual(L.whatsNewFor({ version: '0.1.4684', notes }, '0.1.4700'), { show: null, keep: false }, 'superseded');
-  assert.deepEqual(L.whatsNewFor(undefined, '0.1.4684'), { show: null, keep: false });
-  let s = fresh({ checkEnabled: false, whatsNew: { version: '0.1.4684', notes } });
-  assert.equal(L.nextStep(s), 'wait');
-  let v = L.viewOf(s);
-  assert.equal(v.title, 'Updated to v0.1.4684');
-  assert.equal(v.notesTitle, "What's new");
-  assert.deepEqual(v.notes, notes);
-  assert.deepEqual(v.actions.map((a) => [a.id, !!a.primary]), [['play', true]]);
-  s = run(s, { type: 'whats-new-seen' });
-  assert.equal(L.nextStep(s), 'launch');
-  // while the post-update check runs, the notes are already up
-  v = L.viewOf(fresh({ whatsNew: { version: '0.1.4684', notes } }));
-  assert.equal(v.stage, 'checking');
-  assert.deepEqual(v.notes, notes);
-});
-
-test('DA8: the notes a player reads are the patch notes of every version between theirs and the new one - never the list of pull requests', () => {
+test('DA8: the notes a player reads are the patch notes - never the list of pull requests', () => {
   const body = '# Patch Notes: The Sea\n\n- Boats.\n\n## What\'s Changed\n* A PR by @someone in https://x\n\n**Full Changelog**: https://y';
   assert.equal(L.playerNotes(body), '# Patch Notes: The Sea\n\n- Boats.');
   assert.equal(L.playerNotes('Fixes and improvements.\n\n**Full Changelog**: https://y'), 'Fixes and improvements.');
   assert.equal(L.playerNotes(null), '');
-  const releases = [
-    { tag_name: 'app-v0.1.4700', body: '# Patch Notes: Too new' },
-    { tag_name: 'app-v0.1.4684', body: 'Fixes and improvements.\n\n## What\'s Changed\n* x' },
-    { tag_name: 'app-v0.1.4649', body: 'Fixes and improvements.' },
-    { tag_name: 'app-v0.1.4644', body: '# Patch Notes: Overworld\n- Walk.\n\n## What\'s Changed\n* y' },
-    { tag_name: 'app-v0.1.4640', body: '# Patch Notes: Draft', draft: true },
-    { tag_name: 'app-v0.1.4630', body: '# Patch Notes: Pre', prerelease: true },
-    { tag_name: 'site-v9', body: '# not a release of the app' },
-    { tag_name: 'app-v0.1.4613', body: '# Patch Notes: Already had it' },
-  ];
-  assert.deepEqual(L.notesBetween(releases, '0.1.4613', '0.1.4684'), [{ version: '0.1.4644', text: '# Patch Notes: Overworld\n- Walk.' }],
-    'the versions in (mine, new], published, with something to say');
-  assert.deepEqual(L.notesBetween(releases.slice(1, 3), '0.1.4613', '0.1.4684'), [{ version: '0.1.4684', text: 'Fixes and improvements.' }],
-    'when none says anything, one line stands for them all');
-  const many = Array.from({ length: 12 }, (_, i) => ({ tag_name: `app-v0.1.${5000 + i}`, body: `# Patch Notes: ${i}` }));
-  const capped = L.notesBetween(many, '0.1.4999', '0.1.5011');
-  assert.equal(capped.length, L.NOTES_MAX);
-  assert.equal(capped[0].version, '0.1.5011', 'newest first');
-  assert.deepEqual(L.notesBetween('not a list', '0.1.1', '0.1.2'), []);
-  assert.deepEqual(L.notesBetween(releases, 'garbage', '0.1.4684'), []);
 });
 
 test('DA8: the page - its own files only, no inline code, every word as text, the brand\'s own colours and faces', () => {
@@ -179,15 +144,35 @@ test('DA8: the page - its own files only, no inline code, every word as text, th
   assert.equal(csp, "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self' data:", 'nothing remote, nothing inline');
   assert.doesNotMatch(html, /<script>|<style>|\son\w+=|https?:\/\//i, 'no inline script or style, no handler attribute, no remote URL');
   const js = rd('app/launcher/launcher.js');
-  assert.doesNotMatch(js, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/, 'patch notes come from GitHub: they reach the page as TEXT');
-  assert.match(js, /bridge\.act\('use-found', f\.index\)/, 'a found folder is chosen by its index - the shell holds the path');
-  assert.doesNotMatch(js, /\.focus\(\{ preventScroll: true \}\)[\s\S]{0,40}\?\? document\.querySelector\('\.plaque'\)|querySelector\('\.plaque'\)\?\.focus/, 'only a primary answer takes Enter');
+  // AUDIT INSTALL L5-21: every HTML sink, not three of them - createContextualFragment and setHTMLUnsafe took markup too
+  assert.doesNotMatch(js, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function|createContextualFragment|setHTMLUnsafe|parseHTMLUnsafe|DOMParser|srcdoc/,
+    'patch notes come from GitHub: they reach the page as TEXT');
+  assert.match(js, /if \(drawn\.get\(region\) === key\) return false;/, 'a region is rebuilt only when what it shows changed - a button rebuilt under the pointer is a lost click');
+  assert.match(js, /const link = e\.target\.closest\('\[data-open\]'\);\s*if \(link\) bridge\.act\('open', link\.dataset\.open\);/, 'the site and Discord links are the shell\'s to open, by name');
+  assert.match(js, /button\(\{ id: 'use-found', arg: f\.index, label: 'Use these files'/, 'a found folder is chosen by its index - the shell holds the path');
+  // DA10: Enter takes the card's own answer, or PLAY - never "Play without updating", never the first button there is
+  assert.match(js, /if \(v\.panel === 'setup'\) document\.querySelector\('#setup \.plaque\.primary'\)\?\.focus\(\{ preventScroll: true \}\);\s*else if \(v\.play\.enabled && idle\) play\.focus\(\{ preventScroll: true \}\);/, 'only a primary answer takes Enter');
+  assert.doesNotMatch(js, /querySelector\('(#setup )?\.plaque'\)\?\.focus|status-actions[^\n]*\.focus\(/);
   const css = rd('app/launcher/launcher.css');
   const skin = rd('src/ui/enhancedStyle.js');
   const norm = (c) => c.toLowerCase().replace(/\s+/g, '');
   const colours = (text) => new Set([...text.matchAll(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g)].map((m) => norm(m[0])));
-  const foreign = [...colours(css.replace(/url\(data:[^)]*\)/g, ''))].filter((c) => !colours(skin).has(c));
+  const plain = css.replace(/url\(data:[^)]*\)/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const foreign = [...colours(plain)].filter((c) => !colours(skin).has(c));
   assert.deepEqual(foreign, [], 'every colour on the launcher is one the Enhanced skin already uses (U63\'s law, the landing page\'s)');
+  // AUDIT INSTALL L5-21: and there is no colour it cannot see - every word in a colour-bearing value is one of these
+  const colourProps = /^(?:color|background(?:-color)?|border(?:-(?:top|right|bottom|left))?(?:-color)?|outline(?:-color)?|box-shadow|text-shadow|fill|stroke|caret-color|accent-color|--[\w-]+)$/;
+  const allowed = /^(?:#[0-9a-f]{3,8}|rgba?\([^)]*\)|var\(--(?:brass|ruby)\)|none|transparent|inherit|currentcolor|solid|inset|linear-gradient|-?\d*\.?\d+(?:px|%|em)?|0|[(),])$/i;
+  const words = [];
+  for (const [, prop, value] of plain.matchAll(/(?:^|[{;\s])(--[\w-]+|[a-z-]+)\s*:\s*([^;{}]+)/g)) {
+    if (!colourProps.test(prop)) continue;
+    // rgb()/rgba()/var() are whole tokens (their commas are theirs); everything else splits on its punctuation
+    const whole = [];
+    const rest = value.replace(/rgba?\([^)]*\)|var\([^)]*\)/g, (m) => { whole.push(m.replace(/\s+/g, '')); return ' '; });
+    const tokens = [...whole, ...rest.replace(/([(),])/g, ' $1 ').trim().split(/\s+/).filter(Boolean)];
+    for (const t of tokens) if (!allowed.test(t)) words.push(`${prop}: ${t}`);
+  }
+  assert.deepEqual(words, [], 'a named colour or an hsl() the hex check cannot read');
   // the digit five is the brand's everywhere: the same 520-byte Silkscreen glyph the landing page carries
   const five = (text) => text.match(/font-family: 'Pixelify Five'; unicode-range: U\+0035;[^}]*url\((data:font\/woff2;base64,[A-Za-z0-9+/=]+)\)/)?.[1];
   assert.ok(five(css) && five(css) === five(rd('index.html')), 'the launcher\'s five IS the landing page\'s');
@@ -208,6 +193,7 @@ test('DA8: the shell - a sandboxed window on its own origin, two words of bridge
   const main = rd('app/main.cjs');
   const preload = rd('app/launcherPreload.cjs');
   assert.deepEqual([...preload.matchAll(/^ {2}(\w+): /gm)].map((m) => m[1]), ['onView', 'act'], 'the launcher\'s bridge: hear the view, say which button');
+  assert.equal((preload.match(/exposeInMainWorld\(/g) ?? []).length, 1, 'ONE bridge - a second exposeInMainWorld is a second door (AUDIT INSTALL L5-21)');
   assert.doesNotMatch(preload, /require\('(node:)?(fs|path|child_process)'\)|fileStorage/, 'no file, no storage, no process');
   const win = main.slice(main.indexOf('function openLauncherWindow()'), main.indexOf('function renderLauncher()'));
   assert.match(win, /preload: path\.join\(__dirname, 'launcherPreload\.cjs'\),\s*contextIsolation: true,\s*nodeIntegration: false,\s*sandbox: true,/, 'sandboxed, isolated');
@@ -217,29 +203,35 @@ test('DA8: the shell - a sandboxed window on its own origin, two words of bridge
   assert.match(serve, /if \(!p\.startsWith\(LAUNCHER_DIR \+ path\.sep\)\) return new Response\('forbidden', \{ status: 403 \}\);/, 'the same traversal law as dist/');
   assert.match(main, /if \(url\.host === 'launcher'\) return serveLauncherFile\(parts\);/);
   // the IPC hears ONLY the launcher's window, and a link is a NAME
-  assert.match(main, /ipcMain\.on\('launcher:act', async \(e, msg\) => \{\s*if \(!launcher \|\| e\.sender !== launcher\.win\.webContents\) return;/);
+  assert.match(main, /ipcMain\.on\('launcher:act', async \(e, msg\) => \{\s*if \(!fromLauncher\(e\)\) return;/);
+  // AUDIT INSTALL L1-2: its window, and its own page in that window - a launcher navigated anywhere else says nothing
+  assert.match(main, /const fromLauncher = \(e\) => !!launcher && e\.sender === launcher\.win\.webContents && !!e\.senderFrame\?\.url\?\.startsWith\(LAUNCHER_ORIGIN\);/);
   assert.match(main, /case 'open': if \(Object\.hasOwn\(LAUNCHER_LINKS, arg\)\) shell\.openExternal\(LAUNCHER_LINKS\[arg\]\); break;/);
   assert.match(main, /steam: 'https:\/\/store\.steampowered\.com\/app\/1812390\/',/);
   assert.match(main, /case 'download': if \(st\.update\.download\) shell\.openExternal\(st\.update\.download\); break;/, 'the download URL is the shell\'s own, never the page\'s');
   // REL5: and it is THIS copy's own file by the name that never moves - the dmg, the portable exe
-  const latest = main.slice(main.indexOf('async function fetchLatestRelease()'), main.indexOf('/** The recent releases'));
+  const latest = main.slice(main.indexOf('async function fetchLatestRelease()'), main.indexOf('/** The notice transport\'s check'));
   assert.match(latest, /const file = manualDownloadFile\(\{ platform: process\.platform, portable: !!process\.env\.PORTABLE_EXECUTABLE_DIR, packaged: app\.isPackaged \}\);/);
   assert.match(latest, /download: file \? latestDownloadUrl\(file\) : url/, 'the release page only where there is no one file to name');
   // the handover: the game shows at its first paint, THEN the launcher closes (window-all-closed would quit)
-  const hand = main.slice(main.indexOf('function launchGame()'), main.indexOf('function startLaunchCheck()'));
+  const hand = main.slice(main.indexOf('function launchGame()'), main.indexOf('/** The launch check, inside DA6'));
   assert.match(hand, /createWindow\(\{\s*onShown: \(\) => \{\s*if \(lw && !lw\.isDestroyed\(\)\) lw\.close\(\);/);
   assert.equal((hand.match(/\.close\(\)/g) ?? []).length, 1, 'and nothing else closes it - a launcher shut before the game shows quits the app');
   assert.match(main, /win\.once\('ready-to-show', reveal\);\s*setTimeout\(reveal, GAME_REVEAL_MS\)/, 'a first paint that never comes still shows the game');
   // the install: silent, reopening - and never stuck on "Installing"
-  const inst = main.slice(main.indexOf('function installFromLauncher()'), main.indexOf('function useArena2('));
-  assert.match(inst, /autoUpdater\(\)\.quitAndInstall\(true, true\)/, 'silent (the NSIS finish page would wait for a click) and run after');
+  const inst = main.slice(main.indexOf('function installFromLauncher()'), main.indexOf('/** The folder the player chose'));
+  assert.match(inst, /if \(l\.dialogs\) \{ l\.installing = false; return; \}\s*installNow\(version\);/, 'through the one door to the installer - held by a dialog the player opened during the notice');
+  const door = main.slice(main.indexOf('function installNow('), main.indexOf('/** The installer did not take over'));
+  assert.match(door, /autoUpdater\(\)\.quitAndInstall\(true, true\)/, 'silent (the NSIS finish page would wait for a click) and run after');
   assert.match(inst, /launcherDispatch\(\{ type: 'install-failed' \}\)/);
-  // what changed is saved with the download, for the launch that runs it
-  const routed = main.slice(main.indexOf('function onUpdaterEvent('), main.indexOf('/** The notes of every release'));
-  assert.match(routed, /updateReady = \{ version, told: false \};\s*rememberWhatsNew\(version\);/);
-  assert.match(routed, /if \(!installingNow\) \{ updateReady\.told = tellGame\(\{ version, manual: false \}\); buildMenu\(\); \}/, 'an update the launcher is not installing is the game\'s to hear');
+  // an update the launcher is not installing (after "Play without updating", or found mid-game) is the game's
+  const routed = main.slice(main.indexOf('function onUpdaterEvent('), main.indexOf('/** DA10: news.json'));
+  assert.match(routed, /if \(!again\) updateReady = \{ version, told: false \};\s*const installingNow = launcher\?\.state\.update\.status === 'downloading';/);
+  assert.match(routed, /if \(!installingNow && !again\) \{ updateReady\.told = tellGame\(\{ version, manual: false \}\); buildMenu\(\); \}/, 'an update the launcher is not installing is the game\'s to hear');
+  // AUDIT INSTALL L2-8: once - the same download reported again (a manual check finds it cached) is not a second HUD line
+  assert.match(routed, /const again = updateReady\?\.version === version;/);
   assert.match(main, /label: `Restart to Update \(v\$\{updateReady\.version\}\)`/, 'and it waits in the File menu');
-  assert.match(main, /message: `Restart to install v\$\{updateReady\?\.version\}\?`/, 'asked first - the game is running');
+  assert.match(main, /const opts = restartAsk\(updateReady\?\.version\);/, 'asked first - the game is running (app/lib/shellDialogs.cjs)');
   // the installed app wears the brand's own mark (TI2's home-screen icon) - taskbar, Start menu, dock, installer,
   // AppImage - where it wore Electron's atom (electron-builder: "default Electron icon is used")
   const build = JSON.parse(rd('app/package.json')).build;

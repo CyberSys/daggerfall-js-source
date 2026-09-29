@@ -2,8 +2,8 @@
   {
     "name": "DA8-1-the-launcher-never-installs-before-play",
     "file": "app/lib/launcherState.cjs",
-    "old": "  if (u === 'installing') return 'install';\n",
-    "new": "  if (u === 'installing') return 'launch';\n",
+    "old": "  if (s.update.status === 'installing') return SETUP_WAITING.has(s.setup.status) ? 'wait' : 'install';\n",
+    "new": "  if (s.update.status === 'installing') return 'wait';\n",
     "tests": ["test/da8_launcher.test.js"],
     "note": "Install-on-quit again: the player launches into the build before the last one, a protocol behind the relay."
   },
@@ -15,31 +15,17 @@
     "tests": ["test/da8_launcher.test.js"]
   },
   {
-    "name": "DA8-3-an-answer-after-the-timeout-hijacks-the-launcher",
-    "file": "app/lib/launcherState.cjs",
-    "old": "      if (u.status !== 'checking') break;\n",
-    "new": "",
-    "tests": ["test/da8_launcher.test.js"]
-  },
-  {
     "name": "DA8-4-play-now-is-the-default-and-enter-skips-the-update",
     "file": "app/lib/launcherState.cjs",
-    "old": "    v.actions = [{ id: 'play-now', label: 'Play now, update when I quit' }];\n",
-    "new": "    v.actions = [{ id: 'play-now', label: 'Play now, update when I quit', primary: true }];\n",
+    "old": "    if (SETUP_DONE.has(st.status)) v.statusActions = [{ id: 'play-now', label: 'Play without updating' }];\n",
+    "new": "    if (SETUP_DONE.has(st.status)) v.statusActions = [{ id: 'play-now', label: 'Play without updating', primary: true }];\n",
     "tests": ["test/da8_launcher.test.js"]
   },
   {
     "name": "DA8-5-an-installer-that-never-starts-strands-the-player",
     "file": "app/lib/launcherState.cjs",
-    "old": "      if (u.status === 'installing') u.status = 'background';\n",
+    "old": "      if (u.status === 'installing') u.status = 'stuck';\n",
     "new": "",
-    "tests": ["test/da8_launcher.test.js"]
-  },
-  {
-    "name": "DA8-6-the-folder-is-asked-for-before-the-update-restarts-the-app",
-    "file": "app/lib/launcherState.cjs",
-    "old": "  if (u === 'checking' || u === 'downloading' || u === 'notice') return 'wait';\n",
-    "new": "  if (u === 'downloading' || u === 'notice') return 'wait';\n",
     "tests": ["test/da8_launcher.test.js"]
   },
   {
@@ -50,31 +36,10 @@
     "tests": ["test/da8_launcher.test.js"]
   },
   {
-    "name": "DA8-8-whats-new-flashes-past",
-    "file": "app/lib/launcherState.cjs",
-    "old": "  if (s.whatsNew) return 'wait';\n",
-    "new": "",
-    "tests": ["test/da8_launcher.test.js"]
-  },
-  {
     "name": "DA8-9-the-player-reads-the-list-of-pull-requests",
     "file": "app/lib/launcherState.cjs",
     "old": "  return (cut < 0 ? text : text.slice(0, cut)).trim();\n",
     "new": "  return text.trim();\n",
-    "tests": ["test/da8_launcher.test.js"]
-  },
-  {
-    "name": "DA8-10-whats-new-lists-the-version-already-running",
-    "file": "app/lib/launcherState.cjs",
-    "old": ".filter((r) => r.v && cmp(r.v, from) > 0 && cmp(r.v, to) <= 0 && r.text)",
-    "new": ".filter((r) => r.v && cmp(r.v, from) >= 0 && cmp(r.v, to) <= 0 && r.text)",
-    "tests": ["test/da8_launcher.test.js"]
-  },
-  {
-    "name": "DA8-11-a-superseded-whats-new-is-kept-for-ever",
-    "file": "app/lib/launcherState.cjs",
-    "old": "  if (cmp > 0) return { show: null, keep: true };\n  return { show: null, keep: false };\n",
-    "new": "  if (cmp > 0) return { show: null, keep: true };\n  return { show: null, keep: true };\n",
     "tests": ["test/da8_launcher.test.js"]
   },
   {
@@ -87,8 +52,8 @@
   {
     "name": "DA8-13-any-window-can-drive-the-launcher",
     "file": "app/main.cjs",
-    "old": "  if (!launcher || e.sender !== launcher.win.webContents) return;\n  const { action, arg } = msg ?? {};\n",
-    "new": "  if (!launcher) return;\n  const { action, arg } = msg ?? {};\n",
+    "old": "const fromLauncher = (e) => !!launcher && e.sender === launcher.win.webContents && ",
+    "new": "const fromLauncher = (e) => !!launcher && ",
     "tests": ["test/da8_launcher.test.js"]
   },
   {
@@ -109,22 +74,15 @@
   {
     "name": "DA8-16-the-install-shows-a-finish-page-nobody-clicks",
     "file": "app/main.cjs",
-    "old": "  setTimeout(() => autoUpdater().quitAndInstall(true, true), INSTALL_NOTICE_MS);\n",
-    "new": "  setTimeout(() => autoUpdater().quitAndInstall(false, true), INSTALL_NOTICE_MS);\n",
+    "old": "  autoUpdater().quitAndInstall(true, true);\n}",
+    "new": "  autoUpdater().quitAndInstall(false, true);\n}",
     "tests": ["test/da8_launcher.test.js"]
   },
   {
     "name": "DA8-17-a-mid-session-update-is-never-told",
     "file": "app/main.cjs",
-    "old": "    if (!installingNow) { updateReady.told = tellGame({ version, manual: false }); buildMenu(); }\n",
-    "new": "    if (!installingNow) { buildMenu(); }\n",
-    "tests": ["test/da8_launcher.test.js"]
-  },
-  {
-    "name": "DA8-18-whats-new-is-not-kept-for-the-launch-that-runs-it",
-    "file": "app/main.cjs",
-    "old": "    updateReady = { version, told: false };\n    rememberWhatsNew(version);\n",
-    "new": "    updateReady = { version, told: false };\n",
+    "old": "    if (!installingNow && !again) { updateReady.told = tellGame({ version, manual: false }); buildMenu(); }\n",
+    "new": "    if (!installingNow && !again) { buildMenu(); }\n",
     "tests": ["test/da8_launcher.test.js"]
   },
   {
@@ -151,8 +109,8 @@
   {
     "name": "DA8-22-patch-notes-from-github-as-markup",
     "file": "app/launcher/launcher.js",
-    "old": "      notes.querySelector('.body').replaceChildren(...v.notes.map(notesBlock));\n",
-    "new": "      notes.querySelector('.body').innerHTML = v.notes.map((n) => n.text).join('');\n",
+    "old": "      document.querySelector('#news .feed').replaceChildren(...v.news.items.map(notesBlock));\n",
+    "new": "      document.querySelector('#news .feed').innerHTML = v.news.items.map((n) => n.text).join('');\n",
     "tests": ["test/da8_launcher.test.js"]
   },
   {
@@ -187,8 +145,8 @@
   {
     "name": "DA8-27-enter-presses-whatever-button-is-first",
     "file": "app/launcher/launcher.js",
-    "old": "      document.querySelector('.plaque.primary')?.focus({ preventScroll: true });\n",
-    "new": "      document.querySelector('.plaque')?.focus({ preventScroll: true });\n",
+    "old": "      if (v.panel === 'setup') document.querySelector('#setup .plaque.primary')?.focus({ preventScroll: true });\n",
+    "new": "      if (v.panel === 'setup') document.querySelector('#setup .plaque')?.focus({ preventScroll: true });\n",
     "tests": ["test/da8_launcher.test.js"]
   },
   {

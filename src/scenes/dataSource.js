@@ -1177,7 +1177,7 @@ export const missingArena2 = (names) => {
  *  the two ways to a whole one. */
 export const incompleteArena2Text = (missing) =>
   `That is not a complete ARENA2 folder - it has no ${missing.join(', ')}. `
-  + 'Pick the ARENA2 folder inside your Daggerfall install (on Steam and GOG it is under DF/DAGGER/ARENA2), '
+  + 'Pick the ARENA2 folder inside your Daggerfall install (on Steam it is under DF/DAGGER/ARENA2; on GOG it is in the game\'s own folder), '
   + 'or use DaggerfallGameFiles.zip below.';
 
 // ---- ZIP ingest (mobile path, 2026-08-13) ----

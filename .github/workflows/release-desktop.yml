@@ -25,9 +25,9 @@ name: release-desktop
 # variable names the number, and both the tag and the stamp electron-
 # builder bakes in read it, which is the whole of REL1's lesson.
 # A pushed app-v* tag and a dispatch with release_tag remain as manual
-# doors (a re-cut, a hotfix off a branch) and take their version from
-# the tag they name. Runs queue rather than cancel: a release half
-# uploaded is worse than one late.
+# doors (a hotfix off a branch - at a NEW tag: a published release is
+# never re-cut in place, AUDIT INSTALL L3-2) and take their version from
+# the tag they name.
 #
 # REL4 (2026-09-29, Mac: "drastically improve the install experience"):
 # THE RELEASE IS PUBLISHED WHOLE, ONCE. Each OS leg used to create-or-
@@ -59,8 +59,17 @@ on:
 permissions:
   contents: read
 
+# One MAIN release at a time, never cancelled once it runs: a release half
+# uploaded is worse than one late. GitHub keeps ONE run waiting per group
+# and cancels an older waiting run when a newer one queues - so of several
+# merges that land during a release, the newest is cut next, carrying the
+# others' commits under a higher number. A manual door (a pushed tag, a
+# dispatch) is a group of its own, so the next merge never cancels it.
+# AUDIT INSTALL L3-6: "runs queue rather than cancel" was true of one
+# waiting run only, and a dispatch waiting behind a release was cancelled
+# by the next merge without a word.
 concurrency:
-  group: release-desktop
+  group: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'release-desktop-main' || format('release-desktop-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
@@ -74,6 +83,10 @@ jobs:
   # REL4: resolved ONCE, here, and read by every job below - three legs
   # and the publish job cannot disagree about a number none of them
   # computes.
+  # AUDIT INSTALL L1-5: and it is app-v<n>.<n>.<n> EXACTLY, or the run
+  # fails here. A tag name may carry quotes and `$` (git accepts
+  # app-v1.2.3";touch${IFS}x;"), and the number is written into scripts
+  # below - read from the environment there, and never anything but digits.
   version:
     runs-on: ubuntu-latest
     outputs:
@@ -83,6 +96,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # REL3: the version is the commit count, which needs the whole history
+          persist-credentials: false   # AUDIT INSTALL L1-1: nothing here pushes; no token is left in .git/config
 
       - name: Resolve release version
         id: reltag
@@ -96,7 +110,11 @@ jobs:
             BASE=$(node -p "require('./app/package.json').version.split('.').slice(0,2).join('.')")
             TAG="app-v${BASE}.$(git rev-list --count HEAD)"
           fi
-          case "$TAG" in app-v*) VERSION="${TAG#app-v}" ;; *) TAG=''; VERSION='' ;; esac
+          if [ -n "$TAG" ] && ! [[ "$TAG" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release tag must be app-v<major>.<minor>.<patch>, digits only"
+            exit 1
+          fi
+          VERSION="${TAG#app-v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "release tag: '${TAG:-<none - artifacts only>}'"
@@ -105,6 +123,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -126,6 +146,8 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -147,7 +169,23 @@ jobs:
       # tag is cut from. Not committed: the working tree is the runner's.
       - name: Stamp the version
         if: needs.version.outputs.version != ''
-        run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+        working-directory: app
+
+      # AUDIT INSTALL L3-4: a build that is not a release carries NO update
+      # metadata. With the provider in app/package.json every build wrote
+      # app-update.yml, and the launcher installs what that names BEFORE
+      # play (DA8) - so a dispatched "try this build" replaced itself with
+      # the public release before it ever ran. publish must be null
+      # EXPLICITLY: absent, electron-builder derives GitHub from
+      # `repository` and writes it anyway (PublishManager), and a CLI
+      # -c.publish=null stays the string "null". Without the file the shell
+      # takes the notice transport (lib/autoUpdate.cjs `configured`).
+      - name: No updater in a build that is not a release
+        if: needs.version.outputs.tag == ''
+        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.build.publish=null;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
         working-directory: app
 
       # DA7: `--publish never` uploads nothing (the publish job attaches
@@ -193,6 +231,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # the notes diff PATCH-NOTES-*.md against the previous release's tag
+          # AUDIT INSTALL L1-1: this job holds contents: write, and checkout writes its token into .git/config -
+          # a PATCH-NOTES file committed as a link to it would have been read into the public release body.
+          # The notes read git's objects now (desktopRelease.mjs), and nothing in this job uses git auth.
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -215,6 +257,24 @@ jobs:
         env:
           TAG: ${{ needs.version.outputs.tag }}
         run: node scripts/desktopRelease.mjs notes "$TAG" > release-notes.md
+
+      # AUDIT INSTALL L3-2: a tag that already has a PUBLISHED release is
+      # never re-cut in place. softprops updates an existing release rather
+      # than staging a draft (its `draft` input is ignored there) and
+      # deletes and re-uploads each file on the LIVE release - `latest`'s
+      # downloads and latest.yml gone while they upload, and an updater
+      # meeting the manifest before its installer. A draft left by a failed
+      # run is not published (the API answers 404) and is reused.
+      - name: The tag has no published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --silent 2>lookup-error.txt; then
+            echo "::error::$TAG is already published - a release is never re-cut in place; cut a new tag"
+            exit 1
+          fi
+          grep -q 'HTTP 404' lookup-error.txt || { cat lookup-error.txt >&2; exit 1; }
 
       # AUDIT 68: target_commitish cuts a NEW tag at the commit these
       # installers were built from. Without it GitHub cuts it at the
@@ -245,7 +305,12 @@ jobs:
           TAG: ${{ needs.version.outputs.tag }}
           RELEASE_ID: ${{ steps.release.outputs.id }}
         run: |
-          CURRENT=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)
+          # AUDIT INSTALL L3-5: only a 404 means "nothing is latest yet" - any other failure (a 5xx, a rate
+          # limit) fails the step, rather than letting a re-cut of an old build take `latest` by default
+          if CURRENT=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>latest-error.txt); then :
+          elif grep -q 'HTTP 404' latest-error.txt; then CURRENT=''
+          else cat latest-error.txt >&2; exit 1
+          fi
           MAKE_LATEST=$(node scripts/desktopRelease.mjs latest "$TAG" "$CURRENT")
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false -f make_latest="$MAKE_LATEST" --silent
           echo "published $TAG (latest: $MAKE_LATEST)"

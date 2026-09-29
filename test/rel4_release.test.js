@@ -17,11 +17,14 @@
 // produce them and the publish job refuses a set without them.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, renameSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import {
   EXPECTED_RELEASE_FILES, missingReleaseFiles, composeReleaseNotes, NO_NOTES_TEXT, shouldMarkLatest,
-  previousReleaseTag, patchNotesSince, PATCH_NOTES_RE,
+  previousReleaseTag, patchNotesSince, addedNotes, PATCH_NOTES_RE, NOTES_FILE_MAX,
 } from '../scripts/desktopRelease.mjs';
 
 const require = createRequire(import.meta.url);
@@ -38,12 +41,18 @@ const expand = (template, vars) => template.replace(/\$\{(\w+)\}/g, (_, k) => {
 
 test('REL5: the build config produces EXACTLY the names the downloads promise - no version in any of them', () => {
   const b = JSON.parse(rd('app/package.json')).build;
-  const nameOf = (target) => b[target]?.artifactName ?? b.artifactName;
+  // electron-builder's own precedence (app-builder-lib 25 artifactPatternConfig): the TARGET's options, then the
+  // PLATFORM's, then the top level - and the AppImage target's options are the linux block with appImage's over it.
+  // AUDIT INSTALL L5-11: this read `b.AppImage` (the key is appImage) and never the platform blocks, so a versioned
+  // name under "mac" or "linux" passed.
+  const platformOf = { nsis: 'win', portable: 'win', dmg: 'mac', appImage: 'linux' };
+  const nameOf = (target) => b[target]?.artifactName || b[platformOf[target]]?.artifactName || b.artifactName;
   assert.equal(expand(nameOf('nsis'), { arch: 'x64', ext: 'exe' }), DOWNLOAD_FILES.winSetup);
   assert.equal(expand(nameOf('portable'), { arch: 'x64', ext: 'exe' }), DOWNLOAD_FILES.winPortable);
   assert.equal(expand(nameOf('dmg'), { os: 'mac', arch: 'arm64', ext: 'dmg' }), DOWNLOAD_FILES.mac);
-  assert.equal(expand(nameOf('AppImage'), { os: 'linux', arch: 'x86_64', ext: 'AppImage' }), DOWNLOAD_FILES.linux);
-  for (const t of ['nsis', 'portable', 'dmg', 'AppImage']) assert.doesNotMatch(nameOf(t), /\$\{version\}/, `${t}: a versioned name is a link that dies at the next merge`);
+  assert.equal(expand(nameOf('appImage'), { os: 'linux', arch: 'x86_64', ext: 'AppImage' }), DOWNLOAD_FILES.linux);
+  for (const t of ['nsis', 'portable', 'dmg', 'appImage']) assert.doesNotMatch(nameOf(t), /\$\{version\}/, `${t}: a versioned name is a link that dies at the next merge`);
+  assert.ok(!('AppImage' in b), 'the AppImage target\'s options live under appImage - a block under any other key is read by nobody');
   assert.deepEqual(b.win.target, ['nsis', 'portable']);
   assert.deepEqual(b.mac.target, ['dmg']);
   assert.deepEqual(b.linux.target, ['AppImage'], 'every target the release carries has a promised name');
@@ -87,21 +96,94 @@ test('REL4: the notes are the patch notes the release brings, once, and say so p
   assert.equal(composeReleaseNotes([]), `${NO_NOTES_TEXT}\n`);
   assert.equal(composeReleaseNotes([{ file: 'PATCH-NOTES-Empty.md', text: '  \n' }]), `${NO_NOTES_TEXT}\n`, 'an empty file is no note');
   assert.equal(composeReleaseNotes(undefined), `${NO_NOTES_TEXT}\n`);
-  // which files: the previous release's tag (never this one) to HEAD, added or changed, root patch notes only
-  const calls = [];
-  const run = (args) => {
-    calls.push(args.join(' '));
-    if (args[0] === 'describe') return 'app-v0.1.4615';
-    return 'PATCH-NOTES-Overworld.md\nsrc/PATCH-NOTES-Nested.md\nPATCH-NOTES-The-Sea-Update.md\n';
-  };
-  assert.equal(previousReleaseTag('app-v0.1.4644', run), 'app-v0.1.4615');
-  assert.match(calls[0], /^describe --tags --abbrev=0 --match app-v\* --exclude app-v0\.1\.4644 HEAD$/, 'the tag being cut is never its own "previous"');
-  assert.deepEqual(patchNotesSince('app-v0.1.4615', run), ['PATCH-NOTES-Overworld.md', 'PATCH-NOTES-The-Sea-Update.md']);
-  assert.match(calls[1], /^diff --name-only --diff-filter=AM app-v0\.1\.4615 HEAD -- PATCH-NOTES-\*\.md$/);
-  assert.deepEqual(patchNotesSince(null, run), [], 'no previous release, no pile of every note ever written');
+  assert.equal(previousReleaseTag('app-v0.1.4644', (args) => {
+    assert.equal(args.join(' '), 'describe --tags --abbrev=0 --match app-v* --exclude app-v0.1.4644 HEAD', 'the tag being cut is never its own "previous"');
+    return 'app-v0.1.4615';
+  }), 'app-v0.1.4615');
   assert.equal(previousReleaseTag('app-v0.1.1', () => { throw new Error('no names found'); }), null);
+  assert.deepEqual(patchNotesSince(null, () => { throw new Error('never asked'); }), [], 'no previous release, no pile of every note ever written');
   assert.ok(PATCH_NOTES_RE.test('PATCH-NOTES-The-Pause-Key-and-Shared-Quests.md'));
-  assert.ok(!PATCH_NOTES_RE.test('PATCH-NOTES-../../etc.md'));
+  assert.ok(PATCH_NOTES_RE.test('PATCH-NOTES-v1.2_hotfix.md'), 'any name - AUDIT INSTALL L3-3: a dot or an underscore was dropped without a word');
+  assert.ok(!PATCH_NOTES_RE.test('PATCH-NOTES-../../etc.md'), 'but never a path');
+  assert.ok(!PATCH_NOTES_RE.test('docs/PATCH-NOTES-Nested.md'));
+});
+
+test('AUDIT INSTALL L3-3: a file the release only CHANGED brings what was ADDED to it, under its title and heading - a correction is not news', () => {
+  const head = '# Patch Notes: The Overworld\n\n## Travel\n- Walk.\n- Ride.\n- Sail.\n\n## Fixes\n- One.\n- Two.\n';
+  // two lines appended under "Travel" (a pure addition), and "One." reworded (a rewrite: nothing new)
+  const diff = [
+    'diff --git a/PATCH-NOTES-Overworld.md b/PATCH-NOTES-Overworld.md',
+    '--- a/PATCH-NOTES-Overworld.md',
+    '+++ b/PATCH-NOTES-Overworld.md',
+    '@@ -4,0 +5,2 @@ ## Travel',
+    '+- Ride.',
+    '+- Sail.',
+    '@@ -8 +10 @@ ## Fixes',
+    '-- Oen.',
+    '+- One.',
+  ].join('\n');
+  assert.equal(addedNotes(head, diff), '# Patch Notes: The Overworld\n\n## Travel\n- Ride.\n- Sail.');
+  // a typo fixed and nothing else: nothing to say
+  assert.equal(addedNotes(head, '@@ -8 +10 @@\n-- Oen.\n+- One.'), '');
+  // a last line given its newline AND lines after it: the rewrite is not news, the lines after are
+  assert.equal(addedNotes(head, '@@ -10 +10,2 @@\n-- One.\n\\ No newline at end of file\n+- One.\n+- Two.'), '# Patch Notes: The Overworld\n\n## Fixes\n- Two.');
+  // an addition that opens with its own heading brings no second one; two additions stand a paragraph apart
+  const withSection = '# T\n\n## A\n- a\n\n## B\n- b\n';
+  assert.equal(addedNotes(withSection, '@@ -5,0 +6,2 @@\n+## B\n+- b\n@@ -3,0 +4 @@\n+- a'), '# T\n\n## B\n- b\n\n## A\n- a');
+  assert.equal(addedNotes('', ''), '');
+});
+
+test('AUDIT INSTALL L1-1/L3-3: the notes are read from git\'s objects - an added file whole, a changed one only what it adds, a symlink never', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'rel4-notes-'));
+  const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', maxBuffer: 1 << 24 }).trim();
+  try {
+    git('init', '-q');
+    git('config', 'user.email', 'probe@example.invalid');
+    git('config', 'user.name', 'probe');
+    git('config', 'commit.gpgsign', 'false');
+    writeFileSync(join(repo, 'PATCH-NOTES-Old.md'), '# Patch Notes: Old\n\n## Fixes\n- One.\n');
+    writeFileSync(join(repo, 'PATCH-NOTES-Moved.md'), '# Patch Notes: Moved\n\n- Stays the same.\n');
+    writeFileSync(join(repo, 'secret.txt'), 'extraheader = AUTHORIZATION: basic c2VjcmV0\n');
+    git('add', '-A');
+    git('commit', '-qm', 'first release');
+    git('tag', 'app-v0.1.1');
+    writeFileSync(join(repo, 'PATCH-NOTES-Old.md'), '# Patch Notes: Old\n\n## Fixes\n- One.\n- Two.\n');
+    writeFileSync(join(repo, 'PATCH-NOTES-New.md'), '# Patch Notes: New\n\n- Everything.\n');
+    renameSync(join(repo, 'PATCH-NOTES-Moved.md'), join(repo, 'PATCH-NOTES-Renamed.md'));
+    symlinkSync('secret.txt', join(repo, 'PATCH-NOTES-zz.md'));   // committed as a LINK - the token's shape
+    // git's pathspec lets `*` cross a `/`: a file inside a FOLDER so named matches PATCH-NOTES-*.md - and is no root note
+    mkdirSync(join(repo, 'PATCH-NOTES-dir'));
+    writeFileSync(join(repo, 'PATCH-NOTES-dir', 'inner.md'), '# not a root note\n');
+    git('add', '-A');
+    git('commit', '-qm', 'second release');
+    const run = (args) => git(...args);
+    const notes = patchNotesSince('app-v0.1.1', run);
+    const byFile = Object.fromEntries(notes.map((n) => [n.file, n.text]));
+    assert.deepEqual(Object.keys(byFile).sort(), ['PATCH-NOTES-New.md', 'PATCH-NOTES-Old.md'], 'a pure rename brings nothing, and a link is never read');
+    assert.equal(byFile['PATCH-NOTES-New.md'], '# Patch Notes: New\n\n- Everything.', 'an added file, whole');
+    assert.equal(byFile['PATCH-NOTES-Old.md'], '# Patch Notes: Old\n\n## Fixes\n- Two.', 'a changed file, only what it adds');
+    assert.doesNotMatch(composeReleaseNotes(notes), /AUTHORIZATION|secret/, 'nothing a link points at reaches the body');
+  } finally { rmSync(repo, { recursive: true, force: true }); }
+  assert.equal(NOTES_FILE_MAX, 64 * 1024);
+});
+
+test('AUDIT INSTALL L5-10: the script\'s own commands, run - a set one short exits 1, "latest" prints what the publish job reads', () => {
+  const script = new URL('../scripts/desktopRelease.mjs', import.meta.url).pathname;
+  const node = (...args) => spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
+  const dir = mkdtempSync(join(tmpdir(), 'rel4-set-'));
+  try {
+    for (const f of EXPECTED_RELEASE_FILES.slice(1)) writeFileSync(join(dir, f), 'x');
+    const short = node('check', dir);
+    assert.equal(short.status, 1, 'one file short: the publish job stops here');
+    assert.match(short.stderr, new RegExp(`missing ${EXPECTED_RELEASE_FILES[0].replace(/\./g, '\\.')} - nothing is published`));
+    writeFileSync(join(dir, EXPECTED_RELEASE_FILES[0]), 'x');
+    assert.equal(node('check', dir).status, 0, 'whole: it passes');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  const old = node('latest', 'app-v0.1.5', 'app-v0.1.9');
+  assert.deepEqual([old.status, old.stdout.trim()], [0, 'false'], 'an old re-cut never takes latest');
+  assert.equal(node('latest', 'app-v0.1.10', 'app-v0.1.9').stdout.trim(), 'true');
+  assert.equal(node('latest', 'app-v0.1.10', '').stdout.trim(), 'true', 'nothing latest yet');
+  assert.equal(node('bogus').status, 2, 'an unknown command is a usage error, never a quiet success');
 });
 
 test('REL4: a release takes `latest` unless a newer one holds it - a hand re-cut of an old build must not move every link back', () => {

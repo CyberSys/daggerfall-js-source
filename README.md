@@ -59,13 +59,16 @@ is unchanged; the storage seam is `src/systems/appStorage.js`.
 npm run build && cd app && npm install && npm start
 ```
 
-The app opens on a **launcher** (`app/launcher/`): it checks for an
-update and installs it before you play (the Windows `-setup` install and
-the Linux AppImage replace themselves; macOS and the portable exe are
-offered their own download), shows what changed, finds Daggerfall on
-Steam, GOG or in Daggerfall Unity's settings on first run, then opens
-the game. An update that lands mid-session is told in the game and
-waits under File > Restart to Update.
+The app opens on a **launcher** (`app/launcher/`), the game's front
+door: the latest patch notes (what came since you last played marked
+NEW), your game files, saves and update settings, and a big **Play**. It
+checks for an update and installs it before you play (the Windows
+`-setup` install and the Linux AppImage replace themselves; macOS and
+the portable exe are offered their own download), and on first run finds
+Daggerfall - on Steam, GOG, in Daggerfall Unity's settings, or an
+unpacked DaggerfallGameFiles.zip. An update that lands mid-session is
+told in the game and waits under File > Restart to Update (on macOS and
+the portable exe, File > Download v...).
 
 `npm run dist` in `app/` packages installers. Every push to main
 builds them for all three OSes and publishes them as ONE GitHub Release

@@ -19,13 +19,13 @@
 // deps (`cd app && npm install`). No ARENA2 required: the probe never
 // leaves the boot overlay, and the storage laws it proves do not care.
 //
-// DA8: the first window is the LAUNCHER now (dagger://launcher). With
-// the probe's two opt-outs it has nothing to ask and hands over to the
-// game at once; the scenarios after the storage laws drive it for real -
-// the first run with nothing found, a Steam library found and its
-// ARENA2 served to the game, "What's new" shown once, and an update's
-// in-game notice crossing the bridge. Each runs its own shell over its
-// own temp userData and HOME, so the player's real machine is never read.
+// DA8: the first window is the LAUNCHER now (dagger://launcher), and
+// DA10 made it wait for PLAY: the probe presses it, as a player does. The
+// scenarios after the storage laws drive it for real - the first run with
+// nothing found, a Steam library found and its ARENA2 served to the game,
+// the front door's news, marks and options, and an update's in-game
+// notice crossing the bridge. Each runs its own shell over its own temp
+// userData and HOME, so the player's real machine is never read.
 //
 //   npm run build && xvfb-run -a node tools/appShellProbe.mjs
 
@@ -51,6 +51,16 @@ async function waitFor(pred, ms = 10000) {
     await new Promise((r) => setTimeout(r, 100));
   }
   return false;
+}
+/** DA10: the launcher's window, and Play pressed once it can be. */
+async function pressPlay(app) {
+  const isLauncher = (w) => w.url().startsWith('dagger://launcher/');
+  await waitFor(() => app.windows().some(isLauncher), 20000);
+  const lp = app.windows().find(isLauncher);
+  if (!lp) throw new Error(`no launcher window (windows: ${app.windows().map((w) => w.url()).join(', ')})`);
+  await lp.waitForSelector('#play:not([disabled])', { timeout: 20000 });
+  await lp.click('#play');
+  return lp;
 }
 /** DA8: the game's window, once the launcher has handed over (polled: a window's
  *  first event can come before it has navigated anywhere). */
@@ -85,8 +95,8 @@ try {
       DAGGER_NO_UPDATE_CHECK: '1',   // the probe proves the shell, not GitHub's uptime
     },
   });
-  // DA8: the launcher first - with both opt-outs it has nothing to ask and hands over at once, often
-  // before this probe attaches, so "the launcher is the first window" is held where it waits (below)
+  // DA8: the launcher first - and DA10: it waits for Play, which the probe presses as a player does
+  await pressPlay(app);
   const page = await gameWindow(app);
   await page.waitForLoadState('domcontentloaded');
 
@@ -185,8 +195,9 @@ async function scenario(name, { setup = () => {}, env = {} } = {}, body) {
       env: { ...process.env, HOME: dirs.home, USERPROFILE: dirs.home, XDG_CONFIG_HOME: '', XDG_DATA_HOME: '', DAGGER_USER_DATA: dirs.userData, DAGGER_NO_UPDATE_CHECK: '1', ...env },
     });
     const launcherPage = await shell.firstWindow();
-    // a launcher with nothing to ask hands over at once, and may be closing already - its bodies go to the game
-    await launcherPage.waitForLoadState('domcontentloaded').catch(() => {});
+    // AUDIT INSTALL L5-20: its own document, not the about:blank a new window starts on
+    await launcherPage.waitForURL('dagger://launcher/**', { timeout: 20000 }).catch(() => {});
+    await launcherPage.waitForLoadState('domcontentloaded');
     await body(shell, launcherPage, dirs);
   } catch (err) {
     check(false, `${name}: ${err?.message ?? err}`);
@@ -196,18 +207,22 @@ async function scenario(name, { setup = () => {}, env = {} } = {}, body) {
     fs.rmSync(dirs.home, { recursive: true, force: true });
   }
 }
-const titleOf = async (p) => (await p.textContent('#title'))?.trim();
+const titleOf = async (p) => (await p.textContent('#setup-title'))?.trim();
 const waitTitle = async (p, want) => { await waitFor(async () => (await titleOf(p)) === want); return titleOf(p); };
+const statusOf = async (p) => (await p.textContent('#status'))?.trim();
 const configOf = (dirs) => { try { return JSON.parse(fs.readFileSync(path.join(dirs.userData, 'config.json'), 'utf8')); } catch { return {}; } };
 
-await scenario('first run, nothing found', {}, async (shell, lp) => {
+await scenario('first run, nothing found', {}, async (shell, lp, dirs) => {
   check(lp.url() === 'dagger://launcher/index.html', `the launcher is the first window (got ${lp.url()})`);
   check(await waitTitle(lp, 'Where is Daggerfall?') === 'Where is Daggerfall?', 'a first run with no Daggerfall asks where it is - in the launcher, not a bare dialog');
   const bridge = await lp.evaluate(() => ({ words: Object.keys(window.daggerLauncher ?? {}).sort().join(','), shell: typeof window.daggerShell }));
   check(bridge.words === 'act,onView' && bridge.shell === 'undefined', `the launcher's bridge is two words and no storage (got ${bridge.words}; daggerShell ${bridge.shell})`);
-  const actions = await lp.$$eval('#actions button', (b) => b.map((x) => x.textContent));
+  const actions = await lp.$$eval('#setup-actions button', (b) => b.map((x) => x.textContent));
   check(actions.includes('Get it on Steam') && actions.includes('Get it on GOG'), `and says where to get it (got ${actions.join(' / ')})`);
+  check(await lp.$eval('#play', (b) => b.disabled), 'DA10: no files, no Play');
   await lp.click('text=Choose in the game instead');
+  check(configOf(dirs).arena2InGame === true, 'DA10: the game\'s own picker, chosen once, is kept');
+  await pressPlay(shell);
   const game = await gameWindow(shell);
   check(game.url() === 'dagger://game/play/index.html', 'choosing in the game hands over to the game - the website\'s picker, never a dead end');
 });
@@ -216,8 +231,8 @@ await scenario('a Steam library found', {
   setup: ({ home }) => {
     const lib = path.join(home, '.local', 'share', 'Steam');
     fs.mkdirSync(path.join(lib, 'steamapps'), { recursive: true });
-    fs.writeFileSync(path.join(lib, 'steamapps', 'appmanifest_1812390.acf'), '"AppState" { "installdir" "The Elder Scrolls II Daggerfall" }');
-    const a2 = path.join(lib, 'steamapps', 'common', 'The Elder Scrolls II Daggerfall', 'DF', 'DAGGER', 'ARENA2');
+    fs.writeFileSync(path.join(lib, 'steamapps', 'appmanifest_1812390.acf'), '"AppState" { "installdir" "The Elder Scrolls Daggerfall" }');
+    const a2 = path.join(lib, 'steamapps', 'common', 'The Elder Scrolls Daggerfall', 'DF', 'DAGGER', 'ARENA2');
     fs.mkdirSync(a2, { recursive: true });
     for (const n of WHOLE) fs.writeFileSync(path.join(a2, n), n === 'ART_PAL.COL' ? 'palette-bytes' : 'x');
   },
@@ -226,8 +241,11 @@ await scenario('a Steam library found', {
   const found = await lp.$$eval('.found .from', (e) => e.map((x) => x.textContent));
   check(found.length === 1 && found[0] === 'Steam', `offered once, as Steam's (got ${found.join(', ')})`);
   await lp.click('text=Use these files');
+  const files = (await lp.textContent('#files'))?.replace(/\u200E/g, '').trim();
+  check(files?.endsWith('DF/DAGGER/ARENA2'), `DA10: the Game files row shows the folder taken (got ${files})`);
+  await pressPlay(shell);
   const game = await gameWindow(shell);
-  const a2 = fs.realpathSync(path.join(dirs.home, '.local', 'share', 'Steam', 'steamapps', 'common', 'The Elder Scrolls II Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
+  const a2 = fs.realpathSync(path.join(dirs.home, '.local', 'share', 'Steam', 'steamapps', 'common', 'The Elder Scrolls Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
   check(configOf(dirs).arena2Path === a2, 'the found folder is the one config.json keeps');
   const served = await game.evaluate(async () => { const r = await fetch('./arena2/ART_PAL.COL'); return r.ok ? r.text() : `HTTP ${r.status}`; });
   check(served === 'palette-bytes', `and the game reads ARENA2 straight from it (got ${served})`);
@@ -240,9 +258,35 @@ await scenario('a partial folder is not ARENA2', {
     for (const n of ['ART_PAL.COL', 'TEXT.RSC']) fs.writeFileSync(path.join(dos, n), 'x');   // the CD kept the BSAs
     fs.writeFileSync(path.join(userData, 'config.json'), JSON.stringify({ arena2Path: path.dirname(dos) }));
   },
-}, async (shell, lp) => {
-  check(await waitTitle(lp, 'Where is Daggerfall?') === 'Where is Daggerfall?',
-    'DA9: a saved folder missing the BSAs is not served as ARENA2 - the launcher asks again instead of a boot that dies on ARCH3D.BSA');
+}, async (shell, lp, dirs) => {
+  // AUDIT INSTALL L4-5/L5-20: the SAVED folder is named and refused - which "Where is Daggerfall?" could not tell from a
+  // config.json that was never read
+  check(await waitTitle(lp, 'Your Daggerfall folder is not whole') === 'Your Daggerfall folder is not whole',
+    'DA9: a saved folder missing the BSAs is not served as ARENA2 - the launcher says so instead of a boot that dies on ARCH3D.BSA');
+  const detail = (await lp.textContent('#setup-detail')) ?? '';
+  check(detail.includes(path.join(dirs.home, 'DOSGAMES', 'DAGGER')) && /has no ARCH3D\.BSA/.test(detail), `it names the folder and what it lacks (got ${detail})`);
+  const actions = await lp.$$eval('#setup-actions button', (b) => b.map((x) => x.textContent));
+  check(actions[0] === 'Try again', `and offers to try it again (got ${actions.join(' / ')})`);
+});
+
+await scenario('a whole folder saved', {
+  setup: ({ userData, home }) => {
+    const a2 = path.join(home, 'Games', 'DF', 'DAGGER', 'ARENA2');
+    fs.mkdirSync(a2, { recursive: true });
+    for (const n of WHOLE) fs.writeFileSync(path.join(a2, n), n === 'ART_PAL.COL' ? 'saved-palette' : 'x');
+    fs.writeFileSync(path.join(userData, 'config.json'), JSON.stringify({ arena2Path: a2, lastPlayed: APP_VERSION }));
+  },
+}, async (shell, lp, dirs) => {
+  // AUDIT INSTALL L5-5: a player whose folder is set is never asked for it again - no card, the news, and Play
+  await waitFor(async () => !(await lp.$eval('#play', (b) => b.disabled)));
+  check(await lp.$eval('#setup', (e) => e.hidden) && !(await lp.$eval('#news', (e) => e.hidden)), 'a configured folder asks nothing - the front door shows the news');
+  const files = (await lp.textContent('#files'))?.replace(/\u200E/g, '').trim();
+  check(files === path.join(dirs.home, 'Games', 'DF', 'DAGGER', 'ARENA2'), `the Game files row names it (got ${files})`);
+  check(await statusOf(lp) === 'Update checks are off', 'and the version last played is this one - "Updated" is not said');
+  await lp.click('#play');
+  const game = await gameWindow(shell);
+  const served = await game.evaluate(async () => { const r = await fetch('./arena2/ART_PAL.COL'); return r.ok ? r.text() : `HTTP ${r.status}`; });
+  check(served === 'saved-palette', `the game reads the saved folder (got ${served})`);
 });
 
 await scenario('the unload guard asks instead of trapping the player', { env: { DAGGER_SKIP_ARENA2_PROMPT: '1' } }, async (shell) => {
@@ -250,36 +294,72 @@ await scenario('the unload guard asks instead of trapping the player', { env: { 
   // asks "Leave site?"; Electron just cancels - so the shell asks. The guard is armed here in its own shape
   // (this probe never spawns a player), the page is given a real click (the activation a player in the world
   // has), and the shell's dialog is answered both ways.
+  await pressPlay(shell);
   const game = await gameWindow(shell);
   await game.waitForLoadState('domcontentloaded');
   game.on('dialog', (d) => { d.dismiss().catch(() => {}); });   // CDP surfaces the beforeunload too; the SHELL's answer is under test
   await game.evaluate(() => addEventListener('beforeunload', (e) => { e.preventDefault(); e.returnValue = ''; return ''; }));
   await game.mouse.click(200, 200);
-  const closeAnswering = (answer) => shell.evaluate(async ({ BrowserWindow, dialog }, a) => {
+  // AUDIT INSTALL L5-1/L5-20: the answer is chosen BY LABEL from the question actually asked, which is recorded - so a
+  // swapped pair of buttons, or Enter bound to Leave, fails here; and "closed" is polled for, never slept on
+  const closeAnswering = (label) => shell.evaluate(async ({ BrowserWindow, dialog }, want) => {
     const keep = BrowserWindow.getAllWindows().find((x) => x.__probeKeep) ?? Object.assign(new BrowserWindow({ show: false }), { __probeKeep: true });
-    dialog.showMessageBoxSync = () => a;
+    let asked = null;
+    dialog.showMessageBoxSync = (_w, opts) => { asked = opts; return opts.buttons.indexOf(want); };
     const w = BrowserWindow.getAllWindows().find((x) => x !== keep && x.webContents.getURL().startsWith('dagger://game/'));
     w.close();
-    await new Promise((r) => setTimeout(r, 1500));
-    return { open: !w.isDestroyed() };
-  }, answer);
-  check((await closeAnswering(1)).open === true, 'UNLOAD-ASK: "Stay" keeps a game whose progress is at risk open');
-  check((await closeAnswering(0)).open === false, 'UNLOAD-ASK: "Leave" closes it - the window\'s X, Alt+F4 and Quit work once a player is in the world');
+    const until = Date.now() + 5000;
+    while (Date.now() < until && !w.isDestroyed() && !(asked && want === 'Stay' && Date.now() > until - 3500)) await new Promise((r) => setTimeout(r, 50));
+    return { open: !w.isDestroyed(), asked: asked && { buttons: asked.buttons, byDefault: asked.buttons[asked.defaultId], byCancel: asked.buttons[asked.cancelId], message: asked.message } };
+  }, label);
+  const stay = await closeAnswering('Stay');
+  check(stay.open === true && stay.asked?.message === 'Leave the game?', `UNLOAD-ASK: "Stay" keeps a game whose progress is at risk open (asked ${JSON.stringify(stay.asked)})`);
+  check(stay.asked?.byDefault === 'Stay' && stay.asked?.byCancel === 'Stay', 'and Stay is what Enter and Escape press');
+  check((await closeAnswering('Leave')).open === false, 'UNLOAD-ASK: "Leave" closes it - the window\'s X, Alt+F4 and Quit work once a player is in the world');
 });
 
-await scenario('what\'s new, once', {
-  setup: ({ userData }) => fs.writeFileSync(path.join(userData, 'config.json'), JSON.stringify({
-    whatsNew: { version: APP_VERSION, notes: [{ version: APP_VERSION, text: '# Patch Notes: The Probe\n\n## Fixes\n- **Probe:** a line.' }] },
-  })),
+await scenario('the front door', {
+  setup: ({ userData }) => {
+    // a player who last played an older build: the versions since are NEW, a newer release is UPDATE
+    fs.writeFileSync(path.join(userData, 'config.json'), JSON.stringify({ lastPlayed: '0.0.1' }));
+    fs.writeFileSync(path.join(userData, 'news.json'), JSON.stringify({ items: [
+      { version: '99.0.0', date: '2026-09-29T18:02:00Z', text: '# Patch Notes: Coming\n- Soon.' },
+      { version: APP_VERSION, date: '2026-09-28T12:00:00Z', text: '# Patch Notes: The Probe\n\n## Fixes\n- **Probe:** a line.' },
+    ] }));
+  },
   env: { DAGGER_SKIP_ARENA2_PROMPT: '1' },
 }, async (shell, lp, dirs) => {
-  check(await waitTitle(lp, `Updated to v${APP_VERSION}`) === `Updated to v${APP_VERSION}`, 'the launch that runs an update shows what changed');
-  const notes = await lp.$$eval('#notes h4, #notes li', (e) => e.map((x) => x.textContent));
-  check(notes.includes('The Probe') && notes.includes('Probe: a line.'), `the patch notes, as text (got ${notes.join(' | ')})`);
-  check(!('whatsNew' in configOf(dirs)), 'and only once - config.json lets it go');
-  await lp.click('text=Play');
+  check(lp.url() === 'dagger://launcher/index.html', 'the launcher opens');
+  await waitFor(async () => !(await lp.$eval('#play', (b) => b.disabled)));
+  await new Promise((r) => setTimeout(r, 1500));
+  check(shell.windows().length === 1 && shell.windows()[0].url() === 'dagger://launcher/index.html',
+    'DA10: with nothing to decide it STAYS - the front door waits for Play');
+  const news = await lp.$$eval('#news .release', (rs) => rs.map((r) => ({
+    ver: r.querySelector('.ver')?.textContent, badge: r.querySelector('.badge')?.textContent ?? null,
+    text: [...r.querySelectorAll('h4, li')].map((x) => x.textContent),
+  })));
+  check(news[0]?.ver === 'v99.0.0' && news[0]?.badge === 'Update', `the kept news is up at once, a newer release marked UPDATE (got ${JSON.stringify(news[0])})`);
+  check(news[1]?.badge === 'New' && news[1].text.includes('The Probe') && news[1].text.includes('Probe: a line.'),
+    `this version's notes marked NEW since the one last played, as text (got ${JSON.stringify(news[1])})`);
+  check(await statusOf(lp) === 'Update checks are off', `the status bar says where it stands (got ${await statusOf(lp)})`);
+  check(await lp.evaluate(() => document.activeElement?.id) === 'play', 'Enter plays');
+  // the switch is config.json's updateCheck - the File menu's checkbox
+  check(await lp.$eval('#update-check', (c) => c.checked) === true, 'the switch shows the setting');
+  await lp.click('#update-check');
+  await waitFor(() => configOf(dirs).updateCheck === false);
+  check(configOf(dirs).updateCheck === false, 'turned off, it is kept');
+  check(await lp.$eval('#update-check', (c) => c.checked) === false, 'and drawn off');
+  await lp.click('#update-check');
+  await waitFor(() => configOf(dirs).updateCheck === true);
+  check(configOf(dirs).updateCheck === true, 'and back on (the probe env still keeps GitHub out of it)');
+  check((await lp.textContent('#files'))?.trim() === 'Chosen in the game', 'the Game files row says where the files come from');
+  const menuBar = await shell.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => w.isMenuBarVisible()));
+  check(process.platform === 'darwin' || menuBar.every((v) => v === false), `the launcher wears no menu bar (got ${menuBar})`);
+  await lp.click('#play');
   const game = await gameWindow(shell);
   check(game.url() === 'dagger://game/play/index.html', 'Play hands over to the game');
+  await waitFor(() => configOf(dirs).lastPlayed === APP_VERSION);
+  check(configOf(dirs).lastPlayed === APP_VERSION, 'and the version played is kept - the next launch marks what came since');
 });
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nall shell probes green');

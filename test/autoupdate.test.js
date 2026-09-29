@@ -43,8 +43,8 @@ test('DA7: the transport table - an installed NSIS or AppImage copy updates in p
 test('DA7: the shell - the updater downloads on its own, installs on quit, never a prerelease or a downgrade, and both transports sit behind DA6\'s two gates', () => {
   const main = read('app/main.cjs');
   assert.match(main, /const \{ updateTransport \} = require\('\.\/lib\/autoUpdate\.cjs'\);/, 'the table is the leaf\'s');
-  assert.match(main, /updateTransport\(\{ packaged: app\.isPackaged, platform: process\.platform, portable: !!process\.env\.PORTABLE_EXECUTABLE_DIR \}\)/,
-    'the live facts: packaged, the platform, the portable launcher\'s mark');
+  assert.match(main, /updateTransport\(\{\s*packaged: app\.isPackaged,\s*platform: process\.platform,\s*portable: !!process\.env\.PORTABLE_EXECUTABLE_DIR,[^}]*configured: !app\.isPackaged \|\| fs\.existsSync\(path\.join\(process\.resourcesPath, 'app-update\.yml'\)\),\s*\}\)/,
+    'the live facts: packaged, the platform, the portable launcher\'s mark - and whether the copy carries update metadata at all (AUDIT INSTALL L3-4)');
   const cfg = main.slice(main.indexOf('function autoUpdater()'), main.indexOf('async function checkForUpdatesViaUpdater'));
   assert.match(cfg, /require\('electron-updater'\)/, 'loaded lazily - a copy on the notice never loads it');
   assert.match(cfg, /au\.autoDownload = true;/, 'the download starts on its own');
@@ -53,16 +53,21 @@ test('DA7: the shell - the updater downloads on its own, installs on quit, never
   assert.match(cfg, /au\.allowDowngrade = false;/);
   assert.match(cfg, /au\.on\('error', \(\) => onUpdaterEvent\('error'\)\);/, 'a launch error goes to whoever is listening');
   // DA8: and it is SILENCE - the launcher plays on; the manual check reports its own
-  const routed = main.slice(main.indexOf('function onUpdaterEvent('), main.indexOf('/** The notes of every release'));
-  assert.match(routed, /if \(kind === 'error'\) \{ launcherDispatch\(\{ type: 'check-failed' \}\); return; \}/, 'an error is "offline" to the launcher');
+  const routed = main.slice(main.indexOf('function onUpdaterEvent('), main.indexOf('/** DA10: news.json'));
+  // AUDIT INSTALL L2-1: routed by where it lands - "offline" to a check, "failed" under a download (it was "check-failed"
+  // whatever happened, which the launcher takes only while checking: a broken download held Play for ever)
+  assert.match(routed, /if \(kind === 'error'\) \{\s*stopStallWatch\(\);\s*if \(installStarted && !leaveForUpdate\) \{ installFailed\(\); return; \}\s*launcherDispatch\(\{ type: launcher\?\.state\.update\.status === 'downloading' \? 'download-failed' : 'check-failed' \}\);\s*return;\s*\}/,
+    'an error is "offline" to the launcher, "failed" under a download, and the install\'s own when it came from the installer');
   assert.doesNotMatch(routed, /dialog\./, 'no dialog rides the automatic path');
   // THE LAUNCH (DA8: the launcher's): the same two gates DA6 had, then the transport fork - both arms inside them
   assert.match(main, /const updateChecksEnabled = \(\) => loadConfig\(\)\.updateCheck !== false && !process\.env\.DAGGER_NO_UPDATE_CHECK;/);
-  assert.match(main, /checkEnabled: updateChecksEnabled\(\),/, 'the launcher checks only inside the gates');
-  assert.match(main, /if \(launcher\.state\.update\.status === 'checking'\) startLaunchCheck\(\);/);
+  // DA10: the launch check, the news (the check's own request) and the hourly re-check - all inside the gates
+  const run = main.slice(main.indexOf('function runLauncher()'), main.indexOf('// The launcher\'s two words.'));
+  assert.match(run, /const checkEnabled = updateChecksEnabled\(\);/, 'the launcher checks only inside the gates');
+  assert.match(run, /if \(checkEnabled\) \{\s*startLaunchCheck\(\);\s*fetchNews\(\);\s*startRechecks\(\);\s*\}/);
   const launch = main.slice(main.indexOf('function startLaunchCheck()'), main.indexOf('function runLauncher()'));
-  assert.match(launch, /if \(currentUpdateTransport\(\) === 'updater'\) \{\s*autoUpdater\(\)\.checkForUpdates\(\)\.catch\(\(\) => launcherDispatch\(\{ type: 'check-failed' \}\)\);\s*return;\s*\}\s*noticeCheck\(\)/,
-    'the launch forks on the transport');
+  assert.match(launch, /if \(currentUpdateTransport\(\) === 'updater'\) \{[\s\S]*?askUpdater\(\)\s*\.then\(\(r\) => \{ if \(!r\) launcherDispatch\(\{ type: 'check-failed' \}\); \}\)\s*\.catch\(\(\) => launcherDispatch\(\{ type: 'check-failed' \}\)\);\s*return;\s*\}\s*noticeCheck\(\)/,
+    'the launch forks on the transport - and an updater that declines to check at all (null, no event to come) is said at once, not after the timeout');
   assert.match(main, /if \(recheckTimer \|\| !updateChecksEnabled\(\)\) return;/, 'and the hourly re-check sits inside the same gates');
   // THE MENU: the loud path on either transport
   assert.match(main, /click: \(\) => \(currentUpdateTransport\(\) === 'updater' \? checkForUpdatesViaUpdater\(\) : checkForUpdates\(\)\)/);

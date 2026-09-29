@@ -76,8 +76,8 @@
   {
     "name": "REL4-11-the-notes-read-any-file-so-named",
     "file": "scripts/desktopRelease.mjs",
-    "old": ".filter((f) => PATCH_NOTES_RE.test(f)).sort();",
-    "new": ".filter(Boolean).sort();",
+    "old": "    if (!PATCH_NOTES_RE.test(file) || (mode !== '100644' && mode !== '100755')) continue;",
+    "new": "    if (mode !== '100644' && mode !== '100755') continue;",
     "tests": ["test/rel4_release.test.js"]
   },
   {

@@ -19,6 +19,11 @@
 //     electron-builder writes no app-update.yml into it. The portable
 //     launcher marks its process with PORTABLE_EXECUTABLE_DIR.
 //   - an unpackaged run (`electron .`): there is no installed copy.
+//   - a build cut WITHOUT a release (a dispatched "try this build"): it
+//     carries no app-update.yml (the workflow builds it with publish:
+//     null), so it has no release of its own to follow - and the one it
+//     would find is the public one, which DA8's launcher would install
+//     over it before it ever ran (AUDIT INSTALL L3-4).
 //
 // Pure, no Electron, so `node --test` pins the table
 // (test/autoupdate.test.js) and app/main.cjs keeps only the wiring.
@@ -26,13 +31,15 @@
 
 /**
  * Which transport this copy updates by.
- * @param {{ packaged: boolean, platform: string, portable: boolean }} env
+ * @param {{ packaged: boolean, platform: string, portable: boolean, configured?: boolean }} env
+ *   `configured`: the copy carries electron-updater's app-update.yml
  * @returns {'updater' | 'notice'} 'updater' = electron-updater installs
  *   in place on quit; 'notice' = DA6's dialog with a Download button.
  */
-function updateTransport({ packaged, platform, portable }) {
+function updateTransport({ packaged, platform, portable, configured = true }) {
   if (!packaged) return 'notice';
   if (portable) return 'notice';
+  if (!configured) return 'notice';
   if (platform === 'darwin') return 'notice';
   return 'updater';
 }

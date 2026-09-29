@@ -3,6 +3,10 @@
 // this paints it. Every word reaches the page as TEXT - the patch notes
 // included, which come from GitHub - through textContent and fresh
 // elements, never markup.
+//
+// DA10: the front door's regions - the patch notes (or the first run's
+// card), the options, the status bar and PLAY. A button says WHICH action
+// it is (data-act, or its view entry); the shell decides what that does.
 'use strict';
 
 (() => {
@@ -14,6 +18,16 @@
     if (text != null) e.textContent = text;
     return e;
   };
+  const button = (a, cls) => {
+    const b = el('button', `${cls}${a.primary ? ' primary' : ''}`, a.label);
+    b.type = 'button';
+    if (a.name) b.setAttribute('aria-label', a.name);
+    b.addEventListener('click', () => bridge.act(a.id, a.arg));
+    return b;
+  };
+  /** Text written only when it changed: a screen reader re-reads a region
+   *  whose text is replaced, even with the same words (AUDIT INSTALL L5-17). */
+  const setText = (node, text) => { if (node.textContent !== text) node.textContent = text; };
 
   /** "a **b** c" as text nodes and <strong>, `code` and links as their text. */
   function inline(target, text) {
@@ -23,21 +37,27 @@
     });
   }
 
+  const BADGE = { new: 'New', update: 'Update' };
+
   /** A release's patch notes - the PATCH-NOTES-*.md subset: headings,
    *  bullets, paragraphs. Anything else is a paragraph of its text. */
   function notesBlock(note) {
     const box = el('article', 'release');
-    if (note.version) box.append(el('span', 'ver', `v${note.version}`));
+    const head = el('div', 'head');
+    head.append(el('span', 'ver', `v${note.version}`));
+    if (note.date) head.append(el('span', 'date', note.date));
+    if (Object.hasOwn(BADGE, note.badge)) head.append(el('span', `badge ${note.badge}`, BADGE[note.badge]));
+    box.append(head);
     let list = null;
     let para = null;
     for (const raw of String(note.text ?? '').split('\n')) {
       const line = raw.trim();
       const bullet = /^[-*]\s+(.*)$/.exec(line);
-      const head = /^(#{1,6})\s+(.*)$/.exec(line);
+      const heading = /^(#{1,6})\s+(.*)$/.exec(line);
       if (!line) { list = null; para = null; continue; }
-      if (head) {
+      if (heading) {
         list = null; para = null;
-        box.append(el(head[1].length === 1 ? 'h4' : 'h5', null, head[2].replace(/^Patch Notes:\s*/i, '')));
+        box.append(el(heading[1].length === 1 ? 'h4' : 'h5', null, heading[2].replace(/^Patch Notes:\s*/i, '')));
       } else if (bullet) {
         para = null;
         if (!list) { list = el('ul'); box.append(list); }
@@ -64,63 +84,87 @@
     return true;
   };
 
+  /** A path, cut from the LEFT (right-to-left, in the stylesheet) so its end
+   *  shows; the marks keep its slashes in order, or bidi moves an absolute
+   *  path's leading "/" to the far end. */
+  const pathLine = (dir) => {
+    const p = el('span', 'path', `‎${dir}‎`);
+    p.title = dir;
+    return p;
+  };
+
   function render(v) {
-    const waitingOnPlayer = v.actions.some((a) => a.primary) || v.found.length > 0;
-    document.body.toggleAttribute('data-busy', !waitingOnPlayer);
-    document.body.dataset.stage = v.stage;
-    $('title').textContent = v.title;
-    $('detail').textContent = v.detail;
-    $('version').textContent = v.version;
+    document.body.toggleAttribute('data-busy', !!v.busy);
+    document.body.dataset.panel = v.panel;
+    setText($('version'), v.version);
+    setText($('status'), v.status);
+    setText($('detail'), v.detail);
 
     const progress = $('progress');
     progress.hidden = !v.progress;
     if (v.progress) {
-      progress.querySelector('.bar i').style.width = `${v.progress.percent}%`;
-      progress.querySelector('.bar').setAttribute('aria-valuenow', String(Math.round(v.progress.percent)));
-      progress.querySelector('.label').textContent = v.progress.label;
+      const track = progress.querySelector('.track');
+      progress.querySelector('.track i').style.width = `${v.progress.percent}%`;
+      track.setAttribute('aria-valuenow', String(Math.round(v.progress.percent)));
+      track.setAttribute('aria-valuetext', v.progress.label);
+      setText(progress.querySelector('.label'), v.progress.label);
+    }
+    if (changed('status-actions', v.statusActions)) {
+      $('status-actions').replaceChildren(...v.statusActions.map((a) => button(a, 'plaque')));
     }
 
-    const found = $('found');
-    if (changed('found', v.found)) {
-      found.replaceChildren(...v.found.map((f) => {
+    const play = $('play');
+    play.disabled = !v.play.enabled;
+    play.textContent = v.play.label;
+
+    $('news').hidden = v.panel !== 'news';
+    $('setup').hidden = v.panel !== 'setup';
+    if (v.setup && changed('setup', v.setup)) {
+      $('setup-title').textContent = v.setup.title;
+      $('setup-detail').textContent = v.setup.detail;
+      const found = $('found');
+      found.replaceChildren(...v.setup.found.map((f) => {
         const li = el('li');
         const where = el('span', 'where');
-        // the path is cut from the LEFT (right-to-left, in the stylesheet) so its end shows; the marks keep
-        // its slashes in order, or bidi moves an absolute path's leading "/" to the far end
-        where.append(el('span', 'from', f.from), el('span', 'path', `‎${f.dir}‎`));
-        where.title = f.dir;
-        const use = el('button', `plaque small${v.found.length === 1 ? ' primary' : ''}`, 'Use these files');
-        use.type = 'button';
-        use.addEventListener('click', () => bridge.act('use-found', f.index));
+        where.append(el('span', 'from', f.from), pathLine(f.dir));
+        const use = button({ id: 'use-found', arg: f.index, label: 'Use these files', name: `Use these files - ${f.from}: ${f.dir}`, primary: f.primary }, 'plaque small');
         li.append(where, use);
         return li;
       }));
-      found.hidden = !v.found.length;
+      found.hidden = !v.setup.found.length;
+      $('setup-actions').replaceChildren(...v.setup.actions.map((a) => button(a, 'plaque')));
+    }
+    if (changed('news', v.news)) {
+      document.querySelector('#news .feed').replaceChildren(...v.news.items.map(notesBlock));
+      const note = document.querySelector('#news .note');
+      note.textContent = v.news.note;
+      note.hidden = !v.news.note;
     }
 
-    const notes = $('notes');
-    if (changed('notes', [v.notesTitle, v.notes])) {
-      notes.hidden = !v.notes.length;
-      notes.querySelector('.caps').textContent = v.notesTitle;
-      notes.querySelector('.body').replaceChildren(...v.notes.map(notesBlock));
+    if (changed('files', v.options.files)) {
+      $('files').replaceChildren(v.options.files.path ? pathLine(v.options.files.path) : document.createTextNode(v.options.files.note));
+      document.querySelector('[data-act="choose-folder"]').textContent = v.options.files.label;
     }
+    const check = $('update-check');
+    if (check.checked !== v.options.checkOnLaunch) check.checked = v.options.checkOnLaunch;
 
-    if (changed('actions', v.actions)) {
-      $('actions').replaceChildren(...v.actions.map((a) => {
-        const b = el('button', `plaque${a.primary ? ' primary' : ''}`, a.label);
-        b.type = 'button';
-        b.addEventListener('click', () => bridge.act(a.id, a.arg));
-        return b;
-      }));
-      // Enter takes the screen's own answer - and only that: "Play now" under a download is the way
-      // out, not the way on, and is not the button a keypress should press
-      document.querySelector('.plaque.primary')?.focus({ preventScroll: true });
+    // Enter takes the screen's own answer - the first run's card's, or PLAY once it can be pressed -
+    // and only that: "Play without updating" under a download is the way out, not the way on
+    const focusKey = v.panel === 'setup' ? `setup:${JSON.stringify(v.setup)}` : `play:${v.play.enabled}`;
+    if (changed('focus', focusKey)) {
+      const at = document.activeElement;
+      const idle = !at || at === document.body || at.disabled || !at.isConnected;
+      if (v.panel === 'setup') document.querySelector('#setup .plaque.primary')?.focus({ preventScroll: true });
+      else if (v.play.enabled && idle) play.focus({ preventScroll: true });
     }
   }
 
   document.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]');
+    if (act && !act.disabled) bridge.act(act.dataset.act);
     const link = e.target.closest('[data-open]');
     if (link) bridge.act('open', link.dataset.open);
   });
+  $('update-check').addEventListener('change', (e) => bridge.act('set-update-check', e.target.checked));
   bridge.onView(render);
 })();

@@ -16,35 +16,58 @@
 // thing to install, sign and update - the updates themselves are already
 // small (a Windows update between two releases is ~4.5 MB of a 208 MB
 // installer: electron-updater's blockmap delta, measured off the releases'
-// own blockmaps). So the launcher is the shell's FIRST WINDOW, the way
-// Discord's is: it checks, updates BEFORE play when it can (the download
-// shown, the install silent, the app reopening itself), says what changed,
-// finds the player's Daggerfall files, and hands over to the game. When
-// there is nothing to decide it is a moment's splash; it waits only when
-// the player has something to do.
+// own blockmaps). So the launcher is the shell's FIRST WINDOW: it checks,
+// updates BEFORE play when it can (the download shown, the install silent,
+// the app reopening itself), says what changed, finds the player's
+// Daggerfall files, and hands over to the game.
+//
+// DA10 (2026-09-29, Mac: "So this is an actual launcher now? Like
+// warframe?" - and to the offer of one that stays open with a Play
+// button, the patch notes and the player's options: "Yes please"):
+// THE LAUNCHER STAYS. DA8's window was Discord's - a splash that went
+// away by itself whenever it had nothing to ask. Now it is the game's
+// front door, the way Warframe's is: it opens on every launch and waits
+// for PLAY, with the patch notes as its news (the versions installed since
+// the player last played marked NEW, one on its way marked UPDATE), the
+// update's progress in its status bar, and the player's own doors beside
+// them - the game files, the saves folder, the update check, a reinstall.
+// Play is held only while an update is being checked for, fetched or
+// installed, or while the game has no files; "Play without updating" is
+// the one way past a download. An install never interrupts the player's
+// own screens: it waits for the game files to be chosen (and, in the
+// shell, for an open dialog), and the launcher reopens on the new version.
 //
 // Pure, no Electron: the shell (app/main.cjs) feeds events in and renders
-// `viewOf` into app/launcher/, and test/da8_launcher.test.js drives every
-// screen and transition here.
+// `viewOf` into app/launcher/; test/da8_launcher.test.js and
+// test/da10_launcher.test.js drive every screen and transition here.
 'use strict';
 
 const { parseReleaseTag, parseVersion } = require('./updateCheck.cjs');
 
-/** How long the launcher waits on a silent network before it lets the
- *  player in. A launch that hangs on GitHub is worse than one a build
- *  behind (DA6's failure direction: silence). */
+/** How long the launcher waits on a silent network before Play is free.
+ *  A launch that hangs on GitHub is worse than one a build behind (DA6's
+ *  failure direction: silence) - and a late answer still lands (reduce). */
 const CHECK_TIMEOUT_MS = 8000;
-/** How often a running copy asks again - a long session hears of a
- *  release within the hour. */
+/** How often a running copy asks again - a long session, or a launcher
+ *  left open, hears of a release within the hour. */
 const RECHECK_MS = 60 * 60 * 1000;
-/** The most releases' notes "What's new" lists. */
-const NOTES_MAX = 8;
+/** The most releases the news lists. */
+const NEWS_MAX = 8;
 /** How long "Installing" stays on screen before the app closes for the
  *  installer - long enough to read that it will reopen by itself. */
 const INSTALL_NOTICE_MS = 1500;
 /** How long the launcher waits for the installer to close the app before
- *  it decides the install never started, and lets the player in. */
+ *  it decides the install never started, and frees Play. */
 const INSTALL_GIVEUP_MS = 15000;
+/** How long the first run waits on the search for the player's files
+ *  before it offers what it has found (app/lib/arena2DetectWorker.cjs). */
+const DETECT_DEADLINE_MS = 5000;
+/** How long a download may go without a byte before the launcher calls it
+ *  failed and frees Play. electron-updater's own socket timeout never arms
+ *  under Electron's net module (it waits on a `socket` event that
+ *  net.ClientRequest does not have), so a stalled download has no end but
+ *  this one. */
+const DOWNLOAD_STALL_MS = 45000;
 
 /** Where a found ARENA2 came from, in the player's words. */
 const SOURCE_LABEL = Object.freeze({
@@ -54,56 +77,112 @@ const SOURCE_LABEL = Object.freeze({
   folder: 'on this computer',
 });
 
+/** [a, b, c] against [x, y, z]: negative, zero or positive. */
+const cmpV = (a, b) => { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; };
+
 /**
  * update.status
- *   skipped     the File-menu checkbox or the probe env turned checks off
- *   checking    asked, no answer yet
- *   current     this is the newest release
- *   offline     no answer (unreachable, an error, or CHECK_TIMEOUT_MS) - play
- *   downloading the updater transport found one and is fetching it
- *   background  the player chose Play now: it downloads on, installs at quit
+ *   skipped     the update check is off (the launcher's toggle, the File
+ *               menu's checkbox, or the probe env) - Play
+ *   checking    asked, no answer yet - Play waits
+ *   current     this is the newest release - Play
+ *   offline     no answer (unreachable, an error, or CHECK_TIMEOUT_MS) - Play
+ *   downloading the updater transport found one and is fetching it - Play
+ *               waits, "Play without updating" does not
+ *   background  the player chose to play first: it downloads on, installs at quit
  *   installing  downloaded: install now, and the app reopens itself
- *   notice      the notice transport found one: Download it, or Play
- *   dismissed   the player chose Play over a notice
+ *   failed      the download stopped (an error, or DOWNLOAD_STALL_MS without a
+ *               byte) - Play; the hourly re-check or the next launch tries again
+ *   stuck       downloaded, but the installer did not take over - this launch,
+ *               or the last one tried and the app is still on this version
+ *               (installFailedFor): Play, and the installer to run by hand.
+ *               It is never tried before play again, so a failing installer
+ *               cannot close the app on every launch.
+ *   notice      the notice transport found one: Download it, or Play this one
  * setup.status
- *   ready    a whole ARENA2 is configured (or the probe skipped the step)
+ *   ready    a whole ARENA2 is configured (setup.dir)
+ *   skipped  the player chose the game's own picker - the website's path
+ *            (kept in config.json, so it is asked once)
  *   looking  there is none: detection runs
  *   found    detection found whole folders - OFFERED, never picked silently
  *   none     detection found nothing
  *   bad      the folder picked is not a whole ARENA2 (missing: which files,
- *            or null when it held no Daggerfall file at all)
- *   skipped  the player chose the game's own picker - the website's path
+ *            or null when it held no Daggerfall file at all; unreadable when
+ *            it could not be read)
+ *   saved    (beside any of the above) the folder config.json keeps, which is
+ *            no longer whole - { dir, missing, unreadable } - named on the
+ *            card with a Try again, never met with the first run's "Where is
+ *            Daggerfall?" (AUDIT INSTALL L4-5)
+ * news.status
+ *   loading  the release list is being asked for (the cached one shows meanwhile)
+ *   ready    it answered
+ *   failed   it did not (the cached one stays)
+ *   off      the update check is off, and this request is its own (the cached one shows)
+ * launch: null, 'requested' (Play), 'started' (the game's window is coming up)
  */
-function initialState({ current, transport, checkEnabled, arena2Ready, skipArena2, whatsNew = null }) {
+function initialState({
+  current, transport, platform = 'win32', checkEnabled, checkOnLaunch = checkEnabled,
+  arena2Dir = null, inGamePicker = false, savedArena2 = null, news = [], lastPlayed = null, returning = false, installFailedFor = null,
+}) {
   return {
     current: String(current ?? ''),
     transport,
-    update: { status: checkEnabled ? 'checking' : 'skipped', version: null, notes: [], percent: 0, transferred: 0, total: 0, download: null },
-    setup: { status: arena2Ready || skipArena2 ? 'ready' : 'looking', found: [], missing: null, picked: null },
-    whatsNew,
-    launching: false,
+    platform: String(platform),
+    checkOnLaunch: !!checkOnLaunch,
+    installFailedFor: parseVersion(installFailedFor) ? String(installFailedFor).trim() : null,
+    lastPlayed: parseVersion(lastPlayed) ? String(lastPlayed).trim() : null,
+    returning: !!returning,
+    update: { status: checkEnabled ? 'checking' : 'skipped', version: null, percent: 0, transferred: 0, total: 0, download: null },
+    setup: {
+      status: arena2Dir ? 'ready' : inGamePicker ? 'skipped' : 'looking',
+      dir: arena2Dir || null,
+      found: [],
+      missing: null,
+      unreadable: false,
+      saved: !arena2Dir && typeof savedArena2?.dir === 'string'
+        ? { dir: savedArena2.dir, missing: Array.isArray(savedArena2.missing) ? savedArena2.missing : null, unreadable: !!savedArena2.unreadable }
+        : null,
+    },
+    news: { status: checkEnabled ? 'loading' : 'off', items: Array.isArray(news) ? news : [] },
+    launch: null,
   };
 }
 
 const SETUP_WAITING = new Set(['found', 'none', 'bad']);
+const SETUP_DONE = new Set(['ready', 'skipped']);
+/** The update statuses Play waits for. */
+const UPDATE_HOLDS = new Set(['checking', 'downloading', 'installing']);
+/** The statuses a found update may arrive in: the launch check, a late
+ *  answer after the timeout, or the hourly re-check while the launcher
+ *  sits open (a newer notice replaces an older one). */
+const MAY_FIND = new Set(['checking', 'offline', 'current', 'failed', 'notice']);
 const clampPercent = (p) => Math.max(0, Math.min(100, Number(p) || 0));
 
+/** Play can be pressed: nothing is being decided for the player, and the
+ *  game has files - a configured folder, or the in-page picker. */
+const canPlay = (s) => !s.launch && SETUP_DONE.has(s.setup.status) && !UPDATE_HOLDS.has(s.update.status);
+
 /** The launcher's state after one event. Events that do not apply to the
- *  state they arrive in change nothing - an update answer after the
- *  timeout, say, is the running game's to hear, not the launcher's. */
+ *  state they arrive in change nothing - an update found after Play, say,
+ *  is the running game's to hear, not the launcher's. */
 function reduce(state, ev) {
-  const s = { ...state, update: { ...state.update }, setup: { ...state.setup } };
+  const s = { ...state, update: { ...state.update }, setup: { ...state.setup }, news: { ...state.news } };
   const u = s.update, st = s.setup;
   switch (ev?.type) {
+    case 'check-start':
+      // the player turned the check on from the launcher
+      if (u.status === 'skipped') u.status = 'checking';
+      if (s.news.status === 'off') s.news.status = 'loading';
+      break;
     case 'check-none':
-      if (u.status === 'checking') u.status = 'current';
+      if (u.status === 'checking' || u.status === 'offline') u.status = 'current';
       break;
     case 'check-failed':
     case 'check-timeout':
       if (u.status === 'checking') u.status = 'offline';
       break;
     case 'check-available':
-      if (u.status !== 'checking') break;
+      if (s.launch || !MAY_FIND.has(u.status)) break;
       u.version = ev.version ?? null;
       if (s.transport === 'updater') {
         u.status = 'downloading';
@@ -113,10 +192,6 @@ function reduce(state, ev) {
         u.download = ev.download ?? null;
       }
       break;
-    case 'notes':
-      // they arrive from their own request, whenever it answers
-      if (ev.version === u.version && Array.isArray(ev.notes)) u.notes = ev.notes;
-      break;
     case 'progress':
       if (u.status === 'downloading') {
         u.percent = clampPercent(ev.percent);
@@ -125,17 +200,26 @@ function reduce(state, ev) {
       }
       break;
     case 'downloaded':
-      if (u.status === 'downloading') { u.status = 'installing'; u.percent = 100; }
+      if (u.status === 'downloading') {
+        u.percent = 100;
+        // a version whose install already failed is not tried before play again - the player is not locked out
+        const failed = parseVersion(s.installFailedFor), v = parseVersion(u.version);
+        u.status = failed && v && cmpV(v, failed) <= 0 ? 'stuck' : 'installing';
+      }
+      break;
+    case 'download-failed':
+      if (u.status === 'downloading') u.status = 'failed';
       break;
     case 'play-now':
-      if (u.status === 'downloading') u.status = 'background';
+      // "Play without updating": the download goes on and installs when the game quits (DA7)
+      if (u.status === 'downloading') {
+        u.status = 'background';
+        if (canPlay(s)) s.launch = 'requested';
+      }
       break;
     case 'install-failed':
-      // the installer never took over (it would have closed the app): play on, and it installs at quit
-      if (u.status === 'installing') u.status = 'background';
-      break;
-    case 'dismiss-notice':
-      if (u.status === 'notice') u.status = 'dismissed';
+      // the installer never took over (it would have closed the app): Play is free, and the installer is offered
+      if (u.status === 'installing') u.status = 'stuck';
       break;
     case 'found':
       if (st.status === 'looking') {
@@ -144,19 +228,39 @@ function reduce(state, ev) {
       }
       break;
     case 'picked':
-      if (SETUP_WAITING.has(st.status) && ev.dir) { st.status = 'ready'; st.picked = ev.dir; st.missing = null; }
+      // from the first run's card, or the Game files door at any time
+      if (ev.dir && !s.launch) { st.status = 'ready'; st.dir = ev.dir; st.found = []; st.missing = null; st.unreadable = false; st.saved = null; }
       break;
     case 'picked-bad':
-      if (SETUP_WAITING.has(st.status)) { st.status = 'bad'; st.missing = Array.isArray(ev.missing) ? ev.missing : null; }
+      if (SETUP_WAITING.has(st.status)) {
+        st.status = 'bad';
+        st.missing = Array.isArray(ev.missing) ? ev.missing : null;
+        st.unreadable = !!ev.unreadable;
+      }
+      break;
+    case 'saved-bad':
+      // "Try again" on the saved folder, and it still is not whole: what it says now
+      if (SETUP_WAITING.has(st.status) && st.saved) {
+        st.saved = { ...st.saved, missing: Array.isArray(ev.missing) ? ev.missing : null, unreadable: !!ev.unreadable };
+      }
       break;
     case 'skip-setup':
       if (SETUP_WAITING.has(st.status)) st.status = 'skipped';
       break;
-    case 'whats-new-seen':
-      s.whatsNew = null;
+    case 'play':
+      if (canPlay(s)) s.launch = 'requested';
       break;
     case 'launching':
-      s.launching = true;
+      s.launch = 'started';
+      break;
+    case 'news':
+      if (Array.isArray(ev.items)) { s.news.items = ev.items; s.news.status = 'ready'; }
+      break;
+    case 'news-failed':
+      if (s.news.status === 'loading') s.news.status = 'failed';
+      break;
+    case 'check-on-launch':
+      s.checkOnLaunch = !!ev.on;
       break;
     default:
       break;
@@ -165,108 +269,39 @@ function reduce(state, ev) {
 }
 
 /**
- * What the shell does next: 'install' (quit and install, reopening), 'detect'
- * (look for ARENA2), 'launch' (open the game), or 'wait' (for an answer, a
- * download, or the player). Updates come first - a folder picked now would
- * survive the restart, but asking it and THEN vanishing for a restart is a
- * worse first minute - then the files, then "What's new", then the game.
+ * What the shell does next: 'detect' (look for ARENA2), 'install' (quit
+ * and install, reopening), 'launch' (open the game), or 'wait' (for an
+ * answer, a download, or the player). Detection runs at once - it is
+ * local, and the player can choose while an update downloads. The install
+ * waits while the player is choosing their files: the folder picked
+ * survives the restart, a screen cut off halfway does not.
  */
 function nextStep(s) {
-  if (s.launching) return 'wait';
-  const u = s.update.status;
-  if (u === 'installing') return 'install';
-  if (u === 'checking' || u === 'downloading' || u === 'notice') return 'wait';
-  const st = s.setup.status;
-  if (st === 'looking') return 'detect';
-  if (st !== 'ready' && st !== 'skipped') return 'wait';
-  if (s.whatsNew) return 'wait';
-  return 'launch';
+  if (s.launch === 'started') return 'wait';
+  if (s.setup.status === 'looking') return 'detect';
+  if (s.update.status === 'installing') return SETUP_WAITING.has(s.setup.status) ? 'wait' : 'install';
+  if (s.launch === 'requested') return 'launch';
+  return 'wait';
 }
 
 const mb = (bytes) => (Math.max(0, Number(bytes) || 0) / 1e6).toFixed(1);
 
-/** The launcher window's whole content, from the state. */
-function viewOf(s) {
-  const v = { stage: '', title: '', detail: '', progress: null, notesTitle: '', notes: [], found: [], actions: [], version: s.current ? `v${s.current}` : '' };
-  const u = s.update, st = s.setup;
-  const whatsNewNotes = () => {
-    if (!s.whatsNew) return;
-    v.notesTitle = "What's new";
-    v.notes = s.whatsNew.notes ?? [];
-  };
-  if (s.launching) {
-    v.stage = 'launching';
-    v.title = 'Starting Daggerfall Online';
-    return v;
-  }
-  if (u.status === 'installing') {
-    v.stage = 'installing';
-    v.title = `Installing v${u.version}`;
-    v.detail = 'Daggerfall Online will close and reopen by itself in a few seconds. Your saves, settings and game files stay where they are.';
-    v.progress = { percent: 100, label: 'Downloaded' };
-    v.notesTitle = "What's new"; v.notes = u.notes;
-    return v;
-  }
-  if (u.status === 'downloading') {
-    v.stage = 'downloading';
-    v.title = `Updating to v${u.version}`;
-    v.detail = 'It installs before you play, so you are on the same version as everyone online.';
-    v.progress = { percent: u.percent, label: u.total ? `${mb(u.transferred)} of ${mb(u.total)} MB` : 'Starting the download' };
-    v.notesTitle = "What's new"; v.notes = u.notes;
-    v.actions = [{ id: 'play-now', label: 'Play now, update when I quit' }];
-    return v;
-  }
-  if (u.status === 'notice') {
-    v.stage = 'notice';
-    v.title = `Version ${u.version} is out`;
-    v.detail = `You have v${s.current}. Download it and install it over this copy - your saves, settings and game files stay where they are.`;
-    v.notesTitle = "What's new"; v.notes = u.notes;
-    v.actions = [{ id: 'download', label: 'Download', primary: true }, { id: 'dismiss', label: 'Play this version' }];
-    return v;
-  }
-  if (u.status === 'checking') {
-    v.stage = 'checking';
-    v.title = 'Checking for updates';
-    whatsNewNotes();
-    return v;
-  }
-  if (st.status === 'looking') {
-    v.stage = 'setup-looking';
-    v.title = 'Looking for your Daggerfall files';
-    return v;
-  }
-  if (SETUP_WAITING.has(st.status)) {
-    v.stage = `setup-${st.status}`;
-    v.found = st.found.map((f, index) => ({ index, dir: f.dir, from: SOURCE_LABEL[f.source] ?? '' }));
-    const choose = { id: 'choose-folder', label: st.found.length ? 'Choose a different folder' : 'Choose the ARENA2 folder', primary: !st.found.length };
-    const skip = { id: 'skip-setup', label: 'Choose in the game instead' };
-    if (st.status === 'found') {
-      v.title = st.found.length === 1 ? 'Found your Daggerfall files' : 'Found Daggerfall on this computer';
-      v.detail = 'Daggerfall Online plays from the original game\'s ARENA2 folder. Nothing is copied or uploaded - it is read where it is.';
-      v.actions = [choose, skip];
-    } else if (st.status === 'none') {
-      v.title = 'Where is Daggerfall?';
-      v.detail = 'Daggerfall Online plays from the original game\'s ARENA2 folder. The Elder Scrolls II: Daggerfall has been free since 2009 - get it from Steam or GOG, then choose its ARENA2 folder.';
-      v.actions = [choose, { id: 'open', arg: 'steam', label: 'Get it on Steam' }, { id: 'open', arg: 'gog', label: 'Get it on GOG' }, skip];
-    } else {
-      v.title = 'That folder is not a whole ARENA2';
-      v.detail = st.missing
-        ? `It has no ${st.missing.join(', ')}. Choose the ARENA2 folder inside your Daggerfall install - on Steam and GOG it is under DF/DAGGER/ARENA2.`
-        : 'It holds no Daggerfall files. Choose the ARENA2 folder inside your Daggerfall install - on Steam and GOG it is under DF/DAGGER/ARENA2.';
-      v.actions = [{ ...choose, primary: true }, skip];
-    }
-    return v;
-  }
-  if (s.whatsNew) {
-    v.stage = 'whats-new';
-    v.title = `Updated to v${s.whatsNew.version}`;
-    whatsNewNotes();
-    v.actions = [{ id: 'play', label: 'Play', primary: true }];
-    return v;
-  }
-  v.stage = 'launching';
-  v.title = 'Starting Daggerfall Online';
-  return v;
+/** Has this copy updated since the player last pressed Play? A copy with
+ *  no lastPlayed that is RETURNING (config.json predates DA10) has: the
+ *  build it runs now is the first to keep one. */
+function justUpdated(s) {
+  const cur = parseVersion(s.current), last = parseVersion(s.lastPlayed);
+  if (!cur) return false;
+  return last ? cmpV(cur, last) > 0 : s.returning;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** '2026-09-29T14:03:11Z' -> '29 Sep 2026' (UTC, the day GitHub stamped). */
+function dateLabel(iso) {
+  const t = typeof iso === 'string' ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(t)) return '';
+  const d = new Date(t);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 /** GitHub's generated list of merged changes, which the release body carries
@@ -282,48 +317,223 @@ function playerNotes(body) {
 }
 
 /** A release body that says nothing more than "fixes and improvements". */
-const isPlaceholder = (t) => /^fixes and improvements\.?$/i.test(t.trim());
+const isPlaceholder = (t) => /^fixes and improvements\.?$/i.test(String(t).trim());
 
 /**
- * The notes "What's new" lists for an update from `fromVersion` to
- * `toVersion`: every published app-v release in (from, to], newest first,
- * each as its patch notes. When any of them says something, the bare
- * "Fixes and improvements." releases between are left out; when none does,
- * one such line stands for them all. At most NOTES_MAX.
+ * The news, from the releases API's list: every published app-v release,
+ * newest first, as { version, date, text } - the text its patch notes.
+ * What the shell keeps in news.json and shows while the next list is
+ * asked for.
  *
- * @param {Array<{ tag_name?: string, body?: string, draft?: boolean, prerelease?: boolean }>} releases the API's list
- * @returns {Array<{ version: string, text: string }>}
+ * @param {Array<{ tag_name?: string, body?: string, published_at?: string, draft?: boolean, prerelease?: boolean }>} releases
+ * @returns {Array<{ version: string, date: string, text: string }>}
  */
-function notesBetween(releases, fromVersion, toVersion) {
-  const from = parseVersion(fromVersion), to = parseVersion(toVersion);
-  if (!from || !to || !Array.isArray(releases)) return [];
-  const cmp = (a, b) => { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; };
-  const inRange = releases
+function newsFrom(releases) {
+  if (!Array.isArray(releases)) return [];
+  return releases
     .filter((r) => r && !r.draft && !r.prerelease)
-    .map((r) => ({ v: parseReleaseTag(r.tag_name), text: playerNotes(r.body) }))
-    .filter((r) => r.v && cmp(r.v, from) > 0 && cmp(r.v, to) <= 0 && r.text)
-    .sort((a, b) => cmp(b.v, a.v))
-    .map((r) => ({ version: r.v.join('.'), text: r.text }));
-  const said = inRange.filter((r) => !isPlaceholder(r.text));
-  return (said.length ? said : inRange.slice(0, 1)).slice(0, NOTES_MAX);
+    .map((r) => ({ v: parseReleaseTag(r.tag_name), date: typeof r.published_at === 'string' ? r.published_at : '', text: playerNotes(r.body) }))
+    .filter((r) => r.v)
+    .sort((a, b) => cmpV(b.v, a.v))
+    .map((r) => ({ version: r.v.join('.'), date: r.date, text: r.text }));
+}
+
+/** news.json as it was written - or as a hand, a crash or an older build
+ *  left it: only well-formed items, newest first. */
+function cachedNews(json) {
+  const items = Array.isArray(json?.items) ? json.items : [];
+  return items
+    .filter((n) => n && parseVersion(n.version) && typeof n.text === 'string')
+    .map((n) => ({ version: String(n.version).trim(), date: typeof n.date === 'string' ? n.date : '', text: n.text }))
+    .sort((a, b) => cmpV(parseVersion(b.version), parseVersion(a.version)));
+}
+
+const NEWS_NOTE = Object.freeze({
+  loading: 'Loading the patch notes',
+  failed: 'The patch notes could not be loaded - GitHub did not answer.',
+  off: 'The patch notes come with the update check, which is off.',
+  ready: 'No patch notes yet.',
+});
+
+/**
+ * The news panel: the releases that say something, newest first, at most
+ * NEWS_MAX, each marked UPDATE (newer than this copy), NEW (installed
+ * since the player last played) or neither. A bare "Fixes and
+ * improvements." release is listed only when it is marked - the player is
+ * told the version they got, or are getting, whatever its notes say - or
+ * when no release says more.
+ */
+function newsView(s) {
+  const cur = parseVersion(s.current), last = parseVersion(s.lastPlayed);
+  const badge = (v) => {
+    if (!cur) return null;
+    const c = cmpV(v, cur);
+    if (c > 0) return 'update';
+    if (last ? cmpV(v, last) > 0 : s.returning && c === 0) return 'new';
+    return null;
+  };
+  const items = s.news.items
+    .map((n) => ({ n, v: parseVersion(n?.version) }))
+    .filter((x) => x.v)
+    .map(({ n, v }) => ({ version: v.join('.'), date: dateLabel(n.date), text: String(n.text ?? ''), badge: badge(v) }));
+  const said = items.filter((n) => n.badge || (n.text && !isPlaceholder(n.text)));
+  const list = (said.length ? said : items.slice(0, 1)).slice(0, NEWS_MAX);
+  return { items: list, note: list.length ? '' : NEWS_NOTE[s.news.status] ?? '' };
 }
 
 /**
- * What to do with the "What's new" the last update saved (config.json's
- * whatsNew, written when it downloaded): SHOW it on the launch that runs
- * that version, KEEP it while that version has not installed yet, and drop
- * it once a newer one runs (superseded).
+ * The install the last launch tried (config.json installAttempt, written just
+ * before the installer is handed the app): if this copy is still OLDER than
+ * it, the installer did not take - `failed` is that version, and the marker
+ * is kept until a version at least as new runs. Otherwise it is done with.
  */
-function whatsNewFor(saved, current) {
-  const w = parseVersion(saved?.version), c = parseVersion(current);
-  if (!w || !c) return { show: null, keep: false };
-  const cmp = (() => { for (let i = 0; i < 3; i++) if (w[i] !== c[i]) return w[i] - c[i]; return 0; })();
-  if (cmp === 0) return { show: { version: saved.version, notes: Array.isArray(saved.notes) ? saved.notes : [] }, keep: false };
-  if (cmp > 0) return { show: null, keep: true };
-  return { show: null, keep: false };
+function installAttemptFor(saved, current) {
+  const a = parseVersion(saved?.version), c = parseVersion(current);
+  if (!a || !c) return { failed: null, keep: false };
+  return cmpV(a, c) > 0 ? { failed: String(saved.version).trim(), keep: true } : { failed: null, keep: false };
+}
+
+/** What a folder that is not a whole ARENA2 lacks, and where the whole one
+ *  is - the launcher's card, its Game files door and File > Locate ARENA2
+ *  say it in the same words. `missing` is diagnoseArena2's: the files it
+ *  lacks, or null when it held no Daggerfall file at all. */
+function notArena2Detail(missing, { unreadable = false } = {}) {
+  // Steam's is DF/DAGGER/ARENA2; GOG's sits in the game's own folder, beside FALL.EXE (AUDIT INSTALL L4-6)
+  const where = 'Choose the ARENA2 folder inside your Daggerfall install - on Steam it is under DF/DAGGER/ARENA2, on GOG it is in the game\'s own folder.';
+  if (unreadable) return `It could not be read - is its drive connected? ${where}`;
+  return Array.isArray(missing) && missing.length ? `It has no ${missing.join(', ')}. ${where}` : `It holds no Daggerfall files. ${where}`;
+}
+
+/** The first run's card: what was found, or where to get it, or what the
+ *  folder picked lacks. A found folder's "Use these files" is the card's
+ *  answer only while it is the one thing found and nothing has been
+ *  refused since (after a refusal Enter must not press the same folder
+ *  again). On a Mac there is no Steam or GOG copy to get - both sell
+ *  Daggerfall for Windows only - so the way in is DaggerfallGameFiles.zip
+ *  (AUDIT INSTALL L5-3). */
+function setupView(st, platform) {
+  if (st.status === 'looking') return { title: 'Looking for your Daggerfall files', detail: '', found: [], actions: [] };
+  const lead = st.found.length === 1 && st.status === 'found';
+  const found = st.found.map((f, index) => ({ index, dir: f.dir, from: SOURCE_LABEL[f.source] ?? '', primary: lead }));
+  const choose = { id: 'choose-folder', label: st.found.length ? 'Choose a different folder' : 'Choose the ARENA2 folder', primary: !st.found.length };
+  const skip = { id: 'skip-setup', label: 'Choose in the game instead' };
+  if (st.saved && st.status !== 'bad') {
+    const sv = st.saved;
+    return {
+      title: sv.unreadable ? 'Your Daggerfall folder cannot be reached' : 'Your Daggerfall folder is not whole',
+      detail: `Daggerfall Online plays from ${sv.dir}, which ${sv.unreadable ? 'cannot be read right now - is its drive connected?'
+        : sv.missing ? `has no ${sv.missing.join(', ')}.` : 'holds no Daggerfall files any more.'}${st.found.length ? ' Daggerfall is also here:' : ''}`,
+      found,
+      actions: [{ id: 'retry-saved', label: 'Try again', primary: !st.found.length }, { ...choose, primary: false }, skip],
+    };
+  }
+  if (st.status === 'found') {
+    return {
+      title: st.found.length === 1 ? 'Found your Daggerfall files' : 'Found Daggerfall on this computer',
+      detail: 'Daggerfall Online plays from the original game\'s ARENA2 folder. Nothing is copied or uploaded - it is read where it is.',
+      found,
+      actions: [choose, skip],
+    };
+  }
+  if (st.status === 'none') {
+    if (platform === 'darwin') {
+      return {
+        title: 'Where is Daggerfall?',
+        detail: 'Daggerfall Online plays from the original game\'s ARENA2 folder. The Elder Scrolls II: Daggerfall has been free since 2009 - on a Mac, get DaggerfallGameFiles.zip, unpack it, and choose the arena2 folder inside.',
+        found,
+        actions: [choose, { id: 'open', arg: 'zip', label: 'Get DaggerfallGameFiles.zip' }, skip],
+      };
+    }
+    return {
+      title: 'Where is Daggerfall?',
+      detail: 'Daggerfall Online plays from the original game\'s ARENA2 folder. The Elder Scrolls II: Daggerfall has been free since 2009 - get it from Steam or GOG, then choose its ARENA2 folder.',
+      found,
+      actions: [choose, { id: 'open', arg: 'steam', label: 'Get it on Steam' }, { id: 'open', arg: 'gog', label: 'Get it on GOG' }, skip],
+    };
+  }
+  return {
+    title: st.unreadable ? 'That folder cannot be read' : 'That folder is not a whole ARENA2',
+    detail: notArena2Detail(st.missing, st),
+    found,
+    actions: [{ ...choose, primary: true }, skip],
+  };
+}
+
+/** The launcher window's whole content, from the state. */
+function viewOf(s) {
+  const u = s.update, st = s.setup;
+  const v = {
+    version: s.current ? `v${s.current}` : '',
+    busy: false,
+    status: '',
+    detail: '',
+    progress: null,
+    statusActions: [],
+    play: { enabled: canPlay(s), label: 'Play' },
+    panel: SETUP_DONE.has(st.status) ? 'news' : 'setup',
+    setup: null,
+    news: newsView(s),
+    options: {
+      files: st.status === 'ready' ? { path: st.dir, note: '', label: 'Change folder' }
+        : st.status === 'skipped' ? { path: '', note: 'Chosen in the game', label: 'Choose folder' }
+          : { path: '', note: 'Not set yet', label: 'Choose folder' },
+      checkOnLaunch: s.checkOnLaunch,
+    },
+  };
+  if (v.panel === 'setup') v.setup = setupView(st, s.platform);
+  if (s.launch) {
+    v.status = 'Starting Daggerfall Online';
+    v.busy = true;
+  } else if (u.status === 'installing') {
+    v.progress = { percent: 100, label: 'Downloaded' };
+    if (SETUP_WAITING.has(st.status)) {
+      v.status = `v${u.version} is ready to install`;
+      v.detail = 'It installs once your game files are set - then Daggerfall Online reopens by itself.';
+    } else {
+      v.status = `Installing v${u.version}`;
+      v.detail = 'Daggerfall Online closes and reopens by itself in a few seconds. Your saves, settings and game files stay where they are.';
+      v.busy = true;
+    }
+  } else if (u.status === 'downloading') {
+    v.status = `Downloading v${u.version}`;
+    v.detail = 'It installs before you play, so you are on the same version as everyone online.';
+    v.progress = { percent: u.percent, label: u.total ? `${mb(u.transferred)} of ${mb(u.total)} MB` : 'Starting the download' };
+    v.busy = true;
+    if (SETUP_DONE.has(st.status)) v.statusActions = [{ id: 'play-now', label: 'Play without updating' }];
+  } else if (u.status === 'checking') {
+    v.status = 'Checking for updates';
+    v.busy = true;
+  } else if (u.status === 'notice') {
+    v.status = `Version ${u.version} is out`;
+    v.detail = `You have v${s.current}. Download it, quit, and put it in place of this copy - your saves, settings and game files stay where they are.`;
+    v.statusActions = [{ id: 'download', label: 'Download', primary: true }];
+  } else if (u.status === 'background') {
+    v.status = `v${u.version} installs when you quit`;
+    v.detail = 'It finishes downloading while you play.';
+  } else if (u.status === 'failed') {
+    v.status = `Could not download v${u.version}`;
+    v.detail = 'The download stopped. This version plays as it is, and the update is tried again.';
+  } else if (u.status === 'stuck') {
+    v.status = `v${u.version} did not install`;
+    v.detail = 'Play this version - it tries again when you quit. Or run the installer yourself: your saves, settings and game files stay where they are.';
+    v.statusActions = [{ id: 'reinstall', label: 'Get the installer' }];
+  } else if (u.status === 'offline') {
+    v.status = 'Could not check for updates';
+    v.detail = 'GitHub did not answer. This version plays as it is, and the next launch asks again.';
+  } else if (u.status === 'skipped') {
+    v.status = 'Update checks are off';
+    v.detail = 'Turn them on under Updates to hear of new versions.';
+  } else if (justUpdated(s)) {
+    v.status = `Updated to v${s.current}`;
+    v.detail = 'What changed is in the patch notes.';
+  } else {
+    v.status = 'Up to date';
+  }
+  if (st.status === 'looking') v.busy = true;
+  return v;
 }
 
 module.exports = {
-  CHECK_TIMEOUT_MS, RECHECK_MS, NOTES_MAX, INSTALL_NOTICE_MS, INSTALL_GIVEUP_MS, SOURCE_LABEL,
-  initialState, reduce, nextStep, viewOf, playerNotes, notesBetween, whatsNewFor,
+  CHECK_TIMEOUT_MS, RECHECK_MS, NEWS_MAX, INSTALL_NOTICE_MS, INSTALL_GIVEUP_MS, DOWNLOAD_STALL_MS, DETECT_DEADLINE_MS, SOURCE_LABEL, installAttemptFor,
+  initialState, reduce, nextStep, viewOf, canPlay, justUpdated, dateLabel, playerNotes, newsFrom, cachedNews, notArena2Detail,
 };
