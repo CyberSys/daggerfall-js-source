@@ -118,7 +118,13 @@ The first audit's own record is corrected where this one found its fixes short (
   note; REALM2's customs row and S1's note). M's post-merge fixes applied - the VAMP-HOOD pins and records, the
   SHIP-SAIL passage's "N days of your time" (the wording stays For Mac 6) - and four survtiers cite records re-aimed.
   M8's records corrected: the patch note and Lived-Time say a hood opens the map by day, OPEN 2 is answered. Main's
-  commits after M's trial add no time reader.]
+  commits after M's trial add no time reader. The merged tree: 15,063 tests, 0 failures; lint, types and the build
+  clean; 614 mutants (the three LIVED1 lists, VAMP-HOOD's, SHIP-SAIL's, and main's records within 15 lines of a line
+  this branch brought): 608 dead, 4 equivalent as recorded, 2 survived. `AUDITDISC28-TM1-the-dead-span-is-taken-for-
+  an-absence` survived on this branch since LIVED1 - its one named test's dead-span arm no longer reaches the drift -
+  and dies to `audit23_hosts.test.js` C4 (the 112-day boundary through the tick), which it now names: its list is 10
+  of 10 dead. `ARENA2-TRIAGE-4-release-costs-three-hours` survives on main alone as well - main's own, carried for
+  its pass.]
 - **Process (T15, beside the first audit's T13):** `test/auditworld34.test.js`'s "A1 executed" waits a fixed 25 ms
   between its async steps and failed 2 of 3 unmutated runs under `--jobs` load; a list that names it reads those
   failures as deaths (39 false deaths in lane T's second stage, hiding two real survivors). No list here names it. A lane

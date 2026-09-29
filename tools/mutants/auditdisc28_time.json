@@ -34,7 +34,8 @@
     "old": "      normalizeReputations(entity, entity.factionRep ?? null);",
     "new": "      normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });",
     "tests": [
-      "test/auditdisc28_time.test.js"
+      "test/auditdisc28_time.test.js",
+      "test/audit23_hosts.test.js"
     ]
   },
   {
