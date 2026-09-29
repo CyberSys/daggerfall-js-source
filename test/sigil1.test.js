@@ -350,7 +350,7 @@ test('SIGIL1 the hosts: the session is online from the boot\'s first line and my
   assert.match(D, /stampWonWeapons\(foe\.entity\.items, _sharedFoe\(foe\) \? fightN\(foe\) : 1\);\s*raiseEnemyDeath\(foe\.entity,/, 'the host\'s kill, at its fight');
   assert.match(D, /if \(r\.d === 1 && !f\.dead\) \{ addCorpseFood\(f\.entity, \{ luck: liveStat\(playerEntity, 'luck'\) \}\); stampWonWeapons\(f\.entity\.items, f\._fightN \?\? 1\); \}/, 'a joiner\'s copy of the body, at the host\'s count');
   assert.match(D, /if \(wire && sf\.dead && !f\.dead && sf\.items == null\) \{ addCorpseFood\(f\.entity, \{ luck: liveStat\(playerEntity, 'luck'\) \}\); stampWonWeapons\(f\.entity\.items, 1\); \}/, 'a body the room\'s memory hands an arrival');
-  assert.match(D, /function rollPileItems\(\) \{[\s\S]{0,400}?rollLootRarity\([^;]*;\s*stampWonWeapons\(items, 1\);\s*return items;/, 'every pile, at the build and the hour\'s respawn');
+  assert.match(D, /function rollPileItems\(\) \{[\s\S]{0,600}?rollLootRarity\([^;]*;\s*stampWonWeapons\(items, 1\);\s*return items;/, 'every pile, at the build and the hour\'s respawn');   // MERGE 2: 600 - the pile trio\'s call carries FORAGE3\'s index and luck beside REALM P0.4\'s level
   assert.match(D, /if \(r\.d !== 1\) f\._fightN = r\.n \?\? 1;/, 'a joiner reads the count off live records alone');
   assert.match(strip(read('src/scenes/exteriorFoes.js')), /if \(r\.d !== 1\) f\._fightN = r\.n \?\? 1;/, 'and an outdoor reader');
   assert.match(strip(read('src/scenes/cityGuards.js')), /stampWonWeapons\(g\.entity\.items, 1, \{ rolls: rand \}\);\s*raiseEnemyDeath\(g\.entity,/, 'the watch\'s kill');

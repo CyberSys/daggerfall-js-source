@@ -446,6 +446,13 @@ test('doctrine: no raster of game data is tracked anywhere in the repo', () => {
 // claim about a file that is not there is not one) - see the pins
 // below.
 const BUNDLE_ART = new Map([
+  // FORAGE1 (2026-09-28): Foraging's seven pictures - the author's own
+  // pixel art (tools, a wood bundle, an egg), no Daggerfall record - taken
+  // out of the bundle's Texture2D objects. A directory row: membership is
+  // derived from the shipped manifest's Files, so it cannot widen.
+  ['vendor/foraging/Textures/',
+    { manifest: 'vendor/foraging/foraging.dfmod.json',
+      why: "THIRD-PARTY - Foraging 1.7 (Harbinger451), carried on Mac's word of the author's permission; the mod's own pixel art - the Wood-Axe, Pick-Axe, Sickle, Fishing-Net, Wood Bundle, Egg and Spade - written as PNG from the bundle's Texture2D objects (see vendor/foraging/README.md)" }],
   ['vendor/eye-of-the-beholder/Textures/',
     { manifest: 'vendor/eye-of-the-beholder/eyeofthebeholder.dfmod.json',
       why: "THIRD-PARTY - Eye Of The Beholder 2.1 (RedRoryOTheGlen); the mod's own player sprites, re-encoded as indexed PNG (lossless for every drawn pixel - see the vendor README)" }],

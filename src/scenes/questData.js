@@ -12,6 +12,7 @@
 // tables load from one place.
 
 import { loadQuestTables } from '../systems/quest/tables.js';
+import { applyForageFix } from '../systems/foragingLaw.js';   // FORAGE-FIX: Foraging's quest and list patches, applied as they are read
 
 const tableFiles = import.meta.glob('../../vendor/dfu-quests/Tables/*.txt', { query: '?raw', import: 'default' });
 const questFiles = import.meta.glob('../../vendor/dfu-quests/Quests/*.txt', { query: '?raw', import: 'default' });
@@ -24,6 +25,8 @@ const questFiles = import.meta.glob('../../vendor/dfu-quests/Quests/*.txt', { qu
 const modQuestFiles = {
   ...import.meta.glob('../../vendor/roleplay-realism/Quests/*.txt', { query: '?raw', import: 'default' }),
   ...import.meta.glob('../../vendor/warm-ashes-ships/Quests/*.txt', { query: '?raw', import: 'default' }),
+  // FORAGE1: Foraging's list and its 22 quests, verbatim - FORAGE-FIX's patches applied as they are read (below)
+  ...import.meta.glob('../../vendor/foraging/Quests/*.txt', { query: '?raw', import: 'default' }),
 };
 
 const stripBom = (s) => s.replace(/^﻿/, '');
@@ -46,8 +49,16 @@ export async function loadQuestPack() {
     }));
     await Promise.all(Object.entries(modQuestFiles).map(async ([path, load]) => {
       const name = baseName(path);
-      if (name.startsWith('QuestList-')) tables.set(name, stripBom(await load()));
-      else quests.set(name, stripBom(await load()).split(/\r?\n/));
+      const text = stripBom(await load());
+      // FORAGE-FIX (bible/06-Systems/Foraging.md 12): Foraging's quest and list patches (Q7-Q9, Q13) over the author's
+      // own text - never an edit of it. A patch that no longer finds its line is a changed file: it warns and the
+      // author's text loads as shipped, so one mod's patch can never take the whole pack (and the scene) down with it.
+      let patched = text;
+      if (path.includes('/vendor/foraging/')) {
+        try { patched = applyForageFix(name, text); } catch (e) { console.warn(`[questData] ${e.message} - loaded as shipped`); }
+      }
+      if (name.startsWith('QuestList-')) tables.set(name, patched);
+      else quests.set(name, patched.split(/\r?\n/));
     }));
     loadQuestTables(Object.fromEntries(tables));
     return {

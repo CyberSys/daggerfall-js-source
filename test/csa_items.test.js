@@ -1,7 +1,7 @@
 // CSA-H (2026-09-27) - COME SAIL AWAY'S ITEMS, SHELVES, CARGO AND PORTS: systems/comeSailAwayItems.js (the two
 // template rows, the mint, the names, AssignVariantsToShopItems) and systems/comeSailAway.js over the real SpawnBoat
 // (IsNearPort's square, PackBoat and the packed cargo, the cargo box, the variant picker, giveboat, the two classes'
-// UseItem), the shelf's custom loop (systems/shopStock.js through rriItems.js's one GetCustomItemsForGroup) and the
+// UseItem), the shelf's custom loop (systems/shopStock.js through itemTemplates.js's one GetCustomItemsForGroup) and the
 // host's seams. Every expectation is worked out here from ComeSailAway.cs, ItemBoatParts.cs, ItemBoatDeed.cs and DFU.
 
 import { test } from 'node:test';
@@ -13,9 +13,8 @@ import { createComeSailAwayRuntime, NO_WATER_LEVEL, CONSOLE } from '../src/syste
 import { CSA_ITEM_TEMPLATES, BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE, mintBoatItem, mintShelfBoatUids, boatItemName, assignVariantsToShopItems, cargoLootTarget } from '../src/systems/comeSailAwayItems.js';
 import { remoteTarget, remoteTargetType } from '../src/systems/inventorySession.js';
 import { CONTAINER_IMAGES } from '../src/ui/targetIconPanel.js';
-import { customItemsForGroup, registerCustomItemGroup } from '../src/systems/rriItems.js';
+import { customItemsForGroup, registerCustomItemGroup, templateByIndex } from '../src/systems/itemTemplates.js';
 import { DEEP_WATERS_FISH_TEMPLATES } from '../src/systems/deepWatersFishItems.js';
-import { templateByIndex } from '../src/systems/itemTemplates.js';
 import { isStackable } from '../src/systems/inventory.js';
 import { setModSetting } from '../src/systems/modSettings.js';
 
@@ -321,7 +320,10 @@ test('CSA-H: the host\'s seams - the two use handlers on the item-use door (the 
   assert.match(w, /const csaShelfStocked = \(items\) => \{ if \(csaOn\(\) && Array\.isArray\(items\)\) assignVariantsToShopItems\(mintShelfBoatUids\(items, csaNewItemUid\), \(min, max\) => min \+ Math\.floor\(Math\.random\(\) \* \(max - min\)\)\); return items; \};/);
   assert.match(w, /items: \{ create: \(templateIndex\) => mintBoatItem\(templateIndex, csaNewItemUid\(\)\), addToPlayer: \(item\) => addItem\(\(playerEntity\.items \?\?= \[\]\), item\) \},/);
   const m = src('scenes/worldModes.js');
-  assert.equal((m.match(/\(host\.csaShelfStocked \?\? \(\(items\) => items\)\)\(onShopShelfStocked\(stockShopShelf\(/g) ?? []).length, 2, 'both shelf doors, after Roleplay Realism\'s subscribers');
+  // THE MERGE: CSA-H's subscriber is one of PlayerActivate.OnLootSpawned's (FORAGE3's one home), by its mod's name, a
+  // shop shelf's alone - and both shelf doors raise it, after Roleplay Realism's subscribers
+  assert.match(w, /registerContainerLootHandler\(COME_SAIL_AWAY_VENDOR, \(a\) => \{ if \(a\.containerType === LOOT_CONTAINER_TYPES\.ShopShelves\) csaShelfStocked\(a\.items\); \}\);/);
+  assert.equal((m.match(/shelfLootSpawned\(stockShopShelf\(\{ buildingType: b\.buildingType, quality: b\.quality \}, playerEntity\), b\)/g) ?? []).length, 2, 'both shelf doors');
   assert.match(m, /mountWindow: \(win\) => mountSpellWindow\(win\),\s*closeWindow: \(win\) => closeSpellWindow\(win\),/);
   const pool = src('scenes/comeSailAwayPool.js');
   assert.match(pool, /function setVariant\(boat, variant\) \{\s*setBoatVariant\(boat, variant, \{ models,/);

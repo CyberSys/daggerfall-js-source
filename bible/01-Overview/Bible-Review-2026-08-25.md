@@ -59,7 +59,7 @@ FM-bank audit. Audio.md also still disowns `ActivateLockUnlock = 316`
 (`:158` "NOT OURS... neither of which is ported") - it sits in
 `soundClips.js:10` with three consumers (R1) - and still claims
 `deps.inCastle` stays false (`:105`), live since AUDIT 21
-(`dungeonContext.js:2898`). This is the one page whose live-queue
+(`dungeonContext.js:2926`). This is the one page whose live-queue
 claims actively contradict the code, the Ledger, and the rest of the
 bible at once.
 
@@ -106,7 +106,7 @@ direction). The real staleness is where the sweep cannot see:
   row's own title records the previous three.
 - `:340` residue "a static NPC currently answers with the
   no-response line" - contradicts the same row's own head and row
-  `:446` (B7); `worldModes.js:1542-1553` opens the real talk window.
+  `:446` (B7); `worldModes.js:1547-1558` opens the real talk window.
 - `:339` "house/ship PURCHASE popups... still out" - contradicts row
   `:441` ("this row is now CLOSED", H1-H3) and
   `ui/bankPurchaseWindow.js`.
@@ -131,7 +131,7 @@ per arc:
   first-arm); S40's "house ledger is unported" flag
   (`banking.js:173 isHouseOwned` feeds the rest seam); S16's
   "monsters 0-42 still spawn as billboards" (C11 pivoted them to real
-  foes, `dungeonContext.js:919-970`); the mid-file Queue
+  foes, `dungeonContext.js:947-998`); the mid-file Queue
   (`:742-748`) still carries FreeAction / Create Item / enchantment
   value / rest-UI / "Later: guilds, shops, dialog, calendar" - all
   shipped, list actively maintained (it struck its fatigue line).
@@ -163,7 +163,7 @@ per arc:
   `:3368`); `:4722` is now flatly false ("the interior host's
   char-sheet and inventory panels swallow their click and do
   nothing") and contradicts U43 in the same file
-  (`worldModes.js:5846-5847` routes them). UI-Arc carries no records
+  (`worldModes.js:5879-5880` routes them). UI-Arc carries no records
   at all for H1-H3 - the banking windows exist only in the Ledger.
 - *Combat.md*: the status head (first 51 lines) is the stale part -
   DrainMagicka "INTERIM no-op" (`:19`, real since S4a and
@@ -215,8 +215,8 @@ own AUDIT-18 correction.
 
 Doc review only, nothing fixed - but four code comments assert the
 opposite of their own code and deserve a slice's attention:
-- `src/ui/deathScreen.js:87-88` claims "`drop` is read by each host's
-  frame" - no host reads it (the Ledger row `:512` is right, the
+- `src/ui/deathScreen.js:89-90` claims "`drop` is read by each host's
+  frame" - no host reads it (the Ledger row `:523` is right, the
   comment is wrong).
 - `src/systems/mysticism.js:53` header "OPEN AND LOCK ARE NOT WIRED" -
   they are (X1, `actionSystem.js:991-992`).
@@ -233,13 +233,13 @@ opposite of their own code and deserve a slice's attention:
 
 ## Line-citation drift (low, batched)
 
-`Port-Ledger.md:608` (save.js:34/:569/:588 → :28/:651/:682), `:619`
-(world.js:4596 → :2412); `Quest-Arc.md:719`/`:2906`
-(worldModes.js:629 → :903); `Player-Arc.md:966` (worldModes.js:929 →
+`Port-Ledger.md:620` (save.js:35/:571/:590 → :28/:653/:684), `:621`
+(world.js:4808 → :2412); `Quest-Arc.md:719`/`:2906`
+(worldModes.js:634 → :903); `Player-Arc.md:966` (worldModes.js:934 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
-(CHAR_PIXEL "7" - `renderer.js:636` ships 9, and the doc missed two
+(CHAR_PIXEL "7" - `renderer.js:644` ships 9, and the doc missed two
 later revisions recorded in `paperdollViewer.js:138`), `:2114`
-(interiorContext.js:212 → :199); `Rendering.md:157`
+(interiorContext.js:214 → :199); `Rendering.md:157`
 (CHAR_SPRITE_RT_SIZE "256" → 512).
 
 ## What checked out clean

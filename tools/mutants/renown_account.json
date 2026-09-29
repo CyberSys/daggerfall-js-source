@@ -92,8 +92,8 @@
   {
     "name": "RENOWN-ACCOUNT-the-card-sent-a-list",
     "file": "server-account/src/index.js",
-    "old": "renown: await renownTrackOf(ctx, who.player.id) },",
-    "new": "renown: [await renownTrackOf(ctx, who.player.id)] },",
+    "old": "renown: await renownTrackOf(ctx, who.player.id), marks: await marksCardOf(ctx, who.player, env) },",
+    "new": "renown: [await renownTrackOf(ctx, who.player.id)], marks: await marksCardOf(ctx, who.player, env) },",
     "tests": [
       "test/renown_account.test.js"
     ]

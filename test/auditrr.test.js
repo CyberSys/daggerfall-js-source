@@ -28,7 +28,7 @@ import { GENDERS } from '../src/characters/nameHelper.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { enemyHeavyPainVoice } from '../src/scenes/hostCombat.js';
 import { setLastLocationKeyTo, getBlockVariantHere, setBlockVariant, clearWorldDataVariants, NO_VARIANT, lastLocationKeyOf, makeLocationKey } from '../src/systems/worldDataVariants.js';
-import { rriNativeMaterialValue, rriEquipSound, customItemsForGroup, RRI_VENDOR, RRI_CLASSES } from '../src/systems/rriItems.js';
+import { rriNativeMaterialValue, rriEquipSound, rriCustomItemsForGroup, RRI_VENDOR, RRI_CLASSES } from '../src/systems/rriItems.js';
 import { ARMOR_MATERIAL } from '../src/systems/armorMaterials.js';
 import { unitWeightInKg } from '../src/systems/inventory.js';
 
@@ -238,10 +238,10 @@ test('AUDIT-RR F33/F34/F36/F37/F38/F39: the locationnew resolver is wired at ins
 
 test('AUDIT-RR (RRI) F3/F5/F6/F7/F8/F9/F10: shops stock the registered custom items; a fur piece\'s weight is its own field; random armor is named; NativeMaterialValue and GetEquipSound are the class\'s; a mod spell survives the save; ConvertOrcish walks the loot', () => {
   _resetModSettings();
-  assert.deepEqual(customItemsForGroup('Weapons'), [513, 514]);
-  assert.deepEqual(customItemsForGroup('Armor'), [515, 516, 517, 518, 519, 520, 521, 522, 523, 524, 525, 526]);
+  assert.deepEqual(rriCustomItemsForGroup('Weapons'), [513, 514]);
+  assert.deepEqual(rriCustomItemsForGroup('Armor'), [515, 516, 517, 518, 519, 520, 521, 522, 523, 524, 525, 526]);
   setModSetting(RRI_VENDOR, 'newArmor', false);
-  assert.deepEqual(customItemsForGroup('Armor'), [], 'off, none registered');
+  assert.deepEqual(rriCustomItemsForGroup('Armor'), [], 'off, none registered');
   _resetModSettings();
   // F7: a mail hauberk's NativeMaterialValue is the chain family's (its forbidden-armor bit), a classic item its own
   const hauberk = { group: 'Armor', templateIndex: 515, material: ARMOR_MATERIAL.Steel };

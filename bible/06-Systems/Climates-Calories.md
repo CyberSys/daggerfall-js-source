@@ -385,7 +385,10 @@ gains in a click-anywhere box. The outcome is rolled and applied ONCE,
 at the turn from busy to result; the search's minutes pass on the
 clock offline (the host's ticker - the survival minutes with them) and
 online the clock stands (WORLD5) so the wait alone is the cost; the
-skills the search used are tallied. The beast stands when the box
+skills the search used are tallied. (FORAGE4, 2026-09-28: the same page is Foraging's online
+wait, THE ONE CONSTRUCTION SEAM - four constructor options the hunt
+leaves at their defaults: `ask`, `escape`, `interruptWhen`, `result`;
+`bible/06-Systems/Foraging.md` 13.1.) The beast stands when the box
 CLOSES, not under it - a foe keeps its clock under a window (WINFOE1)
 and would have had the first blow free - through the overworld host's
 own encounter placement (`_standEncounterFoe` on the wilderness arm,
@@ -1295,8 +1298,8 @@ characters regardless of mode should start with supplies"* - had been read
 as every tier, Off's included, and shipped that way (SURV-KIT, `23ee51b8`).
 It is reverted whole (`4dffc8ef`), but for six line cites in the kit's
 fallback seam that had rotted before it and named moved lines (`equip.js`'s
-`startingGear.js:70`, `chargenSession.js:223` and `world.js:4556`, `startingGear.js`'s
-`equip.js:325` and `world.js:4556`, `exterior.js`'s `equip.js:324`): each
+`startingGear.js:70`, `chargenSession.js:223` and `world.js:4768`, `startingGear.js`'s
+`equip.js:325` and `world.js:4768`, `exterior.js`'s `equip.js:324`): each
 names its line again. Casual and Hard characters set out with the kit on
 every creation path there is - the wizard and `?class=` in each of the three
 hosts, and online, where the tier is the player's own - and Off's bag is

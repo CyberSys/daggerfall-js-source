@@ -18,8 +18,7 @@
 // it: the placed boat a deed stands for (GetPlacedBoatWithUID) and the cargo a packed boat carries (PackedCargoes).
 // The port's items carry none, so the mod's two are minted with one (`mintBoatItem`'s `uid`, the host's; the shelf's
 // two by `mintShelfBoatUids`) - DECLARED.
-import { registerCustomTemplates, setItemFields, mintCondition } from './itemTemplates.js';
-import { registerCustomItemGroup } from './rriItems.js';
+import { registerCustomTemplates, setItemFields, mintCondition, registerCustomItemGroup } from './itemTemplates.js';   // CSA-H: RegisterCustomItem's group, on the shelves' one table (FORAGE1's one home)
 import { modSetting, modLatchedOn } from './modSettings.js';
 import { registerModEffectKind, WATER_WALKING_SILENT_KIND } from './effects.js';
 import { HULL_NAMES, HULL_PRICES, HULL_WEIGHTS, VARIANT_NAMES } from './comeSailAwayBoat.js';

@@ -20,8 +20,8 @@
   {
     "name": "PERF-EXT1-3-a-move-keeps-the-birth-placements",
     "file": "src/render/renderer.js",
-    "old": "    // moves is judged by its sphere, which follows it below.\n    batch._place = null;\n",
-    "new": "    // moves is judged by its sphere, which follows it below.\n",
+    "old": "    batch._place = !batch._dyn && count > 1 ? placementGrid(count === centers.length ? centers : centers.slice(0, count)) : null;\n",
+    "new": "",
     "tests": [
       "test/perfexta.test.js"
     ]

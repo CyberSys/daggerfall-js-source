@@ -42,9 +42,14 @@ import { LETTER_SUBJECT_MAX, LETTER_BODY_MAX, LETTER_LINES_MAX, LETTERS_SENT_MAX
 import { MUTE_RANGE_TEXT } from './moderation.js';   // AUDIT 68 S14-mute-range-text-duplicated: the mute's bound in the refusal's sentence, from its home
 import { HOME_CAP } from './homeLaw.js';   // HOME1: the cap a refusal names
 import { DECOR_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names
+import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
+import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
+import { HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC } from './professionLaw.js';   // PROF1: the bounds its refusals name
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
+import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, AUCTION_BID_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
+import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
  *  DEFAULT_SERVER (net/online.js), because they are two Workers and
@@ -140,7 +145,7 @@ export const REFUSALS = Object.freeze({
   // MAIL1, letters. The words are the service's (server-account/src/letters.js) and the letter's law's
   // (net/letterLaw.js, which the service returns verbatim); every one says what to do next.
   'mail-needs-account': 'Letters need a username and a password. Give this account one and you can send and receive them.',
-  muted: 'You are muted, so you cannot send letters until the mute ends.',
+  muted: 'You are muted, so you cannot send letters or pin notes until the mute ends.',
   'no-reader': 'No registered player has that username.',
   'to-self': 'A letter goes to another player.',
   'inbox-full': 'Their letterbox is full. They have to throw letters away before another fits.',
@@ -188,7 +193,7 @@ export const REFUSALS = Object.freeze({
   'guild-full': `The guild already holds ${GUILD_MEMBERS_MAX} members.`,
   'no-invite': 'That invitation is no longer open.',
   'guild-master-leaves': 'Hand the guild on to another member before you leave it.',
-  'guild-treasury': 'Take the gold out of the treasury first.',
+  'guild-treasury': 'Take the gold out of the treasury first.',   // AUDIT 28 M3: the Marks go to the guildmaster with the guild
   'no-member': 'That member is no longer in the guild.',
   'bad-ranks': `Each rank needs a name of its own, 1 to ${GUILD_RANK_NAME_MAX} letters, digits, spaces, apostrophes or hyphens.`,
   'bad-gold': `Gold goes in or out 1 to ${GUILD_MOVE_MAX} at a time.`,
@@ -200,6 +205,144 @@ export const REFUSALS = Object.freeze({
   'no-gate-key': 'The account service cannot check a gate\'s receipt right now. It is kept and tried again.',
   receipt: 'That gate\'s receipt was not signed by the gate, or it has run out.',
   'not-yours': 'That gate\'s receipt names another account.',
+  // MARKS1: Marks, the server's currency (server-account/src/marks.js)
+  'marks-need-account': 'Marks are kept by registered accounts. Add a username to hold them.',
+  'marks-closed': 'The counting-houses are not striking Marks yet.',
+  'marks-rid': 'That request could not be read. Try again.',
+  'bad-marks': `Marks move 1 to ${MARKS_MOVE_MAX.toLocaleString('en-US')} at a time, and the Bank buys at most ${MARKS_BANK.perDay} a day.`,
+  'marks-short': 'You do not hold that many Marks.',
+  'marks-bank-cap': `The Bank buys at most ${MARKS_BANK.perDay} Marks from you a day.`,
+  'marks-full': `An account holds at most ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
+  'guild-marks-short': 'The treasury does not hold that many Marks.',
+  'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
+  'marks-rate': 'You have moved a great many Marks this hour. Try again later.',
+  'not-developer': 'Only a developer may do that.',   // MARKS1's report, NOTICE1's notices, CUSTOMS-PASS's grant
+  // NOTICE1: the Notice Board (server-account/src/board.js)
+  'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
+  'board-closed': 'The notice board is not open yet.',
+  'bad-board': 'That board could not be read.',
+  'board-rid': 'That request could not be read. Try again.',
+  'bad-note-days': `A note stands for ${NOTE_DAYS.join(', ').replace(/, (\d+)$/, ' or $1')} days.`,
+  'bad-note-button': 'That note cannot carry that button.',
+  'bad-notice-days': `A notice stands for 1 to ${NOTICE_DAYS_MAX} days.`,
+  'notes-full': `You have ${NOTES_LIVE_MAX} notes up already. Take one down first.`,
+  'note-no-guild': 'Your character is in no guild to recruit for.',
+  'no-note': 'That note is no longer on the board.',
+  'no-notice': 'That notice is no longer on the board.',
+  'own-note': 'That note is your own.',
+  'bad-act': 'That could not be done.',
+  'board-rate': 'You have pinned a great many notes this hour. Try again later.',
+  'board-ops-rate': 'You have done a great deal at the boards this hour. Try again later.',   // AUDIT 28 N14: a take-down's and a report's
+  // PROF1: the professions (server-account/src/professions.js)
+  'prof-need-account': 'The Stores are kept for registered accounts. Add a username to gather.',
+  'prof-closed': 'The guilds of the trades are not open yet.',
+  'prof-character': 'This character could not be named to the counting-houses.',
+  'prof-rid': 'That request could not be read. Try again.',
+  'bad-node': 'There is nothing here to gather.',
+  'prof-kind': 'There is nothing here to gather.',
+  'prof-pixel': 'The land here is known otherwise to the counting-houses.',
+  'prof-day': 'The day that gathering belonged to has ended.',
+  'prof-late': 'That gathering reached the counting-houses too late to count.',
+  'prof-night': 'You need daylight to gather effectively!',
+  'prof-rank': 'Your craft is not yet skilled enough for that.',
+  'prof-cap': `You have gathered all a day allows (${HARVESTS_PER_DAY}).`,
+  // AUDIT 29
+  'prof-account-cap': `Your account has gathered all a day allows in this craft (${HARVESTS_PER_ACCOUNT_DAY}, across your characters).`,
+  'prof-deep-cap': `Dungeons nobody has vouched for give you ${DEEP_UNCONFIRMED_PER_DAY} veins a day.`,
+  'prof-spec-stale': 'Your specialisation changed elsewhere. Look again before you choose.',
+  'prof-spec-taken': 'A specialisation was chosen there already. Look again.',
+  'stores-full': `Your Stores hold ${STORES_MAX.toLocaleString('en-US')} of that already.`,
+  'stores-short': 'Your Stores do not hold that many.',
+  'node-taken': 'You have already gathered here today.',
+  'bad-material': 'The Stores do not keep that.',
+  'bad-recipe': 'The forge knows no such work.',   // PROF2
+  'prof-no-pack-form': 'That stays at the bench until its own craft is practised.',   // PROF3: the smith's stock
+  'prof-busy': 'The anvil is still ringing from your last work.',   // PROF3: one craft at a time
+  'prof-later': 'That is made when the sieges come.',   // PROF4: the Ram Kit (PROF0 25)
+  'bad-qty': `Take 1 to ${WITHDRAW_MAX} at a time.`,
+  'bad-pixels': 'That land could not be read.',
+  'bad-region': 'That region could not be read.',
+  'no-writ': 'That writ is no longer posted.',
+  'writ-taken': 'Another has already filled that writ.',
+  'writ-expired': 'That writ has run out.',
+  'writ-cap': `You have filled ${COURT_WRITS_PER_DAY} Court writs today - the most a day allows.`,
+  'prof-spec': 'That specialisation is not one this craft offers.',
+  'prof-respec-pending': `A change of specialisation is already on its way (${RESPEC.days} days).`,
+  'prof-rate': 'You have done a great deal at your crafts this hour. Try again later.',
+  // PROF5: the market (server-account/src/market.js)
+  'market-closed': 'The market is not open yet.',
+  'bad-price': `A price is 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Marks.`,
+  'bad-units': `A number of units is 1 to ${MARKET_UNITS_MAX.toLocaleString('en-US')} at a time.`,   // AUDIT 31 L6: a listing's, an order's, a writ's, a guild Stores move's
+  'bad-provenance': 'Only a crafted piece, with its maker\'s record, lists on the market.',
+  'bad-wear': 'That piece could not be weighed for the market.',
+  'bad-listing': 'That listing could not be read.',
+  'bad-order': 'That order could not be read.',
+  'bad-delivery': 'That delivery could not be read.',
+  'market-rate': 'You have done a great deal at the market this hour. Try again later.',
+  'market-gone': 'That is no longer on the market.',
+  'market-own': 'That is your own. Cancel it from My listings instead.',
+  'market-short': 'There are not that many left.',
+  'market-no-road': 'The couriers do not know the road there yet.',
+  'market-price-moved': 'The market has moved since you looked. Look again.',
+  'market-seller-full': 'The seller cannot hold any more Marks just now.',
+  'market-listings-max': `You have ${MARKET_LISTINGS_MAX} listings up already. Cancel one first.`,
+  'market-orders-max': `You have ${MARKET_ORDERS_MAX} buy orders up already. Withdraw one first.`,
+  'market-not-yours': 'That piece is not yours to sell: its record names another owner.',
+  'market-listed': 'That piece is on the market already.',
+  'market-order-full': 'The buyer\'s Stores cannot hold that many more.',
+  'market-elsewhere': 'That order is filled at the boards of its own region.',
+  'market-other-character': 'That is on its way to another of your characters.',
+  'market-on-road': 'The courier has not arrived yet.',
+  // AUDIT 30
+  'market-not-listable': 'That is not sold on the market - arrows go in a quiver, not on a board.',
+  'market-uncollected': 'That piece is still on its way to you. Collect it first.',
+  'market-standing': 'That piece stands in a home. Take it up first.',
+  'market-unyielded': 'Nothing yields that yet, so no one could fill an order for it.',
+  'market-busy': 'The counting-house is still settling your last business.',
+  // PROF5b: the auctions
+  'auction-not-masterwork': 'Only a Masterwork is sold at auction. List it at a price instead.',
+  'auction-low': 'Another bid came first. The next bid is higher now.',
+  'auction-leading': 'Your bid already leads.',
+  'auction-bid-standing': 'A bid stands on it, so it cannot be taken back now.',
+  // AUDIT 31
+  'auction-moved': 'Another bid landed as yours was weighed. The auction has been read again - bid again if you still would.',
+  'bad-bid': `A bid is 1 to ${AUCTION_BID_MAX.toLocaleString('en-US')} Marks.`,
+  'market-no-record': 'The counting-house has no record of that piece, so it cannot be sold or handed over.',
+  'piece-kept': 'The counting-house is still settling another business with that piece. It answers that first.',
+  'other-character': 'That was begun by another of your characters. It settles when they next open the board.',
+  'piece-held': 'That piece cannot leave your pack now - take it off, or unlock it, first.',   // AUDIT 31 H8
+  // PROF6: guild writs, commissions and the guild Stores
+  'writs-closed': 'Guild writs and commissions are not open to this account.',
+  'writ-pay': 'A guild writ pays at most half again the material\'s worth a unit.',
+  'writ-budget': 'That is past the Officers\' writ budget for this week. The Guildmaster sets it on the Guild tab.',
+  'writ-gone': 'That writ is no longer posted.',
+  'writ-elsewhere': 'That writ is delivered at the boards of the region that posted it.',
+  'writ-short': 'That writ wants fewer than that now.',
+  'writ-moved': 'Another delivered first. The writ has been read again.',
+  'writ-rate': `You have done as much with writs and commissions as an hour allows (${WRIT_POSTS_MAX} posted, ${WRIT_OPS_MAX} other acts). Try again later.`,
+  'writ-busy': 'The counting-house is still settling your last writ.',
+  'guild-writs-max': `A guild may have ${GUILD_WRITS_MAX} writs posted at once.`,
+  'guild-stores-full': `The guild Stores hold at most ${GUILD_STORES_MAX.toLocaleString('en-US')} of a material.`,
+  'guild-stores-short': 'The guild Stores do not hold that many.',
+  'guild-stores': 'Empty the guild Stores first.',
+  'guild-writs': 'Withdraw the guild\'s writs first.',
+  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the Marks treasury, which is full. Take Marks out of the treasury first.',   // AUDIT 31 A15
+  'writ-own-guild': 'Your guild\'s Officers and Guildmaster take its Stores out, so they do not deliver to its writs.',   // AUDIT 31 S6
+  'guild-stores-mine': 'A member takes out only what they put in of their own. The Officers and the Guildmaster take the rest.',   // AUDIT 31 R1
+  'bad-budget': `A writ budget is 0 to ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
+  'bad-quality': 'Ask a quality from Crude to Masterwork - or none, for a piece that takes none.',
+  'bad-pay': `A commission pays 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Marks.`,
+  'commission-recipe': 'Only a piece the market lists may be commissioned - never arrows or siege works.',
+  'commission-crafter': 'There is no crafter by that name.',
+  'commission-self': 'You cannot commission yourself.',
+  'commissions-max': `You may have ${COMMISSIONS_MAX} commissions posted at once.`,
+  'commissions-crafter-max': `That crafter has ${COMMISSIONS_FOR_MAX} commissions waiting already - the most one crafter may be sent.`,
+  'commission-unyielded': 'Nothing yields what that piece is made of yet, so no one could make it.',   // AUDIT 31 L2
+  'commission-elsewhere': 'That commission is filled at the boards of its own region.',   // AUDIT 31 L6
+  'commission-not-yours': 'That commission names another crafter.',
+  'commission-piece': 'That piece is not what the commission asks.',
+  'commission-not-made': 'A commission is filled with a piece of your own make.',
+  'commission-worn': 'A commission is new work: that piece is worn.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
   maintenance: 'The account service is being looked after for a minute. Try again shortly.',   // RESTORE: the history restore's minute
@@ -224,8 +367,8 @@ export const REFUSALS = Object.freeze({
   // REALM P2.2: an act that moves a realm character's gold on its record (server-account/src/realm.js)
   'realm-needed': 'This online character must be playing in the realm to do that. Rejoin and try again.',
   'realm-gold': 'The realm holds less gold for this character than that costs.',
-  // CUSTOMS-PASS: the developer's route (server-account/src/realm.js grantCustomsPass), said by tools/customsPass.mjs
-  'not-developer': 'Only a developer can grant a customs pass.',
+  // CUSTOMS-PASS: the developer's route (server-account/src/realm.js grantCustomsPass), said by tools/customsPass.mjs - its
+  // `not-developer` is MARKS1's one word above (MERGE 2: both sides wrote it; the one refusal says both routes)
   ambiguous: 'More than one account goes by that name - name the account by its id instead.',
 });
 
@@ -674,8 +817,7 @@ export const DECOR_LIST_WAIT_MS = 10_000;
  */
 export function accountDecor({ fetch, storage, listWaitMs = DECOR_LIST_WAIT_MS }) {
   const post = sessionPost({ fetch, storage });
-  const wait = () => (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(listWaitMs) : undefined);
-  const waited = sessionPost({ fetch: (url, init) => fetch(url, { ...init, signal: wait() }), storage });
+  const waited = waitedPost({ fetch, storage }, listWaitMs);
   return {
     list: (mapId, buildingKey) => waited('/v1/homes/decor', { mapId, buildingKey }),
     place: ({ mapId, buildingKey, character, piece, realm = null }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, ...(realm ? { realm } : {}) }),   // REALM P2.2b: and its gold on the record
@@ -706,6 +848,120 @@ export function accountGuilds({ fetch, storage }) {
     withdraw: (character, gold, realm = null) => post('/v1/guilds/withdraw', { character, gold, ...(realm ? { realm } : {}) }),
     handOver: (character, member) => post('/v1/guilds/handover', { character, member }),
     disband: (character) => post('/v1/guilds/disband', { character }),
+  };
+}
+
+/** AUDIT 28 M6 / N6: how long one Marks or Notice Board request is waited for before it is given up as `offline` - a
+ *  line that stayed open with nothing coming back held the Bank's counting box (and a board's read) until the browser
+ *  gave up, minutes a try. Given up, the act is asked again with the SAME request id, or kept. */
+export const ACCOUNT_ACT_WAIT_MS = 15_000;
+/** A session POST that gives up after `ms` (AbortSignal.timeout - an abort is `call`'s `offline`). */
+function waitedPost({ fetch, storage }, ms) {
+  const wait = () => (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(ms) : undefined);
+  return sessionPost({ fetch: (url, init) => fetch(url, { ...init, signal: wait() }), storage });
+}
+
+/**
+ * MARKS1: MARKS (server-account/src/marks.js) through the one door - the balance, the Bank's exchange (Marks for gold,
+ * never the other way), a guild's Marks treasury and the developers' report. Every act carries its own request id, so an
+ * answer lost and asked again is answered again, never charged twice. Every answer is `call`'s shape; each is waited
+ * for ACCOUNT_ACT_WAIT_MS at most. `account()` is the account this device is signed in as (AUDIT 28 M2: a kept sale is
+ * asked again only under the account that made it).
+ */
+export function accountMarks({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);
+  return {
+    account: () => storedSession(storage)?.id ?? null,
+    balance: () => post('/v1/marks/balance', {}),
+    exchange: (marks, rid) => post('/v1/marks/exchange', { marks, rid }),
+    guildDeposit: (character, marks, rid) => post('/v1/marks/guild/deposit', { character, marks, rid }),
+    guildWithdraw: (character, marks, rid) => post('/v1/marks/guild/withdraw', { character, marks, rid }),
+    report: () => post('/v1/marks/report', {}),
+  };
+}
+
+/**
+ * NOTICE1: THE NOTICE BOARD (server-account/src/board.js) through the one door - a town's board read, a note pinned
+ * (with its own request id, so a pin asked again is the note it made), taken down and reported; a moderator's remove
+ * and restore; a developer's notice. Every answer is `call`'s shape.
+ */
+export function accountBoard({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);   // AUDIT 28 N6: a read or a pin that hangs is given up, never wedged
+  return {
+    read: (map) => post('/v1/board/read', { map }),
+    pin: ({ map, subject, body, days, button = null, character = null }, rid) => post('/v1/board/pin', { map, subject, body, days, button, character, rid }),
+    takeDown: (id) => post('/v1/board/take-down', { id }),
+    report: (id) => post('/v1/board/report', { id }),
+    modRemove: (id) => post('/v1/board/mod/remove', { id }),
+    modRestore: (id) => post('/v1/board/mod/restore', { id }),
+    notice: ({ subject, body, days }, rid) => post('/v1/board/notice', { subject, body, days, rid }),
+    noticeRemove: (id) => post('/v1/board/notice/remove', { id }),
+  };
+}
+
+/**
+ * PROF1: THE PROFESSIONS (server-account/src/professions.js) through the one door - a character's state, its streamed
+ * pixels' states, a harvest, a specialisation, a withdrawal to the pack, a region's Court writs and a delivery. Every
+ * act carries its own request id, so an answer lost and asked again is answered again, never credited twice. Every
+ * answer is `call`'s shape; each is waited for ACCOUNT_ACT_WAIT_MS at most. `account()` - the account this device is
+ * signed in as (a kept act is asked again only under the account that made it).
+ */
+export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);   // every ask given up after the wait, never wedged (AUDIT 28 M6's law)
+  return {
+    account: () => storedSession(storage)?.id ?? null,
+    state: (character) => post('/v1/prof/state', { character }),
+    pixels: (character, pixels, dungeons = []) => post('/v1/prof/pixels', { character, pixels, dungeons }),   // PROF2: the dungeon stood in
+    harvest: (req) => post('/v1/prof/harvest', req),
+    spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
+    withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
+    smelt: (character, recipe, count, rid) => post('/v1/prof/smelt', { character, recipe, count, rid }),   // PROF2: the forge
+    craft: (character, recipe, clean, name, rid, heartwood = false) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood }),   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank
+    stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
+    writs: (character, region) => post('/v1/writs/list', { character, region }),
+    deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),
+  };
+}
+
+/** PROF5: the market's door (server-account/src/market.js) - the Market tab's views and every act, each with the
+ *  board's region and the hubs this client derived (the courier's road, witnessed - PROF0 26). */
+export function accountMarket({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);
+  return {
+    account: () => storedSession(storage)?.id ?? null,
+    read: (req) => post('/v1/market/read', req),
+    list: (req) => post('/v1/market/list', req),
+    buy: (req) => post('/v1/market/buy', req),
+    cancel: (character, listing, rid) => post('/v1/market/cancel', { character, listing, rid }),
+    order: (req) => post('/v1/market/order', req),
+    fill: (req) => post('/v1/market/fill', req),
+    unorder: (order, rid) => post('/v1/market/unorder', { order, rid }),
+    collect: (character, delivery, rid) => post('/v1/market/collect', { character, delivery, rid }),
+    report: (listing) => post('/v1/market/report', { listing }),
+    remove: (listing) => post('/v1/market/remove', { listing }),
+    // PROF5b: an auction posted (a Masterwork at its opening bid), and a bid on one
+    auction: (req) => post('/v1/market/auction', req),
+    bid: (req) => post('/v1/market/bid', req),
+  };
+}
+
+/** PROF6: the writs' door beside the Court's (server-account/src/writs.js) - a guild writ posted, supplied, withdrawn,
+ *  the Officers' budget; a commission posted, fulfilled, cancelled, declined; the guild Stores read and moved. */
+export function accountWrits({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);
+  return {
+    account: () => storedSession(storage)?.id ?? null,
+    post: (req) => post('/v1/writs/post', req),
+    supply: (req) => post('/v1/writs/supply', req),
+    withdraw: (req) => post('/v1/writs/withdraw', req),
+    budget: (req) => post('/v1/writs/budget', req),
+    commission: (req) => post('/v1/writs/commission', req),
+    fulfil: (req) => post('/v1/writs/fulfil', req),
+    cancel: (commission, rid) => post('/v1/writs/cancel', { commission, rid }),
+    decline: (commission, rid) => post('/v1/writs/decline', { commission, rid }),
+    stores: (character) => post('/v1/stores/guild', { character }),
+    deposit: (req) => post('/v1/stores/guild-deposit', req),
+    withdrawStores: (req) => post('/v1/stores/guild-withdraw', req),
   };
 }
 

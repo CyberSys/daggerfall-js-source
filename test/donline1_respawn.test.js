@@ -100,7 +100,8 @@ test('D-ONLINE1 by source: the world host snapshots "was this death online" at t
   assert.ok(healAt < fn.indexOf('modes?.forceExitToExterior()'), 'MAC-D3: healed BEFORE the death screen is torn down (the CALL, not this file\u2019s prose about it)');
   assert.ok(healAt < fn.indexOf('await _teleportToPixel'), 'MAC-D3: ...and before anything is awaited - a dead player must not survive a single frame of the flight');
   assert.match(fn, /reviveForPlay\(playerEntity, \{ force: true \}\);\s*\n\s*surfacePlayer\(\);/, 'surfaced with it');
-  assert.match(fn, /townTalk\.showOverlay\(new ActionTextBox\(\[respawnFlavorText\(kind\)\]\)\);/, 'and the line stands where the death screen did');
+  // DEATH-PENALTY: the line may carry what the fall cost beside it (systems/deathPenalty.js deathPenaltyText)
+  assert.match(fn, /townTalk\.showOverlay\(new ActionTextBox\(\[respawnFlavorText\(kind\)(?:, deathPenaltyText\(goldLost\)\]\.filter\(Boolean\)|\])\)\);/, 'and the line stands where the death screen did');
   // ...and one respawn at a time, or a death raised mid-flight starts
   // another teleport racing the first
   assert.match(fn, /if \(_respawning\) return;/, 'MAC-D3: re-entry is refused');
@@ -108,8 +109,8 @@ test('D-ONLINE1 by source: the world host snapshots "was this death online" at t
   assert.match(fn, /\.finally\(\(\) => \{ _respawning = false; \}\);/, '...and the latch is always released, even when the teleport throws');
   assert.match(read('src/scenes/worldModes.js'), /interiorOverlay = new DeathScreen\(\{ eyeHeight: player\.eye\[1\] - player\.pos\[1\], capsuleHeight: player\.height, onReset: \(\) => \{ if \(!host\.onlineRespawn\?\.\(\)\) endRunToTitleMenu\(renderer\); \} \}\);/, 'a building\'s death asks the host, and ends the run when it says no');
   assert.match(read('src/scenes/worldModes.js'), /return host\.onlineRespawn\?\.\(\) \?\? false;\s*\n\s*\},/, 'the dungeon context is handed the same door, falling through to it once PH1\'s in-place Privateer\'s Hold respawn declines');
-  assert.match(read('src/scenes/dungeonContext.js'), /activeOverlay = new DeathScreen\(\{ eyeHeight: _ms\?\.eyeLevel, capsuleHeight: _ms\?\.capsule, onReset: \(\) => \{ if \(!opts\.onlineRespawn\?\.\(\)\) endRunToTitleMenu\(renderer\); \} \}\);/, 'and asks it');
-  assert.match(read('src/scenes/exterior.js'), /new DeathScreen\(\{[^\n]*onReset: \(\) => endRunToTitleMenu\(renderer\), hint: 'ENTER end' \}\)/, 'the fixed city has no online and keeps the bare form');
+  assert.match(read('src/scenes/dungeonContext.js'), /activeOverlay = new DeathScreen\(\{ eyeHeight: _ms\?\.eyeLevel, capsuleHeight: _ms\?\.capsule, onReset: \(\) => \{ if \(!opts\.onlineRespawn\?\.\(\)\) endRunToTitleMenu\(renderer\); \}, \.\.\.\(opts\.onlineRespawn \? \{\} : \{ online: false \}\) \}\);/, 'and asks it (AUDIT 28 B5: standing alone, it says it never respawns online)');
+  assert.match(read('src/scenes/exterior.js'), /new DeathScreen\(\{[^\n]*onReset: \(\) => endRunToTitleMenu\(renderer\), hint: 'ENTER end', online: false \}\)/, 'the fixed city has no online and keeps the bare form - and says so (AUDIT 28 B5)');
 });
 
 // ── MAC-D3 (Seanobi on Discord, 2026-09-21: "stuck in an infinite

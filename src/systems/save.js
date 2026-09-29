@@ -28,6 +28,7 @@ import { seedBundleSeq, effectKindLoaded } from './effects.js';   // X10: the li
 import { repairLostCurses } from './curseRepair.js';   // CURSE-REPAIR1: a curse the round clock pruned, given back
 import { repairUnmintedConditions } from './conditionRepair.js';   // DISC21-A: a wearable minted with no condition, minted
 import { restackStones } from './gateSpoils.js';   // SS1: Sigil Stones saved before they stacked, folded into one stack
+import './profTemplates.js';   // PROF2: the ores, ingots and stone a pack may hold, known to every scene a save loads in
 import { repairRarityNames } from './lootRarity.js';   // DISC29-B: a Magic or Rare Roleplay & Realism: Items piece given back its make's word
 import { SOCIAL_GROUPS } from '../formats/factionFile.js';   // AUDIT 24
 import { travelMapSaveData, restoreTravelMapSaveData } from './travelMapState.js';   // U41: TravelMapSaveData
@@ -115,6 +116,7 @@ const ENTITY_FIELDS = [
   // it a backward load left a FUTURE marker that froze all skill-raise
   // checks until the clock re-passed it.
   'lastSkillCheckTime',
+  'foragingWait',   // FORAGE4: an online Foraging wait's { seconds, label } left - a relog reopens the page with them (scenes/foragingWait.js); null or absent: none
   // AUDIT 26 F219/F100: the coven's daedra-of-the-day. DFU persists
   // DaedraSummonDay and DaedraSummonIndex one for one
   // (SerializablePlayer.cs:164-165, restored :332-333);

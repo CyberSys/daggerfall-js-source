@@ -423,6 +423,19 @@ const mustValidate = (accounts, regionIndex) => {
   }
 };
 
+/** MARKS1 (PROF0 10.5): what the Bank of the Empire pays for Marks sold at its counter, into THIS region's account - as a
+ *  deed's sale is paid (sellHouse above), so a purse's weight never refuses it. Answers the account's new total. */
+export function creditMarksSale(accounts, regionIndex, gold) {
+  mustValidate(accounts, regionIndex);
+  if (!Number.isSafeInteger(gold) || gold <= 0) return accounts[regionIndex].accountGold;
+  accounts[regionIndex].accountGold += gold;
+  return accounts[regionIndex].accountGold;
+}
+
+/** MARKS1 / AUDIT 28 M12: the Bank's credit as the Marks book calls it - `(gold, region)`, into the region the sale was
+ *  MADE at when the book names one (a kept sale settled at another bank), else this bank's (`here()`). */
+export const marksSaleCredit = (accounts, here) => (gold, region = null) => creditMarksSale(accounts(), Number.isSafeInteger(region) ? region : here(), gold);
+
 export function accountTotal(accounts, regionIndex) {
   mustValidate(accounts, regionIndex);
   return accounts[regionIndex].accountGold;
@@ -887,9 +900,9 @@ export function bankingStatusRows(accounts, { regionName = () => '', dueText = n
 //    the permanent-scene set, so housesForSale, allocateHouseToPlayer
 //    and sellHouse above are live; H2/H4 brought the BUY UI itself -
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
-//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3016
+//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3033
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
-//    3D model panel, and ui/bankWindow.js:268-281 routes BUY HOUSE's
+//    3D model panel, and ui/bankWindow.js:291-304 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to
 //    DFU's own missing-directory answer, :433-434).
 //  - ReadNativeBankData (:584-614) IS PORTED, verbatim quirks and all:

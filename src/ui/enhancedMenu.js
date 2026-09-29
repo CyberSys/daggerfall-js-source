@@ -139,6 +139,7 @@ import { drawPixelGround } from './pixelGround.js';
 // Both are plain modules with no game data; the boot door never
 // renders the tab, so the front door still reads no game state.
 import { sheetModel } from './enhancedCharSheet.js';
+import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages } from './profPages.js';   // PROF1: the Professions and Stores pages, online
 import { affiliations } from '../systems/affiliations.js';   // GUILD-REP: the sheet's Affiliations box, on the Standing page
 import { enhancedHudScale as hudScaleNow, HUD_SCALE_MIN, HUD_SCALE_MAX } from './enhancedHud.js';   // PX30c
 import { playerEntity } from '../characters/playerEntity.js';
@@ -184,6 +185,7 @@ import { loadFace } from './facePortrait.js';
 import { profileBadge, portraitSave, liveCharacter } from './profileBadge.js';   // PROFILE1: the mark is the last character's portrait   // TILE1: the character's face, the one home chargen also reads
 import { cloudIo, cloudList, pushSlot, pullSlot, removeCloudSlot, cloudOnly, slotKeyOf, cloudRefusalText } from '../systems/cloudSaves.js';   // ACC2: the backup a tile can offer, AUDIT-312 F1's delete, and ACC2c's download of a save that is only up there
 import { serviceBase, storedSession } from '../net/accountClient.js';
+import { isBountyQuestId, abandonBountyQuest, shareBountyQuest, bountyQuestShareable } from '../systems/bountyJournal.js';   // BOUNTY1: a bounty in the journal - its Abandon and its Share
 import { liveBundles, canEndBundle, endBundle } from '../systems/mysticism.js';   // BUFF-END: the Stats page's Effects - the ONE bundle walk, and which the player may end
 import { maxRoundsRemaining } from './hudActiveSpells.js';   // BUFF-END: a bundle's rounds, as the HUD reads them
 
@@ -282,6 +284,7 @@ let groundTimer = null;     // PX1b: the home sky's 8fps clock - cleared by ever
 let questTimer = null;      // QT-LIVE1: the journal's once-a-second timer redraw - the same two owners
 let pauseTab = 'system';    // PX3: which tab the pause window shows - System lands on Resume/Save
 let questSel = null;        // PX4: the journal's selected row - 'a:<uid>' | 'f:<index>' | null = first active
+let bountyAbandonArmed = null;   // BOUNTY1: the bounty whose Abandon was pressed once - the second press gives it up
 let statsSec = 'character'; // PX6: the Stats page's rail - character | attributes | skills | standing
 let statsAllSkills = false; // PX6: the Miscellaneous disclosure, the sheet's own gesture
 let sysSec = 'save';        // PX7: the System page's rail - which pane fills the detail
@@ -3492,11 +3495,16 @@ function meterRow(label, now, max, tone) {
   return r;
 }
 
+/** PROF1: the rail's pages - the sheet's six, and online, while the professions are this account's, the Professions
+ *  and Stores pages (ui/profPages.js). */
+const statsSections = () => (profPagesShown() ? [...STATS_SECTIONS, ...PROF_PAGE_SECTIONS] : STATS_SECTIONS);
+
 function pauseStats(body) {
   const m = sheetModel(playerEntity);
   const wrap = el('div', 'px-journal');
   const rail = el('div', 'px-qrail');
-  for (const [id, label] of STATS_SECTIONS) {
+  if (!statsSections().some(([id]) => id === statsSec)) statsSec = 'character';   // a page gone (the switch, offline) is never drawn
+  for (const [id, label] of statsSections()) {
     const b = el('button', `px-qrow${id === statsSec ? ' on' : ''}`);
     b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label));
     b.onclick = () => { statsSec = id; render(); };
@@ -3508,7 +3516,11 @@ function pauseStats(body) {
   // pauseSystem) carries. The kit's button role (enhancedFrame.js FRAME_ROLES) reads `.px-sys .act`,
   // so without it these four fell through to the bare, unpainted base .act under Plus.
   const detail = el('div', 'px-qdetail px-sys');   // DROPS-AUDIT F3: the system-page dress (Plus's; PLUS-DEAD: the only one)
-  ({ character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects })[statsSec](detail, m);
+  const profKit = { el, divider: pxDivider, meter: pxMeter };
+  ({
+    character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects,
+    professions: (d) => drawProfessionsPage(d, render, profKit), stores: (d) => drawStoresPage(d, render, profKit),
+  })[statsSec](detail, m);
   // PX25: THE DOORS THE F5 SHEET CARRIED. The classic character sheet
   // has four buttons down its side - Inventory, Spellbook, Logbook,
   // History - and the enhanced F5 overlay copied them. This page shows
@@ -3896,6 +3908,28 @@ function pauseQuests(body) {
       }
       if (meta.childNodes.length) detail.append(meta);   // PX22: an empty meta line is a gap the eye reads as a mistake
     }
+    // BOUNTY1 (Mac: "i also dont see the bounty in my questlog means i cant abandon it?"): a bounty's two presses - Abandon
+    // (twice: the first arms it, so a stray click gives nothing up) and, in a party, Share
+    if (sel.entries && isBountyQuestId(sel.id)) {
+      const acts = el('div', 'px-qacts');
+      acts.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin:6px 0 8px';
+      if (bountyQuestShareable(sel.id)) {
+        const sh = el('button', 'act', 'Share with party');
+        sh.onclick = () => { shareBountyQuest(sel.id); render(); };
+        acts.append(sh);
+      }
+      const armed = bountyAbandonArmed === sel.id;
+      const ab = el('button', 'act', armed ? 'Click again to abandon' : 'Abandon bounty');
+      ab.onclick = () => {
+        if (bountyAbandonArmed !== sel.id) { bountyAbandonArmed = sel.id; render(); return; }
+        bountyAbandonArmed = null;
+        abandonBountyQuest(sel.id);
+        questSel = null;
+        render();
+      };
+      acts.append(ab);
+      detail.append(acts);
+    }
     if (sel.entries) {
       // Active: the LATEST entry is the state of the quest; the trail
       // beneath it, newest first.
@@ -4252,7 +4286,9 @@ export function mountEnhancedMenu(host, {
   // whole settings screen, Controls among its categories), not on the home face a press away from it.
   else if (at && sections.some((l) => idOf(l) === at)) section = at;
   questSel = null;
+  bountyAbandonArmed = null;   // AUDIT 28 B11: an armed Abandon never outlives the visit it was armed on
   statsSec = 'character';
+  resetProfPages();   // PROF1: an armed change of specialisation never outlives the visit
   statsAllSkills = false;
   sysSec = 'save';
   category = CATEGORIES[0].id;
@@ -4261,6 +4297,9 @@ export function mountEnhancedMenu(host, {
   confirming = null;
   featureQuery = '';   // FT18: a fresh visit searches nothing
   discardControlsStaging();   // FIX-F: a second visit never inherits the first one's staged binds
+  // PROF2: a landing on a professions page - the Stats tab at it (a home forge's press opens the Stores' forge); the
+  // draw falls back to the character's own page when the professions are not the account's
+  if (PROF_PAGE_SECTIONS.some(([id]) => id === at)) { pauseTab = 'stats'; statsSec = at; }
   _eff = null;
   render();
   keyHandler = onKey;

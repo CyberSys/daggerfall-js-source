@@ -518,6 +518,7 @@ export class QuestMachine {
       getGoldPieces: () => this.deps.getGoldPieces?.() ?? 0,
       deductGoldPieces: (n) => this.deps.deductGoldPieces?.(n),
       raiseTime: (seconds) => this.deps.raiseTime?.(seconds),
+      waitOnline: (seconds, quest) => this.deps.waitOnline?.(seconds, quest),   // FORAGE4: QAE's raise time, online - the host's wait
       spawnCityGuards: (immediate) => this.deps.spawnCityGuards?.(immediate),
       makeEnemiesHostile: () => this.deps.makeEnemiesHostile?.(),
       clearEnemies: () => this.deps.clearEnemies?.(),
@@ -1538,7 +1539,7 @@ export class QuestMachine {
    *  faction ("This effectively shuts down several named NPCs during
    *  main quest") - and TalkManager.cs does not contain the word
    *  Listener at all. The port already ships that reader, at
-   *  src/scenes/worldModes.js:2933. A pending marker over shipped work
+   *  src/scenes/worldModes.js:2950. A pending marker over shipped work
    *  is worse than no marker: it sends the next reader looking for
    *  work that is done, in a file that never had it. */
   addFactionListener(factionID, owner) {

@@ -291,7 +291,7 @@ test('REALM P0.4: online a pile\'s gold is divided back by the level, every key,
   for (const f of ['src/scenes/dungeonContext.js', 'src/scenes/interiorContext.js', 'src/scenes/world.js']) {
     const calls = [...src(f).matchAll(/addPileLootExtras\(([^\n]*)/g)].map((m) => m[1]);
     assert.ok(calls.length >= 1, `${f} mints a pile`);
-    for (const c of calls) assert.match(c, /\{ level(: playerEntity\.level)?(, where: '[a-z]+')? \}\)/, `${f}: ${c}`);   // THE MERGE: main's AUDIT OH-F B3 names the dungeon's own pile (`where`)
+    for (const c of calls) assert.match(c, /\{ (locationIndex: [^,]+, luck(: liveStat\(playerEntity, 'luck'\))?, )?level(: playerEntity\.level)?(, where: '[a-z]+')? \}\)/, `${f}: ${c}`);   // THE MERGE: main's AUDIT OH-F B3 names the dungeon's own pile (`where`); MERGE 2: FORAGE3's index and luck before the level
   }
 });
 

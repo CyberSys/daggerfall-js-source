@@ -80,20 +80,31 @@ export function registerCommand(name, a, b, c) {
   database.set(key, {
     key: existing ? existing.key : name,
     command: makeConsoleCommand(name, description, usage, callback),
+    present: existing?.present ?? null,
   });
 }
+
+/** AUDIT 28 F7: A MOD'S COMMAND IS THERE ONLY WHILE THE MOD IS. DFU registers a mod's commands when the mod loads, so
+ *  a mod switched off has none - no HELP line, no HasCommand, and "Command X not found." to its name. The port installs
+ *  its mods once and switches them live, so the registration stays and `present` answers whether it is there now. */
+export function gateConsoleCommand(name, present) {
+  const e = database.get(String(name).toLowerCase());
+  if (e) e.present = typeof present === 'function' ? present : null;
+}
+const isPresent = (e) => !!e && (e.present == null || !!e.present());
 
 /** `commands` (:14-17): every command in alphabetical order. C#'s
  *  OrderBy is over the dictionary KEY, which is the name as first
  *  registered. */
 export function consoleCommands() {
   return [...database.values()]
+    .filter(isPresent)
     .sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0))
     .map((e) => e.command);
 }
 
 /** HasCommand (:70-73). */
-export const hasConsoleCommand = (name) => database.has(String(name).toLowerCase());
+export const hasConsoleCommand = (name) => isPresent(database.get(String(name).toLowerCase()));
 
 /** GetCommand (:57-68): the miss UPPERCASES the name before it builds
  *  the message, and the exception carries that uppercased name. */

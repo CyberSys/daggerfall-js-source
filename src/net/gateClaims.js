@@ -62,11 +62,11 @@ export function gateRecordText(rec) {
  *   claim: (receipt: string) => Promise<any>,
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void }|null,
  *   nowS?: () => (number|null), nowMs?: () => number, say?: (text: string) => void, onClosed?: (closed: number) => void,
- *   me?: () => (string|null),
+ *   me?: () => (string|null), onMarks?: (marks: any) => (string|null),
  * }} deps `claim` is net/accountClient.js accountGates' - `{ ok, data }` or `{ ok: false, error, why? }`, never a
  *   throw; `me` the signed-in account's id (accountGates' `me`), null for none
  */
-export function createGateClaims({ claim, store = null, nowS = () => Math.floor(Date.now() / 1000), nowMs = () => Date.now(), say = () => {}, onClosed = () => {}, me = () => null }) {
+export function createGateClaims({ claim, store = null, nowS = () => Math.floor(Date.now() / 1000), nowMs = () => Date.now(), say = () => {}, onClosed = () => {}, me = () => null, onMarks = () => null }) {
   /** an offer under way; a receipt that came in during it (offered as soon as it ends); the last offer's time */
   let busy = false, again = false, lastAt = -Infinity;
   /** AUDIT WB A9: the account the last frame saw signed in (undefined before the first); AUDIT WBX W4: when it was asked */
@@ -100,6 +100,10 @@ export function createGateClaims({ claim, store = null, nowS = () => Math.floor(
           recorded++;
           const n = Number.isSafeInteger(answer.data.closed) ? answer.data.closed : null;
           if (n != null) { onClosed(n); say(GATE_CLAIM_TEXT.recorded(n)); }
+          // MARKS1: and the gate's Marks, struck by the service as it counted the gate (marks.js strikeGateMarks) - the
+          // host's line for them, or none (a service from before it, Marks not this account's)
+          const marksLine = answer.data.marks ? onMarks(answer.data.marks) : null;
+          if (typeof marksLine === 'string' && marksLine) say(marksLine);
         } else if (answer?.ok && answer.data?.why === 'guest' && !guestSaid.has(r)) {
           guestSaid.add(r);
           say(GATE_CLAIM_TEXT.guest);
