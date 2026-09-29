@@ -698,17 +698,33 @@ export const ONLINE_SALE_SHARE = 0.5;
  *  actually decreases" - 3499 gold at Mercantile 60, 2888 at 90, Personality 100): THE HALF IS OF THE LEAST THE
  *  COUNTER ASKS. P0.4 took half of the SELLER's own ask, and a seller's ask falls as their Mercantile and Personality
  *  rise - so the cap, which binds for nearly every seller online, fell with them (2888/3499 is 0.825, the two asks'
- *  own ratio). Half of what the counter asks the best haggler there is - 100 in each, DFU's maximum, or the seller's own
- *  where a spell or a curse lifts it higher - is still at most half of what it asks anyone, so buying back never pays
- *  (P0.4's law, whole), and it is a number of the counter and the piece: no skill lowers a sale. Under it DFU's haggle
- *  stands, and raises the sale with the seller's skills up to it. */
-export const ONLINE_SALE_REFERENCE_SKILL = 100;
+ *  own ratio). Half of what the counter asks the best haggler there is - ONLINE_HAGGLE_MAX in each - is still at most
+ *  half of what it asks anyone, so buying back never pays (P0.4's law, whole), and it is a number of the counter and
+ *  the piece: no skill lowers a sale. Under it DFU's haggle stands, and raises the sale with the seller's skills up to it.
+ *
+ *  MERC-CAP (FIELD BUGS 2026-09-29f, ValenValarys again, at 346 Mercantile: "Having to pay gold just to sell items feels
+ *  a bit too punishing!"): ONLINE THE HAGGLE READS A SKILL IN ITS OWN RANGE, 0 TO 100. CalculateTradePrice turns a
+ *  Mercantile or a Personality of 0..100 into a factor of 128..256 in 256 (FormulaHelper.cs:1992-2000), and DFU never
+ *  bounds the Mercantile it reads (DaggerfallSkills.cs:140: "TODO: Any other clamping or processing"), so the Enhances
+ *  Skill pieces and affixes that stack it past 100 ran the buying factor under 128, through 0 at 200 and below it: the
+ *  ask is nothing by 233 (Personality 100) and less after. MERC-RISE's half followed the seller's own ask past 100
+ *  to keep P0.4 whole, so there a sale fell with the skill and then went under nothing - at the field's counter a
+ *  seller at 346 paid 2311 gold to hand the lot over - and every purchase fell with it: the counter's gold a piece
+ *  (FB0929), a room free by 200 and paying its renter from 234, a cure, a spell. Online the haggle reads 100 past 100
+ *  and 0 under 0, so the least the counter asks anyone is the best haggler's ask, a sale never falls with a skill or
+ *  goes under nothing, and no price is under the best haggler's. Inside the range nothing moves; offline, DFU's reads
+ *  stand. */
+export const ONLINE_HAGGLE_MAX = 100;
 
-/** FormulaHelper.CalculateTradePrice, verbatim - the classic
+/** FormulaHelper.CalculateTradePrice, verbatim offline - the classic
  *  fixed-point haggle over the merchant's quality-derived levels vs
  *  the player's Mercantile + Personality. selling=false is the BUY
  *  price of a shelf item (applied over CalculateCost's cost). */
 export function calculateTradePrice(cost, shopQuality, { mercantile = 0, personality = 50 } = {}, selling = false, { online = isOnlinePage() } = {}) {
+  if (online) {   // MERC-CAP: the haggle's own range
+    mercantile = Math.min(Math.max(mercantile, 0), ONLINE_HAGGLE_MAX);
+    personality = Math.min(Math.max(personality, 0), ONLINE_HAGGLE_MAX);
+  }
   const merchantLevel = 5 * (shopQuality - 10) + 50;   // mercantile and personality alike
   let dm, dp;
   if (selling) {
@@ -716,10 +732,7 @@ export function calculateTradePrice(cost, shopQuality, { mercantile = 0, persona
     dp = ((Math.trunc(((100 - merchantLevel) << 8) / 200) + 128) * (Math.trunc((personality << 8) / 200) + 128)) >> 8;
     const sale = ((((179 * dm) >> 8) + ((51 * dp) >> 8)) * cost) >> 8;
     if (!online) return sale;
-    const best = {   // MERC-RISE: the best haggler this counter can meet
-      mercantile: Math.max(ONLINE_SALE_REFERENCE_SKILL, mercantile),
-      personality: Math.max(ONLINE_SALE_REFERENCE_SKILL, personality),
-    };
+    const best = { mercantile: ONLINE_HAGGLE_MAX, personality: ONLINE_HAGGLE_MAX };   // MERC-RISE: the best haggler this counter can meet
     return Math.min(sale, Math.floor(calculateTradePrice(cost, shopQuality, best, false) * ONLINE_SALE_SHARE));   // REALM P0.4; MERC-RISE: half the least it asks
   }
   dm = ((Math.trunc((merchantLevel << 8) / 200) + 128) * (Math.trunc(((100 - mercantile) << 8) / 200) + 128)) >> 8;
