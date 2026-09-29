@@ -91,6 +91,7 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-chip.fire { border-color: #e0584a #5a130f #3d0d0a #b83a2e; color: #ffd9a8; }
 .dfnaval-chip.brace { border-color: ${T.brassHi} ${T.brassLo} #5c3f1a ${T.brass}; color: ${T.brassHi}; }
 .dfnaval-chip.wreck { border-color: #e0584a #5a130f #3d0d0a #b83a2e; color: #ffc4bb; }
+.dfnaval-chip.mend { border-color: #9fd6a8 #2f6b3b #1f4a28 #5fa36c; color: #cdf0d2; }
 .dfnaval-rose { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto auto auto; gap: 4px; margin: 8px 6px 2px; align-items: stretch; }
 .dfnaval-gun { position: relative; overflow: hidden; padding: 3px 4px 4px; min-height: 30px; text-align: center; background: ${T.groundButton};
   border: 2px solid; border-color: ${T.stoneLit} ${T.stoneDim} ${T.stoneDark} ${T.stoneMid}; box-shadow: 0 0 0 1px #050608; }
@@ -204,10 +205,11 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
   const plate = ship ? {
     name: ship.name, waters: `${model.notoriety.crown} waters`, anchors: model.notoriety.level,
     hull: pct(ship.hull), sail: ship.sail == null ? null : pct(ship.sail), crew: ship.crew == null ? null : pct(ship.crew),
-    chips: [ship.wrecked ? 'wreck' : null, ship.fire ? 'fire' : null, ship.braced ? 'brace' : null].filter(Boolean),
+    chips: [ship.wrecked ? 'wreck' : null, ship.fire ? 'fire' : null, ship.braced ? 'brace' : null, ship.mending ? 'mend' : null].filter(Boolean),
     batteries,
     // the press that matters most, first: a ship in reach to board or plunder, then the guns
-    hint: model.board ? `${boardKey}: ${model.board.kind === 'hold' ? `open ${model.board.name}'s hold` : `board ${model.board.name}`}`
+    hint: model.board ? `${boardKey}: ${model.board.kind === 'hold' ? `open ${model.board.name}'s hold` : model.board.kind === 'yard' ? model.board.name : `board ${model.board.name}`}`
+      : ship.wrecked ? 'Crippled - make port for a shipwright'   // AUDIT NAV1: the way out of a wreck, said
       : !model.armed ? 'No guns aboard' : model.aiming ? `${touch ? 'Lift' : 'Let go'} to fire - ${bracePress}`
       : `${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${bracePress}`,
     brace: touch && !!model.armed,
@@ -221,7 +223,7 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
   } : null;
   return { plate, aim, card, warn, tally };
 }
-const CHIP_WORDS = Object.freeze({ wreck: 'Crippled', fire: 'On fire', brace: 'Braced' });
+const CHIP_WORDS = Object.freeze({ wreck: 'Crippled', fire: 'On fire', brace: 'Braced', mend: 'Mending' });
 
 let root = null, parts = null;
 let shown = {};

@@ -317,7 +317,7 @@ test('NAV-H the save: each boat of mine by its deed\'s UID (its hurts and barrel
   assert.deepEqual(d.boats[42], { hull: 100, sail: 50, crew: 10, fire: 0, state: 'afloat', barrels: 1 });
   assert.deepEqual(d.notoriety, { Wayrest: 40 });
   assert.deepEqual(d.raids, [777]);
-  assert.equal(h.host.hudModel().ship.hull, 100 / hullBuild(2).hullHp);
+  assert.ok(Math.abs(h.host.hudModel().ship.hull - 100 / hullBuild(2).hullHp) < 1e-3, 'her hurts as saved (AUDIT NAV1: her hands mending from there - test/navaudit_helm.test.js)');
   assert.equal(h.host.leaveShipGate({ uid: 777 }), 'naval', 'a raid of mine a load carried: thrown back, nothing sailed');
   assert.deepEqual(h.host.getSaveData().raids, []);
   assert.deepEqual(h.host.newSaveData(), { v: NAVAL_SAVE_VERSION, boats: {}, notoriety: {}, day: null, raids: [] });

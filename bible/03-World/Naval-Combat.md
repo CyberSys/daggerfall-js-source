@@ -34,7 +34,7 @@ carries its row instead. It stands on three things the port already had:
 | NAV-F | THE UI, ENHANCED PLUS: the helm's readout (ship plate, battery rose, aim, target card) and the plunder window, in the stone-and-brass kit on either skin | `ui/navalHud.js`, `ui/navalPlunderDoor.js`, `ui/navalPlunderWindow.js`, `ui/enhancedFrame.js` (FRAME_ROLES, scopeRules) |
 | NAV-G | ONLINE: one player stands the sea for everyone near; the ships, volleys and barrels ride the foes frame; a blow on another's ship goes to its owner; a boarding claims the ship | `systems/naval/navalWire.js`, `scenes/exteriorFoes.js` (setOnNaval), `scenes/comeSailAwayPeers.js` (helmBoats) |
 | NAV-H | THE HOST: the sea fight stood in the streaming world - the frame, the input, the activation, the draw, the lights, the origin, the colliders, the save, the transitions, the quests, the settings | `scenes/navalHost.js`, `scenes/world.js` (the NAV-H block) |
-| AUDIT NAV1 | THE DEEP AUDIT (2026-09-29): six lenses measured the arc against Black Flag on its own harnesses; the captains' seamanship rebuilt (below), the hulls kept apart, a galley's ram, the sea on the world's clock; THE GUNS - the captains' gunnery and the run-out that tells a broadside is coming, the rig a target, fire, the prize kept a prize, the readout's warning and tally | `systems/naval/navalAI.js`, `navalShips.js` (the hulls' extents and rigs, the classes' pace, the carriages), `navalDirector.js` (the berths), `navalDamage.js`, `navalShots.js`, `navalGunnery.js`, `navalWire.js` (the run-out's bits, a barrel's fire), `navalSounds.js` and `tools/navalSfx.mjs` (the run-out), `navalEffects.js` (the glint, the shreds), `scenes/navalHost.js` (`stepSea`, `separateHulls`, `checkShipRams`, `strike`, the tell and the tally), `ui/navalHud.js` (the warning, the tally), `scenes/comeSailAwayPeers.js` (helmBoats' hull and heading) |
+| AUDIT NAV1 | THE DEEP AUDIT (2026-09-29): six lenses measured the arc against Black Flag on its own harnesses; the captains' seamanship rebuilt (below), the hulls kept apart, a galley's ram, the sea on the world's clock; THE GUNS - the captains' gunnery and the run-out that tells a broadside is coming, the rig a target, fire, the prize kept a prize, the readout's warning and tally | `systems/naval/navalAI.js`, `navalShips.js` (the hulls' extents and rigs, the classes' pace, the carriages), `navalDirector.js` (the berths), `navalDamage.js`, `navalShots.js`, `navalGunnery.js`, `navalWire.js` (the run-out's bits, a barrel's fire), `navalSounds.js` and `tools/navalSfx.mjs` (the run-out), `navalEffects.js` (the glint, the shreds), `scenes/navalHost.js` (`stepSea`, `separateHulls`, `checkShipRams`, `strike`, the tell and the tally), `ui/navalHud.js` (the warning, the tally), `scenes/comeSailAwayPeers.js` (helmBoats' hull and heading); THE HELM - the aim a look lays and its red, the broadside camera, the brace, the ram, her hurts in her handling, the shipwright and the mending at sea: `navalGunnery.js` (lookReach), `navalYard.js`, `systems/comeSailAway.js` (wayScale, sailRefused), `render/navalRender.js` (the posts, the strikes, the tones), `ui/navalYardWindow.js`, `ui/navalPlunderDoor.js` (one door for both windows) |
 | NAV-R | WARM ASHES' RAIDERS AS SHIPS (merged OWS3): a raider near the player at sea stood as a pirate of her seed's own class and name, sailing her seeded course until her lookout sights a boat, then fighting and boarding as any pirate; spent for her life; one copy between two players | `systems/naval/navalRaiders.js`, `scenes/navalHost.js` (`raiders`, `raiderShipOf`), `systems/naval/navalAI.js` (`sight`, `course`), `scenes/world.js` (`raidShips`, the marks) |
 
 ## How it plays
@@ -127,9 +127,20 @@ casks float free. The rest of the volley that struck her cannot sink her (STRUCK
 volley, never the click that took her.
 
 **The player's boat never sinks.** At nought it is WRECKED: no sail will set, the oars at WRECKED_OARS, the guns
-silent, until it is repaired - at a port's shipwright (`repairCost`, REPAIR_PRICE) or with a prize's timber. A boat
+silent, until it is repaired - at a port's shipwright, with a prize's timber, or by her own hands at sea. A boat
 is a possession bought for up to two hundred thousand gold; losing one to a lucky broadside is a punishment
 Daggerfall never deals.
+
+**The shipwright** (AUDIT NAV1, `systems/naval/navalYard.js`, `ui/navalYardWindow.js`): at the helm in a port town's
+waters (the host's `nearPort`), her way under YARD_SPEED and no hostile ship near, Activate opens his yard - the
+plate's hint names him. He sells her HULL and CANVAS back by the point (REPAIR_PRICE), HANDS by the man and FIRE
+BARRELS by the barrel (BARREL_PRICE) - each as much as the purse pays for (coins and letters of credit, DFU's
+DeductGoldAmount), never past her whole; MAKE HER WHOLE buys the four in YARD_ORDER as far as the purse goes. **Her
+own hands mend her at sea**: no hostile ship near and nothing struck her for FIELD_QUIET_S, her hull and canvas come
+back FIELD_MEND_PER_S of their whole a second times her crew's share (FIELD_MEND_ALONE with none aboard), up to
+FIELD_MEND_CAP and never past it, never while she burns (a fire strikes her every moment it burns); a wreck floats
+again past FIELD_REFLOAT of her hull. Hands
+are never mended - they are hired, or pressed from a prize. The plate says MENDING while they work.
 
 **Rams**: a stem striking a hull - her own bow's (`bowZ`) within RAM_REACH of the other's box - at a closing speed of
 RAM_SPEED or more (the way she came in with, the most of the last RAM_MEMORY_S, less the other's along her course)
@@ -345,6 +356,12 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   Broker's door's shape): her colours, name, class and captain; HER HOLD (the first HOLD_ROWS by name, Take all, Open
   her hold); TAKE FROM HER (the three tiles); HER FATE (Scuttle her - the warn role's blood edge - and Cast her adrift);
   a raid's prize has Sail on. The back key and the scrim leave; the pad lands on the press the window is for.
+- **The shipwright's window** (AUDIT NAV1, `ui/navalYardWindow.js`, a lazy chunk behind the plunder window's own door -
+  one door shape for the sea fight's two windows, `openNavalWindow`): the purse; HER NEEDS - her hull, canvas, hands
+  (a crewed ship's) and fire barrels (a ship whose stern rolls them), each what she has, what is wanting at what a
+  piece, and its press (all of it, as much as the purse pays, or greyed - "Whole", or the price a piece); MAKE HER
+  WHOLE or "Make good what your purse pays"; the last press's word under the title. The same kit and sheet as the
+  plunder window (`injectNavalWindowStyle`), the rows its list well's.
 - **The kit's roles** (`ui/enhancedFrame.js` FRAME_ROLES, each `body .dfnaval-*`): window `dfnaval-win`, panel
   `dfnaval-plate` and `dfnaval-card`, button `dfnaval-btn`, primary `dfnaval-take`, warn `dfnaval-scuttle`, tile
   `dfnaval-choice`, chip `dfnaval-chip` and `dfnaval-gun`, well `dfnaval-holdlist`, header `dfnaval-winhead`,
@@ -500,6 +517,7 @@ The helm audit's aiming findings (the player at the guns; 1080p, DFU's default F
 | no broadside camera (H4) | the Small Ship's rail hid the sea for every lay under 82-84 m from the helm; the head on the crosshair | THE BROADSIDE CAMERA (`aimEye`): while a broadside is laid the eye eases (AIM_CAM_TAU, smoothstepped) to AIM_CAM_OUT past the battery's ports, AIM_CAM_UP over them, AIM_CAM_AFT toward the stern - AIM_CAM_CLEAR short of a ship alongside - and home on the release; the look's ray starts from it (`_dwEyeOffset`); never for the chasers or a crippled ship; the row's Broadside camera part | the eye outboard of her own hull: nothing of her between it and the zone |
 | the aim looks ready when it is not (H9) | the zone drawn braced, reloading ("Starboard broadside - 164 m" at 12% loaded) and wrecked; a braced release silent; no time on the reload | the aim's STATE (`aimState`): the line's tail says why - "reloading 6.1 s", "braced", "no barrels", "guns silent" - dimmed, the zone grey, never red; a braced release says so; the reload's message its seconds | - |
 | the zone a sliver on screen (H10) | discs 6 cm over the sea: 3.7 px tall at 150 m from the Small Ship's helm, 0.7 px at 100 m from the Large Boat's | a post of light over each splash, turned to the eye (AIM_POST_HALF_H: 3.4 m) | about 19 px at 150 m |
+| no way to mend her (H1) | the page promised a shipwright and none stood: `repairCost` written into the readout and read by nothing, the one mend a prize's timber - a Small Ship shot to nought still wrecked at hull 0 after a reload and an hour at sea, its unread quote 5,940 gold; with "Pirates board you" off a wreck stayed one for ever | THE SHIPWRIGHT (`yardHere`, `yardModel`, `navalYard.js`, `navalYardWindow.js` behind the plunder window's own door): a port's waters, still, no hostile near - hull, canvas, hands and barrels by the piece as far as the purse pays, MAKE HER WHOLE in order; HER HANDS' MENDING at sea to FIELD_MEND_CAP after FIELD_QUIET_S, a wreck afloat past FIELD_REFLOAT; the wreck's hint "Crippled - make port for a shipwright" | a wrecked Small Ship floats again after 75 s of quiet at a full crew, and a port makes her whole |
 | the brace is the Crouch toggle (H5) | the press toggled the motor's crouch under the helm's freeze: the first brace left the player crouched (the eye 1.7 m over the feet to 0.8 - the lay 6.1 m shorter at 150 m), the next stood them; a phone had no brace - the touch table's slots hold none by default, and the hint said "Crouch: brace" | at the helm the Crouch action is the brace alone (`helmBrace`: the stance and the descent never fed while sailing); under a finger the plate's own BRACE, held (`navalTouchBrace`), named "hold Brace" in the hint and the warning; under Enhanced Plus the pad layout puts Crouch on R3 (its bumpers are the crossbar's) and the hint names it | - |
 | the ram cannot land (H6) | the bow point `beam x 2.4` from the root: a stem 1.0 m (Large Boat), 1.2 (Small Ship), 5.0 (Carrack) and 29.2 m (galley) inside her box before it counted - and Come Sail Away takes the way off a bow at the planking it meets: no ram ever landed; its recoil `RAM_RECOIL * 2`, the page's RAM_RECOIL | the STEM (`bowZ`) within RAM_REACH of her box, read after the hulls are posed; the way she came in with (the most of the last RAM_MEMORY_S) less hers along the course; the way spent on the first; BOW_RECOIL named - a plain stem takes twice RAM_RECOIL, a galley's ram a GALLEY_RAM-th - half braced | a Small Ship at 6 m/s rams for 84 and takes 50; a galley's ram from her own stem for 252 |
 | her hurts never in her handling (H8) | WRECKED_OARS read by nothing; a shot-up rig kept its whole way to the last of its canvas; wrecked, the host struck the sails every frame they went up - a line a press on top of the mod's own | Come Sail Away's seams: `wayScale` (moveSpeed times `wayShare` under sail - BARE_POLES and the rest by the canvas left - and WRECKED_OARS on a wreck's oars) and `sailRefused` (RaiseSails refused with one line: a wreck, a rig shot away); a rig lost with the canvas set struck once | - |
@@ -526,11 +544,11 @@ own, the guns' reach, the warning, the tell heard and seen, the tally) and `nava
 on a ship, the red where the balls strike her as she will stand, why the guns will not fire yet, the aim drawn, the
 broadside camera, the world's wiring), on the shared sea of `test/navalSea.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`
-and `navaudit_helm.json`, 380 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+and `navaudit_helm.json`, 409 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
-rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 73 with the
-audit's helm);
+rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 102 with the
+audit's helm, and four of other suites' re-aimed by content at the laws the helm keeps);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

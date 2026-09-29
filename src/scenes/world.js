@@ -327,7 +327,7 @@ import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR } from 
 import { createNavalFlames } from './navalFlames.js';   // NAV-B: a burning ship's deck fires
 import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke, the spray, the balls in flight and the aim
 import { drawNavalHud, navalTouchBrace } from '../ui/navalHud.js';   // NAV-F: the helm's readout; AUDIT NAV1: its Brace under a finger
-import { createNavalPlunderOverlay, closeNavalPlunder } from '../ui/navalPlunderDoor.js';   // NAV-F: a taken ship's window, behind its door
+import { createNavalPlunderOverlay, closeNavalPlunder, createNavalYardOverlay, closeNavalYard } from '../ui/navalPlunderDoor.js';   // NAV-F: a taken ship's window, behind its door; AUDIT NAV1: the shipwright's
 import { installNavalSounds } from '../systems/naval/navalSounds.js';   // NAV-E: the guns' own sounds
 import { navalRecordKey } from '../systems/naval/navalWire.js';   // NAV-G: my sea's word, said when it changed
 import { CROWNS as NAVAL_CROWNS } from '../systems/naval/navalShips.js';   // NAV-C: the three crowns, whose capitals name the waters
@@ -5976,6 +5976,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk.showOverlay(win, () => { if (why === 'hold') navalOpenHold(model); });
     return true;
   }
+  /** AUDIT NAV1 (the helm): the shipwright's window over the world (navalPlunderDoor.js's yard door). */
+  function navalOpenYard(model) {
+    const win = createNavalYardOverlay({ model });
+    if (!win) return false;
+    townTalk.showOverlay(win);
+    return true;
+  }
   function navalOpenHold(model) {
     const inv = inventoryDoorReady() ? makeInventoryWindow({ loot: { items: () => model.items, containerImage: () => CONTAINER_IMAGES.Chest, playerOwned: false } }) : null;
     if (!inv) { navalOpenPlunder(model); return; }
@@ -6026,6 +6033,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       openPlunder: (model) => navalOpenPlunder(model),
       giveItems: navalGiveItems,
     },
+    // AUDIT NAV1 (the helm): the shipwright's yard - the purse as a shop reads it (coins and letters of credit), paid as
+    // DFU's DeductGoldAmount pays, and his window over the world
+    gold: () => totalGoldAmount(playerEntity),
+    pay: (n) => { deductGold(playerEntity, n); surfacePlayer(); },
+    openYard: (model) => navalOpenYard(model),
     hold: (key, tier) => {
       const items = generateLootItems(key, { level: playerEntity.level, gender: playerEntity.gender });
       addPileLootExtras(items, key, undefined, { level: playerEntity.level });   // THE MERGE (REALM P0.4): a hold is a pile - online, the level's gold divided back
@@ -6047,13 +6059,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   naval.setEnabled(navalOn());   // the switch's state from the first frame (navalFrame follows it after)
   registerModSaveData(NAVAL_SAVE_VENDOR, naval);   // the player's boats' hurts, the crowns' notoriety, a raid a load carries
   /** The sea emptied: a transition, a teleport, the arc switched off - its window with it. */
-  const navalClear = () => { naval?.clear(); navalFlames.clear(); closeNavalPlunder(); drawNavalHud(null); };
+  const navalClear = () => { naval?.clear(); navalFlames.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); };
   const navalTransition = () => navalClear();
   let _navalWasOn = null;
   /** The frame: the switch read, the sounds loaded at the first sea, the host's step, the flames' clock. */
   function navalFrame(dt) {
     const on = navalOn();
-    if (on !== _navalWasOn) { _navalWasOn = on; naval.setEnabled(on); if (!on) { navalFlames.clear(); closeNavalPlunder(); drawNavalHud(null); } }
+    if (on !== _navalWasOn) { _navalWasOn = on; naval.setEnabled(on); if (!on) { navalFlames.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); } }
     if (!on) return;
     if (csa.seaBoats.length || csaRuntime.isSailing()) installNavalSounds(audio);   // once: the first sea (the loader keeps its promise)
     naval.frame(dt * worldTimeScale(), { paused: gamePaused() || _loading, outdoors: _mode() === 'exterior', brace: csaRuntime.isSailing() && (held(keys, 'Crouch') || navalTouchBrace()) });   // the brace: ducking behind the rail - the Crouch action at the helm (AUDIT NAV1: or the plate's Brace under a finger)

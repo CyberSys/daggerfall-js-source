@@ -657,5 +657,266 @@
     "tests": [
       "test/csa_wind.test.js"
     ]
+  },
+  {
+    "name": "NAV1H-a-row-past-her-whole",
+    "file": "src/systems/naval/navalYard.js",
+    "old": "    const afford = Math.min(n, Math.floor(purse / price));",
+    "new": "    const afford = Math.floor(purse / price);",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-purse-unread",
+    "file": "src/systems/naval/navalYard.js",
+    "old": "    const afford = Math.min(n, Math.floor(purse / price));",
+    "new": "    const afford = n;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-yard-order",
+    "file": "src/systems/naval/navalYard.js",
+    "old": "export const YARD_ORDER = Object.freeze(['hull', 'sail', 'crew', 'barrels']);",
+    "new": "export const YARD_ORDER = Object.freeze(['sail', 'hull', 'crew', 'barrels']);",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-a-part-point-free",
+    "file": "src/systems/naval/navalYard.js",
+    "old": "    hull: Math.max(0, Math.ceil(damage.maxHull - damage.hull - 1e-9)),",
+    "new": "    hull: Math.max(0, Math.floor(damage.maxHull - damage.hull)),",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-mend-cap-unheld",
+    "file": "src/systems/naval/navalYard.js",
+    "old": "  const part = (have, whole) => Math.max(0, Math.min(whole * FIELD_MEND_CAP - have, whole * rate));",
+    "new": "  const part = (have, whole) => Math.max(0, whole * rate);",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-crews-share-unread",
+    "file": "src/systems/naval/navalYard.js",
+    "old": "(crewed ? Math.max(0, Math.min(1, crewShare)) : FIELD_MEND_ALONE)",
+    "new": "(crewed ? 1 : FIELD_MEND_ALONE)",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-lone-hand-rate",
+    "file": "src/systems/naval/navalYard.js",
+    "old": ": FIELD_MEND_ALONE) * Math.max(0, dt);",
+    "new": ": 1) * Math.max(0, dt);",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-port-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (!enabled || !boat || !where().nearPort) return false;",
+    "new": "    if (!enabled || !boat) return false;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-her-way-unread-at-the-quay",
+    "file": "src/scenes/navalHost.js",
+    "old": "    return Math.hypot(v[0], v[2]) <= YARD_SPEED && !hostileNearMe();",
+    "new": "    return !hostileNearMe();",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-a-hostile-unread-at-the-quay",
+    "file": "src/scenes/navalHost.js",
+    "old": "    return Math.hypot(v[0], v[2]) <= YARD_SPEED && !hostileNearMe();",
+    "new": "    return Math.hypot(v[0], v[2]) <= YARD_SPEED;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-yard-unopened",
+    "file": "src/scenes/navalHost.js",
+    "old": "      return yardHere(boat) && openYard(boat);   // AUDIT NAV1: the shipwright, lying to his quay",
+    "new": "      return false;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-quiet-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (quiet && clock - s.damage.lastHitAt >= FIELD_QUIET_S) {",
+    "new": "      if (quiet) {",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-mending-while-she-burns",
+    "file": "src/systems/naval/navalDamage.js",
+    "old": "      if (s.fires.length && s.state !== SHIP_STATES.sinking && s.state !== SHIP_STATES.sunk) {\n        s.lastHitAt = now;\n",
+    "new": "      if (s.fires.length && s.state !== SHIP_STATES.sinking && s.state !== SHIP_STATES.sunk) {\n",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-a-hostile-unread-at-sea",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const quiet = !hostileNearMe();",
+    "new": "    const quiet = true;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-refloat-at-once",
+    "file": "src/scenes/navalHost.js",
+    "old": "          s.damage.repair({ hull: m.hull, sail: m.sail, crew: 0 }, { refloat: FIELD_REFLOAT });",
+    "new": "          s.damage.repair({ hull: m.hull, sail: m.sail, crew: 0 });",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-mending-unsaid",
+    "file": "src/scenes/navalHost.js",
+    "old": "          if (b === boat) mending = true;\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-buy-pays-nothing",
+    "file": "src/scenes/navalHost.js",
+    "old": "      deps.pay?.(r.cost);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-buy-all-pays-nothing",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (cost > 0) deps.pay?.(cost);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-barrels-unstowed",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (id === 'barrels') st.guns.barrels += n;\n      else d.repair",
+    "new": "      if (id === 'barrels') void n;\n      else d.repair",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-mend-chip-unsaid",
+    "file": "src/ui/navalHud.js",
+    "old": "ship.braced ? 'brace' : null, ship.mending ? 'mend' : null]",
+    "new": "ship.braced ? 'brace' : null]",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-wreck-hint-unsaid",
+    "file": "src/ui/navalHud.js",
+    "old": "      : ship.wrecked ? 'Crippled - make port for a shipwright'   // AUDIT NAV1: the way out of a wreck, said\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-yard-a-ship-to-board",
+    "file": "src/ui/navalHud.js",
+    "old": " : model.board.kind === 'yard' ? model.board.name : `board ${model.board.name}`}`",
+    "new": " : `board ${model.board.name}`}`",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-a-rows-press-unwired",
+    "file": "src/ui/navalYardWindow.js",
+    "old": "      const press = button(r.press, 'dfnaval-btn dfnaval-yardbuy', () => { note = yardNote(m.buy?.(r.id)); render(); });",
+    "new": "      const press = button(r.press, 'dfnaval-btn dfnaval-yardbuy', () => {});",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-whole-press-unwired",
+    "file": "src/ui/navalYardWindow.js",
+    "old": "  const whole = button('', 'dfnaval-btn dfnaval-take dfnaval-whole', () => { note = yardNote(m.buyAll?.()); render(); });",
+    "new": "  const whole = button('', 'dfnaval-btn dfnaval-take dfnaval-whole', () => {});",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-yard-note-unsaid",
+    "file": "src/ui/navalYardWindow.js",
+    "old": "    noteLine.textContent = note ? note.text : '';",
+    "new": "    noteLine.textContent = '';",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-a-crewless-boats-hands",
+    "file": "src/ui/navalYardWindow.js",
+    "old": "r.id === 'crew' ? sh.maxCrew > 0 :",
+    "new": "r.id === 'crew' ? true :",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-never-greyed",
+    "file": "src/ui/navalYardWindow.js",
+    "old": "      able(press, r.can);",
+    "new": "      able(press, true);",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-yard-back-key-deaf",
+    "file": "src/ui/navalYardWindow.js",
+    "old": "    if (overlayAction(e) === 'back') { e.preventDefault(); e.stopPropagation(); exit('close'); }",
+    "new": "    void e;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-yard-chunk-cold",
+    "file": "src/ui/enhancedChunk.js",
+    "old": "  () => import('./navalYardWindow.js'),   // AUDIT NAV1: the shipwright's - a port's, after a fight\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
   }
 ]

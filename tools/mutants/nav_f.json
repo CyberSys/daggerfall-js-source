@@ -128,7 +128,7 @@
   {
     "name": "NAV-F-two-windows",
     "file": "src/ui/navalPlunderDoor.js",
-    "old": "  if (typeof document === 'undefined') return null;\n  _open?.dispose();",
+    "old": "  if (typeof document === 'undefined') return null;\n  slot.open?.dispose();",
     "new": "  if (typeof document === 'undefined') return null;",
     "tests": [
       "test/nav_f_ui.test.js"

@@ -10,34 +10,52 @@
 // loot window over the hold and brings this one back when it shuts), 'fate' (she was scuttled, cast off, or the voyage
 // sails on), 'close' (the back key, the scrim, the Close press, or anything that put it away). The host hears it
 // through `onClose(reason)` before its slot drops the overlay. One stands at a time.
+//
+// AUDIT NAV1 (the helm): THE SHIPWRIGHT'S WINDOW (ui/navalYardWindow.js) opens through the same door - one shape for the
+// sea fight's two windows (`openNavalWindow`), each its own host, chunk and slot.
 import { mountEnhancedChunk } from './enhancedChunk.js';
 import { registerOverlay } from './enhancedOverlays.js';
 
-/** The overlay standing now, or null. */
-let _open = null;
-/** Is a plunder window up. */
-export const navalPlunderOpen = () => !!_open && !_open.done;
-/** Shut it, if it is up (the sea emptied under it: a transition, a load) - and say whether it was. */
-export function closeNavalPlunder() {
-  const was = navalPlunderOpen();
-  _open?.dispose();
+/**
+ * The sea fight's two window doors, one shape (AUDIT NAV1): each its host's id, its chunk and the chunk's mount, and
+ * the overlay standing now (`open` - one at a time, each).
+ * @typedef {{ id: string, label: string, load: () => Promise<any>, mount: (mod: any, host: HTMLElement, deps: any) => any, open: any }} NavalWindowSlot
+ */
+/** @type {NavalWindowSlot} */
+const PLUNDER = {
+  id: 'naval-plunder-host', label: 'naval-plunder', open: null,
+  load: () => import('./navalPlunderWindow.js'),
+  mount: ({ mountNavalPlunderWindow }, host, deps) => mountNavalPlunderWindow(host, deps),
+};
+/** @type {NavalWindowSlot} */
+const YARD = {
+  id: 'naval-yard-host', label: 'naval-yard', open: null,
+  load: () => import('./navalYardWindow.js'),
+  mount: ({ mountNavalYardWindow }, host, deps) => mountNavalYardWindow(host, deps),
+};
+/** @param {NavalWindowSlot} slot */
+const isOpen = (slot) => !!slot.open && !slot.open.done;
+/** @param {NavalWindowSlot} slot */
+function shut(slot) {
+  const was = isOpen(slot);
+  slot.open?.dispose();
   return was;
 }
 
 /**
- * Open the window, as an overlay for the host's slot (townTalk.showOverlay). `deps` is navalPlunderWindow.js's own,
- * less `onExit` - the door's close is the window's way out - and plus `onClose(reason)`.
- * @param {any} deps
- * @returns {any} the overlay, or null with no document
+ * A window of the slot's, as an overlay for the host's slot (townTalk.showOverlay): its own host div, its chunk mounted
+ * through the one home, `done` once it is shut, `dispose` to shut it - the one standing before it put away first.
+ * @param {NavalWindowSlot} slot
+ * @param {any} deps - the window's own, less `onExit` (the door's close is its way out), plus `onClose(reason)`
  */
-export function createNavalPlunderOverlay(deps) {
+function openNavalWindow(slot, deps) {
   if (typeof document === 'undefined') return null;
-  _open?.dispose();
+  slot.open?.dispose();
   let fired = false;
   let view = null;
   let why = 'close';
   const host = document.createElement('div');
-  host.id = 'naval-plunder-host';
+  host.id = slot.id;
   host.style.cssText = 'position:fixed;inset:0;z-index:13;background:transparent;overflow:hidden';
   document.body.append(host);
   let unregister = () => {};
@@ -50,7 +68,7 @@ export function createNavalPlunderOverlay(deps) {
     view = null;
     host.remove();
     fired = true;   // last: `done` must not read true while the DOM is up
-    if (_open === overlay) _open = null;
+    if (slot.open === overlay) slot.open = null;
     deps.onClose?.(why);
   };
   unregister = registerOverlay(() => close('close'));
@@ -66,11 +84,31 @@ export function createNavalPlunderOverlay(deps) {
     dispose() { close(); },
     repaint() { view?.repaint(); },
   };
-  _open = overlay;
+  slot.open = overlay;
   mountEnhancedChunk({
-    load: () => import('./navalPlunderWindow.js'),
-    mount: ({ mountNavalPlunderWindow }) => { view = mountNavalPlunderWindow(host, { ...deps, onExit: close }); },
-    alive: () => !fired, host, onDismiss: () => { close('close'); }, label: 'naval-plunder',
+    load: slot.load,
+    mount: (mod) => { view = slot.mount(mod, host, { ...deps, onExit: close }); },
+    alive: () => !fired, host, onDismiss: () => { close('close'); }, label: slot.label,
   });
   return overlay;
 }
+
+/** Is a plunder window up. */
+export const navalPlunderOpen = () => isOpen(PLUNDER);
+/** Shut it, if it is up (the sea emptied under it: a transition, a load) - and say whether it was. */
+export const closeNavalPlunder = () => shut(PLUNDER);
+/**
+ * Open the window, as an overlay for the host's slot (townTalk.showOverlay). `deps` is navalPlunderWindow.js's own,
+ * less `onExit` - the door's close is the window's way out - and plus `onClose(reason)`.
+ * @param {any} deps
+ * @returns {any} the overlay, or null with no document
+ */
+export const createNavalPlunderOverlay = (deps) => openNavalWindow(PLUNDER, deps);
+
+/** AUDIT NAV1: is the shipwright's window up. */
+export const navalYardOpen = () => isOpen(YARD);
+/** Shut the shipwright's window, if it is up - and say whether it was. */
+export const closeNavalYard = () => shut(YARD);
+/** The shipwright's window (ui/navalYardWindow.js), as an overlay for the host's slot; `deps` as that window's, plus
+ *  `onClose(reason)`. */
+export const createNavalYardOverlay = (deps) => openNavalWindow(YARD, deps);

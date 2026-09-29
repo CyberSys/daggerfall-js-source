@@ -126,7 +126,8 @@ const button = (text, cls, onPress) => {
   return b;
 };
 
-function injectPlunderStyle(doc = document) {
+/** The sea fight's windows' own sheet, once (AUDIT NAV1: the shipwright's window lays it too - ui/navalYardWindow.js). */
+export function injectNavalWindowStyle(doc = document) {
   if (doc.getElementById?.(NAVAL_PLUNDER_STYLE_ID)) return;
   const st = doc.createElement('style');
   st.id = NAVAL_PLUNDER_STYLE_ID;
@@ -143,7 +144,7 @@ function injectPlunderStyle(doc = document) {
 export function mountNavalPlunderWindow(host, deps) {
   injectEnhancedStyle();
   injectEnhancedFonts();
-  injectPlunderStyle();
+  injectNavalWindowStyle();
   injectNavalKit(document);
   const m = deps.model;
   const nameOf = deps.nameOf ?? ((it) => String(it?.name ?? ''));

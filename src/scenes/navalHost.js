@@ -52,6 +52,7 @@ import { hullBuild, batteryOf, batteriesOf, GUNS, classById, shipNames, crownOf,
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
 import { lawOf, createNotoriety, crownRegion, notorietyLevel, WITNESS_RANGE, KNIGHTLY_FACTION, TEMPLE_FACTION } from '../systems/naval/navalLaw.js';
 import { drawHold, flotsamKeys, choiceEffect, choiceOffer, holdTier, CHOICES } from '../systems/naval/navalPlunder.js';
+import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE } from '../systems/naval/navalYard.js';   // AUDIT NAV1: the shipwright, the mending at sea
 import { createBoarding, berthPose, musterOf, handsOf, repelPartyOf, raidQuestOf, raidQuestWon, boardingWon, BOARD_RANGE, BOARD_SPEED, ABANDON_RANGE, HAND } from '../systems/naval/navalBoarding.js';
 import { navalWireRecord, validNavalRecord, navalHitData, validNavalHit, NAVAL_SHARE_RADIUS, NAVAL_VOLLEY_KEEP_MS, BOARD_CODES } from '../systems/naval/navalWire.js';
 import { Boat, boatAnimators, boatParticleSystems, animatorOf, setLights, meshLocalBounds, HULL_NAMES } from '../systems/comeSailAwayBoat.js';
@@ -103,6 +104,9 @@ export const RAM_COOLDOWN_S = 3;
  *  (Come Sail Away takes a bow's way off it the frame it meets a hull), less the other's own way along her course. A
  *  stem not built to ram takes BOW_RECOIL times RAM_RECOIL back, a galley's ram a GALLEY_RAM-th of it. */
 export const RAM_REACH = 1.2;
+/** AUDIT NAV1 (the helm): THE SHIPWRIGHT stands at a port - a port town's waters (`where().nearPort`), her way under
+ *  YARD_SPEED (she lies to his quay) and no hostile ship near (systems/naval/navalYard.js). */
+export const YARD_SPEED = 2.5;
 export const RAM_MEMORY_S = 0.6;
 export const BOW_RECOIL = 2;
 /** Another player's ship eases toward its word at this rate (per second) and snaps past this far (m) - the team's law
@@ -726,6 +730,60 @@ export function createNavalHost(deps) {
     return out;
   }
 
+  /** Whether a hostile ship afloat is within HOSTILE_NEAR_M of the player - Come Sail Away's time scale, the mending
+   *  and the shipwright all ask it. */
+  function hostileNearMe() {
+    const feet = deps.feet();
+    for (const e of sea.values()) {
+      if (e.ship.damage.state !== SHIP_STATES.afloat) continue;
+      if (dist2d(e.ship.pos, feet) > HOSTILE_NEAR_M) continue;
+      if (hostile(e.ship, { kind: 'player', id: myId() }, { notoriety: (c) => notoriety.get(c), now: clock })) return true;
+    }
+    return false;
+  }
+
+  // ── the shipwright, and the mending at sea (AUDIT NAV1, the helm) ────────────────────────────────────────────────
+  let mending = false;   // my helm's boat mended this frame
+  /** Whether the shipwright stands for my boat: a port's waters, her way under YARD_SPEED, no hostile ship near. */
+  function yardHere(boat) {
+    if (!enabled || !boat || !where().nearPort) return false;
+    const v = boatPose(boat).velocity;
+    return Math.hypot(v[0], v[2]) <= YARD_SPEED && !hostileNearMe();
+  }
+  /** The yard's model for the shipwright's window (ui/navalYardWindow.js): her state, the offer against the purse, and
+   *  the presses - each row as far as the purse pays, or all of them. */
+  function yardModel(boat) {
+    const st = myBoatState(boat);
+    const d = st.damage;
+    const offer = () => yardOffer(d, st.guns.barrels, deps.gold?.() ?? 0);
+    const give = (id, n) => {
+      if (id === 'barrels') st.guns.barrels += n;
+      else d.repair({ hull: id === 'hull' ? n : 0, sail: id === 'sail' ? n : 0, crew: id === 'crew' ? n : 0 });
+    };
+    const buy = (id) => {
+      const r = offer().rows.find((x) => x.id === id);
+      if (!r || r.missing <= 0) return { ok: false, id, n: 0, cost: 0 };
+      if (r.afford <= 0) return { ok: false, id, n: 0, cost: 0, short: r.price };
+      deps.pay?.(r.cost);
+      give(id, r.afford);
+      return { ok: true, id, n: r.afford, cost: r.cost, whole: r.afford === r.missing };
+    };
+    const buyAll = () => {
+      const plan = yardAll(d, st.guns.barrels, deps.gold?.() ?? 0);
+      const cost = plan.reduce((sum, p) => sum + p.cost, 0);
+      if (cost > 0) deps.pay?.(cost);
+      for (const p of plan) give(p.id, p.n);
+      return { ok: cost > 0, cost, bought: plan, whole: offer().whole === 0 };
+    };
+    return {
+      name: HULL_NAMES[boat.hull],
+      ship: () => ({ hull: d.hull, maxHull: d.maxHull, sail: d.sail, maxSail: d.maxSail, crew: d.crew, maxCrew: d.maxCrew, barrels: st.guns.barrels, wrecked: d.state === SHIP_STATES.wrecked }),
+      offer, buy, buyAll, prices: YARD_PRICE, hasBarrels: batteryOf(boat.hull, 'stern')?.gun === 'barrel',
+    };
+  }
+  /** The shipwright's window over the world. */
+  function openYard(boat) { return !!deps.openYard?.(yardModel(boat)); }
+
   // ── aiming ───────────────────────────────────────────────────────────────────────────────────────────────────────
   let aiming = false;
   let aim = null;   // the solution this frame, while aiming
@@ -960,9 +1018,8 @@ export function createNavalHost(deps) {
     if (prize) { openPrize(prize); return true; }
     if (boat) {
       const e = boardable(boat);
-      if (!e) return false;
-      startBoarding('board', e, boat);
-      return true;
+      if (e) { startBoarding('board', e, boat); return true; }
+      return yardHere(boat) && openYard(boat);   // AUDIT NAV1: the shipwright, lying to his quay
     }
     const e = boardableOnFoot();
     if (!e) return false;
@@ -1351,11 +1408,22 @@ export function createNavalHost(deps) {
   function stepSea(d, seaY, boat) {
     clock += d;
     // my boats: their clocks, the brace, their fires
+    // AUDIT NAV1 (the helm): her hands mend her between fights - no hostile ship near, nothing struck her lately (a fire
+    // aboard strikes her every step it burns: navalDamage.js step)
+    const quiet = !hostileNearMe();
+    mending = false;
     for (const b of myBoats()) {
       const s = myBoatState(b);
       s.guns.step(d);
       s.guns.braced = b === boat && braceHeld;
       s.damage.step(d, clock);
+      if (quiet && clock - s.damage.lastHitAt >= FIELD_QUIET_S) {
+        const m = fieldMend(s.damage, d, { crewed: !!b.crewed, crewShare: s.damage.crewShare() });
+        if (m.hull > 0 || m.sail > 0) {
+          s.damage.repair({ hull: m.hull, sail: m.sail, crew: 0 }, { refloat: FIELD_REFLOAT });
+          if (b === boat) mending = true;
+        }
+      }
     }
 
     // the sea's traffic, when this player stands it and is on the water
@@ -1656,14 +1724,15 @@ export function createNavalHost(deps) {
     const hot = !!aimHit && state === 'ready';
     const nb = boarding ? null : boardable(boat);
     const pr = nb || boarding ? null : prizeInReach(boat);
+    const yard = !nb && !pr && !boarding && yardHere(boat);
     return {
-      ship: { name: HULL_NAMES[boat.hull], hull: st.damage.hullShare(), sail: st.damage.maxSail > 0 ? st.damage.sailShare() : null, crew: st.damage.maxCrew > 0 ? st.damage.crewShare() : null, fire: st.damage.fire > 0, wrecked: st.damage.state === SHIP_STATES.wrecked, braced: st.guns.braced, repair: repairCost(st.damage) },
+      ship: { name: HULL_NAMES[boat.hull], hull: st.damage.hullShare(), sail: st.damage.maxSail > 0 ? st.damage.sailShare() : null, crew: st.damage.maxCrew > 0 ? st.damage.crewShare() : null, fire: st.damage.fire > 0, wrecked: st.damage.state === SHIP_STATES.wrecked, braced: st.guns.braced, repair: repairCost(st.damage), mending },
       armed: batteries.length > 0,
       batteries,
       aim: aim ? { side: aim.side, gun: aim.gun, range: Math.round(aim.range), max: Math.round(aim.maxRange), hot, barrel: aim.barrel, state, left: state === 'reloading' ? +st.guns.left(aim.side).toFixed(1) : 0 } : null,
       aiming,
       target,
-      board: nb ? { name: nb.ship.names?.name ?? 'the ship', kind: 'board' } : pr ? { name: pr.ship.names?.name ?? 'the ship', kind: 'hold' } : null,
+      board: nb ? { name: nb.ship.names?.name ?? 'the ship', kind: 'board' } : pr ? { name: pr.ship.names?.name ?? 'the ship', kind: 'hold' } : yard ? { name: 'the shipwright', kind: 'yard' } : null,
       boarding: boarding ? { kind: boarding.kind, phase: boarding.phase } : null,
       notoriety: notorietyWord,
       incoming: st.damage.state === SHIP_STATES.wrecked ? null : incoming(boat),
@@ -1795,14 +1864,7 @@ export function createNavalHost(deps) {
     newSaveData, getSaveData, restoreSaveData,
     raiders, raiderShipOf,   // NAV-R
     /** Whether a hostile ship is near - Come Sail Away's time scale refuses to run with one (AreEnemiesNearby). */
-    hostileNear() {
-      for (const e of sea.values()) {
-        if (e.ship.damage.state !== SHIP_STATES.afloat) continue;
-        if (dist2d(e.ship.pos, deps.feet()) > HOSTILE_NEAR_M) continue;
-        if (hostile(e.ship, { kind: 'player', id: myId() }, { notoriety: (c) => notoriety.get(c), now: clock })) return true;
-      }
-      return false;
-    },
+    hostileNear: () => hostileNearMe(),
     /** The sea ships' boats standing near enough to be struck and walked on (the world's collider takes them). */
     collidable() { const f = deps.feet(); return [...sea.values()].filter((e) => e.boat && dist2d(e.ship.pos, f) < COLLIDE_RANGE).map((e) => e.boat); },
     /** Every sea ship's boat (their particles ride Come Sail Away's lists). */

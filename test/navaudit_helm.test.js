@@ -3,7 +3,7 @@
 // sea, a ship under the crosshair), the aim's red as the truth of where each gun stops, why a battery will not fire yet,
 // the zone stood up and the strikes marked, and the broadside camera. The law is bible/03-World/Naval-Combat.md
 // "AUDIT NAV1 - The helm".
-import { byClass } from './chargenDom.mjs';   // the suite's minimal DOM: the plate's Brace under a finger
+import { byClass, keydown, Node_ } from './chargenDom.mjs';   // the suite's minimal DOM: the plate's Brace under a finger, the shipwright's window
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,7 +14,24 @@ import { NAVAL_DEG, shotPosition, segmentBoxEntry } from '../src/systems/naval/n
 import { hullBoxOf, rigBoxesOf, AIM_CAM_OUT, AIM_CAM_UP, AIM_CAM_AFT, AIM_CAM_TAU, AIM_CAM_CLEAR, RAM_REACH, RAM_MEMORY_S, RAM_DAMAGE, RAM_RECOIL, BOW_RECOIL, GALLEY_RAM, RAM_SPEED, RAM_COOLDOWN_S } from '../src/scenes/navalHost.js';
 import { navalHudText, drawNavalHud, destroyNavalHud, navalTouchBrace, NAVAL_BRACE_H, NAVAL_HUD_CSS } from '../src/ui/navalHud.js';
 import { NavalRenderer, NAVAL_STRIDE, aimTone, AIM_TONES, AIM_POST_HALF_W, AIM_POST_HALF_H, AIM_STRIKE_HALF, flatAcross } from '../src/render/navalRender.js';
+import { yardOffer, yardAll, fieldMend, YARD_PRICE, BARREL_PRICE, FIELD_QUIET_S, FIELD_MEND_PER_S, FIELD_MEND_ALONE, FIELD_MEND_CAP, FIELD_REFLOAT } from '../src/systems/naval/navalYard.js';
+import { REPAIR_PRICE } from '../src/systems/naval/navalDamage.js';
+import { yardText, yardNote, mountNavalYardWindow } from '../src/ui/navalYardWindow.js';
+import { createNavalYardOverlay, navalYardOpen, closeNavalYard } from '../src/ui/navalPlunderDoor.js';
+import { WARM_CHUNKS } from '../src/ui/enhancedChunk.js';
 import { sea } from './navalSea.mjs';
+
+// the suite's DOM, a step nearer a browser for a window that greys its presses (test/nav_f_ui.test.js's own)
+{
+  const proto = Node_.prototype;
+  const setAttr = proto.setAttribute;
+  proto.setAttribute = function (k, v) { setAttr.call(this, k, v); if (k === 'disabled' || k === 'hidden') this[k] = true; };
+  proto.removeAttribute = function (k) { delete this.attrs[k]; if (k === 'disabled' || k === 'hidden') this[k] = false; };
+  proto.closest = function (sel) {
+    for (let n = this; n; n = n.parentNode) if (typeof n.className === 'string' && n.className.split(/\s+/).includes(sel.replace(/^\./, ''))) return n;
+    return null;
+  };
+}
 
 const DEG = NAVAL_DEG;
 const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''} ${a} vs ${b} (±${eps})`);
@@ -544,4 +561,203 @@ test('AUDIT NAV1 H12 her hurts in her handling: Come Sail Away\'s way is the hos
   const world = src('scenes/world.js');
   assert.match(world, /wayScale: \(underSail\) => naval\?\.wayScale\(underSail\) \?\? 1,/);
   assert.match(world, /sailRefused: \(\) => naval\?\.sailRefused\(\) \?\? null,/);
+});
+
+// ── the shipwright, and the mending at sea ─────────────────────────────────────────────────────────────────────────
+
+const hurt = (o = {}) => ({ hull: 262, maxHull: 420, sail: 80, maxSail: 160, crew: 18, maxCrew: 24, ...o });
+const SAVE = (boat) => ({ v: 1, boats: { 42: { fire: 0, state: 'afloat', barrels: 4, ...boat } }, notoriety: {}, day: 1, raids: [] });
+/** A helm lying at a port's quay: nearPort, the purse and its payments recorded, the yard's window caught. */
+async function atPort(o = {}) {
+  const h = await helm(o);
+  const at = { port: true, purse: o.purse ?? 5000, paid: [], opened: [] };
+  const w0 = h.deps.where;
+  h.deps.where = () => ({ ...w0(), nearPort: at.port });
+  h.deps.gold = () => at.purse;
+  h.deps.pay = (n) => { at.paid.push(n); at.purse -= n; };
+  h.deps.openYard = (model) => { at.opened.push(model); return true; };
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }]]);
+  return { ...h, at };
+}
+
+test('AUDIT NAV1 H13 the shipwright: a port\'s yard sells hull, canvas, hands and fire barrels by the piece - as much of each as the purse pays for, never past her whole; MAKE HER WHOLE the four in that order as far as the purse goes; he stands at the helm in a port\'s waters, her way under YARD_SPEED and no hostile near, Activate his door and the plate\'s hint naming him (mutants: a row past her whole, the purse unread, the order, the port unread, her way unread, a hostile unread)', async () => {
+  assert.deepEqual(YARD_PRICE, { hull: REPAIR_PRICE.hull, sail: REPAIR_PRICE.sail, crew: REPAIR_PRICE.crew, barrels: BARREL_PRICE });
+  const o = yardOffer(hurt(), 1, 1240);
+  assert.deepEqual(o.rows.map((r) => [r.id, r.missing, r.whole, r.afford, r.cost]), [
+    ['hull', 158, 158 * 12, 103, 103 * 12], ['sail', 80, 480, 80, 480], ['crew', 6, 180, 6, 180], ['barrels', 3, 120, 3, 120],
+  ]);
+  assert.equal(o.whole, 158 * 12 + 480 + 180 + 120);
+  assert.deepEqual(yardAll(hurt(), 1, 1240), [{ id: 'hull', n: 103, cost: 1236 }], 'the hull first, and the purse spent there');
+  assert.deepEqual(yardAll(hurt(), 1, 3000).map((p) => p.id), ['hull', 'sail', 'crew', 'barrels']);
+  assert.equal(yardAll(hurt(), 1, 3000).reduce((sum, p) => sum + p.cost, 0), o.whole, 'whole, and the change kept');
+  assert.deepEqual(yardAll(hurt({ hull: 420, sail: 160, crew: 24 }), 4, 9999), [], 'nothing wanting, nothing bought');
+  assert.equal(yardOffer(hurt({ hull: 419.2 }), 4, 100).rows[0].missing, 1, 'a part-mended point is a point bought');
+  // the host: at the quay
+  const h = await atPort({ save: SAVE({ hull: 120, sail: 60, crew: 20, barrels: 1 }) });
+  let m = h.host.hudModel();
+  assert.deepEqual(m.board, { name: 'the shipwright', kind: 'yard' });
+  assert.equal(navalHudText(m, { board: 'E' }).plate.hint, 'E: the shipwright');
+  assert.equal(h.host.activate(), true);
+  const model = h.at.opened.at(-1);
+  assert.ok(model, 'his window');
+  // one row, as far as the purse goes
+  h.at.purse = 500;
+  const hull0 = model.ship().hull;   // her hands have been at it since she came in
+  let r = model.buy('hull');
+  assert.deepEqual([r.ok, r.n, r.cost], [true, 41, 41 * 12]);
+  assert.deepEqual(h.at.paid, [492]);
+  near(model.ship().hull, hull0 + 41, 1e-9);
+  r = model.buy('sail');
+  assert.deepEqual([r.ok, r.n, r.cost], [true, 1, 6], 'the change: one yard of canvas');
+  h.at.purse = 5;
+  r = model.buy('sail');
+  assert.deepEqual([r.ok, r.short], [false, 6], 'short: said, nothing paid');
+  assert.deepEqual(h.at.paid, [492, 6]);
+  // make her whole
+  h.at.purse = 99999;
+  r = model.buyAll();
+  assert.equal(r.ok, true);
+  assert.equal(r.whole, true);
+  assert.deepEqual([h.at.paid.length, h.at.paid.at(-1)], [3, r.cost], 'one payment for the whole of it');
+  assert.deepEqual(model.ship(), { hull: 420, maxHull: 420, sail: 160, maxSail: 160, crew: 24, maxCrew: 24, barrels: 4, wrecked: false });
+  assert.equal(yardOffer(model.ship(), 4, 99999).whole, 0);
+  assert.equal(model.hasBarrels, true, 'a Small Ship rolls barrels off her stern');
+  // not at a port, under way, or with a hostile near: no yard
+  h.at.port = false;
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }]]);
+  assert.equal(h.host.hudModel().board, null);
+  assert.equal(h.host.activate(), false);
+  h.at.port = true;
+  h.runtime.state.velocityCurrent = [0, 0, 4];
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }]]);
+  assert.equal(h.host.hudModel().board, null, 'under way: she has not lain to his quay');
+  h.runtime.state.velocityCurrent = [0, 0, 0];
+  const pirate = h.host._sea.get(h.host.spawnShip('pirateBrig', { range: 900 }));
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }], [pirate, { pos: [0, 0, 400], yaw: 0 }]]);
+  assert.equal(h.host.hudModel().board, null, 'not with a pirate in the offing');
+  // the wreck's way out, said
+  const w = await atPort({ save: SAVE({ hull: 0, sail: 160, crew: 24, state: 'wrecked' }) });
+  w.at.port = false;
+  frames(w, [[w.e, { pos: [0, 0, 1500], yaw: 0 }]]);
+  assert.equal(navalHudText(w.host.hudModel(), {}).plate.hint, 'Crippled - make port for a shipwright');
+  // the world wires the purse, the payment and his window
+  const world = src('scenes/world.js');
+  assert.match(world, /gold: \(\) => totalGoldAmount\(playerEntity\),\n\s*pay: \(n\) => \{ deductGold\(playerEntity, n\); surfacePlayer\(\); \},\n\s*openYard: \(model\) => navalOpenYard\(model\),/);
+  assert.match(world, /const navalClear = \(\) => \{[^\n]*closeNavalYard\(\);/, 'a transition shuts his window');
+});
+
+test('AUDIT NAV1 H14 her hands mend her at sea: no hostile ship near and nothing struck her for FIELD_QUIET_S, her hull and canvas come back FIELD_MEND_PER_S of their whole a second times her crew\'s share (FIELD_MEND_ALONE with no crew) up to FIELD_MEND_CAP and never past it, never the hands, never while she burns; a wreck floats again past FIELD_REFLOAT; the plate says MENDING (mutants: the cap, the quiet, a hostile unread, the crew\'s share, the refloat)', async () => {
+  // the pure rate
+  near(fieldMend(hurt({ hull: 100, sail: 20 }), 1, { crewed: true, crewShare: 1 }).hull, 420 * FIELD_MEND_PER_S, 1e-12);
+  near(fieldMend(hurt({ hull: 100, sail: 20 }), 1, { crewed: true, crewShare: 0.5 }).sail, 160 * FIELD_MEND_PER_S * 0.5, 1e-12);
+  near(fieldMend(hurt({ hull: 100 }), 1, { crewed: false, crewShare: 0 }).hull, 420 * FIELD_MEND_PER_S * FIELD_MEND_ALONE, 1e-12);
+  near(fieldMend(hurt({ hull: 209.9 }), 10, { crewed: true, crewShare: 1 }).hull, 420 * FIELD_MEND_CAP - 209.9, 1e-9, 'to the cap');
+  assert.equal(fieldMend(hurt({ hull: 300 }), 10, { crewed: true, crewShare: 1 }).hull, 0, 'past it, nothing');
+  // the host: a hurt Small Ship, full crew, nobody near
+  const h = await atPort({ save: SAVE({ hull: 84, sail: 16, crew: 24 }) });
+  h.at.port = false;
+  h.boat.crewed = true;
+  const d0 = h.host.hudModel().ship;
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }]], 100);
+  const d1 = h.host.hudModel().ship;
+  near((d1.hull - d0.hull) * 420, 420 * FIELD_MEND_PER_S * 10, 0.2, 'ten seconds of mending');
+  near((d1.sail - d0.sail) * 160, 160 * FIELD_MEND_PER_S * 10, 0.1);
+  assert.equal(d1.crew, 1, 'hands are hired, not mended');
+  assert.equal(d1.mending, true);
+  assert.ok(navalHudText(h.host.hudModel(), {}).plate.chips.includes('mend'), 'MENDING on the plate');
+  // a pirate in the offing: nothing
+  const pirate = h.host._sea.get(h.host.spawnShip('pirateBrig', { range: 900 }));
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }], [pirate, { pos: [0, 0, 400], yaw: 0 }]], 20);
+  const d2 = h.host.hudModel().ship;
+  near(d2.hull, h.host.hudModel().ship.hull, 0);
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }], [pirate, { pos: [0, 0, 400], yaw: 0 }]], 20);
+  assert.equal(h.host.hudModel().ship.hull, d2.hull, 'not with a pirate in the offing');
+  assert.equal(h.host.hudModel().ship.mending, false);
+  // a ball in her: quiet FIELD_QUIET_S first
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }], [pirate, { pos: [0, 0, 5000], yaw: 0 }]], 2);
+  const box = hullBoxOf(h.boat, h.pool.models);
+  h.host._shots.fireVolley({ id: 'hit', shooter: 'x', launches: [{ delay: 0, p0: [box.c[0] - 30, box.c[1], box.c[2]], v0: [120, 0, 0], gun: 'swivel', index: 0 }] });
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }], [pirate, { pos: [0, 0, 5000], yaw: 0 }]], 5);
+  const hitAt = h.host.hudModel().ship.hull;
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }], [pirate, { pos: [0, 0, 5000], yaw: 0 }]], Math.floor(FIELD_QUIET_S * 10) - 20);
+  assert.equal(h.host.hudModel().ship.hull, hitAt, 'still quiet');
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }], [pirate, { pos: [0, 0, 5000], yaw: 0 }]], 40);
+  assert.ok(h.host.hudModel().ship.hull > hitAt, 'and mending after it');
+  // a fire aboard (a save's): never mended while she burns
+  const f = await atPort({ save: SAVE({ hull: 200, sail: 60, crew: 24, fire: 10 }) });
+  f.at.port = false;
+  f.boat.crewed = true;
+  frames(f, [[f.e, { pos: [0, 0, 1500], yaw: 0 }]], 5);
+  assert.equal(f.host.hudModel().ship.fire, true);
+  assert.equal(f.host.hudModel().ship.mending, false, 'the fire first');
+  // a wreck: afloat past FIELD_REFLOAT, not before
+  const w = await atPort({ save: SAVE({ hull: 0, sail: 160, crew: 24, state: 'wrecked' }) });
+  w.at.port = false;
+  w.boat.crewed = true;
+  const secs = (FIELD_REFLOAT * 420) / (420 * FIELD_MEND_PER_S);
+  frames(w, [[w.e, { pos: [0, 0, 1500], yaw: 0 }]], Math.floor(secs * 10) - 10);
+  assert.equal(w.host.hudModel().ship.wrecked, true, 'a wreck, mending');
+  frames(w, [[w.e, { pos: [0, 0, 1500], yaw: 0 }]], 20);
+  assert.equal(w.host.hudModel().ship.wrecked, false, 'afloat again');
+});
+
+test('AUDIT NAV1 H15 the shipwright\'s window: his words for her - each row what she has, what is wanting at what a piece, its press for all of it or what the purse pays, greyed when it pays for none or she is whole; MAKE HER WHOLE or what the purse pays; the press\'s word under the title; the back key leaves; one window through his own door, warmed (mutants: a row\'s press unwired, the whole press unwired, the note unsaid, a crewless boat\'s hands shown)', async () => {
+  let purse = 1240;
+  const st = { hull: 262, maxHull: 420, sail: 80, maxSail: 160, crew: 18, maxCrew: 24, barrels: 1, wrecked: false };
+  const bought = [];
+  const model = {
+    name: 'Small Ship', hasBarrels: true,
+    ship: () => ({ ...st }),
+    offer: () => yardOffer(st, st.barrels, purse),
+    buy: (id) => { bought.push(id); const r = yardOffer(st, st.barrels, purse).rows.find((x) => x.id === id); if (!r.afford) return { ok: false, id, n: 0, cost: 0, short: r.price }; purse -= r.cost; if (id === 'barrels') st.barrels += r.afford; else st[id] += r.afford; return { ok: true, id, n: r.afford, cost: r.cost }; },
+    buyAll: () => { bought.push('all'); const plan = yardAll(st, st.barrels, purse); let cost = 0; for (const p of plan) { cost += p.cost; if (p.id === 'barrels') st.barrels += p.n; else st[p.id] += p.n; } purse -= cost; return { ok: cost > 0, cost, bought: plan, whole: yardOffer(st, st.barrels, purse).whole === 0 }; },
+  };
+  let t = yardText(model);
+  assert.equal(t.title, 'The shipwright');
+  assert.equal(t.sub, 'Small Ship - your purse: 1,240 gold');
+  assert.equal(t.lede, 'He will make her whole for 2,676 gold.');
+  assert.deepEqual(t.rows.map((r) => [r.label, r.state, r.press, r.can]), [
+    ['Hull', '262 of 420 - 158 wanting at 12 gold', 'Mend 103 - 1,236 gold', true],
+    ['Canvas', '80 of 160 - 80 wanting at 6 gold', 'Mend all - 480 gold', true],
+    ['Hands', '18 of 24 - 6 wanting at 30 gold', 'Hire all - 180 gold', true],
+    ['Fire barrels', '1 aboard - 3 wanting at 40 gold', 'Buy all - 120 gold', true],
+  ]);
+  assert.equal(t.whole, 'Make good what your purse pays - 1,236 gold');
+  assert.deepEqual(yardNote({ ok: true, id: 'crew', n: 6, cost: 180 }), { text: 'Hands hired: 6 men for 180 gold.', warn: false });
+  assert.deepEqual(yardNote({ ok: false, id: 'hull', short: 12 }), { text: 'Not enough gold - 12 gold a piece.', warn: true });
+  assert.deepEqual(yardNote({ ok: true, cost: 2676, bought: [{}], whole: true }), { text: 'She is made whole for 2,676 gold.', warn: false });
+  // a crewless boat with no stern barrels: no hands, no barrels
+  const lb = yardText({ ...model, hasBarrels: false, ship: () => ({ ...st, maxCrew: 0, crew: 0 }) });
+  assert.deepEqual(lb.rows.map((r) => r.label), ['Hull', 'Canvas']);
+  // mounted
+  const host = globalThis.document.createElement('div');
+  globalThis.document.body.append(host);
+  let exits = [];
+  const view = mountNavalYardWindow(host, { model, onExit: (why) => exits.push(why) });
+  const rows = byClass(host, 'dfnaval-yardrow');
+  assert.equal(rows.length, 4);
+  const buyOf = (id) => byClass(rows.find((r) => r.getAttribute('data-row') === id), 'dfnaval-yardbuy')[0];
+  buyOf('crew').dispatch('click', { stopPropagation() {} });
+  assert.deepEqual(bought, ['crew']);
+  assert.equal(byClass(host, 'dfnaval-note')[0].textContent, 'Hands hired: 6 men for 180 gold.');
+  const rows2 = byClass(host, 'dfnaval-yardrow');
+  assert.equal(byClass(rows2.find((r) => r.getAttribute('data-row') === 'crew'), 'dfnaval-yardbuy')[0].textContent, 'Whole');
+  assert.equal(byClass(rows2.find((r) => r.getAttribute('data-row') === 'crew'), 'dfnaval-yardbuy')[0].disabled, true, 'whole: nothing to press');
+  byClass(host, 'dfnaval-whole')[0].dispatch('click', { stopPropagation() {} });
+  assert.deepEqual(bought, ['crew', 'all']);
+  assert.match(byClass(host, 'dfnaval-note')[0].textContent, /^The yard made good what your purse paid: /);
+  keydown('Escape');
+  assert.deepEqual(exits, ['close'], 'the back key leaves');
+  view.unmount();
+  host.remove();
+  // his door: one at a time, shut by the host, warmed
+  assert.equal(navalYardOpen(), false);
+  const a = createNavalYardOverlay({ model });
+  assert.ok(a && navalYardOpen());
+  const b = createNavalYardOverlay({ model });
+  assert.equal(a.done, true, 'one at a time');
+  assert.equal(closeNavalYard(), true);
+  assert.equal(b.done, true);
+  assert.equal(navalYardOpen(), false);
+  assert.ok(WARM_CHUNKS.some((f) => String(f).includes('navalYardWindow.js')), 'warmed');
 });

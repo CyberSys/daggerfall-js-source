@@ -70,6 +70,11 @@
 - Ramming now works. Hit a ship with your bow at speed to damage her, and you take some damage back (less when braced). A galley's ram hits three times as hard.
 - Damage now affects how your ship sails: torn sails slow you down, and a crippled ship can only row, slowly. When your rigging is shot away you're told once instead of every time you try to raise the sails.
 
+## Repairs - the shipwright
+- Ports now have a shipwright. Stop your ship in a port town's waters with no enemy ships around, and your ship's panel shows the key to visit him.
+- He mends your hull and sails, hires new crew and sells fire barrels, each priced per piece. Buy as much as you can afford, or press "Make her whole" to fix everything at once.
+- Between fights your crew slowly patches the hull and sails, up to half strength, once no enemy is near and nothing has hit you for a while. Your panel shows "Mending" while they work. A crippled ship floats again once they have patched enough, so you can sail it to a shipwright. Crew can only be hired, not patched.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.

@@ -184,12 +184,14 @@ export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
     /** Scuttled: straight to sinking. */
     scuttle() { if (s.state !== SHIP_STATES.sunk) { s.state = SHIP_STATES.sinking; s.sinkT = 0; douse(); } },
     /** Repairs: hull, sails and crew each up to their best (or by an amount). A wrecked boat back over nought floats. */
-    repair({ hull = Infinity, sail = Infinity, crew = Infinity } = {}) {
+    repair({ hull = Infinity, sail = Infinity, crew = Infinity } = {}, { refloat = 0 } = {}) {
       s.hull = Math.min(s.maxHull, s.hull + Math.max(0, hull));
       s.sail = Math.min(s.maxSail, s.sail + Math.max(0, sail));
       s.crew = Math.min(s.maxCrew, s.crew + Math.max(0, crew));
       if (s.hull > 0) douse();
-      if (s.state === SHIP_STATES.wrecked && s.hull > 0) s.state = SHIP_STATES.afloat;
+      // AUDIT NAV1 (the helm): a wreck floats again once her hull passes `refloat` of its whole (the crew's mending at
+      // sea, navalYard.js FIELD_REFLOAT); a yard's timber or a prize's, at once
+      if (s.state === SHIP_STATES.wrecked && s.hull > s.maxHull * refloat && s.hull > 0) s.state = SHIP_STATES.afloat;
       if (s.state === SHIP_STATES.struck && s.hull > s.maxHull * STRUCK_AT) s.state = SHIP_STATES.afloat;
     },
     /** What the save or the wire keeps. */
