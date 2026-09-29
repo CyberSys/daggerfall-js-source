@@ -40,6 +40,21 @@
 - Taking prizes no longer empties the sea: new ships keep coming over the horizon, and a prize you cast adrift drifts away on the wind.
 - When you speed up time at the helm, the ships at sea keep pace with you.
 
+## Gunnery - a broadside you can see coming
+- Enemy ships now run out their guns before they fire. Their gun ports glow along the side, you hear the gun carriages rumble across the water, and when those guns bear on you BROADSIDE appears over your crosshair with the key to brace. The warning stays up until the balls land, so that is the moment to brace, or to turn out of her line.
+- Bracing now stops your reload while you hold it. It is an answer to a broadside, not something to hold all the time.
+- Enemy gunners are more accurate and wait for a good shot: they hold fire until your ship is across their line, fire close in and far out, and lay chain shot high to shred your sails. Better crews wait for your middle, worse ones fire as you come on, and their shots at long range fall short and long.
+- Enemy ships keep station alongside a moving boat instead of dropping astern, tack round when the wind won't let one broadside bear, and no longer pound you hull to hull.
+- Ships hold fire when a friend is in the way, and a stray ball no longer starts a fight between ships of the same side.
+- A ship that strikes her colours can't be sunk by the rest of the broadside that made her strike, and her crew puts out her fires. You have to fire a new broadside to sink a prize.
+- Guns can now aim lower, so you can hit a sloop that has come alongside to board you. Ships won't waste a broadside that would fly over you.
+- Sails are now a target. Balls through the rigging tear the canvas and fly on, and chain shot is the ammunition for it. A ball through the deck now damages the hull.
+- Fires are fiercer. Several can burn at once, they burn sails and crew as well as the hull, and a fire barrel's burns hotter and longer. Only a hit above the waterline can start one.
+- Fire barrels and floating cargo drift with the wind.
+- A galley's great guns now outrange her broadside.
+- After each of your broadsides, a line under the crosshair counts how many balls struck, how many holed her below the waterline and how many went through her rigging.
+- Fixed: the last guns of a moving ship's broadside no longer fire from behind their ports.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.

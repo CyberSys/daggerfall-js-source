@@ -30,11 +30,11 @@ carries its row instead. It stands on three things the port already had:
 | NAV-B | THE PICTURE: the naval pass (smoke, muzzle flame, spray, splinters, the founder's foam, the balls in flight, the aim's arcs and splash zone), the deck fires on Daggerfall's own fire flat, a sea ship's colours on her flag; and the root fix of Come Sail Away's soft drop (below) | `systems/naval/navalEffects.js`, `render/navalRender.js`, `scenes/navalFlames.js`, `render/comeSailAwayRender.js` (flagRuns, softParticleTexture) |
 | NAV-C | THE SHIPS OF THE ILIAC BAY: nine classes in three trades, their names and captains off the region's name bank, the crowns their navies serve; the captains' seamanship; the traffic | `systems/naval/navalShips.js` (SHIP_CLASSES, CROWNS), `navalAI.js`, `navalDirector.js`, `scenes/comeSailAwayPool.js` (seaBoats, spawnSeaNow) |
 | NAV-D | BOARDING, PLUNDER, THE LAW AND THE QUESTS: grapples, musters, the prize window's model, holds and flotsam, notoriety and the crowns' law, Warm Ashes' raids started and gated | `systems/naval/navalBoarding.js`, `navalPlunder.js`, `navalLaw.js`, `systems/warmAshesShips.js` (the gate) |
-| NAV-E | THE SOUNDS: six synthesised clips baked to DAGGER.SND's own format, and the distances every naval sound carries | `tools/navalSfx.mjs`, `tools/sfxSynth.mjs`, `systems/naval/navalSounds.js`, `public/sfx/naval-*.wav` |
+| NAV-E | THE SOUNDS: six synthesised clips baked to DAGGER.SND's own format (a seventh, the run-out, with AUDIT NAV1), and the distances every naval sound carries | `tools/navalSfx.mjs`, `tools/sfxSynth.mjs`, `systems/naval/navalSounds.js`, `public/sfx/naval-*.wav` |
 | NAV-F | THE UI, ENHANCED PLUS: the helm's readout (ship plate, battery rose, aim, target card) and the plunder window, in the stone-and-brass kit on either skin | `ui/navalHud.js`, `ui/navalPlunderDoor.js`, `ui/navalPlunderWindow.js`, `ui/enhancedFrame.js` (FRAME_ROLES, scopeRules) |
 | NAV-G | ONLINE: one player stands the sea for everyone near; the ships, volleys and barrels ride the foes frame; a blow on another's ship goes to its owner; a boarding claims the ship | `systems/naval/navalWire.js`, `scenes/exteriorFoes.js` (setOnNaval), `scenes/comeSailAwayPeers.js` (helmBoats) |
 | NAV-H | THE HOST: the sea fight stood in the streaming world - the frame, the input, the activation, the draw, the lights, the origin, the colliders, the save, the transitions, the quests, the settings | `scenes/navalHost.js`, `scenes/world.js` (the NAV-H block) |
-| AUDIT NAV1 | THE DEEP AUDIT (2026-09-29): six lenses measured the arc against Black Flag on its own harnesses; the captains' seamanship rebuilt (below), the hulls kept apart, a galley's ram, the sea on the world's clock | `systems/naval/navalAI.js`, `navalShips.js` (the hulls' extents, the classes' pace), `navalDirector.js` (the berths), `scenes/navalHost.js` (`stepSea`, `separateHulls`, `checkShipRams`), `scenes/comeSailAwayPeers.js` (helmBoats' hull and heading) |
+| AUDIT NAV1 | THE DEEP AUDIT (2026-09-29): six lenses measured the arc against Black Flag on its own harnesses; the captains' seamanship rebuilt (below), the hulls kept apart, a galley's ram, the sea on the world's clock; THE GUNS - the captains' gunnery and the run-out that tells a broadside is coming, the rig a target, fire, the prize kept a prize, the readout's warning and tally | `systems/naval/navalAI.js`, `navalShips.js` (the hulls' extents and rigs, the classes' pace, the carriages), `navalDirector.js` (the berths), `navalDamage.js`, `navalShots.js`, `navalGunnery.js`, `navalWire.js` (the run-out's bits, a barrel's fire), `navalSounds.js` and `tools/navalSfx.mjs` (the run-out), `navalEffects.js` (the glint, the shreds), `scenes/navalHost.js` (`stepSea`, `separateHulls`, `checkShipRams`, `strike`, the tell and the tally), `ui/navalHud.js` (the warning, the tally), `scenes/comeSailAwayPeers.js` (helmBoats' hull and heading) |
 | NAV-R | WARM ASHES' RAIDERS AS SHIPS (merged OWS3): a raider near the player at sea stood as a pirate of her seed's own class and name, sailing her seeded course until her lookout sights a boat, then fighting and boarding as any pirate; spent for her life; one copy between two players | `systems/naval/navalRaiders.js`, `scenes/navalHost.js` (`raiders`, `raiderShipOf`), `systems/naval/navalAI.js` (`sight`, `course`), `scenes/world.js` (`raidShips`, the marks) |
 
 ## How it plays
@@ -51,8 +51,14 @@ carries its row instead. It stands on three things the port already had:
   and the finger's drag all TURN THE VIEW (the swing's look law, which drops the look under a held swing, stands down
   there, and the pad and the finger hold the attack plainly - `aimHold`). A readied spell still eats the press first.
   A window opened over the aim puts it down unfired; the release itself is never gated.
-- **Crouch braces** (C, LB on a pad): the crew ducks behind the rail - half the hull and sail damage while held, and
-  no gun fires. It is the Crouch action because that is what bracing is; see the departures.
+- **Crouch braces** (C, LB on a pad): the crew ducks behind the rail - half the hull and sail damage while held, no gun
+  fires and no gun is loaded (AUDIT NAV1: the reload waits). It is the Crouch action because that is what bracing is;
+  see the departures.
+- **Watch for the run-out** (AUDIT NAV1): an enemy's battery is RUN OUT before it fires - its ports glint along her side,
+  the gun trucks rumble across the water, and when it bears on you BROADSIDE and the brace's key stand over the
+  crosshair, from the run-out until her balls are down. That is the moment to brace, or to turn out of her arc.
+- **The tally**: once your volley's last ball is down, the line under the aim counts it - how many struck, how many
+  below her waterline, how many through her rigging.
 - **Interact boards** (E): a ship that has struck her colours within BOARD_RANGE of the helm, the way under
   BOARD_SPEED - the grapples fly, she is hauled alongside, and you go over her rail. On foot (swimming up, or from a
   deck alongside) the same press within FOOT_BOARD_M of her side with the look on her. The target card and the plate's
@@ -78,11 +84,15 @@ highest):
 
 | gun | speed | range | reload | hull / sails / crew a ball |
 |---|---|---|---|---|
-| long gun | 62 m/s | 42 - 211 m | 9 s | 14 / 3 / 1 |
-| swivel | 55 m/s | 29 - 161 m | 4 s | 5 / 2 / 2 |
-| great gun | 56 m/s | 44 - 157 m | 12 s | 30 / 4 / 2 |
-| chain shot | 58 m/s | 45 - 196 m | 7 s | 3 / 16 / 1 |
-| fire barrel | rolled over the stern | where it drifts | BARREL_DROP_S (1.2 s), BARREL.stock aboard | 45 / 6 / 3, and always a fire |
+| long gun | 62 m/s | 26 - 211 m | 9 s | 14 / 3 / 1 |
+| swivel | 55 m/s | 21 - 161 m | 4 s | 5 / 2 / 2 |
+| great gun | 68 m/s | 32 - 251 m | 12 s | 30 / 4 / 2 |
+| chain shot | 58 m/s | 30 - 196 m | 7 s | 3 / 16 / 1 |
+| fire barrel | rolled over the stern | where it drifts (FLOAT_DRIFT of the wind) | BARREL_DROP_S (1.2 s), BARREL.stock aboard | 45 / 6 / 3, and always a fire - BARREL.burnPerSecond for BARREL.burn |
+
+AUDIT NAV1 set the carriages' depression (-8 long, -6 great and chase, -10 swivel - a sloop alongside to grapple was
+out of every broadside's reach at -3) and made the great guns heavy (68 m/s to 15 degrees: from a galley's deck 263 m
+against her long guns' 231 - they fell 50 m short of them).
 
 **The flight is closed form** (`navalBallistics.js`): `p(t) = p0 + v0 t - g t^2 / 2`, no integration and no step
 size, so a ball's path is the same on every machine and a peer can fly a volley from its word alone. The aim solves
@@ -97,12 +107,16 @@ RELOAD_UNDERMANNED slower as it thins, a crewless boat single-handed at RELOAD_S
 ## What a ball does (NAV-A)
 
 A ship is three numbers (`navalDamage.js`): HULL (at nought an AI ship sinks), SAILS (its way: BARE_POLES of its best
-under bare poles, the rest in proportion to the canvas left) and CREW (the reload, the boarders). Where a ball strikes
-the hull's box decides what it does: over the gunwale the RIGGING (canvas and a man), below it the HULL, within
-WATERLINE_BAND of the sea HOLED (HOLED_BONUS more). A hull hit may start a FIRE (FIRE_CHANCE; a barrel always does),
-which burns FIRE_HP a second for FIRE_SECONDS. At STRUCK_AT of her hull an AI ship STRIKES HER COLOURS - her bell
-rings, she heaves to - and can be boarded, or shot on until she SINKS over SINK_SECONDS, settling and heeling as her
-casks float free.
+under bare poles, the rest in proportion to the canvas left) and CREW (the reload, the boarders). A ball that strikes
+her HULL box holes her - HOLED (HOLED_BONUS more) when the point it struck is within WATERLINE_BAND of the sea - and
+one that passes through her RIG (HULL_BUILDS `rig`: her canvas and spars as boxes over her roof, riding her hull's own
+matrix so the masts heel with her) tears canvas and takes a man aloft, and FLIES ON; chain shot is for the rig. A hull
+hit above the waterline may start a FIRE (FIRE_CHANCE; a barrel's always does, hotter and longer); each fire burns its
+own bite for its own seconds and eats canvas (FIRE_SAIL) and men (one each FIRE_CREW_S) as well as timber, up to
+FIRE_STACK at once. At STRUCK_AT of her hull an AI ship STRIKES HER COLOURS - her bell rings, she heaves to, her crew
+puts her fires out - and can be boarded, or shot on until she SINKS over SINK_SECONDS, settling and heeling as her
+casks float free. The rest of the volley that struck her cannot sink her (STRUCK_GRACE_S): sinking a prize is a new
+volley, never the click that took her.
 
 **The player's boat never sinks.** At nought it is WRECKED: no sail will set, the oars at WRECKED_OARS, the guns
 silent, until it is repaired - at a port's shipwright (`repairCost`, REPAIR_PRICE) or with a prize's timber. A boat
@@ -301,7 +315,9 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   gold when the look lays it, brass-edged when loaded) and the hint (the key that matters most first - a ship in reach
   to board or plunder, then the guns). The AIM under the crosshair. The TARGET CARD under the compass: her name, class
   and captain, the distance, her hull and sails, whether she is hostile, her state and the key that boards her. On
-  foot, the card alone - while a struck ship or a prize is in reach.
+  foot, the card alone - while a struck ship or a prize is in reach. AUDIT NAV1: THE WARNING over the crosshair -
+  BROADSIDE and the brace's key, pulsing in the kit's blood edge - while a run-out bears on you and until its balls are
+  down; THE TALLY under the aim for TALLY_S once your volley's last ball is down.
 - **Where the card stands** (THE MERGE with CSA-L): by the house law for what stands under the compass (the journey
   bar's PLUS8, the helm panel's CSA-L) - the compass's foot times the HUD scale and a gap (NAVAL_CARD_TOP), a step
   lower while the foe's bar is up under the compass and further under its blade. Come Sail Away's HELM PANEL stands
@@ -326,10 +342,12 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
 
 ## The sounds (NAV-E)
 
-Six clips, OURS, synthesised from noise and sine by `tools/navalSfx.mjs` on the gun lab's kit (`tools/sfxSynth.mjs`,
+Seven clips, OURS, synthesised from noise and sine by `tools/navalSfx.mjs` on the gun lab's kit (`tools/sfxSynth.mjs`,
 moved out of `tools/gunSfx.mjs` unchanged - its three clips come out byte for byte as before) and baked to DAGGER.SND's
 own 11025 Hz 8-bit mono by `tools/sndify.mjs`: the long gun near, a broadside across the bay (past NEAR_BOOM_M), the
-swivel, a ball into oak, a powder barrel, the grapnels. DAGGER.SND's own play by index: the splashes, the ship's bell
+swivel, a ball into oak, a powder barrel, the grapnels - and AUDIT NAV1's seventh, a battery RUNNING OUT (four gun
+carriages' trucks rumbling over the deck seams one after another, the tackles creaking, the carriages brought up hard
+against the sills: the tell before a broadside, carried to 900 m). DAGGER.SND's own play by index: the splashes, the ship's bell
 as the colours come down, the bubbles of a ship going down, the burning loop. Every sound carries its own range
 (`navalSounds.js` NAVAL_SOUND_RANGE: the bus's footstep profile would have made a broadside at 300 m silence).
 
@@ -406,7 +424,7 @@ The movement audit's twelve findings, and the guns' and boarding's that were the
 | the coast stall (M3) | 101 s loaded and in reach without firing, bow to the wind | the side that bears SOONEST: turn time against reload, a course past close-hauled presented close-hauled (`sailable`, BEAR_COST_S), a side onto the land never taken, the side held unless the other is SIDE_HOLD_S better | 0 s of hull on land; no side-dithering |
 | half the player's pace (M4) | 2.5-4.4 m/s against the player's 6.2-9 | the classes rated at the player's own hulls (a brig 7.6, a cutter 8.0; `windShare` linear in the wind) | the pirate catches a boat beating or rowing, loses one running free |
 | tops that snap into turns (M5) | a brig turned in 0.53 of her length, full rate in one frame, the heel stepping 18-20 deg/s | TURN_RADIUS_K lengths, eased over TURN_TAU, critically damped, a hard turn costing TURN_SPEED_LOSS; heel by way and turn and to leeward on a spring (HEEL_OMEGA, HEEL_ZETA) | a brig at 7 m/s turns 5.7 deg/s (the player's pace); heel steps 0.1 |
-| hulls through each other (M6) | two merchantmen head-on overlapped 14.6 s; duels 16-52 s | `trafficCourse`: room given inside AVOID_SHIP_S, starboard for one ahead; the host's `separateHulls` pushes overlapping hulls apart and takes their way into it | head-on 35 m apart; duels under 1.1 s |
+| hulls through each other (M6) | two merchantmen head-on overlapped 14.6 s; duels 16-52 s | `trafficCourse`: room given inside AVOID_SHIP_S, starboard for one met ahead (AVOID_HEAD_ON - the guns' audit found the rule run out to 112.5 degrees, steering her into a hull on her starboard beam), else away from the side one passes on; the host's `separateHulls` pushes overlapping hulls apart and takes their way into it | head-on 35 m apart; duels under 1.1 s |
 | land crossed and scraped (M7) | an 18 m spit crossed; an island hugged with the hull on land 38.8 s | the hull's width sounded every SCAN_STEP past the turning circle; swings held; the course retried; a stem never stood on land (AGROUND_WAY, warped round); a big turn round the open side; waypoints never upwind nor across land, one reached let go | 0 s on land (a dead-end channel's quarter 12 s while it pivots) |
 | the sea falls behind the time scale (M8) | 60% of the world's pace at x10, 20% at x30 | FRAME_STEP_S steps, FRAME_STEPS_MAX a frame (`stepSea`) | one long frame = ten short ones |
 | the intercept minutes ahead, range overshot (M11) | the brig led a 5 m/s player by 162 s, 810 m | `intercept` solves the meeting (PURSUIT_LEAD_S past it); the enemy's way smoothed (TARGET_VEL_TAU); the bend (RANGE_BEND) only while reloading | first broadside at 92 s against a 3 m/s player (was 206-222) |
@@ -416,12 +434,45 @@ The movement audit's twelve findings, and the guns' and boarding's that were the
 | a galley never rams (G9) | - | `checkShipRams`: a galley's stem into a hull at RAM_SPEED is the ram's own law (braced, half) | - |
 | prizes fill the sea (B1) | three prizes emptied the sea until the next transition | `boarded` cleared on a win; engaged only while fighting, alongside or boarded; only a ship afloat fills a berth; a prize cast adrift drifts off (ADRIFT_SPEED) | a new ship rolls with two prizes lying by |
 
+### The guns (the gunnery, the tell, the ball)
+
+The gunnery audit's fifteen findings, and what the slice's own harness found on the way (`nav2` in the session's
+scratch: the audit's duel re-pointed at the live tree - the player's Small Ship on a scripted course, a captain on
+her own, every AI volley re-flown against the player's real hull box; and the time-to-wreck and fire-interval runs):
+
+| finding | before (the audit's measure) | the law now | after (the same harness) |
+|---|---|---|---|
+| the AI fires at the edge of its window (G1) | the first frame the lead came within 13 degrees: 12.9 degrees off at the median, 0% of balls at 150-200 m (270 volleys) | the lead laid abeam; the FIRE WINDOW (`fireWindow`): her half-extent across the line of fire - her length turned to it, her half beam - times the crew's share (FIRE_EXTENT_K, FIRE_EXTENT_SKILL more at no skill) over the range, never inside the gun's spread nor past BEAR_DEG; laid at AIM_FREEBOARD of her height, chain shot through the middle of her rig; the crew's range error LAY_ERR | 79-81% of balls on a Small Ship inside 150 m, 65% at 150-200 m; the near misses pass her bow or stern, the far ones fall short and long too |
+| no warning, and the brace free (G6) | the flash and boom 1.0-3.3 s before impact the only cue; holding Crouch for ever doubled the time to wreck | THE RUN-OUT: a battery runs out RUN_OUT_S before it can fire - begun only when the lead will bear inside RUN_OUT_S (`bearsWithin`) and within RUN_OUT_REACH of its reach, run in unfired past RUN_OUT_WAIT_S or RUN_IN_DEG and not again for RUN_IN_S; the glint at her ports, the trucks' rumble (`naval-runout.wav`), BROADSIDE over the crosshair from the run-out through the balls' flight; a peer's ship's run-out on the wire as bits; the brace stops the reload | every volley warned 1.30-2.90 s ahead (median 1.33 s); bracing on the warning alone: a brig's time to wreck 77-288 s becomes 305-454, a flagship's 201-304 becomes 346-574 |
+| pirates feud (G5) | 3,227 hull lost to sisters' balls in 16 fights; six feuds | a friend within FRIEND_CLEAR of the line from her guns out past the lead holds the battery (`lineFoul`); a stray from her own trade, or between two lawful ones, provokes nothing (the host's `strike`) | no feud |
+| one volley strikes and sinks a prize (G7) | 99.7% of Small-Ship broadsides that struck a sloop sank her too | the rest of the volley that struck her floors at one hull (STRUCK_GRACE_S, the same striker); striking puts her fires out | a prize stays a prize; a new volley sinks her |
+| the guns cannot reach down (G8) | every broadside 0% on a Large Boat inside 25 m, a galley's inside 60 | the carriages to -8 (long), -6 (great, chase), -10 (swivel); a lay that passes over her or falls short is never run out nor fired (`layPasses`) | a sloop alongside to grapple under a Small Ship's broadside at 25 m; the galley holds a volley that would fly over a boat under her side |
+| chain shot slows nothing; a plunge does no harm (G4) | 4.5-5.7 of 144 canvas a volley on her waterline; laid at her sails, 0 at 60-100 m; 48% of plunging balls "rig" for 0 hull | the RIG a target of its own (HULL_BUILDS `rig`, measured off the prefabs' spars and riding the hull's matrix): a ball through the canvas tears it and flies on, once a ship; the hull box's roof is her deck, hull | a chain volley through a brig's lateens tears about 64 of her 144 canvas |
+| the ripple fires from where she was (G10) | a Carrack's last gun 4.9 m behind its port at 9 m/s | each gun from its port carried by the deck's way over its wait (`volleyLaunches`) | 0 |
+| dead constants, and fire does little (G11) | FIRE_CHANCE read by nothing - the host's own 6% on every zone; a barrel's fire a ball's; one fire topped up | FIRE_CHANCE of a hull hit above the waterline only; a barrel's fire BARREL.burnPerSecond for BARREL.burn; fires stack to FIRE_STACK and eat canvas and men | - |
+| the waterline by the box's axis (G13) | 65 of 2,121 hits misjudged on a heeled hull | the height of the point it struck | 0 |
+| every hull box rebuilt for every ball (G14) | 1.5 ms a frame for 30 balls and 6 hulls | the targets read once a step | one reading a step |
+| barrels only bob (G9) | "where it drifts", and it did not | FLOAT_DRIFT of the wind a second | downwind |
+| no long reach (G15) | the great guns 157 m, the long 211 | the great guns HEAVY: 68 m/s to 15 degrees | 263 m against 231 from a galley's deck |
+| no count of a volley (G15) | - | THE TALLY under the aim: struck, below her waterline, through her rigging | - |
+| (the slice's own) presented at a flat PRESENT_SAILS | fell astern of a boat under way and chased her again | her way matched to the enemy's along her course (PRESENT_GAIN on the lead's draw), PRESENT_SAILS the floor | kept abeam |
+| (the slice's own) a side the wind will not let bear | close-hauled, the lead 8-26 degrees abaft her beam for a minute, unfired | NO_BEAR_S in the side's weighing; not presented (full sail to go round) | she wears or tacks to show the other side at once |
+| (the slice's own) the helm trailed the orbit | a steady orbit held the lead 4 TURN_TAU times its rate (8 degrees) aft of the beam | presented, the helm leads by the heading's own rate (TRACK_TAU, a jump past TRACK_JUMP a new course) | a still boat's second broadside from the same side 23 s after the first, where it came 100 s later from the other |
+| (the slice's own) the rule of the road steered into a beam hull | "starboard for one ahead" ran to 112.5 degrees | AVOID_HEAD_ON; else away from the side one passes on | - |
+| (the slice's own) slugging hull to hull | loaded, she held a boat 18-28 m off her side | loaded, she still opens the range inside POINT_BLANK of her fighting range | - |
+
+THE BALANCE, measured (the player's Small Ship circling at 3 m/s and never firing, boarders off): a brig wrecks her in
+77-288 s unbraced and 305-454 s braced on the warning; a flagship 201-304 and 346-574; a corsair galley 172-220 and
+258-452. A boat making way slowly is broadsided every 12 s (median; 21 s at the ninetieth), one circling at 5 m/s
+every 16 s (44), and one running free at 7 m/s outruns a brig. The player's side is the audit's own (a same-level brig
+takes 4-5 good broadsides): the fight is the player's to win, and the tell is how.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
 life, the shot field), `nav_b_picture` (the effects, the pass on a recording GL, the deck fires, the colours),
 `nav_c_ships` (the classes, names and crowns, the captains, the traffic), `nav_d_boarding` (the muster, the berth, the
-reckoning, the raids' win, the hold, the choice, the law, notoriety, THE GATE, one raid at a time), `nav_e_sounds` (the six files, the
+reckoning, the raids' win, the hold, the choice, the law, notoriety, THE GATE, one raid at a time), `nav_e_sounds` (the seven files, the
 bake regenerated byte for byte, the ranges, the one registration), `nav_f_ui` (the readout's words and node, the kit's
 cut, the plunder window driven on the suite's DOM, its door, the card's place, a finger's screen), `nav_g_online` (the word, its door, the blow frame, the
 helm boats, the doors) and `nav_h_host` (the host through real frames over Come Sail Away's real pool - the guns, the
@@ -430,12 +481,15 @@ and the world host's wiring, a hostile ship an enemy nearby at its five doors) -
 raiders as ships: the class law, the plan, a raider stood, sighting and spent, the director and a peer's copy, the world
 host's wiring) - and the audit's own suites: `navaudit_captains` (the way, the turn and the heel, the wind's eye, other
 hulls and the land, the intercept, the side that bears soonest, giving up, alongside to board, the wreck, the cruise,
-a prize adrift, the berths, the hulls kept apart, a galley's ram, the sea's time, a boarder chasing), on the shared sea
-of `test/navalSea.mjs`. Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json` and
-`navaudit_captains.json`, 247 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+a prize adrift, the berths, the hulls kept apart, a galley's ram, the sea's time, a boarder chasing) and
+`navaudit_guns` (the run-out and its promise, the fire's window, never over her nor short, no friend across the line,
+the lay, station alongside, the helm's lead, the prize kept a prize, no feud from a stray, fire, the rig, the shots'
+own, the guns' reach, the warning, the tell heard and seen, the tally), on the shared sea of `test/navalSea.mjs`.
+Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json` and
+`navaudit_guns.json`, 307 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
-rebuilt captains keep);
+rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

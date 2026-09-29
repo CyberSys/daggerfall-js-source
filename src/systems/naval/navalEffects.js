@@ -11,6 +11,9 @@
 //   debris - splinters of a hull struck: dark wood chips thrown out along the shot and down, spinning, under gravity
 //   ember  - a burning ship's sparks, rising; its FIRE is Daggerfall's own fire flat stood on her deck
 //            (scenes/navalFlames.js - TEXTURE.210, the camp's), its smoke this module's
+//   glint  - AUDIT NAV1 (the guns): a battery running out - a warm point at each port, flickering and brightening as the
+//            guns come out, the tell before her broadside (added); and SHREDS - canvas torn by a ball passing through
+//            her rig: pale scraps fluttering down (blended)
 // Every particle ages to its `life` and is gone; the whole field is held under PARTICLE_BUDGET - past it the oldest
 // go first, so a long broadside never costs the frame more than its budget.
 
@@ -89,6 +92,22 @@ export function createNavalEffects({ random = Math.random, wind = () => [0, 0, 0
     if (r() < 14 * k) push({ kind: 'ember', pos: [pos[0] + jitter(0.8), pos[1] + r() * 0.5, pos[2] + jitter(0.8)], vel: [jitter(0.6), 2 + r() * 2.5, jitter(0.6)], age: 0, life: 1 + r() * 1.2, size0: 0.22, size1: 0.05, drag: 0.5, lift: 0.4, color: [1, 0.55, 0.18], alpha: 1, rot: 0, spin: 0, blend: 'add' });
     if (r() < 5 * k) push({ kind: 'smoke', pos: [pos[0] + jitter(0.5), pos[1] + 1, pos[2] + jitter(0.5)], vel: [jitter(0.3), 1.6 + r(), jitter(0.3)], age: 0, life: 5 + r() * 3, size0: 1.6, size1: 7, drag: 0.6, lift: 0.3, color: [0.2, 0.19, 0.18], alpha: 0.55, rot: r() * 6.28, spin: jitter(0.2), blend: 'alpha' });
   }
+  /** A port of a battery running out, each step while it runs out: `k` how far out (0..1) - the glint brightens. */
+  function glint(pos, k, dt) {
+    const n = r() < clamp(dt, 0, 0.1) * 30 ? 1 : 0;   // a flicker, about thirty a second
+    for (let i = 0; i < n; i++) {
+      push({ kind: 'glint', pos: [pos[0] + jitter(0.15), pos[1] + jitter(0.1), pos[2] + jitter(0.15)], vel: [0, 0, 0], age: 0, life: 0.1 + r() * 0.08, size0: 1.1 + 0.6 * k, size1: 1.5 + 0.8 * k, drag: 0, lift: 0, color: [1, 0.6 + 0.15 * r(), 0.26], alpha: 0.35 + 0.6 * clamp(k, 0, 1), rot: r() * 6.28, spin: 0, blend: 'add' });
+    }
+  }
+  /** A ball through her canvas: pale scraps thrown along the shot, fluttering down. */
+  function tear(pos, dir) {
+    const l = Math.hypot(dir[0], dir[1], dir[2]) || 1;
+    const d = [dir[0] / l, dir[1] / l, dir[2] / l];
+    for (let i = 0; i < 9; i++) {
+      const sp = 1.5 + r() * 3;
+      push({ kind: 'shred', pos: [...pos], vel: [d[0] * sp + jitter(1.2), d[1] * sp + jitter(0.8), d[2] * sp + jitter(1.2)], age: 0, life: 2 + r() * 1.5, size0: 0.3 + r() * 0.35, size1: 0.25, drag: 1.6, gravity: 1.6, color: [0.86 + jitter(0.04), 0.82 + jitter(0.04), 0.7], alpha: 0.95, rot: r() * 6.28, spin: jitter(6), blend: 'alpha', solid: true });
+    }
+  }
   /** A sinking hull's last breath: foam and bubbles where she goes under. */
   function founder(pos, dt, spread = 6) {
     if (r() < 10 * clamp(dt, 0, 0.1)) push({ kind: 'foam', flat: true, pos: [pos[0] + jitter(spread), pos[1] + 0.04, pos[2] + jitter(spread)], vel: [0, 0, 0], age: 0, life: 2.4, size0: 1.2, size1: 4, drag: 0, lift: 0, color: [0.9, 0.95, 1], alpha: 0.6, rot: r() * 6.28, spin: 0, blend: 'alpha' });
@@ -120,7 +139,7 @@ export function createNavalEffects({ random = Math.random, wind = () => [0, 0, 0
     return parts.map((p) => {
       const k = p.age / p.life;
       const size = p.size0 + (p.size1 - p.size0) * (p.kind === 'smoke' ? Math.sqrt(k) : k);
-      const fade = p.kind === 'flash' ? 1 - k : p.kind === 'smoke' ? Math.min(1, k * 6) * (1 - k) : p.kind === 'debris' ? 1 - Math.max(0, k - 0.7) / 0.3 : 1 - k * k;
+      const fade = p.kind === 'flash' || p.kind === 'glint' ? 1 - k : p.kind === 'smoke' ? Math.min(1, k * 6) * (1 - k) : p.kind === 'debris' || p.kind === 'shred' ? 1 - Math.max(0, k - 0.7) / 0.3 : 1 - k * k;
       return { pos: p.pos, size, color: [p.color[0], p.color[1], p.color[2], p.alpha * fade], rot: p.rot, blend: p.blend, flat: !!p.flat, solid: !!p.solid, kind: p.kind };
     });
   }
@@ -128,7 +147,7 @@ export function createNavalEffects({ random = Math.random, wind = () => [0, 0, 0
   function offsetAll(o) { for (const p of parts) { p.pos[0] += o[0]; p.pos[1] += o[1]; p.pos[2] += o[2]; } }
 
   return {
-    muzzle, flash, smoke, splash, hit, blast, burn, founder, step, drawList, offsetAll,
+    muzzle, flash, smoke, splash, hit, blast, burn, glint, tear, founder, step, drawList, offsetAll,
     clear() { parts = []; },
     get count() { return parts.length; },
   };

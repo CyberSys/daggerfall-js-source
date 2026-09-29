@@ -56,8 +56,8 @@
   {
     "name": "NAV-C-the-broadside-bearing",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  tryBattery('starboard', 90, BEAR_DEG);",
-    "new": "  tryBattery('starboard', -90, BEAR_DEG);",
+    "old": "  battery('starboard', 90, RUN_OUT_DEG, BEAR_DEG);",
+    "new": "  battery('starboard', -90, RUN_OUT_DEG, BEAR_DEG);",
     "tests": [
       "test/nav_c_ships.test.js"
     ]

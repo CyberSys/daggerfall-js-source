@@ -137,8 +137,8 @@
   {
     "name": "NAV1-the-rule-of-the-road",
     "file": "src/systems/naval/navalAI.js",
-    "old": "    const dir = Math.abs(brg) < 112.5 * DEG ? 1 : brg > 0 ? -1 : 1;",
-    "new": "    const dir = brg > 0 ? -1 : 1;",
+    "old": "    const dir = Math.abs(brg) < AVOID_HEAD_ON * DEG ? 1 : side > 0 ? -1 : 1;",
+    "new": "    const dir = side > 0 ? -1 : 1;",
     "tests": [
       "test/navaudit_captains.test.js"
     ]
@@ -236,7 +236,7 @@
   {
     "name": "NAV1-bent-while-loaded",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  const bendOf = (side) => (ship.guns.ready(side) && d <= reach * PRESENT_WITHIN ? 0 : clamp((d - range) / range, -1, 1) * RANGE_BEND * DEG);",
+    "old": "  const bendOf = (side) => (ship.guns.ready(side) && d <= reach * PRESENT_WITHIN && d >= range * POINT_BLANK ? 0 : clamp((d - range) / range, -1, 1) * RANGE_BEND * DEG);",
     "new": "  const bendOf = () => clamp((d - range) / range, -1, 1) * RANGE_BEND * DEG;",
     "tests": [
       "test/navaudit_captains.test.js"
@@ -263,8 +263,8 @@
   {
     "name": "NAV1-into-the-winds-eye",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  const want = sailable(ship, headingFor(side), world.wind);",
-    "new": "  const want = headingFor(side);",
+    "old": "  const want = sailable(ship, ideal, world.wind);",
+    "new": "  const want = ideal;",
     "tests": [
       "test/navaudit_captains.test.js"
     ]

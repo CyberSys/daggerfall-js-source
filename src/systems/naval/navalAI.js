@@ -36,8 +36,10 @@
 // on a true intercept - the course that meets the enemy's way, read smoothed - to its class's range, then shows the
 // side whose broadside will bear SOONEST: the turn to present it against its reload, the wind's eye costing its
 // course, a course onto land none at all. Presented, it lays the enemy's LEAD abeam - where the enemy will be when the
-// balls arrive - bent up to RANGE_BEND off the beam to keep its fighting range, sail shortened to keep station
-// (PRESENT_SAILS). A galley fights over its stem. It lets an enemy go past DISENGAGE times the reach it saw it at, or
+// balls arrive - bent up to RANGE_BEND off the beam to keep its fighting range, her way matched to the enemy's
+// along her course so the lead stays abeam (PRESENT_GAIN on how far it has drawn ahead or dropped astern) and never
+// under PRESENT_SAILS of her sail: she keeps station yardarm to yardarm with a ship under way, and never sails past a
+// slow one. A galley fights over its stem. It lets an enemy go past DISENGAGE times the reach it saw it at, or
 // a chase that gains nothing in CHASE_GIVE_UP_S, and leaves that one be for SPARE_S. A merchant runs from a threat on
 // the fastest point of sail away from it, and fires only what bears as it runs; a pirate short of hull runs too - a
 // flagship never. A PIRATE COMES ALONGSIDE a player's boat that is crippled, holed under GRAPPLE_HULL or lying still
@@ -52,7 +54,7 @@
 import { classById, batteryOf, hullBuild, GUNS, HULL } from './navalShips.js';
 import { createShipDamage, SHIP_STATES } from './navalDamage.js';
 import { createGunDeck, aimSolution } from './navalGunnery.js';
-import { NAVAL_DEG, rangeAt } from './navalBallistics.js';
+import { NAVAL_DEG, rangeAt, SHOT_GRAVITY } from './navalBallistics.js';
 import { BERTH_GAP } from './navalBoarding.js';
 import { wrapAngle } from '../../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 
@@ -73,6 +75,44 @@ export const NAV_EVERY_S = 0.25;
 /** A broadside bears within this of abeam; the chasers within BOW_BEAR of dead ahead (degrees). */
 export const BEAR_DEG = 13;
 export const BOW_BEAR = 11;
+/**
+ * AUDIT NAV1 (the guns) - THE RUN-OUT: a battery is run out RUN_OUT_S before it can fire - the tell the helm sees,
+ * hears and braces for (the host's glint along her ports, the trucks' rumble, the readout's warning) - once it is
+ * loaded, in its reach, with a lay that can strike her and no friend across the line, and the enemy's lead will bear
+ * within RUN_OUT_S: in the fire's window now, or closing on it fast enough (the lead's bearing's own rate - its way
+ * across her and her own turn); never past RUN_OUT_DEG of the beam (the chasers' BOW_RUN_OUT of the stem). It is
+ * run in again past RUN_IN_DEG, out of reach, with the line fouled, or unfired RUN_OUT_WAIT_S past its time - and not
+ * run out again for RUN_IN_S: a tell is a promise, never a stance.
+ * THE FIRE: run out, and the lead inside the fire's window (`fireWindow`): the bearing off the battery's line that
+ * still lays the volley across her - her half-extent across the line of fire, her length turned to it - the crew's
+ * share of it: a crack crew waits for her middle (FIRE_EXTENT_K), a green one fires at her edge (FIRE_EXTENT_SKILL
+ * more at no skill); never inside the gun's own spread, never past BEAR_DEG. A side whose window the wind will not let
+ * her bring the lead into costs NO_BEAR_S more in the choosing (engageCourse): she tacks to show the other.
+ */
+export const RUN_OUT_S = 1.3;
+export const RUN_OUT_DEG = 30;
+export const BOW_RUN_OUT = 24;
+export const RUN_IN_DEG = 45;
+export const RUN_OUT_WAIT_S = 2.5;
+export const RUN_IN_S = 2;
+/** A tell is begun only with the lead inside this share of the battery's reach - never one the enemy sails out of. */
+export const RUN_OUT_REACH = 0.92;
+/** Loaded, she still opens the range from a lead inside this share of her fighting range - no slugging hull to hull. */
+export const POINT_BLANK = 0.4;
+/** Presented, the helm leads the turn by her heading's own rate (read over TRACK_TAU s; a jump past TRACK_JUMP degrees
+ *  in a step is a new course, not a rate) - the orbit's turn - else it trails the lead 4 TURN_TAU times that rate aft of
+ *  her beam, outside the fire's window (AUDIT NAV1, the guns: 8 degrees in a steady orbit at 90 m). */
+export const TRACK_TAU = 0.5;
+export const TRACK_JUMP = 20;
+export const FIRE_EXTENT_K = 0.35;
+export const FIRE_EXTENT_SKILL = 0.65;
+export const NO_BEAR_S = 90;
+/** The crew's lay, long or short of the lead by up to LAY_ERR of the range at no skill (none at the best), laid at
+ *  AIM_FREEBOARD of her hull's height (her rig's middle for chain shot). */
+export const LAY_ERR = 0.9;
+export const AIM_FREEBOARD = 0.4;
+/** A ship she does not take for an enemy within FRIEND_CLEAR of the line of fire holds it (m). */
+export const FRIEND_CLEAR = 6;
 /** An enemy is engaged inside this (m) and let go past DISENGAGE times the reach it was seen at; a threat is fled inside
  *  FLEE_RANGE. A chase that has not closed CHASE_GAIN of its range in CHASE_GIVE_UP_S is given up, and the one it
  *  chased left be for SPARE_S. */
@@ -132,18 +172,24 @@ export const HEEL_MAX = 12;
 export const HEEL_OMEGA = 2.2;
 export const HEEL_ZETA = 0.55;
 /** Other hulls: watched within AVOID_SHIP_RANGE (m); one passing within both hulls' reach and AVOID_SHIP_CLEAR (m)
- *  inside AVOID_SHIP_S (s) is given room, up to AVOID_SHIP_SWING degrees. */
+ *  inside AVOID_SHIP_S (s) is given room, up to AVOID_SHIP_SWING degrees - to starboard for one met within
+ *  AVOID_HEAD_ON of the bow (the rule of the road), else away from the side she passes on. AUDIT NAV1 (the guns): the
+ *  starboard rule once ran to 112.5 degrees, so a hull on her starboard beam had her steer into it. */
 export const AVOID_SHIP_RANGE = 250;
 export const AVOID_SHIP_S = 25;
 export const AVOID_SHIP_CLEAR = 15;
 export const AVOID_SHIP_SWING = 60;
+export const AVOID_HEAD_ON = 22.5;
 /** The enemy's way is read smoothed over TARGET_VEL_TAU (s); a pursuit with no intercept leads by PURSUIT_LEAD_S. */
 export const TARGET_VEL_TAU = 1;
 export const PURSUIT_LEAD_S = 20;
 /** A broadside presented bends up to this (degrees) off the beam to keep her fighting range. */
 export const RANGE_BEND = 30;
-/** Presented within reach she shortens sail to this share - she keeps station, never sails past. */
+/** Presented within reach she keeps station: her way matched to the enemy's along her course, gaining PRESENT_GAIN a
+ *  second on each metre the lead has drawn ahead of her beam (losing it astern), never under PRESENT_SAILS of her sail.
+ *  AUDIT NAV1 (the guns): a flat PRESENT_SAILS dropped her astern of a boat under way, again and again. */
 export const PRESENT_SAILS = 0.6;
+export const PRESENT_GAIN = 0.08;
 /** A side whose broadside heading lies past close-hauled is presented close-hauled instead; the degrees the enemy's
  *  lead then stands off the beam cost the side this many seconds each, when the sides are weighed. */
 export const BEAR_COST_S = 1;
@@ -229,6 +275,10 @@ export function createSeaShip({ id, seed, classId, variant = 0, pos, yaw = 0, na
      *  through the wind's eye she has committed to (tack or wear) */
     avoid: { swing: 0, heading: null, clearFor: 0, at: -Infinity, dir: 0 },
     tack: null, chase: null, tvel: null, present: null, wreck: null, berthSide: 0, aground: 0, turnWay: null,
+    /** AUDIT NAV1 (the guns): the heading she steered for last step, and its rate - the presented helm's lead */
+    wantPrev: null, wantRate: 0,
+    /** AUDIT NAV1 (the guns): side -> her clock when that battery began to run out; side -> the clock it was run in */
+    runOut: new Map(), runIn: new Map(),
     boarded: false,
     /** a prize cast adrift: she drifts downwind */
     adrift: false,
@@ -469,7 +519,8 @@ export function trafficCourse(ship, want, contacts, except = null) {
     if (dca >= reach) continue;
     const urgency = (1 - dca / reach) * (1 - tca / AVOID_SHIP_S);
     const brg = wrapAngle(Math.atan2(p[0], p[1]) - ship.yaw);
-    const dir = Math.abs(brg) < 112.5 * DEG ? 1 : brg > 0 ? -1 : 1;
+    const side = wrapAngle(Math.atan2(p[0] + v[0] * tca, p[1] + v[1] * tca) - ship.yaw);   // where she lies at the closest
+    const dir = Math.abs(brg) < AVOID_HEAD_ON * DEG ? 1 : side > 0 ? -1 : 1;
     bend += dir * urgency * AVOID_SHIP_SWING * DEG;
   }
   return wrapAngle(want + clamp(bend, -AVOID_SHIP_SWING * DEG, AVOID_SHIP_SWING * DEG));
@@ -485,12 +536,13 @@ export function trafficCourse(ship, want, contacts, except = null) {
  * Answers `{ volleys: [{ side, solution }], barrels: [solution], grapple: contactId | null }`; the ship itself moved.
  */
 export function stepCaptain(ship, world) {
-  const out = { volleys: [], barrels: [], grapple: null };
+  const out = { volleys: [], barrels: [], grapple: null, runOuts: [] };
   const dt = Math.max(0, world.dt);
   ship.clock += dt;
   const st = ship.damage.state;
   const isWater = (x, z) => world.isWater(x, z, ship.hull);
   ship.guns.step(dt);
+  if (st !== SHIP_STATES.afloat || ship.boarded) ship.runOut.clear();   // a ship that no longer fights runs her guns in
   if (st === SHIP_STATES.sinking || st === SHIP_STATES.sunk) {
     ship.speed = Math.max(0, ship.speed - DECEL * dt);
     ship.sails = Math.max(0, ship.sails - dt * 0.5);
@@ -559,13 +611,13 @@ export function stepCaptain(ship, world) {
   // the sail, the helm and the way - boxed in by the land she shortens sail and pivots
   ship.sailsWant = ship.avoid.heading != null ? Math.min(plan.sails, BOXED_SAILS) : plan.sails;
   ship.sails = clamp(ship.sails + clamp(ship.sailsWant - ship.sails, -0.5 * dt, 0.4 * dt), 0, 1);
-  helm(ship, want, dt, world, 1);
+  helm(ship, want, dt, world, 1, plan.track ? trackRate(ship, want, dt) : (ship.wantPrev = null, ship.wantRate = 0));
   moveShip(ship, dt, isWater);
 
   // the guns - held at a wreck, and all but the chasers while she comes alongside
   if (!ship.guns.braced && !(enemy?.crippled && enemy.kind === 'player')) {
     gunnery(ship, world, enemy ?? (ship.cls.faction === 'merchant' ? threat : null), out, { broadsides: ship.mode !== 'board' });
-  }
+  } else ship.runOut.clear();
 
   // the grapple: a pirate with men to send, alongside a crippled, holed or stopped boat - GRAPPLE_GAP of water between
   // the hulls where both are known, else within GRAPPLE_RANGE
@@ -617,11 +669,22 @@ function trackTarget(ship, enemy, dt) {
   ship.tvel.v[2] += (v[2] - ship.tvel.v[2]) * k;
 }
 
+/** The rate her wanted heading turns at (rad/s), read smoothed over TRACK_TAU - a jump past TRACK_JUMP a new course. */
+function trackRate(ship, want, dt) {
+  if (ship.wantPrev == null || !(dt > 0)) { ship.wantPrev = want; ship.wantRate = 0; return 0; }
+  const step = wrapAngle(want - ship.wantPrev);
+  ship.wantPrev = want;
+  if (Math.abs(step) > TRACK_JUMP * DEG) { ship.wantRate = 0; return 0; }
+  ship.wantRate += (step / dt - ship.wantRate) * (1 - Math.exp(-dt / TRACK_TAU));
+  return ship.wantRate;
+}
+
 /**
- * The helm and the way: the turn eased toward `want` inside her rate, her way toward what the wind, her canvas and her
- * sail give (`power` 0 for none), a turn's cost taken from it, and the heel on its spring.
+ * The helm and the way: the turn eased toward `want` inside her rate - led by `lead` (rad/s, the heading's own turn
+ * while she presents) - her way toward what the wind, her canvas and her sail give (`power` 0 for none), a turn's cost
+ * taken from it, and the heel on its spring.
  */
-function helm(ship, want, dt, world, power) {
+function helm(ship, want, dt, world, power, lead = 0) {
   let maxRate = maxTurnRate(ship);
   const tau = TURN_TAU[ship.hull] ?? 1;
   let err = wrapAngle(want - ship.yaw);
@@ -653,7 +716,7 @@ function helm(ship, want, dt, world, power) {
     if (Math.abs(err) < 30 * DEG) ship.avoid.dir = 0;
     else if (Math.sign(err) !== ship.avoid.dir && Math.abs(err) > 90 * DEG) err -= Math.sign(err) * 2 * Math.PI;
   }
-  const cmd = clamp(err / (4 * tau), -maxRate, maxRate);
+  const cmd = clamp(err / (4 * tau) + lead, -maxRate, maxRate);
   if (dt > 0) ship.yawRate += (cmd - ship.yawRate) * (1 - Math.exp(-dt / tau));
   ship.yawRate = clamp(ship.yawRate, -maxRate, maxRate);
   ship.yaw = wrapAngle(ship.yaw + ship.yawRate * dt);
@@ -759,8 +822,9 @@ function engageCourse(ship, enemy, d, world, isWater) {
     ship.present = null;
     return { want: headingTo(ship.pos, lead), goal: lead, sails: 1 };
   }
-  // a loaded side in reach lays the lead dead abeam - to fire; one reloading bends off the beam to work the range
-  const bendOf = (side) => (ship.guns.ready(side) && d <= reach * PRESENT_WITHIN ? 0 : clamp((d - range) / range, -1, 1) * RANGE_BEND * DEG);
+  // a loaded side in reach lays the lead dead abeam - to fire; one reloading bends off the beam to work the range, and
+  // so does one loaded at point-blank (AUDIT NAV1, the guns: the hulls all but touching)
+  const bendOf = (side) => (ship.guns.ready(side) && d <= reach * PRESENT_WITHIN && d >= range * POINT_BLANK ? 0 : clamp((d - range) / range, -1, 1) * RANGE_BEND * DEG);
   const headingFor = (side) => {
     const bat = batteryOf(ship.hull, side);
     const lead = leadPoint(ship.pos, enemy.pos, rel, GUNS[bat.gun].speed);
@@ -777,9 +841,12 @@ function engageCourse(ship, enemy, d, world, isWater) {
       const ideal = headingFor(side);
       const h = sailable(ship, ideal, world.wind);
       const turnS = Math.abs(wrapAngle(h - ship.yaw)) / rate;
-      const offBeam = Math.abs(wrapAngle(ideal - h)) / DEG * BEAR_COST_S;
+      const off = Math.abs(wrapAngle(ideal - h)) / DEG;
+      // AUDIT NAV1 (the guns): the wind holding the lead outside the fire's window - she would sail on unfired
+      const bat = batteryOf(ship.hull, side);
+      const noBear = off > fireWindow(ship, enemy, leadPoint(ship.pos, enemy.pos, rel, GUNS[bat.gun].speed), bat.gun, BEAR_DEG) ? NO_BEAR_S : 0;
       const foul = courseClear(ship.pos, h, l.near, isWater, { half: l.half, from: l.from }) ? 0 : 1e4;   // her turning circle's reach
-      cost[side] = Math.max(turnS, ship.guns.left(side)) + offBeam + foul;
+      cost[side] = Math.max(turnS, ship.guns.left(side)) + off * BEAR_COST_S + noBear + foul;
     }
     const held = ship.present && sides.includes(ship.present.side) ? ship.present.side : null;
     let best = held ?? sides[0];
@@ -787,9 +854,19 @@ function engageCourse(ship, enemy, d, world, isWater) {
     ship.present = { side: best, at: ship.clock };
   }
   const side = ship.present.side;
-  const want = sailable(ship, headingFor(side), world.wind);
-  const presented = ship.guns.ready(side) && d <= reach * PRESENT_WITHIN && Math.abs(wrapAngle(want - ship.yaw)) < 30 * DEG;
-  return { want, goal: null, sails: presented ? PRESENT_SAILS : 1, sailable: true };
+  const ideal = headingFor(side);
+  const want = sailable(ship, ideal, world.wind);
+  const bat = batteryOf(ship.hull, side);
+  const lead = leadPoint(ship.pos, enemy.pos, rel, GUNS[bat.gun].speed);
+  // presented: loaded, in reach, on her heading - and a heading the wind lets lay the lead inside the fire's window
+  const presented = ship.guns.ready(side) && d <= reach * PRESENT_WITHIN && Math.abs(wrapAngle(want - ship.yaw)) < 30 * DEG
+    && Math.abs(wrapAngle(ideal - want)) / DEG <= fireWindow(ship, enemy, lead, bat.gun, BEAR_DEG);
+  if (!presented) return { want, goal: null, sails: 1, sailable: true, track: true };
+  // station: her way matched to the enemy's along her course, closing on the lead drawn ahead or astern of her beam
+  const f = forwardOfYaw(ship.yaw);
+  const pace = (vel[0] * f[0] + vel[2] * f[2]) + PRESENT_GAIN * ((lead[0] - ship.pos[0]) * f[0] + (lead[2] - ship.pos[2]) * f[2]);
+  const best = Math.max(0.5, paceOf(ship, world.wind) * windFactor(offRunOf(ship.yaw, world.wind)));
+  return { want, goal: null, sails: clamp(pace / best, PRESENT_SAILS, 1), sailable: true, track: true };
 }
 
 /**
@@ -877,12 +954,14 @@ function cruiseCourse(ship, wind, isWater, r) {
 }
 
 /**
- * The guns of one step: a battery fires when the enemy's LEAD - where it will be when the balls arrive, which is
- * where the guns are laid - bears within its arc and its reach; barrels for a pursuer close under the stern.
- * `broadsides` false holds the broadsides (a pirate coming alongside keeps her prize whole).
+ * The guns of one step. Each battery that bears is run out (RUN_OUT_S, the tell) and fires once it is out and its lay
+ * passes near enough the enemy's LEAD - where it will be when the balls arrive, which is where the guns are laid (the
+ * crew's error long or short by LAY_ERR at no skill) - at AIM_FREEBOARD of her hull, or through the middle of her rig
+ * for chain shot. Never a lay that passes over her or falls short of her, never across a friend; barrels for a pursuer
+ * close under the stern. `broadsides` false holds the broadsides (a pirate coming alongside keeps her prize whole).
  */
 function gunnery(ship, world, enemy, out, { broadsides = true } = {}) {
-  if (!enemy) return;
+  if (!enemy) { ship.runOut.clear(); return; }
   const { bearing, dist } = bearingTo(ship, enemy.pos);
   const deg = bearing / DEG;
   const pose = { position: ship.pos, rotation: quatOfYaw(ship.yaw), velocity: velocityOf(ship), hull: ship.hull };
@@ -890,30 +969,50 @@ function gunnery(ship, world, enemy, out, { broadsides = true } = {}) {
   const r = world.random ?? Math.random;
   const my = velocityOf(ship);
   const rel = [(enemy.vel?.[0] ?? 0) - my[0], 0, (enemy.vel?.[2] ?? 0) - my[2]];
-  const tryBattery = (side, bearingWant, tol) => {
-    if (!ship.guns.ready(side)) return;
+  const build = hullBuild(enemy.hull ?? HULL.LargeBoat);
+  const battery = (side, bearingWant, arc, bear) => {
     const bat = batteryOf(ship.hull, side);
-    if (!bat || bat.gun === 'barrel') return;
+    if (!bat || bat.gun === 'barrel' || (!broadsides && (side === 'starboard' || side === 'port'))) { ship.runOut.delete(side); return; }
     const g = GUNS[bat.gun];
     const lead = leadPoint(ship.pos, enemy.pos, rel, g.speed);
     const toLead = bearingTo(ship, lead);
-    if (Math.abs(wrapAngle(toLead.bearing - bearingWant * DEG)) / DEG > tol) return;
-    const dy = (bat.muzzles[0]?.[1] ?? 2) + ship.pos[1] - world.seaY;
-    if (toLead.dist > rangeAt(g.maxEl * DEG, g.speed, dy) * 1.02) return;
-    // the crew's error: the lay long or short of the lead by up to 17.5% at no skill, none at the best
-    const err = 1 + (r() - 0.5) * 0.35 * (1 - skill);
-    const aimAt = [ship.pos[0] + (lead[0] - ship.pos[0]) * err, lead[1], ship.pos[2] + (lead[2] - ship.pos[2]) * err];
-    const solution = aimSolution(pose, side, null, world.seaY, { target: aimAt });
+    const err = Math.abs(wrapAngle(toLead.bearing - bearingWant * DEG)) / DEG;
+    const loaded = ship.guns.ready(side);
+    const reach = batteryReach(ship, side, world.seaY);
+    const inReach = toLead.dist <= reach * 1.02;
+    // the height the lay meets her at, and the band it must pass through to strike her there
+    const rig = bat.gun === 'chain' && build.rig.length ? rigBand(build).map((y) => world.seaY + y) : null;
+    const band = rig ?? [world.seaY, world.seaY + build.top];
+    const aimY = rig ? (rig[0] + rig[1]) / 2 : world.seaY + build.top * AIM_FREEBOARD;
+    const lay = (k) => aimSolution(pose, side, null, world.seaY, { target: [ship.pos[0] + (lead[0] - ship.pos[0]) * k, lead[1], ship.pos[2] + (lead[2] - ship.pos[2]) * k], targetY: aimY });
+    const clear = !lineFoul(ship, bat, lead, enemy, world);
+    const strikes = () => { const sol = lay(1); return !!sol && layPasses(sol, lead, band); };
+    const window = fireWindow(ship, enemy, lead, bat.gun, bear);
+    const since = ship.runOut.get(side);
+    if (since == null) {
+      if ((ship.runIn.get(side) ?? -Infinity) > ship.clock - RUN_IN_S) return;
+      const soon = err <= window || bearsWithin(ship, lead, enemy, side === 'bow' ? 0 : bearingWant, window) <= RUN_OUT_S;
+      if (loaded && toLead.dist <= reach * RUN_OUT_REACH && err <= arc && soon && clear && strikes()) { ship.runOut.set(side, ship.clock); out.runOuts.push(side); }
+      return;
+    }
+    if (!loaded || !inReach || err > RUN_IN_DEG || !clear || ship.clock - since > RUN_OUT_S + RUN_OUT_WAIT_S) {
+      ship.runOut.delete(side);
+      ship.runIn.set(side, ship.clock);
+      return;
+    }
+    if (ship.clock - since < RUN_OUT_S || err > window) return;
+    if (!strikes()) return;
+    // the crew's error: the lay long or short of the lead by up to LAY_ERR / 2 at no skill, none at the best
+    const solution = lay(1 + (r() - 0.5) * LAY_ERR * (1 - skill));
     if (!solution) return;
     out.volleys.push({ side, solution });
     ship.guns.fired(side);
+    ship.runOut.delete(side);
     ship.lastFire = world.now;
   };
-  if (broadsides) {
-    tryBattery('starboard', 90, BEAR_DEG);
-    tryBattery('port', -90, BEAR_DEG);
-  }
-  tryBattery('bow', 0, BOW_BEAR);
+  battery('starboard', 90, RUN_OUT_DEG, BEAR_DEG);
+  battery('port', -90, RUN_OUT_DEG, BEAR_DEG);
+  battery('bow', 0, BOW_RUN_OUT, BOW_BEAR);
   // a barrel for a pursuer close under the stern
   if (Math.abs(deg) > 160 && dist < 45 && ship.guns.ready('stern')) {
     const bat = batteryOf(ship.hull, 'stern');
@@ -922,6 +1021,107 @@ function gunnery(ship, world, enemy, out, { broadsides = true } = {}) {
       if (solution) { out.barrels.push(solution); ship.guns.fired('stern'); }
     }
   }
+}
+
+/**
+ * The fire's window (degrees off a battery's line) for a volley at `at` (the lead): her half-extent across the line
+ * of fire - her length times the sine of her heading against it, her half beam times its cosine (her heading unknown
+ * and her way too slow to read it by: her mean profile) - times the crew's
+ * share (FIRE_EXTENT_K, and FIRE_EXTENT_SKILL more at no skill), over the range; never inside the gun's own spread for
+ * this crew, never past `bear`.
+ */
+export function fireWindow(ship, enemy, at, gun, bear) {
+  const b = hullBuild(enemy.hull ?? HULL.LargeBoat);
+  const los = Math.atan2(at[0] - ship.pos[0], at[2] - ship.pos[2]);
+  const dist = Math.max(1, Math.hypot(at[0] - ship.pos[0], at[2] - ship.pos[2]));
+  // her heading: her own, else her way's, else unknown - her mean profile over every heading (2/pi of each half)
+  const v = enemy.vel ?? [0, 0, 0];
+  const eyaw = Number.isFinite(enemy.yaw) ? enemy.yaw : Math.hypot(v[0], v[2]) > 0.3 ? Math.atan2(v[0], v[2]) : null;
+  const halfLen = (b.bowZ - b.aftZ) / 2;
+  const extent = eyaw == null ? (halfLen + b.halfWidth) * 2 / Math.PI : halfLen * Math.abs(Math.sin(eyaw - los)) + b.halfWidth * Math.abs(Math.cos(eyaw - los));
+  const miss = extent * (FIRE_EXTENT_K + FIRE_EXTENT_SKILL * (1 - ship.cls.skill));
+  const spread = (GUNS[gun]?.yawSpread ?? 1) * clamp(1.5 - ship.cls.skill, 0.4, 1.5);
+  return Math.min(bear, Math.max(spread, Math.asin(Math.min(1, miss / dist)) / DEG));
+}
+
+/**
+ * The seconds until the lead's bearing comes within `window` degrees of `want` (the battery's beam, degrees off the
+ * bow): its rate is the lead's way across her line of sight (its smoothed way less hers, over the range) less her own
+ * turn. 0 already in it, Infinity opening or standing.
+ */
+export function bearsWithin(ship, lead, enemy, want, window) {
+  const dx = lead[0] - ship.pos[0], dz = lead[2] - ship.pos[2];
+  const d2 = dx * dx + dz * dz;
+  if (d2 < 1) return 0;
+  const err = wrapAngle(Math.atan2(dx, dz) - ship.yaw - want * DEG) / DEG;
+  if (Math.abs(err) <= window) return 0;
+  const v = ship.tvel?.id === enemy.id ? ship.tvel.v : enemy.vel ?? [0, 0, 0];
+  const my = velocityOf(ship);
+  const rx = v[0] - my[0], rz = v[2] - my[2];
+  // d(atan2(dx, dz))/dt = (dz rx - dx rz) / d2 - the world bearing's rate; less her own yaw rate
+  const rate = ((dz * rx - dx * rz) / d2 - (ship.yawRate ?? 0)) / DEG;
+  if (Math.sign(rate) === Math.sign(err) || Math.abs(rate) < 1e-6) return Infinity;   // opening, or standing
+  return (Math.abs(err) - window) / Math.abs(rate);
+}
+
+/** A hull's rig as one band of height over the sea: its lowest box's floor to its highest's roof (m). */
+export function rigBand(build) {
+  let lo = Infinity, hi = -Infinity;
+  for (const [mn, mx] of build.rig) { lo = Math.min(lo, mn[1]); hi = Math.max(hi, mx[1]); }
+  return [lo, hi];
+}
+
+/**
+ * Whether a lay's unscattered flight (the battery's middle gun) passes through the height band `band` (world heights)
+ * where it comes abreast of `at` along the fire - neither over her (a carriage that cannot depress so far) nor into the
+ * sea short of her.
+ */
+export function layPasses(solution, at, band) {
+  const l = solution.launches[solution.launches.length >> 1];
+  if (!l) return false;
+  const along = l.v0[0] * solution.dir[0] + l.v0[2] * solution.dir[2];
+  const x = (at[0] - l.p0[0]) * solution.dir[0] + (at[2] - l.p0[2]) * solution.dir[2];
+  if (!(along > 1e-6) || !(x > 0)) return false;
+  const t = x / along;
+  const y = l.p0[1] + l.v0[1] * t - 0.5 * SHOT_GRAVITY * t * t;
+  return y >= band[0] - 0.25 && y <= band[1];
+}
+
+/**
+ * Whether a friend lies across a battery's line of fire: any contact she does not take for an enemy whose hull (its
+ * flat box off its build, FRIEND_CLEAR grown) the line from her guns out past the lead crosses.
+ */
+export function lineFoul(ship, bat, lead, enemy, world) {
+  const f = forwardOfYaw(ship.yaw), rr = [f[2], 0, -f[0]];
+  const m = bat.muzzles[bat.muzzles.length >> 1];
+  const a = [ship.pos[0] + rr[0] * m[0] + f[0] * m[2], 0, ship.pos[2] + rr[2] * m[0] + f[2] * m[2]];
+  const len = Math.hypot(lead[0] - a[0], lead[2] - a[2]);
+  if (len < 1e-6) return false;
+  const over = hullLength(enemy.hull ?? HULL.LargeBoat) / 2;
+  const b = [a[0] + (lead[0] - a[0]) / len * (len + over), 0, a[2] + (lead[2] - a[2]) / len * (len + over)];
+  for (const c of world.contacts ?? []) {
+    if (c.id === ship.id || c.id === enemy.id || c.gone || hostile(ship, c, world)) continue;
+    const hb = hullBuild(c.hull ?? HULL.LargeBoat);
+    const yaw = Number.isFinite(c.yaw) ? c.yaw : 0;
+    const cf = [Math.sin(yaw), Math.cos(yaw)], cr = [cf[1], -cf[0]];
+    const mid = (hb.bowZ + hb.aftZ) / 2;
+    const cc = [c.pos[0] + cf[0] * mid, c.pos[2] + cf[1] * mid];
+    const hl = (hb.bowZ - hb.aftZ) / 2 + FRIEND_CLEAR, hw = hb.halfWidth + FRIEND_CLEAR;
+    // the segment in her box's frame, slab-tested
+    const to = (p) => { const d = [p[0] - cc[0], p[2] - cc[1]]; return [d[0] * cr[0] + d[1] * cr[1], d[0] * cf[0] + d[1] * cf[1]]; };
+    const pa = to(a), pb = to(b);
+    let t0 = 0, t1 = 1, crosses = true;
+    for (const [i, h] of [[0, hw], [1, hl]]) {
+      const d = pb[i] - pa[i];
+      if (Math.abs(d) < 1e-9) { if (Math.abs(pa[i]) > h) { crosses = false; break; } continue; }
+      let u = (-h - pa[i]) / d, w = (h - pa[i]) / d;
+      if (u > w) [u, w] = [w, u];
+      t0 = Math.max(t0, u); t1 = Math.min(t1, w);
+      if (t0 > t1) { crosses = false; break; }
+    }
+    if (crosses) return true;
+  }
+  return false;
 }
 
 /** What the wire says of a ship (NAV-G) and a save keeps of nothing - a sea ship lives in a room, not a save. */

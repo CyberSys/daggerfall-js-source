@@ -38,8 +38,8 @@
   {
     "name": "NAV-G-one-bad-ship-let-through",
     "file": "src/systems/naval/navalWire.js",
-    "old": "    if (!Array.isArray(w) || w.length !== 16 || !w.every(Number.isFinite)) return null;",
-    "new": "    if (!Array.isArray(w) || w.length !== 16 || !w.every(Number.isFinite)) continue;",
+    "old": "    if (!Array.isArray(w) || (w.length !== 16 && w.length !== 17) || !w.every(Number.isFinite)) return null;",
+    "new": "    if (!Array.isArray(w) || (w.length !== 16 && w.length !== 17) || !w.every(Number.isFinite)) continue;",
     "tests": [
       "test/nav_g_online.test.js"
     ]

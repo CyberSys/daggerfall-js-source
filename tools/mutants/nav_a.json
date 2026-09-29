@@ -18,10 +18,10 @@
     ]
   },
   {
-    "name": "NAV-A-the-rig-margin-dropped",
+    "name": "NAV-A-the-waterline-edge",
     "file": "src/systems/naval/navalDamage.js",
-    "old": "  if (local[1] >= box.h[1] - RIG_MARGIN) return 'rig';",
-    "new": "  if (local[1] >= box.h[1]) return 'rig';",
+    "old": "  return pointOverSea <= WATERLINE_BAND ? 'holed' : 'hull';",
+    "new": "  return pointOverSea < WATERLINE_BAND ? 'holed' : 'hull';",
     "tests": [
       "test/nav_a_guns.test.js"
     ]
@@ -29,17 +29,17 @@
   {
     "name": "NAV-A-the-struck-edge",
     "file": "src/systems/naval/navalDamage.js",
-    "old": "else if (s.state === SHIP_STATES.afloat && s.hull <= s.maxHull * STRUCK_AT) s.state = SHIP_STATES.struck;",
-    "new": "else if (s.state === SHIP_STATES.afloat && s.hull < s.maxHull * STRUCK_AT) s.state = SHIP_STATES.struck;",
+    "old": "else if (s.state === SHIP_STATES.afloat && s.hull <= s.maxHull * STRUCK_AT) { s.state = SHIP_STATES.struck; douse(); }",
+    "new": "else if (s.state === SHIP_STATES.afloat && s.hull < s.maxHull * STRUCK_AT) { s.state = SHIP_STATES.struck; douse(); }",
     "tests": [
       "test/nav_a_guns.test.js"
     ]
   },
   {
-    "name": "NAV-A-the-fire-stacking",
+    "name": "NAV-A-a-fire-topping-up",
     "file": "src/systems/naval/navalDamage.js",
-    "old": "      if (hurt.fire) s.fire = FIRE_SECONDS;",
-    "new": "      if (hurt.fire) s.fire += FIRE_SECONDS;",
+    "old": "    if (s.fires.length < FIRE_STACK) { s.fires.push(f); return; }",
+    "new": "    if (s.fires.length) { s.fires[0].t = f.t; return; }\n    if (s.fires.length < FIRE_STACK) { s.fires.push(f); return; }",
     "tests": [
       "test/nav_a_guns.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "NAV-A-resolve-dropped",
     "file": "src/systems/naval/navalShots.js",
-    "old": "dir: [next[0] - a[0], next[1] - a[1], next[2] - a[2]], resolve: b.resolve,",
-    "new": "dir: [next[0] - a[0], next[1] - a[1], next[2] - a[2]], resolve: true,",
+    "old": "zone: hitZone(ship.e.point[1] - seaY), dir, resolve: b.resolve,",
+    "new": "zone: hitZone(ship.e.point[1] - seaY), dir, resolve: true,",
     "tests": [
       "test/nav_a_guns.test.js"
     ]

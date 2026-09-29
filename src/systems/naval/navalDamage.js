@@ -3,14 +3,25 @@
 //
 // A SHIP IS THREE NUMBERS. Its HULL (holed, it sinks), its SAILS (cut, it slows - a ship's way is 35% of its best
 // under bare poles and the rest in proportion to the canvas left), and its CREW (thinned, the guns reload slower -
-// navalGunnery.js reloadSeconds - and a boarding meets fewer). Each shot is classified where it strikes the hull's
-// box (navalBallistics.js segmentBoxEntry's local point): over the gunwale it is in the RIGGING - sails and a man or
-// two; below it the HULL - and within WATERLINE_BAND of the sea it is holed below the waterline, HOLED_BONUS more.
-// A hull hit has FIRE_CHANCE to start a fire (a fire barrel always does): a fire burns FIRE_HP a second for
-// FIRE_SECONDS, a new one topping the clock up, never stacking.
+// navalGunnery.js reloadSeconds - and a boarding meets fewer). A ball that strikes her HULL box (navalBallistics.js
+// segmentBoxEntry) holes her - within WATERLINE_BAND of the sea, by the point it struck at, below the waterline,
+// HOLED_BONUS more - and one that passes through her RIG (navalShips.js HULL_BUILDS `rig`, the canvas over her roof)
+// tears canvas and takes a man aloft, and flies on (navalShots.js).
+// FIRE: a hull hit above the waterline has FIRE_CHANCE to start one (a fire barrel always does); each fire burns its
+// own bite for its own seconds - a gun's FIRE_HP for FIRE_SECONDS, a barrel's BARREL.burnPerSecond for BARREL.burn -
+// and eats her canvas (FIRE_SAIL) and her men (one each FIRE_CREW_S) as well as her timbers; up to FIRE_STACK burn at
+// once, a new one past that taking the place of the one with the least harm left in it (its bite times its seconds)
+// when it carries more. A ship that strikes has her fires put out.
+//
+// AUDIT NAV1 (2026-09-29, the guns) set this law on what the gunnery audit measured: a hull hit was judged by the
+// hull box's own up axis (65 of 2,121 misjudged on a heeled hull), the rigging was the box's top 0.4 m (so the
+// masts were no target and a plunging ball did no harm), FIRE_CHANCE was read by nothing (the host rolled its own
+// on every zone), a barrel burned as a ball's fire, and a fire could not spread nor touch her canvas or crew.
 //
 // THE STATES (SHIP_STATES) follow Black Flag's rhythm. An AI ship brought to STRUCK_AT of its hull STRIKES ITS COLOURS: it stops
-// fighting and heaves to, and can be boarded (navalBoarding.js) - or shot on until it sinks. At nought it SINKS, over
+// fighting and heaves to, and can be boarded (navalBoarding.js) - or shot on until it sinks; the rest of the volley
+// that struck her cannot (`apply`'s floor, the host's STRUCK_GRACE_S), so sinking a prize is a new volley, never the
+// same click that took her. At nought it SINKS, over
 // SINK_SECONDS (navalAI.js settles and heels it), then is SUNK and gone, its flotsam left floating. A ship taken by
 // boarding is a PRIZE.
 //
@@ -22,6 +33,8 @@
 //
 // BRACING halves the hull and sail damage a ship takes while the brace is held (the gunnery's own brace).
 
+import { BARREL } from './navalShips.js';
+
 export const SHIP_STATES = Object.freeze({ afloat: 'afloat', struck: 'struck', sinking: 'sinking', sunk: 'sunk', prize: 'prize', wrecked: 'wrecked' });
 /** An AI ship strikes its colours at this share of its hull. */
 export const STRUCK_AT = 0.25;
@@ -30,12 +43,14 @@ export const SINK_SECONDS = 22;
 /** The band over the sea a hull hit is below the waterline in (m), and what it adds. */
 export const WATERLINE_BAND = 1.1;
 export const HOLED_BONUS = 0.4;
-/** The rigging's floor: this far under the hull box's top a shot is already in the rigging (m). */
-export const RIG_MARGIN = 0.4;
-/** Fire: the chance a hull hit sets one, its bite a second, its length. */
+/** Fire: the chance a hull hit above the waterline sets one, a gun's fire's bite a second and its length, the most
+ *  that burn at once, and what each eats besides her timbers - canvas a second, a man every FIRE_CREW_S. */
 export const FIRE_CHANCE = 0.06;
 export const FIRE_HP = 1.4;
 export const FIRE_SECONDS = 15;
+export const FIRE_STACK = 3;
+export const FIRE_SAIL = 0.5;
+export const FIRE_CREW_S = 10;
 /** What bracing leaves of a hit. */
 export const BRACE_TAKEN = 0.5;
 /** A wrecked boat's oars: this share of their way. */
@@ -46,16 +61,17 @@ export const BARE_POLES = 0.35;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 /**
- * Where a shot struck, from the hit's point in the hull box's own frame (`local`, navalBallistics.js
- * segmentBoxEntry): 'rig' over the gunwale, 'holed' within WATERLINE_BAND of the sea, else 'hull'.
- * @param {number[]} local - the point in the box frame (x across, y up, z along)
- * @param {{ h: number[] }} box - its half sizes
- * @param {number} boxCentreOverSea - the box centre's height over the sea (m)
+ * Where a ball struck her hull, by the height of the point it struck at over the sea: 'holed' within WATERLINE_BAND,
+ * else 'hull' - her deck and her castles are hull, and her rigging is a target of its own (navalShots.js).
+ * @param {number} pointOverSea - the hit point's height over the sea (m)
  */
-export function hitZone(local, box, boxCentreOverSea) {
-  if (local[1] >= box.h[1] - RIG_MARGIN) return 'rig';
-  if (local[1] + boxCentreOverSea <= WATERLINE_BAND) return 'holed';
-  return 'hull';
+export function hitZone(pointOverSea) {
+  return pointOverSea <= WATERLINE_BAND ? 'holed' : 'hull';
+}
+
+/** A fire's bite a second and its seconds: a barrel's (`kind` 'barrel' or 2, the wire's code), else a gun's. */
+export function fireOf(kind) {
+  return kind === 'barrel' || kind === 2 ? { hp: BARREL.burnPerSecond, t: BARREL.burn } : { hp: FIRE_HP, t: FIRE_SECONDS };
 }
 
 /**
@@ -76,18 +92,32 @@ export function shotDamage(gun, zone, { braced = false, roll = 0.5 } = {}) {
  * @param {{ hullHp: number, sailHp: number, crew: number, player?: boolean }} spec
  */
 export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
-  /** @type {{ maxHull: number, maxSail: number, maxCrew: number, hull: number, sail: number, crew: number, fire: number, state: string, sinkT: number, lastHitAt: number }} */
+  /** @type {{ maxHull: number, maxSail: number, maxCrew: number, hull: number, sail: number, crew: number, fires: { hp: number, t: number }[], crewBurn: number, state: string, sinkT: number, lastHitAt: number }} */
   const s = {
     maxHull: Math.max(1, hullHp), maxSail: Math.max(0, sailHp), maxCrew: Math.max(0, crew),
     hull: Math.max(1, hullHp), sail: Math.max(0, sailHp), crew: Math.max(0, crew),
-    fire: 0, state: SHIP_STATES.afloat, sinkT: 0, lastHitAt: -Infinity,
+    fires: [], crewBurn: 0, state: SHIP_STATES.afloat, sinkT: 0, lastHitAt: -Infinity,
   };
+  /** A fire set: its own clock, up to FIRE_STACK - past that it takes the place of the one with the least harm left
+   *  (bite times seconds), if it carries more. */
+  const ignite = (kind) => {
+    const f = fireOf(kind);
+    if (s.fires.length < FIRE_STACK) { s.fires.push(f); return; }
+    const harm = (x) => x.hp * x.t;
+    let low = 0;
+    for (let i = 1; i < s.fires.length; i++) if (harm(s.fires[i]) < harm(s.fires[low])) low = i;
+    if (harm(s.fires[low]) < harm(f)) s.fires[low] = f;
+  };
+  const douse = () => { s.fires = []; s.crewBurn = 0; };
   const d = {
     get state() { return s.state; },
     get hull() { return s.hull; }, get maxHull() { return s.maxHull; },
     get sail() { return s.sail; }, get maxSail() { return s.maxSail; },
     get crew() { return s.crew; }, get maxCrew() { return s.maxCrew; },
-    get fire() { return s.fire; },
+    /** The seconds the longest fire aboard has left (0: none) - the readout's chip and the wire's flag. */
+    get fire() { return s.fires.reduce((m, f) => Math.max(m, f.t), 0); },
+    /** How many fires burn. */
+    get fires() { return s.fires.length; },
     get sinkT() { return s.sinkT; },
     get lastHitAt() { return s.lastHitAt; },
     hullShare: () => s.hull / s.maxHull,
@@ -97,37 +127,51 @@ export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
     wayShare: () => (s.maxSail > 0 ? BARE_POLES + (1 - BARE_POLES) * (s.sail / s.maxSail) : 1),
     /** Whether the ship still fights: afloat (a struck, sinking, sunk, taken or wrecked ship fires nothing). */
     fighting: () => s.state === SHIP_STATES.afloat,
-    /** A hurt, applied: `{ hull, sail, crew, fire? }`, at `now` (s). Answers what it changed the state to (or null). */
-    apply(hurt, now = 0) {
+    /**
+     * A hurt, applied: `{ hull, sail, crew, fire? }` at `now` (s) - `fire` true (a gun's), 'barrel' or 2 (a barrel's).
+     * `floor` - the hull it cannot take her under (the rest of the volley that struck her: 1). Answers what it
+     * changed the state to (or null).
+     */
+    apply(hurt, now = 0, { floor = 0 } = {}) {
       if (s.state === SHIP_STATES.sunk || s.state === SHIP_STATES.prize) return null;
       s.lastHitAt = now;
-      s.hull = Math.max(0, s.hull - Math.max(0, hurt.hull | 0));
+      s.hull = Math.max(Math.min(s.hull, floor), s.hull - Math.max(0, hurt.hull | 0));
       s.sail = Math.max(0, s.sail - Math.max(0, hurt.sail | 0));
       s.crew = Math.max(0, s.crew - Math.max(0, hurt.crew | 0));
-      if (hurt.fire) s.fire = FIRE_SECONDS;
+      if (hurt.fire && !(floor > 0 && s.state === SHIP_STATES.struck)) ignite(hurt.fire);   // a sinking ship's fire burns on, harmless, until she is gone (a scuttling's torch)
       return d.settle();
     },
+    /** Her fires put out (a ship that strikes: her crew fights them now, not the guns). */
+    douse,
     /** The state the numbers now call for; answers the new state on a change, else null. */
     settle() {
       const was = s.state;
       if (player) {
         if (s.hull <= 0 && s.state !== SHIP_STATES.wrecked) s.state = SHIP_STATES.wrecked;
       } else if (s.state === SHIP_STATES.afloat || s.state === SHIP_STATES.struck) {
-        if (s.hull <= 0) { s.state = SHIP_STATES.sinking; s.sinkT = 0; s.fire = 0; }
-        else if (s.state === SHIP_STATES.afloat && s.hull <= s.maxHull * STRUCK_AT) s.state = SHIP_STATES.struck;
+        if (s.hull <= 0) { s.state = SHIP_STATES.sinking; s.sinkT = 0; douse(); }
+        else if (s.state === SHIP_STATES.afloat && s.hull <= s.maxHull * STRUCK_AT) { s.state = SHIP_STATES.struck; douse(); }
       }
       return s.state !== was ? s.state : null;
     },
-    /** One step: the fire burns, a sinking ship goes down. Answers a state change, or null. */
+    /** One step: each fire burns her timbers, canvas and men, a sinking ship goes down. Answers a state change, or
+     *  null. */
     step(dt, now = 0) {
       const t = Math.max(0, dt);
-      if (s.fire > 0 && s.state !== SHIP_STATES.sinking && s.state !== SHIP_STATES.sunk) {
-        const burn = Math.min(s.fire, t);
-        s.fire -= burn;
-        const change = d.apply({ hull: 0, sail: 0, crew: 0 }, now);
-        s.hull = Math.max(0, s.hull - FIRE_HP * burn);
-        const c2 = d.settle();
-        if (c2 || change) return c2 ?? change;
+      if (s.fires.length && s.state !== SHIP_STATES.sinking && s.state !== SHIP_STATES.sunk) {
+        s.lastHitAt = now;
+        for (const f of s.fires) {
+          const burn = Math.min(f.t, t);
+          f.t -= burn;
+          s.hull = Math.max(0, s.hull - f.hp * burn);
+          s.sail = Math.max(0, s.sail - FIRE_SAIL * burn);
+          s.crewBurn += burn;
+        }
+        s.fires = s.fires.filter((f) => f.t > 1e-9);
+        while (s.crewBurn >= FIRE_CREW_S) { s.crewBurn -= FIRE_CREW_S; s.crew = Math.max(0, s.crew - 1); }
+        if (!s.fires.length) s.crewBurn = 0;
+        const change = d.settle();
+        if (change) return change;
       }
       if (s.state === SHIP_STATES.sinking) {
         s.sinkT += t;
@@ -138,24 +182,26 @@ export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
     /** Taken by boarding. */
     takePrize() { if (s.state !== SHIP_STATES.sunk && s.state !== SHIP_STATES.sinking) s.state = SHIP_STATES.prize; },
     /** Scuttled: straight to sinking. */
-    scuttle() { if (s.state !== SHIP_STATES.sunk) { s.state = SHIP_STATES.sinking; s.sinkT = 0; s.fire = 0; } },
+    scuttle() { if (s.state !== SHIP_STATES.sunk) { s.state = SHIP_STATES.sinking; s.sinkT = 0; douse(); } },
     /** Repairs: hull, sails and crew each up to their best (or by an amount). A wrecked boat back over nought floats. */
     repair({ hull = Infinity, sail = Infinity, crew = Infinity } = {}) {
       s.hull = Math.min(s.maxHull, s.hull + Math.max(0, hull));
       s.sail = Math.min(s.maxSail, s.sail + Math.max(0, sail));
       s.crew = Math.min(s.maxCrew, s.crew + Math.max(0, crew));
-      if (s.hull > 0) s.fire = 0;
+      if (s.hull > 0) douse();
       if (s.state === SHIP_STATES.wrecked && s.hull > 0) s.state = SHIP_STATES.afloat;
       if (s.state === SHIP_STATES.struck && s.hull > s.maxHull * STRUCK_AT) s.state = SHIP_STATES.afloat;
     },
     /** What the save or the wire keeps. */
-    snapshot: () => ({ hull: Math.round(s.hull), sail: Math.round(s.sail), crew: s.crew, fire: +s.fire.toFixed(1), state: s.state }),
+    snapshot: () => ({ hull: Math.round(s.hull), sail: Math.round(s.sail), crew: s.crew, fire: +d.fire.toFixed(1), state: s.state }),
     /** Back from a snapshot - numbers bounded to the ship's own, a state it can be in. */
     restore(r) {
       if (!r || typeof r !== 'object') return;
       const num = (v, max) => (Number.isFinite(v) ? clamp(v, 0, max) : max);
       s.hull = num(r.hull, s.maxHull); s.sail = num(r.sail, s.maxSail); s.crew = Math.round(num(r.crew, s.maxCrew));
-      s.fire = Number.isFinite(r.fire) ? clamp(r.fire, 0, FIRE_SECONDS) : 0;
+      douse();
+      const fire = Number.isFinite(r.fire) ? clamp(r.fire, 0, FIRE_SECONDS) : 0;
+      if (fire > 0) s.fires.push({ hp: FIRE_HP, t: fire });
       const st = Object.values(SHIP_STATES).includes(r.state) ? r.state : SHIP_STATES.afloat;
       s.state = player ? (st === SHIP_STATES.wrecked || s.hull <= 0 ? SHIP_STATES.wrecked : SHIP_STATES.afloat) : st;
       if (s.state === SHIP_STATES.sinking) s.sinkT = 0;

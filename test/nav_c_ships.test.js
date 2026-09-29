@@ -10,7 +10,7 @@ import {
 } from '../src/systems/naval/navalShips.js';
 import {
   OARS_FLOOR, LOOKAHEAD_MIN, AVOID_SWINGS, BEAR_DEG, ENGAGE_RANGE, FLEE_RANGE, PIRATE_RUNS_AT, GRAPPLE_RANGE, GRAPPLE_STILL_S,
-  GRAPPLE_HULL, NAVY_HUNTS, ACCEL, PROVOKED_S,
+  GRAPPLE_HULL, NAVY_HUNTS, ACCEL, PROVOKED_S, RUN_OUT_S,
   windFactor, createSeaShip, velocityOf, hostile, provoke, courseClear, avoidLand, bearingTo, leadPoint, stepCaptain,
   batteryReach, broadsideReach, shipWireState, quatOfYaw, forwardOfYaw,
 } from '../src/systems/naval/navalAI.js';
@@ -170,14 +170,14 @@ test('NAV-C the lead: a still target is laid on; a moving one where it will be w
   assert.ok(p[2] > 8, 'ahead of her');
 });
 
-test('NAV-C a captain at sea: with no enemy she cruises for a waypoint on open water, gathering way at ACCEL; a pirate with the player in reach engages - she presents her loaded broadside and fires it as the player bears abeam, the side then reloading (mutants: the broadside\'s bearing, the reach, the reload skipped)', () => {
+test('NAV-C a captain at sea: with no enemy she cruises for a waypoint on open water, gathering way at ACCEL; a pirate with the player in reach engages - she presents her loaded broadside, runs it out (AUDIT NAV1: RUN_OUT_S, the tell) and fires it as the player bears abeam, the side then reloading (mutants: the broadside\'s bearing, the reach, the reload skipped)', () => {
   const s = createSeaShip({ id: 'c', seed: 5, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0 });
   let k = 0;
   const out = stepCaptain(s, world({ random: () => [0.1, 0.4, 0.2][(k++) % 3] }));   // AUDIT NAV1: a constant draw would be an upwind course every try
   assert.equal(s.mode, 'cruise');
   assert.ok(Array.isArray(s.waypoint) && s.waypoint.length === 2, 'a waypoint');
   near(s.speed, ACCEL * 1, 1e-12, 'a heavy hull gathers way at half; a brigantine at ACCEL');
-  assert.deepEqual(out, { volleys: [], barrels: [], grapple: null });
+  assert.deepEqual(out, { volleys: [], barrels: [], grapple: null, runOuts: [] });
   // the player abeam to starboard, within her reach
   const b = createSeaShip({ id: 'b', seed: 6, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0 });
   assert.ok(broadsideReach(b, 0) > 150, `her long guns reach ${broadsideReach(b, 0)} m`);
@@ -185,8 +185,15 @@ test('NAV-C a captain at sea: with no enemy she cruises for a waypoint on open w
   assert.equal(b.mode, 'engage');
   assert.equal(b.target, 'me');
   near(b.yaw, 0, 1e-9, 'already presented: she holds her course');
-  assert.equal(o.volleys.length, 1);
-  assert.equal(o.volleys[0].side, 'starboard');
+  assert.deepEqual([o.volleys.length, o.runOuts], [0, ['starboard']], 'run out first - the tell');
+  const volleys = [];
+  for (let t = 1; t <= Math.ceil(RUN_OUT_S) + 1; t++) {
+    const on = stepCaptain(b, world({ contacts: [player([80, 0, 0])] }));
+    if (t < RUN_OUT_S) assert.equal(on.volleys.length, 0, `still running out at ${t} s`);
+    volleys.push(...on.volleys);
+  }
+  assert.equal(volleys.length, 1);
+  assert.equal(volleys[0].side, 'starboard');
   assert.equal(b.guns.ready('starboard'), false, 'reloading');
   assert.equal(b.guns.ready('port'), true);
   // the same player far out of reach: no volley, she closes

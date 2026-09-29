@@ -13,7 +13,7 @@ import {
 } from '../src/systems/naval/navalGunnery.js';
 import { GUNS, BARREL, batteryOf, batteriesOf, HULL_BUILDS } from '../src/systems/naval/navalShips.js';
 import {
-  SHIP_STATES, STRUCK_AT, SINK_SECONDS, WATERLINE_BAND, HOLED_BONUS, RIG_MARGIN, FIRE_HP, FIRE_SECONDS, BRACE_TAKEN, BARE_POLES,
+  SHIP_STATES, STRUCK_AT, SINK_SECONDS, WATERLINE_BAND, HOLED_BONUS, FIRE_HP, FIRE_SECONDS, FIRE_STACK, FIRE_SAIL, FIRE_CREW_S, BRACE_TAKEN, BARE_POLES,
   hitZone, shotDamage, createShipDamage, repairCost, REPAIR_PRICE,
 } from '../src/systems/naval/navalDamage.js';
 import { createShotField, insideGrown, BALL_LIFE, BARREL_ARM, FLOTSAM_LIFE, FLOTSAM_REACH } from '../src/systems/naval/navalShots.js';
@@ -58,7 +58,7 @@ test('NAV-A the lay: the LOW arc that lands a range (checked back through rangeA
   near(maxRange(g.speed, 4.5, hi), rangeAt(hi, g.speed, 4.5), 1e-9);
   near(maxRange(g.speed, 4.5, 80 * NAVAL_DEG), rangeAt(45 * NAVAL_DEG, g.speed, 4.5), 1e-9, 'a carriage past 45 throws its longest at 45');
   // the long gun's band from a Small Ship's deck, as the bible's table reads it
-  near(rangeAt(lo, g.speed, 4.5), 42, 1, 'lowest'); near(maxRange(g.speed, 4.5, hi), 211, 1, 'longest');
+  near(rangeAt(lo, g.speed, 4.5), 26, 1, 'lowest (AUDIT NAV1: the quoins out to -8)'); near(maxRange(g.speed, 4.5, hi), 211, 1, 'longest');
   const v = launchVelocity([2, 7, 0], 30 * NAVAL_DEG, 50, [1, 0, -3]);
   near(v[0], Math.cos(30 * NAVAL_DEG) * 50 + 1, 1e-9, 'the direction renormalised flat, its y ignored');
   near(v[1], Math.sin(30 * NAVAL_DEG) * 50, 1e-9);
@@ -228,13 +228,11 @@ test('NAV-A the zone on a ship: a landing inside her box grown by the margin is 
   assert.equal(zoneCovers(null, box), false);
 });
 
-test('NAV-A where a ball strikes: over the gunwale the rigging, within WATERLINE_BAND of the sea holed, else the hull; what each does - canvas and a man in the rig, HOLED_BONUS below the waterline, BRACE_TAKEN braced, each ball 85-115% (mutants: the rig\'s margin, the bonus, the brace)', () => {
-  const box = { h: [3, 2, 10] };
-  assert.equal(hitZone([0, 2 - RIG_MARGIN, 0], box, 3), 'rig');
-  assert.equal(hitZone([0, 2 - RIG_MARGIN - 0.01, 0], box, 3), 'hull');
-  assert.equal(hitZone([0, -2, 0], box, 3), 'holed', 'a metre over the sea');
-  assert.equal(hitZone([0, WATERLINE_BAND - 3, 0], box, 3), 'holed');
-  assert.equal(hitZone([0, WATERLINE_BAND - 3 + 0.01, 0], box, 3), 'hull');
+test('NAV-A where a ball strikes her hull: within WATERLINE_BAND of the sea, by the height of the point it struck, holed, else the hull (her rigging is a target of its own - AUDIT NAV1, test/navaudit_guns.test.js); what each does - canvas and a man in the rig, HOLED_BONUS below the waterline, BRACE_TAKEN braced, each ball 85-115% (mutants: the band\'s edge, the bonus, the brace)', () => {
+  assert.equal(hitZone(1), 'holed', 'a metre over the sea');
+  assert.equal(hitZone(WATERLINE_BAND), 'holed');
+  assert.equal(hitZone(WATERLINE_BAND + 0.01), 'hull');
+  assert.equal(hitZone(9), 'hull', 'her castle, her deck: hull');
   const g = GUNS.long;
   assert.deepEqual(shotDamage(g, 'hull', { roll: 0.5 }), { hull: g.hull, sail: Math.round(g.sail * 0.25), crew: g.crew });
   assert.deepEqual(shotDamage(g, 'holed', { roll: 0.5 }), { hull: Math.round(g.hull * (1 + HOLED_BONUS)), sail: Math.round(g.sail * 0.25), crew: g.crew });
@@ -245,7 +243,7 @@ test('NAV-A where a ball strikes: over the gunwale the rigging, within WATERLINE
   assert.equal(shotDamage(GUNS.chain, 'rig', { roll: 0.5 }).sail, GUNS.chain.sail * 2, 'chain shot for the canvas');
 });
 
-test('NAV-A a ship\'s life: she strikes her colours at STRUCK_AT, sinks at nought over SINK_SECONDS and is gone; a fire burns FIRE_HP a second for FIRE_SECONDS, topped up never stacked; her way BARE_POLES bare; a player\'s boat is WRECKED, never sunk, and floats again repaired (mutants: the threshold\'s edge, the fire stacking, a player sinking)', () => {
+test('NAV-A a ship\'s life: she strikes her colours at STRUCK_AT, sinks at nought over SINK_SECONDS and is gone; each fire burns FIRE_HP a second for FIRE_SECONDS, eating FIRE_SAIL of canvas a second and a man each FIRE_CREW_S, and a second fire burns beside the first (AUDIT NAV1 - up to FIRE_STACK); her way BARE_POLES bare; a player\'s boat is WRECKED, never sunk, and floats again repaired (mutants: the threshold\'s edge, a fire topping up, a player sinking)', () => {
   const d = createShipDamage({ hullHp: 400, sailHp: 100, crew: 20 });
   assert.equal(d.state, SHIP_STATES.afloat);
   assert.equal(d.apply({ hull: 400 - 400 * STRUCK_AT - 1, sail: 0, crew: 0 }, 1), null, 'one over the line: afloat');
@@ -261,10 +259,15 @@ test('NAV-A a ship\'s life: she strikes her colours at STRUCK_AT, sinks at nough
   near(f.fire, FIRE_SECONDS, 0);
   f.step(4);
   near(f.hull, 100 - FIRE_HP * 4, 1e-9);
+  near(f.sail, 50 - FIRE_SAIL * 4, 1e-9, 'the canvas burns too');
   f.apply({ hull: 0, sail: 0, crew: 0, fire: true });
-  near(f.fire, FIRE_SECONDS, 0, 'topped up, never stacked');
+  assert.equal(f.fires, 2, 'a second fire burns beside the first');
+  near(f.fire, FIRE_SECONDS, 0);
   f.step(100);
-  near(f.hull, 100 - FIRE_HP * (4 + FIRE_SECONDS), 1e-9, 'out after its seconds');
+  near(f.hull, 100 - FIRE_HP * FIRE_SECONDS * 2, 1e-9, 'each out after its own seconds');
+  assert.equal(f.crew, 5 - Math.floor(FIRE_SECONDS * 2 / FIRE_CREW_S), 'a man each FIRE_CREW_S of burning');
+  assert.equal(f.fires, 0);
+  assert.ok(FIRE_STACK >= 2);
   // the way
   const w = createShipDamage({ hullHp: 100, sailHp: 80, crew: 5 });
   near(w.wayShare(), 1, 0);
@@ -374,7 +377,7 @@ test('NAV-A the ball in flight: each gun\'s ball waits its ripple and appears at
   sky.f.fireVolley({ id: 3, shooter: 'x', launches: [ball({ v0: [0, 200, 0] })] });
   for (let i = 0; i <= BALL_LIFE * 2 + 2; i++) sky.f.step(0.5);
   assert.equal(sky.f.inFlight, 0);
-  assert.deepEqual(sky.events.map((e) => e.type), ['muzzle'], 'never landed');
+  assert.deepEqual(sky.events.map((e) => e.type), ['muzzle', 'gone'], 'never landed - gone, and said so (AUDIT NAV1: the tally counts it down)');
 });
 
 test('NAV-A another client\'s volley is drawn here, never judged: the same balls from the same launches, their hits raised with resolve false; the origin\'s move carries every ball and floater; a clear takes them all (mutants: resolve dropped, the launch left behind)', () => {

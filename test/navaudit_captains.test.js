@@ -11,7 +11,7 @@ import {
   ENGAGE_RANGE, DISENGAGE, CHASE_GIVE_UP_S, SPARE_S, GRAPPLE_STILL_S, GRAPPLE_GAP, GRAPPLE_CREW, BOARD_SAILS, WRECK_SPARE_S, ACCEL,
   WIND_RATED, WIND_SHARE, CLOSE_HAULED, TACK_MIN_S, TACK_FLIP, TURN_RADIUS_K, TURN_TAU, TURN_FLOOR, OARS_TURN, TURN_SPEED_LOSS, HEEL_MAX,
   AVOID_SHIP_SWING, AVOID_HOLD_S, NAV_EVERY_S, SCAN_STEP, PURSUIT_LEAD_S, RANGE_BEND, WEAR_BELOW, TACK_FROM, IRONS_DEG, PAYOFF_TURN,
-  WAYPOINT_REACHED, ADRIFT_SPEED, AGROUND_WAY, SIDE_HOLD_S,
+  WAYPOINT_REACHED, ADRIFT_SPEED, AGROUND_WAY, SIDE_HOLD_S, AVOID_HEAD_ON,
   createSeaShip, stepCaptain, windShare, windFactor, maxTurnRate, turnRadius, hullLength, courseClear, avoidLand, tackCourse, sailable,
   trafficCourse, intercept, hullGap, broadsideReach, velocityOf,
 } from '../src/systems/naval/navalAI.js';
@@ -169,7 +169,7 @@ test('AUDIT NAV1 M2 through the eye: a ship with way and already near the wind T
 
 // ── other hulls, the land ──────────────────────────────────────────────────────────────────────────────────────────
 
-test('AUDIT NAV1 M6 other hulls: one that will pass within both hulls\' reach inside AVOID_SHIP_S is given room - to starboard for one ahead, as the rule of the road has it, both ships alike; away from one overtaking; nothing for one passing wide or the one she means to lie alongside (mutants: the room never given, the starboard rule, the exception)', () => {
+test('AUDIT NAV1 M6 other hulls: one that will pass within both hulls\' reach inside AVOID_SHIP_S is given room - to starboard for one met ahead (within AVOID_HEAD_ON of the bow), as the rule of the road has it, both ships alike; away from the side one passes on - overtaking, or close on her beam; nothing for one passing wide or the one she means to lie alongside (mutants: the room never given, the starboard rule, the beam steered into, the exception)', () => {
   const a = ship('merchantGalleon', { id: 'a', pos: [0, 0, 0], yaw: 0 }); a.speed = 6;
   const b = ship('merchantGalleon', { id: 'b', pos: [8, 0, 200], yaw: Math.PI }); b.speed = 6;   // near head-on, a touch to her starboard
   const cB = { id: 'b', kind: 'ship', pos: b.pos, vel: velocityOf(b), hull: b.hull };
@@ -185,6 +185,11 @@ test('AUDIT NAV1 M6 other hulls: one that will pass within both hulls\' reach in
   // overtaking from her starboard quarter: she bears away to port
   const o = { id: 'o', kind: 'ship', pos: [15, 0, -60], vel: [0, 0, 12], hull: HULL.SmallShip };
   assert.ok(trafficCourse(a, 0, [o]) < 0, 'away from the overtaker');
+  // a hull lying close on her starboard beam: away to port, never into her (the old starboard rule ran to 112.5)
+  const beam = { id: 'm', kind: 'ship', pos: [30, 0, 0], vel: [0, 0, 0], hull: HULL.LargeBoat };
+  assert.ok(trafficCourse(a, 0, [beam]) < 0, 'away from the beam');
+  assert.ok(trafficCourse(a, 0, [{ ...beam, pos: [-30, 0, 0] }]) > 0, 'and from the other beam');
+  assert.ok(AVOID_HEAD_ON < 45);
 });
 const wrapTo = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -276,11 +281,13 @@ test('AUDIT NAV1 M3 the broadside that bears soonest: each side\'s heading lays 
   stepCaptain(b, world({ contacts: [player(at)] }));
   assert.equal(b.present.side, 'starboard', 'the side the enemy is on');
   assert.ok(b.yawRate < 0, 'wearing to show it');
-  // loaded, in reach: dead abeam - she fires at the lead
+  // loaded, in reach: dead abeam - she runs out (the guns' own tell, test/navaudit_guns.test.js) and fires at the lead
   const f = ship('pirateBrig', { yaw: 0 });
-  const o = stepCaptain(f, world({ contacts: [player([80, 0, 0])] }));
-  assert.equal(o.volleys.length, 1);
-  assert.equal(o.volleys[0].side, 'starboard');
+  const fw = world({ contacts: [player([80, 0, 0])] });
+  const shots = [];
+  for (let t = 0; t < 2; t += fw.dt) shots.push(...stepCaptain(f, fw).volleys);
+  assert.equal(shots.length, 1);
+  assert.equal(shots[0].side, 'starboard');
   // loaded, in reach but far past her fighting range, him forward of her beam: she turns him dead abeam and fires
   // rather than bending in to close
   const far = ship('pirateBrig', { yaw: 0 });

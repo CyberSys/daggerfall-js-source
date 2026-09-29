@@ -15,12 +15,15 @@
 // carried. Only the scatter is left out - the zone's width is what the spread can throw at that range.
 //
 // A VOLLEY ripples down the side, a gun every RIPPLE_S, the first at once - one seed per volley scatters it
-// (navalBallistics.js volleyRandom), so every client in a room scatters it the same way.
+// (navalBallistics.js volleyRandom), so every client in a room scatters it the same way - and each gun fires from
+// where its port IS when its turn comes: the deck's way carried over its wait (AUDIT NAV1: the last of a Carrack's
+// seven flashed 4.9 m behind its port at 9 m/s).
 //
 // RELOAD is each battery's own clock, the gun's time with a full crew: a crew thinned by grapeshot or a boarding
 // fights its guns slower (up to RELOAD_UNDERMANNED more at none), and a boat that carries no crew - the player alone
 // at a Large Boat's swivels - takes RELOAD_SINGLEHANDED. BRACING (the brace key held) halves what the hull takes and
-// silences the guns while it is held (navalDamage.js BRACE_TAKEN).
+// silences the guns while it is held (navalDamage.js BRACE_TAKEN) - and, AUDIT NAV1, stops the reload: a crew holding
+// on is not loading, so the brace is an answer to a broadside, not a stance held for free.
 
 import { GUNS, SIDE_DIR, batteryOf, BARREL } from './navalShips.js';
 import { launchVelocity, elevationForRange, landing, maxRange, raySeaHit, volleyRandom, scatter, flatUnit, NAVAL_DEG } from './navalBallistics.js';
@@ -77,13 +80,14 @@ export const toWorld = (ship, p) => {
  * @param {'starboard'|'port'|'bow'|'stern'} side
  * @param {{ origin: number[], dir: number[] } | null} look - the camera's ray (null: lay for `range`)
  * @param {number} seaY - the sea's height
- * @param {{ range?: number, target?: number[] }} [opts] - with no look: a range to lay for, or a world point to lay on
- *   (the AI's lead - its distance out from the guns, along the fire)
+ * @param {{ range?: number, target?: number[], targetY?: number }} [opts] - with no look: a range to lay for, or a world
+ *   point to lay on (the AI's lead - its distance out from the guns, along the fire); `targetY` the height the lay
+ *   meets at that range (the sea's, unless given - a captain laying his chain for a rig)
  * @returns {null | { side: string, gun: string, barrel: boolean, elevation: number, range: number, maxRange: number,
  *   dir: number[], muzzles: number[][], launches: { p0: number[], v0: number[] }[], landings: ({ t: number, point: number[] } | null)[],
  *   width: number, lookPoint: number[] | null }}
  */
-export function aimSolution(ship, side, look, seaY, { range = null, target = null } = {}) {
+export function aimSolution(ship, side, look, seaY, { range = null, target = null, targetY = null } = {}) {
   const battery = batteryOf(ship.hull, side);
   if (!battery) return null;
   const gun = GUNS[battery.gun];
@@ -100,8 +104,9 @@ export function aimSolution(ship, side, look, seaY, { range = null, target = nul
   const dy = c[1] - seaY;
   const hi = gun.maxEl * NAVAL_DEG, lo = gun.minEl * NAVAL_DEG;
   const far = maxRange(gun.speed, dy, hi);
-  let want = range, lookPoint = null;
+  let want = range, lookPoint = null, layDy = dy;
   if (!look && target) want = (target[0] - c[0]) * dir[0] + (target[2] - c[2]) * dir[2];
+  if (!look && Number.isFinite(targetY)) layDy = c[1] - targetY;
   if (look) {
     const hit = raySeaHit(look.origin, look.dir, seaY);
     if (hit) {
@@ -109,7 +114,7 @@ export function aimSolution(ship, side, look, seaY, { range = null, target = nul
       want = (hit.point[0] - c[0]) * dir[0] + (hit.point[2] - c[2]) * dir[2];   // out from the guns, along the fire
     } else want = far;   // at or over the horizon: the guns at their highest
   }
-  const elevation = want == null ? lo : want <= 0 ? lo : elevationForRange(want, gun.speed, dy, lo, hi);
+  const elevation = want == null ? lo : want <= 0 ? lo : elevationForRange(want, gun.speed, layDy, lo, hi);
   const carry = ship.velocity ?? null;
   const launches = muzzles.map((p0) => ({ p0, v0: launchVelocity(dir, elevation, gun.speed, carry) }));
   const landings = launches.map((l) => landing(l.p0, l.v0, seaY));
@@ -123,8 +128,9 @@ export function aimSolution(ship, side, look, seaY, { range = null, target = nul
 
 /**
  * The shots of one volley from an aim: each muzzle's launch bent by the gun's scatter on the volley's own draw
- * (`seed`), a gun every RIPPLE_S. `skill` (0..1) is a gun crew's: the scatter at (1.5 - skill) of the gun's own, so
- * a poor crew throws wider and a crack one tighter than the zone's half-width.
+ * (`seed`), a gun every RIPPLE_S - each from where its port stands when it fires, the deck's way (`carry`) over its
+ * wait. `skill` (0..1) is a gun crew's: the scatter at (1.5 - skill) of the gun's own, so a poor crew throws wider and
+ * a crack one tighter than the zone's half-width.
  * @returns {{ delay: number, p0: number[], v0: number[], gun: string, index: number }[]}
  */
 export function volleyLaunches(solution, seed, { skill = 0.5, carry = null } = {}) {
@@ -132,9 +138,11 @@ export function volleyLaunches(solution, seed, { skill = 0.5, carry = null } = {
   const gun = GUNS[solution.gun];
   const rand = volleyRandom(seed);
   const k = clamp(1.5 - skill, 0.4, 1.5);
+  const c = carry ?? [0, 0, 0];
   return solution.muzzles.map((p0, index) => {
     const s = scatter(solution.dir, solution.elevation, gun.yawSpread * k, gun.pitchSpread * k, rand);
-    return { delay: index * RIPPLE_S, p0: [...p0], v0: launchVelocity(s.dir, s.elevation, gun.speed, carry), gun: solution.gun, index };
+    const delay = index * RIPPLE_S;
+    return { delay, p0: [p0[0] + (c[0] ?? 0) * delay, p0[1] + (c[1] ?? 0) * delay, p0[2] + (c[2] ?? 0) * delay], v0: launchVelocity(s.dir, s.elevation, gun.speed, carry), gun: solution.gun, index };
   });
 }
 
@@ -178,7 +186,8 @@ export function createGunDeck(hull, { crewed = true, crewShare = () => 1, barrel
       clocks[side] = s; length[side] = s || 1;
       if (b.gun === 'barrel') barrelStock = Math.max(0, barrelStock - 1);
     },
-    step(dt) { for (const k of Object.keys(clocks)) if (clocks[k] > 0) clocks[k] = Math.max(0, clocks[k] - Math.max(0, dt)); },
+    /** The clocks run - but not while the crew holds on (the brace). */
+    step(dt) { if (braced) return; for (const k of Object.keys(clocks)) if (clocks[k] > 0) clocks[k] = Math.max(0, clocks[k] - Math.max(0, dt)); },
     get barrels() { return barrelStock; },
     set barrels(n) { barrelStock = Math.max(0, Math.min(99, n | 0)); },
     get braced() { return braced; },

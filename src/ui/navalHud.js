@@ -17,6 +17,11 @@
 //   compass, the boss bar's place) sails, whether she is hostile, and her state - striking her colours, going down,
 //                                  taken - and when she can be boarded, the key that boards her
 //   the HINT (the plate's foot)    the keys, in the registry's own names (the host hands them)
+//   the WARNING (over the          AUDIT NAV1 (the guns): a ship's battery run out and bearing on you - "BROADSIDE" and
+//   crosshair)                     the brace's key, pulsing - the readout's half of the run-out's tell (the host's glint
+//                                  along her ports and the trucks' rumble are the rest)
+//   the TALLY (under the aim)      AUDIT NAV1: your last volley's count once its last ball is down - how many struck,
+//                                  how many below her waterline, how many through her rigging
 // Every part's words are its model's (scenes/navalHost.js hudModel); `navalHudText` is pure, and the pins read it.
 //
 // THE DRESS. The plate and the card play the kit's `panel` role and the plunder window's presses its `button`,
@@ -118,6 +123,16 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-card-state { min-height: 14px; margin-top: 4px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED}; }
 .dfnaval-card-state.board { color: ${T.gold}; }
 .dfnaval-card-state.sinking { color: #ff8a76; }
+.dfnaval-warn { position: absolute; left: 50%; top: calc(50% - 62px); transform: translateX(-50%); white-space: nowrap; padding: 3px 12px 4px;
+  font-size: 15px; letter-spacing: 0.16em; text-transform: uppercase; color: #ffd9cf; text-shadow: ${OUTLINED};
+  background: rgba(60, 12, 8, 0.72); border: 2px solid; border-color: #e0584a #5a130f #3d0d0a #b83a2e; box-shadow: 0 0 0 1px #050608;
+  animation: dfnaval-warn 0.5s steps(1) infinite; }
+.dfnaval-warn .dfnaval-warn-key { color: ${T.brassHi}; }
+@keyframes dfnaval-warn { 50% { color: #ff9c8a; border-color: #ff8a76 #7a1a12 #52110c #e0584a; } }
+.dfnaval-tally { position: absolute; left: 50%; top: calc(50% + 56px); transform: translateX(-50%); white-space: nowrap; font-size: 12px;
+  letter-spacing: 0.1em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED}; }
+.dfnaval-tally .dfnaval-tally-hits { color: ${T.brassHi}; }
+.dfnaval-tally.miss .dfnaval-tally-hits { color: #b3a684; }
 `;
 
 /** A share as a whole percent, bounded. */
@@ -173,7 +188,14 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
       : !model.armed ? 'No guns aboard' : model.aiming ? `${touch ? 'Lift' : 'Let go'} to fire - ${braceKey}: brace`
       : `${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${braceKey}: brace`,
   } : null;
-  return { plate, aim, card };
+  // AUDIT NAV1 (the guns): the tell's words, and the last volley's count
+  const warn = model.incoming ? { text: 'Broadside', key: `${braceKey}: brace` } : null;
+  const tl = model.tally;
+  const tally = tl ? {
+    hits: `${tl.hits} of ${tl.balls} ${tl.balls === 1 ? 'ball' : 'balls'} struck`, miss: tl.hits === 0,
+    rest: [tl.holed ? `${tl.holed} below her waterline` : null, tl.rig ? `${tl.rig} through her rigging` : null].filter(Boolean).map((x) => ` - ${x}`).join(''),
+  } : null;
+  return { plate, aim, card, warn, tally };
 }
 const CHIP_WORDS = Object.freeze({ wreck: 'Crippled', fire: 'On fire', brace: 'Braced' });
 
@@ -231,6 +253,13 @@ function build(doc) {
   const aim = el(doc, 'div', 'dfnaval-aim');
   const aimText = el(doc, 'span', 'dfnaval-aim-text'), aimRange = el(doc, 'span', 'dfnaval-aim-range'), aimTarget = el(doc, 'span', 'dfnaval-aim-target');
   aim.append(aimText, aimRange, aimTarget);
+  // the warning and the tally
+  const warn = el(doc, 'div', 'dfnaval-warn');
+  const warnText = el(doc, 'span', 'dfnaval-warn-text'), warnKey = el(doc, 'span', 'dfnaval-warn-key');
+  warn.append(warnText, el(doc, 'span', null, ' - '), warnKey);
+  const tallyEl = el(doc, 'div', 'dfnaval-tally');
+  const tallyHits = el(doc, 'span', 'dfnaval-tally-hits'), tallyRest = el(doc, 'span', 'dfnaval-tally-rest');
+  tallyEl.append(tallyHits, tallyRest);
   // the plate
   const plate = el(doc, 'div', 'dfnaval-plate');
   const head = el(doc, 'div', 'dfnaval-head');
@@ -257,9 +286,9 @@ function build(doc) {
   rose.append(el(doc, 'i', 'dfnaval-ship'));
   const hint = el(doc, 'div', 'dfnaval-hint');
   plate.append(head, hull.row, sail.row, crew.row, chips, rose, hint);
-  root.append(card, aim, plate);
+  root.append(card, warn, aim, tallyEl, plate);
   (doc.body ?? doc.documentElement)?.append(root);
-  parts = { card, cardName, cardSub, cardHull, cardHullFill, cardSail, cardSailFill, cardState, aim, aimText, aimRange, aimTarget, plate, name, watersWord, anchors, hull, sail, crew, chips, rose, guns, hint };
+  parts = { card, cardName, cardSub, cardHull, cardHullFill, cardSail, cardSailFill, cardState, aim, aimText, aimRange, aimTarget, warn, warnText, warnKey, tally: tallyEl, tallyHits, tallyRest, plate, name, watersWord, anchors, hull, sail, crew, chips, rose, guns, hint };
   shown = {};
 }
 
@@ -325,6 +354,15 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
     put('aimt', parts.aimText, t.aim.text);
     put('aimr', parts.aimRange, t.aim.range);
     put('aimg', parts.aimTarget, t.aim.target);
+  }
+  // the warning, and the last volley's tally (under the aim's line while the aim is up)
+  show('warn', parts.warn, !!t.warn);
+  if (t.warn) { put('warnt', parts.warnText, t.warn.text); put('warnk', parts.warnKey, t.warn.key); }
+  show('tally', parts.tally, !!t.tally);
+  if (t.tally) {
+    cls('tallyc', parts.tally, t.tally.miss ? 'dfnaval-tally miss' : 'dfnaval-tally');
+    put('tallyh', parts.tallyHits, t.tally.hits);
+    put('tallyr', parts.tallyRest, t.tally.rest);
   }
   // the card - under the compass by the sheet's law (--nc-top), under the helm panel's foot while it stands
   show('card', parts.card, !!t.card);

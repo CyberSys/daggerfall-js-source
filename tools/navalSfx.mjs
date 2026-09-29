@@ -5,7 +5,8 @@
 // and put through the one bake - tools/sndify.mjs, down to DAGGER.SND's own 11025 Hz unsigned 8-bit mono - so a
 // broadside sits IN Daggerfall's world rather than on top of it: nothing above 5 kHz that matters, transients shaped
 // to survive the decimation, the tails a black-powder gun has in open air. DAGGER.SND has splashes, bells, bubbles
-// and fire (the naval host plays those by index), and no cannon, no splintering oak and no grapnel - these six.
+// and fire (the naval host plays those by index), and no cannon, no splintering oak, no grapnel and no gun carriage -
+// these seven.
 //
 //   naval-cannon      a long gun near: the crack off the muzzle, the gas leaving (a body falling 2.4 kHz -> 180 Hz),
 //                     the chest-deep thump (75 -> 34 Hz), and the roll across open water with its slap back off the
@@ -19,6 +20,10 @@
 //                     leave, the debris crackling down for over a second
 //   naval-grapple     the grapnels thrown: a rope's whoosh, two iron hooks biting a rail (each a clank with its own
 //                     ringing partials over a wooden knock), and the hawsers creaking taut as she is hauled in
+//   naval-runout      AUDIT NAV1 (the guns) - a battery running out, the tell before her broadside: the carriages'
+//                     trucks rumbling over the deck planks (a low roll beaten at the seams, one carriage after
+//                     another), the tackles creaking as the crews haul, and the carriages brought up hard against the
+//                     sills - dull wooden knocks down the side
 //
 //     node tools/navalSfx.mjs            # writes public/sfx/naval-*.wav
 //     node tools/navalSfx.mjs --raw=dir  # also the 44.1 kHz source
@@ -187,6 +192,43 @@ function grapple() {
   return softClip(out, 1.7);
 }
 
+// ---- a battery running out -----------------------------------------
+function runout() {
+  const rand = rng(0x7a0c0de);
+  const out = buf(1.45);
+  // four carriages, each a rumble of its trucks over the seams, one after another down the side
+  for (let g = 0; g < 4; g++) {
+    const at = 0.02 + g * 0.11 + rand() * 0.04;
+    const len = 0.78 + rand() * 0.12;
+    const roll = biquad(noise(seconds(len), rand), { type: 'lowpass', f0: 230 + rand() * 60, q: 0.9 });
+    const seam = 11 + rand() * 4;   // the trucks over the plank seams, a beat a second
+    const ph = rand() * Math.PI * 2;
+    envelope(roll, (i) => {
+      const t = i / RATE;
+      const beat = 0.55 + 0.45 * Math.max(0, Math.sin(ph + 2 * Math.PI * seam * t * (1 + 0.35 * t)));   // quickening as she comes out
+      return attack(i, 90) * Math.min(1, (len - t) / 0.06) * beat;
+    });
+    mix(out, roll, at, 0.85 - g * 0.08);
+    // the carriage brought up against the sill: a dull knock with the gun's own weight in it
+    const knockAt = at + len - 0.02;
+    mix(out, thump(0.3, 120, 68, 0.03, 0.05, 1), knockAt, 0.9 - g * 0.1);
+    const clack = biquad(noise(seconds(0.05), rand), { type: 'bandpass', f0: 520 + rand() * 120, q: 1.6 });
+    envelope(clack, (i) => attack(i, 0.3) * decay(i, 0.012));
+    mix(out, clack, knockAt, 0.5);
+  }
+  // the tackles creaking as the crews haul: jittered pulse trains through a woody band
+  for (const [at, g] of [[0.12, 0.3], [0.38, 0.26], [0.61, 0.22]]) {
+    const creak = buf(0.2);
+    let next = 0;
+    for (let i = 0; i < creak.length; i++) {
+      if (i >= next) { creak[i] = 1; next = i + seconds((1 / 70) * (0.8 + 0.4 * rand())); }
+    }
+    envelope(creak, (i) => attack(i, 30) * decay(i, 0.08));
+    mix(out, biquad(creak, { type: 'bandpass', f0: 620, q: 1.5 }), at, g * 8);
+  }
+  return softClip(out, 1.8);
+}
+
 // ---- write ----------------------------------------------------------
 export const CLIPS = [
   ['naval-cannon', cannon, 0.95],
@@ -195,6 +237,7 @@ export const CLIPS = [
   ['naval-hit', hit, 0.9],
   ['naval-blast', blast, 0.95],
   ['naval-grapple', grapple, 0.85],
+  ['naval-runout', runout, 0.82],
 ];
 
 const rawDir = process.argv.find((a) => a.startsWith('--raw='))?.split('=')[1] ?? null;
