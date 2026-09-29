@@ -245,8 +245,8 @@
   {
     "name": "GUIDE3-look-before-the-gate",
     "file": "src/scenes/questBridge.js",
-    "old": "    if (!heraldOn()) { listening = false; return; }\n    let seen;",
-    "new": "    lens.look();\n    if (!heraldOn()) { listening = false; return; }\n    let seen;",
+    "old": "    if (!herald && !tracker) return;\n    let seen;",
+    "new": "    lens.look();\n    if (!herald && !tracker) return;\n    let seen;",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -254,8 +254,8 @@
   {
     "name": "GUIDE3-listening-kept-off",
     "file": "src/scenes/questBridge.js",
-    "old": "    if (!heraldOn()) { listening = false; return; }",
-    "new": "    if (!heraldOn()) return;",
+    "old": "    if (!herald) listening = false;\n",
+    "new": "",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -263,8 +263,8 @@
   {
     "name": "GUIDE3-catch-dropped",
     "file": "src/scenes/questBridge.js",
-    "old": "    try { seen = lens.look(); } catch (err) { warnNewsOnce(err); return; }",
-    "new": "    seen = lens.look();",
+    "old": "    try { seen = lens.look(ctx.questWhere ?? {}); } catch (err) { warnNewsOnce(err); return; }",
+    "new": "    seen = lens.look(ctx.questWhere ?? {});",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "GUIDE3-draw-inside-the-gate",
     "file": "src/ui/hud.js",
-    "old": "  drawQuestHerald({ hidden: cursorActive || !hudRenderEnabled(), dt });\n  if (isEnhanced() && typeof document !== 'undefined') {\n",
-    "new": "  if (isEnhanced() && typeof document !== 'undefined') {\n  drawQuestHerald({ hidden: cursorActive || !hudRenderEnabled(), dt });\n",
+    "old": "  drawQuestHerald({ hidden: cursorActive || !hudRenderEnabled(), dt });\n",
+    "new": "  if (isEnhanced() && typeof document !== 'undefined') drawQuestHerald({ hidden: cursorActive || !hudRenderEnabled(), dt });\n",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -344,8 +344,8 @@
   {
     "name": "GUIDE3-ellipsis-dropped",
     "file": "src/ui/questRail.js",
-    "old": "  return `${first.slice(0, cut > max / 2 ? cut : max - 1).replace(/[\\s,;:-]+$/, '')}\\u2026`;",
-    "new": "  return `${first.slice(0, cut > max / 2 ? cut : max - 1).replace(/[\\s,;:-]+$/, '')}`;",
+    "old": "  return `${kept}\\u2026`;",
+    "new": "  return kept;",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -353,8 +353,8 @@
   {
     "name": "GUIDE3-comma-kept",
     "file": "src/ui/questRail.js",
-    "old": "  return `${first.slice(0, cut > max / 2 ? cut : max - 1).replace(/[\\s,;:-]+$/, '')}\\u2026`;",
-    "new": "  return `${first.slice(0, cut > max / 2 ? cut : max - 1)}\\u2026`;",
+    "old": "  const edge = (t) => t.replace(/[\\s,;:-]+$/, '');",
+    "new": "  const edge = (t) => t;",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -397,6 +397,15 @@
     "tests": [
       "test/guide3_herald.test.js",
       "test/features.test.js"
+    ]
+  },
+  {
+    "name": "GUIDE3-small-word-kept",
+    "file": "src/ui/questRail.js",
+    "old": "  while (TRAILING_SMALL_WORD.test(kept)) kept = edge(kept.replace(TRAILING_SMALL_WORD, ''));\n",
+    "new": "",
+    "tests": [
+      "test/guide3_herald.test.js"
     ]
   }
 ]

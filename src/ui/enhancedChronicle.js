@@ -25,6 +25,7 @@ import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1
 import { overlayAction, eventMeans } from './input.js';   // LV1's audit: the REGISTRY's answer (AUDIT KB1: `eventAction`, the event's own read) for the key this window is named after
 import { questRail, questTitleOf, remainWords, QUEST_URGENT_SECONDS } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the pause window's Quests tab
 import { entryTarget, targetWords, WHERE_TEXT } from './questLens.js';   // GUIDE2: where a quest points, said the way every face says it
+import { trackerOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD's card - the Track toggle's one home
 import { breakableNote } from '../systems/notebook.js';   // JOURNAL1: a note the notebook's wrap can take, whatever was typed
 import { pageOfNote, pageRefusalText } from '../net/journalPage.js';   // JOURNAL1: a note as the page it would be shown as, or why it cannot be
 
@@ -244,7 +245,8 @@ function shareStrip(share, index) {
  *  the host has a map to open, the note when the player's map is known not to have it, and the deadline. Null when
  *  there is none of it to say. */
 function questState(e) {
-  if (!e.where && e.clockSeconds == null) return null;
+  const track = trackerOn() && e.uid != null;   // GUIDE4: every live card can be the HUD's
+  if (!e.where && e.clockSeconds == null && !track) return null;
   const box = el('div', 'cr-where');
   if (e.where) {
     box.append(el('span', 'cr-whereplace', e.where));
@@ -269,6 +271,9 @@ function questState(e) {
     clockSpans.set(String(e.uid), t);
     box.append(t);
   }
+  // GUIDE4: TRACK THIS QUEST on the HUD's card (ui/questTracker.js) - the card follows the quest the journal last
+  // changed until the player chooses one, here or in the pause window's Quests tab (the same toggle, one home).
+  if (track) box.append(trackButton(document, e.uid, e.head, render));
   return box;
 }
 

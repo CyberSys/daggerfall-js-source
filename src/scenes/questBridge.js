@@ -69,6 +69,7 @@ import { getTitle } from '../systems/guilds.js';
 import { addQuestResourceObjects } from '../systems/quest/sceneMount.js';
 import { QuestLens } from '../ui/questLens.js';   // GUIDE1: the modern faces' one read-only picture of this machine
 import { questHerald, heraldOn } from '../ui/questHerald.js';   // GUIDE3: the news the lens sees, told
+import { questTracker, trackerOn } from '../ui/questTracker.js';   // GUIDE4: the quest the HUD follows
 
 // AUDIT 24 (wave 24): SetLayoutData's three overloads and
 // GetPositionHash now live in characters/staticNpc.js, next to the
@@ -189,7 +190,7 @@ export const QUEST_CTX_CONTRACT = Object.freeze([
   'makeHeldQuestItemsPermanent', 'makePcDiseased', 'midDateTimeString',
   'offerReward', 'onQuestEnded', 'onQuestStarted', 'partySize', 'playSong',
   'playSound', 'playVideo', 'playerEntity', 'playerHasItem',
-  'playerRaceName', 'questClockStepMax', 'questFoeInstances',
+  'playerRaceName', 'questClockStepMax', 'questFoeInstances', 'questWhere',   // GUIDE4: the host's two questions for the lens's look
   'raiseTime', 'regionPriceAdjustment', 'releaseQuestItem',
   'relinkQuestTopics', 'removeItemFromPlayer', 'removeNpcQuestor',
   'removeProgressRumors', 'removeQuestInfoTopics', 'removeQuestRumors',
@@ -368,6 +369,12 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
   // (GUIDE1's pin plays a game with a look at every tick and without:
   // the same save, the same popups, the same draws), and a look that
   // throws costs the news and never the frame: the machine has ticked.
+  //
+  // GUIDE4: THE TRACKER hears the same look - every one, the baseline
+  // included, because what it shows is the quests as they stand and not
+  // only what changed - and the look answers the host's own two questions
+  // (`ctx.questWhere`: is a place on the player's map, which place is the
+  // player in - GUIDE2's gates), so the card can say "(you are here)".
   let listening = false, newsWarned = false;
   const warnNewsOnce = (err) => {
     if (newsWarned) return;
@@ -375,9 +382,13 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     console.warn(`[quest herald] the lens could not look (${err?.message ?? err}); the news is silent, the machine is not`);
   };
   function news() {
-    if (!heraldOn()) { listening = false; return; }
+    const herald = heraldOn(), tracker = trackerOn();
+    if (!herald) listening = false;
+    if (!herald && !tracker) return;
     let seen;
-    try { seen = lens.look(); } catch (err) { warnNewsOnce(err); return; }
+    try { seen = lens.look(ctx.questWhere ?? {}); } catch (err) { warnNewsOnce(err); return; }
+    if (tracker) questTracker.hear(seen);
+    if (!herald) return;
     if (listening) questHerald.hear(seen); else listening = true;
   }
 
@@ -607,6 +618,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
       if (data.notebook) notebook.restoreSaveData(data.notebook);
       questLists.oneTimeQuestsAccepted = data.oneTimeQuestsAccepted ? [...data.oneTimeQuestsAccepted] : null;
       lens.reset();   // GUIDE1: a loaded game is not news
+      questTracker.forget();   // GUIDE4: ...nor what the last game's card followed (the tracked quest is the save's own record)
     },
   };
   return bridge;

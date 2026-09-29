@@ -38,6 +38,7 @@ import {
 } from '../src/ui/questHerald.js';
 import { destroyEnhancedNotice, enhancedNoticeKeys, _setNoticeClockForTests, ENHANCED_NOTICE_ID } from '../src/ui/enhancedNotice.js';
 import { setPref } from '../src/systems/uiPrefs.js';
+import { TRACKER_PREF } from '../src/ui/questTracker.js';   // GUIDE4 listens to the same look: these pins hear the herald alone
 import { PREF_DEFAULTS } from '../src/systems/uiPrefs.js';
 import { FEATURES } from '../src/systems/features.js';
 
@@ -69,20 +70,21 @@ function fakeDocument() {
   doc.getElementById = (id) => byId(doc.head, id) ?? byId(doc.body, id);
   return doc;
 }
-/** The page, the skin and the switch for one test; everything put back after. */
-function onPage(fn, { skin = 'enhanced', herald = true, doc = fakeDocument() } = {}) {
+/** The page, the skin and the switches for one test; everything put back after. The tracker (GUIDE4) is off unless a
+ *  pin asks: it hears the same look, and these pins are the herald's. */
+function onPage(fn, { skin = 'enhanced', herald = true, tracker = false, doc = fakeDocument() } = {}) {
   const had = Object.hasOwn(globalThis, 'location') ? globalThis.location : undefined;
   const hadDoc = Object.hasOwn(globalThis, 'document') ? globalThis.document : undefined;
   globalThis.location = { search: `?skin=${skin}` };
   if (doc) globalThis.document = doc;
-  quiet(() => setPref(HERALD_PREF, herald));
+  quiet(() => { setPref(HERALD_PREF, herald); setPref(TRACKER_PREF, tracker); });
   const due = [];
   _setNoticeClockForTests((f, ms) => { const t = { f, ms, live: true }; due.push(t); return t; }, (t) => { if (t) t.live = false; });
   questHerald.clear();
   try { return fn(doc, { fire: (ms) => { for (const t of due.filter((x) => x.live && x.ms === ms)) { t.live = false; t.f(); } } }); } finally {
     if (had === undefined) delete globalThis.location; else globalThis.location = had;
     if (hadDoc === undefined) delete globalThis.document; else globalThis.document = hadDoc;
-    quiet(() => setPref(HERALD_PREF, true));
+    quiet(() => { setPref(HERALD_PREF, true); setPref(TRACKER_PREF, true); });
     questHerald.clear();
     destroyEnhancedNotice();
     _setNoticeClockForTests((f, ms) => setTimeout(f, ms), (t) => clearTimeout(t));
@@ -198,7 +200,8 @@ test('GUIDE3 WHAT IT SAYS - each news is its kind, the quest\'s title and one li
   assert.equal(entryOpening(DATED(' I agreed to find the ring. It is gold.')), 'I agreed to find the ring.');
   const guild = [' The Fighters Guild of', ' Daggerfall has hired', ' me to kill a troublesome werewolf,', ' wereboar, or whatever, in its lair,', ' Castle Llugwych. The beast needs'];
   assert.equal(entryOpening(guild), 'The Fighters Guild of Daggerfall has hired me to kill a troublesome werewolf, wereboar, or whatever, in its lair, Castle Llugwych.', 'the wrap joined, the first sentence whole under OPENING_MAX');
-  assert.equal(entryOpening(guild, 100), 'The Fighters Guild of Daggerfall has hired me to kill a troublesome werewolf, wereboar, or\u2026', 'past the cap: cut at a word, the comma dropped, an ellipsis');
+  assert.equal(entryOpening(guild, 100), 'The Fighters Guild of Daggerfall has hired me to kill a troublesome werewolf, wereboar\u2026', 'past the cap: cut at a word, never on a small word ("or"), the comma dropped, an ellipsis');
+  assert.equal(entryOpening(['I must find the ring of the king before the moon turns.'], 24), 'I must find the ring\u2026', 'a small word at the cut goes: "the ring of..." says less than "the ring..."');
   assert.equal(entryOpening(['Hmm... he said. Then more.']), 'Hmm... he said.', 'a stop is a sentence\'s end only before a capital');
   assert.equal(entryOpening(['One two three four, five six seven.'], 20), 'One two three four\u2026', 'a cut after a comma drops the comma');
   assert.equal(entryOpening(['Loredas the 23rd of Sun\'s Dawn:', ' Go.']), 'Go.', 'every day and month name is a header');
@@ -444,12 +447,13 @@ test('GUIDE3 THE HUD\'S CLOCK, THE STACK\'S FACE - a notice is one toast in the 
 
 test('GUIDE3 ONE CALL, EVERY HOST - drawHud draws the herald on its one call, OUTSIDE the skin\'s gate so off still reaches its hide door, on LV2\'s hide gate and the frame\'s seconds; the bridge hears the news after the machine\'s tick; the three hosts that hold quests tick the bridge and all four draw the HUD; the switch is a Features row on by default and the player\'s own online; the opening and the words have one home each (mutants: the draw inside the gate; news before the tick; the row\'s default)', () => {
   const hud = rd('src/ui/hud.js');
-  const call = hud.indexOf('drawQuestHerald({ hidden: cursorActive || !hudRenderEnabled(), dt });');
+  const call = hud.indexOf('\n  drawQuestHerald({ hidden: cursorActive || !hudRenderEnabled(), dt });\n');   // its own statement, at the body's level
   const gate = hud.indexOf("if (isEnhanced() && typeof document !== 'undefined') {\n    drawLevelNotices(");
   assert.ok(call > 0 && gate > call, 'drawHud draws the herald, before (outside) the enhanced gate');
   const bridge = rd('src/scenes/questBridge.js');
   assert.match(bridge, /machine\.tick\(\);\n\s*updateTimer = 0;\n\s*news\(\);\n\s*return true;/, 'the news is heard after the machine\'s tick, on the tick that fired');
-  assert.match(bridge, /if \(!heraldOn\(\)\) \{ listening = false; return; \}\n\s*let seen;\n\s*try \{ seen = lens\.look\(\); \}/, 'the gate stands before the look');
+  assert.match(bridge, /const herald = heraldOn\(\), tracker = trackerOn\(\);\n\s*if \(!herald\) listening = false;\n\s*if \(!herald && !tracker\) return;\n\s*let seen;\n\s*try \{ seen = lens\.look\(ctx\.questWhere \?\? \{\}\); \}/,
+    'the gate stands before the look: no face listening, no look (GUIDE4 made the tracker the second face)');
   const hosts = { 'src/scenes/world.js': /questBridge\.tick\(dt\)/, 'src/scenes/worldModes.js': /questBridge\?\.tick\(dt\)/, 'src/scenes/exterior.js': /questBridge\?\.tick\(dt\)/ };
   for (const [f, re] of Object.entries(hosts)) assert.match(rd(f), re, `${f} ticks the bridge`);
   for (const f of ['src/scenes/world.js', 'src/scenes/worldModes.js', 'src/scenes/exterior.js', 'src/scenes/dungeonContext.js']) {

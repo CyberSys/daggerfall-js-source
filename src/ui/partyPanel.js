@@ -96,13 +96,15 @@ ${PIXELIFY_FIVE_FACE}
    it is FOUR LINES tall with the renderer's counts on - measured at 76px in Chromium, bottom edge 84 - so a HUD at
    40 put its first card's portrait straight through the middle of it. 92 clears the read-out with eight pixels to
    spare; the touch value stays 76, which is the number that clears the touch layer's own top-right buttons. */
-.dfparty { position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(92px + env(safe-area-inset-top, 0px));
+/* GUIDE4: ...and it steps under the quest tracker's card, which stands on the same line (ui/questTracker.js publishes
+   its height as --dfquest-h, 0 with no card), so the two never cover each other. */
+.dfparty { position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(92px + var(--dfquest-h, 0px) + env(safe-area-inset-top, 0px));
   width: 200px; max-width: calc(100vw - 16px); z-index: 5; pointer-events: none;
   display: flex; flex-direction: column; gap: 3px;
   ${PIXEL_FONT_CSS} color: var(--bone, #e9e4d9);
   -webkit-user-select: none; user-select: none; }
 /* below the touch layer's own top-right row of buttons (ui/touch.js: top 16, 44 tall) */
-.dfparty.touch { top: calc(76px + env(safe-area-inset-top, 0px)); }
+.dfparty.touch { top: calc(76px + var(--dfquest-h, 0px) + env(safe-area-inset-top, 0px)); }
 /* AUDIT SOC C7: A PHONE HAS NO TOP-RIGHT CORNER TO SPARE. At 430x860 with the touch skin the HUD covered most of every
    chat peek line and the open friends panel under it besides. Narrower AND out of that corner: the HUD drops to the
    bottom right, above the touch layer's own jump and sheathe column (ui/touch.js: bottom 16, 48 tall, so 76 clears
@@ -114,7 +116,7 @@ ${PIXELIFY_FIVE_FACE}
    438 on a 430-tall screen, over the touch layer's jump and sheathe row (bottom 16, 48 tall). Capped so the bottom
    clears that row by the same 76 the portrait rule keeps; what does not fit is cut, never drawn over the buttons. */
 @media (max-height: 560px) and (min-width: 561px) {
-  .dfparty.touch { max-height: calc(100dvh - 152px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow: hidden; }
+  .dfparty.touch { max-height: calc(100dvh - 152px - var(--dfquest-h, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow: hidden; }
 }
 .dfparty-title { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; text-align: right;
   color: var(--dim, #8b8578); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }

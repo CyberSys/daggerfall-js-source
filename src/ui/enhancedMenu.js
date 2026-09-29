@@ -92,6 +92,7 @@
 import { fpArm, hasDaggerfallArrows } from '../combat/fpArm.js';
 import { questRail, journalLines, questTitleOf, QUEST_URGENT_SECONDS, remainWords } from './questRail.js';
 import { entryTarget, targetWords, WHERE_TEXT } from './questLens.js';   // GUIDE2: where a quest points, and the way there   // MAC-K2: the ONE quest walk, shared with the chronicle
+import { questTracker, trackerOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD's card - the Track toggle, and the quest the journal opens on
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1: a tap on the scrim resumes
 import { TEST_PRESETS, TEST_RIDE, TEST_LOOT } from '../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../formats/mwNpc.js';
@@ -3788,7 +3789,12 @@ function pauseQuests(body) {
     return;
   }
   const rows = [...active, ...finished];
-  if (!rows.some((r) => r.key === questSel)) questSel = rows[0].key;
+  // GUIDE4: THE JOURNAL OPENS ON THE QUEST THE HUD SHOWS - the tracker's (the one tracked, else the one the journal
+  // last changed) - and only then on the first row.
+  if (!rows.some((r) => r.key === questSel)) {
+    const onHud = trackerOn() ? questTracker.tracked()?.id : null;
+    questSel = (onHud != null ? rows.find((r) => r.id === onHud)?.key : null) ?? rows[0].key;
+  }
   const sel = rows.find((r) => r.key === questSel);
 
   const wrap = el('div', 'px-journal');
@@ -3850,6 +3856,9 @@ function pauseQuests(body) {
         meta.append(timer);
         armQuestTimer(timer, sel.key);
       }
+      // GUIDE4: TRACK THIS QUEST on the HUD's card (ui/questTracker.js), beside its clock - the card follows the quest
+      // the journal last changed until the player chooses one here (or in the chronicle: the same toggle, one home).
+      if (trackerOn() && sel.id != null) meta.append(trackButton(document, sel.id, questTitleOf(sel.name), render));
       if (meta.childNodes.length) detail.append(meta);   // PX22: an empty meta line is a gap the eye reads as a mistake
       // GUIDE2: WHERE THE QUEST POINTS NOW, and the way there - DFU's own logbook click (HandleQuestClicks), which
       // this journal never had: the latest entry's target through the quest lens, in the find-place box's words.

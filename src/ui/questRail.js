@@ -48,6 +48,10 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const DATE_HEADER = new RegExp(`^\\s*(?:${DAY_NAMES.map(escapeRe).join('|')}) the \\d{1,2}(?:st|nd|rd|th) of `
   + `(?:${MONTH_NAMES.map(escapeRe).join('|')}):?\\s*$`);
 
+/** A cut never ends on one of these: an article, a preposition, a conjunction or a possessive says nothing before an
+ *  ellipsis. */
+const TRAILING_SMALL_WORD = /\s+(?:a|an|the|of|to|in|on|at|for|and|or|but|with|by|from|as|his|her|its|their|my|your)$/i;
+
 /** The cap on an opening, in characters: three short lines of a notice.
  *  Of the corpus's 408 logged entries it cuts 56 (100 cut 159: a
  *  Daggerfall journal's first sentence is long - test/guide3_herald.test.js
@@ -73,7 +77,11 @@ export function entryOpening(lines, max = OPENING_MAX) {
   const first = /^.*?[.!?]+(?=\s+[A-Z"'(]|$)/.exec(text)?.[0] ?? text;   // a stop before a capital: "Hmm... he said." is one sentence
   if (first.length <= max) return first;
   const cut = first.lastIndexOf(' ', max - 1);
-  return `${first.slice(0, cut > max / 2 ? cut : max - 1).replace(/[\s,;:-]+$/, '')}\u2026`;
+  const edge = (t) => t.replace(/[\s,;:-]+$/, '');
+  let kept = edge(first.slice(0, cut > max / 2 ? cut : max - 1));
+  // ...and never on a small word: "kill a..." says less than "kill..." (seen on the tracker's card in Chromium)
+  while (TRAILING_SMALL_WORD.test(kept)) kept = edge(kept.replace(TRAILING_SMALL_WORD, ''));
+  return `${kept}\u2026`;
 }
 
 // PX22: a quest is FILED under its kind, not TITLED by it. The kind

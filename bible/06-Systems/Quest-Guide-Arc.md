@@ -381,15 +381,114 @@ in the toast's yellow (a main quest's in brass), the opening in bone,
 wrapping inside the stack's cap at both widths. Not yet seen over a
 running game, which needs ARENA2.
 
+## GUIDE4 - THE TRACKER (SHIPPED 2026-09-29)
+
+DFU's HUD says nothing of quests: what a quest wants now, where, and by
+when is a window away - and the enhanced journal (GUIDE2) is still a
+window. GUIDE4 puts the quest the player follows on the HUD, quietly.
+
+**What the player sees.** A card at the HUD's right-upper edge
+(`ui/questTracker.js`, `#enhanced-questtracker`): the quest's TITLE (a
+main quest's in brass) behind a mark - the filled diamond for a quest
+the player tracks, the hollow one for a quest the card is following -
+the newest entry's OPENING (`entryOpening`, capped at 64 characters, so
+two lines of the card), WHERE it points (the lens's `words`: the
+find-place box's phrase, "(you are here)" underfoot) and the TIME LEFT
+in the journal's own words, gold under a day as the journal's is. A
+row with nothing to say is not drawn; with no quest to follow there is
+no card.
+
+**WHICH QUEST** (DECISIONS 2: on by default, but quiet). The one the
+player TRACKS; else the one the journal last changed (the lens's news:
+started, updated, urgent); else the one written last. An ending lets go
+of both. The choice is the journal's: one **Track** toggle
+(`trackButton`, one home, `aria-pressed`, labelled with the quest) in
+both enhanced journal faces - the pause window's Quests tab beside the
+clock, and every live card of the chronicle - and the Quests tab now
+OPENS on the quest the card shows.
+
+**THE PLAYER'S CHOICE IS KEPT, PER CHARACTER** - in DFU's per-mod save
+slot (`systems/modSaveData.js`, IHasModSaveData) under the port's own
+name, `QuestTracker`, by the quest's uid: a save writes it, a load
+restores it, a save without the record (or with a record that is not
+one) tracks nothing, and a new character tracks nothing. What the card
+FOLLOWS is not a choice and is not kept: a load forgets it (the bridge's
+`restore`), and the next look re-learns it.
+
+**WHO FEEDS IT.** The bridge's one look a tick (GUIDE3), which now has
+two listeners: the tracker hears EVERY look, the baseline too - it shows
+the quests as they stand, not only what changed - and the herald keeps
+its own baseline rule. No face listening, no look. The look now asks the
+host's own two questions (`ctx.questWhere`: is a place on the player's
+map, which place does the player stand in - GUIDE2's gates and the
+pause bag's own answers): `world.js` hands both, `exterior.js` the one
+it can (the city it stands in; no map to ask). Each quest view carries
+its target's `words`, computed in the lens, so the card reads them and
+never imports the lens: THE HUD STAYS LIGHT, and this suite walks the
+tracker's imports as GUIDE3's walks the herald's.
+
+**WHERE IT STANDS** (a map of every HUD element the enhanced skin keeps
+on screen, taken for this slice): the right-upper column, on the party
+list's own line - 92 from the top, which clears the FPS read-out
+(`ui/partyPanel.js`, AUDIT SOC C6) - with the touch screen's 76 as the
+party list keeps it. Online the party list STEPS UNDER the card: the
+card publishes its height (`--dfquest-h`, measured only when what it
+says changed, 0 with no card or under a window) and the party list's
+`top` adds it - the chat's `--dfchat-w` idiom. A phone takes the card at
+104, under the compass and the foe blade (the party list is at the
+bottom there); a short screen keeps the title and the time. It is drawn
+on drawHud's one call, outside the skin's gate (off it is taken off the
+page), hidden under the HUD's own gate, `aria-hidden` like the HUD's
+other text - the herald is what speaks - and UPDATED, NOT REBUILT: a
+still frame writes nothing.
+
+**THE CUT, TWICE LOOKED AT.** Seen in Chromium, a two-line clamp cut a
+90-character opening mid-word ("kil..."); the cap is 64 now, the clamp
+allows a third line for a wide face, and `entryOpening` never ends on a
+small word ("...to kill a..." reads "...to kill..."), which the herald's
+cut takes too.
+
+**No key this slice.** The plan named a key to cycle the tracked quest;
+every letter is spent (KB1, `bible/10-UI/Controls.md`), so it would ship
+unbound, as TravelView does - and the Track toggle already reaches it by
+keyboard in both journal faces. GUIDE6's keyboard pass owns the quest
+keys (DECISIONS 6).
+
+**The switch.** Features row `quest-tracker` - Interface, beside
+`quest-herald`, Enhanced, on by default, the player's own online.
+
+**Pins.** `test/guide4_tracker.test.js` (9): which quest; the words;
+the choice kept (the save slot); the bridge's feed over the real bridge
+and machine (the baseline heard, the news followed, a tracked quest
+through its ending, the host's questions and "(you are here)", no face
+no look, no page no look); the machine never knows (a whole game with
+the tracker and the host's questions at every look, and without); the
+card (built once, aria-hidden, a still frame writes nothing, rows hidden
+with nothing to say, the classes, hidden under the gate, the height
+published and taken back, off at its hide door, the choice kept); the
+journal's toggle in the Quests tab (and the tab opening on the card's
+quest) and in the chronicle; one call, every host (by source, and the
+import graph). `test/soc4_partyhud.test.js`'s position pins grew the
+card's variable; GUIDE3's suite hears the herald alone (the tracker off)
+and its four feed mutants were re-aimed at the two-face gate.
+`tools/mutants/guide4.json`: 49 mutants. Ledger A: THE QUEST YOU FOLLOW,
+ON THE HUD.
+
+SEEN IN A BROWSER, NOT IN A GAME: the card in headless Chromium over a
+harness page (in the ignored `test-harness/`) with a party list beside
+it, at 1280x720, a phone's 390x844 and a short 844x390 - the party list
+stepping under the card, the phone's card under the compass, the short
+screen's title and time.
+
 ## THE SLICES (Mac, 2026-09-29: "This is your baby. Take your time")
 
-In order. Every one reads the lens and nothing else. SHIPPED: GUIDE2 and GUIDE3 (above).
+In order. Every one reads the lens and nothing else. SHIPPED: GUIDE2, GUIDE3 and GUIDE4 (above).
 
 | Slice | What the player gets | DFU? | Switch |
 |---|---|---|---|
 | **GUIDE2 THE WAY THERE** | The enhanced journal (pause tab and chronicle) gets DFU's own logbook click: on an entry whose target has a `find`, "Show on map" closes the journal and opens the map on the place through the host's `gotoPlace` - world.js's `toggleTravelMap(place)`, which already hands it to the held map (`_travelMap.gotoPlace`) and refuses indoors in DFU's words. Under the title, a "where" line of the target's SAID names. world.js wires it; the dungeon and `?exterior` hosts flag it (DFU's map will not open inside). | Parity: DFU's logbook has it; the "where" line is the enhanced face's | none - the journal's own |
 | **GUIDE3 THE HERALD** (SHIPPED) | The lens's events as the enhanced notices (ENH-NOTICE3's toast stack): "New quest", "Journal updated", "Quest completed" / "Quest ended", "Under a day left" - the title and the newest entry's opening, `aria-live`, no chime (the section above says why). Fed from the bridge's tick, so all four hosts at once. | Departure: DFU says nothing | `quest-herald` (interface, enhanced, `online: 'player'`) |
-| **GUIDE4 THE TRACKER** | A HUD card: the tracked quest's title, its latest entry's opening, the target's said names and the live timer; a key to cycle quests and one to open the journal on it. The tracked quest is kept per character through `registerModSaveData`, by uid. | Departure | `quest-tracker` |
+| **GUIDE4 THE TRACKER** (SHIPPED) | A HUD card: the tracked (else the last-changed) quest's title, its newest entry's opening, where it points and the live time left; a Track toggle in both journal faces, and the journal opens on the card's quest. The tracked quest is kept per character through `registerModSaveData`, by uid. The cycle key waits for GUIDE6 (the section above says why). | Departure | `quest-tracker` |
 | **GUIDE5 THE MARKS** | The target on the held map, the travel map and the enhanced compass (which already carries detect, gate and party marks) - only a target with `find` (DFU's own discovered gate). A target off the map gets the talk arc's hint instead: ask about it, which is what Daggerfall's directions are for (`06-Systems/Talk-Arc.md`, THE COMPASS MARK). | Departure | `quest-marks` |
 | **GUIDE6 THE ACCESSIBLE JOURNAL** | The pause tab: filter by kind (Main, Guild - the quest list's own group, `findQuestMeta` - Other), sort by updated or deadline, search, each entry's date, the deadline as words AND a date, keyboard and pad navigation with visible focus, a text size that works, and an entry read aloud (speechSynthesis). | Enhanced face | per choice |
 | **GUIDE7 THE ACCESSIBILITY SHELF** | Port rows in the Accessibility category: quest text size, high-contrast panels, reduce motion (the OS's, overridable), quest popups read aloud, notices held until dismissed - and the contrast and screen-reader audit Audit-UI named and nobody ran. | Port's own | per row |
@@ -423,3 +522,7 @@ Mac - can see what was decided and reverse it where it stands.
 5. **Read-aloud is in, and opt-in** (speechSynthesis, which the browser
    and the desktop shell both carry): off by default, never a voice a
    player did not ask for.
+6. **The quest keys wait for GUIDE6's keyboard pass** (GUIDE4, the same
+   day): every letter is spent (KB1), so a cycle key would ship unbound,
+   and the journal's Track toggle already answers the keyboard. One pass
+   decides the journal's keys and the tracker's together.

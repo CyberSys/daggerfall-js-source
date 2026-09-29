@@ -5063,6 +5063,45 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
 .notice.notice-toast .notice-row.herald-kind { font-size: 11px; line-height: 1.5; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass); text-shadow: 1px 1px 0 rgba(0,0,0,0.85); }
 .notice.notice-toast .notice-row.herald-title.main { color: #e8c170; }
 .notice.notice-toast .notice-row.herald-line { font-size: 13px; color: #d8cfae; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); max-width: 30em; margin: 0 auto; }
+/* GUIDE4: THE TRACKER'S CARD (ui/questTracker.js) - the quest the HUD
+   follows, at the right-upper edge on the party list's own line (92, which
+   clears the FPS read-out; ui/partyPanel.js steps under it by the height
+   the card publishes). Read against the world, so it is right-aligned to
+   its edge on a plate that fades out toward the middle of the screen, and
+   quiet: the title in bone (a main quest's in brass), the entry's opening
+   in the dim, where it points after the lens's place mark, and the time
+   left in the journal's own words, gold under a day as the journal's is.
+   A touch screen keeps the party list's 76; a phone takes it under the
+   compass and the foe blade; a short screen keeps the title and the time. */
+.qtrack {
+  position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(92px + env(safe-area-inset-top, 0px));
+  z-index: 5; pointer-events: none; box-sizing: border-box; width: 260px; max-width: calc(100vw - 16px);
+  display: flex; flex-direction: column; gap: 2px; padding: 5px 10px 6px 18px; text-align: right;
+  background: linear-gradient(90deg, rgba(10,12,17,0) 0%, rgba(10,12,17,0.6) 32%);
+  border-right: 3px solid rgba(192,138,62,0.75);
+  font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
+  font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;
+  color: #d8cfae; text-shadow: 2px 2px 0 rgba(0,0,0,0.85);
+}
+.qtrack.touch { top: calc(76px + env(safe-area-inset-top, 0px)); }
+.qtrack-head { display: flex; justify-content: flex-end; align-items: baseline; gap: 6px; }
+.qtrack-mark { font-size: 11px; color: var(--brass); }
+.qtrack-title { font-size: 14px; line-height: 1.3; color: #e9e4d9; }
+.qtrack.main .qtrack-title { color: #e8c170; }
+.qtrack-line { font-size: 12px; line-height: 1.3; color: #b3a98e;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }   /* the cap (TRACKER_OPENING_MAX) keeps it to two; a wide face wraps to three, and a clamp at two cut it mid-word - seen in Chromium */
+.qtrack-where { font-size: 12px; line-height: 1.3; color: #c9a45c; }
+.qtrack-where::before { content: '\\25c8'; margin-right: 5px; }
+.qtrack-time { font-size: 12px; letter-spacing: 0.08em; color: #c5bda2; }
+.qtrack.urgent .qtrack-time { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
+/* the journal's Track toggle (ui/questTracker.js trackButton): pressed, it wears the card's brass edge as its word */
+.act.qtrack-pin.on { color: var(--brass); border-color: rgba(192,138,62,0.75); }
+@media (max-width: 560px) {
+  .qtrack, .qtrack.touch { top: calc(104px + env(safe-area-inset-top, 0px)); width: min(260px, calc(100vw - 16px)); }
+}
+@media (max-height: 500px) {
+  .qtrack-line, .qtrack-where { display: none; }
+}
 /* AUDIT HCC U5: THE FIELD'S OWN WINDOW (ui/enhancedInputBox.js) - DaggerfallInputMessageBox in the skin's face.
    ENH-NOTICE1's law: a field is a decision, not a notice, so it is not in the right-edge stack; it stands where the
    player looks while typing - centred, or at the top for showAtTopOfScreen - in the box's own panel and rule. It

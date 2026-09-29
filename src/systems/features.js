@@ -907,6 +907,19 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'questHerald', initial: true, online: 'player' }),   // ui/questHerald.js HERALD_PREF
   }),
+  // GUIDE4 (2026-09-29): THE TRACKER - the quest you follow as a card at the HUD's right-upper edge (ui/questTracker.js),
+  // fed by the same look. On by default but quiet (DECISIONS 2): it follows the quest the journal last changed until
+  // the player tracks one from the journal, and shows nothing with no quest to follow. The player's own online.
+  Object.freeze({
+    id: 'quest-tracker',
+    group: 'interface',
+    title: 'Quest tracker',
+    note: 'A card at the top right shows the quest your journal last changed - its newest entry, where it points and '
+      + 'the time left - or the one you track from the journal. Off is Daggerfall’s HUD, which says nothing of quests.',
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'questTracker', initial: true, online: 'player' }),   // ui/questTracker.js TRACKER_PREF
+  }),
   // CAMP1 (2026-09-17, Mac: camps and roaming packs in the wilderness):
   // an original addition, not a DFU classic feature - the classic game
   // spawns wandering monsters one at a time. This is a second roll

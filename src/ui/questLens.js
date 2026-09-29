@@ -256,7 +256,8 @@ function entryKey(row, step, message) {
  *   quests   - one view per active quest the journal lists, in the
  *              walk's order: `{ key, id, name, title, questName, main,
  *              clockSeconds, urgent, entries, latest, updatedAt,
- *              target }`, each entry `{ key, stepID, messageID, time,
+ *              target, words }` (words: targetWords of the target),
+ *              each entry `{ key, stepID, messageID, time,
  *              lines, target }` oldest first, `latest` the last of
  *              them and `target` its target (never an older entry's -
  *              a quest that has moved on points where it points now).
@@ -329,6 +330,9 @@ export class QuestLens {
         latest,
         updatedAt: latest.time,
         target: latest.target,
+        // GUIDE4: the target's words, said here once a look, so a face the HUD draws (the tracker) reads them off
+        // the view and never imports the lens - the HUD's import graph stays off the quest machine (GUIDE3).
+        words: targetWords(latest.target),
       };
     });
 

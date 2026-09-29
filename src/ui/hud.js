@@ -21,6 +21,7 @@ import { isEnhanced } from '../systems/uiSkin.js';   // PX30: the HUD is a skin 
 import { drawEnhancedHud } from './enhancedHud.js';   // PX30
 import { drawLevelNotices } from './levelNotice.js';   // LV2: the level-up notification, on the same one call
 import { drawQuestHerald } from './questHerald.js';   // GUIDE3: the quest news, on the same one call
+import { drawQuestTracker } from './questTracker.js';   // GUIDE4: the quest the HUD follows, on the same one call
 import { drawCrosshairAndModeIcon, crosshairCentreY } from './hudCrosshair.js';   // U38; AUDIT RETRO1 G5: the reticle's row, for the loot panel beside it
 import { playerDamageFlash } from './damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage rides the one HUD call
 import { playerBloodScreen, SCREEN_SPATTER_MIN } from './bloodScreen.js';   // BLOOD2e: blood on the lens rides the same call
@@ -630,6 +631,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   // real seconds and stops under the HUD's hide gate - DFU's HUD does not
   // Update under a window (DaggerfallUI.cs:429-433).
   drawQuestHerald({ hidden: cursorActive || !hudRenderEnabled(), dt });
+  drawQuestTracker({ hidden: cursorActive || !hudRenderEnabled() });   // GUIDE4: the tracker's card, the same gate and the same hide door
   if (isEnhanced() && typeof document !== 'undefined') {
     drawLevelNotices({ hidden: cursorActive || !hudRenderEnabled() });
     drawEnhancedHud(vitals, heading01, dt, {

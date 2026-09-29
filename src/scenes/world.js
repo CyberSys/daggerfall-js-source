@@ -12508,6 +12508,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   questBridge = createQuestBridge({
     data: questPack,
     world: questWorld,
+    // GUIDE4: the two questions the quest lens asks of a target (GUIDE2's gates, the pause bag's own answers) - is the
+    // place on the player's map, and which place does the player stand in - so the HUD's quest card can say "(you are
+    // here)" and name only what the map holds.
+    questWhere: { canFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name), currentLocationName: () => _questLoc()?.name ?? '' },
     // TK-ii: the topic/dialog seams land in the tree (TalkManager's
     // own methods, 1:1; the machine's dialogLink/addDialog arg shapes
     // are already the C# ones)
@@ -21581,7 +21585,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // layer, because a talk window is a modal above the vitals.
     // AUDIT 39: THE CALL IS UNCONDITIONAL. drawHud runs the damage
     // flash and the enhanced DOM HUD ABOVE its own `!art` return
-    // (hud.js:434-462) because neither reads ARENA2 - "a player whose
+    // (hud.js:435-463) because neither reads ARENA2 - "a player whose
     // HUD art failed to load still has vitals". Wrapping the whole
     // call in `if (hudArt)` inverted that: hudArt starts null and is
     // filled by a fire-and-forget load whose failure leaves it null
