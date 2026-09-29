@@ -294,8 +294,8 @@ test('AUDIT 29: the hosts by source - the seams the audit moved', () => {
   // C1: the host's sight, handed in
   assert.match(w, /clear: \(from, to, underground\) => \{/);
   // B3 + B4: the fee on the first answer; the kept withdrawals settled on every good read and on the Stores page
-  assert.match(w, /if \(f\.fee > 0\) deductGold\(playerEntity, f\.fee\);/);
-  assert.doesNotMatch(w, /!r\.data\?\.repeat\) deductGold/);
+  assert.match(w, /if \(f\.fee > 0\) \{ deductGold\(playerEntity, f\.fee\); saveSoon\.changed\(\); \}/);   // PROF-SAVE: and the save soon
+  assert.doesNotMatch(w, /!r\.data\?\.repeat\) \{? ?deductGold/);
   assert.match(g, /if \(r\?\.ok\) \{ refreshAt = 0; restandAll\(\); if \(book\.pendingWithdrawals \|\| book\.pendingCrafts\) deps\.onSettle\?\.\(\); \}/);
   assert.match(src('src/ui/profPages.js'), /if \(\(book\.pendingWithdrawals \|\| book\.pendingCrafts\) && p\.settle && Date\.now\(\) - _stores\.settledAt > 30_000\)/);   // PROF5 (FOUND): a kept craft settles too
   // D4: a smith's open for trade

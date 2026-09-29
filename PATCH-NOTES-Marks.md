@@ -1,6 +1,6 @@
 # Patch Notes: Marks
 
-**Online only.** Marks open in stages. Developers get them first, then everyone. When your account has them, you'll see a **Marks** line on your account card.
+**Online only.** Marks are **open to everyone**. Your account card shows a **Marks** line.
 
 ## New currency: Marks
 - **Marks** are the online world's own currency, kept by the account service. Nothing on your computer can make them, so they're worth the same for everyone.

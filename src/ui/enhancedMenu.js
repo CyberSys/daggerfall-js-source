@@ -1086,7 +1086,7 @@ function realmCard(who) {
           // never landed is UNDONE, never deleted - its delete took the home customs had carried, and it could never come
           // in again. The undo gives back its home, its guild place and its customs (realm.js undoRealm).
           row.customs && save.unfinished ? { label: 'Undo bringing in', disabled: realmBusy, onClick: () => ask(`Undo bringing ${row.name} in?`, `${row.name} never finished coming into the realm - its first save never landed. Undoing takes it out and gives everything back: its home, its guild place and its one customs, so the offline character can be brought online again. To finish instead, press Bring online on it below.`, 'Undo', () => realmAct(() => realmUndo(realmIoNow(), row.id), [`${row.name} is out of the realm and customs is undone: its home and guild place are back with the offline character. Bring it online again when you are ready.`])) }
-            : { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its Renown, its home and its guild place with it. A copy you made offline stays.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
+            : { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its Renown, its professions and their Stores, its home and its guild place with it. A copy you made offline stays.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
         ],
       }));
     }

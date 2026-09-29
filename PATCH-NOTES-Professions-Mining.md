@@ -39,5 +39,5 @@
 - A harvest's message could appear twice when the server was slow; it now appears once.
 
 ## Rollout
-- The professions open to the developers first. Everyone else's game is unchanged until they are switched on for all.
+- The professions are **open to everyone** online.
 - Offline, nothing changes.

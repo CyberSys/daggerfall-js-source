@@ -409,9 +409,9 @@ test('AUDIT 30 C4 + A4: a kept craft keeps its station\'s fee and hands it to th
   await book.settle(() => {}, mint);
   assert.deepEqual(paid, [25], 'a kept craft settled later paid the smith nothing');
   const w = src('src/scenes/world.js');
-  assert.match(w, /const profMintCraft = \(data, kept = null\) => \{\n\s*if \(kept\?\.fee > 0\) deductGold\(playerEntity, Math\.min\(kept\.fee, totalGoldAmount\(playerEntity\)\)\);/);
+  assert.match(w, /const profMintCraft = \(data, kept = null\) => \{\n\s*if \(kept\?\.fee > 0\) \{ deductGold\(playerEntity, Math\.min\(kept\.fee, totalGoldAmount\(playerEntity\)\)\); saveSoon\.changed\(\); \}/);
   assert.match(w, /r\?\.kept \? \(bench \? BENCH_KEPT_TEXT : CRAFT_KEPT_TEXT\)/, 'a workbench\'s kept craft said "The anvil rang"');
-  assert.equal((w.match(/if \(f\.fee > 0\) deductGold\(playerEntity, f\.fee\);/g) ?? []).length, 1, 'the smelt\'s alone - the craft\'s is the mint\'s');
+  assert.equal((w.match(/if \(f\.fee > 0\) \{ deductGold\(playerEntity, f\.fee\); saveSoon\.changed\(\); \}/g) ?? []).length, 1, 'the smelt\'s alone - the craft\'s is the mint\'s (PROF-SAVE: each saved soon)');
 });
 
 // ─── THE PIECES' NAMES ───────────────────────────────────────────────

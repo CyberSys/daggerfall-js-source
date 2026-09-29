@@ -53,5 +53,5 @@
 - The workbench's plane now draws its board properly: the grain as a line and your stroke visible (it drew as a black shape before).
 
 ## Rollout
-- The market opens to the developers first. Everyone else's game is unchanged until it is switched on for all.
+- The market is **open to everyone** online.
 - Offline, nothing changes. A piece bought on the market is an ordinary item in your pack anywhere.
