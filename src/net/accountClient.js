@@ -192,7 +192,8 @@ export const REFUSALS = Object.freeze({
   'guild-full': `The guild already holds ${GUILD_MEMBERS_MAX} members.`,
   'no-invite': 'That invitation is no longer open.',
   'guild-master-leaves': 'Hand the guild on to another member before you leave it.',
-  'guild-treasury': 'Take the gold out of the treasury first.',   // AUDIT 28 M3: the Marks go to the guildmaster with the guild
+  'guild-treasury': 'Take the gold out of the treasury first.',
+  'realm-market-open': 'This character still has business on the market - a listing, an auction, a bid, a buy order, a commission, or goods on the way or waiting to be collected. Settle it first.',   // PROF-DELETE   // AUDIT 28 M3: the Marks go to the guildmaster with the guild
   'no-member': 'That member is no longer in the guild.',
   'bad-ranks': `Each rank needs a name of its own, 1 to ${GUILD_RANK_NAME_MAX} letters, digits, spaces, apostrophes or hyphens.`,
   'bad-gold': `Gold goes in or out 1 to ${GUILD_MOVE_MAX} at a time.`,

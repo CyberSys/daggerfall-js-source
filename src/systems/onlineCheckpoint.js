@@ -11,6 +11,13 @@
 //     before the frame that hands the goods over is sent.
 // Refused where the exit save is (a tab out of the seat; the death screen, where exitAutosaveNames answers no slot) and
 // while a duel is in play (its borrowed health and spells are not the character's). Offline nothing changes.
+//
+// PROF-SAVE (2026-09-29, Mac's choice: "Board now, rest after fixes" - the fix before Marks and the professions open):
+// AND A PROFESSIONS ACT THAT CHANGES THE SAVE IS SAVED AT ONCE, as a trade is. A withdrawal from the Stores, a craft's
+// pieces and its fee, a smelt's fee, a market piece bought, collected, listed, put back or settled away, and the Bank's
+// Marks sold for gold all change the character's save on the service's answer; they waited for the two-minute
+// checkpoint or the exit save, and a crash between lost what the service had already moved (the Stores spent, the Marks
+// paid). `createSaveSoon` gathers every change of one task into ONE checkpoint on the next (MERGE 2 open question 2).
 
 /** Real milliseconds between two periodic checkpoints. */
 export const ONLINE_CHECKPOINT_MS = 120_000;
@@ -49,5 +56,32 @@ export function checkpointedTradePack(pack, checkpoint) {
     },
     restore(/** @type {any} */ handle) { pack.restore(handle); checkpoint('trade'); },
     give(/** @type {any} */ received, /** @type {number} */ gold) { pack.give(received, gold); checkpoint('trade'); },
+  };
+}
+
+/**
+ * PROF-SAVE: A CHANGE OF THE SAVE, CHECKPOINTED SOON - `changed()` asks for one checkpoint, run on the next task
+ * (`schedule`), so a settle that mints ten pieces, or a craft and its fee, is ONE save; a `changed()` asked while one is
+ * scheduled joins it. The checkpoint is handed in by `ready(save)` once the host has built it - a change made before
+ * (a kept act settled as the page boots) is saved then. The save itself is the host's `onlineCheckpoint`, refused where
+ * the periodic one is; the next periodic checkpoint writes what a refused one did not.
+ * @param {(run: () => void) => unknown} [schedule] the next task (setTimeout 0; a pin's own queue)
+ */
+export function createSaveSoon(schedule = (run) => setTimeout(run, 0)) {
+  let due = false;
+  let queued = false;
+  /** @type {null | (() => unknown)} */
+  let save = null;
+  const run = () => {
+    queued = false;
+    if (!save) return;   // no checkpoint yet: the change waits for `ready`
+    due = false;
+    save();
+  };
+  const ask = () => { if (!queued) { queued = true; schedule(run); } };
+  return {
+    changed() { due = true; ask(); },
+    ready(/** @type {() => unknown} */ fn) { save = fn; if (due) ask(); },
+    get due() { return due; },
   };
 }

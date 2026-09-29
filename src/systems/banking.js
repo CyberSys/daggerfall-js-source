@@ -433,8 +433,14 @@ export function creditMarksSale(accounts, regionIndex, gold) {
 }
 
 /** MARKS1 / AUDIT 28 M12: the Bank's credit as the Marks book calls it - `(gold, region)`, into the region the sale was
- *  MADE at when the book names one (a kept sale settled at another bank), else this bank's (`here()`). */
-export const marksSaleCredit = (accounts, here) => (gold, region = null) => creditMarksSale(accounts(), Number.isSafeInteger(region) ? region : here(), gold);
+ *  MADE at when the book names one (a kept sale settled at another bank), else this bank's (`here()`). PROF-SAVE: and
+ *  `saved()` told a credit landed (the host's checkpoint soon - the Marks are spent at the service, the gold only in the
+ *  save). */
+export const marksSaleCredit = (accounts, here, saved = null) => (gold, region = null) => {
+  const total = creditMarksSale(accounts(), Number.isSafeInteger(region) ? region : here(), gold);
+  if (Number.isSafeInteger(gold) && gold > 0) saved?.();
+  return total;
+};
 
 export function accountTotal(accounts, regionIndex) {
   mustValidate(accounts, regionIndex);

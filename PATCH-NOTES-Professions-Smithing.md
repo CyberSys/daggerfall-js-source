@@ -35,5 +35,5 @@
 - A Quartermaster's smelting gave one ingot a unit; it now gives two.
 
 ## Rollout
-- The professions open to the developers first. Everyone else's game is unchanged until they are switched on for all.
+- The professions are **open to everyone** online.
 - Offline, nothing changes. A piece made online is an ordinary item in your pack anywhere.

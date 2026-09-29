@@ -30,5 +30,5 @@
 - Online, the shops stock Foraging's six tools even with the Foraging mod switched off, because the professions need them. The foods still follow the switch.
 
 ## Rollout
-- The professions open to the developers first. Everyone else's game is unchanged until they are switched on for all.
+- The professions are **open to everyone** online.
 - Offline, nothing changes.

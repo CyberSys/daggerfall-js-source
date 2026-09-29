@@ -49,5 +49,5 @@
 - Smithing's specialisations could not be chosen on the Professions page. Smithing, Logging and Carpentry can now be practised and specialised.
 
 ## Rollout
-- The professions open to the developers first. Everyone else's game is unchanged until they are switched on for all.
+- The professions are **open to everyone** online.
 - Offline, nothing changes. Anything made online is an ordinary item in your pack or home, anywhere.

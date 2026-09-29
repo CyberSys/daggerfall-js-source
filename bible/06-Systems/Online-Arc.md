@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7449` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7457` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11532,10 +11532,10 @@ numbered, is one now:
 2. A professions act that changes the pack (a withdrawal, a craft, a market collect or listing, a commission's fill) is
    not checkpointed at once, as a trade is (REALM P0.5): the two-minute checkpoint and the exit save carry it, and the
    market's settle takes a listed piece's copy out of a restored save. Checkpointing them as trades are would close the
-   window.
+   window. **ANSWERED by PROF-SAVE (below): each is checkpointed at once.**
 3. A realm character's delete takes its homes, its guild place and its Renown (its own track again since RENOWN-CHAR); the professions' rows keyed by it
    (its Stores, its tracks, a delivery on the road to it) stay, unreachable. The delete could refuse while any stands,
-   as it refuses a guildmaster with members.
+   as it refuses a guildmaster with members. **ANSWERED by PROF-DELETE (below, Mac: "Goes with it; wait on trades").**
 
 ## RENOWN-CHAR (2026-09-29, Mac: "Can we make renown per character again") - Renown a character's again
 
@@ -11568,7 +11568,66 @@ Asked whether to switch on the three professions-branch switches, Mac chose **"B
   `openNoticeBoard`; the service refuses `prof-closed` and `market-closed` behind them). So they open with
   `PROFESSIONS_OPEN` and `MARKS_OPEN`.
 - **Marks and the professions stay at `dev`** until two fixes land:
-  1. the pack is saved right after a professions act that changes it (MERGE 2 open question 2);
-  2. a deleted realm character's Stores and deliveries are no longer stranded (open question 3).
+  1. the pack is saved right after a professions act that changes it (MERGE 2 open question 2) - PROF-SAVE, below;
+  2. a deleted realm character's Stores and deliveries are no longer stranded (open question 3) - PROF-DELETE, below.
 - Rides `acct31` with RENOWN-CHAR. `test/notice1.test.js` pins the line at `"on"`; the Notice Board's patch notes say
   it is open to everyone.
+
+## PROF-SAVE (2026-09-29, the first fix before Marks and the professions open) - a professions act that changes the save, saved at once
+
+MERGE 2's open question 2. A professions act changes the character's save when the service answers: a withdrawal from
+the Stores, a craft's pieces and its fee, a smelt's fee, a market piece bought, collected, listed, put back or settled
+away, and the Bank's Marks sold for gold. Each waited for the two-minute checkpoint or the exit save, and a crash in
+between lost what the service had already moved (the Stores spent, the Marks paid).
+
+- **`createSaveSoon`** (`systems/onlineCheckpoint.js`): a change asks ONE checkpoint on the next task, so a settle that
+  mints ten pieces, or a craft and its fee, is one save. The checkpoint is handed in once the host has built it, and a
+  change made before then (a kept act settled as the page boots) is saved at that point. It is the host's
+  `onlineCheckpoint`, refused where the periodic one is; the next periodic checkpoint writes what a refused one did not.
+  The realm session already keeps only the latest save it has queued, so a burst costs one upload.
+- **The host** (`scenes/world.js`): `profMint`, `profMintCraft` (pieces and the kept fee), the smelt's fee,
+  `marketMint`, `marketTake`, `marketDrop` and `marketPutBack` each ask it. The Bank's Marks sale asks it through
+  `systems/banking.js` `marksSaleCredit`'s new `saved`, which the modes hand the host's `saveSoon` for a sale and for a
+  kept sale settled at the counter (`scenes/worldModes.js`).
+- Pins: `test/profsave.test.js` (3); the host pins in `audit29_host`, `audit30_client`, `prof3_client` and `marks1`
+  follow the new lines. Mutants: `tools/mutants/profsave.json` (18, all dead); `audit29.json`'s fee record and
+  `survtiers3.json`'s two cite records re-aimed by content.
+
+## PROF-DELETE (2026-09-29, Mac: "Goes with it; wait on trades") - a deleted character's professions go with it
+
+MERGE 2's open question 3. Asked what a deleted online character's professions come to, Mac chose **"Goes with it;
+wait on trades"**.
+
+- **Its Stores and its professions' tracks go with it**, in the delete's one batch (`server-account/src/realm.js`
+  `deleteRealm`), as its Renown, its homes and its guild place do. Another character's stay. The history (the Marks
+  ledger, crafts, smelts, sales, the pieces' records) stays.
+- **What another player is part of waits.** While the character has market business open, the delete is refused
+  `realm-market-open` (409) before anything moves (`REALM_MARKET_OPEN_SQL`):
+  - a listing or an auction still standing, or closed with its goods not yet handed back;
+  - a leading bid;
+  - a buy order or a commission still open;
+  - a courier's load of materials still on the road;
+  - a piece waiting to be collected.
+
+  Escrowed Marks come back to the account, never the character, so an outbid bid or a closed order holds nothing up.
+  A guild Stores deposit stays the guild's, as when a member leaves.
+- **The words:** the door says what to settle (`net/accountClient.js`), and the delete dialog now names "its
+  professions and their Stores" (`ui/enhancedMenu.js`).
+- `acct32`. Pins: `test/profdelete.test.js` (3). Mutants: `tools/mutants/profdelete.json` (18, all dead).
+
+## SWITCH-ON (2026-09-29, Mac: "Fuck it lets switch everything on") - Marks and the professions opened to everyone
+
+After PROF-SAVE and PROF-DELETE, Mac: **"Fuck it lets switch everything on"**. `MARKS_OPEN` and `PROFESSIONS_OPEN` are
+`"on"` (`server-account/wrangler.toml`), beside BOARD-ON's `BOARD_OPEN`. They ship in the same PR as the two fixes, so
+the account service that opens them is the one that already has them (`acct32`).
+
+- **Every account now has:** Marks (struck at the Oblivion Gate, sold at the Bank, a guild's Marks treasury); the
+  professions (Herbalism, Mining and Quarrying, Smithing, Logging and Carpentry; the Stores; Court writs); the Notice
+  Board's Work and Market tabs (the market, auctions, guild writs, the guild Stores and commissions).
+- **Not built yet:** 8 of the 13 professions' tracks show with no way to level them yet (Hunting, Fishing, Outfitting,
+  Masonry, Alchemy, Enchanting, Cooking, Jewelcrafting); a boulder's stone levels Mining. The Tithe's line is nought
+  until SEAT1. No route deletes an account.
+- **Still open:** MERGE 2's question 1 (realm-only professions routes). Online play is a realm character's at the
+  relay's door, so only a modified client reaches the routes with another id.
+- `test/marks1.test.js` and `test/notice1.test.js` pin the three lines at `"on"`. The Marks and professions patch notes
+  say they are open to everyone.
