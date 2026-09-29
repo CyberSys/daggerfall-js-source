@@ -8182,3 +8182,23 @@ exactly that). A ruin minted then is PROVISIONAL (`_spawnUnroaded`), and
 entry and its TTL clock, never the one the player is standing in (TTL1's own
 exception) - then rebuilds the pixels, which ask again. Pinned in
 `test/spawnroads.test.js`, mutants in `tools/mutants/spawnroads.json`.
+
+### FEATHERWEIGHT - THE MARK THAT READ "ERROR" (2026-09-29)
+
+Discord, Cruor, through Mac: *"Bugged Mark item with an error! I have no
+idea what this does but it scares me."* - an Enhanced card reading "Cast
+when used: ERROR". THE ITEM IS DFU'S OWN AND WHOLE: MAGIC.DEF's *%it of
+Featherweight* is one CastWhenUsed slot at classic spell 37, Slowfalling
+(DFU's MagicItemTemplates.txt carries the same record), and used, it
+casts Slowfalling on its user for 10 of its 1500 condition; the 0.25 kg
+is the Mark's own weight. THE READER WAS WRONG. MagicPowers
+(DaggerfallUnityItemMCP.cs:345-363) finds a CastWhen* spell in the whole
+of SPELLS.STD; MACRO-3's `itemPowers.js` asked the item maker's list for
+that one power, and the maker offers Slowfalling only as Cast When Held
+- of the 36 regular records, the one spell filed under another power.
+It reads the SPELLS.STD registry now - the one G4's value sum already
+read for the same slot - and, until that lands, the catalogue's three
+CastWhen* lists as one table of names by id. Nothing to migrate: a saved
+Mark carries the same `{0, 37}` and reads right on load. Pinned in
+`test/fb0929_featherweight.test.js` (5; the fifth over the real files);
+`tools/mutants/fb0929_featherweight.json`, 4 mutants, 4 dead.
