@@ -27,7 +27,7 @@ import { ARMOR_MATERIAL } from '../systems/armorMaterials.js';
 
 /** Roleplay & Realism Items' Jerkin (systems/rriItems.js RRI_TEMPLATES,
  *  ItemJerkin). Restated rather than imported for the leaf's sake;
- *  test/mwbrig1.test.js holds it to the mod's own row. */
+ *  test/mwbrig2.test.js holds it to the mod's own row. */
 export const RRI_JERKIN_TEMPLATE = 520;
 
 /**

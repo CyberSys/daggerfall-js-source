@@ -131,12 +131,13 @@ its own is **Mac's to confirm**.
 
 ## Not done here
 
-- **Nobody has looked at it on a real Morrowind body yet.** The fit is
-  Mac's scene; the port places it exactly there relative to the real
-  skeleton's rest pose, but a scene whose body was not at the skeleton's
-  rest (a different race's height, a posed body) would show as an
-  offset, and that is a look in the game, not a pin.
+- **MW-BRIG1's break was the integration, not the model.** The bake and
+  its previews were right; the code that hung the brigandine on the Chest
+  and Groin nodes is what moved it in game (MW-BRIG2, above). MW-BRIG2
+  keeps the bake exactly as the previews showed it and replaces only that
+  attach. It has not been seen in game yet.
 - **The ground and icon picture** of the jerkin still resolve to the
   retail cuirass's ground mesh (MW-ASSIGN's icon path). The worn body is
   what this changes.
-- **Female bodies** wear the same mesh; it was fitted on one body.
+- **Female bodies** wear the same mesh, skinned from their own body parts;
+  its shape is the one it was fitted with.

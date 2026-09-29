@@ -13,7 +13,7 @@
 // tools/bakeThunderlock.mjs is the precedent and this follows it where
 // the two are the same thing - the source committed beside what it
 // makes, the numbers in a file somebody can read, the output re-made
-// byte for byte by test/mwbrig1.test.js - and departs where they are not:
+// byte for byte by test/mwbrig2.test.js - and departs where they are not:
 //
 //   WHERE IT SITS IS THE AUTHORING. Mac fitted the brigandine onto the
 //   Morrowind body in his scene (his answer, asked: "fitted in place"),
