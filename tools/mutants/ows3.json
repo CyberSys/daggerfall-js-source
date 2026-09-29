@@ -200,8 +200,8 @@
   {
     "name": "OWS3-hud-raider-dressed-traveller",
     "file": "src/ui/travelViewHud.js",
-    "old": "|| k === 'band' || k === 'raider' ? k : 'traveller';",
-    "new": "|| k === 'band' ? k : 'traveller';",
+    "old": "|| k === 'band' || k === 'raider' || k === 'camp' ? k : 'traveller';",
+    "new": "|| k === 'band' || k === 'camp' ? k : 'traveller';",
     "tests": [
       "test/ows3_raiders.test.js"
     ]
@@ -272,8 +272,8 @@
   {
     "name": "OWS3-host-chase-kept-across-loads",
     "file": "src/scenes/world.js",
-    "old": "    tvRaid.chase.clear(); tvRaid.spent.clear(); tvRaid.list = []; tvRaid.at = -Infinity;   // OWS3: no chase across a load\n",
-    "new": "\n",
+    "old": "    tvRaid.chase.clear(); tvRaid.spent.clear(); tvRaid.list = []; tvRaid.at = -Infinity; tvRaid.peer.clear(); tvRaid.spentAt.length = 0;   // OWS3: no chase across a load; OW6: nor what the peers said, nor what I was saying\n",
+    "new": "",
     "tests": [
       "test/ows3_raiders.test.js"
     ]
@@ -290,8 +290,8 @@
   {
     "name": "AUDIT-OWS-A3-spent-kept-forever",
     "file": "src/scenes/world.js",
-    "old": "if (life !== tvRaid.life) { tvRaid.life = life; for (const id of tvRaid.spent) if (!tvRaid.chase.has(id)) tvRaid.spent.delete(id); }",
-    "new": "if (life !== tvRaid.life) { tvRaid.life = life; }",
+    "old": "      tvRaid.life = life; for (const id of tvRaid.spent) if (!tvRaid.chase.has(id)) tvRaid.spent.delete(id);",
+    "new": "      tvRaid.life = life;",
     "tests": [
       "test/ows3_raiders.test.js"
     ]

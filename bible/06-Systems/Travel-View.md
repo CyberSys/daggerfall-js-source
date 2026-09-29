@@ -1360,6 +1360,60 @@ dungeons, the sea) were sent over the tree, and every finding was verified again
   ow4d, ow4j, ow4t, ow4x, ows3, tv6, tv7, hub1, enhnotice3, and survtiers3's two cite records after the shift), and
   every list naming an edited test run again on a passing baseline (31 lists), none surviving.
 
+## OW6 - THE OVERWORLD SHARED, ALIVE AND SEEN COMING (2026-09-29, the player, after AUDIT OW5)
+
+The player's four asks, whole: *"Everything needs that persistence between players in the overworld. Enemies should
+spawn in varying numbers and roam more often. If a player is traveling very fast, they should slow if enemies become
+close. If a camp is spawned, it should show in the overworld."* Five research lanes read the tree first (the bands'
+generation, the camps' life, the online transport, the speed governor, and every rule of Mac's on record - CAMP-FAR,
+CAMP-SIGHT, CAMP-TRAVEL, CAMP-NOTIMER, TTL1, WORLD1's "True persistance"); the design keeps every one of them.
+
+- **The bands vary and roam (systems/travelBands.js).** BAND_CHANCE_DAY 0.3 -> 0.45 and BAND_CHANCE_NIGHT 0.45 -> 0.6
+  (half as many again by day, a third more by night); BAND_WANDER_MPS 1.3 -> 2 on BAND_LEG_MS 75 s -> 50 s legs (a band
+  at 1.3 m/s read as standing still from 150-450 m up). A band's NUMBER is its own roll now, `bandSizeOf` off its own
+  stream, one to six by BAND_SIZE_WEIGHTS [12, 20, 24, 20, 14, 10] - it was the camp's or the pack's range (2-5); the
+  themed group takes a caller's size (campEncounters.js rollGroupComposition `ctx.size`), and a band of ONE is alone
+  already, so a solitary kind may be it (a giant on the road, an imp, a mummy abroad by night) - a group still never
+  leads with one. A lone band's words are its kind alone ("Giant"). A warband of six met by a full party grew past the
+  eight-foe pool and stood nothing: every group's growth has one home now (world.js `campMembers`), bounded by
+  MAX_ACTIVE_ENCOUNTER_FOES - the widest camp, five and three, is exactly the bound, so no camp changes.
+- **One band for every player (the first ask).** A band's make read the VIEWER's level (and its label the viewer's
+  party), so two players looking at one band read two different creatures and numbers over it. Online it reads the
+  BAND's own level now - `bandLevelOf`, 1 + floor(20 u^2) off its own stream: half of all bands level 6 or under, a
+  quarter 12 or over, the label saying which is which - and its label its own number (PSCALE1's growth still comes at
+  the stand, with the party that meets it). Offline there is one player, and the band reads theirs, as Daggerfall does.
+- **The journey slows as enemies close (systems/travelThreat.js; the third ask).** The clock is held so the traveller
+  always has THREAT_WARN_S (5 s) of real time before the nearest enemy's REACH along their way - a band's sight, a
+  raider's lookout (at sea), any hostile foe's sight (a camp's sixty metres, CAMP-SIGHT), or, for a chaser, its contact
+  ring from any side at its own pace too (`metresToReach`, `threatCap`); stepped down the spinner's own ladder (1, 2, 3,
+  4, 5, then fives), never under walking pace (the encounter stops a journey - AUDIT OW5 E1 - the governor only slows
+  it). An enemy the way passes by, or one behind, holds nothing; inside a reach the journey is held while the way goes
+  deeper and free as it leads out. Under the view the lower of TV2's ground cap and this one holds; on the classic skin
+  (no governor there before) the mod's own ask under the enemies' cap alone, handed back whole with nothing near. The
+  panel says why it is held (TRAVEL_HELD_WHY: "while the land loads", "with enemies near", and "until the Overworld
+  rises" for AUDIT OW4 J5's walking pace with the view down, which had said the land was loading), and a line is said
+  once as an enemy begins to hold the journey ("Enemies near - you slow your pace."). A rider flown at x40 straight at a
+  band now comes into its sight at walking pace, the last half kilometre taking more than THREAT_WARN_S; it took under a
+  second. The bible's own open idea, "Encounters seen coming", is this.
+- **Camps on the Overworld, the same for everyone (world/campShared.js; the fourth ask).** Every group standing about -
+  a camp, a pack, a band once it has stood (`campKind`: 'camp' / 'pack' / 'band') - is one mark where its living members
+  stand, with its kind and number ("Orc camp, 4"), a tent in the ember (`#d9622b`); its last member down, the mark goes.
+  A camp's members already rode their owner's cell foes frame as bare records; the frame carries the camp tags `cz` now
+  (`[[i, campId, kind]]`, a live member's alone; no relay change), a reader keeps the tag on the puppet - and learns it
+  from a later frame when the member rode once before its camp was set - so every player within the relay's range sees
+  the same camp. The camp numbers have one counter, the pool's (`newCampId`).
+- **A camp stays a camp between players.** The handover (PDEATH-FOES, a door or a death) turned every camp into loose
+  wanderers at infighting: the heir's `adopt` takes it as ONE camp of its own - one number for all of it, its kind, its
+  sixty metres' sight, its alert radius, CAMP2's exemption - and marks it. And a camp its owner WALKED AWAY from was
+  culled from under the friend fighting it (CAMP-CULL, 200 m): past three quarters of its cull distance from its owner,
+  with a player nearer it, it is handed to them foe by foe (`handOverWalkedAway`, the door's own handover); nobody
+  nearer, the cull takes it as it always did.
+- **The raiders' chase, shared (systems/seaRaiders.js).** OWS3 said "nothing is sent", and AUDIT OW5 left it known: a
+  friend watched the sail that ran them down wander on, and could be chased by it too. The chaser's frame carries `sr`
+  now - the band word's own law, one home (travelBands.js `chaseWordOf` / `validChaseWord`, each chaser's own ids): the
+  raiders chasing it where they sail, and each spent - so every reader draws the chase where it runs, none gives chase
+  to a sail a peer's chase holds (two chasing one: the lower id keeps it), and none meets a spent raider again.
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

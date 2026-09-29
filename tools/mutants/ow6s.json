@@ -1,0 +1,222 @@
+[
+  {
+    "name": "OW6-S-warn-short",
+    "file": "src/systems/travelThreat.js",
+    "old": "export const THREAT_WARN_S = 5;",
+    "new": "export const THREAT_WARN_S = 2;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "Two seconds of warning: a rider still arrives in a rush."
+  },
+  {
+    "name": "OW6-S-inside-always-held",
+    "file": "src/systems/travelThreat.js",
+    "old": "  if (d <= reach) return along >= 0 ? 0 : Infinity;",
+    "new": "  if (d <= reach) return 0;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "A traveller leaving a band's sight held at walking pace all the way out."
+  },
+  {
+    "name": "OW6-S-passing-counted",
+    "file": "src/systems/travelThreat.js",
+    "old": "  if (disc < 0) return Infinity;   // the way passes it by",
+    "new": "  if (disc < 0) return Math.max(0, d - reach);",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "A band beside the road, which the way never comes near, slows the journey."
+  },
+  {
+    "name": "OW6-S-root-sign",
+    "file": "src/systems/travelThreat.js",
+    "old": "  const enter = along - Math.sqrt(disc);",
+    "new": "  const enter = along + Math.sqrt(disc);",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "The far crossing taken for the near: slowed only once past the band."
+  },
+  {
+    "name": "OW6-S-behind-counted",
+    "file": "src/systems/travelThreat.js",
+    "old": "  return enter >= 0 ? enter : Infinity;   // both crossings behind: it is behind the traveller",
+    "new": "  return Math.abs(enter);",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "A band behind slows the traveller riding away from it."
+  },
+  {
+    "name": "OW6-S-no-way-full-distance",
+    "file": "src/systems/travelThreat.js",
+    "old": "  if (!heading) return Math.max(0, d - reach);",
+    "new": "  if (!heading) return d;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "Without a way, the reach forgotten."
+  },
+  {
+    "name": "OW6-S-no-fives",
+    "file": "src/systems/travelThreat.js",
+    "old": "export const threatStep = (n) => (n >= 5 ? Math.floor(n / 5) * 5 : Math.max(1, Math.floor(n)));",
+    "new": "export const threatStep = (n) => Math.max(1, Math.floor(n));",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "Rates off the spinner's ladder (x37)."
+  },
+  {
+    "name": "OW6-S-under-walking",
+    "file": "src/systems/travelThreat.js",
+    "old": "export const threatStep = (n) => (n >= 5 ? Math.floor(n / 5) * 5 : Math.max(1, Math.floor(n)));",
+    "new": "export const threatStep = (n) => (n >= 5 ? Math.floor(n / 5) * 5 : Math.floor(n));",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "Held to x0: the governor stops the journey, which is the encounter's to do."
+  },
+  {
+    "name": "OW6-S-chaser-pace-dropped",
+    "file": "src/systems/travelThreat.js",
+    "old": "    const closing = speedMps + (t.mps > 0 ? t.mps : 0);",
+    "new": "    const closing = speedMps;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "A chaser's own run uncounted: it closes faster than the warning."
+  },
+  {
+    "name": "OW6-S-chaser-behind-never",
+    "file": "src/systems/travelThreat.js",
+    "old": "    const m = t.chasing ? Math.max(0, Math.hypot(t.dx, t.dz) - t.reach) : metresToReach(t.dx, t.dz, t.reach, heading);",
+    "new": "    const m = metresToReach(t.dx, t.dz, t.reach, heading);",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "A band chasing from behind never slows the journey."
+  },
+  {
+    "name": "OW6-S-first-not-worst",
+    "file": "src/systems/travelThreat.js",
+    "old": "    if (near === null || r < rate) { rate = r; best = m; near = t; }",
+    "new": "    if (near === null) { rate = r; best = m; near = t; }",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "The first enemy listed holds, not the nearest."
+  },
+  {
+    "name": "OW6-S-view-cap-unmet",
+    "file": "src/scenes/world.js",
+    "old": "    const rate = Math.min(load, foes.cap);   // OW6: the ground's cap and the enemies', the lower",
+    "new": "    const rate = load;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "Under the view the enemies' cap is never met."
+  },
+  {
+    "name": "OW6-S-classic-ungoverned",
+    "file": "src/scenes/world.js",
+    "old": "      const rate = Math.min(travelAsked, foes.cap);",
+    "new": "      const rate = travelAsked;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "The classic skin's journey never slows."
+  },
+  {
+    "name": "OW6-S-reason-always-load",
+    "file": "src/scenes/world.js",
+    "old": "    tvHeldWhy = tvHeld == null ? null : foes.cap < load ? 'foes' : 'load';",
+    "new": "    tvHeldWhy = tvHeld == null ? null : 'load';",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "The panel says the land is loading while an enemy holds the journey."
+  },
+  {
+    "name": "OW6-S-down-reason-lost",
+    "file": "src/scenes/world.js",
+    "old": "      tvHeldWhy = tvHeld != null ? 'down' : null;   // OW6: and says it as what it is",
+    "new": "      tvHeldWhy = tvHeld != null ? 'load' : null;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "The view-down hold says \"while the land loads\" again."
+  },
+  {
+    "name": "OW6-S-spent-band-slows",
+    "file": "src/scenes/world.js",
+    "old": "        if (_bandSpent.has(b.id) || _bandChase.has(b.id) || !bandMake(b)) continue;",
+    "new": "        if (_bandChase.has(b.id) || !bandMake(b)) continue;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "A band already fought still slows the journey."
+  },
+  {
+    "name": "OW6-S-chase-uncounted",
+    "file": "src/scenes/world.js",
+    "old": "      for (const c of _bandChase.values()) { const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: BAND_CONTACT_M, chasing: true, mps: BAND_CHASE_MPS }); }",
+    "new": "",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "A band chasing the traveller never slows them."
+  },
+  {
+    "name": "OW6-S-sea-unwired",
+    "file": "src/scenes/world.js",
+    "old": "    if (up && warmAshesOn() && csaOn() && raidQuarry()) {",
+    "new": "    if (false) {",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "A raider's lookout never slows a crossing."
+  },
+  {
+    "name": "OW6-S-friends-too",
+    "file": "src/scenes/world.js",
+    "old": "      if (!foeHostile(f) || !f.ai.feet) continue;",
+    "new": "      if (!f.ai?.feet) continue;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "A friend, a pacified foe or the dead slows the journey."
+  },
+  {
+    "name": "OW6-S-said-every-frame",
+    "file": "src/scenes/world.js",
+    "old": "    if (why === 'foes' && _slowWas !== 'foes' && t - _slowSaidAt >= JOURNEY_SLOW_SAY_MS) { townTalk.say(TRAVEL_VIEW_TEXT.enemiesSlow, 3); _slowSaidAt = t; }",
+    "new": "    if (why === 'foes') { townTalk.say(TRAVEL_VIEW_TEXT.enemiesSlow, 3); _slowSaidAt = t; }",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "The line said every frame the journey is held."
+  },
+  {
+    "name": "OW6-S-reason-unshown",
+    "file": "src/ui/enhancedTravelControl.js",
+    "old": "  const why = held != null ? TRAVEL_HELD_TEXT(held, accel, state.heldWhy) : '';   // OW6: and why",
+    "new": "  const why = held != null ? TRAVEL_HELD_TEXT(held, accel) : '';",
+    "tests": [
+      "test/tv2_click_to_move.test.js"
+    ],
+    "note": "The panel never says an enemy holds the journey."
+  },
+  {
+    "name": "OW6-S-pacified-hostile",
+    "file": "src/systems/encounters.js",
+    "old": "  return !!f && !f.dead && !!f.ai && (f.ai.isHostile ?? true) && mobileTeamOf(f.entity) !== 'PlayerAlly';",
+    "new": "  return !!f && !f.dead && !!f.ai && mobileTeamOf(f.entity) !== 'PlayerAlly';",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "A pacified foe reads hostile."
+  }
+]

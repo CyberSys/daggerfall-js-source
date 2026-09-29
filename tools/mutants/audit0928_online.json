@@ -130,8 +130,8 @@
   {
     "name": "A0928-O2-force-dropped",
     "file": "src/scenes/world.js",
-    "old": "exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved || bandMoved)",
-    "new": "exteriorFoes.foesFrame(full, _hccDirty || csaAboardMoved || bandMoved)",
+    "old": "exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved || bandMoved || seaRaidMoved)",
+    "new": "exteriorFoes.foesFrame(full, _hccDirty || csaAboardMoved || bandMoved || seaRaidMoved)",
     "tests": [
       "test/audit0928_online.test.js"
     ]

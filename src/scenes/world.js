@@ -147,7 +147,7 @@ import { hasCustomLocationPosition } from '../world/locationLayout.js';   // ROA
 import { FootstepMachine, pickFootstepSet, pickFootstepKind } from '../systems/footsteps.js';   // FS-slice; PEER-FS1: pickFootstepKind for the pose's own `fk`
 import { immersiveFootsteps, reportModCompatibilityIssues } from '../systems/immersiveFootsteps.js';
 import { betterAmbience, classicFootstepAllowed } from '../systems/betterAmbience.js';   // BA1: Better Ambience - the shake, the dungeon's fog and light, the reverb, the indoor rain, its own stride   // IF1: Immersive Footsteps owns the stride and the three landing sounds once its clips are in (DisableVanillaFootsteps)
-import { createExteriorFoes } from './exteriorFoes.js';   // X-slice
+import { createExteriorFoes, MAX_ACTIVE_ENCOUNTER_FOES, CAMP_CULL_DISTANCE, ENCOUNTER_CULL_DISTANCE } from './exteriorFoes.js';   // X-slice; OW6: the pool's bound, a warband's too, and the culls a walk-away handover comes before
 import { StaticBatchBuilder, keyResolver } from '../render/staticBatch.js';   // PERF4: a pixel's static models as one mesh
 import { createBreather, frameFitBudget } from '../systems/buildBreather.js';   // PERF7: the stream build yields to the frame; PERF-EXT24: a slice of what the frame left
 import { pieceIndex } from '../render/labGrass.js';   // PERF8: the piece under a point, by arithmetic
@@ -160,7 +160,7 @@ import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
-import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, passiveGuardSpawns } from '../systems/encounters.js';
+import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, passiveGuardSpawns, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
@@ -220,7 +220,7 @@ import { createCityGuards } from './cityGuards.js';   // G1
 import { createArrestFlow } from './arrestFlow.js';
 import { clearCrimeOnLocationExit, addGold, goldAmount, deductGold, totalGoldAmount, deductGoldPieces } from '../systems/court.js';   // AUDIT 17e F6   // G2   // F-slice: travel gold; U41: GetGoldAmount + the pieces half of DeductFastTravelGold
 import { makeInView } from '../player/cameraView.js';   // AUDIT 17e F24
-import { isBackFacing } from '../characters/enemyMotor.js';   // DUEL1: a duel opponent's blow from behind me is a backstab's chance
+import { isBackFacing, SIGHT_RADIUS } from '../characters/enemyMotor.js';   // OW6: SIGHT_RADIUS, a foe's own sight (a camp's is its own)   // DUEL1: a duel opponent's blow from behind me is a backstab's chance
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel opponent's health, on the enhanced HUD's target bar
 import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
@@ -231,15 +231,17 @@ import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js'; 
 import { planRoute, routeLegs, roadShare, crossesWater, dryLine, SEA_KINDS } from '../systems/travelRoute.js';   // TV2: the way by the roads; OWS2: and over the water
 import { createSeaHelm, seaHelmStep, headingOf as seaHeadingOf, squareOnly as seaSquareOnly, SEA_HELM } from '../systems/seaHelm.js';   // OWS2: the journey's hand on the helm
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
+import { threatCap } from '../systems/travelThreat.js';   // OW6: the journey slows as enemies close
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
 import { dungeonRows, spawnedPixels, filedSpawns, nearDungeons, dungeonApproach, lastLegStart, dungeonToFind, dungeonFoundText, NATIVE_PER_M, TV_DUNGEON_FIND_PX } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them; AUDIT OW4 D4/D6: the far found spawns, the last leg's start
 import { routeGround, joinPoint, routeDrawPoints, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points; AUDIT OW4 J3: the ground read once
-import { bandsNear, wanderAt, bandSight, bandChaseStep, bandLabel, bandMakeSeed, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M, BAND_STAND_MIN_M, BAND_STAND_RETRY_MS, BAND_STAND_TRIES } from '../systems/travelBands.js';   // TV7: the roaming bands
+import { bandsNear, wanderAt, bandSight, bandChaseStep, bandLabel, bandMakeSeed, bandSizeOf, bandLevelOf, BAND_LIFE_MS, BAND_CONTACT_M, BAND_CHASE_MPS, BAND_STAND_M, BAND_STAND_MIN_M, BAND_STAND_RETRY_MS, BAND_STAND_TRIES } from '../systems/travelBands.js';   // TV7: the roaming bands; OW6: their number and their level
 import { bandWordOf, validBandWord, chaseYields, bandLifeOf, bandNearMe, bandPixelOf, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
 import { walkBegin, leaderWalkStep, walkHeard, memberAnswer, memberFollowing, memberStopOf, memberWalkStep, walkAskStands, sameWalkDest, NO_WALK_ANSWER, PARTY_WALK_RADIUS_M } from '../systems/partyWalk.js';   // TV8: group travel, the leader drives (AUDIT OW3: the whole law, pure)
 import { rollGroupComposition, PACK_SPACING, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // TV7: a band is a themed group
 import { seededRng } from '../systems/wind.js';   // TV7: a band's make, rolled from its own seed
 import { enemyDisplayName } from '../characters/enemyBasics.js';   // TV7: a band's words
+import { groupCamps } from '../world/campShared.js';   // OW6: the camps on the Overworld
 import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook, isShipMark } from '../systems/travellerMarks.js';   // TV3: the region's travellers; OWS1: at sea, a ship
 import { RainCurtainsRenderer, curtainsOf, CURTAIN_FOOT_MARGIN_M } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
 import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
@@ -330,7 +332,7 @@ import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
 import { raycastColliders, rayBoxEntry, collidersOf, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming
-import { raidersNear, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
+import { raidersNear, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
@@ -1389,7 +1391,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _bandPeer = new Map();    // TV7b: id -> { x, z, at, from } - a peer's chase of a band, as their frame said
   const _bandSpentAt = [];        // TV7b: the bands spent HERE, newest first - said on my frames so the others spend them too
   let tvPlates = { at: null, list: [] };   // TV2: the known places about the traveller, rebuilt on a pixel change - AUDIT DEEP T2-4: and emptied by a load (above its readers: BOOT-TDZ)
-  const tvRaid = { list: [], at: -Infinity, chase: new Map(), spent: new Set(), clock: 0, life: -1 };   // OWS3: Warm Ashes' raiders about the traveller, and the chases (BOOT-TDZ: a load ends them)
+  const tvRaid = { list: [], at: -Infinity, chase: new Map(), spent: new Set(), clock: 0, life: -1, peer: new Map(), spentAt: [] };   // OWS3: Warm Ashes' raiders about the traveller, and the chases (BOOT-TDZ: a load ends them); OW6: a peer's chases heard, and my spent ones said
   const tvSea = { means: null, helm: createSeaHelm(), phase: null, boat: null, probeAt: 0, best: Infinity, bestS: 0, legAt: -1, wasLive: false };   // OWS2: the crossing's state (BOOT-TDZ: above the load that clears it and the Travel Options atSea that reads it)
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
   let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its spinner, or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
@@ -6761,7 +6763,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:492-497) never looks the record up in `foes`, and
+    // (exteriorFoes.js:495-500) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1525-1543) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -6860,7 +6862,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // `placeFoeEnv` whose "player" is the anchor point and whose yaw is
   // random, so the same ground/occupancy law that places one foe near
   // the player places several near a point, with no new geometry code.
-  let _nextCampId = 1;
+  /** PSCALE1: a group's members, grown with the party it meets - OW6: never past the pool's own bound (a warband of six
+   *  met by a party of eight grew to nine, and the eight-foe pool stood none of it; the widest camp, five and three, is
+   *  exactly the bound, so a camp is as it was). */
+  const campMembers = (types) => partyGroupMembers(types, partySize()).slice(0, MAX_ACTIVE_ENCOUNTER_FOES);
   const _standCampEncounter = (hit, feet) => {
     // CAMP-FAR: the anchor stands a hundred to a hundred and fifty metres
     // out, just outside the view, on the TERRAIN's own floor
@@ -6875,10 +6880,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (anchor && _overDeepWater(anchor.x, anchor.z)) anchor = null;   // AUDIT (pre-merge) P4: never on the carved seabed - a player on the shore rolled land camps 100-150 m out, under the sea
     }
     if (!anchor) return false;   // AUDIT OW3 T7-1: whether it stood - a band's contact tries another bearing
-    const campId = _nextCampId++;
+    const campId = exteriorFoes.newCampId();   // OW6: the pool's one counter - a camp an heir takes over never shares my number
     let placed = 0;   // AUDIT OW4 B3: stood is a member placed - an anchor whose every member's spot was refused stood nobody
     const anchorFeet = [anchor.x, anchor.y, anchor.z];
-    for (const mobileType of partyGroupMembers(hit.mobileTypes, partySize())) {   // PSCALE1: a camp or a pack grows with the party it meets
+    for (const mobileType of campMembers(hit.mobileTypes)) {   // PSCALE1: a camp or a pack grows with the party it meets
       const memberEnv = placeFoeEnv({
         collider,
         playerFeet: [anchorFeet[0], anchorFeet[1] + 0.9, anchorFeet[2]],
@@ -6905,6 +6910,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       }).then((f) => {
         if (f) {
           f.campId = campId; f.campAlertRadius = hit.alertRadius;
+          f.campKind = hit.kind ?? 'pack';   // OW6: what it is on the Overworld's mark (a camp, a pack, a band stood) - and on the wire
           if (f.ai) f.ai.sightRadius = CAMP_SIGHT_RADIUS;   // CAMP-SIGHT: a camp sees 60 m, not 102.4
           // CAMP2: campEncounters.js groups by THEME (mobileFactions.js),
           // not by the game's own combat Team (enemyBasics.js), so a
@@ -9332,7 +9338,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  its lists, the view itself, the spawns it was told of. They sat in applyPose past `if (!pose) return;`, so a save
    *  without a pose (an older envelope) loaded with the last run's chases still running, its rudder held, its "?"s. */
   function overworldLoadReset() {
-    tvRaid.chase.clear(); tvRaid.spent.clear(); tvRaid.list = []; tvRaid.at = -Infinity;   // OWS3: no chase across a load
+    tvRaid.chase.clear(); tvRaid.spent.clear(); tvRaid.list = []; tvRaid.at = -Infinity; tvRaid.peer.clear(); tvRaid.spentAt.length = 0;   // OWS3: no chase across a load; OW6: nor what the peers said, nor what I was saying
     csaJourneyHelm.held.clear(); csaJourneyHelm.row = false; tvSea.means = null; tvSea.phase = null; tvSea.boat = null; tvSea.wasLive = false;   // AUDIT OWS A1: nor a crossing's hand on the helm - a load into a dungeon's boat kept its rudder held
     tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4: the loaded character's discoveries - never the plates the last one knew
     tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places
@@ -12976,9 +12982,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     const csaMoved = cell && csaWord(null, full);   // AUDIT PRE-MERGE 0928 O2: my boats' moved word asks for a frame, as the team's does - a quiet sea built none, and a sailing boat rode the full frames alone
     const csaAboardMoved = cell && csaAboardWord(null, full);   // CSA-K: and my place aboard another's boat, as it moves on their deck
     const bandMoved = cell && bandWord(null, full);   // TV7b: a chase moves every frame, and asks for one
-    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved || bandMoved) : null) : modes?.dungeonFoesFrame?.(full);
+    const seaRaidMoved = cell && seaRaidWord(null, full);   // OW6: and a raider's at sea
+    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved || bandMoved || seaRaidMoved) : null) : modes?.dungeonFoesFrame?.(full);
     if (!frame) return false;
-    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full); if (cell) csaAboardWord(frame, full); if (cell) bandWord(frame, full); if (cell) { const rk = raidWireWord(); if (rk) frame.rk = rk; }   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way; RAID2: my word on the raids I run or fought - my share of their deaths, and my claim
+    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full); if (cell) csaAboardWord(frame, full); if (cell) bandWord(frame, full); if (cell) seaRaidWord(frame, full); if (cell) { const rk = raidWireWord(); if (rk) frame.rk = rk; }   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way; RAID2: my word on the raids I run or fought - my share of their deaths, and my claim
     if (!online.sendFoes(frame)) { _foesFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9: a refused frame's deltas were already committed - the next frame carries every foe
     if (full) _foesFullAt = now;
     return true;
@@ -13351,6 +13358,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     exteriorFoes.setOnCamps((from, c, at) => camps.applyOwner(from, c, campToScene, at));   // SURV3: a peer's camps, off their foes frame past the pool's own room test, through validCampRecord
     exteriorFoes.setOnHcc((from, hv, at) => hcc.applyOwner(from, hv, campToScene, at), () => hcc.clearPeers());
     exteriorFoes.setOnBands((from, bd) => bandHear(from, bd));   // TV7b: a peer's band chases, off their foes frame past the room test
+    exteriorFoes.setOnSeaRaiders((from, sr) => seaRaidHear(from, sr));   // OW6: and their raider chases at sea, the same way
     exteriorFoes.setOnCsa((from, sa, at) => csaPeers.applyOwner(from, sa, campToScene, at), () => csaPeers.clearPeers());   // CSA-J: a peer's boats, off their foes frame past the room test, through validCsaRecord
     exteriorFoes.setOnCsaAboard((from, ab, at) => csaAboard.applyRider(from, ab, at), () => csaAboard.clearRiders());   // CSA-K: a peer's place aboard a boat, the same door's way
     // QUEST-PARTY (2026-09-26, Mac: "Party shares them"): a quest shared with the party streams its foes to the party,
@@ -14948,6 +14956,38 @@ export async function bootWorld(canvas, renderer, params, status) {
     const frame = exteriorFoes.handOverFrame(heirOf);
     return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
   };
+  // OW6 (2026-09-29, the player: "Everything needs that persistence between players in the overworld"): A FOE ITS OWNER
+  // WALKS AWAY FROM GOES TO THE PLAYER BESIDE IT. A camp stood by me and fought by a friend stood until I was its cull
+  // distance off (DROPS-AUDIT CAMP-CULL: 200 m, a wanderer 120) - then it was culled from under them, and gone for
+  // everyone, its mark with it. Past three quarters of that from me, with a player nearer it than I am, it is handed to
+  // them - the door's own handover (PDEATH-FOES: the heir named on my frame, taken there), foe by foe - and they stream it
+  // from there, a camp still a camp (world/campShared.js). Nobody nearer, the cull takes it as it always did. Never my
+  // ally, a mod's placed or managed foe, or a quest's (a quest's foe is handed at the door, to its party alone).
+  const FOE_WALK_AWAY_MS = 500;
+  const FOE_WALK_AWAY_SHARE = 0.75;
+  let _walkAwayAt = -Infinity;
+  const foeWalkAwayM = (f) => FOE_WALK_AWAY_SHARE * (f.campId != null ? CAMP_CULL_DISTANCE : ENCOUNTER_CULL_DISTANCE);
+  function handOverWalkedAway(now) {
+    if (now - _walkAwayAt < FOE_WALK_AWAY_MS) return 0;
+    _walkAwayAt = now;
+    if (!online?.room || !isCellRoom(online.room) || (modes?.mode ?? 'exterior') !== 'exterior' || !playerSpawned) return 0;
+    const near = peersNear() ?? [];
+    if (!near.length) return 0;
+    const me = player.feetAt();
+    const heirOf = (f) => {
+      if (f.puppet || f.dead || f.placed || f.managed || f.entity?.team === 'PlayerAlly' || isPrivateQuestFoe(f) || f._keptTag) return null;
+      const at = f.ai?.feet;
+      if (!at) return null;
+      const mine = Math.hypot(at[0] - me[0], at[2] - me[2]);
+      if (mine < foeWalkAwayM(f)) return null;
+      let id = null, best = mine;
+      for (const q of near) { const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } }
+      return id;
+    };
+    if (!exteriorFoes.foes.some((f) => heirOf(f))) return 0;
+    const frame = exteriorFoes.handOverFrame(heirOf);
+    return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
+  }
   /** QUEST-PARTY phase 3b/3c: AUDIT CONTRIB P1's handover in a world room - at a building's or a dungeon's door out and
    *  at a death in it, my live own foes there go to the players who stay (a shared quest's to a party member alone),
    *  named on one last own frame; what nobody took goes with me, as the room's teardown takes it. Answers how many went. */
@@ -18303,8 +18343,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   function bandMake(b) {
     if (_bandMake.has(b.id)) return _bandMake.get(b.id);
     const px = Math.floor(b.born.x / 32768), py = 499 - Math.floor(b.born.z / 32768);
-    const hit = rollGroupComposition({ climateIndex: maps.getClimateIndex(px, py), playerLevel: playerEntity.level, inLocationRect: false,
-      gameMinutes: b.night ? 0 : 720 }, seededRng(bandMakeSeed(b)));   // AUDIT OW3 T7-4: its own stream; T7-8: its life's night
+    // OW6 (the player: "Enemies should spawn in varying numbers"; "Everything needs that persistence between players in the
+    // overworld"): its NUMBER its own roll (one to six), and online its tables read at the BAND's own level - every player
+    // the same band, the same kind and number over it (each viewer's own level made two players read two bands)
+    const hit = rollGroupComposition({ climateIndex: maps.getClimateIndex(px, py), playerLevel: online ? bandLevelOf(b) : playerEntity.level, inLocationRect: false,
+      gameMinutes: b.night ? 0 : 720, size: bandSizeOf(b) }, seededRng(bandMakeSeed(b)));   // AUDIT OW3 T7-4: its own stream; T7-8: its life's night
     const mk = hit?.mobileTypes?.length ? { mobileTypes: hit.mobileTypes, name: enemyDisplayName(hit.mobileTypes[0]) } : null;
     _bandMake.set(b.id, mk);
     return mk;
@@ -18325,7 +18368,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   }
   /** AUDIT OW5 E1: the encounter pool has room for the band's members, grown by the party it meets - a band it cannot
    *  stand is neither stood nor MET (no journey is stopped for a band that never comes; it tries again). */
-  function bandRoom(mk) { return partyGroupMembers(mk.mobileTypes, partySize()).length <= (exteriorFoes.encounterRoom?.() ?? Infinity); }
+  function bandRoom(mk) { return campMembers(mk.mobileTypes).length <= (exteriorFoes.encounterRoom?.() ?? Infinity); }
   /** Contact: the band stands as its foes, on its own bearing from the traveller - or, where the road or a town refuses
    *  that bearing (a chase down a road ends on it), a quarter turn either way, then behind (AUDIT OW3 T7-1). Whether it
    *  stood. */
@@ -18337,7 +18380,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // CAMP-FAR - no pack lands beside the player out of nowhere) was brought a hundred metres nearer and stood beside them
     const minDistance = Math.max(BAND_STAND_MIN_M, dist - PACK_SPACING), maxDistance = Math.max(BAND_STAND_MIN_M, dist) + PACK_SPACING;
     for (const turn of [0, Math.PI / 2, -Math.PI / 2, Math.PI]) {
-      if (_standCampEncounter({ kind: 'pack', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
+      if (_standCampEncounter({ kind: 'band', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
         minDistance, maxDistance, bearingDegrees: 0, yawRad: yaw + turn }, fx)) return true;
     }
     return false;
@@ -18444,6 +18487,17 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       _bandChase.set(b.id, { band: b, pos: { x: p.x, z: p.z }, gainAt: _bandClock, best: d, dist: d, tries: 0, retryAt: 0 });
     }
   }
+  /** OW6: THE CAMPS STANDING ABOUT (world/campShared.js groupCamps) - my own camp members (their `campId`, their kind)
+   *  and my peers' puppets tagged with their owner's camp, living ones alone, grouped one camp a group. */
+  function travelViewCamps() {
+    const members = [];
+    for (const f of exteriorFoes.foes) {
+      if (f.dead || !f.ai?.feet) continue;
+      if (f.puppet) { if (f._pupCamp) members.push({ camp: `${f.puppet}:${f._pupCamp.id}`, kind: f._pupCamp.kind, type: f.mobileType, feet: f.ai.feet }); }
+      else if (f.campId != null) members.push({ camp: `me:${f.campId}`, kind: f.campKind ?? 'pack', type: f.mobileType, feet: f.ai.feet });
+    }
+    return groupCamps(members, enemyDisplayName);
+  }
   // PERF-TV: THE GROUND'S GENERATION - moves whenever a scene point's place or height can have: a pixel built or dropped,
   // the floating origin re-anchored (and every half second besides, for whatever that signature cannot see). The marks,
   // the route and the cap's count are kept between its moves instead of re-read off the terrain every frame.
@@ -18508,8 +18562,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const mk = bandMake(b);
       if (!mk) continue;
       const chasing = _bandChase.has(b.id), p = bandPlace(b, bms);
-      marks.push({ key: `band:${b.id}`, at: tvSceneKept(b, p.x, p.z, 2), label: bandLabel(mk.name, partyGroupMembers(mk.mobileTypes, partySize()).length), kind: chasing ? 'band chase' : 'band', edge: chasing });
+      marks.push({ key: `band:${b.id}`, at: tvSceneKept(b, p.x, p.z, 2), label: bandLabel(mk.name, mk.mobileTypes.length), kind: chasing ? 'band chase' : 'band', edge: chasing });   // OW6: the band's OWN number, the same for every player (a party it meets brings more - PSCALE1 - where it stands)
     }
+    // OW6 (2026-09-29, the player: "If a camp is spawned, it should show in the overworld"): THE CAMPS - every group
+    // standing about, a camp, a pack or a band stood: mine, and each peer's by the tags their frames carry
+    // (world/campShared.js) - one mark where its living members stand, with its kind and its number; gone with its last
+    for (const c of travelViewCamps()) marks.push({ key: `camp:${c.key}`, at: [c.at[0], c.at[1] + 2, c.at[2]], label: c.label, kind: 'camp' });
     // AUDIT DEEP2 B-1: THE JOURNEY'S END IS NEVER OFF THE SCREEN UNSEEN - held at the edge as a far place is (a far town's
     // plate gave way to a flag drawn above the picture, and the destination was gone for the whole journey), a place's
     // with its distance, and a click on a place's flag is its journey again (after a stop there is no ground to click)
@@ -18564,7 +18622,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       for (const r of listed) {
         const c = tvRaid.chase.get(r.id);
         if (tvRaid.spent.has(r.id) && !c) continue;
-        const at = c ? c.pos : r;
+        const at = c ? c.pos : (seaRaidPeerChase(r.id) ?? r);   // OW6: one a peer's chase holds, where they say it sails
         const px = pixelOfNative(at.x, at.z);
         if (!c && Math.max(Math.abs(px.x - me.x), Math.abs(px.y - me.y)) > grid) continue;
         marks.push({ key: `raid:${r.id}`, at: tvSceneKept(c ?? r, at.x, at.z, 2, true), label: RAIDER_LABEL, kind: c ? 'raider ship chase' : 'raider ship', edge: !!c });
@@ -18612,7 +18670,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (t - tvRaid.at < TV_RAID_LIST_MS) return tvRaid.list;
     tvRaid.at = t;
     const ms = raidNowMs(), life = Math.floor(ms / RAIDER_LIFE_MS);
-    if (life !== tvRaid.life) { tvRaid.life = life; for (const id of tvRaid.spent) if (!tvRaid.chase.has(id)) tvRaid.spent.delete(id); }   // AUDIT OWS A3: a new life's raiders are new ids - the last life's spent ones held nothing but memory
+    if (life !== tvRaid.life) {
+      tvRaid.life = life; for (const id of tvRaid.spent) if (!tvRaid.chase.has(id)) tvRaid.spent.delete(id);   // AUDIT OWS A3: a new life's raiders are new ids - the last life's spent ones held nothing but memory
+      for (let i = tvRaid.spentAt.length - 1; i >= 0; i--) if (raiderLifeOf(tvRaid.spentAt[i]) < life - 1) tvRaid.spentAt.splice(i, 1);   // OW6: said no more
+      for (const id of tvRaid.peer.keys()) if (raiderLifeOf(id) < life - 1) tvRaid.peer.delete(id);
+    }
     tvRaid.list = raidersNear({ at: playerTravelPixel(), ms, open: tvRaidOpen, sea: tvRaidSea });
     return tvRaid.list;
   }
@@ -18638,6 +18700,43 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  down, and the raid's Leave Ship sets its boarder back where they boarded: for a passenger, the water the boat had
    *  sailed on from. */
   const raidQuarry = () => !!csaRuntime?.isSailing() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName));
+  /** OW6: a raider spent here - gone for its life, and said on my frames so the others spend it too (TV7b's bandSpend). */
+  function seaRaidSpend(id) {
+    tvRaid.spent.add(id);
+    const k = tvRaid.spentAt.indexOf(id);
+    if (k >= 0) tvRaid.spentAt.splice(k, 1);
+    tvRaid.spentAt.unshift(id);
+    if (tvRaid.spentAt.length > RAIDERS_WIRE_MAX) tvRaid.spentAt.length = RAIDERS_WIRE_MAX;
+  }
+  /** OW6: a peer's chase of a raider, while their word is fresh - where they say it sails. */
+  function seaRaidPeerChase(id) {
+    const p = tvRaid.peer.get(id);
+    if (!p) return null;
+    if (performance.now() - p.at > RAIDER_WORD_MS) { tvRaid.peer.delete(id); return null; }
+    return p;
+  }
+  /** OW6: a peer's raider word, heard off their foes frame (past the room test): their chases drawn where they sail - one I
+   *  chase too goes to the lower id - and their spent raiders spent here. Only a raider that can be about me is kept. */
+  function seaRaidHear(from, raw) {
+    const now = performance.now(), at = playerTravelPixel(), life = Math.floor(raidNowMs() / RAIDER_LIFE_MS);
+    for (const [id, x, z, flag] of validRaiderWord(raw)) {
+      if (!raiderNearMe(id, at, life)) continue;
+      if (flag === 2) { tvRaid.spent.add(id); tvRaid.chase.delete(id); tvRaid.peer.delete(id); continue; }
+      tvRaid.peer.set(id, { x, z, at: now, from });
+      if (tvRaid.chase.has(id) && chaseYields(online?.id ?? '', from)) tvRaid.chase.delete(id);
+    }
+  }
+  /** OW6: my raider word, on the cell's foes frame - asked with `frame` null whether it must ride (a chase moves every
+   *  frame; a spent raider is said on the full frames too), then written into the frame (TV7b's bandWord). */
+  let _seaRaidWordKey = '';
+  function seaRaidWord(frame, full) {
+    if (!tvRaid.chase.size && !tvRaid.spentAt.length) { if (!_seaRaidWordKey) return false; if (frame) { frame.sr = []; _seaRaidWordKey = ''; } return true; }
+    const word = raiderWordOf(tvRaid.chase, tvRaid.spentAt);
+    const key = JSON.stringify(word);
+    if (!full && !tvRaid.chase.size && key === _seaRaidWordKey) return false;
+    if (frame) { frame.sr = word; _seaRaidWordKey = key; }
+    return true;
+  }
   /** OWS3's frame: at sea and outdoors, a sail sighted under the view gives chase; each chase steps (the world's scale on
    *  it), is lost or comes alongside. Ashore - or the mod off - no chase stands. */
   function raidFrame(dt) {
@@ -18645,7 +18744,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // and D2) - a pause read as "ashore" and spent the raider for its life, and the feet read mid-move lie a kilometre off
     if (gamePaused() || worldMoveBusy()) return;
     const at = warmAshesOn() && isEnhanced() && walkMode && playerSpawned && (modes?.mode ?? 'exterior') === 'exterior' && raidQuarry();
-    if (!at) { for (const id of tvRaid.chase.keys()) tvRaid.spent.add(id); tvRaid.chase.clear(); return; }   // ashore: every chase given up, for its life
+    if (!at) { for (const id of tvRaid.chase.keys()) seaRaidSpend(id); tvRaid.chase.clear(); return; }   // ashore: every chase given up, for its life (OW6: and said so)
     const scale = worldTimeScale();
     tvRaid.clock += dt * 1000 * Math.max(1, scale);   // the chase's patience runs on the world's clock
     const up = !!travelView?.active;
@@ -18654,7 +18753,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (up && tvRaid.chase.size < 1) {
       const sight = raiderSight(isNight(minuteNow()));
       for (const r of travelViewRaiders()) {
-        if (tvRaid.spent.has(r.id) || tvRaid.chase.has(r.id)) continue;
+        if (tvRaid.spent.has(r.id) || tvRaid.chase.has(r.id) || seaRaidPeerChase(r.id)) continue;   // OW6: never a sail a peer's chase holds
         if (Math.hypot(r.x - here.x, r.z - here.z) / perM > sight) continue;
         tvRaid.chase.set(r.id, { raider: r, pos: { x: r.x, z: r.z }, best: Infinity, bestAt: tvRaid.clock });
         break;
@@ -18664,7 +18763,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const step = raiderChaseStep({ pos: c.pos, quarry: here, dt, scale, contact: up ? RAIDER_CONTACT_M : RAIDER_CONTACT_PLAY_M, now: tvRaid.clock, best: c.best, bestAt: c.bestAt, sea: tvRaidSea });
       c.pos = step.pos; c.best = step.best; c.bestAt = step.bestAt;
       if (step.state === 'chase') continue;
-      tvRaid.chase.delete(id); tvRaid.spent.add(id);
+      tvRaid.chase.delete(id); seaRaidSpend(id);   // OW6: spent, and said to the others
       if (step.state === 'contact') raidContact();
     }
   }
@@ -18699,6 +18798,54 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // grid raises the ground the view can see. The spinner stays the player's; the panel says when it is held.
   const travelGovernor = createLoadGovernor({ max: MAX_TIME_SCALE });
   let tvHeld = null;   // the rate the governor holds the clock to, while it holds it under the spinner's
+  let tvHeldWhy = null;   // OW6: and why - 'load' (TV2's ground), 'foes' (an enemy near), 'down' (the view down, AUDIT OW4 J5)
+  // OW6 (2026-09-29, the player: "If a player is traveling very fast, they should slow if enemies become close"): THE
+  // ENEMIES A JOURNEY SLOWS FOR (systems/travelThreat.js) - where each is from the traveller's feet (scene metres), the
+  // reach it sees or strikes in, and whether it is already closing. Under the view the Overworld's own: the bands as it
+  // draws them (spent, unmade or switched off never - a chaser by its contact ring, closing at its run) and, at sea, the
+  // raiders; on either skin every hostile foe standing about - a camp's, a wanderer, a peer's - by its own sight
+  function journeyThreats(up) {
+    const out = [], fx = player.feetAt();
+    const rel = (nx, nz) => { const [x, z] = state.localFromWorld(nx, nz); return [x - fx[0], z - fx[2]]; };
+    if (up && getPref('wildernessCamps') !== false && !playerEntity.preventEnemySpawns) {
+      const ms = bandNowMs(), sight = bandSight(tvBandSeen.night);
+      for (const b of travelViewBands()) {
+        if (_bandSpent.has(b.id) || _bandChase.has(b.id) || !bandMake(b)) continue;
+        const p = bandPlace(b, ms), [dx, dz] = rel(p.x, p.z);
+        out.push({ dx, dz, reach: sight });
+      }
+      for (const c of _bandChase.values()) { const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: BAND_CONTACT_M, chasing: true, mps: BAND_CHASE_MPS }); }
+    }
+    if (up && warmAshesOn() && csaOn() && raidQuarry()) {
+      const sight = raiderSight(isNight(minuteNow()));
+      for (const r of travelViewRaiders()) {
+        if (tvRaid.spent.has(r.id) || tvRaid.chase.has(r.id)) continue;
+        const at = seaRaidPeerChase(r.id) ?? r, [dx, dz] = rel(at.x, at.z);
+        out.push({ dx, dz, reach: sight });
+      }
+      for (const c of tvRaid.chase.values()) { const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: RAIDER_CONTACT_M, chasing: true, mps: RAIDER_CHASE_MPS }); }
+    }
+    for (const f of exteriorFoes.foes) {
+      if (!foeHostile(f) || !f.ai.feet) continue;
+      out.push({ dx: f.ai.feet[0] - fx[0], dz: f.ai.feet[2] - fx[2], reach: f.ai.sightRadius ?? SIGHT_RADIUS });   // CAMP-SIGHT: a camp's sixty metres
+    }
+    return out;
+  }
+  /** OW6: the enemies' cap on this frame's journey - at the traveller's own pace (the motor's, unscaled) along the way the
+   *  journey drives (its yaw; none, a straight reach), each enemy given THREAT_WARN_S of real time. */
+  function journeyThreatCap(up) {
+    const yaw = _travelDrive ? (_travelDrive.yaw * Math.PI) / 180 : null;
+    return threatCap({ threats: journeyThreats(up), heading: yaw == null ? null : { x: Math.sin(yaw), z: Math.cos(yaw) }, speedMps: player?.speed ?? 0 });
+  }
+  /** OW6: said ONCE as an enemy begins to hold the journey (again after it has let go and a while has passed) - the view's
+   *  bands are marked on the land, and the panel says the rate; on the classic skin this line is all the player is told. */
+  let _slowWas = null, _slowSaidAt = -Infinity;
+  const JOURNEY_SLOW_SAY_MS = 20000;
+  function journeySlowSaid(why) {
+    const t = performance.now();
+    if (why === 'foes' && _slowWas !== 'foes' && t - _slowSaidAt >= JOURNEY_SLOW_SAY_MS) { townTalk.say(TRAVEL_VIEW_TEXT.enemiesSlow, 3); _slowSaidAt = t; }
+    _slowWas = why;
+  }
   const _tvUnbuilt = { gen: -1, x: NaN, y: NaN, r: -1, n: 0 };   // PERF-TV: the cap's last count, and what it counted
   const _tvFootMemo = { gen: -1, map: new Map() };   // PERF-TV: the curtains' lowest land (render/rainCurtains.js memo)
   function travelViewGovern(dt) {
@@ -18711,11 +18858,25 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (journey && !travelView?.active && tvOwnsJourneys()) {
       if (worldTimeScale() !== 1) setWorldTimeScale(1);
       tvHeld = travelAsked > 1 ? 1 : null;   // the panel says the clock is held (the spinner stays the player's)
+      tvHeldWhy = tvHeld != null ? 'down' : null;   // OW6: and says it as what it is
       travelGovernor.reset();
       return;
     }
-    if (!travelView?.active || !journey) {
-      if (tvHeld != null) { tvHeld = null; if (journey) setWorldTimeScale(travelAsked); }
+    if (!journey) {
+      tvHeld = null; tvHeldWhy = null; _slowWas = null;
+      travelGovernor.reset();
+      return;
+    }
+    // OW6: THE ENEMIES' CAP, on both skins' journeys (systems/travelThreat.js) - the lower of it and the ground's holds
+    const foes = journeyThreatCap(!!travelView?.active);
+    if (!travelView?.active) {
+      // the classic skin's journey on the ground: the mod's own ask, under the enemies' cap alone (no view, no ground to
+      // watch) - nothing near, it is the ask handed back whole
+      const rate = Math.min(travelAsked, foes.cap);
+      if (worldTimeScale() !== rate) setWorldTimeScale(rate);
+      tvHeld = rate < travelAsked ? rate : null;
+      tvHeldWhy = tvHeld != null ? 'foes' : null;
+      journeySlowSaid(tvHeldWhy);
       travelGovernor.reset();
       return;
     }
@@ -18736,9 +18897,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     const unbuilt = uc.n;
     const want = travelAsked;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap
-    const rate = travelGovernor.step(dt, { unbuilt, requested: want });
+    const load = travelGovernor.step(dt, { unbuilt, requested: want });
+    const rate = Math.min(load, foes.cap);   // OW6: the ground's cap and the enemies', the lower
     if (worldTimeScale() !== rate) setWorldTimeScale(rate);
     tvHeld = rate < want ? rate : null;
+    tvHeldWhy = tvHeld == null ? null : foes.cap < load ? 'foes' : 'load';
+    journeySlowSaid(tvHeldWhy);
   }
   let tvCursorWas = false;   // AUDIT TV B9: the cursor as the view found it
   travelView = createTravelView({
@@ -19920,8 +20084,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           let room = exteriorFoes.encounterRoom?.() ?? Infinity;
           for (const h of chunkCampHits) {
             // PSCALE1 x CAMP-CAP: the group as it will STAND - _standCampEncounter grows it by the party it meets
-            // (partyGroupMembers), so the room is asked for the grown count, or a party's third group was cut short
-            const size = partyGroupMembers(h.mobileTypes, partySize()).length;
+            // (campMembers, OW6: the one home), so the room is asked for the grown count, or a party's third group was cut short
+            const size = campMembers(h.mobileTypes).length;
             if (size > room) continue;
             room -= size;
             _standCampEncounter(h, player.feetAt());
@@ -20646,6 +20810,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (_deepSuppressesSpawns()) playerEntity.preventEnemySpawns = true;
     dungeonFindFrame(performance.now());   // TV6: an undiscovered dungeon within a kilometre is found
     bandFrame(performance.now(), dt);   // TV7: the bands - a chase, a contact (AUDIT OW5 B1: on the frame's own clock)
+    handOverWalkedAway(performance.now());   // OW6: a foe I walk away from goes to the player beside it, never culled from under them
     const _pf = walkMode && playerSpawned ? player.pos : cam.pos;
     if (!townTalk.overlayActive) runEncounterTick(_pf);
     if ((modes?.mode ?? 'exterior') === 'exterior') {
@@ -21271,6 +21436,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           following: !travelOptions?.destinationName,
           accel: travelControlUI?.timeAcceleration ?? 1,
           held: tvHeld,   // TV2: the travel view's cap, while it holds the clock under the spinner
+          heldWhy: tvHeldWhy,   // OW6: and why (the land loading, an enemy near, the view down)
           message: travelControlUI?.message ?? '',
           minutesLeft: travelOptions?.minutesLeft ?? null,   // AUDIT-TO1 L5: the popup's estimate, run down on the world clock
           from: playerTravelPixel(),

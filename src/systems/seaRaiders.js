@@ -31,6 +31,7 @@
 
 import { mapPixelToWorldCoord, worldCoordToMapPixel } from '../formats/mapsFile.js';
 import { seededRng } from './wind.js';   // mulberry32, the weather's own - one home
+import { chaseWordOf, validChaseWord, BANDS_WIRE_MAX } from './travelBands.js';   // OW6: the chase word's one law (TV7b's)
 
 export { seededRng };
 
@@ -172,4 +173,37 @@ export function chaseStep({ pos, quarry, dt, scale, contact, now, best, bestAt, 
   const b = gained ? left : best, at = gained ? now : bestAt;
   if (left > RAIDER_LEASH_M || now - at > RAIDER_GIVE_UP_MS) return { state: 'lost', pos: next, left, best: b, bestAt: at };
   return { state: 'chase', pos: next, left, best: b, bestAt: at };
+}
+
+// ── OW6 - THE RAIDERS' CHASE, SHARED (the bands' TV7b, at sea; the player: "Everything needs that persistence between
+// players in the overworld") ─────────────────────────────────────────────────────────────────────────────────────────
+// A raider is the same for everyone without a word (its seed and the shared clock); its CHASE was the chased traveller's
+// alone and said to nobody (bible, OWS3: "nothing is sent") - a friend watched the sail that ran them down wander on,
+// and could be chased by it a second time, and a raider that boarded one crew stood again for the next. The chaser's
+// client now says it in its own cell foes frame under `sr`, the band word's law (travelBands.js chaseWordOf): each raider
+// chasing it with where it is, and each spent (it came alongside, or was outsailed) - so every reader draws the chase
+// where it is, none gives chase to a sail a peer's chase holds, and none meets a spent raider again. Its readers keep
+// only a raider that can be about them: this life's or the last, within their own raiders' reach.
+
+/** A raider's id on the wire: `r<cx>.<cy>.<life>`. */
+export const RAIDER_ID_RE = /^r-?\d{1,4}\.-?\d{1,4}\.\d{1,9}$/;
+/** The most raiders one frame may name - the band word's own bound. */
+export const RAIDERS_WIRE_MAX = BANDS_WIRE_MAX;
+/** A chase word heard is believed this long (ms) - a frame every FOES_MS, so a chaser that stopped saying so is gone. */
+export const RAIDER_WORD_MS = 3000;
+/** The raider word I say: my chasers where they sail, then the raiders spent here, newest first. */
+export const raiderWordOf = (chases, spent) => chaseWordOf(chases, spent);
+/** A raider word heard, projected: the valid entries, each raider once. */
+export const validRaiderWord = (raw) => validChaseWord(raw, RAIDER_ID_RE);
+/** A raider id's life. */
+export const raiderLifeOf = (id) => Number(String(id).slice(String(id).lastIndexOf('.') + 1));
+/** Whether a word naming this raider can be about one near me (`at` my map pixel): this life's or the last, its cell
+ *  within the reach the raiders about me are asked from. Any other is nobody's raider here - never kept. */
+export function raiderNearMe(id, at, life) {
+  const m = /^r(-?\d+)\.(-?\d+)\.(\d+)$/.exec(String(id));
+  if (!m) return false;
+  const l = Number(m[3]);
+  if (l !== life && l !== life - 1) return false;
+  const reach = RAIDER_REACH_PX + RAIDER_CELL_PX;
+  return Math.abs(Number(m[1]) * RAIDER_CELL_PX - at.x) <= reach && Math.abs(Number(m[2]) * RAIDER_CELL_PX - at.y) <= reach;
 }

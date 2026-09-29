@@ -132,8 +132,8 @@
   {
     "name": "TV7-random-make",
     "file": "src/scenes/world.js",
-    "old": "gameMinutes: b.night ? 0 : 720 }, seededRng(bandMakeSeed(b)));",
-    "new": "gameMinutes: b.night ? 0 : 720 }, Math.random);",
+    "old": "gameMinutes: b.night ? 0 : 720, size: bandSizeOf(b) }, seededRng(bandMakeSeed(b)));",
+    "new": "gameMinutes: b.night ? 0 : 720, size: bandSizeOf(b) }, Math.random);",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -182,8 +182,8 @@
   {
     "name": "TV7-band-a-traveller",
     "file": "src/ui/travelViewHud.js",
-    "old": "k === 'party' || k === 'lair' || k === 'band' || k === 'raider' ? k : 'traveller';",
-    "new": "k === 'party' || k === 'lair' || k === 'raider' ? k : 'traveller';",
+    "old": "k === 'party' || k === 'lair' || k === 'band' || k === 'raider' || k === 'camp' ? k : 'traveller';",
+    "new": "k === 'party' || k === 'lair' || k === 'raider' || k === 'camp' ? k : 'traveller';",
     "tests": [
       "test/tv7_bands.test.js"
     ],
@@ -212,7 +212,7 @@
   {
     "name": "TV7b-any-id",
     "file": "src/systems/travelBands.js",
-    "old": "    if (typeof id !== 'string' || !BAND_ID_RE.test(id) || seen.has(id)) continue;",
+    "old": "    if (typeof id !== 'string' || !idRe.test(id) || seen.has(id)) continue;",
     "new": "    if (typeof id !== 'string' || seen.has(id)) continue;",
     "tests": [
       "test/tv7_bands.test.js"
@@ -232,8 +232,8 @@
   {
     "name": "TV7b-twice",
     "file": "src/systems/travelBands.js",
-    "old": "    if (typeof id !== 'string' || !BAND_ID_RE.test(id) || seen.has(id)) continue;",
-    "new": "    if (typeof id !== 'string' || !BAND_ID_RE.test(id)) continue;",
+    "old": "    if (typeof id !== 'string' || !idRe.test(id) || seen.has(id)) continue;",
+    "new": "    if (typeof id !== 'string' || !idRe.test(id)) continue;",
     "tests": [
       "test/tv7_bands.test.js"
     ],

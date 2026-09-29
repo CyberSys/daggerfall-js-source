@@ -93,6 +93,15 @@
 - A pirate chase no longer ends because you opened a window or stepped off the helm onto your own deck, and a passenger on someone else's boat isn't chased. A pirate ship chasing you always shows on the map.
 - Pirate ships no longer jump across capes or sail off the edge of the world, and aren't shown at all if you can't sail.
 
+## Fifth update
+- More bands roam the wilds - half as many again by day, a third more by night - and they move about visibly now instead of seeming to stand still.
+- Bands come in every size: a lone beast (a giant on the road, an imp, a mummy abroad by night), the usual handful, and now and then a warband of six. A lone one is named alone ("Giant"); the rest say what and how many ("Orc, 4").
+- Online, every player sees the same band - the same creatures and the same number over it, whatever their own level. (Offline, bands still match your level.) A party that meets a band still brings more of it to the fight, as always.
+- Travelling fast, you slow down as enemies near: always a few seconds' warning before a band's sight, a pirate's lookout or a camp, down to walking pace as you come into their reach. It picks up again as you pass. The travel panel shows the slower rate ("×5 / ×40"; hover it: "with enemies near"), and the first time it happens you're told. This works on the classic travel panel too.
+- Camps show on the Overworld: every camp, pack or band standing about is marked where it stands, with what and how many ("Orc camp, 4"), and its mark goes when the last of them falls. Online, other players' camps show too.
+- Online, a camp stays a camp for everyone: if the player who found it leaves (through a door, or by dying), whoever takes it over keeps it together as one camp. If they walk away from a camp you're standing by, it's handed to you instead of vanishing from under you.
+- Online, pirate ships are shared like bands: a ship chasing another player is seen chasing them, one ship never chases two players at once, and a ship someone has fought or escaped is gone for everyone.
+
 ## Fixes before release
 - Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.
 - A journey to a far town keeps the town on screen: its flag is pinned to the edge with its distance, and clicking it takes the journey up again after a stop.

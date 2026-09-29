@@ -148,7 +148,7 @@ test('TV6 law: THE FIND - the nearest UNDISCOVERED dungeon whose middle is withi
 test('TV6 readout: an undiscovered dungeon is an unnamed mark - its own look, a "?" and no journey', async () => {
   const hud = await import('../src/ui/travelViewHud.js');
   const src = rd('src/ui/travelViewHud.js');
-  assert.match(src, /return k === 'place' \|\| k === 'far' \|\| k === 'dest' \|\| k === 'target' \|\| k === 'party' \|\| k === 'lair'( \|\| k === 'band')?(?: \|\| k === 'raider')? \? k : 'traveller';/, 'the lair look');
+  assert.match(src, /return k === 'place' \|\| k === 'far' \|\| k === 'dest' \|\| k === 'target' \|\| k === 'party' \|\| k === 'lair'( \|\| k === 'band')?(?: \|\| k === 'raider')?(?: \|\| k === 'camp')? \? k : 'traveller';/, 'the lair look');
   assert.equal(hud.TRAVEL_VIEW_MARK_COLORS.lair, '#b0443a');
   assert.match(src, /look === 'lair' \? C\.lair/);
 });

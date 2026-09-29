@@ -111,6 +111,7 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   noBoat: 'Your boat is not with you to cross the water.',
   aground: 'Your boat has run aground.',
   raidersAlongside: 'Pirates come alongside!',   // OWS3
+  enemiesSlow: 'Enemies near - you slow your pace.',   // OW6: the journey held for an enemy near (systems/travelThreat.js), said once as it begins
   inPlace: (place, region) => (region ? `${place}, ${region}` : place),
   nearPlace: (place, region) => (region ? `Near ${place}, ${region}` : `Near ${place}`),
   wilderness: (region) => (region ? `The wilds of ${region}` : 'The wilds'),

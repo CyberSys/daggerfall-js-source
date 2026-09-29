@@ -64,7 +64,7 @@ test('CAMP-CULL and CAMP-CAP: a camp member outlives the 100-150 m band it stand
   const foes = rd('src/scenes/exteriorFoes.js');
   assert.match(foes, /const _cullAt = f\.campId != null \? CAMP_CULL_DISTANCE : ENCOUNTER_CULL_DISTANCE;\n\s*if \(!f\.placed && !f\.managed && _playerDist > _cullAt && /);   // DW-E4: a spawner-managed foe is exempt too
   assert.match(foes, /const encounterRoom = \(\) => MAX_ACTIVE_ENCOUNTER_FOES - activeCount\(\) - spawning\.filter\(\(s\) => s\.capped\)\.length;\n\n\s*return \{ foes, spawnFoe, damageFoe, encounterRoom,/);
-  assert.match(rd('src/scenes/world.js'), /let room = exteriorFoes\.encounterRoom\?\.\(\) \?\? Infinity;\n\s*for \(const h of chunkCampHits\) \{\n(?:\s*\/\/[^\n]*\n)*\s*const size = partyGroupMembers\(h\.mobileTypes, partySize\(\)\)\.length;\n\s*if \(size > room\) continue;\n\s*room -= size;\n\s*_standCampEncounter\(h, player\.feetAt\(\)\);/, 'the room is asked for the group as it will stand - grown by the party (PSCALE1)');
+  assert.match(rd('src/scenes/world.js'), /let room = exteriorFoes\.encounterRoom\?\.\(\) \?\? Infinity;\n\s*for \(const h of chunkCampHits\) \{\n(?:\s*\/\/[^\n]*\n)*\s*const size = campMembers\(h\.mobileTypes\)\.length;\n\s*if \(size > room\) continue;\n\s*room -= size;\n\s*_standCampEncounter\(h, player\.feetAt\(\)\);/, 'the room is asked for the group as it will stand - grown by the party (PSCALE1)');
 });
 
 test('F1 F3 F4: the loss nodes in the HUD tracks and the system dress on the Stats page are Plus\'s - and since PLUS-DEAD retired plain Enhanced they always stand; the base sheet\'s rules as they were (Plus\'s edits in the Plus sheet)', () => {

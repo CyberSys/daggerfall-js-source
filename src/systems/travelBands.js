@@ -22,12 +22,20 @@ import { NATIVE_PER_M } from './travelDungeons.js';   // one home: native units 
 export const BAND_CELL_PX = 2;
 /** A band's life, real milliseconds on the shared clock - born at its bucket's start, gone at its end. */
 export const BAND_LIFE_MS = 12 * 60 * 1000;
-/** The chance a cell holds a band in a life (by day, by night). */
-export const BAND_CHANCE_DAY = 0.3;
-export const BAND_CHANCE_NIGHT = 0.45;
-/** A wandering band's pace (m/s) and how long it keeps one heading (ms). */
-export const BAND_WANDER_MPS = 1.3;
-export const BAND_LEG_MS = 75 * 1000;
+/** The chance a cell holds a band in a life (by day, by night). OW6 (2026-09-29, the player: "Enemies should spawn in
+ *  varying numbers and roam more often"): half as many again by day, a third more by night - 0.3 and 0.45 left a
+ *  league of empty road between most bands. */
+export const BAND_CHANCE_DAY = 0.45;
+export const BAND_CHANCE_NIGHT = 0.6;
+/** A wandering band's pace (m/s) and how long it keeps one heading (ms). OW6: a brisk walk, turning oftener - from the
+ *  Overworld's height (150-450 m up) a band at 1.3 m/s on 75 s legs read as one standing still. */
+export const BAND_WANDER_MPS = 2;
+export const BAND_LEG_MS = 50 * 1000;
+/** OW6: HOW MANY a band is - its own roll, sizes 1 to 6 in order by these weights: a lone beast (a solitary kind may be
+ *  one - campEncounters rollGroupComposition), most of them three or so, now and then a warband of six. */
+export const BAND_SIZE_WEIGHTS = Object.freeze([12, 20, 24, 20, 14, 10]);
+/** OW6: online, the level a band's tables are read at - its own (bandLevelOf), 1 to this. */
+export const BAND_LEVEL_MAX = 20;
 /** How far a band sees a traveller (m), by day and by night. */
 export const BAND_SIGHT_DAY_M = 320;
 export const BAND_SIGHT_NIGHT_M = 190;
@@ -73,6 +81,24 @@ export function bandOf({ cx, cy, life, night, ok }) {
 /** AUDIT OW3 T7-4: the seed a band's MAKE is rolled from - its own stream, never the birth's (whose first draw is under
  *  the spawn chance by construction, so the table's d100 could never pass 45 and its > 80 picks never came). */
 export const bandMakeSeed = (band) => (band.seed ^ 0x4d414b45) >>> 0;   // 'MAKE'
+
+/** OW6: how many a band is (1..BAND_SIZE_WEIGHTS.length), off its own stream - the same number for every player. */
+export function bandSizeOf(band) {
+  const total = BAND_SIZE_WEIGHTS.reduce((a, w) => a + w, 0);
+  let x = seededRng((band.seed ^ 0x53495a45) >>> 0)() * total;   // 'SIZE'
+  for (let i = 0; i < BAND_SIZE_WEIGHTS.length; i++) { x -= BAND_SIZE_WEIGHTS[i]; if (x < 0) return i + 1; }
+  return BAND_SIZE_WEIGHTS.length;
+}
+
+/** OW6 - THE BAND'S OWN LEVEL, online: the level its tables are read at, a function of its seed alone, so every player
+ *  sees the same band - the same kind, the same number. It was each viewer's own level, and two players looking at one
+ *  band read different creatures over it. Skewed low, 1 + floor(20 u^2): half of all bands level 6 or under, a quarter
+ *  12 or over - most a traveller can face, some to run from, and the label says which. (Offline there is one player,
+ *  and the band reads theirs.) */
+export function bandLevelOf(band) {
+  const u = seededRng((band.seed ^ 0x4c45564c) >>> 0)();   // 'LEVL'
+  return 1 + Math.floor(BAND_LEVEL_MAX * u * u);
+}
 
 /**
  * WHERE A WANDERING BAND IS at shared time `ms` (native `{x, z}`, and its heading): leg by leg from its birth, each leg a
@@ -154,9 +180,10 @@ export function bandChaseStep({ pos, feet, dt, scale = 1, contact, gainAt, now, 
   return { pos: np, dist: left, best: closer, gainAt: at, what: null };
 }
 
-/** A band's words over its marker: its kind and its number ("Orcs, 4"). */
+/** A band's words over its marker: its kind and its number ("Orc, 4") - OW6: one alone, its kind alone ("Giant"). */
 export function bandLabel(kindName, n) {
   const k = String(kindName ?? '').trim();
+  if (n === 1) return k || 'A lone foe';
   return k ? `${k}, ${n}` : `A band, ${n}`;
 }
 
@@ -176,27 +203,32 @@ export const BAND_WORD_MS = 3000;
 const WORLD_NATIVE_W = 1000 * 32768, WORLD_NATIVE_H = 500 * 32768;
 
 /**
- * The band word I say: `[[id, x, z, 1], ...]` for each band chasing me (its place, native, whole units), then
- * `[[id, 0, 0, 2], ...]` for the bands spent here (fought or lost), newest first - at most BANDS_WIRE_MAX in all.
+ * A CHASE WORD - the band word I say, and OW6's raiders' (systems/seaRaiders.js), one law for any chaser: `[[id, x, z,
+ * 1], ...]` for each chase of me (the chaser's place, native, whole units), then `[[id, 0, 0, 2], ...]` for each spent
+ * here (fought or lost), newest first - at most BANDS_WIRE_MAX in all.
  * @param {Map<string, {pos: {x:number, z:number}}>} chases
  * @param {string[]} spent
  */
-export function bandWordOf(chases, spent) {
+export function chaseWordOf(chases, spent) {
   const out = [];
   for (const [id, c] of chases ?? []) { if (out.length >= BANDS_WIRE_MAX) break; out.push([id, Math.round(c.pos.x), Math.round(c.pos.z), 1]); }
   for (const id of spent ?? []) { if (out.length >= BANDS_WIRE_MAX) break; out.push([id, 0, 0, 2]); }
   return out;
 }
 
-/** A band word heard, projected: the valid entries, each band once, at most BANDS_WIRE_MAX. */
-export function validBandWord(raw) {
+/** The band word I say (TV7b). */
+export const bandWordOf = (chases, spent) => chaseWordOf(chases, spent);
+
+/** A chase word heard, projected: the valid entries - ids of `idRe`'s own kind - each chaser once, at most BANDS_WIRE_MAX.
+ * @param {unknown} raw @param {RegExp} idRe */
+export function validChaseWord(raw, idRe) {
   if (!Array.isArray(raw)) return [];
   const out = [], seen = new Set();
   for (const e of raw) {
     if (out.length >= BANDS_WIRE_MAX) break;
     if (!Array.isArray(e) || e.length !== 4) continue;
     const [id, x, z, flag] = e;
-    if (typeof id !== 'string' || !BAND_ID_RE.test(id) || seen.has(id)) continue;
+    if (typeof id !== 'string' || !idRe.test(id) || seen.has(id)) continue;
     if (flag !== 1 && flag !== 2) continue;
     if (flag === 1 && !(Number.isInteger(x) && Number.isInteger(z) && x >= 0 && z >= 0 && x <= WORLD_NATIVE_W && z <= WORLD_NATIVE_H)) continue;
     seen.add(id);
@@ -204,6 +236,9 @@ export function validBandWord(raw) {
   }
   return out;
 }
+
+/** A band word heard (TV7b), projected: the valid entries, each band once, at most BANDS_WIRE_MAX. */
+export const validBandWord = (raw) => validChaseWord(raw, BAND_ID_RE);
 
 /** AUDIT OW3 T7-9: a band id's life, and whether a word naming it can be about a band near me - this life's or the one
  *  just over, a cell within the reach about my pixel. A peer's word naming any other is nobody's band here: never kept,

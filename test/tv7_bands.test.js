@@ -181,7 +181,7 @@ test('TV7 host: the bands about the traveller kept a life and a pixel; made once
   assert.match(w, /const at = bandPixelOf\(playerTravelPixel\(\)\), ms = bandNowMs\(\), life = Math\.floor\(ms \/ BAND_LIFE_MS\);/, 'the bands\' own rows about me (AUDIT OW4 B1)');
   assert.match(w, /const now = performance\.now\(\), at = bandPixelOf\(playerTravelPixel\(\)\), life = Math\.floor\(bandNowMs\(\) \/ BAND_LIFE_MS\);/, 'a peer\'s word judged in the same rows');
   assert.match(w, /const night = tvBandSeen\.life === life \? tvBandSeen\.night : bandNight\(life \* BAND_LIFE_MS\);\n\s*tvBandSeen = \{ at, life, night, list: bandsNear\(\{ at, ms, night, ok: bandOk \}\) \};/, 'the night the life began in - the same for everyone, and read once a life (AUDIT OW3 T7-8)');
-  assert.match(w, /const hit = rollGroupComposition\(\{ climateIndex: maps\.getClimateIndex\(px, py\), playerLevel: playerEntity\.level, inLocationRect: false,\n\s*gameMinutes: b\.night \? 0 : 720 \}, seededRng\(bandMakeSeed\(b\)\)\);/, 'made from its own stream (AUDIT OW3 T7-4), by its life\'s night');
+  assert.match(w, /const hit = rollGroupComposition\(\{ climateIndex: maps\.getClimateIndex\(px, py\), playerLevel: online \? bandLevelOf\(b\) : playerEntity\.level, inLocationRect: false,\n\s*gameMinutes: b\.night \? 0 : 720, size: bandSizeOf\(b\) \}, seededRng\(bandMakeSeed\(b\)\)\);/, 'made from its own stream (AUDIT OW3 T7-4), by its life\'s night');
   assert.match(w, /if \(!up \|\| _bandChase\.size >= 2 \|\| bandPeerChase\(b\.id\)\) continue;/, 'only under the view does a band first see me; two chasers at most; never a band a peer\'s chase holds (TV7b)');
   assert.match(w, /if \(d > sight\) continue;/);
   assert.match(w, /for \(const \[id, c\] of _bandChase\) \{\n\s*const s = bandChaseStep\(\{ pos: c\.pos, feet, dt, scale: worldTimeScale\(\), contact: up \? BAND_CONTACT_M : BAND_STAND_M, gainAt: c\.gainAt, now: _bandClock, best: c\.best \}\);\n\s*c\.pos = s\.pos; c\.best = s\.best; c\.gainAt = s\.gainAt; c\.dist = s\.dist;/, 'every chase stepped on its own band (AUDIT OW3 T7-2), the journey\'s pace, the view\'s reach or the stand-off, the last gain fed back (T7-3), on the chases\' own clock (AUDIT OW5 B4), where it is kept (B2)');
@@ -191,8 +191,8 @@ test('TV7 host: the bands about the traveller kept a life and a pixel; made once
   assert.match(w, /if \(_bandSpent\.has\(b\.id\) \|\| _bandChase\.has\(b\.id\)\) continue;/);
   assert.match(w, /if \(!isEnhanced\(\) \|\| \(modes\?\.mode \?\? 'exterior'\) !== 'exterior' \|\| !walkMode \|\| !playerSpawned \|\| getPref\('wildernessCamps'\) === false\n\s*\|\| playerEntity\.preventEnemySpawns \|\| player\.isPlayerSwimming \|\| aboard\n\s*\|\| _inAnyLocationRect\(player\.feetAt\(\)\)\) \{ bandDrop\(\); return; \}/, 'the enhanced interface, outdoors, the camps\' own switch, never at sea, never into a town - and a chase so ended is spent (AUDIT OW3 T7-7)');
   assert.match(w, /function bandDrop\(\) \{ for \(const id of _bandChase\.keys\(\)\) bandSpend\(id\); _bandChase\.clear\(\); \}/);
-  assert.match(w, /function bandRoom\(mk\) \{ return partyGroupMembers\(mk\.mobileTypes, partySize\(\)\)\.length <= \(exteriorFoes\.encounterRoom\?\.\(\) \?\? Infinity\); \}\n(?:\s*\/?\*[^\n]*\n)*\s*function bandStand\(mk, yaw, dist\) \{\n\s*if \(!bandRoom\(mk\)\) return false;/, 'the room the band\'s members need, one home (AUDIT OW5 E1)');
-  assert.match(w, /function bandStand\(mk, yaw, dist\) \{[\s\S]{0,300}?const fx = player\.feetAt\(\);[\s\S]{0,500}?const minDistance = Math\.max\(BAND_STAND_MIN_M, dist - PACK_SPACING\), maxDistance = Math\.max\(BAND_STAND_MIN_M, dist\) \+ PACK_SPACING;\n\s*for \(const turn of \[0, Math\.PI \/ 2, -Math\.PI \/ 2, Math\.PI\]\) \{\n\s*if \(_standCampEncounter\(\{ kind: 'pack', mobileTypes: mk\.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,\n\s*minDistance, maxDistance, bearingDegrees: 0, yawRad: yaw \+ turn \}, fx\)\) return true;\n\s*\}\n\s*return false;/, 'on its own bearing, then a quarter turn either way, then behind (AUDIT OW3 T7-1)');
+  assert.match(w, /function bandRoom\(mk\) \{ return campMembers\(mk\.mobileTypes\)\.length <= \(exteriorFoes\.encounterRoom\?\.\(\) \?\? Infinity\); \}\n(?:\s*\/?\*[^\n]*\n)*\s*function bandStand\(mk, yaw, dist\) \{\n\s*if \(!bandRoom\(mk\)\) return false;/, 'the room the band\'s members need, one home (AUDIT OW5 E1)');
+  assert.match(w, /function bandStand\(mk, yaw, dist\) \{[\s\S]{0,300}?const fx = player\.feetAt\(\);[\s\S]{0,500}?const minDistance = Math\.max\(BAND_STAND_MIN_M, dist - PACK_SPACING\), maxDistance = Math\.max\(BAND_STAND_MIN_M, dist\) \+ PACK_SPACING;\n\s*for \(const turn of \[0, Math\.PI \/ 2, -Math\.PI \/ 2, Math\.PI\]\) \{\n\s*if \(_standCampEncounter\(\{ kind: 'band', mobileTypes: mk\.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,\n\s*minDistance, maxDistance, bearingDegrees: 0, yawRad: yaw \+ turn \}, fx\)\) return true;\n\s*\}\n\s*return false;/, 'on its own bearing, then a quarter turn either way, then behind (AUDIT OW3 T7-1)');
   assert.match(w, /if \(!anchor\) return false;/, 'the camps\' stand says whether it stood');
   assert.match(w, /\}\)\.catch\(\(\) => null\);\n\s*\}\n\s*return placed > 0;\n\s*\};\n\s*const _standLooseFoe/, 'stood is a member placed (AUDIT OW4 B3)');
   assert.match(w, /if \(!spot\) continue;\n\s*placed\+\+;/);
@@ -206,12 +206,12 @@ test('TV7 host: the bands about the traveller kept a life and a pixel; made once
   assert.match(w, /if \(tvBandSeen\.life !== life\) bandPrune\(life\);/);
   assert.match(w, /for \(const m of \[_bandMake, _bandPos, _bandPeer\]\) for \(const id of m\.keys\(\)\) if \(bandLifeOf\(id\) < life - 1 && !_bandChase\.has\(id\)\) m\.delete\(id\);\n\s*for \(const id of _bandSpent\) if \(bandLifeOf\(id\) < life - 1\) _bandSpent\.delete\(id\);/);
   assert.match(w, /anchor = campAnchorSpot\(\{ feet, yawRad: hit\.yawRad \?\? cam\.yaw, fovDegrees:/, 'the camps\' anchor takes the band\'s bearing');
-  assert.match(w, /const chasing = _bandChase\.has\(b\.id\), p = bandPlace\(b, bms\);\n\s*marks\.push\(\{ key: `band:\$\{b\.id\}`, at: tvSceneKept\(b, p\.x, p\.z, 2\), label: bandLabel\(mk\.name, partyGroupMembers\(mk\.mobileTypes, partySize\(\)\)\.length\), kind: chasing \? 'band chase' : 'band', edge: chasing \}\);/, 'seen from above');
+  assert.match(w, /const chasing = _bandChase\.has\(b\.id\), p = bandPlace\(b, bms\);\n\s*marks\.push\(\{ key: `band:\$\{b\.id\}`, at: tvSceneKept\(b, p\.x, p\.z, 2\), label: bandLabel\(mk\.name, mk\.mobileTypes\.length\), kind: chasing \? 'band chase' : 'band', edge: chasing \}\);/, 'seen from above');
   assert.match(w, /bandFrame\(performance\.now\(\), dt\);   \/\/ TV7/, 'on the frame\'s own clock (AUDIT OW5 B1)');
   assert.match(w, /tvBandSeen = \{ at: null, life: -1, list: \[\] \}; _bandChase\.clear\(\); _bandSpent\.clear\(\); _bandMake\.clear\(\); _bandPos\.clear\(\); _bandPeer\.clear\(\); _bandSpentAt\.length = 0;/, 'a load forgets them - and what the peers said (TV7b)');
   const hud = await import('../src/ui/travelViewHud.js');
   assert.equal(hud.TRAVEL_VIEW_MARK_COLORS.band, '#e0503c');
-  assert.match(rd('src/ui/travelViewHud.js'), /\|\| k === 'lair' \|\| k === 'band'(?: \|\| k === 'raider')? \? k : 'traveller';/);
+  assert.match(rd('src/ui/travelViewHud.js'), /\|\| k === 'lair' \|\| k === 'band'(?: \|\| k === 'raider')?(?: \|\| k === 'camp')? \? k : 'traveller';/);
 });
 
 test('TV7b THE CHASE, SHARED: the band word - my chases where they are, then the bands spent here, at most BANDS_WIRE_MAX; heard, only what a band word can be; two chasers of one band settled by id alike on every client', () => {
@@ -243,7 +243,7 @@ test('TV7b host: the band word rides my cell\'s foes frame (a chase asks for a f
   assert.match(ef, /function setOnBands\(fn\) \{ _onBands = typeof fn === 'function' \? fn : null; \}/);
   assert.match(w, /exteriorFoes\.setOnBands\(\(from, bd\) => bandHear\(from, bd\)\);/);
   assert.match(w, /const bandMoved = cell && bandWord\(null, full\);/);
-  assert.match(w, /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved(?: \|\| csaAboardMoved)? \|\| bandMoved\)/, 'a chase asks for a frame');
+  assert.match(w, /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved(?: \|\| csaAboardMoved)? \|\| bandMoved(?: \|\| seaRaidMoved)?\)/, 'a chase asks for a frame');
   assert.match(w, /if \(cell\) csaWord\(frame, full\);(?: if \(cell\) csaAboardWord\(frame, full\);)? if \(cell\) bandWord\(frame, full\);/, 'and rides it');
   assert.match(w, /if \(!full && !_bandChase\.size && key === _bandWordKey\) return false;/, 'a chase is said every frame; a spent list on a change and the full frames');
   assert.match(w, /if \(flag === 2\) \{ _bandSpent\.add\(id\); _bandChase\.delete\(id\); _bandPeer\.delete\(id\); continue; \}/, 'a peer\'s spent band: spent here');
@@ -289,7 +289,7 @@ const bandHost = async (over = {}) => {
     const { bandChaseStep, bandSight, validBandWord, bandNearMe, bandPixelOf, chaseYields, BAND_CONTACT_M, BAND_STAND_M, BAND_STAND_TRIES,
       BAND_STAND_RETRY_MS, BANDS_WIRE_MAX, BAND_LIFE_MS, BAND_STAND_MIN_M } = law;
     const NATIVE_PER_M = 40, PACK_SPACING = 6, PACK_ALERT_RADIUS = 30;
-    const partyGroupMembers = (t) => t, partySize = () => 1, exteriorFoes = { encounterRoom: () => d.room ?? Infinity };
+    const partyGroupMembers = (t) => t, partySize = () => 1, campMembers = (t) => t, exteriorFoes = { encounterRoom: () => d.room ?? Infinity };
     const _standCampEncounter = (hit) => { d.standCalls.push(hit.yawRad); d.standAt?.push([hit.minDistance, hit.maxDistance]); d.order?.push('stand'); return d.standOk(hit); };
     let _bandClock = 0;
     ${src.spend} ${src.drop} ${src.room} ${src.stand} ${src.hear} ${src.frame}

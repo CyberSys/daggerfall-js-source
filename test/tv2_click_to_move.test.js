@@ -481,7 +481,7 @@ test('TV2 readout: the route line moves to its first point, lines through the re
   assert.equal(travelTripLine({ name: 'Ripwych', share: 0.2 }), 'To Ripwych, across country');
   assert.equal(travelTripLine({ spot: true }), 'To the marked spot');
   assert.match(TRAVEL_HELD_TEXT(20, 40), /×20 of ×40/);   // AUDIT DEEP X-6: shown, on the held rate's title (it lived unshown in the view's own table)
-  assert.match(rd('src/ui/enhancedTravelControl.js'), /const why = held != null \? TRAVEL_HELD_TEXT\(held, accel\) : '';\n\s*if \(parts\.accel && last\.accelTitle !== why\) \{ last\.accelTitle = why; parts\.accel\.title = why; \}/);
+  assert.match(rd('src/ui/enhancedTravelControl.js'), /const why = held != null \? TRAVEL_HELD_TEXT\(held, accel, state\.heldWhy\) : '';[^\n]*\n\s*if \(parts\.accel && last\.accelTitle !== why\) \{ last\.accelTitle = why; parts\.accel\.title = why; \}/);
 });
 
 // ── THE WORLD HOST'S WIRING ─────────────────────────────────────────────────────────────────────────────────────────
@@ -517,7 +517,11 @@ test('TV2 host wiring: THE CAP - governed before the frame reads the travel scal
   const w = rd('src/scenes/world.js');
   assert.match(w, /travelViewGovern\(dt\);[^\n]*\n\s*const travelScale = worldTimeScale\(\);/, 'this frame\'s scale is the governed one');
   assert.match(w, /const journey = !!travelControlUI\?\.isShowing && !!travelOptions\?\.state\?\.autopilot;/);
-  assert.match(w, /if \(tvHeld != null\) \{ tvHeld = null; if \(journey\) setWorldTimeScale\(travelAsked\); \}\n\s*travelGovernor\.reset\(\);/, 'the mod\'s own ask back');
+  assert.match(w, /if \(!journey\) \{\n\s*tvHeld = null; tvHeldWhy = null; _slowWas = null;\n\s*travelGovernor\.reset\(\);\n\s*return;\n\s*\}/, 'no journey: nothing held');
+  // OW6: the classic skin's journey is the mod's own ask under the enemies' cap alone - nothing near, the ask handed back
+  // whole; under the view the lower of the ground's cap and the enemies'
+  assert.match(w, /const rate = Math\.min\(travelAsked, foes\.cap\);\n\s*if \(worldTimeScale\(\) !== rate\) setWorldTimeScale\(rate\);\n\s*tvHeld = rate < travelAsked \? rate : null;/, 'the mod\'s own ask back');
+  assert.match(w, /const load = travelGovernor\.step\(dt, \{ unbuilt, requested: want \}\);\n\s*const rate = Math\.min\(load, foes\.cap\);/);
   // AUDIT TV A2: the ASK is the mod's - its spinner and its own caps (the ring walk's x15, an interrupt's x1), recorded
   // where the mod sets the clock - so the governor never lifts a journey past Travel Options' own limit
   assert.match(w, /onTimeAccelerationChanged: \(n\) => \{ travelAsked = n; setWorldTimeScale\(n\); \},/);
@@ -907,7 +911,7 @@ test('AUDIT OW4 J4/J5: the map\'s Resume PLANS the Overworld\'s journey again fr
   const w = rd('src/scenes/world.js');
   assert.match(w, /onResumeTravel: \(\) => \{ travelViewResume\(\); \},/, 'the held map\'s and the classic map\'s Resume');
   assert.match(w, /function travelViewResume\(\) \{\n\s*const r = travelOptions\?\.route;\n\s*if \(!tvOwnsJourneys\(\) \|\| !r\) \{ travelOptions\?\.resumeTravel\(\); return; \}\n\s*const why = travelViewAllowed\(\);\n\s*if \(!why\.ok\) \{ if \(why\.why\) townTalk\.say\(why\.why\); return; \}\n\s*if \(!travelViewCanGo\(\)\) return;\n\s*if \(r\.summary\) travelViewRouteTo\(r\.summary\);\n(?:\s*\/\/[^\n]*\n)*\s*else if \(r\.point\) travelViewWalkTo\(tvSceneOf\(r\.point\.x, r\.point\.z, 0\), r\.point\.pixel, \{ door: r\.point\.door \?\? null \}\);\n\s*\}/, 'planned again - the classic skin and the mod\'s own journeys keep the mod\'s resume; a spawn\'s walk resumed is its door again (AUDIT OW4 X2) - the walk\'s OWN door, never the live index\'s (AUDIT OW5 D3)');
-  assert.match(w, /if \(journey && !travelView\?\.active && tvOwnsJourneys\(\)\) \{\n\s*if \(worldTimeScale\(\) !== 1\) setWorldTimeScale\(1\);\n\s*tvHeld = travelAsked > 1 \? 1 : null;[^\n]*\n\s*travelGovernor\.reset\(\);\n\s*return;\n\s*\}\n\s*if \(!travelView\?\.active \|\| !journey\) \{/, 'held at x1 until the view rises - then the governor has it');
+  assert.match(w, /if \(journey && !travelView\?\.active && tvOwnsJourneys\(\)\) \{\n\s*if \(worldTimeScale\(\) !== 1\) setWorldTimeScale\(1\);\n\s*tvHeld = travelAsked > 1 \? 1 : null;[^\n]*\n\s*tvHeldWhy = tvHeld != null \? 'down' : null;[^\n]*\n\s*travelGovernor\.reset\(\);\n\s*return;\n\s*\}\n\s*if \(!journey\) \{/, 'held at x1 until the view rises - then the governor has it');
   // what the resume re-plans past: the mod's resume aims the next leg from wherever the traveller stands, asking nothing
   const r = travelRig();
   const summary = { pixel: { x: 510, y: 250 }, name: 'Ripwych', mapId: 42 };
