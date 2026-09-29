@@ -57,6 +57,8 @@ inside what refused it. L - a refused step-ladder rung is no headroom. A standin
 walking is unchanged; PH1's own cases stand and are pinned. `test/fb0929b_waterwalk.test.js` (6: every scene built in
 the doorway's shape, never read off the block; the real block's step behind ARENA2), `tools/mutants/fb0929b_waterwalk.json`
 (10, 10 dead). PH1's source pin and the two DISC28 `rising` mutants re-aimed to the renamed `straddle`.
+The fuzz over all 32 flooded blocks, 1152 runs (6 spawns, 3 seeds, water walking and not, 20 seconds each): before,
+10 bodies out through a face (7 water walking, 3 swimming; W0000012, W0000021, W0000024); after, none.
 `03-World/Player-Arc.md` WW-LID.
 
 ## MERC-RISE: online, no skill lowers a sale (3)

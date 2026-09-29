@@ -2230,6 +2230,8 @@ lifting the body onto such a rib. Four laws in `player/collider.js`, the rest of
 Each is held by its own case in `test/fb0929b_waterwalk.test.js` (6: the motor at the doorway, the stride sweep, the
 high doorway for S, the ribs for B, H and L, the crawl slot for H, the real block's step behind ARENA2); every scene is
 built there in the doorway's shape, never read off the block. `tools/mutants/fb0929b_waterwalk.json`, 10 mutants, 10
-dead. The fuzz, before and after, over all 32 flooded blocks (W0000000-W0000029, S0000160-S0000161): see `01-Overview/Field-Bugs-2026-09-29b.md` WW-LID.
+dead. The fuzz over all 32 flooded blocks (W0000000-W0000029, S0000160-S0000161), 1152 runs (6 spawns, 3 seeds, water
+walking and not, 20 seconds each): before, 10 bodies out through a face (7 water walking, 3 swimming; W0000012,
+W0000021, W0000024); after, none.
 PH1's own cases (a floor the body sank under, its head over it) are unchanged and pinned; PH1's source pin re-aimed to
 the renamed line, and DISC28-G's and AUDIT DISC28's `rising` mutants with it.
