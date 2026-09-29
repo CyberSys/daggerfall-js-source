@@ -54,10 +54,10 @@
     ]
   },
   {
-    "name": "AUDIT-REALM2-S2-customs-carries-the-house",
+    "name": "AUDIT-REALM2-S2-customs-leaves-the-house",
     "file": "server-account/src/realm.js",
-    "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks']);",
-    "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes']);",
+    "old": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);",
+    "new": "export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'guild_members']);",
     "tests": [
       "test/auditrealm2_service.test.js"
     ]
