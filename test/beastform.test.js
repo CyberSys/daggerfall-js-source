@@ -62,9 +62,13 @@ test('V4: setCrimeCommitted is the ONE crime write, and a transformed lycanthrop
   morphSelf(p, { nowMinutes: 2000 });   // morph back (past the once-a-day gate)
   setCrimeCommitted(p, 4);
   assert.equal(p.crimeCommitted, 4, 'back in human form the law returns');
-  // and no scene writes the field directly any more
+  // and no scene writes the field directly - but for DFU's own one: WERE-LEVY (FB 2026-09-29g), the passive levy of
+  // PlayerEntity.cs:502/:509 assigns the FIELD, SuppressCrime never asked (the transformed beast is levied too)
+  const LEVY = /\n\s*playerEntity\.crimeCommitted = CRIMES\.Criminal_Conspiracy;[^\n]*\n\s*(?:\/\/[^\n]*\n\s*)*_witnessResponse\(\);|\n\s*playerEntity\.crimeCommitted = CRIMES\.Criminal_Conspiracy;   \/\/ WERE-LEVY[^\n]*/g;
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/cityGuards.js']) {
-    assert.ok(!/playerEntity\.crimeCommitted = [^0]/.test(read(f)), `${f} routes through the setter`);
+    const src = read(f), levies = src.match(LEVY)?.length ?? 0;
+    assert.equal(levies, f.endsWith('cityGuards.js') ? 0 : 1, `${f}: the one levy, on the field`);
+    assert.ok(!/playerEntity\.crimeCommitted = [^0]/.test(src.replace(LEVY, '')), `${f} routes every other write through the setter`);
   }
   // AUDIT 63 F33 generalized Pickpocket to DFU's one method with an
   // optional target, and PlayerActivate.cs:1655 gates the crime write on

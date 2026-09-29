@@ -1,0 +1,34 @@
+[
+  {
+    "name": "RAID-GUARDS-NPC-walking-guard-unspared",
+    "file": "src/scenes/cityGuards.js",
+    "old": "    if (playerSparesPerson(best)) return false;",
+    "new": "",
+    "tests": ["test/fb0929_raidguards.test.js"],
+    "note": "The swing's civilian arm struck a raid's walking guard: Assault, a watchman minted, the squad turned."
+  },
+  {
+    "name": "RAID-GUARDS-NPC-spared-without-a-raid",
+    "file": "src/scenes/cityGuards.js",
+    "old": "    return !!person?.guard && !!raidHere();",
+    "new": "    return !!person?.guard;",
+    "tests": ["test/fb0929_raidguards.test.js"],
+    "note": "Every walking guard spared, raid or not: DFU's Assault gone."
+  },
+  {
+    "name": "RAID-GUARDS-NPC-townsperson-spared",
+    "file": "src/scenes/cityGuards.js",
+    "old": "    return !!person?.guard && !!raidHere();",
+    "new": "    return !!raidHere();",
+    "tests": ["test/fb0929_raidguards.test.js"],
+    "note": "Townspeople spared too - a call left to Mac, not this fix's."
+  },
+  {
+    "name": "RAID-GUARDS-NPC-trample-unfiltered",
+    "file": "src/scenes/world.js",
+    "old": "    livePersons: () => _livePersons.filter((seat) => !cityGuards.playerSparesPerson(seat.person)),",
+    "new": "    livePersons: () => _livePersons,",
+    "tests": ["test/fb0929_raidguards.test.js"],
+    "note": "The riding trample still made Assault of a raid's walking guard."
+  }
+]
