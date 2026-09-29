@@ -48,7 +48,7 @@
 
 import { createShotField, insideGrown } from '../systems/naval/navalShots.js';
 import { createNavalEffects } from '../systems/naval/navalEffects.js';
-import { createNavalDirector, DENSITY, seedBaseOf } from '../systems/naval/navalDirector.js';
+import { createNavalDirector, DENSITY, seedBaseOf, SEED_SALT, DESPAWN_BEYOND } from '../systems/naval/navalDirector.js';
 import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provoke, hostile, lookoutOf, RUN_OUT_S, RUN_OUT_DEG, BOW_RUN_OUT, SPARE_S } from '../systems/naval/navalAI.js';
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap
 import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost } from '../systems/naval/navalDamage.js';
@@ -59,7 +59,7 @@ import { lawOf, createNotoriety, crownRegion, notorietyLevel, WITNESS_RANGE, KNI
 import { drawHold, flotsamKeys, choiceEffect, choiceOffer, holdTier, CHOICES } from '../systems/naval/navalPlunder.js';
 import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE } from '../systems/naval/navalYard.js';   // AUDIT NAV1: the shipwright, the mending at sea
 import { createBoarding, berthPose, musterOf, handsOf, repelPartyOf, raidQuestOf, raidQuestWon, raidQuestRetreated, boardingWon, BOARD_RANGE, BOARD_SPEED, ABANDON_RANGE, HAND, SURRENDER_SHARE } from '../systems/naval/navalBoarding.js';
-import { navalWireRecord, validNavalRecord, navalHitData, validNavalHit, NAVAL_SHARE_RADIUS, NAVAL_VOLLEY_KEEP_MS, BOARD_CODES } from '../systems/naval/navalWire.js';
+import { navalWireRecord, validNavalRecord, navalHitData, validNavalHit, NAVAL_SHARE_RADIUS, NAVAL_VOLLEY_KEEP_MS, NAVAL_GEN_MAX } from '../systems/naval/navalWire.js';
 import { Boat, boatAnimators, boatParticleSystems, animatorOf, setLights, meshLocalBounds, HULL_NAMES } from '../systems/comeSailAwayBoat.js';
 import { stowSail } from '../systems/comeSailAway.js';
 import { quatEuler } from '../world/unityAnimator.js';
@@ -227,6 +227,28 @@ export const PUPPET_SNAP_M = 25;
 /** How often the room's roster is read for owners who left (s), and how long a quiet owner's ships stand (s). */
 export const OWNER_SWEEP_S = 2;
 export const OWNER_STALE_S = 6;
+/**
+ * AUDIT NAV1 (online) - THE SEA HANDED ON. A ship's SEED is who she is in every client's sea (a stander's traffic
+ * salted with its own id - `idSalt` - so two standers never launch twins; a raider's the raider's own). Her word
+ * carries her handover's count `gen`, and of two players saying one seed, the greater count holds her, on a tie the
+ * lower id (`claimBeats`, the stander law's own tie-break). A ship is TAKEN OVER at one past it: by the player who
+ * would stand the sea when her stander is gone from the cell or quiet past OWNER_STALE_S (the heir - she sails on,
+ * where she vanished mid-fight), and by her boarder at the grapple (the haul, the fight, the prize and her fate in one
+ * world, where the boarder's copy was hauled 23 m from the stander's). Anyone else keeps a departed stander's ships
+ * where they were for ORPHAN_S, for the heir's word to claim them - the same hulls, never rebuilt - and lets them go
+ * after. Between words another's ship sails on along her course at her way (PREDICT_MAX_S at most), eased as ever.
+ */
+export const ORPHAN_S = 8;
+export const PREDICT_MAX_S = 2.5;
+/** Whether a claim on a ship - her handover count `gen` said by `id` - holds her over another's. */
+export const claimBeats = (gen, id, otherGen, otherId) => gen > otherGen || (gen === otherGen && String(id) < String(otherId));
+/** A player's id folded into a number: the salt of the traffic they stand (0 offline - the waters' own seeds). */
+export function idSalt(id) {
+  if (typeof id !== 'string' || !id || id === 'local') return 0;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 0x01000193) >>> 0;
+  return h;
+}
 /** A ship another player stands that goes down within this of my last blow on her is mine to answer for (s): her
  *  stander lands the hurt (the victim's law), and my word never reaches it - the sinking does, in their next word. */
 export const SINK_CREDIT_S = 20;
@@ -740,12 +762,17 @@ export function createNavalHost(deps) {
     const w = where();
     const cls = classById(spec.classId);
     if (!cls) return null;
-    const crown = cls.faction === 'navy' ? crownOf(w.px ?? 0, w.py ?? 0, w.capitals ?? null, w.region ?? -1) : null;
-    const names = shipNames(cls, spec.seed, { regionIndex: crown?.region ?? w.region ?? 17, crown });
-    const num = n ?? (seq = (seq + 1) & 0xffff);
+    // AUDIT NAV1 (online): her names from the region her stander drew them in (her word's), else the waters' here -
+    // a navy ship's her nearest capital's crown's (the same cutter was Wayrest's to one player and Daggerfall's to one
+    // a pixel over)
+    const region = Number.isInteger(spec.region) && spec.region >= 0 ? spec.region
+      : cls.faction === 'navy' ? crownOf(w.px ?? 0, w.py ?? 0, w.capitals ?? null, w.region ?? -1).region : (w.region ?? 17);
+    const crown = cls.faction === 'navy' ? crownOf(0, 0, null, region) : null;
+    const names = shipNames(cls, spec.seed, { regionIndex: region, crown });
+    const num = n ?? nextNumber();
     const id = owner ? `${owner}:${num}` : `${myId()}:${num}`;
     const ship = createSeaShip({ id, seed: spec.seed, classId: spec.classId, variant: spec.variant ?? 0, pos: spec.pos, yaw: spec.yaw ?? 0, names, owner });
-    const entry = { id, n: num, owner, ship, boat: null, fires: null, fireLoop: null, sinkLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, lifeDt: 0, lifeN: num % FAR_LIFE_EVERY, list: null, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colours: null };
+    const entry = { id, n: num, owner, gen: Math.max(0, Math.min(NAVAL_GEN_MAX, spec.gen | 0)), region, orphan: null, ship, boat: null, fires: null, fireLoop: null, sinkLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, lifeDt: 0, lifeN: num % FAR_LIFE_EVERY, list: null, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colours: null };
     sea.set(id, entry);
     return entry;
   }
@@ -759,6 +786,85 @@ export function createNavalHost(deps) {
     if (entry.boat) deps.pool.remove(entry.boat);
     sea.delete(entry.id);
   }
+  /** A number of mine for a ship: the next not standing in my sea (sixteen bits, as the word carries it). */
+  function nextNumber() {
+    for (let i = 0; i < 0x10000; i++) {
+      seq = (seq + 1) & 0xffff;
+      if (!ownByN(seq)) return seq;
+    }
+    return seq;
+  }
+  /** AUDIT NAV1 (online #8): a ship of mine by her number - whatever id she was minted under (a ship launched while the
+   *  socket was away stood as `local:n`, and a peer's blow asked for `me:n`). */
+  function ownByN(n) {
+    for (const e of sea.values()) if (!e.owner && e.n === n) return e;
+    return null;
+  }
+  /** AUDIT NAV1 (online): the ship in my sea with this seed and class, other than `except` - her copy under another
+   *  claim, or my own. */
+  function bySeed(seed, classId, except) {
+    for (const e of sea.values()) if (e.id !== except && e.ship.seed === seed && e.ship.cls.id === classId && e.ship.damage.state !== SHIP_STATES.sunk) return e;
+    return null;
+  }
+  /** AUDIT NAV1 (online): a ship's entry under a new claim - `owner` (null: mine), her number and handover count -
+   *  the same hull, fires and hurts (a boarding is never under way on her: taken over before it begins, ended before
+   *  she is yielded). */
+  function rekey(e, owner, n, gen) {
+    sea.delete(e.id);
+    e.owner = owner; e.n = n; e.gen = Math.max(0, Math.min(NAVAL_GEN_MAX, gen | 0));
+    e.id = owner ? `${owner}:${n}` : `${myId()}:${n}`;
+    e.ship.id = e.id; e.ship.owner = owner;
+    e.lost = false; e.orphan = null; e.seen = clock;
+    sea.set(e.id, e);
+    return e;
+  }
+  /** AUDIT NAV1 (online): another's ship taken into my keeping - one past her handover count, so every client that hears
+   *  her in my word, her old stander among them, knows she is mine now. Her captain sails her from where she lies. */
+  function adopt(e) {
+    if (!e.owner) return e;
+    rekey(e, null, nextNumber(), e.gen + 1);
+    e.target = null;
+    return e;
+  }
+  /** AUDIT NAV1 (online): a ship of mine a stronger claim holds now - hers to sail from here, mine to draw. A boarding of
+   *  her ends (another crew has her), and a raider of mine is not mine to spend. */
+  function yieldTo(e, owner, n, gen) {
+    if (!e.owner && boarding?.shipId === e.id) {
+      const b = boarding;
+      for (const f of b.foes) deps.board?.removeFoe?.(f.handle);
+      b.foes = [];
+      if (b.quest) { raidUids.delete(b.quest.uid); deps.board?.endRaid?.(b.quest, { withdraw: true }); }
+      b.abandon?.();
+      endBoarding();
+      deps.say?.(`${e.ship.names?.name ?? 'She'} is taken by another crew.`, 3);
+    }
+    if (!e.owner) e.raider = null;
+    rekey(e, owner, n, gen);
+    e.ship.boarded = false;
+    return e;
+  }
+  /** Whether I would stand the sea with `gone` out of the cell - the heir to their ships. */
+  function heirOf(gone) {
+    const on = deps.online;
+    const id = on?.id?.();
+    if (!on || !id) return true;
+    return amGroupRollOwner(id, deps.feet(), (on.peers?.() ?? []).filter((p) => p.id !== gone), NAVAL_SHARE_RADIUS);
+  }
+  /** AUDIT NAV1 (online): an owner gone from the cell, silent, or quiet past OWNER_STALE_S - their ships are the heir's:
+   *  taken over where they lie if that is me; kept ORPHAN_S for the heir's word if not; one going down finishes going
+   *  down on my clock (letGo). */
+  function releaseOwner(owner) {
+    const heir = heirOf(owner);
+    for (const e of [...sea.values()]) {
+      if (e.owner !== owner || boarding?.shipId === e.id) continue;
+      const st = e.ship.damage.state;
+      if (st === SHIP_STATES.sinking || st === SHIP_STATES.sunk) { letGo(e); continue; }
+      if (heir) adopt(e);
+      else e.orphan ??= clock;
+    }
+    seenVolleys.delete(owner);
+  }
+
   /** One build a frame: the first sea ship with no hull yet (SpawnBoat is the frame's heaviest single act). */
   function buildOne() {
     if (!deps.pool?.ready?.()) return;
@@ -942,7 +1048,9 @@ export function createNavalHost(deps) {
     if (!enabled) return;
     const stood = new Map(), peers = new Map();
     for (const e of sea.values()) {
-      if (!e.owner && e.raider) stood.set(e.raider.id, { pos: e.ship.pos, engaged: raiderBusy(e) });
+      // AUDIT NAV1 (online): a raider taken over from another (her stander gone, or grappled by me) is known by her seed
+      if (!e.owner && !e.raider && e.ship.cls.faction === 'pirate') { const r = list.find((x) => (x.seed >>> 0) === e.ship.seed); if (r) e.raider = { id: r.id, chased: false, spent: spent.has(r.id) }; }
+      if (!e.owner && e.raider) stood.set(e.raider.id, { pos: e.ship.pos, engaged: raiderBusy(e), boarding: boarding?.shipId === e.id });
       else if (e.owner && e.ship.cls.faction === 'pirate') peers.set(e.ship.seed, e.owner);
     }
     const plan = raiderPlan({ raiders: list, me: deps.feet(), myId: myId(), stood, peers, spent, held });
@@ -1462,6 +1570,9 @@ export function createNavalHost(deps) {
       const anchor = { pos: pose.position, yaw: yawOfRot(pose.rotation), beam: hullBuild(boat.hull).beam, midZ: 0 };
       to = berthPose(anchor, { pos: entry.ship.pos, yaw: entry.ship.yaw, beam: hullBuild(entry.ship.hull).beam, midZ: 0 });
     }
+    // AUDIT NAV1 (online #3): a ship another stands is taken over at the grapple - the haul, the fight, the prize and
+    // her fate in one world, mine (the boarder's copy was hauled 23 m from her stander's, and slid back from under him)
+    adopt(entry);
     boarding = createBoarding({ kind, shipId: entry.id, from, to: { pos: to.pos, yaw: to.yaw } });
     boarding.boat = boat;
     if (!boat) boarding.t = Infinity;   // on foot: no haul - over the rail at once
@@ -1469,7 +1580,6 @@ export function createNavalHost(deps) {
     entry.ship.speed = 0;
     entry.ship.damage.douse();   // AUDIT NAV1 (B4): grappled, her fires are fought - never a fight on a deck burning under it
     douse(entry);
-    if (entry.owner) deps.online?.sendHit?.(navalHitData(entry.owner, { n: entry.n, board: BOARD_CODES.boarding }));
     sound(NAVAL_SFX.grapple, entry.ship.pos, 0.9);
     deps.say?.(kind === 'board' ? `Grapples away! Hauling ${entry.ship.names?.name ?? 'her'} alongside...` : `Grappling hooks! ${entry.ship.names?.name ? `${entry.ship.names.name} is` : 'The pirates are'} coming alongside - repel boarders!`, 3);
   }
@@ -1588,7 +1698,6 @@ export function createNavalHost(deps) {
     entry.ship.damage.takePrize();
     entry.ship.boarded = false;   // AUDIT NAV1 (B1): the fight is over - a prize is let go like any hulk once out of sight
     chargePlayer('board', entry);
-    if (entry.owner) deps.online?.sendHit?.(navalHitData(entry.owner, { n: entry.n, board: BOARD_CODES.taken }));
     sound(NAVAL_CLASSIC.bell, entry.ship.pos, 1);
     deps.mid?.(`${entry.ship.names?.name ?? 'The ship'} is yours!`, 3);
     if (yielded) deps.say?.('The rest of her crew throw down their arms.', 3);
@@ -1665,7 +1774,6 @@ export function createNavalHost(deps) {
         pz.fate = which === 'scuttle' ? 'scuttle' : 'adrift';
         if (pz.fate === 'scuttle') { s.damage.scuttle(); s.damage.apply({ hull: 0, sail: 0, crew: 0, fire: true }, clock); igniteShip(entry); deps.say?.(`You put a torch to ${s.names?.name ?? 'her'}. She burns to the waterline.`, 4); sound(NAVAL_CLASSIC.bubbles, s.pos, 1); }   // a sinking ship's fire burns on until she is gone (navalDamage.js step)
         else { s.adrift = true; deps.say?.(`You cast ${s.names?.name ?? 'her'} off to drift.`, 3); }   // AUDIT NAV1 (B11): she drifts off downwind
-        if (entry.owner) deps.online?.sendHit?.(navalHitData(entry.owner, { n: entry.n, board: pz.fate === 'scuttle' ? BOARD_CODES.scuttled : BOARD_CODES.adrift }));
         if (boat) returnAboard(boat);
       },
       /** AUDIT NAV1 (B11): Leave her - she lies taken where she is (Activate opens her again), and I am back at my helm,
@@ -1946,27 +2054,35 @@ export function createNavalHost(deps) {
     }
     heardReady(boat);
 
-    // the sea's traffic, when this player stands it and is on the water
+    // the sea's traffic, when this player is on the water: new ships the stander's alone to launch - AUDIT NAV1
+    // (online): its seeds salted with its id (two standers launched twins), and the whole shared sea near me counted
+    // against the density - and every player's own let go out of sight, standing or not (two standers met: six ships,
+    // and the one who stopped standing kept three for good)
     const stands = standsSea();
     const onWater = !!boat || deps.isWater(deps.feet()[0], deps.feet()[2], 0);
     const density = DENSITY[setting('ShipsAtSea', 'some')] ?? DENSITY.some;
-    if (stands && onWater && density > 0) {
+    if (onWater) {
       const w = where();
       const crown = crownOf(w.px ?? 0, w.py ?? 0, w.capitals ?? null, w.region ?? -1);
-      const players = [deps.feet(), ...(deps.online?.peers?.() ?? []).map((p) => p.feet)];
-      const mine = [...sea.values()].filter((e) => !e.owner);
-      const out = director.step(d, {
-        density, player: deps.feet(), players, level: deps.level?.() ?? 1, seaY,
+      const feet = deps.feet();
+      const players = [feet, ...(deps.online?.peers?.() ?? []).map((p) => p.feet)];
+      const ships = [];
+      for (const e of sea.values()) {
+        const afloat = e.ship.damage.state === SHIP_STATES.afloat;
         // AUDIT NAV1 (B1): engaged while she fights, comes alongside or is boarded - a prize, a struck hulk or a boarding
         // given up is let go once out of sight - and only a ship afloat counts against the density; NAV-R: a raider is
         // its own law's to despawn (raiders()), and counts in the density
-        ships: mine.map((e) => ({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, engaged: e.ship.mode === 'engage' || e.ship.mode === 'board' || boarding?.shipId === e.id || !!e.raider, afloat: e.ship.damage.state === SHIP_STATES.afloat })),
+        if (!e.owner) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, engaged: e.ship.mode === 'engage' || e.ship.mode === 'board' || boarding?.shipId === e.id || !!e.raider, afloat });
+        else if (e.orphan == null && dist2d(e.ship.pos, feet) <= DESPAWN_BEYOND) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, theirs: true, afloat });
+      }
+      const out = director.step(d, {
+        density: stands ? density : 0, player: feet, players, level: deps.level?.() ?? 1, seaY, ships,
         isOpenWater: (x, z, hull) => deps.isWater(x, z, hull), nearPort: !!w.nearPort, notoriety: notoriety.get(crown.name),
-        seedBase: seedBaseOf(w.px ?? 0, w.py ?? 0, w.day ?? 0),
+        seedBase: seedBaseOf(w.px ?? 0, w.py ?? 0, w.day ?? 0, SEED_SALT ^ idSalt(myId())),
       });
       for (const id of out.despawn) { const e = sea.get(id); if (e) drop(e); }
       if (out.spawn) launch(out.spawn);
-    } else if (!onWater) director.reset();
+    } else director.reset();
 
     // the captains of the ships I stand
     const world = {
@@ -2007,9 +2123,13 @@ export function createNavalHost(deps) {
     for (const e of sea.values()) {
       if (!e.owner || !e.target || boarding?.shipId === e.id) continue;
       const tgt = e.target;
-      if (dist2d(e.ship.pos, tgt.pos) > PUPPET_SNAP_M) { e.ship.pos = [...tgt.pos]; e.ship.yaw = tgt.yaw; continue; }
+      // AUDIT NAV1 (online): where her word puts her now - sailed on along her course at her way since it was said,
+      // PREDICT_MAX_S at most (an orphan's or a stale word's course is not run on forever)
+      const ahead = e.orphan == null && e.ship.damage.state === SHIP_STATES.afloat ? (tgt.speed ?? 0) * Math.min(PREDICT_MAX_S, clock - (tgt.at ?? clock)) : 0;
+      const at = [tgt.pos[0] + Math.sin(tgt.yaw) * ahead, tgt.pos[1], tgt.pos[2] + Math.cos(tgt.yaw) * ahead];
+      if (dist2d(e.ship.pos, at) > PUPPET_SNAP_M) { e.ship.pos = at; e.ship.yaw = tgt.yaw; continue; }
       const k = 1 - Math.exp(-PUPPET_EASE * d);
-      e.ship.pos = [e.ship.pos[0] + (tgt.pos[0] - e.ship.pos[0]) * k, tgt.pos[1], e.ship.pos[2] + (tgt.pos[2] - e.ship.pos[2]) * k];
+      e.ship.pos = [e.ship.pos[0] + (at[0] - e.ship.pos[0]) * k, at[1], e.ship.pos[2] + (at[2] - e.ship.pos[2]) * k];
       e.ship.yaw = wrapAngle(e.ship.yaw + wrapAngle(tgt.yaw - e.ship.yaw) * k);
     }
     stepBoarding(d);
@@ -2130,6 +2250,7 @@ export function createNavalHost(deps) {
       hull: e.ship.damage.hullShare(), sail: e.ship.damage.sailShare(), crew: e.ship.damage.crewShare(),
       state: e.ship.boarded && e.ship.damage.state === SHIP_STATES.struck ? 'boarded' : e.ship.damage.state, heel: e.ship.heel, seed: e.ship.seed, fire: e.ship.damage.fire > 0,
       runOut: [...e.ship.runOut.keys()].reduce((m, side) => m | (1 << SIDES.indexOf(side)), 0),
+      gen: e.gen, region: e.region,
     }));
     return navalWireRecord({ ships, volleys: wireVolleys, barrels: wireBarrels }, toWire);
   }
@@ -2141,14 +2262,26 @@ export function createNavalHost(deps) {
     const keep = new Set();
     for (const w of rec.ships) {
       const id = `${owner}:${w.n}`;
-      keep.add(id);
       let e = sea.get(id);
+      if (e && (e.ship.seed !== w.seed || e.ship.cls.id !== w.classId)) { drop(e); e = null; }   // her number said again for another ship: that one is gone
+      if (!e) {
+        // AUDIT NAV1 (online): her seed already in my sea - another's copy of her, or my own: the stronger claim holds her
+        const twin = bySeed(w.seed, w.classId, id);
+        if (twin) {
+          if (!claimBeats(w.gen, owner, twin.gen, twin.owner ?? myId())) continue;
+          e = yieldTo(twin, owner, w.n, w.gen);
+        }
+      }
+      keep.add(id);
       const pos = toScene(w.pos);
-      if (!e) e = launch({ seed: w.seed, classId: w.classId, variant: w.variant, pos: [pos[0], deps.seaY(), pos[2]], yaw: w.yaw }, owner, w.n);
+      if (!e) e = launch({ seed: w.seed, classId: w.classId, variant: w.variant, pos: [pos[0], deps.seaY(), pos[2]], yaw: w.yaw, gen: w.gen, region: w.region }, owner, w.n);
       if (!e) continue;
+      e.gen = w.gen;
       e.seen = clock;
       e.lost = false;
-      e.target = { pos: [pos[0], deps.seaY(), pos[2]], yaw: w.yaw };
+      e.orphan = null;
+      // AUDIT NAV1 (online): where she was said to be, her course and her way - sailed on between the words
+      e.target = { pos: [pos[0], deps.seaY(), pos[2]], yaw: w.yaw, speed: w.speed, at: clock };
       e.ship.speed = w.speed; e.ship.sails = w.sails; e.ship.heel = w.heel;
       const dmg = e.ship.damage;
       const was = dmg.state;
@@ -2185,8 +2318,7 @@ export function createNavalHost(deps) {
     return true;
   }
   function dropOwner(owner) {
-    for (const e of [...sea.values()]) if (e.owner === owner && boarding?.shipId !== e.id) letGo(e);
-    seenVolleys.delete(owner);
+    releaseOwner(owner);   // AUDIT NAV1 (online): the heir's to take over, never gone mid-fight
   }
   /**
    * A ship of another's let go of - gone from their word, or they from the room. AUDIT NAV1 (the presentation): one
@@ -2202,27 +2334,24 @@ export function createNavalHost(deps) {
     for (const e of [...sea.values()]) if (e.owner) drop(e);
     seenVolleys.clear();
   }
-  /** An owner gone from the room, or quiet past `staleMs`, takes their ships with them. */
+  /** An owner gone from the room, or quiet past `staleS`: their ships the heir's (releaseOwner); an orphan no word has
+   *  claimed in ORPHAN_S let go. */
   function sweepOwners(alive, staleS = OWNER_STALE_S) {
     const owners = new Set([...sea.values()].map((e) => e.owner).filter(Boolean));
     for (const o of owners) {
-      const last = Math.max(...[...sea.values()].filter((e) => e.owner === o).map((e) => e.seen));
-      if (!alive?.has?.(o) || clock - last > staleS) dropOwner(o);
+      const ships = [...sea.values()].filter((e) => e.owner === o && e.orphan == null);
+      if (!ships.length) continue;
+      const last = Math.max(...ships.map((e) => e.seen));
+      if (!alive?.has?.(o) || clock - last > staleS) releaseOwner(o);
     }
+    for (const e of [...sea.values()]) if (e.owner && e.orphan != null && clock - e.orphan >= ORPHAN_S) letGo(e);
   }
   /** A blow on a ship I stand, from a peer (or a boarding claim). */
   function applyPeerHit(from, data) {
     const hit = validNavalHit(data);
     if (!hit) return false;
-    const entry = sea.get(`${myId()}:${hit.n}`);
-    if (!entry || entry.owner) return false;
-    if (hit.board) {
-      if (hit.board === BOARD_CODES.boarding) entry.ship.boarded = true;
-      else if (hit.board === BOARD_CODES.taken) entry.ship.damage.takePrize();
-      else if (hit.board === BOARD_CODES.scuttled) entry.ship.damage.scuttle();
-      else if (hit.board === BOARD_CODES.adrift) { entry.ship.damage.takePrize(); entry.ship.boarded = false; }
-      return true;
-    }
+    const entry = ownByN(hit.n);   // AUDIT NAV1 (online #8): by her number, whatever id she was minted under
+    if (!entry) return false;
     strike(entry, { hull: hit.hull, sail: hit.sail, crew: hit.crew, fire: hit.fire }, from);
     return true;
   }

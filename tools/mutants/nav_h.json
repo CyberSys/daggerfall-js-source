@@ -180,19 +180,10 @@
     ]
   },
   {
-    "name": "NAV-H-the-claim-unmarked",
-    "file": "src/scenes/navalHost.js",
-    "old": "      if (hit.board === BOARD_CODES.boarding) entry.ship.boarded = true;",
-    "new": "      if (hit.board === BOARD_CODES.boarding) { /* the claim unmarked */ }",
-    "tests": [
-      "test/nav_h_host.test.js"
-    ]
-  },
-  {
     "name": "NAV-H-a-departed-owner-stays",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (!alive?.has?.(o) || clock - last > staleS) dropOwner(o);",
-    "new": "      if (clock - last > staleS) dropOwner(o);",
+    "old": "      if (!alive?.has?.(o) || clock - last > staleS) releaseOwner(o);",
+    "new": "      if (clock - last > staleS) releaseOwner(o);",
     "tests": [
       "test/nav_h_host.test.js"
     ]

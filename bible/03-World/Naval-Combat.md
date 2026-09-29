@@ -322,8 +322,24 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
 
 - **One player stands the sea**: the lowest id within NAVAL_SHARE_RADIUS (DEEP-SHARE's greedy election,
   `campEncounters.js amGroupRollOwner`, with SHARE_HYSTERESIS) runs the director and the captains for everyone near;
-  the others see puppets eased toward the owner's word (PUPPET_EASE, PUPPET_SNAP_M).
-- **The word** (`navalWire.js`): the ships an owner stands (NAVAL_WIRE_SHIPS, sixteen fields each), its volleys
+  the others see puppets eased toward the owner's word (PUPPET_EASE, PUPPET_SNAP_M) - AUDIT NAV1: toward where the word
+  puts her NOW, sailed on along her course at her way since it was said (PREDICT_MAX_S at most; a brig at 7 m/s had
+  stepped a word and more behind). Its seeds are salted with its id (`idSalt`, the waters' own offline): two standers
+  in the same waters on the same day launched the same three ships side by side.
+- **A ship is her seed** (AUDIT NAV1, online): the same ship in every client's sea, whoever stands her. Her word carries
+  her HANDOVER'S COUNT (`gen`), and of two players saying one seed, the greater count holds her, on a tie the lower id
+  (`claimBeats`) - the weaker copy YIELDS into the stronger's puppet, the same entry and hull, never a second ship. A
+  ship is TAKEN OVER at one past her count: by the heir (`heirOf`: whoever would stand the sea without her stander)
+  when her stander leaves the cell, goes silent, or falls quiet past OWNER_STALE_S - she sails on under the heir's
+  captain, where she vanished mid-fight - and by her BOARDER at the grapple. Anyone else keeps a departed stander's
+  ships where they lie for ORPHAN_S, for the heir's word to claim the same entries, and lets them go after; one going
+  down finishes going down. A raider taken over is known by her seed (her raider id, held and spent by the heir's law).
+  Her names are drawn in the region her word carries (`region`), so a navy ship is her stander's crown's to everyone.
+- **Every player lets its own ships go** out of sight (the director's despawn, standing or not - two standers who met
+  kept six ships for good); only the stander launches, and it counts the whole shared sea near it against the density.
+- **The word** (`navalWire.js`): the ships an owner stands (NAVAL_WIRE_SHIPS, nineteen fields each - the run-out, the
+  handover's count and the names' region last; an older word's sixteen or seventeen read as none, the first claim and
+  the reader's own region), its volleys
   (NAVAL_WIRE_VOLLEYS: the shooter, the hull, the side, the pose, the elevation, the seed and the skill - everything a
   peer needs to fly the same balls) and its barrels, kept NAVAL_VOLLEY_KEEP_MS; it rides the owner's foes frame (`nv`,
   beside Come Sail Away's `sa`) on every full frame and whenever it changed. `validNavalRecord` takes it whole or not
@@ -333,8 +349,12 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   ship another player stands goes to them as a hit frame (`navalHitData`: `to`, the ship's number, the damage,
   bounded by NAVAL_HIT_MAX), and they land it. **No fight between players at sea**: a peer's own volley never hurts my
   boat.
-- **A boarding claims the ship** (BOARD_CODES on the hit frame: boarding, taken, scuttled, adrift), so her owner stops
-  sailing her.
+- **A boarding takes the ship over** (AUDIT NAV1, online): the boarder adopts her at the grapple, so the haul, the fight,
+  the prize and her fate are one world - the boarder's - and her fire and her sinking ride his word to every screen.
+  (Four board claims marked her in her stander's world while all of it happened in the boarder's: his copy hauled 17 m,
+  hers left at 40; after the win the prize slid 20 m from under him; her scuttling burned on his screen alone; and a
+  lost or abandoned claim left her unboardable for good.) A blow finds a ship of mine by her number (`ownByN`), whatever
+  id she was minted under (one launched while the socket was away stood as `local:n`).
 - **The striker answers for what they sank**: the stander lands the hurt, so the sinking happens in their world - it
   reaches mine in their next word, and a ship that goes down within SINK_CREDIT_S of my last blow on her is charged to
   me too (`lawOf('sink')`: a lawful ship's notoriety, a pirate's reward). Two players who both fired on her both
@@ -673,6 +693,23 @@ sea's ships on the compass (#14's second) and the aim's reasons (#5's readout); 
 | a ship's hurts unseen (#15) | her hurts showed nowhere but the card - no smoke, no list, no canvas lost, no wreckage; a gurgle at her founder was all, then silence for the rest of her going | HER HURTS SEEN (The picture, above): smoke along her deck under SMOKE_FROM, a list under DAMAGE_LIST_FROM taken on as she fills and taken on in turn by the sinking's (her last pose unchanged), her canvas down with her sail share from the top, planks off a holed hull; SHE GROANS AS SHE GOES DOWN - the ninth clip, a loop at NAVAL_SINK_LOOP from her founder until she is gone (asked again each frame until the bus has it), a peer's ship too | a Small Ship at a fifth of her hull lists 4 degrees and smokes along 26.5 m of her deck; a carrack at 40% of her canvas shows her two lowest sails; two planks a ball, three a heavy one |
 | the far ships' cost (#17) | five war galleys 650-1,900 m off cost 5.7 ms of a frame on the CPU: their rigging stepped as a near one's, each ship's tree walked for her animators every frame (0.44 ms a galley), and each of a galley's 224 particle systems (one live) asked whether it was active before doing nothing (0.45 ms) | an idle system (stopped, nothing alive) returns before any question; a ship's animators found once; past NEAR_LIFE_M her rigging stepped every FAR_LIFE_EVERY frames with the time it missed, each ship on her own frame of the stride | 0.9 ms for the five far galleys (five galleons 0.67; five galleys alongside, stepped every frame, 2.1) |
 
+### Online (the shared sea)
+
+The online audit ran two and three real hosts over a stand-in relay carrying each player's word at the world's cadence
+and their blows as directed frames (`test/navalRoom.mjs` now). Its fifteen findings, as each is fixed:
+
+| finding | before (the audit's measure) | the law now | after |
+|---|---|---|---|
+| the sea goes with its stander (#2) | a stander who died at the rail, went indoors or dropped took every ship with it for everyone within 2.5 s, mid-fight; two standers who met kept six ships between them, and the three of the one who stopped standing sailed on at 1.35 to 5.2 km for good | THE SEA HANDED ON (Online, above): the heir takes a departed or quiet stander's ships over where they lie, one past their count; anyone else keeps them ORPHAN_S for its word; every player lets its own ships go out of sight, standing or not, and the stander counts the whole shared sea against the density | the heir sails the two ships near it on 2.6 s after their stander left (the third, 1.9 km out, sailed out of the world); a quiet stander's copies yield to the heir's when it speaks again; the far ships of two who met let go at once |
+| boarding another's ship happens in two worlds (#3; #1's scuttle; #4's claims) | the boarder's copy hauled 17 m while her stander's lay at 40, then after the win the prize slid 20 m from under him; her scuttling burned on his screen alone (her stander's fires out at its next word); a claim lost or a boarding given up left her unboardable for good | the boarder takes her over at the grapple; the four board claims retired | one world: the prize 4.2 m under his feet throughout; her stander's copy follows the haul a word behind and lies within 0.5 m once alongside; she sinks and burns on both screens (settled 1.16 and 1.21 m at 4 s) |
+| twins (#5) | two standers in the same waters on the same day launched The Bountiful, The Honest Scale and The Eadwyre's Vigil side by side - three of six ships twins | the stander's traffic salted with its id (`idSalt`) | no ship twice |
+| a ship minted with the socket away (#8) | `local:1` took nothing from a peer's blow (378 hull kept), a ship minted after it the same blow | a blow finds her by her number (`ownByN`) | the blow lands |
+| a ship named by the reader (#6, its crown) | the same cutter The Illessan Guard of Wayrest to her stander and The Daggerfall Vigilant of Daggerfall to a peer a pixel over | her names drawn in the region her word carries | one name, one captain, one crown |
+| another's ship a word behind | a brig at 7 m/s eased toward a word 200-280 ms old - stepping, a word and more behind | sailed on along her course at her way since the word (PREDICT_MAX_S) | within 1.2 m of where her stander has her; a word gone quiet, she stops PREDICT_MAX_S on |
+
+The rest - the law judged by the stander's notoriety (#6), a peer's wreck and a pirate's barrel (#7, #10), the blows'
+retry and the volleys' age (#9, #15), and the frame's cost (#12-#14) - are the online slice's next.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
@@ -703,9 +740,11 @@ waterline, her colours; the mix, a hit that registers, the ready, her bar's loss
 Carrack's; the plate's place, the card's column, the draw by the screen, the places written, the Brace's press, the
 centre column's sheet, the pad at the guns, the skins and the words; the arcs as lines, the far ships' cost, the
 ships' tags, the lookout, the tags drawn, her list and canvas, her smoke and planks, and her groan going down), on the
-shared sea of `test/navalSea.mjs`.
+shared sea of `test/navalSea.mjs` - and `navaudit_online` (the claim, the sea handed on, a quiet stander, boarding
+another's ship in one world, no twins, one number and one name, a ship between words, two standers meeting, a raider
+taken over) over several players' seas in the room of `test/navalRoom.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
-`navaudit_helm.json`, `navaudit_boarding.json` and `navaudit_presentation.json`, 679 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+`navaudit_helm.json`, `navaudit_boarding.json`, `navaudit_presentation.json` and `navaudit_online.json`, 704 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
@@ -720,7 +759,11 @@ the arc's own - the flat quad, the quad's u, the build, the last frame's hulls, 
 key - re-aimed by content at the lines it rewrote, two more made single again by the code: the tag's words the card's,
 the spars' measure one helper's; 10 with a boarding pirate's sweeps, whose two survivors named a test that never
 checked her sweeps' way at the berth nor her head into the wind's eye, and the captains' turn-cost record re-aimed at
-the line the sweeps split);
+the line the sweeps split; 28 with the online slice's handover, whose three survivors named what no test checked - a
+player not standing the sea launching into a short one, the director's own law that another's ship is never its to
+let go, a yielded raider still mine to spend - and fourteen of the arc's own re-aimed at the lines it rewrote, three
+retired with the laws they checked: the board claims' door, the claim's mark, and the first of two holders a raider
+now has one of);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

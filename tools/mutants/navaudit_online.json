@@ -1,0 +1,256 @@
+[
+  {
+    "name": "NAV1O-claim-tie-higher",
+    "file": "src/scenes/navalHost.js",
+    "old": "gen > otherGen || (gen === otherGen && String(id) < String(otherId));",
+    "new": "gen > otherGen || (gen === otherGen && String(id) > String(otherId));",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-count-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "gen > otherGen || (gen === otherGen && String(id) < String(otherId));",
+    "new": "String(id) < String(otherId);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-no-salt",
+    "file": "src/scenes/navalHost.js",
+    "old": "seedBase: seedBaseOf(w.px ?? 0, w.py ?? 0, w.day ?? 0, SEED_SALT ^ idSalt(myId())),",
+    "new": "seedBase: seedBaseOf(w.px ?? 0, w.py ?? 0, w.day ?? 0),",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-salt-offline",
+    "file": "src/scenes/navalHost.js",
+    "old": "  if (typeof id !== 'string' || !id || id === 'local') return 0;",
+    "new": "  if (typeof id !== 'string' || !id) return 0;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-dropped-at-once",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (heir) adopt(e);\n      else e.orphan ??= clock;",
+    "new": "      letGo(e);",
+    "tests": [
+      "test/navaudit_online.test.js",
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-heir-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (heir) adopt(e);\n      else e.orphan ??= clock;",
+    "new": "      adopt(e);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-orphan-kept",
+    "file": "src/scenes/navalHost.js",
+    "old": "    for (const e of [...sea.values()]) if (e.owner && e.orphan != null && clock - e.orphan >= ORPHAN_S) letGo(e);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-count-kept",
+    "file": "src/scenes/navalHost.js",
+    "old": "    rekey(e, null, nextNumber(), e.gen + 1);",
+    "new": "    rekey(e, null, nextNumber(), e.gen);",
+    "tests": [
+      "test/navaudit_online.test.js",
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-ignored",
+    "file": "src/scenes/navalHost.js",
+    "old": "        const twin = bySeed(w.seed, w.classId, id);",
+    "new": "        const twin = null;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-stale-never-released",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (!alive?.has?.(o) || clock - last > staleS) releaseOwner(o);",
+    "new": "      if (!alive?.has?.(o)) releaseOwner(o);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-no-takeover-at-grapple",
+    "file": "src/scenes/navalHost.js",
+    "old": "    adopt(entry);\n    boarding = createBoarding(",
+    "new": "    boarding = createBoarding(",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-blow-by-id",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const entry = ownByN(hit.n);",
+    "new": "    const entry = sea.get(`${myId()}:${hit.n}`) ?? null;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-reader-region",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const region = Number.isInteger(spec.region) && spec.region >= 0 ? spec.region",
+    "new": "    const region = Number.isInteger(spec.region) && spec.region >= 0 && false ? spec.region",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-no-prediction",
+    "file": "src/scenes/navalHost.js",
+    "old": "      const ahead = e.orphan == null && e.ship.damage.state === SHIP_STATES.afloat ? (tgt.speed ?? 0) * Math.min(PREDICT_MAX_S, clock - (tgt.at ?? clock)) : 0;",
+    "new": "      const ahead = 0;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-prediction-unbounded",
+    "file": "src/scenes/navalHost.js",
+    "old": "(tgt.speed ?? 0) * Math.min(PREDICT_MAX_S, clock - (tgt.at ?? clock))",
+    "new": "(tgt.speed ?? 0) * (clock - (tgt.at ?? clock))",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-theirs-uncounted",
+    "file": "src/scenes/navalHost.js",
+    "old": "        else if (e.orphan == null && dist2d(e.ship.pos, feet) <= DESPAWN_BEYOND) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, theirs: true, afloat });\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-non-stander-keeps-its-own",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (onWater) {\n      const w = where();",
+    "new": "    if (onWater && stands) {\n      const w = where();",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-non-stander-launches",
+    "file": "src/scenes/navalHost.js",
+    "old": "        density: stands ? density : 0, player: feet,",
+    "new": "        density, player: feet,",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-raider-seed-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (!e.owner && !e.raider && e.ship.cls.faction === 'pirate') { const r = list.find((x) => (x.seed >>> 0) === e.ship.seed); if (r) e.raider = { id: r.id, chased: false, spent: spent.has(r.id) }; }\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-hold-drops-a-boarding",
+    "file": "src/systems/naval/navalRaiders.js",
+    "old": "    if (owner !== undefined && !s.boarding && chaseYields(myId, owner)) { drop.push(id); continue; }",
+    "new": "    if (owner !== undefined && chaseYields(myId, owner)) { drop.push(id); continue; }",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-roll-draws-idle",
+    "file": "src/systems/naval/navalDirector.js",
+    "old": "      if (!((ctx.density ?? 0) > 0)) return out;   // AUDIT NAV1 (online): letting go only - no roll, no draw on the stream\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-theirs-despawned",
+    "file": "src/systems/naval/navalDirector.js",
+    "old": "if (!s.engaged && !s.theirs && nearest(s.pos) > DESPAWN_BEYOND) out.despawn.push(s.id);",
+    "new": "if (!s.engaged && nearest(s.pos) > DESPAWN_BEYOND) out.despawn.push(s.id);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-gen-unbounded",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "      Math.max(0, Math.min(NAVAL_GEN_MAX, sh.gen | 0)),",
+    "new": "      sh.gen | 0,",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-region-unbounded",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "Number.isInteger(sh.region) && sh.region >= 0 && sh.region < REGION_NAMES.length ? sh.region : -1]);",
+    "new": "sh.region | 0]);",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-door-handover-unchecked",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "    if (w.length === 19 && (!int(w[17], 0, NAVAL_GEN_MAX) || !int(w[18], -1, REGION_NAMES.length - 1))) return null;\n",
+    "new": "",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-old-word-first-claim",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "      gen: w[17] ?? 0, region: w[18] ?? -1 });",
+    "new": "      gen: w[17] ?? 1, region: w[18] ?? -1 });",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-yield-keeps-raider",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (!e.owner) e.raider = null;\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-renumbered-left-sinking",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (e && (e.ship.seed !== w.seed || e.ship.cls.id !== w.classId)) { drop(e); e = null; }",
+    "new": "      if (e && (e.ship.seed !== w.seed || e.ship.cls.id !== w.classId)) { letGo(e); e = null; }",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  }
+]

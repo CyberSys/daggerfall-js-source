@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
-  NAVAL_WIRE_SHIPS, NAVAL_WIRE_VOLLEYS, NAVAL_WIRE_BARRELS, NAVAL_HIT_MAX, WIRE_STATES, SIDE_CODES, BOARD_CODES,
+  NAVAL_WIRE_SHIPS, NAVAL_WIRE_VOLLEYS, NAVAL_WIRE_BARRELS, NAVAL_HIT_MAX, WIRE_STATES, SIDE_CODES, NAVAL_GEN_MAX,
   navalWireRecord, validNavalRecord, navalRecordKey, navalHitData, validNavalHit,
 } from '../src/systems/naval/navalWire.js';
 import { SHIP_CLASSES, classById } from '../src/systems/naval/navalShips.js';
@@ -18,16 +18,18 @@ import { createComeSailAwayPeers } from '../src/scenes/comeSailAwayPeers.js';
 
 const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
 
-const ship = (o = {}) => ({ n: 3, classId: 'pirateBrig', variant: 0, pos: [100.123, 0, -50.456], yaw: 1.234567, speed: 3.456, sails: 0.8, hull: 0.4567, sail: 1, crew: 0.9, state: 'afloat', heel: 2.34, seed: 0xdeadbeef, fire: true, ...o });
+const ship = (o = {}) => ({ n: 3, classId: 'pirateBrig', variant: 0, pos: [100.123, 0, -50.456], yaw: 1.234567, speed: 3.456, sails: 0.8, hull: 0.4567, sail: 1, crew: 0.9, state: 'afloat', heel: 2.34, seed: 0xdeadbeef, fire: true, gen: 2, region: 23, ...o });
 const volley = (o = {}) => ({ id: 77, shooter: 3, hull: 2, side: 'port', pos: [1, 2, 3], yaw: -0.5, vel: [1.234, 0, -2.345], elevation: 0.1234567, seed: 99, skill: 0.55, ...o });
 
 // ── the word ────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('NAV-G my word: each ship I stand in the wire frame\'s natives, rounded as a cell object\'s are - her class by its row, her shares as whole percents, her state by its code - the volleys\' lays and seeds, the barrels; at most the caps; nothing to say, null; a moved ship a new key (mutants: toWire skipped, the caps, a class by name)', () => {
+test('NAV-G my word: each ship I stand in the wire frame\'s natives, rounded as a cell object\'s are - her class by its row, her shares as whole percents, her state by its code, and (AUDIT NAV1, online) her handover\'s count and the region her names were drawn in - the volleys\' lays and seeds, the barrels; at most the caps; nothing to say, null; a moved ship a new key (mutants: toWire skipped, the caps, a class by name, the count unbounded, a region past the map)', () => {
   const toWire = (p) => [p[0] + 1000, p[1] - 5, p[2] + 2000];
   const rec = navalWireRecord({ ships: [ship()], volleys: [volley()], barrels: [{ id: 5, pos: [7, 8, 9] }] }, toWire);
   const cls = SHIP_CLASSES.findIndex((c) => c.id === 'pirateBrig');
-  assert.deepEqual(rec.s, [[3, cls, 0, 1100.12, -5, 1949.54, 1.2346, 3.46, 0.8, 46, 100, 90, 0, 2.3, 0xdeadbeef, 1, 0]]);
+  assert.deepEqual(rec.s, [[3, cls, 0, 1100.12, -5, 1949.54, 1.2346, 3.46, 0.8, 46, 100, 90, 0, 2.3, 0xdeadbeef, 1, 0, 2, 23]]);
+  assert.deepEqual(navalWireRecord({ ships: [ship({ gen: 999, region: 999 })] }).s[0].slice(17), [NAVAL_GEN_MAX, -1], 'the count at its ceiling, a region past the map none');
+  assert.deepEqual(navalWireRecord({ ships: [ship({ gen: undefined, region: undefined })] }).s[0].slice(17), [0, -1]);
   assert.equal(navalWireRecord({ ships: [ship({ runOut: 0b0101 })] }).s[0][16], 0b0101, 'AUDIT NAV1: her run-out, a bit a side');
   assert.deepEqual(rec.v, [[77, 3, 2, SIDE_CODES.indexOf('port'), 1001, -3, 2003, -0.5, 1.23, -2.35, 0.1235, 99, 0.55]]);
   assert.deepEqual(rec.b, [[5, 1007, 3, 2009]]);
@@ -51,8 +53,9 @@ test('NAV-G a peer\'s word through the door, whole or not at all: my own word co
   const rec = navalWireRecord({ ships: [ship(), ship({ n: 4, classId: 'merchantCoaster', variant: 3, fire: false })], volleys: [volley()], barrels: [{ id: 5, pos: [7, 8, 9] }] });
   const got = validNavalRecord(rec);
   assert.equal(got.ships.length, 2);
-  assert.deepEqual(got.ships[0], { n: 3, classId: 'pirateBrig', hull: classById('pirateBrig').hull, variant: 0, pos: [100.12, 0, -50.46], yaw: 1.2346, speed: 3.46, sails: 0.8, hull100: 46, sail100: 100, crew100: 90, state: 'afloat', heel: 2.3, seed: 0xdeadbeef, fire: true, runOut: 0 });
+  assert.deepEqual(got.ships[0], { n: 3, classId: 'pirateBrig', hull: classById('pirateBrig').hull, variant: 0, pos: [100.12, 0, -50.46], yaw: 1.2346, speed: 3.46, sails: 0.8, hull100: 46, sail100: 100, crew100: 90, state: 'afloat', heel: 2.3, seed: 0xdeadbeef, fire: true, runOut: 0, gen: 2, region: 23 });
   assert.equal(validNavalRecord({ s: [rec.s[0].slice(0, 16)] }).ships[0].runOut, 0, 'an older build\'s word, without the run-out: none');
+  assert.deepEqual(['gen', 'region'].map((k) => validNavalRecord({ s: [rec.s[0].slice(0, 17)] }).ships[0][k]), [0, -1], 'an older build\'s word, without the handover: the first claim, the reader\'s own region');
   assert.equal(validNavalRecord({ s: [Object.assign([...rec.s[0]], { 16: 0b1001 })] }).ships[0].runOut, 0b1001);
   assert.equal(got.ships[1].variant, 3, 'a Large Boat has variants');
   assert.deepEqual(got.volleys[0], { id: 77, shooter: 3, hull: 2, side: 'port', pos: [1, 2, 3], yaw: -0.5, vel: [1.23, 0, -2.35], elevation: 0.1235, seed: 99, skill: 0.55 });
@@ -73,7 +76,9 @@ test('NAV-G a peer\'s word through the door, whole or not at all: my own word co
     [withShip(7, 41), 'no ship makes forty'], [withShip(8, 1.1), 'more canvas than she has'],
     [withShip(9, 101), 'a share past whole'], [withShip(12, WIRE_STATES.length), 'a state the wire does not know'],
     [withShip(13, 91), 'on her beam ends'], [withShip(14, -1), 'a negative seed'], [withShip(15, 2), 'a fire that is not a bit'],
-    [withShip(16, 16), 'a run-out past the four batteries'], [withShip(16, 1.5), 'a fractional run-out'], [{ s: [[...s0, 0]] }, 'eighteen fields'],
+    [withShip(16, 16), 'a run-out past the four batteries'], [withShip(16, 1.5), 'a fractional run-out'], [{ s: [s0.slice(0, 18)] }, 'eighteen fields'],
+    [{ s: [[...s0, 0]] }, 'twenty fields'], [withShip(17, NAVAL_GEN_MAX + 1), 'a count past its ceiling'], [withShip(17, -1), 'a negative count'],
+    [withShip(18, -2), 'a region before the map'], [withShip(18, 1e3), 'a region past the map'], [withShip(18, 2.5), 'half a region'],
     [withVolley(3, SIDE_CODES.length), 'a side past the stern'], [withVolley(1, -2), 'a shooter past the owner\'s own'],
     [withVolley(10, 2), 'a lay past the carriage'], [withVolley(12, 1.5), 'a skill past the best'],
     [{ b: [[1, POSE_BOUND + 1, 0, 0]] }, 'a barrel past the world'], [{ b: [[1.5, 0, 0, 0]] }, 'a fractional barrel id'],
@@ -81,25 +86,22 @@ test('NAV-G a peer\'s word through the door, whole or not at all: my own word co
   ]) assert.equal(validNavalRecord(bad), null, why);
 });
 
-test('NAV-G a blow on a ship another stands: the striker sends the directed hit frame - the ship, her hurts, a fire (a ball\'s 1, a barrel\'s 2 - AUDIT NAV1), the zone, a board code - and the stander\'s door takes only bounded numbers, a known fire, a known zone and a board code (mutants: the ceiling, the zone\'s codes, a board code of five)', () => {
+test('NAV-G a blow on a ship another stands: the striker sends the directed hit frame - the ship, her hurts, a fire (a ball\'s 1, a barrel\'s 2 - AUDIT NAV1), the zone - and the stander\'s door takes only bounded numbers, a known fire and a known zone; AUDIT NAV1 (online): no board claims - a ship boarded is taken over at the grapple, never marked in her stander\'s world (mutants: the ceiling, the zone\'s codes)', () => {
   const d = navalHitData('ann', { n: 7, hull: 33.4, sail: 5.6, crew: 2, fire: true, zone: 'holed' });
   assert.deepEqual(d, { to: 'ann', nv: { n: 7, h: 33, s: 6, c: 2, f: 1, z: 2 } });
-  assert.deepEqual(validNavalHit(d), { n: 7, hull: 33, sail: 6, crew: 2, fire: true, zone: 'holed', board: 0 });
+  assert.deepEqual(validNavalHit(d), { n: 7, hull: 33, sail: 6, crew: 2, fire: true, zone: 'holed' });
   const barrel = navalHitData('ann', { n: 7, hull: 45, fire: 'barrel' });
   assert.equal(barrel.nv.f, 2);
   assert.equal(validNavalHit(barrel).fire, 'barrel', 'a barrel\'s fire comes over as a barrel\'s');
   assert.equal(validNavalHit(navalHitData('ann', { n: 7 })).fire, false);
   assert.equal(validNavalHit(navalHitData('ann', { n: 1, zone: 'rig' })).zone, 'rig');
   assert.equal(validNavalHit(navalHitData('ann', { n: 1 })).zone, 'hull');
-  const board = navalHitData('bob', { n: 2, board: BOARD_CODES.taken });
-  assert.equal(board.nv.board, 2);
-  assert.equal(validNavalHit(board).board, BOARD_CODES.taken);
-  assert.deepEqual(Object.values(BOARD_CODES), [1, 2, 3, 4]);
+  assert.equal(navalHitData('bob', { n: 2, board: 2 }).nv.board, undefined, 'no claim rides a blow');
   for (const [bad, why] of [
     [null, 'nothing'], [{ nv: [] }, 'an array'], [{ nv: { ...d.nv, n: -1 } }, 'no ship'],
     [{ nv: { ...d.nv, h: NAVAL_HIT_MAX + 1 } }, 'more than a broadside'], [{ nv: { ...d.nv, s: -1 } }, 'negative canvas'],
     [{ nv: { ...d.nv, c: 61 } }, 'more men than a galley'], [{ nv: { ...d.nv, f: 3 } }, 'no such fire'], [{ nv: { ...d.nv, f: 0.5 } }, 'half a fire'],
-    [{ nv: { ...d.nv, z: 3 } }, 'no such zone'], [{ nv: { ...d.nv, board: 5 } }, 'no such board'], [{ nv: { ...d.nv, h: 1.5 } }, 'a fraction'],
+    [{ nv: { ...d.nv, z: 3 } }, 'no such zone'], [{ nv: { ...d.nv, h: 1.5 } }, 'a fraction'],
   ]) assert.equal(validNavalHit(bad), null, why);
 });
 

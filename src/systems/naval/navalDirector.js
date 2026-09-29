@@ -65,8 +65,10 @@ export function factionWeights({ nearPort = false, notoriety = 0 } = {}) {
 /**
  * The director. `step(dt, ctx)` answers `{ spawn: spec | null, despawn: id[] }`:
  *   ctx = { density, player: [x, y, z], players: [x, y, z][] (every player the host places - itself included),
- *           level, ships: [{ id, pos, classId, engaged, afloat }], isOpenWater(x, z, hull), nearPort, notoriety, seedBase,
- *           seaY }
+ *           level, ships: [{ id, pos, classId, engaged, afloat, theirs }], isOpenWater(x, z, hull), nearPort, notoriety,
+ *           seedBase, seaY }
+ * AUDIT NAV1 (online): a ship `theirs` - another player's, near me - counts against the density and is never mine to
+ * despawn; with `density` 0 (a player who does not stand the sea) the director only lets its own ships go.
  * Only a ship `afloat` (not false) counts against the density - a prize, a struck hulk, a ship going down is still at
  * sea but fills no berth (AUDIT NAV1 B1: three prizes emptied the sea until the next transition).
  * A spec is `{ seed, classId, variant, pos, yaw, hunter }`.
@@ -79,7 +81,8 @@ export function createNavalDirector({ random = Math.random } = {}) {
       const out = { spawn: null, despawn: [] };
       const players = ctx.players?.length ? ctx.players : [ctx.player];
       const nearest = (p) => Math.min(...players.map((q) => Math.hypot(p[0] - q[0], p[2] - q[2])));
-      for (const s of ctx.ships ?? []) if (!s.engaged && nearest(s.pos) > DESPAWN_BEYOND) out.despawn.push(s.id);
+      for (const s of ctx.ships ?? []) if (!s.engaged && !s.theirs && nearest(s.pos) > DESPAWN_BEYOND) out.despawn.push(s.id);
+      if (!((ctx.density ?? 0) > 0)) return out;   // AUDIT NAV1 (online): letting go only - no roll, no draw on the stream
       wait -= Math.max(0, dt);
       if (wait > 0) return out;
       wait = SPAWN_EVERY[0] + random() * (SPAWN_EVERY[1] - SPAWN_EVERY[0]);
@@ -116,5 +119,7 @@ export function createNavalDirector({ random = Math.random } = {}) {
   return director;
 }
 
+/** The seed base's own salt: the waters' - the host folds a stander's id into it online (navalHost.js idSalt). */
+export const SEED_SALT = 0x5ea;
 /** The seed base of a pixel on a day - what the host folds the waters into. */
-export const seedBaseOf = (px, py, day, salt = 0x5ea) => hash32(px | 0, py | 0, day | 0, salt);
+export const seedBaseOf = (px, py, day, salt = SEED_SALT) => hash32(px | 0, py | 0, day | 0, salt);

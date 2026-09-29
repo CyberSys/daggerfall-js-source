@@ -10,11 +10,14 @@
 // it is SPENT for its life - OWS3's own law, so the map does not raise it again.
 //
 // ONE COPY. A raider is stood by the client it is near - the chased traveller's own, as OWS3's chase was - and said in
-// that client's word (NAV-G) like any ship it stands; a peer's copy of the same seed yields to the lower id, TV7b's
-// chaseYields law for a band two players chase. THE MERGE with main's OW6 (its raider chases said on the cell's foes
-// frames): a raider a peer HOLDS - their Overworld chase of it, or their sea's ship, each said in the raider word the
-// world host hears (scenes/world.js seaRaidHear, seaRaidHeld) - is never stood here, OW6's own law ("never a sail a
-// peer's chase holds"), and one stood here yields to it as to a peer's copy: the lower id keeps it.
+// that client's word (NAV-G) like any ship it stands. AUDIT NAV1 (online): her seed is who she is in every client's sea,
+// so a peer's copy of it is the handover's claim rule's (scenes/navalHost.js claimBeats - a taken-over copy holds her,
+// else the lower id, TV7b's chaseYields law for a band two players chase): the weaker copy yields into the stronger's
+// puppet, the same hull, and none is stood beside a copy already in my sea. THE MERGE with main's OW6 (its raider
+// chases said on the cell's foes frames): a raider a peer HOLDS - their Overworld chase of it, or their sea's ship, each
+// said in the raider word the world host hears (scenes/world.js seaRaidHear, seaRaidHeld) - is never stood here, OW6's
+// own law ("never a sail a peer's chase holds"), and one stood here yields to a holder with the lower id - never from
+// under a boarding.
 //
 // PURE: which raiders stand and which go, their class, and the course they steer; the host builds and steps them.
 
@@ -50,29 +53,31 @@ const flat = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
 /**
  * THE PLAN of one refresh: which raiders to stand and which of mine go.
  * @param {{ raiders: { id: string, seed: number, pos: number[] }[], me: number[], myId: string,
- *   stood: Map<string, { pos: number[], engaged: boolean }>, peers: Map<number, string>, spent: Set<string>,
+ *   stood: Map<string, { pos: number[], engaged: boolean, boarding?: boolean }>, peers: Map<number, string>, spent: Set<string>,
  *   held?: Map<string, string> }} q
- *   `raiders` the raiders about the player where they sail now (scene), `stood` mine by raider id, `peers` a peer's
- *   copy's owner by raider seed, `spent` the raiders spent this life, `held` the raiders a peer's raider word holds (OW6)
- *   - the peer's id by raider id.
+ *   `raiders` the raiders about the player where they sail now (scene), `stood` mine by raider id (`boarding`: the one
+ *   I fight on), `peers` a peer's copy's owner by raider seed, `spent` the raiders spent this life, `held` the raiders a
+ *   peer's raider word holds (OW6) - the peer's id by raider id.
  * @returns {{ stand: string[], drop: string[] }} raider ids
  */
 export function raiderPlan({ raiders, me, myId, stood, peers, spent, held = new Map() }) {
   const byId = new Map(raiders.map((r) => [r.id, r]));
   const drop = [];
   for (const [id, s] of stood) {
-    const r = byId.get(id);
-    const owners = [r ? peers.get(r.seed) : undefined, held.get(id)];
-    // a peer's copy - or a peer's word holding her (OW6) - with the lower id keeps the raider. Else she leaves only out
-    // of sight - past the drop range and fighting no one: struck (to be boarded), spent (sheering off) or her life over
-    // (sailing on), she is still a ship on the water, never one that vanishes in view
-    if (owners.some((owner) => owner !== undefined && chaseYields(myId, owner))) { drop.push(id); continue; }
+    const owner = held.get(id);
+    // a peer's word holding her (OW6: their Overworld chase) with the lower id keeps the raider - never from under a
+    // boarding. AUDIT NAV1 (online): a peer's SEA copy is the claim rule's (navalHost.js claimBeats) - the weaker copy
+    // yields into the stronger's puppet, the same hull, never one gone from view. Else she leaves only out of sight -
+    // past the drop range and fighting no one: struck (to be boarded), spent (sheering off) or her life over (sailing
+    // on), she is still a ship on the water, never one that vanishes in view
+    if (owner !== undefined && !s.boarding && chaseYields(myId, owner)) { drop.push(id); continue; }
     if (!s.engaged && flat(s.pos, me) > RAIDER_DROP_M) drop.push(id);
   }
   const keep = [...stood.keys()].filter((id) => !drop.includes(id));
+  // AUDIT NAV1 (online): a raider already on the water in my sea as another's - whoever's id - is hers: standing a
+  // second copy of her seed beside it (a higher id's copy took her over) would put two of her in my sea
   const candidates = raiders
-    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)
-    .filter((r) => { const owner = peers.get(r.seed); return owner === undefined || !chaseYields(myId, owner); })
+    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && !peers.has(r.seed) && flat(r.pos, me) <= RAIDER_STAND_M)
     .sort((a, b) => flat(a.pos, me) - flat(b.pos, me));
   const stand = candidates.slice(0, Math.max(0, RAIDER_SHIPS_MAX - keep.length)).map((r) => r.id);
   return { stand, drop };

@@ -29,8 +29,8 @@
   {
     "name": "NAV-R-the-range-unread",
     "file": "src/systems/naval/navalRaiders.js",
-    "old": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
-    "new": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id))",
+    "old": "    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && !peers.has(r.seed) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "new": "    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && !peers.has(r.seed))",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "NAV-R-a-spent-one-stood",
     "file": "src/systems/naval/navalRaiders.js",
-    "old": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
-    "new": ".filter((r) => !stood.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "old": "    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && !peers.has(r.seed) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "new": "    .filter((r) => !stood.has(r.id) && !held.has(r.id) && !peers.has(r.seed) && flat(r.pos, me) <= RAIDER_STAND_M)",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "NAV-R-the-lower-id-kept-waiting",
     "file": "src/systems/naval/navalRaiders.js",
-    "old": "if (owners.some((owner) => owner !== undefined && chaseYields(myId, owner))) { drop.push(id); continue; }",
-    "new": "if (owners.some((owner) => owner !== undefined && chaseYields(owner, myId))) { drop.push(id); continue; }",
+    "old": "    if (owner !== undefined && !s.boarding && chaseYields(myId, owner)) { drop.push(id); continue; }",
+    "new": "    if (owner !== undefined && !s.boarding && chaseYields(owner, myId)) { drop.push(id); continue; }",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "NAV-R-the-peer-copy-unread",
     "file": "src/systems/naval/navalRaiders.js",
-    "old": "return owner === undefined || !chaseYields(myId, owner);",
-    "new": "return owner === undefined || true;",
+    "old": "    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && !peers.has(r.seed) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "new": "    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -137,8 +137,8 @@
   {
     "name": "NAV-R-the-director-takes-her",
     "file": "src/scenes/navalHost.js",
-    "old": "boarding?.shipId === e.id || !!e.raider, afloat:",
-    "new": "boarding?.shipId === e.id, afloat:",
+    "old": "boarding?.shipId === e.id || !!e.raider, afloat });",
+    "new": "boarding?.shipId === e.id, afloat });",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "NAV-R-a-second-copy-stood",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (!e.owner && e.raider) stood.set(e.raider.id, { pos: e.ship.pos, engaged: raiderBusy(e) });",
+    "old": "      if (!e.owner && e.raider) stood.set(e.raider.id, { pos: e.ship.pos, engaged: raiderBusy(e), boarding: boarding?.shipId === e.id });",
     "new": "      if (!e.owner && e.raider) { /* unread */ }",
     "tests": [
       "test/nav_r_raiders.test.js"
@@ -191,8 +191,8 @@
   {
     "name": "MERGE-OW6-the-hold-unread",
     "file": "src/systems/naval/navalRaiders.js",
-    "old": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
-    "new": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "old": "    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && !peers.has(r.seed) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "new": "    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && !peers.has(r.seed) && flat(r.pos, me) <= RAIDER_STAND_M)",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -200,8 +200,8 @@
   {
     "name": "MERGE-OW6-the-holder-unread",
     "file": "src/systems/naval/navalRaiders.js",
-    "old": "const owners = [r ? peers.get(r.seed) : undefined, held.get(id)];",
-    "new": "const owners = [r ? peers.get(r.seed) : undefined];",
+    "old": "    const owner = held.get(id);",
+    "new": "    const owner = undefined;",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -304,15 +304,6 @@
     "file": "src/scenes/navalHost.js",
     "old": "      const chasing = chasesMe(e);\n      out.push({ pos: e.ship.pos, reach:",
     "new": "      const chasing = false;\n      out.push({ pos: e.ship.pos, reach:",
-    "tests": [
-      "test/nav_r_raiders.test.js"
-    ]
-  },
-  {
-    "name": "MERGE-OW6-the-first-holder-alone",
-    "file": "src/systems/naval/navalRaiders.js",
-    "old": "const owners = [r ? peers.get(r.seed) : undefined, held.get(id)];",
-    "new": "const owners = [(r ? peers.get(r.seed) : undefined) ?? held.get(id)];",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]

@@ -146,5 +146,9 @@
 
 ## Online
 - Everyone nearby shares one sea: the same ships, the same broadsides and the same sinking.
+- The sea no longer vanishes when the player running it dies, goes indoors or drops out. Another player nearby takes over its ships where they are, and the fight goes on.
+- Boarding a ship another player's game is running now happens in one world. The ship is hauled alongside, fought over, taken and scuttled the same way on every screen, and the prize no longer slides out from under you.
+- Two groups meeting at sea no longer double the ships for good, and two players in the same waters no longer meet identical twin ships.
+- Other players' ships sail smoothly between updates instead of stepping, and a ship's name, captain and crown are the same for everyone.
 - Pirates attack every player's boat. Players cannot hurt each other's boats.
 - Features > Naval Combat has settings for how many ships sail, whether pirates board you, the raiders' plunder and the broadside camera.

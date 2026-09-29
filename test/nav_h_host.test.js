@@ -330,7 +330,7 @@ test('NAV-H the save: each boat of mine by its deed\'s UID (its hurts and barrel
 
 // ── online ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('NAV-H online, the stander: the lowest id near stands the sea and says it; a peer\'s blow on a ship I stand lands here, a boarding claim marks her; an owner gone from the room takes their ships (mutants: a peer\'s blow ignored, the claim unmarked)', async () => {
+test('NAV-H online, the stander: the lowest id near stands the sea and says it; a peer\'s blow on a ship I stand lands here; AUDIT NAV1 (online): no claim marks her (a ship boarded is taken over at the grapple), and an owner gone from the room leaves their ships to the heir - here me, one past their handover count (mutants: a peer\'s blow ignored)', async () => {
   const peers = [{ id: 'b-player', feet: [30, 0, 0] }];
   const hits = [];
   const h = await harness({ hull: 2, online: { id: () => 'a-player', peers: () => peers, sendHit: (d) => { hits.push(d); return true; } } });
@@ -342,16 +342,18 @@ test('NAV-H online, the stander: the lowest id near stands the sea and says it; 
   assert.equal(h.host.applyPeerHit('b-player', navalHitData('a-player', { n: e.n, hull: 40, zone: 'holed' })), true);
   assert.equal(e.ship.damage.hull, hull0 - 40);
   assert.equal(h.host.hostileNear(), false, 'she remembers b-player, not me');
-  assert.equal(h.host.applyPeerHit('b-player', navalHitData('a-player', { n: e.n, board: 1 })), true);
-  assert.equal(e.ship.boarded, true);
+  assert.equal(h.host.applyPeerHit('b-player', { to: 'a-player', nv: { n: e.n, h: 0, s: 0, c: 0, f: 0, z: 0, board: 1 } }), true, 'an older word\'s claim: a blow of nothing');
+  assert.equal(e.ship.boarded, false, 'no claim marks her');
   assert.equal(h.host.applyPeerHit('b-player', { nv: { n: e.n, h: 9999 } }), false, 'through the door or not at all');
   // a peer's own ships go with them
   const theirs = { s: [[1, 0, 0, 500, 0, 500, 0, 0, 1, 100, 100, 100, 0, 0, 12345, 0]], v: [], b: [] };
   assert.equal(h.host.applyWord('b-player', theirs, (p) => p), true);
   assert.equal([...h.host._sea.values()].filter((x) => x.owner === 'b-player').length, 1);
+  const theirShip = [...h.host._sea.values()].find((x) => x.owner === 'b-player');
   peers.length = 0;
   run(h.host, OWNER_SWEEP_S + 0.2);
   assert.equal([...h.host._sea.values()].filter((x) => x.owner === 'b-player').length, 0, 'b-player left the room');
+  assert.ok(theirShip.owner === null && theirShip.gen === 1 && h.host._sea.get(theirShip.id) === theirShip, 'the heir takes her over - the same ship, one past her count');
 });
 
 test('NAV-H online, the striker: the stander\'s ships stand here as puppets eased toward their word; my blow on one goes to her stander as a hit frame, never landed here; she goes down in their word within SINK_CREDIT_S of my blow and the sinking is mine to answer for; a peer\'s volley flies here to be seen, never judged (mutants: my blow landed twice, the sink never charged)', async () => {

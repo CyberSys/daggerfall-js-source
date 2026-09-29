@@ -42,7 +42,7 @@ test('NAV-R a raider\'s class: a pirate the player\'s level has met, drawn off t
   }
 });
 
-test('NAV-R the plan: a raider within RAIDER_STAND_M of me stands, the nearest first and RAIDER_SHIPS_MAX at most, never a spent one; one of mine past RAIDER_DROP_M goes unless it fights, and one whose life is over only once it is out of sight; a peer\'s copy of the same seed with the lower id keeps it - mine yields, and a higher id\'s does not stop me (mutants: the range unread, the cap, a spent one stood, a fight let go of, the lower id yielding)', () => {
+test('NAV-R the plan: a raider within RAIDER_STAND_M of me stands, the nearest first and RAIDER_SHIPS_MAX at most, never a spent one; one of mine past RAIDER_DROP_M goes unless it fights, and one whose life is over only once it is out of sight; AUDIT NAV1 (online): a peer\'s copy of the seed already in my sea is hers whoever\'s id is lower - never a second stood beside it - and one of mine is never dropped for it (the claim rule yields my copy into theirs, the same hull: navalHost.js claimBeats) (mutants: the range unread, the cap, a spent one stood, a fight let go of, a copy stood beside another\'s)', () => {
   const me = [0, 0, 0];
   const r = (id, seed, x) => ({ id, seed, pos: [x, 0, 0] });
   const empty = { me, myId: 'm', stood: new Map(), peers: new Map(), spent: new Set() };
@@ -54,11 +54,11 @@ test('NAV-R the plan: a raider within RAIDER_STAND_M of me stands, the nearest f
   const plan = raiderPlan({ ...empty, stood, raiders: [r('a', 1, RAIDER_DROP_M + 10), r('b', 2, RAIDER_DROP_M + 10), r('d', 4, 200)] });
   assert.deepEqual(plan.drop, ['a'], 'out of sight and fighting no one; `c` (its life over) sails on in sight');
   assert.deepEqual(plan.stand, [], `two already stand: ${RAIDER_SHIPS_MAX} at most`);
-  // one copy between two players: the lower id keeps it
+  // one copy between two players: a copy in my sea is hers, whoever's id is lower
   assert.deepEqual(raiderPlan({ ...empty, raiders: [r('a', 7, 300)], peers: new Map([[7, 'a-peer']]) }).stand, [], 'a lower id stands it: I do not');
-  assert.deepEqual(raiderPlan({ ...empty, raiders: [r('a', 7, 300)], peers: new Map([[7, 'z-peer']]) }).stand, ['a'], 'a higher id\'s copy yields to mine');
-  const yielded = raiderPlan({ ...empty, raiders: [r('a', 7, 300)], stood: new Map([['a', { pos: [300, 0, 0], engaged: true }]]), peers: new Map([[7, 'a-peer']]) });
-  assert.deepEqual(yielded.drop, ['a'], 'mine yields even mid-fight - the peer\'s copy is the one the room sees');
+  assert.deepEqual(raiderPlan({ ...empty, raiders: [r('a', 7, 300)], peers: new Map([[7, 'z-peer']]) }).stand, [], 'a higher id\'s copy (taken over, the stronger claim): never a second beside it');
+  const kept = raiderPlan({ ...empty, raiders: [r('a', 7, 300)], stood: new Map([['a', { pos: [300, 0, 0], engaged: true }]]), peers: new Map([[7, 'a-peer']]) });
+  assert.deepEqual(kept.drop, [], 'mine is never dropped for a copy - the claim rule yields it into theirs, the same hull');
 });
 
 // ── the host ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ test('NAV-R the world host: with the sea fight on the raiders are its ships - th
 
 // ── THE MERGE with main's OW6 (2026-09-29: the raiders' chase, shared) ──────────────────────────────────────────────
 
-test('THE MERGE (OW6) the plan: a raider a peer\'s raider word holds - their Overworld chase, or their sea\'s ship - is never stood here, whoever\'s id is lower (OW6\'s "never a sail a peer\'s chase holds"); one already stood yields to a holder with the lower id as to a peer\'s copy - her life over or not - and keeps her from a higher - whichever of a copy and a word holds her lower (mutants: the hold unread, the holder\'s id unread, the first holder alone)', () => {
+test('THE MERGE (OW6) the plan: a raider a peer\'s raider word holds - their Overworld chase, or their sea\'s ship - is never stood here, whoever\'s id is lower (OW6\'s "never a sail a peer\'s chase holds"); one already stood yields to a holder with the lower id - her life over or not, but (AUDIT NAV1, online) never from under a boarding - and keeps her from a higher; a copy in my sea is the claim rule\'s, the word the lower id\'s (mutants: the hold unread, the holder\'s id unread, the boarding let go of)', () => {
   const me = [0, 0, 0];
   const r = (id, seed, x) => ({ id, seed, pos: [x, 0, 0] });
   const empty = { me, myId: 'm', stood: new Map(), peers: new Map(), spent: new Set() };
@@ -228,6 +228,8 @@ test('THE MERGE (OW6) the plan: a raider a peer\'s raider word holds - their Ove
   assert.deepEqual(raiderPlan({ ...empty, stood, raiders: [], held: new Map([['a', 'a-peer']]) }).drop, ['a'], 'her life over (out of the list): the same');
   assert.deepEqual(raiderPlan({ ...empty, stood, raiders: [r('a', 7, 300)], held: new Map([['a', 'z-peer']]) }).drop, [], 'a higher id\'s hold yields to mine');
   assert.deepEqual(raiderPlan({ ...empty, stood, raiders: [r('a', 7, 300)], peers: new Map([[7, 'z-peer']]), held: new Map([['a', 'a-peer']]) }).drop, ['a'], 'a higher id\'s copy and a lower id\'s word: the lower id keeps her');
+  const boarding = new Map([['a', { pos: [300, 0, 0], engaged: true, boarding: true }]]);
+  assert.deepEqual(raiderPlan({ ...empty, stood: boarding, raiders: [r('a', 7, 300)], held: new Map([['a', 'a-peer']]) }).drop, [], 'never from under a boarding');
 });
 
 test('THE MERGE (OW6) the naval host: a raider a peer holds is not stood; the raiders it stands and has not spent are HELD (raiderHeld: her raider id and where she sails) - spent, held no more; a journey\'s threats are the hostile ships alone - by her lookout past the ring where a journey stops (HOSTILE_NEAR_M, NAV-H\'s enemy nearby) until she sights me, then that ring closing at her pace; none with the arc off (mutants: the hold unpassed to the plan, a spent one held, a friend a threat, the lookout unread, the chase unread)', async () => {

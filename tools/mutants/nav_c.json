@@ -146,8 +146,8 @@
   {
     "name": "NAV-C-an-engaged-ship-let-go",
     "file": "src/systems/naval/navalDirector.js",
-    "old": "if (!s.engaged && nearest(s.pos) > DESPAWN_BEYOND) out.despawn.push(s.id);",
-    "new": "if (nearest(s.pos) > DESPAWN_BEYOND) out.despawn.push(s.id);",
+    "old": "if (!s.engaged && !s.theirs && nearest(s.pos) > DESPAWN_BEYOND) out.despawn.push(s.id);",
+    "new": "if (!s.theirs && nearest(s.pos) > DESPAWN_BEYOND) out.despawn.push(s.id);",
     "tests": [
       "test/nav_c_ships.test.js"
     ]

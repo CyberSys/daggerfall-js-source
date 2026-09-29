@@ -38,8 +38,8 @@
   {
     "name": "NAV-G-one-bad-ship-let-through",
     "file": "src/systems/naval/navalWire.js",
-    "old": "    if (!Array.isArray(w) || (w.length !== 16 && w.length !== 17) || !w.every(Number.isFinite)) return null;",
-    "new": "    if (!Array.isArray(w) || (w.length !== 16 && w.length !== 17) || !w.every(Number.isFinite)) continue;",
+    "old": "    if (!Array.isArray(w) || (w.length !== 16 && w.length !== 17 && w.length !== 19) || !w.every(Number.isFinite)) return null;",
+    "new": "    if (!Array.isArray(w) || (w.length !== 16 && w.length !== 17 && w.length !== 19) || !w.every(Number.isFinite)) continue;",
     "tests": [
       "test/nav_g_online.test.js"
     ]
@@ -56,17 +56,8 @@
   {
     "name": "NAV-G-the-zones-swapped",
     "file": "src/systems/naval/navalWire.js",
-    "old": "z: zone === 'rig' ? 1 : zone === 'holed' ? 2 : 0 };",
-    "new": "z: zone === 'rig' ? 2 : zone === 'holed' ? 1 : 0 };",
-    "tests": [
-      "test/nav_g_online.test.js"
-    ]
-  },
-  {
-    "name": "NAV-G-a-board-of-five",
-    "file": "src/systems/naval/navalWire.js",
-    "old": "  if (nv.board !== undefined && !int(nv.board, 1, 4)) return null;",
-    "new": "  if (nv.board !== undefined && !int(nv.board, 1, 5)) return null;",
+    "old": "z: zone === 'rig' ? 1 : zone === 'holed' ? 2 : 0 } };",
+    "new": "z: zone === 'rig' ? 2 : zone === 'holed' ? 1 : 0 } };",
     "tests": [
       "test/nav_g_online.test.js"
     ]
