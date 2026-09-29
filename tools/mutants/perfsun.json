@@ -110,17 +110,18 @@
   {
     "name": "PERF-SUN-the-sway-door-parses-the-query-string-once-a-frame-again",
     "file": "src/systems/windDrive.js",
-    "old": "let _swayOff;",
-    "new": "",
+    "old": "  return pageParam('sway', search) === 'off';",
+    "new": "  return new URLSearchParams(search).get('sway') === 'off';",
     "tests": [
-      "test/perfsun_fragment.test.js"
+      "test/perfsun_fragment.test.js",
+      "test/perfurl_doors.test.js"
     ]
   },
   {
     "name": "PERF-SUN-the-sway-door-caches-too-hard-and-cannot-see-a-changed-search",
-    "file": "src/systems/windDrive.js",
-    "old": "  if (_swayOff === undefined || search !== _swaySearch) {",
-    "new": "  if (_swayOff === undefined) {",
+    "file": "src/systems/pageQuery.js",
+    "old": "  if (_params === null || search !== _search) {",
+    "new": "  if (_params === null) {",
     "tests": [
       "test/perfsun_fragment.test.js"
     ]
@@ -163,9 +164,9 @@
   },
   {
     "name": "AUDIT-F1-the-sway-doors-state-goes-back-below-its-reader",
-    "file": "src/systems/windDrive.js",
-    "old": "let _swaySearch;   // AUDIT F1: declared ABOVE its reader - a `let` below one is in the temporal dead zone until the module finishes evaluating, and this port has already lost a boot to one end of a module cycle reaching the other too early\nexport function swayDisabled",
-    "new": "export function swayDisabled",
+    "file": "src/systems/pageQuery.js",
+    "old": "let _search = null;\n/** @type {URLSearchParams|null} */\nlet _params = null;\n\n/** @param {string} search */\nfunction parsed(search) {\n  if (_params === null || search !== _search) {\n    _params = new URLSearchParams(search);\n    _search = search;\n  }\n  return _params;\n}",
+    "new": "/** @param {string} search */\nfunction parsed(search) {\n  if (_params === null || search !== _search) {\n    _params = new URLSearchParams(search);\n    _search = search;\n  }\n  return _params;\n}\nlet _search = null;\n/** @type {URLSearchParams|null} */\nlet _params = null;",
     "tests": [
       "test/perfsun_fragment.test.js"
     ]

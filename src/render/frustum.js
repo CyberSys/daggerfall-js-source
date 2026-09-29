@@ -29,6 +29,8 @@
 // flag, read once at scene build, so a wrong bound in the field is a
 // URL away from proof rather than a rebuild.
 
+import { pageParam } from '../systems/pageQuery.js';   // AUDIT PERF-URL A3: the ?cull=off hatch reads the page's one parse
+
 /** The six planes of clip space, as 24 floats [a,b,c,d] x 6, from a
  *  column-major combined projection*view matrix. Order: left, right,
  *  bottom, top, near, far. */
@@ -125,8 +127,8 @@ export function flatBatchAabb(centers, size) {
   return [minX - hw, minY, minZ - hw, maxX + hw, maxY + size.h, maxZ + hw];
 }
 
-/** The escape hatch, read once at scene build. */
+/** The escape hatch, read once at scene build. AUDIT PERF-URL A3: through the page's one parse (systems/pageQuery.js) -
+ *  it was the last door sniffing the search with a regex of its own. */
 export function cullDisabled() {
-  try { return /[?&]cull=off\b/.test(globalThis.location?.search ?? ''); }
-  catch { return false; }
+  return pageParam('cull') === 'off';
 }

@@ -589,6 +589,19 @@ LevitateMotor / PlayerSpeedChanger / PlayerEnterExit / PlayerEntity:
   Realism's overload. A full bar at STR/END 50 walks 66.7 real minutes
   (DFU 48.5) and runs 8.1 (DFU 6.1). A departure: Ledger A,
   `01-Overview/Field-Bugs-2026-09-27-phone-backup-drains.md`.
+  **FATIGUE-IDLE (2026-09-29, Mac: "You shouldn't lose fatigue at an
+  insane rate standing still"; asked, "Nothing")**: standing still ON
+  THE GROUND pays no minute's band (`worldTick.js`, off the motor's
+  `standing` - grounded, no move input - which every host now hands the
+  tick). DFU charges the default 11 then too (PlayerEntity.cs:405-418),
+  and it was the whole of the report: measured on the live build and
+  through the hosts' own ticker, nothing else drained and nothing
+  charged twice - a full bar at STR/END 50 emptied in ~67 real minutes
+  of doing nothing. A climb, a run, a swim (its passed roll's walk
+  included), a jump, a swing and Roleplay Realism's overload (the mod's
+  own round - Mac: "Keep the mod's rule") keep their amounts; the
+  journey's autopilot drives the move axes, so a journey still walks.
+  A departure: Ledger A, FATIGUE-IDLE; `test/fatigue_idle.test.js`.
 - **PARITY FIX**: PlayerMotor.limitDiagonalSpeed (.7071 when both
   axes are live) had never been ported - the grounded motor moved
   sqrt(2) fast on diagonals. Applied on both paths.
@@ -1709,7 +1722,7 @@ at the shipped `Mouse2` default, and handed it to the input lane.
 `worldModes` has no `keys` Set of its own: it destructures one from
 `host` (`worldModes.js:468`), and its only two callers are `world.js`
 (`:6147`) and `exterior.js` (`:2769`), both of which pass their own Set
-and both of whose WINDOW-level handlers (`world.js:12020-12021`,
+and both of whose WINDOW-level handlers (`world.js:12011-12012`,
 `exterior.js:3324-3325`) call `mouseCode(e.button)` and add/delete
 unconditionally - outside every mode and overlay gate. `MOUSE_CODES`
 maps button 2 to `Mouse2` (`input.js:510`), which is the shipped
@@ -1728,7 +1741,7 @@ not gate on `HasAction`; it gates on `playerMotor.IsStandingStill`
 that `GroundedMovement` writes straight into `moveDirection`, so DFU
 plays the stride. The port walked the autorunner forward in silence in
 every host. All four now pass `standingStill: player.standing`, the
-motor's own mirror of that getter (`world.js:23196` already did at its
+motor's own mirror of that getter (`world.js:23185` already did at its
 other footstep site) - which is also still the paralysis answer,
 because the hosts zero both axes for a frozen player.
 

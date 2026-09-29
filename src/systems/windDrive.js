@@ -41,6 +41,7 @@ import { labWindSlider } from '../render/labGrass.js';
 import { isEnhanced } from './uiSkin.js';
 import { getPref } from './uiPrefs.js';
 import { TALL_FLAT_HEIGHT } from '../world/flatDistance.js';
+import { pageParam } from './pageQuery.js';   // AUDIT PERF-URL A4: the ?sway=off door reads the page's one parse
 
 /** The lab's metres a second per slider unit (grass-proto.html frame()). */
 export const LAB_WIND_RATE = 0.16;
@@ -105,15 +106,12 @@ export function floraSwayOn(search = globalThis.location?.search ?? '') {
  *  minting a URLSearchParams and parsing the query string every time to
  *  ask a question whose answer cannot change while the page is open. The
  *  pref beside it stays live - the player can toggle that mid-session -
- *  and only the URL door is cached, which is `cullDisabled`'s own shape
- *  in render/frustum.js. Tiny, and it is the kind of thing that is only
- *  ever tiny one call site at a time. */
-let _swayOff;
-let _swaySearch;   // AUDIT F1: declared ABOVE its reader - a `let` below one is in the temporal dead zone until the module finishes evaluating, and this port has already lost a boot to one end of a module cycle reaching the other too early
+ *  and only the URL door is cached. Tiny, and it is the kind of thing that
+ *  is only ever tiny one call site at a time.
+ *
+ *  AUDIT PERF-URL A4 (2026-09-29): the cache is the page's one parse now (systems/pageQuery.js, keyed on the search
+ *  string exactly as this door's own memo was). PERF-URL left this door its private copy of the shape, and the home's
+ *  "ONE HOME" said otherwise; with no state of its own, AUDIT F1's temporal-dead-zone law is pageQuery.js's to keep. */
 export function swayDisabled(search = globalThis.location?.search ?? '') {
-  if (_swayOff === undefined || search !== _swaySearch) {
-    _swaySearch = search;
-    _swayOff = new URLSearchParams(search).get('sway') === 'off';
-  }
-  return _swayOff;
+  return pageParam('sway', search) === 'off';
 }

@@ -22,6 +22,7 @@
 // motion is OFF, so every geometry and "the window is gone" probe
 // measures the same page it always did; `?motion` turns it back on for
 // a screenshot. Reduced motion keeps only a short fade.
+import { pageHas } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** The window roles that open and close with motion. */
 export const MOTION_WINDOWS = ['.px-win', '.pack-win', '.loot-win', '.px-about', '.px-profile', '.hmbox', '.inputbox', '.dlg-win'];
@@ -61,9 +62,9 @@ export const MOTION_CSS = `
 
 /** Is motion on for this page? Off under automation unless asked for. */
 export function motionEnabled(win = globalThis) {
-  const q = new URLSearchParams(win.location?.search ?? '');
-  if (q.has('nomotion')) return false;
-  if (q.has('motion')) return true;
+  const search = win.location?.search ?? '';   // PERF-URL: the page query's one parse, keyed on this window's search
+  if (pageHas('nomotion', search)) return false;
+  if (pageHas('motion', search)) return true;
   return !win.navigator?.webdriver;
 }
 

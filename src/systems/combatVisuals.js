@@ -51,6 +51,7 @@ import { concealmentFlags, isMagicallyConcealed } from './effects.js';
 import {
   BLEND_ALPHA, BLEND_SHIMMER, BLEND_HZ, SHADE_ALPHA, SHADE_DARK, REVEAL_SECONDS, REVEAL_ALPHA,
 } from './concealDraw.js';   // ECV1: the numbers, in a leaf the renderer can reach
+import { pageParam } from './pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** The seven draw constants. AUDIT 65 PN-3: they are STORED in the leaf
  *  systems/concealDraw.js, because render/renderer.js interpolates
@@ -66,7 +67,7 @@ export const CONCEAL_MODE = Object.freeze({ blend: 1, shade: 2, reveal: 3 });
 /** The switch: the enhanced skin, the pref, and no kill switch on the
  *  URL. Injectable for tests. */
 export function combatVisualsOn(search = globalThis.location?.search ?? '', pref = getPref('enhancedCombatVisuals')) {
-  if (new URLSearchParams(search).get('combatvisuals') === 'off') return false;
+  if (pageParam('combatvisuals', search) === 'off') return false;   // PERF-URL
   return isEnhanced(search) && !!pref;
 }
 

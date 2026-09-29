@@ -25,6 +25,7 @@
 import { attachedDfmods, dfmodGeneration } from './dfmodTextures.js';
 import { getPref } from './uiPrefs.js';
 import { syncClassicShadowLane } from '../render/classicShadowLane.js';   // IIL2: the mod's shadows, in Daggerfall's look   // IIL1-T: the Features rows
+import { pageParam } from './pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 export const IIL_MOD = Object.freeze({
   guid: '55d7c31a-c571-45ea-bb72-fb5aa359e106',
@@ -75,7 +76,7 @@ export function setIilAttachedSource(fn) { _attached = typeof fn === 'function' 
  * on for it (the lane is what draws the shadows); off, the mod runs on the classic lane as ever. A test switch, by
  * address only, so nobody meets it by accident.
  */
-export const iilOnLane = (search = globalThis.location?.search ?? '') => new URLSearchParams(search).get('iil') === 'shadows';
+export const iilOnLane = (search = globalThis.location?.search ?? '') => pageParam('iil', search) === 'shadows';   // PERF-URL
 // IIL1-T: the Features row - Off / On / With shadows (`moddedLighting`, default On; an older boolean reads as On/Off).
 // With shadows runs the mod's lights on the Enhanced Lighting lane; `?iil=shadows` is the same by address.
 let _pref = (key) => getPref(key);

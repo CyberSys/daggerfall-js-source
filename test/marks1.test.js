@@ -113,16 +113,16 @@ test('MARKS1 the law: a balance holds 10,000,000; the gate strikes 50, two a UTC
   assert.deepEqual([1, 300, 0, -1, 1.5, 301, NaN, '5'].map((n) => marksAmountOk(n, 300)), [true, true, false, false, false, false, false, false]);
   assert.equal(exchangeGold(300), 2400);
   assert.ok(MARKS_RID_RE.test('req-000001') && !MARKS_RID_RE.test('short') && !MARKS_RID_RE.test('has space in it'));
-  assert.deepEqual([marksText(1), marksText(1240)], ['1 Mark', '1,240 Marks']);
+  assert.deepEqual([marksText(1), marksText(1240)], ['1 Drake', '1,240 Drakes']);
 });
 
 test('MARKS1: GOLD NEVER BUYS MARKS - no kind, route, table or statement takes gold in and strikes a Mark', () => {
   // PROF1 built the second: a Court writ's pay, struck for units the service took out of the Stores (test/prof1_service)
   assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, way]) => way === 'mint').map(([k]) => k), ['gate', 'writ'], 'the faucets built - each a witnessed act');
-  assert.ok(![...ROUTES].some((r) => r.startsWith('/v1/marks/') && /buy|purchase|gold/i.test(r)), 'no route to buy Marks');
+  assert.ok(![...ROUTES].some((r) => r.startsWith('/v1/marks/') && /buy|purchase|gold/i.test(r)), 'no route to buy Drakes');
   const marks = src('server-account/src/marks.js').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const mints = [...marks.matchAll(/SELECT 'mint', NULL, 'account', \?1, '([a-z-]+)'/g)].map((m) => m[1]);
-  assert.deepEqual(mints, ['gate'], 'the service strikes Marks in one statement, the gate\'s');
+  assert.deepEqual(mints, ['gate'], 'the service strikes Drakes in one statement, the gate\'s');
   assert.doesNotMatch(src('server-account/migrations/0025_marks.sql'), /'gold'/, 'the ledger has no gold end');
   assert.match(src('server-account/migrations/0025_marks.sql'), /src_kind TEXT NOT NULL CHECK \(src_kind IN \('mint', 'account', 'guild'\)\)/);
 });
@@ -144,7 +144,7 @@ test('MARKS1 the schema: a line moves both balances on its own insert; a line th
   assert.throws(() => line('mint', null, 'account', a.id, MARKS_MAX, 'r-000004'), /CHECK/, 'never past the cap');
   assert.throws(() => line('mint', null, 'account', a.id, 1, 'r-000001'), /UNIQUE/, 'one line a request');
   raw.prepare('DELETE FROM players WHERE id = ?').run(a.id);
-  assert.equal(raw.prepare('SELECT COUNT(*) AS n FROM marks WHERE account = ?').get(a.id).n, 0, 'its Marks go');
+  assert.equal(raw.prepare('SELECT COUNT(*) AS n FROM marks WHERE account = ?').get(a.id).n, 0, 'its Drakes go');
   assert.equal(raw.prepare('SELECT COUNT(*) AS n FROM marks_ledger').get().n, 2, 'the ledger is the economy\'s audit, kept');
 });
 
@@ -250,7 +250,7 @@ test('MARKS1 a guild\'s Marks treasury: any member puts Marks in from the accoun
   const take = (who, marks, r = rid()) => call('/v1/marks/guild/withdraw', { character: who.character, marks, rid: r }, who.secret);
   const idTaken = rid();
   assert.deepEqual((await put(mara, 300, idTaken)).body, { ok: true, marks: 300, balance: 200, guildMarks: 300 }, 'a recruit puts in');
-  assert.deepEqual(await call('/v1/marks/exchange', { marks: 300, rid: idTaken }, mara.secret), { status: 400, body: { error: 'marks-rid' } }, 'a deposit\'s id is never answered as a sale - no gold for Marks never sold');
+  assert.deepEqual(await call('/v1/marks/exchange', { marks: 300, rid: idTaken }, mara.secret), { status: 400, body: { error: 'marks-rid' } }, 'a deposit\'s id is never answered as a sale - no gold for Drakes never sold');
   assert.deepEqual(await put(mara, 201), { status: 409, body: { error: 'marks-short' } });
   assert.deepEqual(await take(mara, 10), { status: 403, body: { error: 'guild-rank' } }, 'the guildmaster\'s alone');
   assert.deepEqual(await take(aldric, 301), { status: 409, body: { error: 'guild-marks-short' } });
@@ -385,7 +385,7 @@ test('MARKS1 the Bank window: "Sell Marks" is the port\'s own entry - open with 
   w.input('Space');
   assert.equal(w.box, null);
   const offline = new BankWindow({ accounts: () => accounts, regionIndex: () => 17, player: {}, rows: () => [] });
-  assert.equal(offline.enabled('sellMarks'), false, 'offline the Bank buys no Marks');
+  assert.equal(offline.enabled('sellMarks'), false, 'offline the Bank buys no Drakes');
   assert.equal(creditMarksSale(accounts, 3, 0), 0, 'a sale of nothing pays nothing');
 });
 
@@ -417,7 +417,7 @@ test('MARKS1 the wiring: online the streaming host holds the book and hands it t
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /sellMarks: host\.marks \? \(n\) => host\.marks\.sell\(n, marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\), bankRegion\(\)\) : null,/);
   assert.match(m, /void host\.marks\.settle\(marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\)\)/, 'a kept sale settles as the counter opens');
-  assert.match(src('src/ui/enhancedPorts.js'), /\{ label: w\.hooks\.marks\.pending\(\) \? 'Counting a sale\.\.\.' : 'Sell Marks', act: \(\) => w\._button\('sellMarks'\)/);
-  assert.match(src('src/ui/socialPanel.js'), /if \(g\.marks\?\.state\?\.open === true\) \{\n\s*out\.push\(el\('div', 'dfsocial-sec', 'Marks treasury'\)\);/);
-  assert.match(src('src/ui/enhancedAccount.js'), /if \(Number\.isSafeInteger\(flow\.account\.marks\)\) row\('Marks', marksText\(flow\.account\.marks\)\);/);
+  assert.match(src('src/ui/enhancedPorts.js'), /\{ label: w\.hooks\.marks\.pending\(\) \? 'Counting a sale\.\.\.' : 'Sell Drakes', act: \(\) => w\._button\('sellMarks'\)/);
+  assert.match(src('src/ui/socialPanel.js'), /if \(g\.marks\?\.state\?\.open === true\) \{\n\s*out\.push\(el\('div', 'dfsocial-sec', 'Drake treasury'\)\);/);
+  assert.match(src('src/ui/enhancedAccount.js'), /if \(Number\.isSafeInteger\(flow\.account\.marks\)\) row\('Drakes', marksText\(flow\.account\.marks\)\);/);
 });
