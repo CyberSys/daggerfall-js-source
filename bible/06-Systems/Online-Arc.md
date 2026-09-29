@@ -11086,7 +11086,8 @@ writes the slots on a tab's close (`beforeunload`); a crash is Marks' own shape,
 **The gathering host** (C1-C11). A node took E before the activation ladder from a quarter of the view, through
 walls, from a floor away, and when it could not be worked (every dungeon vein below Mining 25): E takes a node twelve
 degrees from the crosshair, in reach in three dimensions, seen through the place's collider, and ready - else the
-press goes on to the door. Underground a click or a finger's tap started an act a swipe could not play and every swing
+press goes on to the door (and what the node needs, which went with the press, is said again when nothing else takes
+it - VEIN-NEED, `01-Overview/Field-Bugs-2026-09-29h.md`). Underground a click or a finger's tap started an act a swipe could not play and every swing
 was held off: a dungeon vein takes Interact alone, above the quest foe's click. The vein wall's ray hit a closed door
 and stood a vein in a doorway that moved when it opened: the rays read the dungeon's own mesh, and a vein over a pit
 stands on the next bearing. A kept harvest answered through the pump said no rank's rise and left its node drawn: the

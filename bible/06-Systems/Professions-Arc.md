@@ -466,7 +466,11 @@ since MENU-TOGGLE and PLUS-DEAD (`PATCH-NOTES-One-UI-Choice.md`) - in its brass 
 laid out for the phone's touch layer as for the desktop.
 
 - **The prompt**: bottom centre above the hotbar - "[E] Chop Oak - Logging 34". **The hover** (World Tooltips):
-  "Oak - tier 2 - 6 chops - taken today: no"; at a patch, "Red Rose - herbs: taken - food: no".
+  "Oak - tier 2 - 6 chops - taken today: no"; at a patch, "Red Rose - herbs: taken - food: no". At a node that cannot
+  be worked the prompt says what it needs ("[E] Mine Silver - needs Mining 25"), E goes on to the door, the chest or
+  the foe beside it (AUDIT 29 C1), and when nothing else takes the press the node says its need as a toast, the
+  player's own rank beside a rank short - "Mine Silver: needs Mining 25 - your Mining is 0" (VEIN-NEED,
+  `01-Overview/Field-Bugs-2026-09-29h.md`).
 - **The act's meter**: centred on the crosshair, 160 px across at 1080p (30% larger on touch); the ring, the glint,
   the hold meter, the search, the trace and the haul bar each have a still form for Reduced motion.
 - **The haul**: toasts on the right, 4 at most, 3 seconds each - "+3 Oak Logs to your Stores", "+45 Logging XP

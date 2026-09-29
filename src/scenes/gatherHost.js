@@ -23,7 +23,10 @@
 //   systems/mineAct.js); Escape, or walking off, ends it with nothing
 //   lost; its end wears the tool and asks the service (net/profBook.js -
 //   kept and asked again until answered). The answer is said in the
-//   toasts, the rank's rise in the banner.
+//   toasts, the rank's rise in the banner. A node that cannot be worked
+//   passes E on to the door, the chest or the foe (AUDIT 29 C1), and
+//   when the press opened nothing else the host hands it back: the node
+//   says what it needs (VEIN-NEED, sayNeed).
 //
 // One owner: the host builds it online, and disposes it with the page.
 // ═══════════════════════════════════════════════════════════════════
@@ -45,6 +48,20 @@ export const NODE_AIM_DEG = 12;
 export const BANNER_RANKS = Object.freeze([25, 50, 75, 100]);
 /** The day's chip stays this long after an act or a look (s). */
 const CHIP_S = 6;
+
+/**
+ * VEIN-NEED (FIELD BUGS 2026-09-29h): WHAT E SAYS AT A NODE THAT CANNOT BE WORKED, when the press opened nothing else -
+ * the prompt's own words, and where a rank is what is short (the kind's `needsRank`), the player's own rank beside it:
+ * "Mine Silver: needs Mining 25 - your Mining is 0". Nothing for a plan that is ready, or one whose prompt already says
+ * all there is (a node worked today).
+ * @param {any} plan the kind's plan, its `profession` on it @param {(profession: string) => number} rankOf
+ */
+export function needLine(plan, rankOf) {
+  if (!plan || plan.ready || !plan.rest) return '';
+  if (plan.rest === 'being counted') return 'That gathering is being counted.';
+  const own = Number.isSafeInteger(plan.needsRank) ? ` - your ${professionName(plan.profession)} is ${rankOf(plan.profession)}` : '';
+  return `${plan.verb}: ${plan.rest}${own}`;
+}
 
 /** The shortest signed angle a - b, degrees in (-180, 180]. */
 export const wrapDeg = (d) => { let x = d % 360; if (x > 180) x -= 360; if (x <= -180) x += 360; return x; };
@@ -107,6 +124,7 @@ export function createGatherHost(deps) {
   let target = null;          // { node, px, py, info, world }
   let act = null;             // { act, node, harvest, tool, profession, label, px, py, info, world, hand }
   let refreshAt = 0, sayKept = false, pixelsAt = 0, targetKey = null;
+  let passedOn = '';          // VEIN-NEED: what the node the last press passed on needs, until the host hands it back
   let chipLeft = 0;
   let chipProfession = /** @type {string|null} */ (null);
   const _t = [0, 0, 0];
@@ -368,15 +386,28 @@ export function createGatherHost(deps) {
     acting: () => !!act,
     /** The tool in the hand for the rig (combat/weaponRig.js actTool): the act's, as DFU's own sprite. */
     handTool: () => (act?.hand ? act.hand(act) : null),
-    /** E pressed: a node in reach takes it - an act started, or what it needs said. True when the press was the node's. */
+    /** E pressed: a node in reach takes it - an act started. True when the press was the node's. */
     press() {
+      passedOn = '';
       if (act) return true;   // AUDIT 29 D3: a press during an act is the act's - never a door's or a loot's behind it
       if (!target || !(deps.active() || inDungeon()) || book.state.open !== true) return false;
       const plan = planFor(target);
-      // AUDIT 29 C1: a node that cannot be worked takes no press - the prompt already says what it needs, and the press
-      // goes on to the door, the chest or the foe it was meant for
-      if (!plan || !plan.ready) return false;
+      // AUDIT 29 C1: a node that cannot be worked takes no press - the press goes on to the door, the chest or the foe it
+      // was meant for. VEIN-NEED: what it needs is kept, for the host to hand back if the press opened nothing else
+      if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }
       start(target, plan);
+      return true;
+    },
+    /**
+     * VEIN-NEED (FIELD BUGS 2026-09-29h): the press a node passed on opened nothing else - no door, no chest, no foe -
+     * so the node says what it needs: the host calls this at the foot of its activation ladder, for the E press that
+     * asked `press` first. PROF1's "an act started, or what it needs said", C1's order kept. True when it said a line.
+     */
+    sayNeed() {
+      const line = passedOn;
+      passedOn = '';
+      if (!line) return false;
+      hud.toast(line);
       return true;
     },
     /** Escape: the act ends, nothing lost. True when there was one. */

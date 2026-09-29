@@ -644,7 +644,8 @@ DECIDED (Mac: "its tools become the professions' tools").
 - **Which tool**: the first of its kind in the pack's order (as `ItemCollection` finds it).
 - **Wear**: a completed act lowers the tool's condition by **1**, as a Foraging use does, and a break is Foraging's two
   notices ("Your Pick-Axe broke." after DFU's popup). A tool lasts 50 harvests, whichever gesture wore it.
-- **No tool**: the node's prompt says what it needs - "[E] Chop Oak - needs a Wood-Axe".
+- **No tool**: the node's prompt says what it needs - "[E] Chop Oak - needs a Wood-Axe" - and E says it too when
+  nothing else under the ray takes the press (VEIN-NEED, `01-Overview/Field-Bugs-2026-09-29h.md`).
 
 ### 14.2 The tools and their professions
 
@@ -670,7 +671,7 @@ encumbered!".
 
 | Check | Applies to |
 |---|---|
-| Not inside | every act **except a dungeon vein** - the Pick-Axe's one place indoors (PROF0 6) - **and Hunting**, whose body lies where it fell (PROF0 17.1); the inventory's "You cannot mine in here!" is unchanged |
+| Not inside | every act **except a dungeon vein** - the Pick-Axe's one place indoors (PROF0 6) - **and Hunting**, whose body lies where it fell (PROF0 17.1); the inventory's "You cannot mine in here!" is unchanged (FIELD BUGS 2026-09-29h: a player read it beside a dungeon vein as the vein's refusal - the Pick-Axe used at a node is its For Mac 1) |
 | Not in a settlement | every act (no node stands in a rect, PROF0 6) |
 | **Daylight, 07:00-17:59** | Logging, Herbalism, the Basket, surface Mining and Quarrying, Fishing. **Not** a dungeon vein, a Motherlode or a gate-touched vein (the contested ones keep no hours, PROF0 6); not Hunting (the knife is not Foraging's, and foes die at night). **The service checks it too**, on the shared clock, from the act's end time (PROF0 6) - a modified client cannot gather by night |
 | Not at sea | every act but Fishing |

@@ -330,8 +330,8 @@
   {
     "name": "AUDIT29-C1-a-cold-node-takes-e",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (!plan || !plan.ready) return false;",
-    "new": "      if (!plan) return false;\n      if (!plan.ready) return true;",
+    "old": "      if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }",
+    "new": "      if (!plan) return false;\n      if (!plan.ready) { passedOn = needLine(plan, rank); return true; }",
     "tests": [
       "test/audit29_host.test.js"
     ]

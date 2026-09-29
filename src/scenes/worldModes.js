@@ -7444,7 +7444,8 @@ export function createWorldModes(host) {
     if (_enemyArm(RAY_DISTANCE, _pick?.distance ?? Infinity)) return true;
     if (_pick && _pick === _boatPick) { host.csaActivate?.(_pick); return true; }   // CSA-D
     const key = _pick?.key ?? null;
-    if (key === null) return false;
+    // VEIN-NEED (FIELD BUGS 2026-09-29h): nothing under the ray took E - a vein that passed it on (AUDIT 29 C1) says what it needs
+    if (key === null) { if (interact && !pressCast) host.profNeed?.(); return false; }
     // AUDIT 65 MC-2: the refusal each handler speaks for itself in C# -
     // the action door (:686-689), the loot container (:868-873) and
     // the corpse (:936-941). Their targets reach for the ray now and

@@ -178,7 +178,8 @@ export function mineRecord(node) {
 
 /**
  * WHAT E DOES AT A VEIN OR A BOULDER, and the prompt that says it: `{ harvest, verb, rest, ready }` - `ready` false with
- * `rest` naming what is missing (worked today, being counted, the day's cap, the rank, the Pick-Axe, the Stores' room).
+ * `rest` naming what is missing (worked today, being counted, the day's cap, the rank, the Pick-Axe, the Stores' room);
+ * a rank short carries the rank it needs (`needsRank` - VEIN-NEED says the player's own beside it).
  * @param {{ node: any, taken: boolean, counting: boolean, rank: number, pick: boolean, storesFull: (key: string) => boolean,
  *   today: number, cap: number }} o
  */
@@ -190,7 +191,7 @@ export function minePlan({ node, taken, counting, rank, pick, storesFull, today,
   if (taken) return { harvest, verb: `${node.what === 'boulder' ? 'The stone' : name} - worked today`, rest: '', ready: false };
   if (counting) return { harvest, verb, rest: 'being counted', ready: false };
   if (today >= cap) return { harvest, verb, rest: `${rankWord} - ${today} of ${cap} today`, ready: false, full: true };
-  if (!tierOpen(rank, node.tier)) return { harvest, verb, rest: `needs Mining ${TIER_RANKS[node.tier - 1]}`, ready: false };
+  if (!tierOpen(rank, node.tier)) return { harvest, verb, rest: `needs Mining ${TIER_RANKS[node.tier - 1]}`, ready: false, needsRank: TIER_RANKS[node.tier - 1] };
   if (!pick) return { harvest, verb, rest: 'needs a Pick-Axe', ready: false };
   if (storesFull(node.material)) return { harvest, verb, rest: `Stores full - ${materialLabel(node.material)}`, ready: false };
   return { harvest, verb, rest: rankWord, ready: true };

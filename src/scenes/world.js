@@ -12709,7 +12709,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9883-9947 -
+  // worldModes answers it in BOTH modes (worldModes.js:9884-9948 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -18580,6 +18580,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       });
     },
     profPress: () => gatherHost?.press() ?? false,
+    profNeed: () => gatherHost?.sayNeed() ?? false,   // VEIN-NEED: E opened nothing underground - the vein it passed on says what it needs
     profActTool: () => gatherHost?.handTool() ?? null,
     profActing: () => gatherHost?.acting() ?? false,
     currentRegionIndex: () => _questRegionIndex(),   // UL1: PlayerGPS.CurrentRegionIndex for the mode machine's mods
@@ -21798,6 +21799,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
               }
             }
             else modes.tryEnter().then((opened) => {
+              // VEIN-NEED (FIELD BUGS 2026-09-29h): E passed on by a node that cannot be worked (AUDIT 29 C1), and no
+              // door took it either - the node says what it needs, where the press said nothing at all
+              if (!opened && useEdge && gatherHost?.sayNeed()) return;
               // GRAVE1: an activation that hit NOTHING - no door either -
               // while Info mode is selected and the player stands inside
               // a Graveyard-type location reads as "read the nearest
