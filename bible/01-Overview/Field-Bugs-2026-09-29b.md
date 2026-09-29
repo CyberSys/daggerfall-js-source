@@ -9,7 +9,7 @@ port's own faults fixed and pinned, and what is Daggerfall's own said plainly, w
 | 1 | books put up for sale show the wrong title; taken back they "duplicate" | Janome | DFU's SplitStack zeroes a book's id; the counters took a lot back with a push | fixed (BOOK-SPLIT) |
 | 2 | "Water walking is still evil" - fell out of the map again | Cruor | a water walker's land-speed stride set on a doorway's lintel and out through the ceiling | fixed (WW-LID) |
 | 3 | a higher Mercantile sells for less (3499 gold at 60, 2888 at 90) | ValenValarys | REALM P0.4's cap was half the SELLER's ask, which falls as the skill rises | fixed (MERC-RISE) |
-| 4 | first-person journeys go straight through the forest; the Overworld follows roads | SylviaBun | TO-ROADS | see below |
+| 4 | first-person journeys go straight through the forest; the Overworld follows roads | SylviaBun | First-Person Travel is Travel Options' own journey, which walks straight at a place | a second switch (TO-ROADS) |
 | 5 | the pack should show total armour, and an item's stats against what is worn | SylviaBun (Althea's idea) | AC-COMPARE | see below |
 | 6 | the enhanced map needs the classic map's filters and its colours | Jigglehimmer | MAP-KEY | see below |
 
@@ -78,6 +78,23 @@ best haggler's ask, 100 in each (DFU's maximum) or the seller's own where a spel
 the skills. P0.4's pin flipped to the new law and its mutant re-aimed. `test/fb0929b_mercantile.test.js` (3),
 `tools/mutants/fb0929b_mercantile.json` (6, 6 dead). `06-Systems/Realm-Arc.md` P0.4, Port-Ledger A's P0.4 row.
 
+## TO-ROADS: First-Person Travel follows the roads, on a second switch (4)
+
+SylviaBun: *"When traveling in first person, however, the travel route always just goes the straightest shot to your
+destination running you through the forest etc. A way to toggle this behavior to match or not would be nice."*
+Reproduced first on the host's own code: First-Person Travel (OW-TOGGLE) is Travel Options' own journey, its autopilot
+aimed at the place from the first frame - the mod never routes to a named destination - and it is the original travel
+option Mac asked back, so it stays so. A second key beside it, **First Person Travel Follows Roads**
+(`GeneralOptions.FirstPersonTravelFollowsRoads`, off, on the tile, read live), makes a map pick the Overworld's own
+route - the road joined first, round the peaks, its legs on the mod's autopilot (`scenes/world.js` `tvRoutesJourneys`)
+- walked in first person, the view never raised. There is no second planner: the map's three doors hand the pick to
+the Overworld's `travelViewRouteTo` / `travelViewWalkTo`, and the view's own doors still ask `tvOwnsJourneys`, so it
+stays down. The map's Resume plans it again from where the traveller stands; a place the roads cannot reach is refused
+in the Overworld's words, never walked straight or teleported; a leader's routed pick leads the party.
+`test/fb0929b_toroads.test.js` (6), `tools/mutants/fb0929b_toroads.json` (16: 14 dead, 2 equivalent - `!!travelOptions`
+and `!!travelView`, which no caller reaches false). Four suites' pins and five mutant records re-aimed to the moved
+lines, none loosened. `06-Systems/Travel-View.md` TO-ROADS, `06-Systems/Travel-Options.md`, Port-Ledger A's TO1 row.
+
 ## For Mac
 
 - **MERC-RISE's price is flat for most sellers.** Your 50% and "no skill lowers a sale" together force it: the best
@@ -86,5 +103,9 @@ the skills. P0.4's pin flipped to the new law and its mutant re-aimed. `test/fb0
   Mercantile and Personality raise an online sale only where Daggerfall's own offer sits under that cap (low skills at
   the dearest counters). The other lawful shape keeps the skill in it and pays everyone less: scale Daggerfall's offer
   so the best haggler lands exactly on half their ask (2283 at 60, 2609 at 90 there). Or raise the share. Say which.
+- **TO-ROADS is a second switch, OFF by default,** and only does anything with First-Person Travel on. A single
+  three-way choice (Overworld / first person straight / first person by road) may read better than two switches. A
+  route the roads refuse is said and dropped - never the straight walk (that would be the report itself) - and a pick
+  made indoors or under water is refused in the Overworld's words ("You can only survey the land from the open air.").
 - **BOOK-SPLIT departs from DFU** (Port-Ledger A): DFU's own split loses the same three terms. The counters' merge on
   the way back is DFU's law restored, not a departure.
