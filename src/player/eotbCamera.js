@@ -542,6 +542,12 @@ export function createEotbCamera() {
       if (row === undefined || !autoPOVSwitch) return offset;
       return applyRow(row);
     },
+    /** AUDIT OW5 V3: whether a door's row DECIDES the POV - the table armed, the row first or third person (never
+     *  Don'tChange). The travel view's hold then hands the body back as the row left it (player/mwView.js). */
+    transitionDecides(kind) {
+      const row = cfg.auto[`OnTransition${kind}`];
+      return autoPOVSwitch && (row === AUTO_TOGGLE.FirstPerson || row === AUTO_TOGGLE.ThirdPerson);
+    },
     /** [IL] ToggleInput (IL_17ea-IL_1841): arm or disarm the table, say
      *  so, and an arming forces the fan-out this frame. */
     toggleAuto() {
