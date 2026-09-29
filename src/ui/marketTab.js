@@ -20,12 +20,17 @@
 // press the market says has moved reads again (U9); a piece that arrives while the tab stands is collected (U10);
 // what must fail is not offered (U13); the rows run cheapest landed first (U16); one Mark is one Mark (U17); a row's
 // courier is the pick's (U18); the shared clock (U21); every field named (U22).
+//
+// PROF5b (Professions-Arc 27): AUCTIONS beside Crafted - every open auction of a Masterwork, ending soonest first, the
+// standing bid or the opening, the time left, the picked row's Bid at the next bid (or "Your bid leads", or the seller's
+// Cancel while no bid stands); "An auction (Masterworks)" in the List form; the account's auctions and bids under My
+// listings; what the bids hold beside "Your Marks".
 import { accountRefusalText } from '../net/accountClient.js';
 import {
   MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX,
-  listingFee, saleTax, courierFee, wearOf, wearText, medianText, marketCatalogue,
+  listingFee, saleTax, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_BID_MAX,
 } from '../net/marketLaw.js';
-import { QUALITY_NAMES } from '../net/recipeLaw.js';
+import { QUALITY_NAMES, MASTERWORK } from '../net/recipeLaw.js';
 import { marksText } from '../net/marksLaw.js';
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
@@ -60,7 +65,7 @@ const intOf = (s, lo, hi) => { const n = Math.floor(Number(s)); return Number.is
 /** The units a picked row offers first, and its courier quotes for (AUDIT 30 U18). */
 const PICK_UNITS = 20;
 /** AUDIT 30 U9: the words that say the view a press was made from has moved - it is read again. */
-const MOVED = ['market-gone', 'market-short', 'market-price-moved'];
+const MOVED = ['market-gone', 'market-short', 'market-price-moved', 'auction-low'];   // PROF5b: a bid another overtook - its next read again
 /** AUDIT 30 U11: the words that say the market is not this account's. */
 const SHUT = ['market-closed', 'prof-need-account'];
 const plural = (n, one) => `${n.toLocaleString('en-US')} ${one}${n === 1 ? '' : 's'}`;
@@ -121,6 +126,7 @@ export function createMarketTab(m, ui) {
     qty: 1, data: /** @type {any} */ (null), error: /** @type {string|null} */ (null), stale: false, loading: false,
     list: { kind: 'material', material: '', units: 1, price: 1, piece: '' }, post: { material: '', units: 1, price: 1 },
     fills: /** @type {Record<string, number>} */ ({}), weave: /** @type {Record<string, number>} */ ({}),
+    bid: /** @type {Record<string, number>} */ ({}),   // PROF5b: the bids typed, by auction
   };
   const balance = () => m.book.state.balance;
   const short = (marks) => balance() != null && balance() < marks;
@@ -133,7 +139,7 @@ export function createMarketTab(m, ui) {
   };
   const q = () => {
     const found = st.view === 'materials' ? searched() : null;
-    return { region: m.region, hubs: m.hubs, ...(st.view === 'materials' || st.view === 'orders' || st.view === 'crafted' ? { family: st.family } : {}),
+    return { region: m.region, hubs: m.hubs, ...(['materials', 'orders', 'crafted', 'auctions'].includes(st.view) ? { family: st.family } : {}),
       ...(st.view === 'materials' && st.tier ? { tier: st.tier } : {}), ...(found ? { materials: found } : {}) };
   };
   /** AUDIT 30 U3: the last read asked - an answer to an earlier one (a view or a filter since left) is dropped. */
@@ -177,7 +183,7 @@ export function createMarketTab(m, ui) {
   const held = (key) => { const s = m.stores().get(key); return s ? s.own + s.bought : 0; };
   const where = (row) => (row.region === m.region ? 'here' : m.regionNameOf(row.region));
   /** The units a row's pick starts at, and its courier's quote is for. */
-  const pickOf = (row) => (row.kind === 'piece' ? 1 : Math.max(1, Math.min(row.units, PICK_UNITS)));
+  const pickOf = (row) => (row.kind === 'piece' || row.kind === 'auction' ? 1 : Math.max(1, Math.min(row.units, PICK_UNITS)));
   const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) : null);
   /** AUDIT 30 U16: a unit's price landed here - its courier's share of the pick's. */
   const landed = (row) => { const n = pickOf(row), c = courierOf(row, n); return c == null ? Infinity : row.price + c / n; };
@@ -300,6 +306,58 @@ export function createMarketTab(m, ui) {
     return bar;
   }
 
+  // ─── PROF5b: THE AUCTIONS ────────────────────────────────────────
+  const endsText = (endsAt) => (endsAt - ui.nowS() <= 0 ? 'ended' : `ends in ${arrivalText(endsAt, ui.nowS())}`);
+  const standing = (a) => (a.high == null ? `opening ${marksText(a.opening)} - no bids yet` : `${marksText(a.high)} (${plural(a.bids, 'bid')})`);
+  function auctionRow(a) {
+    const p = a.piece;
+    const b = rowButton(a, ' market-piece market-auction');
+    b.append(el('b', null, m.pieceName(p)),
+      el('span', 'market-quality', [QUALITY_NAMES[p.quality] ?? null, p.maker ? `made by ${p.maker}` : null, wearText(p.wear)].filter(Boolean).join(' · ')),
+      el('span', 'market-price', standing(a)),
+      el('span', 'market-where', `${where(a)}${roadText({ ...a, kind: 'piece' })} · ${endsText(a.endsAt)}`));
+    if (a.mine) b.append(el('span', 'market-mine', 'yours'));
+    else if (a.leading) b.append(el('span', 'market-mine', 'your bid leads'));
+    if (a.reports != null) b.append(el('span', 'market-mod', plural(a.reports, 'report')));
+    return b;
+  }
+  /** The picked auction's bar: the seller's Cancel while no bid stands; the leader's word; else Bid at the next bid, the
+   *  courier with it - the number typed moves the words that hang on it (AUDIT 30 U8). */
+  function auctionBar(a) {
+    const bar = el('div', 'market-bar');
+    if (a.mine) {
+      bar.append(el('span', 'market-ask', a.bids ? `Your auction - ${standing(a)}. It cannot be taken back while a bid stands.` : 'Your auction - no bids yet.'));
+      if (!a.bids) bar.append(button('market-cancel', 'Cancel', () => act(() => m.book.cancel(a.id, m.mint), 'Cancelled. Your Masterwork is back; the fee is kept.')));
+      return bar;
+    }
+    if (a.leading) {
+      bar.append(el('span', 'market-ask', `Your bid of ${marksText(a.high)} leads. It is held until you are outbid or the auction ends.`));
+    } else {
+      const courier = courierOf({ ...a, kind: 'piece' }, 1);
+      const amountNow = () => Math.max(a.next, intOf(st.bid[a.id] ?? a.next, a.next, AUCTION_BID_MAX));
+      const n = numberInput(amountNow(), a.next, AUCTION_BID_MAX, 'Your bid in Marks', `bid|${a.id}`);
+      const ask = el('span', 'market-ask');
+      ask.setAttribute('aria-live', 'polite');
+      const go = button('primary market-bid', 'Bid', () => {
+        const amount = amountNow();
+        return act(() => m.book.bid({ region: m.region, auction: a.id, amount, hubs: m.hubs }),
+          `Your bid of ${marksText(amount)} leads. It is held until you are outbid or the auction ends.`);
+      });
+      const refresh = () => {
+        const amount = amountNow();
+        ask.textContent = courier == null ? `The couriers do not know the road to ${m.regionNameOf(a.region)} yet.`
+          : `Bid ${marksText(amount)}${courier ? ` + ${courier} courier` : ''}? At least ${marksText(a.next)}.`;
+        go.disabled = ui.busy() || courier == null || short(amount + (courier ?? 0));
+      };
+      n.oninput = () => { st.bid[a.id] = intOf(n.value, a.next, AUCTION_BID_MAX); refresh(); };
+      refresh();
+      bar.append(n, ask, go);
+    }
+    bar.append(button('market-report', 'Report', () => act(() => m.book.report(a.id), 'Reported. A moderator will look at it.')));
+    if (a.reports != null) bar.append(button('market-remove', 'Remove', () => act(() => m.book.remove(a.id), 'Removed. Its bid is returned and its piece goes back to its seller.')));
+    return bar;
+  }
+
   function weaversNode() {
     const box = el('div', 'market-counter');
     box.append(el('h4', null, 'The Weavers\' counter'));
@@ -324,7 +382,7 @@ export function createMarketTab(m, ui) {
   function listForm() {
     const box = el('div', 'market-listform');
     box.append(el('h4', null, 'List on the market'));
-    box.append(select([['material', 'From the Stores'], ['piece', 'A crafted piece']], st.list.kind, (v) => { st.list.kind = v; ui.rerender(); }, 'What to list'));
+    box.append(select([['material', 'From the Stores'], ['piece', 'A crafted piece'], ['auction', 'An auction (Masterworks)']], st.list.kind, (v) => { st.list.kind = v; ui.rerender(); }, 'What to list'));
     const price = numberInput(st.list.price, 1, MARKET_PRICE_MAX, 'Price in Marks', 'list-price');
     const hint = el('p', 'notice-hint');
     const b = button('primary market-list', 'List', () => send());
@@ -344,21 +402,30 @@ export function createMarketTab(m, ui) {
       send = () => act(() => m.book.list({ region: m.region, kind: 'material', material: st.list.material, units: st.list.units, price: st.list.price, hubs: m.hubs }),
         `Listed ${st.list.units} ${m.countName(st.list.material, st.list.units)} at ${marksText(st.list.price)} each.`);
     } else {
-      const pieces = m.pieces();
+      // PROF5b: an auction offers the Masterworks alone (10.2)
+      const auction = st.list.kind === 'auction';
+      const pieces = m.pieces().filter((p) => !auction || p.item.quality === MASTERWORK);
       if (!pieces.some((p) => p.item.provenance === st.list.piece)) st.list.piece = pieces[0]?.item.provenance ?? '';
       const chosen = pieces.find((p) => p.item.provenance === st.list.piece) ?? null;
       box.append(pieces.length ? select(pieces.map((p) => [p.item.provenance, `${p.name}${p.where === 'home' ? ' (your home)' : ''}`]), st.list.piece, (v) => { st.list.piece = v; ui.rerender(); }, 'Crafted piece')
-        : el('span', 'notice-hint', 'You carry no crafted piece to sell.'), el('span', 'notice-label', 'Price in Marks'), price);
+        : el('span', 'notice-hint', auction ? 'You carry no Masterwork to auction.' : 'You carry no crafted piece to sell.'),
+      el('span', 'notice-label', auction ? 'Opening bid in Marks' : 'Price in Marks'), price);
       worth = () => st.list.price;
       can = () => !!chosen;
-      send = () => act(() => m.book.list({ region: m.region, kind: 'piece', provenance: chosen.item.provenance, wear: wearOf(chosen.item), price: st.list.price, hubs: m.hubs },
-        { item: chosen.item, where: chosen.where, take: () => m.take(chosen.item, chosen.where), putBack: m.putBack }), `Listed ${chosen?.name} at ${marksText(st.list.price)}.`);
+      const piece = () => ({ item: chosen.item, where: chosen.where, take: () => m.take(chosen.item, chosen.where), putBack: m.putBack });
+      send = auction
+        ? () => act(() => m.book.auction({ region: m.region, provenance: chosen.item.provenance, wear: wearOf(chosen.item), opening: st.list.price, hubs: m.hubs }, piece()),
+          `${chosen?.name} is up for auction, opening at ${marksText(st.list.price)}.`)
+        : () => act(() => m.book.list({ region: m.region, kind: 'piece', provenance: chosen.item.provenance, wear: wearOf(chosen.item), price: st.list.price, hubs: m.hubs }, piece()),
+          `Listed ${chosen?.name} at ${marksText(st.list.price)}.`);
     }
     // AUDIT 30 U13: a listing the fee or the board's limit would refuse is not offered - the words say which
     const refresh = () => {
       const fee = listingFee(worth());
       hint.textContent = full ? `You have ${MARKET_LISTINGS_MAX} listings standing, the most one account may. Cancel one, or wait for one to sell.`
-        : `Listing fee ${marksText(fee)}, kept if you cancel. It stands on the boards of ${m.regionName} for 72 hours; a sale pays you its price less ${saleTax(100)}% (${marksText(worth() - saleTax(worth()))} if it all sells).`;
+        : st.list.kind === 'auction'
+          ? `Listing fee ${marksText(fee)}, kept if you cancel (only while no bid stands). It stands on the boards of ${m.regionName} for ${AUCTION_S / 3600} hours; each bid must be ${AUCTION_RAISE_PCT}% over the last, and a bid in its last ${AUCTION_LATE_S / 60} minutes adds ${AUCTION_LATE_S / 60} more. The highest bid buys it; you receive it less ${saleTax(100)}%.`
+          : `Listing fee ${marksText(fee)}, kept if you cancel. It stands on the boards of ${m.regionName} for 72 hours; a sale pays you its price less ${saleTax(100)}% (${marksText(worth() - saleTax(worth()))} if it all sells).`;
       b.disabled = ui.busy() || full || !can() || short(fee);
     };
     price.oninput = () => { st.list.price = intOf(price.value, 1, MARKET_PRICE_MAX); refresh(); };
@@ -433,6 +500,34 @@ export function createMarketTab(m, ui) {
     }
     if (!rows.length && st.data) ul.append(el('li', 'notice-empty', 'You have nothing on the market.'));
     box.append(ul);
+    // PROF5b: this account's auctions and its bids
+    const auctions = st.data?.auctions ?? [];
+    if (auctions.length) {
+      box.append(el('h4', null, 'Your auctions'));
+      const al = el('ul', 'market-list');
+      const said = { sold: (a) => `sold for ${marksText(a.high)}`, unsold: () => 'no bid came - it is on its way back', cancelled: () => 'cancelled', removed: () => 'removed by a moderator' };
+      for (const a of auctions) {
+        const li = el('li', `market-listing state-${a.state}`);
+        li.append(el('b', null, m.pieceName(a.piece)), el('span', 'market-price', standing(a)),
+          el('span', 'market-state', a.state === 'open' ? endsText(a.endsAt) : (said[a.state]?.(a) ?? a.state)));
+        if (a.state === 'open' && !a.bids) li.append(button('market-cancel', 'Cancel', () => act(() => m.book.cancel(a.id, m.mint), 'Cancelled. Your Masterwork is back; the fee is kept.')));
+        al.append(li);
+      }
+      box.append(al);
+    }
+    const bids = st.data?.bids ?? [];
+    if (bids.length) {
+      box.append(el('h4', null, 'Your bids'));
+      const bl = el('ul', 'market-list');
+      for (const b of bids) {
+        const word = b.state === 'high' ? (b.auctionState === 'open' ? `leading - ${endsText(b.endsAt)}` : 'leading')
+          : b.state === 'won' ? 'won - it comes to you'
+            : b.state === 'void' ? (b.returned ? 'the auction was removed - returned' : 'the auction was removed - returned when you next open the market')
+              : b.returned ? 'outbid - returned' : 'outbid - returned when you next open the market';
+        bl.append(el('li', `market-listing state-${b.state}`, `${m.pieceName(b.piece)} - ${marksText(b.amount)}${b.courier ? ` + ${b.courier} courier` : ''} - ${word}`));
+      }
+      box.append(bl);
+    }
     const orders = st.data?.orders ?? [];
     if (orders.length) {
       box.append(el('h4', null, 'Your buy orders'));
@@ -461,7 +556,8 @@ export function createMarketTab(m, ui) {
       box.append(el('h4', null, 'Your trades'));
       const tl = el('ul', 'market-list');
       // AUDIT 30 U15: the Marks each trade moved - paid with its courier, or taken after the tax and the Tithe
-      const verb = { bought: ['Bought', 'paid'], sold: ['Sold', 'to you'], filled: ['Filled an order with', 'to you'], ordered: ['Your order took', 'paid'] };
+      const verb = { bought: ['Bought', 'paid'], sold: ['Sold', 'to you'], filled: ['Filled an order with', 'to you'], ordered: ['Your order took', 'paid'],
+        won: ['Won at auction', 'paid'], auctioned: ['Sold at auction', 'to you'] };   // PROF5b
       for (const t of trades) {
         const what = t.kind === 'piece' ? 'a crafted piece' : `${t.units} ${m.countName(t.material, t.units)}`;
         const [v, way] = verb[t.side] ?? [t.side, ''];
@@ -508,7 +604,17 @@ export function createMarketTab(m, ui) {
       return box;
     }
     if (st.loading && !st.data) box.append(el('p', 'notice-empty', 'Reading the market...'));
-    if (st.view === 'materials' || st.view === 'crafted') {
+    if (st.view === 'auctions') {
+      box.append(filtersNode(CRAFTED_FAMILIES));
+      const rows = st.data?.rows ?? [];
+      const list = el('div', 'market-rows');
+      for (const a of rows) {
+        list.append(auctionRow(a));
+        if (st.picked === a.id) list.append(auctionBar(a));
+      }
+      if (st.data && !rows.length) list.append(el('p', 'notice-empty', 'No Masterwork is up for auction.'));
+      box.append(list);
+    } else if (st.view === 'materials' || st.view === 'crafted') {
       box.append(filtersNode(st.view === 'materials' ? MARKET_FAMILIES : CRAFTED_FAMILIES));
       const rows = [...(st.data?.rows ?? [])].sort((a, b) => landed(a) - landed(b) || a.price - b.price);
       const list = el('div', 'market-rows');
@@ -529,7 +635,8 @@ export function createMarketTab(m, ui) {
       if (st.data && !orders.length) ul.append(el('li', 'notice-empty', `No buy orders stand on the boards of ${m.regionName}.`));
       box.append(ul, orderForm());
     } else box.append(historyNode());
-    const foot = el('p', 'market-foot', `Your Marks: ${balance() == null ? '-' : marksText(balance())}${st.stale ? ' - the market may be out of date' : ''}`);
+    const held = m.book.state.held ?? 0;
+    const foot = el('p', 'market-foot', `Your Marks: ${balance() == null ? '-' : marksText(balance())}${held > 0 ? ` (${marksText(held)} held in bids)` : ''}${st.stale ? ' - the market may be out of date' : ''}`);
     box.append(foot);
     refocus(box, was);
     return box;

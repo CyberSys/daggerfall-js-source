@@ -1056,6 +1056,9 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
    of the popup's upper case and rule */
 .market-body .notice-hint, .market-body .notice-label { color: #cdbd9f; }
 .market-body .notice-hint { margin: 0; padding: 0; border-top: 0; font-size: 12px; letter-spacing: normal; text-transform: none; text-align: left; font-style: italic; }
+/* PROF5b: an auction's row - its name, its quality and its standing bid across, where it stands and when it ends under */
+.market-auction { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) auto; }
+.market-auction .market-where { grid-column: 1 / -1; }
 @media (max-width: 640px) { .market-row, .market-piece { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .market-row > b { grid-column: 1 / -1; }
   .market-line { display: none; } }
 @media (prefers-reduced-motion: reduce) { .prof-glint { animation: none; } .prof-toast { transition: none; } }`;

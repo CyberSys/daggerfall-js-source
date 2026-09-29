@@ -143,7 +143,7 @@ import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './de
 import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
 import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, smeltAtForge, craftAtAnvil, buyStock, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions; PROF2: the forge; PROF3: the anvil and the smith's stock
-import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove } from './market.js';   // PROF5: the market
+import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove, marketAuction, marketBid } from './market.js';   // PROF5: the market; PROF5b: its auctions
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -216,6 +216,7 @@ const MARKET_STATUS = Object.freeze({
   'market-not-yours': 409, 'market-listed': 409, 'market-order-full': 409, 'market-elsewhere': 409, 'market-other-character': 409,
   'market-on-road': 409,
   'market-not-listable': 409, 'market-uncollected': 409, 'market-standing': 409, 'market-unyielded': 409,   // AUDIT 30
+  'auction-not-masterwork': 409, 'auction-low': 409, 'auction-leading': 409, 'auction-bid-standing': 409,   // PROF5b
   'market-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
@@ -707,6 +708,8 @@ export default {
           '/v1/market/collect': () => marketCollect(ctx, who.player, env, body),
           '/v1/market/report': () => marketReport(ctx, who.player, env, body),
           '/v1/market/remove': () => marketRemove(ctx, who.player, env, body),
+          '/v1/market/auction': () => marketAuction(ctx, who.player, env, body),   // PROF5b
+          '/v1/market/bid': () => marketBid(ctx, who.player, env, body),
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();

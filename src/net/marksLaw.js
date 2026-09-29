@@ -70,6 +70,9 @@ export const MARKS_KINDS = Object.freeze({
   'order-escrow': 'move',     // PROF5: a buy order's Marks, held while it stands (the ledger's `escrow` end, the order's id)
   'order-fill': 'move',       // PROF5: a fill's pay, out of the order's escrow into the filler's balance
   'order-return': 'move',     // PROF5: what is left of an order's escrow, back to its poster at a cancel or its seventh day
+  'bid-escrow': 'move',       // PROF5b: an auction bid and its courier, held while it stands (the `escrow` end, the bid's id)
+  'bid-return': 'move',       // PROF5b: an outbid (or a removed auction's) bid's escrow, back to its bidder
+  'auction-sale': 'move',     // PROF5b: the winning bid less its tax, out of its escrow into the seller's balance
 });
 
 /** The switch the service's config holds (MARKS_OPEN): off, dev (the developers alone), on. */

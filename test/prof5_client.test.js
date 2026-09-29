@@ -155,7 +155,7 @@ test('PROF5 book: a view read through a minute\'s cache (a refusal too); a faile
   assert.equal((await book.read('materials', q)).ok, true);
   await book.read('materials', q);
   assert.equal(reads, 1, 'cached');
-  assert.deepEqual([book.state.balance, book.state.counts, book.state.road.length], [40, { listings: 2, orders: 1 }, 1]);
+  assert.deepEqual([book.state.balance, book.state.counts, book.state.road.length], [40, { listings: 2, orders: 1, bids: 0 }, 1]);
   t += MARKET_CACHE_MS;
   online = false;
   const stale = await book.read('materials', q);

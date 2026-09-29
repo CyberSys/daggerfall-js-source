@@ -293,6 +293,11 @@ export const REFUSALS = Object.freeze({
   'market-standing': 'That piece stands in a home. Take it up first.',
   'market-unyielded': 'Nothing yields that yet, so no one could fill an order for it.',
   'market-busy': 'The counting-house is still settling your last business.',
+  // PROF5b: the auctions
+  'auction-not-masterwork': 'Only a Masterwork is sold at auction. List it at a price instead.',
+  'auction-low': 'Another bid came first. The next bid is higher now.',
+  'auction-leading': 'Your bid already leads.',
+  'auction-bid-standing': 'A bid stands on it, so it cannot be taken back now.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
 });
@@ -851,6 +856,9 @@ export function accountMarket({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) 
     collect: (character, delivery, rid) => post('/v1/market/collect', { character, delivery, rid }),
     report: (listing) => post('/v1/market/report', { listing }),
     remove: (listing) => post('/v1/market/remove', { listing }),
+    // PROF5b: an auction posted (a Masterwork at its opening bid), and a bid on one
+    auction: (req) => post('/v1/market/auction', req),
+    bid: (req) => post('/v1/market/bid', req),
   };
 }
 

@@ -643,7 +643,7 @@ etc".
 |---|---|
 | **Notices** | DFU's rumour, pinned first; the server's word with a red seal (sieges, Turnings, Edicts, Festivals, revolts, Motherlodes, gates rising, Tides); players' notes (10.6) |
 | **Work** | Writs (section 11) with seals by poster - Court purple, Seat in the holder's colours, Guild in its colours, Commission green, Bounty black - each with its need, pay, time left, **Take** and **Deliver** |
-| **Market** | The auction house (10.2): Materials, Crafted, My listings, Buy orders, History |
+| **Market** | The auction house (10.2): Materials, Crafted, Auctions (PROF5b), My listings, Buy orders, History |
 | **Seat** | At a seat's boards: SEAT0 7.9 |
 | **Guilds** | Recruitment posters (each guild's heraldry and a line); a guild's own notes, members only |
 | **Makers** | The Hall of Makers: this Season's most Masterworks and most writs filled, per profession |
@@ -662,7 +662,7 @@ etc".
   **courier's time**. So a signature material (4.7) is cheap at home and dear abroad, and hauling is a trade.
 - **Buyout first, bids later** - DECIDED: PROF5 ships buyouts (a listed price, taken whole or, for materials, in part);
   **PROF5b** adds timed auctions for **Masterworks only** - 24 hours, a 5% minimum raise, and a bid in the last 2
-  minutes adds 2.
+  minutes adds 2 (BUILT, section 27).
 - **Listings**: last **72 hours**; at most **30** an account; price **1 to 1,000,000 Marks**; a cancelled listing
   returns its goods (the fee kept). **History**: every material's 7-day median, drawn as a small line on its card.
 
@@ -889,7 +889,8 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
   units own and bought apart, a piece's provenance and wear, its fee, state and return; `market_sales` - a purchase's
   row, its tax, courier, road and arrival, the couriers' loads; `market_deliveries` - a piece on its way to a pack, bought
   or come back; `market_orders` and `market_fills`; `market_prices`, the History's day table; `market_reports`), with the
-  ledger's `escrow` end, the witness's `hub` kind and `products` kept past its owner's account
+  ledger's `escrow` end, the witness's `hub` kind and `products` kept past its owner's account; `market_auctions`,
+  `market_bids` and `market_auction_reports` - BUILT, `0026_auctions.sql` (PROF5b, section 27)
 - `writs` (id, kind, poster, region, key, material, qty, pay, escrow, expires_at, filled) - BUILT for the Court's
   writs alone, `0020_professions.sql` (id, kind `court`, day, region, slot, material, tier, qty, pay, renown, expires_at,
   filled_by, filled_char, filled_at, rid, n), with `writ_days` (a region's day written down, and its `active`)
@@ -919,7 +920,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF3** - SHIPPED 2026-09-28 (at `dev`, section 24) | Smithing with its act; quality; provenance; the anvil (the forge stands since PROF2); the smith's stock (the fittings the professions do not yet yield) | A crafted Mithril Longsword is DFU's, with its quality |
 | **PROF4** - SHIPPED 2026-09-28 (at `dev`, section 25) | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
 | **PROF5** - SHIPPED 2026-09-29 (at `dev`, section 26) | The Market tab: listings, regional markets, couriers, buy orders, history; the Weavers' counter | A crafted Mithril Longsword listed in one region is bought from another by courier and reaches its buyer's pack, its owner moved. Needs MARKS1, NOTICE1, PROF3 (all shipped) |
-| **PROF5b** | Timed auctions for Masterworks | - |
+| **PROF5b** - SHIPPED 2026-09-29 (at `dev`, section 27) | Timed auctions for Masterworks: the Auctions view, bids escrowed, the last two minutes' two, settled on read | A Masterwork posted in Daggerfall is bid on from Wayrest and Daggerfall, the outbid escrow returned, and at its end the winner's piece is theirs, the seller paid less the tax. Needs PROF5 (shipped) |
 | **PROF6** | Writs: guild, seat, commissions, bounties | Needs SEAT1b for seat writs |
 | **PROF7** | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | Needs FORAGE1-2 (shipped: the shelves' registry) |
 | **PROF8** | Fishing with the net (the throw, the tug, the haul) | Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
@@ -1828,6 +1829,99 @@ As built:
   count, dropped twice; since AUDIT 30 S7, a load's room guard at its delivery, which the settle's read now keeps).
   The done-when is `prof5_client`'s DONE WHEN, through the real Worker.
 
+## 27. PROF5b - Timed auctions for Masterworks, as built (SHIPPED 2026-09-29, at `dev`)
+
+Mac: **"Go"** (PROF5b after AUDIT 30). What 10.2 left open for PROF5b ("timed auctions for **Masterworks only** - 24
+hours, a 5% minimum raise, and a bid in the last 2 minutes adds 2"), DECIDED here (the record's, at Mac's instruction -
+"make the decisions ... This is your baby"), and what was found (FACT):
+
+- **What PROF5b is.** An **auction** of one crafted **Masterwork** (its product row's quality, 4) on the Market tab's
+  new **Auctions** view, beside Crafted: posted at an **opening bid**, it stands **24 hours**; each bid must raise the
+  standing one by **5%** (rounded up, at least 1 Mark); a bid in its **last 2 minutes adds 2** to it; at its end the
+  highest bid buys it. Not here, named: a buyout beside the bids (DECIDED none - a Masterwork is sold at a price by
+  PROF5's listing, or to the room by this); a reserve below which it does not sell (the opening bid is it); auctions
+  of anything but a Masterwork (10.2's "Masterworks only").
+- **What may be auctioned** is what a crafted piece may be listed as (26, AUDIT 30): its owner's, one live sale at a
+  time (`products.listed`, which a listing and an auction both set), no delivery of it waiting, not standing in a
+  home, a crafted family's (`pieceListable`), as minted (the client's `asMinted`) - and a Masterwork
+  (`auction-not-masterwork`). The piece leaves the save while it stands, kept before it is asked (the book's lists,
+  put back on a refusal), as a listed piece does.
+- **Where**: an auction stands on the boards of the region it was posted in, and shows on every board with its
+  courier (26's law): a bid at another region's board carries the **courier** from its region to the auction's, for
+  one piece, escrowed with the bid; the winner's piece reaches their character as a **delivery** - at once from its
+  own region's board, else after the courier's time (26's deliveries, collected by the book).
+- **The terms** (`src/net/marketLaw.js`): the opening bid 1 to 1,000,000 Marks (a listing's price bounds); a bid up to
+  MARKS_MAX; the next bid is the opening while none stands, else the standing bid plus `max(1, ceil(5%))`
+  (`auctionNext`); a bid whose moment is within 120 seconds of the end moves the end 120 seconds on (`auctionEnd` -
+  "adds 2", as said, so a run of late bids keeps adding; the 5% raise and the Marks cap bound it). The **fee** is a
+  listing's, 1% of the opening bid (at least 1), burnt when it is posted and kept if it is cancelled; the **sales tax**
+  5% of the winning bid, the Tithe's term at nought as 26's.
+- **The Marks**: a bid is **escrowed** - its amount and its courier, one ledger line on 26's `escrow` end keyed by the
+  bid's own id (`<rid>:bid`), so a bidder cannot spend them elsewhere while the bid stands. An outbid bid's escrow is
+  returned on its bidder's next read of the market (under the Marks cap, else it waits, as an order's return does) -
+  DECIDED: not in the new bid's own batch, because a return that broke the outbid bidder's cap would refuse the new
+  bid. The standing bidder may not bid again (`auction-leading`); the seller never (`market-own`). At its end the
+  winner's escrow pays: the seller the bid less its tax, the tax burnt, the courier burnt - three lines keyed on the
+  auction (`auction:<id>:sale`, `:tax`, `:courier`), so its close happens once.
+- **Settled on read** (26's law): an auction past its end is closed by the **next read of the market by anyone** -
+  its seller, its winner and its outbid bidders each need it, so the sweep is every reader's, at most twenty a read,
+  one batch each, keyed on a nonce. Sold, its owner moves to the winner and the winner's delivery is written; the
+  seller's room under the Marks cap is asked first (else the close waits, re-asked each read - the winner's escrow
+  held). Unsold (no bid), or removed by a moderator, the piece goes back to its seller as a returned delivery on the
+  seller's next read, as an expired listing's does.
+- **Cancel**: the seller's, while no bid stands (`auction-bid-standing`) - the piece answered back to the pack, the fee
+  kept. **Report and remove** (section 20): an auction is reportable as a listing is (its own report table - the
+  listings' is keyed to `market_listings` by a foreign key), and a moderator's removal voids the standing bid (its
+  escrow back on its bidder's next read) and returns the piece.
+- **Counts**: an open auction counts among the account's **thirty** listings (10.2's cap is the account's sales
+  standing). A bid counts among the market's acts an hour (`market:<id>`, MARKET_OPS_MAX); a post among its posts.
+- **Ids and repeats** (PROF1's law, AUDIT 30's lines): a post's row keyed `(seller, rid)`, a bid's `(bidder, rid)`,
+  each looked up before the switch and answered `repeat`; every ledger line an auction writes under its own suffix
+  (`:afee` - never a listing's `:fee`, which one id could otherwise hold twice - `:bid`, `bid-return:<id>`,
+  `auction:<id>:...`), a plain INSERT, and each decision refuses an id whose line the ledger holds (`prof-rid`).
+- **The tab**: **Auctions** - every open auction, ending soonest first: the piece as its record mints it, its quality,
+  maker and wear, the standing bid (or the opening, "no bids yet"), the bids, the time left, where and its courier;
+  the picked row's **Bid** with the next bid filled in, or "Your bid leads", or "Your auction" with Cancel while none
+  stands. **List on the market** offers "An auction (Masterworks)": the Masterworks in the pack and the home, an
+  opening bid, the fee and the terms said. **My listings** shows the account's auctions and its bids (leading,
+  outbid, won, lost). "Your Marks" says what the bids hold. **Your trades** counts an auction won or sold.
+- **The service** is `acct27`; `0026_auctions.sql` holds the auctions, the bids and the auction reports; the ledger's
+  new kinds `bid-escrow`, `bid-return` and `auction-sale` move Marks, the fee and the tax are 26's burns.
+- **Done when**: a Masterwork posted in Daggerfall is bid on from Wayrest and from Daggerfall, the Wayrest bid outbid
+  and its escrow returned on its bidder's read, a bid in the last two minutes adding two, and at its end the Daggerfall
+  bidder's piece is theirs, the seller paid the bid less its tax - through the real Worker.
+
+As built:
+
+- **Behind PROF5's three switches** - no switch of its own. The service is `acct27`, its tables `0026_auctions.sql`
+  (section 14's line, BUILT); two routes, `/v1/market/auction` and `/v1/market/bid` - the cancel, the report and the
+  removal are the listings' routes, which find an auction by its id. A post is one statement keyed on its nonce (the
+  fee, the thirty, the piece its owner's, unlisted and a Masterwork, and no `:afee` line under its id - all in it); a
+  bid is one UPDATE of the auction keyed on the standing bid it read (`high IS` that bid - two bids at once, one
+  stands), its row and its escrow line keyed on the nonce the UPDATE wrote; a close is one batch keyed on the high bid
+  it read and the seller's room under the cap.
+- **Settled on read**: `closeAuctions` runs first on every market read, anyone's - at most twenty auctions past their
+  end a read; then the reader's own `settle` returns their unsold and removed pieces (a returned delivery) and their
+  outbid and voided bids' escrow (a `bid-return:<id>` line, under their cap). "Your Marks" counts what the reader's
+  bids hold (`held`, the answer's).
+- **The law** is `src/net/marketLaw.js` (`AUCTION_S`, `AUCTION_RAISE_PCT`, `AUCTION_LATE_S`, `AUCTION_ADD_S`,
+  `AUCTION_BID_MAX`, `bidOk`, `auctionNext`, `auctionEnd`, `auctionable`); the ledger's `bid-escrow`, `bid-return` and
+  `auction-sale` are `marksLaw.js`'s, each a move.
+- **The window**: the Market tab's **Auctions** view (`ui/marketTab.js`, its row its own grid, so the piece's name is
+  never cut at a phone's width), the List form's "An auction (Masterworks)", My listings' auctions and bids, Your
+  trades' "won" and "auctioned". The book (`net/marketBook.js`) keeps a post as it keeps a listing (the piece out of
+  the save until the answer, put back on a refusal, settled by its own route) and a bid pressed twice under one id.
+- **FOUND and fixed in the build**: a refusal answers its word alone (`index.js`'s `no`), so `auction-low` carries no
+  next bid - the tab and the book read the view again on it (the tab's own `MOVED` lacked it; pinned red first); the
+  race test's two bids at once were served one after the other by the harness, so it proved nothing of the guard - it
+  is now staged (Bob's decision waits while Cid's whole bid lands); `MARKS1-13` aimed at `0018_marks.sql`'s trigger,
+  which `0025_market.sql` rebuilt, and survived since PROF5 - re-aimed at the live one, dead.
+- **Pinned**: `test/prof5b_law.test.js` (3), `test/prof5b_service.test.js` (5), `test/prof5b_client.test.js` (4);
+  `tools/mutants/prof5b.json`, 40 mutants, 35 dead and five recorded equivalent (the raise's floor of a Mark, which the
+  ceiling of 5% of a whole Mark already gives; the post's Masterwork guard, the cancel's standing-bid word, the bid's
+  leader word and its low word - each an early refusal whose decision asks the same). The done-when is
+  `prof5b_service`'s DONE WHEN, through the real Worker; `prof5b_client`'s the books'.
+
 ## Appendix A - a day of a gatherer
 
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven, when the wilderness opens. The board's Work tab has a
@@ -1894,6 +1988,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Listings | 72 h, 30 an account, 1-1,000,000 Marks (a material's a unit, a piece's whole), 1-5,000 units; a listing's or an order's worth at most 10,000,000 (the Marks cap, AUDIT 30); buy orders 20, 7 days; 60 postings and 120 market acts an hour, each its own counter (PROF5) |
 | Fees | listing 1% of the listing's worth, rounded up (min 1); sales tax 5% of a listing's (an order's) running total, rounded down, less what its earlier sales paid (PROF5; AUDIT 30); the Tithe 0-10% / 0-15% from the seller, across the bailiwick (nought until SEAT1 holds a seat); courier ceil(ceil(units / 20) x (1 + px / 25)), min 2, px the hubs' straight line rounded; courier's time 15 min + 1 min per 10 px begun |
 | The History (PROF5) | a material's median: the unit price its middle unit sold at over 7 UTC days, across the Bay (an even count's two middle units' mean); its line the seven daily medians; 30 materials shown, 20 trades; kept 90 days; the weekly report's 20 most traded |
+| Auctions (PROF5b) | Masterworks only; 24 h; opening bid 1-1,000,000 Marks, a bid up to 10,000,000 (the Marks cap); the next bid the opening, else the standing bid + max(1, ceil(5%)); a bid within 120 s of the end adds 120 s, as often as bids come; fee a listing's on the opening, tax a sale's on the winning bid; among the account's 30; twenty closed a read |
 | A piece's wear (PROF5) | its condition over its most, in thousandths (1-1,000); the buyer's piece minted at that share, at least 1; read "worn to N%", 99 at most (AUDIT 30) |
 | Marks | ~10 gold of play; balance cap 10,000,000; Bank: 1 Mark -> 8 gold, 300 a day |
 | Faucets | Court writs 3 a day (from PROF1); gate 50 a receipt, 2 a UTC day; Honours 50 / 25; Motherlode 10, one a day |

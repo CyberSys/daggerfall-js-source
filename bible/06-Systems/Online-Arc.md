@@ -11157,3 +11157,22 @@ repeat law (sections 23 to 25); no fade in the fall; the Repair Kit not in Warfo
 stumps and log piles only where the archive has them; `marketLaw.js` among the laws; the Master Joiner's mark on
 furniture alone; the market's own act count - each corrected where it stood (Professions-Arc 5.2, 14, 23-26 and
 Appendix B, Port-Ledger, UI.md, Testing, the three patch notes).
+
+## PROF5b (2026-09-29, Mac: "Go") - Timed auctions for Masterworks
+
+The record is `06-Systems/Professions-Arc.md` 10.2 and 27; this is what the slice built, online's alone. The Market's
+Ledger A departure, extended (`Port-Ledger.md` section A, THE MARKET).
+
+- **The service** is `acct27`, its tables `0026_auctions.sql`: the auctions (one open auction a piece, by a unique
+  index), the bids (one standing bid an auction, likewise) and the auctions' reports. `/v1/market/auction` posts one
+  (the listing's fee on its opening bid, burnt under `:afee`); `/v1/market/bid` decides a bid by one UPDATE keyed on
+  the standing bid it read, the bid and its courier held on the ledger's `escrow` end under `<rid>:bid`. The cancel,
+  the report and the moderator's removal are the listings' routes.
+- **Nothing on a clock**, as PROF5's law: an auction past its end is closed by the next market read, anyone's (the
+  seller paid the bid less 5% when the cap has room, the tax and the courier burnt, the piece the winner's by
+  delivery); an outbid bid's escrow comes back on its bidder's own read, under the cap.
+- **The Marks book is told** what the reader's bids hold (`held`), and "Your Marks" says it.
+- **FOUND and fixed:** the Market tab did not read again on `auction-low` - a bid another overtook left the old next bid
+  on screen; `MARKS1-13` had aimed at a trigger `0025_market.sql` rebuilt, and survived unseen since PROF5.
+- **Pinned:** `test/prof5b_law.test.js`, `test/prof5b_service.test.js`, `test/prof5b_client.test.js`;
+  `tools/mutants/prof5b.json` (40: 35 dead, five recorded equivalent).

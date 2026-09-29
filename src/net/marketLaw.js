@@ -21,7 +21,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { STORES_MAX, MATERIAL_FAMILIES, MINED_KEYS, FOOD_KEYS, PLANT_GROUP_TEMPLATES } from './professionLaw.js';
-import { PROVENANCE_RE, recipeById } from './recipeLaw.js';
+import { PROVENANCE_RE, recipeById, MASTERWORK } from './recipeLaw.js';
 import { MARKS_MAX } from './marksLaw.js';
 import { witnessedFact, factConfirmed, material } from './nodeLaw.js';
 
@@ -60,10 +60,10 @@ export const MARKET_MEDIAN_DAYS = 7;
 export const MARKET_KEEP_DAYS = 90;
 /** A piece's wear: its condition as a share of its most, in thousandths (PROF0 26). */
 export const WEAR_WHOLE = 1000;
-/** The Market tab's views, in its row's order (10.1). */
+/** The Market tab's views, in its row's order (10.1; PROF5b: Auctions beside Crafted). */
 export const MARKET_VIEWS = Object.freeze([
-  Object.freeze(['materials', 'Materials']), Object.freeze(['crafted', 'Crafted']), Object.freeze(['mine', 'My listings']),
-  Object.freeze(['orders', 'Orders']), Object.freeze(['history', 'History']),
+  Object.freeze(['materials', 'Materials']), Object.freeze(['crafted', 'Crafted']), Object.freeze(['auctions', 'Auctions']),
+  Object.freeze(['mine', 'My listings']), Object.freeze(['orders', 'Orders']), Object.freeze(['history', 'History']),
 ]);
 /** The crafted families that list - arrows carry no provenance and the siege works are never made (PROF0 25). */
 export const CRAFTED_FAMILIES = Object.freeze([
@@ -192,3 +192,23 @@ export function marketCatalogue() {
 /** The switch: the market is open where the board, the professions and the Marks all are (PROF0 26 - section 20
  *  names three switches, and the market needs each). */
 export const marketOpen = (board, prof, marks) => board === true && prof === true && marks === true;
+
+// ─── PROF5b: TIMED AUCTIONS FOR MASTERWORKS (10.2, bible/06-Systems/Professions-Arc.md 27) ─────
+
+/** An auction stands this long (10.2: 24 hours). */
+export const AUCTION_S = 24 * 3600;
+/** The least raise over the standing bid, in hundredths (10.2: 5%) - rounded up, at least a Mark. */
+export const AUCTION_RAISE_PCT = 5;
+/** 10.2: "a bid in the last 2 minutes adds 2" - a bid this near the end moves it this far on. */
+export const AUCTION_LATE_S = 120;
+export const AUCTION_ADD_S = 120;
+/** A bid, at most: what one balance can hold. */
+export const AUCTION_BID_MAX = MARKS_MAX;
+/** A bid's amount in whole Marks, 1 up to AUCTION_BID_MAX. */
+export const bidOk = (n) => Number.isSafeInteger(n) && n >= 1 && n <= AUCTION_BID_MAX;
+/** The least next bid: the opening while none stands, else the standing bid and its 5%, rounded up, at least 1. */
+export const auctionNext = (high, opening) => (high == null ? opening : high + Math.max(1, Math.ceil((high * AUCTION_RAISE_PCT) / 100)));
+/** An auction's end after a bid at `atS`: moved AUCTION_ADD_S on when the bid came in its last AUCTION_LATE_S. */
+export const auctionEnd = (endsAt, atS) => (endsAt - atS < AUCTION_LATE_S ? endsAt + AUCTION_ADD_S : endsAt);
+/** What may be auctioned (10.2: "Masterworks only"): a Masterwork of a family the market lists. */
+export const auctionable = (recipeId, quality) => quality === MASTERWORK && pieceListable(recipeId);

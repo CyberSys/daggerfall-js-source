@@ -454,8 +454,8 @@
   {
     "name": "PROF5-svc-thirty-one",
     "file": "server-account/src/market.js",
-    "old": "        AND (SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND state = 'open') < ?16",
-    "new": "        AND (SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND state = 'open') <= ?16",
+    "old": "        AND ${OPEN_SALES_SQL} < ?16   -- PROF5b: an auction is among the thirty",
+    "new": "        AND ${OPEN_SALES_SQL} <= ?16   -- PROF5b: an auction is among the thirty",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -728,8 +728,8 @@
   {
     "name": "PROF5-svc-report-own",
     "file": "server-account/src/market.js",
-    "old": "  if (l.seller === player.id) return { error: 'market-own' };\n  await db.prepare('INSERT OR IGNORE INTO market_reports",
-    "new": "  await db.prepare('INSERT OR IGNORE INTO market_reports",
+    "old": "  if (row.seller === player.id) return { error: 'market-own' };\n  if (l) await db.prepare('INSERT OR IGNORE INTO market_reports",
+    "new": "  if (l) await db.prepare('INSERT OR IGNORE INTO market_reports",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -773,8 +773,8 @@
   {
     "name": "PROF5-book-piece-lost",
     "file": "src/net/marketBook.js",
-    "old": "          letGo('lists', rid);\n          try { piece.putBack(piece.item, piece.where); } catch (e) { console.warn('[market] put back', e); }",
-    "new": "          letGo('lists', rid);",
+    "old": "    letGo('lists', body.rid);\n    try { piece.putBack(piece.item, piece.where); } catch (e) { console.warn('[market] put back', e); }",
+    "new": "    letGo('lists', body.rid);",
     "tests": [
       "test/prof5_client.test.js"
     ]

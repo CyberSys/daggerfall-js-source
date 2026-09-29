@@ -18,6 +18,9 @@
 // the answer BEFORE the piece is minted, so a mint that throws is never a
 // second mint; a kept act whose answer was lost is asked again with the
 // same id when the tab next settles, and the service's `repeat` answers it.
+//
+// PROF5b: an auction posted is a listed piece's act (kept, put back on a refusal) with its own route; a bid is an
+// order's (its id kept for a press asked again - it moves Marks, and the won piece comes by delivery).
 // ═══════════════════════════════════════════════════════════════════
 
 import { MARKET_RID_RE } from './marketLaw.js';
@@ -39,7 +42,7 @@ const WAIT = Object.freeze(['no-session', 'auth']);
 /** The answers that say the market is not this account's now. */
 const SHUT = Object.freeze(['market-closed', 'prof-need-account']);
 /** AUDIT 30 U9: the answers that say the view a press was made from has moved - the minute's cache is let go. */
-const MOVED = Object.freeze(['market-gone', 'market-short', 'market-price-moved']);
+const MOVED = Object.freeze(['market-gone', 'market-short', 'market-price-moved', 'auction-low']);   // PROF5b: a bid another overtook
 /** What the Market tab says while a kept act waits for its answer. */
 export const MARKET_KEPT_TEXT = 'The counting-house has your order and will settle it when it answers.';
 
@@ -70,7 +73,9 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     balance: /** @type {number|null} */ (null),
     /** what is on its way to this account (the service's `road`) */
     road: /** @type {any[]} */ ([]),
-    counts: { listings: 0, orders: 0 },
+    counts: { listings: 0, orders: 0, bids: 0 },
+    /** PROF5b: the Marks this account's bids hold (standing, or outbid and not yet back) */
+    held: 0,
   };
   const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
   const slot = () => `${account() ?? ''}|${character() ?? ''}`;
@@ -119,7 +124,8 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     state.open = true;
     if (Number.isSafeInteger(d.balance)) { state.balance = d.balance; try { marks?.set?.(d.balance); } catch { /* the Marks book's own */ } }
     if (Array.isArray(d.road)) state.road = d.road;
-    if (d.counts) state.counts = { listings: d.counts.listings | 0, orders: d.counts.orders | 0 };
+    if (d.counts) state.counts = { listings: d.counts.listings | 0, orders: d.counts.orders | 0, bids: d.counts.bids | 0 };
+    if (Number.isSafeInteger(d.held)) state.held = d.held;
     for (const st of [d.store, ...(Array.isArray(d.stores) ? d.stores : [])]) {
       if (st && typeof st.material === 'string') { try { stores?.apply?.(st); } catch { /* the professions' book's own */ } }
     }
@@ -190,6 +196,19 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     return { ok: false, error: r?.error ?? 'server' };
   }
 
+  /** A piece posted (listed, or PROF5b auctioned): out of the save first, kept with its request and its route, let go on
+   *  the answer, put back on a refusal, kept on silence. */
+  async function postPiece(route, body, piece) {
+    if (!piece?.take?.()) return { ok: false, error: 'bad-provenance' };
+    keep('lists', { rid: body.rid, body, item: piece.item, where: piece.where, ...(route === 'list' ? {} : { route }) });
+    const r = heard(await ask(() => door[route](body)));
+    if (r?.ok) { letGo('lists', body.rid); forget(); return { ok: true, data: r.data }; }
+    if (kept(r)) return { ok: false, kept: true, error: r?.error, text: MARKET_KEPT_TEXT };
+    letGo('lists', body.rid);
+    try { piece.putBack(piece.item, piece.where); } catch (e) { console.warn('[market] put back', e); }
+    return { ok: false, error: r?.error ?? 'server' };
+  }
+
   const book = {
     state,
     read,
@@ -211,16 +230,7 @@ export function createMarketBook({ door, storage = null, character, now = () => 
       return once(`list|${JSON.stringify(req)}`, async () => {
         const rid = mintMarketRid();
         const body = { character: character(), ...req, rid };
-        if (req.kind === 'piece') {
-          if (!piece?.take?.()) return { ok: false, error: 'bad-provenance' };
-          keep('lists', { rid, body, item: piece.item, where: piece.where });
-          const r = heard(await ask(() => door.list(body)));
-          if (r?.ok) { letGo('lists', rid); forget(); return { ok: true, data: r.data }; }
-          if (kept(r)) return { ok: false, kept: true, error: r?.error, text: MARKET_KEPT_TEXT };
-          letGo('lists', rid);
-          try { piece.putBack(piece.item, piece.where); } catch (e) { console.warn('[market] put back', e); }
-          return { ok: false, error: r?.error ?? 'server' };
-        }
+        if (req.kind === 'piece') return postPiece('list', body, piece);
         const k = `list|${JSON.stringify(req)}`;
         const r = answered(heard(await ask(() => door.list({ ...body, rid: idFor(k) }))));
         if (r?.ok || !kept(r)) done(k);
@@ -252,6 +262,16 @@ export function createMarketBook({ door, storage = null, character, now = () => 
         return keptAct('collects', { rid }, () => door.collect(character(), delivery, rid), mint);
       });
     },
+    /** PROF5b: AN AUCTION of a Masterwork - `req` `{ region, provenance, wear, opening, hubs }` - posted as a listed
+     *  piece is (out of the save first, kept, put back on a refusal). */
+    auction(req, piece) {
+      return once(`auction|${JSON.stringify(req)}`, async () => postPiece('auction', { character: character(), ...req, rid: mintMarketRid() }, piece));
+    },
+    /** PROF5b: A BID - `req` `{ region, auction, amount, hubs }` - its id kept for a press asked again (the lost answer's). */
+    bid(req) {
+      const k = `bid|${JSON.stringify(req)}`;
+      return once(k, async () => { const r = answered(heard(await ask(() => door.bid({ character: character(), ...req, rid: idFor(k) })))); if (!kept(r)) done(k); return r; });
+    },
     /** A buy ORDER posted, a FILL, an order WITHDRAWN - each with its id kept for a press asked again. */
     order(req) {
       const k = `order|${JSON.stringify(req)}`;
@@ -280,7 +300,7 @@ export function createMarketBook({ door, storage = null, character, now = () => 
         const k = keptOf();
         let settled = 0;
         for (const l of k.lists) {
-          const r = heard(await ask(() => door.list(l.body)));
+          const r = heard(await ask(() => (l.route === 'auction' ? door.auction(l.body) : door.list(l.body))));   // PROF5b: an auction's own route
           if (r?.ok) { letGo('lists', l.rid); try { drop?.(l.item, l.where); } catch (e) { console.warn('[market] drop', e); } settled++; }
           else if (!kept(r)) { letGo('lists', l.rid); try { putBack(l.item, l.where); } catch (e) { console.warn('[market] put back', e); } settled++; }
         }

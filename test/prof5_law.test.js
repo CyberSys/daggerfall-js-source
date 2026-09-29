@@ -31,8 +31,8 @@ test('PROF5 law: the bounds (10.2, 10.3, section 20) - a listing 72 hours, thirt
   assert.deepEqual([unitsOk(1), unitsOk(5000), unitsOk(0), unitsOk(5001)], [true, true, false, false]);
   assert.deepEqual([wearOk(1), wearOk(1000), wearOk(0), wearOk(1001)], [true, true, false, false]);
   assert.deepEqual([provenanceOk('0123456789abcdef'), provenanceOk('0123456789ABCDEF'), provenanceOk('0123')], [true, false, false]);
-  assert.deepEqual(MARKET_VIEWS.map(([v]) => v), ['materials', 'crafted', 'mine', 'orders', 'history']);
-  assert.deepEqual(MARKET_VIEWS.map(([, l]) => l), ['Materials', 'Crafted', 'My listings', 'Orders', 'History'], 'the wireframe\'s row');
+  assert.deepEqual(MARKET_VIEWS.map(([v]) => v), ['materials', 'crafted', 'auctions', 'mine', 'orders', 'history']);   // PROF5b: Auctions beside Crafted
+  assert.deepEqual(MARKET_VIEWS.map(([, l]) => l), ['Materials', 'Crafted', 'Auctions', 'My listings', 'Orders', 'History'], 'the wireframe\'s row, and PROF5b\'s Auctions');
   assert.deepEqual(CRAFTED_FAMILIES.map(([f]) => f), ['weapons', 'armour', 'staves', 'bows', 'tools', 'kits', 'furniture'], 'arrows and the siege works never list');
   assert.deepEqual([marketOpen(true, true, true), marketOpen(true, true, false), marketOpen(false, true, true), marketOpen(true, false, true)], [true, false, false, false]);
   assert.deepEqual([MARKET_MEDIAN_DAYS, MARKET_KEEP_DAYS, MARKET_REPORT_MEDIANS], [7, 90, 20]);

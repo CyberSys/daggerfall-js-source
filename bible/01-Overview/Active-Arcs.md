@@ -13,6 +13,13 @@
 One line per arc, newest first within each group. Each entry names its own
 page; the page is the record, this is the way in.
 
+- `06-Systems/Professions-Arc.md` 27 (PROF5b) - 2026-09-29, Mac ("Go"): TIMED AUCTIONS FOR MASTERWORKS, SHIPPED on the
+  branch behind the market's three switches: the Market tab's Auctions view - a Masterwork posted at an opening bid for 24
+  hours, each bid 5% over the last and escrowed with its courier, a bid in the last two minutes adding two, an outbid
+  bid's Marks back on its bidder's read, the close settled by whoever reads next; `server-account/src/market.js`
+  (marketAuction, marketBid, closeAuctions), `net/marketLaw.js`, `net/marketBook.js`, `ui/marketTab.js`. Migration 0026,
+  `acct27`. Done when a Masterwork posted in Daggerfall is bid on from Wayrest and Daggerfall and at its end the winner's
+  piece is theirs, the seller paid less the tax - `test/prof5b_service.test.js`.
 - `06-Systems/Online-Arc.md` AUDIT 30 - 2026-09-29, Mac ("Do it"): PROF3, PROF4 AND PROF5 AUDITED in AUDIT 29's six lenses, 82 findings, 74 folded, every one verified and fixed, 40 pins each run red on the code before its fix. The ledger's money holes: the smith's stock free under an id the Bank had spent, a buy's and a fill's tax on one line, a pruned row's id reused for an escrow held unpaid (a mint), an OR IGNORE that would swallow a balance's CHECK - every market and stock line its own, a spent id refused. The laws': the tax dodged in small lots, the unyielded ordered, arrows listed as a piece, a piece listed off the road or where it stands, a name split mid-pair. The client's: a kept listing put back on the gate's 429 (a copy), an enchanted piece's enchantment lost on the market, a kept craft's fee unpaid, another act handed the first's answer. The tab's: the Stores never told, the search over the hundred cheapest, late answers, 0-pixel names at a phone's width, a redraw per digit. The acts': a flicked plane clean, a hover planing, the wrong recipe crafted, a fall on a rebuilt pixel. `acct26`; `test/audit30_laws.test.js` (7), `test/audit30_service.test.js` (12), `test/audit30_client.test.js` (15), `test/audit30_host.test.js` (6); `tools/mutants/audit30.json`, 63 dead.
 - `06-Systems/Professions-Arc.md` 26 (PROF5) - 2026-09-29, Mac ("Continue"): THE MARKET, SHIPPED on the branch behind the
   board's, the professions' and the Marks' switches together: the Notice Board's Market tab (`ui/marketTab.js`) - a Stores
