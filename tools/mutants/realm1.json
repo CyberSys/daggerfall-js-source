@@ -110,8 +110,8 @@
   {
     "name": "REALM1-delete-keeps-objects",
     "file": "server-account/src/realm.js",
-    "old": "  if (bucket) {\n    await dropObjects(bucket, [row.obj, row.prev]);",
-    "new": "  if (false) {\n    await dropObjects(bucket, [row.obj, row.prev]);",
+    "old": "  if (!bucket) return;\n  await dropObjects(bucket, named);",
+    "new": "  if (bucket) return;\n  await dropObjects(bucket, named);",
     "tests": [
       "test/realm1.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "REALM1-delete-walk-skipped",
     "file": "server-account/src/realm.js",
-    "old": "    if (typeof bucket.list === 'function') {",
-    "new": "    if (false) {",
+    "old": "  if (typeof bucket.list !== 'function') return;",
+    "new": "  if (typeof bucket.list === 'function') return;",
     "tests": [
       "test/realm1.test.js"
     ]

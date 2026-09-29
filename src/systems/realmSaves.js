@@ -91,6 +91,9 @@ export const realmJoin = (/** @type {any} */ io, /** @type {string} */ id) => re
 export const realmLeave = (/** @type {any} */ io, /** @type {string} */ id, /** @type {string} */ lease, { keepalive = false } = {}) => realmAsk(io, '/v1/realm/leave', { method: 'POST', json: { id, lease }, keepalive });
 /** The player's own delete. */
 export const realmDelete = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, '/v1/realm/delete', { method: 'POST', json: { id } });
+/** HOUSE-LOSS: a customs whose first save never landed, undone - its home, guild place and customs given back to the
+ *  offline character (server-account/src/realm.js undoRealm). Its own route: an older service answers `not-found`. */
+export const realmUndo = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, '/v1/realm/undo', { method: 'POST', json: { id } });
 /** The save as it stands: `{ ok, text, seq }` - a join's load, or a copy to offline. */
 export const realmFetch = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, realmSavePath(id));
 /** AUDIT REALM2 C5: A HEADER CARRIES BYTES - a value past U+00FF makes fetch throw (WHATWG: a ByteString), so a tile
@@ -357,7 +360,9 @@ export function sayRealmSave(/** @type {any} */ outcome, /** @type {(text: strin
 /** A realm refusal in the Online door's words: the two this side names itself, the service's own through its table. */
 export function realmRefusalText(/** @type {string} */ error) {
   if (error === 'signed-out') return 'Sign in - or continue as a guest - to play online.';
-  if (error === 'no-data') return 'That online character was never saved. Delete it and make it again.';
+  // HOUSE-LOSS: "Delete it and make it again" was said of a character brought in too, and its delete took the home
+  // customs had carried. One brought in is finished from its offline tile, or undone - never made again.
+  if (error === 'no-data') return 'That online character was never saved. One you brought in: press Bring online on it again, or undo it. One made online: delete it and make it again.';
   if (error === 'left') return 'You left the realm.';
   if (error === 'held') return 'A trade or a purchase is being settled - the save follows it.';   // AUDIT REALM2 C2: F9 mid-transaction
   if (error === 'too-large') return 'This character\'s save is too big for the realm to take. The realm keeps the last save it took.';   // AUDIT REALM2 C8

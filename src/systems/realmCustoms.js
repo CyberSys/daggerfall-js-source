@@ -26,8 +26,9 @@
 //
 // AUDIT REALM2 T3: A DEED IS WEALTH TOO. The realm's bank buys a ship, a
 // house and the pieces placed in them back for gold, so customs counts
-// each at that price and takes whole deeds when the total is over -
-// applyCustoms says the rule.
+// each at that price - and (HOUSE-LOSS) takes a whole deed only when the
+// deeds by themselves are over; the gold pays the rest. applyCustoms says
+// the rule.
 // ═══════════════════════════════════════════════════════════════════
 
 import { callInEmpireDebt, SHIP_TYPES } from './banking.js';
@@ -44,18 +45,24 @@ const lists = (/** @type {any[]} */ ...ls) => ls.filter(Array.isArray);
  * CUSTOMS ON A SAVE, in place (hand it a copy). First every loan is called in - the Empire keeps no loan for a
  * newcomer (banking.js callInEmpireDebt at a cap of nothing): the loan's own account, the other accounts, then the
  * purse and its letters; what cannot be paid falls due at once and defaults at the first join, as any call does. Then
- * the wealth left is capped at the allowance for the level: the excess is taken from what the character left in the
- * world first (AUDIT REALM F2: the stashes, which it cannot see from the door), then from its deeds (AUDIT REALM2 T3,
- * below), then the bank (the fullest account first), then the wagon's gold and letters, then the pack's letters, then
- * the purse. A record emptied is gone from its list.
+ * the wealth left is capped at the allowance for the level: a deed goes only as far as the deeds THEMSELVES are over it
+ * (AUDIT REALM2 T3 and HOUSE-LOSS, below), and the gold pays what is still over - what the character left in the world
+ * first (AUDIT REALM F2: the stashes, which it cannot see from the door), then the bank (the fullest account first),
+ * then the wagon's gold and letters, then the pack's letters, then the purse. A record emptied is gone from its list.
  *
  * AUDIT REALM2 T3: THE DEEDS' RULE. A deed - the ship, or a house - counts at what the realm's bank pays for it, with
- * the pieces bought for its room (deedsOf), and is taken WHOLE or not at all: a deed cannot be partly taken. While the
- * stashes leave an excess, customs strips the dearest deed left - the ship or the house off the copy, the pieces bought
- * for its room with it, and everything else in the room left standing - and stops the moment the rest is within the
- * allowance. The last deed stripped may take more than the excess with it, and nothing comes back for that: what the
- * realm's bank would have paid for it never reaches the realm. Customs counted the purse, the letters and the banks
- * alone, so a rich character brought its ship, a house in every region and their pieces in uncounted, to sell there.
+ * the pieces bought for its room (deedsOf), and is taken WHOLE or not at all: a deed cannot be partly taken. Customs
+ * counted the purse, the letters and the banks alone, so a rich character brought its ship, a house in every region and
+ * their pieces in uncounted, to sell there.
+ * HOUSE-LOSS (2026-09-29, Mac: "GarySoup lost his house and furniture. I suspect a lot of people lost a ton of
+ * belongings"): WHICH DEED GOES, AND WHEN. T3 stripped deeds before a coin of the bank or the purse, so a house - and
+ * every piece bought for its room - stayed behind for an excess the bank could have paid many times over (level 10, a
+ * furnished house, 60,000 in the bank: the house went, the bank stood). The cap is the same either way; what differs is
+ * whether the player keeps the house or the gold, and a whole deed can never be paid back in part. So a deed goes only
+ * while the deeds left are over the allowance by themselves: the dearest first - the ship or the house off the copy,
+ * the pieces bought for its room with it, everything else in the room left standing - stopping the moment the deeds
+ * left fit, and the gold pays the rest, which it always can. The last deed stripped may take more than was over with
+ * it, and nothing comes back for that: what the realm's bank would have paid for it never reaches the realm.
  * Answers what customs did - `taken` counts a deed at its price, and `deeds` names those that stayed behind.
  * @param {any} snap
  */
@@ -77,17 +84,20 @@ export function applyCustoms(snap) {
       if (!liquidWorthOf(it)) emptied.add(it);
     }
   };
-  for (const list of stashedItemLists(snap)) takeFrom(list);
   /** @type {string[]} */
   const deeds = [];
-  for (const deed of deedsOf(snap)) {
-    if (!excess) break;
+  const owned = deedsOf(snap);
+  let held = owned.reduce((s, d) => s + d.value, 0);
+  for (const deed of owned) {
+    if (held <= allowance) break;   // HOUSE-LOSS: the deeds left fit - the gold pays what is still over
     if (deed.slot) Object.assign(deed.slot, { location: '', mapId: 0, buildingKey: 0 });   // banking.js sellHouse's fresh record
     else snap.ownedShip = SHIP_TYPES.None;
     if (Array.isArray(deed.room?.decor)) deed.room.decor = deed.room.decor.filter((/** @type {any} */ p) => p?.item);   // the owner's own things stand
     deeds.push(deed.slot ? 'house' : 'ship');
+    held -= deed.value;
     excess = Math.max(0, excess - deed.value);
   }
+  for (const list of stashedItemLists(snap)) takeFrom(list);
   for (const a of [...accounts].sort((x, y) => (y?.accountGold ?? 0) - (x?.accountGold ?? 0))) {
     if (!excess) break;
     a.accountGold -= take(a.accountGold ?? 0);

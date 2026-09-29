@@ -243,10 +243,10 @@
     ]
   },
   {
-    "name": "AUDIT-REALM2-T3-the-deeds-before-the-stashes",
+    "name": "AUDIT-REALM2-T3-the-stashes-before-the-deeds",
     "file": "src/systems/realmCustoms.js",
-    "old": "  for (const list of stashedItemLists(snap)) takeFrom(list);\n  /** @type {string[]} */\n  const deeds = [];\n  for (const deed of deedsOf(snap)) {\n    if (!excess) break;\n    if (deed.slot) Object.assign(deed.slot, { location: '', mapId: 0, buildingKey: 0 });   // banking.js sellHouse's fresh record\n    else snap.ownedShip = SHIP_TYPES.None;\n    if (Array.isArray(deed.room?.decor)) deed.room.decor = deed.room.decor.filter((/** @type {any} */ p) => p?.item);   // the owner's own things stand\n    deeds.push(deed.slot ? 'house' : 'ship');\n    excess = Math.max(0, excess - deed.value);\n  }\n",
-    "new": "  /** @type {string[]} */\n  const deeds = [];\n  for (const deed of deedsOf(snap)) {\n    if (!excess) break;\n    if (deed.slot) Object.assign(deed.slot, { location: '', mapId: 0, buildingKey: 0 });   // banking.js sellHouse's fresh record\n    else snap.ownedShip = SHIP_TYPES.None;\n    if (Array.isArray(deed.room?.decor)) deed.room.decor = deed.room.decor.filter((/** @type {any} */ p) => p?.item);   // the owner's own things stand\n    deeds.push(deed.slot ? 'house' : 'ship');\n    excess = Math.max(0, excess - deed.value);\n  }\n  for (const list of stashedItemLists(snap)) takeFrom(list);\n",
+    "old": "  /** @type {string[]} */\n  const deeds = [];\n  const owned = deedsOf(snap);\n  let held = owned.reduce((s, d) => s + d.value, 0);\n  for (const deed of owned) {\n    if (held <= allowance) break;   // HOUSE-LOSS: the deeds left fit - the gold pays what is still over\n    if (deed.slot) Object.assign(deed.slot, { location: '', mapId: 0, buildingKey: 0 });   // banking.js sellHouse's fresh record\n    else snap.ownedShip = SHIP_TYPES.None;\n    if (Array.isArray(deed.room?.decor)) deed.room.decor = deed.room.decor.filter((/** @type {any} */ p) => p?.item);   // the owner's own things stand\n    deeds.push(deed.slot ? 'house' : 'ship');\n    held -= deed.value;\n    excess = Math.max(0, excess - deed.value);\n  }\n  for (const list of stashedItemLists(snap)) takeFrom(list);\n",
+    "new": "  for (const list of stashedItemLists(snap)) takeFrom(list);\n  /** @type {string[]} */\n  const deeds = [];\n  const owned = deedsOf(snap);\n  let held = owned.reduce((s, d) => s + d.value, 0);\n  for (const deed of owned) {\n    if (held <= allowance) break;   // HOUSE-LOSS: the deeds left fit - the gold pays what is still over\n    if (deed.slot) Object.assign(deed.slot, { location: '', mapId: 0, buildingKey: 0 });   // banking.js sellHouse's fresh record\n    else snap.ownedShip = SHIP_TYPES.None;\n    if (Array.isArray(deed.room?.decor)) deed.room.decor = deed.room.decor.filter((/** @type {any} */ p) => p?.item);   // the owner's own things stand\n    deeds.push(deed.slot ? 'house' : 'ship');\n    held -= deed.value;\n    excess = Math.max(0, excess - deed.value);\n  }\n",
     "tests": [
       "test/auditrealm2_customs.test.js"
     ]
@@ -254,8 +254,8 @@
   {
     "name": "AUDIT-REALM2-T3-the-deeds-after-the-bank",
     "file": "src/systems/realmCustoms.js",
-    "old": "  /** @type {string[]} */\n  const deeds = [];\n  for (const deed of deedsOf(snap)) {\n    if (!excess) break;\n    if (deed.slot) Object.assign(deed.slot, { location: '', mapId: 0, buildingKey: 0 });   // banking.js sellHouse's fresh record\n    else snap.ownedShip = SHIP_TYPES.None;\n    if (Array.isArray(deed.room?.decor)) deed.room.decor = deed.room.decor.filter((/** @type {any} */ p) => p?.item);   // the owner's own things stand\n    deeds.push(deed.slot ? 'house' : 'ship');\n    excess = Math.max(0, excess - deed.value);\n  }\n  for (const a of [...accounts].sort((x, y) => (y?.accountGold ?? 0) - (x?.accountGold ?? 0))) {\n    if (!excess) break;\n    a.accountGold -= take(a.accountGold ?? 0);\n  }\n",
-    "new": "  for (const a of [...accounts].sort((x, y) => (y?.accountGold ?? 0) - (x?.accountGold ?? 0))) {\n    if (!excess) break;\n    a.accountGold -= take(a.accountGold ?? 0);\n  }\n  /** @type {string[]} */\n  const deeds = [];\n  for (const deed of deedsOf(snap)) {\n    if (!excess) break;\n    if (deed.slot) Object.assign(deed.slot, { location: '', mapId: 0, buildingKey: 0 });   // banking.js sellHouse's fresh record\n    else snap.ownedShip = SHIP_TYPES.None;\n    if (Array.isArray(deed.room?.decor)) deed.room.decor = deed.room.decor.filter((/** @type {any} */ p) => p?.item);   // the owner's own things stand\n    deeds.push(deed.slot ? 'house' : 'ship');\n    excess = Math.max(0, excess - deed.value);\n  }\n",
+    "old": "  /** @type {string[]} */\n  const deeds = [];\n  const owned = deedsOf(snap);\n  let held = owned.reduce((s, d) => s + d.value, 0);\n  for (const deed of owned) {\n    if (held <= allowance) break;   // HOUSE-LOSS: the deeds left fit - the gold pays what is still over\n    if (deed.slot) Object.assign(deed.slot, { location: '', mapId: 0, buildingKey: 0 });   // banking.js sellHouse's fresh record\n    else snap.ownedShip = SHIP_TYPES.None;\n    if (Array.isArray(deed.room?.decor)) deed.room.decor = deed.room.decor.filter((/** @type {any} */ p) => p?.item);   // the owner's own things stand\n    deeds.push(deed.slot ? 'house' : 'ship');\n    held -= deed.value;\n    excess = Math.max(0, excess - deed.value);\n  }\n  for (const list of stashedItemLists(snap)) takeFrom(list);\n  for (const a of [...accounts].sort((x, y) => (y?.accountGold ?? 0) - (x?.accountGold ?? 0))) {\n    if (!excess) break;\n    a.accountGold -= take(a.accountGold ?? 0);\n  }\n",
+    "new": "  for (const list of stashedItemLists(snap)) takeFrom(list);\n  for (const a of [...accounts].sort((x, y) => (y?.accountGold ?? 0) - (x?.accountGold ?? 0))) {\n    if (!excess) break;\n    a.accountGold -= take(a.accountGold ?? 0);\n  }\n  /** @type {string[]} */\n  const deeds = [];\n  const owned = deedsOf(snap);\n  let held = owned.reduce((s, d) => s + d.value, 0);\n  for (const deed of owned) {\n    if (held <= allowance) break;   // HOUSE-LOSS: the deeds left fit - the gold pays what is still over\n    if (deed.slot) Object.assign(deed.slot, { location: '', mapId: 0, buildingKey: 0 });   // banking.js sellHouse's fresh record\n    else snap.ownedShip = SHIP_TYPES.None;\n    if (Array.isArray(deed.room?.decor)) deed.room.decor = deed.room.decor.filter((/** @type {any} */ p) => p?.item);   // the owner's own things stand\n    deeds.push(deed.slot ? 'house' : 'ship');\n    held -= deed.value;\n    excess = Math.max(0, excess - deed.value);\n  }\n",
     "tests": [
       "test/auditrealm2_customs.test.js"
     ]
@@ -263,8 +263,8 @@
   {
     "name": "AUDIT-REALM2-T3-every-deed-stripped",
     "file": "src/systems/realmCustoms.js",
-    "old": "  for (const deed of deedsOf(snap)) {\n    if (!excess) break;\n",
-    "new": "  for (const deed of deedsOf(snap)) {\n",
+    "old": "    if (held <= allowance) break;   // HOUSE-LOSS: the deeds left fit - the gold pays what is still over\n",
+    "new": "",
     "tests": [
       "test/auditrealm2_customs.test.js"
     ]

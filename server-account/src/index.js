@@ -120,7 +120,7 @@ import {
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';
 import {
-  listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, holdsCustomsGrant,
+  listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, undoRealm, holdsCustomsGrant,
   REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
 } from './realm.js';   // REALM P1: the realm's characters   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { tradeRealm, REALM_TRADE_BODY_MAX } from './realmTrade.js';   // REALM P2.1: a trade, settled here
@@ -809,7 +809,8 @@ export default {
           return answer(r);
         }
         if (path === '/v1/realm/leave') return answer(await leaveRealm(rctx, me, { id: body.id, lease: body.lease }));
-        return answer(await deleteRealm(rctx, me, body.id));   // /v1/realm/delete
+        if (path === '/v1/realm/undo') return answer(await undoRealm(rctx, me, body.id));   // HOUSE-LOSS: a customs that never landed, undone
+        return answer(await deleteRealm(rctx, me, body.id));   // /v1/realm/delete - HOUSE-LOSS: which undoes one too, for a door that asks a delete
       }
 
       // a path this service serves, reached with a method it does not

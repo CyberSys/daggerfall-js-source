@@ -231,7 +231,7 @@ function holder({ level, gold = 0, bank = 0, ship = SHIP_TYPES.None, houses = []
 }
 const HOUSE = 85_000;   // what customs counts a house at: the deed's share (banking.js DEED_SELL_MULT) of 100,000
 
-test('AUDIT REALM2 T3: customs counts each deed at what the realm\'s bank pays for it - the ship, each house, the pieces bought for their rooms - and, past the stashes, strips whole deeds, the dearest first, until the rest is within the allowance; the bank and the purse then stand', () => {
+test('AUDIT REALM2 T3: customs counts each deed at what the realm\'s bank pays for it - the ship, each house, the pieces bought for their rooms - and strips whole deeds, the dearest first, while the deeds by themselves are over the allowance (HOUSE-LOSS: never for an excess the gold can pay); the gold then pays what is still over, the stashes first, and the bank and the purse stand', () => {
   const shipRoom = room(interiorSceneName(SHIP_INTERIOR_MAP_IDS[SHIP_TYPES.Large], BUILDING_KEY_0), { decor: [piece('s1', 400), piece('s2', 400)] });
   const room17 = room(interiorSceneName(1017, 5), { lootContainers: [{ containerType: LOOT_CONTAINER_TYPES.HouseContainers, key: 'container:0', items: [goldStack(30_000)] }], decor: [piece('own17', 0, true)] });
   const room18 = room(interiorSceneName(1018, 6), { decor: [...Array.from({ length: 30 }, (_, i) => piece(`p${i}`, 400)), piece('own18', 0, true)] });
@@ -240,14 +240,16 @@ test('AUDIT REALM2 T3: customs counts each deed at what the realm\'s bank pays f
   assert.deepEqual([ship, h18, h17], [170_400, 91_000, 85_000]);
   assert.equal(liquidWealthOf(snap), 10_000 + 5_000 + 30_000 + ship + h18 + h17);
   const r = applyCustoms(snap);
-  assert.deepEqual([r.wealth, r.allowance, r.taken, r.deeds], [391_400, 120_000, 30_000 + ship + h18, ['ship', 'house']]);
-  assert.equal(liquidWealthOf(snap), 100_000, 'a deed is never partly taken: the house that went took 20,000 more than was over with it');
+  // HOUSE-LOSS: the deeds are 346,400 against 120,000 by themselves - the ship goes, and the house in 18 (the ship and 17
+  // alone would still be over), and the stash pays the 10,000 still over after them; T3 took the whole stash first
+  assert.deepEqual([r.wealth, r.allowance, r.taken, r.deeds], [391_400, 120_000, 10_000 + ship + h18, ['ship', 'house']]);
+  assert.equal(liquidWealthOf(snap), 120_000, 'the deeds that fit and the gold under the allowance: nothing past what was over is taken but by a whole deed');
   assert.deepEqual([ownsShip(snap), ownsHouse(snap.houses, 18), ownsHouse(snap.houses, 17)], [false, false, true], 'the dearest first, and only until within: the plain house in 17 crosses');
   assert.deepEqual(snap.houses[18], { regionIndex: 18, location: '', mapId: 0, buildingKey: 0 }, 'the bank\'s own fresh record (banking.js sellHouse)');
   assert.deepEqual([shipRoom.decor, room18.decor.map((p) => p.id), room17.decor.map((p) => p.id)], [[], ['own18'], ['own17']], 'the pieces bought for a stripped room go with its deed; the owner\'s own things stand where they were');
-  assert.deepEqual([room17.lootContainers[0].items, snap.bankAccounts[0].accountGold, snap.goldPieces], [[], 5_000, 10_000], 'the stashes went first and the deeds next - the bank and the purse stand');
+  assert.deepEqual([room17.lootContainers[0].items.map((i) => i.stackCount), snap.bankAccounts[0].accountGold, snap.goldPieces], [[20_000], 5_000, 10_000], 'the deeds over by themselves went first, then the stash paid what was left over - the bank and the purse stand');
   assert.deepEqual(customsLines(r), [
-    'You carried 391400 gold; the realm lets a character of this level bring 120000. 291400 stays behind.',
+    'You carried 391400 gold; the realm lets a character of this level bring 120000. 271400 stays behind.',
     'Customs counts a deed at what the realm\'s bank pays for it: your ship and a house stay behind.',
   ]);
   // online, the bank buys back only what crossed
