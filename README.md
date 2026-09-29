@@ -51,23 +51,32 @@ or normal releases behind a paywall.
 same `dist/` the website deploys and adds what a browser can't -
 **saves as real files** (DFU's own layout: `Saves/SAVE<n>/SaveData.txt`
 + `SaveInfo.txt` + `Screenshot.jpg`, settings under `Prefs/`) and
-**ARENA2 read straight from your folder on disk** (picked once via a
-native dialog - no ingest, no diet, full sky sets). The browser build
+**ARENA2 read straight from your folder on disk** (found for you on
+first run, or picked once - no ingest, no diet, full sky sets). The browser build
 is unchanged; the storage seam is `src/systems/appStorage.js`.
 
 ```
 npm run build && cd app && npm install && npm start
 ```
 
+The app opens on a **launcher** (`app/launcher/`): it checks for an
+update and installs it before you play (the Windows `-setup` install and
+the Linux AppImage replace themselves; macOS and the portable exe are
+offered their own download), shows what changed, finds Daggerfall on
+Steam, GOG or in Daggerfall Unity's settings on first run, then opens
+the game. An update that lands mid-session is told in the game and
+waits under File > Restart to Update.
+
 `npm run dist` in `app/` packages installers. Every push to main
-builds them for all three OSes and attaches them to a GitHub Release
-(`.github/workflows/release-desktop.yml`) at `app-v<major>.<minor>.<commit count>`
-- the version is derived from the commit, never bumped by hand - and
-the landing page's download section points at `releases/latest`.
-Pushing a tag shaped `app-v*` cuts one by hand. An installed copy
-(the Windows `-setup` install or the Linux AppImage) updates itself in
-place on quit; macOS and the portable exe get a notice with a Download
-button. Details
+builds them for all three OSes and publishes them as ONE GitHub Release
+(`.github/workflows/release-desktop.yml`: staged as a draft, published
+whole once every OS built) at `app-v<major>.<minor>.<commit count>` -
+the version is derived from the commit, never bumped by hand - with the
+merge's `PATCH-NOTES-*.md` as its notes. The files carry no version in
+their names, so `releases/latest/download/DaggerfallOnline-win-x64-setup.exe`
+(and `-mac-arm64.dmg`, `-linux-x86_64.AppImage`) is always the newest,
+and the landing page links each directly. Pushing a tag shaped `app-v*`
+cuts one by hand. Details
 in `bible/01-Overview/Desktop-App.md`; headless proof:
 `xvfb-run -a node tools/appShellProbe.mjs` (point `DAGGER_SHELL_EXE`
 at a packaged binary to prove an installer's payload). The packaged

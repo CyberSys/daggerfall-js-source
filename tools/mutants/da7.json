@@ -33,25 +33,25 @@
   {
     "name": "DA7-5-the-launch-always-takes-the-notice",
     "file": "app/main.cjs",
-    "old": "    if (currentUpdateTransport() === 'updater') autoUpdater().checkForUpdates().catch(() => {});\n    else checkForUpdates({ silent: true });\n",
-    "new": "    checkForUpdates({ silent: true });\n",
+    "old": "  if (currentUpdateTransport() === 'updater') {\n    autoUpdater().checkForUpdates().catch(() => launcherDispatch({ type: 'check-failed' }));\n    return;\n  }\n",
+    "new": "",
     "tests": ["test/autoupdate.test.js"]
   },
   {
     "name": "DA7-6-the-launch-check-escapes-the-gate",
     "file": "app/main.cjs",
-    "old": "  if (loadConfig().updateCheck !== false && !process.env.DAGGER_NO_UPDATE_CHECK) {\n    // DA7: a copy that can replace itself does, silently, on quit; the\n    // rest get DA6's notice. The gate above is the same for both.\n    if (currentUpdateTransport() === 'updater') autoUpdater().checkForUpdates().catch(() => {});\n    else checkForUpdates({ silent: true });\n  }\n",
-    "new": "  if (currentUpdateTransport() === 'updater') autoUpdater().checkForUpdates().catch(() => {});\n  if (loadConfig().updateCheck !== false && !process.env.DAGGER_NO_UPDATE_CHECK) {\n    checkForUpdates({ silent: true });\n  }\n",
+    "old": "      checkEnabled: updateChecksEnabled(),\n",
+    "new": "      checkEnabled: true,\n",
     "tests": ["test/autoupdate.test.js"],
     "note": "The checkbox and the probe env must hold BOTH transports - a probe that reaches GitHub is the thing DA6's gate exists to prevent."
   },
   {
     "name": "DA7-7-the-release-drops-the-updater-metadata",
     "file": ".github/workflows/release-desktop.yml",
-    "old": "            app/release/*.dmg\n            app/release/latest*.yml\n            app/release/*.blockmap\n          generate_release_notes: true\n",
-    "new": "            app/release/*.dmg\n          generate_release_notes: true\n",
+    "old": "            app/release/latest*.yml\n            app/release/*.blockmap\n          if-no-files-found: error\n",
+    "new": "          if-no-files-found: error\n",
     "tests": ["test/autoupdate.test.js"],
-    "note": "Without latest.yml on the release the updater finds nothing and every copy silently stays where it is."
+    "note": "Without latest.yml on the release the updater finds nothing and every copy silently stays where it is. REL4: re-aimed by content at the legs' hand-on step, whose files are what the one publish job attaches."
   },
   {
     "name": "DA7-8-no-publish-provider-no-metadata-written",

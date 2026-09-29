@@ -27,9 +27,13 @@ test('DA6/REL1/REL3: the release\'s number is ONE variable - the tag and the sta
   assert.match(wf, /TAG="app-v\$\{BASE\}\.\$\(git rev-list --count HEAD\)"/, 'a main push derives the tag from the base and the commit count');
   assert.match(wf, /BASE=\$\(node -p "require\('\.\/app\/package\.json'\)\.version\.split\('\.'\)\.slice\(0,2\)\.join\('\.'\)"\)/, 'the base is the committed MAJOR.MINOR');
   assert.match(wf, /case "\$TAG" in app-v\*\) VERSION="\$\{TAG#app-v\}" ;;/, 'the version IS the tag, less its prefix');
-  assert.match(wf, /npm version "\$\{\{ steps\.reltag\.outputs\.version \}\}" --no-git-tag-version --allow-same-version/, 'the stamp reads the same output');
-  assert.match(wf, /tag_name: \$\{\{ steps\.reltag\.outputs\.tag \}\}/, 'the release is cut at the same output');
-  assert.match(wf, /fetch-depth: 0/, 'the count needs the whole history');
+  // REL4: resolved ONCE, by the `version` job, whose outputs ARE the step's - every leg and the publish job read them
+  assert.match(wf, /\n  version:\n[\s\S]*?outputs:\n\s+tag: \$\{\{ steps\.reltag\.outputs\.tag \}\}\n\s+version: \$\{\{ steps\.reltag\.outputs\.version \}\}/, 'the version job hands the one number on');
+  assert.match(wf, /npm version "\$\{\{ needs\.version\.outputs\.version \}\}" --no-git-tag-version --allow-same-version/, 'the stamp reads the same output');
+  assert.match(wf, /tag_name: \$\{\{ needs\.version\.outputs\.tag \}\}/, 'the release is cut at the same output');
+  // REL4: in the job that COUNTS - the publish job's own full checkout (for the notes' diff) must not stand in for it
+  const versionJob = wf.slice(wf.indexOf('\n  version:\n'), wf.indexOf('\n  gate:\n'));
+  assert.match(versionJob, /fetch-depth: 0   # REL3: the version is the commit count, which needs the whole history/, 'the count needs the whole history');
   assert.ok(!fs.existsSync(path.join(root, '.github/DESKTOP_RELEASE')), 'the marker file is retired - a second number is a drift waiting to happen');
   assert.doesNotMatch(wf, /DESKTOP_RELEASE/, 'and nothing reads it');
   // the committed version is the BASE: CI owns the patch, so it is 0 here
@@ -77,21 +81,32 @@ test('DA6: equal and unparseable are NOT newer - the failure direction is silenc
 
 test('DA6: the wiring pins - one API, two gates, and probes never touch the network', () => {
   const main = fs.readFileSync(path.join(root, 'app', 'main.cjs'), 'utf8');
-  // ONE read-only endpoint, the repo's own - the app's single network
-  // call of its own, and the landing page's honesty line depends on it
-  // staying single.
+  // ONE read-only API, the repo's own - the app's only network use of
+  // its own, and the landing page's honesty line depends on it staying
+  // that. DA8 added the same API's recent-release LIST, asked only when
+  // there IS an update, for the notes of the versions it brings; still
+  // read-only, still the repo's releases, still nothing else.
   assert.ok(main.includes("'https://api.github.com/repos/Lattymoy/daggerfall-js-source/releases/latest'"),
-    'the check asks the releases API and nothing else');
+    'the check asks the releases API');
+  const apis = [...main.matchAll(/'(https:\/\/api\.github\.com\/[^']*)'/g)].map((m) => m[1]).sort();
+  assert.deepEqual(apis, [
+    'https://api.github.com/repos/Lattymoy/daggerfall-js-source/releases/latest',
+    'https://api.github.com/repos/Lattymoy/daggerfall-js-source/releases?per_page=20',
+  ], 'and nothing else');
   assert.equal((main.match(/net\.fetch\(RELEASES_LATEST_API/g) ?? []).length, 1);
+  assert.equal((main.match(/net\.fetch\(RELEASES_LIST_API/g) ?? []).length, 1);
+  const fetches = [...main.matchAll(/net\.fetch\(([^,]+),/g)].map((m) => m[1].trim()).sort();
+  assert.deepEqual(fetches, ['RELEASES_LATEST_API', 'RELEASES_LIST_API', 'pathToFileURL(p).toString()'], 'every fetch the shell makes is one of those, or a file on disk');
   // The two gates on the launch check: the config checkbox (default
   // ON, off is `updateCheck: false`) and the probe env.
   assert.match(main, /loadConfig\(\)\.updateCheck !== false && !process\.env\.DAGGER_NO_UPDATE_CHECK/,
     'launch check honours the checkbox and the probe env');
-  assert.match(main, /checkForUpdates\(\{ silent: true \}\)/, 'and the launch check is the silent one');
+  // DA8: the launch check is the LAUNCHER's, and silent - an error is "offline" and the player plays on
+  assert.match(main, /if \(kind === 'error'\) \{ launcherDispatch\(\{ type: 'check-failed' \}\); return; \}/, 'and the launch check is the silent one');
   // The probe sets the env, so a green probe never depended on GitHub.
   const probe = fs.readFileSync(path.join(root, 'tools', 'appShellProbe.mjs'), 'utf8');
   assert.match(probe, /DAGGER_NO_UPDATE_CHECK: '1'/, 'the shell probe opts out of the check');
   // Download opens the BROWSER - no download or code application here.
-  assert.match(main, /if \(response === 0\) shell\.openExternal\(latest\.url\);/,
+  assert.match(main, /if \(response === 0\) shell\.openExternal\(latest\.download\);/,
     'the notice hands the player their browser, never bytes');
 });

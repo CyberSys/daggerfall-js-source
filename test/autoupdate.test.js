@@ -51,12 +51,21 @@ test('DA7: the shell - the updater downloads on its own, installs on quit, never
   assert.match(cfg, /au\.autoInstallOnAppQuit = true;/, 'and installs when the app quits - the player does nothing');
   assert.match(cfg, /au\.allowPrerelease = false;/);
   assert.match(cfg, /au\.allowDowngrade = false;/);
-  assert.match(cfg, /au\.on\('error', \(\) => \{\}\);/, 'a launch error is silent (the manual check reports its own)');
-  // THE LAUNCH: the same gate DA6 had, then the transport fork - the checkbox and the probe env hold BOTH arms
-  assert.match(main, /if \(loadConfig\(\)\.updateCheck !== false && !process\.env\.DAGGER_NO_UPDATE_CHECK\) \{[\s\S]{0,400}if \(currentUpdateTransport\(\) === 'updater'\) autoUpdater\(\)\.checkForUpdates\(\)\.catch\(\(\) => \{\}\);\s*\n\s*else checkForUpdates\(\{ silent: true \}\);/,
-    'the launch forks on the transport INSIDE the gate');
+  assert.match(cfg, /au\.on\('error', \(\) => onUpdaterEvent\('error'\)\);/, 'a launch error goes to whoever is listening');
+  // DA8: and it is SILENCE - the launcher plays on; the manual check reports its own
+  const routed = main.slice(main.indexOf('function onUpdaterEvent('), main.indexOf('/** The notes of every release'));
+  assert.match(routed, /if \(kind === 'error'\) \{ launcherDispatch\(\{ type: 'check-failed' \}\); return; \}/, 'an error is "offline" to the launcher');
+  assert.doesNotMatch(routed, /dialog\./, 'no dialog rides the automatic path');
+  // THE LAUNCH (DA8: the launcher's): the same two gates DA6 had, then the transport fork - both arms inside them
+  assert.match(main, /const updateChecksEnabled = \(\) => loadConfig\(\)\.updateCheck !== false && !process\.env\.DAGGER_NO_UPDATE_CHECK;/);
+  assert.match(main, /checkEnabled: updateChecksEnabled\(\),/, 'the launcher checks only inside the gates');
+  assert.match(main, /if \(launcher\.state\.update\.status === 'checking'\) startLaunchCheck\(\);/);
+  const launch = main.slice(main.indexOf('function startLaunchCheck()'), main.indexOf('function runLauncher()'));
+  assert.match(launch, /if \(currentUpdateTransport\(\) === 'updater'\) \{\s*autoUpdater\(\)\.checkForUpdates\(\)\.catch\(\(\) => launcherDispatch\(\{ type: 'check-failed' \}\)\);\s*return;\s*\}\s*noticeCheck\(\)/,
+    'the launch forks on the transport');
+  assert.match(main, /if \(recheckTimer \|\| !updateChecksEnabled\(\)\) return;/, 'and the hourly re-check sits inside the same gates');
   // THE MENU: the loud path on either transport
-  assert.match(main, /click: \(\) => \(currentUpdateTransport\(\) === 'updater' \? checkForUpdatesViaUpdater\(\) : checkForUpdates\(\{ silent: false \}\)\)/);
+  assert.match(main, /click: \(\) => \(currentUpdateTransport\(\) === 'updater' \? checkForUpdatesViaUpdater\(\) : checkForUpdates\(\)\)/);
   const loud = main.slice(main.indexOf('async function checkForUpdatesViaUpdater'), main.indexOf('// ---- the window'));
   assert.match(loud, /isNewerRelease\(app\.getVersion\(\), `app-v\$\{v\}`\)/, 'the manual check compares by DA6\'s own law - the yml\'s version is the tag less its prefix');
   assert.match(loud, /It installs itself the next time you quit/, 'and says what will happen, because the player has nothing to click');
@@ -70,21 +79,24 @@ test('DA7: the build - a publish PROVIDER (so latest.yml and app-update.yml are 
   assert.ok(pkg.dependencies?.['electron-updater'], 'a runtime dependency - electron-builder packs `dependencies`, never devDependencies');
   assert.ok(!pkg.devDependencies?.['electron-updater']);
   const wf = read('.github/workflows/release-desktop.yml');
-  assert.match(wf, /run: npx electron-builder --publish never/, 'electron-builder uploads nothing itself; the attach step does');
-  const release = wf.slice(wf.indexOf('- name: Attach installers to the release'), wf.indexOf('- name: Keep installers as run artifacts'));
-  const artifacts = wf.slice(wf.indexOf('- name: Keep installers as run artifacts'));
-  for (const [name, block] of [['the release', release], ['the run artifacts', artifacts]]) {
-    assert.match(block, /app\/release\/latest\*\.yml/, `${name}: latest.yml and latest-linux.yml ride with the installers`);
-    assert.match(block, /app\/release\/\*\.blockmap/, `${name}: and the blockmaps, or every update is a full download`);
-  }
+  assert.match(wf, /run: npx electron-builder --publish never/, 'electron-builder uploads nothing itself; the publish job does');
+  // REL4: a leg hands its files on (the run artifact), and ONE publish job attaches everything handed on
+  const handOn = wf.slice(wf.indexOf('- name: Hand the installers on'), wf.indexOf('\n  publish:'));
+  assert.match(handOn, /app\/release\/latest\*\.yml/, 'latest.yml and latest-linux.yml ride with the installers');
+  assert.match(handOn, /app\/release\/\*\.blockmap/, 'and the blockmaps, or every update is a full download');
+  const publish = wf.slice(wf.indexOf('\n  publish:'));
+  assert.match(publish, /files: release\/\*/, 'the release carries every file the legs handed on');
+  assert.match(publish, /node scripts\/desktopRelease\.mjs check release/, 'and publishes nothing when a manifest or blockmap is missing');
   // the tag shape the updater resolves: releases/latest's tag_name, whatever its prefix - DA6's parser is the same shape
   assert.match(wf, /TAG="app-v\$\{BASE\}\.\$\(git rev-list --count HEAD\)"/, 'REL3\'s tag is what the updater downloads latest.yml under');
 });
 
 test('DA7: DA6 stands under it - the notice is the fallback, not a casualty', () => {
   const main = read('app/main.cjs');
-  assert.match(main, /checkForUpdates\(\{ silent: true \}\)/, 'the silent notice still runs for the transports that need it');
-  assert.match(main, /if \(response === 0\) shell\.openExternal\(latest\.url\);/, 'and its Download button still opens the browser');
+  // DA8: the notice's launch check is the LAUNCHER's - shown in its window, silent when GitHub does not answer
+  const launch = main.slice(main.indexOf('function startLaunchCheck()'), main.indexOf('function runLauncher()'));
+  assert.match(launch, /noticeCheck\(\)\.then\(\(r\) => \{\s*if \(!r\) launcherDispatch\(\{ type: 'check-failed' \}\);/, 'the notice still runs for the transports that need it');
+  assert.match(main, /if \(response === 0\) shell\.openExternal\(latest\.download\);/, 'and its Download button still opens the browser - on this copy\'s own file (REL5)');
   assert.equal((main.match(/net\.fetch\(RELEASES_LATEST_API/g) ?? []).length, 1, 'still one call of its own');
   const probe = read('tools/appShellProbe.mjs');
   assert.match(probe, /DAGGER_NO_UPDATE_CHECK: '1'/, 'the probe opts out of both transports with the one env');

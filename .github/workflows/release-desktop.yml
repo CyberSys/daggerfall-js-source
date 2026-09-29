@@ -28,6 +28,21 @@ name: release-desktop
 # doors (a re-cut, a hotfix off a branch) and take their version from
 # the tag they name. Runs queue rather than cancel: a release half
 # uploaded is worse than one late.
+#
+# REL4 (2026-09-29, Mac: "drastically improve the install experience"):
+# THE RELEASE IS PUBLISHED WHOLE, ONCE. Each OS leg used to create-or-
+# update the release itself, so the release went live when the FIRST leg
+# finished (app-v0.1.4605: eighty-five seconds as `latest` with no
+# Windows installer and no latest.yml), every leg appended its own copy
+# of the generated notes (two or three per release, one sometimes lost
+# to a race), and a leg dying after the gate would have left a partial
+# `latest` standing. Now: `version` resolves REL3's one number once and
+# every job reads it; the legs only BUILD and hand their files on; and
+# `publish` - which runs only when every leg passed - checks the set is
+# complete, writes the player-facing notes (the PATCH-NOTES-*.md the
+# release brings, scripts/desktopRelease.mjs), stages a DRAFT carrying
+# every file, and publishes it in one step. `latest` never names a
+# release that is half there.
 on:
   push:
     tags:
@@ -42,54 +57,33 @@ on:
         default: ''
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-desktop
   cancel-in-progress: false
 
 jobs:
-  gate:
+  # REL3: ONE NUMBER. The dispatch input or the pushed tag names it
+  # outright; a main push derives it - MAJOR.MINOR from the committed
+  # base, PATCH from `git rev-list --count HEAD`. A dispatch with no
+  # tag is artifacts-only, as before. Both the release tag and the
+  # version electron-builder stamps come from this one VERSION.
+  # AUDIT 68: the dispatch input is READ from the environment, never
+  # pasted into the script - a quote in it is text, not bash.
+  # REL4: resolved ONCE, here, and read by every job below - three legs
+  # and the publish job cannot disagree about a number none of them
+  # computes.
+  version:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read   # the suite reads; only the legs write the release
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install site dependencies
-        run: npm ci
-      - name: Gate (the whole suite, before any leg packages)
-        run: npm run check
-
-  build:
-    needs: gate
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    env:
-      # No signing identities exist; without this electron-builder
-      # hunts for one on macOS and fails the build looking.
-      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    outputs:
+      tag: ${{ steps.reltag.outputs.tag }}
+      version: ${{ steps.reltag.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # REL3: the version is the commit count, which needs the whole history
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      # REL3: ONE NUMBER. The dispatch input or the pushed tag names it
-      # outright; a main push derives it - MAJOR.MINOR from the committed
-      # base, PATCH from `git rev-list --count HEAD`. A dispatch with no
-      # tag is artifacts-only, as before. Both the release tag and the
-      # version electron-builder stamps come from this one VERSION.
-      # AUDIT 68: the dispatch input is READ from the environment, never
-      # pasted into the script - a quote in it is text, not bash.
       - name: Resolve release version
         id: reltag
         shell: bash
@@ -107,6 +101,36 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "release tag: '${TAG:-<none - artifacts only>}'"
 
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install site dependencies
+        run: npm ci
+      - name: Gate (the whole suite, before any leg packages)
+        run: npm run check
+
+  build:
+    needs: [version, gate]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      # No signing identities exist; without this electron-builder
+      # hunts for one on macOS and fails the build looking.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Install site dependencies
         run: npm ci
 
@@ -119,15 +143,15 @@ jobs:
 
       # REL3: the stamp. app.getVersion() and the installers' own metadata
       # read package.json's version, so the release's number is written
-      # there before electron-builder runs - from the SAME variable the
-      # tag was cut from. Not committed: the working tree is the runner's.
+      # there before electron-builder runs - from the SAME output the
+      # tag is cut from. Not committed: the working tree is the runner's.
       - name: Stamp the version
-        if: steps.reltag.outputs.version != ''
-        run: npm version "${{ steps.reltag.outputs.version }}" --no-git-tag-version --allow-same-version
+        if: needs.version.outputs.version != ''
+        run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version --allow-same-version
         working-directory: app
 
-      # DA7: `--publish never` uploads nothing (softprops attaches the
-      # files below), but with a publish PROVIDER in app/package.json
+      # DA7: `--publish never` uploads nothing (the publish job attaches
+      # the files), but with a publish PROVIDER in app/package.json
       # electron-builder still writes the updater's metadata - latest.yml
       # / latest-linux.yml and the blockmaps beside the installers, and
       # app-update.yml inside them - which is what electron-updater in
@@ -138,26 +162,12 @@ jobs:
         run: npx electron-builder --publish never
         working-directory: app
 
-      # AUDIT 68: target_commitish cuts a NEW tag at the commit these
-      # installers were built from. Without it GitHub cuts it at the
-      # default branch's head at upload time - main has moved on by
-      # then, and a dispatched hotfix branch's tag lands on main.
-      - name: Attach installers to the release
-        if: steps.reltag.outputs.tag != ''
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.reltag.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          files: |
-            app/release/*.AppImage
-            app/release/*.exe
-            app/release/*.dmg
-            app/release/latest*.yml
-            app/release/*.blockmap
-          generate_release_notes: true
-
-      - name: Keep installers as run artifacts (manual runs)
-        if: steps.reltag.outputs.tag == ''
+      # REL4: a leg hands its files on and publishes nothing. When a
+      # release follows, the publish job takes them within minutes and
+      # the release holds them for good, so a day is kept (a re-run of a
+      # failed publish); an artifacts-only run keeps its installers two
+      # weeks for whoever asked for them.
+      - name: Hand the installers on
         uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.os }}
@@ -168,3 +178,74 @@ jobs:
             app/release/latest*.yml
             app/release/*.blockmap
           if-no-files-found: error
+          retention-days: ${{ needs.version.outputs.tag != '' && 1 || 14 }}
+
+  # REL4: ONE publish, and only when every leg passed - `needs: build`
+  # waits for the whole matrix, and a failed leg skips this job, so no
+  # partial release is ever cut.
+  publish:
+    needs: [version, build]
+    if: needs.version.outputs.tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the notes diff PATCH-NOTES-*.md against the previous release's tag
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Collect every leg's files
+        uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release
+          merge-multiple: true
+
+      # REL5: every download the site links and every manifest an updater
+      # reads, by the names app/lib/downloads.cjs promises - a set short
+      # of any one publishes nothing.
+      - name: The set is whole
+        run: node scripts/desktopRelease.mjs check release
+
+      - name: Write the notes
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: node scripts/desktopRelease.mjs notes "$TAG" > release-notes.md
+
+      # AUDIT 68: target_commitish cuts a NEW tag at the commit these
+      # installers were built from. Without it GitHub cuts it at the
+      # default branch's head at upload time - main has moved on by
+      # then, and a dispatched hotfix branch's tag lands on main.
+      # REL4: a DRAFT, so nothing is visible while the files upload.
+      # The body is the patch notes; GitHub appends its generated list
+      # of merged changes beneath them, once.
+      - name: Stage the release as a draft, every file attached
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: ${{ needs.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          draft: true
+          body_path: release-notes.md
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: release/*
+
+      # One step from nothing to everything. It takes `latest` unless a
+      # newer release already holds it - a hand re-cut of an old build
+      # must not move every download link and updater back to it.
+      - name: Publish it whole
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+        run: |
+          CURRENT=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)
+          MAKE_LATEST=$(node scripts/desktopRelease.mjs latest "$TAG" "$CURRENT")
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false -f make_latest="$MAKE_LATEST" --silent
+          echo "published $TAG (latest: $MAKE_LATEST)"

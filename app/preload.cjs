@@ -26,6 +26,17 @@ const { createFileStorage } = require('./lib/fileStorage.cjs');
 const root = ipcRenderer.sendSync('dagger:user-data-path');
 const store = createFileStorage(root);
 
+// DA8: an update that arrived while the game runs (app/main.cjs tellGame).
+// Heard HERE, before any game script, and kept - the page subscribes from
+// its boot (src/systems/shellUpdates.js), which a download finishing
+// early can beat.
+let updateHeard = null;
+const updateListeners = [];
+ipcRenderer.on('dagger:update-ready', (_e, info) => {
+  updateHeard = info;
+  for (const cb of updateListeners) cb(info);
+});
+
 contextBridge.exposeInMainWorld('daggerShell', {
   // Enough identity for an about-line; never load-bearing.
   platform: process.platform,
@@ -34,6 +45,11 @@ contextBridge.exposeInMainWorld('daggerShell', {
   // ESC-LOCK (2026-09-27): a pointer-lock request the page lost for want of a gesture (an Escape close after the
   // player ended the lock) is re-run by the main process AS a gesture (src/player/pointerLock.js shellRelock)
   relockPointer: () => ipcRenderer.send('dagger:relock'),
+  // DA8: { version, manual } - `manual` when this copy updates by hand (the notice transport)
+  onUpdateReady: (cb) => {
+    updateListeners.push(cb);
+    if (updateHeard) cb(updateHeard);
+  },
   storage: {
     length: () => store.length(),
     key: (i) => store.key(i),

@@ -63,6 +63,13 @@ async function boot() {
   Promise.all([import('./ui/input.js'), import('./systems/controlsConfig.js'), import('./systems/notify.js')])
     .then(([input, cfg, notify]) => input.setKeybindNoticeSink((report) => { for (const line of cfg.keybindCarryNotes(report)) notify.hudTextWhenShown(line, 12); }))
     .catch((err) => console.warn('[keybinds] the carry notice could not load:', err?.message ?? err));
+  // DA8: the desktop shell's "an update is ready", through the same door and OFF the entry's static graph, as the
+  // carry above (BOOT2 holds that graph's ceiling). A tab has no shell and loads neither.
+  if (typeof globalThis.daggerShell?.onUpdateReady === 'function') {
+    Promise.all([import('./systems/shellUpdates.js'), import('./systems/notify.js')])
+      .then(([updates, notify]) => updates.listenForShellUpdates(globalThis.daggerShell, (text) => notify.hudTextWhenShown(text, 12)))
+      .catch((err) => console.warn('[update] the update notice could not load:', err?.message ?? err));
+  }
   mountFpsCounter({ enabled: () => params.has('fps') || !!getPref('showFps'), stats: () => renderer.stats, info: () => renderer.frameInfo });   // FPS1: over every host, on the pref or the probe door; PERF3: with the renderer's counts; PERF-SCALE: and its GPU and frame size
   const status = (msg) => {
     document.title = `Daggerfall Online - ${msg}`;

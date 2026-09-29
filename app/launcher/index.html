@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- DA8: the shell's first window (app/lib/launcherState.cjs). It runs its
+       own script and stylesheet and the fonts beside them, and nothing else:
+       no remote request, no inline code. The one thing it can say to the
+       shell is window.daggerLauncher (app/launcherPreload.cjs). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self' data:">
+  <title>Daggerfall Online</title>
+  <link rel="stylesheet" href="launcher.css">
+</head>
+<body data-busy>
+  <div class="night" aria-hidden="true"></div>
+  <main class="launcher">
+    <header class="mark">
+      <h1 class="wordmark">Daggerfall<small>Online</small></h1>
+      <div class="rule" aria-hidden="true"><i class="gem"></i></div>
+    </header>
+    <section class="status" aria-live="polite">
+      <h2 id="title">Starting Daggerfall Online</h2>
+      <p id="detail"></p>
+      <div id="progress" class="progress" hidden>
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i></i></div>
+        <span class="label"></span>
+      </div>
+      <ul id="found" class="found" hidden></ul>
+      <div id="notes" class="notes" hidden>
+        <h3 class="caps"></h3>
+        <div class="body" tabindex="0"></div>
+      </div>
+      <div id="actions" class="actions"></div>
+    </section>
+    <footer class="foot caps">
+      <span id="version"></span>
+      <span class="links">
+        <button class="link" type="button" data-open="site">daggerfalljs.dev</button>
+        <button class="link" type="button" data-open="discord">Discord</button>
+      </span>
+    </footer>
+  </main>
+  <script src="launcher.js"></script>
+</body>
+</html>
