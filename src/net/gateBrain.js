@@ -248,7 +248,7 @@ export const BASE_PROFILE = fightProfile(null);
 /** A fight's profile (its own marks), or a state's - the brain's fight and the court's state alike carry `md`. */
 export const profileOf = (f) => fightProfile(f?.md);
 /** What an attack is under a profile - its line (reach, phase, element, name, ground, share, base). */
-export const attackLine = (A, P = BASE_PROFILE) => P.atk[A.key];
+export const attackUnder = (A, P = BASE_PROFILE) => P.atk[A.key];
 
 const dist = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
 /** A point kept inside a disc of radius `r` about the court's centre (the boss's own, by default). */

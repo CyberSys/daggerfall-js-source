@@ -18,7 +18,7 @@ import {
 } from '../src/net/gateMods.js';
 import { gateModsOf, gateMarksCycleLength, gateTimes, gateRoomKey, gateIndex, GATE_EVERY_DAYS } from '../src/net/gateLaw.js';
 import {
-  newFight, joinFight, applyHit, stepBrain, stateOf, attacksFor, pickTarget, windupOf, fightProfile, profileOf, attackLine,
+  newFight, joinFight, applyHit, stepBrain, stateOf, attacksFor, pickTarget, windupOf, fightProfile, profileOf, attackUnder,
   BASE_PROFILE, SCAR_POOLS, FAVOURED_PHASE, ATTACKS, ATTACK_BY_ID, POOLS, BOSS_R, BOSS_H, SHIELD_MS, THREAT_PICK, THREAT_DECAY,
   BOSS_TTK_S, dpsRef, HIT_KINDS, MELEE_REACH, POSE_SLACK, PHASE_AT, COURT_CENTRE, BRAIN_TICK_MS, OPENING_MS, TURN_BREATH_MS,
 } from '../src/net/gateBrain.js';
@@ -129,7 +129,7 @@ test('WB8b the profile: the Warden unmarked IS the constants - his body, his war
   assert.deepEqual([P.md, P.el, P.size, P.bossR, P.bossH, P.hpX, P.shieldMs, P.hitX, P.dmgX, P.threatPick, P.threatDecay, P.feed, P.echo],
     [null, 'fire', 1, BOSS_R, BOSS_H, 1, SHIELD_MS, 1, 1, THREAT_PICK, THREAT_DECAY, 0, false]);
   for (const A of ATTACK_BY_ID) {
-    const L = attackLine(A);
+    const L = attackUnder(A);
     assert.deepEqual([L.r, L.phase, L.el, L.name, L.pct, L.base], [A.r, A.phase, A.el, A.name, A.pct, A.base ?? 0], A.key);
     assert.deepEqual(L.pool, A.pool ? { ...A.pool } : null, `${A.key}: its own ground, and none where it left none`);
   }
