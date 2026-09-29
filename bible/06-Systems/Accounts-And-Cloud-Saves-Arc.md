@@ -4107,7 +4107,7 @@ lozenge with a sword inside it, the sword's point at the lozenge's lowest corner
   older relay refuses a token carrying it (`claimsValid`), so the relay is **world129** and the account service
   **acct21**. The account deploy waits for the relay's `/health` (SHADOW-FANG's AUDIT B1). CUSTOMS-GRANT's branch
   (PR #433, not merged) also names acct20, which main's TERMS1 already holds; whichever of the two lands second takes
-  the next free number.
+  the next free number. (CUSTOMS-GRANT's branch landed after both, as acct23: REALM-DOOR took acct22 first.)
 - **The face** (`src/ui/playerBadge.js`): the word "Penitent" and a gradient from CSS's own `gold` (#ffd700) to its
   `skyblue` (#87ceeb), with a warm light between them (#fff3d6). A gold and a sky blue both lean green, so a straight
   mix of the two is sage: with two stops the word read gold, lime, blue. With the light between, it reads gold into
@@ -4130,3 +4130,24 @@ lozenge with a sword inside it, the sword's point at the lozenge's lowest corner
 - Pinned: `test/penitent.test.js` (8); valenvalarys in `test/titlen.test.js`. `tools/mutants/penitent.json` (24, all
   dead), and two grant mutants in `titlen.json` (21, all dead). Three older records in `shadowfang.json` were re-aimed
   by content, and the version mutants in `soc1.json` and `gatekeys.json` moved with the versions (all dead).
+
+## REALM-DOOR and CUSTOMS-PASS — the mint's realm word, and a developer's pass through customs (2026-09-29, acct22)
+
+From the field (`01-Overview/Field-Bugs-2026-09-29b.md`): Gryphoth made and played a character online on a build from
+before the realm, after the census froze - the relay still admitted such a build - and Bring online refused it.
+
+- **REALM-DOOR: every identity token says whether its character is the realm's.** `/v1/auth/token` stamps `rc`: 1 when
+  the character the mint names is one of the account's realm characters (`realm.js` `realmCharacterHeld` - a realm id,
+  the caller's own, standing), else 0 - an offline id, another account's character, one deleted, none. The relay
+  refuses a 0 at its door (`06-Systems/Online-Arc.md` REALM-DOOR, world130).
+- **CUSTOMS-PASS (Mac: "Staff customs pass"): `POST /v1/mod/customs-pass { name | account, revoke? }`**, a developer's
+  alone (`DEVELOPER_HANDLES`; a moderator's mute is not enough to let a character into the realm's economy). The account
+  is named as the game shows it - a handle, case-folded, or a guest's two-word name when one account without a handle
+  wears it (`ambiguous`, 409, when two do) - or by its id. It holds one open pass (`realm_passes`, migration 0024: a row
+  a grant, `granted_by` and `granted_at`; a partial unique index keeps one open an account), and customs spends it on the
+  account's next character its census does not count, inside `customsRealm`'s own guarded batch, writing that
+  character's id and the moment (`origin_id`, `spent_at`). Never spent on a character the census admits anyway; never
+  lets in one already brought in from any account. A revoke takes back an open pass only. `tools/customsPass.mjs` is the
+  developer's end of it.
+- `acct22`. Pins: `test/realmdoor.test.js` (6), `test/customspass.test.js` (6); `test/accountworker.test.js` names the
+  new table.

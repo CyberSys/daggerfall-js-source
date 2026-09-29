@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1076`, `world.js:2740`), fired
+`playerTicker.advance(60)` (`exterior.js:1081`, `world.js:2750`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -3354,7 +3354,7 @@ PNG through the DOM and cached `{ width, height, data }` - the shape
 pass that object straight on as a colour32
 (`const color32 = swap ?? t.getColor32(bitmap, ...)`), and
 `renderer.uploadTexture` reads `color32.colors` and calls `asBytes` on
-it (`renderer.js:3260`). `colors` was `undefined`, `asBytes` reads
+it (`renderer.js:3264`). `colors` was `undefined`, `asBytes` reads
 `.buffer` off it, and the upload threw. Every pin on this door held:
 they asserted the cache stored the object the decoder returned, by
 IDENTITY, which is precisely the assertion that cannot see a wrong
@@ -3365,7 +3365,7 @@ orientation is not its only problem".
 **And orientation was the other half.** The port's texel convention is
 bottom-up: `getColor32` writes `dstRow = (dstHeight - 1 - border - y) *
 dstWidth` (`baseImageFile.js:143`, `BaseImageFile.cs:250`), the upload
-leaves `UNPACK_FLIP_Y_WEBGL` off (`renderer.js:3250`), and `BB_VS`
+leaves `UNPACK_FLIP_Y_WEBGL` off (`renderer.js:3254`), and `BB_VS`
 samples the quad's top at v=1 (`renderer.js:382-406`). A browser decode
 is TOP row first. So a swap named correctly would still have drawn
 mirrored beside the classic art in the same batch loop - the exact
@@ -4597,7 +4597,7 @@ the true clause along with the false ones is in the campaign, because
 over-retiring is the equal and opposite failure.
 
 **And one delegation pointed at a flag nobody had ever written.**
-`world.js:4100` said the dungeon-mode enchant ctx was "FLAGGED there
+`world.js:4114` said the dungeon-mode enchant ctx was "FLAGGED there
 with the rest of its enchant wiring" in `dungeonContext.js`. It was
 not. `setDefaultEnchantCtx` had exactly **one** caller in the tree, so
 the standalone `?dungeon` host ran every arm that needs a host
@@ -5053,7 +5053,7 @@ predicate read prettier.
 by the same sweep and each verified against the tree before deletion:
 the interior detect claim above; "there is nowhere to cash one yet" on
 the letter of credit, which B2 answered with `DepositAll_LOC`
-(`banking.js:589`, the window's own :377-389); "the BANKING arm stays
+(`banking.js:615`, the window's own :377-389); "the BANKING arm stays
 FLAGGED below", written nine lines above the live banking arm; and
 "every other arm is FLAGGED by name in
 `guildServiceFlow.SERVICE_DESTINATION`" after DR2 closed the last of
@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:8460` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:8474` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -8250,3 +8250,23 @@ is the Identify spell's, paid in magicka, and both exterior hosts hand a shop's 
 online P0.4 pays half the ask at most, and half a gold is nothing. The floor only raises an ask - and it shut a loop
 Daggerfall had, a quality-1 counter in a cheap province asking nothing for a bandage and paying a gold for it back.
 `test/fb0929_min_price.test.js`, `tools/mutants/fb0929.json`.
+
+### BOOK-SPLIT - A BOOK SPLIT OFF A STACK IS THAT BOOK (2026-09-29)
+
+Janome on Discord, through Mac: *"some of the books i would add to be sold would appear under the wrong title, and then
+i was able to remove them from the sell window to like, duplicate them? somehow?"* Reproduced on the real counter first:
+one of "A Tale of Kieran" x3 put on the counter through the how-many field read "The First Scroll of Baan Dar", and came
+back to the pack as that book. TWO FAULTS. SplitStack (ItemCollection.cs:261-272) mints `ItemBuilder.CreateItem(group,
+templateIndex)` - A2 ported it faithfully - and a group and a template are all it knows, so the part split off lost the
+three terms FindExistingStack reads as identity beside them (:708-713): a book's id (book 0, at the template's 2500
+gold instead of its own 300-800 file price - a gold faucet as well as a wrong title), a potion's recipe (an empty
+bottle) and a conjured stack's expiry (arrows that outlived their spell). DFU's own split does the same; Port-Ledger A:
+`inventory.js` `splitStack` keeps the three, and the price and picture a book's id and a potion's recipe set
+(`splitPricedByIdentity`); the rest is still the fresh mint (condition, material, variant, enchantments). And both
+counters took a lot back with a `push`, where DFU's every click-back and ClearSelectedItems go through
+ItemCollection.Transfer -> AddItem (:473-480), which merges a lot into its own stack - `enhancedTrade.js` `move` and
+`nativeTrade.js` `_move` add it now, so a book taken back is the third of its stack again, not a second row. AddItem
+also gained FindExistingStack's first term, `checkItem != item`: a record already held is never its own stack-mate.
+A2's and ROAD-Ar R5's pins flipped to the new law (the R5 re-merge now on a potion the producer mints).
+`test/fb0929d_booksplit.test.js` (4); `tools/mutants/fb0929d_booksplit.json`, 11 mutants, 11 dead.
+`01-Overview/Field-Bugs-2026-09-29d.md` BOOK-SPLIT.

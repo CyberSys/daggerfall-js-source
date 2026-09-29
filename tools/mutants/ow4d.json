@@ -12,8 +12,8 @@
   {
     "name": "OW4D1-door-goal-asked",
     "file": "src/scenes/world.js",
-    "old": "goalExempt: !!door, sea: seaAsk });",
-    "new": "goalExempt: false, sea: seaAsk });",
+    "old": "let plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: !!door, sea: seaAsk });",
+    "new": "let plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: false, sea: seaAsk });",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],

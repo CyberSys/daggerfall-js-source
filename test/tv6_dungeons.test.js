@@ -162,7 +162,7 @@ test('TV6 host: the dungeons gathered once, listed on a pixel or a find, marked 
   assert.doesNotMatch(w, /\?\?= dungeon\w*\(locationIndex\)/, 'AUDIT OW3 D3: never a one-time snapshot of the live index');
   assert.match(w, /if \(tvDng\.at && tvDng\.at\.x === at\.x && tvDng\.at\.y === at\.y && tvDng\.dg === dg && tvDng\.grid === grid && tvDng\.n === n\) return tvDng\.list;/, 'kept between pixels and finds (and while the grid and the index hold)');
   assert.match(w, /if \(g\.found\) \{\n\s*if \(!g\.spawn && `far:\$\{g\.row\.mapID\}` === farEnd\) continue;/, 'a found one past the grid (the list keeps no other): a plate, but the journey\'s own end is its flag');
-  assert.match(w, /marks\.push\(\{ key: g\.key, at: tvSceneKept\(g, g\.x, g\.z, TV_PLACE_LIFT\), label: g\.loc\.name, sub: farDistanceText\(km\), kind: 'far', pick: true, edge: true \}\);/, 'a found one: a far plate, a journey');
+  assert.match(w, /marks\.push\(\{ key: g\.key, at: tvSceneKept\(g, g\.x, g\.z, TV_PLACE_LIFT\), label: g\.loc\.name, sub: farDistanceText\(km\), kind: 'far dungeon', pick: true, edge: true \}\);/, 'a found one: a far plate, a journey (OW-FILTER: its kind\'s second word the filter\'s Dungeons)');
   assert.match(w, /marks\.push\(\{ key: g\.key, at: tvSceneKept\(g, g\.x, g\.z, TV_PLACE_LIFT\), label: '\?', kind: 'lair' \}\);/, 'the rest: an unnamed lair, no journey, never held at the edge');
   assert.match(w, /if \(!isEnhanced\(\) \|\| \(modes\?\.mode \?\? 'exterior'\) !== 'exterior' \|\| !walkMode \|\| !playerSpawned\) return;/, 'the find: the enhanced interface, outdoors');
   assert.match(w, /if \(discoverLocation\(g\.row\.mapID, \{ regionName: maps\.getRegionName\(g\.row\.regionIndex\), locationName: g\.loc\.name \}\)\) tvSay\(dungeonFoundText\(g\.loc\.name\), 5\);/, 'the port\'s own store, and said');
@@ -318,8 +318,10 @@ test('AUDIT OW4 D6: WHERE THE LAST LEG STARTS - the aim of the leg before it (a 
 
 test('AUDIT OW4 D1/D6 host: a walk to a spawn\'s DOOR is a place\'s - never refused for the peaks, its own pixel\'s step exempt, every other step under the law - while a spot there is refused; its edge faces the route\'s LAST LEG (lifted and run over the real planner)', () => {
   const w = rd('src/scenes/world.js');
-  const m = /\n {2}(function travelViewWalkTo\(point, pix, \{ door = null, water = false \} = \{\}\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
-  assert.ok(m, 'the walk, with its one option');
+  // THE QUEST GUIDE's merge of main (2026-09-29): TO-ROADS x OW-PATH (9921c7901) gave the walk its `roads` option and
+  // this lift still read the old signature - red on main itself; the body's new reads are lent below already
+  const m = /\n {2}(function travelViewWalkTo\(point, pix, \{ door = null, water = false, roads = false \} = \{\}\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
+  assert.ok(m, 'the walk, with its options');
   const P = 32768, mid = (p) => [p.x * P + P / 2, p.y * P + P / 2];   // this test's own native frame
   const doorAt = (px, py) => { const [x, z] = mid({ x: px, y: py }); return { minX: x - 2048, maxX: x + 2048, minZ: z - 2048, maxZ: z + 2048 }; };
   const spot = (px, py) => { const [x, z] = mid({ x: px, y: py }); return [x, 0, z]; };
@@ -339,6 +341,7 @@ test('AUDIT OW4 D1/D6 host: a walk to a spawn\'s DOOR is a place\'s - never refu
     // THE MERGE (OWS2): no boat on this walk - the planner asked on land, a refusal said as the view says it
     tvSeaMeans: () => null, dryLine: () => true, tvSeaAsk: () => null, tvSeaBegin: () => {}, tvSeaNoWay: () => said.push('no way'), crossesWater: () => false,
     tvMooredDry: () => null,   // AUDIT OW5 S3: no moored boat here
+    travelPathUsesRoads: () => true, TRAVEL_PATH_TEXT: { fellBack: 'fell back' },   // OW-PATH: the Roads mode, the default
   };
   const walkTo = new Function('d', `const { ${Object.keys(d).join(', ')} } = d; return ${m[1]};`)(d);
   const reset = () => { said.length = 0; begun.length = 0; plans.length = 0; };

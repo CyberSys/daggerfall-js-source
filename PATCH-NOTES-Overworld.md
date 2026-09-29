@@ -134,6 +134,7 @@
 - Your own character faces the camera from above, and trees no longer pop at the edge of the screen.
 - Resuming a road journey never sets off across the water the road goes around.
 - A save made from the Overworld keeps your own camera.
+- Crossing the water works with Iliac Puddle No More on (the default): your boat goes into the sea and sails. It never left the shore - the journey stopped with "Your boat has run aground.", or walked on without it.
 
 ## The audit before release
 - Dungeons you pass within a kilometre of are found again even where you have already found many nearby.
