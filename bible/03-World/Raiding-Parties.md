@@ -367,9 +367,23 @@ wired; `scenes/exterior.js` and `scenes/worldModes.js` stand no defender and tak
 refused by its owner (AUDIT FINAL F12). Port-Ledger A carries the departure (DFU's ray still strikes an ally alone in
 front). Pinned by `test/fb0929_raidguards.test.js` (red before), five mutants dead.
 
-**Limits, recorded.** With the protection off the swing strikes a defender like anything else and the blow is still
-Assault - Kamer's defenders were passive watch-skinned Knights, re-pacified every three seconds and never a crime to
-strike, and DFU makes only a Knight_CityWatch's death Murder. The riding charge (EnhancedRiding) strikes a defender it
-meets. My swing can still land on another player's defender standing here as a puppet (the encounter pool's own
-fallback); its owner refuses the blow.
+**RAID-GUARDS (the same day, Mac: "Raids shouldnt let you damage the guards").** While a raid is on in the town, its
+defenders take none of the player's blows WHATEVER the setting. `cityGuards.playerSpares` is the one question - a
+defender, under friendly protection or with a raid on here (`raidHere`, which `scenes/world.js` answers with
+`raidDefendingHere`) - and the swing's pass and the riding charge's list (EnhancedRiding's charge struck a defender it
+met) ask it, while the guards' damage door refuses any blow of the player's on a raid's defender by whatever road it
+came: it lands nothing and raises no Assault. The crime watch is never spared, and with no raid on and the protection
+off the watch's pass strikes a defender as DFU's does (the DISC19-F watch against a monster). Kamer's defenders were
+passive watch-skinned Knights, re-pacified every three seconds and never a crime to strike; this is that, for the
+player's own hand. `test/fb0929_raidguards.test.js`, `tools/mutants/raidguards.json` (8, 8 dead).
+
+**RAID-REP (the same day, Mac: "I think it improves rep in all regions").** Checked, and it does not: GrantReputation
+raises the raided region's legal reputation, that region's People and its first knightly order, for a player who
+fought and stands on the town's pixel - no other region's. The one standing that is no region's is Kamer's +3 with the
+Fighters Guild, which the Standing page shows wherever the player is. Pinned in the same file with the other region's
+factions first in the dictionary, so a law that forgot the region would pay them.
+
+**Left, online:** my swing can still land on another player's defender standing here as a puppet (the encounter
+pool's own fallback) - a flash on my screen and nothing more: its owner refuses the blow, so no guard takes damage and
+no crime crosses the wire.
 

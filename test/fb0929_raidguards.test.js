@@ -21,7 +21,8 @@ import { createExteriorFoes } from '../src/scenes/exteriorFoes.js';
 import { PLAYER_TARGET } from '../src/characters/enemyTargets.js';
 import { PlayerWeapon } from '../src/combat/playerWeapon.js';
 import { setValue } from '../src/systems/settings.js';
-import { chooseRaider, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../src/systems/raidingParties.js';
+import { FACTION_TYPES, GUILD_GROUPS } from '../src/formats/factionFile.js';
+import { chooseRaider, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE, grantRaidReputation } from '../src/systems/raidingParties.js';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -71,8 +72,8 @@ const inView = (c) => { const dx = c[0] - EYE0[0], dz = c[2] - EYE0[2]; return d
 /** A raided town's street: an orc of the raid's own party six metres ahead (out of the swing's reach, hunting the
  *  player), and the raid's defenders minted by the raid's own producer (cityGuards.standDefender, RAID1) - one beside
  *  the player off the look ray, one in front on it, both inside the reach and the view. */
-async function raidStreet(p) {
-  const guards = createCityGuards(rig(p));
+async function raidStreet(p, host = {}) {
+  const guards = createCityGuards({ ...rig(p), ...host });
   const monsters = createExteriorFoes(rig(p));
   const orc = await monsters.spawnFoe(ORC, [0, 0, 6], { feetGiven: true, loose: true, transient: true });   // the raid host's standRaider: loose, transient
   orc.ai.target = PLAYER_TARGET;
@@ -130,7 +131,7 @@ test('FB0929: under the protection a raid\'s defenders take none of a swing that
   }
 });
 
-test('FB0929: with the protection off the watch\'s pass strikes a defender in reach as DFU\'s box pass does - and a blow is still Assault (DISC19 W2, Mac\'s call)', async () => {
+test('FB0929: with the protection off and NO raid on in the town (DISC19-F\'s watch against a monster) the watch\'s pass strikes a defender in reach as DFU\'s box pass does - and a blow is still Assault (DISC19 W2, Mac\'s call)', async () => {
   const p = townsman();
   const { guards, beside, front } = await raidStreet(p);
   setValue('MeleeAttacks', 'MeleeAttackFriendlyProtection', false);
@@ -160,4 +161,54 @@ test('FB0929: a defender on the look ray stays the swing - the townsperson behin
   guards.dismissDefenders();
   assert.deepEqual(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), { crime: 'murder' }, 'nobody in front: the townsperson is the only body there (DFU\'s own fallback)');
   assert.deepEqual([struck, murders, p.crimeCommitted], [['townsperson'], 1, 5]);
+});
+
+// RAID-GUARDS (2026-09-29, Mac, after FB0929: "Raids shouldnt let you damage the guards"): while a raid is on in the
+// town, its defenders take none of the player's blows WHATEVER the setting - one question, cityGuards.playerSpares,
+// asked by the swing, the riding charge's list and the damage door itself. The crime watch is never spared.
+test('RAID-GUARDS: while a raid is on in the town its defenders take none of the player\'s blows whatever the setting - the swing, the charge\'s list and the damage door (no Assault) - and the crime watch is never spared', async () => {
+  setValue('MeleeAttacks', 'MeleeAttackFriendlyProtection', false);
+  try {
+    const p = townsman();
+    let raid = true;
+    const { guards, beside, front } = await raidStreet(p, { raidHere: () => raid });
+    const w = new PlayerWeapon({});
+    const struck = [];
+    w.onAttackResult = ({ foe }) => struck.push(foe);
+    assert.equal(guards.resolvePlayerHit(w, EYE0, FWD0, FEET0, inView, null, { swing: {} }), false, 'the raid\'s defenders are not the swing\'s, the setting off');
+    assert.equal(struck.length, 0);
+    for (const d of [beside, front]) assert.equal(guards.playerSpares(d), true, 'spared');
+    // the damage door: a blow of the player's that reaches it anyway lands nothing and is no crime; a raider's lands
+    guards.hurtGuard(front, 50, FEET0);
+    assert.deepEqual([front.entity.health, p.crimeCommitted, guards.anyWatchStanding()], [10000, 0, false], 'refused at the door - no Assault');
+    guards.hurtGuard(front, 50, FEET0, null, { fromPlayer: false });
+    assert.equal(front.entity.health, 9950, 'a raider\'s blow is the raid\'s');
+    // the crime watch is never spared, raid or not
+    const watchman = await guards.spawnCityGuard([0, 0, 1.2], 0, FEET0);
+    assert.ok(watchman && !watchman.defender, 'a crime watchman, as spawnCityGuard mints him');
+    assert.equal(guards.playerSpares(watchman), false);
+    // the raid over, the setting decides again (off: DFU's box pass)
+    raid = false;
+    assert.equal(guards.playerSpares(front), false, 'no raid, no protection: DFU\'s ally rule');
+  } finally { setValue('MeleeAttacks', 'MeleeAttackFriendlyProtection', true); }
+  // THE HOST: the world host tells the pool where a raid is on, and the riding charge takes its guards through the rule
+  const w = rd('src/scenes/world.js');
+  assert.match(w, /createCityGuards\(\{[\s\S]{0,600}?raidHere: \(\) => raidDefendingHere\(\),/, 'world.js hands the pool the raid');
+  assert.match(w, /guards: \(\) => cityGuards\.guards\.filter\(\(g\) => !cityGuards\.playerSpares\(g\)\),/, 'the charge asks the one rule');
+});
+
+test('RAID-REP: a cleanse raises the raided region\'s own standing and touches no other region\'s - its legal reputation, its People and its knightly order alone; the Fighters Guild\'s +3 is the one standing that is not a region\'s (Kamer\'s)', () => {
+  const f = (id, o) => [id, { id, rep: 0, region: -1, type: 0, ggroup: 0, parent: 0, ally1: 0, ally2: 0, ally3: 0, enemy1: 0, enemy2: 0, enemy3: 0, ...o }];
+  const store = { dict: new Map([
+    // the other region's first in the dictionary, so a law that forgot the region would pay it
+    f(519, { type: FACTION_TYPES.People, region: 18 }), f(518, { type: FACTION_TYPES.People, region: 17 }),
+    f(410, { region: 18, ggroup: GUILD_GROUPS.KnightlyOrder }), f(409, { region: 17, ggroup: GUILD_GROUPS.KnightlyOrder }),
+    f(41, { ggroup: GUILD_GROUPS.FightersGuild }),
+  ]) };
+  const player = { legalRep: { 17: 10, 18: 10, 20: -3 } };
+  assert.equal(grantRaidReputation({ player, store }, 17), true);
+  assert.deepEqual(player.legalRep, { 17: 15, 18: 10, 20: -3 }, 'the raided region alone');
+  const rep = (id) => store.dict.get(id).rep;
+  assert.deepEqual([rep(518), rep(519), rep(409), rep(410)], [5, 0, 3, 0], 'its People and its order, no other region\'s');
+  assert.equal(rep(41), 3, 'the Fighters Guild, the Bay\'s own guild');
 });

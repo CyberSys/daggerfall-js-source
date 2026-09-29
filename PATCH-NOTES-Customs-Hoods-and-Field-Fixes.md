@@ -14,7 +14,8 @@
 - **Nothing sells for 0 gold.** Every piece a shop sells or repairs costs at least 1 gold. Selling to a shop is unchanged.
 
 ## Raids
-- With **Protect Bystanders** on, your melee swings no longer hit the town's defenders during a raid, so defending a town no longer gets you arrested. A defender standing in front of you stops the swing.
+- **You can't hurt the town's guards during a raid**, whatever your settings: swings, the charge on horseback, spells, arrows and torches all pass them by, so defending a town no longer gets you arrested. A guard standing in front of you stops the swing.
+- Outside raids, **Protect Bystanders** keeps your swings off the guards who fight beside you.
 
 ## The Overworld
 - **Picking a far destination on the Travel Map no longer drops the frame rate.** The route line is only drawn where it is on screen.

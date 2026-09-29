@@ -104,6 +104,25 @@ protection off nothing changes. Port-Ledger A (DFU's ray would still strike an a
 `test/fb0929_raidguards.test.js` (3), `tools/mutants/fb0929_raidguards.json` (5, 5 dead). `03-World/Raiding-Parties.md`
 FB0929.
 
+## RAID-GUARDS and RAID-REP: Mac's two follow-ups on the raids (6)
+
+Mac, after FB0929: *"1. Raids shouldnt let you damage the guards 2. Town raids are supposed to improve the region the
+player is at, need more testing but I think it improves rep in all regions kinda broken if so"*.
+
+- **RAID-GUARDS.** While a raid is on in the town, its defenders take none of the player's blows, whatever the setting.
+  `cityGuards.playerSpares` asks one question - a defender, under friendly protection or with a raid on here (the
+  world host answers `raidHere` with `raidDefendingHere`) - and the swing's pass and the riding charge's list ask it,
+  while the guards' damage door refuses any blow of the player's on a raid's defender by whatever road it came: it
+  lands nothing and raises no Assault. The crime watch is never spared; with no raid on and the protection off, DFU's
+  rule stands. Spells, shafts and thrown torches always passed a defender by. Online, a peer's watchman puppet can
+  still flash under my swing, but its owner refuses the blow. `test/fb0929_raidguards.test.js` (now 5),
+  `tools/mutants/raidguards.json` (8, 8 dead).
+- **RAID-REP: checked, and not broken.** GrantReputation raises the raided region's legal reputation, its People and
+  its first knightly order - for a player who fought and stands on the town's pixel - and no other region's. The one
+  standing that is no region's is Kamer's +3 with the Fighters Guild, which the Standing page shows everywhere (the
+  likely source of the impression). Pinned with the other region's factions first in the dictionary, so a law that
+  forgot the region would pay them. `03-World/Raiding-Parties.md` RAID-GUARDS, RAID-REP.
+
 ## FB0929 (far route): the Overworld's line, cut to the screen (7)
 
 The route was planned once, at the pick; the per-frame cost was its LINE. `routePath` drew one dashed SVG path through
@@ -148,9 +167,8 @@ in minutes.
   census widens and every customs character already made takes its home and guild place at that moment.
 - **Left open:** a home or guild place under an origin whose realm character was since DELETED still stands under the
   dead id (a building nobody can buy); 0022 moves nothing no realm character stands on.
-- **Raids with the protection OFF** still make a blow on a defender Assault, as DFU would. Kamer's mod never made it a
-  crime (its defenders were passive watch-skinned Knights) - say if a raid's defender should never be a crime to
-  strike, whatever the setting. The riding charge still strikes a defender it meets.
+- **The Fighters Guild's +3 for a cleansed town** is Kamer's and global - the one part of a raid's reward that is no
+  region's. Say if it should go.
 - **The hood** lifts the day's travel ban only; the -20 by day stays under it, a custom class's Damage from Sunlight is
   a chosen disadvantage and is not lifted, and no rule has guards spotting vampires, so a hood hides nothing from them.
   The unbound Overworld key never asked the sun at all.

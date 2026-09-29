@@ -236,7 +236,7 @@
   {
     "name": "DISC19-F-swing-takes-the-defender-first",
     "file": "src/scenes/cityGuards.js",
-    "old": "const live = guards.filter((g) => !g.dead && !(protect && g.defender));",
+    "old": "const live = guards.filter((g) => !g.dead && !playerSpares(g));",
     "new": "const live = guards.filter((g) => !g.dead);",
     "tests": [
       "test/disc19.test.js"

@@ -169,6 +169,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // ActiveGameObjectDatabase is ONE database for the scene.
   makeAreaHostile = null,
   playerWeaponSheathed = () => false,   // AUDIT 24 (wave 42): CalculateEnemyPacification's -25 / +10 arm
+  raidHere = () => false,   // RAID-GUARDS: is a raid on in the town the player stands in (raidingParties.js raidDefendingHere)
   // AUDIT 63 F42 (review round): exteriorFoes' dep to the line
   // (exteriorFoes.js), for the same reason and at the same mount.
   // ObstacleCheck's `GetComponent<DaggerfallActionDoor>()`
@@ -748,6 +749,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  town turns on them for a rat's work. */
   function damageGuard(g, damage, playerFeet, knockDir, { fromPlayer = true, bypassShield = false, peer = false } = {}) {
     if (g.dead) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one tallied a second Murder and minted a second body
+    if (fromPlayer && !peer && g.defender && raidHere()) return;   // RAID-GUARDS: whatever road a blow of the player's takes to the door, a raid's defender takes none of it - and no Assault comes of one
     // AUDIT WATCH1 A4: a PEER's blow (WATCH1's net seam) is the encounter pool's peer law (AUDIT WORLD6b B2): no
     // reveal of this player's and no kill notice of this player's - the striker's own rang at the striker.
     if (damage > 0 && !peer) markConcealedHit(g, _ecvT);   // ECV1: a hit on an unseen watchman flashes him
@@ -1170,6 +1172,16 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     return [...out, ...corpseBatches.map((c) => c.batch)];
   }
 
+  /** RAID-GUARDS (2026-09-29, Mac: "Raids shouldnt let you damage the guards"): THE GUARDS THE PLAYER'S BLOWS PASS
+   *  BY. A defender - DISC19-F's watch fighting beside the player, a raid's own among them - under friendly
+   *  protection (FB0929), and while a raid is on in this town WHATEVER the setting. The swing and the riding charge
+   *  (world.js rrRiding) ask this one question, as the player's spells, shafts and torches have always passed a
+   *  defender by (AUDIT DISC19 W4); the damage door below holds the raid's half against any other road. The crime
+   *  watch is never spared. */
+  function playerSpares(g) {
+    return !!g?.defender && (getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') || !!raidHere());
+  }
+
   /** The player's swing resolves against live guards (the dungeon's
    *  resolvePlayerHit shape over playerWeapon.resolveHit). */
   function resolvePlayerHit(playerWeapon, eye, lookDir, playerFeet, inViewFn, onHitSound, { swing = null } = {}) {
@@ -1189,8 +1201,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // in front: Port-Ledger A. The protection is a setting (AUDIT
     // DISC19): with it off DFU's box pass strikes an ally like anything
     // else.
-    const protect = getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection');
-    const live = guards.filter((g) => !g.dead && !(protect && g.defender));
+    const live = guards.filter((g) => !g.dead && !playerSpares(g));   // RAID-GUARDS: protection, or a raid here
     if (!live.length) return false;
     const canSee = (g) => {
       const c = [g.ai.feet[0], g.ai.feet[1] + (g.ai.height ?? 1.8) / 2, g.ai.feet[2]];   // REVIEW 2026-09-05: the watchman's own capsule centre
@@ -1534,7 +1545,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     releaseGuardBatch(g);
     g.dead = true;   // no `corpse` - a removed guard is destroyed, not killed
   }
-  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, update, offsetAll, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab
+  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, update, offsetAll, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, playerSpares, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab
     /** RR2: PlayerEntity.SpawnCityGuard(position, direction) (PlayerEntity.cs:678-694) for a caller
      *  outside the watch's own call - the ONE watchman minted where a walker stood, facing their
      *  way, hostile to the player. Resolves to the guard record (or null when the world moved on). */

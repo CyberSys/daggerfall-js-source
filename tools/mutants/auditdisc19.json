@@ -290,8 +290,8 @@
   {
     "name": "AUDIT-DISC19-W5-spare-ignores-setting",
     "file": "src/scenes/cityGuards.js",
-    "old": "!(protect && g.defender)",
-    "new": "!(g.defender)",
+    "old": "(getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') || !!raidHere())",
+    "new": "true",
     "tests": [
       "test/auditdisc19.test.js"
     ]

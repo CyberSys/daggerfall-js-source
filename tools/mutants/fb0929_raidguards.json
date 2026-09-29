@@ -2,8 +2,8 @@
   {
     "name": "FB0929-spare-only-a-pacified-defender",
     "file": "src/scenes/cityGuards.js",
-    "old": "const live = guards.filter((g) => !g.dead && !(protect && g.defender));",
-    "new": "const live = guards.filter((g) => !g.dead && !(protect && g.defender && g.ai.isHostile === false));",
+    "old": "    return !!g?.defender && (getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') || !!raidHere());",
+    "new": "    return !!g?.defender && g.ai.isHostile === false && (getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') || !!raidHere());",
     "tests": [
       "test/fb0929_raidguards.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "FB0929-spare-whatever-the-setting",
     "file": "src/scenes/cityGuards.js",
-    "old": "const live = guards.filter((g) => !g.dead && !(protect && g.defender));",
-    "new": "const live = guards.filter((g) => !g.dead && !g.defender);",
+    "old": "(getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') || !!raidHere())",
+    "new": "(true || !!raidHere())",
     "tests": [
       "test/fb0929_raidguards.test.js"
     ]
