@@ -135,15 +135,6 @@
     ]
   },
   {
-    "name": "TOWN-MARKS-hovered-at-the-place",
-    "file": "src/ui/townSheet.js",
-    "old": "(y - TOWN_MARK_LIFT - py) ** 2",
-    "new": "(y - py) ** 2",
-    "tests": [
-      "test/town_marks.test.js"
-    ]
-  },
-  {
     "name": "TOWN-MARKS-the-reach-lost",
     "file": "src/ui/townSheet.js",
     "old": "<= TOWN_MARK_REACH * TOWN_MARK_REACH) return { label: m.label",
@@ -193,33 +184,6 @@
     "file": "src/ui/inkTown.js",
     "old": "    paintHomeMark(ctx, x, y, h.own === true);",
     "new": "    paintHomeMark(ctx, x, y, false);",
-    "tests": [
-      "test/town_marks.test.js"
-    ]
-  },
-  {
-    "name": "TOWN-MARKS-the-lift-lost",
-    "file": "src/ui/inkTown.js",
-    "old": "export const TOWN_MARK_LIFT = 17;",
-    "new": "export const TOWN_MARK_LIFT = 8;",
-    "tests": [
-      "test/town_marks.test.js"
-    ]
-  },
-  {
-    "name": "TOWN-MARKS-the-board-stem-cut",
-    "file": "src/ui/inkTown.js",
-    "old": "  paintMarkStem(ctx, x, y, cy + h / 2);\n",
-    "new": "",
-    "tests": [
-      "test/town_marks.test.js"
-    ]
-  },
-  {
-    "name": "TOWN-MARKS-the-home-stem-cut",
-    "file": "src/ui/inkTown.js",
-    "old": "  paintMarkStem(ctx, x, y, cy + 4.5);\n",
-    "new": "",
     "tests": [
       "test/town_marks.test.js"
     ]
@@ -283,6 +247,69 @@
     "file": "src/scenes/world.js",
     "old": "regionIndex: dfLoc.regionIndex, houses: playerEntity.houses ?? null,",
     "new": "regionIndex: dfLoc.regionIndex, houses: null,",
+    "tests": [
+      "test/town_marks.test.js"
+    ]
+  },
+  {
+    "name": "TOWN-MARKS-the-name-left-on-the-glyph",
+    "file": "src/ui/townSheet.js",
+    "old": "        if (marked.has(n.key)) return { ...n, size, px: x, py: y + TOWN_MARK_HALF + 1 + h / 2, foot: y + TOWN_MARK_HALF, marked: true, w, h };",
+    "new": "        if (marked.has(n.key)) return { ...n, size, px: x, py: y, foot: y + TOWN_MARK_HALF, marked: true, w, h };",
+    "tests": [
+      "test/town_marks.test.js"
+    ]
+  },
+  {
+    "name": "TOWN-MARKS-the-plates-not-re-laid",
+    "file": "src/ui/townSheet.js",
+    "old": "Math.round(reserveTop), hands?.length ?? 0, [...marked].join(',')].join('|');",
+    "new": "Math.round(reserveTop), hands?.length ?? 0].join('|');",
+    "tests": [
+      "test/town_marks.test.js"
+    ]
+  },
+  {
+    "name": "TOWN-MARKS-the-names-place-not-the-glyphs-foot",
+    "file": "src/ui/townSheet.js",
+    "old": "anchorY: n.marked ? n.foot : n.py,",
+    "new": "anchorY: n.py,",
+    "tests": [
+      "test/town_marks.test.js"
+    ]
+  },
+  {
+    "name": "TOWN-MARKS-the-tick-drawn-under-the-glyph",
+    "file": "src/ui/inkTown.js",
+    "old": "      if (p.marked) continue;   // TOWN-MARKS: the building's glyph is its tick\n",
+    "new": "",
+    "tests": [
+      "test/town_marks.test.js"
+    ]
+  },
+  {
+    "name": "TOWN-MARKS-the-house-off-its-place",
+    "file": "src/ui/inkTown.js",
+    "old": "  paintMarkShape(ctx, [[x - 5, y + t], [x - 5, y], [x - 7, y], [x, y - t],\n    [x + 7, y], [x + 5, y], [x + 5, y + t]],",
+    "new": "  paintMarkShape(ctx, [[x - 5, y + t - 8], [x - 5, y - 8], [x - 7, y - 8], [x, y - t - 8],\n    [x + 7, y - 8], [x + 5, y - 8], [x + 5, y + t - 8]],",
+    "tests": [
+      "test/town_marks.test.js"
+    ]
+  },
+  {
+    "name": "TOWN-MARKS-the-board-off-its-place",
+    "file": "src/ui/inkTown.js",
+    "old": "  paintMarkShape(ctx, [[x - w / 2, y - h / 2], [x + w / 2, y - h / 2], [x + w / 2, y + h / 2], [x - w / 2, y + h / 2]], TOWN_PEN.halo);",
+    "new": "  paintMarkShape(ctx, [[x - w / 2, y - h], [x + w / 2, y - h], [x + w / 2, y], [x - w / 2, y]], TOWN_PEN.halo);",
+    "tests": [
+      "test/town_marks.test.js"
+    ]
+  },
+  {
+    "name": "TOWN-MARKS-the-half-grown",
+    "file": "src/ui/inkTown.js",
+    "old": "export const TOWN_MARK_HALF = 6;",
+    "new": "export const TOWN_MARK_HALF = 9;",
     "tests": [
       "test/town_marks.test.js"
     ]

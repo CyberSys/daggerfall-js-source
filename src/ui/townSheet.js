@@ -39,7 +39,7 @@
 import { boundarySegments, linkSegments, fitView, toPaper, NAME_FACE } from './inkMap.js';
 import {
   townBytes, townChains, quarterChains, quarterOfType, isBuilt, QUARTERS, sheetY,
-  paintTownStatic, paintTownOverlay, BLOCK_PX, TOWN_MARK_LIFT,
+  paintTownStatic, paintTownOverlay, BLOCK_PX, TOWN_MARK_HALF,
 } from './inkTown.js';
 import { nameplateAnchor, resolveNameplates, WORLD_PER_PX } from './nameplateLayout.js';
 import { readPartyBodies, PARTY_MARK_CSS } from './partyMapMarks.js';   // DISC23-A: the party's bodies in the streets
@@ -260,8 +260,11 @@ export function createTownSheet(deps = {}) {
    * than the town does.
    */
   function ensurePlates(view, paperW, paperH, measure, reserveTop = 0, hands = null) {
+    // TOWN-MARKS: a building a home's glyph stands on has its name lettered UNDER the glyph - so which buildings wear
+    // one is part of what the plates were laid for
+    const marked = new Set(readTownHomes(deps.homes).map((r) => r.buildingKey));
     const key = [Math.round(view.ox), Math.round(view.oy), Math.round(view.scale * 100),
-      Math.round(paperW), Math.round(paperH), Math.round(reserveTop), hands?.length ?? 0].join('|');
+      Math.round(paperW), Math.round(paperH), Math.round(reserveTop), hands?.length ?? 0, [...marked].join(',')].join('|');
     if (plates?.key === key) return plates.rows;
     const rows = [];
     if (view.scale >= NAME_ZOOM_MIN) {
@@ -272,7 +275,11 @@ export function createTownSheet(deps = {}) {
         // them - a landmark asks for more room and now gets it.
         const size = nameSize(view, n);
         const w = measure ? measure(n.text, size) : n.text.length * size * 0.52;
-        return { ...n, size, px: x, py: y, w, h: size * 1.15 };
+        const h = size * 1.15;
+        // TOWN-MARKS: under the glyph, clear of it by a pixel - the glyph is the building's tick, and the plate's own
+        // place (its `anchorY`) is the glyph's foot, so a name the solver leaves where it was laid draws no leader
+        if (marked.has(n.key)) return { ...n, size, px: x, py: y + TOWN_MARK_HALF + 1 + h / 2, foot: y + TOWN_MARK_HALF, marked: true, w, h };
+        return { ...n, size, px: x, py: y, w, h };
       // only what is ON the paper is worth solving for
       // only what is on the paper is worth solving for - and the band
       // the TAB STRIP has taken is not the paper, for a name: the probe
@@ -296,7 +303,8 @@ export function createTownSheet(deps = {}) {
         // the building and lead back to it when the words have moved.
         rows.push({
           text: n.text, quest: n.quest, quarter: n.quarter, size: n.size,
-          x: n.px, y: n.py + (s.offY ?? 0), anchorY: n.py,
+          x: n.px, y: n.py + (s.offY ?? 0), anchorY: n.marked ? n.foot : n.py,
+          ...(n.marked ? { marked: true } : {}),
         });
       });
     }
@@ -365,11 +373,10 @@ export function createTownSheet(deps = {}) {
           const [x, y] = toPaper(lastView, m.x, m.y);
           if ((x - px) ** 2 + (y - py) ** 2 <= PARTY_REACH * PARTY_REACH) return { label: m.name, cursor: '' };
         }
-        // TOWN-MARKS: a board's or a home's glyph under the pointer names it - its glyph stands TOWN_MARK_LIFT above
-        // its place, so the pointer is asked about the glyph, not the ground under it
+        // TOWN-MARKS: a board's or a home's glyph under the pointer names it - the glyph stands on its place
         for (const m of [...boardsOnSheet(), ...homesOnSheet()]) {
           const [x, y] = toPaper(lastView, m.x, m.y);
-          if ((x - px) ** 2 + (y - TOWN_MARK_LIFT - py) ** 2 <= TOWN_MARK_REACH * TOWN_MARK_REACH) return { label: m.label, cursor: '' };
+          if ((x - px) ** 2 + (y - py) ** 2 <= TOWN_MARK_REACH * TOWN_MARK_REACH) return { label: m.label, cursor: '' };
         }
         for (const p of plates?.rows ?? []) {
           if (Math.abs(p.x - px) <= p.size * p.text.length * 0.3 && Math.abs(p.y - py) <= p.size) {
