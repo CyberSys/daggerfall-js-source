@@ -47,8 +47,8 @@
   {
     "name": "DISC28-B-surrender-to-nothing",
     "file": "src/scenes/arrestFlow.js",
-    "old": "if (crimeId() === 0) return; if (surrender",
-    "new": "if (surrender",
+    "old": "            if (crimeId() === 0) return;\n            // WERE-FRIGHT: the question was a man's",
+    "new": "            // WERE-FRIGHT: the question was a man's",
     "tests": [
       "test/disc28_arrest.test.js"
     ]

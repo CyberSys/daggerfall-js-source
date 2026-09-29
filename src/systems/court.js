@@ -36,7 +36,7 @@
 // site). The prison time-skip riding the host clock callback is the
 // port's seam shape, not a remainder.
 // BANISHMENT'S CONSEQUENCES SHIPPED: `SeverePunishmentFlags |= 1` is
-// written at scenes/arrestFlow.js:544-547 (severePunishment, off
+// written at scenes/arrestFlow.js:610-613 (severePunishment, off
 // OnPop) and read every catch-up minute by encounters.js:243
 // passiveGuardSpawns - PlayerEntity.cs:507's 10% banished-player
 // guard roll - fed at scenes/world.js:4847-4849. (The guild rescues -

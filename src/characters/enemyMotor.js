@@ -52,6 +52,8 @@ export const FOE_MAX_FRAME_DT = 3 * FIXED_DT;
 /** AUDIT (the pre-merge audit, S2): every foe's move keeps its floor under a ceiling that holds it down (collider move's
  *  `keepFloor`, SQUEEZE1) - a body of any height, not only one past the player's tallest stance. */
 const FOE_KEEPS_FLOOR = true;
+/** WERE-FRIGHT: how far ahead along the way away a fleeing foe's aim point stands (EnemyAI.flee). */
+const FLEE_AIM = 10;
 export const foeFrameDt = (dt) => Math.min(dt, FOE_MAX_FRAME_DT);
 export const GIVE_UP_TICKS = 200;   // EnemyMotor.GiveUpTimer refill (classic ticks; ~12.5s)
 import { GRAVITY, FIXED_DT, MAX_FRAME_DT, CLASSIC_TO_UNITY_RATIO, FALL_DAMAGE_THRESHOLD } from '../player/motor.js';   // the shared fall rule + the P16 fixed-timestep law; CH3: the fall threshold single-sources with the player's
@@ -488,6 +490,9 @@ export class EnemyAI {
     // struck (RDBLayout.AddEnemy :1519-1521). Pacification (C-slice)
     // clears it too; damage restores it.
     this.isHostile = isHostile;
+    // WERE-FRIGHT: the run from a fright (flee, below) - seconds left, and the point it runs from. No run by default.
+    this.fleeLeft = 0;
+    this.fleeFrom = null;
     // TakeAction:443-449 sets stopDistance BEFORE GetDestination, and
     // both the approach test (:487) and the search ramp (:552) read it.
     // Seeded here so a caller that drives _getDestination directly has
@@ -1509,7 +1514,108 @@ export class EnemyAI {
     }
   }
 
+  /** C15 KnockbackMovement's motion, verbatim (the comment at its call in _step): one step of the shove along the
+   *  attack ray, the hurt-anim flag, and the decay. Shared by the pursuit step and a frightened foe's run
+   *  (_fleeStep), which a blow shoves exactly as it shoves any foe. */
+  _knockbackStep(dt, classicTicks) {
+    if (this.knockbackSpeed > KB(KNOCKBACK_STORE_CAP)) this.knockbackSpeed = KB(KNOCKBACK_STORE_CAP);
+    this.hurtKnock = this.knockbackSpeed > KB(KNOCKBACK_HURT_THRESHOLD);
+    const sp = Math.min(this.knockbackSpeed, KB(KNOCKBACK_MOTION_CAP));
+    const d = this.knockbackDir ?? [0, 0, 0];
+    const mx = d[0] * sp * dt, myRaw = d[1] * sp * dt, mz = d[2] * sp * dt;
+    if (this.swims) {
+      const waterY = this.waterSurfaceY ? this.waterSurfaceY(this.feet[0], this.feet[2]) : null;
+      const center = this.feet[1] + this.centreOffset;   // EnemyMotor.cs:1333 controller.transform.position.y
+      if (waterY !== null && center < waterY) {
+        let my = myRaw;
+        if (my > 0 && center + WATER_HEAD_MARGIN >= waterY) my = 0;
+        const moveResult = this.collider.move(this.feet, mx, my, mz, this.height, true, FOE_KEEPS_FLOOR);
+        this.isGrounded = moveResult.grounded;
+      }
+    } else if (this.flies || this.levitating) {
+      // :293-298 - `else if (flies || IsLevitating) controller.Move(...)`,
+      // the full 3D ray. A LEVITATOR takes no gravity with it:
+      // KnockbackMovement raises flyerFalls, but ApplyGravity's
+      // flyer arm is `flyerFalls && flies && !IsLevitating`
+      // (:347) and its walker arm is `!flies && !swims &&
+      // !IsLevitating` (:335) - both refuse a levitating foe, so a
+      // knocked-back levitator sails and does not drop.
+      if (this.flies && !this.levitating) this.velY -= GRAVITY * dt;   // flyerFalls: a hit knocks them out of the air
+      else this.velY = 0;   // no gravity arm claims a levitator: the port's accumulator must not carry one either
+      const r = this.collider.move(this.feet, mx, myRaw + this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
+      this.isGrounded = r.grounded;
+      if (r.grounded) this.velY = 0;
+      this._trackFall(r.grounded);   // CH3: a knocked-down flyer lands hard
+    } else {
+      this.velY -= GRAVITY * dt;   // SimpleMove: horizontal motion, gravity applies
+      const r = this.collider.move(this.feet, mx, this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
+      this.isGrounded = r.grounded;
+      if (r.grounded) this.velY = 0;
+      this._trackFall(r.grounded);
+    }
+    this.knockbackSpeed -= classicTicks * KB(KNOCKBACK_DECAY_PER_CLASSIC);
+    if (this.knockbackSpeed < 0) this.knockbackSpeed = 0;
+    this._restGrounded = false;
+  }
+
+  /**
+   * WERE-FRIGHT (2026-09-29, the port's own - no DFU motor ever runs FROM anything): FRIGHTENED OFF. For `seconds`
+   * the foe drops its target and its hostility and runs from `fromFeet`, by the pursuit's own laws turned round: per
+   * classic tick it turns (TurnToTarget's 20 degrees) in place until it is inside the 5.625 degree move gate of the
+   * way away, and only then runs, at its own move speed, through the same capsule, obstacle and ledge probes and
+   * gravity its pursuit walks with - and what blocks it buys DFU's own detour (_findDetour), which it runs round as a
+   * pursuer does. It decides nothing and senses nothing while it runs; the pool that frightened it retires it when
+   * `fleeLeft` is spent. A blow does not end the run: it shoves the foe as it shoves any (KnockbackMovement, the hurt
+   * anim with it), and a frightened man keeps running once the shove is spent.
+   */
+  flee(fromFeet, seconds) {
+    this.fleeFrom = [fromFeet[0], fromFeet[1], fromFeet[2]];
+    this.fleeLeft = seconds;
+    this.isHostile = false;
+    this.target = null;
+    this.secondaryTarget = null;
+    this.moving = false;   // it turns first
+    this.avoidObstaclesTimer = 0;
+    this.canAct = false;   // it decides and senses nothing from here (_fleeStep keeps these down each step) - so it
+    this.inSight = false;   // raises no alert and meets no one: the encounter edge the host's tongue roll consumes
+    this.detected = false;   // (tryLanguagePacification) is spent with the rest
+    this.justEncountered = false;
+  }
+
+  /** WERE-FRIGHT: one fixed step of the run (flee, above). */
+  _fleeStep(dt, paralyzed) {
+    this.fleeLeft -= dt;
+    this._clock += dt;   // the detour's stuck clock reads it
+    let classicTicks = 0;   // the motor's one classic cadence (_step's)
+    this._classicTimer += dt;
+    while (this._classicTimer >= CLASSIC_UPDATE_INTERVAL) { this._classicTimer -= CLASSIC_UPDATE_INTERVAL; classicTicks++; }
+    const knocked = this.knockbackSpeed > 0;
+    this.canAct = false;
+    this.inSight = false;
+    this.detected = false;
+    this._updateDetourTimers(dt, !paralyzed && !knocked);
+    this.hurtKnock = false;
+    if (knocked) { this._knockbackStep(dt, classicTicks); return; }   // a blow shoves it first; the run resumes after
+    // The way away, and the point FLEE_AIM along it - the "destination" _findDetour falls back on when both of its
+    // 45-degree probes are blocked. While a detour stands, the run aims round the obstacle instead.
+    let ax = this.feet[0] - this.fleeFrom[0];
+    let az = this.feet[2] - this.fleeFrom[2];
+    const al = Math.hypot(ax, az);
+    if (al > 1e-6) { ax /= al; az /= al; } else { ax = Math.sin(this.yaw); az = Math.cos(this.yaw); }
+    this.destination = [this.feet[0] + ax * FLEE_AIM, this.feet[1], this.feet[2] + az * FLEE_AIM];
+    const aim = this.avoidObstaclesTimer > 0 ? this.detourDestination : this.destination;
+    const dx = aim[0] - this.feet[0];
+    const dz = aim[2] - this.feet[2];
+    for (let i = 0; i < classicTicks; i++) {
+      if (withinYaw(this.yaw, dx, dz, MOVE_YAW_GATE_DEG)) this.moving = true;
+      else { this.yaw = turnTowards(this.yaw, dx, dz); this.moving = false; }   // classic turns in place
+    }
+    if (paralyzed) this.moving = false;
+    this._walkStep(dt);   // the pursuit's own walk - the watch is the one foe frightened, and it walks
+  }
+
   _step(dt, playerFeet, senses, paralyzed = false, paused = false) {
+    if (this.fleeLeft > 0) { this._fleeStep(dt, paralyzed); return; }   // WERE-FRIGHT: a frightened foe only runs
     // CH4 (the senses verify pass): DFU's cadence split, exactly -
     // sight/hearing/detection resolve EVERY FixedUpdate (the fixed
     // step here); the spawn-band recompute and the illusion re-roll
@@ -1659,47 +1765,7 @@ export class EnemyAI {
     // flyers take the full 3D ray AND fall (flyerFalls), swimmers
     // ride the WaterMove gates; decay is 5 per classic tick.
     this.hurtKnock = false;
-    if (knocked) {
-      if (this.knockbackSpeed > KB(KNOCKBACK_STORE_CAP)) this.knockbackSpeed = KB(KNOCKBACK_STORE_CAP);
-      this.hurtKnock = this.knockbackSpeed > KB(KNOCKBACK_HURT_THRESHOLD);
-      const sp = Math.min(this.knockbackSpeed, KB(KNOCKBACK_MOTION_CAP));
-      const d = this.knockbackDir ?? [0, 0, 0];
-      const mx = d[0] * sp * dt, myRaw = d[1] * sp * dt, mz = d[2] * sp * dt;
-      if (this.swims) {
-        const waterY = this.waterSurfaceY ? this.waterSurfaceY(this.feet[0], this.feet[2]) : null;
-        const center = this.feet[1] + this.centreOffset;   // EnemyMotor.cs:1333 controller.transform.position.y
-        if (waterY !== null && center < waterY) {
-          let my = myRaw;
-          if (my > 0 && center + WATER_HEAD_MARGIN >= waterY) my = 0;
-          const moveResult = this.collider.move(this.feet, mx, my, mz, this.height, true, FOE_KEEPS_FLOOR);
-          this.isGrounded = moveResult.grounded;
-        }
-      } else if (this.flies || this.levitating) {
-        // :293-298 - `else if (flies || IsLevitating) controller.Move(...)`,
-        // the full 3D ray. A LEVITATOR takes no gravity with it:
-        // KnockbackMovement raises flyerFalls, but ApplyGravity's
-        // flyer arm is `flyerFalls && flies && !IsLevitating`
-        // (:347) and its walker arm is `!flies && !swims &&
-        // !IsLevitating` (:335) - both refuse a levitating foe, so a
-        // knocked-back levitator sails and does not drop.
-        if (this.flies && !this.levitating) this.velY -= GRAVITY * dt;   // flyerFalls: a hit knocks them out of the air
-        else this.velY = 0;   // no gravity arm claims a levitator: the port's accumulator must not carry one either
-        const r = this.collider.move(this.feet, mx, myRaw + this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
-        this.isGrounded = r.grounded;
-        if (r.grounded) this.velY = 0;
-        this._trackFall(r.grounded);   // CH3: a knocked-down flyer lands hard
-      } else {
-        this.velY -= GRAVITY * dt;   // SimpleMove: horizontal motion, gravity applies
-        const r = this.collider.move(this.feet, mx, this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
-        this.isGrounded = r.grounded;
-        if (r.grounded) this.velY = 0;
-        this._trackFall(r.grounded);
-      }
-      this.knockbackSpeed -= classicTicks * KB(KNOCKBACK_DECAY_PER_CLASSIC);
-      if (this.knockbackSpeed < 0) this.knockbackSpeed = 0;
-      this._restGrounded = false;
-      return;   // CanAct = false: no pursuit this step
-    }
+    if (knocked) { this._knockbackStep(dt, classicTicks); return; }   // CanAct = false: no pursuit this step
 
     // C12 aquatic (WaterMove verbatim): movement exists ONLY while
     // the controller center is below the block water surface; a
@@ -1790,6 +1856,13 @@ export class EnemyAI {
     // under a parked foe leaves it frozen mid-air until it next
     // pursues - accepted: foes never ride movers (pre-C11 statics
     // did not either).
+    this._walkStep(dt);
+  }
+
+  /** The grounded walker's step - _step's tail (the comment above its call), and a frightened foe's run (_fleeStep):
+   *  the rest fast path, gravity, AttemptMove's obstacle and ledge probes with DFU's detour, and the one capsule
+   *  move, at whatever `moving` the caller's classic tick decided. */
+  _walkStep(dt) {
     if (!this.moving && this._restGrounded) return;
     this.velY -= GRAVITY * dt;
     const dy = this.velY * dt;
@@ -1885,7 +1958,7 @@ export class EnemyAI {
    *  move once. */
   offsetOrigin(offset) {
     const moved = new Set();
-    for (const p of [this.feet, this.destination, this.detourDestination, this.lastKnownTargetPos, this.oldLastKnownTargetPos, this.predictedTargetPos, this._predictedTargetPosWithoutLead]) {
+    for (const p of [this.feet, this.destination, this.detourDestination, this.lastKnownTargetPos, this.oldLastKnownTargetPos, this.predictedTargetPos, this._predictedTargetPosWithoutLead, this.fleeFrom]) {   // WERE-FRIGHT: the point a run is from
       if (!p || moved.has(p)) continue;
       moved.add(p);
       p[0] += offset[0]; p[1] += offset[1]; p[2] += offset[2];

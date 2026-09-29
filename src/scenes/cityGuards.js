@@ -112,6 +112,9 @@ const CRIME_MURDER = 5;
 
 export const GUARD_MOBILE_TYPE = KNIGHT_CITY_WATCH;   // AUDIT 24 (wave 41): one home
 export const MAX_ACTIVE_GUARD_SPAWNS = 5;
+/** WERE-FRIGHT: how long a watchman frightened off by a beast runs before he is gone (frighten, below) - long
+ *  enough to be seen running, some twenty-odd metres at the watch's pace. The port's own number. */
+export const FRIGHTENED_RUN_SECONDS = 5;
 export const GUARD_NPC_SPAWN_RANGE = 77.5;
 export const GUARD_BEHIND_ANGLE = 105.469;     // convert non-guards this far behind the player
 export const GUARD_SEEN_ANGLE = 95;            // an NPC facing the player within this sees a crime
@@ -513,7 +516,27 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  different answer, so the port takes a boolean when that is what
    *  the caller wanted. */
   const anyWatchStanding = () => guards.some((g) =>
-    !g.dead && !g.defender && g.ai?.isHostile && g.entity?.team !== 'PlayerAlly');   // DISC19-F: a defender is not the crime's watch (AUDIT DISC19: a half-reset one read as standing and turned every wandering guard)
+    !g.dead && !g.defender && !g.fleeing && g.ai?.isHostile && g.entity?.team !== 'PlayerAlly');   // DISC19-F: a defender is not the crime's watch (AUDIT DISC19: a half-reset one read as standing and turned every wandering guard); WERE-FRIGHT: nor a man running from a beast, struck or not
+
+  /**
+   * WERE-FRIGHT (2026-09-29, Mac: the beast "cannot surrender, but instead a chance to frighten"; frightened, the
+   * guards "flee, crime dropped"): THE WATCH FRIGHTENED OFF. scenes/arrestFlow.js rolls the beast's roar and, when it
+   * works, forgets the crime and calls this: every watchman of the crime runs from the player (EnemyAI.flee) for
+   * FRIGHTENED_RUN_SECONDS and is then the walk-away (update). The watch still on its way - the witnesses' 5-10 second
+   * countdown - is called off with it. A defender is not the crime's watch and holds his post. A fleer no longer
+   * counts as the watch standing, so the halt is asked afresh of the next watch that comes. Answers how many ran.
+   */
+  function frighten(playerFeet, seconds = FRIGHTENED_RUN_SECONDS) {
+    countdown = 0;
+    let ran = 0;
+    for (const g of guards) {
+      if (g.dead || g.defender || g.fleeing) continue;
+      g.ai.flee(playerFeet, seconds);
+      g.fleeing = true;
+      ran++;
+    }
+    return ran;
+  }
 
   /** PlayerEntity.MakeNPCGuardsIntoEnemiesIfGuardsSpawned
    *  (:764-789), verbatim: WHILE enemy watchmen are up, every
@@ -989,7 +1012,11 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       const _gParalyzed = entityIsParalyzed(g.entity);   // S22: the FreeAction read-time fold
       applyEnemyMotorEffectFlags(g.ai, g.entity);   // A5: Levitate.SetEnemyMotor's IsLevitating, folded from the effect's presence
       g.ai.update(foeFrameDt(dt), playerFeet, _armed(g, senses), _gParalyzed);   // FOE-CATCHUP: three steps a frame at most
-      const _tgt = _targetFeet(g, playerFeet);   // MT-ii: whatever it SELECTED
+      // WERE-FRIGHT: a watchman frightened off (frighten, above) whose run is over is gone - the walk-away, no body,
+      // as the watch goes when a crime clears. While he runs he only runs: no target, so no swing (below), no bark
+      // (below), and - his run sensing nothing (EnemyAI.flee) - no alert and no tongue roll.
+      if (g.fleeing && !(g.ai.fleeLeft > 0)) { g.dead = true; releaseGuardBatch(g); continue; }
+      const _tgt = g.fleeing ? null : _targetFeet(g, playerFeet);   // MT-ii: whatever it SELECTED; WERE-FRIGHT: a fleer selects nothing
       // AUDIT 24 (wave 36): EnemySenses.cs:531-535 - ANY enemy that is
       // targeting and seeing the player raises the alert, as the last
       // statement of FixedUpdate at method-body indent, not inside a
@@ -1002,7 +1029,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       // MT-ii: and the source's `Target == PlayerEntityBehaviour` term
       // with it (:531) - a watchman trading blows with a rat must not
       // hold the player's alert state up.
-      if (isPlayerTarget(g.ai.target) && g.ai.inSight && g.ai.detected) setEnemyAlert(playerEntity, true, currentMinute());
+      if (isPlayerTarget(g.ai.target) && g.ai.inSight && g.ai.detected) setEnemyAlert(playerEntity, true, currentMinute());   // WERE-FRIGHT: a fleer never raises it - its run sees and detects nothing (EnemyAI.flee)
       // CH3 (characters-8): a past-threshold landing bills the fall
       // formula through the pool's damage door. EnemyMotor.ApplyFallDamage
       // (:173, :1384-1418) runs unconditionally for every enemy and the
@@ -1047,7 +1074,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       // within 16m, and the watch is the ONE class enemy the human
       // mute spares (:222), which is why you hear it and not a
       // brigand.
-      tickEnemySound(g.sounds, g.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });
+      tickEnemySound(g.sounds, g.ai.feet, g.fleeing ? null : playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });   // WERE-FRIGHT: a man running from a beast calls no halt - the attract bark asks no hostility, only the player inside 16 m, so a fleer is handed no player (the cadence steps as DFU's does with the player out of range)
       g.mobile.frameSpeedDivisor = Math.max(1, Math.trunc((g.entity.stats?.speed ?? 50) / Math.max(8, liveStat(g.entity, 'speed'))));   // AUDIT 23 (characters-11)
       if (!_gParalyzed && _tgt) g.attack.update(foeFrameDt(dt), g.ai, _tgt);   // MT-ii: at the SELECTED target;/ AUDIT (pre-merge) P5: FOE-CATCHUP's step - the motor's clock, not the frame's (a 1 s hitch no longer swings at once)
       const seq = g.attack.swingSeq;   // AUDIT 68 S04-strike-edge-cut: EnemyAttack's own start count, the foes' one edge law
@@ -1128,7 +1155,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
           // `PlayerObject.SendMessage("RemoveHealth", damage)` - which
           // is ShowPlayerDamage.Flash's trigger. An enemy's BLOW
           // flashes the screen; the poison it carries does not.
-          if (dmg > 0) { onPlayerHurt?.(dmg, wpn); flashPlayerDamage(dmg); }   // G2: the host's arrest interception rides this
+          if (dmg > 0) { onPlayerHurt?.(dmg, wpn, { guardLevel: g.entity.level }); flashPlayerDamage(dmg); }   // G2: the host's arrest interception rides this; WERE-FRIGHT: with the striker's level, for a beast's roar
           // C2-slice (combat-9): a connected attack that LOST the
           // roll rings the miss sound (ApplyDamageToPlayer's else)
           else audio?.play3d?.(enemyMissSound(wpn), gmid, 1, { maxDistance: 16 });
@@ -1521,7 +1548,9 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // DISC19-F: a DEFENDER is not saved - it is the town's answer to the
     // monsters standing, and a load that restores those monsters raises
     // the answer again through the town watch's own countdown.
-    return guards.filter((g) => !g.dead && !g.defender).map((g) => {
+    // WERE-FRIGHT: nor is a watchman frightened off - he is leaving, and a load that raised him again would set him
+    // on a beast whose crime the fright forgot.
+    return guards.filter((g) => !g.dead && !g.defender && !g.fleeing).map((g) => {
       const wc = toNative(g.ai.feet);
       return {
         nativeX: wc.x, nativeZ: wc.z, y: g.ai.feet[1], yaw: g.ai.yaw,
@@ -1566,7 +1595,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     releaseGuardBatch(g);
     g.dead = true;   // no `corpse` - a removed guard is destroyed, not killed
   }
-  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, update, offsetAll, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab
+  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, frighten, update, offsetAll, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab
     /** RR2: PlayerEntity.SpawnCityGuard(position, direction) (PlayerEntity.cs:678-694) for a caller
      *  outside the watch's own call - the ONE watchman minted where a walker stood, facing their
      *  way, hostile to the player. Resolves to the guard record (or null when the world moved on). */

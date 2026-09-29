@@ -154,7 +154,7 @@ test('AUDIT SETS L3: A GUARD\'S BLOW THE ARREST FLOW HOLDS BACK is heard when it
   for (const host of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
     const w = read(host);
     assert.match(w, /const held = heldPlayerBlow\(\);[^\n]*\n\s*const apply = \(\) => \{\n\s*remarkPlayerBlow\(held\);/, `${host}: held, and marked again as it lands`);
-    assert.match(w, /if \(!arrestFlow\.onGuardHit\(dmg, apply\)\) apply\(\);\n\s*else playerBlowCameToNothing\(playerEntity\);/, `${host}: withheld, the door's nothing`);
+    assert.match(w, /if \(!arrestFlow\.onGuardHit\(dmg, apply, hit\)\) apply\(\);\n\s*else playerBlowCameToNothing\(playerEntity\);/, `${host}: withheld, the door's nothing`);   // WERE-FRIGHT: the striker's level (`hit`) rides to the flow
   }
 });
 

@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9437` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9442` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -8270,3 +8270,64 @@ also gained FindExistingStack's first term, `checkItem != item`: a record alread
 A2's and ROAD-Ar R5's pins flipped to the new law (the R5 re-merge now on a potion the producer mints).
 `test/fb0929d_booksplit.test.js` (4); `tools/mutants/fb0929d_booksplit.json`, 11 mutants, 11 dead.
 `01-Overview/Field-Bugs-2026-09-29d.md` BOOK-SPLIT.
+
+### WERE-FRIGHT - THE BEAST CANNOT SURRENDER; IT ROARS (2026-09-29)
+
+Mac: "Can you make it where being a werewolf has a different interaction with guards? Where you cannot surrender, but
+instead a chance to frighten?" Asked, Mac picked: frightened, the guards "flee, crime dropped"; the chance "your level vs
+theirs"; "werewolves and wereboars" - any lycanthrope in beast form, the human form surrendering as before. The port's
+own law - neither classic nor DFU has it.
+
+**What it was.** A transformed lycanthrope with a crime on record - one carried into the change, or WERE-LEVY's passive
+levy on a hated name - was asked "Halt! You are under arrest. Do you surrender?" like anyone, and a fatal blow forced the
+surrender (SurrenderToCityGuards) and carried the beast into court.
+
+**The beast's halt** (`scenes/arrestFlow.js beastHaltBox`). The surrender question's own box in every way but its
+answers: the same one moment a watch (`haveShownSurrenderDialogue`), the same reputation lost for the crime
+(`lowerRepForCrime`), the blow withheld while it stands, withdrawn by a load or a cleared crime exactly as the man's is
+(AUDIT DISC28 AR-1/AR-3), and a key that reaches it withdrawn answers nothing. Its lines are "Halt! The watch has you
+cornered." / "You cannot surrender in this form."; its answers F - frighten and N - fight on. There is no Y. A fatal
+blow on a beast lands - the forced surrender is a man's. And a man asked the question who is a beast before he answers
+(online, the moon's round runs under the box) fights: no beast walks into court.
+
+**The roar** (`systems/lycanthropy.js frightenChance`, `frightenRoar`; `arrestFlow.js roarAtTheWatch`). The strain's own
+bark is heard (the clip its landed blows roll 20% for), and one roll is made: 50%, five points a level either way on the
+beast's level against the level of the guard whose blow opened the halt - the watch pool hands it on the hit
+(`onPlayerHurt(dmg, wpn, { guardLevel })`), both hosts and a building's watch pass it through - held to 10-90, and a
+guard of unknown level taken at the beast's own. SAID PLAINLY: the watch is minted three to six levels above the player
+(DFU's Range(3, 7) on Knight_CityWatch, `characters/enemyEntity.js makeEnemyEntity`), so against the real watch the roar
+works 20-35% of the time, never 50. That is Mac's formula as picked; `FRIGHTEN_BASE_CHANCE` is the one number to move if
+the street should feel different, and the pins hold the street's range beside the formula's so a change to either
+shows.
+
+**Frightened**, the crime is forgotten through the one setter (V4's `setCrimeCommitted` - transformed, it writes None
+whatever it is handed) and the host sends its watch running (`watchFlees`: world.js the street's pool and the building's
+through `worldModes.frightenWatch`, exterior.js its pool). Clearing the crime alone would not do it: GUARD1's fourth
+clause keeps the watch standing while the player is a beast. `cityGuards.frighten` sends every watchman of the crime
+running for `FRIGHTENED_RUN_SECONDS` (5) and then retires him as the walk-away - no body, the batch freed, the record
+pruned; a defender is not the crime's and holds his post; the witnesses' 5-10 second countdown still to come is called
+off. While he runs, a fleer is not the watch standing (`anyWatchStanding`, struck or not - so the next watch is halted
+afresh and no guard NPC is turned by MakeNPCGuardsIntoEnemies on his account), is not saved (a load must not set him on
+the beast again), selects no target (so no swing and no blow), and calls no "Halt!" (the attract bark asks no
+hostility, only 16 m). **Unafraid**, the watch stands its ground, the blow the question withheld lands, and the crime
+stands - N's outcome with a roar before it.
+
+**The run** (`characters/enemyMotor.js flee`, `_fleeStep`). No DFU motor ever runs from anything, so the run is the
+pursuit's own laws turned round, not a new walker: per classic tick (the motor's one `_classicTimer`) it turns in place by
+TurnToTarget's 20 degrees until the way away is inside the 5.625-degree move gate, then walks through `_walkStep` -
+`_step`'s grounded tail, EXTRACTED so both call the one copy: the rest fast path, gravity, AttemptMove's obstacle and
+ledge probes and DFU's detour (a wall across the way is run along, not pushed into), the one capsule move. A blow shoves
+it through `_knockbackStep` - KnockbackMovement's motion, likewise extracted from `_step` - with the hurt anim, and the
+run resumes when the shove is spent. `flee` drops the target and the hostility and senses nothing from then on: no
+sight, no detection, no encounter edge, so no alert is raised and no tongue roll (tryLanguagePacification) is made. The
+point it runs from rides the floating origin. The motor's `this.collider.move` census stays six (incident_ceiling_bats,
+squeeze1).
+
+**Not driven online.** The flow is each player's own; the fleers are ordinary watchmen of the owner's pool, which rides
+the cell's stream (WATCH1), and a retired fleer leaves the pool as any walk-away does - so a peer should see him run and
+go. No two-client run has looked at it.
+
+Pins: 12 in `test/werefright.test.js`, through the real flow, pool and motor on a real collider;
+`tools/mutants/werefright.json`, 29 mutants, 29 dead. The seven records in six files that the change moved under
+(auditdisc19, auditdisc28_arrest's AR1 and AR3, disc19, disc28, and the two SURVTIERS cites the cite shift moved) are
+re-aimed by content, and those six files' 356 mutants re-run: 355 dead and the one recorded equivalent.
