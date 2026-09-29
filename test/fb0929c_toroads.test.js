@@ -35,6 +35,7 @@ import { DIR_DELTA } from '../src/world/roadNetwork.js';
 import { worldCoordToMapPixel } from '../src/formats/mapsFile.js';
 import { TRAVEL_VIEW_TEXT, travelTripLine, travelWalkRate, TV_MOVE_ACTIONS } from '../src/scenes/travelView.js';
 import { createLoadGovernor, unbuiltAround } from '../src/systems/travelGovernor.js';
+import { travelPathUsesRoads, TRAVEL_PATH_TEXT } from '../src/systems/travelPathMode.js';
 import { timeScale, setTimeScale, resetTimeScale, MAX_TIME_SCALE } from '../src/systems/timeScale.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -102,7 +103,7 @@ const HOST = [
   lineSource('let _tvRouteGround = null;'), lineSource('const tvRouteGround = '), lineSource('const tvLegMid = '), lineSource('const tvSeaAsk = '),
   constBlock('travelViewAllowed'),
   fnSource('tvOwnsJourneys'), fnSource('tvRoutesJourneys'), fnSource('travelViewResume'), fnSource('beginAcceleratedTravel'),
-  fnSource('travelViewRouteTo'), fnSource('tvJoinedLegs'), fnSource('travelViewWalkTo'), fnSource('tvJourneyUp'),
+  fnSource('travelViewRouteTo'), fnSource('tvFreePull'), fnSource('tvJoinedLegs'), fnSource('travelViewWalkTo'), fnSource('tvJourneyUp'),
   fnSource('tvMooredDry'), fnSource('tvSeaNoWay'), fnSource('travelViewCanGo'),
   `const onLower = ${ON_LOWER};`, `const onTravel = ${ON_TRAVEL};`, `const onTravelToCoords = ${ON_COORDS};`,
   'return { tvOwnsJourneys, tvRoutesJourneys, travelViewResume, beginAcceleratedTravel, tvJourneyUp, onLower, onTravel, onTravelToCoords, tvTrip };',
@@ -179,6 +180,7 @@ function host({ firstPerson = false, roads = false, enhanced = true } = {}) {
     playerTravelPixel: () => worldCoordToMapPixel(h.me.x, h.me.z),
     terrainGen: { roads: () => NET }, maps: { getClimateIndex: climateAt }, woods: { getHeightMapValue: heightAt }, WATER_BYTE,
     planRoute, routeGround, routeLegs, joinPoint, routeDrawPoints, roadShare, crossesWater, dryLine, TV_MOUNTAIN_CLIMATE, travelTripLine,
+    travelPathUsesRoads, TRAVEL_PATH_TEXT,   // OW-PATH (main's Roads / Free switch on the Overworld's bar): the route asks it
     tvSeaMeans: () => null, tvSeaBegin: () => {}, csaRuntime: null, csaOn: () => false, csaAboard: { aboard: false },
     tvOfferPassage: (place) => { h.offered.push(place.name); return false; },
     tvCautious: () => false, partyWalkBegin: (dest) => h.party.push(dest), travelGovernor: { reset() {} },

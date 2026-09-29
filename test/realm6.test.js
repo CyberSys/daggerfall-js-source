@@ -193,13 +193,18 @@ test('REALM P2.2b end to end: onlineHomes buys and sells for a realm character -
   const A = await player('Aldric', JSON.parse(JSON.stringify(entity)));
   const lost = [];
   const session = createRealmSession({ io: A.io, id: A.char, lease: A.lease, seq: 1, onLost: (why) => lost.push(why) });
-  const act = (o) => realmGoldAct({ session, checkpoint: () => session.checkpoint(JSON.stringify(entity)), wait: () => Promise.resolve(), ...o });
+  // the last checkpoint an act asked for: the outcome's, which realmGoldAct sends and never waits on (nor does the host)
+  let saved = Promise.resolve();
+  const act = (o) => realmGoldAct({ session, checkpoint: () => (saved = session.checkpoint(JSON.stringify(entity))), wait: () => Promise.resolve(), ...o });
   const homes = createOnlineHomes({ api: A.homes, character: () => A.char });
   const buy = await buyOnlineHome(homes, {
     mapId: MAP, buildingKey: KEY, region: REGION, price: 42_000,
     afford: (n) => n <= entity.goldPieces, pay: (n) => { entity.goldPieces -= n; }, refund: (n) => { entity.goldPieces += n; }, realm: { act },
   });
   assert.equal(buy.ok, true, JSON.stringify(buy));
+  // THE FLAKE FIELD BUGS 2026-09-29 NOTED AND COULD NOT EXPLAIN (2026-09-29b): the outcome's checkpoint is sent and not
+  // waited on, so on a loaded machine its answer came after this line read the sequence (3, never 4). The pin waits for it.
+  await saved;
   assert.deepEqual([entity.goldPieces, (await record(A)).save.goldPieces, session.seq], [8_000, 8_000, 4], 'checkpoint 2, the claim 3, the outcome 4');
   const sold = await sellOnlineHome(homes, { mapId: MAP, buildingKey: KEY, credit: (n) => { entity.bankAccounts[REGION].accountGold += n; }, realm: { act } });
   assert.deepEqual([sold.ok, sold.refund], [true, homeSaleRefund(42_000)]);

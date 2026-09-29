@@ -106,7 +106,7 @@ import {
 } from '../systems/settings.js';
 import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME, loadSlot, saveSlot } from '../systems/saveSlots.js';
 import {
-  realmIo, realmList, realmCustoms, realmPut, realmDelete, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
+  realmIo, realmList, realmCustoms, realmPut, realmDelete, realmUndo, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
 } from '../systems/realmSaves.js';   // REALM P1.3: the Online door lists the realm's characters, the service's
 import { applyCustoms, customsLines } from '../systems/realmCustoms.js';   // REALM P1.5: an offline character comes in once, through customs
 import { mintCharacterId } from '../systems/characterId.js';   // REALM P1.4: a copy to offline is a new offline character
@@ -119,7 +119,9 @@ import { DEFAULT_SERVER } from '../net/online.js';   // ONLINE1: the relay this 
 import { replacementCount } from '../systems/musicReplacement.js';   // M-EXT: the packs card reports what the pick covers
 import { brandMark } from './brandMark.js';   // INTRO2: Mac's supplied logo, shared with the final splash
 import { soundReplacementCount } from '../systems/soundReplacer.js';   // SNDREP1: the sound pack's count
-import { textureReplacementCount } from '../systems/textureReplacement.js';   // M-TEX: and the texture half
+import { textureReplacementCount, bundleTextureCount } from '../systems/textureReplacement.js';   // M-TEX: and the texture half; DFMOD1: and the bundles'
+import { attachedDfmods, DFMOD_DETAIL, dfmodMaxSize } from '../systems/dfmodTextures.js';
+import { isIilMod } from '../systems/improvedInteriorLighting.js';   // IIL3: the lighting mod's own section   // DFMOD1: the attached texture mods, one row each; DFMOD2: the detail choice
 import { isTouchDevice } from './touch.js';   // TI2: the Touch card mounts only where a finger can reach it
 import { dateFromClassicMinutes, dateString, dateTimeString } from '../systems/gameDate.js';
 // PX5: the pause clock reads THE ONE CLOCK directly (AUDIT 23 C2's
@@ -1075,7 +1077,11 @@ function realmCard(who) {
         actions: [
           { label: save.unfinished ? 'Never saved' : 'Play', primary: true, disabled: realmBusy || save.unfinished, onClick: () => { _pickedRealmId = row.id; onAction('online'); } },
           { label: 'Copy to offline', disabled: realmBusy || save.unfinished, onClick: () => copyToOffline(row) },
-          { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its home and its guild place with it. Your Renown belongs to your account and stays, as does a copy you made offline.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
+          // HOUSE-LOSS (2026-09-29, Mac: "GarySoup lost his house and furniture"): a character brought in whose first save
+          // never landed is UNDONE, never deleted - its delete took the home customs had carried, and it could never come
+          // in again. The undo gives back its home, its guild place and its customs (realm.js undoRealm).
+          row.customs && save.unfinished ? { label: 'Undo bringing in', disabled: realmBusy, onClick: () => ask(`Undo bringing ${row.name} in?`, `${row.name} never finished coming into the realm - its first save never landed. Undoing takes it out and gives everything back: its home, its guild place and its one customs, so the offline character can be brought online again. To finish instead, press Bring online on it below.`, 'Undo', () => realmAct(() => realmUndo(realmIoNow(), row.id), [`${row.name} is out of the realm and customs is undone: its home and guild place are back with the offline character. Bring it online again when you are ready.`])) }
+            : { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its home and its guild place with it. Your Renown belongs to your account and stays, as does a copy you made offline.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
         ],
       }));
     }
@@ -2235,18 +2241,75 @@ function peerSpritesCard() {
 }
 
 /** M-EXT: the replacement packs - music and textures - attach here.
- *  The launcher's row was the only door; FD1 removed the launcher. */
+ *  The launcher's row was the only door; FD1 removed the launcher.
+ *  DFMOD1: and every pack comes OFF here too - each has a Remove beside its Attach once something is attached,
+ *  behind the same confirm Delete Save uses - and Daggerfall Unity .dfmod texture mods (DREAM and its kin) attach
+ *  as files, each listed with its own Remove. */
 function packsCard() {
   const c = el('div', 'card');
   c.append(el('h3', null, 'Replacement packs'));
-  c.append(el('p', 'meta', 'Your own music (a folder of tracks named as DFU\u2019s replacement music expects) and texture packs, stored in this browser like ARENA2. Nothing uploads.'));
+  c.append(el('p', 'meta', 'Your own music (a folder of tracks named as DFU\u2019s replacement music expects), sounds, texture packs and Daggerfall Unity texture mods (.dfmod), stored in this browser like ARENA2. Nothing uploads.'));
+  let mods = attachedDfmods();
   c.append(el('p', 'meta', `Music files supplied: ${replacementCount()} \u00b7 Texture files supplied: ${textureReplacementCount()} \u00b7 Sound files supplied: ${soundReplacementCount()}`));   // the row reports what the pick covers
+  c.append(stats([
+    ['Texture mods', mods.length ? `${mods.length} attached \u00b7 ${bundleTextureCount()} textures in use` : 'none'],
+  ]));
+  /** A removal behind the confirm; a storage failure is logged and costs nothing else. */
+  const remove = (label, title, body, run) => ({ label, onClick: () => ask(title, body, 'Remove', async () => {
+    try { await run(await import('../scenes/dataSource.js')); } catch (err) { console.warn(`[packs] ${title.toLowerCase()} failed: ${err?.message ?? err}`); }
+    render();
+  }) });
+  const later = ' It takes full effect the next time an area loads.';
   c.append(acts([
     { label: 'Attach music pack', onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickMusicFolder(); render(); } },
-    { label: 'Attach texture pack', onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickTextureFolder(); render(); } },
+    ...(replacementCount() > 0 ? [remove('Remove music pack', 'Remove music pack', 'This clears your music files from this browser; Daggerfall\u2019s own songs play again. A sound pack stays.', (d) => d.clearStoredMusic())] : []),
     { label: 'Attach sound pack', onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickSoundFolder(); render(); } },   // SNDREP1
-    // SNDREP1: and the way back - only while a pack is attached; the music pack beside it is kept
-    ...(soundReplacementCount() > 0 ? [{ label: 'Remove sound pack', onClick: async () => { const ds = await import('../scenes/dataSource.js'); try { await ds.clearStoredSounds(); } catch (err) { console.warn(`[sounds] could not remove the sound pack: ${err?.message ?? err}`); } render(); } }] : []),
+    ...(soundReplacementCount() > 0 ? [remove('Remove sound pack', 'Remove sound pack', 'This clears your sound files from this browser; Daggerfall\u2019s own sounds play again. A music pack stays.', (d) => d.clearStoredSounds())] : []),
+    { label: 'Attach texture pack', onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickTextureFolder(); render(); } },
+    ...(textureReplacementCount() > 0 ? [remove('Remove texture pack', 'Remove texture pack', `This clears the loose texture files (a folder pick) from this browser. Attached .dfmod texture mods stay.${later}`, (d) => d.clearStoredTexturePack())] : []),
+  ]));
+  // IIL3 (Mac: "add a button for attach lighting mod, so players arent confused"): THE LIGHTING MOD HAS ITS OWN
+  // SECTION. It is a .dfmod like the texture mods and rides the same store, but it carries no picture - listed among
+  // them it read as a texture pack that did nothing. Here it says what it is, whether it is attached, and where it
+  // is switched (the Modded lighting row in Features).
+  const lighting = mods.filter(isIilMod);
+  mods = mods.filter((m) => !isIilMod(m));
+  c.append(el('h3', null, 'Lighting mod'));
+  c.append(el('p', 'meta', 'Improved Interior Lighting (ShortBeard, or BlazeBlue32\u2019s fixed version): warm, flickering lights in buildings and dungeons, fireplace lights and a warm torch - with shadows if you choose. Pick its .dfmod file (inside the download\u2019s Mods folder). Switch it in Features \u2192 Sight \u2192 Modded lighting.'));
+  for (const m of lighting) {
+    const row = el('div', 'card');
+    row.append(el('p', null, `${m.title}${m.version ? ` ${m.version}` : ''}${m.author ? ` \u00b7 ${m.author}` : ''}`));
+    row.append(el('p', 'meta', m.error ? `Not working: ${m.error}.` : 'Attached.'));
+    row.append(acts([remove('Remove', `Remove ${m.title}`, `This clears ${m.title} from this browser; the lighting goes back to what it was.`, (d) => d.removeStoredDfmod(m.key))]));
+    c.append(row);
+  }
+  if (!lighting.length) c.append(acts([{ label: 'Attach lighting mod', primary: true, onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickLightingModFiles(); render(); } }]));
+  // DFMOD1: the texture mods, one row each
+  c.append(el('h3', null, 'Texture mods (.dfmod)'));
+  // DFMOD2: two mods that dress the same things (DREAM and DREAM 90s side by side) cost memory twice for one picture
+  const sameTitle = (t) => String(t ?? '').replace(/\b90s\b/i, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const seen = new Map();
+  for (const m of mods) { const k = sameTitle(m.title); seen.set(k, (seen.get(k) ?? 0) + 1); }
+  if ([...seen.values()].some((n) => n > 1)) c.append(el('p', 'meta', 'Two versions of the same mod are attached (for example DREAM and DREAM 90s). Only one of them shows for each texture and both use memory - remove one.'));
+  c.append(el('p', 'meta', 'Daggerfall Unity texture mods - DREAM\u2019s sprites, NPCs, mobs, paperdoll, portraits, backgrounds and world textures, and mods like them. Pick the .dfmod files themselves; you can pick several at once. Mod scripts do not run.'));
+  for (const m of mods) {
+    const row = el('div', 'card');
+    row.append(el('p', null, `${m.title}${m.version ? ` ${m.version}` : ''}${m.author ? ` \u00b7 ${m.author}` : ''}`));
+    row.append(el('p', 'meta', `${m.textures} textures in the bundle`));
+    if (m.error) row.append(el('p', 'meta', `Not working: ${m.error}.`));   // DFMOD2: said where the Remove is
+    row.append(acts([remove('Remove', `Remove ${m.title}`, `This clears ${m.title} from this browser.${later}`, (d) => d.removeStoredDfmod(m.key))]));
+    c.append(row);
+  }
+  // DFMOD2: TEXTURE DETAIL - the longest side a mod's picture is decoded at (a smaller mip past it). Full-resolution
+  // packs (DREAM's HD set) are gigabytes of pixels; 512 keeps them several times Daggerfall's own and inside memory
+  const cap = dfmodMaxSize();
+  const detailLabel = Number.isFinite(cap) ? `${cap} px` : 'full';
+  const nextDetail = () => { const i = DFMOD_DETAIL.indexOf(Number.isFinite(cap) ? cap : 0); return DFMOD_DETAIL[(i + 1) % DFMOD_DETAIL.length]; };
+  c.append(el('p', 'meta', `Texture detail: ${detailLabel}. Higher looks sharper and takes more memory and loading time; \u201cfull\u201d can run out of memory with HD packs. A change applies to areas loaded after it.`));
+  c.append(acts([
+    { label: `Texture detail: ${detailLabel}`, onClick: () => { setPref('dfmodTextureDetail', nextDetail()); render(); } },
+    { label: 'Add texture mods', primary: !mods.length, onClick: async () => { const ds = await import('../scenes/dataSource.js'); await ds.pickDfmodFiles(); render(); } },
+    ...(mods.length > 1 ? [remove('Remove all texture mods', 'Remove all texture mods', `This clears every attached .dfmod texture mod from this browser.${later}`, (d) => d.clearStoredDfmods())] : []),
   ]));
   return c;
 }

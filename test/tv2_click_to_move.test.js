@@ -358,7 +358,8 @@ test('AUDIT DEEP T2-4/T2-5/T2-6/T2-7/T2-8: the planner never swims a corner of t
   assert.match(w, /tvPlates = \{ at: null, list: \[\] \};   \/\/ AUDIT DEEP T2-4[^\n]*\n\s*tvFar = \{ at: null, near: -1, list: \[\] \};[^\n]*\n\s*(tvDng = \{ at: null, dg: -1, list: \[\] \};[^\n]*\n\s*tvFind = \{ at: null, dg: -1, n: -1, list: \[\] \};[^\n]*\n\s*)?(tvBandSeen = [^\n]*\n\s*)?travelView\?\.exit\('load', true\);/, 'a load empties the plates');
   assert.ok(((i, j) => i >= 0 && j >= 0 && i < j)(w.indexOf('let tvPlates = { at: null, list: [] };'), w.indexOf('tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4')), 'BOOT-TDZ: declared above the load that clears it');
   assert.match(w, /to: travelOptions\?\.route\?\.summary\?\.pixel \?\? travelOptions\?\.route\?\.point\?\.pixel \?\? travelOptions\?\.state\?\.autopilot\?\.destinationMapPixel \?\? null,/);
-  assert.match(w, /const raw = terrainGen\.roads\(\);\n\s*const net = raw\?\.source === 'basic-roads' \? raw : null;\n\s*let plan = planRoute\(from, summary\.pixel,/);   // PIN MOVED (AUDIT OW5 S3): a let - a plan that never sails is planned again on land
+  // PIN MOVED (OW-PATH): the roads asked only in the Roads mode - the net is the road net or none, Free walking across country
+  assert.match(w, /const raw = terrainGen\.roads\(\);\n\s*const roadNet = raw\?\.source === 'basic-roads' \? raw : null;\n(?:\s*\/\/[^\n]*\n)*\s*let net = travelPathUsesRoads\(\) \? roadNet : null;\n\s*let plan = planRoute\(from, summary\.pixel,/);   // PIN MOVED (AUDIT OW5 S3): a let - a plan that never sails is planned again on land
   assert.match(w, /if \(travelOptions\?\.settings\?\.targetCoordsAllowed === false\) tvSay\(TRAVEL_VIEW_TEXT\.placesOnly\); else travelViewWalkTo\(hit\.point, pix\);/);
 });
 
@@ -516,7 +517,7 @@ test('TV2 host wiring: the click is a ray from the VIEW\'s eye through this fram
   assert.match(w, /for \(let dy = -1; dy <= 1; dy\+\+\) \{\n\s*for \(let dx = -1; dx <= 1; dx\+\+\) \{\n\s*const summary = tvPlaceSummary\(pix\.x \+ dx, pix\.y \+ dy\);/);
   // PIN MOVED (AUDIT OW5 S4): an own-pixel sea spot is given its one sea leg first; AUDIT OW5b D3: the walk carries its door
   assert.match(w, /let legs = tvJoinedLegs\(from, plan\);\n(?:\s*\/\/[^\n]*\n)*\s*if \(!legs\.length && seaAsk\?\.goal === 'sea'\) \{ legs = \[\{ x: pix\.x, y: pix\.y, kind: 'sea' \}\]; plan = \{ \.\.\.plan, kinds: \['sea'\] \}; \}\n(\s*if \(door\) n = [^\n]*\n)?\s*const ok = travelOptions\.beginTravelAlongRoute\(\{ legs, point: \{ pixel: pix, x: n\.x, z: n\.z, door \}, name: TRAVEL_VIEW_TEXT\.spot \}, tvCautious\(\), \{ quiet: tvQuiet \}\)/);
-  for (const dep of [/onPick: \(x, y\) => onTravelViewPick\(x, y\),/, /onMark: \(key\) => onTravelViewMark\(key\),/, /marks: travelViewMarks,/, /route: travelViewRoute,/, /trip: \(\) => \(tvWalking \? TRAVEL_VIEW_TEXT\.travelling\(tvWalking, tvHeld\) : tvTripLive\(\) \? tvTrip\.line : ''\),/]) assert.match(w, dep);   // PIN MOVED (AUDIT OW5 G3): the keys' speed first
+  for (const dep of [/onPick: \(x, y, e\) => onTravelViewPick\(x, y, e\),/, /onMark: \(key, e\) => onTravelViewMark\(key, e\),/, /marks: travelViewMarks,/, /route: travelViewRoute,/, /trip: \(\) => \(tvWalking \? TRAVEL_VIEW_TEXT\.travelling\(tvWalking, tvHeld\) : tvTripLive\(\) \? tvTrip\.line : ''\),/]) assert.match(w, dep);   // PIN MOVED (AUDIT OW5 G3): the keys' speed first
 });
 
 test('TV2 host wiring: THE CAP - governed before the frame reads the travel scale, only while the view is up over a running journey, over the pixels the view can reach; handed back whole when either ends; the panel told', () => {

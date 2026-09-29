@@ -7,6 +7,8 @@
 // recenters the world (streamingWorld.js).
 
 import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: walk mode, one button on and off
+import { iilSyncLane } from '../systems/improvedInteriorLighting.js';   // IIL2
+import { dfmodGroundLayers } from '../systems/dfmodTextures.js';   // GROUND1: an attached mod's terrain tile set
 import { RESURRECT_HOLD_MS, RESURRECT_HEALTH_PCT, RESURRECT_TEXT, rezSnapshot, rezFor } from '../systems/resurrect.js';   // RESURRECT1
 import { FlatAnimator, armFlatAnim } from '../render/flatAnimation.js';   // FA1: the flats that move
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
@@ -227,7 +229,10 @@ import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my w
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
 import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine, travelWalkRate, shipPassageRows } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
-import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt } from '../ui/travelViewHud.js';   // TV1: its readout
+import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt, showTravelViewConfirm, hideTravelViewConfirm, travelViewConfirmOpen } from '../ui/travelViewHud.js';   // TV1: its readout
+import { createBandSprites } from '../world/bandSprites.js';   // OW-FOES: the bands as their monsters, faded in near
+import { markShown } from '../systems/travelViewFilters.js';   // OW-FILTER: a hidden group's sprites hidden with its marks
+import { travelPathMode, travelPathUsesRoads, pickTakesPlace, fineMoveHeld, TRAVEL_PATH_TEXT } from '../systems/travelPathMode.js';   // OW-PATH: roads or free, and the snap to a town
 import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js';   // TV2: the click's ground
 import { planRoute, routeLegs, roadShare, crossesWater, dryLine, SEA_KINDS } from '../systems/travelRoute.js';   // TV2: the way by the roads; OWS2: and over the water
 import { createSeaHelm, seaHelmStep, headingOf as seaHeadingOf, squareOnly as seaSquareOnly, SEA_HELM } from '../systems/seaHelm.js';   // OWS2: the journey's hand on the helm
@@ -405,8 +410,9 @@ import { GROUP_ROLL_RADIUS } from '../systems/campEncounters.js';   // PSCALE1: 
 import { SOLITARY_TYPES } from '../characters/mobileFactions.js';   // AUDIT PSCALE1 COUNT-2: a solitary foe meets a party alone
 import {
   realmIo, openRealmBoot, createRealmSession, realmSummaryOf, setRealmNotice, realmCreate, realmPut, realmBootSearch, realmRefusalText,
-  sayRealmSave, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, whenPageGoes, realmTradeEscrow, realmGoldAct,
+  sayRealmSave, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, whenPageGoes, realmTradeEscrow, realmGoldAct, realmDoorShut,
 } from '../systems/realmSaves.js';   // REALM P1.3: an online character is the realm's - joined, loaded and checkpointed through the service
+import { reclaimFromDevice, reclaimLines } from '../systems/realmCustoms.js';   // RESTORE: what customs once kept back, given back at the boot
 import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that session lives - the app's store, not the tab's (a second tab is the same player)
 import { POSE_STRIKES, isWorldRoom, isCellRoom, cellHaloFor, actFrameFits, sharedClassicMinutes, wallMsForClassicMinutes } from '../net/wire.js';   // WORLD6b-iii(b): the cell seam's halo   // MAC7 #1: the swing's kind on the wire; AUDIT WORLD4 A1: whether an act frame can be said at all
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // MAC7 #2: the arrow bit on the wire - weaponRig's own read
@@ -580,7 +586,7 @@ import { registerItemUseHandler } from '../systems/itemTemplates.js';   // CSA-H
 import { mintBoatItem, mintShelfBoatUids, assignVariantsToShopItems, cargoLootTarget, BOAT_PARTS_TEMPLATE as CSA_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE as CSA_DEED_TEMPLATE } from '../systems/comeSailAwayItems.js';   // CSA-H: the two items, their shelf
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // CSA-H: the boat's variant picker
 import { mustSpawnOnFloor, alignFloorEnemyY, spawnRevealDistance, enemyRoster } from '../world/underwaterEnemies.js';   // DW-E4: where the mod sets a foe's transform; DW-E5: SpawnRevealDistance
-import { markPuddleWater, puddleWetAt, PUDDLE_RECORDS } from '../world/puddleMask.js';   // WATER-PUDDLE: the puddle is the art's
+import { markPuddleWater, carryPuddleMask, puddleWetAt, PUDDLE_RECORDS } from '../world/puddleMask.js';   // WATER-PUDDLE: the puddle is the art's
 import { rayUprightCapsule } from '../world/passiveFish.js';   // DW-E3: a fish's probe meets the player's capsule
 import { installDeepWatersFishIcons, createFishItem, normalizeFishItems, fishPictureUrl, fishIconArchive } from '../systems/deepWatersFishItems.js';   // DW-E3: the fish as items
 import { clearEdgeBlackPixels } from '../world/underwaterDecorations.js';   // DW-E3: a fish's picture, edge-cleaned   // DW-E2: the seafloor's decorations   // DW-D: DeepWaterRuntime's load grace
@@ -669,6 +675,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let bootSnapRead;
   const bootSnap = () => (bootSnapRead === undefined ? (bootSnapRead = pickedSaveSnap(bootLoadPick ?? {})) : bootSnapRead);
   if (realmBoot) { bootSnapRead = realmBoot.snap; realmBoot.snap = null; }   // REALM P1.3: the realm's save, parsed at the join, IS the one parse - held here alone, so the door lets it go
+  const realmGiven = realmBoot?.origin ? reclaimFromDevice(bootSnapRead, realmBoot.origin) : null;   // RESTORE: what customs once kept, back into the one parse (systems/realmCustoms.js)
   // AUDIT SET D4: A TEST ROOM CHARACTER STAYS OFFLINE - asked before anything below reads `online` (the lane reads the
   // published URL, so the drop is published too), and said once the world stands
   const testRoomOffline = testRoomOnlineRefused(params, { snap: bootSnap });
@@ -1019,7 +1026,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     const t = state.pixelTranslation(px, py, _announceT);
     const [lx, lz] = spawnedLocationCentreLocal(loc);
     const dx = t[0] + lx - feet[0], dz = t[2] + lz - feet[2];   // east, north
-    townTalk.say(dungeonSightLine(Math.hypot(dx, dz), _capitalize(directionHintString(dx, dz)), !!loc.elite));
+    // OW-DUNGEON-SAID (2026-09-29, the player: "i have the feeling i dont get nearby dungeons messages"): through tvSay, held
+    // its five seconds AT THE SCALE IT IS SAID AT (AUDIT OW5 G2's law) - a HUD line counts down in game time, so said plain
+    // at a journey's x35 this one-time line stood for a thirty-fifth of a second and was never read
+    tvSay(dungeonSightLine(Math.hypot(dx, dz), _capitalize(directionHintString(dx, dz)), !!loc.elite), 5);
   }
   let _spawnTemplates = null;
   // TTL1: what this client has met, and when. The roll above is a pure
@@ -2933,11 +2943,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     // texture + one cached texture array per ground archive.
     const groundTex = await getTexture(groundArchive);
     if (!renderer.tileArrays.has(groundArchive)) {
-      const layers = [];
+      // GROUND1: an attached texture mod's tile set for the archive (DREAM's `<archive>-TexArray`) first, whole or not at all
+      const modLayers = await dfmodGroundLayers(groundArchive, groundTex.recordCount);
+      const classic = [];
       for (let r = 0; r < groundTex.recordCount; r++) {
-        layers.push(groundTex.getColor32(groundTex.getDFBitmap(r, 0), 0));
+        classic.push(groundTex.getColor32(groundTex.getDFBitmap(r, 0), 0));
       }
-      renderer.uploadTileArray(groundArchive, markPuddleWater(layers));   // WATER-PUDDLE: a puddle record's water in its layer's alpha
+      // GROUND1-W: a mod's tile set takes its puddles' shapes from the classic records (carryPuddleMask)
+      const layers = modLayers ? carryPuddleMask(modLayers, markPuddleWater(classic)) : classic;
+      renderer.uploadTileArray(groundArchive, modLayers ? layers : markPuddleWater(layers));   // WATER-PUDDLE: a puddle record's water in its layer's alpha
     }
     renderer.applyGroundSharpness();   // GRAIN AUDIT 1: the ground-sharpness tier lands on THIS load, on every cached archive - the cache outlives the scene
     // GR1: which of this archive's records are GRASS, from its own texels -
@@ -3498,7 +3512,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT 26 (F019): the pixel's street StaticNPCs - identity inputs
     // + the billboard extent the activation ray needs, resolved the
     // way the interior host resolves its people's
-    // (interiorContext.js:435-456). FLATS.CFG is awaited because
+    // (interiorContext.js:439-460). FLATS.CFG is awaited because
     // SetLayoutData's exterior overload reads it for the gender
     // (StaticNPC.cs:185-194); loadFlats never throws and is warmed with
     // the scene, so this is a coalesced wait. The list rides the pixel,
@@ -6757,10 +6771,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2694 mounts the same one, gated on
+  // and dungeonContext.js:2697 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6372
+  // that context through modes.dungeonCtx - so worldModes.js:6375
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9108,7 +9122,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7415), so exterior mode and a
+    // composer, dungeonContext.js:7419), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -11179,7 +11193,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     lookFilter.add(e.movementX * lookScale(), -e.movementY * lookScale() * lookInvert());
   });
   // U41: `!townTalk.overlayActive` is the dungeon host's own gate
-  // (dungeon.js:243, "a right-click on a window is the window's...
+  // (dungeon.js:244, "a right-click on a window is the window's...
   // never a swing"), which these two hosts never got. It matters now
   // that the travel map makes RMB a ROUTINE gesture - its zoom - and
   // an ungated one fires a readied spell or looses an arrow at the
@@ -11676,7 +11690,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9793-9857 -
+  // worldModes answers it in BOTH modes (worldModes.js:9808-9872 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -13327,7 +13341,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     teleportTo(pick).catch((e) => { console.error('[staff] /tp failed:', e); hudFade.clearFade(); say('The teleport failed.'); });
   }
   const identityMinter = accountTokenMinter({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage(), onIssued: adoptIssued,
-    character: () => (onlineOn ? characterIdOf(playerEntity) : null) });   // RENOWN1: the character coming online - RENOWN-ACCOUNT: the token carries the account's level, whichever is named
+    character: () => (onlineOn ? realmSession?.id ?? null : null) });   // RENOWN1: the character coming online - RENOWN-ACCOUNT: the token carries the account's level, whichever is named. REALM-DOOR: it is the realm character this tab JOINED (online is never without one), which the service signs as the realm's and the relay's door reads - never an id the save carries or characterIdOf mints
   // RENOWN1: WHAT THIS CHARACTER EARNS, FOR ITS ACCOUNT (RENOWN-ACCOUNT) - online only (the tracker is never built offline, and earns only while a session
   // exists). A foe pays when it dies within RENOWN_ASSIST_MS of my own blow, whoever struck last (net/renownTracker.js - the one rule every kill door agrees
   // on), with the party in my room counted (renownPartyXp); a quest pays on success, once - each at three quarters (net/renown.js renownRate, RENOWN-ACCOUNT).
@@ -16716,6 +16730,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     renownTracker?.tick();   // RENOWN1: what this character earned, to the account service when a report is due
     peerMenuFrame();   // PEERMENU1: the bind's hold timer
     peerFxFrame();   // PEERFX1: the others' blows and hurts, played
+    // REALM-DOOR: the relay shut its door on this tab's token as naming no realm character of its account - the character
+    // deleted elsewhere, or the account signed out and another in: the realm's own end, to the Online door with the realm's
+    // word (the relay's words are for a build from before the realm), before anything else this frame draws over it
+    if (realmSession && !realmSession.lost && realmDoorShut(online)) { realmLost('no-realm-character'); return; }
     // ONE-SEAT (Mac: "the player can only have one character only at a time"): another tab or window of this player has
     // the seat - out of every room once, then nobody drawn and nothing sent, the dead's own law (D12), until the player
     // presses Play online here
@@ -17649,7 +17667,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // main.js sets ?load when the menu resolves it, and its comment says
   // "Load Game rides the dungeon host's OWN quickLoad" - true when the
   // classic start booted scenes/dungeon.js, and U31 moved it HERE. The
-  // only reader of `load` in the whole tree is dungeon.js:116, so the
+  // only reader of `load` in the whole tree is dungeon.js:117, so the
   // flag arrived in this host and was discarded: the player got a
   // brand-new character in Privateer's Hold and the only way to reach
   // their save was to start a new game and press F11. A load is not a
@@ -17686,6 +17704,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // AUDIT SET D4: said once the world stands, the character loaded
   if (realmRefused) townTalk.say(REALM_OFFLINE_TEXT);   // REALM P1.3: an online boot with no realm character plays offline, and says so
+  for (const line of reclaimLines(realmGiven)) townTalk.say(line);   // RESTORE: what came back, said once the world stands
   // EOTB-IL: StartGameBehaviour.OnNewGame (the mod's handler, IL_0930) -
   // a boot that loaded nothing is a new game, wherever it starts
   if (!_loadedGame) mwViewNewGame((modes?.mode ?? 'exterior') !== 'exterior');
@@ -17953,6 +17972,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // (beginTravelAlongRoute / beginTravelToPoint, the port's own two journeys built from the mod's parts). The places
   // around the traveller wear plates a click also takes; the trip's way is the line under them.
   const TV_PLACE_GROW = 6144;   // native units (1.5 RMB blocks): a click this near a town's walls is a click on the town
+  const TV_NEAR_REACH = TV_PLACE_GROW * 2;   // OW-PATH: the town's neighbourhood - from inside it, every ground click is a spot
   const TV_PLACE_LIFT = 24;   // m: a plate floats over its town
   const TV_SEA_EPS_M = 0.25;   // m: AUDIT DEEP2 B-5 - the ground's clamp stands AT the sea; a hair over it is still the sea
   // AUDIT DEEP T2-3: a journey from the view travels the way the player's own map last said - cautiously, it stops at low
@@ -18006,8 +18026,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the follow key and the static's paths already hold (`source`): with none, the journey goes across country
     let means = tvSeaMeans();   // OWS2: a boat to cross the water in (at its helm, moored in reach, packed in the pack), or none
     const raw = terrainGen.roads();
-    const net = raw?.source === 'basic-roads' ? raw : null;
+    const roadNet = raw?.source === 'basic-roads' ? raw : null;
+    // OW-PATH: FREE walks across country (never onto a road it does not need) - and a free trip with no way falls back
+    // to the roads, said, rather than refused
+    let net = travelPathUsesRoads() ? roadNet : null;
     let plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: tvSeaAsk(means, 'land') });   // OW-MOUNTAINS: never across the peaks; OWS2: across the water in a boat
+    if (!plan && !net && roadNet) { net = roadNet; plan = planRoute(from, summary.pixel, { roads: net.roads ?? null, tracks: net.tracks ?? null, ...tvRouteGround(), sea: tvSeaAsk(means, 'land') }); if (plan) townTalk.say(TRAVEL_PATH_TEXT.fellBack); }   // OW-PATH
     const dry = tvMooredDry(means, plan, () => planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround() }));   // AUDIT OW5 S3
     if (dry) { plan = dry; means = null; }
     if (!plan) { tvSeaNoWay(from, summary.pixel, means, net, 'land', summary); return false; }
@@ -18040,7 +18064,44 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   const tvRouteGround = () => (_tvRouteGround ??= routeGround((x, y) => maps.getClimateIndex(x, y), (x, y) => woods.getHeightMapValue(x, y), WATER_BYTE));
   /** OW-ROADSIDE (2026-09-28, Mac: routes "appear traveling alongside" the road): a route whose first step is a road's (or
    *  a track's) is joined first at the nearest point of that first run - never walked beside it to its far end. */
+  // OW-FREE-STRAIGHT: the planner walks the pixel grid (diagonal, then straight), so a FREE journey bent at a pixel middle
+  // on the way - toward the road or a place - though the way ahead was clear. In FREE mode an all-open route is pulled
+  // taut: each stretch jumps to the farthest pixel the line of sight reaches without water or a blocked (mountain) step.
+  function tvFreePull(plan) {
+    if (travelPathUsesRoads() || !plan?.pixels || plan.pixels.length < 3 || plan.kinds?.some((k) => k !== 'open')) return plan;
+    const g = tvRouteGround();
+    const line = (a, b) => {   // 8-connected pixels a -> b (Bresenham)
+      const out = [a]; let x = a.x, y = a.y;
+      const dx = Math.abs(b.x - a.x), dy = Math.abs(b.y - a.y), sx = a.x < b.x ? 1 : -1, sy = a.y < b.y ? 1 : -1;
+      let err = dx - dy;
+      while (x !== b.x || y !== b.y) {
+        const e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x += sx; }
+        if (e2 < dx) { err += dx; y += sy; }
+        out.push({ x, y });
+      }
+      return out;
+    };
+    const clear = (a, b) => {
+      const pts = line(a, b);
+      for (let i = 1; i < pts.length; i++) {
+        if (g.isWater(pts[i].x, pts[i].y)) return false;
+        if (g.openBlocked(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y, i === 1 && g.peakAt(a.x, a.y))) return false;
+      }
+      return true;
+    };
+    const px = plan.pixels, keep = [px[0]];
+    let i = 0;
+    while (i < px.length - 1) {
+      let j = px.length - 1;
+      while (j > i + 1 && !clear(px[i], px[j])) j--;
+      keep.push(px[j]);
+      i = j;
+    }
+    return keep.length >= px.length ? plan : { ...plan, pixels: keep, kinds: keep.slice(1).map(() => 'open') };
+  }
   function tvJoinedLegs(from, plan) {
+    plan = tvFreePull(plan);
     const legs = routeLegs(plan.pixels, plan.kinds);
     if (!legs.length || (plan.kinds[0] !== 'road' && plan.kinds[0] !== 'track')) return legs;   // THE MERGE: a launch (OWS2) is no road to join
     const c = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return { x: o.x + 16384, z: o.z + 16384 }; };
@@ -18057,7 +18118,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (!door && !water && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { tvSay(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS
     // OW-MOUNTAINS: to the spot's pixel round the peaks (the roads where they help), then to the spot itself
     const from = playerTravelPixel();
-    const roadsRaw = terrainGen.roads(), wnet = roadsRaw?.source === 'basic-roads' ? roadsRaw : null;   // AUDIT DEEP T2-7's law: Hazelnut's bytes or none
+    const roadsRaw = terrainGen.roads(), roadNet = roadsRaw?.source === 'basic-roads' ? roadsRaw : null;   // AUDIT DEEP T2-7's law: Hazelnut's bytes or none
+    let wnet = travelPathUsesRoads() ? roadNet : null;   // OW-PATH: FREE never asks the roads
     // OWS2: a spot across the water, one on it, or any from a helm is a route that may put to sea (the planner's sea
     // layers); THE MERGE: every other spot is still routed on land, round the peaks (OW-MOUNTAINS) - never the straight walk
     const means = tvSeaMeans();
@@ -18066,6 +18128,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // AUDIT OW3 J5: the step onto a SPOT is asked too (`goalExempt: false`) - a spot on a plateau was reached straight up
     // its cliff (a rise of 60 against the law's 16: the lag and the fall Mac hit); a place's own pixel stays exempt
     let plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: !!door, sea: seaAsk });
+    if (!plan && !wnet && roadNet) { wnet = roadNet; plan = planRoute(from, pix, { roads: wnet.roads ?? null, tracks: wnet.tracks ?? null, ...tvRouteGround(), goalExempt: !!door, sea: seaAsk }); if (plan) townTalk.say(TRAVEL_PATH_TEXT.fellBack); }   // OW-PATH
     if (!plan) { tvSeaNoWay(from, pix, seaAsk ? means : null, wnet, water ? 'sea' : 'land'); return false; }
     const dry = water ? null : tvMooredDry(seaAsk ? means : null, plan, () => planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: !!door }));   // AUDIT OW5 S3
     if (dry) { plan = dry; seaAsk = null; }
@@ -18372,7 +18435,16 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (csaAboard.aboard) { tvSay(TRAVEL_VIEW_TEXT.passenger); return false; }   // OWS2: aboard another's boat, its helmsman steers
     return true;
   }
-  function onTravelViewPick(clientX, clientY) {
+  /** OW-PATH: THE TRAVELLER IN A TOWN'S NEIGHBOURHOOD - inside its rect grown by TV_NEAR_REACH: from here every ground
+   *  click is a spot, so the town can be walked round and through by the metre. */
+  const tvNearPlace = (summary) => {
+    const r = locationWorldRect(summary.loc, summary.pixel.x, summary.pixel.y);
+    const me = state.worldCoords(player.pos);
+    return me.x >= r.minX - TV_NEAR_REACH && me.x <= r.maxX + TV_NEAR_REACH && me.z >= r.minZ - TV_NEAR_REACH && me.z <= r.maxZ + TV_NEAR_REACH;
+  };
+  function onTravelViewPick(clientX, clientY, e = null) {
+    if (travelViewConfirmOpen()) { hideTravelViewConfirm(false); return; }   // OW-CONFIRM: a press on the map lets the question go
+    _tvAttack = null;   // OW-ATTACK: a walk elsewhere lets the attack go
     if (!travelView?.eye || !_lastProj || !_lastView) return;
     if (!travelViewCanGo()) return;
     const [sx, sy] = canvasPoint(clientX, clientY, canvas.getBoundingClientRect());
@@ -18396,6 +18468,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           if (d < best) { best = d; place = summary; }
         }
       }
+      // OW-PATH (2026-09-29, the player: "when moving near cities it always dictates me going right into the city"): the
+      // town's journey only in ROADS mode, from outside its neighbourhood, with no fine-move key held - else the spot
+      if (place && !pickTakesPlace({ hit: true, nearby: tvNearPlace(place), fine: fineMoveHeld(e), mode: travelPathMode() })) place = null;
       // AUDIT DEEP2 B-5: WATER IS WHERE THE CLICK LANDED, not its pixel's byte - the ground in a pixel is a blend of its
       // neighbours' bytes clamped at the sea, so a coastal pixel holds sea and sand both: a click on the sea in a land
       // pixel walked the traveller into it, and one on the sand in a sea pixel was refused. The sea is flat and known
@@ -18409,7 +18484,58 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     else if (what.kind === 'far') tvSay(TRAVEL_VIEW_TEXT.far);
   }
   /** A plate's click: the same journey as a click on the town. */
-  function onTravelViewMark(key) {
+  /**
+   * OW-ATTACK (2026-09-29, the player: "when you directly doubleclick the enemy on the overworld map it will ask you if you
+   * want to attack (enemyname) yes or no and so you dont get slowdown anymore"): AN ENEMY'S MARKER, CLICKED. Once, it is
+   * the ground under it (a walk there, as before its marker could be pressed); twice within TV_DOUBLE_CLICK_MS, a box asks
+   * to attack it. Yes: a journey straight at it, that enemy (a band, and its chase; or a camp, every member) no longer
+   * holding the clock (journeyThreats) - any other still does - and the meeting is the encounter as ever. No: nothing, the
+   * Overworld back up (the ship's passage's own box, the same way). A journey anywhere else lets the attack go.
+   */
+  const TV_DOUBLE_CLICK_MS = 450;
+  let _tvEnemyClick = null;   // { key, t } - the last press on an enemy's marker
+  let _tvAttack = null;       // { kind: 'band' | 'camp', id } - the enemy attacked, exempt from the slowdown
+  const tvEnemyMarkKey = (key) => key.startsWith('band:') || key.startsWith('camp:');
+  /** The camp a live foe stands in, as travelViewCamps keys it (mine, or a peer's by the tags their frames carry). */
+  const foeCampKey = (f) => (f?.puppet ? (f._pupCamp ? `${f.puppet}:${f._pupCamp.id}` : null) : f?.campId != null ? `me:${f.campId}` : null);
+  /** The attacked enemy's marker: its name, and where it stands now (a scene point and its pixel) - or null, gone. */
+  function tvAttackTarget(key) {
+    if (key.startsWith('band:')) {
+      const id = key.slice(5);
+      const b = travelViewBands().find((o) => o.id === id) ?? [..._bandChase.values()].find((c) => c.band.id === id)?.band;
+      const mk = b && !_bandSpent.has(b.id) ? bandMake(b) : null;
+      if (!mk) return null;
+      const p = bandPlace(b, bandNowMs());
+      const n = mk.mobileTypes.length;
+      return { kind: 'band', id, label: n > 1 ? `the ${mk.name} band (${n})` : `the ${mk.name}`, point: tvSceneOf(p.x, p.z, 0), pix: worldCoordToMapPixel(p.x, p.z) };
+    }
+    const id = key.slice(5), c = travelViewCamps().find((o) => o.key === id);
+    if (!c) return null;
+    const n = state.worldCoords(c.at);
+    const m = /^(.*), (\d+)$/.exec(c.label ?? '');   // campLabel's "Orc camp, 4" - the box says "the Orc camp (4)"
+    return { kind: 'camp', id, label: m ? `the ${m[1]} (${m[2]})` : `the ${c.label}`, point: c.at, pix: worldCoordToMapPixel(n.x, n.z) };
+  }
+  function tvEnemyClick(key, e) {
+    const t = performance.now();
+    if (_tvEnemyClick?.key === key && t - _tvEnemyClick.t <= TV_DOUBLE_CLICK_MS) { _tvEnemyClick = null; tvAskAttack(key); return; }
+    _tvEnemyClick = { key, t };
+    if (e) onTravelViewPick(e.clientX, e.clientY, e);   // once: the ground under it, as a click there always was
+  }
+  function tvAskAttack(key) {
+    const target = tvAttackTarget(key);
+    if (!target || !travelViewCanGo()) return;
+    // OW-CONFIRM: the Overworld's own question - the view stays up under it, its presses the block's (ui/travelViewHud.js)
+    showTravelViewConfirm({ rows: TRAVEL_VIEW_TEXT.attackAsk(target.label), yes: 'Yes', no: 'No', onYes: () => {
+      const now = tvAttackTarget(key) ?? target;   // where it stands after the question (the clock ran on under it)
+      if (!travelViewCanGo()) return;
+      _tvAttack = { kind: now.kind, id: now.id };
+      travelViewWalkTo(now.point, now.pix);
+    } });
+  }
+  function onTravelViewMark(key, e = null) {
+    if (travelViewConfirmOpen()) { hideTravelViewConfirm(false); return; }   // OW-CONFIRM: a press on the map lets the question go
+    if (tvEnemyMarkKey(key)) { tvEnemyClick(key, e); return; }   // OW-ATTACK
+    _tvAttack = null;   // OW-ATTACK: a journey elsewhere lets the attack go
     // AUDIT DEEP2 B-1: the journey's own flag - its place again, from where the traveller stands (a stop's resume)
     if (key === 'dest') { const summary = tvTripLive() ? tvTrip.plan?.summary : null; if (summary && travelViewCanGo()) travelViewRouteTo(summary); return; }
     if (key.startsWith('spawn:')) { travelViewSpawnWalk(key); return; }   // AUDIT OW3 D1: a spawn's plate - a walk to its door
@@ -18603,6 +18729,35 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     _bandPos.set(b.id, v);
     return v;
   }
+  /** OW-FOES: THE BANDS NEAR, AS THEIR MONSTERS - under the Overworld only (world/bandSprites.js). A band's scene feet
+   *  are kept on a holder of their own: tvSceneKept keys on the point, not the lift, and the band's mark asks at 2 m. */
+  let bandSprites = null;
+  const _bandFeetHold = new Map();
+  function tvBandSpritesStep(dt, tvf, eye) {
+    const off = !tvf || !(tvf.blend > 0) || getPref('wildernessCamps') === false || playerEntity.preventEnemySpawns;
+    if (off) { if (bandSprites?.size) bandSprites.clear(); _bandFeetHold.clear(); return; }
+    bandSprites ??= createBandSprites({ renderer, getTexture, uploadRecordFrame });
+    const bms = bandNowMs(), here = state.worldCoords(player.pos);
+    const list = [...travelViewBands()];
+    for (const c of _bandChase.values()) if (!list.some((o) => o.id === c.band.id)) list.push(c.band);
+    const out = [], keep = new Set();
+    for (const b of list) {
+      if (_bandSpent.has(b.id)) continue;
+      const chasing = _bandChase.has(b.id);
+      if (!markShown({ kind: chasing ? 'band chase' : 'band' })) continue;   // OW-FILTER: Enemies off, their sprites off (a chaser stays)
+      const mk = bandMake(b);
+      if (!mk?.mobileTypes?.length) continue;
+      const p = bandPlace(b, bms);
+      const distM = Math.hypot(p.x - here.x, p.z - here.z) / NATIVE_PER_M;
+      if (distM > 520) continue;   // past the fade's far edge and then some: nothing to draw, nothing to hold
+      let h = _bandFeetHold.get(b.id);
+      if (!h) { h = {}; _bandFeetHold.set(b.id, h); }
+      keep.add(b.id);
+      out.push({ id: b.id, mobileType: mk.mobileTypes[0], feet: tvSceneKept(h, p.x, p.z, 0), distM });
+    }
+    for (const id of [..._bandFeetHold.keys()]) if (!keep.has(id)) _bandFeetHold.delete(id);
+    bandSprites.sync(out, { dt, eye, grow: tvf.grow, fade: tvf.blend });
+  }
   /** AUDIT OW5b E1: the encounter pool has room for the band's members, grown by the party it meets - a band it cannot
    *  stand is neither stood nor MET (no journey is stopped for a band that never comes; it tries again). */
   function bandRoom(mk) { return campMembers(mk.mobileTypes).length <= (exteriorFoes.encounterRoom?.() ?? Infinity); }
@@ -18791,7 +18946,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (g.found) {
         if (!g.spawn && `far:${g.row.mapID}` === farEnd) continue;
         const km = (Math.hypot(g.x - here.x, g.z - here.z) / 32768) * PIXEL_KM;
-        marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: g.loc.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true });
+        marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: g.loc.name, sub: farDistanceText(km), kind: 'far dungeon', pick: true, edge: true });   // OW-FILTER: 'dungeon' - the look is the first word's, the filter's group the second's
       } else marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: '?', kind: 'lair' });
     }
     // TV7: THE BANDS - each with its kind and number where it walks; one chasing me held at the edge, pointing
@@ -18804,12 +18959,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const mk = bandMake(b);
       if (!mk) continue;
       const chasing = _bandChase.has(b.id), p = bandPlace(b, bms);
-      marks.push({ key: `band:${b.id}`, at: tvSceneKept(b, p.x, p.z, 2), label: bandLabel(mk.name, mk.mobileTypes.length), kind: chasing ? 'band chase' : 'band', edge: chasing });   // OW6: the band's OWN number, the same for every player (a party it meets brings more - PSCALE1 - where it stands)
+      marks.push({ key: `band:${b.id}`, at: tvSceneKept(b, p.x, p.z, 2), label: bandLabel(mk.name, mk.mobileTypes.length), kind: chasing ? 'band chase' : 'band', edge: chasing, pick: true });   // OW6: the band's OWN number, the same for every player (a party it meets brings more - PSCALE1 - where it stands)
     }
     // OW6 (2026-09-29, the player: "If a camp is spawned, it should show in the overworld"): THE CAMPS - every group
     // standing about, a camp, a pack or a band stood: mine, and each peer's by the tags their frames carry
     // (world/campShared.js) - one mark where its living members stand, with its kind and its number; gone with its last
-    for (const c of travelViewCamps()) marks.push({ key: `camp:${c.key}`, at: [c.at[0], c.at[1] + 2, c.at[2]], label: c.label, kind: 'camp' });
+    for (const c of travelViewCamps()) marks.push({ key: `camp:${c.key}`, at: [c.at[0], c.at[1] + 2, c.at[2]], label: c.label, kind: 'camp', pick: true });   // OW-ATTACK: pressable
     // AUDIT DEEP2 B-1: THE JOURNEY'S END IS NEVER OFF THE SCREEN UNSEEN - held at the edge as a far place is (a far town's
     // plate gave way to a flag drawn above the picture, and the destination was gone for the whole journey), a place's
     // with its distance, and a click on a place's flag is its journey again (after a stop there is no ground to click)
@@ -19066,10 +19221,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const ms = bandNowMs(), sight = bandSight(tvBandSeen.night);
       for (const b of travelViewBands()) {
         if (_bandSpent.has(b.id) || _bandChase.has(b.id) || !bandMake(b)) continue;
+        if (_tvAttack?.kind === 'band' && _tvAttack.id === b.id) continue;   // OW-ATTACK: the band I go to fight holds nothing
         const p = bandPlace(b, ms), [dx, dz] = rel(p.x, p.z);
         out.push({ dx, dz, reach: sight });
       }
-      for (const c of _bandChase.values()) { const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: BAND_CONTACT_M, chasing: true, mps: BAND_CHASE_MPS }); }
+      for (const c of _bandChase.values()) { if (_tvAttack?.kind === 'band' && _tvAttack.id === c.band.id) continue; const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: BAND_CONTACT_M, chasing: true, mps: BAND_CHASE_MPS }); }   // OW-ATTACK: nor its chase
     }
     if (up && warmAshesOn() && csaOn() && raidQuarry()) {
       const sight = raiderSight(isNight(minuteNow()));
@@ -19082,6 +19238,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     for (const f of exteriorFoes.foes) {
       if (!foeHostile(f) || !f.ai.feet) continue;
+      if (_tvAttack?.kind === 'camp' && foeCampKey(f) === _tvAttack.id) continue;   // OW-ATTACK: the camp I go to fight, every member
       out.push({ dx: f.ai.feet[0] - fx[0], dz: f.ai.feet[2] - fx[2], reach: f.ai.sightRadius ?? SIGHT_RADIUS });   // CAMP-SIGHT: a camp's sixty metres
     }
     return out;
@@ -19202,9 +19359,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // destination is kept). A bare interruptTravel left the panel up, so the journey still read active: the next frame's
     // tvJourneyUp raised the view again over a frozen journey, and the held map, which offers Resume only to a journey
     // not active, never did. OW-TOGGLE: a first-person journey walks on under a view brought down, as before OW-ONLY
+    openMap: () => toggleTravelMap(),   // OW-BLOCK: the Overworld block's Map, journey or none
     onLower: (why) => { if ((why === 'button' || why === 'escape' || why === 'key') && travelOptions?.isTravelActive && tvOwnsJourneys()) travelOptions.messages.pauseTravel(); },
     windowUp: () => gamePaused() || (modes?.modalWindowUp?.() ?? false),
-    overlayUp: () => overlayOpen(),   // AUDIT DEEP2 A3: an enhanced overlay (the Tab dial) has the keys while it is up
+    overlayUp: () => overlayOpen() || travelViewConfirmOpen(),   // AUDIT DEEP2 A3: an enhanced overlay (the Tab dial) has the keys while it is up; OW-CONFIRM: and the view's own question
     danger: () => duelEnemyNear() || areEnemiesNearby(exteriorFoePool()),   // the travel map's own refusal, and the Travel Options journey's stop (AUDIT DEEP2 A9/B-4: a live duel too, DUEL1's)
     actionsOf: (e) => actionsOf(e, keys),
     movementHeld: () => TV_MOVE_ACTIONS.some((a) => held(keys, a)),
@@ -19217,8 +19375,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     say: (t) => townTalk.say(t),
     touch: !!touch,
     alive: () => frameAlive(_frameToken),   // the heartbeat's question: a loop a later boot killed is left quietly
-    onPick: (x, y) => onTravelViewPick(x, y),   // TV2
-    onMark: (key) => onTravelViewMark(key),
+    onPick: (x, y, e) => onTravelViewPick(x, y, e),   // TV2; OW-PATH: the event, for the fine-move key
+    onMark: (key, e) => onTravelViewMark(key, e),   // OW-ATTACK: the press, for an enemy's single click
     marks: travelViewMarks,
     route: travelViewRoute,
     trip: () => (tvWalking ? TRAVEL_VIEW_TEXT.travelling(tvWalking, tvHeld) : tvTripLive() ? tvTrip.line : ''),   // TV-WASD: the keys' travel says its speed - AUDIT OW5 G3: first, as it runs only with no journey driving (a stopped route kept for the Resume read "To X, by the road" over it)
@@ -20427,6 +20585,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const tvFace = tvf ? { yaw: tvf.yaw, up: tvf.up, grow: tvf.grow } : null;   // AUDIT DEEP R-2: the traveller's own sprite turns its quad to the travel view's eye
     setFlatLean(tvf ? Math.hypot(tvf.up[0], tvf.up[2]) : 0);   // AUDIT DEEP R-7: the flats' cull spheres grown by the lean, before any cull
     renderer.setFocus(tvf ? cam.pos : null, !!tvf && tvf.blend >= 0.5);   // AUDIT DEEP2 D7: the cascades grow half way up, where the picture has
+    tvBandSpritesStep(dt, tvf, mwv.eye);   // OW-FOES: the bands near, as their monsters
     const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + viewFwd[0], mwv.eye[1] + viewFwd[1], mwv.eye[2] + viewFwd[2]], [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
     // DW-E5 x TV1: under the travel view `mwv.eye` is the raised eye - the view never opens in the sea (travelViewAllowed)
     for (let i = 0; i < 3; i++) _dwEyeOffset[i] = mwv.eye[i] - cam.pos[i];   // DW-E5: the spawners' camera, as this frame placed it
@@ -20599,6 +20758,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       params.has('window') ? params.get('window') : windowStyleForTime(minute)));
     tickWodSpawners();   // WOD3: LocationEnemySpawner.Update, every exterior frame
     tickCityGates(minute);   // AUDIT 64 F14: DaggerfallCityGate.Update, every frame as DFU's is - and on the first frame after a pixel builds, which is what closes a gate streamed in at 20:00
+    iilSyncLane(renderer, false);   // IIL2: outdoors the mod's shadow lane comes off - the streets are the classic set's, day or night
     const currentEntry = built.get(`${state.current.x},${state.current.y}`);
     // DaggerfallSky.cs:363-367 - a non-Normal WeatherStyle (every rain,
     // thunder and snow) disables the clear night sky, so the DAY sky at
@@ -20756,6 +20916,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     if (peerRiders) for (const b of peerRiders.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // RIDE: the others in the saddle
     if (peerWalkers) for (const b of peerWalkers.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // DISC23-B: and on foot, as they chose
+    if (bandSprites) for (const b of bandSprites.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // OW-FOES: the bands near, as their monsters
     // NEAR-FIRST (2026-09-21): THE PIXELS ARE WALKED NEAREST FIRST. The
     // map's insertion order is the order the pixels streamed in, which
     // is nothing to do with where the eye is - so a far town's walls

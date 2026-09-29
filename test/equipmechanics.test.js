@@ -222,7 +222,7 @@ test('U59: refreshPaperDoll KEEPS the buffer it uploads', () => {
   const body = src.slice(from, src.indexOf('\n/**', from));
   // the composite is `out`, and BOTH consumers read that same buffer:
   // the GL upload the classic window draws, and the RGBA the DOM does
-  assert.match(body, /_pixels = \{ width: PAPERDOLL_W, height: PAPERDOLL_H, rgba: out, version: _version \}/,
+  assert.match(body, /_pixels = \{ width: OW, height: OH, rgba: out, version: _version, density: OW \/ PAPERDOLL_W \}/,
     'the DOM composite is not the buffer that was just composed');
   assert.match(body, /uploadTexture\('img', key, \{[^}]*colors: new Uint32Array\(out\.buffer\)/,
     'the GL upload no longer reads the same buffer');

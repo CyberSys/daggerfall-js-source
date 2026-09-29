@@ -182,8 +182,8 @@
   {
     "name": "OW3-J5-spot-goal-exempt",
     "file": "src/scenes/world.js",
-    "old": "...tvRouteGround(), goalExempt: !!door, sea: seaAsk });",
-    "new": "...tvRouteGround(), sea: seaAsk });",
+    "old": "let plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: !!door, sea: seaAsk });",
+    "new": "let plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), sea: seaAsk });",
     "tests": [
       "test/tv2_click_to_move.test.js",
       "test/tv6_dungeons.test.js"

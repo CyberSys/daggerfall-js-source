@@ -4090,3 +4090,64 @@ also stores an optional email (ACC1c), cloud save backups with a screenshot each
   code does not; corrected.
 Pinned: `test/audit0929_terms.test.js` (6), `test/terms1.test.js`'s refusals; `tools/mutants/audit0929_terms.json` (14,
 all dead).
+
+## PENITENT, and a fifth Disciple — Diggleborf's own (2026-09-29, acct21)
+
+Mac: "This new custom title/glyph is for the user Diggleborf" and "Add valenvalarys as a disciple ingame". The ask is
+Diggleborf's, on the Discord: "Looking to do a Trinimac themed one, so maybe "Penitent" for the title starting gold and
+ending a sky blue", with a rough sketch for the glyph ("Something like this or similar would be great!") - a tall
+lozenge with a sword inside it, the sword's point at the lozenge's lowest corner.
+
+- **The grants** (`server-account/wrangler.toml`): `DISCIPLE_HANDLES` gains valenvalarys, and `PENITENT_HANDLES =
+  "Diggleborf"` is new. It is TITLE-N's law, as SHADOW-FANG's: a handle list grants the title and its glyph together,
+  never to a guest (`titles.js TIER_LISTS.penitent`). Penitent is HELD, and worn once Diggleborf presses it on the
+  account card; a Founder title they wear stays worn until then. It is a title and a glyph only. The staff's commands
+  stay STAFF1's three (Mac's own choice), and no werewolf skin rides it.
+- **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `penitent` joins TITLES and GLYPHS, last. An
+  older relay refuses a token carrying it (`claimsValid`), so the relay is **world129** and the account service
+  **acct21**. The account deploy waits for the relay's `/health` (SHADOW-FANG's AUDIT B1). CUSTOMS-GRANT's branch
+  (PR #433, not merged) also names acct20, which main's TERMS1 already holds; whichever of the two lands second takes
+  the next free number. (CUSTOMS-GRANT's branch landed after both, as acct23: REALM-DOOR took acct22 first.)
+- **The face** (`src/ui/playerBadge.js`): the word "Penitent" and a gradient from CSS's own `gold` (#ffd700) to its
+  `skyblue` (#87ceeb), with a warm light between them (#fff3d6). A gold and a sky blue both lean green, so a straight
+  mix of the two is sage: with two stops the word read gold, lime, blue. With the light between, it reads gold into
+  light into sky, and it still starts gold and ends sky blue.
+- **The edge** (`TITLE_EDGE`, new): the colour a gradient title's letters are edged in, where it is not the title's own.
+  Shadow Fang's edge stays its crimson, because its black half needs a bright edge over a night sky. Penitent's ends
+  are both bright, and edged in its own gold the sky half was lost: the word read gold on every ground. So it is edged
+  in black, as every one-colour title's text shadow is. `titleBadge` carries it as `edge`, and `titlePaint` and the
+  classic face's edge run read it there.
+- **The glyph**: Diggleborf's sketch, drawn the way the tiers draw theirs - a stroked outline in one colour
+  (`GLYPH_STROKE`) - with a detail of its own (`GLYPH_DETAIL`, the door SHADOW-FANG's eye opened). The lozenge is in
+  the title's gold and the sword over it in the title's sky, both read from the title's stops. The sword is point
+  down, the arms reversed as a penitent carries them: a small diamond pommel, the grip, the guard, and a blade more than
+  twice the hilt, tapering to the lozenge's lowest corner where the sketch's meets it. The sketch's own short sword
+  read as a cross at a name's size, so the blade is longer. The glyph is not a gradient: at a name's size (11 to 28
+  px) a gold-to-blue stroke reads as one lime line. `|` for the classic face.
+- **Seen**: rendered in the name layer's own sheet (Playwright) over a night sky, a day sky, stone, grass and snow, at
+  15 and 24 px, before the colours and the shapes were chosen; then the shipped code - the real name layer, and the
+  glyph at the chat's 11, the card's 15 and the profile's 16 px beside the Disciple's and Shadow Fang's.
+- Pinned: `test/penitent.test.js` (8); valenvalarys in `test/titlen.test.js`. `tools/mutants/penitent.json` (24, all
+  dead), and two grant mutants in `titlen.json` (21, all dead). Three older records in `shadowfang.json` were re-aimed
+  by content, and the version mutants in `soc1.json` and `gatekeys.json` moved with the versions (all dead).
+
+## REALM-DOOR and CUSTOMS-PASS — the mint's realm word, and a developer's pass through customs (2026-09-29, acct22)
+
+From the field (`01-Overview/Field-Bugs-2026-09-29b.md`): Gryphoth made and played a character online on a build from
+before the realm, after the census froze - the relay still admitted such a build - and Bring online refused it.
+
+- **REALM-DOOR: every identity token says whether its character is the realm's.** `/v1/auth/token` stamps `rc`: 1 when
+  the character the mint names is one of the account's realm characters (`realm.js` `realmCharacterHeld` - a realm id,
+  the caller's own, standing), else 0 - an offline id, another account's character, one deleted, none. The relay
+  refuses a 0 at its door (`06-Systems/Online-Arc.md` REALM-DOOR, world130).
+- **CUSTOMS-PASS (Mac: "Staff customs pass"): `POST /v1/mod/customs-pass { name | account, revoke? }`**, a developer's
+  alone (`DEVELOPER_HANDLES`; a moderator's mute is not enough to let a character into the realm's economy). The account
+  is named as the game shows it - a handle, case-folded, or a guest's two-word name when one account without a handle
+  wears it (`ambiguous`, 409, when two do) - or by its id. It holds one open pass (`realm_passes`, migration 0024: a row
+  a grant, `granted_by` and `granted_at`; a partial unique index keeps one open an account), and customs spends it on the
+  account's next character its census does not count, inside `customsRealm`'s own guarded batch, writing that
+  character's id and the moment (`origin_id`, `spent_at`). Never spent on a character the census admits anyway; never
+  lets in one already brought in from any account. A revoke takes back an open pass only. `tools/customsPass.mjs` is the
+  developer's end of it.
+- `acct22`. Pins: `test/realmdoor.test.js` (6), `test/customspass.test.js` (6); `test/accountworker.test.js` names the
+  new table.

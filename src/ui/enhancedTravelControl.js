@@ -93,8 +93,11 @@ function build(doc, hooks) {
   // AUDIT DEEP2 A1: a press on one of the panel's own controls is the panel's - the host's window mousedown counts any
   // press as Mouse0 (the activation, the swing, a readied spell), so under the travel view a click on + or Exit also
   // activated what stood before the traveller's head. The PRESS stops here; never the release (AUDIT CHAT C5).
-  root.addEventListener('mousedown', (e) => { if (e.target?.closest?.('[data-act]')) e.stopPropagation(); });
-  root.addEventListener('click', (e) => {
+  // OW-DECK: the listeners stand on the BAR, not the root - every [data-act] is in it, and the Overworld's strip docks
+  // the bar in itself (ui/travelViewHud.js): a press there must still reach these hooks
+  const bar = root.querySelector('.travelpanel-bar');
+  bar.addEventListener('mousedown', (e) => { if (e.target?.closest?.('[data-act]')) e.stopPropagation(); });
+  bar.addEventListener('click', (e) => {
     const act = e.target?.closest?.('[data-act]')?.dataset?.act;
     if (!act) return;
     e.preventDefault();
@@ -108,7 +111,7 @@ function build(doc, hooks) {
     accel: root.querySelector('.travelpanel-accel'),
     msg: root.querySelector('.travelpanel-msg'),
     junction: root.querySelector('.travelpanel-junction'),
-    bar: root.querySelector('.travelpanel-bar'),
+    bar,
   };
 }
 
@@ -192,10 +195,10 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
   if (!state.showing && !junctionOnly) { hideEnhancedTravelControl(); return null; }
   if (!host) { last = {}; parts = build(document, hooks); host = parts.root; }
   if (state.covered) {
-    if (last.covered !== true) { last.covered = true; parts.root.style.display = 'none'; }
+    if (last.covered !== true) { last.covered = true; parts.root.style.display = 'none'; parts.bar.style.display = 'none'; parts.msg.style.display = 'none'; }   // OW-DECK: the bar and word may stand docked outside the root
     return parts.root;
   }
-  if (last.covered === true) { last.covered = false; parts.root.style.display = ''; }
+  if (last.covered === true) { last.covered = false; parts.root.style.display = ''; parts.bar.style.display = ''; parts.msg.style.display = ''; }
   // PLUS8: THE HUD'S SCALE, READ OFF THE HUD. The bar stands under the
   // compass (Enhanced Plus - ui/enhancedPlusStyle.js TRAVEL_CSS), and the
   // compass grows with --hud-scale; this panel is a sibling of `.hud` on
@@ -206,7 +209,7 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
   const scale = document.querySelector('.hud')?.style?.getPropertyValue('--hud-scale') || '1';
   if (last.scale !== scale) { last.scale = scale; parts.root.style.setProperty('--hud-scale', scale); }
   cls(parts.root, 'rootClass', `travelpanel${state.following ? ' following' : ''}${junctionOnly ? ' junction-only' : ''}`);
-  cls(parts.bar, 'barClass', junctionOnly ? 'travelpanel-bar hidden' : 'travelpanel-bar');
+  cls(parts.bar, 'barClass', `travelpanel-bar${state.following ? ' following' : ''}${junctionOnly ? ' hidden' : ''}`);   // OW-DECK: `following` on the bar too - docked, it is outside the root
   put(parts.name, 'name', String(state.destination ?? ''));
   const eta = etaText(state.minutesLeft);
   const dist = distanceText(state.from, state.to);
@@ -240,6 +243,7 @@ export function drawEnhancedTravelControl(state = {}, hooks = {}) {
 export function hideEnhancedTravelControl() {
   if (!host) return;
   try { host.remove(); } catch { /* already gone */ }
+  try { parts?.bar?.remove(); parts?.msg?.remove(); } catch { /* OW-DECK: docked in the Overworld's strip - taken down with the journey */ }
   host = null; parts = null; last = null;
 }
 

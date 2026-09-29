@@ -87,7 +87,7 @@ import { modelIconUrl as modelIconUrlOf } from './itemIconUrl.js';   // MW-D38, 
 // the classic window draws - and this reads its finished pixels rather
 // than re-deriving PaperDollRenderer's layer order for a second time.
 import {
-  refreshPaperDoll, paperDollPixels, slotAtPaperDoll, PAPERDOLL_W, PAPERDOLL_H,
+  refreshPaperDoll, paperDollPixels, slotAtPaperDoll, PAPERDOLL_W, PAPERDOLL_H, paperDollStale,   // DFMOD1-E
 } from './paperDoll.js';
 import {
   equipItem, unequipSlot, equipTableOf, isEquipped,
@@ -1821,6 +1821,10 @@ function equippedList() {
   // exactly as before; the classic skin never sees any of this.
   // MF1: the model is a CANVAS of its pixels; the classic doll stays
   // the data-URL `<img>` it was (one composite per equip, cached).
+  // DFMOD1-E: the avatar recomposes only when this window asks - so it asks when the attached texture mods changed
+  // since the composite was made (a boot whose mods registered after the doll's first compose, an add or a remove).
+  // The refresh repaints once when it lands, and the fresh composite is no longer stale, so this cannot loop.
+  if (paperDollStale()) refreshFigure();
   const figure = modelFigure();
   const dollUrl = figure ? null : paperDollDataUrl(paperDollPixels(), { scale: 4 });
   // PX20a: the frame belongs to the PLACEHOLDER, not to the sprite -

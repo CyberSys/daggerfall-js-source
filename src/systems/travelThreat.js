@@ -20,8 +20,11 @@
 // scene's axes (a heading's forward is (sin yaw, cos yaw), as the drive's own yaw).
 // ═══════════════════════════════════════════════════════════════════
 
-/** Real seconds of warning the traveller always has before an enemy's reach. */
-export const THREAT_WARN_S = 5;
+/** Real seconds of warning the traveller always has before an enemy's reach. OW6-LATE (2026-09-29, the player: "when you
+ *  go near enemies it slows you down waaaay to early - its good that it does it but still"): 2, was 5 - the hold begins
+ *  2.5x nearer at every pace (a rider at x40 held from 1.3 km short of a band's sight, not 3.2 km), and the traveller
+ *  still meets the reach at walking pace. */
+export const THREAT_WARN_S = 2;
 
 /**
  * Metres along the way (`heading`, a unit {x, z}, or null when there is no way - a traveller standing) before the point
