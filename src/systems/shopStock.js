@@ -694,7 +694,7 @@ export function calculateCost(baseValue, shopQuality, priceAdjustment = 1000, co
  *  and the regions' price walk paid a carrier. Offline, DFU's haggle stands. */
 export const ONLINE_SALE_SHARE = 0.5;
 
-/** MERC-RISE (FIELD BUGS 2026-09-29b, ValenValarys on Discord: "As the skill level increases, the sell price for items
+/** MERC-RISE (FIELD BUGS 2026-09-29c, ValenValarys on Discord: "As the skill level increases, the sell price for items
  *  actually decreases" - 3499 gold at Mercantile 60, 2888 at 90, Personality 100): THE HALF IS OF THE LEAST THE
  *  COUNTER ASKS. P0.4 took half of the SELLER's own ask, and a seller's ask falls as their Mercantile and Personality
  *  rise - so the cap, which binds for nearly every seller online, fell with them (2888/3499 is 0.825, the two asks'

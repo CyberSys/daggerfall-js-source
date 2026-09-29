@@ -1,4 +1,4 @@
-// MERC-RISE (FIELD BUGS 2026-09-29b, ValenValarys on Discord): "As the skill level increases, the sell price for items
+// MERC-RISE (FIELD BUGS 2026-09-29c, ValenValarys on Discord): "As the skill level increases, the sell price for items
 // actually decreases instead of going up ... 100 Personality: on the first try with around level 60 Mercantile
 // (3499g), and on the second try with around level 90 Mercantile (2888g)."
 //

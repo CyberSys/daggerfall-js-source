@@ -1285,8 +1285,8 @@ dungeon's plan shows none.
 lit toggle that seems to do nothing: every kind the band does not ink is dimmed, titled "zoom in to see" (at mid, the
 graveyards, covens and homes). The toggles flip the store at every band.
 
-Pins: `test/fb0929b_mapkey.test.js` (8; the last measures the player's own FMAP_PAL.COL where ARENA2_PATH has it).
-`tools/mutants/fb0929b_mapkey.json`: 39, 39 dead - the two on `MARK_INK_MIX` against the real palette alone - and the
+Pins: `test/fb0929c_mapkey.test.js` (8; the last measures the player's own FMAP_PAL.COL where ARENA2_PATH has it).
+`tools/mutants/fb0929c_mapkey.json`: 39, 39 dead - the two on `MARK_INK_MIX` against the real palette alone - and the
 403 older records on the four files it touched re-judged (400 dead, 3 equivalent as recorded). Re-aimed:
 `map1.json` MAPFIELD6-the-halo-is-drawn-per-mark-not-per-pass (the ink pass carries its ink now), and
 `test/soc6_partymap.test.js`'s foot pin (the key is the foot's first child). Seen in Chromium through a scratch mount of

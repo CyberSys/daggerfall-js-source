@@ -1169,7 +1169,7 @@ export class Collider {
         if (probe[1] < y - 1e-4) { feet[1] = Math.max(entryY, floorFeet); break; }   // still being pushed DOWN out of a ceiling -> too tight, revert (SQUEEZE1: never under a tall body's floor)
       }
     }
-    // WW-LID (FIELD BUGS 2026-09-29b, Cruor on Discord: "Water walking is still evil ... I fell out the map again"): A
+    // WW-LID (FIELD BUGS 2026-09-29c, Cruor on Discord: "Water walking is still evil ... I fell out the map again"): A
     // RESOLVE NEVER CARRIES THE HEAD UP THROUGH A FACE. The clamp above answers a head a ceiling still pushes DOWN; a
     // lift that took the head clean THROUGH one - the lower sphere's one-way floor set the body on a doorway's lintel,
     // and the head sphere, its centre now over the room's ceiling, was pushed out on top of it - left nothing in, and

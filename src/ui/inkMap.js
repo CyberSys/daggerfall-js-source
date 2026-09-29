@@ -159,7 +159,7 @@ export const quarterInk = (c, mix = QUARTER_INK_MIX) => rgba(mixRgb([c.r, c.g, c
  * clears EM7's paper floor (QUARTER_INK_PAPER_DE) at it - the city's
  * pale tan binds, 45.5 at 0.58 and 44.9 at 0.57 - and every step past it
  * toward the pen spends the hue that tells the kinds apart.
- * test/fb0929b_mapkey.test.js measures both on the player's own
+ * test/fb0929c_mapkey.test.js measures both on the player's own
  * FMAP_PAL.COL (the colours are ARENA2 data: nowhere else to measure).
  */
 export const MARK_INK_MIX = 0.58;

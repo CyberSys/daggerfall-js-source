@@ -1,4 +1,4 @@
-// TO-ROADS (FIELD BUGS 2026-09-29b; SylviaBun on the Discord, #bug-reports, "Travel Options First Person doesn't follow
+// TO-ROADS (FIELD BUGS 2026-09-29c; SylviaBun on the Discord, #bug-reports, "Travel Options First Person doesn't follow
 // roads like Overworld Travel Options does": "With the new Overworld type of travel, you can travel sticking almost
 // entirely to roads without any additional effort. When traveling in first person, however, the travel route always just
 // goes the straightest shot to your destination running you through the forest etc. A way to toggle this behavior to
