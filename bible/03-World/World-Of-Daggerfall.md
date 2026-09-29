@@ -433,6 +433,8 @@ mutants are in `tools/mutants/auditwod.json`, and every one dies.
   20,000 sphere queries. With a stand-in rock (the real meshes are
   ARENA2's), every shipped layout, the giant included, now files in
   under 20 ms; the other mountains alone took 0.4 to 0.8 s before.
+  OW-WOD (2026-09-29, `06-Systems/Travel-View.md`): the coarse grid was the field's "lag near WOD mountains" - a query
+  took every face over its column - and is a bounding-volume tree over the wide faces now, each face once.
 - **M1: placed foes took a peer's puppet slots** (Online, above). They
   never ride and hunt no peer now; the camp no longer stands twice.
 - **M2: one bad or hung pack stopped the stream.** A pack the decoder

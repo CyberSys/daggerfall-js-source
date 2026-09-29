@@ -2,8 +2,8 @@
   {
     "name": "AUDIT-WOD-B1-no-coarse-for-points",
     "file": "src/player/collider.js",
-    "old": "  if (bucket.coarse.size) {\n    const cx = Math.floor(lx / COARSE);",
-    "new": "  if (false) {\n    const cx = Math.floor(lx / COARSE);",
+    "old": "  if (bucket.wide.length) NEAR.push(wideNear(bucket, lx, ly, lz, r + WIDE_MARGIN));   // OW-WOD-LAG",
+    "new": "  if (false) NEAR.push(wideNear(bucket, lx, ly, lz, r + WIDE_MARGIN));   // OW-WOD-LAG",
     "tests": [
       "test/audit_wod_branch.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "AUDIT-WOD-B1-no-short-list-for-points",
     "file": "src/player/collider.js",
-    "old": "  if (bucket.huge.length) NEAR.push(bucket.huge);",
-    "new": "",
+    "old": "{ if (wideBox(bucket.tris[idx])) bucket.wide.push(idx); continue; }",
+    "new": "{ wideBox(bucket.tris[idx]); continue; }",
     "tests": [
       "test/audit_wod_branch.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "AUDIT-WOD-B1-rays-skip-wide",
     "file": "src/player/collider.js",
-    "old": "      if (bucket.coarse.size || bucket.huge.length) {\n        for (const cell of wideCellsOnRay(",
-    "new": "      if (false) {\n        for (const cell of wideCellsOnRay(",
+    "old": "      if (bucket.wide.length) {   // OW-WOD-LAG: the tree's, each wide triangle once",
+    "new": "      if (false) {   // OW-WOD-LAG: the tree's, each wide triangle once",
     "tests": [
       "test/audit_wod_branch.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "AUDIT-WOD-B1-wide-ray-no-reach",
     "file": "src/player/collider.js",
-    "old": "wideCellsOnRay(bucket, ox, oz, dir, Math.min(maxDist, best))",
-    "new": "wideCellsOnRay(bucket, ox, oz, dir, 0)",
+    "old": "wideOnRay(bucket, ox, oy, oz, dir, Math.min(maxDist, best))",
+    "new": "wideOnRay(bucket, ox, oy, oz, dir, 0)",
     "tests": [
       "test/audit_wod_branch.test.js"
     ]
@@ -47,10 +47,11 @@
   {
     "name": "AUDIT-WOD-B1-everything-short-list",
     "file": "src/player/collider.js",
-    "old": "const COARSE_CELLS_MAX = 1024;",
-    "new": "const COARSE_CELLS_MAX = 0;",
+    "old": "    if (hi - lo <= WIDE_LEAF) { left[node] = -1;",
+    "new": "    if (true) { left[node] = -1;",
     "tests": [
-      "test/audit_wod_branch.test.js"
+      "test/audit_wod_branch.test.js",
+      "test/ow_wod.test.js"
     ]
   },
   {
