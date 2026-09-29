@@ -48,8 +48,8 @@
   {
     "name": "NAV-E-the-host-range-dropped",
     "file": "src/scenes/navalHost.js",
-    "old": "deps.audio?.play3d?.(key, pos, vol, { ...navalSoundRange(key), ...opts });",
-    "new": "deps.audio?.play3d?.(key, pos, vol, { ...opts });",
+    "old": "    const o = { ...navalSoundRange(key), ...opts };",
+    "new": "    const o = { ...opts };",
     "tests": [
       "test/nav_h_host.test.js"
     ]

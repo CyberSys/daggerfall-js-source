@@ -37,8 +37,9 @@
 //          textureFiles }, fetchFn (the vendored files' fetch), log }
 
 import { loadComeSailAwayModels, rendererModel, rendererModelKey, bundleSlots } from '../systems/comeSailAwayModels.js';
-import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER, HULL_NAMES, setBoatVariant, Boat } from '../systems/comeSailAwayBoat.js';
-import { resolveNodePointer } from '../world/prefabNode.js';
+import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER, HULL_NAMES, setBoatVariant, Boat, FIRST_HULL_MODEL_ID, meshLocalBounds, worldBounds } from '../systems/comeSailAwayBoat.js';
+import { resolveNodePointer, instantiatePrefab } from '../world/prefabNode.js';
+import { instanceParticleSystems } from '../world/unityParticles.js';
 import { bakeSkinnedMesh, recalculateNormals, fixDeformationsTick } from '../world/skinnedBake.js';
 import { billboardSize } from '../world/rmbFlats.js';
 import { GLOBAL_SCALE } from '../world/meshReader.js';
@@ -50,6 +51,8 @@ export const LANTERN_HANDLER_REACH = DUNGEON_LIGHT_HANDLER.unscaledBlockRange * 
 /** How many of the boats' lit lanterns reach the host's light list - the nearest, as camps.js hands its fires
  *  (the port's renderer holds sixteen lights, forty-eight on the lane; a galleon carries eighteen lanterns). */
 export const CSA_LIGHTS_MAX = 8;
+/** AUDIT NAV1 (the presentation): the hull whose FlagObject a flagless sea ship is given (the Small Ship - graftColours). */
+export const FLAG_DONOR_HULL = 2;
 
 /** Each active object under `root` with its world matrix, depth first - the parent's matrix carried down once. */
 export function* activeObjects(root) {
@@ -220,12 +223,41 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     peerBoats.push(boat);
     return boat;
   }
-  /** NAV-C: a sea ship, built as SpawnBoat builds one (at the origin - the naval host poses it) and drawn. */
+  /** NAV-C: a sea ship, built as SpawnBoat builds one (at the origin - the naval host poses it) and drawn - with her
+   *  colours whatever her hull (graftColours). */
   function spawnSeaNow(boat) {
     if (!models) return null;
     spawnBoat(boat, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
+    graftColours(boat);
     seaBoats.push(boat);
     return boat;
+  }
+  /**
+   * AUDIT NAV1 (the presentation): A SEA SHIP FLIES HER COLOURS. The Carrack's prefab carries no FlagObject, so the
+   * pirate flagship and the merchant carrack flew none; she is given FLAG_DONOR_HULL's own, instanced from that hull's
+   * prefab (its particle flag and its inactive helper cube) and stood on the truck of her tallest mast, under that
+   * mast so it heels and settles with her. A player's boats keep the mod's rigs as they are (spawnNow grafts nothing).
+   */
+  function graftColours(boat) {
+    if (boat.FlagObject || !boat.MeshObject) return;
+    const find = (t) => (!t ? null : t.name === 'FlagObject' ? t : t.children.reduce((f, c) => f ?? find(c), null));
+    const donor = find(models.prefab(FIRST_HULL_MODEL_ID + FLAG_DONOR_HULL));
+    if (!donor) return;
+    let truck = null;
+    for (const node of boat.MeshObject.walk()) {
+      const local = node.activeInHierarchy ? meshLocalBounds({ models }, node.getComponent('MeshFilter')?.m_Mesh) : null;
+      if (!local) continue;
+      const wb = worldBounds(node, local);
+      if (!truck || wb.max[1] > truck.at[1]) truck = { node, at: [wb.center[0], wb.max[1], wb.center[2]] };
+    }
+    if (!truck) return;
+    const flag = instantiatePrefab(donor, models.components);
+    instanceParticleSystems(flag, {});
+    flag.setParent(truck.node);
+    flag.position = truck.at;
+    boat.FlagObject = flag;
+    boat.FlagEmitter = flag.getComponentInChildren('ParticleSystem')?.particleSystem ?? null;
+    boat.FlagEmitterMain = boat.FlagEmitter?.main ?? null;
   }
   /** OWS2: A HULL'S RIG, read off a boat SpawnBoat builds once a hull on the pool's context and never places or draws -
    *  its five nodes in its own frame (Center, Fore, Aft and the beams off its hull collider's bounds: the Overworld's

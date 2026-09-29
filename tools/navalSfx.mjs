@@ -5,8 +5,8 @@
 // and put through the one bake - tools/sndify.mjs, down to DAGGER.SND's own 11025 Hz unsigned 8-bit mono - so a
 // broadside sits IN Daggerfall's world rather than on top of it: nothing above 5 kHz that matters, transients shaped
 // to survive the decimation, the tails a black-powder gun has in open air. DAGGER.SND has splashes, bells, bubbles
-// and fire (the naval host plays those by index), and no cannon, no splintering oak, no grapnel and no gun carriage -
-// these seven.
+// and fire (the naval host plays those by index), and no cannon, no splintering oak, no grapnel, no gun carriage and
+// no gun captain's word - these eight.
 //
 //   naval-cannon      a long gun near: the crack off the muzzle, the gas leaving (a body falling 2.4 kHz -> 180 Hz),
 //                     the chest-deep thump (75 -> 34 Hz), and the roll across open water with its slap back off the
@@ -24,6 +24,9 @@
 //                     trucks rumbling over the deck planks (a low roll beaten at the seams, one carriage after
 //                     another), the tackles creaking as the crews haul, and the carriages brought up hard against the
 //                     sills - dull wooden knocks down the side
+//   naval-ready       AUDIT NAV1 (the presentation) - a battery loaded, the gun captain's word that she is ready: the
+//                     rammer's head rapped twice on the muzzle (two hollow wooden raps a beat apart), then his iron
+//                     tapped on the breech - a small bright ring; short, so a side coming ready is heard over a fight
 //
 //     node tools/navalSfx.mjs            # writes public/sfx/naval-*.wav
 //     node tools/navalSfx.mjs --raw=dir  # also the 44.1 kHz source
@@ -229,6 +232,21 @@ function runout() {
   return softClip(out, 1.8);
 }
 
+// ---- a battery ready -----------------------------------------------
+function ready() {
+  const rand = rng(0x4ead1ed);
+  const out = buf(0.55);
+  for (const [at, g] of [[0, 0.9], [0.11, 0.75]]) {
+    mix(out, thump(0.12, 420, 260, 0.01, 0.02, 0.3), at, g);   // the rammer's head on the muzzle: a hollow wooden rap
+    const rap = biquad(noise(seconds(0.04), rand), { type: 'bandpass', f0: 900 + rand() * 200, q: 1.8 });
+    envelope(rap, (i) => attack(i, 0.2) * decay(i, 0.008));
+    mix(out, rap, at, g * 0.8);
+  }
+  // the captain's iron tapped on the breech
+  mix(out, clank(rand, { partials: [2350, 3500, 4800], taus: [0.07, 0.045, 0.03], wood: 300, len: 0.3 }), 0.24, 0.55);
+  return softClip(out, 1.6);
+}
+
 // ---- write ----------------------------------------------------------
 export const CLIPS = [
   ['naval-cannon', cannon, 0.95],
@@ -238,6 +256,7 @@ export const CLIPS = [
   ['naval-blast', blast, 0.95],
   ['naval-grapple', grapple, 0.85],
   ['naval-runout', runout, 0.82],
+  ['naval-ready', ready, 0.8],
 ];
 
 const rawDir = process.argv.find((a) => a.startsWith('--raw='))?.split('=')[1] ?? null;

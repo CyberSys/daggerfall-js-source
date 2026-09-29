@@ -94,7 +94,7 @@ test('NAV-F the aim under the crosshair: the battery and its word - a broadside,
 
 test('NAV-F the target card: her name and colours, her class, captain and distance, her hull and canvas, and her state - hostile, colours struck (with the key that boards her when she is in reach), boarded, taken (her hold\'s key), going down (mutants: the board key offered for another ship, the prize state missed)', () => {
   const c = navalHudText(helm({ target: card() }), KEYS).card;
-  assert.deepEqual(c, { name: 'The Red Wake', faction: 'pirate', hostile: true, sub: 'Pirate Brigantine - Captain Irna Vosk - 142 m', hull: 30, sail: 75, state: 'Hostile', stateKind: '' });
+  assert.deepEqual(c, { id: 'The Red Wake', name: 'The Red Wake', faction: 'pirate', hostile: true, sub: 'Pirate Brigantine - Captain Irna Vosk - 142 m', hull: 30, sail: 75, state: 'Hostile', stateKind: '' });
   const st = (t, board = null) => { const x = navalHudText(helm({ target: card(t), board }), KEYS).card; return [x.state, x.stateKind]; };
   assert.deepEqual(st({ hostile: false }), ['', '']);
   assert.deepEqual(st({ state: 'struck' }), ['Colours struck', '']);
@@ -271,7 +271,7 @@ test('NAV-F the card stands under the compass by the house law (the journey bar\
   // the host hands it the bar it draws earlier in the frame
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   assert.match(w, /scale: enhancedHudScale\(\),\n\s+under: enhancedHelmBar\(\),/);
-  assert.ok(w.indexOf('csaDrawHelmPanel();   // CSA-L') < w.indexOf('navalHud();   // NAV-F'), 'the panel drawn before the card measures it');
+  assert.ok(w.indexOf('csaDrawHelmPanel();   // CSA-L') < w.indexOf('navalHud(dt);   // NAV-F'), 'the panel drawn before the card measures it');
 });
 
 // ── the plunder window ──────────────────────────────────────────────────────────────────────────────────────────

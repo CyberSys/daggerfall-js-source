@@ -119,8 +119,8 @@
   {
     "name": "NAVP-colours-fly-on",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (b.FlagEmitter && sinkK > 0 && !e.colorsDown) { b.FlagEmitter.stop?.(); e.colorsDown = true; }\n",
-    "new": "",
+    "old": "      if (colours === 'struck') b.FlagEmitter.stop?.();\n",
+    "new": "      if (colours === 'struck') void 0;\n",
     "tests": [
       "test/navaudit_presentation.test.js"
     ]
@@ -240,6 +240,295 @@
     "new": "",
     "tests": [
       "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-mix-my-ripple-unscaled",
+    "file": "src/scenes/navalHost.js",
+    "old": " / (mine ? Math.sqrt(n) : 1), { pitch });",
+    "new": ", { pitch });",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-mix-every-ripple-scaled",
+    "file": "src/scenes/navalHost.js",
+    "old": " / (mine ? Math.sqrt(n) : 1), { pitch });",
+    "new": " / Math.sqrt(n), { pitch });",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-mix-no-pitch-jitter",
+    "file": "src/scenes/navalHost.js",
+    "old": "        const pitch = 1 + (random() - 0.5) * 2 * GUN_PITCH_JITTER;\n",
+    "new": "        const pitch = 1;\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-mix-no-level-jitter",
+    "file": "src/scenes/navalHost.js",
+    "old": "        const level = 10 ** (((random() - 0.5) * 2 * GUN_GAIN_JITTER_DB) / 20);\n",
+    "new": "        const level = 1;\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-mix-roll-every-gun",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (x > 0 && (e.index ?? 0) === 0) sound(",
+    "new": "      if (x > 0) sound(",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-mix-no-band",
+    "file": "src/scenes/navalHost.js",
+    "old": "  const farShare = (d) => clamp((d - (NEAR_BOOM_M - FAR_FADE_M)) / (2 * FAR_FADE_M), 0, 1);",
+    "new": "  const farShare = (d) => (d < NEAR_BOOM_M ? 0 : 1);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-mix-roll-unweighted",
+    "file": "src/scenes/navalHost.js",
+    "old": " * Math.sin(x * Math.PI / 2) * (mine ? 1 : Math.sqrt(n)), { far: true });",
+    "new": " * Math.sin(x * Math.PI / 2), { far: true });",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-mix-linear-fade",
+    "file": "src/scenes/navalHost.js",
+    "old": "weight * level * Math.cos(x * Math.PI / 2) /",
+    "new": "weight * level * (1 - x) /",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-mix-no-cull",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (pos && f && Math.hypot(pos[0] - f[0], pos[1] - f[1], pos[2] - f[2]) > (o.maxDistance ?? 500)) return;\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-hit-no-confirm",
+    "file": "src/scenes/navalHost.js",
+    "old": "        const confirm = isMine(e.shooter) ? { refDistance: HIT_CONFIRM_REF_M } : {};\n",
+    "new": "        const confirm = {};\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-hit-burst-unscaled",
+    "file": "src/scenes/navalHost.js",
+    "old": "e.gun === 'heavy', burstScale(e.point)); sound(",
+    "new": "e.gun === 'heavy'); sound(",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-kick-none-a-gun",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (mine) deps.shake?.(GUN_KICK[e.gun] ?? GUN_KICK.long);   // each gun's kick along the ripple\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-blast-shake-small",
+    "file": "src/scenes/navalHost.js",
+    "old": "deps.shake?.(e.type === 'blast' ? BLAST_SHAKE : zone === 'holed' ? 2.5 : 1.6);",
+    "new": "deps.shake?.(zone === 'holed' ? 2.5 : 1.6);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-ready-no-word",
+    "file": "src/scenes/navalHost.js",
+    "old": "        sound(NAVAL_SFX.ready, toWorld(pose, mid), 0.8);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-ready-at-the-helm-taken",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (loadedWas.get(bat.side) === false && now) {",
+    "new": "      if (!loadedWas.get(bat.side) && now) {",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-ready-flash-forever",
+    "file": "src/scenes/navalHost.js",
+    "old": "      const fresh = readyAt.has(side) && clock - readyAt.get(side) <= READY_FLASH_S;",
+    "new": "      const fresh = readyAt.has(side);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-colours-struck-fly",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const colours = state === SHIP_STATES.afloat ? 'hers' : state === SHIP_STATES.prize ? 'taken' : 'struck';",
+    "new": "    const colours = state === SHIP_STATES.afloat ? 'hers' : state === SHIP_STATES.prize ? 'taken' : 'hers';",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-colours-prize-hers",
+    "file": "src/scenes/navalHost.js",
+    "old": "        b.flagColor = colours === 'hers' ? NAVAL_FACTIONS[s.cls?.faction]?.flag ?? null : null;",
+    "new": "        b.flagColor = NAVAL_FACTIONS[s.cls?.faction]?.flag ?? null;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-colours-never-again",
+    "file": "src/scenes/navalHost.js",
+    "old": "        if (!b.FlagEmitter.isEmitting) b.FlagEmitter.play?.();\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-graft-none",
+    "file": "src/scenes/comeSailAwayPool.js",
+    "old": "    graftColours(boat);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-graft-donor-lost",
+    "file": "src/scenes/comeSailAwayPool.js",
+    "old": "models.prefab(FIRST_HULL_MODEL_ID + FLAG_DONOR_HULL)",
+    "new": "models.prefab(FIRST_HULL_MODEL_ID + 4)",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-graft-on-deck",
+    "file": "src/scenes/comeSailAwayPool.js",
+    "old": "      if (!truck || wb.max[1] > truck.at[1]) truck =",
+    "new": "      if (!truck) truck =",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-muzzle-count-dropped",
+    "file": "src/systems/naval/navalShots.js",
+    "old": "index: l.index, count: launches.length,",
+    "new": "index: l.index,",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-burst-size-unscaled",
+    "file": "src/systems/naval/navalEffects.js",
+    "old": "size0: (0.18 + r() * 0.22) * k, size1: 0.18 * k,",
+    "new": "size0: 0.18 + r() * 0.22, size1: 0.18,",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-no-ghost",
+    "file": "src/ui/navalHud.js",
+    "old": "  width('cardg', parts.cardGhost, Math.round(g.at * 10) / 10);",
+    "new": "  width('cardg', parts.cardGhost, card.hull);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-no-piece",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (prev.pct - g.pct >= CARD_CHUNK_MIN_LOSS) {",
+    "new": "  if (prev.pct - g.pct > 100) {",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-no-flash",
+    "file": "src/ui/navalHud.js",
+    "old": "  return hudClock < loss.until ? (loss.hits % 2 ? ' hit-a' : ' hit-b') : '';",
+    "new": "  return '';",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-new-ship-read-off-last",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (!loss || loss.id !== card.id) {",
+    "new": "  if (!loss) {",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-pieces-replayed",
+    "file": "src/ui/navalHud.js",
+    "old": "touchBrace = false; for (const c of parts.cardChunks) stowChunk(c); loss = null; return; }",
+    "new": "touchBrace = false; return; }",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-gauge-emptied-loaded",
+    "file": "src/ui/navalHud.js",
+    "old": "g.fill.style.height = `${b.fill}%`;",
+    "new": "g.fill.style.height = `${b.ready ? 0 : b.fill}%`;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-hostile-under-trade",
+    "file": "src/ui/navalHud.js",
+    "old": ".dfnaval-card.navy .dfnaval-card-name { color: #f1d0c6; }\n.dfnaval-card.merchant .dfnaval-card-name { color: #f6e3a6; }\n.dfnaval-card.hostile .dfnaval-card-name { color: #ffb4a6; }",
+    "new": ".dfnaval-card.hostile .dfnaval-card-name { color: #ffb4a6; }\n.dfnaval-card.navy .dfnaval-card-name { color: #f1d0c6; }\n.dfnaval-card.merchant .dfnaval-card-name { color: #f6e3a6; }",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-ready-clip-unregistered",
+    "file": "src/systems/naval/navalSounds.js",
+    "old": "  [NAVAL_SFX.ready]: 'naval-ready.wav',\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js",
+      "test/nav_e_sounds.test.js"
     ]
   }
 ]

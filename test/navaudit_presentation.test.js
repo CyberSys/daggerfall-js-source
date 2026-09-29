@@ -5,12 +5,18 @@
 // frames over Come Sail Away's real pool (test/navalSea.mjs), each hull's own meshes measured as drawn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { sea } from './navalSea.mjs';
-import { sparsOf, FLAME_AWASH } from '../src/scenes/navalHost.js';
+import { sparsOf, FLAME_AWASH, BLAST_SHAKE, NEAR_BOOM_M, FAR_FADE_M, FAR_MATCH, GUN_PITCH_JITTER, GUN_GAIN_JITTER_DB, HIT_CONFIRM_REF_M, HIT_BURST_MAX, GUN_KICK } from '../src/scenes/navalHost.js';
+import { READY_FLASH_S } from '../src/systems/naval/navalGunnery.js';
+import { NAVAL_SFX, NAVAL_SOUND_RANGE } from '../src/systems/naval/navalSounds.js';
+import { navalHudText, drawNavalHud, destroyNavalHud, NAVAL_HUD_CSS, CARD_HIT_S } from '../src/ui/navalHud.js';
+import { byClass } from './chargenDom.mjs';
+import { FLAG_DONOR_HULL } from '../src/scenes/comeSailAwayPool.js';
+import { Boat, meshLocalBounds, worldBounds } from '../src/systems/comeSailAwayBoat.js';
 import { createShipDamage, sinkAngles, sinkDepth, SHIP_STATES, SINK_SECONDS, SINK_LIST, SINK_PITCH, SINK_CLEAR } from '../src/systems/naval/navalDamage.js';
-import { hullBuild } from '../src/systems/naval/navalShips.js';
+import { hullBuild, NAVAL_FACTIONS } from '../src/systems/naval/navalShips.js';
 import { navalHitData } from '../src/systems/naval/navalWire.js';
-import { meshLocalBounds, worldBounds } from '../src/systems/comeSailAwayBoat.js';
 import { NAVAL_DEG } from '../src/systems/naval/navalBallistics.js';
 import { quatEuler } from '../src/world/unityAnimator.js';
 import { quatRotate } from '../src/world/quat.js';
@@ -269,4 +275,210 @@ test('AUDIT NAV1 (the presentation) her colours go down with her: the flag flies
   e.ship.damage.apply({ hull: 1e6, sail: 0, crew: 0 }, 0);
   h.run(0.2);
   assert.equal(e.boat.FlagEmitter.isEmitting, false, 'going down: her colours with her');
+});
+
+// ── feedback: the mix, a hit, the reload, her colours ──────────────────────────────────────────────────────────────
+const RATE = 11025;
+const pcm = (f) => { const b = readFileSync(new URL(`../public/sfx/${f}`, import.meta.url)); const i = b.indexOf('data') + 8; return Float32Array.from(b.subarray(i), (v) => (v - 128) / 128); };
+const rms = (x, secs) => { const n = Math.min(x.length, Math.round(secs * RATE)); let s = 0; for (let i = 0; i < n; i++) s += x[i] * x[i]; return Math.sqrt(s / n); };
+/** Every play3d the host makes, with the sea's clock it was made at. */
+function soundLog(h) {
+  const played = [];
+  const at = { t: 0 };
+  h.deps.audio.play3d = (k, p, v, opts) => played.push({ k, p: [...p], v, opts, t: at.t });
+  return { played, at };
+}
+/** A peer's volley on their word, fired from `pos` out of her starboard side (navalWire.js's volley row). */
+const peerVolley = (id, pos) => ({ s: [], v: [[id, -1, 2, 0, pos[0], pos[1], pos[2], Math.PI, 0, 0, 0.05, 99 + id, 0.5]], b: [] });
+
+test('AUDIT NAV1 (the presentation) THE MIX, my broadside: each report at one over the root of her guns, its own pitch within GUN_PITCH_JITTER and level within GUN_GAIN_JITTER_DB, no far roll at my own guns, each gun\'s kick along the ripple - and summed as the bus sums them (no limiter) it no longer clips at the default volume (+3.4 dBFS before; 11% of samples clipped at full) (mutants: my ripple unscaled, the jitter dropped, the kick at the release once)', async () => {
+  const clip = pcm('naval-cannon.wav');
+  for (const hull of [2, 4]) {
+    const h = await sea({ hull });
+    const { played, at } = soundLog(h);
+    h.host.frame(0.1);
+    h.host.attackInput(true); h.host.frame(0.1); h.host.attackInput(false);
+    for (let i = 0; i < 12; i++) { at.t += 0.05; h.host.frame(0.05); }
+    const reports = played.filter((s) => s.k === NAVAL_SFX.cannon);
+    const n = reports.length;
+    assert.equal(n, hull === 2 ? 6 : 7, 'every gun heard');
+    const lo = 10 ** (-GUN_GAIN_JITTER_DB / 20) / Math.sqrt(n), hi = 10 ** (GUN_GAIN_JITTER_DB / 20) / Math.sqrt(n);
+    assert.ok(reports.every((r) => r.v >= lo - 1e-9 && r.v <= hi + 1e-9), `each at 1/sqrt(${n}), jittered (${reports.map((r) => r.v.toFixed(2))})`);
+    assert.ok(reports.every((r) => Math.abs(r.opts.pitch - 1) <= GUN_PITCH_JITTER + 1e-9), 'each its own pitch');
+    assert.ok(new Set(reports.map((r) => r.opts.pitch.toFixed(4))).size === n && new Set(reports.map((r) => r.v.toFixed(4))).size === n, 'no two guns one clip');
+    assert.equal(played.some((s) => s.k === NAVAL_SFX.cannonFar), false, 'my own guns are near: no far roll');
+    assert.deepEqual(h.log.shake, reports.map(() => GUN_KICK.long), 'a long gun\'s kick a gun');
+    // the ripple summed as the bus sums it, at the default SoundVolume
+    const out = new Float32Array(RATE * 3);
+    for (const r of reports) {
+      const start = Math.round(r.t * RATE);
+      for (let i = 0; start + i < out.length; i++) { const s = i * r.opts.pitch, j = Math.floor(s); if (j + 1 >= clip.length) break; out[start + i] += r.v * (clip[j] + (clip[j + 1] - clip[j]) * (s - j)); }
+    }
+    const peak = out.reduce((m, v) => Math.max(m, Math.abs(v)), 0) * 0.5;
+    assert.ok(peak < 0.8, `hull ${hull}: the ripple peaks ${peak.toFixed(2)} at the default volume - never clipped`);
+  }
+});
+
+test('AUDIT NAV1 (the presentation) THE MIX, a broadside across the bay: the far roll once a volley at FAR_MATCH times the root of her guns (it was one a GUN - fourteen thumps for seven), the near reports and the roll crossfaded in equal power over FAR_FADE_M either side of NEAR_BOOM_M (the roll stood 6.5 dB over the near at the switch), FAR_MATCH the clips\' own; and nothing played past its range (mutants: the roll once a gun, the band dropped, the cull dropped)', async () => {
+  // the clips' own match: their RMS through their references
+  const near = rms(pcm('naval-cannon.wav'), 1), far = rms(pcm('naval-cannon-far.wav'), 1);
+  const match = (near * NAVAL_SOUND_RANGE[NAVAL_SFX.cannon].refDistance) / (far * NAVAL_SOUND_RANGE[NAVAL_SFX.cannonFar].refDistance);
+  assert.ok(Math.abs(20 * Math.log10(FAR_MATCH / match)) < 1, `FAR_MATCH ${FAR_MATCH} is the clips' ${match.toFixed(3)} within 1 dB`);
+  const heard = async (x) => {
+    const h = await sea({ hull: 2, online: ONLINE });
+    const { played } = soundLog(h);
+    h.host.applyWord('a-player', peerVolley(1, [x, 0, 0]), (p) => p);
+    h.run(0.8);
+    return played;
+  };
+  const close = await heard(150);
+  const closeReports = close.filter((s) => s.k === NAVAL_SFX.cannon);
+  assert.ok(closeReports.length >= 6 && !close.some((s) => s.k === NAVAL_SFX.cannonFar), 'near: her reports, no roll');
+  assert.ok(closeReports.every((r) => r.v >= 10 ** (-GUN_GAIN_JITTER_DB / 20) - 1e-9), 'another\'s guns each at full weight - only my own ripple is scaled');
+  const off = await heard(700);
+  const rolls = off.filter((s) => s.k === NAVAL_SFX.cannonFar);
+  assert.equal(off.filter((s) => s.k === NAVAL_SFX.cannon).length, 0, 'far: no near report');
+  assert.equal(rolls.length, 1, 'one roll a volley');
+  assert.ok(Math.abs(rolls[0].v - FAR_MATCH * Math.sqrt(6)) < 1e-9, `at FAR_MATCH x sqrt(6) (${rolls[0].v})`);
+  assert.equal(rolls[0].opts.far, true, 'held off the ear as a far sound');
+  const mid = await heard(NEAR_BOOM_M);
+  const midReports = mid.filter((s) => s.k === NAVAL_SFX.cannon), midRoll = mid.filter((s) => s.k === NAVAL_SFX.cannonFar);
+  assert.ok(midReports.length >= 6 && midRoll.length === 1, 'in the band: both');
+  // each at its own place in the band: x = 0 at NEAR_BOOM_M - FAR_FADE_M, 1 at + FAR_FADE_M - the reports by cos, the roll
+  // by sin: equal power across it (the feet at the origin)
+  const xOf = (p) => Math.min(1, Math.max(0, (Math.hypot(p[0], p[2]) - (NEAR_BOOM_M - FAR_FADE_M)) / (2 * FAR_FADE_M)));
+  for (const r of midReports) {
+    const k = r.v / Math.cos(xOf(r.p) * Math.PI / 2);
+    assert.ok(k >= 10 ** (-GUN_GAIN_JITTER_DB / 20) - 1e-9 && k <= 10 ** (GUN_GAIN_JITTER_DB / 20) + 1e-9, `a report faded by the cosine of its place (${k.toFixed(3)})`);
+  }
+  const x0 = xOf(midRoll[0].p);
+  assert.ok(x0 > 0.3 && x0 < 0.7, `the volley in the band's middle (${x0.toFixed(2)})`);
+  assert.ok(Math.abs(midRoll[0].v - FAR_MATCH * Math.sqrt(6) * Math.sin(x0 * Math.PI / 2)) < 1e-9, 'the roll coming in by the sine of its first gun\'s place');
+  assert.ok(FAR_FADE_M > 0 && FAR_FADE_M < NEAR_BOOM_M);
+  const gone = await heard(NAVAL_SOUND_RANGE[NAVAL_SFX.cannonFar].maxDistance + 200);
+  assert.equal(gone.filter((s) => s.k === NAVAL_SFX.cannon || s.k === NAVAL_SFX.cannonFar).length, 0, 'past its range: nothing (the inverse law never reaches silence)');
+});
+
+test('AUDIT NAV1 (the presentation) a hit that registers: a ball of mine striking her hull is heard at HIT_CONFIRM_REF_M (19 dB down from 150 m at the hull\'s own 16), another\'s at the hull\'s own; its splinters, flash and puff grown for the eye that sees it far off, to HIT_BURST_MAX (a splinter at 150 m was two pixels) (mutants: no confirm, the burst unscaled)', async () => {
+  const strike = async (shooter, x) => {
+    const h = await sea({ hull: 2 });
+    const { played } = soundLog(h);
+    const e = place(h, 'merchantGalleon', [x, 0, 0], { yaw: 0 });
+    const box = hullBuild(e.ship.hull);
+    const p0 = [x - box.halfWidth - 3, 3, 0];
+    h.host._shots.fireVolley({ id: 'v1', shooter, launches: [{ delay: 0, p0, v0: [60, 0.5, 0], gun: 'long', index: 0 }], resolve: true });
+    h.run(0.3);
+    return { hit: played.find((s) => s.k === NAVAL_SFX.hit), debris: h.host._effects.drawList().filter((p) => p.kind === 'debris') };
+  };
+  const mine = await strike('me:42', 150);
+  assert.ok(mine.hit, 'struck her');
+  assert.equal(mine.hit.opts.refDistance, HIT_CONFIRM_REF_M, 'mine: the confirm');
+  assert.ok(mine.debris.some((p) => p.size > 0.4 * 2), `grown for a far eye (${Math.max(...mine.debris.map((p) => p.size)).toFixed(2)} m)`);
+  assert.ok(mine.debris.every((p) => p.size <= 0.4 * HIT_BURST_MAX + 1e-9));
+  const theirs = await strike('peer:a', 150);
+  assert.equal(theirs.hit.opts.refDistance, NAVAL_SOUND_RANGE[NAVAL_SFX.hit].refDistance, 'another\'s: the hull\'s own');
+  const close = await strike('me:42', 20);
+  assert.ok(close.debris.every((p) => p.size <= 0.4 + 1e-9), 'close by: as it was');
+});
+
+test('AUDIT NAV1 (the presentation) a battery coming ready: the gun captain\'s word from her side (a new clip, NAVAL_SFX.ready) and its chip\'s flash for READY_FLASH_S - a side came ready in silence; a side loaded when I take the helm says nothing; a loaded side stands FULL brass (it filled to 97% and dropped to nought, loaded) (mutants: no word, the flash never ends, the gauge emptied loaded)', async () => {
+  const h = await sea({ hull: 2 });
+  const { played, at } = soundLog(h);
+  h.host.frame(0.1);
+  assert.equal(played.filter((s) => s.k === NAVAL_SFX.ready).length, 0, 'loaded as I came aboard: nothing said');
+  h.host.attackInput(true); h.host.frame(0.1); h.host.attackInput(false);
+  const side = () => h.host.hudModel().batteries.find((b) => b.side === 'starboard');
+  assert.equal(side().loaded, false);
+  let readyAt = null;
+  for (let t = 0; t < 30 && readyAt == null; t += 0.1) { at.t = t; h.host.frame(0.1); if (played.some((s) => s.k === NAVAL_SFX.ready)) readyAt = t; }
+  assert.ok(readyAt != null, 'the word when she is loaded');
+  const word = played.filter((s) => s.k === NAVAL_SFX.ready);
+  assert.equal(word.length, 1, 'once');
+  assert.ok(word[0].p[0] > 3, 'from her starboard side');
+  assert.equal(side().loaded, true);
+  assert.equal(side().fresh, true, 'her chip flashes');
+  h.run(READY_FLASH_S + 0.1);
+  assert.equal(side().fresh, false, 'for READY_FLASH_S');
+  assert.equal(played.filter((s) => s.k === NAVAL_SFX.ready).length, 1, 'and no more');
+  const text = navalHudText(h.host.hudModel(), {});
+  assert.equal(text.plate.batteries.find((b) => b.side === 'starboard').fill, 100, 'loaded: full brass');
+  destroyNavalHud();
+  drawNavalHud(h.host.hudModel(), { keys: {} });
+  const chip = byClass(globalThis.document.body, 'dfnaval-gun starboard')[0] ?? byClass(globalThis.document.body, 'dfnaval-gun').find((g) => / starboard/.test(g.className));
+  assert.equal(byClass(chip, 'dfnaval-gun-fill')[0].style.height, '100%', 'drawn full, loaded');
+  destroyNavalHud();
+  const reloading = navalHudText({ ...h.host.hudModel(), batteries: [{ side: 'port', gun: 'long', guns: 6, progress: 0.97, ready: false, loaded: false }] }, {});
+  assert.equal(reloading.plate.batteries[0].fill, 97);
+  const loaded = navalHudText({ ...h.host.hudModel(), batteries: [{ side: 'port', gun: 'long', guns: 6, progress: 1, ready: false, loaded: true, fresh: true }] }, {});
+  assert.deepEqual([loaded.plate.batteries[0].fill, loaded.plate.batteries[0].fresh], [100, true], 'braced but loaded: full');
+});
+
+test('AUDIT NAV1 (the presentation) her hull bar reads a hit as the foe bar does (ui/barLoss.js): the pale ghost holds where it WAS, a bite of CARD_CHUNK_MIN_LOSS breaks a piece off over the span it took and flashes the card for CARD_HIT_S - it only slid, for 160 ms; a new target starts whole; the HUD hidden puts the pieces away (FRAME1c) (mutants: no ghost, no piece, no flash, a new ship\'s loss read off the last)', () => {
+  destroyNavalHud();
+  const target = (o = {}) => ({ id: 'a:1', name: 'The Red Wake', captain: null, classLine: 'Pirate Brigantine', faction: 'pirate', hull: 0.8, sail: 0.9, state: 'afloat', boarded: false, distance: 150, hostile: true, ...o });
+  const model = (t) => ({ ship: null, armed: false, batteries: [], aim: null, aiming: false, target: t, board: null, boarding: null, notoriety: { crown: 'Wayrest', value: 0, level: 0 } });
+  const draw = (t, dt = 0.016, o = {}) => drawNavalHud(model(t), { keys: {}, dt, ...o });
+  draw(target());
+  const card = byClass(globalThis.document.body, 'dfnaval-card')[0];
+  const ghost = byClass(card, 'dfnaval-ghost')[0];
+  const chunks = byClass(card, 'dfnaval-chunk');
+  assert.equal(chunks.length, 2);
+  assert.equal(ghost.style.width, '80%', 'whole at her bar');
+  draw(target({ hull: 0.62 }));
+  assert.equal(ghost.style.width, '80%', 'the ghost holds where it was');
+  assert.match(chunks[0].className, /dfnaval-chunk fa/, 'a piece breaks off');
+  assert.deepEqual([chunks[0].style.left, chunks[0].style.width], ['62.0%', '18.0%'], 'over the span the bite took');
+  assert.match(card.className, /hit-[ab]$/, 'the card flashes');
+  draw(target({ hull: 0.62 }), CARD_HIT_S + 0.01);
+  assert.equal(card.className, 'dfnaval-card pirate hostile', 'for CARD_HIT_S');
+  draw(target({ hull: 0.615 }));
+  assert.equal(byClass(card, 'dfnaval-chunk').filter((c) => / f[ab]/.test(c.className)).length, 1, 'under CARD_CHUNK_MIN_LOSS: no piece');
+  for (let i = 0; i < 40; i++) draw(target({ hull: 0.62 }), 0.05);
+  assert.equal(ghost.style.width, '62%', 'then it drains to her bar');
+  draw(target({ id: 'b:2', name: 'The Salt Maid', hull: 0.3 }));
+  assert.equal(ghost.style.width, '30%', 'a new ship starts whole at her own bar - nothing lost to show');
+  assert.ok(chunks.every((c) => c.className === 'dfnaval-chunk'), 'the last ship\'s pieces put away');
+  draw(target({ id: 'b:2', name: 'The Salt Maid', hull: 0.2 }));
+  assert.match(chunks[0].className, / f[ab]$/);
+  drawNavalHud(model(target({ id: 'b:2', hull: 0.2 })), { keys: {}, dt: 0.016, covered: true });
+  assert.ok(chunks.every((c) => c.className === 'dfnaval-chunk'), 'hidden under a window: the pieces put away, never replayed');
+  destroyNavalHud();
+});
+
+test('AUDIT NAV1 (the presentation) her colours by her state: her faction\'s while she sails, struck with her (the flag stops), the captor\'s orange once taken, gone down with her - she flew her faction\'s whatever she was; a Carrack at sea flies them from her mainmast\'s truck (the pirate flagship and the merchant carrack flew none), a player\'s Carrack keeps the mod\'s rig; the card\'s hostile red wins over a trade\'s colour; a powder barrel on my deck shakes past a holed ball (mutants: struck colours flying, the prize in her faction\'s, no graft, the donor never found, hostile under the trade)', async () => {
+  const h = await sea({ hull: 2 });
+  const e = place(h, 'navyCutter', [200, 0, 0]);
+  h.run(0.5);
+  assert.deepEqual(e.boat.flagColor, NAVAL_FACTIONS.navy.flag);
+  assert.equal(e.boat.FlagEmitter.isEmitting, true, 'afloat: her colours fly');
+  e.ship.damage.apply({ hull: Math.ceil(e.ship.damage.maxHull * 0.8), sail: 0, crew: 0 }, 0);
+  assert.equal(e.ship.damage.state, SHIP_STATES.struck);
+  h.run(0.2);
+  assert.equal(e.boat.FlagEmitter.isEmitting, false, 'struck: her colours come down');
+  e.ship.damage.takePrize();
+  h.run(0.2);
+  assert.equal(e.boat.FlagEmitter.isEmitting, true, 'taken: colours again -');
+  assert.equal(e.boat.flagColor, null, '- the captor\'s orange (FlagMaterial\'s, the player\'s boats\' own)');
+  // the Carrack's graft
+  const c = place(h, 'pirateFlagship', [400, 0, 0], { seed: 0 });
+  assert.ok(c.boat.FlagObject, 'a Carrack at sea flies her colours');
+  assert.equal(c.boat.FlagObject.parent.name, 'CarrackMast1', 'on her tallest mast - heeling with it');
+  const at = c.boat.MeshObject.inverseTransformPoint(c.boat.FlagObject.position);   // her hull's own frame: the swell heels it
+  assert.ok(Math.abs(at[0]) < 0.05 && Math.abs(at[1] - 47.51) < 0.05 && Math.abs(at[2] + 3.09) < 0.05, `at its truck (${at.map((v) => v.toFixed(2))})`);
+  assert.equal(c.boat.FlagEmitter, c.boat.FlagObject.getComponentInChildren('ParticleSystem').particleSystem);
+  assert.equal(c.boat.FlagEmitter.renderer.m_RenderMode, 4, 'a mesh flag - the world draws it as her colours');
+  h.run(1);
+  assert.ok(c.boat.FlagEmitter.particleCount > 0 && c.boat.particleSystems.includes(c.boat.FlagEmitter), 'flying, among her particle systems');
+  assert.deepEqual(c.boat.flagColor, NAVAL_FACTIONS.pirate.flag, 'the black');
+  const own = h.pool.spawnNow(Object.assign(new Boat(4, 0), { uid: 7 }), { position: [0, 0, 0], rotation: [0, 0, 0, 1] });
+  assert.equal(own.FlagObject, null, 'a player\'s Carrack: the mod\'s rig as it is');
+  assert.equal(FLAG_DONOR_HULL, 2);
+  // the card: the hostile red last, so it wins over a navy's or a merchantman's colour
+  const i = (sel) => NAVAL_HUD_CSS.indexOf(sel);
+  assert.ok(i('.dfnaval-card.hostile .dfnaval-card-name') > i('.dfnaval-card.navy .dfnaval-card-name') && i('.dfnaval-card.hostile .dfnaval-card-name') > i('.dfnaval-card.merchant .dfnaval-card-name'));
+  // a powder barrel going up on my deck
+  const b = await sea({ hull: 2 });
+  b.host._shots.dropBarrel({ id: 'x', shooter: 'x:1', pos: [0, 0, 0], resolve: true });
+  b.run(3);
+  assert.ok(b.log.shake.includes(BLAST_SHAKE) && BLAST_SHAKE > 2.5, `a barrel shakes past a holed ball (${b.log.shake})`);
 });

@@ -6188,10 +6188,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (townTalk.overlayActive || gamePaused() || modeNow() !== 'exterior') naval.cancelAim();
     else naval.attackInput(false);
   }
-  /** The helm's readout, under every window and with the HUD. */
-  function navalHud() {
+  /** The helm's readout, under every window and with the HUD - `dt` the frame's (the card's hull bar's loss readout). */
+  function navalHud(dt = 0) {
     if (!navalOn()) return;
     drawNavalHud(_mode() === 'exterior' ? naval.hudModel() : null, {
+      dt: gamePaused() ? 0 : dt,
       covered: townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden,
       keys: { aim: navalKeyName('SwingWeapon'), board: navalKeyName('Interact'), brace: navalKeyName('Crouch') },
       scale: enhancedHudScale(),
@@ -21527,7 +21528,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (oceanHoles) drawOceanHolesTransparent();   // OH-C: the blue hole's core over it (3001), then the miasma (3002)
     csaDrawParticlesBlended();   // CSA-F: the oars' and rudders' drops (the Transparent queue)
     if (naval?.enabled) navalRender.draw(naval.drawFrame());   // NAV-B: the smoke, the spray, the balls in flight and the aim's arcs and zone, over the sea's top
-    navalHud();   // NAV-F: the helm's readout
+    navalHud(dt);   // NAV-F: the helm's readout
     // DW-D: UnderwaterPresentationEffects.UpdateWeatherParticles - a swimmer outdoors (never a water walker) has no
     // rain or snow about them (the port's sand is the same kind of particle volume, and goes with them); DW-C: and
     // under the distance fog the air's own effects - the sand, the wisps, the bolts, none of which writes a depth the

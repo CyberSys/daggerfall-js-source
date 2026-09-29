@@ -102,6 +102,14 @@
 - A burning ship keeps burning as she sinks, and each fire goes out as the water reaches it. A scuttled prize burns to the waterline and no further, and no smoke or embers rise from under the sea.
 - A sinking ship's flag goes down with her.
 
+## Hits, reloads and colours
+- Your hits land with a crunch you can hear from the helm, and the splinters are big enough to see at range. The target's hull bar now shows the damage the way an enemy's health bar does: a pale strip where it was, a piece breaking off, and the panel flashing on each hit.
+- When a side of your guns finishes reloading, you hear the gun captain's rap and its gauge flashes. A loaded side's gauge stays full instead of emptying.
+- A ship's flag follows her state. Her own colours fly while she sails, come down when she strikes, and a prize you take flies your orange. The pirate flagship and merchant carracks now fly colours at all.
+- A hostile ship's name is always red on the target panel, whatever her trade.
+- Broadsides no longer distort. Each gun sounds a little different, and a distant broadside rolls in as one rumble instead of a pile of copies. There's no longer a jump in loudness at the distance where a nearby broadside turns into a distant one.
+- Each of your guns kicks the camera as it fires, so a broadside rolls down the ship. A powder barrel going off on your deck now shakes harder than a cannonball.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.

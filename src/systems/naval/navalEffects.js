@@ -67,17 +67,20 @@ export function createNavalEffects({ random = Math.random, wind = () => [0, 0, 0
     }
     push({ kind: 'foam', flat: true, pos: [pos[0], pos[1] + 0.04, pos[2]], vel: [0, 0, 0], age: 0, life: big ? 3.2 : 2.4, size0: big ? 1.6 : 1, size1: big ? 9 : 5.5, drag: 0, lift: 0, color: [0.92, 0.96, 1], alpha: 0.7, rot: r() * 6.28, spin: 0, blend: 'alpha' });
   }
-  /** A ball into a hull: splinters thrown along the shot, a puff of dust and smoke, a small flash. */
-  function hit(pos, dir, heavy = false) {
+  /** A ball into a hull: splinters thrown along the shot, a puff of dust and smoke, a small flash. `scale` (AUDIT NAV1,
+   *  the presentation) grows the burst for an eye far off - the host's HIT_BURST_M: the splinters, flash and puff by it,
+   *  thrown faster, a few more of them, the flash a touch longer. */
+  function hit(pos, dir, heavy = false, scale = 1) {
+    const k = Math.max(1, Number(scale) || 1);
     const l = Math.hypot(dir[0], dir[2]) || 1;
     const d = [dir[0] / l, 0, dir[2] / l];
-    const n = heavy ? 16 : 10;
+    const n = Math.round((heavy ? 16 : 10) * (0.5 + 0.5 * k));
     for (let i = 0; i < n; i++) {
-      const s = 3 + r() * 7;
-      push({ kind: 'debris', pos: [...pos], vel: [d[0] * s + jitter(3), 2 + r() * 5, d[2] * s + jitter(3)], age: 0, life: 1.2 + r() * 1.2, size0: 0.18 + r() * 0.22, size1: 0.18, drag: 0.2, gravity: G, color: [0.36 + jitter(0.06), 0.25 + jitter(0.04), 0.15], alpha: 1, rot: r() * 6.28, spin: jitter(12), blend: 'alpha', solid: true });
+      const s = (3 + r() * 7) * Math.sqrt(k);
+      push({ kind: 'debris', pos: [...pos], vel: [d[0] * s + jitter(3), (2 + r() * 5) * Math.sqrt(k), d[2] * s + jitter(3)], age: 0, life: 1.2 + r() * 1.2, size0: (0.18 + r() * 0.22) * k, size1: 0.18 * k, drag: 0.2, gravity: G, color: [0.36 + jitter(0.06), 0.25 + jitter(0.04), 0.15], alpha: 1, rot: r() * 6.28, spin: jitter(12), blend: 'alpha', solid: true });
     }
-    smoke(pos, [d[0] * 0.3, 0.5, d[2] * 0.3], heavy ? 0.8 : 0.55, heavy ? 5 : 3);
-    push({ kind: 'flash', pos: [...pos], vel: [0, 0, 0], age: 0, life: 0.08, size0: 1.2, size1: 1.8, drag: 0, lift: 0, color: [1, 0.7, 0.35], alpha: 0.8, rot: r() * 6.28, spin: 0, blend: 'add' });
+    smoke(pos, [d[0] * 0.3, 0.5, d[2] * 0.3], (heavy ? 0.8 : 0.55) * k, heavy ? 5 : 3);
+    push({ kind: 'flash', pos: [...pos], vel: [0, 0, 0], age: 0, life: 0.08 * (0.5 + 0.5 * k), size0: 1.2 * k, size1: 1.8 * k, drag: 0, lift: 0, color: [1, 0.7, 0.35], alpha: 0.8, rot: r() * 6.28, spin: 0, blend: 'add' });
   }
   /** A fire barrel's burst, or a magazine's: a fireball, a column of smoke, splinters, a big splash. */
   function blast(pos) {

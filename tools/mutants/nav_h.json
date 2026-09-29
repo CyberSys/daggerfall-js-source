@@ -11,8 +11,8 @@
   {
     "name": "NAV-H-the-reload-skipped",
     "file": "src/scenes/navalHost.js",
-    "old": "    st.guns.fired(side);\n    deps.shake?.(1.2);",
-    "new": "    deps.shake?.(1.2);",
+    "old": "    st.guns.fired(side);   // AUDIT NAV1 (the presentation): each gun kicks as it goes (onShot), not the release once\n",
+    "new": "",
     "tests": [
       "test/nav_h_host.test.js"
     ]

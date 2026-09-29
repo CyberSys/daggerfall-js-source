@@ -427,8 +427,8 @@
   {
     "name": "NAV1H-a-press-surviving-a-cover",
     "file": "src/ui/navalHud.js",
-    "old": "  if (!want) { shown.braceBtn = false; touchBrace = false; return; }",
-    "new": "  if (!want) { shown.braceBtn = false; return; }",
+    "old": "  if (!want) { shown.braceBtn = false; touchBrace = false; for",
+    "new": "  if (!want) { shown.braceBtn = false; for",
     "tests": [
       "test/navaudit_helm.test.js"
     ]

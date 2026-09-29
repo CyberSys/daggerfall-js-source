@@ -52,7 +52,7 @@ import { createNavalDirector, DENSITY, seedBaseOf } from '../systems/naval/naval
 import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provoke, hostile, lookoutOf, RUN_OUT_S, RUN_OUT_DEG, BOW_RUN_OUT, SPARE_S } from '../systems/naval/navalAI.js';
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap
 import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost } from '../systems/naval/navalDamage.js';
-import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S } from '../systems/naval/navalGunnery.js';
+import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S, READY_FLASH_S } from '../systems/naval/navalGunnery.js';
 import { hullBuild, batteryOf, batteriesOf, GUNS, classById, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
 import { lawOf, createNotoriety, crownRegion, notorietyLevel, WITNESS_RANGE, KNIGHTLY_FACTION, TEMPLE_FACTION } from '../systems/naval/navalLaw.js';
@@ -75,6 +75,32 @@ export const NAVAL_SAVE_VENDOR = 'NavalCombat';
 export const NAVAL_SAVE_VERSION = 1;
 /** A ball's report heard as the near boom within this (m); past it the far one. */
 export const NEAR_BOOM_M = 260;
+/**
+ * AUDIT NAV1 (the presentation) - THE MIX. The near reports and the far roll are crossfaded over FAR_FADE_M either side
+ * of NEAR_BOOM_M, equal in power (the far clip, a broadside's roll across the bay, stood 6.5 dB over the near at the
+ * switch: a gun got louder going away) - the roll once a volley (it was played once a GUN: a seven-gun ripple stacked
+ * fourteen thumps), at FAR_MATCH times the root of her guns, the near reports' own power at the switch (both clips'
+ * RMS through their references - navalSounds.js). Each report its own - GUN_PITCH_JITTER in pitch, GUN_GAIN_JITTER_DB
+ * in level (every gun was one clip at pitch 1) - and my own ripple at one over the root of its guns (six reports at full
+ * level, 90 ms apart, summed to +3.4 dBFS at the default volume, 11% of samples clipped at full: the bus has no
+ * limiter). A sound past its range's end is not played (the inverse law never reaches silence: 0.006 at 5 km).
+ */
+export const FAR_FADE_M = 60;
+export const FAR_MATCH = 0.46;
+export const GUN_PITCH_JITTER = 0.06;
+export const GUN_GAIN_JITTER_DB = 2;
+/** AUDIT NAV1 (the presentation): a ball of mine striking her hull is heard at this reference (m) - the crunch that says
+ *  a hit (at the hull's own 16 m it came to my helm 19 dB down from 150 m, under the ripple's roll). */
+export const HIT_CONFIRM_REF_M = 60;
+/** ...and a hull hit's splinters, flash and smoke are thrown full size within HIT_BURST_M of the eye and grown with the
+ *  distance past it, to HIT_BURST_MAX times (a 0.3 m splinter at 150 m was two pixels; the flash eight, for 0.08 s). */
+export const HIT_BURST_M = 50;
+export const HIT_BURST_MAX = 3;
+/** AUDIT NAV1 (the presentation): each gun of mine kicks the camera as it goes, by its kind (the broadside shook it
+ *  once, 1.2 - under the Thunderlock pistol's 3); a powder barrel going up on my deck shakes it BLAST_SHAKE (it shook
+ *  1.6, under a holed ball's 2.5). */
+export const GUN_KICK = Object.freeze({ long: 1.1, heavy: 1.6, swivel: 0.45, chain: 0.9 });
+export const BLAST_SHAKE = 3.2;
 /** A muzzle's light: its reach (m) and its life (s). */
 export const MUZZLE_FLASH_RANGE = 26;
 export const MUZZLE_FLASH_S = 0.12;
@@ -241,7 +267,7 @@ export function createNavalHost(deps) {
 
   // ── the sea's ships ──────────────────────────────────────────────────────────────────────────────────────────────
   /** @type {Map<string, any>} id -> { id, n, owner, ship, boat, fires, fireLoop, target, seen, charged, ramAt, myBlowAt, hunter, deck, prize,
-   *  lost, sinkUnder, colorsDown } */
+   *  lost, sinkUnder, colours } */
   const sea = new Map();
   let seq = 0;
   /** AUDIT NAV1 (the presentation): each hull and rig's spars, measured once (sparsOf) - `${hull}:${variant}` -> them. */
@@ -327,8 +353,21 @@ export function createNavalHost(deps) {
   /** A peer's volleys and barrels seen already: owner -> Set of ids. */
   const seenVolleys = new Map();
 
-  /** A sound at a place, heard over its own range (systems/naval/navalSounds.js NAVAL_SOUND_RANGE). */
-  function sound(key, pos, vol = 1, opts = {}) { try { deps.audio?.play3d?.(key, pos, vol, { ...navalSoundRange(key), ...opts }); } catch { /* a missing clip is silence */ } }
+  /** A sound at a place, heard over its own range (systems/naval/navalSounds.js NAVAL_SOUND_RANGE) - and not at all
+   *  past its end (AUDIT NAV1: the bus's inverse law never reaches silence; the bus's own 500 m for a key without one). */
+  function sound(key, pos, vol = 1, opts = {}) {
+    const o = { ...navalSoundRange(key), ...opts };
+    const f = deps.feet();
+    if (pos && f && Math.hypot(pos[0] - f[0], pos[1] - f[1], pos[2] - f[2]) > (o.maxDistance ?? 500)) return;
+    try { deps.audio?.play3d?.(key, pos, vol, o); } catch { /* a missing clip is silence */ }
+  }
+  /** AUDIT NAV1 (the presentation): a hull hit's burst at `p`, grown for the eye that sees it (HIT_BURST_M). */
+  const burstScale = (p) => {
+    const eye = deps.look?.()?.origin ?? deps.feet();
+    return clamp(Math.hypot(p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]) / HIT_BURST_M, 1, HIT_BURST_MAX);
+  };
+  /** AUDIT NAV1 (the presentation): how far into the far roll a report at `d` (m) is heard - 0 near, 1 far. */
+  const farShare = (d) => clamp((d - (NEAR_BOOM_M - FAR_FADE_M)) / (2 * FAR_FADE_M), 0, 1);
 
   // ── firing ───────────────────────────────────────────────────────────────────────────────────────────────────────
   /**
@@ -378,8 +417,19 @@ export function createNavalHost(deps) {
       const scale = e.gun === 'heavy' ? 1.35 : e.gun === 'swivel' ? 0.55 : 1;
       effects.muzzle(e.pos, e.dir, scale);
       flashes.push({ pos: [...e.pos], t: clock });
-      const d = dist2d(e.pos, deps.feet());
-      sound(d < NEAR_BOOM_M ? (e.gun === 'swivel' ? NAVAL_SFX.swivel : NAVAL_SFX.cannon) : NAVAL_SFX.cannonFar, e.pos, e.gun === 'swivel' ? 0.7 : 1, { far: d >= NEAR_BOOM_M });
+      // the report (AUDIT NAV1, the presentation: THE MIX) - near, far, or crossfaded between; my own ripple's reports
+      // at one over the root of its guns, the far roll once a volley
+      const mine = isMine(e.shooter);
+      const n = Math.max(1, e.count ?? 1);
+      const x = farShare(dist2d(e.pos, deps.feet()));
+      const weight = e.gun === 'swivel' ? 0.7 : 1;
+      if (x < 1) {
+        const level = 10 ** (((random() - 0.5) * 2 * GUN_GAIN_JITTER_DB) / 20);
+        const pitch = 1 + (random() - 0.5) * 2 * GUN_PITCH_JITTER;
+        sound(e.gun === 'swivel' ? NAVAL_SFX.swivel : NAVAL_SFX.cannon, e.pos, weight * level * Math.cos(x * Math.PI / 2) / (mine ? Math.sqrt(n) : 1), { pitch });
+      }
+      if (x > 0 && (e.index ?? 0) === 0) sound(NAVAL_SFX.cannonFar, e.pos, weight * FAR_MATCH * Math.sin(x * Math.PI / 2) * (mine ? 1 : Math.sqrt(n)), { far: true });
+      if (mine) deps.shake?.(GUN_KICK[e.gun] ?? GUN_KICK.long);   // each gun's kick along the ripple
       return;
     }
     if (e.type === 'splash') {
@@ -390,8 +440,13 @@ export function createNavalHost(deps) {
     if (e.type === 'land') { effects.hit(e.point, [0, 1, 0], false); return; }
     if (e.type === 'hit' || e.type === 'blast') {
       if (e.type === 'blast') { effects.blast(e.point); sound(NAVAL_SFX.blast, e.point, 1); }
-      else if (e.zone === 'rig') { effects.tear(e.point, e.dir ?? [0, 0, 1]); sound(NAVAL_SFX.hit, e.point, 0.3); }   // through her canvas: shreds and a crack of spars
-      else { effects.hit(e.point, e.dir ?? [0, 0, 1], e.gun === 'heavy'); sound(NAVAL_SFX.hit, e.point, 0.9); }
+      else {
+        // AUDIT NAV1 (the presentation): a ball of mine that strikes her is heard at the helm (HIT_CONFIRM_REF_M), and its
+        // splinters are thrown as far as the eye can read them - a hit and a miss had felt alike
+        const confirm = isMine(e.shooter) ? { refDistance: HIT_CONFIRM_REF_M } : {};
+        if (e.zone === 'rig') { effects.tear(e.point, e.dir ?? [0, 0, 1]); sound(NAVAL_SFX.hit, e.point, 0.3, confirm); }   // through her canvas: shreds and a crack of spars
+        else { effects.hit(e.point, e.dir ?? [0, 0, 1], e.gun === 'heavy', burstScale(e.point)); sound(NAVAL_SFX.hit, e.point, 0.9, confirm); }
+      }
       landHit(e);
       return;
     }
@@ -416,7 +471,7 @@ export function createNavalHost(deps) {
       const hurt = shotDamage(gun, zone, { braced: st.guns.braced, roll: random() });
       if (fire) hurt.fire = fire;
       const change = st.damage.apply(hurt, clock);
-      deps.shake?.(zone === 'holed' ? 2.5 : 1.6);
+      deps.shake?.(e.type === 'blast' ? BLAST_SHAKE : zone === 'holed' ? 2.5 : 1.6);
       if (change === SHIP_STATES.wrecked) deps.mid?.('Your ship is crippled! The sails hang in rags.', 3);
       return;
     }
@@ -627,7 +682,7 @@ export function createNavalHost(deps) {
     const num = n ?? (seq = (seq + 1) & 0xffff);
     const id = owner ? `${owner}:${num}` : `${myId()}:${num}`;
     const ship = createSeaShip({ id, seed: spec.seed, classId: spec.classId, variant: spec.variant ?? 0, pos: spec.pos, yaw: spec.yaw ?? 0, names, owner });
-    const entry = { id, n: num, owner, ship, boat: null, fires: null, fireLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colorsDown: false };
+    const entry = { id, n: num, owner, ship, boat: null, fires: null, fireLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colours: null };
     sea.set(id, entry);
     return entry;
   }
@@ -707,9 +762,19 @@ export function createNavalHost(deps) {
       if (a.GetBool('Stowed') === set) stowSail(a, !set);
       a.SetFloat('Wind', set ? Math.min(1, wl) : 0);
     }
-    // AUDIT NAV1 (the presentation): her colours go down with her - a flag flown on from a masthead under the sea showed
-    // through it
-    if (b.FlagEmitter && sinkK > 0 && !e.colorsDown) { b.FlagEmitter.stop?.(); e.colorsDown = true; }
+    // AUDIT NAV1 (the presentation): HER COLOURS BY HER STATE - her faction's while she sails and fights, struck with her
+    // (the flag's emitter stops: they come down), the captor's once she is taken (the player's boats' own orange -
+    // FlagMaterial's), and gone down with her (a flag flown on from a masthead under the sea showed through it); she
+    // had flown her faction's whatever she was
+    const colours = state === SHIP_STATES.afloat ? 'hers' : state === SHIP_STATES.prize ? 'taken' : 'struck';
+    if (b.FlagEmitter && e.colours !== colours) {
+      e.colours = colours;
+      if (colours === 'struck') b.FlagEmitter.stop?.();
+      else {
+        b.flagColor = colours === 'hers' ? NAVAL_FACTIONS[s.cls?.faction]?.flag ?? null : null;
+        if (!b.FlagEmitter.isEmitting) b.FlagEmitter.play?.();
+      }
+    }
     if (b.FlagObject) {
       const v = velocityOf(s);
       const f = [w[0] - v[0] * 0.1, 0, w[2] - v[2] * 0.1];
@@ -1175,8 +1240,7 @@ export function createNavalHost(deps) {
     const pose = boatPose(boat);
     const solution = lookAim(boat, side);
     fire({ shooter: myBoatId(boat), wireShooter: -1, hull: boat.hull, pose, solution, skill: crewSkill(boat, st) });
-    st.guns.fired(side);
-    deps.shake?.(1.2);
+    st.guns.fired(side);   // AUDIT NAV1 (the presentation): each gun kicks as it goes (onShot), not the release once
     return true;
   }
 
@@ -1730,6 +1794,34 @@ export function createNavalHost(deps) {
     for (let i = flashes.length - 1; i >= 0; i--) if (clock - flashes[i].t > MUZZLE_FLASH_S) flashes.splice(i, 1);
   }
 
+  // ── AUDIT NAV1 (the presentation): a battery of mine coming ready ─────────────────────────────────────────────────
+  /** The boat at the helm the batteries were last read on, each side's loaded state then, and when each came ready. */
+  let readyBoat = null;
+  const loadedWas = new Map();
+  const readyAt = new Map();
+  /** A battery loaded: its clock run out, and a barrel battery with barrels to roll (the brace is no reload). */
+  const loadedNow = (st, bat) => st.guns.left(bat.side) <= 0 && (bat.gun !== 'barrel' || st.guns.barrels > 0);
+  /**
+   * Each battery of my boat at the helm that comes ready this step: the gun captain's word from her side (NAVAL_SFX
+   * ready) and its chip's flash (READY_FLASH_S) - a side loaded already when I take the helm says nothing.
+   */
+  function heardReady(boat) {
+    if (boat !== readyBoat) { readyBoat = boat; loadedWas.clear(); readyAt.clear(); }
+    if (!boat) return;
+    const st = myBoatState(boat);
+    const pose = boatPose(boat);
+    for (const bat of batteriesOf(boat.hull)) {
+      const now = loadedNow(st, bat);
+      if (loadedWas.get(bat.side) === false && now) {
+        readyAt.set(bat.side, clock);
+        const m = bat.muzzles;
+        const mid = m.reduce((a, p) => [a[0] + p[0] / m.length, a[1] + p[1] / m.length, a[2] + p[2] / m.length], [0, 0, 0]);
+        sound(NAVAL_SFX.ready, toWorld(pose, mid), 0.8);
+      }
+      loadedWas.set(bat.side, now);
+    }
+  }
+
   /** One step of the sea's clocks (`d` at most FRAME_STEP_S): my boats, the rams, the traffic, the captains and the
    *  hulls kept apart, the raiders' reckoning, the others' ships eased, the boarding, the shots and the smoke. */
   function stepSea(d, seaY, boat) {
@@ -1752,6 +1844,7 @@ export function createNavalHost(deps) {
         }
       }
     }
+    heardReady(boat);
 
     // the sea's traffic, when this player stands it and is on the water
     const stands = standsSea();
@@ -2064,7 +2157,8 @@ export function createNavalHost(deps) {
     const batteries = SIDES.map((side) => {
       const b = batteryOf(boat.hull, side);
       if (!b) return null;
-      return { side, gun: b.gun, guns: b.muzzles.length, progress: st.guns.progress(side), ready: st.guns.ready(side), active: side === look, barrels: b.gun === 'barrel' ? st.guns.barrels : null };
+      const fresh = readyAt.has(side) && clock - readyAt.get(side) <= READY_FLASH_S;   // AUDIT NAV1: just come ready
+      return { side, gun: b.gun, guns: b.muzzles.length, progress: st.guns.progress(side), ready: st.guns.ready(side), loaded: loadedNow(st, b), fresh, active: side === look, barrels: b.gun === 'barrel' ? st.guns.barrels : null };
     }).filter(Boolean);
     const target = targetCard(boat);
     const state = aim ? aimState(st, aim.side, boat) : null;
@@ -2129,7 +2223,7 @@ export function createNavalHost(deps) {
   function targetCardOf(e, from) {
     const s = e.ship;
     return {
-      name: s.names?.name ?? 'A ship', captain: s.names?.captain ?? null, classLine: classLine(s.cls, s.names?.crown), faction: s.cls.faction,
+      id: e.id, name: s.names?.name ?? 'A ship', captain: s.names?.captain ?? null, classLine: classLine(s.cls, s.names?.crown), faction: s.cls.faction,
       hull: s.damage.hullShare(), sail: s.damage.maxSail > 0 ? s.damage.sailShare() : null, state: s.damage.state, boarded: !!s.boarded,
       distance: Math.round(dist2d(s.pos, from)),
       hostile: hostile(s, { kind: 'player', id: myId() }, { notoriety: (c) => notoriety.get(c), now: clock }),

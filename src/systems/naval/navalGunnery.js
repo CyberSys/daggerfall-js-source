@@ -42,6 +42,9 @@ export const RIPPLE_S = 0.09;
 /** Reload multipliers: a crew at none (scaled by the crew's share lost), and a boat with no crew at all. */
 export const RELOAD_UNDERMANNED = 0.8;
 export const RELOAD_SINGLEHANDED = 1.4;
+/** AUDIT NAV1 (the presentation): a battery just come ready is said FRESH this long (s) - the host's word for it and the
+ *  HUD's flash of its chip (a side came ready in silence, only a class changing). */
+export const READY_FLASH_S = 0.7;
 /** A fire barrel's roll: its own short clock, whatever the stern's reload says. */
 export const BARREL_DROP_S = 1.2;
 /** AUDIT NAV1 (the helm): the most the zone moves out a degree of the look's pitch (m) - see `lookReach`. */

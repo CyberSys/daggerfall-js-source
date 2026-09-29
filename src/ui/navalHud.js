@@ -33,6 +33,8 @@
 import { FRAME_TONES, frameCss, scopeRules } from './enhancedFrame.js';
 import { PIXEL_FONT_CSS, PIXELIFY_FIVE_FACE } from './pixelifyFive.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js';
+import { stepGhost, chunkFrame } from './barLoss.js';   // AUDIT NAV1 (the presentation): her hull bar's loss, the foe bar's law
+import { READY_FLASH_S } from '../systems/naval/navalGunnery.js';   // AUDIT NAV1 (the presentation): a battery's flash, the host's word
 
 export const NAVAL_HUD_STYLE_ID = 'dagger-naval-hud-style';
 export const NAVAL_KIT_STYLE_ID = 'dagger-naval-kit-style';
@@ -53,6 +55,12 @@ export const NAVAL_PLATE_TOUCH_BOTTOM = 16 + 48 + 12;
  *  three slots hold no Crouch by default, and the hint said "Crouch: brace"): a finger's height (the platforms'
  *  48 px target, less the plate's border). */
 export const NAVAL_BRACE_H = 46;
+/** AUDIT NAV1 (the presentation): HER HULL BAR'S LOSS, read as the foe bar reads it (ui/barLoss.js) - the pale strip
+ *  where it WAS, and a piece breaking off for a bite of CARD_CHUNK_MIN_LOSS percent or more in one draw, the card's
+ *  frame flashing CARD_HIT_S with it (her bar had only slid, for 160 ms). A battery coming ready flashes for the
+ *  gunnery's READY_FLASH_S. */
+export const CARD_CHUNK_MIN_LOSS = 1;
+export const CARD_HIT_S = 0.24;
 
 const OUTLINED = '-1px 0 0 #050608, 1px 0 0 #050608, 0 -1px 0 #050608, 0 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7)';
 const CLASP = 'linear-gradient(180deg, #f3cf86 0 2px, transparent 2px), linear-gradient(90deg, #e2b064 0 2px, #c08a3e 2px 4px, #7a5424 4px 6px)';
@@ -101,15 +109,18 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-gun.stern { grid-column: 2; grid-row: 3; }
 .dfnaval-ship { grid-column: 2; grid-row: 2; align-self: center; justify-self: center; width: 16px; height: 34px;
   background: linear-gradient(180deg, ${T.stoneLit}, ${T.stoneMid}); clip-path: polygon(50% 0, 100% 30%, 100% 100%, 0 100%, 0 30%); box-shadow: 0 0 0 1px #050608; }
-.dfnaval-gun-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(192,138,62,0.28); z-index: 0; }
+.dfnaval-gun-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; z-index: 0;
+  background: linear-gradient(180deg, ${T.brassHi} 0 2px, rgba(192,138,62,0.6) 2px); }
 .dfnaval-gun-side, .dfnaval-gun-count { position: relative; z-index: 1; display: block; line-height: 1.15; text-shadow: 1px 1px 0 #050608; }
 .dfnaval-gun-side { font-size: 10px; letter-spacing: 0.12em; color: #efe8d6; text-transform: uppercase; }
-.dfnaval-gun-count { font-size: 9px; color: #a89f88; }
+.dfnaval-gun-count { font-size: 9px; color: #d8cfae; }
 .dfnaval-gun.ready { border-color: ${T.brassHi} ${T.brassLo} #5c3f1a ${T.brass}; }
 .dfnaval-gun.ready .dfnaval-gun-count { color: ${T.brassHi}; }
 .dfnaval-gun.active { background: #2c2413; box-shadow: 0 0 0 1px #050608, 0 0 8px rgba(243,207,134,0.45); }
 .dfnaval-gun.active .dfnaval-gun-side { color: ${T.gold}; text-shadow: 1px 1px 0 rgb(93,77,12); }
 .dfnaval-gun.empty { opacity: 0.5; }
+.dfnaval-gun.fresh { animation: dfnaval-ready ${READY_FLASH_S}s steps(7, end); }
+@keyframes dfnaval-ready { 0% { box-shadow: 0 0 0 1px #050608, 0 0 12px 2px rgba(243,207,134,0.95); } 100% { box-shadow: 0 0 0 1px #050608, 0 0 0 0 rgba(243,207,134,0); } }
 .dfnaval-hint { margin: 7px 6px 0; font-size: 10px; letter-spacing: 0.05em; color: #8f8670; text-align: center; text-shadow: 1px 1px 0 #050608; }
 .dfnaval-brace { margin: 8px 6px 0; height: ${NAVAL_BRACE_H}px; line-height: ${NAVAL_BRACE_H - 4}px; text-align: center; pointer-events: auto; touch-action: none;
   user-select: none; -webkit-user-select: none; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED};
@@ -125,12 +136,33 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-card { position: absolute; left: 50%; top: var(--nc-top); transform: translateX(-50%); width: 400px; max-width: 86vw; padding: 7px 14px 8px;
   text-align: center; background: ${T.groundPanel}; border: 2px solid ${T.stoneLit}; }
 .dfnaval-card-name { font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED}; }
-.dfnaval-card.hostile .dfnaval-card-name { color: #ffb4a6; }
 .dfnaval-card.navy .dfnaval-card-name { color: #f1d0c6; }
 .dfnaval-card.merchant .dfnaval-card-name { color: #f6e3a6; }
+.dfnaval-card.hostile .dfnaval-card-name { color: #ffb4a6; }
 .dfnaval-card-sub { margin: 2px 0 6px; font-size: 11px; letter-spacing: 0.05em; color: #c9bfa4; text-shadow: 1px 1px 0 #050608; }
 .dfnaval-card .dfnaval-track { margin: 0 8px 4px; height: 10px; }
 .dfnaval-card .dfnaval-track.sail { height: 5px; }
+.dfnaval-ghost { position: absolute; top: 0; bottom: 0; left: 0; width: 0; display: block; z-index: -1;
+  background: linear-gradient(180deg, #fff6e4 0 1px, #f2a597 1px); opacity: 0.6; }
+.dfnaval-chunk { position: absolute; top: 0; bottom: 0; display: none; z-index: 0; pointer-events: none; }
+.dfnaval-chunk.fa, .dfnaval-chunk.fb { display: block; }
+.dfnaval-chunk::before, .dfnaval-chunk::after { content: ''; position: absolute; top: 0; bottom: 0; opacity: 0;
+  background: linear-gradient(180deg, #fff6e4 0 2px, #d8685a 2px calc(100% - 3px), #8a2820 calc(100% - 3px)); box-shadow: 0 0 0 1px #050608; }
+.dfnaval-chunk::before { left: 0; width: 55%; }
+.dfnaval-chunk::after { left: 55%; right: 0; }
+.dfnaval-chunk.fa::before { animation: dfnaval-chunk-l 560ms steps(8, end) forwards; }
+.dfnaval-chunk.fa::after { animation: dfnaval-chunk-r 640ms steps(8, end) forwards; }
+.dfnaval-chunk.fb::before { animation: dfnaval-chunk-l2 560ms steps(8, end) forwards; }
+.dfnaval-chunk.fb::after { animation: dfnaval-chunk-r2 640ms steps(8, end) forwards; }
+@keyframes dfnaval-chunk-l { 0% { opacity: 1; transform: translate(0, 0); } 25% { opacity: 1; transform: translate(-1px, 3px); } 100% { opacity: 0; transform: translate(-4px, 22px); } }
+@keyframes dfnaval-chunk-l2 { 0% { opacity: 1; transform: translate(0, 0); } 25% { opacity: 1; transform: translate(-1px, 3px); } 100% { opacity: 0; transform: translate(-4px, 22px); } }
+@keyframes dfnaval-chunk-r { 0% { opacity: 1; transform: translate(0, 0); } 35% { opacity: 1; transform: translate(2px, 5px); } 100% { opacity: 0; transform: translate(5px, 28px); } }
+@keyframes dfnaval-chunk-r2 { 0% { opacity: 1; transform: translate(0, 0); } 35% { opacity: 1; transform: translate(2px, 5px); } 100% { opacity: 0; transform: translate(5px, 28px); } }
+.dfnaval-card.hit-a { animation: dfnaval-hit-a ${CARD_HIT_S * 1000}ms steps(3, end); }
+.dfnaval-card.hit-b { animation: dfnaval-hit-b ${CARD_HIT_S * 1000}ms steps(3, end); }
+@keyframes dfnaval-hit-a { 0% { border-color: #fff6e4; box-shadow: 0 0 10px rgba(255,138,118,0.85); } 100% { border-color: ${T.stoneLit}; box-shadow: none; } }
+@keyframes dfnaval-hit-b { 0% { border-color: #fff6e4; box-shadow: 0 0 10px rgba(255,138,118,0.85); } 100% { border-color: ${T.stoneLit}; box-shadow: none; } }
+@media (prefers-reduced-motion: reduce) { .dfnaval-chunk { display: none !important; } .dfnaval-card.hit-a, .dfnaval-card.hit-b, .dfnaval-gun.fresh { animation: none; } }
 .dfnaval-card-state { min-height: 14px; margin-top: 4px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED}; }
 .dfnaval-card-state.board { color: ${T.gold}; }
 .dfnaval-card-state.sinking { color: #ff8a76; }
@@ -207,7 +239,9 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
   const batteries = (model.batteries ?? []).map((b) => ({
     side: b.side, word: SIDE_WORDS[b.side],
     count: b.gun === 'barrel' ? `${b.barrels ?? 0} barrel${b.barrels === 1 ? '' : 's'}` : `${b.guns} ${b.guns === 1 ? GUN_WORDS[b.gun].replace(/s$/, '') : GUN_WORDS[b.gun]}`,
-    fill: pct(b.ready ? 1 : b.progress), ready: !!b.ready, active: !!b.active, empty: b.gun === 'barrel' && !(b.barrels > 0),
+    // AUDIT NAV1 (the presentation): a loaded side stands FULL brass (it filled to 97% and dropped to nought, loaded);
+    // `fresh` the flash of one just come ready
+    fill: pct((b.loaded ?? b.ready) ? 1 : b.progress), ready: !!b.ready, fresh: !!b.fresh, active: !!b.active, empty: b.gun === 'barrel' && !(b.barrels > 0),
   }));
   const a = model.aim;
   const aim = a ? {
@@ -218,7 +252,7 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
   const t = model.target;
   const st = t ? cardState(t, model.board, boardKey) : null;
   const card = t ? {
-    name: t.name, faction: t.faction, hostile: !!t.hostile,
+    id: t.id ?? t.name, name: t.name, faction: t.faction, hostile: !!t.hostile,
     sub: [t.classLine, t.captain ? `Captain ${t.captain}` : null, `${t.distance} m`].filter(Boolean).join(' - '),
     hull: pct(t.hull), sail: t.sail == null ? null : pct(t.sail),
     state: st.text, stateKind: st.kind,
@@ -301,7 +335,10 @@ function build(doc) {
   const card = el(doc, 'div', 'dfnaval-card');
   const cardName = el(doc, 'div', 'dfnaval-card-name');
   const cardSub = el(doc, 'div', 'dfnaval-card-sub');
-  const cardHull = el(doc, 'div', 'dfnaval-track hull'); const cardHullFill = el(doc, 'i', 'dfnaval-fill'); cardHull.append(cardHullFill);
+  const cardHull = el(doc, 'div', 'dfnaval-track hull'); const cardHullFill = el(doc, 'i', 'dfnaval-fill');
+  const cardGhost = el(doc, 'i', 'dfnaval-ghost'), cardChunks = [el(doc, 'i', 'dfnaval-chunk'), el(doc, 'i', 'dfnaval-chunk')];
+  for (const c of cardChunks) c.addEventListener?.('animationend', (e) => { if (String(e.animationName ?? '').startsWith('dfnaval-chunk-r')) stowChunk(c); });
+  cardHull.append(cardGhost, cardHullFill, ...cardChunks);
   const cardSail = el(doc, 'div', 'dfnaval-track sail'); const cardSailFill = el(doc, 'i', 'dfnaval-fill'); cardSail.append(cardSailFill);
   const cardState = el(doc, 'div', 'dfnaval-card-state');
   card.append(cardName, cardSub, cardHull, cardSail, cardState);
@@ -349,11 +386,39 @@ function build(doc) {
   plate.append(head, hull.row, sail.row, crew.row, chips, rose, hint, brace);
   root.append(card, warn, aim, tallyEl, plate);
   (doc.body ?? doc.documentElement)?.append(root);
-  parts = { card, cardName, cardSub, cardHull, cardHullFill, cardSail, cardSailFill, cardState, aim, aimText, aimRange, aimTarget, warn, warnText, warnKey, tally: tallyEl, tallyHits, tallyRest, plate, name, watersWord, anchors, hull, sail, crew, chips, rose, guns, hint, brace };
+  parts = { card, cardName, cardSub, cardHull, cardHullFill, cardGhost, cardChunks, cardSail, cardSailFill, cardState, aim, aimText, aimRange, aimTarget, warn, warnText, warnKey, tally: tallyEl, tallyHits, tallyRest, plate, name, watersWord, anchors, hull, sail, crew, chips, rose, guns, hint, brace };
   shown = {};
   touchBrace = false;
 }
 
+/** AUDIT NAV1 (the presentation): the draws' own clock (the `dt`s summed), and her hull bar's loss readout - whose card,
+ *  its ghost (ui/barLoss.js), the pieces broken off and the flash's end. */
+let hudClock = 0;
+let loss = null;
+/** A fallen piece put away (FRAME1c's law: an animation left parked on its last frame replays when its node comes back). */
+function stowChunk(c) { if (c && c.className !== 'dfnaval-chunk') c.className = 'dfnaval-chunk'; }
+/** One draw of her hull bar's loss: a new card starts whole at her bar; a bite of CARD_CHUNK_MIN_LOSS breaks a piece off
+ *  over the span it took and flashes the card. */
+function cardLoss(card, dt) {
+  if (!loss || loss.id !== card.id) {
+    for (const c of parts.cardChunks) stowChunk(c);
+    loss = { id: card.id, g: stepGhost(null, card.hull, 0), n: -1, hits: 0, until: -1 };
+  }
+  const prev = loss.g;
+  const g = stepGhost(prev, card.hull, dt);
+  loss.g = g;
+  width('cardg', parts.cardGhost, Math.round(g.at * 10) / 10);
+  if (prev.pct - g.pct >= CARD_CHUNK_MIN_LOSS) {
+    const { index, cls: frame } = chunkFrame(++loss.n);
+    const c = parts.cardChunks[index];
+    c.style.left = `${g.pct.toFixed(1)}%`;
+    c.style.width = `${(prev.pct - g.pct).toFixed(1)}%`;
+    c.className = `dfnaval-chunk ${frame}`;
+    loss.hits++;
+    loss.until = hudClock + CARD_HIT_S;
+  }
+  return hudClock < loss.until ? (loss.hits % 2 ? ' hit-a' : ' hit-b') : '';
+}
 const put = (key, node, text) => { if (shown[key] !== text) { shown[key] = text; node.textContent = text; } };
 const cls = (key, node, name) => { if (shown[key] !== name) { shown[key] = name; node.className = name; } };
 const show = (key, node, on) => { if (shown[key] !== on) { shown[key] = on; node.style.display = on ? '' : 'none'; } };
@@ -364,16 +429,18 @@ const width = (key, node, v) => { if (shown[key] !== v) { shown[key] = v; node.s
  * `keys` the registry's names for the aim, Activate and the brace; `scale` the HUD's scale (the enhanced HUD's
  * --hud-scale, which this sibling layer copies onto its root - the plate's size and the card's place read it);
  * `under` what stands over the card at the top of the screen (the helm panel's bar, ui/enhancedHelm.js) or null;
- * `touch` a finger's screen (the plate over the touch corner, the hints in its words).
+ * `touch` a finger's screen (the plate over the touch corner, the hints in its words). `dt` the frame's seconds (0 while
+ * the game is paused) - the clock her hull bar's loss readout runs on.
  */
-export function drawNavalHud(model, { covered = false, doc = globalThis.document, keys = {}, scale = 1, under = null, touch = false } = {}) {
+export function drawNavalHud(model, { covered = false, doc = globalThis.document, keys = {}, scale = 1, under = null, touch = false, dt = 0 } = {}) {
   const want = !covered && !!model;
   if (!root) {
     if (!want || !doc?.createElement) return;
     build(doc);
   }
   show('root', root, want);
-  if (!want) { shown.braceBtn = false; touchBrace = false; return; }
+  hudClock += Math.max(0, Number(dt) || 0);
+  if (!want) { shown.braceBtn = false; touchBrace = false; for (const c of parts.cardChunks) stowChunk(c); loss = null; return; }
   const t = navalHudText(model, keys, { touch });
   // the card: a ship's, else the fight's (AUDIT NAV1 B9) - one place under the compass
   const c = t.card ?? t.fight;
@@ -407,9 +474,9 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
       const b = p.batteries.find((x) => x.side === side);
       show(`gun-${side}`, g.g, !!b);
       if (!b) continue;
-      cls(`gunc-${side}`, g.g, `dfnaval-gun ${side}${b.ready ? ' ready' : ''}${b.active ? ' active' : ''}${b.empty ? ' empty' : ''}`);
+      cls(`gunc-${side}`, g.g, `dfnaval-gun ${side}${b.ready ? ' ready' : ''}${b.fresh ? ' fresh' : ''}${b.active ? ' active' : ''}${b.empty ? ' empty' : ''}`);
       put(`gunn-${side}`, g.count, b.count);
-      if (shown[`gunf-${side}`] !== b.fill) { shown[`gunf-${side}`] = b.fill; g.fill.style.height = `${b.ready ? 0 : b.fill}%`; }
+      if (shown[`gunf-${side}`] !== b.fill) { shown[`gunf-${side}`] = b.fill; g.fill.style.height = `${b.fill}%`; }
     }
     show('rose', parts.rose, p.batteries.length > 0);
     put('hint', parts.hint, p.hint);
@@ -436,7 +503,9 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
   if (c) {
     const top = foot > 0 ? `${Math.ceil(foot) + NAVAL_CARD_GAP}px` : '';
     if (shown.cardTop !== top) { shown.cardTop = top; parts.card.style.top = top; }
-    cls('cardc', parts.card, t.card ? `dfnaval-card ${t.card.faction}${t.card.hostile ? ' hostile' : ''}` : 'dfnaval-card fight');
+    const hit = t.card ? cardLoss(t.card, dt) : '';
+    if (!t.card) { for (const x of parts.cardChunks) stowChunk(x); loss = null; }
+    cls('cardc', parts.card, t.card ? `dfnaval-card ${t.card.faction}${t.card.hostile ? ' hostile' : ''}${hit}` : 'dfnaval-card fight');
     put('cardn', parts.cardName, c.name);
     put('cards', parts.cardSub, c.sub);
     show('cardhull', parts.cardHull, !!t.card);
@@ -452,5 +521,5 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
 /** The page is going (a test's reset, the host's teardown): the node leaves with it. */
 export function destroyNavalHud() {
   root?.remove?.();
-  root = null; parts = null; shown = {}; touchBrace = false;
+  root = null; parts = null; shown = {}; touchBrace = false; loss = null; hudClock = 0;
 }

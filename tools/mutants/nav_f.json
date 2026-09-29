@@ -11,7 +11,7 @@
   {
     "name": "NAV-F-a-reload-shown-full",
     "file": "src/ui/navalHud.js",
-    "old": "    fill: pct(b.ready ? 1 : b.progress),",
+    "old": "    fill: pct((b.loaded ?? b.ready) ? 1 : b.progress),",
     "new": "    fill: pct(1),",
     "tests": [
       "test/nav_f_ui.test.js"

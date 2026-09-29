@@ -65,7 +65,7 @@ export function createShotField(deps) {
   function fireVolley({ id, shooter, launches, resolve = true, side = null, owner = null }) {
     for (const l of launches) {
       balls.push({
-        volley: id, shooter, owner, resolve, side, gun: l.gun, index: l.index,
+        volley: id, shooter, owner, resolve, side, gun: l.gun, index: l.index, count: launches.length,
         p0: [...l.p0], v0: [...l.v0], born: clock + Math.max(0, l.delay ?? 0), shown: false, prev: [...l.p0], pos: [...l.p0], spin: random() * Math.PI * 2,
       });
     }
@@ -124,7 +124,7 @@ export function createShotField(deps) {
       const age = clock - b.born;
       if (!b.shown) {
         b.shown = true;
-        emit({ type: 'muzzle', volley: b.volley, shooter: b.shooter, owner: b.owner, side: b.side, gun: b.gun, index: b.index, pos: [...b.p0], dir: [...b.v0], resolve: b.resolve });
+        emit({ type: 'muzzle', volley: b.volley, shooter: b.shooter, owner: b.owner, side: b.side, gun: b.gun, index: b.index, count: b.count, pos: [...b.p0], dir: [...b.v0], resolve: b.resolve });
       }
       if (age > BALL_LIFE) { emit({ type: 'gone', volley: b.volley, shooter: b.shooter, gun: b.gun }); continue; }
       const a = b.pos, next = shotPosition(b.p0, b.v0, age, undefined, [0, 0, 0]);

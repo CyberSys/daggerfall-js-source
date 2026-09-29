@@ -30,7 +30,7 @@ carries its row instead. It stands on three things the port already had:
 | NAV-B | THE PICTURE: the naval pass (smoke, muzzle flame, spray, splinters, the founder's foam, the balls in flight, the aim's arcs and splash zone), the deck fires on Daggerfall's own fire flat, a sea ship's colours on her flag; and the root fix of Come Sail Away's soft drop (below) | `systems/naval/navalEffects.js`, `render/navalRender.js`, `scenes/navalFlames.js`, `render/comeSailAwayRender.js` (flagRuns, softParticleTexture) |
 | NAV-C | THE SHIPS OF THE ILIAC BAY: nine classes in three trades, their names and captains off the region's name bank, the crowns their navies serve; the captains' seamanship; the traffic | `systems/naval/navalShips.js` (SHIP_CLASSES, CROWNS), `navalAI.js`, `navalDirector.js`, `scenes/comeSailAwayPool.js` (seaBoats, spawnSeaNow) |
 | NAV-D | BOARDING, PLUNDER, THE LAW AND THE QUESTS: grapples, musters, the prize window's model, holds and flotsam, notoriety and the crowns' law, Warm Ashes' raids started and gated | `systems/naval/navalBoarding.js`, `navalPlunder.js`, `navalLaw.js`, `systems/warmAshesShips.js` (the gate) |
-| NAV-E | THE SOUNDS: six synthesised clips baked to DAGGER.SND's own format (a seventh, the run-out, with AUDIT NAV1), and the distances every naval sound carries | `tools/navalSfx.mjs`, `tools/sfxSynth.mjs`, `systems/naval/navalSounds.js`, `public/sfx/naval-*.wav` |
+| NAV-E | THE SOUNDS: six synthesised clips baked to DAGGER.SND's own format (a seventh and an eighth, the run-out and the ready, with AUDIT NAV1), and the distances every naval sound carries | `tools/navalSfx.mjs`, `tools/sfxSynth.mjs`, `systems/naval/navalSounds.js`, `public/sfx/naval-*.wav` |
 | NAV-F | THE UI, ENHANCED PLUS: the helm's readout (ship plate, battery rose, aim, target card) and the plunder window, in the stone-and-brass kit on either skin | `ui/navalHud.js`, `ui/navalPlunderDoor.js`, `ui/navalPlunderWindow.js`, `ui/enhancedFrame.js` (FRAME_ROLES, scopeRules) |
 | NAV-G | ONLINE: one player stands the sea for everyone near; the ships, volleys and barrels ride the foes frame; a blow on another's ship goes to its owner; a boarding claims the ship | `systems/naval/navalWire.js`, `scenes/exteriorFoes.js` (setOnNaval), `scenes/comeSailAwayPeers.js` (helmBoats) |
 | NAV-H | THE HOST: the sea fight stood in the streaming world - the frame, the input, the activation, the draw, the lights, the origin, the colliders, the save, the transitions, the quests, the settings | `scenes/navalHost.js`, `scenes/world.js` (the NAV-H block) |
@@ -360,11 +360,14 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   place, hidden with the HUD and under every window. The SHIP PLATE (bottom right): the hull, sails and crew as the
   vitals' banded bars with brass clasps (the hull in health's red, the canvas in bone, the crew in fatigue's green; a
   hull under a quarter pulses), chips for fire, brace and a crippled ship, the crown's waters and four notoriety
-  anchors, the BATTERY ROSE (bow over stern, port and starboard either side - each its guns, filling as it reloads,
-  gold when the look lays it, brass-edged when loaded) and the hint (the key that matters most first - a ship in reach
+  anchors, the BATTERY ROSE (bow over stern, port and starboard either side - each its guns, filling as it reloads
+  and FULL brass when loaded, flashing as it comes ready - AUDIT NAV1 - gold when the look lays it, brass-edged when it
+  can fire) and the hint (the key that matters most first - a ship in reach
   to board or plunder, then the guns). The AIM under the crosshair (AUDIT NAV1: dimmed, with why, while the battery
   cannot fire). The TARGET CARD under the compass: her name, class and captain, the distance, her hull and sails,
-  whether she is hostile, her state and the key that boards her - while a broadside is laid, the ship its guns strike. On
+  whether she is hostile (its red over her trade's colour), her state and the key that boards her - while a broadside is
+  laid, the ship its guns strike; her hull bar reads a hit as the foe bar does (AUDIT NAV1: `ui/barLoss.js` - the ghost
+  where it was, a piece breaking off, the card flashing). On
   foot, the card alone - while a struck ship or a prize is in reach. AUDIT NAV1: THE SEA'S SHIPS ON THE COMPASS, both skins
   (a bow's triangle in what she is to me); THE WARNING over the crosshair -
   BROADSIDE and the brace's key, pulsing in the kit's blood edge - while a run-out bears on you and until its balls are
@@ -400,14 +403,19 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
 
 ## The sounds (NAV-E)
 
-Seven clips, OURS, synthesised from noise and sine by `tools/navalSfx.mjs` on the gun lab's kit (`tools/sfxSynth.mjs`,
+Eight clips, OURS, synthesised from noise and sine by `tools/navalSfx.mjs` on the gun lab's kit (`tools/sfxSynth.mjs`,
 moved out of `tools/gunSfx.mjs` unchanged - its three clips come out byte for byte as before) and baked to DAGGER.SND's
 own 11025 Hz 8-bit mono by `tools/sndify.mjs`: the long gun near, a broadside across the bay (past NEAR_BOOM_M), the
 swivel, a ball into oak, a powder barrel, the grapnels - and AUDIT NAV1's seventh, a battery RUNNING OUT (four gun
 carriages' trucks rumbling over the deck seams one after another, the tackles creaking, the carriages brought up hard
-against the sills: the tell before a broadside, carried to 900 m). DAGGER.SND's own play by index: the splashes, the ship's bell
-as the colours come down, the bubbles of a ship going down, the burning loop. Every sound carries its own range
-(`navalSounds.js` NAVAL_SOUND_RANGE: the bus's footstep profile would have made a broadside at 300 m silence).
+against the sills: the tell before a broadside, carried to 900 m), and its eighth, a battery of mine READY (the rammer's
+head rapped twice on the muzzle, the gun captain's iron tapped on the breech - heard at my own helm). DAGGER.SND's own
+play by index: the splashes, the ship's bell as the colours come down, the bubbles of a ship going down, the burning
+loop. Every sound carries its own range (`navalSounds.js` NAVAL_SOUND_RANGE: the bus's footstep profile would have made
+a broadside at 300 m silence), and none is played past its range's end (AUDIT NAV1: the bus's inverse law never
+reaches silence). THE MIX (AUDIT NAV1, "The presentation"): each report its own pitch and level, my own ripple at one
+over the root of its guns, the far roll once a volley and crossfaded in equal power with the near reports over
+FAR_FADE_M either side of NEAR_BOOM_M; a ball of mine striking her heard at HIT_CONFIRM_REF_M.
 
 ## The picture (NAV-B)
 
@@ -420,7 +428,10 @@ red on her, grey while the battery cannot fire. The textures are procedural
 camp's size), carried on her deck as she heels, lists and trims, and out as the sea reaches each (FLAME_AWASH); a
 muzzle flash and a burning deck light the scene (MUZZLE_FLASH_COLOR, BURN_COLOR,
 BURN_LIGHTS). A sea ship's flag flies her colours (`navalShips.js` NAVAL_FACTIONS' `flag`, the one table; the renderer
-draws the flags in runs of one colour - `flagRuns` - the player's boats keeping FlagMaterial's orange).
+draws the flags in runs of one colour - `flagRuns` - the player's boats keeping FlagMaterial's orange) - by her state
+(AUDIT NAV1): her faction's while she sails, down when she strikes or founders, the captor's orange once taken; a hull the
+mod gave no flag (the Carrack) is given the Small Ship's at her tallest mast's truck (`comeSailAwayPool.js`
+graftColours, FLAG_DONOR_HULL). A hull hit's burst is grown for an eye far off (HIT_BURST_M, HIT_BURST_MAX).
 
 **Found on the way, fixed at the root**: Come Sail Away's stand-in for Unity's Default-Particle was a WHITE disc with
 its shape in alpha, sampled by the drops' "Alpha Blended Premultiply" material (One, OneMinusSrcAlpha), whose `One`
@@ -592,6 +603,11 @@ sea's ships on the compass (#14's second) and the aim's reasons (#5's readout); 
 | a peer never sees a sinking (#1) | a puppet's damage was never stepped and every word's `restore` set her sinking clock to nought: a peer's brig stood whole at the surface for 22 s, then was removed from 40 m | her sinking run on the peer's own clock between the words (`sinkOn`, to SINK_SECONDS at most); `restore` starts it only on a new sinking; one the word lets go of while she sinks finishes going down (`letGo`, `lost`) - an afloat one goes at once, a room left takes them all; a second scuttle never starts her over | a peer's brig settles with the stander's; let go of at 18 s, gone at 21.9 s, 1.9 m under |
 | fire and sinking disagree (#7) | a burning ship holed to nought lost her flames and her loop within 0.1 s (`settle` doused her); a scuttled prize "burns to the waterline" kept hers at her deck's height as she settled - at 20 s they burned 5.1 m under the sea, and 62 embers and puffs were born under it (the sea writes no depth: they showed through) | her fires burn on as she goes down (the sinking douses nothing - a scuttling's torch), each flame on her deck as she lies (through her mesh object: heel, list and trim) and out as the sea reaches its place (FLAME_AWASH), no ember nor smoke born under the sea; the loop out with her last flame | holed: out at 7.9, 8.5, 9.1 s; scuttled: 6.9, 7.5, 8.1 s; nothing under the sea |
 | her colours as she goes down (#8, its sinking part) | her faction's flag flew on from a masthead under the sea | the flag's emitter stopped as she founders | - |
+| a hit barely registers (#3) | her hull struck at 150 m came to the helm at -19 to -20 dB (the hit's reference 16 m), 2.4 s after the ripple, under its roll; splinters 0.18-0.4 m (two pixels), the flash eight for 0.08 s; her card's bar slid for 160 ms | a ball of mine striking her heard at HIT_CONFIRM_REF_M; the burst grown for a far eye (HIT_BURST_M to HIT_BURST_MAX: the splinters, flash and puff by it, thrown faster, a few more); her card's hull bar reads it as the foe bar does - the ghost where it was, a piece breaking off over the span, the card's frame flashing CARD_HIT_S (`ui/barLoss.js`, the vitals' law in a home of its own) | at 150 m -8 dB; a splinter up to 1.2 m |
+| the reload silent and backwards (#5) | nothing played as a side came ready (9.2 s: only a class changed); the fill read 97% at 97% and dropped to nought, loaded; its wash 1.4-1.6:1 on its chip | the gun captain's word as a battery of mine comes ready (NAVAL_SFX.ready, the eighth clip), its chip's flash for READY_FLASH_S, never for a side loaded when I take the helm; a loaded side FULL brass; the wash with a lit level line - the aim's reasons and the braced release are the helm's | the wash 2.2-3.0:1 on every theme, its line more; the text on it over 4:1 |
+| a ship's colours (#8) | struck, taken and sinking flew her faction's flag; the Carrack's prefab had no FlagObject - the pirate flagship and the merchant carrack flew no colours; a hostile navy or merchantman's card kept its trade's colour (`.hostile` lost by source order) | her colours by her state - hers afloat, down struck or going down, the captor's orange taken; the Small Ship's FlagObject grafted at a flagless sea hull's tallest truck (`graftColours`), a player's Carrack the mod's own; the hostile red last | the Carrack's black at 47.5 m |
+| the mix clips, and far guns get louder (#9) | my ripple of six summed to +3.4 dBFS at the default volume (11% of samples clipped at full); every gun one clip at pitch 1; the far roll 6.5 dB over the near at the switch, and played once a GUN; the inverse law never silent (0.006 at 5 km) | THE MIX: my own ripple at one over the root of its guns, each report GUN_PITCH_JITTER and GUN_GAIN_JITTER_DB its own; the far roll once a volley at FAR_MATCH times the root of her guns (the clips' own RMS through their references), crossfaded in equal power over FAR_FADE_M either side of NEAR_BOOM_M; nothing past its range | my ripple -4.4 dBFS at the default volume; at full 0.27% of samples (a single report is 0.95 - the bus has no limiter: a bus-wide change, not the arc's to make) |
+| the broadside's feel (#16) | the release shook the camera once, 1.2 (a Thunderlock pistol 3); a powder barrel on my deck 1.6 to a holed ball's 2.5; each launch 2.8 m aft of its port at 6 m/s | each gun of mine kicks as it goes (GUN_KICK, along the ripple); a barrel's blast BLAST_SHAKE; the launch carry the guns' slice's (`volleyLaunches` carry) | six kicks of 1.1 a Small Ship's broadside |
 
 ## The tests
 
@@ -619,16 +635,18 @@ the sea's region and a crown's, the world host's pin and endRaid and stand-down 
 polled, the cast-off, the surrender, the fire's finish, the founder, no save mid-fight, the helm on return, the dealt
 deck, the fight's card, the prize's papers, the minors) and `navaudit_presentation` (going down - every hull under,
 her list and trim, her spars as they stand, a peer's sinking on their own clock and let go of, her fires to the
-waterline, her colours), on the shared sea of `test/navalSea.mjs`.
+waterline, her colours; the mix, a hit that registers, the ready, her bar's loss, her colours by her state and the
+Carrack's), on the shared sea of `test/navalSea.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
-`navaudit_helm.json`, `navaudit_boarding.json` and `navaudit_presentation.json`, 535 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+`navaudit_helm.json`, `navaudit_boarding.json` and `navaudit_presentation.json`, 567 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
 audit's helm, and seven of other suites' re-aimed by content at the laws the helm keeps; 14 with the merge with
 main's OW6, and eight of the arc's own re-aimed by content at the lines the merge rewrote; 56 with the audit's
 boarding, and NAV-R's sheer-off and NAV-F's card foot re-aimed at the lines the boarding rewrote; 27 with the
-audit's presentation, going down);
+audit's presentation, going down; 32 with its feedback, and NAV-H's reload record re-aimed at the line the kick
+left);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 
