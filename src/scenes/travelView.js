@@ -37,9 +37,12 @@
 // activation, the relock on a press, the Morrowind zoom on the wheel -
 // never see them. The DOM around the canvas (the readout's button, the
 // travel panel, the chat) keeps its own clicks. The keyboard is the
-// host's, bar five things: the pause action (out), and the look keys TurnLeft /
+// host's, bar seven things: the pause action (out), the look keys TurnLeft /
 // TurnRight / LookUp / LookDown, which turn and tilt the view instead of
-// the traveller. Movement is CAMERA-RELATIVE: while a movement key is
+// the traveller, and the world's own two presses (TV_WORLD_ACTIONS, AUDIT
+// DEEP2 A2). The host's own activation keys - Interact, SocialInteract,
+// the loot keys - it refuses itself while the view is up (AUDIT OW5 V2),
+// under the journey panel's own E. Movement is CAMERA-RELATIVE: while a movement key is
 // held and no journey drives, the traveller turns toward the view's
 // heading, so W walks up the screen.
 //
@@ -97,6 +100,8 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   mountains: 'The mountains cannot be crossed on foot.',   // OW-MOUNTAINS: a spot among the peaks
   placesOnly: 'Travel Options only travels to places - click a town.',   // AUDIT DEEP T2-8: coordinate targeting off
   spot: 'The marked spot',
+  theSpot: 'the marked spot',   // AUDIT OW5 P5: inside a sentence ("L leads the party to the marked spot.")
+  partyHalted: 'The party has stopped.',   // AUDIT OW5 P5: a halt said - the panel only closed, and nobody knew why
   byRoad: (name) => `To ${name}, by the road`,
   acrossCountry: (name) => `To ${name}, across country`,
   toSpot: 'To the marked spot',
@@ -112,6 +117,8 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   aground: 'Your boat has run aground.',
   raidersAlongside: 'Pirates come alongside!',   // OWS3
   enemiesSlow: 'Enemies near - you slow your pace.',   // OW6: the journey held for an enemy near (systems/travelThreat.js), said once as it begins
+  // TV-WASD: the bar's line while the movement keys travel - the speed, and the governor's hold beside it (the land's; OW6: or an enemy's)
+  travelling: (rate, held = null) => (held != null && held < rate ? `Travelling at ×${held} of ×${rate}` : `Travelling at ×${rate}`),   // the travel strip's own sign
   inPlace: (place, region) => (region ? `${place}, ${region}` : place),
   nearPlace: (place, region) => (region ? `Near ${place}, ${region}` : `Near ${place}`),
   wilderness: (region) => (region ? `The wilds of ${region}` : 'The wilds'),
@@ -123,6 +130,22 @@ export function travelTripLine({ name = '', share = 0, spot = false, sea = false
   if (spot) return sea ? TRAVEL_VIEW_TEXT.toSpotBySea : TRAVEL_VIEW_TEXT.toSpot;
   if (sea) return TRAVEL_VIEW_TEXT.bySea(name);
   return share >= 0.5 ? TRAVEL_VIEW_TEXT.byRoad(name) : TRAVEL_VIEW_TEXT.acrossCountry(name);
+}
+
+/**
+ * TV-WASD (2026-09-28, Mac: "Also need to add the ability to travel faster with WASD"): THE KEYS TRAVEL. Under the view
+ * the movement keys walked the traveller at walking pace (TV1) - a crawl from 260 m up, beside a click's journey at
+ * Travel Options' x10. While the view is up and no journey drives, a held movement key runs the world's clock at the
+ * travel speed: the Travel Options panel's own spinner (DefaultStartingAccel until the player turns it, never past its
+ * limit), which TV2's governor then holds to what the land raises, as it holds a journey. The clock and not the legs, as
+ * a journey's: offline the calendar runs with the walk (the road costs its hours), online the body alone (TO-ONLINE).
+ * The body walks on its own feet - swimming, at a helm or aboard a boat, the keys are the sea's. The rate, or 0 while
+ * the keys walk at walking pace (Travel Options off: no spinner, no rate).
+ */
+export function travelWalkRate({ viewUp = false, journey = false, moving = false, onFoot = false, paused = false, accel = 0, limit = 0 } = {}) {
+  if (!viewUp || journey || !moving || !onFoot || paused) return 0;
+  const rate = Math.min(Math.trunc(Number(accel) || 0), Math.trunc(Number(limit) || 0));
+  return rate > 1 ? rate : 0;
 }
 
 /** The readout's place line: inside a location's rect its name; on its pixel outside the rect "Near" it; else the

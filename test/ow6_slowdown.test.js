@@ -10,7 +10,7 @@ import { THREAT_WARN_S, metresToReach, threatStep, threatCap } from '../src/syst
 import { createLoadGovernor } from '../src/systems/travelGovernor.js';
 import { TRAVEL_HELD_TEXT, TRAVEL_HELD_WHY } from '../src/ui/enhancedTravelControl.js';
 import { foeHostile, areEnemiesNearby } from '../src/systems/encounters.js';
-import { TRAVEL_VIEW_TEXT } from '../src/scenes/travelView.js';
+import { TRAVEL_VIEW_TEXT, travelWalkRate, TV_MOVE_ACTIONS } from '../src/scenes/travelView.js';
 
 const NORTH = { x: 0, z: 1 };
 
@@ -78,7 +78,7 @@ test('OW6: A RIDER AT x40 STRAIGHT AT A BAND - with the cap it comes into the ba
 test('OW6: the panel says why the clock is held - the land loading, an enemy near, the view down (it said "while the land loads" for all three); the hostility gate is the sweep\'s own, one home', () => {
   assert.equal(TRAVEL_HELD_TEXT(20, 40), 'Held to ×20 of ×40 while the land loads');
   assert.equal(TRAVEL_HELD_TEXT(5, 40, 'foes'), 'Held to ×5 of ×40 with enemies near');
-  assert.equal(TRAVEL_HELD_TEXT(1, 40, 'down'), 'Held to ×1 of ×40 until the Overworld rises');
+  assert.equal(TRAVEL_HELD_TEXT(1, 40, 'ground'), 'Held to ×1 of ×40 until the Overworld rises');   // AUDIT OW5 G1's word
   assert.equal(TRAVEL_HELD_TEXT(1, 40, 'junk'), `Held to ×1 of ×40 ${TRAVEL_HELD_WHY.load}`);
   assert.equal(TRAVEL_VIEW_TEXT.enemiesSlow, 'Enemies near - you slow your pace.');
   const foe = (o = {}) => ({ dead: false, ai: { isHostile: true, detected: true, inSight: true }, entity: { mobileEnemy: { team: 'Orcs' } }, ...o });
@@ -107,13 +107,13 @@ const governorHost = (over = {}) => {
     ...over,
   };
   const scope = {
-    travelControlUI: { get isShowing() { return d.journey; } }, travelOptions: { state: { get autopilot() { return d.journey ? {} : null; } } },
-    travelView: { get active() { return d.up; } }, tvOwnsJourneys: () => d.owns,
+    travelControlUI: { get isShowing() { return d.journey; }, get timeAcceleration() { return d.spinner ?? 0; }, accelerationLimit: () => 100 }, travelOptions: { state: { get autopilot() { return d.journey ? {} : null; } } },
+    travelView: { get active() { return d.up; }, get state() { return d.up ? 'up' : 'off'; } }, tvOwnsJourneys: () => d.owns,
     worldTimeScale: () => d.scale, setWorldTimeScale: (n) => { d.scale = n; },
     travelGovernor: createLoadGovernor({ max: 100 }), state: { terrainDistance: 3, localFromWorld: (x, z) => [x, z] },
     playerTravelPixel: () => ({ x: 100, y: 100 }), tvGroundGenNow: () => 1, _tvUnbuilt: { gen: -1, x: NaN, y: NaN, r: -1, n: 0 },
     unbuiltAround: () => d.unbuilt, built: new Set(),
-    player: { feetAt: () => [0, 0, 0], get speed() { return d.speed; } },
+    player: { feetAt: () => [0, 0, 0], get speed() { return d.speed; }, isPlayerSwimming: false },
     getPref: () => d.camps, playerEntity: { get preventEnemySpawns() { return d.prevent; } },
     bandNowMs: () => 0, bandSight: () => 320, tvBandSeen: { night: false }, travelViewBands: () => d.bands,
     _bandSpent: d.spent, _bandChase: d.chases, bandMake: () => ({ mobileTypes: [1], name: 'Orc' }), bandPlace: (b) => b.at,
@@ -122,12 +122,15 @@ const governorHost = (over = {}) => {
     tvRaid: { spent: new Set(), chase: d.raidChase }, RAIDER_CONTACT_M: 60, RAIDER_CHASE_MPS: 4.2, seaRaidPeerChase: (id) => d.peerRaid?.[id] ?? null,
     exteriorFoes: { get foes() { return d.foes; } }, foeHostile, SIGHT_RADIUS: 102.4,
     get _travelDrive() { return d.driveYaw == null ? null : { yaw: d.driveYaw }; }, threatCap,
-    townTalk: { say: (t) => d.said.push(t) }, TRAVEL_VIEW_TEXT, performance: { now: () => d.now },
+    tvSay: (t) => d.said.push(t), TRAVEL_VIEW_TEXT, performance: { now: () => d.now },   // AUDIT OW5 G2: the view's own lines through tvSay
+    // TV-WASD (main): the keys' travel beside the journey - none held unless a test says so
+    travelWalkRate, TV_MOVE_ACTIONS, held: (keys, a) => keys.has(a), keys: d.keys ?? new Set(), walkMode: true, playerSpawned: true,
+    csaBoatUnderMe: () => null, gamePaused: () => false, csaHoldsTimeScale: () => d.helm ?? false, resetTimeScale: () => { d.scale = 1; },
   };
   const names = Object.keys(scope);
   const body = `
     let { ${names.filter((n) => n !== '_travelDrive').join(', ')} } = s;
-    let tvHeld = null, tvHeldWhy = null;
+    let tvHeld = null, tvHeldWhy = null, tvWalking = 0, _tvWalkYaw = d.walkYaw ?? null;
     const travelAsked = d.asked;
     ${constLine('JOURNEY_SLOW_SAY_MS')}
     let _slowWas = null, _slowSaidAt = -Infinity;
@@ -187,17 +190,38 @@ test('OW6 host run: ON THE CLASSIC SKIN (no view), A FOE STANDING AHEAD HOLDS TH
     q.govern(0.033);
     assert.deepEqual(q.held(), [null, null]);
   }
+  const helm = governorHost({ up: false, owns: false, speed: 4, foes: [foe()], helm: true, scale: 3 });
+  helm.govern(0.033);
+  assert.deepEqual([helm.d.scale, ...helm.held()], [3, null, null], 'the helm\'s own time step holds the clock: left to it (AUDIT OW5 G5\'s law)');
   const down = governorHost({ up: false, owns: true, foes: [foe()] });
   down.govern(0.033);
-  assert.deepEqual([down.d.scale, ...down.held()], [1, 1, 'down']);
+  assert.deepEqual([down.d.scale, ...down.held()], [1, 1, 'ground']);   // AUDIT OW5 G1's word
   const none = governorHost({ journey: false, foes: [foe()] });
   none.govern(0.033);
   assert.deepEqual(none.held(), [null, null]);
 });
 
+test('OW6 x TV-WASD host run: THE KEYS\' TRAVEL SLOWS FOR ENEMIES TOO - held at the spinner\'s x40 under the view, a band ahead along the way the keys last moved holds it (the reason the enemies), one behind holds nothing, and the keys let go let the hold go (mutants: the keys uncapped, their way unread)', () => {
+  const keys = () => new Set([TV_MOVE_ACTIONS[0]]);
+  const band = [{ id: 'b1', at: { x: 0, z: 2000 } }];
+  const ahead = governorHost({ journey: false, keys: keys(), spinner: 40, driveYaw: null, walkYaw: 0, bands: band });
+  ahead.govern(0.033);
+  assert.deepEqual([ahead.d.scale, ...ahead.held()], [20, 20, 'foes'], 'x20 of x40: (2000 - 320) / (5 x 16) = 21, down the ladder');
+  assert.deepEqual(ahead.d.said, [TRAVEL_VIEW_TEXT.enemiesSlow], 'and said, as a journey\'s is');
+  const behind = governorHost({ journey: false, keys: keys(), spinner: 40, driveYaw: null, walkYaw: Math.PI, bands: band });
+  behind.govern(0.033);
+  assert.deepEqual([behind.d.scale, ...behind.held()], [40, null, null], 'walking away from it: the keys\' own speed');
+  ahead.d.keys.clear();
+  ahead.govern(0.033);
+  assert.deepEqual([ahead.d.scale, ...ahead.held()], [1, null, null], 'the keys let go: walking pace, nothing held');
+});
+
 test('OW6 host wiring: the governor runs before the frame reads its scale, the panel is handed the reason, the enemies\' cap is taken on both skins', () => {
   assert.match(W, /travelViewGovern\(dt\);[^\n]*\n\s*const travelScale = worldTimeScale\(\);/);
   assert.match(W, /heldWhy: tvHeldWhy,/);
-  assert.match(W, /const foes = journeyThreatCap\(!!travelView\?\.active\);/);
+  // since the merge with main: every fast travel the governor runs - a journey, or TV-WASD's keys along the way they last went
+  assert.match(W, /const foes = journey \|\| walk \? journeyThreatCap\(!!travelView\?\.active, !journey\) : null;/);
+  assert.match(W, /const yaw = _travelDrive \? \(_travelDrive\.yaw \* Math\.PI\) \/ 180 : keys \? _tvWalkYaw : null;/);
+  assert.match(W, /forward: 1 \}\) === 0\) \{ axes\.forward = 0; axes\.strafe = 0; \}\n\s*_tvWalkYaw = way;/, 'the keys\' way kept as they move the body');
   assert.match(W, /return threatCap\(\{ threats: journeyThreats\(up\), heading: yaw == null \? null : \{ x: Math\.sin\(yaw\), z: Math\.cos\(yaw\) \}, speedMps: player\?\.speed \?\? 0 \}\);/);
 });

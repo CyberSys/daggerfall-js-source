@@ -800,13 +800,19 @@ function markBox(q, vw) {
   return { x0: x0 - 4, x1: x0 + w + 4, y0: Math.min(q.y - 10, q.y - h), y1: q.y + 28 + extraLines(q) };
 }
 /** AUDIT DEEP2 E15: the pickable places' names (and distances), written to the hidden list when the set changes. */
+/** AUDIT OW5 R3: how often (ms) the words are written again when only a distance changed - a journey's distances
+ *  tick every tenth of a kilometre, and the list was emptied and built again on a third of the frames at speed. */
+export const TV_SAID_DISTANCE_MS = 5000;
 function sayPlaces(placed) {
   const list = parts?.said;
   if (!list) return;
-  let text = '';
-  for (const q of placed) if (q.m.pick && q.m.label) text += `${q.m.label}${q.m.sub ? `, ${q.m.sub}` : ''}\n`;
+  let text = '', names = '';
+  for (const q of placed) if (q.m.pick && q.m.label) { text += `${q.m.label}${q.m.sub ? `, ${q.m.sub}` : ''}\n`; names += `${q.m.label}\n`; }
   if (last.said === text) return;
-  last.said = text;
+  // AUDIT DEEP2 E15's own law, kept: written when the SET changes - the same places with new distances wait their turn
+  const at = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (last.saidNames === names && at - (last.saidAt ?? -Infinity) < TV_SAID_DISTANCE_MS) return;
+  last.said = text; last.saidNames = names; last.saidAt = at;
   const doc = list.ownerDocument;
   list.textContent = '';
   for (const line of text.split('\n')) if (line) { const li = doc.createElement('li'); li.textContent = line; list.append(li); }

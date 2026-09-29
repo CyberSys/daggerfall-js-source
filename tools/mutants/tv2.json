@@ -212,8 +212,8 @@
   {
     "name": "AUDIT-TV-A2-the-spinner-past-the-cap",
     "file": "src/scenes/world.js",
-    "old": "    const want = travelAsked;",
-    "new": "    const want = travelControlUI.timeAcceleration;",
+    "old": "    const want = journey ? travelAsked : walk;",
+    "new": "    const want = journey ? travelControlUI.timeAcceleration : walk;",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -382,7 +382,7 @@
   {
     "name": "AUDIT-DEEP-T2-8-coordinates-forbidden",
     "file": "src/scenes/world.js",
-    "old": "if (travelOptions?.settings?.targetCoordsAllowed === false) townTalk.say(TRAVEL_VIEW_TEXT.placesOnly); else travelViewWalkTo(hit.point, pix);",
+    "old": "if (travelOptions?.settings?.targetCoordsAllowed === false) tvSay(TRAVEL_VIEW_TEXT.placesOnly); else travelViewWalkTo(hit.point, pix);",
     "new": "travelViewWalkTo(hit.point, pix);",
     "tests": [
       "test/tv2_click_to_move.test.js"
@@ -462,8 +462,8 @@
   {
     "name": "AUDIT-DEEP2-B4-out-of-a-duel-by-click",
     "file": "src/scenes/world.js",
-    "old": "    if (duelEnemyNear() || areEnemiesNearby(exteriorFoePool())) { townTalk.say(TRAVEL_VIEW_TEXT.enemies); return false; }",
-    "new": "    if (areEnemiesNearby(exteriorFoePool())) { townTalk.say(TRAVEL_VIEW_TEXT.enemies); return false; }",
+    "old": "    if (duelEnemyNear() || areEnemiesNearby(exteriorFoePool())) { tvSay(TRAVEL_VIEW_TEXT.enemies); return false; }",
+    "new": "    if (areEnemiesNearby(exteriorFoePool())) { tvSay(TRAVEL_VIEW_TEXT.enemies); return false; }",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],

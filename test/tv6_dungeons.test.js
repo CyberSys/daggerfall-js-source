@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   TV_DUNGEON_TYPES, TV_DUNGEON_MAX, TV_DUNGEON_FIND_M, NATIVE_PER_M, dungeonFoundText, dungeonRows, spawnedPixels, filedSpawns, nearDungeons, dungeonApproach,
-  lastLegStart, dungeonToFind, TV_DUNGEON_FIND_PX,
+  lastLegStart, dungeonToFind,
 } from '../src/systems/travelDungeons.js';
 import { LOCATION_TYPES, CLIMATES, getMapPixelID } from '../src/formats/mapsFile.js';
 import { TV_FAR_RANGE } from '../src/systems/travelFarPlaces.js';
@@ -13,6 +13,7 @@ import { ARRIVAL_BUFFER } from '../src/systems/travelAutopilot.js';
 import { spawnedMapId, spawnsDungeon, createSpawnLedger, GENERAL_TTL_MINUTES } from '../src/world/spawnedDungeons.js';
 import { planRoute, routeLegs, routeDrawPoints, openStepBlocked, TV_MOUNTAIN_CLIMATE } from '../src/systems/travelRoute.js';
 
+// PIN MOVED (AUDIT OW5 G2): the Overworld's own lines are said through tvSay - held at the scale they are said at
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const loc = (name, locationType) => ({ name, mapTableData: { locationType } });
 /** A map row as systems/mapDirectory.js buildMapDict makes it (the key is the pixel id; the MapId carries more bits). */
@@ -155,7 +156,8 @@ test('TV6 readout: an undiscovered dungeon is an unnamed mark - its own look, a 
 
 test('TV6 host: the dungeons gathered once, listed on a pixel or a find, marked found (a far plate, a journey) or not (the lair); the find on the enhanced interface outdoors, through the port\'s own store, said on the screen', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /import \{ dungeonRows, spawnedPixels, filedSpawns, nearDungeons, dungeonApproach, lastLegStart, dungeonToFind, dungeonFoundText, NATIVE_PER_M, TV_DUNGEON_FIND_PX \} from '\.\.\/systems\/travelDungeons\.js';/);
+  // PIN MOVED (AUDIT OW5 J4): and the pixel's own box the approach keeps within
+  assert.match(w, /import \{ dungeonRows, spawnedPixels, filedSpawns, nearDungeons, dungeonApproach, pixelBox, lastLegStart, dungeonToFind, dungeonFoundText, NATIVE_PER_M \} from '\.\.\/systems\/travelDungeons\.js';/);
   assert.match(w, /_tvDungeonRows \?\?= dungeonRows\(mapDict\)/, 'AUDIT OW3 D3: gathered once off the map rows');
   assert.doesNotMatch(w, /\?\?= dungeon\w*\(locationIndex\)/, 'AUDIT OW3 D3: never a one-time snapshot of the live index');
   assert.match(w, /if \(tvDng\.at && tvDng\.at\.x === at\.x && tvDng\.at\.y === at\.y && tvDng\.dg === dg && tvDng\.grid === grid && tvDng\.n === n\) return tvDng\.list;/, 'kept between pixels and finds (and while the grid and the index hold)');
@@ -163,8 +165,8 @@ test('TV6 host: the dungeons gathered once, listed on a pixel or a find, marked 
   assert.match(w, /marks\.push\(\{ key: g\.key, at: tvSceneKept\(g, g\.x, g\.z, TV_PLACE_LIFT\), label: g\.loc\.name, sub: farDistanceText\(km\), kind: 'far', pick: true, edge: true \}\);/, 'a found one: a far plate, a journey');
   assert.match(w, /marks\.push\(\{ key: g\.key, at: tvSceneKept\(g, g\.x, g\.z, TV_PLACE_LIFT\), label: '\?', kind: 'lair' \}\);/, 'the rest: an unnamed lair, no journey, never held at the edge');
   assert.match(w, /if \(!isEnhanced\(\) \|\| \(modes\?\.mode \?\? 'exterior'\) !== 'exterior' \|\| !walkMode \|\| !playerSpawned\) return;/, 'the find: the enhanced interface, outdoors');
-  assert.match(w, /if \(discoverLocation\(g\.row\.mapID, \{ regionName: maps\.getRegionName\(g\.row\.regionIndex\), locationName: g\.loc\.name \}\)\) townTalk\.say\(dungeonFoundText\(g\.loc\.name\), 5\);/, 'the port\'s own store, and said');
-  assert.match(w, /tvFar = \{ at: null, near: -1, list: \[\] \};   \/\/ TV5: nor the far places\n\s*tvDng = \{ at: null, dg: -1, list: \[\], finds: \[\] \};   \/\/ TV6: nor the dungeons\n/, 'a load forgets them');
+  assert.match(w, /if \(discoverLocation\(g\.row\.mapID, \{ regionName: maps\.getRegionName\(g\.row\.regionIndex\), locationName: g\.loc\.name \}\)\) tvSay\(dungeonFoundText\(g\.loc\.name\), 5\);/, 'the port\'s own store, and said');
+  assert.match(w, /tvFar = \{ at: null, near: -1, list: \[\] \};   \/\/ TV5: nor the far places\n\s*tvDng = \{ at: null, dg: -1, list: \[\] \};   \/\/ TV6: nor the dungeons\n/, 'a load forgets them');
   assert.match(w, /dungeonFindFrame\(performance\.now\(\)\);   \/\/ TV6/, 'the find asked every frame (itself four times a second)');
   assert.match(w, /const plate = tvPlates\.list\.find\(\(p\) => p\.key === key\) \?\? tvFar\.list\.find\(\(p\) => p\.key === key\) \?\? tvDng\.list\.find\(\(p\) => p\.key === key && p\.summary\);/, 'a found dungeon\'s plate is its journey');
 });
@@ -176,8 +178,9 @@ test('AUDIT OW3 D1 host: the spawns off the live index, told as the spawned feat
   assert.match(w, /const dungeons = \(_tvDungeonRows \?\?= dungeonRows\(mapDict\)\), locAt = \(x, y\) => locationIndex\.get\(`\$\{x\},\$\{y\}`\), isFound = \(x, y\) => !!tvPlaceSummary\(x, y\);/);
   assert.match(w, /const list = nearDungeons\(\{ at, grid, dungeons, locAt, isFound, spawns: \[\.\.\.spawnedPixels\(locationIndex\), \.\.\.tvFiledSpawns\(at\)\], spawnKnown: tvSpawnKnown,\n\s*spawnFound: tvSpawnFound, spawnGone: \(s\) => tvSpawnGone\(s\.x, s\.y\) \}\)\.map\(placed\);/,
     'the rows, the live index, the spawns read afresh (AUDIT OW4 D4: and the found ones past it; D2: none gone) - and the grid handed in, so TV2\'s own spend no slot');
-  assert.match(w, /const finds = nearDungeons\(\{ at, dungeons, locAt, isFound, range: TV_DUNGEON_FIND_PX, max: Infinity \}\)\.filter\(\(g\) => !g\.found\)\.map\(placed\);/, 'the find\'s own list, uncapped (AUDIT OW5b D1)');
-  assert.match(w, /tvDng = \{ at, dg, grid, n, list, finds \};/);
+  // the find's own list, uncapped, is travelViewFindList (AUDIT OW5 D1 - test/ow5_audit.test.js mounts it); AUDIT OW5b D1's
+  // own, built beside the plates, gave way to it at the merge
+  assert.match(w, /tvDng = \{ at, dg, grid, n, list \};/);
   const m = /\n {2}(const tvSpawnFound = [^\n]*;)\n {2}(const tvSpawnKnown = [^\n]*;)\n/.exec(w);
   assert.ok(m, 'the two tests the host hands the list');
   const said = new Set();
@@ -227,11 +230,12 @@ test('AUDIT OW3 D2: THE ARRIVAL GUARD - no dungeon is found while the world is b
   let busy = true;
   const filed = [], lines = [];
   const g = { key: 'dng:1', found: false, spawn: false, row: { mapID: 1, regionIndex: 17 }, loc: { name: 'Castle Dread' }, x: 0, z: 500 * NATIVE_PER_M };
-  const frame = new Function('d', `let _tvFindAt = 0; const { isEnhanced, modes, walkMode, playerSpawned, worldMoveBusy, state, player, dungeonToFind, travelViewDungeons, tvDng, discoverLocation, maps, townTalk, dungeonFoundText } = d; return ${m[1]};`)({
+  // PIN MOVED (AUDIT OW5 D1/G2): the find asks its own uncapped list and says through tvSay
+  const frame = new Function('d', `let _tvFindAt = 0; const { isEnhanced, modes, walkMode, playerSpawned, worldMoveBusy, state, player, dungeonToFind, travelViewFindList, discoverLocation, maps, tvSay, dungeonFoundText } = d; return ${m[1]};`)({
     isEnhanced: () => true, modes: { mode: 'exterior' }, walkMode: true, playerSpawned: true, worldMoveBusy: () => busy,
-    state: { worldCoords: () => ({ x: 0, y: 0, z: 0 }) }, player: { pos: [0, 0, 0] }, dungeonToFind, travelViewDungeons: () => [], tvDng: { list: [], finds: [g] },   // AUDIT OW5b D1: the find's own list
+    state: { worldCoords: () => ({ x: 0, y: 0, z: 0 }) }, player: { pos: [0, 0, 0] }, dungeonToFind, travelViewFindList: () => [g],
     discoverLocation: (id, info) => { filed.push([id, info.locationName]); return true; }, maps: { getRegionName: () => 'Daggerfall' },
-    townTalk: { say: (t) => lines.push(t) }, dungeonFoundText,
+    tvSay: (t) => lines.push(t), dungeonFoundText,
   });
   frame(1000);
   assert.deepEqual([filed, lines], [[], []], 'mid-arrival: nothing found, nothing said, nothing saved');
@@ -324,16 +328,17 @@ test('AUDIT OW4 D1/D6 host: a walk to a spawn\'s DOOR is a place\'s - never refu
   const [fx, fz] = mid({ x: 10, y: 5 });
   const d = {
     state: { worldCoords: (p) => ({ x: p[0], y: p[1], z: p[2] }) }, maps: { getClimateIndex: (x, y) => climate(x, y) }, TV_MOUNTAIN_CLIMATE,
-    townTalk: { say: (t) => said.push(t) }, TRAVEL_VIEW_TEXT: { mountains: 'peaks', noWay: 'no way', spot: 'spot' },
+    townTalk: { say: (t) => said.push(t) }, tvSay: (t) => said.push(t), TRAVEL_VIEW_TEXT: { mountains: 'peaks', noWay: 'no way', spot: 'spot' },   // AUDIT OW5 G2: the walk's refusals say through tvSay
     playerTravelPixel: () => ({ x: 10, y: 5 }), terrainGen: { roads: () => null }, planRoute, tvWater: (x, y) => water(x, y),
     tvOpenBlocked: (ax, ay, bx, by) => openStepBlocked(climate, height, ax, ay, bx, by),
     tvRouteGround: () => ({ isWater: (x, y) => water(x, y), peakAt: (x, y) => climate(x, y) === TV_MOUNTAIN_CLIMATE, openBlocked: (ax, ay, bx, by, leaving = false) => openStepBlocked(climate, height, ax, ay, bx, by, leaving) }),   // AUDIT OW4 J3: the ground read once
     tvJoinedLegs: (from, plan) => { plans.push(plan); return routeLegs(plan.pixels, plan.kinds); },
-    dungeonApproach, lastLegStart, player: { pos: [fx, 0, fz] }, tvLegMid: mid,
+    dungeonApproach, pixelBox: () => null, lastLegStart, player: { pos: [fx, 0, fz] }, tvLegMid: mid,   // AUDIT OW5 J4: this map's own frame (its pixels are not the world's): the approach unclamped
     travelOptions: { beginTravelAlongRoute: (plan) => { begun.push(plan); return true; }, route: {} }, tvCautious: () => false, tvQuiet: false,
     partyWalkBegin: () => {}, travelGovernor: { reset: () => {} }, tvTrip: {}, routeDrawPoints, travelTripLine: () => '',
     // THE MERGE (OWS2): no boat on this walk - the planner asked on land, a refusal said as the view says it
     tvSeaMeans: () => null, dryLine: () => true, tvSeaAsk: () => null, tvSeaBegin: () => {}, tvSeaNoWay: () => said.push('no way'), crossesWater: () => false,
+    tvMooredDry: () => null,   // AUDIT OW5 S3: no moored boat here
   };
   const walkTo = new Function('d', `const { ${Object.keys(d).join(', ')} } = d; return ${m[1]};`)(d);
   const reset = () => { said.length = 0; begun.length = 0; plans.length = 0; };
@@ -370,7 +375,8 @@ test('AUDIT OW4 D1/D6 host: a walk to a spawn\'s DOOR is a place\'s - never refu
   assert.equal(begun[0].point.x, door.maxX + ARRIVAL_BUFFER, 'so the door is its EAST edge - faced to the feet it was the west, and the last leg crossed the walls');
   assert.deepEqual({ x: begun[0].point.x, z: begun[0].point.z }, dungeonApproach(door, start));
   assert.deepEqual(begun[0].legs.at(-1), { x: 14, y: 5, kind: 'open' }, 'the route ends on its own pixel');
-  assert.match(w, /if \(door\) n = dungeonApproach\(door, lastLegStart\(legs, state\.worldCoords\(player\.pos\), tvLegMid\)\);   \/\/ AUDIT OW4 D6\n\s*const ok = travelOptions\.beginTravelAlongRoute\(/, 'aimed once the route is known, before the journey takes it');
+  // PIN MOVED (AUDIT OW5 J4): kept inside the walk's own pixel
+  assert.match(w, /if \(door\) n = dungeonApproach\(door, lastLegStart\(legs, state\.worldCoords\(player\.pos\), tvLegMid\), undefined, pixelBox\(pix\.x, pix\.y\)\);   \/\/ AUDIT OW4 D6[^\n]*\n\s*const ok = travelOptions\.beginTravelAlongRoute\(/, 'aimed once the route is known, before the journey takes it');
 });
 
 test('AUDIT OW4 D2/D5/D4 host: THE KEPT LIST - rebuilt on ANY change to the index (its generation: a spawn gone and another come in one window), a kept spawn whose time ran out dropped at the next ask, and the found spawns past the stream listed with the rest (lifted and run)', () => {
@@ -379,15 +385,14 @@ test('AUDIT OW4 D2/D5/D4 host: THE KEPT LIST - rebuilt on ANY change to the inde
   assert.ok(m, 'the list');
   const index = new Map([['105,100', spawnLoc(105, 100)]]);
   const gone = new Set(), ghosts = [];
-  const env = new Function('d', `let tvDng = { at: null, dg: -1, list: [], finds: [] }, _tvDungeonRows = null, _locIndexGen = 0;
+  const env = new Function('d', `let tvDng = { at: null, dg: -1, list: [] }, _tvDungeonRows = null, _locIndexGen = 0;
     const { playerTravelPixel, discoveryGeneration, state, tvSpawnGone, nearDungeons, dungeonRows, mapDict, locationIndex, tvPlaceSummary, spawnedPixels,
-      tvFiledSpawns, tvSpawnKnown, tvSpawnFound, locationWorldRect, TV_DUNGEON_FIND_PX } = d;
+      tvFiledSpawns, tvSpawnKnown, tvSpawnFound, locationWorldRect } = d;
     ${m[1]}
     return { list: travelViewDungeons, bump: () => { _locIndexGen += 1; } };`)({
     playerTravelPixel: () => ({ x: 100, y: 100 }), discoveryGeneration: () => 0, state: { terrainDistance: 3 }, tvSpawnGone: (x, y) => gone.has(`${x},${y}`),
     nearDungeons, dungeonRows, mapDict: new Map(), locationIndex: index, tvPlaceSummary: () => null, spawnedPixels, tvFiledSpawns: () => ghosts,
     tvSpawnKnown: () => true, tvSpawnFound: () => true, locationWorldRect: (l, x, y) => ({ minX: x * 10, maxX: x * 10 + 4, minZ: y * 10, maxZ: y * 10 + 4 }),
-    TV_DUNGEON_FIND_PX,
   });
   const xs = () => env.list().map((g) => g.px);
   const first = env.list();
@@ -505,17 +510,20 @@ test('AUDIT OW4 D5/D3 host: every write to the index after the boot\'s fill bump
   // D3: the load forgets what the last run was told - AUDIT OW5b D4: every load, a pose or none
   const i = w.indexOf('  function overworldLoadReset() {');
   const body = w.slice(i, w.indexOf('\n  }\n', i));
-  assert.match(body, /tvDng = \{ at: null, dg: -1, list: \[\], finds: \[\] \};[^\n]*\n[\s\S]*\n\s*_announcedSpawnPixels\.clear\(\);$/, 'with the lists it empties, its last act');
+  assert.match(body, /tvDng = \{ at: null, dg: -1, list: \[\] \};[^\n]*\n\s*tvFind = \{ at: null, dg: -1, n: -1, list: \[\] \};[^\n]*\n[\s\S]*\n\s*_announcedSpawnPixels\.clear\(\);$/, 'with the lists it empties (the find\'s own too, AUDIT OW5 D1), its last act');
   assert.match(w, /function applyPose\(pose\) \{\n\s*overworldLoadReset\(\);[^\n]*\n\s*if \(!pose\) return;/, 'first, before a pose is asked for (AUDIT OW5b D4)');
 });
 
 // AUDIT OW5b D1: the find had read the Overworld's twelve, found first - and with twelve found about, no "?" stood and
-// no dungeon was found by approach. travelViewDungeons and dungeonFindFrame lifted out of world.js together and RUN.
+// no dungeon was found by approach. travelViewDungeons, the find's own list (travelViewFindList - AUDIT OW5 D1's, which
+// the merge kept for this audit's own) and dungeonFindFrame lifted out of world.js together and RUN.
 test('AUDIT OW5b D1 host run: TWELVE FOUND ABOUT, AND THE KEEP NEXT DOOR IS STILL SEEN AND STILL FOUND - its "?" on the ground the view shows spends none of the twelve, and the find reads its own list, uncapped (a keep two pixels off, past a one-pixel grid, is found at 942 m though no "?" stands for it)', () => {
   const w = rd('src/scenes/world.js');
   const list = /\n {2}(function travelViewDungeons\(\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
   const find = /\n {2}let _tvFindAt = 0;\n {2}(function dungeonFindFrame\(now\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
-  assert.ok(list && find, 'the list and the find lifted');
+  const own = /\n {2}(function travelViewFindList\(\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
+  const reach = /\n {2}(const TV_FIND_REACH = \d+;)/.exec(w);
+  assert.ok(list && find && own && reach, 'the list, the find\'s own list, its reach and the find lifted');
   const run = ({ grid, near, rect }) => {
     const at = { x: 300, y: 200 }, index = new Map(), rows = [], found = new Set();
     for (let i = 0; i < 14; i++) {   // fourteen found keeps past the grid, within the far range
@@ -524,20 +532,22 @@ test('AUDIT OW5b D1 host run: TWELVE FOUND ABOUT, AND THE KEEP NEXT DOOR IS STIL
     }
     rows.push(mapRow(near.x, near.y, LOCATION_TYPES.DungeonKeep)); index.set(`${near.x},${near.y}`, loc('Castle Nearby', LOCATION_TYPES.DungeonKeep));   // unfound
     const filed = [], said = [];
-    const env = new Function('d', `let tvDng = { at: null, dg: -1, list: [], finds: [] }, _tvDungeonRows = null, _locIndexGen = 0, _tvFindAt = 0;
+    const env = new Function('d', `let tvDng = { at: null, dg: -1, list: [] }, tvFind = { at: null, dg: -1, n: -1, list: [] }, _tvDungeonRows = null, _locIndexGen = 0, _tvFindAt = 0;
       const { playerTravelPixel, discoveryGeneration, state, tvSpawnGone, nearDungeons, dungeonRows, mapDict, locationIndex, tvPlaceSummary, spawnedPixels,
-        tvFiledSpawns, tvSpawnKnown, tvSpawnFound, locationWorldRect, TV_DUNGEON_FIND_PX, isEnhanced, modes, walkMode, playerSpawned, worldMoveBusy, player,
-        dungeonToFind, discoverLocation, maps, townTalk, dungeonFoundText } = d;
+        tvFiledSpawns, tvSpawnKnown, tvSpawnFound, locationWorldRect, isEnhanced, modes, walkMode, playerSpawned, worldMoveBusy, player,
+        dungeonToFind, discoverLocation, maps, tvSay, dungeonFoundText } = d;
+      ${reach[1]}
       ${list[1]}
+      ${own[1]}
       ${find[1]}
       return { list: travelViewDungeons, find: dungeonFindFrame };`)({
       playerTravelPixel: () => at, discoveryGeneration: () => found.size, state: { terrainDistance: grid, worldCoords: () => ({ x: 300.95 * 32768, z: (499 - 200 + 0.5) * 32768 }) },
       tvSpawnGone: () => false, nearDungeons, dungeonRows, mapDict: dictOf(rows), locationIndex: index, tvPlaceSummary: (x, y) => (found.has(`${x},${y}`) ? { name: 'x' } : null),
-      spawnedPixels, tvFiledSpawns: () => [], tvSpawnKnown: () => false, tvSpawnFound: () => false, TV_DUNGEON_FIND_PX,
+      spawnedPixels, tvFiledSpawns: () => [], tvSpawnKnown: () => false, tvSpawnFound: () => false,
       locationWorldRect: (l, x, y) => (l.name === 'Castle Nearby' ? rect(x, y) : { minX: (x + 0.4) * 32768, maxX: (x + 0.6) * 32768, minZ: (499 - y + 0.4) * 32768, maxZ: (499 - y + 0.6) * 32768 }),
       isEnhanced: () => true, modes: { mode: 'exterior' }, walkMode: true, playerSpawned: true, worldMoveBusy: () => false, player: { pos: [0, 0, 0] },
       dungeonToFind, discoverLocation: (id, info) => { filed.push(info.locationName); found.add(`${near.x},${near.y}`); return true; }, maps: { getRegionName: () => 'Daggerfall' },
-      townTalk: { say: (t) => said.push(t) }, dungeonFoundText,
+      tvSay: (t) => said.push(t), dungeonFoundText,
     });
     const shown = env.list();
     env.find(1000);

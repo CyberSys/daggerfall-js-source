@@ -62,8 +62,8 @@
   {
     "name": "TV6-never-found",
     "file": "src/scenes/world.js",
-    "old": "    if (discoverLocation(g.row.mapID, { regionName: maps.getRegionName(g.row.regionIndex), locationName: g.loc.name })) townTalk.say(dungeonFoundText(g.loc.name), 5);",
-    "new": "    townTalk.say(dungeonFoundText(g.loc.name), 5);",
+    "old": "    if (discoverLocation(g.row.mapID, { regionName: maps.getRegionName(g.row.regionIndex), locationName: g.loc.name })) tvSay(dungeonFoundText(g.loc.name), 5);",
+    "new": "    tvSay(dungeonFoundText(g.loc.name), 5);",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -122,7 +122,7 @@
   {
     "name": "TV6-kept-forever",
     "file": "src/scenes/world.js",
-    "old": "    tvDng = { at: null, dg: -1, list: [], finds: [] };   // TV6: nor the dungeons\n",
+    "old": "    tvDng = { at: null, dg: -1, list: [] };   // TV6: nor the dungeons\n",
     "new": "",
     "tests": [
       "test/tv6_dungeons.test.js"

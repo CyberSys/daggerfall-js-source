@@ -751,7 +751,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:643-646`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:9807 -
+`locationTileRect` answered null for the neighbour (world.js:9832 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read
@@ -931,6 +931,17 @@ curated onto the mod's tile so it is reachable, read at boot with the rest
 of the mod's settings (the tile's "Takes effect when the world next
 loads"). Off, the journey is the mod's beeline and its pixel-gated arrival,
 exactly.
+
+**The first-person switch (OW-TOGGLE, 2026-09-28).** `GeneralOptions.FirstPersonTravel`
+is the port's own key on the same pane, the same shape, OFF by default and on
+the tile - but read LIVE, not with the settings at boot: a flip takes effect
+at once (AUDIT OW5 T1), and its words say so. The Overworld's OW-ONLY
+(`06-Systems/Travel-View.md`) made every walked trip on the enhanced interface
+the Overworld's; on, this switch gives the mod's own first-person journey back
+- a map pick walked on the ground, the mod's resume for it, the view neither
+raised with it nor stopping it (`test/ow_toggle.test.js`). A journey of the
+mod's own begun at a boat's helm meets the mod's own ocean stop, as the mod
+does (AUDIT OW5 S1: the Overworld's crossing alone stands it down).
 
 **Not done, and said.** A gap barely wider than the corridor is threaded
 when it is on the line, or found while the detour walks past it at a

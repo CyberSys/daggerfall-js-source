@@ -122,8 +122,8 @@
   {
     "name": "OW6-S-classic-ungoverned",
     "file": "src/scenes/world.js",
-    "old": "      const rate = Math.min(travelAsked, foes.cap);",
-    "new": "      const rate = travelAsked;",
+    "old": "      const rate = csaHoldsTimeScale() ? null : Math.min(travelAsked, foes.cap);",
+    "new": "      const rate = csaHoldsTimeScale() ? null : travelAsked;",
     "tests": [
       "test/ow6_slowdown.test.js"
     ],
@@ -138,16 +138,6 @@
       "test/ow6_slowdown.test.js"
     ],
     "note": "The panel says the land is loading while an enemy holds the journey."
-  },
-  {
-    "name": "OW6-S-down-reason-lost",
-    "file": "src/scenes/world.js",
-    "old": "      tvHeldWhy = tvHeld != null ? 'down' : null;   // OW6: and says it as what it is",
-    "new": "      tvHeldWhy = tvHeld != null ? 'load' : null;",
-    "tests": [
-      "test/ow6_slowdown.test.js"
-    ],
-    "note": "The view-down hold says \"while the land loads\" again."
   },
   {
     "name": "OW6-S-spent-band-slows",
@@ -192,8 +182,8 @@
   {
     "name": "OW6-S-said-every-frame",
     "file": "src/scenes/world.js",
-    "old": "    if (why === 'foes' && _slowWas !== 'foes' && t - _slowSaidAt >= JOURNEY_SLOW_SAY_MS) { townTalk.say(TRAVEL_VIEW_TEXT.enemiesSlow, 3); _slowSaidAt = t; }",
-    "new": "    if (why === 'foes') { townTalk.say(TRAVEL_VIEW_TEXT.enemiesSlow, 3); _slowSaidAt = t; }",
+    "old": "    if (why === 'foes' && _slowWas !== 'foes' && t - _slowSaidAt >= JOURNEY_SLOW_SAY_MS) { tvSay(TRAVEL_VIEW_TEXT.enemiesSlow, 3); _slowSaidAt = t; }",
+    "new": "    if (why === 'foes') { tvSay(TRAVEL_VIEW_TEXT.enemiesSlow, 3); _slowSaidAt = t; }",
     "tests": [
       "test/ow6_slowdown.test.js"
     ],
@@ -202,7 +192,7 @@
   {
     "name": "OW6-S-reason-unshown",
     "file": "src/ui/enhancedTravelControl.js",
-    "old": "  const why = held != null ? TRAVEL_HELD_TEXT(held, accel, state.heldWhy) : '';   // OW6: and why",
+    "old": "  const why = held != null ? TRAVEL_HELD_TEXT(held, accel, state.heldWhy) : '';",
     "new": "  const why = held != null ? TRAVEL_HELD_TEXT(held, accel) : '';",
     "tests": [
       "test/tv2_click_to_move.test.js"
@@ -218,5 +208,65 @@
       "test/ow6_slowdown.test.js"
     ],
     "note": "A pacified foe reads hostile."
+  },
+  {
+    "name": "OW6-S-keys-uncapped",
+    "file": "src/scenes/world.js",
+    "old": "    const rate = Math.min(load, foes.cap);   // OW6: the ground's cap and the enemies', the lower",
+    "new": "    const rate = journey ? Math.min(load, foes.cap) : load;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "TV-WASD's keys' travel runs at the spinner's rate straight into a band's sight."
+  },
+  {
+    "name": "OW6-S-keys-way-unread",
+    "file": "src/scenes/world.js",
+    "old": "keys ? _tvWalkYaw : null;",
+    "new": "null;",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "The keys' way unread: a band behind the traveller holds a walk away from it."
+  },
+  {
+    "name": "OW6-S-keys-way-unkept",
+    "file": "src/scenes/world.js",
+    "old": "          _tvWalkYaw = way;   // OW6: the way the keys go, for the enemies' cap (travelViewGovern reads it next frame)\n",
+    "new": "",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "The keys' way never kept: the cap reads no heading for them."
+  },
+  {
+    "name": "OW6-S-line-unscaled",
+    "file": "src/scenes/world.js",
+    "old": "{ tvSay(TRAVEL_VIEW_TEXT.enemiesSlow, 3); _slowSaidAt = t; }",
+    "new": "{ townTalk.say(TRAVEL_VIEW_TEXT.enemiesSlow, 3); _slowSaidAt = t; }",
+    "tests": [
+      "test/ow5_audit.test.js"
+    ],
+    "note": "The enemies' line said past tvSay: at x20 its three seconds last a sixth of one (AUDIT OW5 G2's law)."
+  },
+  {
+    "name": "OW6-S-crossing-over-hold",
+    "file": "src/scenes/world.js",
+    "old": "worldTimeScale() !== (tvHeld ?? travelAsked)) setWorldTimeScale(tvHeld ?? travelAsked);",
+    "new": "worldTimeScale() !== travelAsked) setWorldTimeScale(travelAsked);",
+    "tests": [
+      "test/ow5_audit.test.js"
+    ],
+    "note": "A First-Person crossing's restore (AUDIT OW5 G5) sets the mod's ask over the enemies' hold, every frame."
+  },
+  {
+    "name": "OW6-S-classic-over-helm",
+    "file": "src/scenes/world.js",
+    "old": "      const rate = csaHoldsTimeScale() ? null : Math.min(travelAsked, foes.cap);",
+    "new": "      const rate = Math.min(travelAsked, foes.cap);",
+    "tests": [
+      "test/ow6_slowdown.test.js"
+    ],
+    "note": "The classic skin's cap sets the clock over Come Sail Away's own helm time step."
   }
 ]

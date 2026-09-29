@@ -1,23 +1,13 @@
 [
   {
-    "name": "OW5b-D1-find-reads-the-twelve",
-    "file": "src/scenes/world.js",
-    "old": "    const g = dungeonToFind({ feet: { x: n.x, z: n.z }, list: tvDng.finds ?? [], mid: (d) => d });",
-    "new": "    const g = dungeonToFind({ feet: { x: n.x, z: n.z }, list: tvDng.list, mid: (d) => d });",
-    "tests": [
-      "test/tv6_dungeons.test.js"
-    ],
-    "note": "The find reads the Overworld's twelve, found first: with twelve found about, nothing is ever found by approach."
-  },
-  {
     "name": "OW5b-D1-find-reach-short",
     "file": "src/scenes/world.js",
-    "old": "range: TV_DUNGEON_FIND_PX, max: Infinity })",
-    "new": "range: 1, max: Infinity })",
+    "old": "  const TV_FIND_REACH = 4;",
+    "new": "  const TV_FIND_REACH = 1;",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
-    "note": "The find's list reaches one pixel: a keep two pixels off, its middle within the kilometre, is never found."
+    "note": "The find's reach one pixel: a keep two pixels off, 942 m from the feet, is never found (AUDIT OW5 D1's list, kept at the merge)."
   },
   {
     "name": "OW5b-D1-lairs-spend-the-twelve",

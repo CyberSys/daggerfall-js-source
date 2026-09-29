@@ -483,7 +483,11 @@ test('OW-BIG (Mac: "The player sprite needs to appear larger"): under the travel
   const big = r.batches.at(-1);
   assert.notEqual(big, plain, 'a batch of its own at the step');
   assert.deepEqual([big.size.w, big.size.h].map((v) => Number(v.toFixed(6))), [plain.size.w * 6, plain.size.h * 6].map((v) => Number(v.toFixed(6))), 'six times the sprite');
-  assert.equal(big.selfCard, false, 'no giant\'s shadow');
+  assert.equal(big.selfCard, false, 'not the player\'s own card at the lamps');
+  // PIN MOVED (AUDIT OW5 R2): the giant casts nothing - noShadow, which every shadow replay skips; selfCard off was never that
+  assert.equal(big.noShadow, true, 'no giant\'s shadow');
+  assert.ok(!plain.noShadow, 'the sprite at its own size casts as ever');
+  assert.match(readFileSync(new URL('../src/render/shadowPass.js', import.meta.url), 'utf8'), /if \(b\.noShadow \|\| SHADOW_NO_CAST_ARCHIVES\.has\(b\.archive\)/, 'the replay skips a noShadow batch in every pass');
   const n = r.batches.length;
   draw({ yaw: 0.3, up: [0, 1, 0], grow: 6 });
   assert.equal(r.batches.length, n, 'the same step: the same batch');

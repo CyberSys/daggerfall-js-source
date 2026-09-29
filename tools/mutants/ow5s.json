@@ -22,18 +22,19 @@
   {
     "name": "OW5b-S2-window-ashore",
     "file": "src/scenes/world.js",
-    "old": "    if (gamePaused() || worldMoveBusy()) return;\n    const at = warmAshesOn()",
-    "new": "    if (worldMoveBusy()) return;\n    const at = !gamePaused() && warmAshesOn()",
+    "old": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused() || worldMoveBusy()) return;\n    const at = warmAshesOn()",
+    "new": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || worldMoveBusy()) return;\n    const at = !gamePaused() && warmAshesOn()",
     "tests": [
-      "test/ows3_raiders.test.js"
+      "test/ows3_raiders.test.js",
+      "test/ow5_audit.test.js"
     ],
     "note": "A window reads as ashore: every chase given up, the raider spent for its life."
   },
   {
     "name": "OW5b-S6-mid-move-chase",
     "file": "src/scenes/world.js",
-    "old": "    if (gamePaused() || worldMoveBusy()) return;\n    const at = warmAshesOn()",
-    "new": "    if (gamePaused()) return;\n    const at = warmAshesOn()",
+    "old": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused() || worldMoveBusy()) return;\n    const at = warmAshesOn()",
+    "new": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) return;\n    const at = warmAshesOn()",
     "tests": [
       "test/ows3_raiders.test.js"
     ],

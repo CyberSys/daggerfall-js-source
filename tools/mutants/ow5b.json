@@ -30,16 +30,6 @@
     "note": "Every band stands at 18-32 m: one met with the view down at 140 m is brought a hundred metres nearer."
   },
   {
-    "name": "OW5b-B3-mod-places",
-    "file": "src/scenes/world.js",
-    "old": "      if (l < baseCount) { _hubRows.push(loc); _bandPlacePixels.add(`${p.x},${p.y}`); }",
-    "new": "      _bandPlacePixels.add(`${p.x},${p.y}`); if (l < baseCount) { _hubRows.push(loc); }",
-    "tests": [
-      "test/tv7_bands.test.js"
-    ],
-    "note": "A world-data mod's addition walls the bands in - only where the mod is on: two players, two sets of bands."
-  },
-  {
     "name": "OW5b-B4-shared-clock",
     "file": "src/scenes/world.js",
     "old": "    _bandClock += dt * 1000;",

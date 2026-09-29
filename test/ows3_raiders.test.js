@@ -28,6 +28,7 @@ import { ANY_LOCATION_KEY } from '../src/systems/worldDataVariants.js';
 import { SHIP_TYPES } from '../src/systems/banking.js';
 import { TRAVEL_VIEW_TEXT } from '../src/scenes/travelView.js';
 
+// PIN MOVED (AUDIT OW5 G2): the Overworld's own lines are said through tvSay - held at the scale they are said at
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const M = NATIVE_PIXEL / 819.2;   // native units a metre
 const all = () => true;
@@ -213,13 +214,15 @@ test('OWS3 host wiring by source: the open sea a raider is born on, the shared c
   assert.match(w, /if \(px < 0 \|\| py < 0 \|\| px >= 1000 \|\| py >= 500 \|\| maps\.getClimateIndex\(px, py\) !== CLIMATES\.Ocean\) return false;\n\s*for \(let dy = -1; dy <= 1; dy\+\+\) for \(let dx = -1; dx <= 1; dx\+\+\) if \(!tvWater\(px \+ dx, py \+ dy\)\) return false;/, 'the open sea: the ocean\'s, every pixel about it water');
   assert.match(w, /const raidNowMs = \(\) => Date\.now\(\) \+ _sharedOffsetMs;/);
   assert.match(w, /const ms = raidNowMs\(\), life = Math\.floor\(ms \/ RAIDER_LIFE_MS\);\n\s*if \(life !== tvRaid\.life\) \{\n\s*tvRaid\.life = life; for \(const id of tvRaid\.spent\) if \(!tvRaid\.chase\.has\(id\)\) tvRaid\.spent\.delete\(id\);[^\n]*\n[\s\S]{0,500}?\n\s*\}\n\s*tvRaid\.list = raidersNear\(\{ at: playerTravelPixel\(\), ms, open: tvRaidOpen, sea: tvRaidSea \}\);/, 'AUDIT OWS A3: a new life forgets the last life\'s spent sails (a chase still running kept)');
-  assert.match(w, /if \(gamePaused\(\) \|\| worldMoveBusy\(\)\) return;\n\s*const at = warmAshesOn\(\) && isEnhanced\(\) && walkMode && playerSpawned && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && raidQuarry\(\);/, 'at sea on my own boat, held by a pause or a world moved (AUDIT OW5b S2/S6)');
+  // PIN MOVED (AUDIT OW5 R1): a window or a death HOLDS the chase above the gate - it read as ashore (test/ow5_audit.test.js
+  // mounts it); AUDIT OW5b S6: and a world being moved; S2: the quarry at sea on their own boat, its helm or its deck
+  assert.match(w, /if \(playerEntity\.health <= 0 \|\| modes\?\.deathUp\?\.\(\) \|\| gamePaused\(\) \|\| worldMoveBusy\(\)\) return;\n\s*const at = warmAshesOn\(\) && isEnhanced\(\) && walkMode && playerSpawned && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && raidQuarry\(\);/, 'at sea on my own boat; held by a death, a window or a world moved (AUDIT OW5 R1, OW5b S2/S6)');
   assert.match(w, /if \(!at\) \{ for \(const id of tvRaid\.chase\.keys\(\)\) seaRaidSpend\(id\); tvRaid\.chase\.clear\(\); return; \}/);
   assert.match(w, /if \(up && tvRaid\.chase\.size < 1\) \{\n\s*const sight = raiderSight\(isNight\(minuteNow\(\)\)\);/, 'sighted under the view, one at a time, by the hour\'s light');
   assert.match(w, /contact: up \? RAIDER_CONTACT_M : RAIDER_CONTACT_PLAY_M, now: tvRaid\.clock,/);
   assert.match(w, /tvRaid\.clock \+= dt \* 1000 \* Math\.max\(1, scale\);/);
   assert.match(w, /if \(step\.state === 'contact'\) raidContact\(\);/);
-  assert.match(w, /const said = warmAshesRaidAtSea\(\);\n\s*if \(said !== 'raid' && said !== 'raid-lent'\) return;\n\s*travelControlUI\?\.closeWindow\?\.\(\);\n\s*townTalk\.say\(TRAVEL_VIEW_TEXT\.raidersAlongside\);/);
+  assert.match(w, /const said = warmAshesRaidAtSea\(\);\n\s*if \(said !== 'raid' && said !== 'raid-lent'\) return;\n\s*travelControlUI\?\.closeWindow\?\.\(\);\n\s*tvSay\(TRAVEL_VIEW_TEXT\.raidersAlongside\);/);
   assert.match(w, /tvRaid\.chase\.clear\(\); tvRaid\.spent\.clear\(\); tvRaid\.list = \[\]; tvRaid\.at = -Infinity; tvRaid\.peer\.clear\(\); tvRaid\.spentAt\.length = 0;   \/\/ OWS3: no chase across a load/);
   assert.ok(w.indexOf('const tvRaid = {') < w.indexOf('tvRaid.chase.clear(); tvRaid.spent.clear();'), 'BOOT-TDZ: declared above the load that clears it');
   assert.match(w, /raidFrame\(dt\);[^\n]*\n\s*travelViewGovern\(dt\);/, 'each walking frame, before the cap');
@@ -269,6 +272,7 @@ const seaHost = (over = {}) => {
     RAIDERS_WIRE_MAX, RAIDER_WORD_MS, RAIDER_LIFE_MS, raiderWordOf, validRaiderWord, raiderNearMe, chaseYields, online: { id: 'b' },
     playerTravelPixel: () => d.me, ms: 0, raidNowMs: () => d.ms, now: 0, performance: { now: () => d.now },
     owed: [], owSaySpent: (id) => d.owed.push(id),   // OW6L: a spend is owed to the cell's ledger
+    tvSay: (t) => order.push(t),   // AUDIT OW5 G2: the Overworld's own lines, held at the clock's scale
     ...over,
   };
   const names = Object.keys(d).filter((k) => /^[A-Za-z_$][\w$]*$/.test(k));
