@@ -128,7 +128,7 @@ test('WB4b the seams, by source: the dungeon context meets him as a foe-shaped b
   assert.match(dc, /function landOnBoss\(boss, damage, r\) \{\n\s*if \(boss\.warded\) \{ wardTurns\(boss\); return false; \}\n\s*return !!opts\.onBossHit\?\.\(\{ d: damage, r \}\);/);
   const hm = read('src/scenes/hostMagic.js');
   // WBX7: the harmful families - and a Soul Trap, which met nobody before (it passed straight through him)
-  assert.match(hm, /function bossMarksFor\(sp\) \{\n\s*if \(!bossMark \|\| !castAtBoss \|\| !sp \|\| !\(duelSpellOf\(sp\) \|\| \(sp\.effects \?\? \[\]\)\.some\(\(e\) => e && isSoulTrapEffect\(e\)\)\)\) return \[\];/, 'the harmful families, and a soul trap');
+  assert.match(hm, /function bossMarksFor\(sp\) \{\n\s*if \(!bossMark \|\| !castAtBoss \|\| !sp \|\| !\(duelSpellOf\(sp\) \|\| \(sp\.effects \?\? \[\]\)\.some\(\(e\) => e && isSoulTrapEffect\(e\)\) \|\| spellSways\(sp\)\)\) return \[\];/, 'the harmful families, a soul trap - and WB8a: a sway, refused at him');
   for (const re of [
     /if \(boss && caster\?\.entity === playerEntity\) for \(const t of sweepFoes\(pos, EXPLOSION_RADIUS, bossMarksFor\(spell\)\)\) giveToBoss\(t, spell\);/,   // AUDIT WBX F5: `boss` (a Soul Trap meets him too)
     /const marks = \[\.\.\.allyMarksFor\(sp\), \.\.\.duelMarksFor\(sp\), \.\.\.bossMarksFor\(sp\)\];/,

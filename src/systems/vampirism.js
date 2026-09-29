@@ -37,7 +37,19 @@
 // liveStat: a live 0 kills). The skills' +30, holy ground's burn, the
 // feeding and the rest it gates, and the travel rules the sunDamage
 // flag still keys (no fast travel by day, arriving by night) stand
-// as DFU has them.
+// as DFU has them - for a bare head (VAMP-HOOD, below).
+//
+// VAMP-HOOD (2026-09-29, #suggestions, Starempire42: "adds the ability
+// to travel during the day if you a wearing a cloak or robe with a hood
+// up"; Sir McMobdon: "nice, good idea"; sent in by Mac): THE SECOND DEPARTURE.
+// The flag's travel rules ask racialSunAverse, never the flag: under
+// a raised hood - a cloak drawn hood up, or plain robes with theirs,
+// survival/temperature.js cloakState, the felt temperature's one hood
+// law - the sun does not reach the curse, so the map's door opens by
+// day and an arrival is not pushed to dusk. Online that is the whole
+// complaint: the shared clock's day is one real hour, and neither a
+// rest nor a trip moves that clock. The day's -20 is the hour's, not
+// the sun's (it holds indoors and underground), so a hood leaves it.
 //
 // THE QUESTS went live in V2d (racialQuests.js): P0A01L00 on the
 // first 50% hit of the 38-day arm with hasStartedInitialVampireQuest
@@ -67,6 +79,7 @@ import { RACES, RACE_TEMPLATES, raceById } from './races.js';        // V5: the 
 import { EFFECT_BITS, SPECIAL_ABILITY_BITS } from './specialAdvantages.js';   // DISC10-D V5: DFCareer.EffectFlags / SpecialAbilityFlags, for CreateCompoundRace
 import { SOUND } from './soundClips.js';   // V5: the gendered attack voices
 import { endVampireQuests } from './racialQuests.js';   // V2d: the cure's P0* tombstone sweep
+import { cloakState } from './survival/temperature.js';   // VAMP-HOOD: the ONE "is the hood up" - the felt temperature's, never a second list
 
 /** VampirismEffect.VampirismCurseKey (:33). */
 export const VAMPIRISM_CURSE_KEY = 'Vampirism-Curse';
@@ -123,6 +136,9 @@ export const NOT_SATED_TEXT_ID = 36;
  *  (VampirismEffect.cs:202) and the career DamageFromSunlight box at
  *  the travel map's door (DaggerfallUI.cs:619), so both speak it. */
 export const SUNLIGHT_TRAVEL_TEXT = 'You cannot initiate fast travel during the day.';
+/** VAMP-HOOD: the port's own line, said after DFU's refusal at the map's
+ *  door - the rule, where the sun's rule is met. */
+export const VAMPIRE_HOOD_TEXT = 'Raise the hood of a cloak or robe to travel by day.';
 
 /** The live curse entry, or null. VU1 moved the DECLARATION into
  *  systems/racialLive.js - an import-free leaf - because
@@ -352,14 +368,25 @@ export function liveRaceTemplate(entity) {
 // existing consumers.
 export { isDayFromMinutes };
 
+/** VAMP-HOOD: whether the sun reaches a racial override - its SunDamage
+ *  flag (CreateCompoundRace), UNLESS the wearer's hood is up. Every
+ *  rule the flag keys asks this: the map's door below and the arrival
+ *  clamp (world.js sunAverse). The worn table is read as the survival
+ *  feed reads it, never minted by the read. */
+export function racialSunAverse(entity) {
+  if (!entity?.racialOverride?.sunDamage) return false;
+  return !cloakState(entity.equip?.slots ?? null).hood;
+}
+
 /** CheckFastTravel (:129-141), called where DFU calls it - at the
  *  travel map's own door (DaggerfallUI.cs:625): a sun-damaged
- *  override cannot fast travel by day. Answers null, or the refusal
- *  line for the host to speak. */
+ *  override cannot fast travel by day - VAMP-HOOD: bare-headed. Answers
+ *  null, or the refusal line for the host to speak and the hood's
+ *  `hint` to speak after it. */
 export function racialFastTravelBlock(entity, nowMinutes = 0) {
-  if (!entity?.racialOverride?.sunDamage) return null;
+  if (!racialSunAverse(entity)) return null;
   if (!isDayFromMinutes(nowMinutes)) return null;
-  return { text: SUNLIGHT_TRAVEL_TEXT };
+  return { text: SUNLIGHT_TRAVEL_TEXT, hint: VAMPIRE_HOOD_TEXT };
 }
 
 /**

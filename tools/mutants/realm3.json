@@ -65,8 +65,8 @@
   {
     "name": "REALM3-boot-keeps-offline-id",
     "file": "src/systems/realmSaves.js",
-    "old": "  snap.characterId = id;\n  return { ok: true, snap, lease, seq: got.seq ?? seq };",
-    "new": "  return { ok: true, snap, lease, seq: got.seq ?? seq };",
+    "old": "  snap.characterId = id;\n  return { ok: true, snap, lease, seq: got.seq ?? seq, origin:",
+    "new": "  return { ok: true, snap, lease, seq: got.seq ?? seq, origin:",
     "tests": [
       "test/realm3.test.js"
     ]

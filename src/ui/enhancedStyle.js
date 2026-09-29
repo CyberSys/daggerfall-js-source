@@ -525,6 +525,10 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 }
 .tier.live { background: var(--verdigris); }
 .tier.unavailable { background: var(--blood); }
+/* FPS-VSYNC: a key the desktop app reads at its next start - live, but
+   not yet: the live colour as a ring (AUDIT 28e: it wore the stored
+   tier's grey). */
+.tier.restart { background: transparent; box-shadow: inset 0 0 0 1.5px var(--verdigris); }
 /* SO1: TIER IS A GROUP. The live rows sit flat; the stored and the
    unavailable fold under a heading that carries their count, so the
    list a beginner sees is short and nothing is ever hidden. */
@@ -1079,6 +1083,24 @@ img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn
 .card p.meta.acctwhy.bad { color: #e0906f; }
 .card p.meta.acctwhy.good { color: var(--verdigris); }
 .card p.meta.acctwhy:empty { display: none; }
+
+/* TERMS1: THE BOXES - "reviewed and checked off by players before
+   creating an account". A tick and a sentence whose last words are the
+   document it agrees to. The whole ROW is the tick's target (it is a
+   <label>) and stands at the field's 44px, because a 20px square is not
+   a thumb's; the sentence is the field label's quiet size; the box is
+   the browser's own, in the skin's brass (accent-color) rather than a
+   drawn fourth shape - told the page is dark (color-scheme), or its
+   UNTICKED face is the browser's white square, the one bright thing on
+   the card; and the document's name is brass and underlined, so the
+   thing to read is the thing that looks pressable. */
+.card label.acctagree {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0 0 6px;
+  font-size: 13px; line-height: 1.45; color: var(--dim); cursor: pointer;
+}
+.card label.acctagree input { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; accent-color: var(--brass); color-scheme: dark; cursor: pointer; }
+.card label.acctagree a { color: var(--brass); text-decoration: underline; text-underline-offset: 3px; }
+.card label.acctagree input:focus-visible, .card label.acctagree a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 
 /* ACC3c - THE WARDROBE. Mac put the equip control on the account card
    ("tap the account icon to equip 1 feature along with signing out"),
@@ -2174,6 +2196,7 @@ ${badgeCss()}
 .px-win.px-acctwin .card.acct .acts { justify-content: center; }
 .px-win.px-acctwin .card.acct label.field { align-items: center; }
 .px-win.px-acctwin .card.acct label.field input { text-align: center; width: 100%; }
+.px-win.px-acctwin .card.acct label.acctagree { justify-content: center; }   /* TERMS1: the boxes stand on the window's one axis too */
 .px-win.px-acctwin .card.acct ul.acctfacts li { justify-content: center; }
 /* AUDIT RENOWN1 UI-1: the KEY keeps its width and the VALUE may shrink and wrap. Both were "0 0 auto", and the
    Renown rows were the first long values this list held - "Mara Venn - Renown 10, 490 / 2,150 XP to Renown 11"
@@ -2534,29 +2557,101 @@ ${badgeCss()}
 .tview-route-line { fill: none; stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 9 6; stroke-linecap: round;
   stroke-linejoin: round; }
 .tview-trip { font-size: 11.5px; color: var(--brass); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* AUDIT DEEP2 E1/E13: the bar's foot is MEASURED clear of the HUD's vitals and a phone's buttons (travelViewHud.js
-   measureFurniture writes it; 18px is where it starts), and the bar takes its own clicks - a press on it missing Return
-   by a hair walked the traveller to ground hidden under it */
-.tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); pointer-events: auto;
-  display: flex; align-items: center; gap: 12px; min-width: min(560px, 94vw); max-width: 94vw; padding: 8px 12px;
-  background: linear-gradient(180deg, rgba(23,27,33,0.9), rgba(14,16,19,0.92));
+/* OW-BLOCK (2026-09-29, the player: "the whole bar in the top is too much ... a light weight block menu ... as much free
+   screen as possible", "put the overworld block to the right"): THE OVERWORLD'S BLOCK - one compact column in the bottom-right corner,
+   top to bottom: where (the compass beside it), the journey or none, the path and the map, the filters, the way back.
+   AUDIT DEEP2 E1/E13's law holds: its foot is MEASURED clear of whatever stands under it (travelViewHud.js
+   measureFurniture writes it; 18px is where it starts) and it takes its own clicks. On a touch screen the corner is the
+   buttons': it stands at the top right. */
+.tview-bar { position: absolute; right: 18px; bottom: 18px; pointer-events: auto; box-sizing: border-box;
+  width: 276px; max-width: calc(100vw - 36px); display: flex; flex-direction: column;
+  background: linear-gradient(180deg, rgba(23,27,33,0.9), rgba(14,16,19,0.93));
   border: 1px solid rgba(192,138,62,0.45); border-radius: 3px; box-shadow: 0 2px 14px rgba(0,0,0,0.55); }
-.tview-compass { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; position: relative;
+.tview-bar > * + * { border-top: 1px solid rgba(192,138,62,0.2); }
+.tview-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px 7px; min-width: 0; }   /* OW-BLOCK: where, and the trip - no compass (the HUD's is at the top) */
+.tview-compass { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; position: relative;
   border: 1px solid rgba(192,138,62,0.55); background: rgba(14,16,19,0.8); }
-.tview-needle { position: absolute; inset: 0; text-align: center; font-family: var(--display); font-size: 13px;
-  line-height: 14px; color: var(--brass); will-change: transform; }
-.tview-needle::after { content: ''; position: absolute; left: 50%; top: 15px; width: 2px; height: 12px;
+.tview-needle { position: absolute; inset: 0; text-align: center; font-family: var(--display); font-size: 11px;
+  line-height: 12px; color: var(--brass); will-change: transform; }
+.tview-needle::after { content: ''; position: absolute; left: 50%; top: 12px; width: 2px; height: 10px;
   margin-left: -1px; background: linear-gradient(180deg, var(--brass), rgba(192,138,62,0)); }
-.tview-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.tview-title { font-family: var(--display); font-size: 19px; line-height: 1.05; color: var(--brass); letter-spacing: 0.04em; }
-.tview-where { font-size: 12px; color: var(--bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tview-hint { font-size: 10.5px; color: var(--dim); letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* PERF-TV (the phone): the hint wraps rather than lose its last words to an ellipsis - the phone's hand is three gestures */
-@media (max-width: 520px) { .tview-hint { white-space: normal; } }
-.tview-back { pointer-events: auto; flex: 0 0 auto; padding: 7px 14px; cursor: pointer;
+.tview-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tview-title, .tview-label { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
+.tview-where { font-size: 12.5px; color: var(--bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tview-hint { display: none; }   /* OW-BLOCK: the hints are the head's tooltip */
+/* the journey, or none */
+.tview-dock { position: static; display: flex; flex-direction: column; min-width: 0; }
+.tview-idle { padding: 9px 12px; }
+.tview-idle-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tview-idle-name { font-size: 14px; color: var(--dim); }
+.tview-idle-sub { font-size: 11px; line-height: 1.35; color: var(--dim); letter-spacing: 0.03em; }
+/* the journey's own bar, reflowed into the column: the place on a line of its own, the clock and Camp / Exit under it
+   (its Map is the block's own, below) - its frame, place and parting rules dropped */
+#travel-view .tview-dock > .travelpanel-bar { position: static; transform: none; top: auto; left: auto; width: auto;
+  min-width: 0; max-width: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0;
+  border: 0; border-image: none; border-radius: 0; background: none; box-shadow: none; }
+#travel-view .tview-dock > .travelpanel-bar.hidden { display: none; }
+#travel-view .tview-dock .travelpanel-dest, #travel-view .tview-dock .travelpanel-speed, #travel-view .tview-dock .travelpanel-acts {
+  border: 0; box-shadow: none; background: none; }
+#travel-view .tview-dock .travelpanel-dest { flex: 1 1 100%; min-width: 0; max-width: none; padding: 9px 12px 5px; }
+#travel-view .tview-dock .travelpanel-name { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#travel-view .tview-dock .travelpanel-speed { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 8px; padding: 3px 0 9px 12px; }
+#travel-view .tview-dock .travelpanel-speed > .travelpanel-label { display: none; }
+#travel-view .tview-dock .travelpanel-acts { flex: 1 1 auto; display: flex; justify-content: flex-end; gap: 6px; padding: 3px 12px 9px 8px; }
+#travel-view .tview-dock .travelpanel-act[data-act="map"] { display: none; }
+#travel-view .tview-dock .travelpanel-act { padding: 5px 9px; }
+#travel-view .tview-dock > .travelpanel-msg { position: absolute; right: 0; left: auto; top: auto; bottom: calc(100% + 10px); transform: none;
+  white-space: nowrap; pointer-events: none; }
+/* the path and the map */
+.tview-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; }
+.tview-modes { display: flex; align-items: center; gap: 8px; }
+.tview-moderow { display: flex; gap: 0; }
+.tview-mode { pointer-events: auto; padding: 5px 10px; cursor: pointer; background: rgba(43,50,59,0.9); color: var(--dim);
+  border: 1px solid rgba(192,138,62,0.4); font-family: var(--data); font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; }
+.tview-mode + .tview-mode { border-left: 0; }
+.tview-mode:first-child { border-radius: 2px 0 0 2px; } .tview-mode:last-child { border-radius: 0 2px 2px 0; }
+.tview-mode:hover { color: var(--bone); border-color: var(--verdigris); }
+.tview-mode.on { background: rgba(192,138,62,0.28); color: var(--brass); }
+.tview-map, .tview-back { pointer-events: auto; flex: 0 0 auto; padding: 6px 14px; cursor: pointer;
   background: rgba(43,50,59,0.9); color: var(--bone); border: 1px solid rgba(192,138,62,0.4); border-radius: 2px;
   font-family: var(--data); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
-.tview-back:hover { background: rgba(78,127,114,0.35); border-color: var(--verdigris); }
+.tview-map:hover, .tview-back:hover { background: rgba(78,127,114,0.35); border-color: var(--verdigris); }
+.tview-mode:focus-visible, .tview-map:focus-visible, .tview-back:focus-visible { outline: 1px solid var(--brass); outline-offset: 1px; }
+/* OW-FILTER: the switches, two to a row - a dot in each group's own mark colour (TRAVEL_VIEW_MARK_COLORS), its word,
+   how many there are. Off is dimmed, never gone - the count still speaks. */
+.tview-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 8px 10px 10px; }
+.tview-filters > .tview-label { grid-column: 1 / -1; padding: 0 2px 2px; }
+.tview-filter { display: grid; grid-template-columns: 8px 1fr auto; align-items: center; gap: 7px; min-width: 0;
+  padding: 4px 7px; cursor: pointer; text-align: left; color: var(--dim); background: rgba(43,50,59,0.45);
+  border: 1px solid transparent; border-radius: 2px; font-family: var(--data); font-size: 11.5px; letter-spacing: 0.04em;
+  transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease; }
+.tview-filter.on { color: var(--bone); background: rgba(43,50,59,0.9); border-color: rgba(192,138,62,0.3); }
+.tview-filter:hover { border-color: var(--verdigris); }
+.tview-filter:focus-visible { outline: 1px solid var(--brass); outline-offset: 1px; }
+.tview-fword { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tview-fdot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,0.65); opacity: 0.3; transition: opacity 120ms ease; }
+.tview-filter.on .tview-fdot { opacity: 1; }
+.tview-fdot-towns { background: #e9e4d9; } .tview-fdot-distant { background: #c08a3e; } .tview-fdot-dungeons { background: #b0443a; }
+.tview-fdot-enemies { background: #e0503c; } .tview-fdot-travellers { background: #4e7f72; }
+.tview-fnum { min-width: 2ch; text-align: right; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.tview-filter:not(.on) .tview-fnum { opacity: 0.6; }
+/* OW-CONFIRM: the view's own question - over the map's upper middle, in the block's stone; its presses the Path switch's */
+.tview-confirm { position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%); pointer-events: auto; z-index: 2;
+  box-sizing: border-box; min-width: 280px; max-width: min(460px, calc(100vw - 32px)); padding: 14px 18px 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+  background: linear-gradient(180deg, rgba(23,27,33,0.94), rgba(14,16,19,0.95));
+  border: 1px solid rgba(192,138,62,0.45); border-radius: 3px; box-shadow: 0 4px 22px rgba(0,0,0,0.6); }
+.tview-confirm-words { display: flex; flex-direction: column; gap: 4px; }
+.tview-confirm-ask { font-size: 16px; color: var(--bone); }
+.tview-confirm-row { font-size: 12px; color: var(--dim); }
+.tview-confirm-presses { gap: 8px; }
+.tview-confirm-presses > .tview-mode { min-width: 84px; padding: 6px 14px; border-left: 1px solid rgba(192,138,62,0.4); border-radius: 2px; }
+/* the way back */
+.tview-foot { display: flex; padding: 8px 12px 10px; }
+.tview-foot > .tview-back { flex: 1 1 auto; text-align: center; }
+@media (pointer: coarse) { .tview-bar { bottom: auto; top: 14px; } }
+@media (max-width: 520px) { .tview-bar { right: 10px; width: calc(100vw - 20px); } }
+@media (prefers-reduced-motion: reduce) { .tview-filter, .tview-fdot { transition: none; } }
 .travelpanel-msg { position: absolute; left: 50%; top: 86px; transform: translateX(-50%);
   font-size: 13px; color: var(--brass); text-shadow: 0 1px 2px rgba(0,0,0,0.9);
   opacity: 0; transition: opacity 180ms ease; }
@@ -4975,6 +5070,17 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
   transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease-out;
 }
 .notice.notice-in { transform: translateX(0); opacity: 1; }
+/* OW-NOTICES (2026-09-29, the player: "the notifications on the right side go into the box"): under the Overworld its
+   block stands at the right edge (ui/travelViewHud.js publishBlock) - the stack stands clear of it: at the foot, its own
+   foot over the block's top and growing upward; on a touch screen (the block at the top) from under the block down. */
+/* OW-NOFLASH (2026-09-29, the player: "when i click to move out of not moving somewhere the old topscreen travel screen
+   popsup for a fraction of a seconds"): a journey's bar is built at the top of the screen and docked into the block on
+   the view's next frame - while the block stands, the bar is never seen anywhere but docked in it. */
+:root[data-tview-block] #enhanced-travel > .travelpanel-bar, :root[data-tview-block] #enhanced-travel > .travelpanel-msg { visibility: hidden; }
+:root[data-tview-block="foot"] .notice-stack { top: auto; transform: none;
+  bottom: calc(100vh - var(--tview-block-top, 50vh) + 12px); max-height: calc(var(--tview-block-top, 50vh) - 24px); }
+:root[data-tview-block="top"] .notice-stack { transform: none;
+  top: calc(var(--tview-block-bottom, 0px) + 12px); max-height: calc(100vh - var(--tview-block-bottom, 0px) - 24px); }
 .notice.notice-out { transform: translateX(110%); opacity: 0; transition-timing-function: ease-in, ease-in; }
 .notice-body { display: flex; flex-direction: column; gap: 2px; max-height: 70vh; overflow: hidden; }
 .notice-row { font-size: 15px; line-height: 1.35; min-height: 1.35em; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -5191,8 +5297,49 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
 .lv-pickname .f { display: block; font-size: 17px; margin-top: 2px; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .lv-pickname .c { display: block; font-size: 12px; color: #7d7460; letter-spacing: 0.14em;
   text-transform: uppercase; margin-top: 2px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+/* ASCEND-LIVE: a star wears what the character HAS, in the two colours the
+   classic sheet gives a live value above or below its permanent one
+   (DaggerfallUnityStatIncreasedTextColor / StatDrainedTextColor -
+   ui/charsheet.js STAT_INCREASED_COLOR, STAT_DRAINED_COLOR), and the line
+   over its blurb says so in words. The tint outranks a RAISED star's gold
+   (a point spent where it cannot show must still read as the bonus's) and
+   yields to a FULL star's grey (a star that takes no point says that
+   first) - by specificity, not by which sheet came last (AUDIT 28e). */
+.lv-star.boosted:not(.full) .lv-val { color: rgb(178,207,255); text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.lv-star.lowered:not(.full) .lv-val { color: rgb(190,85,24); text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+/* THE LINE: one line, never two - it sits over the blurb in the
+   attribute's own cell (.lv-about, below). */
+.lv-live { height: 1.3em; line-height: 1.3em; font-size: 13px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; color: rgb(178,207,255); text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+.lv-live.lowered { color: rgb(190,85,24); }
+.lv-live:empty { display: none; }
 .lv-blurb { color: #c5bda2; font-size: 16px; line-height: 1.5; margin: 2px 0 0; max-width: 62ch;
-  text-align: center; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+  text-align: center; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); display: grid; }
+/* The eight in one cell, the chosen one seen: the band's height is the
+   tallest's, whichever is chosen (AUDIT 28e). */
+.lv-blurb > .lv-about { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
+.lv-blurb > .lv-about.on { visibility: visible; }
+.lv-about > p { margin: 0; }
+/* On a phone, or a screen with no height to spare, the line takes its
+   blurb's place rather than a line of its own, so a cursed character's
+   column is as tall as anyone's - at 360 wide a line's 17px was a figure
+   whose stars overlapped, and at 844x390 it pushed Ascend, the one way
+   out, below the screen (AUDIT 28e). */
+@media (max-width: 480px), (max-height: 620px) {
+  .lv-about:has(> .lv-live:not(:empty)) > p { display: none; }
+}
+/* In the blurb's place on a narrow phone it may take the blurb's two
+   lines (at 320 wide one line cut "won't show" off). */
+@media (max-width: 480px) {
+  .lv-live { height: auto; max-height: 2.6em; white-space: normal; }
+}
+/* ...and with no height to spare a blurb is one line, so the stacked
+   eight cost no more than the shortest did - and so is the line, even on
+   a narrow phone (after the rule above, so this one holds). */
+@media (max-height: 620px) {
+  .lv-about > p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lv-live { height: 1.3em; max-height: none; white-space: nowrap; }
+}
 
 /* THE RIBBON: the skills, and what each did for this level. Skyrim
    scrolls its skills across the foot of the sky; ours does the same,

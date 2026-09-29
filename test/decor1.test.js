@@ -29,6 +29,7 @@ import { FlatAnimator } from '../src/render/flatAnimation.js';
 import { collectInteriorLights } from '../src/world/interiorLights.js';
 import { createSceneCache, cacheScene, restoreCachedScene, snapshotSceneCache, restoreSceneCache } from '../src/systems/sceneCache.js';
 import { r2, seatRealm, realmJoinAt } from './realmSeat.mjs';   // AUDIT REALM2 S2: a house and a piece are a realm character's
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -71,8 +72,8 @@ async function stand() {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const registered = async (handle) => {
-    const guest = (await call('POST', '/v1/auth/guest', {})).body;
-    const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one' });
+    const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+    const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one', ...ACCEPTED });
     assert.equal(reg.status, 200, `${handle} registers`);
     return guest.secret;
   };
@@ -137,7 +138,7 @@ test('DECOR1 the service: a home\'s pieces are any session\'s to read (a guest\'
     assert.ok(ROUTES.has(r) && !OPEN_ROUTES.has(r), `${r} behind a session`);
   }
   assert.equal((await call('POST', '/v1/homes/decor', HOME)).status, 401, 'a stranger reads nothing');
-  const guest = (await call('POST', '/v1/auth/guest', {})).body.secret;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body.secret;
   const empty = await call('POST', '/v1/homes/decor', HOME, guest);
   assert.deepEqual([empty.status, empty.body], [200, { ...HOME, pieces: [], hidden: [] }], 'a guest reads a room (BASE-HIDE: and nothing of its own furniture taken out)');
   const g = await call('POST', '/v1/homes/decor/place', { ...HOME, character: 'char-guest', piece: piece() }, guest);

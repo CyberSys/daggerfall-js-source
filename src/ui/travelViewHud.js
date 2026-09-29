@@ -26,14 +26,17 @@
 // click on it is a journey there by the roads, the same as a click on the
 // town itself), the journey's end wears the destination mark, and the
 // route it walks is a line under them: an SVG path through the route's
-// projected points, broken where a point falls behind the eye. The bar
-// carries the trip in words under the place line.
+// projected points, broken where a point falls behind the eye (and, since
+// FB0929, cut to the screen). The bar carries the trip in words under the
+// place line.
 // ═══════════════════════════════════════════════════════════════════
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { titleBadge, glyphBadges, cssRgba, GLYPH_STROKE, GLYPH_EDGE_W } from './playerBadge.js';   // OVERWORLD NAMES: a player's name as it reads over their head in play
 import { PIXEL_STACK } from './pixelifyFive.js';   // AUDIT NAMES N1-4: the in-play name face
 import { renownText } from '../net/renown.js';
 import { guildTagText } from '../net/guildLaw.js';
+import { TV_FILTER_GROUPS, TV_FILTER_TEXT, travelViewFilters, toggleTravelViewFilter, onTravelViewFilters, markShown, countGroups } from '../systems/travelViewFilters.js';   // OW-FILTER
+import { travelPathMode, setTravelPathMode, onTravelPathMode, TRAVEL_PATH_MODES, TRAVEL_PATH_TEXT } from '../systems/travelPathMode.js';   // OW-PATH: the Roads / Free switch
 
 export const TRAVEL_VIEW_HUD_ID = 'travel-view';
 /** The name on the screen (the code's is TRAVEL VIEW: "overworld" is the streaming world's own word in the tree). */
@@ -42,6 +45,11 @@ export const TRAVEL_VIEW_TITLE = 'Overworld';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 /** TV3: how far in from the screen's edge a mark held at the edge stands (px). */
 export const TV_EDGE_MARGIN = 28;
+/** OW-EDGES: how faint a mark in the picture is drawn where it would lie over the HUD's compass or its hotbar and bars. */
+export const TV_UNDER_HUD_ALPHA = 0.22;
+/** FB0929: how far past the screen's edge the route line is kept (px) - past the casing's reach (its width's half, a
+ *  round cap's), so where the line is cut never shows. */
+export const ROUTE_CLIP_PX = 16;
 /** AUDIT DEEP T1-12: the mouse's hint, naming the keys the player really has - the movement keys and the way down
  *  (KB1: the registry's Escape action, wherever it is bound) - the defaults' words when the host names none. */
 export function travelViewMouseHint({ move = 'WASD', out = 'Esc' } = {}) {
@@ -96,18 +104,53 @@ export function edgeHold(p, w, h, margin = TV_EDGE_MARGIN, top = margin, foot = 
   return { x: cx + dx * k, y: cy + dy * k, angle: (Math.atan2(dx, -dy) * 180) / Math.PI };
 }
 
+/** FB0929: where the line from (ax, ay) to (bx, by) comes onto the box [lo, hx] x [lo, hy] and where it leaves it, as
+ *  fractions along it (Liang-Barsky) - written to `_span`, both 0..1; false when it misses the box. */
+const _span = [0, 1];
+function spanIn(ax, ay, bx, by, lo, hx, hy) {
+  const dx = bx - ax, dy = by - ay;
+  let t0 = 0, t1 = 1;
+  for (let e = 0; e < 4; e++) {
+    const p = e === 0 ? -dx : e === 1 ? dx : e === 2 ? -dy : dy;
+    const q = e === 0 ? ax - lo : e === 1 ? hx - ax : e === 2 ? ay - lo : hy - ay;
+    if (p === 0) { if (q < 0) return false; continue; }
+    const r = q / p;
+    if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+    else { if (r < t0) return false; if (r < t1) t1 = r; }
+  }
+  _span[0] = t0; _span[1] = t1;
+  return true;
+}
+
 /**
  * TV2: THE ROUTE LINE's path data through projected points: a move to the first point in front of the eye, a line to
  * each after it, and a new move after any point behind the eye (a line across it would be drawn through the camera).
+ * FB0929 (the Discord: "The moment I go to my Travel Map and select a far away destination, the game drops to sub-10
+ * FPS"): CUT TO THE SCREEN - `w` x `h`, grown by ROUTE_CLIP_PX - each line kept only where it crosses it, a new move
+ * where it comes back on. A pick across the map is a line of a hundred legs and more, and a point of it beside the
+ * eye's plane projects hundreds of thousands of pixels out; the browser dashed ALL of it, off the screen too, and
+ * rastered it again every frame the camera moved (1.5 million px, 100,000 dashes: 220-430 ms a frame in Chromium, the
+ * median - tools/travelViewPerf.mjs). On the screen the line is the one it was. No screen given, nothing is cut.
  * @param {Array<{x:number, y:number, front:boolean}|null>} points
  */
-export function routePath(points) {
+export function routePath(points, w = Infinity, h = Infinity) {
+  const lo = Number.isFinite(w) && Number.isFinite(h) ? -ROUTE_CLIP_PX : -Infinity, hx = w + ROUTE_CLIP_PX, hy = h + ROUTE_CLIP_PX;
   let d = '';
-  let pen = false;
+  let pen = false;   // the last point was in front of the eye: a line runs on from it
+  let on = false;    // ...and it lay on the grown screen: the stroke stands there
+  let ax = 0, ay = 0;
   for (const p of points ?? []) {
     if (!p?.front || !Number.isFinite(p.x) || !Number.isFinite(p.y)) { pen = false; continue; }
-    d += `${pen ? 'L' : 'M'}${Math.round(p.x)} ${Math.round(p.y)} `;
-    pen = true;
+    if (!pen) {
+      on = p.x >= lo && p.x <= hx && p.y >= lo && p.y <= hy;
+      if (on) d += `M${Math.round(p.x)} ${Math.round(p.y)} `;
+    } else if (spanIn(ax, ay, p.x, p.y, lo, hx, hy)) {
+      const t0 = _span[0], t1 = _span[1];
+      if (!on) d += `M${Math.round(ax + (p.x - ax) * t0)} ${Math.round(ay + (p.y - ay) * t0)} `;   // it comes on: a stroke from there
+      d += t1 === 1 ? `L${Math.round(p.x)} ${Math.round(p.y)} ` : `L${Math.round(ax + (p.x - ax) * t1)} ${Math.round(ay + (p.y - ay) * t1)} `;
+      on = t1 === 1;   // it ends on the screen, or goes off it (a line that misses the screen starts off it: `on` is false already)
+    }
+    ax = p.x; ay = p.y; pen = true;
   }
   return d.trim();
 }
@@ -136,10 +179,10 @@ function build(doc, hooks) {
   you.append(ring, chev);
   // PERF-TV: every mark is drawn on ONE canvas (drawMarks) - pointer-free: a click on a plate is found by position
   const canvas = el('canvas', 'tview-canvas');
+  // OW-BLOCK (2026-09-29, the player: "the whole bar in the top is too much ... a light weight block menu ... as much free
+  // screen as possible", "put the overworld block to the right"): ONE COMPACT COLUMN in the bottom-right corner - where, the journey (or
+  // none), the path and the map, the filters, the way back - the rest of the screen left to the land
   const bar = el('div', 'tview-bar');
-  const compass = el('div', 'tview-compass');
-  const needle = el('div', 'tview-needle', 'N');
-  compass.append(needle);
   const text = el('div', 'tview-text');
   const title = el('div', 'tview-title', TRAVEL_VIEW_TITLE);
   const where = el('div', 'tview-where');
@@ -158,10 +201,65 @@ function build(doc, hooks) {
   // AUDIT DEEP2 E15: the places the canvas draws, in words - visually hidden, said when the set changes (never per frame)
   const said = el('ul', 'tview-said');
   said.setAttribute?.('aria-label', 'Places in view');
+  // OW-PATH: THE SWITCH - Roads | Free, the chosen one lit (systems/travelPathMode.js keeps it on the device)
+  const modes = el('div', 'tview-modes');
+  const moderow = el('div', 'tview-moderow');
+  moderow.setAttribute?.('role', 'group');
+  moderow.setAttribute?.('aria-label', TRAVEL_PATH_TEXT.label);
+  const modeBtns = {};
+  for (const m of TRAVEL_PATH_MODES) {
+    const b = el('button', 'tview-mode', TRAVEL_PATH_TEXT[m]);
+    b.type = 'button';
+    b.title = m === 'free' ? TRAVEL_PATH_TEXT.tipFree : TRAVEL_PATH_TEXT.tipRoads;
+    b.onclick = (e) => { e.preventDefault(); setTravelPathMode(m); };
+    modeBtns[m] = b;
+    moderow.append(b);
+  }
+  modes.append(el('div', 'tview-label', TRAVEL_PATH_TEXT.label), moderow);
+  // OW-DECK: the journey's bar docks here while both are up (syncDock) - one strip at the top, the foot left to the vitals
+  const dock = el('div', 'tview-dock');
+  // OW-IDLE (2026-09-29, the player: "half of the upper window gets removed when i dont move"): the journey's bar lives
+  // only while a journey runs - standing still, its half of the strip went and the strip shrank to the other. Now the
+  // dock holds this in its place: no journey, how to set out, and the map.
+  const idle = el('div', 'tview-idle');
+  const idleText = el('div', 'tview-idle-text');
+  idleText.append(el('span', 'tview-label', 'Journey'), el('span', 'tview-idle-name', 'Not travelling'),
+    el('span', 'tview-idle-sub', 'Click a town or the land to set out'));
+  idle.append(idleText);
+  dock.append(idle);
+  // OW-BLOCK: the block's one Map, journey or none (the docked journey bar's own is hidden - one press, one place)
+  const idleMap = el('button', 'tview-map', 'Map');
+  idleMap.type = 'button';
+  idleMap.onclick = (e) => { e.preventDefault(); hooks.onMap?.(); };
   const back = el('button', 'tview-back', 'Return');
   back.type = 'button';
   back.onclick = (e) => { e.preventDefault(); hooks.onReturn?.(); };
-  bar.append(compass, text, back);
+  const head = el('div', 'tview-head');
+  head.append(text);   // OW-BLOCK: no compass of its own - the HUD's stands at the top of the screen
+  head.title = travelViewMouseHint();   // OW-BLOCK: the hints under the pointer, not a line of the block
+  const tools = el('div', 'tview-tools');
+  tools.append(modes, idleMap);
+  const foot = el('div', 'tview-foot');
+  foot.append(back);
+  // OW-FILTER: THE CORNER'S SWITCHES - one per group of marks, a dot in the mark's own colour and how many there are
+  const filters = el('div', 'tview-filters');
+  filters.setAttribute?.('role', 'group');
+  filters.setAttribute?.('aria-label', 'Overworld filters');
+  filters.append(el('div', 'tview-label', TV_FILTER_TEXT.title));
+  const filterBtns = {}, filterNums = {};
+  for (const g of TV_FILTER_GROUPS) {
+    const b = el('button', 'tview-filter');
+    b.type = 'button';
+    b.dataset && (b.dataset.group = g);
+    const dot = el('span', `tview-fdot tview-fdot-${g}`);
+    const word = el('span', 'tview-fword', TV_FILTER_TEXT[g]);
+    const num = el('span', 'tview-fnum', '0');
+    b.append(dot, word, num);
+    b.onclick = (e) => { e.preventDefault(); toggleTravelViewFilter(g); };
+    filterBtns[g] = b; filterNums[g] = num;
+    filters.append(b);
+  }
+  bar.append(head, dock, tools, filters, foot);   // OW-BLOCK: top to bottom
   // AUDIT TV B8: a press on the readout (Return, a plate) is the readout's - the host's window mousedown counts any
   // press as Mouse0 (the swing, the activation), so it stops here
   // PERF-TV: a label drawn before the plates' web font arrived would stay in the fallback face - the label images are
@@ -173,7 +271,7 @@ function build(doc, hooks) {
   if (route) r.append(route);
   r.append(canvas, you, bar, said);
   doc.body.append(r);
-  return { root: r, parts: { you, ring, chev, canvas, bar, compass, needle, where, trip, hint, back, route, casing, line, said } };
+  return { root: r, parts: { you, ring, chev, canvas, bar, where, trip, hint, back, route, casing, line, said, modes, modeBtns, dock, idle, idleMap, filters, filterBtns, filterNums } };
 }
 
 /**
@@ -186,19 +284,82 @@ export function showTravelViewHud(hooks = {}, doc = globalThis.document) {
     const b = build(doc, hooks);
     root = b.root; parts = b.parts; last = {};
     resetMarks();   // PERF-TV: a new canvas holds nothing
+    stopModes?.(); stopModes = onTravelPathMode(paintModes);
+    stopFilters?.(); stopFilters = onTravelViewFilters((f) => { paintFilters(f); canvasSig = []; });
   }
+  paintModes(travelPathMode());
+  paintFilters(travelViewFilters());
   parts.back.onclick = (e) => { e.preventDefault(); hooks.onReturn?.(); };
+  parts.idleMap.onclick = (e) => { e.preventDefault(); hooks.onMap?.(); };
   furniture.at = -Infinity;   // EDGE-FURNITURE: what stands at the edges now (a journey's panel may have come or gone)
   // OW-THEME: the plates in the theme's own stone - read at each open (a theme is chosen with the view down)
   const pf = themePlate(doc);
   if (pf !== plateFill) { plateFill = pf; dropSprites(); canvasSig = []; }
+  const pl = !!doc?.getElementById?.(TV_PLUS_SHEET_ID);   // OW-PLUS-FACE: read at each open, as the plate's stone is
+  if (pl !== plusFace) { plusFace = pl; dropSprites(); canvasSig = []; }
   root.style.display = '';
   listenPointer(doc.defaultView, true);
   return true;
 }
 
 /** Hide it (kept for the next open - the view is entered and left often). */
+/**
+ * OW-CONFIRM (2026-09-29, the player: "the question of attacking an enemy doesnt stay in overworld it zooms back to your
+ * character; the question window's yes and no are not the same buttons as roads and free in the block"): THE VIEW'S OWN
+ * QUESTION. A box of the Overworld's own - in its layer, over the map, the view left up under it - its rows and two
+ * presses in the block's own faces (the Path switch's buttons, .tview-mode, and the block's stone). Enter or Y answers
+ * yes, Escape or N no; while it stands the view's keys are its (the host's overlayUp asks travelViewConfirmOpen), and a
+ * press on the map lets it go unanswered. One at a time: a second replaces the first.
+ */
+let confirmBox = null;   // { el, onYes, onNo, key }
+export function travelViewConfirmOpen() { return !!confirmBox; }
+export function hideTravelViewConfirm(answer = null) {
+  const c = confirmBox;
+  if (!c) return;
+  confirmBox = null;
+  c.el.remove?.();
+  c.win?.removeEventListener?.('keydown', c.key, true);
+  if (answer === true) c.onYes?.(); else if (answer === false) c.onNo?.();
+}
+export function showTravelViewConfirm({ rows = [], yes = 'Yes', no = 'No', onYes = null, onNo = null } = {}) {
+  if (!root || !parts) return false;
+  hideTravelViewConfirm();
+  const doc = root.ownerDocument;
+  const el = (cls, text = '') => { const n = doc.createElement('div'); n.className = cls; if (text) n.textContent = text; return n; };
+  const box = el('tview-confirm');
+  box.setAttribute?.('role', 'alertdialog');
+  box.setAttribute?.('aria-modal', 'false');
+  const words = el('tview-confirm-words');
+  rows.forEach((r, i) => words.append(el(i === 0 ? 'tview-confirm-ask' : 'tview-confirm-row', r)));
+  const presses = el('tview-moderow tview-confirm-presses');
+  const press = (label, answer, lit) => {
+    const b = doc.createElement('button');
+    b.type = 'button'; b.className = lit ? 'tview-mode on' : 'tview-mode'; b.textContent = label;
+    b.onclick = (e) => { e.preventDefault(); hideTravelViewConfirm(answer); };
+    return b;
+  };
+  presses.append(press(yes, true, true), press(no, false, false));
+  box.append(words, presses);
+  const own = (e) => e.stopPropagation?.();
+  box.addEventListener?.('mousedown', own); box.addEventListener?.('pointerdown', own);
+  root.append(box);
+  const win = doc.defaultView;
+  const key = (e) => {
+    const k = e.code ?? e.key ?? '';
+    const ans = k === 'Enter' || k === 'NumpadEnter' || k === 'KeyY' ? true : k === 'Escape' || k === 'KeyN' ? false : null;
+    if (ans === null) return;
+    e.preventDefault?.(); e.stopImmediatePropagation?.(); e.stopPropagation?.();
+    hideTravelViewConfirm(ans);
+  };
+  win?.addEventListener?.('keydown', key, true);
+  confirmBox = { el: box, onYes, onNo, key, win };
+  return true;
+}
+
 export function hideTravelViewHud() {
+  hideTravelViewConfirm(false);   // OW-CONFIRM: the view gone, the question with it - unanswered is no
+  undock();   // OW-DECK: a journey that runs on outlives the view - its bar goes home to the top of the screen
+  unpublishBlock(root?.ownerDocument);   // OW-NOTICES: the notices back to their own place
   if (root) root.style.display = 'none';
   listenPointer(parts?.canvas?.ownerDocument?.defaultView, false);
   hits = []; setHover(null);
@@ -206,12 +367,71 @@ export function hideTravelViewHud() {
 
 /** Take it down for good (a host teardown). */
 export function disposeTravelViewHud() {
+  hideTravelViewConfirm();
+  undock();
+  unpublishBlock(root?.ownerDocument);
+  stopModes?.(); stopModes = null;
+  stopFilters?.(); stopFilters = null;
   listenPointer(parts?.canvas?.ownerDocument?.defaultView, false);
   setHover(null);
   root?.remove();
   root = null; parts = null; last = null;
   resetMarks();
   dropSprites();
+}
+
+/** OW-FILTER: the corner's switches, lit or dimmed. */
+let stopFilters = null;
+function paintFilters(f) {
+  for (const [g, b] of Object.entries(parts?.filterBtns ?? {})) {
+    const on = f[g] !== false;
+    b.className = on ? 'tview-filter on' : 'tview-filter';
+    b.setAttribute?.('aria-pressed', on ? 'true' : 'false');
+    b.title = TV_FILTER_TEXT.tip(TV_FILTER_TEXT[g], on);
+  }
+}
+/** OW-PATH: the switch's lit face. */
+let stopModes = null;
+function paintModes(m) {
+  for (const [k, b] of Object.entries(parts?.modeBtns ?? {})) {
+    const on = k === m;
+    b.className = on ? 'tview-mode on' : 'tview-mode';
+    b.setAttribute?.('aria-pressed', on ? 'true' : 'false');
+  }
+}
+
+/**
+ * OW-DECK (2026-09-29, the player: the Overworld's two bars into one): THE JOURNEY'S BAR, DOCKED. While a journey runs
+ * under the view, ui/enhancedTravelControl.js's bar (its time, Map, Camp and Exit - its own listeners stand on the bar)
+ * and its word are moved into this strip; when the view goes, they go home to the top of the screen. The panel's root
+ * wears `data-docked` so its junction disc hangs under the strip. Asked each frame - one lookup by id.
+ */
+let docked = { bar: null, msg: null, tp: null };
+function undock() {
+  const { bar, msg, tp } = docked;
+  if (bar && tp?.isConnected) { if (msg) tp.prepend(msg); tp.prepend(bar); }
+  else { bar?.remove?.(); msg?.remove?.(); }
+  tp?.removeAttribute?.('data-docked');
+  docked = { bar: null, msg: null, tp: null };
+  if (parts?.idle) parts.idle.style.display = '';   // OW-IDLE: the block keeps its journey section, standing still
+  furniture.at = -Infinity;
+}
+function syncDock(doc) {
+  if (!parts?.dock || !doc?.getElementById) return;
+  const tp = doc.getElementById('enhanced-travel');
+  if (docked.bar && (docked.tp !== tp || !docked.bar.isConnected)) undock();   // the journey ended (its panel torn down) or was made anew
+  if (!docked.bar && tp) {
+    const bar = tp.querySelector?.('.travelpanel-bar');
+    if (bar) {
+      const msg = tp.querySelector?.('.travelpanel-msg') ?? null;
+      parts.dock.append(bar);
+      if (msg) parts.dock.append(msg);
+      tp.setAttribute?.('data-docked', '');
+      docked = { bar, msg, tp };
+      parts.idle.style.display = 'none';
+      furniture.at = -Infinity;
+    }
+  }
 }
 
 function resetMarks() { hits = []; drawnKeys = []; canvasDrew = false; canvasSig = []; furniture.at = -Infinity; }
@@ -250,6 +470,7 @@ export function updateTravelViewHud(f) {
   // PERF-TV (AUDIT DEEP2 F11): the screen's size read ONCE a frame, before this frame's writes - and the furniture with it
   const win = parts.canvas?.ownerDocument?.defaultView;
   const vw = win?.innerWidth ?? 0, vh = win?.innerHeight ?? 0, dpr = win?.devicePixelRatio || 1;   // read ONCE, before any write
+  syncDock(parts.canvas?.ownerDocument);   // OW-DECK
   measureFurniture(parts.canvas?.ownerDocument, vw, vh);
   const fade = f.fade == null ? 1 : Math.max(0, Math.min(1, f.fade));
   style(root, 'op', 'opacity', fade.toFixed(3));
@@ -258,7 +479,6 @@ export function updateTravelViewHud(f) {
     style(parts.you, 'you-t', 'transform', `translate(${Math.round(f.feet.x)}px, ${Math.round(f.feet.y)}px)`);
   } else style(parts.you, 'you-d', 'display', 'none');
   if (f.heading != null) style(parts.chev, 'chev', 'transform', `rotate(${f.heading.toFixed(1)}deg)`);
-  style(parts.needle, 'needle', 'transform', `rotate(${compassDegrees(f.yaw).toFixed(1)}deg)`);
   const words = `${last.where}|${last.hint}|${last.trip}`;
   put(parts.where, 'where', f.where ?? '');
   put(parts.hint, 'hint', f.touch ? TRAVEL_VIEW_HINTS.touch : travelViewMouseHint(f.keys ?? {}));
@@ -266,14 +486,19 @@ export function updateTravelViewHud(f) {
   style(parts.trip, 'trip-d', 'display', f.trip ? '' : 'none');
   if (`${last.where}|${last.hint}|${last.trip}` !== words) furniture.at = -Infinity;   // the bar's words changed: its height may have (a line wrapped, a journey's line came) - measured again next frame
   if (parts.line) {
-    const d = routePath(f.route ?? []);
+    const d = routePath(f.route ?? [], vw, vh);   // FB0929: cut to the screen read above - a far journey's line dashed off it cost the frame
     if (last.route !== d) {
       last.route = d;
       parts.line.setAttribute('d', d);
       parts.casing.setAttribute('d', d);
     }
   }
-  drawMarks(f.marks ?? [], vw, vh, dpr);
+  // OW-FILTER: the counts are of every mark (a hidden group still says how many it holds); the canvas draws the shown
+  const all = f.marks ?? [];
+  const counts = countGroups(all);
+  for (const g of TV_FILTER_GROUPS) put(parts.filterNums?.[g], `fn-${g}`, String(counts[g]));
+  const fl = travelViewFilters();
+  drawMarks(all.filter((m) => markShown(m, fl)), vw, vh, dpr);
 }
 
 /**
@@ -290,6 +515,7 @@ export const TRAVEL_VIEW_MARK_COLORS = Object.freeze({
   plate: 'rgba(14,16,19,0.72)', plateEdge: 'rgba(192,138,62,0.35)',
   lair: '#b0443a',   // TV6: an undiscovered dungeon - a lair's dull red
   band: '#e0503c',   // TV7: a roaming band - the enemy's red
+  camp: '#d9622b',   // OW6: a camp, a pack or a band stood - an ember's red-orange, apart from the roaming bands
 });
 /** The plates' face - the stylesheet's --display, as the DOM plates had it. */
 export const TRAVEL_VIEW_PLATE_FONT = "'Cormorant', Georgia, serif";
@@ -348,7 +574,7 @@ export const isShipKind = (m) => /\bship\b/.test(m.kind ?? '');
 /** A mark's look, by its kind's first word. */
 const lookOf = (m) => {
   const k = (m.kind ?? '').split(' ')[0];
-  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'lair' || k === 'band' || k === 'raider' ? k : 'traveller';
+  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'lair' || k === 'band' || k === 'raider' || k === 'camp' ? k : 'traveller';
 };
 /** OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the plates' stone - the Enhanced
  *  (Plus) theme's own `--slate`, at the plates' alpha; the kit's plate where the page names none. */
@@ -360,16 +586,22 @@ export function themePlate(doc) {
   return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, 0.78)`;
 }
 let plateFill = /** @type {string} */ (TRAVEL_VIEW_MARK_COLORS.plate);
+/** OW-PLUS-FACE (2026-09-29, the player: "the fonts of the pois need to be enhanced plus fonts"): under Enhanced Plus
+ *  (its sheet on the page, ui/enhancedPlusStyle.js PLUS_STYLE_ID) the plates, labels and distances wear the kit's pixel
+ *  face (PIXEL_STACK - the names beside them already did) with its hard one-pixel shadow, not the serif and the blur. */
+export const TV_PLUS_SHEET_ID = 'enhanced-plus-style';
+let plusFace = false;
 /** A label's image, made once (its shadow or its plate baked in) and kept by what it shows. */
 function labelSprite(doc, text, look, size, journey, hover, dpr) {
-  const key = `${look}|${size}|${journey ? 1 : 0}|${hover ? 1 : 0}|${dpr}|${text}`;
+  const key = `${plusFace ? 'px' : 'cl'}|${look}|${size}|${journey ? 1 : 0}|${hover ? 1 : 0}|${dpr}|${text}`;
   let sp = sprites.get(key);
   if (sp) { sprites.delete(key); sprites.set(key, sp); return sp; }   // AUDIT DEEP2 E12: the newest at the back - the oldest goes first
   const c = doc.createElement('canvas');
   const x = c.getContext?.('2d');
   if (!x) return null;
   const plate = look === 'place' || look === 'far';
-  const font = plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px ${TRAVEL_VIEW_LABEL_FONT}`;   // `sub`: a plate's second line (TV5's distance)
+  const font = plusFace ? `${size}px ${PIXEL_STACK}`   // OW-PLUS-FACE
+    : plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px ${TRAVEL_VIEW_LABEL_FONT}`;   // `sub`: a plate's second line (TV5's distance)
   x.font = font;
   const tw = x.measureText(text).width;
   const aw = journey ? x.measureText(' →').width : 0;
@@ -383,6 +615,10 @@ function labelSprite(doc, text, look, size, journey, hover, dpr) {
     x.fillStyle = plateFill; x.fillRect(0.5, 0.5, w - 1, h - 1);
     x.strokeStyle = hover ? C.brass : C.plateEdge; x.lineWidth = 1; x.strokeRect(0.5, 0.5, w - 1, h - 1);
     x.fillStyle = hover || look === 'far' ? C.brass : C.bone;
+    if (plusFace) { x.shadowColor = '#050608'; x.shadowBlur = 0; x.shadowOffsetX = 1; x.shadowOffsetY = 1; }   // OW-PLUS-FACE: the kit's cut shadow
+  } else if (plusFace) {
+    x.shadowColor = '#050608'; x.shadowBlur = 0; x.shadowOffsetX = 1; x.shadowOffsetY = 1;   // OW-PLUS-FACE
+    x.fillStyle = look === 'dest' ? C.brass : look === 'sub' ? 'rgba(233,228,217,0.8)' : look === 'raider' ? C.raider : C.bone;
   } else {
     x.shadowColor = '#000'; x.shadowBlur = 3; x.shadowOffsetY = 1;
     x.fillStyle = look === 'dest' ? C.brass : look === 'sub' ? 'rgba(233,228,217,0.8)' : look === 'raider' ? C.raider : C.bone;   // OWS3: "Pirates" in their colour
@@ -510,7 +746,7 @@ function drawMarks(marks, vw, vh, dpr) {
   const nextHits = [];
   for (const m of marks) {
     if (!Number.isFinite(m.x) || !Number.isFinite(m.y)) continue;   // AUDIT DEEP2 E: one NaN poisoned its whole edge's run
-    const held = m.edge ? edgeHold(m, vw, vh, TV_EDGE_MARGIN, furniture.top, furniture.foot) : null;
+    const held = m.edge ? (edgeHold(m, vw, vh, TV_EDGE_MARGIN, furniture.top, furniture.foot) ?? (m.front ? notchHold(m, vh) : null)) : null;   // OW-EDGES
     if (!m.front && !held) continue;
     const at = held ?? m;
     const q = { m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: -1, bk: '', sp: null };
@@ -521,6 +757,25 @@ function drawMarks(marks, vw, vh, dpr) {
     placed.push(q);
   }
   spreadHeld(placed, vw, vh);
+  // OW-EDGES: along the top and the foot, each held mark at the edge - stepped in only where its box meets a notch
+  for (const q of placed) {
+    if (!q.held || q.side < 2) continue;
+    const b = markBox(q, vw);
+    const d = notchDepth(q.side === 2 ? furniture.topNotch : furniture.footNotch, b.x0, b.x1);
+    if (q.side === 2) q.y = Math.round(Math.max(TV_EDGE_MARGIN, d));
+    else q.y = Math.round(vh - Math.max(TV_EDGE_MARGIN, d));
+  }
+  // OW-EDGES (2026-09-29, the player: "i hope the floating pois marker dont float into that compass"): a mark IN the picture
+  // whose box meets the HUD's compass or its hotbar and bars (a notch) is drawn faint - it is where its place is, and still
+  // takes its click, but it never lies over the compass's letters or the slots; clear of them, whole again
+  const N = furniture.notice;
+  for (const q of placed) {
+    q.fade = false;
+    const b = markBox(q, vw);
+    if (N && b.x1 > N.x0 && b.x0 < N.x1 && b.y1 > N.y0 && b.y0 < N.y1) { q.fade = true; continue; }   // OW-NOTICES: under a notice
+    if (q.held) continue;
+    if (b.y0 < notchDepth(furniture.topNotch, b.x0, b.x1) || b.y1 > vh - notchDepth(furniture.footNotch, b.x0, b.x1)) q.fade = true;
+  }
   let hover = null;
   for (let i = placed.length - 1; i >= 0 && pointer; i--) {
     const q = placed[i];
@@ -531,7 +786,7 @@ function drawMarks(marks, vw, vh, dpr) {
   setHover(hover);
   // the picture this frame would draw: unchanged (a camera at rest), the canvas already shows it
   const sig = [bw, bh, hover ?? ''];
-  for (const q of placed) sig.push(q.m.key, q.x, q.y, q.held ? Math.round(q.held.angle) : 999, q.m.label ?? '', q.m.sub ?? '', q.m.kind ?? '', q.bk);
+  for (const q of placed) sig.push(q.m.key, q.x, q.y, q.held ? Math.round(q.held.angle) : 999, q.m.label ?? '', q.m.sub ?? '', q.m.kind ?? '', q.bk, q.fade ? 1 : 0);
   for (const q of placed) if (q.m.pick) nextHits.push({ key: q.m.key, ...markBox(q, vw) });
   hits = nextHits;
   sayPlaces(placed);
@@ -546,7 +801,8 @@ function drawMarks(marks, vw, vh, dpr) {
   let unmade = false;   // N1-1: a badge not made this frame - its name alone, and the picture drawn again next frame
   for (const q of placed) {
     const { m, held, x, y, look } = q;
-    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : C.brass;   // OWS3: a raider in the cinnabar
+    g.globalAlpha = q.fade ? TV_UNDER_HUD_ALPHA : 1;   // OW-EDGES: faint where it would lie over the compass or the hotbar
+    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);
@@ -557,6 +813,8 @@ function drawMarks(marks, vw, vh, dpr) {
       g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = C.brass; g.stroke();
     } else if (isShipKind(m)) {
       drawShipMark(g, x, y);
+    } else if (look === 'camp') {   // OW6: a camp - a tent's peak, not a band's dot
+      g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y + 5); g.lineTo(x - 6, y + 5); g.closePath(); g.fill(); g.stroke();
     } else {
       const r = look === 'dest' ? 7 : look === 'place' || look === 'far' ? 4 : 5;
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.stroke();
@@ -580,6 +838,7 @@ function drawMarks(marks, vw, vh, dpr) {
     }
     canvasDrew = true;
   }
+  g.globalAlpha = 1;
   canvasDrew = canvasDrew || placed.length > 0;
   if (unmade) canvasSig = [];
 }
@@ -631,10 +890,31 @@ const FURNITURE_EVERY_MS = 500;
 const FURNITURE_MIN_CLEAR = 0.25;
 /** How far in from a side a side's marks reach with their labels (px) - a piece within it stands in that side's way. */
 const SIDE_REACH = 120;
-/** AUDIT DEEP2 E1/E2: the view's bar's own foot (px, the style sheet's `bottom`) and its air over what it clears. */
+/** AUDIT DEEP2 E1/E2: the view's block's own foot (px, the style sheet's `bottom`) and its air over what it clears. */
 const BAR_FOOT = 18, BAR_AIR = 8;
 const furniture = { top: TV_EDGE_MARGIN, foot: TV_EDGE_MARGIN, lTop: TV_EDGE_MARGIN, lFoot: TV_EDGE_MARGIN, rTop: TV_EDGE_MARGIN,
-  rFoot: TV_EDGE_MARGIN, topLo: TV_EDGE_MARGIN, topHi: 0, footLo: TV_EDGE_MARGIN, footHi: 0, bar: BAR_FOOT, at: -Infinity, vw: 0, vh: 0 };
+  rFoot: TV_EDGE_MARGIN, topLo: TV_EDGE_MARGIN, topHi: 0, footLo: TV_EDGE_MARGIN, footHi: 0, bar: BAR_FOOT, at: -Infinity, vw: 0, vh: 0,
+  topNotch: [], footNotch: [], notice: null };
+/**
+ * OW-EDGES (2026-09-29, the player: "all the markers floating around can be more to the screen edges, respect the hotbar
+ * and other bars"): THE NOTCHES. A piece across the top or the foot (the HUD's compass, its hotbar and vitals) held EVERY
+ * mark along that edge clear of its whole depth - the hotbar's 150 px lifted a town at the screen's far left as high as
+ * one straight over it. Each such piece is now a notch: its own span [x0, x1] and depth `d` (px from its edge). A mark at
+ * that edge stands at the edge, and steps in only where its box meets a notch; a point in the picture UNDER a notch (it
+ * would be drawn behind the bar) is held at the notch's edge, as one off the screen is.
+ */
+function notchDepth(list, x0, x1) {
+  let d = 0;
+  for (const n of list) if (x1 > n.x0 && x0 < n.x1) d = Math.max(d, n.d);
+  return d;
+}
+/** The notch a point in the picture stands under, as a held place at its edge - or null. */
+function notchHold(m, vh) {
+  const F = furniture;
+  for (const n of F.topNotch) if (m.x > n.x0 && m.x < n.x1 && m.y < n.d) return { x: m.x, y: n.d, angle: 0 };
+  for (const n of F.footNotch) if (m.x > n.x0 && m.x < n.x1 && m.y > vh - n.d) return { x: m.x, y: vh - n.d, angle: 180 };
+  return null;
+}
 /** Two bands along one axis `n` long, kept to leave FURNITURE_MIN_CLEAR of it between them. */
 function clearBands(a, b, n) {
   const room = n * (1 - FURNITURE_MIN_CLEAR);
@@ -652,13 +932,39 @@ function clearBands(a, b, n) {
  * under it - it sat on the HUD's vitals at every screen size (same layer, drawn after them), and on a phone the touch
  * buttons stood over its Return.
  */
+/**
+ * OW-NOTICES (2026-09-29, the player: "the notifications on the right side go into the box they need to be adjusted"):
+ * THE BLOCK'S EDGES, TOLD TO THE PAGE. The notice stack (ui/enhancedNotice.js) stands at the right edge, centred - over
+ * the Overworld's block. While the view is up the root wears `data-tview-block` ('foot' or 'top', where the block
+ * stands) and `--tview-block-top` / `--tview-block-bottom` (px); the style sheet sets the stack above the block, or under
+ * it. Written only when they change; taken off as the view goes (unpublishBlock).
+ */
+let publishedBlock = '';
+function publishBlock(doc, at, top, bottom) {
+  const root = doc?.documentElement;
+  const key = `${at}|${Math.round(top)}|${Math.round(bottom)}`;
+  if (!root?.style || key === publishedBlock) return;
+  publishedBlock = key;
+  if (root.dataset) root.dataset.tviewBlock = at;
+  root.style.setProperty?.('--tview-block-top', `${Math.round(top)}px`);
+  root.style.setProperty?.('--tview-block-bottom', `${Math.round(bottom)}px`);
+}
+function unpublishBlock(doc) {
+  const root = doc?.documentElement;
+  publishedBlock = '';
+  if (!root) return;
+  if (root.dataset) delete root.dataset.tviewBlock;
+  root.style?.removeProperty?.('--tview-block-top');
+  root.style?.removeProperty?.('--tview-block-bottom');
+}
 function measureFurniture(doc, vw, vh) {
   const now = globalThis.performance?.now?.() ?? Date.now();
   if (now - furniture.at < FURNITURE_EVERY_MS && furniture.vw === vw && furniture.vh === vh) return;
   const G = FURNITURE_GAP, M = TV_EDGE_MARGIN;
-  const f = { top: M, foot: M, lTop: M, lFoot: M, rTop: M, rFoot: M, topLo: M, topHi: vw - M, footLo: M, footHi: vw - M };
+  const f = { top: M, foot: M, lTop: M, lFoot: M, rTop: M, rFoot: M, topLo: M, topHi: vw - M, footLo: M, footHi: vw - M, topNotch: [], footNotch: [] };
   const rects = [];
   for (const e of doc?.querySelectorAll?.(FURNITURE) ?? []) {
+    if (parts?.bar?.contains?.(e)) continue;   // OW-DECK: the docked journey bar is the strip's own, measured with it
     const r = e?.getBoundingClientRect?.();
     if (r && r.width > 0 && r.height > 0) rects.push(r);
   }
@@ -668,27 +974,37 @@ function measureFurniture(doc, vw, vh) {
   if (br && br.width > 0 && br.height > 0) {
     // what it lifts over: a band under it (the vitals, the buttons mid-foot) and anything under its Return - never a
     // corner block that only its far end reaches (on a narrow phone that lifted it over the quick slots to mid-screen)
-    const band = (r) => { const mid = (r.left + r.right) / 2; return mid > vw * 0.3 && mid < vw * 0.7; };
-    const underBack = (r) => back && back.width > 0 && r.right > back.left && r.left < back.right;
-    for (const r of rects) if (r.top >= vh / 2 && r.right > br.left && r.left < br.right && (band(r) || underBack(r))) barFoot = Math.max(barFoot, vh - r.top + BAR_AIR);
-    barFoot = Math.min(barFoot, Math.max(BAR_FOOT, vh * (1 - FURNITURE_MIN_CLEAR) - br.height));   // never off the screen's top half
-    const top = vh - barFoot - br.height;
-    rects.push({ left: br.left, right: br.right, top, bottom: top + br.height, width: br.width, height: br.height });
-    if (furniture.bar !== barFoot) { furniture.bar = barFoot; if (bar.style) bar.style.bottom = `${Math.round(barFoot)}px`; }
+    // OW-BLOCK: the block stands in the bottom-right corner - LIFTED over whatever stands under its span in the foot half (a
+    // phone's buttons, a HUD piece); on a touch screen the style sheet stands it at the top, and it is left there
+    if ((br.top + br.bottom) / 2 >= vh / 2) {   // OW-NOTICES: at the foot by its middle - the block is taller than half a short screen
+      const band = (r) => { const mid = (r.left + r.right) / 2; return mid > vw * 0.3 && mid < vw * 0.7; };
+      const underBack = (r) => back && back.width > 0 && r.right > back.left && r.left < back.right;
+      for (const r of rects) if (r.top >= vh / 2 && r.right > br.left && r.left < br.right && (band(r) || underBack(r))) barFoot = Math.max(barFoot, vh - r.top + BAR_AIR);
+      barFoot = Math.min(barFoot, Math.max(BAR_FOOT, vh * (1 - FURNITURE_MIN_CLEAR) - br.height));   // never past the screen's middle
+      const top = vh - barFoot - br.height;
+      rects.push({ left: br.left, right: br.right, top, bottom: top + br.height, width: br.width, height: br.height });
+      if (furniture.bar !== barFoot) { furniture.bar = barFoot; if (bar.style) bar.style.bottom = `${Math.round(barFoot)}px`; }
+      publishBlock(doc, 'foot', top, top + br.height);
+    } else {
+      rects.push({ left: br.left, right: br.right, top: br.top, bottom: br.bottom, width: br.width, height: br.height });
+      publishBlock(doc, 'top', br.top, br.bottom);
+    }
   }
   for (const r of rects) {
-    const upper = r.bottom <= vh / 2, lower = r.top >= vh / 2;
-    if (!upper && !lower) continue;   // across the middle: no edge's
+    let upper = r.bottom <= vh / 2, lower = r.top >= vh / 2;
+    // OW-EDGES: a tall piece across the middle is the edge's it stands on - the Overworld's block rises from the foot past
+    // the middle, and the right side's marks slid under it; one that stands on neither is still no edge's
+    if (!upper && !lower) { if (r.bottom >= vh * 0.75) lower = true; else if (r.top <= vh * 0.25) upper = true; else continue; }
     const mid = (r.left + r.right) / 2;
     const band = mid > vw * 0.3 && mid < vw * 0.7;
     if (upper) {
-      if (band) f.top = Math.max(f.top, r.bottom + G);
+      if (band) f.topNotch.push({ x0: r.left - G, x1: r.right + G, d: Math.max(M, r.bottom + G) });   // OW-EDGES: its span, not the edge's
       else if (mid <= vw * 0.3) f.topLo = Math.max(f.topLo, r.right + G);
       else f.topHi = Math.min(f.topHi, r.left - G);
       if (r.left < SIDE_REACH) f.lTop = Math.max(f.lTop, r.bottom + G);
       if (r.right > vw - SIDE_REACH) f.rTop = Math.max(f.rTop, r.bottom + G);
     } else {
-      if (band) f.foot = Math.max(f.foot, vh - r.top + G);
+      if (band) f.footNotch.push({ x0: r.left - G, x1: r.right + G, d: Math.max(M, vh - r.top + G) });   // OW-EDGES
       else if (mid <= vw * 0.3) f.footLo = Math.max(f.footLo, r.right + G);
       else f.footHi = Math.min(f.footHi, r.left - G);
       if (r.left < SIDE_REACH) f.lFoot = Math.max(f.lFoot, vh - r.top + G);
@@ -696,10 +1012,19 @@ function measureFurniture(doc, vw, vh) {
     }
   }
   [f.top, f.foot] = clearBands(f.top, f.foot, vh);
+  { // OW-EDGES: the deepest notch at the top and at the foot kept to FURNITURE_MIN_CLEAR between them, as the bands were
+    const t = f.topNotch.reduce((a, n) => Math.max(a, n.d), M), b = f.footNotch.reduce((a, n) => Math.max(a, n.d), M);
+    const [ct, cb] = clearBands(t, b, vh);
+    for (const n of f.topNotch) n.d = Math.min(n.d, ct);
+    for (const n of f.footNotch) n.d = Math.min(n.d, cb);
+  }
   [f.lTop, f.lFoot] = clearBands(f.lTop, f.lFoot, vh);
   [f.rTop, f.rFoot] = clearBands(f.rTop, f.rFoot, vh);
   { const [a, b] = clearBands(f.topLo, vw - f.topHi, vw); f.topLo = a; f.topHi = vw - b; }
   { const [a, b] = clearBands(f.footLo, vw - f.footHi, vw); f.footLo = a; f.footHi = vw - b; }
+  // OW-NOTICES: the notice stack's box (ui/enhancedNotice.js), read with the rest - a mark under a notice is drawn faint
+  const ns = doc?.getElementById?.('enhanced-notice')?.getBoundingClientRect?.();
+  f.notice = ns && ns.width > 0 && ns.height > 0 ? { x0: ns.left, x1: ns.right, y0: ns.top, y1: ns.bottom } : null;
   Object.assign(furniture, f, { at: now, vw, vh });
 }
 /** Which edge a held mark stands on: 0 left, 1 right, 2 the top, 3 the foot. AUDIT DEEP2 E4: one on the top or the foot
@@ -712,7 +1037,7 @@ function heldSide(q, vw) {
   const half = markWidth(q) / 2 + 4;
   if (q.x - half < m) { q.x = m; return 0; }
   if (q.x + half > vw - m) { q.x = Math.round(vw - m); return 1; }
-  return h.y <= furniture.top + 0.5 ? 2 : 3;
+  return h.y < (furniture.vh || 2 * h.y + 2) / 2 ? 2 : 3;   // OW-EDGES: the top or the foot by which half it is held in (a notch's edge is no longer the band's)
 }
 /**
  * EDGE-DECLUTTER (2026-09-28, Mac: "Just #1"): THE MARKS HELD AT ONE EDGE, SPREAD so none lies over another. Two towns
@@ -797,13 +1122,19 @@ function markBox(q, vw) {
   return { x0: x0 - 4, x1: x0 + w + 4, y0: Math.min(q.y - 10, q.y - h), y1: q.y + 28 + extraLines(q) };
 }
 /** AUDIT DEEP2 E15: the pickable places' names (and distances), written to the hidden list when the set changes. */
+/** AUDIT OW5 R3: how often (ms) the words are written again when only a distance changed - a journey's distances
+ *  tick every tenth of a kilometre, and the list was emptied and built again on a third of the frames at speed. */
+export const TV_SAID_DISTANCE_MS = 5000;
 function sayPlaces(placed) {
   const list = parts?.said;
   if (!list) return;
-  let text = '';
-  for (const q of placed) if (q.m.pick && q.m.label) text += `${q.m.label}${q.m.sub ? `, ${q.m.sub}` : ''}\n`;
+  let text = '', names = '';
+  for (const q of placed) if (q.m.pick && q.m.label) { text += `${q.m.label}${q.m.sub ? `, ${q.m.sub}` : ''}\n`; names += `${q.m.label}\n`; }
   if (last.said === text) return;
-  last.said = text;
+  // AUDIT DEEP2 E15's own law, kept: written when the SET changes - the same places with new distances wait their turn
+  const at = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (last.saidNames === names && at - (last.saidAt ?? -Infinity) < TV_SAID_DISTANCE_MS) return;
+  last.said = text; last.saidNames = names; last.saidAt = at;
   const doc = list.ownerDocument;
   list.textContent = '';
   for (const line of text.split('\n')) if (line) { const li = doc.createElement('li'); li.textContent = line; list.append(li); }

@@ -9,6 +9,7 @@
 // and the frame loop.
 
 import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: walk mode, one button on and off
+import { iilActive, iilDungeonLights, iilTorch, iilSyncLane } from '../systems/improvedInteriorLighting.js';   // IIL1
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
 import { frameBegin, frameEnd, frameAbort } from '../systems/frameClock.js';   // PERF1: the frame's script time; AUDIT-WH2 L1-F4: and the door an early return takes
@@ -145,7 +146,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
       placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
       // MAC1 J: this host's canvas, for the pause door's relock. The
-      // context owns none of its own (dungeonContext.js:7402), so each
+      // context owns none of its own (dungeonContext.js:7448), so each
       // dungeon host hands its own in and the resume gesture carries
       // the pointer back with it (ui/pauseDoor.js:141-165).
       relock: () => requestLook(canvas) });
@@ -1081,10 +1082,14 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // 16-slot shader cap picks from what survives (dungeonLights.js
     // carries the composition and why that order). LA-AUDIT A5: on the
     // lane, one torch past the cap, for the cap's fade (worldModes.js's arm).
-    const _near = nearestLights(ctx.lights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), ctx.flicker.ranges, null, DUNGEON_LIGHT_BLOCK_RANGE);   // EL1: the installed set's cap
+    iilSyncLane(renderer, true);   // IIL2
+    const _iilOn = iilActive(renderer.lightingLane);   // IIL1 (worldModes.js's dungeon arm)
+    const _iilDg = _iilOn ? iilDungeonLights(ctx.iilLightFlats ?? []) : null;
+    const _near = _iilDg ? nearestLights(_iilDg.lights, cam.pos, renderer.maxPointLights, _iilDg.ranges, _iilDg.colorOf) : nearestLights(ctx.lights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), ctx.flicker.ranges, null, DUNGEON_LIGHT_BLOCK_RANGE);   // EL1: the installed set's cap
     const _lit = withPlayerLights(_near,
-      ctx.candleLight?.(), playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...ctx.campLights(), ...ctx.torchLights());   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
-    renderer.setPointLights(_lit, DUNGEON_LANTERN_F32, renderer.lightingLane ? capFadeColors(_lit, _lit.length / 4 - _near.length / 4, cam.pos, renderer.maxPointLights, DUNGEON_LANTERN_F32) : null);
+      ctx.candleLight?.(), (_iilOn ? iilTorch : (l) => l)(playerTorchLight(playerEntity, player.feetAt(), cam.yaw)), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...ctx.campLights(), ...ctx.torchLights());   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does
+    if (_iilDg) renderer.setPointLights(_lit.data, null, _lit.colors);   // IIL1: every light its own warm, flickering colour
+    else renderer.setPointLights(_lit, DUNGEON_LANTERN_F32, renderer.lightingLane ? capFadeColors(_lit, _lit.length / 4 - _near.length / 4, cam.pos, renderer.maxPointLights, DUNGEON_LANTERN_F32) : null);
     renderer.everyLightCasts();   // LA-SHADOW3: the level is drawn whole below - every torch keeps a shadow map (worldModes.js's dungeon arm)
     renderer.setWorldViewport(worldViewportRect(canvas.clientWidth, canvas.clientHeight));   // E5: ViewportChanger.Update, every frame
     renderer.beginFrame(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME);   // AUDIT-EL F5: a WORLD frame - the lane replays its records for this one

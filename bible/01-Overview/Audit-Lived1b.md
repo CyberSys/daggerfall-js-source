@@ -111,7 +111,14 @@ The first audit's own record is corrected where this one found its fixes short (
   `--apply --struck`, and two by hand. One hazard has no conflict: SHIP-SAIL's Overworld passage says no days online
   (`sharedClockOn() ? 0 : travelDays`) while the voyage bills the character's clock - say "The voyage takes N days of
   your time." (Mac: For Mac 6). VAMP-HOOD composes with LIVED1 (the refusal, the nightfall, the hood: three rows) and
-  CUSTOMS-CARRY with G (the preview runs first on a raw copy; the rebase is kept).
+  CUSTOMS-CARRY with G (the preview runs first on a raw copy; the rebase is kept). [MERGED after the audit, at Mac's
+  word ("Merge"): `origin/main` 90fd9a0f5, 84 commits by then (PRs #418, #428-#433, #435-#438). 129 files conflicted,
+  279 hunks: 267 cite-only (ours taken, then `citeMerge --apply` and `--apply --struck`, 539 cites moved, four
+  re-aimed by hand); M's ten real hunks resolved as above, and two more Testing.md rows unioned (to1's count and U1's
+  note; REALM2's customs row and S1's note). M's post-merge fixes applied - the VAMP-HOOD pins and records, the
+  SHIP-SAIL passage's "N days of your time" (the wording stays For Mac 6) - and four survtiers cite records re-aimed.
+  M8's records corrected: the patch note and Lived-Time say a hood opens the map by day, OPEN 2 is answered. Main's
+  commits after M's trial add no time reader.]
 - **Process (T15, beside the first audit's T13):** `test/auditworld34.test.js`'s "A1 executed" waits a fixed 25 ms
   between its async steps and failed 2 of 3 unmutated runs under `--jobs` load; a list that names it reads those
   failures as deaths (39 false deaths in lane T's second stage, hiding two real survivors). No list here names it. A lane

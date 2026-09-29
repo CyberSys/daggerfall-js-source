@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1076`, `world.js:2646`), fired
+`playerTicker.advance(60)` (`exterior.js:1081`, `world.js:2748`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -3354,7 +3354,7 @@ PNG through the DOM and cached `{ width, height, data }` - the shape
 pass that object straight on as a colour32
 (`const color32 = swap ?? t.getColor32(bitmap, ...)`), and
 `renderer.uploadTexture` reads `color32.colors` and calls `asBytes` on
-it (`renderer.js:3248`). `colors` was `undefined`, `asBytes` reads
+it (`renderer.js:3264`). `colors` was `undefined`, `asBytes` reads
 `.buffer` off it, and the upload threw. Every pin on this door held:
 they asserted the cache stored the object the decoder returned, by
 IDENTITY, which is precisely the assertion that cannot see a wrong
@@ -3365,8 +3365,8 @@ orientation is not its only problem".
 **And orientation was the other half.** The port's texel convention is
 bottom-up: `getColor32` writes `dstRow = (dstHeight - 1 - border - y) *
 dstWidth` (`baseImageFile.js:143`, `BaseImageFile.cs:250`), the upload
-leaves `UNPACK_FLIP_Y_WEBGL` off (`renderer.js:3238`), and `BB_VS`
-samples the quad's top at v=1 (`renderer.js:370-394`). A browser decode
+leaves `UNPACK_FLIP_Y_WEBGL` off (`renderer.js:3254`), and `BB_VS`
+samples the quad's top at v=1 (`renderer.js:382-406`). A browser decode
 is TOP row first. So a swap named correctly would still have drawn
 mirrored beside the classic art in the same batch loop - the exact
 defect AUDIT 62 F26 fixed for the seasons mod's textures, one door over.
@@ -3877,6 +3877,20 @@ same stats are 20 down (`systems/vampirism.js` vampireStatMod), held
 at a live 1 where the stat is read so a dawn never kills
 (`systems/statMods.js` liveStat). Holy ground still burns, the career
 bit still burns, and the flag still keys the travel rules.
+
+VAMP-HOOD (2026-09-29, #suggestions, Starempire42: "adds the ability
+to travel during the day if you a wearing a cloak or robe with a hood
+up"; Sir McMobdon: "nice, good idea"; sent in by Mac) - a second section A
+departure: the flag keys the travel rules only for a bare head. Both
+rules ask `systems/vampirism.js` racialSunAverse - the flag, unless
+`survival/temperature.js` cloakState says the hood is up (the felt
+temperature's own law: a cloak's variants 1, 2 and 5, plain robes'
+variant 1, raised on the paper doll) - so a hooded vampire opens the
+map by day and its arrival is not pushed to dusk. Bare-headed, the
+door says DFU's line and then "Raise the hood of a cloak or robe to
+travel by day." Online this was the whole wait: the shared clock's day
+is one real hour, and no rest or trip moves it. The day's -20 is the
+hour's, not the sun's, and stays.
 
 THE SEAM IS REGISTERED BY THE MODE MACHINE. worldModes owns mode and
 interiorBuilding for BOTH town pages - world.js and exterior.js each
@@ -4583,7 +4597,7 @@ the true clause along with the false ones is in the campaign, because
 over-retiring is the equal and opposite failure.
 
 **And one delegation pointed at a flag nobody had ever written.**
-`world.js:4006` said the dungeon-mode enchant ctx was "FLAGGED there
+`world.js:4112` said the dungeon-mode enchant ctx was "FLAGGED there
 with the rest of its enchant wiring" in `dungeonContext.js`. It was
 not. `setDefaultEnchantCtx` had exactly **one** caller in the tree, so
 the standalone `?dungeon` host ran every arm that needs a host
@@ -5039,7 +5053,7 @@ predicate read prettier.
 by the same sweep and each verified against the tree before deletion:
 the interior detect claim above; "there is nowhere to cash one yet" on
 the letter of credit, which B2 answered with `DepositAll_LOC`
-(`banking.js:589`, the window's own :377-389); "the BANKING arm stays
+(`banking.js:615`, the window's own :377-389); "the BANKING arm stays
 FLAGGED below", written nine lines above the live banking arm; and
 "every other arm is FLAGGED by name in
 `guildServiceFlow.SERVICE_DESTINATION`" after DR2 closed the last of
@@ -5333,7 +5347,7 @@ blocked.
 Mac: "let's work on the horses and carts". The port has carried the CART
 as an inventory fact since the W-slice - the wagon's 750kg, the
 dungeon-exit prompt, the transfer guards - and the HORSE as an item
-nobody could sit on. `motor.js:718` passed `riding: false` into the
+nobody could sit on. `motor.js:721` passed `riding: false` into the
 climbing gate with the note "the transport arc pends", and
 `DaggerfallTransportWindow` is the last of DFU's 60 real windows the
 port does not have (UI-Arc.md's table).
@@ -5561,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:8329` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:8479` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -8182,3 +8196,57 @@ exactly that). A ruin minted then is PROVISIONAL (`_spawnUnroaded`), and
 entry and its TTL clock, never the one the player is standing in (TTL1's own
 exception) - then rebuilds the pixels, which ask again. Pinned in
 `test/spawnroads.test.js`, mutants in `tools/mutants/spawnroads.json`.
+
+### DISC29-F - a mode change stops the riding loop, as UpdateMode does (2026-09-28, Skibbster)
+
+"Horse gallop audio loops if you enter an interior before stopping while mounted." The riding sound is one named
+channel (`audio.setLoop('riding', ...)`) that re-arms at each clip's end, and the one writer that ever stopped it was
+`mountRig.frame`. The door dismounts through TR5's one place, `mountRig.setMode` (TransportManager.HandleTransition ->
+UpdateMode(Foot)), which told the motor and the animator and left the channel running - and the frame that would have
+stopped it never came: with the building's data in memory every await resolves as a microtask, so the interior is up
+before another outdoor frame runs, and the indoor frame returns before the rig. Only a greeting popup (a shop, an
+unlocked house) paused the game long enough for the animator's 0.2 s stop; taverns, temples, guild halls and dungeons
+all kept the hoofbeat. DFU's UpdateMode stops the source first, on EVERY change (TransportManager.cs:332-336), and so
+does `setMode` now - the door, a Recall or quest teleport indoors, a quickload into an interior, the deep-water
+dismount, the ship, and a horse swapped for the cart, which now stops at once rather than at the clip's end.
+
+The fixed-city host (`?exterior`, `?region`, `?loc`) never handed worldModes its `setTransportMode` seam, so a rider
+walked through a door still mounted there; it hands it the rig's `setMode` as the world host does.
+`test/disc29_gallop.test.js` (4: the real AudioEngine, and every host that makes a mount rig);
+`tools/mutants/disc29.json` (DISC29-F, 3). `01-Overview/Field-Bugs-2026-09-28f.md` DISC29-F.
+
+### FEATHERWEIGHT - THE MARK THAT READ "ERROR" (2026-09-29)
+
+Discord, Cruor, through Mac: *"Bugged Mark item with an error! I have no
+idea what this does but it scares me."* - an Enhanced card reading "Cast
+when used: ERROR". THE ITEM IS DFU'S OWN AND WHOLE: MAGIC.DEF's *%it of
+Featherweight* is one CastWhenUsed slot at classic spell 37, Slowfalling
+(DFU's MagicItemTemplates.txt carries the same record), and used, it
+casts Slowfalling on its user for 10 of its 1500 condition; the 0.25 kg
+is the Mark's own weight. THE READER WAS WRONG. MagicPowers
+(DaggerfallUnityItemMCP.cs:345-363) finds a CastWhen* spell in the whole
+of SPELLS.STD; MACRO-3's `itemPowers.js` asked the item maker's list for
+that one power, and the maker offers Slowfalling only as Cast When Held
+- of the 36 regular records, the one spell filed under another power.
+It reads the SPELLS.STD registry now - the one G4's value sum already
+read for the same slot - and, until that lands, the catalogue's three
+CastWhen* lists as one table of names by id. Nothing to migrate: a saved
+Mark carries the same `{0, 37}` and reads right on load. Pinned in
+`test/fb0929_featherweight.test.js` (5; the fifth over the real files);
+`tools/mutants/fb0929_featherweight.json`, 4 mutants, 4 dead.
+
+### FB0929 - A PURCHASE IS NEVER FREE (2026-09-29)
+
+lumin on Discord, through Mac: "Vendors selling items for 0 gold ... There should be a hard minimum of 1 gold for
+anything." E1's cost law and E2's haggle are Daggerfall's to the bit: CalculateCost floors a piece at 2 gold and
+CalculateTradePrice's buying arm scales the lot by 66/256 to 256/256 and truncates, so a piece at that floor - a
+candle, the General Store's parchment (worth 0), a Climates & Calories apple, a bandage in a cheap province, a cheap
+blade's repair - went for nothing over a third of the counters and hagglers it meets, and a stack for less than a gold
+a piece. Mac's call, Port-Ledger A: `tradeModes.js` `getTradePrice` asks both purchase modes, Buy and Repair, for a
+gold a piece at least - `tradeCost` counts the pieces in the walk that totals the cost - and Daggerfall's number
+wherever it is more. The classic and enhanced counters, the enhanced quote and the keyed fallback's rows all price
+through it, so what a counter shows is what it takes; only worldModes owns a counter (the dungeon's one trade window
+is the Identify spell's, paid in magicka, and both exterior hosts hand a shop's door to it). The sale is not floored:
+online P0.4 pays half the ask at most, and half a gold is nothing. The floor only raises an ask - and it shut a loop
+Daggerfall had, a quality-1 counter in a cheap province asking nothing for a bandage and paying a gold for it back.
+`test/fb0929_min_price.test.js`, `tools/mutants/fb0929.json`.

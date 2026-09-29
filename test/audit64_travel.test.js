@@ -32,7 +32,7 @@ import { RMB_SIDE } from '../src/world/locationLayout.js';
 import { arrivalClampMinutes } from '../src/systems/travel.js';
 import { careerSunDamage } from '../src/systems/passiveSpecials.js';
 import { SPECIAL_ABILITY_BITS } from '../src/systems/specialAdvantages.js';
-import { SUNLIGHT_TRAVEL_TEXT, racialFastTravelBlock } from '../src/systems/vampirism.js';
+import { SUNLIGHT_TRAVEL_TEXT, VAMPIRE_HOOD_TEXT, racialFastTravelBlock } from '../src/systems/vampirism.js';
 import { isDayFromMinutes } from '../src/systems/gameDate.js';
 
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
@@ -217,9 +217,11 @@ test('AUDIT 64 F20: the arrival clamp\'s SECOND arm is the CAREER flag', () => {
   // The PRODUCER, at the one caller of arrivalClampMinutes: DFU's
   // disjunction, the same one the per-round burn spelled until VAMP-DAY
   // took its racial arm (passiveSpecials.js:126 reads the career alone;
-  // the travel rules still read both).
+  // the travel rules still read both). VAMP-HOOD (2026-09-29): the racial
+  // arm is the flag under a bare head - vampirism.js racialSunAverse -
+  // and the career's beside it is DFU's as ever.
   assert.match(read('src/scenes/world.js'),
-    /sunAverse: !!playerEntity\.racialOverride\?\.sunDamage \|\| careerSunDamage\(playerEntity\.career\),/,
+    /sunAverse: racialSunAverse\(playerEntity\) \|\| careerSunDamage\(playerEntity\.career\),/,
     'HasVampirism() || Career.DamageFromSunlight (DaggerfallTravelPopUp.cs:351)');
 });
 
@@ -283,9 +285,10 @@ test('AUDIT 64 F24: the sunlightDamageFastTravelDay refusal is DFU\'s own line',
   // binds the key to m_Id 500; Internal_Strings_en.asset:2350).
   assert.equal(SUNLIGHT_TRAVEL_TEXT, 'You cannot initiate fast travel during the day.');
   // ONE key, so BOTH refusals speak it: VampirismEffect.cs:202 and
-  // DaggerfallUI.cs:619.
+  // DaggerfallUI.cs:619. VAMP-HOOD: the port's hood line rides BESIDE
+  // DFU's as `hint`, said after it - never in its place.
   assert.deepEqual(racialFastTravelBlock({ racialOverride: { sunDamage: true } }, 12 * 60),
-    { text: SUNLIGHT_TRAVEL_TEXT });
+    { text: SUNLIGHT_TRAVEL_TEXT, hint: VAMPIRE_HOOD_TEXT });
   assert.match(read('src/scenes/world.js'), /sayWithNightfall\(SUNLIGHT_TRAVEL_TEXT\);/,
     'and the career box shows the same constant');
 });

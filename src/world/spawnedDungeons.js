@@ -241,14 +241,21 @@ export function spawnExpired(rec, now) {
 /**
  * The ledger of what this client has met and when.
  *
- * WHAT IT IS NOT, said plainly: this is ONE CLIENT'S memory. The roll
- * that puts a dungeon on a pixel is a pure hash every client shares, so
- * every client agrees a spawn is THERE without a word from the relay -
- * but expiry is a fact about TIME PASSING, which their clocks do not
- * share, so two players can disagree about whether one is gone. Making
- * them agree needs the relay to own the ledger, and the relay has no
- * message for it (there is no spawn or clear verb in net/wire.js). Said
- * here rather than left for someone to find.
+ * WHAT IT IS, said plainly: this is ONE CLIENT'S memory. The roll that
+ * puts a dungeon on a pixel is a pure hash every client shares, so every
+ * client agrees a spawn is THERE without a word from the relay - but
+ * expiry is a fact about TIME PASSING, which their clocks do not share,
+ * so two players could disagree about whether one is gone. Making them
+ * agree needed the relay to own the ledger, and it did not have a
+ * message for it. OW6L (2026-09-29) GAVE IT ONE: a cell room keeps a row
+ * a pixel (net/overworldLaw.js - `[px, py, seen, cleared?]`, the clocks
+ * in shared classic minutes) and MIN-MERGES what its players say, the
+ * `dg` word of net/wire.js's `ow` frame. This client says its own row
+ * when a spawn is first seen and when it is cleared (`wireRow` below,
+ * through net/online.js sendOverworld), and folds in every row the cell
+ * says (`merge`: the earliest sight and the earliest clear win, so a
+ * spawn's clocks only ever run out sooner) - its cell's welcome hands
+ * the whole of it to a player who walks in later.
  */
 export function createSpawnLedger() {
   /** @type {Map<string, {seen:number, cleared?:number}>} */
@@ -271,6 +278,30 @@ export function createSpawnLedger() {
       return r;
     },
     expired: (key, now) => spawnExpired(rows.get(key), now),
+    /** OW6L: a row HEARD - the cell's word (net/online.js onOverworld's `dg`) - MIN-MERGED in: the earlier first sight
+     *  and the earlier clear of the two are kept, a row this ledger never met is made, and nothing is ever raised (a
+     *  heard clock only runs a spawn out sooner). A non-finite `seen` is no row at all; a non-finite `cleared` is none.
+     *  Answers whether anything changed. */
+    merge(key, seen, cleared) {
+      if (!key || !Number.isFinite(seen)) return false;
+      const r = rows.get(key);
+      const clear = Number.isFinite(cleared) ? cleared : null;
+      if (!r) { rows.set(key, clear === null ? { seen } : { seen, cleared: clear }); return true; }
+      let moved = false;
+      if (seen < r.seen) { r.seen = seen; moved = true; }
+      if (clear !== null && !(Number.isFinite(r.cleared) && r.cleared <= clear)) { r.cleared = clear; moved = true; }
+      return moved;
+    },
+    /** OW6L: a key's row as the `dg` word says it - `[px, py, seen]`, or `[px, py, seen, cleared]` once it is cleared -
+     *  or null when this ledger holds none (or the key is not a pixel's "px,py"). What this client tells its cell when
+     *  `note` first starts a row and when `clear` stamps one. */
+    wireRow(key) {
+      const r = rows.get(key);
+      const at = /^(\d{1,3}),(\d{1,3})$/.exec(String(key));
+      if (!r || !at) return null;
+      const px = Number(at[1]), py = Number(at[2]);
+      return Number.isFinite(r.cleared) ? [px, py, r.seen, r.cleared] : [px, py, r.seen];
+    },
     /** Gone for good: the pixel is free to be empty from here. */
     forget(key) { return rows.delete(key); },
     get size() { return rows.size; },

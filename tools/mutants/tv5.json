@@ -82,7 +82,7 @@
   {
     "name": "PERF-TV-click-never-a-plate",
     "file": "src/scenes/travelView.js",
-    "old": "      if (key) deps.onMark?.(key); else deps.onPick?.(e.clientX, e.clientY, e);",
+    "old": "      if (key) deps.onMark?.(key, e); else deps.onPick?.(e.clientX, e.clientY, e);",
     "new": "      deps.onPick?.(e.clientX, e.clientY, e);",
     "tests": [
       "test/tv5_far_places.test.js",
@@ -93,8 +93,8 @@
   {
     "name": "PERF-TV-screen-read-per-mark",
     "file": "src/ui/travelViewHud.js",
-    "old": "    const held = m.edge ? edgeHold(m, vw, vh, TV_EDGE_MARGIN, furniture.top, furniture.foot) : null;",
-    "new": "    const held = m.edge ? edgeHold(m, win?.innerWidth ?? 0, win?.innerHeight ?? 0, TV_EDGE_MARGIN, furniture.top, furniture.foot) : null;",
+    "old": "    const held = m.edge ? (edgeHold(m, vw, vh,",
+    "new": "    const held = m.edge ? (edgeHold(m, win?.innerWidth ?? 0, win?.innerHeight ?? 0,",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -363,8 +363,8 @@
   {
     "name": "EDGE-FURNITURE-foot-unmeasured",
     "file": "src/ui/travelViewHud.js",
-    "old": "      if (band) f.foot = Math.max(f.foot, vh - r.top + G);",
-    "new": "      if (band) f.foot = f.foot;",
+    "old": "      if (band) f.footNotch.push({ x0: r.left - G, x1: r.right + G, d: Math.max(M, vh - r.top + G) });",
+    "new": "      if (band) f.footNotch = f.footNotch;",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -493,8 +493,8 @@
   {
     "name": "AUDIT-DEEP2-E11-a-bare-sans",
     "file": "src/ui/travelViewHud.js",
-    "old": "  const font = plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px ${TRAVEL_VIEW_LABEL_FONT}`;",
-    "new": "  const font = plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px sans-serif`;",
+    "old": "    : plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px ${TRAVEL_VIEW_LABEL_FONT}`;",
+    "new": "    : plate ? `${size}px ${TRAVEL_VIEW_PLATE_FONT}` : `${size}px sans-serif`;",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -523,8 +523,8 @@
   {
     "name": "AUDIT-DEEP2-F11-screen-read-twice",
     "file": "src/ui/travelViewHud.js",
-    "old": "  drawMarks(f.marks ?? [], vw, vh, dpr);",
-    "new": "  drawMarks(f.marks ?? [], win?.innerWidth ?? 0, win?.innerHeight ?? 0, dpr);",
+    "old": "  drawMarks(all.filter((m) => markShown(m, fl)), vw, vh, dpr);",
+    "new": "  drawMarks(all.filter((m) => markShown(m, fl)), win?.innerWidth ?? 0, win?.innerHeight ?? 0, dpr);",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -533,8 +533,8 @@
   {
     "name": "AUDIT-DEEP2-E13-bar-click-through",
     "file": "src/ui/enhancedStyle.js",
-    "old": ".tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); pointer-events: auto;",
-    "new": ".tview-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);",
+    "old": ".tview-bar { position: absolute; right: 18px; bottom: 18px; pointer-events: auto; box-sizing: border-box;",
+    "new": ".tview-bar { position: absolute; right: 18px; bottom: 18px; box-sizing: border-box;",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -663,8 +663,8 @@
   {
     "name": "OVERWORLD-NAMES-badge-unsigned",
     "file": "src/ui/travelViewHud.js",
-    "old": ", q.m.kind ?? '', q.bk);",
-    "new": ", q.m.kind ?? '');",
+    "old": ", q.m.kind ?? '', q.bk, q.fade ? 1 : 0);",
+    "new": ", q.m.kind ?? '', q.fade ? 1 : 0);",
     "tests": [
       "test/tv5_far_places.test.js"
     ],

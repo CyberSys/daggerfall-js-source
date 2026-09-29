@@ -2,8 +2,8 @@
   {
     "name": "canRaise-restates-the-law-instead-of-asking-it",
     "file": "src/ui/levelUpView.js",
-    "old": "      canRaise: statUp(value, pool).working !== value,",
-    "new": "      canRaise: pool > 0,",
+    "old": "    const canRaise = statUp(value, pool).working !== value;",
+    "new": "    const canRaise = pool > 0;",
     "tests": [
       "test/enhancedLevelUp.test.js"
     ],

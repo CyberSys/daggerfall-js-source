@@ -15,6 +15,7 @@ import {
 } from '../server-account/src/realm.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { freshSave } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -84,7 +85,7 @@ async function stand() {
       bytes: ct.includes('json') ? null : new Uint8Array(await res.arrayBuffer()),
     };
   };
-  const guest = async () => (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = async () => (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   return { env, call, put, get, guest };
 }
 const save = (text) => new TextEncoder().encode(text);
@@ -96,8 +97,8 @@ test('REALM P1: the routes are the service\'s, behind a session and never open -
   assert.deepEqual(realmPathOf('/v1/realm/r0123456789abcdef0123/data'), { id: 'r0123456789abcdef0123' });
   assert.equal(realmPathOf('/v1/realm/c0ffee00-1111/data'), null, 'a client\'s id is no realm id');
   assert.equal(realmPathOf('/v1/realm/r0123456789abcdef0123/shot'), null);
-  assert.equal(ACCOUNT_VERSION, 'acct19');   // acct17 on its branch - main's RAID4 and AUDIT RAID took acct17 and acct18 first
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct19"/);
+  assert.equal(ACCOUNT_VERSION, 'acct23');   // HOUSE-LOSS and RESTORE moved it on last (acct23 - acct20, then acct21 and acct22, on their branch, which TERMS1, PENITENT and REALM-DOOR took first); before it REALM-DOOR and CUSTOMS-PASS moved it on (acct22: the mint signs whether the named character is the realm's, and a developer's customs pass); before it PENITENT's title and glyph and a fifth Disciple (acct21); before it TERMS1 moved it on (acct20); REALM's acct19 - acct17 on its branch - main's RAID4 and AUDIT RAID took acct17 and acct18 first
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct23"/);
   const { call, guest } = await stand();
   assert.equal((await call('GET', '/v1/realm')).status, 401, 'no secret, no characters');
   const g = await guest();
@@ -240,11 +241,11 @@ test('REALM P1: customs brings an offline character in ONCE, and only one that p
   assert.equal(came.status, 200);
   assert.match(came.body.id, REALM_ID_RE);
   assert.notEqual(came.body.id, origin, 'the service mints its own id');
-  // its Renown track comes in with it, under the realm's id now - AUDIT REALM2 S2: and no home and no guild place, which
-  // were bought on the client's word before the realm; they stay with the offline character
+  // its Renown track comes in with it, under the realm's id now - CUSTOMS-CARRY (Mac 2026-09-29, "Carry them"): and its
+  // home and its guild place, what stood before the realm (AUDIT REALM2 S2 had left them with the offline id)
   assert.deepEqual(env.DB._raw.prepare('SELECT char_id, xp FROM renown_tracks WHERE player = ?').all(g.id).map((r) => ({ ...r })), [{ char_id: came.body.id, xp: 500 }]);
-  assert.deepEqual(env.DB._raw.prepare('SELECT char_id FROM homes WHERE player = ?').all(g.id).map((r) => r.char_id), [origin]);
-  assert.deepEqual(env.DB._raw.prepare('SELECT char_id, rank FROM guild_members WHERE player = ?').all(g.id).map((r) => ({ ...r })), [{ char_id: origin, rank: 5 }], 'nor its guild place');
+  assert.deepEqual(env.DB._raw.prepare('SELECT char_id FROM homes WHERE player = ?').all(g.id).map((r) => r.char_id), [came.body.id]);
+  assert.deepEqual(env.DB._raw.prepare('SELECT char_id, rank FROM guild_members WHERE player = ?').all(g.id).map((r) => ({ ...r })), [{ char_id: came.body.id, rank: 5 }], 'and its guild place');
   // AUDIT REALM L3-F3: a customs whose first save never landed is taken up again - the same row, a new lease - and once
   // its first save lands, the character is in and customs is spent
   const again = await call('POST', '/v1/realm/customs', { origin, name: 'Nystul' }, g.secret);

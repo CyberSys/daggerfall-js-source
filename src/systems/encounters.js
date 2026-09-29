@@ -334,12 +334,16 @@ export function areEnemiesNearby(foes, { resting = false, includingPacified = fa
     if (!(canSee || f.ai.wouldBeSpawned)) continue;
     // :709 - the hostility/team gate, INSIDE the proximity arm
     if (includingPacified) return true;
-    // `isHostile ?? true`: EnemyMotor.IsHostile is initialised TRUE
-    // (:79) and only pacification clears it, so an ai without the
-    // field - a headless stub, a pool that predates the C-slice -
-    // reads hostile, which is the charter's "absent member idles the
-    // arm" for a flag whose absence means "no pacification here".
-    if ((f.ai.isHostile ?? true) && mobileTeamOf(f.entity) !== 'PlayerAlly') return true;
+    if (foeHostile(f)) return true;
   }
   return false;
+}
+
+/** :709's hostility and team gate - one home, for the sweep above and OW6's slowing journey (systems/travelThreat.js):
+ *  a live foe, unpacified, not of the player's team. `isHostile ?? true`: EnemyMotor.IsHostile is initialised TRUE
+ *  (:79) and only pacification clears it, so an ai without the field - a headless stub, a pool that predates the
+ *  C-slice - reads hostile, which is the charter's "absent member idles the arm" for a flag whose absence means "no
+ *  pacification here". */
+export function foeHostile(f) {
+  return !!f && !f.dead && !!f.ai && (f.ai.isHostile ?? true) && mobileTeamOf(f.entity) !== 'PlayerAlly';
 }

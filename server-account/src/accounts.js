@@ -41,6 +41,7 @@ import { ID_RE, nameIsIssuable } from '../../src/net/identityToken.js';
 import { PLAY_GRACE_S } from '../../src/net/playClock.js';   // ACC4: the widest gap one beat may credit - one home both ends
 import { MUTE_MAX_MIN } from '../../src/net/moderation.js';   // MOD1: the longest mute - the command and the service agree in one place
 import { verifyReceipt } from '../../src/net/gateReceipt.js';   // WB5b: the relay's kill receipt, verified with its public half
+import { TERMS_VERSION, PRIVACY_VERSION, LEGAL_VERSION_RE } from '../../src/net/legalLaw.js';   // TERMS1: the documents a new account agrees to - one home both ends
 import {
   hashPassword, verifyPassword, needsRehash, passwordRefusal,
   mintRecoveryCode, codeForHashing,
@@ -113,10 +114,13 @@ export function accountKind(row) {
  * A NEW PLAYER. Mints the id, the generated name and the device's first
  * session, and hands back the one and only copy of the raw secret.
  *
+ * TERMS1: `legal` is what its player agreed to - the route has already
+ * refused anybody who did not (`legalRefusal`), and the row keeps it.
+ *
  * @param {{db: any, subtle: SubtleCrypto, rand: (b: Uint8Array) => void, nowS: number}} env
- * @param {{deviceLabel?: string|null}} [opts]
+ * @param {{deviceLabel?: string|null, legal?: {terms: string, privacy: string}|null}} [opts]
  */
-export async function createGuest({ db, subtle, rand, nowS }, { deviceLabel = null } = {}) {
+export async function createGuest({ db, subtle, rand, nowS }, { deviceLabel = null, legal = null } = {}) {
   if (!Number.isSafeInteger(nowS)) throw new TypeError('createGuest needs an integer epoch-seconds clock');
   const id = mintId(rand);
   const name = guestName(rand);
@@ -134,8 +138,8 @@ export async function createGuest({ db, subtle, rand, nowS }, { deviceLabel = nu
   // has broken, which is worth a 500 because nothing else would be
   // trustworthy either.
   if (!nameIsIssuable(name) || !isGuestShaped(name)) throw new Error(`guestName produced an unusable name: ${name}`);
-  await db.prepare('INSERT INTO players (id, handle, handle_lc, guest_name, created_at, last_seen) VALUES (?, NULL, NULL, ?, ?, ?)')
-    .bind(id, name, nowS, nowS).run();
+  await db.prepare('INSERT INTO players (id, handle, handle_lc, guest_name, created_at, last_seen, terms_version, privacy_version, legal_accepted_at) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?)')
+    .bind(id, name, nowS, nowS, ...legalColumns(legal, nowS)).run();
   const session = await openSession({ db, subtle, rand, nowS }, id, deviceLabel);
   return { id, name, kind: 'guest', ...session };
 }
@@ -379,6 +383,48 @@ export function handleRefusal(handle) {
   return null;
 }
 
+/**
+ * TERMS1 — DID THIS PLAYER TICK THE DOCUMENTS THIS SERVICE HOLDS?
+ *
+ * "I wanna make sure these need to be reviewed and checked off by
+ * players before creating an account". The Create account form sends the
+ * Terms of Service and Privacy Policy versions its player ticked
+ * (src/net/legalLaw.js), and the two routes that make an account ask
+ * this before anything is written: `/v1/auth/guest` opens the row and
+ * `/v1/auth/register` names it. No other route makes one.
+ *
+ * THREE REFUSALS, because a player needs three different sentences.
+ * `terms-unaccepted`: a box unticked, or an answer that is not a
+ * version. `terms-stale`: dated versions that are not these - a player
+ * who ticked text this service no longer holds (an old tab, a cached
+ * build), who must reload to read the current text rather than tick a
+ * box they already ticked.
+ *
+ * AUDIT PRE-MERGE 0929 T1: AND A REQUEST THAT NAMES NEITHER DOCUMENT is
+ * a game from before the boxes - the form never sends one, since its own
+ * check stops a press with a box unticked - and a game that old has no
+ * sentence for either word above: it said "The account service had a
+ * problem. Try again." at every press, for ever, and the desktop app's
+ * reload brings back the same bundled game. It is answered in the word
+ * every shipped build renders as "The game may need updating"
+ * (accountClient.js REFUSALS `not-found`), which is the truth.
+ */
+export function legalRefusal(body) {
+  const terms = body?.terms, privacy = body?.privacy;
+  if (terms === TERMS_VERSION && privacy === PRIVACY_VERSION) return null;
+  if (terms === undefined && privacy === undefined) return { error: 'not-found' };
+  const dated = (v) => typeof v === 'string' && LEGAL_VERSION_RE.test(v);
+  if (dated(terms) && dated(privacy)) return { error: 'terms-stale' };
+  return { error: 'terms-unaccepted' };
+}
+
+/** TERMS1: what a row keeps of an agreement - the two versions and the
+ *  moment - or three NULLs. ONLY THE CURRENT VERSIONS ARE WRITTEN, whoever
+ *  calls: a row that says its player agreed to text this service does not
+ *  hold is a record of something that did not happen. */
+const legalColumns = (legal, nowS) =>
+  (legal && !legalRefusal(legal) ? [legal.terms, legal.privacy, nowS] : [null, null, null]);
+
 // ── ACC1c: USERNAME, PASSWORD, AND THE ONE WAY BACK IN ──────────────
 
 /** How many failures a key may have in a window, and how long the
@@ -447,8 +493,14 @@ export async function clearRate({ db }, key) {
  * which is the property ACC0 has been protecting since it opened.
  *
  * Returns `{ recoveryCode }` - THE ONLY TIME IT IS EVER READABLE.
+ *
+ * TERMS1: `legal` is the agreement ticked on the form that named it,
+ * which the route has already required (`legalRefusal`) - written with
+ * the name, so an account made before the boxes existed carries one from
+ * the moment it registers. It never ERASES one: a caller that passes
+ * none leaves the row's own.
  */
-export async function register({ db, subtle, rand, nowS }, playerId, { handle, password }) {
+export async function register({ db, subtle, rand, nowS }, playerId, { handle, password, legal = null }) {
   const hRefusal = handleRefusal(handle);
   if (hRefusal) return { error: `handle-${hRefusal}` };
   const pRefusal = passwordRefusal(password);
@@ -469,8 +521,10 @@ export async function register({ db, subtle, rand, nowS }, playerId, { handle, p
     // authority on whether this row is still a guest's, by the same law
     // - two registrations of one guest (two devices) both passed the
     // SELECT above, both answered a recovery code, and the first's was dead.
-    wrote = await db.prepare('UPDATE players SET handle = ?, handle_lc = ?, password = ?, recovery_hash = ?, registered_at = ? WHERE id = ? AND handle IS NULL')
-      .bind(handle, handle.toLowerCase(), pw, rc, nowS, playerId).run();
+    wrote = await db.prepare('UPDATE players SET handle = ?, handle_lc = ?, password = ?, recovery_hash = ?, registered_at = ?, '
+      + 'terms_version = COALESCE(?, terms_version), privacy_version = COALESCE(?, privacy_version), legal_accepted_at = COALESCE(?, legal_accepted_at) '
+      + 'WHERE id = ? AND handle IS NULL')
+      .bind(handle, handle.toLowerCase(), pw, rc, nowS, ...legalColumns(legal, nowS), playerId).run();
   } catch (e) {
     // THE UNIQUE INDEX IS THE AUTHORITY ON WHETHER A NAME IS TAKEN, not
     // a SELECT before the write - two registrations in the same instant

@@ -66,7 +66,7 @@ export default [
     // AUDIT 68 X2: tests, tools, scripts, the desktop shell and these
     // configs, held to the STRUCTURAL rules (no globals list needed) - a
     // dropped fixture key, a reassigned const, dead code after a return.
-    files: ['test/**/*.{js,mjs}', 'tools/**/*.{js,mjs}', 'scripts/**/*.{js,mjs}', 'app/**/*.cjs', '*.config.js'],
+    files: ['test/**/*.{js,mjs}', 'tools/**/*.{js,mjs}', 'scripts/**/*.{js,mjs}', 'app/**/*.{cjs,js}', '*.config.js'],
     languageOptions: { ecmaVersion: 'latest' },
     // these files carry disable comments for rules only the src block runs
     linterOptions: { reportUnusedDisableDirectives: 'off' },

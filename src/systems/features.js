@@ -201,10 +201,11 @@ export const MOD_CURATED = Object.freeze({
   // TRAVEL-NAV1: and the port's own steering switch, on the tile so it is
   // REACHABLE (TORCH-BIND's lesson, HT-WAIST's pin) - a key the drawer does
   // not draw is a key nobody can turn.
+  // OW-TOGGLE: and the port's own first-person switch, on the tile for the same reason.
   'travel-options': Object.freeze([
     'CautiousTravel.PlayerControlledCautiousTravel', 'ShipTravel.OnlyFromPorts',
     'GeneralOptions.LocationPause', 'TimeAcceleration.AccelerationLimit',
-    'GeneralOptions.AvoidObstacles',
+    'GeneralOptions.AvoidObstacles', 'GeneralOptions.FirstPersonTravel',
   ]),
   'ambient-text': Object.freeze(['textChance', 'interval', 'postTextInterval', 'textDisplayTime']),   // AT0: all four it ships - the mod is small enough that curation would only hide something
   // EOTB0: the mod ships FIFTY-FOUR keys across nine sections, so this
@@ -383,6 +384,21 @@ export const FEATURES = Object.freeze([
     // field, relay law or shared roll reads the lane), the same shape as the chat's visibility and the peers'
     // sprites the lane already leaves to the player.
     control: Object.freeze({ store: 'prefs', key: 'enhancedLighting', initial: true, online: 'player' }),
+  }),
+  // IIL1-T (2026-09-27, Mac: "add an alternative light on off option to test the modded lighting"): Improved Interior
+  // Lighting off, on, or on with shadows - it only ever acts with its .dfmod attached (systems/improvedInteriorLighting.js);
+  // "With shadows" runs its lights on the Enhanced Lighting lane, whose shadow maps the classic lane does not have.
+  Object.freeze({
+    id: 'modded-lighting',
+    group: 'sight',
+    title: 'Modded lighting (Improved Interior Lighting)',
+    note: 'Only with the Improved Interior Lighting mod attached: its warm, flickering lights in place of the classic '
+      + 'lighting. With shadows, lamps, people and monsters cast soft shadows too.',
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    // IIL1-T2 (Mac: "i dont want to [edit the address] thats why i wanted the options added"): the shadows the test
+    // door gave, as the row's third tier
+    control: Object.freeze({ store: 'prefs', key: 'moddedLighting', initial: 'on', online: 'player', tiers: Object.freeze([['off', 'Off'], ['on', 'On'], ['shadows', 'With shadows']]) }),
   }),
   // FT7 (2026-09-14): THE TWO QUALITY TIERS OF THE ENHANCED OUTDOORS
   // (PERF1) - the grass field's fraction and the clouds' march. Both

@@ -74,6 +74,7 @@ export const TITLE_TEXT = Object.freeze({
   apostle: 'Apostle',
   hierophant: 'Hierophant',
   shadowfang: 'Shadow Fang',         // SHADOW-FANG (2026-09-26, Mac): SirMcMobdon's own
+  penitent: 'Penitent',              // PENITENT (2026-09-29, Mac): Diggleborf's own
 });
 
 /** SHADOW-FANG (2026-09-26, Mac): "SirMcMobdon gets a brand new
@@ -86,6 +87,19 @@ const SHADOW_BLACK = Object.freeze([0.051, 0.027, 0.035, 1]);    // #0d0709 - bl
 const SHADOW_CRIMSON = Object.freeze([0.827, 0.098, 0.235, 1]);  // #d3193c
 /** The wolf's eye, the one red that is not the gradient's (the reference's). */
 const SHADOW_EYE = Object.freeze([1, 0.133, 0.18, 1]);           // #ff222e
+
+/** PENITENT (2026-09-29, Mac: "This new custom title/glyph is for the user
+ *  Diggleborf"). Diggleborf's own ask: "Looking to do a Trinimac themed one,
+ *  so maybe "Penitent" for the title starting gold and ending a sky blue",
+ *  and a sketch for the glyph - a tall lozenge with a sword in it, point
+ *  down. The two ends, named as the web names them: `gold` and `skyblue`. */
+const PENITENT_GOLD = Object.freeze([1, 0.843, 0, 1]);          // #ffd700
+const PENITENT_SKY = Object.freeze([0.529, 0.808, 0.922, 1]);   // #87ceeb
+/** THE LIGHT BETWEEN THEM. A gold and a sky blue both lean green, so a
+ *  straight mix of the two is sage: with two stops the word read gold, lime,
+ *  blue. A warm pale stop at the middle keeps it gold into light into sky -
+ *  still starting gold and ending sky blue. */
+const PENITENT_LIGHT = Object.freeze([1, 0.953, 0.839, 1]);     // #fff3d6
 
 /** A title's colour, RGBA 0..1 - the same shape SOC4's PARTY_GREEN is
  *  in, so `nameLayer.cssRgba` turns it into CSS and `drawText` takes it
@@ -104,15 +118,29 @@ export const TITLE_RGBA = Object.freeze({
   // SHADOW-FANG: the gradient's crimson end - the colour a face that cannot draw a gradient uses (the account
   // card's button, the classic face's edge), and the glyph's outline
   shadowfang: SHADOW_CRIMSON,
+  // PENITENT: the gradient's gold end - the account card's button, and the glyph's lozenge
+  penitent: PENITENT_GOLD,
 });
 
 /** SHADOW-FANG: A TITLE DRAWN AS A GRADIENT - its stops, RGBA 0..1, left
  *  to right along the word. A title named here is painted by `titlePaint`
  *  on every DOM face and a letter at a time by the classic one; a title
  *  that is not keeps its one colour above. "Shadow" in the black, "Fang"
- *  in the crimson. */
+ *  in the crimson; "Penitent" gold into the light into the sky. */
 export const TITLE_GRADIENT = Object.freeze({
   shadowfang: Object.freeze([SHADOW_BLACK, SHADOW_CRIMSON]),
+  penitent: Object.freeze([PENITENT_GOLD, PENITENT_LIGHT, PENITENT_SKY]),
+});
+
+/** PENITENT: THE EDGE A GRADIENT TITLE WEARS, where it is not the title's
+ *  own colour. The edge is what the letters are read against (titlePaint,
+ *  and the classic face's edge run): Shadow Fang's is its own crimson,
+ *  because its black half needs a bright edge over a night sky. Penitent's
+ *  ends are both bright, and edged in its own gold the sky half was lost -
+ *  the word read gold on every ground. So it is edged in black, as every
+ *  one-colour title's text shadow is. */
+export const TITLE_EDGE = Object.freeze({
+  penitent: Object.freeze([0, 0, 0, 1]),
 });
 
 /** A glyph's colour. The sprout is green because Mac said green; the
@@ -130,6 +158,7 @@ export const GLYPH_RGBA = Object.freeze({
   apostle: TITLE_RGBA.apostle,
   hierophant: TITLE_RGBA.hierophant,
   shadowfang: TITLE_RGBA.shadowfang,   // SHADOW-FANG: the outline's crimson - the fill is the gradient below
+  penitent: TITLE_RGBA.penitent,       // PENITENT: the lozenge in the title's gold - the sword in it is its detail, below
 });
 
 /** SHADOW-FANG: A GLYPH FILLED WITH A GRADIENT - its title's two stops,
@@ -145,9 +174,15 @@ export const GLYPH_GRADIENT = Object.freeze({
 export const GLYPH_EDGE_W = 0.55;
 
 /** SHADOW-FANG: A SECOND SHAPE ON A GLYPH, in a colour of its own - the
- *  wolf's eye, an angry red slit over the black. Filled, on top. */
+ *  wolf's eye, an angry red slit over the black. Filled, on top.
+ *  PENITENT: the sword inside the lozenge, in the title's sky - the grant's
+ *  two ends, the gold round the blue. Point down, the arms reversed, as a
+ *  penitent carries them: a small diamond pommel, the grip, the guard, and
+ *  a long blade tapering to the lozenge's lowest point, where the sketch's
+ *  meets it. */
 export const GLYPH_DETAIL = Object.freeze({
   shadowfang: Object.freeze({ path: 'M9.3 4.7L11.8 5.5L9.8 6.2Z', rgba: SHADOW_EYE }),
+  penitent: Object.freeze({ path: 'M8 3.2L8.65 3.85L8 4.5L7.35 3.85ZM7.45 4.5H8.55V6.3H7.45ZM5.9 6.3H10.1V7.3H5.9ZM7.25 7.3H8.75L8 14Z', rgba: PENITENT_SKY }),
 });
 
 /** THE CLASSIC FACE'S STAND-IN: one character, and it must be one the
@@ -162,6 +197,7 @@ export const GLYPH_MARK = Object.freeze({
   apostle: '^',
   hierophant: '!',
   shadowfang: '>',    // SHADOW-FANG: the wolf's muzzle, facing the way the glyph's does
+  penitent: '|',      // PENITENT: the sword's blade, one upright stroke
 });
 
 /** The printable range the classic font covers. ACC1d-MARK's own bound,
@@ -192,12 +228,15 @@ export const GLYPH_PATH = Object.freeze({
   // SHADOW-FANG: the reference's wolf, in profile facing right - the ear raised, the brow down, the jaws open on
   // three fangs, the mane swept back in six blades and the ruff under the throat
   shadowfang: 'M15.9 6.3Q15.8 5.5 15 5.3L11.4 4.1L9.9 3.3L8.7 0.3L6.9 3.2Q4.9 2.1 2.5 2.4Q4.2 3.2 5 4.5Q2.8 4.8 1 6.3Q3.2 6.6 4.3 7.6Q2.3 8.7 1.1 10.5Q3.2 10 4.8 10.2Q3.6 11.7 3.2 13.8Q5.2 12.2 6.8 11.9Q6.3 13.4 6.5 15.3Q7.8 13.2 9.2 12.7Q9.6 14 10.4 15.2Q10.5 12.9 11.6 12L12.9 11.3L15.1 10.7L14 10.4L13.8 9.4L13.3 10.3L9.8 8.8L11.7 8.3L12.1 9.5L12.6 8.1L14.4 7.6L14.8 8.7L15.2 7.4L15.9 7Z',
+  // PENITENT: Diggleborf's sketch - a tall lozenge, point up and point down, the widest a little below the middle (its
+  // sword is GLYPH_DETAIL's)
+  penitent: 'M8 .8L13 8.2L8 15.2L3 8.2Z',
 });
 
 /** Is this glyph DRAWN as an outline rather than filled? The sprout is
  *  a shape and the brackets are strokes; said here so the layer does
  *  not have to know which is which by name. */
-export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, dm: true, disciple: true, apostle: true, hierophant: true, shadowfang: false });
+export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, dm: true, disciple: true, apostle: true, hierophant: true, shadowfang: false, penitent: true });
 
 /**
  * The title a peer wears, ready to draw: `{ key, text, rgba }`, or
@@ -213,7 +252,7 @@ export function titleBadge(peer) {
   if (typeof key !== 'string' || !TITLES.includes(key)) return null;
   const text = TITLE_TEXT[key];
   if (!text) return null;
-  return { key, text, rgba: TITLE_RGBA[key] ?? null, gradient: TITLE_GRADIENT[key] ?? null };
+  return { key, text, rgba: TITLE_RGBA[key] ?? null, gradient: TITLE_GRADIENT[key] ?? null, edge: TITLE_EDGE[key] ?? null };   // PENITENT: `edge`
 }
 
 /** SHADOW-FANG: a gradient's colour at `t` along it (0 the first stop, 1
@@ -244,15 +283,16 @@ export const cssGradient = (stops) => `linear-gradient(90deg, ${stops.map(cssRgb
  *  "Shadow" on every dark ground). AUDIT A4/A5: the edge was a crimson
  *  text-stroke ON the letters with a synthesised bold, which covered most
  *  of each stem - in the world the word read crimson, black in 4-15% of
- *  "Shadow"'s ink, and Mac asked for a black and crimson gradient. No
- *  title: all empty. */
+ *  "Shadow"'s ink, and Mac asked for a black and crimson gradient.
+ *  PENITENT: the edge is TITLE_EDGE's where it names one - black, for a
+ *  word whose ends are both bright. No title: all empty. */
 export const TITLE_PAINT_KEYS = Object.freeze(['color', 'backgroundImage', 'webkitBackgroundClip', 'backgroundClip', 'webkitTextFillColor', 'webkitTextStroke', 'fontWeight', 'textShadow', 'filter']);
 export function titlePaint(badge) {
   const out = Object.fromEntries(TITLE_PAINT_KEYS.map((k) => [k, '']));
   if (!badge) return out;
   out.color = cssRgba(badge.rgba) ?? '';
   if (Array.isArray(badge.gradient) && badge.gradient.length > 1) {
-    const edge = cssRgba(badge.rgba) ?? '';
+    const edge = cssRgba(badge.edge ?? badge.rgba) ?? '';   // PENITENT: its own edge where TITLE_EDGE names one
     out.backgroundImage = cssGradient(badge.gradient);
     out.webkitBackgroundClip = 'text';
     out.backgroundClip = 'text';

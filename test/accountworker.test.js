@@ -37,6 +37,7 @@ import {
   mintRecoveryCode, canonicalCode, codeForHashing, timingSafeEqual, PBKDF2_ITERS, PBKDF2_CAP, CODE_ALPHABET,
 } from '../server-account/src/password.js';
 import { verifyToken, importPublicKeyB64, ID_RE, nameIsIssuable, TOKEN_V } from '../src/net/identityToken.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -114,7 +115,9 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // migration is applied - customs' gate, which no session can write to since
   // RENOWN-ACCOUNT added `renown_accounts` (0021): ONE row an account's Renown, keyed by the account alone - each account
   // began at its best character's track, and `renown_tracks` stays beside it as history nothing writes again
-  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'players', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'realm_census', 'realm_characters', 'realm_trades', 'realm_tx_guard', 'renown_accounts', 'renown_tracks', 'saves', 'sessions']);
+  // CUSTOMS-PASS added `realm_passes` (0024): one row a developer's grant of a customs pass - open until customs spends it
+  // on the one character it lets in, then the record of whom it let in (at most one open an account)
+  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'players', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'realm_census', 'realm_characters', 'realm_passes', 'realm_trades', 'realm_tx_guard', 'renown_accounts', 'renown_tracks', 'saves', 'sessions']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.
   const cols = db._raw.prepare('PRAGMA table_info(players)').all().map((c) => c.name);
@@ -134,8 +137,14 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // (`renown_last_credit`, read back by the same UPDATE's RETURNING): the
   // hour's bound is the account's across all its characters, so it lives
   // on the account's row. No level and no total is a column here.
+  // TERMS1 added THREE - what a new account agreed to and when:
+  // `terms_version` and `privacy_version` (each document's Last Updated
+  // date, src/net/legalLaw.js) and `legal_accepted_at`. An agreement is a
+  // fact about the account itself, made once by its player, so it is the
+  // row's; NULL on every account made before the boxes existed.
   assert.deepEqual(cols.sort(), ['created_at', 'email', 'guest_name', 'handle', 'handle_lc', 'id',
-    'last_seen', 'muted_by', 'muted_until', 'password', 'played_at', 'played_s', 'recovery_hash', 'registered_at', 'renown_hour', 'renown_hour_xp', 'renown_last_credit', 'title']);
+    'last_seen', 'legal_accepted_at', 'muted_by', 'muted_until', 'password', 'played_at', 'played_s', 'privacy_version', 'recovery_hash',
+    'registered_at', 'renown_hour', 'renown_hour_xp', 'renown_last_credit', 'terms_version', 'title']);
   assert.ok(!cols.some((c) => /founder|developer|sprout|glyph|grant/i.test(c)), `a grant became a column: ${cols}`);
   // SAVES AND PROVIDER LINKS ARE STILL NOT HERE. They arrive as their
   // own migrations rather than as columns somebody added to this one.
@@ -202,7 +211,7 @@ test('AUDIT-ACC F13: a credential is never accepted from a URL', async () => {
   // Cloudflare's request logs, into a Referer header, and into browser
   // history. Read-only or not, the session secret was in all three.
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
 
   // THE OLD SPELLING MUST NOT WORK. A route that still honours it has
   // not been fixed, it has merely grown a second door.
@@ -242,7 +251,7 @@ test('AUDIT-ACC F12: a credential is not a licence to hammer, and the refusal is
   Date.now = () => held;
   t.after(() => { Date.now = realNow; });
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
 
   let sawRate = 0;
   for (let i = 0; i < ACCOUNT_MAX + 5; i++) {
@@ -264,7 +273,7 @@ test('AUDIT-ACC F12: a credential is not a licence to hammer, and the refusal is
 
   // A DIFFERENT ACCOUNT IS UNAFFECTED - the bucket is per account, not
   // global, so one noisy client cannot lock everybody else out.
-  const other = (await call('POST', '/v1/auth/guest', {})).body;
+  const other = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   assert.equal((await call('POST', '/v1/auth/token', { secret: other.secret })).status, 200,
     'one account over its limit stopped another account working');
 });
@@ -566,7 +575,7 @@ test('ACC1b: the Worker mints a guest, then a token the RELAY\'s public key veri
   assert.equal(health.body.v, 'test1', '/health names the deploy, as the relay\'s does');
   assert.equal(health.headers.get('access-control-allow-origin'), 'https://daggerfalljs.dev');
 
-  const guest = (await call('POST', '/v1/auth/guest', { label: 'desktop' })).body;
+  const guest = (await call('POST', '/v1/auth/guest', { label: 'desktop', ...ACCEPTED })).body;
   assert.match(guest.id, ID_RE);
   assert.ok(isGuestShaped(guest.name));
 
@@ -599,7 +608,7 @@ test('ACC1b: the Worker mints a guest, then a token the RELAY\'s public key veri
 
 test('ACC1b: every route needs a secret, and a bad one is 401 and nothing else', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   for (const [m, p, b, bearer] of [
     ['POST', '/v1/auth/token', { secret: 'nope' }],
     ['POST', '/v1/auth/session', { secret: 'nope' }],
@@ -686,7 +695,7 @@ test('ACC1b: THE PRIVATE KEY IS A SECRET, and the committed config proves it', a
   const mk = async (p, b) => worker.fetch(new Request(`https://x.invalid${p}`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b),
   }), env);
-  const guest = await (await mk('/v1/auth/guest', {})).json();
+  const guest = await (await mk('/v1/auth/guest', { ...ACCEPTED })).json();
   assert.ok(guest.id, 'an account could not be made without a signing key');
   const tok = await mk('/v1/auth/token', { secret: guest.secret });
   assert.equal(tok.status, 503);
@@ -861,9 +870,9 @@ test('ACC1c: THE RECOVERY CODE ROUND-TRIPS - the bug that would have locked peop
 
 test('ACC1c: registering is an UPGRADE IN PLACE, and the code is shown exactly once', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
 
-  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Nystul', password: 'a good long one' });
+  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Nystul', password: 'a good long one', ...ACCEPTED });
   assert.equal(reg.status, 200);
   assert.match(reg.body.recoveryCode, /^[0-9A-Z]{5}(-[0-9A-Z]{5}){3}$/);
 
@@ -887,18 +896,18 @@ test('ACC1c: registering is an UPGRADE IN PLACE, and the code is shown exactly o
   assert.ok(!/recovery/i.test(JSON.stringify(acct)), `the account view mentions recovery: ${JSON.stringify(acct)}`);
 
   // registering twice is refused, and so is a taken name
-  assert.equal((await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Other', password: 'a good long one' })).body.error, 'already-registered');
-  const second = (await call('POST', '/v1/auth/guest', {})).body;
-  const taken = await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'NYSTUL', password: 'a good long one' });
+  assert.equal((await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Other', password: 'a good long one', ...ACCEPTED })).body.error, 'already-registered');
+  const second = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  const taken = await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'NYSTUL', password: 'a good long one', ...ACCEPTED });
   assert.equal(taken.body.error, 'handle-taken', 'casing smuggled a duplicate past the index');
-  assert.equal((await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'Ok', password: 'a good long one' })).body.error, 'handle-shape');
-  assert.equal((await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'Fine', password: 'short' })).body.error, 'password-short');
+  assert.equal((await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'Ok', password: 'a good long one', ...ACCEPTED })).body.error, 'handle-shape');
+  assert.equal((await call('POST', '/v1/auth/register', { secret: second.secret, handle: 'Fine', password: 'short', ...ACCEPTED })).body.error, 'password-short');
 });
 
 test('ACC1c: logging in costs the same for a handle nobody holds as for a wrong password', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
-  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Medora', password: 'a good long one' });
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Medora', password: 'a good long one', ...ACCEPTED });
 
   const ok = await call('POST', '/v1/auth/login', { handle: 'MEDORA', password: 'a good long one', label: 'phone' });
   assert.equal(ok.status, 200, 'the handle is case-insensitive to log in with, as it is to take');
@@ -934,8 +943,8 @@ test('ACC1c: logging in costs the same for a handle nobody holds as for a wrong 
 
 test('ACC1c: the recovery code sets a new password, mints a NEW code, and signs every device out', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
-  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Kithlan', password: 'the old one here' });
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Kithlan', password: 'the old one here', ...ACCEPTED });
   const other = (await call('POST', '/v1/auth/login', { handle: 'Kithlan', password: 'the old one here' })).body;
 
   const back = await call('POST', '/v1/auth/recover', {
@@ -967,8 +976,8 @@ test('ACC1c: the recovery code sets a new password, mints a NEW code, and signs 
 
 test('ACC1c: guessing is throttled, per handle and per address', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
-  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Barenziah', password: 'a good long one' });
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Barenziah', password: 'a good long one', ...ACCEPTED });
 
   // the window is aligned to the clock (overRate: floor(now / LOGIN_WINDOW_S)), so guesses that straddle its edge are
   // counted from one again - 2026-09-28's full suite crossed 02:30:00 mid-loop and saw no 429. Begin past the edge.
@@ -989,8 +998,8 @@ test('ACC1c: guessing is throttled, per handle and per address', async () => {
   // A SUCCESSFUL LOGIN FORGIVES THE KEY, so somebody who mistyped twice
   // and then got it right is not still on a countdown.
   const fresh = await stand();
-  const g2 = (await fresh.call('POST', '/v1/auth/guest', {})).body;
-  await fresh.call('POST', '/v1/auth/register', { secret: g2.secret, handle: 'Clavicus', password: 'a good long one' });
+  const g2 = (await fresh.call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  await fresh.call('POST', '/v1/auth/register', { secret: g2.secret, handle: 'Clavicus', password: 'a good long one', ...ACCEPTED });
   for (let i = 0; i < 3; i++) await fresh.call('POST', '/v1/auth/login', { handle: 'Clavicus', password: 'nope' });
   assert.equal((await fresh.call('POST', '/v1/auth/login', { handle: 'Clavicus', password: 'a good long one' })).status, 200);
   for (let i = 0; i < LOGIN_MAX - 1; i++) {
@@ -1001,8 +1010,8 @@ test('ACC1c: guessing is throttled, per handle and per address', async () => {
 
 test('ACC1c: a password is changed with the OLD one, and email is COMPLETELY optional', async () => {
   const { call } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
-  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Sheogorath', password: 'the first one' });
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Sheogorath', password: 'the first one', ...ACCEPTED });
   const phone = (await call('POST', '/v1/auth/login', { handle: 'Sheogorath', password: 'the first one' })).body;
 
   // A STOLEN DEVICE SHOULD NOT BE ABLE TO LOCK ITS OWNER OUT, so the
@@ -1030,8 +1039,8 @@ test('ACC1c: a password is changed with the OLD one, and email is COMPLETELY opt
 
 test('ACC1c: no credential of any kind is stored in the clear, or shipped back', async () => {
   const { call, env } = await stand();
-  const guest = (await call('POST', '/v1/auth/guest', {})).body;
-  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Uriel', password: 'a memorable phrase' });
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle: 'Uriel', password: 'a memorable phrase', ...ACCEPTED });
 
   const dump = JSON.stringify(env.DB._raw.prepare('SELECT * FROM players').all());
   assert.ok(!dump.includes('a memorable phrase'), 'the password is in the database');

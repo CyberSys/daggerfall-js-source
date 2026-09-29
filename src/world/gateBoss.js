@@ -15,7 +15,7 @@
 // The charge is run on the walk's frames at a run's pace, his body carried down the lane as the brain carries it.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, BOSS_H, LEAP_AIR_MS, leapAt } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, BOSS_H, LEAP_AIR_MS, leapAt, profileOf } from '../net/gateBrain.js';
 import { bossAt } from '../net/gateLink.js';
 import { telegraphAt, chargeHead } from '../net/gateStrike.js';
 import {
@@ -51,8 +51,18 @@ export function bossStandIn(look, name) {
   e.name = name;
   e.spareGear = true;   // WBX6: a blow on him wears no weapon (combat/formulas.js damageEquipment)
   e.mobileType ??= look.mobile;   // WBX7: a soul trap reads the target's mobile (systems/effects.js) - his is a Daedra Lord's, no humanoid
+  // WB8a (2026-09-28, Mac: "Make the oblivion gate boss not be able to be pacified"): NEVER SWAYED. No path reached him
+  // before this, but only by accident - he is in no foe pool, so the language roll never met him, and his spell door
+  // took harmful families alone - and a Pacify Daedra on a Daedra Lord's stand-in matches. Now it is his own word: the
+  // language seam (scenes/hostCombat.js), the Pacify/Charm arm (systems/effects.js) and the flag's door
+  // (scenes/hostMagic.js) all refuse a target that says it, and his door answers a sway with BOSS_SWAY_TEXT.
+  e.pacifyImmune = true;
   return e;
 }
+/** WB8a: what a Pacify or a Charm aimed at him says. */
+export const BOSS_SWAY_TEXT = (name) => `${name || 'The Warden'} cannot be swayed.`;
+/** WB8a: how often at most it is said - a Cast When Strikes sway rides every blow. */
+export const BOSS_SWAY_TELL_MS = 4000;
 
 /**
  * WB4b: WHERE A SWING MEETS HIM - the nearest point of his body's surface to an eye (his axis `radius` in from it, level
@@ -95,6 +105,24 @@ export const WARD_COLOR = Object.freeze([1.0, 0.86, 0.5]);
 export const EMBER_COLOR = Object.freeze([0.9, 0.32, 0.1]);
 /** WBX5: the burning ground's colour on the floor (render/gateTelegraph.js draws each pool as a filled disc). */
 export const POOL_COLOR = Object.freeze([1.0, 0.36, 0.05]);
+/**
+ * WB8b: HIS ASPECT, SEEN - the colours his elemental blows, his ground and his ember take under each aspect but his
+ * burning one (net/gateMods.js GATE_ASPECTS - the court's own fire above is the Burning Warden's): the rime's ice, the
+ * storm's violet and its bolt's white, the venom's green. His blade, his slam, his charge and his leap keep the
+ * colours of his weight; Dagon's Wrath is Dagon's red whatever he wears. Display-encoded, as the rest.
+ */
+const tint = (o) => Object.freeze(Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Object.freeze(v)])));
+export const ASPECT_COLORS = Object.freeze({
+  rime: tint({ hellfire: [0.5, 0.78, 1.0], nova: [0.72, 0.9, 1.0], meteor: [0.4, 0.68, 1.0], spokes: [0.46, 0.56, 1.0], pool: [0.28, 0.6, 1.0], ember: [0.34, 0.6, 0.95] }),
+  storm: tint({ hellfire: [0.66, 0.52, 1.0], nova: [0.84, 0.8, 1.0], meteor: [0.96, 0.92, 0.5], spokes: [0.74, 0.46, 1.0], pool: [0.56, 0.4, 1.0], ember: [0.6, 0.42, 0.95] }),
+  venom: tint({ hellfire: [0.5, 1.0, 0.26], nova: [0.68, 1.0, 0.38], meteor: [0.38, 0.92, 0.16], spokes: [0.28, 1.0, 0.52], pool: [0.3, 0.86, 0.12], ember: [0.36, 0.8, 0.16] }),
+});
+/** An attack's colour under a profile (net/gateBrain.js fightProfile): his aspect's where it names one - his elemental
+ *  blows alone, never Dagon's Wrath - else the attack's own. */
+export const attackColor = (A, P) => ASPECT_COLORS[P?.aspect?.id]?.[A.key] ?? ATTACK_COLORS[A.key];
+/** His ground's colour, and his ember's, under a profile. */
+export const poolColor = (P) => ASPECT_COLORS[P?.aspect?.id]?.pool ?? POOL_COLOR;
+export const emberColor = (P) => ASPECT_COLORS[P?.aspect?.id]?.ember ?? EMBER_COLOR;
 
 /** WBX5: THE LEAP'S FLIGHT - he is in the air LEAP_AIR_MS before it lands (the brain's law, net/gateBrain.js leapAt),
  *  and this high at the top of his arc (metres). */
@@ -177,27 +205,29 @@ export const GLOW_RANGE = Object.freeze({ ember: 7, windup: 12, landing: 18 });
 /**
  * THE GLOW ON HIM: a light at his chest in the court's own channel (`{ x, y, z, range, color }`, colour times
  * intensity - world/gateArena.js withCourtLights), the attack's colour climbing through its wind-up and flaring at the
- * landing, gold while the ward stands, a low ember otherwise; null when he is gone.
+ * landing, gold while the ward stands, a low ember otherwise; null when he is gone. WB8b: at his own chest (Colossal's
+ * stands higher) and in his aspect's colours.
  */
 export function bossGlow(s, now) {
   if (!s || s.day === null) return null;
   if (s.fell && now - s.fell.at >= FALL_MS) return null;
+  const P = profileOf(s), ember = emberColor(P);
   const [cx, cz] = bossPlace(s, now);
-  const [x, y, z] = courtToDungeon(cx, GLOW_UP, cz);
+  const [x, y, z] = courtToDungeon(cx, P.bossH * 0.55, cz);
   const lit = (color, k, range) => ({ x, y, z, range, color: color.map((c) => c * k) });
-  if (s.fell) return lit(EMBER_COLOR, 2.2 * (1 - (now - s.fell.at) / FALL_MS), GLOW_RANGE.landing);
+  if (s.fell) return lit(ember, 2.2 * (1 - (now - s.fell.at) / FALL_MS), GLOW_RANGE.landing);
   const atk = s.atk, A = atk ? ATTACK_BY_ID[atk.a] : null;
   if (A) {
     const tel = telegraphAt(atk, s.phase, now);
+    const color = attackColor(A, P) ?? ember;
     if (tel && !tel.over) {
-      const color = ATTACK_COLORS[A.key] ?? EMBER_COLOR;
       if (tel.landing) return lit(color, 2.4, GLOW_RANGE.landing);
       return lit(color, 0.35 + 1.25 * tel.t * tel.t, GLOW_RANGE.windup);
     }
-    if (tel && tel.since < Math.max(A.active, 1) + 350) return lit(ATTACK_COLORS[A.key] ?? EMBER_COLOR, 2.4 * (1 - (tel.since - Math.max(A.active, 1)) / 350), GLOW_RANGE.landing);
+    if (tel && tel.since < Math.max(A.active, 1) + 350) return lit(color, 2.4 * (1 - (tel.since - Math.max(A.active, 1)) / 350), GLOW_RANGE.landing);
   }
   if (now < s.shieldUntil) return lit(WARD_COLOR, 0.9 + 0.3 * Math.sin(now / 90), GLOW_RANGE.windup);
-  return lit(EMBER_COLOR, 0.45, GLOW_RANGE.ember);
+  return lit(ember, 0.45, GLOW_RANGE.ember);
 }
 
 /** HIS VOICE - DAGGER.SND records by index (`clip`: his own mobile's bark and attack, enemyBasics.js, pitched down for
@@ -248,6 +278,27 @@ export const BOSS_CUES = Object.freeze({
   thunder: Object.freeze({ clip: THUNDER_ROLL, pitch: 0.62, volume: 1.4, reach: 140, at: 'him' }),
   thud: Object.freeze({ clip: BODY_FALL, pitch: 0.26, volume: 2.0, reach: 90, at: 'him' }),
 });
+/**
+ * WB8b: HIS ASPECT, HEARD - his elemental blows' wind-ups and landings under each aspect but his burning one: the
+ * element's own cast (systems/enemySpells.js SPELL_CAST_SOUND - cold 353, shock 351, poison 350) as they are called,
+ * and at the landing the cold's and the poison's cast again, deeper, and the storm's thunder (WB7's ThunderRoll). The
+ * pitch and the reach of the burning cue it stands for are kept, so each blow still sounds its own weight.
+ */
+export const ASPECT_CUE_IDS = Object.freeze({ rime: 353, storm: 351, venom: 350 });
+export const ASPECT_LAND = Object.freeze({
+  rime: Object.freeze({ id: 353, pitch: 0.55 }),
+  storm: Object.freeze({ clip: THUNDER_ROLL, pitch: 0.9 }),
+  venom: Object.freeze({ id: 350, pitch: 0.5 }),
+});
+/** The cue of `kind` ('windup' or 'land') for an attack under a profile (net/gateBrain.js fightProfile). */
+export function bossCue(kind, A, P) {
+  const cue = BOSS_CUES[kind]?.[A.key] ?? null;
+  const aspect = P?.aspect?.id;
+  if (!cue || A === ATTACKS.wrath || !P?.atk?.[A.key]?.el || !(aspect in ASPECT_CUE_IDS)) return cue;   // Dagon's Wrath is Dagon's
+  if (kind === 'windup') return { id: ASPECT_CUE_IDS[aspect], pitch: cue.pitch, volume: cue.volume, reach: cue.reach, at: cue.at };
+  const land = ASPECT_LAND[aspect];
+  return { ...(land.clip != null ? { clip: land.clip } : { id: land.id }), pitch: land.pitch * (cue.pitch / 0.7), volume: cue.volume, reach: cue.reach, at: cue.at };
+}
 /** WB7: his stride (metres of his walk or his charge between two steps), how often he growls between his attacks
  *  (ms, the next drawn in this span), the least time between two grunts, the least share of his health a grunt
  *  needs, which landings shake the ground, and when in his fall his body meets the floor (ms). */

@@ -44,6 +44,7 @@
 import { EQUIP_SLOTS } from '../characters/paperdoll.js';
 import { equipTableOf } from './equip.js';
 import { ARMOR_MATERIAL } from './armorMaterials.js';
+import { rriNativeMaterialValue } from './rriItems.js';   // DISC29-B: the class's NativeMaterialValue, the port's one reader
 import { modSettingsOf } from './modSettings.js';
 import { audio as defaultAudio } from './audio.js';
 import { FOOTSTEP } from './footsteps.js';
@@ -187,14 +188,16 @@ export const BA_FOOTSTEP_VOLUME_SCALE = 0.7;   // :14
 export const SHALLOW_ENTER = 0.55;          // :129 - NOT PlayerFootsteps' 0.57
 export const SHALLOW_LEAVE = 0.95;          // :137
 
-/** HasArmor (:211-220): chest or legs worn and not leather. `item.material` IS NativeMaterialValue. */
+/** HasArmor (:211-220): chest or legs worn and not leather. DISC29-B: `chest.NativeMaterialValue`
+ *  (BetterFootstepsComponent.cs:256-259) is the PROPERTY a custom class overrides - a Roleplay & Realism: Items
+ *  brigandine jerkin of iron answers leather (ItemJerkin.cs:65-68) and walks quiet; the raw `material` rattled it. */
 export function hasArmor(entity) {
   let slots;
   try { slots = entity ? equipTableOf(entity) : null; } catch { slots = null; }
   if (!slots) return false;
   const chest = slots[EQUIP_SLOTS.ChestArmor], legs = slots[EQUIP_SLOTS.LegsArmor];
-  if (chest && (chest.material ?? ARMOR_MATERIAL.Leather) !== ARMOR_MATERIAL.Leather) return true;
-  if (legs && (legs.material ?? ARMOR_MATERIAL.Leather) !== ARMOR_MATERIAL.Leather) return true;
+  if (chest && rriNativeMaterialValue(chest) !== ARMOR_MATERIAL.Leather) return true;
+  if (legs && rriNativeMaterialValue(legs) !== ARMOR_MATERIAL.Leather) return true;
   return false;
 }
 

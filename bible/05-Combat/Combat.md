@@ -625,7 +625,7 @@ the DEFAULT state, because starting weapons land in the bag unequipped
 `WEAPON_SKILL[playerWeapon.weapon.name]` raw at both its swing sites
 where the exterior hosts guarded with `?.`: the strike-frame bow test
 threw on EVERY bare-handed swing (reproduced live at
-dungeonContext.js:2224 by tools/fistProbe.mjs), the melee tally on
+dungeonContext.js:2241 by tools/fistProbe.mjs), the melee tally on
 every resolved fist hit. Fixed with the rule enforced, not remembered:
 a source sweep over src/scenes fails on any unguarded
 `playerWeapon.weapon.` deref, the bare-handed path is driven
@@ -1360,19 +1360,19 @@ the step, and the dip only ever makes `|dir|` larger.
 `onAttackFromPlayer` the sentence is about is `:215`, which is where the
 sibling comment in `cityGuards.js` was pointed in the same round). The
 dungeon's three-host sentence had its `exterior.js` number re-resolved
-and its `world.js:18994` left naming a `WorldTime`/`PauseWhileOpen` note
-800 lines from the host's `onPlayerArrowHitFoe` (`world.js:20793`); all
+and its `world.js:19689` left naming a `WorldTime`/`PauseWhileOpen` note
+800 lines from the host's `onPlayerArrowHitFoe` (`world.js:21500`); all
 three halves are read in `citedrift.test.js` now, the shape AUDIT 62's
 review had to apply to `pauseWindow`/`restWindow`. And `listPicker.js`'s
 "three routers that mount a bare picker" named three lines, none of
 which was a router — the round bumped the dungeon's `:4112` to `:4113`
 mechanically, and a wrong number moved by the right offset is still
 wrong. All three are resolved by content (`townTalk.js:1251`,
-`worldModes.js:9864`, `dungeonContext.js:7774`) and pinned as a set.
+`worldModes.js:9903`, `dungeonContext.js:7824`) and pinned as a set.
 
 The `worldModes.js` fix inserts one line, so cites into that host past
-it move by one: the dungeon's `worldModes.js:8348` and
-`chargenSession.js`'s `worldModes.js:9977` are bumped and pinned. Four
+it move by one: the dungeon's `worldModes.js:8387` and
+`chargenSession.js`'s `worldModes.js:10016` are bumped and pinned. Four
 `worldModes.js` cites elsewhere (`interior.js`, `world.js`,
 `tradeModes.js`, `saveWindow.js`) and `UI-Arc.md`'s notebook trio were
 ALREADY stale before this round and are left as found rather than
@@ -1476,3 +1476,65 @@ case), read by the SIB1 bundle door under the mod's GUID. On by default
 in the Mods pane with a Mod Authored row on the Features home; the
 Mods pane grew SliderFloatKey for its speeds and sizes. Pins: 14 in
 `test/ww1_weaponwidget.test.js`. Not filmed: a game.
+
+## SWING-LAW - the player's swing is the port's own law (2026-09-28)
+
+Mac: "swing speed is insane", then "Do whatever is the most detailed. I dont care about departure, especially if we can
+do it better". **What changed:** DISC28-D (861462d2) gave the rig the player's live Speed, which it had never read - every
+player had swung at the number 50 - and DFU's line (FormulaHelper.GetMeleeWeaponAnimTime, `3 * (115 - LiveSpeed) / 980`
+a frame, five frames a blow) is a hyperbola in the swing rate: one blow a second at 50, 3.3 at 95, four at the cap, where
+a lycanthrope's +40 Speed puts any base of 60 or more (DISC29-G, `01-Overview/Field-Bugs-2026-09-28f.md`).
+
+**The law** (`characters/weaponStates.js` - a leaf, so the build-viewer's paste of it still stands):
+
+    time a frame = SWING_BASE_FRAME x TEMPO(Speed) x HEFT(weight, Strength) x HANDLING(kind, hands), held to 0.09..0.4 s
+
+- **SWING_BASE_FRAME** is DFU's own frame at Speed 50 (195/980 s): the swing every player had before DISC28-D.
+- **TEMPO** runs straight through Speed, pivoted on 50: 1.4 at 0, 1 at 50, 0.6 at 100 - each point of Speed takes the
+  same 0.8% off the swing, so Speed 100 swings 1.67 times as often as 50 (DFU's line: four times). Held to 0..100.
+- **HEFT** is the weapon's template base weight as the arm feels it - `(150 - Strength)%` of it, Items' weaponBalance
+  scaling - costing 4.5% a kilogram past the 2.5 any arm carries lightly, to at most 35%. A shortsword costs an average
+  arm nothing; a claymore (7.5 kg) 22% at Strength 50 and 9% at 90.
+- **HANDLING** is the weapon's own tempo apart from its weight, by DFU's WeaponTypes: dagger, bare hands and a beast's
+  claws 0.9; every sword 1 (the tanto among them - DFU draws it as a long blade); staff 0.97; mace 1.03; flail and every
+  axe 1.05; warhammer 1.06; a two-hander 6% more. Every staff takes both hands (0.97 x 1.06): quicker than the other
+  two-handers, not than a sword (AUDIT PRE-MERGE 0929 S2 - the table said "a little quicker", and "Dagger (and the
+  tanto)").
+- **Bounds:** no blow quicker than 0.45 s or slower than 2 s, whatever a mod reads; a frame is never 0 (DFU's line is 0
+  at 115, and the machine's loop then never ends - `06-Systems/Online-Arc.md` "Recorded, not paid").
+
+**Who reads it.** A swing with a wielder the port knows (`ctx.entity`, AUDIT-RR F1's ctx) - the machine, the Weapon
+Widget's clone, the Eye of the Beholder body - asks the one function. The weapon in the hand is read by
+`combat/swingLaw.js` (the equip table's hand the swing is in, the template's base weight, `getItemHands` for both hands,
+the live Strength; bare hands and claws weigh nothing), registered as the module loads - `combat/weaponRig.js`, the one
+maker of a swing's ctx, imports it (AUDIT PRE-MERGE 0929 S5: it was a boot call in `scenes/shared.js`, and a rig built
+without that boot swung with no weight and no second hand) - and it reads the equip table the way the rig's syncWorn
+does, never growing one (S6: through `equipTableOf` it grew an empty table on a body with none, and the rig then emptied
+the hand). Roleplay & Realism's weaponSpeed (the Speed/Strength blend by hands) and Items' weaponBalance (the Speed less
+the weight's share) are the Speed the swing is read at, answered through the curve and the handling. Items' weight law
+replaces the port's heft; Roleplay & Realism's blend has no weight in it, so the port's heft rides on it (AUDIT
+PRE-MERGE 0929 S3: with it answering alone, a 2 kg shortsword, a 4.5 kg longsword and a 5 kg broadsword all swung at
+0.995 s - heavy blades quicker than with no mod). A
+wielder the port does not know keeps DFU's line: a foe's machine (DFU never asks it for a foe - `characters/enemyAttack.js`
+- and a sprite foe's blow lands on its own frame), a peer's walker at PEER_SWING_SPEED 50, the viewers. The bow's draw
+(0.0625 s a frame), its cooldown and the Thunderlock's clock are their own.
+
+**Measured on the real rig** (60 fps, the machine's one step a frame; the mods at their defaults - Items' weaponBalance
+answering - and, in brackets, with both mods off): an average fighter's longsword 1.08 s a blow (1.17; DFU at 50: 1.0);
+Speed 75 and a saber 0.92 s (0.92; 0.83 from Strength 56 up - AUDIT PRE-MERGE 0929 S4); live Speed 95 - the report's werewolf - with a dagger 1.71 a second (1.71; DFU: 3.3);
+Speed and Strength 100 with a dagger 1.71 a second (1.71; DFU: 4); a claymore there 1.20 a second (1.33); Speed and
+Strength 30 with a warhammer 0.71 a second (0.57).
+
+**One swing a blow on the body** (AUDIT PRE-MERGE 0929 S1). The Eye of the Beholder body's IL polls IsAttacking and
+starts a clip whenever none plays; the claws' clip is a fixed 0.375 s and a claw blow under this law is 0.54 s at the
+least, so the report's own werewolf clawed two and three times a blow on the body (on by default) where every peer saw
+one, and a melee clip's frame rounding left a phantom second one too. The rig says which blow it is in (`swingN`, MAC7's
+count), and a blow's melee or claw clip starts once; a new rig's count starts over; a bow keeps the IL's poll. The claws'
+clip keeps its fixed tick - stretching it over the blow is a second departure, left for Mac.
+
+**Pins** `test/swinglaw.test.js` (7) and `test/disc29_swing.test.js` (2); RR1's and RRI2's swing pins and AUDIT DISC28 AR-4
+re-aimed to the law. Mutants `tools/mutants/swinglaw.json` (23, all dead); the 89 committed records on the files it changed
+re-run - 88 dead, RR1-18 equivalent as recorded. AUDIT PRE-MERGE 0929: `test/audit0929_swing.test.js` (4 - one clip a
+blow, mods on and off, for a claw and a sword and a second and third rig; the reader in a rig built without the boot;
+the reader that never writes), RR1's heft, `test/disc28_speed.test.js` on the weapon as the rig builds it; mutants
+`tools/mutants/audit0929_swing.json` (8, all dead). A declared departure: Ledger A (SWING-LAW).

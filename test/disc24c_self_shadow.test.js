@@ -136,11 +136,12 @@ test('DISC24-C: a far lamp that IS redrawn - for a townsman walking under it - d
 });
 
 test('DISC24-C: a lamp whose rank changes takes the card in, or lets it go, on THAT frame - no stale silhouette', () => {
-  const { sp, frame, setEye } = room([1, 2.5, 0, 12, -1, 2.5, 0, 12, 6, 2.5, 0, 12]);
+  const { sp, self, frame, setEye } = room([1, 2.5, 0, 12, -1, 2.5, 0, 12, 6, 2.5, 0, 12]);
   frame(); frame(); frame();
   const west = slotOfLight(sp, 1), east = slotOfLight(sp, 2);
-  // the player walks east: the far lamp becomes the nearest, the west lamp the farthest
-  setEye(6, 1.6, 0);
+  // the player walks east: the far lamp becomes the nearest, the west lamp the farthest (DISC29-E: the card goes too -
+  // its lamps are ranked from where IT stands)
+  setEye(6, 1.6, 0); self.origin = [6, 0, 0];
   let st = frame();
   const w = slotWork(sp, st.calls, west), e = slotWork(sp, st.calls, east);
   assert.equal(w.draws, 0, 'the west lamp draws nothing more');
@@ -156,13 +157,13 @@ test('DISC24-C: a lamp whose rank changes takes the card in, or lets it go, on T
 
 test('DISC24-C: a lamp that falls in rank with a townsman still under it lets the card go on THAT frame, whatever its cadence', () => {
   for (let phase = 0; phase < SHADOW_FAR_CASTER_EVERY; phase++) {
-    const { r, sp, frame, setEye } = room([1, 2.5, 0, 12, -1, 2.5, 0, 12, 6, 2.5, 0, 12]);
+    const { r, sp, self, frame, setEye } = room([1, 2.5, 0, 12, -1, 2.5, 0, 12, 6, 2.5, 0, 12]);
     const man = walker(-1.5, 0.5);
     const him = () => { man.step(); r.drawBillboards([man], new Float32Array([1, 0, 0]), new Float32Array([0, 1, 0])); };
     for (let f = 0; f < 3 + phase; f++) frame(him);
     const west = slotOfLight(sp, 1);
     assert.ok(slotWork(sp, frame(him).calls, west).self > 0, `phase ${phase}: the near west lamp holds the card`);
-    setEye(6, 1.6, 0);
+    setEye(6, 1.6, 0); self.origin = [6, 0, 0];   // DISC29-E: the player walks, the card with them
     const w = slotWork(sp, frame(him).calls, west);
     assert.ok(w.draws > 0, `phase ${phase}: the west lamp is redrawn on the frame it falls (the bug: at its next third frame)`);
     assert.equal(w.self, 0, `phase ${phase}: without the card`);

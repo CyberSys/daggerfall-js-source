@@ -602,6 +602,59 @@ export class Collider {
   }
 
   /**
+   * AUDIT PRE-MERGE 0929 D1: THE CONTACT a standing body makes with the buckets `filter.only` names - of every point
+   * of their triangles within `reach` of the capsule's surface, the NEAREST, into `out` (world), or null for none.
+   * The capsule is the chain _resolveCapsule resolves (a sphere of CAPSULE_RADIUS at the feet's end, at the head's,
+   * and BEAD_OVERLAP-spaced between), so a contact here is one the motor's own resolve would meet: a wall the body
+   * leans on stands SKIN off it and a floor the body rests on its ride height under it, and the nearer of the two is
+   * the one the body is pressing. DaggerfallActionCollision reads its WalkOn off WHERE a contact is - the
+   * ControllerColliderHit's point against the controller's centre (DaggerfallActionCollision.cs:68-71) - and this
+   * is that point. A pure query: nothing is pushed. `beneath` (a number), when given, admits only the points whose
+   * direction from the capsule's centre (feet + height/2) has a y below it - the nearest contact BENEATH the body.
+   */
+  capsuleContact(feet, height, reach, filter = null, out = [0, 0, 0], beneath = null) {
+    const axis = Math.max(0, height - 2 * CAPSULE_RADIUS);
+    const middles = Math.max(0, Math.ceil(axis / (2 * CAPSULE_RADIUS * BEAD_OVERLAP)) - 1);
+    const n = middles + 2;
+    const lim = CAPSULE_RADIUS + reach;
+    const lim2 = lim * lim;
+    const only = filter?.only ? new Set(filter.only) : null;
+    let best = Infinity;
+    for (const [bkey, bucket] of this._buckets) {
+      if (only && !only.has(bkey)) continue;
+      const t = bucket.t();
+      const lx = feet[0] - t[0];
+      const lz = feet[2] - t[2];
+      for (let i = 0; i < n; i++) {
+        const ly = feet[1] + CAPSULE_RADIUS + (axis * i) / (n - 1) - t[1];
+        if (!sphereTouchesBox(lx, ly, lz, lim, bucket.min, bucket.max)) continue;
+        const visited = VISITED;
+        visited.clear();
+        for (const cell of nearCells(bucket, lx, lz)) {
+          for (const ti of cell) {
+            if (visited.has(ti)) continue;
+            visited.add(ti);
+            const tri = bucket.tris[ti];
+            closestPointOnTriangle(lx, ly, lz, tri[0], tri[1], tri[2], TMP);
+            const dx = lx - TMP[0];
+            const dy = ly - TMP[1];
+            const dz = lz - TMP[2];
+            const d2 = dx * dx + dy * dy + dz * dz;
+            if (!(d2 <= lim2 && d2 < best)) continue;
+            if (beneath != null) {
+              const cx = TMP[0] + t[0] - feet[0], cy = TMP[1] + t[1] - (feet[1] + height / 2), cz = TMP[2] + t[2] - feet[2];
+              const len = Math.hypot(cx, cy, cz);
+              if (!(len > 0 && cy / len < beneath)) continue;
+            }
+            best = d2; out[0] = TMP[0] + t[0]; out[1] = TMP[1] + t[1]; out[2] = TMP[2] + t[2];
+          }
+        }
+      }
+    }
+    return best < Infinity ? out : null;
+  }
+
+  /**
    * CSA-D: `Physics.SphereCastAll` - EVERY bucket the swept sphere meets, each with its first contact, where
    * `sphereCast` answers the nearest alone. Come Sail Away's CheckCollision sweeps its hull's half-beam along the
    * boat both ways and turns each collider met into a direction. Each bucket is swept with the same nine-ray bundle

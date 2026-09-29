@@ -19,9 +19,9 @@
 import { FOG_FACTOR_GLSL } from './labGrass.js';
 import { buildProgram } from './glProgram.js';
 import { duelClock } from './duelWall.js';
-import { ATTACK_BY_ID, BOSS_R, COURT_CENTRE, COURT_R, windupOf } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, BOSS_R, COURT_CENTRE, COURT_R, BASE_PROFILE, windupOf } from '../net/gateBrain.js';
 import { telegraphAt } from '../net/gateStrike.js';
-import { ATTACK_COLORS } from '../world/gateBoss.js';
+import { attackColor } from '../world/gateBoss.js';
 
 /** The shapes, as the shader's `uKind` says them. WBX5: the Spokes of Dagon's lanes; WBX4: his mark. */
 export const TELEGRAPH_KIND = Object.freeze({ cone: 0, disc: 1, discs: 2, lane: 3, ring: 4, all: 5, spokes: 6, mark: 7 });
@@ -49,10 +49,12 @@ const DEG = Math.PI / 180;
 /**
  * What the pass draws for an attack at `now` - the uniforms, as plain numbers - or null when there is nothing (no
  * attack, or its landing's flash is over). `t` is the wind-up's share (the fill's reach), `flash` 1 from the landing
- * on, `alpha` its fade in and out.
+ * on, `alpha` its fade in and out. WB8b: under the fight's profile `P` - the reach the attack has under his marks, his
+ * body his own size, the colour his aspect gives it - so the ground still shows exactly what lands.
  * @param {{a: number, at: number, x: number, z: number, yw: number, tg: number[][]}|null} atk @param {number} phase @param {number} now
+ * @param {ReturnType<typeof import('../net/gateBrain.js').fightProfile>} [P]
  */
-export function telegraphShape(atk, phase, now) {
+export function telegraphShape(atk, phase, now, P = BASE_PROFILE) {
   /** @type {any} an attack of any shape - the fields its shape does not have read as none */
   const A = atk ? ATTACK_BY_ID[atk.a] : null;
   const tel = A ? telegraphAt(atk, phase, now) : null;
@@ -67,18 +69,18 @@ export function telegraphShape(atk, phase, now) {
   // WBX5: a 'point' disc is one mark (the leap's landing, the meteor's fall); the spokes' lanes are `len` long
   const marks = A.aim === 'players' ? (atk.tg ?? []).slice(0, TELEGRAPH_POINTS_MAX) : A.aim === 'point' ? (atk.tg ?? []).slice(0, 1) : [];
   return {
-    kind, origin: [atk.x, atk.z], yaw: atk.yw, r: A.shape === 'spokes' ? A.len : A.r ?? 0, halfArc: ((A.arc ?? 0) / 2) * DEG, body: BOSS_R,
-    end: [end[0], end[1]], halfW: A.shape === 'lane' ? Math.max((A.width ?? 0) / 2, BOSS_R) : (A.width ?? 0) / 2, r0: A.r0 ?? 0, r1: A.r1 ?? 0,   // AUDIT WBX F7: the charge strikes as wide as his body (net/gateStrike.js chargeStrikes), and shows so
+    kind, origin: [atk.x, atk.z], yaw: atk.yw, r: A.shape === 'spokes' ? A.len : P.atk[A.key].r ?? 0, halfArc: ((A.arc ?? 0) / 2) * DEG, body: P.bossR,
+    end: [end[0], end[1]], halfW: A.shape === 'lane' ? Math.max((A.width ?? 0) / 2, P.bossR) : (A.width ?? 0) / 2, r0: A.r0 ?? 0, r1: A.r1 ?? 0,   // AUDIT WBX F7: the charge strikes as wide as his body (net/gateStrike.js chargeStrikes), and shows so
     points: marks.map((p) => [p[0], p[1]]), n: A.shape === 'spokes' ? Math.min(TELEGRAPH_SPOKES_MAX, A.n) : 0,
-    t: tel.t, flash: tel.since >= 0 ? 1 : 0, alpha: fadeIn * Math.max(0, fadeOut), color: ATTACK_COLORS[A.key],
+    t: tel.t, flash: tel.since >= 0 ? 1 : 0, alpha: fadeIn * Math.max(0, fadeOut), color: attackColor(A, P),
   };
 }
 
 /** WBX4: HIS MARK as the pass draws it - where he stands (the court's frame), his facing, in `color` (the ward's gold while
- *  it stands, his ember otherwise). Pure. */
-export function markShape(at, yaw, color) {
+ *  it stands, his ember otherwise), about a body of `body` metres (WB8b: his profile's - Colossal's is larger). Pure. */
+export function markShape(at, yaw, color, body = BOSS_R) {
   return {
-    kind: TELEGRAPH_KIND.mark, origin: [at[0], at[1]], yaw, r: BOSS_MARK_R, halfArc: 0, body: BOSS_R, end: [at[0], at[1]],
+    kind: TELEGRAPH_KIND.mark, origin: [at[0], at[1]], yaw, r: body + (BOSS_MARK_R - BOSS_R), halfArc: 0, body, end: [at[0], at[1]],
     halfW: BOSS_MARK_CHEVRON_HALF_W, r0: 0, r1: BOSS_MARK_CHEVRON_LEN, points: [], n: 0, t: 1, flash: 0, alpha: 1, color,
   };
 }

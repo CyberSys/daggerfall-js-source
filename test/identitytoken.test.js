@@ -19,7 +19,7 @@ import {
   mintToken, verifyToken, claimsValid, nameIsIssuable,
   importPublicKey, importPublicKeyB64, _b64url,
 } from '../src/net/identityToken.js';
-import { sanitizeName, NAME_MAX } from '../src/net/wire.js';
+import { sanitizeName, NAME_MAX, REALM_DOOR_WORD } from '../src/net/wire.js';   // REALM-DOOR: a name the lifted _named closes over
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -370,9 +370,9 @@ async function namedOf(room, m, now) {
   const load = new Function('importPublicKeyB64', 'crypto', 'console', `return async function () {${loadBody}};`)(importPublicKeyB64, globalThis.crypto, console);
   if (!room._loadKey) room._loadKey = load;
   // the module-level names the method closes over
-  const fn = new Function('m', 'now', 'verifyToken', 'importPublicKeyB64', 'MAX_TTL_S', 'SPENT_MAX', 'crypto', 'console',
+  const fn = new Function('m', 'now', 'verifyToken', 'importPublicKeyB64', 'MAX_TTL_S', 'SPENT_MAX', 'crypto', 'console', 'REALM_DOOR_WORD',
     `return (async () => {${body}})()`);
-  return fn.call(room, m, now, verifyToken, importPublicKeyB64, MAX_TTL_S, 4096, globalThis.crypto, console);
+  return fn.call(room, m, now, verifyToken, importPublicKeyB64, MAX_TTL_S, 4096, globalThis.crypto, console, REALM_DOOR_WORD);
 }
 
 const roomWith = (pub) => ({ env: { IDENTITY_PUBLIC_KEY: pub }, _spent: new Map(), _orders: new Map(), _verifyKey: undefined });

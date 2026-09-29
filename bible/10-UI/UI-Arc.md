@@ -126,7 +126,10 @@ it draws as the SPOP.RCI parchment and closes on any click
 as parchment with BUTTONS.RCI Yes/No. CM3: a shared
 `InputMessageBoxWindow`. CM4: the character sheet's four dead buttons
 (Name, Level, Health, Affiliations) get their popups, with
-LevelButton_OnMouseClick's arithmetic and ShowAffiliationsDialog's
+LevelButton_OnMouseClick's arithmetic (in DFU's own single precision
+since LEVEL-PCT, 2026-09-28 - `float currentLevel`; a double read 36
+and 39 a point off DFU's 40% and 59% - and, for a character ORL1's bar
+levels, that bar as a percent) and ShowAffiliationsDialog's
 table. CM5: the inventory's split popup, Control-forced included. CM6,
 CM7, CM8: the spellbook's rename, the spell maker's name and the travel
 map's Find each push the box instead of typing into the window.
@@ -944,17 +947,17 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2395 (the factory) and :1904 (a
+                        worldModes.js:2416 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1191, world.js:4062,
-                        exterior.js:2597. It is the only window TWO
+                        dungeonContext.js:1208, world.js:4168,
+                        exterior.js:2602. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:10172, dungeonContext.js:7944. A seam
+    / NOTEBOOK          world.js:10362, dungeonContext.js:7994. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -4863,7 +4866,7 @@ literal with no duplicates; all 71 display labels match DFU's recovered
 FALL.EXE text exactly; every secondary list matches its DFU array in
 order; the builder is reconstructed on re-entry on both sides, so the
 pick lists reset; a career's flags survive the save round trip (the
-career is spread as plain CFG data, save.js:300,529 - worth checking
+career is spread as plain CFG data, save.js:302,529 - worth checking
 because AUDIT 17h caught exactly this shape dropping player
 reputation); and parseCareerData leaves every numeric field finite and
 unsigned under the maximal fourteen-pick set.
@@ -5360,7 +5363,11 @@ ini beside the executable, a browser has none, so the store keeps a
 DELTA against the defaults in localStorage, which also means a later
 DFU default still reaches a player who never touched that key. And
 the TIERS, which are a claim about this port rather than about DFU:
-`live`, `stored`, `unavailable`.
+`live`, `stored`, `unavailable`. (FPS-VSYNC, 2026-09-28, added a fourth,
+`restart`: a key the desktop shell reads at its next launch - in the app
+drawn flat with the live rows, its dot a live ring, and said to take
+effect the next time the app starts; in a browser the same key is
+`unavailable`.)
 
 **Seven settings went LIVE** - each one a real consumer, because a
 toggle that changes nothing is a lie: CombatVoices (the three voice
@@ -8704,7 +8711,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3228 as a second book built by hand 342 lines below the
+worldModes.js:3251 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -8757,7 +8764,7 @@ window over, and both halves of it were here too.
 IT READ THE NAMES AND THREW AWAY THE NUMBERS. `spellEffects` hands
 back the effect RECORDS, and every one carries `magnitudeBaseLow/High`
 with its per-level step, `durationBase/Mod`, and `chanceBase/Mod` -
-the exact fields systems/effects.js:520-528 reads to resolve a live
+the exact fields systems/effects.js:522-530 reads to resolve a live
 effect. The first draft printed the two names and dropped the rest,
 which is the chronicle's flattened date wearing a different hat. Each
 part now appears only when the effect HAS it, because "0 to 0" is
@@ -8787,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:4513 and
+questJournal.js from charSheetNav:53, world.js:4619 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -9414,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7640` and `dungeonContext.js:1804` answer the same
+`worldModes.js:7667` and `dungeonContext.js:1821` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -9474,7 +9481,7 @@ cited and ported somewhere in `src/`. FOUR were not:
 |---|---|---|
 | DaggerfallUseMagicItemWindow | 139 | **CLOSED, UI1** - see below |
 | DaggerfallMerchantServicePopupWindow | 175 | **CLOSED, UI2** - see below |
-| DaggerfallTransportWindow | 264 | OPEN, and it is a SYSTEM gap wearing a UI hat: `motor.js:718` reads `riding: false` with "the transport arc pends". The window is the last tenth of that arc, not a slice on its own |
+| DaggerfallTransportWindow | 264 | OPEN, and it is a SYSTEM gap wearing a UI hat: `motor.js:721` reads `riding: false` with "the transport arc pends". The window is the last tenth of that arc, not a slice on its own |
 | DaggerfallUnityMouseControlsWindow | - | NOT A GAP: DFU's own mouse-settings screen, and the port's settings surface (U29) carries those keys already |
 
 ### UI1 CLOSED: the use-magic-item window
@@ -9518,7 +9525,7 @@ the art-less fallback.
 ### What is left
 
 `DaggerfallTransportWindow` alone, and it wants its own arc: the window
-is trivial, `TransportManager` is not - `motor.js:718` reads
+is trivial, `TransportManager` is not - `motor.js:721` reads
 `riding: false` with "the transport arc pends". With UI1 and UI2
 closed, **58 of DFU's 60 real windows are ported**, and the 59th is a
 system's last tenth.
@@ -10664,9 +10671,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:10581`,
+the other half went stale unnoticed. (The rest cite named `world.js:10771`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:10587` now.)
+deleted the second and the cite is `world.js:10777` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -13179,7 +13186,8 @@ removed feature went with the pane.
 
 **TIER IS A GROUP**, as the Settings-Screen-Spec specified and the
 enhanced pane never built: in every category the port's rows and the
-LIVE store keys lie flat, and the two other tiers fold under a heading
+LIVE store keys lie flat (and, in the desktop app, the `restart` ones -
+FPS-VSYNC, 2026-09-28), and the two other tiers fold under a heading
 that carries the count - SAVED FOR LATER (stored, unread: 145 keys
 across the store) and NOT AVAILABLE HERE (fixed by the browser or a
 port choice) - closed by default, remembered per category on the
@@ -14329,7 +14337,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2308`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2312`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -15564,9 +15572,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:8271` named a line that is 8950, `:1212` one that is
+read: `world.js:8421` named a line that is 8950, `:1311` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:8005-8037` and `dungeonContext.js:1612` were
+that is 8907. `world.js:8155-8187` and `dungeonContext.js:1629` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -15867,7 +15875,7 @@ that through `InputManager` (:1084-1108, one poll a frame in
 `GetKeyDown` at all, so every consumer wrote its own out of the only
 read there was.
 
-`motor.js:1186` had already named this bug's twin from the other side:
+`motor.js:1189` had already named this bug's twin from the other side:
 "a render frame that accumulates less than one physics step swallowed
 the press" - the fix there moved `_heightAction` out of the fixed-step
 loop. The half that remained was the host's.
@@ -16757,7 +16765,9 @@ port's own one-line description of what that attribute DOES, each
 line annotated in the source with the formula it is true of), the
 ribbon of skills across the foot, and the three vitals - health,
 fatigue, magicka, out of `sheetModel`, so this screen and the pause
-window's Stats page cannot disagree about a number.
+window's Stats page cannot disagree about a number. (The STARS read
+the permanent value until ASCEND-LIVE, below LV1's audit, and did
+disagree - a werewolf's 100 was a 63 here.)
 
 **The window writes nothing.** a11's law is that the Level++ and the
 health roll live in ONE place and never in a window, and this one does
@@ -17018,6 +17028,33 @@ which now stands a maxed character up and proves the way out is open,
 holds the chunk back and proves the pause is never blank, and proves a
 warm chunk never flashes the wait it makes unnecessary.
 
+### ASCEND-LIVE (2026-09-28): the stars wear what the character has
+
+The Discord (Megatronism): *"The permanent stat bonuses from being a werewolf (vampire, etc...) do not appear on the
+level up screen ... You can actually put points into an already maxed out attribute if you are not careful, and waste
+part of your level up"*. Every lane spends and caps the PERMANENT value - DFU's StatsRollout draws and caps
+GetPermanentStatValue (StatsRollout.cs:202, :237-249) and the mod reads `.base` (helper.lua:112-114) - and it still does:
+the law is not this window's. But the curse's +40 (LycanthropyEffect.cs:566-574, SetStatMod) and the vampire's +20 by
+night, -20 by day ride the LIVE channel, so a star read off the permanent value said 63 on a character whose Stats page
+says 100, and a point spent there moved nothing the player has while the curse lasts (it counts after a cure, and in
+the permanent Endurance a health roll reads). A row now carries `live` - liveStat's own law over the working permanent
+value (`liveAttribute`: the curse's channel, the spells, the diseases, the folds, the clamp) - and `capped`, a press the
+law allows whose point the live value cannot show. The star wears the live value, tinted as the classic sheet tints a
+live value above or below its permanent one (DaggerfallUnityStatIncreasedTextColor / StatDrainedTextColor); the chosen
+star's figure is still the permanent one the presses move, and the line under it says the rest: "100 with its bonus - a
+point here shows only once that ends", "93 with its bonus", "43 for now". A view (Ascend from the Stats page) now shows
+the Stats page's own numbers. The classic skin's rollout is DFU's window and is untouched (DFU blanks the sheet's
+labels while levelling, :406-421). AUDIT 28e: the tint and the star's screen-reader words are the rows' own
+(`liveTint`, `starLabel` in `ui/levelUpView.js`), pinned with the two colours and the folds' channel; the tint outranks
+a raised star's gold and yields to a full star's grey, by specificity; a point held at a FLOOR (a drained vampire by
+day, held at 1) is flagged as one at the ceiling is. THE LINE MOVED: in the pick name it wrapped to four lines on a
+phone and came and went with the choice, so the figure jumped and a tap landed on the wrong star. Each attribute's line
+now sits over its own blurb, and all eight lie in ONE grid cell with only the chosen one seen - the band is the
+tallest's whichever star is chosen, which also ends the blurbs' own jump (Luck's ran a line longer at some widths, and
+its blurb is a line shorter now); on a phone or a short screen the line takes its blurb's place. The level lane's
+probes, re-run: every aimed tap lands at every size tried, plain or cursed. `test/disc28e_ascendlive.test.js` (7),
+mutants in `tools/mutants/disc28e.json` (28).
+
 ## LV2 - THE RISING: the enhanced level-up notification (2026-09-19, Mac)
 
 Mac: "Next up, I want to implement a new element. The enhanced level up
@@ -17108,7 +17145,7 @@ says in its own header that a second `--apply` against the same base
 moves every cite AGAIN. Recovering this slice's line shifts by
 reverting the tree except the files it had edited re-created exactly
 that: the kept files still carried the first pass's moves, and the
-second pass moved them a second time - `dungeonContext.js:2683` became
+second pass moved them a second time - `dungeonContext.js:2700` became
 2221 where the line had gone to 2215. The repair is a pairing walk:
 read HEAD's number at the same position in the same file, resolve it
 BY CONTENT in the working tree, and write that. Forty-seven cites came
@@ -18554,3 +18591,34 @@ weapons/gear. Want to improve this and reduce text bloat"*. The whole record, be
   over its item's own open card; a card with no row drawn is still fitted; the doll's set strip scrolls past five
   lines; the tier's colour and pips reach into `.card-body`. The probe runs at nine screens and presses the trade
   strip's buttons too (706 checks; 685 before these). Mutants: 16 more in `cardfit.json` (49, all dead).
+
+## DISC29-D - a draw's watchdog counts frames, not milliseconds (2026-09-28)
+
+Skeptikali on Discord (the desktop app 0.1.439, AppImage and Proton): in a dungeon the CPU sat at 99.9%, the
+animation-frame handlers took 68-203 ms, and the page's DOM node count climbed from ~1,700 past 3,000 ("with the
+enhancements off" - the faces below are the default skin's, Enhanced Plus, which is the UI Overhaul choice rather than
+an Enhancements setting; which the reporter turned off is not known). The climb is churn, not a leak: eight per-frame
+DOM faces - the notice stack (every message box
+and HUD toast), the Yes/No dialog and the keyed choice menu, the list picker, a ported window, the input box, the
+Yes/No card, the world plaque and the death layer - re-armed a WALL-CLOCK timer on every draw (150-400 ms) and took
+themselves down when it fired, "the draws stopped". A frame slower than the timer read as stopped: the face was torn
+down and built again every frame, a forced layout apiece and the old nodes left for the collector. Reproduced in the
+real game at a slowed frame rate: the notice stack added and removed sixty times in sixty frames, the tutorial's
+Yes/No shell fifty-three.
+
+`ui/drawWatchdog.js` is the one law now: a face is released when an animation frame came and went WITHOUT its draw -
+a ticker of its own (requestAnimationFrame, running only while a face is armed) counts the frames, a draw marks the
+count, and two ticks past the mark is at least one whole frame undrawn, whichever order the ticker and the owner's
+loop run in (every loop that draws a face counts, not only the three hosts that stamp frameClock). No frame at all for
+`DRAW_STALL_MS` (3 s: a hidden tab, a display asleep) releases too, so a face is never kept for good; at a normal
+frame rate the release lands where it did. All eight sites arm it (`armDrawWatchdog`) and every close disarms it
+(`disarmDraw`), which also takes it off the ticker's count.
+
+What stands of the report: the frame's cost is the dungeon's own on a slow machine - no single call; the player's and
+every foe's motor step at a fixed 1/60 s under a 0.1 s cap, so a 10 fps frame runs six physics steps. The FPS
+counter could not say whose it was: the indoor foot closed its frame token with `frameAbort`, no sample, so its script
+time was blank in every interior and dungeon. The streaming hosts' indoor foot is a whole frame and takes its sample
+now (`frameEnd`); the held frame and the standalone dungeon's overlay return still take none (AUDIT-WH2 L1-F4's own
+reason: a frame that bailed early did next to no work).
+`test/disc29_watchdog.test.js` (5); the notice, plaque and Yes/No suites re-aimed to the frame law;
+`tools/mutants/disc29.json` (DISC29-D, 10). `01-Overview/Field-Bugs-2026-09-28f.md` DISC29-D.

@@ -9,7 +9,7 @@
 **Lycanthropy and vampirism**
 - An infection counts the days *you* live, rests and travel included. No more hours of play to turn.
 - A vampire's thirst and a werewolf's urge run on your clock too, so a long rest makes you hungry.
-- The sun is still the world's, so vampires still can't fast travel by day. The message now says how many real minutes until night falls (an hour at most).
+- The sun is still the world's, so a bare-headed vampire can't fast travel by day (raise a hood to go). The message now says how many real minutes until night falls (an hour at most).
 
 **Rest and travel**
 - Resting online ages everything an hour of rest should: spells run out, diseases progress, hunger grows, skills get their check.
@@ -17,7 +17,7 @@
 - Prison sentences are served on your clock, and you walk out rested.
 - Collapsing from exhaustion costs a full hour and pays it back in full.
 
-**Rooms, loans and repairs** read in your time: "7 days of your time (14h of play)". Resting uses it up; time away doesn't.
+**Rooms, loans and repairs** read in your time: "7 days of your time (14h of play)". Resting uses it up; logging off doesn't.
 
 **Fixes**
 - Resting no longer rolls a disease's daily damage twice.

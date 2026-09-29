@@ -734,7 +734,8 @@ test('TV1 body: the seam holds whichever body answers out of the head for the vi
   assert.match(src, /return heldThird\?\.changed && heldThird\.lane === 'mw' \? \{ \.\.\.s, firstPerson: true \} : s;/);
   const wsrc = rd('src/scenes/world.js');
   assert.match(wsrc, /camera: mwViewSaveCamera\(\), transport:/);
-  assert.match(wsrc, /travelView\?\.exit\('load', true\);[^\n]*\n\s*mwViewLoadPose\(pose\.camera,/);
+  // AUDIT OW5b D4: the cut rides the Overworld's load reset, the first thing applyPose does - before the camera the save restores
+  assert.match(wsrc, /function overworldLoadReset\(\) \{[\s\S]*?travelView\?\.exit\('load', true\);[\s\S]*?\n  \}\n  function applyPose\(pose\) \{\n\s*overworldLoadReset\(\);[\s\S]*?mwViewLoadPose\(pose\.camera,/);
   // the Morrowind rig: out by the restore door, back by the head's own door; the saddle holds nothing (RIDE-POV)
   assert.match(src, /if \(fpArm\.canThirdPerson\(\) && !mounted\) \{/);
   assert.match(src, /else if \(h\.changed && h\.lane === 'mw'\) mwIntoHead\(\);/);
@@ -790,11 +791,11 @@ test('AUDIT DEEP2 A2/A3/A4/A6/A7 view: a wheel zooms by its size; a repeat of a 
 
 test('AUDIT DEEP2 A1/A2/A5/A8/A9 by source: the travel panel keeps its presses; the pad is a cursor under the view; the key never repeats and answers indoors; a duel refuses the view', () => {
   const panel = rd('src/ui/enhancedTravelControl.js');
-  assert.match(panel, /root\.addEventListener\('mousedown', \(e\) => \{ if \(e\.target\?\.closest\?\.\('\[data-act\]'\)\) e\.stopPropagation\(\); \}\);/);
+  assert.match(panel, /bar\.addEventListener\('mousedown', \(e\) => \{ if \(e\.target\?\.closest\?\.\('\[data-act\]'\)\) e\.stopPropagation\(\); \}\);/);
   assert.doesNotMatch(panel, /addEventListener\('mouseup', \(e\) => \{ if \(e\.target\?\.closest/, 'never the release (AUDIT CHAT C5)');
   const w = rd('src/scenes/world.js');
   assert.match(w, /overlayActive: \(\) => townTalk\.overlayActive \|\| !!travelView\?\.active,/);
-  assert.match(w, /overlayUp: \(\) => overlayOpen\(\),/);
+  assert.match(w, /overlayUp: \(\) => overlayOpen\(\) \|\| travelViewConfirmOpen\(\),/);   // PIN MOVED (OW-CONFIRM): and the view's own question has the keys
   assert.match(w, /if \(act === 'Escape' && e\.repeat\) return true;[^\n]*\n\s*if \(act === 'Escape' && pauseDoorReady\(\)\) \{ hudCtx\.togglePause\(\); return true; \}/);
 });
 

@@ -39,10 +39,11 @@
 // the bundle opened once, never throwing.
 
 import { openUnityBundle } from '../formats/unityBundleClient.js';   // the open runs in a worker (~10 s of LZ4 for this bundle); this thread when there is none
-import { toColor32, toScreenOrder } from '../formats/color32Order.js';   // WW3's law: the bundle arm is a FLIP (Unity stores bottom-up), the loose PNG keeps its rows
+import { toScreenOrder } from '../formats/color32Order.js';   // DWHD1: EVERY arm keeps its rows - a screen quad, and the bundle reader already answers top-first
 import { decodePng } from '../systems/textureReplacement.js';
 import { DFMOD_KEY_PREFIX } from '../systems/seasonsIliacBayAssets.js';   // the stored-name prefix the texture pick writes for a bundle - one home
 import { weaponWidgetImage } from './weaponWidgetAssets.js';
+import { dfmodCifRciNamed } from '../systems/dfmodTextures.js';   // DFMOD2: an attached mod's handheld frames, after the two weapon mods
 import { APP_ROOT } from '../systems/appRoot.js';   // DW2: the shipped sprites hang off the site root, as the held map does
 import { DIVERSE_WEAPONS_STEMS, DIVERSE_WEAPONS_METALS, DIVERSE_WEAPONS_BARE, DIVERSE_WEAPONS_ODD } from './diverseWeaponsIndex.js';   // DW2: generated from the manifest
 
@@ -53,7 +54,9 @@ export const DIVERSE_WEAPONS_MOD = Object.freeze({
   author: 'RealAKP',
 });
 
-const isDiverseDfmod = (name) => /\.dfmod$/i.test(name) && /diverse.?weapons/i.test(name.slice(name.lastIndexOf('/') + 1));
+// DWHD1: not the HD replacers ("Diverse Weapons HD - ...") - they are texture mods the generic door reads; this door
+// opened each one whole only to find its GUID was not RealAKP's
+const isDiverseDfmod = (name) => /\.dfmod$/i.test(name) && /diverse.?weapons/i.test(name.slice(name.lastIndexOf('/') + 1)) && !/\bhd\b/i.test(name.slice(name.lastIndexOf('/') + 1));
 const isPng = (name) => /\.png$/i.test(name);
 /** The mod's own spellings for a loose PNG: a per-weapon CIF name with
  *  or without the `w_` prefix (`LONGSWORD.CIF_0-0_Iron.png`), or an
@@ -200,9 +203,10 @@ export function diverseWeaponsImage(name, { decode = decodePng, fetchFn = global
 async function attachedImage(name, decode) {
   const b = await diverseWeaponsBundle();
   if (b?.byName.has(name)) {
-    // the pixels cross from the worker per ask (one transfer), and
-    // are flipped here: the reader answers Unity's bottom-up rows
-    try { const img = await b.bundle.rgba(name); if (img) return toColor32(img); } catch (e) { console.warn(`[diverse weapons] ${name} would not decode:`, e?.message ?? e); }
+    // the pixels cross from the worker per ask (one transfer). DWHD1 (a player: "all weapons are overhead"): NOT
+    // flipped - unityBundle.decodeTexture2D already turns Unity's bottom-up rows top-first, the order a decoded PNG
+    // has, and this is a SCREEN quad (HT3's rule). The flip here drew every bundle frame upside down.
+    try { const img = await b.bundle.rgba(name); if (img) return toScreenOrder(img); } catch (e) { console.warn(`[diverse weapons] ${name} would not decode:`, e?.message ?? e); }
   }
   if (!_load) return null;
   const loose = _names.find((n) => isPng(n) && n.slice(n.lastIndexOf('/') + 1).replace(/\.png$/i, '') === name);
@@ -227,7 +231,18 @@ async function attachedImage(name, decode) {
  * classic archives). The first that carries the name answers.
  */
 export async function customWeaponImage(name) {
+  // DWHD1: a player-attached texture mod FIRST - Diverse Weapons HD is a replacer for the sprites the two weapon doors
+  // (and the port's shipped Diverse Weapons set) would otherwise answer with
+  return (await dfmodWeaponImage(name)) ?? (await weaponModImage(name));
+}
+/** The two weapon mods' arms, in their order. */
+async function weaponModImage(name) {
   return (await diverseWeaponsImage(name)) ?? (await weaponWidgetImage(name)) ?? null;
+}
+/** DFMOD2: a player-attached texture mod's frame of the name (DREAM's handhelds, Diverse Weapons HD). DWHD1: top-first,
+ *  a screen quad's order - the flip this used drew every such frame upside down. */
+async function dfmodWeaponImage(name) {
+  try { const img = await dfmodCifRciNamed(name); return img ? toScreenOrder(img) : null; } catch { return null; }
 }
 
 /** Test seam: forget the name cache without touching the sources. */

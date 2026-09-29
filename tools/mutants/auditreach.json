@@ -40,8 +40,8 @@
   {
     "name": "flat-record-forgotten",
     "file": "src/render/shadowPass.js",
-    "old": " && b._shFrame === fr && b._shRec === rec && b._shFlip === flip)) b._shMovedAt = this.frameNo;",
-    "new": " && b._shFrame === fr && b._shFlip === flip)) b._shMovedAt = this.frameNo;",
+    "old": "const lookChanged = b._shSeen === true && !(b._shFrame === fr && b._shRec === rec && b._shFlip === flip);",
+    "new": "const lookChanged = b._shSeen === true && !(b._shFrame === fr && b._shFlip === flip);",
     "tests": [
       "test/audit_reach.test.js"
     ]
@@ -49,8 +49,8 @@
   {
     "name": "flat-flip-forgotten",
     "file": "src/render/shadowPass.js",
-    "old": " && b._shFrame === fr && b._shRec === rec && b._shFlip === flip)) b._shMovedAt = this.frameNo;",
-    "new": " && b._shFrame === fr && b._shRec === rec)) b._shMovedAt = this.frameNo;",
+    "old": "const lookChanged = b._shSeen === true && !(b._shFrame === fr && b._shRec === rec && b._shFlip === flip);",
+    "new": "const lookChanged = b._shSeen === true && !(b._shFrame === fr && b._shRec === rec);",
     "tests": [
       "test/audit_reach.test.js"
     ]

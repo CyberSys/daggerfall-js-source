@@ -22,6 +22,7 @@ import { applyCustoms, liquidWealthOf, customsAllowance, customsLines, CUSTOMS_W
 import { createBankAccounts } from '../src/systems/banking.js';
 import { BOOT_DOOR_KEYS } from '../src/systems/onlineLane.js';
 import { LETTER_OF_CREDIT_TEMPLATE, goldStack } from '../src/systems/inventory.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -66,7 +67,7 @@ function fakeStorage() {
 async function device() {
   _resetKeyForTests();
   const env = { DB: d1(), SAVES: r2(), ACCOUNT_VERSION: 'test1' };
-  const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
+  const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
   const storage = fakeStorage();
   storage.setItem(SESSION_KEY, JSON.stringify({ id: g.id, secret: g.secret }));
   return { env, g, io: realmIo({ fetch: (u, i) => worker.fetch(new Request(u, i), env), storage }) };

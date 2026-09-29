@@ -169,10 +169,12 @@ stands.
 
 ## The vampire, and the sun
 
-The sun is everyone's. A rest moves the character's clock, not the sky, so a vampire still cannot set
-out by day. The sunlight refusals (the career's, the curse's, and PARTY-TRAVEL's) now add, online,
-when the world's night falls, in real minutes: *"You cannot initiate fast travel during the day. The
-sun is the world's - night falls in about 23 minutes."* (`worldNightfallText`).
+The sun is everyone's. A rest moves the character's clock, not the sky, so a bare-headed vampire
+still cannot set out by day. The sunlight refusals (the career's, the curse's, and PARTY-TRAVEL's) now
+add, online, when the world's night falls, in real minutes: *"You cannot initiate fast travel during
+the day. The sun is the world's - night falls in about 23 minutes."* (`worldNightfallText`). [MERGE
+with main's VAMP-HOOD (`01-Overview/Field-Bugs-2026-09-29.md`): a raised hood opens the map by day,
+online and offline; bare-headed, the map door says DFU's line, the nightfall, then the hood's hint.]
 
 A world day is two real hours, so the wait is at most one. The vampire's thirst is theirs: rests and
 journeys make them hungry, as DFU has it. A vampire must still be fed within their own day to rest.
@@ -300,7 +302,9 @@ No relay change. The servers keep the save opaque, and `RELAY_VERSION` does not 
    - Its time-of-day windows (DailyFrom, "at night") stay on the world's sky.
    - It tightens WORLD1's leniency: N days would no longer be 2N real hours of play.
    - A shared quest runs on its owner's clock.
-2. **A vampire's daylight departure.**
+2. **A vampire's daylight departure.** [ANSWERED by VAMP-HOOD at the merge with main: a raised hood
+   sets out by day; the order of the door's rows and a hint on the party's refusal stay Mac's -
+   `01-Overview/Audit-Lived1b.md`, For Mac 6.]
    - **Recommended:** keep DFU's refusal on the shared sun, with the nightfall words above.
    - **The alternative:** let them set out by day at the cost of waiting for dusk on their own clock.
      They would arrive in the world's day, at -20.
@@ -323,4 +327,6 @@ No relay change. The servers keep the save opaque, and `RELAY_VERSION` does not 
   fidelity, offline parity, a fuzzer, the first audit's own fixes); `test/auditlived1b.test.js` (17) and
   lane T's `test/auditlived1b_t.test.js` (15: the laws 53 of its 237 new mutants found unpinned),
   `tools/mutants/auditlived1b.json` (118, all dead).
+- Merged with main after AUDIT LIVED1b (84 commits, PRs #418, #428-#433, #435-#438): the resolutions are its
+  M's, recorded in `01-Overview/Audit-Lived1b.md`.
 - Not verified in a browser: no online session exists in this container.

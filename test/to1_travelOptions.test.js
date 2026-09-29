@@ -143,9 +143,10 @@ test('TO1: the settings are the mod\'s own modsettings.json, key for key, type f
   // TRAVEL-NAV1: plus the port's own steering switch - a key the mod does
   // not ship (HT-WAIST's shape on Handheld Torches), named so a third
   // cannot ride in unnoticed
-  assert.equal(Object.keys(ours).length, n + 2, 'and the port declares them all, plus Enabled and its own AvoidObstacles');
-  assert.deepEqual(Object.keys(ours).filter((k) => !shippedNames.has(k)).sort(), ['Enabled', 'GeneralOptions.AvoidObstacles'],
-    'the port\'s two keys, and nothing else');
+  // PIN MOVED (OW-TOGGLE): and its first-person switch (test/ow_toggle.test.js)
+  assert.equal(Object.keys(ours).length, n + 3, 'and the port declares them all, plus Enabled, its own AvoidObstacles and FirstPersonTravel');
+  assert.deepEqual(Object.keys(ours).filter((k) => !shippedNames.has(k)).sort(), ['Enabled', 'GeneralOptions.AvoidObstacles', 'GeneralOptions.FirstPersonTravel'],
+    'the port\'s three keys, and nothing else');
   // the five unnamed spacer sections carry no keys and are not declared
   assert.deepEqual(shipped.Sections.filter((s) => !s.Keys.length).map((s) => s.Name), ['__', '-', '_', '--', '.']);
 });
@@ -997,6 +998,65 @@ test('AUDIT OW4 J7: a new disease stops the journey THROUGH THE PANEL (its Camp 
   assert.deepEqual([bare.to.isTravelActive, !!bare.to.state.autopilot], [false, false]);
 });
 
+test('AUDIT OW5b E1: THE ENEMIES STOP ASKED BY THE ENCOUNTER THAT MEETS THE TRAVELLER (Mac: "Need to get pullout of fast travel little sooner for encounters. U run thru them") - the sweep\'s own arm, the moment the host asks: no journey walking, nothing; reckless, stopped through the panel with the box; cautious, the roll - lost, stopped; won, the journey goes on and the grace passes the next one by until it lapses', () => {
+  const walking = (over = {}) => {
+    const hold = {};
+    const ui = new TravelControlUI({ defaultStartingAccel: 10, accelerationLimit: 60, onClose: () => hold.to.interruptTravel() });   // the world host's own: Camp is InterruptTravel
+    const r = rig({ ...over, deps: { ui, ...over.deps } });
+    hold.to = r.to;
+    return { ...r, ui };
+  };
+  // nothing walks: nothing to stop, nothing said - the panel alone over a stopped journey is no journey (AUDIT OW3 P1)
+  {
+    const { to, boxed } = walking();
+    assert.equal(to.encounter(), null, 'no journey');
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, false);
+    to.interruptTravel();
+    assert.equal(to.encounter(), null, 'the autopilot gone: not walking');
+    assert.deepEqual(boxed, []);
+  }
+  // reckless: stopped THROUGH THE PANEL (its Camp - the destination kept for the map's Resume), the box says why
+  {
+    const { to, ui, boxed, scales } = walking();
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, false);
+    assert.equal(to.encounter(), 'stopped');
+    assert.deepEqual([ui.isShowing, !!to.state.autopilot, to.destinationName], [false, false, 'Nowhere'], 'stopped at once, kept for the Resume');
+    assert.equal(scales.at(-1), 1, 'the clock back to walking pace the same moment');
+    assert.deepEqual(boxed, [TRAVEL_OPTIONS_TEXT.MsgEnemies]);
+  }
+  // cautious, the roll lost: stopped, the mod's own words
+  {
+    const { to, ui, boxed } = walking({ roll: 100 });
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, true);
+    assert.equal(to.encounter(), 'stopped');
+    assert.equal(ui.isShowing, false);
+    assert.deepEqual(boxed, [TRAVEL_OPTIONS_TEXT.MsgAvoidFail]);
+  }
+  // cautious, the roll won: the journey walks on, and the grace passes the next encounter by - until it lapses
+  {
+    const { to, ui, state, boxed } = walking({ roll: 1 });
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, true);
+    assert.equal(to.encounter(), 'avoided');
+    assert.deepEqual([ui.isShowing, !!to.state.autopilot], [true, true], 'taken up again');
+    assert.equal(ui.message, TRAVEL_OPTIONS_TEXT.MsgAvoidSuccess);
+    assert.deepEqual(boxed, []);
+    state.now = IGNORE_ENCOUNTERS_SECONDS - 1;
+    assert.equal(to.encounter(), 'ignored', 'within the grace: passed by');
+    assert.deepEqual([ui.isShowing, !!to.state.autopilot], [true, true], 'and nothing stopped');
+    state.now = IGNORE_ENCOUNTERS_SECONDS;
+    assert.equal(to.encounter(), 'avoided', 'the grace lapsed: a new encounter, a new roll');
+  }
+  // one home: the frame's sweep and the asked stop are the same arm (its grace included)
+  {
+    const { to, state, boxed } = walking({ roll: 1 });
+    to.beginTravel({ pixel: { x: 900, y: 250 }, name: 'Nowhere' }, true);
+    assert.equal(to.encounter(), 'avoided');
+    state.enemies = true;
+    assert.equal(to.update({ topWindowIsTravelUI: true }).stopped, undefined, 'the sweep keeps the same grace');
+    assert.deepEqual(boxed, []);
+  }
+});
+
 test('TO1: the follow key - a road under the feet and a facing that matches begins a leg; nothing under the feet says so', () => {
   const { to, ui, net, state, said } = rig();
   const at = (x, y) => x + y * 1000;
@@ -1612,8 +1672,9 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.match(w, /async function worldQuickLoad\(\{ mostRecent = false, key = null, snap: picked = null \} = \{\}\) \{\s*\n\s*if \(_loading\) return;[\s\S]{0,2400}?travelOptions\?\.clearTravelDestination\(\);\s*\n\s*if \(worldTimeScale\(\) !== 1\) resetTimeScale\(\);/);
   // G2: the scale's net above every gate, and an indoor mode ends the journey
   // PIN MOVED (CSA-G): a scale with no panel behind it is reset unless Come Sail Away's helm holds it (its time keys
-  // set Time.timeScale too, and no journey stands behind that one)
-  assert.match(w, /if \(travelControlUI\?\.isShowing && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) travelControlUI\.closeWindow\(\);\s*\n\s*if \(!travelControlUI\?\.isShowing && worldTimeScale\(\) !== 1 && !csaHoldsTimeScale\(\)\) resetTimeScale\(\);/);
+  // set Time.timeScale too, and no journey stands behind that one); PIN MOVED (TV-WASD): or the Overworld's movement
+  // keys travel under a view still up (test/tv_wasd.test.js drives it)
+  assert.match(w, /if \(travelControlUI\?\.isShowing && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) travelControlUI\.closeWindow\(\);\s*\n\s*if \(!travelControlUI\?\.isShowing && worldTimeScale\(\) !== 1 && !csaHoldsTimeScale\(\) && !tvWalkHoldsTimeScale\(\)\) resetTimeScale\(\);/);
   // I2: the strip's click router wants a FREE pointer and the primary button (DISC22-E: the lock, not the flag -
   // test/disc22e_travel_click.test.js drives the predicate)
   assert.match(w, /if \(stripTakesClick\(\{ showing: travelControlUI\?\.isShowing, paused: gamePaused\(\), locked: document\.pointerLockElement === canvas,\s*button: e\.button, enhancedDom: isEnhanced\(\) && typeof document !== 'undefined' \}\)\) \{/);
@@ -1637,8 +1698,11 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.match(w, /paused: _overlayHeld \|\| _seasonHeld \|\| _travelSoundsOff, entity: playerEntity,/, 'the mod\'s stride');
   assert.match(w, /ridingVolumeScale: \(\) => \(_travelSoundsOff \? 0 : 1\),/, 'the riding loop');
   assert.match(read('src/player/mountRig.js'), /soundVolume: ridingVolumeScale\(\),/);
-  // K2: the strafe is the player's own
-  assert.ok(!/axes\.strafe = 0;/.test(w), 'ApplyVerticalForce writes the vertical axis alone');
+  // K2: the strafe is the player's own. PIN MOVED (TV-WASD): the journey's drive block never writes it, and the one zero
+  // in the host is the Overworld keys' ground gate, which stands only while no journey drives (test/tv_wasd.test.js)
+  const k2 = w.indexOf('        if (_travelDrive) {\n          cam.yaw = (_travelDrive.yaw * Math.PI) / 180;');
+  assert.ok(k2 > 0 && !/axes\.strafe\s*=/.test(w.slice(k2, w.indexOf('\n        }\n', k2))), 'ApplyVerticalForce writes the vertical axis alone');
+  assert.deepEqual([...w.matchAll(/axes\.strafe = 0;/g)].map((m) => /^\n        if \(tvWalking && !_travelDrive && /.test(w.slice(w.lastIndexOf('\n        if (', m.index)))), [true], 'the one zero: the keys\' travel, no journey driving');
   // H1: the help is boxed a row a line, in both doors
   assert.match(w, /townTalk\.showBox\(travelOptions\.helpText\(\)\.split\('\\n'\)\)/);
   assert.match(w, /helpRows: \(\) => \(travelOptions \? travelOptions\.helpText\(\)\.split\('\\n'\) : null\),/);
@@ -1648,8 +1712,10 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   // G3: NO on the resume prompt leaves the map open
   const m = read('src/ui/travelMapWindow.js');
   assert.match(m, /if \(code === 'KeyN' \|\| code === 'Escape'\) \{ this\._click\(\); this\.top = null; \}\s*\n\s*return;\s*\n\s*\}\s*\n\s*\/\/ TO1 \(:477-497\): the teleport fee/);
-  // D1: the two reads the popup needed
-  assert.match(w, /currentLocationMapId: \(\) => _musicLoc\?\.mapTableData\?\.mapId \?\? null,/);
+  // D1: the two reads the popup needed - the location through SHIP-PORT's travelOriginMapId since 2026-09-28:
+  // PlayerGPS.CurrentLocation's MapId ashore, the boarding port's on the player's own ship (disc28e_shipport)
+  assert.match(w, /currentLocationMapId: \(\) => travelOriginMapId\(\),/);
+  assert.match(w, /if \(from\.x === here\.x && from\.y === here\.y\) return _musicLoc\?\.mapTableData\?\.mapId \?\? null;/);
   assert.match(w, /isOnShip: \(\) => isOnShip\(playerEntity, playerEntity\.boardShipPosition \?\? null, playerTravelPixel\(\)\),/);
   assert.match(m, /currentLocationMapId: this\.deps\.currentLocationMapId,\s*\n\s*isOnShip: this\.deps\.isOnShip,/);
   assert.match(m, /this\.popUp\.enforceShipRestriction\(\);/, 'OnPush\'s guard has a caller');

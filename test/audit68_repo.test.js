@@ -27,15 +27,18 @@ test('AUDIT 68 X2-release-red-suite-ships: the suite is a JOB every packaging le
   };
   const gate = job('gate'), build = job('build');
   assert.match(gate, /\n {8}run: npm run check\n/, 'the gate job runs the whole house check');
-  assert.match(build, /^ {4}needs: gate$/m, 'every OS leg waits for the suite before it packages or attaches anything');
+  // REL4: and for the one number, which the `version` job resolves once
+  assert.match(build, /^ {4}needs: \[version, gate\]$/m, 'every OS leg waits for the suite before it packages anything');
+  assert.match(job('publish'), /^ {4}needs: \[version, build\]$/m, 'and nothing is attached before every leg has passed');
   assert.doesNotMatch(build, /npm run check/, 'the check is not a step one leg carries and two legs skip');
   assert.doesNotMatch(build, /if: matrix\.os/, 'every leg builds the site the same way');
 });
 
 test('AUDIT 68 X2-release-tag-commit: a new release tag is cut at the built commit, and the dispatch input is data, not script', () => {
   const wf = read('.github/workflows/release-desktop.yml');
-  const attach = wf.slice(wf.indexOf('- name: Attach installers to the release'), wf.indexOf('- name: Keep installers as run artifacts'));
-  assert.match(attach, /\n {10}tag_name: \$\{\{ steps\.reltag\.outputs\.tag \}\}\n {10}target_commitish: \$\{\{ github\.sha \}\}\n/,
+  // REL4: the one step that attaches anything is the publish job's draft
+  const attach = wf.slice(wf.indexOf('- name: Stage the release as a draft, every file attached'), wf.indexOf('- name: Publish it whole'));
+  assert.match(attach, /\n {10}tag_name: \$\{\{ needs\.version\.outputs\.tag \}\}\n {10}name: \$\{\{ needs\.version\.outputs\.tag \}\}\n {10}target_commitish: \$\{\{ github\.sha \}\}\n/,
     'without target_commitish GitHub cuts the tag at main\'s head at upload time');
   const uses = wf.split('\n').filter((l) => l.includes('${{ inputs.release_tag }}'));
   assert.ok(uses.length > 0, 'the input is still read');

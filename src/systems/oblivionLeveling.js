@@ -189,6 +189,13 @@ export function addSkillProgress(entity, skillId, s) {
   return added;
 }
 
+/** THE BAR AS A SCREEN READS IT: the character's progress, held to
+ *  0..LEVELUP_TOTAL. One home for every readout of it - the Ascension's
+ *  crown draws it out of the total, the classic sheet's Level box as a
+ *  percent (LEVEL-PCT, 2026-09-28: that box printed the skill sum's
+ *  fraction for a character this bar levels). */
+export const levelBarProgress = (entity) => Math.max(0, Math.min(LEVELUP_TOTAL, entity?.levelProgress ?? 0));
+
 /** The virtue system's CheckForLevelUp: the bar is full. Sets the same
  *  `readyToLevelUp` flag the DFU path sets, so every host's existing
  *  onLevelUp door opens on it unchanged. */

@@ -67,6 +67,9 @@
  * @property {number|null} [_bbKeyFrame]              ...the frame
  * @property {number} [_bbKeyArchive]                 ...the archive
  * @property {number} [_shGen]                        SC1: the floating origin's generation the pass last saw it in
+ * @property {number} [_shAx]                         AUDIT OW5 R4: the floating origin's cumulative offset the pass last saw it at, x (NaN until then - a double from birth)
+ * @property {number} [_shAy]                         AUDIT OW5 R4: ...y
+ * @property {number} [_shAz]                         AUDIT OW5 R4: ...z
  * @property {boolean} [_shSeen]                      SC1: recorded at least once
  * @property {number} [_shOx]                         SC1: the origin it was last recorded at, x (NaN until then - a double from birth, read only once `_shSeen`)
  * @property {number} [_shOy]                         ...y
@@ -78,6 +81,7 @@
  * @property {boolean} [_shSway]                      SHADOW-REACH: moving by the wind alone (the slow cadence)
  * @property {number} [_shMovedAt]                    SC1: the pass's frame number it last moved on
  * @property {number} [_shId]                         SC1: its identity in the static signature, minted on first sight
+ * @property {boolean} [_shAnim]                      DISC29-E: a mover animating in place, a flat that cannot walk - kept by the lo tier (REPLAY_LO)
  */
 
 /**

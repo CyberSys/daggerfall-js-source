@@ -2,8 +2,8 @@
   {
     "name": "OW3P1-leader-bare-interrupt",
     "file": "src/scenes/world.js",
-    "old": "      if (next.halt) travelOptions?.messages?.pauseTravel();",
-    "new": "      if (next.halt) travelOptions?.interruptTravel();",
+    "old": "      if (next.halt) { travelOptions?.messages?.pauseTravel(); tvSay(TRAVEL_VIEW_TEXT.partyHalted); }",
+    "new": "      if (next.halt) { travelOptions?.interruptTravel(); tvSay(TRAVEL_VIEW_TEXT.partyHalted); }",
     "tests": [
       "test/tv8_party_walk.test.js"
     ],
@@ -32,8 +32,8 @@
   {
     "name": "OW3P1-halt-late",
     "file": "src/systems/partyWalk.js",
-    "old": "    if (leaderMustHalt(tw, stops)) return { tw: { ...tw, h: Math.round(now) }, halt: true };",
-    "new": "    if (leaderMustHalt(tw, stops)) return { tw, halt: true };",
+    "old": "    if (leaderMustHalt(tw, stops, now)) return { tw: { ...tw, h: Math.round(now) }, halt: true };",
+    "new": "    if (leaderMustHalt(tw, stops, now)) return { tw, halt: true };",
     "tests": [
       "test/tv8_party_walk.test.js"
     ],

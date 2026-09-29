@@ -702,7 +702,7 @@
   {
     "name": "AUDIT-DEEP2-A1-panel-press-is-mouse0",
     "file": "src/ui/enhancedTravelControl.js",
-    "old": "  root.addEventListener('mousedown', (e) => { if (e.target?.closest?.('[data-act]')) e.stopPropagation(); });\n",
+    "old": "  bar.addEventListener('mousedown', (e) => { if (e.target?.closest?.('[data-act]')) e.stopPropagation(); });\n",
     "new": "",
     "tests": [
       "test/tv1_travel_view.test.js"

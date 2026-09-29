@@ -83,7 +83,7 @@ import { SongManager, musicEnvironment, holdEnvironment } from '../systems/songM
 import { audio } from '../systems/audio.js';
 import { messageBox } from '../systems/notify.js';   // ENH-NOTICE3: the one door every DaggerfallUI.MessageBox goes through - the infection's popup names the KIND, never the host's window
 
-import { getBytes, storedMusicNames, loadMusicFile, storedTextureNames, loadTextureFile, registerMorrowindData } from './dataSource.js';   // M-EXT/M-TEX: the player's own packs
+import { getBytes, storedMusicNames, loadMusicFile, storedTextureNames, loadTextureFile, registerMorrowindData, saveTextureJson, loadTextureBlob } from './dataSource.js';   // M-EXT/M-TEX: the player's own packs
 
 
 /** The data seam every scene uses - delegates to the ARENA2 data
@@ -1186,6 +1186,9 @@ export function applyFallLanding(entity, distance, { hurt = null, sound = null, 
  *  which is the gap F6 closed - so the seam that already reaches all
  *  four hosts carries both. MusicService.ensure keeps its own flag, is
  *  idempotent, and disables itself quietly if MIDI.BSA will not load. */
+/** DFMOD2: the `?nomods` escape hatch - the attached .dfmod texture mods are not registered for this page load. */
+const noMods = (search = globalThis.location?.search ?? '') => /[?&]nomods\b/.test(search);
+
 export function ensureAudio(fetch = fetchBytes) {
   const sound = audio.ensure(fetch);
   const songs = music.ensure(fetch);
@@ -1216,7 +1219,19 @@ export function ensureAudio(fetch = fetchBytes) {
       setSeasonsSources(names, loadTextureFile);   // SIB1: Seasons of the Iliac Bay's bundle or folders, from the same pick
       setWeaponWidgetSources(names, loadTextureFile);   // WW1: Weapon Widget's bundle, from the same pick
       setDiverseWeaponsSources(names, loadTextureFile);   // DW1: Diverse Weapons' bundle, from the same pick
-      return setTextureReplacements(names, loadTextureFile);
+      const n = setTextureReplacements(names, loadTextureFile);
+      // DFMOD1: every other attached .dfmod (DREAM and its kin) - from its stored name index, before the first
+      // archive loads (the hosts await this), so the first preload already carries the mods' pictures
+      // DFMOD2: `?nomods` starts the game without the attached texture mods - the way back in (to remove one from the
+      // packs card) when a mod will not load on this machine
+      if (noMods()) return n;
+      return import('../systems/dfmodTextures.js')
+        .then(({ setDfmodSources, setDfmodDetailSource }) => {
+          setDfmodDetailSource(() => getPref('dfmodTextureDetail'));   // DFMOD2: the packs card's detail choice
+          // DFMOD2: indexes only - a missing one is built in the background, never on the way into the game
+          return setDfmodSources(names, loadTextureFile, { saveIndex: saveTextureJson, loadBlob: loadTextureBlob, warm: true });
+        })
+        .then((m) => n + m, () => n);
     })
     .catch(() => 0);
   installRaidingParties();   // RAID1: the mod's save record, in every host - a save made in a dungeon carries the day's raids too
@@ -2052,7 +2067,7 @@ export function createMusicDirector({ fm = null, play = null, stop = null, playi
  *  through to `cam.yaw += movementX` - so every swing inside a
  *  building or a dungeon turned the camera with it.
  *
- *  `dungeon.js:279`, the standalone host, has always had the right
+ *  `dungeon.js:280`, the standalone host, has always had the right
  *  shape: attack, then return. It has no modal sibling to share the
  *  drag with, which is why it never needed a mode in the test at all.
  *

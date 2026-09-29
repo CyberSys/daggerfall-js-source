@@ -23,12 +23,16 @@
 // Unity does and what the mod's second line buys.
 //
 // ONE HOME, and a small one: a number and its readers. The frame
-// multiplies its dt by `timeScale()`; the motor takes its fixed step
-// from `fixedStep()`; and (CSA-G) the HUD's two message clocks, which
-// DFU counts in `Time.deltaTime` - game time - where the port hands its
-// HUD the frame's real dt (ui/midScreenText.js, ui/hudText.js). Nothing
-// else may read it - a system that wants to know whether a journey is
-// running asks the journey.
+// multiplies its dt by `timeScale()`, and the motor scales its own fixed
+// step by the same number (player/motor.js); and (CSA-G) the HUD's two
+// message clocks, which DFU counts in `Time.deltaTime` - game time -
+// where the port hands its HUD the frame's real dt (ui/midScreenText.js,
+// ui/hudText.js). The mods whose Unity code reads `Time.timeScale` read
+// it here too (AUDIT OW5, the audit before the merge, counted them: the
+// bands' and the raiders' chases, the sea's helm, Come Sail Away, Warm
+// Ashes, the horse and cart, Deep Waters, Ocean Holes). A system that
+// wants to know whether a journey is running asks the journey, never
+// this number.
 //
 // PAUSE IS NOT THIS. DFU pauses with `Time.timeScale = 0` and the port
 // does not: it holds the frame (scenes/world.js `gamePaused()`,

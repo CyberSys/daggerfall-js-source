@@ -94,6 +94,9 @@ export const REFUSALS = Object.freeze({
   'password-long': `A password is at most ${PASSWORD_MAX_LEN} characters.`,
   'already-registered': 'This account already has a username.',
   'not-registered': 'This account has no password yet.',
+  // TERMS1: the two routes that make an account refuse a request that has not ticked the documents they hold
+  'terms-unaccepted': 'Tick both boxes to agree to the Terms of Service and the Privacy Policy.',
+  'terms-stale': 'The Terms of Service or the Privacy Policy has changed. Reload the game (or update the app) to read the current version, then tick the boxes again.',   // AUDIT PRE-MERGE 0929 T1: a reload brings the desktop app's own bundled copy back - the app is updated
   'no-account': 'That account no longer exists.',
   'bad-login': 'That username and password do not match.',
   'bad-code': 'That username and recovery code do not match.',
@@ -199,12 +202,17 @@ export const REFUSALS = Object.freeze({
   'not-yours': 'That gate\'s receipt names another account.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
+  maintenance: 'The account service is being looked after for a minute. Try again shortly.',   // RESTORE: the history restore's minute
   // REALM P1: the realm's characters (server-account/src/realm.js) - an online character's save, held by the service.
   'too-many-characters': 'You have as many online characters as an account may hold. Delete one to make room.',
   'no-realm-character': 'That online character is not on this account.',
   lease: 'This character is being played somewhere else now - another tab or device took it.',
   seq: 'This character was saved from somewhere else in the meantime. Rejoin to carry on.',
-  'customs-never-online': 'Only a character that has already played online can be brought into the realm.',
+  // CUSTOMS-CARRY (2026-09-29): the census is every trace the realm has from before it began (migration 0022) - said as
+  // what counts, since "played online" read false to a player who had and never killed there
+  // CUSTOMS-PASS (2026-09-29): and the one way past it, a developer's pass - named for the case it exists for, a character
+  // played online on an older version of the game after the realm opened (which the relay admitted until REALM-DOOR)
+  'customs-never-online': 'The realm has no record of this character from before it opened - no Renown, online home, guild place, raid or cloud backup - so it cannot come in. Make a new online character instead. If you played it online on an older version of the game after the realm opened, ask the developers on the Discord.',
   'customs-already': 'That character has already been brought into the realm.',
   // AUDIT REALM2 S1: a first save the realm reads - a new character's, or customs' own
   'realm-birth': 'The realm takes a new character only as character creation makes one. Delete it and make it again.',
@@ -216,6 +224,9 @@ export const REFUSALS = Object.freeze({
   // REALM P2.2: an act that moves a realm character's gold on its record (server-account/src/realm.js)
   'realm-needed': 'This online character must be playing in the realm to do that. Rejoin and try again.',
   'realm-gold': 'The realm holds less gold for this character than that costs.',
+  // CUSTOMS-PASS: the developer's route (server-account/src/realm.js grantCustomsPass), said by tools/customsPass.mjs
+  'not-developer': 'Only a developer can grant a customs pass.',
+  ambiguous: 'More than one account goes by that name - name the account by its id instead.',
 });
 
 /** The sentence for a refusal, never `undefined` and never the raw
@@ -285,14 +296,22 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
 // a path, because a path spelled at a call site is a path that outlives
 // a rename.
 
+/** TERMS1: the two fields a request that makes an account carries - the
+ *  Terms of Service and Privacy Policy versions its player ticked
+ *  (net/legalLaw.js ACCEPTED) - or none, which the service refuses. */
+const legalFields = (accepted) => (accepted ? { terms: accepted.terms, privacy: accepted.privacy } : {});
+
 /** A guest row and the session that owns it. `{ id, name, kind,
- *  sessionId, secret }`. */
-export const openGuest = (io, label = null) => call(io, '/v1/auth/guest', { label });
+ *  sessionId, secret }`. TERMS1: the service opens no row for a player
+ *  who has not ticked the documents, so `accepted` rides the request. */
+export const openGuest = (io, label = null, accepted = null) => call(io, '/v1/auth/guest', { label, ...legalFields(accepted) });
 
 /** Fill in a handle and a password on the guest row THIS SESSION
  *  already owns - an upgrade in place, never a new account. Answers
- *  `{ recoveryCode, handle }`, and that code is readable exactly once. */
-export const register = (io, handle, password) => call(io, '/v1/auth/register', { handle, password });
+ *  `{ recoveryCode, handle }`, and that code is readable exactly once.
+ *  TERMS1: with the versions ticked on the form that names it. */
+export const register = (io, handle, password, accepted = null) =>
+  call(io, '/v1/auth/register', { handle, password, ...legalFields(accepted) });
 
 /** `{ id, name, kind, sessionId, secret }` for a new device. */
 export const login = (io, handle, password, label = null) => call(io, '/v1/auth/login', { handle, password, label });

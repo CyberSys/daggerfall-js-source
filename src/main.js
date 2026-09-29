@@ -42,6 +42,7 @@ const bootWorld = (...a) => import('./scenes/world.js').then((m) => m.bootWorld(
 import { ensureArena2, getBytes } from './scenes/dataSource.js';
 import { installCursor } from './ui/cursor.js';
 import { mountFpsCounter } from './ui/fpsCounter.js';   // FPS1: the counter, over every host
+import { installFramePacer } from './systems/frameCap.js';   // FPS-VSYNC (AUDIT 28e): the desktop app's lifted wait, paced by the cap
 import { setScreenshotCanvas } from './ui/screenshot.js';   // KB1: the PrintScreen action's canvas - the key itself is routed by the hosts (AUDIT KB1)
 import { getPref } from './systems/uiPrefs.js';   // FPS1: its switch
 import { publishBootParams, BOOT_DOOR_KEYS } from './systems/onlineLane.js';   // MAC-N3: the boot's params are the URL, or the online lane reads nothing
@@ -51,6 +52,7 @@ import { publishBootParams, BOOT_DOOR_KEYS } from './systems/onlineLane.js';   /
 import { staleChunkAction, RELOAD_KEY, STALE_CHUNK_TEXT } from './systems/staleChunk.js';
 
 async function boot() {
+  installFramePacer();   // FPS-VSYNC: first, before any loop asks for a frame - a no-op but in the app with the wait lifted
   const canvas = document.getElementById('c');
   const renderer = new Renderer(canvas);
   renderer.setRetroSource(retroFrameConfig);   // RETRO1: DFU's retro mode - asked once per world frame, so the settings screen's change lands on the next
@@ -63,6 +65,13 @@ async function boot() {
   Promise.all([import('./ui/input.js'), import('./systems/controlsConfig.js'), import('./systems/notify.js')])
     .then(([input, cfg, notify]) => input.setKeybindNoticeSink((report) => { for (const line of cfg.keybindCarryNotes(report)) notify.hudTextWhenShown(line, 12); }))
     .catch((err) => console.warn('[keybinds] the carry notice could not load:', err?.message ?? err));
+  // DA8: the desktop shell's "an update is ready", through the same door and OFF the entry's static graph, as the
+  // carry above (BOOT2 holds that graph's ceiling). A tab has no shell and loads neither.
+  if (typeof globalThis.daggerShell?.onUpdateReady === 'function') {
+    Promise.all([import('./systems/shellUpdates.js'), import('./systems/notify.js')])
+      .then(([updates, notify]) => updates.listenForShellUpdates(globalThis.daggerShell, (text) => notify.hudTextWhenShown(text, 12)))
+      .catch((err) => console.warn('[update] the update notice could not load:', err?.message ?? err));
+  }
   mountFpsCounter({ enabled: () => params.has('fps') || !!getPref('showFps'), stats: () => renderer.stats, info: () => renderer.frameInfo });   // FPS1: over every host, on the pref or the probe door; PERF3: with the renderer's counts; PERF-SCALE: and its GPU and frame size
   const status = (msg) => {
     document.title = `Daggerfall Online - ${msg}`;

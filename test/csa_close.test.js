@@ -455,7 +455,7 @@ test('CSA-J (the audit): the load\'s doors - OnStartLoad ahead of the save\'s pl
   assert.match(w, /const paused = gamePaused\(\) \|\| _loading;/);
   assert.match(w, /const csaOn = \(\) => _csaOnAtLoad;/);
   assert.match(w, /root: csaRuntime\?\.state\?\.parentedObjects\?\.get\(f\.ai\)\?\.boat\?\.GameObject \?\? null \}\);/);
-  assert.match(w, /const c = \(v\) => Math\.max\(0, Math\.min\(TERRAIN_SIZE, v\)\); return surfaceHeightAt\(p\.samples, c\(q\[0\] - o\[0\]\), c\(q\[2\] - o\[2\]\), p\._stride \?\? 1\);/);
+  assert.match(w, /const c = \(v\) => Math\.max\(0, Math\.min\(TERRAIN_SIZE, v\)\); return terrainSampleHeightAt\(p\.samples, c\(q\[0\] - o\[0\]\), c\(q\[2\] - o\[2\]\), p\._stride \?\? 1\);/);   // FIELD-CSA2: the clamp stands; the height is Unity's heightmap's (terrainSurface.js terrainSampleHeightAt)
   // the bed's press, the gate less its offer rung, in the three doors that answer a bed
   for (const [f, s] of [['world.js', w], ['dungeonContext.js', d], ['worldModes.js', m]]) {
     assert.match(s, /giveOffer,\n\s+\.\.\.\(_restFromBed \? \{ giveOffer: null \} : null\),/, `${f}: the offer rung skipped for a bed`);

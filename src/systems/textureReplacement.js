@@ -288,12 +288,64 @@ export function vendorTextureStandIn(archive) {
     getColor32: (record) => decodedOf(archive, record?.record ?? 0) ?? null,
   };
 }
-const entryFor = (key) => _index.get(key) ?? _vendor.get(key) ?? null;
+// ---- DFMOD1: TEXTURES FROM A PLAYER-ATTACHED .dfmod ------------------
+//
+// The third tier. A Daggerfall Unity texture mod (DREAM 90s and its
+// kin) is the same DFU-named PNGs a loose pack carries, packed into a
+// UnityFS bundle: `210_1-0`, `235_56-0_Aquamarine`, `235_56-0_Iron_Mask`.
+// systems/dfmodTextures.js opens the bundles the player attached and
+// registers every archive-named texture here, each with its own
+// `image()` - a top-down RGBA picture decoded in the bundle's worker on
+// first ask. Loose files outrank it (DFU reads the loose folder before
+// it asks the mods, TextureReplacement.TryImportTexture), the port's own
+// vendored art outranks both, and the AssetInjection gate covers it as
+// it covers loose files. `rect` carries a paperdoll xml's `<rect>`
+// (OverridePaperdollItemRect) for the doll to place a hi-res sprite by.
+let _bundle = new Map();
+// DFMOD3: A MEMORY BUDGET FOR THE BUNDLE TIER. Every decoded picture stays in `_decoded` as the one the upload path
+// reads, and an HD mod set is thousands of them; past the budget a bundle picture is not decoded (its classic art
+// draws, said once) rather than the tab running out of memory - the game's own textures, IndexedDB and the navmesh
+// went with it in a player's log. navigator.deviceMemory (GB, capped at 8 by the browser) scales it.
+// DFMOD3b: navigator.deviceMemory is capped at 8 by the browser itself (a
+// privacy limit, not a real reading) - a 16 GB+ machine still reports 8, so
+// the old 96/GB * 768 ceiling never gave one any more room than an actual
+// 8 GB machine got. Most players are well past 8 GB now, so both numbers
+// are doubled: 192/GB, up to 1536 MB, still leaving the tab's other memory
+// (the game engine, the browser itself) untouched on a 16 GB machine, and
+// a genuinely low-memory device is no worse off than before - it scales
+// the same way, just twice as generously.
+export const bundleBudgetBytes = () => Math.round(Math.min(1536, 192 * (Number(globalThis.navigator?.deviceMemory) || 8)) * 1024 * 1024);
+let _bundleBytes = 0;
+let _budgetWarned = false;
+export const bundleDecodedBytes = () => _bundleBytes;
+/** Replace the bundle tier: [{ archive, record, frame?, map?, dye?, fileName, image, lazy?, rect? }]. */
+export function setBundleTextures(entries) {
+  for (const k of _bundle.keys()) if (!_vendor.has(k) && !_index.has(k)) _decoded.delete(k);
+  _bundle = new Map();
+  _bundleBytes = 0; _budgetWarned = false;   // DFMOD3
+  for (const e of entries ?? []) {
+    if (!Number.isFinite(e?.archive) || !Number.isFinite(e?.record) || typeof e.image !== 'function') continue;
+    const map = e.map ?? 'Albedo';
+    const key = textureKey(e.archive, e.record, e.frame ?? 0, map, e.dye ?? null);
+    if (_bundle.has(key)) continue;   // the first attached mod that carries a name keeps it
+    _bundle.set(key, { archive: Number(e.archive), record: Number(e.record), frame: Number(e.frame ?? 0), map, dye: e.dye ?? null, fileName: e.fileName ?? key, image: e.image, lazy: e.lazy === true, rect: e.rect ?? null });
+  }
+  return _bundle.size;
+}
+export const bundleTextureCount = () => _bundle.size;
+/** A bundle texture's paperdoll `<rect>` ({ x, y, width, height } in the doll's own pixels), or null. */
+export function textureReplacementRect(archive, record, frame = 0, map = 'Albedo', dye = null) {
+  const key = textureKey(archive, record, frame, map, dye);
+  if (_index.has(key) || _vendor.has(key)) return null;
+  return _bundle.get(key)?.rect ?? null;
+}
+
+const entryFor = (key) => _index.get(key) ?? _vendor.get(key) ?? _bundle.get(key) ?? null;
 
 export function clearTextureReplacements() {
   _index = new Map();
   _load = null;
-  for (const k of _decoded.keys()) if (!_vendor.has(k)) _decoded.delete(k);   // a new pick must not inherit the old one's pixels; the port's own stay
+  for (const k of _decoded.keys()) if (!_vendor.has(k) && !_bundle.has(k)) _decoded.delete(k);   // a new pick must not inherit the old one's pixels; the port's own stay (DFMOD1: and an attached bundle's)
 }
 
 /** Synchronous, and for the same reason music's is: the upload path
@@ -303,7 +355,7 @@ export function hasTextureReplacement(archive, record, frame = 0, map = 'Albedo'
   const v = _vendor.get(key);
   if (v) return !v.gate || v.gate() === true;   // DW3: a gated entry answers only while its switch is on
   if (!textureReplacementEnabled()) return false;
-  return _index.has(key);
+  return _index.has(key) || _bundle.has(key);   // DFMOD1: an attached bundle's texture answers too
 }
 
 /**
@@ -313,7 +365,7 @@ export function hasTextureReplacement(archive, record, frame = 0, map = 'Albedo'
 export async function textureReplacementBytes(archive, record, frame = 0, map = 'Albedo', dye = null) {
   if (!hasTextureReplacement(archive, record, frame, map, dye)) return null;
   const entry = entryFor(textureKey(archive, record, frame, map, dye));
-  if (entry?.build) return null;   // WD2: a derived picture has no file to hand over - it is built, never loaded
+  if (entry?.build || entry?.image) return null;   // WD2: a derived picture has no file to hand over - it is built, never loaded; DFMOD1: nor has a bundle's
   const load = entry?.load ?? _load;
   if (!entry || !load) return null;
   try {
@@ -342,11 +394,11 @@ export async function textureReplacementBytes(archive, record, frame = 0, map = 
 // ROAD-H H4: WHAT IS IN THIS MAP IS A COLOR32, NOT A DECODED PNG.
 //
 // The upload path is `renderer.uploadTexture(archive, record, color32)`,
-// which reads `color32.colors` and `asBytes` of it (renderer.js:3275),
+// which reads `color32.colors` and `asBytes` of it (renderer.js:3291),
 // and every texture it uploads is BOTTOM-UP - `getColor32` writes
 // `dstRow = (dstHeight - 1 - border - y) * dstWidth`
 // (baseImageFile.js:143, BaseImageFile.cs:250) and the upload leaves
-// UNPACK_FLIP_Y_WEBGL off (renderer.js:3917). A browser decode hands
+// UNPACK_FLIP_Y_WEBGL off (renderer.js:3933). A browser decode hands
 // back `{ width, height, data }` with the TOP row first, so a swap
 // stored raw was BOTH the wrong field name - `color32.colors` was
 // `undefined` and `asBytes` threw on the first swapped record a pack
@@ -389,6 +441,16 @@ async function entryColor32(entry, decode) {
     const picture = await entry.build(_deriveContext);
     return picture ? withRecordScale(toColor32(picture), picture) : null;
   }
+  if (entry.image) {   // DFMOD1: a bundle's texture, decoded in its worker, top-down like a PNG
+    if (_bundleBytes >= bundleBudgetBytes()) {   // DFMOD3: the budget is spent - the classic art draws
+      if (!_budgetWarned) { _budgetWarned = true; console.warn(`[texture] texture mods reached their memory budget (${Math.round(bundleBudgetBytes() / 1048576)} MB) - further mod pictures draw classic this session; lower Texture detail to fit more`); }
+      return null;
+    }
+    const img = await entry.image();
+    if (!img) return null;
+    _bundleBytes += img.width * img.height * 4;
+    return toColor32(img);
+  }
   const bytes = await (entry.load ?? _load)(entry.fileName);
   if (!bytes || !bytes.byteLength) return null;
   return toColor32(await decode(bytes));
@@ -428,7 +490,8 @@ export async function decodePng(bytes) {
 export const PRELOAD_CONCURRENCY = 8;
 export async function preloadTextureArchive(archive, { decode = decodePng, concurrency = PRELOAD_CONCURRENCY } = {}) {
   let done = 0;
-  const sources = [..._vendor.entries(), ...(textureReplacementEnabled() && _load ? _index.entries() : [])];   // SURV2: the port's own art first, ungated
+  const on = textureReplacementEnabled();
+  const sources = [..._vendor.entries(), ...(on && _load ? _index.entries() : []), ...(on ? [..._bundle.entries()].filter(([k]) => !_index.has(k) || !_load) : [])];   // SURV2: the port's own art first, ungated; DFMOD1: an attached bundle's last
   const todo = sources.filter(([key, entry]) => entry.archive === Number(archive) && !entry.lazy && !_decoded.has(key));
   const one = async ([key, entry]) => {
     try {

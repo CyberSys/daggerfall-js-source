@@ -667,6 +667,7 @@ export function tryLanguagePacification(ai, entity, mobileType, playerEntity, {
   if (!ai?.justEncountered) return null;
   ai.justEncountered = false;   // the EDGE is consumed whatever happens next
   if (isQuestFoe) return null;
+  if (entity?.pacifyImmune) return null;   // WB8a: the gate's Warden hears no tongue - no roll, no tally, no line
   const lang = enemyLanguageSkill(entity);
   if (lang === -1) return null;   // Skills.None - most monsters have no tongue
   // X11: COMPREHEND LANGUAGES. DFU reads the live effect off

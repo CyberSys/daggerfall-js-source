@@ -500,7 +500,7 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
 .travelpanel-label { font-size: 11px; letter-spacing: 0.2em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
 .travelpanel-name { font-family: inherit; font-size: 21px; line-height: 1.15; letter-spacing: 0.04em; color: #efe8d6;
   text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.5); }
-.travelpanel.following .travelpanel-name { color: ${FRAME_TONES.brassHi}; }
+.travelpanel.following .travelpanel-name, .travelpanel-bar.following .travelpanel-name { color: ${FRAME_TONES.brassHi}; }
 .travelpanel-sub { font-size: 12px; letter-spacing: 0.06em; color: #c9bfa4; text-shadow: 1px 1px 0 #050608;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 /* the parting rules: a dark cut with the light catching beside it, the kit's engraved line stood on end */
@@ -560,6 +560,48 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
   .travelpanel-junction { top: calc(var(--tp-top) + 164px); }
 }
 @media (prefers-reduced-motion: reduce) { .travelpanel-msg { transition: none; } }
+/* ── OW-BLOCK: THE OVERWORLD'S BLOCK ── bottom right, one carved stone, one pixel face; its sections parted by the kit's
+   engraved line (a dark cut with the light catching under it) - the kit paints the frame (FRAME_ROLES) */
+.tview-bar { font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'clig' 0; color: #d8cfae; border: 2px solid; border-radius: 0; width: 292px; }
+.tview-bar > * + * { border-top: 2px solid rgba(5,6,8,0.55); box-shadow: inset 0 1px 0 rgba(163,152,128,0.18); }
+.tview-head { padding: 9px 14px 8px; gap: 12px; }
+.tview-title, .tview-label { font-size: 11px; letter-spacing: 0.2em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.tview-where { font-size: 13px; line-height: 1.2; letter-spacing: 0.03em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.5); }
+.tview-trip { font-size: 11px; letter-spacing: 0.03em; color: ${FRAME_TONES.brassHi}; text-shadow: 1px 1px 0 #050608; }
+.tview-idle { padding: 10px 14px; }
+.tview-idle-name { font-size: 16px; line-height: 1.15; letter-spacing: 0.04em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.tview-idle-sub { font-size: 11px; letter-spacing: 0.04em; color: #8f8772; text-shadow: 1px 1px 0 #050608; }
+#travel-view .tview-dock .travelpanel-dest { padding: 10px 14px 5px; }
+#travel-view .tview-dock .travelpanel-name { font-size: 17px; }
+#travel-view .tview-dock .travelpanel-speed { padding: 3px 0 10px 14px; }
+#travel-view .tview-dock .travelpanel-acts { padding: 3px 14px 10px 8px; }
+#travel-view .tview-dock .travelpanel-act { min-height: 30px; padding: 4px 10px; font-size: 12px; }
+#travel-view .tview-dock > .travelpanel-msg { bottom: calc(100% + 12px); }
+.tview-tools { padding: 9px 14px; }
+.tview-mode { min-width: 56px; min-height: 30px; padding: 4px 10px; border: 2px solid; border-radius: 0; font-family: inherit;
+  font-size: 12px; letter-spacing: 0.12em; text-indent: 0.12em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.tview-mode + .tview-mode { border-left: 2px solid; }
+.tview-mode.on { color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.tview-map, .tview-back { min-height: 32px; padding: 5px 14px; border: 2px solid; border-radius: 0; font-family: inherit; font-size: 13px;
+  letter-spacing: 0.14em; text-indent: 0.14em; color: #e6dec6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.45); }
+.tview-map:hover, .tview-map:focus-visible, .tview-back:hover, .tview-back:focus-visible, .tview-mode:hover, .tview-mode:focus-visible {
+  outline: none; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.tview-filters { padding: 9px 12px 11px; gap: 5px; }
+.tview-filter { border: 2px solid; border-radius: 0; font-family: inherit; font-size: 11px; letter-spacing: 0.05em; padding: 4px 7px;
+  color: #8f8772; text-shadow: 1px 1px 0 #050608; }
+.tview-filter.on { color: #efe8d6; }
+.tview-filter:hover, .tview-filter:focus-visible { outline: none; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.tview-fdot { width: 8px; height: 8px; border-radius: 0; box-shadow: 0 0 0 1px #050608, 1px 1px 0 1px rgba(0,0,0,0.5); }
+.tview-fnum { font-size: 11px; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.tview-foot { padding: 9px 14px 11px; }
+.tview-confirm { font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;
+  border: 2px solid; border-radius: 0; padding: 16px 22px; gap: 14px; }
+.tview-confirm-ask { font-size: 16px; letter-spacing: 0.04em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.5); }
+.tview-confirm-row { font-size: 12px; letter-spacing: 0.04em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.tview-confirm-presses > .tview-mode { min-width: 84px; min-height: 32px; border: 2px solid; border-radius: 0; }
+:root[data-plus-theme="stone"] .tview-title, :root[data-plus-theme="stone"] .tview-label { color: #15130f; text-shadow: 1px 1px 0 rgba(255,255,255,0.36); }
+:root[data-plus-theme="stone"] .tview-bar > * + * { border-top-color: rgba(5,6,8,0.5); box-shadow: inset 0 1px 0 rgba(255,255,255,0.16); }
 `;
 
 /** RARITY-UI + SIGIL-UI (2026-09-26, Mac: "Rarity needs to be more noticable in the UI with the icon borders being
@@ -1017,6 +1059,7 @@ body .dfparty-vital.magicka .dfparty-fill { background: linear-gradient(180deg, 
    face, outlined. The fire's own colours stay his. */
 body .wb-boss-bar { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.06em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 body .wb-boss-name { font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
+body .wb-boss-trials { font-size: 11px; letter-spacing: 0.12em; color: #d8cfae; text-shadow: ${OUTLINED}; }   /* WB8b: his trials, under his name */
 body .wb-boss-track { border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
   background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #1e0906;
   box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }

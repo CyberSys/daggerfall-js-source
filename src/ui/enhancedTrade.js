@@ -178,7 +178,7 @@ function cost() {
 function quotePriceFor(item, side) {
   const ctx = deps.priceCtx?.() ?? {};
   const quality = ctx.quality ?? 0; const skills = ctx.skills ?? {};
-  const priced = (m) => getTradePrice(m, tradeCost(m, [item], ctx).cost, quality, skills);
+  const priced = (m) => { const lot = tradeCost(m, [item], ctx); return getTradePrice(m, lot.cost, quality, skills, lot.pieces); };   // FB0929: the quote is the lot's own price, floor and all
   if (side === 'remote') {
     // Buying: the shelf. Every other mode's remote pane is the STAGED
     // lot already, not something new to quote.
@@ -590,8 +590,8 @@ function quickSellSelected() {
   const item = selected.item;
   if (isBound(item) || lockRefuses(item, 'sell')) return;   // AUDIT SS: the counter's own refusals hold here too, should this path ever open (isQuickSellCandidate answers false)
   const ctx = deps.priceCtx?.() ?? {};
-  const c = tradeCost('Sell', [item], ctx).cost;
-  const price = getTradePrice('Sell', c, ctx.quality ?? 0, ctx.skills ?? {});
+  const { cost: c, pieces } = tradeCost('Sell', [item], ctx);
+  const price = getTradePrice('Sell', c, ctx.quality ?? 0, ctx.skills ?? {}, pieces);
   const d = tradeDecision('Sell', { cost: c, tradePrice: price, gold: deps.gold?.() ?? 0 });
   box = {
     rows: rowsFor(d.textId, price),
@@ -623,11 +623,11 @@ function primaryAction() {
 }
 
 function modeAction() {
-  const { cost: c, modeActionEnabled } = cost();
+  const { cost: c, modeActionEnabled, pieces } = cost();
   if (!modeActionEnabled) return;
   if (deps.usingIdentifySpell) { castIdentifySpell(); return; }
   const ctx = deps.priceCtx?.() ?? {};
-  const price = getTradePrice(mode, c, ctx.quality ?? 0, ctx.skills ?? {});
+  const price = getTradePrice(mode, c, ctx.quality ?? 0, ctx.skills ?? {}, pieces);   // FB0929: a purchase asks a gold a piece at least
   const d = tradeDecision(mode, { cost: c, tradePrice: price, gold: deps.gold?.() ?? 0 });
   if (d.kind === 'notEnoughGold') {
     box = { rows: d.textIds.flatMap((id) => rowsFor(id, price)), buttons: null };

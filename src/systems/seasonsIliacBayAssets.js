@@ -83,7 +83,12 @@ let _seasonsBundle = null;  // Promise<{ files, textures } | null> for the mod's
 /** Register the stored names and a `load(name) -> bytes` loader. Returns
  *  how many stored entries belong to this mod (bundles count one). */
 export function setSeasonsSources(fileNames, load) {
-  const names = (fileNames ?? []).filter((n) => n.startsWith(DFMOD_KEY_PREFIX) || n.startsWith(LOOSE_KEY_PREFIX));
+  // DFMOD2 (a player's log: "[seasons] dfmod/dream - mobs.dfmod would not open ... Array buffer allocation failed"):
+  // ONLY THIS MOD'S BUNDLE. Every `.dfmod` in the texture store used to be Seasons' by construction (the pick keyed
+  // no other), so this door opened each one WHOLE, on the main thread, to read its manifest. The store now holds any
+  // mod the player attaches - DREAM's are gigabytes - and that walk read every one of them into memory to find a
+  // manifest that was never there. The name says which is Seasons', as it did when the pick decided.
+  const names = (fileNames ?? []).filter((n) => (n.startsWith(DFMOD_KEY_PREFIX) && isSeasonsDfmod(n.slice(DFMOD_KEY_PREFIX.length))) || n.startsWith(LOOSE_KEY_PREFIX));
   const loader = typeof load === 'function' ? load : null;
   // The boot seam registers on EVERY host boot (ensureAudio is called
   // by each host, some twice); the same names and loader keep the
@@ -157,12 +162,12 @@ async function seasonsBundle() {
 // COLOR32 ORDER: row 0 is the picture's BOTTOM row, exactly what
 // `BaseImageFile.getColor32` produces (baseImageFile.js:143,
 // BaseImageFile.cs:250) and what `renderer.uploadTexture` uploads
-// as-is with UNPACK_FLIP_Y_WEBGL off (renderer.js:3917).
+// as-is with UNPACK_FLIP_Y_WEBGL off (renderer.js:3933).
 // In DFU the mod's asset is a Unity Texture2D, whose pixels are
 // bottom-up like every Texture2D the classic reader builds, so its
 // flats and the classic ones agree; here the seasonal record entered
 // through a PNG-order door and every seasonal tree, rock and plant
-// drew vertically mirrored under BB_VS (renderer.js:370-394, v=0 =
+// drew vertically mirrored under BB_VS (renderer.js:382-406, v=0 =
 // image bottom). The flip belongs at THIS door: `decodeTexture2D` and
 // `decodePng` keep the PNG raster order each states as its contract,
 // and the port's upload order is reached here, once, per texture.

@@ -105,7 +105,10 @@ export class RidingAnimator {
   }
 
   /** UpdateMode (:330-356)'s riding arm: the loop clip is set, the
-   *  audio is stopped, and the neigh is re-armed close. */
+   *  animator's own `playing` falls, and the neigh is re-armed close.
+   *  DISC29-F: the CHANNEL is not this object's - the rig's setMode
+   *  stops it (`audio.setLoop('riding', null)`); this only stops
+   *  asking for it. */
   mount(mode, { rolls = Math.random } = {}) {
     this.frameIndex = 0;
     this.lastFrameTime = 0;

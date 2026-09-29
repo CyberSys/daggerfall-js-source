@@ -291,20 +291,26 @@ test('AUDIT PSCALE1 a camp or a pack grows by its own members, mounted - one mor
   const at = t.indexOf('const _standCampEncounter = (hit, feet) => {');
   assert.ok(at > 0, 'the camp stand is found');
   const fn = balanced(t, at + 'const _standCampEncounter = '.length, '{', '}');
-  const camp = (n) => {
+  const cm = t.indexOf('const campMembers = (types) =>');   // OW6: the growth's one home, lifted with the stand
+  assert.ok(cm > 0, 'the members\' grower is found');
+  const campMembersSrc = t.slice(cm, t.indexOf(';', cm) + 1);
+  const camp = (n, mobileTypes = [10, 11, 12]) => {
     const stood = [];
-    const standCamp = mount('', {
+    const standCamp = mount(campMembersSrc, {
       placeFoeEnv: () => ({}), collider: {}, cam: { yaw: 0 }, fieldOfView: () => 1, entityOccupancy: () => () => false, _placingPool: () => [], campAnchorSpot: () => ({ x: 20, y: 0, z: 0 }),   // CAMP-FAR: main's anchor, a hundred metres out
-      LOOSE_FOE_PLACE_ATTEMPTS: 1, placeFoeFreely: () => ({ x: 1, y: 0, z: 1 }), _inAnyLocationRect: () => false, _nearRoad: () => false, _overDeepWater: () => false, CAMP_ROAD_CLEAR_M: 4, _nextCampId: 1,   // ROADS-CLEAR: no road here
-      partyGroupMembers, partySize: () => n, ENEMY_BASICS: {},
-      exteriorFoes: { spawnFoe: (mobileType) => { stood.push(mobileType); return Promise.resolve(null); } },
+      LOOSE_FOE_PLACE_ATTEMPTS: 1, placeFoeFreely: () => ({ x: 1, y: 0, z: 1 }), _inAnyLocationRect: () => false, _nearRoad: () => false, _overDeepWater: () => false, CAMP_ROAD_CLEAR_M: 4,   // ROADS-CLEAR: no road here
+      partyGroupMembers, partySize: () => n, MAX_ACTIVE_ENCOUNTER_FOES, ENEMY_BASICS: {},
+      exteriorFoes: { newCampId: () => 1, spawnFoe: (mobileType) => { stood.push(mobileType); return Promise.resolve(null); } },   // OW6: the pool's counter
     }, `return (hit, feet) => ${fn.slice(fn.indexOf('{'))};`);
-    standCamp({ mobileTypes: [10, 11, 12], minDistance: 14, maxDistance: 26, spacing: 3, alertRadius: 9 }, [0, 0, 0]);
+    standCamp({ mobileTypes, minDistance: 14, maxDistance: 26, spacing: 3, alertRadius: 9 }, [0, 0, 0]);
     return stood;
   };
   assert.deepEqual(camp(1), [10, 11, 12], 'alone, the camp as it rolled');
   assert.deepEqual(camp(5), [10, 11, 12, 10, 11], 'five: two more, from its own in order');
   assert.deepEqual(camp(8), [10, 11, 12, 10, 11, 12], 'eight: three more');
+  // OW6: a roaming band's warband of six met by a full party grows to the POOL's bound and no further - nine never stood
+  assert.deepEqual(camp(8, [20, 21, 22, 23, 24, 25]), [20, 21, 22, 23, 24, 25, 20, 21], 'six and a full party: eight, the pool\'s bound');
+  assert.equal(MAX_ACTIVE_ENCOUNTER_FOES, 8);
 });
 
 test('AUDIT PSCALE1 COUNT-3: a stand in flight holds its spot - the pool names the feet crossing spawnFoe\'s awaits, and the camp and the wanderer place against them (mutants: the pending feet unexported, the placing pool without them)', async () => {

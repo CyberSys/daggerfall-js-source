@@ -30,6 +30,7 @@ import { createBankAccounts, housePrice } from '../src/systems/banking.js';
 import { buildingDataForDoor, locationBuildings } from '../src/systems/talkTopics.js';
 import { r2, seatRealm, realmJoinAt } from './realmSeat.mjs';   // AUDIT REALM2 S2: a house is a realm character's, bought on its record
 import { homeSaleRefund } from '../src/net/homeLaw.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -72,8 +73,8 @@ async function stand() {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const registered = async (handle) => {
-    const guest = (await call('POST', '/v1/auth/guest', {})).body;
-    const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one' });
+    const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+    const reg = await call('POST', '/v1/auth/register', { secret: guest.secret, handle, password: 'a good long one', ...ACCEPTED });
     assert.equal(reg.status, 200, `${handle} registers`);
     return guest.secret;
   };
@@ -112,7 +113,7 @@ test('HOME1 the service: a town\'s homes are any session\'s to read (a guest\'s 
     assert.ok(ROUTES.has(r) && !OPEN_ROUTES.has(r), `${r} behind a session`);
   }
   assert.equal((await call('POST', '/v1/homes/town', { mapId: 5 })).status, 401, 'a stranger reads nothing');
-  const guest = (await call('POST', '/v1/auth/guest', {})).body.secret;
+  const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body.secret;
   const empty = await call('POST', '/v1/homes/town', { mapId: home().mapId }, guest);
   assert.equal(empty.status, 200);
   assert.deepEqual(empty.body, { mapId: home().mapId, homes: [] }, 'a guest reads a town');

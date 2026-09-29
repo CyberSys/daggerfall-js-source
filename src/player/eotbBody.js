@@ -159,6 +159,7 @@ export function bodyState(s = {}) {
     spellcasting: !!s.spellcasting,
     usingBow: !!s.usingBow,
     attacking: !!s.attacking,
+    swingN: Number.isInteger(s.swingN) ? s.swingN : null,   // AUDIT PRE-MERGE 0929 S1: the rig's blow count, or none named
     castPlaying: !!s.castPlaying,
     bowDrawback: !!s.bowDrawback,
     swingHeld: !!s.swingHeld,
@@ -202,6 +203,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
   let renderer = null;
   /** the per-frame state thunk of the rig that owns the body (see attach) */
   let attachedState = null;
+  let clipSwing = null;   // AUDIT PRE-MERGE 0929 S1: the blow the last melee or claw clip was started for
   let cfg = look();
   let cfgGeneration = modSettingsGeneration();
   function reload() {
@@ -681,8 +683,15 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
     updateOrientation(false);
     if (!isAnimating) {
       if (last.attacking) {
-        if (last.transformed) playLycanAttack();
-        else if (!last.usingBow) playMeleeAttack();
+        // AUDIT PRE-MERGE 0929 S1: ONE SWING A BLOW. The IL polls IsAttacking and starts a clip whenever none is
+        // playing, so a blow that outlasts its clip swings the sprite again: the claws' clip is the IL's fixed
+        // LYCAN_TICK (0.375 s) and SWING-LAW's claw blow is 0.54 s at the least - the report's own werewolf clawed two
+        // and three times a blow, where every peer (peerRiders, one clip a swing count) saw one; and a melee clip's
+        // frame rounding left a phantom second one. The rig says which blow it is in (`swingN`), and a blow's clip
+        // starts once. A bow's draw and hold keep the IL's poll; a rig that names no count keeps it too.
+        const fresh = last.swingN == null || last.swingN !== clipSwing;
+        if (last.transformed) { if (fresh && playLycanAttack()) clipSwing = last.swingN; }
+        else if (!last.usingBow) { if (fresh && playMeleeAttack()) clipSwing = last.swingN; }
         else if (last.bowDrawback) playRangedAttackHold();
         else playRangedAttack();
       }
@@ -771,6 +780,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
       // pair is another host's rig taking the body over.
       if (r && r === renderer && playerState === attachedState) return this;
       attachedState = playerState ?? null;
+      clipSwing = null;   // AUDIT PRE-MERGE 0929 S1: another rig's blows count from its own start - its first is always new
       renderer = r || null;
       reload();
       if (renderer) {
@@ -873,6 +883,7 @@ export function createEotbBody({ count = spriteCount, urlFor = eotbSpriteUrl, de
           batch = renderer.createBillboardBatch(s.archive, s.rec, grow > 1 ? { w: size.w * grow, h: size.h * grow } : size, [[0, 0, 0]]);
           batch.origin = [0, 0, 0];
           batch.selfCard = grow === 1;   // DISC24-C: the player's own body - it casts as drawn, into the maps redrawn every frame (render/shadowPass.js SELF CARD); OW-BIG: a grown one casts no giant's shadow
+          batch.noShadow = grow > 1;   // AUDIT OW5 R2: OW-BIG's giant casts NOTHING - selfCard off was never that (render/shadowPass.js: it only keeps the card out of the lamps' maps when it is not the player's own; the sun's cascades drew the tenfold card, a fifty-metre shadow at a low sun, and the lamps' maps baked it)
           batchRec = key;
         }
         batchSize = size;
