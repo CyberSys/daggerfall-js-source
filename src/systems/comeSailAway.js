@@ -557,6 +557,25 @@ export function createComeSailAwayRuntime(deps) {
   const rudderOf = (boat) => boat?.RudderAnimator?.animator ?? null;
   const playerRight = () => quatRotate(deps.player().rotation, [1, 0, 0]);
   const sameTerrain = (a, b) => a === b;
+  /** FIELD-CSA1 (the port's own): the sea's top in the scene - the mod's WaterLevel (Deep Waters' sea, 34 m over its
+   *  pixel) under the world's vertical compensation, which the port's floating origin keeps as DFU's does (a recentre
+   *  past 500 m). The C# reads WaterLevel bare: the sea only while the compensation is nought. */
+  const seaTop = () => f(WATER_LEVEL + f(deps.worldCompensation?.()?.[1] ?? 0));
+  /**
+   * FIELD-CSA1 (the port's own - Julian: "first attempt just didn't spawn in the boat and the deed disappeared. i could
+   * hear ocean boat sounds"): WHERE A "DeepWaters" HIT FLOATS THE BOAT. The arm takes any collider of the carved sea,
+   * and its floor is one (the host's "DeepWaters_Seafloor"): an eye at or under the surface - a swimmer's - starts inside
+   * the surface's box, which a ray never meets from inside, and with Spawn Water Surfaces off there is none to meet, so
+   * the ray went on to the seabed and the boat was stood there, the deed spent, its loop heard at half volume (the
+   * rolloff stops at its max distance). A hit under the sea's top floats the boat on the water over it: where the look
+   * crosses the sea, else straight above the floor it met. The surface's own hit stands as the C# places it.
+   */
+  function afloatAt(hit, origin, direction) {
+    const top = seaTop();
+    if (!(hit.point[1] < top)) return [...hit.point];
+    const t = upPlaneRaycast(origin, direction, top);
+    return t != null && t <= hit.distance ? alongRay(origin, direction, t) : [hit.point[0], top, hit.point[2]];
+  }
 
   // ── CSA-D: sailing (515-769, 3479-3624, 3820-3860, 4186-5202, 5429-5590, 5783-6071) ──────────────────────
   //
@@ -1281,6 +1300,11 @@ export function createComeSailAwayRuntime(deps) {
   }
   function updateBody(paused) {
     if (paused) { state.wasPaused = true; return; }
+    // TRAVEL-X1 (Satranath: "the menu says 10x ... but it's moving at 1x"): the latch is LateUpdate's, and LateUpdate
+    // returns while paused - a journey BEGUN in the pause (the travel map's Begin, its resume) has had none to latch it,
+    // so the first frame after read "not travelling" and put its x10 back to one. In Unity the click frame's own
+    // LateUpdate latches it before this Update runs; the port's click lands between frames, so it is asked here
+    if (state.wasPaused) latchTravelling();
     if (state.wasPaused && f(deps.timeScale?.() ?? 1) !== 1 && !state.isTravelling) ResetTimeScale();
     state.wasPaused = false;
     if (isSailing() && state.CurrentBoat != null) updateSailing();
@@ -1288,6 +1312,16 @@ export function createComeSailAwayRuntime(deps) {
     const step = stepWaveFrame(state.waveFrameIndex, state.waveFrameTimer, waveFrameTimeOf(setting('Waves.Speed', 100)), dt(), WAVE_FRAME_COUNT, isDayHour(deps.hour?.() ?? 12));
     state.waveFrameIndex = step.index;   // material.SetTexture("_MainTex", waveFrames[waveFrameIndex]) - the host draws the index
     state.waveFrameTimer = step.timer;
+  }
+  /** CSA-G: `if (TravelOptions != null)` its isTravelActive message (4921-4934), which Update's unpause reset reads;
+   *  wasTravelling follows it and is read nowhere (kept). */
+  function latchTravelling() {
+    const travelling = deps.travelOptionsActive?.();
+    if (travelling != null) {
+      state.isTravelling = !!travelling;
+      if (state.isTravelling && !state.wasTravelling) state.wasTravelling = state.isTravelling;
+      if (!state.isTravelling && state.wasTravelling) state.wasTravelling = state.isTravelling;
+    }
   }
   function runDelayedCalls() {
     if (!delayedCalls.length) return;
@@ -1304,14 +1338,7 @@ export function createComeSailAwayRuntime(deps) {
     animate();   // the Animators, after every Update and before every LateUpdate, as Unity steps them
     simulateParticles();   // CSA-F: then the particle systems (PreLateUpdate's ParticleSystemBeginUpdateAll)
     if (paused) return;
-    // CSA-G: `if (TravelOptions != null)` its isTravelActive message (4921-4934), which Update's unpause reset reads;
-    // wasTravelling follows it and is read nowhere (kept)
-    const travelling = deps.travelOptionsActive?.();
-    if (travelling != null) {
-      state.isTravelling = !!travelling;
-      if (state.isTravelling && !state.wasTravelling) state.wasTravelling = state.isTravelling;
-      if (!state.isTravelling && state.wasTravelling) state.wasTravelling = state.isTravelling;
-    }
+    latchTravelling();
     if (isSailing()) lateUpdateSailing();
     else if (state.placing && activateComplete && f(f(deps.time()) - f(state.placeTime)) > PLACE_CLICK_DELAY) {
       const hullFromMessage_ = hullFromMessage(state.placeItem.message);
@@ -1952,13 +1979,14 @@ export function createComeSailAwayRuntime(deps) {
     if (val2) {
       if (ipnm && String(val2.name).includes('DeepWaters')) {
         deps.hudText('Boat placed!');
+        const at = afloatAt(val2, origin, direction);   // FIELD-CSA1: on the water, never the seabed under it
         let boat = null;
         let terrain = null;
-        const val5 = deps.raycast(val2.point, [0, -1, 0], PLACE_RAY_DISTANCE, { triggers: false });
+        const val5 = deps.raycast(at, [0, -1, 0], PLACE_RAY_DISTANCE, { triggers: false });
         if (val5) terrain = val5.terrain ?? null;
         if (state.placeItem != null && state.placeItem.templateIndex === BOAT_DEED_TEMPLATE) boat = GetPlacedBoatWithUID(state.placeItem.UID);
-        if (boat == null) boat = PlaceBoat([...val2.point], playerRight(), hull, variant, terrain);
-        else RepositionBoat(boat, [...val2.point], playerRight(), terrain);
+        if (boat == null) boat = PlaceBoat(at, playerRight(), hull, variant, terrain);
+        else RepositionBoat(boat, at, playerRight(), terrain);
         takePlaceItem(boat);
         StopPlacing();
         return;
@@ -1999,8 +2027,14 @@ export function createComeSailAwayRuntime(deps) {
         StopPlacing();
       }
     } else if (ipnm) {
-      const num3 = upPlaneRaycast(origin, direction, WATER_LEVEL);
-      if (num3 != null) {
+      const num3 = upPlaneRaycast(origin, direction, seaTop());
+      // FIELD-CSA1: the plane is met within the placing ray's own reach, as the dungeon's plane arm above holds it - the
+      // C# took any crossing, so a look out to sea put the boat hundreds of metres off, out of sight, the deed spent
+      if (num3 != null && num3 > PLACE_RAY_DISTANCE) {
+        log(`COME SAIL AWAY - INTERSECTION WITH WATER PLANE IS TOO FAR AT ${num3}`);
+        deps.hudText('Placement aborted!', 3);
+        StopPlacing();
+      } else if (num3 != null) {
         deps.hudText('Boat placed!');
         let boat4 = null;
         if (state.placeItem != null && state.placeItem.templateIndex === BOAT_DEED_TEMPLATE) boat4 = GetPlacedBoatWithUID(state.placeItem.UID);
@@ -2125,36 +2159,60 @@ export function createComeSailAwayRuntime(deps) {
     UpdateBoatNodesAtMapPixel(boat, boat.MapPixel);
   }
 
-  /** OnPositionUpdate (1987-2010): FloatingOrigin moved the world. KEPT BUG FOR BUG: a boat that is inactive before
-   *  and after its visibility is asked is not moved - a boat out of sight misses every shift made while it is. */
+  /** OnPositionUpdate (1987-2010): FloatingOrigin moved the world. FIELD-CSA1 (the port's own): EVERY boat rides it, in
+   *  sight or not. The C# moved a boat only when it was active before or after its visibility was asked, so one out of
+   *  sight kept the old origin's numbers through every shift made while it was - and the port recentres at every map
+   *  pixel crossed, so a player who came back to it by another pixel than the one they left by found it hundreds of
+   *  metres off. Moved first, then shown or hidden: a boat that comes into sight reads its nodes where it stands. A
+   *  dungeon's boat out of sight (Persistent Dungeon Boats) is the one left where it stands, as the C# leaves it: it is
+   *  in its dungeon's own frame, which no recentre moves. */
   function OnPositionUpdate(offset) {
     UpdateWaveMesh();
     if (state.AllBoats.length < 1) return;
     for (const allBoat of state.AllBoats) {
-      if (allBoat.GameObject.activeSelf) {
-        OnPositionUpdateBoat(allBoat, offset);
-        UpdateBoatVisibilityOf(allBoat);
-        continue;
-      }
+      if (ridesTheWorld(allBoat)) OnPositionUpdateBoat(allBoat, offset);
       UpdateBoatVisibilityOf(allBoat);
-      if (allBoat.GameObject.activeSelf) OnPositionUpdateBoat(allBoat, offset);
+    }
+  }
+  /** FIELD-CSA1: a boat in the streaming world's frame - any but a dungeon's boat out of sight, which stands in its
+   *  dungeon's own (dungeonContext's origin, which neither a recentre nor a teleport moves). */
+  const ridesTheWorld = (boat) => !boat.inside || boat.GameObject.activeSelf;
+  /**
+   * FIELD-CSA1 (the port's own - Julian: "i got killed by an ocean mob before i could climb onto it. also lost that boat
+   * forever after respawning"): THE WORLD RE-ANCHORED. A teleport - the respawn at a temple, a fast travel, a load's
+   * landing - starts a new scene frame with no recentre offset to ride (world.js _teleportToPixel, StreamingWorld's
+   * InitWorld), and every boat kept the old frame's numbers: the one just placed at sea stood by the temple, under its
+   * ground, and was never where it was left again. The frame's own move carries every boat, then each is shown or hidden
+   * for the new pixel. The helm is not asked: a teleported player goes where the teleport sends them. A dungeon's boat
+   * out of sight stays in its dungeon's frame (`ridesTheWorld`).
+   */
+  function OnWorldReanchored(offset) {
+    if (state.AllBoats.length < 1) return;
+    for (const boat of state.AllBoats) {
+      if (ridesTheWorld(boat)) shiftBoat(boat, offset);
+      UpdateBoatVisibilityOf(boat);
     }
   }
   /** OnPositionUpdateBoat (2012-2064): the boat's root moved by the offset, the wake stopped and its living particles
    *  moved with it, and each oar's splashes (its first sub-emitter's) - the rudder's splashes are not (kept); at the
    *  helm the player set back at the drive and the wake played again if the boat is under way. */
   function OnPositionUpdateBoat(boat, offset) {
+    shiftBoat(boat, offset);
+    if (boat === state.CurrentBoat) {
+      deps.helm.setPlayerPosition(boat.DrivePosition.position);
+      boat.MapPixel = deps.currentMapPixel();
+      if (vMagnitude(state.MoveVectorCurrent) >= wakeThreshold() && !DisableParticles()) boat.WakeEmitter.play();
+    }
+  }
+  /** OnPositionUpdateBoat's move: the root by the offset, the wake stopped, its living particles and each oar's splashes
+   *  (its first sub-emitter's) with it - the rudder's splashes are not (kept). */
+  function shiftBoat(boat, offset) {
     boat.WakeEmitter.stop();
     const p = boat.GameObject.position;
     boat.GameObject.position = [f(f(p[0]) + f(offset[0])), f(f(p[1]) + f(offset[1])), f(f(p[2]) + f(offset[2]))];
     const shift = (system) => { if (system.particleCount > 0) system.setParticles(system.getParticles().map((q) => ({ ...q, position: vAdd(q.position, offset) }))); };
     shift(boat.WakeEmitter);
     if (boat.OarParticles.length > 0) for (const oarParticle of boat.OarParticles) shift(oarParticle.subEmitters[0].system);   // GetSubEmitterSystem(0)
-    if (boat === state.CurrentBoat) {
-      deps.helm.setPlayerPosition(boat.DrivePosition.position);
-      boat.MapPixel = deps.currentMapPixel();
-      if (vMagnitude(state.MoveVectorCurrent) >= wakeThreshold() && !DisableParticles()) boat.WakeEmitter.play();
-    }
   }
 
   /** OnLoad (1943-1950). */
@@ -2578,7 +2636,7 @@ export function createComeSailAwayRuntime(deps) {
     PlaceBoatAtRayHit, PlaceBoatAtRayHitArgs,
     SetBoatPositionAndDirection, SetBoatPositionAndDirectionAtMapPixel, GetMapPixelFromTerrain,
     UpdateBoatNodes, UpdateBoatNodesAtMapPixel, UpdateAllBoatsNodes, UpdateBoatVisibility, UpdateBoatVisibilityOf,
-    OnPositionUpdate, OnPositionUpdateBoat, OnLoad, OnTransition, OnTeleportToCoordinates,
+    OnPositionUpdate, OnPositionUpdateBoat, OnWorldReanchored, OnLoad, OnTransition, OnTeleportToCoordinates,
     IncreaseTimeScale, DecreaseTimeScale, SetTimeScale, UpdateAudioSource, checkSettings, OarEvent_In, OarEvent_Sweep, OarEvent_Out,
     UpdateWaveMesh, UpdateWaveMeshDelayed,
     /** CSA-F: what the wave object draws - its position and scale, its mesh (null when cleared) and its frame. */

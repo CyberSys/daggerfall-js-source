@@ -260,8 +260,9 @@ the view. So P0's one unwind line in the host stays the plaque's alone.
 is a pick (TV2's seam: `onPick(x, y)`), a drag orbits and tilts, the wheel zooms, the
 right button and the context menu never reach the host. The look keys turn the view,
 not the traveller. Movement keys walk the traveller camera-relative (the traveller
-turns toward the input at 6 rad/s the short way) while no journey drives. The DOM
-beside the canvas keeps its own events.
+turns toward the input at 6 rad/s the short way) while no journey drives - and,
+since TV-WASD (below), at the travel speed. The DOM beside the canvas keeps its own
+events.
 
 **Proof.** `test/tv1_travel_view.test.js` (18), the heldmap door pin (+1),
 `tools/mutants/tv1.json` (17 dead), and `tools/travelViewProbe.mjs` (17 checks in a real
@@ -982,8 +983,10 @@ redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
   place by the roads (`travelViewRouteTo`), a spot by `travelViewWalkTo` - refused, with the view's own reason, where the
   view may not rise; any Travel Options journey raises the view the first frame no window, foe or gate forbids it
   (`tvJourneyUp`, silently); and a view the PLAYER brings down (Return, Escape, the key: `onLower`) stops the journey -
-  `interruptTravel`, the destination kept, so the map's Resume takes it up again, in the view. A cut (a door, a window,
-  a death, a foe) is not the player's choice and is never counted. The classic skin keeps Travel Options exactly.
+  through the panel (the mod's Camp, `messages.pauseTravel` - AUDIT OW3 J1; it was a bare `interruptTravel`), the
+  destination kept, so the map's Resume takes it up again, in the view. A cut (a door, a window,
+  a death, a foe) is not the player's choice and is never counted. The classic skin keeps Travel Options exactly, and
+  so does First-Person Travel, the switch that gives the first-person journey back (OW-TOGGLE, below; off by default).
 - **OW-ROADSIDE** ("Sometimes routes do follow roads, but appear traveling alongside it"): the first leg ran from wherever
   in the start pixel the traveller stood (up to 400 m off the road) to the far end of the road's first straight run -
   beside the road the whole way. A route whose first step is a road's or a track's now JOINS it first
@@ -1027,18 +1030,21 @@ read the same store, so a dungeon found either way is named on both.
 - *Contact:* at `TV_BAND_CONTACT_M` the Overworld comes down (the view's own `danger`) and the band's members stand as
   real foes around the traveller (`exteriorFoes.spawnFoe`, placed) - exactly the band that was seen. On a Travel Options
   journey the band is the journey's `enemiesNearby`: the stop, and on a cautious journey the mod's own avoid roll
-  (luck + Stealth - 50) - success, the band loses the trail.
+  (luck + Stealth - 50) - success: the journey takes up again, at walking pace while the band's foes still stand near
+  (AUDIT OW4 J5); the foes that stood stay. (AUDIT OW5: "the band loses the trail" was never so.)
 - *Seen from above:* each band is a marker in the Overworld - as built a red point (TV7 BUILT below), not a grown sprite -
-  with its kind and number ("Orc, 4"), red; a band that has spotted you wears the chase. Off the picture a chasing band
-  is held at the edge. In play (the view down) a band within the pose range stands as its foes, as a camp does.
+  with its kind and number ("Orc, 4"), red; a chasing band is drawn as any other in the picture (AUDIT OW5: "wears the
+  chase" was never so) and held at the edge off it. In play (the view down) a band is met only when it was chasing
+  already - seen from above - and stands its foes at BAND_STAND_M; one never seen from above is never met in play
+  (AUDIT OW5: "a band within the pose range stands as its foes" was never so).
 
 **TV8 - GROUP TRAVEL, THE LEADER DRIVES.** A party leader's Overworld journey (a town or a spot) is PROPOSED to the
 members through the party pose (PARTY-TRAVEL's own shape, a walked journey this time - a new field, so a relay version,
-world123); a member gathered with the leader (within PARTY_REST_RADIUS) who accepts starts the same journey (the same
+world124 - world123 on its branch, THE MERGE took world123 for the raids); a member gathered with the leader (within PARTY_REST_RADIUS) who accepts starts the same journey (the same
 route legs) and travels it beside the leader. A stop for one is a stop for all - a stamp that only moves forward, as
 PARTY-REST5's `restEnemyAt` is; the leader's resume resumes them. A band that makes contact with one halts them all (as built: the member's stop is the party's).
 
-**Order of the build:** TV6 (self-contained), TV7 (the bands, no relay change), TV8 (the party's journey, world123).
+**Order of the build:** TV6 (self-contained), TV7 (the bands, no relay change), TV8 (the party's journey, world124).
 
 **TV6 BUILT (2026-09-28).** `systems/travelDungeons.js` (pure: `dungeonPixels`, `nearDungeons`, `dungeonToFind`,
 `TV_DUNGEON_MAX` 12, `TV_DUNGEON_FIND_M` 1000); the host's `travelViewDungeons` (kept between pixels and finds, a load
@@ -1073,17 +1079,17 @@ Proof: `test/tv7_bands.test.js`, `tools/mutants/tv7.json` (33 records, all dead)
 
 **TV8 BUILT (2026-09-28) - GROUP TRAVEL, THE LEADER DRIVES.** `systems/partyWalk.js` (pure). A party leader's Overworld
 journey (a place, or a spot) with a member gathered within PARTY_WALK_RADIUS_M (60 m) is a WALK on the leader's party
-pose - `tw` `{x, y, sx?, sz?, at, go, h}` (net/wire.js validPartyPose, **world123**, PARTY_WALK_RELAY_MIN 123: offered
+pose - `tw` `{x, y, sx?, sz?, at, go, h}` (net/wire.js validPartyPose, **world124**, PARTY_WALK_RELAY_MIN 124 - AUDIT OW5: it read world123, the raids' relay: offered
 only through a hub that carries it). A gathered member is asked ("<leader> leads the party to <place>. Travel with
 them?", ui/yesNoBox.js, within PARTY_WALK_ASK_MS); on a yes they walk the same journey in their own Overworld (a place
 by the roads - a place they have not found themselves walked to as a spot - or the spot itself). The leader's stop
 HALTS the walk (`h`) and every member stops with it; the leader's journey taken up again (the map's Resume) SETS OUT
 again (`go`) and every member who said yes takes theirs up again, from where they stand. A member's OWN stop - a foe, a
 band's contact - is said on their pose (`ts`), and the leader halts on a stop newer than the last set-out: a stop for
-one is a stop for all. An arrival ends the walk; a member's arrival is never a stop. **Deploy:** world123 must ship to
+one is a stop for all. An arrival ends the walk; a member's arrival is never a stop. **Deploy:** world124 must ship to
 the relay before the walk is offered (an older relay strips `tw` and `ts`; nothing breaks).
 Proof: `test/tv8_party_walk.test.js`, `tools/mutants/tv8.json` (17 records, all dead), `test/relayversion.test.js`
-(the world123 law).
+(the world124 law).
 
 **AUDIT OW3 (2026-09-28) - everything since the merge, audited in five lanes, verified, fixed.**
 - *Journeys (J):* the view brought down stops its journey through the panel (`pauseTravel`, the mod's Camp), so the
@@ -1113,7 +1119,7 @@ Proof: `test/tv8_party_walk.test.js`, `tools/mutants/tv8.json` (17 records, all 
   halts come only from `h`. Taking the halted walk's own place up again sets it out again in the same round. A member
   is asked, and set out, only when free (outdoors, alive, no window, no foe, no duel); the question comes down with its
   round, its 30 s or danger; a yes dies with its round; the leader's walk is believed PARTY_WALK_GRACE_MS (10 s)
-  without a pose. The wire is unchanged (world123).
+  without a pose. The wire is unchanged (world124).
 - *Known, not changed:* the relay fans a cell's foes frame 3 pixels out (`RANGE_PIXELS`) while bands are drawn 6
   (BAND_REACH_PX) - a player 4-6 pixels off hears a chase or a spent band only on coming nearer (the spent list rides
   every full frame). Members' paces are their own clients' (a member at x1 behind a leader at x10 falls behind).
@@ -1147,7 +1153,7 @@ Proof: `test/tv8_party_walk.test.js`, `tools/mutants/tv8.json` (17 records, all 
   fatigue on cautious travel, stuck, blocked, the sea) halts the party once, then the leader's Resume passes that member
   by until their own; a member stopped by a halt who takes the journey up leaves the walk; the question is tracked through
   the window stack, withdrawn if buried, and an answer counts only while the round stands; nobody sets out mid-arrival.
-  A member walking to a place they have not found, or to a spawn, walks it as its door. The wire is unchanged (world123).
+  A member walking to a place they have not found, or to a spawn, walks it as its door. The wire is unchanged (world124).
 - *Known, not changed:* some towns among the peaks with no road reaching them are now "no way by land" (the peaks' law
   holds); the "historical" example numbers in test/citedrift.test.js move with every citation shift, as they always have.
 - Proof: `test/tv2_click_to_move.test.js` (32), `tv6_dungeons` (19), `tv7_bands` (15), `tv8_party_walk` (22),
@@ -1191,6 +1197,10 @@ so away from row 250 none comes within sight - recorded here for that branch; th
   ten minutes of rowing, little more than a kilometre at the oars' 2 m/s - and the Carrack makes no way at all - the mod divides its cargo by a Cargo
   modifier it lacks (kept, CSA-D) - so neither is a crossing's boat. No boat: the sea is refused as it always was, and
   a route a boat would have made is said ("There is no way there by land - a boat would carry you across the water.").
+  SHIP-SAIL (2026-09-28, Mac: "Shouldn't it already function as such?"): unless the place is one the map's ship
+  passage sails to from here - then the passage is OFFERED ("Sail there by ship?", its fare and days) and, on Yes,
+  taken as the map takes it (`01-Overview/Field-Bugs-2026-09-28e.md`). The passage is Daggerfall's, so it is offered
+  with this mod off too (AUDIT 28e); the boat's line is this mod's, said only with it on.
 - **The planner's sea** (`systems/travelRoute.js`, `sea`): three layers of the grid - ashore with the boat to hand,
   afloat, ashore with it left behind. A step from a land pixel into the water is the LAUNCH (`embark`), steps between
   water pixels are SAILED (`sea`: 1.2 a step - a little dearer than a road; 1.5 beside the land, so a route stands off a
@@ -1305,8 +1315,150 @@ A browser answers that request a task later, so the view's `freeCursor` found no
 under a view whose cursor is its own - the mouse captured, Y refused under the view (TV1's law, which stands), until the
 browser's own Escape ended it. The map's Overworld button never raced: its commit raises the view a frame before the
 gate asks, and the freed cursor refuses. `player/pointerLock.js` now lets go of a lock that lands while the cursor is
-free - the toggle's law, so every host binding it holds it (world.js, with worldModes.js and dungeonContext.js under
-it; exterior.js; dungeon.js). `test/fb0929_overworld_mouse.test.js` (3), every pin made to fail.
+free. AUDIT OW5 V1 (below) landed the same law on main the same day, in `requestLook`'s one page-wide listener; the
+merge kept that one and dropped this branch's copy in the toggle's listener, and `test/fb0929_overworld_mouse.test.js`
+(3) drives it in every host that binds the toggle (world.js, with worldModes.js and dungeonContext.js under it;
+exterior.js; dungeon.js), every pin made to fail.
+
+## TV-WASD - THE KEYS TRAVEL - SHIPPED (2026-09-28, Mac: "Also need to add the ability to travel faster with WASD")
+
+Under the view the movement keys walked the traveller at walking pace (TV1) - a crawl from 260 m up, beside a click's
+journey at Travel Options' x10. Now, while the view is UP (not rising or falling) and no journey drives, a held movement
+key runs the world's clock at the travel speed, and the traveller covers the land as a journey does.
+
+- **The speed is the spinner's.** The Travel Options panel's own `timeAcceleration` - DefaultStartingAccel (x10) until
+  the player turns it on a journey's strip, never past the limit in force (`accelerationLimit()`). Travel Options off:
+  no spinner, no speed - the keys walk at walking pace, as the view's clicks refuse ("Turn on Travel Options...").
+- **The clock, not the legs.** The keys set `timeScale` as a journey does: offline the calendar runs with the walk (the
+  road costs its hours, Travel Options' law), online the body alone (TO-ONLINE); the motor's fixed step scales with it.
+- **Governed as a journey is.** `travelViewGovern` hands TV2's load governor the keys' rate where a journey hands it
+  the mod's ask (`want = journey ? travelAsked : walk`), so the clock runs no faster than the land raises the ground
+  the view can see; the bar says it - "Travelling at ×10", "Travelling at ×5 of ×10" while held - on the trip line a
+  journey's words take when one runs.
+- **x1 at once** when the keys are let go, a journey begins (its own ask wins), the view falls or is cut, a window
+  opens, the body swims, or it stands at a helm or aboard a boat (the keys are the sea's there: the helm has its own
+  time keys). The frame's two nets - "a scale with no panel behind it is a journey over", above every mode gate and
+  after the mod's update - spare the keys' scale only while the view that runs it is up
+  (`tvWalkHoldsTimeScale`), so a door that cuts the view (AUDIT DEEP X-1) resets it on the same frame.
+- **The walk waits for the ground** (TO-FIELD's sentence for the journey): while the keys travel, the axes are held
+  when the ground the way they move the body is missing and still coming - the body's heading turned by the axes
+  (`cam.yaw + atan2(strafe, forward)`; the motor's right is (cos, 0, -sin)).
+- **DECIDED AS LEAD** (Mac, TV1: "Your the lead and this is your baby"): the Overworld alone, not the first-person walk
+  (a raised speed on the street is a different game); the spinner's speed, not a new setting; the hint still says
+  "to walk". Each is one line to change.
+
+Pieces: `scenes/travelView.js` `travelWalkRate`, `TRAVEL_VIEW_TEXT.travelling`; `scenes/world.js` `travelViewGovern`,
+`tvWalking`, `tvWalkHoldsTimeScale`, the two nets, the trip line, the keys' ground gate. Proof: `test/tv_wasd.test.js`
+(6: the law gate by gate, the words, the world's own governor MOUNTED over the real governor and clock, the nets and the
+gate by source), `tools/mutants/tv_wasd.json` (13 dead - two of them on to1's K2 pin, re-aimed because the one strafe
+zero in the host is now this gate's, never the journey's). TV2's three pins on the governor's lines and the trip line, and its A2
+mutant, re-aimed to the grown lines (never loosened). Ledger A (continued): THE OVERWORLD'S MOVEMENT KEYS TRAVEL.
+
+## OW-TOGGLE - FIRST-PERSON TRAVEL, A SWITCH - SHIPPED (2026-09-28, Mac: "bring back the original travel option as a toggle. Off by default.")
+
+Mac, the same day: *"Travel Options was changed. The normal first person travel accelerated was removed in favor of the
+overworld travel"* - OW-ROUND 2's OW-ONLY. It comes back as a switch; OW-ONLY stays the default.
+
+- **The switch:** `GeneralOptions.FirstPersonTravel`, the port's own key on Travel Options' pane (AvoidObstacles'
+  shape: the vendored `modsettings.json` does not carry it and its words say so), OFF, curated onto the mod's tile so it
+  is reachable, and READ LIVE - a flip takes effect at once (AUDIT OW5 T1: read with the mod's other settings at boot,
+  it waited for the page to load again - a save loaded in play kept the old answer - under the tile's "Takes effect
+  when the world next loads", which stays the mod's other keys' law; the key's own words say "Takes effect at once").
+- **On:** a journey picked on the travel map is Travel Options' own, in first person, as before OW-ONLY.
+  `tvOwnsJourneys` answers no, and every door that asks it follows: the map's pick begins the mod's journey on the
+  ground (`beginTravel` / `beginTravelToCoords`, the popup's estimate along), never refused for the Overworld's reasons
+  (the peaks, the water), and its refusals fall through as before (onTravel, onTravelToCoords); the view does not rise
+  with a journey (`tvJourneyUp`); a view the player brings down stops nothing (the view's `onLower`); and the journey
+  under a lowered view runs at the speed asked, not AUDIT OW4 J5's x1 (`travelViewGovern`). The map's Resume of the
+  mod's journey is the mod's; a ROUTE the Overworld planned is planned again from where the traveller stands, either
+  way (AUDIT OW5 J1: `travelViewResume` asks the route, not the switch). The Overworld itself is untouched: raised by
+  hand, its own clicks still begin its own journeys - routes, round the peaks and across the water - the load governor
+  holds them, and brought down they walk on, on the ground (a crossing keeping its journey's clock: AUDIT OW5 G5).
+  GROUP TRAVEL (TV8) is the Overworld's: under the switch a leader's map pick asks nobody, as before the Overworld
+  (PARTY-TRAVEL's `propose` never takes a walked trip); a click in the view raised by hand still leads the party.
+- **Off:** OW-ONLY exactly.
+
+Proof: `test/ow_toggle.test.js` (6: the key; the host's doors MOUNTED from their own source over the real settings
+store, both ways; the live read; the governor mounted both ways), `tools/mutants/ow_toggle.json` (7 dead). TV2's three
+OW-ONLY pins (`tvOwnsJourneys`, `onLower`, `tvJourneyUp`), to1's key-set pin, and four mutant records (ow2
+OW-ONLY-down-and-on, ow3j J1 and J2, travelnav TN-switch-off-the-tile) re-aimed to the grown lines, never loosened.
+
+## AUDIT OW5 - the Overworld audited before the merge, seven lenses (2026-09-29, Mac: "Before we merge. Can we do a comprehensive audit on the overworld, just want to make sure it's perfect.")
+
+Seven read-only reviewers on one snapshot (`ce2b154d`): journeys and routing, the clock and the load, the view's life
+and its input, the living map, online and the party, rendering and cost, and the toggle with the words and the record.
+Every finding was verified by the lead against the code before it was fixed; each fix is pinned where it can be run
+(`test/ow5_audit.test.js`, 14, beside the suites below) and each pin fails under its mutation (`tools/mutants/ow5.json`).
+
+**Fixed.**
+- **D1 THE FIND ASKS EVERY UNFOUND DUNGEON IN REACH** (MAJOR). The find searched the plates' list, TV_DUNGEON_MAX with the
+  found first (AUDIT OW4 D7): a traveller who had found a dozen within 24 pixels never found another on approach. Its own
+  uncapped list now (`travelViewFindList`, TV_FIND_REACH pixels, the game's own dungeons, kept per pixel).
+- **R1 A WINDOW HOLDS THE PIRATES' CHASE** (MAJOR). `raidFrame` read a window as ashore: any window gave every chase up
+  and spent its raider - a free escape. A window or a death holds it now, the bands' law (AUDIT OW4 B9).
+- **J2 A JUMP STOPS A ROUTE'S WALK** (MAJOR, two lenses). A fast travel taken from the map mid-journey, a teleport, a
+  Recall, a respawn, `/leader`, `/tp`: the route journey walked on from the new place straight at its old leg, the
+  Overworld risen over it. `_teleportToPixel` stops a route journey through the panel (the Camp, the destination kept),
+  and the map's Resume plans it again; a journey of the mod's own aims on at its destination as the mod does.
+- **V1 A LOCK GRANTED AFTER THE CURSOR WAS FREED IS LET GO** (MAJOR). A journey begun or resumed from the map raised the
+  Overworld on the frame after the map closed, over the look gate's relock - the lock landed under the view (no cursor,
+  a drag turned the head, a click picked where Begin had been). `player/pointerLock.js` releases such a grant.
+- **V2 THE HEAD'S ACTIVATION IS NEVER PRESSED FROM UNDER THE VIEW** (MAJOR). E (Interact), F on a body (SocialInteract)
+  and the loot keys' tap reached the hidden head's ray - a door took the traveller inside, a townsperson opened talk.
+  Each refuses while the view is up; the journey panel's own E is taken above them.
+- **P1 A MEMBER SETS OUT ONLY WHERE THE OVERWORLD WOULD** (MAJOR). TV8's set-out skipped the view's doors: a passenger
+  said Yes and was walked off the leader's deck; a classic-skin member was walked a route. `walkFree` asks the view's
+  own gate and a passenger's refusal.
+- **S3 A MOORED BOAT ONLY WHERE THE ROUTE SAILS** (MAJOR). A boat moored in reach started every search afloat: a trip
+  inland boarded it, landed at once and packed it. A plan that never sails is planned again on land (`tvMooredDry`).
+- **S4 AN OWN-PIXEL SEA SPOT IS SAILED TO** (MAJOR). From the helm, a spot on the sea in the traveller's own pixel planned
+  no leg; the crossing read land, landed the boat mid-sea and packed it from under the traveller. One sea leg now.
+- **J3 THE WHOLE MAP'S RUNG IS NEVER CUT SHORT** (MAJOR). The planner's last rung stopped at 200 000 of the map's 500 000
+  cells: a far pick round a range with no road to help was told "no way by land" by the rung meant to find it.
+- **R2 THE GIANT CASTS NO SHADOW** (MAJOR, cosmetic, on by default). OW-BIG's grown sprite still cast into the sun's
+  cascades (a fifty-metre shadow at a low sun) and the lamps' maps: `selfCard` off was never that. `noShadow`.
+- **S1 THE OCEAN STOP IS STOOD DOWN FOR THE CROSSING ALONE**. A journey of the mod's own begun at a helm (First Person
+  Travel, the classic skin) ran on unsteered at speed; the mod's own stop ends it now.
+- **J1 THE RESUME RE-PLANS ANY ROUTE**, under First Person Travel too (a click in the view raised by hand, a party's walk).
+- **T1 THE SWITCH IS READ LIVE** - a save loaded in play kept the old answer under "the world next loads".
+- **G1 THE BAR SAYS WHY THE CLOCK IS HELD** - AUDIT OW4 J5's ground hold read "while the land loads"; now "until the
+  Overworld rises".
+- **G2 THE OVERWORLD'S LINES OUTLAST ITS CLOCK** - "You have found X." at x10 was up half a second; its own lines are held
+  the time asked at the scale they are said at (`tvSay`).
+- **G3/G4 THE KEYS' TRAVEL** (TV-WASD, this branch's own): the bar shows the keys' speed over a stopped route kept for the
+  Resume; and the keys' travel lets go when the page loses the focus (a key held then never sends its keyup, and the
+  clock ran on at the spinner's rate).
+- **G5 A FIRST-PERSON CROSSING KEEPS ITS CLOCK** - Come Sail Away's landfall reset left x1 under a panel asking x10.
+- **B1 A HOLD CARRIES THE BAND'S PATIENCE** - two minutes in a window lost every chase the frame after.
+- **B2 THE BANDS FROM THE GAME'S OWN ROWS** - a world-data mod's rows (each client's Replace Game Artwork) barred pixels
+  on one client and not another.
+- **P3/P4/P5/P6 THE PARTY**: a sea spot walked as the sea (by the planner's byte - the walk's record carries no word and
+  a new one is a relay's); a stop stamped from the future halts nothing (PARTY_WALK_TS_SKEW_MS); a halt is said ("The
+  party has stopped.") and the question reads "to the marked spot"; my party on the Overworld wherever they are, from
+  the party's own poses as the held map draws them, never twice.
+- **J4 A DOOR WALK ARRIVES** - an unfound place that fills its pixel put the approach 20 m into the next pixel, where a
+  spot's arrival is never asked (`pixelBox`).
+- **V3 A DOOR'S POV ROW OUTLASTS THE VIEW'S HOLD** (Eye of the Beholder, armed).
+- **R3 THE PLACES IN WORDS** are written when the set changes, a distance alone at most every five seconds (AUDIT DEEP2
+  E15's own law; a journey's ticking tenths rebuilt the list on a third of the frames).
+- **R4 THE SHADOW PASS KEEPS NO HISTORY OF THE ORIGIN** - one entry a crossing for the session; each object keeps its own.
+- Words and record: this section's own; TV7's design text (three sentences the code never kept); TV8's relay (world124,
+  not the raids' world123); OW-ONLY's stop (through the panel since AUDIT OW3 J1); OW-TOGGLE's (every door named,
+  group travel); the view's header (seven keys, not five); `timeScale.js`'s readers.
+
+**Not changed, and said.**
+- **The bands' stand with the view down** (MINOR, a design call for Mac): a chase met with the view down stands its pack
+  18-32 m off, where the band was 140 m; stood where it was (CAMP-FAR's 100-150 m) it would stand past its own 60 m
+  sight and never come on.
+- **The badge cache at a phone's dpr 3** (MINOR): 256 titled players outgrow SPRITE_PIXELS_MAX (AUDIT NAMES N1-8's
+  memory cap) and the names flicker; holding a frame's sprites whole costs the memory the cap was set to spare - Mac's.
+- **A far pick's half second** (MINOR): a pick past ~60 road pixels searches the whole map's rung for the cheapest way
+  (AUDIT DEEP2 B-6's law): 200-500 ms at the click. Skipping it when a way is found trades the best route for the time.
+- **The follow key's clock before its half limit** (MINOR): Travel Options' own order (TravelOptionsMod.cs :521-534,
+  :705), kept 1:1.
+- **The helm's time-step label over a crossing** (PLAUSIBLE, unverified on screen).
+- **AUDIT OW4 X2's resume of a spawn's walk** has no player path today (a spot journey keeps no destination to offer
+  Resume on); the branch stays for when it does.
 
 ## Open, for Mac
 

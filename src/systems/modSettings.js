@@ -1094,6 +1094,12 @@ export const MOD_SETTINGS = Object.freeze({
       // walls and rocks and pauses short of what it cannot pass
       // (systems/travelSteer.js). OFF: the mod's own beeline, exactly.
       'GeneralOptions.AvoidObstacles': Object.freeze({ default: true, description: 'Steers time accelerated travel around buildings, walls and rocks, and pauses the journey before walking into one it cannot get round. (This port’s own switch - the mod has none.)' }),
+      // OW-TOGGLE (2026-09-28, Mac: "bring back the original travel option as a toggle. Off by default." - "The normal
+      // first person travel accelerated was removed in favor of the overworld travel"): THE PORT'S OWN KEY on the mod's
+      // pane, as AvoidObstacles is. ON: a journey is the mod's own, walked in first person as before OW-ONLY - a map
+      // pick begins it on the ground, the view does not rise with it and coming down does not stop it
+      // (scenes/world.js tvOwnsJourneys, which reads it live - AUDIT OW5 T1). OFF, the default: OW-ONLY.
+      'GeneralOptions.FirstPersonTravel': Object.freeze({ default: false, description: 'Walks time accelerated journeys in first person, as before the Overworld: a journey picked on the travel map runs on the ground, and the Overworld view neither rises with it nor stops it when brought down. Off, a journey on the enhanced interface is taken in the Overworld. Takes effect at once. (This port’s own switch - the mod has none.)' }),
       'TimeAcceleration.DefaultStartingAcceleration': Object.freeze({ default: 4, options: Object.freeze(["1", "2", "3", "5", "10", "15", "20", "25", "30", "40", "50"]), description: "The initial time acceleration used after starting the game" }),
       'TimeAcceleration.AlwaysUseStartingAcceleration': Object.freeze({ default: false, description: "Always uses the default starting acceleration when initiating a journey, rather than value from the previous journey" }),
       'TimeAcceleration.AccelerationLimit': Object.freeze({ default: 60, min: 10, max: 100, description: "The maximum limit allowed for time acceleration, road following is limited to half this amount" }),

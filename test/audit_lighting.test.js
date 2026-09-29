@@ -112,6 +112,14 @@ test('AUDIT SC1: THE FLOATING ORIGIN - told of the crossing, the pass rebases ev
   st = frame(() => draw(off[0]), L);
   assert.equal(st.pointDraws, 0, 'then nothing');
   assert.equal(sp._shiftGen, 1);
+  // AUDIT OW5 R4: the origin as each object last saw it rides on the object - the pass keeps no generation's history
+  // (one entry a crossing for the session: thousands an hour on an Overworld journey)
+  assert.deepEqual(sp._shiftNow, off, 'the cumulative offset, now');
+  assert.equal(sp._shiftAcc, undefined, 'and no history');
+  for (let i = 0; i < 1000; i++) r.shadowOriginShift([819.2, 0, 0]);
+  assert.equal(sp._shiftGen, 1001);
+  assert.equal(Object.keys(sp).filter((k) => Array.isArray(sp[k]) && sp[k].length > 900).length, 0, 'nothing grew with the crossings');
+  for (let i = 0; i < 1000; i++) r.shadowOriginShift([-819.2, 0, 0]);
   // the mesh's z did not follow the world - a real move across the crossing is still seen
   frame(() => { r.drawMesh(room, at(off[0], 0, 0.5), null); r.drawTerrain(tile, at(off[0], 0, 0), {}, {}, 6.4); }, L);
   assert.equal(sp.records[0].dynamic, true, 'a move across the crossing is a move');

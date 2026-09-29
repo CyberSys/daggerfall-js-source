@@ -70,9 +70,10 @@ A browser answers a pointer-lock request a task later, and `releaseLook` lets go
 begun or resumed on the map raises the Overworld on the frame after the map goes down (`world.js` `tvJourneyUp`) - the
 very frame whose look gate has just asked for the lock back on the map's close edge - so the view's `freeCursor` found
 nothing to release, and the lock landed under a view whose cursor is its own: the mouse captured, Y refused under the
-view (TV1's law, which stands), until the browser's own Escape. The map's Overworld button never raced. The toggle's
-lock-change listener now lets go of a lock that lands while the cursor is free (`player/pointerLock.js`) - the law of
-every host that binds the toggle, and it also covers Y pressed while a click's relock is in flight. Reproduced in a
+view (TV1's law, which stands), until the browser's own Escape. The map's Overworld button never raced. A lock that
+lands while the cursor is free is let go now (`player/pointerLock.js`) - which covers Y pressed while a click's relock
+is in flight too. Main's AUDIT OW5 V1 found and fixed the same race the same day; at the merge its one page-wide
+listener stayed and this branch's copy went, and these pins drive it. Reproduced in a
 Node test and in real Chromium first. `test/fb0929_overworld_mouse.test.js` (3),
 `tools/mutants/fb0929_overworld_mouse.json` (3, 3 dead). `06-Systems/Travel-View.md` FB0929.
 

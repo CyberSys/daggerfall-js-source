@@ -34,8 +34,8 @@ import { entityMaxEncumbrance, handToHandMinDamage, handToHandMaxDamage } from '
 import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import { statDescriptionRows } from '../systems/talkMacros.js';   // ATTRMACRO1: SetTextTokens' macro pass over TEXT.RSC records 0..7
 import { SKILLS, SKILL_NAMES, skillValue, getSkillRecentlyIncreased, resetSkillsRecentlyRaised } from '../systems/skills.js';
-import { applyLevelUp, bonusPoolFor } from '../systems/advancement.js';
-import { usesVirtueLeveling } from '../systems/oblivionLeveling.js';   // ORL1: whose law levels this character
+import { applyLevelUp, bonusPoolFor, LEVELUP_SKILL_SUM_PER_LEVEL } from '../systems/advancement.js';
+import { usesVirtueLeveling, levelBarProgress, LEVELUP_TOTAL } from '../systems/oblivionLeveling.js';   // ORL1: whose law levels this character
 import { ActionTextBox } from './actionText.js';   // the mustDistributeBonusPoints refusal, ClickAnywhereToClose
 import { OGHMA_BONUS_POOL } from '../systems/artifactEffects.js';   // AUDIT 39: the sheet's oghmaBonusPool (:44)
 import { drawText, measureText } from './text.js';
@@ -280,10 +280,20 @@ export const NO_AFFILIATIONS_TEXT_ID = 19;
 export const LEVEL_PROGRESS_PREFIX = 'Progress made to the next level: ';
 
 /** LevelButton_OnMouseClick (:779-786), verbatim arithmetic: the level
- *  the skill sum has earned, its fraction as a whole percent. */
+ *  the skill sum has earned, its fraction as a whole percent. DFU holds
+ *  that level in a `float` - a single - so the quotient is rounded to
+ *  one before its fraction is taken (LEVEL-PCT, 2026-09-28: in a double
+ *  36/15's fraction is 0.3999... and the box read 39% where DFU's reads
+ *  40%, and 39/15's is 0.6000... and it read 60% where DFU's reads 59% -
+ *  two of the fifteen a level spans, AUDIT 28e).
+ *  ORL1: a character the mod's law levels is measured on that law's bar.
+ *  The skill sum still moves for them (advancement.js raiseSkills) but
+ *  levels nothing, so its fraction was a number about a rule they are
+ *  not on - the Discord's "93%" here beside "12/100" on the Ascension. */
 export function levelProgressPercent(entity) {
-  const current = ((entity?.currentLevelUpSkillSum ?? 0)
-    - (entity?.startingLevelUpSkillSum ?? 0) + 28) / 15;
+  if (usesVirtueLeveling(entity)) return Math.trunc((levelBarProgress(entity) * 100) / LEVELUP_TOTAL);
+  const current = Math.fround(((entity?.currentLevelUpSkillSum ?? 0)
+    - (entity?.startingLevelUpSkillSum ?? 0) + 28) / LEVELUP_SKILL_SUM_PER_LEVEL);
   return Math.trunc((current % 1) * 100);
 }
 

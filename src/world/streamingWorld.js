@@ -113,6 +113,7 @@ export class StreamingWorldState {
     this.compensation = [0, 0, 0];
     this.current = { x: 0, y: 0 };
     this.loaded = new Map(); // key -> {px, py}, built or building
+    this.initOffset = [0, 0, 0];   // FIELD-CSA1: the last init's move of the scene (init)
   }
 
   static key(px, py) {
@@ -122,12 +123,19 @@ export class StreamingWorldState {
 
   /** Start streaming with the player's scene position on this pixel.
    * Verbatim ResetStreamingWorld: x/z compensation zeroes, the vertical
-   * component SURVIVES re-inits. */
+   * component SURVIVES re-inits. FIELD-CSA1 (the port's own bookkeeping):
+   * `initOffset` is the move this init made of every scene point - the old
+   * frame's origin as the new frame reads it, none up or down - which a
+   * host carrying scene-space objects across a teleport rides as it rides
+   * a recentre's offset (world.js csaReanchor). */
   init(mapPixelX, mapPixelY) {
+    const was = this.worldCoords([0, 0, 0]);
     this.mapOrigin = { x: mapPixelX, y: mapPixelY };
     this.compensation = [0, this.compensation[1], 0];
     this.current = { x: mapPixelX, y: mapPixelY };
     this.loaded.clear();
+    const [ox, oz] = this.localFromWorld(was.x, was.z);
+    this.initOffset = [ox, 0, oz];
     return this._loadList();
   }
 

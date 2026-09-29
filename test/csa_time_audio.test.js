@@ -163,6 +163,25 @@ test('CSA-G: Update after a pause puts a scale that is not one back to one - unl
   assert.equal(n.rt.state.isTravelling, true, 'TravelOptions == null: the message is never sent');
 });
 
+test('TRAVEL-X1 (Satranath: "the menu says 10x at the top but it\'s moving at 1x and when starting or resuming travel it\'s 1x"): a journey BEGUN in the pause - the travel map\'s Begin or its resume - keeps its scale on the first frame after it', () => {
+  const s = scene({ travelling: false });
+  s.frame();   // walking: LateUpdate latches "not travelling"
+  s.frame({ paused: true });   // the travel map is up
+  s.world.travelling = true;   // Begin: InitTravelUI's SetTimeScale and the panel pushed, between two frames
+  s.world.timeScale = 10;
+  s.frame();
+  assert.deepEqual(s.out.timeScales, [], 'the journey the map began is running - its x10 is not put back to one');
+  assert.equal(s.rt.state.isTravelling, true);
+  assert.deepEqual(s.out.mid, [], 'and no "Time scale set to 1." over it');
+  // the other side still holds: a scale nobody's journey stands behind, after a pause, comes back to one
+  const u = scene({ travelling: false });
+  u.frame();
+  u.frame({ paused: true });
+  u.world.timeScale = 10;
+  u.frame();
+  assert.deepEqual(u.out.timeScales, [1]);
+});
+
 // ── the Animator's events ────────────────────────────────────────────────────
 
 /** A one-layer controller over a node: A a 1D blend of two looping clips (Ev1 and Ev2 by Mix), B a clip with a time-0 event. */

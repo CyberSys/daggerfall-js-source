@@ -42,9 +42,13 @@ const TOGGLE = /\n\s*bindCursorToggle\(canvas, (\(\) => [^\n]*?), (\(e\) => acti
  *  and says so a task later (measured in headless Chromium, 2026-09-29: straight after the request `pointerLockElement`
  *  is still null, then `pointerlockchange` with the lock; straight after `exitPointerLock()` it is null, then the
  *  change). */
+/** ONE PAGE's listeners for the whole file: what a module binds once a page (AUDIT OW5 V1's pointerlockchange, bound
+ *  at the first lock request - the law this file pins, which landed on main beside FB0929's copy and took its place)
+ *  stays bound from one pin to the next, as a page keeps it. A host's own binds are unbound by the pin that made them. */
+const PAGE = { W: [], D: [] };
 function browser() {
   const saved = { add: globalThis.addEventListener, remove: globalThis.removeEventListener, doc: globalThis.document, hadDoc: 'document' in globalThis, KE: globalThis.KeyboardEvent };
-  const W = [], D = [], tasks = [];
+  const { W, D } = PAGE, tasks = [];
   const on = (list) => ({
     addEventListener(type, fn, opt) { list.push({ type, fn, capture: opt === true || !!opt?.capture }); },
     removeEventListener(type, fn, opt) { const c = opt === true || !!opt?.capture; const i = list.findIndex((l) => l.type === type && l.fn === fn && l.capture === c); if (i >= 0) list.splice(i, 1); },
@@ -98,6 +102,7 @@ function worldHost(b) {
     gamePaused: () => w.paused, modes: { modalWindowUp: () => false }, pointerSurfaces: new Set(), tvCursorWas: false,
     get travelView() { return w.travelView; },
     isEnhanced: () => true,
+    tvOwnsJourneys: () => true,   // OW-TOGGLE's switch off, its default: the Overworld owns a map's journey
     travelOptions: { get isTravelActive() { return w.journey; }, get state() { return { autopilot: w.journey ? {} : null }; } },
     duelEnemyNear: () => false, areEnemiesNearby: () => false, exteriorFoePool: () => [], travelViewAllowed: () => ({ ok: true }),
   };
