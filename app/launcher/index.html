@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- DA8: the shell's first window (app/lib/launcherState.cjs). It runs its
+       own script and stylesheet and the fonts beside them, and nothing else:
+       no remote request, no inline code. The one thing it can say to the
+       shell is window.daggerLauncher (app/launcherPreload.cjs).
+       DA10: the game's front door - the patch notes, the player's options,
+       the update in the bar, and Play. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self' data:">
+  <title>Daggerfall Online</title>
+  <link rel="stylesheet" href="launcher.css">
+</head>
+<body data-busy>
+  <div class="night" aria-hidden="true"></div>
+  <div class="launcher">
+    <header class="top">
+      <h1 class="wordmark">Daggerfall<small>Online</small></h1>
+      <nav class="links caps" aria-label="Links">
+        <button class="link" type="button" data-open="site">daggerfalljs.dev</button>
+        <button class="link" type="button" data-open="discord">Discord</button>
+      </nav>
+    </header>
+    <div class="rule" aria-hidden="true"><i class="gem"></i></div>
+
+    <div class="middle">
+      <main class="panel">
+        <section id="news" class="news" aria-labelledby="news-title">
+          <h2 id="news-title" class="caps">Patch notes</h2>
+          <div class="feed" tabindex="0"></div>
+          <p class="note" hidden></p>
+        </section>
+        <section id="setup" class="setup" hidden>
+          <h2 id="setup-title"></h2>
+          <p id="setup-detail"></p>
+          <ul id="found" class="found" hidden></ul>
+          <div id="setup-actions" class="actions"></div>
+        </section>
+      </main>
+
+      <aside class="side" aria-label="Options">
+        <section class="opt">
+          <h3 class="caps">Game files</h3>
+          <p id="files" class="files"></p>
+          <button class="plaque small" type="button" data-act="choose-folder">Change folder</button>
+        </section>
+        <section class="opt">
+          <h3 class="caps">Saves</h3>
+          <button class="plaque small" type="button" data-act="open-saves">Open saves folder</button>
+        </section>
+        <section class="opt">
+          <h3 class="caps">Updates</h3>
+          <label class="check"><input id="update-check" type="checkbox"> Check automatically</label>
+          <button class="link" type="button" data-act="reinstall">Reinstall...</button>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="bar">
+      <div class="state">
+        <p id="status" aria-live="polite"></p>
+        <p id="detail"></p>
+        <div id="progress" class="progress" hidden>
+          <div class="track" role="progressbar" aria-labelledby="status" aria-valuemin="0" aria-valuemax="100"><i></i></div>
+          <span class="label" aria-hidden="true"></span>
+        </div>
+      </div>
+      <div id="status-actions" class="status-actions"></div>
+      <div class="go">
+        <button id="play" class="play" type="button" data-act="play" disabled>Play</button>
+        <span id="version" class="caps"></span>
+      </div>
+    </footer>
+  </div>
+  <script src="launcher.js"></script>
+</body>
+</html>

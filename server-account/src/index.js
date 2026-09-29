@@ -37,7 +37,7 @@
 //
 //   GET  /v1/health                       -> { ok, v }
 //   GET  /v1/pubkey                       -> { alg, key }   (not a secret)
-//   POST /v1/auth/guest   { label? }      -> { id, secret, sessionId, name, kind }
+//   POST /v1/auth/guest   { label?, terms, privacy } -> { id, secret, sessionId, name, kind }   (TERMS1: the versions ticked, legalLaw.js)
 //   POST /v1/auth/token   { secret }      -> { token, name, kind, expiresAt }
 //   POST /v1/auth/session { secret, label? } -> { secret, sessionId }   (a second device)
 //   GET  /v1/account      Authorization: Bearer <secret> -> { account, wardrobe, devices[] }
@@ -50,6 +50,8 @@
 //   POST /v1/account/played {}            -> { playedS }
 // MOD1, moderation. The caller must be a moderator or a developer:
 //   POST /v1/mod/mute { target, minutes } -> { ok, target, name, until, order }
+// CUSTOMS-PASS, a developer alone - one character of one account through customs (tools/customsPass.mjs):
+//   POST /v1/mod/customs-pass { name | account, revoke? } -> { ok, target, name, open, changed }
 // DUEL1, the duelling record. The caller of `loss` is the loser:
 //   POST /v1/duel/loss   { winner }       -> { recorded, wins, losses }
 //   POST /v1/duel/record { id }           -> { id, wins, losses, gates }
@@ -78,10 +80,13 @@
 //   POST /v1/stores/withdraw { character, material, qty, rid }         -> { ok, material, qty, store } | { repeat, ... }
 //   POST /v1/writs/list { character, region }                          -> { region, day, endsAt, writs, today }
 //   POST /v1/writs/deliver { character, id, rid }                      -> { ok, writ, pay, balance, track, store, today, renown, order } | { repeat, ... }
-// RENOWN1, Renown. The caller's own character, by the id its
-// save carries; the level rides the token when the mint names one:
-//   POST /v1/renown/xp { character, xp, name?, rid? } -> { character, xp, level, credited, rose, order, max?, repeat? }
-//   POST /v1/auth/token { character? }    -> { ..., level, xp }   (RENOWN4: xp, the track's total)
+// RENOWN1, Renown - RENOWN-ACCOUNT: the ACCOUNT's, one track whichever
+// character earns (a `character` and `name` from an older client are
+// taken and never read); the level rides the token when the mint names
+// the character it brings online:
+//   POST /v1/renown/xp { xp, rid? }       -> { xp, level, credited, rose, order, max?, repeat? }
+//   POST /v1/auth/token { character? }    -> { ..., level, xp }   (RENOWN4: xp, the account's total)
+//   (REALM-DOOR: the token says whether that character is one of the account's realm characters, `rc`)
 //
 // ACC2, and every one of them needs a REGISTERED account (the wall):
 //   GET    /v1/saves                                   -> { saves[] }
@@ -123,16 +128,16 @@ import {
   devicesOf, accountView, displayName, accountKind,
   register, login, recover, changePassword, setEmail, overRate,
   accountWardrobe, equipTitle, creditPlay, muteAccount, isMuted, mutedUntil,
-  duelRecordOf, reportDuelLoss, gateRecordOf, claimGate,
+  duelRecordOf, reportDuelLoss, gateRecordOf, claimGate, legalRefusal,
   ACCOUNT_MAX, ACCOUNT_WINDOW_S,
 } from './accounts.js';
 import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrder, MAX_TTL_S, TOKEN_V, ID_RE } from '../../src/net/identityToken.js';
-import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES } from './service.js';
+import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES, maintaining } from './service.js';
 import { listSaves, putCard, putBlob, getBlob, deleteSave, saveCardOf } from './saves.js';
 import { signingKey, gatePublicKey } from './signing.js';
 import { titleWorn, glyphsOf } from './titles.js';
 import { sendLetter, inboxOf, readLetter, deleteLetter } from './letters.js';   // MAIL1: the letters' routes
-import { reportRenownXp, renownTrackOf, renownTracksOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track
+import { reportRenownXp, renownTrackOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track - RENOWN-ACCOUNT: the account's one
 import { claimRaid, raidRecordOf } from './raids.js';   // RAID4: the towns defended
 import { claimHome, releaseHome, setHomeEntry, homesInTown, homesOf } from './homes.js';   // HOME1: the online homes' routes
 import {
@@ -148,6 +153,11 @@ import {
   guildStores, depositGuildStores, withdrawGuildStores,
 } from './writs.js';   // PROF6: guild writs, commissions and the guild Stores
 import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove, marketAuction, marketBid } from './market.js';   // PROF5: the market; PROF5b: its auctions
+import {
+  listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, undoRealm,
+  realmCharacterHeld, grantCustomsPass, REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
+} from './realm.js';   // REALM P1: the realm's characters
+import { tradeRealm, REALM_TRADE_BODY_MAX } from './realmTrade.js';   // REALM P2.1: a trade, settled here
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -170,16 +180,32 @@ const json = (body, status = 200, origin = '*') => new Response(JSON.stringify(b
 /** Every refusal is one word and the same shape. A client learns that
  *  it failed and not why somebody else's secret is wrong. */
 const no = (why, status, origin) => json({ error: why }, status, origin);
+/** REALM P1: each realm refusal's status - a bad shape 400 (the default), a character that is not the caller's 404, a
+ *  lease another tab holds or a sequence that is not the next 409 (the tab that lost it goes offline), the account's
+ *  bound 409, customs refused 403/409, no storage 503. */
+const REALM_STATUS = Object.freeze({
+  'no-realm-character': 404, 'no-data': 404, lease: 409, seq: 409, 'too-many-characters': 409,
+  'customs-never-online': 403, 'customs-already': 409, 'no-storage': 503,
+  'trade-spent': 409,   // REALM P2.1: a trade's sid another pair settled
+  'guild-master-leaves': 409,   // AUDIT REALM L1-F7: a guildmaster deleted hands the guild over first
+  'guild-treasury': 409,   // AUDIT REALM2 S8: and a lone one empties the treasury first
+  'realm-birth': 403, 'customs-allowance': 403,   // AUDIT REALM2 S1: a first save the realm's law refuses
+});
+/** CUSTOMS-PASS: a pass's refusals - a bad shape 400 (the default), a caller who is no developer 403, no such account
+ *  404, a guest's name two accounts wear 409. */
+const PASS_STATUS = Object.freeze({ 'not-developer': 403, 'no-player': 404, ambiguous: 409 });
 /** GUILD1: each guild refusal's status - a bad shape 400 (the default), the wrong rank or too little Renown 403, a
  *  thing that is not there 404, a conflict with what is 409, the hour's writes spent 429. */
 const GUILD_STATUS = Object.freeze({
   'guilds-need-account': 403, 'guild-rank': 403, 'guild-renown': 403,
   'no-guild': 404, 'no-invite': 404, 'no-member': 404, 'no-player': 404,
   'guild-already': 409, 'guild-name-taken': 409, 'guild-tag-taken': 409, 'guild-full': 409, 'guild-master-leaves': 409,
-  'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409, 'marks-full': 409,
+  'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409, 'guild-treasury-old': 409, 'marks-full': 409,   // AUDIT REALM L1-F3: gold no record paid in
   'guild-stores': 409, 'guild-writs': 409,   // PROF6: a guild keeping its Stores or a writ does not go (Professions-Arc 18)
   'guild-writ-escrow': 409,   // AUDIT 31 A15: a closed writ's escrow waiting on a full treasury
   'guild-rate': 429,
+  // REALM P2.2: a realm character's record moves with the act - where it stands, and whether it can pay
+  'realm-needed': 400, 'realm-gold': 409, lease: 409, seq: 409, 'no-realm-character': 404, 'no-data': 404, 'no-storage': 503,
 });
 /** MARKS1: each Marks refusal's status - not this account's (a guest, the switch, a rank, a developer's) 403, no
  *  guild 404, short or capped 409, the hour's acts spent 429, a bad shape 400 (the default). */
@@ -276,8 +302,8 @@ async function readCapped(request, max) {
   return out.buffer;
 }
 
-async function readBody(request) {
-  const bytes = await readCapped(request, MAX_BODY_BYTES);
+async function readBody(request, max = MAX_BODY_BYTES) {
+  const bytes = await readCapped(request, max);
   if (!bytes) return null;
   const text = new TextDecoder().decode(bytes);
   if (!text) return {};
@@ -299,13 +325,13 @@ export default {
         headers: {
           'access-control-allow-origin': origin,
           'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'access-control-allow-headers': 'content-type, authorization',
+          'access-control-allow-headers': 'content-type, authorization, x-realm-lease, x-realm-seq, x-realm-summary',   // REALM P1: a checkpoint's lease, sequence and tile
           'access-control-max-age': '86400',
         },
       });
     }
 
-    if (path === '/v1/health') return json({ ok: true, v: env.ACCOUNT_VERSION || ACCOUNT_VERSION }, 200, origin);
+    if (path === '/v1/health') return json({ ok: true, v: env.ACCOUNT_VERSION || ACCOUNT_VERSION, ...(maintaining(env) ? { maintenance: true } : {}) }, 200, origin);   // RESTORE: and whether it is held for maintenance
 
     // ACC1-CI: THE SERVICE PUBLISHES ITS OWN PUBLIC KEY, and that is the
     // whole point of it being public. The pair is minted by the deploy
@@ -324,6 +350,14 @@ export default {
         : no('no-signing-key', 503, origin);
     }
 
+    // RESTORE (2026-09-29, Mac: "I want people to get their stuff back"): HELD FOR MAINTENANCE. The history restore
+    // (.github/workflows/realm-restore.yml) rewinds the database for a minute to read what was lost, and puts it back;
+    // anything written in between would vanish with the rewind. So the job deploys this Worker with MAINTENANCE = "1"
+    // first, and every call but the two above is refused for that minute - 503, which a playing tab's checkpoint waits
+    // out and sends again (systems/realmSaves.js), never a write that is silently lost. The job's own last step deploys
+    // it again without the switch; any deploy does.
+    if (maintaining(env)) return no('maintenance', 503, origin);
+
     // A PATH NOBODY SERVES IS A 404, and it is answered HERE - before
     // the credential is looked at. The first cut checked auth first,
     // which made every unknown path answer 401 to a caller with no
@@ -335,7 +369,8 @@ export default {
     // rather than looked up - and it is asked here, beside the Set, so
     // there is still exactly one place that decides a path is a 404.
     const slot = savePathOf(path);
-    if (!ROUTES.has(path) && !slot) return no('not-found', 404, origin);
+    const realmSlot = realmPathOf(path);   // REALM P1: a realm character's save, matched as a save slot is
+    if (!ROUTES.has(path) && !slot && !realmSlot) return no('not-found', 404, origin);
 
     const db = env.DB;
     if (!db) return no('no-database', 503, origin);
@@ -356,7 +391,13 @@ export default {
         if (await overRate(ctx, `ip:${ip}`, 60)) return no('rate', 429, origin);
 
         if (path === '/v1/auth/guest') {
-          const made = await createGuest(ctx, { deviceLabel: body.label ?? null });
+          // TERMS1: NO ROW WITHOUT THE DOCUMENTS TICKED. A guest row IS an
+          // account (0001's own words), and the Create account form opens
+          // one only after its player ticked the Terms of Service and the
+          // Privacy Policy - so the service asks the same, before it writes.
+          const refused = legalRefusal(body);
+          if (refused) return no(refused.error, 400, origin);
+          const made = await createGuest(ctx, { deviceLabel: body.label ?? null, legal: { terms: body.terms, privacy: body.privacy } });
           return json(made, 200, origin);
         }
         if (path === '/v1/auth/login') {
@@ -373,7 +414,8 @@ export default {
 
       // EVERY ROUTE BELOW NEEDS A SECRET, and resolving it is the same
       // one indexed lookup every time.
-      const body = request.method === 'POST' ? await readBody(request) : {};
+      // REALM P2.1: a trade's half carries two offers of up to sixteen records each - the one JSON route past 4 KiB
+      const body = request.method === 'POST' ? await readBody(request, path === '/v1/realm/trade' ? REALM_TRADE_BODY_MAX : MAX_BODY_BYTES) : {};
       if (!body) return no('body', 400, origin);
       // ═══ AUDIT-ACC F13: A CREDENTIAL DOES NOT GO IN A URL ══════
       //
@@ -441,13 +483,14 @@ export default {
         // it runs: a mute that has ended is simply absent.
         const mu = isMuted(who.player, nowS) ? mutedUntil(who.player) : undefined;
         // RENOWN1: AND THE LEVEL, when the client names the character it is
-        // bringing online - that character's, derived from its track now
-        // (1 for a character that has earned nothing yet). The client's
-        // word is only WHICH of its own characters; the number is this
-        // service's. A mint naming none (an older build) carries none.
+        // bringing online - RENOWN-ACCOUNT: the ACCOUNT's, derived from its
+        // one track now (1 for an account that has earned nothing yet),
+        // WHICHEVER character is named: the name only says a character is
+        // coming online, and the number is this service's. A mint naming
+        // none (an older build) carries none.
         // RENOWN4: and the track's TOTAL beside it in the answer (never in the token - a room needs the level, not the
         // XP): the page's own bar is drawn from it the moment the character comes online (ui/hudRenown.js).
-        const track = renownCharacterOk(body.character) ? ((await renownTrackOf(ctx, who.player.id, body.character)) ?? { xp: 0, level: 1 }) : null;
+        const track = renownCharacterOk(body.character) ? ((await renownTrackOf(ctx, who.player.id)) ?? { xp: 0, level: 1 }) : null;
         const lv = track ? track.level : undefined;
         // GUILD1c: AND THE GUILD, the named character's - its id, its tag and its member row off the roster as it
         // stands now - so a room reads the tag beside the name off the signature, and routes the guild's chat to its
@@ -456,8 +499,13 @@ export default {
         // too (RENOWN1), and a token wearing a guild is what the hub routes the guild's lines to - that build knows no
         // guild channel and filed them on its World tab, where a reply goes to everyone. It wears no guild instead.
         const guild = renownCharacterOk(body.character) && body.guild === true ? await guildBadgeOf(ctx, who.player.id, body.character) : null;
+        // REALM-DOOR (2026-09-29, the field): AND WHETHER THAT CHARACTER IS THE REALM'S. A realm-era tab goes online only
+        // as a realm character and names it here; a build from before the realm names its offline character, or none.
+        // The relay refuses a 0 at its door, so online is the realm's at the servers too. Stamped on every mint, a 0
+        // included: a token with no `rc` is a service from before this, which the relay still admits.
+        const rc = (await realmCharacterHeld(ctx, who.player.id, body.character)) ? 1 : 0;
         const token = await mintToken(
-          { s: who.player.id, n: displayName(who.player), k: accountKind(who.player), ...wardrobe, mu, lv, ...(guild ?? {}) },
+          { s: who.player.id, n: displayName(who.player), k: accountKind(who.player), ...wardrobe, mu, lv, ...(guild ?? {}), rc },
           key, { subtle, nowS },
         );
         return json({
@@ -489,9 +537,11 @@ export default {
         // service's config and clock, which is why it alone takes env.
         return json({
           // DUEL1: and the duelling record, counted off the results (the profile card's K/D); WB5b: and the gates closed
-          // RENOWN1: and Renown's tracks, the most recently earned first (the card's level and its row)
+          // RENOWN1: and Renown (the card's level and its row) - RENOWN-ACCOUNT: the account's one, `{ xp, level }`, or null
+          // while it has earned none (it was a list of the characters' tracks; a card from before it reads no list, and
+          // says nothing, as for a service before RENOWN1)
           // MARKS1: and the Marks balance, where Marks are this account's (null where not - a guest, the switch)
-          account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), raids: await raidRecordOf(ctx, who.player.id), renown: await renownTracksOf(ctx, who.player.id), marks: await marksCardOf(ctx, who.player, env) },
+          account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), raids: await raidRecordOf(ctx, who.player.id), renown: await renownTrackOf(ctx, who.player.id), marks: await marksCardOf(ctx, who.player, env) },
           wardrobe: accountWardrobe(who.player, env, nowS),
           devices: await devicesOf(ctx, who.player.id),
         }, 200, origin);
@@ -540,11 +590,12 @@ export default {
       }
 
       if (path === '/v1/raid/claim' && request.method === 'POST') {
-        // RAID4: THE ACCOUNT A RAID'S RECEIPT NAMES CARRIES IT HERE, with the character that fought it. The relay signed
-        // it at the cleanse (src/net/raidReceipt.js); the session says who is asking, never the body, and raids.js
-        // `claimRaid` holds the rest - the signature, the account, one row a (raid, account), the day's bound, the
-        // Renown. A level that ROSE comes back with a signed order, as a Renown report's does.
-        const r = await claimRaid(ctx, who.player, { receipt: body.receipt, character: body.character, name: body.name ?? null, cid: body.cid ?? null }, await gatePublicKey(env, subtle));   // AUDIT RAID R4: `cid` - the device's claim, which the town's thanks are keyed to
+        // RAID4: THE ACCOUNT A RAID'S RECEIPT NAMES CARRIES IT HERE, with the character that fought it (RENOWN-ACCOUNT:
+        // its row's record - the Renown is the account's). The relay signed it at the cleanse (src/net/raidReceipt.js);
+        // the session says who is asking, never the body, and raids.js `claimRaid` holds the rest - the signature, the
+        // account, one row a (raid, account), the day's bound, the Renown. A level that ROSE comes back with a signed
+        // order, as a Renown report's does.
+        const r = await claimRaid(ctx, who.player, { receipt: body.receipt, character: body.character ?? null, cid: body.cid ?? null }, await gatePublicKey(env, subtle));   // AUDIT RAID R4: `cid` - the device's claim, which the town's thanks are keyed to
         if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, r.error === 'no-gate-key' ? 503 : r.error === 'not-yours' ? 403 : 400, origin);
         let order = null;
         if (r.renown?.rose) {
@@ -555,7 +606,9 @@ export default {
       }
 
       if (path === '/v1/renown/xp' && request.method === 'POST') {
-        // RENOWN1: WHAT ONE OF THE CALLER'S CHARACTERS EARNED ONLINE. The
+        // RENOWN1: WHAT THE CALLER EARNED ONLINE - RENOWN-ACCOUNT: credited
+        // to the ACCOUNT, whichever character earned it (a `character` and
+        // `name` from an older client ride the body and are never read). The
         // account is the session's, never the body's; the bounds are all
         // in renownTracks.js `reportRenownXp`. A level that ROSE comes back
         // with a signed order the client carries to the rooms it is in,
@@ -565,8 +618,8 @@ export default {
         // AUDIT RENOWN1 DATA-4: `rid` the report's own id, so a report sent again because its answer was lost is
         // answered again (`repeat`) rather than credited twice - and a repeat carries an order too, since the
         // answer that was lost may have been the one with the rise in it.
-        const r = await reportRenownXp(ctx, who.player, { character: body.character, xp: body.xp, name: body.name ?? null, rid: body.rid ?? null });
-        if (r.error) return no(r.error, r.error === 'renown-full' ? 409 : 400, origin);
+        const r = await reportRenownXp(ctx, who.player, { xp: body.xp, rid: body.rid ?? null });
+        if (r.error) return no(r.error, 400, origin);
         let order = null;
         if (r.rose || (r.repeat && r.level > 1)) {
           const key = await signingKey(env, subtle);
@@ -594,26 +647,34 @@ export default {
           return 'error' in r ? no(r.error, 400, origin) : json(r, 200, origin);
         }
         if (accountKind(who.player) !== 'linked') return no('homes-need-account', 403, origin);
+        // REALM P2.2b: a realm character's record is in R2, and moves with the act; a sequence refused says the service's own
+        const hctx = { ...ctx, bucket: env.SAVES };
+        const realmNo = (r) => (r.error === 'seq' ? json({ error: 'seq', seq: r.seq }, 409, origin) : r.error === 'lease' || r.error === 'realm-gold' ? no(r.error, 409, origin) : null);
         if (path.startsWith('/v1/homes/decor/')) {
           // DECOR1: a piece placed, moved or removed - the owner's character's alone (decor.js)
-          const r = path === '/v1/homes/decor/place' ? await placeDecor(ctx, who.player, body)
-            : path === '/v1/homes/decor/move' ? await moveDecor(ctx, who.player, body)
-              : path === '/v1/homes/decor/hidden' ? await hideDecorBase(ctx, who.player, body)   // BASE-HIDE
-                : await removeDecor(ctx, who.player, body);
+          const r = path === '/v1/homes/decor/place' ? await placeDecor(hctx, who.player, body)
+            : path === '/v1/homes/decor/move' ? await moveDecor(hctx, who.player, body)
+              : path === '/v1/homes/decor/hidden' ? await hideDecorBase(hctx, who.player, body)   // BASE-HIDE
+                : await removeDecor(hctx, who.player, body);
           if (!('error' in r)) return json(r, 200, origin);
+          const said = realmNo(r);
+          if (said) return said;
           const status = r.error === 'decor-cap' || r.error === 'decor-taken' ? 409
             : r.error === 'decor-rate' ? 429
               : r.error === 'no-home' || r.error === 'no-decor' ? 404 : 400;
           return no(r.error, status, origin);
         }
         if (path === '/v1/homes/claim') {
-          const r = await claimHome(ctx, who.player, body);
+          const r = await claimHome(hctx, who.player, body);
           if (!('error' in r)) return json(r, 200, origin);
+          const said = realmNo(r);
+          if (said) return said;
           const status = r.error === 'home-taken' || r.error === 'home-cap' ? 409 : r.error === 'home-rate' ? 429 : 400;
           return no(r.error, status, origin);
         }
-        const r = path === '/v1/homes/release' ? await releaseHome(ctx, who.player, body) : await setHomeEntry(ctx, who.player, body);
-        return 'error' in r ? no(r.error, r.error === 'bad-entry' ? 400 : 404, origin) : json(r, 200, origin);
+        const r = path === '/v1/homes/release' ? await releaseHome(hctx, who.player, body) : await setHomeEntry(hctx, who.player, body);
+        if ('error' in r) return realmNo(r) ?? no(r.error, r.error === 'bad-entry' || r.error === 'realm-needed' ? 400 : 404, origin);
+        return json(r, 200, origin);
       }
 
       // ═══ GUILD1: THE GUILDS ═════════════════════════════════════
@@ -636,8 +697,9 @@ export default {
           '/v1/guilds/handover': handOverGuild, '/v1/guilds/disband': disbandGuild,
         }[path];
         if (!act) return no('not-found', 404, origin);
-        const r = await act({ ...ctx, env }, who.player, body);
+        const r = await act({ ...ctx, env, bucket: env.SAVES }, who.player, body);   // REALM P2.2: a realm character's record is in R2; AUDIT 28 M5: the switch says whether the Marks show
         if (!('error' in r)) return json(await guildOrdersOf(r, who.player.id, env, subtle, nowS), 200, origin);
+        if (r.error === 'seq') return json({ error: 'seq', seq: r.seq }, 409, origin);   // REALM P2.2: the service's own, as a checkpoint's
         return no(r.error, GUILD_STATUS[r.error] ?? 400, origin);
       }
 
@@ -777,6 +839,14 @@ export default {
         return json({ ...r, order }, 200, origin);
       }
 
+      if (path === '/v1/mod/customs-pass' && request.method === 'POST') {
+        // CUSTOMS-PASS (2026-09-29, Mac, asked what becomes of a character a build from before the realm stranded:
+        // "Staff customs pass"): A DEVELOPER GRANTS ONE ACCOUNT ONE CHARACTER THROUGH CUSTOMS (realm.js). 403 for a
+        // caller who is not one - the credential is good, the right is not theirs, as the save wall reads it.
+        const r = await grantCustomsPass(ctx, who.player, env, { name: body.name, account: body.account, revoke: body.revoke });
+        return r.error ? no(r.error, PASS_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
+      }
+
       if (path === '/v1/account/played' && request.method === 'POST') {
         // ACC4: A BEAT, AND NOTHING IN IT IS READ. Whatever the body
         // says, the credit is the gap by THIS clock (accounts.js
@@ -788,7 +858,13 @@ export default {
         // AN UPGRADE IN PLACE of the row this session already belongs
         // to - not a new account. The recovery code in the answer is
         // THE ONLY TIME IT IS EVER READABLE.
-        const r = await register(ctx, who.player.id, { handle: body.handle, password: body.password });
+        //
+        // TERMS1: and it asks what the guest route asks. A guest made
+        // before the boxes existed has agreed to nothing, and naming it is
+        // where it becomes the account the request means.
+        const refused = legalRefusal(body);
+        if (refused) return no(refused.error, 400, origin);
+        const r = await register(ctx, who.player.id, { handle: body.handle, password: body.password, legal: { terms: body.terms, privacy: body.privacy } });
         return r.error ? no(r.error, 400, origin) : json(r, 200, origin);
       }
 
@@ -915,6 +991,68 @@ export default {
           });
         }
         return no('method', 405, origin);
+      }
+
+      // ═══ REALM P1: THE REALM'S CHARACTERS (realm.js) ═════════════
+      //
+      // An online character's truth, held here: listed, made (born online or brought in once through customs),
+      // joined under a lease, checkpointed at the next sequence, left, deleted - and its save read back for a join's
+      // load or a copy to offline. EVERY ACCOUNT, a guest's too: a guest plays online, and its characters are its
+      // account's as its Renown is.
+      if (path.startsWith('/v1/realm')) {
+        const me = who.player.id;
+        const rctx = { ...ctx, bucket: env.SAVES };
+        const answer = (r, ok = 200) => (r.error ? no(r.error, REALM_STATUS[r.error] ?? 400, origin) : json(r, ok, origin));
+        if (path === '/v1/realm') {
+          if (request.method !== 'GET') return no('method', 405, origin);
+          return json({ characters: await listRealm(rctx, me), max: REALM_CHARACTERS_MAX }, 200, origin);
+        }
+        if (realmSlot) {
+          if (request.method === 'PUT') {
+            // A RAW BODY against the save's own bound, as the save slots read theirs; the lease, the sequence and
+            // the tile ride headers, since the body is the save.
+            const raw = await readCapped(request, REALM_MAX_BYTES);
+            if (!raw) return no('too-large', 413, origin);
+            if (!raw.byteLength) return no('body', 400, origin);
+            let summary = null;
+            try { summary = JSON.parse(request.headers.get('x-realm-summary') || 'null'); } catch { summary = null; }
+            const r = await checkpointRealm(rctx, me, {
+              id: realmSlot.id, lease: request.headers.get('x-realm-lease'), seq: Number(request.headers.get('x-realm-seq')), summary,
+            }, raw, raw.byteLength);
+            // a sequence refused says the service's own, so a tab whose last answer was lost can resync (never a way in:
+            // the write still needs the lease)
+            if (r.error === 'seq') return json({ error: 'seq', seq: r.seq }, 409, origin);
+            return answer(r);
+          }
+          if (request.method === 'GET') {
+            const r = await getRealmBlob(rctx, me, realmSlot.id);
+            if (r.error) return no(r.error, REALM_STATUS[r.error] ?? 404, origin);
+            return new Response(r.object.body, {
+              status: 200,
+              headers: {
+                'content-type': 'application/octet-stream',
+                'access-control-allow-origin': origin,
+                'access-control-expose-headers': 'x-realm-seq',
+                'x-realm-seq': String(r.seq),
+                'cache-control': 'no-store',
+              },
+            });
+          }
+          return no('method', 405, origin);
+        }
+        if (request.method !== 'POST') return no('method', 405, origin);
+        if (path === '/v1/realm/create') return answer(await createRealm(rctx, me, { name: body.name, summary: body.summary }));
+        if (path === '/v1/realm/customs') return answer(await customsRealm(rctx, me, { origin: body.origin, name: body.name, summary: body.summary }));   // AUDIT REALM L3-F2/F3: one guarded batch, and resumable
+        if (path === '/v1/realm/join') return answer(await joinRealm(rctx, me, body.id));
+        if (path === '/v1/realm/trade') {
+          // REALM P2.1: a sequence refused says the service's own, as a checkpoint's does
+          const r = await tradeRealm(rctx, me, body);
+          if (r.error === 'seq') return json({ error: 'seq', seq: r.seq }, 409, origin);
+          return answer(r);
+        }
+        if (path === '/v1/realm/leave') return answer(await leaveRealm(rctx, me, { id: body.id, lease: body.lease }));
+        if (path === '/v1/realm/undo') return answer(await undoRealm(rctx, me, body.id));   // HOUSE-LOSS: a customs that never landed, undone
+        return answer(await deleteRealm(rctx, me, body.id));   // /v1/realm/delete - HOUSE-LOSS: which undoes one too, for a door that asks a delete
       }
 
       // a path this service serves, reached with a method it does not

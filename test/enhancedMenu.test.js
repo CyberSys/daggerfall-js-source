@@ -339,7 +339,7 @@ test('main.js maps the actions to the load flag, both ways', () => {
   // AUDIT ONLINE E1: the online flag is SET on this door and DELETED on
   // every other, IN THIS BRANCH - the first cut put it in the classic
   // start window's branch, which never answers 'online'.
-  assert.match(branch, /if \(choice === 'online'\) params\.set\('online', '1'\);\s*\n\s*else params\.delete\('online'\);/);
+  assert.match(branch, /if \(choice === 'online' \|\| choice === 'online-new'\) params\.set\('online', '1'\);[^\n]*\n\s*else params\.delete\('online'\);/);   // REALM P1.3: a character born online too
   assert.match(branch, /else params\.delete\('load'\)/,
     'AUDIT 19 F12: a URL already carrying ?load must not make New Game restore the save');
   assert.match(branch, /params\.set\('classic', '1'\)/);

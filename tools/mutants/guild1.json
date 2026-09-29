@@ -723,8 +723,8 @@
   {
     "name": "GUILD1-the-gold-misnamed",
     "file": "src/net/accountClient.js",
-    "old": "deposit: (character, gold) => post('/v1/guilds/deposit', { character, gold }),",
-    "new": "deposit: (character, gold) => post('/v1/guilds/deposit', { character, amount: gold }),",
+    "old": "post('/v1/guilds/deposit', { character, gold, ...(realm",
+    "new": "post('/v1/guilds/deposit', { character, amount: gold, ...(realm",
     "tests": [
       "test/guild1.test.js"
     ]

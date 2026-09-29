@@ -223,9 +223,9 @@ die. One numbering across both slices (the code cites
   counts the store (and `autoBuildArms` measures it) before that; a
   restore landing in the gap passed every gate and queued the same body
   behind the first. `prebuildArmsForSave` now gives its word before its
-  first await (`weaponRig.js:215` `_armsIntent`), hands it to its own
+  first await (`weaponRig.js:216` `_armsIntent`), hands it to its own
   build, and gives it back in `finally`; every other `autoBuildArms`
-  waits it out before its gates (`weaponRig.js:271` - an `if`, not a
+  waits it out before its gates (`weaponRig.js:272` - an `if`, not a
   loop, so a stale word can never spin), and by then the body stands or
   was never started, and the gates say which.
 - **F2 - the garments' colours were still decoded on the frame's
@@ -233,30 +233,30 @@ die. One numbering across both slices (the code cites
   measure to the synchronous `clothingColourOf`: a decode per candidate,
   one after another, a dozen or more per worn type. The preload now
   measures in the pool, level 0, into the memo `clothingColourOf`
-  answers from (`fpArm.js:1046`); a refusal is its null, kept. One
-  derivation of the texture for both (`fpArm.js:989`
+  answers from (`fpArm.js:1047`); a refusal is its null, kept. One
+  derivation of the texture for both (`fpArm.js:990`
   `clothingTexturePath`, asserting its mesh with `findLoaded` - the
   MW-LOAD cover scan's law).
 - **F3 - every load parsed the save twice, and paid it without Morrowind
   data.** The boot parsed `pickedSaveSnap` for the early build and the
   door parsed it again; the most-recent pick parses EVERY slot. Now one
-  parse (`world.js:658` `bootSnap`), read by the early door only once the
-  store is known to carry files, handed to the door (`world.js:18047`,
-  `worldQuickLoad`'s `snap`, `world.js:9517`) and let go. And the parse
+  parse (`world.js:707` `bootSnap`), read by the early door only once the
+  store is known to carry files, handed to the door (`world.js:18440`,
+  `worldQuickLoad`'s `snap`, `world.js:9721`) and let go. And the parse
   itself is one envelope now, not every slot's (SLOTS2, Online-Arc.md).
 - **F4 - the pool's refusal was decoded a second time here.** The
   preload kept images alone, so a texture the decoder refused was decoded
   again, whole, by `collectArmTextures` on the frame's thread to learn
   the same answer. The refusal (`decoderError`) is kept now in
-  `collectArmTextures`' words (`fpArm.js:199`); anything else is not the
+  `collectArmTextures`' words (`fpArm.js:200`); anything else is not the
   file's answer and is not kept.
 - **F5 - reads and copies without a bound.** The measures ran all at
   once: a head pack's hundreds of candidates were that many ranged reads
   and that many texture copies queued for four workers, and two
   candidates sharing a mesh read it twice (`MwBsaFile.load` cached only
-  what had landed). Now `inLanes` (`fpArm.js:1071`, eight lanes,
+  what had landed). Now `inLanes` (`fpArm.js:1072`, eight lanes,
   `textureReplacement.js`'s shape, answers in the list's order), each
-  garment once (`fpArm.js:1099`), and a load asked while the same entry's
+  garment once (`fpArm.js:1100`), and a load asked while the same entry's
   read is in flight is that read (`mwBsaFile.js:192`; a failed read is
   not kept).
 - **F6 - the workers lived for the session.** Up to four idle module

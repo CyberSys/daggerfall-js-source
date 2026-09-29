@@ -103,7 +103,7 @@ test('AUDIT 28 N4: a recruitment note recruits only while its author can still i
   const b = await board();
   const gm = await b.registered('Aldric', { renown: GUILD_FOUND_RENOWN });
   const off = await b.registered('Ottar');
-  const { guild } = (await b.call('/v1/guilds/found', { character: gm.character, name: 'The Hound', tag: 'HND' }, gm.secret)).body;
+  const { guild } = (await b.found(gm, { name: 'The Hound', tag: 'HND' })).body;
   await b.call('/v1/guilds/invite', { character: gm.character, handle: 'ottar' }, gm.secret);
   await b.call('/v1/guilds/answer', { character: off.character, guild: guild.id, accept: true }, off.secret);
   const members = () => b.call('/v1/guilds/mine', { character: gm.character }, gm.secret).then((r) => r.body.guild.members);

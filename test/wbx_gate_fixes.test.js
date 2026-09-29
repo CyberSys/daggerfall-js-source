@@ -365,7 +365,7 @@ test('WBX5 the burning ground: Hellfire leaves a pool under each mark, the Meteo
   assert.equal(h.struck.length, 1, 'no bite before a tick of standing in it');
   at(h, 10001 + POOL_TICK_MS);
   const bite = Math.trunc(strikeDamage(POOLS.hellfire.pct, 200, POOLS.hellfire.base) * 50 / 100);
-  assert.deepEqual(h.struck[1], [bite, { fire: true, name: COURT_STRIKE_TEXT.burning }], 'a bite, fire through my throw');
+  assert.deepEqual(h.struck[1], [bite, { fire: true, el: 'fire', name: COURT_STRIKE_TEXT.burning }], 'a bite, fire through my throw');
   at(h, 10001 + POOL_TICK_MS + 500);
   assert.equal(h.struck.length, 2, 'once a tick');
   // AUDIT WBX F8: a step out shorter than a tick keeps the fire's count - a frame out each second was never bitten
@@ -498,11 +498,11 @@ test('WBX7 the soul trap on him: kept on the relay\'s clock for its rounds (a tr
 
 test('WBX7 the seams: a soul trap meets him (hostMagic), the dungeon context lays it through applySpell and hands its chance and rounds to the court (onBossTrap, through the mode machine), the host rolls it with the port\'s own attemptSoulTrap and says its words', () => {
   const hm = read('src/scenes/hostMagic.js');
-  assert.match(hm, /!\(duelSpellOf\(sp\) \|\| \(sp\.effects \?\? \[\]\)\.some\(\(e\) => e && isSoulTrapEffect\(e\)\)\)/);
+  assert.match(hm, /!\(duelSpellOf\(sp\) \|\| \(sp\.effects \?\? \[\]\)\.some\(\(e\) => e && isSoulTrapEffect\(e\)\) \|\| spellSways\(sp\)\)/);   // WB8a: and a sway, which meets him to be refused
   const dc = read('src/scenes/dungeonContext.js');
   assert.match(dc, /const trapFx = \(sp\.effects \?\? \[\]\)\.filter\(\(e\) => e && isSoulTrapEffect\(e\)\);/);
   assert.match(dc, /if \(trap\) laid = !!opts\.onBossTrap\?\.\(\{ chance: trap\.chance, rounds: \(trap\.roundsRemaining \?\? 0\) \+ 1 \}\);/);
-  assert.match(dc, /if \(!harm\) return laid;/, 'a trap alone still reaches him');
+  assert.match(dc, /if \(!harm\) return laid \|\| sways;/, 'a trap alone still reaches him (WB8a: and a sway alone is spent on him)');
   assert.match(read('src/scenes/worldModes.js'), /onBossTrap: \(trap\) => !!host\.onBossTrap\?\.\(trap\),/);
   const w = read('src/scenes/world.js');
   assert.match(w, /onBossTrap: \(trap\) => !!gateCourt\?\.trapped\(trap\),/);

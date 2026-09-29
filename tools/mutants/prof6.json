@@ -521,7 +521,7 @@
   },
   {
     "name": "PROF6-mig-reports-lost",
-    "file": "server-account/migrations/0027_writs.sql",
+    "file": "server-account/migrations/0034_writs.sql",
     "old": "INSERT OR IGNORE INTO board_reports (note_id, reporter, at) SELECT note_id, reporter, at FROM board_reports_keep\n  WHERE note_id IN (SELECT id FROM board_notes);\n",
     "new": "",
     "tests": [
@@ -530,7 +530,7 @@
   },
   {
     "name": "PROF6-mig-no-commission-note",
-    "file": "server-account/migrations/0027_writs.sql",
+    "file": "server-account/migrations/0034_writs.sql",
     "old": "  button      TEXT CHECK (button IS NULL OR button IN ('party', 'guild', 'duel', 'commission')),",
     "new": "  button      TEXT CHECK (button IS NULL OR button IN ('party', 'guild', 'duel')),",
     "tests": [

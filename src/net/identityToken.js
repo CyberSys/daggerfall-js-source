@@ -189,13 +189,13 @@ export const ACCOUNT_KINDS = Object.freeze(['guest', 'linked']);
 /** The titles that exist. A title is WORN one at a time, so a token
  *  carries at most one. Grants are the service's business (who HOLDS
  *  one); this list is the vocabulary both ends share. */
-export const TITLES = Object.freeze(['founder', 'developer', 'dungeonmaster', 'disciple', 'apostle', 'hierophant', 'shadowfang']);   // TITLE-N (2026-09-24, Mac): the Dungeon Master, and the three Patreon tiers in their order; SHADOW-FANG (2026-09-26, Mac): SirMcMobdon's own
+export const TITLES = Object.freeze(['founder', 'developer', 'dungeonmaster', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent']);   // TITLE-N (2026-09-24, Mac): the Dungeon Master, and the three Patreon tiers in their order; SHADOW-FANG (2026-09-26, Mac): SirMcMobdon's own; PENITENT (2026-09-29, Mac): Diggleborf's own
 
 /** The glyphs that exist. A glyph is not worn, it is TRUE of a player -
  *  sprout is "this account is new", dev is "this is a developer", mod is
  *  "this is a moderator" (MOD1, Mac: "a moderator glyph") - so a token
  *  may carry several and a player chooses none of them. */
-export const GLYPHS = Object.freeze(['sprout', 'dev', 'mod', 'dm', 'disciple', 'apostle', 'hierophant', 'shadowfang']);   // TITLE-N: each new title has its own glyph (Mac), true of whoever holds the title; SHADOW-FANG: the wolf's head, and the werewolf's skin rides it
+export const GLYPHS = Object.freeze(['sprout', 'dev', 'mod', 'dm', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent']);   // TITLE-N: each new title has its own glyph (Mac), true of whoever holds the title; SHADOW-FANG: the wolf's head, and the werewolf's skin rides it; PENITENT: the sword in its lozenge
 
 /** The bound on `g`, and it is the vocabulary's own size rather than a
  *  number somebody picked: a token carrying more glyph slots than there
@@ -252,7 +252,7 @@ export function nameIsIssuable(name) {
 /**
  * The claims, as they ride. Short keys because this travels in a hello
  * on every connection and the payload is base64 on top.
- * @typedef {{s: string, n: string, k: 'guest'|'linked', i: number, e: number, t?: string, g?: string[], mu?: number, lv?: number, gi?: string, gt?: string, gm?: string}} Claims
+ * @typedef {{s: string, n: string, k: 'guest'|'linked', i: number, e: number, t?: string, g?: string[], mu?: number, lv?: number, gi?: string, gt?: string, gm?: string, rc?: 0|1}} Claims
  *   s  the account id          n  the display name
  *   k  guest or linked         i  issued at, epoch seconds
  *   e  expires at, epoch seconds
@@ -263,6 +263,9 @@ export function nameIsIssuable(name) {
  *      mint, absent when it named none (RENOWN1)
  *   gi gt gm  that character's guild - its id, its tag and its
  *      member row - all three or none (GUILD1c)
+ *   rc 1 when the character the client named at the mint is one of
+ *      the account's realm characters, else 0; absent from a service
+ *      before REALM-DOOR (the relay refuses a 0)
  */
 
 /** The account id's own shape - the same one `net/social.js` already
@@ -313,6 +316,9 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
   // without a character (an older build) - and within the cap when there.
   if (c.lv !== undefined && !renownIssuable(c.lv)) return false;
   if (!guildClaimsValid(c)) return false;   // GUILD1c
+  // REALM-DOOR: the realm's word on the named character - exactly 0 or 1, never a truthy stand-in; absent from a service
+  // before it, which the relay admits as it always did (the two Workers deploy on their own)
+  if (c.rc !== undefined && c.rc !== 0 && c.rc !== 1) return false;
   if (!Number.isSafeInteger(c.i) || !Number.isSafeInteger(c.e)) return false;
   if (c.e <= c.i) return false;                 // a token that is born dead
   if (c.e - c.i > maxTtlS) return false;        // a minter that got greedy
@@ -323,7 +329,7 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
  * MINT. The account service's half - it holds the private key and
  * nothing else does.
  *
- * @param {{s:string, n:string, k:'guest'|'linked', t?:string, g?:string[], mu?:number, lv?:number, gi?:string, gt?:string, gm?:string}} who
+ * @param {{s:string, n:string, k:'guest'|'linked', t?:string, g?:string[], mu?:number, lv?:number, gi?:string, gt?:string, gm?:string, rc?:0|1}} who
  * @param {CryptoKey} privateKey  an Ed25519 private key
  * @param {{subtle: SubtleCrypto, nowS: number, ttlS?: number}} env
  * @returns {Promise<string>}
@@ -340,6 +346,7 @@ export async function mintToken(who, privateKey, { subtle, nowS, ttlS = MAX_TTL_
   if (who?.lv !== undefined) claims.lv = who.lv;   // RENOWN1: only when the client named its character
   // GUILD1c: only while that character is in a guild - all three, and a partial set is refused below, not trimmed
   if (who?.gi !== undefined || who?.gt !== undefined || who?.gm !== undefined) Object.assign(claims, { gi: who.gi, gt: who.gt, gm: who.gm });
+  if (who?.rc !== undefined) claims.rc = who.rc;   // REALM-DOOR: a 0 is said, never dropped as falsy - it is the relay's refusal
   // A BAD CLAIM SET IS REFUSED AT THE MINTER. The verifier would refuse
   // it too, but at the player's machine, where the only thing anyone
   // learns is that online is broken.

@@ -989,7 +989,7 @@
   },
   {
     "name": "PROF5-sql-escrow-pays-a-player",
-    "file": "server-account/migrations/0025_market.sql",
+    "file": "server-account/migrations/0032_market.sql",
     "old": "CREATE TRIGGER IF NOT EXISTS marks_line_pays_to_account AFTER INSERT ON marks_ledger WHEN NEW.dst_kind = 'account'",
     "new": "CREATE TRIGGER IF NOT EXISTS marks_line_pays_to_account AFTER INSERT ON marks_ledger WHEN NEW.dst_kind IN ('account', 'escrow')",
     "tests": [
@@ -999,7 +999,7 @@
   },
   {
     "name": "PROF5-sql-products-cascade",
-    "file": "server-account/migrations/0025_market.sql",
+    "file": "server-account/migrations/0032_market.sql",
     "old": "  marked     INTEGER NOT NULL DEFAULT 0 CHECK (marked IN (0, 1))\n);",
     "new": "  marked     INTEGER NOT NULL DEFAULT 0 CHECK (marked IN (0, 1)),\n  FOREIGN KEY (owner) REFERENCES players(id) ON DELETE CASCADE\n);",
     "tests": [

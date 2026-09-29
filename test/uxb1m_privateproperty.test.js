@@ -19,6 +19,7 @@ import { YesNoBoxWindow, YES_NO_BOX_ID, YES_NO_LABELS, yesNoFaceOwner, releaseYe
 import { MB_BUTTONS, _setMessageBoxArtForTests } from '../src/ui/messageBox.js';
 import { nativeMetrics } from '../src/ui/nativePanel.js';
 import { privatePropertyRows, PRIVATE_PROPERTY_FALLBACK_ROWS } from '../src/systems/shopStock.js';
+import { _frameForTests, DRAW_FRAMES_UNDRAWN } from '../src/ui/drawWatchdog.js';   // DISC29-D: frames that pass undrawn
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const FONT = { fnt: { fixedHeight: 9, fixedWidth: 4, glyphWidth: () => 4 }, tex: 'tex:font', cols: 16, rows: 16, cw: 8, ch: 8 };
@@ -163,6 +164,9 @@ test('UXB1-M: the ENHANCED box is a card in the skin\'s face - the question, two
       const c = new YesNoBoxWindow({ rows: ['Q?'] });
       c.draw(recorder(), CANVAS, FONT, 2);
       assert.equal(yesNoFaceOwner(), c);
+      for (const t of clock.filter((x) => x.live)) t.fn();
+      assert.equal(yesNoFaceOwner(), c, 'DISC29-D: a frame slower than the timer is not a stop - the card stays');
+      _frameForTests(DRAW_FRAMES_UNDRAWN);   // frames came and went with no draw
       for (const t of clock.filter((x) => x.live)) t.fn();
       assert.equal(yesNoFaceOwner(), null);
       assert.equal(doc.getElementById(YES_NO_BOX_ID), null);

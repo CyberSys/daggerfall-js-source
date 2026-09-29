@@ -164,8 +164,8 @@
   {
     "name": "FORAGE3-19-the-interior-pile-has-no-index",
     "file": "src/scenes/interiorContext.js",
-    "old": "lootKey, Math.random, { locationIndex: locationType, luck })",
-    "new": "lootKey, Math.random, { luck })",
+    "old": "lootKey, Math.random, { locationIndex: locationType, luck, level })",
+    "new": "lootKey, Math.random, { luck, level })",
     "tests": [
       "test/forage3_loot.test.js",
       "test/lr1_lootrarity.test.js"
@@ -183,8 +183,8 @@
   {
     "name": "FORAGE3-21-the-dungeon-pile-has-no-index",
     "file": "src/scenes/dungeonContext.js",
-    "old": "{ locationIndex: dfLocation.mapTableData.dungeonType, luck: liveStat(playerEntity, 'luck'), where: 'dungeon' }",
-    "new": "{ luck: liveStat(playerEntity, 'luck'), where: 'dungeon' }",
+    "old": "{ locationIndex: dfLocation.mapTableData.dungeonType, luck: liveStat(playerEntity, 'luck'), level: playerEntity.level, where: 'dungeon' }",
+    "new": "{ luck: liveStat(playerEntity, 'luck'), level: playerEntity.level, where: 'dungeon' }",
     "tests": [
       "test/forage3_loot.test.js"
     ]

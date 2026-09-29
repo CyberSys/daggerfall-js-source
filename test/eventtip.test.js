@@ -12,7 +12,8 @@ import {
 import { RAID_DURATION_MINUTES } from '../src/systems/raidingParties.js';
 import { createGateOmen, gateTip } from '../src/systems/gateOmen.js';
 import { readGateMark, GATE_RING_CSS } from '../src/ui/gateMapMark.js';
-import { gateTimes, gatePhase, gateCountdown, countdownText, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js';
+import { gateTimes, gatePhase, gateCountdown, countdownText, gateModsOf, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js';
+import { gateModsWords } from '../src/net/gateMods.js';   // WB8c: tonight's marks on the card
 import { HeldMapWindow } from '../src/ui/heldMap.js';
 import { toPaper, paintRaidMark } from '../src/ui/inkMap.js';
 import { CLIMATES, LOCATION_TYPES, getMapPixelID } from '../src/formats/mapsFile.js';
@@ -125,7 +126,9 @@ test('EVENT-TIP: the gate\'s card - where, when it next moves (the countdown\'s 
   const t = gateTimes(740);
   const site = { place: 'Copperham, Wrothgarian Mountains', near: 'Copperham', px: 400, py: 200, spot: [409.6, 409.6], ring: { cx: 400.3, cy: 200.6, r: 2 } };
   const at = (ms, fell = null) => { const phase = gatePhase(t, ms, fell); return gateTip({ site, phase, t }, gateCountdown(t, ms, phase), fell); };
-  assert.deepEqual(at(t.omenAt + 1000), { title: 'Oblivion Gate', lines: ['Near Copperham, Wrothgarian Mountains', `Opens in ${countdownText(t.openAt - t.omenAt - 1000)}`, 'Valkynaz Ruhn, Warden of the Burning Gate'] });
+  const marks = (day) => { const w = gateModsWords(gateModsOf(day)); return `${w.charAt(0).toUpperCase()}${w.slice(1)}`; };
+  assert.deepEqual(at(t.omenAt + 1000), { title: 'Oblivion Gate', lines: ['Near Copperham, Wrothgarian Mountains', `Opens in ${countdownText(t.openAt - t.omenAt - 1000)}`, 'Valkynaz Ruhn, Warden of the Burning Gate', marks(740)] });   // WB8c: and tonight's marks while he stands
+  assert.equal(marks(740), 'The Storm-Crowned - Vengeful, Soul-Hungry');
   assert.equal(at(t.openAt + 1000).lines[1], `Open - seals in ${countdownText(t.sealAt - t.openAt - 1000)}`);
   assert.equal(at(t.sealAt + 2000).lines[1], 'Sealed - collapses in 9:58', 'GATE-COLLAPSE: the sealed hours say when they end');
   assert.equal(at(t.wrathAt + 1000).lines[1], 'Collapsing');
@@ -215,7 +218,7 @@ test('EVENT-TIP on the held map: the hover asks a party member, a raided town, a
     const [gx, gy] = toPaper(win._view, 5.2, 3.4);
     const onRing = win._hoverLabel(gx, gy);
     assert.equal(onRing.tip.title, 'Oblivion Gate');
-    assert.deepEqual(onRing.tip.lines, ['Near Copperham, Daggerfall', `Open - seals in ${countdownText(t.sealAt - clock.now)}`, 'Valkynaz Ruhn, Warden of the Burning Gate']);
+    assert.deepEqual(onRing.tip.lines, ['Near Copperham, Daggerfall', `Open - seals in ${countdownText(t.sealAt - clock.now)}`, 'Valkynaz Ruhn, Warden of the Burning Gate', 'The Venom-Blooded - Scarring, Grudge-Bearer']);   // WB8c: day 741's marks
     assert.equal(onRing.label, `Oblivion Gate - seals in ${countdownText(t.sealAt - clock.now)}`);
     const [ox, oy] = toPaper(win._view, 9.5, 9.5);
     assert.equal(win._hoverLabel(ox, oy).tip, undefined, 'past the ring: the province, no card');

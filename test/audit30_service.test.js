@@ -165,7 +165,8 @@ test('AUDIT 30 S6 + S8/L2: a piece standing in a home is not listed, and stands 
   const mac = await s.registered('Mac');
   s.fund(mac, 10_000);
   const HOME = { mapId: 1291010263, buildingKey: 0x10203 };
-  assert.equal((await s.call('/v1/homes/claim', { ...HOME, region: DF, character: mac.character, price: 42000 }, mac.secret)).status, 200);
+  const house = await s.seatHome(mac, { ...HOME, region: DF, price: 42000 });   // MERGE 2: a house is a realm character's (AUDIT REALM2 S2)
+  assert.equal(house.status, 200);
   s.raw.prepare(`INSERT INTO prof_tracks (player, char_id, profession, xp, spec50, spec100, updated_at) VALUES (?, ?, 'carpentry', ?, NULL, 'master-joiner', 1)`)
     .run(mac.id, mac.character, xpForRank(100));
   s.give(mac, 'plank:oak', 'own', 3);
@@ -174,7 +175,7 @@ test('AUDIT 30 S6 + S8/L2: a piece standing in a home is not listed, and stands 
   const pv = made.body.pieces[0].provenance;
   const at = (item, id) => ({ id, model: 41000, flat: null, pos: [1, 0, 1], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 0, item });
   const marks = [];
-  for (const id of ['tb1', 'tb2', 'tb3']) marks.push((await s.call('/v1/homes/decor/place', { ...HOME, character: mac.character, piece: at({ t: 225, g: 8, pv }, id) }, mac.secret)).body.piece?.item?.pv ?? null);
+  for (const id of ['tb1', 'tb2', 'tb3']) marks.push((await s.call('/v1/homes/decor/place', { ...HOME, character: house.character, piece: at({ t: 225, g: 8, pv }, id) }, mac.secret)).body.piece?.item?.pv ?? null);
   assert.deepEqual(marks, [pv, null, null], 'one piece set down marked three times');
   const l = await s.call('/v1/market/list', { character: mac.character, region: DF, kind: 'piece', provenance: pv, wear: 1000, price: 100, hubs: HUBS, rid: rid() }, mac.secret);
   assert.equal(l.body.error, 'market-standing', 'sold while it stood in the seller\'s home');

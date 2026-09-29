@@ -1,7 +1,7 @@
 // NOTICE1 (2026-09-28, Mac: "The new notice board should be a physical object that houses quests, the player auction
 // house, etc"; "Go"): THE NOTICE BOARD - the law both ends read (src/net/boardLaw.js), the account service's notes,
 // reports and notices driven through the real Worker over node:sqlite with every migration applied
-// (server-account/src/board.js, 0019_board.sql), and the client's book, window and wiring.
+// (server-account/src/board.js, 0026_board.sql), and the client's book, window and wiring.
 // bible/06-Systems/Professions-Arc.md 10.1, 10.6 and 10.7.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -55,7 +55,7 @@ async function stand({ open = 'on', developers = 'Devra', moderators = 'Mora' } 
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const pkcs8 = Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64');
   const env = {
-    DB: d1(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*',
+    DB: d1(), SAVES: r2(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*',   // MERGE 2: SAVES, the realm's records
     BOARD_OPEN: open, DEVELOPER_HANDLES: developers, MODERATOR_HANDLES: moderators,
   };
   const call = async (path, body, bearer = null) => {
@@ -66,14 +66,15 @@ async function stand({ open = 'on', developers = 'Devra', moderators = 'Mora' } 
     }), env);
     return { status: res.status, body: await res.json().catch(() => null) };
   };
-  const guest = async () => (await call('/v1/auth/guest', {})).body;
+  const guest = async () => (await call('/v1/auth/guest', { ...ACCEPTED })).body;   // MERGE 2: main's TERMS1
   const registered = async (handle, { renown = 1 } = {}) => {
     const g = await guest();
-    assert.equal((await call('/v1/auth/register', { handle, password: 'a good long one' }, g.secret)).status, 200, `${handle} registers`);
+    assert.equal((await call('/v1/auth/register', { handle, password: 'a good long one', ...ACCEPTED }, g.secret)).status, 200, `${handle} registers`);
     const character = `char-${handle.toLowerCase()}`;
     if (renown > 1) {
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(g.id, character, handle, renownXpFor(renown), T0, T0);
+      // MERGE 2: main's RENOWN-ACCOUNT - the Renown is the account's one track (renown_accounts), whichever character
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(g.id, renownXpFor(renown), T0, T0);
     }
     return { secret: g.secret, id: g.id, character, handle };
   };
@@ -134,9 +135,9 @@ test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHE
   for (const r of ['/v1/board/read', '/v1/board/pin', '/v1/board/take-down', '/v1/board/report', '/v1/board/mod/remove', '/v1/board/mod/restore', '/v1/board/notice', '/v1/board/notice/remove']) {
     assert.ok(ROUTES.has(r), r);
   }
-  assert.equal(ACCOUNT_VERSION, 'acct29');   // the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that, PROF5 after that, AUDIT 30 after that, PROF5b after that, PROF6 after that, AUDIT 31 after that
+  assert.equal(ACCOUNT_VERSION, 'acct30');   // MERGE 2 moved it on past main's realm (acct23); the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that, PROF5 after that, AUDIT 30 after that, PROF5b after that, PROF6 after that, AUDIT 31 after that
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /^ACCOUNT_VERSION = "acct29"$/m);
+  assert.match(toml, /^ACCOUNT_VERSION = "acct30"$/m);
   assert.match(toml, /^BOARD_OPEN = "dev"$/m, 'the board ships at dev');
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/boardLaw\.js"/, 'the law the Worker bundles deploys it');
 });
@@ -226,11 +227,14 @@ test('NOTICE1 moderation: a moderator sees what reports hid, with the count, and
 });
 
 test('NOTICE1 a recruitment note names its guild: only a rank that may invite pins one; a guild that is gone leaves the note without its button', async () => {
-  const { read, pin, call, registered } = await stand();
+  const { env, read, pin, call, registered } = await stand();
   const gm = await registered('Aldric', { renown: 10 });
   const recruit = await registered('Bran');
   const lone = await registered('Cyra');
-  const founded = await call('/v1/guilds/found', { character: gm.character, name: 'The Hound', tag: 'HND' }, gm.secret);
+  // MERGE 2: a founding is a realm character's, paid on its record (main's AUDIT REALM2 S2) - Aldric plays one from here
+  const R = await seatRealm(env, gm.secret, gm.handle, { name: gm.handle, level: 9, goldPieces: GUILD_FOUND_GOLD * 10, items: [] });
+  gm.character = R.id;
+  const founded = await call('/v1/guilds/found', { character: R.id, name: 'The Hound', tag: 'HND', realm: R.at() }, gm.secret);
   const { guild } = founded.body ?? {};
   assert.ok(guild?.id, `the guild stands: ${JSON.stringify(founded)}`);
   await call('/v1/guilds/invite', { character: gm.character, handle: 'Bran' }, gm.secret);
@@ -286,6 +290,9 @@ import { noticeCards, timeLeftText, snippetOf, NOTICE_SEALS } from '../src/ui/no
 import { REFUSALS, accountRefusalText } from '../src/net/accountClient.js';
 import { HOST_COMMANDS } from '../src/net/chatCommands.js';
 import { RemotePlayers } from '../src/net/remotePlayers.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // MERGE 2: TERMS1 - a request that makes an account carries the versions ticked
+import { r2, seatRealm } from './realmSeat.mjs';   // MERGE 2: a founding is a realm character's (AUDIT REALM2 S2)
+import { GUILD_FOUND_GOLD } from '../src/net/guildLaw.js';
 
 function memoryStorage() {
   const m = new Map();

@@ -22,8 +22,9 @@
 //   digits, spaces and a little punctuation, so no markdown, no link and no mention rides them.
 //
 // Not a DFU member: Daggerfall has no other players and no Discord. Ledger A (DISCORD-GATES).
-import { gameDayAt, isGateDay, gateAt, gateTimes, gateBossOf, GATE_EVERY_DAYS, GATE_COLLAPSE_MS } from './gateLaw.js';
+import { gameDayAt, isGateDay, gateAt, gateTimes, gateBossOf, gateModsOf, GATE_EVERY_DAYS, GATE_COLLAPSE_MS } from './gateLaw.js';
 import { GATE_TOP_MAX, NAME_MAX } from './wire.js';
+import { readGateMods } from './gateMods.js';   // WB8c: tonight's marks in the omen's post
 
 /** How soon a post Discord did not take is posted again, ms. */
 export const HERALD_RETRY_MS = 30_000;
@@ -58,16 +59,18 @@ const stamp = (ms, style) => `<t:${Math.floor(ms / 1000)}:${style}>`;
 const listOf = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] ?? '');
 
 /**
- * THE OMEN'S POST: where the sky burns, when the gate opens and seals, and who holds it - the role pinged first.
+ * THE OMEN'S POST: where the sky burns, when the gate opens and seals, and who holds it - the role pinged first. WB8c:
+ * and the marks he comes under tonight (net/gateLaw.js gateModsOf - the words are the tables', never a player's).
  * @param {{day: number, place?: string|null, role?: string|null}} o
  */
 export function omenPost({ day, place = null, role = null }) {
-  const t = gateTimes(day), boss = gateBossOf(day);
+  const t = gateTimes(day), boss = gateBossOf(day), { aspect, trials } = readGateMods(gateModsOf(day));
   const ping = role ? `<@&${role}> ` : '';
   const where = place ? `near ${place}` : 'over the wilds';
   const map = place ? '' : ' - it is marked on your map';
+  const marks = ` Tonight he comes **${aspect.epithet}**${trials.length ? `, ${listOf(trials.map((x) => x.name))}` : ''}.`;
   return {
-    content: `${ping}**The sky burns ${where}.** An Oblivion Gate opens ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}) and seals at ${stamp(t.sealAt, 't')}${map}. ${boss.name}, ${boss.title}, holds it.`,
+    content: `${ping}**The sky burns ${where}.** An Oblivion Gate opens ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}) and seals at ${stamp(t.sealAt, 't')}${map}. ${boss.name}, ${boss.title}, holds it.${marks}`,
     allowed_mentions: role ? { roles: [role] } : { parse: [] },
   };
 }

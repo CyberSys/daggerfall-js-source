@@ -9,7 +9,8 @@
 //   - what may not be offered is the pack's own refusals: worn gear (systems/equip.js isEquipped - a staged worn item
 //     would leave equip.slots pointing at it, AUDIT 17e F4), quest items (the quest owns them), summoned items (they
 //     vanish on a clock), gold-piece items (gold is offered as gold), and bound pieces (SS1, systems/itemBound.js: a
-//     Sigil Stone is never handed to another player - and a peer's lot carrying one is refused whole, below);
+//     Sigil Stone is never handed to another player - and a peer's lot carrying one is refused whole, below), and a
+//     Come Sail Away boat's deed or parts (AUDIT REALM2 T1: the realm's own law, net/realmTradeLaw.js BOAT_TEMPLATES);
 //   - weight is systems/inventory.js's own arithmetic against combat/formulas.js entityMaxEncumbrance.
 import { validLootList } from './loot.js';
 import { splitStack, addItem, itemWeight, totalWeight, carriedWeight, isSummoned, isGoldPieces, addGoldPieces, goldPiecesOf, GOLD_PIECE_WEIGHT_KG } from './inventory.js';
@@ -17,6 +18,7 @@ import { isEquipped } from './equip.js';
 import { clearLightSourceOnLeave } from './itemTransfer.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';
 import { isBound, BOUND_TRADE_TEXT } from './itemBound.js';   // SS1: a bound piece never leaves for another player
+import { BOAT_TEMPLATES } from '../net/realmTradeLaw.js';   // AUDIT REALM2 T1: nor a boat's deed or parts - what they stand for stays in the giver's save
 
 /** Why an item may not be put on the table, or null. Words a player can act on. */
 export function tradeRefusal(item) {
@@ -26,6 +28,7 @@ export function tradeRefusal(item) {
   if (isSummoned(item)) return 'Summoned items cannot be traded.';
   if (isGoldPieces(item)) return 'Offer gold with the gold box.';
   if (isBound(item)) return BOUND_TRADE_TEXT;   // SS1
+  if (BOAT_TEMPLATES.includes(item.templateIndex)) return 'Boat deeds and boat parts cannot be traded.';   // AUDIT REALM2 T1
   return null;
 }
 
@@ -60,6 +63,11 @@ export function createTradePack(entity) {
      *  or any is BOUND (SS1: a peer that holds one out - an older build, a forged frame - offers what may not change
      *  hands, and the lot is refused whole, the trade's own word for a forgery). */
     unwire(records) { const items = validLootList(records); return items && !items.some(isBound) ? items : null; },
+
+    /** AUDIT REALM L1-F1: where each offered item stands in the pack - its index in the list a save writes as `items`
+     *  (systems/save.js snapshotPlayer keeps the order) - read BEFORE the goods are reserved, so a realm trade's half
+     *  names the very records its checkpoint holds (net/realmTradeLaw.js realmTradePickOf); -1 for one not here. */
+    picks(entries) { const items = list(); return entries.map(({ item }) => items.indexOf(item)); },
 
     /** Take the goods OUT of the pack (reserve). All-or-nothing: a lot that is not entirely here comes back null. */
     take(entries, gold) {

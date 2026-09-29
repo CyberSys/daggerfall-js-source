@@ -16,6 +16,7 @@
 //   - a fresh Collider over every placement and action-door mesh,
 //   - enter markers and interior static doors for the landing math.
 
+import { IIL_FIREPLACE_MODELS } from '../systems/improvedInteriorLighting.js';   // IIL1
 import { FlatAnimator, armFlatAnim } from '../render/flatAnimation.js';   // FA1: the flats that move
 import { layoutInterior, INTERIOR_MARKER, PROP_MODEL_TYPE } from '../world/interiorLayout.js';
 import { multiply, transformPoint, identity } from '../world/mat4.js';
@@ -36,6 +37,7 @@ import { createBaseRoom, baseBucketOf } from './decorBase.js';   // BASE-HIDE: a
 import { decorBaseModelKey, decorBaseFlatKey } from '../net/decorLaw.js';   // BASE-HIDE: the layout's names for them
 import { mountMachineryChild } from '../world/windmills.js';
 import { collectInteriorPeople } from '../characters/interiorPeople.js';
+import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity off draws a nude figure's clothed stand-in
 import { trs } from '../world/mat4.js';
 import { buildRaceCharacter, raceOfArchive } from '../characters/raceCharacter.js';
 import { createCharacterRig, deriveClassicRamps } from '../characters/engineRig.js';
@@ -110,8 +112,9 @@ export function seedInteriorTreasure({ markers, building, locationType, pool, le
     if (pool.containerSeeded(key)) return;   // the cache already holds this container
     // LootTables.cs:146-159 - the matrix, then the J..O map/potion/
     // recipe tail, on the PLAYER's level and gender.
-    // FORAGE3: OnLootSpawned at the LOCATION type's index, which Foraging reads as the dungeon type of that number (Q12)
-    const items = rollLootRarity(addPileLootExtras(generateLootItems(lootKey, { level, gender }), lootKey, Math.random, { locationIndex: locationType, luck }), pileSource(INTERIOR_RARITY_TIER), { luck });   // LR1
+    // FORAGE3: OnLootSpawned at the LOCATION type's index, which Foraging reads as the dungeon type of that number (Q12);
+    // REALM P0.4: online, the level's gold divided back
+    const items = rollLootRarity(addPileLootExtras(generateLootItems(lootKey, { level, gender }), lootKey, Math.random, { locationIndex: locationType, luck, level }), pileSource(INTERIOR_RARITY_TIER), { luck });   // LR1
     stampWonWeapons(items, 1);   // SIGIL1: a pile found online, its weapons' sigils rolled at the mint
     minted.push(pool.seedPile(items, pos, { archive: DROP_ICON_ARCHIVES.clothing, record: 0 }, key));
   });
@@ -331,6 +334,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
   // and put back while the room stands (scenes/decorBase.js). Every other room is built as it always was. The ladder and
   // the mill's machinery are the building's workings, not its furniture.
   const base = opts.baseEditable ? createBaseRoom({ drawList, batches: () => billboardBatches, lights: () => lights, collider }) : null;
+  const iilFireplaces = [];   // IIL1: the fireplace models' centres (Improved Interior Lighting)
   for (const [pi, p] of interior.placements.entries()) {
     const matrix = parent(p.matrix);
     // NEVER TRAPS: getGpuMesh returns NULL for a model id this data set
@@ -361,6 +365,8 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
       floorMaterials.push(unityMaterialName(a, r));
     }
     const aabb = worldAabb(cpu.positions, matrix);
+    // IIL1: ImproveFireplaces.cs finds its hearths by mesh id - the port keeps where they stand
+    if (IIL_FIREPLACE_MODELS.has(p.modelIdNum)) iilFireplaces.push({ x: (aabb.min[0] + aabb.max[0]) / 2, y: (aabb.min[1] + aabb.max[1]) / 2, z: (aabb.min[2] + aabb.max[2]) / 2 });
     const key = `int:${pi}`;
     const baseKey = base && p.objectType === PROP_MODEL_TYPE && p.modelIdNum !== LADDER_MODEL_ID && p.modelIdNum !== MACHINERY_MODEL_ID
       ? decorBaseModelKey(pi, p.modelIdNum) : null;   // BASE-HIDE: a piece its owner may take out
@@ -487,7 +493,12 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     // keeps its born archive/record for StaticNPC's identity (the name
     // seed, the FLATS.CFG face) and draws the answered one
     const v = opts.variantPerson?.(pn) ?? null;
-    return { ...pn, x, y, z, active: visible, questBehaviour: null, ...(v ? { drawArchive: v.textureArchive, drawRecord: v.textureRecord } : {}) };
+    // NUDE-FLATS: and whatever the person draws as, a nude figure draws its
+    // clothed stand-in while Show Nudity is off - the temples of Kynareth's
+    // own two among them. Same door, same born identity.
+    const [da, dr] = drawnFlat(v?.textureArchive ?? pn.textureArchive, v?.textureRecord ?? pn.textureRecord);
+    const redrawn = v || da !== pn.textureArchive || dr !== pn.textureRecord;
+    return { ...pn, x, y, z, active: visible, questBehaviour: null, ...(redrawn ? { drawArchive: da, drawRecord: dr } : {}) };
   });
   // AUDIT 24 (wave 20): AddPeople's LAST act on every person it stands
   // is `QuestMachine.Instance.SetupIndividualStaticNPC(go, obj.FactionID)`
@@ -819,6 +830,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     rotors,      // WM4b: the machinery's moving parts; the host turns and draws them
     parentPt,   // Q4-v: the quest mount parents marker positions through the same transform
     lights,
+    iilFireplaces,   // IIL1
     texRemap,
     floorMaterials,   // IF1: the combined mesh's material names, for Immersive Footsteps' floor walk
     markers,

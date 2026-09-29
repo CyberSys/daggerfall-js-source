@@ -222,7 +222,7 @@ test('PROF1 law: the witnessed pixel - three agreeing confirm, and the confirmed
 test('PROF1 law: Court writs - 6 x max(1, ceil(active / 100)) a region a day; the pay units x value x 1.2, the Renown 25 x tier x units / 10 (Appendix A: 30 Red Poppies, 72 Marks and 150 Renown); three an account a day, the Marks\' second faucet', () => {
   assert.deepEqual([0, 1, 100, 101, 250, 300, 301].map(courtWritCount), [6, 6, 6, 12, 18, 18, 24]);
   assert.equal(COURT_WRITS_PER_DAY, 3);
-  assert.deepEqual([writPay(30, 2), writRenown(2, 30)], [72, 150]);
+  assert.deepEqual([writPay(30, 2), writRenown(2, 30)], [72, 112]);   // MERGE 2: the Renown at main's RENOWN-ACCOUNT rate - 150 at the full rate, three quarters floored (renown.js renownRate)
   assert.deepEqual(MARKS_FAUCETS.writ, { perDay: 3 });
   assert.equal(MARKS_KINDS.writ, 'mint');
   assert.equal(MARKS_KINDS.respec, 'burn');

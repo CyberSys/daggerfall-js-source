@@ -14,7 +14,7 @@ import {
   keepInCourt, dpsRef, clampLv, COURT_CENTRE, COURT_R, BOSS_R, BOSS_REACH_R, BOSS_SPEED, BRAIN_TICK_MS, CHECKPOINT_MS, OPENING_MS,
   STATE_SEND_MS, HP_SEND_MS, SHIELD_MS, PHASE_AT, PHASE3_WINDUP, BOSS_TTK_S, BUCKET_RATE_X, BUCKET_DEPTH_X, HIT_CAP_X,
   GATE_HIT_HZ_MAX, MELEE_REACH, POSE_SLACK, HIT_KINDS, ATTACKS, ATTACK_BY_ID, THREAT_PICK, RECEIPT_SHARE, STOOD_SHARE,
-  GATE_FIGHTERS_MAX, LV_MAX, TARGET_HOLD_MS, TURN_BREATH_MS, wrapYaw,
+  GATE_FIGHTERS_MAX, LV_MAX, TARGET_HOLD_MS, TURN_BREATH_MS, wrapYaw, profileOf,
 } from '../src/net/gateBrain.js';
 import { mintReceipt, verifyReceipt, readReceipt, receiptValid, importReceiptKey, RECEIPT_V, RECEIPT_MAX, RECEIPT_TTL_S } from '../src/net/gateReceipt.js';
 import { mintToken, verifyToken, _b64url } from '../src/net/identityToken.js';
@@ -311,7 +311,7 @@ test('WB3 brain: the checkpoint - the fight is plain numbers and strings, so the
   assert.deepEqual(copy, f);
   for (let t = T0 + 20000; t < T0 + 40000; t += 250) assert.deepEqual(stepBrain(copy, t, bodies, seeded(t)), stepBrain(f, t, bodies, seeded(t)));
   const st = stateOf(f);
-  assert.deepEqual(Object.keys(st).sort(), ['atk', 'b', 'd', 'fell', 'h', 'k', 'm', 'mv', 'n', 'ph', 'sh', 'wr', 'wrath', 'x', 'yw', 'z']);
+  assert.deepEqual(Object.keys(st).sort(), ['atk', 'b', 'd', 'fell', 'h', 'k', 'm', 'md', 'mv', 'n', 'ph', 'sh', 'wr', 'wrath', 'x', 'yw', 'z']);   // WB8b: his marks
   assert.deepEqual(validGateOut(st), { ...st }, 'and the wire takes it whole');
   assert.ok(keepInCourt(100, 0)[0] === BOSS_REACH_R);
   assert.equal(HP_SEND_MS, BRAIN_TICK_MS, 'the health at most once a beat');
@@ -387,7 +387,7 @@ test('WB3 wire: the client says two things - `in` with a level claim, `hit` with
   assert.deepEqual(validGateIn({ k: 'in', lv: 12, bv: 1.5 }), { k: 'in', lv: 12 });
   assert.deepEqual(validGateIn({ k: 'spent', d: 514, x: 1 }), { k: 'spent', d: 514 });
   for (const bad of [{ k: 'spent' }, { k: 'spent', d: -1 }, { k: 'spent', d: 1.5 }]) assert.equal(validGateIn(bad), null);
-  assert.deepEqual(GATE_OUT_KINDS, ['st', 'mv', 'atk', 'hp', 'ph', 'wrath', 'fell', 'rcpt', 'no']);
+  assert.deepEqual(GATE_OUT_KINDS, ['st', 'mv', 'atk', 'hp', 'ph', 'wrath', 'fell', 'rcpt', 'no', 'fed']);   // WB8b: a Soul-Hungry Warden's feeding
   assert.deepEqual(validGateIn({ k: 'in', lv: 12, x: 1 }), { k: 'in', lv: 12 });
   assert.deepEqual(validGateIn({ k: 'hit', q: 3, d: 12.5, r: 2, extra: true }), { k: 'hit', q: 3, d: 12.5, r: 2 });
   for (const bad of [{ k: 'in' }, { k: 'in', lv: 0 }, { k: 'in', lv: GATE_LV_WIRE_MAX + 1 }, { k: 'in', lv: 1.5 }, { k: 'hit', q: -1, d: 1, r: 0 }, { k: 'hit', q: 1, d: 0, r: 0 },
@@ -503,9 +503,9 @@ test('WB3 relay: A BLOW - believed as far as the brain allows from where the soc
     assert.equal(f.hp, full, 'from the dead');
     await r.pose(a, at(0, 3));
     await say(a, { k: 'hit', q: 4, d: 10, r: 0 });
-    assert.equal(f.hp, full - 10);
+    assert.equal(f.hp, full - 10 * profileOf(f).hitX, 'the blow as his marks take it (WB8b: Unyielding\'s lighter)');
     await tick(1);
-    assert.deepEqual(gates(a, 'hp').at(-1), { t: 'gate', k: 'hp', h: full - 10, m: f.max });
+    assert.deepEqual(gates(a, 'hp').at(-1), { t: 'gate', k: 'hp', h: Math.round(full - 10 * profileOf(f).hitX), m: f.max });
     // a flood of frames that are not junk - the meter's own strikes close it
     for (let i = 0; i < GATE_HZ_MAX + DROP_STRIKES_MAX + 2; i++) await say(a, { k: 'in', lv: 10, bv: GATE_BRAIN_V });
     assert.ok(a.closed, 'a flood of `in` is struck out by the gate meter');
@@ -580,7 +580,7 @@ test('WB3 relay: NO KEY - the fight and its receipts run the same, unsigned (the
     const a = r.connect(); await r.hello(a, 'peer-0001', at(0, 3));
     await say(a, { k: 'in', lv: 10, bv: GATE_BRAIN_V });
     await tick(20);
-    const hp = r.room._fight.hp - 10;
+    const hp = r.room._fight.hp - 10 * profileOf(r.room._fight).hitX;   // WB8b: the day's marks
     await say(a, { k: 'hit', q: 1, d: 10, r: 0 });
     await tick(Math.ceil(CHECKPOINT_MS / BRAIN_TICK_MS) + 1);
     r.wake();

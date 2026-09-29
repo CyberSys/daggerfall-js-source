@@ -25,6 +25,7 @@ import { LOOT_CONTAINER_TYPES } from './sceneCache.js';
 import { rriModule } from './rriItems.js';
 import { liveStat } from './statMods.js';
 import { equipTableOf, equipItem } from './equip.js';
+import { getItemHands, ITEM_HANDS } from '../characters/equipTable.js';   // SWING-LAW: a two-hander's handling
 import { isQuestionsDagger, QUESTIONS_DAGGER_WEAR } from './conditionRepair.js';   // DISC21-A: the questions' dagger, one home
 import { EQUIP_SLOTS } from '../characters/paperdoll.js';
 import { WEAPON_TYPES } from '../combat/fpsWeapon.js';
@@ -40,7 +41,7 @@ import {
  *  arm. The port's callers hand `ctx` = { entity, weaponType,
  *  usingRightHand }; without one there is no strength to read and DFU's
  *  line stands. */
-export function rriAnimTimeOverride(liveSpeed, ctx, classicFrameUpdate) {
+export function rriAnimTimeOverride(liveSpeed, ctx) {
   if (!weaponBalanceOn() || !ctx?.entity) return null;
   const slots = equipTableOf(ctx.entity);
   const weapon = slots?.[ctx.usingRightHand === false ? EQUIP_SLOTS.LeftHand : EQUIP_SLOTS.RightHand] ?? null;
@@ -48,7 +49,8 @@ export function rriAnimTimeOverride(liveSpeed, ctx, classicFrameUpdate) {
   return rriMeleeWeaponAnimTime({
     liveSpeed, liveStrength: liveStat(ctx.entity, 'strength'),
     weaponWeight: melee ? null : (templateByIndex(weapon.templateIndex)?.baseWeight ?? 0), melee,
-  }, classicFrameUpdate);
+    weaponType: ctx.weaponType, twoHanded: !melee && getItemHands(weapon) === ITEM_HANDS.Both,   // SWING-LAW: the handling the port's law reads
+  });
 }
 
 // ---- ItemEnums.cs, the templates the kit names ---------------------------

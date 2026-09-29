@@ -29,6 +29,15 @@
 //   which, and the tab says to read it.
 // - A WITHDRAWAL: the treasury gives first, then the purse takes it.
 //
+// REALM P2.2: A REALM CHARACTER'S GOLD IS ITS RECORD'S. For a realm
+// character (`realm`, the host's systems/realmSaves.js realmGoldAct) the
+// service pays or credits the record in the act's own batch, so there is
+// no order to choose: the purse is checkpointed, the purse pays at once
+// (a founding, a deposit), the service moves both or neither, a refusal
+// gives the gold back and a withdrawal's gold comes in on the answer. A
+// lost answer is asked again; still lost, the session ends and a join
+// reads the truth - the tab never guesses.
+//
 // Every act ends in a fresh look, so what the tab draws is always the
 // service's word, never this client's guess.
 //
@@ -77,17 +86,20 @@ export class GuildBook {
    * @param {object} opts
    * @param {any} opts.door  net/accountClient.js accountGuilds - every answer `call`'s shape
    * @param {() => (string|null)} opts.character  the character playing, or null
-   * @param {() => ({ gold: () => number, pay: (n: number) => void, credit: (n: number) => void })} opts.wallet
-   *        the purse, then this region's bank account
+   * @param {() => ({ gold: () => number, pay: (n: number) => void, credit: (n: number) => void, region?: () => number })} opts.wallet
+   *        the purse, then this region's bank account (`region`: which - REALM P2.2's record pays from the same one)
    * @param {() => number} [opts.now]  ms
    * @param {((orders: { order?: string, outOrder?: string }) => void)|null} [opts.onOrders]  GUILD1c: the host carries them
    * @param {any} [opts.marks]  MARKS1: the account's Marks book (net/marksBook.js), or null
    * @param {any} [opts.profStores]  PROF6: the guild Stores' host - `{ writs, open, mine, name }`: the writs' book
    *        (net/writBook.js), whether the professions are this account's, the character's own Stores (a Map), a
    *        material's name for a count - or null
+   * @param {{ act: (o: any) => Promise<any> } | null} [opts.realm]  REALM P2.2: a realm character's act on its record
+   *        (systems/realmSaves.js realmGoldAct over the playing session), or null for any other character
    */
-  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null, profStores = null }) {
+  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null, profStores = null, realm = null }) {
     this.door = door;
+    this.realm = realm;
     /** MARKS1: the account's Marks book (net/marksBook.js) - the Marks treasury moves through it; null offline */
     this.marks = marks;
     /** PROF6: the guild Stores and the Officers' writ budget (Professions-Arc 7, 28); null offline */
@@ -179,9 +191,19 @@ export class GuildBook {
     }
   }
 
-  /** FOUND ONE: the service first, then the purse - or the guild goes again when the purse cannot pay. */
+  /** FOUND ONE: the service first, then the purse - or the guild goes again when the purse cannot pay. A realm character's
+   *  record pays in the founding's own batch (REALM P2.2). */
   async found(name, tag) {
     if (this.wallet().gold() < GUILD_FOUND_GOLD) return { ok: false, error: 'gold' };
+    if (this.realm) {
+      return this._act((character) => {
+        const w = this.wallet();
+        return this.realm.act({
+          reserve: () => { w.pay(GUILD_FOUND_GOLD); return () => w.credit(GUILD_FOUND_GOLD); },
+          call: (/** @type {any} */ at) => this.door.found({ character, name, tag, realm: at, region: w.region?.() ?? null }),
+        });
+      });
+    }
     return this._act(async (character) => {
       const r = await this.door.found({ character, name, tag });
       if (!r?.ok) return r;
@@ -196,11 +218,18 @@ export class GuildBook {
     });
   }
 
-  /** PUT GOLD IN: the purse first; a refusal gives it back, a lost answer does not. */
+  /** PUT GOLD IN: the purse first; a refusal gives it back, a lost answer does not. A realm character's record pays in the
+   *  treasury's own batch (REALM P2.2). */
   async deposit(gold) {
     if (!guildGoldOk(gold)) return { ok: false, error: 'bad-gold' };
     const w = this.wallet();
     if (w.gold() < gold) return { ok: false, error: 'gold' };
+    if (this.realm) {
+      return this._act((character) => this.realm.act({
+        reserve: () => { w.pay(gold); return () => w.credit(gold); },
+        call: (/** @type {any} */ at) => this.door.deposit(character, gold, at, w.region?.() ?? null),
+      }));
+    }
     return this._act(async (character) => {
       w.pay(gold);
       const r = await this.door.deposit(character, gold);
@@ -210,9 +239,16 @@ export class GuildBook {
     });
   }
 
-  /** TAKE GOLD OUT: the treasury first, then the purse. */
+  /** TAKE GOLD OUT: the treasury first, then the purse. A realm character's record takes it in the treasury's own batch,
+   *  and the purse on the answer (REALM P2.2). */
   async withdraw(gold) {
     if (!guildGoldOk(gold)) return { ok: false, error: 'bad-gold' };
+    if (this.realm) {
+      return this._act((character) => this.realm.act({
+        apply: () => this.wallet().credit(gold),
+        call: (/** @type {any} */ at) => this.door.withdraw(character, gold, at),
+      }));
+    }
     return this._act(async (character) => {
       const r = await this.door.withdraw(character, gold);
       if (r?.ok) this.wallet().credit(gold);

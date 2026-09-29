@@ -71,7 +71,7 @@ async function stand(extra = {}) {
   const guild = async (marks = 20_000) => {
     const gm = await s.registered('Aldric', { renown: 10 });
     s.seedMarks(gm, 100_000, 'gm');
-    const g = (await call('/v1/guilds/found', { character: gm.character, name: 'The Hound', tag: 'HND' }, gm.secret)).body.guild;
+    const g = (await s.found(gm, { name: 'The Hound', tag: 'HND' })).body.guild;
     const join = async (handle) => {
       const w = await s.registered(handle, { renown: 1 });
       await call('/v1/guilds/invite', { character: gm.character, handle }, gm.secret);
@@ -257,7 +257,7 @@ test('PROF6 service: a guild writ past its seventh day is closed by anyone\'s Wo
   await s.stores(gm, 'withdraw', OAK, 3);
   // a guild with no Marks at all keeps its Stores too: nothing swept, nothing lost with the cascade
   const pena = await s.registered('Pena', { renown: 10 });
-  const g2 = (await s.call('/v1/guilds/found', { character: pena.character, name: 'The Kiln', tag: 'KLN' }, pena.secret)).body.guild;
+  const g2 = (await s.found(pena, { name: 'The Kiln', tag: 'KLN' })).body.guild;
   s.give(pena, OAK, 'own', 2);
   await s.stores(pena, 'deposit', OAK, 2);
   assert.equal((await s.call('/v1/guilds/disband', { character: pena.character }, pena.secret)).body.error, 'guild-stores');
@@ -430,14 +430,14 @@ test('PROF6 service: a commission withdrawn by its poster, declined by its craft
   assert.ok(s.addsUp());
 });
 
-test('PROF6 service: the notes\' rebuild for the fourth button keeps every note and its reports, and a note gone still takes its reports (0027_writs.sql over a board that stood before it)', async () => {
+test('PROF6 service: the notes\' rebuild for the fourth button keeps every note and its reports, and a note gone still takes its reports (0034_writs.sql over a board that stood before it)', async () => {
   const { DatabaseSync } = await import('node:sqlite');
   const { readdirSync, readFileSync } = await import('node:fs');
   const dir = new URL('../server-account/migrations/', import.meta.url);
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON');
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
-    if (f === '0027_writs.sql') {
+    if (f === '0034_writs.sql') {
       db.exec(`INSERT INTO players (id, handle, handle_lc, guest_name, created_at, last_seen) VALUES ('p1', 'Ann', 'ann', 'A b', 1, 1), ('p2', 'Bob', 'bob', 'B c', 1, 1)`);
       db.exec(`INSERT INTO board_notes (id, map_id, author, author_name, subject, body, button, at, expires_at, rid) VALUES ('n1', 5, 'p1', 'Ann', 's', 'b', 'duel', 1, 999, 'rid00001')`);
       db.exec(`INSERT INTO board_reports (note_id, reporter, at) VALUES ('n1', 'p2', 2)`);

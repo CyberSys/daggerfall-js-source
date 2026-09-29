@@ -8,6 +8,7 @@
 // original-archive sizes while pixels come from the table archive,
 // which is exactly the dungeon convention already on record.
 
+import { IIL_LIGHT_ARCHIVE } from '../systems/improvedInteriorLighting.js';   // IIL1
 import { FlatAnimator, armFlatAnim, MISSILE_FPS } from '../render/flatAnimation.js';   // FA1: the flats that move
 import { markFoeStruck } from '../ui/hudFoeTarget.js';
 import { quickslotHand } from '../ui/quickslotTags.js';   // DISC21-C: an empty quickslot press reads the hand   // PX30
@@ -36,9 +37,10 @@ import { enemyControllerHeight, idleSpriteHeight, flyerStandFeet, centreFromFeet
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobileUnit.js';   // C11: classic sprite monsters   // A5: the Seducer transform pair + its trigger
 import { dfMeshToModel, GLOBAL_SCALE } from '../world/meshReader.js';
 import { customModelFor, emptyModel } from '../world/customModels.js';   // DS1: models no ARCH3D carries, and GetModelData's false
-import { RDB_SIDE, MOVE_ACTION_FLAGS, ACTION_FLAGS } from '../world/rdbLayout.js';   // WAVE D: the move family - an acting FLAT tweens like the model beside it
+import { RDB_SIDE, MOVE_ACTION_FLAGS, ACTION_FLAGS, TRIGGER_FLAGS } from '../world/rdbLayout.js';   // WAVE D: the move family - an acting FLAT tweens like the model beside it
 import { NPC_CONTEXT } from '../characters/staticNpc.js';   // AUDIT 64 F13: StaticNPC.SetLayoutData(RdbObject) stamps Context.Dungeon
-import { EFFECT_ACTION_FLAGS, COLLISION_TIMEOUT_S, isActionDoorObject, hasActionCollision, classifyPlacementAction, lookAtLockText, LOCKPICKING_SUCCESS_TEXT, LOCKPICKING_FAILURE_TEXT, DOOR_TEXT_HUD_DELAY_S, sharedRecord, validActionRecord } from '../world/actionSystem.js';   // AUDIT WORLD3 B1: the shared half of a record - the picker's latch stays home; AUDIT WORLD34 C2: and the memory's records projected like an act's
+import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity off draws a nude figure's clothed stand-in
+import { EFFECT_ACTION_FLAGS, COLLISION_TIMEOUT_S, isActionDoorObject, hasActionCollision, standsOnAction, actionContact, classifyPlacementAction, lookAtLockText, LOCKPICKING_SUCCESS_TEXT, LOCKPICKING_FAILURE_TEXT, DOOR_TEXT_HUD_DELAY_S, sharedRecord, validActionRecord } from '../world/actionSystem.js';   // AUDIT WORLD3 B1: the shared half of a record - the picker's latch stays home; AUDIT WORLD34 C2: and the memory's records projected like an act's
 import { TextRsc } from '../formats/textRsc.js';
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';
 import { releaseUnloadGuard } from '../systems/unloadGuard.js';   // AUDIT-MACL F3: the chargen Cancel is a door the game opened   // U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
@@ -136,7 +138,8 @@ import { tickPlayerMinutes, claimMagicRounds, runMagicRoundsFor, playerWeaponHit
 import { mintSharedStamp, hitPoisonOf, HIT_ARROWS_MAX, respawnDue, wallMsForClassicMinutes, validFoeRecord, validSharedFoe, FOE_HEALTH_MAX, FOES_FRAME_MAX, CELL_FRAME_RECORDS_MAX } from '../net/wire.js';   // AUDIT ONCRASH1 B4a/A3: the stream's door and the memory's, which this host had neither of   // WORLD8: the hour's respawn   // AUDIT WORLD6a B7: the memory's stamp, from the wire's one mint
 import { spendPoolLowest } from '../systems/chargen.js';
 import { ClassFile } from '../formats/classFile.js';
-import { fetchBytes, ensureAudio, loadMagicRegistries, wireInfectionVideos, endRunToTitleMenu, exitToTitleMenu, sensesContext, wireDoorSpells, createDetectFeed, foeNearbyRecord, nearbyLootRecords, restFullyHealed, createRestDeps, fatigueLossMultiplierFor} from './shared.js';
+import { fetchBytes, ensureAudio, loadMagicRegistries, wireInfectionVideos, endRunToTitleMenu, exitToTitleMenu, sensesContext, wireDoorSpells, createDetectFeed, foeNearbyRecord, nearbyLootRecords, restFullyHealed, createRestDeps, fatigueLossMultiplierFor, realmSaveSink} from './shared.js';
+import { sayRealmSave } from '../systems/realmSaves.js';   // REALM P1.3: a save online lands in the realm; AUDIT REALM2 C2: said once it has
 import { getNearbyObjects } from '../systems/nearbyObjects.js';   // X9: the dispel sweep filters the same scan
 import { preloadBookArt } from '../ui/bookReader.js'; import { makeOpenBookHook } from '../ui/bookDoor.js';   // B1; EB1: the reader's ONE door
 import { worldMinutes, setWorldMinutes, sharedClockOn } from '../systems/worldTick.js';   // WORLD8: the relay's clock stamps a death and a take
@@ -154,7 +157,7 @@ import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT } 
 import { isEquipped } from '../systems/equip.js';   // DR1: FilterLocalItems' `!item.IsEquipped` (:693)
 import { totalGoldAmount } from '../systems/court.js';   // DR1: the trade screen's gold strip - AUDIT 58: PlayerEntity.GetGoldAmount (:1313-1316), coins PLUS letters
 import { isAzurasStarEquipped, registerFoeDoor } from '../systems/artifactEffects.js';   // V3: the Star's kill capture; AUDIT PSCALE1 DOORS-2: Namira's reflection through this pool's door
-import { applySpell, hasActiveEffect, isEntityWaterWalking, entityIsParalyzed, maxFatigue, applyEnemyMotorEffectFlags, concealmentFlags, concealFlagsOfBits, isSoulTrapEffect } from '../systems/effects.js';   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
+import { applySpell, hasActiveEffect, isEntityWaterWalking, entityIsParalyzed, maxFatigue, applyEnemyMotorEffectFlags, concealmentFlags, concealFlagsOfBits, isSoulTrapEffect, spellSways } from '../systems/effects.js';   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
 import { liveStat, killIfAnyLiveStatZero } from '../systems/statMods.js';
 import { breathStep } from '../systems/breath.js';
 import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';
@@ -168,7 +171,7 @@ import { createRestWindow } from '../ui/restDoor.js';   // the enhanced/native f
 import { AmbientEffects, DUNGEON_AMBIENT_WAITS } from '../systems/ambientEffects.js';
 import { enemyWeightClassicUnits, weaponKnockbackSpeed, weaponKnockbackApplies, reportPlayerAttack } from '../combat/formulas.js';   // C15: + knockback; WB4b: a spell's number on the court's boss pops as a blow's does
 import { HIT_KINDS } from '../net/gateBrain.js';   // WB4b: a blow on the court's boss says its kind
-import { bossReach } from '../world/gateBoss.js';   // WB4b: a swing meets the court's boss at his skin
+import { bossReach, BOSS_SWAY_TEXT, BOSS_SWAY_TELL_MS } from '../world/gateBoss.js';   // WB4b: a swing meets the court's boss at his skin; WB8a: and a sway meets his refusal
 import { duelSpellOf } from '../combat/duelCombat.js';   // WB4b: the harmful families alone reach the court's boss, as they alone reach a duel opponent
 import { assignEnemySpells, SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { calculateCastCost } from '../systems/spellcost.js';
@@ -235,6 +238,10 @@ import { renownFoeStruck, renownFoeDied, renownFoeCarry, renownFoeRevived } from
 import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
 /** AUDIT SET P-M3: a kill the host's record names me for - its kind, as the exterior owner's `slain` word says it. */
 const REMOTE_KILL = Object.freeze({ kind: 'remote' });
+/** WB8b: a gate Warden's frost, lightning and venom, heard as they land on me - each element's own cast
+ *  (systems/enemySpells.js SPELL_CAST_SOUND, by the classic element: Frost 1, DiseaseOrPoison 2, Shock 3); his fire is
+ *  the Burning clip, as it was. */
+const GATE_STRIKE_CAST = Object.freeze({ frost: SPELL_CAST_SOUND[1], poison: SPELL_CAST_SOUND[2], shock: SPELL_CAST_SOUND[3] });
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // LR1: the item ladder over every list this host mints (a foe's through hostCombat.spawnEnemyLoot, RF2)
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
@@ -265,7 +272,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2261); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2269); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -366,6 +373,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // inactive ones included) - There's a Hole in the Bottom of the Ocean floods the abyss a metre over it
   let meshTopY = -Infinity;
   const collider = new Collider(() => -Infinity);
+  // DISC29-A: THE SURFACES A WALK-ON READS. An effect or relay model's triangles go into the shared 'dungeon' bucket
+  // (the player stands on them there), so the walk-on pass could not ask whether THIS object was under the feet and
+  // read the top of its box instead - a throne's box tops its backrest, a metre and a half over the seat. A Collision01
+  // effect or relay keeps a copy of its triangles here under its own key. Nothing moves against this collider; the
+  // walk-on pass only probes it (collisionTriggers, actionSystem.js ownSurfaceUnderFeet). Movers and doors are already
+  // their own buckets in `collider`.
+  const triggerSurfaces = new Collider(() => -Infinity);
   // Effect actions (Hurt traps) damage the shared player entity;
   // health floors at 0 (death screen: UI arc). Traps work with or
   // without ?foes - the entity import is static.
@@ -461,6 +475,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  FlatTypes.NPC and :343-349 gives that type a trigger BoxCollider. */
   const people = [];
   const lights = [];
+  const iilLightFlats = [];   // IIL1: Improved Interior Lighting hangs its dungeon lights on these
   const waterQuads = [];
   let _waterArchive = null;   // WATER-D1: the climate ground archive whose record 0 is the water tile - the host names it after the build
   let _waterT = 0;            // WATER-D1: the scroll clock, in seconds of drawn frames
@@ -593,6 +608,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // arms below and the automap reveal index both read it.
       const aabb = worldAabb(cpu.positions, matrix);
       meshTopY = Math.max(meshTopY, boundsTopY(cpu.positions, matrix));   // OH-D
+      let standable = null;   // DISC29-A: the effect or relay this model is, for triggerSurfaces below
       if (p.action) {
         // Verbatim AddActionModelHelper classification (audit
         // 2026-08-16: only move/effect registered before - every
@@ -634,11 +650,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // fires missiles from here, +40*GlobalScale up, verbatim).
           const eo = actions.addEffect(bi, p.position, p.action, [matrix[12], matrix[13], matrix[14]], p.modelIdNum);
           eo.aabb = aabb;   // collision triggers test against this
+          standable = eo;
         } else {
           // Relay: the delegate is routed (Teleport/text) or a
           // verbatim no-op; the CHAIN through it must live, and its
           // collider makes it a Direct/Attack/collision target.
-          actions.addRelay(bi, p.position, p.action, aabb, [matrix[12], matrix[13], matrix[14]], p.modelIdNum);
+          standable = actions.addRelay(bi, p.position, p.action, aabb, [matrix[12], matrix[13], matrix[14]], p.modelIdNum);
         }
       }
       // A1: the entry carries its identity (the action system's own
@@ -650,6 +667,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (cpu.normals && cpu.uvs) { staticBuilder.add(cpu, matrix, resolveTexKey); drawList[drawList.length - 1]._batched = true; }
       automapEntries.push(amapRow(`${bi}:${p.position}`, aabb, !!p.action, cpu, matrix));
       collider.addMesh('dungeon', cpu.positions, cpu.indices, matrix);
+      if (standable && hasActionCollision(standable)) triggerSurfaces.addMesh(standable.key, cpu.positions, cpu.indices, matrix);   // DISC29-A; AUDIT PRE-MERGE 0929 D1/D2: every collision-trigger model's, for its contact
       colliderTris += cpu.indices.length / 3;
     }
     for (const d of b.layout.actionDoors) {
@@ -758,6 +776,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // A2 ambient sources: burning torches (RDBLayout.IsTorchFlat,
       // 210/{0,1,6,16..20}) loop within 5; animal flats (201) bark on
       // the classic random cadence within 19.2.
+      if (f.archive === IIL_LIGHT_ARCHIVE) iilLightFlats.push({ x: f.x + b.originX, y: f.y, z: f.z + b.originZ });   // IIL1: every light billboard's centre (an RDB flat's y is its centre)
       if (f.archive === TORCH_ARCHIVE && TORCH_RECORDS.has(f.record)) {
         torches.push({ pos: [f.x + b.originX, f.y, f.z + b.originZ], handle: null });
       } else if (f.archive === ANIMALS_ARCHIVE && ANIMAL_SOUND_BY_RECORD[f.record] != null) {
@@ -1869,7 +1888,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:12920 / exterior.js:3727), set
+  // host's own townTalk sink (world.js:13250 / exterior.js:3734), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2450,7 +2469,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1333,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1336,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2461,7 +2480,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  makes its dungeon arm a deliberate no-op (:857): both windows
    *  raise `done` from inside their own pick/cancel/close
    *  (ListPickerWindow._pick/_cancel, ui/listPicker.js:203/:212;
-   *  NativeTradeWindow's close, ui/nativeTrade.js:681), and
+   *  NativeTradeWindow's close, ui/nativeTrade.js:684), and
    *  tickOverlay drains the slot and reconciles the stack. A second
    *  clear here would only race that drain. */
   const mountSpellWindow = (win) => pushDungeonWindow(win);
@@ -2482,7 +2501,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *    isBeingRepaired - Buy and Repair only (remoteList :256-259,
    *      _takeItemFromRepair :388, _clear :430)
    *    accepts/enchanted - localListAccepts' Sell and SellMagic arms
-   *      (tradeModes.js:350-352); Identify returns true unfiltered
+   *      (tradeModes.js:384-386); Identify returns true unfiltered
    *    weight - sellProceeds, on the Sell confirm alone (:490)
    *    priceCtx - read by tradeCost's PAID Identify arm (:263-265) and
    *      by _modeAction's ShowTradePopup ELSE (:456-466). Neither can
@@ -2984,7 +3003,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1107 against :1137; worldModes.js:7558 against :7585).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1112 against :1142; worldModes.js:7602 against :7629).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3021,7 +3040,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function rollPileItems() {
     const elite = !!dfLocation?.elite;   // ELITE: the piles get the same +20% drops and +20% quality as the foes
     const items = generateLootItems(lootKey, { level: playerEntity.level, gender: playerEntity.gender }, undefined, elite ? { itemChanceScale: ELITE_LOOT_DROP_MULT } : {});
-    addPileLootExtras(items, lootKey, Math.random, { locationIndex: dfLocation.mapTableData.dungeonType, luck: liveStat(playerEntity, 'luck'), where: 'dungeon' });   // FORAGE3: OnLootSpawned at the dungeon type's index; AUDIT OH-F B3: the dungeon's own
+    addPileLootExtras(items, lootKey, Math.random, { locationIndex: dfLocation.mapTableData.dungeonType, luck: liveStat(playerEntity, 'luck'), level: playerEntity.level, where: 'dungeon' });   // FORAGE3: OnLootSpawned at the dungeon type's index; REALM P0.4: online, the level's gold divided back; AUDIT OH-F B3: the dungeon's own
     rollLootRarity(items, { ...pileSource(dungeonRarityTier(dfLocation.mapTableData.dungeonType)), qualityMult: elite ? ELITE_LOOT_QUALITY_MULT : 1 }, { luck: liveStat(playerEntity, 'luck') });
     stampWonWeapons(items, 1);   // SIGIL1: a pile found online, its weapons' sigils rolled at the mint
     return items;
@@ -3063,14 +3082,20 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     onRetire: (b) => { const i = billboardBatches.indexOf(b); if (i >= 0) billboardBatches.splice(i, 1); },
   });
   for (const [key, centers] of flatGroups) {
-    const [archive, record] = key.split('_').map(Number);
+    const [bornArchive, bornRecord] = key.split('_').map(Number);
     // Flats keep their original archives (the table remaps walls);
     // RDB AddFlat pivots at the raw position - shift to base-centered.
-    const t = await getTexture(archive);
+    const bornT = await getTexture(bornArchive);
+    if (!bornT || bornRecord >= bornT.recordCount) continue;
+    let size = billboardSize(bornT, bornRecord);
+    const based = centers.map(([x, y, z]) => [x, y - size.h / 2, z]);
+    // NUDE-FLATS: a nude figure draws its clothed stand-in while Show Nudity is off, on the figure's own feet: the
+    // pivot is the BORN sprite's centre, so the base above is the born size's, and the picture's size the drawn's.
+    const [archive, record] = drawnFlat(bornArchive, bornRecord);
+    const t = archive === bornArchive ? bornT : await getTexture(archive);
     if (!t || record >= t.recordCount) continue;
     uploadRecord(archive, record);
-    const size = billboardSize(t, record);
-    const based = centers.map(([x, y, z]) => [x, y - size.h / 2, z]);
+    size = billboardSize(t, record);
     const batch = renderer.createBillboardBatch(archive, record, size, based);
     armFlatAnim(batch, t, archive, record, flatAnims, uploadRecordFrame);
     billboardBatches.push(batch);
@@ -3085,8 +3110,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const t = await getTexture(pn.textureArchive);
     if (!t || pn.textureRecord >= t.recordCount) continue;
     const size = billboardSize(t, pn.textureRecord);
-    pn.width = size.w;
-    pn.height = size.h;
+    // NUDE-FLATS: the box is the picture the batch above drew, on the same born feet
+    const [da, dr] = drawnFlat(pn.textureArchive, pn.textureRecord);
+    const dt = da === pn.textureArchive ? t : await getTexture(da);
+    const drawn = dt && dr < dt.recordCount ? billboardSize(dt, dr) : size;
+    pn.width = drawn.w;
+    pn.height = drawn.h;
     pn.y -= size.h / 2;
   }
 
@@ -3370,9 +3399,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** A harmful spell of mine that met him (hostMagic's boss seam): its harmful families landed on his stand-in by the
    *  one door every spell lands through (effects.js applySpell - the magnitude, his saving throw), the damage summed and
    *  sent. Continuous families are not his to carry - the stand-in forgets them. */
+  let swayToldAt = -Infinity;   // WB8a: when his refusal was last said
   function spellOnBoss(sp) {
     const boss = gateBossBody(), harm = duelSpellOf(sp);
     if (!boss) return false;
+    // WB8a: A SWAY ON HIM. A Pacify or a Charm in the spell is refused by his own word (world/gateBoss.js bossStandIn's
+    // pacifyImmune) and said so - the rest of the spell lands as it would; alone, the refusal is what met him
+    const sways = spellSways(sp) && !!boss.entity.pacifyImmune;
+    if (sways && Date.now() - swayToldAt >= BOSS_SWAY_TELL_MS) { swayToldAt = Date.now(); hudText.add(BOSS_SWAY_TEXT(boss.entity.name)); }
     // WBX7 (2026-09-26, Swololo on Discord: "soul trap didnt seem to work"): A SOUL TRAP ON HIM. The trap is laid on his
     // stand-in by the one door every spell lands through (applySpell - its rounds, its chance frozen at the cast by my
     // level, his save against a new trap, "Trap active."), and handed to the court, which keeps it on the fight's clock:
@@ -3394,7 +3428,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         if (res?.trapAlert && SOUL_TRAP_TEXT[res.trapAlert]) hudText.add(SOUL_TRAP_TEXT[res.trapAlert]);
       } catch (e) { console.warn('[gate] the trap on him', e?.message ?? e); } finally { boss.entity.activeEffects = []; }
     }
-    if (!harm) return laid;
+    if (!harm) return laid || sways;
     let dealt = 0;
     const sinks = { hurt: (n) => { dealt += Math.max(0, n); }, heal() {}, drainFatigue() {}, restoreFatigue() {}, drainMagicka() {}, restoreMagicka() {} };
     try { applySpell(harm, playerEntity.level, boss.entity, sinks, Math.random, { entity: playerEntity }); } finally { boss.entity.activeEffects = []; }
@@ -3670,8 +3704,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:21514,
-              // exterior.js:5329 and worldModes.js:8246 already ran;
+              // playerArrowHitFoe is the one copy world.js:22382,
+              // exterior.js:5343 and worldModes.js:8302 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4495,7 +4529,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2261). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2269). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5027,7 +5061,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1711's restoreWorld goes through
+    // construction (exteriorFoes.js:1714's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -5504,9 +5538,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // DaggerfallActionCollision verbatim shape - per-object 0.12s
   // timeout, fires only while the player ACTIVELY MOVES horizontally
   // (up/down/jump don't trigger in classic), contact beneath the
-  // player -> WalkOn else WalkInto (the Collision01 standing-raycast
-  // refinement folds into the beneath test at our capsule scale).
-  function collisionTriggers(dt, playerFeet, moveHeld) {
+  // player -> WalkOn else WalkInto. DISC29-A (Skibbster on Discord: the
+  // throne puzzle's switch never activates): the Collision01 standing
+  // ray does NOT fold into the beneath test - that test is the top of
+  // the object's BOX, and a Collision01 object's surface can stand well
+  // under it (N0000037's two thrones: the box tops the backrest at
+  // 34.08, the seat is at 32.55). The ray is its own arm, as in the C#.
+  const _wish = [0, 0];   // AUDIT PRE-MERGE 0929 D1/D2: the pass's one scratch for the direction the body presses
+  function collisionTriggers(dt, playerFeet, moveHeld, playerHeight = CAPSULE_HEIGHT, playerMove = null) {
     if (!playerFeet) return;
     // Verbatim DaggerfallActionCollision: fires only while a MOVE
     // action is HELD (up/down/jump excluded) - not on position delta.
@@ -5515,6 +5554,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // cancels the motion, the delta is zero, and the trigger never
     // fired. Input-held is the source's rule and covers it.
     if (!moveHeld) return;
+    // AUDIT PRE-MERGE 0929 D1/D2: THE DIRECTION THE BODY PRESSES - the motor's own sin/cos of forward and strafe
+    // (PlayerMotor.update's ground arm) - so a side of the object is heard only when the body moves into it, as a
+    // ControllerColliderHit only comes of a Move into its collider. A host that names no yaw presses every side.
+    let wish = null;
+    if (playerMove && Number.isFinite(playerMove.yaw) && (playerMove.forward || playerMove.strafe)) {
+      const sn = Math.sin(playerMove.yaw), cs = Math.cos(playerMove.yaw);
+      _wish[0] = sn * playerMove.forward + cs * playerMove.strafe;
+      _wish[1] = cs * playerMove.forward - sn * playerMove.strafe;
+      wish = _wish;
+    }
     const R = 0.45, H = 1.8;   // the player capsule
     for (const o of actions.objects.values()) {
       if (!o.aabb) continue;
@@ -5547,8 +5596,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!overlapXZ) continue;
       const overlapY = playerFeet[1] + H > a.min[1] && playerFeet[1] < a.max[1] + 0.15;
       if (!overlapY) continue;
-      const standingOn = playerFeet[1] >= a.max[1] - 0.15;
-      actions.receive(o, standingOn ? 'WalkOn' : 'WalkInto');
+      // AUDIT PRE-MERGE 0929 D1/D2: THE TOUCH ITSELF, as DFU hears it (actionSystem.js actionContact) - the contact's
+      // direction beneath the body (WalkOn, every flag), a Collision01's standing ray, or a bump - off the object's own
+      // triangles: a mover or a door is its own bucket in `collider`, an effect or relay keeps one in triggerSurfaces.
+      // The box above is only the broad phase: a box touched with nothing of the object touched hears nothing. An
+      // acting flat has no triangles and keeps its box's top (standsOnAction).
+      const touch = o.isFlat
+        ? (standsOnAction(o, playerFeet, a, triggerSurfaces) ? 'WalkOn' : 'WalkInto')
+        : actionContact(o, playerFeet, playerHeight, o.kind === 'effect' || o.kind === 'relay' ? triggerSurfaces : collider, wish);
+      if (!touch) continue;
+      actions.receive(o, touch);
       o._colTimer = 0;
     }
   }
@@ -5933,7 +5990,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // stat-zero kill is a FOE law too - a drained-to-zero Strength kills
     // the thing you drained. Off the frame's dt, not the minute loop.
     for (const f of foes) if (!f.dead) killIfAnyLiveStatZero(f.entity, foeSinks(f, false), dt);   // AUDIT 68 S19-round-ticks-player-provenance: SetHealth(0), no source
-    collisionTriggers(dt, playerFeet, moveHeld);
+    collisionTriggers(dt, playerFeet, moveHeld, playerHeight, playerMove);
     updateMissiles(dt, playerFeet, playerHeight);
     // X11: the look direction and the capsule height ride along now -
     // the engine hangs the Light effect's magic candle 1.4 units in
@@ -6821,6 +6878,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     droppedTorches, torchBatches: () => droppedTorches.batches(), torchLights: () => droppedTorches.lights(),   // HT1: the dropped torches, for the hosts' draw pass and light channel
     camps, campBatches: () => camps.batches(), campLights: () => camps.lights(),   // SURV3: the campfires, on the same two passes; the pool itself for the hosts' env (byFire) and the probes
     lights,
+    iilLightFlats,   // IIL1
     /** X11: the Light effect's candle. The engine owns the candle (it
      *  is the player's, and every casting host builds one engine); the
      *  LIGHT has to be handed out because each host builds its own
@@ -7415,9 +7473,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     },
     reportMouse(dx, dy, locked) { _mouseState = `dx:${dx} dy:${dy} lock:${locked ? 'Y' : 'N'}`; },
     reportInput(keys, pitch) { _inputState = `keys:${keys} pitch:${pitch.toFixed(2)}`; },
-    quickSave(saveName = QUICK_SAVE_NAME) {
+    quickSave(saveName = QUICK_SAVE_NAME, { quiet = false, sink = null } = {}) {   // REALM P0.5: a quiet checkpoint takes no shot and says only a failure; P1.3: a realm character's goes to the service
       // WB3b: a save made in the court would load into a place that no longer stands (the court is the day's alone)
-      if (isGateArena(dfLocation)) { hudText.add(COURT_TEXT.noSave); return false; }
+      if (isGateArena(dfLocation)) { if (!quiet) hudText.add(COURT_TEXT.noSave); return false; }
       const snap = snapshotPlayer(playerEntity, {
         position: lastPlayerFeet, classicMinutes: classicMinutesRef.value,
         readiedSpellIndex: magic.readiedIndex(),
@@ -7458,12 +7516,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // host's registry (systems/modSaveData.js); null only when the host hands neither
         modData: opts.horseCartSave || opts.modSaveRecords ? { ...(opts.horseCartSave ? { 'horse-cart-and-cargo': opts.horseCartSave() } : {}), ...(opts.modSaveRecords?.() ?? {}) } : null,
       });
+      const into = sink ?? realmSaveSink();   // REALM P1.3: a realm character's save is the service's checkpoint, never a local slot
+      if (into) { const said = into(snap); if (!quiet) sayRealmSave(said, (t) => hudText.add(t)); return true; }   // AUDIT REALM2 C2: the realm's answer, not a hope
       const r = saveSlot(playerEntity.name, saveName, snap);
       // SS1: arm the deferred shot; the HOST's frame loop delivers it
       // (dungeon.js's tail) - this context owns no canvas of its own.
-      if (r.ok) requestScreenshot(r.key);
-      if (r.ok) hudText.add('Game saved.');
-      else hudText.add('Save failed (storage full or disabled).');   // never silent - the write can fail on real browsers
+      if (r.ok && !quiet) requestScreenshot(r.key);
+      if (r.ok && !quiet) hudText.add('Game saved.');
+      else if (!r.ok) hudText.add('Save failed (storage full or disabled).');   // never silent - the write can fail on real browsers
       return r.ok;
     },
     quickLoad(setPlayerPos, key = null) {
@@ -7690,12 +7750,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     locationKey: () => _locationKey,
     /** WB4: a blow the Burning Court's boss landed on the player (scenes/gateCourt.js - the verdict is this machine's):
      *  through the one door any foe's blow takes (resolveFoeMelee) with its three signs - the hit's sound, the flash,
-     *  the cry - and fire's burning in the hit's place, unflashed (DFU's spell damage does not flash, ui/damageFlash.js). */
-    strikePlayer(dmg, { fire = false } = {}) {
+     *  the cry - and fire's burning in the hit's place, unflashed (DFU's spell damage does not flash, ui/damageFlash.js).
+     *  WB8b: his aspect's frost, lightning and venom as his fire - unflashed, each in its element's own cast
+     *  (systems/enemySpells.js SPELL_CAST_SOUND, by id). */
+    strikePlayer(dmg, { fire = false, el = fire ? 'fire' : null } = {}) {
       if (!(dmg > 0)) return;
-      audio.playOneShot(fire ? SOUND.Burning : hitSoundFor(null), PLAYER_HIT_VOLUME);
+      const cast = GATE_STRIKE_CAST[el];
+      if (cast != null) audio.playOneShotId?.(cast, PLAYER_HIT_VOLUME);
+      else audio.playOneShot(el === 'fire' ? SOUND.Burning : hitSoundFor(null), PLAYER_HIT_VOLUME);
       hurtPlayer(dmg);
-      if (!fire) flashPlayerDamage(dmg);
+      if (!el) flashPlayerDamage(dmg);
       playPlayerVoice(audio, playerPainVoice(playerEntity, dmg));
     },
     // WORLD2: one simulation per room - the stream out and in, the hit in, the seat

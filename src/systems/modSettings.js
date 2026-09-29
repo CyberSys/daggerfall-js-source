@@ -9,7 +9,7 @@
 // defaults without a DOM.
 
 import { appStorage } from './appStorage.js';   // the one storage seam - localStorage lives there alone
-import { onlineForcedModSetting } from './onlineLane.js';   // MODS-ONLINE-2: online, the room's ground is forced and every other switch is the player's
+import { onlineForcedModSetting, onlineWholeModKey } from './onlineLane.js';   // MODS-ONLINE-2: online, the room's ground is forced and every other switch is the player's; REALM P0.2: and the balance mods whole
 import { FOOT_SKIN_COUNT, CLASS_SKINS, classSkinLabel } from '../player/classSkins.js';   // SKIN2: the class skins past the mod's sixteen
 
 const STORE_KEY = 'dfjs-mod-settings';
@@ -1108,6 +1108,19 @@ export const MOD_SETTINGS = Object.freeze({
       // walls and rocks and pauses short of what it cannot pass
       // (systems/travelSteer.js). OFF: the mod's own beeline, exactly.
       'GeneralOptions.AvoidObstacles': Object.freeze({ default: true, description: 'Steers time accelerated travel around buildings, walls and rocks, and pauses the journey before walking into one it cannot get round. (This port’s own switch - the mod has none.)' }),
+      // OW-TOGGLE (2026-09-28, Mac: "bring back the original travel option as a toggle. Off by default." - "The normal
+      // first person travel accelerated was removed in favor of the overworld travel"): THE PORT'S OWN KEY on the mod's
+      // pane, as AvoidObstacles is. ON: a journey is the mod's own, walked in first person as before OW-ONLY - a map
+      // pick begins it on the ground, the view does not rise with it and coming down does not stop it
+      // (scenes/world.js tvOwnsJourneys, which reads it live - AUDIT OW5 T1). OFF, the default: OW-ONLY.
+      'GeneralOptions.FirstPersonTravel': Object.freeze({ default: false, description: 'Walks time accelerated journeys in first person, as before the Overworld: a journey picked on the travel map runs on the ground, and the Overworld view neither rises with it nor stops it when brought down. Off, a journey on the enhanced interface is taken in the Overworld. Takes effect at once. (This port’s own switch - the mod has none.)' }),
+      // TO-ROADS (FIELD BUGS 2026-09-29d, SylviaBun on the Discord: "Travel Options First Person doesn't follow roads like
+      // Overworld Travel Options does" - "A way to toggle this behavior to match or not would be nice"): THE PORT'S OWN
+      // KEY beside First-Person Travel, the same shape - not in the vendored modsettings.json, on the tile, read live. ON,
+      // with First-Person Travel on: a journey picked on the travel map is the Overworld's route - its planner, its legs,
+      // its refusals (scenes/world.js tvRoutesJourneys) - walked in first person, the view not raised. OFF, the default:
+      // First-Person Travel is the mod's own straight journey, the original travel option Mac asked back.
+      'GeneralOptions.FirstPersonTravelFollowsRoads': Object.freeze({ default: false, description: 'With First Person Travel on, a journey picked on the travel map follows the roads and tracks as the Overworld’s journeys do - planned round the mountains, and refused where no way by land reaches - and is walked in first person, the Overworld view not raised. Off, it walks straight to its destination, as Travel Options does. Takes effect at once. (This port’s own switch - the mod has none.)' }),
       'TimeAcceleration.DefaultStartingAcceleration': Object.freeze({ default: 4, options: Object.freeze(["1", "2", "3", "5", "10", "15", "20", "25", "30", "40", "50"]), description: "The initial time acceleration used after starting the game" }),
       'TimeAcceleration.AlwaysUseStartingAcceleration': Object.freeze({ default: false, description: "Always uses the default starting acceleration when initiating a journey, rather than value from the previous journey" }),
       'TimeAcceleration.AccelerationLimit': Object.freeze({ default: 60, min: 10, max: 100, description: "The maximum limit allowed for time acceleration, road following is limited to half this amount" }),
@@ -1383,10 +1396,20 @@ export function modSettingIfDeclared(vendor, key) {
 const declaredKey = (vendor, key) =>
   (Object.hasOwn(MOD_SETTINGS, vendor) && Object.hasOwn(MOD_SETTINGS[vendor].keys, key) ? MOD_SETTINGS[vendor].keys[key] : undefined);
 
+/** REALM P0.2: THE VALUE A KEY READS ONLINE WHEN THE ROOM OWNS IT - its room value (onlineLane.js
+ *  ONLINE_ROOM_MOD_KEYS), or for a balance mod the room owns whole (ONLINE_WHOLE_MODS) its shipped default - else
+ *  undefined. One home for the three readers: modSetting below, the Mods pane's lock and the offline sync's copy. */
+export function onlineModSetting(vendor, key, search) {
+  const room = onlineForcedModSetting(vendor, key, search);
+  if (room !== undefined) return room;
+  const def = declaredKey(vendor, key);
+  return def && onlineWholeModKey(vendor, key, search) ? def.default : undefined;
+}
+
 export function modSetting(vendor, key) {
   const def = declaredKey(vendor, key);
   if (!def) throw new Error(`modSetting: ${vendor}/${key} is not a declared switch`);
-  const forced = onlineForcedModSetting(vendor, key);   // MODS-ONLINE-2: online, a key the room's ground depends on reads the room's value and the store is not written
+  const forced = onlineModSetting(vendor, key);   // MODS-ONLINE-2: online, a key the room's ground depends on reads the room's value and the store is not written; REALM P0.2: and a balance mod's every key its shipped default
   if (forced !== undefined) return forced;
   const v = load()[vendor]?.[key];
   return v === undefined ? def.default : coerce(def, v);

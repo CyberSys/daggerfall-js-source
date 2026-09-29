@@ -50,7 +50,9 @@ import {
   accountTotal, loanedTotal, loanDueDate, calculateMaxBankLoan,
   depositGold, withdrawGold, depositAllLetters, withdrawLetter,
   repayLoan, borrowLoan, shipSellPrice,
+  empireRefusalLines, empireDefaultOwed, empireGarnishLines,   // REALM P0.3: online, the Empire is one lender
 } from '../systems/banking.js';
+import { REGION_NAMES } from '../formats/mapsFile.js';   // REALM P0.3: the branch another loan or default stands in
 import { expandMacroValues } from '../systems/quest/questMacros.js';   // MH1: the ONE walk
 
 /** mainPanel.Size (:77) - and the size BANK00I0.IMG ships. */
@@ -126,6 +128,7 @@ const inRect = ([rx, ry, rw, rh], x, y) => x >= rx + BANK_PANEL_X && y >= ry + B
  *                    token verbatim
  *   ownsHouse(), ownsShip(), housesForSale(), isPortTown(), houseSellPrice()
  *   ownedHouseResolved() -> AUDIT 64 F26: GetBuildingSummary's bool
+ *   crossedDeed(kind) -> RESTORE: the bank's words for a deed that came through customs, or null
  *   openPurchase()  -> H2: mounts the purchase window; false if it cannot
  *   onClose()
  */
@@ -202,7 +205,7 @@ export class BankWindow {
     // raised a click-anywhere box and no sale, so a player could
     // accept an offer and keep the house.
     const ASKS = {
-      [TRANSACTION_RESULT.DEPOSIT_LOC]: () => depositAllLetters(this.accounts, this.region, this.hooks.player),
+      [TRANSACTION_RESULT.DEPOSIT_LOC]: () => this._garnished(() => depositAllLetters(this.accounts, this.region, this.hooks.player)),
       // MakeTransaction(Sell_house / Sell_ship, 0, regionIndex)
       // (:355, :364) - the amount is IGNORED on both, because the
       // price is the deed's, not the player's to name.
@@ -216,6 +219,19 @@ export class BankWindow {
       amount,
       onYes,
     };
+  }
+
+  /** REALM P0.3: a box of the Empire's own lines, which no Daggerfall record says. */
+  _lines(lines) { this.box = { rows: lines.map((text) => ({ text, center: true })), buttons: null, amount: 0, onYes: null }; }
+
+  /** REALM P0.3: a deposit, and the Empire's garnish said when a default took some of it - the account shows less than
+   *  was paid in (banking.js garnishDeposit, online only). */
+  _garnished(deposit) {
+    const owed = empireDefaultOwed(this.accounts);
+    const result = deposit();
+    const taken = owed - empireDefaultOwed(this.accounts);
+    if (taken > 0) this._lines(empireGarnishLines(taken));
+    return result;
   }
 
   _openInput(type) {
@@ -233,7 +249,7 @@ export class BankWindow {
     const a = this.accounts, r = this.region, p = this.hooks.player;
     let result = TRANSACTION_RESULT.NONE;
     switch (type) {
-      case TRANSACTION_TYPE.Depositing_gold: result = depositGold(a, r, amount, p); break;
+      case TRANSACTION_TYPE.Depositing_gold: result = this._garnished(() => depositGold(a, r, amount, p)); break;
       case TRANSACTION_TYPE.Withdrawing_gold: result = withdrawGold(a, r, amount, p); break;
       case TRANSACTION_TYPE.Withdrawing_Letter: result = withdrawLetter(a, r, amount, p); break;
       case TRANSACTION_TYPE.Repaying_loan: result = repayLoan(a, r, amount, p).result; break;
@@ -265,7 +281,12 @@ export class BankWindow {
     if (name === 'loanBorrow') {
       const d = borrowDecision(this.accounts, this.region);
       // DFU closes any open input on BOTH refusals (:403, :408)
-      if (d.kind === 'refuse') { this._openInput(TRANSACTION_TYPE.None); this._popup(d.result); return; }
+      if (d.kind === 'refuse') {
+        this._openInput(TRANSACTION_TYPE.None);
+        if (d.empireRegion != null) this._lines(empireRefusalLines(d, (i) => REGION_NAMES[i] ?? ''));   // REALM P0.3: another branch's
+        else this._popup(d.result);
+        return;
+      }
       this._openInput(d.transactionType);
       return;
     }
@@ -307,6 +328,9 @@ export class BankWindow {
       // that wires no resolver is a host with NO building directory,
       // which is :446's silent false arm - hence `=== true`, not a
       // lenient default DFU has no counterpart for.
+      // RESTORE: a house that came through customs is never bought back online - said, not offered (banking.js crossedDeedLines)
+      const crossed = this.hooks.crossedDeed?.('house');
+      if (crossed) { this._lines(crossed); return; }
       const resolved = this.hooks.ownedHouseResolved?.() === true;
       const d = sellDecision('house', {
         owns: !!this.hooks.ownsHouse?.() && resolved,
@@ -316,6 +340,8 @@ export class BankWindow {
       return;
     }
     if (name === 'sellShip') {
+      const crossed = this.hooks.crossedDeed?.('ship');   // RESTORE: nor a ship
+      if (crossed) { this._lines(crossed); return; }
       const ship = this.hooks.ownedShip?.() ?? -1;
       const d = sellDecision('ship', { owns: ship >= 0, price: shipSellPrice(ship) });
       if (d.kind === 'offer') this._popup(d.result, d.price);

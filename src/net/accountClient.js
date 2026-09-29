@@ -40,7 +40,6 @@
 import { HANDLE_RE } from './handleShape.js';
 import { LETTER_SUBJECT_MAX, LETTER_BODY_MAX, LETTER_LINES_MAX, LETTERS_SENT_MAX, LETTERS_PAIR_MAX } from './letterLaw.js';   // MAIL1: the letter's bounds, in the refusals' own sentences
 import { MUTE_RANGE_TEXT } from './moderation.js';   // AUDIT 68 S14-mute-range-text-duplicated: the mute's bound in the refusal's sentence, from its home
-import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence
 import { HOME_CAP } from './homeLaw.js';   // HOME1: the cap a refusal names
 import { DECOR_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
@@ -100,6 +99,9 @@ export const REFUSALS = Object.freeze({
   'password-long': `A password is at most ${PASSWORD_MAX_LEN} characters.`,
   'already-registered': 'This account already has a username.',
   'not-registered': 'This account has no password yet.',
+  // TERMS1: the two routes that make an account refuse a request that has not ticked the documents they hold
+  'terms-unaccepted': 'Tick both boxes to agree to the Terms of Service and the Privacy Policy.',
+  'terms-stale': 'The Terms of Service or the Privacy Policy has changed. Reload the game (or update the app) to read the current version, then tick the boxes again.',   // AUDIT PRE-MERGE 0929 T1: a reload brings the desktop app's own bundled copy back - the app is updated
   'no-account': 'That account no longer exists.',
   'bad-login': 'That username and password do not match.',
   'bad-code': 'That username and recovery code do not match.',
@@ -155,10 +157,12 @@ export const REFUSALS = Object.freeze({
   'body-long': `A letter is at most ${LETTER_BODY_MAX} characters.`,
   'body-lines': `A letter is at most ${LETTER_LINES_MAX} lines.`,
   // RENOWN1, Renown. Each is a build or a device the service does not believe, never a player's mistake:
-  // the words say what happened, since there is nothing to retype.
+  // the words say what happened, since there is nothing to retype. RENOWN-ACCOUNT: the service answers only
+  // 'renown-xp' now - Renown is the account's - and the other two are a service's from before it (a track a
+  // character, sixty at most), kept for as long as one may still answer.
   'renown-character': 'The account service could not tell which character earned that.',
   'renown-xp': 'The account service refused that experience report.',
-  'renown-full': `This account already has Renown for ${RENOWN_TRACKS_MAX} characters, the most it keeps.`,
+  'renown-full': 'This account already has Renown for as many characters as the account service keeps.',
   // HOME1, the online homes (server-account/src/homes.js). A player meets these at a front door, beside the price.
   'homes-need-account': 'Owning a home needs a username and a password. Give this account one and you can buy one.',
   'home-taken': 'Somebody else owns this home now.',
@@ -195,6 +199,7 @@ export const REFUSALS = Object.freeze({
   'bad-gold': `Gold goes in or out 1 to ${GUILD_MOVE_MAX} at a time.`,
   'guild-treasury-full': 'The treasury can hold no more.',
   'guild-treasury-short': 'The treasury does not hold that much.',
+  'guild-treasury-old': 'That much of the treasury came in before the realm - it stays in the treasury.',   // AUDIT REALM L1-F3
   // WB5b: a gate's kill receipt carried to the service. net/gateClaims.js says nothing of these to the player - it keeps
   // what they do not settle and lets go of what they do - but a word the service can say is a word with a sentence.
   'no-gate-key': 'The account service cannot check a gate\'s receipt right now. It is kept and tried again.',
@@ -211,7 +216,7 @@ export const REFUSALS = Object.freeze({
   'guild-marks-short': 'The treasury does not hold that many Marks.',
   'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
   'marks-rate': 'You have moved a great many Marks this hour. Try again later.',
-  'not-developer': 'Only a developer may do that.',
+  'not-developer': 'Only a developer may do that.',   // MARKS1's report, NOTICE1's notices, CUSTOMS-PASS's grant
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',
@@ -340,6 +345,31 @@ export const REFUSALS = Object.freeze({
   'commission-worn': 'A commission is new work: that piece is worn.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
+  maintenance: 'The account service is being looked after for a minute. Try again shortly.',   // RESTORE: the history restore's minute
+  // REALM P1: the realm's characters (server-account/src/realm.js) - an online character's save, held by the service.
+  'too-many-characters': 'You have as many online characters as an account may hold. Delete one to make room.',
+  'no-realm-character': 'That online character is not on this account.',
+  lease: 'This character is being played somewhere else now - another tab or device took it.',
+  seq: 'This character was saved from somewhere else in the meantime. Rejoin to carry on.',
+  // CUSTOMS-CARRY (2026-09-29): the census is every trace the realm has from before it began (migration 0022) - said as
+  // what counts, since "played online" read false to a player who had and never killed there
+  // CUSTOMS-PASS (2026-09-29): and the one way past it, a developer's pass - named for the case it exists for, a character
+  // played online on an older version of the game after the realm opened (which the relay admitted until REALM-DOOR)
+  'customs-never-online': 'The realm has no record of this character from before it opened - no Renown, online home, guild place, raid or cloud backup - so it cannot come in. Make a new online character instead. If you played it online on an older version of the game after the realm opened, ask the developers on the Discord.',
+  'customs-already': 'That character has already been brought into the realm.',
+  // AUDIT REALM2 S1: a first save the realm reads - a new character's, or customs' own
+  'realm-birth': 'The realm takes a new character only as character creation makes one. Delete it and make it again.',
+  'customs-allowance': 'That character carries more gold than customs lets in. Bring it online again.',
+  // AUDIT REALM2 S2: the online acts that cost gold are a realm character's
+  'realm-only': 'Only an online character of the realm can do that.',
+  // REALM P2.1: a trade's sid another pair settled (server-account/src/realmTrade.js)
+  'trade-spent': 'That trade has already ended - nothing was traded.',
+  // REALM P2.2: an act that moves a realm character's gold on its record (server-account/src/realm.js)
+  'realm-needed': 'This online character must be playing in the realm to do that. Rejoin and try again.',
+  'realm-gold': 'The realm holds less gold for this character than that costs.',
+  // CUSTOMS-PASS: the developer's route (server-account/src/realm.js grantCustomsPass), said by tools/customsPass.mjs - its
+  // `not-developer` is MARKS1's one word above (MERGE 2: both sides wrote it; the one refusal says both routes)
+  ambiguous: 'More than one account goes by that name - name the account by its id instead.',
 });
 
 /** The sentence for a refusal, never `undefined` and never the raw
@@ -397,7 +427,7 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
     // The service says `{ error: '<word>' }`. A proxy, a 502 or an
     // HTML error page says nothing we can read, and `server` is the
     // honest answer for that rather than a guess at which word it meant.
-    return { ok: false, error: typeof data?.error === 'string' ? data.error : 'server', ...(typeof data?.why === 'string' ? { why: data.why } : {}), status: res.status };   // AUDIT WB A5: and the rung, where the service names one
+    return { ok: false, error: typeof data?.error === 'string' ? data.error : 'server', ...(typeof data?.why === 'string' ? { why: data.why } : {}), ...(Number.isSafeInteger(data?.seq) ? { seq: data.seq } : {}), status: res.status };   // AUDIT WB A5: and the rung, where the service names one; REALM P2.2: and a realm record's sequence
   }
   return { ok: true, data, status: res.status };
 }
@@ -409,14 +439,22 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
 // a path, because a path spelled at a call site is a path that outlives
 // a rename.
 
+/** TERMS1: the two fields a request that makes an account carries - the
+ *  Terms of Service and Privacy Policy versions its player ticked
+ *  (net/legalLaw.js ACCEPTED) - or none, which the service refuses. */
+const legalFields = (accepted) => (accepted ? { terms: accepted.terms, privacy: accepted.privacy } : {});
+
 /** A guest row and the session that owns it. `{ id, name, kind,
- *  sessionId, secret }`. */
-export const openGuest = (io, label = null) => call(io, '/v1/auth/guest', { label });
+ *  sessionId, secret }`. TERMS1: the service opens no row for a player
+ *  who has not ticked the documents, so `accepted` rides the request. */
+export const openGuest = (io, label = null, accepted = null) => call(io, '/v1/auth/guest', { label, ...legalFields(accepted) });
 
 /** Fill in a handle and a password on the guest row THIS SESSION
  *  already owns - an upgrade in place, never a new account. Answers
- *  `{ recoveryCode, handle }`, and that code is readable exactly once. */
-export const register = (io, handle, password) => call(io, '/v1/auth/register', { handle, password });
+ *  `{ recoveryCode, handle }`, and that code is readable exactly once.
+ *  TERMS1: with the versions ticked on the form that names it. */
+export const register = (io, handle, password, accepted = null) =>
+  call(io, '/v1/auth/register', { handle, password, ...legalFields(accepted) });
 
 /** `{ id, name, kind, sessionId, secret }` for a new device. */
 export const login = (io, handle, password, label = null) => call(io, '/v1/auth/login', { handle, password, label });
@@ -468,7 +506,7 @@ export const muteAccount = (io, target, minutes) => call(io, '/v1/mod/mute', { t
  *  holds - this side does not get to say what goes in it, which is the
  *  whole point of the seam. A service with no signing pair answers
  *  `no-signing-key` rather than minting something the relay refuses. */
-export const mintIdentity = (io, character = null) => call(io, '/v1/auth/token', character ? { character, guild: true } : {});   // RENOWN1: naming the character brought online signs its Renown in; AUDIT MERGE-PLUS A6: and this build knows the guild's channel, so it asks for the guild
+export const mintIdentity = (io, character = null) => call(io, '/v1/auth/token', character ? { character, guild: true } : {});   // RENOWN1: naming the character brought online signs the Renown in (RENOWN-ACCOUNT: the account's, whichever is named); AUDIT MERGE-PLUS A6: and this build knows the guild's channel, so it asks for the guild
 
 // ── THE SESSION ON THIS DEVICE ──────────────────────────────────────
 
@@ -592,8 +630,9 @@ export function forgetSession(storage) {
  *
  * RENOWN1: `character` answers the id of the character being brought
  * online (systems/characterId.js), read at EACH mint - the service signs
- * that character's Renown into the token, and `who.level`
- * carries it back - RENOWN4: and `who.xp` the track's total, which the
+ * the Renown into the token (RENOWN-ACCOUNT: the account's, whichever
+ * character is named), and `who.level` carries it back - RENOWN4: and
+ * `who.xp` the account's total, which the
  * answer carries beside the token and never in it. GUILD1c: and
  * `who.guild` the character's guild's tag, signed into the token beside
  * the level. A getter that answers nothing mints as before.
@@ -700,7 +739,9 @@ export function accountGates({ fetch, storage }) {
 }
 
 /** RAID4: a town raid's receipt the relay signed for this account, carried to the service with the character that
- *  fought it - `{ recorded, defended, renown, order }`, or `{ recorded: false, why }` (`claimed`, `guest`, `day-full`). */
+ *  fought it - `{ recorded, defended, renown, order }`, or `{ recorded: false, why }` (`claimed`, `guest`, `day-full`).
+ *  RENOWN-ACCOUNT: the Renown is paid to the account; the character is the claim's record (and a service from before it
+ *  refused a claim naming none). */
 export const claimRaidReceipt = (io, receipt, character, name = null, cid = null) => call(io, '/v1/raid/claim', { receipt, character, name, ...(cid ? { cid } : {}) });   // AUDIT RAID R4: `cid` this device's claim of it - the thanks' key
 
 /**
@@ -717,7 +758,9 @@ export function accountRaids({ fetch, storage }) {
   };
 }
 
-/** RENOWN1: what one of this account's characters earned online - `{ character, xp, level, credited, rose, order }`. */
+/** RENOWN1: what one of this account's characters earned online - RENOWN-ACCOUNT: credited to the ACCOUNT, answered
+ *  `{ xp, level, credited, rose, order }` (the account's track after it). The character and its name still ride the
+ *  report for a service from before it, which kept a track a character; this one reads neither. */
 export const reportRenownXp = (io, character, xp, name = null, rid = null) => call(io, '/v1/renown/xp', { character, xp, name, ...(rid ? { rid } : {}) });   // AUDIT RENOWN1 DATA-4: `rid` the report's own id
 
 /**
@@ -756,8 +799,8 @@ export function accountHomes({ fetch, storage }) {
   return {
     town: (mapId) => post('/v1/homes/town', { mapId }),
     mine: () => post('/v1/homes/mine', {}),
-    claim: ({ mapId, buildingKey, region, character, price }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price }),
-    release: (mapId, buildingKey) => post('/v1/homes/release', { mapId, buildingKey }),
+    claim: ({ mapId, buildingKey, region, character, price, realm = null }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price, ...(realm ? { realm } : {}) }),   // REALM P2.2b: a realm character's record pays
+    release: (mapId, buildingKey, realm = null) => post('/v1/homes/release', { mapId, buildingKey, ...(realm ? { realm } : {}) }),
     entry: (mapId, buildingKey, entry) => post('/v1/homes/entry', { mapId, buildingKey, entry }),
   };
 }
@@ -777,9 +820,9 @@ export function accountDecor({ fetch, storage, listWaitMs = DECOR_LIST_WAIT_MS }
   const waited = waitedPost({ fetch, storage }, listWaitMs);
   return {
     list: (mapId, buildingKey) => waited('/v1/homes/decor', { mapId, buildingKey }),
-    place: ({ mapId, buildingKey, character, piece }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece }),
-    move: ({ mapId, buildingKey, character, id, place }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place }),
-    remove: ({ mapId, buildingKey, character, id }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id }),
+    place: ({ mapId, buildingKey, character, piece, realm = null }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, ...(realm ? { realm } : {}) }),   // REALM P2.2b: and its gold on the record
+    move: ({ mapId, buildingKey, character, id, place, realm = null }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place, ...(realm ? { realm } : {}) }),
+    remove: ({ mapId, buildingKey, character, id, realm = null }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id, ...(realm ? { realm } : {}) }),
     // BASE-HIDE: the room's own furniture taken out - the whole list, written by the owner
     hidden: ({ mapId, buildingKey, character, keys }) => post('/v1/homes/decor/hidden', { mapId, buildingKey, character, keys }),
   };
@@ -794,15 +837,15 @@ export function accountGuilds({ fetch, storage }) {
   return {
     mine: (character) => post('/v1/guilds/mine', { character }),
     invites: () => post('/v1/guilds/invites', {}),
-    found: ({ character, name, tag }) => post('/v1/guilds/found', { character, name, tag }),
+    found: ({ character, name, tag, realm = null, region = null }) => post('/v1/guilds/found', { character, name, tag, ...(realm ? { realm, region } : {}) }),   // REALM P2.2: a realm character's record pays
     invite: (character, handle) => post('/v1/guilds/invite', { character, handle }),
     answer: ({ character, guild, accept }) => post('/v1/guilds/answer', { character, guild, accept }),
     leave: (character) => post('/v1/guilds/leave', { character }),
     remove: (character, member) => post('/v1/guilds/remove', { character, member }),
     rank: (character, member, rank) => post('/v1/guilds/rank', { character, member, rank }),
     ranks: (character, ranks) => post('/v1/guilds/ranks', { character, ranks }),
-    deposit: (character, gold) => post('/v1/guilds/deposit', { character, gold }),
-    withdraw: (character, gold) => post('/v1/guilds/withdraw', { character, gold }),
+    deposit: (character, gold, realm = null, region = null) => post('/v1/guilds/deposit', { character, gold, ...(realm ? { realm, region } : {}) }),   // REALM P2.2
+    withdraw: (character, gold, realm = null) => post('/v1/guilds/withdraw', { character, gold, ...(realm ? { realm } : {}) }),
     handOver: (character, member) => post('/v1/guilds/handover', { character, member }),
     disband: (character) => post('/v1/guilds/disband', { character }),
   };

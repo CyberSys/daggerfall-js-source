@@ -11,7 +11,7 @@
 -- its ends were mint / account / guild and burn / account / guild. A third end, `escrow`, its id the order's, moves no
 -- balance by trigger (as mint and burn move none) - the order row holds what is left, moved in each line's batch.
 -- SQLite widens no CHECK in place: the ledger is rebuilt, every line carried with its seq, its indexes and its four
--- triggers made again exactly as 0018 wrote them.
+-- triggers made again exactly as 0025 wrote them.
 CREATE TABLE IF NOT EXISTS marks_ledger_new (
   seq      INTEGER PRIMARY KEY,
   src_kind TEXT NOT NULL CHECK (src_kind IN ('mint', 'account', 'guild', 'escrow')),
@@ -71,7 +71,7 @@ DROP TABLE world_witness;
 ALTER TABLE world_witness_new RENAME TO world_witness;
 CREATE INDEX IF NOT EXISTS idx_world_witness_region ON world_witness (kind, region);
 
--- EVERY CRAFTED PIECE, FOREVER (PROF0 20: "the Marks ledger and `products` forever"). FOUND: 0023 cascaded a piece's
+-- EVERY CRAFTED PIECE, FOREVER (PROF0 20: "the Marks ledger and `products` forever"). FOUND: 0030 cascaded a piece's
 -- row away with its owner's account. A sale now moves the owner (section 18), so the row is rebuilt without the
 -- cascade: a piece outlives its owner's account, and an owner that is gone never lists it again.
 CREATE TABLE IF NOT EXISTS products_new (

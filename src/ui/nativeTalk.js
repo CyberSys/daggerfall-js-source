@@ -53,9 +53,10 @@
 // (listTopicTellMeAbout / Person / Thing and the Work question);
 // each stays a consumed no-op on a host with no engine mounted.
 
+import { hasDfmodCifRci, dfmodCifRciImage, dfmodGeneration } from '../systems/dfmodTextures.js';   // DFMOD1: an attached mod's talk portraits
 import { loadImg, nativeMetrics, drawImg, drawImgCrop, drawRect, shadowText, pointToNative, DEFAULT_TEXT_COLOR, DEFAULT_SHADOW_COLOR } from './nativePanel.js';   // AUDIT 63 F5: DaggerfallDefaultShadowColor, the unmarked row's shadow
 import { CifRciFile } from '../formats/cifRciFile.js';
-import { bitmapToColor32 } from '../formats/color32Order.js';
+import { bitmapToColor32, toScreenOrder } from '../formats/color32Order.js';   // DFMOD1: toScreenOrder - a mod picture is top-down, a screen quad's own order
 import { drawScreenDimBackdrop, DOUBLE_CLICK_DELAY_MS } from './chargenArt.js';
 import { wrapText } from './talkWindow.js';
 import { getBool } from '../systems/settings.js';   // UI6: EnableModernConversationStyleInTalkWindow
@@ -359,8 +360,16 @@ export function setNpcPortrait(archive, recordId) {
   _portraitKey = key;
   _portrait = _portraitTex.get(key) ?? null;
   if (_portrait || !_portraitDeps) return;
-  _loadPortraitFile(file).then((cif) => {
-    if (!_portraitTex.has(key)) {
+  // DFMOD1: an attached mod's portrait of the record (DREAM's TFAC00I0.RCI_<n>-0) first - drawn into the same 64x64
+  // rect at its own resolution; the classic record when no mod carries it or it will not decode
+  const modPic = hasDfmodCifRci(file, recordId, 0) ? dfmodCifRciImage(file, recordId, 0).catch(() => null) : Promise.resolve(null);
+  modPic.then((pic) => {
+    if (!pic || _portraitTex.has(key)) return false;
+    const c32 = toScreenOrder(pic);
+    _portraitTex.set(key, { tex: _portraitDeps.renderer.uploadTexture('cif', `${key}#dfmod${dfmodGeneration()}`, c32), w: pic.width, h: pic.height, rgba: c32.colors });
+    return true;
+  }).then((modded) => (modded || _portraitTex.has(key) ? null : _loadPortraitFile(file))).then((cif) => {
+    if (cif && !_portraitTex.has(key)) {
       const bmp = cif.getDFBitmap(recordId, 0);
       // ET1: the same Color32 buffer feeds the GL texture (the classic
       // face) and is KEPT as pixels for the enhanced panel's <canvas>
@@ -920,7 +929,7 @@ export class NativeTalkWindow {
    *  AUDIT 65 UI-1: the third and fourth slots are the HOST's, not
    *  this window's. Every overlay slot dispatches
    *  `click(vx, vy, right, middle)` - townTalk.js:1254,
-   *  worldModes.js:9875, dungeonContext.js:7779 - so the clock that
+   *  worldModes.js:9931, dungeonContext.js:7843 - so the clock that
    *  used to sit in the fourth arrived as `e.button === 1`, a boolean,
    *  and `false ?? Date.now()` kept the `false`: every second click in
    *  the topic list picked. The THIRD slot is really read - it is the
@@ -1119,5 +1128,12 @@ export class NativeTalkWindow {
         shadowText(renderer, font, text, m, x, ly, { color, shadow, scale: modern ? MODERN_TEXT_SCALE : 1 });
       });
     }
+    // PERF-2D: this is the frame's last screen quad while the talk window
+    // is up, and the modal can hold the frame open across ticks without a
+    // fresh renderer.beginFrame() closing the run for us. Close it here so
+    // a foreign pass (rain, sky, grass) that draws while the window is open
+    // never lands inside one - renderer.markForeignPass()'s own warning
+    // names this exact call.
+    renderer.endUiRun();
   }
 }

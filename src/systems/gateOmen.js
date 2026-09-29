@@ -16,7 +16,8 @@
 // silent rather than naming nowhere.
 //
 // Not a DFU member. Ledger A (WB).
-import { gateAt, gatePhase, gateCountdown, countdownText, countdownWords, gateMarked, gateStands, gateBossOf, omenLine, riseLine, openLine, sealLine, wrathLine, GATE_OPEN_MINUTE, GATE_SEAL_MINUTE, GATE_WRATH_MINUTE, GATE_DAY_MINUTES, GATE_COLLAPSE_MS, PIXEL_M } from '../net/gateLaw.js';
+import { gateAt, gatePhase, gateCountdown, countdownText, countdownWords, gateMarked, gateStands, gateBossOf, gateModsOf, omenLine, riseLine, openLine, sealLine, wrathLine, marksLine, GATE_OPEN_MINUTE, GATE_SEAL_MINUTE, GATE_WRATH_MINUTE, GATE_DAY_MINUTES, GATE_COLLAPSE_MS, PIXEL_M } from '../net/gateLaw.js';
+import { gateModsWords } from '../net/gateMods.js';   // WB8c: tonight's marks on the card
 import { GATE_TOWN_MAX_PX } from './gateSite.js';
 
 /** Is map pixel (px, py) within the omen's ring, give or take `slack` pixels? The compass carries the gate only here:
@@ -87,7 +88,8 @@ export const fellLine = ({ near, boss, top }) => `${boss} has fallen at the Obli
 /**
  * EVENT-TIP (2026-09-28, Mac: "I also want to add a tooltip to the map for these type of events"): THE GATE'S CARD on
  * the held map (ui/eventMapMarks.js) - what it is, where, when it next moves (opens, seals, collapses: the countdown's
- * own words), and who holds it, or that he fell. Pure.
+ * own words), and who holds it, or that he fell. WB8c: and while he stands, the marks he comes under tonight (net/gateLaw.js
+ * gateModsOf - "The Rime-Wrought - Colossal, Echoing"). Pure.
  * @param {{site: {place: string}, phase: string, t: {day: number}}} c the omen's current gate
  * @param {{to: string, ms: number}|null} cd its countdown now (gateCountdown)
  * @param {number|null} [fell] the relay's word of the kill
@@ -96,7 +98,18 @@ export function gateTip(c, cd, fell = null, boss = gateBossOf(c.t.day)) {
   const when = cd
     ? (cd.to === 'open' ? `Opens in ${countdownText(cd.ms)}` : cd.to === 'seal' ? `Open - seals in ${countdownText(cd.ms)}` : `Sealed - collapses in ${countdownText(cd.ms)}`)
     : (c.phase === 'collapsing' ? 'Collapsing' : null);
-  return { title: 'Oblivion Gate', lines: [`Near ${c.site.place}`, ...(when ? [when] : []), Number.isFinite(fell) ? `${boss.name} has fallen` : `${boss.name}, ${boss.title}`] };
+  return { title: 'Oblivion Gate', lines: [`Near ${c.site.place}`, ...(when ? [when] : []), ...(Number.isFinite(fell) ? [`${boss.name} has fallen`] : [`${boss.name}, ${boss.title}`, marksLineOf(c.t.day)])] };
+}
+/** AUDIT PRE-MERGE 0929 W2-2: a day's marks as the card says them, worded once a day - the card is asked every frame a
+ *  gate stands on the map, and the marks were read and joined anew each time. */
+let _marksDay = null, _marksLine = '';
+function marksLineOf(day) {
+  if (day !== _marksDay) {
+    const marks = gateModsWords(gateModsOf(day));
+    _marksLine = `${marks.charAt(0).toUpperCase()}${marks.slice(1)}`;
+    _marksDay = day;
+  }
+  return _marksLine;
 }
 
 /** The phases that say a line on arrival, and the line each says. */
@@ -118,6 +131,7 @@ export const OMEN_SETTLE_MS = 1500;
  */
 export function createGateOmen({ now, site, say, localTime = () => null, fellAt = () => null, ready = () => true, settleMs = 0 }) {
   let saidDay = null, saidRank = -1;   // the day the last line was said for, and how far through its lines
+  let marksDay = null;   // WB8c: the day whose marks were said (once, beside the first of its omen, rise or open)
   let readyAt = null, settled = false; // when the host was first ready (the relay's clock), and whether its settle is over
   let cache = { day: null, site: null };
   const siteOf = (day) => {
@@ -154,6 +168,8 @@ export function createGateOmen({ now, site, say, localTime = () => null, fellAt 
         if (line === 'omen') say(omenLine({ ...words, at: at(t.day, GATE_OPEN_MINUTE) }));
         else if (line === 'rise') say(riseLine({ ...words, left: countdownText(t.openAt - now()) }));
         else if (line === 'open') say(openLine({ ...words, at: at(t.day, GATE_SEAL_MINUTE) }));
+        // WB8c: tonight's marks, beside the first line of a gate still to be fought (never after it has sealed)
+        if ((line === 'omen' || line === 'rise' || line === 'open') && marksDay !== t.day) { marksDay = t.day; say(marksLine({ boss: words.boss, md: gateModsOf(t.day) })); }
         else if (line === 'seal') say(sealLine({ ...words, at: at(t.day, GATE_WRATH_MINUTE) }));   // GATE-COLLAPSE: and when it goes
         else if (line === 'wrath') say(wrathLine(words));
       }

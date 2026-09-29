@@ -2,8 +2,8 @@
   {
     "name": "GUILD1b-the-fee-unchecked",
     "file": "src/net/guildBook.js",
-    "old": "    if (this.wallet().gold() < GUILD_FOUND_GOLD) return { ok: false, error: 'gold' };\n    return this._act(",
-    "new": "    return this._act(",
+    "old": "    if (this.wallet().gold() < GUILD_FOUND_GOLD) return { ok: false, error: 'gold' };\n    if (this.realm) {",
+    "new": "    if (this.realm) {",
     "tests": [
       "test/guild1b.test.js"
     ]

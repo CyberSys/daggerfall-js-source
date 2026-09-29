@@ -35,6 +35,7 @@
 
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { swallowBrowserKey } from './input.js';   // AUDIT 27h H2: the typed field still swallows the keys the browser would steal
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
 
 /** A renderer that paints nothing and answers the canvas. */
 export function quietRenderer(renderer) {
@@ -318,7 +319,7 @@ export function portWindow(win, spec, doc = globalThis.document) {
   };
 
   const unmount = () => {
-    clearTimeout(watchdog);
+    disarmDraw(watchdog);
     watchdog = null;
     stopHold();   // HOLD-STEP: a window taken down mid-hold stops stepping
     doc.removeEventListener?.('pointerup', onRelease, true);
@@ -463,8 +464,8 @@ export function portWindow(win, spec, doc = globalThis.document) {
     const s = viewSig(view);
     if (s !== sig) { sig = s; render(view); } else acts = collectActs(view);
     for (const c of canvases) { try { c.paint?.(c.cv); } catch { /* a live picture never takes the window down */ } }
-    clearTimeout(watchdog);
-    watchdog = setTimeout(unmount, PORT_WATCHDOG_MS);
+    disarmDraw(watchdog);
+    watchdog = armDrawWatchdog(PORT_WATCHDOG_MS, unmount);   // DISC29-D: a frame undrawn, not a slow one
   };
 
   // DROPS-AUDIT F11: a wrapped window paints nothing of its own - the purchase window's 3D preview goes to the canvas

@@ -132,7 +132,7 @@
   {
     "name": "OW4-B10-no-room-stands",
     "file": "src/scenes/world.js",
-    "old": "    if (members.length > (exteriorFoes.encounterRoom?.() ?? Infinity)) return false;\n    const fx = player.feetAt();",
+    "old": "    if (!bandRoom(mk)) return false;\n    const fx = player.feetAt();",
     "new": "    const fx = player.feetAt();",
     "tests": [
       "test/tv7_bands.test.js"

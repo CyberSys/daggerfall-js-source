@@ -200,8 +200,8 @@
   {
     "name": "AQP-D2-cell-mark-dropped",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "        else { applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r))",
-    "new": "        else { applyPuppetRecord(f, r); if (heirIsMe(r))",
+    "old": "f._pupCamp = campTags.get(r.i); applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r))",
+    "new": "f._pupCamp = campTags.get(r.i); applyPuppetRecord(f, r); if (heirIsMe(r))",
     "tests": [
       "test/questparty2.test.js"
     ]

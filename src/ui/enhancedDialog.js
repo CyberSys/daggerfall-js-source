@@ -29,6 +29,7 @@
 
 import { injectEnhancedStyle } from './enhancedStyle.js';
 import { inClassicScope } from './enhancedScope.js';   // PORT0: the classic travel map keeps its own boxes
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
 
 /** MessageBoxButtons (DaggerfallMessageBox.cs:67-90), in words. The
  *  numbers are ui/messageBox.js MB_BUTTONS (not imported: that module
@@ -133,7 +134,7 @@ export function press(record, a = active) {
 
 export function closeEnhancedDialog() {
   if (!active) return;
-  clearTimeout(active.watchdog);
+  disarmDraw(active.watchdog);
   try { active.shell.remove(); } catch { /* gone */ }
   active = null;
 }
@@ -156,8 +157,8 @@ export function drawEnhancedDialog(renderer, m, box, opts = {}, doc = globalThis
   active.box = box;
   active.m = m;
   active.canvas = renderer?.canvas ?? active.canvas ?? null;
-  clearTimeout(active.watchdog);
-  active.watchdog = setTimeout(closeEnhancedDialog, DIALOG_WATCHDOG_MS);
+  disarmDraw(active.watchdog);
+  active.watchdog = armDrawWatchdog(DIALOG_WATCHDOG_MS, closeEnhancedDialog);   // DISC29-D: a frame undrawn, not a slow one
   return true;
 }
 
@@ -182,7 +183,7 @@ let choice = null;   // { owner, sig, shell, watchdog }
 
 export function closeEnhancedChoice(owner) {
   if (!choice || (owner && choice.owner !== owner)) return;
-  clearTimeout(choice.watchdog);
+  disarmDraw(choice.watchdog);
   try { choice.shell.remove(); } catch { /* gone */ }
   choice = null;
 }
@@ -228,8 +229,8 @@ export function drawEnhancedChoice(owner, lines, options, doc = globalThis.docum
       choice = { owner, sig, shell, watchdog: null };
     } catch { return false; }
   }
-  clearTimeout(choice.watchdog);
-  choice.watchdog = setTimeout(closeEnhancedChoice, DIALOG_WATCHDOG_MS);
+  disarmDraw(choice.watchdog);
+  choice.watchdog = armDrawWatchdog(DIALOG_WATCHDOG_MS, () => closeEnhancedChoice());   // DISC29-D
   return true;
 }
 

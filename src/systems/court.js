@@ -39,7 +39,7 @@
 // written at scenes/arrestFlow.js:561-564 (severePunishment, off
 // OnPop) and read every catch-up minute by encounters.js:241
 // passiveGuardSpawns - PlayerEntity.cs:507's 10% banished-player
-// guard roll - fed at scenes/world.js:4664-4666. (The guild rescues -
+// guard roll - fed at scenes/world.js:4809-4811. (The guild rescues -
 // Thieves/Dark Brotherhood - landed at CR1, guildRescue below.)
 
 import { rand } from '../formats/dfRandom.js';

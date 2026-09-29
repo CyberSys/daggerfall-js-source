@@ -107,8 +107,9 @@ test('PROF4 DONE WHEN: DECOR places a crafted table - an Oak felled, its logs sa
   assert.ok(piece, 'a free piece of one\'s own');
   // set down in Mac's home through the real Worker - the mark the service's own
   const HOME = { mapId: 1291010263, buildingKey: 0x10203 };
-  assert.equal((await s.call('/v1/homes/claim', { ...HOME, region: 17, character: mac.character, price: 42000 }, mac.secret)).status, 200);
-  const placed = await s.call('/v1/homes/decor/place', { ...HOME, character: mac.character, piece }, mac.secret);
+  const house = await s.seatHome(mac, { ...HOME, region: 17, price: 42000 });   // MERGE 2: a house is a realm character's (AUDIT REALM2 S2)
+  assert.equal(house.status, 200);
+  const placed = await s.call('/v1/homes/decor/place', { ...HOME, character: house.character, piece }, mac.secret);
   assert.equal(placed.status, 200, JSON.stringify(placed.body));
   const seen = (await s.call('/v1/homes/decor', HOME, ann.secret)).body.pieces.find((p) => p.id === 'tbl1');
   assert.deepEqual([seen.model, seen.item.t, seen.item.pv, seen.item.mk], [41100, 225, table.provenance, 'Silverthorn']);

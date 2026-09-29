@@ -145,7 +145,7 @@ test('DISC19-B: the world host\'s dungeon frame lights the DUNGEON engine\'s can
   assert.ok(at > 0 && branch.includes('dungeonCtx.drawFoes('), 'the branch was found whole');
   const lights = branch.slice(branch.indexOf('const _dgLit = withPlayerLights('));
   assert.match(lights.slice(0, lights.indexOf('renderer.setClearColor')), /^const _dgLit = withPlayerLights\(\n(?:\s*\/\/[^\n]*\n)*\s*_dgNear,[^\n]*\n\s*abyssCandle\(dungeonCtx\.candleLight\(\), _abyss\), _abyss\?\.torchOff \? null : _dgTint\(playerTorchLight\(/);   // AUDIT DISC19: the pair channel, the candle untinted (LA-AUDIT A5: the selection is _dgNear, one past the cap for its fade; OH-E: the abyss's half, off its own white)
-  assert.match(branch, /const _dgNear = nearestLights\(dungeonCtx\.lights, [^\n]*, \(\) => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE\);/, 'the selection rides the pair channel');
+  assert.match(branch, /const _dgNear = _iilDg \? [^\n]*: nearestLights\(dungeonCtx\.lights, [^\n]*, \(\) => _dgColor, DUNGEON_LIGHT_BLOCK_RANGE\);/, 'the selection rides the pair channel');
   assert.ok(!branch.includes('magic?.candleLight()') && !branch.includes('magic.candleLight()'), 'this host\'s own engine is not updated underground');
   assert.ok(!/\bmagic\??\.update\(/.test(branch), 'and nothing here updates it - so its candle is never the dungeon\'s');
   assert.match(rd('src/scenes/dungeonContext.js'), /candleLight: \(\) => magic\.candleLight\(\),/, 'the context hands out its own engine\'s candle');
@@ -330,7 +330,7 @@ test('DISC19-F: the defenders come as the player\'s allies, sent at the monster 
   assert.ok(!d.corpse, 'walked away: no body, nothing to loot');
 });
 
-test('DISC19-F: the player\'s swing spares a defender while the monsters\' pool has not been offered it - and strikes him only when he is all that is in front', async () => {
+test('DISC19-F: the player\'s swing spares a defender while the monsters\' pool has not been offered it - and, under friendly protection, even when he is all that is in front (FB0929)', async () => {
   const p = townsman();
   const guards = createCityGuards(rig(p));
   const monsters = createExteriorFoes(rig(p));
@@ -340,18 +340,19 @@ test('DISC19-F: the player\'s swing spares a defender while the monsters\' pool 
   const d = guards.guards[0];
   d.entity.health = 10000;
   const swing = new PlayerWeapon({});
-  assert.equal(guards.resolvePlayerHit(swing, EYE0, FWD0, FEET0, () => true, null, { spareDefenders: true }), false, 'the watch\'s pass leaves him for last');
+  assert.equal(guards.resolvePlayerHit(swing, EYE0, FWD0, FEET0, () => true, null), false, 'the watch\'s pass spares him - alone in front, and no pass offers him the swing (FB0929: a blow on him is Assault)');
   assert.equal(d.entity.health, 10000);
-  assert.equal(guards.resolvePlayerHit(swing, EYE0, FWD0, FEET0, () => true, null, { defendersOnly: true }), true, 'with nothing else in front, the swing reaches him (friendly protection\'s fallback)');
+  assert.equal(d.defender, true);
 });
 
-test('DISC19-F by source: the host runs the town watch after the pools move, resolves the swing watch -> monsters -> defenders -> townsfolk, and keeps camps out of every location\'s rect', () => {
+test('DISC19-F by source: the host runs the town watch after the pools move, resolves the swing watch -> monsters -> townsfolk (FB0929: no pass offers the defenders alone), and keeps camps out of every location\'s rect', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /exteriorFoes\.update\(foeDt, _pf, cam\.pos, _foeSenses\(\)\);[^\n]*\n\s*livePersonBatches\.push\(\.\.\.exteriorFoes\.batches\(\)\);\n\s*if \(playerSpawned\) _townWatchFrame\(foeDt\);/);   // QUEST-POPUP-PAUSE re-aim: the pools' clock
   assert.match(w, /enabled: \(getPref\('townWatch'\) !== false \|\| raidDefendingHere\(\)\) && !isTransformedLycanthrope\(playerEntity\),\n\s*inTown: _isPlayerInTownStrict\(\), crime: !!playerEntity\.crimeCommitted,/);   // AUDIT DISC19: the whole frame is townWatch.runTownWatchFrame, pinned there
-  const swingAt = w.indexOf("guardHitSound, { spareDefenders: true, swing })) {");
-  const order = ['guardHitSound, { spareDefenders: true, swing })) {', 'if (exteriorFoes.resolvePlayerHit(', "guardHitSound, { defendersOnly: true, swing }))", 'cityGuards.resolveCivilianHit('].map((k) => w.indexOf(k, swingAt));
-  assert.ok(swingAt > 0 && order.every((i, k) => i >= 0 && (k === 0 || i > order[k - 1])), `the four passes in order: ${order}`);
+  const swingAt = w.indexOf('} else if (!cityGuards.resolvePlayerHit(');
+  const order = ['} else if (!cityGuards.resolvePlayerHit(', 'if (exteriorFoes.resolvePlayerHit(', 'cityGuards.resolveCivilianHit('].map((k) => w.indexOf(k, swingAt));
+  assert.ok(swingAt > 0 && order.every((i, k) => i >= 0 && (k === 0 || i > order[k - 1])), `the three passes in order: ${order}`);
+  assert.equal(w.split('cityGuards.resolvePlayerHit(').length - 1, 1, 'one pass over the watch - none that offers the defenders alone');
   assert.match(w, /inside: false, inLocationRect: _inAnyLocationRect\(walkMode \? player\.pos : cam\.pos\),/, 'the chunk roll asks the pixel just entered');
   assert.match(w, /anchor = campAnchorSpot\(\{ feet, [^\n]*\n\s*if \(anchor && _inAnyLocationRect\(\[anchor\.x, anchor\.y, anchor\.z\]\)\) anchor = null;/, 'the camp is never pitched in a town');
   assert.match(w, /spot = placeFoeFreely\(memberEnv, [^\n]*\n\s*if \(spot && _inAnyLocationRect\(\[spot\.x, spot\.y, spot\.z\]\)\) spot = null;/, 'nor a member over its line');

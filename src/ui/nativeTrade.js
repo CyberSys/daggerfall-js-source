@@ -476,10 +476,13 @@ export class NativeTradeWindow {
     });
   }
 
+  /** ItemCollection.Transfer (:473-480): out of `from`, then AddItem into `to` - a lot rejoins its own stack there, as
+   *  every DFU click-back and ClearSelectedItems do. BOOK-SPLIT: a `push` left a book taken back off the counter as a
+   *  second row beside its own stack. A quest item goes to the front (DoTransferItem's order, :1573-1579). */
   _move(item, from, to) {
     const i = from.indexOf(item);
     if (i >= 0) from.splice(i, 1);
-    to.push(item);
+    addItem(to, item, item?.questItem ? 'front' : 'dontCare');
   }
 
   /** AUDIT UXB1 F4: goods put back on the shelf rejoin their stack - ItemCollection.AddItem's merge (inventory.js
@@ -759,7 +762,7 @@ export class NativeTradeWindow {
 
   /** DoModeAction -> ShowTradePopup (:954-998, :1100-1134). */
   _modeAction() {
-    const { cost, modeActionEnabled } = this.cost();
+    const { cost, modeActionEnabled, pieces } = this.cost();
     if (!modeActionEnabled) return;          // DFU disables the button outright
     // AUDIT 39 F144: DoModeAction opens on the SPELL (:955-995) and
     // ShowTradePopup is its ELSE. The spell pays in magicka, rolls per
@@ -769,7 +772,7 @@ export class NativeTradeWindow {
     // false, which leaves the lot staged as DFU's early return does).
     if (this.hooks.usingIdentifySpell) { this._castIdentifySpell(); return; }
     const ctx = this.hooks.priceCtx?.() ?? {};
-    const price = getTradePrice(this.mode, cost, ctx.quality ?? 0, ctx.skills ?? {});
+    const price = getTradePrice(this.mode, cost, ctx.quality ?? 0, ctx.skills ?? {}, pieces);   // FB0929: a purchase asks a gold a piece at least
     const d = tradeDecision(this.mode, { cost, tradePrice: price, gold: this.hooks.gold() });
     if (d.kind === 'notEnoughGold') {
       // the two records CONCATENATED into one click-anywhere box

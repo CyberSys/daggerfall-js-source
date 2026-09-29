@@ -29,6 +29,7 @@
 // peer steps past it (and tells the peer). Once both have confirmed, the exchange is not a range question.
 // The residual failure is a connection dropping in the seconds between the two commits (or under a withdrawn confirm): one
 // side can lose an offer. That is stated in the chat, not hidden, and it is the price of having no server-side inventory.
+import { canon } from './canon.js';   // REALM P2.1: the comparison's own leaf - the account Worker settles realm trades by it
 import { mintTradeSid, TRADE_FRAME_MAX, TRADE_DATA_MAX, TRADE_REV_MAX } from './wire.js';   // AUDIT 68 S14-minttradesid-dead-and-duplicated: the wire's own minter, TRADE_SID_RE's length
 
 /** How long a frame may wait for the socket (its gate, a reconnect) before the trade is called broken, ms. */
@@ -47,6 +48,13 @@ export const ASK_TTL_MS = 30_000;
 export const COMMIT_WAIT_MS = 20_000;
 /** The most frames one session holds unsent. */
 export const OUTBOX_MAX = 32;
+/** REALM P2.1: A REALM TRADE'S REVISIONS START HERE (both `rev` and `theirRev`), half the wire's bound. A realm trade is
+ *  settled by the service, never by a `commit` frame (net/realmTradeLaw.js); a peer that still settles hand to hand (a
+ *  tab open from before a deploy) numbers its revisions from 0, so each side's locks name revisions the other never
+ *  holds, nothing is confirmed, and nobody's goods leave. The realm side says so at the peer's first frame. */
+export const REALM_TRADE_REV_BASE = TRADE_REV_MAX / 2;
+/** REALM P2.1: the words for that peer. */
+export const OLDER_BUILD_TRADE_TEXT = 'They are playing an older build - both must reload to trade.';
 
 /** HOW NEAR TWO PLAYERS MUST STAND TO TRADE, IN METRES - the world's own unit (scene units are metres: the person reach is
  *  256 * GLOBAL_SCALE = 6.4, a body is 1.8 tall). It is NOT a map pixel and NOT a relay room: a pixel is ~820 m, a cell is
@@ -91,12 +99,8 @@ export const tradeRefusedText = (name = 'They') => `${name}'s game refused the t
 /** AUDIT ONLINE2 F5: an offer this build cannot read (a piece from a newer build) - said on the reader's screen. */
 export const tradeUnreadableText = (name = 'They') => `${name}'s offer holds something this game does not know - reload for the newest version. The trade is off`;
 
-/** Stable JSON (sorted keys) so two records that mean the same thing compare equal whatever key order a client wrote. */
-export function canon(v) {
-  if (v === null || typeof v !== 'object') return JSON.stringify(v);
-  if (Array.isArray(v)) return `[${v.map(canon).join(',')}]`;
-  return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(',')}}`;
-}
+/** Stable JSON (sorted keys) - a leaf of its own since REALM P2.1 (net/canon.js), so the account Worker bundles it alone. */
+export { canon };
 
 /**
  * One trade between me and one peer.
@@ -126,16 +130,24 @@ export class TradeSession {
    * @param {() => void} [o.onChange]  called with nothing: the window re-reads the session it holds
    * @param {(s: TradeSession) => void} [o.onEnd]
    * @param {() => boolean|null} [o.near]
+   * @param {{ hold: () => ({ settle: (half: any) => Promise<any>, release?: () => void, abandon?: () => void } | null) } | null} [o.escrow]  REALM P2.1: the
+   *   realm's - it settles the commit (hold() checkpoints the save as it stands, before the goods leave the pack - null when
+   *   it cannot; settle() answers `{ ok, items, gold }`, a refusal `{ ok: false, text }` - nothing moved - or
+   *   `{ ok: false, unknown: true }`; release() abandons a hold whose goods could not be reserved; AUDIT REALM L2-F6:
+   *   abandon() ends the realm session when a settled trade's goods cannot be put in the pack as the record now holds them)
    */
-  constructor({ sid, me, peer, peerName = 'Someone', initiator = false, pack, send, now = () => Date.now(), say = () => {}, onChange = () => {}, onEnd = () => {}, near = () => true }) {
+  constructor({ sid, me, peer, peerName = 'Someone', initiator = false, pack, send, now = () => Date.now(), say = () => {}, onChange = () => {}, onEnd = () => {}, near = () => true, escrow = null }) {
     this.sid = sid; this.me = me; this.peer = peer; this.peerName = peerName; this.initiator = initiator;
     this.pack = pack; this._send = send; this._now = now; this._say = say; this._changed = onChange; this._ended = onEnd;
     this._near = near;          // () => boolean: is the peer within TRADE_RANGE_M of me right now (the host measures; an unknown place is false)
     /** 'open' (negotiating) | 'committing' (goods reserved/sent) | 'done' | 'cancelled' */
     this.phase = 'open';
+    this._escrow = escrow;      // REALM P2.1: the realm settles this trade, never a commit frame
     this.mine = { entries: [], gold: 0 }; this._mineWire = [];
-    this.rev = 0;
-    this.theirs = { items: [], gold: 0 }; this._theirRaw = []; this.theirRev = 0;
+    this.rev = escrow ? REALM_TRADE_REV_BASE : 0;
+    this.theirs = { items: [], gold: 0 }; this._theirRaw = []; this.theirRev = escrow ? REALM_TRADE_REV_BASE : 0;
+    this._settling = false;     // REALM P2.1: the half is with the realm - only its answer ends this, and it restores nothing itself
+    this._ticket = null;        // AUDIT REALM L2-F6: the escrow's hold - its abandon() ends the realm session
     this.myLock = false; this.theirLock = false; this.myConfirm = false; this.theirConfirm = false;
     this._outbox = [];
     this._handle = null;        // my reserved goods
@@ -271,6 +283,13 @@ export class TradeSession {
   // ---- the peer's frames ------------------------------------------------------------------------------------------
   receive(d) {
     if (this.isOver || d.s !== this.sid) return;
+    // REALM P2.1: a realm trade's peer numbers from REALM_TRADE_REV_BASE; one below it settles hand to hand, and with it
+    // nothing may ever be confirmed - said now, before anyone offers anything more
+    if (this._escrow && this.phase === 'open' && ['offer', 'lock', 'confirm'].includes(d.k) && !(d.r >= REALM_TRADE_REV_BASE)) {
+      this._trySendOnce({ k: 'cancel', why: 'refused' });
+      this._finish('cancelled', OLDER_BUILD_TRADE_TEXT);
+      return;
+    }
     switch (d.k) {
       case 'offer': return this._onOffer(d);
       case 'lock': return this._onLock(d);
@@ -312,6 +331,8 @@ export class TradeSession {
   }
 
   _onCommit(d) {
+    // REALM P2.1: the realm settles this trade - a commit frame is never goods here, and never ends it
+    if (this._escrow) return;
     // a commit is only ever sent by a side that has seen both confirms, on the revisions both hold
     if (this.phase === 'open' && !(this.myConfirm && this.theirConfirm)) { this._end('refused'); return; }
     if (this._pendingIn || this._applied) return;
@@ -332,6 +353,7 @@ export class TradeSession {
     // refusing is free. At this line the peer may already have committed (their goods are OUT of their pack): a refusal
     // here because my measurement said 5.02 m where theirs said 4.98 m would strand their goods - range would have turned
     // into a loss. Both confirms were given in range; the exchange that follows them is not a range question.
+    if (this._escrow) { this._settle(); return; }
     const handle = this.pack.take(this.mine.entries, this.mine.gold);
     if (!handle) { this._end('refused'); this._say('Your goods changed - the trade is off.'); return; }
     this._handle = handle;
@@ -346,6 +368,55 @@ export class TradeSession {
         this._finish('cancelled', 'The connection failed before the goods were sent - nothing was traded.');
       },
     });
+  }
+
+  /** REALM P2.1: THE REALM SETTLES IT. The save as it stands - the goods still in the pack - is checkpointed first (the
+   *  service reads it), then the goods are reserved exactly as a hand-to-hand commit reserves them, and this side's half
+   *  goes to the service: what I give and what I take, both as my window showed them. The service moves both records or
+   *  neither. Its answer is the only thing that ends this: goods it moved are never restored here, a refusal restores
+   *  them, and an answer that never came keeps them out - the realm's copy decides, and a join reads it. */
+  _settle() {
+    const ticket = this._escrow.hold();
+    // AUDIT REALM L1-F1: the half is made against the save composed as the goods are held - a host that could not
+    // compose one (a duel, the seat another tab's) trades nothing
+    if (!ticket) { this._end('refused'); this._say('The realm cannot take a trade just now - nothing was traded.'); return; }
+    this._ticket = ticket;
+    const pick = this.pack.picks?.(this.mine.entries) ?? null;   // which of that save's records these are, before any leaves
+    const handle = this.pack.take(this.mine.entries, this.mine.gold);
+    if (!handle) { ticket.release?.(); this._end('refused'); this._say('Your goods changed - the trade is off.'); return; }
+    this._handle = handle;
+    this.phase = 'committing';
+    this._committedAt = this._now();
+    this._settling = true;
+    const half = { sid: this.sid, give: { items: this._mineWire, gold: this.mine.gold }, get: { items: this._theirRaw, gold: this.theirs.gold }, pick };
+    Promise.resolve()
+      .then(() => ticket.settle(half))
+      .catch(() => ({ ok: false, unknown: true }))
+      .then((r) => this._settled(r));
+  }
+
+  _settled(r) {
+    if (this.isOver) return;
+    const handle = this._handle;
+    this._handle = null;
+    if (r?.ok) {
+      const items = r.items?.length ? this.pack.unwire(r.items) : [];
+      if (!items) {
+        // AUDIT REALM L2-F6: the realm moved goods into this character's record that this game will not mint (a sender's
+        // record carrying what its offer never showed). Taking only the gold left the tab without them, and its next
+        // checkpoint wrote over the record that holds them: the session ends as a lost answer does, and a join reads it.
+        this._ticket?.abandon?.();
+        this._finish('done', `The realm holds ${this.peerName}'s goods, but this game could not take them - join again to see the trade as the realm holds it.`);
+        return;
+      }
+      this._applied = true;
+      this.pack.give(items, r.gold ?? 0);
+      this._finish('done', `Trade with ${this.peerName} complete.`);
+      return;
+    }
+    if (r?.unknown) { this._finish('done', 'The realm did not answer - your trade is as the realm holds it.'); return; }
+    if (handle) this.pack.restore(handle);
+    this._finish('cancelled', r?.text || 'The realm refused the trade - nothing was traded.');
   }
 
   _maybeApply() {
@@ -407,7 +478,7 @@ export class TradeSession {
     // AUDIT DROPS B2: goods RESERVED but whose commit never left the socket come back whichever way the session
     // ends - a forged commit arriving while mine was still queued used to filter my commit out of the outbox
     // below without firing its `dropped` fate, and the reservation was neither sent nor restored.
-    if (this._handle && !this._sentCommit) { this.pack.restore(this._handle); this._handle = null; }
+    if (this._handle && !this._sentCommit && !this._settling) { this.pack.restore(this._handle); this._handle = null; }   // REALM P2.1: a half with the realm is its answer's to restore
     this._outbox = this._outbox.filter((f) => f.data.k === 'cancel');
     if (text && !silent) this._say(text);
     if (text) this.lastMessage = text;
@@ -436,8 +507,9 @@ export class TradeSession {
  * @param {() => number} [o.rand]
  * @param {() => string} [o.selfId]
  * @param {(peer: string) => boolean|null} [o.near]
+ * @param {any} [o.escrow]  REALM P2.1: the realm's escrow every session hands its commit to (TradeSession's `escrow`)
  */
-export function createTradeManager({ send, pack, now = () => Date.now(), say = () => {}, peerName = () => null, open = () => {}, close = () => {}, mintSid, rand = Math.random, selfId = () => '', near = () => true }) {
+export function createTradeManager({ send, pack, now = () => Date.now(), say = () => {}, peerName = () => null, open = () => {}, close = () => {}, mintSid, rand = Math.random, selfId = () => '', near = () => true, escrow = null }) {
   let session = null;
   let outgoing = null;                 // { peer, s, at }
   const incoming = new Map();          // peerId -> { s, at }
@@ -447,7 +519,7 @@ export function createTradeManager({ send, pack, now = () => Date.now(), say = (
 
   const begin = (peer, sid, initiator) => {
     session = new TradeSession({
-      sid, me: null, peer, peerName: nameOf(peer), initiator, pack, send, now, say, near: () => near(peer) === true,
+      sid, me: null, peer, peerName: nameOf(peer), initiator, pack, send, now, say, near: () => near(peer) === true, escrow,   // REALM P2.1
       onChange: () => mgr.onChange?.(session),
       onEnd: (s) => { if (session === s) { mgr.onChange?.(s); close(s); } },
     });

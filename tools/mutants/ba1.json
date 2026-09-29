@@ -38,7 +38,7 @@
   {
     "name": "leather-clanks",
     "file": "src/systems/betterAmbience.js",
-    "old": "  if (chest && (chest.material ?? ARMOR_MATERIAL.Leather) !== ARMOR_MATERIAL.Leather) return true;",
+    "old": "  if (chest && rriNativeMaterialValue(chest) !== ARMOR_MATERIAL.Leather) return true;",
     "new": "  if (chest) return true;",
     "tests": [
       "test/ba1_betterambience.test.js"

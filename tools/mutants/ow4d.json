@@ -12,8 +12,8 @@
   {
     "name": "OW4D1-door-goal-asked",
     "file": "src/scenes/world.js",
-    "old": "goalExempt: !!door, sea: seaAsk });",
-    "new": "goalExempt: false, sea: seaAsk });",
+    "old": "let plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: !!door, sea: seaAsk });",
+    "new": "let plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: false, sea: seaAsk });",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -52,8 +52,8 @@
   {
     "name": "OW4D2-host-gone-not-handed",
     "file": "src/scenes/world.js",
-    "old": "spawnFound: tvSpawnFound,\n      spawnGone: (s) => tvSpawnGone(s.x, s.y) })",
-    "new": "spawnFound: tvSpawnFound })",
+    "old": "      spawnFound: tvSpawnFound, spawnGone: (s) => tvSpawnGone(s.x, s.y) })",
+    "new": "      spawnFound: tvSpawnFound })",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -82,8 +82,8 @@
   {
     "name": "OW4D2-gone-while-inside",
     "file": "src/scenes/world.js",
-    "old": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key); };",
-    "new": "return _spawnLedger.expired(key, _spawnClock()); };",
+    "old": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && !built.has(key); };",
+    "new": "return _spawnLedger.expired(key, _spawnClock()) && !built.has(key); };",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -262,8 +262,8 @@
   {
     "name": "OW4D5-size-again",
     "file": "src/scenes/world.js",
-    "old": "n = _locIndexGen;",
-    "new": "n = locationIndex.size;",
+    "old": "const grid = Math.max(1, state.terrainDistance ?? 3), n = _locIndexGen;",
+    "new": "const grid = Math.max(1, state.terrainDistance ?? 3), n = locationIndex.size;",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -282,8 +282,8 @@
   {
     "name": "OW4D5-expired-unbumped",
     "file": "src/scenes/world.js",
-    "old": "        _locIndexGen += 1;   // AUDIT OW4 D5\n        _spawnLedger.forget(key);",
-    "new": "        _spawnLedger.forget(key);",
+    "old": "        _locIndexGen += 1;   // AUDIT OW4 D5\n        locationIndex.delete(key);\n        return null;",
+    "new": "        locationIndex.delete(key);\n        return null;",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -352,8 +352,8 @@
   {
     "name": "OW4D7-nearest-twelve",
     "file": "src/systems/travelDungeons.js",
-    "old": "  out.sort((a, b) => (b.found ? 1 : 0) - (a.found ? 1 : 0) || nearer(a, b));",
-    "new": "  out.sort(nearer);",
+    "old": "  rest.sort((a, b) => (b.found ? 1 : 0) - (a.found ? 1 : 0) || nearer(a, b));",
+    "new": "  rest.sort(nearer);",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -372,8 +372,8 @@
   {
     "name": "OW4D7-kept-found-first",
     "file": "src/systems/travelDungeons.js",
-    "old": "  return out.slice(0, max).sort(nearer);",
-    "new": "  return out.slice(0, max);",
+    "old": "...rest.slice(0, max)].sort(nearer);",
+    "new": "...rest.slice(0, max)];",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],

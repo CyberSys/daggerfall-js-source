@@ -15,7 +15,7 @@
 // ═══ ONE STATEMENT DECIDES ═════════════════════════════════════════
 //
 // Every movement is ONE `INSERT ... SELECT ... WHERE` into the ledger
-// (0018_marks.sql), its WHERE holding the payer's balance, the payee's
+// (0025_marks.sql), its WHERE holding the payer's balance, the payee's
 // cap and the day's cap as they stand at that statement; the ledger's own
 // triggers move the balances on the line's insert. So two requests racing
 // never overdraw a balance nor pass a cap, no Mark moves without its line,

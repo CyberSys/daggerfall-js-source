@@ -3353,6 +3353,9 @@ object is the authority over the boss and signs a receipt for each account that 
 
 ## RENOWN1 — Renown, the level that exists only online (2026-09-24)
 
+**Since RENOWN-ACCOUNT (2026-09-28, below), Renown is the ACCOUNT's, and every source pays three quarters.** What follows
+is RENOWN1 as it was built.
+
 Mac, bringing a friend's MMORPG pillars ("The Hybrid Leveling System ... a traditional EverQuest-style Adventuring
 Level ... which dictates total health, magicka"): "What if the leveling system was something seperate unique to online
 but compatible". Asked three things, Mac answered: the online health and magicka go "On top" of Daggerfall's, the curve
@@ -3861,3 +3864,290 @@ service's (`03-World/Raiding-Parties.md` "AUDIT RAID"):
   the hour as a report is (renownTracks.js's window, in the same batch): counted whatever the hour has left, paid what
   it has left, the row saying what it paid; a new character past the tracks' bound spends nothing of it.
 - `ACCOUNT_VERSION` acct18. Pins: `test/auditraid.test.js`; `tools/mutants/auditraid.json`.
+
+## REALM P1.1 — 2026-09-28: the realm's characters, service side
+
+Mac: "A true separation while allowing people to still play offline". Asked where an online character's save lives,
+he answered "Account service". The plan is `06-Systems/Realm-Arc.md`, sections 1 and 2. This is the other lane
+from ACC2: there the local save is the truth and the cloud a backup, here the service holds the truth.
+
+- **The row and the objects.** Migration 0016 adds `realm_characters`: one row a character. Its `id` is minted by
+  the service (`r` and twenty hex digits, nothing a client mints looks like one). The save sits in R2 under
+  `realm/<player>/<id>/<seq % 2>`, two objects alternating, so the one before the last checkpoint always survives.
+  (REALM P2.1 replaced the alternation: see below.)
+- **The lease and the sequence** (`server-account/src/realm.js`). A join mints a new lease and so takes the character
+  from any tab that held it (ONE-SEAT's own rule, newest wins), and it frees the account's other characters: one
+  account plays one character. A checkpoint lands only under the current lease and only at `seq + 1`. A stale lease is
+  refused before a byte lands, and the row moves only if the lease still holds.
+- **The routes** (`service.js` ROUTES, `realmPathOf`), behind a session, a guest's too:
+  - `GET /v1/realm` lists the account's characters (the lease is never listed);
+  - `POST /v1/realm/create` makes a character born online;
+  - `POST /v1/realm/customs` brings in an offline character once, only if it has a Renown track (it played online
+    before the realm);
+  - `POST /v1/realm/join`, `/leave` and `/delete`;
+  - `PUT /v1/realm/<id>/data` is a checkpoint, with the lease, sequence and tile in `x-realm-*` headers;
+  - `GET /v1/realm/<id>/data` reads the save back for a join's load or a copy to offline, with the sequence in an
+    exposed header.
+- **Bounds.** Six characters an account; the save's own 4 MiB; a tile's summary projected and bounded. `acct17`.
+- **Customs carries a character's online life in** (REALM P1.5): its Renown track is re-keyed from the offline id to
+  the realm's (`realm.js` `customsCarry`, `CHARACTER_TABLES`), inside the census batch (AUDIT REALM2 S6). Its homes
+  and guild membership stay behind (AUDIT REALM2 S2). A second try is asked first, since the track has moved.
+- **A `seq` refusal says the service's own sequence** (REALM P1.2), so a tab whose last checkpoint landed with its
+  answer lost resyncs. It is never a way in: the write still needs the lease.
+- Pins: `test/realm1.test.js` (8), driving the Worker over the real migrations. `tools/mutants/realm1.json` has 21
+  mutants, all dead (REALM P2.1 re-aimed three to the new objects and added the delete's prefix walk).
+
+## REALM P2.1 — 2026-09-28: a trade between realm characters, settled here
+
+Mac: "eliminate duping". The plan is `06-Systems/Realm-Arc.md` section 3; the client's half is TRADE1's state machine
+handing its commit to the realm (`net/tradeSession.js` `escrow`, `systems/realmSaves.js` `realmTradeEscrow`).
+
+- **`POST /v1/realm/trade`** (`server-account/src/realmTrade.js`), behind a session. A half carries the trade's sid, the
+  character, its lease and the sequence of the checkpoint it made the moment both sides confirmed, and what it gives
+  and takes. Its body may reach 32 KiB (`REALM_TRADE_BODY_MAX`), the one JSON route past 4 KiB.
+- **Migration 0017.** `realm_trades` keeps one row a trade: the first half waits there (`REALM_TRADE_TTL_S`, a
+  minute), and the outcome stays for a side asking again, `done` with each side's result or `refused` with its word.
+  `realm_tx_guard` never holds a row: a settling batch ends with an insert that happens only when a record it moved
+  did not move, and the table's CHECK refuses it, so D1 rolls the batch back whole.
+- **The settle.** Each record is read as its own last checkpoint left it. The goods move by the shared law
+  (`src/net/realmTradeLaw.js`): what the giver's record holds, never what a client says. Both records land one
+  sequence on as new objects, and one guarded batch moves both rows to them and seals the trade.
+- **Every write of a realm character is a new object.** `realm_characters` gains `obj` and `prev`: a checkpoint or a
+  settle writes a key of its own (`realm.js` `mintObjectKey`) and the row then names it. A write that loses its race
+  drops its own object and never touches the current save; the save two back goes. The P1 alternation could put a
+  losing write on the current object.
+- **The Worker bundles the law.** `src/net/realmTradeLaw.js` and `src/net/canon.js` (TRADE1's comparison, lifted out
+  of `net/tradeSession.js` into a leaf so the Worker does not bundle the client's trade machine) join the deploy's
+  path filter (`.github/workflows/account-deploy.yml`, held to the import graph by `test/accountdeploy.test.js`).
+- `acct17` still (it has not shipped). Pins: `test/realm4.test.js` (14) and `test/realm1.test.js`;
+  `tools/mutants/realm4.json` has 31 mutants, all dead.
+
+## REALM P2.2a — 2026-09-28: a guild's gold moves on the realm character's record
+
+- **`prepareRealmRecord`** (`realm.js`): the record read where the tab says it stands (`{ id, lease, seq }` - the tab
+  checkpoints just before and holds), changed by the act (`src/net/realmGoldLaw.js`: the wallet's own order - coins,
+  letters of credit, then the region's account - or a credit), and written one sequence on as a new object. The row's
+  move and its guard go into the act's OWN batch, so the gold and the act land together or not at all.
+- **`mustChange`**: the batch step's guard. An insert into `realm_tx_guard` right after an UPDATE that must change a row,
+  made only when `changes()` says it did not; the table's CHECK refuses it and D1 rolls the batch back.
+- **The guild routes** (`guilds.js`): `/v1/guilds/found`, `/deposit` and `/withdraw` take `realm` (and `region` for what
+  pays). A realm character (its id the service's shape) must name its record, or `realm-needed`; no other character
+  may. New refusals: `realm-needed`, `realm-gold` (the record cannot pay), and the checkpoint's own `lease` and `seq`
+  (with the service's sequence). The guild routes now get the bucket.
+- The Worker bundles `src/net/realmGoldLaw.js`, listed in the deploy's path filter. Pins: `test/realm5.test.js` (7);
+  `tools/mutants/realm5.json`.
+
+## REALM P2.2b — 2026-09-28: a home's and its decor's gold moves on the realm character's record
+
+- **The homes** (`homes.js`): `/v1/homes/claim` takes `realm`; a realm character's claim pays its price off the record
+  (the wallet's order, the claim's region's account last) in the claim's own batch. `/v1/homes/release` takes `realm`
+  and requires it for a realm character's home: the deed share (`homeLaw.js` `homeSaleRefund`) and half of what its
+  pieces cost go into the house's region's account on the record, in the release's own batch.
+- **The decor** (`decor.js`): `/place`, `/move` and `/remove` take `realm`. What a change costs (`decorGoldDelta`: the
+  price, a resize's difference or half back, a station's licence, a removal's half) moves on the record with the
+  piece's own write, guarded (`realmDecorWrite`). A write that moves no gold names no record.
+- Each act asks where the record stands first (`recordMovedOf`), so one sent again after it landed is told `seq`.
+  The homes and decor routes get the bucket and answer `seq` with the service's sequence, and `lease` and `realm-gold`
+  as 409s. Pins: `test/realm6.test.js` (7); `tools/mutants/realm6.json`.
+
+## RENOWN-ACCOUNT — one Renown an account, every source at three quarters (2026-09-28, acct19)
+
+Mac: "Btw can you make sure renown is account based and not character based? Along with reducing the accumulation of
+renown from resources a bit. Want some more oomph to the grind".
+
+- **One Renown an account.** `renown_accounts` (migration 0021: `player` the key, `xp`, `last_rid`) holds it, keyed by
+  the account alone. No customs, no character's delete and no realm table names it. `renown_tracks` stays as each
+  character's history (what the census counted, and what customs carries), and is no longer written. The migration
+  starts each account at its best character's total, the MAX and never the sum, and carries that track's `last_rid`,
+  so a report sent again across the deploy is answered as a repeat. An account with nothing earned gets no row.
+  `RENOWN_TRACKS_MAX` is gone: the key holds one track an account.
+- **Read as the account's everywhere:**
+  - the token's `lv`, whichever character the mint names (one never played starts at the account's Renown);
+  - `/v1/account`'s `renown`, now `{ xp, level }` or null. Older clients' account cards show no Renown, since the field was a list;
+  - a raid's pay (`raids.js`; the character that fought is kept on the claim's row);
+  - a founding's Renown check (`guilds.js`).
+
+  A report's `character` and `name` are taken and ignored.
+- **Three quarters from every source** (`src/net/renown.js` `RENOWN_RATE_PCT` 75, `renownRate`, the one floor), with the
+  hour's bound 15,000 (was 20,000). The curve is unchanged.
+
+  | Source | Now | Was |
+  |---|---|---|
+  | A kill, foe level 1 / 3 / 10 / 20 / 30 | 7 / 22 / 75 / 150 / 225 | 10 / 30 / 100 / 200 / 300 |
+  | A quest, level 1 / 10 / 30 | 105 / 375 / 975 | 140 / 500 / 1,300 |
+  | A raid defended, at Renown 1 / 10 / 27+ | 585 / 1,395 / 2,925 | 780 / 1,860 / 3,900 |
+  | A party of eight, a level-30 kill | 383 | 510 |
+  | Level-30 kills to Renown 10 / 20 | 79 / 531 | 59 / 398 |
+
+  Gates pay no Renown of their own (the gate's claim records the kill), so theirs follows the kill's rate. The weapon
+  and armour sigils feed on Renown XP, so they grow a quarter slower too.
+- Rides REALM's undeployed `acct19`. Pinned: `test/renown_account.test.js` (8); `tools/mutants/renown_account.json`
+  (23, all dead). The pins of RENOWN1, RENOWN3, RENOWN4, RENOWN-BAR, AUDIT RENOWN1, RAID4, AUDIT RAID, the guild pins and
+  realm5 were rewritten to the account's Renown.
+
+## AUDIT REALM2 — the realm service's audit (2026-09-28, acct19)
+
+The service lane of `06-Systems/Realm-Arc.md` AUDIT REALM2 (S1-S8):
+- **A first save is read** (`realm.js` `firstSaveRefusal`, before a byte lands):
+  - one born online is level 1 within `REALM_BIRTH_WEALTH_MAX`, or it is refused `realm-birth` (403);
+  - a customs character is within its level's allowance, or it is refused `customs-allowance` (403);
+  - both are measured by the one measure customs caps with (`src/net/realmGoldLaw.js`), its constants pinned to the game's.
+- **A house, a piece and a founding are a realm character's alone** (`realm-only`, 400). The two-write lane any id had
+  is gone.
+- **A batch that landed keeps its save** (`dropIfUnnamed` in every catch).
+- **An offer matches its record in every field**, and a traded record is at most `REALM_TRADE_RECORD_MAX` (4,096)
+  characters.
+- **A character's new waiting trade half replaces its old one**, in the insert's batch.
+- **The customs carry rides the census batch** (`UPDATE OR IGNORE`), and a resumed customs carries again.
+- **A checkpoint that moved nothing reads the row again**, and answers `seq` or `lease`.
+- **A lone guildmaster is deleted only once the treasury is empty** (`guild-treasury`, 409).
+
+`ACCOUNT_VERSION` stays `acct19`. Pinned: `test/auditrealm2_service.test.js` (11), over `test/realmSeat.mjs`, which
+seats a realm character the realm's way for every realm pin; `tools/mutants/auditrealm2_service.json` (16, all dead).
+
+## TERMS1 — the Terms of Service and the Privacy Policy, ticked before an account exists (2026-09-28)
+
+"Here is our terms of service and privacy policy. I wanna make sure these need to be reviewed and checked off by players
+before creating an account". Four answers settled the rest: the documents say Daggerfall Online (the draft used the
+project's name from before BR4), their three contact placeholders are the Discord server, each box sits beside a link to
+its document, and new accounts only are asked.
+
+**The documents.** `terms/index.html` and `privacy/index.html`, served at `/terms/` and `/privacy/` beside the landing
+page, whose foot links them. The words are the project's own, carried over whole: a script converted the draft, and a
+word-for-word comparison against it, with only the name, the date and the contact filled in, came back identical (1,189
+and 1,297 words). They are documents in the landing page's sense - no script, no file of their own - so
+`scripts/landingHtml.mjs` dresses them (`DOCUMENT_PATHS`, `transformDocument`): the skin's tokens, the five from
+`src/ui/pixelifyFive.js`, one rule set for both, the fonts request and the icon, and no night sky behind a document read
+to the end.
+
+**A version is a document's Last Updated date**, because that is how the Terms say a revision is marked (section 15).
+`src/net/legalLaw.js` holds `TERMS_VERSION` and `PRIVACY_VERSION` for both ends. Each page carries its date as
+`<time datetime>`, pinned equal to its version, and its words are pinned to a hash, so the text cannot change without
+somebody deciding whether that is a new version. To revise a document: edit the page, move its Last Updated date and its
+version together, and re-hash. The site and the account Worker deploy separately, and the site's deploy waits for the
+account service to serve the version the tree names (AUDIT PRE-MERGE 0929 T2), so the form never meets a Worker older
+than itself; a desktop build older than the service is told the documents changed, and to reload the game or update
+the app.
+
+**The form.** Only `register` asks (`AGREEMENTS` in `src/ui/accountFlow.js`): two boxes under the fields, "I have read and
+agree to the Terms of Service" and the same for the Privacy Policy, each document's name a link that opens outside the
+game - a new tab on the web, the system browser from the desktop app, whose `dagger://` pages cannot reach the site by a
+relative link (so the URLs are absolute). The boxes start unticked, a move wipes them, and a refused name keeps them.
+Nothing leaves the device until both are ticked: the guest row the flow opens first IS an account (0001's own words), so
+it is not opened either. Both requests then carry the versions ticked. A guest from before the boxes, giving itself a
+username, meets the same form.
+
+**The service.** `legalRefusal` (`server-account/src/accounts.js`) is asked by the only two routes that make an account,
+`/v1/auth/guest` and `/v1/auth/register`, before anything is written: `not-found` for a body that names neither
+document - a game from before the boxes, which renders it "The game may need updating" (AUDIT PRE-MERGE 0929 T1; the
+form never sends one) - `terms-unaccepted` for one named and not the other, `terms-stale` for dated versions that are
+not these. The row records `terms_version`,
+`privacy_version` and `legal_accepted_at` (migration 0023 - 0022 until main's CUSTOMS-CARRY took that number). Only the current versions are ever written, and naming an
+account never erases the agreement its row already holds. Signing in and recovering ask nothing: those accounts exist.
+Every account made before TERMS1 keeps NULL - it was never asked, and a default would invent that it was. The recorded
+version is what a later revision would ask again against; asking again is not built.
+
+- `acct20` (acct17 and migration 0016, then acct19 and migration 0018, on its branch - renumbered past RAID4's and AUDIT RAID's, then REALM's and RENOWN-ACCOUNT's, at the merges).
+  `tools/accountProbe.mjs` sends the versions, and checks that the deployed Worker refuses a request without
+  them.
+- `tools/accountCardProbe.mjs` runs again. It served the card from a hand-kept map of four modules with their imports
+  rewritten, and ACC3c, DUEL1, RENOWN1 and WB5b each gave the card an import the map never learned, so it had stopped
+  loading at all. It now serves `src/` at its own paths and lets the browser resolve the imports, and it measures the
+  boxes as drawn: two, unticked, rows at a thumb's 44px, the box and the link in brass, each link opening outside the
+  game at the site, and none on any other stage (17/17). The unticked box is told the page is dark (`color-scheme`), or
+  it is the browser's white square.
+- Pins: `test/terms1.test.js` (19) - the documents, the build seam, the form, the card, and the Worker end to end on
+  node:sqlite. The 19 account suites that make accounts through a route now send the versions, and `accountflow`'s and
+  `nameadopt`'s registering flows tick both boxes. `tools/mutants/terms1.json`: 28 mutants, all dead. The three records
+  the change moved (ACC1c-16, ACC1e-7, GATEKEYS-the-empty-var-back) are re-aimed by content, and dead. Every other
+  committed record the change could reach - the 922 that target a changed file or are killed by a changed suite - was
+  run again: 916 dead, 6 equivalent as recorded, none surviving.
+
+**What the Privacy Policy does not say yet**, noted here for the project rather than written into its text: the service
+also stores an optional email (ACC1c), cloud save backups with a screenshot each (ACC2), and letters between players
+(MAIL1).
+
+**AUDIT PRE-MERGE 0929** (`01-Overview/Audit-PreMerge-0929.md`, lens T), each red first:
+- **T-CI - the account deploy's own smoke.** It opened a throwaway guest and named one with `{"label":"deploy-smoke"}`
+  alone, which TERMS1 refuses: `curl -f` would have failed the job the moment the Worker went live, and every check
+  after it - the gate's public half, the registration on Cloudflare (the PBKDF2 outage's own detector), the public key,
+  the relay's copy of it - with it, on this deploy and every one after. One step reads both versions off
+  `src/net/legalLaw.js` (never typed) into the job's environment, and all three calls agree as a player does.
+- **T1** - a game from before the boxes was told `terms-unaccepted`, a word it has no sentence for ("The account service
+  had a problem" at every press, for ever - the desktop app's reload brings back the same game): a body naming neither
+  document is answered `not-found`, and `terms-stale` says "Reload the game (or update the app)". The real-workerd probe
+  (`tools/accountProbe.mjs`) asks the runtime both: the bare body `not-found`, one document ticked `terms-unaccepted`.
+- **T2** - the site's deploy waited for nothing: live before the account service, the form ticked both boxes against
+  the old Worker, which named the account and recorded no agreement. `deploy.yml` publishes only once the service's
+  `/v1/health` serves the version the tree names (or a later one), up to thirty minutes, and not at all if it never
+  does - AUDIT B1's law, the account service's own for the relay.
+- **T3** - the card's redraw took the keyboard: a refusal is cleared by the first keystroke or tick that answers it,
+  and that repaint rebuilt the card under the player's fingers (after "Type your username" the rest of "Nystul" went
+  nowhere but its N; a Space on the Terms box left the next Tab on Username). Every control is built under a name, and
+  the one the keyboard was on - with its caret - has it back after the redraw, on a card of the same stage
+  (`src/ui/enhancedAccount.js`); pre-existing since ACC1e for the fields, every tick since TERMS1.
+- **T4** - the route table's `{ label? }` body and legalLaw.js's "a relative link would open nothing" said what the
+  code does not; corrected.
+Pinned: `test/audit0929_terms.test.js` (6), `test/terms1.test.js`'s refusals; `tools/mutants/audit0929_terms.json` (14,
+all dead).
+
+## PENITENT, and a fifth Disciple — Diggleborf's own (2026-09-29, acct21)
+
+Mac: "This new custom title/glyph is for the user Diggleborf" and "Add valenvalarys as a disciple ingame". The ask is
+Diggleborf's, on the Discord: "Looking to do a Trinimac themed one, so maybe "Penitent" for the title starting gold and
+ending a sky blue", with a rough sketch for the glyph ("Something like this or similar would be great!") - a tall
+lozenge with a sword inside it, the sword's point at the lozenge's lowest corner.
+
+- **The grants** (`server-account/wrangler.toml`): `DISCIPLE_HANDLES` gains valenvalarys, and `PENITENT_HANDLES =
+  "Diggleborf"` is new. It is TITLE-N's law, as SHADOW-FANG's: a handle list grants the title and its glyph together,
+  never to a guest (`titles.js TIER_LISTS.penitent`). Penitent is HELD, and worn once Diggleborf presses it on the
+  account card; a Founder title they wear stays worn until then. It is a title and a glyph only. The staff's commands
+  stay STAFF1's three (Mac's own choice), and no werewolf skin rides it.
+- **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `penitent` joins TITLES and GLYPHS, last. An
+  older relay refuses a token carrying it (`claimsValid`), so the relay is **world129** and the account service
+  **acct21**. The account deploy waits for the relay's `/health` (SHADOW-FANG's AUDIT B1). CUSTOMS-GRANT's branch
+  (PR #433, not merged) also names acct20, which main's TERMS1 already holds; whichever of the two lands second takes
+  the next free number. (CUSTOMS-GRANT's branch landed after both, as acct23: REALM-DOOR took acct22 first.)
+- **The face** (`src/ui/playerBadge.js`): the word "Penitent" and a gradient from CSS's own `gold` (#ffd700) to its
+  `skyblue` (#87ceeb), with a warm light between them (#fff3d6). A gold and a sky blue both lean green, so a straight
+  mix of the two is sage: with two stops the word read gold, lime, blue. With the light between, it reads gold into
+  light into sky, and it still starts gold and ends sky blue.
+- **The edge** (`TITLE_EDGE`, new): the colour a gradient title's letters are edged in, where it is not the title's own.
+  Shadow Fang's edge stays its crimson, because its black half needs a bright edge over a night sky. Penitent's ends
+  are both bright, and edged in its own gold the sky half was lost: the word read gold on every ground. So it is edged
+  in black, as every one-colour title's text shadow is. `titleBadge` carries it as `edge`, and `titlePaint` and the
+  classic face's edge run read it there.
+- **The glyph**: Diggleborf's sketch, drawn the way the tiers draw theirs - a stroked outline in one colour
+  (`GLYPH_STROKE`) - with a detail of its own (`GLYPH_DETAIL`, the door SHADOW-FANG's eye opened). The lozenge is in
+  the title's gold and the sword over it in the title's sky, both read from the title's stops. The sword is point
+  down, the arms reversed as a penitent carries them: a small diamond pommel, the grip, the guard, and a blade more than
+  twice the hilt, tapering to the lozenge's lowest corner where the sketch's meets it. The sketch's own short sword
+  read as a cross at a name's size, so the blade is longer. The glyph is not a gradient: at a name's size (11 to 28
+  px) a gold-to-blue stroke reads as one lime line. `|` for the classic face.
+- **Seen**: rendered in the name layer's own sheet (Playwright) over a night sky, a day sky, stone, grass and snow, at
+  15 and 24 px, before the colours and the shapes were chosen; then the shipped code - the real name layer, and the
+  glyph at the chat's 11, the card's 15 and the profile's 16 px beside the Disciple's and Shadow Fang's.
+- Pinned: `test/penitent.test.js` (8); valenvalarys in `test/titlen.test.js`. `tools/mutants/penitent.json` (24, all
+  dead), and two grant mutants in `titlen.json` (21, all dead). Three older records in `shadowfang.json` were re-aimed
+  by content, and the version mutants in `soc1.json` and `gatekeys.json` moved with the versions (all dead).
+
+## REALM-DOOR and CUSTOMS-PASS — the mint's realm word, and a developer's pass through customs (2026-09-29, acct22)
+
+From the field (`01-Overview/Field-Bugs-2026-09-29b.md`): Gryphoth made and played a character online on a build from
+before the realm, after the census froze - the relay still admitted such a build - and Bring online refused it.
+
+- **REALM-DOOR: every identity token says whether its character is the realm's.** `/v1/auth/token` stamps `rc`: 1 when
+  the character the mint names is one of the account's realm characters (`realm.js` `realmCharacterHeld` - a realm id,
+  the caller's own, standing), else 0 - an offline id, another account's character, one deleted, none. The relay
+  refuses a 0 at its door (`06-Systems/Online-Arc.md` REALM-DOOR, world130).
+- **CUSTOMS-PASS (Mac: "Staff customs pass"): `POST /v1/mod/customs-pass { name | account, revoke? }`**, a developer's
+  alone (`DEVELOPER_HANDLES`; a moderator's mute is not enough to let a character into the realm's economy). The account
+  is named as the game shows it - a handle, case-folded, or a guest's two-word name when one account without a handle
+  wears it (`ambiguous`, 409, when two do) - or by its id. It holds one open pass (`realm_passes`, migration 0024: a row
+  a grant, `granted_by` and `granted_at`; a partial unique index keeps one open an account), and customs spends it on the
+  account's next character its census does not count, inside `customsRealm`'s own guarded batch, writing that
+  character's id and the moment (`origin_id`, `spent_at`). Never spent on a character the census admits anyway; never
+  lets in one already brought in from any account. A revoke takes back an open pass only. `tools/customsPass.mjs` is the
+  developer's end of it.
+- `acct22`. Pins: `test/realmdoor.test.js` (6), `test/customspass.test.js` (6); `test/accountworker.test.js` names the
+  new table.

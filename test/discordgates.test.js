@@ -12,7 +12,7 @@ import {
   heraldWebhook, heraldRole, heraldName, omenPost, fellPost, heraldOmenDue, heraldFellLive, gateSiteDayOk, foldGateSite, agreedGateSite,
   HERALD_RETRY_MS, HERALD_FELL_KEEP_MS, GATE_SITE_AGREE, GATE_SITE_CANDIDATES_MAX, GATE_SITE_VOTES_MAX, GATE_SITE_SKEW_MS,
 } from '../src/net/gateHerald.js';
-import { gateTimes, gateBossOf, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js';
+import { gateTimes, gateBossOf, gateModsOf, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js';
 import {
   validGateIn, parseClient, gatePlaceWire, relaySupportsGateSite, GATE_SITE_RELAY_MIN, GATE_PLACE_MAX, GATE_INTERNAL_FELL, SOCIAL_ROOM, RELAY_VERSION, ACCOUNT_SWEEP_MS,
 } from '../src/net/wire.js';
@@ -46,7 +46,8 @@ test('DISCORD-GATES law: THE OMEN\'S POST - the role pinged first and the ONLY m
   const p = omenPost({ day: DAY, place: 'Copperham, Wrothgarian Mountains', role: ROLE });
   assert.ok(p.content.startsWith(`<@&${ROLE}> `), 'the role, first');
   assert.deepEqual(p.allowed_mentions, { roles: [ROLE] }, 'that role and nothing else - no @everyone, no user, whatever the text holds');
-  assert.equal(p.content, `<@&${ROLE}> **The sky burns near Copperham, Wrothgarian Mountains.** An Oblivion Gate opens <t:${s(TT.openAt)}:R> (<t:${s(TT.openAt)}:t>) and seals at <t:${s(TT.sealAt)}:t>. ${gateBossOf(DAY).name}, ${gateBossOf(DAY).title}, holds it.`);
+  assert.equal(p.content, `<@&${ROLE}> **The sky burns near Copperham, Wrothgarian Mountains.** An Oblivion Gate opens <t:${s(TT.openAt)}:R> (<t:${s(TT.openAt)}:t>) and seals at <t:${s(TT.sealAt)}:t>. ${gateBossOf(DAY).name}, ${gateBossOf(DAY).title}, holds it. Tonight he comes **the Burning**, Soul-Hungry and Echoing.`);
+  assert.deepEqual(gateModsOf(DAY), ['burning', 'soulhungry', 'echoing'], 'WB8c: the day\'s own marks, in the tables\' words - never a player\'s');
   assert.equal(TT.openAt - TT.omenAt, 15 * 60_000, 'Mac\'s "15 min before": the omen is the gate\'s own, fifteen real minutes before it opens');
   const q = omenPost({ day: DAY });
   assert.deepEqual(q.allowed_mentions, { parse: [] }, 'no role: nobody pinged');

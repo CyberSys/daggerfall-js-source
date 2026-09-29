@@ -209,7 +209,7 @@ test('OVH2 by source: the classic art doors ask the pack first - the HUD\'s own 
     assert.ok(sw.includes(`'${n}'`), `${n} is asked for`);
   }
   const pd = rd('src/ui/paperDoll.js');
-  assert.match(pd, /const \{ out, layout, bgSize \} = await composeDoll\(_art, _deps, entity, \{ background: !packBg \}\);/);
+  assert.match(pd, /const \{ out, layout, bgSize, width: OW, height: OH \} = await composeDoll\(_art, _deps, entity, \{ background: !packBg, scale: composeScale\(\) \}\);/);
   assert.match(pd, /if \(_live\.packBg\) \{[^\n]*\n\s*const \{ tex, w, h \} = _live\.packBg, \[sx, sy\] = BG_SUBRECT;\s*renderer\.drawScreenQuad\(tex, dst,/);
 });
 

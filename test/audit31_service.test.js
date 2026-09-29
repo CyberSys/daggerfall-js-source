@@ -64,7 +64,7 @@ async function stand(extra = {}) {
   const guild = async (marks = 20_000, { name = 'The Hound', tag = 'HND' } = {}) => {
     const gm = await s.registered('Aldric', { renown: 10 });
     s.seedMarks(gm, 100_000, 'gm');
-    const g = (await call('/v1/guilds/found', { character: gm.character, name, tag }, gm.secret)).body.guild;
+    const g = (await s.found(gm, { name: name, tag: tag })).body.guild;
     const join = async (handle) => {
       const w = await s.registered(handle, { renown: 1 });
       await call('/v1/guilds/invite', { character: gm.character, handle }, gm.secret);
@@ -340,15 +340,15 @@ test('AUDIT 31 S7: a guild no one is left in is reclaimed for its name and tag o
   assert.equal((await s.wpost(gm)).status, 200);
   for (const p of [gm, officer, member, recruit]) s.raw.prepare('DELETE FROM players WHERE id = ?').run(p.id);   // latent: no route deletes an account
   const zed = await s.registered('Zed', { renown: 10 });
-  const f = await s.call('/v1/guilds/found', { character: zed.character, name: 'The Hound', tag: 'HND' }, zed.secret);
+  const f = await s.found(zed, { name: 'The Hound', tag: 'HND' });
   assert.equal(f.body.error, 'guild-name-taken');
   assert.deepEqual([s.raw.prepare('SELECT COUNT(*) AS n FROM guilds WHERE id = ?').get(g.id).n, s.raw.prepare('SELECT COUNT(*) AS n FROM guild_writs WHERE guild_id = ?').get(g.id).n], [1, 1]);
   // an empty one still goes for the next founder (GUILD1's own)
   const yan = await s.registered('Yan', { renown: 10 });
-  const e = (await s.call('/v1/guilds/found', { character: yan.character, name: 'The Empty', tag: 'EMP' }, yan.secret)).body.guild;
+  const e = (await s.found(yan, { name: 'The Empty', tag: 'EMP' })).body.guild;
   s.raw.prepare('DELETE FROM players WHERE id = ?').run(yan.id);
   const xia = await s.registered('Xia', { renown: 10 });
-  const again = await s.call('/v1/guilds/found', { character: xia.character, name: 'The Empty', tag: 'EMP' }, xia.secret);
+  const again = await s.found(xia, { name: 'The Empty', tag: 'EMP' });
   assert.deepEqual([again.status, s.raw.prepare('SELECT COUNT(*) AS n FROM guilds WHERE id = ?').get(e.id).n], [200, 0]);
 });
 

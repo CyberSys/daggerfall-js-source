@@ -1,0 +1,32 @@
+[
+  {
+    "name": "MERGE2-writ-renown-to-no-track",
+    "file": "server-account/src/professions.js",
+    "old": "    db.prepare(`UPDATE renown_accounts SET xp = MIN(?4, xp + (SELECT renown FROM writs WHERE id = ?2 AND n = ?3)), updated_at = ?5",
+    "new": "    db.prepare(`UPDATE renown_accounts SET xp = MIN(?4, xp + 0), updated_at = ?5",
+    "tests": [
+      "test/prof1_service.test.js"
+    ],
+    "note": "A writ past the first adds nothing: the account's track the first one made is never grown."
+  },
+  {
+    "name": "MERGE2-writ-renown-full-rate",
+    "file": "src/net/professionLaw.js",
+    "old": "export const writRenown = (tier, units) => renownRate((25 * tier * units) / 10);",
+    "new": "export const writRenown = (tier, units) => (25 * tier * units) / 10;",
+    "tests": [
+      "test/prof1_law.test.js"
+    ],
+    "note": "The writ's Renown at the full rate - RENOWN-ACCOUNT's three quarters not taken."
+  },
+  {
+    "name": "MERGE2-writ-renown-first-track-never-made",
+    "file": "server-account/src/professions.js",
+    "old": "        AND NOT EXISTS (SELECT 1 FROM renown_accounts WHERE player = ?1)`).bind(player.id, id, nonce, RENOWN_XP_MAX, nowS),",
+    "new": "        AND 0`).bind(player.id, id, nonce, RENOWN_XP_MAX, nowS),",
+    "tests": [
+      "test/prof1_service.test.js"
+    ],
+    "note": "An account with no Renown yet gets none from its first writ."
+  }
+]

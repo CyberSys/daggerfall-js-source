@@ -225,7 +225,12 @@ Read against the C#:
   the live speed; a weapon's `baseWeight` scaled by `150 - Strength`
   per cent, times 3.4, comes off a speed capped at 98 as
   `speed * reduction / 90` (an int cast), then DFU's `3 * (115 -
-  speed)` over the classic frame update.
+  speed)` over the classic frame update. SWING-LAW (2026-09-28, Mac:
+  "swing speed is insane"): the adjusted speed is now the Speed the
+  swing is read at, answered through the port's own swing law - its
+  bounded curve and the handling of the weapon's kind and hands - and
+  the mod's weight law stands in for the law's own heft (Ledger A
+  SWING-LAW, `05-Combat/Combat.md` SWING-LAW).
 - **ConditionPercentage** has one home now (`itemTemplates`), the
   C# integer division; itemInfo re-exports it.
 
@@ -336,6 +341,34 @@ of nothing is 0: broken to the equip check, undamaged to the repairer. The biogr
 `mintCondition` now, the kit mints the dagger before it wears it (`isQuestionsDagger`, `QUESTIONS_DAGGER_WEAR`, one
 home in `systems/conditionRepair.js`), and a load mints a never-minted wearable by the law it missed - the kit's 20%
 for this dagger at 0. `test/disc21.test.js` (A). `01-Overview/Field-Bugs-2026-09-23.md`, DISC21-A.
+
+## DISC29-B (2026-09-28) - the word a rarity name dropped, and the two mods that read the raw make
+
+Julian on Discord: a coloured-tier "iron" helmet his class was refused as leather. The refusal is this mod's design -
+a light-set piece of a plate material is BRIGANDINE, and `NativeMaterialValue` takes 0x0200 off "so DFU treats this
+item as leather for forbidden checks" - but the list gave him no way to know: the class's CurrentVariant setter
+names the mint "Brigandine Helmet", and the Loot Rarity ladder built its "Sentinel's Helmet of the Bear" again from
+the bare TEMPLATE's name (`systems/lootRarity.js rarityName`), so the long name read "Iron Sentinel's Helmet".
+
+- **One rule for the word** (`systems/rriItems.js`): each armour class carries `variantWord` - the light set's
+  `lightWord` (a plate material is Brigandine; Chain is Fur, read before the fold or after it as Leather with
+  `message` 1) and the chain set's `mailWord` (plate is Mail). The setters build their names from it, and
+  `rriVariantWord(item)` answers it to anyone else ('' for a classic item, the weapons, leather, the mod off).
+- **The rarity name reads it**: `rarityName` puts the word before the template's name ("Sentinel's Brigandine Helmet
+  of the Bear"). Every roll mints through `setItemFields` first (`createRandomArmor`, the corpse's kit, the Broker, the
+  gate's spoils, the Test Room), so the word is never written twice.
+- **A save's names are given it back** (`repairRarityNames`, run on load over the pack, the wagon and the repair
+  shelf, beside DISC21-A's repair - and, since AUDIT PRE-MERGE 0929 D3, over every list of the character's own things
+  the save carries: a cached scene's chests, piles and storage pieces, the world's piles and dead foes' packs, Come Sail
+  Away's boats and cargoes, `net/realmGoldLaw.js stashedItemLists`): only a Magic or Rare name that IS the old bare
+  build moves - idempotent, and a name that is anything else is left.
+- **The same class value, read by two other mods**: Immersive Footsteps (`boots.NativeMaterialValue`,
+  ImmersiveFootstepsMain.cs:502-532) and Better Ambience's HasArmor (`chest.NativeMaterialValue`,
+  BetterFootstepsComponent.cs:256-259) read the PROPERTY this mod overrides; the port read the raw `material`, so
+  brigandine boots walked in plate and a mail hauberk clanked as plate. Both read `rriNativeMaterialValue` now.
+
+`test/disc29_rarity.test.js` (6), `test/if1_immersivefootsteps.test.js` (the boots' ladder);
+`tools/mutants/disc29.json` (DISC29-B, 11). `01-Overview/Field-Bugs-2026-09-28f.md`, DISC29-B.
 
 ## Record
 

@@ -143,11 +143,20 @@ function armRaid() {
  * boarding, and while a lent ship is out (the fast travel's own `tempShip` refusal).
  */
 export function raidAtSea() {
-  if (hasTraveledbyShip || _boardIn !== null) return 'busy';
-  if (tempShip) return 'lent';
+  const refused = raidRefusal();
+  if (refused) return refused;
   const armed = armRaid();
   onPostFastTravel();
   return armed;
+}
+
+/** OWS3: why the mod refuses a raid NOW - an ambush armed or boarding ('busy'), a lent ship out ('lent') - or null. The
+ *  refusals' one home: raidAtSea answers with it, and AUDIT OW5b S1's host asks it before it lets go of the helm (a raid
+ *  refused leaves the traveller sailing, the raider sheering off unheeded). */
+export function raidRefusal() {
+  if (hasTraveledbyShip || _boardIn !== null) return 'busy';
+  if (tempShip) return 'lent';
+  return null;
 }
 
 /** CheckforEncounters [IL_0384], OnPostFastTravel's subscriber: an armed ambush starts the coroutine. */

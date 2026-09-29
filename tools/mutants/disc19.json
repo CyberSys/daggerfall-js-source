@@ -92,8 +92,8 @@
   {
     "name": "DISC19-C-handler-reads-no-death",
     "file": "src/scenes/world.js",
-    "old": "exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })",
-    "new": "exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen })",
+    "old": "for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })) save(saveName);",
+    "new": "for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen })) save(saveName);",
     "tests": [
       "test/disc19.test.js"
     ]
@@ -236,8 +236,8 @@
   {
     "name": "DISC19-F-swing-takes-the-defender-first",
     "file": "src/scenes/cityGuards.js",
-    "old": "(defendersOnly ? g.defender : !(spareDefenders && protect && g.defender))",
-    "new": "(defendersOnly ? g.defender : true)",
+    "old": "const live = guards.filter((g) => !g.dead && !playerSpares(g));",
+    "new": "const live = guards.filter((g) => !g.dead);",
     "tests": [
       "test/disc19.test.js"
     ]
@@ -263,8 +263,8 @@
   {
     "name": "DISC19-F-host-swing-order",
     "file": "src/scenes/world.js",
-    "old": "guardHitSound, { spareDefenders: true, swing })) {",
-    "new": "guardHitSound, { swing })) {",
+    "old": "          } else\n          cityGuards.resolveCivilianHit(weaponRig.playerWeapon, cam.pos, lookFwd",
+    "new": "          } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing }))\n          cityGuards.resolveCivilianHit(weaponRig.playerWeapon, cam.pos, lookFwd",
     "tests": [
       "test/disc19.test.js"
     ]

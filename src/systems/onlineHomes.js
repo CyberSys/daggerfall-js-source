@@ -250,30 +250,36 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     ensure(id, { force: true });
   }
 
-  async function claim({ mapId, buildingKey, region, price }) {
+  /** REALM P2.2b: a refusal's sequence rides out with it (a realm act reads one a step on as its own, landed), and an
+   *  answer's record sequence (data.realm) - neither there for any other character. */
+  const refused = (r) => ({ ok: false, error: r?.error ?? 'server', ...(Number.isSafeInteger(r?.seq) ? { seq: r.seq } : {}) });
+  const realmOf = (r) => (r?.data?.realm ? { data: { realm: r.data.realm } } : {});
+
+  async function claim({ mapId, buildingKey, region, price, realm = null }) {
     const id = idOf(mapId);
     const me = character();
-    const r = await api.claim({ mapId: id, buildingKey, region, character: me, price });
+    const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}) });
     if (r?.ok) {
       const had = towns.get(id)?.homes.get(buildingKey);
       wrote(id, buildingKey, { buildingKey, owner: had?.owner ?? '', entry: r.data?.home?.entry ?? HOME_ENTRY_DEFAULT, mine: true, character: me });
-      return { ok: true, repeat: r.data?.repeat === true };
+      return { ok: true, repeat: r.data?.repeat === true, ...realmOf(r) };   // REALM P2.2b: the record's new sequence, in data.realm
     }
-    if (r?.error === 'home-taken') ensure(id, { force: true });   // somebody's now: the door should say whose
-    return { ok: false, error: r?.error ?? 'server' };
+    if (r?.error === 'home-taken' || r?.error === 'seq') ensure(id, { force: true });   // somebody's now, or mine already: the door should say whose
+    return refused(r);
   }
 
-  async function release(mapId, buildingKey) {
+  async function release(mapId, buildingKey, realm = null) {
     const id = idOf(mapId);
-    const r = await api.release(id, buildingKey);
+    const r = realm ? await api.release(id, buildingKey, realm) : await api.release(id, buildingKey);
     if (r?.ok) {
       wrote(id, buildingKey, null);
       const n = (v) => (Number.isSafeInteger(v) && v > 0 ? v : 0);
-      // DECOR1e: and its placed pieces, gone with it, and half of what they cost - the service's own sum
-      return { ok: true, price: n(r.data?.price), decorCount: n(r.data?.decorCount), decorBack: n(r.data?.decorBack) };
+      // DECOR1e: and its placed pieces, gone with it, and half of what they cost - the service's own sum; AUDIT REALM
+      // L1-F3: and, for a realm character's record, the deed share the record was paid (`refund`)
+      return { ok: true, price: n(r.data?.price), decorCount: n(r.data?.decorCount), decorBack: n(r.data?.decorBack), ...(r.data?.refund != null ? { refund: n(r.data.refund) } : {}), ...realmOf(r) };
     }
-    if (r?.error === 'no-home') ensure(id, { force: true });
-    return { ok: false, error: r?.error ?? 'server' };
+    if (r?.error === 'no-home' || r?.error === 'seq') ensure(id, { force: true });
+    return refused(r);
   }
 
   async function setEntry(mapId, buildingKey, entry) {
@@ -298,7 +304,7 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
  * is given back rather than kept unpaid. `pay(price)` takes it, purse first, as Daggerfall's own purchase does.
  * Answers `{ ok: true }` or `{ ok: false, error }` - `gold` for the purse, else the service's word.
  */
-export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, afford, pay }) {
+export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, afford, pay, refund = null, realm = null }) {
   if (!homePriceOk(price)) return { ok: false, error: 'bad-home' };
   // AUDIT MERGE-PLUS A1: ONE CLAIM A HOUSE AT A TIME. The registry is written only when the claim answers, so until
   // then the door went on offering "Buy it" - a second press sent a second claim, the service answered it `repeat`
@@ -311,6 +317,18 @@ export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, 
   out.add(key);
   try {
     if (!afford(price)) return { ok: false, error: 'gold' };
+    if (realm) {
+      // REALM P2.2b: the claim and the record's payment are one write on the service - the purse pays at once and gets it
+      // back on a refusal (systems/realmSaves.js realmGoldAct); there is no claim to give back
+      const r = await realm.act({
+        reserve: () => { pay(price); return () => refund?.(price); },
+        // AUDIT REALM: a claim answered as the house already this character's (`repeat`) moved no gold on the record - the
+        // purse's reserve comes back, or the next checkpoint would write the price paid twice
+        apply: (/** @type {any} */ res) => { if (res?.repeat) refund?.(price); },
+        call: (/** @type {any} */ at) => homes.claim({ mapId, buildingKey, region, price, realm: at }),
+      });
+      return r?.ok ? { ok: true } : { ok: false, error: r?.error ?? 'server' };
+    }
     const r = await homes.claim({ mapId, buildingKey, region, price });
     if (!r.ok) return r;
     if (!afford(price)) {
@@ -332,7 +350,25 @@ const _buying = new WeakMap();
  * SELL ONE BACK: given up first, and credited only once the service agrees it is gone - Daggerfall's share
  * (homeRefund) of what the service says was paid, never of a price this client names. `credit(n)` pays it in.
  */
-export async function sellOnlineHome(homes, { mapId, buildingKey, credit }) {
+export async function sellOnlineHome(homes, { mapId, buildingKey, credit, realm = null }) {
+  if (realm) {
+    // REALM P2.2b: the house given up and the record paid back are one write on the service; the purse takes what the
+    // service says it paid (an answer that landed but never came back ends the session - `needsAnswer`)
+    /** @type {any} */
+    let sold = null;
+    const r = await realm.act({
+      needsAnswer: true,
+      apply: (/** @type {any} */ res) => {
+        // AUDIT REALM L1-F3: what the RECORD was paid (the service's `refund`: the deed share of what a record paid for the
+        // house - nothing for one from before the realm) - never this client's share of a price, which the record may
+        // never have paid, and which the next checkpoint would then write over it
+        sold = { refund: Math.max(0, Number(res.refund) || 0), decorBack: Math.max(0, Number(res.decorBack) || 0) };
+        credit(sold.refund + sold.decorBack);
+      },
+      call: (/** @type {any} */ at) => homes.release(mapId, buildingKey, at),
+    });
+    return r?.ok && sold ? { ok: true, ...sold } : { ok: false, error: r?.error ?? 'server' };
+  }
   const r = await homes.release(mapId, buildingKey);
   if (!r.ok) return r;
   const refund = homeRefund(r.price);

@@ -31,16 +31,21 @@ const check = (name, ok, detail = '') => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? ` - ${detail}` : ''}`);
 };
 
-const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-
-// The three modules the page needs, served as text so the page can
-// import them without a bundler. `handleShape.js` rides along because
-// accountClient.js imports it.
-const MODULES = {
-  '/handleShape.js': read('src/net/handleShape.js'),
-  '/accountClient.js': read('src/net/accountClient.js').replace("from './handleShape.js'", "from '/handleShape.js'"),
-  '/accountFlow.js': read('src/ui/accountFlow.js').replace("from '../net/accountClient.js'", "from '/accountClient.js'"),
-  '/enhancedAccount.js': read('src/ui/enhancedAccount.js').replace("from './accountFlow.js'", "from '/accountFlow.js'"),
+// THE SOURCE TREE, SERVED AS IT STANDS (TERMS1). This was a map of four
+// modules with their imports rewritten by hand, and every slice that gave
+// the card an import broke it without a word - ACC3c's playerBadge.js,
+// DUEL1's, RENOWN1's and WB5b's all arrived after it and none was in it,
+// so the probe had stopped running at all. A map of an import graph is an
+// enumeration of it. Every file under src/ is served at its own path
+// instead, and the browser resolves the relative imports itself - the
+// same thing the bundler does, with nothing to keep in step.
+const SRC = new URL('../src/', import.meta.url);
+const TYPES = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json' };
+const served = (path) => {
+  if (!path.startsWith('/src/') || path.includes('..')) return null;
+  const type = TYPES[path.slice(path.lastIndexOf('.'))];
+  if (!type) return null;
+  try { return { contentType: type, body: readFileSync(new URL(path.slice('/src/'.length), SRC)) }; } catch { return null; }
 };
 
 const browser = await chromium.launch();
@@ -52,7 +57,8 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 
 await page.route('**/*', async (route) => {
   const path = new URL(route.request().url()).pathname;
-  if (MODULES[path]) return route.fulfill({ status: 200, contentType: 'text/javascript', body: MODULES[path] });
+  const file = served(path);
+  if (file) return route.fulfill({ status: 200, ...file });
   if (path === '/') return route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body><div id="app"></div></body></html>' });
   // NOTHING IS SERVED FROM THE NETWORK, deliberately - a probe that
   // quietly reached the real account service would be a probe that
@@ -102,8 +108,8 @@ const STAGES = [
 ];
 
 const measured = await page.evaluate(async (stages) => {
-  const { AccountFlow } = await import('/accountFlow.js');
-  const { accountCard } = await import('/enhancedAccount.js');
+  const { AccountFlow } = await import('/src/ui/accountFlow.js');
+  const { accountCard } = await import('/src/ui/enhancedAccount.js');
   const app = document.getElementById('app');
   app.style.cssText = 'padding:24px;max-width:640px;margin:0 auto;';
   const out = [];
@@ -151,6 +157,16 @@ const measured = await page.evaluate(async (stages) => {
           toNext: Math.round(nextLabel.getBoundingClientRect().top - h.getBoundingClientRect().bottom),
         };
       }).filter(Boolean),
+      // TERMS1: the boxes, as drawn - ticked or not, how tall a row stands
+      // for a thumb, the colours they wear, and where each link opens
+      agree: [...card.root.querySelectorAll('label.acctagree')].map((row) => {
+        const box = row.querySelector('input'), link = row.querySelector('a');
+        return {
+          type: box?.type, checked: box?.checked, height: row.getBoundingClientRect().height,
+          accent: box ? cs(box).accentColor : null, linkColor: link ? cs(link).color : null,
+          href: link?.href ?? null, target: link?.target ?? null, rel: link?.rel ?? null,
+        };
+      }),
       // nothing may overflow the card it is drawn in
       overflow: [...card.root.querySelectorAll('*')].some(
         (n) => n.getBoundingClientRect().right > card.root.getBoundingClientRect().right + 1,
@@ -187,6 +203,19 @@ const codeRow = measured.find((m) => m.codeColor);
 check('the recovery code is brass and large', codeRow?.codeColor === BRASS && parseFloat(codeRow.codeSize) >= 16,
   `${codeRow?.codeColor} at ${codeRow?.codeSize}`);
 check('the leading button wears brass', measured.filter((m) => m.primaryColor).every((m) => m.primaryColor === BRASS));
+
+// ═══ TERMS1: THE BOXES, MEASURED ══════════════════════════════════
+// test/terms1.test.js proves what the card BUILDS; this proves what a
+// player SEES - the rules applied, the rows tall enough for a thumb.
+const reg = measured.find((m) => m.stage === 'register');
+check('TERMS1: creating an account draws two boxes, both UNTICKED', reg?.agree.length === 2 && reg.agree.every((a) => a.type === 'checkbox' && a.checked === false),
+  JSON.stringify(reg?.agree.map((a) => a.checked)));
+check('TERMS1: each box\'s row stands at a thumb\'s 44px', reg?.agree.every((a) => a.height >= 44), reg?.agree.map((a) => Math.round(a.height)).join('/'));
+check('TERMS1: the box and its document wear the skin\'s brass', reg?.agree.every((a) => a.accent === BRASS && a.linkColor === BRASS),
+  reg?.agree.map((a) => `${a.accent} ${a.linkColor}`).join(' / '));
+check('TERMS1: each document opens outside the game, at the site', reg?.agree.every((a) => a.target === '_blank' && a.rel === 'noopener' && /^https:\/\/daggerfalljs\.dev\/(terms|privacy)\/$/.test(a.href)),
+  reg?.agree.map((a) => a.href).join(' '));
+check('TERMS1: no other stage draws a box', measured.filter((m) => m.stage !== 'register').every((m) => m.agree.length === 0));
 
 // ═══ THE FACES ════════════════════════════════════════════════════
 // Mac asked whether the card uses the enhanced font. It declares the

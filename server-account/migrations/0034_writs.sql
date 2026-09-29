@@ -5,8 +5,8 @@
 --
 -- Applied exactly once through the `d1_migrations` ledger, which the deploy runs (ACC1-CI). Every act below is
 -- decided by ONE statement that writes its row with a fresh nonce `n`; everything that follows is keyed on it
--- (server-account/src/writs.js), as PROF1-5's acts are. The Court's writs stay `writs` (0020) - they mint; these move
--- Marks a guild or a player holds, on the ledger's `escrow` end (0025), their ids the writ's or the commission's.
+-- (server-account/src/writs.js), as PROF1-5's acts are. The Court's writs stay `writs` (0027) - they mint; these move
+-- Marks a guild or a player holds, on the ledger's `escrow` end (0032), their ids the writ's or the commission's.
 
 -- A GUILD'S WRITS (11): posted by its Guildmaster, or an Officer within the week's budget (`officer` 1, `week` the
 -- seat week it was posted in - writLaw seatWeek); the whole pay escrowed from the guild's Marks treasury, drawn down by

@@ -278,7 +278,8 @@ test('PROF1 service: a Court writ taken - filled whole from the Stores (bought f
   assert.equal(r.body.balance, w.pay);
   assert.deepEqual(r.body.store, { material: w.material, own: 12, bought: 0 }, 'bought first, then own');
   assert.equal(r.body.track.xp, writXp(w.pay));
-  assert.deepEqual(r.body.renown, { character: mac.character, xp: w.renown, level: r.body.renown.level, credited: w.renown, rose: r.body.renown.rose });
+  assert.deepEqual(r.body.renown, { xp: w.renown, level: r.body.renown.level, credited: w.renown, rose: r.body.renown.rose });   // MERGE 2: the ACCOUNT's Renown (RENOWN-ACCOUNT) - no character; the Renown in renown_accounts
+  assert.equal(s.raw.prepare('SELECT xp FROM renown_accounts WHERE player = ?').get(mac.id).xp, w.renown, 'the account\'s one track');
   assert.deepEqual(r.body.today, { filled: 1, max: COURT_WRITS_PER_DAY });
   assert.equal(r.body.writ.state, 'mine');
   const line = s.raw.prepare("SELECT * FROM marks_ledger WHERE kind = 'writ'").all();
@@ -290,11 +291,16 @@ test('PROF1 service: a Court writ taken - filled whole from the Stores (bought f
   s.give(ann, w.material, 'own', 100);
   assert.deepEqual((await s.call('/v1/writs/deliver', { character: ann.character, id: w.id, rid: rid() }, ann.secret)).body, { error: 'writ-taken' });
   // three a day
-  let filled = 1;
+  let filled = 1, renown = w.renown;
   for (const o of l.writs.filter((x) => x.id !== w.id)) {
     s.give(mac, o.material, 'own', 100);
     const d = await s.call('/v1/writs/deliver', { character: mac.character, id: o.id, rid: rid() }, mac.secret);
-    if (filled < COURT_WRITS_PER_DAY) { assert.equal(d.status, 200); filled++; } else { assert.deepEqual(d.body, { error: 'writ-cap' }); break; }
+    if (filled < COURT_WRITS_PER_DAY) {
+      assert.equal(d.status, 200);
+      renown += o.renown;   // MERGE 2: each writ adds to the account's one track, the row the first one made
+      assert.deepEqual([d.body.renown.xp, d.body.renown.credited], [renown, o.renown]);
+      filled++;
+    } else { assert.deepEqual(d.body, { error: 'writ-cap' }); break; }
   }
 });
 

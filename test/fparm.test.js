@@ -1712,7 +1712,8 @@ test('MW-D29: shadows trim the skin - whole slots gone, single sides kept on the
 
 test('MW-D29: the thread is unbroken - the menu reads the equip table, the build wears it', () => {
   const arm = readFileSync('src/combat/fpArm.js', 'utf8');
-  assert.match(arm, /composeWornArmor\(\{ pieces: armor \?\? \[\], armors: armors \?\? \[\], clothes: clothes \?\? \[\], bodyPool: parts, female, colourOf \}\)/);
+  // NUDE-FLATS: through the upper weld's door (composeWornModest composes, then welds a bare woman's chest)
+  assert.match(arm, /composeWornModest\(\{ pieces: armor \?\? \[\], armors: armors \?\? \[\], clothes: clothes \?\? \[\], bodyPool: parts, female, colourOf \}, showNudity\(\)\)/);
   assert.match(arm, /const armors = esmBytes\.flatMap\(\(e\) => walk\(e, 'armors', armorRecords\)\);/);
   assert.match(arm, /const clothes = esmBytes\.flatMap\(\(e\) => walk\(e, 'clothes', clothingRecords\)\);/);
   // MW-D31: ONE composition serves both rigs - buildFpArm composes,
@@ -2287,7 +2288,7 @@ test('MW-D32: raceRecords reads RADT by hand-laid offsets - heights at 120, flag
 test('MW-D34: the third-person model matrix carries the measured chirality flip and adjustScale', () => {
   // MEASURED through the real composite (mwArmProbe L5b): the 3P body
   // rides drawRigSpriteBox into the world's mirrorProjectionX lens, and
-  // the port's world convention is left-handed (motor.js:774 - the
+  // the port's world convention is left-handed (motor.js:777 - the
   // player's right is +X at yaw 0), so a right-handed NIF actor placed
   // with a pure rotation reads MIRRORED on screen. The -u on the local
   // side axis is the same basis adaptation the mirror gives every

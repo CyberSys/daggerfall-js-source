@@ -43,7 +43,7 @@ test('PROF6 DONE WHEN (the books): a Guildmaster\'s writ posted and an outsider\
   const raw = s.env.DB._raw;
   const gm = await s.registered('Aldric', { renown: 10 }), out = await s.registered('Oswin');
   s.seedMarks(gm, 10_000);
-  const g = (await s.call('/v1/guilds/found', { character: gm.character, name: 'The Hound', tag: 'HND' }, gm.secret)).body.guild;
+  const g = (await s.found(gm, { name: 'The Hound', tag: 'HND' })).body.guild;
   assert.equal((await s.call('/v1/marks/guild/deposit', { character: gm.character, marks: 1_000, rid: 'seedrid-0001' }, gm.secret)).status, 200);
   raw.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty) VALUES (?, ?, ?, 'own', 40)`).run(out.id, out.character, OAK);
   const told = { marks: [], stores: [] };

@@ -35,8 +35,10 @@ test('DQ1: the target walk and the click each have ONE home', () => {
   // and no host builds the aabb itself any more
   assert.equal([...s.matchAll(/key: `questflat:\$\{i\}`/g)].length, 1,
     'the questflat target key is minted in exactly one place');
-  assert.equal([...s.matchAll(/setLastNPCClicked\(questBridge\.layoutNpcData\(/g)].length, 1,
-    'and the NPCData stamp likewise');
+  // DISC29-H: the record is built in ONE place inside the click (npcData) - the stamp reads it, and so does the Info
+  // look's name (StaticNPC.DisplayName off the same layout data)
+  assert.equal([...s.matchAll(/questBridge\.layoutNpcData\(/g)].length, 1, 'and the NPCData likewise');
+  assert.equal([...s.matchAll(/setLastNPCClicked\(npcData\(\)\)/g)].length, 1, 'stamped once');
 });
 
 test('DQ1: BOTH rays offer the stands, each from its own list', () => {

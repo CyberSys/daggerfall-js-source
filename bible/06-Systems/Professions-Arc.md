@@ -722,7 +722,7 @@ save's" - GUILD1), so anything paid in purse gold can be paid by a client that n
   price of the twenty most-traded materials; the accounts at the faucets' caps.
 - **As built (MARKS1, 2026-09-28)** - `06-Systems/Online-Arc.md` MARKS1 holds the whole record: the law both ends read
   (`src/net/marksLaw.js`); the balances, a guild's Marks treasury and ONE LEDGER whose own triggers move them
-  (`server-account/migrations/0018_marks.sql`), every movement decided in one statement (`server-account/src/marks.js`);
+  (`server-account/migrations/0025_marks.sql`), every movement decided in one statement (`server-account/src/marks.js`);
   the gate's counted receipt as the first faucet; the Bank's sale paid into the account at that bank (a sale whose
   answer was lost is kept and settled - `src/net/marksBook.js`); the report a developer's (`/v1/marks/report`; the
   materials' median prices join it with the market, PROF5). Behind MARKS_OPEN, shipped at `dev`.
@@ -808,7 +808,8 @@ note's answer plan, one shape from every exit) and the window driven on the mini
   writ asks for a material from the region's own **witnessed** tables - metals, wood, herbs (4.1-4.3) and stone (4.5),
   never hides or fish, which are bounded, not witnessed (section 6), since a Mark is minted only for a witnessed act
   (law 8) - mostly tiers 1-4, one a day of tier 5-6; **10-50** units, fewer at higher tiers. **Pay**: units x the material's Marks value x
-  1.2, and Renown XP 25 x tier x units / 10. Each writ is filled once, by the first to deliver; at most **3** an
+  1.2, and Renown XP 25 x tier x units / 10 (MERGE 2: at main's RENOWN-ACCOUNT rate, three quarters floored, and to the
+  ACCOUNT's one Renown - `net/professionLaw.js` writRenown). Each writ is filled once, by the first to deliver; at most **3** an
   account a day. (The economy model, Appendix C, set 3 and 1.2: at 5 and 1.5 the Marks minted ran at 2.3 times the
   Marks burnt.)
 - **Guild and seat writs**: their pay is escrowed from the guild's Marks treasury, so posting one is a withdrawal:
@@ -859,54 +860,54 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 
 ## 14. The server's shape
 
-- `prof_tracks` (player, char_id, profession, xp, spec50, spec100) - BUILT, `0020_professions.sql`, with the
+- `prof_tracks` (player, char_id, profession, xp, spec50, spec100) - BUILT, `0027_professions.sql`, with the
   pending change of specialisation (respec_rank, respec_to, respec_at)
-- `prof_stores` (player, char_id, material, origin, qty) - BUILT, `0020_professions.sql` - `origin` own or bought
-  (section 7); `guild_prof_stores` (guild_id, material, origin, qty) with its ledger - BUILT, `0027_writs.sql` (PROF6,
+- `prof_stores` (player, char_id, material, origin, qty) - BUILT, `0027_professions.sql` - `origin` own or bought
+  (section 7); `guild_prof_stores` (guild_id, material, origin, qty) with its ledger - BUILT, `0034_writs.sql` (PROF6,
   section 28: a row a material and a depositor - a member's own deposit kept under the character, the guild's own under
   none - with `guild_store_ledger`, written by triggers, and `guild_store_moves`, a move's row; AUDIT 29: this line
   read as built before it was)
 - `node_harvests` (day, node, kind, player, char_id - the node its one spelling, AUDIT 29) - BUILT,
-  `0020_professions.sql` (with the harvest's profession, material, qty, XP credited, rid and nonce; AUDIT 29's
-  `0022_audit29.sql` adds `deep_unconfirmed`, a dungeon vein nobody vouched for; pruned after two days by the state's own read, section 20; PROF2's `0021_mining.sql` rebuilt it for
-  the kinds `ore` and `stone` and a found `gem`; PROF4's `0024_logging.sql` rebuilt it again for the kind `logs` and a
+  `0027_professions.sql` (with the harvest's profession, material, qty, XP credited, rid and nonce; AUDIT 29's
+  `0029_audit29.sql` adds `deep_unconfirmed`, a dungeon vein nobody vouched for; pruned after two days by the state's own read, section 20; PROF2's `0028_mining.sql` rebuilt it for
+  the kinds `ore` and `stone` and a found `gem`; PROF4's `0031_logging.sql` rebuilt it again for the kind `logs` and a
   second find, `extra` - a tree's Resin); `prof_withdrawals` (a withdrawal's rid) and `world_witness` (SEAT0
   3.2's witnessed pixel) BUILT with it - its second kind, the witnessed dungeon, PROF2's; `fish_hauls` (day, account,
   n) for the account cap
-- `prof_smelts` (player, rid, char_id, recipe, count, own, bought, xp, at, n) - BUILT, `0021_mining.sql` (PROF2: a
+- `prof_smelts` (player, rid, char_id, recipe, count, own, bought, xp, at, n) - BUILT, `0028_mining.sql` (PROF2: a
   smelt's decision, the row its answer is read back from)
-- `prof_choices` (player, rid, char_id, profession, rank, spec, at, n) - BUILT, `0022_audit29.sql` (AUDIT 29: a free
+- `prof_choices` (player, rid, char_id, profession, rank, spec, at, n) - BUILT, `0029_audit29.sql` (AUDIT 29: a free
   first specialisation's row, found by its id before the switch; a paid change keeps its Marks line, which names its
   track)
 - `recipes_known` (player, char_id, recipe) - not yet: every recipe unlocks by rank until the found ones come (PROF6b -
   AUDIT 31 R8: PROF6 gave them their own slice, 28)
-- `products` (provenance PK, template, material, quality, maker, made_at, listed) - BUILT, `0023_smithing.sql` (PROF3:
+- `products` (provenance PK, template, material, quality, maker, made_at, listed) - BUILT, `0030_smithing.sql` (PROF3:
   provenance, owner, char_id, maker, recipe, template, material, quality, seed, record, made_at, listed), with
-  `prof_crafts` (a craft's row) and `prof_stock` (a purchase from the smith's stock); `0024_logging.sql` (PROF4) adds
+  `prof_crafts` (a craft's row) and `prof_stock` (a purchase from the smith's stock); `0031_logging.sql` (PROF4) adds
   `products.marked` (the maker's mark a Masterwork or a Master Joiner's furniture carries) and `prof_crafts.heartwood`.
   No condition and no enchantments (AUDIT 30 R2: this line promised both): a listed piece's wear rides its listing
   (`market_listings.wear`, in thousandths, PROF5) and the buyer's piece is minted again from its record at that wear -
   so only a piece still as minted lists (section 26)
 - `marks` (account, balance); `guild_marks` (guild_id, balance); `marks_ledger` (seq, src_kind, src_id, dst_kind,
-  dst_id, kind, amount, day, at, actor, who, rid) - BUILT, `0018_marks.sql` (AUDIT 28: this line gave the first sketch)
+  dst_id, kind, amount, day, at, actor, who, rid) - BUILT, `0025_marks.sql` (AUDIT 28: this line gave the first sketch)
 - `market_listings` (id, region, seller, material or provenance, qty, price, expires_at); `market_orders` - BUILT,
-  `0025_market.sql`; no `couriers` table (AUDIT 30 R14: this line named one as built) - a courier rides its sale's row
+  `0032_market.sql`; no `couriers` table (AUDIT 30 R14: this line named one as built) - a courier rides its sale's row
   and a piece's delivery (PROF5, section 26: `market_listings` - a material's
   units own and bought apart, a piece's provenance and wear, its fee, state and return; `market_sales` - a purchase's
   row, its tax, courier, road and arrival, the couriers' loads; `market_deliveries` - a piece on its way to a pack, bought
   or come back; `market_orders` and `market_fills`; `market_prices`, the History's day table; `market_reports`), with the
   ledger's `escrow` end, the witness's `hub` kind and `products` kept past its owner's account; `market_auctions`,
-  `market_bids` and `market_auction_reports` - BUILT, `0026_auctions.sql` (PROF5b, section 27)
+  `market_bids` and `market_auction_reports` - BUILT, `0033_auctions.sql` (PROF5b, section 27)
 - `writs` (id, kind, poster, region, key, material, qty, pay, escrow, expires_at, filled) - BUILT for the Court's
-  writs alone, `0020_professions.sql` (id, kind `court`, day, region, slot, material, tier, qty, pay, renown, expires_at,
+  writs alone, `0027_professions.sql` (id, kind `court`, day, region, slot, material, tier, qty, pay, renown, expires_at,
   filled_by, filled_char, filled_at, rid, n), with `writ_days` (a region's day written down, and its `active`); PROF6's
-  guild writs their own table, `guild_writs` (0027_writs.sql: the guild, its poster and whether an Officer, the seat
+  guild writs their own table, `guild_writs` (0034_writs.sql: the guild, its poster and whether an Officer, the seat
   week, the region, the material, the units and those left, the pay each, the escrow left, its state and return), with
   `guild_writ_fills` and `guild_writ_budgets`; and `commissions` (the poster, the crafter, the region, the recipe and
   its least quality, the pay, its state, the piece that filled it)
 - `board_notes` (id, map_id, author, author_name, subject, body, button, guild_id, char_id, at, expires_at, hidden,
   rid), `board_reports` (note_id, reporter, at) and `board_notices` (id, subject, body, author, author_name, at,
-  expires_at, rid) - BUILT, `0019_board.sql` (AUDIT 28: this line gave the first sketch)
+  expires_at, rid) - BUILT, `0026_board.sql` (AUDIT 28: this line gave the first sketch)
 - Endpoints: `/v1/prof/*` (harvest, spec; `smelt` BUILT with PROF2; `craft` and `stock` BUILT with PROF3; PROF4's trees, burns, saws, Carpentry and
   the furnisher's Linen through the same five; PROF5's Weavers' counter too), `/v1/stores/*`, `/v1/marks/*` (balance,
   exchange, guild; the report's medians with PROF5), `/v1/board/*` (notes), `/v1/market/*` (BUILT with PROF5: read, list,
@@ -1142,7 +1143,7 @@ what was found (FACT):
   `dev`. The Stores are a character's and a guest is a device (MARKS1's reading), so every professions route is a
   registered account's - the reads too: a guest has no Stores to read. A Court writ pays Marks, so a delivery needs
   `MARKS_OPEN` too. An act's request is found by its id BEFORE the switch is asked: a harvest or a delivery made is
-  answered as made though the switch shut after it. The service is `acct19`; the tables are `0020_professions.sql`.
+  answered as made though the switch shut after it. The service is `acct19`; the tables are `0027_professions.sql`.
 - **The laws.** `src/net/professionLaw.js` (the thirteen, ranks, XP, tiers, specialisations, the day's cap, the Stores'
   cap, the Herbalism acts' numbers, the materials PROF1 stores, the Court writs) and `src/net/nodeLaw.js` (section 6's
   node table, 4.3's herb tables, the seasons, a pixel's day of patches, the yields, the witnessed pixel). Both ends
@@ -1330,7 +1331,7 @@ instruction), and what was found (FACT):
 
 As built:
 
-- **Behind PROF1's switch.** `PROFESSIONS_OPEN`, at `dev`. The service is `acct20`; the tables are `0021_mining.sql`
+- **Behind PROF1's switch.** `PROFESSIONS_OPEN`, at `dev`. The service is `acct20`; the tables are `0028_mining.sql`
   (`node_harvests` rebuilt for the kinds `ore` and `stone` and its `gem`; `world_witness` rebuilt for the kind
   `dungeon`; `prof_smelts`); the route `/v1/prof/smelt`. A harvest's decision is still one INSERT - the day's cap, the
   node untaken, the Stores' room - and a gem rides in it, nulled there when the gem's own Stores are full (the ore is
@@ -1442,7 +1443,7 @@ Mac: **"Lets keep moving"** (PROF3 after the merge of main). What the design abo
 As built:
 
 - **Behind PROF1's switch.** `PROFESSIONS_OPEN`, at `dev`; the smith's stock behind MARKS1's too (`MARKS_OPEN`). The
-  service is `acct23`; the tables are `0023_smithing.sql` (`prof_crafts`, a craft's row - its quality, its pieces' ids,
+  service is `acct23`; the tables are `0030_smithing.sql` (`prof_crafts`, a craft's row - its quality, its pieces' ids,
   its seed, the XP it credited and whether it was the character's first of the recipe; `products`, every piece's
   provenance, owner, maker, template, material, quality, seed and signed record; `prof_stock`, a purchase); the routes
   `/v1/prof/craft` and `/v1/prof/stock`. A craft's decision is one INSERT - every input held, the XP under the crafter's
@@ -1606,7 +1607,7 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
 As built:
 
 - **Behind PROF1's switch.** `PROFESSIONS_OPEN`, at `dev`; the furnisher's Linen behind MARKS1's too (`MARKS_OPEN`). The
-  service is `acct24`; the table changes are `0024_logging.sql` - `node_harvests` rebuilt to learn the kind `logs` and a
+  service is `acct24`; the table changes are `0031_logging.sql` - `node_harvests` rebuilt to learn the kind `logs` and a
   second find, `extra` (a tree's Resin; its Heartwood rides `gem`, the act's own find), every column carried and both
   indexes made again; `prof_crafts.heartwood` (a craft that spent one); `products.marked` (a piece that carries its
   maker's mark - a Masterwork, or furniture a Master Joiner made, `recipeLaw.js` carriesMark; AUDIT 30 N1: this line
@@ -1806,7 +1807,7 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   SVG polyline with no rule paints its fill black and its line not at all, so the grain was a black shape and the
   player's stroke invisible. Dressed here (`ui/enhancedPlusStyle.js` PROF_CSS): the board its height and
   `touch-action: none`, the grain and the trail as lines, the head a pale band.
-- **The service** is `acct25`; `0025_market.sql` holds the listings, the sales (a purchase's row, its courier and its
+- **The service** is `acct25`; `0032_market.sql` holds the listings, the sales (a purchase's row, its courier and its
   arrival), the orders and their fills, the price table, the reports, the deliveries (a piece's arrival or return) and
   the three rebuilds (the ledger's ends, the witness's kind, the products' owner). Routes `/v1/market/*`: `read`,
   `list`, `buy`, `cancel`, `order`, `fill`, `unorder`, `collect`, `report`, `remove`. The law is `src/net/marketLaw.js`
@@ -1822,7 +1823,7 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
 As built:
 
 - **Behind three switches.** The market is open where `BOARD_OPEN`, `PROFESSIONS_OPEN` and `MARKS_OPEN` all are, at
-  `dev` (server-account/src/market.js marketOpenFor); the service is `acct25`, its table changes `0025_market.sql` (section
+  `dev` (server-account/src/market.js marketOpenFor); the service is `acct25`, its table changes `0032_market.sql` (section
   14's line, BUILT). Ten routes, `/v1/market/*`; a listing, a purchase, a cancel, an order and a fill each one
   statement keyed on its nonce, its row looked for before the switch; a collect one statement keyed on its request id,
   which the delivery takes; an order withdrawn answers its repeat off the order's own state; a report (once a reader)
@@ -1919,7 +1920,7 @@ hours, a 5% minimum raise, and a bid in the last 2 minutes adds 2"), DECIDED her
   stands. **List on the market** offers "An auction (Masterworks)": the Masterworks in the pack and the home, an
   opening bid, the fee and the terms said. **My listings** shows the account's auctions and its bids (leading,
   outbid, won, void - AUDIT 31 R10: this said "lost", a state no bid has - each with whether its Marks are back). "Your Marks" says what the bids hold. **Your trades** counts an auction won or sold.
-- **The service** is `acct27`; `0026_auctions.sql` holds the auctions, the bids and the auction reports; the ledger's
+- **The service** is `acct27`; `0033_auctions.sql` holds the auctions, the bids and the auction reports; the ledger's
   new kinds `bid-escrow`, `bid-return` and `auction-sale` move Marks, the fee and the tax are 26's burns.
 - **Done when**: a Masterwork posted in Daggerfall is bid on from Wayrest and from Daggerfall, the Wayrest bid outbid
   and its escrow returned on its bidder's read, a bid in the last two minutes adding two, and at its end the Daggerfall
@@ -1927,7 +1928,7 @@ hours, a 5% minimum raise, and a bid in the last 2 minutes adds 2"), DECIDED her
 
 As built:
 
-- **Behind PROF5's three switches** - no switch of its own. The service is `acct27`, its tables `0026_auctions.sql`
+- **Behind PROF5's three switches** - no switch of its own. The service is `acct27`, its tables `0033_auctions.sql`
   (section 14's line, BUILT); two routes, `/v1/market/auction` and `/v1/market/bid` - the cancel, the report and the
   removal are the listings' routes, which find an auction by its id. A post is one statement keyed on its nonce (the
   fee, the thirty, the piece its owner's, unlisted and a Masterwork, and no `:afee` line under its id - all in it); a
@@ -1948,8 +1949,8 @@ As built:
 - **FOUND and fixed in the build**: a refusal answers its word alone (`index.js`'s `no`), so `auction-low` carries no
   next bid - the tab and the book read the view again on it (the tab's own `MOVED` lacked it; pinned red first); the
   race test's two bids at once were served one after the other by the harness, so it proved nothing of the guard - it
-  is now staged (Bob's decision waits while Cid's whole bid lands); `MARKS1-13` aimed at `0018_marks.sql`'s trigger,
-  which `0025_market.sql` rebuilt, and survived since PROF5 - re-aimed at the live one, dead.
+  is now staged (Bob's decision waits while Cid's whole bid lands); `MARKS1-13` aimed at `0025_marks.sql`'s trigger,
+  which `0032_market.sql` rebuilt, and survived since PROF5 - re-aimed at the live one, dead.
 - **Pinned**: `test/prof5b_law.test.js` (3), `test/prof5b_service.test.js` (5), `test/prof5b_client.test.js` (4);
   `tools/mutants/prof5b.json`, 40 mutants, 35 dead and five recorded equivalent (the raise's floor of a Mark, which the
   ceiling of 5% of a whole Mark already gives; the post's Masterwork guard, the cancel's standing-bid word, the bid's
@@ -2092,7 +2093,7 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   budget**: the Guildmaster sets it; everyone of a rank that posts reads what is left this week.
 - **The note's button**: a note may carry **Commission a piece** (10.6) - a crafter's advertisement; pressed, the
   board's Work tab opens its commission form with the author named. FACT: `board_notes.button` is a CHECK of three
-  kinds (`0019_board.sql`), so the table is rebuilt for the fourth.
+  kinds (`0026_board.sql`), so the table is rebuilt for the fourth.
 - **Ids and repeats** (PROF1's law, AUDIT 30's lines): every post, delivery, fill and guild Stores move is a row keyed
   `(account, rid)`, looked up before the switch and answered `repeat` (AUDIT 31 R7: the record said every act - a
   writ's withdrawal and a commission's cancel or decline answer their repeat off the row's own state, and a budget is
@@ -2102,7 +2103,7 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   holds (`prof-rid`).
 - **The weekly report** counts the Marks in escrow from the ledger's own escrow end (what went in, less what came out)
   - so the orders', the bids', the guild writs' and the commissions' are one number.
-- **The service** is `acct28` (`acct29` after AUDIT 31); `0027_writs.sql` holds the guild writs and their deliveries, the writ budgets, the guild
+- **The service** is `acct28` (`acct29` after AUDIT 31); `0034_writs.sql` holds the guild writs and their deliveries, the writ budgets, the guild
   Stores and their ledger and moves, the commissions, and the notes' rebuilt button; the ledger's six new kinds each
   move Marks (`writ-escrow`, `writ-pay`, `writ-return`, `commission-escrow`, `commission-pay`, `commission-return`).
 - **Done when**: a Guildmaster posts a writ for 100 Oak Logs at 3 Marks each in Daggerfall; an Officer posts one within
@@ -2116,7 +2117,7 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
 As built:
 
 - **Behind the professions' and the Marks' switches** - no switch of its own; the guild Stores the professions' alone.
-  The service is `acct28`, its tables `0027_writs.sql` (section 14's lines, BUILT); eleven routes (`/v1/writs/post`,
+  The service is `acct28`, its tables `0034_writs.sql` (section 14's lines, BUILT); eleven routes (`/v1/writs/post`,
   `supply`, `withdraw`, `budget`, `commission`, `fulfil`, `cancel`, `decline`; `/v1/stores/guild`, `guild-deposit`,
   `guild-withdraw`, `server-account/src/writs.js`), and `/v1/writs/list` answers this region's guild writs and
   commissions, "yours" and the reader's guild with its budget beside the Court's. Every act one statement keyed on its
@@ -2158,7 +2159,7 @@ Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets o
 Court writ for 30 Red Poppies (uncommon, tier 2: 30 x 2 x 1.2 = 72 Marks) and the Market's poppy median is 3. She walks
 the woods east of town: Woodlands pixels, four herb patches each. Kneeling at a Red Rose she holds the sickle steady -
 the meter fills, unbruised. By noon she has 34 Red Poppies (the march's +25%), 60 of 60 of today's herbs, and some 1,800
-Herbalism XP. She delivers 30 poppies at Anticlere's board (72 Marks and 150 Renown XP; a Court writ gives no
+Herbalism XP. She delivers 30 poppies at Anticlere's board (72 Marks and 112 Renown XP - MERGE 2: 150 at the full rate, before RENOWN-ACCOUNT's three quarters; a Court writ gives no
 influence - only a seat's own writs do), lists 4 Golden Poppies at 12 Marks each, and spends the afternoon at the vein
 on the hill: an Iron vein, the march's +25% on it - two strikes, both on the glint (a clean finish), and an Amber (Woodlands' gem).
 At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minutes; she is too far. Tomorrow.
@@ -2223,7 +2224,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | A piece's wear (PROF5) | its condition over its most, in thousandths (1-1,000); the buyer's piece minted at that share, at least 1; read "worn to N%", 99 at most (AUDIT 30) |
 | Marks | ~10 gold of play; balance cap 10,000,000; Bank: 1 Mark -> 8 gold, 300 a day |
 | Faucets | Court writs 3 a day (from PROF1); gate 50 a receipt, 2 a UTC day; Honours 50 / 25; Motherlode 10, one a day |
-| Court writs | 6 x max(1, ceil(active / 100)) a region a day, witnessed materials only, 10-50 units, pay x 1.2, Renown 25 x tier x units / 10 |
+| Court writs | 6 x max(1, ceil(active / 100)) a region a day, witnessed materials only, 10-50 units, pay x 1.2, Renown 25 x tier x units / 10 at three quarters (MERGE 2), the account's |
 | Writ influence | own units at their value, from a 7-day member bound to the guild; bought at Tribute's rate in its cap; counter goods never; a Siege Camp spent at the Turning (a Ram Kit to the siege it won, the rest burnt) |
 | Player notes | 3 an account, 7 days; 30 a board |
 

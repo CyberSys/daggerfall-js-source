@@ -121,10 +121,10 @@ async function stand() {
   /** A guest, and then the same account registered - the wall's two
    *  sides, minted through the service's own routes rather than by
    *  writing rows behind its back. */
-  const guest = async () => (await call('POST', '/v1/auth/guest', {})).body;
+  const guest = async () => (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   const linked = async (handle) => {
     const g = await guest();
-    const r = await call('POST', '/v1/auth/register', { handle, password: 'correct horse battery' }, g.secret);
+    const r = await call('POST', '/v1/auth/register', { handle, password: 'correct horse battery', ...ACCEPTED }, g.secret);
     assert.ok(!r.body?.error, `register: ${r.body?.error}`);
     return g;
   };
@@ -471,6 +471,7 @@ import { SESSION_KEY, REFUSALS } from '../src/net/accountClient.js';
 import { SAVE_DATA_PREFIX, SAVE_INFO_PREFIX, SAVE_SHOT_PREFIX } from '../src/systems/characterId.js';
 import { saveSlot, enumerateSaves, findSave, saveInfoOf } from '../src/systems/saveSlots.js';
 import { cloudStateOf } from '../src/ui/saveTile.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 /** The slots a store really holds, by saveSlots.js's own enumeration -
  *  SAV4's law that a slot is only real with its card, asked of the module

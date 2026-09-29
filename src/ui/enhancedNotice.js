@@ -59,6 +59,7 @@
 
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // PLUS1: the toast's fade is Enhanced Plus's
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
 
 export const ENHANCED_NOTICE_ID = 'enhanced-notice';
 /** The sheet's transition length (ui/enhancedStyle.js .notice), in ms. */
@@ -176,9 +177,10 @@ export function drawEnhancedNotice(frame, doc = (typeof document === 'undefined'
   if (!p) { p = buildPanel(doc, key, !!frame?.toast, frame?.hint); panels.set(key, p); }
   const { host, body, rows, last } = p;
   if (p.hintNode && typeof frame?.hint === 'string' && p.hintNode.textContent !== frame.hint) p.hintNode.textContent = frame.hint;
-  // the watchdog: re-armed on every draw, fires only when the draws stop
-  cancel(p.watchdog);
-  p.watchdog = frame?.hold ? null : schedule(() => { if (panels.get(key) === p) releaseEnhancedNotice(key); }, NOTICE_WATCHDOG_MS);
+  // the watchdog: re-armed on every draw, fires only when the draws stop - DISC29-D: a frame that came and went
+  // without one, never a frame slower than the timer (ui/drawWatchdog.js)
+  disarmDraw(p.watchdog);
+  p.watchdog = frame?.hold ? null : armDrawWatchdog(NOTICE_WATCHDOG_MS, () => { if (panels.get(key) === p) releaseEnhancedNotice(key); }, { schedule, cancel });
 
   const shown = lines.length > 0;
   if (last.on !== shown) { last.on = shown; host.style.display = shown ? '' : 'none'; }
@@ -204,7 +206,7 @@ export function releaseEnhancedNotice(key) {
   const p = panels.get(key);
   if (!p) return;
   panels.delete(key);
-  cancel(p.watchdog);
+  disarmDraw(p.watchdog);
   // AUDIT ENH-NOTICE3 A2: a toast the WATCHDOG swept (its model's
   // draws stopped - a backgrounded tab, a host gone without dispose)
   // must leave its owner's id set too, or the set outlives the model
@@ -354,7 +356,7 @@ export const enhancedToastOwners = () => [...toasts.keys()];
 
 /** Tests: drop everything at once. */
 export function destroyEnhancedNotice() {
-  for (const p of panels.values()) { cancel(p.watchdog); try { p.host.remove(); } catch { /* gone */ } }
+  for (const p of panels.values()) { disarmDraw(p.watchdog); try { p.host.remove(); } catch { /* gone */ } }
   panels.clear();
   toasts.clear();
   try { stack?.remove(); } catch { /* gone */ }

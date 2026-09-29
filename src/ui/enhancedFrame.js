@@ -65,7 +65,7 @@ export const FRAME_ROLES = {
     '.travelpanel-bar',
     // OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the Overworld's bar - the
     // journey bar's own carved stone and brass, in the theme's ground
-    '.tview-bar',
+    '.tview-bar', '.tview-confirm',   // OW-BLOCK: the Overworld's block (its filters are inside it); OW-CONFIRM: its question
     // CSA-L: the helm's bar (ui/enhancedHelm.js) - the journey bar's kind, under the compass where it stands
     '.helmpanel-bar',
     // PLUS-MAP: the 3D dungeon map's control bar - the journey bar's carved stone, the same fittings
@@ -129,8 +129,8 @@ export const FRAME_ROLES = {
     '.trade-shell .packtab',
     // PLUS8: the journey bar's Map / Camp / Exit and the time stepper's two presses
     '.travelpanel-act', '.travelpanel-step',
-    // OW-THEME: the Overworld's Return
-    '.tview-back',
+    // OW-THEME: the Overworld's Return; OW-PATH: and its Roads / Free switch
+    '.tview-back', '.tview-mode', '.tview-filter', '.tview-map',
     // CSA-L: the helm's presses - the sails, the trim, the lanterns, the time, the position, leaving
     '.helmpanel-btn',
     // PLUS-MAP: the 3D map's turn, tilt, floor and view buttons

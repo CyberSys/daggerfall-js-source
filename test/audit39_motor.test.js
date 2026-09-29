@@ -357,10 +357,10 @@ test('AUDIT 39r: the AutoRun key can actually be HELD - the mouse buttons reach 
     // DOM numbers the middle button 1 and the right 2, so the two
     // middle names cross: 'Mouse' + e.button would hand the wheel the
     // right button's action.
-    assert.deepEqual([...MOUSE_CODES], ['Mouse0', 'Mouse2', 'Mouse1']);
+    assert.deepEqual([...MOUSE_CODES], ['Mouse0', 'Mouse2', 'Mouse1', 'Mouse3', 'Mouse4']);   // VIEW-TOGGLE: and the two side buttons (from VOICE1, which is reverted), the view toggle's
     assert.equal(mouseCode(2), 'Mouse1');
     assert.equal(mouseCode(0), 'Mouse0');
-    assert.equal(mouseCode(3), null, 'past the third button there is no binding code');
+    assert.equal(mouseCode(5), null, 'past the fifth button there is no binding code');   // VIEW-TOGGLE: the side buttons (3, 4) are Mouse3/Mouse4
     keys.add(mouseCode(0));
     assert.equal(held(keys, 'ActivateCenterObject'), true, 'and the un-draw read is live again');
   } finally { setBindings(null); }

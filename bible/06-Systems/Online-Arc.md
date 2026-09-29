@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1313`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1332`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7045` read, on one physical line:
+`src/scenes/worldModes.js:7089` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5147`). With the property missing that call is a
+(`dungeonContext.js:5181`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6828` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6991` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -5218,7 +5218,10 @@ is not yet a pin; no live relay and no second player were involved.**
   `peerCamera` writes `c.pitch = 0`.
 - `getMeleeWeaponAnimTime` returns 0 at speed 115 and the loop that
   reads it never terminates; unreachable only because `liveStat` clamps
-  to 100 in another module.
+  to 100 in another module. **SWING-LAW (2026-09-28)**: the player's swing
+  is the port's own law now, which is never under 0.09 s a frame whatever
+  the Speed; DFU's line still answers a foe's machine, a peer's walker
+  and the viewers, all read through `liveStat`.
 - Six accumulator loops (`acc += dt; while (acc >= step)`) with no
   `MAX_FRAME_DT` clamp, where `player/motor.js` and
   `characters/enemyMotor.js` have one.
@@ -7094,13 +7097,13 @@ chat) the free tier's 13,000 GB-s a day was ~7 player-hours, and it was gone
 mid-stream. Paying (400,000 GB-s for $5) buys ~220 player-hours of the same
 waste; the waste is what this slice removes.
 
-**The relay already had the door.** `server/src/index.js:240` registers
+**The relay already had the door.** `server/src/index.js:244` registers
 `setWebSocketAutoResponse('{"t":"ping"}', '{"t":"pong"}')`: the RUNTIME
 answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1050`, `src/net/online.js:2201`):**
+**Now (`src/net/wire.js:1063`, `src/net/online.js:2248`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10604,6 +10607,74 @@ foes are shared online, so both act on other players.
 
 `net/staffCommands.js` (pure); `test/staff1.test.js` (5); `tools/mutants/staff1.json` (16, all dead).
 
+## VOICE1 reverted (2026-09-28, Mac: "Do not merge voice chat. Please revert voice chat but keep other changes") - world124 again
+
+VOICE1 (proximity voice chat, world125) and AUDIT VOICE1 came out whole with PR #427's merge reverted:
+- the links and the sound (`net/proxVoice.js`), earshot (`net/voiceLaw.js`), and who is speaking (`ui/voiceHud.js`);
+- the relay's `rtc` frame and its arm;
+- the `PushToTalk` action and the voice prefs.
+
+The relay is world124's bytes again, and `RELAY_VERSION` names world124. world125's row stays in
+`test/relayversion.test.js` as the record of bytes that were deployed.
+
+Kept: VIEW-TOGGLE (PR #427's other change - `TogglePerspective`, one press first person or third, on the mouse's
+forward side button), and the side-button plumbing it rides, which came with VOICE1:
+- `ui/input.js` `MOUSE_CODES` through Mouse4;
+- `systems/keyCodes.js`' Mouse3 and Mouse4;
+- the world host keeping the side buttons from the browser's Back and Forward.
+
+`test/viewtoggle.test.js` pins all three.
+
+## WB8 (2026-09-28, Mac: "give him unique and different modifers on every 2 hour spawn") - world128 (world126 on its branch)
+
+The gate's Warden comes MARKED - an aspect and two trials every gate (`11-Multiplayer/World-Bosses.md` section 13) -
+and the relay is the one that fights under them, so the relay moved:
+
+- **`net/gateMods.js` JOINS THE BUNDLE** (a leaf - the marks' tables): `net/gateLaw.js` draws each gate's marks from
+  its 112-gate cycle (`gateModsOf`, from the day alone), `net/gateBrain.js` fights under them (`fightProfile` - the
+  unmarked profile is the constants exactly), and `net/wire.js` validates them.
+- **The fight is born marked**: the gate's room calls `newFight(..., gateModsOf(day))` and keeps the marks on the
+  checkpointed fight (`md`); a fight woken from a checkpoint made before this deploy stays unmarked.
+- **The `st` frame carries `md`** - known words, one aspect at most, or none (a state with any other is refused) - so
+  every screen fights the fight's own marks. **A new kind, `fed`** - a Soul-Hungry Warden's feeding: the names of the
+  beat's fallen who fed him (`ns`, each sanitised as every name - AUDIT PRE-MERGE 0929 W1-3: two falls in one beat were
+  two words with one moment, and the court said the first name alone), his health after, the relay's moment.
+- **The brain's law is 3** (GATE_BRAIN_V, GATE_BRAIN_MIN): an `in` saying 2 is refused with GATE-RELOAD's words - a game
+  that does not know the marks would judge a colossus's slam at the old reach and his frost as fire.
+- **The hub's omen post names tonight's marks** (`net/gateHerald.js omenPost`), in the tables' words alone.
+
+Relay world128 - world126 on its branch, never deployed, and one relay past main's OW6L (world127, the cell's overworld ledger) at the merge with #428-#432, the two in one relay (its row in `test/relayversion.test.js` - world125 is VOICE1's, deployed with PR #427 and reverted with #416 forty minutes later; the version pins of the suites that name it moved,
+each with its history). Pinned in `test/wb8b_gate_marks.test.js` (the wire and the relay's draw on the real Room).
+
+AUDIT PRE-MERGE 0929 (`01-Overview/Audit-PreMerge-0929.md`, lens W1): only a fall with a real part in the fight behind
+it feeds a Soul-Hungry Warden (`hasPart`, AUDIT WBX R2's bar - a fall is the fighter's own word, and twenty-five
+throwaway guests that said `in` dead and went took him from a fifth to all but full), no more than GATE_FEEDS_MAX (5) a
+fight; a Colossal Warden's cone reaches from his body (9.45 m), so R3's law holds under every set of marks. World126's
+row is restated with the audit's bytes - still undeployed. `test/audit0929_gate.test.js` (3, the throwaway guests on
+the real Room).
+
+
+## REALM-DOOR (2026-09-29, the field: Gryphoth, "it said my client was outdated ... my character was no longer online") - world130
+
+The realm (`Realm-Arc.md`) never touched the relay: world124 before it and after. Its separation was the new build's
+law alone - a boot that never takes a local slot online - so a build from before the realm went on playing online as
+an offline character, and a character made there after the census froze could never come in
+(`01-Overview/Field-Bugs-2026-09-29b.md`). The relay now asks, at the door every room shares:
+
+- **The token carries the realm's word on the character** (`net/identityToken.js` `rc`): the account service signs 1
+  when the character the mint names is one of the account's realm characters, else 0 (acct22).
+- **`_named` refuses a 0** in every room - place, cell, channel, hub, court - before anything is written (not even the
+  signature is spent), with `REALM_DOOR_WORD` (`net/wire.js`): "this game is out of date - update it to play online
+  (restart the app, or reload the page)". A build from before the realm prints a relay's refusal as it stands and does
+  not retry a policy close, so its player reads the one thing to do. The words fit a close reason's 123 bytes.
+- **A token with no `rc` is admitted as it was**: it is a service from before acct22, and the relay and the service
+  deploy on their own, in either order. Once acct22 stands, no mint lacks it (a token lives MAX_TTL_S).
+- **A realm-era tab names the realm character it joined** at the mint, and meets the words only when that character
+  stopped being its account's under it; it goes to the Online door with the realm's word (`realmSaves.js`
+  `realmDoorShut`).
+
+Relay world130 (its row in `test/relayversion.test.js`). Pinned in `test/realmdoor.test.js` (the service, the relay and
+the old build's HUD line, on the real Worker and the real Room under one key pair).
 ## MARKS1 (2026-09-28, Mac: "New currency"; "continue") - Marks, the server's currency
 
 The record is `06-Systems/Professions-Arc.md` 10.5 (PROF0); this is what the first slice built. A Ledger A departure
@@ -10618,7 +10689,7 @@ only for an act a server witnessed: the one thing a modified client cannot print
   8 gold a Mark and 300 Marks a UTC day; a guild move 1 to 1,000,000; the switch `off` / `dev` / `on`; the UTC day
   every cap counts by. **GOLD NEVER BUYS MARKS**: there is no kind, route, table or statement that takes gold and
   strikes a Mark, and a pin walks the service's own statements to hold it.
-- **The store** (`server-account/migrations/0018_marks.sql`): `marks` (an account's balance), `guild_marks` (a guild's
+- **The store** (`server-account/migrations/0025_marks.sql`): `marks` (an account's balance), `guild_marks` (a guild's
   Marks treasury) and `marks_ledger` - ONE LINE A MOVEMENT, the truth, whose own triggers move both balances on the
   line's insert (GUILD1's trigger law turned the right way round for a currency: a Mark moving from an account to a
   guild is one line touching two balances). CHECKs hold the balances in 0..10,000,000 as the net under the floor.
@@ -10715,7 +10786,7 @@ departure (`Port-Ledger.md` section A, THE BOARD, ONLINE).
 - **The law** (`src/net/boardLaw.js`, both ends): a note is MAIL1's letter (the same `letterWords`), 1, 3 or 7 days,
   three live an account, ten pins an hour, one button (party, guild, duel); thirty notes and twenty notices a board;
   three reports hide; a minute's cache; the switch.
-- **The store** (`server-account/migrations/0019_board.sql`): `board_notes` (a town's, keyed by its map id; a
+- **The store** (`server-account/migrations/0026_board.sql`): `board_notes` (a town's, keyed by its map id; a
   recruitment note carries its author's character, `char_id`), their `board_reports`, the server's `board_notices`
   (each with its request id). An account gone takes its notes and reports; a guild gone takes a recruitment note's
   button (SET NULL).
@@ -10782,7 +10853,7 @@ frame is worked out once - a pixel's bounty boards (`boardSplitOf`), the count o
 
 **The relay** moves to `world123` (a bounty row's `k`, `a`, `t`), its law recorded in `test/relayversion.test.js`, the
 twelve pins that name the version moved with it. It deploys itself when this reaches main (`relay-deploy.yml`).
-**The account service** stays `acct18`: 0017 (0019 since the merge of main) gained `board_notes.char_id` and `board_notices.rid` in place - no deploy
+**The account service** stays `acct18`: 0017 (0019 since the merge of main, 0026 since MERGE 2) gained `board_notes.char_id` and `board_notices.rid` in place - no deploy
 has applied it (the account service deploys from main alone).
 
 ## PROF1 (2026-09-28, Mac: "Begin!") - the Stores, Herbalism and Court writs
@@ -10797,7 +10868,7 @@ departure (`Port-Ledger.md` section A, PROFESSIONS).
   its first instant), the herb tables, the seasons, the yields, the witnessed pixel, a region's writs. The pure tables
   they share with the client moved to modules that read no file (`src/formats/mapsTables.js`,
   `src/systems/foragingCore.js`), re-exported from their old homes.
-- **The store** (`server-account/migrations/0020_professions.sql`): `prof_tracks`, `prof_stores` (own and bought),
+- **The store** (`server-account/migrations/0027_professions.sql`): `prof_tracks`, `prof_stores` (own and bought),
   `node_harvests` (a day's, kept two days), `prof_withdrawals`, `world_witness` (SEAT0 3.2's first kind, the pixel),
   `writ_days` and `writs` (the Court's).
 - **The service** (`server-account/src/professions.js`, `/v1/prof/*`, `/v1/stores/*`, `/v1/writs/*`, `acct19`): a
@@ -10843,7 +10914,7 @@ departure (`Port-Ledger.md` section A, MINING).
   `src/net/nodeLaw.js` - a pixel's day of veins (4.1's tables, tier 2 unconfirmed, a confirmed kingdom's signature in
   its first slot, Daggerfall's two) and boulders, a dungeon's day of veins (`1 + hash % 4`, tier 3 unconfirmed, a
   marker and a bearing), a strike's gem, the yields, and the metal and stone a region's writs may ask.
-- **The store** (`server-account/migrations/0021_mining.sql`): `node_harvests` rebuilt for `ore` and `stone` and a
+- **The store** (`server-account/migrations/0028_mining.sql`): `node_harvests` rebuilt for `ore` and `stone` and a
   found `gem`; `world_witness` rebuilt for its second kind, `dungeon`; `prof_smelts`.
 - **The service** (`server-account/src/professions.js`, `acct20`): the harvest generalised - a vein's ore, a
   boulder's stone, a dungeon vein's deep ore (no hours underground), the ground a pixel's or a dungeon's witness, the
@@ -10877,7 +10948,7 @@ three). Every one was verified against the code - most reproduced by a probe ove
 - and fixed with a pin that fails on the code before it; two were rejected in part (below). Main was not merged first:
 its 137 commits since the last merge touch 200 of this branch's files, almost all in line cites, and are their own
 work. `test/audit29_laws.test.js` (7), `test/audit29_service.test.js` (14), `test/audit29_client.test.js` (8),
-`test/audit29_host.test.js` (10); migration `0022_audit29.sql`, `acct21`; `tools/mutants/audit29.json` - and the
+`test/audit29_host.test.js` (10); migration `0029_audit29.sql`, `acct21`; `tools/mutants/audit29.json` - and the
 records the fixes moved (prof1, prof2, home_stations, auditdisc7, survtiers3) re-aimed by content.
 
 **The service and the laws** (A1-A17). A node id with a leading zero anywhere (`vein:010:20:...`) parsed as the same
@@ -10960,7 +11031,7 @@ both built, or both numbered, is one now:
   (`net/wire.js` RELAY_VERSION, `test/relayversion.test.js`'s world125 row). BOUNTY1's `bq`/`lv` and TV8's `tw`/`ts`
   ride the same party pose; a relay before world125 strips the bounty fields and nothing closes.
 - **The account service is acct22,** past main's RAID4 (acct17) and AUDIT RAID (acct18) and the branch's MARKS1 to
-  AUDIT 29 (acct17-acct21, undeployed). The branch's migrations are 0018-0022 (marks, board, professions, mining,
+  AUDIT 29 (acct17-acct21, undeployed). The branch's migrations are 0018-0022 (0025-0029 since MERGE 2) (marks, board, professions, mining,
   audit29) behind main's 0016 (raid_cleanses) and 0017 (raid_spoils): D1 applies by name in order, and none of the
   five was ever applied anywhere. The account view carries main's `raids` beside the branch's `marks`.
 - **LootTables.OnLootSpawned, built twice, is one list.** FORAGE3 (the branch) and OH-E (main) each found the port
@@ -10985,7 +11056,7 @@ both built, or both numbered, is one now:
 The record is `06-Systems/Professions-Arc.md` 9 and 24; this is what the slice built, online's alone. A Ledger A
 departure (`Port-Ledger.md` section A, SMITHING: THE ANVIL, QUALITY AND PROVENANCE).
 
-- **The service** is `acct23`, its tables `0023_smithing.sql`: `prof_crafts` (a craft's row, found by its id before the
+- **The service** is `acct23`, its tables `0030_smithing.sql`: `prof_crafts` (a craft's row, found by its id before the
   switch), `products` (every crafted piece - its provenance id, its owner, its maker, what it is and its signed record)
   and `prof_stock` (a purchase from the smith's stock). `/v1/prof/craft` decides a craft by one INSERT (every input held;
   the XP under the crafter's limit, the first craft's 500 read in it) and `/v1/prof/stock` a purchase by another (the
@@ -11009,7 +11080,7 @@ departure (`Port-Ledger.md` section A, SMITHING: THE ANVIL, QUALITY AND PROVENAN
 The record is `06-Systems/Professions-Arc.md` 4.2, 9.3, 9.4 and 25; this is what the slice built, online's alone. A
 Ledger A departure (`Port-Ledger.md` section A, LOGGING, CARPENTRY AND THE FURNITURE).
 
-- **The service** is `acct24`, its table changes `0024_logging.sql`: `node_harvests` rebuilt for the kind `logs` and a
+- **The service** is `acct24`, its table changes `0031_logging.sql`: `node_harvests` rebuilt for the kind `logs` and a
   second find (`extra`, a tree's Resin), `prof_crafts.heartwood`, `products.marked`. No new route: a tree is the
   harvest's, a burn or a saw the smelt's (no XP), Carpentry's craft the craft route's (its rank, cap and track
   Carpentry's), the furnisher's Linen the stock route's; the Ram Kit is refused before anything is spent (`prof-later`).
@@ -11031,7 +11102,7 @@ Ledger A departure (`Port-Ledger.md` section A, LOGGING, CARPENTRY AND THE FURNI
 The record is `06-Systems/Professions-Arc.md` 10.2-10.5 and 26; this is what the slice built, online's alone. A Ledger A
 departure (`Port-Ledger.md` section A, THE MARKET).
 
-- **The service** is `acct25`, its tables `0025_market.sql`: the listings, the sales (a purchase's row and its courier),
+- **The service** is `acct25`, its tables `0032_market.sql`: the listings, the sales (a purchase's row and its courier),
   the deliveries (a piece on its way to a pack), the buy orders and their fills, the prices' day table and the reports;
   and three rebuilds - the Marks ledger admits an `escrow` end (an order's Marks held, its id the order's, no balance
   moved by trigger), the witness admits the kind `hub` (a region's hub town's map pixel, the courier's road), and
@@ -11163,7 +11234,7 @@ Appendix B, Port-Ledger, UI.md, Testing, the three patch notes).
 The record is `06-Systems/Professions-Arc.md` 10.2 and 27; this is what the slice built, online's alone. The Market's
 Ledger A departure, extended (`Port-Ledger.md` section A, THE MARKET).
 
-- **The service** is `acct27`, its tables `0026_auctions.sql`: the auctions (one open auction a piece, by a unique
+- **The service** is `acct27`, its tables `0033_auctions.sql`: the auctions (one open auction a piece, by a unique
   index), the bids (one standing bid an auction, likewise) and the auctions' reports. `/v1/market/auction` posts one
   (the listing's fee on its opening bid, burnt under `:afee`); `/v1/market/bid` decides a bid by one UPDATE keyed on
   the standing bid it read, the bid and its courier held on the ledger's `escrow` end under `<rid>:bid`. The cancel,
@@ -11174,7 +11245,7 @@ Ledger A departure, extended (`Port-Ledger.md` section A, THE MARKET).
 - **The market book keeps** what the reader's bids hold (`held`), and "Your Marks" says it (AUDIT 31 R11: this line
   said the Marks book was told - it is the market's own book).
 - **FOUND and fixed:** the Market tab did not read again on `auction-low` - a bid another overtook left the old next bid
-  on screen; `MARKS1-13` had aimed at a trigger `0025_market.sql` rebuilt, and survived unseen since PROF5.
+  on screen; `MARKS1-13` had aimed at a trigger `0032_market.sql` rebuilt, and survived unseen since PROF5.
 - **Pinned:** `test/prof5b_law.test.js`, `test/prof5b_service.test.js`, `test/prof5b_client.test.js`;
   `tools/mutants/prof5b.json` (40: 35 dead, five recorded equivalent).
 
@@ -11183,7 +11254,7 @@ Ledger A departure, extended (`Port-Ledger.md` section A, THE MARKET).
 The record is `06-Systems/Professions-Arc.md` 7, 11 and 28; this is what the slice built, online's alone. A Ledger A
 departure (`Port-Ledger.md` section A, GUILD WRITS, THE GUILD STORES AND COMMISSIONS).
 
-- **The service** is `acct28`, its tables `0027_writs.sql`: a guild's writs and their deliveries, the Officers' writ
+- **The service** is `acct28`, its tables `0034_writs.sql`: a guild's writs and their deliveries, the Officers' writ
   budgets, the guild Stores (a row a material and a depositor) with their ledger (written by triggers) and moves, the
   commissions, and `board_notes` rebuilt for its fourth button (its reports carried across the drop). `/v1/writs/post`,
   `supply`, `withdraw`, `budget`, `commission`, `fulfil`, `cancel`, `decline` and `/v1/stores/guild`, `guild-deposit`,
@@ -11297,3 +11368,70 @@ the add's own number; an empty auction view says its filter.
 line marked (the members' deposit, the Work tab's collect, Yours, the ids, the in-person line, 15's row, the stale
 PROF6 pointers, the four hosts); 18 records account deletion and the Tithe's line as OPEN (no route deletes an
 account; the Tithe is nought until SEAT1 writes its line); the patch notes say what shipped.
+
+## MERGE 2 (2026-09-29, Mac: "Merge and markdown notes") - main's realm taken into the professions branch, and the branch onto main
+
+Main's 88 commits since THE MERGE - REALM (an online character held by the account service under a lease, its trades,
+its guild and home gold on its record, customs and the door), RENOWN-ACCOUNT, TERMS1, PENITENT, REALM-DOOR and
+CUSTOMS-PASS, HOUSE-LOSS and RESTORE, OW6 and OW6L, WB8, VIEW-TOGGLE, the launcher and the field batches - came into the
+branch, and the branch (MARKS1 to AUDIT 31) goes to main with them. What the two sides both built, or both numbered, is
+one now:
+
+- **The relay is world131.** The branch's BOUNTY1 + AUDIT 28 were world125 on the branch, never deployed, and world125
+  is main's VOICE1 (deployed, then reverted) - a number a deployed relay may carry is never reused; main went on to
+  REALM-DOOR (world130). The bounty fields ride one relay past it (`net/wire.js` RELAY_VERSION,
+  `test/relayversion.test.js`'s world131 row); a relay before it strips `bq`, `lv` and a row's `k`, `a` and `t`.
+- **The account service is acct30,** past main's acct23 (HOUSE-LOSS and RESTORE, deployed) and the branch's acct29
+  (AUDIT 31, undeployed). The branch's ten migrations are 0025-0034 (marks, board, professions, mining, audit29,
+  smithing, logging, market, auctions, writs) behind main's 0018-0024 (realm_characters, realm_trades, realm_audit,
+  renown_account, customs_carry, terms, customs_passes): D1 applies by name in order, none of the ten was ever applied
+  anywhere, and none rebuilds a table main's alter (homes, home_decor, guilds, players, the realm's) - the five they
+  rebuild (node_harvests, world_witness, marks_ledger, products, board_notes) are the branch's own. Records written
+  before this name the branch's migrations by their new numbers.
+- **A Court writ's Renown is the account's.** Main's RENOWN-ACCOUNT made Renown one track an account (`renown_accounts`)
+  and every source three quarters (`net/renown.js` renownRate); PROF1's delivery still wrote the character's
+  `renown_tracks` row - history nothing reads now - and bound RENOWN_TRACKS_MAX, which main removed. The delivery
+  credits the account's track in its own batch (made where it has none, as a raid's claim makes it; outside the hour's
+  bound, the writ being the service's own to prove - its units spent from the Stores in the same batch), answers as
+  `/v1/renown/xp` does (no `character`, `max` at the cap), and `net/professionLaw.js` writRenown passes through
+  renownRate: a tier-2 writ of 30 units pays 112, 150 at the full rate.
+- **The loot pile's call carries both sides' arguments** (`systems/loot.js` addPileLootExtras): FORAGE3's
+  `locationIndex` and `luck` for OnLootSpawned's subscribers, and REALM P0.4's `level` (online, a pile's gold divided
+  back by the level) - at the dungeon's pile, the camp's and a tavern's.
+- **A camp's stand** answers what stood or null (THE MERGE), counts its camps off the pool's one counter and grows by
+  one home bounded by the pool (main's OW6: `exteriorFoes.newCampId`, `campMembers`); a bounty's `fixed` pack is never
+  grown, and the bounty's dungeon pack takes its id off the same counter - the host's own `_nextCampId` went with OW6.
+- **The act choice comes after TogglePerspective** in ACTIONS: main's VIEW-TOGGLE shipped first and a port action's
+  index is live - 83 actions, 77 bound (`ArrowUp` and `Mouse4`, no clash).
+- **One `not-developer` word** (`net/accountClient.js`): both sides wrote the key; "Only a developer may do that." says
+  MARKS1's report, NOTICE1's notices and CUSTOMS-PASS's grant alike.
+- **The seams that merged by content:** the guild acts' context carries the env (the Marks switch, AUDIT 28 M5) and the
+  realm's bucket (REALM P2.2); a founding answers its Marks view and the realm's `seq`; the account card carries main's
+  one Renown and the branch's Marks; a decor placement proves a crafted piece's mark from its own row (PROF4) and then
+  pays on the realm character's record (REALM P2.2b); the guild routes list the realm's refusals beside the Stores'.
+- **The pins.** The branch's service pins make an account with the Terms ticked (TERMS1), give Renown on the account's
+  track, and found a guild or claim a house as a realm character - AUDIT REALM2 S2 made both a realm character's alone -
+  through `test/accountDb.mjs` `found` and `seatHome`, over main's own `test/realmSeat.mjs`. AUDIT REALM F1's
+  BOUND_TEMPLATES pin reads the branch's two registrars (Foraging's and the professions' rows - none bound: a material
+  and a tool change hands). Seven mutant records re-aimed by content; the pile's, the stand's and the card's re-killed.
+- **Main's own red, fixed here:** `test/tv6_dungeons.test.js` pinned travelViewWalkTo's options before TO-ROADS added
+  `roads`.
+- **The records:** Systems.md and UI.md count their modules (319 and 252); the Features ceiling takes both new rows
+  (16654 characters, 63 rows); Port-Ledger section A is 246 rows, 231 standing, with main's six under GATE-CLEAR's and
+  the branch's ordinals corrected (they ran one and two high); section 2's `:NNN` identifiers moved six under main's
+  rows. `tools/citeMerge.mjs` (struck lines too) moved 744 cites; the 23 shared lines it held were stale on both sides
+  and stay as both had them.
+
+**OPEN - where the realm and the professions meet (Mac's to decide):**
+
+1. The professions' routes take any character id of a registered account; since AUDIT REALM2 S2 a founding, a house and
+   a placement are a realm character's alone. Online play is a realm character's at the relay's door (REALM-DOOR), so
+   only a modified client reaches the routes with another id, and the professions are behind `dev` - but a realm-only
+   door on harvests, the Stores, crafts, the market and the writs would make it the service's law as well.
+2. A professions act that changes the pack (a withdrawal, a craft, a market collect or listing, a commission's fill) is
+   not checkpointed at once, as a trade is (REALM P0.5): the two-minute checkpoint and the exit save carry it, and the
+   market's settle takes a listed piece's copy out of a restored save. Checkpointing them as trades are would close the
+   window.
+3. A realm character's delete takes its homes, its guild place and its Renown history; the professions' rows keyed by it
+   (its Stores, its tracks, a delivery on the road to it) stay, unreachable. The delete could refuse while any stands,
+   as it refuses a guildmaster with members.

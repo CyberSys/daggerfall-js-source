@@ -362,16 +362,16 @@ test('MAC-K1: arming from a click cannot itself be the bound BUTTON, but the nex
   });
 });
 
-test('MAC-K1: a FOURTH button is not a binding, and the capture stays armed for one that is', () => {
-  // mouseCode answers null past the third button (ui/input.js's
-  // MOUSE_CODES is three long, as Unity's KeyCode list is). A thumb
+test('MAC-K1: a SIXTH button is not a binding, and the capture stays armed for one that is', () => {
+  // mouseCode answers null past the fifth button (ui/input.js's
+  // MOUSE_CODES is five long since VOICE1, kept for VIEW-TOGGLE - Unity's Mouse0-Mouse4, the side buttons the bindings'). A thumb
   // button must not silently bind nothing and end the capture - the
   // row would go blank and the player would never know why.
   withPane(({ doc, view }) => {
     keyBtn(view, 'Jump').onclick();
     const down = doc.listeners.find((l) => l.type === 'mousedown');
-    down.fn({ button: 3, preventDefault() {}, stopPropagation() {} });
-    assert.equal(captureArmed(), 'Jump', 'the fourth button is not a KeyCode: the capture waits on');
+    down.fn({ button: 5, preventDefault() {}, stopPropagation() {} });
+    assert.equal(captureArmed(), 'Jump', 'the sixth button is not a KeyCode: the capture waits on');
     assert.equal(currentDict(controlsStaging()).get('Jump'), 'Space', 'and nothing was written');
     down.fn({ button: 0, preventDefault() {}, stopPropagation() {} });
     answer(view, true);   // KB1: the left button is the activate's - asked, then given

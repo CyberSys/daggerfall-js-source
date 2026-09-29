@@ -43,7 +43,7 @@ import { isDeveloper } from './titles.js';
 import { marksOpenFor, balanceOf } from './marks.js';
 import { CHAR_ID_RE } from './service.js';
 import { MARKS_MAX, utcDay } from '../../src/net/marksLaw.js';
-import { renownForXp, RENOWN_XP_MAX, RENOWN_TRACKS_MAX } from '../../src/net/renown.js';
+import { renownForXp, RENOWN_XP_MAX } from '../../src/net/renown.js';
 import { sharedClassicMinutes } from '../../src/net/wire.js';
 import { isForagingDaylight } from '../../src/systems/foragingCore.js';
 import {
@@ -876,9 +876,13 @@ export async function listWrits({ db, nowS }, player, env, { character, region }
   };
 }
 
-/** The Renown a delivery credited, in the shape `/v1/renown/xp` answers (so the client's one plan reads it). */
-function renownAnswer(character, before, after) {
-  return { character, xp: after, level: renownForXp(after), credited: Math.max(0, after - before), rose: renownForXp(after) > renownForXp(before) };
+/** The Renown a delivery credited, in the shape `/v1/renown/xp` answers (so the client's one plan reads it) - MERGE 2:
+ *  the ACCOUNT's track (RENOWN-ACCOUNT), so no `character`, and `max` once it holds the cap's total, as a report says. */
+function renownAnswer(before, after) {
+  return {
+    xp: after, level: renownForXp(after), credited: Math.max(0, after - before), rose: renownForXp(after) > renownForXp(before),
+    ...(after >= RENOWN_XP_MAX ? { max: true } : {}),
+  };
 }
 
 /**
@@ -917,7 +921,9 @@ export async function deliverWrit(ctx, player, env, { character, id, rid } = {})
   if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };
   const m = material(w.material);
   const prof = professionOfFamily(m?.family);
-  const before = Number((await db.prepare('SELECT xp FROM renown_tracks WHERE player = ?1 AND char_id = ?2').bind(player.id, character).first())?.xp ?? 0);
+  // MERGE 2: RENOWN IS THE ACCOUNT'S (main's RENOWN-ACCOUNT, renownTracks.js) - a writ's Renown is the account's one track's,
+  // whichever character filled it; `renown_tracks` is history nothing writes again
+  const before = Number((await db.prepare('SELECT xp FROM renown_accounts WHERE player = ?1').bind(player.id).first())?.xp ?? 0);
   const nonce = mintId(rand);
   const filled = 'EXISTS (SELECT 1 FROM writs WHERE id = ?5 AND n = ?6)';
   await db.batch([
@@ -943,18 +949,18 @@ export async function deliverWrit(ctx, player, env, { character, id, rid } = {})
       SELECT ?1, ?2, ?7, MIN(?8, ?9), ?3 WHERE ${filled}
       ON CONFLICT (player, char_id, profession) DO UPDATE SET xp = MIN(?8, prof_tracks.xp + excluded.xp), updated_at = excluded.updated_at`)
       .bind(player.id, character, nowS, rid, id, nonce, prof ?? 'herbalism', PROF_XP_MAX, writXp(Number(w.pay))),
-    // the Renown to the character (its track made where it has none, under RENOWN_TRACKS_MAX)
-    db.prepare(`UPDATE renown_tracks SET xp = MIN(?7, xp + (SELECT renown FROM writs WHERE id = ?5 AND n = ?6)), updated_at = ?3
-      WHERE player = ?1 AND char_id = ?2 AND ${filled}`).bind(player.id, character, nowS, rid, id, nonce, RENOWN_XP_MAX),
-    db.prepare(`INSERT INTO renown_tracks (player, char_id, name, xp, last_rid, created_at, updated_at)
-      SELECT ?1, ?2, NULL, MIN(?7, renown), NULL, ?3, ?3 FROM writs WHERE id = ?5 AND n = ?6 AND renown > 0
-        AND NOT EXISTS (SELECT 1 FROM renown_tracks WHERE player = ?1 AND char_id = ?2)
-        AND (SELECT COUNT(*) FROM renown_tracks WHERE player = ?1) < ?8`).bind(player.id, character, nowS, rid, id, nonce, RENOWN_XP_MAX, RENOWN_TRACKS_MAX),
+    // the Renown to the ACCOUNT (MERGE 2: RENOWN-ACCOUNT's one track - made where it has none, as a raid's claim makes it;
+    // outside the hour's bound, as the writ is the service's own to prove: its units spent from the Stores above)
+    db.prepare(`UPDATE renown_accounts SET xp = MIN(?4, xp + (SELECT renown FROM writs WHERE id = ?2 AND n = ?3)), updated_at = ?5
+      WHERE player = ?1 AND EXISTS (SELECT 1 FROM writs WHERE id = ?2 AND n = ?3)`).bind(player.id, id, nonce, RENOWN_XP_MAX, nowS),
+    db.prepare(`INSERT INTO renown_accounts (player, xp, created_at, updated_at)
+      SELECT ?1, MIN(?4, renown), ?5, ?5 FROM writs WHERE id = ?2 AND n = ?3 AND renown > 0
+        AND NOT EXISTS (SELECT 1 FROM renown_accounts WHERE player = ?1)`).bind(player.id, id, nonce, RENOWN_XP_MAX, nowS),
   ]);
   const now = await db.prepare('SELECT * FROM writs WHERE id = ?').bind(id).first();
   if (now?.n === nonce) {
-    const after = Number((await db.prepare('SELECT xp FROM renown_tracks WHERE player = ?1 AND char_id = ?2').bind(player.id, character).first())?.xp ?? before);
-    return answer(now, { renown: renownAnswer(character, before, after) });
+    const after = Number((await db.prepare('SELECT xp FROM renown_accounts WHERE player = ?1').bind(player.id).first())?.xp ?? before);
+    return answer(now, { renown: renownAnswer(before, after) });
   }
   if (now?.filled_by === player.id) return answer(now, { repeat: true });
   const byRid = await db.prepare('SELECT * FROM writs WHERE filled_by = ?1 AND rid = ?2').bind(player.id, rid).first();

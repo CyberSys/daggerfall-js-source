@@ -87,6 +87,7 @@ test('ELITE x AUDIT SET P-M3 (AUDIT FINAL F7): a joiner\'s name rides a death\'s
 
 test('ELITE x PSCALE1 outdoors: a camp grows by the party it meets, and CAMP-RING\'s room is asked for the grown group', () => {
   assert.deepEqual(partyGroupMembers([1, 2, 3], 5), [1, 2, 3, 1, 2], 'five together: two more, drawn from its own');
-  assert.match(rd('src/scenes/world.js'), /const size = partyGroupMembers\(h\.mobileTypes, partySize\(\)\)\.length;\n\s*if \(size > room\) continue;/);
-  assert.match(rd('src/scenes/world.js'), /for \(const mobileType of \(hit\.fixed \? hit\.mobileTypes : partyGroupMembers\(hit\.mobileTypes, partySize\(\)\)\)\) \{/, 'the stand grows it the same way (a camp; BOUNTY1\'s `fixed` pack is the posting\'s count - auditbounty1 B2)');
+  assert.match(rd('src/scenes/world.js'), /const size = campMembers\(h\.mobileTypes\)\.length;\n\s*if \(size > room\) continue;/);
+  assert.match(rd('src/scenes/world.js'), /for \(const mobileType of \(hit\.fixed \? hit\.mobileTypes : campMembers\(hit\.mobileTypes\)\)\) \{/, 'the stand grows it the same way (a camp; BOUNTY1\'s `fixed` pack is the posting\'s count - auditbounty1 B2)');
+  assert.match(rd('src/scenes/world.js'), /const campMembers = \(types\) => partyGroupMembers\(types, partySize\(\)\)\.slice\(0, MAX_ACTIVE_ENCOUNTER_FOES\);/, 'OW6: one home for the growth, bounded by the pool');
 });

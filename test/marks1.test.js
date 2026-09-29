@@ -1,7 +1,7 @@
 // MARKS1 (2026-09-28, Mac: "New currency"; "continue"): MARKS, THE SERVER'S CURRENCY - the law both ends read
 // (src/net/marksLaw.js), the account service's balances, the one ledger that moves them, the first faucet (the gate's
 // receipts), the Bank's one-way exchange, a guild's Marks treasury and the developers' weekly report, driven through the
-// real Worker over node:sqlite with every migration applied (server-account/src/marks.js, 0018_marks.sql).
+// real Worker over node:sqlite with every migration applied (server-account/src/marks.js, 0025_marks.sql).
 // bible/06-Systems/Professions-Arc.md 10.5.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,7 +13,7 @@ import { strikeGateMarks } from '../server-account/src/marks.js';
 import { ROUTES, OPEN_ROUTES } from '../server-account/src/service.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { mintReceipt, importReceiptKey } from '../src/net/gateReceipt.js';
-import { GUILD_FOUND_RENOWN } from '../src/net/guildLaw.js';
+import { GUILD_FOUND_RENOWN, GUILD_FOUND_GOLD } from '../src/net/guildLaw.js';
 import { renownXpFor } from '../src/net/renown.js';
 import {
   MARKS_MAX, MARKS_FAUCETS, MARKS_BANK, MARKS_KINDS, MARKS_SWITCH, marksSwitchOf, utcDay, marksAmountOk, exchangeGold,
@@ -24,6 +24,8 @@ import { createMarksBook, MARKS_TEXT, MARKS_PENDING_KEY, mintMarksRid } from '..
 import { createGateClaims } from '../src/net/gateClaims.js';
 import { creditMarksSale, marksSaleCredit, createBankAccounts } from '../src/systems/banking.js';
 import { BankWindow, MARKS_ENTRY, MARKS_COUNTING } from '../src/ui/bankWindow.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // MERGE 2: TERMS1 - a request that makes an account carries the versions ticked
+import { r2, seatRealm } from './realmSeat.mjs';   // MERGE 2: a founding is a realm character's (AUDIT REALM2 S2)
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -69,7 +71,7 @@ async function stand({ open = 'on', developers = 'Devra' } = {}) {
   const pkcs8 = Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64');
   const gate = await gatePair();
   const env = {
-    DB: d1(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*', GATE_PUBLIC_KEY: gate.pub,
+    DB: d1(), SAVES: r2(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*', GATE_PUBLIC_KEY: gate.pub,   // MERGE 2: SAVES, the realm's records
     MARKS_OPEN: open, DEVELOPER_HANDLES: developers,
   };
   const call = async (path, body, bearer = null, method = 'POST') => {
@@ -80,13 +82,14 @@ async function stand({ open = 'on', developers = 'Devra' } = {}) {
     }), env);
     return { status: res.status, body: await res.json().catch(() => null) };
   };
-  const guest = async () => (await call('/v1/auth/guest', {})).body;
+  const guest = async () => (await call('/v1/auth/guest', { ...ACCEPTED })).body;   // MERGE 2: main's TERMS1
   const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = 1 } = {}) => {
     const g = await guest();
-    assert.equal((await call('/v1/auth/register', { handle, password: 'a good long one' }, g.secret)).status, 200, `${handle} registers`);
+    assert.equal((await call('/v1/auth/register', { handle, password: 'a good long one', ...ACCEPTED }, g.secret)).status, 200, `${handle} registers`);
     if (renown > 1) {
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(g.id, character, handle, renownXpFor(renown), T0, T0);
+      // MERGE 2: main's RENOWN-ACCOUNT - the Renown is the account's one track (renown_accounts), whichever character
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(g.id, renownXpFor(renown), T0, T0);
     }
     return { secret: g.secret, id: g.id, character, handle };
   };
@@ -120,8 +123,8 @@ test('MARKS1: GOLD NEVER BUYS MARKS - no kind, route, table or statement takes g
   const marks = src('server-account/src/marks.js').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const mints = [...marks.matchAll(/SELECT 'mint', NULL, 'account', \?1, '([a-z-]+)'/g)].map((m) => m[1]);
   assert.deepEqual(mints, ['gate'], 'the service strikes Marks in one statement, the gate\'s');
-  assert.doesNotMatch(src('server-account/migrations/0018_marks.sql'), /'gold'/, 'the ledger has no gold end');
-  assert.match(src('server-account/migrations/0018_marks.sql'), /src_kind TEXT NOT NULL CHECK \(src_kind IN \('mint', 'account', 'guild'\)\)/);
+  assert.doesNotMatch(src('server-account/migrations/0025_marks.sql'), /'gold'/, 'the ledger has no gold end');
+  assert.match(src('server-account/migrations/0025_marks.sql'), /src_kind TEXT NOT NULL CHECK \(src_kind IN \('mint', 'account', 'guild'\)\)/);
 });
 
 // ─── THE LEDGER MOVES THE BALANCES ───────────────────────────────────────────────────────────────────────────────────
@@ -233,7 +236,10 @@ test('MARKS1 a guild\'s Marks treasury: any member puts Marks in from the accoun
   const seed = (who, n) => env.DB._raw.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
     VALUES ('mint', NULL, 'account', ?, 'test', ?, 1, 1, ?, NULL, ?)`).run(who.id, n, who.id, `seed-${who.handle}`);
   const aldric = await registered('Aldric', { renown: GUILD_FOUND_RENOWN });
-  const { guild } = (await call('/v1/guilds/found', { character: aldric.character, name: 'The Hound', tag: 'HND' }, aldric.secret)).body;
+  // MERGE 2: a founding is a realm character's, paid on its record (main's AUDIT REALM2 S2) - Aldric plays one from here
+  const R = await seatRealm(env, aldric.secret, aldric.handle, { name: aldric.handle, level: 9, goldPieces: GUILD_FOUND_GOLD * 10, items: [] });
+  aldric.character = R.id;
+  const { guild } = (await call('/v1/guilds/found', { character: R.id, name: 'The Hound', tag: 'HND', realm: R.at() }, aldric.secret)).body;
   const mara = await registered('Mara');
   await call('/v1/guilds/invite', { character: aldric.character, handle: 'mara' }, aldric.secret);
   await call('/v1/guilds/answer', { character: mara.character, guild: guild.id, accept: true }, mara.secret);

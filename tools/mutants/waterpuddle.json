@@ -155,7 +155,7 @@
   {
     "name": "WATERPUDDLE-world-uploads-the-bare-layers",
     "file": "src/scenes/world.js",
-    "old": "renderer.uploadTileArray(groundArchive, markPuddleWater(layers));",
+    "old": "renderer.uploadTileArray(groundArchive, modLayers ? layers : markPuddleWater(layers));",
     "new": "renderer.uploadTileArray(groundArchive, layers);",
     "tests": [
       "test/waterpuddle.test.js"
@@ -164,7 +164,7 @@
   {
     "name": "WATERPUDDLE-exterior-uploads-the-bare-layers",
     "file": "src/scenes/exterior.js",
-    "old": "renderer.uploadTileArray(groundArchive, markPuddleWater(layers));",
+    "old": "renderer.uploadTileArray(groundArchive, modLayers ? layers : markPuddleWater(layers));",
     "new": "renderer.uploadTileArray(groundArchive, layers);",
     "tests": [
       "test/waterpuddle.test.js"

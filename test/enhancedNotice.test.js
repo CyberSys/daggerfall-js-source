@@ -18,6 +18,7 @@ import {
   _setNoticeClockForTests, ENHANCED_NOTICE_ID, NOTICE_SLIDE_MS, NOTICE_WATCHDOG_MS, NOTICE_HINT,
 } from '../src/ui/enhancedNotice.js';
 import { TOAST_FADE_MS } from '../src/ui/enhancedFrame.js';   // PLUS-ONLY: a toast's own fade
+import { _frameForTests, DRAW_FRAMES_UNDRAWN } from '../src/ui/drawWatchdog.js';   // DISC29-D: the draws stop when FRAMES pass undrawn
 import { ActionTextBox, ActionInputBox } from '../src/ui/actionText.js';
 import { enhancedInputBoxOwner } from '../src/ui/enhancedInputBox.js';   // AUDIT HCC U5
 import { StatusReadout } from '../src/ui/statusBox.js';   // STATUS-LIVE: the one box whose caption is not ClickAnywhereToClose
@@ -205,6 +206,14 @@ test('ENH-NOTICE1: the watchdog - a box whose draws stop is released; a box that
     assert.equal(first[0].live, false, 'mutants: the watchdog not re-armed on the next draw');
     assert.equal(clock.pending().filter((t) => t.ms === NOTICE_WATCHDOG_MS).length, 1, 'mutants: watchdogs piling up');
     const panel = panelsOf(doc)[0];
+    // DISC29-D (Skeptikali on Discord: a dungeon's DOM nodes climbing past 3,000 at 99.9% CPU): a frame SLOWER than
+    // the timer is not a stop - no frame has come and gone without the draw, so the box stays and the timer re-arms.
+    // The wall clock tore it down and built it again every slow frame.
+    clock.fire(NOTICE_WATCHDOG_MS);
+    assert.deepEqual(enhancedNoticeKeys(), [box._noticeKey], 'a slow frame keeps its box');
+    assert.equal(panelsOf(doc).length, 1, 'and builds no second panel');
+    assert.equal(clock.pending().filter((t) => t.ms === NOTICE_WATCHDOG_MS).length, 1, 're-armed');
+    _frameForTests(DRAW_FRAMES_UNDRAWN);   // frames that came and went with no draw: the draws have stopped
     clock.fire(NOTICE_WATCHDOG_MS);
     assert.deepEqual(enhancedNoticeKeys(), [], 'mutants: the orphaned panel kept forever (AUDIT 64 F37\'s persistent overlay)');
     assert.equal(panel.className, 'notice notice-out');
@@ -601,6 +610,7 @@ test('ENH-NOTICE3 (AUDIT A2): a toast the WATCHDOG sweeps leaves its owner\'s id
     drawEnhancedToasts({ rows: ['a', 'b'], ids: [1, 2] }, doc, 'town1');
     assert.deepEqual(enhancedToastOwners(), ['town1']);
     // the draws stop (a backgrounded tab, a host gone without dispose): the watchdog sweeps
+    _frameForTests(DRAW_FRAMES_UNDRAWN);   // DISC29-D: frames went by without a draw
     clock.fire(NOTICE_WATCHDOG_MS);
     clock.fire(TOAST_FADE_MS);
     assert.deepEqual(enhancedNoticeKeys(), [], 'the panels went');

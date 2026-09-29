@@ -137,11 +137,14 @@ export const ACTIONS = Object.freeze([
   // quiet walk (Sneak) - on and off (player/walkMode.js). Appended, like every port action before it. Ships unbound;
   // the Controls pane and the Controller bindings window (ui/plusPadBinds.js) both draw its row.
   'WalkMode',
+  // VIEW-TOGGLE (Mac: "a force first person/third person toggle"): one press, the other view, for whichever body
+  // answers (player/mwView.js mwViewTogglePerspective). Appended, like every port action before it.
+  'TogglePerspective',
   // PROF1 (bible/06-Systems/Professions-Arc.md 8, 22): THE ACT CHOICE - at an herb patch, what Interact starts: the
   // herbs or the Basket's food. KB1's rule, one key one action: every letter and digit is spent, and `-`, `=` and `/`
   // are the decorator's own keys (scenes/decorTool.js DECOR_FREE_KEYS), so it ships on the up arrow, which nothing
   // reads in play (THE MERGE: `;`, its key on its branch, is Come Sail Away's lantern - CSA-D, shipped first); the
-  // prompt names it.
+  // prompt names it. (MERGE 2: after main's TogglePerspective, which shipped first.)
   'ActChoice',
 ]);
 
@@ -159,7 +162,7 @@ export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'Quick
   'Interact', 'QuickDial', 'Hotbar5', 'Hotbar6', 'Hotbar7', 'Hotbar8', 'Hotbar9', 'Hotbar10',
   'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay',
   'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
-  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'ActChoice']);   // KB1; TV1; PADWALK; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'TogglePerspective', 'ActChoice']);   // KB1; TV1; PADWALK; VIEW-TOGGLE; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -268,6 +271,9 @@ export const DEFAULT_BINDINGS = Object.freeze([
   // lesson: a key-literal table there made four rebindable rows inert
   // in both directions).
   ['KeyY', 'FreeMouse'],
+  // VIEW-TOGGLE: the mouse's FORWARD side button - first person or third, one press (every letter is spent; the world
+  // host stops the browser's own Forward on it)
+  ['Mouse4', 'TogglePerspective'],
   // QS2: THE NUMBER ROW, which is the one place a Souls player's hand already
   // goes. Digit1-Digit4 are unspent by SetupDefaults, unspent by the port
   // (PX15's Tab, HT4's G, SOC5's F, HT's O and X are the whole of the port's
@@ -412,7 +418,7 @@ export const ACTION_GROUPS = Object.freeze([
   g('Movement', [
     ['MoveForwards', 'Move forwards'], ['MoveBackwards', 'Move backwards'], ['MoveLeft', 'Move left'], ['MoveRight', 'Move right'],
     ['TurnLeft', 'Turn left'], ['TurnRight', 'Turn right'], ['LookUp', 'Look up'], ['LookDown', 'Look down'],
-    ['CenterView', 'Centre the view'], ['Jump', 'Jump'], ['Crouch', 'Crouch'], ['Run', 'Run'], ['AutoRun', 'Auto run'],
+    ['CenterView', 'Centre the view'], ['TogglePerspective', 'First / third person'], ['Jump', 'Jump'], ['Crouch', 'Crouch'], ['Run', 'Run'], ['AutoRun', 'Auto run'],
     ['Sneak', 'Sneak'], ['WalkMode', 'Walk mode on / off'], ['FloatUp', 'Float up (levitate, swim)'], ['FloatDown', 'Float down (levitate, swim)'],
   ]),
   g('Combat', [
@@ -1156,7 +1162,7 @@ export function loadKeyBinds(store, data) {
 // DFU keeps KeyBindings.txt BESIDE settings.ini, its own file with its
 // own serializer (GetKeyBindsSavePath) - so the port keeps its own
 // localStorage key beside the settings store's, same try/catch shield
-// as systems/settings.js:157.
+// as systems/settings.js:161.
 const STORAGE_KEY = 'dagger.keybinds';
 
 // DA1: the storage seam - localStorage in a browser, the desktop

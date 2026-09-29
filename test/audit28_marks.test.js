@@ -105,7 +105,7 @@ test('AUDIT 28 M3: a lone guildmaster\'s Leave takes no Marks with the guild - t
   const svc = await standService({ MARKS_OPEN: 'on' });
   const g = await svc.registered('Gild', { renown: GUILD_FOUND_RENOWN });
   svc.seedMarks(g, 500);
-  const { guild } = (await svc.call('/v1/guilds/found', { character: g.character, name: 'Lone Lanterns', tag: 'LNL' }, g.secret)).body;
+  const { guild } = (await svc.found(g, { name: 'Lone Lanterns', tag: 'LNL' })).body;
   assert.equal((await svc.call('/v1/marks/guild/deposit', { character: g.character, marks: 400, rid: rid() }, g.secret)).status, 200);
   const r = await svc.call('/v1/guilds/leave', { character: g.character }, g.secret);
   assert.equal(r.status, 200);
@@ -121,7 +121,7 @@ test('AUDIT 28 M3: a guild whose Marks would pass its guildmaster\'s cap does no
   const svc = await standService({ MARKS_OPEN: 'on' });
   const g = await svc.registered('Gild', { renown: GUILD_FOUND_RENOWN });
   svc.seedMarks(g, 500);
-  await svc.call('/v1/guilds/found', { character: g.character, name: 'Full Hands', tag: 'FHD' }, g.secret);
+  await svc.found(g, { name: 'Full Hands', tag: 'FHD' });
   await svc.call('/v1/marks/guild/deposit', { character: g.character, marks: 400, rid: rid() }, g.secret);
   svc.seedMarks(g, 10_000_000 - 100, 'fill');
   assert.deepEqual(await svc.call('/v1/guilds/disband', { character: g.character }, g.secret), { status: 409, body: { error: 'marks-full' } });
@@ -132,9 +132,9 @@ test('AUDIT 28 M3: a disband refused for the gold still in its treasury moves no
   t.mock.method(Date, 'now', () => T0 * 1000);
   const svc = await standService({ MARKS_OPEN: 'off' });
   const g = await svc.registered('Gild', { renown: GUILD_FOUND_RENOWN });
-  const { guild } = (await svc.call('/v1/guilds/found', { character: g.character, name: 'Gold Kept', tag: 'GKP' }, g.secret)).body;
+  const { guild } = (await svc.found(g, { name: 'Gold Kept', tag: 'GKP' })).body;
   const raw = svc.env.DB._raw;
-  assert.equal((await svc.call('/v1/guilds/deposit', { character: g.character, gold: 50 }, g.secret)).status, 200, 'gold in the treasury');
+  assert.equal((await svc.call('/v1/guilds/deposit', { character: g.character, gold: 50, realm: g.at() }, g.secret)).status, 200, 'gold in the treasury');   // MERGE 2: paid on the realm character's record (REALM P2.2a)
   raw.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
     VALUES ('mint', NULL, 'guild', ?, 'test', 90, 1, 1, ?, NULL, 'seed-guild')`).run(guild.id, g.id);
   assert.deepEqual(await svc.call('/v1/guilds/disband', { character: g.character }, g.secret), { status: 409, body: { error: 'guild-treasury' } });
@@ -164,7 +164,7 @@ test('AUDIT 28 M5: the guild view shows Marks only where they are the viewer\'s,
   const svc = await standService({ MARKS_OPEN: 'on', DEVELOPER_HANDLES: 'Devra' });
   const g = await svc.registered('Gild', { renown: GUILD_FOUND_RENOWN });
   const d = await svc.registered('Devra');
-  const { guild } = (await svc.call('/v1/guilds/found', { character: g.character, name: 'Open Hands', tag: 'OPH' }, g.secret)).body;
+  const { guild } = (await svc.found(g, { name: 'Open Hands', tag: 'OPH' })).body;
   await svc.call('/v1/guilds/invite', { character: g.character, handle: 'devra' }, g.secret);
   await svc.call('/v1/guilds/answer', { character: d.character, guild: guild.id, accept: true }, d.secret);
   svc.seedMarks(d, 300);
@@ -210,7 +210,7 @@ test('AUDIT 28 M8: a guild move pressed again after its answer was lost is the s
   const svc = await standService({ MARKS_OPEN: 'on' });
   const g = await svc.registered('Gild', { renown: GUILD_FOUND_RENOWN });
   svc.seedMarks(g, 500);
-  await svc.call('/v1/guilds/found', { character: g.character, name: 'Twice Shy', tag: 'TWS' }, g.secret);
+  await svc.found(g, { name: 'Twice Shy', tag: 'TWS' });
   const real = accountMarks({ fetch: svc.fetch, storage: sessionStorageOf(SESSION_KEY, g) });
   let lose = true;
   const lossy = { ...real, guildDeposit: async (c, m, r) => { const x = await real.guildDeposit(c, m, r); return lose ? { ok: false, error: 'offline' } : x; } };

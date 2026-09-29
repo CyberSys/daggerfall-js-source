@@ -55,9 +55,10 @@ test('AUDIT BOUNTY1 B2: ONE STAND FOR A GROUP IN THE WILDERNESS - the bounty pac
   const stand = campStand({
     placeFoeEnv: () => ({}), collider: {}, cam: { yaw: 0 }, fieldOfView: () => 1, entityOccupancy: () => () => false, _placingPool: () => [],
     campAnchorSpot: () => ({ x: 20, y: 0, z: 0 }), LOOSE_FOE_PLACE_ATTEMPTS: 1, placeFoeFreely: () => ({ x: 1, y: 0, z: 1 }),
-    _inAnyLocationRect: () => false, _nearRoad: () => false, _overDeepWater: () => false, CAMP_ROAD_CLEAR_M: 4, _nextCampId: 1,
-    partyGroupMembers, partySize: () => 8, ENEMY_BASICS: {}, CAMP_SIGHT_RADIUS: 60,
-    exteriorFoes: { spawnFoe: (mobileType, at, opts) => { stood.push([mobileType, opts]); return Promise.resolve({ ai: {}, entity: {} }); } },
+    _inAnyLocationRect: () => false, _nearRoad: () => false, _overDeepWater: () => false, CAMP_ROAD_CLEAR_M: 4,
+    // MERGE 2: main's OW6 - the growth one home (`campMembers`, bounded by the pool) and the camp ids the pool's one counter
+    campMembers: (types) => partyGroupMembers(types, 8).slice(0, 8), ENEMY_BASICS: {}, CAMP_SIGHT_RADIUS: 60,
+    exteriorFoes: { newCampId: (() => { let n = 1; return () => n++; })(), spawnFoe: (mobileType, at, opts) => { stood.push([mobileType, opts]); return Promise.resolve({ ai: {}, entity: {} }); } },
   });
   const camp = stand({ mobileTypes: [10, 11, 12], minDistance: 14, maxDistance: 26, spacing: 3, alertRadius: 9 }, [0, 0, 0]);
   assert.ok(stood.length > 3, 'a camp grows with the party it meets (PSCALE1)');
@@ -85,12 +86,12 @@ test('AUDIT BOUNTY1 B3: the archive\'s words that no longer said the law - the r
   assert.doesNotMatch(read('src/systems/bountyReward.js'), /from level 11/, 'bountyReward.js: nor the piece\'s header');
 });
 
-test('AUDIT BOUNTY1 B4: the relay pins say who moved it - BOUNTY1 + AUDIT 28 (world125 since the merge of main; world122 and world123 on the branch), then TV8 (world124)', () => {
+test('AUDIT BOUNTY1 B4: the relay pins say who moved it - BOUNTY1 + AUDIT 28 (world131 since MERGE 2; world125 at the merge of main; world122 and world123 on the branch), then REALM-DOOR (world130)', () => {
   for (const f of ['test/soc1_hub.test.js', 'test/allycast.test.js', 'test/guild1c.test.js', 'test/renown1.test.js']) {
     const t = read(f);
-    assert.ok(t.includes("RELAY_VERSION, 'world125'"), `${f}: the pin is on world125`);
-    assert.ok(/BOUNTY1 \+ AUDIT 28 moved it on last \(world125[^\n]*TV8 \(world124/.test(t), `${f}: crediting BOUNTY1 + AUDIT 28, then TV8`);
-    assert.ok(!/world12[45][^\n]*TV8 moved it on last/.test(t), `${f}: and does not still credit TV8 with the move`);
+    assert.ok(t.includes("RELAY_VERSION, 'world131'"), `${f}: the pin is on world131`);
+    assert.ok(/MERGE 2 moved it on last \(world131: the professions branch, BOUNTY1 \+ AUDIT 28[^\n]*REALM-DOOR moved it on \(world130/.test(t), `${f}: crediting BOUNTY1 + AUDIT 28, then REALM-DOOR`);
+    assert.ok(!/world13[01][^\n]*REALM-DOOR moved it on last/.test(t), `${f}: and does not still credit REALM-DOOR with the move`);
   }
 });
 

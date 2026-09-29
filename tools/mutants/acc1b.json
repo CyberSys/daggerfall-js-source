@@ -114,7 +114,7 @@
   {
     "name": "ACC1b-12-an-unknown-path-answers-401",
     "file": "server-account/src/index.js",
-    "old": "    if (!ROUTES.has(path) && !slot) return no('not-found', 404, origin);",
+    "old": "    if (!ROUTES.has(path) && !slot && !realmSlot) return no('not-found', 404, origin);",
     "new": "    if (false) return no('not-found', 404, origin);",
     "tests": [
       "test/accountworker.test.js"
@@ -124,7 +124,7 @@
   {
     "name": "ACC1b-13-the-body-is-parsed-before-it-is-bounded",
     "file": "server-account/src/index.js",
-    "old": "  const bytes = await readCapped(request, MAX_BODY_BYTES);",
+    "old": "  const bytes = await readCapped(request, max);",
     "new": "  const bytes = await readCapped(request, Infinity);",
     "tests": [
       "test/accountworker.test.js"
@@ -134,8 +134,8 @@
   {
     "name": "ACC1b-14-the-token-carries-a-name-the-client-sent",
     "file": "server-account/src/index.js",
-    "old": "          { s: who.player.id, n: displayName(who.player), k: accountKind(who.player), ...wardrobe, mu, lv, ...(guild ?? {}) },",
-    "new": "          { s: who.player.id, n: body.name ?? displayName(who.player), k: accountKind(who.player), ...wardrobe, mu, lv, ...(guild ?? {}) },",
+    "old": "          { s: who.player.id, n: displayName(who.player), k: accountKind(who.player), ...wardrobe, mu, lv, ...(guild ?? {}), rc },",
+    "new": "          { s: who.player.id, n: body.name ?? displayName(who.player), k: accountKind(who.player), ...wardrobe, mu, lv, ...(guild ?? {}), rc },",
     "tests": [
       "test/accountworker.test.js"
     ],
@@ -234,8 +234,8 @@
   {
     "name": "ACC1b-24-the-preflight-forbids-the-header",
     "file": "server-account/src/index.js",
-    "old": "          'access-control-allow-headers': 'content-type, authorization',",
-    "new": "          'access-control-allow-headers': 'content-type',",
+    "old": "          'access-control-allow-headers': 'content-type, authorization, x-realm-lease, x-realm-seq, x-realm-summary',",
+    "new": "          'access-control-allow-headers': 'content-type, x-realm-lease, x-realm-seq, x-realm-summary',",
     "tests": [
       "test/accountworker.test.js"
     ],

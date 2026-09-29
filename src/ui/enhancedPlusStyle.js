@@ -496,7 +496,7 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
 .travelpanel-label { font-size: 11px; letter-spacing: 0.2em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
 .travelpanel-name { font-family: inherit; font-size: 21px; line-height: 1.15; letter-spacing: 0.04em; color: #efe8d6;
   text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.5); }
-.travelpanel.following .travelpanel-name { color: ${FRAME_TONES.brassHi}; }
+.travelpanel.following .travelpanel-name, .travelpanel-bar.following .travelpanel-name { color: ${FRAME_TONES.brassHi}; }
 .travelpanel-sub { font-size: 12px; letter-spacing: 0.06em; color: #c9bfa4; text-shadow: 1px 1px 0 #050608;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 /* the parting rules: a dark cut with the light catching beside it, the kit's engraved line stood on end */
@@ -556,6 +556,48 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
   .travelpanel-junction { top: calc(var(--tp-top) + 164px); }
 }
 @media (prefers-reduced-motion: reduce) { .travelpanel-msg { transition: none; } }
+/* ── OW-BLOCK: THE OVERWORLD'S BLOCK ── bottom right, one carved stone, one pixel face; its sections parted by the kit's
+   engraved line (a dark cut with the light catching under it) - the kit paints the frame (FRAME_ROLES) */
+.tview-bar { font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'clig' 0; color: #d8cfae; border: 2px solid; border-radius: 0; width: 292px; }
+.tview-bar > * + * { border-top: 2px solid rgba(5,6,8,0.55); box-shadow: inset 0 1px 0 rgba(163,152,128,0.18); }
+.tview-head { padding: 9px 14px 8px; gap: 12px; }
+.tview-title, .tview-label { font-size: 11px; letter-spacing: 0.2em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.tview-where { font-size: 13px; line-height: 1.2; letter-spacing: 0.03em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.5); }
+.tview-trip { font-size: 11px; letter-spacing: 0.03em; color: ${FRAME_TONES.brassHi}; text-shadow: 1px 1px 0 #050608; }
+.tview-idle { padding: 10px 14px; }
+.tview-idle-name { font-size: 16px; line-height: 1.15; letter-spacing: 0.04em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.tview-idle-sub { font-size: 11px; letter-spacing: 0.04em; color: #8f8772; text-shadow: 1px 1px 0 #050608; }
+#travel-view .tview-dock .travelpanel-dest { padding: 10px 14px 5px; }
+#travel-view .tview-dock .travelpanel-name { font-size: 17px; }
+#travel-view .tview-dock .travelpanel-speed { padding: 3px 0 10px 14px; }
+#travel-view .tview-dock .travelpanel-acts { padding: 3px 14px 10px 8px; }
+#travel-view .tview-dock .travelpanel-act { min-height: 30px; padding: 4px 10px; font-size: 12px; }
+#travel-view .tview-dock > .travelpanel-msg { bottom: calc(100% + 12px); }
+.tview-tools { padding: 9px 14px; }
+.tview-mode { min-width: 56px; min-height: 30px; padding: 4px 10px; border: 2px solid; border-radius: 0; font-family: inherit;
+  font-size: 12px; letter-spacing: 0.12em; text-indent: 0.12em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.tview-mode + .tview-mode { border-left: 2px solid; }
+.tview-mode.on { color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.tview-map, .tview-back { min-height: 32px; padding: 5px 14px; border: 2px solid; border-radius: 0; font-family: inherit; font-size: 13px;
+  letter-spacing: 0.14em; text-indent: 0.14em; color: #e6dec6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.45); }
+.tview-map:hover, .tview-map:focus-visible, .tview-back:hover, .tview-back:focus-visible, .tview-mode:hover, .tview-mode:focus-visible {
+  outline: none; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.tview-filters { padding: 9px 12px 11px; gap: 5px; }
+.tview-filter { border: 2px solid; border-radius: 0; font-family: inherit; font-size: 11px; letter-spacing: 0.05em; padding: 4px 7px;
+  color: #8f8772; text-shadow: 1px 1px 0 #050608; }
+.tview-filter.on { color: #efe8d6; }
+.tview-filter:hover, .tview-filter:focus-visible { outline: none; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.tview-fdot { width: 8px; height: 8px; border-radius: 0; box-shadow: 0 0 0 1px #050608, 1px 1px 0 1px rgba(0,0,0,0.5); }
+.tview-fnum { font-size: 11px; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.tview-foot { padding: 9px 14px 11px; }
+.tview-confirm { font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;
+  border: 2px solid; border-radius: 0; padding: 16px 22px; gap: 14px; }
+.tview-confirm-ask { font-size: 16px; letter-spacing: 0.04em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.5); }
+.tview-confirm-row { font-size: 12px; letter-spacing: 0.04em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+.tview-confirm-presses > .tview-mode { min-width: 84px; min-height: 32px; border: 2px solid; border-radius: 0; }
+:root[data-plus-theme="stone"] .tview-title, :root[data-plus-theme="stone"] .tview-label { color: #15130f; text-shadow: 1px 1px 0 rgba(255,255,255,0.36); }
+:root[data-plus-theme="stone"] .tview-bar > * + * { border-top-color: rgba(5,6,8,0.5); box-shadow: inset 0 1px 0 rgba(255,255,255,0.16); }
 `;
 
 /** RARITY-UI + SIGIL-UI (2026-09-26, Mac: "Rarity needs to be more noticable in the UI with the icon borders being
@@ -1381,6 +1423,7 @@ body .dfparty-vital.magicka .dfparty-fill { background: linear-gradient(180deg, 
    face, outlined. The fire's own colours stay his. */
 body .wb-boss-bar { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.06em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 body .wb-boss-name { font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
+body .wb-boss-trials { font-size: 11px; letter-spacing: 0.12em; color: #d8cfae; text-shadow: ${OUTLINED}; }   /* WB8b: his trials, under his name */
 body .wb-boss-track { border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
   background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #1e0906;
   box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
@@ -1411,6 +1454,41 @@ body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; lett
 :root[data-plus-theme="stone"] body .dfdecor-row.dim .dfdecor-row-price { color: ${STONE_RED}; }
 `;
 
+/** AC-COMPARE (FIELD BUGS 2026-09-29d): THE CHARACTER'S ARMOUR ON THE PACK, AND THE CARD'S COMPARISON
+ *  (ui/armourCard.js). A body part's number is a small plate in its panel's top-right corner, stepping off the rune's
+ *  when the piece carries one (the padlock keeps the top left; a part's panel never holds a family's count; the foot is
+ *  the name's, which a half panel centres there) - brass-rimmed, dim at 0. The overall figure is a plaque at the
+ *  top-left of the figure's column, a word over a number, placed on the map's own grid area and taken out of its sizing
+ *  (the map is positioned), so an empty frame's narrow column is never widened and a doll's head is never covered. The
+ *  comparison rides the card's own stats dress (its rows are a `dl.stats`), under a rule of its own, its differences in
+ *  the wear bar's two tones: better green, worse red.
+ *  It stands BEFORE the kit (PLUS_CSS): the kit paints none of these elements - its roles are the card, the panels and
+ *  the empty doll's well, never what stands in them - so they need no layer over it (FRAME1's two stay two). */
+export const ARMOUR_CSS = `
+.pack-shell .equipped .wornac { position: absolute; right: 3px; top: 3px; z-index: 2; min-width: 16px; height: 15px; padding: 0 3px;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; color: #efe8d6;
+  font-variant-numeric: tabular-nums; background: rgba(5,6,8,0.8); border: 1px solid rgba(192,138,62,0.8);
+  border-radius: 1px 1px 7px 7px; text-shadow: 1px 1px 0 #050608; }
+.pack-shell .equipped .wornrow[data-sigil] > .wornac { right: 17px; }
+.pack-shell .equipped .wornac.nil { color: #7d7460; border-color: rgba(125,116,96,0.5); }
+.pack-shell .wornmap .wornac-total { position: absolute; left: 4px; top: 4px; z-index: 2; display: flex; flex-direction: column;
+  align-items: center; gap: 1px; padding: 2px 5px 3px; white-space: nowrap; background: rgba(5,6,8,0.8);
+  border: 2px solid rgba(192,138,62,0.8); box-shadow: 0 0 0 1px #050608; text-shadow: 1px 1px 0 #050608; }
+.pack-shell .wornac-total .k { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #a89f88; }
+.pack-shell .wornac-total .v { font-size: 16px; line-height: 1; color: #f3cf86; font-variant-numeric: tabular-nums; }
+.card .cmp { margin: 8px 0 0; padding-top: 6px; border-top: 2px solid rgba(5,6,8,0.45); box-shadow: inset 0 1px 0 rgba(163,152,128,0.16); }
+.card .cmp .cmp-head, .pack-shell .card .cmp p.cmp-head { margin: 0 0 4px; font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; text-align: center; color: #a89f88; }
+.inv-tip .cmp dl.stats { border-top: 0; box-shadow: none; padding-top: 2px; }
+.pack-shell .packtip.packdetail .card .cmp .stats { margin-top: 2px; }
+.card .cmp .cmp-d { margin-left: 6px; font-variant-numeric: tabular-nums; }
+.card .cmp .cmp-sep { margin-left: 4px; color: #7d7460; }
+.card .cmp .cmp-sep + .cmp-d { margin-left: 4px; }
+.card .cmp .cmp-d.up { color: #74d9a0; }
+.card .cmp .cmp-d.down { color: #d98074; }
+.card .cmp .cmp-d.same { color: #a89f88; }
+`;
+
 /** The layers that stand OVER the kit on purpose, in order - each outranks the kit's stone at the same weight. */
 export const OVER_KIT_CSS = [ITEM_FRAME_CSS, ONLINE_DRESS_CSS];
 
@@ -1423,6 +1501,7 @@ ${PORT_CSS}
 ${LV2_CSS}
 ${MOTION_CSS}
 ${LAYOUT_CSS}
+${ARMOUR_CSS}
 /* FRAME1: LAST, on purpose - see ui/enhancedFrame.js */
 ${FRAME_CSS}
 /* RARITY-UI + SIGIL-UI, then PLUS-DRESS: after the kit - each outranks the kit's stone at the same weight */

@@ -139,7 +139,7 @@ test('TEX1 every door converts at the door: no module under src/ imports toColor
   assert.match(rd('src/systems/handheldTorches.js'), /return toScreenOrder\(await decodePng\(bytes\)\);/, 'handheld torches (the crash), rows kept');
   assert.match(rd('src/scenes/droppedTorches.js'), /return toColor32\(await decodePng\(new Uint8Array\(await res\.arrayBuffer\(\)\)\)\);/, 'dropped torches');
   assert.match(rd('src/combat/weaponWidgetAssets.js'), /return toScreenOrder\(await decodePng\(bytes\)\);/, 'the weapon widget (WW3), rows kept');
-  assert.match(rd('src/combat/weaponWidgetAssets.js'), /try \{ return toColor32\(tex\.rgba\(\)\); \}/, '...and its BUNDLE arm still flips, because Unity stores bottom-up');
+  assert.match(rd('src/combat/weaponWidgetAssets.js'), /try \{ return toScreenOrder\(tex\.rgba\(\)\); \}/, '...and its BUNDLE arm keeps its rows too - the reader answers top-first (DWHD1)');
   assert.match(rd('src/systems/seasonsIliacBayAssets.js'), /const image = toColor32\(await decode\(bytes\)\);/, 'seasons');
   assert.match(rd('src/systems/textureReplacement.js'), /toColor32\(await decode\(bytes\)\)/, 'M-TEX, which had it right all along');
   // the seasons re-wrap at the two upload sites is gone - H4's own law

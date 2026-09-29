@@ -164,8 +164,8 @@
   {
     "name": "AUDIT-BOUNTY1-B2-the-camp-stand-ignores-fixed",
     "file": "src/scenes/world.js",
-    "old": "for (const mobileType of (hit.fixed ? hit.mobileTypes : partyGroupMembers(hit.mobileTypes, partySize()))) {",
-    "new": "for (const mobileType of partyGroupMembers(hit.mobileTypes, partySize())) {",
+    "old": "for (const mobileType of (hit.fixed ? hit.mobileTypes : campMembers(hit.mobileTypes))) {",
+    "new": "for (const mobileType of campMembers(hit.mobileTypes)) {",
     "tests": [
       "test/auditbounty1.test.js"
     ]

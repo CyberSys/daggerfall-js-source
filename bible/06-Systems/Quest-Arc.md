@@ -716,7 +716,7 @@ Ignoring') - permanent by parity, recorded in the coverage pin.
   faction-listener slot (addFactionListener first-claim-wins /
   removeFactionListener at dispose; PlayerActivate.StaticNPCClick
   reads the map - :1534, the only consumer in the DFU tree, and
-  wired at src/scenes/worldModes.js:636). activeFactionPersons walks NON-COMPLETE quests only -
+  wired at src/scenes/worldModes.js:638). activeFactionPersons walks NON-COMPLETE quests only -
   completed quests must not lock an NPC out (QuestMachine.cs:1085).
   The non-individual parse throw carries the TEMPLATE-SetComplete
   quirk; its sibling's does not.
@@ -1453,7 +1453,7 @@ spamming the same questor does not re-pulse the task. DFU makes you go
 click someone else and come back.
 
 The port carries `lastNPCClicked` as an NPCData-shaped OBJECT LITERAL,
-and both hosts mint a fresh one at every click - worldModes.js:1372's
+and both hosts mint a fresh one at every click - worldModes.js:1375's
 quest-flat arm builds `{ hash, flags, factionID, nameSeed, gender,
 buildingKey, mapID }` inline, and questBridge.clickNpc runs
 `staticNpcData(pn, sceneCtx)`. So `lastClicked === this.clickMemory`
@@ -2902,7 +2902,7 @@ has never allowed. Expanding in place now. (The caller-side
 `PlayerActivate.StaticNPCClick:1534`. `TalkManager.cs` does not
 contain the word `Listener`. Three port comments named TalkManager as
 the reader and marked the wiring `(Q4 wires)` - over a reader the port
-already ships, at `worldModes.js:636`. A pending marker over shipped
+already ships, at `worldModes.js:638`. A pending marker over shipped
 work is worse than no marker at all: it sends the next reader looking
 for work that is done, in a file that never had it. Four sites
 corrected, the bible's copy included.
@@ -4858,7 +4858,7 @@ found `mode !== 'exterior'`, fell through, and turned the camera. So
 you swung and the view swung with you - every time, in every building
 and every dungeon reached from the town.
 
-`dungeon.js:278`, the standalone host, has always had the right shape:
+`dungeon.js:279`, the standalone host, has always had the right shape:
 attack, then `return`, with no mode in the test at all. It has no modal
 sibling to share the drag with, which is precisely why it never needed
 one - and why the difference between the three files never looked like
@@ -5470,7 +5470,7 @@ lesson one host over.
 **What did NOT ship:** PlayerEntity.Update's per-minute *intermittent
 spawn* roll (:486-492) still has no caller on this route. It is not
 this pool's dependency — it is a loop that carries the passive-guard
-spawns and the NPC-guard conversion with it (world.js:6225-6321) — and
+spawns and the NPC-guard conversion with it (world.js:6387-6484) — and
 it is named at the mount so the absence reads as a fact.
 
 **(c) The find-place seam's absence, narrowed to one sentence.**
@@ -5491,15 +5491,15 @@ instance* for the interior mode, so it covers the shops entered from
 `?exterior` too. It passed neither of `EntityEffectManager`'s two
 ready-spell events (`hostMagic.js:92-93`), and those two doors are the
 *only* route into the machine's `CastSpellDo` / `CastEffectDo` latches
-(`machine.js:889`/`:872`; C# subscribes them in the action's
+(`machine.js:891`/`:874`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:6613-6614`,
-`dungeonContext.js:2488-2489`) is wired here now, and with it
+other two engine-owning hosts wire (`world.js:6776-6777`,
+`dungeonContext.js:2507-2508`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:11836-11839`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:12166-12169`),
 absent which the action self-completes at *parse*
-(`actions.js:2767`/`:2774`) and the task can never arm at all.
+(`actions.js:2781`/`:2788`) and the task can never arm at all.
 
 Pins: 5 in `test/qx1_exterior_host.test.js` (the placement law RUN over
 the real `placeFoeFreely` with a stubbed world — the FOV cone bounded on
@@ -6377,3 +6377,29 @@ was missing from your active quest(s).", or "You have no active quests to repair
 Every host's pause hands `repairQuests` off its own bridge (`questBridge.repair`): the world, the fixed city, the
 dungeon, and the interior pause through its host. Pinned: `test/qrepair.test.js` (6) over a real machine, Place and
 mount; `tools/mutants/qrepair.json`.
+
+## DISC29-H - Info mode looks at a quest stand; it does not click it (2026-09-28, Triage)
+
+Triage on Discord: thrown out of the Mages Guild in the middle of its guard quest, after killing raiding mages and
+knights - "Not a member", then "ineligible ... less than sterling reputation", then "Your name is familiar to us, and
+not in a very favorable light", and the quest would not complete. What expels is N0B20Y02 ("Protect an Honored Mage")
+itself, faithfully run, as KimNix met it (`01-Overview/Field-Bugs-2026-09-26b.md` DEAD-CLOCK): a click on the sleeping
+mage is `_S.04_` (-10, popup 1012, and a shielded hostile Mage placed in the hall - the mage himself), and that Mage's
+death is `_S.07_` (-50, the Knight, Battle-mage and Assassin waves, and the seven-day `_S.09_` clock). The next visit's
+UpdateRank finds a negative reputation and expels (TEXT.RSC 668); JOIN reads 612, the record for rep < 0. The raiders'
+deaths change no reputation (driven through the real script: 38 of them moved no faction row - a quest foe carries no
+faction), and success needs `not _S.04_`, so after the click the only ending is `_talisman_`'s failure, seven days after
+the kill.
+
+The port's part was one way in that DFU does not have. The quest-resource arm clicks "only ... when not in info mode"
+(PlayerActivate.cs:334-338), and a static NPC in Info is PresentNPCInfo's one line and nothing else (:753-757,
+:1484-1486) - StaticNPCClick, and the DoClick inside it, belong to Grab, Talk and Steal. `clickQuestFlat` ran DoClick
+in every mode, so a LOOK at the sleeping mage sprang the trap. It returns in Info now, a Person answering "You see
+<name>" - StaticNPC.DisplayName off the same layout data the click stamps (`npcData`), FACTION.TXT awaited as
+`activateStaticNpc` awaits it - and an item saying nothing.
+
+Not changed, and Mac's to decide: a PARTNER's kill of a shared quest's foe is credited to every member's copy
+(`onPuppetDied` -> `incrementKills`), so `_S.07_` - and its -50 - runs for a member who never touched the mage. That
+same credit is what carries an ordinary summon-and-kill quest forward for the whole party.
+`test/disc29_questinfo.test.js` (3); `test/dungeonquestclick.test.js`'s one-home pin re-aimed to the shared builder;
+`tools/mutants/disc29.json` (DISC29-H, 3). `01-Overview/Field-Bugs-2026-09-28f.md` DISC29-H.

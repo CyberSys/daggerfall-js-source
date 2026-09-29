@@ -254,11 +254,15 @@ export function rollGroupComposition(ctx, rolls) {   // TV7: exported - a roamin
   // away from SOLITARY types (never forced into a group), and away
   // from a NIGHT_ONLY faction caught out by daylight, up to
   // MAX_SEED_ATTEMPTS times before giving up on a group this tick.
+  // OW6: a caller's own SIZE (a roaming band rolls its number itself, travelBands.js bandSizeOf) - and a band of ONE is
+  // alone already, so a solitary kind may be it (a giant on the road, an imp, a mummy abroad by night)
+  const sized = Number.isInteger(ctx.size) && ctx.size >= 1;
+  const lone = sized && ctx.size === 1;
   let seed = -1;
   for (let attempt = 0; attempt < MAX_SEED_ATTEMPTS; attempt++) {
     const m = chooseRandomEnemy(rollCtx, rolls);
     if (m === -1) return null;   // an unknown climate, or a town's day - nothing to spawn at all
-    if (SOLITARY_TYPES.has(m)) continue;
+    if (SOLITARY_TYPES.has(m) && !lone) continue;
     if (isDay && NIGHT_ONLY_FACTIONS.has(factionOf(m))) continue;
     seed = m;
     break;
@@ -267,7 +271,8 @@ export function rollGroupComposition(ctx, rolls) {   // TV7: exported - a roamin
 
   const kind = rollCampKind(rolls());
   const [lo, hi] = kind === 'camp' ? CAMP_SIZE : PACK_SIZE;
-  const size = lo + Math.floor(rolls() * (hi - lo + 1));
+  const rolled = lo + Math.floor(rolls() * (hi - lo + 1));   // drawn even when the caller sized it: the members' draws after it keep their place in the stream
+  const size = sized ? ctx.size : rolled;
   const mobileTypes = [seed];
 
   // The theme pool: every id in THIS SAME climate/day-night table that

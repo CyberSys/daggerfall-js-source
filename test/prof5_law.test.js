@@ -104,7 +104,7 @@ test('PROF5 law: the ledger\'s market kinds - the fee, the tax and the courier b
     assert.equal(MARKS_KINDS[k], way, k);
   }
   assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, w]) => w === 'mint').map(([k]) => k), ['gate', 'writ'], 'the market strikes no Mark');
-  const sql = src('server-account/migrations/0025_market.sql');
+  const sql = src('server-account/migrations/0032_market.sql');
   assert.match(sql, /src_kind TEXT NOT NULL CHECK \(src_kind IN \('mint', 'account', 'guild', 'escrow'\)\)/);
   assert.match(sql, /dst_kind TEXT NOT NULL CHECK \(dst_kind IN \('burn', 'account', 'guild', 'escrow'\)\)/);
   assert.equal((sql.match(/CREATE TRIGGER IF NOT EXISTS marks_line_/g) ?? []).length, 4, 'the four triggers made again');

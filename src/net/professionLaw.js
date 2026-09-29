@@ -28,6 +28,7 @@
 
 import { REGION_RACES } from '../formats/mapsTables.js';
 import { attributeBand } from '../systems/foragingCore.js';   // Foraging's bands, one home (FORAGE0 14.4)
+import { renownRate } from './renown.js';   // MERGE 2: a writ's Renown at every source's rate (RENOWN-ACCOUNT)
 
 // ─── THE THIRTEEN (PROF0 3.1) ────────────────────────────────────────
 
@@ -577,7 +578,10 @@ export const WRIT_UNITS = Object.freeze({
 });
 /** A writ's pay: units x the material's Marks value x 1.2. */
 export const writPay = (units, value) => (units * value * 6) / 5;
-/** A writ's Renown XP: 25 x tier x units / 10. */
-export const writRenown = (tier, units) => (25 * tier * units) / 10;
+/** A writ's Renown XP: 25 x tier x units / 10 at the full rate - MERGE 2 (main's RENOWN-ACCOUNT, Mac: "reducing the
+ *  accumulation of renown from resources a bit"): at renown.js RENOWN_RATE_PCT, three quarters, taken by its one door
+ *  (renownRate, floored to a whole XP), as every other source's is. A tier-2 writ of 30 units, 150 at the full rate,
+ *  pays 112. */
+export const writRenown = (tier, units) => renownRate((25 * tier * units) / 10);
 /** The weights the day's ordinary writs draw their tier by (the nodes' 40 / 25 / 15 / 10 over tiers 1-4). */
 export const WRIT_TIER_WEIGHTS = Object.freeze([40, 25, 15, 10]);

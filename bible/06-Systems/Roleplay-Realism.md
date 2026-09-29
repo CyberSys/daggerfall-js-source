@@ -69,6 +69,12 @@ Read against the C#:
   chains where DFU would simply have lost the earlier one. The
   weapon-speed arm is the one InitMod gates on Items' weaponBalance
   (:171); the port's one adapter asks Items first.
+- **SWING-LAW (2026-09-28, Mac: "swing speed is insane")**: the
+  weaponSpeed blend is the Speed the swing is read at, and the port's
+  own swing law turns it into time - its bounded curve and the weapon's
+  handling (`characters/weaponStates.js` swingFrameSeconds) - where the
+  mod's `3 * (115 - blend)` swung a quick blend four times a second.
+  A declared departure: Ledger A (SWING-LAW), `05-Combat/Combat.md` SWING-LAW.
 - **The climbing gate** reads `WeaponManager.Sheathed` and
   `ScreenWeapon.WeaponType != Melee`; the rig registers
   `setWeaponPoseProbe` when it stands, a host with no rig answers null

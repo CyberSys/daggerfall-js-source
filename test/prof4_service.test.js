@@ -262,19 +262,20 @@ test('PROF4 service: arrows are twenty at no quality (their record -1), one piec
 // ─── THE FURNITURE, SET DOWN ─────────────────────────────────────────
 
 const HOME = { mapId: 1291010263, buildingKey: 0x10203 };
-const home = (who) => ({ ...HOME, region: 17, character: who.character, price: 42000 });
+const home = () => ({ ...HOME, region: 17, price: 42000 });   // MERGE 2: claimed by a realm character (s.seatHome, AUDIT REALM2 S2)
 const piece = (item, extra = {}) => ({ id: 'tb1', model: 41000, flat: null, pos: [1, 0, 1], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 0, item, ...extra });
 
 test('PROF4 service: a crafted table set down in a home - its provenance kept where the service\'s own row says it is this account\'s and this template\'s, its maker\'s mark written from that row (a Masterwork\'s, a Master Joiner\'s) and never from what the client sent; another\'s id, or a forged one, stands the plain piece', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   const ann = await s.registered('Ann');
-  assert.equal((await s.call('/v1/homes/claim', home(mac), mac.secret)).status, 200);
+  const house = await s.seatHome(mac, home());
+  assert.equal(house.status, 200);
   s.setXp(mac, xpForRank(100), 'carpentry', { spec100: 'master-joiner' });
   s.give(mac, 'plank:oak', 'own', 3);
   const made = await s.call('/v1/prof/craft', craft(mac, 'table-small:oak'), mac.secret);
   const pv = made.body.pieces[0].provenance;
-  const at = (extra) => ({ ...HOME, character: mac.character, ...extra });
+  const at = (extra) => ({ ...HOME, character: house.character, ...extra });
   const r = await s.call('/v1/homes/decor/place', at({ piece: piece({ t: 225, g: 8, pv, mk: 'Somebody Else' }) }), mac.secret);
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.deepEqual([r.body.piece.item.pv, r.body.piece.item.mk], [pv, 'Silverthorn'], 'the row\'s mark, not the client\'s');

@@ -26,13 +26,21 @@
 // plaque, the refusal line, and the signed-in fact list.
 // ═══════════════════════════════════════════════════════════════════
 
-import { STAGES, FIELDS, FIELD_SPEC } from './accountFlow.js';
+import { STAGES, FIELDS, FIELD_SPEC, AGREEMENTS, AGREEMENT_SPEC } from './accountFlow.js';
 import { TITLE_TEXT, glyphBadges, glyphArtNode, badgeClass } from './playerBadge.js';   // ACC3c: the SAME table the name over a head reads, so the picker shows what a player will actually wear - the COLOUR is the skin's (this card may not style itself, and a pin holds that)
 import { duelRecordText } from '../net/duelRecord.js';   // DUEL1: the account card's K/D row
-import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1: Renown, left of the name and in its rows
+import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1: Renown, left of the name and in its row
 import { gateRecordText } from '../net/gateClaims.js';   // WB5b: and its gates-closed row
 import { marksText } from '../net/marksLaw.js';   // MARKS1: and its Marks row
 import { raidRecordText } from '../net/raidClaims.js';   // RAID4: and its towns-defended row
+
+/** RENOWN-ACCOUNT (Mac: "can you make sure renown is account based and not character based?"): the card's Renown as
+ *  the service sends it - the ACCOUNT's one, `{ xp, level }` - or null: none earned yet, or a service from before it
+ *  (which sent a list of its characters' tracks - no Renown of the account's, so none is drawn). */
+export function accountRenownOf(r) {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
+  return renownText(r.level) && Number.isSafeInteger(r.xp) && r.xp >= 0 ? { level: r.level, xp: r.xp } : null;
+}
 
 /** COPY LIVES IN ONE TABLE, so a stage cannot be drawn with a heading
  *  from one slice and a paragraph from another. Keyed by stage, and a
@@ -51,6 +59,7 @@ export const GLYPH_LABEL = Object.freeze({
   apostle: 'Apostle',
   hierophant: 'Hierophant',
   shadowfang: 'Shadow Fang',   // SHADOW-FANG: the wolf's head beside SirMcMobdon's name
+  penitent: 'Penitent',   // PENITENT: the sword in its lozenge beside Diggleborf's name
 });
 
 /** ACC4: THE TWO FACTS MAC ASKED FOR, as words. Pure, so node pins
@@ -135,12 +144,30 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
 
   const root = el('div', 'card acct');
 
+  /**
+   * AUDIT TERMS1 T3 — THE KEYBOARD SURVIVES A REDRAW. paint() builds the
+   * card anew, and a control built anew is one the keyboard is no longer
+   * on. A refusal is cleared by the first keystroke or tick that answers
+   * it (flow.set, flow.agree), and that repaint came under the player's
+   * fingers: after "Type your username" the rest of "Nystul" went nowhere
+   * but its N, and a Space on the Terms box - the one answer its refusal
+   * has - left the next Tab on Username. So every control is built under
+   * a name (`keyed`), and the one that held the focus, with its caret, is
+   * found again under that name. One the redraw disabled (a button while
+   * its press is out) is kept in mind, and handed the focus back when the
+   * card that follows has it again, if the player has not moved it.
+   */
+  let keyed = new Map();
+  let wanted = null;   // { key, stage, caret } - the control the focus goes back to, on a card of that stage
+  let painted = null;  // the stage the card on screen was built for
+  const keyedAs = (n, key) => { n.acctKey = key; keyed.set(key, n); return n; };
+
   /** One field, wearing exactly the shape ONLINE1 and NAME-F2 built. */
   function field(key) {
     const spec = FIELD_SPEC[key];
     const wrap = el('label', 'field');
     wrap.append(el('span', 'fieldlabel', spec.label));
-    const input = el('input');
+    const input = keyedAs(el('input'), `field:${key}`);
     input.type = spec.secret ? 'password' : 'text';
     input.maxLength = spec.max;
     input.value = flow.values[key] ?? '';
@@ -165,8 +192,40 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     return wrap;
   }
 
-  function act(label, onclick, { primary = false, disabled = false } = {}) {
-    const b = el('button', `act${primary ? ' primary' : ''}`, label);
+  /**
+   * TERMS1 — ONE BOX, AND THE DOCUMENT IT AGREES TO.
+   *
+   * "I wanna make sure these need to be reviewed and checked off by
+   * players before creating an account". So the box starts UNTICKED -
+   * the flow wipes the ticks on every move, and nothing here sets one -
+   * and the document's name beside it is a LINK to the whole text.
+   *
+   * THE LINK OPENS OUTSIDE THE GAME: a new tab on the web, the system
+   * browser from the desktop app (app/main.cjs hands http(s) there), so
+   * reading it loses nothing already typed. It sits inside the <label>,
+   * and a click on a link inside a label follows the link without
+   * toggling the box - the HTML rule for interactive content in a label -
+   * so a player cannot tick what they only meant to open.
+   */
+  function agreement(key) {
+    const spec = AGREEMENT_SPEC[key];
+    const wrap = el('label', 'acctagree');
+    const box = keyedAs(el('input'), `agree:${key}`);
+    box.type = 'checkbox';
+    box.checked = flow.agreed?.[key] === true;
+    box.onchange = () => flow.agree(key, box.checked);
+    const link = keyedAs(el('a', null, spec.label), `doc:${key}`);
+    link.href = spec.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    const words = el('span');
+    words.append(el('span', null, 'I have read and agree to the '), link);
+    wrap.append(box, words);
+    return wrap;
+  }
+
+  function act(label, onclick, { primary = false, disabled = false, key = label } = {}) {
+    const b = keyedAs(el('button', `act${primary ? ' primary' : ''}`, label), `act:${key}`);
     b.type = 'button';
     if (disabled) b.disabled = true;
     b.onclick = onclick;
@@ -211,7 +270,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         // its own, which is the rule ACC1e was built under.
         // SHADOW-FANG: the word in a span of its own, so a gradient title's paint clips to the letters and leaves
         // the button's border in its plain colour (ui/playerBadge.js badgeCss)
-        const b = el('button', `acttitle ${badgeClass('tl', key)}${worn ? ' worn' : ''}`);
+        const b = keyedAs(el('button', `acttitle ${badgeClass('tl', key)}${worn ? ' worn' : ''}`), `title:${key}`);
         b.append(el('span', 'acttitleword', TITLE_TEXT[key] ?? key));
         b.type = 'button';
         b.disabled = !!flow.busy;
@@ -243,8 +302,33 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
   }
 
   function paint() {
-    root.textContent = '';
     const stage = STAGES.includes(flow.stage) ? flow.stage : 'out';
+    // AUDIT TERMS1 T3: what the keyboard is on, before the card it is on is taken down
+    const on = /** @type {any} */ (doc.activeElement);
+    if (on && typeof on.acctKey === 'string' && keyed.get(on.acctKey) === on) {
+      wanted = { key: on.acctKey, stage: painted, caret: typeof on.selectionStart === 'number' ? [on.selectionStart, on.selectionEnd] : null };
+    } else if (on && on !== doc.body && on !== doc.documentElement) wanted = null;   // the player moved it elsewhere
+    keyed = new Map();
+    root.textContent = '';
+    build(stage);
+    painted = stage;
+    focusBack(stage);
+  }
+
+  /** AUDIT TERMS1 T3: the focus back where it was - the same control, the same caret - on a card of the same stage. */
+  function focusBack(stage) {
+    if (!wanted) return;
+    if (wanted.stage !== stage) { wanted = null; return; }
+    const n = keyed.get(wanted.key);
+    if (!n || n.disabled || typeof n.focus !== 'function') return;   // kept for the card that has it again
+    n.focus();
+    if (wanted.caret && typeof n.setSelectionRange === 'function') {
+      try { n.setSelectionRange(wanted.caret[0], wanted.caret[1]); } catch { /* a box or a button has no caret */ }
+    }
+    wanted = null;
+  }
+
+  function build(stage) {
     const copy = STAGE_COPY[stage];
 
     // The tag earns its place only where it is NOT a restatement of the
@@ -253,16 +337,15 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     // one twice.
     if (copy.tag !== 'Account') root.append(el('span', 'tag', copy.tag));
     // RENOWN1 (Mac: "having their level appear on the left side of character name and profile main menu"): the
-    // Renown of the character most recently played online, left of the name - the service's tracks come most
-    // recently played first (AUDIT RENOWN1 UI-10: "earned" was never what it measured - a report the hour had spent
-    // still marks its character played). None for an account that has not earned any yet, or a service before it.
-    const tracks = stage === 'in' && Array.isArray(flow.account?.renown) ? flow.account.renown : [];
+    // Renown left of the name. RENOWN-ACCOUNT: the ACCOUNT's one Renown, every character's - it was the Renown of the
+    // character most recently played online. None for an account that has not earned any yet, or a service before it.
+    const renown = stage === 'in' ? accountRenownOf(flow.account?.renown) : null;
     const heading = stage === 'in' ? (flow.account?.name ?? copy.title) : copy.title;
-    const lvText = renownText(tracks[0]?.level);
+    const lvText = renownText(renown?.level);
     if (lvText) {
       const head = el('h3', null, null);
       const chip = el('span', 'acctrenown', lvText);
-      chip.title = `Renown ${tracks[0].level}${typeof tracks[0].name === 'string' && tracks[0].name ? ` - ${tracks[0].name}` : ''}`;   // AUDIT RENOWN1 UI-10: whose Renown it is
+      chip.title = `Renown ${renown.level} - shared by all your characters`;   // AUDIT RENOWN1 UI-10: whose Renown it is - RENOWN-ACCOUNT: the account's
       head.append(chip, el('span', 'acctname', heading));
       root.append(head);
     } else root.append(el('h3', null, heading));
@@ -306,12 +389,9 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // (net/raidClaims.js carries the receipts). A service from before it says nothing.
       const raids = raidRecordText(flow.account.raids);
       if (raids) row('Towns defended', raids);
-      // RENOWN1: each character's Renown and how far into it they are - online's own level, never the save's. The
-      // service sends the RENOWN_CARD_TRACKS (five) most recently played.
-      for (const t of tracks) {
-        if (!Number.isSafeInteger(t?.level) || !Number.isSafeInteger(t?.xp)) continue;
-        row('Renown', `${typeof t.name === 'string' && t.name ? t.name : 'A character'} - Renown ${t.level}, ${renownProgressText(t.xp)}`);
-      }
+      // RENOWN1: the Renown and how far into it the account is - online's own level, never the save's. RENOWN-ACCOUNT:
+      // ONE row, the account's - it was a row for each of the five characters most recently played.
+      if (renown) row('Renown', `Renown ${renown.level}, ${renownProgressText(renown.xp)}`);
       root.append(rows);
       wardrobe();
       if (!flow.account.handle) {
@@ -328,6 +408,9 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
 
     // ── THE FIELDS ──────────────────────────────────────────────────
     for (const key of FIELDS[stage] ?? []) root.append(field(key));
+
+    // ── TERMS1: THE BOXES, under the fields and over the button ──────
+    for (const key of AGREEMENTS[stage] ?? []) root.append(agreement(key));
 
     // ── WHAT WENT WRONG, OR WHAT WENT RIGHT ─────────────────────────
     // Two lines rather than one with a colour swap: a refusal and a
@@ -349,7 +432,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       } else {
         acts.append(act('Give it a username', () => flow.go('register'), { primary: true, disabled: busy }));
       }
-      acts.append(act(busy ? 'Signing out…' : 'Sign out', () => flow.signOut(false), { disabled: busy }));
+      acts.append(act(busy ? 'Signing out…' : 'Sign out', () => flow.signOut(false), { disabled: busy, key: 'signout' }));
       acts.append(act('Sign out everywhere', () => flow.signOut(true), { disabled: busy }));
     } else if (stage === 'code') {
       // THE ONLY WAY OFF THIS STAGE. No cancel, no close, no second
@@ -360,7 +443,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // nothing to press yet
     } else {
       const spec = STAGE_ACTS[stage];
-      acts.append(act(busy ? 'Working…' : spec.submit, () => flow.submit(), { primary: true, disabled: busy }));
+      acts.append(act(busy ? 'Working…' : spec.submit, () => flow.submit(), { primary: true, disabled: busy, key: 'submit' }));
       acts.append(act('Back', () => flow.go(spec.back), { disabled: busy }));
       if (stage === 'login') {
         acts.append(act('Lost your password?', () => flow.go('recover'), { disabled: busy }));

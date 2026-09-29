@@ -72,3 +72,8 @@
 - Swimming in dungeon water now makes the same swimming splashes as the open sea.
 - Loading a save no longer carries the swim state of the moment before over into the loaded game.
 - Clicking a bed to rest (Roleplay Realism's beds) now opens the rest window straight away, as in Daggerfall Unity. It used to show a waiting quest offer first.
+- Travel Options: a journey started or resumed from the travel map runs at the speed its travel bar shows. It had been dropping to x1 the moment the map closed, with "Time scale set to 1." on screen.
+- Placing a boat while swimming, or with water surfaces turned off, puts the boat on the water above where you pointed. It used to sink to the seabed out of sight, the deed or parts used up and only its creaking to be heard.
+- Pointing out to sea past your reach no longer puts the boat far away out of sight: it says "Placement aborted!" and you keep the deed or parts.
+- A boat you leave stays where you left it however you come back to it - walking round by another way, fast travelling, or waking at a temple after dying. It used to turn up somewhere else, or nowhere.
+- Boats sail on the open sea. With Iliac Puddle No More on (the default), every boat put in the sea - a deed's beside its port, a rowboat from its parts - was taken for run aground: it would not row, and raising its sail said "Unable to raise sail. Boat is obstructed." Boats you have already placed sail from where they are.

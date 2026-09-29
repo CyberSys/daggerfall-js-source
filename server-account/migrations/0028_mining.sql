@@ -9,7 +9,7 @@
 -- filled from the old, and takes the old one's name and index. Nothing
 -- references either table, so the swap moves no foreign key.
 
--- THE DAY'S HARVESTS: as 0018 kept them, `kind` one of a patch's two
+-- THE DAY'S HARVESTS: as 0027 kept them, `kind` one of a patch's two
 -- (herbs, food), a vein's (ore) or a boulder's (stone); `gem` the gem a
 -- strike on the glint found beside the ore (one at most, PROF0 23).
 CREATE TABLE IF NOT EXISTS node_harvests_new (

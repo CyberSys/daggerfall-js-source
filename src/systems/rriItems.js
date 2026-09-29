@@ -170,6 +170,15 @@ function helmetRecord(item, { playerTextureArchive }) {
   return leather;
 }
 
+/** THE WORD A VARIANT SETTER PUTS BEFORE THE NAME (ItemHelmet.cs:22-36 and its six light siblings; ItemHauberk's
+ *  chain five). The light set: a plate material is BRIGANDINE, Chain is FUR - read before the fold (Chain) or after it
+ *  (Leather with `message` 1), so the mint and every later read of the same piece agree. The chain set: a plate
+ *  material is MAIL. DISC29-B: one rule, because a rarity name is built again from the template's name
+ *  (lootRarity.js rarityName) and has to carry the same word. */
+const lightWord = (item) => ((raw(item) === ARMOR_MATERIAL.Chain || (raw(item) === ARMOR_MATERIAL.Leather && msg(item) === 1))
+  ? RRI_TEXT.fur : raw(item) >= ARMOR_MATERIAL.Iron ? RRI_TEXT.brig : '');
+const mailWord = (item) => (raw(item) >= ARMOR_MATERIAL.Iron ? RRI_TEXT.mail : '');
+
 /** The light set's CurrentVariant setter: a plate material is
  *  brigandine (the name says so), Chain is FUR - the material folds to
  *  Leather, `message` 1 marks it, and (the jerkin alone) 2 kg comes
@@ -177,10 +186,8 @@ function helmetRecord(item, { playerTextureArchive }) {
  *  ApplyArmorSettings. Answers the fields it changes. */
 function lightVariant(item, { jerkin = false } = {}) {
   const out = {};
-  let name = item.name ?? '';
-  if (raw(item) >= ARMOR_MATERIAL.Iron) name = RRI_TEXT.brig + name;
+  const name = lightWord(item) + (item.name ?? '');
   if (raw(item) === ARMOR_MATERIAL.Chain) {
-    name = RRI_TEXT.fur + name;
     out.material = ARMOR_MATERIAL.Leather;
     out.message = 1;
     // AUDIT-RR F5: weightInKg is a stored field ApplyArmorMaterial left at the template's for Chain (ItemBuilder.cs:495-497:
@@ -194,7 +201,8 @@ function lightVariant(item, { jerkin = false } = {}) {
 }
 /** The chain set's: a plate material is MAIL. */
 function mailVariant(item) {
-  return raw(item) >= ARMOR_MATERIAL.Iron ? { name: RRI_TEXT.mail + (item.name ?? '') } : {};
+  const word = mailWord(item);
+  return word ? { name: word + (item.name ?? '') } : {};
 }
 
 /** GetEnchantmentPower, the same in every armor class: the raw material's
@@ -223,6 +231,7 @@ const chainClass = (index, slot, { leatherRecord, otherRecord, record = null }) 
   materialArmorValue: (item) => chainmailMaterialArmorValue(raw(item)),
   enchantmentPower: armorEnchant,
   onVariantSet: mailVariant,
+  variantWord: mailWord,
 });
 const lightClass = (index, slot, { jerkin = false, helmet = false } = {}) => Object.freeze({
   index, group: 'Armor', equipSlot: slot,
@@ -233,6 +242,7 @@ const lightClass = (index, slot, { jerkin = false, helmet = false } = {}) => Obj
   enchantmentPower: armorEnchant,
   equipSound: 'EquipLeather',
   onVariantSet: (item) => lightVariant(item, { jerkin }),
+  variantWord: lightWord,
 });
 
 /** The fourteen, by template index. */
@@ -303,6 +313,15 @@ export function rriVariantFields(item) {
   const cls = customItemClass(item?.templateIndex);
   if (!cls?.onVariantSet) return null;
   return cls.onVariantSet(item);
+}
+/** DISC29-B: the word the class's CurrentVariant setter puts before the template's name - Brigandine, Fur or Mail -
+ *  or '' (a classic item, the two weapons, a leather piece, the mod off). A name built again from the TEMPLATE's
+ *  (lootRarity.js rarityName: "Sentinel's Helmet of the Bear") asks here, so the piece still says what it is made as:
+ *  a brigandine helmet is leather to the class check (NativeMaterialValue, above), and a name that read "Iron ...
+ *  Helmet" made that refusal look like a bug (Julian on Discord). */
+export function rriVariantWord(item) {
+  const cls = item ? customItemClass(item.templateIndex) : null;
+  return cls?.variantWord ? cls.variantWord(item) : '';
 }
 
 // ---- the art -----------------------------------------------------------

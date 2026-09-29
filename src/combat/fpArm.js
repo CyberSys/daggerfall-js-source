@@ -17,7 +17,7 @@
 //
 // HOW IT DRAWS, and why this needs no renderer change at all: the port
 // has ALREADY shipped a first-person pass. renderCharacterSprite
-// (render/renderer.js:1306) binds an offscreen target with its OWN depth
+// (render/renderer.js:1318) binds an offscreen target with its OWN depth
 // renderbuffer, clears colour AND depth, swaps the frame's proj/view for
 // ones the caller supplies, draws, and restores; drawScreenOverlayQuad
 // (:987) composites it fullscreen with an alpha cut and no depth test.
@@ -74,7 +74,8 @@ import { appStorage } from '../systems/appStorage.js';   // DA1: the storage sea
 import { drawRigSpriteBox } from '../render/characterSprite.js';
 import { WEAPONS } from '../characters/weapons.js';
 import { materialName } from '../systems/itemInfo.js';
-import { composeWornArmor, shadowSkinRows, fpWornAdds, mwArmorRecords, mwClothingRecord, CLOTHING_NAME, werewolfRobeOf, firstPersonPartGroup } from '../formats/mwItemMap.js';   // WEREWOLF1: the robe and its first-person ladder
+import { composeWornArmor, composeWornModest, shadowSkinRows, fpWornAdds, mwArmorRecords, mwClothingRecord, CLOTHING_NAME, werewolfRobeOf, firstPersonPartGroup } from '../formats/mwItemMap.js';   // WEREWOLF1: the robe and its first-person ladder; NUDE-FLATS: the upper weld
+import { showNudity } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity, the weld's switch
 import { skinMips, skinUseOf, skinUseKey } from '../characters/werewolfSkin.js';   // SHADOW-FANG: the werewolf's skin, a law over its own textures
 import { correctTexturePath, correctActorModelPath, wrapModes, warningImage, decodeTextureImage } from '../formats/mwTexture.js';
 import { decodeTextureOffThread } from '../formats/mwTextureClient.js';   // MW-TEXTHREAD: the preload's decodes, in the pool
@@ -569,7 +570,7 @@ export function armReach(eye, unionBounds) {
 /**
  * PACK THE ASSEMBLY for drawCharacter's vertex stream: 9 floats per
  * vertex, [pos.xyz, colour.rgb, normal.xyz], NON-INDEXED, because
- * drawCharacter issues drawArrays (renderer.js:1219). The MW readers hand
+ * drawCharacter issues drawArrays (renderer.js:1231). The MW readers hand
  * back indexed triangles, so the indices are expanded here.
  *
  * NORMALS ARE COMPUTED, not read. poseAssembly skins positions with a
@@ -583,7 +584,7 @@ export function armReach(eye, unionBounds) {
  * left arm is lit inside-out - dark where the right arm is bright - and
  * that is a lighting bug that reads as "the mesh is wrong" rather than
  * as "the mirror is wrong". drawCharacter disables back-face culling
- * (renderer.js:1217), so the winding costs nothing else.
+ * (renderer.js:1229), so the winding costs nothing else.
  */
 export function packFpArm(pieces, out = null) {
   let tris = 0;
@@ -2005,9 +2006,11 @@ export async function buildFpArm({
         (probe) => composeWornArmor({ pieces: armor ?? [], armors: armors ?? [], clothes: clothes ?? [], bodyPool: parts, female, colourOf: probe }),
         parts, archives, gen);
     }
+    // NUDE-FLATS: and a woman's bare chest wears the upper weld while Show Nudity is off - this body is the
+    // player's own figure and every peer's, each drawn by the viewer's setting as the classic doll is.
     const worn = werewolf
       ? composeWornArmor({ pieces: robe ? [{ kind: 'record', record: robe, reserve: 'robe' }] : [], armors: [], clothes: [], bodyPool: parts, female })
-      : composeWornArmor({ pieces: armor ?? [], armors: armors ?? [], clothes: clothes ?? [], bodyPool: parts, female, colourOf });
+      : composeWornModest({ pieces: armor ?? [], armors: armors ?? [], clothes: clothes ?? [], bodyPool: parts, female, colourOf }, showNudity());
     // AUDIT C7: which of the two it is - Bloodmoon.esm not attached, or attached and naming no robe (a mod's master)
     if (werewolf && !robe) {
       worn.notes.push(esmNames.some((n) => /^bloodmoon\.esm$/i.test(n))
@@ -4936,9 +4939,9 @@ export function createFpArm() {
      *
      * MW-D34, THE MEASURED CHIRALITY (mwArmProbe L5b, through the REAL
      * composite - MW-D23's law): this pass composites through the
-     * WORLD's lens, which is mirrorProjectionX (dungeon.js:760 et al.),
+     * WORLD's lens, which is mirrorProjectionX (dungeon.js:761 et al.),
      * and the port's world convention puts the player's RIGHT at +X at
-     * yaw 0 (motor.js:769) - a LEFT-handed convention the mirror turns
+     * yaw 0 (motor.js:772) - a LEFT-handed convention the mirror turns
      * into correct screen imagery. A right-handed NIF actor placed with
      * a pure rotation therefore reads MIRRORED on screen (measured:
      * sword ink Δleft 1701 vs Δright -127 with the motor's +X anchor

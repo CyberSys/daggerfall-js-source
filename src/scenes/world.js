@@ -7,6 +7,8 @@
 // recenters the world (streamingWorld.js).
 
 import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: walk mode, one button on and off
+import { iilSyncLane } from '../systems/improvedInteriorLighting.js';   // IIL2
+import { dfmodGroundLayers } from '../systems/dfmodTextures.js';   // GROUND1: an attached mod's terrain tile set
 import { RESURRECT_HOLD_MS, RESURRECT_HEALTH_PCT, RESURRECT_TEXT, rezSnapshot, rezFor } from '../systems/resurrect.js';   // RESURRECT1
 import { FlatAnimator, armFlatAnim } from '../render/flatAnimation.js';   // FA1: the flats that move
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
@@ -32,7 +34,7 @@ import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '.
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
 import { hasPort } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
-import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane } from '../world/terrainSurface.js';
+import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane, terrainSampleHeightAt } from '../world/terrainSurface.js';
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
 import { waterCorners, WATER_DRAW_MASK_TABLE } from '../world/waterCorners.js';   // GRASS-WET1: the one table that says which of a tile's corners stand in water - the DRAW's, because a blade in a puddle is a picture, not a physics
 import { windowEmissionRGB } from '../render/windowEmission.js';
@@ -60,6 +62,7 @@ import { makeCityGate, updateCityGate } from '../world/cityGate.js';   // AUDIT 
 import { staticBuildingBox, staticBuildingWorldAabb } from '../world/staticBuildings.js';   // AUDIT 64 F11: RMBLayout's StaticBuilding array
 import { targetAimPoint, missileAimDirection, isLocalPlayerTarget, PLAYER_TARGET } from '../characters/enemyTargets.js';   // AUDIT WORLD6b-iii(a) C3: the ONE aim law for an enemy missile (the peer's transform, mine otherwise); HCC: CollectThreats' `senses.Target == player`
 import { collectExteriorNpcs, exteriorNpcRecord, setupExteriorQuestStaticNpcs } from '../characters/exteriorNpcs.js';   // C2 / AUDIT 26: RMBLayout's street StaticNPCs; E3: their quest pass
+import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity off draws a nude figure's clothed stand-in
 import { installConsoleProbe, registerCommand } from '../systems/consoleCommands.js';   // E3: the console's door; CSA-C: the mod's commands
 import { registerTravelMapConsoleCommands } from '../ui/travelMapWindow.js';   // E3: TravelMapConsoleCommands
 // E3: ...and the person HOST the quest machine's away arm writes through.
@@ -81,7 +84,7 @@ import { preloadSpellbookArt } from '../ui/spellbookWindow.js';   // U42: the cl
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { rangedDamageSpells } from '../systems/spellcast.js';   // U42: the flight probe's picker
-import { worldMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, setWorldPriceTilt } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
+import { worldMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, setWorldPriceTilt, empireJoin } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
@@ -118,13 +121,14 @@ import { shortcutBinding, sequenceString } from '../systems/dialogShortcuts.js';
 // journey the player WALKS, its control panel and its junction map,
 // plus the path following that rides the port's Basic Roads.
 import { createTravelOptions, readTravelOptionsSettings, locationTypeName as travelLocationTypeName, TRAVEL_OPTIONS_VENDOR } from '../systems/travelOptions.js';
+import { HUD_TEXT_POP_DELAY } from '../ui/hudText.js';   // AUDIT OW5 G2: the Overworld's own lines (tvSay)
 import { createTravelControlUI, preloadTravelControlArt, stripTakesClick } from '../ui/travelControlUI.js';
 import { pointToNative, nativeMetrics } from '../ui/nativePanel.js';   // TO1: the travel panel's clicks land in the 320x200 panel's own coordinates
 import { createTravelJunctionMap } from '../ui/travelJunctionMap.js';
 import { drawEnhancedTravelControl, hideEnhancedTravelControl } from '../ui/enhancedTravelControl.js';
 import { drawEnhancedHelm, hideEnhancedHelm, enhancedHelmMounted, helmPadGesture, helmPadPrompts } from '../ui/enhancedHelm.js';   // CSA-L: Come Sail Away's helm on screen (Enhanced Plus)
 import { setTimeScale as setWorldTimeScale, timeScale as worldTimeScale, resetTimeScale, MAX_TIME_SCALE } from '../systems/timeScale.js';   // W1's classic art window + U61's overworld, one door
-import { racialRestBlock, racialFastTravelBlock, cureVampirism, SUNLIGHT_TRAVEL_TEXT } from '../systems/vampirism.js';   // AUDIT 64 F21: the career rung and the racial one show the SAME sunlightDamageFastTravelDay box (DaggerfallUI.cs:619, VampirismEffect.cs:202)
+import { racialRestBlock, racialFastTravelBlock, racialSunAverse, cureVampirism, SUNLIGHT_TRAVEL_TEXT } from '../systems/vampirism.js';   // AUDIT 64 F21: the career rung and the racial one show the SAME sunlightDamageFastTravelDay box (DaggerfallUI.cs:619, VampirismEffect.cs:202); VAMP-HOOD: the racial arm's hood
 import { giveOffer } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI.GiveOffer, the rung in front of BOTH the rest and the fast-travel press   // V2b: the vampire's rest and daylight gates; V2d: $CUREVAM's cure arm
 import { cureLycanthropy, racialSuppressPopulationSpawns, racialSuppressTalk, lycanthropeMoveSound, isTransformedLycanthrope } from '../systems/lycanthropy.js';   // V2d: $CUREWER's cure arm; V4: the transformed gates; LM1: the 4-20s move-sound loop; DISC10-E L3: the inventory refusal moved INTO the window door
 import { setRacialQuestHost } from '../systems/racialQuests.js';   // V2d: the quest-start seam (the machine is this host's)
@@ -146,7 +150,7 @@ import { hasCustomLocationPosition } from '../world/locationLayout.js';   // ROA
 import { FootstepMachine, pickFootstepSet, pickFootstepKind } from '../systems/footsteps.js';   // FS-slice; PEER-FS1: pickFootstepKind for the pose's own `fk`
 import { immersiveFootsteps, reportModCompatibilityIssues } from '../systems/immersiveFootsteps.js';
 import { betterAmbience, classicFootstepAllowed } from '../systems/betterAmbience.js';   // BA1: Better Ambience - the shake, the dungeon's fog and light, the reverb, the indoor rain, its own stride   // IF1: Immersive Footsteps owns the stride and the three landing sounds once its clips are in (DisableVanillaFootsteps)
-import { createExteriorFoes } from './exteriorFoes.js';   // X-slice
+import { createExteriorFoes, MAX_ACTIVE_ENCOUNTER_FOES, CAMP_CULL_DISTANCE, ENCOUNTER_CULL_DISTANCE } from './exteriorFoes.js';   // X-slice; OW6: the pool's bound, a warband's too, and the culls a walk-away handover comes before
 import { StaticBatchBuilder, keyResolver } from '../render/staticBatch.js';   // PERF4: a pixel's static models as one mesh
 import { createBreather, frameFitBudget } from '../systems/buildBreather.js';   // PERF7: the stream build yields to the frame; PERF-EXT24: a slice of what the frame left
 import { pieceIndex } from '../render/labGrass.js';   // PERF8: the piece under a point, by arithmetic
@@ -159,7 +163,7 @@ import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
-import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, passiveGuardSpawns } from '../systems/encounters.js';
+import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, passiveGuardSpawns, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
@@ -219,7 +223,7 @@ import { saveSlot, loadSlot, quickLoadSlot, mostRecentRestorable, QUICK_SAVE_NAM
 import { frameBegin, frameEnd, frameAbort } from '../systems/frameClock.js';   // PERF1: the frame's script time; AUDIT-WH2 L1-F4: and the door an early return takes
 import { frameCapSkip } from '../systems/frameCap.js';   // FPS-CAP1: DFU's TargetFrameRate - a held frame re-arms before the clock and the input frame
 import { frameInterval, lastBusy, lendFrame, framesBegun } from '../systems/frameClock.js';   // PERF-EXT24: the frame's period and its own script, and the stream's slices lent back - those no frame ran inside
-import { arrivalClampMinutes, playerTravelPosition } from '../systems/travel.js';   // F-slice; F114: the ship-aware travel origin
+import { arrivalClampMinutes, playerTravelPosition, travelDays } from '../systems/travel.js';   // F-slice; F114: the ship-aware travel origin; SHIP-SAIL: the passage's days, as the map counts them
 import { hasSpecialAbility, SPECIAL_ABILITY } from '../systems/rest.js';   // F-slice: the NoRegen restore gate
 import { locationCompassDirection, buildingCompassDirection, findFactionByTypeAndRegion, directionHintString } from '../systems/talk.js';   // wave 26: %di's remote arm + the region-faction search; the LOCAL arm beside it; SPAWNED-DUNGEONS2b: the same eight-word compass
 import { seasonValue, SEASONS, MINUTES_PER_DAY, dateFromClassicMinutes, dateTimeString, midDateTimeString, isDayFromMinutes } from '../systems/gameDate.js';   // AUDIT 23 (wts-1); Q4-v: the notebook's header shapes
@@ -238,26 +242,31 @@ import { createCityGuards } from './cityGuards.js';   // G1
 import { createArrestFlow } from './arrestFlow.js';
 import { clearCrimeOnLocationExit, addGold, goldAmount, deductGold, totalGoldAmount, deductGoldPieces } from '../systems/court.js';   // AUDIT 17e F6   // G2   // F-slice: travel gold; U41: GetGoldAmount + the pieces half of DeductFastTravelGold
 import { makeInView } from '../player/cameraView.js';   // AUDIT 17e F24
-import { isBackFacing } from '../characters/enemyMotor.js';   // DUEL1: a duel opponent's blow from behind me is a backstab's chance
+import { isBackFacing, SIGHT_RADIUS } from '../characters/enemyMotor.js';   // OW6: SIGHT_RADIUS, a foe's own sight (a camp's is its own)   // DUEL1: a duel opponent's blow from behind me is a backstab's chance
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel opponent's health, on the enhanced HUD's target bar
 import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
-import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
-import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt } from '../ui/travelViewHud.js';   // TV1: its readout
+import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine, travelWalkRate, shipPassageRows } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
+import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt, showTravelViewConfirm, hideTravelViewConfirm, travelViewConfirmOpen } from '../ui/travelViewHud.js';   // TV1: its readout
+import { createBandSprites } from '../world/bandSprites.js';   // OW-FOES: the bands as their monsters, faded in near
+import { markShown } from '../systems/travelViewFilters.js';   // OW-FILTER: a hidden group's sprites hidden with its marks
+import { travelPathMode, travelPathUsesRoads, pickTakesPlace, fineMoveHeld, TRAVEL_PATH_TEXT } from '../systems/travelPathMode.js';   // OW-PATH: roads or free, and the snap to a town
 import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js';   // TV2: the click's ground
 import { planRoute, routeLegs, roadShare, crossesWater, dryLine, SEA_KINDS } from '../systems/travelRoute.js';   // TV2: the way by the roads; OWS2: and over the water
 import { createSeaHelm, seaHelmStep, headingOf as seaHeadingOf, squareOnly as seaSquareOnly, SEA_HELM } from '../systems/seaHelm.js';   // OWS2: the journey's hand on the helm
 import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js';   // TV2: "Cap it to what loads cleanly"
+import { threatCap } from '../systems/travelThreat.js';   // OW6: the journey slows as enemies close
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
-import { dungeonRows, spawnedPixels, filedSpawns, nearDungeons, dungeonApproach, lastLegStart, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them; AUDIT OW4 D4/D6: the far found spawns, the last leg's start
+import { dungeonRows, spawnedPixels, filedSpawns, nearDungeons, dungeonApproach, pixelBox, lastLegStart, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them; AUDIT OW4 D4/D6: the far found spawns, the last leg's start
 import { routeGround, joinPoint, routeDrawPoints, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points; AUDIT OW4 J3: the ground read once
-import { bandsNear, wanderAt, bandSight, bandChaseStep, bandLabel, bandMakeSeed, BAND_LIFE_MS, BAND_CONTACT_M, BAND_STAND_M, BAND_STAND_RETRY_MS, BAND_STAND_TRIES } from '../systems/travelBands.js';   // TV7: the roaming bands
+import { bandsNear, wanderAt, bandSight, bandChaseStep, bandLabel, bandMakeSeed, bandSizeOf, bandLevelOf, BAND_LIFE_MS, BAND_CONTACT_M, BAND_CHASE_MPS, BAND_STAND_M, BAND_STAND_MIN_M, BAND_STAND_RETRY_MS, BAND_STAND_TRIES } from '../systems/travelBands.js';   // TV7: the roaming bands; OW6: their number and their level
 import { bandWordOf, validBandWord, chaseYields, bandLifeOf, bandNearMe, bandPixelOf, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
 import { walkBegin, leaderWalkStep, walkHeard, memberAnswer, memberFollowing, memberStopOf, memberWalkStep, walkAskStands, sameWalkDest, NO_WALK_ANSWER, PARTY_WALK_RADIUS_M } from '../systems/partyWalk.js';   // TV8: group travel, the leader drives (AUDIT OW3: the whole law, pure)
 import { rollGroupComposition, PACK_SPACING, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // TV7: a band is a themed group
 import { seededRng } from '../systems/wind.js';   // TV7: a band's make, rolled from its own seed
 import { enemyDisplayName } from '../characters/enemyBasics.js';   // TV7: a band's words
+import { groupCamps } from '../world/campShared.js';   // OW6: the camps on the Overworld
 import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook, isShipMark } from '../systems/travellerMarks.js';   // TV3: the region's travellers; OWS1: at sea, a ship
 import { RainCurtainsRenderer, curtainsOf, CURTAIN_FOOT_MARGIN_M } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
 import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
@@ -267,7 +276,7 @@ import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: th
 import { mobilePersonName, lootPileName } from '../systems/worldTooltips.js';   // WORLD-HOVER H2: MobilePersonNPC.NameNPC (.cs:299-302); M5: a dropped pile's word (.cs:534-548), outdoors too
 import { wagonHoverName } from '../player/eotbWagon.js';   // WORLD-HOVER M6: the cart's word, beside its producer
 import { waterSourceHoverName } from '../systems/survival/items.js';   // WORLD-HOVER M6: a water source's word, beside its producer
-import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, setEotbComeSailAway, mwViewHoldThird, mwViewHoldChanged, mwViewSaveCamera } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV; CSA-J: EOTB's boat
+import { mwViewFirstPerson, mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep, mwViewLoadPose, mwViewNewGame, mwViewRebase, mwViewAttachWagon, mwViewDrawWagon, mwViewWagonTargets, setEotbCartYields, mwViewWagonActivate, setEotbComeSailAway, mwViewHoldThird, mwViewHoldChanged, mwViewSaveCamera, mwViewTogglePerspective } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride and the load's POV; CSA-J: EOTB's boat
 import { mwCamera } from '../player/mwCamera.js';   // MW-D30: persistence
 import { pickActivatableHit, pickQuestFoe, pickFoe } from '../player/activate.js';   // G3: corpse loot; QG1: the foe-click door; TI1: the lock-on pick
 import { raceActivation } from '../player/activationRace.js';   // HARD2: one home for "the nearest thing under the one ray takes the click"
@@ -312,7 +321,7 @@ import { preloadPaperDollArt } from '../ui/paperDoll.js';   // U8f: the avatar b
 import { seedStartingEquipment } from '../systems/equip.js';   // U8h: the worn-weapon binding
 import { createChargenFlow, createChargenWindow, finishChargen, loadSpellIndex, applyHeadlessChargen } from '../systems/chargenSession.js';   // S3c/U9
 import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot, testRoomOnlineRefused, TEST_ROOM_OFFLINE_TEXT } from '../systems/testRoom.js';   // TR3: the Test Room's one home; TSR4: the ride; AUDIT SET D4: its character's online refusal
-import { publishBootParams } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads
+import { publishBootParams, refuseOnlinePowerFlags, BOOT_DOOR_KEYS } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads; REALM P0.1: the URL's powers stay offline
 import { preloadChargenArt } from '../ui/chargenArt.js';   // U10
 import { preloadMessageBoxArt } from '../ui/messageBox.js';   // U11
 import { buildingDataForDoor, locationBuildings, BUILDING_KEY_0 } from '../systems/talkTopics.js';   // E2: the shop identity   // H2: every building, with its key   // AUDIT 58: BuildingDirectory.buildingKey0, the key both ship interiors are filed under
@@ -342,7 +351,7 @@ import { createComeSailAwayAboard, CSA_ABOARD_GRACE } from './comeSailAwayAboard
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
 import { TRIGGER_MODEL as CSA_TRIGGER_MODEL, setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
-import { createComeSailAwayRuntime, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, BOAT_ACTIONS as CSA_BOAT_ACTIONS, HANDLING as CSA_HANDLING, hullFromMessage as csaHullFromMessage } from '../systems/comeSailAway.js';
+import { createComeSailAwayRuntime, comeSailAwayCarrier, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, BOAT_ACTIONS as CSA_BOAT_ACTIONS, HANDLING as CSA_HANDLING, hullFromMessage as csaHullFromMessage } from '../systems/comeSailAway.js';
 import { windWidgetFrameUrl as csaWindWidgetFrameUrl, waveDerivedUrl as csaWaveDerivedUrl, wavePaintUrl as csaWavePaintUrl, soundUrl as csaSoundUrl } from '../systems/comeSailAwayModels.js';   // CSA-E: the wind widget's pictures; CSA-F: the waves' recipes and paints
 import { WAVE_FRAME_COUNT as CSA_WAVE_FRAME_COUNT, waveDitherOf as csaWaveDitherOf } from '../systems/comeSailAwayWaves.js';   // CSA-F
 import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } from '../render/comeSailAwayRender.js';   // CSA-F: the waves' and the particles' passes
@@ -353,8 +362,8 @@ import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js'; 
 import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
 import { raycastColliders, rayBoxEntry, collidersOf, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
-import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming
-import { raidersNear, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
+import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming
+import { raidersNear, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
 import { applyDeathPenalty, deathPenaltyText, stateDeathLoss, statedDeathLoss } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a quarter of the purse
@@ -385,7 +394,7 @@ import { audio, QuestAudioSource, logarithmicRolloff, plainSourceGain } from '..
 import { music } from '../systems/music.js';
 import { AmbientEffects, EXTERIOR_AMBIENT_WAITS, presetForExterior } from '../systems/ambientEffects.js';
 import { createWeatherFront, blendTerms, soundWeather } from '../systems/weatherFront.js';   // WX2: the front reaches the ground
-import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, createDetectFeed, foeNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, adjustFallStart, offsetArrows, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag , raisePlayerSkills, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost } from './shared.js';   // TP1: PlayerEntity.RaiseSkills   // EC1: the live enchant pool + its sinks router; AUDIT 58: the membership question the Wabbajack door asks too
+import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, createDetectFeed, foeNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, adjustFallStart, offsetArrows, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag , raisePlayerSkills, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost, realmSaveSink, setRealmSaveSink, setBeforeTitleExit } from './shared.js';   // TP1: PlayerEntity.RaiseSkills   // EC1: the live enchant pool + its sinks router; AUDIT 58: the membership question the Wabbajack door asks too
 import { getNearbyObjects } from '../systems/nearbyObjects.js';   // X9: the dispel sweep filters the same scan
 import { dispelNearby, liveBundles, attemptSoulTrap, SOUL_TRAP_TEXT } from '../systems/mysticism.js';   // X9: the destroy law (destroyed, not killed); WBX7: the kill's soul trap roll, for the court's boss
 import { PlayerMotor, startRestGroundedCheck, motionBagOf, MAX_FRAME_DT, CAPSULE_HEIGHT, CAPSULE_RADIUS, RIDE_EYE_HEIGHT, afloatMessageStep, CANNOT_FLOAT_HUD_SECONDS } from '../player/motor.js';   // SPELLFX1: a peer's eye when its body has not said its height
@@ -429,6 +438,11 @@ import { itemLongName } from '../systems/itemInfo.js';   // SIGIL1: the weapon's
 import { partySizeOf, partyExtraFoes, partyGroupMembers } from '../systems/partyScale.js';   // PSCALE1: a fight weighs the party - its count, and the foes more an outdoor encounter stands
 import { GROUP_ROLL_RADIUS } from '../systems/campEncounters.js';   // PSCALE1: outdoors, the party a roll stands for is the camp's own group
 import { SOLITARY_TYPES } from '../characters/mobileFactions.js';   // AUDIT PSCALE1 COUNT-2: a solitary foe meets a party alone
+import {
+  realmIo, openRealmBoot, createRealmSession, realmSummaryOf, setRealmNotice, realmCreate, realmPut, realmBootSearch, realmRefusalText,
+  sayRealmSave, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, whenPageGoes, realmTradeEscrow, realmGoldAct, realmDoorShut,
+} from '../systems/realmSaves.js';   // REALM P1.3: an online character is the realm's - joined, loaded and checkpointed through the service
+import { reclaimFromDevice, reclaimLines } from '../systems/realmCustoms.js';   // RESTORE: what customs once kept back, given back at the boot
 import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that session lives - the app's store, not the tab's (a second tab is the same player)
 import { POSE_STRIKES, isWorldRoom, isCellRoom, cellHaloFor, actFrameFits, sharedClassicMinutes, wallMsForClassicMinutes } from '../net/wire.js';   // WORLD6b-iii(b): the cell seam's halo   // MAC7 #1: the swing's kind on the wire; AUDIT WORLD4 A1: whether an act frame can be said at all
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // MAC7 #2: the arrow bit on the wire - weaponRig's own read
@@ -450,7 +464,7 @@ import { GATE_BRAIN_V } from '../net/wire.js';   // AUDIT WBX R7: the brain's la
 import { characterIdOf } from '../systems/characterId.js';   // AUDIT HCC-PARK: my parked team is my CHARACTER's (the relay keys it by the account and this)
 import { chooseTable, tableMoveSpeed } from '../player/eotbBillboard.js';   // AUDIT RIDE: the rider's gallop is the table the rider's own sprite shows
 import { PARTY_READY_TIMEOUT_MS, memberPresent, latestStamp, voteStands, snapshotCancels, cancelRequestFor, mirrorKey, cooldownStamp, stampOf, restsAlone, partyRestsTogether, restAloneText, restsApart, REST_APART_TEXT } from '../systems/partyRestLaw.js';   // AUDIT PARTY-REST: the pure half of the party-rest mechanic, pinned by execution   // SOC2: the hub's room and the party pose's floor (a second wire import: AUDIT WORLD4 A1 pins the first as it stands)
-import { besideLandingOf, PARTY_TRAVEL_TEXT, BESIDE_LEVEL } from '../systems/partyTravelLaw.js';   // PARTY-TRAVEL: the party's journey - to the leader, and together
+import { besideLandingOf, PARTY_TRAVEL_TEXT, BESIDE_LEVEL, fareText } from '../systems/partyTravelLaw.js';   // PARTY-TRAVEL: the party's journey - to the leader, and together; SHIP-SAIL: the fare's own row
 import { createPartyTravel } from '../systems/partyTravel.js';   // PARTY-TRAVEL: its session, over this host's seams
 import { TravelPopUpWindow } from '../ui/travelPopUp.js';   // PARTY-TRAVEL: the map's own popup prices a party journey, headless
 import { YesNoBoxWindow } from '../ui/yesNoBox.js';   // PARTY-TRAVEL: the journey's prompts - UXB1-M's box, either skin
@@ -466,6 +480,7 @@ import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's 
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
 import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
+import { checkpointAllowed, checkpointDue, checkpointedTradePack } from '../systems/onlineCheckpoint.js';   // REALM P0.5: the character saved as it plays online
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
 import { createTradePack, tradeRefusal } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack; PROF5: what may not be sold
 import { isLocked } from '../systems/itemLock.js';   // PROF5: a locked piece is not listed
@@ -602,7 +617,7 @@ import { registerItemUseHandler } from '../systems/itemTemplates.js';   // CSA-H
 import { mintBoatItem, mintShelfBoatUids, assignVariantsToShopItems, cargoLootTarget, BOAT_PARTS_TEMPLATE as CSA_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE as CSA_DEED_TEMPLATE } from '../systems/comeSailAwayItems.js';   // CSA-H: the two items, their shelf
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // CSA-H: the boat's variant picker
 import { mustSpawnOnFloor, alignFloorEnemyY, spawnRevealDistance, enemyRoster } from '../world/underwaterEnemies.js';   // DW-E4: where the mod sets a foe's transform; DW-E5: SpawnRevealDistance
-import { markPuddleWater, puddleWetAt, PUDDLE_RECORDS } from '../world/puddleMask.js';   // WATER-PUDDLE: the puddle is the art's
+import { markPuddleWater, carryPuddleMask, puddleWetAt, PUDDLE_RECORDS } from '../world/puddleMask.js';   // WATER-PUDDLE: the puddle is the art's
 import { rayUprightCapsule } from '../world/passiveFish.js';   // DW-E3: a fish's probe meets the player's capsule
 import { installDeepWatersFishIcons, createFishItem, normalizeFishItems, fishPictureUrl, fishIconArchive } from '../systems/deepWatersFishItems.js';   // DW-E3: the fish as items
 import { clearEdgeBlackPixels } from '../world/underwaterDecorations.js';   // DW-E3: a fish's picture, edge-cleaned   // DW-E2: the seafloor's decorations   // DW-D: DeepWaterRuntime's load grace
@@ -632,6 +647,14 @@ let _ohLootOff = null;
  *  line dfuiOpenTravelMapWindow's FIRST test puts on the HUD
  *  (AddHUDText) when the travel map is asked for inside. Verbatim. */
 const CANNOT_TRAVEL_INDOORS_TEXT = 'You cannot travel while indoors.';
+/** WB8b: the saving throw a gate Warden's blow meets, by his aspect's element (net/gateMods.js `el`): the classic element
+ *  and the effect flag DFU's SavingThrow reads for it (systems/spellcast.js - poison is DiseaseOrPoison's, flagged Poison). */
+const GATE_SAVES = Object.freeze({
+  fire: Object.freeze([ELEMENTS.Fire, EFFECT_FLAGS.Fire]),
+  frost: Object.freeze([ELEMENTS.Frost, EFFECT_FLAGS.Frost]),
+  shock: Object.freeze([ELEMENTS.Shock, EFFECT_FLAGS.Shock]),
+  poison: Object.freeze([ELEMENTS.DiseaseOrPoison, EFFECT_FLAGS.Poison]),
+});
 
 // Milestone 9 scene: floating-origin streaming world. Terrain pixels
 // stream in nearest-first around the camera within TERRAIN_DISTANCE,
@@ -647,19 +670,49 @@ export async function bootWorld(canvas, renderer, params, status) {
   // browser's own idle answer, swallows every failure (MENU1's notice is
   // the door's to show), and boots nothing if the player never opens one.
   void import('../ui/enhancedChunk.js').then((m) => m.warmEnhancedChunks()).catch(() => {});
+  // REALM P1.3 (bible/06-Systems/Realm-Arc.md section 2): AN ONLINE CHARACTER IS THE REALM'S. The Online door boots one
+  // with ?realm=<id>: joined under a new lease and its save read from the service before anything below reads a save -
+  // never a local slot. A join that fails says why at the door; an online boot with no realm character in it (a stale
+  // address, a local slot) is refused online and plays offline. ?realmnew is a character being born online: the online
+  // lane for its chargen and no relay until the realm holds it (realmBirth).
+  const realmNew = params.has('online') && params.has('realmnew');
+  const realmIoNow = () => realmIo({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() });
+  const realmBoot = params.has('online') && params.has('realm') && params.has('load') ? await openRealmBoot({ io: realmIoNow(), id: params.get('realm') }) : null;
+  if (realmBoot && !realmBoot.ok) { setRealmNotice(globalThis.sessionStorage, realmRefusalText(realmBoot.error)); exitToTitleMenu(); return; }
+  const realmRefused = params.has('online') && !realmBoot && !realmNew;
+  if (realmRefused) { params.delete('online'); publishBootParams(params); }
+  /** The playing tab's session over the realm character (systems/realmSaves.js): every save of it is the service's
+   *  checkpoint (the composers' sink, scenes/shared.js realmSaveSink), and its end - another tab joined it, it was
+   *  deleted, the account signed out - takes the player to the door with the reason. */
+  const realmSession = realmBoot ? createRealmSession({ io: realmIoNow(), id: params.get('realm'), lease: realmBoot.lease, seq: realmBoot.seq, onLost: (why) => realmLost(why) }) : null;
+  // REALM P1.3: a realm checkpoint that LANDS is a save that lands - the gate's spoils it was composed holding are then
+  // safe on the service, and their device record goes (scenes/spoilsPool.js saved, as onSlotSaved tells it for a slot).
+  // Without it no realm save ever cleared them, and every boot handed the same spoils back. The hooks are the spoils
+  // pool's, set once it stands (below).
+  const _realmSaveHooks = { held: () => null, landed: () => {} };
+  if (realmSession) setRealmSaveSink((snap) => {
+    const who = characterIdOf(playerEntity);
+    const holding = _realmSaveHooks.held(who);
+    return realmSession.checkpoint(JSON.stringify(snap), realmSummaryOf(playerEntity)).then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); return r; }).catch(() => ({ ok: false, error: 'server' }));   // AUDIT REALM2 C2: the outcome answered back - F9's word is the realm's answer
+  });
   // MW-EARLY: the save the load door at the end of this boot restores - its pick, and its ONE parse (AUDIT MW-EARLY F3,
   // below). AUDIT FINAL F9: declared here, first, so the Test Room's check below reads that same parse and that same
   // pick (the classic import's arm included) - it had parsed the save a second time, by a pick of its own.
   const bootLoadPick = !params.has('load') || (params.has('classicload') && peekPendingClassicSave()) ? null
+    : realmBoot ? { realm: true }   // REALM P1.3: the service's save, never a slot
     : params.has('loadkey')
       ? { key: Number(params.get('loadkey')) }
       : { mostRecent: true };
   let bootSnapRead;
   const bootSnap = () => (bootSnapRead === undefined ? (bootSnapRead = pickedSaveSnap(bootLoadPick ?? {})) : bootSnapRead);
+  if (realmBoot) { bootSnapRead = realmBoot.snap; realmBoot.snap = null; }   // REALM P1.3: the realm's save, parsed at the join, IS the one parse - held here alone, so the door lets it go
+  const realmGiven = realmBoot?.origin ? reclaimFromDevice(bootSnapRead, realmBoot.origin) : null;   // RESTORE: what customs once kept, back into the one parse (systems/realmCustoms.js)
   // AUDIT SET D4: A TEST ROOM CHARACTER STAYS OFFLINE - asked before anything below reads `online` (the lane reads the
   // published URL, so the drop is published too), and said once the world stands
   const testRoomOffline = testRoomOnlineRefused(params, { snap: bootSnap });
   if (testRoomOffline) { params.delete('online'); publishBootParams(params); }
+  if (testRoomOffline && realmSession) { setRealmNotice(globalThis.sessionStorage, realmRefusalText('test-room')); exitToTitleMenu(); return; }   // REALM P1.3: never the realm's
+  if (refuseOnlinePowerFlags(params).length) publishBootParams(params);   // REALM P0.1: ?shot, ?fly, ?nofoes and the rest - dropped online before anything below reads them
   const regionName = params.get('region') || 'Daggerfall';
   const locationName = params.get('loc') || 'Daggerfall';
   // WORLD5 (Mac: "the shared clock and weather, and the quest clocks stood down online"): ONLINE, THE WORLD'S CLOCK IS
@@ -936,6 +989,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // change; its size missed a spawn gone and another come in the same window. The fill below precedes every such list.
   let _locIndexGen = 0;
   const _hubRows = [];   // HUB1: the game's own rows, whatever a mod's addition later stands on their pixel
+  const _bandPlacePixels = new Set();   // AUDIT OW4 B2 / AUDIT OW5 B2: the land a band may NOT stand on (below)
   for (let r = 0; r < maps.regionCount; r++) {
     const region = maps.getRegion(r);
     if (!region) continue;
@@ -945,7 +999,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!loc || !loc.exterior || !loc.exterior.exteriorData) continue;
       const p = longitudeLatitudeToMapPixel(loc.mapTableData.longitude, loc.mapTableData.latitude);
       locationIndex.set(`${p.x},${p.y}`, loc);
-      if (l < baseCount) _hubRows.push(loc);
+      if (l < baseCount) { _hubRows.push(loc); _bandPlacePixels.add(`${p.x},${p.y}`); }   // OW6: the band's places
       if (l < baseCount) {   // BOUNTY1: the game's own rows alone - a mod's addition stands on one client and not another
         _bountyLocPixels.add(`${p.x},${p.y}`);   // the pixels a hunt's ground may not be
         // a dungeon a board may name - the game's own, never a town's (a city's castle is the city's)
@@ -955,11 +1009,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
     }
   }
-  // AUDIT OW4 B2: the game's own places, as the maps have them - the land a band may NOT stand on. Never the live index:
-  // online it gains a spawned dungeon as each client's pixels build (and loses one on its expiry), so one client's bands
-  // vanished as it walked up to them, re-walked from birth round the new place (a jump), and a peer three pixels off saw
-  // others. The same set on every client, from boot.
-  const _bandPlacePixels = new Set(locationIndex.keys());
+  // AUDIT OW4 B2: the game's own places, as the maps have them - the land a band may NOT stand on (filled above). Never the
+  // live index: online it gains a spawned dungeon as each client's pixels build (and loses one on its expiry), so one
+  // client's bands vanished as it walked up to them, re-walked from birth round the new place (a jump), and a peer three
+  // pixels off saw others. The same set on every client, from boot. AUDIT OW5 B2: and the GAME'S rows alone (HUB1's and
+  // GATE-SEEN's law) - a world-data mod's rows are appended where Replace Game Artwork is on, which is each client's own
+  // switch: Roleplay & Realism's forts barred a band's pixel on one client and not another. (AUDIT OW5b B3 found the same:
+  // this is its one fix.)
   // HUB1: every region's main city, one answer on every client (systems/regionHubs.js) - read online alone
   const regionHubs = pickRegionHubs(_hubRows, { regionNameOf: (r) => maps.getRegionName(r) });
   _hubRows.length = 0;
@@ -1163,7 +1219,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     const t = state.pixelTranslation(px, py, _announceT);
     const [lx, lz] = spawnedLocationCentreLocal(loc);
     const dx = t[0] + lx - feet[0], dz = t[2] + lz - feet[2];   // east, north
-    townTalk.say(dungeonSightLine(Math.hypot(dx, dz), _capitalize(directionHintString(dx, dz)), !!loc.elite));
+    // OW-DUNGEON-SAID (2026-09-29, the player: "i have the feeling i dont get nearby dungeons messages"): through tvSay, held
+    // its five seconds AT THE SCALE IT IS SAID AT (AUDIT OW5 G2's law) - a HUD line counts down in game time, so said plain
+    // at a journey's x35 this one-time line stood for a thirty-fifth of a second and was never read
+    tvSay(dungeonSightLine(Math.hypot(dx, dz), _capitalize(directionHintString(dx, dz)), !!loc.elite), 5);
   }
   let _spawnTemplates = null;
   // TTL1: what this client has met, and when. The roll above is a pure
@@ -1202,7 +1261,65 @@ export async function bootWorld(canvas, renderer, params, status) {
     const key = `${p.x},${p.y}`;
     if (!locationIndex.get(key)?.spawned) return;
     _spawnLedger.clear(key, _spawnClock());
+    owSayRow(key);   // OW6L: and the cell hears the short clock start
   };
+  // OW6L (2026-09-29, the player: "Everything needs that persistence between players in the overworld"): THE CELL'S
+  // OVERWORLD LEDGER (net/overworldLaw.js, kept by the relay's cell room; net/online.js sendOverworld / onOverworld).
+  // What I spend - a band fought or escaped (TV7), a raider come alongside or outsailed (OWS3) - and a spawned
+  // dungeon's clocks - its first sight here, its first clear (TTL1) - are said to the cell I stand in, which keeps them
+  // and says them to every player there, and to one who walks in later in its welcome: a band someone fought is gone
+  // for everyone for its life, not only for those whose frames heard it (TV7b's word reached three pixels, that minute);
+  // and every player's spawned dungeons run out on the SAME clocks - the earliest sight and the earliest clear anyone
+  // had (the spawn ledger's merge), where each client's own clocks let two players disagree for days whether one stood.
+  // A word the cell did not take (the gate shut, a socket down, a dungeon's room rather than a cell) is said again.
+  // Declared ahead of the spawn roll below, whose first sight says its row during the boot's own builds (BOOT-TDZ).
+  const OW_SAY_MS = 1000;   // how often what is owed is said (the session's own bucket is OW_HZ_MAX a second)
+  const OW_SAY_KEEP_MS = 10 * 60 * 1000;   // a row owed past this is let go (my ledger keeps it; the cell's behind-answer heals)
+  const OW_SAY_MAX = 64;   // and never more owed than this, the oldest let go
+  const _owSay = { sp: new Map(), dg: new Map() };   // id -> since; key -> since
+  let _owSaidAt = -Infinity;
+  /** OW6L: a band or a raider spent here - owed to the cell. */
+  function owSaySpent(id) { _owSay.sp.delete(id); _owSay.sp.set(id, performance.now()); owSayBound(_owSay.sp); }
+  /** OW6L: a spawned dungeon's row (its first sight, its clear) - owed to the cell as my ledger has it now. */
+  function owSayRow(key) { if (!_spawnLedger.wireRow(key)) return; _owSay.dg.delete(key); _owSay.dg.set(key, performance.now()); owSayBound(_owSay.dg); }
+  function owSayBound(m) { while (m.size > OW_SAY_MAX) m.delete(m.keys().next().value); }
+  /** OW6L: what is owed, said (a second apart at most) - what the cell took no longer owed; a spent id of a life gone, and
+   *  a row owed too long, let go (the cell drops the one quietly, and its behind-answer heals the other). */
+  function overworldLedgerFrame(now) {
+    if (!online?.owOk || now - _owSaidAt < OW_SAY_MS || (!_owSay.sp.size && !_owSay.dg.size)) return;
+    _owSaidAt = now;
+    const bandLife = Math.floor(bandNowMs() / BAND_LIFE_MS), raidLife = Math.floor(raidNowMs() / RAIDER_LIFE_MS);
+    for (const id of [..._owSay.sp.keys()]) if ((id[0] === 'b' ? bandLifeOf(id) < bandLife - 1 : raiderLifeOf(id) < raidLife - 1)) _owSay.sp.delete(id);
+    for (const [key, since] of [..._owSay.dg]) if (now - since > OW_SAY_KEEP_MS) _owSay.dg.delete(key);
+    if (_owSay.sp.size) for (const id of online.sendOverworld('sp', [..._owSay.sp.keys()])) _owSay.sp.delete(id);
+    if (_owSay.dg.size) {
+      const rows = [..._owSay.dg.keys()].map((k) => _spawnLedger.wireRow(k)).filter(Boolean);
+      for (const r of online.sendOverworld('dg', rows)) _owSay.dg.delete(`${r[0]},${r[1]}`);
+    }
+  }
+  /** OW6L: the cell's word - its ledger's welcome, or a change - on my own cell's socket or a halo's: a spent band or
+   *  raider is spent here (a chase of it ends; TV7b's own flag 2), and every row min-merged into my spawn ledger (a spawn
+   *  whose clocks ran out on someone else's sight is gone here too - the Overworld's list is read again). */
+  function overworldLedgerHeard(msg) {
+    if (msg?.k === 'sp') {
+      for (const id of msg.ids) {
+        if (id[0] === 'b') { _bandSpent.add(id); _bandChase.delete(id); _bandPeer.delete(id); }
+        else { tvRaid.spent.add(id); tvRaid.chase.delete(id); tvRaid.peer.delete(id); }
+      }
+      return;
+    }
+    if (msg?.k !== 'dg') return;
+    let moved = false;
+    for (const [px, py, seen, cleared] of msg.rows) moved = _spawnLedger.merge(`${px},${py}`, seen, cleared) || moved;
+    if (moved) tvDng.at = null;   // the Overworld's dungeons read again: a spawn now gone leaves its list
+  }
+  /** OW6L: a spawn's first sight here - its long clock started, and the cell told (a sight already in my ledger - my own,
+   *  or the cell's merged in - starts nothing and says nothing). */
+  function _spawnSeen(key) {
+    const fresh = !_spawnLedger.wireRow(key);
+    _spawnLedger.note(key, _spawnClock());
+    if (fresh) owSayRow(key);
+  }
   const _spawnUnroaded = new Set();   // SPAWN-ROADS: spawned keys decided before the road network landed
   /** SPAWN-ROADS: the roads sweep's first act - a ruin decided before the network landed that a path crosses
    *  is taken back (the index and its TTL clock), unless the player stands in it (TTL1's own exception); its
@@ -1234,9 +1351,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       // the one dungeon that could be underfoot is the one the mode
       // machine is standing in. Its time runs out the moment they leave.
       const key = `${px},${py}`;
+      // AUDIT OW5b D2: GONE IS GONE - the ledger's row is KEPT (its clocks keep it expired as the calendar goes on, and it
+      // rides the save), so the pixel stays empty. It was forgotten here, and the roll is a pure hash of the pixel: the
+      // very next ask - the build's own, a moment after buildPixel's probe had asked - stood the same dungeon again on a
+      // fresh seven days. "Spawned Dungeons should expire/removed" (TTL1, the creator's rule relayed by Mac)
       if (_spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key)) {
         _locIndexGen += 1;   // AUDIT OW4 D5
-        _spawnLedger.forget(key);
         locationIndex.delete(key);
         return null;
       }
@@ -1245,10 +1365,24 @@ export async function bootWorld(canvas, renderer, params, status) {
       _locIndexGen += 1;   // AUDIT OW4 D5
       locationIndex.set(key, loc);
       if (!net) _spawnUnroaded.add(key);   // SPAWN-ROADS: decided without the network - the sweep asks again
-      _spawnLedger.note(key, _spawnClock());   // TTL1: first sight starts the seven-day clock
+      _spawnSeen(key);   // TTL1: first sight starts the seven-day clock (OW6L: and the cell hears it)
       return loc;
     } catch (e) { console.warn('[spawned dungeons]', px, py, e?.message ?? e); return null; }
   };
+  /** AUDIT OW5b D2: WHAT STANDS ON A PIXEL BEING BUILT - its place in the index, unless that is a spawn whose time has run
+   *  out with nobody in it: then it leaves the index and the pixel is built empty; else what spawnedDungeonAt stands. The
+   *  build took the index's word for a spawn it held, so one stood again at every rebuild whatever its clocks said, while
+   *  the Overworld (tvSpawnGone) had it gone. */
+  function _locationToBuild(px, py) {
+    const key = `${px},${py}`;
+    const loc = locationIndex.get(key);
+    if (loc?.spawned && _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key)) {
+      _locIndexGen += 1;   // AUDIT OW4 D5
+      locationIndex.delete(key);
+      return null;
+    }
+    return loc || spawnedDungeonAt(px, py);
+  }
   /** AUDIT OW4 D4: THE CLONE a pixel's spawn IS - the template its hash picks, dressed as where it stands (region, politic,
    *  climate, elite). Pure in the salt, the pixel and the map files, so the one answer serves spawnedDungeonAt (which stands
    *  it) and the Overworld's far found spawns (tvSpawnAt, which marks it without building its pixel). */
@@ -1520,6 +1654,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   let travelOptions = null;
   let tvFar = { at: null, near: -1, list: [] };   // TV5: the far places about the traveller (above its readers: BOOT-TDZ - a load empties it)
   let tvDng = { at: null, dg: -1, list: [] };   // TV6: the dungeons about the traveller (above its readers: BOOT-TDZ - a load empties it)
+  let tvFind = { at: null, dg: -1, n: -1, list: [] };   // AUDIT OW5 D1: the find's own, uncapped (above its readers: BOOT-TDZ - a load empties it)
+  const _tvPartyHold = new Map();   // AUDIT OW5 P6: each party member's kept scene point (PERF-TV's own holder), by account
+  const TV_FIND_REACH = 4;   // AUDIT OW5 D1: map pixels about the traveller's that a kilometre from the feet can reach
   let tvBandSeen = { at: null, life: -1, list: [] };   // TV7: the bands about the traveller, this life's (above its readers: BOOT-TDZ)
   const _bandChase = new Map();   // TV7: id -> { pos, since, best } - the bands chasing me (the chase is the chased one's)
   const _bandSpent = new Set();   // TV7: the bands that fought or gave up - gone for their life
@@ -1528,7 +1665,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _bandPeer = new Map();    // TV7b: id -> { x, z, at, from } - a peer's chase of a band, as their frame said
   const _bandSpentAt = [];        // TV7b: the bands spent HERE, newest first - said on my frames so the others spend them too
   let tvPlates = { at: null, list: [] };   // TV2: the known places about the traveller, rebuilt on a pixel change - AUDIT DEEP T2-4: and emptied by a load (above its readers: BOOT-TDZ)
-  const tvRaid = { list: [], at: -Infinity, chase: new Map(), spent: new Set(), clock: 0, life: -1 };   // OWS3: Warm Ashes' raiders about the traveller, and the chases (BOOT-TDZ: a load ends them)
+  const tvRaid = { list: [], at: -Infinity, chase: new Map(), spent: new Set(), clock: 0, life: -1, peer: new Map(), spentAt: [] };   // OWS3: Warm Ashes' raiders about the traveller, and the chases (BOOT-TDZ: a load ends them); OW6: a peer's chases heard, and my spent ones said
   const tvSea = { means: null, helm: createSeaHelm(), phase: null, boat: null, probeAt: 0, best: Infinity, bestS: 0, legAt: -1, wasLive: false };   // OWS2: the crossing's state (BOOT-TDZ: above the load that clears it and the Travel Options atSea that reads it)
   let travelView = null;   // TV1: assigned beside the look gate, read by the cursor toggle's guard and the frame (BOOT-TDZ)
   let travelAsked = 1;   // TV2 (AUDIT TV A2): the rate Travel Options itself last asked the clock for - its spinner, or its own cap (the ring walk's x15, an interrupt's x1) - the one the travel view's governor may hold under, and hands back
@@ -1779,7 +1916,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const centreY = alignBillboardToGround(y, hitDistance(hit), WOD_LOOT_ALIGN.sizeY, WOD_LOOT_ALIGN.distance);
       const lootKey = DUNGEON_LOOT_KEYS[WOD_LOOT_LOCATION_INDEX];
       const items = generateLootItems(lootKey, { level: playerEntity.level, gender: playerEntity.gender });
-      addPileLootExtras(items, lootKey, Math.random, { locationIndex: WOD_LOOT_LOCATION_INDEX, luck: liveStat(playerEntity, 'luck') });   // FORAGE3: OnLootSpawned at the camp's index, a Prison's
+      addPileLootExtras(items, lootKey, Math.random, { locationIndex: WOD_LOOT_LOCATION_INDEX, luck: liveStat(playerEntity, 'luck'), level: playerEntity.level });   // FORAGE3: OnLootSpawned at the camp's index, a Prison's; REALM P0.4: online, the level's gold divided back
       rollLootRarity(items, pileSource(dungeonRarityTier(WOD_LOOT_LOCATION_INDEX)), { luck: liveStat(playerEntity, 'luck') });   // LR1: every list a host mints, at its source - GenerateLoot's dungeon type
       stampWonWeapons(items, 1);   // SIGIL1: a pile found online, its weapons' sigils rolled at the mint
       // AUDIT BRANCH (WoD) m1: PIXEL-LOCAL until the art lands. The world
@@ -2828,12 +2965,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1172),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1175),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:1740) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:1743) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -2849,7 +2986,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (built.has(key)) return built.get(key);
     let flying = inFlight.get(key);
     if (flying) return flying;
-    const _dwLoc = !!(locationIndex.get(key) || spawnedDungeonAt(px, py));   // DW-D: DeepWaterRuntime's activeLocationLoads - OnCreateLocationGameObject ...
+    const _dwLoc = !!_locationToBuild(px, py);   // AUDIT OW5b D2   // DW-D: DeepWaterRuntime's activeLocationLoads - OnCreateLocationGameObject ...
     if (_dwLoc) dwLocationLoadBegan(performance.now() / 1000);
     flying = buildPixelNow(px, py)
       .catch((e) => { releaseFailedBuild(key); throw e; })   // BUILD-FAIL1
@@ -2927,7 +3064,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const key = `${px},${py}`;
     const made = {};   // BUILD-FAIL1: this build's ledger, until publish hands it to the entry
     _building.set(key, made);
-    const dfLocation = locationIndex.get(key) || spawnedDungeonAt(px, py) || null;   // SPAWNED-DUNGEONS1: an empty pixel may stand one
+    const dfLocation = _locationToBuild(px, py) || null;   // SPAWNED-DUNGEONS1: an empty pixel may stand one (AUDIT OW5b D2: a spawn the index holds asked its clocks)
     // EV7: the LOCATION half stays here - setLocationTiles reads
     // BlocksFile + MapsFile, file objects that do not cross a
     // postMessage boundary - and its tilemap + rect ride into the job
@@ -2999,11 +3136,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     // texture + one cached texture array per ground archive.
     const groundTex = await getTexture(groundArchive);
     if (!renderer.tileArrays.has(groundArchive)) {
-      const layers = [];
+      // GROUND1: an attached texture mod's tile set for the archive (DREAM's `<archive>-TexArray`) first, whole or not at all
+      const modLayers = await dfmodGroundLayers(groundArchive, groundTex.recordCount);
+      const classic = [];
       for (let r = 0; r < groundTex.recordCount; r++) {
-        layers.push(groundTex.getColor32(groundTex.getDFBitmap(r, 0), 0));
+        classic.push(groundTex.getColor32(groundTex.getDFBitmap(r, 0), 0));
       }
-      renderer.uploadTileArray(groundArchive, markPuddleWater(layers));   // WATER-PUDDLE: a puddle record's water in its layer's alpha
+      // GROUND1-W: a mod's tile set takes its puddles' shapes from the classic records (carryPuddleMask)
+      const layers = modLayers ? carryPuddleMask(modLayers, markPuddleWater(classic)) : classic;
+      renderer.uploadTileArray(groundArchive, modLayers ? layers : markPuddleWater(layers));   // WATER-PUDDLE: a puddle record's water in its layer's alpha
     }
     renderer.applyGroundSharpness();   // GRAIN AUDIT 1: the ground-sharpness tier lands on THIS load, on every cached archive - the cache outlives the scene
     // GR1: which of this archive's records are GRASS, from its own texels -
@@ -3057,6 +3198,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const lightSize = (record) =>
       billboardSize(light210, record);
     const addFlat = (archive, record, x, y, z) => {
+      [archive, record] = drawnFlat(archive, record);   // NUDE-FLATS: base-anchored, so the stand-in stands where the figure did
       const k = `${archive}_${record}`;
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k).push([x, y, z]);
@@ -3576,7 +3718,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT 26 (F019): the pixel's street StaticNPCs - identity inputs
     // + the billboard extent the activation ray needs, resolved the
     // way the interior host resolves its people's
-    // (interiorContext.js:435-456). FLATS.CFG is awaited because
+    // (interiorContext.js:441-462). FLATS.CFG is awaited because
     // SetLayoutData's exterior overload reads it for the gender
     // (StaticNPC.cs:185-194); loadFlats never throws and is warmed with
     // the scene, so this is a coalesced wait. The list rides the pixel,
@@ -3584,15 +3726,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     await pipeline.loadFlats();
     const pixelNpcs = [];
     for (const flat of pixelNpcFlats) {
-      const t = await getTexture(flat.archive);
-      if (!t || flat.record >= t.recordCount) continue;
-      const size = billboardSize(t, flat.record);
+      // NUDE-FLATS: the picture (and so the box) is the clothed stand-in's
+      // while Show Nudity is off - a coven's witches; the identity stays born.
+      const [drawArchive, drawRecord] = drawnFlat(flat.archive, flat.record);
+      const t = await getTexture(drawArchive);
+      if (!t || drawRecord >= t.recordCount) continue;
+      const size = billboardSize(t, drawRecord);
       const pn = exteriorNpcRecord(flat, pipeline.flatsFile()?.getFlatData(flat.archive, flat.record) ?? null);
       // E3: `active` is the GameObject's own state (the away arm's
       // SetActive(false)) and `questBehaviour` the component
       // SetupIndividualStaticNPC attaches; both are what the interior
       // host's people carry, so the click seam reads one shape.
-      pixelNpcs.push({ ...pn, width: size.w, height: size.h, active: true, questBehaviour: null, host: null });
+      pixelNpcs.push({ ...pn, drawArchive, drawRecord, width: size.w, height: size.h, active: true, questBehaviour: null, host: null });
       // The extent still belongs to the pixel's culling box even though
       // the billboard is batched later (a pixel whose only content near
       // an edge is a street NPC must not cull itself away).
@@ -3837,7 +3982,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const npcGroups = new Map();
     for (const pn of entry.npcs) {
       if (!pn.active) continue;
-      const k = `${pn.textureArchive}_${pn.textureRecord}`;
+      const k = `${pn.drawArchive ?? pn.textureArchive}_${pn.drawRecord ?? pn.textureRecord}`;   // NUDE-FLATS: the picture the build chose
       if (!npcGroups.has(k)) npcGroups.set(k, []);
       npcGroups.get(k).push([pn.x, pn.y, pn.z]);
     }
@@ -4836,6 +4981,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           surfacePlayer();
           questInitAtGameStart();   // Q4-v: OnStartGame for the new character
           autoBuildArms(playerEntity);   // MWA1: the new character's arms - race, sex and face are known now
+          if (realmNew) realmBirth().catch((e) => { console.error('[realm] the birth failed', e); realmLost('server'); });   // REALM P1.3: born online
         },
       }));
     }).catch((e) => console.warn('[chargen] CLASS*.CFG unavailable; the interim entity stands in', e));
@@ -5128,9 +5274,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   csaPeers.setPeerLook((id) => (_hiddenPeers.has(id) ? 'hidden' : (_veils.get(id) ?? null)));   // AUDIT PRE-MERGE 0928 O4: a concealed sailor's boat is concealed with them (the cart pool's I-B law; last frame's word)
   const csaAboard = createComeSailAwayAboard({ peers: csaPeers, geometry: (c) => csaColliderMesh(c), selfId: () => online?.id ?? null });   // CSA-K: another player's boat, stood on and carried by; and the others aboard, seen on the deck
   // CSA-C: THE RUNTIME - the boats placed, kept where they stand and saved (systems/comeSailAway.js). Made as the world
-  // mounts with the mod on ("Takes effect when the game next loads"), and only then does its record ride the save
-  // (OH-D's precedent: a mod DFU did not load writes none). The pool loads every hull's needs at once, so SpawnBoat
-  // runs straight through when the C# calls it.
+  // mounts with the mod on ("Takes effect when the game next loads"); with it off, no runtime, and its record is carried
+  // as the load handed it (AUDIT REALM2 C3 - OH-D's "a mod DFU did not load writes none" lost a realm character's boats
+  // for good). The pool loads every hull's needs at once, so SpawnBoat runs straight through when the C# calls it.
   /** A built pixel as the Terrain the runtime and the ray hand round - one object per pixel, so `==` is Unity's. */
   const _csaTerrains = new WeakMap();
   const csaTerrainOf = (p) => {
@@ -5142,7 +5288,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         mapPixelX: p.px, mapPixelY: p.py,
         get position() { return state.pixelTranslation(p.px, p.py, [0, 0, 0]); },   // the terrain's transform: the pixel's corner, the vertical compensation
         get tileMap() { return p.tilemapBytes ?? null; },   // DaggerfallTerrain.TileMap's `.r`, converted as UpdateTileMapData writes it (terrainGen.js)
-        sampleHeight: (q) => { state.pixelTranslation(p.px, p.py, o); const c = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v)); return surfaceHeightAt(p.samples, c(q[0] - o[0]), c(q[2] - o[2]), p._stride ?? 1); },   // CSA-J (the audit): past the terrain's edge, the edge's height - GetInterpolatedHeight clamps its [0, 1] coordinates, where this sampler went on up the last quad's slope   // Terrain.SampleHeight: the drawn ground over the terrain's own y (DW-D's reading)
+        sampleHeight: (q) => { state.pixelTranslation(p.px, p.py, o); const c = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v)); return terrainSampleHeightAt(p.samples, c(q[0] - o[0]), c(q[2] - o[2]), p._stride ?? 1); },   // CSA-J (the audit): past the terrain's edge, the edge's height - GetInterpolatedHeight clamps its [0, 1] coordinates, where this sampler went on up the last quad's slope   // Terrain.SampleHeight over the terrain's own y - FIELD-CSA2: at Unity's heightmap precision, the flat sea 33.994 under the mod's 34 (the drawn ground's floats read 34.000001: every node on the sea land, no boat sailed)
       };
       _csaTerrains.set(p, t);
     }
@@ -5668,6 +5814,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     playerTicker.subscribe((from, to) => { if (to > from) csaCall(() => csaRuntime.OnNewMagicRound()); });   // CSA-D: EntityEffectBroker.OnNewMagicRound - the cargo weighed again at the helm
     _onWeatherChange = (w) => csaCall(() => csaRuntime.OnWeatherChange(WEATHER_TYPES.indexOf(w)));   // CSA-E: WeatherManager.OnWeatherChange - a new wind
+  } else {
+    // AUDIT REALM2 C3: off, the mod's record is carried whole from the load to every save (the switch is the player's
+    // online, and a realm character's one record lost every boat at an off boot's first checkpoint); M3: and a lent ship
+    // taken back as it loads, before a bank can buy it (comeSailAway.js comeSailAwayCarrier)
+    registerModSaveData(COME_SAIL_AWAY_VENDOR, comeSailAwayCarrier({ ship: { assign: (type) => assignShipToPlayer(playerEntity, SHIP_TYPES[type], { addPermanentScene: shipPermanentScenes }), removePermanentScene: (name) => removePermanentScene(_sceneCache(), name) } }));
   }
   /** CSA-C: the runtime's call, as a MonoBehaviour's: an exception in it is logged and the frame goes on. */
   const csaCall = (fn) => { try { fn(); } catch (e) { console.error('[come-sail-away]', e); } };
@@ -5718,6 +5869,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaBoatYaw = (boat) => { const fw = csaQuatRotate(boat.GameObject.rotation, [0, 0, 1]); return Math.atan2(fw[0], fw[2]); };
   /** CSA-F: StreamingWorld.OnTeleportToCoordinates (Start 1055) - the waves a tenth of a second later. */
   const csaOnTeleport = () => { if (csaRuntime) csaCall(() => csaRuntime.OnTeleportToCoordinates()); };
+  /** FIELD-CSA1 (Julian: "also lost that boat forever after respawning"): A TELEPORT'S NEW FRAME CARRIES THE BOATS.
+   *  `state.init` re-anchors the scene with no recentre offset to ride, and every placed boat kept the old frame's numbers
+   *  - the one just placed at sea stood by the temple its owner woke at, under the ground, and nowhere it was left ever
+   *  again. The frame's own move (`initOffset`: the old origin as the new frame reads it) carries every boat, which is
+   *  then shown or hidden for the new pixel (systems/comeSailAway.js OnWorldReanchored), the peers' eased places and
+   *  the boats' colliders with it, as a recentre carries them; the camps go through natives for the same reason. */
+  function csaReanchor(offset) {
+    if (csaRuntime) csaCall(() => csaRuntime.OnWorldReanchored(offset)); else csa.offsetAll(offset);
+    csaPeers.rebase(offset);
+    csaSyncColliders();
+  }
   /** CSA-F: the waves' pass, and their pictures (InitializeWaveTextures, 1811-1819): the author's two paints and the
    *  snow they key, TEXTURE.303 record 1 of the player's ARENA2 - loaded at boot, as Start has them (CSA-J). */
   const csaRender = csaRuntime ? new ComeSailAwayRenderer(renderer) : null;
@@ -6253,6 +6415,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const cityGuards = createCityGuards({
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects,
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
+    raidHere: () => raidDefendingHere(),   // RAID-GUARDS: a raid on in this town spares its defenders every blow of the player's
     say: (l) => townTalk.say(l),   // C-slice: equipment breaks speak
     currentMinute: () => Math.floor(playerTicker.classicMinutes),   // AUDIT 23 (hosts-3): the poison clock
     currentPixelKey: () => `${playerTravelPixel().x},${playerTravelPixel().y}`,   // TrackLooseObject's stamp - the pile seam's key, one shape
@@ -6562,7 +6725,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const rrRiding = createRrRidingContacts({
     playerEntity,
     feet: () => player.pos, yaw: () => cam.yaw,
-    livePersons: () => _livePersons, foes: () => exteriorFoes.foes, guards: () => cityGuards.guards,
+    livePersons: () => _livePersons, foes: () => exteriorFoes.foes, guards: () => cityGuards.guards.filter((g) => !cityGuards.playerSpares(g)),   // RAID-GUARDS: the charge passes a spared defender by
     isGuardRecord: (f) => f._encounter === undefined && cityGuards.guards.includes(f),
     splashBlood: (pos, fwd) => hitEffects.showBloodSplash(0, pos, fwd, LETHAL_HIT),
     playClip: (clip, volume) => audio.playOneShot(clip, volume),
@@ -6930,10 +7093,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2706 mounts the same one, gated on
+  // and dungeonContext.js:2725 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6364
+  // that context through modes.dungeonCtx - so worldModes.js:6408
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -7019,11 +7182,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:492-497) never looks the record up in `foes`, and
+    // (exteriorFoes.js:495-500) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1525-1543) gives it -
+    // got exactly what removeGuard (cityGuards.js:1543-1561) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
-    // (cityGuards.js:979) and spliced out at the end of it (:1169).
+    // (cityGuards.js:981) and spliced out at the end of it (:1171).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
     // teardown of its own records so the two can diverge safely, and
     // removeFoe's `questBehaviour?.notifyDestroyed()` (exteriorFoes.js
@@ -7080,6 +7243,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  carries its own band. Same law, same retry rule, different
    *  arguments - which is exactly how DFU's call sites differ. */
   const _standEncounterFoe = (hit, feet) => {
+    if ((exteriorFoes.encounterRoom?.() ?? Infinity) <= 0) return null;   // AUDIT OW5b E1: the pool full, spawnFoe's own cap stands nobody - and no journey is stopped for a foe that never comes
     const env = placeFoeEnv({
       collider,
       playerFeet: [feet[0], feet[1] + 0.9, feet[2]],
@@ -7096,10 +7260,20 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     if (!spot) return null;
     const fly = (ENEMY_BASICS[hit.mobileType]?.behaviour ?? 'General') === 'Flying';
-    return exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
+    const stood = exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player
     }).catch(() => null);
+    journeyMet();   // AUDIT OW5b E1: placed beside the traveller - a walking journey stops now, never once the foe has loaded and sensed
+    return stood;
   };
+  /** AUDIT OW5b E1 (Mac, 2026-09-28: "Need to get pullout of fast travel little sooner for encounters. U run thru them"):
+   *  AN ENCOUNTER HAS MET THE TRAVELLER - the wanderer placed beside them, the Overworld's band at its contact - and a
+   *  walking journey hears it NOW, through Travel Options' own enemies stop (systems/travelOptions.js `encounter`: the
+   *  panel's Camp, a cautious traveller's avoid roll, the box), never from the foes' senses frames later: in this port
+   *  those answer after the foe's loads and its real-time classic tick, while the journey's scale carries the traveller
+   *  twenty to a hundred times DFU's ground - through the band, or out of the foes' reach for good. Its answer: null (no
+   *  journey walks), 'ignored' (a won roll's grace), 'avoided' (a won roll: the journey goes on) or 'stopped'. */
+  function journeyMet() { return travelOptions?.encounter?.() ?? null; }
   // CAMP1 - GROUP ENCOUNTERS: one anchor point placed exactly like a
   // single encounter (the same PlaceFoeFreely, from the player's own
   // position and yaw, at the group's own band), then each member placed
@@ -7107,7 +7281,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // `placeFoeEnv` whose "player" is the anchor point and whose yaw is
   // random, so the same ground/occupancy law that places one foe near
   // the player places several near a point, with no new geometry code.
-  let _nextCampId = 1;
+  /** PSCALE1: a group's members, grown with the party it meets - OW6: never past the pool's own bound (a warband of six
+   *  met by a party of eight grew to nine, and the eight-foe pool stood none of it; the widest camp, five and three, is
+   *  exactly the bound, so a camp is as it was). */
+  const campMembers = (types) => partyGroupMembers(types, partySize()).slice(0, MAX_ACTIVE_ENCOUNTER_FOES);
   const _standCampEncounter = (hit, feet) => {
     // CAMP-FAR: the anchor stands a hundred to a hundred and fifty metres
     // out, just outside the view, on the TERRAIN's own floor
@@ -7122,13 +7299,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (anchor && _overDeepWater(anchor.x, anchor.z)) anchor = null;   // AUDIT (pre-merge) P4: never on the carved seabed - a player on the shore rolled land camps 100-150 m out, under the sea
     }
     if (!anchor) return null;   // AUDIT OW3 T7-1: whether it stood (null: nobody) - a band's contact tries another bearing
-    const campId = _nextCampId++;
+    const campId = exteriorFoes.newCampId();   // OW6: the pool's one counter - a camp an heir takes over never shares my number
     let placed = 0;   // AUDIT OW4 B3: stood is a member placed - an anchor whose every member's spot was refused stood nobody
     const anchorFeet = [anchor.x, anchor.y, anchor.z];
     const stands = [];   // BOUNTY1: what was stood, for a caller that counts them (the roll's own callers do not)
-    // PSCALE1: a camp or a pack grows with the party it meets - BOUNTY1: a bounty's pack (`fixed`) is the posting's own
-    // count, never grown: its purse and its tally are the notice's
-    for (const mobileType of (hit.fixed ? hit.mobileTypes : partyGroupMembers(hit.mobileTypes, partySize()))) {
+    // PSCALE1: a camp or a pack grows with the party it meets (OW6: never past the pool's bound) - BOUNTY1: a bounty's
+    // pack (`fixed`) is the posting's own count, never grown: its purse and its tally are the notice's
+    for (const mobileType of (hit.fixed ? hit.mobileTypes : campMembers(hit.mobileTypes))) {
       const memberEnv = placeFoeEnv({
         collider,
         playerFeet: [anchorFeet[0], anchorFeet[1] + 0.9, anchorFeet[2]],
@@ -7156,6 +7333,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       }).then((f) => {
         if (f) {
           f.campId = campId; f.campAlertRadius = hit.alertRadius;
+          f.campKind = hit.kind ?? 'pack';   // OW6: what it is on the Overworld's mark (a camp, a pack, a band stood) - and on the wire
           if (f.ai) f.ai.sightRadius = CAMP_SIGHT_RADIUS;   // CAMP-SIGHT: a camp sees 60 m, not 102.4
           // CAMP2: campEncounters.js groups by THEME (mobileFactions.js),
           // not by the game's own combat Team (enemyBasics.js), so a
@@ -7278,7 +7456,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const band = layout.filter((f) => { const m = dist(f); return m >= 25 && m <= 90; });
     const at = band.length ? band[Math.floor(Math.random() * band.length)] : layout.reduce((a, b) => (dist(b) > dist(a) ? b : a));
     const anchorFeet = [at.ai.feet[0], at.ai.feet[1], at.ai.feet[2]];
-    const campId = _nextCampId++;
+    const campId = exteriorFoes.newCampId();   // OW6 (MERGE 2): the one counter, the pool's - a pack never shares a camp's number
     const stands = [];
     for (let k = 0; k < count; k++) {
       const env = placeFoeEnv({
@@ -8078,6 +8256,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   function playerTravelOrigin() {
     return playerTravelPosition(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel());
   }
+  /** SHIP-PORT (2026-09-28): the MapId the ship laws read as where the player is - PlayerGPS.CurrentLocation's (the
+   *  location of the pixel stood in, `_musicLoc`), unless the player stands on their own ship: then the location it
+   *  was boarded at, the pixel playerTravelOrigin reckons every trip from. Null in open wilderness (the C#'s
+   *  !Loaded). A DECLARATION for the same reason as its neighbour: the dep bag captures it by name. */
+  function travelOriginMapId() {
+    const here = playerTravelPixel(), from = playerTravelOrigin();
+    if (from.x === here.x && from.y === here.y) return _musicLoc?.mapTableData?.mapId ?? null;
+    return locationIndex.get(`${from.x},${from.y}`)?.mapTableData?.mapId ?? null;
+  }
   /** FS1 (2026-08-28) - THE TILE UNDER THE PLAYER, which this host has
    *  wanted since the FS-slice: the footstep block's own comment says
    *  "the path/water tile arms ride the tile-under-player flag", and
@@ -8243,6 +8430,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     cameraRecoiler.reset();
     dwTeleported(performance.now() / 1000);   // DW-D: OnTeleportToCoordinates' grace
     csaOnTeleport();   // CSA-F: OnTeleportToCoordinates - the waves, a tenth of a second on
+    // AUDIT OW5 J2 (the audit before the merge): A JUMP STOPS A ROUTE'S WALK - a fast travel taken from the map mid-journey,
+    // a guild's teleport, a Recall, a respawn, the party's journey to its leader, the staff's /tp. The port's own route
+    // journey (the Overworld's, a party's walk) aims at its current LEG, which a jump leaves behind: it walked on from the
+    // new place straight at the old leg, over the peaks, the view risen over it. Stopped through the panel (the mod's
+    // Camp: its destination kept), the map's Resume plans it again from here (AUDIT OW4 J4). A load keeps nothing to stop,
+    // and a journey of the mod's own (no route) still aims at its destination from wherever it stands, as the mod does
+    if (modEvent !== 'load' && travelOptions?.route && travelOptions.isTravelActive) travelOptions.messages.pauseTravel();
     modes?.abortTransition?.();   // AUDIT 68 X3-transition-build-race: a door build still in flight lands in the world being left - it frees itself instead of publishing
     // A1: a fast travel is where the calendar jumps WEEKS - straighten
     // the season BEFORE the destination pixel builds, or the arrival
@@ -8328,6 +8522,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // reason, rather than because a splice happened to run first.
     doorGeneration += 1;   // WORLD-HOVER: the origin was re-anchored, so every door's WORLD matrix moved with it
     bountyFarms?.destroyAll();   // BOUNTY-FARM: the frame moves under it - it stands again from the bounty, in the new one
+    csaReanchor(state.initOffset);   // FIELD-CSA1: and every placed boat with it
     _streamSince = null;   // PERF-EXT24 (the review): the sweep ended the old world's stream - the new one's two seconds start at its first pump
     const first = queue.shift();
     if (seasonsActive && modEvent === 'travel') await seasons.onPostFastTravel().catch((e) => console.warn('[seasons] travel:', e?.message ?? e));   // SIB1: OnPostFastTravel, off the arrival month (SIB2: the travel popup's arm alone)
@@ -9151,6 +9346,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       // WA1: RaiseOnPreFastTravelEvent (DaggerfallTravelPopUp.cs:328) - after DeductFastTravelGold, before the teleport:
       // Warm Ashes' OnPreFastTravel reads the journey's ocean pixels and the ship toggle
       if (warmAshesOn()) warmAshesPreTravel({ oceanPixels: computed.oceanPixels ?? 0, travelShip: !!opts.travelShip });
+      // performFastTravel (:330-332): "Cache scene first, if fast travelling while on ship" - the deck's piles wait in the
+      // cache for the return, as boarding's own hand-off keeps them (AUDIT 28e: SHIP-PORT opened the passage from the
+      // deck, and this step was never carried, so what lay on the deck went with the torn-down pixel)
+      if (isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel())) cacheExteriorScene(playerTravelPixel());
       // ROAD-Ar (R1): the ARRIVAL minute rides the teleport. RaiseTime
       // is below, exactly where performFastTravel puts it (:344, after
       // TeleportToCoordinates at :333) - so the core is handed the
@@ -9267,7 +9466,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         // sourced - the racial arm off the compound race, the career
         // arm off the class's own CFG bit (the burn read both until
         // VAMP-DAY left it the career's: passiveSpecials.js:126).
-        sunAverse: !!playerEntity.racialOverride?.sunDamage || careerSunDamage(playerEntity.career),
+        // VAMP-HOOD: the racial arm asks the hood (vampirism.js
+        // racialSunAverse), so a hooded vampire lands in the day it
+        // travelled into; the career's arm is its own and stands.
+        sunAverse: racialSunAverse(playerEntity) || careerSunDamage(playerEntity.career),
       });
       if (clamp > 0 && !sharedClockOn()) { setSyntheticTimeIncrease(true); playerTicker.advance(clamp); }   // AUDIT 63 F13: the arrival clamp is inside DFU's one shielded Update too
       _lastEncMinutes = Math.floor(playerTicker.classicMinutes);   // X-slice: PreventEnemySpawns parity - no spawn catch-up for the traveled window
@@ -9341,10 +9543,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** Save(name, saveName) over the host's own envelope; F9 is the
    *  QuickSave name (QuickSave() = Save(Name, quickSaveName)) and the
    *  slot window's saveAs passes the typed one. */
-  function worldQuickSave(saveName = QUICK_SAVE_NAME) {
+  function worldQuickSave(saveName = QUICK_SAVE_NAME, { quiet = false, sink = null } = {}) {   // REALM P0.5: a quiet checkpoint takes no shot and says only a failure; P1.3: a realm character's goes to the service
     // AUDIT OH-F B4: never a save inside the descent (one frame in DFU): it would write the swimmer on the template's
-    // land with the mod's record not yet Active
-    if (ohAbyss?.entering) { townTalk.say('You cannot save now.'); return false; }   // cannotSaveNow (Internal_Strings)
+    // land with the mod's record not yet Active. AUDIT REALM2 M5: said to a save pressed, never to the quiet checkpoint
+    if (ohAbyss?.entering) { if (!quiet) townTalk.say('You cannot save now.'); return false; }   // cannotSaveNow (Internal_Strings)
     const pf = walkMode && playerSpawned ? player.pos : cam.pos;
     const wc = state.worldCoords(pf);
     // IS1 (AUDIT 26 F221): the inside-building half (SerializablePlayer
@@ -9373,7 +9575,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7391), so exterior mode and a
+    // composer, dungeonContext.js:7449), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -9430,13 +9632,15 @@ export async function bootWorld(canvas, renderer, params, status) {
         guards: cityGuards.snapshotWorld((pos) => state.worldCoords(pos)).map((sg) => ({ ...sg, y: sg.y - state.compensation[1] })),
       },
     });
+    const into = sink ?? realmSaveSink();   // REALM P1.3: a realm character's save is the service's checkpoint, never a local slot
+    if (into) { const said = into(snap); if (!quiet) sayRealmSave(said, (t) => townTalk.say(t)); return true; }   // AUDIT REALM2 C2: the realm's answer, not a hope
     const r = saveSlot(playerEntity.name, saveName, snap);
     // SS1: the shot is DEFERRED to frame end (SaveGame's two
     // WaitForEndOfFrame yields) - the frame loop's
     // capturePendingScreenshot delivers it once the save window has
     // popped, HUD in shot exactly as the C# leaves it.
-    if (r.ok) requestScreenshot(r.key);
-    townTalk.say(r.ok ? 'Game saved.' : 'Save failed (storage full or disabled).');
+    if (r.ok && !quiet) requestScreenshot(r.key);
+    if (!r.ok || !quiet) townTalk.say(r.ok ? 'Game saved.' : 'Save failed (storage full or disabled).');
     return r.ok;
   }
   /** AUDIT 63r F24, the EXTERIOR half of SerializableEnemy.cs
@@ -9705,7 +9909,26 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
   }
   /** The ONE pose-apply (quickload + the classic import share it). */
+  /** AUDIT OW5b D4: THE OVERWORLD FORGETS THE ABANDONED RUN ON EVERY LOAD - its chases, the crossing's hand on the helm,
+   *  its lists, the view itself, the spawns it was told of. They sat in applyPose past `if (!pose) return;`, so a save
+   *  without a pose (an older envelope) loaded with the last run's chases still running, its rudder held, its "?"s. */
+  function overworldLoadReset() {
+    tvRaid.chase.clear(); tvRaid.spent.clear(); tvRaid.list = []; tvRaid.at = -Infinity; tvRaid.peer.clear(); tvRaid.spentAt.length = 0;   // OWS3: no chase across a load; OW6: nor what the peers said, nor what I was saying
+    csaJourneyHelm.held.clear(); csaJourneyHelm.row = false; tvSea.means = null; tvSea.phase = null; tvSea.boat = null; tvSea.wasLive = false;   // AUDIT OWS A1: nor a crossing's hand on the helm - a load into a dungeon's boat kept its rudder held
+    tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4: the loaded character's discoveries - never the plates the last one knew
+    tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places
+    tvDng = { at: null, dg: -1, list: [] };   // TV6: nor the dungeons
+    tvFind = { at: null, dg: -1, n: -1, list: [] };   // AUDIT OW5 D1: nor the find's
+    tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear(); _bandPeer.clear(); _bandSpentAt.length = 0;   // TV7: nor the bands
+    travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
+    _owSay.sp.clear(); _owSay.dg.clear();   // OW6L: nor what the abandoned run still owed its cell (the loaded ledger is the save's)
+    // AUDIT OW4 D3: NOR THE SPAWNS THE ABANDONED RUN WAS TOLD OF - the Overworld marks a spawn once its pixel's line was
+    // said (tvSpawnKnown), and that set outlived every load: another save's character saw "?"s where the last one had
+    // walked. The loaded character's own are in the store its save restored (the same crossing files them, syncTopics).
+    _announcedSpawnPixels.clear();
+  }
   function applyPose(pose) {
+    overworldLoadReset();   // AUDIT OW5b D4: a load without a pose is a load all the same
     if (!pose) return;
     // AUDIT ONCRASH1 B5d: A SAVE IS A DOOR TOO. ONCRASH1's commit said the angle defect was "not reachable offline";
     // it was, through this line. A quickload or a classic import carrying a non-numeric or absurd `yaw` wrote it
@@ -9744,18 +9967,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // togglePOV when the live view differs). A pose without one (an
     // older save, the classic import - a Daggerfall .SAV carries no
     // Morrowind camera) leaves the live camera standing.
-    tvRaid.chase.clear(); tvRaid.spent.clear(); tvRaid.list = []; tvRaid.at = -Infinity;   // OWS3: no chase across a load
-    csaJourneyHelm.held.clear(); csaJourneyHelm.row = false; tvSea.means = null; tvSea.phase = null; tvSea.boat = null; tvSea.wasLive = false;   // AUDIT OWS A1: nor a crossing's hand on the helm - a load into a dungeon's boat kept its rudder held
-    tvPlates = { at: null, list: [] };   // AUDIT DEEP T2-4: the loaded character's discoveries - never the plates the last one knew
-    tvFar = { at: null, near: -1, list: [] };   // TV5: nor the far places
-    tvDng = { at: null, dg: -1, list: [] };   // TV6: nor the dungeons
-    tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear(); _bandPeer.clear(); _bandSpentAt.length = 0;   // TV7: nor the bands
-    travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
     mwViewLoadPose(pose.camera, (modes?.mode ?? 'exterior') !== 'exterior');   // AUDIT-EOTB2: both lanes - the Morrowind restore above, and the sprite camera's OnLoad (EOTB-IL: with PlayerEnterExit.IsPlayerInside)
-    // AUDIT OW4 D3: NOR THE SPAWNS THE ABANDONED RUN WAS TOLD OF - the Overworld marks a spawn once its pixel's line was
-    // said (tvSpawnKnown), and that set outlived every load: another save's character saw "?"s where the last one had
-    // walked. The loaded character's own are in the store its save restored (the same crossing files them, syncTopics).
-    _announcedSpawnPixels.clear();
   }
   /**
    * SAV3: the classic-save import arm - StartFromClassicSave's game
@@ -9931,8 +10143,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // V2b: CheckFastTravel at the map's own door, where DFU calls it
     // (DaggerfallUI.cs:625) - a sun-damaged override cannot fast
     // travel by day, and the refusal is the override's own line.
+    // VAMP-HOOD: a bare-headed one - a raised hood opens the door
+    // (vampirism.js racialSunAverse), and the refusal says so after
+    // DFU's line. Online `nowMin` is the shared clock's, whose day is
+    // one real hour no rest or trip can shorten.
     const ftb = racialFastTravelBlock(playerEntity, nowMin);
-    if (ftb) { townTalk.say(ftb.text); return; }
+    if (ftb) { townTalk.say(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return; }
     // TO1: the fork. `playerControlled` is the popup's own word for a
     // trip its three toggles say is WALKED (ui/travelPopUp.js
     // callFastTravelGoldCheck); everything else is DFU's fast travel.
@@ -9943,8 +10159,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (partyTravel?.propose(pick, opts, computed)) { hudFade.clearFade(); return; }   // PARTY-TRAVEL: "...the option for party members to ready up and travel together" - the leader's Begin with the party gathered asks them first (a walked trip is never a round: the session says no to it)
       if (opts?.playerControlled && beginAcceleratedTravel(pick, opts, { estimateMinutes: computed?.minutes ?? null })) return;   // AUDIT-TO1 L5: the popup's estimate rides along for the panel's ETA
       // AUDIT OW3 J2: a walked trip the OVERWORLD refused (no way by land, the peaks, the water, foes near) is refused -
-      // said, and done. It fell through to the fast travel below: a paid teleport straight past the mountain rule
-      if (opts?.playerControlled && tvOwnsJourneys()) return;
+      // said, and done. It fell through to the fast travel below: a paid teleport straight past the mountain rule.
+      // TO-ROADS: a first-person route's refusal the same - never the straight walk, never the teleport
+      if (opts?.playerControlled && tvRoutesJourneys()) return;
       fastTravelTo(pick, opts, computed);
     } });
     if (!_travelMap) { townTalk.say('(the travel map art is unavailable)'); return; }
@@ -10061,7 +10278,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     localizedLocationName: (summary) => summary?.name ?? '',
     locationTypeName: () => travelLocationTypeName(_musicLocationType()),
     climateIndex: () => { const px = playerTravelPixel(); return maps.getClimateIndex(px.x, px.y); },
-    atSea: () => !!csaBoatUnderMe() || tvSea.phase === 'landing',   // OWS2: at a helm or aboard - or coming ashore, the mod's disembark holding the traveller at the helm a second - the mod's ocean stop is for a traveller who walked into it
+    atSea: () => !!tvSea.means && (!!csaBoatUnderMe() || tvSea.phase === 'landing'),   // AUDIT OW5 S1: the CROSSING's alone - a journey of the mod's own begun at a helm (a map pick under First Person Travel, or the classic skin's) was never steered by it, and with the ocean stop stood down the boat ran on at the journey's speed and never arrived; the mod's stop ends it now, as the mod does. OWS2: at a helm or aboard - or coming ashore, the mod's disembark holding the traveller at the helm a second - the mod's ocean stop is for a traveller who walked into it
     regionName: () => maps.getRegionName(_questRegionIndex()),
     entity: () => ({
       health: playerEntity.health, maxHealth: playerEntity.maxHealth, fatigue: playerEntity.fatigue,
@@ -10164,27 +10381,58 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  beginAcceleratedTravel's, which has no online stand-down, so neither does this. */
   function travelFollowPressed() { return pressed(latch.edge, keys, 'FollowPaths'); }
 
+  /** AUDIT OW5 G2 (the audit before the merge): THE OVERWORLD'S OWN LINES OUTLAST ITS CLOCK. A HUD line counts down in
+   *  game time (CSA-G: PopupText's Time.deltaTime), so at a journey's x10 "You have found X." (five seconds) was up for
+   *  half of one and a refusal for a fifth - gone before it was read. Held the time asked, at the scale it is said at.
+   *  Declared, not a const: the map's doors say through it from closures (BOOT-TDZ). */
+  function tvSay(line, seconds = HUD_TEXT_POP_DELAY) { townTalk.say(line, seconds * Math.max(1, worldTimeScale())); }
   /** OW-ONLY: whether a walked trip is the OVERWORLD's (the enhanced interface, Travel Options on) - its refusal then is
-   *  the answer, never the classic ground journey's nor DFU's fast travel (AUDIT OW3 J2: one question, both doors).
+   *  the answer, never the classic ground journey's nor DFU's fast travel (AUDIT OW3 J2: one question, both doors; since
+   *  TO-ROADS a first-person route refuses so too, and the doors ask tvRoutesJourneys, below).
+   *  OW-TOGGLE (2026-09-28, Mac: "bring back the original travel option as a toggle. Off by default."): never while
+   *  First-Person Travel is on (the port's own key on the mod's pane) - the journey is then the mod's own, on the ground,
+   *  as before OW-ONLY (TO-ROADS: or, with its roads on, the Overworld's route walked there), and the view neither rises
+   *  with it (tvJourneyUp) nor stops it (the view's onLower), nor holds its clock at x1 (travelViewGovern), all asking
+   *  this. AUDIT OW5 T1: read LIVE, so a flip takes effect at once - read with the mod's settings at boot, it waited for
+   *  the page to load again (a save loaded in play kept the old answer).
    *  Declared, not a const: the map's doors ask it from closures (BOOT-TDZ). */
-  function tvOwnsJourneys() { return !!travelOptions && isEnhanced() && !!travelView; }
+  function tvOwnsJourneys() { return !!travelOptions && !modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravel') && isEnhanced() && !!travelView; }
+  /** TO-ROADS (FIELD BUGS 2026-09-29d, SylviaBun on the Discord: "Travel Options First Person doesn't follow roads like
+   *  Overworld Travel Options does"): whether a walked trip picked on the map is ROUTED - the Overworld's own planner and
+   *  leg walker (travelViewRouteTo / travelViewWalkTo, the one construction: no second planner), with its gates, its
+   *  refusals said and done (never the straight walk, never DFU's fast travel) and its party walk (TV8). The Overworld's
+   *  journeys always are (tvOwnsJourneys); First-Person Travel's are while its roads key is on (the port's own, OFF, read
+   *  live) - walked in first person with the view left down, because the view's own doors (tvJourneyUp, the view's
+   *  onLower, travelViewGovern) ask tvOwnsJourneys and never this. The classic skin keeps Travel Options exactly. THE FOUR
+   *  HOSTS: this one alone, as TO1's seam is (its record, above the mod's construction, names the other three). Declared,
+   *  not a const: the map's doors ask it from closures (BOOT-TDZ). */
+  function tvRoutesJourneys() { return tvOwnsJourneys() || (!!travelOptions && !!modSetting(TRAVEL_OPTIONS_VENDOR, 'GeneralOptions.FirstPersonTravelFollowsRoads') && isEnhanced() && !!travelView); }
+  /** TO-ROADS x OW-PATH: a journey the MAP routes for First-Person Travel (its roads key on) goes by the ROADS whatever the
+   *  Overworld's Path switch says - the key is named for them, and the switch stands on the Overworld's bar, which such a
+   *  journey never raises. The Overworld's own clicks, plates and walks keep the switch (travelPathUsesRoads). Declared,
+   *  not a const: the map's doors ask it from closures (BOOT-TDZ). */
+  function tvMapForcesRoads() { return !tvOwnsJourneys() && tvRoutesJourneys(); }
   /** AUDIT OW4 J4: THE MAP'S RESUME, on the enhanced interface, is the journey PLANNED AGAIN from where the traveller
    *  stands - a place by the roads round the peaks (travelViewRouteTo, as the Overworld's own 'dest' plate takes it up),
    *  a spot walked to again (travelViewWalkTo) - refused, in the view's words, where the view may not rise. The mod's
    *  resume (travelOptions.js resumeRoute) walks STRAIGHT from wherever the traveller is to the next leg, asking neither
    *  the peaks nor the sea: after Return and a walk by hand, a fight or a respawn it headed over the mountains. The
-   *  classic skin, and a journey of the mod's own (no route), keep the mod's resume. */
+   *  classic skin, and a journey of the mod's own (no route), keep the mod's resume. AUDIT OW5 J1: the re-plan is the
+   *  ROUTE's, whoever owns the journey - under First Person Travel a route the Overworld planned (a click in the view
+   *  raised by hand, a party's walk) walked straight over the peaks again; a map pick under the switch has no route, but
+   *  with its roads on (TO-ROADS), and then it is this one's too. */
   function travelViewResume() {
     const r = travelOptions?.route;
-    if (!tvOwnsJourneys() || !r) { travelOptions?.resumeTravel(); return; }
+    if (!r || !isEnhanced() || !travelView) { travelOptions?.resumeTravel(); return; }
     const why = travelViewAllowed();
-    if (!why.ok) { if (why.why) townTalk.say(why.why); return; }
+    if (!why.ok) { if (why.why) tvSay(why.why); return; }
     if (!travelViewCanGo()) return;
-    if (r.summary) travelViewRouteTo(r.summary);
-    else if (r.point) {
-      const there = locationIndex.get(`${r.point.pixel.x},${r.point.pixel.y}`);   // AUDIT OW4 X2: a spawn's walk resumed is its door again (never refused for the peaks)
-      travelViewWalkTo(tvSceneOf(r.point.x, r.point.z, 0), r.point.pixel, { door: there ? locationWorldRect(there, r.point.pixel.x, r.point.pixel.y) : null });
-    }
+    const roads = tvMapForcesRoads();   // TO-ROADS x OW-PATH: the map's Resume of a first-person route is by the roads
+    if (r.summary) travelViewRouteTo(r.summary, { roads });
+    // AUDIT OW4 X2: a spawn's walk resumed is its door again (never refused for the peaks). AUDIT OW5b D3: THE WALK'S OWN
+    // DOOR - read off the live index, a far found spawn's walk (its pixel never built) resumed as a spot ("the mountains
+    // cannot be crossed"), and a spot clicked on a place's pixel resumed as that place's door
+    else if (r.point) travelViewWalkTo(tvSceneOf(r.point.x, r.point.z, 0), r.point.pixel, { door: r.point.door ?? null, roads });
   }
   /** TO1: THE OTHER ARRIVAL. `fastTravelTo` is DFU's - gold, a
    *  teleport, a clock advanced by the estimate, a fade. This is the
@@ -10223,22 +10471,23 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!travelOptions) return false;
     // OW-ONLY (2026-09-28, Mac: "Remove the ground travel alltogether. Now selecting a location should immediately
     // transition you to the overworld"): on the enhanced interface a picked place is the Overworld's own journey - by the
-    // roads, round the peaks - and the view rises the moment the map is down (tvJourneyUp); a picked spot the same
-    if (tvOwnsJourneys()) {
+    // roads, round the peaks - and the view rises the moment the map is down (tvJourneyUp); a picked spot the same.
+    // TO-ROADS: and First-Person Travel's with its roads on - the same journey, the view left down
+    if (tvRoutesJourneys()) {
       const why = travelViewAllowed();
-      if (!why.ok) { if (why.why) townTalk.say(why.why); return false; }
+      if (!why.ok) { if (why.why) tvSay(why.why); return false; }
       if (!travelViewCanGo()) return false;
       if (!coords) {
         const summary = tvPlaceSummary(pick.pixel.x, pick.pixel.y);
-        return summary ? travelViewRouteTo(summary) : false;
+        return summary ? travelViewRouteTo(summary, { roads: tvMapForcesRoads() }) : false;   // TO-ROADS x OW-PATH
       }
       const o = mapPixelToWorldCoords(pick.pixel.x, pick.pixel.y);
       const at = tvSceneOf(o.x + 16384, o.z + 16384, 0);
       // AUDIT OW3 J7: THE WATER, refused as the view's own click refuses it (its words) - the pixel's byte (the planner's
       // own sea, which it never asks of the goal) or the spot under the sea's surface. A coordinate pick on the sea walked
       // the traveller out into it
-      if (tvWater(pick.pixel.x, pick.pixel.y) || at[1] <= tvSeaY() + TV_SEA_EPS_M) { townTalk.say(TRAVEL_VIEW_TEXT.water); return false; }
-      return travelViewWalkTo(at, pick.pixel);
+      if (tvWater(pick.pixel.x, pick.pixel.y) || at[1] <= tvSeaY() + TV_SEA_EPS_M) { tvSay(TRAVEL_VIEW_TEXT.water); return false; }
+      return travelViewWalkTo(at, pick.pixel, { roads: tvMapForcesRoads() });
     }
     if (coords) travelOptions.beginTravelToCoords(pick.pixel, !!opts?.speedCautious);
     else {
@@ -10310,7 +10559,16 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AUDIT-TO1 D1: PlayerGPS.CurrentLocation's MapId (null in open
       // wilderness, the C#'s !Loaded) and TransportManager.IsOnShip - the
       // two reads IsNotAtPort / HasNoOceanTravel need and never had.
-      currentLocationMapId: () => _musicLoc?.mapTableData?.mapId ?? null,
+      // SHIP-PORT (2026-09-28, Discord: "a player is at a port but unable
+      // to set sail"): ON THE SHIP, the port it was boarded at. The deck is
+      // "Your Ship" (2,2 or 5,5), in neither port list, so the passage was
+      // refused from the deck ("since there's no port") while every trip
+      // from it is reckoned from the boarding pixel - and By land walked
+      // out onto the sea into the mod's ocean stop ("maybe you should
+      // travel on a ship"). The mod reads PlayerGPS.CurrentLocation and
+      // meets the same dead end; its own HasNoOceanTravel names IsOnShip,
+      // the passage from the deck it meant (DEPARTURE, Travel-Options.md).
+      currentLocationMapId: () => travelOriginMapId(),
       isOnShip: () => isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel()),
     };
   }
@@ -10364,7 +10622,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // TO1: the mod itself rides travelFareDeps (above); the reads its additions to this window need follow.
       // AUDIT-TO1 I4: ...and the door ACTS on the refusal it can still get
       // (the popup was minted before the online state could change).
-      onTravelToCoords: (pick, opts) => { if (!beginAcceleratedTravel(pick, opts, { coords: true }) && !tvOwnsJourneys()) townTalk.say('You cannot travel there now.'); },   // AUDIT OW3 J2: the Overworld said its own refusal
+      onTravelToCoords: (pick, opts) => { if (!beginAcceleratedTravel(pick, opts, { coords: true }) && !tvRoutesJourneys()) townTalk.say('You cannot travel there now.'); },   // AUDIT OW3 J2: the Overworld said its own refusal (TO-ROADS: a first-person route's too)
       onResumeTravel: () => { travelViewResume(); },   // AUDIT OW4 J4: the Overworld's journey planned again from where the traveller stands
       onForgetTravel: () => { travelOptions?.clearTravelDestination(); },   // RESUME-OUT: the held map's Forget it - the journey ended, asked no more
       // AUDIT-TO1 H1: the map's H boxes the help in the WINDOW'S OWN box
@@ -10959,7 +11217,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // `socialInteract`, so in a tavern or a dungeon - where two players meet as often as in a street - F did nothing
       // at all. It answers here, above the mode gate and under the same overlay and window gates the F-menu opens by
       // (socialMenuCanOpen): the door itself says false on a page with no account, and the ladder falls through.
-      if (!townTalk.overlayActive && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }
+      if (!townTalk.overlayActive && !travelView?.active && act === 'SocialInteract' && socialMenuCanOpen() && socialInteract()) { e.preventDefault(); return true; }   // AUDIT OW5 V2: nor F on a body in front of the hidden head
       // PROF1/PROF2: Escape ends a gathering act, nothing lost - above the mode gate, so a dungeon vein's act ends as a
       // patch's does (the dungeon's own key context would open its pause); the pause waits for the next press
       if (!townTalk.overlayActive && act === 'Escape' && gatherHost?.cancel()) { e.preventDefault(); e.profActEnded = true; return true; }   // AUDIT 29 D1: marked, so the mode machine's own listener does not pause on it
@@ -10976,7 +11234,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // (`_tapArmed`, the same latch the touch tap uses), because the key
       // is known here and only the FRAME has the ray, the pick and the
       // pools that own the container.
-      if (!townTalk.overlayActive && socialMenuCanOpen() && quickLootArm(act)) { _tapArmed = 2; e.preventDefault(); return true; }
+      if (!townTalk.overlayActive && !travelView?.active && socialMenuCanOpen() && quickLootArm(act)) { _tapArmed = 2; e.preventDefault(); return true; }   // AUDIT OW5 V2: nor the loot keys' activation
       // QS2: THE SAME PLACE, FOR THE SAME REASON. A quickslot is worth more in a
       // dungeon than it is on a road, so these three answered above the mode gate
       // too - under the same overlay and pause gates (socialMenuCanOpen is
@@ -11149,7 +11407,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT 58 (f3/input) - THE ONE READER. This host builds the mode
   // machine unconditionally, and that machine used to register a
   // SECOND bindCursorToggle over the same module-global flag
-  // (player/pointerLock.js:89-286), so ONE Enter flipped it twice and
+  // (player/pointerLock.js:89-303), so ONE Enter flipped it twice and
   // `cursorActive()` could never rise here at all - the large HUD's
   // eleven panels were unreachable by mouse in this host, and the
   // second flip fired a releaseLook/requestLook pair inside one event.
@@ -11299,9 +11557,79 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT DUEL1 D5 + B4: a duel in play ends here as `left` (the opponent is told now, not after DUEL_GONE_MS) and its
     // heal runs now - the exit autosave below must not keep a duel's 1 health or its opponent's spells
     try { duelLeaveNow(); } catch { /* no duel was built: nothing to end */ }
+    // REALM P1.3: a realm character writes no local slot. AUDIT REALM2 C2: nor gives its lease up here - this comes before
+    // the unload guard's "Leave site?" is answered, and a Stay played on in a session already left (every checkpoint
+    // refused, F9 saying "saved"); the leave is the page's going (pagehide, whenPageGoes below)
+    if (realmSession) return;   // the realm's: no slot
     const save = (saveName) => (modes ? modes?.quickSaveNow(saveName) : worldQuickSave(saveName));   // `?.` even inside the ternary: audit24 wave37's gate above the declaration is all-or-nothing
     for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })) save(saveName);
   });
+  /** REALM P0.5 (systems/onlineCheckpoint.js): THE CHARACTER SAVED AS IT PLAYS ONLINE - every slot the exit save above
+   *  writes, quietly (no "Game saved.", no shot), every ONLINE_CHECKPOINT_MS (onlineFrame) and at each change a trade
+   *  makes to the pack (checkpointedTradePack). Refused where the exit save is, and while a duel is in play. Answers
+   *  whether it wrote. */
+  let _checkpointAt = -Infinity;
+  const onlineCheckpoint = () => {
+    if (!checkpointAllowed({ online: !!online, spawned: playerSpawned, seatOut: seatOut(), duel: !!duelMgr?.duel })) return false;
+    _checkpointAt = performance.now();
+    try {
+      // REALM P1.3: a realm character's checkpoint is ONE, the service's - the composer's sink sends it, no slot is written
+      if (realmSession) return realmCheckpoint();
+      const names = exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() });
+      for (const saveName of names) {
+        if (modes) modes?.quickSaveNow(saveName, { quiet: true });   // `?.` inside the test: audit24 wave37's gate above the declaration is all-or-nothing
+        else worldQuickSave(saveName, { quiet: true });
+      }
+      return names.length > 0;
+    } catch (e) { console.error('[online] checkpoint failed', e); return false; }   // never the frame's end: the next is due in two minutes
+  };
+  /** REALM P1.3: THE REALM'S CHECKPOINT - the character composed by the standing host and handed to the session by the
+   *  composer's sink. Refused as the exit save is on the death screen: a dead character is never the realm's save. */
+  function realmCheckpoint() {
+    if (!realmSession || realmSession.lost) return false;
+    if (townTalk.overlay instanceof DeathScreen || modes?.deathUp?.() || !(playerEntity.health > 0)) return false;
+    // AUDIT REALM2 M5: the composer's own answer - a save it refused (the court, the Ocean Holes descent) is no checkpoint,
+    // and a trade's hold (realmTradeEscrow's `=== false`) must not begin over the older record the service holds
+    return !!(modes ? modes?.quickSaveNow(QUICK_SAVE_NAME, { quiet: true }) : worldQuickSave(QUICK_SAVE_NAME, { quiet: true }));   // `?.` even inside the ternary: audit24 wave37's gate above the declaration is all-or-nothing
+  }
+  /** REALM P1.3: THE CHARACTER IS NO LONGER THIS TAB'S (another tab or device joined it, it was deleted, the account
+   *  signed out): to the door, with the reason - a realm character never plays on offline. */
+  function realmLost(why) {
+    setRealmNotice(globalThis.sessionStorage, realmRefusalText(why));
+    exitToTitleMenu();
+  }
+  if (realmSession) {
+    // the door the game opens - the pause menu's Exit, the death's: the last checkpoint and the leave, then the menu
+    // (five seconds at most: the loop is already claimed, and a hung network must not hold the door shut). AUDIT REALM2
+    // C7: a duel ended first and P0.5's gate passed, as the page's end and the seat's - realmCheckpoint straight wrote a
+    // character that left mid-duel at the duel's 1 health, the opponent's spells on it
+    setBeforeTitleExit(async () => { if (!realmSession.lost) { try { duelLeaveNow(); } catch { /* no duel was built: nothing to end */ } onlineCheckpoint(); await Promise.race([realmSession.leave(), new Promise((r) => { setTimeout(r, REALM_EXIT_WAIT_MS); })]); } });
+    // a tab put away (a phone's home button, another tab) is checkpointed while the page still can be
+    whenPageHides(globalThis.document, () => { if (online) onlineCheckpoint(); });
+    // AUDIT REALM2 C2: the lease given up as the page GOES (pagehide, the unload guard answered) - the leave alone, with
+    // keepalive (the browser finishes it; a save that large it cannot, so the two-minute checkpoints bound what a close
+    // costs) - and taken again when a page the back-forward cache kept is shown
+    whenPageGoes(globalThis, () => { realmSession.leave({ keepalive: true }); }, () => { realmSession.rejoin(); });
+  }
+  /** REALM P1.3: A CHARACTER BORN ONLINE - made at the service once chargen is done, its first save the service's
+   *  checkpoint at sequence 1, and then the one online boot there is, from the service. Any refusal goes to the door. */
+  async function realmBirth() {
+    const io = realmIoNow();
+    if (!io) { realmLost('signed-out'); return; }
+    for (let i = 0; !playerSpawned && i < 240; i++) await new Promise((r) => { setTimeout(r, 250); });   // the world stands before it is saved
+    const made = await realmCreate(io, playerEntity.name || 'Traveller', realmSummaryOf(playerEntity));
+    if (!made.ok) { realmLost(made.error); return; }
+    playerEntity.characterId = made.data.id;   // the realm's id, never the client's
+    let text = null;
+    const sink = (snap) => { text = JSON.stringify(snap); };
+    if (modes) modes?.quickSaveNow(QUICK_SAVE_NAME, { quiet: true, sink });
+    else worldQuickSave(QUICK_SAVE_NAME, { quiet: true, sink });
+    if (!text) { realmLost('server'); return; }
+    const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(playerEntity) }, text);
+    if (!put.ok) { realmLost(put.error); return; }
+    releaseUnloadGuard();
+    location.replace(`${location.pathname}${realmBootSearch(location.search, made.data.id, BOOT_DOOR_KEYS)}`);
+  }
 
   addEventListener('mousemove', (e) => {
     // U37: a window frees the mouse, so an open overlay gets the
@@ -11331,7 +11659,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     lookFilter.add(e.movementX * lookScale(), -e.movementY * lookScale() * lookInvert());
   });
   // U41: `!townTalk.overlayActive` is the dungeon host's own gate
-  // (dungeon.js:243, "a right-click on a window is the window's...
+  // (dungeon.js:244, "a right-click on a window is the window's...
   // never a swing"), which these two hosts never got. It matters now
   // that the travel map makes RMB a ROUTINE gesture - its zoom - and
   // an ungated one fires a readied spell or looses an arrow at the
@@ -11343,6 +11671,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // un-draw (Mouse0) could never read true. mouseCode owns the
   // Unity/DOM middle-button crossover; the RELEASE is unconditional.
   addEventListener('mousedown', (e) => { if (isSwingButton(e.button)) rightHeld = true; const mc = mouseCode(e.button); if (mc) { keys.add(mc); noteKeyDown(latch.edge, mc); } if (isSwingButton(e.button) && !townTalk.overlayActive && walkMode && modeNow() === 'exterior') { if (gatherHost?.acting()) return; if (magic.interceptAttack(true)) return; weaponRig.attackInput(0, 0, true); } });   // PROF1: an act's press is the act's   // M2; FIX-F: the swing's button is the registry's (Mouse1 -> SwingWeapon by default)
+  // VIEW-TOGGLE (from VOICE1, which is reverted): the mouse's side buttons are the bindings' in the world - never the browser's Back/Forward
+  for (const kind of ['mousedown', 'mouseup']) addEventListener(kind, (e) => { if (e.button === 3 || e.button === 4) e.preventDefault(); });
   addEventListener('mouseup', (e) => { if (isSwingButton(e.button)) rightHeld = false; const mc = mouseCode(e.button); if (mc) { keys.delete(mc); noteKeyUp(latch.edge, mc); } if (isSwingButton(e.button) && walkMode && modeNow() === 'exterior') weaponRig.attackInput(0, 0, false); });   // the RELEASE is never gated - a window opened mid-swing must still let go
   const inputHooks = {   // GP1: one hooks object for the finger AND the pad   // mobile: stick synthesizes WASD; the right half is classified (TI1)
     look: (dx, dy) => {
@@ -11827,7 +12157,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9799-9863 -
+  // worldModes answers it in BOTH modes (worldModes.js:9855-9919 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -12946,6 +13276,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // ReligionTemple) - and which never tested `mustBeOutside` at all,
     // so "in town, outdoors" was true while standing in a shop.
     isPlayerInTown: () => _isPlayerInTownStrict(),
+    partySize: () => social?.party?.members?.length ?? 1,   // REALM P0.4: a shared quest's gold is paid in the party's shares (online; offline no party)
     getGuild: (fid) => {
       const dict = townTalk.factionDict ?? null;
       const g = guildOfFaction(fid, resolveVariantGuild(dict), dict);
@@ -13139,7 +13470,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // This host alone: the fixed city (exterior.js) is a dev route the
   // front door never boots, and its interior frame and town room
   // disagreed with this one's (AUDIT ONLINE D6/D8).
-  const onlineOn = params.has('online');
+  const onlineOn = params.has('online') && !realmNew;   // REALM P1.3: a character being born online joins no relay until the realm holds it
   // ECON1 / AUDIT ALL E1: the world's price walk is tilted by the game's own BASE faction powers (FACTION.TXT, the talk
   // host's file dict - never the player's store, which quests move) once the file is read; a modded file desyncs the
   // shared economy (recorded). Offline nothing is installed and the player's own tilted walk runs.
@@ -13337,9 +13668,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     const csaMoved = cell && csaWord(null, full);   // AUDIT PRE-MERGE 0928 O2: my boats' moved word asks for a frame, as the team's does - a quiet sea built none, and a sailing boat rode the full frames alone
     const csaAboardMoved = cell && csaAboardWord(null, full);   // CSA-K: and my place aboard another's boat, as it moves on their deck
     const bandMoved = cell && bandWord(null, full);   // TV7b: a chase moves every frame, and asks for one
-    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved || bandMoved) : null) : modes?.dungeonFoesFrame?.(full);
+    const seaRaidMoved = cell && seaRaidWord(null, full);   // OW6: and a raider's at sea
+    const frame = cell ? ((modes?.mode ?? 'exterior') === 'exterior' ? exteriorFoes.foesFrame(full, _hccDirty || csaMoved || csaAboardMoved || bandMoved || seaRaidMoved) : null) : modes?.dungeonFoesFrame?.(full);
     if (!frame) return false;
-    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full); if (cell) csaAboardWord(frame, full); if (cell) bandWord(frame, full); if (cell) { const rk = raidWireWord(); if (rk) frame.rk = rk; }   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way; RAID2: my word on the raids I run or fought - my share of their deaths, and my claim
+    if (cell && full) frame.c = camps.wireRecords(campToWire); if (cell && (full || _hccDirty)) { frame.hv = hcc.wireRecord(campToWire); _hccDirty = false; } if (cell) duelRingWord(frame, full); if (cell) csaWord(frame, full); if (cell) csaAboardWord(frame, full); if (cell) bandWord(frame, full); if (cell) seaRaidWord(frame, full); if (cell) { const rk = raidWireWord(); if (rk) frame.rk = rk; }   // HCC-ONLINE: my horse and wagon as shown (null: none stand) ride beside the camps - on every full frame, and on a moved word between them   // AUDIT SURV B: an empty list says "none stand" - the last camp packed reaches the peers   // SURV3: my camps ride my full frame - a shared world object in the cell's own way; RAID2: my word on the raids I run or fought - my share of their deaths, and my claim
     if (!online.sendFoes(frame)) { _foesFullAt = -Infinity; return false; }   // AUDIT WORLD2 A9: a refused frame's deltas were already committed - the next frame carries every foe
     if (full) _foesFullAt = now;
     return true;
@@ -13457,12 +13789,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   // captured here: the links are built after this and rebuilt on rejoin.
   // ═══ RENOWN1 — THE RENOWN (Mac: "What if the leveling system was something seperate unique to online but
   // compatible"; the health and magicka "On top", a "Grind", offline earning "No") ═══════════════════════════════════
-  // The level this page knows for its character: the token's word at each mint (the minter names the character, and
-  // the service signs its level in) and the service's after each report - ONLY EVER UPWARD, because a total never
-  // falls and a token minted a moment before a rise must not take it back. Each rise puts the layer on at the new
+  // The level this page knows - the ACCOUNT's, whichever character plays (RENOWN-ACCOUNT, Mac: "can you make sure renown is account based and not character based?"):
+  // the token's word at each mint (the minter names the character coming online, and the service signs the level in) and the service's after each report - ONLY
+  // EVER UPWARD, because a total never falls and a token minted a moment before a rise must not take it back. Each rise puts the layer on at the new
   // level (systems/renownLayer.js: on top of Daggerfall's own maximums, never saved). Offline, none of this runs.
   let renownNow = null;
-  // RENOWN4: and the track's TOTAL, for my own bar (ui/hudRenown.js) - the mint's answer and every report's carry it,
+  // RENOWN4: and the account's TOTAL, for my own bar (ui/hudRenown.js) - the mint's answer and every report's carry it,
   // and like the level it only rises: a total never falls, and an answer that arrives late must not take one back.
   let renownXp = null;
   const renownXpAdopt = (xp) => {
@@ -13532,10 +13864,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     teleportTo(pick).catch((e) => { console.error('[staff] /tp failed:', e); hudFade.clearFade(); say('The teleport failed.'); });
   }
   const identityMinter = accountTokenMinter({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage(), onIssued: adoptIssued,
-    character: () => (onlineOn ? characterIdOf(playerEntity) : null) });   // RENOWN1: the character coming online, whose level the token carries
-  // RENOWN1: WHAT THIS CHARACTER EARNS - online only (the tracker is never built offline, and earns only while a session
-  // exists). A foe pays when it dies within RENOWN_ASSIST_MS of my own blow, whoever struck last (net/renownTracker.js - the
-  // one rule every kill door agrees on), with the party in my room counted (renownPartyXp); a quest pays on success, once.
+    character: () => (onlineOn ? realmSession?.id ?? null : null) });   // RENOWN1: the character coming online - RENOWN-ACCOUNT: the token carries the account's level, whichever is named. REALM-DOOR: it is the realm character this tab JOINED (online is never without one), which the service signs as the realm's and the relay's door reads - never an id the save carries or characterIdOf mints
+  // RENOWN1: WHAT THIS CHARACTER EARNS, FOR ITS ACCOUNT (RENOWN-ACCOUNT) - online only (the tracker is never built offline, and earns only while a session
+  // exists). A foe pays when it dies within RENOWN_ASSIST_MS of my own blow, whoever struck last (net/renownTracker.js - the one rule every kill door agrees
+  // on), with the party in my room counted (renownPartyXp); a quest pays on success, once - each at three quarters (net/renown.js renownRate, RENOWN-ACCOUNT).
   // The report goes every RENOWN_REPORT_MS; the service's answer is the truth, and a rise is carried to my rooms.
   const renownAccount = accountRenown({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() });
   let _renownCapHour = null;
@@ -13712,6 +14044,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     exteriorFoes.setOnCamps((from, c, at) => camps.applyOwner(from, c, campToScene, at));   // SURV3: a peer's camps, off their foes frame past the pool's own room test, through validCampRecord
     exteriorFoes.setOnHcc((from, hv, at) => hcc.applyOwner(from, hv, campToScene, at), () => hcc.clearPeers());
     exteriorFoes.setOnBands((from, bd) => bandHear(from, bd));   // TV7b: a peer's band chases, off their foes frame past the room test
+    exteriorFoes.setOnSeaRaiders((from, sr) => seaRaidHear(from, sr));   // OW6: and their raider chases at sea, the same way
     exteriorFoes.setOnCsa((from, sa, at) => csaPeers.applyOwner(from, sa, campToScene, at), () => csaPeers.clearPeers());   // CSA-J: a peer's boats, off their foes frame past the room test, through validCsaRecord
     exteriorFoes.setOnCsaAboard((from, ab, at) => csaAboard.applyRider(from, ab, at), () => csaAboard.clearRiders());   // CSA-K: a peer's place aboard a boat, the same door's way
     // QUEST-PARTY (2026-09-26, Mac: "Party shares them"): a quest shared with the party streams its foes to the party,
@@ -13800,9 +14133,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // did the markers stood at the uncorrected clock's time: a machine minutes off caught up (or froze for) the
     // difference on its first corrected tick. A room move's welcome says the same offset again and moves nothing.
     const onlineArrival = () => { alignEntityClocks(playerEntity, worldMinutes()); rollClimateWeathersForDay(worldMinutes()); refreshSeason(worldMinutes()); };
-    onlineArrival();
+    onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: worldMinutes(), say: (l, d) => townTalk.say(l, d) });   // REALM P0.3: the Empire calls in the debt it would not have lent, on the world's clock
     alignSurvival(playerEntity, Math.floor(worldMinutes()), Math.floor(worldMinutes()));   // SURV7: a record ahead of the world's clock starts fresh; the gap itself is save.js's load arm
     online.onClock = (offsetMs) => { const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; _sharedClockHeard = true; if (Math.abs(offsetMs - was) > 1000) { const before = playerEntity.lastGameMinutes; onlineArrival(); if (Number.isFinite(before)) shiftSurvival(playerEntity, Math.floor(worldMinutes()) - Math.floor(before)); alignSurvival(playerEntity, Math.floor(worldMinutes()), Math.floor(worldMinutes())); } };   // AUDIT SURV B: the correction re-aligns the needs too; AUDIT SURV-TIERS (the third pass): by the delta every other marker rode, first   // WORLD5: the relay's clock corrects this machine's
+    online.onOverworld = (msg) => overworldLedgerHeard(msg);   // OW6L: my cell's (and a halo's) overworld ledger - its welcome, and each change
     remotePlayers = new RemotePlayers({ renderer, deps: { fetchBytes, palette, getTexture, uploadRecordFrame, audio } });   // 2026-09-17: uploadRecordFrame added for the class-enemy billboard path (net/remotePlayers.js _buildMobile/_syncMobilePeer) - the doll path never touches it
     // MWBODY1: the enhanced skin with Morrowind data attached puts every peer in a body of its own; otherwise the doll
     const enhanced = isEnhanced();   // the skin cannot change without a reload (switchSkin), so it is read once, not per frame
@@ -14204,8 +14538,12 @@ export async function bootWorld(canvas, renderer, params, status) {
           gold: () => totalGoldAmount(playerEntity) + (account?.accountGold ?? 0),
           pay: (n) => { const short = deductGold(playerEntity, n); if (account && short > 0) account.accountGold -= short; },
           credit: (n) => { addGold(playerEntity, n); },
+          region: () => _questRegionIndex() ?? 0,   // REALM P2.2: the account the record pays from is this one
         };
       },
+      // REALM P2.2: a realm character's founding, deposit and withdrawal move its record's gold on the service, in the
+      // guild's own batch - the purse checkpointed first, the hold standing until the answer (realmSaves.js realmGoldAct)
+      realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,
     });
     socialPanel = createSocialPanel({
       social,
@@ -14318,7 +14656,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const p = peersNear()?.find((x) => x.id === peerId);
     return !!p && inTradeRange(player.feetAt(), p.feet, TRADE_RANGE_M);   // feetAt(): the same interpolated feet PARTY_REST_RADIUS's distanceToPartyAccount measures from - the port's one "where am I, in metres"
   };
-  const tradePack = createTradePack(playerEntity);
+  const tradePack = checkpointedTradePack(createTradePack(playerEntity), () => onlineCheckpoint());   // REALM P0.5: the giver's loss on disk before the goods leave
   let tradeWin = null;
   const tradeMgr = createTradeManager({
     pack: tradePack,
@@ -14328,6 +14666,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     peerName: (id) => peerName(id),
     selfId: () => online?.id ?? '',
     near: tradeNear,   // the ONE range rule (TRADE_RANGE_M metres), asked by the ask, the accept, the lock, the confirm and every frame of a live trade
+    escrow: realmSession ? realmTradeEscrow({ session: realmSession, checkpoint: () => onlineCheckpoint() }) : null,   // REALM P2.1: both confirms hand the commit to the realm, which moves the goods between the two records at once - the checkpoint first, while the goods are still in the pack
     open: (session) => {
       tradeWin = createPlayerTradeWindow(session, { items: () => (playerEntity.items ??= []), entity: playerEntity, gold: () => tradePack.gold(),
         rows: (id, pick) => townTalk.lines(id, pick) });   // AUDIT TRADE-INFO D2: an artifact's powers are its TEXT.RSC words, as the pack's card reads them
@@ -14648,9 +14987,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     onMarks: (marks) => marksBook?.strikeLine(marks) ?? null,   // MARKS1: the gate's Marks, struck as it is counted
   }) : null;
   /** RAID4: THE RAID RECEIPTS THIS DEVICE CARRIES TO THE ACCOUNT SERVICE (net/raidClaims.js) - each town the relay
-   *  signed my defence of, kept with the character that fought it until the service has counted it and paid that
-   *  character its Renown; a counted raid's Renown is the page's at once, as a report's is - when that character is
-   *  the one standing here (another's track moved, not this one's). */
+   *  signed my defence of, kept with the character that fought it until the service has counted it and paid its
+   *  Renown; a counted raid's Renown is the page's at once, as a report's is - RENOWN-ACCOUNT: WHOEVER IS STANDING
+   *  HERE, since the Renown is the account's (a raid another of my characters fought was dropped as another's track). */
   const _accountRaids = accountRaids({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() });
   const raidClaims = params.has('online') ? createRaidClaims({
     claim: _accountRaids.claim,
@@ -14660,7 +14999,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     say: (text) => chatNotice(text),
     onSpoils: (entry) => grantRaidSpoils(entry),   // AUDIT RAID R4: the town's thanks, once a raid and account - the service's word
     onRecorded: (data) => {
-      if (data?.renown?.character !== characterIdOf(playerEntity)) return;
+      if (!data?.renown) return;   // RENOWN-ACCOUNT: any claim's credit is the account's - adopted whichever character fought it
       const a = renownAnswer({ ...data.renown, order: data.order ?? null }, data.renown.credited ?? 0, renownSaid);
       if (a.xp !== null) renownXpAdopt(a.xp);
       if (a.level !== null) renownAdopt(a.level);
@@ -14708,6 +15047,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   // AUDIT WBX S3: a save that lands holds the pieces in the pack - their crash records clear on it, by the event
   onSlotSaved((characterId) => { try { spoilsPool.saved(characterId); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } });
+  // REALM P1.3: a realm checkpoint's spoils. AUDIT REALM2 C1: a town's thanks with them - RAID4b's own pool was cleared by a
+  // slot's save alone (onSlotSaved, below), which a realm character never writes, so every join handed the thanks back
+  _realmSaveHooks.held = (who) => { try { return [...(spoilsPool?.heldIds?.(who) ?? []), ...(raidSpoils?.heldIds?.(who) ?? [])]; } catch { return null; } };
+  _realmSaveHooks.landed = (who, ids) => { try { spoilsPool?.saved(who, ids); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); } try { raidSpoils?.saved(who, ids); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } };
   onSlotSaved((characterId) => { try { raidSpoils.saved(characterId); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); } });   // RAID4b
   /** AUDIT WBX S4: the spoils given outside a court, one tab at a time - two tabs of one account on one device each
    *  checked the store before the other had written it, and both gave them (the Web Locks API; without it, at once). */
@@ -14780,7 +15123,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     cam: () => cam.pos,
     feet: () => (playerSpawned && modes?.gateArenaDay?.() != null ? player.feetAt() : null),
     player: () => playerEntity,
-    save: (e) => savingThrow(ELEMENTS.Fire, EFFECT_FLAGS.Fire, e),
+    save: (e, el = 'fire') => { const w = GATE_SAVES[el] ?? GATE_SAVES.fire; return savingThrow(w[0], w[1], e); },   // WB8b: the throw against his aspect's element
     strike: (dmg, how) => modes?.dungeonCtx?.strikePlayer?.(dmg, how),
     say: (text) => setMidScreenText(text),
     hudHidden: () => gamePaused() || !!townTalk.hudHidden,
@@ -15329,6 +15672,38 @@ export async function bootWorld(canvas, renderer, params, status) {
     const frame = exteriorFoes.handOverFrame(heirOf);
     return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
   };
+  // OW6 (2026-09-29, the player: "Everything needs that persistence between players in the overworld"): A FOE ITS OWNER
+  // WALKS AWAY FROM GOES TO THE PLAYER BESIDE IT. A camp stood by me and fought by a friend stood until I was its cull
+  // distance off (DROPS-AUDIT CAMP-CULL: 200 m, a wanderer 120) - then it was culled from under them, and gone for
+  // everyone, its mark with it. Past three quarters of that from me, with a player nearer it than I am, it is handed to
+  // them - the door's own handover (PDEATH-FOES: the heir named on my frame, taken there), foe by foe - and they stream it
+  // from there, a camp still a camp (world/campShared.js). Nobody nearer, the cull takes it as it always did. Never my
+  // ally, a mod's placed or managed foe, or a quest's (a quest's foe is handed at the door, to its party alone).
+  const FOE_WALK_AWAY_MS = 500;
+  const FOE_WALK_AWAY_SHARE = 0.75;
+  let _walkAwayAt = -Infinity;
+  const foeWalkAwayM = (f) => FOE_WALK_AWAY_SHARE * (f.campId != null ? CAMP_CULL_DISTANCE : ENCOUNTER_CULL_DISTANCE);
+  function handOverWalkedAway(now) {
+    if (now - _walkAwayAt < FOE_WALK_AWAY_MS) return 0;
+    _walkAwayAt = now;
+    if (!online?.room || !isCellRoom(online.room) || (modes?.mode ?? 'exterior') !== 'exterior' || !playerSpawned) return 0;
+    const near = peersNear() ?? [];
+    if (!near.length) return 0;
+    const me = player.feetAt();
+    const heirOf = (f) => {
+      if (f.puppet || f.dead || f.placed || f.managed || f.entity?.team === 'PlayerAlly' || isPrivateQuestFoe(f) || f._keptTag) return null;
+      const at = f.ai?.feet;
+      if (!at) return null;
+      const mine = Math.hypot(at[0] - me[0], at[2] - me[2]);
+      if (mine < foeWalkAwayM(f)) return null;
+      let id = null, best = mine;
+      for (const q of near) { const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } }
+      return id;
+    };
+    if (!exteriorFoes.foes.some((f) => heirOf(f))) return 0;
+    const frame = exteriorFoes.handOverFrame(heirOf);
+    return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
+  }
   /** QUEST-PARTY phase 3b/3c: AUDIT CONTRIB P1's handover in a world room - at a building's or a dungeon's door out and
    *  at a death in it, my live own foes there go to the players who stay (a shared quest's to a party member alone),
    *  named on one last own frame; what nobody took goes with me, as the room's teardown takes it. Answers how many went. */
@@ -15967,6 +16342,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       opts: { speedCautious: pop.speedCautious, sleepModeInn: pop.sleepModeInn, travelShip: pop.travelShip },
       computed: { ...pop.trip, minutes: guildFastTravel(playerEntity, pop.trip.minutes) },   // the popup's own hand-over: the blessed minutes
       afford: pop.enoughGoldCheck(),
+      coinsShort: (pop.deps.gold?.() ?? 0) >= pop.trip.totalCost && (pop.deps.goldPieces?.() ?? 0) < pop.trip.piecesCost,   // the gate's second half alone
       unwell: diseaseCount(playerEntity) + poisonCount(playerEntity) > 0,   // the popup's own warning, said on the prompt
     };
   }
@@ -16241,7 +16617,11 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  flight (worldMoveBusy - a fast travel, a Recall, a respawn, a load): a set-out landing then planned its route from
    *  where the feet read mid-move, up to a kilometre from where they land (AUDIT OW3 D2's own law for the find). */
   const walkFree = () => !!travelOptions && (modes?.mode ?? 'exterior') === 'exterior' && playerSpawned && playerEntity.health > 0 && !modes?.deathUp?.()
-    && !worldMoveBusy() && !townTalk.overlay && !gamePaused() && !(modes?.modalWindowUp?.() ?? false) && pointerSurfaces.size === 0 && !walkDanger();
+    && !worldMoveBusy() && !townTalk.overlay && !gamePaused() && !(modes?.modalWindowUp?.() ?? false) && pointerSurfaces.size === 0 && !walkDanger()
+    // AUDIT OW5 P1: and only where the Overworld's own doors would let me set out - its gate (the enhanced interface, never
+    // underwater: THE OVERHAUL's lane) and a passenger's refusal (travelViewCanGo: the helmsman steers). A passenger said
+    // Yes and was walked off the leader's deck toward the first land leg; a classic-skin member was walked a route
+    && travelViewAllowed().ok && !csaAboard.aboard;
   /** The leader's walk begins with the journey - only through a hub that carries it, only with a member gathered (or
    *  the halted walk's own place taken up again: AUDIT OW3 P9, systems/partyWalk.js walkBegin). */
   function partyWalkBegin(dest) {
@@ -16285,7 +16665,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const stops = social.others().filter((m) => memberPresent(m)).map((m) => m.p?.ts);
       const next = leaderWalkStep({ tw: _walkLead, journeying, dest: walkDestLive(), ended, stops, now });
       _walkLead = next.tw;
-      if (next.halt) travelOptions?.messages?.pauseTravel();
+      if (next.halt) { travelOptions?.messages?.pauseTravel(); tvSay(TRAVEL_VIEW_TEXT.partyHalted); }   // AUDIT OW5 P5: said, once the clock is back to one
     }
     // A MEMBER: the leader's walk, as their pose says it - AUDIT OW3 P7: a pose missing a moment (a hub reconnect) keeps
     // the last walk a while; a pose saying none is believed
@@ -16310,7 +16690,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const onWalk = journeying && sameWalkDest(tw, walkDestLive(), true);
     const step = memberWalkStep({ tw, mine: _walkMine, gathered, journeying, onWalk, was: _walkWas, free: !!tw && walkFree(), now });   // no walk: nothing to be free for
     if (step === 'ask' && !_walkBox) {
-      const where = tw.sx != null ? TRAVEL_VIEW_TEXT.spot : (tvPlaceSummary(tw.x, tw.y)?.name ?? TRAVEL_VIEW_TEXT.spot);
+      const where = tw.sx != null ? TRAVEL_VIEW_TEXT.theSpot : (tvPlaceSummary(tw.x, tw.y)?.name ?? TRAVEL_VIEW_TEXT.theSpot);   // AUDIT OW5 P5: "to the marked spot"
       const round = tw.at;
       const box = new YesNoBoxWindow({
         rows: [`${leadRow.name ?? 'Your leader'} leads the party to ${where}.`, 'Travel with them?'],
@@ -16324,12 +16704,17 @@ export async function bootWorld(canvas, renderer, params, status) {
       const o = mapPixelToWorldCoords(tw.x, tw.y);
       // AUDIT OW4 X1: a place I have not found, or a spawn the leader walks to, is walked as its DOOR (never refused for the
       // peaks - the leader reached a mountain town by road, and the member heard "the mountains cannot be crossed")
-      const there = summary ? null : locationIndex.get(`${tw.x},${tw.y}`);
+      const there = summary ? null : tvLocationAt(tw.x, tw.y);   // AUDIT OW5b D3: a spawn my pixels never built, the leader's door all the same
       const door = there ? locationWorldRect(there, tw.x, tw.y) : null;
-      const ok = summary ? travelViewRouteTo(summary) : travelViewWalkTo(tvSceneOf(tw.sx ?? o.x + 16384, tw.sz ?? o.z + 16384, 0), { x: tw.x, y: tw.y }, { door });
+      // AUDIT OW5 P3: a spot on the SEA is asked as the sea, as the leader's own click asked it - by the planner's own byte
+      // for the spot's pixel (the walk's record carries no word of it, and a new one is a relay's): asked as land, a member
+      // at a helm had no way and was left behind, and one ashore was routed into the water to the ocean stop
+      const water = tw.sx != null && !there && tvWater(tw.x, tw.y);
+      const ok = summary ? travelViewRouteTo(summary) : travelViewWalkTo(tvSceneOf(tw.sx ?? o.x + 16384, tw.sz ?? o.z + 16384, 0), { x: tw.x, y: tw.y }, { door, water });
       _walkMine = { ..._walkMine, go: tw.go, yes: ok, balk: false };   // no way from here: left behind, never started again this round (AUDIT OW4 P4: a start is my balk taken up)
     } else if (step === 'halt') {
       travelOptions?.messages?.pauseTravel();   // AUDIT OW3 P1: through the panel - stopped, not journeying, started again on the set-out
+      tvSay(TRAVEL_VIEW_TEXT.partyHalted);   // AUDIT OW5 P5: said
     } else if (step === 'leave') {
       _walkMine = { ..._walkMine, yes: false };   // a journey of my own elsewhere, or (AUDIT OW4 P6) taken up myself under the halt: I left the walk, and my stops are mine
     }
@@ -17071,6 +17456,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     renownTracker?.tick();   // RENOWN1: what this character earned, to the account service when a report is due
     peerMenuFrame();   // PEERMENU1: the bind's hold timer
     peerFxFrame();   // PEERFX1: the others' blows and hurts, played
+    // REALM-DOOR: the relay shut its door on this tab's token as naming no realm character of its account - the character
+    // deleted elsewhere, or the account signed out and another in: the realm's own end, to the Online door with the realm's
+    // word (the relay's words are for a build from before the realm), before anything else this frame draws over it
+    if (realmSession && !realmSession.lost && realmDoorShut(online)) { realmLost('no-realm-character'); return; }
     // ONE-SEAT (Mac: "the player can only have one character only at a time"): another tab or window of this player has
     // the seat - out of every room once, then nobody drawn and nothing sent, the dead's own law (D12), until the player
     // presses Play online here
@@ -17110,6 +17499,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy(); peerCandlesFrame([], dt); return;   // PEERLIGHT2: and no candle hangs over the dead; AUDIT RIDE: and no rider stands frozen over it either
     }   // AUDIT WORLD B6: the dungeon's and the building's death screens stand in the mode's slot   // AUDIT MWBODY B7: and no body stands frozen over the death screen
     _rezSeen = null;   // AUDIT CONTRIB A6: alive - the next death takes its own snapshot of what the party's poses say
+    if (checkpointDue(now, _checkpointAt)) onlineCheckpoint();   // REALM P0.5: every two real minutes, alive and in the seat (the first such frame persists the join's call-in)
     const mode = modes?.mode ?? 'exterior';   // audit24_wave37: guarded on the OBJECT above its own declaration (the frame runs after it)
     const overworld = mode === 'exterior';
     const wc = state.worldCoords(player.pos);
@@ -17249,6 +17639,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     hitFlush(now);     // AUDIT FOES FOE2: and a BLOW the wire refused - a joiner applies none locally, so a lost frame is a lost blow
     modes?.setDungeonAuthority?.(dungeonAuthority(now));   // AUDIT WORLD2 C2: the seat re-read every frame - a dead socket, a terminal close or a silent host hands the foes back
     hccParkTick(now);   // HCC-PARK: my parked team's word to the cell it stands in, when it changed
+    overworldLedgerFrame(now);   // OW6L: what I spent and my spawns' clocks, to the cell that keeps them
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) camps.sweepOwners(ids, now, FOES_STALE_MS); }   // PERF11: the same list   // SURV3: a peer's camps go as their puppets do - the same liveness, the same answer-gate   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) hcc.sweepOwners(ids, now, FOES_STALE_MS); }   // HCC-ONLINE: a peer's team goes as their puppets and camps do - the same memoised list, the same liveness   // PERF11: the same list   // SURV3: a peer's camps go as their puppets do - the same liveness, the same answer-gate   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) csaPeers.sweepOwners(ids, now, FOES_STALE_MS); }   // CSA-J: a peer's boats go as their team does - the same memoised list, the same liveness
@@ -17546,7 +17937,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // dungeon. `onDungeonSpawned` only fires for a synthesized one, so
     // the note is unconditional; `onDungeonCleared` fires for ANY
     // dungeon, so _noteSpawnCleared checks the pixel first.
-    onDungeonSpawned: () => { const p = playerTravelPixel(); _spawnLedger.note(`${p.x},${p.y}`, _spawnClock()); },
+    onDungeonSpawned: () => { const p = playerTravelPixel(); _spawnSeen(`${p.x},${p.y}`); },   // OW6L: the one first-sight door
     onDungeonCleared: _noteSpawnCleared,
     spawnLedger: () => _spawnLedger,   // TTL1: so a save made INSIDE a dungeon carries the clocks too
     dungeonOnline: () => onlineOn,   // AUDIT WORLD34 B2: online, the dungeon that gets built is the WHOLE dungeon - the room's layout is one layout
@@ -17712,6 +18103,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     marks: marksBook,   // MARKS1: the Bank of the Empire's Marks, online
     homeDecor,   // DECOR1c: an online home's placed pieces (null offline - the house's and the ship's are the save's)
     decorCharacter: () => characterIdOf(playerEntity),   // DECOR1d: the character an online home's placements are written as
+    // REALM P2.2b: a realm character's home and decor acts move its record's gold on the service, in the act's own batch
+    realmAct: realmSession ? (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) : null,
     partyNames: () => (social?.others?.() ?? []).map((m) => m.name).filter((n) => typeof n === 'string' && n.length > 0),
     npcSession,   // TK-iv: the questor door on a static-NPC click
     // B4: the dungeon context quicksaves through the same composer
@@ -17867,7 +18260,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // same as every existing caller that hands none) so worldModes'
     // quickSaveNow can also update a character's AutoSave slot on the
     // way out, not only QuickSave - see its own header.
-    quickSave: (saveName) => worldQuickSave(saveName),
+    quickSave: (saveName, opts) => worldQuickSave(saveName, opts),
     loadRebuilds: (snap) => ohAbyss?.loadRebuilds(snap?.modData?.[OCEAN_HOLES_VENDOR] ?? null) ?? false,   // AUDIT OH-F B2
     loadSave: (key) => worldQuickLoad(key != null ? { key } : {}),   // CASTLE1: the dungeon's own load door hands a save from another place here (dungeonContext.js quickLoad)
     quickLoad: () => worldQuickLoad(),
@@ -18024,7 +18417,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // main.js sets ?load when the menu resolves it, and its comment says
   // "Load Game rides the dungeon host's OWN quickLoad" - true when the
   // classic start booted scenes/dungeon.js, and U31 moved it HERE. The
-  // only reader of `load` in the whole tree is dungeon.js:116, so the
+  // only reader of `load` in the whole tree is dungeon.js:117, so the
   // flag arrived in this host and was discarded: the player got a
   // brand-new character in Privateer's Hold and the only way to reach
   // their save was to start a new game and press F11. A load is not a
@@ -18060,6 +18453,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (entered) playerSpawned = true;
   }
   if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // AUDIT SET D4: said once the world stands, the character loaded
+  if (realmRefused) townTalk.say(REALM_OFFLINE_TEXT);   // REALM P1.3: an online boot with no realm character plays offline, and says so
+  for (const line of reclaimLines(realmGiven)) townTalk.say(line);   // RESTORE: what came back, said once the world stands
   // EOTB-IL: StartGameBehaviour.OnNewGame (the mod's handler, IL_0930) -
   // a boot that loaded nothing is a new game, wherever it starts
   if (!_loadedGame) mwViewNewGame((modes?.mode ?? 'exterior') !== 'exterior');
@@ -18080,7 +18475,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   // ...and the door itself (the recorded departure: DFU's console
   // WINDOW is the third-party UnityConsole prefab, not DFU source).
-  installConsoleProbe();
+  // AUDIT REALM2 M4: OFFLINE ONLY - REALM P0.1's law for ?shot's
+  // __addGold. LypyL_GameConsole ships True, and the door's verbs
+  // mint (Come Sail Away's giveboat and placeboat, a deed each).
+  if (!params.has('online')) installConsoleProbe();
   if (shotMode) { modes.installShotProbes(); installTownProbes(); }
   if (shotMode) {   // CASTLE1 probe surface (tools/castleProbe.mjs)
     window.__quickSave = (name) => modes.quickSaveNow(name);   // the standing host's OWN composer (the dungeon's underground)
@@ -18324,6 +18722,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // (beginTravelAlongRoute / beginTravelToPoint, the port's own two journeys built from the mod's parts). The places
   // around the traveller wear plates a click also takes; the trip's way is the line under them.
   const TV_PLACE_GROW = 6144;   // native units (1.5 RMB blocks): a click this near a town's walls is a click on the town
+  const TV_NEAR_REACH = TV_PLACE_GROW * 2;   // OW-PATH: the town's neighbourhood - from inside it, every ground click is a spot
   const TV_PLACE_LIFT = 24;   // m: a plate floats over its town
   const TV_SEA_EPS_M = 0.25;   // m: AUDIT DEEP2 B-5 - the ground's clamp stands AT the sea; a hair over it is still the sea
   // AUDIT DEEP T2-3: a journey from the view travels the way the player's own map last said - cautiously, it stops at low
@@ -18371,16 +18770,23 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   const tvWater = (px, py) => px < 0 || py < 0 || px >= 1000 || py >= 500 || woods.getHeightMapValue(px, py) <= WATER_BYTE;
   /** The trip is over when Travel Options no longer walks it - arrived, stopped, or replaced by a journey of its own. */
   const tvTripLive = () => !!tvTrip.plan && !!travelOptions?.route && travelOptions.route === tvTrip.plan.route;
-  function travelViewRouteTo(summary) {
+  /** `roads` (TO-ROADS x OW-PATH): by the roads whatever the Path switch says - the map's first-person pick (tvMapForcesRoads). */
+  function travelViewRouteTo(summary, { roads = false } = {}) {
     const from = playerTravelPixel();
     // AUDIT DEEP T2-7: Hazelnut's bytes or none - the port's own generated network (Basic Roads off) is not his mod's, as
     // the follow key and the static's paths already hold (`source`): with none, the journey goes across country
-    const means = tvSeaMeans();   // OWS2: a boat to cross the water in (at its helm, moored in reach, packed in the pack), or none
+    let means = tvSeaMeans();   // OWS2: a boat to cross the water in (at its helm, moored in reach, packed in the pack), or none
     const raw = terrainGen.roads();
-    const net = raw?.source === 'basic-roads' ? raw : null;
-    const plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: tvSeaAsk(means, 'land') });   // OW-MOUNTAINS: never across the peaks; OWS2: across the water in a boat
-    if (!plan) { tvSeaNoWay(from, summary.pixel, means, net, 'land'); return false; }
-    const legs = tvJoinedLegs(from, plan);
+    const roadNet = raw?.source === 'basic-roads' ? raw : null;
+    // OW-PATH: FREE walks across country (never onto a road it does not need) - and a free trip with no way falls back
+    // to the roads, said, rather than refused
+    let net = (roads || travelPathUsesRoads()) ? roadNet : null;
+    let plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: tvSeaAsk(means, 'land') });   // OW-MOUNTAINS: never across the peaks; OWS2: across the water in a boat
+    if (!plan && !net && roadNet) { net = roadNet; plan = planRoute(from, summary.pixel, { roads: net.roads ?? null, tracks: net.tracks ?? null, ...tvRouteGround(), sea: tvSeaAsk(means, 'land') }); if (plan) townTalk.say(TRAVEL_PATH_TEXT.fellBack); }   // OW-PATH
+    const dry = tvMooredDry(means, plan, () => planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround() }));   // AUDIT OW5 S3
+    if (dry) { plan = dry; means = null; }
+    if (!plan) { tvSeaNoWay(from, summary.pixel, means, net, 'land', summary); return false; }
+    const legs = tvJoinedLegs(from, plan, roads);
     const ok = travelOptions.beginTravelAlongRoute({ legs, summary, name: summary.name }, tvCautious(), { quiet: tvQuiet });
     if (!ok) return false;
     partyWalkBegin({ pixel: summary.pixel });   // TV8: the party walks with me, if I lead one gathered
@@ -18409,7 +18815,44 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   const tvRouteGround = () => (_tvRouteGround ??= routeGround((x, y) => maps.getClimateIndex(x, y), (x, y) => woods.getHeightMapValue(x, y), WATER_BYTE));
   /** OW-ROADSIDE (2026-09-28, Mac: routes "appear traveling alongside" the road): a route whose first step is a road's (or
    *  a track's) is joined first at the nearest point of that first run - never walked beside it to its far end. */
-  function tvJoinedLegs(from, plan) {
+  // OW-FREE-STRAIGHT: the planner walks the pixel grid (diagonal, then straight), so a FREE journey bent at a pixel middle
+  // on the way - toward the road or a place - though the way ahead was clear. In FREE mode an all-open route is pulled
+  // taut: each stretch jumps to the farthest pixel the line of sight reaches without water or a blocked (mountain) step.
+  function tvFreePull(plan, roads = false) {
+    if (roads || travelPathUsesRoads() || !plan?.pixels || plan.pixels.length < 3 || plan.kinds?.some((k) => k !== 'open')) return plan;
+    const g = tvRouteGround();
+    const line = (a, b) => {   // 8-connected pixels a -> b (Bresenham)
+      const out = [a]; let x = a.x, y = a.y;
+      const dx = Math.abs(b.x - a.x), dy = Math.abs(b.y - a.y), sx = a.x < b.x ? 1 : -1, sy = a.y < b.y ? 1 : -1;
+      let err = dx - dy;
+      while (x !== b.x || y !== b.y) {
+        const e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x += sx; }
+        if (e2 < dx) { err += dx; y += sy; }
+        out.push({ x, y });
+      }
+      return out;
+    };
+    const clear = (a, b) => {
+      const pts = line(a, b);
+      for (let i = 1; i < pts.length; i++) {
+        if (g.isWater(pts[i].x, pts[i].y)) return false;
+        if (g.openBlocked(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y, i === 1 && g.peakAt(a.x, a.y))) return false;
+      }
+      return true;
+    };
+    const px = plan.pixels, keep = [px[0]];
+    let i = 0;
+    while (i < px.length - 1) {
+      let j = px.length - 1;
+      while (j > i + 1 && !clear(px[i], px[j])) j--;
+      keep.push(px[j]);
+      i = j;
+    }
+    return keep.length >= px.length ? plan : { ...plan, pixels: keep, kinds: keep.slice(1).map(() => 'open') };
+  }
+  function tvJoinedLegs(from, plan, roads = false) {
+    plan = tvFreePull(plan, roads);
     const legs = routeLegs(plan.pixels, plan.kinds);
     if (!legs.length || (plan.kinds[0] !== 'road' && plan.kinds[0] !== 'track')) return legs;   // THE MERGE: a launch (OWS2) is no road to join
     const c = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return { x: o.x + 16384, z: o.z + 16384 }; };
@@ -18420,25 +18863,33 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  a walk to a PLACE's door: its pixel is a place's (never refused for the peaks, its step in exempt - a spawn stands on
    *  a Mountain pixel as a MAPS dungeon does, and its plate walked nowhere), and the spot is its edge faced to where the
    *  route's last leg starts (dungeonApproach, lastLegStart), known only once the route is. */
-  /** OWS2: `water` - the click landed on the sea: a spot on it, sailed to. */
-  function travelViewWalkTo(point, pix, { door = null, water = false } = {}) {
+  /** OWS2: `water` - the click landed on the sea: a spot on it, sailed to. `roads`: as travelViewRouteTo's (TO-ROADS x OW-PATH). */
+  function travelViewWalkTo(point, pix, { door = null, water = false, roads = false } = {}) {
     let n = state.worldCoords(point);
-    if (!door && !water && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { townTalk.say(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS
+    if (!door && !water && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { tvSay(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS
     // OW-MOUNTAINS: to the spot's pixel round the peaks (the roads where they help), then to the spot itself
     const from = playerTravelPixel();
-    const roadsRaw = terrainGen.roads(), wnet = roadsRaw?.source === 'basic-roads' ? roadsRaw : null;   // AUDIT DEEP T2-7's law: Hazelnut's bytes or none
+    const roadsRaw = terrainGen.roads(), roadNet = roadsRaw?.source === 'basic-roads' ? roadsRaw : null;   // AUDIT DEEP T2-7's law: Hazelnut's bytes or none
+    let wnet = (roads || travelPathUsesRoads()) ? roadNet : null;   // OW-PATH: FREE never asks the roads
     // OWS2: a spot across the water, one on it, or any from a helm is a route that may put to sea (the planner's sea
     // layers); THE MERGE: every other spot is still routed on land, round the peaks (OW-MOUNTAINS) - never the straight walk
     const means = tvSeaMeans();
-    const seaAsk = means && (water || means.start === 'sea' || !dryLine(from, pix, tvWater)) ? tvSeaAsk(means, water ? 'sea' : 'land') : null;
+    let seaAsk = means && (water || means.start === 'sea' || !dryLine(from, pix, tvWater)) ? tvSeaAsk(means, water ? 'sea' : 'land') : null;
     if (water && !seaAsk) { tvSeaNoWay(from, pix, null, null, 'sea'); return false; }
     // AUDIT OW3 J5: the step onto a SPOT is asked too (`goalExempt: false`) - a spot on a plateau was reached straight up
     // its cliff (a rise of 60 against the law's 16: the lag and the fall Mac hit); a place's own pixel stays exempt
-    const plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: !!door, sea: seaAsk });
+    let plan = planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: !!door, sea: seaAsk });
+    if (!plan && !wnet && roadNet) { wnet = roadNet; plan = planRoute(from, pix, { roads: wnet.roads ?? null, tracks: wnet.tracks ?? null, ...tvRouteGround(), goalExempt: !!door, sea: seaAsk }); if (plan) townTalk.say(TRAVEL_PATH_TEXT.fellBack); }   // OW-PATH
     if (!plan) { tvSeaNoWay(from, pix, seaAsk ? means : null, wnet, water ? 'sea' : 'land'); return false; }
-    const legs = tvJoinedLegs(from, plan);
-    if (door) n = dungeonApproach(door, lastLegStart(legs, state.worldCoords(player.pos), tvLegMid));   // AUDIT OW4 D6
-    const ok = travelOptions.beginTravelAlongRoute({ legs, point: { pixel: pix, x: n.x, z: n.z }, name: TRAVEL_VIEW_TEXT.spot }, tvCautious(), { quiet: tvQuiet });
+    const dry = water ? null : tvMooredDry(seaAsk ? means : null, plan, () => planRoute(from, pix, { roads: wnet?.roads ?? null, tracks: wnet?.tracks ?? null, ...tvRouteGround(), goalExempt: !!door }));   // AUDIT OW5 S3
+    if (dry) { plan = dry; seaAsk = null; }
+    let legs = tvJoinedLegs(from, plan, roads);
+    // AUDIT OW5 S4: a spot on the sea in the traveller's own pixel, from afloat - the planner's one pixel is no step, so the
+    // route had no leg at all: the crossing read its kind as land, landed the boat mid-sea and packed it from under the
+    // traveller. One sea leg to the spot (its arrival the sea spot's square)
+    if (!legs.length && seaAsk?.goal === 'sea') { legs = [{ x: pix.x, y: pix.y, kind: 'sea' }]; plan = { ...plan, kinds: ['sea'] }; }
+    if (door) n = dungeonApproach(door, lastLegStart(legs, state.worldCoords(player.pos), tvLegMid), undefined, pixelBox(pix.x, pix.y));   // AUDIT OW4 D6; AUDIT OW5 J4: inside the walk's own pixel
+    const ok = travelOptions.beginTravelAlongRoute({ legs, point: { pixel: pix, x: n.x, z: n.z, door }, name: TRAVEL_VIEW_TEXT.spot }, tvCautious(), { quiet: tvQuiet });   // AUDIT OW5b D3: its door with it
     if (!ok) return false;
     partyWalkBegin({ pixel: pix, point: { x: n.x, z: n.z } });   // TV8
     travelGovernor.reset();   // AUDIT DEEP T2-8: a new journey - the ceiling the last one learned is forgotten
@@ -18455,8 +18906,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  forbids it (no window, no foe, the view's own gate), whoever began it (the map, its resume, the follow key). */
   function tvJourneyUp() {
     // AUDIT OW3 J1: a journey that WALKS - the panel up and the autopilot driving; a panel left up over a stopped journey
-    // (an interrupt that closes nothing) is no journey to raise the view over
-    if (!isEnhanced() || !travelView || travelView.state !== 'off' || !travelOptions?.isTravelActive || !travelOptions.state?.autopilot) return;
+    // (an interrupt that closes nothing) is no journey to raise the view over. OW-TOGGLE: a first-person journey is none
+    if (!tvOwnsJourneys() || travelView.state !== 'off' || !travelOptions.isTravelActive || !travelOptions.state?.autopilot) return;
     if (gamePaused() || (modes?.modalWindowUp?.() ?? false) || duelEnemyNear() || areEnemiesNearby(exteriorFoePool()) || !travelViewAllowed().ok) return;
     travelView.enter();
   }
@@ -18508,12 +18959,61 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     return tvSeaParts() ? { start: 'land', again: true, boat: null, how: 'parts' } : null;
   }
+  /** AUDIT OW5 S3 (the audit before the merge): A MOORED BOAT IS TAKEN ONLY WHERE THE ROUTE PUTS TO SEA. A boat moored in
+   *  reach starts the search afloat (`start: 'sea'`), so a trip with no water on the way was begun at its helm - boarded,
+   *  landed at once and packed (a crewed ship left moored), the bar saying "by sea" - before the walk began. A plan whose
+   *  steps never sail is planned again on land (`replan`), and that one taken when there is one: the boat left where it
+   *  lies. Null: keep the plan as it is. */
+  function tvMooredDry(means, plan, replan) {
+    if (means?.how !== 'moored' || !plan || plan.kinds.includes('sea')) return null;
+    return replan();
+  }
   /** The planner's ask: where the traveller starts, whether a landfall packs the boat, where the journey ends. */
   const tvSeaAsk = (means, goal) => (means ? { start: means.start, again: means.again, goal } : null);
-  /** No route: and would a boat have made one? Then that is said. */
-  function tvSeaNoWay(from, to, means, net, goal) {
-    const boat = !means && !!csaRuntime && csaOn() && !!planRoute(from, to, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: { start: 'land', again: true, goal } });   // THE MERGE: a boat's way round the peaks too
-    townTalk.say(boat ? TRAVEL_VIEW_TEXT.needBoat : goal === 'sea' ? TRAVEL_VIEW_TEXT.water : TRAVEL_VIEW_TEXT.noWay);
+  /**
+   * SHIP-SAIL (2026-09-28, Mac, of the Overworld taking the map's ship passage itself: "Shouldn't it already function
+   * as such?"). The Overworld sails the player's own boats (OWS2); the map sells Daggerfall's passage. A PLACE across
+   * the water the passage reaches from here is now OFFERED it where the walk is refused: priced as the map prices it
+   * (partyTripFare - the popup headless over the one dep bag: its ship law, the Travel Options ports rule off meaning
+   * DFU's passage from anywhere, the guild's blessing, the fare, the two-sided gold gate), refused by the map door's own
+   * rungs (partyTravelRefusal), asked in a Yes/No box, and taken as the map takes it - a party gathered is asked first
+   * (the map's own onTravel order), then the fade and fastTravelTo (partyTravelJourney). True when this answered the
+   * refusal, false when the passage's own law refuses the place (the boat's line then stands).
+   */
+  function tvOfferPassage(place) {
+    const fare = partyTripFare(place.pixel, { ...travelMapPopUpState(), travelShip: true });
+    if (!fare.opts.travelShip) return false;
+    const refused = partyTravelRefusal();
+    if (refused) { tvSay(refused); return true; }
+    if (giveOffer()) return true;   // the map door's GiveOffer rung (DaggerfallUI.cs:612): a pending offer handed over spends the press (AUDIT 28e)
+    if (!fare.afford) { tvSay(`${TRAVEL_VIEW_TEXT.noWay} ${fareText(fare.computed, false, fare.coinsShort)}`); return true; }
+    const pick = { pixel: place.pixel, name: place.name, mapId: place.mapId, regionIndex: place.regionIndex, locationIndex: place.locationIndex };
+    const days = sharedClockOn() ? 0 : travelDays(fare.computed.minutes);   // OL2: online the arrival is now
+    // AUDIT 28e: Yes is a new destination - the journey on the ground ENDS (the mod's own ClearTravelDestination: the
+    // panel closes, the route and the autopilot go, a party's walk ends with it), or it went on driving from the far
+    // shore back into the sea. No leaves me where I stood, the Overworld up again if it was (the box cut it down, and
+    // the line this offer replaced was a HUD message the view stayed up under).
+    const viewUp = !!travelView && travelView.state !== 'off';
+    let sailed = false;
+    townTalk.showOverlay(new YesNoBoxWindow({
+      rows: shipPassageRows(place.name, fareText(fare.computed), days, fare.unwell),
+      onYes: () => {
+        sailed = true;
+        travelOptions?.clearTravelDestination();
+        if (!partyTravel?.propose(pick, fare.opts, fare.computed)) partyTravelJourney(pick, fare.opts, fare.computed);
+      },
+    }), () => { if (viewUp && !sailed) travelView?.enter(); });
+    return true;
+  }
+  /** No route: would the water have made one? Then a place the map's ship passage reaches from here is offered it
+   *  (SHIP-SAIL; SHIP-PORT: "a boat would carry you" said at a port read as no way to set sail), and otherwise a boat
+   *  is said to be the way - with Come Sail Away on, the only boats there are. The passage is Daggerfall's own, so it
+   *  is asked whatever that mod says (AUDIT 28e: it was asked only with the mod on). */
+  function tvSeaNoWay(from, to, means, net, goal, place = null) {
+    const sea = !means && !!planRoute(from, to, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: { start: 'land', again: true, goal } });   // THE MERGE: a boat's way round the peaks too
+    if (sea && place && tvOfferPassage(place)) return;
+    const boat = sea && !!csaRuntime && csaOn();
+    tvSay(boat ? TRAVEL_VIEW_TEXT.needBoat : goal === 'sea' ? TRAVEL_VIEW_TEXT.water : TRAVEL_VIEW_TEXT.noWay);
   }
   /** The journey's hand let go of the helm. */
   function tvSeaRelease() { csaJourneyHelm.held.clear(); csaJourneyHelm.row = false; }
@@ -18531,7 +19031,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     tvSeaRelease();
     tvSea.means = null;
     travelControlUI?.closeWindow?.();
-    townTalk.say(line);
+    tvSay(line);
   }
   /** The leg's mark (the autopilot's own target's middle) in the scene. */
   function tvSeaMark() {
@@ -18609,7 +19109,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     if (tvSea.means?.again && boat.packable && csaPassengersOn(boat) === 0) csaCall(() => csaRuntime.PackBoat(boat, true));   // "You store the boat in your inventory"
     else {
-      townTalk.say(TRAVEL_VIEW_TEXT.leftMoored);
+      tvSay(TRAVEL_VIEW_TEXT.leftMoored);
       if (tvSea.means) tvSea.means = { ...tvSea.means, again: false };
     }
   }
@@ -18656,6 +19156,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       return;
     }
     tvSea.wasLive = true;
+    // AUDIT OW5 G5: A FIRST-PERSON CROSSING KEEPS ITS JOURNEY'S CLOCK - Come Sail Away's own resets (the landfall's
+    // disembark, a beaching, sails that cannot fill) set x1 under a panel still asking its rate, and with the view down
+    // under First Person Travel nothing gave it back (the view's governor does when it is up; AUDIT OW4 J5 holds the
+    // Overworld's own journey at x1 while it is down). Never over the helm's own time step (Come Sail Away holds it then)
+    // OW6: its rate is the governor's - the mod's ask, or the enemies' hold under it (travelViewGovern, later this frame)
+    if (!travelView?.active && !tvOwnsJourneys() && !csaHoldsTimeScale() && worldTimeScale() !== (tvHeld ?? travelAsked)) setWorldTimeScale(tvHeld ?? travelAsked);
     const leg = route.legs[Math.min(route.i, route.legs.length - 1)] ?? null;
     const kind = leg?.kind ?? 'open';
     if (route.i !== tvSea.legAt) { tvSea.legAt = route.i; tvSea.best = Infinity; tvSea.bestS = 0; }
@@ -18675,12 +19181,21 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   }
   /** THE GATE every click passes first: a journey needs Travel Options, and the mod's own refusal when foes are near. */
   function travelViewCanGo() {
-    if (!travelOptions) { townTalk.say(TRAVEL_VIEW_TEXT.noJourneys); return false; }
-    if (duelEnemyNear() || areEnemiesNearby(exteriorFoePool())) { townTalk.say(TRAVEL_VIEW_TEXT.enemies); return false; }   // AUDIT DEEP2 B-4: a live duel too (DUEL1: no journey out of a duel)
-    if (csaAboard.aboard) { townTalk.say(TRAVEL_VIEW_TEXT.passenger); return false; }   // OWS2: aboard another's boat, its helmsman steers
+    if (!travelOptions) { tvSay(TRAVEL_VIEW_TEXT.noJourneys); return false; }
+    if (duelEnemyNear() || areEnemiesNearby(exteriorFoePool())) { tvSay(TRAVEL_VIEW_TEXT.enemies); return false; }   // AUDIT DEEP2 B-4: a live duel too (DUEL1: no journey out of a duel)
+    if (csaAboard.aboard) { tvSay(TRAVEL_VIEW_TEXT.passenger); return false; }   // OWS2: aboard another's boat, its helmsman steers
     return true;
   }
-  function onTravelViewPick(clientX, clientY) {
+  /** OW-PATH: THE TRAVELLER IN A TOWN'S NEIGHBOURHOOD - inside its rect grown by TV_NEAR_REACH: from here every ground
+   *  click is a spot, so the town can be walked round and through by the metre. */
+  const tvNearPlace = (summary) => {
+    const r = locationWorldRect(summary.loc, summary.pixel.x, summary.pixel.y);
+    const me = state.worldCoords(player.pos);
+    return me.x >= r.minX - TV_NEAR_REACH && me.x <= r.maxX + TV_NEAR_REACH && me.z >= r.minZ - TV_NEAR_REACH && me.z <= r.maxZ + TV_NEAR_REACH;
+  };
+  function onTravelViewPick(clientX, clientY, e = null) {
+    if (travelViewConfirmOpen()) { hideTravelViewConfirm(false); return; }   // OW-CONFIRM: a press on the map lets the question go
+    _tvAttack = null;   // OW-ATTACK: a walk elsewhere lets the attack go
     if (!travelView?.eye || !_lastProj || !_lastView) return;
     if (!travelViewCanGo()) return;
     const [sx, sy] = canvasPoint(clientX, clientY, canvas.getBoundingClientRect());
@@ -18704,6 +19219,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           if (d < best) { best = d; place = summary; }
         }
       }
+      // OW-PATH (2026-09-29, the player: "when moving near cities it always dictates me going right into the city"): the
+      // town's journey only in ROADS mode, from outside its neighbourhood, with no fine-move key held - else the spot
+      if (place && !pickTakesPlace({ hit: true, nearby: tvNearPlace(place), fine: fineMoveHeld(e), mode: travelPathMode() })) place = null;
       // AUDIT DEEP2 B-5: WATER IS WHERE THE CLICK LANDED, not its pixel's byte - the ground in a pixel is a blend of its
       // neighbours' bytes clamped at the sea, so a coastal pixel holds sea and sand both: a click on the sea in a land
       // pixel walked the traveller into it, and one on the sand in a sea pixel was refused. The sea is flat and known
@@ -18712,12 +19230,63 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     const what = classifyPick({ hit, place, water });
     if (what.kind === 'place') travelViewRouteTo(what.place);
-    else if (what.kind === 'ground') { if (travelOptions?.settings?.targetCoordsAllowed === false) townTalk.say(TRAVEL_VIEW_TEXT.placesOnly); else travelViewWalkTo(hit.point, pix); }   // AUDIT DEEP T2-8: the mod's AllowTargetingMapCoordinates, as its maps hold it
-    else if (what.kind === 'water') { if (travelOptions?.settings?.targetCoordsAllowed === false) townTalk.say(TRAVEL_VIEW_TEXT.placesOnly); else travelViewWalkTo(hit.point, pix, { water: true }); }   // OWS2: a spot on the sea, sailed to - with a boat (else the refusal, or a boat's hint)
-    else if (what.kind === 'far') townTalk.say(TRAVEL_VIEW_TEXT.far);
+    else if (what.kind === 'ground') { if (travelOptions?.settings?.targetCoordsAllowed === false) tvSay(TRAVEL_VIEW_TEXT.placesOnly); else travelViewWalkTo(hit.point, pix); }   // AUDIT DEEP T2-8: the mod's AllowTargetingMapCoordinates, as its maps hold it
+    else if (what.kind === 'water') { if (travelOptions?.settings?.targetCoordsAllowed === false) tvSay(TRAVEL_VIEW_TEXT.placesOnly); else travelViewWalkTo(hit.point, pix, { water: true }); }   // OWS2: a spot on the sea, sailed to - with a boat (else the refusal, or a boat's hint)
+    else if (what.kind === 'far') tvSay(TRAVEL_VIEW_TEXT.far);
   }
   /** A plate's click: the same journey as a click on the town. */
-  function onTravelViewMark(key) {
+  /**
+   * OW-ATTACK (2026-09-29, the player: "when you directly doubleclick the enemy on the overworld map it will ask you if you
+   * want to attack (enemyname) yes or no and so you dont get slowdown anymore"): AN ENEMY'S MARKER, CLICKED. Once, it is
+   * the ground under it (a walk there, as before its marker could be pressed); twice within TV_DOUBLE_CLICK_MS, a box asks
+   * to attack it. Yes: a journey straight at it, that enemy (a band, and its chase; or a camp, every member) no longer
+   * holding the clock (journeyThreats) - any other still does - and the meeting is the encounter as ever. No: nothing, the
+   * Overworld back up (the ship's passage's own box, the same way). A journey anywhere else lets the attack go.
+   */
+  const TV_DOUBLE_CLICK_MS = 450;
+  let _tvEnemyClick = null;   // { key, t } - the last press on an enemy's marker
+  let _tvAttack = null;       // { kind: 'band' | 'camp', id } - the enemy attacked, exempt from the slowdown
+  const tvEnemyMarkKey = (key) => key.startsWith('band:') || key.startsWith('camp:');
+  /** The camp a live foe stands in, as travelViewCamps keys it (mine, or a peer's by the tags their frames carry). */
+  const foeCampKey = (f) => (f?.puppet ? (f._pupCamp ? `${f.puppet}:${f._pupCamp.id}` : null) : f?.campId != null ? `me:${f.campId}` : null);
+  /** The attacked enemy's marker: its name, and where it stands now (a scene point and its pixel) - or null, gone. */
+  function tvAttackTarget(key) {
+    if (key.startsWith('band:')) {
+      const id = key.slice(5);
+      const b = travelViewBands().find((o) => o.id === id) ?? [..._bandChase.values()].find((c) => c.band.id === id)?.band;
+      const mk = b && !_bandSpent.has(b.id) ? bandMake(b) : null;
+      if (!mk) return null;
+      const p = bandPlace(b, bandNowMs());
+      const n = mk.mobileTypes.length;
+      return { kind: 'band', id, label: n > 1 ? `the ${mk.name} band (${n})` : `the ${mk.name}`, point: tvSceneOf(p.x, p.z, 0), pix: worldCoordToMapPixel(p.x, p.z) };
+    }
+    const id = key.slice(5), c = travelViewCamps().find((o) => o.key === id);
+    if (!c) return null;
+    const n = state.worldCoords(c.at);
+    const m = /^(.*), (\d+)$/.exec(c.label ?? '');   // campLabel's "Orc camp, 4" - the box says "the Orc camp (4)"
+    return { kind: 'camp', id, label: m ? `the ${m[1]} (${m[2]})` : `the ${c.label}`, point: c.at, pix: worldCoordToMapPixel(n.x, n.z) };
+  }
+  function tvEnemyClick(key, e) {
+    const t = performance.now();
+    if (_tvEnemyClick?.key === key && t - _tvEnemyClick.t <= TV_DOUBLE_CLICK_MS) { _tvEnemyClick = null; tvAskAttack(key); return; }
+    _tvEnemyClick = { key, t };
+    if (e) onTravelViewPick(e.clientX, e.clientY, e);   // once: the ground under it, as a click there always was
+  }
+  function tvAskAttack(key) {
+    const target = tvAttackTarget(key);
+    if (!target || !travelViewCanGo()) return;
+    // OW-CONFIRM: the Overworld's own question - the view stays up under it, its presses the block's (ui/travelViewHud.js)
+    showTravelViewConfirm({ rows: TRAVEL_VIEW_TEXT.attackAsk(target.label), yes: 'Yes', no: 'No', onYes: () => {
+      const now = tvAttackTarget(key) ?? target;   // where it stands after the question (the clock ran on under it)
+      if (!travelViewCanGo()) return;
+      _tvAttack = { kind: now.kind, id: now.id };
+      travelViewWalkTo(now.point, now.pix);
+    } });
+  }
+  function onTravelViewMark(key, e = null) {
+    if (travelViewConfirmOpen()) { hideTravelViewConfirm(false); return; }   // OW-CONFIRM: a press on the map lets the question go
+    if (tvEnemyMarkKey(key)) { tvEnemyClick(key, e); return; }   // OW-ATTACK
+    _tvAttack = null;   // OW-ATTACK: a journey elsewhere lets the attack go
     // AUDIT DEEP2 B-1: the journey's own flag - its place again, from where the traveller stands (a stop's resume)
     if (key === 'dest') { const summary = tvTripLive() ? tvTrip.plan?.summary : null; if (summary && travelViewCanGo()) travelViewRouteTo(summary); return; }
     if (key.startsWith('spawn:')) { travelViewSpawnWalk(key); return; }   // AUDIT OW3 D1: a spawn's plate - a walk to its door
@@ -18771,8 +19340,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   const tvSpawnKnown = (s) => tvSpawnFound(s) || _announcedSpawnPixels.has(`${s.x},${s.y}`);
   /** AUDIT OW4 D2: HAS A SPAWN'S TIME RUN OUT - the spawned feature's own test (spawnedDungeonAt's: the ledger's two
    *  clocks, never while the player is in it), asked NOW: the index lets an expired spawn go only when its pixel next
-   *  builds, and until then its plate stood and its walk went. */
-  const tvSpawnGone = (x, y) => { const key = `${x},${y}`; return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key); };
+   *  builds, and until then its plate stood and its walk went. AUDIT OW5b D2: gone FROM THE GROUND - one standing on built
+   *  ground stands until that ground is next built (_locationToBuild takes it out then), and its plate stands with it. */
+  const tvSpawnGone = (x, y) => { const key = `${x},${y}`; return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && !built.has(key); };
   /** AUDIT OW4 D4: WHAT spawnedDungeonAt WOULD STAND on a pixel it has not built - its own gates (the sea, a path across
    *  the pixel, the clocks; the roll and the page are asked by the caller) and its clone, with none of its writes (the
    *  index, the ledger's first sight, the roads' provisional keys): a far found spawn is marked, never built. */
@@ -18781,6 +19351,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const roads = terrainGen.roads();
     return roads && !pathFreePixel(roads, px, py) ? null : _spawnCloneAt(px, py);
   }
+  /** AUDIT OW5b D3: WHAT STANDS ON A PIXEL, built or not - the index's place, else the spawn its roll would stand (online,
+   *  side-effect free: tvSpawnAt). A member walking to the leader's spawn read the index alone, and a far spawn their own
+   *  pixels had never built was a bare spot to them. */
+  const tvLocationAt = (x, y) => locationIndex.get(`${x},${y}`) ?? (params.has('online') && spawnsDungeon(_spawnSalt, x, y) ? tvSpawnAt(x, y) : null);
   /** AUDIT OW4 D4: the found spawns within the far range that the index does not hold (filedSpawns) - online alone, as
    *  the spawns are (spawnedDungeonAt's own gate). The store files a spawn under its pixel's id (spawnedMapId). */
   const tvFiledSpawns = (at) => (params.has('online') ? filedSpawns({ at, rolls: (x, y) => spawnsDungeon(_spawnSalt, x, y),
@@ -18795,14 +19369,33 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // AUDIT OW4 D2: and time - a kept spawn whose clock has run out since is dropped now, asked of the kept list each time
     if (tvDng.list.some((g) => g.spawn && tvSpawnGone(g.px, g.py))) tvDng.at = null;
     if (tvDng.at && tvDng.at.x === at.x && tvDng.at.y === at.y && tvDng.dg === dg && tvDng.grid === grid && tvDng.n === n) return tvDng.list;
-    const list = nearDungeons({ at, grid, dungeons: (_tvDungeonRows ??= dungeonRows(mapDict)), locAt: (x, y) => locationIndex.get(`${x},${y}`),
-      isFound: (x, y) => !!tvPlaceSummary(x, y), spawns: [...spawnedPixels(locationIndex), ...tvFiledSpawns(at)], spawnKnown: tvSpawnKnown, spawnFound: tvSpawnFound,
-      spawnGone: (s) => tvSpawnGone(s.x, s.y) }).map((g) => {
+    const dungeons = (_tvDungeonRows ??= dungeonRows(mapDict)), locAt = (x, y) => locationIndex.get(`${x},${y}`), isFound = (x, y) => !!tvPlaceSummary(x, y);
+    const placed = (g) => {
       const r = locationWorldRect(g.loc, g.x, g.y);
       return { key: g.key, row: g.row, loc: g.loc, found: g.found, spawn: g.spawn, summary: g.found && !g.spawn ? tvPlaceSummary(g.x, g.y) : null,
         px: g.x, py: g.y, x: (r.minX + r.maxX) / 2, z: (r.minZ + r.maxZ) / 2, rect: r };
-    });
+    };
+    const list = nearDungeons({ at, grid, dungeons, locAt, isFound, spawns: [...spawnedPixels(locationIndex), ...tvFiledSpawns(at)], spawnKnown: tvSpawnKnown,
+      spawnFound: tvSpawnFound, spawnGone: (s) => tvSpawnGone(s.x, s.y) }).map(placed);
     tvDng = { at, dg, grid, n, list };
+    return list;
+  }
+  /** AUDIT OW5 D1 (the audit before the merge, 2026-09-29): THE FIND ASKS EVERY UNFOUND DUNGEON IN ITS REACH - never the
+   *  plates' list above, which keeps TV_DUNGEON_MAX with the FOUND first (AUDIT OW4 D7), so a traveller who had found a
+   *  dozen about them never found another on approach. The dungeons within TV_FIND_REACH map pixels of the traveller's
+   *  (a kilometre from the feet lies at most that far, wherever in their pixels the feet and the middle stand), uncapped,
+   *  the game's own (the find never takes a spawn - AUDIT OW3 D1); read again when the pixel, the finds or the index move.
+   *  AUDIT OW5b D1 found the same, and its own list gave way to this one at the merge (the "?" its second half keeps on
+   *  the Overworld for such a keep is travelDungeons.js nearDungeons' own). */
+  function travelViewFindList() {
+    const at = playerTravelPixel(), dg = discoveryGeneration(), n = _locIndexGen;
+    if (tvFind.at && tvFind.at.x === at.x && tvFind.at.y === at.y && tvFind.dg === dg && tvFind.n === n) return tvFind.list;
+    const list = nearDungeons({ at, range: TV_FIND_REACH, max: Infinity, dungeons: (_tvDungeonRows ??= dungeonRows(mapDict)),
+      locAt: (x, y) => locationIndex.get(`${x},${y}`), isFound: (x, y) => !!tvPlaceSummary(x, y) }).filter((g) => !g.found).map((g) => {
+      const r = locationWorldRect(g.loc, g.x, g.y);
+      return { key: g.key, row: g.row, loc: g.loc, found: false, spawn: false, x: (r.minX + r.maxX) / 2, z: (r.minZ + r.maxZ) / 2 };
+    });
+    tvFind = { at, dg, n, list };
     return list;
   }
   /** AUDIT OW3 D1: A SPAWN'S PLATE IS A WALK TO IT - TV2's spot journey (it stands in no MAPS table, so no place journey
@@ -18828,9 +19421,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the new frame lay up to a kilometre from where they land: a dungeon there was found, said and saved, unapproached
     if (worldMoveBusy()) return;
     const n = state.worldCoords(player.pos);
-    const g = dungeonToFind({ feet: { x: n.x, z: n.z }, list: travelViewDungeons(), mid: (d) => d });
+    const g = dungeonToFind({ feet: { x: n.x, z: n.z }, list: travelViewFindList(), mid: (d) => d });   // AUDIT OW5 D1: never the plates' capped list
     if (!g) return;
-    if (discoverLocation(g.row.mapID, { regionName: maps.getRegionName(g.row.regionIndex), locationName: g.loc.name })) townTalk.say(dungeonFoundText(g.loc.name), 5);
+    if (discoverLocation(g.row.mapID, { regionName: maps.getRegionName(g.row.regionIndex), locationName: g.loc.name })) tvSay(dungeonFoundText(g.loc.name), 5);
   }
   // TV7 (2026-09-28, Mac: "Roaming parties", "Shared per area"; systems/travelBands.js): THE ROAMING BANDS. Born of the
   // land and the shared clock (the same for every player about), wandering a seeded walk off the water and out of the
@@ -18864,8 +19457,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   function bandMake(b) {
     if (_bandMake.has(b.id)) return _bandMake.get(b.id);
     const px = Math.floor(b.born.x / 32768), py = 499 - Math.floor(b.born.z / 32768);
-    const hit = rollGroupComposition({ climateIndex: maps.getClimateIndex(px, py), playerLevel: playerEntity.level, inLocationRect: false,
-      gameMinutes: b.night ? 0 : 720 }, seededRng(bandMakeSeed(b)));   // AUDIT OW3 T7-4: its own stream; T7-8: its life's night
+    // OW6 (the player: "Enemies should spawn in varying numbers"; "Everything needs that persistence between players in the
+    // overworld"): its NUMBER its own roll (one to six), and online its tables read at the BAND's own level - every player
+    // the same band, the same kind and number over it (each viewer's own level made two players read two bands)
+    const hit = rollGroupComposition({ climateIndex: maps.getClimateIndex(px, py), playerLevel: online ? bandLevelOf(b) : playerEntity.level, inLocationRect: false,
+      gameMinutes: b.night ? 0 : 720, size: bandSizeOf(b) }, seededRng(bandMakeSeed(b)));   // AUDIT OW3 T7-4: its own stream; T7-8: its life's night
     const mk = hit?.mobileTypes?.length ? { mobileTypes: hit.mobileTypes, name: enemyDisplayName(hit.mobileTypes[0]) } : null;
     _bandMake.set(b.id, mk);
     return mk;
@@ -18884,16 +19480,51 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     _bandPos.set(b.id, v);
     return v;
   }
+  /** OW-FOES: THE BANDS NEAR, AS THEIR MONSTERS - under the Overworld only (world/bandSprites.js). A band's scene feet
+   *  are kept on a holder of their own: tvSceneKept keys on the point, not the lift, and the band's mark asks at 2 m. */
+  let bandSprites = null;
+  const _bandFeetHold = new Map();
+  function tvBandSpritesStep(dt, tvf, eye) {
+    const off = !tvf || !(tvf.blend > 0) || getPref('wildernessCamps') === false || playerEntity.preventEnemySpawns;
+    if (off) { if (bandSprites?.size) bandSprites.clear(); _bandFeetHold.clear(); return; }
+    bandSprites ??= createBandSprites({ renderer, getTexture, uploadRecordFrame });
+    const bms = bandNowMs(), here = state.worldCoords(player.pos);
+    const list = [...travelViewBands()];
+    for (const c of _bandChase.values()) if (!list.some((o) => o.id === c.band.id)) list.push(c.band);
+    const out = [], keep = new Set();
+    for (const b of list) {
+      if (_bandSpent.has(b.id)) continue;
+      const chasing = _bandChase.has(b.id);
+      if (!markShown({ kind: chasing ? 'band chase' : 'band' })) continue;   // OW-FILTER: Enemies off, their sprites off (a chaser stays)
+      const mk = bandMake(b);
+      if (!mk?.mobileTypes?.length) continue;
+      const p = bandPlace(b, bms);
+      const distM = Math.hypot(p.x - here.x, p.z - here.z) / NATIVE_PER_M;
+      if (distM > 520) continue;   // past the fade's far edge and then some: nothing to draw, nothing to hold
+      let h = _bandFeetHold.get(b.id);
+      if (!h) { h = {}; _bandFeetHold.set(b.id, h); }
+      keep.add(b.id);
+      out.push({ id: b.id, mobileType: mk.mobileTypes[0], feet: tvSceneKept(h, p.x, p.z, 0), distM });
+    }
+    for (const id of [..._bandFeetHold.keys()]) if (!keep.has(id)) _bandFeetHold.delete(id);
+    bandSprites.sync(out, { dt, eye, grow: tvf.grow, fade: tvf.blend });
+  }
+  /** AUDIT OW5b E1: the encounter pool has room for the band's members, grown by the party it meets - a band it cannot
+   *  stand is neither stood nor MET (no journey is stopped for a band that never comes; it tries again). */
+  function bandRoom(mk) { return campMembers(mk.mobileTypes).length <= (exteriorFoes.encounterRoom?.() ?? Infinity); }
   /** Contact: the band stands as its foes, on its own bearing from the traveller - or, where the road or a town refuses
    *  that bearing (a chase down a road ends on it), a quarter turn either way, then behind (AUDIT OW3 T7-1). Whether it
    *  stood. */
-  function bandStand(mk, yaw) {
-    const members = partyGroupMembers(mk.mobileTypes, partySize());
-    if (members.length > (exteriorFoes.encounterRoom?.() ?? Infinity)) return false;
+  function bandStand(mk, yaw, dist) {
+    if (!bandRoom(mk)) return false;
     const fx = player.feetAt();
+    // AUDIT OW5b B2: WHERE IT IS - its anchor at the band's own distance, a pack's spacing about it (never nearer than
+    // BAND_STAND_MIN_M). Every band stood at 18-32 m: a band met with the view down at BAND_STAND_M (140 m, Mac's
+    // CAMP-FAR - no pack lands beside the player out of nowhere) was brought a hundred metres nearer and stood beside them
+    const minDistance = Math.max(BAND_STAND_MIN_M, dist - PACK_SPACING), maxDistance = Math.max(BAND_STAND_MIN_M, dist) + PACK_SPACING;
     for (const turn of [0, Math.PI / 2, -Math.PI / 2, Math.PI]) {
-      if (_standCampEncounter({ kind: 'pack', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
-        minDistance: 18, maxDistance: 32, bearingDegrees: 0, yawRad: yaw + turn }, fx)) return true;
+      if (_standCampEncounter({ kind: 'band', mobileTypes: mk.mobileTypes, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
+        minDistance, maxDistance, bearingDegrees: 0, yawRad: yaw + turn }, fx)) return true;
     }
     return false;
   }
@@ -18915,6 +19546,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** TV7b: a band spent here - gone for its life, and said on my frames so the others spend it too. */
   function bandSpend(id) {
     _bandSpent.add(id);
+    owSaySpent(id);   // OW6L: and the cell keeps it, for everyone there and whoever comes
     const k = _bandSpentAt.indexOf(id);
     if (k >= 0) _bandSpentAt.splice(k, 1);
     _bandSpentAt.unshift(id);
@@ -18942,33 +19574,52 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (frame) { frame.bd = word; _bandWordKey = key; }
     return true;
   }
-  let _bandLast = 0;
   /** THE BANDS' FRAME: a wanderer that sees me (under the view) chases; a chase closes (at the journey's pace), stands its
-   *  foes at contact - the view's own reach, or the stand-off with the view down - or gives up. */
-  function bandFrame(now) {
+   *  foes at contact - the view's own reach, or the stand-off with the view down - or gives up. AUDIT OW5b B1: `dt` is the
+   *  FRAME's (its 0.1 s clamp), the clock the traveller's motor and the raiders' chase run on - the chase kept its own,
+   *  clamped at a quarter second, and on every frame slower than ten a second (a phone's hitch, the frame after an
+   *  arrival) a band gained up to two and a half times the ground the traveller could put between them. */
+  let _bandClock = 0;   // AUDIT OW5b B4: the chases' own clock (ms) - it runs only on the frames the chases step
+  function bandFrame(now, dt) {
     if (worldMoveBusy()) return;   // AUDIT OW3 D2: the feet read mid-arrival lie up to a kilometre from where they land - no sight, no chase, no stand
-    const dt = Math.min(0.25, Math.max(0, (now - _bandLast) / 1000));
-    _bandLast = now;
     const up = !!travelView?.active;
     if (!up && !_bandChase.size) return;
     // AUDIT OW4 B9: dead, or a window holding the game, a chase HOLDS (the foe pools' own pause) - no pack stood by a death
-    // screen or under a quest box; aboard a boat it ends (a band never walks the sea to stand five refusals at the shore)
+    // screen or under a quest box; aboard a boat it ends (a band never walks the sea to stand five refusals at the shore).
+    // AUDIT OW5 B1: and its PATIENCE holds with it - BAND_GIVE_UP_MS since it last closed ran on the shared clock, so two
+    // minutes in the inventory lost every chase on the first frame after, the band held still the whole while. AUDIT OW5b
+    // B4 found the same; the one fix is the chases' own clock (`_bandClock`, below), which stands still on EVERY frame a
+    // chase does not step - this hold, a world being moved, the view down with none - so nothing is carried over by hand
     if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) return;
     const aboard = !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName));
     if (!isEnhanced() || (modes?.mode ?? 'exterior') !== 'exterior' || !walkMode || !playerSpawned || getPref('wildernessCamps') === false
       || playerEntity.preventEnemySpawns || player.isPlayerSwimming || aboard
       || _inAnyLocationRect(player.feetAt())) { bandDrop(); return; }   // AUDIT OW3 T7-7: nor into a town - a band gives up at its edge
     const ms = bandNowMs(), n = state.worldCoords(player.pos), feet = { x: n.x, z: n.z };
+    // AUDIT OW5b B4: a chase's patience (BAND_GIVE_UP_MS without a metre gained) runs on its OWN clock, the frames it steps -
+    // it ran on the shared clock, which a hold never stops: two minutes of a death screen, a window or the travel map
+    // over a held chase, and its first frame back gave the band up (spent, and said to everyone)
+    _bandClock += dt * 1000;
     const listed = travelViewBands(), sight = bandSight(tvBandSeen.night);   // AUDIT OW4 B8: the sight of the night the bands were made in
     // AUDIT OW3 T7-2: THE CHASES, each on its own band - one runs on though its life has turned over or the bands about
     // me have changed (a chase that left the list was never stepped again, and held the two chasers' places for ever)
     for (const [id, c] of _bandChase) {
-      const s = bandChaseStep({ pos: c.pos, feet, dt, scale: worldTimeScale(), contact: up ? BAND_CONTACT_M : BAND_STAND_M, gainAt: c.gainAt, now: ms, best: c.best });
-      c.pos = s.pos; c.best = s.best; c.gainAt = s.gainAt;
+      const s = bandChaseStep({ pos: c.pos, feet, dt, scale: worldTimeScale(), contact: up ? BAND_CONTACT_M : BAND_STAND_M, gainAt: c.gainAt, now: _bandClock, best: c.best });
+      c.pos = s.pos; c.best = s.best; c.gainAt = s.gainAt; c.dist = s.dist;
       if (s.what === 'lost') { _bandChase.delete(id); bandSpend(id); }
       else if (s.what === 'contact' && !(c.retryAt > now)) {
+        // AUDIT OW5b E1 (Mac: "Need to get pullout of fast travel little sooner for encounters. U run thru them"): THE
+        // CONTACT IS THE ENCOUNTER - a walking journey is stopped HERE, the frame the band reaches the traveller and before
+        // a member stands; it was stopped by the members' own senses, which in this port answer after their loads and a
+        // real-time classic tick, and at the journey's scale the traveller ran on through the band (on a horse, out of its
+        // members' sight for good). A cautious traveller's won roll: the band loses the trail, and never stands. A won
+        // roll's grace still running: the chase runs on and asks again. A band the full foe pool cannot stand meets nobody
+        const mk = bandMake(c.band);
+        const met = bandRoom(mk) ? journeyMet() : null;
+        if (met === 'avoided') { _bandChase.delete(id); bandSpend(id); continue; }
+        if (met === 'ignored') { c.retryAt = now + BAND_STAND_RETRY_MS; continue; }
         c.yaw ??= bandYaw(c.pos);   // AUDIT OW4 B4
-        if (bandStand(bandMake(c.band), c.yaw) || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }   // AUDIT OW3 T7-1: spent once it STOOD
+        if (bandStand(mk, c.yaw, c.dist) || ++c.tries >= BAND_STAND_TRIES) { _bandChase.delete(id); bandSpend(id); }   // AUDIT OW3 T7-1: spent once it STOOD
         else c.retryAt = now + BAND_STAND_RETRY_MS;
       }
     }
@@ -18981,8 +19632,19 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (d > sight) continue;
       const mk = bandMake(b);
       if (!mk) { _bandSpent.add(b.id); continue; }
-      _bandChase.set(b.id, { band: b, pos: { x: p.x, z: p.z }, gainAt: ms, best: d, tries: 0, retryAt: 0 });
+      _bandChase.set(b.id, { band: b, pos: { x: p.x, z: p.z }, gainAt: _bandClock, best: d, dist: d, tries: 0, retryAt: 0 });
     }
+  }
+  /** OW6: THE CAMPS STANDING ABOUT (world/campShared.js groupCamps) - my own camp members (their `campId`, their kind)
+   *  and my peers' puppets tagged with their owner's camp, living ones alone, grouped one camp a group. */
+  function travelViewCamps() {
+    const members = [];
+    for (const f of exteriorFoes.foes) {
+      if (f.dead || !f.ai?.feet) continue;
+      if (f.puppet) { if (f._pupCamp) members.push({ camp: `${f.puppet}:${f._pupCamp.id}`, kind: f._pupCamp.kind, type: f.mobileType, feet: f.ai.feet }); }
+      else if (f.campId != null) members.push({ camp: `me:${f.campId}`, kind: f.campKind ?? 'pack', type: f.mobileType, feet: f.ai.feet });
+    }
+    return groupCamps(members, enemyDisplayName);
   }
   // PERF-TV: THE GROUND'S GENERATION - moves whenever a scene point's place or height can have: a pixel built or dropped,
   // the floating origin re-anchored (and every half second besides, for whatever that signature cannot see). The marks,
@@ -19035,7 +19697,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (g.found) {
         if (!g.spawn && `far:${g.row.mapID}` === farEnd) continue;
         const km = (Math.hypot(g.x - here.x, g.z - here.z) / 32768) * PIXEL_KM;
-        marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: g.loc.name, sub: farDistanceText(km), kind: 'far', pick: true, edge: true });
+        marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: g.loc.name, sub: farDistanceText(km), kind: 'far dungeon', pick: true, edge: true });   // OW-FILTER: 'dungeon' - the look is the first word's, the filter's group the second's
       } else marks.push({ key: g.key, at: tvSceneKept(g, g.x, g.z, TV_PLACE_LIFT), label: '?', kind: 'lair' });
     }
     // TV7: THE BANDS - each with its kind and number where it walks; one chasing me held at the edge, pointing
@@ -19048,8 +19710,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const mk = bandMake(b);
       if (!mk) continue;
       const chasing = _bandChase.has(b.id), p = bandPlace(b, bms);
-      marks.push({ key: `band:${b.id}`, at: tvSceneKept(b, p.x, p.z, 2), label: bandLabel(mk.name, partyGroupMembers(mk.mobileTypes, partySize()).length), kind: chasing ? 'band chase' : 'band', edge: chasing });
+      marks.push({ key: `band:${b.id}`, at: tvSceneKept(b, p.x, p.z, 2), label: bandLabel(mk.name, mk.mobileTypes.length), kind: chasing ? 'band chase' : 'band', edge: chasing, pick: true });   // OW6: the band's OWN number, the same for every player (a party it meets brings more - PSCALE1 - where it stands)
     }
+    // OW6 (2026-09-29, the player: "If a camp is spawned, it should show in the overworld"): THE CAMPS - every group
+    // standing about, a camp, a pack or a band stood: mine, and each peer's by the tags their frames carry
+    // (world/campShared.js) - one mark where its living members stand, with its kind and its number; gone with its last
+    for (const c of travelViewCamps()) marks.push({ key: `camp:${c.key}`, at: [c.at[0], c.at[1] + 2, c.at[2]], label: c.label, kind: 'camp', pick: true });   // OW-ATTACK: pressable
     // AUDIT DEEP2 B-1: THE JOURNEY'S END IS NEVER OFF THE SCREEN UNSEEN - held at the edge as a far place is (a far town's
     // plate gave way to a flag drawn above the picture, and the destination was gone for the whole journey), a place's
     // with its distance, and a click on a place's flag is its journey again (after a stop there is no ground to click)
@@ -19094,18 +19760,38 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const kind = social?.isPartyPeer(t.id) ? 'party' : 'traveller';
       const ship = isShipMark(t.p);   // OWS1: at sea, a ship - riding the sea's top
       marks.push({ key: `trav:${t.id}`, at: tvSceneKept(t, w.x, w.z, 2, ship), label: t.name, kind: `${kind}${ship ? ' ship' : ''}${t.p.tv ? ' journey' : ''}`, edge: true, badge: tvBadgeOf(t) });
+      near.add(t.id);
+    }
+    // AUDIT OW5 P6: MY PARTY, WHEREVER THEY ARE - the held map draws them from the party's own poses (partyMarkers); here
+    // a member past the pose range with "Show me to travellers" off, or over a region's border, stood on no mark at all,
+    // and the one who fell behind a group journey vanished from the leader's view. Their pose's pixel, in the party's
+    // colour, held at the edge - never twice (one marked above, by a body or the region's mark, stands as that)
+    for (const m of social?.others() ?? []) {
+      if (!Number.isInteger(m.p?.px) || !Number.isInteger(m.p?.py) || (m.peers ?? []).some((id) => near.has(id))) continue;
+      const o = mapPixelToWorldCoords(m.p.px, m.p.py);
+      let h = _tvPartyHold.get(m.acct);
+      if (!h) { h = {}; _tvPartyHold.set(m.acct, h); }
+      marks.push({ key: `pty:${m.acct}`, at: tvSceneKept(h, o.x + 16384, o.z + 16384, 2), label: m.name ?? '', kind: 'party', edge: true });
     }
     // OWS3: WARM ASHES' RAIDERS - the sails within the grid's reach where they sail, and one giving chase wherever it is,
     // held at the edge off the picture, pointing
-    if (warmAshesOn()) {
+    // AUDIT OW5b S8: none drawn where none can come - no Come Sail Away, no boat to be at sea in (the bands' own B6)
+    if (warmAshesOn() && csaOn()) {
       const grid = Math.max(1, state.terrainDistance ?? 3);
-      for (const r of travelViewRaiders()) {
+      const listed = travelViewRaiders();
+      for (const r of listed) {
         const c = tvRaid.chase.get(r.id);
         if (tvRaid.spent.has(r.id) && !c) continue;
-        const at = c ? c.pos : r;
+        const at = c ? c.pos : (seaRaidPeerChase(r.id) ?? r);   // OW6: one a peer's chase holds, where they say it sails
         const px = pixelOfNative(at.x, at.z);
         if (!c && Math.max(Math.abs(px.x - me.x), Math.abs(px.y - me.y)) > grid) continue;
         marks.push({ key: `raid:${r.id}`, at: tvSceneKept(c ?? r, at.x, at.z, 2, true), label: RAIDER_LABEL, kind: c ? 'raider ship chase' : 'raider ship', edge: !!c });
+      }
+      // AUDIT OW5b S3: A CHASE OUT OF THE LIST STILL SEEN - its raider's life turned over (the list is this life's), and it
+      // came alongside unseen: "one giving chase is marked wherever it is" (the bands' own T7-2)
+      for (const [id, c] of tvRaid.chase) {
+        if (listed.some((r) => r.id === id)) continue;
+        marks.push({ key: `raid:${id}`, at: tvSceneKept(c, c.pos.x, c.pos.z, 2, true), label: RAIDER_LABEL, kind: 'raider ship chase', edge: true });
       }
     }
     return marks;
@@ -19122,37 +19808,107 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   const TV_RAID_LIST_MS = 500;   // how often (real ms) the sails about the traveller are read again
   /** The shared clock (the relay's, online): every player's raiders at the same minute. */
   const raidNowMs = () => Date.now() + _sharedOffsetMs;
-  /** A raider's birth: the open sea - its pixel and every one about it water, the ocean's (never a lake, a bay's mouth). */
+  /** A raider's birth: the open sea - its pixel and every one about it water, the ocean's (never a lake, a bay's mouth).
+   *  AUDIT OW5b S5: and ON THE MAP - `tvWater` counts off the map as water (the planner's edge is the sea), and a column
+   *  off it read the PAK's first for its climate: a raider was born a pixel past the map's edge. */
   const tvRaidOpen = (px, py) => {
-    if (maps.getClimateIndex(px, py) !== CLIMATES.Ocean) return false;
+    if (px < 0 || py < 0 || px >= 1000 || py >= 500 || maps.getClimateIndex(px, py) !== CLIMATES.Ocean) return false;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!tvWater(px + dx, py + dy)) return false;
     return true;
   };
-  /** A native point on the water, by its pixel's byte (the planner's sea). */
-  const tvRaidSea = (x, z) => { const p = pixelOfNative(x, z); return tvWater(p.x, p.y); };
+  /** A native point on the water, by its pixel's byte (the planner's sea) - AUDIT OW5b S5: on the map alone (the pixel law
+   *  truncates, so the strip a pixel wide past the west and south edges read as the edge's own water, and past it all was
+   *  water: a raider sailed off the world). */
+  const tvRaidSea = (x, z) => {
+    if (!(x >= 0 && z >= 0 && x < 1000 * RAID_NATIVE_PIXEL && z < 500 * RAID_NATIVE_PIXEL)) return false;
+    const p = pixelOfNative(x, z);
+    return tvWater(p.x, p.y);
+  };
   /** The raiders about the traveller at the shared clock, read again each TV_RAID_LIST_MS. */
   function travelViewRaiders() {
     const t = performance.now();
     if (t - tvRaid.at < TV_RAID_LIST_MS) return tvRaid.list;
     tvRaid.at = t;
     const ms = raidNowMs(), life = Math.floor(ms / RAIDER_LIFE_MS);
-    if (life !== tvRaid.life) { tvRaid.life = life; for (const id of tvRaid.spent) if (!tvRaid.chase.has(id)) tvRaid.spent.delete(id); }   // AUDIT OWS A3: a new life's raiders are new ids - the last life's spent ones held nothing but memory
+    if (life !== tvRaid.life) {
+      tvRaid.life = life; for (const id of tvRaid.spent) if (!tvRaid.chase.has(id)) tvRaid.spent.delete(id);   // AUDIT OWS A3: a new life's raiders are new ids - the last life's spent ones held nothing but memory
+      for (let i = tvRaid.spentAt.length - 1; i >= 0; i--) if (raiderLifeOf(tvRaid.spentAt[i]) < life - 1) tvRaid.spentAt.splice(i, 1);   // OW6: said no more
+      for (const id of tvRaid.peer.keys()) if (raiderLifeOf(id) < life - 1) tvRaid.peer.delete(id);
+    }
     tvRaid.list = raidersNear({ at: playerTravelPixel(), ms, open: tvRaidOpen, sea: tvRaidSea });
     return tvRaid.list;
   }
   /** Alongside: the mod's own raid - the journey stopped (its panel's close is the interrupt), the ship boarded after the
    *  mod's wait. A raid already armed, or a lent ship out, and the raider sheers off unheeded (the mod's own refusals). */
   function raidContact() {
+    if (warmAshesRaidRefusal()) return;   // the mod's own refusals: the raider sheers off unheeded, the traveller sailing on
+    // AUDIT OW5b S1: THE HELM LET GO FIRST, as the fast travel's ambush lets it go (Come Sail Away's OnPreFastTravel runs
+    // before Warm Ashes' own). The raid boards by a teleport, which is no load and says nothing to the helm: the next
+    // frame's sail stood the player back at the helm of their boat (its drive position, in the ship pixel's frame now), on
+    // no deck at all, the pirates on the one they had been carried to. Let go before the raid arms, so a ship the helm
+    // lent (a crewed boat's Small) is handed back and the raid lends its own, as the fast travel's ambush does
+    if (csaRuntime?.isSailing()) csaCall(() => csaRuntime.StopSailing());
+    tvSeaRelease();
     const said = warmAshesRaidAtSea();
     if (said !== 'raid' && said !== 'raid-lent') return;
     travelControlUI?.closeWindow?.();
-    townTalk.say(TRAVEL_VIEW_TEXT.raidersAlongside);
+    tvSay(TRAVEL_VIEW_TEXT.raidersAlongside);
+  }
+  /** AUDIT OW5b S2: THE RAIDERS' QUARRY - a traveller at sea on their OWN boat: at its helm, or on its deck (Come Sail Away's
+   *  own "I'm On A Boat", its hull's box - the helm let go mid-sea is still at sea: a raider closing was spent the moment
+   *  its quarry stepped off the helm). Never a passenger aboard another's boat - its helmsman is the one a raider runs
+   *  down, and the raid's Leave Ship sets its boarder back where they boarded: for a passenger, the water the boat had
+   *  sailed on from. */
+  const raidQuarry = () => !!csaRuntime?.isSailing() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName));
+  /** OW6: a raider spent here - gone for its life, and said on my frames so the others spend it too (TV7b's bandSpend). */
+  function seaRaidSpend(id) {
+    tvRaid.spent.add(id);
+    owSaySpent(id);   // OW6L: and the cell keeps it
+    const k = tvRaid.spentAt.indexOf(id);
+    if (k >= 0) tvRaid.spentAt.splice(k, 1);
+    tvRaid.spentAt.unshift(id);
+    if (tvRaid.spentAt.length > RAIDERS_WIRE_MAX) tvRaid.spentAt.length = RAIDERS_WIRE_MAX;
+  }
+  /** OW6: a peer's chase of a raider, while their word is fresh - where they say it sails. */
+  function seaRaidPeerChase(id) {
+    const p = tvRaid.peer.get(id);
+    if (!p) return null;
+    if (performance.now() - p.at > RAIDER_WORD_MS) { tvRaid.peer.delete(id); return null; }
+    return p;
+  }
+  /** OW6: a peer's raider word, heard off their foes frame (past the room test): their chases drawn where they sail - one I
+   *  chase too goes to the lower id - and their spent raiders spent here. Only a raider that can be about me is kept. */
+  function seaRaidHear(from, raw) {
+    const now = performance.now(), at = playerTravelPixel(), life = Math.floor(raidNowMs() / RAIDER_LIFE_MS);
+    for (const [id, x, z, flag] of validRaiderWord(raw)) {
+      if (!raiderNearMe(id, at, life)) continue;
+      if (flag === 2) { tvRaid.spent.add(id); tvRaid.chase.delete(id); tvRaid.peer.delete(id); continue; }
+      tvRaid.peer.set(id, { x, z, at: now, from });
+      if (tvRaid.chase.has(id) && chaseYields(online?.id ?? '', from)) tvRaid.chase.delete(id);
+    }
+  }
+  /** OW6: my raider word, on the cell's foes frame - asked with `frame` null whether it must ride (a chase moves every
+   *  frame; a spent raider is said on the full frames too), then written into the frame (TV7b's bandWord). */
+  let _seaRaidWordKey = '';
+  function seaRaidWord(frame, full) {
+    if (!tvRaid.chase.size && !tvRaid.spentAt.length) { if (!_seaRaidWordKey) return false; if (frame) { frame.sr = []; _seaRaidWordKey = ''; } return true; }
+    const word = raiderWordOf(tvRaid.chase, tvRaid.spentAt);
+    const key = JSON.stringify(word);
+    if (!full && !tvRaid.chase.size && key === _seaRaidWordKey) return false;
+    if (frame) { frame.sr = word; _seaRaidWordKey = key; }
+    return true;
   }
   /** OWS3's frame: at sea and outdoors, a sail sighted under the view gives chase; each chase steps (the world's scale on
    *  it), is lost or comes alongside. Ashore - or the mod off - no chase stands. */
   function raidFrame(dt) {
-    const at = warmAshesOn() && isEnhanced() && walkMode && playerSpawned && (modes?.mode ?? 'exterior') === 'exterior' && !gamePaused() ? csaBoatUnderMe() : null;
-    if (!at) { for (const id of tvRaid.chase.keys()) tvRaid.spent.add(id); tvRaid.chase.clear(); return; }   // ashore: every chase given up, for its life
+    // AUDIT OW5 R1 (the audit before the merge): dead, or a window holding the game, a chase HOLDS - the bands' own law
+    // (AUDIT OW4 B9). A window read as ashore: any window (the inventory, the map, a quest box, the mod's own stop) gave
+    // every chase up and spent its raider for its life - a free escape. AUDIT OW5b S2 found the same (the one fix is this
+    // line); its S6: a world being moved holds too - the feet read mid-move lie a kilometre off (the bands' AUDIT OW3 D2).
+    // The chase's patience runs on its own clock (tvRaid.clock, below), which stands still while it holds
+    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused() || worldMoveBusy()) return;
+    const at = warmAshesOn() && isEnhanced() && walkMode && playerSpawned && (modes?.mode ?? 'exterior') === 'exterior' && raidQuarry();   // AUDIT OW5b S2: on their own boat's helm or deck
+    if (!at) { for (const id of tvRaid.chase.keys()) seaRaidSpend(id); tvRaid.chase.clear(); return; }   // ashore: every chase given up, for its life (OW6: and said so)
     const scale = worldTimeScale();
     tvRaid.clock += dt * 1000 * Math.max(1, scale);   // the chase's patience runs on the world's clock
     const up = !!travelView?.active;
@@ -19161,9 +19917,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (up && tvRaid.chase.size < 1) {
       const sight = raiderSight(isNight(minuteNow()));
       for (const r of travelViewRaiders()) {
-        if (tvRaid.spent.has(r.id) || tvRaid.chase.has(r.id)) continue;
+        if (tvRaid.spent.has(r.id) || tvRaid.chase.has(r.id) || seaRaidPeerChase(r.id)) continue;   // OW6: never a sail a peer's chase holds
         if (Math.hypot(r.x - here.x, r.z - here.z) / perM > sight) continue;
-        tvRaid.chase.set(r.id, { pos: { x: r.x, z: r.z }, best: Infinity, bestAt: tvRaid.clock });
+        tvRaid.chase.set(r.id, { raider: r, pos: { x: r.x, z: r.z }, best: Infinity, bestAt: tvRaid.clock });
         break;
       }
     }
@@ -19171,7 +19927,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const step = raiderChaseStep({ pos: c.pos, quarry: here, dt, scale, contact: up ? RAIDER_CONTACT_M : RAIDER_CONTACT_PLAY_M, now: tvRaid.clock, best: c.best, bestAt: c.bestAt, sea: tvRaidSea });
       c.pos = step.pos; c.best = step.best; c.bestAt = step.bestAt;
       if (step.state === 'chase') continue;
-      tvRaid.chase.delete(id); tvRaid.spent.add(id);
+      tvRaid.chase.delete(id); seaRaidSpend(id);   // OW6: spent, and said to the others
       if (step.state === 'contact') raidContact();
     }
   }
@@ -19204,8 +19960,66 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   }
   // THE CAP (systems/travelGovernor.js): while the view is up and a journey drives, the clock runs no faster than the
   // grid raises the ground the view can see. The spinner stays the player's; the panel says when it is held.
+  // OW6 (2026-09-29, the player: "If a player is traveling very fast, they should slow if enemies become close"): THE
+  // ENEMIES A JOURNEY SLOWS FOR (systems/travelThreat.js) - where each is from the traveller's feet (scene metres), the
+  // reach it sees or strikes in, and whether it is already closing. Under the view the Overworld's own: the bands as it
+  // draws them (spent, unmade or switched off never - a chaser by its contact ring, closing at its run) and, at sea, the
+  // raiders; on either skin every hostile foe standing about - a camp's, a wanderer, a peer's - by its own sight
+  function journeyThreats(up) {
+    const out = [], fx = player.feetAt();
+    const rel = (nx, nz) => { const [x, z] = state.localFromWorld(nx, nz); return [x - fx[0], z - fx[2]]; };
+    if (up && getPref('wildernessCamps') !== false && !playerEntity.preventEnemySpawns) {
+      const ms = bandNowMs(), sight = bandSight(tvBandSeen.night);
+      for (const b of travelViewBands()) {
+        if (_bandSpent.has(b.id) || _bandChase.has(b.id) || !bandMake(b)) continue;
+        if (_tvAttack?.kind === 'band' && _tvAttack.id === b.id) continue;   // OW-ATTACK: the band I go to fight holds nothing
+        const p = bandPlace(b, ms), [dx, dz] = rel(p.x, p.z);
+        out.push({ dx, dz, reach: sight });
+      }
+      for (const c of _bandChase.values()) { if (_tvAttack?.kind === 'band' && _tvAttack.id === c.band.id) continue; const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: BAND_CONTACT_M, chasing: true, mps: BAND_CHASE_MPS }); }   // OW-ATTACK: nor its chase
+    }
+    if (up && warmAshesOn() && csaOn() && raidQuarry()) {
+      const sight = raiderSight(isNight(minuteNow()));
+      for (const r of travelViewRaiders()) {
+        if (tvRaid.spent.has(r.id) || tvRaid.chase.has(r.id)) continue;
+        const at = seaRaidPeerChase(r.id) ?? r, [dx, dz] = rel(at.x, at.z);
+        out.push({ dx, dz, reach: sight });
+      }
+      for (const c of tvRaid.chase.values()) { const [dx, dz] = rel(c.pos.x, c.pos.z); out.push({ dx, dz, reach: RAIDER_CONTACT_M, chasing: true, mps: RAIDER_CHASE_MPS }); }
+    }
+    for (const f of exteriorFoes.foes) {
+      if (!foeHostile(f) || !f.ai.feet) continue;
+      if (_tvAttack?.kind === 'camp' && foeCampKey(f) === _tvAttack.id) continue;   // OW-ATTACK: the camp I go to fight, every member
+      out.push({ dx: f.ai.feet[0] - fx[0], dz: f.ai.feet[2] - fx[2], reach: f.ai.sightRadius ?? SIGHT_RADIUS });   // CAMP-SIGHT: a camp's sixty metres
+    }
+    return out;
+  }
+  /** OW6: the enemies' cap on this frame's fast travel - at the traveller's own pace (the motor's, unscaled) along the way
+   *  it goes (a journey's drive; `keys`, TV-WASD's last way; neither known, a straight reach), each enemy given
+   *  THREAT_WARN_S of real time. */
+  function journeyThreatCap(up, keys = false) {
+    const yaw = _travelDrive ? (_travelDrive.yaw * Math.PI) / 180 : keys ? _tvWalkYaw : null;
+    return threatCap({ threats: journeyThreats(up), heading: yaw == null ? null : { x: Math.sin(yaw), z: Math.cos(yaw) }, speedMps: player?.speed ?? 0 });
+  }
+  /** OW6: said ONCE as an enemy begins to hold the journey (again after it has let go and a while has passed) - the view's
+   *  bands are marked on the land, and the panel says the rate; on the classic skin this line is all the player is told. */
+  let _slowWas = null, _slowSaidAt = -Infinity;
+  const JOURNEY_SLOW_SAY_MS = 20000;
+  function journeySlowSaid(why) {
+    const t = performance.now();
+    if (why === 'foes' && _slowWas !== 'foes' && t - _slowSaidAt >= JOURNEY_SLOW_SAY_MS) { tvSay(TRAVEL_VIEW_TEXT.enemiesSlow, 3); _slowSaidAt = t; }   // AUDIT OW5 G2: held at the clock's scale
+    _slowWas = why;
+  }
   const travelGovernor = createLoadGovernor({ max: MAX_TIME_SCALE });
   let tvHeld = null;   // the rate the governor holds the clock to, while it holds it under the spinner's
+  // OW6: and why - 'load' (TV2's ground), 'foes' (an enemy near), 'ground' (the view down: AUDIT OW4 J5's walking pace - AUDIT
+  // OW5 G1, the bar saying which; its tvHeldGround is this word now)
+  let tvHeldWhy = null;
+  let tvWalking = 0;   // TV-WASD: the rate the movement keys travel at under the view (0: walking pace)
+  let _tvWalkYaw = null;   // OW6: the way the keys' travel last moved the body (radians, the motor's) - the enemies' cap reads it
+  /** TV-WASD: the keys' travel holds the clock - no panel stands behind that scale, and the frame's "a scale with no panel
+   *  is a journey over" spares it while the view that runs it is up (a door that cuts the view is cut first). */
+  const tvWalkHoldsTimeScale = () => tvWalking > 0 && !!travelView?.active;
   const _tvUnbuilt = { gen: -1, x: NaN, y: NaN, r: -1, n: 0 };   // PERF-TV: the cap's last count, and what it counted
   const _tvFootMemo = { gen: -1, map: new Map() };   // PERF-TV: the curtains' lowest land (render/rainCurtains.js memo)
   function travelViewGovern(dt) {
@@ -19214,15 +20028,45 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // roll (travelOptions.js attemptAvoidEncounter) takes the journey up again while the band that stopped it still
     // stands near: the view stays down (its `danger`), tvJourneyUp will not raise it while a foe is near, and the mod's
     // `ignoreEncounters` (15 s) let the autopilot drive ON THE GROUND at the spinner's full rate - through foes, into
-    // unbuilt ground, with no load governor: the lag Mac met. The classic skin's ground journey is untouched
+    // unbuilt ground, with no load governor: the lag Mac met. The classic skin's ground journey is untouched, and so is
+    // First-Person Travel's (OW-TOGGLE: the journey the player chose to walk on the ground)
     if (journey && !travelView?.active && tvOwnsJourneys()) {
       if (worldTimeScale() !== 1) setWorldTimeScale(1);
       tvHeld = travelAsked > 1 ? 1 : null;   // the panel says the clock is held (the spinner stays the player's)
+      tvHeldWhy = tvHeld != null ? 'ground' : null;   // AUDIT OW5 G1: and says it as what it is (OW6: the one word for it)
+      tvWalking = 0;   // TV-WASD: no keys' travel on the ground
       travelGovernor.reset();
       return;
     }
-    if (!travelView?.active || !journey) {
+    const walk = travelWalkRate({
+      viewUp: travelView?.state === 'up', journey,
+      // AUDIT OW5 G4: and only while the page has the focus - a key held as the window lost it never sends its keyup, and the
+      // clock ran on at the spinner's rate (x10: ten game hours in five real minutes) until the key was tapped again
+      moving: TV_MOVE_ACTIONS.some((a) => held(keys, a)) && (typeof document === 'undefined' || document.hasFocus?.() !== false),
+      onFoot: walkMode && playerSpawned && !player.isPlayerSwimming && !csaBoatUnderMe(),
+      paused: gamePaused(),
+      accel: travelControlUI?.timeAcceleration ?? 0, limit: travelControlUI?.accelerationLimit() ?? 0,
+    });
+    // OW6: THE ENEMIES' CAP, on every fast travel the frame governs (systems/travelThreat.js) - a journey on either skin, and
+    // the keys' travel under the view (TV-WASD: travelling very fast too) - the lower of it and the ground's holds
+    const foes = journey || walk ? journeyThreatCap(!!travelView?.active, !journey) : null;
+    if (journey && !travelView?.active) {
+      // the classic skin's journey on the ground, and First-Person Travel's (OW-TOGGLE): the mod's own ask, under the
+      // enemies' cap alone (no view, no ground to watch) - nothing near, it is the ask handed back whole. Never over the
+      // helm's own time step: Come Sail Away holds the clock then (AUDIT OW5 G5's law, whose restore asks this rate)
+      const rate = csaHoldsTimeScale() ? null : Math.min(travelAsked, foes.cap);
+      if (rate != null && worldTimeScale() !== rate) setWorldTimeScale(rate);
+      tvHeld = rate != null && rate < travelAsked ? rate : null;
+      tvHeldWhy = tvHeld != null ? 'foes' : null;
+      journeySlowSaid(tvHeldWhy);
+      tvWalking = 0;
+      travelGovernor.reset();
+      return;
+    }
+    if (!travelView?.active || !(journey || walk)) {
       if (tvHeld != null) { tvHeld = null; if (journey) setWorldTimeScale(travelAsked); }
+      tvHeldWhy = null; journeySlowSaid(null);   // OW6: the line said again when an enemy next holds it
+      if (tvWalking) { tvWalking = 0; if (!travelControlUI?.isShowing && !csaHoldsTimeScale() && worldTimeScale() !== 1) resetTimeScale(); }   // TV-WASD: let go, x1 at once
       travelGovernor.reset();
       return;
     }
@@ -19242,10 +20086,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       uc.gen = gen; uc.x = px.x; uc.y = px.y; uc.r = radius;
     }
     const unbuilt = uc.n;
-    const want = travelAsked;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap
-    const rate = travelGovernor.step(dt, { unbuilt, requested: want });
+    const want = journey ? travelAsked : walk;   // AUDIT TV A2: what the mod asked - never the spinner past the mod's own cap; TV-WASD: or the keys' travel
+    const load = travelGovernor.step(dt, { unbuilt, requested: want });
+    const rate = Math.min(load, foes.cap);   // OW6: the ground's cap and the enemies', the lower
     if (worldTimeScale() !== rate) setWorldTimeScale(rate);
     tvHeld = rate < want ? rate : null;
+    tvHeldWhy = tvHeld == null ? null : foes.cap < load ? 'foes' : 'load';
+    journeySlowSaid(tvHeldWhy);
+    tvWalking = journey ? 0 : walk;
   }
   let tvCursorWas = false;   // AUDIT TV B9: the cursor as the view found it
   travelView = createTravelView({
@@ -19261,10 +20109,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // OW3 J1: stopped THROUGH THE PANEL - the mod's own Camp (pauseTravel: the panel closes, its onClose interrupts, the
     // destination is kept). A bare interruptTravel left the panel up, so the journey still read active: the next frame's
     // tvJourneyUp raised the view again over a frozen journey, and the held map, which offers Resume only to a journey
-    // not active, never did
-    onLower: (why) => { if ((why === 'button' || why === 'escape' || why === 'key') && travelOptions?.isTravelActive) travelOptions.messages.pauseTravel(); },
+    // not active, never did. OW-TOGGLE: a first-person journey walks on under a view brought down, as before OW-ONLY
+    openMap: () => toggleTravelMap(),   // OW-BLOCK: the Overworld block's Map, journey or none
+    onLower: (why) => { if ((why === 'button' || why === 'escape' || why === 'key') && travelOptions?.isTravelActive && tvOwnsJourneys()) travelOptions.messages.pauseTravel(); },
     windowUp: () => gamePaused() || (modes?.modalWindowUp?.() ?? false),
-    overlayUp: () => overlayOpen(),   // AUDIT DEEP2 A3: an enhanced overlay (the Tab dial) has the keys while it is up
+    overlayUp: () => overlayOpen() || travelViewConfirmOpen(),   // AUDIT DEEP2 A3: an enhanced overlay (the Tab dial) has the keys while it is up; OW-CONFIRM: and the view's own question
     danger: () => duelEnemyNear() || areEnemiesNearby(exteriorFoePool()),   // the travel map's own refusal, and the Travel Options journey's stop (AUDIT DEEP2 A9/B-4: a live duel too, DUEL1's)
     actionsOf: (e) => actionsOf(e, keys),
     movementHeld: () => TV_MOVE_ACTIONS.some((a) => held(keys, a)),
@@ -19277,11 +20126,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     say: (t) => townTalk.say(t),
     touch: !!touch,
     alive: () => frameAlive(_frameToken),   // the heartbeat's question: a loop a later boot killed is left quietly
-    onPick: (x, y) => onTravelViewPick(x, y),   // TV2
-    onMark: (key) => onTravelViewMark(key),
+    onPick: (x, y, e) => onTravelViewPick(x, y, e),   // TV2; OW-PATH: the event, for the fine-move key
+    onMark: (key, e) => onTravelViewMark(key, e),   // OW-ATTACK: the press, for an enemy's single click
     marks: travelViewMarks,
     route: travelViewRoute,
-    trip: () => (tvTripLive() ? tvTrip.line : ''),
+    trip: () => (tvWalking ? TRAVEL_VIEW_TEXT.travelling(tvWalking, tvHeld) : tvTripLive() ? tvTrip.line : ''),   // TV-WASD: the keys' travel says its speed - AUDIT OW5 G3: first, as it runs only with no journey driving (a stopped route kept for the Resume read "To X, by the road" over it)
     hintKeys: () => {   // AUDIT DEEP T1-12: the hint names the player's own keys
       const store = bindings();
       const k = (a) => { const c = codeForAction(store, a); return c ? buttonText(c, true) : null; };
@@ -19354,7 +20203,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // mode with the panel up ENDS it, as any other window on top would
     // (:1040-1047), and a scale with no panel behind it is reset here.
     if (travelControlUI?.isShowing && (modes?.mode ?? 'exterior') !== 'exterior') travelControlUI.closeWindow();
-    if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale()) resetTimeScale();   // CSA-G: a scale the helm's time keys set has no panel behind it either
+    if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale() && !tvWalkHoldsTimeScale()) resetTimeScale();   // CSA-G: a scale the helm's time keys set has no panel behind it either; TV-WASD: nor the Overworld keys' travel
     // TI1: the tap's one-frame press. Armed 2 on the tap: this frame
     // counts to 1 and the gate sees the press (AUDIT 62 F8: `_tapArmed
     // > 0` IS the press - the arm no longer stuffs a literal 'Mouse0'
@@ -19554,7 +20403,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       renderer.resolveFrame();   // AUDIT RETRO1 E5/C8: a frame that drew no screen quad (the enhanced skin, a sheathed weapon) is shown NOW, not at the next beginFrame
       capturePendingScreenshot(canvas);   // SS1: a save armed from a modal mode still lands its shot
       gateVeil?.frameDrawn();   // AUDIT WB D5: the step's fire holds shut on the frames the new place has drawn
-      frameAbort();   // AUDIT-WH2 L1-F4: the frame never reached frameEnd - close the token, take no sample
+      // DISC29-D (Skeptikali on Discord: a dungeon at 99.9% CPU, and a counter that could not say whose): the indoor
+      // foot is a WHOLE frame - the interior or the dungeon, its foes, its draw - so it takes its sample, and the FPS
+      // counter's script time reads indoors as it does outside. AUDIT-WH2 L1-F4 closed it unsampled, for the frame that
+      // bails at its second statement (frameHeld, above), and this return is not that frame.
+      frameEnd();
       requestAnimationFrame(frame);
       return;
     }
@@ -19709,7 +20562,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           });
           _travelDrive = report?.drive?.arrived === false ? report.drive : null;
           if (report?.stopped) _walkStopWhy = report.stopped;   // AUDIT OW4 P4: a journey that cannot run as I am (systems/partyWalk.js WALK_BALKS) is not the party's to set out again
-          if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale()) resetTimeScale();   // the panel gone is the journey over (CSA-G: the helm's scale is no journey's)
+          if (!travelControlUI?.isShowing && worldTimeScale() !== 1 && !csaHoldsTimeScale() && !tvWalkHoldsTimeScale()) resetTimeScale();   // the panel gone is the journey over (CSA-G: the helm's scale is no journey's; TV-WASD: nor the keys')
         }
       // AUDIT 18 F9: the player's world clock, HELD by the same gate.
       // It ran only inside a dungeon before F8 moved it here; F8 then
@@ -19821,6 +20674,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // strafe key, so DFU sidesteps a held strafe at walk speed with
           // limitDiagonalSpeed cutting the forward share - the port
           // zeroed it and ran 41% faster along the bearing while it was held.
+        }
+        // TV-WASD: THE KEYS' TRAVEL WAITS FOR THE GROUND as a journey's walk does (TO-FIELD's sentence), looking the way
+        // the keys move the body - its heading turned by the axes (the motor's right is (cos, 0, -sin))
+        if (tvWalking && !_travelDrive && (axes.forward || axes.strafe)) {
+          const _feet = walkMode && playerSpawned ? player.pos : cam.pos;
+          const way = cam.yaw + Math.atan2(axes.strafe, axes.forward);
+          if (travelDriveForward({ feet: _feet, yaw: way, heightAt, lookahead: travelLookahead(dt, travelScale), streaming: !!(building || queue.length || inFlight.size), forward: 1 }) === 0) { axes.forward = 0; axes.strafe = 0; }
+          _tvWalkYaw = way;   // OW6: the way the keys go, for the enemies' cap (travelViewGovern reads it next frame)
         }
         // Audit F3: the crouch toggle stays LIVE while paralyzed - DFU
         // gates movement and the jump only (DecideHeightAction has no check).
@@ -20057,7 +20918,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           paused: _overlayHeld,
         });
         if (_act.cast && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
-        const useEdge = pressed(latch.edge, keys, 'Interact');   // KB1: the Interact ACTION (E by default, Mac's call) - it was a raw `KeyE` beside DFU's E-AbortSpell, and one press did both
+        const useEdge = !travelView?.active && pressed(latch.edge, keys, 'Interact');   // AUDIT OW5 V2: never from under the travel view - its ray is the hidden head's (a door took the traveller inside, a townsperson opened talk); KB1: the Interact ACTION (E by default, Mac's call) - it was a raw `KeyE` beside DFU's E-AbortSpell, and one press did both
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
         const nodeTook = useEdge && !modes.transitioning && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's
         if ((_act.activate || (useEdge && !nodeTook)) && !modes.transitioning) {
@@ -20442,8 +21303,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           let room = exteriorFoes.encounterRoom?.() ?? Infinity;
           for (const h of chunkCampHits) {
             // PSCALE1 x CAMP-CAP: the group as it will STAND - _standCampEncounter grows it by the party it meets
-            // (partyGroupMembers), so the room is asked for the grown count, or a party's third group was cut short
-            const size = partyGroupMembers(h.mobileTypes, partySize()).length;
+            // (campMembers, OW6: the one home), so the room is asked for the grown count, or a party's third group was cut short
+            const size = campMembers(h.mobileTypes).length;
             if (size > room) continue;
             room -= size;
             _standCampEncounter(h, player.feetAt());
@@ -20473,6 +21334,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // third it is the reference's focal-and-pull-back with this host's
     // collider standing in for the sphere cast.
     // TV1: under the travel view the sprite turns to the view's eye (`eyeOverride`: last frame's - a lag nobody sees)
+    // VIEW-TOGGLE (Mac: "a force first person/third person toggle"): the other view, on the press edge of its action (the
+    // mouse's forward side button by default) - under no window, and never mid-load (hccActionPressed's gate)
+    if (hccActionPressed('TogglePerspective')) mwViewTogglePerspective();
     const mwv0 = mwViewFrame({
       eyeOverride: travelView?.eye ?? null,
       fpEye: cam.pos, feet: player.feetAt(), yaw: cam.yaw, pitch: cam.pitch,
@@ -20495,6 +21359,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const tvFace = tvf ? { yaw: tvf.yaw, up: tvf.up, grow: tvf.grow } : null;   // AUDIT DEEP R-2: the traveller's own sprite turns its quad to the travel view's eye
     setFlatLean(tvf ? Math.hypot(tvf.up[0], tvf.up[2]) : 0);   // AUDIT DEEP R-7: the flats' cull spheres grown by the lean, before any cull
     renderer.setFocus(tvf ? cam.pos : null, !!tvf && tvf.blend >= 0.5);   // AUDIT DEEP2 D7: the cascades grow half way up, where the picture has
+    tvBandSpritesStep(dt, tvf, mwv.eye);   // OW-FOES: the bands near, as their monsters
     const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + viewFwd[0], mwv.eye[1] + viewFwd[1], mwv.eye[2] + viewFwd[2]], [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
     // DW-E5 x TV1: under the travel view `mwv.eye` is the raised eye - the view never opens in the sea (travelViewAllowed)
     for (let i = 0; i < 3; i++) _dwEyeOffset[i] = mwv.eye[i] - cam.pos[i];   // DW-E5: the spawners' camera, as this frame placed it
@@ -20667,6 +21532,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       params.has('window') ? params.get('window') : windowStyleForTime(minute)));
     tickWodSpawners();   // WOD3: LocationEnemySpawner.Update, every exterior frame
     tickCityGates(minute);   // AUDIT 64 F14: DaggerfallCityGate.Update, every frame as DFU's is - and on the first frame after a pixel builds, which is what closes a gate streamed in at 20:00
+    iilSyncLane(renderer, false);   // IIL2: outdoors the mod's shadow lane comes off - the streets are the classic set's, day or night
     const currentEntry = built.get(`${state.current.x},${state.current.y}`);
     // DaggerfallSky.cs:363-367 - a non-Normal WeatherStyle (every rain,
     // thunder and snow) disables the clear night sky, so the DAY sky at
@@ -20825,6 +21691,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     if (peerRiders) for (const b of peerRiders.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // RIDE: the others in the saddle
     if (peerWalkers) for (const b of peerWalkers.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // DISC23-B: and on foot, as they chose
+    if (bandSprites) for (const b of bandSprites.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // OW-FOES: the bands near, as their monsters
     // NEAR-FIRST (2026-09-21): THE PIXELS ARE WALKED NEAREST FIRST. The
     // map's insertion order is the order the pixels streamed in, which
     // is nothing to do with where the eye is - so a far town's walls
@@ -21173,7 +22040,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // DW-D: SuppressVanillaWaterEncounters (DeepWaters.Update) - the deep has its own, so the vanilla roll stands down
     if (_deepSuppressesSpawns()) playerEntity.preventEnemySpawns = true;
     dungeonFindFrame(performance.now());   // TV6: an undiscovered dungeon within a kilometre is found
-    bandFrame(performance.now());   // TV7: the bands - a chase, a contact
+    bandFrame(performance.now(), dt);   // TV7: the bands - a chase, a contact (AUDIT OW5b B1: on the frame's own clock)
+    handOverWalkedAway(performance.now());   // OW6: a foe I walk away from goes to the player beside it, never culled from under them
     const _pf = walkMode && playerSpawned ? player.pos : cam.pos;
     if (!townTalk.overlayActive) runEncounterTick(_pf);
     if ((modes?.mode ?? 'exterior') === 'exterior') {
@@ -21522,11 +22390,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // AFTER the damage fork closes (:615), so a shaft that lost the
         // roll still enrages what it hit and wakes the area. ROAD-G G1
         // (review): the WATCH carries the pair now
-        // (cityGuards.js:732-737), so this seam ROUTES by pool exactly
+        // (cityGuards.js:733-738), so this seam ROUTES by pool exactly
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1256). DFU makes no pool distinction:
+        // (cityGuards.js:1270). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.
@@ -21592,9 +22460,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const guardHitSound = (g) => audio.play3d(hitSoundFor(weaponRig.playerWeapon.strikingWeapon), g.ai.feet, ENEMY_HIT_VOLUME, { maxDistance: 16 });   // DISC10-E: PlayHitSound(currentRightHandWeapon) (WeaponManager.cs:563-566) - the hand's item, never the claws marker
         // AUDIT 23 (combat-4): the host-side double tallies are gone -
         // resolvePlayerHit runs DFU's tally arm itself.
-        // DISC19-F: the town's defenders are spared on the watch's pass and
-        // offered alone once the monsters' pool missed - friendly
-        // protection across the two pools (cityGuards.resolvePlayerHit).
+        // DISC19-F / FB0929: under friendly protection the watch's pool
+        // spares the town's defenders on every pass (cityGuards
+        // .resolvePlayerHit) - no pass offers them the swing alone.
         // AUDIT DISC19: `swing` is the one swing's token - the attack
         // grunt rolls in the first pool that has anyone, not in each.
         const swing = {};
@@ -21603,12 +22471,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (duelMeleeHit(cam.pos, makeInView(proj, view, multiply))) {
           tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
           surfacePlayer();
-        } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { spareDefenders: true, swing })) {
+        } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // X-slice: encounter foes resolve after the watch, before civilians
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
             tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
             surfacePlayer();
-          } else if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { defendersOnly: true, swing }))
+          } else
           cityGuards.resolveCivilianHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, _guardPool(),
             { onMurder: () => _crimeResponse(), onHitSound: guardHitSound, swing }).then((r) => {
             if (r?.carriedHit) tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
@@ -21801,6 +22669,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           following: !travelOptions?.destinationName,
           accel: travelControlUI?.timeAcceleration ?? 1,
           held: tvHeld,   // TV2: the travel view's cap, while it holds the clock under the spinner
+          heldWhy: tvHeldWhy,   // AUDIT OW5 G1: and why; OW6: the land loading, an enemy near, or the view down (its ground)
           message: travelControlUI?.message ?? '',
           minutesLeft: travelOptions?.minutesLeft ?? null,   // AUDIT-TO1 L5: the popup's estimate, run down on the world clock
           from: playerTravelPixel(),

@@ -470,6 +470,8 @@ export class QuestMachine {
       releaseQuestItem: (questUID, itemResource) => this.deps.releaseQuestItem?.(questUID, itemResource),
       makeHeldQuestItemsPermanent: (questUID, symbol) => this.deps.makeHeldQuestItemsPermanent?.(questUID, symbol),
       offerReward: (q, dfItem) => this.deps.offerReward?.(q, dfItem),
+      // REALM P0.4: the shares a quest's gold reward is paid in - the party's, for a quest kept in step with it
+      rewardShares: (quest) => (this.sharedQuestNames.has(quest?.questName) ? Math.max(1, Math.trunc(this.deps.partySize?.() ?? 1) || 1) : 1),
       isPlayerInTown: () => this.deps.isPlayerInTown?.() ?? false,
       // GivePc.cs:96's static event, through the deps to the UI latch.
       onOfferPending: (givePc) => this.deps.onOfferPending?.(givePc),
@@ -1528,7 +1530,7 @@ export class QuestMachine {
    *  faction ("This effectively shuts down several named NPCs during
    *  main quest") - and TalkManager.cs does not contain the word
    *  Listener at all. The port already ships that reader, at
-   *  src/scenes/worldModes.js:2911. A pending marker over shipped work
+   *  src/scenes/worldModes.js:2941. A pending marker over shipped work
    *  is worse than no marker: it sends the next reader looking for
    *  work that is done, in a file that never had it. */
   addFactionListener(factionID, owner) {
