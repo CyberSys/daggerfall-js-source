@@ -45,6 +45,7 @@
 
 import { WEAPONS, WEAPON_MATERIALS } from '../characters/weapons.js';
 import { OWN_MW_MODELS } from '../characters/ownWeaponModels.js';   // FIELD-GUN-MW2: the weapons Morrowind does not have
+import { OWN_MW_ARMOR, ownArmorModelFor } from '../characters/ownArmorModels.js';   // MW-BRIG1: the armour Morrowind does not have
 import { ARMOR_MATERIAL } from '../systems/armorMaterials.js';
 import { ARMOR_ENUM } from '../combat/enemyEquipment.js';
 import templates from '../characters/itemTemplates.json' with { type: 'json' };
@@ -349,6 +350,10 @@ export function itemMapCoverage() {
   for (const index of Object.keys(MOD_ARMOR_ROWS)) {
     for (const [mName, m] of Object.entries(ARMOR_MATERIAL)) {
       if (m === ARMOR_MATERIAL.None) continue;
+      // MW-BRIG1: a template and material the port dresses in its own model - still a row of the mod's space, and
+      // one that answers with the port's meshes rather than a retail record
+      const own = OWN_MW_ARMOR.find((a) => a.templateIndex === Number(index) && a.material === m);
+      if (own) { out.push({ kind: 'own', item: `template ${index}`, material: mName, via: 'mod armor', own: 'ownArmorModels', index: Number(index), model: own.parts.map((p) => p.model).join(' + ') }); continue; }
       const ok = !!MOD_ARMOR_ROWS[index] && mName in DF_TO_MW_ARMOR_MATERIAL;
       out.push({ kind: ok ? 'mapped' : 'UNMAPPED', item: `template ${index}`, material: mName, via: 'mod armor' });
     }
@@ -576,9 +581,21 @@ export function composeWornArmor({ pieces, armors, clothes, bodyPool, female = f
       for (const part of RESERVES[res.row.reserve] ?? []) claim(part, prio, null);
       continue;
     }
+    const prio = ((0 + 1) << 1) + 1;
+    // MW-BRIG1: THE PORT'S OWN WORN MODEL stands where the ARMO and its
+    // BODY records would (characters/ownArmorModels.js) - claimed at an
+    // armour's priority, part by part, as composeRefs claims a record's.
+    const own = ownArmorModelFor(piece);
+    if (own) {
+      for (const p of own.parts) {
+        const at = ARMO_PART.findIndex((r) => r.name === p.part);
+        const row = ARMO_PART[at];
+        claim(at, prio, { slot: `${row.name} (${own.id})`, partName: row.name, bones: row.bones, model: p.model, recordId: own.id, piece, restPose: own.restPose });
+      }
+      continue;
+    }
     const res = mwArmorRecords(armors, piece.templateIndex, piece.material);
     if (!res.records.length) { notes.push(`armor ${piece.templateIndex}: ${res.note}`); continue; }
-    const prio = ((0 + 1) << 1) + 1;
     // AUDIT 30 F1: A HELMET HIDES THE HAIR - an engine rule, not a
     // part reference (npcanimation.cpp:615), prior to the refs.
     if (armorRowOf(piece.templateIndex) === DF_ARMOR_ROWS[HELM_TEMPLATE]) hairHidden = Math.max(hairHidden, prio);   // MW-ASSIGN: any helm-shaped piece (a mod's helmet)
