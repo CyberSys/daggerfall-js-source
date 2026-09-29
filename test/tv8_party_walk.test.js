@@ -420,7 +420,7 @@ function walkHost(world, acct, over = {}) {
     travelViewWalkTo: (point, pix, opts = {}) => { c.walks = [...(c.walks ?? []), { pix, door: opts.door ?? null }]; return begun(c.to.beginTravelToPoint({ pixel: pix, x: point[0], z: point[2] }, c.cautious, { quiet: true }), { pixel: pix, point: { x: point[0], z: point[2] } }); },
     YesNoBoxWindow, TRAVEL_VIEW_TEXT,
     locationIndex: new Map(), locationWorldRect: (loc) => loc.rect,
-    // AUDIT OW5 D3: what stands on a pixel, built or not - the index's, else the spawn its roll would stand (the host's tvLocationAt)
+    // AUDIT OW5b D3: what stands on a pixel, built or not - the index's, else the spawn its roll would stand (the host's tvLocationAt)
     unbuilt: new Map(), tvLocationAt: (x, y) => d.locationIndex.get(`${x},${y}`) ?? d.unbuilt.get(`${x},${y}`) ?? null,
     ...over,
   };
@@ -737,7 +737,7 @@ test('AUDIT OW4 X1 (run on the host\'s own code): a place the member has not fou
   assert.equal(bare.clients[1].walks.at(-1).door, null, 'no place in the pixel: a spot');
 });
 
-test('AUDIT OW5 D3 (run on the host\'s own code): THE LEADER\'S SPAWN IS A DOOR TO A MEMBER WHOSE OWN PIXELS NEVER BUILT IT - asked what stands there, not what the index holds', () => {
+test('AUDIT OW5b D3 (run on the host\'s own code): THE LEADER\'S SPAWN IS A DOOR TO A MEMBER WHOSE OWN PIXELS NEVER BUILT IT - asked what stands there, not what the index holds', () => {
   const rect = { minX: 5, maxX: 6, minZ: 7, maxZ: 8 };
   const w = walkParty('L', 'M', { M: { tvPlaceSummary: () => null } });
   const [L, M] = w.clients;

@@ -85,7 +85,7 @@ test('SPAWNED-DUNGEONS: templates are real non-main-story dungeons, one-block ex
 test('SPAWNED-DUNGEONS by source: ONE choke point (buildPixelNow), online-only off the page params, wrapped, never a fresh roll per load', async () => {
   const { readFileSync } = await import('node:fs');
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
-  assert.match(w, /const dfLocation = _locationToBuild\(px, py\) \|\| null;/, 'the build asks what stands (AUDIT OW5 D2)');
+  assert.match(w, /const dfLocation = _locationToBuild\(px, py\) \|\| null;/, 'the build asks what stands (AUDIT OW5b D2)');
   assert.match(w, /function _locationToBuild\(px, py\) \{[\s\S]{0,600}?return loc \|\| spawnedDungeonAt\(px, py\);\n  \}/, 'a real location always wins; only an empty pixel is asked');
   const i = w.indexOf('const spawnedDungeonAt = (px, py) => {');
   const fn = w.slice(i, w.indexOf('\n  };\n', i));
@@ -228,7 +228,7 @@ test('TTL1 by source: expiry is checked on the pixel build, and never while the 
   const fn = w.slice(i, w.indexOf('\n  };\n', i));
   assert.match(fn, /_spawnLedger\.expired\(key, _spawnClock\(\)\) && !_insideSpawn\(key\)/, 'both clocks AND the creator\'s "no player in it"');
   assert.match(fn, /_locIndexGen \+= 1;[^\n]*\n\s*locationIndex\.delete\(key\);\s*\n\s*return null;/, 'expired: the location goes, the pixel is empty land');
-  assert.ok(!/_spawnLedger\.forget\(key\)/.test(fn), 'AUDIT OW5 D2: and the row STAYS - its clocks keep it gone; forgotten, the pure roll stood the same dungeon again on a fresh seven days');
+  assert.ok(!/_spawnLedger\.forget\(key\)/.test(fn), 'AUDIT OW5b D2: and the row STAYS - its clocks keep it gone; forgotten, the pure roll stood the same dungeon again on a fresh seven days');
   assert.match(fn, /_spawnSeen\(key\);/, 'first sight starts the long clock - through the one first-sight door (OW6L)');
   const seenAt = w.indexOf('  function _spawnSeen(key) {');
   assert.match(w.slice(seenAt, w.indexOf('\n  }\n', seenAt)), /_spawnLedger\.note\(key, _spawnClock\(\)\);/, 'which notes the ledger');
@@ -304,10 +304,10 @@ test('TTL1 by source: both hosts carry the ledger, so a save made underground ke
   assert.match(m, /spawnLedger: \(\) => host\.spawnLedger\?\.\(\) \?\? null,/);
 });
 
-// AUDIT OW5 D2 (TTL1, the creator's rule relayed by Mac: "Spawned Dungeons should expire/removed after 2 ingame days when
+// AUDIT OW5b D2 (TTL1, the creator's rule relayed by Mac: "Spawned Dungeons should expire/removed after 2 ingame days when
 // cleared ... and after 7 ingame days in general"): spawnedDungeonAt and the build's own ask lifted out of world.js and
 // RUN - an expired spawn is REMOVED and stays removed, however often its pixel is asked or built.
-test('AUDIT OW5 D2 host run: A SPAWN PAST ITS TIME IS GONE FOR GOOD - the build\'s probe and the build itself both ask, and neither stands it again on a fresh clock; one the index still holds is taken out at its pixel\'s next build; never while the player is in it; a real place always wins', async () => {
+test('AUDIT OW5b D2 host run: A SPAWN PAST ITS TIME IS GONE FOR GOOD - the build\'s probe and the build itself both ask, and neither stands it again on a fresh clock; one the index still holds is taken out at its pixel\'s next build; never while the player is in it; a real place always wins', async () => {
   const { readFileSync } = await import('node:fs');
   const { createSpawnLedger, GENERAL_TTL_MINUTES } = await import('../src/world/spawnedDungeons.js');
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');

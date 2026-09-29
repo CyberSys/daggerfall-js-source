@@ -1,6 +1,6 @@
 [
   {
-    "name": "OW5-E1-contact-never-asks",
+    "name": "OW5b-E1-contact-never-asks",
     "file": "src/scenes/world.js",
     "old": "        const met = bandRoom(mk) ? journeyMet() : null;",
     "new": "        const met = null;",
@@ -10,7 +10,7 @@
     "note": "The band's contact leaves the journey to the members' senses: at x40 the traveller runs on through the band (Mac's report)."
   },
   {
-    "name": "OW5-E1-full-pool-meets",
+    "name": "OW5b-E1-full-pool-meets",
     "file": "src/scenes/world.js",
     "old": "        const met = bandRoom(mk) ? journeyMet() : null;",
     "new": "        const met = journeyMet();",
@@ -20,7 +20,7 @@
     "note": "A band the full foe pool cannot stand stops the journey all the same - a stop, and a box, for nobody."
   },
   {
-    "name": "OW5-E1-won-roll-still-stands",
+    "name": "OW5b-E1-won-roll-still-stands",
     "file": "src/scenes/world.js",
     "old": "        if (met === 'avoided') { _bandChase.delete(id); bandSpend(id); continue; }",
     "new": "        if (met === 'avoided') { }",
@@ -30,7 +30,7 @@
     "note": "A cautious traveller's won roll stands the band anyway - the band never loses the trail."
   },
   {
-    "name": "OW5-E1-grace-stands",
+    "name": "OW5b-E1-grace-stands",
     "file": "src/scenes/world.js",
     "old": "        if (met === 'ignored') { c.retryAt = now + BAND_STAND_RETRY_MS; continue; }",
     "new": "",
@@ -40,27 +40,27 @@
     "note": "A won roll's grace stands the band beside a journey still walking at speed - run through again."
   },
   {
-    "name": "OW5-E1-wanderer-never-asks",
+    "name": "OW5b-E1-wanderer-never-asks",
     "file": "src/scenes/world.js",
-    "old": "    journeyMet();   // AUDIT OW5 E1: placed beside the traveller",
-    "new": "    void 0;   // AUDIT OW5 E1: placed beside the traveller",
+    "old": "    journeyMet();   // AUDIT OW5b E1: placed beside the traveller",
+    "new": "    void 0;   // AUDIT OW5b E1: placed beside the traveller",
     "tests": [
       "test/encounterplace.test.js"
     ],
     "note": "The wanderer placed beside a walking traveller is left to its own senses: the journey runs on past it."
   },
   {
-    "name": "OW5-E1-wanderer-stops-for-nobody",
+    "name": "OW5b-E1-wanderer-stops-for-nobody",
     "file": "src/scenes/world.js",
-    "old": "    if ((exteriorFoes.encounterRoom?.() ?? Infinity) <= 0) return null;   // AUDIT OW5 E1",
-    "new": "    // AUDIT OW5 E1",
+    "old": "    if ((exteriorFoes.encounterRoom?.() ?? Infinity) <= 0) return null;   // AUDIT OW5b E1",
+    "new": "    // AUDIT OW5b E1",
     "tests": [
       "test/encounterplace.test.js"
     ],
     "note": "The pool full, spawnFoe stands nobody - and the journey is stopped for a foe that never comes."
   },
   {
-    "name": "OW5-E1-panel-alone-walks",
+    "name": "OW5b-E1-panel-alone-walks",
     "file": "src/systems/travelOptions.js",
     "old": "    if (!st.autopilot || !ui?.isShowing) return null;",
     "new": "    if (!ui?.isShowing) return null;",
@@ -70,7 +70,7 @@
     "note": "A panel left up over a stopped journey is stopped again, with a box, for nothing."
   },
   {
-    "name": "OW5-E1-grace-forgotten",
+    "name": "OW5b-E1-grace-forgotten",
     "file": "src/systems/travelOptions.js",
     "old": "    if (ignoringEncounters()) return 'ignored';",
     "new": "",
@@ -80,7 +80,7 @@
     "note": "The won roll's grace is not the asked stop's: the next encounter stops the journey the sweep would pass it by."
   },
   {
-    "name": "OW5-E1-won-roll-said-lost",
+    "name": "OW5b-E1-won-roll-said-lost",
     "file": "src/systems/travelOptions.js",
     "old": "      ui?.showMessage(T.MsgAvoidSuccess);\n      return true;",
     "new": "      ui?.showMessage(T.MsgAvoidSuccess);\n      return false;",
@@ -90,7 +90,7 @@
     "note": "A won roll answers 'stopped': the band stands beside a journey walking on."
   },
   {
-    "name": "OW5-E1-stop-keeps-walking",
+    "name": "OW5b-E1-stop-keeps-walking",
     "file": "src/systems/travelOptions.js",
     "old": "    const route = st.route;   // AUDIT OW4 J2: held before the panel's Camp - a spot's route dies in interruptTravel\n    ui?.closeWindow();",
     "new": "    const route = st.route;   // AUDIT OW4 J2: held before the panel's Camp - a spot's route dies in interruptTravel",
@@ -100,7 +100,7 @@
     "note": "The enemies stop says so and never closes the panel: the journey walks on under the box."
   },
   {
-    "name": "OW5-E1-sweep-own-grace",
+    "name": "OW5b-E1-sweep-own-grace",
     "file": "src/systems/travelOptions.js",
     "old": "      if (!ignoringEncounters() && deps.enemiesNearby?.()) {",
     "new": "      if (deps.enemiesNearby?.()) {",

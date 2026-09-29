@@ -88,7 +88,7 @@ export function raiderOf({ cx, cy, life, open }) {
   return { id: `r${cx}.${cy}.${life}`, cx, cy, life, seed, born: { x: o.x + r() * NATIVE_PIXEL, z: o.z + r() * NATIVE_PIXEL }, bornMs: life * RAIDER_LIFE_MS, heading0: r() * Math.PI * 2 };
 }
 
-/** AUDIT OW5 S4: how many points along a leg are asked for water - one every RAIDER_LEG_MS's run over this (about 22 m
+/** AUDIT OW5b S4: how many points along a leg are asked for water - one every RAIDER_LEG_MS's run over this (about 22 m
  *  of its 360), so no leg cuts a land pixel's corner by more than that. */
 export const RAIDER_LEG_PROBES = 16;
 
@@ -96,7 +96,7 @@ export const RAIDER_LEG_PROBES = 16;
  * WHERE A RAIDER IS at shared time `ms`, and its heading - its course from birth, leg by leg: each full leg bends up to
  * a quarter turn either way; a leg that is not `sea(x, z)` (native) all along is sailed the other way, and a raider with
  * no water either way lies to. Stateless: every player computes the same.
- * AUDIT OW5 S4: A LEG'S WAY IS CHOSEN BY THE WHOLE LEG (the bands' own AUDIT OW3 T7-6), and a leg part-sailed keeps it.
+ * AUDIT OW5b S4: A LEG'S WAY IS CHOSEN BY THE WHOLE LEG (the bands' own AUDIT OW3 T7-6), and a leg part-sailed keeps it.
  * The part-sailed leg asked only its own moving end, so the moment that end touched land it flipped - the raider jumped
  * from a way out to as far the other way (up to 700 m in a breath, within a lookout's sight at once) - and a full leg
  * asked only its end, so it sailed across a cape to water beyond.

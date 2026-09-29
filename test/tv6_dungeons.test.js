@@ -61,7 +61,7 @@ test('TV6 law: the dungeons about the traveller - within the far range\'s circle
   assert.deepEqual([again[0].loc.name, again.find((g) => g.x === 120)?.loc.name], ['D2', 'Late']);
 });
 
-test('AUDIT OW3 D3: FILTERED, THEN CAPPED - a row with no named place in the index, one a spawn stands on, and a FOUND one inside the grid (TV2\'s plate) spend none of the twelve; AUDIT OW5 D1: nor does an unfound one inside the grid (a lair on the ground the view shows)', () => {
+test('AUDIT OW3 D3: FILTERED, THEN CAPPED - a row with no named place in the index, one a spawn stands on, and a FOUND one inside the grid (TV2\'s plate) spend none of the twelve; AUDIT OW5b D1: nor does an unfound one inside the grid (a lair on the ground the view shows)', () => {
   const at = { x: 100, y: 100 };
   const rows = [];
   const index = new Map();
@@ -176,7 +176,7 @@ test('AUDIT OW3 D1 host: the spawns off the live index, told as the spawned feat
   assert.match(w, /const dungeons = \(_tvDungeonRows \?\?= dungeonRows\(mapDict\)\), locAt = \(x, y\) => locationIndex\.get\(`\$\{x\},\$\{y\}`\), isFound = \(x, y\) => !!tvPlaceSummary\(x, y\);/);
   assert.match(w, /const list = nearDungeons\(\{ at, grid, dungeons, locAt, isFound, spawns: \[\.\.\.spawnedPixels\(locationIndex\), \.\.\.tvFiledSpawns\(at\)\], spawnKnown: tvSpawnKnown,\n\s*spawnFound: tvSpawnFound, spawnGone: \(s\) => tvSpawnGone\(s\.x, s\.y\) \}\)\.map\(placed\);/,
     'the rows, the live index, the spawns read afresh (AUDIT OW4 D4: and the found ones past it; D2: none gone) - and the grid handed in, so TV2\'s own spend no slot');
-  assert.match(w, /const finds = nearDungeons\(\{ at, dungeons, locAt, isFound, range: TV_DUNGEON_FIND_PX, max: Infinity \}\)\.filter\(\(g\) => !g\.found\)\.map\(placed\);/, 'the find\'s own list, uncapped (AUDIT OW5 D1)');
+  assert.match(w, /const finds = nearDungeons\(\{ at, dungeons, locAt, isFound, range: TV_DUNGEON_FIND_PX, max: Infinity \}\)\.filter\(\(g\) => !g\.found\)\.map\(placed\);/, 'the find\'s own list, uncapped (AUDIT OW5b D1)');
   assert.match(w, /tvDng = \{ at, dg, grid, n, list, finds \};/);
   const m = /\n {2}(const tvSpawnFound = [^\n]*;)\n {2}(const tvSpawnKnown = [^\n]*;)\n/.exec(w);
   assert.ok(m, 'the two tests the host hands the list');
@@ -229,7 +229,7 @@ test('AUDIT OW3 D2: THE ARRIVAL GUARD - no dungeon is found while the world is b
   const g = { key: 'dng:1', found: false, spawn: false, row: { mapID: 1, regionIndex: 17 }, loc: { name: 'Castle Dread' }, x: 0, z: 500 * NATIVE_PER_M };
   const frame = new Function('d', `let _tvFindAt = 0; const { isEnhanced, modes, walkMode, playerSpawned, worldMoveBusy, state, player, dungeonToFind, travelViewDungeons, tvDng, discoverLocation, maps, townTalk, dungeonFoundText } = d; return ${m[1]};`)({
     isEnhanced: () => true, modes: { mode: 'exterior' }, walkMode: true, playerSpawned: true, worldMoveBusy: () => busy,
-    state: { worldCoords: () => ({ x: 0, y: 0, z: 0 }) }, player: { pos: [0, 0, 0] }, dungeonToFind, travelViewDungeons: () => [], tvDng: { list: [], finds: [g] },   // AUDIT OW5 D1: the find's own list
+    state: { worldCoords: () => ({ x: 0, y: 0, z: 0 }) }, player: { pos: [0, 0, 0] }, dungeonToFind, travelViewDungeons: () => [], tvDng: { list: [], finds: [g] },   // AUDIT OW5b D1: the find's own list
     discoverLocation: (id, info) => { filed.push([id, info.locationName]); return true; }, maps: { getRegionName: () => 'Daggerfall' },
     townTalk: { say: (t) => lines.push(t) }, dungeonFoundText,
   });
@@ -428,7 +428,7 @@ test('AUDIT OW4 D2/D4 host: a spawn is GONE by the feature\'s own test (the ledg
   assert.equal(gone(5, 6), false, 'never while the player is in it (TTL1)');
   inside = false;
   built.set('5,6', {});
-  assert.equal(gone(5, 6), false, 'AUDIT OW5 D2: standing on built ground, it stands until that ground is built again');
+  assert.equal(gone(5, 6), false, 'AUDIT OW5b D2: standing on built ground, it stands until that ground is built again');
   built.clear();
   clock = NaN;
   assert.equal(gone(5, 6), false, 'a clock not yet running expires nothing');
@@ -502,16 +502,16 @@ test('AUDIT OW4 D5/D3 host: every write to the index after the boot\'s fill bump
   pending.add('3,4');
   sweep.run();
   assert.deepEqual([sweep.gen(), sweepIndex.has('3,4')], [1, false], 'a road took one back: bumped');
-  // D3: the load forgets what the last run was told - AUDIT OW5 D4: every load, a pose or none
+  // D3: the load forgets what the last run was told - AUDIT OW5b D4: every load, a pose or none
   const i = w.indexOf('  function overworldLoadReset() {');
   const body = w.slice(i, w.indexOf('\n  }\n', i));
   assert.match(body, /tvDng = \{ at: null, dg: -1, list: \[\], finds: \[\] \};[^\n]*\n[\s\S]*\n\s*_announcedSpawnPixels\.clear\(\);$/, 'with the lists it empties, its last act');
-  assert.match(w, /function applyPose\(pose\) \{\n\s*overworldLoadReset\(\);[^\n]*\n\s*if \(!pose\) return;/, 'first, before a pose is asked for (AUDIT OW5 D4)');
+  assert.match(w, /function applyPose\(pose\) \{\n\s*overworldLoadReset\(\);[^\n]*\n\s*if \(!pose\) return;/, 'first, before a pose is asked for (AUDIT OW5b D4)');
 });
 
-// AUDIT OW5 D1: the find had read the Overworld's twelve, found first - and with twelve found about, no "?" stood and
+// AUDIT OW5b D1: the find had read the Overworld's twelve, found first - and with twelve found about, no "?" stood and
 // no dungeon was found by approach. travelViewDungeons and dungeonFindFrame lifted out of world.js together and RUN.
-test('AUDIT OW5 D1 host run: TWELVE FOUND ABOUT, AND THE KEEP NEXT DOOR IS STILL SEEN AND STILL FOUND - its "?" on the ground the view shows spends none of the twelve, and the find reads its own list, uncapped (a keep two pixels off, past a one-pixel grid, is found at 942 m though no "?" stands for it)', () => {
+test('AUDIT OW5b D1 host run: TWELVE FOUND ABOUT, AND THE KEEP NEXT DOOR IS STILL SEEN AND STILL FOUND - its "?" on the ground the view shows spends none of the twelve, and the find reads its own list, uncapped (a keep two pixels off, past a one-pixel grid, is found at 942 m though no "?" stands for it)', () => {
   const w = rd('src/scenes/world.js');
   const list = /\n {2}(function travelViewDungeons\(\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
   const find = /\n {2}let _tvFindAt = 0;\n {2}(function dungeonFindFrame\(now\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);

@@ -217,7 +217,7 @@ function pump({ publish = false } = {}) {
   const hums = [];
   const env = { built, renderer, collider, buildingDoors, doorGeneration: 0, hums,
     // DW-D: DeepWaterRuntime's location-load count rides a location's build - none here
-    locationIndex: new Map(), spawnedDungeonAt: () => null, _locationToBuild: () => null, dwLocationLoadBegan: () => {}, dwLocationLoadEnded: () => {} };   // AUDIT OW5 D2: the build's one ask
+    locationIndex: new Map(), spawnedDungeonAt: () => null, _locationToBuild: () => null, dwLocationLoadBegan: () => {}, dwLocationLoadEnded: () => {} };   // AUDIT OW5b D2: the build's one ask
   const body = `${WORLD.slice(i, j)}
     async function buildPixelNow(px, py) {
       const key = px + ',' + py;

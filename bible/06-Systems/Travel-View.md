@@ -1277,7 +1277,11 @@ Each pinned (`test/ows2_crossing.test.js`, `test/ows3_raiders.test.js`) and each
 - The raid's fight is the mod's own, on its ship's deck - the ship boarded - not the open sea.
 - The classic lane has no Overworld: DFU's map, its fast travel and Warm Ashes' roll, whole.
 
-## AUDIT OW5 - THE ENEMIES, THE DUNGEONS AND THE ENEMY SHIPS (2026-09-28, the player: "do a detailed audit on their functionality and ensure everything is perfection")
+## AUDIT OW5b - THE ENEMIES, THE DUNGEONS AND THE ENEMY SHIPS (2026-09-28, the player: "do a detailed audit on their functionality and ensure everything is perfection")
+
+(Named AUDIT OW5 on its branch; OW5b since the merge - main's own AUDIT OW5, the audit before the merge, landed first,
+and some of its finding ids are this audit's too. Where the two found the same bug, the merge kept one fix: said at
+each finding below.)
 
 Mac's field report, streamed the day the bands went out: *"So enemy dont work right ... Close ... Need to get pullout of
 fast travel little sooner for encounters. U run thru them."* Measured first; then three read-only lanes (the bands, the
@@ -1360,7 +1364,7 @@ dungeons, the sea) were sent over the tree, and every finding was verified again
   ow4d, ow4j, ow4t, ow4x, ows3, tv6, tv7, hub1, enhnotice3, and survtiers3's two cite records after the shift), and
   every list naming an edited test run again on a passing baseline (31 lists), none surviving.
 
-## OW6 - THE OVERWORLD SHARED, ALIVE AND SEEN COMING (2026-09-29, the player, after AUDIT OW5)
+## OW6 - THE OVERWORLD SHARED, ALIVE AND SEEN COMING (2026-09-29, the player, after AUDIT OW5b)
 
 The player's four asks, whole: *"Everything needs that persistence between players in the overworld. Enemies should
 spawn in varying numbers and roam more often. If a player is traveling very fast, they should slow if enemies become
@@ -1386,7 +1390,7 @@ CAMP-SIGHT, CAMP-TRAVEL, CAMP-NOTIMER, TTL1, WORLD1's "True persistance"); the d
   always has THREAT_WARN_S (5 s) of real time before the nearest enemy's REACH along their way - a band's sight, a
   raider's lookout (at sea), any hostile foe's sight (a camp's sixty metres, CAMP-SIGHT), or, for a chaser, its contact
   ring from any side at its own pace too (`metresToReach`, `threatCap`); stepped down the spinner's own ladder (1, 2, 3,
-  4, 5, then fives), never under walking pace (the encounter stops a journey - AUDIT OW5 E1 - the governor only slows
+  4, 5, then fives), never under walking pace (the encounter stops a journey - AUDIT OW5b E1 - the governor only slows
   it). An enemy the way passes by, or one behind, holds nothing; inside a reach the journey is held while the way goes
   deeper and free as it leads out. Under the view the lower of TV2's ground cap and this one holds; on the classic skin
   (no governor there before) the mod's own ask under the enemies' cap alone, handed back whole with nothing near. The
@@ -1408,7 +1412,7 @@ CAMP-SIGHT, CAMP-TRAVEL, CAMP-NOTIMER, TTL1, WORLD1's "True persistance"); the d
   culled from under the friend fighting it (CAMP-CULL, 200 m): past three quarters of its cull distance from its owner,
   with a player nearer it, it is handed to them foe by foe (`handOverWalkedAway`, the door's own handover); nobody
   nearer, the cull takes it as it always did.
-- **The raiders' chase, shared (systems/seaRaiders.js).** OWS3 said "nothing is sent", and AUDIT OW5 left it known: a
+- **The raiders' chase, shared (systems/seaRaiders.js).** OWS3 said "nothing is sent", and AUDIT OW5b left it known: a
   friend watched the sail that ran them down wander on, and could be chased by it too. The chaser's frame carries `sr`
   now - the band word's own law, one home (travelBands.js `chaseWordOf` / `validChaseWord`, each chaser's own ids): the
   raiders chasing it where they sail, and each spent - so every reader draws the chase where it runs, none gives chase

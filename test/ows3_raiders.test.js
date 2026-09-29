@@ -213,7 +213,7 @@ test('OWS3 host wiring by source: the open sea a raider is born on, the shared c
   assert.match(w, /if \(px < 0 \|\| py < 0 \|\| px >= 1000 \|\| py >= 500 \|\| maps\.getClimateIndex\(px, py\) !== CLIMATES\.Ocean\) return false;\n\s*for \(let dy = -1; dy <= 1; dy\+\+\) for \(let dx = -1; dx <= 1; dx\+\+\) if \(!tvWater\(px \+ dx, py \+ dy\)\) return false;/, 'the open sea: the ocean\'s, every pixel about it water');
   assert.match(w, /const raidNowMs = \(\) => Date\.now\(\) \+ _sharedOffsetMs;/);
   assert.match(w, /const ms = raidNowMs\(\), life = Math\.floor\(ms \/ RAIDER_LIFE_MS\);\n\s*if \(life !== tvRaid\.life\) \{\n\s*tvRaid\.life = life; for \(const id of tvRaid\.spent\) if \(!tvRaid\.chase\.has\(id\)\) tvRaid\.spent\.delete\(id\);[^\n]*\n[\s\S]{0,500}?\n\s*\}\n\s*tvRaid\.list = raidersNear\(\{ at: playerTravelPixel\(\), ms, open: tvRaidOpen, sea: tvRaidSea \}\);/, 'AUDIT OWS A3: a new life forgets the last life\'s spent sails (a chase still running kept)');
-  assert.match(w, /if \(gamePaused\(\) \|\| worldMoveBusy\(\)\) return;\n\s*const at = warmAshesOn\(\) && isEnhanced\(\) && walkMode && playerSpawned && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && raidQuarry\(\);/, 'at sea on my own boat, held by a pause or a world moved (AUDIT OW5 S2/S6)');
+  assert.match(w, /if \(gamePaused\(\) \|\| worldMoveBusy\(\)\) return;\n\s*const at = warmAshesOn\(\) && isEnhanced\(\) && walkMode && playerSpawned && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && raidQuarry\(\);/, 'at sea on my own boat, held by a pause or a world moved (AUDIT OW5b S2/S6)');
   assert.match(w, /if \(!at\) \{ for \(const id of tvRaid\.chase\.keys\(\)\) seaRaidSpend\(id\); tvRaid\.chase\.clear\(\); return; \}/);
   assert.match(w, /if \(up && tvRaid\.chase\.size < 1\) \{\n\s*const sight = raiderSight\(isNight\(minuteNow\(\)\)\);/, 'sighted under the view, one at a time, by the hour\'s light');
   assert.match(w, /contact: up \? RAIDER_CONTACT_M : RAIDER_CONTACT_PLAY_M, now: tvRaid\.clock,/);
@@ -225,10 +225,10 @@ test('OWS3 host wiring by source: the open sea a raider is born on, the shared c
   assert.match(w, /raidFrame\(dt\);[^\n]*\n\s*travelViewGovern\(dt\);/, 'each walking frame, before the cap');
   assert.match(w, /marks\.push\(\{ key: `raid:\$\{r\.id\}`, at: tvSceneKept\(c \?\? r, at\.x, at\.z, 2, true\), label: RAIDER_LABEL, kind: c \? 'raider ship chase' : 'raider ship', edge: !!c \}\);/);
   assert.match(w, /if \(!c && Math\.max\(Math\.abs\(px\.x - me\.x\), Math\.abs\(px\.y - me\.y\)\) > grid\) continue;/, 'the rest within the grid\'s reach');
-  assert.match(w, /if \(warmAshesOn\(\) && csaOn\(\)\) \{\n\s*const grid = Math\.max\(1, state\.terrainDistance \?\? 3\);/, 'the mod off, or no Come Sail Away to be at sea with: no raiders (AUDIT OW5 S8)');
+  assert.match(w, /if \(warmAshesOn\(\) && csaOn\(\)\) \{\n\s*const grid = Math\.max\(1, state\.terrainDistance \?\? 3\);/, 'the mod off, or no Come Sail Away to be at sea with: no raiders (AUDIT OW5b S8)');
 });
 
-// ── AUDIT OW5 (S): THE HOST RUN ─────────────────────────────────────────────────────────────────────────────────────
+// ── AUDIT OW5b (S): THE HOST RUN ─────────────────────────────────────────────────────────────────────────────────────
 // raidFrame, raidContact, the quarry, the sea's two tests and the raiders' marks lifted out of world.js's own text and
 // run against stubs (the bands' AUDIT OW4 B10 way): the raiders' host law proven by what it DOES, not by how it reads.
 const liftSea = () => {
@@ -245,7 +245,7 @@ const liftSea = () => {
     const end = w.slice(at, eol).trimEnd().endsWith('{') ? w.indexOf('\n  };\n', at) + 5 : eol;
     return w.slice(at, end);
   };
-  const a = w.indexOf('    // AUDIT OW5 S8: none drawn where none can come'), b = w.indexOf('\n    return marks;', a);
+  const a = w.indexOf('    // AUDIT OW5b S8: none drawn where none can come'), b = w.indexOf('\n    return marks;', a);
   assert.ok(a > 0 && b > a, 'the raiders\' marks lifted');
   return { frame: fn('raidFrame'), contact: fn('raidContact'), quarry: arrow('raidQuarry'), open: arrow('tvRaidOpen'), sea: arrow('tvRaidSea'), marks: w.slice(a, b),
     spend: fn('seaRaidSpend'), peer: fn('seaRaidPeerChase'), hear: fn('seaRaidHear'), word: fn('seaRaidWord') };   // OW6: the chase, shared
@@ -280,7 +280,7 @@ const seaHost = (over = {}) => {
 };
 const raiderAtM = (id, dxM, dzM, feet) => ({ id, x: feet.x + dxM * M, z: feet.z + dzM * M });
 
-test('AUDIT OW5 S1 host run: ALONGSIDE, THE HELM IS LET GO BEFORE THE RAID ARMS (the fast travel\'s ambush order: Come Sail Away\'s, then Warm Ashes\') - a raid the mod refuses leaves the traveller sailing', () => {
+test('AUDIT OW5b S1 host run: ALONGSIDE, THE HELM IS LET GO BEFORE THE RAID ARMS (the fast travel\'s ambush order: Come Sail Away\'s, then Warm Ashes\') - a raid the mod refuses leaves the traveller sailing', () => {
   const h = seaHost();
   h.raidContact();
   assert.deepEqual(h.order, ['stop', 'release', 'raid', 'close', TRAVEL_VIEW_TEXT.raidersAlongside], 'let go, the journey\'s hand off it, then the raid - never boarded from a helm still held');
@@ -294,7 +294,7 @@ test('AUDIT OW5 S1 host run: ALONGSIDE, THE HELM IS LET GO BEFORE THE RAID ARMS 
   }
 });
 
-test('AUDIT OW5 S1 with the mod itself: a crewed boat\'s helm LENDS a ship (Come Sail Away\'s Small) - let go first, it is handed back and the raid lends its own Large, as the fast travel\'s ambush does', () => {
+test('AUDIT OW5b S1 with the mod itself: a crewed boat\'s helm LENDS a ship (Come Sail Away\'s Small) - let go first, it is handed back and the raid lends its own Large, as the fast travel\'s ambush does', () => {
   _resetWarmAshesShips();
   const ship = { owns: true };   // the helm of a crewed boat lent the Small ship (StartSailing)
   const assigned = [];
@@ -309,7 +309,7 @@ test('AUDIT OW5 S1 with the mod itself: a crewed boat\'s helm LENDS a ship (Come
   _resetWarmAshesShips();
 });
 
-test('AUDIT OW5 S2/S6 host run: A PAUSE, A WINDOW OR A WORLD MOVED HOLDS THE CHASE (its patience with it) - never "ashore", never spent; the helm let go mid-sea is still at sea; a passenger aboard another\'s boat is no raider\'s quarry', () => {
+test('AUDIT OW5b S2/S6 host run: A PAUSE, A WINDOW OR A WORLD MOVED HOLDS THE CHASE (its patience with it) - never "ashore", never spent; the helm let go mid-sea is still at sea; a passenger aboard another\'s boat is no raider\'s quarry', () => {
   for (const [what, over] of [['a window', { gamePaused: () => true }], ['a world being moved', { worldMoveBusy: () => true }]]) {
     const h = seaHost(over);
     const c = { pos: { x: h.d.feet.x, z: h.d.feet.z + 800 * M }, best: 800, bestAt: 0 };
@@ -333,7 +333,7 @@ test('AUDIT OW5 S2/S6 host run: A PAUSE, A WINDOW OR A WORLD MOVED HOLDS THE CHA
   assert.equal(helm.d.tvRaid.chase.size, 1, 'at my own helm: sighted');
 });
 
-test('AUDIT OW5 S3/S8 host run: A CHASE OUT OF THE LIST IS STILL SEEN (its raider\'s life turned over) and held at the edge; with no Come Sail Away no raider is drawn at all', () => {
+test('AUDIT OW5b S3/S8 host run: A CHASE OUT OF THE LIST IS STILL SEEN (its raider\'s life turned over) and held at the edge; with no Come Sail Away no raider is drawn at all', () => {
   const h = seaHost();
   h.d.list = [raiderAtM('r3.3.9', 0, 500, h.d.feet)];
   h.d.tvRaid.chase.set('r3.3.8', { pos: { x: h.d.feet.x, z: h.d.feet.z + 900 * M }, best: 900, bestAt: 0 });
@@ -347,7 +347,7 @@ test('AUDIT OW5 S3/S8 host run: A CHASE OUT OF THE LIST IS STILL SEEN (its raide
   assert.deepEqual(off.d.marks, [], 'no boats to be at sea in: no pirates on the map');
 });
 
-test('AUDIT OW5 S5 host run: THE RAIDERS\' SEA IS ON THE MAP - never born a pixel past its edge (the off-map pixel reads as water, and its climate the PAK\'s first column), never sailing off it (the pixel law truncates the strip past the west and south edges into the edge\'s own)', () => {
+test('AUDIT OW5b S5 host run: THE RAIDERS\' SEA IS ON THE MAP - never born a pixel past its edge (the off-map pixel reads as water, and its climate the PAK\'s first column), never sailing off it (the pixel law truncates the strip past the west and south edges into the edge\'s own)', () => {
   const h = seaHost();
   assert.equal(h.tvRaidOpen(-1, 10), false, 'a column off the map');
   assert.equal(h.tvRaidOpen(10, 500), false, 'a row off it');
@@ -360,7 +360,7 @@ test('AUDIT OW5 S5 host run: THE RAIDERS\' SEA IS ON THE MAP - never born a pixe
   assert.equal(h.tvRaidSea(10.5 * PX, 10.5 * PX), true, 'on the map: the water\'s byte');
 });
 
-test('AUDIT OW5 S4 law: A RAIDER\'S LEG IS CHOSEN BY THE WHOLE LEG - through an archipelago, sampled every quarter second of its life, a raider never moves faster than it sails and is never over land', () => {
+test('AUDIT OW5b S4 law: A RAIDER\'S LEG IS CHOSEN BY THE WHOLE LEG - through an archipelago, sampled every quarter second of its life, a raider never moves faster than it sails and is never over land', () => {
   // a sea of 1-pixel islands on a 3-pixel grid, their corners in the way of every heading
   const island = (px, py) => px % 3 === 1 && py % 3 === 1;   // map pixels (rows counting south), the raiders' own law
   const land = (x, z) => { const p = pixelOfNative(x, z); return island(p.x, p.y); };

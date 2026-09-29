@@ -64,7 +64,7 @@ const fly = ({ asked, speed, startM, sight = 320, capped, lastM = 500 }) => {
   return { seconds: t - tLast, rateAtEntry };
 };
 
-test('OW6: A RIDER AT x40 STRAIGHT AT A BAND - with the cap it comes into the band\'s sight at walking pace after seconds of warning; without it, the last half-kilometre went in under a second at x40 (the "run thru them" of AUDIT OW5, before it could even begin)', () => {
+test('OW6: A RIDER AT x40 STRAIGHT AT A BAND - with the cap it comes into the band\'s sight at walking pace after seconds of warning; without it, the last half-kilometre went in under a second at x40 (the "run thru them" of AUDIT OW5b, before it could even begin)', () => {
   const before = fly({ asked: 40, speed: 16, startM: 5000, capped: false });
   assert.equal(before.rateAtEntry, 40);
   assert.ok(before.seconds < 1, `uncapped: the last 500 m in ${before.seconds.toFixed(2)} s`);

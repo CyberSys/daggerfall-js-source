@@ -941,7 +941,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT OW4 B2: the game's own places, as the maps have them - the land a band may NOT stand on. Never the live index:
   // online it gains a spawned dungeon as each client's pixels build (and loses one on its expiry), so one client's bands
   // vanished as it walked up to them, re-walked from birth round the new place (a jump), and a peer three pixels off saw
-  // others. The same set on every client, from boot. AUDIT OW5 B3: the BASE rows alone (HUB1's law, GATE-SEEN's and
+  // others. The same set on every client, from boot. AUDIT OW5b B3: the BASE rows alone (HUB1's law, GATE-SEEN's and
   // RAID2's) - a world-data mod's addition stands only where the mod is on (Roleplay & Realism's Northrock Fort), and
   // two players with different switches were born different bands about it and saw them walk different ways
   const _bandPlacePixels = new Set();
@@ -1138,7 +1138,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // the one dungeon that could be underfoot is the one the mode
       // machine is standing in. Its time runs out the moment they leave.
       const key = `${px},${py}`;
-      // AUDIT OW5 D2: GONE IS GONE - the ledger's row is KEPT (its clocks keep it expired as the calendar goes on, and it
+      // AUDIT OW5b D2: GONE IS GONE - the ledger's row is KEPT (its clocks keep it expired as the calendar goes on, and it
       // rides the save), so the pixel stays empty. It was forgotten here, and the roll is a pure hash of the pixel: the
       // very next ask - the build's own, a moment after buildPixel's probe had asked - stood the same dungeon again on a
       // fresh seven days. "Spawned Dungeons should expire/removed" (TTL1, the creator's rule relayed by Mac)
@@ -1156,7 +1156,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       return loc;
     } catch (e) { console.warn('[spawned dungeons]', px, py, e?.message ?? e); return null; }
   };
-  /** AUDIT OW5 D2: WHAT STANDS ON A PIXEL BEING BUILT - its place in the index, unless that is a spawn whose time has run
+  /** AUDIT OW5b D2: WHAT STANDS ON A PIXEL BEING BUILT - its place in the index, unless that is a spawn whose time has run
    *  out with nobody in it: then it leaves the index and the pixel is built empty; else what spawnedDungeonAt stands. The
    *  build took the index's word for a spawn it held, so one stood again at every rebuild whatever its clocks said, while
    *  the Overworld (tvSpawnGone) had it gone. */
@@ -1440,7 +1440,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // a player with the mod switched off needs in any case.
   let travelOptions = null;
   let tvFar = { at: null, near: -1, list: [] };   // TV5: the far places about the traveller (above its readers: BOOT-TDZ - a load empties it)
-  let tvDng = { at: null, dg: -1, list: [], finds: [] };   // TV6: the dungeons about the traveller (above its readers: BOOT-TDZ - a load empties it); AUDIT OW5 D1: and the find's own
+  let tvDng = { at: null, dg: -1, list: [], finds: [] };   // TV6: the dungeons about the traveller (above its readers: BOOT-TDZ - a load empties it); AUDIT OW5b D1: and the find's own
   let tvBandSeen = { at: null, life: -1, list: [] };   // TV7: the bands about the traveller, this life's (above its readers: BOOT-TDZ)
   const _bandChase = new Map();   // TV7: id -> { pos, since, best } - the bands chasing me (the chase is the chased one's)
   const _bandSpent = new Set();   // TV7: the bands that fought or gave up - gone for their life
@@ -2770,7 +2770,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (built.has(key)) return built.get(key);
     let flying = inFlight.get(key);
     if (flying) return flying;
-    const _dwLoc = !!_locationToBuild(px, py);   // AUDIT OW5 D2   // DW-D: DeepWaterRuntime's activeLocationLoads - OnCreateLocationGameObject ...
+    const _dwLoc = !!_locationToBuild(px, py);   // AUDIT OW5b D2   // DW-D: DeepWaterRuntime's activeLocationLoads - OnCreateLocationGameObject ...
     if (_dwLoc) dwLocationLoadBegan(performance.now() / 1000);
     flying = buildPixelNow(px, py)
       .catch((e) => { releaseFailedBuild(key); throw e; })   // BUILD-FAIL1
@@ -2848,7 +2848,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const key = `${px},${py}`;
     const made = {};   // BUILD-FAIL1: this build's ledger, until publish hands it to the entry
     _building.set(key, made);
-    const dfLocation = _locationToBuild(px, py) || null;   // SPAWNED-DUNGEONS1: an empty pixel may stand one (AUDIT OW5 D2: a spawn the index holds asked its clocks)
+    const dfLocation = _locationToBuild(px, py) || null;   // SPAWNED-DUNGEONS1: an empty pixel may stand one (AUDIT OW5b D2: a spawn the index holds asked its clocks)
     // EV7: the LOCATION half stays here - setLocationTiles reads
     // BlocksFile + MapsFile, file objects that do not cross a
     // postMessage boundary - and its tilemap + rect ride into the job
@@ -6882,7 +6882,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  carries its own band. Same law, same retry rule, different
    *  arguments - which is exactly how DFU's call sites differ. */
   const _standEncounterFoe = (hit, feet) => {
-    if ((exteriorFoes.encounterRoom?.() ?? Infinity) <= 0) return null;   // AUDIT OW5 E1: the pool full, spawnFoe's own cap stands nobody - and no journey is stopped for a foe that never comes
+    if ((exteriorFoes.encounterRoom?.() ?? Infinity) <= 0) return null;   // AUDIT OW5b E1: the pool full, spawnFoe's own cap stands nobody - and no journey is stopped for a foe that never comes
     const env = placeFoeEnv({
       collider,
       playerFeet: [feet[0], feet[1] + 0.9, feet[2]],
@@ -6902,10 +6902,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     const stood = exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player
     }).catch(() => null);
-    journeyMet();   // AUDIT OW5 E1: placed beside the traveller - a walking journey stops now, never once the foe has loaded and sensed
+    journeyMet();   // AUDIT OW5b E1: placed beside the traveller - a walking journey stops now, never once the foe has loaded and sensed
     return stood;
   };
-  /** AUDIT OW5 E1 (Mac, 2026-09-28: "Need to get pullout of fast travel little sooner for encounters. U run thru them"):
+  /** AUDIT OW5b E1 (Mac, 2026-09-28: "Need to get pullout of fast travel little sooner for encounters. U run thru them"):
    *  AN ENCOUNTER HAS MET THE TRAVELLER - the wanderer placed beside them, the Overworld's band at its contact - and a
    *  walking journey hears it NOW, through Travel Options' own enemies stop (systems/travelOptions.js `encounter`: the
    *  panel's Camp, a cautious traveller's avoid roll, the box), never from the foes' senses frames later: in this port
@@ -9392,7 +9392,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
   }
   /** The ONE pose-apply (quickload + the classic import share it). */
-  /** AUDIT OW5 D4: THE OVERWORLD FORGETS THE ABANDONED RUN ON EVERY LOAD - its chases, the crossing's hand on the helm,
+  /** AUDIT OW5b D4: THE OVERWORLD FORGETS THE ABANDONED RUN ON EVERY LOAD - its chases, the crossing's hand on the helm,
    *  its lists, the view itself, the spawns it was told of. They sat in applyPose past `if (!pose) return;`, so a save
    *  without a pose (an older envelope) loaded with the last run's chases still running, its rudder held, its "?"s. */
   function overworldLoadReset() {
@@ -9410,7 +9410,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     _announcedSpawnPixels.clear();
   }
   function applyPose(pose) {
-    overworldLoadReset();   // AUDIT OW5 D4: a load without a pose is a load all the same
+    overworldLoadReset();   // AUDIT OW5b D4: a load without a pose is a load all the same
     if (!pose) return;
     // AUDIT ONCRASH1 B5d: A SAVE IS A DOOR TOO. ONCRASH1's commit said the angle defect was "not reachable offline";
     // it was, through this line. A quickload or a classic import carrying a non-numeric or absurd `yaw` wrote it
@@ -9875,7 +9875,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!why.ok) { if (why.why) townTalk.say(why.why); return; }
     if (!travelViewCanGo()) return;
     if (r.summary) travelViewRouteTo(r.summary);
-    // AUDIT OW4 X2: a spawn's walk resumed is its door again (never refused for the peaks). AUDIT OW5 D3: THE WALK'S OWN
+    // AUDIT OW4 X2: a spawn's walk resumed is its door again (never refused for the peaks). AUDIT OW5b D3: THE WALK'S OWN
     // DOOR - read off the live index, a far found spawn's walk (its pixel never built) resumed as a spot ("the mountains
     // cannot be crossed"), and a spot clicked on a place's pixel resumed as that place's door
     else if (r.point) travelViewWalkTo(tvSceneOf(r.point.x, r.point.z, 0), r.point.pixel, { door: r.point.door ?? null });
@@ -15869,7 +15869,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const o = mapPixelToWorldCoords(tw.x, tw.y);
       // AUDIT OW4 X1: a place I have not found, or a spawn the leader walks to, is walked as its DOOR (never refused for the
       // peaks - the leader reached a mountain town by road, and the member heard "the mountains cannot be crossed")
-      const there = summary ? null : tvLocationAt(tw.x, tw.y);   // AUDIT OW5 D3: a spawn my pixels never built, the leader's door all the same
+      const there = summary ? null : tvLocationAt(tw.x, tw.y);   // AUDIT OW5b D3: a spawn my pixels never built, the leader's door all the same
       const door = there ? locationWorldRect(there, tw.x, tw.y) : null;
       const ok = summary ? travelViewRouteTo(summary) : travelViewWalkTo(tvSceneOf(tw.sx ?? o.x + 16384, tw.sz ?? o.z + 16384, 0), { x: tw.x, y: tw.y }, { door });
       _walkMine = { ..._walkMine, go: tw.go, yes: ok, balk: false };   // no way from here: left behind, never started again this round (AUDIT OW4 P4: a start is my balk taken up)
@@ -17967,7 +17967,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (!plan) { tvSeaNoWay(from, pix, seaAsk ? means : null, wnet, water ? 'sea' : 'land'); return false; }
     const legs = tvJoinedLegs(from, plan);
     if (door) n = dungeonApproach(door, lastLegStart(legs, state.worldCoords(player.pos), tvLegMid));   // AUDIT OW4 D6
-    const ok = travelOptions.beginTravelAlongRoute({ legs, point: { pixel: pix, x: n.x, z: n.z, door }, name: TRAVEL_VIEW_TEXT.spot }, tvCautious(), { quiet: tvQuiet });   // AUDIT OW5 D3: its door with it
+    const ok = travelOptions.beginTravelAlongRoute({ legs, point: { pixel: pix, x: n.x, z: n.z, door }, name: TRAVEL_VIEW_TEXT.spot }, tvCautious(), { quiet: tvQuiet });   // AUDIT OW5b D3: its door with it
     if (!ok) return false;
     partyWalkBegin({ pixel: pix, point: { x: n.x, z: n.z } });   // TV8
     travelGovernor.reset();   // AUDIT DEEP T2-8: a new journey - the ceiling the last one learned is forgotten
@@ -18300,7 +18300,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   const tvSpawnKnown = (s) => tvSpawnFound(s) || _announcedSpawnPixels.has(`${s.x},${s.y}`);
   /** AUDIT OW4 D2: HAS A SPAWN'S TIME RUN OUT - the spawned feature's own test (spawnedDungeonAt's: the ledger's two
    *  clocks, never while the player is in it), asked NOW: the index lets an expired spawn go only when its pixel next
-   *  builds, and until then its plate stood and its walk went. AUDIT OW5 D2: gone FROM THE GROUND - one standing on built
+   *  builds, and until then its plate stood and its walk went. AUDIT OW5b D2: gone FROM THE GROUND - one standing on built
    *  ground stands until that ground is next built (_locationToBuild takes it out then), and its plate stands with it. */
   const tvSpawnGone = (x, y) => { const key = `${x},${y}`; return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && !built.has(key); };
   /** AUDIT OW4 D4: WHAT spawnedDungeonAt WOULD STAND on a pixel it has not built - its own gates (the sea, a path across
@@ -18311,7 +18311,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const roads = terrainGen.roads();
     return roads && !pathFreePixel(roads, px, py) ? null : _spawnCloneAt(px, py);
   }
-  /** AUDIT OW5 D3: WHAT STANDS ON A PIXEL, built or not - the index's place, else the spawn its roll would stand (online,
+  /** AUDIT OW5b D3: WHAT STANDS ON A PIXEL, built or not - the index's place, else the spawn its roll would stand (online,
    *  side-effect free: tvSpawnAt). A member walking to the leader's spawn read the index alone, and a far spawn their own
    *  pixels had never built was a bare spot to them. */
   const tvLocationAt = (x, y) => locationIndex.get(`${x},${y}`) ?? (params.has('online') && spawnsDungeon(_spawnSalt, x, y) ? tvSpawnAt(x, y) : null);
@@ -18337,7 +18337,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     };
     const list = nearDungeons({ at, grid, dungeons, locAt, isFound, spawns: [...spawnedPixels(locationIndex), ...tvFiledSpawns(at)], spawnKnown: tvSpawnKnown,
       spawnFound: tvSpawnFound, spawnGone: (s) => tvSpawnGone(s.x, s.y) }).map(placed);
-    // AUDIT OW5 D1: THE FIND'S OWN - every undiscovered map dungeon whose middle can lie within its kilometre, UNCAPPED. It
+    // AUDIT OW5b D1: THE FIND'S OWN - every undiscovered map dungeon whose middle can lie within its kilometre, UNCAPPED. It
     // read the Overworld's twelve, found first: a player with twelve found within the far range never found another by
     // approach, the keep five hundred metres off included (its pixel's entry filed it, silently)
     const finds = nearDungeons({ at, dungeons, locAt, isFound, range: TV_DUNGEON_FIND_PX, max: Infinity }).filter((g) => !g.found).map(placed);
@@ -18368,7 +18368,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (worldMoveBusy()) return;
     const n = state.worldCoords(player.pos);
     travelViewDungeons();   // the lists kept, or made again
-    const g = dungeonToFind({ feet: { x: n.x, z: n.z }, list: tvDng.finds ?? [], mid: (d) => d });   // AUDIT OW5 D1: the find's own, never the Overworld's twelve
+    const g = dungeonToFind({ feet: { x: n.x, z: n.z }, list: tvDng.finds ?? [], mid: (d) => d });   // AUDIT OW5b D1: the find's own, never the Overworld's twelve
     if (!g) return;
     if (discoverLocation(g.row.mapID, { regionName: maps.getRegionName(g.row.regionIndex), locationName: g.loc.name })) townTalk.say(dungeonFoundText(g.loc.name), 5);
   }
@@ -18427,7 +18427,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     _bandPos.set(b.id, v);
     return v;
   }
-  /** AUDIT OW5 E1: the encounter pool has room for the band's members, grown by the party it meets - a band it cannot
+  /** AUDIT OW5b E1: the encounter pool has room for the band's members, grown by the party it meets - a band it cannot
    *  stand is neither stood nor MET (no journey is stopped for a band that never comes; it tries again). */
   function bandRoom(mk) { return campMembers(mk.mobileTypes).length <= (exteriorFoes.encounterRoom?.() ?? Infinity); }
   /** Contact: the band stands as its foes, on its own bearing from the traveller - or, where the road or a town refuses
@@ -18436,7 +18436,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   function bandStand(mk, yaw, dist) {
     if (!bandRoom(mk)) return false;
     const fx = player.feetAt();
-    // AUDIT OW5 B2: WHERE IT IS - its anchor at the band's own distance, a pack's spacing about it (never nearer than
+    // AUDIT OW5b B2: WHERE IT IS - its anchor at the band's own distance, a pack's spacing about it (never nearer than
     // BAND_STAND_MIN_M). Every band stood at 18-32 m: a band met with the view down at BAND_STAND_M (140 m, Mac's
     // CAMP-FAR - no pack lands beside the player out of nowhere) was brought a hundred metres nearer and stood beside them
     const minDistance = Math.max(BAND_STAND_MIN_M, dist - PACK_SPACING), maxDistance = Math.max(BAND_STAND_MIN_M, dist) + PACK_SPACING;
@@ -18493,11 +18493,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     return true;
   }
   /** THE BANDS' FRAME: a wanderer that sees me (under the view) chases; a chase closes (at the journey's pace), stands its
-   *  foes at contact - the view's own reach, or the stand-off with the view down - or gives up. AUDIT OW5 B1: `dt` is the
+   *  foes at contact - the view's own reach, or the stand-off with the view down - or gives up. AUDIT OW5b B1: `dt` is the
    *  FRAME's (its 0.1 s clamp), the clock the traveller's motor and the raiders' chase run on - the chase kept its own,
    *  clamped at a quarter second, and on every frame slower than ten a second (a phone's hitch, the frame after an
    *  arrival) a band gained up to two and a half times the ground the traveller could put between them. */
-  let _bandClock = 0;   // AUDIT OW5 B4: the chases' own clock (ms) - it runs only on the frames the chases step
+  let _bandClock = 0;   // AUDIT OW5b B4: the chases' own clock (ms) - it runs only on the frames the chases step
   function bandFrame(now, dt) {
     if (worldMoveBusy()) return;   // AUDIT OW3 D2: the feet read mid-arrival lie up to a kilometre from where they land - no sight, no chase, no stand
     const up = !!travelView?.active;
@@ -18510,7 +18510,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       || playerEntity.preventEnemySpawns || player.isPlayerSwimming || aboard
       || _inAnyLocationRect(player.feetAt())) { bandDrop(); return; }   // AUDIT OW3 T7-7: nor into a town - a band gives up at its edge
     const ms = bandNowMs(), n = state.worldCoords(player.pos), feet = { x: n.x, z: n.z };
-    // AUDIT OW5 B4: a chase's patience (BAND_GIVE_UP_MS without a metre gained) runs on its OWN clock, the frames it steps -
+    // AUDIT OW5b B4: a chase's patience (BAND_GIVE_UP_MS without a metre gained) runs on its OWN clock, the frames it steps -
     // it ran on the shared clock, which a hold never stops: two minutes of a death screen, a window or the travel map
     // over a held chase, and its first frame back gave the band up (spent, and said to everyone)
     _bandClock += dt * 1000;
@@ -18522,7 +18522,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       c.pos = s.pos; c.best = s.best; c.gainAt = s.gainAt; c.dist = s.dist;
       if (s.what === 'lost') { _bandChase.delete(id); bandSpend(id); }
       else if (s.what === 'contact' && !(c.retryAt > now)) {
-        // AUDIT OW5 E1 (Mac: "Need to get pullout of fast travel little sooner for encounters. U run thru them"): THE
+        // AUDIT OW5b E1 (Mac: "Need to get pullout of fast travel little sooner for encounters. U run thru them"): THE
         // CONTACT IS THE ENCOUNTER - a walking journey is stopped HERE, the frame the band reaches the traveller and before
         // a member stands; it was stopped by the members' own senses, which in this port answer after their loads and a
         // real-time classic tick, and at the journey's scale the traveller ran on through the band (on a horse, out of its
@@ -18677,7 +18677,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     // OWS3: WARM ASHES' RAIDERS - the sails within the grid's reach where they sail, and one giving chase wherever it is,
     // held at the edge off the picture, pointing
-    // AUDIT OW5 S8: none drawn where none can come - no Come Sail Away, no boat to be at sea in (the bands' own B6)
+    // AUDIT OW5b S8: none drawn where none can come - no Come Sail Away, no boat to be at sea in (the bands' own B6)
     if (warmAshesOn() && csaOn()) {
       const grid = Math.max(1, state.terrainDistance ?? 3);
       const listed = travelViewRaiders();
@@ -18689,7 +18689,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (!c && Math.max(Math.abs(px.x - me.x), Math.abs(px.y - me.y)) > grid) continue;
         marks.push({ key: `raid:${r.id}`, at: tvSceneKept(c ?? r, at.x, at.z, 2, true), label: RAIDER_LABEL, kind: c ? 'raider ship chase' : 'raider ship', edge: !!c });
       }
-      // AUDIT OW5 S3: A CHASE OUT OF THE LIST STILL SEEN - its raider's life turned over (the list is this life's), and it
+      // AUDIT OW5b S3: A CHASE OUT OF THE LIST STILL SEEN - its raider's life turned over (the list is this life's), and it
       // came alongside unseen: "one giving chase is marked wherever it is" (the bands' own T7-2)
       for (const [id, c] of tvRaid.chase) {
         if (listed.some((r) => r.id === id)) continue;
@@ -18711,14 +18711,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** The shared clock (the relay's, online): every player's raiders at the same minute. */
   const raidNowMs = () => Date.now() + _sharedOffsetMs;
   /** A raider's birth: the open sea - its pixel and every one about it water, the ocean's (never a lake, a bay's mouth).
-   *  AUDIT OW5 S5: and ON THE MAP - `tvWater` counts off the map as water (the planner's edge is the sea), and a column
+   *  AUDIT OW5b S5: and ON THE MAP - `tvWater` counts off the map as water (the planner's edge is the sea), and a column
    *  off it read the PAK's first for its climate: a raider was born a pixel past the map's edge. */
   const tvRaidOpen = (px, py) => {
     if (px < 0 || py < 0 || px >= 1000 || py >= 500 || maps.getClimateIndex(px, py) !== CLIMATES.Ocean) return false;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!tvWater(px + dx, py + dy)) return false;
     return true;
   };
-  /** A native point on the water, by its pixel's byte (the planner's sea) - AUDIT OW5 S5: on the map alone (the pixel law
+  /** A native point on the water, by its pixel's byte (the planner's sea) - AUDIT OW5b S5: on the map alone (the pixel law
    *  truncates, so the strip a pixel wide past the west and south edges read as the edge's own water, and past it all was
    *  water: a raider sailed off the world). */
   const tvRaidSea = (x, z) => {
@@ -18744,7 +18744,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  mod's wait. A raid already armed, or a lent ship out, and the raider sheers off unheeded (the mod's own refusals). */
   function raidContact() {
     if (warmAshesRaidRefusal()) return;   // the mod's own refusals: the raider sheers off unheeded, the traveller sailing on
-    // AUDIT OW5 S1: THE HELM LET GO FIRST, as the fast travel's ambush lets it go (Come Sail Away's OnPreFastTravel runs
+    // AUDIT OW5b S1: THE HELM LET GO FIRST, as the fast travel's ambush lets it go (Come Sail Away's OnPreFastTravel runs
     // before Warm Ashes' own). The raid boards by a teleport, which is no load and says nothing to the helm: the next
     // frame's sail stood the player back at the helm of their boat (its drive position, in the ship pixel's frame now), on
     // no deck at all, the pirates on the one they had been carried to. Let go before the raid arms, so a ship the helm
@@ -18756,7 +18756,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     travelControlUI?.closeWindow?.();
     townTalk.say(TRAVEL_VIEW_TEXT.raidersAlongside);
   }
-  /** AUDIT OW5 S2: THE RAIDERS' QUARRY - a traveller at sea on their OWN boat: at its helm, or on its deck (Come Sail Away's
+  /** AUDIT OW5b S2: THE RAIDERS' QUARRY - a traveller at sea on their OWN boat: at its helm, or on its deck (Come Sail Away's
    *  own "I'm On A Boat", its hull's box - the helm let go mid-sea is still at sea: a raider closing was spent the moment
    *  its quarry stepped off the helm). Never a passenger aboard another's boat - its helmsman is the one a raider runs
    *  down, and the raid's Leave Ship sets its boarder back where they boarded: for a passenger, the water the boat had
@@ -18803,7 +18803,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** OWS3's frame: at sea and outdoors, a sail sighted under the view gives chase; each chase steps (the world's scale on
    *  it), is lost or comes alongside. Ashore - or the mod off - no chase stands. */
   function raidFrame(dt) {
-    // AUDIT OW5 S2/S6: a window, a pause or a world being moved HOLDS every chase, its patience with it (the bands' own B9
+    // AUDIT OW5b S2/S6: a window, a pause or a world being moved HOLDS every chase, its patience with it (the bands' own B9
     // and D2) - a pause read as "ashore" and spent the raider for its life, and the feet read mid-move lie a kilometre off
     if (gamePaused() || worldMoveBusy()) return;
     const at = warmAshesOn() && isEnhanced() && walkMode && playerSpawned && (modes?.mode ?? 'exterior') === 'exterior' && raidQuarry();
@@ -20872,7 +20872,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // DW-D: SuppressVanillaWaterEncounters (DeepWaters.Update) - the deep has its own, so the vanilla roll stands down
     if (_deepSuppressesSpawns()) playerEntity.preventEnemySpawns = true;
     dungeonFindFrame(performance.now());   // TV6: an undiscovered dungeon within a kilometre is found
-    bandFrame(performance.now(), dt);   // TV7: the bands - a chase, a contact (AUDIT OW5 B1: on the frame's own clock)
+    bandFrame(performance.now(), dt);   // TV7: the bands - a chase, a contact (AUDIT OW5b B1: on the frame's own clock)
     handOverWalkedAway(performance.now());   // OW6: a foe I walk away from goes to the player beside it, never culled from under them
     const _pf = walkMode && playerSpawned ? player.pos : cam.pos;
     if (!townTalk.overlayActive) runEncounterTick(_pf);

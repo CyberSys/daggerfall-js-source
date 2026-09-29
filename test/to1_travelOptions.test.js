@@ -997,7 +997,7 @@ test('AUDIT OW4 J7: a new disease stops the journey THROUGH THE PANEL (its Camp 
   assert.deepEqual([bare.to.isTravelActive, !!bare.to.state.autopilot], [false, false]);
 });
 
-test('AUDIT OW5 E1: THE ENEMIES STOP ASKED BY THE ENCOUNTER THAT MEETS THE TRAVELLER (Mac: "Need to get pullout of fast travel little sooner for encounters. U run thru them") - the sweep\'s own arm, the moment the host asks: no journey walking, nothing; reckless, stopped through the panel with the box; cautious, the roll - lost, stopped; won, the journey goes on and the grace passes the next one by until it lapses', () => {
+test('AUDIT OW5b E1: THE ENEMIES STOP ASKED BY THE ENCOUNTER THAT MEETS THE TRAVELLER (Mac: "Need to get pullout of fast travel little sooner for encounters. U run thru them") - the sweep\'s own arm, the moment the host asks: no journey walking, nothing; reckless, stopped through the panel with the box; cautious, the roll - lost, stopped; won, the journey goes on and the grace passes the next one by until it lapses', () => {
   const walking = (over = {}) => {
     const hold = {};
     const ui = new TravelControlUI({ defaultStartingAccel: 10, accelerationLimit: 60, onClose: () => hold.to.interruptTravel() });   // the world host's own: Camp is InterruptTravel

@@ -5,7 +5,7 @@
 //
 // Travel Options drives a traveller at up to a hundred times their own pace, and the port runs the world's foes at
 // theirs (TO1's one departure, Travel-Options.md): at x40 a rider crossed a band's whole sight in a breath, and what
-// stood in the road was met in no time at all - Mac's "U run thru them" (AUDIT OW5). AUDIT OW5 E1 made the meeting stop
+// stood in the road was met in no time at all - Mac's "U run thru them" (AUDIT OW5b). AUDIT OW5b E1 made the meeting stop
 // the journey the frame it comes; this makes the journey SLOW AS IT COMES. The clock is held so that the traveller takes
 // at least THREAT_WARN_S of real time to reach the nearest enemy's REACH along their way - the circle it sees in (a
 // band's sight, a ship's lookout, a foe's sight: sixty metres for a camp's) or, for one already chasing, its contact

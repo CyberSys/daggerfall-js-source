@@ -133,10 +133,10 @@ test('RE1: both hosts bound the retry, and neither invented a second law', () =>
   }
 });
 
-// AUDIT OW5 E1 (Mac, 2026-09-28: "Need to get pullout of fast travel little sooner for encounters. U run thru them"):
+// AUDIT OW5b E1 (Mac, 2026-09-28: "Need to get pullout of fast travel little sooner for encounters. U run thru them"):
 // the wanderer placed beside a walking traveller stops the journey THEN - the foe's loads and its real-time classic tick
 // came after twenty to a hundred times DFU's ground at the journey's scale. Lifted out of world.js and run.
-test('AUDIT OW5 E1: a wanderer PLACED beside the traveller asks the walking journey at once (after the stand is sent); nothing placed - the pool full, no spot - asks nothing', () => {
+test('AUDIT OW5b E1: a wanderer PLACED beside the traveller asks the walking journey at once (after the stand is sent); nothing placed - the pool full, no spot - asks nothing', () => {
   const world = read('src/scenes/world.js');
   const at = world.indexOf('  const _standEncounterFoe = (hit, feet) => {');
   assert.ok(at > 0, 'the stander is found');

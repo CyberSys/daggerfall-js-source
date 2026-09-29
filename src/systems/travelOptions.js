@@ -887,7 +887,7 @@ export function createTravelOptions(deps = {}) {
    *  interruptTravel) ends a SPOT's route (AUDIT TV A4: nothing resumes a journey with no name) - so the mod's own
    *  answer for a journey with no destination, `followPath()`, turned a map's coordinate pick, a click on the ground, a
    *  spawn's walk or a party member's spot walk into "Following a road" (or "no path"), and split a TV8 walk.
-   *  AUDIT OW5 E1: whether the roll was won (the journey goes on). */
+   *  AUDIT OW5b E1: whether the roll was won (the journey goes on). */
   function attemptAvoidEncounter(route = null) {
     const e = deps.entity?.() ?? {};
     const chance = avoidEncounterChance(e.luck ?? 50, e.stealth ?? 0, st.settings.maxAvoidChance);
@@ -922,7 +922,7 @@ export function createTravelOptions(deps = {}) {
     return false;
   }
 
-  /** AUDIT OW5 E1 (Mac, 2026-09-28: "Need to get pullout of fast travel little sooner for encounters. U run thru
+  /** AUDIT OW5b E1 (Mac, 2026-09-28: "Need to get pullout of fast travel little sooner for encounters. U run thru
    *  them"): THE ENEMIES STOP, ASKED BY THE ENCOUNTER THAT MEETS THE TRAVELLER - the Update sweep's own arm, the frame
    *  the host knows an encounter has met a walking journey (the Overworld's band at its contact, a wanderer the spawner
    *  has placed), never a frame later. The sweep asks the FOES (AreEnemiesNearby: seen, or inside the classic spawn
@@ -1159,6 +1159,6 @@ export function createTravelOptions(deps = {}) {
     onEncounter, onEnterLocationRect, onMapPixelChanged, onRegionIndexChanged,
     drawJunctionMap, updateJunctionMap, disableJunctionMap,
     attemptAvoidEncounter,
-    encounter,   // AUDIT OW5 E1: the enemies stop, asked by the encounter that meets the traveller
+    encounter,   // AUDIT OW5b E1: the enemies stop, asked by the encounter that meets the traveller
   };
 }

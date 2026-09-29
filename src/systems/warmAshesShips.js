@@ -151,7 +151,7 @@ export function raidAtSea() {
 }
 
 /** OWS3: why the mod refuses a raid NOW - an ambush armed or boarding ('busy'), a lent ship out ('lent') - or null. The
- *  refusals' one home: raidAtSea answers with it, and AUDIT OW5 S1's host asks it before it lets go of the helm (a raid
+ *  refusals' one home: raidAtSea answers with it, and AUDIT OW5b S1's host asks it before it lets go of the helm (a raid
  *  refused leaves the traveller sailing, the raider sheering off unheeded). */
 export function raidRefusal() {
   if (hasTraveledbyShip || _boardIn !== null) return 'busy';
