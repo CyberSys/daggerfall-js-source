@@ -40,7 +40,7 @@ import { getPref } from '../systems/uiPrefs.js';
 import { registerModSaveData } from '../systems/modSaveData.js';
 import { isTouchDevice } from './touchDevice.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
-import { entryOpening, remainWords } from './questRail.js';
+import { entryOpening, timeLeftWords } from './questRail.js';
 
 /** The switch's prefs key (systems/features.js row `quest-tracker`). */
 export const TRACKER_PREF = 'questTracker';
@@ -59,7 +59,7 @@ export const TRACKER_GAP = 8;
 
 /** The port's own words. */
 export const TRACKER_WORDS = Object.freeze({
-  left: (seconds) => `${remainWords(seconds)} left`,
+  left: timeLeftWords,   // the quest faces' one phrase (ui/questRail.js)
   track: 'Track',
   tracking: 'Tracking',
   trackLabel: (title) => `Track ${title} on the HUD`,
@@ -130,6 +130,7 @@ export class QuestTracker {
       pinned: this.isPinned(v.id),
       opening: entryOpening(v.latest?.lines, TRACKER_OPENING_MAX),
       where: v.words?.where ?? '',
+      note: v.words?.note ?? '',   // GUIDE5: a named place not on the map - no mark, the talk arc's answer instead
       time: Number.isFinite(v.clockSeconds) ? TRACKER_WORDS.left(v.clockSeconds) : '',
       urgent: !!v.urgent,
     };
@@ -171,7 +172,7 @@ export function trackButton(doc, id, title, after = null) {
 
 // ── THE CARD ─────────────────────────────────────────────────────────
 
-let card = null;   // { node, doc, touch, rows: { mark, title, opening, where, time }, last }
+let card = null;   // { node, doc, touch, rows: { mark, title, opening, where, note, time }, last }
 
 function build(doc) {
   injectEnhancedStyle(doc);
@@ -188,10 +189,11 @@ function build(doc) {
   head.append(mark, title);
   const opening = row('qtrack-line');
   const where = row('qtrack-where');
+  const note = row('qtrack-note');   // GUIDE5
   const time = row('qtrack-time');
-  node.append(head, opening, where, time);
+  node.append(head, opening, where, note, time);
   doc.body.append(node);
-  return { node, doc, touch, rows: { mark, title, opening, where, time }, last: {} };
+  return { node, doc, touch, rows: { mark, title, opening, where, note, time }, last: {} };
 }
 
 function setText(c, key, n, text) {
@@ -225,14 +227,14 @@ function dropCard() {
 /**
  * ONE HUD FRAME OF THE TRACKER. `hidden` is the HUD's own hide gate (a
  * window over it, the HUD toggled off). Off - the classic skin or the
- * switch - it reaches its hide door: the card goes and what was followed
- * is forgotten (the tracked quest, the player's choice, stays). Returns
- * the card's words, or null when it draws nothing - for a test.
+ * switch - it reaches its hide door: the card goes (the model is the
+ * bridge's: GUIDE5's marks follow the same quest, and the bridge forgets
+ * it when neither face is on). Returns the card's words, or null when it
+ * draws nothing - for a test.
  */
 export function drawQuestTracker({ hidden = false, doc = (typeof document === 'undefined' ? null : document) } = {}) {
   if (!trackerOn()) {
-    if (questTracker.views.length || questTracker.follow != null) questTracker.forget();
-    dropCard();
+    dropCard();   // GUIDE5: what the model followed is the bridge's to forget - the marks may still be following it
     return null;
   }
   const f = questTracker.frame();
@@ -243,6 +245,7 @@ export function drawQuestTracker({ hidden = false, doc = (typeof document === 'u
   moved = setText(c, 'mark', c.rows.mark, f.pinned ? '\u25c6' : '\u25c7') || moved;   // tracked: the filled diamond; followed: the hollow
   moved = setText(c, 'opening', c.rows.opening, f.opening) || moved;
   moved = setText(c, 'where', c.rows.where, f.where) || moved;
+  moved = setText(c, 'note', c.rows.note, f.note) || moved;   // GUIDE5: the place is named but not on the map - ask around
   moved = setText(c, 'time', c.rows.time, f.time) || moved;
   const cls = `qtrack${c.touch ? ' touch' : ''}${f.main ? ' main' : ''}${f.urgent ? ' urgent' : ''}`;
   if (c.last.cls !== cls) { c.last.cls = cls; c.node.className = cls; moved = true; }

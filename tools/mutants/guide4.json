@@ -100,9 +100,9 @@
   },
   {
     "name": "GUIDE4-time-without-its-word",
-    "file": "src/ui/questTracker.js",
-    "old": "  left: (seconds) => `${remainWords(seconds)} left`,",
-    "new": "  left: (seconds) => remainWords(seconds),",
+    "file": "src/ui/questRail.js",
+    "old": "export const timeLeftWords = (s) => `${remainWords(s)} left`;",
+    "new": "export const timeLeftWords = (s) => remainWords(s);",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
@@ -218,19 +218,20 @@
   {
     "name": "GUIDE4-hide-door-skipped",
     "file": "src/ui/questTracker.js",
-    "old": "    dropCard();\n    return null;\n  }\n  const f = questTracker.frame();",
-    "new": "    return null;\n  }\n  const f = questTracker.frame();",
+    "old": "    dropCard();   // GUIDE5: what the model followed is the bridge's to forget - the marks may still be following it\n    return null;",
+    "new": "    return null;",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
   },
   {
     "name": "GUIDE4-off-keeps-the-follow",
-    "file": "src/ui/questTracker.js",
-    "old": "    if (questTracker.views.length || questTracker.follow != null) questTracker.forget();\n",
+    "file": "src/scenes/questBridge.js",
+    "old": "    if (!follow && (questTracker.views.length || questTracker.follow != null)) questTracker.forget();\n",
     "new": "",
     "tests": [
-      "test/guide4_tracker.test.js"
+      "test/guide4_tracker.test.js",
+      "test/guide5_marks.test.js"
     ]
   },
   {
@@ -335,7 +336,7 @@
   {
     "name": "GUIDE4-tracker-not-fed",
     "file": "src/scenes/questBridge.js",
-    "old": "    if (tracker) questTracker.hear(seen);\n",
+    "old": "    if (follow) questTracker.hear(seen);\n",
     "new": "",
     "tests": [
       "test/guide4_tracker.test.js"
@@ -344,8 +345,8 @@
   {
     "name": "GUIDE4-baseline-withheld",
     "file": "src/scenes/questBridge.js",
-    "old": "    if (tracker) questTracker.hear(seen);\n    if (!herald) return;\n    if (listening) questHerald.hear(seen); else listening = true;",
-    "new": "    if (!herald) return;\n    if (listening) { questHerald.hear(seen); if (tracker) questTracker.hear(seen); } else listening = true;",
+    "old": "    if (follow) questTracker.hear(seen);\n    if (!herald) return;\n    if (listening) questHerald.hear(seen); else listening = true;",
+    "new": "    if (!herald) return;\n    if (listening) { questHerald.hear(seen); if (follow) questTracker.hear(seen); } else listening = true;",
     "tests": [
       "test/guide4_tracker.test.js"
     ]

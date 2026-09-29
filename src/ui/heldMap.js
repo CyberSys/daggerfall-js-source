@@ -103,7 +103,8 @@ import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/t
 import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js';
 import { checkLocationDiscovered } from './travelMapWindow.js';
 import { readGateMark, gateMarkKey, GATE_RING_CSS, GATE_LEGEND_TEXT } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, read as the party is
-import { readRaidMarks, raidMarksKey, placeTip, tipKey, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
+import { readRaidMarks, raidMarksKey, placeTip, tipKey, readTip, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
+import { readQuestMarks, questMarksKey, QUEST_MARK_CSS, QUEST_LEGEND_TEXT, QUEST_HIT_PX, QUEST_MARK_LIFT } from './questMarks.js';   // GUIDE5: where the quests point
 import {
   buildInkModel, buildInkMarks, paintInkStatic, paintInkOverlay, zoomBand, clampView, scaleMinOf, SCALE_MAX,   // MAP-FIELD2: placeNames is inkMap's law still, but this sheet no longer inks the names
   viewCentredOn, zoomAt, toPaper, toMap, BAND_MARKS, PARTY_LABEL_STACK,
@@ -612,6 +613,9 @@ export class HeldMapWindow {
     // EVENT-TIP: the raided towns (the host's `raids`, on the same poll), and the card under the pointer
     this._raids = [];
     this._raidsKey = '';
+    // GUIDE5: where the quests point (the host's `quests`, on the same poll) - each place the player's map holds
+    this._quests = [];
+    this._questsKey = '';
     this._tipKey = '';
     this._hoverAt = null;   // where the pointer last hovered, paper and client - a poll refreshes the card under it
     this._selected = null;  // { summary, name, x, y } - or { coords: true, ... } for a bare pixel (MAP2)
@@ -1163,6 +1167,7 @@ export class HeldMapWindow {
           })),
           gate: this._gate,   // WB1
           raids: this._raids,   // EVENT-TIP: the towns under attack
+          quests: this._quests,   // GUIDE5: where the quests point
           travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey, ship: t.ship })),   // TV3; OWS1: at sea, a ship
           pulse: env.pulse,
         });
@@ -1655,6 +1660,11 @@ export class HeldMapWindow {
     const raids = readRaidMarks(this.deps.raids, this._size);
     const raidsKey = raidMarksKey(raids);
     if (raidsKey !== this._raidsKey) { this._raidsKey = raidsKey; this._raids = raids; gateMoved = true; this._dirty = true; }
+    // GUIDE5: the quests' places ride the same poll (a step logged, a place found, the followed quest changed while the
+    // map stands open); a card is bounded by the world events' own reader
+    const quests = readQuestMarks(this.deps.quests, this._size).map((m) => ({ ...m, tip: readTip(m.tip) }));
+    const questsKey = questMarksKey(quests);
+    if (questsKey !== this._questsKey) { this._questsKey = questsKey; this._quests = quests; gateMoved = true; this._dirty = true; }
     // TV3: the region's travellers ride the same poll, on their own key
     const trav = readTravellerMarks(this.deps.travellers, this._size);
     const travKey = travellerMarksKey(trav);
@@ -1686,7 +1696,7 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate && !this._raids.length && !this._trav.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._raids.length && !this._trav.length && !this._quests.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
@@ -1706,6 +1716,13 @@ export class HeldMapWindow {
       const dot = el('span', 'hmlegdot');
       dot.style.background = RAID_MARK_CSS;
       leg.append(dot, el('span', 'hmlegtext', RAID_LEGEND_TEXT));
+    }
+    if (this._quests.length) {   // GUIDE5: and a quest's place - the legend's dot turned to the mark's own diamond
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = QUEST_MARK_CSS;
+      dot.style.borderRadius = '0';
+      dot.style.transform = 'rotate(45deg) scale(0.85)';
+      leg.append(dot, el('span', 'hmlegtext', QUEST_LEGEND_TEXT));
     }
     leg.classList.toggle('open', true);
     leg.style.display = 'flex';
@@ -1733,6 +1750,18 @@ export class HeldMapWindow {
     for (const m of this._raids) {
       const [x, y] = toPaper(this._view, m.x, m.y);
       const d = Math.min((x - sx) ** 2 + (y - sy) ** 2, (x - sx) ** 2 + (y - 18 - sy) ** 2);
+      if (d < bestD) { best = m; bestD = d; }
+    }
+    return best;
+  }
+
+  /** GUIDE5: the quest mark under the cursor - its diamond above the place, or the place's own mark under it, within
+   *  the location marks' own reach (inkMap.js paintQuestMark). */
+  _questAt(sx, sy) {
+    let best = null, bestD = QUEST_HIT_PX * QUEST_HIT_PX;
+    for (const m of this._quests) {
+      const [x, y] = toPaper(this._view, m.x, m.y);
+      const d = Math.min((x - sx) ** 2 + (y - sy) ** 2, (x - sx) ** 2 + (y - QUEST_MARK_LIFT - sy) ** 2);
       if (d < bestD) { best = m; bestD = d; }
     }
     return best;
@@ -2852,6 +2881,9 @@ export class HeldMapWindow {
     const raid = this._raidAt(sx, sy);
     const m = this._markerAt(sx, sy);
     if (raid) return { label: raid.label, cursor: m ? 'pointer' : '', tip: raid.tip };
+    // GUIDE5: a quest's place answers as the quest (its card names the place); a press still picks the place under it
+    const quest = this._questAt(sx, sy);
+    if (quest) return { label: quest.label, cursor: m ? 'pointer' : '', tip: quest.tip };
     if (m) {
       const name = m.name || this._summaryName(m.summary);
       const region = REGION_NAMES[m.summary.regionIndex] ?? '';

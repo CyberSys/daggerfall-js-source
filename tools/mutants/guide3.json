@@ -28,9 +28,9 @@
   },
   {
     "name": "GUIDE3-time-left-words",
-    "file": "src/ui/questHerald.js",
-    "old": "export const heraldTimeLeft = (seconds) => `${remainWords(seconds)} left`;",
-    "new": "export const heraldTimeLeft = (seconds) => `${Math.round(seconds / 3600)} hours left`;",
+    "file": "src/ui/questRail.js",
+    "old": "export const timeLeftWords = (s) => `${remainWords(s)} left`;",
+    "new": "export const timeLeftWords = (s) => `${Math.round(s / 3600)} hours left`;",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -245,8 +245,8 @@
   {
     "name": "GUIDE3-look-before-the-gate",
     "file": "src/scenes/questBridge.js",
-    "old": "    if (!herald && !tracker) return;\n    let seen;",
-    "new": "    lens.look();\n    if (!herald && !tracker) return;\n    let seen;",
+    "old": "    if (!herald && !follow) return;\n    let seen;",
+    "new": "    lens.look();\n    if (!herald && !follow) return;\n    let seen;",
     "tests": [
       "test/guide3_herald.test.js"
     ]

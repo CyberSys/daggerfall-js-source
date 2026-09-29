@@ -5092,6 +5092,8 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }   /* the cap (TRACKER_OPENING_MAX) keeps it to two; a wide face wraps to three, and a clamp at two cut it mid-word - seen in Chromium */
 .qtrack-where { font-size: 12px; line-height: 1.3; color: #c9a45c; }
 .qtrack-where::before { content: '\\25c8'; margin-right: 5px; }
+/* GUIDE5: a place the entry names but the player's map does not hold - no mark; the talk arc's answer, quietly */
+.qtrack-note { font-size: 11px; line-height: 1.3; color: #8b8578; font-style: italic; }
 .qtrack-time { font-size: 12px; letter-spacing: 0.08em; color: #c5bda2; }
 .qtrack.urgent .qtrack-time { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 /* the journal's Track toggle (ui/questTracker.js trackButton): pressed, it wears the card's brass edge as its word */
@@ -5100,7 +5102,7 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
   .qtrack, .qtrack.touch { top: calc(104px + env(safe-area-inset-top, 0px)); width: min(260px, calc(100vw - 16px)); }
 }
 @media (max-height: 500px) {
-  .qtrack-line, .qtrack-where { display: none; }
+  .qtrack-line, .qtrack-where, .qtrack-note { display: none; }
 }
 /* AUDIT HCC U5: THE FIELD'S OWN WINDOW (ui/enhancedInputBox.js) - DaggerfallInputMessageBox in the skin's face.
    ENH-NOTICE1's law: a field is a decision, not a notice, so it is not in the right-edge stack; it stands where the

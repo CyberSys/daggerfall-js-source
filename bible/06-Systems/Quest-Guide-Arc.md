@@ -480,16 +480,101 @@ it, at 1280x720, a phone's 390x844 and a short 844x390 - the party list
 stepping under the card, the phone's card under the compass, the short
 screen's title and time.
 
+## GUIDE5 - THE MARKS (SHIPPED 2026-09-29)
+
+Where a quest points, drawn where a player looks: the held map and the
+enhanced compass (`ui/questMarks.js`).
+
+**ONLY WHAT THE PLAYER'S MAP ALREADY HOLDS.** A mark stands exactly
+where DFU's own logbook would offer the travel map - a target with
+`find` (the lens's `entryTarget`: a place the entry names, on the
+player's map by DFU's CanFindPlace, and not the place the player stands
+in). A place named but not yet on the map gets no mark; it gets the
+talk arc's answer instead, on the tracker's card, quietly: "Not on your
+map yet. Ask around for directions." - which is what Daggerfall's
+directions are for (`06-Systems/Talk-Arc.md`, THE COMPASS MARK: a
+person who knows marks it). Nothing here is the quest debugger's
+knowledge; GUIDE8's Exact tier is that, off by default.
+
+**THE HELD MAP** (the enhanced map's world sheet, `ui/heldMap.js` over
+`ui/inkMap.js` `paintQuestMark`): every active quest's place - a
+diamond in the journal's gold (`QUEST_MARK_CSS`) standing above the
+place's own mark, tied to it, edged in the pen's ink so it reads on any
+parchment, FILLED for the quest the tracker follows and hollow for the
+rest (the shape and the fill say it, not the colour alone - the
+selection's amber is a ring). Two quests at one place are one mark
+naming both. The marks ride the party's poll (the host's `quests`, a
+function, read with the window and again as they change), stand in the
+legend as a diamond, and answer a hover - after a raided town, before
+the place itself - with a card: the quest's title, where, and the time
+left (several: how many, where, and each with its time), bounded by the
+world events' own reader. A press still picks the place under it. The
+classic travel map is DFU's and draws none: a player who chose DFU's
+own maps (the `enhanced-map` switch) chose DFU's look.
+
+**THE COMPASS** (`ui/enhancedHud.js` `drawQuestMark`): one mark - the
+tracker's quest's place - a HOLLOW gold diamond edged dark, so it never
+reads as the gate's burning one, at the gate's bearing law
+(`compassMarkerLerp`, clamped: a place behind the player stands at the
+strip's end on the side to turn toward). On the street only: buildings
+and dungeons steer by their own frames. Hidden, never removed.
+
+**THE HOST** (`scenes/world.js`): `questPixel` resolves a place with the
+held map's own goto law (`questPixelOf`: the region by name, the place
+by its map name, the row's longitude and latitude - the conversion
+handed in, so the marks module stays off the map readers);
+`questCompassMark` hands the compass the middle of that pixel in the
+scene's frame (the streaming host's `pixelTranslation` plus half a
+`TERRAIN_SIZE`, the party marks' own sum); drawHud forwards `quest` to
+the enhanced HUD.
+
+**ONE MODEL, TWO FACES.** The quest the player follows now has two faces
+- the card (GUIDE4) and the marks - and one model: the bridge feeds the
+tracker's model every look while EITHER is on, and forgets what it
+followed when neither is (the player's tracked choice is the save's and
+stays). GUIDE4's card no longer forgets on its own switch; it only
+leaves the page.
+
+**ONE PHRASE.** The herald, the card and a mark's card all say the time
+left; `timeLeftWords` (`ui/questRail.js`) is its one home now.
+
+**THE HUD STAYS LIGHT.** The marks module imports the skin, the prefs
+and the rail alone - the enhanced HUD reads its gold and the bridge its
+switch - and its suite walks the graph: never the lens, the machine,
+the map readers or the raids.
+
+**The switch.** Features row `quest-marks` - Interface, beside
+`quest-tracker`, Enhanced, on by default (DECISIONS 7), the player's own
+online.
+
+**Pins.** `test/guide5_marks.test.js` (8): only what the map holds (the
+marks, the merge, the cards, the resolver; the host's marks read and
+checked; the card's note and no mark, the classic skin); one model, two
+faces (the marks alone feed it, neither forgets it, the herald never
+does); the held map (the poll, the legend's diamond, the ink - filled
+and hollow - and the diamond above its place; the hover order and the
+card); the compass (placed, clamped, hidden, never rebuilt); one host,
+its laws (by source, and the import graph). GUIDE3's and GUIDE4's
+suites hold the marks off and five of their mutants follow the new
+shapes. `tools/mutants/guide5.json`: 34 mutants. Ledger A: WHERE A
+QUEST POINTS, MARKED.
+
+SEEN IN A BROWSER, NOT IN A GAME: headless Chromium over a harness page
+(the ignored `test-harness/`) - the compass's hollow gold diamond on the
+enhanced strip, the filled and the hollow diamonds above their places
+on a parchment the real `paintQuestMark` inks, and the card's quiet
+note.
+
 ## THE SLICES (Mac, 2026-09-29: "This is your baby. Take your time")
 
-In order. Every one reads the lens and nothing else. SHIPPED: GUIDE2, GUIDE3 and GUIDE4 (above).
+In order. Every one reads the lens and nothing else. SHIPPED: GUIDE2 to GUIDE5 (above).
 
 | Slice | What the player gets | DFU? | Switch |
 |---|---|---|---|
 | **GUIDE2 THE WAY THERE** | The enhanced journal (pause tab and chronicle) gets DFU's own logbook click: on an entry whose target has a `find`, "Show on map" closes the journal and opens the map on the place through the host's `gotoPlace` - world.js's `toggleTravelMap(place)`, which already hands it to the held map (`_travelMap.gotoPlace`) and refuses indoors in DFU's words. Under the title, a "where" line of the target's SAID names. world.js wires it; the dungeon and `?exterior` hosts flag it (DFU's map will not open inside). | Parity: DFU's logbook has it; the "where" line is the enhanced face's | none - the journal's own |
 | **GUIDE3 THE HERALD** (SHIPPED) | The lens's events as the enhanced notices (ENH-NOTICE3's toast stack): "New quest", "Journal updated", "Quest completed" / "Quest ended", "Under a day left" - the title and the newest entry's opening, `aria-live`, no chime (the section above says why). Fed from the bridge's tick, so all four hosts at once. | Departure: DFU says nothing | `quest-herald` (interface, enhanced, `online: 'player'`) |
 | **GUIDE4 THE TRACKER** (SHIPPED) | A HUD card: the tracked (else the last-changed) quest's title, its newest entry's opening, where it points and the live time left; a Track toggle in both journal faces, and the journal opens on the card's quest. The tracked quest is kept per character through `registerModSaveData`, by uid. The cycle key waits for GUIDE6 (the section above says why). | Departure | `quest-tracker` |
-| **GUIDE5 THE MARKS** | The target on the held map, the travel map and the enhanced compass (which already carries detect, gate and party marks) - only a target with `find` (DFU's own discovered gate). A target off the map gets the talk arc's hint instead: ask about it, which is what Daggerfall's directions are for (`06-Systems/Talk-Arc.md`, THE COMPASS MARK). | Departure | `quest-marks` |
+| **GUIDE5 THE MARKS** (SHIPPED) | Every active quest's place on the held map (the followed one filled) and the tracker's quest's place on the enhanced compass - only a target with `find` (DFU's own discovered gate). A place off the map gets the talk arc's hint on the card instead: ask about it, which is what Daggerfall's directions are for (`06-Systems/Talk-Arc.md`, THE COMPASS MARK). The classic travel map stays DFU's. | Departure | `quest-marks` |
 | **GUIDE6 THE ACCESSIBLE JOURNAL** | The pause tab: filter by kind (Main, Guild - the quest list's own group, `findQuestMeta` - Other), sort by updated or deadline, search, each entry's date, the deadline as words AND a date, keyboard and pad navigation with visible focus, a text size that works, and an entry read aloud (speechSynthesis). | Enhanced face | per choice |
 | **GUIDE7 THE ACCESSIBILITY SHELF** | Port rows in the Accessibility category: quest text size, high-contrast panels, reduce motion (the OS's, overridable), quest popups read aloud, notices held until dismissed - and the contrast and screen-reader audit Audit-UI named and nobody ran. | Port's own | per row |
 | **GUIDE8 GUIDANCE TIERS** | Off by default: *Journal* (GUIDE5's law) / *Town* (the building the entry names, marked when the player is in its town) / *Exact* (the marker a quest resource stands on, DFU's quest-debugger knowledge, on the dungeon map). The one tier that can spoil; its own row. | Departure | `quest-guidance` |
@@ -526,3 +611,7 @@ Mac - can see what was decided and reverse it where it stands.
    day): every letter is spent (KB1), so a cycle key would ship unbound,
    and the journal's Track toggle already answers the keyboard. One pass
    decides the journal's keys and the tracker's together.
+7. **The marks are on by default** (GUIDE5, the same day): they show
+   only what the player's map already holds and the journal already
+   said - DFU's own logbook offers the same place - so nothing is
+   spoiled, and a player who wants Daggerfall's bare map turns them off.

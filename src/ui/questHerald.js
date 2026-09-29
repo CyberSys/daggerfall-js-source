@@ -44,7 +44,7 @@
 import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { drawEnhancedToasts, releaseEnhancedToasts } from './enhancedNotice.js';
-import { entryOpening, remainWords } from './questRail.js';   // the rail, never the lens: the HUD imports this face (entryOpening's own comment says why)
+import { entryOpening, timeLeftWords } from './questRail.js';   // the rail, never the lens: the HUD imports this face (entryOpening's own comment says why)
 
 /** The switch's prefs key (systems/features.js row `quest-herald`). */
 export const HERALD_PREF = 'questHerald';
@@ -64,8 +64,8 @@ export const HERALD_WORDS = Object.freeze({
   completed: 'Quest completed',
   ended: 'Quest ended',
 });
-/** The time-left line: remainWords' own phrase, the journal's "Time remains" count. */
-export const heraldTimeLeft = (seconds) => `${remainWords(seconds)} left`;
+/** The time-left line: the quest faces' one phrase (ui/questRail.js timeLeftWords), the journal's "Time remains" count. */
+export const heraldTimeLeft = timeLeftWords;
 
 /** ONE TOAST PER QUEST, so two pieces of news for one quest inside one
  *  notice's life are one notice - and the one that stands is the one a

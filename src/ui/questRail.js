@@ -130,6 +130,10 @@ export function remainWords(s) {
   return `${Math.max(1, m2)} min`;
 }
 
+/** GUIDE3-GUIDE5: the time left as the quest faces say it - remainWords' own count and one word ("2 days 3 hours
+ *  left"): the herald's line, the tracker's card and a map mark's card, one phrase. */
+export const timeLeftWords = (s) => `${remainWords(s)} left`;
+
 /** GUIDE1: the order a row's entries were WRITTEN, as indices into its
  *  `messages`. The machine keeps its log in a Map keyed by step and
  *  `addLogStep` re-sets an existing step IN PLACE (quest.js addLogStep;

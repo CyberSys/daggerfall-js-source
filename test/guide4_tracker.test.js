@@ -33,6 +33,7 @@ import {
   TRACKER_PREF, TRACKER_ID, TRACKER_SAVE, TRACKER_OPENING_MAX, TRACKER_HEIGHT_VAR, TRACKER_GAP, TRACKER_WORDS,
 } from '../src/ui/questTracker.js';
 import { HERALD_PREF } from '../src/ui/questHerald.js';
+import { MARKS_PREF } from '../src/ui/questMarks.js';   // GUIDE5: the marks follow the same model - off in these pins unless asked
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registeredModSaveVendors } from '../src/systems/modSaveData.js';
 import { setPref, PREF_DEFAULTS } from '../src/systems/uiPrefs.js';
 import { FEATURES } from '../src/systems/features.js';
@@ -51,12 +52,13 @@ let nextInterval = 1;
 globalThis.setInterval = (fn, ms) => { const id = nextInterval++; intervals.set(id, { fn, ms }); return id; };
 globalThis.clearInterval = (id) => { intervals.delete(id); };
 
-/** The switches for one test (the tracker on, the herald off unless asked), put back after, the model reset. */
-function withSwitches(fn, { tracker = true, herald = false } = {}) {
-  quiet(() => { setPref(TRACKER_PREF, tracker); setPref(HERALD_PREF, herald); });
+/** The switches for one test (the tracker on, the herald and the marks off unless asked), put back after, the model
+ *  reset. */
+function withSwitches(fn, { tracker = true, herald = false, marks = false } = {}) {
+  quiet(() => { setPref(TRACKER_PREF, tracker); setPref(HERALD_PREF, herald); setPref(MARKS_PREF, marks); });
   _resetQuestTrackerForTests();
   try { return fn(); } finally {
-    quiet(() => { setPref(TRACKER_PREF, true); setPref(HERALD_PREF, true); });
+    quiet(() => { setPref(TRACKER_PREF, true); setPref(HERALD_PREF, true); setPref(MARKS_PREF, true); });
     _resetQuestTrackerForTests();
   }
 }
@@ -182,6 +184,7 @@ test('GUIDE4 THE WORDS - the title (a main quest marked), the newest entry\'s op
     id: '1', title: 'The Beast', main: true, pinned: false,
     opening: entryOpening(long, TRACKER_OPENING_MAX),
     where: `Llugwych in ${REGION} province`,
+    note: '',
     time: `${remainWords(80000)} left`,
     urgent: true,
   });
@@ -340,8 +343,8 @@ function cardPage() {
   return { doc, writes, vars: doc.documentElement.style };
 }
 const rowsOf = (card) => {
-  const [head, line, where, time] = card.children;
-  return { mark: head.children[0], title: head.children[1], line, where, time };
+  const [head, line, where, note, time] = card.children;
+  return { mark: head.children[0], title: head.children[1], line, where, note, time };
 };
 
 test('GUIDE4 THE CARD - built once on the page, aria-hidden (the herald speaks), its rows the frame\'s words; a still frame writes nothing; a row with nothing to say is hidden; a main quest and an urgent clock are classes; under the HUD\'s gate it hides and publishes no height; its height, plus a gap, is published for the party list only when what it says changed; off (the switch, the classic skin) it is taken off the page and the last game\'s follow forgotten, the choice kept (mutants: rebuilt every frame; the height published while hidden; the hide door skipped)', () => {
@@ -385,7 +388,8 @@ test('GUIDE4 THE CARD - built once on the page, aria-hidden (the herald speaks),
     assert.equal(drawQuestTracker({ doc }), null);
     assert.ok(card.removed, 'off: taken off the page');
     assert.equal(vars[TRACKER_HEIGHT_VAR], '0px');
-    assert.deepEqual([questTracker.views, questTracker.follow, questTracker.pinned], [[], null, '1'], 'what it followed forgotten, the choice kept');
+    assert.equal(questTracker.views.length, 1, 'the model is not the card\'s to forget (GUIDE5: the marks follow it too - the bridge forgets it when neither face is on)');
+    assert.equal(questTracker.pinned, '1', 'and the choice is kept');
     quiet(() => setPref(TRACKER_PREF, true));
     questTracker.hear({ quests: [view('1')], events: [] });
     drawQuestTracker({ doc });
@@ -489,7 +493,8 @@ test('GUIDE4 ONE CALL, EVERY HOST - drawHud draws the card on its one call, outs
   const gate = hud.indexOf("if (isEnhanced() && typeof document !== 'undefined') {\n    drawLevelNotices(");
   assert.ok(call > 0 && gate > call, 'drawHud draws the card before (outside) the enhanced gate');
   const bridge = rd('src/scenes/questBridge.js');
-  assert.match(bridge, /try \{ seen = lens\.look\(ctx\.questWhere \?\? \{\}\); \}[^\n]*\n\s*if \(tracker\) questTracker\.hear\(seen\);\n\s*if \(!herald\) return;/, 'every look reaches the tracker - before the herald\'s baseline rule');
+  assert.match(bridge, /try \{ seen = lens\.look\(ctx\.questWhere \?\? \{\}\); \}[^\n]*\n\s*if \(follow\) questTracker\.hear\(seen\);\n\s*if \(!herald\) return;/, 'every look reaches the tracker\'s model while a face follows - before the herald\'s baseline rule');
+  assert.match(bridge, /if \(!follow && \(questTracker\.views\.length \|\| questTracker\.follow != null\)\) questTracker\.forget\(\);/, 'no face following: the bridge forgets what was followed');
   assert.match(bridge, /lens\.reset\(\);[^\n]*\n\s*questTracker\.forget\(\);/, 'a load forgets what the last game followed');
   assert.match(rd('src/scenes/world.js'), /questWhere: \{ canFindPlace: \(regionName, name\) => canFindPlace\(maps, mapDict, regionName, name\), currentLocationName: \(\) => _questLoc\(\)\?\.name \?\? '' \},/, 'the street: both questions');
   assert.match(rd('src/scenes/exterior.js'), /questWhere: \{ currentLocationName: \(\) => dfLocation\.name \?\? locationName \},/, 'the fixed-town route: the city it stands in, no map to ask');

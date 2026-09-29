@@ -28,6 +28,8 @@ import { bindWorldDataBlocks } from '../formats/worldDataReplacement.js';   // R
 import { loadModWorldData } from './modWorldData.js';   // RR3b
 import { DFPalette } from '../formats/dfPalette.js';
 import { MapsFile, getWorldClimateSettings, longitudeLatitudeToMapPixel, getPixelFromPixelID, REGION_RACES, LOCATION_TYPES, CLIMATES, REGION_NAMES } from '../formats/mapsFile.js';   // SPAWNED-DUNGEONS1: the ocean gate and the synthesized location's region name
+import { questTracker } from '../ui/questTracker.js';   // GUIDE5: the quest the player follows - its places, marked
+import { marksOn, questMapMarks, questPixelOf } from '../ui/questMarks.js';   // GUIDE5: where the quests point, on the held map and the compass
 import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
 import { hasPort } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
@@ -10139,6 +10141,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       // running now on the raids' own clock, at its town, with the card a hover asks for (ui/eventMapMarks.js). A
       // function for the gate's reason; none while the mod is off. The enhanced map alone draws them.
       raids: () => (raidingPartiesOn() ? raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '' }) : []),
+      // GUIDE5: WHERE THE QUESTS POINT - every active quest's place the player's map holds, the followed one filled
+      // (ui/questMarks.js); a function for the gate's reason (a step logged while the map stands open). The enhanced
+      // map alone draws them: a player who chose DFU's own maps chose DFU's look.
+      quests: () => (marksOn() ? questMapMarks(questTracker.views, questTracker.tracked()?.id ?? null, questPixel) : []),
       // HUB1: each region's hub, marked and named - online alone (systems/regionHubs.js); offline the map is DFU's
       hubAt: params.has('online') ? (summary) => hubAtMapId(regionHubs, summary?.mapID ?? summary?.mapId) : null,
       // TO1: the mod itself rides travelFareDeps (above); the reads its additions to this window need follow.
@@ -14757,6 +14763,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     gone: () => closeBrokerDoor(),   // the gate fell under her open window: it is shut, and she says so
   }) : null;
   /** WB1: the compass's mark - the gate's spot in THIS scene, while the gate stands and the player is in its ring. */
+  // GUIDE5: a quest target's place to its map pixel (ui/questMarks.js questPixelOf - the held map's own goto law)
+  const questPixel = (find) => questPixelOf(maps, find, longitudeLatitudeToMapPixel);
+  /** GUIDE5: the tracker's quest's place on the compass - the centre of its map pixel in THIS scene's frame (the
+   *  streaming host's pixelTranslation, the gate's own sum), on the street only (buildings and dungeons steer by
+   *  their own frames), and only while the marks are on and the place is on the player's map. */
+  const questCompassMark = () => {
+    if (!marksOn() || (modes?.mode ?? 'exterior') !== 'exterior') return null;
+    const find = questTracker.tracked()?.target?.find;
+    const p = find ? questPixel(find) : null;
+    if (!p) return null;
+    const t = state.pixelTranslation(p.x, p.y);
+    return [t[0] + TERRAIN_SIZE / 2, t[2] + TERRAIN_SIZE / 2];
+  };
   const gateCompassMark = () => {
     const g = gateOmen?.standing();
     const mark = g ? gateOmen.mapMark() : null;
@@ -21691,6 +21710,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           hudHidden: townTalk.hudHidden,   // MAP-FIELD2: the held map takes the vitals and the status icons with it, on both skins
           detected: _detected, playerXZ: [enchantFeet()[0], enchantFeet()[2]],
           gate: gateCompassMark(),   // WB1: the Oblivion Gate on the compass, while the player stands in its ring
+          quest: questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street
           party: partyCompass(),   // COMPASS-PARTY: the party's marks - the bodies drawn here, the rest where their poses say
           largeHud: largeHudOptions({ renderer, fetchBytes, palette }, playerEntity),
           // AUDIT 39: the enhanced HUD's two hand plaques. Both values

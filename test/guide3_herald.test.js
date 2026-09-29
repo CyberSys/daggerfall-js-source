@@ -39,6 +39,7 @@ import {
 import { destroyEnhancedNotice, enhancedNoticeKeys, _setNoticeClockForTests, ENHANCED_NOTICE_ID } from '../src/ui/enhancedNotice.js';
 import { setPref } from '../src/systems/uiPrefs.js';
 import { TRACKER_PREF } from '../src/ui/questTracker.js';   // GUIDE4 listens to the same look: these pins hear the herald alone
+import { MARKS_PREF } from '../src/ui/questMarks.js';   // ...and GUIDE5's marks follow it too
 import { PREF_DEFAULTS } from '../src/systems/uiPrefs.js';
 import { FEATURES } from '../src/systems/features.js';
 
@@ -77,14 +78,14 @@ function onPage(fn, { skin = 'enhanced', herald = true, tracker = false, doc = f
   const hadDoc = Object.hasOwn(globalThis, 'document') ? globalThis.document : undefined;
   globalThis.location = { search: `?skin=${skin}` };
   if (doc) globalThis.document = doc;
-  quiet(() => { setPref(HERALD_PREF, herald); setPref(TRACKER_PREF, tracker); });
+  quiet(() => { setPref(HERALD_PREF, herald); setPref(TRACKER_PREF, tracker); setPref(MARKS_PREF, tracker); });   // the marks follow with the tracker
   const due = [];
   _setNoticeClockForTests((f, ms) => { const t = { f, ms, live: true }; due.push(t); return t; }, (t) => { if (t) t.live = false; });
   questHerald.clear();
   try { return fn(doc, { fire: (ms) => { for (const t of due.filter((x) => x.live && x.ms === ms)) { t.live = false; t.f(); } } }); } finally {
     if (had === undefined) delete globalThis.location; else globalThis.location = had;
     if (hadDoc === undefined) delete globalThis.document; else globalThis.document = hadDoc;
-    quiet(() => { setPref(HERALD_PREF, true); setPref(TRACKER_PREF, true); });
+    quiet(() => { setPref(HERALD_PREF, true); setPref(TRACKER_PREF, true); setPref(MARKS_PREF, true); });
     questHerald.clear();
     destroyEnhancedNotice();
     _setNoticeClockForTests((f, ms) => setTimeout(f, ms), (t) => clearTimeout(t));
@@ -452,8 +453,8 @@ test('GUIDE3 ONE CALL, EVERY HOST - drawHud draws the herald on its one call, OU
   assert.ok(call > 0 && gate > call, 'drawHud draws the herald, before (outside) the enhanced gate');
   const bridge = rd('src/scenes/questBridge.js');
   assert.match(bridge, /machine\.tick\(\);\n\s*updateTimer = 0;\n\s*news\(\);\n\s*return true;/, 'the news is heard after the machine\'s tick, on the tick that fired');
-  assert.match(bridge, /const herald = heraldOn\(\), tracker = trackerOn\(\);\n\s*if \(!herald\) listening = false;\n\s*if \(!herald && !tracker\) return;\n\s*let seen;\n\s*try \{ seen = lens\.look\(ctx\.questWhere \?\? \{\}\); \}/,
-    'the gate stands before the look: no face listening, no look (GUIDE4 made the tracker the second face)');
+  assert.match(bridge, /const herald = heraldOn\(\), follow = trackerOn\(\) \|\| marksOn\(\);\n\s*if \(!herald\) listening = false;\n[^\n]*\n\s*if \(!herald && !follow\) return;\n\s*let seen;\n\s*try \{ seen = lens\.look\(ctx\.questWhere \?\? \{\}\); \}/,
+    'the gate stands before the look: no face listening, no look (GUIDE4 made the tracker a face, GUIDE5 the marks)');
   const hosts = { 'src/scenes/world.js': /questBridge\.tick\(dt\)/, 'src/scenes/worldModes.js': /questBridge\?\.tick\(dt\)/, 'src/scenes/exterior.js': /questBridge\?\.tick\(dt\)/ };
   for (const [f, re] of Object.entries(hosts)) assert.match(rd(f), re, `${f} ticks the bridge`);
   for (const f of ['src/scenes/world.js', 'src/scenes/worldModes.js', 'src/scenes/exterior.js', 'src/scenes/dungeonContext.js']) {
@@ -465,7 +466,7 @@ test('GUIDE3 ONE CALL, EVERY HOST - drawHud draws the herald on its one call, OU
     ['interface', ['enhanced'], 'prefs', HERALD_PREF, true, 'player']);
   assert.equal(PREF_DEFAULTS[HERALD_PREF], true, 'RF4: the shelf derives the default from the row');
   // one home each
-  assert.match(rd('src/ui/questHerald.js'), /import \{ entryOpening, remainWords \} from '\.\/questRail\.js';/);
+  assert.match(rd('src/ui/questHerald.js'), /import \{ entryOpening, timeLeftWords \} from '\.\/questRail\.js';/, 'the opening and the time left: the rail\'s, one home each (GUIDE5 gave the phrase its home)');
   for (const f of ['src/ui/questHerald.js', 'src/ui/questLens.js', 'src/scenes/questBridge.js', 'src/ui/hud.js']) {
     assert.doesNotMatch(rd(f), /DAY_NAMES|MONTH_NAMES/, `${f} keeps no copy of the date header`);
   }

@@ -920,6 +920,18 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'questTracker', initial: true, online: 'player' }),   // ui/questTracker.js TRACKER_PREF
   }),
+  // GUIDE5 (2026-09-29): THE MARKS - where a quest points, on the held map and the enhanced compass (ui/questMarks.js):
+  // only a place the player's map already holds, never the quest debugger's knowledge. On by default (DECISIONS 7).
+  Object.freeze({
+    id: 'quest-marks',
+    group: 'interface',
+    title: 'Quest marks',
+    note: 'Your quests\u2019 places are marked on the map, and the one you follow on the compass - only places your map '
+      + 'already holds. Off is Daggerfall\u2019s map and compass, which mark nothing for a quest.',
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'questMarks', initial: true, online: 'player' }),   // ui/questMarks.js MARKS_PREF
+  }),
   // CAMP1 (2026-09-17, Mac: camps and roaming packs in the wilderness):
   // an original addition, not a DFU classic feature - the classic game
   // spawns wandering monsters one at a time. This is a second roll

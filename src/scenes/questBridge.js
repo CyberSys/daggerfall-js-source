@@ -70,6 +70,7 @@ import { addQuestResourceObjects } from '../systems/quest/sceneMount.js';
 import { QuestLens } from '../ui/questLens.js';   // GUIDE1: the modern faces' one read-only picture of this machine
 import { questHerald, heraldOn } from '../ui/questHerald.js';   // GUIDE3: the news the lens sees, told
 import { questTracker, trackerOn } from '../ui/questTracker.js';   // GUIDE4: the quest the HUD follows
+import { marksOn } from '../ui/questMarks.js';   // GUIDE5: the marks follow the same quest
 
 // AUDIT 24 (wave 24): SetLayoutData's three overloads and
 // GetPositionHash now live in characters/staticNpc.js, next to the
@@ -381,13 +382,19 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     newsWarned = true;
     console.warn(`[quest herald] the lens could not look (${err?.message ?? err}); the news is silent, the machine is not`);
   };
+  // GUIDE5: THE QUEST THE PLAYER FOLLOWS has two faces now - the tracker's
+  // card and the marks (ui/questMarks.js) - and one model (questTracker):
+  // it hears every look while either face is on, and when neither is, what
+  // it followed is forgotten here (the player's tracked choice is the
+  // save's and stays).
   function news() {
-    const herald = heraldOn(), tracker = trackerOn();
+    const herald = heraldOn(), follow = trackerOn() || marksOn();
     if (!herald) listening = false;
-    if (!herald && !tracker) return;
+    if (!follow && (questTracker.views.length || questTracker.follow != null)) questTracker.forget();
+    if (!herald && !follow) return;
     let seen;
     try { seen = lens.look(ctx.questWhere ?? {}); } catch (err) { warnNewsOnce(err); return; }
-    if (tracker) questTracker.hear(seen);
+    if (follow) questTracker.hear(seen);
     if (!herald) return;
     if (listening) questHerald.hear(seen); else listening = true;
   }
