@@ -1937,3 +1937,61 @@ gl_FragCoord; LA-POST5's base and the far ground to 150; the recentre's stamp), 
 pool fill run), la_cost (the counts compared), and the source pins the fixes' text moved - a10_world_misc,
 audit_lighting, auditdisc19, disc15, disc19, el4_frame, el7_polish, perf5. Mutants: `tools/mutants/la_audit.json` 42, all dead; fourteen older records re-aimed by content
 (auditdisc19, el4, el5, el7, la_post 7, la_shadow, perfextb, perfon2), all dead.
+
+## DISC29-E - A LAMP'S SHADOW OF A FLAT FACES IT FROM THE FLAT, AND AN IDLER CASTS INTO EVERY LAMP (2026-09-28, Kristian B)
+
+"Interior lighting flickers, and shadows are cast through walls - worst in the Mages Guild." Traced on the real
+renderer over the real MAGEAA00 and the Daggerfall Mages Guild (MAGEAA08) - held views, one input changed at a time,
+and a CPU emulation of both map tiers against ray-cast truth. Two faults compounded, and a Mages Guild is where both
+are largest: BLOCKS.BSA's 27 guild halls stand 9.7 people each, 44% of them idling (the 177.x mages), under 14.6 lamps
+- floor braziers, whose silhouettes are large - where a tavern stands 6.1 people, 3% idling.
+
+- **A flat faced the lamp from the world's origin.** A lamp's replay turned every flat to face it with ONE `right` a
+  batch, from `b.origin || ZERO_ORIGIN` - and every interior flat is a `createBillboardBatch` batch with its centre
+  baked into its vertices and no origin, so the card faced the lamp as if it stood at the world's origin: often
+  edge-on (a sliver on the wall) and shadowing its own base, and a flat takes a lamp's light off one lookup half a
+  metre above its base, so the whole sprite went dark for that lamp (a smith 29% darker in the probe). BB_VS turns each
+  flat to face the lamp from its own centre now (`uFacePoint`, set by the lamp replays alone; w = 0 is BB_VS as it
+  was in every other pass), and the player's card, DISC24-C's law, still casts in the basis it was drawn with.
+- **An idler cast only into the eight.** Its silhouette changes, so it was a mover forever, and movers cast only into
+  the eight 512 maps nearest the eye - DISC15's lo tier held the room's still casters alone. As the view turned a lamp
+  left the eight and the idler's shadow left with it (12.5% of the screen popping in the probe, once the facing was
+  right). A flat whose place is still for SHADOW_DYNAMIC_HOLD while its look changes is its own class (`_shAnim`), and
+  the lo tier keeps it (`REPLAY_LO`) at whatever frame the map was drawn - its signature folds the idler by id and place
+  and never its frame, so an idle is no rebuild; a walker, a sway and the player's card stay the eight's.
+- **The player's card took the eye's two lamps.** It casts only into maps redrawn every frame (DISC24-C), and those were
+  the two nearest the EYE: in third person the eye circles the player, so a turn of the camera moved the silhouette
+  from lamp to lamp (twice in half a turn in the Daggerfall guild, the player not moving). The card's two are the two
+  nearest the CARD (`_selfCardAt`), and they are redrawn every frame; the eye's two keep the cadence they had.
+
+The record's two new fields, `_shPlacedAt` (the last frame a flat's place changed) and `_shAnim`, are born with the
+batch: PERF-EXT10's law is that `createBillboardBatch` mints every field a batch will carry, so every batch keeps one
+hidden class, and `render/contract.js` types them. The rerun of the render files' committed mutants caught them
+gained after birth (PERF-EXT10's three pins failing), and an older survivor, `el2` glsl-point-off-dark - MUT-AIM's
+recorded one: a regex over the whole shader that VOL1's `pointShadowOne` satisfied too. It is pinned by
+`pointShadowAt`'s own head now, the record aimed at that one site and off CARRIED_AIM.
+
+"Through walls": the maps do not leak - 0.05% of the lit energy reached an occluded surface in the emulation, and no
+lamp lit through a wall or a floor in the browser. What does is a CARRIED light (a torch, a lantern, a Light spell's
+candle, and a peer's), which has no map at all: a torch behind MAGEAA00's corridor wall lights 57.5% of the corridor
+view through it. Recorded, not changed - a carried light's map redrawn every frame is a cost for Mac to weigh.
+`test/disc29_lamps.test.js` (4); DISC24-C's walk re-aimed so the card walks with the eye; the SC1 and WEEDS1 source
+pins re-aimed. `tools/mutants/disc29.json` (DISC29-E, 11); seven older records re-aimed by content (auditlight,
+auditreach 2, el8, perfexta, perfextb, weeds1). `01-Overview/Field-Bugs-2026-09-28f.md` DISC29-E.
+
+**AUDIT PRE-MERGE 0929 E1-E3** (`01-Overview/Audit-PreMerge-0929.md`, lens E, on the real ShadowPass).
+- **E1 - a walker's ghost in the lo lamps.** "A flat whose place is still" was every flat an ORIGIN places, the moment
+  it stood: a dungeon foe, a peer, the Warden. The lo tier's maps are rebuilt two faces a frame, nearest the eye first,
+  so each time one walked on, the lamps outside the eight - the maps they read - kept its silhouette where it had stood:
+  a ghost on 4.7% of the frames of a fight of three under fourteen lamps, 49% under thirty with six; and every stop and
+  start rebuilt every lo map in its reach (+20% script time). Only a flat that cannot walk - its centre baked into its
+  vertices, no origin - is in place now; a flat an origin places stays the eight's, as before DISC29-E. `_shPlacedAt`
+  has no reader and is gone (39 fields a batch, `test/hard3_types.test.js`).
+- **E2** - finding the player's card walked every batch of every record, every frame, lamp or none: recordBillboards
+  notes it as it passes it (`_selfCard`), and the lamps read it only when one casts.
+- **E3 - the card's lamps were the eye's.** The card's two were ranked among the eight nearest the EYE, so with the
+  camera 4 m or more away the lamps nearest a still player were often not casters, and the silhouette still hopped as
+  the camera circled (MAGEAA00: 12 of 39 spots at 6 m). The two casting lights nearest the card, by the pick's own
+  measure and DISC6's hold, are made casters (`reserveSelfCasters`), each in place of the eye's farthest pick.
+`test/disc29_lamps.test.js` (5), `test/lightnear1.test.js`'s source pin; `tools/mutants/audit0929_render.json` (4, all
+dead).

@@ -412,5 +412,15 @@
     "tests": [
       "test/realm_restore.test.js"
     ]
+  },
+  {
+    "name": "RESTORE-C-the-hold-proven-by-a-guest",
+    "file": ".github/workflows/realm-restore.yml",
+    "old": "-X POST \"$base/v1/realm/customs\" -H 'content-type: application/json' -d '{}' || true)",
+    "new": "-X POST \"$base/v1/auth/guest\" -H 'content-type: application/json' -d '{\"label\":\"restore-hold\"}' || true)",
+    "tests": [
+      "test/realm_restore.test.js"
+    ],
+    "note": "The hold proven by opening an account: on an instance not yet held, the guest route writes its rate row before any refusal (TERMS1's 400)."
   }
 ]

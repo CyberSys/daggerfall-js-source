@@ -109,8 +109,10 @@ jobs:
             exit 1
           fi
 
-      # PROVEN BY CONTENT, AND BY A WRITE REFUSED - health says it is held, and a guest asked for is refused as
-      # maintenance, five times running (one instance's word is not every instance's: AUDIT-ACC's lesson at /health).
+      # PROVEN BY CONTENT, AND BY A WRITE REFUSED - health says it is held, and a write route asked with no credential
+      # is refused as maintenance (an instance not yet held answers 401), five times running - one instance's word is
+      # not every instance's: AUDIT-ACC's lesson at /health. Never a guest: an account route writes its rate row on an
+      # instance not yet held, before any refusal, and this request writes nothing wherever it lands.
       - name: Hold the service for maintenance
         working-directory: server-account
         run: |
@@ -121,7 +123,7 @@ jobs:
           ok=0
           for i in $(seq 1 36); do
             h=$(curl -fsS --max-time 10 "$base/v1/health" || true)
-            code=$(curl -sS --max-time 10 -o /tmp/g.json -w '%{http_code}' -X POST "$base/v1/auth/guest" -H 'content-type: application/json' -d '{"label":"restore-hold"}' || true)
+            code=$(curl -sS --max-time 10 -o /tmp/g.json -w '%{http_code}' -X POST "$base/v1/realm/customs" -H 'content-type: application/json' -d '{}' || true)
             if printf '%s' "$h" | grep -q '"maintenance":true' && [ "$code" = "503" ] && grep -q '"maintenance"' /tmp/g.json; then ok=$((ok + 1)); else ok=0; fi
             echo "attempt $i: health ${h:-unreachable}, a write answered ${code:-nothing} ($ok running)"
             if [ "$ok" -ge 5 ]; then break; fi

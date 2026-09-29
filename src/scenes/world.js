@@ -611,6 +611,14 @@ let _ohLootOff = null;
  *  line dfuiOpenTravelMapWindow's FIRST test puts on the HUD
  *  (AddHUDText) when the travel map is asked for inside. Verbatim. */
 const CANNOT_TRAVEL_INDOORS_TEXT = 'You cannot travel while indoors.';
+/** WB8b: the saving throw a gate Warden's blow meets, by his aspect's element (net/gateMods.js `el`): the classic element
+ *  and the effect flag DFU's SavingThrow reads for it (systems/spellcast.js - poison is DiseaseOrPoison's, flagged Poison). */
+const GATE_SAVES = Object.freeze({
+  fire: Object.freeze([ELEMENTS.Fire, EFFECT_FLAGS.Fire]),
+  frost: Object.freeze([ELEMENTS.Frost, EFFECT_FLAGS.Frost]),
+  shock: Object.freeze([ELEMENTS.Shock, EFFECT_FLAGS.Shock]),
+  poison: Object.freeze([ELEMENTS.DiseaseOrPoison, EFFECT_FLAGS.Poison]),
+});
 
 // Milestone 9 scene: floating-origin streaming world. Terrain pixels
 // stream in nearest-first around the camera within TERRAIN_DISTANCE,
@@ -2756,12 +2764,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1172),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1175),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:1740) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:1743) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -6751,10 +6759,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2680 mounts the same one, gated on
+  // and dungeonContext.js:2694 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6354
+  // that context through modes.dungeonCtx - so worldModes.js:6374
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9102,7 +9110,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7373), so exterior mode and a
+    // composer, dungeonContext.js:7415), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -11655,7 +11663,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9775-9839 -
+  // worldModes answers it in BOTH modes (worldModes.js:9795-9859 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -14547,7 +14555,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     cam: () => cam.pos,
     feet: () => (playerSpawned && modes?.gateArenaDay?.() != null ? player.feetAt() : null),
     player: () => playerEntity,
-    save: (e) => savingThrow(ELEMENTS.Fire, EFFECT_FLAGS.Fire, e),
+    save: (e, el = 'fire') => { const w = GATE_SAVES[el] ?? GATE_SAVES.fire; return savingThrow(w[0], w[1], e); },   // WB8b: the throw against his aspect's element
     strike: (dmg, how) => modes?.dungeonCtx?.strikePlayer?.(dmg, how),
     say: (text) => setMidScreenText(text),
     hudHidden: () => gamePaused() || !!townTalk.hudHidden,
@@ -19462,7 +19470,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       renderer.resolveFrame();   // AUDIT RETRO1 E5/C8: a frame that drew no screen quad (the enhanced skin, a sheathed weapon) is shown NOW, not at the next beginFrame
       capturePendingScreenshot(canvas);   // SS1: a save armed from a modal mode still lands its shot
       gateVeil?.frameDrawn();   // AUDIT WB D5: the step's fire holds shut on the frames the new place has drawn
-      frameAbort();   // AUDIT-WH2 L1-F4: the frame never reached frameEnd - close the token, take no sample
+      // DISC29-D (Skeptikali on Discord: a dungeon at 99.9% CPU, and a counter that could not say whose): the indoor
+      // foot is a WHOLE frame - the interior or the dungeon, its foes, its draw - so it takes its sample, and the FPS
+      // counter's script time reads indoors as it does outside. AUDIT-WH2 L1-F4 closed it unsampled, for the frame that
+      // bails at its second statement (frameHeld, above), and this return is not that frame.
+      frameEnd();
       requestAnimationFrame(frame);
       return;
     }

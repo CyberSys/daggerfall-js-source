@@ -94,6 +94,9 @@ export const REFUSALS = Object.freeze({
   'password-long': `A password is at most ${PASSWORD_MAX_LEN} characters.`,
   'already-registered': 'This account already has a username.',
   'not-registered': 'This account has no password yet.',
+  // TERMS1: the two routes that make an account refuse a request that has not ticked the documents they hold
+  'terms-unaccepted': 'Tick both boxes to agree to the Terms of Service and the Privacy Policy.',
+  'terms-stale': 'The Terms of Service or the Privacy Policy has changed. Reload the game (or update the app) to read the current version, then tick the boxes again.',   // AUDIT PRE-MERGE 0929 T1: a reload brings the desktop app's own bundled copy back - the app is updated
   'no-account': 'That account no longer exists.',
   'bad-login': 'That username and password do not match.',
   'bad-code': 'That username and recovery code do not match.',
@@ -288,14 +291,22 @@ export async function call({ fetch, base = DEFAULT_ACCOUNT_SERVICE, secret = nul
 // a path, because a path spelled at a call site is a path that outlives
 // a rename.
 
+/** TERMS1: the two fields a request that makes an account carries - the
+ *  Terms of Service and Privacy Policy versions its player ticked
+ *  (net/legalLaw.js ACCEPTED) - or none, which the service refuses. */
+const legalFields = (accepted) => (accepted ? { terms: accepted.terms, privacy: accepted.privacy } : {});
+
 /** A guest row and the session that owns it. `{ id, name, kind,
- *  sessionId, secret }`. */
-export const openGuest = (io, label = null) => call(io, '/v1/auth/guest', { label });
+ *  sessionId, secret }`. TERMS1: the service opens no row for a player
+ *  who has not ticked the documents, so `accepted` rides the request. */
+export const openGuest = (io, label = null, accepted = null) => call(io, '/v1/auth/guest', { label, ...legalFields(accepted) });
 
 /** Fill in a handle and a password on the guest row THIS SESSION
  *  already owns - an upgrade in place, never a new account. Answers
- *  `{ recoveryCode, handle }`, and that code is readable exactly once. */
-export const register = (io, handle, password) => call(io, '/v1/auth/register', { handle, password });
+ *  `{ recoveryCode, handle }`, and that code is readable exactly once.
+ *  TERMS1: with the versions ticked on the form that names it. */
+export const register = (io, handle, password, accepted = null) =>
+  call(io, '/v1/auth/register', { handle, password, ...legalFields(accepted) });
 
 /** `{ id, name, kind, sessionId, secret }` for a new device. */
 export const login = (io, handle, password, label = null) => call(io, '/v1/auth/login', { handle, password, label });

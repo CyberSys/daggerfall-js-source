@@ -277,7 +277,7 @@ test('OW6L wire: the `ow` word - after a hello, projected by validOwIn, the whol
   assert.equal(rpass, OW_ROOM_HZ_MAX);
   assert.equal(OW_RELAY_MIN, 127, 'world125 (VOICE1, reverted) and world126 (DISCORD-GATES\' branch) are never reused');
   assert.deepEqual(['world124', 'world125', 'world126', 'world127', 'world130', 'junk', null].map(relaySupportsOverworld), [false, false, false, true, true, false, false]);
-  assert.equal(RELAY_VERSION, 'world127');
+  assert.equal(RELAY_VERSION, 'world128');   // THE MERGE with PR 418: WB8 moved it on last (world128 - world126 on its branch, one relay past OW6L's world127); relaySupportsOverworld holds past it
   assert.ok(relaySupportsOverworld(RELAY_VERSION), 'this build\'s relay keeps the ledger');
   assert.equal(OW_LEDGER_KEY, 'ow:led'); assert.ok(!OW_LEDGER_KEY.startsWith('world:'), 'never under the prefix a cell\'s alarm sweeps');
 });

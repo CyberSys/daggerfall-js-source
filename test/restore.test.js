@@ -15,6 +15,7 @@ import { webcrypto } from 'node:crypto';
 import worker from '../server-account/src/index.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { r2 } from './realmSeat.mjs';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1 (at the merge with main): a request that makes an account carries the versions ticked
 import { reclaimCustomsDeeds, reclaimFromDevice, reclaimLines, applyCustoms } from '../src/systems/realmCustoms.js';
 import { createBankAccounts, createHouses, allocateHouseToPlayer, ownsHouse, ownsShip, sellHouse, sellShip, SHIP_TYPES, SHIP_INTERIOR_MAP_IDS, CROSSED_DEED_LINES, TRANSACTION_RESULT } from '../src/systems/banking.js';
 import { interiorSceneName } from '../src/systems/sceneCache.js';
@@ -240,7 +241,7 @@ test('RESTORE B: the join answers the offline id a customs character came from, 
     const res = await worker.fetch(new Request(`https://accounts.invalid${path}`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${secret}` }, body: JSON.stringify(body) }), env);
     return { status: res.status, body: await res.json().catch(() => null) };
   };
-  const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
+  const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
   env.DB._raw.prepare('INSERT INTO realm_census (player, char_id) VALUES (?, ?)').run(g.id, 'offline-1');
   const came = await call('/v1/realm/customs', { origin: 'offline-1', name: 'Gary', summary: { level: 5 } }, g.secret);
   const born = await call('/v1/realm/create', { name: 'Born' }, g.secret);

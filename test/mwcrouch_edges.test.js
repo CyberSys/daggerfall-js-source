@@ -232,5 +232,10 @@ test('MWCROUCH: the crouch KEY still drives the levitate descent, which is HELD'
   for (const f of HOSTS) {
     assert.ok(/down: crouchHeld \|\| held\(keys, 'FloatDown'\)/.test(host(f)),
       `${f}: AUDIT 26 F031 - LevitateMotor reads Crouch HELD for the descent, not its edge`);
+    // AUDIT PRE-MERGE 0929 (the re-run of the committed mutants): EVERY descent a host feeds reads it held - dungeon.js
+    // and worldModes.js feed two (the motor's and Deep Waters' swim's), and a test that the pattern occurs anywhere let the
+    // first read the edge (MWCROUCH-the-levitate-descent-takes-the-EDGE survived, on main as here)
+    const downs = host(f).match(/down: crouch\w*/g) ?? [];
+    assert.deepEqual([...new Set(downs)], ['down: crouchHeld'], `${f}: every descent the crouch drives reads it held (${downs.length} sites)`);
   }
 });

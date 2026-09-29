@@ -36,10 +36,10 @@ import { enemyControllerHeight, idleSpriteHeight, flyerStandFeet, centreFromFeet
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobileUnit.js';   // C11: classic sprite monsters   // A5: the Seducer transform pair + its trigger
 import { dfMeshToModel, GLOBAL_SCALE } from '../world/meshReader.js';
 import { customModelFor, emptyModel } from '../world/customModels.js';   // DS1: models no ARCH3D carries, and GetModelData's false
-import { RDB_SIDE, MOVE_ACTION_FLAGS, ACTION_FLAGS } from '../world/rdbLayout.js';   // WAVE D: the move family - an acting FLAT tweens like the model beside it
+import { RDB_SIDE, MOVE_ACTION_FLAGS, ACTION_FLAGS, TRIGGER_FLAGS } from '../world/rdbLayout.js';   // WAVE D: the move family - an acting FLAT tweens like the model beside it
 import { NPC_CONTEXT } from '../characters/staticNpc.js';   // AUDIT 64 F13: StaticNPC.SetLayoutData(RdbObject) stamps Context.Dungeon
 import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity off draws a nude figure's clothed stand-in
-import { EFFECT_ACTION_FLAGS, COLLISION_TIMEOUT_S, isActionDoorObject, hasActionCollision, classifyPlacementAction, lookAtLockText, LOCKPICKING_SUCCESS_TEXT, LOCKPICKING_FAILURE_TEXT, DOOR_TEXT_HUD_DELAY_S, sharedRecord, validActionRecord } from '../world/actionSystem.js';   // AUDIT WORLD3 B1: the shared half of a record - the picker's latch stays home; AUDIT WORLD34 C2: and the memory's records projected like an act's
+import { EFFECT_ACTION_FLAGS, COLLISION_TIMEOUT_S, isActionDoorObject, hasActionCollision, standsOnAction, actionContact, classifyPlacementAction, lookAtLockText, LOCKPICKING_SUCCESS_TEXT, LOCKPICKING_FAILURE_TEXT, DOOR_TEXT_HUD_DELAY_S, sharedRecord, validActionRecord } from '../world/actionSystem.js';   // AUDIT WORLD3 B1: the shared half of a record - the picker's latch stays home; AUDIT WORLD34 C2: and the memory's records projected like an act's
 import { TextRsc } from '../formats/textRsc.js';
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';
 import { releaseUnloadGuard } from '../systems/unloadGuard.js';   // AUDIT-MACL F3: the chargen Cancel is a door the game opened   // U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
@@ -156,7 +156,7 @@ import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT } 
 import { isEquipped } from '../systems/equip.js';   // DR1: FilterLocalItems' `!item.IsEquipped` (:693)
 import { totalGoldAmount } from '../systems/court.js';   // DR1: the trade screen's gold strip - AUDIT 58: PlayerEntity.GetGoldAmount (:1313-1316), coins PLUS letters
 import { isAzurasStarEquipped, registerFoeDoor } from '../systems/artifactEffects.js';   // V3: the Star's kill capture; AUDIT PSCALE1 DOORS-2: Namira's reflection through this pool's door
-import { applySpell, hasActiveEffect, isEntityWaterWalking, entityIsParalyzed, maxFatigue, applyEnemyMotorEffectFlags, concealmentFlags, concealFlagsOfBits, isSoulTrapEffect } from '../systems/effects.js';   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
+import { applySpell, hasActiveEffect, isEntityWaterWalking, entityIsParalyzed, maxFatigue, applyEnemyMotorEffectFlags, concealmentFlags, concealFlagsOfBits, isSoulTrapEffect, spellSways } from '../systems/effects.js';   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
 import { liveStat, killIfAnyLiveStatZero } from '../systems/statMods.js';
 import { breathStep } from '../systems/breath.js';
 import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';
@@ -170,7 +170,7 @@ import { createRestWindow } from '../ui/restDoor.js';   // the enhanced/native f
 import { AmbientEffects, DUNGEON_AMBIENT_WAITS } from '../systems/ambientEffects.js';
 import { enemyWeightClassicUnits, weaponKnockbackSpeed, weaponKnockbackApplies, reportPlayerAttack } from '../combat/formulas.js';   // C15: + knockback; WB4b: a spell's number on the court's boss pops as a blow's does
 import { HIT_KINDS } from '../net/gateBrain.js';   // WB4b: a blow on the court's boss says its kind
-import { bossReach } from '../world/gateBoss.js';   // WB4b: a swing meets the court's boss at his skin
+import { bossReach, BOSS_SWAY_TEXT, BOSS_SWAY_TELL_MS } from '../world/gateBoss.js';   // WB4b: a swing meets the court's boss at his skin; WB8a: and a sway meets his refusal
 import { duelSpellOf } from '../combat/duelCombat.js';   // WB4b: the harmful families alone reach the court's boss, as they alone reach a duel opponent
 import { assignEnemySpells, SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { calculateCastCost } from '../systems/spellcost.js';
@@ -237,6 +237,10 @@ import { renownFoeStruck, renownFoeDied, renownFoeCarry, renownFoeRevived } from
 import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
 /** AUDIT SET P-M3: a kill the host's record names me for - its kind, as the exterior owner's `slain` word says it. */
 const REMOTE_KILL = Object.freeze({ kind: 'remote' });
+/** WB8b: a gate Warden's frost, lightning and venom, heard as they land on me - each element's own cast
+ *  (systems/enemySpells.js SPELL_CAST_SOUND, by the classic element: Frost 1, DiseaseOrPoison 2, Shock 3); his fire is
+ *  the Burning clip, as it was. */
+const GATE_STRIKE_CAST = Object.freeze({ frost: SPELL_CAST_SOUND[1], poison: SPELL_CAST_SOUND[2], shock: SPELL_CAST_SOUND[3] });
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // LR1: the item ladder over every list this host mints (a foe's through hostCombat.spawnEnemyLoot, RF2)
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
@@ -368,6 +372,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // inactive ones included) - There's a Hole in the Bottom of the Ocean floods the abyss a metre over it
   let meshTopY = -Infinity;
   const collider = new Collider(() => -Infinity);
+  // DISC29-A: THE SURFACES A WALK-ON READS. An effect or relay model's triangles go into the shared 'dungeon' bucket
+  // (the player stands on them there), so the walk-on pass could not ask whether THIS object was under the feet and
+  // read the top of its box instead - a throne's box tops its backrest, a metre and a half over the seat. A Collision01
+  // effect or relay keeps a copy of its triangles here under its own key. Nothing moves against this collider; the
+  // walk-on pass only probes it (collisionTriggers, actionSystem.js ownSurfaceUnderFeet). Movers and doors are already
+  // their own buckets in `collider`.
+  const triggerSurfaces = new Collider(() => -Infinity);
   // Effect actions (Hurt traps) damage the shared player entity;
   // health floors at 0 (death screen: UI arc). Traps work with or
   // without ?foes - the entity import is static.
@@ -595,6 +606,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // arms below and the automap reveal index both read it.
       const aabb = worldAabb(cpu.positions, matrix);
       meshTopY = Math.max(meshTopY, boundsTopY(cpu.positions, matrix));   // OH-D
+      let standable = null;   // DISC29-A: the effect or relay this model is, for triggerSurfaces below
       if (p.action) {
         // Verbatim AddActionModelHelper classification (audit
         // 2026-08-16: only move/effect registered before - every
@@ -636,11 +648,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // fires missiles from here, +40*GlobalScale up, verbatim).
           const eo = actions.addEffect(bi, p.position, p.action, [matrix[12], matrix[13], matrix[14]], p.modelIdNum);
           eo.aabb = aabb;   // collision triggers test against this
+          standable = eo;
         } else {
           // Relay: the delegate is routed (Teleport/text) or a
           // verbatim no-op; the CHAIN through it must live, and its
           // collider makes it a Direct/Attack/collision target.
-          actions.addRelay(bi, p.position, p.action, aabb, [matrix[12], matrix[13], matrix[14]], p.modelIdNum);
+          standable = actions.addRelay(bi, p.position, p.action, aabb, [matrix[12], matrix[13], matrix[14]], p.modelIdNum);
         }
       }
       // A1: the entry carries its identity (the action system's own
@@ -652,6 +665,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (cpu.normals && cpu.uvs) { staticBuilder.add(cpu, matrix, resolveTexKey); drawList[drawList.length - 1]._batched = true; }
       automapEntries.push(amapRow(`${bi}:${p.position}`, aabb, !!p.action, cpu, matrix));
       collider.addMesh('dungeon', cpu.positions, cpu.indices, matrix);
+      if (standable && hasActionCollision(standable)) triggerSurfaces.addMesh(standable.key, cpu.positions, cpu.indices, matrix);   // DISC29-A; AUDIT PRE-MERGE 0929 D1/D2: every collision-trigger model's, for its contact
       colliderTris += cpu.indices.length / 3;
     }
     for (const d of b.layout.actionDoors) {
@@ -1843,7 +1857,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:12724 / exterior.js:3726), set
+  // host's own townTalk sink (world.js:12732 / exterior.js:3726), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2958,7 +2972,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1107 against :1137; worldModes.js:7536 against :7562).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1107 against :1137; worldModes.js:7556 against :7582).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3352,9 +3366,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** A harmful spell of mine that met him (hostMagic's boss seam): its harmful families landed on his stand-in by the
    *  one door every spell lands through (effects.js applySpell - the magnitude, his saving throw), the damage summed and
    *  sent. Continuous families are not his to carry - the stand-in forgets them. */
+  let swayToldAt = -Infinity;   // WB8a: when his refusal was last said
   function spellOnBoss(sp) {
     const boss = gateBossBody(), harm = duelSpellOf(sp);
     if (!boss) return false;
+    // WB8a: A SWAY ON HIM. A Pacify or a Charm in the spell is refused by his own word (world/gateBoss.js bossStandIn's
+    // pacifyImmune) and said so - the rest of the spell lands as it would; alone, the refusal is what met him
+    const sways = spellSways(sp) && !!boss.entity.pacifyImmune;
+    if (sways && Date.now() - swayToldAt >= BOSS_SWAY_TELL_MS) { swayToldAt = Date.now(); hudText.add(BOSS_SWAY_TEXT(boss.entity.name)); }
     // WBX7 (2026-09-26, Swololo on Discord: "soul trap didnt seem to work"): A SOUL TRAP ON HIM. The trap is laid on his
     // stand-in by the one door every spell lands through (applySpell - its rounds, its chance frozen at the cast by my
     // level, his save against a new trap, "Trap active."), and handed to the court, which keeps it on the fight's clock:
@@ -3376,7 +3395,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         if (res?.trapAlert && SOUL_TRAP_TEXT[res.trapAlert]) hudText.add(SOUL_TRAP_TEXT[res.trapAlert]);
       } catch (e) { console.warn('[gate] the trap on him', e?.message ?? e); } finally { boss.entity.activeEffects = []; }
     }
-    if (!harm) return laid;
+    if (!harm) return laid || sways;
     let dealt = 0;
     const sinks = { hurt: (n) => { dealt += Math.max(0, n); }, heal() {}, drainFatigue() {}, restoreFatigue() {}, drainMagicka() {}, restoreMagicka() {} };
     try { applySpell(harm, playerEntity.level, boss.entity, sinks, Math.random, { entity: playerEntity }); } finally { boss.entity.activeEffects = []; }
@@ -3652,8 +3671,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:21421,
-              // exterior.js:5299 and worldModes.js:8223 already ran;
+              // playerArrowHitFoe is the one copy world.js:21433,
+              // exterior.js:5306 and worldModes.js:8243 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -5486,9 +5505,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // DaggerfallActionCollision verbatim shape - per-object 0.12s
   // timeout, fires only while the player ACTIVELY MOVES horizontally
   // (up/down/jump don't trigger in classic), contact beneath the
-  // player -> WalkOn else WalkInto (the Collision01 standing-raycast
-  // refinement folds into the beneath test at our capsule scale).
-  function collisionTriggers(dt, playerFeet, moveHeld) {
+  // player -> WalkOn else WalkInto. DISC29-A (Skibbster on Discord: the
+  // throne puzzle's switch never activates): the Collision01 standing
+  // ray does NOT fold into the beneath test - that test is the top of
+  // the object's BOX, and a Collision01 object's surface can stand well
+  // under it (N0000037's two thrones: the box tops the backrest at
+  // 34.08, the seat is at 32.55). The ray is its own arm, as in the C#.
+  const _wish = [0, 0];   // AUDIT PRE-MERGE 0929 D1/D2: the pass's one scratch for the direction the body presses
+  function collisionTriggers(dt, playerFeet, moveHeld, playerHeight = CAPSULE_HEIGHT, playerMove = null) {
     if (!playerFeet) return;
     // Verbatim DaggerfallActionCollision: fires only while a MOVE
     // action is HELD (up/down/jump excluded) - not on position delta.
@@ -5497,6 +5521,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // cancels the motion, the delta is zero, and the trigger never
     // fired. Input-held is the source's rule and covers it.
     if (!moveHeld) return;
+    // AUDIT PRE-MERGE 0929 D1/D2: THE DIRECTION THE BODY PRESSES - the motor's own sin/cos of forward and strafe
+    // (PlayerMotor.update's ground arm) - so a side of the object is heard only when the body moves into it, as a
+    // ControllerColliderHit only comes of a Move into its collider. A host that names no yaw presses every side.
+    let wish = null;
+    if (playerMove && Number.isFinite(playerMove.yaw) && (playerMove.forward || playerMove.strafe)) {
+      const sn = Math.sin(playerMove.yaw), cs = Math.cos(playerMove.yaw);
+      _wish[0] = sn * playerMove.forward + cs * playerMove.strafe;
+      _wish[1] = cs * playerMove.forward - sn * playerMove.strafe;
+      wish = _wish;
+    }
     const R = 0.45, H = 1.8;   // the player capsule
     for (const o of actions.objects.values()) {
       if (!o.aabb) continue;
@@ -5529,8 +5563,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (!overlapXZ) continue;
       const overlapY = playerFeet[1] + H > a.min[1] && playerFeet[1] < a.max[1] + 0.15;
       if (!overlapY) continue;
-      const standingOn = playerFeet[1] >= a.max[1] - 0.15;
-      actions.receive(o, standingOn ? 'WalkOn' : 'WalkInto');
+      // AUDIT PRE-MERGE 0929 D1/D2: THE TOUCH ITSELF, as DFU hears it (actionSystem.js actionContact) - the contact's
+      // direction beneath the body (WalkOn, every flag), a Collision01's standing ray, or a bump - off the object's own
+      // triangles: a mover or a door is its own bucket in `collider`, an effect or relay keeps one in triggerSurfaces.
+      // The box above is only the broad phase: a box touched with nothing of the object touched hears nothing. An
+      // acting flat has no triangles and keeps its box's top (standsOnAction).
+      const touch = o.isFlat
+        ? (standsOnAction(o, playerFeet, a, triggerSurfaces) ? 'WalkOn' : 'WalkInto')
+        : actionContact(o, playerFeet, playerHeight, o.kind === 'effect' || o.kind === 'relay' ? triggerSurfaces : collider, wish);
+      if (!touch) continue;
+      actions.receive(o, touch);
       o._colTimer = 0;
     }
   }
@@ -5915,7 +5957,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // stat-zero kill is a FOE law too - a drained-to-zero Strength kills
     // the thing you drained. Off the frame's dt, not the minute loop.
     for (const f of foes) if (!f.dead) killIfAnyLiveStatZero(f.entity, foeSinks(f, false), dt);   // AUDIT 68 S19-round-ticks-player-provenance: SetHealth(0), no source
-    collisionTriggers(dt, playerFeet, moveHeld);
+    collisionTriggers(dt, playerFeet, moveHeld, playerHeight, playerMove);
     updateMissiles(dt, playerFeet, playerHeight);
     // X11: the look direction and the capsule height ride along now -
     // the engine hangs the Light effect's magic candle 1.4 units in
@@ -7674,12 +7716,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     locationKey: () => _locationKey,
     /** WB4: a blow the Burning Court's boss landed on the player (scenes/gateCourt.js - the verdict is this machine's):
      *  through the one door any foe's blow takes (resolveFoeMelee) with its three signs - the hit's sound, the flash,
-     *  the cry - and fire's burning in the hit's place, unflashed (DFU's spell damage does not flash, ui/damageFlash.js). */
-    strikePlayer(dmg, { fire = false } = {}) {
+     *  the cry - and fire's burning in the hit's place, unflashed (DFU's spell damage does not flash, ui/damageFlash.js).
+     *  WB8b: his aspect's frost, lightning and venom as his fire - unflashed, each in its element's own cast
+     *  (systems/enemySpells.js SPELL_CAST_SOUND, by id). */
+    strikePlayer(dmg, { fire = false, el = fire ? 'fire' : null } = {}) {
       if (!(dmg > 0)) return;
-      audio.playOneShot(fire ? SOUND.Burning : hitSoundFor(null), PLAYER_HIT_VOLUME);
+      const cast = GATE_STRIKE_CAST[el];
+      if (cast != null) audio.playOneShotId?.(cast, PLAYER_HIT_VOLUME);
+      else audio.playOneShot(el === 'fire' ? SOUND.Burning : hitSoundFor(null), PLAYER_HIT_VOLUME);
       hurtPlayer(dmg);
-      if (!fire) flashPlayerDamage(dmg);
+      if (!el) flashPlayerDamage(dmg);
       playPlayerVoice(audio, playerPainVoice(playerEntity, dmg));
     },
     // WORLD2: one simulation per room - the stream out and in, the hit in, the seat

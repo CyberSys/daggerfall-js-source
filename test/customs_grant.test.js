@@ -3,7 +3,7 @@
 // is frozen - that is what keeps a Copy to offline's new id out (AUDIT REALM L1-F5) - so a character the service never saw
 // is refused ("The realm has no record of this character from before it opened") and nobody had any way to let it in.
 // A grant is a handle on CUSTOMS_GRANT_HANDLES (server-account/wrangler.toml): ONE such character, once, through customs'
-// own guarded batch (server-account/src/realm.js customsRealm), its use on the record (migration 0023, `customs_grants`).
+// own guarded batch (server-account/src/realm.js customsRealm), its use on the record (migration 0024, `customs_grants`).
 // These pins drive the REAL Worker over the REAL migrations (node:sqlite behind a D1-shaped face whose batch is one
 // transaction), as test/fb0929_customs.test.js does.
 import { test } from 'node:test';
@@ -15,6 +15,7 @@ import worker from '../server-account/src/index.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { REALM_ID_RE, REALM_CHARACTERS_MAX, holdsCustomsGrant } from '../server-account/src/realm.js';
 import { r2, freshSave } from './realmSeat.mjs';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1 (at the merge with main): a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -66,8 +67,8 @@ async function stand(vars = {}) {
   };
   /** A registered account under `handle` (a grant names people, so a guest can hold none). */
   const account = async (handle) => {
-    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
-    assert.equal((await call('/v1/auth/register', { secret: g.secret, handle, password: 'a good long one' }, g.secret)).status, 200, handle);
+    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
+    assert.equal((await call('/v1/auth/register', { secret: g.secret, handle, password: 'a good long one', ...ACCEPTED }, g.secret)).status, 200, handle);
     return { id: g.id, secret: g.secret };
   };
   const rows = (sql, ...a) => env.DB._raw.prepare(sql).all(...a).map((r) => ({ ...r }));

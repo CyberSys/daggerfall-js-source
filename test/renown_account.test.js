@@ -16,7 +16,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import worker from '../server-account/src/index.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
-import { createGuest } from '../server-account/src/accounts.js';
+import { createGuest, mintId } from '../server-account/src/accounts.js';
 import { reportRenownXp, renownTrackOf } from '../server-account/src/renownTracks.js';
 import { claimRaid } from '../server-account/src/raids.js';
 import { createRealm, customsRealm, deleteRealm, CHARACTER_TABLES } from '../server-account/src/realm.js';
@@ -34,6 +34,7 @@ import { accountCard, accountRenownOf } from '../src/ui/enhancedAccount.js';
 import { AccountFlow } from '../src/ui/accountFlow.js';
 import { graph } from './importGraph.mjs';
 import { r2, seatRealm } from './realmSeat.mjs';   // AUDIT REALM2 S2: a founder is a realm character
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -194,7 +195,7 @@ async function stand() {
 test('RENOWN-ACCOUNT the worker: the token\'s level is the ACCOUNT\'s whichever character the mint names - one new to the account starts there; a mint naming none still carries none; a report answers the account\'s track, a character named or not; /v1/account says the ONE Renown ({ xp, level }, null before any); a character that never earned founds a guild at the account\'s Renown; acct19 still (mutants: the mint reading a character\'s track; the card sent a list; the founding asking the character)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const { env, call, kp } = await stand();
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   assert.equal((await call('GET', '/v1/account', undefined, me.secret)).body.account.renown, null, 'nothing earned: no Renown to say');
   let r = (await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 5000, name: 'Mara' }, me.secret));
   assert.equal(r.status, 200);
@@ -213,17 +214,17 @@ test('RENOWN-ACCOUNT the worker: the token\'s level is the ACCOUNT\'s whichever 
   assert.equal((await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 0 }, me.secret)).status, 400, 'the one refusal left: an amount out of its bound');
   // A GUILD: founding asks the account's Renown, so a character that never earned founds at it (AUDIT REALM2 S2: a realm
   // character founds, on its record)
-  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Aldric', password: 'a good long one' }, me.secret)).status, 200);
+  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Aldric', password: 'a good long one', ...ACCEPTED }, me.secret)).status, 200);
   const fresh = await seatRealm(env, me.secret, 'Fresh', { name: 'Fresh', level: 9, goldPieces: 100_000, items: [] });
   const found = await call('POST', '/v1/guilds/found', { character: fresh.id, name: 'The Hound', tag: 'HND', realm: fresh.at() }, me.secret);
   assert.equal(found.status, 200, 'a character that never earned stands at the account\'s Renown 10');
-  const low = (await call('POST', '/v1/auth/guest', {})).body;
-  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Lowly', password: 'a good long one' }, low.secret)).status, 200);
+  const low = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Lowly', password: 'a good long one', ...ACCEPTED }, low.secret)).status, 200);
   const lowly = await seatRealm(env, low.secret, 'Lowly', { name: 'Lowly', level: 9, goldPieces: 100_000, items: [] });
   assert.equal((await call('POST', '/v1/renown/xp', { character: lowly.id, xp: 5000 }, low.secret)).status, 200);
   assert.deepEqual(await call('POST', '/v1/guilds/found', { character: lowly.id, name: 'Low Band', tag: 'LOW', realm: lowly.at() }, low.secret), { status: 403, body: { error: 'guild-renown' } }, 'Renown 9 is not 10, whichever character asks');
-  assert.equal(ACCOUNT_VERSION, 'acct20', 'RENOWN-ACCOUNT rode REALM\'s acct19; CUSTOMS-GRANT moved it on (acct20)');
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct20"/);
+  assert.equal(ACCOUNT_VERSION, 'acct21', 'RENOWN-ACCOUNT rode REALM\'s undeployed acct19; TERMS1, merged after it, moved it to acct20, and CUSTOMS-GRANT, HOUSE-LOSS and RESTORE to acct21');
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct21"/);
 });
 
 test('RENOWN-ACCOUNT the raid: a town defended is paid to the ACCOUNT - onto the total the reports grew, whichever character the claim names, at the account\'s level before it; the answer says the account\'s total and the character that fought, whose row keeps it; a claim naming none, or one out of shape, is paid too (mutants: the claim keyed by its character; the character left off its row)', async () => {
@@ -261,7 +262,10 @@ test('RENOWN-ACCOUNT the migration: over the real migrations, each account start
   assert.equal(MIGRATIONS[i20 + 1], ACCOUNT_MIGRATION, '0021 follows 0020: the census is taken first');
   migrate(raw, MIGRATIONS.slice(0, i20));
   const db = wrap(raw);
-  const A = await player(db), B = await player(db), C = await player(db), D = await player(db);
+  // accounts made before 0020 were written by the service as it was then - TERMS1's columns (migration 0023, after
+  // these) did not exist yet, so the guest row is the one it wrote before them
+  const before = () => { const id = mintId(rand); raw.prepare('INSERT INTO players (id, handle, handle_lc, guest_name, created_at, last_seen) VALUES (?, NULL, NULL, ?, ?, ?)').run(id, 'Guest', T0, T0); return { id }; };
+  const A = before(), B = before(), C = before(), D = before();
   const track = raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, last_rid, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
   track.run(A.id, 'char-main', 'Main', 6000, 'aaaaaaaaaaaaaaaa', 100, 500);
   track.run(A.id, 'char-alt1', 'Alt', 500, 'bbbbbbbbbbbbbbbb', 200, 900);   // the most recently earned

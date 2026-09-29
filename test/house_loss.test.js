@@ -23,6 +23,7 @@ import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { REALM_ID_RE, realmPrefix } from '../server-account/src/realm.js';
 import { ROUTES } from '../server-account/src/service.js';
 import { r2, freshSave } from './realmSeat.mjs';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1 (at the merge with main): a request that makes an account carries the versions ticked
 import { applyCustoms, liquidWealthOf, customsLines, customsAllowance, deedsOf } from '../src/systems/realmCustoms.js';
 import { realmRefusalText } from '../src/systems/realmSaves.js';
 import { createBankAccounts, createHouses, allocateHouseToPlayer, ownsHouse, ownsShip, SHIP_TYPES, SHIP_INTERIOR_MAP_IDS } from '../src/systems/banking.js';
@@ -84,8 +85,8 @@ async function stand(vars = {}) {
   let n = 0;
   /** A registered account (homes are a registered account's). */
   const account = async (handle = `settler${++n}x`) => {
-    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
-    assert.equal((await call('/v1/auth/register', { secret: g.secret, handle, password: 'a good long one' }, g.secret)).status, 200);
+    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
+    assert.equal((await call('/v1/auth/register', { secret: g.secret, handle, password: 'a good long one', ...ACCEPTED }, g.secret)).status, 200);
     return { id: g.id, secret: g.secret };
   };
   const rows = (sql, ...a) => env.DB._raw.prepare(sql).all(...a).map((r) => ({ ...r }));

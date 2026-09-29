@@ -244,7 +244,8 @@ const swingEntity = (stats) => ({
 
 test('AUDIT DISC28 AR-4: the real rig swings on the entity\'s LIVE Speed - a Fortify Speed cast between two swings times the second', () => {
   _resetModSettings();
-  // DFU's own line: neither Roleplay & Realism override answers (both are off here, whatever this process installed)
+  // the port's own swing law (SWING-LAW): neither Roleplay & Realism override answers (both are off here, whatever this
+  // process installed)
   setModSetting('roleplay-realism-items', 'weaponBalance', false);
   setModSetting('roleplay-realism', 'weaponSpeed', false);
   try {
@@ -256,13 +257,16 @@ test('AUDIT DISC28 AR-4: the real rig swings on the entity\'s LIVE Speed - a For
       while (rig.playerWeapon.machine.state !== 'Idle' && t < 10) { rig.frame(DT); t += DT; }
       return t;
     };
-    // five frames a swing, each GetMeleeWeaponAnimTime's tick, a coroutine's resume apiece (the remainder dropped)
-    const near = (got, speed) => Math.abs(got - 5 * getMeleeWeaponAnimTime(speed)) <= 5 * DT;
+    // five frames a swing, each GetMeleeWeaponAnimTime's tick for the rig's own wielder (SWING-LAW: its ctx - the law reads
+    // the weapon in the hand), a coroutine's resume apiece (the remainder dropped)
+    const tick = (speed) => getMeleeWeaponAnimTime(speed, rig.playerWeapon.animCtx());
+    const near = (got, speed) => Math.abs(got - 5 * tick(speed)) <= 5 * DT;
     const at50 = swing();
-    assert.ok(near(at50, 50), `Speed 50: ${at50.toFixed(3)}s against ${(5 * getMeleeWeaponAnimTime(50)).toFixed(3)}s`);
+    assert.ok(near(at50, 50), `Speed 50: ${at50.toFixed(3)}s against ${(5 * tick(50)).toFixed(3)}s`);
     entity.activeEffects.push({ kind: 'fortifyAttribute', stat: 'speed', magnitude: 50 });   // the live stat, 100
     const at100 = swing();
-    assert.ok(near(at100, 100), `Fortified to 100: ${at100.toFixed(3)}s against ${(5 * getMeleeWeaponAnimTime(100)).toFixed(3)}s - the rig asked the entity, not the number it was built with`);
+    assert.ok(near(at100, 100), `Fortified to 100: ${at100.toFixed(3)}s against ${(5 * tick(100)).toFixed(3)}s - the rig asked the entity, not the number it was built with`);
+    assert.ok(at100 < at50, 'the Speed shows in the swing');
     entity.activeEffects.length = 0;
     const again = swing();
     assert.ok(near(again, 50), 'and the spell over, the next swing is Speed 50\'s again');

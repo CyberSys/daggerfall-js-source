@@ -100,7 +100,7 @@
   },
   {
     "name": "CUSTOMS-GRANT-one-row-an-account",
-    "file": "server-account/migrations/0023_customs_grants.sql",
+    "file": "server-account/migrations/0024_customs_grants.sql",
     "old": "  player   TEXT PRIMARY KEY,\n",
     "new": "  player   TEXT,\n",
     "tests": [

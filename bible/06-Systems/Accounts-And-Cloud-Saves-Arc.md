@@ -4004,3 +4004,89 @@ The service lane of `06-Systems/Realm-Arc.md` AUDIT REALM2 (S1-S8):
 
 `ACCOUNT_VERSION` stays `acct19`. Pinned: `test/auditrealm2_service.test.js` (11), over `test/realmSeat.mjs`, which
 seats a realm character the realm's way for every realm pin; `tools/mutants/auditrealm2_service.json` (16, all dead).
+
+## TERMS1 — the Terms of Service and the Privacy Policy, ticked before an account exists (2026-09-28)
+
+"Here is our terms of service and privacy policy. I wanna make sure these need to be reviewed and checked off by players
+before creating an account". Four answers settled the rest: the documents say Daggerfall Online (the draft used the
+project's name from before BR4), their three contact placeholders are the Discord server, each box sits beside a link to
+its document, and new accounts only are asked.
+
+**The documents.** `terms/index.html` and `privacy/index.html`, served at `/terms/` and `/privacy/` beside the landing
+page, whose foot links them. The words are the project's own, carried over whole: a script converted the draft, and a
+word-for-word comparison against it, with only the name, the date and the contact filled in, came back identical (1,189
+and 1,297 words). They are documents in the landing page's sense - no script, no file of their own - so
+`scripts/landingHtml.mjs` dresses them (`DOCUMENT_PATHS`, `transformDocument`): the skin's tokens, the five from
+`src/ui/pixelifyFive.js`, one rule set for both, the fonts request and the icon, and no night sky behind a document read
+to the end.
+
+**A version is a document's Last Updated date**, because that is how the Terms say a revision is marked (section 15).
+`src/net/legalLaw.js` holds `TERMS_VERSION` and `PRIVACY_VERSION` for both ends. Each page carries its date as
+`<time datetime>`, pinned equal to its version, and its words are pinned to a hash, so the text cannot change without
+somebody deciding whether that is a new version. To revise a document: edit the page, move its Last Updated date and its
+version together, and re-hash. The site and the account Worker deploy separately, and the site's deploy waits for the
+account service to serve the version the tree names (AUDIT PRE-MERGE 0929 T2), so the form never meets a Worker older
+than itself; a desktop build older than the service is told the documents changed, and to reload the game or update
+the app.
+
+**The form.** Only `register` asks (`AGREEMENTS` in `src/ui/accountFlow.js`): two boxes under the fields, "I have read and
+agree to the Terms of Service" and the same for the Privacy Policy, each document's name a link that opens outside the
+game - a new tab on the web, the system browser from the desktop app, whose `dagger://` pages cannot reach the site by a
+relative link (so the URLs are absolute). The boxes start unticked, a move wipes them, and a refused name keeps them.
+Nothing leaves the device until both are ticked: the guest row the flow opens first IS an account (0001's own words), so
+it is not opened either. Both requests then carry the versions ticked. A guest from before the boxes, giving itself a
+username, meets the same form.
+
+**The service.** `legalRefusal` (`server-account/src/accounts.js`) is asked by the only two routes that make an account,
+`/v1/auth/guest` and `/v1/auth/register`, before anything is written: `not-found` for a body that names neither
+document - a game from before the boxes, which renders it "The game may need updating" (AUDIT PRE-MERGE 0929 T1; the
+form never sends one) - `terms-unaccepted` for one named and not the other, `terms-stale` for dated versions that are
+not these. The row records `terms_version`,
+`privacy_version` and `legal_accepted_at` (migration 0023 - 0022 until main's CUSTOMS-CARRY took that number). Only the current versions are ever written, and naming an
+account never erases the agreement its row already holds. Signing in and recovering ask nothing: those accounts exist.
+Every account made before TERMS1 keeps NULL - it was never asked, and a default would invent that it was. The recorded
+version is what a later revision would ask again against; asking again is not built.
+
+- `acct20` (acct17 and migration 0016, then acct19 and migration 0018, on its branch - renumbered past RAID4's and AUDIT RAID's, then REALM's and RENOWN-ACCOUNT's, at the merges).
+  `tools/accountProbe.mjs` sends the versions, and checks that the deployed Worker refuses a request without
+  them.
+- `tools/accountCardProbe.mjs` runs again. It served the card from a hand-kept map of four modules with their imports
+  rewritten, and ACC3c, DUEL1, RENOWN1 and WB5b each gave the card an import the map never learned, so it had stopped
+  loading at all. It now serves `src/` at its own paths and lets the browser resolve the imports, and it measures the
+  boxes as drawn: two, unticked, rows at a thumb's 44px, the box and the link in brass, each link opening outside the
+  game at the site, and none on any other stage (17/17). The unticked box is told the page is dark (`color-scheme`), or
+  it is the browser's white square.
+- Pins: `test/terms1.test.js` (19) - the documents, the build seam, the form, the card, and the Worker end to end on
+  node:sqlite. The 19 account suites that make accounts through a route now send the versions, and `accountflow`'s and
+  `nameadopt`'s registering flows tick both boxes. `tools/mutants/terms1.json`: 28 mutants, all dead. The three records
+  the change moved (ACC1c-16, ACC1e-7, GATEKEYS-the-empty-var-back) are re-aimed by content, and dead. Every other
+  committed record the change could reach - the 922 that target a changed file or are killed by a changed suite - was
+  run again: 916 dead, 6 equivalent as recorded, none surviving.
+
+**What the Privacy Policy does not say yet**, noted here for the project rather than written into its text: the service
+also stores an optional email (ACC1c), cloud save backups with a screenshot each (ACC2), and letters between players
+(MAIL1).
+
+**AUDIT PRE-MERGE 0929** (`01-Overview/Audit-PreMerge-0929.md`, lens T), each red first:
+- **T-CI - the account deploy's own smoke.** It opened a throwaway guest and named one with `{"label":"deploy-smoke"}`
+  alone, which TERMS1 refuses: `curl -f` would have failed the job the moment the Worker went live, and every check
+  after it - the gate's public half, the registration on Cloudflare (the PBKDF2 outage's own detector), the public key,
+  the relay's copy of it - with it, on this deploy and every one after. One step reads both versions off
+  `src/net/legalLaw.js` (never typed) into the job's environment, and all three calls agree as a player does.
+- **T1** - a game from before the boxes was told `terms-unaccepted`, a word it has no sentence for ("The account service
+  had a problem" at every press, for ever - the desktop app's reload brings back the same game): a body naming neither
+  document is answered `not-found`, and `terms-stale` says "Reload the game (or update the app)". The real-workerd probe
+  (`tools/accountProbe.mjs`) asks the runtime both: the bare body `not-found`, one document ticked `terms-unaccepted`.
+- **T2** - the site's deploy waited for nothing: live before the account service, the form ticked both boxes against
+  the old Worker, which named the account and recorded no agreement. `deploy.yml` publishes only once the service's
+  `/v1/health` serves the version the tree names (or a later one), up to thirty minutes, and not at all if it never
+  does - AUDIT B1's law, the account service's own for the relay.
+- **T3** - the card's redraw took the keyboard: a refusal is cleared by the first keystroke or tick that answers it,
+  and that repaint rebuilt the card under the player's fingers (after "Type your username" the rest of "Nystul" went
+  nowhere but its N; a Space on the Terms box left the next Tab on Username). Every control is built under a name, and
+  the one the keyboard was on - with its caret - has it back after the redraw, on a card of the same stage
+  (`src/ui/enhancedAccount.js`); pre-existing since ACC1e for the fields, every tick since TERMS1.
+- **T4** - the route table's `{ label? }` body and legalLaw.js's "a relative link would open nothing" said what the
+  code does not; corrected.
+Pinned: `test/audit0929_terms.test.js` (6), `test/terms1.test.js`'s refusals; `tools/mutants/audit0929_terms.json` (14,
+all dead).

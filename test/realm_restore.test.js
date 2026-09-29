@@ -12,6 +12,7 @@ import { planRestore, planReport, loadDump, lit, handlesOf, THEN_TABLES, NOW_TAB
 import { GUILD_MEMBERS_MAX, GUILD_RANK_MASTER } from '../src/net/guildLaw.js';
 import worker from '../server-account/src/index.js';
 import { accountRefusalText } from '../src/net/accountClient.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1 (at the merge with main): a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -187,6 +188,8 @@ test('RESTORE C: the operator\'s workflow - by hand only, never beside a deploy,
   assert.match(step('Write the restore'), /if: env\.APPLY == 'true'/);
   assert.match(step('Plan the restore'), /node tools\/realmRestore\.mjs --then "\$RUNNER_TEMP\/then\.sql" --now "\$RUNNER_TEMP\/now\.sql"/);
   assert.match(step('Hold the service for maintenance'), /deploy --var MAINTENANCE:1/);
+  assert.match(step('Hold the service for maintenance'), /-X POST "\$base\/v1\/realm\/customs" -H 'content-type: application\/json' -d '\{\}' /, 'the write proven refused is asked with no credential');
+  assert.doesNotMatch(wf, /\/v1\/auth\//, 'never proven by asking for an account: an account route writes its rate row on an instance not yet held');
   for (const t of THEN_TABLES) assert.match(step('Export what stood then'), new RegExp(`--table ${t}\\b`));
   for (const t of NOW_TABLES) assert.match(step('Export the present'), new RegExp(`--table ${t}\\b`));
   assert.doesNotMatch(wf, /--table players/, 'no player row is ever exported - handles are asked for by name');
@@ -197,15 +200,23 @@ test('RESTORE C: the maintenance switch - held, the service answers its health (
     const res = await worker.fetch(new Request(`https://accounts.invalid${path}`, init), env);
     return { status: res.status, body: await res.json().catch(() => null) };
   };
-  const held = { DB: d1face(db()), ACCOUNT_VERSION: 'test1', IDENTITY_PUBLIC_KEY: 'a-public-key', MAINTENANCE: '1' };
+  const raw = db();
+  const held = { DB: d1face(raw), ACCOUNT_VERSION: 'test1', IDENTITY_PUBLIC_KEY: 'a-public-key', MAINTENANCE: '1' };
   assert.deepEqual(await ask(held, '/v1/health'), { status: 200, body: { ok: true, v: 'test1', maintenance: true } });
   assert.equal((await ask(held, '/v1/pubkey')).status, 200);
-  for (const [path, init] of [['/v1/auth/guest', { method: 'POST', body: '{}' }], ['/v1/realm', { headers: { authorization: 'Bearer x'.padEnd(40, 'x') } }], ['/v1/realm/customs', { method: 'POST', body: '{}' }], ['/v1/nowhere', {}]]) {
+  for (const [path, init] of [['/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }], ['/v1/realm', { headers: { authorization: 'Bearer x'.padEnd(40, 'x') } }], ['/v1/realm/customs', { method: 'POST', body: '{}' }], ['/v1/nowhere', {}]]) {
     assert.deepEqual(await ask(held, path, init), { status: 503, body: { error: 'maintenance' } }, path);
   }
   const open = { ...held, MAINTENANCE: undefined };
   assert.deepEqual(await ask(open, '/v1/health'), { status: 200, body: { ok: true, v: 'test1' } });
-  assert.equal((await ask(open, '/v1/auth/guest', { method: 'POST', body: '{}' })).status, 200);
+  assert.equal((await ask(open, '/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) })).status, 200);
+  // the workflow's own proof of the hold: a write route asked with no credential - 503 held, 401 not yet, and no row written either way
+  const rows = () => raw.prepare('SELECT (SELECT COUNT(*) FROM players) + (SELECT COUNT(*) FROM sessions) + (SELECT COUNT(*) FROM rate_limits) AS n').get().n;
+  const before = rows();
+  const proof = { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' };
+  assert.deepEqual(await ask(held, '/v1/realm/customs', proof), { status: 503, body: { error: 'maintenance' } });
+  assert.deepEqual(await ask(open, '/v1/realm/customs', proof), { status: 401, body: { error: 'auth' } });
+  assert.equal(rows(), before, 'the proof writes nothing, held or not');
   assert.equal(accountRefusalText('maintenance'), 'The account service is being looked after for a minute. Try again shortly.');
   assert.doesNotMatch(src('server-account/wrangler.toml'), /MAINTENANCE/, 'the switch is a deploy\'s alone, never the config\'s');
 });

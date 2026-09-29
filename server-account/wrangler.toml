@@ -57,7 +57,7 @@ enabled = true
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct20"
+ACCOUNT_VERSION = "acct21"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
@@ -126,7 +126,7 @@ SHADOW_FANG_HANDLES = "SirMcMobdon"
 # the same as the lists above; a guest holds none. Customs still runs in full
 # - the loans called in, the allowance - and a character that came in from any
 # account never comes in twice. ONCE: a grant spent is its `customs_grants` row
-# (migration 0023) and stays spent, so taking a handle off stops only a grant
+# (migration 0024) and stays spent, so taking a handle off stops only a grant
 # not yet spent.
 CUSTOMS_GRANT_HANDLES = "ToxicTaco69"
 

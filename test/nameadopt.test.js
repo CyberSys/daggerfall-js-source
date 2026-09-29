@@ -114,6 +114,7 @@ test('NAME-ADOPT bug 1: a guest who REGISTERS used to keep the guest name in the
   flow.set('handle', 'Lattymoy');
   flow.set('password', 'a-long-enough-password');
   flow.set('confirm', 'a-long-enough-password');
+  flow.agree('terms', true); flow.agree('privacy', true);   // TERMS1: a new account ticks both documents
   await flow.submit();
   assert.equal(flow.stage, 'code');
 

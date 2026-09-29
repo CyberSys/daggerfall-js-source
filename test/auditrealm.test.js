@@ -35,6 +35,7 @@ import { LETTER_OF_CREDIT_TEMPLATE, goldStack } from '../src/systems/inventory.j
 import { LOOT_CONTAINER_TYPES } from '../src/systems/sceneCache.js';
 import { createBankAccounts } from '../src/systems/banking.js';
 import { freshSave, layRecord } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -88,7 +89,7 @@ async function realm() {
   _resetKeyForTests();
   const env = { DB: d1(), SAVES: r2(), ACCOUNT_VERSION: 'test1' };
   async function player() {
-    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
+    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
     const storage = fakeStorage();
     storage.setItem(SESSION_KEY, JSON.stringify({ id: g.id, secret: g.secret }));
     return { g, storage, env, io: realmIo({ fetch: (url, init) => worker.fetch(new Request(url, init), env), storage }) };
@@ -301,9 +302,9 @@ async function registered() {
   const pkcs8 = Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64');
   const env = { DB: d1(), SAVES: r2(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
   async function player(handle, save, { renown = GUILD_FOUND_RENOWN } = {}) {
-    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
+    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
     const reg = await worker.fetch(new Request('https://accounts.invalid/v1/auth/register', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ secret: g.secret, handle, password: 'a good long one' }),
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ secret: g.secret, handle, password: 'a good long one', ...ACCEPTED }),
     }), env);
     assert.equal(reg.status, 200);
     const storage = fakeStorage();

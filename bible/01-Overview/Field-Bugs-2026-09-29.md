@@ -184,7 +184,7 @@ with no kill, home, guild place, raid or backup, or with its traces under anothe
 
 **The grant** (`06-Systems/Realm-Arc.md` CUSTOMS-GRANT, decision 9): a handle on `CUSTOMS_GRANT_HANDLES` in the service's
 config brings in ONE character the census never counted, once, through customs in full - loans, allowance, the account's
-bound - its use on the record (migration 0023, `customs_grants`). ToxicTaco69 is the first. A character the census counts
+bound - its use on the record (migration 0024, `customs_grants`). ToxicTaco69 is the first. A character the census counts
 never spends it, and a character in from any account never comes in twice.
 
 Pinned: `test/customs_grant.test.js` (5), `tools/mutants/customs_grant.json` (13 mutants, 13 dead).
@@ -250,7 +250,7 @@ Pinned: `test/restore.test.js` (6), `test/realm_restore.test.js` (5), T3's and H
     command it prints, and the next deploy lifts the hold. Needs D1 Time Travel to still hold 2026-09-29 03:09 UTC
     (thirty days on the Paid plan, seven on the Free one).
   - **Held accounts** are yours to decide; the homes of theirs the plan lists can be written by hand once you have.
-- **ToxicTaco69 (CUSTOMS-GRANT).** Rides the next account deploy (`acct20`, migration 0023). Then he presses **Bring
+- **ToxicTaco69 (CUSTOMS-GRANT).** Rides the next account deploy (`acct21`, migration 0024). Then he presses **Bring
   online** on his character's tile once. If what he saw was *not* "The realm has no record of this character..." - but
   "already been brought into the realm", or a "Never saved" tile - that is a different cause, and the grant does not
   touch it: say which.

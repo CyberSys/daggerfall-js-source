@@ -37,6 +37,7 @@ import { fakeRoom } from './fakeRoom.mjs';
 import { withClock } from './placeWidest.mjs';   // the relay's gates on a clock the test turns - a second is a tick, not a wait
 import { r2, seatRealm } from './realmSeat.mjs';   // AUDIT REALM2 S2: a house and a founding are a realm character's
 import { realmIo, createRealmSession, realmGoldAct } from '../src/systems/realmSaves.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -120,8 +121,8 @@ async function stand({ kp = null, db = d1() } = {}) {
    *  session store the client's doors read. AUDIT REALM2 S2: a founder is a REALM character (`realm: true`) - a founding
    *  is paid on its record - `at()` where it stands. */
   const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN, realm = false } = {}) => {
-    const secret = (await call('/v1/auth/guest', {})).body.secret;
-    assert.equal((await call('/v1/auth/register', { secret, handle, password: 'a good long one' })).status, 200);
+    const secret = (await call('/v1/auth/guest', { ...ACCEPTED })).body.secret;
+    assert.equal((await call('/v1/auth/register', { secret, handle, password: 'a good long one', ...ACCEPTED })).status, 200);
     const id = env.DB._raw.prepare('SELECT id FROM players WHERE handle_lc = ?').get(handle.toLowerCase()).id;
     let at = null;
     if (realm) ({ id: character, at } = await seatRealm(env, secret, handle, { name: handle, level: 9, goldPieces: 100_000, items: [] }));

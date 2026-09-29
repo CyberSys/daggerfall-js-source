@@ -367,6 +367,21 @@ test('IF1: DetermineExteriorClimateFootstep, tile by tile - water, shallow water
   assert.equal(setAt({ tileMapIndex: 55 }), 'UnarmoredFootstepsMain');
 });
 
+test('DISC29-B: the boots\' material is the class\'s NativeMaterialValue (ImmersiveFootstepsMain.cs:502-532) - Roleplay & Realism: Items\' brigandine boots walk in leather, its mail sollerets in chain', async () => {
+  const r = rig();
+  await r.boot();
+  const setAt = (o) => { r.ticks(30, r.outdoors(o)); return r.c.status().currentSet; };
+  r.slots[EQUIP_SLOTS.Feet] = { group: 'Armor', templateIndex: 523, material: ARMOR_MATERIAL.Iron };   // ItemBoots: 0x0200 - 0x0200
+  r.c.onInventoryClose(r.entity);
+  assert.equal(setAt({ tileMapIndex: 46 }), 'LeatherFootstepsMain', 'the raw material walked them in plate');
+  r.slots[EQUIP_SLOTS.Feet] = { group: 'Armor', templateIndex: 519, material: ARMOR_MATERIAL.Daedric };   // ItemSollerets: less 0x0100
+  r.c.onInventoryClose(r.entity);
+  assert.equal(setAt({ tileMapIndex: 46 }), 'ChainmailFootstepsMain');
+  r.slots[EQUIP_SLOTS.Feet] = boots(ARMOR_MATERIAL.Iron);   // a classic boot is its own material
+  r.c.onInventoryClose(r.entity);
+  assert.equal(setAt({ tileMapIndex: 46 }), 'PlateFootstepsMain');
+});
+
 test('IF1: the equipment refresh is the 250th tick (5 s) when either sound switch is on, and the inventory close - a change of boots is not heard until then', async () => {
   const r = rig();
   await r.boot();

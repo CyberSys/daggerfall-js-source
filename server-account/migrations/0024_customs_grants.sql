@@ -3,7 +3,9 @@
 --   npx wrangler d1 migrations apply daggerfall-accounts --remote
 --
 -- Applied exactly once through the `d1_migrations` ledger, which the
--- deploy runs (ACC1-CI). One new table; no table changes shape.
+-- deploy runs (ACC1-CI). One new table; no table changes shape. 0024:
+-- 0023 on its branch, never applied anywhere, and renumbered at the
+-- merge with main, whose TERMS1 took 0023 first.
 --
 -- Mac, 2026-09-29: "Please activate ToxicTaco69 character for online
 -- mode. He cant access it". Customs admits an offline character only

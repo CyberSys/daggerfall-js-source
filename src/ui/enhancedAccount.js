@@ -26,7 +26,7 @@
 // plaque, the refusal line, and the signed-in fact list.
 // ═══════════════════════════════════════════════════════════════════
 
-import { STAGES, FIELDS, FIELD_SPEC } from './accountFlow.js';
+import { STAGES, FIELDS, FIELD_SPEC, AGREEMENTS, AGREEMENT_SPEC } from './accountFlow.js';
 import { TITLE_TEXT, glyphBadges, glyphArtNode, badgeClass } from './playerBadge.js';   // ACC3c: the SAME table the name over a head reads, so the picker shows what a player will actually wear - the COLOUR is the skin's (this card may not style itself, and a pin holds that)
 import { duelRecordText } from '../net/duelRecord.js';   // DUEL1: the account card's K/D row
 import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1: Renown, left of the name and in its row
@@ -142,12 +142,30 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
 
   const root = el('div', 'card acct');
 
+  /**
+   * AUDIT TERMS1 T3 — THE KEYBOARD SURVIVES A REDRAW. paint() builds the
+   * card anew, and a control built anew is one the keyboard is no longer
+   * on. A refusal is cleared by the first keystroke or tick that answers
+   * it (flow.set, flow.agree), and that repaint came under the player's
+   * fingers: after "Type your username" the rest of "Nystul" went nowhere
+   * but its N, and a Space on the Terms box - the one answer its refusal
+   * has - left the next Tab on Username. So every control is built under
+   * a name (`keyed`), and the one that held the focus, with its caret, is
+   * found again under that name. One the redraw disabled (a button while
+   * its press is out) is kept in mind, and handed the focus back when the
+   * card that follows has it again, if the player has not moved it.
+   */
+  let keyed = new Map();
+  let wanted = null;   // { key, stage, caret } - the control the focus goes back to, on a card of that stage
+  let painted = null;  // the stage the card on screen was built for
+  const keyedAs = (n, key) => { n.acctKey = key; keyed.set(key, n); return n; };
+
   /** One field, wearing exactly the shape ONLINE1 and NAME-F2 built. */
   function field(key) {
     const spec = FIELD_SPEC[key];
     const wrap = el('label', 'field');
     wrap.append(el('span', 'fieldlabel', spec.label));
-    const input = el('input');
+    const input = keyedAs(el('input'), `field:${key}`);
     input.type = spec.secret ? 'password' : 'text';
     input.maxLength = spec.max;
     input.value = flow.values[key] ?? '';
@@ -172,8 +190,40 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     return wrap;
   }
 
-  function act(label, onclick, { primary = false, disabled = false } = {}) {
-    const b = el('button', `act${primary ? ' primary' : ''}`, label);
+  /**
+   * TERMS1 — ONE BOX, AND THE DOCUMENT IT AGREES TO.
+   *
+   * "I wanna make sure these need to be reviewed and checked off by
+   * players before creating an account". So the box starts UNTICKED -
+   * the flow wipes the ticks on every move, and nothing here sets one -
+   * and the document's name beside it is a LINK to the whole text.
+   *
+   * THE LINK OPENS OUTSIDE THE GAME: a new tab on the web, the system
+   * browser from the desktop app (app/main.cjs hands http(s) there), so
+   * reading it loses nothing already typed. It sits inside the <label>,
+   * and a click on a link inside a label follows the link without
+   * toggling the box - the HTML rule for interactive content in a label -
+   * so a player cannot tick what they only meant to open.
+   */
+  function agreement(key) {
+    const spec = AGREEMENT_SPEC[key];
+    const wrap = el('label', 'acctagree');
+    const box = keyedAs(el('input'), `agree:${key}`);
+    box.type = 'checkbox';
+    box.checked = flow.agreed?.[key] === true;
+    box.onchange = () => flow.agree(key, box.checked);
+    const link = keyedAs(el('a', null, spec.label), `doc:${key}`);
+    link.href = spec.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    const words = el('span');
+    words.append(el('span', null, 'I have read and agree to the '), link);
+    wrap.append(box, words);
+    return wrap;
+  }
+
+  function act(label, onclick, { primary = false, disabled = false, key = label } = {}) {
+    const b = keyedAs(el('button', `act${primary ? ' primary' : ''}`, label), `act:${key}`);
     b.type = 'button';
     if (disabled) b.disabled = true;
     b.onclick = onclick;
@@ -218,7 +268,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         // its own, which is the rule ACC1e was built under.
         // SHADOW-FANG: the word in a span of its own, so a gradient title's paint clips to the letters and leaves
         // the button's border in its plain colour (ui/playerBadge.js badgeCss)
-        const b = el('button', `acttitle ${badgeClass('tl', key)}${worn ? ' worn' : ''}`);
+        const b = keyedAs(el('button', `acttitle ${badgeClass('tl', key)}${worn ? ' worn' : ''}`), `title:${key}`);
         b.append(el('span', 'acttitleword', TITLE_TEXT[key] ?? key));
         b.type = 'button';
         b.disabled = !!flow.busy;
@@ -250,8 +300,33 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
   }
 
   function paint() {
-    root.textContent = '';
     const stage = STAGES.includes(flow.stage) ? flow.stage : 'out';
+    // AUDIT TERMS1 T3: what the keyboard is on, before the card it is on is taken down
+    const on = /** @type {any} */ (doc.activeElement);
+    if (on && typeof on.acctKey === 'string' && keyed.get(on.acctKey) === on) {
+      wanted = { key: on.acctKey, stage: painted, caret: typeof on.selectionStart === 'number' ? [on.selectionStart, on.selectionEnd] : null };
+    } else if (on && on !== doc.body && on !== doc.documentElement) wanted = null;   // the player moved it elsewhere
+    keyed = new Map();
+    root.textContent = '';
+    build(stage);
+    painted = stage;
+    focusBack(stage);
+  }
+
+  /** AUDIT TERMS1 T3: the focus back where it was - the same control, the same caret - on a card of the same stage. */
+  function focusBack(stage) {
+    if (!wanted) return;
+    if (wanted.stage !== stage) { wanted = null; return; }
+    const n = keyed.get(wanted.key);
+    if (!n || n.disabled || typeof n.focus !== 'function') return;   // kept for the card that has it again
+    n.focus();
+    if (wanted.caret && typeof n.setSelectionRange === 'function') {
+      try { n.setSelectionRange(wanted.caret[0], wanted.caret[1]); } catch { /* a box or a button has no caret */ }
+    }
+    wanted = null;
+  }
+
+  function build(stage) {
     const copy = STAGE_COPY[stage];
 
     // The tag earns its place only where it is NOT a restatement of the
@@ -329,6 +404,9 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     // ── THE FIELDS ──────────────────────────────────────────────────
     for (const key of FIELDS[stage] ?? []) root.append(field(key));
 
+    // ── TERMS1: THE BOXES, under the fields and over the button ──────
+    for (const key of AGREEMENTS[stage] ?? []) root.append(agreement(key));
+
     // ── WHAT WENT WRONG, OR WHAT WENT RIGHT ─────────────────────────
     // Two lines rather than one with a colour swap: a refusal and a
     // confirmation are different facts, and NAME-F2's own note applies
@@ -349,7 +427,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       } else {
         acts.append(act('Give it a username', () => flow.go('register'), { primary: true, disabled: busy }));
       }
-      acts.append(act(busy ? 'Signing out…' : 'Sign out', () => flow.signOut(false), { disabled: busy }));
+      acts.append(act(busy ? 'Signing out…' : 'Sign out', () => flow.signOut(false), { disabled: busy, key: 'signout' }));
       acts.append(act('Sign out everywhere', () => flow.signOut(true), { disabled: busy }));
     } else if (stage === 'code') {
       // THE ONLY WAY OFF THIS STAGE. No cancel, no close, no second
@@ -360,7 +438,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // nothing to press yet
     } else {
       const spec = STAGE_ACTS[stage];
-      acts.append(act(busy ? 'Working…' : spec.submit, () => flow.submit(), { primary: true, disabled: busy }));
+      acts.append(act(busy ? 'Working…' : spec.submit, () => flow.submit(), { primary: true, disabled: busy, key: 'submit' }));
       acts.append(act('Back', () => flow.go(spec.back), { disabled: busy }));
       if (stage === 'login') {
         acts.append(act('Lost your password?', () => flow.go('recover'), { disabled: busy }));

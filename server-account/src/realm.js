@@ -211,7 +211,7 @@ export async function customsRefusal({ db }, playerId, originId, granted = false
  * census is frozen at the realm's start, so without this nobody could let such a character in. A handle list in the
  * service's config, CUSTOMS_GRANT_HANDLES, by the titles' law and for their reason (titles.js): granting one is a
  * reviewed, deployed edit, never a reach into the live database. A guest holds none - the list names people. Taking a
- * handle off stops a grant not yet spent; a spent one is its `customs_grants` row (migration 0023) and stays spent.
+ * handle off stops a grant not yet spent; a spent one is its `customs_grants` row (migration 0024) and stays spent.
  * @param {any} player @param {any} env
  */
 export const holdsCustomsGrant = (player, env) =>

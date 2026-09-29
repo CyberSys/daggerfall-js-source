@@ -23,7 +23,9 @@
   "build": {
     "appId": "dev.daggerfalljs.app",
     "productName": "Daggerfall Online",
-    "artifactName": "DaggerfallOnline-${version}-${os}-${arch}.${ext}",
+    "icon": "../public/icons/icon-512.png",
+    "afterPack": "./afterPack.cjs",
+    "artifactName": "DaggerfallOnline-${os}-${arch}.${ext}",
     "directories": {
       "output": "release"
     },
@@ -37,6 +39,8 @@
     "files": [
       "main.cjs",
       "preload.cjs",
+      "launcherPreload.cjs",
+      "launcher/**",
       "lib/**"
     ],
     "extraResources": [
@@ -58,19 +62,24 @@
       ]
     },
     "nsis": {
-      "artifactName": "DaggerfallOnline-${version}-win-${arch}-setup.${ext}",
+      "artifactName": "DaggerfallOnline-win-${arch}-setup.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false
     },
     "portable": {
-      "artifactName": "DaggerfallOnline-${version}-win-${arch}-portable.${ext}"
+      "artifactName": "DaggerfallOnline-win-${arch}-portable.${ext}"
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "category": "public.app-category.games"
+      "category": "public.app-category.games",
+      "extendInfo": {
+        "NSDownloadsFolderUsageDescription": "Daggerfall Online looks here for the Daggerfall game files you unpacked, only when it found none elsewhere. Nothing is copied or uploaded.",
+        "NSDesktopFolderUsageDescription": "Daggerfall Online looks here for the Daggerfall game files you unpacked, only when it found none elsewhere. Nothing is copied or uploaded.",
+        "NSDocumentsFolderUsageDescription": "Daggerfall Online looks here for the Daggerfall game files you unpacked, only when it found none elsewhere. Nothing is copied or uploaded."
+      }
     }
   },
   "dependencies": {

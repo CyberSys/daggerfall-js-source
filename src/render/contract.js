@@ -81,6 +81,7 @@
  * @property {boolean} [_shSway]                      SHADOW-REACH: moving by the wind alone (the slow cadence)
  * @property {number} [_shMovedAt]                    SC1: the pass's frame number it last moved on
  * @property {number} [_shId]                         SC1: its identity in the static signature, minted on first sight
+ * @property {boolean} [_shAnim]                      DISC29-E: a mover animating in place, a flat that cannot walk - kept by the lo tier (REPLAY_LO)
  */
 
 /**
