@@ -138,7 +138,7 @@ test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHE
   assert.equal(ACCOUNT_VERSION, 'acct31');   // RENOWN-CHAR moved it on last (acct31); MERGE 2 before it moved it on past main's realm (acct23); the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that, PROF5 after that, AUDIT 30 after that, PROF5b after that, PROF6 after that, AUDIT 31 after that
   const toml = src('server-account/wrangler.toml');
   assert.match(toml, /^ACCOUNT_VERSION = "acct31"$/m);
-  assert.match(toml, /^BOARD_OPEN = "dev"$/m, 'the board ships at dev');
+  assert.match(toml, /^BOARD_OPEN = "on"$/m, 'BOARD-ON: shipped at dev, opened to everyone (Mac: "Board now, rest after fixes")');
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/boardLaw\.js"/, 'the law the Worker bundles deploys it');
 });
 

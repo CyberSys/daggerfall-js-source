@@ -11556,3 +11556,19 @@ Asked how each character should start, Mac chose "Own + recent gains". The recor
   pins RENOWN-ACCOUNT had rewritten put back. Mutants: `tools/mutants/renown_char.json` (17 dead, 1 recorded
   equivalent); 211 restored records across RENOWN1, AUDIT RENOWN1, RAID4, AUDIT RAID, RENOWN-BAR, RENOWN3 and RENOWN4,
   all dead. Patch notes: `PATCH-NOTES-Renown-Per-Character.md`.
+
+## BOARD-ON (2026-09-29, Mac: "Should we switch everything on?") - the Notice Board opened to everyone
+
+Asked whether to switch on the three professions-branch switches, Mac chose **"Board now, rest after fixes"**:
+
+- **`BOARD_OPEN = "on"`** (`server-account/wrangler.toml`). Every account's rumour boards open the Notice Board online
+  (NOTICE1): the town's news, the server's notices, players' notes, reports and moderation. It stands on its own.
+- **Its Work and Market tabs do not open with it.** The host hands the window a Work tab only while the professions'
+  book says they are this account's, and a Market tab only while the Marks' do too (`scenes/world.js`
+  `openNoticeBoard`; the service refuses `prof-closed` and `market-closed` behind them). So they open with
+  `PROFESSIONS_OPEN` and `MARKS_OPEN`.
+- **Marks and the professions stay at `dev`** until two fixes land:
+  1. the pack is saved right after a professions act that changes it (MERGE 2 open question 2);
+  2. a deleted realm character's Stores and deliveries are no longer stranded (open question 3).
+- Rides `acct31` with RENOWN-CHAR. `test/notice1.test.js` pins the line at `"on"`; the Notice Board's patch notes say
+  it is open to everyone.
