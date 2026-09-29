@@ -52,8 +52,11 @@
 // `position` (its transform's, the pixel's corner), `tileMap` (the TileMap's
 // `.r` bytes, 128 x 128, row by row along z; null before it is built) and
 // `sampleHeight(worldPosition)` (Terrain.SampleHeight: the height over the
-// terrain's own y). The host hands the same object for the same pixel every
-// time, so `==` on it is Unity's.
+// terrain's own y, at the precision Unity's 16-bit heightmap holds it - the
+// node law's line is the sea's own height, which only that precision puts the
+// flat sea under: FIELD-CSA2, world/terrainSurface.js terrainSampleHeightAt).
+// The host hands the same object for the same pixel every time, so `==` on it
+// is Unity's.
 //
 // deps = {
 //   pool: { ready(), spawnNow(boat, player) -> boat|null (SpawnBoat), remove(boat) (Object.Destroy) },
