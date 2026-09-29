@@ -73,7 +73,7 @@ test('TV8 wire (world124): the leader\'s walk and a member\'s stop ride the part
   }
   assert.equal(validPartyPose({ ...base, ts: -1 }).ts, undefined);
   assert.equal(validPartyPose({ ...base, ts: 'x' }).ts, undefined);
-  assert.equal(RELAY_VERSION, 'world129');   // PENITENT's badge vocabulary moved it on last (world129); before it WB8 moved it on (world128: the Warden's marks - world126 on its branch, one relay past OW6L); OW6L before it (world127: the overworld ledger of a cell)
+  assert.equal(RELAY_VERSION, 'world130');   // REALM-DOOR moved it on last (world130: the door refuses a token the account service signed as naming no realm character); before it PENITENT's badge vocabulary (world129); before it WB8 moved it on (world128: the Warden's marks - world126 on its branch, one relay past OW6L); OW6L before it (world127: the overworld ledger of a cell)
   assert.equal(PARTY_WALK_RELAY_MIN, 124);
   assert.deepEqual(['world123', 'world124', 'world130', 'nope'].map(relaySupportsPartyWalk), [false, true, true, false]);
 });

@@ -97,8 +97,8 @@ test('REALM P1: the routes are the service\'s, behind a session and never open -
   assert.deepEqual(realmPathOf('/v1/realm/r0123456789abcdef0123/data'), { id: 'r0123456789abcdef0123' });
   assert.equal(realmPathOf('/v1/realm/c0ffee00-1111/data'), null, 'a client\'s id is no realm id');
   assert.equal(realmPathOf('/v1/realm/r0123456789abcdef0123/shot'), null);
-  assert.equal(ACCOUNT_VERSION, 'acct21');   // PENITENT's title and glyph and a fifth Disciple moved it on last (acct21); before it TERMS1 moved it on (acct20); REALM's acct19 - acct17 on its branch - main's RAID4 and AUDIT RAID took acct17 and acct18 first
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct21"/);
+  assert.equal(ACCOUNT_VERSION, 'acct22');   // REALM-DOOR and CUSTOMS-PASS moved it on last (acct22: the mint signs whether the named character is the realm's, and a developer's customs pass); before it PENITENT's title and glyph and a fifth Disciple (acct21); before it TERMS1 moved it on (acct20); REALM's acct19 - acct17 on its branch - main's RAID4 and AUDIT RAID took acct17 and acct18 first
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct22"/);
   const { call, guest } = await stand();
   assert.equal((await call('GET', '/v1/realm')).status, 401, 'no secret, no characters');
   const g = await guest();
