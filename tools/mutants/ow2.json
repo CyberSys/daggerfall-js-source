@@ -142,7 +142,7 @@
   {
     "name": "OW-ONLY-down-and-on",
     "file": "src/scenes/world.js",
-    "old": "&& travelOptions?.isTravelActive) travelOptions.messages.pauseTravel(); },",
+    "old": "&& travelOptions?.isTravelActive && tvOwnsJourneys()) travelOptions.messages.pauseTravel(); },",
     "new": "&& false) travelOptions.messages.pauseTravel(); },",
     "tests": [
       "test/tv2_click_to_move.test.js"

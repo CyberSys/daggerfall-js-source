@@ -1,4 +1,4 @@
-# FIELD BUGS 2026-09-28 (d) - the journey at x1, the boat nobody found, and the keys that travel
+# FIELD BUGS 2026-09-28 (d) - the journey at x1, the boat nobody found, the keys that travel, and first-person travel back
 
 From the Discord (#general), through Mac, with two screenshots:
 
@@ -86,8 +86,16 @@ governor, x1 again the moment the keys are let go (or a journey begins, the view
 swims or takes a helm). The bar says it ("Travelling at ×10"). Decided as lead: the Overworld alone, the spinner's
 speed. `test/tv_wasd.test.js` (6), `tools/mutants/tv_wasd.json` 13/13 dead.
 
+## OW-TOGGLE: first-person travel, a switch (Mac's ask, before the merge)
+
+Mac: *"bring back the original travel option as a toggle. Off by default."* - *"Travel Options was changed. The normal
+first person travel accelerated was removed in favor of the overworld travel"* (the Overworld's OW-ONLY, which reached
+this branch with main's round 2, merged in here). `06-Systems/Travel-View.md` OW-TOGGLE: `GeneralOptions.FirstPersonTravel`,
+the port's own key on Travel Options' pane, OFF and on the tile; on, every walked trip is the mod's own first-person
+journey again - a map pick begun on the ground, the mod's resume, the view neither raised with it nor stopping it, its
+clock never held at x1 under a lowered view. `test/ow_toggle.test.js` (5), `tools/mutants/ow_toggle.json` 7/7 dead.
+
 ## Found on the way, not this batch's
 
-- `test/doctrine.test.js` "every DEPARTURE or Ledger A cite in src/ has a Ledger row naming its file" is red on main
-  before this batch: `src/net/staffCommands.js` (STAFF1) cites Ledger A and no row names the file. Left for STAFF1's
-  owner - the row is that slice's to write.
+- The doctrine pin on `src/net/staffCommands.js` (STAFF1), red on main when this batch began, is green: main's REALM
+  merge named the file in the ONLINE row.

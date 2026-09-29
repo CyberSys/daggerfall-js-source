@@ -9771,8 +9771,12 @@ export async function bootWorld(canvas, renderer, params, status) {
 
   /** OW-ONLY: whether a walked trip is the OVERWORLD's (the enhanced interface, Travel Options on) - its refusal then is
    *  the answer, never the classic ground journey's nor DFU's fast travel (AUDIT OW3 J2: one question, both doors).
+   *  OW-TOGGLE (2026-09-28, Mac: "bring back the original travel option as a toggle. Off by default."): never while
+   *  First-Person Travel is on (the port's own key on the mod's pane, read with its settings at load) - the journey is
+   *  then the mod's own, on the ground, as before OW-ONLY, and the view neither rises with it (tvJourneyUp) nor stops it
+   *  (the view's onLower), nor holds its clock at x1 (travelViewGovern), all asking this.
    *  Declared, not a const: the map's doors ask it from closures (BOOT-TDZ). */
-  function tvOwnsJourneys() { return !!travelOptions && isEnhanced() && !!travelView; }
+  function tvOwnsJourneys() { return !!travelOptions && !travelOptions.settings?.firstPersonTravel && isEnhanced() && !!travelView; }
   /** AUDIT OW4 J4: THE MAP'S RESUME, on the enhanced interface, is the journey PLANNED AGAIN from where the traveller
    *  stands - a place by the roads round the peaks (travelViewRouteTo, as the Overworld's own 'dest' plate takes it up),
    *  a spot walked to again (travelViewWalkTo) - refused, in the view's words, where the view may not rise. The mod's
@@ -17859,8 +17863,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  forbids it (no window, no foe, the view's own gate), whoever began it (the map, its resume, the follow key). */
   function tvJourneyUp() {
     // AUDIT OW3 J1: a journey that WALKS - the panel up and the autopilot driving; a panel left up over a stopped journey
-    // (an interrupt that closes nothing) is no journey to raise the view over
-    if (!isEnhanced() || !travelView || travelView.state !== 'off' || !travelOptions?.isTravelActive || !travelOptions.state?.autopilot) return;
+    // (an interrupt that closes nothing) is no journey to raise the view over. OW-TOGGLE: a first-person journey is none
+    if (!tvOwnsJourneys() || travelView.state !== 'off' || !travelOptions.isTravelActive || !travelOptions.state?.autopilot) return;
     if (gamePaused() || (modes?.modalWindowUp?.() ?? false) || duelEnemyNear() || areEnemiesNearby(exteriorFoePool()) || !travelViewAllowed().ok) return;
     travelView.enter();
   }
@@ -18622,7 +18626,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // roll (travelOptions.js attemptAvoidEncounter) takes the journey up again while the band that stopped it still
     // stands near: the view stays down (its `danger`), tvJourneyUp will not raise it while a foe is near, and the mod's
     // `ignoreEncounters` (15 s) let the autopilot drive ON THE GROUND at the spinner's full rate - through foes, into
-    // unbuilt ground, with no load governor: the lag Mac met. The classic skin's ground journey is untouched
+    // unbuilt ground, with no load governor: the lag Mac met. The classic skin's ground journey is untouched, and so is
+    // First-Person Travel's (OW-TOGGLE: the journey the player chose to walk on the ground)
     if (journey && !travelView?.active && tvOwnsJourneys()) {
       if (worldTimeScale() !== 1) setWorldTimeScale(1);
       tvHeld = travelAsked > 1 ? 1 : null;   // the panel says the clock is held (the spinner stays the player's)
@@ -18679,8 +18684,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // OW3 J1: stopped THROUGH THE PANEL - the mod's own Camp (pauseTravel: the panel closes, its onClose interrupts, the
     // destination is kept). A bare interruptTravel left the panel up, so the journey still read active: the next frame's
     // tvJourneyUp raised the view again over a frozen journey, and the held map, which offers Resume only to a journey
-    // not active, never did
-    onLower: (why) => { if ((why === 'button' || why === 'escape' || why === 'key') && travelOptions?.isTravelActive) travelOptions.messages.pauseTravel(); },
+    // not active, never did. OW-TOGGLE: a first-person journey walks on under a view brought down, as before OW-ONLY
+    onLower: (why) => { if ((why === 'button' || why === 'escape' || why === 'key') && travelOptions?.isTravelActive && tvOwnsJourneys()) travelOptions.messages.pauseTravel(); },
     windowUp: () => gamePaused() || (modes?.modalWindowUp?.() ?? false),
     overlayUp: () => overlayOpen(),   // AUDIT DEEP2 A3: an enhanced overlay (the Tab dial) has the keys while it is up
     danger: () => duelEnemyNear() || areEnemiesNearby(exteriorFoePool()),   // the travel map's own refusal, and the Travel Options journey's stop (AUDIT DEEP2 A9/B-4: a live duel too, DUEL1's)

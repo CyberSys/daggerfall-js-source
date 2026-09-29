@@ -4,6 +4,7 @@
 - Open your map (the Enhanced map) and press **Overworld (O)**. The camera rises about 150-450 m above you - lower in fog and sandstorms, higher over steep hills - kept under the clouds, and you watch yourself cross the real world - the same ground, the same towns, the same weather.
 - Drag to turn, wheel or pinch to zoom, your movement keys to walk (they walk the way the screen faces). Esc or Return brings you back down.
 - Your movement keys travel at your travel speed on the Overworld - the speed Travel Options' travel bar was last set to (x10 to start). Time passes as it does on a journey, and the speed holds back while land is loading, the same way. The Overworld's bar says how fast ("Travelling at ×10"). Let go and you're back to walking pace. Not while swimming or at a boat's helm.
+- Prefer to travel the old way? Travel Options' tile in the Features menu has a new switch, First Person Travel. Turn it on and a journey you pick on the travel map is walked in first person again, at speed, and the Overworld no longer rises with it or stops it when you bring it down. It is off by default, and like the rest of Travel Options it takes effect the next time the world loads.
 - Fog and shadows are yours, not the camera's: the valley you stand in stays clear in the rain, and the hills a league off are grey.
 - You can also bind a key to it in Controls (it ships unbound) - with the Enhanced map turned off, the key is the way in. Press it again to come back down.
 

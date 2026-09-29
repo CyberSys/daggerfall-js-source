@@ -965,7 +965,8 @@ redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
   view may not rise; any Travel Options journey raises the view the first frame no window, foe or gate forbids it
   (`tvJourneyUp`, silently); and a view the PLAYER brings down (Return, Escape, the key: `onLower`) stops the journey -
   `interruptTravel`, the destination kept, so the map's Resume takes it up again, in the view. A cut (a door, a window,
-  a death, a foe) is not the player's choice and is never counted. The classic skin keeps Travel Options exactly.
+  a death, a foe) is not the player's choice and is never counted. The classic skin keeps Travel Options exactly, and
+  so does First-Person Travel, the switch that gives the first-person journey back (OW-TOGGLE, below; off by default).
 - **OW-ROADSIDE** ("Sometimes routes do follow roads, but appear traveling alongside it"): the first leg ran from wherever
   in the start pixel the traveller stood (up to 400 m off the road) to the far end of the road's first straight run -
   beside the road the whole way. A route whose first step is a road's or a track's now JOINS it first
@@ -1311,6 +1312,29 @@ Pieces: `scenes/travelView.js` `travelWalkRate`, `TRAVEL_VIEW_TEXT.travelling`; 
 gate by source), `tools/mutants/tv_wasd.json` (13 dead - two of them on to1's K2 pin, re-aimed because the one strafe
 zero in the host is now this gate's, never the journey's). TV2's three pins on the governor's lines and the trip line, and its A2
 mutant, re-aimed to the grown lines (never loosened). Ledger A (continued): THE OVERWORLD'S MOVEMENT KEYS TRAVEL.
+
+## OW-TOGGLE - FIRST-PERSON TRAVEL, A SWITCH - SHIPPED (2026-09-28, Mac: "bring back the original travel option as a toggle. Off by default.")
+
+Mac, the same day: *"Travel Options was changed. The normal first person travel accelerated was removed in favor of the
+overworld travel"* - OW-ROUND 2's OW-ONLY. It comes back as a switch; OW-ONLY stays the default.
+
+- **The switch:** `GeneralOptions.FirstPersonTravel`, the port's own key on Travel Options' pane (AvoidObstacles'
+  shape: the vendored `modsettings.json` does not carry it and its words say so), OFF, curated onto the mod's tile so it
+  is reachable, read with the mod's other settings when the world loads (the tile's "Takes effect when the world next
+  loads").
+- **On:** every walked trip is Travel Options' own, in first person, as before OW-ONLY. `tvOwnsJourneys` answers no,
+  and the four doors that ask it follow: a pick on the map begins the mod's journey on the ground (`beginTravel` /
+  `beginTravelToCoords`, the popup's estimate along), never refused for the Overworld's reasons (the peaks, the water);
+  the map's Resume is the mod's (`travelViewResume`); the view does not rise with a journey (`tvJourneyUp`); a view the player brings down stops
+  nothing (the view's `onLower`), and the journey under it runs at the speed asked, not AUDIT OW4 J5's x1
+  (`travelViewGovern`). The Overworld itself is untouched: raised by hand, its own clicks still begin its own journeys,
+  the load governor holds them, and brought down they walk on, on the ground.
+- **Off:** OW-ONLY exactly.
+
+Proof: `test/ow_toggle.test.js` (5: the key; the host's doors MOUNTED from their own source both ways; the governor
+mounted both ways), `tools/mutants/ow_toggle.json` (7 dead). TV2's three OW-ONLY pins (`tvOwnsJourneys`, `onLower`,
+`tvJourneyUp`), to1's key-set and settings pins, and four mutant records (ow2 OW-ONLY-down-and-on, ow3j J1 and J2,
+travelnav TN-switch-off-the-tile) re-aimed to the grown lines, never loosened.
 
 ## Open, for Mac
 
