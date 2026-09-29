@@ -1307,7 +1307,7 @@ test('PX29b: the doll is DFU\'s whole composite - the figure mask is REVERTED', 
   assert.match(pd, /PX29, REVERTED \(PX29b\)/, 'and the file records why, for whoever tries it again');
   // TWO BUFFERS DESCRIBING ONE IMAGE MUST SWAP IN TOGETHER. The
   // composite's own law, which the mask broke by publishing early.
-  assert.match(pd, /_pixels = \{ width: PAPERDOLL_W, height: PAPERDOLL_H, rgba: out, version: _version \};/);
+  assert.match(pd, /_pixels = \{ width: OW, height: OH, rgba: out, version: _version, density: OW \/ PAPERDOLL_W \};/);
   // Both windows draw the same composite again.
   assert.match(read('src/ui/enhancedInventory.js'), /paperDollDataUrl\(paperDollPixels\(\), \{ scale: 4 \}\)/);
 });

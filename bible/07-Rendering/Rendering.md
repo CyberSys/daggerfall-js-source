@@ -64,6 +64,11 @@ directory by `test/audit18_bible_docs.test.js`:
   the air pass's emission replay all key through it, so a batch recorded for
   the maps without being drawn (SHADOW-REACH) casts its current frame. A
   leaf: no GL, no imports.
+- `classicShadowLane.js` - IIL2 IMPROVED INTERIOR LIGHTING'S OWN SHADOWS: the Enhanced
+  Lighting lane's programs with Daggerfall's look put back (no colour decode, no
+  tonemap, the classic falloff, no highlight, no eye adaptation, no air), so the
+  shadow maps can draw under the classic look; the renderer hides it from the
+  hosts (`lightingLane` answers null).
 - `cloudShadow.js` - EE5 / VC4 THE CLOUD SHADOW BLOCK: the uniforms and
   the reader (`cloudShadowAt`) that answer how much sun reaches a point
   on the ground, off the map `volumetricClouds.js` writes. Its own leaf

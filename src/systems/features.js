@@ -377,6 +377,21 @@ export const FEATURES = Object.freeze([
     // sprites the lane already leaves to the player.
     control: Object.freeze({ store: 'prefs', key: 'enhancedLighting', initial: true, online: 'player' }),
   }),
+  // IIL1-T (2026-09-27, Mac: "add an alternative light on off option to test the modded lighting"): Improved Interior
+  // Lighting off, on, or on with shadows - it only ever acts with its .dfmod attached (systems/improvedInteriorLighting.js);
+  // "With shadows" runs its lights on the Enhanced Lighting lane, whose shadow maps the classic lane does not have.
+  Object.freeze({
+    id: 'modded-lighting',
+    group: 'sight',
+    title: 'Modded lighting (Improved Interior Lighting)',
+    note: 'Only with the Improved Interior Lighting mod attached: its warm, flickering lights in place of the classic '
+      + 'lighting. With shadows, lamps, people and monsters cast soft shadows too.',
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    // IIL1-T2 (Mac: "i dont want to [edit the address] thats why i wanted the options added"): the shadows the test
+    // door gave, as the row's third tier
+    control: Object.freeze({ store: 'prefs', key: 'moddedLighting', initial: 'on', online: 'player', tiers: Object.freeze([['off', 'Off'], ['on', 'On'], ['shadows', 'With shadows']]) }),
+  }),
   // FT7 (2026-09-14): THE TWO QUALITY TIERS OF THE ENHANCED OUTDOORS
   // (PERF1) - the grass field's fraction and the clouds' march. Both
   // are inert unless the outdoors row above is on (world.js gates the

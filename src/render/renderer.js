@@ -1908,7 +1908,11 @@ export class Renderer {
 
   /** EL1: the installed lane (EL_LANE) or null - what a host hands the far
    *  ring and reads its lantern colour by. */
-  get lightingLane() { return this._lane; }
+  // IIL2: a CLASSIC-LOOK lane (render/classicShadowLane.js - Improved Interior Lighting's shadows) is a lane to the
+  // renderer and not to the hosts: they keep their classic colours, ambients and fog under it, so this answers null
+  get lightingLane() { return this._lane?.classicLook ? null : this._lane; }
+  /** IIL2: the installed lane's key, whatever its look ('enhanced-lighting', 'classic-shadows'), or null. */
+  get installedLaneKey() { return this._lane?.key ?? null; }
   /** EL1: the lane's exposure, for a foreign pass that lights on the lane (the far ring). */
   get exposure() { return this._exposure; }
 

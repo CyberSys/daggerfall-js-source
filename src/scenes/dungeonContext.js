@@ -8,6 +8,7 @@
 // original-archive sizes while pixels come from the table archive,
 // which is exactly the dungeon convention already on record.
 
+import { IIL_LIGHT_ARCHIVE } from '../systems/improvedInteriorLighting.js';   // IIL1
 import { FlatAnimator, armFlatAnim, MISSILE_FPS } from '../render/flatAnimation.js';   // FA1: the flats that move
 import { markFoeStruck } from '../ui/hudFoeTarget.js';
 import { quickslotHand } from '../ui/quickslotTags.js';   // DISC21-C: an empty quickslot press reads the hand   // PX30
@@ -427,6 +428,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  FlatTypes.NPC and :343-349 gives that type a trigger BoxCollider. */
   const people = [];
   const lights = [];
+  const iilLightFlats = [];   // IIL1: Improved Interior Lighting hangs its dungeon lights on these
   const waterQuads = [];
   let _waterArchive = null;   // WATER-D1: the climate ground archive whose record 0 is the water tile - the host names it after the build
   let _waterT = 0;            // WATER-D1: the scroll clock, in seconds of drawn frames
@@ -722,6 +724,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // A2 ambient sources: burning torches (RDBLayout.IsTorchFlat,
       // 210/{0,1,6,16..20}) loop within 5; animal flats (201) bark on
       // the classic random cadence within 19.2.
+      if (f.archive === IIL_LIGHT_ARCHIVE) iilLightFlats.push({ x: f.x + b.originX, y: f.y, z: f.z + b.originZ });   // IIL1: every light billboard's centre (an RDB flat's y is its centre)
       if (f.archive === TORCH_ARCHIVE && TORCH_RECORDS.has(f.record)) {
         torches.push({ pos: [f.x + b.originX, f.y, f.z + b.originZ], handle: null });
       } else if (f.archive === ANIMALS_ARCHIVE && ANIMAL_SOUND_BY_RECORD[f.record] != null) {
@@ -1762,7 +1765,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:10523 / exterior.js:3702), set
+  // host's own townTalk sink (world.js:10529 / exterior.js:3707), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2340,7 +2343,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1296,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1297,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2872,7 +2875,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1099 against :1129; worldModes.js:7369 against :7395).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1104 against :1134; worldModes.js:7370 against :7396).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3555,8 +3558,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:17042,
-              // exterior.js:5275 and worldModes.js:8043 already ran;
+              // playerArrowHitFoe is the one copy world.js:17049,
+              // exterior.js:5280 and worldModes.js:8056 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -6521,6 +6524,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     droppedTorches, torchBatches: () => droppedTorches.batches(), torchLights: () => droppedTorches.lights(),   // HT1: the dropped torches, for the hosts' draw pass and light channel
     camps, campBatches: () => camps.batches(), campLights: () => camps.lights(),   // SURV3: the campfires, on the same two passes; the pool itself for the hosts' env (byFire) and the probes
     lights,
+    iilLightFlats,   // IIL1
     /** X11: the Light effect's candle. The engine owns the candle (it
      *  is the player's, and every casting host builds one engine); the
      *  LIGHT has to be handed out because each host builds its own

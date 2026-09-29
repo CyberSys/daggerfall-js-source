@@ -33,6 +33,7 @@
 // `scenes/dataSource.js`, which is the port's one data door.
 // ═══════════════════════════════════════════════════════════════════
 
+import { dfmodGeneration } from '../systems/dfmodTextures.js';   // DFMOD1-E: the icon cache keys on the attached-mod set
 import { bitmapCanvas, color32Canvas } from './bitmapCanvas.js';
 // SURV-ART: the DOM door needs the VENDOR arm the GL door already has
 // (scenes/dataPipeline.js getTexture). A vendored archive has no
@@ -114,8 +115,12 @@ const iconKey = (archive, record, scale, dye, dyeTarget) => {
  * when a cold record lands so the screen can repaint itself. A record
  * that is already cached fires nothing, so a repaint cannot loop.
  */
+let _iconsGen = -1;   // DFMOD1-E: the attached-mod set the icon cache was drawn from
 export function requestIcon(archive, record, { scale = 2, onReady = null, dye = null, dyeTarget = null } = {}) {
   if (!Number.isInteger(archive) || !Number.isInteger(record) || record < 0) return null;
+  // DFMOD1-E: an icon drawn before the attached texture mods landed (or changed) is not the answer after - the
+  // cache is dropped whole when the set changes, and every icon is asked again
+  if (_iconsGen !== dfmodGeneration()) { icons.clear(); _iconsGen = dfmodGeneration(); }
   const token = dyeToken(dye);
   const key = iconKey(archive, record, scale, dye, dyeTarget);
   if (icons.has(key)) return icons.get(key);
@@ -229,8 +234,11 @@ let dollCache = null;   // { version, scale, url }
  * are either composed or they are not, and the caller asks again on
  * its next repaint.
  */
-export function paperDollDataUrl(pixels, { scale = 3 } = {}) {
+export function paperDollDataUrl(pixels, { scale: asked = 3 } = {}) {
   if (!pixels?.rgba) return null;
+  // DFMOD4: `scale` is the size asked for in CLASSIC doll pixels; a composite already `density` texels per doll pixel
+  // (a texture mod's 4x doll) is scaled by what is left, so its detail reaches the screen rather than being blocked up
+  const scale = Math.max(1, Math.round(asked / (pixels.density ?? 1)));
   if (dollCache && dollCache.version === pixels.version && dollCache.scale === scale) return dollCache.url;
   try {
     const canvas = document.createElement('canvas');
