@@ -62,7 +62,7 @@ test('LEVEL-PCT: the report - a character the bar levels reads the bar on the cl
 });
 
 test('LEVEL-PCT: the Oghma Infinium\'s window reads the bar too - the crown asks the character\'s law, not the screen\'s lane', () => {
-  // AUDIT 28d (the level lane): the book mounts the CLASSIC rollout for a character the mod's bar levels
+  // AUDIT 28e (the level lane): the book mounts the CLASSIC rollout for a character the mod's bar levels
   // (charSheetDoor: an Oghma level-up is never the mod's window), and its crown read the skill sum - 14 of 15 beside
   // the box's 12%, LEVEL-PCT's own mismatch inside Enhanced Plus.
   const v = played(LEVELING_VIRTUE);
@@ -85,7 +85,7 @@ test('LEVEL-PCT: the bar reads the same on both screens at its ends - held to 0.
     assert.equal(levelProgressPercent(v), pct, `bar ${bar}`);
     assert.equal(levelProgress(v, viewOnlyScreen(v, true)).now, pct, `the crown's bar ${bar}`);
   }
-  // ...and the mod's own canvas window prints the same reading (AUDIT 28d: it printed the raw field).
+  // ...and the mod's own canvas window prints the same reading (AUDIT 28e: it printed the raw field).
   const src = readFileSync(new URL('../src/ui/virtueLevelUp.js', import.meta.url), 'utf8');
   const at = src.indexOf('    at(`bar ');
   assert.ok(at > 0, 'the canvas window\'s bar line');
@@ -95,7 +95,7 @@ test('LEVEL-PCT: the bar reads the same on both screens at its ends - held to 0.
 test('LEVEL-PCT: the classic box is LevelButton_OnMouseClick in DFU\'s own precision (`float currentLevel`, a single)', () => {
   // (current - starting + 28) / 15f, its fraction truncated to a percent - the values DFU's single-precision
   // arithmetic prints over a level's fifteen spans (the sum never falls below its start, so 28 to 42). A double reads
-  // 36 as 39 and 39 as 60; DFU prints 40 and 59 (AUDIT 28d: the first pin's window began at 26, and its example, 27,
+  // 36 as 39 and 39 as 60; DFU prints 40 and 59 (AUDIT 28e: the first pin's window began at 26, and its example, 27,
   // is a span no character reaches).
   const dfu = [86, 93, 0, 6, 13, 20, 26, 33, 40, 46, 53, 59, 66, 73, 79];
   const port = dfu.map((_, i) => levelProgressPercent({ startingLevelUpSkillSum: 100, currentLevelUpSkillSum: 100 + i }));

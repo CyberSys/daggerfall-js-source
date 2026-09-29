@@ -8,7 +8,7 @@
 // fare, and Begin gold-checked that fare). SHIP-SAIL (Mac, of the Overworld taking the map's passage itself: "Shouldn't
 // it already function as such?"): where the Overworld refuses a place across the water and the map's passage sails
 // there, the Overworld OFFERS the passage and takes it, priced by the map's own popup headless (partyTripFare) - with
-// Come Sail Away on or off (AUDIT 28d: it was offered only with the mod on). Every place below is the retail MAPS.BSA's
+// Come Sail Away on or off (AUDIT 28e: it was offered only with the mod on). Every place below is the retail MAPS.BSA's
 // own (its region, its index, its pixel, its id); the source pins read CODE (test/codeOnly.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -151,14 +151,14 @@ test('SHIP-SAIL: where the walk is refused and the passage sails, the Overworld 
   assert.deepEqual(shown[0].rows, ['There is no way to Wayrest by land. Sail there by ship?', 'The journey costs 150 gold.', 'The voyage takes 3 days.']);
   answer(true);
   assert.deepEqual(journeys, [{ pick: { ...place }, opts: fare.opts, computed: fare.computed }]);
-  // AUDIT 28d: Yes ENDS the journey on the ground first - it drove on from the far shore back into the sea - and the
+  // AUDIT 28e: Yes ENDS the journey on the ground first - it drove on from the far shore back into the sea - and the
   // view stays down for the fade.
   assert.deepEqual(log, ['journey cleared', 'party asked', 'sailed']);
   // A day's voyage says so.
   reset(); fare = priced({ computed: { minutes: 600, totalCost: 40, piecesCost: 0 } });
   ask();
   assert.equal(shown[0].rows[2], 'The voyage takes 1 day.');
-  // Come Sail Away off: the passage is Daggerfall's, offered all the same (AUDIT 28d).
+  // Come Sail Away off: the passage is Daggerfall's, offered all the same (AUDIT 28e).
   reset(); csa = false; fare = priced();
   ask();
   assert.equal(shown.length, 1, 'offered with the boat mod off');
@@ -173,12 +173,12 @@ test('SHIP-SAIL: where the walk is refused and the passage sails, the Overworld 
   view.state = 'off';   // the box cut the view down
   answer(false);
   assert.deepEqual(journeys, []);
-  assert.deepEqual(log, ['view up'], 'No keeps the journey, and raises the Overworld the box cut down (AUDIT 28d)');
+  assert.deepEqual(log, ['view up'], 'No keeps the journey, and raises the Overworld the box cut down (AUDIT 28e)');
   reset(); view.state = 'off';
   ask();
   answer(false);
   assert.deepEqual(log, [], 'asked from the map, with no Overworld up, No raises none');
-  // A pending quest offer is handed over first and spends the press, as at the map's door (GiveOffer, AUDIT 28d).
+  // A pending quest offer is handed over first and spends the press, as at the map's door (GiveOffer, AUDIT 28e).
   reset(); offerPending = true;
   ask();
   assert.deepEqual([log, shown.length, said], [['offer handed over'], 0, []]);
@@ -191,7 +191,7 @@ test('SHIP-SAIL: where the walk is refused and the passage sails, the Overworld 
   reset(); fare = priced({ afford: false });
   ask();
   assert.deepEqual([said, shown.length], [['There is no way there by land. You cannot afford the journey (150 gold).'], 0]);
-  // ...and where the purse holds the fare but not the coin the inns want, it says the coin (AUDIT 28d).
+  // ...and where the purse holds the fare but not the coin the inns want, it says the coin (AUDIT 28e).
   reset(); fare = priced({ afford: false, coinsShort: true });
   ask();
   assert.deepEqual(said, ['There is no way there by land. You cannot afford the journey (50 gold in coin for the inns).']);
@@ -217,7 +217,7 @@ test('SHIP-SAIL: where the walk is refused and the passage sails, the Overworld 
   // ...and the route planner hands it the place it was asked for.
   codeHasOnce(fnOf('  function travelViewRouteTo('), /if \(!plan\) \{ tvSeaNoWay\(from, summary\.pixel, means, net, 'land', summary\); return false; \}/);
   // A passage from the DECK caches the deck's scene first, as performFastTravel does (:330-332) - after the pre-travel
-  // event, before the teleport (AUDIT 28d: SHIP-PORT opened this door and the step was never carried).
+  // event, before the teleport (AUDIT 28e: SHIP-PORT opened this door and the step was never carried).
   const fast = fnOf('  async function fastTravelTo(pick, opts, computed) {');
   codeHasOnce(fast, /if \(isOnShip\(playerEntity, playerEntity\.boardShipPosition \?\? null, playerTravelPixel\(\)\)\) cacheExteriorScene\(playerTravelPixel\(\)\);/);
   const code = codeOnly(fast);
@@ -246,7 +246,7 @@ test('SHIP-SAIL: the passage is priced by the map\'s own popup, which prices its
   const dry = fareOf(ALDINGHOPE, () => 231);
   assert.equal(dry.travelShip, false, 'no water between and no harbour there: "a ship is not needed" - no passage to offer');
   codeHasOnce(fnOf('  function partyTripFare(to, opts) {'), /pop\.enforceShipRestriction\(\);\s*pop\.refresh\(\);/, 'the same steps the offer prices by');
-  // partyTripFare itself, mounted over the real popup: the gate's two halves told apart (AUDIT 28d) - coins short of the
+  // partyTripFare itself, mounted over the real popup: the gate's two halves told apart (AUDIT 28e) - coins short of the
   // inns' nights while the purse holds the fare, or the purse short of the fare.
   const purse = { gold: 1000, pieces: 1000 };
   const tripFare = new Function('d', `const { TravelPopUpWindow, travelFareDeps, playerTravelOrigin, maps, travelLocationSummaryAt, mapDict, guildFastTravel, playerEntity, diseaseCount, poisonCount } = d;\n${fnOf('  function partyTripFare(to, opts) {')}\nreturn partyTripFare;`)({

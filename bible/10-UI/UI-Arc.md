@@ -17044,7 +17044,7 @@ live value above or below its permanent one (DaggerfallUnityStatIncreasedTextCol
 star's figure is still the permanent one the presses move, and the line under it says the rest: "100 with its bonus - a
 point here shows only once that ends", "93 with its bonus", "43 for now". A view (Ascend from the Stats page) now shows
 the Stats page's own numbers. The classic skin's rollout is DFU's window and is untouched (DFU blanks the sheet's
-labels while levelling, :406-421). AUDIT 28d: the tint and the star's screen-reader words are the rows' own
+labels while levelling, :406-421). AUDIT 28e: the tint and the star's screen-reader words are the rows' own
 (`liveTint`, `starLabel` in `ui/levelUpView.js`), pinned with the two colours and the folds' channel; the tint outranks
 a raised star's gold and yields to a full star's grey, by specificity; a point held at a FLOOR (a drained vampire by
 day, held at 1) is flagged as one at the ceiling is. THE LINE MOVED: in the pick name it wrapped to four lines on a
@@ -17052,8 +17052,8 @@ phone and came and went with the choice, so the figure jumped and a tap landed o
 now sits over its own blurb, and all eight lie in ONE grid cell with only the chosen one seen - the band is the
 tallest's whichever star is chosen, which also ends the blurbs' own jump (Luck's ran a line longer at some widths, and
 its blurb is a line shorter now); on a phone or a short screen the line takes its blurb's place. The level lane's
-probes, re-run: every aimed tap lands at every size tried, plain or cursed. `test/disc28d_ascendlive.test.js` (7),
-mutants in `tools/mutants/disc28d.json` (28).
+probes, re-run: every aimed tap lands at every size tried, plain or cursed. `test/disc28e_ascendlive.test.js` (7),
+mutants in `tools/mutants/disc28e.json` (28).
 
 ## LV2 - THE RISING: the enhanced level-up notification (2026-09-19, Mac)
 

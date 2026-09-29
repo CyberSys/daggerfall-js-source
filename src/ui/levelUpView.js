@@ -156,7 +156,7 @@ export const ATTRIBUTE_BLURB = Object.freeze({
   // combat/formulas.js:306-307 again - the same term agility rides -
   // and systems/unleveledLoot.js:95, where the vendored ladder rolls
   // rarity against the player's luck, which is where a player actually
-  // notices it. (AUDIT 28d: a line shorter - at 360 to 375 wide it was the one blurb that ran to a third line, and
+  // notices it. (AUDIT 28e: a line shorter - at 360 to 375 wide it was the one blurb that ran to a third line, and
   // the tallest sets the Ascension's band.)
   luck: 'Rides every swing with agility, and tilts what the dead and dungeons hold.',
 });
@@ -317,7 +317,7 @@ export const liveAttribute = (entity, key, permanent) =>
 
 /** A row's live reading: the value, and whether a press the row allows would show in it - `capped` is a point the
  *  law takes that the live value cannot show: at the ceiling, or held at a floor (a vampire's day never takes a stat
- *  below 1). Asked of liveStat itself, one point on (AUDIT 28d: the ceiling alone was asked). */
+ *  below 1). Asked of liveStat itself, one point on (AUDIT 28e: the ceiling alone was asked). */
 const liveOf = (entity, key, value, canRaise) => {
   const live = liveAttribute(entity, key, value);
   return { live, capped: canRaise && liveAttribute(entity, key, value + 1) === live };
@@ -357,7 +357,7 @@ export function rolloutRows(screen) {
 }
 
 /** ASCEND-LIVE: the line under the pick, when what the character HAS is not the permanent value the presses move -
- *  and, where a point would not show, that it would not. Empty when the two agree. One line on a phone (AUDIT 28d:
+ *  and, where a point would not show, that it would not. Empty when the two agree. One line on a phone (AUDIT 28e:
  *  "...shows only once that ends" wrapped to four); the star's own words say the rest. */
 export function liveNote(row) {
   if (!row || row.live === row.value) return '';
@@ -370,7 +370,7 @@ export function liveNote(row) {
 export const liveTint = (row) => (!row ? '' : row.live > row.value ? 'boosted' : row.live < row.value ? 'lowered' : '');
 
 /** A star's words for a screen reader: the figure it wears, the permanent value under it where the two differ, the
- *  points placed, and a point the law takes that would not show (AUDIT 28d: built in the window, unpinned). */
+ *  points placed, and a point the law takes that would not show (AUDIT 28e: built in the window, unpinned). */
 export function starLabel(row) {
   return `${row.label} ${row.live}${row.live !== row.value ? ` (${row.value} of its own)` : ''}`
     + `${row.delta > 0 ? `, raised by ${row.delta}` : ''}${row.canRaise ? '' : ', cannot raise'}`
@@ -538,7 +538,7 @@ export function levelUpCrown(entity, screen) {
  * (rollOverLevelProgress) named beside it - for a character the mod's
  * law levels, whichever screen is up: the Oghma Infinium mounts the
  * classic rollout for them too, and its crown read the skill sum that
- * levels nothing for them (AUDIT 28d, LEVEL-PCT's mismatch inside
+ * levels nothing for them (AUDIT 28e, LEVEL-PCT's mismatch inside
  * Enhanced Plus; the classic Level box asks the same question).
  */
 export function levelProgress(entity, screen) {

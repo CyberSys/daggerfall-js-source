@@ -333,7 +333,7 @@ before the app is ready, asks `lib/frameRate.cjs` for the player's saved `Video/
 targetFrameRate does with VSync off; VSync on, the default, launches exactly as before. The settings screen offers
 the VSync switch in the app only, and says it takes effect the next time the app starts.
 
-AUDIT 28d: the switches are read ONCE (`FRAME_SWITCHES`) and the page is told what this launch runs with - the preload's
+AUDIT 28e: the switches are read ONCE (`FRAME_SWITCHES`) and the page is told what this launch runs with - the preload's
 `daggerShell.framesLifted`, over the sync `dagger:frames-lifted` - because with the wait lifted the page must pace its
 own frames (`src/systems/frameCap.js` installFramePacer; a held frame would cost a whole refresh). The launch read is
 one file (`lib/fileStorage.cjs` readPref), not a whole store: building one listed every save slot before the

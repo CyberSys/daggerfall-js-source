@@ -526,7 +526,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 .tier.live { background: var(--verdigris); }
 .tier.unavailable { background: var(--blood); }
 /* FPS-VSYNC: a key the desktop app reads at its next start - live, but
-   not yet: the live colour as a ring (AUDIT 28d: it wore the stored
+   not yet: the live colour as a ring (AUDIT 28e: it wore the stored
    tier's grey). */
 .tier.restart { background: transparent; box-shadow: inset 0 0 0 1.5px var(--verdigris); }
 /* SO1: TIER IS A GROUP. The live rows sit flat; the stored and the
@@ -5200,7 +5200,7 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
    over its blurb says so in words. The tint outranks a RAISED star's gold
    (a point spent where it cannot show must still read as the bonus's) and
    yields to a FULL star's grey (a star that takes no point says that
-   first) - by specificity, not by which sheet came last (AUDIT 28d). */
+   first) - by specificity, not by which sheet came last (AUDIT 28e). */
 .lv-star.boosted:not(.full) .lv-val { color: rgb(178,207,255); text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .lv-star.lowered:not(.full) .lv-val { color: rgb(190,85,24); text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 /* THE LINE: one line, never two - it sits over the blurb in the
@@ -5212,7 +5212,7 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
 .lv-blurb { color: #c5bda2; font-size: 16px; line-height: 1.5; margin: 2px 0 0; max-width: 62ch;
   text-align: center; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); display: grid; }
 /* The eight in one cell, the chosen one seen: the band's height is the
-   tallest's, whichever is chosen (AUDIT 28d). */
+   tallest's, whichever is chosen (AUDIT 28e). */
 .lv-blurb > .lv-about { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
 .lv-blurb > .lv-about.on { visibility: visible; }
 .lv-about > p { margin: 0; }
@@ -5220,7 +5220,7 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
    blurb's place rather than a line of its own, so a cursed character's
    column is as tall as anyone's - at 360 wide a line's 17px was a figure
    whose stars overlapped, and at 844x390 it pushed Ascend, the one way
-   out, below the screen (AUDIT 28d). */
+   out, below the screen (AUDIT 28e). */
 @media (max-width: 480px), (max-height: 620px) {
   .lv-about:has(> .lv-live:not(:empty)) > p { display: none; }
 }

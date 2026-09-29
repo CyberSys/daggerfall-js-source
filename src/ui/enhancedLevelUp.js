@@ -318,7 +318,7 @@ export function mountEnhancedLevelUp(hostEl, d = {}) {
   // THE ABOUT KEEPS ITS ROOM. Each attribute's words - ASCEND-LIVE's line (what it IS, when that is not what the
   // presses move) over its blurb - lie in ONE cell with the other seven's, and only the chosen one is seen: the band is
   // as tall as the tallest, so choosing a star never moves the figure above it, and a line rides in the room a
-  // shorter blurb leaves. AUDIT 28d: the line sat in the pick name, wrapped to four lines on a phone and came and
+  // shorter blurb leaves. AUDIT 28e: the line sat in the pick name, wrapped to four lines on a phone and came and
   // went with the choice - the figure jumped and a tap landed on the wrong star; on a desktop it widened the pick under
   // the pointer; and Luck's second blurb line at 800x600 lifted its own star from under the pointer between the tap
   // that chose it and the tap that spent on it.

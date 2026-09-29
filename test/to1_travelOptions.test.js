@@ -1649,7 +1649,7 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   const m = read('src/ui/travelMapWindow.js');
   assert.match(m, /if \(code === 'KeyN' \|\| code === 'Escape'\) \{ this\._click\(\); this\.top = null; \}\s*\n\s*return;\s*\n\s*\}\s*\n\s*\/\/ TO1 \(:477-497\): the teleport fee/);
   // D1: the two reads the popup needed - the location through SHIP-PORT's travelOriginMapId since 2026-09-28:
-  // PlayerGPS.CurrentLocation's MapId ashore, the boarding port's on the player's own ship (disc28d_shipport)
+  // PlayerGPS.CurrentLocation's MapId ashore, the boarding port's on the player's own ship (disc28e_shipport)
   assert.match(w, /currentLocationMapId: \(\) => travelOriginMapId\(\),/);
   assert.match(w, /if \(from\.x === here\.x && from\.y === here\.y\) return _musicLoc\?\.mapTableData\?\.mapId \?\? null;/);
   assert.match(w, /isOnShip: \(\) => isOnShip\(playerEntity, playerEntity\.boardShipPosition \?\? null, playerTravelPixel\(\)\),/);

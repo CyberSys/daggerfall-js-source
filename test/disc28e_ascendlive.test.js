@@ -96,7 +96,7 @@ test('ASCEND-LIVE: a vampire by day reads lower and by night higher - the live v
 });
 
 test('ASCEND-LIVE: a point held at a FLOOR is flagged as one at the ceiling is - a vampire\'s day never takes a stat below 1', () => {
-  // AUDIT 28d (the level lane): `capped` asked the ceiling alone, so a drained vampire by day - Strength held at 1 -
+  // AUDIT 28e (the level lane): `capped` asked the ceiling alone, so a drained vampire by day - Strength held at 1 -
   // took points that showed nothing and said only "1 for now". Now the row asks liveStat one point on.
   const p = character();
   assert.ok(createVampirismCurse(p, 0, { now: NIGHT }));
@@ -135,7 +135,7 @@ test('ASCEND-LIVE: the live value folds the modifier channels too - a set\'s or 
   // The producer's own mint: a fold registered on the one registry, summed onto _mods by computeEntityMods (an equip
   // change or a magic round runs it), read by liveStat's fold arm.
   const p = character();
-  registerEntityFold('disc28d-test', (e) => (e === p ? { stats: { strength: 7, luck: -5 } } : null));
+  registerEntityFold('disc28e-test', (e) => (e === p ? { stats: { strength: 7, luck: -5 } } : null));
   try {
     computeEntityMods(p);
     const s = new LevelUpScreen(p, seq(0), { fanfare: false });
@@ -143,7 +143,7 @@ test('ASCEND-LIVE: the live value folds the modifier channels too - a set\'s or 
     assert.deepEqual([row(s, 'luck').value, row(s, 'luck').live, liveTint(row(s, 'luck'))], [57, 52, 'lowered']);
     assert.deepEqual(rolloutRows(s).map((r) => r.live), sheetModel(p).attributes.map((a) => a.value), 'the Stats page\'s numbers');
   } finally {
-    registerEntityFold('disc28d-test', null);
+    registerEntityFold('disc28e-test', null);
   }
 });
 
@@ -160,7 +160,7 @@ test('ASCEND-LIVE: the stars wear the classic sheet\'s own two colours - over a 
   assert.equal(ruleColour('.lv-star.lowered:not(.full) .lv-val'), rgb(STAT_DRAINED_COLOR));
   assert.equal(ruleColour('.lv-live'), rgb(STAT_INCREASED_COLOR));
   assert.equal(ruleColour('.lv-live.lowered'), rgb(STAT_DRAINED_COLOR));
-  // THE CASCADE, by specificity (AUDIT 28d: the Plus sheet's raised gold is appended after this sheet and won at equal
+  // THE CASCADE, by specificity (AUDIT 28e: the Plus sheet's raised gold is appended after this sheet and won at equal
   // weight; the tint came after the full grey and won that). A class or a :not(.class) weighs one.
   const weight = (sel) => (sel.match(/\.[\w-]+/g) || []).length;
   assert.ok(strip(LV2_CSS).includes('\n.lv-star.raised .lv-val {'), 'the raised gold');

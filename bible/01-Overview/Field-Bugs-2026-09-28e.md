@@ -1,8 +1,8 @@
-# FIELD BUGS 2026-09-28d - the deck, the level box, the cursed stars, the passage, the frame rate
+# FIELD BUGS 2026-09-28e - the deck, the level box, the cursed stars, the passage, the frame rate
 
 Mac, with four screenshots of the Discord's bug-reports threads and one line of Mac's own. This page is the batch's
 record; each fix has its own section below. Then Mac's answers to the page's own questions: SHIP-SAIL and FPS-VSYNC.
-Mutants: `tools/mutants/disc28d.json` (95: 93 dead, 2 recorded equivalent - AUDIT 28d, below).
+Mutants: `tools/mutants/disc28e.json` (95: 93 dead, 2 recorded equivalent - AUDIT 28e, below).
 
 The list, as the screenshots carried it:
 
@@ -56,7 +56,7 @@ of a boat's five nodes reads land (`03-World/Come-Sail-Away.md`, seen on Daggerf
 a port by the byte within its search square - both 1:1. CORRECTED: this page first said the classic window and a
 party's fare run the mod's guard before pricing the trip, so a fresh popup read the ocean as none. They do not - the
 popup prices itself as it is built (`TravelPopUpWindow`'s constructor ends in `refresh()`), so its guard sees the
-water; `test/disc28d_shipport.test.js` pins it through the real popup. `test/disc28d_shipport.test.js` (5).
+water; `test/disc28e_shipport.test.js` pins it through the real popup. `test/disc28e_shipport.test.js` (5).
 
 ## LEVEL-PCT: the classic Level box reads the law that levels the character (2)
 
@@ -73,7 +73,7 @@ Found beside it: the box's DFU arithmetic was a double's. DFU holds the level in
 (DaggerfallCharacterSheetWindow.cs:782), so the quotient is a single before its fraction is taken; in a double 36/15's
 fraction is 0.3999... and 39/15's 0.6000..., and the box read 39% and 60% where DFU's reads 40% and 59% - two of
 the fifteen spans a level has (the sum never falls below its start, so 28 to 42). It is a single now (`Math.fround`),
-pinned against DFU's own values for those fifteen. `test/disc28d_levelpct.test.js` (4), seven mutants.
+pinned against DFU's own values for those fifteen. `test/disc28e_levelpct.test.js` (4), seven mutants.
 
 ## ASCEND-LIVE: the Ascension's stars wear what the character has (4)
 
@@ -86,7 +86,7 @@ press the law allows would show; the star wears the live value, tinted as the cl
 or below its permanent one, and the chosen star's line says it in words: "100 with its bonus - a point here shows only
 once that ends". The presses, the caps and the exit gate are unchanged. The classic skin's level-up is DFU's own
 window (DFU draws the permanent values there too) and is untouched. `10-UI/UI-Arc.md` ASCEND-LIVE;
-`test/disc28d_ascendlive.test.js` (7), twenty-eight mutants.
+`test/disc28e_ascendlive.test.js` (7), twenty-eight mutants.
 
 ## THE READING: the phone's attribute rows (1)
 
@@ -129,8 +129,8 @@ refused by the map door's own rungs (foes near, the sun, indoors - `partyTravelR
 takes it: a party gathered is asked first, then the fade and `fastTravelTo`. A purse that cannot pay is told so ("You
 cannot afford the journey (150 gold).") and not asked; where the passage's own law refuses the place - no port here -
 the boat's line stands (with Come Sail Away off, the plain refusal). The passage is Daggerfall's, so it is offered
-whatever that mod says (AUDIT 28d: it was offered only with the mod on). The same offer answers both doors to it: a
-town clicked in the Overworld, and a place picked on the map with By land chosen. `test/disc28d_shipport.test.js` (the
+whatever that mod says (AUDIT 28e: it was offered only with the mod on). The same offer answers both doors to it: a
+town clicked in the Overworld, and a place picked on the map with By land chosen. `test/disc28e_shipport.test.js` (the
 offer and the popup's pricing), twenty-three mutants.
 
 ## FPS-VSYNC: the desktop app runs past the screen, as DFU does (Mac's answer)
@@ -138,7 +138,7 @@ offer and the popup's pricing), twenty-three mutants.
 Asked whether the desktop app should run above the screen's refresh, Mac: *"Yes"*. Done by DFU's own law for VSync
 off (StartGameBehaviour.cs:238-250): frames do not wait for the screen, and the Frame Rate Cap is what holds them (Off
 lets them run free). With VSync on, DFU's cap does nothing; this one still holds frames back below the screen - FPS-CAP1's
-departure, which stands there, in the app as in a browser (AUDIT 28d: this page first said the app keeps DFU's rule
+departure, which stands there, in the app as in a browser (AUDIT 28e: this page first said the app keeps DFU's rule
 whole). A page cannot stop waiting; the app's Chromium can, if told before it starts. So the shell reads the player's saved VSync at launch
 (`app/lib/frameRate.cjs`: the page's own settings blob in the shell's file store, read as the page's GetBool reads it)
 and, with it off, lifts both of Chromium's waits (`disable-gpu-vsync`, `disable-frame-rate-limit`); the page's cap
@@ -146,10 +146,10 @@ and, with it off, lifts both of Chromium's waits (`disable-gpu-vsync`, `disable-
 runs uncapped unless its player turns VSync off. In the app the VSync row is a real switch now, said to take effect
 the next time the app starts (the settings screen's `restart` tier); in a browser it stays unavailable. The report's
 "300 FPS but limited to 60 (possibly by vsync)" is answered in the app: turn Wait For Screen Refresh off, restart.
-`test/disc28d_vsync.test.js` (7), twenty-seven mutants. Measured in Electron under Xvfb (AUDIT 28d, below); not on a
+`test/disc28e_vsync.test.js` (7), twenty-seven mutants. Measured in Electron under Xvfb (AUDIT 28e, below); not on a
 real desktop GPU.
 
-## AUDIT 28d (2026-09-29, Mac: "Please audit this")
+## AUDIT 28e (2026-09-29, Mac: "Please audit this")
 
 Four lanes over a frozen snapshot of the batch (a worktree at 71354d35), each told to reproduce before it reported -
 SEA (the deck, the passage, the offer), LEVEL (the box and the stars), FRAME (the shell's VSync), RECORDS (the pages,
@@ -228,13 +228,13 @@ citeShift has moved the historical quotes in `test/citedrift.test.js` at every b
 
 ## Records
 
-- Tests: `test/disc28d_levelpct.test.js` (4), `test/disc28d_ascendlive.test.js` (7), `test/disc28d_shipport.test.js`
-  (5), `test/disc28d_vsync.test.js` (7) - each red before its fix, but for pins that hold a correction or a mutant
+- Tests: `test/disc28e_levelpct.test.js` (4), `test/disc28e_ascendlive.test.js` (7), `test/disc28e_shipport.test.js`
+  (5), `test/disc28e_vsync.test.js` (7) - each red before its fix, but for pins that hold a correction or a mutant
   rather than a fix: the shipport popup's pricing (it held before the batch too), and ascendlive's fold and colours.
   The layout's proof is the level lane's browser probes (aimed taps, band heights, the exit), re-run after the fix;
   the pacer's, the frame lane's Electron harness.
-  `test/codeOnly.mjs`, the source pins' code reader (AUDIT 28d).
-- Mutants: `tools/mutants/disc28d.json` (95: 93 dead; the deck's column and the percent's scale recorded equivalent);
+  `test/codeOnly.mjs`, the source pins' code reader (AUDIT 28e).
+- Mutants: `tools/mutants/disc28e.json` (95: 93 dead; the deck's column and the percent's scale recorded equivalent);
   `lv1.json`'s `canRaise-restates-the-law-instead-of-asking-it` re-aimed by content (the row's `canRaise` is a const
   now), dead.
 - Citations: `tools/citeShift.mjs --apply` (93 moved) and the four struck `world.js` cites CD4 reads moved by hand;

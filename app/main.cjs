@@ -57,7 +57,7 @@ else app.setPath('userData', path.join(app.getPath('appData'), 'Daggerfall JavaS
 // FPS-VSYNC (2026-09-28): the player's saved VSync, read BEFORE the app is ready - Chromium takes its switches at
 // launch or never. VSync off lifts the screen's wait, and the page's Frame Rate Cap holds the frames instead
 // (DFU's own law, app/lib/frameRate.cjs). VSync on - DFU's default - changes nothing. Read ONCE: the page is told
-// what this launch runs with (dagger:frames-lifted, below) - its pacer is for a lifted wait only (AUDIT 28d).
+// what this launch runs with (dagger:frames-lifted, below) - its pacer is for a lifted wait only (AUDIT 28e).
 const FRAME_SWITCHES = frameRateSwitches(app.getPath('userData'));
 for (const s of FRAME_SWITCHES) app.commandLine.appendSwitch(s);
 
@@ -534,7 +534,7 @@ app.on('web-contents-created', (_e, contents) => {
 // The preload asks for its storage root synchronously at page boot -
 // storage must exist before the first module reads a setting.
 ipcMain.on('dagger:user-data-path', (e) => { e.returnValue = app.getPath('userData'); });
-// FPS-VSYNC (AUDIT 28d): whether this launch lifted Chromium's wait - the page paces its frames by the cap then
+// FPS-VSYNC (AUDIT 28e): whether this launch lifted Chromium's wait - the page paces its frames by the cap then
 // (src/systems/frameCap.js installFramePacer), since a held frame costs a whole refresh with the wait lifted
 ipcMain.on('dagger:frames-lifted', (e) => { e.returnValue = FRAME_SWITCHES.length > 0; });
 // ESC-LOCK (2026-09-27, Mac: "when you hit esc to leave a menu, your cursor remains on the screen"): Escape is no user

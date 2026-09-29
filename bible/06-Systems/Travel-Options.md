@@ -433,7 +433,7 @@ must be assigned there, never re-declared. Mutants
     mod's own `HasNoOceanTravel` (:93-96) names `IsOnShip`, the passage it
     meant. Ashore the rule reads exactly as the mod's. The boarding PLACE is
     what is read, not a harbour by fiat: a ship boarded in the wilderness
-    (DFU boards anywhere) reads no port from its deck, as there (AUDIT 28d).
+    (DFU boards anywhere) reads no port from its deck, as there (AUDIT 28e).
 
 ## AUDIT-TO1 (2026-09-18) - the audit of TO1, and what it found
 
@@ -1298,7 +1298,7 @@ not have. Why the journey climbed the wall at all was not looked into (TRAVEL-NA
 ## SHIP-PORT (2026-09-28) - the deck is no port
 
 The Discord through Mac: *"a player is at a port but unable to set sail"*. The batch's record is
-`01-Overview/Field-Bugs-2026-09-28d.md`; the three this arc owns:
+`01-Overview/Field-Bugs-2026-09-28e.md`; the three this arc owns:
 
 - **The deck.** A player who bought a ship and boarded it in a harbour stands on "Your Ship" (the bank's
   `SHIP_COORDS`, 2,2 or 5,5). The map's ship laws asked `IsNotAtPort` of that pixel, which neither list carries (the
@@ -1309,7 +1309,7 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
   The one dep bag both maps and a party's fare read (`travelFareDeps`) now hands the ship laws `travelOriginMapId`:
   where the player stands, unless they stand on their own ship - then the place the ship was boarded at. Departure 20.
   DFU boards the ship anywhere (`ShipAvailiable = HasShip`), so a ship boarded in the wilderness reads the
-  wilderness from its deck - no port, as it would ashore there (AUDIT 28d). A passage taken from the deck caches the
+  wilderness from its deck - no port, as it would ashore there (AUDIT 28e). A passage taken from the deck caches the
   deck's scene first, as `performFastTravel` does (:330-332), so what lies on the deck waits for the return.
 - **The re-bill.** The enhanced map's card priced the trip, THEN ran the mod's OnPush guard, and never priced it again:
   a guard that knocked the ship off left By land showing over the ship's days and fare, and Begin gold-checked that
@@ -1325,8 +1325,8 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
   rungs (`partyTravelRefusal`: foes near, the sun, indoors), and on Yes taken as the map takes it - a party gathered
   asked first, then the fade and `fastTravelTo`. A purse that cannot pay is told so and not asked; where the passage's
   own law refuses the place (no port here), the boat's line stands (with Come Sail Away off, the plain refusal). The
-  passage is Daggerfall's, so it is offered with that mod on or off (AUDIT 28d: the first version asked it only with
-  the mod on). AUDIT 28d too: Yes ENDS the journey on the ground first (the mod's `ClearTravelDestination` - it drove
+  passage is Daggerfall's, so it is offered with that mod on or off (AUDIT 28e: the first version asked it only with
+  the mod on). AUDIT 28e too: Yes ENDS the journey on the ground first (the mod's `ClearTravelDestination` - it drove
   on from the far shore back into the sea); No raises the Overworld the box cut down; a pending quest offer is handed
   over first (the map door's GiveOffer rung); a purse that holds the fare but not the inns' coin is told the coin. (A first draft of this record said the popup
   priced AFTER its guard and so read no ocean; the constructor's own refresh makes that false - corrected.)
@@ -1341,4 +1341,4 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
 `tools/mutants/audittravelstrafe2.json` (AUDIT TRAVEL-STRAFE2, 11 dead).
 `test/spawntravel.test.js`, `tools/mutants/spawntravel.json` (SPAWN-TRAVEL).
 `test/risestuck.test.js`, `tools/mutants/rise_stuck.json` (RISE-STUCK).
-`test/disc28d_shipport.test.js`, `tools/mutants/disc28d.json` (SHIP-PORT's ten, SHIP-SAIL's twenty-three).
+`test/disc28e_shipport.test.js`, `tools/mutants/disc28e.json` (SHIP-PORT's ten, SHIP-SAIL's twenty-three).

@@ -17,7 +17,7 @@
 // shell lifts Chromium's wait at launch (app/lib/frameRate.cjs), rAF
 // then runs past the screen, and the cap is what holds the frames -
 // DFU's targetFrameRate exactly, Off letting them run free - through
-// THE PACER below, not this gate alone (AUDIT 28d).
+// THE PACER below, not this gate alone (AUDIT 28e).
 //
 // HOW A FRAME IS HELD. Each host's rAF callback asks `frameCapSkip(now)`
 // before its clock stamp and its input frame (the pins in
@@ -42,7 +42,7 @@ export const FRAME_CAP_STOPS = Object.freeze([0, 30, 45, 60, 75, 90, 120, 144, 1
  *  screen dropping to 30. */
 export const FRAME_CAP_SLACK_MS = 1;
 /** THE PACER asks for its frame this much before the slot: the browser's answer takes about a millisecond, and an ask
- *  made after the browser's idle tick waits a whole refresh (FPS-VSYNC, AUDIT 28d; the frame lane's 1.5). */
+ *  made after the browser's idle tick waits a whole refresh (FPS-VSYNC, AUDIT 28e; the frame lane's 1.5). */
 export const PACER_LEAD_MS = 1.5;
 
 /** The cap in force for a stored value: frames a second, or 0 for none. */
@@ -80,7 +80,7 @@ const _state = { due: 0, at: -1, held: false };
 /** A host's question at the top of its frame: hold this one back? */
 export function frameCapSkip(now) { return capStep(_state, now, frameCapFps()); }
 
-/** THE PACER'S STAMP IS A SLOT (FPS-VSYNC, AUDIT 28d): the gate's one decision for `stamp` made "drawn", and the next
+/** THE PACER'S STAMP IS A SLOT (FPS-VSYNC, AUDIT 28e): the gate's one decision for `stamp` made "drawn", and the next
  *  slot booked as a drawn frame books it - an interval on from the slot it answers (so the cadence is the cap's, not the
  *  timer's), or from itself when a whole interval late. The pacer asks for its frame a little EARLY (a callback that
  *  arrives past an idle tick of the browser's waits a refresh), and a gate that held that early stamp would spend the
@@ -96,7 +96,7 @@ export function capTake(state, stamp, fps) {
 export function _resetFrameCap() { _state.due = 0; _state.at = -1; _state.held = false; }
 
 /**
- * THE PACER (FPS-VSYNC, AUDIT 28d: the frame lane measured it). With Chromium's frame-rate limit lifted, a rAF callback
+ * THE PACER (FPS-VSYNC, AUDIT 28e: the frame lane measured it). With Chromium's frame-rate limit lifted, a rAF callback
  * that draws nothing costs a whole refresh: the display scheduler waits out the screen's deadline for a frame with no
  * damage (display_scheduler.cc: `if (!needs_draw_) return kLate`), and the back-to-back begin-frame source ticks again
  * only after a frame finishes - so an ask that comes after an idle tick waits that tick's refresh out too. So the gate

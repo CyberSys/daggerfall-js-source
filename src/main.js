@@ -42,7 +42,7 @@ const bootWorld = (...a) => import('./scenes/world.js').then((m) => m.bootWorld(
 import { ensureArena2, getBytes } from './scenes/dataSource.js';
 import { installCursor } from './ui/cursor.js';
 import { mountFpsCounter } from './ui/fpsCounter.js';   // FPS1: the counter, over every host
-import { installFramePacer } from './systems/frameCap.js';   // FPS-VSYNC (AUDIT 28d): the desktop app's lifted wait, paced by the cap
+import { installFramePacer } from './systems/frameCap.js';   // FPS-VSYNC (AUDIT 28e): the desktop app's lifted wait, paced by the cap
 import { setScreenshotCanvas } from './ui/screenshot.js';   // KB1: the PrintScreen action's canvas - the key itself is routed by the hosts (AUDIT KB1)
 import { getPref } from './systems/uiPrefs.js';   // FPS1: its switch
 import { publishBootParams, BOOT_DOOR_KEYS } from './systems/onlineLane.js';   // MAC-N3: the boot's params are the URL, or the online lane reads nothing

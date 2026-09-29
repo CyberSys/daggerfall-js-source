@@ -65,7 +65,7 @@ test('FPS-VSYNC: the shell reads the value as the page\'s GetBool does - any cas
   assert.equal(savedVSync(root), true, 'unreadable: DFU\'s default, never a surprise uncapped launch');
   store.setItem(SETTINGS_PREF, JSON.stringify({ Video: { TargetFrameRate: '300' } }));
   assert.equal(savedVSync(root), true, 'a cap alone does not lift the wait - VSync decides, as in DFU');
-  // ONE file read at launch, no store built - the save slots are never listed (AUDIT 28d: 22 ms at 300 slots, before
+  // ONE file read at launch, no store built - the save slots are never listed (AUDIT 28e: 22 ms at 300 slots, before
   // the single-instance lock). fileStorage.cjs's readPref, the store's own spelling of the pref's file.
   const fs = require('node:fs');
   const listed = fs.readdirSync;
@@ -85,7 +85,7 @@ test('FPS-VSYNC: in the app VSync is a real setting read at the next start; in a
   assert.equal(formatValue(k, 'True'), 'On');
   assert.equal(TIER_TEXT.restart, 'Takes effect the next time the app starts.');
   assert.equal(tierOf('Video/TargetFrameRate'), 'live', 'the cap itself is live everywhere');
-  // Its dot is the live colour as a ring - not the stored tier's grey (AUDIT 28d).
+  // Its dot is the live colour as a ring - not the stored tier's grey (AUDIT 28e).
   const css = ENHANCED_CSS.replace(/\/\*[\s\S]*?\*\//g, '');
   const at = css.indexOf('.tier.restart {');
   assert.ok(at >= 0, 'the restart tier has a dot of its own');
@@ -109,7 +109,7 @@ test('FPS-VSYNC by source: the shell asks before the app is ready, over the page
   codeHasOnce(fnOf('function paneQuickSettings(pane) {'), /const liveKeys = paneKeys\(cat\.id\)\.filter\(\(key\) => tierOf\(key\) === 'live'\);/, 'Quick Settings keeps to what applies at once');
 });
 
-// THE PACER (AUDIT 28d, the frame lane: "with VSync off, the Frame Rate Cap cannot hold frames above the screen"). A
+// THE PACER (AUDIT 28e, the frame lane: "with VSync off, the Frame Rate Cap cannot hold frames above the screen"). A
 // clock of the test's own over the mechanism the lane measured in the app: with the wait lifted, a browser frame that
 // draws nothing costs a whole refresh (the next one waits for the screen's next tick), and one that draws answers the
 // next ask half a millisecond after it is made.

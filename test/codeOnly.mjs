@@ -1,4 +1,4 @@
-// A SOURCE PIN READS CODE, NEVER PROSE (AUDIT 28d). The records lane reverted five pinned lines and kept each old text
+// A SOURCE PIN READS CODE, NEVER PROSE (AUDIT 28e). The records lane reverted five pinned lines and kept each old text
 // as a trailing comment - `currentLocationMapId: () => (_musicLoc)... // currentLocationMapId: () => travelOriginMapId(),`
 // - and every text pin on them stayed green: the hazard Testing.md already records ("A VACUOUS PIN CAUGHT ITSELF").
 // This is test/restwhere.test.js's walk made shared: `//` and `/* */` comments blanked, strings kept whole. It knows

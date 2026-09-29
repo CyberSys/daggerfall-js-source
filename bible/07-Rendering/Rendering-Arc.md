@@ -3307,14 +3307,14 @@ asked whether the desktop app should run above the screen's refresh: "Yes". The 
 page cannot stop waiting for the screen. The app's Chromium can, if told at launch, so the app now keeps DFU's own
 rule for VSync off (StartGameBehaviour.cs:238-250): frames do not wait for the screen, and the Frame Rate Cap holds
 them (Off lets them run free). VSync on, frames wait for the screen as before - and the cap still holds them back below
-it, where DFU's does nothing: the departure above stands there, in the app as in a browser (AUDIT 28d). The shell reads the saved `Video/VSync` before it is ready
+it, where DFU's does nothing: the departure above stands there, in the app as in a browser (AUDIT 28e). The shell reads the saved `Video/VSync` before it is ready
 (`app/lib/frameRate.cjs`, over the page's own settings blob and its GetBool reading) and, with it off, launches with
 `disable-gpu-vsync` and `disable-frame-rate-limit`; this file's gate then does the holding, up to 300. VSync on, the
 default, changes nothing. In the app the VSync row is a switch that takes effect at the next start (the settings
 tier `restart`, `systems/settings.js` SHELL_AT_LAUNCH); in a browser it stays unavailable. Record:
-`01-Overview/Field-Bugs-2026-09-28d.md`; pins `test/disc28d_vsync.test.js` (7).
+`01-Overview/Field-Bugs-2026-09-28e.md`; pins `test/disc28e_vsync.test.js` (7).
 
-**THE PACER (AUDIT 28d).** The gate above could not hold frames ABOVE the screen: with the wait lifted a browser frame
+**THE PACER (AUDIT 28e).** The gate above could not hold frames ABOVE the screen: with the wait lifted a browser frame
 that draws nothing costs a whole refresh (the display scheduler waits out the deadline of a frame with no damage), and
 a held callback is exactly that - 144, 240 and 300 each drew about 56. So where the shell lifted the wait
 (`daggerShell.framesLifted`, what main.cjs appended at THIS launch) `installFramePacer` stands in front of the page's

@@ -304,7 +304,7 @@ export class VirtueLevelUpScreen {
     at('[ OK ]', OK_X, PRESS_Y, this.purse === 0 ? hot : dim);
     // The bar the whole system is measured against, so a player can
     // see what carried over into the level they are starting.
-    // (levelBarProgress: the one reading the crown and the Level box draw - AUDIT 28d.)
+    // (levelBarProgress: the one reading the crown and the Level box draw - AUDIT 28e.)
     at(`bar ${levelBarProgress(this.entity)}/${LEVELUP_TOTAL}`
       + `${(this.entity.levelRollUp ?? 0) > 0 ? `  (+${this.entity.levelRollUp} carried)` : ''}`,
     ROW_X, PRESS_Y + 12, dim);

@@ -158,7 +158,7 @@ function parseDataUrl(value) {
 /** A pref's file - the one spelling getItem/setItem and readPref share. */
 const prefPath = (root, key) => path.join(root, PREFS_DIR, encodePrefName(key));
 
-/** ONE pref, read straight off its file: no store built, so no scan of Saves/ (FPS-VSYNC, AUDIT 28d: the shell's
+/** ONE pref, read straight off its file: no store built, so no scan of Saves/ (FPS-VSYNC, AUDIT 28e: the shell's
  *  launch read of the settings blob built a whole store for it - every slot's folder listed, before the single-instance
  *  lock, 22 ms at 300 slots). Absent or unreadable reads as null, localStorage's answer. */
 function readPref(root, key) {
