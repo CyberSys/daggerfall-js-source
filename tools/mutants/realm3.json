@@ -155,8 +155,8 @@
   {
     "name": "REALM3-customs-on-the-slot",
     "file": "src/ui/enhancedMenu.js",
-    "old": "    const copy = JSON.parse(JSON.stringify(snap));\n    const report = applyCustoms(copy);",
-    "new": "    const copy = snap;\n    const report = applyCustoms(copy);",
+    "old": "    const copy = onlineCopyOf(snap, sharedClassicMinutes(Date.now()));",
+    "new": "    const copy = snap;",
     "tests": [
       "test/realm3.test.js"
     ]

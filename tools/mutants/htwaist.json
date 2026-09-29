@@ -534,7 +534,7 @@
   {
     "name": "HT-WAIST-BACK-the-walker-pace-unmeasured",
     "file": "src/net/peerRiders.js",
-    "old": "    r.pace = stepPeerPace(r.pace, r.paceFeet, feet, dt);\n",
+    "old": "    r.pace = stepPeerPace(r.pace, r.paceKey === on ? r.paceFeet : null, at, dt);\n",
     "new": "",
     "tests": [
       "test/htwaistback.test.js"

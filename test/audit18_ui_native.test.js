@@ -48,6 +48,8 @@ function recorder() {
     drawScreenQuad: (tex, rect, uv, color) => quads.push({ tex, ...rect, uv, color }),
     // CG1: the listbox's RectRestrictedRenderArea (nativeTalk.js's topic list) - a clip, no quad
     setScreenScissor: () => {}, clearScreenScissor: () => {},
+    // PERF-2D: the talk window closes the frame's 2D run as its draw's last call (nativeTalk.js) - no quad either
+    endUiRun: () => {},
   };
 }
 const realFont = () => new FntFile().load(new Uint8Array(readFileSync(join(ARENA2, 'FONT0003.FNT'))));

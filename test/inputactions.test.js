@@ -71,6 +71,8 @@ test('I1: the Actions enum, verbatim names and order (:324-384)', () => {
     'TravelView',
     'WalkMode',   // PADWALK
     'TogglePerspective',   // VIEW-TOGGLE
+    // PROF1: the act choice at an herb patch (bible/06-Systems/Professions-Arc.md 22) - appended, under the same law (MERGE 2: after VIEW-TOGGLE's)
+    'ActChoice',
   ]);
   // ActionNameToEnum's sentinel: unknown parses to Unknown, and
   // Unknown itself is NOT a bindable action.
@@ -138,6 +140,7 @@ test('I1: ResetDefaults\' table, every row (:979-1032)', () => {
     // CSA-E: the mod's Space is Jump's, so the sails ship on End; the trim keeps the mod's brackets and backslash.
     'End=BoatToggleSail', 'BracketRight=BoatTrimRight', 'BracketLeft=BoatTrimLeft', 'Backslash=BoatTrimModifier',
     'NumpadMultiply=BoatTimeScaleUp', 'NumpadSubtract=BoatTimeScaleDown', 'NumpadEnter=BoatTimeScaleReset',
+    'ArrowUp=ActChoice',   // PROF1 (THE MERGE: `;` is Come Sail Away's lantern - CSA-D)
   ]);
   // every bindable action except the four with no default key
   // (MoveLeft/MoveRight arrive via A/D; TurnLeft/TurnRight via
@@ -156,11 +159,11 @@ test('I1: ResetDefaults\' table, every row (:979-1032)', () => {
   // action below is still the only one.
   // KB1: two DFU rows unbound (the hidden console and Slide), seventeen actions appended, sixteen of them bound -
   // DebugOverlay ships unbound, a developer's key. CSA-D: two more appended, both bound; CSA-E four more, all bound;
-  // CSA-G three more, all bound.
-  assert.equal(DEFAULT_BINDINGS.length, 76);   // VIEW-TOGGLE: plus the view's toggle
-  assert.equal(bound.size, 76, 'no action is defaulted twice');
+  // CSA-G three more, all bound. PROF1: and the act choice, appended and bound (the up arrow).
+  assert.equal(DEFAULT_BINDINGS.length, 77);   // VIEW-TOGGLE: plus the view's toggle; PROF1: plus the act choice's
+  assert.equal(bound.size, 77, 'no action is defaulted twice');
   // TV1: one more appended after them, and unbound - the travel view's door is the map's.
-  assert.equal(ACTIONS.length, 82);   // PADWALK: + WalkMode, after them (main's indices are live); VIEW-TOGGLE: + TogglePerspective
+  assert.equal(ACTIONS.length, 83);   // PADWALK: + WalkMode, after them (main's indices are live); VIEW-TOGGLE: + TogglePerspective; PROF1: + ActChoice, last
   assert.deepEqual(ACTIONS.filter((a) => !bound.has(a)), ['ToggleConsole', 'Slide', 'QuickSwap', 'DebugOverlay', 'TravelView', 'WalkMode'], 'the six that ship unbound, named');
   const codes = DEFAULT_BINDINGS.map(([c]) => c);
   assert.equal(new Set(codes).size, codes.length, 'and no KEY is spent twice - the number row was free');
@@ -205,7 +208,7 @@ test('I1: the two clears - by action walks all its codes, by code takes one (:80
 test('I1: a FULL reset clears primary and the removed list but NOT secondary (:956-960)', () => {
   const s = createBindings();
   resetDefaults(s);
-  assert.equal(s.primary.size, 76);   // VIEW-TOGGLE: plus the view's toggle; CSA-D: plus the helm's two; CSA-E: the sails' four; CSA-G: the time scale's three; KB1: DFU's 42 (its console and Slide rows unbound) plus the port's 24; SOC5: DFU's 44 plus SocialInteract; QS2: plus the three quickslot rows; QS4: plus the off hand's; QUICK-LOOT B4: plus the plaque's two; FREEMOUSE: plus the mouse toggle's own key
+  assert.equal(s.primary.size, 77);   // VIEW-TOGGLE: plus the view's toggle; PROF1: plus the act choice's key; CSA-D: plus the helm's two; CSA-E: the sails' four; CSA-G: the time scale's three; KB1: DFU's 42 (its console and Slide rows unbound) plus the port's 24; SOC5: DFU's 44 plus SocialInteract; QS2: plus the three quickslot rows; QS4: plus the off hand's; QUICK-LOOT B4: plus the plaque's two; FREEMOUSE: plus the mouse toggle's own key
   // a secondary binding on a code no default uses SURVIVES the reset;
   // one on a default's code is stolen back by SetBinding's alt-removal.
   // QUICK-LOOT B4: this was KeyP, chosen because no default used it -

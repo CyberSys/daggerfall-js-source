@@ -3240,8 +3240,10 @@ export class TrainPc extends ActionTemplate {
     q.showMessagePopup(QUEST_MESSAGES.QuestComplete);
     const e = hooks?.playerEntity?.();
     if (e) {
-      const sec = hooks?.nowSeconds?.() ?? 0;
-      e.timeOfLastSkillTraining = Math.floor(sec / 60);   // ToClassicDaggerfallTime is classic MINUTES
+      const own = hooks?.ownMinutes?.();
+      // ToClassicDaggerfallTime is classic MINUTES. AUDIT LIVED1 D: the guild's twelve-hour gate reads this on the
+      // character's clock, so it is stamped there (nowSeconds is the world's online); a host with no word keeps it
+      e.timeOfLastSkillTraining = Number.isFinite(own) ? Math.floor(own) : Math.floor((hooks?.nowSeconds?.() ?? 0) / 60);
       hooks?.raiseTime?.(3 * 3600);                       // SecondsPerHour * 3
       e.fatigue = Math.max(0, (e.fatigue ?? 0) - FATIGUE_LOSS.Default * 180);   // DefaultFatigueLoss * 180
       // UnityEngine.Random.Range(10, 20 + 1) - the engine PRNG, the quest's rolls (Ledger A), not DFRandom's stream

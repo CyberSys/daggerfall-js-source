@@ -18,7 +18,7 @@ import { spawnBoat, TRIGGER_MODEL } from '../src/systems/comeSailAwayBoat.js';
 import { createComeSailAwayRuntime, NO_WATER_LEVEL, BOAT_ACTIONS, BOAT_EFFECT_BUNDLE } from '../src/systems/comeSailAway.js';
 import { BOAT_ITEM_GROUP, BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE } from '../src/systems/comeSailAwayItems.js';
 import { DEEP_WATERS_FISH_TEMPLATES } from '../src/systems/deepWatersFishItems.js';
-import { customItemsForGroup } from '../src/systems/rriItems.js';
+import { customItemsForGroup } from '../src/systems/itemTemplates.js';
 import * as MS from '../src/systems/modSettings.js';
 import * as IA from '../src/systems/inputActions.js';
 import { setBindings, held } from '../src/ui/input.js';

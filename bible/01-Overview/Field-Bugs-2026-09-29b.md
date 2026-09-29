@@ -86,5 +86,6 @@ code is unchanged: nothing there reads the sequence the pin did.
 - **Anyone still on a build from before the realm is refused online from then on**, told to update. The macOS app and
   the portable exe never update themselves: their players download the new build.
 - **Left open:** a build from before the realm still reports Renown XP to its account while it plays on shut out
-  (the report names no character since RENOWN-ACCOUNT) - bounded by the hour's cap, and Renown XP is already on
+  (the report names no character since RENOWN-ACCOUNT - RENOWN-CHAR, later that day, made it name its character again,
+  so the XP lands on that offline id's track) - bounded by the hour's cap, and Renown XP is already on
   Realm-Arc's list of what the client is trusted with until phase 3's budgets.

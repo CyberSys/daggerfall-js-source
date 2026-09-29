@@ -578,9 +578,9 @@ export const FEATURES = Object.freeze([
     id: 'enhanced-sounds',
     group: 'sound',   // FT18: was world
     title: 'Enhanced sounds',
-    note: 'The sounds the port adds under the enhanced skin: a quiet wind outdoors from Daggerfall\u2019s own clips, '
-      + 'rising and falling with its strength and silent indoors, and the gold clink and click when you take or '
-      + 'store items in the enhanced inventory.',
+    note: 'The sounds the port adds under the enhanced skin: a quiet, steady wind outdoors, rising and falling '
+      + 'with its strength and silent indoors, and the gold clink and click when you take or store items in the '
+      + 'enhanced inventory.',
     effect: 'Takes effect at once.',
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'soundEnhancements', initial: true, online: 'player' }),   // ES1: systems/enhancedSounds.js enhancedSoundsOn; windAudio.js windSoundOn rides it
@@ -726,6 +726,11 @@ export const FEATURES = Object.freeze([
   // two item templates (1320, 1321) merge when the game loads
   // (ItemHelper.LoadItemTemplates), so the switch reaches the next load.
   modFeature('come-sail-away', 'Takes effect when the game next loads.', 'world'),
+  // FORAGE1 (2026-09-28): FORAGING - `world`, the wilderness's work. A tool
+  // and a food read the switch as they are used; the quest pack is offered
+  // while it is on. AUDIT 28 F4: the pack is read once, when the quest lists
+  // are built (questLists.js) - so the row says the two halves apart.
+  modFeature('foraging', 'Takes effect at once for the tools, the foods and the loot; for the quest pack when the game next loads.', 'world'),
   modFeature('meanerMonsters', 'Takes effect on monsters spawned after the switch.', 'combat'),
   modFeature('pcaao', 'Takes effect at once.', 'combat'),
   modFeature('unleveledLoot', 'Takes effect on the next roll.', 'loot'),
@@ -1074,6 +1079,35 @@ export const FEATURES = Object.freeze([
     control: Object.freeze({
       store: 'prefs', key: 'survival', initial: 'casual', online: 'player',
       tiers: Object.freeze([[false, 'Off'], ['casual', 'Casual'], ['hard', 'Hard']]),
+    }),
+  }),
+  // NAV (2026-09-28, Mac: "proper naval combat with a huge reference to assassins creed black flag ... directly integrate
+  // into online mode"): THE SEA FIGHT (bible/03-World/Naval-Combat.md) - the port's own, on Come Sail Away's hulls, so
+  // it stands nothing without that mod. ONE SWITCH, FORCED ON ONLINE: the ships at sea are the room's world (one player
+  // stands the sea for everyone near - scenes/navalHost.js), and a room where one player sees the pirate boarding another
+  // and the other does not is two worlds. The rest is each player's own: the traffic the sea they stand is filled with,
+  // whether pirates grapple THEIR boat, and whether THEIR voyage's beaten raiders leave a hold to plunder.
+  Object.freeze({
+    id: 'naval-combat',
+    group: 'combat',
+    title: 'Naval Combat',
+    note: "Black Flag on the Iliac Bay, on Come Sail Away's boats: look to a side at the helm and hold Attack to lay that broadside - its arcs and splashes drawn - then let go to fire. Pirates, merchantmen and the crowns' navies sail; batter one until she strikes her colours, board her, take her hold, then scuttle her or cast her off. Piracy is a crime, and pirates who board you bring Warm Ashes' raids. Online the room shares one sea.",
+    effect: 'Takes effect at once - online the sea is on for everyone, one sea for the room.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({
+      store: 'prefs', key: 'naval', initial: true, online: true,   // scenes/world.js navalOn: the host stands down and empties the sea
+      also: Object.freeze([
+        Object.freeze({ store: 'prefs', key: 'naval-ships', initial: 'some', online: 'player' }),   // systems/naval/navalDirector.js DENSITY
+        Object.freeze({ store: 'prefs', key: 'naval-boarders', initial: true, online: 'player' }),   // navalHost.js: a pirate's grapple on MY boat
+        Object.freeze({ store: 'prefs', key: 'naval-raid-prize', initial: true, online: 'player' }),   // navalHost.js leaveShipGate: the voyage raiders' hold
+        Object.freeze({ store: 'prefs', key: 'naval-aim-camera', initial: true, online: 'player' }),   // navalHost.js aimEye: the broadside camera (AUDIT NAV1)
+      ]),
+      parts: Object.freeze([
+        Object.freeze({ key: 'naval-ships', label: 'Ships at sea', tiers: Object.freeze([['few', 'Few'], ['some', 'Some'], ['many', 'Many']]) }),
+        Object.freeze({ key: 'naval-boarders', label: 'Pirates board you' }),
+        Object.freeze({ key: 'naval-raid-prize', label: 'Raiders\u2019 plunder' }),
+        Object.freeze({ key: 'naval-aim-camera', label: 'Broadside camera' }),
+      ]),
     }),
   }),
 ]);

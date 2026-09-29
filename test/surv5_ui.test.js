@@ -177,14 +177,14 @@ test('SURV5: by source - the four hosts chain the third box, the enhanced HUD ca
     // What each host still owes is this arc's own half: the mod's
     // switch, the world's minutes, the vampirism and the endurance,
     // fed as SURV5's own bag or withheld as null when the mod is off.
-    assert.match(read(f), /survival: survivalOn\(\) \? \{ minutes: Math\.floor\(worldMinutes\(\)\), vampire: !!liveVampirism\(playerEntity\), endurance: liveStat\(playerEntity, 'endurance'\) \} : null,/, `${f}: the third box`);
+    assert.match(read(f), /survival: survivalOn\(\) \? \{ minutes: Math\.floor\(ownMinutes\(\)\), vampire: !!liveVampirism\(playerEntity\), endurance: liveStat\(playerEntity, 'endurance'\) \} : null,/, `${f}: the third box (LIVED1: on the character's own clock)`);
   }
   // ...and the ONE place it becomes rows, so the page cannot be dropped
   // by a host that forgets it.
   assert.match(read('src/ui/statusBox.js'), /if \(survival\) rows\.push\('', \.\.\.survivalStatusRows\(entity, survival\.minutes, survival\)\);/);
   const hud = read('src/ui/enhancedHud.js');
   // UI3: the needs are the status widget's tiles - a felt need amber, one that costs red
-  assert.match(hud, /const needs = survivalOn\(\) \? survivalHudChips\(vitals, Math\.floor\(worldMinutes\(\)\), \{ vampire: !!liveVampirism\(vitals\), endurance: liveStat\(vitals, 'endurance'\) \}\) : \[\];/);
+  assert.match(hud, /const needs = survivalOn\(\) \? survivalHudChips\(vitals, Math\.floor\(ownMinutes\(\)\), \{ vampire: !!liveVampirism\(vitals\), endurance: liveStat\(vitals, 'endurance'\) \}\) : \[\];/);
   assert.match(hud, /const all = statusTiles\(\{ spells, powers, afflictions: afflictionRows\(vitals\), needs \}\);/);
   assert.match(read('src/ui/enhancedStyle.js'), /\.hst-cell\.danger \{/);
   const wm = read('src/scenes/worldModes.js');

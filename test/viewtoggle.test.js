@@ -36,7 +36,7 @@ test('VIEW-TOGGLE seam: the sprite lane flips first to third and back, one press
 });
 
 test('VIEW-TOGGLE action: a port action, appended, on the mouse\'s forward side button (a binding code since VOICE1, kept when voice was reverted - and never the browser\'s Forward), drawn in Movement; the world host polls its press edge under no window and hands it to the seam before the view frame', () => {
-  assert.equal(ACTIONS.at(-1), 'TogglePerspective');
+  assert.deepEqual(ACTIONS.slice(-2), ['TogglePerspective', 'ActChoice'], 'appended - MERGE 2: the professions branch\'s act choice after it, main\'s shipped first');
   assert.ok(PORT_ACTIONS.includes('TogglePerspective'));
   assert.deepEqual(DEFAULT_BINDINGS.filter(([, a]) => a === 'TogglePerspective'), [['Mouse4', 'TogglePerspective']]);
   assert.equal(DEFAULT_BINDINGS.filter(([k]) => k === 'Mouse4').length, 1, 'nothing else on it');
@@ -44,7 +44,7 @@ test('VIEW-TOGGLE action: a port action, appended, on the mouse\'s forward side 
   assert.ok(isBindableKeyCode('Mouse4'), 'and a key the controls pane can name');
   assert.ok(ACTION_GROUPS.find((g) => g.title === 'Movement').rows.some((r) => r.action === 'TogglePerspective' && r.label === 'First / third person'));
   const w = rd('src/scenes/world.js');
-  assert.match(w, /if \(hccActionPressed\('TogglePerspective'\)\) mwViewTogglePerspective\(\);\n\s*const mwv0 = mwViewFrame\(\{/);
+  assert.match(w, /if \(hccActionPressed\('TogglePerspective'\)\) mwViewTogglePerspective\(\);\n(?:\s*\/\/[^\n]*\n)*\s*const csaHelm = [^\n]*\n\s*const camFilter = [^\n]*\n\s*const mwv0 = mwViewFrame\(\{/);   // FIELD BUGS 2026-09-29 (the sea) #3: the helm's reach and filter between, nothing else
   assert.match(w, /for \(const kind of \['mousedown', 'mouseup'\]\) addEventListener\(kind, \(e\) => \{ if \(e\.button === 3 \|\| e\.button === 4\) e\.preventDefault\(\); \}\);/, 'the side buttons are never the browser\'s Back and Forward in the world');
   assert.match(w, /const hccActionPressed = \(action\) => !gamePaused\(\) && !pointerSurfaces\.size && !_loading && pressed\(latch\.edge, keys, action\);/, 'the gate it rides');
 });

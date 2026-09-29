@@ -127,6 +127,8 @@ const governorHost = (over = {}) => {
     // TV-WASD (main): the keys' travel beside the journey - none held unless a test says so
     travelWalkRate, TV_MOVE_ACTIONS, held: (keys, a) => keys.has(a), keys: d.keys ?? new Set(), walkMode: true, playerSpawned: true,
     csaBoatUnderMe: () => null, gamePaused: () => false, csaHoldsTimeScale: () => d.helm ?? false, resetTimeScale: () => { d.scale = 1; },
+    // THE MERGE (NAV-H, NAV-R): the sea fight - none unless a test stands one (its hostile ships, its raiders as ships)
+    naval: d.naval ?? null, navalRaidersOn: () => !!d.navalRaiders,
   };
   const names = Object.keys(scope);
   const body = `
@@ -175,6 +177,28 @@ test('OW6 host run: a CHASER holds from any side, at its own pace; at sea a raid
   const land = governorHost({ sea: false, raiders: [{ id: 'r1', x: 0, z: 2000 }] });
   land.govern(0.033);
   assert.deepEqual(land.held(), [null, null], 'ashore, no raider');
+});
+
+test('THE MERGE (NAV-H x OW6) host run: AT SEA A HOSTILE SHIP HOLDS THE CROSSING before her ring - where she is an enemy nearby and the journey stops (navalHost.js HOSTILE_NEAR_M), or her lookout past it - on either skin, and one coming for me from any side at her pace; a raider stood as a ship holds as the ship, never her seeded sail beside it; no hostile ship, nothing held (mutants: the sea unread by the journey, her closing unsaid, a raider ship counted twice)', () => {
+  const sea = (threats, more = {}) => ({ threats: () => threats, raiderShipOf: () => null, ...more });
+  // OW6-LATE (main): THREAT_WARN_S 2 - each distance below re-derived at the 2 s warning
+  const ahead = [{ pos: [0, 0, 1600], reach: 750, chasing: false, mps: 6 }];
+  const view = governorHost({ naval: sea(ahead) });
+  view.govern(0.033);
+  assert.deepEqual(view.held(), [25, 'foes'], 'a ship 1600 m ahead, her lookout 750 m: (1600 - 750) / (2 x 16) = 26.6 - x25 of x40');
+  const classic = governorHost({ up: false, owns: false, naval: sea(ahead) });
+  classic.govern(0.033);
+  assert.deepEqual(classic.held(), [25, 'foes'], 'the classic skin the same');
+  const behind = governorHost({ naval: sea([{ pos: [0, 0, -1500], reach: 700, chasing: true, mps: 8 }]) });
+  behind.govern(0.033);
+  assert.deepEqual(behind.held(), [15, 'foes'], 'coming for me from behind: (1500 - 700) / (2 x (16 + 8)) = 16.7 - x15');
+  const raider = governorHost({ sea: true, navalRaiders: true, raiders: [{ id: 'r1', seed: 7, x: 0, z: 1000 }],
+    naval: sea([{ pos: [0, 0, 2000], reach: 1000, chasing: false, mps: 4.6 }], { raiderShipOf: (seed) => (seed === 7 ? { pos: [0, 0, 2000], chase: false } : null) }) });
+  raider.govern(0.033);
+  assert.deepEqual(raider.held(), [30, 'foes'], 'the ship where she sails, (2000 - 1000) / (2 x 16) = 31.25 - x30, never her seeded sail at the lookout\'s edge');
+  const none = governorHost({ naval: sea([]) });
+  none.govern(0.033);
+  assert.deepEqual(none.held(), [null, null], 'no hostile ship: nothing held');
 });
 
 test('OW6 host run: ON THE CLASSIC SKIN (no view), A FOE STANDING AHEAD HOLDS THE JOURNEY and nothing near hands the mod\'s ask back whole; a friend, a pacified foe or the dead hold nothing; the Overworld\'s journey with its view down says so, not "the land loads"; no journey, nothing held (mutants: the classic skin ungoverned, the ask not handed back)', () => {

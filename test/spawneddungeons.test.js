@@ -91,7 +91,7 @@ test('SPAWNED-DUNGEONS by source: ONE choke point (buildPixelNow), online-only o
   const fn = w.slice(i, w.indexOf('\n  };\n', i));
   assert.match(fn, /if \(!params\.has\('online'\)\) return null;/, 'online only - and off params: `onlineOn` is a const declared far below this build');
   assert.match(fn, /spawnsDungeon\(_spawnSalt, px, py\)/, 'the roll is the hash, so a reload of the pixel answers the same');
-  assert.match(fn, /CLIMATES\.Ocean\) return null/, 'no dungeon at sea');
+  assert.match(fn, /CLIMATES\.Ocean \|\| !_spawnGround\(px, py\)\) return null/, 'no dungeon at sea - nor on a coast the climate page was spread over (SPAWN-SHORE)');
   assert.match(fn, /const key = `\$\{px\},\$\{py\}`;/);
   assert.match(fn, /locationIndex\.set\(key, loc\)/, 'stood in the index every reader already asks');
   assert.match(fn, /catch \(e\) \{ console\.warn\('\[spawned dungeons\]'[^\n]*return null; \}/, 'a failure costs one pixel its dungeon, never the stream');
@@ -322,7 +322,7 @@ test('AUDIT OW5b D2 host run: A SPAWN PAST ITS TIME IS GONE FOR GOOD - the build
   const run = ({ inside = false } = {}) => {
     const d = { now: 0, inside, index: new Map(), ledger: createSpawnLedger(), owed: [] };
     const host = new Function('d', 'createSpawnLedger', `
-      const params = { has: () => true }, spawnsDungeon = () => true, _spawnSalt = 1, maps = { getClimateIndex: () => 0 }, CLIMATES = { Ocean: 99 };
+      const params = { has: () => true }, spawnsDungeon = () => true, _spawnSalt = 1, maps = { getClimateIndex: () => 0 }, CLIMATES = { Ocean: 99 }, _spawnGround = () => true;
       const terrainGen = { roads: () => null }, pathFreePixel = () => true, _spawnUnroaded = new Set();
       const _spawnLedger = d.ledger, _spawnClock = () => d.now, _insideSpawn = () => d.inside, locationIndex = d.index;
       const _spawnCloneAt = (px, py) => ({ name: 'Old Keep', spawned: true, px, py });

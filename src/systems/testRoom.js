@@ -35,6 +35,7 @@ import { TRANSPORT_HORSE_TEMPLATE, hasHorse } from './inventorySession.js';   //
 import { BOOK_TEMPLATE, createBook } from './books.js';   // EB3: books in the pack, for the reader
 import { BOOK_ID_TITLES } from './booksData.js';
 import { setPref } from './uiPrefs.js';   // LR3: the loot door turns the ladder on for the session
+import { setModSetting } from './modSettings.js';   // FIELD BUGS 2026-09-29 (the sea) #5: the sea door turns Come Sail Away on
 import { applyRarity, LEGENDARIES, ROLLED_TIERS } from './lootRarity.js';   // LR3: one of everything the ladder can mint
 import { AETHERIC_RECORDS, mintAetheric } from './aetheric.js';   // SET6: the Aetheric rung - Ruhn's Regalia, whole (RAID4b: and the raiding parties' three sets)
 import { createThunderlock, createPellets, THUNDERLOCK_TEMPLATE, PELLET_TEMPLATE } from './thunderlock.js';   // TSR-GUN: the port's own weapon, and the import IS its registration
@@ -83,12 +84,42 @@ export const TEST_LOOT = Object.freeze({
   blurb: 'The Nord Warrior with a Magic and a Rare of ten base items and every Legendary in the pack, IDENTIFIED so their names and affix lines read - plus one unidentified Rare and one unidentified Legendary, which is what the two top tiers look like on the floor - and Ruhn\'s Regalia whole, the Aetheric rung. The tier colours, the affix lines and the folds on the paperdoll. Turns Loot rarity on.',
 });
 
+/** FIELD BUGS 2026-09-29 (the sea) #5 (the Discord, through Mac: "Add a ship combat test menu option"): THE SEA
+ *  BATTLE. A spawn, as the ride is: the baseline preset landed on the open Bay south of Daggerfall - the map pixel
+ *  FIELD-CSA2 proved floats a Small Ship (test/field_csa2.test.js) - put at the helm of an armed Small Ship of their
+ *  own there, and a pirate brig launched on open water to stand in and engage (the naval host's own spawn door). Come
+ *  Sail Away and Naval Combat are turned on at the door (enableTestSea), as the loot door turns its ladder on. */
+export const TEST_SEA = Object.freeze({
+  id: 'sea', label: 'Sea battle', preset: 'nord-warrior',
+  pixel: Object.freeze({ x: 209, y: 216 }), hull: 2, foe: 'pirateBrig', range: 380,
+  blurb: 'The Nord Warrior at the helm of an armed Small Ship on the open Bay south of Daggerfall, a pirate brig standing in to engage. Look to a side, hold Attack to lay a broadside and let go to fire; brace on the warning. Turns Come Sail Away and Naval Combat on.',
+});
+
+/** #5: what the sea door says - the fight begun, no sea to stand it on (Come Sail Away's boats unbuilt), no open water off her
+ *  bow for the pirate. */
+export const TEST_SEA_TEXT = Object.freeze({
+  begun: 'A pirate brig stands in to engage. Look to a side and hold Attack to lay a broadside - let go to fire.',
+  refused: 'The sea battle needs Come Sail Away\'s boats, and they did not load.',
+  noRoom: 'No open water here for a pirate to stand in on.',
+});
+
+/** The doors that start OUTDOORS - a spawn, not a character: never the classic start's dungeon (main.js's route). */
+export const testStartsOutdoors = (id) => id === TEST_RIDE.id || id === TEST_SEA.id;
+
+/** #5: the sea door's two switches - Come Sail Away (the world latches it once, at the load this door starts) and
+ *  Naval Combat - turned on, and left on, as the loot door leaves its ladder. */
+export function enableTestSea() {
+  setModSetting('come-sail-away', 'Enabled', true);
+  setPref('naval', true);
+}
+
 /** The one door for a `test=` id: a preset (ride false), the ride
- *  entry (its preset, ride true), the loot ladder (loot true), or null
- *  - an unknown id resolves to NOTHING so the boot falls through to
- *  the wizard, never a guess. */
+ *  entry (its preset, ride true), the loot ladder (loot true), the sea
+ *  battle (sea true), or null - an unknown id resolves to NOTHING so
+ *  the boot falls through to the wizard, never a guess. */
 export function testEntryById(id) {
   if (id === TEST_RIDE.id) return { preset: testPresetById(TEST_RIDE.preset), ride: true };
+  if (id === TEST_SEA.id) return { preset: testPresetById(TEST_SEA.preset), ride: false, sea: true };
   if (id === TEST_LOOT.id) return { preset: testPresetById(TEST_LOOT.preset), ride: false, loot: true };
   const preset = testPresetById(id);
   return preset ? { preset, ride: false } : null;

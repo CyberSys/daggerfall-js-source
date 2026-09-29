@@ -57,7 +57,7 @@ enabled = true
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct23"
+ACCOUNT_VERSION = "acct32"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
@@ -120,6 +120,21 @@ HIEROPHANT_HANDLES = ""
 # player's. The same law as the tiers: a handle here grants the title and
 # the glyph, and taking it off takes both on the next token.
 SHADOW_FANG_HANDLES = "SirMcMobdon"
+# MARKS1 (PROF0 20): Marks open by this switch - "off", "dev" (the DEVELOPER_HANDLES alone) or "on". Shipped at "dev":
+# the currency is struck and spent by the developers first, and opened to everyone by this one line.
+# SWITCH-ON (2026-09-29, Mac: "Fuck it lets switch everything on"): "on" - Marks are everyone's.
+MARKS_OPEN = "on"
+# NOTICE1 (PROF0 20): the Notice Board by this switch - "off", "dev" (the DEVELOPER_HANDLES alone) or "on". Shipped
+# at "dev": the developers read and pin first; everyone else's rumour boards stayed DFU's until this line said "on".
+# BOARD-ON (2026-09-29, Mac's choice: "Board now, rest after fixes"): "on" - the board is everyone's; its Work and
+# Market tabs stay the professions' and the Marks' (a tab shows only while PROFESSIONS_OPEN and MARKS_OPEN let the
+# account in), so they open with those two lines below.
+BOARD_OPEN = "on"
+# PROF1 (PROF0 20): the professions by this switch - "off", "dev" (the DEVELOPER_HANDLES alone) or "on". Shipped at
+# "dev": the developers gather, store and fill Court writs first; opened to everyone by this one line.
+# SWITCH-ON (2026-09-29, Mac: "Fuck it lets switch everything on"): "on" - the professions and, with Marks and the
+# board, the market are everyone's, after PROF-SAVE and PROF-DELETE.
+PROFESSIONS_OPEN = "on"
 # PENITENT (2026-09-29, Mac: "This new custom title/glyph is for the user
 # Diggleborf", whose ask it is: "Looking to do a Trinimac themed one, so
 # maybe "Penitent" for the title starting gold and ending a sky blue", with

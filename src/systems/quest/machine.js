@@ -21,7 +21,13 @@
 //                                added back before the date is read
 //                                (questMacros' nowDate does it), and
 //                                only TrainPc's timeOfLastSkillTraining
-//                                wants the counter raw.
+//                                wants the counter raw - and that one
+//                                now reads ownMinutes (below).
+//   ownMinutes()               - AUDIT LIVED1 D: the CHARACTER's clock
+//                                in classic minutes (worldTick.js
+//                                ownMinutes; the world's offline), for
+//                                the one act that stamps a marker of
+//                                theirs: TrainPc's training time.
 //   getQuestSourceLines(name)  - quest source by name (the vendored
 //                                pack through the host's data seam;
 //                                the QuestListsManager stand-in that
@@ -504,11 +510,15 @@ export class QuestMachine {
       // date/time block reads.
       playerEntity: () => this.deps.playerEntity ?? null,
       nowSeconds: () => this.deps.nowSeconds?.() ?? null,
+      // AUDIT LIVED1 D: the CHARACTER's clock in classic minutes, for a quest act that stamps a marker of theirs
+      // (TrainPc's training time) - online nowSeconds is the world's, days from theirs; null where no host says
+      ownMinutes: () => this.deps.ownMinutes?.() ?? null,
       // Q5: the fourteen un-pended actions' doors
       setPlayerCrime: (crime) => this.deps.setPlayerCrime?.(crime),
       getGoldPieces: () => this.deps.getGoldPieces?.() ?? 0,
       deductGoldPieces: (n) => this.deps.deductGoldPieces?.(n),
       raiseTime: (seconds) => this.deps.raiseTime?.(seconds),
+      waitOnline: (seconds, quest) => this.deps.waitOnline?.(seconds, quest),   // FORAGE4: QAE's raise time, online - the host's wait
       spawnCityGuards: (immediate) => this.deps.spawnCityGuards?.(immediate),
       makeEnemiesHostile: () => this.deps.makeEnemiesHostile?.(),
       clearEnemies: () => this.deps.clearEnemies?.(),
@@ -1529,7 +1539,7 @@ export class QuestMachine {
    *  faction ("This effectively shuts down several named NPCs during
    *  main quest") - and TalkManager.cs does not contain the word
    *  Listener at all. The port already ships that reader, at
-   *  src/scenes/worldModes.js:2924. A pending marker over shipped work
+   *  src/scenes/worldModes.js:2950. A pending marker over shipped work
    *  is worse than no marker: it sends the next reader looking for
    *  work that is done, in a file that never had it. */
   addFactionListener(factionID, owner) {

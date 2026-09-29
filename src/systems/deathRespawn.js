@@ -328,8 +328,10 @@ function holdsOn(entity, stat) {
  *
  *  `force` re-asserts the health even on a living entity (the respawn
  *  path pays the death's cost up front); without it an already-living
- *  player keeps the health they have, which is what a prison release
- *  wants - it is not a free heal, it is a floor under zero. */
+ *  player keeps the health they have - it is not a free heal, it is a
+ *  floor under zero. [AUDIT LIVED1 K: the prison release no longer
+ *  comes here - its days are served on the prisoner's own clock and it
+ *  refills in both lanes, as DFU's does (arrestFlow.js).] */
 export function reviveForPlay(entity, { force = false } = {}) {
   if (!entity) return { revived: false, cleared: [] };
   const dead = !(entity.health > 0);
@@ -357,10 +359,11 @@ export function reviveForPlay(entity, { force = false } = {}) {
   if (dead || force) entity.fatigue = Math.max(entity.fatigue > 0 ? entity.fatigue : 0, respawnHealth(maxFatigue(entity)));
   // DISC28-E: ...and the minutes spent dead are not the BODY's to pay (worldTick.js skipDeadMinutes). Online the shared
   // clock ran through the death screen with nothing ticking under it, and the first tick after this charged the whole
-  // span - stamina drain, needs, magic rounds - to the body just revived. AUDIT DISC28 TM-2/3/4: the skip bills the body
-  // nothing (its effect clocks ride the span and the encounter loop rolls none of it) while the WORLD's calendar runs
-  // through it - the day block and the per-minute loop's arms, as for any minute the world ran. Offline there is no
-  // such span (a death is a load).
+  // span - stamina drain, needs, magic rounds - to the body just revived. AUDIT DISC28 TM-2/3/4, as LIVED1 has them:
+  // the skip bills the body nothing (the character's own clock stood under the screen, so no marker of theirs moved and
+  // none needs carrying, and the encounter loop rolls none of it) while the WORLD's half of the calendar runs through
+  // it - the day block's world half and the powers and conditions, as for any minute the world ran. Offline there is
+  // no such span (a death is a load).
   const skipped = (dead || force) && sharedClockOn() ? skipDeadMinutes(entity, worldMinutes()) : false;
   return { revived: dead || force, cleared, exposure, lifted, skipped };
 }

@@ -54,7 +54,7 @@ const NO_CAMPS = Object.freeze([]);
  * deps = { renderer, getTexture, uploadRecordFrame, meshes ({ getGpuMesh, cpuModels } - the host's pipeline), entity (the player),
  *          camera() -> { feet, yaw }, collider() (raycast(origin, dir, max) -> distance), place() -> { insideBuilding,
  *          insideDungeon, inTown, enemiesNearby, inWater }, pixelKeyAt(pos) (the streaming host's, or null),
- *          say(line), showOverlay(win), openRest(camp), advanceMinutes(n) (offline; online the clock is nobody's),
+ *          say(line), showOverlay(win), openRest(camp), advanceMinutes(n) (the character's clock - online their own, LIVED1),
  *          selfId() (this player's online id, or null), onChanged() (the host's online publish),
  *          hearths() -> [{x, y, z}] (HEARTH1: the world's own cooking fires in the host's frame - the braziers
  *            and fire bowls survival/hearth.js picks out of the lantern list the host already builds; a host

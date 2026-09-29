@@ -307,7 +307,7 @@ test('V2a: the ONE cast engine wires MorphSelf, and every host hands it the cloc
   // it), so it is wired by construction - named here so the record
   // holds all four.
   for (const host of ['scenes/world.js', 'scenes/exterior.js', 'scenes/dungeonContext.js']) {
-    assert.match(read(`src/${host}`), /now: \(\) => [A-Za-z.]*(classicMinutes|value)/,
+    assert.match(read(`src/${host}`), /now: \(\) => [A-Za-z.]*(classicMinutes|ownMinutes|value)/,
       `${host} hands the once-a-day clock`);
   }
 });

@@ -275,7 +275,8 @@
     "old": "fetch(url, { ...init, signal: wait() })",
     "new": "fetch(url, { ...init })",
     "tests": [
-      "test/decorshell.test.js"
+      "test/decorshell.test.js",
+      "test/audit28_marks.test.js"
     ]
   },
   {

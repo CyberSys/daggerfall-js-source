@@ -75,7 +75,7 @@
 // AUDIT-MAP (2026-09-18, bible/10-UI/Held-Map-Arc.md): the fare is the
 // mod's SCALED one (scaleTripCost, the popup's own export); a walked
 // trip hands its walked minutes to the host's ETA; No on the fee closes
-// the map; online no inn is billed and the arrival is now; the static
+// the map; online the trip's days pass on the traveller's own clock (LIVED1) and the fare is billed; the static
 // ink is a kept layer and the rings an overlay. Its recorded departures:
 // the coordinates click refuses a teleport visit, H works under the
 // panel, a bare pixel's ship laws see no destination, the resume prompt
@@ -103,6 +103,7 @@ import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/t
 import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js';
 import { checkLocationDiscovered, flipTravelMapFilter, travelMapDotColors } from './travelMapWindow.js';   // MAP-KEY: the classic's filter flip and its dots' colours
 import { readGateMark, gateMarkKey, GATE_RING_CSS, GATE_LEGEND_TEXT } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, read as the party is
+import { readBountyMarks, bountyMarksKey, BOUNTY_RING_CSS, BOUNTY_LEGEND_TEXT, BOUNTY_LEGEND_RIM_CSS } from './bountyMapMark.js';   // BOUNTY1: held bounties' black circles, read as the gate's ring is
 import { readRaidMarks, raidMarksKey, placeTip, tipKey, readTip, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
 import { readQuestMarks, questMarksKey, QUEST_MARK_CSS, QUEST_LEGEND_TEXT, QUEST_HIT_PX, QUEST_MARK_LIFT, QUEST_RAID_LIFT, QUEST_FOLLOWED_TEXT } from './questMarks.js';   // GUIDE5: where the quests point
 import {
@@ -614,6 +615,9 @@ export class HeldMapWindow {
     // WB1: the gate's ring - the host's `gate` read on the party's own poll; null while no gate is marked
     this._gate = null;
     this._gateKey = '';
+    // BOUNTY1: the held bounties' black circles - the host's `bounties`, read on the same poll
+    this._bounties = [];
+    this._bountiesKey = '';
     // EVENT-TIP: the raided towns (the host's `raids`, on the same poll), and the card under the pointer
     this._raids = [];
     this._raidsKey = '';
@@ -1172,6 +1176,7 @@ export class HeldMapWindow {
             color: m.online ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS,
           })),
           gate: this._gate,   // WB1
+          bounties: this._bounties,   // BOUNTY1
           raids: this._raids,   // EVENT-TIP: the towns under attack
           quests: this._quests,   // GUIDE5: where the quests point
           travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey, ship: t.ship })),   // TV3; OWS1: at sea, a ship
@@ -1663,6 +1668,10 @@ export class HeldMapWindow {
     const gateKey = gateMarkKey(gate);
     let gateMoved = false;
     if (gateKey !== this._gateKey) { this._gateKey = gateKey; this._gate = gate; gateMoved = true; this._dirty = true; }
+    // BOUNTY1: the circles ride the gate's poll and its repaint - a bounty taken or paid with the map open
+    const bounties = readBountyMarks(this.deps.bounties, this._size);
+    const bKey = bountyMarksKey(bounties);
+    if (bKey !== this._bountiesKey) { this._bountiesKey = bKey; this._bounties = bounties; gateMoved = true; this._dirty = true; }
     // EVENT-TIP: the raided towns ride the same poll (a raid begins, withdraws or is cleansed while the map stands
     // open), and the card under a still pointer follows the marks - a countdown's second, a town cleansed under it
     const raids = readRaidMarks(this.deps.raids, this._size);
@@ -1706,7 +1715,7 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate && !this._raids.length && !this._trav.length && !this._quests.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._bounties.length && !this._raids.length && !this._trav.length && !this._quests.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
@@ -1721,6 +1730,12 @@ export class HeldMapWindow {
       const dot = el('span', 'hmlegdot');
       dot.style.background = GATE_RING_CSS;
       leg.append(dot, el('span', 'hmlegtext', GATE_LEGEND_TEXT));
+    }
+    if (this._bounties.length) {   // BOUNTY1: the black circle explains itself
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = BOUNTY_RING_CSS;
+      dot.style.boxShadow = `0 0 0 1px ${BOUNTY_LEGEND_RIM_CSS}`;   // a black dot needs a pale rim on the dark legend
+      leg.append(dot, el('span', 'hmlegtext', BOUNTY_LEGEND_TEXT));
     }
     if (this._raids.length) {   // EVENT-TIP: and a raided town
       const dot = el('span', 'hmlegdot');
@@ -2305,8 +2320,9 @@ export class HeldMapWindow {
     // deps, and everything the card bills or commits reads the blessed
     // minutes.
     const minutes = guildFastTravel(this.deps.playerEntity?.() ?? null, time.minutes);
-    // OL2 / AUDIT-MAP H1: online the world's clock does not wait, so
-    // the arrival is now and the day count is zero.
+    // OL2 / AUDIT-MAP H1 said the arrival is now and the day count
+    // zero online. [LIVED1 SUPERSEDES it: the trip's days pass on the
+    // traveller's own clock, so the count is the trip's, online too.]
     //
     // TRAVEL-FARE (2026-09-22, kurkku): the FARE is billed online now -
     // the inn's gold is the price of the journey, not rent on elapsed
@@ -2325,7 +2341,7 @@ export class HeldMapWindow {
     // :24-40), the popup's own export - the enhanced skin had billed
     // and CHARGED the unscaled fare since the relief map
     const scaled = scaleTripCost(cost, st.to?.settings, this.deps.playerEntity?.() ?? null);
-    st.trip = { ...time, minutes, ...scaled, days: nwt ? 0 : travelDays(minutes), online: nwt };
+    st.trip = { ...time, minutes, ...scaled, days: travelDays(minutes), online: nwt };   // LIVED1: the days are the traveller's own, online too
     // MAP2 (TravelOptionsPopUp.cs:104-137, UpdateLabels): a WALKED trip -
     // a bare pixel's, or a place's when the mod's fork says the player
     // drives it - has no fare and its own estimate: the classic one
@@ -3074,7 +3090,7 @@ export class HeldMapWindow {
     //   - the ship refusal (_toggleOpt below) is one of
     //     TravelOptionsPopUp.cs:168-180's three message boxes, which the
     //     classic twin still draws as a buttonless parchment
-    //     (ui/travelPopUp.js:642-648, `this.top` with no MB_BUTTONS)
+    //     (ui/travelPopUp.js:659-665, `this.top` with no MB_BUTTONS)
     //   - "not enough gold" (_confirmDiseased below) is
     //     DaggerfallTravelPopUp.cs:394-406, showNotEnoughGoldPopup,
     //     `messageBox.ClickAnywhereToClose = true` over TEXT.RSC 454
@@ -3189,7 +3205,7 @@ export class HeldMapWindow {
           add('Cost', TO_TEXT.MsgPlayerControlled);
           add('Purse', `${this.deps.goldPieces?.() ?? 0} gold`);   // AUDIT-MAP U5: the popup still shows the coins
         } else {
-          add('Journey', t.online ? 'now' : `${t.days} ${t.days === 1 ? 'day' : 'days'}`);   // OL2: online the arrival is now
+          add('Journey', `${t.days} ${t.days === 1 ? 'day' : 'days'}${t.online ? ' of your time' : ''}`);   // LIVED1: online the days are the traveller's own (OL2 said "now")
           add('Cost', `${t.totalCost} gold`);
           // the label shows COINS, never the letters-of-credit total -
           // the popup's own reading

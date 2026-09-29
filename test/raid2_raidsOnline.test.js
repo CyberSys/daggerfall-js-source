@@ -316,7 +316,7 @@ test('RAID2 the lane and the lock: the raids\' switch is the room\'s online, for
 
 test('RAID2 the world host by source: my word rides my cell frame, a peer\'s reaches the raids through the pool\'s room test, and the seams answer who I am, who stands in the town (the watch\'s own rect), the raid\'s puppets and my taken raiders on the net\'s clock', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /if \(cell\) duelRingWord\(frame, full\); if \(cell\) csaWord\(frame, full\);( if \(cell\) csaAboardWord\(frame, full\);)?(?: if \(cell\) bandWord\(frame, full\);)?(?: if \(cell\) seaRaidWord\(frame, full\);)? if \(cell\) \{ const rk = raidWireWord\(\); if \(rk\) frame\.rk = rk; \}[^\n]*\n\s+if \(!online\.sendFoes\(frame\)\)/, 'on the riders\' own line, beside the camps, the horse, the ring and (THE MERGE) the boats');
+  assert.match(w, /if \(cell\) duelRingWord\(frame, full\); if \(cell\) csaWord\(frame, full\);( if \(cell\) csaAboardWord\(frame, full\);)?(?: if \(cell\) bandWord\(frame, full\);)?( if \(cell\) navalWord\(frame, full\);)?(?: if \(cell\) seaRaidWord\(frame, full\);)? if \(cell\) \{ const rk = raidWireWord\(\); if \(rk\) frame\.rk = rk; \}[^\n]*\n\s+if \(!online\.sendFoes\(frame\)\)/, 'on the riders\' own line, beside the camps, the horse, the ring and (THE MERGE) the boats - and (THE MERGE with NAV-G) the sea\'s word before it, and (OW6) the raiders\' after it');
   assert.match(w, /exteriorFoes\.setOnRaids\(\(from, rk, at\) => raidPeerWord\(from, rk, at\)\);/);
   const at = w.indexOf('  setRaidingPartiesHost({');
   const body = w.slice(at, w.indexOf('\n  });', at));

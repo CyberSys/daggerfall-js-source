@@ -274,6 +274,10 @@ export function outOfSight(feet, eye, yawRad, fovDegrees, outdoors = true) {
 /** RaidSaveData [IL_15e7]: lastSelectedDay -1, no raids. */
 export const newRaidSaveData = () => ({ lastSelectedDay: -1, raids: [] });
 let state = newRaidSaveData();
+// AUDIT LIVED1b A3: whether the record in hand is a save's, not yet held against the world's day - RAID2's online
+// "any other day is rolled afresh" is that record's (a save made on a clock of its own can carry a day the world has
+// not reached), and ONLY that record's: past its first check the mod's own law stands, a LATER day alone rolls.
+let _dayFromSave = true;
 
 const RAID_FIELDS_INT = ['regionIndex', 'locationIndex', 'startDay', 'type', 'startMinute', 'endMinute', 'killed', 'attackAmount', 'px', 'py'];
 /** GetSaveData [IL_02e8]: the record, the port's two flags with it. */
@@ -306,6 +310,7 @@ export function restoreRaidSaveData(data) {
     });
   }
   state = { lastSelectedDay: day, raids };
+  _dayFromSave = true;   // AUDIT LIVED1b A3: the one check that may roll another day than a later one
   _peerWords = new Map();
   _myClaims = new Map();
   _live = [];
@@ -491,8 +496,12 @@ export function raidFrame(dt = 0) {
   // B. the day's roll [IL_0498-IL_0540]: the old day's raids expire first (fix 9), then the day's are rolled (fix 1).
   // The mod rolls only on a LATER day. RAID2: online the day is the world's, and a save made on a clock of its own can
   // carry a list rolled for a day the world has not reached - kept, it would hold every raid until then; any other
-  // day is rolled afresh
-  if (day > state.lastSelectedDay || (sharedClockOn() && day !== state.lastSelectedDay)) {
+  // day is rolled afresh.
+  // AUDIT LIVED1b A3 (a sibling of AUDIT LIVED1 I, older than LIVED1): ...ON THE SAVE'S RECORD ALONE. The world's clock
+  // steps back - the relay's offset corrected at a welcome, this machine's clock set back between them - and a step
+  // across a midnight rolled yesterday's list, then today's afresh a frame later: a town already cleansed was under
+  // attack again, said so again, and paid its cleanse's reputation a second time (legal 5, then 10).
+  if (day > state.lastSelectedDay || (sharedClockOn() && _dayFromSave && day !== state.lastSelectedDay)) {
     const regions = regionsNow();
     if (!regions) return null;   // no picker, no Update [IL_04b5]
     expire(now, region);
@@ -504,6 +513,7 @@ export function raidFrame(dt = 0) {
     scheduleNextDefender();
     _lastRegion = region;
   }
+  if (sharedClockOn()) _dayFromSave = false;   // AUDIT LIVED1b A3: the save's record has met the world's day (an offline frame is not the world's)
   // C. the raids that ran out [IL_0540-IL_05b9]
   expire(now, region);
   // D. a new region cancels the spawn in flight [IL_05b9]

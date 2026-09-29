@@ -9,29 +9,15 @@
   {
     "name": "MERC-RISE-the-best-haggler-is-average",
     "file": "src/systems/shopStock.js",
-    "old": "export const ONLINE_SALE_REFERENCE_SKILL = 100;",
-    "new": "export const ONLINE_SALE_REFERENCE_SKILL = 50;",
-    "tests": ["test/fb0929d_mercantile.test.js", "test/realm0.test.js"]
-  },
-  {
-    "name": "MERC-RISE-a-spell's-lift-past-100-is-forgotten",
-    "file": "src/systems/shopStock.js",
-    "old": "      mercantile: Math.max(ONLINE_SALE_REFERENCE_SKILL, mercantile),",
-    "new": "      mercantile: ONLINE_SALE_REFERENCE_SKILL,",
-    "tests": ["test/fb0929d_mercantile.test.js", "test/realm0.test.js"]
-  },
-  {
-    "name": "MERC-RISE-a-charm's-lift-past-100-is-forgotten",
-    "file": "src/systems/shopStock.js",
-    "old": "      personality: Math.max(ONLINE_SALE_REFERENCE_SKILL, personality),",
-    "new": "      personality: ONLINE_SALE_REFERENCE_SKILL,",
+    "old": "    const best = { mercantile: ONLINE_HAGGLE_MAX, personality: ONLINE_HAGGLE_MAX };",
+    "new": "    const best = { mercantile: 50, personality: 50 };",
     "tests": ["test/fb0929d_mercantile.test.js", "test/realm0.test.js"]
   },
   {
     "name": "MERC-RISE-the-reference-ignores-personality",
     "file": "src/systems/shopStock.js",
-    "old": "      personality: Math.max(ONLINE_SALE_REFERENCE_SKILL, personality),",
-    "new": "      personality,",
+    "old": "    const best = { mercantile: ONLINE_HAGGLE_MAX, personality: ONLINE_HAGGLE_MAX };",
+    "new": "    const best = { mercantile: ONLINE_HAGGLE_MAX, personality };",
     "tests": ["test/fb0929d_mercantile.test.js", "test/realm0.test.js"]
   },
   {

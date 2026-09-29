@@ -209,10 +209,10 @@
     ]
   },
   {
-    "name": "online-counts-days",
+    "name": "online-counts-no-days",
     "file": "src/ui/heldMap.js",
-    "old": "days: nwt ? 0 : travelDays(minutes), online: nwt };",
-    "new": "days: travelDays(minutes), online: nwt };",
+    "old": "days: travelDays(minutes), online: nwt };",
+    "new": "days: nwt ? 0 : travelDays(minutes), online: nwt };",
     "tests": [
       "test/heldmap.test.js"
     ]

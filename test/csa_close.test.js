@@ -393,7 +393,7 @@ test('CSA-J (the audit): the hosts - the Transport press leaves the helm before 
   assert.match(w, /csaFrame: \(dt, axes\) => \{ _csaAxes = axes; csaFrame\(dt\); \},/, 'indoors the mod\'s frame is the modes\' to call');
   assert.match(w, /if \(csaRuntime\) csaSounds\(\);[^\n]*\n\s+if \(csaRender\) \{ csaWaveFrames\(\); csaParticleTextures\(\); \}/, 'the waves\' and the particles\' pictures loaded at boot, as Start has them');
   const m = src('scenes/worldModes.js');
-  assert.match(m, /function onExhaustedInterior\(\) \{\n\s+if \(_inExhaustion\) return;\n\s+_inExhaustion = true;\n\s+host\.csaOnPlayerDeath\?\.\(\);/);
+  assert.match(m, /function onExhaustedInterior\(\) \{\n\s+if \(_inExhaustion \|\| \(sharedClockOn\(\) && exhaustedShowing\(\)\)\) return;\n\s+_inExhaustion = true;\n\s+host\.csaOnPlayerDeath\?\.\(\);/);   // AUDIT LIVED1b K1: the box's guard beside the latch
   assert.match(m, /const presentInteriorDeath = \(\) => \{\n\s+host\.csaOnPlayerDeath\?\.\(\);/);
   assert.match(m, /csaOnPlayerDeath: \(\) => host\.csaOnPlayerDeath\?\.\(\),/, 'handed to the dungeon');
   assert.match(m, /if \(mode === 'dungeon' && dungeonCtx\?\.drainPlayerFatigue\) \{ dungeonCtx\.drainPlayerFatigue\(n\); return true; \}\n\s+if \(mode === 'interior'\) \{ drainInteriorFatigue\(n\); return true; \}\n\s+return false;/);

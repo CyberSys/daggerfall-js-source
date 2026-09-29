@@ -18,7 +18,7 @@ import {
 } from '../src/render/windWisps.js';
 import { glslFunctions } from './glsl.mjs';
 import {
-  createWindAudio, windGain, windClipFor, windPitchFor, windSoundOn, WIND_GAIN_MAX, WIND_SLEW_PER_S, WIND_GAIN_FLOOR, WIND_BLOW_AT, WIND_LOOP,
+  createWindAudio, windGain, windPitchFor, windSoundOn, WIND_GAIN_MAX, WIND_SLEW_PER_S, WIND_GAIN_FLOOR, WIND_BED_KEY,
 } from '../src/systems/windAudio.js';
 import { SOUND } from '../src/systems/soundClips.js';
 import { AMBIENT_SOUNDS } from '../src/systems/ambientEffects.js';
@@ -182,46 +182,51 @@ test('WIND3 wisps\' clock WRAPS WHOLE (AUDIT-VC7 G6) - every rate whole cycles o
   assert.deepEqual(calls.find((c) => c[0] === 'uniform2f' && c[1] === 'uWindV').slice(2), [5, -2], 'the wind as it blows - x then z');
 });
 
-test('WIND3 wind loop: the gain never passes the ceiling, is nothing in a calm and the ceiling in a gale, breathes with the gust; the clip goes from the moan to the blow; the driver slews, swaps, stops on the floor and on a modal frame', () => {
+test('WIND3 wind loop: the gain never passes the ceiling, is nothing in a calm and the ceiling in a gale, breathes with the gust; the pitch rises with the wind; the driver slews, holds its one loop through the blow (FIELD-WIND1: the bed on the native loop), stops on the floor and on a modal frame', () => {
   assert.equal(windGain(0), 0); assert.equal(windGain(0.1), 0);
   assert.ok(near(windGain(1, 1), WIND_GAIN_MAX)); assert.ok(near(windGain(0.85, 1), WIND_GAIN_MAX));
   assert.ok(windGain(0.35, 1) > 0 && windGain(0.35, 1) < WIND_GAIN_MAX, 'a sunny day murmurs');
   assert.ok(windGain(0.5, 1.0) > windGain(0.5, 0.5), 'the gust is worth a fifth');
   for (let s = 0; s <= 1; s += 0.01) for (const g of [0, 0.5, 1, 1.2, 2, 10]) assert.ok(windGain(s, g) <= WIND_GAIN_MAX + 1e-12, `never above the ceiling: ${s} ${g}`);
   assert.ok(WIND_GAIN_MAX <= 0.2, "Mac's 'not too loud', as a number");
-  assert.equal(windClipFor(0), SOUND.AmbientWindMoan); assert.equal(windClipFor(WIND_BLOW_AT - 0.01), SOUND.AmbientWindMoan);
-  assert.equal(windClipFor(WIND_BLOW_AT), SOUND.AmbientWindBlow1); assert.equal(windClipFor(1), SOUND.AmbientWindBlow1);
   assert.ok(windPitchFor(0) < windPitchFor(1) && windPitchFor(1) <= 1.1 && windPitchFor(0) >= 0.9);
-  // the driver over a fake engine
-  const loops = [];
-  const engine = { setLoop: (name, clip, opts) => { loops.push([name, clip, opts]); } };
+  // the driver over a fake engine: the bed registered, one native loop (audio.loop's handle), its gain and pitch live
+  const calls = [];
+  const engine = {
+    registerSamples: (key) => { calls.push(['register', key]); return true; },
+    loop: (key, volume) => { calls.push(['loop', key, volume]); return { setVolume: (v) => calls.push(['volume', v]), setPitch: (p) => calls.push(['pitch', p]), stop: () => calls.push(['stop']) }; },
+  };
+  const loops = () => calls.filter((c) => c[0] === 'loop');
   const wa = createWindAudio(engine);
   const gale = windDrive({ cloudShadow: { wind: [0.045, 0.016] }, gustAt: () => 1 }, 0, 0.016);
   wa.update(gale, 1 / 60, true);
-  assert.equal(loops.length, 1); assert.equal(loops[0][0], WIND_LOOP); assert.equal(loops[0][1], SOUND.AmbientWindBlow1);
-  assert.ok(near(loops[0][2].volume, WIND_SLEW_PER_S / 60), 'the first tick is one slew step, not the target - no pop');
-  assert.ok(near(loops[0][2].pitch, windPitchFor(1)));
+  assert.equal(loops().length, 1); assert.equal(loops()[0][1], WIND_BED_KEY);
+  assert.ok(near(loops()[0][2], WIND_SLEW_PER_S / 60), 'the first tick is one slew step, not the target - no pop');
+  assert.deepEqual(calls.at(-1), ['pitch', windPitchFor(1)]);
   for (let i = 0; i < 60 * 10; i++) wa.update(gale, 1 / 60, true);
   assert.ok(near(wa.gain, WIND_GAIN_MAX, 1e-9), 'and reaches the ceiling within seconds');
-  assert.ok(loops.every((l) => l[2].volume <= WIND_GAIN_MAX + 1e-12));
-  // the wind drops to a breeze: the clip swaps to the moan through the same setLoop (the engine swaps at the clip's end)
+  assert.ok(calls.filter((c) => c[0] === 'volume').every((c) => c[1] <= WIND_GAIN_MAX + 1e-12));
+  // the wind drops to a breeze: the same loop slews down, its pitch with it
   const breeze = windDrive({ cloudShadow: { wind: SUNNY }, gustAt: () => 1 }, 0, 0.016);
   wa.update(breeze, 1 / 60, true);
-  assert.equal(loops.at(-1)[1], SOUND.AmbientWindMoan);
-  assert.ok(loops.at(-1)[2].volume < WIND_GAIN_MAX && loops.at(-1)[2].volume > windGain(breeze.strength01, 1), 'slewing down, not there yet');
+  assert.equal(loops().length, 1, 'the one loop - nothing swapped, nothing restarted');
+  const down = calls.findLast((c) => c[0] === 'volume')[1];
+  assert.ok(down < WIND_GAIN_MAX && down > windGain(breeze.strength01, 1), 'slewing down, not there yet');
+  assert.deepEqual(calls.at(-1), ['pitch', windPitchFor(breeze.strength01)]);
   // the switch off: the gain winds down and the loop is stopped once on the floor, then nothing
-  loops.length = 0;
+  calls.length = 0;
   for (let i = 0; i < 60 * 10; i++) wa.update(breeze, 1 / 60, false);
-  const stops = loops.filter((l) => l[1] === null);
-  assert.equal(stops.length, 1, 'stopped once, on the floor'); assert.equal(wa.gain, 0); assert.equal(wa.playing, false);
-  assert.ok(loops.slice(0, loops.indexOf(stops[0])).every((l) => l[2].volume >= WIND_GAIN_FLOOR), 'every tick before the stop was above the floor');
-  assert.equal(loops.slice(loops.indexOf(stops[0]) + 1).length, 0, 'no calls after the stop');
+  const stop = calls.findIndex((c) => c[0] === 'stop');
+  assert.equal(calls.filter((c) => c[0] === 'stop').length, 1, 'stopped once, on the floor'); assert.equal(wa.gain, 0); assert.equal(wa.playing, false);
+  assert.ok(calls.slice(0, stop).filter((c) => c[0] === 'volume').every((c) => c[1] >= WIND_GAIN_FLOOR), 'every tick before the stop was above the floor');
+  assert.equal(calls.slice(stop + 1).length, 0, 'no calls after the stop');
   // the classic sky (no deck) never starts it; a modal frame stops it at once
-  loops.length = 0;
-  wa.update(WIND_NONE, 1 / 60, true); assert.equal(loops.length, 0);
-  wa.update(gale, 1 / 60, true); assert.equal(loops.length, 1);
-  wa.stop(); assert.deepEqual(loops.at(-1), [WIND_LOOP, null, undefined]); assert.equal(wa.gain, 0);
-  wa.stop(); assert.equal(loops.length, 2, 'a second stop is silent');
+  calls.length = 0;
+  wa.update(WIND_NONE, 1 / 60, true); assert.equal(calls.length, 0);
+  wa.update(gale, 1 / 60, true); assert.equal(loops().length, 1);
+  wa.stop(); assert.deepEqual(calls.at(-1), ['stop']); assert.equal(wa.gain, 0);
+  const n = calls.length;
+  wa.stop(); assert.equal(calls.length, n, 'a second stop is silent');
 });
 
 test('WIND3 clips: the five wind records by name, the indices DFU draws as dungeon one-shots', () => {

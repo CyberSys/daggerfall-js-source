@@ -759,15 +759,21 @@ export async function gateRecordOf({ db }, playerId) {
  * @param {{ id: string, handle?: string|null }} player the session's account
  * @param {unknown} receipt @param {CryptoKey|null} publicKey
  */
-export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey) {
+export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey, { strike = null } = {}) {
   if (!publicKey) return { error: 'no-gate-key' };
   const v = await verifyReceipt(receipt, publicKey, { subtle, nowS });
   if (!v.ok) return { error: 'receipt', why: v.why };
   const c = v.claims;
   if (c.s !== player.id) return { error: 'not-yours' };
   if (!player.handle) return { recorded: false, why: 'guest', ...(await gateRecordOf({ db }, player.id)) };
-  const r = await db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)')
-    .bind(c.d, player.id, c.b, c.x, nowS).run();
+  const kill = db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)')
+    .bind(c.d, player.id, c.b, c.x, nowS);
+  // MARKS1 / AUDIT 28 M4: the gate's Marks (marks.js gateStrikeStatement) IN THE SAME BATCH as the row - one transaction,
+  // so a strike that fails takes the row with it and the retry claims afresh; `strike` null where Marks are not this
+  // account's, and the row is written alone
+  const stmt = strike?.(c.d) ?? null;
+  const [r, m] = stmt ? await db.batch([kill, stmt]) : [await kill.run(), null];
   const recorded = Number(r?.meta?.changes ?? 0) > 0;
-  return recorded ? { recorded, ...(await gateRecordOf({ db }, player.id)) } : { recorded, why: 'claimed', ...(await gateRecordOf({ db }, player.id)) };
+  const struck = Number(m?.meta?.changes ?? 0) > 0;
+  return recorded ? { recorded, day: c.d, ...(stmt ? { struck } : {}), ...(await gateRecordOf({ db }, player.id)) } : { recorded, why: 'claimed', ...(await gateRecordOf({ db }, player.id)) };
 }

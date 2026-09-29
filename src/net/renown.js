@@ -19,20 +19,22 @@
 //
 // ═══ WHAT IT IS, AND WHAT IT NEVER TOUCHES ═════════════════════════
 //
-// ONE TRACK AN ACCOUNT, kept by the account service
+// A TRACK PER CHARACTER, kept by the account service
 // (server-account/src/renownTracks.js) and never in the save. RENOWN1
-// kept a track a CHARACTER; RENOWN-ACCOUNT (2026-09-28, Mac: "can you
+// kept a track a character; RENOWN-ACCOUNT (2026-09-28, Mac: "can you
 // make sure renown is account based and not character based?") made it
-// the account's - every character the account plays, new or old, stands
-// at the account's one Renown, and each account began at its best
-// character's total (migration 0021: the most any one track held, never
-// the sum - nobody lost progress, and alts do not stack). The
-// Daggerfall character - its level, its skills, its health and magicka,
+// the account's for a day; RENOWN-CHAR (2026-09-29, Mac: "Can we make
+// renown per character again") gave each character its own back -
+// migration 0035: each track at what it held when Renown became the
+// account's, plus everything the account earned while it was (Mac's
+// choice, "Own + recent gains"), and a realm character with no track yet
+// at those gains alone. RENOWN-ACCOUNT's slower grind stays (below).
+// The Daggerfall character - its level, its skills, its health and magicka,
 // the save file itself - is exactly what it was, offline and online, so
 // a character can go back and forth between the two forever.
 //
 // Online, and only online, the level adds `renownBonus(level)` to the
-// playing character's maximum health and magicka: a layer put on when
+// character's maximum health and magicka: a layer put on when
 // the character comes online, taken off when it leaves, and never
 // written to a save (systems/renownLayer.js).
 //
@@ -41,8 +43,9 @@
 // XP is earned by the player's own client - a kill, a quest - because
 // every kill online is already the client's own call. So the SERVICE
 // holds the bounds: at most RENOWN_XP_REPORT_MAX a report and
-// RENOWN_XP_HOUR_MAX an hour per ACCOUNT. The LEVEL is the service's
-// alone: it derives it from the account's total, signs it into the
+// RENOWN_XP_HOUR_MAX an hour per ACCOUNT, across all its characters - a
+// second character is not a second allowance. The LEVEL is the service's
+// alone: it derives it from the character's total, signs it into the
 // identity token (`lv`, net/identityToken.js), and the relay stamps it
 // beside the name, so nobody's level over their head is their own word
 // about themselves.
@@ -65,7 +68,7 @@ export { RENOWN_MAX };
  * Daggerfall level (characters/enemyEntity.js), as does a quest's pay -
  * so a character that levelled offline climbed ten times faster online
  * (AUDIT RENOWN1 DATA-6), until RENOWN3 read every foe and quest against
- * the player's Renown (below), and RENOWN-ACCOUNT paid every source three
+ * the character's Renown (below), and RENOWN-ACCOUNT paid every source three
  * quarters of it (RENOWN_RATE_PCT): at Daggerfall level 30, Renown 10 is 79
  * kills and Renown 20 is 531 - 59 and 398 at the full rate, 19 and 228
  * before the ceiling. Offline play itself still earns nothing. THE CURVE
@@ -134,8 +137,8 @@ export function renownProgress(xp) {
  * to the character's own level, so the XP does too.
  *
  * RENOWN3 (2026-09-25, Mac: "a high level character shouldnt blow through
- * online levels"): BOTH ARE READ AGAINST THE PLAYER'S RENOWN (the account's,
- * since RENOWN-ACCOUNT). A career foe stands at the character's own
+ * online levels"): BOTH ARE READ AGAINST THE CHARACTER'S RENOWN (the account's
+ * while RENOWN-ACCOUNT stood, the character's again since RENOWN-CHAR). A career foe stands at the character's own
  * Daggerfall level, and a quest is sized to it, so a character that
  * levelled offline fought level-30 foes from its first minute online -
  * Renown 10 in 19 kills, Renown 20 in 228. Now a foe, and a quest, is read
@@ -176,7 +179,7 @@ export const RENOWN_QUEST_XP_BASE = 100;
 export const RENOWN_QUEST_XP_PER_LEVEL = 40;
 /** A quest's character level is read up to here, as a foe's is. */
 export const RENOWN_QUEST_LEVEL_MAX = 30;
-/** RENOWN3: a foe or a quest is read at most this many levels above the player's Renown. */
+/** RENOWN3: a foe or a quest is read at most this many levels above the character's Renown. */
 export const RENOWN_OVER_MAX = 3;
 /** Each partymate in the room beyond the first adds this much to every kill, per cent. */
 export const RENOWN_PARTY_BONUS_PCT = 10;
@@ -191,7 +194,7 @@ const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(v) |
  *  whole XP. The one rounding the rate makes, in the one place every source passes through, so every end agrees. */
 export const renownRate = (fullXp) => Math.floor((Math.max(0, Math.trunc(Number(fullXp) || 0)) * RENOWN_RATE_PCT) / 100);
 
-/** RENOWN3: the highest level a foe or a quest is read at for a player of Renown `renown` - RENOWN_OVER_MAX above it.
+/** RENOWN3: the highest level a foe or a quest is read at for a character of Renown `renown` - RENOWN_OVER_MAX above it.
  *  A Renown not known yet (null) is Renown 1, the strictest: nothing is read higher than the service has said. */
 export const renownCeiling = (renown) => clampInt(renown ?? 1, 1, RENOWN_MAX) + RENOWN_OVER_MAX;
 
@@ -206,7 +209,7 @@ export const renownQuestXp = (characterLevel, renown = null) => renownRate(RENOW
  *  armor sets"): A TOWN DEFENDED - a raid's cleanse the relay signed for this account (net/raidReceipt.js) - is worth
  *  RENOWN_RAID_QUESTS quests at the ladder's top quest level, read no higher than the Renown allows (RENOWN3's
  *  ceiling), at the quests' rate (RENOWN-ACCOUNT): Renown 1 takes 585, Renown 10 1,395, Renown 27 and up 2,925 (780,
- *  1,860 and 3,900 at the full rate). The account service credits it once a raid an account, to the account's Renown,
+ *  1,860 and 3,900 at the full rate). The account service credits it once a raid an account, to the Renown of the character that fought it,
  *  charged to the account's hour as a report is (AUDIT RAID R5, server-account/src/raids.js). */
 export const RENOWN_RAID_QUESTS = 3;
 export const renownRaidXp = (renown = null) => RENOWN_RAID_QUESTS * renownQuestXp(RENOWN_QUEST_LEVEL_MAX, renown);
@@ -224,9 +227,8 @@ export function renownPartyXp(xp, present) {
  *
  * "On top" (Mac): Daggerfall's own maximum health and magicka are what
  * they always were, and online the level ADDS to both. Level 1 adds
- * nothing, so a character of an account with no Renown yet plays online
- * exactly as it plays offline; level 50 adds 147 health and 98 magicka -
- * to whichever of the account's characters is playing.
+ * nothing, so a character with no track yet plays online exactly as it
+ * plays offline; level 50 adds 147 health and 98 magicka.
  */
 export const RENOWN_HP_PER_LEVEL = 3;
 export const RENOWN_MP_PER_LEVEL = 2;
@@ -256,12 +258,16 @@ export function renownBonus(level) {
  * an hour already past is charged to the window that is open, never given
  * a fresh one - AUDIT RENOWN1 SEC-1/DATA-1).
  *
- * THE TRACKS' BOUND IS GONE with the tracks (RENOWN-ACCOUNT): an account
- * holds ONE track, by its key (migration 0021), so no count of them can
- * run past anything - and a new character is never refused.
+ * AN ACCOUNT HOLDS AT MOST RENOWN_TRACKS_MAX TRACKS, one a character
+ * (RENOWN-CHAR brought the bound back with the tracks; RENOWN-ACCOUNT had
+ * taken it, one track an account needing none).
  */
 export const RENOWN_XP_REPORT_MAX = 5_000;
 export const RENOWN_XP_HOUR_MAX = 15_000;
+/** Tracks per account - one a character; a new character past this is refused (SAVES_MAX's reason: a bound on rows). */
+export const RENOWN_TRACKS_MAX = 60;
+/** A character's name as the service keeps it for the account card - display only, bounded. */
+export const RENOWN_NAME_MAX = 32;
 /** How often the client sends what it has earned. */
 export const RENOWN_REPORT_MS = 60_000;
 /** AUDIT RENOWN1 DATA-4/GAME-9: A REPORT'S OWN NAME - sixteen hex digits the client draws once per report and sends

@@ -126,10 +126,12 @@ test('VAMP-HOOD online: the door reads the shared clock, whose day is one real h
     assert.equal(racialFastTravelBlock(v, nowMin), null, 'hooded at the shared noon: the map opens');
   } finally { setSharedClock(null); }
   // the map door says DFU's line and then the way out; the party's refusal reads the same law off the same clock
+  // (MERGE with LIVED1: DFU's line rides sayWithNightfall - online the world's nightfall on its own HUD row, AUDIT LIVED1
+  // M - and the hood's way out after both; the party's refusal adds the nightfall to the door's own words)
   const world = read('src/scenes/world.js');
-  assert.match(world, /const ftb = racialFastTravelBlock\(playerEntity, nowMin\);\n\s*if \(ftb\) \{ townTalk\.say\(ftb\.text\); if \(ftb\.hint\) townTalk\.say\(ftb\.hint\); return false; \}/,   // GUIDE2: the door answers the journal's Show on map
+  assert.match(world, /const ftb = racialFastTravelBlock\(playerEntity, nowMin\);\n\s*if \(ftb\) \{ sayWithNightfall\(ftb\.text\); if \(ftb\.hint\) townTalk\.say\(ftb\.hint\); return false; \}/,   // GUIDE2: the door answers the journal's Show on map
     'the map door speaks the hint after the refusal');
-  assert.match(world, /return racialFastTravelBlock\(playerEntity, nowMin\)\?\.text \?\? null;/, 'the party\'s refusal');
+  assert.match(world, /const sun = racialFastTravelBlock\(playerEntity, nowMin\)\?\.text \?\? null;\n\s*return sun \? withNightfall\(sun\) : null;/, 'the party\'s refusal');
 });
 
 test('VAMP-HOOD: the hood is the sun\'s, not the day\'s - a hooded vampire\'s seven stats are still 20 down at noon (VAMP-DAY)', () => {

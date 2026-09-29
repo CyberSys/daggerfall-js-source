@@ -2,8 +2,8 @@
   {
     "name": "AUDIT-RENOWN1-hour-window-steps-back",
     "file": "server-account/src/renownTracks.js",
-    "old": "         renown_hour = MAX(renown_hour, ?5)",
-    "new": "         renown_hour = ?5",
+    "old": "         renown_hour = MAX(renown_hour, ?6)",
+    "new": "         renown_hour = ?6",
     "tests": [
       "test/auditrenown1.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "AUDIT-RENOWN1-late-report-own-window",
     "file": "server-account/src/renownTracks.js",
-    "old": "  const room = 'CASE WHEN renown_hour >= ?5 THEN MAX(0, ?4 - renown_hour_xp) ELSE ?4 END';",
-    "new": "  const room = 'CASE WHEN renown_hour = ?5 THEN MAX(0, ?4 - renown_hour_xp) ELSE ?4 END';",
+    "old": "  const room = 'CASE WHEN renown_hour >= ?6 THEN MAX(0, ?5 - renown_hour_xp) ELSE ?5 END';",
+    "new": "  const room = 'CASE WHEN renown_hour = ?6 THEN MAX(0, ?5 - renown_hour_xp) ELSE ?5 END';",
     "tests": [
       "test/auditrenown1.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "AUDIT-RENOWN1-repeat-credited",
     "file": "server-account/src/renownTracks.js",
-    "old": "  const want = `CASE WHEN ${repeat} THEN 0 ELSE",
-    "new": "  const want = `CASE WHEN 0 THEN 0 ELSE",
+    "old": "  const want = `CASE WHEN ${repeat} OR ${refused} THEN 0 ELSE",
+    "new": "  const want = `CASE WHEN ${refused} THEN 0 ELSE",
     "tests": [
       "test/auditrenown1.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "AUDIT-RENOWN1-rid-unread-at-route",
     "file": "server-account/src/index.js",
-    "old": "{ xp: body.xp, rid: body.rid ?? null });",
-    "new": "{ xp: body.xp, rid: null });",
+    "old": "name: body.name ?? null, rid: body.rid ?? null });",
+    "new": "name: body.name ?? null, rid: null });",
     "tests": [
       "test/auditrenown1.test.js"
     ]
@@ -492,8 +492,8 @@
   {
     "name": "AUDIT-RENOWN1-chip-names-nobody",
     "file": "src/ui/enhancedAccount.js",
-    "old": "      chip.title = `Renown ${renown.level} - shared by all your characters`;",
-    "new": "      chip.title = `Renown ${renown.level}`;",
+    "old": "      chip.title = `Renown ${tracks[0].level}${typeof tracks[0].name === 'string' && tracks[0].name ? ` - ${tracks[0].name}` : ''}`;",
+    "new": "      chip.title = `Renown ${tracks[0].level}`;",
     "tests": [
       "test/auditrenown1.test.js",
       "test/renown1.test.js"
@@ -502,8 +502,8 @@
   {
     "name": "AUDIT-RENOWN1-chip-on-every-stage",
     "file": "src/ui/enhancedAccount.js",
-    "old": "    const renown = stage === 'in' ? accountRenownOf(flow.account?.renown) : null;",
-    "new": "    const renown = accountRenownOf(flow.account?.renown);",
+    "old": "    const tracks = stage === 'in' ? renownTracksOfCard(flow.account?.renown) : [];",
+    "new": "    const tracks = renownTracksOfCard(flow.account?.renown);",
     "tests": [
       "test/auditrenown1.test.js"
     ]

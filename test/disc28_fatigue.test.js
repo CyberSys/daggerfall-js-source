@@ -15,7 +15,7 @@
 // Driven through the real tick (tickPlayerMinutes), the real revival door and the real arrival (alignEntityClocks).
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { tickPlayerMinutes, setSharedClock, alignEntityClocks, normalizeAcross, skipDeadMinutes } from '../src/systems/worldTick.js';
+import { tickPlayerMinutes, setSharedClock, alignEntityClocks, normalizeAcross, skipDeadMinutes, ownMinutes, setOwnMinutes } from '../src/systems/worldTick.js';
 import { reviveForPlay, respawnHealth } from '../src/systems/deathRespawn.js';
 import { maxFatigue } from '../src/systems/statMods.js';
 import { SURVIVAL_RULES } from '../src/systems/survival/difficulty.js';
@@ -88,18 +88,18 @@ test('DISC28-E: offline there is no dead span to skip - the revival moves no clo
   assert.equal(e.lastGameMinutes, 1000);
 });
 
-test('DISC28-E: the skip moves the player\'s markers, carries the needs\' clocks over the span, and leaves the world\'s alone', () => {
-  setSharedClock(() => 5000);
-  // AUDIT DISC28 TM-3: a room that runs out AFTER the rise - one that ran out under the death screen is swept by the
-  // day block the span crossed (test/auditdisc28_time.test.js), which is the world's clock running too
-  const e = { lastGameMinutes: 4000, survival: { lastMinute: 4000, lastAte: 3900, awakeSince: 3000 }, rentedRooms: [{ expiryMinutes: 5600 }] };
+test('DISC28-E (LIVED1): the skip moves nothing of the player\'s - their own clock stood under the death screen, so the markers, the needs\' clocks and a room stand where they were; only the world\'s reading moves', () => {
+  let clock = 4000;
+  setSharedClock(() => clock);
+  setOwnMinutes(4000);
+  const e = { lastGameMinutes: 4000, survival: { lastMinute: 4000, lastAte: 3900, awakeSince: 3000 }, rentedRooms: [{ expiryMinutes: 4600 }] };
+  alignEntityClocks(e, 4000);   // the world's reading at the minute of death
+  clock = 5000;
   assert.equal(skipDeadMinutes(e, 5000), true);
-  assert.equal(e.lastGameMinutes, 5000);
-  assert.equal(e.survival.lastMinute, 5000);
-  assert.equal(e.survival.lastAte, 4900, 'hunger did not age in a corpse');
-  assert.equal(e.survival.awakeSince, 4000);
-  assert.equal(e.rentedRooms[0].expiryMinutes, 5600, 'a room runs out on the world\'s clock through a death as through any hour');
-  assert.equal(skipDeadMinutes(e, 5000), false, 'nothing to skip twice');
+  assert.deepEqual([e.lastGameMinutes, e.survival.lastMinute, e.survival.lastAte, e.survival.awakeSince, e.rentedRooms[0].expiryMinutes],
+    [4000, 4000, 3900, 3000, 4600], 'hunger did not age in a corpse, and the room kept its ten hours - nothing was carried, nothing had to be');
+  assert.equal(ownMinutes(), 4000, 'the character\'s clock stands where they fell');
+  assert.equal(e.preventEnemySpawns, true, 'TM-2: the span is shielded from the encounter loop');
 });
 
 const N = NORMALIZE_INTERVAL_MINUTES;
@@ -108,7 +108,7 @@ const convict = (last) => ({ lastGameMinutes: last, legalRep: [0, -15, 3], facti
 test('DISC28-F: an arrival across three normalise boundaries pays all three - the reputation walks back toward zero', () => {
   setSharedClock(() => 3 * N + 10);
   const e = convict(N - 5);
-  alignEntityClocks(e, 3 * N + 10);   // crosses N, 2N and 3N
+  alignEntityClocks(e, 3 * N + 10, { worldLeft: N - 5 });   // crosses N, 2N and 3N - from the world's minute the save left at (LIVED1)
   // AUDIT DISC28 TM-1 (Mac, 2026-09-28: "Recovery only"): an absence pays the recovery half - the -15 walks back three,
   // the +3 standing is kept (it went to 0 before the decision)
   assert.deepEqual(e.legalRep.slice(0, 3), [0, -12, 3], 'three boundaries, three points of recovery, no standing lost');
@@ -116,7 +116,7 @@ test('DISC28-F: an arrival across three normalise boundaries pays all three - th
 
 test('DISC28-F: an arrival inside one interval pays nothing; the boundary minute is [last, now) - DFU\'s own convention', () => {
   const e = convict(N + 1);
-  alignEntityClocks(e, 2 * N);   // 2N itself is not in [N+1, 2N)
+  alignEntityClocks(e, 2 * N, { worldLeft: N + 1 });   // 2N itself is not in [N+1, 2N)
   assert.deepEqual(e.legalRep.slice(0, 3), [0, -15, 3]);
   assert.equal(normalizeAcross(convict(N), N, N + 1), 1, 'N itself is in [N, N+1)');
   assert.equal(normalizeAcross(convict(0), 5, 5), 0);
@@ -128,9 +128,14 @@ test('DISC28-F: the prison skip\'s one-jump shield holds over a catch-up too', (
   assert.deepEqual(e.legalRep.slice(0, 3), [0, -15, 3]);
 });
 
-test('DISC28-F: a death that lay across a boundary still pays it', () => {
-  setSharedClock(() => N + 10);
+test('DISC28-F (LIVED1): a death that lay across a boundary pays nothing of the character\'s - their clock stood, and the boundary is paid when they live it', () => {
+  let clock = N - 10;
+  setSharedClock(() => clock);
+  setOwnMinutes(N - 10);
   const e = { ...convict(N - 10), health: 0, maxHealth: 80, fatigue: 0, stats: { strength: 50, endurance: 60 } };
+  alignEntityClocks(e, N - 10);
+  clock = N + 10;
   reviveForPlay(e, { force: true });
-  assert.equal(e.legalRep[1], -14);
+  assert.equal(e.legalRep[1], -15, 'not under the death screen');
+  assert.equal(normalizeAcross(e, ownMinutes(), ownMinutes() + 20), 1, 'the character\'s own boundary is still ahead of them, twenty lived minutes on');
 });

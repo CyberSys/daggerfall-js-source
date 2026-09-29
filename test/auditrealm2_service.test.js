@@ -100,11 +100,10 @@ async function stand() {
   };
   const rows = (sql, ...a) => env.DB._raw.prepare(sql).all(...a).map((r) => ({ ...r }));
   const exec = (sql, ...a) => env.DB._raw.prepare(sql).run(...a);
-  /** A character's Renown track - what the census counted and customs carries - and (RENOWN-ACCOUNT) the account's own
-   *  Renown, which the service gates a founding on, at the same level. */
+  /** A character's Renown track - what the census counted, customs carries and (RENOWN-CHAR: the character's own again)
+   *  the service gates a founding on. */
   const renown = (who, charId, level = GUILD_FOUND_RENOWN) => {
     exec('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 1)', who.id, charId, 'x', renownXpFor(level));
-    exec('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, 1, 1)', who.id, renownXpFor(level));
   };
   /** Is the object the row names now in R2 - the save a join would load? */
   const saveStands = (id) => env.SAVES._map.has(env.DB._raw.prepare('SELECT obj FROM realm_characters WHERE id = ?').get(id).obj);

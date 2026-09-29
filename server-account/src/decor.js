@@ -172,6 +172,26 @@ export async function hideDecorBase(ctx, player, { mapId, buildingKey, character
 }
 
 /**
+ * PROF4 (bible/06-Systems/Professions-Arc.md 25): A CRAFTED PIECE SET DOWN - its provenance id kept only where the
+ * account service's own `products` row says the piece is this account's and this template's, and its maker's mark
+ * written from that row alone (where its name carries one - a Masterwork, a Master Joiner's furniture), never from what
+ * the client sent. A piece whose id the row does not bear out stands as the plain piece it is.
+ */
+async function provenOf(db, player, p, mapId, buildingKey) {
+  const pv = p.item.pv;
+  const plain = { ...p.item };
+  delete plain.pv;
+  delete plain.mk;   // never the client's word
+  const row = await db.prepare('SELECT owner, template, maker, marked, listed FROM products WHERE provenance = ?').bind(pv).first();
+  // AUDIT 30 S6: one piece stands in one place - not while it is listed, and not where another placement already bears
+  // it (a placement asked again is the same piece, the same id)
+  const elsewhere = row ? await db.prepare(`SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?1
+    AND NOT (map_id = ?2 AND building_key = ?3 AND id = ?4)`).bind(pv, mapId, buildingKey, p.id).first() : null;
+  const ours = row && row.owner === player.id && Number(row.template) === p.item.t && Number(row.listed) === 0 && !elsewhere;
+  return decorPieceOf({ ...p, item: ours ? { ...plain, pv, ...(Number(row.marked) === 1 && row.maker ? { mk: row.maker } : {}) } : plain });
+}
+
+/**
  * PLACE ONE: it stands in the owner's home, or it is refused and nothing changes. A placement sent again because its
  * answer was lost finds the same piece standing and is answered as the placement.
  * @param {{db: any, nowS: number}} ctx
@@ -184,7 +204,9 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
   }
   const shut = await writeDoor(ctx, player, { mapId, buildingKey, character }, true);   // AUDIT REALM2 S2: a realm character's
   if (shut) return { error: shut };
-  const p = decorPieceOf(piece);
+  const sent = decorPieceOf(piece);
+  if (!sent) return { error: 'bad-decor' };
+  const p = sent.item?.pv ? await provenOf(db, player, sent, mapId, buildingKey) : sent;   // PROF4: a crafted piece's mark off its own record
   if (!p) return { error: 'bad-decor' };
   const { delta, ledger } = decorGoldMove(null, p);
   const side = decorSideOf(character, realm, delta);   // REALM P2.2b

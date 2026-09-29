@@ -141,6 +141,8 @@ change) now name the flip. `10-UI/Held-Map-Arc.md` MAP-KEY, Port-Ledger A's HELD
   Mercantile and Personality raise an online sale only where Daggerfall's own offer sits under that cap (low skills at
   the dearest counters). The other lawful shape keeps the skill in it and pays everyone less: scale Daggerfall's offer
   so the best haggler lands exactly on half their ask (2283 at 60, 2609 at 90 there). Or raise the share. Say which.
+  **Answered** (`Field-Bugs-2026-09-29f.md`, The balance): Mac, *"We adjusted this in a prior commit"* - MERC-RISE's
+  flat half is the balance.
 - **TO-ROADS is a second switch, OFF by default,** and only does anything with First-Person Travel on. A single
   three-way choice (Overworld / first person straight / first person by road) may read better than two switches. A
   route the roads refuse is said and dropped - never the straight walk (that would be the report itself) - and a pick

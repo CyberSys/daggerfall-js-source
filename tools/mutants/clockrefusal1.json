@@ -20,10 +20,10 @@
     "why": "the refusal is DOUBLED: setWorldMinutes carries the same `if (_sharedClock) return _sharedClock()` one level down, so removing advanceWorldMinutes's own early return changes nothing - the write still refuses and the same shared minute comes back. Worth knowing rather than contriving a pin for: the outer guard is belt-and-braces, not the law."
   },
   {
-    "name": "prison-branch-flattened",
+    "name": "prison-days-asked-of-the-world",
     "file": "src/scenes/arrestFlow.js",
-    "old": "          if (!sharedClockOn()) fillVitalSigns(playerEntity);\n          else reviveForPlay(playerEntity);",
-    "new": "          fillVitalSigns(playerEntity);",
+    "old": "  advanceDays = (days) => advanceOwnMinutes(days * MINUTES_PER_DAY),",
+    "new": "  advanceDays = (days) => advanceWorldMinutes(days * MINUTES_PER_DAY),",
     "tests": [
       "test/clockrefusal.test.js"
     ]

@@ -65,7 +65,7 @@
   {
     "name": "COMPASS-PARTY-classic-in-the-detect-red",
     "file": "src/ui/hud.js",
-    "old": "      renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, PARTY_GREEN);",
+    "old": "      renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, colour);",
     "new": "      renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, [0.6, 0.09, 0.03, 1]);",
     "tests": [
       "test/compassparty.test.js"
@@ -83,7 +83,7 @@
   {
     "name": "COMPASS-PARTY-enhanced-gone-mate-stays",
     "file": "src/ui/enhancedHud.js",
-    "old": "  for (let i = 0; i < parts.partyMarks.length; i++) {",
+    "old": "  for (let i = 0; i < parts[pool].length; i++) {",
     "new": "  for (let i = 0; i < list.length; i++) {",
     "tests": [
       "test/compassparty.test.js"

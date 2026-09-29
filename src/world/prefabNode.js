@@ -38,6 +38,12 @@ import { mat4FromQuatPosScale, quatMultiply, quatRotate } from './quat.js';
 const IDENTITY = Object.freeze([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 const ZERO3 = Object.freeze([0, 0, 0]), ONE3 = Object.freeze([1, 1, 1]);
 const _rotScratch = new Float32Array(16);   // lossyScaleOf's rotation, read at once (rs3 copies it out)
+/** AUDIT NAV1 (the frame's cost, #12): THE TREES' SHAPE, STAMPED - bumped by every change to which node hangs under
+ *  which (setParent, and so setParentKeepWorld and every instance built) and to which components a node carries
+ *  (addComponent); never by a move, a turn or a switch on or off. What is kept of a tree's shape (world/
+ *  prefabColliders.js's index of its colliders) stands while the stamp does. */
+let _shapeStamp = 0;
+export const prefabShapeStamp = () => _shapeStamp;
 
 export class PrefabNode {
   /**
@@ -62,6 +68,16 @@ export class PrefabNode {
     this.prefabRoot = null;
     /** @type {Map<string, PrefabNode>|null} on an instance's root: its nodes by prefab path */
     this.prefabPaths = null;
+    // AUDIT NAV1 (the frame's cost, #11/#12): the world matrix as last made (worldMatrix), the local values it was made
+    // of, and the parent and the parent's matrix it was made under
+    /** @type {any} */ this._w = null;
+    /** @type {Float64Array|null} */ this._wk = null;
+    /** @type {PrefabNode|null|undefined} */ this._wParent = undefined;
+    /** @type {any} */ this._wParentM = undefined;
+    /** @type {any} */ this._r = null;
+    /** @type {Float64Array|null} */ this._rk = null;
+    /** @type {PrefabNode|null|undefined} */ this._rParent = undefined;
+    /** @type {any} */ this._rParentQ = undefined;
   }
 
   get childCount() { return this.children.length; }
@@ -72,6 +88,7 @@ export class PrefabNode {
     if (this.parent) this.parent.children.splice(this.parent.children.indexOf(this), 1);
     this.parent = parent;
     if (parent) parent.children.push(this);
+    _shapeStamp++;
     return this;
   }
 
@@ -93,8 +110,21 @@ export class PrefabNode {
   /** Transform.position: the node's origin in its root's frame; setting it moves the local position to match. */
   get position() { const m = this.worldMatrix(); return [m[12], m[13], m[14]]; }
   set position(p) { this.localPosition = this.parent ? this.parent.inverseTransformPoint(p) : [...p]; }
-  /** Transform.rotation: the local rotations multiplied down from the root (scale never enters it). */
-  get rotation() { return this.parent ? quatMultiply(this.parent.rotation, this.localRotation) : [...this.localRotation]; }
+  /** Transform.rotation: the local rotations multiplied down from the root (scale never enters it). AUDIT NAV1 (#11):
+   *  kept as worldMatrix keeps its matrix - made again only when this node's local rotation reads otherwise, its parent
+   *  is another, or its parent's was made again; a copy handed out, so no reader can write into what is kept. */
+  get rotation() {
+    const p = this.parent, pr = p ? p._rotationKept() : null, q = this.localRotation, k = this._rk;
+    if (!(k && this._rParent === p && this._rParentQ === pr && k[0] === q[0] && k[1] === q[1] && k[2] === q[2] && k[3] === q[3])) {
+      this._r = pr ? quatMultiply(pr, q) : [...q];
+      const kk = (this._rk ??= new Float64Array(4));
+      kk[0] = q[0]; kk[1] = q[1]; kk[2] = q[2]; kk[3] = q[3];
+      this._rParent = p; this._rParentQ = pr;
+    }
+    return [...this._r];
+  }
+  /** The kept world rotation itself (the getter's own, never a copy) - a child's product reads its parent's. */
+  _rotationKept() { this.rotation; return this._r; }
   set rotation(q) { this.localRotation = this.parent ? normalizeQuat(quatMultiply(quatInverse(this.parent.rotation), q)) : [...q]; }
   /** Transform.lossyScale: the world rotation undone from the world rotation-and-scale, its diagonal. */
   get lossyScale() { return this.lossyScaleOf(this.worldMatrix()); }
@@ -128,10 +158,29 @@ export class PrefabNode {
 
   /** T * R * S of this node alone. */
   localMatrix() { return mat4FromQuatPosScale(this.localRotation, this.localPosition, this.localScale); }
-  /** The node's matrix in its root's frame (the root's own transform included). */
+  /**
+   * The node's matrix in its root's frame (the root's own transform included).
+   *
+   * AUDIT NAV1 (the frame's cost, #11/#12): KEPT WHILE IT READS THE SAME, as Unity keeps a Transform's. It was made
+   * afresh at every ask - the local matrix of this node and of every one above it, and their products - and a sea
+   * fight asks it hundreds of times a frame (a hull's box alone some 240 times with eight ships near: a fifth of the
+   * sea's frame, and its garbage). Now it is made again only when this node's local position, rotation or scale reads
+   * otherwise than when it was made (their values, never the arrays' identity), when its parent is another, or when
+   * its parent's own was made again - the same product of the same values as before, to the bit. The node's own: read
+   * it, never write it; one made again is a new one, so a matrix handed out stays as it was.
+   */
   worldMatrix() {
-    const local = this.localMatrix();
-    return this.parent ? multiply(this.parent.worldMatrix(), local) : local;
+    const p = this.parent;
+    const pw = p ? p.worldMatrix() : null;
+    const q = this.localRotation, t = this.localPosition, s = this.localScale, k = this._wk;
+    if (k && this._wParent === p && this._wParentM === pw && k[0] === q[0] && k[1] === q[1] && k[2] === q[2] && k[3] === q[3]
+      && k[4] === t[0] && k[5] === t[1] && k[6] === t[2] && k[7] === s[0] && k[8] === s[1] && k[9] === s[2]) return this._w;
+    const local = mat4FromQuatPosScale(q, t, s);
+    const w = pw ? multiply(pw, local) : local;
+    const kk = (this._wk ??= new Float64Array(10));
+    kk[0] = q[0]; kk[1] = q[1]; kk[2] = q[2]; kk[3] = q[3]; kk[4] = t[0]; kk[5] = t[1]; kk[6] = t[2]; kk[7] = s[0]; kk[8] = s[1]; kk[9] = s[2];
+    this._w = w; this._wParent = p; this._wParentM = pw;
+    return w;
   }
   /** A point in the node's frame, in its root's frame. */
   transformPoint(p) {
@@ -141,7 +190,7 @@ export class PrefabNode {
 
   getComponent(type) { return this.components.find((c) => c.type === type) ?? null; }
   getComponents(type) { return this.components.filter((c) => c.type === type); }
-  addComponent(c) { this.components.push(c); return c; }
+  addComponent(c) { this.components.push(c); _shapeStamp++; return c; }
 
   /** Depth first, this node first; only a component on an active node (Unity's default). */
   getComponentInChildren(type) {

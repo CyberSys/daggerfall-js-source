@@ -454,10 +454,19 @@
     ]
   },
   {
-    "name": "SHIP-SAIL-online-counts-days",
+    "name": "SHIP-SAIL-online-says-no-days",
     "file": "src/scenes/world.js",
-    "old": "    const days = sharedClockOn() ? 0 : travelDays(fare.computed.minutes);",
-    "new": "    const days = travelDays(fare.computed.minutes);",
+    "old": "    const days = travelDays(fare.computed.minutes);",
+    "new": "    const days = sharedClockOn() ? 0 : travelDays(fare.computed.minutes);",
+    "tests": [
+      "test/disc28e_shipport.test.js"
+    ]
+  },
+  {
+    "name": "SHIP-SAIL-online-days-not-yours",
+    "file": "src/scenes/world.js",
+    "old": "shipPassageRows(place.name, fareText(fare.computed), days, fare.unwell, sharedClockOn()),",
+    "new": "shipPassageRows(place.name, fareText(fare.computed), days, fare.unwell),",
     "tests": [
       "test/disc28e_shipport.test.js"
     ]
@@ -501,8 +510,8 @@
   {
     "name": "SHIP-SAIL-days-rounded-down",
     "file": "src/scenes/travelView.js",
-    "old": "  if (days > 0) rows.push(`The voyage takes ${days} ${days === 1 ? 'day' : 'days'}.`);",
-    "new": "  if (days > 0) rows.push(`The voyage takes ${days} days.`);",
+    "old": "  if (days > 0) rows.push(`The voyage takes ${days} ${days === 1 ? 'day' : 'days'}${own ? ' of your time' : ''}.`);",
+    "new": "  if (days > 0) rows.push(`The voyage takes ${days} days${own ? ' of your time' : ''}.`);",
     "tests": [
       "test/disc28e_shipport.test.js"
     ]

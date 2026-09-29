@@ -187,6 +187,20 @@ export const MOD_SETTINGS = Object.freeze({
       }),
     }),
   }),
+  // FORAGE1 (2026-09-28): FORAGING 1.7 (Harbinger451). No modsettings of
+  // its own - six tools, five foods, a quest pack - so one switch.
+  'foraging': Object.freeze({
+    title: 'Foraging',
+    author: 'Harbinger451',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'Harbinger451\u2019s Foraging 1.7, 1:1: in the wilderness, use a Wood-Axe to chop wood, a Pick-Axe to mine gems '
+          + 'and metals, a Sickle to cut plants, a Spade to rob graves, a Fishing-Net to fish and a Basket to forage for food - '
+          + 'by daylight, away from towns and foes, as your attributes, the climate and the season allow.',
+      }),
+    }),
+  }),
   // DW-A (2026-09-25): ILIAC PUDDLE NO MORE 1.2.2 (jet082). Its one section,
   // General, restated flat with the section in front of each name (the
   // Immersive Footsteps convention), in the shipped order with the shipped
@@ -1068,7 +1082,7 @@ export const MOD_SETTINGS = Object.freeze({
       // you to a destination and theres no travel". DEPARTURE FROM THE
       // MOD'S SHIPPED DEFAULT, on Mac's word, and it is the whole of that
       // report. IsPlayerControlledTravel is an AND over three toggles
-      // (travelPopUp.js:183): `(cautiousTravel || !speedCautious) &&
+      // (travelPopUp.js:190): `(cautiousTravel || !speedCautious) &&
       // (stopAtInnsTravel || !sleepModeInn) && !travelShip`. The popup
       // opens with `sleepModeInn = true` - classic Daggerfall's own
       // default, stopping at inns - so with this key false the second

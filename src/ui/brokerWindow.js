@@ -31,7 +31,7 @@ import { closeOnOutsideTap } from './enhancedOverlays.js';
 import { overlayAction } from './input.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { rarityVarsCss, SIGIL_VARS_CSS, SIGIL_KEYFRAMES_CSS, SIGIL_BLOCK_CSS, SET_BLOCK_CSS, BROKER_CSS } from './enhancedPlusStyle.js';
-import { frameCss } from './enhancedFrame.js';
+import { frameCss, scopeRules } from './enhancedFrame.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js';
 import { isBound, BOUND_LINE } from '../systems/itemBound.js';   // SS4: the wares are bound, and the card says so
 
@@ -64,39 +64,9 @@ export function buyLabel(s) {
   return 'Gone';
 }
 
-/** A selector list split at its top-level commas (never inside `:is(...)`/`:not(...)`). */
-function splitSelectors(prelude) {
-  const out = [];
-  let depth = 0, at = 0;
-  for (let i = 0; i < prelude.length; i++) {
-    const c = prelude[i];
-    if (c === '(') depth++; else if (c === ')') depth--;
-    else if (c === ',' && depth === 0) { out.push(prelude.slice(at, i).trim()); at = i + 1; }
-  }
-  out.push(prelude.slice(at).trim());
-  return out.filter(Boolean);
-}
-/** A sheet's rules cut to the selectors `keep` answers yes for - each rule's list cut, a rule left with none dropped,
- *  an @media kept round what it keeps, a @keyframes kept whole (it dresses nothing by itself). The kit is written for
- *  every surface, its roles and its hand-set rules alike (the hotbar's sockets, the dividers); the classic skin's
- *  Broker lays its own window's share of it and nothing else. */
-export function scopeRules(css, keep) {
-  const text = String(css).replace(/\/\*[\s\S]*?\*\//g, '');
-  let out = '', i = 0;
-  while (i < text.length) {
-    const open = text.indexOf('{', i);
-    if (open < 0) break;
-    const prelude = text.slice(i, open).trim();
-    let depth = 1, j = open + 1;
-    while (j < text.length && depth) { if (text[j] === '{') depth++; else if (text[j] === '}') depth--; j++; }
-    const inner = text.slice(open + 1, j - 1);
-    if (/^@(media|supports)\b/.test(prelude)) { const kept = scopeRules(inner, keep); if (kept) out += `${prelude} {\n${kept}}\n`; }
-    else if (prelude.startsWith('@')) out += `${prelude} {${inner}}\n`;
-    else { const sels = splitSelectors(prelude).filter(keep); if (sels.length) out += `${sels.join(',\n')} {${inner}}\n`; }
-    i = j;
-  }
-  return out;
-}
+/** The kit's rules cut to a surface's own selectors - the kit's module holds it now (NAV-F: the naval readout lays its
+ *  share too, and a HUD in the main bundle must not import this lazy chunk for it); said here still for its callers. */
+export { scopeRules };
 
 /** AUDIT SET U1: THE WINDOW'S OWN SHEET, for the classic skin - everything it wears, scoped to it, and nothing that
  *  would dress another surface: its layout, the tiers' colours under its shell, the sigil's and the set's blocks (their

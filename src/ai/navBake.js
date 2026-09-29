@@ -51,7 +51,9 @@ export function navInputFromCollider(collider, { buckets = null, exclude = null 
     if (buckets && !buckets.includes(key)) continue;
     if (exclude && exclude.has(key)) continue;
     const t = bucket.t ? bucket.t() : [0, 0, 0];
-    for (const [a, b, c] of bucket.tris) {
+    const R = bucket.r ? bucket.r() : null;   // AUDIT NAV1 (#12): a mover's bucket, its triangles turned as they stand
+    for (const tri of bucket.tris) {
+      const [a, b, c] = R ? tri.map((v) => [R[0] * v[0] + R[3] * v[1] + R[6] * v[2], R[1] * v[0] + R[4] * v[1] + R[7] * v[2], R[2] * v[0] + R[5] * v[1] + R[8] * v[2]]) : tri;
       const base = pos.length / 3;
       pos.push(a[0] + t[0], a[1] + t[1], a[2] + t[2], b[0] + t[0], b[1] + t[1], b[2] + t[2], c[0] + t[0], c[1] + t[1], c[2] + t[2]);
       idx.push(base, base + 1, base + 2);

@@ -16,15 +16,15 @@
 //     slots match the role per the approved engine-PRNG stance
 // MI (magic items) rolls need the MAGIC.DEF registry
 // (setMagicItemTemplates), and EVERY host that can generate loot now
-// loads it: scenes/shared.js:126-129 (loadMagicRegistries) feeds the
-// module table this file reads, called from dungeonContext.js:1456,
-// world.js:4602 and exterior.js:1308 - interiors run inside those hosts
+// loads it: scenes/shared.js:128-131 (loadMagicRegistries) feeds the
+// module table this file reads, called from dungeonContext.js:1484,
+// world.js:4847 and exterior.js:1311 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
-// that is DFU's own answer rather than a stand-in: shared.js:137
+// that is DFU's own answer rather than a stand-in: shared.js:139
 // records it, the category simply stays empty.
 
 import { randomMaterial, randomArmorMaterial, createWeapon, WEAPONS_ENUM, ARMOR_ENUM } from '../combat/enemyEquipment.js';
-import { customItemsForGroup } from './rriItems.js';   // RRI1: CreateRandomWeapon/Armor roll over the classic slots PLUS the registered custom items (ItemBuilder.cs:382-390, :451-459)
+import { customItemsForGroup } from './itemTemplates.js';   // FORAGE1: every mod's, from its one home; RRI1: CreateRandomWeapon/Armor roll over the classic slots PLUS the registered custom items (ItemBuilder.cs:382-390, :451-459)
 import { ARROW_TEMPLATE } from './inventory.js';   // X11b: CreateWeapon's arrow arm keys on it
 import { dice100 } from '../combat/formulas.js';
 import { goldStack } from './inventory.js';
@@ -39,6 +39,7 @@ import { RANDOM_TREASURE_ARCHIVE, RANDOM_TREASURE_ICONS, DROP_ICON_ARCHIVES, DRO
 import { themedIngredientPool } from './lootThemes.js';   // MOD: a monster's CreatureIngredients roll draws from ITS OWN curated subset, not the full mismatched pool
 import { isOnlinePage } from './onlineLane.js';   // REALM P0.4: online, a pile's gold is not the level's
 import { rriLootMatrix, rriEnemyLootTableKey, conditionBasedPricesOn, randomConditionLootItems } from './rriRealism.js';   // RRI2: LootRealismTables over DefaultLootTables, MobLootKeys over the basics' key, the condition roll on tabled loot
+import { RRI_VENDOR } from './rriItems.js';   // FORAGE3: the pile event's first subscriber, named by its mod
 
 // LootChanceMatrix rows, verbatim (22 keys, '-' included).
 export const LOOT_MATRICES = Object.freeze({
@@ -258,15 +259,6 @@ export function generateRandomLoot(matrix, who, rolls = Math.random, { itemChanc
   return items;
 }
 
-/**
- * OH-E: LootTables.OnLootSpawned (LootTables.cs:163, GenerateLoot's last) - a treasure pile's items rolled off its key
- * (the pile's trio in): `{key, items}`. Raised by addPileLootExtras, GenerateLoot's tail, after RRI2's own subscriber.
- */
-export const tableLootSpawned = Object.freeze({
-  _fns: [],
-  add(fn) { this._fns.push(fn); return () => { const i = this._fns.indexOf(fn); if (i >= 0) this._fns.splice(i, 1); }; },
-  raise(args) { for (const fn of [...this._fns]) fn(args); },
-});
 
 // ---- Magic items (S4c): ItemBuilder.CreateRegularMagicItem verbatim ----
 // The MAGIC.DEF registry: set once per context after the file loads.
@@ -777,7 +769,7 @@ export function unlevelPileGold(items, level) {
  *  The potion chance is FOUR here, not three. */
 export const PILE_MAP_CHANCES = Object.freeze([2, 1, 1, 2, 2, 15]);   // J, K, L, M, N, O
 
-export function addPileLootExtras(items, lootTableKey, rolls = Math.random, { level = 1, online = isOnlinePage(), where = null } = {}) {
+export function addPileLootExtras(items, lootTableKey, rolls = Math.random, { locationIndex = null, luck = 50, level = 1, online = isOnlinePage(), where = null } = {}) {
   if (!items || !lootTableKey) return items;
   if (online) unlevelPileGold(items, level);   // REALM P0.4: every pile, whatever its key
   // `int alphabetIndex = key - 64` on the FIRST character: 'A' is 1,
@@ -788,16 +780,38 @@ export function addPileLootExtras(items, lootTableKey, rolls = Math.random, { le
     randomlyAddPotion(4, items, rolls);
     randomlyAddPotionRecipe(2, items, rolls);
   }
-  // RRI2: LootTables.OnLootSpawned (:163) fires here, after the tail - the
-  // mod's RandomConditionLootItems (RoleplayRealismItemsMod.cs:227-245)
-  // wears a pile's armor, weapons and books to 20-75% under conditionBasedPrices.
-  // OH-E: FOR EVERY KEY - GenerateLoot raises it whether or not the key is in
-  // the trio's window, where the port returned before it outside J..O (so a
-  // coven's, a laboratory's or a dragon's den's pile was never worn) - and
-  // every other subscriber hears it after (There's a Hole in the Bottom of the
-  // Ocean's AddBonusMagicLoot and UpgradeLoot).
-  if (conditionBasedPricesOn()) randomConditionLootItems(items, rolls);
-  tableLootSpawned.raise({ key: lootTableKey, items, where });   // AUDIT OH-F B3: `where` the host that rolled it ('dungeon', or null)
+  // FORAGE3 + OH-E: LootTables.OnLootSpawned (:163) fires here, after the J-O tail and for EVERY key GenerateLoot
+  // found (`locationIndex < lootTableKeys.Length`, :143) - the '-' the port spells an index off the table with raises
+  // nothing, as GenerateLoot returns false there. It had fired inside the J-O window alone, for RRI alone (so a coven's,
+  // a laboratory's or a dragon's den's pile was never worn). RRI2's RandomConditionLootItems is its first subscriber;
+  // every other hears it after (Foraging's, There's a Hole in the Bottom of the Ocean's AddBonusMagicLoot and UpgradeLoot).
+  // AUDIT OH-F B3: `where` the host that rolled it ('dungeon', or null).
+  if (lootTableKey !== '-') raiseTabledLootSpawned({ locationIndex, key: lootTableKey, items, rolls, luck, where });
   return items;
 }
+
+// ---- LootTables.OnLootSpawned (LootTables.cs:42, raised at :163) ----------
+/** FORAGE3: the event's subscribers, by name, in the order the mods load - UL1's shape (corpseMarker.js's death
+ *  registry). RRI2's is the first: RandomConditionLootItems (RoleplayRealismItemsMod.cs:227-245) wears a pile's armor,
+ *  weapons and books to 20-75% under conditionBasedPrices. Its args are DFU's TabledLootSpawnedEventArgs -
+ *  `{ locationIndex, key, items }` - with the pile's `rolls` and the player's `luck` beside them (DFU's subscribers
+ *  read GameManager.PlayerEntity; the raiser hands them the player's live luck instead), and OH-F B3's `where`. */
+const _tabledLootHandlers = new Map([
+  [RRI_VENDOR, ({ items, rolls }) => { if (conditionBasedPricesOn()) randomConditionLootItems(items, rolls); }],
+]);
+export function registerTabledLootHandler(name, fn) { if (typeof fn === 'function') _tabledLootHandlers.set(name, fn); else _tabledLootHandlers.delete(name); }
+/** Every subscriber over one pile; one that throws is logged and the rest still run (UL1's rule). Answers the items. */
+export function raiseTabledLootSpawned(args) {
+  for (const fn of [..._tabledLootHandlers.values()]) {
+    try { fn(args); } catch (e) { console.warn('[lootSpawned] a pile handler threw', e); }
+  }
+  return args.items;
+}
+/** OH-E's door onto the same subscribers (THE MERGE: main's `tableLootSpawned` and FORAGE3's registry were one event
+ *  built twice - they are one list now): `add` subscribes a host's listener after those before it, and answers its
+ *  own removal; `raise` is raiseTabledLootSpawned. `{ key, items, where }` are the args OH-E reads. */
+export const tableLootSpawned = Object.freeze({
+  add(fn) { const id = Symbol('tableLootSpawned'); _tabledLootHandlers.set(id, fn); return () => { _tabledLootHandlers.delete(id); }; },
+  raise: (args) => raiseTabledLootSpawned(args),
+});
 

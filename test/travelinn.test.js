@@ -31,6 +31,13 @@
 // makes the online trip spend time, the offline rows here will not
 // move and the online rows will - which is the signal to come back and
 // decide what an inn means when the nights belong to everyone.
+//
+// LIVED1 (2026-09-29) IS THAT SLICE, and the answer is the character's
+// own time: the nights belong to the traveller. The trip's days pass on
+// their own clock (world.js advances them online too), so an inn is a
+// bed they sleep in and camping out is the slower road again - the
+// toggle is fully live online, as offline. The offline rows did not
+// move; the online rows did, and now read the same.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TravelPopUpWindow, isPlayerControlledTravel, ONLINE_TRAVEL_LINE } from '../src/ui/travelPopUp.js';
@@ -70,35 +77,18 @@ test('TRAVEL-INN: offline the toggle is live - camping out is slower and free, a
   assert.equal(inn.pieces, inn.cost, 'and taverns take coin (the inn nights are the pieces half)');
 });
 
-test('TRAVEL-INN: online BOTH consequences collapse - the instant trip really does ignore the choice', () => {
+test('TRAVEL-INN (LIVED1): online the toggle is live again - the days pass on the traveller\'s own clock, so camping out is the slower road and free, an inn is faster and costs gold, exactly as offline', () => {
   const inn = trip(true, true);
   const camp = trip(true, false);
-
-  // WORLD5/OL2: no world time, so no nights, so no inn.
-  assert.equal(inn.days, 0, 'the arrival is now');
-  assert.equal(camp.days, 0, 'either way');
-  // TRAVEL-FARE (2026-09-22, kurkku: "really long trips ... don't cost
-  // anything when player-controlled cautious travel is disabled").
-  // THIS PIN MEASURED THE BUG AND CALLED IT THE LAW, which is the
-  // lesson worth keeping: it was written a day ago and it recorded
-  // 0 gold online as correct because OL2 said so. It was correct about
-  // the DAYS and wrong about the gold - DFU bills the trip's HOURS,
-  // and the journey has a length online even though the clock will not
-  // advance over it. A player found it in a day, exactly where this
-  // pin was looking.
-  assert.ok(inn.cost > 0, 'the inn IS billed online - the fare is the price of the journey');
+  assert.ok(inn.days > 0 && camp.days >= inn.days, `the days are counted online: ${inn.days} by inns, ${camp.days} camping`);
+  assert.ok(camp.minutes > inn.minutes, 'camping out is the slower road online too');
+  // TRAVEL-FARE (2026-09-22, kurkku: "really long trips ... don't cost anything") stands: the fare is the price of
+  // the journey - and now the nights it pays for are really slept, on the character's own clock
+  assert.ok(inn.cost > 0, 'the inn is billed online');
   assert.equal(camp.cost, 0, 'and camping out is still free, online as offline');
-  assert.ok(inn.cost > camp.cost, 'so the choice has a consequence again, which is the whole of the report');
-
-  // The player is TOLD, which is the difference between this and a
-  // silent no-op: the window carries the line in both skins.
-  assert.match(ONLINE_TRAVEL_LINE, /the journey is still paid for/);   // TRAVEL-FARE: the line moved with the law
-
-  // ...and the toggle is not DEAD online - it still decides the one
-  // thing that has a consequence when no time passes: whether the trip
-  // is walked or instant. Greying it out would take a working control
-  // away, which is why this pin says what is live rather than only
-  // what is not.
+  // the player is TOLD whose days they are, in both skins
+  assert.match(ONLINE_TRAVEL_LINE, /the days pass on your own clock/);
+  // ...and the toggle still forks the journey
   const settings = { cautiousTravel: true, stopAtInnsTravel: false };
   assert.equal(isPlayerControlledTravel(settings, { speedCautious: true, sleepModeInn: true, travelShip: false }), false,
     'Inns, with the mod not owning inn trips, is vanilla fast travel');
@@ -118,5 +108,6 @@ test('TRAVEL-INN: the offline rows are the guard - they must not move when the o
   assert.equal(onInn.minutes, offInn.minutes, 'the charge does not know about the shared clock');
   assert.equal(onCamp.minutes, offCamp.minutes, '...for either setting');
   assert.ok(offInn.days > 0, 'offline the days are spent');
-  assert.equal(onInn.days, 0, 'online they are not');
+  assert.equal(onInn.days, offInn.days, 'LIVED1: online too - on the traveller\'s own clock');
+  assert.equal(onCamp.days, offCamp.days);
 });
