@@ -18622,3 +18622,27 @@ now (`frameEnd`); the held frame and the standalone dungeon's overlay return sti
 reason: a frame that bailed early did next to no work).
 `test/disc29_watchdog.test.js` (5); the notice, plaque and Yes/No suites re-aimed to the frame law;
 `tools/mutants/disc29.json` (DISC29-D, 10). `01-Overview/Field-Bugs-2026-09-28f.md` DISC29-D.
+
+## TOAST-SPLIT - the toasts and the Notice Board share no class (2026-09-29, Mac: "So it seems like the enhanced plus UI regressed. The notifications arent enhanced plus anymore")
+
+The Notice Board (NOTICE1, `06-Systems/Online-Arc.md`) drew its cork in `.notice-body` and its small italic lines in
+`.notice-hint`: the HUD toast stack's own two classes (ENH-NOTICE1: `ui/enhancedNotice.js`, and the input box's and
+the Yes/No card's hint). Its sheet, `NOTICE_CSS` (`ui/enhancedPlusStyle.js`), has been in the Enhanced Plus sheet since
+MERGE 2, so for everyone on Enhanced Plus every toast's and every message box's words sat on a patch of brown cork
+(padded 14/16 px, scrolling), and a box's hint turned brown italic. The other way round, the toasts' sheet put its
+capitals, letter-spacing, rule and right alignment on the board's form lines, and capped the cork at 70% of the
+screen; the Market tab's `.market-body .notice-hint` reset (AUDIT 30 U14) had undone the capitals there alone.
+Reproduced in Chromium with the two sheets over a toast and a box: on main the toast body's background is the cork's
+gradient and its padding `14px 16px 16px`; with the fix, none and `0px`.
+
+- **The board's are its own now:** `.notice-cork` (the cork: the four views' bodies, the Work tab's, and the Market
+  tab's `notice-cork market-body`) and `.notice-tip` (the italic line: the pin and notice forms, the market's
+  counters). The scroll keeper (AUDIT 31 U1) finds `.notice-cork`. The market's reset rule went with the collision.
+- **The sheet a board lays on the classic skin** (`noticeSkinCss`) took the kit's rules for every selector naming
+  "notice", the toast's `.notice` dress and fade among them; it takes the board's window, header and presses only
+  (`.notice-shell`, `.notice-win`, `.notice-head`).
+- Pins: `test/toast_split.test.js` (4, red first): the toast's classes as its three drawers hand them; the board's
+  three windows draw none of them; no board sheet (the board's, the professions', the bounty board's, the classic
+  skin's) names one, and the classic sheet keeps every rule of the board's window and nothing else; the toasts' sheet
+  names none of the board's. `audit31_tabs` and `audit30_client` follow the new classes. Mutants:
+  `tools/mutants/toast_split.json` (18, all dead). Patch notes: `PATCH-NOTES-Notifications-Fixed.md`.

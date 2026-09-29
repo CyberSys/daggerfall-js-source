@@ -381,7 +381,7 @@ export function createMarketTab(m, ui) {
       row.append(el('b', null, m.name(w.key)), el('span', 'market-price', `${marksText(w.marks)} a bolt`), inp, b);
       box.append(row);
     }
-    box.append(el('p', 'notice-hint', 'Into your Stores. A bolt stays there until its craft is practised.'));
+    box.append(el('p', 'notice-tip', 'Into your Stores. A bolt stays there until its craft is practised.'));
     return box;
   }
 
@@ -390,7 +390,7 @@ export function createMarketTab(m, ui) {
     box.append(el('h4', null, 'List on the market'));
     box.append(select([['material', 'From the Stores'], ['piece', 'A crafted piece'], ['auction', 'An auction (Masterworks)']], st.list.kind, (v) => { st.list.kind = v; ui.rerender(); }, 'What to list'));
     const price = numberInput(st.list.price, 1, MARKET_PRICE_MAX, 'Price in Marks', 'list-price');
-    const hint = el('p', 'notice-hint');
+    const hint = el('p', 'notice-tip');
     const b = button('primary market-list', 'List', () => send());
     const full = (m.book.state.counts?.listings ?? 0) >= MARKET_LISTINGS_MAX;
     let can = () => false, send = () => {}, worth = () => 0;
@@ -414,7 +414,7 @@ export function createMarketTab(m, ui) {
       if (!pieces.some((p) => p.item.provenance === st.list.piece)) st.list.piece = pieces[0]?.item.provenance ?? '';
       const chosen = pieces.find((p) => p.item.provenance === st.list.piece) ?? null;
       box.append(pieces.length ? select(pieces.map((p) => [p.item.provenance, `${p.name}${p.where === 'home' ? ' (your home)' : ''}`]), st.list.piece, (v) => { st.list.piece = v; ui.rerender(); }, 'Crafted piece')
-        : el('span', 'notice-hint', auction ? 'You carry no Masterwork to auction.' : 'You carry no crafted piece to sell.'),
+        : el('span', 'notice-tip', auction ? 'You carry no Masterwork to auction.' : 'You carry no crafted piece to sell.'),
       el('span', 'notice-label', auction ? 'Opening bid in Marks' : 'Price in Marks'), price);
       worth = () => st.list.price;
       can = () => !!chosen;
@@ -449,7 +449,7 @@ export function createMarketTab(m, ui) {
     const price = numberInput(st.post.price, 1, MARKET_PRICE_MAX, 'Marks each', 'post-price');
     box.append(select(cat.map((c) => [c.key, `${m.name(c.key)} (tier ${c.tier})`]), st.post.material, (v) => { st.post.material = v; ui.rerender(); }, 'Material wanted'),
       el('span', 'notice-label', 'Units'), units, el('span', 'notice-label', 'Marks each'), price);
-    const hint = el('p', 'notice-hint');
+    const hint = el('p', 'notice-tip');
     const full = (m.book.state.counts?.orders ?? 0) >= MARKET_ORDERS_MAX;
     const b = button('primary market-post', 'Post the order', () => act(() => m.book.order({ region: m.region, material: st.post.material, units: st.post.units, price: st.post.price, hubs: m.hubs }),
       `Your order for ${st.post.units} ${m.countName(st.post.material, st.post.units)} is up.`));
@@ -486,7 +486,7 @@ export function createMarketTab(m, ui) {
     const refresh = () => { b.textContent = `Fill ${count()} from the Stores`; b.disabled = ui.busy() || have < 1; };
     inp.oninput = () => { st.fills[o.id] = intOf(inp.value, 1, most); refresh(); };
     refresh();
-    li.append(inp, b, el('span', 'notice-hint', `${have.toLocaleString('en-US')} in your Stores`));
+    li.append(inp, b, el('span', 'notice-tip', `${have.toLocaleString('en-US')} in your Stores`));
     return li;
   }
 
@@ -581,7 +581,7 @@ export function createMarketTab(m, ui) {
 
   /** The tab's body. */
   function body() {
-    const box = el('div', 'notice-body market-body');
+    const box = el('div', 'notice-cork market-body');
     box.append(viewsNode());
     const road = roadNode();
     if (road) box.append(road);
