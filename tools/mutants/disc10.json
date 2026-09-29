@@ -453,7 +453,8 @@
     "new": "(entity?.activeEffects ?? []).find((a) => a.kind === 'racialOverride'\n    && a.racial === 'lycanthropy'",
     "tests": [
       "test/auditworld5.test.js",
-      "test/world5.test.js"
+      "test/world5.test.js",
+      "test/auditlived1b_t.test.js"
     ]
   },
   {

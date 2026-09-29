@@ -129,7 +129,11 @@ The first audit's own record is corrected where this one found its fixes short (
   Suite line. It adds no time reader. Its merged tree ran 15,096 tests with one failure, main's own: #439's TO-ROADS
   gave `travelViewWalkTo` a `roads` option, and `tv6_dungeons.test.js`'s OW4 D1/D6 pin finds the walk by its old
   signature (red on main as well). The pin now reads the signature as it stands: 20 of 20, here and on main's tree.
-  211 mutants on it (the three LIVED1 lists and #439's records near this branch's lines): all dead.]
+  211 mutants on it (the three LIVED1 lists and #439's records near this branch's lines): all dead. Then every older
+  record whose tests this branch changed in code - 1,190: 1,180 dead, 9 equivalent as recorded, one survivor,
+  `DISC10-E-V9-a-hole-is-read-as-a-curse` (dead on main): its only kill was WORLD5's arrival shift, which LIVED1
+  retired. `auditlived1b_t.test.js` pins the accessor stepping over a hole, as main pins liveVampirism's, and the
+  record names it: dead.]
 - **Process (T15, beside the first audit's T13):** `test/auditworld34.test.js`'s "A1 executed" waits a fixed 25 ms
   between its async steps and failed 2 of 3 unmutated runs under `--jobs` load; a list that names it reads those
   failures as deaths (39 false deaths in lane T's second stage, hiding two real survivors). No list here names it. A lane

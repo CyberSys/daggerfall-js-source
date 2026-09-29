@@ -254,3 +254,9 @@ test('AUDIT LIVED1b T4, T5, T8 (23 host and UI reads, by source): every read LIV
   ];
   for (const [file, re, what] of rows) assert.match(rd(file), re, `${file}: ${what}`);
 });
+
+test('AUDIT LIVED1b (DISC10-E V9, its kill lost with WORLD5\'s shift): a hole in the effects list is no curse - liveLycanthropy steps over it, as liveVampirism does (AUDIT WORLD5); the arrival\'s shift LIVED1 retired was the only road that fed it one', () => {
+  const curse = { kind: 'racialOverride', racial: 'lycanthropy' };
+  assert.equal(liveLycanthropy({ activeEffects: [null, curse] }), curse, 'past the hole, the curse');
+  assert.equal(liveLycanthropy({ activeEffects: [null, undefined] }), null, 'a list of holes holds no curse');
+});
