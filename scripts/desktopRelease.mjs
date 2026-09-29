@@ -80,8 +80,10 @@ export const PATCH_NOTES_RE = /^PATCH-NOTES-[^/\\]+\.md$/;
 export const NOTES_FILE_MAX = 64 * 1024;
 
 /** What a release says when no patch notes came with it. On GitHub the
- *  generated list of merged changes follows it; the launcher's "What's
- *  new" shows this line alone (app/lib/launcherState.cjs cuts the list). */
+ *  generated list of merged changes follows it; the launcher's news panel
+ *  cuts the list (app/lib/launcherState.cjs playerNotes) and lists a
+ *  release that says only this when it is marked NEW or UPDATE, or when
+ *  no release says more. */
 export const NO_NOTES_TEXT = 'Fixes and improvements.';
 
 /**
@@ -188,6 +190,11 @@ function hunksOf(diffText) {
  * app-v0.1.4534 lost four new fixes that way. Headings are never news
  * alone; they only say where news sits. A one-word line's typo fixed
  * shares no word with it and reads as news - no note here is one word.
+ * Words are all it reads, so a note reworded until fewer than
+ * REWRITE_SHARE of its words stay reads as news too - on that side on
+ * purpose: a note told twice over a fix never told. Replayed against
+ * round 1's rule over all 62 release ranges before it, the four lost
+ * fixes are the one difference.
  *
  * @param {string} headText the file at HEAD
  * @param {string} diffText `git diff -U0` of it, previous release to HEAD

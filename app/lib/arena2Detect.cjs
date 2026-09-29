@@ -39,8 +39,11 @@
 // Plain Node, no Electron - `node --test` drives it over temp trees.
 //
 // AUDIT INSTALL (lane 4, 2026-09-29): it runs OFF the main process now
-// (arena2DetectWorker.cjs, under a deadline - a sleeping network drive or
-// a hung reg.exe froze the launcher's first paint), and it looks where
+// (a sleeping network drive or a hung reg.exe froze the launcher's first
+// paint) - round 2 (R2-D1): in a utility process of its own
+// (arena2Probe.cjs, answerArena2 below), under a deadline and killed at
+// it, since a worker thread stuck in the kernel held the app open at
+// quit - and it looks where
 // the files really are: a DaggerfallGameFiles.zip unpacked with "Extract
 // Here" leaves a bare arena2/ in Downloads; Windows' Known Folder Move and
 // a localized XDG Downloads are the shell's to name (looseDirs, from
@@ -48,7 +51,8 @@
 // walk keeps the real paths it has opened); GOG's registry is asked for
 // Daggerfall's own product key, whatever the folder was called; and on
 // macOS the privacy-guarded folders (Downloads, Desktop, Documents - each
-// a system prompt) are read only when nothing else was found.
+// a system prompt) are read only when nothing else was found (round 2,
+// R2-D5: ~/Games is read before them, or that was untrue of it).
 'use strict';
 
 const fs = require('node:fs');
@@ -355,8 +359,9 @@ function looseRoots({ platform, home, env }, looseDirs = []) {
  * Every whole ARENA2 this machine appears to have, best source first:
  * [{ dir, source: 'dfu' | 'steam' | 'gog' | 'folder' }], each folder once.
  * Never throws; an unreadable place is simply not a find. `onFound` hears
- * each find as it is made - the worker streams them, so a search the shell
- * stops at its deadline still offers what it had.
+ * each find as it is made - the probe streams them, so the card offers
+ * what there is at the deadline, and a later find is added to it
+ * (AUDIT INSTALL R2-D4).
  *
  * @param {{ platform?: string, home?: string, env?: object, fs?: object, looseDirs?: string[],
  *           regQuery?: (key: string, value: string, opts?: object) => string[],

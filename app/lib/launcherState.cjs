@@ -70,11 +70,13 @@ const DETECT_DEADLINE_MS = 5000;
 const JUDGE_DEADLINE_MS = 5000;
 /** ...and a folder the player picked, which may be searched under. */
 const PICK_DEADLINE_MS = 15000;
-/** How long a download may go without a byte before the launcher calls it
- *  failed and frees Play. electron-updater's own socket timeout never arms
- *  under Electron's net module (it waits on a `socket` event that
- *  net.ClientRequest does not have), so a stalled download has no end but
- *  this one. */
+/** How long a download may go without a PROGRESS EVENT (they come a
+ *  second or more apart) before the launcher calls it failed and frees
+ *  Play. electron-updater's own socket timeout never arms under Electron's
+ *  net module (it waits on a `socket` event that net.ClientRequest does
+ *  not have), so a stalled download has no end but this one - and it is
+ *  the launcher's end only: electron-updater 6.8.9 never wires the cancel
+ *  to its request, which stays open, idle (AUDIT INSTALL R2-A11). */
 const DOWNLOAD_STALL_MS = 45000;
 
 /** Where a found ARENA2 came from, in the player's words. */

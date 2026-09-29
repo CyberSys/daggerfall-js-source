@@ -90,9 +90,10 @@ test('DA6: the wiring pins - one API, two gates, and probes never touch the netw
   const main = fs.readFileSync(path.join(root, 'app', 'main.cjs'), 'utf8');
   // ONE read-only API, the repo's own - the app's only network use of
   // its own, and the landing page's honesty line depends on it staying
-  // that. DA8 added the same API's recent-release LIST, asked only when
-  // there IS an update, for the notes of the versions it brings; still
-  // read-only, still the repo's releases, still nothing else.
+  // that. DA8 added the same API's recent-release LIST - since DA10 asked
+  // at every launch, beside the check and behind its two gates, for the
+  // launcher's news panel; still read-only, still the repo's releases,
+  // still nothing else.
   assert.ok(main.includes("'https://api.github.com/repos/Lattymoy/daggerfall-js-source/releases/latest'"),
     'the check asks the releases API');
   const apis = [...main.matchAll(/'(https:\/\/api\.github\.com\/[^']*)'/g)].map((m) => m[1]).sort();

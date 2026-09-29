@@ -152,7 +152,9 @@ there, and a hand re-cut of an old build does not take `latest` back
 (`shouldMarkLatest`, REL3's numeric compare). The notes are the
 player's: the PATCH-NOTES-*.md added or changed since the previous
 `app-v` tag, with GitHub's list of merged changes beneath them - the
-launcher shows the part above that list as "What's new". Pinned in
+launcher's news panel shows the part above that list (DA10). A changed
+file brings only its NEWS, decided by what each line says (Audit-Install
+R2-C1: by position, app-v0.1.4534 lost four new fixes). Pinned in
 `test/rel4_release.test.js`; `tools/mutants/rel4.json`, 15, all dead.
 
 **REL5 (2026-09-29): THE DOWNLOADS HAVE NAMES THAT DO NOT MOVE.** The
@@ -303,10 +305,14 @@ keeps it too.
 the portable exe - today the NSIS install and the AppImage, the two
 electron-builder already cuts; `notice` for macOS (an unsigned app
 cannot swap itself there, and no signing identity exists), the Windows
-portable exe (a bare file that unpacks into `%TEMP%`; electron-builder
-writes no `app-update.yml` into it, and its launcher marks its process
-with `PORTABLE_EXECUTABLE_DIR`), and an unpackaged `electron .`. DA6
-stands under it as the fallback for those three, unchanged.
+portable exe (a bare file that unpacks into `%TEMP%`; it DOES carry an
+`app-update.yml` - both Windows targets pack one `win-unpacked`,
+Audit-Install R2-C5 - so the portable launcher's mark on its process,
+`PORTABLE_EXECUTABLE_DIR`, is the test, asked first), a Linux copy not
+running as its AppImage (electron-updater replaces only the AppImage
+named by `APPIMAGE`, and declines to check without one - R2-A10), and an
+unpackaged `electron .`. DA6 stands under it as the fallback for those,
+unchanged.
 
 **How the updater finds a release.** The GitHub provider asks
 `releases/latest` for its `tag_name` and downloads `latest.yml` under
@@ -378,7 +384,8 @@ uses (U63's law), and the two faces on disk (`fonts/README.md` - it runs
 before anything is known about the network). In order:
 
 1. **The update**, inside DA6's two gates. On the updater transport the
-   download is SHOWN (its MB, and "What's new") and installs BEFORE play:
+   download is SHOWN (its MB~~, and "What's new"~~ - DA10: its notes in
+   the news, marked UPDATE) and installs BEFORE play:
    "Installing", then the app closes, the NSIS or AppImage installer runs
    silent (a visible NSIS would stop on a Finish page) and reopens it.
    "Play now, update when I quit" (DA10: **Play without updating**) is the
@@ -390,7 +397,7 @@ before anything is known about the network). In order:
    lands - the launcher is still open). An installer that never takes
    over does not strand the player on "Installing" (INSTALL_GIVEUP_MS) -
    and (Audit-Install L2-1) neither does a download that breaks off or
-   stalls.
+   stalls, its end its own promise's, never a later check's (R2-A2).
 2. **The files** (DA9, below), only when no whole ARENA2 is configured.
 3. ~~**What's new**, once, on the launch that runs an update: the patch
    notes of every version between the one the player had and this one~~
@@ -468,8 +475,11 @@ on a real Mac. The calls are electron-updater's own documented ones
 probe drives the launcher, the first run and the handover in a real
 window, but always with the update check OFF (a probe never touches the
 network): the checking, downloading, installing and notice screens run
-in the pure tests and in Chromium with a stubbed bridge, never against
-a live release (Audit-Install L5-19). The first release carrying this
+in the pure tests ~~and in Chromium with a stubbed bridge~~ (that harness
+was never in the tree - Audit-Install R2-E10; `test/launcherDom.mjs` now
+runs `launcher.js` over `index.html` in the suite, fed views the real
+state makes), never against a live release (Audit-Install L5-19). The
+first release carrying this
 is the first real proof, and the first report from a Windows player is
 the one to read.
 
@@ -507,8 +517,12 @@ version. A launcher left open still hears: a late answer after the
 timeout, and the hourly re-check (it starts with the launcher now), land
 in it until Play is pressed. `config.json` keeps `lastPlayed` (the
 version Play was last pressed on) and `arena2InGame` (the game's own
-picker, chosen once, not asked again); a config.json from before DA10
-has no lastPlayed, and the build it runs is marked NEW for that player.
+picker, chosen once, not asked again - on the SAVED folder's card, for
+that launch only: Audit-Install R2-D6); a config.json from before DA10
+has no lastPlayed, and the build it runs is marked NEW for that player -
+~~any config.json without one~~ (R2-A9: a first run that chose its files
+or flipped the switch before Play wrote one too, and was told "Updated
+to"; `launcherSeen` marks a config.json this launcher has seen).
 
 **Fixed on the way** (measured on Electron 42): `Menu.setApplicationMenu`
 sets the menu on EVERY window on Windows and Linux, so the launcher grew
@@ -519,14 +533,19 @@ being built hidden behind the launcher. A dock click with no window
 (macOS) opens the launcher, as a launch does. Every folder pick clears
 what the game stored before (Audit DA F-DA2's wipe, which only a
 RE-point used to trigger - a player of the in-page picker had no folder
-to re-point from), and the boot reloads only when something was there.
+to re-point from), and the boot reloads only when something was there -
+~~at the next boot~~ at the next boot that runs, whichever launch it is:
+the clear is kept in config.json (`arena2IngestClear`) until it has run
+to its end (Audit-Install R2-D2: held in memory, it died with the
+install DA10 runs right after a pick).
 
 **Pinned** in `test/da10_launcher.test.js` (11, by execution and by
 source) beside DA8's restated pins; driven for real by
 `tools/appShellProbe.mjs` (the launcher stays, the kept news and its
-marks, the status bar, Enter plays, the switch writes config.json, no
-menu bar, Play keeps lastPlayed); `tools/mutants/da10.json`: 40, all
-dead.
+marks, the status bar, Enter plays - pressed, after the first run's card
+too, since Audit-Install R2-E1: it checked the focus, in the one
+scenario with no card - the switch writes config.json, no menu bar, Play
+keeps lastPlayed); `tools/mutants/da10.json`: 40, all dead.
 
 ## The install audit (2026-09-29)
 
@@ -537,6 +556,15 @@ eye. Every verified finding was fixed at its root and pinned
 (`test/audit_install.test.js`, `tools/mutants/auditinstall.json`: 71,
 all dead); the record, finding by finding, is
 [Audit-Install.md](Audit-Install.md).
+
+Mac, again: *"Audit this."* Five fresh lanes read the PR after round 1's
+fixes, each told to find where round 1 did not hold - and round 1's own
+L1-5 fix had stopped every release (the Windows stamp read `"$VERSION"`
+in PowerShell, an unset variable). Every verified finding was fixed at
+its root and pinned (`test/audit_install2.test.js`,
+`tools/mutants/auditinstall2.json`: 123, all dead); the record is
+Audit-Install.md's [Round 2](Audit-Install.md#round-2-2026-09-29), and
+where it found a claim on this page untrue, the claim is struck here.
 
 ## Finding the game files (DA9, 2026-09-29)
 
@@ -570,7 +598,7 @@ in `test/da9_arena2detect.test.js` (~~8~~ 14, over real temp trees);
 `tools/mutants/da9.json`: 10, all dead.
 
 **The audit's changes (Audit-Install, lane 4).** The search runs in a
-worker thread under DETECT_DEADLINE_MS (5 s), its finds streamed so a
+~~worker thread~~ process of its own (round 2, below) under DETECT_DEADLINE_MS (5 s), its finds streamed so a
 search stopped early still offers what it had - it had run on the main
 process, and a sleeping drive or a hung reg.exe froze the launcher's
 first paint. It finds what it missed: a zip unpacked with "Extract Here"
@@ -580,14 +608,33 @@ links and junctions (followed once), a whole `ARENA2` beside a partial
 `arena2`, and GOG by Daggerfall's own product key (1435829353) whatever
 the folder is called. `reg.exe` is run by its own path and read through
 `reg export`'s UTF-16 file. On a Mac, Downloads, Desktop and Documents -
-each a privacy prompt - are read only when nothing else was found, and
-the prompt says why; a Mac is sent to DaggerfallGameFiles.zip (Steam and
+each a privacy prompt - are read only when nothing else was found (true
+since round 2 reads ~/Games before them, R2-D5), and the prompt says why; a Mac is sent to DaggerfallGameFiles.zip (Steam and
 GOG sell Daggerfall for Windows only). A folder picked three levels too
 high (Steam's "Browse local files") is searched, not refused; one that
 cannot be read is said to be unreadable; and a SAVED folder that fails
 is named, with Try again, instead of the first run's "Where is
 Daggerfall?". GOG's own layout is arena2 in the game folder, beside
 FALL.EXE - the words, and the fixtures, said DF/DAGGER/ARENA2 for both.
+
+**Round 2 (Audit-Install R2-D1..D8).** Every look at
+the player's disks - the saved folder, a pick, a found folder taken, Try
+again, the search - runs in an Electron utility process
+(`app/lib/arena2Probe.cjs`, `utilityProcess.fork`) under a deadline
+(JUDGE_DEADLINE_MS 5 s, PICK_DEADLINE_MS 15 s), killed once it has
+answered or has not, and at quit. The saved folder was still read on the
+main process before the window (a share that was down: no launcher at
+all), and a worker thread stuck in the kernel cannot be terminated -
+Electron waited for it at quit; a killed process holds nothing. The
+launcher is on screen first, `checking` the saved folder beside it. At
+DETECT_DEADLINE_MS the card shows what there is and the search goes on
+("Still looking on slower drives"), a later find added to the card - a
+Steam drive spinning up, a Mac's privacy prompt answered late. A pick's
+walk opens folders named for Daggerfall first (from steamapps/common the
+budget went on forty other games), and a walk cut short is never "holds
+no Daggerfall files". The in-page copy a pick clears is kept until it
+has been cleared (R2-D2, above), a refusal is said where the player can
+see it, and a found folder whose drive went away "cannot be read".
 
 ## Saves move between the website and the app (SP1, 2026-09-21)
 
