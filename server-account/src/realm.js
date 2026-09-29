@@ -331,7 +331,8 @@ export async function customsRealm(ctx, playerId, { origin, name, summary = null
 
 /**
  * A JOIN: a new lease on the account's own character, taking it from any tab that held it and freeing the account's
- * others. Answers `{ id, lease, seq, bytes }` - `bytes` 0 is a character whose first save never landed - or `{ error }`.
+ * others. Answers `{ id, lease, seq, bytes, origin }` - `bytes` 0 is a character whose first save never landed, `origin`
+ * the offline id a customs character came from (null for one born online) - or `{ error }`.
  * @param {any} ctx @param {string} playerId @param {unknown} id
  */
 export async function joinRealm({ db, rand, nowS }, playerId, id) {
@@ -340,8 +341,10 @@ export async function joinRealm({ db, rand, nowS }, playerId, id) {
   const took = await db.prepare('UPDATE realm_characters SET lease = ?, lease_at = ? WHERE id = ? AND player = ?').bind(lease, nowS, id, playerId).run();
   if (!took.meta.changes) return { error: 'no-realm-character' };
   await freeOthers({ db }, playerId, id);
-  const row = await db.prepare('SELECT seq, bytes FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
-  return { id, lease, seq: row?.seq ?? 0, bytes: row?.bytes ?? 0 };
+  const row = await db.prepare('SELECT seq, bytes, origin_id FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  // RESTORE: and the offline id a customs character came from - the playing tab gives back what customs once kept, off
+  // that character's own save on its device (systems/realmCustoms.js reclaimFromDevice)
+  return { id, lease, seq: row?.seq ?? 0, bytes: row?.bytes ?? 0, origin: row?.origin_id ?? null };
 }
 
 /**
@@ -540,25 +543,19 @@ export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @ty
  *  A guildmaster with members hands the guild over first ('guild-master-leaves', the guild's own word for leaving).
  *  AUDIT REALM2 S8: AND A LONE ONE EMPTIES THE TREASURY FIRST ('guild-treasury'), as leaving asks (guilds.js leaveGuild).
  *  The delete let it go with gold inside: a guild nobody is in, holding what its records paid in, until the next founder
- *  of its name or tag cleared it away, gold and all. */
+ *  of its name or tag cleared it away, gold and all.
+ *  HOUSE-LOSS: a customs character whose first save never landed is not deleted but UNDONE (undoCustoms, below). */
 export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId, /** @type {unknown} */ id) {
   if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return { error: 'body' };
-  const row = await db.prepare('SELECT obj, prev FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  const row = await db.prepare('SELECT obj, prev, bytes, origin_id FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
+  if (row.origin_id && !(row.bytes > 0)) return undoCustoms({ db, bucket }, playerId, id, row.origin_id);
   const master = await db.prepare(`SELECT (SELECT COUNT(*) FROM guild_members o WHERE o.guild_id = m.guild_id) AS n,
     (SELECT treasury FROM guilds g WHERE g.id = m.guild_id) AS treasury FROM guild_members m
     WHERE m.player = ? AND m.char_id = ? AND m.rank = ?`).bind(playerId, id, GUILD_RANK_MASTER).first();
   if ((master?.n ?? 0) > 1) return { error: 'guild-master-leaves' };
   if ((master?.treasury ?? 0) > 0) return { error: 'guild-treasury' };
-  if (bucket) {
-    await dropObjects(bucket, [row.obj, row.prev]);   // an object that will not go is not a reason to keep the row
-    if (typeof bucket.list === 'function') {
-      try {
-        const listed = await bucket.list({ prefix: `${realmPrefix(playerId)}${id}/` });
-        await dropObjects(bucket, (listed?.objects ?? []).map((/** @type {any} */ o) => o.key));
-      } catch { /* the walk is the sweep's, not the delete's */ }
-    }
-  }
+  await dropCharacterObjects(bucket, playerId, id, [row.obj, row.prev]);
   await db.batch([
     db.prepare('DELETE FROM homes WHERE player = ? AND char_id = ?').bind(playerId, id),
     db.prepare('DELETE FROM guild_members WHERE player = ? AND char_id = ?').bind(playerId, id),
@@ -566,4 +563,70 @@ export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId
     db.prepare('DELETE FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId),
   ]);
   return { ok: true };
+}
+
+/** A character's objects: the ones its row names, and anything else under its prefix a lost write left. Best effort -
+ *  an object that will not go is not a reason to keep the row. */
+async function dropCharacterObjects(/** @type {any} */ bucket, /** @type {string} */ playerId, /** @type {string} */ id, /** @type {(string | null | undefined)[]} */ named) {
+  if (!bucket) return;
+  await dropObjects(bucket, named);
+  if (typeof bucket.list !== 'function') return;
+  try {
+    const listed = await bucket.list({ prefix: `${realmPrefix(playerId)}${id}/` });
+    await dropObjects(bucket, (listed?.objects ?? []).map((/** @type {any} */ o) => o.key));
+  } catch { /* the walk is the sweep's, not the delete's */ }
+}
+
+/**
+ * HOUSE-LOSS (2026-09-29, the field through Mac: "GarySoup lost his house and furniture. I suspect a lot of people lost a
+ * ton of belongings"): A CUSTOMS THAT NEVER LANDED IS UNDONE BY ITS DELETE, never a delete of what it carried. Customs
+ * carries the origin's home, guild place and track to the realm's id in the census's own batch, before the first save is
+ * sent (CUSTOMS-CARRY), and a first save can fail - refused, too large, lost on the way. The door then showed a "Never
+ * saved" tile whose one live button was Delete, and said "Delete it and make it again"; the delete took the home, its
+ * pieces and its hidden furniture with it (the tables' cascade) and left the census spent, so the character could never
+ * come in again to take them back. Nothing of a character whose first save never landed ever played in the realm - it
+ * has no record, and every act, trade and purchase asks one at sequence 1 or on - so its undoing is the realm as it stood
+ * before that customs, exactly: what customs carried goes back to the offline id, and the census rows customs spent are
+ * unspent (it spent every one of the character's). CUSTOMS-PASS: a pass spent on the character is given back with the
+ * census row it wrote - open again, or, when a developer has granted the account another since (one open pass an
+ * account, 0024's index), its record dropped, since the customs it recorded never stood. The row goes only while its
+ * first save still has not landed (`bytes = 0`, guarded): a save landing in the same moment keeps the character, and the
+ * delete says so (`seq`).
+ * @param {any} ctx @param {string} playerId @param {string} id @param {string} originId
+ */
+async function undoCustoms({ db, bucket }, playerId, id, originId) {
+  try {
+    await db.batch([
+      db.prepare('DELETE FROM realm_characters WHERE id = ? AND player = ? AND bytes = 0').bind(id, playerId),
+      mustChange(db),
+      ...customsCarry(db, playerId, id, originId),   // the carry, run back: from the realm's id to the offline one
+      // the pass's census row (a pass is spent only where this account's census counted no such character), asked before
+      // the pass comes back below
+      db.prepare('DELETE FROM realm_census WHERE player = ? AND char_id = ? AND EXISTS (SELECT 1 FROM realm_passes WHERE player = ? AND origin_id = ?)')
+        .bind(playerId, originId, playerId, originId),
+      db.prepare('UPDATE realm_passes SET origin_id = NULL, spent_at = NULL WHERE player = ? AND origin_id = ?'
+        + ' AND NOT EXISTS (SELECT 1 FROM realm_passes WHERE player = ? AND spent_at IS NULL)').bind(playerId, originId, playerId),
+      db.prepare('DELETE FROM realm_passes WHERE player = ? AND origin_id = ?').bind(playerId, originId),
+      db.prepare('UPDATE realm_census SET spent = 0 WHERE char_id = ? AND NOT EXISTS (SELECT 1 FROM realm_characters WHERE origin_id = ?)').bind(originId, originId),
+    ]);
+  } catch (e) {
+    const now = await db.prepare('SELECT seq FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+    if (now) return { error: 'seq', seq: now.seq };   // its first save landed in the meantime: a character now, kept
+    throw e;
+  }
+  await dropCharacterObjects(bucket, playerId, id, []);
+  return { ok: true, undone: true };
+}
+
+/** HOUSE-LOSS: THE DOOR'S OWN UNDO - "Undo bringing in", on a customs character whose first save never landed. Its own
+ *  route, so a door newer than its service is told `not-found` by the old one rather than handed a delete that takes
+ *  what customs carried; and it never deletes anything else - one born online is no customs to undo (`body`), and one
+ *  whose first save has landed is `seq`, by undoCustoms' own guard.
+ *  @param {any} ctx @param {string} playerId @param {unknown} id */
+export async function undoRealm({ db, bucket }, playerId, id) {
+  if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return { error: 'body' };
+  const row = await db.prepare('SELECT origin_id FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
+  if (!row) return { error: 'no-realm-character' };
+  if (!row.origin_id) return { error: 'body' };
+  return undoCustoms({ db, bucket }, playerId, id, row.origin_id);
 }

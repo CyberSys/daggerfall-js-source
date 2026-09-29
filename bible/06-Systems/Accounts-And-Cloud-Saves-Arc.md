@@ -4107,7 +4107,7 @@ lozenge with a sword inside it, the sword's point at the lozenge's lowest corner
   older relay refuses a token carrying it (`claimsValid`), so the relay is **world129** and the account service
   **acct21**. The account deploy waits for the relay's `/health` (SHADOW-FANG's AUDIT B1). CUSTOMS-GRANT's branch
   (PR #433, not merged) also names acct20, which main's TERMS1 already holds; whichever of the two lands second takes
-  the next free number.
+  the next free number. (CUSTOMS-GRANT's branch landed after both, as acct23: REALM-DOOR took acct22 first.)
 - **The face** (`src/ui/playerBadge.js`): the word "Penitent" and a gradient from CSS's own `gold` (#ffd700) to its
   `skyblue` (#87ceeb), with a warm light between them (#fff3d6). A gold and a sky blue both lean green, so a straight
   mix of the two is sage: with two stops the word read gold, lime, blue. With the light between, it reads gold into

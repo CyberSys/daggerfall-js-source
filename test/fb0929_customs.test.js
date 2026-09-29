@@ -208,7 +208,8 @@ test('CUSTOMS-CARRY: the door says what customs will do BEFORE it runs - the loa
   const owing = { level: 1, classicMinutes: 7, goldPieces: 100, items: [], wagonItems: [], bankAccounts: createBankAccounts() };
   Object.assign(owing.bankAccounts[5], { loanTotal: 5_000, loanDueDate: 900_000 });
   assert.equal(customsLines(applyCustoms(owing), { before: true })[0], 'Customs will call in 5000 gold of loans; 4900 cannot be paid and falls due.');
-  assert.equal(customsLines({ called: 0, owed: 0, taken: 0, deeds: ['house'] }, { before: true })[0], 'Customs counts a deed at what the realm\'s bank pays for it: a house will stay behind.');
+  // RESTORE (Mac: "Keep all, can't sell"): no deed stays behind now - the door says it comes, and that it never sells back
+  assert.equal(customsLines({ called: 0, owed: 0, taken: 0, crossed: ['house'] }, { before: true })[0], 'Your house will come with you, every piece in it; the realm\'s bank does not buy back what comes through customs.');
   assert.deepEqual(customsLines({ called: 0, owed: 0, taken: 0 }, { before: true }), ['Customs finds nothing to settle.', ...CUSTOMS_PROMISE]);
 });
 

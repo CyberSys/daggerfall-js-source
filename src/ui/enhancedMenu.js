@@ -106,7 +106,7 @@ import {
 } from '../systems/settings.js';
 import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME, loadSlot, saveSlot } from '../systems/saveSlots.js';
 import {
-  realmIo, realmList, realmCustoms, realmPut, realmDelete, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
+  realmIo, realmList, realmCustoms, realmPut, realmDelete, realmUndo, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
 } from '../systems/realmSaves.js';   // REALM P1.3: the Online door lists the realm's characters, the service's
 import { applyCustoms, customsLines } from '../systems/realmCustoms.js';   // REALM P1.5: an offline character comes in once, through customs
 import { mintCharacterId } from '../systems/characterId.js';   // REALM P1.4: a copy to offline is a new offline character
@@ -1075,7 +1075,11 @@ function realmCard(who) {
         actions: [
           { label: save.unfinished ? 'Never saved' : 'Play', primary: true, disabled: realmBusy || save.unfinished, onClick: () => { _pickedRealmId = row.id; onAction('online'); } },
           { label: 'Copy to offline', disabled: realmBusy || save.unfinished, onClick: () => copyToOffline(row) },
-          { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its home and its guild place with it. Your Renown belongs to your account and stays, as does a copy you made offline.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
+          // HOUSE-LOSS (2026-09-29, Mac: "GarySoup lost his house and furniture"): a character brought in whose first save
+          // never landed is UNDONE, never deleted - its delete took the home customs had carried, and it could never come
+          // in again. The undo gives back its home, its guild place and its customs (realm.js undoRealm).
+          row.customs && save.unfinished ? { label: 'Undo bringing in', disabled: realmBusy, onClick: () => ask(`Undo bringing ${row.name} in?`, `${row.name} never finished coming into the realm - its first save never landed. Undoing takes it out and gives everything back: its home, its guild place and its one customs, so the offline character can be brought online again. To finish instead, press Bring online on it below.`, 'Undo', () => realmAct(() => realmUndo(realmIoNow(), row.id), [`${row.name} is out of the realm and customs is undone: its home and guild place are back with the offline character. Bring it online again when you are ready.`])) }
+            : { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its home and its guild place with it. Your Renown belongs to your account and stays, as does a copy you made offline.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
         ],
       }));
     }
