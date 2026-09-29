@@ -590,7 +590,7 @@ export function composeWornArmor({ pieces, armors, clothes, bodyPool, female = f
       for (const p of own.parts) {
         const at = ARMO_PART.findIndex((r) => r.name === p.part);
         const row = ARMO_PART[at];
-        claim(at, prio, { slot: `${row.name} (${own.id})`, partName: row.name, bones: row.bones, model: p.model, recordId: own.id, piece, restPose: own.restPose });
+        claim(at, prio, { slot: `${row.name} (${own.id})`, partName: row.name, bones: row.bones, model: p.model, recordId: own.id, piece, skinFrom: own.skinFrom });   // MW-BRIG2: skinned from the body under it
       }
       continue;
     }

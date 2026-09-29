@@ -33,11 +33,11 @@ export const RRI_JERKIN_TEMPLATE = 520;
 /**
  * The port's own worn models.
  *
- * `restPose`: the meshes were fitted onto the Morrowind body in the
- * modeller's scene, so their vertices sit in the skeleton's REST space
- * and the binder takes each bone's rest transform back out
- * (mwFirstPerson.js restPoseInverse). Every piece here is authored that
- * way - tools/bakeBrigandine.mjs bakes with `placement: 'scene'`.
+ * `skinFrom`: the body slots the model was fitted over. It is SKINNED FROM THEM at bind time
+ * (formats/mwSkinTransfer.js): every vertex copies the skin of the body vertex under it, so it moves by the body's
+ * own bones and binds and never comes away from it. MW-BRIG1 hung it rigid on the Chest and Groin nodes instead, and
+ * the torso the body skins to its spine and pelvis moved one way while the brigandine moved another (MW-BRIG2).
+ * The meshes are baked where they sit on the resting body (tools/bakeBrigandine.mjs, `placement: 'scene'`).
  */
 export const OWN_MW_ARMOR = Object.freeze([
   Object.freeze({
@@ -45,14 +45,11 @@ export const OWN_MW_ARMOR = Object.freeze([
     name: 'Steel Brigandine',
     templateIndex: RRI_JERKIN_TEMPLATE,
     material: ARMOR_MATERIAL.Steel,
-    restPose: true,
-    // Split at the belt (Mac's call): the body rides Chest as a cuirass
-    // does and hides the chest skin; the knee-length skirt rides Groin
-    // as a Morrowind skirt part does, and hides nothing - the legs stay
-    // under it, as they do under retail's skirts.
+    // One piece, worn as a cuirass (it hides the chest skin). The skirt needs no split of its own: skinned from the
+    // groin, thighs and knees, it bends with the legs under it.
+    skinFrom: Object.freeze(['chest', 'groin', 'upperleg', 'knee']),
     parts: Object.freeze([
-      Object.freeze({ part: 'cuirass', model: 'brigandine_steel_chest.nif' }),
-      Object.freeze({ part: 'skirt', model: 'brigandine_steel_skirt.nif' }),
+      Object.freeze({ part: 'cuirass', model: 'brigandine_steel.nif' }),
     ]),
   }),
 ]);

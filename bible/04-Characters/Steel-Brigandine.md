@@ -2,7 +2,7 @@
 
 `tools/bakeBrigandine.mjs` + `src/characters/ownArmorModels.js` +
 `src/formats/mwItemMap.js` (composeWornArmor) +
-`src/formats/mwFirstPerson.js` (bindPartsInto, restPoseInverse)
+`src/formats/mwSkinTransfer.js` + `src/formats/mwFirstPerson.js` (bindSkinnedFromBody)
 (MW-BRIG1, Mac, 2026-09-29)
 
 > "This is for the morrowind model. The steel brigantine"
@@ -55,66 +55,55 @@ convex face still fans corner for corner - the Thunderlock re-bakes to
 the same bytes. A face that crosses itself has no triangulation and is
 still refused by name.
 
-## Where it sits: the scene placement and the rest-pose attach
+## MW-BRIG2: skinned from the body under it (the fix)
 
-The Thunderlock's bake drops the object's placement and re-centres,
-because a gun is placed by the hand that grips it. A cuirass is placed
-by the body it was fitted to. `bakeMesh(..., { placement: 'scene' })`
-keeps the object's whole T*R*S, reads the file's own axes and units out
-of GlobalSettings (`sceneFrame`: scene Z = FBX up, X = coord, Y = up x
-coord; a scene unit is 100 / UnitScaleFactor FBX units), and neither
-normalises nor re-centres. A parented object, a pivot or offset, or a
-rotation order other than XYZ is refused rather than half-read.
+MW-BRIG1 moved the torso in game ("The texture was great, you just somehow
+moved the geometry in the process") and was reverted (#451). What it did:
+hung the brigandine RIGID on the skeleton's `Chest` and `Groin` nodes, split
+at the belt, and took each node's rest transform back out
+(`restPoseInverse`). That agrees with the body in one pose at most. A retail
+body part is SKINNED (MW-D21: authored part-local, "a torso on the ground"),
+and the reference places each of its vertices by the part's OWN NiSkinData on
+the spine, pelvis and leg bones (rule 20) - never by the Chest node, which is
+a clothing bone that stands its own way at rest and is keyed its own way by
+the idle. So once anything animated, the torso moved by its bones and the
+brigandine by a node the body does not use. `test/mwbrig2.test.js` builds
+exactly that case and measures the MW-BRIG1 attach dragged over 10 units off
+the body.
 
-So the mesh arrives in the skeleton's **rest space** - the space a
-skinned part's vertices are in. A rigid part's vertices are in its
-BONE's space. Rather than write a NiSkinData whose bind would have to be
-measured off a skeleton the port does not ship, the part carries
-`restPose: true` and `bindPartsInto` takes the attach bone's rest
-transform back out once, at bind, from the skeleton the player actually
-has (`restPoseInverse`, the inverse of the bone's rest affine in graph
-space). At rest the part lands exactly where it was fitted; every frame
-after, it rides the bone. The suite proves both on a skeleton whose
-bones are turned and lifted, and proves the inverse is load-bearing (a
-plain rigid attach misplaces it by over 20 units).
+Now there is ONE transform. `formats/mwSkinTransfer.js`: every brigandine
+vertex copies the skin of the nearest vertex of the player's own body parts
+(`skinFrom: chest, groin, upperleg, knee` in `characters/ownArmorModels.js`) -
+the same bones, weights, inverse binds and skin transform - and its position
+is solved, through `skinBatch` itself (four probe vertices per body vertex),
+so that in the skeleton's rest pose it lands exactly where Mac fitted it.
+From then on it is drawn by `skinBatch`, the body's own door, so it moves by
+precisely the transform the skin under it moves by: the torso cannot come
+away from it, and the skirt bends with the legs. One piece, worn as a
+cuirass (it still hides the chest skin), no belt split. A triangle keeps to
+one body part's skin; a rigid body part (a mod's) is a skin of its one attach
+bone with rule 13's mirror and rule 14's offset folded into the bind. With no
+body under it, it is a note and is not drawn.
 
-## Two pieces, split at the belt
-
-A garment riding Chest alone swings its hem with the ribs. Mac's answer,
-asked: **split at the belt**. The body above rides **Chest** as a
-Morrowind cuirass part does and hides the chest skin; the skirt rides
-**Groin** as a Morrowind skirt part does and hides nothing (ARMO_PART's
-own rows). The line is read off the mesh: the belt's own faces (brown
-and the buckle, sampled off Steel.png through their UVs) run from a loop
-at z 64.95-65.33 up to 67.4; the red cloth below starts at a loop at
-z 62.96-63.19; no vertex lies between. A face goes to the skirt when any
-corner is below z 64 (the gap's middle), so the belt stays on the chest
-and the two pieces share the belt's lower loop as their seam, where the
-leather already draws a line. Chest: 618 triangles, z 64.95-94.76.
-Skirt: 246 triangles, z 33.89-65.33.
-
-**What that costs, said plainly:** the skirt is rigid on the pelvis, so
-a striding thigh can pass through it, and the seam can open a little
-when the chest twists against the hips. A skinned skirt would need
-weights painted in Blender and a skin writer in `nifWrite.mjs`; Mac
-chose the split over that.
+`combat/fpArm.js` loads the body parts it names from the player's own rows,
+shadowed or not (the cuirass hides the very chest it copies), and hands them
+to `bindPartsInto` with the part; `bindSkinnedFromBody` binds them as the body
+binds them and pushes skinned pieces. The rigid path and every other part are
+byte-for-byte what they were.
 
 ## How it reaches the body
 
 `characters/ownArmorModels.js` is the worn counterpart of
 `ownWeaponModels.js` and a leaf for the same reason. Per own piece:
-template, material, `restPose`, and the parts it fills by ARMO_PART
+template, material, `skinFrom` (the body slots it is skinned from), and the parts it fills by ARMO_PART
 name. `composeWornArmor` asks it before `mwArmorRecords` and claims each
 part at an armour's priority exactly as `composeRefs` claims a record's
-- so the priority law, the skin shadows, the loaders and the binder are
-all the ordinary path. Both worn-add doors in `combat/fpArm.js` (the
-third-person body and the first-person camera's) hand `restPose` on;
-the first person keeps only arm bones, so the brigandine is a
-third-person, peer and paperdoll garment, as a retail cuirass is.
+- so the priority law and the skin shadows are the ordinary path. The
+first person keeps only arm bones, so the brigandine is a third-person,
+peer and paperdoll garment, as a retail cuirass is.
 
 The files ship through `systems/ownMwAssets.js` like the Thunderlock's:
-`meshes/brigandine_steel_chest.nif`, `meshes/brigandine_steel_skirt.nif`,
-`textures/brigandine_steel.dds`, ranked after the player's loose files
+`meshes/brigandine_steel.nif`, `textures/brigandine_steel.dds`, ranked after the player's loose files
 (so a player's own file of the same name wins) and before every BSA.
 `itemMapCoverage` answers the Steel jerkin as `own`, inside the mod's
 armour space.
@@ -132,8 +121,8 @@ it back through `collectArmTextures` to the PNG pixel for pixel.
 
 `src/assets/mw/source/Brigandine_Steel.fbx` and `Brigandine_Steel.png`
 are Mac's two files, renamed for the asset, committed beside what they
-make; `node tools/bakeBrigandine.mjs` re-makes all three shipped files
-and `test/mwbrig1.test.js` holds them to the bytes and the sources to
+make; `node tools/bakeBrigandine.mjs` re-makes both shipped files
+and `test/mwbrig2.test.js` holds them to the bytes and the sources to
 their SHA-256. The FBX records its texture's original location as a
 `Downloads\brigandine\` folder; the doctrine rows call these files
 SUPPLIED (Mac's, given for the port) rather than OURS, and whether the
