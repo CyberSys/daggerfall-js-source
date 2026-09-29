@@ -327,6 +327,6 @@ No relay change. The servers keep the save opaque, and `RELAY_VERSION` does not 
   fidelity, offline parity, a fuzzer, the first audit's own fixes); `test/auditlived1b.test.js` (17) and
   lane T's `test/auditlived1b_t.test.js` (15: the laws 53 of its 237 new mutants found unpinned),
   `tools/mutants/auditlived1b.json` (118, all dead).
-- Merged with main after AUDIT LIVED1b (84 commits, PRs #418, #428-#433, #435-#438): the resolutions are its
-  M's, recorded in `01-Overview/Audit-Lived1b.md`.
+- Merged with main after AUDIT LIVED1b (PRs #418, #428-#433, #435-#439): the resolutions are its M's,
+  recorded in `01-Overview/Audit-Lived1b.md`.
 - Not verified in a browser: no online session exists in this container.

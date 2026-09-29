@@ -124,7 +124,9 @@ The first audit's own record is corrected where this one found its fixes short (
   an-absence` survived on this branch since LIVED1 - its one named test's dead-span arm no longer reaches the drift -
   and dies to `audit23_hosts.test.js` C4 (the 112-day boundary through the tick), which it now names: its list is 10
   of 10 dead. `ARENA2-TRIAGE-4-release-costs-three-hours` survives on main alone as well - main's own, carried for
-  its pass.]
+  its pass. Main moved on while that merge was checked, and #439 (FIELD BUGS 2026-09-29d, 16 commits) was merged
+  after it: 40 files, 71 hunks - 69 cite-only (79 cites moved by `citeMerge`) and two real, Active-Arcs' rows and the
+  Suite line. It adds no time reader.]
 - **Process (T15, beside the first audit's T13):** `test/auditworld34.test.js`'s "A1 executed" waits a fixed 25 ms
   between its async steps and failed 2 of 3 unmutated runs under `--jobs` load; a list that names it reads those
   failures as deaths (39 false deaths in lane T's second stage, hiding two real survivors). No list here names it. A lane
