@@ -4981,7 +4981,16 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // it was built casts nothing where it is (the draw lens's prover: a
     // gib's shadow gone in a cascade and three lantern faces). A batch that
     // moves is judged by its sphere, which follows it below.
-    batch._place = null;
+    // AUDIT 30 A6: that is a DYNAMIC batch - a gib's, moved every frame. A
+    // STATIC one moved once (PROF4: a felled tree's flat sunk in its wood,
+    // treeHost sinkFelled, and the day's turn standing it again) gets the
+    // grid of where it is NOW: dropped for good, the pixel-wide wood was
+    // judged by its sphere again - near every lantern in its pixel. And the
+    // static signature is told it moved: it folds the batch's id and its
+    // origin, neither of which a vertex move changes, so the cached shadow
+    // kept the fallen tree's. A fresh id is a new signature.
+    batch._place = !batch._dyn && count > 1 ? placementGrid(count === centers.length ? centers : centers.slice(0, count)) : null;
+    if (!batch._dyn) batch._shId = undefined;
     // THE SPHERE, WITHOUT BUILDING A FLAT ARRAY TO ASK FOR IT. This
     // runs every frame of every flight, and `boundsOf` wants one
     // packed list - so the box is walked here and the sphere written

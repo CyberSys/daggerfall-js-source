@@ -295,7 +295,11 @@ test('PROF4 service: a crafted table set down in a home - its provenance kept wh
   assert.deepEqual([theirs.status, theirs.body.piece.item.pv, theirs.body.piece.item.mk], [200, undefined, undefined], 'Ann\'s table is not Mac\'s to mark');
   const forged = await s.call('/v1/homes/decor/place', at({ piece: piece({ t: 225, g: 8, pv: '00000000deadbeef', mk: 'Silverthorn' }, { id: 'tb4' }) }), mac.secret);
   assert.deepEqual([forged.body.piece.item.pv, forged.body.piece.item.mk], [undefined, undefined]);
-  const other = await s.call('/v1/homes/decor/place', at({ piece: piece({ t: 221, g: 8, pv, mk: 'Silverthorn' }, { id: 'tb5' }) }), mac.secret);
+  // AUDIT 30 S6: a piece of its own, standing nowhere - the first table stands at tb1, and one id stands once
+  s.setXp(mac, xpForRank(100), 'carpentry', { spec100: 'master-joiner' });
+  s.give(mac, 'plank:oak', 'own', 3);
+  const pv3 = (await s.call('/v1/prof/craft', craft(mac, 'table-small:oak'), mac.secret)).body.pieces[0].provenance;
+  const other = await s.call('/v1/homes/decor/place', at({ piece: piece({ t: 221, g: 8, pv: pv3, mk: 'Silverthorn' }, { id: 'tb5' }) }), mac.secret);
   assert.deepEqual([other.body.piece.item.pv, other.body.piece.item.mk], [undefined, undefined], 'a Large table is not the Small one\'s id');
   const again = await s.call('/v1/homes/decor/place', at({ piece: piece({ t: 225, g: 8, pv, mk: 'Somebody Else' }) }), mac.secret);
   assert.deepEqual([again.status, again.body.repeat], [200, true], 'the same set-down sent again is answered as it stood');

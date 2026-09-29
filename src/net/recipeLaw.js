@@ -291,7 +291,9 @@ export const PROVENANCE_RE = /^[0-9a-f]{16}$/;
  * grain is within the tolerance - `tol` of the half-height, x the attribute band, widening by `masterWiden` at Master -
  * and that took `minS` to `maxS` is clean.
  */
-export const PLANE_ACT = Object.freeze({ tol: 0.18, masterWiden: 0.5, minS: 1.2, maxS: 4, headX: 0.08, footX: 0.98, waveA: 0.35, waves: 1.5 });
+/** AUDIT 30 A1: `step` - the widest stretch of the board one sample stands for; a stroke's jump between two pointer events is
+ *  measured along its chord at this spacing, so a flick is scored as the straight line it drew. */
+export const PLANE_ACT = Object.freeze({ tol: 0.18, masterWiden: 0.5, minS: 1.2, maxS: 4, headX: 0.08, footX: 0.98, waveA: 0.35, waves: 1.5, step: 0.025 });
 /** Carpentry's attribute pair (PROF0 25): (AGI + WIL) / 2, a steady hand, on Foraging's four bands. */
 export const planeBand = ({ agility, willpower }) => actBand(Math.trunc((agility + willpower) / 2));
 /** The plane's tolerance at a rank, x the band. */
@@ -303,7 +305,12 @@ export const grainAt = (x, phase) => PLANE_ACT.waveA * Math.sin(2 * Math.PI * (P
 export const MAKER_MAX = 32;
 export function makerName(name) {
   if (typeof name !== 'string') return null;
-  const n = name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, MAKER_MAX).trim();
+  // AUDIT 30 L3: a lone surrogate dropped before the cut (by code point - no lookbehind, SAFARI1), and a pair the cut
+  // would split dropped whole - a name as the record signs it is well-formed, so it stays in its bound and reads back
+  const whole = Array.from(name.replace(/[\u0000-\u001f\u007f]/g, '')).filter((ch) => !/^[\ud800-\udfff]$/.test(ch)).join('').trim();
+  let n = whole.slice(0, MAKER_MAX);
+  if (/[\ud800-\udbff]$/.test(n)) n = n.slice(0, -1);
+  n = n.trim();
   return n.length ? n : null;
 }
 /** A Masterwork's name: "Silverthorn's Mithril Longsword". */

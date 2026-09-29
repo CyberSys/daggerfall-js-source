@@ -17,8 +17,9 @@
 //   render/renderer.js moveBillboardBatch) and its STUMP stands - the
 //   archive's Tree Trunk (STUMP_RECORD) where World of Daggerfall names
 //   one. On the service's answer it FALLS: its own picture on a one-flat
-//   batch tipped about its root away from the player and faded over
-//   FALL_S (the billboard shader's uTip), and DFU's own Logs flat lies at
+//   batch tipped about its root away from the player over FALL_S (the
+//   billboard shader's uTip) and gone once it lies flat - no fade (AUDIT
+//   30 A10: the record said one) - and DFU's own Logs flat lies at
 //   its foot where the archive has one, gone when walked over - a sight:
 //   the logs were the Stores' the moment the service answered (law 3).
 //   THE ACT. Foraging's checks with the Wood-Axe's lines; the machine is
@@ -118,10 +119,10 @@ export function sinkFelled(forest, sunk, renderer) {
 }
 
 /** A tree's plan: what E does at it, or what it needs. */
-export function treePlan({ node, taken, counting, rank, axe, storesFull, today, cap }) {
+export function treePlan({ node, taken, counting, rank, axe, storesFull, today, cap, lumberjack = false }) {
   const name = materialLabel(node.material).replace(/ Log$/, '');
   const verb = `Chop ${name}`;
-  const rankWord = `Logging ${rank} - ${chopsFor(node.tier)} chops`;
+  const rankWord = `Logging ${rank} - ${chopsFor(node.tier, lumberjack)} chops`;   // AUDIT 30 A8: a Lumberjack's two fewer, as the act counts them
   if (taken || counting) return { harvest: 'logs', verb, rest: 'felled today', ready: false };
   if (!tierOpen(rank, node.tier)) return { harvest: 'logs', verb, rest: `needs Logging ${TIER_RANKS[node.tier - 1]}`, ready: false };
   if (!axe) return { harvest: 'logs', verb, rest: 'needs a Wood-Axe', ready: false };
@@ -141,6 +142,9 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
   /** the falls under way and the logs lying: `{ entry, batch, t, logs? }` */
   const falls = [];
   const logsLying = [];
+  /** AUDIT 30 A11: the pixels torn down - a fall's logs whose texture came after its pixel went are never laid (an
+   *  entry's batch list outlives it, so it could not say so). */
+  const torn = new WeakSet();
   const drop = (entry, b) => {
     const i = entry.batches.indexOf(b);
     if (i >= 0) entry.batches.splice(i, 1);
@@ -168,9 +172,10 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
       sinkFelled(f, sunk, renderer);
     },
     gone: (n) => book.taken(n.key, 'logs'),
-    plan(n, { entity, rank }) {
+    plan(n, { entity, rank, specs }) {
       const plan = treePlan({
         node: n, taken: book.taken(n.key, 'logs'), counting: book.counting(n.key, 'logs'), rank: rank('logging'),
+        lumberjack: specs?.('logging')?.[50] === 'lumberjack',
         axe: !!foragingToolIn(entity, FT.WoodAxe), storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000),
         today: book.state.today?.logging ?? 0, cap: book.state.caps?.harvests ?? 60,
       });
@@ -190,12 +195,13 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
       };
     },
     /** THE FALL, on the service's answer: the tree's own picture tips away from the player (`from`, world; `tr` the
-     *  pixel's translation) and fades; the logs lie at its foot. */
+     *  pixel's translation) and is gone once flat; the logs lie at its foot. */
     async felled(n, { entry, from, tr }) {
       const f = entry?.forest;
       const g = f?.groups?.get(n.flat.group);
-      if (!renderer || !g?.batch || !entry) return;
+      if (!renderer || !g?.batch || !entry || torn.has(entry)) return;
       const c = g.centers[n.flat.i];
+      if (!c) return;   // AUDIT 30 A5: a flat its wood no longer has (the pixel stood again under the ask)
       let dx = c[0] + tr[0] - from[0], dz = c[2] + tr[2] - from[2];
       const l = Math.hypot(dx, dz);
       if (l < 1e-6) { dx = 0; dz = 1; } else { dx /= l; dz /= l; }
@@ -208,7 +214,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
       falls.push({ entry, batch: b, t: 0 });
       if (LOGS_ARCHIVES.includes(f.base) && getTexture && billboardSize) {
         const t = await getTexture(f.archive);
-        if (!t || LOGS_RECORD >= t.recordCount || !entry.batches) return;
+        if (!t || LOGS_RECORD >= t.recordCount || torn.has(entry)) return;
         uploadRecord?.(f.archive, LOGS_RECORD);
         const size = billboardSize(t, LOGS_RECORD);
         const at = [c[0] + dx * 0.8, c[1], c[2] + dz * 0.8];
@@ -218,7 +224,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
         logsLying.push({ entry, batch: logs, at });
       }
     },
-    /** Every frame: the falls tip and fade; the logs are taken when walked over. */
+    /** Every frame: the falls tip, each gone once it lies flat; the logs are taken when walked over. */
     frame(dt, { feet, translation }) {
       for (let i = falls.length - 1; i >= 0; i--) {
         const fl = falls[i];
@@ -236,6 +242,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
     },
     /** A pixel torn down: its falls and logs went with its batches. */
     dropped(entry) {
+      torn.add(entry);
       for (let i = falls.length - 1; i >= 0; i--) if (falls[i].entry === entry) falls.splice(i, 1);
       for (let i = logsLying.length - 1; i >= 0; i--) if (logsLying[i].entry === entry) logsLying.splice(i, 1);
     },

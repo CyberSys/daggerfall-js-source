@@ -155,7 +155,7 @@ test('PROF3 service: the smith\'s stock - the fittings into the Stores as bought
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.deepEqual([r.body.qty, r.body.marks, r.body.balance, r.body.store], [5, 20, 80, { material: 'leather:cured', own: 0, bought: 5 }]);
   assert.deepEqual(s.stores(mac, 'leather:cured'), [['bought', 5]]);
-  const line = s.raw.prepare('SELECT * FROM marks_ledger WHERE actor = ? AND rid = ?').get(mac.id, body.rid);
+  const line = s.raw.prepare('SELECT * FROM marks_ledger WHERE actor = ? AND rid = ?').get(mac.id, `${body.rid}:stock`);   // AUDIT 30 S1: the stock's own line, off the rid's namespace
   assert.deepEqual([line.src_kind, line.dst_kind, line.kind, line.amount, line.who], ['account', 'burn', 'stock', 20, 'leather:cured']);
   const again = await s.call('/v1/prof/stock', body, mac.secret);
   assert.deepEqual([again.body.repeat, s.balance(mac), s.stores(mac, 'leather:cured')], [true, 80, [['bought', 5]]], 'once');

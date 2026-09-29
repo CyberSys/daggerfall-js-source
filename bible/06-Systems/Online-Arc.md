@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6774` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6792` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10994,9 +10994,10 @@ departure (`Port-Ledger.md` section A, SMITHING: THE ANVIL, QUALITY AND PROVENAN
 - **The product record** (`net/productRecord.js`, `p1`) is signed with the identity key - the key that signs tokens and
   orders, its version inside the signed bytes and its claims disjoint from theirs and from the relay's receipts. The
   piece carries its provenance id alone: a signature outruns the trade wire's string bound.
-- **The smith's stock** burns Marks (a `stock` line in the one ledger - MARKS_KINDS) for the fittings Hunting and
-  Logging do not yet yield, into the Stores as bought units, which the Stores do not withdraw until those professions
-  register their templates.
+- **The smith's stock** burns Marks (a `stock` line in the one ledger - MARKS_KINDS - under `<rid>:stock`, AUDIT 30)
+  for the fittings Hunting and Logging do not yet yield, into the Stores as bought units, which the Stores do not
+  withdraw until those professions register their templates - PROF4 registered the planks' and Charcoal's, so of the
+  stock only Cured Leather stays (AUDIT 30 R3).
 - **A craft asked is kept** on the device before it is asked (`net/profBook.js`), its pieces minted once on the answer by
   the tab that lets it go, and never twice into one pack (the host's provenance check).
 - **FOUND and fixed:** a Quartermaster's smelt yielded one ingot a unit - PROF2 offered the choice and built no doubling.
@@ -11017,8 +11018,10 @@ Ledger A departure (`Port-Ledger.md` section A, LOGGING, CARPENTRY AND THE FURNI
   service keeps the id only where its own `products` row is this account's and this template's, and writes the mark
   from that row alone (a Masterwork's, a Master Joiner's) - never from what the client sent. A visitor reads it.
 - **The trees are the forest's own flats**, not new ones: the streamed pixel keeps its tree records and their batches,
-  a felled tree's flat is sunk in its batch and a stump stood (the world's own pictures), and the fall is the billboard
-  shader's (`uTip`) - so every player standing there sees the same forest, and the felled trees are the service's day.
+  a felled tree's flat is sunk in its batch and a stump stood where its archive has one (the world's own pictures -
+  504, 506, 508, 510; its logs 504 and 508 - AUDIT 30 R13: this line stood one always), and the fall is the billboard
+  shader's (`uTip`, a tip and no fade) - so every player standing there sees the same forest, and the felled trees are
+  the service's day.
 - **FOUND and fixed:** PROF3 left Smithing unpractised on the Professions page - its specialisation cards locked.
 - **Pinned:** `test/prof4_law.test.js`, `test/prof4_service.test.js`, `test/prof4_client.test.js`;
   `tools/mutants/prof4.json` (87: 86 dead, one recorded equivalent).
@@ -11032,17 +11035,125 @@ departure (`Port-Ledger.md` section A, THE MARKET).
   the deliveries (a piece on its way to a pack), the buy orders and their fills, the prices' day table and the reports;
   and three rebuilds - the Marks ledger admits an `escrow` end (an order's Marks held, its id the order's, no balance
   moved by trigger), the witness admits the kind `hub` (a region's hub town's map pixel, the courier's road), and
-  `products` no longer cascades with its owner's account. `/v1/market/*` decides every act by one statement keyed on its
-  nonce; nothing runs on a clock - an expired listing or order and a courier's arrival are settled on their owner's next
-  read, one row a batch.
+  `products` no longer cascades with its owner's account. `/v1/market/*` decides a listing, a purchase, a cancel, an
+  order and a fill by one statement keyed on its nonce, each Marks line a plain INSERT under its own suffixed request
+  id (a collect is keyed on its request id, an order withdrawn on its own state, a report and a removal on nothing -
+  AUDIT 30 N4: this line said every act); nothing runs on a clock - an expired listing or order and a courier's
+  arrival are settled on their owner's next read, one row a batch.
 - **Open where the board, the professions and the Marks all are** - no switch of its own. The board's region is the
   client's word (as a Court writ's and a home's are); what a lie buys is a fast travel's worth, since the Stores are
   the character's in every town.
 - **A crafted piece changes hands**: listed only by the account its product row names, once (a unique index on the
-  open listings' ids), its wear carried; the sale moves the owner in its own batch; the buyer's piece is minted from its
-  record at that wear, here on the answer, by courier when collected.
-- **The Marks book is told** every balance a market or stock answer carries (FOUND: the smith's stock never told it).
+  open listings' ids), its wear carried, and only as minted - never arrows, nor a piece enchanted since its craft
+  (AUDIT 30); the sale moves the owner in its own batch; the buyer's piece is minted from its record at that wear,
+  here on the answer, by courier when collected.
+- **The Marks book is told** every balance a market or stock answer carries (FOUND: the smith's stock never told it);
+  the Market tab's own "Your Marks" is the market book's, which the Weavers' purchase tells too (AUDIT 30 R7).
 - **FOUND and fixed:** a kept craft settled only beside a kept withdrawal; PROF4's plane board had no CSS; the
   `products` cascade against "forever".
 - **Pinned:** `test/prof5_law.test.js`, `test/prof5_service.test.js`, `test/prof5_client.test.js`;
-  `tools/mutants/prof5.json` (109: 106 dead, three recorded equivalent).
+  `tools/mutants/prof5.json` (109: 105 dead, four recorded equivalent - the fourth since AUDIT 30).
+
+## AUDIT 30 (2026-09-29, Mac: "Do it") - PROF3 to PROF5 audited
+
+Everything built since AUDIT 29 - PROF3 (Smithing, the anvil, the signed product record), PROF4 (Logging, Carpentry,
+the furniture) and PROF5 (the Market) - audited in AUDIT 29's six lenses: the account service, the laws, the client's
+books, the pages and the Market tab, the acts and their hosts, and the records against the code. 82 findings, 74 once
+the lenses' overlaps are folded (the market's one-at-a-time door found by two, the kept craft's fee by two, the Orders
+view, the sort and the Weavers' balance by the pages and the records both). Every one was verified against the code -
+the service's by a probe over the real Worker, the tab's in Chromium at 360 and 800 pixels - and fixed; the fixes with
+a behaviour are pinned by a test that fails on the code before it (40 pins, every one run red on the pre-fix code with
+only the new names shimmed). `test/audit30_laws.test.js` (7), `test/audit30_service.test.js` (12),
+`test/audit30_client.test.js` (15), `test/audit30_host.test.js` (6); `acct26` (no migration: no table changed);
+`tools/mutants/audit30.json` (63, every one dead - the three that first survived, the rows' sort, the fall's node and a
+Heartwood's quick craft, killed by stronger pins) - and the 21 records the fixes moved (prof3, prof4, prof5, perfexta)
+re-aimed by content, every one dead but the catalogue's recorded equivalent (94 of 94 now, the unyielded out); two of
+them (a table's template, the plane's Heartwood) found their old pins reaching the law another way, and were given pins
+of their own; survtiers3's two, whose `world.js` cites the shift moved, the same. The neighbours' 358 re-run: one
+survivor, a load's room guard at its delivery that the settle's read now keeps (S7), recorded equivalent in prof5.
+
+**The ledger's lines** (S1-S4, the money holes). The smith's stock wrote its Marks line OR IGNORE under the client's
+own id, and its prior check read the purchase rows alone: bought under an id a Bank exchange had spent, the line was
+dropped as the exchange's duplicate and the stock was free. A buy's tax and a fill's shared `<rid>:tax`, so one id used
+for both lost the second act's tax and left the escrow rows and the ledger disagreeing. The History prunes the market's
+rows after ninety days but the ledger keeps its lines for ever, so an id whose row was pruned was a fresh request to
+the prior check whose every line was then ignored: an order's escrow held unpaid and withdrawn - a mint - a buy
+unpaid, a listing without its fee. And an OR IGNORE on a line whose trigger moves a balance swallows that balance's
+CHECK as it swallows a duplicate, so a guard ever short would have moved goods and no Marks. Every line of the market's
+and the stock's is its own now (`<rid>:stock`, `:fee`, `:sale`, `:tax`, `:courier`, `:escrow`, `:fill`, `:filltax`), a
+plain INSERT, and each decision refuses an id whose line already stands (`prof-rid`); the respec's decision line the
+same. The writ's pay alone stays OR IGNORE - its id is a writ's, filled once, by its nonce.
+
+**The laws and the service** (L1-L8, S5-S9). A herb's key read with a leading zero (`p1:08`) was a material, so an
+order for it held its escrow a week for goods no Stores could hold: one spelling (AUDIT 29 A1's law). A maker's name was
+cut at 32 code units, splitting a pair and keeping a lone half, and a record past its 512 could be signed and never
+read back: the name is well-formed and the mint refuses its own overlong record. The mark was the service's column
+alone; it is a claim of the record (`a: 1`, a Masterwork or a Master Joiner's furniture), so the name is the signed
+word. A piece at 995 thousandths read "worn to 100%". The 5% was floored per sale, so a listing bought in lots of
+nineteen Marks paid none: the tax is taken on the listing's (and an order's) running total (`saleTaxOn`), the decision
+keyed on the total it was taken on. The catalogue offered three materials nothing yields (the Daedric and Warforged
+ingots, Bear Hide) to orders nobody could fill: `UNYIELDED`, `market-unyielded`. A listing's worth was unbounded, its
+fee refused as "Marks short" past any balance: `bad-price` past `MARKET_WORTH_MAX`. Arrows wrote a product row, so
+twenty were listed as one piece, kept by the seller and minted again for the buyer: a piece lists by its crafted
+family (`pieceListable`, `market-not-listable`). A piece whose delivery was still on the road, or back from an expired
+listing, could be listed and sold, and the old delivery collected after: one id handed out twice - not while a
+delivery waits (`market-uncollected`), and a delivery is its piece's owner's to collect. DECOR's mark was proven by the
+owner and the template alone, so one table stood marked three times, was sold while it stood, and stood in both homes:
+a mark is kept once, off the market, and a piece standing in a home is not listed (`market-standing`). A settle read
+its first twenty waiting rows whether they could settle or not, so twenty returns waiting on a full Stores held back
+every other material's: the rows that cannot settle are left out of the read. A listing bound every field whatever its
+kind, so a stray `wear` broke the row's CHECK and was refused as "Stores short": a kind's own fields alone.
+
+**The client's books** (C1-C8). The market book kept an act through the network's words only, so the account gate's
+429 ("rate"), and "no-session" and "auth", let a kept listing go and put its piece back in the pack while the service
+held it listed - a copy; a kept buy or collect was lost: they are waited out, as the professions' book does. A settled
+listing's piece was taken out of a save that may never have been kept after the take (a crash, a seat handed over):
+the settle's answer takes it out again (`marketDrop`). DFU's item maker enchants a crafted piece (it writes over
+`enchantments`), and the market mints a piece again from its record, so the enchantment was lost on the way - section
+26's "nothing enchants a crafted piece but its seed" was false: a piece lists only as it was minted (`smithItems.js`
+asMinted). A kept craft's station fee was paid only by the press that heard its answer, so a craft settled a day later
+paid the smith nothing: the fee rides the kept craft and is paid by the tab that mints it. One act at a time handed a
+second, different press the first's answer (a Buy during the opening settle said "Bought"): another act is refused
+`market-busy`, the same press joins its own. A read begun before an act and answered after told the Marks book its
+older balance last, and was cached for a minute: a read an act's answer overtook is read again. A marked name was drawn
+from any maker string on any provenance (a peer's, an old save's): only as the law writes one. The Repair Kit said "The
+Silverthorn's Longsword".
+
+**The pages and the Market tab** (U1-U22). Every market answer's Stores count went unheard, so the List form, the Fill
+gate, the Work tab, the Stores page and the anvil read yesterday's until the next day's read: the market book tells the
+professions' book each `store` and a read's `stores` (the service answers the materials its settle moved). The search
+filtered the hundred cheapest listings of everything, so a listed rarity read "Nothing listed": a search names the
+catalogue's materials and the service reads those, a family and a tier too, in the query. A late answer overwrote the
+view the player had moved on to: the last read asked is the one drawn. The tab's rows collapsed at a phone's width (a
+piece's name drew 0 pixels, its price over its road - measured in Chromium): its own columns. A number typed redrew the
+whole tab, swallowing the next press and the focus: it moves only the words that hang on it, and a read's redraw keeps
+the field's focus. A refusal that says the market moved left the dead row standing: it is read again. A piece that
+arrived while the tab stood waited for the next showing: collected. A shut market's tab was hidden for the session's
+life, and the gate's own words shut it: a closed market is asked again after five minutes, "no-session" never shuts it,
+and a closed Marks currency hides the tab. The market shared the board's busy flag, and the Weavers' counter was never
+greyed: its own. List, Post, the Weavers' counter, and the anvil's and the workbench's Craft were offered where they
+must fail (the fee, the thirty listings, the twenty orders, the balance, the purse): not offered, the words say why.
+"Your trades" said a listing's total for every side: the Marks each moved. The rows ran by listed price whatever their
+courier: cheapest landed. "1 Marks", "1 hours left"; the row's courier was the whole listing's; the Spade was listed at
+rank 0; a smelt called every forge row "Burning..."; the tab's times read the device's clock; its fields had no names.
+
+**The acts and their hosts** (A1-A11). The plane sampled the grain only where pointer events fell and timed the pass
+from the press, so a press held still and one flick to the foot was a clean pass: the clock starts at the first forward
+move and a jump is scored along its line every 0.025 of the board (`PLANE_ACT.step`). A pointer passing with no button
+down planed on, a pass outlived its page, and Gentle acts switched on mid-pass kept the act: the plane moves only while
+held, a board drawn anew lets go of a lost drag, and Gentle sets it down. Picking another recipe mid-act crafted it
+(the heat the first, the plane the pick, past its readiness): the pickers are held and the act makes the recipe it began
+on. A fall read the node the act began on in a pixel stood again under the ask - a TypeError, or another tree: the node
+as its pixel stands now, the fall's failure its own, the pixel stood again whatever it did. A static wood moved (one
+tree sunk) lost its placement grid for good and kept its shadow's signature: it is gridded where it is and its shadow
+told. A shut switch's day turn left yesterday's felled tree sunk: a pixel that stands no nodes stands its forest whole.
+A Lumberjack's prompt said the unreduced chops. The heat took Space and Enter from the page's own fields and buttons. A
+logs pile whose picture came after its pixel was torn down was laid, and never freed.
+
+**The records** (R1-R15, N1-N9). A cancel is refused while the Stores cannot take a material back (the record and the
+patch notes said the goods always came back); a piece's wear rides its listing, and no `couriers` table was ever built;
+since PROF4 only Cured Leather and Linen stay at the bench; a craft's XP is per craft and a smelt's per unit; the fees'
+repeat law (sections 23 to 25); no fade in the fall; the Repair Kit not in Warforged; a Heartwood not for arrows;
+stumps and log piles only where the archive has them; `marketLaw.js` among the laws; the Master Joiner's mark on
+furniture alone; the market's own act count - each corrected where it stood (Professions-Arc 5.2, 14, 23-26 and
+Appendix B, Port-Ledger, UI.md, Testing, the three patch notes).

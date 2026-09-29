@@ -481,10 +481,13 @@ export async function chooseSpec(ctx, player, env, { character, profession, rank
   const day = utcDay(nowS);
   await db.batch([
     // THE DECISION: the Marks burnt, only while no change is on its way for this track - the line names the track
-    // (AUDIT 29 A2: `who`, which a burn's line leaves empty), so the change below is this line's and no other track's
-    db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+    // (AUDIT 29 A2: `who`, which a burn's line leaves empty), so the change below is this line's and no other track's.
+    // AUDIT 30 S4: a plain INSERT, the id's line refused in the statement - an OR IGNORE swallowed the balance trigger's
+    // CHECK as a duplicate would be, and a guard ever short would have burnt nothing and changed the track all the same
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'account', ?1, 'burn', NULL, 'respec', ?4, ?5, ?6, ?1, ?8, ?7
       WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?4
+        AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?7)
         AND NOT EXISTS (SELECT 1 FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = ?3 AND respec_to IS NOT NULL AND respec_at > ?6)`)
       .bind(player.id, character, profession, RESPEC.marks, day, nowS, rid, track),
     // a change that has taken effect is folded into its rank's choice first; then the new one waits its week
@@ -713,7 +716,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   const seed = Math.floor(dice(rand) * 4294967296);
   const provs = Array.from({ length: count }, () => provenanceId(rand));
   const key = await signingKey(env, subtle);
-  const records = await Promise.all(provs.map((p) => mintProductRecord({ p, s: player.id, h: character, r: r.id, q: quality, m: maker, c: seed }, key, { subtle, nowS })));
+  const records = await Promise.all(provs.map((p) => mintProductRecord({ p, s: player.id, h: character, r: r.id, q: quality, m: maker, c: seed, a: marked === 1 && maker !== null }, key, { subtle, nowS })));   // AUDIT 30 L4: the mark signed
   const nonce = mintId(rand);
   // ?1 player ?2 character ?3 rid ?4 recipe ?5 quality ?6 count ?7 provenance ?8 provenance2 ?9 seed ?10 the XP before the
   // first craft's ?13 ?11 now ?12 nonce ?14 the profession ?15 heartwood; the inputs ?16 on, two a one
@@ -793,8 +796,10 @@ export async function buyStock(ctx, player, env, { character, material: key, qty
         AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?4), 0) + ?5 <= ?9`)
       .bind(player.id, character, rid, key, qty, cost, nowS, nonce, STORES_MAX),
     // the Marks burnt - one line, naming the material - and the units in, bought
-    db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-      SELECT 'account', ?1, 'burn', NULL, 'stock', marks, ?2, at, ?1, material, rid FROM prof_stock WHERE player = ?1 AND rid = ?3 AND n = ?4`)
+    // AUDIT 30 S1: the line its own name (a client id cannot hold `:`) and a plain INSERT - under the bare id it clashed
+    // with an exchange's or a guild move's line, was dropped, and the stock came free
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      SELECT 'account', ?1, 'burn', NULL, 'stock', marks, ?2, at, ?1, material, rid || ':stock' FROM prof_stock WHERE player = ?1 AND rid = ?3 AND n = ?4`)
       .bind(player.id, utcDay(nowS), rid, nonce),
     db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
       SELECT player, char_id, material, 'bought', qty FROM prof_stock WHERE player = ?1 AND rid = ?2 AND n = ?3

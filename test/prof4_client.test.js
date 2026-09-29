@@ -163,7 +163,8 @@ test('PROF4 plane: a pass pressed at the head and drawn to the foot along the gr
   const rng = () => 0.25;
   assert.equal(createPlaneAct({ rng }).grain(0), grainAt(0, 0.25));
   const good = along(createPlaneAct({ rng }), 0.05, 2);
-  assert.deepEqual([good.clean, Math.round(good.deviation * 100) / 100, good.seconds], [true, 0.05, 2]);
+  // AUDIT 30 A1: the pass's clock starts at its first forward move (the fortieth of two seconds after the press)
+  assert.deepEqual([good.clean, Math.round(good.deviation * 100) / 100, good.seconds], [true, 0.05, 1.95]);
   assert.equal(along(createPlaneAct({ rng }), 0.3, 2).clean, false, 'off the grain');
   assert.equal(along(createPlaneAct({ rank: 100, band: 1.3, rng }), 0.3, 2).clean, true, 'a Master\'s wider hand, a steady band');
   const quick = along(createPlaneAct({ rng }), 0, 0.5);
@@ -477,10 +478,11 @@ test('PROF4 wiring: a built pixel keeps its forest (the tree flats by World of D
   assert.match(r, /if \(uTip\.z != 0\.0\) \{/);
   assert.match(r, /if \(tp \|\| this\._bbTipOn\) \{ gl\.uniform3f\(this\.bbUTip, tp \? tp\[0\] : 0, tp \? tp\[1\] : 0, tp \? tp\[2\] : 0\); this\._bbTipOn = !!tp; \}/);
   const d = src('server-account/src/decor.js');
-  assert.match(d, /const ours = row && row\.owner === player\.id && Number\(row\.template\) === p\.item\.t;/);
+  assert.match(d, /const ours = row && row\.owner === player\.id && Number\(row\.template\) === p\.item\.t && Number\(row\.listed\) === 0 && !elsewhere;/);   // AUDIT 30 S6: and not on the market, and not standing twice
   assert.match(d, /delete plain\.mk;/);
   const g = src('src/scenes/gatherHost.js');
   assert.match(g, /for \(const k of kinds\) k\.stood\?\.\(entry, rec\.nodes\.filter\(\(n\) => n\.kind === k\.id\)\);/);
   assert.match(g, /for \(const f of k\.gone\(n\) \? \(k\.goneFlatsOf\?\.\(n, entry\) \?\? \[\]\) : k\.flatsOf\(n\)\) \{/);
-  assert.match(g, /if \(s && k\.felled\) k\.felled\(a\.node, \{ entry: s\.entry, from: deps\.eye\(\)\.pos, tr: deps\.pixelTranslation\(a\.px, a\.py, \[0, 0, 0\]\) \}\);/);
+  // AUDIT 30 A5: the node as its pixel stands now, the fall's failure its own
+  assert.match(g, /const now = s\?\.nodes\.find\(\(x\) => x\.key === a\.node\.key\) \?\? null;\n\s*if \(now && k\.felled\) \{\n\s*try \{ Promise\.resolve\(k\.felled\(now, \{ entry: s\.entry, from: deps\.eye\(\)\.pos, tr: deps\.pixelTranslation\(a\.px, a\.py, \[0, 0, 0\]\) \}\)\)\.catch/);
 });

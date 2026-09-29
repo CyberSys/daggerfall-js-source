@@ -6,7 +6,7 @@
 - **Chain** armour is made from Steel, for three quarters of plate's ingots.
 - **Tools** - the Wood-Axe, Pick-Axe, Sickle and Spade - are made from Iron.
 - **Repair Kits** are made in every metal but Warforged Steel.
-- Some recipes also want Cured Leather or Oak or Pine planks. Until Hunting and Logging arrive, a smith sells these and Charcoal from their **stock** for Marks (Leather and Oak 4, Pine and Charcoal 2). They go into your Stores and are used there - they cannot be withdrawn.
+- Some recipes also want Cured Leather or Oak or Pine planks. A smith sells these and Charcoal from their **stock** for Marks (Leather and Oak 4, Pine and Charcoal 2), so they can be had before Hunting and Logging yield them. They go into your Stores and are used there. The planks and Charcoal can be withdrawn to your pack (Logging made them items); Cured Leather stays in your Stores until Hunting comes.
 
 ## The heat
 - **Craft** puts the ingot in the fire. Its glow rises and falls; **strike** (the Strike button, Space or Enter) three times while it is inside the band. Better Strength and Agility widen the band.

@@ -31,6 +31,15 @@
 // keeps one load waiting without refusing the rest), each keyed on its
 // row's own id, so it happens once.
 //
+// ═══ THE LEDGER'S LINES (AUDIT 30 S1-S4) ════════════════════════════
+//
+// Every Marks line an act writes carries its OWN name in the one ledger's `(actor, rid)` namespace - the request id and
+// a suffix no client id can hold (`:fee`, `:sale`, `:tax`, `:courier`, `:escrow`, `:fill`, `:filltax`) - and is a plain
+// INSERT: a line that cannot be written (a clash, a balance its trigger would break) throws and rolls the whole act
+// back, where INSERT OR IGNORE let the act stand with its Marks unmoved (and swallowed the trigger's CHECK). The rows
+// that answer a repeat are pruned after 90 days (section 20) but the ledger is forever, so each decision also refuses
+// a request whose first line the ledger already holds - a request id is spent once, whatever was pruned since.
+//
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═══════════════════════════════════════════════════════════════════
 import { accountKind, mintId, overRate } from './accounts.js';
@@ -46,8 +55,9 @@ import { recipeById } from '../../src/net/recipeLaw.js';
 import {
   MARKET_LISTING_S, MARKET_ORDER_S, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, MARKET_POSTS_MAX, MARKET_OPS_MAX, MARKET_WINDOW_S,
   MARKET_SHOWN, MARKET_HISTORY_SHOWN, MARKET_TRADES_SHOWN, MARKET_MEDIAN_DAYS, MARKET_KEEP_DAYS, MARKET_RID_RE, MARKET_ID_RE,
-  MARKET_VIEWS, CRAFTED_FAMILIES, unitsOk, priceOk, wearOk, provenanceOk, listingFee, saleTax, saleTithe, hubReport, hubPixelOk,
-  hubPixel, roadPixels, courierFee, courierSeconds, medianOf, medianLine,
+  MARKET_VIEWS, CRAFTED_FAMILIES, unitsOk, priceOk, wearOk, provenanceOk, listingFee, saleTaxOn, saleTithe, hubReport, hubPixelOk,
+  MARKET_WORTH_MAX, UNYIELDED, pieceListable,
+  hubPixel, roadPixels, courierFee, courierSeconds, medianOf, medianLine, marketCatalogue,
 } from '../../src/net/marketLaw.js';
 
 const DAY_S = 86_400;
@@ -107,6 +117,9 @@ function courierOf(hubs, from, to, units) {
   const road = roadPixels(a, b);
   return { courier: courierFee(units, road), seconds: courierSeconds(road), road };
 }
+/** AUDIT 30 S3: whether the ledger already holds this account's line `rid` + `suffix` - a request id spent, though the
+ *  row that would answer its repeat was pruned. */
+const spent = async (db, me, rid, suffix) => !!(await db.prepare('SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?2').bind(me, `${rid}${suffix}`).first());
 /** The witness statements an act writes for the regions it names (SEAT0 3.2), each where its decision stands. */
 function witnessStatements(db, player, nowS, regions, own, guardSql, guardBinds) {
   if (!witnessOf(player, nowS)) return [];
@@ -150,13 +163,18 @@ const orderView = (o, me) => ({
 async function settle(ctx, player) {
   const { db, nowS, rand } = ctx;
   const me = player.id;
+  /** AUDIT 30 U1: the Stores this settle moved, `char_id|material`, so a read can answer them */
+  const touched = new Set();
   await db.batch([
     db.prepare(`UPDATE market_listings SET state = 'expired', closed_at = ?2 WHERE seller = ?1 AND state = 'open' AND expires_at <= ?2`).bind(me, nowS),
     db.prepare(`UPDATE market_orders SET state = 'expired', closed_at = ?2 WHERE poster = ?1 AND state = 'open' AND expires_at <= ?2`).bind(me, nowS),
   ]);
   // the listings' goods back
+  // AUDIT 30 S7: only what can settle now - a return a full Stores cannot take waits without holding back the rest
   const { results: back = [] } = await db.prepare(`SELECT * FROM market_listings WHERE seller = ?1 AND state IN ('expired', 'removed') AND returned = 0
-    ORDER BY closed_at LIMIT ${SETTLE_MAX}`).bind(me).all();
+      AND (kind = 'piece' OR COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = market_listings.seller AND char_id = market_listings.char_id
+        AND material = market_listings.material), 0) + own + bought <= ?2)
+    ORDER BY closed_at LIMIT ${SETTLE_MAX}`).bind(me, STORES_MAX).all();
   for (const l of back) {
     const nonce = mintId(rand);
     if (l.kind === 'piece') {
@@ -174,14 +192,17 @@ async function settle(ctx, player) {
           + own + bought <= ?3`).bind(l.id, nonce, STORES_MAX),
       ...backToStores(db, l.id, nonce),
     ]);
+    touched.add(`${l.char_id}|${l.material}`);
   }
   // the orders' escrow back
   const { results: shutOrders = [] } = await db.prepare(`SELECT id FROM market_orders WHERE poster = ?1 AND state != 'open' AND returned = 0
-    ORDER BY closed_at LIMIT ${SETTLE_MAX}`).bind(me).all();
+      AND (escrow = 0 OR COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + escrow <= ?2)
+    ORDER BY closed_at LIMIT ${SETTLE_MAX}`).bind(me, MARKS_MAX).all();
   for (const o of shutOrders) await db.batch(orderReturn(db, o.id, nowS));
   // the couriers' loads that have arrived
-  const { results: loads = [] } = await db.prepare(`SELECT rid FROM market_sales WHERE buyer = ?1 AND kind = 'material' AND delivered = 0 AND arrives_at <= ?2
-    ORDER BY arrives_at LIMIT ${SETTLE_MAX}`).bind(me, nowS).all();
+  const { results: loads = [] } = await db.prepare(`SELECT rid, char_id, material FROM market_sales WHERE buyer = ?1 AND kind = 'material' AND delivered = 0 AND arrives_at <= ?2
+      AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = market_sales.char_id AND material = market_sales.material), 0) + units <= ?3
+    ORDER BY arrives_at LIMIT ${SETTLE_MAX}`).bind(me, nowS, STORES_MAX).all();
   for (const s of loads) {
     const nonce = mintId(rand);
     await db.batch([
@@ -192,7 +213,9 @@ async function settle(ctx, player) {
         SELECT buyer, char_id, material, 'bought', units FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND dn = ?3
         ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(me, s.rid, nonce),
     ]);
+    touched.add(`${s.char_id}|${s.material}`);
   }
+  return touched;
 }
 /** A closed listing's units back into its character's Stores, each with its origin - where its return carries `nonce`. */
 function backToStores(db, id, nonce) {
@@ -204,7 +227,7 @@ function backToStores(db, id, nonce) {
  *  cap (else it waits) - then the order marked returned. */
 function orderReturn(db, id, nowS) {
   return [
-    db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'escrow', id, 'account', poster, 'order-return', escrow, ?2, ?3, poster, material, 'order-close:' || id FROM market_orders
       WHERE id = ?1 AND state != 'open' AND returned = 0 AND escrow > 0
         AND COALESCE((SELECT balance FROM marks WHERE account = market_orders.poster), 0) + escrow <= ?4`).bind(id, utcDay(nowS), nowS, MARKS_MAX),
@@ -247,7 +270,7 @@ async function mediansOf(db, keys, today) {
  * views (marketLaw MARKET_VIEWS), after the account's own market is settled. Every answer carries what is on its way
  * to the account, its balance and its live counts.
  */
-export async function marketRead(ctx, player, env, { character, region, view, family = null, tier = null, material: key = null, hubs } = {}) {
+export async function marketRead(ctx, player, env, { character, region, view, family = null, tier = null, material: key = null, materials = null, hubs } = {}) {
   const { db, nowS } = ctx;
   const refused = asks(player, { character, needRid: false });
   if (refused) return refused;
@@ -255,18 +278,24 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   if (closed) return closed;
   if (!regionOk(region)) return { error: 'bad-region' };
   if (!MARKET_VIEWS.some(([v]) => v === view)) return { error: 'bad-act' };
-  await settle(ctx, player);
+  const touched = await settle(ctx, player);
   const me = player.id;
   const today = utcDay(nowS);
   const own = hubsOf(hubs);
   const moderator = canModerate(player, env);
+  // AUDIT 30 U1: this character's Stores the settle moved, answered so the pages read them
+  const stores = [];
+  for (const t of touched) {
+    const [c, m] = t.split('|');
+    if (c === character) stores.push(await storeOf(db, me, c, m));
+  }
   const base = async () => {
     const counts = await db.prepare(`SELECT
         (SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND state = 'open') AS listings,
         (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND state = 'open') AS orders`).bind(me).first();
     return {
       ok: true, view, region, road: await roadOf(db, me, nowS), balance: await balanceOf(db, me),
-      counts: { listings: Number(counts?.listings ?? 0), orders: Number(counts?.orders ?? 0) },
+      counts: { listings: Number(counts?.listings ?? 0), orders: Number(counts?.orders ?? 0) }, stores,
     };
   };
   const reportsOf = async (ids) => {
@@ -281,14 +310,17 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   };
 
   if (view === 'materials') {
-    const sql = key
-      ? `SELECT * FROM market_listings WHERE state = 'open' AND kind = 'material' AND expires_at > ?1 AND material = ?2 ORDER BY price, at LIMIT 500`
-      : `SELECT * FROM market_listings WHERE state = 'open' AND kind = 'material' AND expires_at > ?1 ORDER BY price, at LIMIT 500`;
-    const { results = [] } = await (key ? db.prepare(sql).bind(nowS, key) : db.prepare(sql).bind(nowS)).all();
-    const rows = results.filter((l) => {
-      const m = material(l.material);
-      return m && (!family || m.family === family) && (!tier || m.tier === tier);
-    }).slice(0, MARKET_SHOWN);
+    // AUDIT 30 U2: the materials asked for chosen in the query itself - one, a search's matches, or a family's and a
+    // tier's - so a rare material is never lost behind the five hundred cheapest of everything else
+    const keys = key ? [key]
+      : Array.isArray(materials) ? materials.filter((k) => typeof k === 'string' && material(k)).slice(0, 120)
+        : (family || tier) ? marketCatalogue().filter((c) => (!family || c.family === family) && (!tier || c.tier === tier)).map((c) => c.key)
+          : null;
+    if (keys && !keys.length) return { ...(await base()), rows: [], medians: {} };
+    const { results = [] } = await db.prepare(`SELECT * FROM market_listings WHERE state = 'open' AND kind = 'material' AND expires_at > ?1
+      ${keys ? `AND material IN (${keys.map((_, i) => `?${i + 2}`).join(', ')})` : ''} ORDER BY price, at LIMIT ${MARKET_SHOWN}`)
+      .bind(nowS, ...(keys ?? [])).all();
+    const rows = results.filter((l) => material(l.material));
     const quotes = await quote(rows, (l) => Number(l.own) + Number(l.bought));
     const medians = await mediansOf(db, [...new Set(rows.map((l) => l.material))], today);
     const reports = await reportsOf(rows.map((l) => l.id));
@@ -347,9 +379,11 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   const { results: top = [] } = await db.prepare(`SELECT material, SUM(units) AS units FROM market_prices WHERE day > ?1 GROUP BY material
     ORDER BY units DESC, material LIMIT ${MARKET_HISTORY_SHOWN}`).bind(today - MARKET_MEDIAN_DAYS).all();
   const medians = await mediansOf(db, top.map((t) => t.material), today);
-  const { results: sales = [] } = await db.prepare(`SELECT 'bought' AS side, kind, material, provenance, units, price, total, at FROM market_sales WHERE buyer = ?1 AND at > ?2
-    UNION ALL SELECT 'sold', kind, material, provenance, units, price, total, at FROM market_sales WHERE seller = ?1 AND at > ?2
-    UNION ALL SELECT 'filled', 'material', material, NULL, units, price, units * price, at FROM market_fills WHERE filler = ?1 AND at > ?2
+  // AUDIT 30 U15: the Marks each side moved - a buyer the price and the courier, a seller the price less the tax and the
+  // Tithe, a filler the pay, an orderer the price
+  const { results: sales = [] } = await db.prepare(`SELECT 'bought' AS side, kind, material, provenance, units, price, total + courier AS total, at FROM market_sales WHERE buyer = ?1 AND at > ?2
+    UNION ALL SELECT 'sold', kind, material, provenance, units, price, total - tax - tithe, at FROM market_sales WHERE seller = ?1 AND at > ?2
+    UNION ALL SELECT 'filled', 'material', material, NULL, units, price, pay, at FROM market_fills WHERE filler = ?1 AND at > ?2
     UNION ALL SELECT 'ordered', 'material', material, NULL, units, price, units * price, at FROM market_fills WHERE poster = ?1 AND at > ?2
     ORDER BY at DESC LIMIT ${MARKET_TRADES_SHOWN}`).bind(me, nowS - MARKET_KEEP_DAYS * DAY_S).all();
   return {
@@ -385,11 +419,18 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
   if (kind === 'material') {
     if (!material(key)) return { error: 'bad-material' };
     if (!unitsOk(units)) return { error: 'bad-units' };
+    provenance = null; wear = null;   // AUDIT 30 S9: a kind's own fields alone - another's would break the row's CHECK
   } else if (kind === 'piece') {
     if (!provenanceOk(provenance)) return { error: 'bad-provenance' };
     if (!wearOk(wear)) return { error: 'bad-wear' };
     units = 1;
+    key = null;
+    // AUDIT 30 L2/S8: a piece of a family the market lists - never arrows (the crafter's quiver stays whole) nor a siege
+    // work; the recipe is the product row's, fixed at the craft
+    const made = await db.prepare('SELECT recipe FROM products WHERE provenance = ?1').bind(provenance).first();
+    if (made && !pieceListable(made.recipe)) return { error: 'market-not-listable' };
   } else return { error: 'bad-act' };
+  if (units * price > MARKET_WORTH_MAX) return { error: 'bad-price' };   // AUDIT 30 L8: no balance could pay its fee or buy it
   if (await overRate(ctx, `market-post:${me}`, MARKET_POSTS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
   await settle(ctx, player);
   const fee = listingFee(units * price);
@@ -410,7 +451,12 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
         AND (SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND state = 'open') < ?16
         AND ((?5 = 'material' AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?6), 0) >= ?8)
           OR (?5 = 'piece' AND EXISTS (SELECT 1 FROM products WHERE provenance = ?7 AND owner = ?1 AND listed = 0)
-            AND NOT EXISTS (SELECT 1 FROM market_listings WHERE provenance = ?7 AND state = 'open')))`)
+            AND NOT EXISTS (SELECT 1 FROM market_listings WHERE provenance = ?7 AND state = 'open')
+            -- AUDIT 30 S5: not while a delivery of it waits to be collected (the pack does not hold it yet)
+            AND NOT EXISTS (SELECT 1 FROM market_deliveries WHERE provenance = ?7 AND collected = 0)
+            -- AUDIT 30 S6: not while it stands in a home
+            AND NOT EXISTS (SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?7)))
+        AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?14 || ':fee')`)
       .bind(me, character, id, region, kind, key, provenance, units, price, wear, fee, nowS, nowS + MARKET_LISTING_S, rid, nonce, MARKET_LISTINGS_MAX),
     // a material's units out of the Stores, bought first
     ...(kind === 'material' ? spendStatements(db, { player: me, character, materialSql: '?3', qtySql: '?4', guard: mine, binds: [key, units, rid, nonce] }) : []),
@@ -418,7 +464,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
     db.prepare(`UPDATE products SET listed = 1 WHERE provenance = ?2 AND EXISTS (SELECT 1 FROM market_listings WHERE seller = ?1 AND rid = ?3 AND n = ?4)`)
       .bind(me, provenance, rid, nonce),
     // the fee burnt
-    db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'account', ?1, 'burn', NULL, 'market-fee', fee, ?2, at, ?1, id, rid || ':fee' FROM market_listings WHERE seller = ?1 AND rid = ?3 AND n = ?4`)
       .bind(me, utcDay(nowS), rid, nonce),
     ...witnessStatements(db, player, nowS, [region], own, 'EXISTS (SELECT 1 FROM market_listings WHERE seller = ?6 AND rid = ?7 AND n = ?8)', [me, rid, nonce]),
@@ -426,12 +472,16 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
   const made = await db.prepare('SELECT * FROM market_listings WHERE seller = ?1 AND rid = ?2').bind(me, rid).first();
   if (made?.n === nonce) return answer(made);
   if (made) return answer(made, { repeat: true });
+  if (await spent(db, me, rid, ':fee')) return { error: 'prof-rid' };
   if ((await balanceOf(db, me)) < fee) return { error: 'marks-short' };
   const open = await db.prepare(`SELECT COUNT(*) AS n FROM market_listings WHERE seller = ?1 AND state = 'open'`).bind(me).first();
   if (Number(open?.n ?? 0) >= MARKET_LISTINGS_MAX) return { error: 'market-listings-max' };
   if (kind === 'material') return { error: 'stores-short' };
   const p = await db.prepare('SELECT owner, listed FROM products WHERE provenance = ?1').bind(provenance).first();
-  return { error: !p || p.owner !== me ? 'market-not-yours' : 'market-listed' };
+  if (!p || p.owner !== me) return { error: 'market-not-yours' };
+  if (await db.prepare('SELECT 1 FROM market_deliveries WHERE provenance = ?1 AND collected = 0').bind(provenance).first()) return { error: 'market-uncollected' };
+  if (await db.prepare("SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?1").bind(provenance).first()) return { error: 'market-standing' };
+  return { error: 'market-listed' };
 }
 
 // ─── BUYING (10.4) ───────────────────────────────────────────────────
@@ -488,7 +538,9 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
   const road = courierOf(await hubsAt(db, [from, region], own), from, region, units);
   if (!road) return { error: 'market-no-road' };
   const total = units * Number(l.price);
-  const tax = saleTax(total), tithe = saleTithe(total);
+  // AUDIT 30 L6: the tax of the listing's running total - what it has sold before this, units x its price
+  const left = Number(l.own) + Number(l.bought);
+  const tax = saleTaxOn((Number(l.units) - left) * Number(l.price), total), tithe = saleTithe(total);
   const gets = total - tax - tithe;
   if (total + road.courier > max) return { error: 'market-price-moved' };
   const here = from === region;
@@ -504,24 +556,26 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
       SELECT ?1, ?2, ?3, l.id, l.seller, l.kind, l.material, l.provenance, ?4, l.price, ?5, ?6, ?7, ?8, ?9, l.region, ?10, ?11, ?12, ?13, ?14, ?15
       FROM market_listings l WHERE l.id = ?16 AND l.state = 'open' AND l.expires_at > ?13 AND l.seller != ?1 AND l.own + l.bought >= ?4
         AND l.price * ?4 = ?5
+        AND l.own + l.bought = ?20   -- the running total the tax was taken on (AUDIT 30 L6)
+        AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?2 || ':sale')   -- AUDIT 30 S3
         AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?5 + ?8
         AND COALESCE((SELECT balance FROM marks WHERE account = l.seller), 0) + ?17 <= ?18
         AND (?12 = 0 OR l.kind = 'piece'
           OR COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?3 AND material = l.material), 0) + ?4 <= ?19)`)
       .bind(me, rid, character, units, total, tax, tithe, road.courier, road.road, region, nowS + road.seconds, delivered, nowS, day, nonce,
-        id, gets, MARKS_MAX, STORES_MAX),
+        id, gets, MARKS_MAX, STORES_MAX, left),
     // the units out of the listing, bought first (the seller keeps its own for a cancel), and a listing sold out closed
     db.prepare(`UPDATE market_listings SET own = own - MAX(0, ?4 - bought), bought = MAX(0, bought - ?4),
         state = CASE WHEN own + bought = ?4 THEN 'sold' ELSE state END, closed_at = CASE WHEN own + bought = ?4 THEN ?5 ELSE closed_at END
       WHERE id = ?6 AND ${sold}`).bind(me, rid, nonce, units, nowS, id),
     // the Marks: the proceeds to the seller, the tax and the courier burnt
-    db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'account', buyer, 'account', seller, 'market-sale', total - tax - tithe, day, at, buyer, listing, rid || ':sale'
       FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3`).bind(me, rid, nonce),
-    db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'account', buyer, 'burn', NULL, 'market-tax', tax, day, at, buyer, listing, rid || ':tax'
       FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND tax > 0`).bind(me, rid, nonce),
-    db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'account', buyer, 'burn', NULL, 'courier', courier, day, at, buyer, listing, rid || ':courier'
       FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier > 0`).bind(me, rid, nonce),
     // a material here, into the Stores as bought
@@ -544,9 +598,11 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
   const made = await db.prepare('SELECT * FROM market_sales WHERE buyer = ?1 AND rid = ?2').bind(me, rid).first();
   if (made?.n === nonce) return answer(made);
   if (made) return answer(made, { repeat: true });
+  if (await spent(db, me, rid, ':sale')) return { error: 'prof-rid' };
   const now = await db.prepare('SELECT * FROM market_listings WHERE id = ?1').bind(id).first();
   if (!now || now.state !== 'open') return { error: 'market-gone' };
   if (Number(now.own) + Number(now.bought) < units) return { error: 'market-short' };
+  if (Number(now.own) + Number(now.bought) !== left) return { error: 'market-price-moved' };   // another sold between: its tax moved
   if ((await balanceOf(db, me)) < total + road.courier) return { error: 'marks-short' };
   if ((await balanceOf(db, l.seller)) + gets > MARKS_MAX) return { error: 'market-seller-full' };
   return { error: 'stores-full' };
@@ -607,8 +663,9 @@ export async function marketOrder(ctx, player, env, { character, region, materia
   if (closed) return closed;
   if (!regionOk(region)) return { error: 'bad-region' };
   if (!material(key)) return { error: 'bad-material' };
+  if (UNYIELDED.includes(key)) return { error: 'market-unyielded' };   // AUDIT 30 L7: nobody could fill it
   if (!unitsOk(units)) return { error: 'bad-units' };
-  if (!priceOk(price) || units * price > MARKS_MAX) return { error: 'bad-price' };
+  if (!priceOk(price) || units * price > MARKET_WORTH_MAX) return { error: 'bad-price' };
   if (await overRate(ctx, `market-post:${me}`, MARKET_POSTS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
   await settle(ctx, player);
   const cost = units * price;
@@ -619,9 +676,10 @@ export async function marketOrder(ctx, player, env, { character, region, materia
     db.prepare(`INSERT OR IGNORE INTO market_orders (id, poster, char_id, region, material, units, left_units, price, escrow, at, expires_at, rid, n)
       SELECT ?3, ?1, ?2, ?4, ?5, ?6, ?6, ?7, ?8, ?9, ?10, ?11, ?12
       WHERE COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) >= ?8
-        AND (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND state = 'open') < ?13`)
+        AND (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND state = 'open') < ?13
+        AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?11 || ':escrow')`)
       .bind(me, character, id, region, key, units, price, cost, nowS, nowS + MARKET_ORDER_S, rid, nonce, MARKET_ORDERS_MAX),
-    db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'account', poster, 'escrow', id, 'order-escrow', escrow, ?4, at, poster, material, rid || ':escrow'
       FROM market_orders WHERE poster = ?1 AND rid = ?2 AND n = ?3`).bind(me, rid, nonce, utcDay(nowS)),
     ...witnessStatements(db, player, nowS, [region], own, 'EXISTS (SELECT 1 FROM market_orders WHERE poster = ?6 AND rid = ?7 AND n = ?8)', [me, rid, nonce]),
@@ -629,6 +687,7 @@ export async function marketOrder(ctx, player, env, { character, region, materia
   const made = await db.prepare('SELECT * FROM market_orders WHERE poster = ?1 AND rid = ?2').bind(me, rid).first();
   if (made?.n === nonce) return answer(made);
   if (made) return answer(made, { repeat: true });
+  if (await spent(db, me, rid, ':escrow')) return { error: 'prof-rid' };
   return { error: (await balanceOf(db, me)) < cost ? 'marks-short' : 'market-orders-max' };
 }
 
@@ -660,7 +719,8 @@ export async function marketFill(ctx, player, env, { character, region, order: i
   if (Number(o.region) !== region) return { error: 'market-elsewhere' };
   if (units > Number(o.left_units)) return { error: 'market-short' };
   const total = units * Number(o.price);
-  const tax = saleTax(total);
+  // AUDIT 30 L6: the tax of the order's running total - what it has bought before this fill
+  const tax = saleTaxOn((Number(o.units) - Number(o.left_units)) * Number(o.price), total);
   const pay = total - tax;
   const nonce = mintId(rand);
   const day = utcDay(nowS);
@@ -673,10 +733,12 @@ export async function marketFill(ctx, player, env, { character, region, order: i
       SELECT ?1, ?2, ?3, o.id, o.poster, o.material, ?4, o.price, ?5, ?6, ?7, ?8, ?9 FROM market_orders o
       WHERE o.id = ?10 AND o.state = 'open' AND o.expires_at > ?7 AND o.poster != ?1 AND o.region = ?11 AND o.left_units >= ?4
         AND o.escrow >= o.price * ?4 AND o.price * ?4 = ?5 + ?6
+        AND o.left_units = ?14   -- the running total the tax was taken on (AUDIT 30 L6)
+        AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?2 || ':fill')   -- AUDIT 30 S3
         AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?3 AND material = o.material), 0) >= ?4
         AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = o.poster AND char_id = o.char_id AND material = o.material), 0) + ?4 <= ?12
         AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + ?5 <= ?13`)
-      .bind(me, rid, character, units, pay, tax, nowS, day, nonce, id, region, STORES_MAX, MARKS_MAX),
+      .bind(me, rid, character, units, pay, tax, nowS, day, nonce, id, region, STORES_MAX, MARKS_MAX, Number(o.left_units)),
     // the order drawn down, a filled one closed
     db.prepare(`UPDATE market_orders SET left_units = left_units - ?3, escrow = escrow - price * ?3,
         state = CASE WHEN left_units = ?3 THEN 'filled' ELSE state END, closed_at = CASE WHEN left_units = ?3 THEN ?4 ELSE closed_at END
@@ -687,11 +749,11 @@ export async function marketFill(ctx, player, env, { character, region, order: i
       SELECT poster, ?4, material, 'bought', units FROM market_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3
       ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(me, rid, nonce, o.char_id),
     // the Marks: the pay out of the escrow, the tax burnt from it
-    db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'escrow', order_id, 'account', filler, 'order-fill', pay, day, at, filler, material, rid || ':fill'
       FROM market_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3`).bind(me, rid, nonce),
-    db.prepare(`INSERT OR IGNORE INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-      SELECT 'escrow', order_id, 'burn', NULL, 'market-tax', tax, day, at, filler, material, rid || ':tax'
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      SELECT 'escrow', order_id, 'burn', NULL, 'market-tax', tax, day, at, filler, material, rid || ':filltax'
       FROM market_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3 AND tax > 0`).bind(me, rid, nonce),
     db.prepare(`INSERT INTO market_prices (day, material, price, units)
       SELECT day, material, price, units FROM market_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3
@@ -701,9 +763,11 @@ export async function marketFill(ctx, player, env, { character, region, order: i
   const made = await db.prepare('SELECT * FROM market_fills WHERE filler = ?1 AND rid = ?2').bind(me, rid).first();
   if (made?.n === nonce) return answer(made);
   if (made) return answer(made, { repeat: true });
+  if (await spent(db, me, rid, ':fill')) return { error: 'prof-rid' };
   const now = await db.prepare('SELECT * FROM market_orders WHERE id = ?1').bind(id).first();
   if (!now || now.state !== 'open') return { error: 'market-gone' };
   if (Number(now.left_units) < units) return { error: 'market-short' };
+  if (Number(now.left_units) !== Number(o.left_units)) return { error: 'market-price-moved' };   // another filled between
   const held = await storeOf(db, me, character, o.material);
   if (held.own + held.bought < units) return { error: 'stores-short' };
   if ((await balanceOf(db, me)) + pay > MARKS_MAX) return { error: 'marks-full' };
@@ -757,7 +821,9 @@ export async function marketCollect(ctx, player, env, { character, delivery: id,
   if (!d || Number(d.collected) === 1) return { error: 'market-gone' };
   if (d.char_id !== character) return { error: 'market-other-character' };
   if (Number(d.arrives_at) > nowS) return { error: 'market-on-road' };
-  await db.prepare(`UPDATE market_deliveries SET collected = 1, rid = ?3 WHERE id = ?1 AND player = ?2 AND char_id = ?4 AND collected = 0 AND arrives_at <= ?5`)
+  // AUDIT 30 S5: only a piece still this account's - never one id handed out twice
+  await db.prepare(`UPDATE market_deliveries SET collected = 1, rid = ?3 WHERE id = ?1 AND player = ?2 AND char_id = ?4 AND collected = 0 AND arrives_at <= ?5
+      AND EXISTS (SELECT 1 FROM products WHERE provenance = market_deliveries.provenance AND owner = ?2)`)
     .bind(id, me, rid, character, nowS).run();
   const made = await db.prepare('SELECT * FROM market_deliveries WHERE player = ?1 AND rid = ?2').bind(me, rid).first();
   return made ? answer(made) : { error: 'market-gone' };

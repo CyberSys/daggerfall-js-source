@@ -437,7 +437,7 @@ export const MINED_KEYS = Object.freeze([...MINED.keys()]);
  */
 export function materialOf(key, herbTier) {
   if (typeof key !== 'string') return null;
-  const m = /^(p1|p2):(\d{1,3})$/.exec(key);
+  const m = /^(p1|p2):(0|[1-9]\d{0,2})$/.exec(key);   // AUDIT 30 L1: one spelling - `p1:08` is no key (AUDIT 29 A1's law)
   if (m) {
     const templateIndex = Number(m[2]);
     if (!PLANT_GROUP_TEMPLATES[m[1]].includes(templateIndex)) return null;

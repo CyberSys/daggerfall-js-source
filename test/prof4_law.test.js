@@ -142,7 +142,7 @@ test('PROF4 law: what a craft spends - a Joiner\'s furniture at half the planks 
 });
 
 test('PROF4 law: the plane (9.4) - a board\'s grain a wave its own each act, pressed at its head and drawn to its foot; the tolerance 18% of the half-height, x Carpentry\'s band ((AGI + WIL) / 2), wider by half at Master; 1.2 to 4 seconds a pass', () => {
-  assert.deepEqual({ ...PLANE_ACT }, { tol: 0.18, masterWiden: 0.5, minS: 1.2, maxS: 4, headX: 0.08, footX: 0.98, waveA: 0.35, waves: 1.5 });
+  assert.deepEqual({ ...PLANE_ACT }, { tol: 0.18, masterWiden: 0.5, minS: 1.2, maxS: 4, headX: 0.08, footX: 0.98, waveA: 0.35, waves: 1.5, step: 0.025 });   // AUDIT 30 A1: `step`
   assert.deepEqual([planeTolerance(0), planeTolerance(100), planeTolerance(100, 1.3)].map((x) => Math.round(x * 1000) / 1000), [0.18, 0.27, 0.351]);
   assert.equal(planeBand({ agility: 80, willpower: 80 }), 1.3);
   assert.equal(planeBand({ agility: 80, willpower: 20 }), 1, '(80 + 20) / 2 = 50');

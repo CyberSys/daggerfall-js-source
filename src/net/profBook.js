@@ -222,6 +222,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
     /** One material's count in the Stores, own and bought. */
     store(material) { return state.stores.get(material) ?? { material, own: 0, bought: 0 }; },
     held(material) { const s = this.store(material); return s.own + s.bought; },
+    /** AUDIT 30 U1: a material's count as another book heard it from the service (the market's answers - a listing's
+     *  units out, a purchase or a cancel in, a fill, a delivery landed) - one count, whoever asked. */
+    applyStore(s) { if (state.open === true && state.character === character()) applyStore(s); },
 
     // ─── THE PIXELS ─────────────────────────────────────────────────
     /** A streamed pixel's witnessed state today, or null not yet asked. */
@@ -364,16 +367,18 @@ export function createProfBook({ door, storage = null, character = () => null, n
      * A recipe made at the anvil (net/recipeLaw.js): `clean` the heat's report (the service lays one step on it at most),
      * `name` the maker's mark. The craft is KEPT before it is asked - its pieces are the save's once the service answers,
      * so a lost answer is asked again (the same id, the same pieces) and `mint` makes them on the answer, once: the tab
-     * that lets the craft go mints it (AUDIT 29 C5's law). One at a time.
+     * that lets the craft go mints it (AUDIT 29 C5's law). One at a time. AUDIT 30 C4: `fee` the station's gold, kept with
+     * the craft and handed to `mint` with it - the tab that mints the pieces pays it, whenever the answer comes.
      * @returns {Promise<{ ok: boolean, data?: any, error?: string, kept?: boolean, elsewhere?: boolean }>}
      */
-    async craft(recipe, { clean = false, name = null, heartwood = false } = {}, mint) {
+    async craft(recipe, { clean = false, name = null, heartwood = false, fee = 0 } = {}, mint) {
       if (_craftBusy) return { ok: false, error: 'prof-busy' };
       const key = slot();
       const c = character();
       if (!c || !account()) return { ok: false, error: 'no-session' };
       _craftBusy = (async () => {
-        const w = { rid: rid(), recipe, clean: clean === true, name: typeof name === 'string' ? name : null, character: c, heartwood: heartwood === true };   // PROF4: a Heartwood for a plank
+        const w = { rid: rid(), recipe, clean: clean === true, name: typeof name === 'string' ? name : null, character: c, heartwood: heartwood === true,   // PROF4: a Heartwood for a plank
+          fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0 };
         const kept = keptOf(key);
         kept.crafts.push(w);
         writeKept(kept, key);
@@ -532,7 +537,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
       for (const st of r.data?.stores ?? []) applyStore(st);
       applyTrack(r.data?.track);
       if (!had) return { ok: true, data: r.data, elsewhere: true };
-      try { mint(r.data); } catch (e) { console.warn('[prof] a craft would not mint', e); }
+      try { mint(r.data, w); } catch (e) { console.warn('[prof] a craft would not mint', e); }   // AUDIT 30 C4: the kept craft its fee
       return { ok: true, data: r.data };
     }
     if (keptAnswer(r)) return { ok: false, error: r?.error ?? 'offline', kept: true };

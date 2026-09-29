@@ -7,6 +7,8 @@
 //         h the character   r the recipe (net/recipeLaw.js)   q the quality (0 Crude .. 4 Masterwork; a kit's, arrows' -1)
 //         m the maker's name (null for none)   c a seed (32 bits) - the piece's Loot Rarity rolls come off it
 //         i issued, epoch seconds - a record is history, and carries no expiry
+//         a AUDIT 30 L4: 1 where the piece bears its maker's mark (a Masterwork, or a Master Joiner's furniture - the
+//           service's `products.marked`), absent otherwise - so the name is the service's word too
 //
 // ONE KEY, SEVERAL THINGS, NEVER CONFUSED: the identity key signs tokens (`v1`) and orders; this is `p1`, the version
 // inside the signed bytes and read before a byte of the body is, and the claim shapes are disjoint besides - a record
@@ -43,23 +45,27 @@ export function productRecordValid(c) {
   if (c.m !== null && (typeof c.m !== 'string' || !c.m.length || c.m.length > MAKER_MAX)) return false;
   if (!Number.isSafeInteger(c.c) || c.c < 0 || c.c > 0xffffffff) return false;
   if (!Number.isSafeInteger(c.i) || c.i < 0) return false;
+  if (c.a !== undefined && (c.a !== 1 || c.m === null || !(c.q === MASTERWORK || r.family === 'furniture'))) return false;
   return true;
 }
 
 /**
  * MINT - the account service's half. With no key the record goes out unsigned (`p1.<body>.`).
- * @param {{p: string, s: string, h: string, r: string, q: number, m: string|null, c: number}} what
+ * @param {{p: string, s: string, h: string, r: string, q: number, m: string|null, c: number, a?: boolean}} what
  * @param {CryptoKey|null} privateKey the service's Ed25519 identity key (server-account/src/signing.js), or null
  * @param {{subtle: SubtleCrypto, nowS: number}} env
  * @returns {Promise<string>}
  */
-export async function mintProductRecord({ p, s, h, r, q, m, c }, privateKey, { subtle, nowS }) {
-  const claims = { p, s, h, r, q, m, c, i: nowS };
+export async function mintProductRecord({ p, s, h, r, q, m, c, a = false }, privateKey, { subtle, nowS }) {
+  const claims = { p, s, h, r, q, m, c, i: nowS, ...(a ? { a: 1 } : {}) };
   if (!productRecordValid(claims)) throw new TypeError('mintProductRecord refused a claim set it could not verify');
   const body = _b64url.encode(enc.encode(JSON.stringify(claims)));
   if (!privateKey) return `${PRODUCT_RECORD_V}.${body}.`;
   const sig = new Uint8Array(await subtle.sign({ name: 'Ed25519' }, privateKey, enc.encode(`${PRODUCT_RECORD_V}.${body}`)));
-  return `${PRODUCT_RECORD_V}.${body}.${_b64url.encode(sig)}`;
+  const rec = `${PRODUCT_RECORD_V}.${body}.${_b64url.encode(sig)}`;
+  // AUDIT 30 L3: never sign a record the law's own reader would refuse
+  if (rec.length > PRODUCT_RECORD_MAX) throw new RangeError('mintProductRecord made a record past its own bound');
+  return rec;
 }
 
 /** READ - the claims of a record, signed or not, never a verdict on it; null for anything else. @param {unknown} rec */

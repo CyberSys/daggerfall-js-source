@@ -138,14 +138,16 @@ export function mountNoticeBoard(host, deps) {
   // PROF5: the Market tab - its own state and views, the window's one-at-a-time door and its status line
   const marketHost = deps.market ?? null;
   const marketShown = () => !!marketHost && marketHost.book?.state?.open !== false;
+  // AUDIT 30 U12: the market's door is its own - a board read under way never greys Buy, and a market act never the board
+  let marketBusy = false;
   const market = marketHost ? createMarketTab(marketHost, {
-    busy: () => busy,
+    busy: () => marketBusy || !!marketHost.book?.busy,
     run: async (start) => {
-      if (busy) return;
-      busy = true; render();
-      const r = await start();
+      if (marketBusy) return;
+      marketBusy = true; render();
+      let r = null;
+      try { r = await start(); } finally { marketBusy = false; }
       if (!alive) return;
-      busy = false;
       word = { ok: !!r?.ok, text: r?.text ?? '' };
       render();
     },

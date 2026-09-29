@@ -108,13 +108,17 @@ export async function hideDecorBase(ctx, player, { mapId, buildingKey, character
  * written from that row alone (where its name carries one - a Masterwork, a Master Joiner's furniture), never from what
  * the client sent. A piece whose id the row does not bear out stands as the plain piece it is.
  */
-async function provenOf(db, player, p) {
+async function provenOf(db, player, p, mapId, buildingKey) {
   const pv = p.item.pv;
   const plain = { ...p.item };
   delete plain.pv;
   delete plain.mk;   // never the client's word
-  const row = await db.prepare('SELECT owner, template, maker, marked FROM products WHERE provenance = ?').bind(pv).first();
-  const ours = row && row.owner === player.id && Number(row.template) === p.item.t;
+  const row = await db.prepare('SELECT owner, template, maker, marked, listed FROM products WHERE provenance = ?').bind(pv).first();
+  // AUDIT 30 S6: one piece stands in one place - not while it is listed, and not where another placement already bears
+  // it (a placement asked again is the same piece, the same id)
+  const elsewhere = row ? await db.prepare(`SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?1
+    AND NOT (map_id = ?2 AND building_key = ?3 AND id = ?4)`).bind(pv, mapId, buildingKey, p.id).first() : null;
+  const ours = row && row.owner === player.id && Number(row.template) === p.item.t && Number(row.listed) === 0 && !elsewhere;
   return decorPieceOf({ ...p, item: ours ? { ...plain, pv, ...(Number(row.marked) === 1 && row.maker ? { mk: row.maker } : {}) } : plain });
 }
 
@@ -129,7 +133,7 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
   const sent = decorPieceOf(piece);
   if (!sent) return { error: 'bad-decor' };
   const { db, nowS } = ctx;
-  const p = sent.item?.pv ? await provenOf(db, player, sent) : sent;
+  const p = sent.item?.pv ? await provenOf(db, player, sent, mapId, buildingKey) : sent;
   if (!p) return { error: 'bad-decor' };
   const r = await db.prepare(`INSERT OR IGNORE INTO home_decor (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at, item)
     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${OWNS} AND (SELECT COUNT(*) FROM home_decor WHERE map_id = ? AND building_key = ?) < ?`)

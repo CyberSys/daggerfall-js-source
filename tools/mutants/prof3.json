@@ -172,8 +172,8 @@
   {
     "name": "PROF3-law-maker-uncut",
     "file": "src/net/recipeLaw.js",
-    "old": ".trim().slice(0, MAKER_MAX).trim();",
-    "new": ".trim();",
+    "old": "  let n = whole.slice(0, MAKER_MAX);",
+    "new": "  let n = whole;",
     "tests": [
       "test/prof3_law.test.js"
     ]
@@ -364,8 +364,8 @@
   {
     "name": "PROF3-book-mint-twice",
     "file": "src/net/profBook.js",
-    "old": "      if (!had) return { ok: true, data: r.data, elsewhere: true };\n      try { mint(r.data); }",
-    "new": "      try { mint(r.data); }",
+    "old": "      if (!had) return { ok: true, data: r.data, elsewhere: true };\n      try { mint(r.data, w); }",
+    "new": "      try { mint(r.data, w); }",
     "tests": [
       "test/prof3_client.test.js"
     ]
@@ -463,7 +463,7 @@
   {
     "name": "PROF3-name-no-mark",
     "file": "src/systems/itemInfo.js",
-    "old": "  if ((item?.quality === 4 || item?.marked === true) && typeof item.maker === 'string' && item.maker && typeof item.provenance === 'string') return",
+    "old": "  if ((item?.quality === 4 || item?.marked === true) && typeof item.maker === 'string' && item.maker && makerName(item.maker) === item.maker\n    && typeof item.provenance === 'string' && PROVENANCE_RE.test(item.provenance)) return",
     "new": "  if (false) return",
     "tests": [
       "test/prof3_client.test.js"
@@ -499,8 +499,8 @@
   {
     "name": "PROF3-page-quick-clean",
     "file": "src/ui/profPages.js",
-    "old": "        _anvil.act = createHeatAct({ band: p.heatBand?.() ?? 1 });\n        rerender();\n      };\n      const quick = el('button', 'act', 'Quick craft');\n      quick.type = 'button';\n      quick.disabled = !ready;\n      quick.onclick = () => { void finish(false); };",
-    "new": "        _anvil.act = createHeatAct({ band: p.heatBand?.() ?? 1 });\n        rerender();\n      };\n      const quick = el('button', 'act', 'Quick craft');\n      quick.type = 'button';\n      quick.disabled = !ready;\n      quick.onclick = () => { void finish(true); };",
+    "old": "        _anvil.act = createHeatAct({ band: p.heatBand?.() ?? 1 });\n        _anvil.actRecipe = r.id; _anvil.actWood = _anvil.heartwood && takesHeartwood(r);\n        rerender();\n      };\n      const quick = el('button', 'act', 'Quick craft');\n      quick.type = 'button';\n      quick.disabled = !ready;\n      quick.onclick = () => { void finish(false); };",
+    "new": "        _anvil.act = createHeatAct({ band: p.heatBand?.() ?? 1 });\n        _anvil.actRecipe = r.id; _anvil.actWood = _anvil.heartwood && takesHeartwood(r);\n        rerender();\n      };\n      const quick = el('button', 'act', 'Quick craft');\n      quick.type = 'button';\n      quick.disabled = !ready;\n      quick.onclick = () => { void finish(true); };",
     "tests": [
       "test/prof3_client.test.js"
     ]

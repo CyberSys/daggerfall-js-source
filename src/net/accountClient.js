@@ -277,7 +277,7 @@ export const REFUSALS = Object.freeze({
   'market-own': 'That is your own. Cancel it from My listings instead.',
   'market-short': 'There are not that many left.',
   'market-no-road': 'The couriers do not know the road there yet.',
-  'market-price-moved': 'The price has changed. Look again before you buy.',
+  'market-price-moved': 'The market has moved since you looked. Look again.',
   'market-seller-full': 'The seller cannot hold any more Marks just now.',
   'market-listings-max': `You have ${MARKET_LISTINGS_MAX} listings up already. Cancel one first.`,
   'market-orders-max': `You have ${MARKET_ORDERS_MAX} buy orders up already. Withdraw one first.`,
@@ -287,6 +287,12 @@ export const REFUSALS = Object.freeze({
   'market-elsewhere': 'That order is filled at the boards of its own region.',
   'market-other-character': 'That is on its way to another of your characters.',
   'market-on-road': 'The courier has not arrived yet.',
+  // AUDIT 30
+  'market-not-listable': 'That is not sold on the market - arrows go in a quiver, not on a board.',
+  'market-uncollected': 'That piece is still on its way to you. Collect it first.',
+  'market-standing': 'That piece stands in a home. Take it up first.',
+  'market-unyielded': 'Nothing yields that yet, so no one could fill an order for it.',
+  'market-busy': 'The counting-house is still settling your last business.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
 });

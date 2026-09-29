@@ -7,7 +7,9 @@
 // THE BOARD'S SHAPE (net/noticeBook.js): a minute's cache of every read -
 // a refusal too - a slow service showing the last good view, marked stale;
 // every act one at a time, given up after the door's fifteen seconds and
-// tried again on the words that mean "not yet" (offline, server).
+// tried again on the words that mean "not yet" (offline, server, the
+// account gate's minute spent), and kept through the ones that mean "not
+// now" (no session yet, a session let go - AUDIT 30 C1).
 //
 // THE PROFESSIONS' SHAPE (net/profBook.js): what moves a piece in or out
 // of the save is KEPT before it is asked (ASYNC NEVER DROPS) - a piece
@@ -26,8 +28,18 @@ export const MARKET_TRIES = 3;
 export const MARKET_RETRY_MS = Object.freeze([400, 1500]);
 /** How long an order's, a fill's or a withdrawal's id is kept for a press asked again (the lost answer's re-ask). */
 export const MARKET_ID_MS = 10 * 60_000;
-const RETRY = Object.freeze(['offline', 'server']);
-const SHUT = Object.freeze(['market-closed', 'prof-need-account', 'no-session', 'auth']);
+/** A shut market is asked again this often (AUDIT 30 U11: a shut read hid the tab for the session's life). */
+export const MARKET_CLOSED_RECHECK_MS = 300_000;
+/** The answers an act is asked again after: the network, the service's own fault, the account gate's minute spent
+ *  (AUDIT 30 C1: its 429 comes before any route, so it says nothing about the act). */
+const RETRY = Object.freeze(['offline', 'server', 'rate']);
+/** AUDIT 30 C1: the answers that say nothing about the act's row - kept, and asked again once there is a session (net/
+ *  profBook.js WAIT). Letting them go put a listed piece back in the pack while it stood listed, and lost a purchase. */
+const WAIT = Object.freeze(['no-session', 'auth']);
+/** The answers that say the market is not this account's now. */
+const SHUT = Object.freeze(['market-closed', 'prof-need-account']);
+/** AUDIT 30 U9: the answers that say the view a press was made from has moved - the minute's cache is let go. */
+const MOVED = Object.freeze(['market-gone', 'market-short', 'market-price-moved']);
 /** What the Market tab says while a kept act waits for its answer. */
 export const MARKET_KEPT_TEXT = 'The counting-house has your order and will settle it when it answers.';
 
@@ -43,12 +55,18 @@ export function mintMarketRid() {
 
 /**
  * @param {{ door: any, storage?: Storage|null, character: () => (string|null), now?: () => number,
- *   marks?: { set?: (n: number) => void } | null, sleep?: (ms: number) => Promise<void> }} o
+ *   marks?: { set?: (n: number) => void } | null, stores?: { apply?: (s: any) => void } | null,
+ *   sleep?: (ms: number) => Promise<void> }} o `stores` - the professions' book (AUDIT 30 U1: what an answer says of the
+ *   Stores is its count too)
  */
-export function createMarketBook({ door, storage = null, character, now = () => Date.now(), marks = null, sleep = wait }) {
+export function createMarketBook({ door, storage = null, character, now = () => Date.now(), marks = null, stores = null, sleep = wait }) {
+  let _shut = /** @type {number|null} */ (null);
   const state = {
-    /** null until the service has answered; false while the market is shut to this account */
-    open: /** @type {boolean|null} */ (null),
+    /** null until the service has answered; false while the market is shut to this account - asked again after
+     *  MARKET_CLOSED_RECHECK_MS (AUDIT 30 U11) */
+    _open: /** @type {boolean|null} */ (null),
+    get open() { return this._open === false && _shut != null && now() - _shut >= MARKET_CLOSED_RECHECK_MS ? null : this._open; },
+    set open(v) { this._open = v; _shut = v === false ? now() : null; },
     balance: /** @type {number|null} */ (null),
     /** what is on its way to this account (the service's `road`) */
     road: /** @type {any[]} */ ([]),
@@ -91,44 +109,63 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     }
     return r;
   }
-  /** What every answer carries: the balance (the Marks book told too - PROF0 26), the road, the counts. */
+  /** What every answer carries: the balance (the Marks book told too - PROF0 26), the road, the counts, and (AUDIT 30
+   *  U1) the Stores counts it moved - one material's `store`, or a read's `stores`, the deliveries it landed. */
   function heard(r) {
     if (SHUT.includes(r?.error)) state.open = false;
+    if (MOVED.includes(r?.error)) forget();
     const d = r?.ok ? r.data : null;
     if (!d) return r;
     state.open = true;
     if (Number.isSafeInteger(d.balance)) { state.balance = d.balance; try { marks?.set?.(d.balance); } catch { /* the Marks book's own */ } }
     if (Array.isArray(d.road)) state.road = d.road;
     if (d.counts) state.counts = { listings: d.counts.listings | 0, orders: d.counts.orders | 0 };
+    for (const st of [d.store, ...(Array.isArray(d.stores) ? d.stores : [])]) {
+      if (st && typeof st.material === 'string') { try { stores?.apply?.(st); } catch { /* the professions' book's own */ } }
+    }
     return r;
   }
-  const kept = (r) => RETRY.includes(r?.error);
+  const kept = (r) => RETRY.includes(r?.error) || WAIT.includes(r?.error);
 
   // ─── THE READS ─────────────────────────────────────────────────────
   const cache = new Map();
-  const keyOf = (view, q) => [view, q.region, q.family ?? '', q.tier ?? '', q.material ?? ''].join('|');
+  const keyOf = (view, q) => [view, q.region, q.family ?? '', q.tier ?? '', q.material ?? '', (q.materials ?? []).join(',')].join('|');
   const pending = new Map();
-  /** A view of the market: the minute's cache unless `force`; a failed read shows the last good one, stale. */
+  /** AUDIT 30 C6: the acts answered so far - a read begun before an act's answer is overtaken by it, and asked again. */
+  let gen = 0;
+  /** A view of the market: the minute's cache unless `force`; a failed read shows the last good one, stale. A read an
+   *  act's answer overtook tells nothing (its balance is older than the act's) and is read again (AUDIT 30 C6). */
   async function read(view, q, { force = false } = {}) {
     const key = keyOf(view, q);
     const hit = cache.get(key);
     if (!force && hit && now() - hit.at < MARKET_CACHE_MS) return { ok: !hit.error, data: hit.data, error: hit.error, stale: hit.stale };
-    if (pending.has(key)) return pending.get(key);
+    const g = gen;
+    const pk = `${g}|${key}`;
+    if (pending.has(pk)) return pending.get(pk);
     const p = (async () => {
-      const r = heard(await ask(() => door.read({ character: character(), view, ...q })));
+      const a = await ask(() => door.read({ character: character(), view, ...q }));
+      if (g !== gen) return null;
+      const r = heard(a);
       const e = { at: now(), data: r?.ok ? r.data : hit?.data ?? null, error: r?.ok ? null : (r?.error ?? 'server'), stale: !r?.ok && !!hit?.data };
       cache.set(key, e);
       return { ok: !!r?.ok, data: e.data, error: e.error, stale: e.stale };
     })();
-    pending.set(key, p);
-    try { return await p; } finally { pending.delete(key); }
+    pending.set(pk, p);
+    let out;
+    try { out = await p; } finally { pending.delete(pk); }
+    return out ?? read(view, q, { force: true });
   }
-  const forget = () => cache.clear();
+  function forget() { cache.clear(); gen++; }
 
   // ─── THE ACTS ──────────────────────────────────────────────────────
-  let _busy = null;
-  /** One act at a time: a press while one is under way is that one. */
-  const once = (fn) => (_busy ??= (async () => { try { return await fn(); } finally { _busy = null; } })());
+  let _busy = null, _busyKey = null;
+  /** One act at a time: a press of the act under way is that act; AUDIT 30 C5: any other while one is under way (the
+   *  opening settle's included) is refused `market-busy` - it was handed the other act's answer, and said done. */
+  const once = (key, fn) => {
+    if (_busy) return _busyKey === key ? _busy : Promise.resolve({ ok: false, error: 'market-busy' });
+    _busyKey = key;
+    return (_busy = (async () => { try { return await fn(); } finally { _busy = null; _busyKey = null; } })());
+  };
   const ids = new Map();
   const idFor = (key) => {
     let v = ids.get(key);
@@ -158,6 +195,10 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     read,
     cached: (view, q) => cache.get(keyOf(view, q))?.data ?? null,
     forget,
+    /** AUDIT 30 U12: an act under way (the market's own, not the board window's). */
+    get busy() { return !!_busy; },
+    /** AUDIT 30 U6: a balance another book heard (the Weavers' counter's purchase). */
+    told(balance) { if (Number.isSafeInteger(balance)) state.balance = balance; },
     /** Kept acts waiting for an answer. */
     get pending() { const k = keptOf(); return KINDS.reduce((n, kind) => n + k[kind].length, 0); },
 
@@ -167,7 +208,7 @@ export function createMarketBook({ door, storage = null, character, now = () => 
      * @param {any} req @param {{ item: any, where: string, take: () => boolean, putBack: (item: any, where: string) => void }|null} [piece]
      */
     list(req, piece = null) {
-      return once(async () => {
+      return once(`list|${JSON.stringify(req)}`, async () => {
         const rid = mintMarketRid();
         const body = { character: character(), ...req, rid };
         if (req.kind === 'piece') {
@@ -188,7 +229,7 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     },
     /** BUY: a piece bought here minted on the answer (kept before asked); a material into the Stores (`store`). */
     buy(req, mint) {
-      return once(async () => {
+      return once(`buy|${req?.listing}|${req?.units}`, async () => {
         const rid = mintMarketRid();
         const body = { character: character(), ...req, rid };
         keep('buys', { rid, body });
@@ -197,7 +238,7 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     },
     /** CANCEL a listing: a piece answered back and minted; a material's units into the Stores. */
     cancel(listing, mint) {
-      return once(async () => {
+      return once(`cancel|${listing}`, async () => {
         const rid = mintMarketRid();
         keep('cancels', { rid, listing });
         return keptAct('cancels', { rid }, () => door.cancel(character(), listing, rid), mint);
@@ -205,7 +246,7 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     },
     /** COLLECT a piece that has arrived (or come back). */
     collect(delivery, mint) {
-      return once(async () => {
+      return once(`collect|${delivery}`, async () => {
         const rid = mintMarketRid();
         keep('collects', { rid, delivery });
         return keptAct('collects', { rid }, () => door.collect(character(), delivery, rid), mint);
@@ -214,31 +255,33 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     /** A buy ORDER posted, a FILL, an order WITHDRAWN - each with its id kept for a press asked again. */
     order(req) {
       const k = `order|${JSON.stringify(req)}`;
-      return once(async () => { const r = answered(heard(await ask(() => door.order({ character: character(), ...req, rid: idFor(k) })))); if (!kept(r)) done(k); return r; });
+      return once(k, async () => { const r = answered(heard(await ask(() => door.order({ character: character(), ...req, rid: idFor(k) })))); if (!kept(r)) done(k); return r; });
     },
     fill(req) {
       const k = `fill|${JSON.stringify(req)}`;
-      return once(async () => { const r = answered(heard(await ask(() => door.fill({ character: character(), ...req, rid: idFor(k) })))); if (!kept(r)) done(k); return r; });
+      return once(k, async () => { const r = answered(heard(await ask(() => door.fill({ character: character(), ...req, rid: idFor(k) })))); if (!kept(r)) done(k); return r; });
     },
     unorder(order) {
       const k = `unorder|${order}`;
-      return once(async () => { const r = answered(heard(await ask(() => door.unorder(order, idFor(k))))); if (!kept(r)) done(k); return r; });
+      return once(k, async () => { const r = answered(heard(await ask(() => door.unorder(order, idFor(k))))); if (!kept(r)) done(k); return r; });
     },
-    report: (listing) => once(async () => answered(heard(await ask(() => door.report(listing))))),
-    remove: (listing) => once(async () => answered(heard(await ask(() => door.remove(listing))))),
+    report: (listing) => once(`report|${listing}`, async () => answered(heard(await ask(() => door.report(listing))))),
+    remove: (listing) => once(`remove|${listing}`, async () => answered(heard(await ask(() => door.remove(listing))))),
 
     /**
      * SETTLE: every kept act asked again with its own id (a list whose answer never came, a buy, a cancel, a collect),
      * and every piece on the road that has arrived for this character collected - each minted once.
      * @param {(piece: any, why: string) => void} mint @param {(item: any, where: string) => void} putBack
+     * @param {((item: any, where: string) => void)|null} [drop] AUDIT 30 C3: a listed piece out of the save - a kept list
+     *   answered here was taken out of a save that may not have been kept since (a crash, a seat handed over)
      */
-    settle(mint, putBack) {
-      return once(async () => {
+    settle(mint, putBack, drop = null) {
+      return once('settle', async () => {
         const k = keptOf();
         let settled = 0;
         for (const l of k.lists) {
           const r = heard(await ask(() => door.list(l.body)));
-          if (r?.ok) { letGo('lists', l.rid); settled++; }
+          if (r?.ok) { letGo('lists', l.rid); try { drop?.(l.item, l.where); } catch (e) { console.warn('[market] drop', e); } settled++; }
           else if (!kept(r)) { letGo('lists', l.rid); try { putBack(l.item, l.where); } catch (e) { console.warn('[market] put back', e); } settled++; }
         }
         for (const b of k.buys) if ((await keptAct('buys', b, () => door.buy(b.body), mint)).ok) settled++;

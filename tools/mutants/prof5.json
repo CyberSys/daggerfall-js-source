@@ -302,13 +302,13 @@
   {
     "name": "PROF5-law-catalogue-unlawed",
     "file": "src/net/marketLaw.js",
-    "old": "  const all = [...MINED_KEYS, ...FOOD_KEYS, ...herbs].map((k) => material(k)).filter(Boolean);",
-    "new": "  const all = [...MINED_KEYS, ...FOOD_KEYS, ...herbs].map((k) => material(k) ?? { key: k, family: 'herbs', tier: 1 });",
+    "old": "  const all = [...MINED_KEYS, ...FOOD_KEYS, ...herbs].filter((k) => !UNYIELDED.includes(k)).map((k) => material(k)).filter(Boolean);",
+    "new": "  const all = [...MINED_KEYS, ...FOOD_KEYS, ...herbs].filter((k) => !UNYIELDED.includes(k)).map((k) => material(k) ?? { key: k, family: 'herbs', tier: 1 });",
     "tests": [
       "test/prof5_law.test.js"
     ],
     "equivalent": true,
-    "why": "every registered key, food and herb template the catalogue walks has a standing under the law today (97 of 97), so the filter removes nothing - it guards a later template the law gives no tier"
+    "why": "every registered key, food and herb template the catalogue walks, less the three nothing yields (AUDIT 30 UNYIELDED), has a standing under the law today (94 of 94), so the filter removes nothing - it guards a later template the law gives no tier"
   },
   {
     "name": "PROF5-law-witness-reads-pixels",
@@ -409,13 +409,15 @@
     "new": "        AND ?4 > 0`)",
     "tests": [
       "test/prof5_service.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT 30 S7: the settle's read leaves out a load whose Stores lack its room, so every load this UPDATE sees had room when it was read; the guard holds the cap against a write landing between the read and the batch (another tab's harvest), which no serial pin can stage"
   },
   {
     "name": "PROF5-svc-family-unfiltered",
     "file": "server-account/src/market.js",
-    "old": "      return m && (!family || m.family === family) && (!tier || m.tier === tier);",
-    "new": "      return m && (!tier || m.tier === tier);",
+    "old": "        : (family || tier) ? marketCatalogue().filter((c) => (!family || c.family === family) && (!tier || c.tier === tier)).map((c) => c.key)",
+    "new": "        : (family || tier) ? marketCatalogue().filter((c) => (!tier || c.tier === tier)).map((c) => c.key)",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -645,8 +647,8 @@
   {
     "name": "PROF5-svc-orders-twenty-one",
     "file": "server-account/src/market.js",
-    "old": "        AND (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND state = 'open') < ?13`)",
-    "new": "        AND (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND state = 'open') <= ?13`)",
+    "old": "        AND (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND state = 'open') < ?13\n",
+    "new": "        AND (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND state = 'open') <= ?13\n",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -816,8 +818,8 @@
   {
     "name": "PROF5-book-shut-unheard",
     "file": "src/net/marketBook.js",
-    "old": "const SHUT = Object.freeze(['market-closed', 'prof-need-account', 'no-session', 'auth']);",
-    "new": "const SHUT = Object.freeze(['prof-need-account', 'no-session', 'auth']);",
+    "old": "const SHUT = Object.freeze(['market-closed', 'prof-need-account']);",
+    "new": "const SHUT = Object.freeze(['prof-need-account']);",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -825,8 +827,8 @@
   {
     "name": "PROF5-book-two-at-once",
     "file": "src/net/marketBook.js",
-    "old": "  const once = (fn) => (_busy ??= (async () => { try { return await fn(); } finally { _busy = null; } })());",
-    "new": "  const once = (fn) => fn();",
+    "old": "  const once = (key, fn) => {\n    if (_busy) return _busyKey === key ? _busy : Promise.resolve({ ok: false, error: 'market-busy' });\n    _busyKey = key;\n    return (_busy = (async () => { try { return await fn(); } finally { _busy = null; _busyKey = null; } })());\n  };",
+    "new": "  const once = (key, fn) => fn();",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -843,8 +845,8 @@
   {
     "name": "PROF5-book-silence-final",
     "file": "src/net/marketBook.js",
-    "old": "const RETRY = Object.freeze(['offline', 'server']);",
-    "new": "const RETRY = Object.freeze(['server']);",
+    "old": "const RETRY = Object.freeze(['offline', 'server', 'rate']);",
+    "new": "const RETRY = Object.freeze(['server', 'rate']);",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -852,8 +854,8 @@
   {
     "name": "PROF5-tab-whole-courier",
     "file": "src/ui/marketTab.js",
-    "old": "    const courier = row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) : null;",
-    "new": "    const courier = row.region === m.region ? 0 : row.road ? row.road.courier : null;",
+    "old": "const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) : null);",
+    "new": "const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? row.road.courier : null);",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -861,8 +863,8 @@
   {
     "name": "PROF5-tab-max-price-only",
     "file": "src/ui/marketTab.js",
-    "old": "      () => m.book.buy({ region: m.region, listing: row.id, units, max: total + (courier ?? 0), hubs: m.hubs }, m.mint),",
-    "new": "      () => m.book.buy({ region: m.region, listing: row.id, units, max: total, hubs: m.hubs }, m.mint),",
+    "old": "listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs }, m.mint),",
+    "new": "listing: row.id, units, max: units * row.price, hubs: m.hubs }, m.mint),",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -879,8 +881,8 @@
   {
     "name": "PROF5-tab-fee-unsaid",
     "file": "src/ui/marketTab.js",
-    "old": "    box.append(el('p', 'notice-hint', `Listing fee ${fee} Mark${fee === 1 ? '' : 's'}, kept if you cancel.",
-    "new": "    box.append(el('p', 'notice-hint', `Listing fee kept if you cancel.",
+    "old": "`Listing fee ${marksText(fee)}, kept if you cancel.",
+    "new": "`Listing fee kept if you cancel.",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -888,8 +890,8 @@
   {
     "name": "PROF5-tab-fill-whole",
     "file": "src/ui/marketTab.js",
-    "old": "    const n = intOf(st.fills[o.id] ?? Math.min(have, o.left), 1, Math.max(1, Math.min(have, o.left)));",
-    "new": "    const n = intOf(st.fills[o.id] ?? o.left, 1, o.left);",
+    "old": "    const count = () => intOf(st.fills[o.id] ?? Math.min(have, o.left), 1, most);",
+    "new": "    const count = () => intOf(st.fills[o.id] ?? o.left, 1, o.left);",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -960,8 +962,8 @@
   {
     "name": "PROF5-host-worn-listed",
     "file": "src/scenes/world.js",
-    "old": "    ...(playerEntity.items ?? []).filter((it) => it?.provenance && !tradeRefusal(it) && !isLocked(it)).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),",
-    "new": "    ...(playerEntity.items ?? []).filter((it) => it?.provenance).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),",
+    "old": "filter((it) => it?.provenance && asMinted(it) && !tradeRefusal(it) && !isLocked(it)).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),",
+    "new": "filter((it) => it?.provenance && asMinted(it)).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),",
     "tests": [
       "test/prof5_client.test.js"
     ]

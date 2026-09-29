@@ -37,6 +37,7 @@ import {
 import {
   RECIPES, recipeOpen, qualityOdds, QUALITY_NAMES, HEAT_ACT, takesQuality, recipeInputs, takesHeartwood, PLANE_ACT,
 } from '../net/recipeLaw.js';
+import { isTextEntryTarget, isDomControlTarget } from './input.js';   // AUDIT 30 A9: a field's keys and a button's are their own
 import { createHeatAct } from '../systems/heatAct.js';
 import { createPlaneAct } from '../systems/planeAct.js';
 import { material } from '../net/nodeLaw.js';
@@ -59,6 +60,8 @@ import { isEnhanced } from '../systems/uiSkin.js';
  * @property {() => number} [heatBand]   PROF3: the heat's attribute band (recipeLaw heatBand)
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [workbench]   PROF4: the workbench the player stands at
  * @property {() => number} [planeBand]   PROF4: the plane's attribute band (recipeLaw planeBand)
+ * @property {() => number} [purse]   AUDIT 30 U13: the gold the player carries - a station's fee the purse cannot meet is
+ *   not offered (the heat was struck, and then the smith refused)
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
@@ -96,20 +99,32 @@ const _anvil = {
   family: 'weapons', metal: 'ingot:iron', picked: /** @type {string|null} */ (null), act: /** @type {any} */ (null),
   busy: false, word: /** @type {string|null} */ (null), els: /** @type {any} */ (null), off: /** @type {(() => void)|null} */ (null),
   strike: /** @type {(() => void)|null} */ (null), heartwood: false,
+  /** AUDIT 30 A3: the recipe the heat under way makes, and its Heartwood - what the page shows may not be */
+  actRecipe: /** @type {string|null} */ (null), actWood: false,
 };
 /** PROF4: the workbench's family and wood shown, the recipe chosen, the plane being drawn, a craft in flight, its word,
  *  the saws' counts and whether a Heartwood stands in for a plank. */
 const _bench = {
   family: 'staves', wood: 'plank:pine', picked: /** @type {string|null} */ (null), act: /** @type {any} */ (null),
   busy: false, word: /** @type {string|null} */ (null), counts: /** @type {Record<string, number>} */ ({}), heartwood: false,
+  actRecipe: /** @type {string|null} */ (null), actWood: false,   // AUDIT 30 A3: the plane's own recipe
 };
+/** AUDIT 30 U20: the one row a smelt, burn or saw is under way on - its button alone says so. */
+let _workingOn = /** @type {string|null} */ (null);
+/** AUDIT 30 U13: a station's fee the purse cannot meet - its words, or null. */
+function purseShort(station, who, per) {
+  const p = _provider;
+  if (!station || station.kind !== 'shop' || !(station.fee > 0) || typeof p?.purse !== 'function') return null;
+  const have = p.purse();
+  return have < station.fee ? `The ${who} asks ${station.fee} gold ${per}; you carry ${have}.` : null;
+}
 /** What a Stores material of the smith's stock says in place of a withdrawal. */
 export const STOCK_STAYS_LINE = 'It stays at the bench: the anvil and the workbench spend it, and it comes to the pack once its own craft is practised.';   // PROF4: Cured Leather and Linen, the counters' goods with no pack form yet
 /** A fresh visit starts plain (the menu calls it with its own reset). */
 export function resetProfPages() {
   _armed = null; _profWord = null; _stores.word = null; _stores.picked = null; _stores.qty = 1; _forge.word = null; _forge.counts = {};
   endHeat(); _anvil.word = null; _anvil.picked = null; _anvil.heartwood = false;
-  _bench.act?.cancel(); _bench.act = null; _bench.word = null; _bench.picked = null; _bench.counts = {}; _bench.heartwood = false;   // PROF4
+  _bench.act?.cancel(); _bench.act = null; _bench.actRecipe = null; _bench.word = null; _bench.picked = null; _bench.counts = {}; _bench.heartwood = false;   // PROF4
 }
 
 /** What the Professions page says a harvest earns for each profession PROF1 gathers, by tier. */
@@ -120,7 +135,7 @@ const UNLOCKS = Object.freeze({
     ['Gold, Moonstone, Dwarven Scrap', 4], ['Platinum, Mithril', 5], ['Adamantium, Ebony, Orichalcum', 6]]),
   // PROF4: the woods by their tiers (PROF0 4.2); Smithing's metals and Carpentry's woods by theirs
   logging: Object.freeze([['Pine', 1], ['Oak', 2], ['Cherry', 3], ['Teak', 4], ['Mahogany', 5], ['Ironwood, Ghostwood', 6]]),
-  smithing: Object.freeze([['Iron; the tools', 1], ['Steel; the chain', 2], ['Silver', 3], ['Elven, Dwarven', 4], ['Mithril', 5],
+  smithing: Object.freeze([['Iron; the Wood-Axe, Pick-Axe and Sickle', 1], ['Steel; the chain; the Spade', 2],   // AUDIT 30 U19: the Spade is rank 10's ['Silver', 3], ['Elven, Dwarven', 4], ['Mithril', 5],
     ['Adamantium, Ebony, Orcish; Warforged', 6], ['Daedric', 7]]),
   carpentry: Object.freeze([['Pine: staves, bows, arrows, the Basket, a plain single bed', 1], ['Oak: tables, chairs, a plain double bed', 2],
     ['Cherry: a fancy single bed', 3], ['Teak: a fancy double bed', 4], ['Mahogany', 5], ['Ironwood, Ghostwood: staves and bows', 6]]),
@@ -334,7 +349,7 @@ export function smeltable(r, held) {
  * A forge's or a workbench's rows of no-act work (PROF2's smelts; PROF4's burns and saws): each recipe's inputs as the
  * Stores hold them, how many it can make, a count and its button - its yield a unit said where it is more than one.
  */
-function workRows(detail, rerender, el, recipes, state, verb, busyVerb, go) {
+function workRows(detail, rerender, el, recipes, state, verb, busyVerb, go, short = null) {
   const p = /** @type {ProfPagesProvider} */ (_provider);
   const book = p.book;
   const held = (k) => book.held(k);
@@ -349,14 +364,14 @@ function workRows(detail, rerender, el, recipes, state, verb, busyVerb, go) {
     qty.type = 'number'; qty.min = '1'; qty.max = String(Math.max(1, most));
     qty.value = String(Math.max(1, Math.min(state.counts[r.id] ?? 1, Math.max(1, most))));
     qty.oninput = () => { state.counts[r.id] = Math.max(1, Math.min(SMELT_MAX, Math.floor(Number(qty.value) || 1))); };
-    const b = el('button', 'act', state.busy ? busyVerb : verb);
+    const b = el('button', 'act', state.busy && _workingOn === r.id ? busyVerb : verb);
     b.type = 'button';
-    b.disabled = state.busy || most < 1;
+    b.disabled = state.busy || most < 1 || !!short;
     b.onclick = async () => {
       if (state.busy) return;
-      state.busy = true; rerender();
+      state.busy = true; _workingOn = r.id; rerender();
       const res = await go(r.id, Math.max(1, Math.min(state.counts[r.id] ?? 1, smeltable(r, held))));
-      state.busy = false;
+      state.busy = false; _workingOn = null;
       state.word = res?.text ?? null;
       rerender();
     };
@@ -382,10 +397,12 @@ function drawForge(detail, rerender, { el, divider }) {
     return;
   }
   detail.append(el('p', 'px-note', forge.kind === 'shop' ? `The smith's forge - ${forge.fee} gold a smelt.` : 'Your forge.'));
-  workRows(detail, rerender, el, SMELT_RECIPES, _forge, 'Smelt', 'Smelting...', (id, n) => p.smelt(id, n));
+  const short = purseShort(forge, 'smith', 'a smelt');
+  if (short) detail.append(el('p', 'px-note prof-short', short));
+  workRows(detail, rerender, el, SMELT_RECIPES, _forge, 'Smelt', 'Smelting...', (id, n) => p.smelt(id, n), short);
   // PROF4: the logs a forge burns - those the Stores hold (a log a Charcoal; a Charcoal Burner's two)
   const burns = BURN_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
-  if (burns.length) workRows(detail, rerender, el, burns, _forge, 'Burn', 'Burning...', (id, n) => p.smelt(id, n));
+  if (burns.length) workRows(detail, rerender, el, burns, _forge, 'Burn', 'Burning...', (id, n) => p.smelt(id, n), short);
   if (r0Charcoal(book)) detail.append(el('p', 'px-note', 'Steel wants Charcoal: a log burns to it here (Logging\'s), and the smith sells it.'));
   if (_forge.word) detail.append(el('p', 'prof-word', _forge.word));
 }
@@ -415,6 +432,7 @@ function endHeat() {
   _anvil.strike = null;
   _anvil.act = null;
   _anvil.els = null;
+  _anvil.actRecipe = null; _anvil.actWood = false;
 }
 /** The heat's frame: the glow ticked, its bar drawn, the act ended when the page is gone; the craft asked on the third
  *  strike. */
@@ -452,6 +470,7 @@ function heatLoop(rerender, finish) {
     if (a.state.done) { const clean = a.report().clean; endHeat(); finish(clean); }
   };
   const key = (e) => {
+    if (isTextEntryTarget(e.target) || isDomControlTarget(e.target)) return;   // AUDIT 30 A9: a field's Space, a button's Enter
     if (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault?.(); e.stopPropagation?.(); strike(); }
   };
   globalThis.document?.addEventListener?.('keydown', key, true);
@@ -480,11 +499,18 @@ function drawAnvil(detail, rerender, { el, divider }) {
   const rank = book.track('smithing')?.rank ?? 0;
   const specs = book.track('smithing')?.specs ?? {};
   detail.append(el('p', 'px-note', `${forge.kind === 'shop' ? `The smith's anvil - ${forge.fee} gold a craft.` : 'Your anvil.'} Smithing ${rank} (${rankName(rank)}).`));
+  const short = purseShort(forge, 'smith', 'a craft');
+  if (short) detail.append(el('p', 'px-note prof-short', short));
+  // AUDIT 30 A2: Gentle acts switched on under a heat lets it cool - nothing is spent, and the craft is a plain one
+  if (_anvil.act && getPref('gentleActs') === true) { _anvil.act.cancel(); endHeat(); _anvil.word = 'You let the ingot cool; nothing is spent.'; }
+  // AUDIT 30 A3: nothing else is picked while the heat is struck - the heat makes the recipe it began on
+  const striking = !!_anvil.act;
   const held = (k) => book.held(k);
   const fams = el('div', 'prof-families');
   for (const [id, word] of ANVIL_FAMILIES) {
     const b = el('button', `prof-family${_anvil.family === id ? ' on' : ''}`, word);
     b.type = 'button';
+    b.disabled = striking;
     b.onclick = () => { _anvil.family = id; _anvil.picked = null; rerender(); };
     fams.append(b);
   }
@@ -495,6 +521,7 @@ function drawAnvil(detail, rerender, { el, divider }) {
       if (_anvil.family === 'kits' && id === 'ingot:warforged') continue;
       const b = el('button', `prof-family${_anvil.metal === id ? ' on' : ''}`, word);
       b.type = 'button';
+      b.disabled = striking;
       b.onclick = () => { _anvil.metal = id; _anvil.picked = null; rerender(); };
       metals.append(b);
     }
@@ -506,6 +533,7 @@ function drawAnvil(detail, rerender, { el, divider }) {
     const can = open && craftable(r, held, spendsOf(r, book, false));
     const row = el('button', `prof-recipe${_anvil.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
     row.type = 'button';
+    row.disabled = striking;
     row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));
     row.onclick = () => { _anvil.picked = r.id; rerender(); };
     detail.append(row);
@@ -539,14 +567,16 @@ function drawAnvil(detail, rerender, { el, divider }) {
       const odds = qualityOdds(rank - r.rank, { masterwright: specs[100] === 'masterwright' });
       box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean heat is a step better.`));
     } else if (!takesQuality(r)) box.append(el('p', 'px-note', 'A Repair Kit mends a quarter of a piece\'s condition, once - a weapon or armour of its metal.'));
-    heartwoodToggle(box, el, r, book, _anvil, rerender);   // PROF4: a Heartwood for a plank - the axes, hammers, shields, the Spade
+    heartwoodToggle(box, el, r, book, _anvil, rerender, striking);   // PROF4: a Heartwood for a plank - the axes, hammers, shields, the Spade
     const gentle = getPref('gentleActs') === true;
-    const ready = recipeOpen(r, rank) && craftable(r, held, spends) && !_anvil.busy && !_anvil.act;
-    const finish = async (clean) => {
+    const ready = recipeOpen(r, rank) && craftable(r, held, spends) && !_anvil.busy && !_anvil.act && !short;
+    // AUDIT 30 A3: a craft bound to its recipe and its Heartwood when the heat began, never to the page's pick at its end
+    const craftOf = (id, wood) => async (clean) => {
       _anvil.busy = true; rerender();
-      const res = await p.craft(r.id, { clean, heartwood: _anvil.heartwood && takesHeartwood(r) });
+      const res = await p.craft(id, { clean: clean && getPref('gentleActs') !== true, heartwood: wood });
       _anvil.busy = false; _anvil.word = res?.text ?? null; rerender();
     };
+    const finish = craftOf(r.id, _anvil.heartwood && takesHeartwood(r));
     if (_anvil.act) {
       // THE HEAT: the glow's bar, its band, the strikes so far
       const panel = el('div', 'prof-heat');
@@ -567,7 +597,7 @@ function drawAnvil(detail, rerender, { el, divider }) {
       panel.append(el('span', 'prof-heatword', 'The heat - strike while the glow is in the band (Space)'), bar, marks, hit, cancel);
       box.append(panel);
       _anvil.els = { bar, marker, marks: dots };
-      if (!_anvil.off) _anvil.strike = heatLoop(rerender, finish);
+      if (!_anvil.off) _anvil.strike = heatLoop(rerender, craftOf(_anvil.actRecipe ?? r.id, _anvil.actRecipe ? _anvil.actWood : _anvil.heartwood && takesHeartwood(r)));
       hit.onclick = () => _anvil.strike?.();
     } else {
       const go = el('button', 'act primary', _anvil.busy ? 'At the anvil...' : 'Craft');
@@ -576,6 +606,7 @@ function drawAnvil(detail, rerender, { el, divider }) {
       go.onclick = () => {
         if (gentle) { void finish(false); return; }   // Gentle acts: a plain craft, no heat
         _anvil.act = createHeatAct({ band: p.heatBand?.() ?? 1 });
+        _anvil.actRecipe = r.id; _anvil.actWood = _anvil.heartwood && takesHeartwood(r);
         rerender();
       };
       const quick = el('button', 'act', 'Quick craft');
@@ -593,7 +624,7 @@ function drawAnvil(detail, rerender, { el, divider }) {
 
 /** A Heartwood for one of a recipe's planks (PROF0 25) - a quality step, one with a Warforged ingot; offered where the
  *  recipe asks a plank and takes a quality, and the Stores hold one. */
-function heartwoodToggle(box, el, r, book, state, rerender) {
+function heartwoodToggle(box, el, r, book, state, rerender, locked = false) {
   if (!takesHeartwood(r)) { state.heartwood = false; return; }
   const have = book.held('wood:heartwood');
   if (have < 1) { state.heartwood = false; return; }
@@ -601,6 +632,7 @@ function heartwoodToggle(box, el, r, book, state, rerender) {
   const cb = el('input');
   cb.type = 'checkbox';
   cb.checked = state.heartwood === true;
+  cb.disabled = locked;   // AUDIT 30 A3: the act under way keeps the wood it began with
   cb.onchange = () => { state.heartwood = !!cb.checked; rerender(); };
   lab.append(cb, globalThis.document.createTextNode(` Use a Heartwood for a plank - a step better (${have} stored)`));
   box.append(lab);
@@ -650,6 +682,8 @@ function planeBoard(el, act, finish, rerender) {
   };
   const now = () => (globalThis.performance?.now?.() ?? Date.now()) / 1000;
   const done = () => { const rep = act.report(); finish(rep?.clean === true, rep); };
+  // AUDIT 30 A2: a board drawn anew lost whatever drag the old one had - no release ever reached it
+  if (act.state.planing) act.release();
   board.onpointerdown = (e) => {
     const [x, y] = at(e);
     if (!act.press(x, y, now())) return;
@@ -659,6 +693,9 @@ function planeBoard(el, act, finish, rerender) {
   };
   board.onpointermove = (e) => {
     if (!act.state.planing) return;
+    // AUDIT 30 A2: the plane moves while it is held - a pointer passing over with nothing pressed lets go of the pass
+    if (!((e.buttons ?? 1) & 1)) { act.release(); rerender(); return; }
+    if (board.isConnected === false) { act.cancel(); return; }
     const [x, y] = at(e);
     act.move(x, y, now());
     pts.push(`${(x * 100).toFixed(1)},${(20 - y * 20).toFixed(2)}`);
@@ -684,21 +721,27 @@ function drawWorkbench(detail, rerender, { el, divider }) {
   const bench = p.workbench();
   detail.append(divider('The Workbench'));
   if (!bench) {
-    _bench.act?.cancel(); _bench.act = null;
+    _bench.act?.cancel(); _bench.act = null; _bench.actRecipe = null;
     detail.append(el('p', 'px-note', `Carpentry is done at a workbench: a Furniture Store's (${WORKBENCH_FEE} gold a craft or a saw), or your own home's.`));
     return;
   }
   const rank = book.track('carpentry')?.rank ?? 0;
   detail.append(el('p', 'px-note', `${bench.kind === 'shop' ? `The furnisher's workbench - ${bench.fee} gold a craft or a saw.` : 'Your workbench.'} Carpentry ${rank} (${rankName(rank)}).`));
+  const short = purseShort(bench, 'furnisher', 'a craft or a saw');
+  if (short) detail.append(el('p', 'px-note prof-short', short));
+  // AUDIT 30 A2: Gentle acts switched on under a pass sets the plane down - nothing spent, the craft a plain one
+  if (_bench.act && getPref('gentleActs') === true) { _bench.act.cancel(); _bench.act = null; _bench.actRecipe = null; _bench.word = 'You set the plane down; nothing is spent.'; }
+  const planing = !!_bench.act;   // AUDIT 30 A3: nothing else picked while the plane is drawn
   // THE SAW: the logs the Stores hold, to planks (a Timberwright's three)
   const saws = SAW_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
-  if (saws.length) workRows(detail, rerender, el, saws, _bench, 'Saw', 'Sawing...', (id, n) => p.smelt(id, n));
+  if (saws.length) workRows(detail, rerender, el, saws, _bench, 'Saw', 'Sawing...', (id, n) => p.smelt(id, n), short);
   else detail.append(el('p', 'px-note', 'A log saws to two planks here. Logs come from the woods (Logging).'));
   const held = (k) => book.held(k);
   const fams = el('div', 'prof-families');
   for (const [id, word] of BENCH_FAMILIES) {
     const b = el('button', `prof-family${_bench.family === id ? ' on' : ''}`, word);
     b.type = 'button';
+    b.disabled = planing;
     b.onclick = () => { _bench.family = id; _bench.picked = null; if (WOODS_OF[id] && !WOODS_OF[id].includes(_bench.wood)) _bench.wood = WOODS_OF[id][0]; rerender(); };
     fams.append(b);
   }
@@ -708,6 +751,7 @@ function drawWorkbench(detail, rerender, { el, divider }) {
     for (const id of WOODS_OF[_bench.family]) {
       const b = el('button', `prof-family${_bench.wood === id ? ' on' : ''}`, p.name(id).replace(/ Plank$/, ''));
       b.type = 'button';
+      b.disabled = planing;
       b.onclick = () => { _bench.wood = id; _bench.picked = null; rerender(); };
       woods.append(b);
     }
@@ -720,6 +764,7 @@ function drawWorkbench(detail, rerender, { el, divider }) {
     const can = open && craftable(r, held, spendsOf(r, book, false));
     const row = el('button', `prof-recipe${_bench.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
     row.type = 'button';
+    row.disabled = planing;
     row.append(el('b', null, r.name), el('span', 'prof-split', r.later ? LATER_WORDS.SEAT2 : open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));
     row.onclick = () => { _bench.picked = r.id; rerender(); };
     detail.append(row);
@@ -756,24 +801,27 @@ function drawWorkbench(detail, rerender, { el, divider }) {
       const odds = qualityOdds(rank - r.rank, { masterwright: false });
       box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean pass of the plane is a step better.`));
     }
-    heartwoodToggle(box, el, r, book, _bench, rerender);
+    heartwoodToggle(box, el, r, book, _bench, rerender, planing);
     const gentle = getPref('gentleActs') === true;
-    const ready = !r.later && recipeOpen(r, rank) && craftable(r, held, spends) && !_bench.busy && !_bench.act;
-    const finish = async (clean, rep = null) => {
-      _bench.act = null;
+    const ready = !r.later && recipeOpen(r, rank) && craftable(r, held, spends) && !_bench.busy && !_bench.act && !short;
+    // AUDIT 30 A3: the pass makes the recipe it began on, with its Heartwood - never the page's pick when it lands
+    const craftOf = (id, wood) => async (clean, rep = null) => {
+      _bench.act = null; _bench.actRecipe = null;
       _bench.busy = true; rerender();
-      const res = await p.craft(r.id, { clean, heartwood: _bench.heartwood && takesHeartwood(r) });
+      const res = await p.craft(id, { clean: clean && getPref('gentleActs') !== true, heartwood: wood });
       _bench.busy = false; _bench.word = [planeWord(rep), res?.text ?? ''].filter(Boolean).join(' ') || null; rerender();
     };
+    const finish = craftOf(r.id, _bench.heartwood && takesHeartwood(r));
     if (_bench.act) {
       // THE PLANE: draw along the grain from its head to its foot
       const panel = el('div', 'prof-plane');
       panel.append(el('span', 'prof-heatword', 'The plane - press at the board\'s head and draw along the grain to its foot'));
-      panel.append(planeBoard(el, _bench.act, (clean, rep) => { void finish(clean, rep); }, rerender));
+      const planed = craftOf(_bench.actRecipe ?? r.id, _bench.actRecipe ? _bench.actWood : _bench.heartwood && takesHeartwood(r));
+      panel.append(planeBoard(el, _bench.act, (clean, rep) => { void planed(clean, rep); }, rerender));
       if (_bench.act.state.slips) panel.append(el('span', 'prof-split', `let go ${_bench.act.state.slips} time${_bench.act.state.slips === 1 ? '' : 's'} - start again at the head`));
       const cancel = el('button', 'act', 'Set the plane down');
       cancel.type = 'button';
-      cancel.onclick = () => { _bench.act?.cancel(); _bench.act = null; _bench.word = 'You set the plane down; nothing is spent.'; rerender(); };
+      cancel.onclick = () => { _bench.act?.cancel(); _bench.act = null; _bench.actRecipe = null; _bench.word = 'You set the plane down; nothing is spent.'; rerender(); };
       panel.append(cancel);
       box.append(panel);
     } else {
@@ -783,6 +831,7 @@ function drawWorkbench(detail, rerender, { el, divider }) {
       go.onclick = () => {
         if (gentle) { void finish(false); return; }   // Gentle acts: a plain craft, no plane
         _bench.act = createPlaneAct({ rank, band: p.planeBand?.() ?? 1 });
+        _bench.actRecipe = r.id; _bench.actWood = _bench.heartwood && takesHeartwood(r);
         rerender();
       };
       const quick = el('button', 'act', 'Quick craft');

@@ -12,12 +12,19 @@
 //
 // Every act goes through the window's one-at-a-time door (`ui.run`), and every piece that enters or leaves the save
 // goes through the market book's kept acts (net/marketBook.js).
+//
+// AUDIT 30: a search names the catalogue's materials and the service reads those (U2 - it filtered the hundred
+// cheapest of everything, and a listed rarity read "Nothing listed"); an answer to a view since left is dropped (U3);
+// the opening settle is an act through the door (U4); a number typed moves only the words that hang on it - never a
+// full redraw that swallowed the next press - and the field keeps the focus through a read's redraw (U8, A12); a
+// press the market says has moved reads again (U9); a piece that arrives while the tab stands is collected (U10);
+// what must fail is not offered (U13); the rows run cheapest landed first (U16); one Mark is one Mark (U17); a row's
+// courier is the pick's (U18); the shared clock (U21); every field named (U22).
 import { accountRefusalText } from '../net/accountClient.js';
 import {
-  MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, listingFee, saleTax, courierFee, wearOf,
-  wearText, medianText, marketCatalogue,
+  MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX,
+  listingFee, saleTax, courierFee, wearOf, wearText, medianText, marketCatalogue,
 } from '../net/marketLaw.js';
-import { material as materialStanding } from '../net/nodeLaw.js';
 import { QUALITY_NAMES } from '../net/recipeLaw.js';
 import { marksText } from '../net/marksLaw.js';
 
@@ -34,30 +41,41 @@ const button = (cls, text, onPress) => {
   b.onclick = (e) => { e?.stopPropagation?.(); return onPress(); };
   return b;
 };
-const numberInput = (value, min, max, cls = 'notice-input market-num') => {
-  const i = /** @type {HTMLInputElement} */ (el('input', cls));
+/** A number field, named (AUDIT 30 U22) and keyed for the focus a redraw keeps (U8). */
+const numberInput = (value, min, max, label, focus) => {
+  const i = /** @type {HTMLInputElement} */ (el('input', 'notice-input market-num'));
   i.type = 'number'; i.min = String(min); i.max = String(max); i.value = String(value);
+  i.setAttribute('aria-label', label);
+  i.setAttribute('data-focus', focus);
   return i;
 };
-const select = (options, value, onChange) => {
+const select = (options, value, onChange, label = null) => {
   const s = /** @type {HTMLSelectElement} */ (el('select', 'notice-select market-select'));
+  if (label) s.setAttribute('aria-label', label);
   for (const [v, label] of options) { const o = /** @type {HTMLOptionElement} */ (el('option', null, label)); o.value = v; if (v === value) o.selected = true; s.append(o); }
   s.onchange = () => onChange(s.value);
   return s;
 };
 const intOf = (s, lo, hi) => { const n = Math.floor(Number(s)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : lo; };
+/** The units a picked row offers first, and its courier quotes for (AUDIT 30 U18). */
+const PICK_UNITS = 20;
+/** AUDIT 30 U9: the words that say the view a press was made from has moved - it is read again. */
+const MOVED = ['market-gone', 'market-short', 'market-price-moved'];
+/** AUDIT 30 U11: the words that say the market is not this account's. */
+const SHUT = ['market-closed', 'prof-need-account'];
+const plural = (n, one) => `${n.toLocaleString('en-US')} ${one}${n === 1 ? '' : 's'}`;
 /** "32 minutes", "2 hours", "arrived". */
 export function arrivalText(atS, nowS) {
   const s = (Number(atS) || 0) - nowS;
   if (s <= 0) return 'arrived';
   const m = Math.ceil(s / 60);
-  return m < 90 ? `${m} minute${m === 1 ? '' : 's'}` : `${Math.round(m / 60)} hours`;
+  return m < 90 ? plural(m, 'minute') : plural(Math.round(m / 60), 'hour');
 }
 /** "2 days ago", "3 hours ago", "just now". */
 const agoText = (atS, nowS) => {
   const s = Math.max(0, nowS - (Number(atS) || 0));
-  if (s >= 86400) { const d = Math.floor(s / 86400); return `${d} day${d === 1 ? '' : 's'} ago`; }
-  if (s >= 3600) { const h = Math.floor(s / 3600); return `${h} hour${h === 1 ? '' : 's'} ago`; }
+  if (s >= 86400) return `${plural(Math.floor(s / 86400), 'day')} ago`;
+  if (s >= 3600) return `${plural(Math.floor(s / 3600), 'hour')} ago`;
   return 'just now';
 };
 
@@ -91,8 +109,9 @@ export function medianLineNode(line) {
  *   name: (key: string) => string, countName: (key: string, n: number) => string,
  *   pieces: () => Array<{ item: any, where: string, name: string }>, take: (item: any, where: string) => boolean,
  *   putBack: (item: any, where: string) => void, mint: (piece: any, why: string) => void, pieceName: (piece: any) => string,
+ *   drop?: (item: any, where: string) => void,
  *   weavers: ReadonlyArray<{ key: string, marks: number }>, stock: (key: string, n: number) => Promise<{ ok: boolean, text?: string }>,
- * }} m the host's market (scenes/world.js)
+ * }} m the host's market (scenes/world.js); `drop` - a piece a settled listing took, out of the save (AUDIT 30 C3)
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => Promise<void>, rerender: () => void, nowS: () => number,
  *   alive: () => boolean }} ui the window's
  */
@@ -103,34 +122,75 @@ export function createMarketTab(m, ui) {
     list: { kind: 'material', material: '', units: 1, price: 1, piece: '' }, post: { material: '', units: 1, price: 1 },
     fills: /** @type {Record<string, number>} */ ({}), weave: /** @type {Record<string, number>} */ ({}),
   };
-  const q = () => ({ region: m.region, hubs: m.hubs, ...(st.view === 'materials' || st.view === 'orders' ? { family: st.family } : {}),
-    ...(st.view === 'crafted' ? { family: st.family } : {}), ...(st.view === 'materials' && st.tier ? { tier: st.tier } : {}) });
+  const balance = () => m.book.state.balance;
+  const short = (marks) => balance() != null && balance() < marks;
+  /** AUDIT 30 U2: a search's words as the catalogue's materials (their family and tier too) - the service reads those. */
+  const searched = () => {
+    const needle = st.query.trim().toLowerCase();
+    if (!needle) return null;
+    return marketCatalogue().filter((c) => (!st.family || c.family === st.family) && (!st.tier || c.tier === st.tier)
+      && m.name(c.key).toLowerCase().includes(needle)).map((c) => c.key);
+  };
+  const q = () => {
+    const found = st.view === 'materials' ? searched() : null;
+    return { region: m.region, hubs: m.hubs, ...(st.view === 'materials' || st.view === 'orders' || st.view === 'crafted' ? { family: st.family } : {}),
+      ...(st.view === 'materials' && st.tier ? { tier: st.tier } : {}), ...(found ? { materials: found } : {}) };
+  };
+  /** AUDIT 30 U3: the last read asked - an answer to an earlier one (a view or a filter since left) is dropped. */
+  let seq = 0;
   async function load(force = false) {
+    const mine = ++seq;
     st.loading = true; ui.rerender();
     const r = await m.book.read(st.view, q(), { force });
-    if (!ui.alive()) return;
+    if (!ui.alive() || mine !== seq) return;
     st.loading = false;
     st.data = r.data; st.error = r.ok ? null : r.error; st.stale = !!r.stale;
     ui.rerender();
+    collectArrived();
   }
+  /** AUDIT 30 U4: the kept acts settled and the arrived pieces collected - an act through the window's door, so no
+   *  other press is made while it runs (the market book refuses one, `market-busy`, besides). */
+  const settle = () => ui.run(async () => {
+    const r = await m.book.settle(m.mint, m.putBack, m.drop ?? null);
+    for (const x of arrived()) if (r?.ok) tried.add(x.id);
+    if (r?.settled) load(true);
+    return { ok: !!r?.ok, text: r?.settled ? 'The counting-house has settled what it held for you.' : (r?.ok ? '' : accountRefusalText(r?.error)) };
+  });
+  /** AUDIT 30 U10: a piece arrived while the tab stands is collected - each delivery asked once a showing (a refusal is
+   *  said, and the next showing asks again). */
+  const tried = new Set();
+  const arrived = () => (m.book.state.road ?? []).filter((x) => x.kind === 'piece' && x.ready && !tried.has(x.id));
+  const collectArrived = () => { if (arrived().length && !ui.busy()) settle(); };
   /** On the tab shown: the kept acts settled (and the arrived pieces collected), then the view read. */
   async function open() {
-    if (m.book.pending || m.book.state.road.some((x) => x.kind === 'piece' && x.ready)) await m.book.settle(m.mint, m.putBack);
+    if (m.book.pending || arrived().length) await settle();
     await load(false);
   }
   const go = (view) => { st.view = view; st.picked = null; st.family = null; st.tier = 0; st.data = m.book.cached(view, q()); load(false); };
-  /** An act through the window's door; its word, then the view read again. */
+  /** An act through the window's door; its word, then the view read again - a press the market says has moved too. */
   const act = (start, okText) => ui.run(async () => {
     const r = await start();
     if (r?.ok) { st.picked = null; load(true); return { ok: true, text: typeof okText === 'function' ? okText(r.data) : okText }; }
+    if (MOVED.includes(r?.error)) { st.picked = null; load(true); }
     return { ok: false, text: r?.text ?? accountRefusalText(r?.error) };
   });
   const held = (key) => { const s = m.stores().get(key); return s ? s.own + s.bought : 0; };
   const where = (row) => (row.region === m.region ? 'here' : m.regionNameOf(row.region));
-  const roadText = (road) => (!road ? 'no courier knows the road' : road.courier ? `+${road.courier} courier, ${arrivalText(road.seconds, 0)}` : '');
+  /** The units a row's pick starts at, and its courier's quote is for. */
+  const pickOf = (row) => (row.kind === 'piece' ? 1 : Math.max(1, Math.min(row.units, PICK_UNITS)));
+  const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) : null);
+  /** AUDIT 30 U16: a unit's price landed here - its courier's share of the pick's. */
+  const landed = (row) => { const n = pickOf(row), c = courierOf(row, n); return c == null ? Infinity : row.price + c / n; };
+  const roadText = (row) => {
+    if (row.region === m.region) return '';
+    if (!row.road) return ' no courier knows the road';
+    const n = pickOf(row);
+    return ` +${courierOf(row, n)} courier${row.kind === 'piece' ? '' : ` for ${n}`}, ${arrivalText(row.road.seconds, 0)}`;
+  };
 
   function viewsNode() {
     const nav = el('nav', 'market-views');
+    nav.setAttribute('aria-label', 'Market views');
     for (const [id, label] of MARKET_VIEWS) {
       const t = el('button', `notice-tab market-view${st.view === id ? ' on' : ''}`, label);
       t.setAttribute('type', 'button');
@@ -156,71 +216,85 @@ export function createMarketTab(m, ui) {
     return box;
   }
 
+  let typing = null;
   function filtersNode(families) {
     const row = el('div', 'market-filters');
     if (st.view === 'materials') {
       const search = /** @type {HTMLInputElement} */ (el('input', 'notice-input market-search'));
       search.placeholder = 'Search';
+      search.setAttribute('aria-label', 'Search the materials');
+      search.setAttribute('data-focus', 'search');
       search.value = st.query;
-      search.oninput = () => { st.query = search.value; ui.rerender(); const s = /** @type {HTMLInputElement|null} */ (document.querySelector('.market-search')); s?.focus?.(); s?.setSelectionRange?.(st.query.length, st.query.length); };
+      // AUDIT 30 U2: the words read from the service once the typing rests - the field is never redrawn under the keys
+      search.oninput = () => { st.query = search.value; st.picked = null; clearTimeout(typing); typing = setTimeout(() => load(false), 300); };
       row.append(search);
     }
-    row.append(select([['', 'All'], ...families], st.family ?? '', (v) => { st.family = v || null; st.picked = null; load(false); }));
+    row.append(select([['', 'All'], ...families], st.family ?? '', (v) => { st.family = v || null; st.picked = null; load(false); }, 'Family'));
     if (st.view === 'materials') {
-      row.append(select([['0', 'Any tier'], ...[1, 2, 3, 4, 5, 6, 7].map((t) => [String(t), `Tier ${t}`])], String(st.tier), (v) => { st.tier = Number(v) || 0; st.picked = null; load(false); }));
+      row.append(select([['0', 'Any tier'], ...[1, 2, 3, 4, 5, 6, 7].map((t) => [String(t), `Tier ${t}`])], String(st.tier), (v) => { st.tier = Number(v) || 0; st.picked = null; load(false); }, 'Tier'));
     }
     return row;
   }
 
+  const pick = (row) => { st.picked = st.picked === row.id ? null : row.id; st.qty = pickOf(row); ui.rerender(); };
+  function rowButton(row, cls) {
+    const b = el('button', `market-row${cls}${st.picked === row.id ? ' on' : ''}`);
+    b.setAttribute('type', 'button');
+    b.setAttribute('aria-expanded', st.picked === row.id ? 'true' : 'false');   // AUDIT 30 U22
+    b.onclick = () => pick(row);
+    return b;
+  }
   function materialRow(row) {
     const med = st.data?.medians?.[row.material];
-    const b = el('button', `market-row${st.picked === row.id ? ' on' : ''}`);
-    b.setAttribute('type', 'button');
+    const b = rowButton(row, '');
     b.append(el('b', null, `${m.name(row.material)} x${row.units.toLocaleString('en-US')}`),
-      el('span', 'market-price', `${row.price.toLocaleString('en-US')} Mark${row.price === 1 ? '' : 's'} each`),
-      el('span', 'market-where', `${where(row)}${row.region === m.region ? '' : ` ${roadText(row.road)}`}`),
+      el('span', 'market-price', `${marksText(row.price)} each`),
+      el('span', 'market-where', `${where(row)}${roadText(row)}`),
       el('span', 'market-median', `median ${medianText(med?.median ?? null)}`));
     const line = medianLineNode(med?.line);
     if (line) b.append(line);
     if (row.mine) b.append(el('span', 'market-mine', 'yours'));
-    if (row.reports != null) b.append(el('span', 'market-mod', `${row.reports} report${row.reports === 1 ? '' : 's'}`));
-    b.onclick = () => { st.picked = st.picked === row.id ? null : row.id; st.qty = Math.min(row.units, 20); ui.rerender(); };
+    if (row.reports != null) b.append(el('span', 'market-mod', plural(row.reports, 'report')));
     return b;
   }
   function pieceRow(row) {
     const p = row.piece;
-    const b = el('button', `market-row market-piece${st.picked === row.id ? ' on' : ''}`);
-    b.setAttribute('type', 'button');
+    const b = rowButton(row, ' market-piece');
     b.append(el('b', null, m.pieceName(p)),
       el('span', 'market-quality', [QUALITY_NAMES[p.quality] ?? null, p.maker ? `made by ${p.maker}` : null, wearText(p.wear)].filter(Boolean).join(' · ')),
-      el('span', 'market-price', `${row.price.toLocaleString('en-US')} Marks`),
-      el('span', 'market-where', `${where(row)}${row.region === m.region ? '' : ` ${roadText(row.road)}`}`));
+      el('span', 'market-price', marksText(row.price)),
+      el('span', 'market-where', `${where(row)}${roadText(row)}`));
     if (row.mine) b.append(el('span', 'market-mine', 'yours'));
-    if (row.reports != null) b.append(el('span', 'market-mod', `${row.reports} report${row.reports === 1 ? '' : 's'}`));
-    b.onclick = () => { st.picked = st.picked === row.id ? null : row.id; st.qty = 1; ui.rerender(); };
+    if (row.reports != null) b.append(el('span', 'market-mod', plural(row.reports, 'report')));
     return b;
   }
-  /** The picked row's bar: "Buy N for P Marks + C courier?", Buy; Report; a moderator's Remove. */
+  /** The picked row's bar: "Buy N for P Marks + C courier?", Buy; Report; a moderator's Remove. A number typed moves the
+   *  words and the button that hang on it, never the bar (AUDIT 30 U8). */
   function pickedBar(row) {
     const bar = el('div', 'market-bar');
     const piece = row.kind === 'piece';
-    const units = piece ? 1 : intOf(st.qty, 1, row.units);
-    const courier = row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) : null;
-    const total = units * row.price;
-    const what = piece ? m.pieceName(row.piece) : `${units} ${m.countName(row.material, units)}`;
+    const unitsNow = () => (piece ? 1 : intOf(st.qty, 1, row.units));
+    const what = (units) => (piece ? m.pieceName(row.piece) : `${units} ${m.countName(row.material, units)}`);
+    const ask = el('span', 'market-ask');
+    ask.setAttribute('aria-live', 'polite');
+    const buy = button('primary market-buy', m.book.busy ? 'Buying...' : 'Buy', () => {
+      const units = unitsNow(), courier = courierOf(row, units), w = what(units);
+      return act(() => m.book.buy({ region: m.region, listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs }, m.mint),
+        (d) => (d?.sale?.here ? `Bought ${w}.` : `Bought ${w} - the courier brings it from ${m.regionNameOf(row.region)} in ${arrivalText(d?.sale?.arrivesAt, ui.nowS())}.`));
+    });
+    const refresh = () => {
+      const units = unitsNow(), courier = courierOf(row, units), total = units * row.price;
+      ask.textContent = courier == null ? `The couriers do not know the road to ${m.regionNameOf(row.region)} yet.`
+        : `Buy ${what(units)} for ${marksText(total)}${courier ? ` + ${courier} courier` : ''}?`;
+      buy.disabled = ui.busy() || row.mine || courier == null || short(total + (courier ?? 0));
+    };
     if (!piece) {
-      const n = numberInput(units, 1, row.units);
-      n.onchange = () => { st.qty = intOf(n.value, 1, row.units); ui.rerender(); };
+      const n = numberInput(unitsNow(), 1, row.units, 'Units to buy', `qty|${row.id}`);
+      n.oninput = () => { st.qty = intOf(n.value, 1, row.units); refresh(); };
       bar.append(n);
     }
-    bar.append(el('span', 'market-ask', courier == null ? `The couriers do not know the road to ${m.regionNameOf(row.region)} yet.`
-      : `Buy ${what} for ${total.toLocaleString('en-US')} Marks${courier ? ` + ${courier} courier` : ''}?`));
-    const buy = button('primary market-buy', ui.busy() ? 'Buying...' : 'Buy', () => act(
-      () => m.book.buy({ region: m.region, listing: row.id, units, max: total + (courier ?? 0), hubs: m.hubs }, m.mint),
-      (d) => (d?.sale?.here ? `Bought ${what}.` : `Bought ${what} - the courier brings it from ${m.regionNameOf(row.region)} in ${arrivalText(d?.sale?.arrivesAt, ui.nowS())}.`),
-    ));
-    buy.disabled = ui.busy() || row.mine || courier == null || (m.book.state.balance != null && m.book.state.balance < total + (courier ?? 0));
-    bar.append(buy);
+    refresh();
+    bar.append(ask, buy);
     if (!row.mine) bar.append(button('market-report', 'Report', () => act(() => m.book.report(row.id), 'Reported. A moderator will look at it.')));
     if (row.reports != null) bar.append(button('market-remove', 'Remove', () => act(() => m.book.remove(row.id), 'Removed. Its goods go back to its seller.')));
     return bar;
@@ -231,11 +305,16 @@ export function createMarketTab(m, ui) {
     box.append(el('h4', null, 'The Weavers\' counter'));
     for (const w of m.weavers) {
       const row = el('div', 'market-counterrow');
-      const n = st.weave[w.key] ?? 1;
-      const inp = numberInput(n, 1, 100);
-      inp.onchange = () => { st.weave[w.key] = intOf(inp.value, 1, 100); ui.rerender(); };
-      row.append(el('b', null, m.name(w.key)), el('span', 'market-price', `${w.marks} Marks a bolt`), inp,
-        button('market-weave', `Buy for ${(w.marks * n).toLocaleString('en-US')} Marks`, () => ui.run(() => m.stock(w.key, n))));
+      const count = () => intOf(st.weave[w.key] ?? 1, 1, 100);
+      const inp = numberInput(count(), 1, 100, `Bolts of ${m.name(w.key)}`, `weave|${w.key}`);
+      const b = button('market-weave', '', () => ui.run(() => m.stock(w.key, count())));
+      const refresh = () => {
+        b.textContent = `Buy for ${marksText(w.marks * count())}`;
+        b.disabled = ui.busy() || short(w.marks * count());   // AUDIT 30 U12, U13
+      };
+      inp.oninput = () => { st.weave[w.key] = intOf(inp.value, 1, 100); refresh(); };
+      refresh();
+      row.append(el('b', null, m.name(w.key)), el('span', 'market-price', `${marksText(w.marks)} a bolt`), inp, b);
       box.append(row);
     }
     box.append(el('p', 'notice-hint', 'Into your Stores. A bolt stays there until its craft is practised.'));
@@ -245,39 +324,46 @@ export function createMarketTab(m, ui) {
   function listForm() {
     const box = el('div', 'market-listform');
     box.append(el('h4', null, 'List on the market'));
-    box.append(select([['material', 'From the Stores'], ['piece', 'A crafted piece']], st.list.kind, (v) => { st.list.kind = v; ui.rerender(); }));
-    let fee = 0, can = false, go = () => {};
-    const price = numberInput(st.list.price, 1, MARKET_PRICE_MAX);
-    price.onchange = () => { st.list.price = intOf(price.value, 1, MARKET_PRICE_MAX); ui.rerender(); };
+    box.append(select([['material', 'From the Stores'], ['piece', 'A crafted piece']], st.list.kind, (v) => { st.list.kind = v; ui.rerender(); }, 'What to list'));
+    const price = numberInput(st.list.price, 1, MARKET_PRICE_MAX, 'Price in Marks', 'list-price');
+    const hint = el('p', 'notice-hint');
+    const b = button('primary market-list', 'List', () => send());
+    const full = (m.book.state.counts?.listings ?? 0) >= MARKET_LISTINGS_MAX;
+    let can = () => false, send = () => {}, worth = () => 0;
     if (st.list.kind === 'material') {
       const stores = [...m.stores().values()].filter((s) => s.own + s.bought > 0);
       if (!stores.some((s) => s.material === st.list.material)) st.list.material = stores[0]?.material ?? '';
       const most = held(st.list.material);
       st.list.units = intOf(st.list.units, 1, Math.max(1, Math.min(most, MARKET_UNITS_MAX)));
-      const units = numberInput(st.list.units, 1, Math.max(1, most));
-      units.onchange = () => { st.list.units = intOf(units.value, 1, Math.max(1, most)); ui.rerender(); };
-      box.append(select(stores.map((s) => [s.material, `${m.name(s.material)} (${(s.own + s.bought).toLocaleString('en-US')})`]), st.list.material, (v) => { st.list.material = v; ui.rerender(); }),
+      const units = numberInput(st.list.units, 1, Math.max(1, Math.min(most, MARKET_UNITS_MAX)), 'Units to list', 'list-units');
+      units.oninput = () => { st.list.units = intOf(units.value, 1, Math.max(1, Math.min(most, MARKET_UNITS_MAX))); refresh(); };
+      box.append(select(stores.map((s) => [s.material, `${m.name(s.material)} (${(s.own + s.bought).toLocaleString('en-US')})`]), st.list.material, (v) => { st.list.material = v; ui.rerender(); }, 'Material'),
         el('span', 'notice-label', 'Units'), units, el('span', 'notice-label', 'Marks each'), price);
-      fee = listingFee(st.list.units * st.list.price);
-      can = !!st.list.material && most >= st.list.units;
-      go = () => act(() => m.book.list({ region: m.region, kind: 'material', material: st.list.material, units: st.list.units, price: st.list.price, hubs: m.hubs }),
-        `Listed ${st.list.units} ${m.countName(st.list.material, st.list.units)} at ${st.list.price} Marks each.`);
+      worth = () => st.list.units * st.list.price;
+      can = () => !!st.list.material && most >= st.list.units;
+      send = () => act(() => m.book.list({ region: m.region, kind: 'material', material: st.list.material, units: st.list.units, price: st.list.price, hubs: m.hubs }),
+        `Listed ${st.list.units} ${m.countName(st.list.material, st.list.units)} at ${marksText(st.list.price)} each.`);
     } else {
       const pieces = m.pieces();
       if (!pieces.some((p) => p.item.provenance === st.list.piece)) st.list.piece = pieces[0]?.item.provenance ?? '';
       const chosen = pieces.find((p) => p.item.provenance === st.list.piece) ?? null;
-      box.append(pieces.length ? select(pieces.map((p) => [p.item.provenance, `${p.name}${p.where === 'home' ? ' (your home)' : ''}`]), st.list.piece, (v) => { st.list.piece = v; ui.rerender(); })
+      box.append(pieces.length ? select(pieces.map((p) => [p.item.provenance, `${p.name}${p.where === 'home' ? ' (your home)' : ''}`]), st.list.piece, (v) => { st.list.piece = v; ui.rerender(); }, 'Crafted piece')
         : el('span', 'notice-hint', 'You carry no crafted piece to sell.'), el('span', 'notice-label', 'Price in Marks'), price);
-      fee = listingFee(st.list.price);
-      can = !!chosen;
-      go = () => act(() => m.book.list({ region: m.region, kind: 'piece', provenance: chosen.item.provenance, wear: wearOf(chosen.item), price: st.list.price, hubs: m.hubs },
-        { item: chosen.item, where: chosen.where, take: () => m.take(chosen.item, chosen.where), putBack: m.putBack }), `Listed ${chosen?.name} at ${st.list.price} Marks.`);
+      worth = () => st.list.price;
+      can = () => !!chosen;
+      send = () => act(() => m.book.list({ region: m.region, kind: 'piece', provenance: chosen.item.provenance, wear: wearOf(chosen.item), price: st.list.price, hubs: m.hubs },
+        { item: chosen.item, where: chosen.where, take: () => m.take(chosen.item, chosen.where), putBack: m.putBack }), `Listed ${chosen?.name} at ${marksText(st.list.price)}.`);
     }
-    const worth = st.list.kind === 'material' ? st.list.units * st.list.price : st.list.price;
-    box.append(el('p', 'notice-hint', `Listing fee ${fee} Mark${fee === 1 ? '' : 's'}, kept if you cancel. It stands on the boards of ${m.regionName} for 72 hours; a sale pays you its price less ${saleTax(100)}% (${(worth - saleTax(worth)).toLocaleString('en-US')} Marks if it all sells).`));
-    const b = button('primary market-list', 'List', go);
-    b.disabled = ui.busy() || !can;
-    box.append(b);
+    // AUDIT 30 U13: a listing the fee or the board's limit would refuse is not offered - the words say which
+    const refresh = () => {
+      const fee = listingFee(worth());
+      hint.textContent = full ? `You have ${MARKET_LISTINGS_MAX} listings standing, the most one account may. Cancel one, or wait for one to sell.`
+        : `Listing fee ${marksText(fee)}, kept if you cancel. It stands on the boards of ${m.regionName} for 72 hours; a sale pays you its price less ${saleTax(100)}% (${marksText(worth() - saleTax(worth()))} if it all sells).`;
+      b.disabled = ui.busy() || full || !can() || short(fee);
+    };
+    price.oninput = () => { st.list.price = intOf(price.value, 1, MARKET_PRICE_MAX); refresh(); };
+    refresh();
+    box.append(hint, b);
     return box;
   }
 
@@ -286,38 +372,47 @@ export function createMarketTab(m, ui) {
     box.append(el('h4', null, 'Post a buy order'));
     const cat = marketCatalogue();
     if (!st.post.material) st.post.material = cat[0]?.key ?? '';
-    const units = numberInput(st.post.units, 1, MARKET_UNITS_MAX);
-    units.onchange = () => { st.post.units = intOf(units.value, 1, MARKET_UNITS_MAX); ui.rerender(); };
-    const price = numberInput(st.post.price, 1, MARKET_PRICE_MAX);
-    price.onchange = () => { st.post.price = intOf(price.value, 1, MARKET_PRICE_MAX); ui.rerender(); };
-    box.append(select(cat.map((c) => [c.key, `${m.name(c.key)} (tier ${c.tier})`]), st.post.material, (v) => { st.post.material = v; ui.rerender(); }),
+    const units = numberInput(st.post.units, 1, MARKET_UNITS_MAX, 'Units wanted', 'post-units');
+    const price = numberInput(st.post.price, 1, MARKET_PRICE_MAX, 'Marks each', 'post-price');
+    box.append(select(cat.map((c) => [c.key, `${m.name(c.key)} (tier ${c.tier})`]), st.post.material, (v) => { st.post.material = v; ui.rerender(); }, 'Material wanted'),
       el('span', 'notice-label', 'Units'), units, el('span', 'notice-label', 'Marks each'), price);
-    const cost = st.post.units * st.post.price;
-    box.append(el('p', 'notice-hint', `${cost.toLocaleString('en-US')} Marks held for it while it stands (7 days); what is not filled comes back.`));
+    const hint = el('p', 'notice-hint');
+    const full = (m.book.state.counts?.orders ?? 0) >= MARKET_ORDERS_MAX;
     const b = button('primary market-post', 'Post the order', () => act(() => m.book.order({ region: m.region, material: st.post.material, units: st.post.units, price: st.post.price, hubs: m.hubs }),
       `Your order for ${st.post.units} ${m.countName(st.post.material, st.post.units)} is up.`));
-    b.disabled = ui.busy() || !st.post.material || (m.book.state.balance != null && m.book.state.balance < cost);
-    box.append(b);
+    const refresh = () => {
+      const cost = st.post.units * st.post.price;
+      hint.textContent = full ? `You have ${MARKET_ORDERS_MAX} orders standing, the most one account may.`
+        : `${marksText(cost)} held for it while it stands (7 days); what is not filled comes back.`;
+      b.disabled = ui.busy() || full || !st.post.material || short(cost);
+    };
+    units.oninput = () => { st.post.units = intOf(units.value, 1, MARKET_UNITS_MAX); refresh(); };
+    price.oninput = () => { st.post.price = intOf(price.value, 1, MARKET_PRICE_MAX); refresh(); };
+    refresh();
+    box.append(hint, b);
     return box;
   }
 
   function orderRow(o) {
     const li = el('li', `market-order${o.mine ? ' mine' : ''}`);
-    li.append(el('b', null, `${m.name(o.material)}`), el('span', 'market-price', `${o.left.toLocaleString('en-US')} of ${o.units.toLocaleString('en-US')} wanted at ${o.price} Marks each`));
+    li.append(el('b', null, `${m.name(o.material)}`), el('span', 'market-price', `${o.left.toLocaleString('en-US')} of ${o.units.toLocaleString('en-US')} wanted at ${marksText(o.price)} each`));
     const med = st.data?.medians?.[o.material];
     if (med) li.append(el('span', 'market-median', `median ${medianText(med.median)}`));
     if (o.mine) {
-      li.append(el('span', 'market-state', o.state === 'open' ? `${Math.max(0, Math.ceil((o.expiresAt - ui.nowS()) / 86400))} days left` : o.state));
+      li.append(el('span', 'market-mine', 'yours'),
+        el('span', 'market-state', o.state === 'open' ? `${plural(Math.max(0, Math.ceil((o.expiresAt - ui.nowS()) / 86400)), 'day')} left` : o.state));
       if (o.state === 'open') li.append(button('market-unorder', 'Withdraw', () => act(() => m.book.unorder(o.id), 'Withdrawn. What was held for it is back.')));
       return li;
     }
     const have = held(o.material);
-    const n = intOf(st.fills[o.id] ?? Math.min(have, o.left), 1, Math.max(1, Math.min(have, o.left)));
-    const inp = numberInput(n, 1, Math.max(1, Math.min(have, o.left)));
-    inp.onchange = () => { st.fills[o.id] = intOf(inp.value, 1, Math.max(1, Math.min(have, o.left))); ui.rerender(); };
-    const b = button('primary market-fill', `Fill ${n} from the Stores`, () => act(() => m.book.fill({ region: m.region, order: o.id, units: n, hubs: m.hubs }),
-      (d) => `Filled: ${d?.fill?.pay ?? ''} Marks.`));
-    b.disabled = ui.busy() || have < 1;
+    const most = Math.max(1, Math.min(have, o.left));
+    const count = () => intOf(st.fills[o.id] ?? Math.min(have, o.left), 1, most);
+    const inp = numberInput(count(), 1, most, `Units of ${m.name(o.material)} to fill`, `fill|${o.id}`);
+    const b = button('primary market-fill', '', () => act(() => m.book.fill({ region: m.region, order: o.id, units: count(), hubs: m.hubs }),
+      (d) => `Filled: ${marksText(d?.fill?.pay ?? 0)}.`));
+    const refresh = () => { b.textContent = `Fill ${count()} from the Stores`; b.disabled = ui.busy() || have < 1; };
+    inp.oninput = () => { st.fills[o.id] = intOf(inp.value, 1, most); refresh(); };
+    refresh();
     li.append(inp, b, el('span', 'notice-hint', `${have.toLocaleString('en-US')} in your Stores`));
     return li;
   }
@@ -330,9 +425,9 @@ export function createMarketTab(m, ui) {
     for (const l of rows) {
       const li = el('li', `market-listing state-${l.state}`);
       li.append(el('b', null, l.kind === 'piece' ? m.pieceName(l.piece) : `${m.name(l.material)} - ${l.units} of ${l.listed} left`),
-        el('span', 'market-price', `${l.price.toLocaleString('en-US')} Marks${l.kind === 'piece' ? '' : ' each'}`),
+        el('span', 'market-price', `${marksText(l.price)}${l.kind === 'piece' ? '' : ' each'}`),
         el('span', 'market-where', l.region === m.region ? 'here' : m.regionNameOf(l.region)),
-        el('span', 'market-state', l.state === 'open' ? `${Math.max(0, Math.ceil((l.expiresAt - ui.nowS()) / 3600))} hours left` : l.state));
+        el('span', 'market-state', l.state === 'open' ? `${plural(Math.max(0, Math.ceil((l.expiresAt - ui.nowS()) / 3600)), 'hour')} left` : l.state));
       if (l.state === 'open') li.append(button('market-cancel', 'Cancel', () => act(() => m.book.cancel(l.id, m.mint), 'Cancelled. The goods are back; the fee is kept.')));
       ul.append(li);
     }
@@ -365,25 +460,49 @@ export function createMarketTab(m, ui) {
     if (trades.length) {
       box.append(el('h4', null, 'Your trades'));
       const tl = el('ul', 'market-list');
-      const verb = { bought: 'Bought', sold: 'Sold', filled: 'Filled an order with', ordered: 'Your order took' };
+      // AUDIT 30 U15: the Marks each trade moved - paid with its courier, or taken after the tax and the Tithe
+      const verb = { bought: ['Bought', 'paid'], sold: ['Sold', 'to you'], filled: ['Filled an order with', 'to you'], ordered: ['Your order took', 'paid'] };
       for (const t of trades) {
         const what = t.kind === 'piece' ? 'a crafted piece' : `${t.units} ${m.countName(t.material, t.units)}`;
-        tl.append(el('li', 'market-trade', `${verb[t.side] ?? t.side} ${what} for ${t.total.toLocaleString('en-US')} Marks - ${agoText(t.at, ui.nowS())}`));
+        const [v, way] = verb[t.side] ?? [t.side, ''];
+        tl.append(el('li', 'market-trade', `${v} ${what} - ${marksText(t.total)} ${way} - ${agoText(t.at, ui.nowS())}`));
       }
       box.append(tl);
     }
     return box;
   }
 
+  /** AUDIT 30 U8, A12: the field that had the focus keeps it through a redraw (a read's answer redraws the tab). */
+  const focusNow = () => {
+    const a = /** @type {any} */ (globalThis.document?.activeElement);
+    const key = a?.getAttribute?.('data-focus');
+    if (!key) return null;
+    let at = null;
+    try { at = [a.selectionStart, a.selectionEnd]; } catch { /* a number field has none */ }
+    return { key, at };
+  };
+  const refocus = (box, was) => {
+    if (!was) return;
+    Promise.resolve().then(() => {
+      const n = /** @type {any} */ ([...box.querySelectorAll('input, select')].find((x) => x.getAttribute('data-focus') === was.key));
+      if (!n || !n.isConnected) return;
+      n.focus?.();
+      if (was.at && was.at[0] != null) { try { n.setSelectionRange(was.at[0], was.at[1]); } catch { /* none to set */ } }
+    });
+  };
+
   /** The tab's body. */
   function body() {
+    const was = focusNow();
     const box = el('div', 'notice-body market-body');
     box.append(viewsNode());
     const road = roadNode();
     if (road) box.append(road);
     if (st.error && !st.data) {
-      const shut = ['market-closed', 'prof-need-account', 'no-session', 'auth'].includes(st.error);
-      const p = el('p', 'notice-empty', shut ? 'The market is not open to you.' : 'The counting-house is not answering. The market cannot be read now.');
+      // AUDIT 30 U11: the service's own word - a shut market, or a session to sign in again for
+      const shut = SHUT.includes(st.error);
+      const p = el('p', 'notice-empty', shut ? accountRefusalText(st.error) : st.error === 'offline' || st.error === 'server'
+        ? 'The counting-house is not answering. The market cannot be read now.' : accountRefusalText(st.error));
       if (!shut) p.append(button('notice-retry', 'Try again', () => load(true)));
       box.append(p);
       return box;
@@ -391,8 +510,7 @@ export function createMarketTab(m, ui) {
     if (st.loading && !st.data) box.append(el('p', 'notice-empty', 'Reading the market...'));
     if (st.view === 'materials' || st.view === 'crafted') {
       box.append(filtersNode(st.view === 'materials' ? MARKET_FAMILIES : CRAFTED_FAMILIES));
-      const needle = st.query.trim().toLowerCase();
-      const rows = (st.data?.rows ?? []).filter((r) => st.view === 'crafted' || !needle || m.name(r.material).toLowerCase().includes(needle));
+      const rows = [...(st.data?.rows ?? [])].sort((a, b) => landed(a) - landed(b) || a.price - b.price);
       const list = el('div', 'market-rows');
       for (const r of rows) {
         list.append(st.view === 'materials' ? materialRow(r) : pieceRow(r));
@@ -405,12 +523,15 @@ export function createMarketTab(m, ui) {
     else if (st.view === 'orders') {
       box.append(filtersNode(MARKET_FAMILIES));
       const ul = el('ul', 'market-list');
-      for (const o of (st.data?.orders ?? []).filter((x) => !x.mine)) ul.append(orderRow(o));
-      if (st.data && !(st.data.orders ?? []).some((x) => !x.mine)) ul.append(el('li', 'notice-empty', `No buy orders stand on the boards of ${m.regionName}.`));
+      // AUDIT 30 U7: this account's own orders stand among the region's, Withdraw beside them
+      const orders = st.data?.orders ?? [];
+      for (const o of orders) ul.append(orderRow(o));
+      if (st.data && !orders.length) ul.append(el('li', 'notice-empty', `No buy orders stand on the boards of ${m.regionName}.`));
       box.append(ul, orderForm());
     } else box.append(historyNode());
-    const foot = el('p', 'market-foot', `Your Marks: ${m.book.state.balance == null ? '-' : marksText(m.book.state.balance)}${st.stale ? ' - the market may be out of date' : ''}`);
+    const foot = el('p', 'market-foot', `Your Marks: ${balance() == null ? '-' : marksText(balance())}${st.stale ? ' - the market may be out of date' : ''}`);
     box.append(foot);
+    refocus(box, was);
     return box;
   }
 

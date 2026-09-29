@@ -1047,7 +1047,17 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .market-roadline { flex: 1 1 100%; margin: 0; }
 .market-listing.state-sold, .market-listing.state-cancelled, .market-listing.state-expired, .market-listing.state-removed { opacity: 0.62; }
 .market-foot { margin: 4px 0 0; font-size: 12px; letter-spacing: 0.08em; color: #e6dccb; text-shadow: 1px 1px 0 #050608; }
-@media (max-width: 640px) { .market-row { grid-template-columns: minmax(0, 1fr) auto; } .market-line { display: none; } }
+/* AUDIT 30 U5: a crafted row its own columns - its quality line the width the name gave up; at a phone's width two
+   even columns, every cell able to shrink (the name drew 0px, the price over the road) */
+.market-piece { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.4fr) auto minmax(0, 1.4fr); }
+.market-row > * { min-width: 0; }
+.market-where, .market-quality { overflow-wrap: anywhere; }
+/* AUDIT 30 U14: the board's parchment ink (#5a4630) on the market's dark boxes read 1.6:1 - the market's own, and none
+   of the popup's upper case and rule */
+.market-body .notice-hint, .market-body .notice-label { color: #cdbd9f; }
+.market-body .notice-hint { margin: 0; padding: 0; border-top: 0; font-size: 12px; letter-spacing: normal; text-transform: none; text-align: left; font-style: italic; }
+@media (max-width: 640px) { .market-row, .market-piece { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .market-row > b { grid-column: 1 / -1; }
+  .market-line { display: none; } }
 @media (prefers-reduced-motion: reduce) { .prof-glint { animation: none; } .prof-toast { transition: none; } }`;
 export const ITEM_FRAME_CSS = `
 /* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */

@@ -348,7 +348,7 @@ DECIDED (Mac: "tree chopping, picking up ingredients, fishing, etc. Active playe
 
 | Profession | The act | The skill moment | Clean gives |
 |---|---|---|---|
-| **Logging** | Swing at the trunk: tier 1-2 trees take **5** chops, 3-4 take **6**, 5-6 take **8** (Lumberjack -2, at least 3). The tree creaks at half, leans, and falls away from you (the flat tips over and fades in 1.5 s; the Morrowind model falls). Logs drop at its foot and are taken by walking over them. A stump stands for the rest of your day. | **The ring**: a circle shrinks onto the trunk's notch over **900 ms**; strike while it is inside the band - **±12%** of the notch's radius at Novice, **±20%** at Master - for a **Clean Cut** (worth 2 chops) | fewer swings; Heartwood 2% a Clean Cut |
+| **Logging** | Swing at the trunk: tier 1-2 trees take **5** chops, 3-4 take **6**, 5-6 take **8** (Lumberjack -2, at least 3). The tree creaks at half, leans, and falls away from you (the flat tips over in 1.5 s and is gone - no fade, AUDIT 30 R10; the Morrowind model falls). Logs drop at its foot and are taken by walking over them. A stump stands for the rest of your day. | **The ring**: a circle shrinks onto the trunk's notch over **900 ms**; strike while it is inside the band - **±12%** of the notch's radius at Novice, **±20%** at Master - for a **Clean Cut** (worth 2 chops) | fewer swings; Heartwood 2% a Clean Cut |
 | **Mining** | Strike the vein: tiers 1-2 take **4** strikes, 3-4 **5**, 5-6 **7**. It cracks in stages (crack decals) and sheds chunks. | **The glint**: one of five points on the vein face glints for **1.2 s** (**2 s** at Master) and moves after every strike; a strike within the glint's radius counts **double** | a gem chance 3% a clean strike; a **clean finish** (every strike on the glint) raises the ore one quality step |
 | **Quarrying** (Mining, on a rock field's boulders) | As Mining; yields Rough Stone | As Mining | Cut Stone directly on a clean finish (Stonebreaker always) |
 | **Herbalism** | Kneel at the plant (E). A common herb comes up in **0.8 s**. | **The steady hand**, for uncommon and rare herbs with the sickle: hold E for **2.5 s** while a meter fills; turning the view more than **3 degrees** or moving **bruises** the herb | an unbruised herb (+5% Alchemy Potent chance each, 9.3); a bruised one yields 1 less (at least 1) |
@@ -874,16 +874,18 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
   first specialisation's row, found by its id before the switch; a paid change keeps its Marks line, which names its
   track)
 - `recipes_known` (player, char_id, recipe) - not yet: every recipe unlocks by rank until the found ones come (PROF6)
-- `products` (provenance PK, template, material, quality, maker, made_at, listed, condition, enchantments JSON) - a
-  listing writes the item's condition and enchantments as the pack held them, and the buyer receives exactly that -
-  BUILT, `0023_smithing.sql` (PROF3: provenance, owner, char_id, maker, recipe, template, material, quality, seed, record,
-  made_at, listed; condition and enchantments come with the listing, PROF5), with `prof_crafts` (a craft's row) and
-  `prof_stock` (a purchase from the smith's stock); `0024_logging.sql` (PROF4) adds `products.marked` (the maker's mark
-  a Masterwork or a Master Joiner's piece carries) and `prof_crafts.heartwood`
+- `products` (provenance PK, template, material, quality, maker, made_at, listed) - BUILT, `0023_smithing.sql` (PROF3:
+  provenance, owner, char_id, maker, recipe, template, material, quality, seed, record, made_at, listed), with
+  `prof_crafts` (a craft's row) and `prof_stock` (a purchase from the smith's stock); `0024_logging.sql` (PROF4) adds
+  `products.marked` (the maker's mark a Masterwork or a Master Joiner's furniture carries) and `prof_crafts.heartwood`.
+  No condition and no enchantments (AUDIT 30 R2: this line promised both): a listed piece's wear rides its listing
+  (`market_listings.wear`, in thousandths, PROF5) and the buyer's piece is minted again from its record at that wear -
+  so only a piece still as minted lists (section 26)
 - `marks` (account, balance); `guild_marks` (guild_id, balance); `marks_ledger` (seq, src_kind, src_id, dst_kind,
   dst_id, kind, amount, day, at, actor, who, rid) - BUILT, `0018_marks.sql` (AUDIT 28: this line gave the first sketch)
-- `market_listings` (id, region, seller, material or provenance, qty, price, expires_at); `market_orders`;
-  `couriers` (buyer, goods, arrives_at) - BUILT, `0025_market.sql` (PROF5, section 26: `market_listings` - a material's
+- `market_listings` (id, region, seller, material or provenance, qty, price, expires_at); `market_orders` - BUILT,
+  `0025_market.sql`; no `couriers` table (AUDIT 30 R14: this line named one as built) - a courier rides its sale's row
+  and a piece's delivery (PROF5, section 26: `market_listings` - a material's
   units own and bought apart, a piece's provenance and wear, its fee, state and return; `market_sales` - a purchase's
   row, its tax, courier, road and arrival, the couriers' loads; `market_deliveries` - a piece on its way to a pack, bought
   or come back; `market_orders` and `market_fills`; `market_prices`, the History's day table; `market_reports`), with the
@@ -899,7 +901,9 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
   exchange, guild; the report's medians with PROF5), `/v1/board/*` (notes), `/v1/market/*` (BUILT with PROF5: read, list,
   buy, cancel, order, fill, unorder, collect, report, remove), `/v1/writs/*`.
 - Law modules (pure, shared by client and service): marksLaw.js, boardLaw.js, professionLaw.js, nodeLaw.js and
-  kingdomLaw.js (built - the last PROF2's, SEAT0 4.3's map); recipeLaw.js (built, PROF3; Carpentry's with PROF4) and productRecord.js (PROF3's signed record).
+  kingdomLaw.js (built - the last PROF2's, SEAT0 4.3's map); recipeLaw.js (built, PROF3; Carpentry's with PROF4) and
+  productRecord.js (PROF3's signed record); marketLaw.js (built, PROF5 - the market's bounds, fees, tax, courier and
+  road; AUDIT 30 R15: this line left it out).
 - The relay: the activity field on the pose (a `RELAY_VERSION` and LAW row); the in-person check for deliveries.
 
 ## 15. The slices, in order
@@ -1285,7 +1289,8 @@ instruction), and what was found (FACT):
   the Enhanced skin, AUDIT 29). The Forge is a section of the Stores page (`ui/profPages.js`, the Enhanced pause menu;
   the classic skin's has no pages - **FLAGGED**), live while
   the player stands inside a Weaponsmith's or an Armorer's (`scenes/worldModes.js` forgeHere; the fee paid on the
-  service's answer, never on a repeat) or their own home with a forge station, whose press opens the pause menu at
+  first answer the press hears, a `repeat` included - AUDIT 29 C3; AUDIT 30: "never on a repeat" stood here since) or
+  their own home with a forge station, whose press opens the pause menu at
   the Stores page. FACT: the service cannot see the forge (as it cannot see the board, section 22): the inputs are the
   Stores' and their units are the bound.
 - **The Court writs** ask metal and stone too: a witnessed pixel's vein metals (a confirmed pixel's all, an unconfirmed
@@ -1347,8 +1352,10 @@ Mac: **"Lets keep moving"** (PROF3 after the merge of main). What the design abo
 - **The anvil is the forge's other half.** FACT: "the forge stands since PROF2" (section 15) - a Weaponsmith's or an
   Armorer's, or a home's forge station, the Stores page's Forge section (`ui/profPages.js`). DECIDED: the anvil stands
   wherever the forge does - smelting is the forge's, smithing the anvil's - as its own section of the Stores page (named,
-  not pictured - as built, below). A smith's anvil asks the forge's use fee (50 gold a craft, the purse's,
-  paid on the service's answer and never on a repeat - the smelt's rule); a home's asks none.
+  not pictured - as built, below). A smith's anvil asks the forge's use fee (50 gold a craft, the purse's); a home's
+  asks none. The fee rides the kept craft (`net/profBook.js` craft's `fee`) and is paid by the tab that mints its
+  pieces, on whichever answer lets the craft go - the press's or a later settle's, a repeat included (`scenes/world.js`
+  profMintCraft; AUDIT 30 R9: this line said the service's answer and never a repeat).
 - **The fittings the professions do not yet yield** (FOUND): 9.3 asks Cured Leather of every blade from a Broadsword up
   and of every piece of plate, Oak Plank of the axes, hammers, shields and the Spade, Pine Plank of the tools, and
   Charcoal of Steel - Hunting (PROF7) and Logging (PROF4) come after this slice, so only a dagger or a shortsword could
@@ -1359,8 +1366,9 @@ Mac: **"Lets keep moving"** (PROF3 after the merge of main). What the design abo
   will always undersell it once the professions come), up to 100 a purchase. So Steel is smelted now, and chain made.
   Their pack forms wait for their professions: the Stores hold them and the anvil and the forge spend them; the Stores
   page does not withdraw them until PROF4 and PROF7 register their templates (FACT: none of 645, 646, 652, 665 is a
-  template yet). The service cannot see the forge (FACT, section 23): it sells wherever it is asked, and the client asks
-  only at a smith's - a lie buys the same goods at the same price.
+  template yet - PROF4 registered 645, 646 and 652, so the planks and Charcoal withdraw now and Cured Leather alone
+  waits, AUDIT 30 R3). The service cannot see the forge (FACT, section 23): it sells wherever it is asked, and the
+  client asks only at a smith's - a lie buys the same goods at the same price.
 - **The recipes** (9.3), each a product at a metal: the weapons (Dagger, Tanto; Shortsword, Wakizashi; Broadsword,
   Saber, Longsword, Katana, Mace, Flail; Warhammer, Battle Axe, War Axe; Claymore, Dai-katana - DFU's templates 113-128
   but the Staff, a carpenter's), the plate (Cuirass, Greaves, Helm, Left and Right Pauldron, Gauntlets, Boots) and the
@@ -1369,9 +1377,10 @@ Mac: **"Lets keep moving"** (PROF3 after the merge of main). What the design abo
   (4.7). The chain pieces (the plate's seven, not the shields - DFU has no chain shield): the plate piece's ingots x
   0.75 rounded up, Steel only, nothing else. Foraging's tools at Iron (FORAGE0 14.7): the Wood-Axe and the Pick-Axe 2
   Iron Ingot and 1 Pine Plank, the Sickle 1 and 1, at rank 0; the Spade 2 Iron Ingot and 1 Oak Plank at rank 10 (the
-  Skinning Knife is PROF7's, its template with it). The Repair Kit (692) at every metal: 1 of the metal's ingot and 1
-  Cured Leather. A recipe's rank is its material's tier's (3.2: 0, 10, 25, 40, 55, 70, 90); every recipe unlocks by rank
-  in PROF3 - the found ones come with the writs.
+  Skinning Knife is PROF7's, its template with it). The Repair Kit (692) at every metal but the Warforged
+  (`recipeLaw.js` KIT_INGOTS; AUDIT 30 R11: this line said every metal): 1 of the metal's ingot and 1 Cured Leather. A
+  recipe's rank is its material's tier's (3.2: 0, 10, 25, 40, 55, 70, 90); every recipe unlocks by rank in PROF3 - the
+  found ones come with the writs.
 - **The quality** (9.2), rolled by the service's CSPRNG on the margin (the smith's rank minus the recipe's), then a
   step each, at most, for: a clean act (the honest bound: one step, 5.1); the family's specialisation (Weaponsmith the
   weapons; Armoursmith the plate, the chain and the shields); a Warforged ingot among the inputs. Nothing passes
@@ -1387,9 +1396,12 @@ Mac: **"Lets keep moving"** (PROF3 after the merge of main). What the design abo
   so the piece is the record's on every client. It carries `quality`, `provenance` and `maker` (declared item fields,
   riding the save as Loot Rarity's `rarity` does - section 18).
 - **The product record** (9.1): `p1.<claims>.<signature>` - the provenance id (16 hex digits, the service's CSPRNG,
-  unique across the server), the account, the character, the recipe, the quality, the maker and the seed - signed with
-  the account service's identity key (a raid receipt's shape, `net/raidReceipt.js`: the version inside the signed bytes,
-  claim fields disjoint from every other signed shape's). The service keeps it in `products` (section 14: provenance,
+  unique across the server), the account, the character, the recipe, the quality, the maker and the seed, and `a: 1`
+  where the piece bears its maker's mark (a Masterwork, or a Master Joiner's furniture - AUDIT 30, so the name is the
+  service's word too) - signed with the account service's identity key (a raid receipt's shape, `net/raidReceipt.js`:
+  the version inside the signed bytes, claim fields disjoint from every other signed shape's). The maker's name is
+  `recipeLaw.js` makerName's (controls and lone surrogates dropped, 32 characters, no pair split), and a record longer
+  than its reader's 512 is never minted (AUDIT 30). The service keeps it in `products` (section 14: provenance,
   owner, template, material, quality, maker, made at) and the piece carries only its id - a signature is longer than the
   trade wire's string bound (FACT, `systems/loot.js` validLootItem: 128).
 - **The heat** (9.4): at the anvil, the ingot's glow rises and falls; strike three times while it is in the band. The
@@ -1412,7 +1424,9 @@ As built:
   `/v1/prof/craft` and `/v1/prof/stock`. A craft's decision is one INSERT - every input held, the XP under the crafter's
   limit with the first craft's 500 read in the same statement - and the spends, the pieces and the track follow it in
   the batch, keyed on its nonce; a purchase's is one INSERT too (the Marks held, the Stores' room), its `stock` line in
-  the one ledger and its bought units keyed the same way. The Stores refuse to withdraw the stock (`prof-no-pack-form`).
+  the one ledger (a plain INSERT under `<rid>:stock`, AUDIT 30) and its bought units keyed the same way. The Stores
+  refuse to withdraw what has no pack form (`prof-no-pack-form`) - of the stock, Cured Leather alone since PROF4
+  registered the planks' and Charcoal's templates (AUDIT 30 R3: this line said all of it).
 - **The law** is `src/net/recipeLaw.js` (the recipes, 307 of them; the quality's rows, steps and effects; the XP; the
   heat; the maker's name; a piece's lines) and `src/net/productRecord.js` (`p1`, minted by the service, read by the
   client, verified with the identity key); the smith's stock is `professionLaw.js`'s (SMITH_STOCK, withdrawable).
@@ -1431,9 +1445,11 @@ As built:
   the chosen recipe's inputs as the Stores hold them, and at a smith's forge a "Buy N from the smith" beside a short
   fitting; the odds at the smith's margin; **Craft** (the heat, unless Gentle acts) and **Quick craft**. The heat is a
   bar the glow's marker runs along with the band on it and the three strikes under it; Space, Enter or Strike strikes;
-  "Let it cool" lets it go; the page shut under it lets it go too. The piece's picture of DFU's anvil (INVE's) is not
-  drawn - FACT: the Stores page is the Enhanced menu's DOM, and DFU's container images are classic-window art
-  (`ui/targetIconPanel.js`), so the section is named, not pictured.
+  "Let it cool" lets it go; the page shut under it lets it go too. While it is struck nothing else is picked - the
+  families, the metals, the recipes and the Heartwood stand - and the heat makes the recipe it began on (AUDIT 30). A
+  smith's fee the purse cannot meet is not offered: "The smith asks 50 gold a craft; you carry N." The piece's picture
+  of DFU's anvil (INVE's) is not drawn - FACT: the Stores page is the Enhanced menu's DOM, and DFU's container images
+  are classic-window art (`ui/targetIconPanel.js`), so the section is named, not pictured.
 - **The Repair Kit** (692) is registered with the ores and ingots (`systems/profTemplates.js`), DFU's Warhammer's world
   picture dyed by its metal. DECIDED: **used from the pack, it mends the most-worn weapon or armour of its metal** (the
   lowest share of its condition left, an equipped piece first on a tie) by a quarter of its condition, never past whole,
@@ -1480,18 +1496,19 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   below the ground in its batch (the batch rewritten in place, `render/renderer.js` moveBillboardBatch) for the rest of
   the character's UTC day; on a pixel rebuilt, the node is gone and sunk again.
 - **The act** (5.2): the Wood-Axe drawn as DFU's War Axe (template 128), its chop StrikeDownRight's frames (FORAGE0
-  14.1). Chops 5 (tiers 1-2), 6 (3-4), 8 (5-6), Lumberjack two fewer, three at least. **The ring**: a circle shrinks from
-  three times the notch's radius onto it over **0.9 s** and on past it; a chop while it stands within the band - **12%**
-  of the notch's radius at Novice to **20%** at Master, x the Wood-Axe's band ((INT + STR) / 2, Foraging's pair, FORAGE0
-  14.4) - is a **Clean Cut**, worth two chops. One chop a 0.45 s swing; the ring starts again after each. A **clean act**
-  is every chop a Clean Cut. The tree creaks at half its chops. Gentle acts: every chop plain.
-- **The fall**: on the service's answer the tree tips away from the player and fades over **1.5 s** (the flat's own
-  picture on a one-flat batch, leaned about its root by a per-batch tip the billboard shader gains - `uTip`, 0 for every
-  other batch), and its **stump** stands - the climate archive's Tree Trunk (record 19) where World of Daggerfall's table
-  names one (504, 506, 508, 510), else nothing. **The logs at its foot** are DFU's own Logs flat (record 31) where the
-  archive has one (504, 508), gone when the player walks over them - a sight, not a second door: the logs were the
-  Stores' the moment the service answered (law 3). The answer is waited for, as every node greys only when the service
-  confirms (section 19).
+  14.1). Chops 5 (tiers 1-2), 6 (3-4), 8 (5-6), Lumberjack two fewer, three at least (the prompt counts them so,
+  AUDIT 30). **The ring**: a circle shrinks from three times the notch's radius onto it over **0.9 s** and on past it; a
+  chop while it stands within the band - **12%** of the notch's radius at Novice to **20%** at Master, x the Wood-Axe's
+  band ((INT + STR) / 2, Foraging's pair, FORAGE0 14.4) - is a **Clean Cut**, worth two chops. One chop a 0.45 s swing;
+  the ring starts again after each. A **clean act** is every chop a Clean Cut. The tree creaks at half its chops. Gentle
+  acts: every chop plain.
+- **The fall**: on the service's answer the tree tips away from the player over **1.5 s** (the flat's own picture on a
+  one-flat batch, leaned about its root by a per-batch tip the billboard shader gains - `uTip`, 0 for every other
+  batch) and is gone once it lies flat - it never fades (AUDIT 30 R10: this line said it faded); its **stump** stands -
+  the climate archive's Tree Trunk (record 19) where World of Daggerfall's table names one (504, 506, 508, 510), else
+  nothing. **The logs at its foot** are DFU's own Logs flat (record 31) where the archive has one (504, 508), gone when
+  the player walks over them - a sight, not a second door: the logs were the Stores' the moment the service answered
+  (law 3). The answer is waited for, as every node greys only when the service confirms (section 19).
 - **The yield** (section 6): a tree 2-4 logs, a march's +25%, the fraction a chance; **Resin** one tree in four (tier
   1, the service's dice, any ground); **Heartwood** 2% a Clean Cut (Forester x2), one at most, on confirmed ground only
   (a find, as a gem is). The act moves no logs - clean gives fewer chops, the Heartwood chance and the clean act's +50%
@@ -1499,9 +1516,9 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   chop clean. The harvest row's second find is a new column (`node_harvests.extra` - the Resin); the Heartwood rides the
   gem's (a Clean Cut's find, as a glint's).
 - **Heartwood** (4.2): FOUND - 4.8 gives it one template (654), so it is one material, not a tier-up plank of each wood.
-  DECIDED: tier 4 (a rare find worth a Teak plank's price); in any recipe that asks a plank - a carpenter's or a smith's
-  - one Heartwood may stand in for one plank, and it is 9.2's "Heartwood or a Warforged ingot" step: one step, never two
-  with a Warforged ingot.
+  DECIDED: tier 4 (a rare find worth a Teak plank's price); in any recipe that asks a plank and takes a quality - a
+  carpenter's or a smith's, never the arrows (`recipeLaw.js` takesHeartwood; AUDIT 30 R12) - one Heartwood may stand
+  in for one plank, and it is 9.2's "Heartwood or a Warforged ingot" step: one step, never two with a Warforged ingot.
 - **Sawing and burning** (4.2): no act, up to 100 logs a press, at no XP (DECIDED: a log's XP was its fall's; the forge's
   smelt pays Smithing because Smithing has no gathering of its own, and Logging does). A log saws to **2 planks** of its
   wood at a workbench (Timberwright 3); a log burns to **1 Charcoal** at a forge (Charcoal Burner 2) - the fire is the
@@ -1510,7 +1527,9 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   moved into the same rule).
 - **The workbench** (9.3: "Carpentry (a workbench)"): FACT: DFU's towns hold Furniture Stores (building type 7) whose
   shelves sell DFU's furniture (`systems/shopStock.js`, DECOR2b's furnisher). DECIDED: a Furniture Store's workbench,
-  open for trade, for **50 gold** a craft or a saw (the forge's fee), or a home's **workbench** station - HOME-STATIONS'
+  open for trade, for **50 gold** a craft or a saw (the forge's fee - a craft's riding the kept craft and paid by the
+  tab that mints it, as the anvil's is, section 24, AUDIT 30 R9; a saw's on its first answer, as a smelt's), or a
+  home's **workbench** station - HOME-STATIONS'
   fifth, its licence 50,000 gold as the forge's, offered only where the Stores page is. The Workbench is a section of the
   Stores page, live where it stands; its press at home opens the page, as the forge's does.
 - **Carpentry's recipes** (9.3), each at its wood (the recipe's tier and rank its wood's): the **Staff** (DFU 115) 3
@@ -1543,7 +1562,10 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   is the mean deviation from the grain against a tolerance - **18%** of the board's half-height, x Carpentry's band
   ((AGI + WIL) / 2 - DECIDED: a steady hand, Foraging's four bands) and widening to half again by Master (the trace's
   rule, 5.2); a pass whose mean deviation is within it, taking at least **1.2 s** and at most **4 s** (a plane is drawn,
-  not flicked), is clean - one step. A pass let go early starts again. Quick craft skips it; Gentle acts planes plain.
+  not flicked), is clean - one step. A pass's clock starts at its first forward move, and a jump between two pointer
+  events is scored along its chord every 0.025 of the board (`PLANE_ACT.step`), so a flick is no clean pass (AUDIT 30).
+  A pass let go early starts again - and moving with no button held lets it go. Quick craft skips it; Gentle acts
+  planes plain.
 - **The furniture goes to DECOR.** FACT: DECOR2b keeps a player's furniture in the save's `furnishings` (`scenes/
   worldModes.js` decorHome), its "Your things" rows, set down free as any model of its kind the owner chooses
   (`systems/decorFurnish.js`); a piece of furniture in the pack is never offered. DECIDED: a crafted table, chair or bed
@@ -1563,7 +1585,8 @@ As built:
   service is `acct24`; the table changes are `0024_logging.sql` - `node_harvests` rebuilt to learn the kind `logs` and a
   second find, `extra` (a tree's Resin; its Heartwood rides `gem`, the act's own find), every column carried and both
   indexes made again; `prof_crafts.heartwood` (a craft that spent one); `products.marked` (a piece that carries its
-  maker's mark - a Masterwork, or any a Master Joiner made). No new route: a tree is `/v1/prof/harvest`'s (kind `logs`),
+  maker's mark - a Masterwork, or furniture a Master Joiner made, `recipeLaw.js` carriesMark; AUDIT 30 N1: this line
+  said any piece a Master Joiner made). No new route: a tree is `/v1/prof/harvest`'s (kind `logs`),
   a burn and a saw are `/v1/prof/smelt`'s (the recipe names its station, the XP none), Carpentry's craft is
   `/v1/prof/craft`'s (the recipe names its profession - its rank, cap and track Carpentry's), the Linen is
   `/v1/prof/stock`'s (the counter `furnisher`), and a crafted piece is set down through DECOR's place route. The Ram Kit
@@ -1576,15 +1599,19 @@ As built:
 - **The trees** are the forest's own (`src/scenes/treeHost.js`): the streamed pixel keeps its nature flats' tree
   records and their batches (`scenes/world.js`), each law tree stands at the nearest one not already taken, and a felled
   tree's flat is sunk in its batch (`moveBillboardBatch`) - the stump (record 19) stood in its place and the Logs pile
-  (record 31) at its foot until the player walks over it. The fall is the billboard shader's (`render/renderer.js`
-  `uTip`: the way it falls, away from the player, and the angle it has leaned, over 1.5 s), its shadow dropped. The ring and its meter are
+  (record 31) at its foot until the player walks over it, each only where its archive has one (STUMP_ARCHIVES 504, 506,
+  508, 510; LOGS_ARCHIVES 504, 508 - AUDIT 30 R13). The fall is the billboard shader's (`render/renderer.js` `uTip`:
+  the way it falls, away from the player, and the angle it has leaned, FALL_ANGLE over FALL_S's 1.5 s, the batch then
+  destroyed - no fade, AUDIT 30 R10), its shadow dropped. The ring and its meter are
   `systems/chopAct.js` and `ui/profHud.js` (a bar under reduced motion); the Wood-Axe in the hand is DFU's War Axe.
 - **The workbench** is a section of the Stores page beside the Forge and the Anvil (`ui/profPages.js` drawWorkbench):
   the saws of the logs held, the families (Staves, Bows, Arrows, Furniture, Tools, Siege) and the woods, each recipe's
   inputs as the Stores hold them, a bed's Linen bought from the furnisher, "Use a Heartwood" where a recipe takes one,
   **Craft** (the plane, unless Gentle acts) and **Quick craft**. It stands at a Furniture Store (50 gold a craft or a
-  saw) or at a home's `workbench` station (DECOR, 50,000); away, the word says where. The Forge burns the logs held; the
-  Anvil lists the smith's recipes alone. The plane is `systems/planeAct.js`, drawn on the board's grain.
+  saw) or at a home's `workbench` station (DECOR, 50,000); away, the word says where; a fee the purse cannot meet is
+  not offered, the saws' nor the craft's (AUDIT 30). The Forge burns the logs held; the Anvil lists the smith's recipes
+  alone. The plane is `systems/planeAct.js`, drawn on the board's grain; while it is drawn nothing else is picked, and
+  the pass makes the recipe and the Heartwood it began with (AUDIT 30).
 - **The piece** (`systems/smithItems.js`): a staff and a bow DFU's at the wood's material with the quality laid on,
   arrows twenty in one stack with no provenance, furniture DFU's template worth its quality's condition multiplier and
   marked by its record; a marked piece's name is its maker's (`itemInfo.js`, `itemFields.js` `marked`). Furniture is
@@ -1623,9 +1650,10 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   - and the courier is the price of not going.
 - **The courier's road is witnessed** (SEAT0 3.2, "every fact the servers need that only ARENA2 knows"). FOUND: the
   hubs are the client's alone (`systems/regionHubs.js`, HUB1) and the service holds no map pixel. DECIDED: a new kind
-  in `world_witness`, **`hub`** - keyed by the region, its report the hub town's map pixel (`x,y`) - written by every
-  market act that crosses regions, from a week-old registered account, both ends' hubs (each client derives every
-  region's hub from its own MAPS.BSA, so it can witness both), as a harvest writes its pixel. The road between two
+  in `world_witness`, **`hub`** - keyed by the region, its report the hub town's map pixel (`x,y`) - written from a
+  week-old registered account, as a harvest writes its pixel: a listing, an order and a fill write the board's
+  region's hub alone, a purchase both ends' (each client derives every region's hub from its own MAPS.BSA, so it can
+  witness both - AUDIT 30 R8: this line said every act that crosses regions writes both). The road between two
   regions is the distance between their hubs' pixels, each read as the witnesses say it is: confirmed, else the answer
   most give, else the asking client's own - the unconfirmed answer is taken as given, because the lie it could carry
   (a short road) buys nothing the region's lie does not. `world_witness` is rebuilt to admit the kind (SQLite widens
@@ -1635,27 +1663,36 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   courier's time 15 minutes + 1 minute for every 10 pixels begun**. A listing in the buyer's own region travels no
   road: no fee, no wait.
 - **A listing of a material** (10.2): from the Stores of the character at the board, **1-5,000 units** it holds, at a
-  **unit price of 1 to 1,000,000 Marks**, for **72 hours**. The units leave the Stores at once, **bought ones first**
+  **unit price of 1 to 1,000,000 Marks**, its whole worth (units x price) at most the Marks cap (`MARKET_WORTH_MAX`,
+  else `bad-price` - AUDIT 30 N6), for **72 hours**. The units leave the Stores at once, **bought ones first**
   (a craft's rule, section 7 - so a character's own stay for writs), and the split is kept on the listing, so a cancel
   or an expiry returns each unit with the origin it left with. **The listing fee**: 1% of the listing's whole worth
   (units x price), rounded up, at least 1 Mark, burnt on listing and kept on a cancel.
 - **A listing of a crafted piece** (10.2, section 18): a piece with a provenance id, in the pack or among the home's
   things (crafted furniture not set down), whose id **this account owns** and which stands in **no other live listing**
-  (the product's `listed`, and a unique index on the open listings' ids); **a whole price of 1 to 1,000,000 Marks**; 72
+  (the product's `listed`, and a unique index on the open listings' ids); of a family the market lists - never arrows
+  (`marketLaw.js` pieceListable, `market-not-listable`); not on its way to the pack (`market-uncollected`) nor standing
+  in a home (`market-standing`); still as minted (below) - AUDIT 30; **a whole price of 1 to 1,000,000 Marks**; 72
   hours; the same fee. **The piece leaves the save when it is listed**: the book takes it out and keeps it before it
-  asks (ASYNC NEVER DROPS), puts it back on a refusal, and lets it go on the answer. Refused: an equipped piece
-  ("Unequip that first."), a locked one (itemLock's line), a piece with no provenance ("Only a crafted piece, with its
-  maker's record, lists on the market." - loot does not list, 10.2).
+  asks (ASYNC NEVER DROPS), puts it back on a refusal, and lets it go on the answer. The form offers only what may go:
+  a worn, locked or bound piece, or one enchanted since its craft, is left out of its choices (`scenes/world.js`
+  marketPieces), and a take that fails answers `bad-provenance`'s words ("Only a crafted piece, with its maker's
+  record, lists on the market." - loot does not list, 10.2) (AUDIT 30 N2: this line named "Unequip that first." and
+  the lock's line, which the form never shows).
 - **What the listing carries of the piece.** FOUND: `products` has no condition or enchantments (section 14's line
   deferred them to PROF5). DECIDED: the listing carries the piece's **wear** - its condition as a share of its most, in
   thousandths - and the buyer's piece is minted from its record with that share of its condition; a lie about wear is
   a Repair Kit's work bought for the listing fee (the piece listed "whole" and cancelled comes back whole), and the
-  buyer reads the wear on the card before buying. FOUND: nothing enchants a crafted piece but its record's seed (a
-  Superior's Magic roll and a Masterwork's Rare, re-rolled the same on every mint), so **no enchantments are carried**
-  - the column waits for PROF12's enchanting, which is the first thing that can change them.
+  buyer reads the wear on the card before buying ("worn to N%", 99 at most - AUDIT 30). **No enchantments are
+  carried**: the buyer's piece rolls its record's seed again (a Superior's Magic roll and a Masterwork's Rare, the same
+  on every mint). FOUND (AUDIT 30, correcting this line's "nothing enchants a crafted piece but its seed"): DFU's item
+  maker can enchant a crafted piece, and that work would be lost on the way - so **only a piece still as minted lists**,
+  no enchantment but its quality's roll (`systems/smithItems.js` asMinted).
 - **The limits**: **30 live listings an account** (materials and pieces together) and **20 live buy orders** (10.2,
-  10.3); **60 postings an hour** (a listing or an order, section 20); **120 market acts an hour** besides (a buy, a
-  fill, a cancel, a collect - the Marks' own hourly rate, `MARKS_OPS_MAX`).
+  10.3); **60 postings an hour** (a listing or an order, section 20 - `MARKET_POSTS_MAX`, the counter
+  `market-post:<player>`); **120 market acts an hour** besides (a buy, a fill, a cancel, a collect, an order withdrawn,
+  a report - the market's own `MARKET_OPS_MAX` and counter `market:<player>`, not the Marks'; AUDIT 30 N5: this line
+  named `MARKS_OPS_MAX`).
 - **Buying** (10.4: "the buyer always pays the listed price"): a material in part (1 to the units left), a piece
   whole; the buyer's own listing is refused (`market-own` - a cancel is the way back; wash-trading between one's own
   accounts stays allowed and visible, section 20). **Here** - the listing in the board's region - a material goes
@@ -1663,41 +1700,55 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   piece comes to the pack (furniture to the home's things) on the answer, kept before it is asked and minted once.
   **Elsewhere** the goods go by courier: the sale is written with the time they arrive; a material enters the Stores
   on the buyer's first read after it (a full Stores keeps it at the counting-house, "waiting for room", until there is);
-  a piece is collected by the buyer's book once it has arrived, kept and minted once the same way.
-- **The seller is paid at the sale**, wherever they are: the price less **the sales tax - 5% of the sale, rounded
-  down** (DECIDED: a one-Mark sale is not taxed to nothing; a tier-1 material is worth one Mark) - and less the Tithe
-  (nought, above); refused only if it would carry the seller past the Marks cap (`market-seller-full`).
+  a piece is collected by the buyer's book once it has arrived, kept and minted once the same way - and only by the
+  piece's owner (AUDIT 30).
+- **The seller is paid at the sale**, wherever they are: the price less **the sales tax - 5% of the listing's running
+  total, rounded down, less what its earlier sales paid** (`marketLaw.js` saleTaxOn - so a purchase split into parts
+  pays the tax it would have bought whole, and another sale between the look and the buy is `market-price-moved`;
+  AUDIT 30, where this line taxed each sale alone) (DECIDED: a one-Mark sale is not taxed to nothing; a tier-1
+  material is worth one Mark) - and less the Tithe (nought, above); refused only if it would carry the seller past the
+  Marks cap (`market-seller-full`).
 - **The owner moves at the sale.** A sold piece's `products.owner` becomes the buyer's account in the sale's own batch
   (section 18: "a market sale hands it over by itself"); `char_id` stays its maker's character. FOUND: `products`'
   owner cascades on the account's deletion, against section 20's "`products` forever"; DECIDED: rebuilt without the
   cascade - a piece's row outlives its owner's account, and an owner that is gone never lists it again.
-- **Buy orders** (10.3): a material, **1-5,000 units**, a unit price of 1 to 1,000,000 Marks, posted at a board for
-  **7 days**; **the Marks are escrowed when it is posted**, no fee (10.4 names none). Any character at a board of the
-  order's region **fills it from its Stores**, in whole or in part, **bought units first**; the filler is paid the price
-  less the tax from the escrow; the units reach the orderer's posting character's Stores **at once, as bought** (an
-  order buys "here" - where it was posted), refused past that Stores' room (`market-order-full`). Its own poster may
-  not fill it. A cancel or the seventh day returns the rest of the escrow.
+- **Buy orders** (10.3): a material, **1-5,000 units**, a unit price of 1 to 1,000,000 Marks, the whole (units x
+  price) at most the Marks cap (`bad-price`), posted at a board for **7 days** - never a material nothing yields, the
+  Daedric and Warforged ingots and the Bear Hide (`marketLaw.js` UNYIELDED, `market-unyielded`; the catalogue leaves
+  them out) - AUDIT 30 N6; **the Marks are escrowed when it is posted**, no fee (10.4 names none). Any character at a
+  board of the order's region **fills it from its Stores**, in whole or in part, **bought units first**; the filler is
+  paid the price less the tax from the escrow (on the order's running total, as a listing's - AUDIT 30); the units reach
+  the orderer's posting character's Stores **at once, as bought** (an order buys "here" - where it was posted), refused
+  past that Stores' room (`market-order-full`). Its own poster may not fill it. A cancel or the seventh day returns the
+  rest of the escrow.
 - **The escrow is the ledger's.** FOUND: `marks_ledger`'s ends are `mint`, `account`, `guild` and `burn`, `account`,
   `guild` - there is nowhere for Marks held for an order. DECIDED: a third end, **`escrow`**, its id the order's: the
   ledger is rebuilt to admit it (every line carried, its four triggers made again); an escrow end moves no balance by
   trigger (as `mint` and `burn` do not), and the order row holds what is left of its escrow, moved in the same batch as
   each line. The market's kinds (`MARKS_KINDS`): **`market-fee`**, **`market-tax`** and **`courier`** burn;
   **`market-sale`** (buyer to seller), **`order-escrow`** (account to escrow), **`order-fill`** (escrow to filler) and
-  **`order-return`** (escrow to account) move. Every one is decided in one statement keyed on its nonce, as PROF1-4's.
-- **Cancel, expiry and removal.** A seller cancels a listing whenever it stands: a material's units return to the
-  listing character's Stores (room permitting - a full Stores keeps them waiting as an arrival does), a piece comes back
-  to the pack on the answer. **An expired listing** (72 hours) leaves every board at once and its goods return the same
-  way on its seller's next read; an expired piece is collected like an arrival. **An expired order** returns its escrow
-  on its poster's next read. Each return is keyed on its row's own id, so it happens once.
+  **`order-return`** (escrow to account) move. Every act that moves Marks is decided in one statement keyed on its
+  nonce, as PROF1-4's (an order's return on the order's own id), and every line it writes a plain INSERT under the
+  request id and its own suffix - `:fee`, `:sale`, `:tax`, `:courier`, `:escrow`, `:fill`, a fill's tax `:filltax` (an
+  order's return `order-close:<id>`); a decision refuses a request id whose line the ledger already holds (`prof-rid`),
+  since the rows that answer a repeat are pruned and the ledger is not (AUDIT 30).
+- **Cancel, expiry and removal.** A seller cancels a listing whenever it stands: a piece comes back to the pack on the
+  answer, always; a material's units return to the listing character's Stores, and the cancel is refused
+  (`stores-full`) while they would not fit - the listing stands until there is room (`market.js` marketCancel;
+  AUDIT 30 R1: this line said the units wait). **An expired listing** (72 hours) leaves every board at once and its
+  goods return on its seller's next read - a material's once the Stores have room, waiting as an arrival does; an
+  expired piece is collected like an arrival. **An expired order** returns its escrow on its poster's next read. Each
+  return is keyed on its row's own id, so it happens once.
 - **Reports and removal** (section 20: "a listing may be reported and removed the same way"): a registered reader
   reports a listing once; a listing carries no words, so reports hide nothing - they are counted for the moderators
   (`MODERATOR_HANDLES`, `DEVELOPER_HANDLES`), who see the count on the card and remove it, its goods returned. A mute
   stops no trade: a listing says nothing.
-- **History** (10.2): every sale of a material adds its units at its unit price to the day's price table
-  (`market_prices`, day x material x price); **a material's median is the unit price its middle unit sold at over the
-  last 7 UTC days, across the Bay** (DECIDED: not a region's - a region's price is its own listings, which the card
-  shows beside it), and **its line is the seven days' medians**, a small polyline on its card. The History view lists
-  the week's traded materials, most units first (30), and "Your trades", this account's last 20 sales and purchases.
+- **History** (10.2): every sale of a material, and every fill of a buy order (AUDIT 30 N3), adds its units at its
+  unit price to the day's price table (`market_prices`, day x material x price); **a material's median is the unit price
+  its middle unit sold at over the last 7 UTC days, across the Bay** (DECIDED: not a region's - a region's price is its
+  own listings, which the card shows beside it), and **its line is the seven days' medians**, a small polyline on its
+  card. The History view lists the week's traded materials, most units first (30), and "Your trades", this account's
+  last 20 - its sales and purchases and the orders it filled or had filled, each at the Marks it moved (AUDIT 30 N3).
   The weekly report (`/v1/marks/report`) gains the medians of the twenty most-traded materials (10.5). Sales and prices
   are kept **90 days** (section 20), pruned on read.
 - **The Weavers' counter** (4.5): **Linen Bolt 2** and **Wool Bolt 3 Marks** a bolt, into the Stores as bought -
@@ -1705,19 +1756,26 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   PROF3's stock route (counter `weavers`). **Wool Bolt** (669, tier 2) is registered as Linen was, with no pack form
   until Outfitting. The furnisher's stock keeps its Linen (PROF4, section 25) at the same price, so the two counters
   never disagree.
-- **The window** (10.1, section 21's Market wireframe): the Materials view - search, family, tier, sort by price
-  (the courier counted for this board) - each row its units, its unit price, "here" or its region with "+N courier, M
-  minutes", its median and line; the picked row's "Buy N for P Marks + C courier?" and **Your Marks** (the Marks book's
-  balance - FOUND: the smith's stock answer never told the Marks book its balance; every market and stock answer does
-  now). Crafted - each piece's name as its record mints it, its quality, maker and wear. My listings - this account's,
-  with Cancel, the fee kept, and **List** (a Stores material, or a piece chosen from the pack and the home's things).
-  Orders - the region's open orders with **Fill N from the Stores**, this account's with Cancel, and **Post an order**.
-  History. **On the road**, atop the tab while anything travels: "40 Mithril Ore from Wayrest - 32 minutes".
+- **The window** (10.1, section 21's Market wireframe): the Materials view - search (the catalogue's materials its
+  words name, which the service reads), family, tier - its rows cheapest landed first, the unit price and the
+  courier's share of the pick (`ui/marketTab.js` landed; the service still orders by listed price - AUDIT 30 R5), each
+  row its units, its unit price, "here" or its region with "+N courier, M minutes", its median and line; the picked
+  row's "Buy N for P Marks + C courier?" and **Your Marks** (the market book's balance, which every market answer and
+  the Weavers' purchase tell - `marketBook.js` told; AUDIT 30 R7: this line said the Marks book's. FOUND: the smith's
+  stock answer never told the Marks book its balance; every market and stock answer does now). Crafted - each piece's
+  name as its record mints it, its quality, maker and wear, cheapest landed first too. My listings - this account's,
+  with Cancel, the fee kept, and **List** (a Stores material, or a piece chosen from the pack and the home's things),
+  and its buy orders with Withdraw. Orders - the region's open orders with **Fill N from the Stores** and each one's
+  median (no line - AUDIT 30 N8), this account's own among them with **Withdraw** (AUDIT 30 R6: this line said
+  Cancel), and **Post an order**. History. **On the road**, atop the tab while anything travels: "40 Mithril Ore from
+  Wayrest - 32 minutes".
 - **The book** (`net/marketBook.js`) is the board's shape (a minute's cache of every read, a stale read marked) and the
   profession book's (a listed piece, a bought piece and a collected piece KEPT before they are asked, minted or put back
-  once on the answer; one act at a time; every request gives up after fifteen seconds). FOUND: a kept craft (PROF3) was
-  settled only when a withdrawal was kept beside it - `pendingCrafts` had no reader - so a craft whose answer was lost
-  waited for an unrelated withdrawal; the Stores page settles either now, and the Market tab settles its own.
+  once on the answer; one act at a time, another meanwhile refused `market-busy`, the opening settle among them; every
+  request gives up after fifteen seconds; a kept act waits out `rate`, `no-session` and `auth` - AUDIT 30). FOUND: a
+  kept craft (PROF3) was settled only when a withdrawal was kept beside it - `pendingCrafts` had no reader - so a craft
+  whose answer was lost waited for an unrelated withdrawal; the Stores page settles either now, and the Market tab
+  settles its own.
 - **FOUND: PROF4's plane was drawn undressed.** Its board's SVG (`ui/profPages.js` planeBoard) carries the classes
   `prof-board`, `prof-grain`, `prof-trail`, `prof-boardhead` and `prof-plane`, and no rule in `src/` dressed them - an
   SVG polyline with no rule paints its fill black and its line not at all, so the grain was a black shape and the
@@ -1740,26 +1798,34 @@ As built:
 
 - **Behind three switches.** The market is open where `BOARD_OPEN`, `PROFESSIONS_OPEN` and `MARKS_OPEN` all are, at
   `dev` (server-account/src/market.js marketOpenFor); the service is `acct25`, its table changes `0025_market.sql` (section
-  14's line, BUILT). Ten routes, `/v1/market/*`; every act one statement keyed on its nonce, its row looked for before the
-  switch; every read, and a listing or an order before it is posted, settles its own account's expired listings and
-  orders and arrived loads first, one row a batch, twenty at a time.
+  14's line, BUILT). Ten routes, `/v1/market/*`; a listing, a purchase, a cancel, an order and a fill each one
+  statement keyed on its nonce, its row looked for before the switch; a collect one statement keyed on its request id,
+  which the delivery takes; an order withdrawn answers its repeat off the order's own state; a report (once a reader)
+  and a moderator's removal are keyed on nothing (AUDIT 30 N4: this line said every act); every read, and a listing or
+  an order before it is posted, settles its own account's expired listings and orders and arrived loads first, one row a
+  batch, twenty at a time.
 - **The law** is `src/net/marketLaw.js` (pure, both ends: the bounds, the fees, the tax, the Tithe's nought, the
   courier and its time, the road witnessed, a piece's wear, the median and its line, the catalogue); the ledger's seven
   market kinds are `marksLaw.js`'s; the witness law is nodeLaw.js `witnessedFact`, which now reads another kind's report
   by a `parse` handed to it (a pixel's by default, a hub's pixel for the road). Wool Bolt and the Weavers' counter are
   `professionLaw.js`'s.
 - **The window** is the board's (`ui/noticeWindow.js`): the Market tab beside Notices and Work while the market is the
-  account's, drawn by `ui/marketTab.js` (the one constructor, the window's alone), its acts through the window's
-  one-at-a-time door and status line; the tab is read on its first showing, the kept acts settled and the arrived pieces
-  collected first. The host (`scenes/world.js` openNoticeBoard) hands it the board's region, every region's hub as this
-  client derived it, the Stores, the pieces that may be listed (in the pack, not worn, locked or bound - TRADE1's
-  refusals - and the home's crafted furniture not set down), and the mint - a piece from its record at its wear, into
-  the pack or the home's things, once by its provenance id.
+  account's, drawn by `ui/marketTab.js` (the one constructor, the window's alone), its acts through a one-at-a-time
+  door of its own (the market's busy, not the board's) and the window's status line; the tab is read on its first
+  showing, the kept acts settled and the arrived pieces collected first - the settle an act like any other - and a
+  piece that arrives while the tab stands is collected then; an answer to a view since left is dropped; List, Post and
+  the Weavers' Buy are not offered where the fee, the board's limit (30 listings, 20 orders) or the balance would
+  refuse them (AUDIT 30). The host (`scenes/world.js` openNoticeBoard) hands it the board's region, every region's hub
+  as this client derived it, the Stores, the pieces that may be listed (in the pack, not worn, locked or bound -
+  TRADE1's refusals - and the home's crafted furniture not set down; none enchanted since its craft, AUDIT 30), and the
+  mint - a piece from its record at its wear, into the pack or the home's things, once by its provenance id.
 - **The book** is `net/marketBook.js`; every answer's balance goes to the Marks book, so the Bank's counter and the
-  account card read the same Marks.
+  account card read the same Marks, and the Stores counts it carries (`store`, `stores`) to the professions book
+  (AUDIT 30).
 - **Pinned**: `test/prof5_law.test.js` (7), `test/prof5_service.test.js` (8), `test/prof5_client.test.js` (6);
-  `tools/mutants/prof5.json`, 109 mutants, 106 dead and three recorded equivalent (the listing fee's floor, which no
-  listing's worth reaches; the catalogue's filter, which every key passes today; a reader's report count, dropped twice).
+  `tools/mutants/prof5.json`, 109 mutants, 105 dead and four recorded equivalent (the listing fee's floor, which no
+  listing's worth reaches; the catalogue's filter, which every key the unyielded leave passes today; a reader's report
+  count, dropped twice; since AUDIT 30 S7, a load's room guard at its delivery, which the settle's read now keeps).
   The done-when is `prof5_client`'s DONE WHEN, through the real Worker.
 
 ## Appendix A - a day of a gatherer
@@ -1780,7 +1846,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Template range | 600-699 (the Skinning Knife 603; the other tools are Foraging's 1600-1603, 1607) |
 | Ranks | Novice 0, Apprentice 25, Journeyman 50, Expert 75, Master 100 |
 | XP to rank n | 10 x n^2 |
-| XP a harvest / a craft / a first craft / a writ | 15 x tier (+50% clean; a quarter for a node or recipe more than two tiers below the rank's top) / 20 x tier x units / +500 / 2 x Marks value; answered as credited (AUDIT 29) |
+| XP a harvest / a craft / a first craft / a writ | 15 x tier (+50% clean; a quarter for a node or recipe more than two tiers below the rank's top) / 20 x tier a craft (AUDIT 30 R4: this row said x units) / +500 / 2 x Marks value; answered as credited (AUDIT 29) |
 | Tier ranks | 0, 10, 25, 40, 55, 70, 90 |
 | Crafts above Journeyman | 2 |
 | Respecialisation | 1,000 Marks, 7 days |
@@ -1797,7 +1863,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Tool wear | 1 an act; 50 harvests a Standard tool |
 | Tools crafted | Wood-Axe, Pick-Axe 2 Iron Ingot + 1 Pine Plank; Sickle, Skinning Knife 1 + 1; Spade 2 Iron Ingot + 1 Oak Plank (rank 10); Fishing-Net 2 Linen Bolt; Basket 2 Pine Plank; lives Crude 37, Standard 50, Fine 57, Superior 65, Masterwork 65 |
 | Skinning Knife | 603: 0.5 kg, 50 HP, 100 gold, rarity 10; online shelves only |
-| Smelting | 2 raw -> 1 ingot; Steel 1 Iron Ingot + 1 Charcoal; Brass 1 + 1; Smithing 10 x tier XP an ingot (a quarter more than two tiers below the rank's top, AUDIT 29), under the crafter's limit |
+| Smelting | 2 raw -> 1 ingot; Steel 1 Iron Ingot + 1 Charcoal; Brass 1 + 1; Smithing 10 x tier XP a unit smelted, however many ingots it yields (AUDIT 30 N7: this row said an ingot) - a quarter more than two tiers below the rank's top (AUDIT 29) - under the crafter's limit |
 | Logging | chops 5 / 6 / 8, ring 900 ms, band 12-20%, Heartwood 2% |
 | Mining | strikes 4 / 5 / 7, glint 1.2-2 s, gem 3% |
 | Herbalism | common 0.8 s, steady 2.5 s, 3 degrees |
@@ -1809,12 +1875,12 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Board's counters | Linen 2, Wool 3 Marks a bolt (the Weavers', PROF5 - 100 a purchase, bought units, no pack form); the Apothecaries' sixteen at a fifth of DFU's price in Marks, rounded up (4.5; with PROF12) |
 | Quality | the margin table (9.2); a step each, at most, for a clean heat, the family's specialisation and a Warforged ingot; Masterwright +5 Masterwork off the row's lowest (PROF3) |
 | The heat (PROF3) | three strikes; the glow's breath 2.0 s; the band from 0.62, 0.2 wide x (STR + AGI) / 2's band; 0.35 s between strikes |
-| The smith's stock (PROF3) | Cured Leather 4, Oak Plank 4, Pine Plank 2, Charcoal 2 Marks a unit (twice the Marks value), 100 a purchase, bought units |
+| The smith's stock (PROF3) | Cured Leather 4, Oak Plank 4, Pine Plank 2, Charcoal 2 Marks a unit (twice the Marks value), 100 a purchase, bought units; the planks and Charcoal withdraw since PROF4, Cured Leather not (AUDIT 30 R3) |
 | A piece's quality (PROF3) | condition x0.75 / 1 / 1.15 / 1.30 / 1.30; weight x1 / 1 / 0.95 / 0.90 / 0.90; Superior a Magic roll, Masterwork a Rare roll and the maker's mark; a tool's life 37 / 50 / 57 / 65 / 65 |
 | The Repair Kit (PROF3) | 1 ingot + 1 Cured Leather; a quarter of the most-worn piece of its metal, once; a Quartermaster's two; 10 gold + 10 a tier |
 | The woods (PROF4) | Pine 1, Oak 2, Cherry 3, Teak 4, Mahogany 5, Ironwood 6, Ghostwood 6; Ironwood and Ghostwood one tree in 20, confirmed ground only; an unconfirmed pixel's trees tiers 1-2 |
 | A tree (PROF4) | 2-4 logs (+25% a march); Resin one tree in four; Heartwood 2% a Clean Cut on confirmed ground, a Forester's 4%, one at most; Logging XP 15 x the tier |
-| The ring (PROF4) | chops 5 (tiers 1-2), 6 (3-4), 8 (5-6), a Lumberjack's two fewer, three at least; the circle from 3x the notch to it over 0.9 s and on to 0.5x; the band 12% (novice) to 20% (Master) of the notch x (INT + STR) / 2's band; a Clean Cut two chops; a swing 0.45 s; the creak at half; the fall 1.5 s |
+| The ring (PROF4) | chops 5 (tiers 1-2), 6 (3-4), 8 (5-6), a Lumberjack's two fewer, three at least; the circle from 3x the notch to it over 0.9 s and on to 0.5x; the band 12% (novice) to 20% (Master) of the notch x (INT + STR) / 2's band; a Clean Cut two chops; a swing 0.45 s; the creak at half; the fall 1.5 s, a tip and no fade (AUDIT 30 R10) |
 | Burning and sawing (PROF4) | a log a Charcoal at a forge (a Charcoal Burner's two); a log two planks at a workbench (a Timberwright's three); no XP |
 | The workbench (PROF4) | a Furniture Store's, 50 gold a craft or a saw; a home's `workbench` station, 50,000 gold |
 | Carpentry's recipes (PROF4) | staves 3 planks; short bows 3 and a Resin; long bows 4 and a Resin (DFU material by the wood: Pine Iron, Oak Steel, Cherry Silver, Teak Elven, Mahogany Mithril, Ironwood Adamantium, Ghostwood Ebony); arrows 20 of a Pine Plank, an Iron Ingot and 4 Twigs, no quality; tables 6 and 3 planks, chairs 2, beds 8 and 2 Linen; the Basket; the Ram Kit rank 60, later (SEAT2); XP 20 x the tier, +500 the first |
@@ -1825,10 +1891,10 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Station use fee in town | 50 gold |
 | Alchemy | 2 / 3 potions; Potent +25%, 10% / 20%, +5% an unbruised herb |
 | Enchanting | -10% / -20%; 1 Essence per 100 points |
-| Listings | 72 h, 30 an account, 1-1,000,000 Marks (a material's a unit, a piece's whole), 1-5,000 units; buy orders 20, 7 days; 60 postings and 120 market acts an hour (PROF5) |
-| Fees | listing 1% of the listing's worth, rounded up (min 1); sales tax 5%, rounded down (PROF5); the Tithe 0-10% / 0-15% from the seller, across the bailiwick (nought until SEAT1 holds a seat); courier ceil(ceil(units / 20) x (1 + px / 25)), min 2, px the hubs' straight line rounded; courier's time 15 min + 1 min per 10 px begun |
+| Listings | 72 h, 30 an account, 1-1,000,000 Marks (a material's a unit, a piece's whole), 1-5,000 units; a listing's or an order's worth at most 10,000,000 (the Marks cap, AUDIT 30); buy orders 20, 7 days; 60 postings and 120 market acts an hour, each its own counter (PROF5) |
+| Fees | listing 1% of the listing's worth, rounded up (min 1); sales tax 5% of a listing's (an order's) running total, rounded down, less what its earlier sales paid (PROF5; AUDIT 30); the Tithe 0-10% / 0-15% from the seller, across the bailiwick (nought until SEAT1 holds a seat); courier ceil(ceil(units / 20) x (1 + px / 25)), min 2, px the hubs' straight line rounded; courier's time 15 min + 1 min per 10 px begun |
 | The History (PROF5) | a material's median: the unit price its middle unit sold at over 7 UTC days, across the Bay (an even count's two middle units' mean); its line the seven daily medians; 30 materials shown, 20 trades; kept 90 days; the weekly report's 20 most traded |
-| A piece's wear (PROF5) | its condition over its most, in thousandths (1-1,000); the buyer's piece minted at that share, at least 1 |
+| A piece's wear (PROF5) | its condition over its most, in thousandths (1-1,000); the buyer's piece minted at that share, at least 1; read "worn to N%", 99 at most (AUDIT 30) |
 | Marks | ~10 gold of play; balance cap 10,000,000; Bank: 1 Mark -> 8 gold, 300 a day |
 | Faucets | Court writs 3 a day (from PROF1); gate 50 a receipt, 2 a UTC day; Honours 50 / 25; Motherlode 10, one a day |
 | Court writs | 6 x max(1, ceil(active / 100)) a region a day, witnessed materials only, 10-50 units, pay x 1.2, Renown 25 x tier x units / 10 |

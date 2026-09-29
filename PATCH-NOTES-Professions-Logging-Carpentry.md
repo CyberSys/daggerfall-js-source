@@ -3,7 +3,7 @@
 ## Logging (online)
 - The trees of the wilderness can be felled. Carry a **Wood-Axe**, look at a tree and press **E**: a ring closes on the notch. **Attack** to chop; a chop while the ring is on the notch is a **Clean Cut** and counts as two.
 - A tree takes 5 chops (Pine, Oak), 6 (Cherry, Teak) or 8 (Mahogany, Ironwood, Ghostwood). Better Intelligence and Strength widen the notch's band, and it widens as your rank rises.
-- The tree falls away from you and leaves a stump. Its logs go to your **Stores**; the pile at its foot is gone when you walk over it. A felled tree stands again the next day.
+- The tree tips over away from you and is gone. In the woodlands, the wooded hills, the haunted woods and the mountains it leaves a stump, and in the woodlands and the haunted woods a pile of logs at its foot, gone when you walk over it. The logs go to your **Stores** wherever you fell it. A felled tree stands again the next day.
 - A tree gives 15 Logging XP a tier, and half as much again if every chop was a Clean Cut. Each wood needs your Logging rank for its tier.
 - **Resin** comes from one tree in four. **Heartwood** comes from 2% of Clean Cuts, only in places someone has vouched for.
 
@@ -26,14 +26,14 @@
 - Foraging's **Basket** is made here, from 2 Pine Planks.
 - Each recipe needs your Carpentry rank for its wood.
 - The **Ram Kit** is listed for the sieges. It cannot be made yet.
-- Quality works as it does for Smithing. A **Heartwood** replaces one plank and adds a quality step, but it doesn't stack with a Warforged ingot's step.
+- Quality works as it does for Smithing. A **Heartwood** replaces one plank and adds a quality step (not in arrows), but it doesn't stack with a Warforged ingot's step.
 - **Craft** starts the **plane**: press at the head of the board and draw along the grain to its foot. Stay close to the grain and take between 1.2 and 4 seconds. A clean pass is one quality step better. Agility and Willpower widen the tolerance, and it is wider again at Master. **Quick craft** skips the plane.
 - A craft gives 20 Carpentry XP a tier of its wood, and 500 more the first time you make that recipe.
 
 ## Furniture in your home
 - A crafted table, chair or bed goes to your home's things, not your pack. **DECOR** sets it down like the furniture you buy.
 - Furniture is worth more the better its quality. It never comes enchanted.
-- A **Masterwork** piece, or any piece a **Master Joiner** makes, carries its maker's name: "Silverthorn's Oak Table". Visitors see the name, which the server writes from its own record.
+- A **Masterwork** piece, or any furniture a **Master Joiner** makes, carries its maker's name: "Silverthorn's Oak Table". Visitors see the name, which the server writes from its own record.
 
 ## Specialisations
 - **Lumberjack** (Logging 50): two chops fewer a tree, three at least.

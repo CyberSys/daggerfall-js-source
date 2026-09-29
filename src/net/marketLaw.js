@@ -21,7 +21,8 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { STORES_MAX, MATERIAL_FAMILIES, MINED_KEYS, FOOD_KEYS, PLANT_GROUP_TEMPLATES } from './professionLaw.js';
-import { PROVENANCE_RE } from './recipeLaw.js';
+import { PROVENANCE_RE, recipeById } from './recipeLaw.js';
+import { MARKS_MAX } from './marksLaw.js';
 import { witnessedFact, factConfirmed, material } from './nodeLaw.js';
 
 /** A listing stands this long (10.2: 72 hours). */
@@ -31,6 +32,8 @@ export const MARKET_ORDER_S = 7 * 86_400;
 /** Live listings an account (materials and pieces together) and live buy orders an account (10.2, 10.3). */
 export const MARKET_LISTINGS_MAX = 30;
 export const MARKET_ORDERS_MAX = 20;
+/** AUDIT 30 L8: a listing's or an order's whole worth (units x price), at most - what one balance can hold. */
+export const MARKET_WORTH_MAX = MARKS_MAX;
 /** A listing's or an order's units, at most: what one Stores can hold of a material (section 7). */
 export const MARKET_UNITS_MAX = STORES_MAX;
 /** A price - a material's a unit, a piece's whole (10.2: 1 to 1,000,000 Marks). */
@@ -88,6 +91,10 @@ export const provenanceOk = (p) => typeof p === 'string' && PROVENANCE_RE.test(p
 export const listingFee = (worth) => Math.max(1, Math.ceil(worth / 100));
 /** The sales tax on a sale (10.4: 5%), rounded DOWN - a one-Mark sale is not taxed to nothing (PROF0 26). */
 export const saleTax = (total) => Math.floor((total * MARKET_TAX_PCT) / 100);
+/** AUDIT 30 L6: the tax on a sale of `total` out of a listing (or a fill of an order) that has already sold `before`:
+ *  5% of the running total, rounded down, less what the earlier sales paid - so a listing bought a unit at a time pays
+ *  the tax it would have paid bought whole, and splitting a sale saves nothing. */
+export const saleTaxOn = (before, total) => saleTax(before + total) - saleTax(before);
 /** The Tithe on a sale at `pct` hundredths, rounded down (nought until SEAT1). */
 export const saleTithe = (total, pct = MARKET_TITHE_PCT) => Math.floor((total * pct) / 100);
 /** What the seller receives of a sale: the price less the tax and the Tithe (10.4). */
@@ -138,7 +145,7 @@ export function wearCondition(maxCondition, wear) {
   return Math.max(1, Math.min(maxCondition, Math.round((maxCondition * wear) / WEAR_WHOLE)));
 }
 /** A wear as a person reads it: "worn to 62%". Null for a whole piece. */
-export const wearText = (wear) => (wear >= WEAR_WHOLE ? null : `worn to ${Math.max(1, Math.round(wear / 10))}%`);
+export const wearText = (wear) => (wear >= WEAR_WHOLE ? null : `worn to ${Math.max(1, Math.min(99, Math.round(wear / 10)))}%`);   // AUDIT 30 L5: a worn piece never reads 100%
 
 /**
  * THE MEDIAN (10.2): the unit price the middle unit sold at - `rows` the day table's `{ price, units }` - weighted by
@@ -165,11 +172,19 @@ export function medianLine(rows, today, days = MARKET_MEDIAN_DAYS) {
 /** A median as a person reads it: "8", "8.5", or a dash with no sale. */
 export const medianText = (m) => (m == null ? '-' : Number.isInteger(m) ? String(m) : m.toFixed(1));
 
+/** AUDIT 30 L7: the materials nothing yields yet - an order for one could only hold its Marks for a week. The Daedric
+ *  Ingot waits on its heart and its stone (4.1, the Oblivion Gate's gift), the Warforged on a siege's Spoils (SEAT2), the
+ *  Bear Hide on Hunting (PROF7). */
+export const UNYIELDED = Object.freeze(['ingot:daedric', 'ingot:warforged', 'hide:bear']);
+/** AUDIT 30 L2: a crafted piece lists only of a family the market lists (CRAFTED_FAMILIES) - never arrows (a quiver's
+ *  stack, re-minted whole) nor a siege work. */
+export const pieceListable = (recipeId) => CRAFTED_FAMILIES.some(([f]) => f === recipeById(recipeId)?.family);
+
 /** EVERY MATERIAL THE MARKET KNOWS (a buy order's choices): the registry's, the four foods and every herb the law
- *  gives a tier - each `material()`'s standing, in the families' order. */
+ *  gives a tier - each `material()`'s standing, in the families' order - less what nothing yields yet. */
 export function marketCatalogue() {
   const herbs = Object.entries(PLANT_GROUP_TEMPLATES).flatMap(([g, ts]) => ts.map((t) => `${g}:${t}`));
-  const all = [...MINED_KEYS, ...FOOD_KEYS, ...herbs].map((k) => material(k)).filter(Boolean);
+  const all = [...MINED_KEYS, ...FOOD_KEYS, ...herbs].filter((k) => !UNYIELDED.includes(k)).map((k) => material(k)).filter(Boolean);
   const order = MATERIAL_FAMILIES.map(([f]) => f);
   return all.sort((a, b) => (order.indexOf(a.family) - order.indexOf(b.family)) || (a.tier - b.tier));
 }

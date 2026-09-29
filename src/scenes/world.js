@@ -330,7 +330,7 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, answered by this host
 import { registerContainerLootHandler } from '../systems/containerLoot.js';   // THE MERGE: CSA-H's shelf subscriber, by its mod's name, on PlayerActivate.OnLootSpawned's one home
-import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, isCraftedFurniture } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things
+import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, isCraftedFurniture, asMinted } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things
 import { heatBand, planeBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
@@ -489,7 +489,7 @@ import { createQuestBridge, tokensToRows } from './questBridge.js';
 import { loadQuestPack } from './questData.js';
 import { ensureFactionRep, getReputation, changeReputation } from '../systems/factionRep.js';
 import { changeLegalRep, legalRepOf, CRIMES, setCrimeCommitted } from '../systems/court.js';   // PlayerEntity.Update:498-511 reads the region's LegalRep and levies Criminal_Conspiracy
-import { isEquipped, unequipSlot } from '../systems/equip.js';
+import { isEquipped, unequipSlot, unequipItem } from '../systems/equip.js';
 import { ServiceFlowWindow } from '../ui/guildServiceWindows.js';
 import { makeItemPermanent } from '../systems/quest/item.js';
 import { guildOfFaction, membershipOf, guildFactionIdOfGroup, joinedGuildOfGroup, activeMemberships, guildInitiationQuestEnded } from '../systems/guilds.js';   // V2e: the per-read vampire book pick; F96: the TG/DB initiation listener
@@ -991,7 +991,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // Marks book the balance. Online only.
   const marketBook = params.has('online')
     ? createMarketBook({ door: accountMarket({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
-      character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, marks: marksBook })
+      character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, marks: marksBook,
+      stores: { apply: (st) => profBook?.applyStore(st) } })   // AUDIT 30 U1: what the market moves in the Stores, the Stores' count
     : null;
   /** PROF1/PROF2: the gathering professions in the streaming world (scenes/gatherHost.js) - made below, once the rig
    *  stands; declared HERE, before the first pixel is built, because every pixel's publish tells it (BOOT-TDZ2: a `let`
@@ -1005,8 +1006,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (got) townTalk.say(`${got} ${materialCountLabel(key, got)} taken from the Stores into your pack.`);
   };
   /** PROF3: a craft's pieces into the pack (systems/smithItems.js) - each once, by its provenance id: a piece the pack
-   *  already holds (another tab minted it) is not minted again. */
-  const profMintCraft = (data) => {
+   *  already holds (another tab minted it) is not minted again. AUDIT 30 C4: and the station's fee kept with the craft,
+   *  paid here - by the tab that mints it, on whichever answer lets it go (a kept craft settled a day later paid none). */
+  const profMintCraft = (data, kept = null) => {
+    if (kept?.fee > 0) deductGold(playerEntity, Math.min(kept.fee, totalGoldAmount(playerEntity)));
     // PROF4: the home's things too - a crafted table waits there (DECOR2b's furnishings), never in the pack; arrows carry
     // no provenance and join the quiver
     const have = new Set([...(playerEntity.items ?? []), ...(playerEntity.furnishings ?? [])].map((it) => it?.provenance).filter(Boolean));
@@ -1040,10 +1043,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     return n;
   };
   /** PROF5: the crafted pieces this character may list - in the pack, none worn, locked or bound (TRADE1's refusals), and
-   *  the home's crafted furniture not set down. */
+   *  the home's crafted furniture not set down. AUDIT 30 C2: none enchanted since its craft - the market mints a piece
+   *  again from its record, and the item maker's work would be lost on the way (smithItems asMinted). */
   const marketPieces = () => [
-    ...(playerEntity.items ?? []).filter((it) => it?.provenance && !tradeRefusal(it) && !isLocked(it)).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),
-    ...(playerEntity.furnishings ?? []).filter((it) => it?.provenance).map((item) => ({ item, where: 'home', name: itemLongName(item) })),
+    ...(playerEntity.items ?? []).filter((it) => it?.provenance && asMinted(it) && !tradeRefusal(it) && !isLocked(it)).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),
+    ...(playerEntity.furnishings ?? []).filter((it) => it?.provenance && asMinted(it)).map((item) => ({ item, where: 'home', name: itemLongName(item) })),
   ];
   /** PROF5: a listed piece out of the save (the book keeps it until the service answers), and back on a refusal. */
   const marketTake = (item, where) => {
@@ -1052,6 +1056,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (i < 0 || (where === 'pack' && (tradeRefusal(item) || isLocked(item)))) return false;
     list.splice(i, 1);
     return true;
+  };
+  /** AUDIT 30 C3: a piece a settled listing took, out of the save - the take was made in a save that may not have been
+   *  kept since (a crash, a seat handed over), and the piece would stand both listed and in the pack. */
+  const marketDrop = (item) => {
+    if (!item?.provenance) return;
+    for (const list of [playerEntity.items, playerEntity.furnishings]) {
+      const i = (list ?? []).findIndex((it) => it?.provenance === item.provenance);
+      if (i < 0) continue;
+      if (list === playerEntity.items) unequipItem(playerEntity, list[i]);
+      list.splice(i, 1);
+    }
   };
   const marketPutBack = (item, where) => {
     if (!item?.provenance) return;
@@ -6652,10 +6667,12 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (!f) return { ok: false, text: bench ? 'You are not at a workbench.' : 'You are not at an anvil.' };
           const who = bench ? 'furnisher' : 'smith';
           if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${bench ? 'workbench' : 'anvil'}.` };
-          const r = await profBook.craft(recipe, { clean, heartwood, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null }, profMintCraft);
-          if (!r?.ok) return { ok: false, text: r?.kept ? CRAFT_KEPT_TEXT : accountRefusalText(r?.error) };
-          if (f.fee > 0) deductGold(playerEntity, f.fee);
-          return { ok: true, text: `${craftedText(mintPieces(r.data))} (+${r.data.xp} ${bench ? 'Carpentry' : 'Smithing'} XP)${f.fee > 0 ? `, and paid the ${who} ${f.fee} gold` : ''}.` };
+          // AUDIT 30 C4: the fee rides the kept craft and is paid as its pieces are minted (profMintCraft) - by this press's
+          // answer, or a settle's later; A4: the workbench's kept word its own
+          const r = await profBook.craft(recipe, { clean, heartwood, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null }, profMintCraft);
+          if (!r?.ok) return { ok: false, text: r?.kept ? (bench ? BENCH_KEPT_TEXT : CRAFT_KEPT_TEXT) : accountRefusalText(r?.error) };
+          const paid = f.fee > 0 && !r.elsewhere;
+          return { ok: true, text: `${craftedText(mintPieces(r.data))} (+${r.data.xp} ${bench ? 'Carpentry' : 'Smithing'} XP)${paid ? `, and paid the ${who} ${f.fee} gold` : ''}.` };
         },
         stock: async (material, qty) => {
           const r = await profBook.stock(material, qty);
@@ -6667,6 +6684,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         // PROF4 (bible/06-Systems/Professions-Arc.md 25): THE WORKBENCH the player stands at, and the plane's band
         workbench: () => modes?.workbenchHere?.() ?? null,
         planeBand: () => planeBand({ agility: liveStat(playerEntity, 'agility'), willpower: liveStat(playerEntity, 'willpower') }),
+        purse: () => totalGoldAmount(playerEntity),   // AUDIT 30 U13: a station's fee the purse cannot meet is not offered
         smelt: async (recipe, count) => {
           // PROF4: the station is the work's - a smelt's and a burn's the forge, a saw's the workbench
           const work = smeltRecipe(recipe);
@@ -16036,14 +16054,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     } : null;
     // PROF5: the Market tab - the board's region handed on its own (not through Work's), while the professions are this
     // account's; the service says whether the market is (its book's `open`)
-    const market = marketBook && profBook?.state.open === true && Number.isInteger(region) ? {
+    // AUDIT 30 U11: and the Marks - a shut currency is a market nobody can pay on
+    const market = marketBook && profBook?.state.open === true && marksBook?.state?.open !== false && Number.isInteger(region) ? {
       book: marketBook, stores: () => profBook.state.stores, region, regionName: REGION_NAMES[region] ?? 'the region',
       regionNameOf: (r) => REGION_NAMES[r] ?? 'another region', hubs: marketHubs, name: (k) => materialLabel(k), countName: materialCountLabel,
-      pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName,
+      pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName, drop: marketDrop,
       weavers: WEAVERS_STOCK,
       stock: async (key, n) => {
         const r = await profBook.stock(key, n);
-        if (Number.isSafeInteger(r?.data?.balance)) marksBook?.set(r.data.balance);
+        if (Number.isSafeInteger(r?.data?.balance)) { marksBook?.set(r.data.balance); marketBook.told(r.data.balance); }   // AUDIT 30 U6
         return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(key, r.data.qty)} at the Weavers' counter for ${r.data.marks} Marks.` } : { ok: false, text: accountRefusalText(r?.error) };
       },
     } : null;
@@ -16051,6 +16070,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), book: noticeBook, answer: (note) => answerNote(note),
       character: () => characterIdOf(playerEntity), work, market,
+      nowS: () => Math.floor((Date.now() + _sharedOffsetMs) / 1000),   // AUDIT 30 U21: the shared clock the service keeps
     });
     if (!ov) return false;
     townTalk.showOverlay(ov);

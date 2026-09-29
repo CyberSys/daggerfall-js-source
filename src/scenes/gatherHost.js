@@ -129,17 +129,20 @@ export function createGatherHost(deps) {
     s.batches = [];
   }
   async function stand(entry) {
-    if (!entry?.samples || !entry.tilemap || book.state.open !== true) return;
+    if (!entry?.samples || !entry.tilemap) return;
     const key = `${entry.px},${entry.py}`;
     unstand(entry);
-    const info = deps.pixelInfo(entry.px, entry.py);
+    // AUDIT 30 A7: a pixel that stands no nodes - the switch shut, no ground to read, the witnesses' other word - stands
+    // its forest whole: the day's turn under a shut switch left yesterday's felled tree sunk, and its herbs standing
+    const bare = () => { for (const k of kinds) k.stood?.(entry, []); };
+    const info = book.state.open === true ? deps.pixelInfo(entry.px, entry.py) : null;
     const rec = { entry, info, nodes: [], batches: [] };
     stood.set(key, rec);
-    if (!info) return;
+    if (!info) { bare(); return; }
     const fact = book.pixel(entry.px, entry.py);
     const confirmed = fact?.state === 'confirmed' || fact?.state === 'disputed';
     // a pixel the witnesses confirmed as something else stands nothing: nothing here could be gathered
-    if (confirmed && (fact.climate !== info.climate || fact.region !== info.region)) return;
+    if (confirmed && (fact.climate !== info.climate || fact.region !== info.region)) { bare(); return; }
     const ctx = { entry, px: entry.px, py: entry.py, day, info, confirmed, specs, book };
     rec.nodes = kinds.flatMap((k) => k.nodesOf(ctx).map((n) => ({ ...n, kind: k.id })));
     for (const k of kinds) k.stood?.(entry, rec.nodes.filter((n) => n.kind === k.id));   // PROF4: the felled trees sunk
@@ -312,8 +315,13 @@ export function createGatherHost(deps) {
       chipLeft = CHIP_S;
       if (a && k?.gone(a.node)) {
         // PROF4: the node's fall, seen by the one who worked it (a felled tree tips away from them)
+        // AUDIT 30 A5: the node as its pixel stands NOW (stood again under the ask, its wood rebuilt, the act's node is
+        // another's flat), and a fall that fails is the fall's alone - the pixel stands again whatever it did
         const s = a.dungeon ? null : stood.get(pixelKey(a.px, a.py));
-        if (s && k.felled) k.felled(a.node, { entry: s.entry, from: deps.eye().pos, tr: deps.pixelTranslation(a.px, a.py, [0, 0, 0]) });
+        const now = s?.nodes.find((x) => x.key === a.node.key) ?? null;
+        if (now && k.felled) {
+          try { Promise.resolve(k.felled(now, { entry: s.entry, from: deps.eye().pos, tr: deps.pixelTranslation(a.px, a.py, [0, 0, 0]) })).catch((e) => console.warn('[gather] a fall', e)); } catch (e) { console.warn('[gather] a fall', e); }
+        }
         restandOf(a);
       } else if (!a && nodeKeyOf) restandNode(nodeKeyOf);
       return;

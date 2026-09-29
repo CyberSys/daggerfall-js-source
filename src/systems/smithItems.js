@@ -43,7 +43,7 @@ import { weaponOfMaterial, armorOfMaterial, createWeapon } from '../combat/enemy
 import { setItemFields, mintCondition, templateByIndex, registerItemUseHandler } from './itemTemplates.js';
 import { itemLongName } from './itemInfo.js';
 import './profTemplates.js';   // the Repair Kit's row (692), registered with the ores and ingots
-import { applyRarity, rarityEligible } from './lootRarity.js';
+import { applyRarity, rarityEligible, RARE_FLAVOURS } from './lootRarity.js';
 import { unitWeightInKg } from './inventory.js';
 import { seededRng } from './wind.js';
 import { createForagingItem } from './foragingInstall.js';
@@ -116,6 +116,20 @@ export function mintPiece({ recipe, quality, seed, maker = null, marked = false 
   return item;
 }
 
+/**
+ * AUDIT 30 C2: whether a piece is still what its record mints - no enchantment but its quality's roll (a Rare's one
+ * flavour, of its group's), none written by the item maker (DFU's own door writes over `enchantments`). What crosses the
+ * market is minted again from its record at the other end, so a piece enchanted since would lose what it was paid for.
+ * @param {any} item
+ */
+export function asMinted(item) {
+  if (!item?.provenance || item.legendary || item.customEnchantments?.length) return false;
+  const e = item.enchantments ?? [];
+  if (item.rarity !== 'rare') return e.length === 0;
+  const roll = RARE_FLAVOURS[item.group] ?? RARE_FLAVOURS.Jewellery;
+  return e.length === 1 && roll.some((f) => f.type === e[0]?.type && f.param === e[0]?.param);
+}
+
 /** Every piece of a craft's answer, minted - two of a Quartermaster's kit. @param {any} data */
 export const mintPieces = (data) => (data?.pieces ?? []).map((p) => mintPiece(data, p.provenance)).filter(Boolean);
 /** PROF4: whether a minted piece is furniture - the home's things (DECOR2b's furnishings), never the pack. */
@@ -159,7 +173,10 @@ export const kitMetalName = (kit) => METALS[kit?.kitMetal] ?? 'its metal';
 export function repairKitUse(item, collection) {
   const done = useRepairKit(item, collection);
   if (!done) return { kind: 'repairKit', text: `Nothing of ${kitMetalName(item)} here wants mending.` };
-  return { kind: 'repairKit', text: `The ${itemLongName(done.item)} is mended: ${Math.round(done.before * 100)}% to ${Math.round(done.after * 100)}%.` };
+  // AUDIT 30 C8: a marked piece's name is its maker's - "Silverthorn's Longsword", never "The Silverthorn's"
+  const long = itemLongName(done.item);
+  const named = typeof done.item.maker === 'string' && long.startsWith(`${done.item.maker}'s `);
+  return { kind: 'repairKit', text: `${named ? long : `The ${long}`} is mended: ${Math.round(done.before * 100)}% to ${Math.round(done.after * 100)}%.` };
 }
 /** Every host's install (scenes/shared.js): the Repair Kit's use on the item-use door. */
 export function installSmithing() { registerItemUseHandler(REPAIR_KIT_TEMPLATE, repairKitUse); }
@@ -181,3 +198,5 @@ export function craftedText(pieces) {
 }
 /** What a craft whose answer did not come says: kept, and made when it does. */
 export const CRAFT_KEPT_TEXT = 'The anvil rang, but no word came back - the work is kept, and made when the word comes.';
+/** AUDIT 30 A4: the workbench's own (Carpentry's work is planed, not struck). */
+export const BENCH_KEPT_TEXT = 'The shavings fell, but no word came back - the work is kept, and made when the word comes.';

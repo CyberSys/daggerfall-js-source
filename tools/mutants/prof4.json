@@ -496,8 +496,8 @@
   {
     "name": "PROF4-decor-anyones-id",
     "file": "server-account/src/decor.js",
-    "old": "  const ours = row && row.owner === player.id && Number(row.template) === p.item.t;",
-    "new": "  const ours = row && Number(row.template) === p.item.t;",
+    "old": "  const ours = row && row.owner === player.id && Number(row.template) === p.item.t && Number(row.listed) === 0 && !elsewhere;",
+    "new": "  const ours = row && Number(row.template) === p.item.t && Number(row.listed) === 0 && !elsewhere;",
     "tests": [
       "test/prof4_service.test.js"
     ]
@@ -514,7 +514,7 @@
   {
     "name": "PROF4-decor-clients-mark",
     "file": "server-account/src/decor.js",
-    "old": "  const p = sent.item?.pv ? await provenOf(db, player, sent) : sent;",
+    "old": "  const p = sent.item?.pv ? await provenOf(db, player, sent, mapId, buildingKey) : sent;",
     "new": "  const p = sent;",
     "tests": [
       "test/prof4_service.test.js",
@@ -524,8 +524,8 @@
   {
     "name": "PROF4-decor-other-template",
     "file": "server-account/src/decor.js",
-    "old": "  const ours = row && row.owner === player.id && Number(row.template) === p.item.t;",
-    "new": "  const ours = row && row.owner === player.id;",
+    "old": "  const ours = row && row.owner === player.id && Number(row.template) === p.item.t && Number(row.listed) === 0 && !elsewhere;",
+    "new": "  const ours = row && row.owner === player.id && Number(row.listed) === 0 && !elsewhere;",
     "tests": [
       "test/prof4_service.test.js"
     ]
@@ -659,8 +659,8 @@
   {
     "name": "PROF4-host-no-fall",
     "file": "src/scenes/gatherHost.js",
-    "old": "        if (s && k.felled) k.felled(",
-    "new": "        if (false) k.felled(",
+    "old": "        if (now && k.felled) {",
+    "new": "        if (false) {",
     "tests": [
       "test/prof4_client.test.js"
     ]
@@ -749,8 +749,8 @@
   {
     "name": "PROF4-bench-no-heartwood",
     "file": "src/ui/profPages.js",
-    "old": "      const res = await p.craft(r.id, { clean, heartwood: _bench.heartwood && takesHeartwood(r) });",
-    "new": "      const res = await p.craft(r.id, { clean, heartwood: false });",
+    "old": "        _bench.actRecipe = r.id; _bench.actWood = _bench.heartwood && takesHeartwood(r);",
+    "new": "        _bench.actRecipe = r.id; _bench.actWood = false;",
     "tests": [
       "test/prof4_client.test.js"
     ]
