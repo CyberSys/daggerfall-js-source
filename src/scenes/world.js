@@ -34,7 +34,7 @@ import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '.
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
 import { hasPort } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
-import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane } from '../world/terrainSurface.js';
+import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane, terrainSampleHeightAt } from '../world/terrainSurface.js';
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
 import { waterCorners, WATER_DRAW_MASK_TABLE } from '../world/waterCorners.js';   // GRASS-WET1: the one table that says which of a tile's corners stand in water - the DRAW's, because a blade in a puddle is a picture, not a physics
 import { windowEmissionRGB } from '../render/windowEmission.js';
@@ -5076,7 +5076,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         mapPixelX: p.px, mapPixelY: p.py,
         get position() { return state.pixelTranslation(p.px, p.py, [0, 0, 0]); },   // the terrain's transform: the pixel's corner, the vertical compensation
         get tileMap() { return p.tilemapBytes ?? null; },   // DaggerfallTerrain.TileMap's `.r`, converted as UpdateTileMapData writes it (terrainGen.js)
-        sampleHeight: (q) => { state.pixelTranslation(p.px, p.py, o); const c = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v)); return surfaceHeightAt(p.samples, c(q[0] - o[0]), c(q[2] - o[2]), p._stride ?? 1); },   // CSA-J (the audit): past the terrain's edge, the edge's height - GetInterpolatedHeight clamps its [0, 1] coordinates, where this sampler went on up the last quad's slope   // Terrain.SampleHeight: the drawn ground over the terrain's own y (DW-D's reading)
+        sampleHeight: (q) => { state.pixelTranslation(p.px, p.py, o); const c = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v)); return terrainSampleHeightAt(p.samples, c(q[0] - o[0]), c(q[2] - o[2]), p._stride ?? 1); },   // CSA-J (the audit): past the terrain's edge, the edge's height - GetInterpolatedHeight clamps its [0, 1] coordinates, where this sampler went on up the last quad's slope   // Terrain.SampleHeight over the terrain's own y - FIELD-CSA2: at Unity's heightmap precision, the flat sea 33.994 under the mod's 34 (the drawn ground's floats read 34.000001: every node on the sea land, no boat sailed)
       };
       _csaTerrains.set(p, t);
     }
