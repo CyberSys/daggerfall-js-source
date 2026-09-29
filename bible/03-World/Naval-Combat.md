@@ -58,9 +58,10 @@ carries its row instead. It stands on three things the port already had:
   TURN THE VIEW (the swing's look law, which drops the look under a held swing, stands down there, and the pad and the
   finger hold the attack plainly - `aimHold`). A readied spell still eats the press first. A window opened over the
   aim puts it down unfired; the release itself is never gated.
-- **Crouch braces** (C, LB on a pad): the crew ducks behind the rail - half the hull and sail damage while held, no gun
-  fires and no gun is loaded (AUDIT NAV1: the reload waits). It is the Crouch action because that is what bracing is;
-  see the departures.
+- **Crouch braces** (C, LB on a pad - R3 under Enhanced Plus's pad layout, whose bumpers are the crossbar's; on a
+  phone the plate's own BRACE press, held): the crew ducks behind the rail - half the hull and sail damage while held,
+  no gun fires and no gun is loaded (AUDIT NAV1: the reload waits). It is the Crouch action because that is what
+  bracing is, and at the helm it is nothing else (AUDIT NAV1: the stance stays as it was); see the departures.
 - **Watch for the run-out** (AUDIT NAV1): an enemy's battery is RUN OUT before it fires - its ports glint along her side,
   the gun trucks rumble across the water, and when it bears on you BROADSIDE and the brace's key stand over the
   crosshair, from the run-out until her balls are down. That is the moment to brace, or to turn out of her arc.
@@ -130,8 +131,10 @@ silent, until it is repaired - at a port's shipwright (`repairCost`, REPAIR_PRIC
 is a possession bought for up to two hundred thousand gold; losing one to a lucky broadside is a punishment
 Daggerfall never deals.
 
-**Rams**: a bow striking a hull at RAM_SPEED or more deals RAM_DAMAGE a metre a second (a galley's ram GALLEY_RAM
-times that) and takes RAM_RECOIL of it back.
+**Rams**: a stem striking a hull - her own bow's (`bowZ`) within RAM_REACH of the other's box - at a closing speed of
+RAM_SPEED or more (the way she came in with, the most of the last RAM_MEMORY_S, less the other's along her course)
+deals RAM_DAMAGE a metre a second (a galley's ram GALLEY_RAM times that) and takes RAM_RECOIL of it back - BOW_RECOIL
+times that for a stem not built to ram, a GALLEY_RAM-th of it for a galley's, half braced (AUDIT NAV1).
 
 ## The ships of the Iliac Bay (NAV-C)
 
@@ -334,7 +337,8 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   drawn earlier in the frame, and its foot is read only while both stand). The layer copies the HUD scale onto its
   root, so the plate's size and the card's place follow the player's HUD scale together.
 - **On a finger's screen** (`touch`): no key is named - "Hold and drag to aim", "Lift to fire", "Tap: board her" (the
-  host's one activation arm answers a key, a click and a tap alike), "Crouch: brace" (the touch table's own press) -
+  host's one activation arm answers a key, a click and a tap alike), "hold Brace" (AUDIT NAV1: the plate's own press,
+  NAVAL_BRACE_H tall under the rose, shown at an armed helm - the touch table's three slots hold no Crouch) -
   and the plate stands NAVAL_PLATE_TOUCH_BOTTOM up, over the touch corner's presses rather than on them. A pad's
   button is no key to print either: the hint names its action (the helm panel's `csaKeyLabel` law).
 - **The plunder window** (`ui/navalPlunderWindow.js`, a lazy chunk behind `ui/navalPlunderDoor.js`, the Sigil
@@ -401,7 +405,12 @@ its drawer Ships at sea (`naval-ships`: few, some, many), Pirates board you (`na
 - **The arc itself** is the port's own design, on Come Sail Away's hulls and Warm Ashes' quests.
 - **Brace is the Crouch action at the helm**, not an action of its own. Every letter key is spent; Left Ctrl is free
   but a held Ctrl turns the helm's W into the browser's close-tab; ducking behind the rail is what bracing is, and a
-  pad's LB crouches already.
+  pad's LB crouches already. AUDIT NAV1: at the helm it is the brace alone - the motor's stance and a levitating
+  descent are not fed while sailing (world.js `helmBrace`).
+- **Come Sail Away's way and its sails take the sea fight's word** (AUDIT NAV1): the mod has no hurt, so the port's
+  runtime asks the naval host two things it never asked - `wayScale` (its moveSpeed times the host's share: the canvas
+  a shot-up rig still sets, a wreck's oars) and `sailRefused` (RaiseSails refused with that line, before the mod's own
+  obstruction).
 - **Warm Ashes' LeaveShip asks a gate first** (above).
 - **A pirate flagship starts `WAQ_SHIP_ATTACK_PIRATE`**, which the mod registers and never starts.
 - **The player's boat is wrecked, never sunk.**
@@ -491,7 +500,10 @@ The helm audit's aiming findings (the player at the guns; 1080p, DFU's default F
 | no broadside camera (H4) | the Small Ship's rail hid the sea for every lay under 82-84 m from the helm; the head on the crosshair | THE BROADSIDE CAMERA (`aimEye`): while a broadside is laid the eye eases (AIM_CAM_TAU, smoothstepped) to AIM_CAM_OUT past the battery's ports, AIM_CAM_UP over them, AIM_CAM_AFT toward the stern - AIM_CAM_CLEAR short of a ship alongside - and home on the release; the look's ray starts from it (`_dwEyeOffset`); never for the chasers or a crippled ship; the row's Broadside camera part | the eye outboard of her own hull: nothing of her between it and the zone |
 | the aim looks ready when it is not (H9) | the zone drawn braced, reloading ("Starboard broadside - 164 m" at 12% loaded) and wrecked; a braced release silent; no time on the reload | the aim's STATE (`aimState`): the line's tail says why - "reloading 6.1 s", "braced", "no barrels", "guns silent" - dimmed, the zone grey, never red; a braced release says so; the reload's message its seconds | - |
 | the zone a sliver on screen (H10) | discs 6 cm over the sea: 3.7 px tall at 150 m from the Small Ship's helm, 0.7 px at 100 m from the Large Boat's | a post of light over each splash, turned to the eye (AIM_POST_HALF_H: 3.4 m) | about 19 px at 150 m |
-| (the slice's own) the aim read the last frame's hulls | computed before the ships were posed: a ship's way behind | the aim after the poses | - |
+| the brace is the Crouch toggle (H5) | the press toggled the motor's crouch under the helm's freeze: the first brace left the player crouched (the eye 1.7 m over the feet to 0.8 - the lay 6.1 m shorter at 150 m), the next stood them; a phone had no brace - the touch table's slots hold none by default, and the hint said "Crouch: brace" | at the helm the Crouch action is the brace alone (`helmBrace`: the stance and the descent never fed while sailing); under a finger the plate's own BRACE, held (`navalTouchBrace`), named "hold Brace" in the hint and the warning; under Enhanced Plus the pad layout puts Crouch on R3 (its bumpers are the crossbar's) and the hint names it | - |
+| the ram cannot land (H6) | the bow point `beam x 2.4` from the root: a stem 1.0 m (Large Boat), 1.2 (Small Ship), 5.0 (Carrack) and 29.2 m (galley) inside her box before it counted - and Come Sail Away takes the way off a bow at the planking it meets: no ram ever landed; its recoil `RAM_RECOIL * 2`, the page's RAM_RECOIL | the STEM (`bowZ`) within RAM_REACH of her box, read after the hulls are posed; the way she came in with (the most of the last RAM_MEMORY_S) less hers along the course; the way spent on the first; BOW_RECOIL named - a plain stem takes twice RAM_RECOIL, a galley's ram a GALLEY_RAM-th - half braced | a Small Ship at 6 m/s rams for 84 and takes 50; a galley's ram from her own stem for 252 |
+| her hurts never in her handling (H8) | WRECKED_OARS read by nothing; a shot-up rig kept its whole way to the last of its canvas; wrecked, the host struck the sails every frame they went up - a line a press on top of the mod's own | Come Sail Away's seams: `wayScale` (moveSpeed times `wayShare` under sail - BARE_POLES and the rest by the canvas left - and WRECKED_OARS on a wreck's oars) and `sailRefused` (RaiseSails refused with one line: a wreck, a rig shot away); a rig lost with the canvas set struck once | - |
+| (the slice's own) the aim and the ram read the last frame's hulls | computed before the ships were posed: a ship's way behind | both after the poses | - |
 
 ## The tests
 
@@ -514,10 +526,10 @@ own, the guns' reach, the warning, the tell heard and seen, the tally) and `nava
 on a ship, the red where the balls strike her as she will stand, why the guns will not fire yet, the aim drawn, the
 broadside camera, the world's wiring), on the shared sea of `test/navalSea.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`
-and `navaudit_helm.json`, 348 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+and `navaudit_helm.json`, 380 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
-rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 41 with the
+rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 73 with the
 audit's helm);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.

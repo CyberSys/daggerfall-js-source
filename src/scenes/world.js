@@ -326,7 +326,7 @@ import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } f
 import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR } from './navalHost.js';   // NAV-H: the sea fight - the Iliac Bay's ships, the guns, boarding, the law and the word
 import { createNavalFlames } from './navalFlames.js';   // NAV-B: a burning ship's deck fires
 import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke, the spray, the balls in flight and the aim
-import { drawNavalHud } from '../ui/navalHud.js';   // NAV-F: the helm's readout
+import { drawNavalHud, navalTouchBrace } from '../ui/navalHud.js';   // NAV-F: the helm's readout; AUDIT NAV1: its Brace under a finger
 import { createNavalPlunderOverlay, closeNavalPlunder } from '../ui/navalPlunderDoor.js';   // NAV-F: a taken ship's window, behind its door
 import { installNavalSounds } from '../systems/naval/navalSounds.js';   // NAV-E: the guns' own sounds
 import { navalRecordKey } from '../systems/naval/navalWire.js';   // NAV-G: my sea's word, said when it changed
@@ -5409,6 +5409,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     heightMapValue: (x, y) => woods.getHeightMapValue(x, y),   // CSA-F: WoodsFileReader.GetHeightMapValue, the live map
     worldCompensation: () => [...state.compensation],
     hudText: (text, seconds) => townTalk.say(text, seconds),
+    wayScale: (underSail) => naval?.wayScale(underSail) ?? 1,   // AUDIT NAV1 (the helm): her hurts in her way - the canvas left, a wreck's oars
+    sailRefused: () => naval?.sailRefused() ?? null,   // ...and no sail on a wreck or a rig shot away, said once
     midScreenText: (text, seconds) => setMidScreenText(text, seconds),
     log: (text) => console.log(text),
     time: () => _csaTime,
@@ -6054,7 +6056,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (on !== _navalWasOn) { _navalWasOn = on; naval.setEnabled(on); if (!on) { navalFlames.clear(); closeNavalPlunder(); drawNavalHud(null); } }
     if (!on) return;
     if (csa.seaBoats.length || csaRuntime.isSailing()) installNavalSounds(audio);   // once: the first sea (the loader keeps its promise)
-    naval.frame(dt * worldTimeScale(), { paused: gamePaused() || _loading, outdoors: _mode() === 'exterior', brace: csaRuntime.isSailing() && held(keys, 'Crouch') });   // the brace: ducking behind the rail - the Crouch action at the helm
+    naval.frame(dt * worldTimeScale(), { paused: gamePaused() || _loading, outdoors: _mode() === 'exterior', brace: csaRuntime.isSailing() && (held(keys, 'Crouch') || navalTouchBrace()) });   // the brace: ducking behind the rail - the Crouch action at the helm (AUDIT NAV1: or the plate's Brace under a finger)
     navalFlames.tick(gamePaused() ? 0 : dt);
   }
   /** The attack let go (every door's release, beside the rig's and as ungated): a laid broadside fires - unless a window
@@ -19497,8 +19499,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           if (!swingKey) { weaponRig.attackInput(0, 0, false); navalRelease(); }   // the release is never gated; NAV-H: nor the broadside's
           else if (!townTalk.overlayActive && walkMode && modeNow() === 'exterior' && !magic.interceptAttack(true) && !naval?.attackInput(true)) weaponRig.attackInput(0, 0, true);
         }
-        const crouchHeld = held(keys, 'Crouch');   // P12 host parity (audit F4); I2: DFU's default C
-        const crouchPress = pressed(latch.edge, keys, 'Crouch');   // MWCROUCH: GetKeyDown, not a held-ring derivation - the levitate descent below still reads the HELD key
+        // AUDIT NAV1 (the helm): at the helm the Crouch action is the BRACE (navalFrame) and nothing else - it had toggled
+        // the motor's crouch too, under the helm's freeze: a brace left the player crouched (the eye 0.9 m lower, the lay
+        // 6 m shorter at 150 m) and the next one stood them up
+        const helmBrace = navalOn() && csaRuntime.isSailing();
+        const crouchHeld = !helmBrace && held(keys, 'Crouch');   // P12 host parity (audit F4); I2: DFU's default C
+        const crouchPress = !helmBrace && pressed(latch.edge, keys, 'Crouch');   // MWCROUCH: GetKeyDown, not a held-ring derivation - the levitate descent below still reads the HELD key
         // TO1: THE JOURNEY'S CLOCK. Travel Options runs an accelerated
         // journey on Unity's `Time.timeScale` (TravelOptionsMod.cs:382-390),
         // which scales EVERYTHING - the calendar, the player, the physics,

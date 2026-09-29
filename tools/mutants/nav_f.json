@@ -237,8 +237,8 @@
   {
     "name": "NAV-F-the-finger-told-to-hold-a-key",
     "file": "src/ui/navalHud.js",
-    "old": "`${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${braceKey}: brace`",
-    "new": "`Hold ${aimKey} to aim - ${braceKey}: brace`",
+    "old": "`${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${bracePress}`",
+    "new": "`Hold ${aimKey} to aim - ${bracePress}`",
     "tests": [
       "test/nav_f_ui.test.js"
     ]

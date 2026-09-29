@@ -49,6 +49,10 @@ export const NAVAL_PLATE_W = 272;
 /** On a finger's screen the plate stands over the touch corner's presses - 16px up and 48px tall (ui/touch.js
  *  layoutCorner) - and a gap, never on them. */
 export const NAVAL_PLATE_TOUCH_BOTTOM = 16 + 48 + 12;
+/** AUDIT NAV1 (the helm): a finger's BRACE - the plate's own press under the rose, held to brace (the touch table's
+ *  three slots hold no Crouch by default, and the hint said "Crouch: brace"): a finger's height (the platforms'
+ *  48 px target, less the plate's border). */
+export const NAVAL_BRACE_H = 46;
 
 const OUTLINED = '-1px 0 0 #050608, 1px 0 0 #050608, 0 -1px 0 #050608, 0 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7)';
 const CLASP = 'linear-gradient(180deg, #f3cf86 0 2px, transparent 2px), linear-gradient(90deg, #e2b064 0 2px, #c08a3e 2px 4px, #7a5424 4px 6px)';
@@ -106,6 +110,10 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-gun.active .dfnaval-gun-side { color: ${T.gold}; text-shadow: 1px 1px 0 rgb(93,77,12); }
 .dfnaval-gun.empty { opacity: 0.5; }
 .dfnaval-hint { margin: 7px 6px 0; font-size: 10px; letter-spacing: 0.05em; color: #8f8670; text-align: center; text-shadow: 1px 1px 0 #050608; }
+.dfnaval-brace { margin: 8px 6px 0; height: ${NAVAL_BRACE_H}px; line-height: ${NAVAL_BRACE_H - 4}px; text-align: center; pointer-events: auto; touch-action: none;
+  user-select: none; -webkit-user-select: none; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED};
+  background: ${T.groundButton}; border: 2px solid; border-color: ${T.stoneLit} ${T.stoneDim} ${T.stoneDark} ${T.stoneMid}; box-shadow: 0 0 0 1px #050608; }
+.dfnaval-brace.down { background: #2c2413; border-color: ${T.brassHi} ${T.brassLo} #5c3f1a ${T.brass}; color: ${T.gold}; }
 .dfnaval-aim { position: absolute; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); white-space: nowrap; font-size: 13px;
   letter-spacing: 0.14em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED}; }
 .dfnaval-aim .dfnaval-aim-range { color: ${T.brassHi}; }
@@ -171,7 +179,8 @@ function cardState(t, board, key) {
  */
 export function navalHudText(model, keys = {}, { touch = false } = {}) {
   if (!model) return null;
-  const aimKey = keys.aim ?? 'Attack', boardKey = touch ? 'Tap' : (keys.board ?? 'Activate'), braceKey = touch ? 'Crouch' : (keys.brace ?? 'Brace');
+  const aimKey = keys.aim ?? 'Attack', boardKey = touch ? 'Tap' : (keys.board ?? 'Activate'), braceKey = keys.brace ?? 'Brace';
+  const bracePress = touch ? 'hold Brace' : `${braceKey}: brace`;   // AUDIT NAV1: a finger's is the plate's own press
   const batteries = (model.batteries ?? []).map((b) => ({
     side: b.side, word: SIDE_WORDS[b.side],
     count: b.gun === 'barrel' ? `${b.barrels ?? 0} barrel${b.barrels === 1 ? '' : 's'}` : `${b.guns} ${b.guns === 1 ? GUN_WORDS[b.gun].replace(/s$/, '') : GUN_WORDS[b.gun]}`,
@@ -199,11 +208,12 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
     batteries,
     // the press that matters most, first: a ship in reach to board or plunder, then the guns
     hint: model.board ? `${boardKey}: ${model.board.kind === 'hold' ? `open ${model.board.name}'s hold` : `board ${model.board.name}`}`
-      : !model.armed ? 'No guns aboard' : model.aiming ? `${touch ? 'Lift' : 'Let go'} to fire - ${braceKey}: brace`
-      : `${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${braceKey}: brace`,
+      : !model.armed ? 'No guns aboard' : model.aiming ? `${touch ? 'Lift' : 'Let go'} to fire - ${bracePress}`
+      : `${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${bracePress}`,
+    brace: touch && !!model.armed,
   } : null;
   // AUDIT NAV1 (the guns): the tell's words, and the last volley's count
-  const warn = model.incoming ? { text: 'Broadside', key: `${braceKey}: brace` } : null;
+  const warn = model.incoming ? { text: 'Broadside', key: bracePress } : null;
   const tl = model.tally;
   const tally = tl ? {
     hits: `${tl.hits} of ${tl.balls} ${tl.balls === 1 ? 'ball' : 'balls'} struck`, miss: tl.hits === 0,
@@ -215,6 +225,11 @@ const CHIP_WORDS = Object.freeze({ wreck: 'Crippled', fire: 'On fire', brace: 'B
 
 let root = null, parts = null;
 let shown = {};
+let touchBrace = false;   // AUDIT NAV1: the plate's Brace held under a finger
+
+/** AUDIT NAV1 (the helm): whether a finger holds the plate's Brace - read by the world's brace beside the Crouch key.
+ *  Only while the press stands: a plate hidden, covered or gone lets go (drawNavalHud, destroyNavalHud). */
+export function navalTouchBrace() { return touchBrace; }
 
 function el(doc, tag, cls, text = null) {
   const n = doc.createElement(tag);
@@ -299,11 +314,17 @@ function build(doc) {
   }
   rose.append(el(doc, 'i', 'dfnaval-ship'));
   const hint = el(doc, 'div', 'dfnaval-hint');
-  plate.append(head, hull.row, sail.row, crew.row, chips, rose, hint);
+  const brace = el(doc, 'div', 'dfnaval-brace', 'Brace');
+  const hold = (on) => (e) => { e?.preventDefault?.(); e?.stopPropagation?.(); touchBrace = on; };
+  brace.addEventListener?.('touchstart', hold(true), { passive: false });
+  brace.addEventListener?.('touchend', hold(false), { passive: false });
+  brace.addEventListener?.('touchcancel', hold(false));
+  plate.append(head, hull.row, sail.row, crew.row, chips, rose, hint, brace);
   root.append(card, warn, aim, tallyEl, plate);
   (doc.body ?? doc.documentElement)?.append(root);
-  parts = { card, cardName, cardSub, cardHull, cardHullFill, cardSail, cardSailFill, cardState, aim, aimText, aimRange, aimTarget, warn, warnText, warnKey, tally: tallyEl, tallyHits, tallyRest, plate, name, watersWord, anchors, hull, sail, crew, chips, rose, guns, hint };
+  parts = { card, cardName, cardSub, cardHull, cardHullFill, cardSail, cardSailFill, cardState, aim, aimText, aimRange, aimTarget, warn, warnText, warnKey, tally: tallyEl, tallyHits, tallyRest, plate, name, watersWord, anchors, hull, sail, crew, chips, rose, guns, hint, brace };
   shown = {};
+  touchBrace = false;
 }
 
 const put = (key, node, text) => { if (shown[key] !== text) { shown[key] = text; node.textContent = text; } };
@@ -325,7 +346,7 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
     build(doc);
   }
   show('root', root, want);
-  if (!want) return;
+  if (!want) { shown.braceBtn = false; touchBrace = false; return; }
   const t = navalHudText(model, keys, { touch });
   // the helm panel's foot, read before this frame's writes here and only while the card and the panel both stand
   const foot = t.card ? (under?.getBoundingClientRect?.()?.bottom ?? 0) : 0;
@@ -333,6 +354,9 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
   cls('rootc', root, touch ? 'dfnaval-hud touch' : 'dfnaval-hud');
   const p = t.plate;
   show('plate', parts.plate, !!p);
+  const braceOn = !!p?.brace;
+  if (shown.braceBtn !== braceOn) { shown.braceBtn = braceOn; parts.brace.style.display = braceOn ? '' : 'none'; if (!braceOn) touchBrace = false; }
+  cls('bracec', parts.brace, braceOn && touchBrace ? 'dfnaval-brace down' : 'dfnaval-brace');
   if (p) {
     put('name', parts.name, p.name);
     put('waters', parts.watersWord, p.waters);
@@ -397,5 +421,5 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
 /** The page is going (a test's reset, the host's teardown): the node leaves with it. */
 export function destroyNavalHud() {
   root?.remove?.();
-  root = null; parts = null; shown = {};
+  root = null; parts = null; shown = {}; touchBrace = false;
 }

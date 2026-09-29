@@ -435,7 +435,7 @@ test('NAV-H the attack\'s five doors: a readied spell eats the press first, the 
   assert.match(w, /&& walkMode && modeNow\(\) === 'exterior' && !naval\?\.atGuns\) lookFilter\.settle\(\);/, 'the look never dropped at the guns');
   assert.match(w, /aimHold: \(\) => !!naval\?\.atGuns,/);
   assert.match(w, /function navalRelease\(\) \{\n\s+if \(!naval\?\.aiming\) return;\n\s+if \(townTalk\.overlayActive \|\| gamePaused\(\) \|\| modeNow\(\) !== 'exterior'\) naval\.cancelAim\(\);\n\s+else naval\.attackInput\(false\);/, 'a window over the aim puts it down unfired');
-  assert.match(w, /brace: csaRuntime\.isSailing\(\) && held\(keys, 'Crouch'\)/, 'the brace is the Crouch action at the helm');
+  assert.match(w, /brace: csaRuntime\.isSailing\(\) && \(held\(keys, 'Crouch'\) \|\| navalTouchBrace\(\)\)/, 'the brace is the Crouch action at the helm (AUDIT NAV1: or the plate\'s Brace under a finger)');
   const pad = src('ui/gamepadInput.js');
   assert.match(pad, /&& !hooks\.aimHold\?\.\(\);/, 'the pad holds RT plainly at the guns');
   assert.match(pad, /if \(swinging && !plus && !hooks\.aimHold\?\.\(\)\) hooks\.attack\?\./, 'and its right stick looks');

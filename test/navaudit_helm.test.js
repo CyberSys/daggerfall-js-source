@@ -3,15 +3,16 @@
 // sea, a ship under the crosshair), the aim's red as the truth of where each gun stops, why a battery will not fire yet,
 // the zone stood up and the strikes marked, and the broadside camera. The law is bible/03-World/Naval-Combat.md
 // "AUDIT NAV1 - The helm".
+import { byClass } from './chargenDom.mjs';   // the suite's minimal DOM: the plate's Brace under a finger
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { AIM_SLOPE, lookReach, aimSolution } from '../src/systems/naval/navalGunnery.js';
-import { HULL, batteryOf } from '../src/systems/naval/navalShips.js';
-import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
+import { HULL, batteryOf, hullBuild } from '../src/systems/naval/navalShips.js';
+import { SHIP_STATES, BRACE_TAKEN, BARE_POLES, WRECKED_OARS } from '../src/systems/naval/navalDamage.js';
 import { NAVAL_DEG, shotPosition, segmentBoxEntry } from '../src/systems/naval/navalBallistics.js';
-import { hullBoxOf, rigBoxesOf, AIM_CAM_OUT, AIM_CAM_UP, AIM_CAM_AFT, AIM_CAM_TAU, AIM_CAM_CLEAR } from '../src/scenes/navalHost.js';
-import { navalHudText } from '../src/ui/navalHud.js';
+import { hullBoxOf, rigBoxesOf, AIM_CAM_OUT, AIM_CAM_UP, AIM_CAM_AFT, AIM_CAM_TAU, AIM_CAM_CLEAR, RAM_REACH, RAM_MEMORY_S, RAM_DAMAGE, RAM_RECOIL, BOW_RECOIL, GALLEY_RAM, RAM_SPEED, RAM_COOLDOWN_S } from '../src/scenes/navalHost.js';
+import { navalHudText, drawNavalHud, destroyNavalHud, navalTouchBrace, NAVAL_BRACE_H, NAVAL_HUD_CSS } from '../src/ui/navalHud.js';
 import { NavalRenderer, NAVAL_STRIDE, aimTone, AIM_TONES, AIM_POST_HALF_W, AIM_POST_HALF_H, AIM_STRIKE_HALF, flatAcross } from '../src/render/navalRender.js';
 import { sea } from './navalSea.mjs';
 
@@ -372,4 +373,175 @@ test('AUDIT NAV1 H9 the world wires it: the broadside camera\'s eye is the frame
   const f = src('systems/features.js');
   assert.match(f, /Object\.freeze\(\{ store: 'prefs', key: 'naval-aim-camera', initial: true, online: 'player' \}\)/);
   assert.match(f, /Object\.freeze\(\{ key: 'naval-aim-camera', label: 'Broadside camera' \}\)/);
+});
+
+// ── the brace ───────────────────────────────────────────────────────────────────────────────────────────────────────
+
+test('AUDIT NAV1 H10 the brace is the brace and nothing else: at the helm the Crouch key never reaches the motor\'s stance (a brace left the player crouched, the lay 6 m short) nor its descent; under a finger the plate\'s own Brace, held, braces - named in the hint and the warning, shown only at an armed helm, let go when the plate goes (mutants: the stance fed at the helm, the finger\'s press unread, a press surviving its plate)', () => {
+  const w = src('scenes/world.js');
+  assert.match(w, /const helmBrace = navalOn\(\) && csaRuntime\.isSailing\(\);\n\s*const crouchHeld = !helmBrace && held\(keys, 'Crouch'\);[^\n]*\n\s*const crouchPress = !helmBrace && pressed\(latch\.edge, keys, 'Crouch'\);/);
+  assert.match(w, /brace: csaRuntime\.isSailing\(\) && \(held\(keys, 'Crouch'\) \|\| navalTouchBrace\(\)\) \}\);/);
+  // the words: a finger's hint and warning name the plate's press
+  const model = (o = {}) => ({ ship: { name: 'Small Ship', hull: 1, sail: 1, crew: 1 }, armed: true, aiming: false, aim: null, board: null, batteries: [], notoriety: { crown: 'Daggerfall', level: 0 }, incoming: null, ...o });
+  const keys = { aim: 'RIGHT CLICK', board: 'E', brace: 'C' };
+  let t = navalHudText(model({ incoming: { name: 'x' } }), keys, { touch: true });
+  assert.deepEqual([t.plate.hint, t.warn.key, t.plate.brace], ['Hold and drag to aim - hold Brace', 'hold Brace', true]);
+  t = navalHudText(model({ incoming: { name: 'x' } }), keys);
+  assert.deepEqual([t.plate.hint, t.warn.key, t.plate.brace], ['Hold RIGHT CLICK to aim - C: brace', 'C: brace', false]);
+  assert.equal(navalHudText(model({ armed: false }), keys, { touch: true }).plate.brace, false, 'no guns, no brace to hold');
+  // the press
+  destroyNavalHud();
+  drawNavalHud(model(), { keys, touch: true });
+  const [btn] = byClass(globalThis.document.body, 'dfnaval-brace');
+  assert.ok(btn, 'the plate\'s Brace');
+  assert.equal(btn.style.display, '');
+  assert.equal(navalTouchBrace(), false);
+  let stopped = 0;
+  const ev = () => ({ preventDefault() {}, stopPropagation() { stopped++; } });
+  btn.dispatch('touchstart', ev());
+  assert.equal(navalTouchBrace(), true, 'held');
+  assert.equal(stopped, 1, 'the finger never reaches the look beneath');
+  drawNavalHud(model(), { keys, touch: true });
+  assert.equal(btn.className, 'dfnaval-brace down');
+  btn.dispatch('touchend', ev());
+  assert.equal(navalTouchBrace(), false, 'let go');
+  btn.dispatch('touchstart', ev());
+  drawNavalHud(model(), { keys, touch: true, covered: true });
+  assert.equal(navalTouchBrace(), false, 'the plate covered: the press let go');
+  drawNavalHud(model(), { keys, touch: true });
+  btn.dispatch('touchstart', ev());
+  drawNavalHud(model(), { keys });
+  assert.equal(btn.style.display, 'none', 'a mouse\'s screen has no such press');
+  assert.equal(navalTouchBrace(), false);
+  drawNavalHud(model(), { keys, touch: true });
+  assert.equal(navalTouchBrace(), false, 'shown again: nothing held');
+  btn.dispatch('touchstart', ev());
+  destroyNavalHud();
+  assert.equal(navalTouchBrace(), false);
+  assert.ok(NAVAL_BRACE_H >= 44, 'a finger\'s height');
+  assert.match(NAVAL_HUD_CSS, /\.dfnaval-brace \{[^}]*pointer-events: auto; touch-action: none;/, 'pressable through the readout\'s own none');
+});
+
+// ── the ram ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** Her broadside across my bow (my boat at the origin heading +z), her near side `gap` past my stem: her place. */
+function across(h, gap, hull = HULL.SmallShip) {
+  frames(h, [[h.e, { pos: [0, 0, 90], yaw: Math.PI / 2 }]]);
+  const b = boxOf(h, h.e);
+  const ext = Math.abs(b.ax[2]) * b.h[0] + Math.abs(b.ay[2]) * b.h[1] + Math.abs(b.az[2]) * b.h[2];
+  return { pos: [0, 0, 90 + hullBuild(hull).bowZ + gap - (b.c[2] - ext)], yaw: Math.PI / 2 };
+}
+
+test('AUDIT NAV1 H11 the ram lands: from her own stem (bowZ) within RAM_REACH of the other\'s box, at the way she came in with - the most of the last RAM_MEMORY_S, the collider having taken it at the planking - less the other\'s own way along her course; RAM_DAMAGE a metre a second, BOW_RECOIL times RAM_RECOIL back (half braced); once a stretch; a galley\'s ram from her stem, GALLEY_RAM times, a GALLEY_RAM-th back (mutants: the old point, the way forgotten, her way ignored, the recoil, the cooldown)', async () => {
+  const h = await helm();
+  const hullOf = () => h.e.ship.damage.hull;
+  const mine = () => h.host.hudModel().ship.hull * hullBuild(HULL.SmallShip).hullHp;
+  const way = (v) => { h.runtime.state.velocityCurrent = [0, 0, v]; };
+  // at her side, lying still: nothing
+  const touching = across(h, RAM_REACH / 2);
+  way(0);
+  frames(h, [[h.e, touching]], 2);
+  const full = hullOf();
+  assert.equal(hullOf(), full);
+  // coming in at 6 m/s, the stem 30 m off her: the way remembered
+  way(6);
+  frames(h, [[h.e, across(h, 30)]]);
+  assert.equal(hullOf(), full, 'not yet');
+  // the collider takes the way at her planking - the ram is the way she came in with
+  way(0.1);
+  frames(h, [[h.e, touching]]);
+  const dealt = Math.round(6 * RAM_DAMAGE);
+  assert.equal(full - hullOf(), dealt, 'RAM_DAMAGE a metre a second of the way she came in with');
+  near(mine(), hullBuild(HULL.SmallShip).hullHp - Math.round(dealt * RAM_RECOIL * BOW_RECOIL), 0.01, 'BOW_RECOIL x RAM_RECOIL back');
+  // the way is spent on her: another hull met the next moment is not rammed with it
+  const other = h.host._sea.get(h.host.spawnShip('merchantGalleon', { range: 900 }));
+  frames(h, [[h.e, { pos: [0, 0, 400], yaw: 0 }], [other, { pos: [0, 0, 500], yaw: 0 }]], 2);
+  frames(h, [[h.e, { pos: [0, 0, 400], yaw: 0 }], [other, touching]]);
+  assert.equal(other.ship.damage.hull, other.ship.damage.maxHull, 'the way spent on the first');
+  way(6);
+  frames(h, [[h.e, touching], [other, { pos: [0, 0, 500], yaw: 0 }]], Math.floor(RAM_COOLDOWN_S * 10) - 5);
+  assert.equal(full - hullOf(), dealt, 'once a stretch');
+  // just out of reach: nothing
+  const h2 = await helm();
+  const short = across(h2, RAM_REACH + 0.6);
+  h2.runtime.state.velocityCurrent = [0, 0, 6];
+  frames(h2, [[h2.e, short]], 3);
+  assert.equal(h2.e.ship.damage.hull, h2.e.ship.damage.maxHull, 'her planking out of the stem\'s reach');
+  // the way remembered only RAM_MEMORY_S
+  h2.runtime.state.velocityCurrent = [0, 0, 6];
+  frames(h2, [[h2.e, across(h2, 30)]]);
+  h2.runtime.state.velocityCurrent = [0, 0, 0.1];
+  frames(h2, [[h2.e, across(h2, 30)]], Math.ceil(RAM_MEMORY_S * 10) + 1);
+  frames(h2, [[h2.e, across(h2, RAM_REACH / 2)]]);
+  assert.equal(h2.e.ship.damage.hull, h2.e.ship.damage.maxHull, 'a way long spent is no ram');
+  // her own way along my course: a ship sailing on ahead takes the difference
+  const h3 = await helm();
+  frames(h3, [[h3.e, { pos: [0, 0, 90], yaw: 0 }]]);
+  const b3 = boxOf(h3, h3.e);
+  const ahead = { pos: [0, 0, 90 + hullBuild(HULL.SmallShip).bowZ + RAM_REACH / 2 - (b3.c[2] - b3.h[2])], yaw: 0, speed: 5 };
+  h3.runtime.state.velocityCurrent = [0, 0, 6];
+  frames(h3, [[h3.e, ahead]], 3);
+  assert.ok(6 - 5 < RAM_SPEED);
+  assert.equal(h3.e.ship.damage.hull, h3.e.ship.damage.maxHull, 'closing at 1 m/s: a bump');
+  // braced, half the recoil
+  const h4 = await helm();
+  const t4 = across(h4, RAM_REACH / 2);
+  h4.runtime.state.velocityCurrent = [0, 0, 6];
+  frames(h4, [[h4.e, t4]], 1, { brace: true });
+  near(h4.host.hudModel().ship.hull * hullBuild(HULL.SmallShip).hullHp, hullBuild(HULL.SmallShip).hullHp - Math.round(dealt * RAM_RECOIL * BOW_RECOIL * BRACE_TAKEN), 0.01, 'braced for it');
+  // a galley's ram, from her own stem 51 m out
+  const g = await helm({ hull: HULL.LargeGalley });
+  const tg = across(g, RAM_REACH / 2, HULL.LargeGalley);
+  g.runtime.state.velocityCurrent = [0, 0, 6];
+  frames(g, [[g.e, tg]], 1);
+  const gd = Math.round(6 * RAM_DAMAGE * GALLEY_RAM);
+  assert.equal(g.e.ship.damage.maxHull - g.e.ship.damage.hull, Math.min(gd, g.e.ship.damage.maxHull), 'GALLEY_RAM times');
+  near(g.host.hudModel().ship.hull * hullBuild(HULL.LargeGalley).hullHp, hullBuild(HULL.LargeGalley).hullHp - Math.round(gd * RAM_RECOIL / GALLEY_RAM), 0.01, 'a GALLEY_RAM-th back');
+  assert.ok(hullBuild(HULL.LargeGalley).bowZ > 50, 'her stem, where the old point stood 29 m inside it');
+});
+
+// ── her hurts in her handling ──────────────────────────────────────────────────────────────────────────────────────
+
+test('AUDIT NAV1 H12 her hurts in her handling: Come Sail Away\'s way is the host\'s share of it - under sail BARE_POLES and the rest by the canvas left, under oars full and a wreck\'s WRECKED_OARS; a wreck or a rig shot away refuses the sail with its word, and a rig lost with the canvas set strikes it once, not a line a frame (mutants: the canvas unread, the oars unread, the refusal unsaid, a line a frame)', async () => {
+  const h = await helm();
+  frames(h, [[h.e, { pos: [0, 0, 600], yaw: 0 }]]);
+  assert.equal(h.host.wayScale(true), 1, 'a whole rig, her whole way');
+  assert.equal(h.host.wayScale(false), 1);
+  assert.equal(h.host.sailRefused(), null);
+  // half her canvas shot away
+  const bat = { delay: 0, p0: [0, 20, -60], v0: [0, 0, 120], gun: 'chain', index: 0 };
+  const rig = rigBoxesOf(h.boat)[0];
+  assert.ok(rig, 'her rig');
+  let hud = h.host.hudModel();
+  const tear = (n) => { for (let i = 0; i < n; i++) h.host._shots.fireVolley({ id: `t${i}${Math.random()}`, shooter: 'x', launches: [{ ...bat, p0: [rig.c[0], rig.c[1], rig.c[2] - 60] }] }); frames(h, [[h.e, { pos: [0, 0, 600], yaw: 0 }]], 12); };
+  tear(4);
+  hud = h.host.hudModel();
+  assert.ok(hud.ship.sail < 1 && hud.ship.sail > 0, `torn (${hud.ship.sail})`);
+  near(h.host.wayScale(true), BARE_POLES + (1 - BARE_POLES) * hud.ship.sail, 1e-9, 'the canvas left');
+  assert.equal(h.host.wayScale(false), 1, 'the oars pull whatever the rig');
+  // the last of it, with the sails set: struck once
+  h.runtime.state.sailPosition = 1;
+  let lowered = 0;
+  h.runtime.LowerSails = () => { lowered++; h.runtime.state.sailPosition = 0; };
+  while (h.host.hudModel().ship.sail > 0) tear(4);
+  near(h.host.wayScale(true), BARE_POLES, 1e-9, 'bare poles');
+  assert.equal(h.host.sailRefused(), 'The rigging is shot away - no sail will set.');
+  assert.equal(lowered, 1, 'struck down once');
+  const said = h.log.say.filter((t) => t === 'The rigging is shot away - no sail will set.').length;
+  frames(h, [[h.e, { pos: [0, 0, 600], yaw: 0 }]], 20);
+  assert.equal(h.log.say.filter((t) => t === 'The rigging is shot away - no sail will set.').length, said, 'and never again while they stay down');
+  // a wreck: no sail at all, the oars at WRECKED_OARS
+  const w = await helm({ save: { v: 1, boats: { 42: { hull: 0, sail: 160, crew: 24, fire: 0, state: 'wrecked', barrels: 4 } }, notoriety: {}, day: 1, raids: [] } });
+  frames(w, []);
+  assert.equal(w.host.wayScale(false), WRECKED_OARS);
+  assert.equal(w.host.wayScale(true), 0);
+  assert.equal(w.host.sailRefused(), 'The ship is crippled - no sail will set.');
+  // off the helm, the mod's own
+  w.runtime.sailing = false;
+  assert.equal(w.host.wayScale(false), 1);
+  assert.equal(w.host.sailRefused(), null);
+  // the world hands both to Come Sail Away
+  const world = src('scenes/world.js');
+  assert.match(world, /wayScale: \(underSail\) => naval\?\.wayScale\(underSail\) \?\? 1,/);
+  assert.match(world, /sailRefused: \(\) => naval\?\.sailRefused\(\) \?\? null,/);
 });

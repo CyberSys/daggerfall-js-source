@@ -113,10 +113,10 @@ test('NAV-F the target card: her name and colours, her class, captain and distan
   assert.equal(foot.card.state, 'Taken - E: her hold');
 });
 
-test('NAV-F a finger\'s screen: no key is named - a tap boards her and opens her hold (the host\'s one activation arm, a key\'s, a click\'s or a tap\'s), the finger held and dragged lays the guns and its lift fires them, Crouch the touch table\'s brace; the plate stands over the touch corner\'s presses, never on them (mutants: the keys named to a finger, the plate on the presses, the finger\'s root never marked)', () => {
+test('NAV-F a finger\'s screen: no key is named - a tap boards her and opens her hold (the host\'s one activation arm, a key\'s, a click\'s or a tap\'s), the finger held and dragged lays the guns and its lift fires them, the plate\'s own Brace held the brace (AUDIT NAV1 - test/navaudit_helm.test.js); the plate stands over the touch corner\'s presses, never on them (mutants: the keys named to a finger, the plate on the presses, the finger\'s root never marked)', () => {
   const T = { touch: true };
-  assert.equal(navalHudText(helm(), KEYS, T).plate.hint, 'Hold and drag to aim - Crouch: brace');
-  assert.equal(navalHudText(helm({ aiming: true }), KEYS, T).plate.hint, 'Lift to fire - Crouch: brace');
+  assert.equal(navalHudText(helm(), KEYS, T).plate.hint, 'Hold and drag to aim - hold Brace');
+  assert.equal(navalHudText(helm({ aiming: true }), KEYS, T).plate.hint, 'Lift to fire - hold Brace');
   assert.equal(navalHudText(helm({ board: { name: 'The Red Wake', kind: 'board' } }), KEYS, T).plate.hint, 'Tap: board The Red Wake');
   assert.equal(navalHudText(helm({ board: { name: 'The Red Wake', kind: 'hold' } }), KEYS, T).plate.hint, "Tap: open The Red Wake's hold");
   assert.equal(navalHudText(helm({ target: card({ state: 'struck' }), board: { name: 'The Red Wake', kind: 'board' } }), KEYS, T).card.state, 'Colours struck - Tap: board her');
@@ -134,7 +134,7 @@ test('NAV-F a finger\'s screen: no key is named - a tap boards her and opens her
   drawNavalHud(helm(), { keys: KEYS, touch: true });
   const [root] = byClass(globalThis.document.body, 'dfnaval-hud');
   assert.equal(root.className, 'dfnaval-hud touch');
-  assert.equal(byClass(root, 'dfnaval-hint')[0].textContent, 'Hold and drag to aim - Crouch: brace');
+  assert.equal(byClass(root, 'dfnaval-hint')[0].textContent, 'Hold and drag to aim - hold Brace');
   drawNavalHud(helm(), { keys: KEYS });
   assert.equal(root.className, 'dfnaval-hud');
   assert.equal(byClass(root, 'dfnaval-hint')[0].textContent, 'Hold RIGHT CLICK to aim - C: brace');

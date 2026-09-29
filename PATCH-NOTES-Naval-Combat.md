@@ -64,6 +64,12 @@
 - A new broadside camera: while you aim a broadside, the view moves out over that side of your ship so your gun ports, the splash zone and the enemy are all on screen together. Letting go brings the view back. You can turn it off in Features > Naval Combat > Broadside camera.
 - Firing while braced now tells you to let go of the brace first, and the reload message gives the seconds left.
 
+## At the helm
+- Bracing no longer leaves you crouched after you let go of the key, which also knocked your aim short.
+- On a phone or tablet, your ship's panel has its own Brace button: hold it to brace.
+- Ramming now works. Hit a ship with your bow at speed to damage her, and you take some damage back (less when braced). A galley's ram hits three times as hard.
+- Damage now affects how your ship sails: torn sails slow you down, and a crippled ship can only row, slowly. When your rigging is shot away you're told once instead of every time you try to raise the sails.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.

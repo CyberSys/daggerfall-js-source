@@ -85,8 +85,8 @@
   {
     "name": "MWCROUCH-the-crouch-goes-back-to-the-held-ring-in-the-world-host",
     "file": "src/scenes/world.js",
-    "old": "        const crouchPress = pressed(latch.edge, keys, 'Crouch');",
-    "new": "        const crouchPress = held(keys, 'Crouch');",
+    "old": "        const crouchPress = !helmBrace && pressed(latch.edge, keys, 'Crouch');",
+    "new": "        const crouchPress = !helmBrace && held(keys, 'Crouch');",
     "tests": [
       "test/mwcrouch_edges.test.js"
     ]

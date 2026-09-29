@@ -588,3 +588,37 @@ test('CSA-E: TriggerDoor - the trigger\'s parent\'s Animator has its Opened turn
   s.frame();
   assert.equal(door.nextStateName, 'Opened');
 });
+
+test('CSA-D x AUDIT NAV1 (the helm): the sea fight\'s seams - moveSpeed times `wayScale` (told whether she is under sail) held to 0..1, the mod\'s own speed with none; RaiseSails refused with `sailRefused`\'s word before the mod\'s own obstruction, the sails kept stowed (mutants: the share unread, the sail flag unread, the refusal after the raise)', () => {
+  const s = scene();
+  const boat = s.helm(s.place(1, 3));
+  const oars = s.rt.properties.moveSpeed();
+  assert.ok(oars > 0);
+  const asked = [];
+  s.deps.wayScale = (underSail) => { asked.push(underSail); return 0.5; };
+  near(s.rt.properties.moveSpeed(), oars * 0.5, 1e-6, 'a hurt boat rows at her share');
+  assert.equal(asked.at(-1), false, 'told she is under oars');
+  s.deps.wayScale = () => 7;
+  near(s.rt.properties.moveSpeed(), oars, 1e-6, 'never past her own');
+  s.deps.wayScale = () => -1;
+  assert.equal(s.rt.properties.moveSpeed(), 0);
+  s.deps.wayScale = () => undefined;
+  near(s.rt.properties.moveSpeed(), oars, 1e-6, 'no word, her own');
+  // the refusal: said, and the sails stay stowed - before the mod's own obstruction
+  boat.NodeTileMapIndices[3] = 7;
+  s.deps.sailRefused = () => 'The rigging is shot away - no sail will set.';
+  s.rt.RaiseSails();
+  assert.equal(s.out.hud.at(-1), 'The rigging is shot away - no sail will set.');
+  assert.equal(s.rt.state.sailPosition, 0);
+  assert.ok(boat.Sails.every((n) => stowed(n)), 'every sail stowed');
+  boat.NodeTileMapIndices[3] = 0;
+  s.deps.sailRefused = () => null;
+  s.rt.state.windVectorCurrent = [0, 0, -1];
+  s.rt.RaiseSails();
+  assert.equal(s.out.hud.at(-1), 'Sail raised!');
+  assert.equal(s.rt.state.sailPosition, 1);
+  const sail = s.rt.properties.moveSpeed();
+  s.deps.wayScale = (underSail) => { asked.push(underSail); return 0.25; };
+  near(s.rt.properties.moveSpeed(), sail * 0.25, 1e-6, 'under a torn rig, the canvas left');
+  assert.equal(asked.at(-1), true, 'told she is under sail');
+});

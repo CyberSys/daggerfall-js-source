@@ -490,7 +490,7 @@
   {
     "name": "NAV1G-the-warning-unsaid",
     "file": "src/ui/navalHud.js",
-    "old": "  const warn = model.incoming ? { text: 'Broadside', key: `${braceKey}: brace` } : null;",
+    "old": "  const warn = model.incoming ? { text: 'Broadside', key: bracePress } : null;",
     "new": "  const warn = null;",
     "tests": [
       "test/navaudit_guns.test.js"

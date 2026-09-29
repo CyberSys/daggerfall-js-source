@@ -41,12 +41,12 @@
 //                                              for its life (the Overworld's own law, scenes/world.js tvRaid.spent)
 // }
 
-import { createShotField } from '../systems/naval/navalShots.js';
+import { createShotField, insideGrown } from '../systems/naval/navalShots.js';
 import { createNavalEffects } from '../systems/naval/navalEffects.js';
 import { createNavalDirector, DENSITY, seedBaseOf } from '../systems/naval/navalDirector.js';
 import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provoke, hostile, RUN_OUT_S, RUN_OUT_DEG, BOW_RUN_OUT } from '../systems/naval/navalAI.js';
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap
-import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, BRACE_TAKEN, FIRE_CHANCE, repairCost } from '../systems/naval/navalDamage.js';
+import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost } from '../systems/naval/navalDamage.js';
 import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S } from '../systems/naval/navalGunnery.js';
 import { hullBuild, batteryOf, batteriesOf, GUNS, classById, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
@@ -97,6 +97,14 @@ export const GALLEY_RAM = 3;
 export const RAM_RECOIL = 0.3;
 /** One ram a ship a stretch (s). */
 export const RAM_COOLDOWN_S = 3;
+/** AUDIT NAV1 (the helm): the ram strikes from her STEM (the hull's own bowZ) within RAM_REACH of the other's box - the
+ *  collider stops a stem at the planking it meets; it read a point `beam * 2.4` out, 1.2 m short of a Small Ship's stem
+ *  and 29 m inside a galley's, so no ram ever landed - at the way she came in with, the most of the last RAM_MEMORY_S
+ *  (Come Sail Away takes a bow's way off it the frame it meets a hull), less the other's own way along her course. A
+ *  stem not built to ram takes BOW_RECOIL times RAM_RECOIL back, a galley's ram a GALLEY_RAM-th of it. */
+export const RAM_REACH = 1.2;
+export const RAM_MEMORY_S = 0.6;
+export const BOW_RECOIL = 2;
 /** Another player's ship eases toward its word at this rate (per second) and snaps past this far (m) - the team's law
  *  (systems/horseCartWire.js easeToward), a ship's scale. */
 export const PUPPET_EASE = 6;
@@ -819,6 +827,30 @@ export function createNavalHost(deps) {
     return 'ready';
   }
 
+  /**
+   * AUDIT NAV1 (the helm): her hurts in her way - Come Sail Away's `wayScale` seam (its moveSpeed times this). Under sail
+   * the canvas her rig still sets (navalDamage.js wayShare: BARE_POLES and the rest by the canvas left); under oars
+   * full, a wreck's WRECKED_OARS. The damage model had both and the helm read neither - a boat kept its whole way until
+   * the last of its canvas went.
+   */
+  function wayScale(underSail) {
+    const boat = myBoat();
+    if (!enabled || !boat) return 1;
+    const d = myBoatState(boat).damage;
+    if (underSail) return d.state === SHIP_STATES.wrecked ? 0 : d.wayShare();
+    return d.state === SHIP_STATES.wrecked ? WRECKED_OARS : 1;
+  }
+  /** Why no sail will set on my boat - a wreck, a rig shot away - or null: Come Sail Away's `sailRefused` seam, said
+   *  once where the raise is asked. */
+  function sailRefused() {
+    const boat = myBoat();
+    if (!enabled || !boat) return null;
+    const d = myBoatState(boat).damage;
+    if (d.state === SHIP_STATES.wrecked) return 'The ship is crippled - no sail will set.';
+    if (d.maxSail > 0 && d.sailShare() <= 0) return 'The rigging is shot away - no sail will set.';
+    return null;
+  }
+
   /** THE BROADSIDE CAMERA: the eye this frame - `ownEye` eased toward the broadside's own while one is laid, and home. */
   let camK = 0, camSide = null;
   function aimEye(ownEye, dt) {
@@ -1228,27 +1260,31 @@ export function createNavalHost(deps) {
   }
 
   // ── rams ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  let wayIn = [];   // AUDIT NAV1: my boat's forward way over the last RAM_MEMORY_S - [{ t, v }]
   function checkRams(boat) {
-    if (!boat) return;
+    if (!boat) { wayIn = []; return; }
     const pose = boatPose(boat);
     const v = pose.velocity;
-    const fwd = quatRotate(pose.rotation, [0, 0, 1]);
-    const speed = v[0] * fwd[0] + v[2] * fwd[2];
-    if (speed < RAM_SPEED) return;
-    const bowLocal = [0, 1, (hullBuild(boat.hull).beam || 2) * 2.4];
-    const bow = [pose.position[0] + fwd[0] * bowLocal[2], pose.position[1] + 1, pose.position[2] + fwd[2] * bowLocal[2]];
+    const fwd = flatUnit(quatRotate(pose.rotation, [0, 0, 1])) ?? [0, 0, 1];
+    wayIn.push({ t: clock, v: v[0] * fwd[0] + v[2] * fwd[2] });
+    while (wayIn.length && clock - wayIn[0].t > RAM_MEMORY_S) wayIn.shift();
+    const way = wayIn.reduce((m, w) => Math.max(m, w.v), 0);
+    if (way < RAM_SPEED) return;
+    const build = hullBuild(boat.hull);
+    const stem = [pose.position[0] + fwd[0] * build.bowZ, pose.position[1] + 1, pose.position[2] + fwd[2] * build.bowZ];
     for (const e of sea.values()) {
       if (!e.boat || e.ship.damage.state === SHIP_STATES.sunk || clock - e.ramAt < RAM_COOLDOWN_S) continue;
       const box = hullBox(e.boat);
-      if (!box) continue;
-      const l = [bow[0] - box.c[0], bow[1] - box.c[1], bow[2] - box.c[2]];
-      const x = Math.abs(l[0] * box.ax[0] + l[1] * box.ax[1] + l[2] * box.ax[2]), z = Math.abs(l[0] * box.az[0] + l[1] * box.az[1] + l[2] * box.az[2]);
-      if (x > box.h[0] + 1 || z > box.h[2] + 1) continue;
+      if (!box || !insideGrown(box, stem, RAM_REACH)) continue;
+      const her = velocityOf(e.ship);
+      const speed = way - (her[0] * fwd[0] + her[2] * fwd[2]);   // closing: a ship sailing on ahead of the stem takes less of it
+      if (speed < RAM_SPEED) continue;
       e.ramAt = clock;
-      const galley = hullBuild(boat.hull).ram;
+      wayIn = [];   // the way spent on her
+      const galley = build.ram;
       const dealt = Math.round(speed * RAM_DAMAGE * (galley ? GALLEY_RAM : 1));
-      effects.hit(bow, fwd, true);
-      sound(NAVAL_SFX.hit, bow, 1);
+      effects.hit(stem, fwd, true);
+      sound(NAVAL_SFX.hit, stem, 1);
       deps.shake?.(3);
       deps.mid?.(galley ? 'Your ram smashes into her hull!' : 'You ram her!', 2);
       const hurt = { hull: dealt, sail: 0, crew: Math.round(dealt / 40) };
@@ -1257,7 +1293,9 @@ export function createNavalHost(deps) {
       if (e.owner) deps.online?.sendHit?.(navalHitData(e.owner, { n: e.n, hull: Math.min(400, hurt.hull), crew: hurt.crew, zone: 'holed' }));
       else strike(e, hurt, myId());
       const st = myBoatState(boat);
-      st?.damage.apply({ hull: Math.round(dealt * (galley ? RAM_RECOIL / GALLEY_RAM : RAM_RECOIL * 2)), sail: 0, crew: 0 }, clock);
+      const back = dealt * RAM_RECOIL * (galley ? 1 / GALLEY_RAM : BOW_RECOIL) * (st?.guns.braced ? BRACE_TAKEN : 1);
+      st?.damage.apply({ hull: Math.round(back), sail: 0, crew: 0 }, clock);
+      break;
     }
   }
 
@@ -1286,15 +1324,17 @@ export function createNavalHost(deps) {
       stepSea(h, seaY, boat);
       left -= h;
     }
-    if (st && (st.damage.state === SHIP_STATES.wrecked || st.damage.sailShare() <= 0)) {
-      const r = csa();
-      if (r?.state?.sailPosition > 0) { r.LowerSails?.(); deps.say?.('The rigging is shot away - no sail will set.', 2.5); }
-    }
+    // a rig shot away, or the ship crippled, with her sails set: struck down - once, the raise refused after it
+    // (`sailRefused`, Come Sail Away's seam)
+    const refused = sailRefused();
+    if (refused && csa()?.state?.sailPosition > 0) { csa().LowerSails?.(); deps.say?.(refused, 2.5); }
     // an owner gone from the room takes their ships with them (checked every OWNER_SWEEP_S)
     if (deps.online && clock - lastSweep >= OWNER_SWEEP_S) { lastSweep = clock; sweepOwners(new Set((deps.online.peers?.() ?? []).map((p) => p.id))); }
     buildOne();
     for (const e of sea.values()) poseShip(e, total, seaY);
-    // the aim, on the hulls as this frame stands them (AUDIT NAV1: it read the last frame's, a ship's way behind)
+    // the ram and the aim, on the hulls as this frame stands them (AUDIT NAV1: both read the last frame's, a ship's way
+    // behind - my stem where it is, her planking where it was)
+    checkRams(boat);
     aim = null; aimHit = null;
     if (aiming && boat) {
       const side = lookSide(boat);
@@ -1317,7 +1357,6 @@ export function createNavalHost(deps) {
       s.guns.braced = b === boat && braceHeld;
       s.damage.step(d, clock);
     }
-    checkRams(boat);
 
     // the sea's traffic, when this player stands it and is on the water
     const stands = standsSea();
@@ -1750,7 +1789,7 @@ export function createNavalHost(deps) {
   }
 
   return {
-    frame, attackInput, cancelAim, activate, hudModel, drawFrame, lights, offsetAll, clear, aimEye,
+    frame, attackInput, cancelAim, activate, hudModel, drawFrame, lights, offsetAll, clear, aimEye, wayScale, sailRefused,
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     leaveShipGate, raidEnded, placeQuestFoe,
     newSaveData, getSaveData, restoreSaveData,
