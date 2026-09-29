@@ -433,8 +433,10 @@ test('AUDIT OW4 D2/D4 host: a spawn is GONE by the feature\'s own test (the ledg
   inside = true;
   assert.equal(gone(5, 6), false, 'never while the player is in it (TTL1)');
   inside = false;
-  built.set('5,6', {});
+  built.set('5,6', { location: 'Elite Castle Fenwick' });
   assert.equal(gone(5, 6), false, 'AUDIT OW5b D2: standing on built ground, it stands until that ground is built again');
+  built.set('5,6', { location: null });   // FIELD BUGS 29h (SPAWN-PLATE): the ground built again with the clock run out - empty
+  assert.equal(gone(5, 6), true, 'built EMPTY is gone - no plate over bare grass, no walk to it');
   built.clear();
   clock = NaN;
   assert.equal(gone(5, 6), false, 'a clock not yet running expires nothing');

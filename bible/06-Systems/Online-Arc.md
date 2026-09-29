@@ -4406,7 +4406,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1332`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1333`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7111` read, on one physical line:
+`src/scenes/worldModes.js:7115` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4790,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5193`). With the property missing that call is a
+(`dungeonContext.js:5234`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7468` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7491` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1063`, `src/net/online.js:2248`):**
+**Now (`src/net/wire.js:1098`, `src/net/online.js:2259`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -11653,6 +11653,21 @@ Asked what to, Mac chose **"Drakes"** (an old Imperial coin): "250 Drakes", "1 D
   read the new words. Mutants: `tools/mutants/drakes.json` (10, all dead); `audit31.json`'s past-balance record and
   `prof6.json`'s writ-filled record re-aimed by content. Patch notes: `PATCH-NOTES-Drakes.md`.
 
+## STRIKE-SHARED (2026-09-29, Mac: "Do #1") - a strike spell reaches a foe another player runs
+
+For Mac 4 of `01-Overview/Field-Bugs-2026-09-29g.md`, the shared-foe half. A Cast When Strikes spell on a foe
+another player runs (a cell's puppet, a dungeon room's foe on a joiner, a party member's quest foe or loose stand) now
+rides the hit to that foe's owner whole. The hit carries `sp`, the record through the cast frame's `castSpellOf`, and
+`lv`, the striker's level. The owner lands it on the real foe through the cast engine's foe door, and its damage
+counts as the striker's blow. A peer's soul trap is its caster's: the owner names the caster on the dead foe's record
+(`j`, `q`) and the caster rolls the soul into its own pack. A peer's watchman keeps WATCH1's door (a blow, nothing
+else).
+
+- **The relay is world132.** It reads neither field: a hit is fanned opaque, and a foes frame is fanned unparsed. The
+  number moved because the bundle's bytes did (`hitSpellOf`, `hitSpellFields` and `validFoeRecord` live in
+  `src/net/wire.js`). An older relay carries both fields untouched, and an older client reads past them.
+- Pins: `test/strikeshared.test.js` (7). Mutants: `tools/mutants/strikeshared.json` (16, all dead).
+
 ## LOAN-AMNESTY (2026-09-29, Mac: "Can we reset the loans for everyone online. The bank of the empire has decided to forgive everyone's loans") - every online loan forgiven, once
 
 - **What is forgiven** (`systems/banking.js` `forgiveLoans`): on each of the character's regional accounts, the debt
@@ -11676,4 +11691,3 @@ Asked what to, Mac chose **"Drakes"** (an old Imperial coin): "250 Drakes", "1 D
   the same save again, to the same end (RESTORE's own law).
 - Pins: `test/loan_amnesty.test.js` (6, red on the tree before). Mutants: `tools/mutants/loan_amnesty.json` (14, all
   dead); `survtiers3.json`'s two cite records re-aimed. Patch notes: `PATCH-NOTES-Loan-Amnesty.md`.
-

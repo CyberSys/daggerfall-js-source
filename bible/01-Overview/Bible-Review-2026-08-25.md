@@ -59,7 +59,7 @@ FM-bank audit. Audio.md also still disowns `ActivateLockUnlock = 316`
 (`:158` "NOT OURS... neither of which is ported") - it sits in
 `soundClips.js:10` with three consumers (R1) - and still claims
 `deps.inCastle` stays false (`:105`), live since AUDIT 21
-(`dungeonContext.js:2930`). This is the one page whose live-queue
+(`dungeonContext.js:2932`). This is the one page whose live-queue
 claims actively contradict the code, the Ledger, and the rest of the
 bible at once.
 
@@ -127,11 +127,11 @@ per arc:
   (`mysticism.test.js:225-239`). The doc, the pin's design, and
   `mysticism.js:53`'s header are all wrong the same way. Also stale:
   S24 "the port has neither the [Spell Absorption] effect nor the
-  state" (`effects.js:1145-1168` + `absorption.js:77-91` land it
+  state" (`effects.js:1154-1177` + `absorption.js:77-91` land it
   first-arm); S40's "house ledger is unported" flag
   (`banking.js:173 isHouseOwned` feeds the rest seam); S16's
   "monsters 0-42 still spawn as billboards" (C11 pivoted them to real
-  foes, `dungeonContext.js:947-998`); the mid-file Queue
+  foes, `dungeonContext.js:948-999`); the mid-file Queue
   (`:742-748`) still carries FreeAction / Create Item / enchantment
   value / rest-UI / "Later: guilds, shops, dialog, calendar" - all
   shipped, list actively maintained (it struck its fatigue line).
@@ -163,7 +163,7 @@ per arc:
   `:3368`); `:4722` is now flatly false ("the interior host's
   char-sheet and inventory panels swallow their click and do
   nothing") and contradicts U43 in the same file
-  (`worldModes.js:5879-5880` routes them). UI-Arc carries no records
+  (`worldModes.js:5883-5884` routes them). UI-Arc carries no records
   at all for H1-H3 - the banking windows exist only in the Ledger.
 - *Combat.md*: the status head (first 51 lines) is the stale part -
   DrainMagicka "INTERIM no-op" (`:19`, real since S4a and

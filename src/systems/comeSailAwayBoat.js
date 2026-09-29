@@ -103,6 +103,7 @@ export class Boat {
     this.uid = 0;   // the deed's item UID (placeItem.UID) - set where CSA-C places the boat
     this.packable = false;
     this.crewed = false;
+    this.groundAsked = false;   // FIELD BUGS 29h (LOST-BOAT, the port's own): the ground under it asked once (comeSailAway.js recoverLostBoats)
     this.modifierMoveSpeedOar = 0; this.modifierMoveAccelerationOar = 0;
     this.modifierMoveSpeedSail = 0; this.modifierMoveAccelerationSail = 0;
     this.modifierTurnSpeedOar = 0; this.modifierTurnAccelerationOar = 0;

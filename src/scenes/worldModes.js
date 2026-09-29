@@ -197,7 +197,7 @@ import { discoverBuilding, undiscoverBuilding, getDiscoveredBuilding, getLastLoc
 import { BUILDING_KEY_0 } from '../systems/talkTopics.js';   // H3: the no-key key both ship interiors are filed under
 import { interiorLocationKey, mintInteriorShared, composeInteriorShared, applyInteriorShared, applyInteriorLoot, interiorActionRecords, interiorLootKeyOf, interiorLootRecords } from '../world/interiorShared.js';   // WORLD6a: the building as a world room - the pure half; AUDIT WORLD6a A1: the bag minted there
 import { getHolidayId } from '../systems/holidays.js';
-import { guildOfFaction, isMember } from '../systems/guilds.js';
+import { guildOfFaction, guildGroupOfFaction, isMember } from '../systems/guilds.js';
 // V5: rest above ground. The window and the session have been finished
 // since U7; what was missing was a host outside the dungeon that opens
 // one, and CanRest's whole town half.
@@ -1248,7 +1248,7 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:391-392), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1052-1056 and
+   *  READ the effect list every frame (exteriorFoes.js:1077-1081 and
    *  cityGuards.js:989-995 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -1597,10 +1597,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:2046 states), so the same visual
+   *  the C11 law dungeonContext.js:2047 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1931, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1932, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -2234,7 +2234,11 @@ export function createWorldModes(host) {
   function openBookshelf(shelf, b) {
     const dict = townTalk?.factionDict ?? null;
     const bf = b.factionId ? (dict?.get(b.factionId) ?? null) : null;
-    const guild = bf ? createGuildForGroup(bf.ggroup, b.factionId, dict) : null;
+    // FIELD BUGS 29h (TEMPLE-SHELF; the Discord: a Curate of Stendarr "told that I had library access. Bookshelves were
+    // telling me I was the wrong rank"): the group through GetGuildGroup (GuildManager.cs:269-291), never the record's
+    // own ggroup - a temple's building carries its DIVINE's faction, whose ggroup is None (the HolyOrder is its child's),
+    // so every temple shelf answered no guild and refused every member at every rank
+    const guild = bf ? createGuildForGroup(guildGroupOfFaction(dict, b.factionId), b.factionId, dict) : null;
     const membership = guild ? membershipOf(activeMemberships(playerEntity), guild) : null;
     const access = bookshelfAccess({ buildingType: b.buildingType, guild, membership });
     if (!access.allowed) {
@@ -7116,7 +7120,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7490), so the OUTER host's one rides in.
+          // (dungeonContext.js:7540), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -8300,7 +8304,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:13612's own wave-46 note); the interior
+          // a blow (world.js:13644's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10922,7 +10926,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3453-3475), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10066). So an F9 pressed in a shop
+     *  unconditionally (world.js:10104). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10961,7 +10965,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10177)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10215)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10971,8 +10975,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9073`
-     *  and `dungeonContext.js:7501` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:9111`
+     *  and `dungeonContext.js:7551` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

@@ -198,9 +198,12 @@ test('DISC19-C: the online exit autosave writes every slot of a living player an
   assert.deepEqual(exitAutosaveNames({ ...p, health: 0 }, { storage }), [], 'dead: none');
   // and the handler writes only through that answer, with every host's death read
   const w = rd('src/scenes/world.js');
-  const at = w.search(/addEventListener\('beforeunload', \(\) => \{\n(?:\s*\/\/[^\n]*\n)*\s*if \(!online \|\| !playerSpawned\b/);   // AUDIT ONESEAT H4: its guard asks the seat too, a comment above it
-  const handler = w.slice(at, w.indexOf('\n  });', at));
+  // FIELD BUGS 29h (BOOT-HIDE): PIN MOVED - the handler is named at the checkpoint (`exitAutosave`) and handed to the
+  // page with the checkpoint's other doors, below every binding it reads (test/fb0929h_boothide.test.js)
+  const at = w.search(/const exitAutosave = \(\) => \{\n(?:\s*\/\/[^\n]*\n)*\s*if \(!online \|\| !playerSpawned\b/);   // AUDIT ONESEAT H4: its guard asks the seat too, a comment above it
+  const handler = w.slice(at, w.indexOf('\n  };', at));
   assert.ok(at > 0, 'the online exit autosave was found');
+  assert.ok(w.includes("\n  addEventListener('beforeunload', exitAutosave);\n"), 'and it is the page\'s end');
   assert.match(handler, /for \(const saveName of exitAutosaveNames\(playerEntity, \{ deathUp: townTalk\.overlay instanceof DeathScreen \|\| !!modes\?\.deathUp\?\.\(\) \}\)\) save\(saveName\);/);
   assert.ok(!handler.includes('saveKeysOfCharacter('), 'no second list of slots beside the guarded one');
 });

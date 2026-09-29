@@ -245,16 +245,19 @@ test('AUDIT REALM2 C2 in the host: beforeunload gives no lease up (the unload gu
   releaseUnloadGuard();
   armUnloadGuard(() => true, win);   // world.js armUnloadGuard(() => playerSpawned), armed before the handler
   const written = [];
-  mount(W.top(WORLD, "addEventListener('beforeunload'"), {
+  // FIELD BUGS 29h (BOOT-HIDE): the exit save named at the checkpoint, handed to the page with the checkpoint's doors
+  mount(`${W.top(WORLD, 'const exitAutosave = () => {')}\n${W.top(WORLD, "addEventListener('beforeunload'")}`, {
     addEventListener: (t, f) => win.addEventListener(t, f), online: {}, playerSpawned: true, seatOut: () => false, duelLeaveNow: () => {},
     realmSession: c.session, modes: { quickSaveNow: (n) => written.push(n), deathUp: () => false }, worldQuickSave: null,
     exitAutosaveNames: () => ['QuickSave'], playerEntity: {}, townTalk: { overlay: null }, DeathScreen: class {},
   });
   let exitHook = null;
-  mount(W.top(WORLD, 'setBeforeTitleExit('), {
+  const realmHooks = {
     realmSession: c.session, setBeforeTitleExit: (f) => { exitHook = f; }, whenPageHides: realmSaves.whenPageHides, whenPageGoes: realmSaves.whenPageGoes,
     globalThis: win, online: null, onlineCheckpoint: () => false, realmCheckpoint: () => false, duelLeaveNow: () => {}, REALM_EXIT_WAIT_MS: 10,
-  });
+  };
+  mount(W.top(WORLD, 'whenPageGoes('), realmHooks);   // the page's going: the lease, at the checkpoint
+  mount(W.top(WORLD, 'setBeforeTitleExit('), realmHooks);   // the title exit and the page put away: the checkpoint's doors (BOOT-HIDE)
   assert.equal(typeof exitHook, 'function');
   const before = dev.door.log.length;
   const unload = ev('beforeunload');

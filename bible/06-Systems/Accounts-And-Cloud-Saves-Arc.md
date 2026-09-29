@@ -2307,6 +2307,16 @@ deploy fires on merge to main: it drops every connected player, **and
 from that moment nobody can join without a session.** Every player
 online today is using a typed name.
 
+**TOKEN-WAIT (FIELD BUGS 2026-09-29h, MD-Geist: "a perpetual 'World: Sign
+in to play online' & 'World: Connecting' state").** The flip left ACC1d's
+budget behind: `TOKEN_WAIT_MS` was 2.5 s because past it the hello went
+unsigned and still got in. After ACC1g it is refused, so a token route
+slower than 2.5 s refused every hello, and the World link's thirty-second
+rejoin met the refusal again for as long as the page stood. The budget is
+8 s now: the service's real answer, under the relay's `HELLO_WAIT_MS`. The
+console says why a hello went unsigned (the minter's own word, or a late
+token). `01-Overview/Field-Bugs-2026-09-29h.md`.
+
 ---
 
 ## ACC1h — the Online pane is the tiles (2026-09-22)
