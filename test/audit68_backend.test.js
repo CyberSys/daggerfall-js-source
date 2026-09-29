@@ -15,6 +15,7 @@ import worker from '../server-account/src/index.js';
 import { createGuest, resolveSession, register, recover, changePassword, LOGIN_MAX } from '../server-account/src/accounts.js';
 import { putCard } from '../server-account/src/saves.js';
 import { SAVES_MAX, SHOT_MAX_BYTES } from '../server-account/src/service.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const quiet = async (fn) => { const info = console.info, warn = console.warn; console.info = () => {}; console.warn = () => {}; try { return await fn(); } finally { console.info = info; console.warn = warn; } };
@@ -220,8 +221,8 @@ test('AUDIT 68 S01-changepw-unthrottled-oracle: a guess at the old password spen
     }), env);
     return { status: res.status, body: await res.json().catch(() => null) };
   };
-  const g = (await call('POST', '/v1/auth/guest', {})).body;
-  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Sheogorath', password: 'the first one' }, g.secret)).status, 200);
+  const g = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Sheogorath', password: 'the first one', ...ACCEPTED }, g.secret)).status, 200);
   for (let i = 0; i < LOGIN_MAX; i++) {
     assert.equal((await call('POST', '/v1/account/password', { oldPassword: `guess ${i} wrong`, password: 'a new password' }, g.secret)).status, 401, `guess ${i}`);
   }
@@ -264,8 +265,8 @@ test('AUDIT 68 X8-account-body-cap-not-enforced-without-content-length: a body w
   const call = async (method, path, body, bearer) => (await worker.fetch(new Request(`https://accounts.invalid${path}`, {
     method, headers: { 'content-type': 'application/json', ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) }, body: JSON.stringify(body),
   }), env)).json();
-  const g = await call('POST', '/v1/auth/guest', {});
-  await call('POST', '/v1/auth/register', { handle: 'Nystul', password: 'correct horse battery' }, g.secret);
+  const g = await call('POST', '/v1/auth/guest', { ...ACCEPTED });
+  await call('POST', '/v1/auth/register', { handle: 'Nystul', password: 'correct horse battery', ...ACCEPTED }, g.secret);
   const slot = '/v1/saves/c0ffee00-1111-2222-3333-444455556666/QuickSave';
   assert.equal((await call('PUT', slot, CARD, g.secret)).ok, true);
   const shot = chunked(SHOT_MAX_BYTES * 8);

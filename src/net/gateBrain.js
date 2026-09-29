@@ -25,6 +25,7 @@
 // full-rate damage whatever anybody says.
 //
 // Not a DFU member. Ledger A (WB).
+import { readGateMods, validGateMods, GATE_TRIALS } from './gateMods.js';   // WB8b: the Warden's marks - the fight's profile is made from them
 
 // ── the court and the body ─────────────────────────────────────────────
 /** Where the court's centre stands in the arena's own dungeon frame, metres: its one made block's middle
@@ -179,6 +180,97 @@ export const ABSENT_RETIRE_MS = 30_000;
 /** AUDIT WBX R2: what keeps a seat in a full court - a blow worth RECEIPT_SHARE of its share, or this long stood. One
  *  beat stood, or one blow of nothing, held a seat for the day; 256 throwaway accounts held the court. */
 export const SEAT_KEEP_MS = 30_000;
+/** A REAL PART IN THE FIGHT (AUDIT WBX R2's bar): a blow worth RECEIPT_SHARE of the fighter's share, or SEAT_KEEP_MS
+ *  stood alive in the court. It keeps a seat in a full court, and (AUDIT PRE-MERGE 0929 W1-1) it is what a fall must
+ *  have behind it to feed a Soul-Hungry Warden. */
+export const hasPart = (p) => p.dealt >= RECEIPT_SHARE * p.share || p.stoodMs >= SEAT_KEEP_MS;
+
+// ── WB8b: the Warden's marks, as law ────────────────────────────────────
+/** WB8b: SCARRED GROUND - under the Scarring trial his Ground Slam leaves it at his feet and his Crushing Leap where it
+ *  lands (POOLS' shape: a radius, a span, a share and a base a POOL_TICK_MS), of his aspect's element as all his ground. */
+export const SCAR_POOLS = Object.freeze({
+  slam: Object.freeze({ r: 3, ms: 6000, pct: 0.05, base: 2 }),
+  leap: Object.freeze({ r: 3.5, ms: 6000, pct: 0.05, base: 2 }),
+});
+/** An attack as the profile reads it - any of ATTACKS, each shape's own fields optional.
+ * @typedef {{id: number, key: string, name: string, windup: number, active: number, recover: number, shape: string, pct: number,
+ *   base: number, el: string|null, aim: string, phase: number, range: number, w: number, minGap: number, r?: number, arc?: number,
+ *   width?: number, len?: number, n?: number, r0?: number, r1?: number, max?: number, pool?: {r: number, ms: number, pct: number, base: number}}} GateAttack
+ */
+/** WB8b: Dagon's Favoured - the phases the Burning Court's arsenal comes in early. */
+export const FAVOURED_PHASE = Object.freeze({ hellfire: 1, meteor: 1, spokes: 2 });
+
+/**
+ * WB8b (2026-09-28, Mac: "give him unique and different modifers on every 2 hour spawn"): A FIGHT'S PROFILE - the
+ * numbers the brain and every screen read in place of the constants above, made from the fight's marks (`md`,
+ * net/gateMods.js: the day's draw, net/gateLaw.js gateModsOf, kept on the fight and said in its state - one law, both
+ * ends). The Warden unmarked - no `md`, a fight checkpointed before WB8 - is BASE_PROFILE, the constants exactly. The
+ * attacks' own tables never change (an attack is its object: the brain and the screens test identity); what a mark
+ * moves is each attack's line here (`atk[key]`: its reach, its phase, its element, its name, the ground it leaves, its
+ * share and base) and the body's. Pure; ONE PROFILE A SET OF MARKS, made once and kept - keyed by the set as the tables
+ * order it (its aspect, then its trials in GATE_TRIALS' order), so the order the words came in makes no second one, and
+ * there are 149 sets at most (four aspects with none, one or two of eight trials, and none at all).
+ * @param {unknown} md
+ */
+export function fightProfile(md) {
+  const ok = validGateMods(md) ?? null;
+  const read = ok ? readGateMods(ok) : null;
+  const key = read ? [read.aspect.id, ...GATE_TRIALS.filter((t) => read.trials.includes(t)).map((t) => t.id)].join(',') : '';
+  let P = _profiles.get(key);
+  if (P) return P;
+  const aspect = (read ?? readGateMods(null)).aspect, trials = read ? GATE_TRIALS.filter((t) => read.trials.includes(t)) : [];
+  const T = (id) => trials.find((t) => t.id === id) ?? null;
+  const colossal = T('colossal'), unyielding = T('unyielding'), vengeful = T('vengeful'), scarring = T('scarring'), grudge = T('grudge'), hungry = T('soulhungry');
+  const size = colossal?.size ?? 1, dmgX = vengeful?.dmg ?? 1, groundMsX = scarring?.groundMs ?? 1;
+  const ground = (G) => (G ? Object.freeze({ r: G.r, ms: Math.round(G.ms * groundMsX), pct: G.pct * dmgX, base: G.base * dmgX }) : null);
+  const atk = {};
+  for (const A of /** @type {ReadonlyArray<GateAttack>} */ (ATTACK_BY_ID)) {
+    const el = A.el === 'fire' && A !== ATTACKS.wrath ? aspect.el : A.el;   // his fire is his aspect's; Dagon's Wrath is Dagon's
+    atk[A.key] = Object.freeze({
+      // AUDIT PRE-MERGE 0929 W1-2: a cone reaches from his body, as far past it as it ever did - its range is measured
+      // past his body (attacksFor), and a Colossal Warden chose the Cleave at fighters up to 9.25 m from his centre with
+      // a cone of 9: cleaving air all phase one at a fighter standing just outside it, never walking in (R3's law -
+      // "its cone of 9 always reached" - for every body he wears)
+      r: A === ATTACKS.slam && colossal ? colossal.slamR : A.shape === 'cone' ? A.r + BOSS_R * (size - 1) : A.r,
+      phase: T('favoured') && FAVOURED_PHASE[A.key] != null ? FAVOURED_PHASE[A.key] : A.phase,
+      el, name: aspect.names[A.key] ?? A.name,
+      pool: ground(A.pool ?? (scarring ? SCAR_POOLS[A.key] : null)),
+      pct: A.pct * dmgX, base: (A.base ?? 0) * dmgX,
+    });
+  }
+  P = Object.freeze({
+    md: key ? Object.freeze(key.split(',')) : null, aspect, trials, el: aspect.el,
+    size, bossR: BOSS_R * size, bossH: BOSS_H * size, hpX: colossal?.hp ?? 1,
+    shieldMs: unyielding?.shieldMs ?? SHIELD_MS, hitX: unyielding?.hit ?? 1, dmgX,
+    threatPick: grudge?.threatPick ?? THREAT_PICK, threatDecay: grudge?.threatDecay ?? THREAT_DECAY,
+    feed: hungry?.heal ?? 0, feedsMax: hungry?.feeds ?? 0, echo: !!T('echoing'),
+    atk: Object.freeze(atk),
+    trialsLine: trials.map((t) => t.name).join(' - '),   // AUDIT PRE-MERGE 0929 W2-2: said by the bar every frame, joined once
+  });
+  _profiles.set(key, P);
+  return P;
+}
+/** The profiles made (the screens ask every frame) - never more than the sets there are. */
+const _profiles = new Map();
+/** The Warden unmarked: the constants exactly. */
+export const BASE_PROFILE = fightProfile(null);
+/** A fight's profile (its own marks), or a state's - the brain's fight and the court's state alike carry `md`. */
+export const profileOf = (f) => {
+  // AUDIT PRE-MERGE 0929 W2-2: FOUND ONCE A MARKS ARRAY. The profile was cached and finding it was not - every call
+  // copied the marks (validGateMods), read them (readGateMods) and joined a key, ~1.9 KB a call, and the court asks
+  // every frame (the bar, the glow, the telegraphs, target() on every swing and missile): a marked court's frame made
+  // three and a half times the garbage of an unmarked one. The fight's `md` and the fold's are one array for as long
+  // as they stand (the relay's is made at newFight, the screen's once an `st`), so the profile is kept by that array.
+  const md = f?.md;
+  if (md == null || typeof md !== 'object') return fightProfile(md);
+  let P = _profileByMd.get(md);
+  if (!P) { P = fightProfile(md); _profileByMd.set(md, P); }
+  return P;
+};
+/** The profile each marks array was read as (arrays drop out with the states that hold them). */
+const _profileByMd = new WeakMap();
+/** What an attack is under a profile - its line (reach, phase, element, name, ground, share, base). */
+export const attackUnder = (A, P = BASE_PROFILE) => P.atk[A.key];
 
 const dist = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
 /** A point kept inside a disc of radius `r` about the court's centre (the boss's own, by default). */
@@ -192,10 +284,17 @@ export function keepInCourt(x, z, r = BOSS_REACH_R) {
  * some.
  * @param {number} day @param {number} now @param {number} wrathAt the gate's midnight (net/gateLaw.js gateTimes)
  * @param {string} boss the boss's id (net/gateLaw.js GATE_BOSSES)
+ * @param {unknown} [md] WB8b: his marks (net/gateLaw.js gateModsOf) - none, the Warden unmarked
  */
-export function newFight(day, now, wrathAt, boss) {
+export function newFight(day, now, wrathAt, boss, md = null) {
   return {
     v: 1, day, boss, startedAt: now, wrathAt, phase: 1, shieldUntil: 0, hp: 0, max: 0,
+    /** WB8b: the Warden's marks this fight is fought under (net/gateLaw.js gateModsOf - the relay's draw at the fight's
+     *  birth), or null for none; said in every state */
+    md: validGateMods(md) ?? null,
+    /** AUDIT PRE-MERGE 0929 W1-1: the feedings a Soul-Hungry Warden has had this fight (at most GATE_FEEDS_MAX) - a
+     *  fight checkpointed before it counts from none */
+    feeds: 0,
     pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, nextAt: now + OPENING_MS, seq: 0,
     target: null, targetAt: 0,
     /** WBX5: a phase's turn still to come - PHASE_TURN's entries after the one in flight - and the next of them, begun
@@ -242,7 +341,7 @@ export function joinFight(f, sub, name, lv, now, admits, present = null) {
   if (f.fell || f.wrath || !admits) return false;
   if (Object.keys(f.players).length >= GATE_FIGHTERS_MAX && !freeSeat(f, present)) return false;
   const level = clampLv(lv);
-  const share = BOSS_TTK_S * dpsRef(level);
+  const share = BOSS_TTK_S * dpsRef(level) * profileOf(f).hpX;   // WB8b: Colossal - each share a quarter more
   const frac = standsAt(f);
   // AUDIT WB A8: a newcomer to a fight already bled comes with an EMPTY bucket - its share joins the health at the
   // fraction he stands at, and a full bucket on top of it let a string of late joiners each spend BUCKET_DEPTH_X
@@ -283,7 +382,7 @@ export function restoreShare(f, p) {
 export function freeSeat(f, present) {
   if (!present) return false;
   for (const [sub, p] of Object.entries(f.players)) {
-    if (present.has(sub) || p.dealt >= RECEIPT_SHARE * p.share || p.stoodMs >= SEAT_KEEP_MS) continue;   // AUDIT WBX R2: a real part in the fight keeps a seat
+    if (present.has(sub) || hasPart(p)) continue;   // AUDIT WBX R2: a real part in the fight keeps a seat
     if (!p.retired) shareOut(f, p.share);
     delete f.players[sub];
     delete f.threat[sub];
@@ -311,15 +410,17 @@ export function applyHit(f, sub, d, r, pose, now) {
   p.rate -= 1;
   if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z)) return 0;
   if (Math.hypot(pose.x, pose.z) > COURT_R + POSE_SLACK) return 0;   // nobody strikes the court from off it
-  const gap = dist(pose.x, pose.z, f.pos[0], f.pos[1]) - BOSS_R;
+  const P = profileOf(f);
+  const gap = dist(pose.x, pose.z, f.pos[0], f.pos[1]) - P.bossR;   // WB8b: his body's own size (Colossal's is larger)
   if (r === HIT_KINDS.Melee && gap > MELEE_REACH + POSE_SLACK) return 0;
-  // the damage: capped a blow, then the bucket
+  // the damage: WB8b's Unyielding lightens it, then it is capped a blow, then the bucket
   const ref = dpsRef(p.lv);
   p.bucket = Math.min(BUCKET_DEPTH_X * ref, p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * ref);
   p.bucketAt = now;
-  const got = Math.max(0, Math.min(d, HIT_CAP_X * ref, p.bucket, f.hp));
+  const want = d * P.hitX;
+  const got = Math.max(0, Math.min(want, HIT_CAP_X * ref, p.bucket, f.hp));
   p.bucket -= got;
-  p.clipped += d - got;
+  p.clipped += want - got;   // the caps' clipping - what his ward took off is his, not a cap's
   p.dealt += got;
   if (got > 0) f.threat[sub] = (f.threat[sub] ?? 0) + got;
   f.hp -= got;
@@ -379,11 +480,12 @@ export const earnedBy = (f, sub) => (f.players[sub]?.dealt >= RECEIPT_SHARE * (f
 /** The attack's wind-up in this phase. */
 export const windupOf = (atk, phase) => (phase >= 3 && atk.id !== ATTACKS.wrath.id ? Math.round(atk.windup * PHASE3_WINDUP) : atk.windup);
 
-/** Pick who he goes at: THREAT_PICK of the time the living player with the most threat, else a random living one. */
+/** Pick who he goes at: THREAT_PICK of the time (WB8b: his profile's - the Grudge-Bearer's is more) the living player
+ *  with the most threat, else a random living one. */
 export function pickTarget(f, bodies, rng) {
   const live = bodies.filter((b) => !b.dead && f.players[b.sub]);
   if (!live.length) return null;
-  if (rng() < THREAT_PICK) {
+  if (rng() < profileOf(f).threatPick) {
     let best = null, t = 0;
     for (const b of live) { const v = f.threat[b.sub] ?? 0; if (v > t) { t = v; best = b; } }
     if (best) return best;
@@ -392,9 +494,10 @@ export function pickTarget(f, bodies, rng) {
 }
 
 /** The attacks this phase allows against a target `gap` metres past his body, with `near` living players inside his
- *  slam - the last one he used left out when anything else is open. */
-export function attacksFor(phase, gap, near, lastA = -1) {
-  const out = CHOSEN.filter((a) => a.phase <= phase && gap <= a.range && (a.minGap <= 0 || gap >= a.minGap) && !(a === ATTACKS.slam && near < 1));   // a body inside his (a negative gap) is still in reach
+ *  slam - the last one he used left out when anything else is open. WB8b: each attack's phase is its profile's (Dagon's
+ *  Favoured brings the Burning Court's arsenal early). */
+export function attacksFor(phase, gap, near, lastA = -1, P = BASE_PROFILE) {
+  const out = CHOSEN.filter((a) => P.atk[a.key].phase <= phase && gap <= a.range && (a.minGap <= 0 || gap >= a.minGap) && !(a === ATTACKS.slam && near < 1));   // a body inside his (a negative gap) is still in reach
   const fresh = out.filter((a) => a.id !== lastA);
   return fresh.length ? fresh : out;
 }
@@ -417,6 +520,7 @@ export function stepBrain(f, now, bodies, rng) {
   const dt = Math.min(STEP_MAX_MS, Math.max(0, now - f.lastTickAt));
   f.lastTickAt = now;
   if (f.fell || f.wrath) return out;
+  const P = profileOf(f);   // WB8b: the numbers his marks move
   // standing: a living body in the court stands its time; AUDIT WBX R4: and the fight's own clock runs while one does
   let living = false;
   for (const b of bodies) { const p = f.players[b.sub]; if (p && !b.dead) { p.stoodMs += dt; living = true; } }
@@ -425,8 +529,31 @@ export function stepBrain(f, now, bodies, rng) {
   // share out of his health
   for (const b of bodies) { const p = f.players[b.sub]; if (p) { p.seenAt = now; restoreShare(f, p); } }
   for (const p of Object.values(f.players)) if (!p.retired && now - (p.seenAt ?? p.joinedAt) > ABSENT_RETIRE_MS) retireShare(f, p);
-  // threat forgets
-  const keep = Math.pow(1 - THREAT_DECAY, dt / 1000);
+  // WB8b: SOUL-HUNGRY - each challenger who falls in the court feeds him, once a fight (a fall again, a death and a
+  // walk back in, feeds him nothing more): a share of the health he stands for, never past it, said to the court.
+  // AUDIT PRE-MERGE 0929 W1-1: a fall is the fighter's own word (the pose's `dd`), and a heal sized to the whole fight
+  // outlives the share of one who leaves - twenty-five throwaway guests that said `in` dead and went took him from a
+  // fifth of his health to all but full, for good. So only a fall with a REAL PART behind it feeds him (hasPart: the
+  // blows or the time a seat is kept by), and no more than the trial's feedings a fight (GATE_FEEDS_MAX), however many
+  // accounts come. W1-3: and the beat's feedings are ONE word naming every one of them - two falls in a beat were two
+  // words with one moment, and the court said the first name alone.
+  if (P.feed > 0) {
+    let ns = null;
+    for (const b of bodies) {
+      const p = f.players[b.sub];
+      if (!p || !b.dead || p.fed || !(f.max > 0) || !hasPart(p) || (f.feeds ?? 0) >= P.feedsMax) continue;
+      p.fed = true;
+      f.feeds = (f.feeds ?? 0) + 1;
+      f.hp = Math.min(f.max, f.hp + P.feed * f.max);
+      (ns ??= []).push(p.name);
+    }
+    if (ns) {
+      out.push({ k: 'fed', ns, h: Math.round(f.hp), m: Math.round(f.max), at: now });
+      f.lastHpSent = Math.round(f.hp); f.lastHpAt = now;   // the word says the health: no `hp` beside it this beat
+    }
+  }
+  // threat forgets (WB8b: the Grudge-Bearer's never does)
+  const keep = Math.pow(1 - P.threatDecay, dt / 1000);
   for (const k of Object.keys(f.threat)) { f.threat[k] *= keep; if (f.threat[k] < 0.5) delete f.threat[k]; }
   // THE WRATH: the clock's, not his - begun so it lands on the gate's midnight (a room woken late gives a second's
   // warning at least), and unanswerable
@@ -449,7 +576,7 @@ export function stepBrain(f, now, bodies, rng) {
   f.queue ??= [];   // a fight checkpointed before WBX5 wakes with no turn to come
   if (f.max > 0 && f.phase < 3 && f.hp / f.max <= PHASE_AT[f.phase - 1]) {
     f.phase++;
-    f.shieldUntil = now + SHIELD_MS;
+    f.shieldUntil = now + P.shieldMs;   // WB8b: Unyielding's ward holds twice as long
     f.move = null;
     out.push({ k: 'ph', n: f.phase, until: f.shieldUntil });
     const [first, ...rest] = PHASE_TURN[f.phase];
@@ -462,10 +589,14 @@ export function stepBrain(f, now, bodies, rng) {
   if (f.atk) {
     settleAt(f, now);   // the charge down its lane, the leap through the air (WBX5) - AUDIT WBX2 M8: the kill's own rule, one copy
     if (now < f.atk.until) { hpFrame(f, now, out); stateFrame(f, now, out); return out; }
+    const was = f.atk;
     f.lastA = f.atk.a;
     f.atk = null;
     f.target = null;
     f.nextAt = now + BREATH_MS;
+    // WB8b: ECHOING - a meteor falls again, a breath after the first: on the one it fell for, where they stand now (and
+    // alive), else where the first fell; an echo has none of its own, and a phase's turn clears it with the rest
+    if (P.echo && ATTACK_BY_ID[was.a] === ATTACKS.meteor && !was.echo) f.queue.unshift({ a: 'meteor', echo: true, who: was.who ?? null, point: was.tg?.[0] ?? null });
     // WBX5: a turn still to come goes on from here, a breath later
     if (f.queue.length) { const next = f.queue.shift(); f.nextAt = now + TURN_BREATH_MS; f.pending = next; }
   }
@@ -485,9 +616,9 @@ export function stepBrain(f, now, bodies, rng) {
       f.targetAt = now;
     }
     if (target) {
-      const gap = dist(target.x, target.z, f.pos[0], f.pos[1]) - BOSS_R;
-      const near = bodies.filter((b) => !b.dead && f.players[b.sub] && dist(b.x, b.z, f.pos[0], f.pos[1]) <= ATTACKS.slam.r).length;
-      const can = attacksFor(f.phase, gap, near, f.lastA);
+      const gap = dist(target.x, target.z, f.pos[0], f.pos[1]) - P.bossR;
+      const near = bodies.filter((b) => !b.dead && f.players[b.sub] && dist(b.x, b.z, f.pos[0], f.pos[1]) <= P.atk.slam.r).length;   // WB8b: Colossal's slam reaches further
+      const can = attacksFor(f.phase, gap, near, f.lastA, P);
       if (can.length) { f.move = null; begin(f, chooseAttack(can, rng), now, target, bodies, rng, out); }
       else walkToward(f, target, now, out);
     } else if (f.move) {
@@ -517,7 +648,7 @@ function stepWalk(f, now) {
 function walkToward(f, target, now, out) {
   stepWalk(f, now);
   const dx = target.x - f.pos[0], dz = target.z - f.pos[1], d = Math.hypot(dx, dz);
-  const stop = Math.max(0, d - (BOSS_R + 1));
+  const stop = Math.max(0, d - (profileOf(f).bossR + 1));
   const [tx, tz] = keepInCourt(f.pos[0] + (d > 0 ? (dx / d) * stop : 0), f.pos[1] + (d > 0 ? (dz / d) * stop : 0));
   const m = f.move;
   if (m && dist(m.tx, m.tz, tx, tz) < MOVE_RESAY_M && now - m.at < MOVE_RESAY_MS) return;
@@ -530,17 +661,20 @@ function walkToward(f, target, now, out) {
 export const wrapYaw = (a) => { let x = (a + Math.PI) % (2 * Math.PI); if (x < 0) x += 2 * Math.PI; return x - Math.PI; };
 
 /** WBX5: one entry of a phase's turn begun: the leap into the court's heart, or the attack named, its lanes turned from
- *  the last one's facing (the spokes' second cast). */
+ *  the last one's facing (the spokes' second cast). WB8b: an echo's meteor falls on the fighter the first fell for, if
+ *  they stand alive in the court, else where the first fell. */
 function beginTurn(f, entry, now, bodies, rng, out) {
   const atk = ATTACKS[entry.a];
   if (!atk) return;
   if (entry.turn) f.yaw = wrapYaw(f.yaw + entry.turn);
-  begin(f, atk, now, null, bodies, rng, out, entry.centre ? [0, 0] : null);
+  const who = entry.who ? bodies.find((b) => b.sub === entry.who && !b.dead && f.players[b.sub]) ?? null : null;
+  begin(f, atk, now, who, bodies, rng, out, entry.centre ? [0, 0] : who ? null : entry.point ?? null, !!entry.echo);
 }
 
 /** Begin an attack: where it lands and when, said now so every screen draws the wind-up at once. `point` (WBX5): where a
- *  'point' attack lands when it is not the target's feet (the leap into the court's heart). */
-function begin(f, atk, now, target, bodies, rng, out, point = null) {
+ *  'point' attack lands when it is not the target's feet (the leap into the court's heart). WB8b: the fighter it was
+ *  begun at (`who`) and whether it is an echo are kept on the attack - the fight's own, never on the wire. */
+function begin(f, atk, now, target, bodies, rng, out, point = null, echo = false) {
   const at = now + windupOf(atk, f.phase);
   let tg = [];
   if (target) f.yaw = Math.atan2(target.x - f.pos[0], target.z - f.pos[1]);
@@ -559,7 +693,7 @@ function begin(f, atk, now, target, bodies, rng, out, point = null) {
     // phase three: a second volley, scattered about the same feet
     if (f.phase >= 3) tg = tg.concat(first.map((b) => keepInCourt(b.x + (rng() - 0.5) * 6, b.z + (rng() - 0.5) * 6, COURT_R)));
   }
-  f.atk = { i: ++f.seq, a: atk.id, at, x: f.pos[0], z: f.pos[1], yw: f.yaw, tg, until: at + atk.active + atk.recover };
+  f.atk = { i: ++f.seq, a: atk.id, at, x: f.pos[0], z: f.pos[1], yw: f.yaw, tg, until: at + atk.active + atk.recover, ...(target ? { who: target.sub } : {}), ...(echo ? { echo: true } : {}) };
   out.push({ k: 'atk', ...atkFrame(f.atk) });
 }
 
@@ -585,5 +719,6 @@ export function stateOf(f) {
     mv: f.move ? { x: r2(f.move.x), z: r2(f.move.z), tx: r2(f.move.tx), tz: r2(f.move.tz), v: f.move.v, at: f.move.at } : null,
     atk: f.atk ? atkFrame(f.atk) : null, sh: f.shieldUntil, wr: f.wrathAt, n: Object.keys(f.players).length,
     fell: f.fell ? { at: f.fell.at, top: f.fell.top, n: f.fell.n } : null, wrath: f.wrath ? f.wrath.at : null,
+    md: f.md ?? null,   // WB8b: his marks - every screen fights the fight's own, whatever the day's draw would say
   };
 }

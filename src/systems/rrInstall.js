@@ -10,7 +10,8 @@ import { registerFormulaOverride, formulaOverride, entityMaxEncumbrance } from '
 import { registerClimbingChanceOverride } from '../player/climbing.js';
 import { currentWeaponPose } from '../combat/playerWeapon.js';
 import { WEAPON_TYPES } from '../combat/fpsWeapon.js';
-import { registerMeleeWeaponAnimTime, CLASSIC_FRAME_UPDATE } from '../characters/weaponStates.js';
+import { registerMeleeWeaponAnimTime } from '../characters/weaponStates.js';
+import { readSwing } from '../combat/swingLaw.js';   // AUDIT PRE-MERGE 0929 S3: the weapon in the hand as the swing law reads it
 import { registerMaxBankLoan } from './banking.js';
 import { setShipAvailable } from './ship.js';
 import { registerMagicRoundHook } from './worldTick.js';
@@ -118,14 +119,15 @@ export function installRoleplayRealism() {
 
   // weaponSpeed (:174-177): GetMeleeWeaponAnimTime, registered only when Roleplay &
   // Realism: Items' weaponBalance is off - both read live here, Items' arm first
-  registerMeleeWeaponAnimTime((liveSpeed, ctx, cfu = CLASSIC_FRAME_UPDATE) => {
-    const items = rriAnimTimeOverride(liveSpeed, ctx, cfu);
+  registerMeleeWeaponAnimTime((liveSpeed, ctx) => {
+    const items = rriAnimTimeOverride(liveSpeed, ctx);
     if (items != null) return items;
     if (!rrModule('weaponSpeed') || rriModule('weaponBalance') || !ctx?.entity) return null;
     const slots = equipTableOf(ctx.entity);
     const weapon = slots?.[ctx.usingRightHand === false ? EQUIP_SLOTS.LeftHand : EQUIP_SLOTS.RightHand] ?? null;
     const hands = weapon ? getItemHands(weapon) : ITEM_HANDS.None;   // ItemHands, the C#'s third argument
-    return rrMeleeWeaponAnimTime({ liveSpeed, liveStrength: liveStat(ctx.entity, 'strength'), weaponType: ctx.weaponType, hands: hands === ITEM_HANDS.Both ? 'Both' : 'One' }, cfu);
+    const weight = readSwing(ctx)?.weight ?? 0;   // AUDIT PRE-MERGE 0929 S3: the weapon's weight, as the swing law reads it
+    return rrMeleeWeaponAnimTime({ liveSpeed, liveStrength: liveStat(ctx.entity, 'strength'), weaponType: ctx.weaponType, hands: hands === ITEM_HANDS.Both ? 'Both' : 'One', weight });   // SWING-LAW: answered through the port's swing law
   });
 
   // weaponMaterials (:178-181): CalculateWeaponToHit

@@ -16,6 +16,7 @@ import { renownXpFor, RENOWN_XP_MAX } from '../src/net/renown.js';
 import { renownAnswer } from '../src/net/renownTracker.js';
 import { accountTokenMinter, SESSION_KEY } from '../src/net/accountClient.js';
 import { renownHudView, setHudRenown, hudRenown } from '../src/ui/hudRenown.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -116,7 +117,7 @@ test('RENOWN4 the source: the page\'s getter read each frame - none set, none dr
 test('RENOWN4 the service: the mint answers the track total beside its level - RENOWN-ACCOUNT: the account\'s, whichever character is named - 0 before it earns, the total after - and none for a mint naming no character; the token itself carries no total; acct13 (mutants: the total dropped; a total for no character; a new character\'s total not 0)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const call = await stand();
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   let tok = (await call('POST', '/v1/auth/token', { character: 'char-aaaa' }, me.secret)).body;
   assert.deepEqual([tok.level, tok.xp], [1, 0], 'an account that earned nothing: Renown 1, no XP');
   assert.equal((await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 5000 }, me.secret)).status, 200);
@@ -130,8 +131,8 @@ test('RENOWN4 the service: the mint answers the track total beside its level - R
   assert.deepEqual([tok.level, tok.xp], [null, null], 'an older build\'s mint names no character, and has neither');
   tok = (await call('POST', '/v1/auth/token', { character: 'char-bbbb' }, me.secret)).body;
   assert.deepEqual([tok.level, tok.xp], [10, 6000], 'RENOWN-ACCOUNT: another character stands at the account\'s Renown - it was its own track, at 1');
-  assert.equal(ACCOUNT_VERSION, 'acct19');   // THE MERGE moved it on (acct19: REALM P1-P2.2b and AUDIT REALM - acct17 on its branch, never deployed, renumbered past RAID4 (acct17) and AUDIT RAID (acct18); its migrations 0016-0018 are 0018-0020); AUDIT RAID before it (acct18: a town's thanks once a raid and account, a raid's Renown the hour's); before it RAID4 (acct17: the towns defended - a raid's receipt counted and paid in Renown); before it HOME-STATIONS (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); RENOWN4 and GUILD1c, one deploy (acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12) at acct13; SHADOW-FANG (acct14 - acct12 on its branch) after it
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct19"/);
+  assert.equal(ACCOUNT_VERSION, 'acct20');   // TERMS1's agreement moved it on last (acct20 - acct17, then acct19, on its branch, never deployed, renumbered past RAID4, AUDIT RAID and THE MERGE's REALM at the merges); before it THE MERGE moved it on (acct19: REALM P1-P2.2b and AUDIT REALM - acct17 on its branch, never deployed, renumbered past RAID4 (acct17) and AUDIT RAID (acct18); its migrations 0016-0018 are 0018-0020); AUDIT RAID before it (acct18: a town's thanks once a raid and account, a raid's Renown the hour's); before it RAID4 (acct17: the towns defended - a raid's receipt counted and paid in Renown); before it HOME-STATIONS (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); RENOWN4 and GUILD1c, one deploy (acct11, then acct12, on their branch; main's WB5b took acct11 first and BASE-HIDE acct12) at acct13; SHADOW-FANG (acct14 - acct12 on its branch) after it
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct20"/);
 });
 
 test('RENOWN4 the client: the minter hands the total on beside the level - null for none, a fraction or a negative; a report\'s answer carries it through renownAnswer (mutants: the total dropped by the minter; a bad total taken; the answer\'s total dropped)', async () => {

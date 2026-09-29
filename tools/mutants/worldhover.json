@@ -912,7 +912,7 @@
   {
     "name": "AUDIT-WH2-no-watchdog",
     "file": "src/ui/worldPlaque.js",
-    "old": "  _cancel(_watchdog);\n  _watchdog = _schedule(() => { _watchdog = null; hideWorldPlaque(); }, PLAQUE_WATCHDOG_MS);\n",
+    "old": "  disarmDraw(_watchdog);\n  _watchdog = armDrawWatchdog(PLAQUE_WATCHDOG_MS, () => { _watchdog = null; hideWorldPlaque(); }, { schedule: _schedule, cancel: _cancel });\n",
     "new": "",
     "tests": [
       "test/worldhover.test.js"
@@ -1065,8 +1065,8 @@
   {
     "name": "AUDIT-WH2-the-modal-return-leaks-the-frame-token",
     "file": "src/scenes/world.js",
-    "old": "      frameAbort();   // AUDIT-WH2 L1-F4: the frame never reached frameEnd - close the token, take no sample\n",
-    "new": "",
+    "old": "      frameEnd();\n      requestAnimationFrame(frame);\n      return;\n",
+    "new": "      requestAnimationFrame(frame);\n      return;\n",
     "tests": [
       "test/worldhover.test.js"
     ]

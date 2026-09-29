@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1076`, `world.js:2730`), fired
+`playerTicker.advance(60)` (`exterior.js:1076`, `world.js:2738`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -3354,7 +3354,7 @@ PNG through the DOM and cached `{ width, height, data }` - the shape
 pass that object straight on as a colour32
 (`const color32 = swap ?? t.getColor32(bitmap, ...)`), and
 `renderer.uploadTexture` reads `color32.colors` and calls `asBytes` on
-it (`renderer.js:3248`). `colors` was `undefined`, `asBytes` reads
+it (`renderer.js:3260`). `colors` was `undefined`, `asBytes` reads
 `.buffer` off it, and the upload threw. Every pin on this door held:
 they asserted the cache stored the object the decoder returned, by
 IDENTITY, which is precisely the assertion that cannot see a wrong
@@ -3365,8 +3365,8 @@ orientation is not its only problem".
 **And orientation was the other half.** The port's texel convention is
 bottom-up: `getColor32` writes `dstRow = (dstHeight - 1 - border - y) *
 dstWidth` (`baseImageFile.js:143`, `BaseImageFile.cs:250`), the upload
-leaves `UNPACK_FLIP_Y_WEBGL` off (`renderer.js:3238`), and `BB_VS`
-samples the quad's top at v=1 (`renderer.js:370-394`). A browser decode
+leaves `UNPACK_FLIP_Y_WEBGL` off (`renderer.js:3250`), and `BB_VS`
+samples the quad's top at v=1 (`renderer.js:382-406`). A browser decode
 is TOP row first. So a swap named correctly would still have drawn
 mirrored beside the classic art in the same batch loop - the exact
 defect AUDIT 62 F26 fixed for the seasons mod's textures, one door over.
@@ -4597,7 +4597,7 @@ the true clause along with the false ones is in the campaign, because
 over-retiring is the equal and opposite failure.
 
 **And one delegation pointed at a flag nobody had ever written.**
-`world.js:4090` said the dungeon-mode enchant ctx was "FLAGGED there
+`world.js:4098` said the dungeon-mode enchant ctx was "FLAGGED there
 with the rest of its enchant wiring" in `dungeonContext.js`. It was
 not. `setDefaultEnchantCtx` had exactly **one** caller in the tree, so
 the standalone `?dungeon` host ran every arm that needs a host
@@ -5347,7 +5347,7 @@ blocked.
 Mac: "let's work on the horses and carts". The port has carried the CART
 as an inventory fact since the W-slice - the wagon's 750kg, the
 dungeon-exit prompt, the transfer guards - and the HORSE as an item
-nobody could sit on. `motor.js:718` passed `riding: false` into the
+nobody could sit on. `motor.js:721` passed `riding: false` into the
 climbing gate with the note "the transport arc pends", and
 `DaggerfallTransportWindow` is the last of DFU's 60 real windows the
 port does not have (UI-Arc.md's table).
@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:8445` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:8453` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -8196,6 +8196,24 @@ exactly that). A ruin minted then is PROVISIONAL (`_spawnUnroaded`), and
 entry and its TTL clock, never the one the player is standing in (TTL1's own
 exception) - then rebuilds the pixels, which ask again. Pinned in
 `test/spawnroads.test.js`, mutants in `tools/mutants/spawnroads.json`.
+
+### DISC29-F - a mode change stops the riding loop, as UpdateMode does (2026-09-28, Skibbster)
+
+"Horse gallop audio loops if you enter an interior before stopping while mounted." The riding sound is one named
+channel (`audio.setLoop('riding', ...)`) that re-arms at each clip's end, and the one writer that ever stopped it was
+`mountRig.frame`. The door dismounts through TR5's one place, `mountRig.setMode` (TransportManager.HandleTransition ->
+UpdateMode(Foot)), which told the motor and the animator and left the channel running - and the frame that would have
+stopped it never came: with the building's data in memory every await resolves as a microtask, so the interior is up
+before another outdoor frame runs, and the indoor frame returns before the rig. Only a greeting popup (a shop, an
+unlocked house) paused the game long enough for the animator's 0.2 s stop; taverns, temples, guild halls and dungeons
+all kept the hoofbeat. DFU's UpdateMode stops the source first, on EVERY change (TransportManager.cs:332-336), and so
+does `setMode` now - the door, a Recall or quest teleport indoors, a quickload into an interior, the deep-water
+dismount, the ship, and a horse swapped for the cart, which now stops at once rather than at the clip's end.
+
+The fixed-city host (`?exterior`, `?region`, `?loc`) never handed worldModes its `setTransportMode` seam, so a rider
+walked through a door still mounted there; it hands it the rig's `setMode` as the world host does.
+`test/disc29_gallop.test.js` (4: the real AudioEngine, and every host that makes a mount rig);
+`tools/mutants/disc29.json` (DISC29-F, 3). `01-Overview/Field-Bugs-2026-09-28f.md` DISC29-F.
 
 ### FEATHERWEIGHT - THE MARK THAT READ "ERROR" (2026-09-29)
 

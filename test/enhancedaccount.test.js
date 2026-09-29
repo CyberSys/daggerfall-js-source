@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { accountCard, STAGE_COPY, STAGE_ACTS } from '../src/ui/enhancedAccount.js';
-import { AccountFlow, STAGES, FIELDS, FIELD_SPEC } from '../src/ui/accountFlow.js';
+import { AccountFlow, STAGES, FIELDS, FIELD_SPEC, AGREEMENTS } from '../src/ui/accountFlow.js';
 import { SESSION_KEY } from '../src/net/accountClient.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -104,8 +104,13 @@ test('ACC1e: every field the flow asks for is DRAWN, with the right kind of box'
     const { flow, card } = build();
     flow.stage = stage;
     card.paint();
-    const inputs = card.root.all.filter((n) => n.tag === 'input');
+    // TERMS1: a stage's boxes are inputs too, and are counted as what
+    // they are - AGREEMENTS, not fields - so neither can stand in for
+    // the other.
+    const inputs = card.root.all.filter((n) => n.tag === 'input' && n.type !== 'checkbox');
+    const boxes = card.root.all.filter((n) => n.tag === 'input' && n.type === 'checkbox');
     assert.equal(inputs.length, fields.length, `${stage} asks for ${fields.length} fields and drew ${inputs.length}`);
+    assert.equal(boxes.length, (AGREEMENTS[stage] ?? []).length, `${stage} asks for ${(AGREEMENTS[stage] ?? []).length} boxes and drew ${boxes.length}`);
     fields.forEach((key, i) => {
       const spec = FIELD_SPEC[key];
       assert.equal(inputs[i].type, spec.secret ? 'password' : 'text', `${stage}.${key} is drawn in the wrong kind of box`);

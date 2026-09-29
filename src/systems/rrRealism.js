@@ -19,6 +19,7 @@
 import { modSetting } from './modSettings.js';
 import { WEAPONS, weaponMaterialModifier } from '../characters/weapons.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
+import { swingFrameSeconds, swingHandling, swingHeft } from '../characters/weaponStates.js';   // SWING-LAW: the port's swing law answers the mod's Speed
 
 export const RR_VENDOR = 'roleplay-realism';
 export const RR_MOD = Object.freeze({ title: 'RoleplayRealism', version: '1.8', guid: 'd828b782-46e9-40e7-8ae6-19cde308032e' });
@@ -87,20 +88,29 @@ export function rrClimbingChance(base, { climbing = 0, luck = 0, khajiit = false
 /** GetMeleeWeaponAnimTime, the override: the swing speed blends the live
  *  speed and strength by the weapon's hands - both hands 50/50, a dagger
  *  90/10, bare hands the speed alone, anything else 80/20 - each ratio
- *  capped by 0.15 / 0.03 / 0 / 0.08 once its stat passes 70; then DFU's
- *  `3 * (115 - blend)` over the classic frame update. `hands` is
+ *  capped by 0.15 / 0.03 / 0 / 0.08 once its stat passes 70. `hands` is
  *  ItemHands ('Both' for a two-hander); `weaponType` DFU's WeaponTypes
  *  (Dagger 4, Dagger_Magic 5, Melee 15). Registered only when Roleplay &
- *  Realism: Items' weaponBalance is off (:171). */
-export function rrMeleeWeaponAnimTime({ liveSpeed, liveStrength, weaponType = -1, hands = 'One' }, classicFrameUpdate) {
+ *  Realism: Items' weaponBalance is off (:171).
+ *  SWING-LAW (2026-09-28, Mac: "swing speed is insane"): the blend is the
+ *  Speed the swing is read at, and the port's law turns it into time -
+ *  its bounded curve and the weapon's handling (characters/weaponStates.js
+ *  swingFrameSeconds) - where the mod's `3 * (115 - blend)` over the
+ *  classic frame update ran a quick blend at four swings a second.
+ *  AUDIT PRE-MERGE 0929 S3: AND THE WEAPON'S WEIGHT - its heft (swingHeft, the port's own: the base weight against the
+ *  Strength). The blend has no weight in it, and "their weight law replaces the port's heft" was true of Items'
+ *  weaponBalance alone: with this module answering, a 2 kg shortsword, a 4.5 kg longsword and a 5 kg broadsword all
+ *  swung at 0.995 s - heavy blades QUICKER than with no mod at all. `weight` is the template's base weight (the
+ *  swing law's reader, combat/swingLaw.js readSwing; 0 bare-handed). */
+export function rrMeleeWeaponAnimTime({ liveSpeed, liveStrength, weaponType = -1, hands = 'One', weight = 0 }) {
   let spdRatio = 0.8, strRatio = 0.2, capRatio = 0.08;
   if (hands === 'Both') { spdRatio = 0.5; strRatio = 0.5; capRatio = 0.15; }
   else if (weaponType === 4 || weaponType === 5) { spdRatio = 0.9; strRatio = 0.1; capRatio = 0.03; }
   else if (weaponType === 15) { spdRatio = 1; strRatio = 0; capRatio = 0; }
   if (liveSpeed > 70) spdRatio -= capRatio;
   if (liveStrength > 70) strRatio -= capRatio;
-  const frameSpeed = 3 * (115 - ((liveSpeed * spdRatio) + (liveStrength * strRatio)));
-  return frameSpeed / classicFrameUpdate;
+  const blend = (liveSpeed * spdRatio) + (liveStrength * strRatio);
+  return swingFrameSeconds(blend, { heft: swingHeft(weight, liveStrength), handling: swingHandling(weaponType, hands === 'Both') });
 }
 
 // ---- weaponMaterials (:389-392) -------------------------------------------

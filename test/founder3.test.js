@@ -12,6 +12,7 @@ import worker from '../server-account/src/index.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { titlesHeld, titleWorn, equipRefusal, FOUNDER_UNTIL } from '../server-account/src/titles.js';
 import { verifyToken, importPublicKeyB64 } from '../src/net/identityToken.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const DAY = 24 * 60 * 60;
 const CUT = Date.UTC(2026, 8, 25) / 1000;
@@ -82,9 +83,9 @@ test('FOUNDER3, end to end: a guest first seen before the cutoff and registered 
   const nowS = Math.floor(Date.now() / 1000);
   assert.ok(nowS > CUT, 'the real clock is past the cutoff, so every registration below lands after it');
 
-  const since = (await call('POST', '/v1/auth/guest', {})).body;
+  const since = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   await env.DB.prepare('UPDATE players SET created_at = ? WHERE id = ?').bind(CUT - 3 * DAY, since.id).run();
-  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Played', password: 'a-long-enough-password' }, since.secret)).status, 200);
+  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Played', password: 'a-long-enough-password', ...ACCEPTED }, since.secret)).status, 200);
   const seen = (await call('GET', '/v1/account', undefined, since.secret)).body;
   assert.equal(seen.account.createdAt, CUT - 3 * DAY, 'the upgrade in place kept the first contact');
   assert.ok(seen.account.registeredAt > CUT, 'registered after the cutoff');
@@ -96,8 +97,8 @@ test('FOUNDER3, end to end: a guest first seen before the cutoff and registered 
   assert.ok(r.ok, r.why);
   assert.equal(r.claims.t, 'founder', 'worn on the token the relay reads');
 
-  const fresh = (await call('POST', '/v1/auth/guest', {})).body;
-  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Later', password: 'a-long-enough-password' }, fresh.secret)).status, 200);
+  const fresh = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  assert.equal((await call('POST', '/v1/auth/register', { handle: 'Later', password: 'a-long-enough-password', ...ACCEPTED }, fresh.secret)).status, 200);
   const late = (await call('GET', '/v1/account', undefined, fresh.secret)).body;
   assert.deepEqual(late.wardrobe.titles, [], 'first seen after the cutoff: none');
   assert.equal((await call('POST', '/v1/account/title', { title: 'founder' }, fresh.secret)).status, 403);

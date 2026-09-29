@@ -63,6 +63,7 @@ import { fileURLToPath } from 'node:url';
 import { verifyToken, importPublicKeyB64 } from '../src/net/identityToken.js';
 import { PBKDF2_ITERS } from '../server-account/src/password.js';
 import { ACCOUNT_VERSION, SHOT_MAX_BYTES } from '../server-account/src/service.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: every request that makes an account carries the versions ticked
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const acct = join(root, 'server-account');
@@ -261,7 +262,7 @@ try {
   // is empty looks healthy - and the first run of this probe reported
   // six mysterious failures in a row because of exactly that. Ask the
   // binding a real question, and say plainly what came back.
-  const first = await post('/v1/auth/guest', { label: 'probe' });
+  const first = await post('/v1/auth/guest', { label: 'probe', ...ACCEPTED });
   if (first.status !== 200) {
     throw new Error(`/v1/auth/guest answered ${first.status} ${JSON.stringify(first.body)}`
       + ' - if this is `no-database`, the local D1 wrangler dev opened is not the one'
@@ -271,6 +272,15 @@ try {
   ok('a guest is a real row from first contact', Boolean(guest?.id && guest?.secret));
   ok('...under a name from Daggerfall\'s own banks, with exactly one space',
     /^\S+ \S+$/.test(guest?.name ?? ''), guest?.name);
+  // TERMS1: and no row without the documents ticked - asked of the runtime that will ask it. AUDIT PRE-MERGE 0929 T1: a
+  // body naming NEITHER document is a game from before the boxes, answered `not-found` (the word every shipped build
+  // renders "The game may need updating"); one named and not the other is `terms-unaccepted`.
+  const unticked = await post('/v1/auth/guest', { label: 'probe-unticked' });
+  ok('no account opens for a game from before the boxes - told it may need updating',
+    unticked.status === 400 && unticked.body?.error === 'not-found', `${unticked.status} ${JSON.stringify(unticked.body)}`);
+  const half = await post('/v1/auth/guest', { label: 'probe-half', terms: ACCEPTED.terms });
+  ok('...nor with one document ticked and not the other',
+    half.status === 400 && half.body?.error === 'terms-unaccepted', `${half.status} ${JSON.stringify(half.body)}`);
 
   const tokRes = await post('/v1/auth/token', { secret: guest.secret });
   const tok = tokRes.body;
@@ -306,7 +316,7 @@ try {
   console.log('== password, recovery and the throttle, in the runtime that will run them');
   const t0 = Date.now();
   const reg = (await post('/v1/auth/register',
-    { secret: guest.secret, handle: HANDLE, password: 'a good long one' })).body;
+    { secret: guest.secret, handle: HANDLE, password: 'a good long one', ...ACCEPTED })).body;
   const regMs = Date.now() - t0;
   ok('registering is an UPGRADE IN PLACE - the id does not change', Boolean(reg?.recoveryCode));
   const view = (await get('/v1/account', { bearer: guest.secret })).body;
@@ -351,7 +361,7 @@ try {
   // THE WALL, in the runtime. A guest is refused, and the same request
   // from the linked account above is not - a refusal check with no
   // positive control is green over a service that refuses everybody.
-  const visitor = (await post('/v1/auth/guest', { label: 'probe-guest' })).body;
+  const visitor = (await post('/v1/auth/guest', { label: 'probe-guest', ...ACCEPTED })).body;
   const walled = await get('/v1/saves', { bearer: visitor.secret });
   ok('a GUEST is walled out of the save routes', walled.status === 403 && walled.body?.error === 'saves-need-account',
     `${walled.status} ${walled.body?.error}`);
@@ -378,8 +388,8 @@ try {
 
   // ANOTHER ACCOUNT, THE SAME CHARACTER ID AND THE SAME SLOT NAME -
   // which two people produce the moment both call a save QuickSave.
-  const other = (await post('/v1/auth/guest', { label: 'probe-other' })).body;
-  await post('/v1/auth/register', { secret: other.secret, handle: STRANGER, password: 'a good long one' });
+  const other = (await post('/v1/auth/guest', { label: 'probe-other', ...ACCEPTED })).body;
+  await post('/v1/auth/register', { secret: other.secret, handle: STRANGER, password: 'a good long one', ...ACCEPTED });
   ok('another account cannot read this slot',
     (await raw('GET', `${SLOT}/data`, undefined, other.secret)).status === 404);
   ok('...and cannot delete it either',

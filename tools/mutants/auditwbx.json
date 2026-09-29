@@ -20,7 +20,7 @@
   {
     "name": "AUDWBX-R2-a-beat-holding-a-seat",
     "file": "src/net/gateBrain.js",
-    "old": "    if (present.has(sub) || p.dealt >= RECEIPT_SHARE * p.share || p.stoodMs >= SEAT_KEEP_MS) continue;",
+    "old": "    if (present.has(sub) || hasPart(p)) continue;",
     "new": "    if (present.has(sub) || p.dealt > 0 || p.stoodMs > 0) continue;",
     "tests": [
       "test/auditwb_relay.test.js"
@@ -195,7 +195,7 @@
   {
     "name": "AUDWBX-F7-the-lane-at-half-its-width",
     "file": "src/render/gateTelegraph.js",
-    "old": "halfW: A.shape === 'lane' ? Math.max((A.width ?? 0) / 2, BOSS_R) : (A.width ?? 0) / 2,",
+    "old": "halfW: A.shape === 'lane' ? Math.max((A.width ?? 0) / 2, P.bossR) : (A.width ?? 0) / 2,",
     "new": "halfW: (A.width ?? 0) / 2,",
     "tests": [
       "test/auditwbx.test.js",

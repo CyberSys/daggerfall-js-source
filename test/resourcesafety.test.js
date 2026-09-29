@@ -207,9 +207,11 @@ test('NT1 / AUDIT-WH R6: the world plaque has ONE owner per host, and every one 
   // ...and the timer is CANCELLED, not merely forgotten: a dropped
   // handle keeps firing, and in a test run it holds the event loop
   // open past the last assertion.
-  assert.match(plaque, /export function destroyWorldPlaque\(\) \{\n(?:\s*\/\/[^\n]*\n)*\s+_cancel\(_watchdog\);\n\s+_watchdog = null;/,
+  // DISC29-D: the handle is a frame watchdog's now (ui/drawWatchdog.js) - disarmDraw cancels its pending timer AND
+  // takes it off the frame ticker's count, so a dropped handle would also keep the ticker running
+  assert.match(plaque, /export function destroyWorldPlaque\(\) \{\n(?:\s*\/\/[^\n]*\n)*\s+disarmDraw\(_watchdog\);\n\s+_watchdog = null;/,
     'the teardown frees the watchdog before anything else');
-  assert.match(plaque, /export function hideWorldPlaque\(\) \{\n(?:\s*\/\/[^\n]*\n)*\s+_cancel\(_watchdog\);\n\s+_watchdog = null;/,
+  assert.match(plaque, /export function hideWorldPlaque\(\) \{\n(?:\s*\/\/[^\n]*\n)*\s+disarmDraw\(_watchdog\);\n\s+_watchdog = null;/,
     'and so does the hide - the heartbeat stops with the thing it watches');
   // QUICK-LOOT B3/B4: the highlight is ABOUT a key in the world this
   // teardown is unmaking, so it dies with it - a selection carried

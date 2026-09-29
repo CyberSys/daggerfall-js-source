@@ -115,10 +115,12 @@ test('AUDIT QS6 F7: every mutant record still names source that is there - a rec
 // already named more than one on the day this was written, each with its
 // number of sites. A copy added anywhere, or one taken away, fails here
 // too, because either can change which copy is first. Each is owed a
-// re-aim BY CONTENT in its own arc's next pass. Two are known to need more
+// re-aim BY CONTENT in its own arc's next pass. Two were known to need more
 // than an aim:
-// - el2's point guard is pinned by a regex over the whole shader, which the
-//   other copy satisfies whichever one is mutated.
+// - el2's point guard was pinned by a regex over the whole shader, which the
+//   other copy satisfied whichever one was mutated. DISC29-E pinned it by
+//   pointShadowAt's own head, aimed the record at that one site and took it
+//   off the map.
 // - MAC-BUG-W5-13 is named for the pool's gate and mutates the drip's. Its
 //   tests fail the old door only at place(), never at the drip, the
 //   footprint or the pool.
@@ -143,7 +145,6 @@ const CARRIED_AIM = new Map([
   ['blood1.json::AUDIT-the-flight-builds-a-centre-list-every-frame', 2],
   ['box1.json::guild-popup-reads-per-draw', 2],
   ['box1.json::coven-reads-per-draw', 2],
-  ['el2.json::glsl-point-off-dark', 2],
   ['hcc.json::HCC-disabled-still-shows', 2],
   ['macbugw5.json::MAC-BUG-W5-13-the-pools-gate-still-asks-for-the-door-it-no-longer-knocks-on', 4],
   ['perfsun.json::PERF-SUN2-the-gate-drops-the-n-dot-L-half-so-every-wall-facing-away-still-pays', 3],

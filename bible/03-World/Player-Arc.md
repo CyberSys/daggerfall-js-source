@@ -1709,7 +1709,7 @@ at the shipped `Mouse2` default, and handed it to the input lane.
 `worldModes` has no `keys` Set of its own: it destructures one from
 `host` (`worldModes.js:463`), and its only two callers are `world.js`
 (`:6147`) and `exterior.js` (`:2769`), both of which pass their own Set
-and both of whose WINDOW-level handlers (`world.js:10980-10981`,
+and both of whose WINDOW-level handlers (`world.js:10988-10989`,
 `exterior.js:3314-3315`) call `mouseCode(e.button)` and add/delete
 unconditionally - outside every mode and overlay gate. `MOUSE_CODES`
 maps button 2 to `Mouse2` (`input.js:510`), which is the shipped
@@ -1728,7 +1728,7 @@ not gate on `HasAction`; it gates on `playerMotor.IsStandingStill`
 that `GroundedMovement` writes straight into `moveDirection`, so DFU
 plays the stride. The port walked the autorunner forward in silence in
 every host. All four now pass `standingStill: player.standing`, the
-motor's own mirror of that getter (`world.js:21527` already did at its
+motor's own mirror of that getter (`world.js:21539` already did at its
 other footstep site) - which is also still the paralysis answer,
 because the hosts zero both axes for a frozen player.
 
@@ -2153,3 +2153,47 @@ a 30-degree hill the body sat 13 cm under the ground, and 23 cm running.
 `bodyFeetAt()` is EV1's interpolation alone. The five body draws take it,
 and the cameras keep the smoothing. `01-Overview/Field-Bugs-2026-09-23.md`
 DISC18.
+
+## DISC29-A - a Collision01 object is stood on wherever its own surface is (2026-09-28, Skibbster)
+
+"The throne puzzle's switch doesn't activate when you walk on it." N0000037's two thrones (objects 22908 and 22979,
+model 41123) are CastSpell effects with the Collision01 trigger - WalkOn only (TRIGGER_GATE) - chained to a tapestry
+(23098) that slides 1.6 m off a teleporter brick. DaggerfallActionCollision calls a contact WalkOn when it is beneath
+the player, and on a Collision01 object ALSO when "a ray straight down from the controller's bottom, skinWidth long"
+hits the object's own collider (:68-85). `collisionTriggers` read "beneath" as the top of the object's BOX and folded
+the standing ray into it ("at our capsule scale") - and a throne's box tops its backrest at 34.08 where the seat is at
+32.55, so a player on the seat was WalkInto, refused, 18 times, and the tapestry never moved.
+
+The ray is its own arm now (`world/actionSystem.js standsOnAction`): the box's top, or - Collision01 alone - the
+object's own surface within `TRIGGER_SKIN_WIDTH` (Unity's 0.08) under the feet (`ownSurfaceUnderFeet`, cast from
+`TRIGGER_RAY_LIFT` above them so a body resting exactly on the face still stands on it). A mover or a door is its own
+bucket in the dungeon's collider; an effect or relay model is in the shared `'dungeon'` bucket, so the host keeps a
+copy of a Collision01 one's triangles in a probe-only collider (`triggerSurfaces`) that nothing moves against. Every
+other flag keeps the box's top alone - Collision03, MultiTrigger and Collision09 admit no WalkOn, so for them the arm
+only decides a refusal; 99 MultiTrigger room pieces have floors, and moving them to a contact rule is its own review.
+
+Measured on BLOCKS.BSA: of the 104 Collision01 objects (52 models), 49 have no upward face within the old band's
+0.15 of their box's top and 12 only some of theirs - 18 Activate relays, 15 DoorText plaques (S0000205's corridor
+among them), 8 Hurt23/Hurt24 rooms (model 67017 in N0000006 and N0000008), 4 CastSpell (the two thrones, N0000007's
+room), 2 DrainMagicka, a Teleport and an Unknown32 among the 49. Stood on, each now fires as DFU's does.
+`test/disc29_throne.test.js` (5, one on the real N0000037); `tools/mutants/disc29.json` (DISC29-A, 7).
+`01-Overview/Field-Bugs-2026-09-28f.md` DISC29-A.
+
+**AUDIT PRE-MERGE 0929 D1/D2** (`01-Overview/Audit-PreMerge-0929.md`) - the review above, due at once. DFU's WalkOn is
+the contact's DIRECTION from the controller's centre (`dir.y < -0.9`, :68-71) for EVERY flag; the ray (:74-85) is only
+Collision01's second test. The box's top and a ray under the capsule's centre missed a staircase, where a body rides the
+treads' edges - N0000007's Hurt22 staircase (object 20798, in 69 dungeons) bit 2 times walking all sixteen steps down, 4
+up - and a MultiTrigger floor stood on was WalkInto, and fired: Orsinium's castle floor (S0000020 object 10406, a
+DoorText with a trespass on it) turned the castle hostile at the first steps across it. OnCharacterCollided is whole
+now (`world/actionSystem.js actionContact`). The contact is the collider's (`player/collider.js capsuleContact`: the
+nearest point of the object's own triangles within the skin of the sphere chain the motor resolves the capsule as);
+beneath is WalkOn for every flag, a Collision01 casts its ray, else WalkInto; a box touched with nothing of the object
+touched hears nothing; and a side is heard only while the body moves INTO it - the pass hands the contact the direction
+the body presses, the motor's own sin and cos of forward and strafe from the yaw the motor moved it by (its own word,
+`moveYaw`, carried in the one motion bag), as a ControllerColliderHit only comes of a Move into its collider: walking along a
+wall bumps nothing. Every collision-trigger model's triangles are in `triggerSurfaces`. Over BLOCKS.BSA's 1,546 resting
+spots the port agrees with DFU on 1,537 (983 before); the nine left are a lip or an arm beside the body, where DFU's
+answer too depends on which way the body moves. The staircase bites 9 times down, 13 up; the throne is WalkOn at the
+motor's own rest (0.078 over the seat, where DISC29-A's pins stood the feet by hand at 0.027). The acting FLATS keep
+their box - DFU gives a flat's action a trigger BoxCollider (RDBLayout.cs:977-987). `test/audit0929_actions.test.js`
+(6, three on the real BLOCKS.BSA); `tools/mutants/audit0929_actions.json` (11, all dead - D3's among them).

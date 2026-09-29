@@ -2,8 +2,8 @@
   {
     "name": "WB3-the-share-off-the-claim",
     "file": "src/net/gateBrain.js",
-    "old": "  const share = BOSS_TTK_S * dpsRef(level);",
-    "new": "  const share = BOSS_TTK_S * dpsRef(LV_MAX);",
+    "old": "  const share = BOSS_TTK_S * dpsRef(level) * profileOf(f).hpX;",
+    "new": "  const share = BOSS_TTK_S * dpsRef(LV_MAX) * profileOf(f).hpX;",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "WB3-the-one-blow-cap-lifted",
     "file": "src/net/gateBrain.js",
-    "old": "  const got = Math.max(0, Math.min(d, HIT_CAP_X * ref, p.bucket, f.hp));",
-    "new": "  const got = Math.max(0, Math.min(d, p.bucket, f.hp));",
+    "old": "  const got = Math.max(0, Math.min(want, HIT_CAP_X * ref, p.bucket, f.hp));",
+    "new": "  const got = Math.max(0, Math.min(want, p.bucket, f.hp));",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -164,7 +164,7 @@
   {
     "name": "WB3-no-shield-on-the-roar",
     "file": "src/net/gateBrain.js",
-    "old": "    f.shieldUntil = now + SHIELD_MS;",
+    "old": "    f.shieldUntil = now + P.shieldMs;",
     "new": "    f.shieldUntil = now;",
     "tests": [
       "test/wb3_gate_room.test.js"
@@ -200,7 +200,7 @@
   {
     "name": "WB3-no-threat-pick",
     "file": "src/net/gateBrain.js",
-    "old": "  if (rng() < THREAT_PICK) {",
+    "old": "  if (rng() < profileOf(f).threatPick) {",
     "new": "  if (rng() < 0) {",
     "tests": [
       "test/wb3_gate_room.test.js"

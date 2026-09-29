@@ -25,17 +25,20 @@
 // simply stop drawing it (the video takes the screen, the title menu
 // mounts, the respawn clears the overlay). So a draw STAMPS, and a
 // watchdog takes the layer down the first frame nobody stamped.
+// DISC29-D: a FRAME nobody stamped (ui/drawWatchdog.js) - it read the
+// wall clock, and a frame slower than it tore the layer down and built it
+// again every frame.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { PIXEL_STACK } from './pixelifyFive.js';
 import { isOnlinePage } from '../systems/onlineLane.js';
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';
 
 export const ENHANCED_DEATH_ID = 'enhanced-death';
 const STALE_MS = 350;
 
 let node = null;
 let owner = null;
-let stamp = 0;
-let watch = 0;
+let watch = null;
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -43,7 +46,6 @@ const el = (tag, cls, text) => {
   if (text != null) n.textContent = text;
   return n;
 };
-const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 /** What the keys do, from the screen's own hint - a host with no
  *  quickload passes 'ENTER end' and gets no F11 plate (FIX-E's law: a
@@ -104,12 +106,12 @@ export function drawEnhancedDeath(screen, fade = 0) {
     const text = `Rising in ${left}`;
     if (c && c.textContent !== text) c.textContent = text;
   }
-  stamp = now();
-  if (!watch) watch = setInterval(() => { if (now() - stamp > STALE_MS) removeEnhancedDeath(); }, 120);
+  disarmDraw(watch);
+  watch = armDrawWatchdog(STALE_MS, removeEnhancedDeath);
 }
 
 export function removeEnhancedDeath() {
-  clearInterval(watch); watch = 0;
+  disarmDraw(watch); watch = null;
   node?.remove(); node = null; owner = null;
 }
 

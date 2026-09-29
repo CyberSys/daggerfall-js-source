@@ -14,6 +14,7 @@ import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { verifyPassword, codeForHashing } from '../server-account/src/password.js';
 import { FOUNDER_UNTIL } from '../server-account/src/titles.js';
 import { mintReissue, reissueSql } from '../tools/reissueRecoveryCode.mjs';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const { subtle } = globalThis.crypto;
 const rand = (b) => globalThis.crypto.getRandomValues(b);
@@ -56,10 +57,10 @@ test('RECOVER-OP end to end: the operator\'s code, set by the tool\'s own statem
   };
 
   // A founder who registered, then lost the password AND the code - still signed in on this device.
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   const firstSeen = FOUNDER_UNTIL - 5 * 86400;
   await env.DB.prepare('UPDATE players SET created_at = ? WHERE id = ?').bind(firstSeen, me.id).run();
-  const reg = await call('POST', '/v1/auth/register', { handle: 'Twoddle', password: 'the-lost-password' }, me.secret);
+  const reg = await call('POST', '/v1/auth/register', { handle: 'Twoddle', password: 'the-lost-password', ...ACCEPTED }, me.secret);
   assert.equal(reg.status, 200);
   const lostCode = reg.body.recoveryCode;
   const before = (await call('GET', '/v1/account', undefined, me.secret)).body;

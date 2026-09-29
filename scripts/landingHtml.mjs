@@ -16,6 +16,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { ENHANCED_TOKENS, ENHANCED_FONTS_URL } from '../src/ui/enhancedStyle.js';
+import { PIXELIFY_FIVE_FACE } from '../src/ui/pixelifyFive.js';   // TERMS1: the documents take the five from its home
 
 /** U63: the landing page asks for THE SKIN'S OWN REQUEST, not a subset.
  *  It used to load the brand + data faces, because the site was set in
@@ -170,7 +171,6 @@ export function transformLanding(html, {
     stamped = stamped.replace(new RegExp(`<(\\w+)([^>]*)\\sdata-stat="${key}"([^>]*)>\\s*<\\/\\1>`, 'g'),
       (_m, tag, pre, post) => `<${tag}${pre} data-stat="${key}"${post}>${figure(value)}</${tag}>`);
   }
-  const ink = tokens.match(/--ink:\s*(#[0-9a-fA-F]{6})/)?.[1];
   return {
     html: stamped,
     tags: [
@@ -179,13 +179,81 @@ export function transformLanding(html, {
       // one screen. 1920x1080 gives the same 90 stars pixelGround draws
       // at that size - the same law at the same density.
       { tag: 'style', attrs: { id: 'pixel-ground' }, children: groundCss(1920, 1080), injectTo: 'head' },
-      // The phone's address bar takes the page's ground - read from the
-      // same block rather than typed, so it cannot disagree with it.
-      ...(ink ? [{ tag: 'meta', attrs: { name: 'theme-color', content: ink }, injectTo: 'head' }] : []),
-      ...(iconTag(tokens) ? [iconTag(tokens)] : []),
-      { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' }, injectTo: 'head' },
-      { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }, injectTo: 'head' },
-      { tag: 'link', attrs: { rel: 'stylesheet', href: fonts }, injectTo: 'head' },
+      ...skinTags(tokens, fonts),
+    ],
+  };
+}
+
+/** The tags every page of the site takes after its own style. Shared by
+ *  the landing page and the documents (TERMS1), so neither can come to
+ *  ask for a face the other does not. */
+function skinTags(tokens, fonts) {
+  const ink = tokens.match(/--ink:\s*(#[0-9a-fA-F]{6})/)?.[1];
+  return [
+    // The phone's address bar takes the page's ground - read from the
+    // same block rather than typed, so it cannot disagree with it.
+    ...(ink ? [{ tag: 'meta', attrs: { name: 'theme-color', content: ink }, injectTo: 'head' }] : []),
+    ...(iconTag(tokens) ? [iconTag(tokens)] : []),
+    { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' }, injectTo: 'head' },
+    { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }, injectTo: 'head' },
+    { tag: 'link', attrs: { rel: 'stylesheet', href: fonts }, injectTo: 'head' },
+  ];
+}
+
+/* ── THE DOCUMENTS (TERMS1, 2026-09-28) ──────────────────────────────
+   The Terms of Service and the Privacy Policy, which the Create account
+   form links to and a new account must tick. Documents as the landing
+   page is one - no script, no file of their own - so they take the same
+   skin from here: its tokens, its fonts request and its icon, and the
+   digit five from its home in the game (src/ui/pixelifyFive.js) rather
+   than a second copy of the landing page's inline one.
+
+   THEIR RULES LIVE HERE, ONCE, because there are two pages and one look.
+   They are the landing page's own idioms read with nothing around them -
+   its face with no ligatures (U63's "Ales"), its parchment on its ink,
+   its links, skip link and caps - and every colour is a var() or one the
+   skin itself uses, the law the landing page is held to. NO NIGHT SKY and
+   no plaque: a document read to the end wants a quiet ground and a
+   measure a line can be followed across. */
+export const DOCUMENT_PATHS = Object.freeze(['/terms/index.html', '/privacy/index.html']);
+
+export const DOCUMENT_CSS = `* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100dvh;
+  color: #d8cfae; background: #0a0c11;
+  font-family: 'Pixelify Five', 'Pixelify Sans', monospace; font-size: 16px; line-height: 1.6;
+  -webkit-font-smoothing: none;
+  font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;
+}
+a { color: #d8cfae; text-decoration: none; border-bottom: 2px solid #7d7460; overflow-wrap: anywhere; }
+a:hover, a:focus-visible { outline: none; color: rgb(243,239,44); border-color: var(--brass); text-shadow: 2px 2px 0 rgb(93,77,12); }
+.skip { position: absolute; left: 12px; top: -60px; padding: 10px 14px; background: var(--brass); color: #0a0c11; z-index: 10; border: 0; }
+.skip:focus { top: 12px; }
+.caps { font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: #7d7460; }
+.docbar { max-width: 760px; margin: 0 auto; padding: 20px 24px 8px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+.docbar .home { border: 0; font-size: 18px; letter-spacing: 0.18em; text-transform: uppercase; }
+.docbar nav { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.docbar nav a { border: 0; color: #7d7460; }
+.docbar nav a[aria-current="page"] { color: var(--brass); }
+.doc { max-width: 760px; margin: 0 auto; padding: 8px 24px max(56px, env(safe-area-inset-bottom)); }
+.doc h1, .doc h2 { font-weight: 400; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); overflow-wrap: anywhere; }
+.doc h1 { font-size: clamp(24px, 4.2vw, 34px); line-height: 1.2; margin: 16px 0 12px; }
+.doc h2 { font-size: 19px; line-height: 1.35; margin: 32px 0 10px; color: var(--brass); }
+.doc p { margin: 0 0 12px; }
+.doc ul { margin: 0 0 12px; padding-left: 24px; }
+.doc li { margin: 0 0 6px; }
+.doc strong { font-weight: 500; }
+`;
+
+/** A document's head: the skin's tokens, the five, the documents' rules,
+ *  then what every page takes. The page itself is not rewritten. */
+export function transformDocument(html, { tokens = ENHANCED_TOKENS, fonts = LANDING_FONTS_URL } = {}) {
+  return {
+    html,
+    tags: [
+      { tag: 'style', attrs: { id: 'enhanced-tokens' }, children: tokens, injectTo: 'head-prepend' },
+      { tag: 'style', attrs: { id: 'document-style' }, children: `${PIXELIFY_FIVE_FACE}\n${DOCUMENT_CSS}`, injectTo: 'head' },
+      ...skinTags(tokens, fonts),
     ],
   };
 }
@@ -197,6 +265,7 @@ export function landingHtml() {
       order: 'pre',
       handler(html, ctx) {
         if (ctx.path === GAME_PATH) return { html, tags: [iconTag()].filter(Boolean) };   // the tab's mark, nothing else
+        if (DOCUMENT_PATHS.includes(ctx.path)) return transformDocument(html);   // TERMS1: the Terms and the Privacy Policy
         if (ctx.path !== LANDING_PATH) return html;
         // BUILD ONLY for the stamp, as build-tag-meta is: on a dev serve
         // src/buildTag.js holds whatever the last build left behind, and

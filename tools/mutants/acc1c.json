@@ -153,8 +153,8 @@
   {
     "name": "ACC1c-16-registering-mints-a-new-account",
     "file": "server-account/src/accounts.js",
-    "old": " WHERE id = ? AND handle IS NULL')",
-    "new": " WHERE id = ?')",
+    "old": "'WHERE id = ? AND handle IS NULL')",
+    "new": "'WHERE id = ?')",
     "tests": [
       "test/audit68_backend.test.js"
     ],

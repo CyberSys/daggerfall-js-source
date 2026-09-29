@@ -16,6 +16,7 @@
 import { rriModule } from './rriItems.js';
 import { WEAPONS } from '../characters/weapons.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
+import { swingFrameSeconds, swingHandling } from '../characters/weaponStates.js';   // SWING-LAW: the port's swing law answers the mod's Speed
 
 // ---- constants (RoleplayRealismItemsMod.cs:19-22) --------------------
 export const SPEED_REDUCTION_FACTOR = 3.4;
@@ -211,11 +212,17 @@ export const rriWeaponMaxDamage = (weapon) => (weaponBalanceOn() ? (RRI_WEAPON_M
 /** GetMeleeWeaponAnimTime (:381-409), the override: bare hands or no
  *  weapon read the live speed as DFU does; a weapon's base weight,
  *  scaled by `150 - LiveStrength` per cent, times 3.4, comes off a
- *  speed capped at 98 as `speed * reduction / 90`; then DFU's own
- *  `3 * (115 - speed)` over the classic frame update. Truncations are
+ *  speed capped at 98 as `speed * reduction / 90`. Truncations are
  *  the C# int casts. `weaponWeight` is the ItemTemplate's baseWeight;
- *  `melee` is `weaponType == WeaponTypes.Melee`. */
-export function rriMeleeWeaponAnimTime({ liveSpeed, liveStrength, weaponWeight = null, melee = false }, classicFrameUpdate) {
+ *  `melee` is `weaponType == WeaponTypes.Melee`.
+ *  SWING-LAW (2026-09-28, Mac: "swing speed is insane"): the adjusted speed
+ *  is the Speed the swing is read at, and the port's law turns it into
+ *  time - its bounded curve and the handling of `weaponType` (two-handed
+ *  or not; characters/weaponStates.js swingFrameSeconds) - where the mod's
+ *  `3 * (115 - speed)` over the classic frame update ran a light blade at
+ *  four swings a second. The weight is the mod's to weigh, so the law's
+ *  own heft is not asked. */
+export function rriMeleeWeaponAnimTime({ liveSpeed, liveStrength, weaponWeight = null, melee = false, weaponType = melee ? 15 : 0, twoHanded = false }) {
   let adjustedSpeed;
   if (melee || weaponWeight == null) {
     adjustedSpeed = liveSpeed;
@@ -226,6 +233,5 @@ export function rriMeleeWeaponAnimTime({ liveSpeed, liveStrength, weaponWeight =
     const playerSpeed = Math.min(liveSpeed, 98);
     adjustedSpeed = Math.trunc(playerSpeed - (playerSpeed * speedReductionPerc / 90));
   }
-  const frameSpeed = 3 * (115 - adjustedSpeed);
-  return frameSpeed / classicFrameUpdate;
+  return swingFrameSeconds(adjustedSpeed, { handling: swingHandling(weaponType, twoHanded) });
 }

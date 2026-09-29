@@ -186,6 +186,7 @@ test('ACC1e: the recovery code is NEVER written to storage', async () => {
   flow.set('handle', 'Nystul');
   flow.set('password', 'correcthorse');
   flow.set('confirm', 'correcthorse');
+  flow.agree('terms', true); flow.agree('privacy', true);   // TERMS1: a new account ticks both documents
   await flow.submit();
 
   assert.equal(flow.stage, 'code');
@@ -213,6 +214,7 @@ test('ACC1e: registering is an UPGRADE IN PLACE - a guest row is opened, then fi
   flow.set('handle', 'Nystul');
   flow.set('password', 'correcthorse');
   flow.set('confirm', 'correcthorse');
+  flow.agree('terms', true); flow.agree('privacy', true);   // TERMS1: a new account ticks both documents
   await flow.submit();
 
   assert.deepEqual(calls.map((c) => c.path), ['/v1/auth/guest', '/v1/auth/register']);
@@ -232,6 +234,7 @@ test('ACC1e: a device that ALREADY has a guest session upgrades it rather than o
   flow.set('handle', 'Nystul');
   flow.set('password', 'correcthorse');
   flow.set('confirm', 'correcthorse');
+  flow.agree('terms', true); flow.agree('privacy', true);   // TERMS1: a new account ticks both documents
   await flow.submit();
   assert.deepEqual(calls.map((c) => c.path), ['/v1/account', '/v1/auth/register'],
     'a second guest row was opened for a device that already had one');
@@ -252,6 +255,7 @@ test('ACC1e: ONE PRESS IS ONE ACCOUNT - a second submission mid-flight opens no 
   flow.set('handle', 'Nystul');
   flow.set('password', 'correcthorse');
   flow.set('confirm', 'correcthorse');
+  flow.agree('terms', true); flow.agree('privacy', true);   // TERMS1: a new account ticks both documents
 
   const first = flow.submit();
   const second = flow.submit();          // the double press
@@ -275,6 +279,7 @@ test('ACC1e: a register that FAILS after the guest row was opened keeps the sess
   flow.set('handle', 'Nystul');
   flow.set('password', 'correcthorse');
   flow.set('confirm', 'correcthorse');
+  flow.agree('terms', true); flow.agree('privacy', true);   // TERMS1: a new account ticks both documents
   await flow.submit();
 
   assert.equal(flow.stage, 'register', 'a taken handle must leave the player on the form');
@@ -387,6 +392,7 @@ test('ACC1e: the code stage is left only by acknowledging it, and the code is go
   flow.set('handle', 'Nystul');
   flow.set('password', 'correcthorse');
   flow.set('confirm', 'correcthorse');
+  flow.agree('terms', true); flow.agree('privacy', true);   // TERMS1: a new account ticks both documents
   await flow.submit();
   assert.equal(flow.recoveryCode, 'CODE1-CODE2');
   await flow.acknowledgeCode();
@@ -465,6 +471,7 @@ test('ACC1e: a password is sent EXACTLY as typed - leading and trailing spaces a
   flow.set('handle', '  Nystul  ');
   flow.set('password', PASSWORD);
   flow.set('confirm', PASSWORD);
+  flow.agree('terms', true); flow.agree('privacy', true);   // TERMS1: a new account ticks both documents
   await flow.submit();
 
   const sent = calls.find((c) => c.path === '/v1/auth/register').body;

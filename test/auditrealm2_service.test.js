@@ -24,6 +24,7 @@ import { validLootItem } from '../src/systems/loot.js';
 import { GUILD_FOUND_GOLD, GUILD_FOUND_RENOWN } from '../src/net/guildLaw.js';
 import { renownXpFor } from '../src/net/renown.js';
 import { homeSaleRefund } from '../src/net/homeLaw.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -86,8 +87,8 @@ async function stand() {
   let n = 0;
   /** An account: a guest, registered when it needs to own (homes and guilds are a registered account's). */
   const account = async (register = true) => {
-    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
-    if (register) assert.equal((await call('/v1/auth/register', { secret: g.secret, handle: `player${++n}x`, password: 'a good long one' }, g.secret)).status, 200);
+    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
+    if (register) assert.equal((await call('/v1/auth/register', { secret: g.secret, handle: `player${++n}x`, password: 'a good long one', ...ACCEPTED }, g.secret)).status, 200);
     return { id: g.id, secret: g.secret };
   };
   /** A realm character of `who`: made, its first save a fresh one, `save` laid over it; `at()` where its record stands. */
