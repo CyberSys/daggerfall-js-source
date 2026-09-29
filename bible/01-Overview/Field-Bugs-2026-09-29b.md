@@ -34,13 +34,13 @@ character made after it has no trace from before it. Customs was right; the door
 
 - **The service signs the realm's word on the character** (`server-account/src/index.js` `/v1/auth/token`, `realm.js`
   `realmCharacterHeld`): `rc` 1 when the character the mint names is one of the account's realm characters, else 0 -
-  an offline id, another account's character, one deleted, none named. Stamped on every mint from acct21.
-- **The relay refuses a 0 at its door** (`server/src/index.js` `_named`, world129): in every room, before anything is
+  an offline id, another account's character, one deleted, none named. Stamped on every mint from acct22.
+- **The relay refuses a 0 at its door** (`server/src/index.js` `_named`, world130): in every room, before anything is
   written, with `REALM_DOOR_WORD` (`net/wire.js`) - "this game is out of date - update it to play online (restart the
   app, or reload the page)". A build from before the realm prints a relay's refusal as it stands ("online: ..." on the
   HUD, "chat: ..." under the chat box) and never retries a policy close, so its player is told the one thing to do. A
-  token with no `rc` is a service from before acct21 - the relay and the service deploy on their own, in either order -
-  and is admitted as it was; once acct21 stands no mint lacks it, and a token lives five minutes.
+  token with no `rc` is a service from before acct22 - the relay and the service deploy on their own, in either order -
+  and is admitted as it was; once acct22 stands no mint lacks it, and a token lives five minutes.
 - **A realm-era tab names the realm character it joined** at the mint (`world.js` identity minter: the realm session's
   id, never an id the save carries or `characterIdOf` mints), and one the door refuses anyway - its character deleted
   elsewhere, or its account signed out and another in - goes to the Online door with the realm's own word
@@ -81,8 +81,8 @@ code is unchanged: nothing there reads the sequence the pin did.
 - **Gryphoth, once this deploys:** `DAGGER_HANDLE=<yours> DAGGER_PASSWORD=<yours> node tools/customsPass.mjs <his
   account's name>` (his handle, or his guest name exactly as the game shows it), then ask him to press **Bring online**
   on that character. It asks first, as every Bring online does, showing what customs calls in and caps.
-- **The deploy drops every connected player once** (world129, as every relay bump does), and the account service
-  deploys acct21 with migration 0024. Either may land first; until both have, the door stands open as before.
+- **The deploy drops every connected player once** (world130, as every relay bump does), and the account service
+  deploys acct22 with migration 0024. Either may land first; until both have, the door stands open as before.
 - **Anyone still on a build from before the realm is refused online from then on**, told to update. The macOS app and
   the portable exe never update themselves: their players download the new build.
 - **Left open:** a build from before the realm still reports Renown XP to its account while it plays on shut out

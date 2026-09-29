@@ -1016,7 +1016,7 @@ export class Room {
     // is written - not even the signature is spent. A token with no `rc`
     // is a service from before this slice (the two Workers deploy on
     // their own) and is admitted as it was; the service stamps every
-    // mint from acct21 on, and a token lives MAX_TTL_S.
+    // mint from acct22 on, and a token lives MAX_TTL_S.
     if (r.claims.rc === 0) return { error: REALM_DOOR_WORD };
 
     // ═══ SPENT ONCE ══════════════════════════════════════════════

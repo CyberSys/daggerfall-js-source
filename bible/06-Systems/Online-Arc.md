@@ -10649,7 +10649,7 @@ row is restated with the audit's bytes - still undeployed. `test/audit0929_gate.
 the real Room).
 
 
-## REALM-DOOR (2026-09-29, the field: Gryphoth, "it said my client was outdated ... my character was no longer online") - world129
+## REALM-DOOR (2026-09-29, the field: Gryphoth, "it said my client was outdated ... my character was no longer online") - world130
 
 The realm (`Realm-Arc.md`) never touched the relay: world124 before it and after. Its separation was the new build's
 law alone - a boot that never takes a local slot online - so a build from before the realm went on playing online as
@@ -10657,16 +10657,16 @@ an offline character, and a character made there after the census froze could ne
 (`01-Overview/Field-Bugs-2026-09-29b.md`). The relay now asks, at the door every room shares:
 
 - **The token carries the realm's word on the character** (`net/identityToken.js` `rc`): the account service signs 1
-  when the character the mint names is one of the account's realm characters, else 0 (acct21).
+  when the character the mint names is one of the account's realm characters, else 0 (acct22).
 - **`_named` refuses a 0** in every room - place, cell, channel, hub, court - before anything is written (not even the
   signature is spent), with `REALM_DOOR_WORD` (`net/wire.js`): "this game is out of date - update it to play online
   (restart the app, or reload the page)". A build from before the realm prints a relay's refusal as it stands and does
   not retry a policy close, so its player reads the one thing to do. The words fit a close reason's 123 bytes.
-- **A token with no `rc` is admitted as it was**: it is a service from before acct21, and the relay and the service
-  deploy on their own, in either order. Once acct21 stands, no mint lacks it (a token lives MAX_TTL_S).
+- **A token with no `rc` is admitted as it was**: it is a service from before acct22, and the relay and the service
+  deploy on their own, in either order. Once acct22 stands, no mint lacks it (a token lives MAX_TTL_S).
 - **A realm-era tab names the realm character it joined** at the mint, and meets the words only when that character
   stopped being its account's under it; it goes to the Online door with the realm's word (`realmSaves.js`
   `realmDoorShut`).
 
-Relay world129 (its row in `test/relayversion.test.js`). Pinned in `test/realmdoor.test.js` (the service, the relay and
+Relay world130 (its row in `test/relayversion.test.js`). Pinned in `test/realmdoor.test.js` (the service, the relay and
 the old build's HUD line, on the real Worker and the real Room under one key pair).
