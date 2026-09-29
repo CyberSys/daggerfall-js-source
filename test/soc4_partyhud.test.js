@@ -409,9 +409,10 @@ test('SOC4: the panel is a HUD, not a window - fixed at the top-right below the 
   // Chromium (top 8, bottom edge 84), not the ~21 this pin used to assume - so the HUD's first portrait was drawn
   // straight through it. 92 clears the read-out by 8; the touch value is untouched, because 76 is the number that
   // clears the touch layer's own top-right buttons and the touch skin never draws the four-line read-out beside it.
-  assert.match(PARTY_CSS, /\.dfparty \{ position: fixed; right: calc\(8px \+ env\(safe-area-inset-right, 0px\)\); top: calc\(92px \+ env\(safe-area-inset-top, 0px\)\);/, 'the FPS read-out sits at top 8 and runs to 84 with four lines (ui/fpsCounter.js): 92 clears it');
+  // GUIDE4: plus the quest tracker's card, which stands on the same line and publishes its height (0 with no card).
+  assert.match(PARTY_CSS, /\.dfparty \{ position: fixed; right: calc\(8px \+ env\(safe-area-inset-right, 0px\)\); top: calc\(92px \+ var\(--dfquest-h, 0px\) \+ env\(safe-area-inset-top, 0px\)\);/, 'the FPS read-out sits at top 8 and runs to 84 with four lines (ui/fpsCounter.js): 92 clears it');
   assert.match(PARTY_CSS, /pointer-events: none;/, 'the world takes every click that lands on it');
-  assert.match(PARTY_CSS, /\.dfparty\.touch \{ top: calc\(76px \+ env\(safe-area-inset-top, 0px\)\); \}/, 'and on touch it clears the layer\'s own top-right buttons (ui/touch.js: top 16, 44 tall)');
+  assert.match(PARTY_CSS, /\.dfparty\.touch \{ top: calc\(76px \+ var\(--dfquest-h, 0px\) \+ env\(safe-area-inset-top, 0px\)\); \}/, 'and on touch it clears the layer\'s own top-right buttons (ui/touch.js: top 16, 44 tall)');
   // AUDIT SOC C7: ...and on a PHONE it leaves that corner entirely. At 430x860 with the touch skin the 244px HUD
   // covered 238 of the 402 pixels of every chat peek line - 59% of the conversation - and overlapped the open
   // friends panel besides. 180 wide at the bottom right, above the touch layer's jump column (bottom 16, 48 tall).

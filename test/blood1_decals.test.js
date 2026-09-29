@@ -3767,7 +3767,7 @@ test('BLOOD AUDIT 5: by source - the menu shows a row’s default for a stored v
   assert.match(menu, /const fallback = Math\.max\(0, c\.tiers\.findIndex\(\(\[v\]\) => String\(v\) === String\(c\.default \?\? c\.initial\)\)\);/);
   assert.match(menu, /const found = tiers\.findIndex\(\(\[v\]\) => String\(v\) === cur\);\s*\n\s*const at = found >= 0 \? found : Math\.max\(0, tiers\.findIndex/, 'the chooser');
   const row = E_FEATURES.find((f) => f.id === 'blood');   // FT18
-  assert.match(row.effect, /when the game is next reloaded \(a dungeon takes it on entry\)/, 'three pools live a page; only the dungeon rebuilds on entry');
+  assert.match(row.effect, /when the game next loads or you enter a dungeon/, 'three pools live a page; only the dungeon rebuilds on entry');
 });
 
 // ── BLOOD3: THE MARK IS A FILM ───────────────────────────────────

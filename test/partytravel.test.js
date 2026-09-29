@@ -882,8 +882,8 @@ test('PARTY-TRAVEL fare: the travel map\'s own popup prices a journey with no ma
 test('PARTY-TRAVEL host by source: world.js wires the session - the map door\'s offer and the Begin\'s proposal, the pose\'s share and the leader\'s feet, the sent pose, the tick, the chat\'s two commands, the fare through the popup over the maps\' ONE bag, and the arrival beside the leader; AUDIT PARTY-UI2: outdoors off the mode and journeying off worldMoveBusy (mutants: outdoors always; journeying the Travel Options walk too)', () => {
   const w = rd('src/scenes/world.js');
   const door = w.slice(w.indexOf('const toggleTravelMap = (gotoPlace = null) => {'), w.indexOf('function openTeleportMap'));
-  assert.ok(door.indexOf('if (!gotoPlace && partyTravel?.mapOffer()) return;') > door.indexOf('const ftb = racialFastTravelBlock(playerEntity'), 'the offer after every refusal the door asks');
-  assert.ok(door.indexOf('if (!gotoPlace && partyTravel?.mapOffer()) return;') < door.indexOf('_travelMap = buildTravelMapWindow('), '...and before the map is built');
+  assert.ok(door.indexOf('if (!gotoPlace && partyTravel?.mapOffer()) return false;') > door.indexOf('const ftb = racialFastTravelBlock(playerEntity'), 'the offer after every refusal the door asks');
+  assert.ok(door.indexOf('if (!gotoPlace && partyTravel?.mapOffer()) return false;') < door.indexOf('_travelMap = buildTravelMapWindow('), '...and before the map is built');
   assert.match(door, /onTravel: \(pick, opts, computed\) => \{\n\s*if \(partyTravel\?\.propose\(pick, opts, computed\)\) \{ hudFade\.clearFade\(\); return; \}[^\n]*\n\s*if \(opts\?\.playerControlled && beginAcceleratedTravel\(/, 'the Begin: a gathered party\'s fast travel is a proposal first (the session refuses a walked trip), then the mod\'s walk, then the journey');
   assert.match(w, /\.\.\.\(partyTravel\?\.poseFields\(\) \?\? \{\}\),\n(?:\s*\.\.\.\(_walk(?:Lead|Ts) [^\n]*\n)*\s*\.\.\.\(social\?\.leads\?\.\(\) && mode === 'exterior' && walkMode && playerSpawned && !worldMoveBusy\(\) \? partyFeetOf\(player\.pos\) : \{\}\),/, 'the pose\'s share; the leader\'s feet in the open air, never mid-journey');
   assert.match(w, /const partyFeetOf = \(pos\) => \{ const wc = state\.worldCoords\(pos\); return \{ wx: wc\.x, wy: pos\[1\] - state\.compensation\[1\], wz: wc\.z \}; \};/, 'the world pose\'s own frame');
@@ -1201,7 +1201,7 @@ test('AUDIT PARTY-UI2 host by source: the map door SAYS it indoors - "You cannot
   const w = rd('src/scenes/world.js');
   assert.match(w, /const CANNOT_TRAVEL_INDOORS_TEXT = 'You cannot travel while indoors\.';/, 'Internal_Strings.csv cannotTravelIndoors, verbatim');
   const door = w.slice(w.indexOf('const toggleTravelMap = (gotoPlace = null) => {'), w.indexOf('function openTeleportMap'));
-  assert.match(door, /if \(\(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) \{ townTalk\.say\(CANNOT_TRAVEL_INDOORS_TEXT\); return; \}/, 'said, then refused');
+  assert.match(door, /if \(\(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) \{ townTalk\.say\(CANNOT_TRAVEL_INDOORS_TEXT\); return false; \}/, 'said, then refused');
   const arm = door.indexOf('if (gotoPlace) _travelGoto = gotoPlace;');
   assert.ok(arm > 0 && arm < door.indexOf('CANNOT_TRAVEL_INDOORS_TEXT'), 'armed before the first refusal');
   assert.match(door, /if \(_travelGoto\) \{ _travelMap\.gotoPlace\(_travelGoto\); _travelGoto = null; \}/, 'taken by the map that opens');

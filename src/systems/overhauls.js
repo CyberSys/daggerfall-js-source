@@ -99,8 +99,8 @@ export const OVERHAUL_PANELS = Object.freeze([
     effect: 'Takes effect at once.',
     online: null,
     options: Object.freeze([
-      preset('classic', 'Classic', 'classic', SOUND_ROWS, { by: 'Daggerfall', blurb: 'Daggerfall’s own sounds and nothing added: its footsteps, its ambience, silence between.' }),
-      preset('enhanced', 'Enhanced', 'enhanced', SOUND_ROWS, { by: 'The port and Immersive Footsteps', blurb: 'A quiet wind outdoors that rises and falls with the weather, the inventory’s clink and click, and footsteps that answer the ground you walk on.' }),
+      preset('classic', 'Classic', 'classic', SOUND_ROWS, { by: 'Daggerfall', blurb: 'The original sounds from Daggerfall for adventurers who like a retro ambience, classic and timeless.' }),
+      preset('enhanced', 'Enhanced', 'enhanced', SOUND_ROWS, { by: 'The port and Immersive Footsteps', blurb: 'New and improved sounds for Daggerfall Online for adventurers who like some more quality ambience.' }),
     ]),
   }),
   Object.freeze({
@@ -108,11 +108,11 @@ export const OVERHAUL_PANELS = Object.freeze([
     effect: 'Switching reloads the game.',
     online: 'Online, the chat, your friends, the party and trading keep their own panels over any of these.',
     options: Object.freeze([
-      uiOption('classic', SKIN_NAMES.classic, 'classic', UI_PACK_NONE, { by: 'Daggerfall', blurb: 'Daggerfall’s own screens, pixel for pixel: the inventory, the spellbook, the conversations and the maps as they shipped.' }),
+      uiOption('classic', SKIN_NAMES.classic, 'classic', UI_PACK_NONE, { by: 'Daggerfall', blurb: 'The original UI from Daggerfall for adventurers who want to have that classic feel from the old days.' }),
       // PLUS1 (2026-09-25): the enhanced screens in the refreshed dress. PLUS-ONLY (2026-09-26): and the only enhanced
       // option - plain Enhanced, which stood beside it, is retired (systems/uiSkin.js isEnhancedPlus).
-      uiOption('enhanced-plus', SKIN_NAMES.enhanced, 'enhanced', UI_PACK_NONE, { by: 'The port', blurb: 'The port’s own screens in stone and brass: a hotbar, the enhanced inventory and spellbook, the held map, framed windows that unfold, the guild and shop windows rebuilt, and every panel built for a mouse, a pad and a phone.' }),
-      uiOption(G.id, G.title, 'classic', G.id, { by: `${G.author}, version ${G.version}`, blurb: 'Daggerfall’s screens redrawn at three times the detail: parchment and wood in place of the rock, a spellbook that is a book, and new lettering.' }),
+      uiOption('enhanced-plus', SKIN_NAMES.enhanced, 'enhanced', UI_PACK_NONE, { by: 'The port', blurb: 'New and improved UI for adventurers who want a more modern feel. Everything is built for playing with a mouse and keyboard, pad, controller or even a phone. You can tweak some settings the way you want and also tweak the controller bindings.' }),
+      uiOption(G.id, G.title, 'classic', G.id, { by: `${G.author}, version ${G.version}`, blurb: 'A mix between classic and enhanced for adventurers who like that classic feeling from the old days but still want some improvements. 3 times more detail than classic, a brand new font, a spellbook for all the spells you ever need and a nice parchment and wood UI instead of the original rock one.' }),
     ]),
   }),
 ]);

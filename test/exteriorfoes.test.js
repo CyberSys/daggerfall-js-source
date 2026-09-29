@@ -142,7 +142,7 @@ test('exteriorfoes: the FIXED-CITY host carries the catch-up loop too, both host
   assert.ok(fn.includes('const span = playerEntity.preventEnemySpawns ? 0 : Math.min(now - _lastEncMinutes, 1440);'), 'the suppression flag gates the whole loop (:482)');
   assert.ok(fn.includes('if (playerEntity.preventEnemySpawns) playerEntity.preventEnemySpawns = false;'), 'and clears at the tail (:524-525)');
   assert.ok(fn.includes('passiveGuardSpawns({'), 'the two passive-guard rolls (:498-511)');
-  assert.ok(fn.includes('setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);'), 'each levies Criminal_Conspiracy first');
+  assert.ok(fn.includes('playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;'), 'each levies Criminal_Conspiracy first - the field, as :502/:509 (WERE-LEVY)');
   assert.ok(fn.includes('_witnessResponse();'), 'through SpawnCityGuards(false)');
   const _sweepLatch = /let _updatedGuards = false;[^]*if \(!_updatedGuards\) \{\n\s*_updatedGuards = true;(?:\n\s*\/\/[^\n]*)*\n\s*if \(_m === 'exterior'\) cityGuards\.makeNpcGuardsIntoEnemies\(/;
   // :488-491 - no encounter roll while the player swims (DFU: or is on a ship; the port has no ship state)

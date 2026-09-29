@@ -20,6 +20,8 @@ import { maxFatigue, maxBreath, liveStat } from '../systems/statMods.js';
 import { isEnhanced } from '../systems/uiSkin.js';   // PX30: the HUD is a skin too
 import { drawEnhancedHud } from './enhancedHud.js';   // PX30
 import { drawLevelNotices } from './levelNotice.js';   // LV2: the level-up notification, on the same one call
+import { drawQuestHerald } from './questHerald.js';   // GUIDE3: the quest news, on the same one call
+import { drawQuestTracker } from './questTracker.js';   // GUIDE4: the quest the HUD follows, on the same one call
 import { drawCrosshairAndModeIcon, crosshairCentreY } from './hudCrosshair.js';   // U38; AUDIT RETRO1 G5: the reticle's row, for the loot panel beside it
 import { playerDamageFlash } from './damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage rides the one HUD call
 import { playerBloodScreen, SCREEN_SPATTER_MIN } from './bloodScreen.js';   // BLOOD2e: blood on the lens rides the same call
@@ -477,10 +479,14 @@ export function hideHudTextSurfaces(hudText = null) {
   hudText?.hide();
   midScreenText.hide();
   horseNameTooltip.hide();   // AUDIT HCC U6: the mod's HUD label, the same door
+  // AUDIT GUIDE O1/T7/H9: the quest guide's two HUD faces, the same door - the herald's notices hide (their clock
+  // stopped) and the card hides and gives the party list its line back, as they do under a street window
+  drawQuestHerald({ hidden: true });
+  drawQuestTracker({ hidden: true });
 }
 
 export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
-  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, party = null, ships = null, veins = null, largeHud = null, hover = null,
+  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, quest = null, party = null, ships = null, veins = null, largeHud = null, hover = null,
     readied = null, weapon = null, weaponSheathed = true, quickUse = null, quickSwap = null, quickOffHand = null, quickSpell = null, quickSwitchHand = null } = {}) {   // PX30b: for the enhanced HUD's hand plaques; AUDIT 28 W2: the arrow counter's gate; AUDIT 64 F35: the host's previousWindow answer; QS3: the diamond's sheathe state and its two phone taps; QS6: the caption's spell chip press
   // AUDIT 24 (wave 39): ShowPlayerDamage's red flash, under the bars.
   // THE FOUR HOSTS RULE, applied before the fact: drawHud is the one
@@ -625,6 +631,13 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   // persistent DOM overlay must REACH its hide door rather than be
   // skipped) and reads whether a level is still owed off the one
   // player entity itself.
+  // GUIDE3: THE HERALD rides it too, and OUTSIDE the skin's gate: off
+  // (the classic skin, its switch) it must still reach its hide door, and
+  // it answers that itself (ui/questHerald.js). Its clock is the frame's
+  // real seconds and stops under the HUD's hide gate - DFU's HUD does not
+  // Update under a window (DaggerfallUI.cs:429-433).
+  drawQuestHerald({ hidden: cursorActive || !hudRenderEnabled(), dt });
+  drawQuestTracker({ hidden: cursorActive || !hudRenderEnabled() });   // GUIDE4: the tracker's card, the same gate and the same hide door
   if (isEnhanced() && typeof document !== 'undefined') {
     drawLevelNotices({ hidden: cursorActive || !hudRenderEnabled() });
     drawEnhancedHud(vitals, heading01, dt, {
@@ -645,6 +658,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       detected: detected ?? null,
       playerXZ: playerXZ ?? null,
       gate: gate ?? null,   // WB1: the Oblivion Gate's scene XZ while the player stands in its ring - the compass's own mark
+      quest: quest ?? null,   // GUIDE5: the tracker's quest's place, scene XZ, on the street - the compass's quest mark
       party: party ?? null,   // COMPASS-PARTY: the party's points (ui/partyMapMarks.js partyCompassPoints)
       ships: ships ?? null,   // AUDIT NAV1 (the helm): the sea's ships (scenes/navalHost.js compassShips)
       veins: veins ?? null,   // PROF2: the Prospector's veins' points

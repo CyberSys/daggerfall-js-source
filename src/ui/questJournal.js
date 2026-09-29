@@ -20,7 +20,7 @@ import { FntFile } from '../formats/fntFile.js';
 import { drawScreenDimBackdrop } from './chargenArt.js';
 import { MAX_LINES_QUESTS, MAX_LINES_SMALL, MAX_LINE_LENGTH } from '../systems/notebook.js';
 import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, messageBoxArtLoaded } from './messageBox.js';
-import { getMessageResources } from '../systems/quest/questMacros.js';   // QuestMacroHelper.GetMessageResources (:61-83)
+import { lastPlaceMentionedInMessage, locationInRegionText } from './questLens.js';   // GetLastPlaceMentionedInMessage (:470-485) - GUIDE1: its one home, shared with the quest lens; GUIDE2: and locationInRegionProvince's
 import { REGION_NAMES, patchRegionIndex } from '../formats/mapsFile.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
@@ -143,8 +143,9 @@ export const FIND_PLACE_TEXT = Object.freeze({
   head: 'Travel to location',
   action: 'Do you want to open the world map to travel to:',
   note: '(Note: you can cancel travel from the world map)',
-  /** locationInRegionProvince, "{0} in {1} province". */
-  locationInRegion: (locationName, regionName) => `${locationName} in ${regionName} province`,
+  /** locationInRegionProvince, "{0} in {1} province" - GUIDE2: its one
+   *  home is the quest lens now, which the enhanced faces say it through. */
+  locationInRegion: locationInRegionText,
 });
 
 /** F160: CreateDialogBox's six strings and the note prompt -
@@ -517,33 +518,19 @@ export class QuestJournalWindow {
     return true;
   }
 
-  /** GetLastPlaceMentionedInMessage (:469-485): the LAST Place resource
-   *  any macro in the message names. Not ParentQuest.LastPlaceReferenced -
-   *  DFU's own comment says that sends the player to an unrelated home
-   *  location for the last NPC processed - and a message that names no
-   *  Place at all (the Dark Brotherhood initiation keeps its entry
-   *  secret) answers null. */
-  _lastPlaceMentionedInMessage(message) {
-    const resources = getMessageResources(message);
-    if (!resources || resources.length === 0) return null;
-    let lastPlace = null;
-    for (const resource of resources) if (resource?.isPlace) lastPlace = resource;
-    return lastPlace;
-  }
-
   /** HandleQuestClicks (:439-466). Three gates before the offer: the
    *  message names a Place, that Place has a location name, and it is
    *  not the one the player is standing in - then CanFindPlace decides,
    *  through the CANONICAL name, whether the map can even show it. */
   _handleQuestClicks(message) {
-    const place = this._lastPlaceMentionedInMessage(message);
+    const place = lastPlaceMentionedInMessage(message);   // GUIDE1: ui/questLens.js, the member's one home
     const site = place?.siteDetails ?? null;
     if (!site?.locationName) return false;
     if (site.locationName === this.deps.currentLocationName()) return false;
     if (!this.deps.gotoPlace) return false;
     if (!this.deps.canFindPlace(site.regionName, site.locationName)) return false;
     this.findPlace = place;
-    // :474-481 - the workaround for saves written before SiteDetails
+    // :455-456 - the workaround for saves written before SiteDetails   (AUDIT GUIDE D4: the cite corrected)
     // carried a regionIndex, and the region NAME the dialog shows comes
     // off the patched index.
     const regionIndex = patchRegionIndex(site.regionIndex ?? 0, site.regionName ?? '');

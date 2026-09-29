@@ -110,7 +110,7 @@ test('FT1: the registry row - DFU Classic, over the settings key, sound', () => 
   assert.deepEqual(f.kinds, ['classic'], 'DFU\'s own feature; it wears Enhanced too the day the port builds on it');
   assert.deepEqual(f.control, { store: 'settings', key: 'Experimental/SmallerDungeons' });
   assert.equal(f.title, 'Smaller dungeons');
-  assert.match(f.note, /five blocks/); assert.match(f.note, /Main-story dungeons never shrink/); assert.match(f.note, /online every dungeon is full size/);
+  assert.match(f.note, /five blocks/); assert.match(f.note, /Main-story dungeons and dungeons a quest sends you to keep their full size/); assert.match(f.note, /online every dungeon is full size/);
   assert.match(f.effect, /next dungeon you enter/);
   assert.deepEqual(checkFeature(f), []);
   assert.equal(featureForControl('settings', 'Experimental/SmallerDungeons'), f);

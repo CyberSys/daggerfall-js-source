@@ -106,6 +106,7 @@ import { crosshairEnabled, interactionIconStyle, iconReplacesCrosshair, modeIcon
 import { getInteractionMode } from '../player/interactionMode.js';
 import { mountHotbarDock, drawEnhancedHotbar, detachHotbarDock, hotbarMode } from './enhancedHotbar.js';   // HB1: the hotbar, the diamond's alternative (one or the other)
 import { setEnhancedMidTextScale } from './enhancedHudText.js';   // AUDIT FONT F2: the mid-screen label is a layer beside this one, not inside it (the popup column it once scaled too is a toast in the notice stack since ENH-NOTICE3)
+import { QUEST_MARK_CSS } from './questMarks.js';   // GUIDE5: the tracker's quest on the compass, in the marks' one gold
 
 /**
  * PX30c (Mac: "is there anyway I can adjust the sizing?"): THE HUD'S
@@ -257,6 +258,29 @@ function drawGateMark(gate, playerXZ, heading01) {
   if (!gate || !playerXZ) { if (node.style.display !== 'none') node.style.display = 'none'; return; }
   if (node.style.display === 'none') node.style.display = '';
   const at = Math.min(1, Math.max(0, compassMarkerLerp(gate, playerXZ, heading01)));
+  const l = `${(at * 100).toFixed(1)}%`;
+  if (node.style.left !== l) node.style.left = l;
+}
+
+// GUIDE5: THE QUEST'S MARK - the place the tracker's quest points, one diamond in the journal's gold (ui/questMarks.js
+// QUEST_MARK_CSS), HOLLOW and edged dark so it never reads as the gate's burning one, riding the same bearing law
+// (compassMarkerLerp, clamp and all): a place behind the player stands at the strip's end on the side to turn toward.
+// The host hands it only on the street and only for a place the player's map holds (scenes/world.js questCompassMark);
+// otherwise it is hidden, never removed - the updated-not-rebuilt law.
+const questMarkCss = () => 'position:absolute;top:50%;box-sizing:border-box;width:10px;height:10px;margin:-5px 0 0 -5px;'
+  + `transform:rotate(45deg);border:2px solid ${QUEST_MARK_CSS};background:rgba(10,12,17,0.7);`
+  + 'box-shadow:0 0 3px 1px rgba(0,0,0,0.85);pointer-events:none';
+function drawQuestMark(quest, playerXZ, heading01) {
+  if (!parts.questMark) {
+    const node = el('i', 'hud-quest');
+    node.style.cssText = questMarkCss();
+    parts.compass.append(node);
+    parts.questMark = node;
+  }
+  const node = parts.questMark;
+  if (!quest || !playerXZ) { if (node.style.display !== 'none') node.style.display = 'none'; return; }
+  if (node.style.display === 'none') node.style.display = '';
+  const at = Math.min(1, Math.max(0, compassMarkerLerp(quest, playerXZ, heading01)));
   const l = `${(at * 100).toFixed(1)}%`;
   if (node.style.left !== l) node.style.left = l;
 }
@@ -736,7 +760,7 @@ function build(doc) {
   cells.main.cell.addEventListener('pointerdown', tap(() => { liveOpts.quickSwitchHand?.(); }));
 
   doc.body.append(root);
-  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], veinMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
+  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], veinMarks: [], gateMark: null, questMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
     stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
@@ -852,6 +876,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   // ...and the Detect markers over the same strip.
   drawDetectMarkers(opts.detected ?? null, opts.playerXZ ?? null, heading01);
   drawGateMark(opts.gate ?? null, opts.playerXZ ?? null, heading01);   // WB1
+  drawQuestMark(opts.quest ?? null, opts.playerXZ ?? null, heading01);   // GUIDE5
   drawPartyMarks(opts.party ?? null, opts.playerXZ ?? null, heading01);   // COMPASS-PARTY
   drawShipMarks(opts.ships ?? null, opts.playerXZ ?? null, heading01);   // AUDIT NAV1: the sea's ships
   drawPartyMarks(opts.veins ?? null, opts.playerXZ ?? null, heading01, 'veinMarks', VEIN_MARK_CSS);   // PROF2: the Prospector's veins

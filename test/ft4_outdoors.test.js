@@ -76,13 +76,13 @@ test('FT4: the registry row - both labels, a condensed choice with its own defau
   assert.equal(c.read, outdoorsRead); assert.equal(c.write, outdoorsWrite);
   assert.equal(c.initial, true); assert.equal(c.online, true, 'the lane forces the outdoors on');
   assert.deepEqual(f.control.also, [{ store: 'mods', vendor: 'dynamic-skies', key: 'Enabled' }]);
-  assert.match(f.note, /Off returns Daggerfall’s SKY\*\.DAT panorama/); assert.match(f.note, /BadLuckBurt and carademono/);
+  assert.match(f.note, /Off brings back Daggerfall’s painted sky/); assert.match(f.note, /BadLuckBurt and carademono/);
   // FT15 (2026-09-15): the note used to send a player to the Mods page for the mod's fog and
   // pixel-snow knobs. FT14 deleted that page - those knobs open in this row's own tile drawer
   // (MOD_CURATED['dynamic-skies']) - so the sentence was a pointer at nothing until the trim.
   // AUDIT FT15 (drift): the CLAIM is that the note sends a player to this tile
   // rather than to the deleted Mods page - not that it uses one form of words.
-  assert.match(f.note, /knobs[\s\S]*tile/, 'the mod\'s other knobs are the mod\'s, and the note says where they are NOW');
+  assert.match(f.note, /settings open on this tile/, 'the mod\'s other knobs are the mod\'s, and the note says where they are NOW');
   assert.doesNotMatch(f.note, /Mods page|Mods pane/, 'and never at the page FT14 deleted');
   assert.deepEqual(checkFeature(f), []);
   assert.equal(featureForControl('mods', 'Enabled', 'dynamic-skies'), f, 'the Mods pane\'s Enabled row is a pointer to this row');

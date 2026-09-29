@@ -129,7 +129,7 @@ test('VAMP-HOOD online: the door reads the shared clock, whose day is one real h
   // (MERGE with LIVED1: DFU's line rides sayWithNightfall - online the world's nightfall on its own HUD row, AUDIT LIVED1
   // M - and the hood's way out after both; the party's refusal adds the nightfall to the door's own words)
   const world = read('src/scenes/world.js');
-  assert.match(world, /const ftb = racialFastTravelBlock\(playerEntity, nowMin\);\n\s*if \(ftb\) \{ sayWithNightfall\(ftb\.text\); if \(ftb\.hint\) townTalk\.say\(ftb\.hint\); return; \}/,
+  assert.match(world, /const ftb = racialFastTravelBlock\(playerEntity, nowMin\);\n\s*if \(ftb\) \{ sayWithNightfall\(ftb\.text\); if \(ftb\.hint\) townTalk\.say\(ftb\.hint\); return false; \}/,   // GUIDE2: the door answers the journal's Show on map
     'the map door speaks the hint after the refusal');
   assert.match(world, /const sun = racialFastTravelBlock\(playerEntity, nowMin\)\?\.text \?\? null;\n\s*return sun \? withNightfall\(sun\) : null;/, 'the party\'s refusal');
 });

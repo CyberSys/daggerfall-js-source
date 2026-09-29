@@ -54,7 +54,7 @@ test('EM3-3D map choice by source: the Features row - interface, enhanced-only, 
   assert.equal(row.group, 'interface', 'beside the Enhanced map row it depends on');
   assert.deepEqual([...row.kinds], ['enhanced'], 'the held map is the enhanced skin\'s alone');
   assert.deepEqual({ ...row.control }, { store: 'prefs', key: 'dungeonMap3d', initial: true, online: 'player' });
-  assert.match(row.note, /Off is the flat Enhanced plan/, 'the note says what Off keeps');
+  assert.match(row.note, /Off shows one flat floor at a time/, 'the note says what Off keeps');
   const i = FEATURES.findIndex((f) => f.id === 'enhanced-map');
   assert.equal(FEATURES[i + 1]?.id, 'dungeon-map-3d', 'listed right under the Enhanced map');
   assert.match(rd('src/ui/heldMap.js'), /createAutomapSheet\(\{ solid: dungeonMap3dOn\(\), /, 'the sheet is built through dungeonMap3dOn');

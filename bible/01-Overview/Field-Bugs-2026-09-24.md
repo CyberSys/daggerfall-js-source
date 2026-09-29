@@ -983,7 +983,7 @@ set), where the player saw their beast.
 
 The wire was never at fault. `wb` goes out on its edge (`wire.js:1170`),
 through the door (`:1051`) and the easing (`online.js:223`), from the sender
-at `world.js:18155`.
+at `world.js:18225`.
 
 **Fix.** `peerRiders.js` takes a peer whose pose says `wb`, as it takes a
 rider:
@@ -1001,10 +1001,10 @@ The hand-off is RIDE's: `isRiding` is true only once the art is up, so while
 it loads or has failed, and in a build without it, DISC12's enemy sprite
 still stands for them. A beast is never nothing.
 
-The modal passes (`worldModes.js:8158` the dungeon, `:8365` the interior)
+The modal passes (`worldModes.js:8161` the dungeon, `:8368` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
-underground. It hands over both layers' batches now (`world.js:18368`). A
+underground. It hands over both layers' batches now (`world.js:18438`). A
 rider never reaches those passes: a door dismounts. The eye the layer turns
 its sprites to (`cam.pos`) is live in every mode, because worldModes shares
 world.js's `cam` and sets it each modal frame.
@@ -1060,7 +1060,7 @@ the scene the picture takes in:
   (`characterSprite.js:125` `landAnchor`). Every point then draws at a place
   that does not depend on the box. The voxel rigs pass no anchor and draw as
   they did.
-- `drawThird` (`fpArm.js:4955`) anchors on the actor's own axis (MW x = y =
+- `drawThird` (`fpArm.js:4961`) anchors on the actor's own axis (MW x = y =
   0, where the root stands at `feet`), at the body's mid-height. That
   height is read off the drawn ranges less `CARRIED_SLOTS` (`fpArm.js:721`:
   the hand's weapon and round, the torch, the held sheet, Weapon Sheathing's
@@ -1071,13 +1071,13 @@ the scene the picture takes in:
 
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
 local player's goes through `mwView.mwViewDrawBody` (`mwView.js:395`,
-`:339`), which four files call: `world.js:21756`, `exterior.js:5201`,
-`worldModes.js:8149` and `:8256` (the dungeon and the interior passes),
+`:339`), which four files call: `world.js:21831`, `exterior.js:5208`,
+`worldModes.js:8152` and `:8259` (the dungeon and the interior passes),
 and `dungeon.js:1096`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:465` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
-calls it at `world.js:22262`, and the modal passes reach it through
-`host.drawPeerBodies` (`worldModes.js:8150`, `:8257`). The fix therefore
+calls it at `world.js:22337`, and the modal passes reach it through
+`host.drawPeerBodies` (`worldModes.js:8153`, `:8260`). The fix therefore
 sits in one place and reaches every host.
 
 The pins are `test/prbow1_bow.test.js`: seven tests, all failing on the
@@ -1092,7 +1092,7 @@ every posed frame, for every body (the local player's and each peer's). It
 ran straight after `poseAssembly` had already walked every one of them for
 `assembly.bounds`. That is the same kind of repeated walk AUDIT MWBODY A4
 removed. The per-piece boxes are now folded inside `poseAssembly`'s own walk
-(`mwFirstPerson.js:1826` `foldPieceBounds`, called at `:2482`). Each piece
+(`mwFirstPerson.js:1827` `foldPieceBounds`, called at `:2486`). Each piece
 keeps one box, rewritten each pose. A range copies its piece's six numbers,
 and only a piece no pose has touched yet (a part bound since the last pose)
 is folded off its positions. The fold's results are unchanged:
@@ -1101,7 +1101,7 @@ pins stand.
 
 **The portrait.** `fpArm.figure()` draws the enhanced inventory's model
 figure (`enhancedInventory.js:1617`), which is shown in a 110:184 cell with
-object-fit: contain (`enhancedStyle.js:4175`). It framed `meshBounds` over
+object-fit: contain (`enhancedStyle.js:4210`). It framed `meshBounds` over
 EVERY piece, then hid the unlit torch, the arrow off the string and the
 empty holster twin, so gear it did not show still moved the frame. Its width
 was the box's azimuth-safe diagonal, so a longsword pointing at the viewer,
