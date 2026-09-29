@@ -879,6 +879,34 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       dungeonType: dfLocation.mapTableData.dungeonType,
       playerLevel: playerEntity.level,   // ChooseRandomEnemyType bands on the LIVE level (wired audit 2026-08-16; was stuck at the default 1)
     });
+  // PROF2: A DUNGEON VEIN'S WALL (profIdentity / veinWall below; bible/06-Systems/Professions-Arc.md 23) - over the
+  // layout's own markers, before an elite copy is added: every client of the dungeon casts the same rays.
+  const PROF_VEIN_WALL_M = 12, PROF_VEIN_OFF_M = 0.33, PROF_VEIN_CHEST_M = 0.9, PROF_VEIN_UP_M = 0.5;
+  /** AUDIT 29 C3: the rays read the dungeon's own mesh (its 'dungeon' bucket), never a door's or a platform's */
+  const PROF_VEIN_ONLY = Object.freeze({ only: Object.freeze(['dungeon']) });
+  function profVeinWall(marker, bearing) {
+    const list = _layoutEnemies;
+    if (!list?.length || !collider) return null;
+    const first = Math.min(list.length - 1, Math.max(0, Math.floor(marker * list.length)));
+    for (let m = 0; m < Math.min(4, list.length); m++) {
+      const mk = list[(first + m) % list.length];
+      for (let k = 0; k < 8; k++) {
+        const a = bearing + (k * Math.PI) / 4;
+        const dir = [Math.sin(a), 0, Math.cos(a)];
+        const from = [mk.x, mk.y + PROF_VEIN_CHEST_M, mk.z];
+        // AUDIT 29 C3: the dungeon's own mesh alone - a closed door's bucket (it exists only while shut) or a moving
+        // platform's stood a vein in a doorway, and the next stand moved it: every client, every stand, one wall
+        const hit = collider.raycastHit(from, dir, PROF_VEIN_WALL_M, PROF_VEIN_ONLY);
+        if (!Number.isFinite(hit?.dist) || !hit.normal || Math.abs(hit.normal[1]) > 0.35) continue;   // a wall, not a floor or a ramp
+        const d = Math.max(0, hit.dist - PROF_VEIN_OFF_M);
+        const at = [from[0] + dir[0] * d, from[1], from[2] + dir[2] * d];
+        const down = collider.raycast(at, [0, -1, 0], 3, PROF_VEIN_ONLY);
+        if (!Number.isFinite(down)) continue;   // AUDIT 29 C11: no floor under it (a pit, deep water) - the next bearing, never a vein in the air
+        return [at[0], at[1] - down + PROF_VEIN_UP_M, at[2]];
+      }
+    }
+    return null;
+  }
   // ELITE DUNGEONS: an elite spawned dungeon stands ELITE_FOE_MULTIPLIER foes at every marker.
   // The extras are pulled back from walls by a ray through this dungeon's own collider (every
   // peer has the same geometry, so every peer builds the same list - the foe frame's index law).
@@ -1860,7 +1888,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:12785 / exterior.js:3730), set
+  // host's own townTalk sink (world.js:13270 / exterior.js:3733), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2298,7 +2326,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // A host that passes none falls to the constructor's standing
       // defaults, which is the crouched death's geometry lost.
       const _ms = opts.motorState?.() ?? null;
-      activeOverlay = new DeathScreen({ eyeHeight: _ms?.eyeLevel, capsuleHeight: _ms?.capsule, onReset: () => { if (!opts.onlineRespawn?.()) endRunToTitleMenu(renderer); } });   // D1; D-ONLINE1: online play respawns instead of ending the run (worldModes.js's opts.onlineRespawn, world.js's onlineRespawn)
+      activeOverlay = new DeathScreen({ eyeHeight: _ms?.eyeLevel, capsuleHeight: _ms?.capsule, onReset: () => { if (!opts.onlineRespawn?.()) endRunToTitleMenu(renderer); }, ...(opts.onlineRespawn ? {} : { online: false }) });   // AUDIT 28 B5: the standalone dungeon (no onlineRespawn) never respawns online - no loss shown   // D1; D-ONLINE1: online play respawns instead of ending the run (worldModes.js's opts.onlineRespawn, world.js's onlineRespawn)
     }
   });
   // F117: Stendarr's rank-in-fifty, consulted by the door before the
@@ -2444,7 +2472,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1335,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1340,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2978,7 +3006,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1112 against :1142; worldModes.js:7576 against :7602).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1112 against :1142; worldModes.js:7621 against :7648).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3015,7 +3043,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function rollPileItems() {
     const elite = !!dfLocation?.elite;   // ELITE: the piles get the same +20% drops and +20% quality as the foes
     const items = generateLootItems(lootKey, { level: playerEntity.level, gender: playerEntity.gender }, undefined, elite ? { itemChanceScale: ELITE_LOOT_DROP_MULT } : {});
-    addPileLootExtras(items, lootKey, undefined, { level: playerEntity.level, where: 'dungeon' });   // REALM P0.4: online, the level's gold divided back; AUDIT OH-F B3: the dungeon's own
+    addPileLootExtras(items, lootKey, Math.random, { locationIndex: dfLocation.mapTableData.dungeonType, luck: liveStat(playerEntity, 'luck'), level: playerEntity.level, where: 'dungeon' });   // FORAGE3: OnLootSpawned at the dungeon type's index; REALM P0.4: online, the level's gold divided back; AUDIT OH-F B3: the dungeon's own
     rollLootRarity(items, { ...pileSource(dungeonRarityTier(dfLocation.mapTableData.dungeonType)), qualityMult: elite ? ELITE_LOOT_QUALITY_MULT : 1 }, { luck: liveStat(playerEntity, 'luck') });
     stampWonWeapons(items, 1);   // SIGIL1: a pile found online, its weapons' sigils rolled at the mint
     return items;
@@ -3254,6 +3282,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     bindWorn: opts.playerWeapon !== 'bow',   // AUDIT 17e F17: the ?weapon=bow debug flag keeps its scripted weapon
     say: (l) => hudText.add(l),
     spellArmed: () => magic.spellArmed(), abortSpell: () => magic.abortReadySpell(),   // MAC-O1: WeaponManager.Update:251 - the ReadyWeapon key puts a readied spell away and draws
+    actTool: () => opts.actTool?.() ?? null,   // PROF2: the Pick-Axe in the hand at a dungeon vein (the outer host's act)
   });
   const playerWeapon = weaponRig.playerWeapon;   // the dungeon-side combat consumers read it
   if (opts.playerWeapon === 'bow') {
@@ -3312,6 +3341,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     billboardBatches.push(batch);   // hosts draw + destroy() frees
   }
   function playerAttackInput(dx, dy, held) {   // host mouse events buffer here
+    if (held && opts.profActing?.()) return;   // PROF2: an act's strike is the act's - never a swing (the outer host reads it); AUDIT 29 D2: the PRESS alone - a release is never gated, or a button held into an act swung on after it
     // I2 (cast probe): the CAST intercept runs BEFORE the sheath gate.
     // DFU's cast is EntityEffectManager's own Update - a separate
     // component from WeaponManager - so a sheathed player still fires
@@ -3682,8 +3712,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:21650,
-              // exterior.js:5310 and worldModes.js:8275 already ran;
+              // playerArrowHitFoe is the one copy world.js:22419,
+              // exterior.js:5342 and worldModes.js:8321 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -7123,7 +7153,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // both of them hand it in: dungeon.js's opts bag and
         // worldModes' (the world-hosted crawl, which is where the
         // classic start into Privateer's Hold lives, and which is the
-        // pause door ui/input.js:841 reaches underground).
+        // pause door ui/input.js:847 reaches underground).
         relock: () => opts.relock?.(),
         // the LOAD arm needs the host's position applier, exactly as
         // routeKey's own QuickLoad case passes it
@@ -8299,6 +8329,37 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
      * recorded on the mod's Features row in as many words.
      */
     hoverName(key, hit) { return _namer(key, hit); },
+    /** PROF2 (bible/06-Systems/Professions-Arc.md 23): this dungeon as the professions name it - DFU's own identity
+     *  (MapTableData.MapId & 0xfffff), its climate and region - or null for one a client's hash made, which grows no
+     *  vein (nothing any other client, or the witnesses, could stand behind). */
+    profIdentity() {
+      // AUDIT 29 D5: nor the Burning Court - every court is "dungeon 0" by its own record (gateArena.js), no dungeon's
+      if (dfLocation?.spawned || isGateArena(dfLocation) || !Number.isSafeInteger(dfLocation?.mapTableData?.mapId)) return null;
+      return { id: dfLocation.mapTableData.mapId & 0xfffff, climate: dfLocation.climate?.worldClimate ?? null, region: dfLocation.regionIndex ?? null };
+    },
+    /** PROF2: A DUNGEON VEIN'S WALL - from one of this dungeon's foe markers (the layout's own list, the same on every
+     *  client, so every client stands the vein in one place), a ray at chest height along `bearing` through the collider
+     *  to the first near-vertical face within PROF_VEIN_WALL_M, the vein a third of a metre off it and half a metre up
+     *  from the floor under it; the next eighths of a turn, then the next markers, where nothing is found. The elite
+     *  foes' clearance rays are the precedent (expandEliteEnemies, above). Null when no wall answers. */
+    veinWall(marker, bearing) { return profVeinWall(marker, bearing); },
+    /** PROF2: flats the professions stand here (a vein's ore), owned with the dungeon's own - freed by destroy() with the
+     *  rest, or dropped first when the host re-stands them. */
+    async standProfFlats(archive, record, scale, centers) {
+      const t = await getTexture(archive);
+      if (!t || record >= t.recordCount) return null;
+      uploadRecord(archive, record);
+      const base = billboardSize(t, record);
+      const batch = renderer.createBillboardBatch(archive, record, { w: base.w * scale, h: base.h * scale }, centers);
+      billboardBatches.push(batch);
+      return batch;
+    },
+    dropProfFlats(batch) {
+      const i = billboardBatches.indexOf(batch);
+      if (i < 0) return;
+      billboardBatches.splice(i, 1);
+      renderer.destroyBatch(batch);
+    },
     dungeonActivationTargets() {
       // effects ride their precomputed aabb (crash fix, audit 2026-08-16)
       return composeActivationTargets([...activationTargets(actions.objects), ...lootTargets()], _hostTargets);

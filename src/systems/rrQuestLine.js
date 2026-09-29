@@ -11,7 +11,7 @@
 import { DIRECTION_HINTS } from './talk.js';
 import { ARMOR_MATERIAL } from './armorMaterials.js';
 import { groupTemplates, setItemFields, mintCondition } from './itemTemplates.js';
-import { customItemsForGroup } from './rriItems.js';
+import { customItemsForGroup } from './itemTemplates.js';   // FORAGE1: GetCustomItemsForGroup's one home
 
 /** RoleplayRealismModData.csv - the quest line's own lines. */
 export const RR_TEXT = Object.freeze({

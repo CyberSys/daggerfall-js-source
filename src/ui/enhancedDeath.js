@@ -31,6 +31,7 @@
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { PIXEL_STACK } from './pixelifyFive.js';
 import { isOnlinePage } from '../systems/onlineLane.js';
+import { deathPenaltyLine } from '../systems/deathPenalty.js';   // DEATH-PENALTY: the line about the loss
 import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';
 
 export const ENHANCED_DEATH_ID = 'enhanced-death';
@@ -71,9 +72,13 @@ function build(screen) {
   const title = el('h1', 'dth-title', 'You Died');
   const rule = el('div', 'dth-rule');
   rule.append(el('i'), el('span', 'dth-gem'), el('i'));
-  const line = el('p', 'dth-line', online
+  // DEATH-PENALTY (Mac: "remove the tale line and use the same fonts for the gold loss message in online
+  // mode"): a death that costs gold says so IN the line's place, in the line's own italic serif, rather than
+  // under it in a second face. A death that costs nothing (offline, or a purse under four coins) keeps its words.
+  const lossLine = screen.goldLoss > 0 ? (screen.goldLossLine || deathPenaltyLine(screen.goldLoss)) : '';
+  const line = el('p', `dth-line${lossLine ? ' dth-lossline' : ''}`, lossLine || (online
     ? 'Your body falls. The Bay is not done with you yet.'
-    : 'Your tale in the Iliac Bay ends here.');
+    : 'Your tale in the Iliac Bay ends here.'));
   const keys = el('div', 'dth-keys');
   for (const k of deathKeys(screen.hint, online)) {
     const b = el(k.confirm ? 'button' : 'span', 'dth-key');
@@ -173,6 +178,7 @@ export const DEATH_CSS = `
 .dth-line { margin: 0; font-family: var(--display, 'Cormorant', Georgia, serif); font-style: italic;
   font-size: clamp(16px, 2.2vw, 21px); color: #b3a893; letter-spacing: 0.04em;
   animation: dth-in 900ms ease-out 1300ms both; }
+.dth-lossline { max-width: min(760px, 92vw); line-height: 1.4; }   /* DEATH-PENALTY: the longest of the four lines wraps on a phone rather than running off it */
 
 .dth-count { margin: 2px 0 0; font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none; font-size: 13px;
   letter-spacing: 0.18em; text-transform: uppercase; color: #7d6f5e; text-shadow: 2px 2px 0 #000;

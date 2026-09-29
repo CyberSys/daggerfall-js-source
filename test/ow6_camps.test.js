@@ -163,7 +163,9 @@ test('OW6 camps: A CAMP TAKEN OVER STAYS ONE CAMP - its owner leaves (the handov
 
 test('OW6 camps wiring: the host stands each group under the pool\'s one counter with its kind, a band that stands is a band, the Overworld marks every camp; the HUD draws a camp as a tent in the ember', () => {
   const W = read('src/scenes/world.js');
-  assert.match(W, /const campId = exteriorFoes\.newCampId\(\);/);
+  // MERGE 2: EVERY camp id is the counter's - the camp's stand and the bounty's dungeon pack (a copy of either on its own
+  // number would share one with an heir's camp)
+  assert.deepEqual([...W.matchAll(/const campId = ([^;]+);/g)].map((m) => m[1]), ['exteriorFoes.newCampId()', 'exteriorFoes.newCampId()']);
   assert.doesNotMatch(W, /_nextCampId/, 'one counter, the pool\'s');
   assert.match(W, /f\.campId = campId; f\.campAlertRadius = hit\.alertRadius;\n\s*f\.campKind = hit\.kind \?\? 'pack';/);
   assert.match(W, /_standCampEncounter\(\{ kind: 'band', mobileTypes: mk\.mobileTypes,/);

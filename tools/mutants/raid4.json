@@ -84,8 +84,8 @@
   {
     "name": "RAID4-route-no-order",
     "file": "server-account/src/index.js",
-    "old": "        if (r.renown?.rose) {",
-    "new": "        if (false) {",
+    "old": "        let order = null;\n        if (r.renown?.rose) {",
+    "new": "        let order = null;\n        if (false) {",
     "tests": [
       "test/raid4_rewards.test.js"
     ]

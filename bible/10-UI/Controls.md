@@ -240,6 +240,12 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 |---|---|---|---|
 | `SocialInteract` | F |  | Interact with player |
 
+### Professions
+
+| Action | Key | Pad | What it does |
+|---|---|---|---|
+| `ActChoice` | UP |  | At an herb patch: the herbs or the Basket |
+
 ### Game
 
 | Action | Key | Pad | What it does |

@@ -57,6 +57,29 @@
 //   POST /v1/duel/record { id }           -> { id, wins, losses, gates }
 // WB5b, the gates closed. The caller is the account the receipt names:
 //   POST /v1/gate/claim  { receipt }      -> { recorded, closed }
+// MARKS1, Marks - an account's alone, behind MARKS_OPEN (marks.js); `rid` the act's own id:
+//   POST /v1/marks/balance {}                               -> { balance, today, bank }
+//   POST /v1/marks/exchange { marks, rid }                  -> { ok, marks, gold, balance, exchangedToday } | { repeat, ... }
+//   POST /v1/marks/guild/deposit { character, marks, rid }  -> { ok, marks, balance, guildMarks }
+//   POST /v1/marks/guild/withdraw { character, marks, rid } -> { ok, marks, balance, guildMarks }
+//   POST /v1/marks/report {}                                -> the week's report (a developer's)
+//   and /v1/gate/claim's answer carries `marks` - the gate's strike - where it recorded
+// NOTICE1, the Notice Board - read by anyone BOARD_OPEN lets in, written by registered accounts (board.js):
+//   POST /v1/board/read { map }                                   -> { map, notices, notes, me }
+//   POST /v1/board/pin { map, subject, body, days, button?, rid } -> { ok, note, live } | { ok, repeat, note }
+//   POST /v1/board/take-down { id }                               -> { ok, id, live }
+//   POST /v1/board/report { id }                                  -> { ok, id }
+//   POST /v1/board/mod/remove { id } | /v1/board/mod/restore { id } -> { ok, id, act }   (a moderator's)
+//   POST /v1/board/notice { subject, body, days } | /v1/board/notice/remove { id }       (a developer's)
+// PROF1, the professions - a registered account's character's, behind PROFESSIONS_OPEN (professions.js); `rid` the act's id:
+//   POST /v1/prof/state { character }                                  -> { tracks, today, taken, stores, writs, caps }
+//   POST /v1/prof/pixels { character, pixels: [[x, y]...] }            -> { pixels: [{ x, y, state, climate?, region? }] }
+//   POST /v1/prof/harvest { character, node, kind, climate, region, act, at, rid } -> { ok, material, qty, xp, track, today, store } | { repeat, ... }
+//   POST /v1/prof/spec { character, profession, rank, spec, rid }      -> { ok, track, marks?, balance? }
+//   POST /v1/prof/smelt { character, recipe, count, rid }              -> { ok, recipe, count, own, bought, xp, track, stores } | { repeat, ... }   (PROF2)
+//   POST /v1/stores/withdraw { character, material, qty, rid }         -> { ok, material, qty, store } | { repeat, ... }
+//   POST /v1/writs/list { character, region }                          -> { region, day, endsAt, writs, today }
+//   POST /v1/writs/deliver { character, id, rid }                      -> { ok, writ, pay, balance, track, store, today, renown, order } | { repeat, ... }
 // RENOWN1, Renown - RENOWN-ACCOUNT: the ACCOUNT's, one track whichever
 // character earns (a `character` and `name` from an older client are
 // taken and never read); the level rides the token when the mint names
@@ -121,11 +144,19 @@ import {
   foundGuild, guildOf, invitesOf, inviteToGuild, answerInvite, leaveGuild, removeFromGuild, rankGuildMember, renameGuildRanks,
   depositToGuild, withdrawFromGuild, handOverGuild, disbandGuild, guildBadgeOf,
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
-import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';
+import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
+import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
+import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
+import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, smeltAtForge, craftAtAnvil, buyStock, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions; PROF2: the forge; PROF3: the anvil and the smith's stock
+import {
+  writBoard, postGuildWrit, supplyGuildWrit, withdrawGuildWrit, setWritBudget, postCommission, fulfilCommission, cancelCommission, declineCommission,
+  guildStores, depositGuildStores, withdrawGuildStores,
+} from './writs.js';   // PROF6: guild writs, commissions and the guild Stores
+import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove, marketAuction, marketBid } from './market.js';   // PROF5: the market; PROF5b: its auctions
 import {
   listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, undoRealm,
   realmCharacterHeld, grantCustomsPass, REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
-} from './realm.js';   // REALM P1: the realm's characters   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
+} from './realm.js';   // REALM P1: the realm's characters
 import { tradeRealm, REALM_TRADE_BODY_MAX } from './realmTrade.js';   // REALM P2.1: a trade, settled here
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
@@ -169,10 +200,68 @@ const GUILD_STATUS = Object.freeze({
   'guilds-need-account': 403, 'guild-rank': 403, 'guild-renown': 403,
   'no-guild': 404, 'no-invite': 404, 'no-member': 404, 'no-player': 404,
   'guild-already': 409, 'guild-name-taken': 409, 'guild-tag-taken': 409, 'guild-full': 409, 'guild-master-leaves': 409,
-  'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409, 'guild-treasury-old': 409,   // AUDIT REALM L1-F3: gold no record paid in
+  'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409, 'guild-treasury-old': 409, 'marks-full': 409,   // AUDIT REALM L1-F3: gold no record paid in
+  'guild-stores': 409, 'guild-writs': 409,   // PROF6: a guild keeping its Stores or a writ does not go (Professions-Arc 18)
+  'guild-writ-escrow': 409,   // AUDIT 31 A15: a closed writ's escrow waiting on a full treasury
   'guild-rate': 429,
   // REALM P2.2: a realm character's record moves with the act - where it stands, and whether it can pay
   'realm-needed': 400, 'realm-gold': 409, lease: 409, seq: 409, 'no-realm-character': 404, 'no-data': 404, 'no-storage': 503,
+});
+/** MARKS1: each Marks refusal's status - not this account's (a guest, the switch, a rank, a developer's) 403, no
+ *  guild 404, short or capped 409, the hour's acts spent 429, a bad shape 400 (the default). */
+const MARKS_STATUS = Object.freeze({
+  'marks-need-account': 403, 'marks-closed': 403, 'not-developer': 403, 'guild-rank': 403, 'guilds-need-account': 403,
+  'no-guild': 404,
+  'marks-short': 409, 'marks-bank-cap': 409, 'marks-full': 409, 'guild-marks-short': 409, 'guild-marks-full': 409,
+  'marks-rate': 429,
+});
+/** NOTICE1: each board refusal's status - not this account's (a guest, the switch, a mute, a moderator's or a
+ *  developer's act) 403, no such note 404, the author's notes full 409, the hour's acts spent 429, a bad shape 400. */
+const BOARD_STATUS = Object.freeze({
+  'board-need-account': 403, 'board-closed': 403, 'muted': 403, 'not-moderator': 403, 'not-developer': 403, 'own-note': 403,
+  'guild-rank': 403, 'guilds-need-account': 403,
+  'no-note': 404, 'no-notice': 404, 'note-no-guild': 404,
+  'notes-full': 409,
+  'board-rate': 429, 'board-ops-rate': 429,
+});
+/** PROF1: each professions refusal's status - not this account's (a guest, the switch, the Marks' switch, the rank) 403,
+ *  no such writ 404, a conflict with what stands (the day, the hour, the cap, the Stores, a node or writ taken) 409, the
+ *  hour's acts spent 429, a bad shape 400 (the default). */
+const PROF_STATUS = Object.freeze({
+  'prof-need-account': 403, 'prof-closed': 403, 'marks-closed': 403, 'prof-rank': 403,
+  'no-writ': 404, 'bad-recipe': 404,
+  'prof-pixel': 409, 'prof-day': 409, 'prof-late': 409, 'prof-night': 409, 'prof-cap': 409, 'stores-full': 409, 'stores-short': 409,
+  'prof-account-cap': 409, 'prof-deep-cap': 409, 'prof-spec-stale': 409, 'prof-spec-taken': 409,   // AUDIT 29
+  'prof-no-pack-form': 409,   // PROF3: the smith's stock stays in the Stores until its professions' templates
+  'prof-later': 409,   // PROF4: a recipe whose slice is to come - the Ram Kit (PROF0 25)
+  'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
+  'prof-rate': 429,
+  // PROF6: guild writs, commissions and the guild Stores
+  'writs-closed': 403, 'guild-rank': 403, 'guilds-need-account': 403, 'commission-not-yours': 403, 'market-not-yours': 403,
+  'no-guild': 404, 'commission-crafter': 404,
+  'writ-gone': 409, 'writ-elsewhere': 409, 'writ-short': 409, 'writ-moved': 409, 'writ-budget': 409, 'guild-marks-short': 409,
+  'guild-writs-max': 409, 'guild-stores-full': 409, 'guild-stores-short': 409, 'commissions-max': 409, 'commissions-crafter-max': 409,
+  'commission-self': 409, 'commission-piece': 409, 'commission-not-made': 409, 'commission-worn': 409, 'market-listed': 409,
+  'market-standing': 409,
+  'writ-own-guild': 403, 'guild-stores-mine': 403, 'market-uncollected': 409, 'commission-unyielded': 409, 'market-no-record': 409,   // AUDIT 31
+  'commission-elsewhere': 409, 'market-unyielded': 409,
+  'writ-rate': 429,
+});
+/** PROF5: each market refusal's status - not this account's (a guest, the switches, a moderator's act) 403, no such
+ *  listing, order or delivery 404, a conflict with what stands (the Marks, the Stores, the units, the road, the price
+ *  moved, one's own goods) 409, the hour's acts spent 429, a bad shape 400 (the default). */
+const MARKET_STATUS = Object.freeze({
+  'prof-need-account': 403, 'market-closed': 403, 'not-moderator': 403,
+  'market-gone': 404,
+  'marks-short': 409, 'marks-full': 409, 'stores-full': 409, 'stores-short': 409, 'market-own': 409, 'market-short': 409,
+  'market-no-road': 409, 'market-price-moved': 409, 'market-seller-full': 409, 'market-listings-max': 409, 'market-orders-max': 409,
+  'market-not-yours': 409, 'market-listed': 409, 'market-order-full': 409, 'market-elsewhere': 409, 'market-other-character': 409,
+  'market-on-road': 409,
+  'market-not-listable': 409, 'market-uncollected': 409, 'market-standing': 409, 'market-unyielded': 409,   // AUDIT 30
+  'market-no-record': 409,   // AUDIT 31 H1
+  'auction-not-masterwork': 409, 'auction-low': 409, 'auction-leading': 409, 'auction-bid-standing': 409,   // PROF5b
+  'auction-moved': 409,   // AUDIT 31 S4
+  'market-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
  *  character's guild now, `{}` for none - becomes `order`, which the actor's own client carries to the rooms it is in;
@@ -451,7 +540,8 @@ export default {
           // RENOWN1: and Renown (the card's level and its row) - RENOWN-ACCOUNT: the account's one, `{ xp, level }`, or null
           // while it has earned none (it was a list of the characters' tracks; a card from before it reads no list, and
           // says nothing, as for a service before RENOWN1)
-          account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), raids: await raidRecordOf(ctx, who.player.id), renown: await renownTrackOf(ctx, who.player.id) },
+          // MARKS1: and the Marks balance, where Marks are this account's (null where not - a guest, the switch)
+          account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), raids: await raidRecordOf(ctx, who.player.id), renown: await renownTrackOf(ctx, who.player.id), marks: await marksCardOf(ctx, who.player, env) },
           wardrobe: accountWardrobe(who.player, env, nowS),
           devices: await devicesOf(ctx, who.player.id),
         }, 200, origin);
@@ -487,11 +577,16 @@ export default {
         // one row a (day, account). No public half here yet is the
         // service's own gap, not the player's: 503, and the client keeps
         // the receipt for the week it carries.
-        const r = await claimGate(ctx, who.player, body.receipt, await gatePublicKey(env, subtle));
+        const r = await claimGate(ctx, who.player, body.receipt, await gatePublicKey(env, subtle), { strike: (d) => gateStrikeStatement(ctx, who.player, env, d) });
         // AUDIT WB A5: a refused receipt says WHICH rung refused it - the client keeps one the service can mend (its key
         // not the relay's pair, a clock) and lets go of one it cannot
         if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, r.error === 'no-gate-key' ? 503 : r.error === 'not-yours' ? 403 : 400, origin);
-        return json(r, 200, origin);
+        // MARKS1: THE FIRST FAUCET - a receipt that made its row strikes the gate's Marks, in the row's own batch
+        // (marks.js gateStrikeStatement: 50, two a UTC day, the gate's own day its line's id); `marks` null where Marks
+        // are not this account's
+        const answer = { ...r };
+        delete answer.day; delete answer.struck;   // the service's own: the line's day and whether the batch struck
+        return json(r.recorded ? { ...answer, marks: await gateStrikeAnswer(ctx, who.player, env, !!r.struck) } : answer, 200, origin);
       }
 
       if (path === '/v1/raid/claim' && request.method === 'POST') {
@@ -590,7 +685,7 @@ export default {
       if (path.startsWith('/v1/guilds/')) {
         if (request.method !== 'POST') return no('method', 405, origin);
         if (path === '/v1/guilds/mine') {
-          const r = await guildOf(ctx, who.player, body);
+          const r = await guildOf({ ...ctx, env }, who.player, body);   // AUDIT 28 M5: the switch says whether the Marks show
           return 'error' in r ? no(r.error, GUILD_STATUS[r.error] ?? 400, origin) : json(await guildOrdersOf(r, who.player.id, env, subtle, nowS), 200, origin);
         }
         if (path === '/v1/guilds/invites') return json(await invitesOf(ctx, who.player), 200, origin);
@@ -602,10 +697,118 @@ export default {
           '/v1/guilds/handover': handOverGuild, '/v1/guilds/disband': disbandGuild,
         }[path];
         if (!act) return no('not-found', 404, origin);
-        const r = await act({ ...ctx, bucket: env.SAVES }, who.player, body);   // REALM P2.2: a realm character's record is in R2
+        const r = await act({ ...ctx, env, bucket: env.SAVES }, who.player, body);   // REALM P2.2: a realm character's record is in R2; AUDIT 28 M5: the switch says whether the Marks show
         if (!('error' in r)) return json(await guildOrdersOf(r, who.player.id, env, subtle, nowS), 200, origin);
         if (r.error === 'seq') return json({ error: 'seq', seq: r.seq }, 409, origin);   // REALM P2.2: the service's own, as a checkpoint's
         return no(r.error, GUILD_STATUS[r.error] ?? 400, origin);
+      }
+
+      // ═══ MARKS1: MARKS ═════════════════════════════════════════════
+      //
+      // An account's alone, and the switch's (marks.js asks both first). The Bank's exchange answers the gold for the
+      // client to put in its purse - the service's part is the burn and its cap; nothing here takes gold in.
+      if (path.startsWith('/v1/marks/')) {
+        if (request.method !== 'POST') return no('method', 405, origin);
+        const act = {
+          '/v1/marks/balance': () => marksOf(ctx, who.player, env),
+          '/v1/marks/exchange': () => exchangeMarks(ctx, who.player, env, body),
+          '/v1/marks/guild/deposit': () => depositGuildMarks(ctx, who.player, env, body),
+          '/v1/marks/guild/withdraw': () => withdrawGuildMarks(ctx, who.player, env, body),
+          '/v1/marks/report': () => marksReport(ctx, who.player, env),
+        }[path];
+        if (!act) return no('not-found', 404, origin);
+        const r = await act();
+        return 'error' in r ? no(r.error, MARKS_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
+      }
+
+      // ═══ NOTICE1: THE NOTICE BOARD ═══════════════════════════════════
+      //
+      // A town's notes, read by anyone the switch lets in; pinned, taken down and reported by registered accounts; a
+      // moderator's remove and restore; the developers' notices (board.js asks each its own question first).
+      if (path.startsWith('/v1/board/')) {
+        if (request.method !== 'POST') return no('method', 405, origin);
+        const act = {
+          '/v1/board/read': () => readBoard(ctx, who.player, env, body.map),
+          '/v1/board/pin': () => pinNote(ctx, who.player, env, body),
+          '/v1/board/take-down': () => takeDownNote(ctx, who.player, env, body.id),
+          '/v1/board/report': () => reportNote(ctx, who.player, env, body.id),
+          '/v1/board/mod/remove': () => moderateNote(ctx, who.player, env, body.id, 'remove'),
+          '/v1/board/mod/restore': () => moderateNote(ctx, who.player, env, body.id, 'restore'),
+          '/v1/board/notice': () => postNotice(ctx, who.player, env, body),
+          '/v1/board/notice/remove': () => removeNotice(ctx, who.player, env, body.id),
+        }[path];
+        if (!act) return no('not-found', 404, origin);
+        const r = await act();
+        return 'error' in r ? no(r.error, BOARD_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
+      }
+
+      // ═══ PROF1: THE PROFESSIONS ══════════════════════════════════════
+      //
+      // A registered account's character's alone, and the switch's (professions.js asks both first). A delivery that
+      // raised the character's Renown level carries a signed order, as a Renown report's answer does (RENOWN1), so the
+      // level beside its name moves in the rooms it is in now.
+      if (path.startsWith('/v1/prof/') || path.startsWith('/v1/stores/') || path.startsWith('/v1/writs/')) {
+        if (request.method !== 'POST') return no('method', 405, origin);
+        const act = {
+          '/v1/prof/state': () => profState(ctx, who.player, env, body),
+          '/v1/prof/pixels': () => profPixels(ctx, who.player, env, body),
+          '/v1/prof/harvest': () => harvestNode(ctx, who.player, env, body),
+          '/v1/prof/spec': () => chooseSpec(ctx, who.player, env, body),
+          '/v1/prof/smelt': () => smeltAtForge(ctx, who.player, env, body),   // PROF2
+          '/v1/prof/craft': () => craftAtAnvil(ctx, who.player, env, body),   // PROF3: the anvil; PROF4: the workbench
+          '/v1/prof/stock': () => buyStock(ctx, who.player, env, body),   // PROF3: the smith's stock; PROF4: the furnisher's
+          '/v1/stores/withdraw': () => withdrawStores(ctx, who.player, env, body),
+          // PROF6: the Court's writs, and beside them this board's guild writs and commissions (writs.js writBoard)
+          '/v1/writs/list': async () => {
+            const r = await listWrits(ctx, who.player, env, body);
+            return 'error' in r ? r : { ...r, ...(await writBoard(ctx, who.player, env, body)) };
+          },
+          '/v1/writs/deliver': () => deliverWrit(ctx, who.player, env, body),
+          '/v1/writs/post': () => postGuildWrit(ctx, who.player, env, body),   // PROF6: a guild writ
+          '/v1/writs/supply': () => supplyGuildWrit(ctx, who.player, env, body),
+          '/v1/writs/withdraw': () => withdrawGuildWrit(ctx, who.player, env, body),
+          '/v1/writs/budget': () => setWritBudget(ctx, who.player, env, body),
+          '/v1/writs/commission': () => postCommission(ctx, who.player, env, body),   // PROF6: a commission
+          '/v1/writs/fulfil': () => fulfilCommission(ctx, who.player, env, body),
+          '/v1/writs/cancel': () => cancelCommission(ctx, who.player, env, body),
+          '/v1/writs/decline': () => declineCommission(ctx, who.player, env, body),
+          '/v1/stores/guild': () => guildStores(ctx, who.player, env, body),   // PROF6: the guild Stores
+          '/v1/stores/guild-deposit': () => depositGuildStores(ctx, who.player, env, body),
+          '/v1/stores/guild-withdraw': () => withdrawGuildStores(ctx, who.player, env, body),
+        }[path];
+        if (!act) return no('not-found', 404, origin);
+        const r = await act();
+        if ('error' in r) return no(r.error, PROF_STATUS[r.error] ?? 400, origin);
+        if (r.renown?.rose) {
+          const key = await signingKey(env, subtle);
+          return json({ ...r, order: key ? await mintRenownOrder({ s: who.player.id, lv: r.renown.level }, key, { subtle, nowS }) : null }, 200, origin);
+        }
+        return json(r, 200, origin);
+      }
+
+      // ═══ PROF5: THE MARKET ══════════════════════════════════════════
+      //
+      // A registered account's, and the board's, the professions' and the Marks' switches together (market.js asks
+      // each first); a moderator's removal. Every act carries its request id, and one asked twice is one.
+      if (path.startsWith('/v1/market/')) {
+        if (request.method !== 'POST') return no('method', 405, origin);
+        const act = {
+          '/v1/market/read': () => marketRead(ctx, who.player, env, body),
+          '/v1/market/list': () => marketList(ctx, who.player, env, body),
+          '/v1/market/buy': () => marketBuy(ctx, who.player, env, body),
+          '/v1/market/cancel': () => marketCancel(ctx, who.player, env, body),
+          '/v1/market/order': () => marketOrder(ctx, who.player, env, body),
+          '/v1/market/fill': () => marketFill(ctx, who.player, env, body),
+          '/v1/market/unorder': () => marketUnorder(ctx, who.player, env, body),
+          '/v1/market/collect': () => marketCollect(ctx, who.player, env, body),
+          '/v1/market/report': () => marketReport(ctx, who.player, env, body),
+          '/v1/market/remove': () => marketRemove(ctx, who.player, env, body),
+          '/v1/market/auction': () => marketAuction(ctx, who.player, env, body),   // PROF5b
+          '/v1/market/bid': () => marketBid(ctx, who.player, env, body),
+        }[path];
+        if (!act) return no('not-found', 404, origin);
+        const r = await act();
+        return 'error' in r ? no(r.error, MARKET_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
       }
 
       if (path === '/v1/account/title' && request.method === 'POST') {

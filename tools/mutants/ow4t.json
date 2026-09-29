@@ -42,8 +42,8 @@
   {
     "name": "OW4-B3-anchor-is-stood",
     "file": "src/scenes/world.js",
-    "old": "    return placed > 0;\n  };\n  const _standLooseFoe",
-    "new": "    return true;\n  };\n  const _standLooseFoe",
+    "old": "    if (!placed) return null;   // AUDIT OW4 B3",
+    "new": "    if (false) return null;   // AUDIT OW4 B3",
     "tests": [
       "test/tv7_bands.test.js"
     ],

@@ -4406,7 +4406,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1304`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1332`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7068` read, on one physical line:
+`src/scenes/worldModes.js:7108` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4790,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5159`). With the property missing that call is a
+(`dungeonContext.js:5189`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6682` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7004` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1053`, `src/net/online.js:2248`):**
+**Now (`src/net/wire.js:1063`, `src/net/online.js:2248`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -9285,6 +9285,11 @@ a share of the seat's fees, and the seat's circle on the map in the holder's col
 challenger meets the holder in a scheduled team battle at the seat, built on the duel ring; **PLOT1** homesteads on
 open land, streamed to every player.
 
+SEAT1 and SEAT2 are designed in full, before any build, in `11-Multiplayer/Seats-Arc.md` (SEAT0, 2026-09-28): Mac
+made the seats every location with a Palace ("Every palace location") and the three castle capitals the larger
+tier ("All of the above" - more cost and pay, bigger sieges, kingdom reach, their own rewards). The life skills and
+materials that feed them are `06-Systems/Professions-Arc.md` (PROF0).
+
 ## HUB1 (2026-09-25, Mac: the hub, "a color coded circle indicator or something along those lines for distinguishing") - every region's main city is its hub
 
 Daggerfall Unity has neither online play nor hubs; this is a Ledger A departure (`Port-Ledger.md` section A, EVERY
@@ -10764,3 +10769,769 @@ is Lived-Time's OPEN 1.
 The vampire's daylight refusals now add when the world's night falls (`worldNightfallText`).
 
 Not verified in a browser: no online session exists in this container.
+## MARKS1 (2026-09-28, Mac: "New currency"; "continue") - Marks, the server's currency
+
+The record is `06-Systems/Professions-Arc.md` 10.5 (PROF0); this is what the first slice built. A Ledger A departure
+(`Port-Ledger.md` section A, MARKS: THE SERVER'S CURRENCY), online's alone.
+
+**Why.** Online gold is the save's ("The GOLD is the client's, the economy being the save's" - GUILD1), so anything
+paid in purse gold can be paid by a client that never had it. A Mark is held by the account service alone and struck
+only for an act a server witnessed: the one thing a modified client cannot print.
+
+- **The law** (`src/net/marksLaw.js`, both ends): a balance holds 10,000,000; the faucets and their caps - MARKS1's one,
+  the gate's receipt, 50 a gate and two a UTC day (the gate's own law allows twelve a real day); the Bank's exchange,
+  8 gold a Mark and 300 Marks a UTC day; a guild move 1 to 1,000,000; the switch `off` / `dev` / `on`; the UTC day
+  every cap counts by. **GOLD NEVER BUYS MARKS**: there is no kind, route, table or statement that takes gold and
+  strikes a Mark, and a pin walks the service's own statements to hold it.
+- **The store** (`server-account/migrations/0025_marks.sql`): `marks` (an account's balance), `guild_marks` (a guild's
+  Marks treasury) and `marks_ledger` - ONE LINE A MOVEMENT, the truth, whose own triggers move both balances on the
+  line's insert (GUILD1's trigger law turned the right way round for a currency: a Mark moving from an account to a
+  guild is one line touching two balances). CHECKs hold the balances in 0..10,000,000 as the net under the floor.
+  An account gone takes its balance, never its lines (the economy's audit is kept); a guild's treasury goes with it.
+- **One statement decides** (`server-account/src/marks.js`): every movement is one `INSERT ... SELECT ... WHERE` whose
+  WHERE holds the payer's balance, the payee's cap and the day's cap as they stand - two requests racing never
+  overdraw nor pass a cap. Every act names itself (`rid`); the ledger holds (actor, rid) once, so a request asked again
+  is answered with the line it made (`repeat`), never charged or paid twice - and an id another act took is never
+  answered as a sale.
+- **The first faucet**: `/v1/gate/claim` - a receipt that made its `gate_kills` row strikes 50 Marks (`marks` in its
+  answer: `struck`, the balance, or `why` - `cap` for the day's two, `full` at the cap), the gate's game day its line's
+  id so one gate strikes once. A guest strikes nothing.
+- **The Bank of the Empire** (`/v1/marks/exchange`): Marks burnt, `gold` answered - paid by the client into THIS
+  REGION'S bank account, as a deed's sale is paid (`systems/banking.js` creditMarksSale; a purse's weight never refuses
+  it). `src/net/marksBook.js` carries a sale to its end: an answer lost is asked again with the same id; one never
+  answered is KEPT (on the device) and settles - paid into the region it was sold in, for the character that sold it,
+  under the account that made it - the next time a bank counter opens (ASYNC NEVER DROPS); one ask in flight at a time,
+  one kept sale an account and character (AUDIT 28 M1, M2, M7). The face: the Enhanced Plus bank's
+  **Marks** group (held, sold today, the price) and **Sell Marks** (`ui/enhancedPorts.js`, `ui/bankWindow.js`'s port-only
+  `MARKS_ENTRY`); the counting box stays until the service answers - fifteen seconds a try at most (AUDIT 28 M6). **FLAGGED by name**: the Classic skin's bank is
+  DFU's own BANK00I0 panel, which has no room for it - Marks are sold under Enhanced Plus.
+- **A guild's Marks treasury** (`/v1/marks/guild/deposit`, `/withdraw`): any member puts Marks in from the account's
+  balance; the guildmaster alone takes them out, into their account. The guild's view (`/v1/guilds/mine`) carries
+  `marks` and its latest lines where Marks are the viewer's (AUDIT 28 M5); the Guild tab shows the treasury beside the
+  gold one (`ui/socialPanel.js`, `net/guildBook.js` moveMarks). A guild that goes - a disband, or its last member's
+  leave - gives what its Marks treasury holds to its guildmaster, one `guild-withdraw` line in the same batch as the
+  delete, and is refused only when that would pass the guildmaster's cap (AUDIT 28 M3: the leave's delete never looked
+  at the Marks and the cascade took them with no line; M5: behind a switch the guildmaster could not pass, a guild
+  holding Marks could never go). The tab says where they go.
+- **The account**: `/v1/marks/balance` (the balance, today's gate strikes and Bank sales against their caps), and the
+  account card's **Marks** row (`/v1/account`'s `marks`, `ui/enhancedAccount.js`). A counted gate says its Marks in the
+  chat (`net/gateClaims.js` onMarks).
+- **The weekly report** (`/v1/marks/report`, a developer's alone): the last seven UTC days' Marks struck by faucet, burnt
+  by sink, moved; what is in circulation; the day-by-day line; the accounts at a cap, each once, with the account-days
+  beside them (AUDIT 28 M10) - what PROF0 16 steers by.
+- **The switch**: `MARKS_OPEN` in `server-account/wrangler.toml` - `off` (nothing strikes, nothing answers a balance or
+  shows a guild's Marks; a request whose line exists is still answered that line, and a guild that goes still gives
+  its Marks to its guildmaster - AUDIT 28 M2, M5), `dev` (the DEVELOPER_HANDLES alone) or `on`. **Shipped at `dev`**: struck and spent by the developers first, opened to everyone
+  by one line. The service moved to `acct17`, and its deploy's path filter lists `src/net/marksLaw.js` (ACC4's walk).
+- **The four hosts**: the Bank and the Guild tab are the streaming host's (`scenes/world.js` builds the book online, over the spoils'
+  ONE store (AUDIT WB A6), and hands it to `worldModes`' bank, the guild book and the gate claims); the fixed city, the standalone dungeon and the
+  interior viewer run no online lane and hold no Marks.
+
+`test/marks1.test.js` (14) - the law and the one-way door, the schema's triggers and nets, the gate's faucet and its
+caps, the switch, the Bank and its repeats, the guild treasury and the disband, the report, the client's door, the
+sale end to end over the real Worker (lost answers, a kept sale settling into its own region for its own character),
+the Bank window, the gate's line, the wiring. `tools/mutants/marks1.json`, 20 mutations, 20 dead.
+
+
+## BOUNTY1 (2026-09-28, Mac: "all players see the same boardquests and it should be shareable") - the bounty boards' party half
+
+The record is `06-Systems/Bounty-Boards.md`; this is the online half. The party pose carries `bq` (a member's
+bounties, each {i, s?, c?}, at most 8) and `lv` (the member's level) - `net/wire.js` validPartyPose, and the relay moved
+to `world122`; AUDIT 28 added a row's `k` (its hunt's kills), `a` (its pack stands) and `t` (a cleared row's minute),
+and the relay moves to **`world123`**. The relay DEPLOYS ITSELF: `.github/workflows/relay-deploy.yml` runs on every push
+to main and deploys whenever the live relay's version is not `RELAY_VERSION` (AUDIT 28: this line said "a hand deploy",
+which was false). A share is taken up within its tier, at the taker's own level; one pack a hunt - a mate's pack that
+stands owns it, else the lowest living, online holder on its pixel; the hunt's kills are the party's; a mate's clear
+pays every holder of that hunt who held it before the clear - a peer's word paying gold into the save, FLAGGED there by
+name. Until the branch reaches main (and with it the relay's deploy) a bounty is hunted alone.
+
+## DEATH-PENALTY (2026-09-24, Mac: "add deathpenalty 25% of the gold you have with you"; "online mode only ofc"; "and it should be shown in the death screen") - an online death costs a quarter of the purse
+
+THE HOLDINGS ARC above left "the gold lost on death (the original pillars 5 and 6)" out with respawning at a hub
+("That'll be a seperate idea"). This is Mac's later word on the gold, and it stands; the hub respawn stays out. A Ledger A departure (AN ONLINE DEATH COSTS A QUARTER OF THE PURSE).
+
+- **Why online alone**: offline a death ends the run (`endRunToTitleMenu` - the video, the title, F11 for the last
+  save), so there is no purse that goes on. Online a death RESPAWNS the player (D-ONLINE1), and that was free.
+- **What** (`src/systems/deathPenalty.js`): a quarter of the purse (`goldPieces`, the counter), rounded down in the
+  player's favour - three coins lose nothing, a hundred lose twenty-five. Not the bank (keeping gold there is the
+  trade-off the penalty exists to make) and not letters of credit. No switch: an online rule a player could turn off
+  would be none.
+- **Where**: `respawnOnlinePlayer` (`scenes/world.js`), once a death - the `_respawning` latch is what makes it once -
+  and Privateer's Hold's in-place respawn (`scenes/worldModes.js`, online-gated). The waking line says it: "Death
+  claimed N gold from your purse."
+- **The death screen** reads the loss once, and STATES it (`stateDeathLoss`): the respawn takes exactly what the screen
+  said, capped at the purse (AUDIT 28 B5: the purse CAN change while the player lies dead - a mate's bounty clear pays
+  the dead - and the respawn took a quarter of the bigger purse). A party member's Resurrect withdraws it and says the
+  gold is spared - a rescue is no respawn. The fixed city and the standalone dungeon never respawn online, and their
+  screens say so (`online: false`): no countdown, no loss. The classic face adds "DEATH CLAIMS N GOLD" under the hold;
+  the Enhanced face puts one of four lines (Mac's wording, each carrying the amount - "1 coin scatters" for one, never
+  "a coin") in the tagline's place and font (Mac: "remove the tale line and use the same fonts for the gold loss
+  message in online mode"), drawn once a death, not once a frame. Offline, or a loss of nothing, the screen keeps its
+  words.
+
+`test/deathpenalty.test.js` (5); `test/donline1_respawn.test.js` and `test/risestuck.test.js` allow the line;
+`tools/mutants/bounty1.json` DEATH-PENALTY-1 to 5, dead.
+
+## NOTICE1 (2026-09-28, Mac: "The new notice board should be a physical object that houses quests, the player auction house, etc"; "Go") - the Notice Board
+
+The record is `06-Systems/Professions-Arc.md` 10.7 (PROF0); this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, THE BOARD, ONLINE).
+
+- **The law** (`src/net/boardLaw.js`, both ends): a note is MAIL1's letter (the same `letterWords`), 1, 3 or 7 days,
+  three live an account, ten pins an hour, one button (party, guild, duel); thirty notes and twenty notices a board;
+  three reports hide; a minute's cache; the switch.
+- **The store** (`server-account/migrations/0026_board.sql`): `board_notes` (a town's, keyed by its map id; a
+  recruitment note carries its author's character, `char_id`), their `board_reports`, the server's `board_notices`
+  (each with its request id). An account gone takes its notes and reports; a guild gone takes a recruitment note's
+  button (SET NULL).
+- **The service** (`server-account/src/board.js`, `/v1/board/*`, `acct18`): read by anyone `BOARD_OPEN` lets in;
+  pinned by a registered, unmuted account, the live count held inside the one INSERT and a pin asked twice one note
+  (`rid` - only that twin's clash reads as the note made; any other failure is the service's own, asked again - AUDIT
+  28 N8); taken down by its author; reported once a reader - the NOTE_REPORTS_HIDE'th report that counts (an account
+  neither muted nor a sprout) hides it from everyone but its author, who still sees it marked and may take it down
+  (AUDIT 28 N2, N3); removed or restored by a moderator; the developers' notices, each with its own request id (N7). A
+  recruitment note recruits only while its author's character can still invite to that guild (N4). A muted author's
+  notes leave every board while the mute stands. Expired rows go on the board's own reads. A take-down's and a
+  report's hour spent is `board-ops-rate`, in its own words (N14).
+- **The client**: `src/net/noticeBook.js` (the cache, the last good board kept, what this device has read - kept in
+  memory, read from storage once (N12) - a pin's and a notice's request id kept with its words until the service
+  answers, the tries waiting between them (N5, N7), a forced read never taking one that set out before its write (N10),
+  the board DFU's own again the moment the service says it is not this account's (N11), the note being written kept for
+  the session (N13), `/note remove`); `ui/noticeWindow.js` through `ui/noticeDoor.js` (the corkboard, the one door into
+  the host's overlay slot, one act at a time - N9); the press (`scenes/worldModes.js`) routes a rumour board online to
+  it once the service has said open, else DFU's box; `scenes/world.js` carries the town on each board, reads the town
+  underfoot on arrival, answers a note's button (`planNoteAnswer`: DUEL1's challenge within reach, else a letter through
+  JOURNAL1's pending door - AUDIT 28 N1: opened directly under the closing board, it never opened; its subject "Re: "
+  and the note's, never cut - N15) and floats "3 new" over a board - its notes AND the server's notices this device has
+  not read - through the names' own pass (`net/remotePlayers.js` nameFrame's `extra`, `ui/nameLayer.js`'s board face).
+  Every board request gives up after fifteen seconds (N6).
+- **The switch**: `BOARD_OPEN` in `server-account/wrangler.toml` - shipped at `dev`.
+- **Not built here**: the Work tab (PROF1 - built there, below), boards stood for a hub (NOTICE1b, if `tools/boardCount.mjs` names any).
+
+`test/notice1.test.js` (17); `tools/mutants/notice1.json`, 26 mutations, 26 dead. AUDIT 28 below.
+
+## AUDIT 28 (2026-09-28, Mac: "let's audit everything we have so far before we continue") - the professions branch audited
+
+Everything this branch built since it began - FORAGE1-4, MARKS1, BOUNTY1 with DEATH-PENALTY, NOTICE1 - audited in six
+lenses at once (the Marks, the Notice Board, the bounty boards and the death penalty, Foraging, the four hosts'
+seams, and the bible against the code), after main's #417 (DIAL-LOAD, MAP-KEEP) was merged in. 81 findings, about
+65 once the lenses' overlaps are folded; every one verified against the code, most reproduced by a probe over the real
+Worker or the real module, and fixed with a pin that fails on the code before it. `test/audit28_marks.test.js` (17),
+`test/audit28_notice.test.js` (14), `test/audit28_bounty.test.js` (12), `test/audit28_forage.test.js` (10), over the
+shared `test/accountDb.mjs` (the Worker on node:sqlite) and `test/chargenDom.mjs` (the minimal DOM, which gained
+`replaceChildren` and a click that can be stopped); `tools/mutants/audit28.json`, 62 mutations, 62 dead - and the
+records the fixes moved (marks1, guild1, guild1b, notice1, bounty1, forage4, auditsurv, auditdecorshell, soc1)
+re-aimed by content, every one dead.
+
+**MARKS1** (M1-M12): a kept sale asked twice at once paid twice (one ask in flight now, a sale's and a settle's alike;
+a store that reads empty is another tab's settle, never answered from memory); a kept sale was dropped on `no-session`,
+`auth`, the switch or a guest, or asked under another account (it carries its account now, the service answers a line
+it finds before it asks the switch, and only a refusal given after the line was looked for lets it go); the last
+member's Leave deleted a guild's Marks with no line, and a switch the guildmaster could not pass locked a guild holding
+Marks for good (a guild that goes gives them to its guildmaster in the delete's own batch); the gate's row and its Marks
+were two statements (one batch now - a strike that fails takes the row with it); the guild view showed Marks behind the
+switch; the counting box waited on a request with no end (fifteen seconds a try); one kept sale shut every character's
+Bank (one an account and character); a guild move re-pressed after a lost answer moved twice (its id kept); "Sold today"
+stood still; the report counted account-days as accounts; the gate's line id sat in the client's id space (`gate:N`
+now); one mutant was equivalent (re-aimed behavioural).
+
+**NOTICE1** (N1-N16): as the service and the client above. **BOUNTY1 and DEATH-PENALTY** (B1-B14): as
+`06-Systems/Bounty-Boards.md` AUDIT 28 records, and the death penalty's stated loss above. **Foraging** (F1-F7): as
+`06-Systems/Foraging.md` 13.1 records. **The hosts' seams** (H6, H7, H11, H12): the wait's boxes shown only once its
+finished page has left the slot; the hunt page hears Escape as townTalk hands it (`back`); Enter and Space on a DOM
+window's own button are the browser's press, never prevented by townTalk (`ui/input.js` isDomControlTarget); a payday
+notice taken down unread goes back in its queue, and a death in the building's or the dungeon's own slot takes the
+street's DOM windows down (`scenes/bountyHost.js` requeue, `ui/bountyDoor.js` close(read)); and what was asked every
+frame is worked out once - a pixel's bounty boards (`boardSplitOf`), the count over a board, the Bank face's kept sale
+(H8).
+
+**The relay** moves to `world123` (a bounty row's `k`, `a`, `t`), its law recorded in `test/relayversion.test.js`, the
+twelve pins that name the version moved with it. It deploys itself when this reaches main (`relay-deploy.yml`).
+**The account service** stays `acct18`: 0017 (0019 since the merge of main, 0026 since MERGE 2) gained `board_notes.char_id` and `board_notices.rid` in place - no deploy
+has applied it (the account service deploys from main alone).
+
+## PROF1 (2026-09-28, Mac: "Begin!") - the Stores, Herbalism and Court writs
+
+The record is `06-Systems/Professions-Arc.md` 22 (PROF0); this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, PROFESSIONS).
+
+- **The laws** (both ends): `src/net/professionLaw.js` - the thirteen professions, ranks (10 x n^2 XP), XP, tiers,
+  specialisations and their change (1,000 Marks, a week), the day's 60 harvests, the Stores' 5,000, the Herbalism acts'
+  numbers, the materials PROF1 stores (an herb northern or southern by FALL.EXE's `REGION_RACES`; the Basket's four
+  foods), the Court writs; `src/net/nodeLaw.js` - a pixel's day of patches (the clock's: the UTC day, DFU's season at
+  its first instant), the herb tables, the seasons, the yields, the witnessed pixel, a region's writs. The pure tables
+  they share with the client moved to modules that read no file (`src/formats/mapsTables.js`,
+  `src/systems/foragingCore.js`), re-exported from their old homes.
+- **The store** (`server-account/migrations/0027_professions.sql`): `prof_tracks`, `prof_stores` (own and bought),
+  `node_harvests` (a day's, kept two days), `prof_withdrawals`, `world_witness` (SEAT0 3.2's first kind, the pixel),
+  `writ_days` and `writs` (the Court's).
+- **The service** (`server-account/src/professions.js`, `/v1/prof/*`, `/v1/stores/*`, `/v1/writs/*`, `acct19`): a
+  registered account's character's alone, behind `PROFESSIONS_OPEN`; every act ONE STATEMENT DECIDES - its first
+  statement decides and writes a fresh nonce the rest key on - and a request asked twice is found by its id before the
+  switch. A harvest is the law's node, today's, at most ten minutes past and in daylight, inside the rank, the day's cap
+  and the Stores' room; its pixel as three agreeing accounts a week registered confirmed it, or at the claim's word worth
+  the least (tier 2, no march); the yield the service's dice. A withdrawal spends bought units first. A region's Court
+  writs are written down on its day's first read, once its ground is witnessed; a delivery fills one whole from the
+  Stores, strikes its pay as a `writ` mint line (`writ:<id>`, MARKS1's second faucet), gives twice the pay in XP and the
+  Renown, and carries RENOWN1's signed order when the level rose. A specialisation is free the first time; a change
+  burns 1,000 Marks (`respec`) and stands a week later.
+- **The client**: `src/net/profBook.js` (this character's state; a harvest kept under its account and character and
+  asked again with the SAME id until answered, lapsing after ten minutes or its UTC day; a withdrawal's lost answer
+  minted once when it settles; a delivery's id kept across presses; a region's writs cached a minute);
+  `src/scenes/herbHost.js` in `scenes/world.js` (the patches in each built pixel's own list, the target, the prompt,
+  the act, Escape, the swing held off for an act's length, the Sickle in the hand on the classic lane);
+  `src/systems/herbAct.js` (the hand, the steady hand, the Basket's search; Gentle acts); `src/ui/profHud.js` (the
+  prompt, the meter, four toasts of three seconds, the day's chip, the rank's banner); `src/ui/profPages.js` (the
+  Professions and Stores pages on the Stats rail; withdraw to pack); `ui/noticeWindow.js`'s Work tab (the region's
+  writs, Take); `src/systems/profItems.js` (a material as DFU's own item). The refusals are the service's own words
+  (`net/accountClient.js`).
+- **FORAGE0 law 6's online exception**: online, Foraging's six tools shelve whatever its switch says
+  (`systems/foragingInstall.js`).
+- **The switch**: `PROFESSIONS_OPEN` in `server-account/wrangler.toml` - shipped at `dev`.
+- **Not built here** (PROF0 22): the hover, the pad's and touch's own act buttons, the pose's activity field, the held
+  map's worked patches, the Morrowind lane's sickle (FLAGGED), nodes in the fixed city (FLAGGED).
+
+`test/prof1_law.test.js` (14), `test/prof1_service.test.js` (13), `test/prof1_client.test.js` (15);
+`tools/mutants/prof1.json`, 58 mutations, 58 dead.
+
+## PROF2 (2026-09-28, Mac: "Go") - Mining and Quarrying, ores, ingots and the forge
+
+The record is `06-Systems/Professions-Arc.md` 23 (PROF0); this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, MINING).
+
+- **The laws** (both ends): `src/net/kingdomLaw.js` - SEAT0 4.3's map, one home (the three crowns' regions, the Marches,
+  the Free Lands); `src/net/professionLaw.js` - DFU's eleven metals and the six new ores, the eleven ingots, the two
+  stones and the gems (a gem's tier by its DFU price), the Pick-Axe's act (strikes 4 / 5 / 7, the glint's 1.2 s, 2.0 s
+  at Master, the 2.5-degree double, the clean finish's bound), the gem's 3%, Deep Delver's x1.5, the cut at 2 : 1, the
+  forge's ten recipes (2 raw an ingot; Brass Copper and Tin; Steel an Iron Ingot and Charcoal), Smithing's 10 x tier a
+  unit, the smelt's origin (bought first; a product bought if any of its units were), the crafter's limit;
+  `src/net/nodeLaw.js` - a pixel's day of veins (4.1's tables, tier 2 unconfirmed, a confirmed kingdom's signature in
+  its first slot, Daggerfall's two) and boulders, a dungeon's day of veins (`1 + hash % 4`, tier 3 unconfirmed, a
+  marker and a bearing), a strike's gem, the yields, and the metal and stone a region's writs may ask.
+- **The store** (`server-account/migrations/0028_mining.sql`): `node_harvests` rebuilt for `ore` and `stone` and a
+  found `gem`; `world_witness` rebuilt for its second kind, `dungeon`; `prof_smelts`.
+- **The service** (`server-account/src/professions.js`, `acct20`): the harvest generalised - a vein's ore, a
+  boulder's stone, a dungeon vein's deep ore (no hours underground), the ground a pixel's or a dungeon's witness, the
+  act's glints bounded by the finish, a gem on witnessed ground nulled in the decision when its Stores are full;
+  `/v1/prof/pixels` answers up to four dungeons beside the pixels; `/v1/prof/smelt` - ONE STATEMENT DECIDES (every
+  input held, the product's room, its bought units read first), the spends bought first, the products own and bought,
+  Smithing under the crafter's limit, a smelt asked twice one.
+- **The client**: `src/scenes/gatherHost.js` (the one gathering host - Herbalism's and Mining's kinds; a dungeon a
+  place of its own; the target, the prompt, the act, Escape in every mode, the tool in the hand, the toasts with a gem
+  and the XP); `src/scenes/mineHost.js` (veins at the foot of the rock piece nearest their point, else a stone tile,
+  else nature's ground; boulders only at a piece; a dungeon's veins on its walls; the plan; the Warhammer's StrikeDown
+  frames); `src/systems/mineAct.js` (the Pick-Axe's act); `src/systems/profTemplates.js` (the nineteen new templates on
+  DFU's dyed pictures); `src/net/profBook.js` (the dungeons' witnessed state, a gem's Stores, the smelt, the asks on the
+  wire the pump skips); `src/ui/profHud.js` (the face, the glint, the aim and the pips); `src/ui/profPages.js` (Mining
+  practised, the Forge on the Stores page); the Prospector's veins on both compasses (`ui/hud.js`,
+  `ui/enhancedHud.js`); a home's forge station (`net/decorLaw.js`, 50,000 gold).
+- **The switch**: `PROFESSIONS_OPEN`, shipped at `dev`.
+- **Not built here** (PROF0 23): the Motherlodes and gate-touched ground (PROF2b), Daedric smelting, the held map's
+  marks, a vein's cracks, the Morrowind lane's pick (FLAGGED), nodes in the fixed city (FLAGGED).
+
+`test/prof2_law.test.js` (11), `test/prof2_service.test.js` (9), `test/prof2_client.test.js` (14);
+`tools/mutants/prof2.json`, 40 mutations, 40 dead.
+
+## AUDIT 29 (2026-09-28, Mac: "Lets audit everything so far before we continue") - the professions audited
+
+Everything built since AUDIT 28 - PROF1 (the Stores, Herbalism, Court writs) and PROF2 (Mining, Quarrying, the
+forge) - audited in six lenses at once: the account service, the laws, the client's state and items, the gathering
+host and its acts, the four hosts' seams, and the records against the code. 62 findings, about 50 once the lenses'
+overlaps are folded (a node read in a second spelling was found by two; the Forge sold where it could not work by
+three). Every one was verified against the code - most reproduced by a probe over the real Worker or the real module
+- and fixed with a pin that fails on the code before it; two were rejected in part (below). Main was not merged first:
+its 137 commits since the last merge touch 200 of this branch's files, almost all in line cites, and are their own
+work. `test/audit29_laws.test.js` (7), `test/audit29_service.test.js` (14), `test/audit29_client.test.js` (8),
+`test/audit29_host.test.js` (10); migration `0029_audit29.sql`, `acct21`; `tools/mutants/audit29.json` - and the
+records the fixes moved (prof1, prof2, home_stations, auditdisc7, survtiers3) re-aimed by content.
+
+**The service and the laws** (A1-A17). A node id with a leading zero anywhere (`vein:010:20:...`) parsed as the same
+node and was keyed as another, so one node was taken once a spelling - a signature vein or a Diamond's up to the day's
+sixty: an id reads in its one spelling now (`nodeLaw.js` parseNodeKey). The day's sixty was a character's, and a
+character is an id the client names: an account's day is bounded too, two characters' days a profession
+(`HARVESTS_PER_ACCOUNT_DAY`, 120). A dungeon's id is the client's word and an unconfirmed dungeon's least was Silver at
+any hour, worth more than any unconfirmed pixel: an account works four veins a day in dungeons nobody has vouched for
+(`DEEP_UNCONFIRMED_PER_DAY`, the harvest's own INSERT, a column the migration adds). A claim against confirmed ground
+was refused before its report was written, so no dissent ever stood and nothing could be disputed: an account that
+may witness is written down, then refused - and a dispute is two accounts' other answer AFTER the confirmation, not
+before it. A region's writs read a pixel's reports that named the region alone, so a pixel confirmed for its
+neighbour counted for it on one early report: each pixel is read over all its reports. The signature took a
+climate's veins' place, so a Swamp's one vein was a crown's rare ore and a novice had no ore on any witnessed ground
+there: a signature stands BESIDE the climate's veins, in the slots after them (4.7's "the crowns sit on the richest
+veins"). An unconfirmed pixel's patch drew tier 3's share onto tier 2 (a clamp); it draws by the weights held to two,
+as a vein does. The day's first writ drew among tiers 5-6; it is the highest, as said. A smelt's Smithing XP skipped
+3.2's quarter; it keeps it. The answers said the XP offered, not the XP credited (a Master's vein, the crafter's
+limit): the decision stores what the track took. A paid change of specialisation keyed its track's change on the
+ledger line alone, so one id raced for two tracks changed both for one burn: the line names its track. A choice the
+client thought free - made meanwhile on another device, or its answer lost - was a paid change the player never
+confirmed: the client sends the choice it saw (`from`), and a stale one is refused, nothing burnt. A free first choice
+had no row, so asked again after the switch shut it was refused: `prof_choices` keeps it. Motherlode Sense was chosen
+for nothing - its Motherlodes are PROF2b: named, locked. A writ one filled oneself, asked again under a new id after a
+reload, said another had filled it; it is one's own now, and one id raced over two writs no longer throws.
+
+**The client** (B1-B9). The Professions and Stores pages read a stale state on every draw with no request in flight
+and no backoff; a failed read left them stale, so they drew and asked in a loop that starved the tab: one read at a
+time, a failed one not asked again for thirty seconds, a page drawn again only when a new read answers. The state was
+not another account's after a sign-in, and a shut switch was shut for good: both are asked again. Two tabs settling
+one kept withdrawal minted it twice; the tab that lets the row go mints it. A smelt's kept id caught a later, deliberate
+smelt of the same count and answered it `repeat`; kept ids lapse with the service's ten minutes. The smith's fee was
+skipped when a first answer was lost and the same smelt answered `repeat`; it is paid on the first answer the press
+hears. A kept withdrawal was asked again once a session; on every good read and when the Stores page opens. A failed
+writs read stood a minute, with no way to ask again; thirty seconds, and Try again. The Forge station was offered and
+sold for 50,000 gold offline, to accounts the switch had not opened to, and on the classic skin, where it pressed onto
+the Character page: it is offered, sold and worked only where the Stores page is (`profPages.js` forgeOffered), and a
+cold one says why. **Rejected in part**: "withdrawn items exist only in the unsaved pack" - online, the exit autosave
+writes the slots on a tab's close (`beforeunload`); a crash is Marks' own shape, arc-wide, and stays as it is.
+
+**The gathering host** (C1-C11). A node took E before the activation ladder from a quarter of the view, through
+walls, from a floor away, and when it could not be worked (every dungeon vein below Mining 25): E takes a node twelve
+degrees from the crosshair, in reach in three dimensions, seen through the place's collider, and ready - else the
+press goes on to the door. Underground a click or a finger's tap started an act a swipe could not play and every swing
+was held off: a dungeon vein takes Interact alone, above the quest foe's click. The vein wall's ray hit a closed door
+and stood a vein in a doorway that moved when it opened: the rays read the dungeon's own mesh, and a vein over a pit
+stands on the next bearing. A kept harvest answered through the pump said no rank's rise and left its node drawn: the
+book hands the rank it rose from, and the node stands again by its key. A switch shut mid-act left the act playing,
+the swing held off and the Warhammer in the hand: it ends. A recentre of the floating origin ended an act as "walked
+off": the node's place is read each frame. Two dungeon stands in flight drew every vein twice: the newest keeps its
+flats. The patches and a vein's fallbacks kept off a location's rect but not a World of Daggerfall site's, where
+nature keeps off: both. The Basket was mashed - every glint found without a look: a press before a glint shows spends
+it. A rock's foot could land inside the next piece of the field: a vein takes its fallback there, a boulder stands
+none. The host walked every streamed node every frame, and the compass the same: the near pixels alone.
+
+**The seams** (D1-D5). Escape underground ended the act and opened the pause on the same press: the outer host marks
+the Escape it spent. The swing's release was gated with its press underground, so a button held into an act swung on
+after it; the rig swung behind the tool on the street; a readied spell cast mid-act: the press alone is gated, the rig
+swings nothing behind the tool, the street casts nothing. A press during an act fell through to the door behind it;
+it is the act's. A smith's forge counted when broken into by night; open for trade. The Burning Court asked after
+"dungeon 0" in every region; it is no dungeon. **Rejected**: the double tick of the modal frame (it returns before
+the street's).
+
+**The records** (the bible lens, 16). The pages and the Forge are the Enhanced pause menu's - the classic skin's pause
+has no Stats rail, **FLAGGED** (`profPages.js` forgeOffered). The pad's A is the activate, not Interact, and a finger
+has no Interact: a node's act is E's (the controls page's registry can bind it) - **FLAGGED**, with 8's own act
+buttons. A peer never sees a Pick-Axe strike: the act's strikes are not the rig's swing count - named. "Witnessed"
+where the code needs "confirmed", the six new ores counted as four, the stone called dyed, herbHost called a host, the
+Appendix's Basket XP and the harvest's quarter, section 14's columns - corrected where they stood.
+
+## THE MERGE (2026-09-28, Mac: "Lets keep moving") - main taken into the professions branch
+
+Main's 137 commits since the branch last took it (the raids RAID1-RAID4 and their audits, the sea's Come Sail Away and
+There's a Hole in the Bottom of the Ocean, the Overworld's ships, raiders and the leader's walk, the gate's clear, its
+countdown and Discord, STAFF1) came into the branch before PROF3, which touches the same hosts. What the two sides had
+both built, or both numbered, is one now:
+
+- **The relay is world125.** Main's OVERWORLD NAMES (world122), THE MERGE (world123) and TV8 (world124) took the numbers
+  the branch's BOUNTY1 (world122) and AUDIT 28 (world123) had used, neither deployed; the two are one relay past TV8
+  (`net/wire.js` RELAY_VERSION, `test/relayversion.test.js`'s world125 row). BOUNTY1's `bq`/`lv` and TV8's `tw`/`ts`
+  ride the same party pose; a relay before world125 strips the bounty fields and nothing closes.
+- **The account service is acct22,** past main's RAID4 (acct17) and AUDIT RAID (acct18) and the branch's MARKS1 to
+  AUDIT 29 (acct17-acct21, undeployed). The branch's migrations are 0018-0022 (0025-0029 since MERGE 2) (marks, board, professions, mining,
+  audit29) behind main's 0016 (raid_cleanses) and 0017 (raid_spoils): D1 applies by name in order, and none of the
+  five was ever applied anywhere. The account view carries main's `raids` beside the branch's `marks`.
+- **LootTables.OnLootSpawned, built twice, is one list.** FORAGE3 (the branch) and OH-E (main) each found the port
+  raising it inside J..O for RRI alone and each built it again. `systems/loot.js` keeps FORAGE3's named registry (RRI2
+  its seeded first subscriber, a thrower logged and the rest run) and OH-E's `tableLootSpawned` is an add-and-remove
+  door onto the same Map; the raise carries both sides' args, `{ locationIndex, key, items, rolls, luck, where }`.
+  The dungeon's pile passes its type's index, the player's luck and `where: 'dungeon'`.
+- **Come Sail Away's shelf subscriber is one of PlayerActivate.OnLootSpawned's** (`systems/containerLoot.js`, FORAGE3's
+  one home), registered by the mod's name when the world is built - main had called it from a host hook at the two
+  shelf doors, after RRI's; it runs after RRI's and the mods loaded before it, on a shop shelf alone.
+- **CSA-H's custom-item rows live in `systems/itemTemplates.js`,** GetCustomItemsForGroup's one home since FORAGE1:
+  `registerCustomItemGroup` (Come Sail Away's boat parts and deed, Iliac Puddle No More's fish) is a provider that
+  takes its place in the providers' order at its first row; `rriItems.js` answers RRI's own again.
+- **A camp's stand answers what stood or null** (`scenes/world.js` _standCampEncounter): main's AUDIT OW3/OW4 made it
+  a boolean (whether a member was placed), the branch's BOUNTY1 an object (the pack's foes and anchor). Null when no
+  member was placed, the object otherwise - every caller's truth test holds.
+- **The act choice is on the up arrow.** PROF1 shipped it on `;`, which main's Come Sail Away took for its lantern
+  (CSA-D) first; the up arrow is read by no action in play.
+
+## PROF3 (2026-09-28, Mac: "Lets keep moving") - Smithing: the anvil, quality and provenance
+
+The record is `06-Systems/Professions-Arc.md` 9 and 24; this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, SMITHING: THE ANVIL, QUALITY AND PROVENANCE).
+
+- **The service** is `acct23`, its tables `0030_smithing.sql`: `prof_crafts` (a craft's row, found by its id before the
+  switch), `products` (every crafted piece - its provenance id, its owner, its maker, what it is and its signed record)
+  and `prof_stock` (a purchase from the smith's stock). `/v1/prof/craft` decides a craft by one INSERT (every input held;
+  the XP under the crafter's limit, the first craft's 500 read in it) and `/v1/prof/stock` a purchase by another (the
+  Marks held, the Stores' room); each writes the rest on its nonce. The quality is the service's roll; the client's heat
+  moves it one step at most (`clean`, and only `true`).
+- **The product record** (`net/productRecord.js`, `p1`) is signed with the identity key - the key that signs tokens and
+  orders, its version inside the signed bytes and its claims disjoint from theirs and from the relay's receipts. The
+  piece carries its provenance id alone: a signature outruns the trade wire's string bound.
+- **The smith's stock** burns Marks (a `stock` line in the one ledger - MARKS_KINDS - under `<rid>:stock`, AUDIT 30)
+  for the fittings Hunting and Logging do not yet yield, into the Stores as bought units, which the Stores do not
+  withdraw until those professions register their templates - PROF4 registered the planks' and Charcoal's, so of the
+  stock only Cured Leather stays (AUDIT 30 R3).
+- **A craft asked is kept** on the device before it is asked (`net/profBook.js`), its pieces minted once on the answer by
+  the tab that lets it go, and never twice into one pack (the host's provenance check).
+- **FOUND and fixed:** a Quartermaster's smelt yielded one ingot a unit - PROF2 offered the choice and built no doubling.
+- **Pinned:** `test/prof3_law.test.js`, `test/prof3_service.test.js`, `test/prof3_client.test.js`;
+  `tools/mutants/prof3.json` (59, every one dead).
+
+## PROF4 (2026-09-28, Mac: "Continue") - Logging, Carpentry and the furniture
+
+The record is `06-Systems/Professions-Arc.md` 4.2, 9.3, 9.4 and 25; this is what the slice built, online's alone. A
+Ledger A departure (`Port-Ledger.md` section A, LOGGING, CARPENTRY AND THE FURNITURE).
+
+- **The service** is `acct24`, its table changes `0031_logging.sql`: `node_harvests` rebuilt for the kind `logs` and a
+  second find (`extra`, a tree's Resin), `prof_crafts.heartwood`, `products.marked`. No new route: a tree is the
+  harvest's, a burn or a saw the smelt's (no XP), Carpentry's craft the craft route's (its rank, cap and track
+  Carpentry's), the furnisher's Linen the stock route's; the Ram Kit is refused before anything is spent (`prof-later`).
+  The act's report is bounded as PROF2's: the Clean Cuts at most the finish's, a clean act only with every chop clean.
+- **A crafted piece set down in a home** carries its provenance id and its maker's mark in DECOR's descriptor; the
+  service keeps the id only where its own `products` row is this account's and this template's, and writes the mark
+  from that row alone (a Masterwork's, a Master Joiner's) - never from what the client sent. A visitor reads it.
+- **The trees are the forest's own flats**, not new ones: the streamed pixel keeps its tree records and their batches,
+  a felled tree's flat is sunk in its batch and a stump stood where its archive has one (the world's own pictures -
+  504, 506, 508, 510; its logs 504 and 508 - AUDIT 30 R13: this line stood one always), and the fall is the billboard
+  shader's (`uTip`, a tip and no fade) - so every player standing there sees the same forest, and the felled trees are
+  the service's day.
+- **FOUND and fixed:** PROF3 left Smithing unpractised on the Professions page - its specialisation cards locked.
+- **Pinned:** `test/prof4_law.test.js`, `test/prof4_service.test.js`, `test/prof4_client.test.js`;
+  `tools/mutants/prof4.json` (87: 86 dead, one recorded equivalent).
+
+## PROF5 (2026-09-29, Mac: "Continue") - The Market: listings, regional markets, couriers, buy orders and history
+
+The record is `06-Systems/Professions-Arc.md` 10.2-10.5 and 26; this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, THE MARKET).
+
+- **The service** is `acct25`, its tables `0032_market.sql`: the listings, the sales (a purchase's row and its courier),
+  the deliveries (a piece on its way to a pack), the buy orders and their fills, the prices' day table and the reports;
+  and three rebuilds - the Marks ledger admits an `escrow` end (an order's Marks held, its id the order's, no balance
+  moved by trigger), the witness admits the kind `hub` (a region's hub town's map pixel, the courier's road), and
+  `products` no longer cascades with its owner's account. `/v1/market/*` decides a listing, a purchase, a cancel, an
+  order and a fill by one statement keyed on its nonce, each Marks line a plain INSERT under its own suffixed request
+  id (a collect is keyed on its request id, an order withdrawn on its own state, a report and a removal on nothing -
+  AUDIT 30 N4: this line said every act); nothing runs on a clock - an expired listing or order and a courier's
+  arrival are settled on their owner's next read, one row a batch.
+- **Open where the board, the professions and the Marks all are** - no switch of its own. The board's region is the
+  client's word (as a Court writ's and a home's are); what a lie buys is a fast travel's worth, since the Stores are
+  the character's in every town.
+- **A crafted piece changes hands**: listed only by the account its product row names, once (a unique index on the
+  open listings' ids), its wear carried, and only as minted - never arrows, nor a piece enchanted since its craft
+  (AUDIT 30); the sale moves the owner in its own batch; the buyer's piece is minted from its record at that wear,
+  here on the answer, by courier when collected.
+- **The Marks book is told** every balance a market or stock answer carries (FOUND: the smith's stock never told it);
+  the Market tab's own "Your Marks" is the market book's, which the Weavers' purchase tells too (AUDIT 30 R7).
+- **FOUND and fixed:** a kept craft settled only beside a kept withdrawal; PROF4's plane board had no CSS; the
+  `products` cascade against "forever".
+- **Pinned:** `test/prof5_law.test.js`, `test/prof5_service.test.js`, `test/prof5_client.test.js`;
+  `tools/mutants/prof5.json` (109: 105 dead, four recorded equivalent - the fourth since AUDIT 30).
+
+## AUDIT 30 (2026-09-29, Mac: "Do it") - PROF3 to PROF5 audited
+
+Everything built since AUDIT 29 - PROF3 (Smithing, the anvil, the signed product record), PROF4 (Logging, Carpentry,
+the furniture) and PROF5 (the Market) - audited in AUDIT 29's six lenses: the account service, the laws, the client's
+books, the pages and the Market tab, the acts and their hosts, and the records against the code. 82 findings, 74 once
+the lenses' overlaps are folded (the market's one-at-a-time door found by two, the kept craft's fee by two, the Orders
+view, the sort and the Weavers' balance by the pages and the records both). Every one was verified against the code -
+the service's by a probe over the real Worker, the tab's in Chromium at 360 and 800 pixels - and fixed; the fixes with
+a behaviour are pinned by a test that fails on the code before it (40 pins, every one run red on the pre-fix code with
+only the new names shimmed). `test/audit30_laws.test.js` (7), `test/audit30_service.test.js` (12),
+`test/audit30_client.test.js` (15), `test/audit30_host.test.js` (6); `acct26` (no migration: no table changed);
+`tools/mutants/audit30.json` (63, every one dead - the three that first survived, the rows' sort, the fall's node and a
+Heartwood's quick craft, killed by stronger pins) - and the 21 records the fixes moved (prof3, prof4, prof5, perfexta)
+re-aimed by content, every one dead but the catalogue's recorded equivalent (94 of 94 now, the unyielded out); two of
+them (a table's template, the plane's Heartwood) found their old pins reaching the law another way, and were given pins
+of their own; survtiers3's two, whose `world.js` cites the shift moved, the same. The neighbours' 358 re-run: one
+survivor, a load's room guard at its delivery that the settle's read now keeps (S7), recorded equivalent in prof5.
+
+**The ledger's lines** (S1-S4, the money holes). The smith's stock wrote its Marks line OR IGNORE under the client's
+own id, and its prior check read the purchase rows alone: bought under an id a Bank exchange had spent, the line was
+dropped as the exchange's duplicate and the stock was free. A buy's tax and a fill's shared `<rid>:tax`, so one id used
+for both lost the second act's tax and left the escrow rows and the ledger disagreeing. The History prunes the market's
+rows after ninety days but the ledger keeps its lines for ever, so an id whose row was pruned was a fresh request to
+the prior check whose every line was then ignored: an order's escrow held unpaid and withdrawn - a mint - a buy
+unpaid, a listing without its fee. And an OR IGNORE on a line whose trigger moves a balance swallows that balance's
+CHECK as it swallows a duplicate, so a guard ever short would have moved goods and no Marks. Every line of the market's
+and the stock's is its own now (`<rid>:stock`, `:fee`, `:sale`, `:tax`, `:courier`, `:escrow`, `:fill`, `:filltax`), a
+plain INSERT, and each decision refuses an id whose line already stands (`prof-rid`); the respec's decision line the
+same. The writ's pay alone stays OR IGNORE - its id is a writ's, filled once, by its nonce.
+
+**The laws and the service** (L1-L8, S5-S9). A herb's key read with a leading zero (`p1:08`) was a material, so an
+order for it held its escrow a week for goods no Stores could hold: one spelling (AUDIT 29 A1's law). A maker's name was
+cut at 32 code units, splitting a pair and keeping a lone half, and a record past its 512 could be signed and never
+read back: the name is well-formed and the mint refuses its own overlong record. The mark was the service's column
+alone; it is a claim of the record (`a: 1`, a Masterwork or a Master Joiner's furniture), so the name is the signed
+word. A piece at 995 thousandths read "worn to 100%". The 5% was floored per sale, so a listing bought in lots of
+nineteen Marks paid none: the tax is taken on the listing's (and an order's) running total (`saleTaxOn`), the decision
+keyed on the total it was taken on. The catalogue offered three materials nothing yields (the Daedric and Warforged
+ingots, Bear Hide) to orders nobody could fill: `UNYIELDED`, `market-unyielded`. A listing's worth was unbounded, its
+fee refused as "Marks short" past any balance: `bad-price` past `MARKET_WORTH_MAX`. Arrows wrote a product row, so
+twenty were listed as one piece, kept by the seller and minted again for the buyer: a piece lists by its crafted
+family (`pieceListable`, `market-not-listable`). A piece whose delivery was still on the road, or back from an expired
+listing, could be listed and sold, and the old delivery collected after: one id handed out twice - not while a
+delivery waits (`market-uncollected`), and a delivery is its piece's owner's to collect. DECOR's mark was proven by the
+owner and the template alone, so one table stood marked three times, was sold while it stood, and stood in both homes:
+a mark is kept once, off the market, and a piece standing in a home is not listed (`market-standing`). A settle read
+its first twenty waiting rows whether they could settle or not, so twenty returns waiting on a full Stores held back
+every other material's: the rows that cannot settle are left out of the read. A listing bound every field whatever its
+kind, so a stray `wear` broke the row's CHECK and was refused as "Stores short": a kind's own fields alone.
+
+**The client's books** (C1-C8). The market book kept an act through the network's words only, so the account gate's
+429 ("rate"), and "no-session" and "auth", let a kept listing go and put its piece back in the pack while the service
+held it listed - a copy; a kept buy or collect was lost: they are waited out, as the professions' book does. A settled
+listing's piece was taken out of a save that may never have been kept after the take (a crash, a seat handed over):
+the settle's answer takes it out again (`marketDrop`). DFU's item maker enchants a crafted piece (it writes over
+`enchantments`), and the market mints a piece again from its record, so the enchantment was lost on the way - section
+26's "nothing enchants a crafted piece but its seed" was false: a piece lists only as it was minted (`smithItems.js`
+asMinted). A kept craft's station fee was paid only by the press that heard its answer, so a craft settled a day later
+paid the smith nothing: the fee rides the kept craft and is paid by the tab that mints it. One act at a time handed a
+second, different press the first's answer (a Buy during the opening settle said "Bought"): another act is refused
+`market-busy`, the same press joins its own. A read begun before an act and answered after told the Marks book its
+older balance last, and was cached for a minute: a read an act's answer overtook is read again. A marked name was drawn
+from any maker string on any provenance (a peer's, an old save's): only as the law writes one. The Repair Kit said "The
+Silverthorn's Longsword".
+
+**The pages and the Market tab** (U1-U22). Every market answer's Stores count went unheard, so the List form, the Fill
+gate, the Work tab, the Stores page and the anvil read yesterday's until the next day's read: the market book tells the
+professions' book each `store` and a read's `stores` (the service answers the materials its settle moved). The search
+filtered the hundred cheapest listings of everything, so a listed rarity read "Nothing listed": a search names the
+catalogue's materials and the service reads those, a family and a tier too, in the query. A late answer overwrote the
+view the player had moved on to: the last read asked is the one drawn. The tab's rows collapsed at a phone's width (a
+piece's name drew 0 pixels, its price over its road - measured in Chromium): its own columns. A number typed redrew the
+whole tab, swallowing the next press and the focus: it moves only the words that hang on it, and a read's redraw keeps
+the field's focus. A refusal that says the market moved left the dead row standing: it is read again. A piece that
+arrived while the tab stood waited for the next showing: collected. A shut market's tab was hidden for the session's
+life, and the gate's own words shut it: a closed market is asked again after five minutes, "no-session" never shuts it,
+and a closed Marks currency hides the tab. The market shared the board's busy flag, and the Weavers' counter was never
+greyed: its own. List, Post, the Weavers' counter, and the anvil's and the workbench's Craft were offered where they
+must fail (the fee, the thirty listings, the twenty orders, the balance, the purse): not offered, the words say why.
+"Your trades" said a listing's total for every side: the Marks each moved. The rows ran by listed price whatever their
+courier: cheapest landed. "1 Marks", "1 hours left"; the row's courier was the whole listing's; the Spade was listed at
+rank 0; a smelt called every forge row "Burning..."; the tab's times read the device's clock; its fields had no names.
+
+**The acts and their hosts** (A1-A11). The plane sampled the grain only where pointer events fell and timed the pass
+from the press, so a press held still and one flick to the foot was a clean pass: the clock starts at the first forward
+move and a jump is scored along its line every 0.025 of the board (`PLANE_ACT.step`). A pointer passing with no button
+down planed on, a pass outlived its page, and Gentle acts switched on mid-pass kept the act: the plane moves only while
+held, a board drawn anew lets go of a lost drag, and Gentle sets it down. Picking another recipe mid-act crafted it
+(the heat the first, the plane the pick, past its readiness): the pickers are held and the act makes the recipe it began
+on. A fall read the node the act began on in a pixel stood again under the ask - a TypeError, or another tree: the node
+as its pixel stands now, the fall's failure its own, the pixel stood again whatever it did. A static wood moved (one
+tree sunk) lost its placement grid for good and kept its shadow's signature: it is gridded where it is and its shadow
+told. A shut switch's day turn left yesterday's felled tree sunk: a pixel that stands no nodes stands its forest whole.
+A Lumberjack's prompt said the unreduced chops. The heat took Space and Enter from the page's own fields and buttons. A
+logs pile whose picture came after its pixel was torn down was laid, and never freed.
+
+**The records** (R1-R15, N1-N9). A cancel is refused while the Stores cannot take a material back (the record and the
+patch notes said the goods always came back); a piece's wear rides its listing, and no `couriers` table was ever built;
+since PROF4 only Cured Leather and Linen stay at the bench; a craft's XP is per craft and a smelt's per unit; the fees'
+repeat law (sections 23 to 25); no fade in the fall; the Repair Kit not in Warforged; a Heartwood not for arrows;
+stumps and log piles only where the archive has them; `marketLaw.js` among the laws; the Master Joiner's mark on
+furniture alone; the market's own act count - each corrected where it stood (Professions-Arc 5.2, 14, 23-26 and
+Appendix B, Port-Ledger, UI.md, Testing, the three patch notes).
+
+## PROF5b (2026-09-29, Mac: "Go") - Timed auctions for Masterworks
+
+The record is `06-Systems/Professions-Arc.md` 10.2 and 27; this is what the slice built, online's alone. The Market's
+Ledger A departure, extended (`Port-Ledger.md` section A, THE MARKET).
+
+- **The service** is `acct27`, its tables `0033_auctions.sql`: the auctions (one open auction a piece, by a unique
+  index), the bids (one standing bid an auction, likewise) and the auctions' reports. `/v1/market/auction` posts one
+  (the listing's fee on its opening bid, burnt under `:afee`); `/v1/market/bid` decides a bid by one UPDATE keyed on
+  the standing bid it read, the bid and its courier held on the ledger's `escrow` end under `<rid>:bid`. The cancel,
+  the report and the moderator's removal are the listings' routes.
+- **Nothing on a clock**, as PROF5's law: an auction past its end is closed by the next market read, anyone's (the
+  seller paid the bid less 5% when the cap has room, the tax and the courier burnt, the piece the winner's by
+  delivery); an outbid bid's escrow comes back on its bidder's own read, under the cap.
+- **The market book keeps** what the reader's bids hold (`held`), and "Your Marks" says it (AUDIT 31 R11: this line
+  said the Marks book was told - it is the market's own book).
+- **FOUND and fixed:** the Market tab did not read again on `auction-low` - a bid another overtook left the old next bid
+  on screen; `MARKS1-13` had aimed at a trigger `0032_market.sql` rebuilt, and survived unseen since PROF5.
+- **Pinned:** `test/prof5b_law.test.js`, `test/prof5b_service.test.js`, `test/prof5b_client.test.js`;
+  `tools/mutants/prof5b.json` (40: 35 dead, five recorded equivalent).
+
+## PROF6 (2026-09-29, Mac: "continue") - Guild writs, the guild Stores and commissions
+
+The record is `06-Systems/Professions-Arc.md` 7, 11 and 28; this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, GUILD WRITS, THE GUILD STORES AND COMMISSIONS).
+
+- **The service** is `acct28`, its tables `0034_writs.sql`: a guild's writs and their deliveries, the Officers' writ
+  budgets, the guild Stores (a row a material and a depositor) with their ledger (written by triggers) and moves, the
+  commissions, and `board_notes` rebuilt for its fourth button (its reports carried across the drop). `/v1/writs/post`,
+  `supply`, `withdraw`, `budget`, `commission`, `fulfil`, `cancel`, `decline` and `/v1/stores/guild`, `guild-deposit`,
+  `guild-withdraw` (writs.js) each decide by one statement keyed on its nonce (AUDIT 31 R7: a writ's withdrawal and a
+  commission's cancel or decline answer a repeat off the row's own state, and the budget is a set - not a row an
+  id); `/v1/writs/list` answers the region's
+  guild writs and commissions beside the Court's. Every Marks line a plain INSERT under its own suffix; the ledger's
+  escrow end holds a writ's and a commission's pay.
+- **Nothing on a clock**: a guild writ past its seventh day is closed by anyone's Work read, its escrow home to the
+  treasury under the cap; a commission's pay comes back on its poster's read.
+- **A guild keeps its Stores and its writs**: its going is refused while they hold anything, and the Marks sweep batched
+  with the going asks the same, so a refused going moves no Mark.
+- **FOUND and fixed:** a Court writ's word said "Herbalism XP" for every writ (a metal writ's is Mining's); the weekly
+  report's escrow was the buy orders' column and never counted PROF5b's bids - it is the ledger's escrow end now; a
+  commission's fill wrote its lines for every commission row while its guard held (`WHERE EXISTS` over the whole table
+  - caught by the refusals pin, which held five, before it shipped).
+- **Pinned:** `test/prof6_law.test.js`, `test/prof6_service.test.js`, `test/prof6_client.test.js`;
+  `tools/mutants/prof6.json`.
+
+## AUDIT 31 (2026-09-29, Mac: "let's first do a comprehensive audit and ensure everything so far is perfect") - PROF5b and PROF6 audited
+
+Everything built since AUDIT 30 - PROF5b (timed auctions for Masterworks) and PROF6 (guild writs, the guild Stores and
+commissions) and the seams they touch - audited in AUDIT 30's six lenses: the account service, the laws, the client's
+books, the acts and their hosts, the Work and Market tabs, and the records against the code. 67 findings, 55 once the
+lenses' overlaps are folded (the crafter's twenty found by three, the guild Stores' one read by three, the poster's
+collect by three, the Fill's picker and Yours by two each). Every one was verified - the service's by a probe over the
+real Worker (a race staged inside the batch where one was claimed), the tabs' in Chromium at 360 and 800 pixels - and
+fixed; each fix with a behaviour is pinned by a test that fails on the code before it: `test/audit31_law.test.js` (5),
+`test/audit31_service.test.js` (17), `test/audit31_client.test.js` (11), `test/audit31_tabs.test.js` (6); `acct29`
+(no migration: no table changed); `tools/mutants/audit31.json` (88: 86 dead, two recorded equivalent - a sold close's
+owner guard the batch's own order already holds, and the late window's add, both 120 s today). The records the fixes
+moved (guild1, prof1, prof5, prof5b, prof6: 32) were re-aimed by content, and the eleven lists whose code the fixes
+touched re-run whole (guild1, guild1b, prof1, prof3, prof4, prof5, prof5b, prof6, audit30, notice1, marks1 - 653
+mutants): 644 dead and nine recorded equivalent; the one survivor, the look of a piece minted before its recipe was
+stamped (PROF6-pieces-any-recipe - a minted piece no longer reaches it), given a pin of its own, dead.
+
+**The auctions** (S1, S3, S4, L1, L4, R5). An auction whose leading bid's row was gone (its bidder's account deleted -
+no route does it, but the cascade is the schema's) was still closed as sold: its piece's owner was written NULL and
+every market read after it failed, for every reader. It closes unsold now, its piece back to its seller. A won auction
+its seller's Marks cap could not take waited for ever, the winner's escrow with it: seven days past its end
+(`AUCTION_GRACE_S`) the winning bid is void, its Marks back on the bidder's read, the piece back unsold. A bid another
+bid overtook between its read and its decision was told "no longer on the market" while the auction stood:
+`auction-moved`, and the view read again. An auction past its end still counted among its seller's thirty, so a seller
+at the cap could list nothing: the thirty count what stands. The last two minutes' edge is strict ("less than 120
+seconds left"), and the service's SQL is pinned at it. Two of PROF5b's "equivalent" early words were not: they come
+before the courier's road, so a leader bidding under the next from a board with no known road was told the road -
+pinned, dead. A bid past the Marks cap has its own word (`bad-bid`), never a price's.
+
+**The guild writs and the guild Stores** (S6, R1, L1, L9, A15, S7). An Officer could post a writ within the week's
+budget, deliver to it, take the units back out of the guild Stores and deliver them again - the budget, or the
+treasury, their own Marks for no material spent, where GUILD1's law is that the Guildmaster alone withdraws: no account
+holding a rank that takes the guild Stores out delivers to its guild's writs (`writ-own-guild`), in the decision's SQL
+as well as before it (a promotion between the read and the decision is refused - staged). The record promised every
+member their own deposit back, and only an Officer could take anything out: any member takes back their own deposit,
+no more (`guild-stores-mine`; an Officer draining it between a member's read and their decision leaves the member
+refused, never taking another's - staged; and a refusal spends none of the hour's acts). The guild's twenty counted
+writs past their seventh day not yet swept; a writ was posted with no room in the guild Stores for its units, refused
+only at its last deliveries: the twenty count what stands, and a post asks the guild Stores' room less what the
+standing writs of it still want. A guild whose withdrawn writ's pay waited on a full treasury was told to withdraw its
+writs: `guild-writ-escrow`. A guild nobody was left in was reclaimed for its name with its writs, Stores and Marks:
+only while it keeps nothing. A daedric writ said "the Stores do not keep that": `market-unyielded`.
+
+**The commissions** (L1, L2, S5, U7, H3). A crafter's twenty counted commissions that had run out (only the poster's
+read closed them), so four posters' week-old commissions shut a crafter off: the twenty count what stands, and the
+crafter's own read closes those naming them. Fifty-three Daedric and Warforged recipes could be commissioned - no one
+can make them: `commission-unyielded`. A fill of a piece whose returned delivery waited was told the piece "stands in a
+home": each held piece says where. A fill at another region's board is `commission-elsewhere`. The Work read names,
+for the crafter, the pieces of their make that would fill each commission (`eligible`, least quality first), and the
+Fill offers those alone, with their quality; a crafted piece now keeps the recipe it was minted of (`recipe`, an item
+field), because an Ebony and a Warforged piece are the same template and material.
+
+**The books** (B1, B2, B4, B5, B7, B8, B10, H1, H8). With no account signed in a listing, an auction or a fill took the
+piece out of the save and kept it under no one's slot, lost at the sign-in: nothing is taken without an account. A kept
+act read its slot again after its await, so a quick-load between put a refused piece into the other character and left
+the first one's entry to be put back again: the slot is the press's, and a refusal heard in another save waits for its
+own character's settle. An act's id was the act's alone, so another character's same press was answered as the first
+one's repeat: the slot is in the id. A writ act's balance never reached the market's book, and a market read begun
+before it painted the older one: told, and the reads let go; the Work list is kept per account and character, and a
+read begun before an act is read again. The auction words that mean the view moved (`auction-leading`,
+`auction-bid-standing`, `auction-moved`) are the book's and the tab's one list. A settle asked while another act was
+out was refused and never asked again: it waits. A piece one book kept an act on could be handed to the other after a
+save was restored - a copy: neither book takes a piece the other keeps, the host's pickers leave it out, and a piece
+the service says is elsewhere (another's, listed, on its way, standing in a home) is never put back and a settle takes
+the save's copy out (`market-no-record` is its own word, so a piece with no record at all is not one of them). A take
+the save refused read "only a crafted piece lists": `piece-held`, and the Fill says when the piece that answers it is
+equipped, locked or bound.
+
+**The hosts** (H5, H9, H2). A piece was looked for in the pack and the home's things alone: the wagon and a
+repairer's hands too, where it is minted once, put back and dropped. A piece worn by a point of a large condition
+rounded to whole and sold as new work: whole only when it is. The Guild tab read the guild Stores once a session - a
+refused read said "Reading..." for ever, a character switch showed the last one's deposit: read at each look, per guild
+and character, with Try again, and the tab repaints on a switch; every number the service bounds is bounded before the
+press.
+
+**The tabs** (U1-U14, H6, L6, L7). THE WINDOW EMPTIED ITSELF BEFORE THE TABS LOOKED FOR THE FOCUS, so AUDIT 30 U8's
+"the field keeps the focus through a redraw" never once worked in a browser (the test DOM never let the focus go):
+every read's answer threw the reader out of the number they typed and back to the top of the list. The window takes
+the focus, its caret and the body's scroll before it empties itself and gives them back after, and the test DOM now
+drops the focus with the node, as a browser does (one test, the anvil's heat, had leaned on the old DOM: its first
+frame waits for its page to be in the document). The Work tab's cards stand in the Court's own grid; every field is
+named on the page; a Post, a Commission or a Deliver the service would refuse says why before the press (the budget
+none, one's own name, the Marks, five standing, twenty writs, the guild Stores' room, one's own guild); nothing of it is
+offered while the service says it is not the account's (`writsOpen`), the note's button included; Yours declines and
+says where a commission naming you is filled; Decline is pressed twice; the drafts are the book's, and Escape closes a
+form before the window; the note's commission lands on its pay; "114 Marks struck (6 Marks tax taken)", never "114 less
+6"; a filled commission of yours points to the Market tab. The Market tab: an auction's name and standing bid wrap at
+a phone's width; the List form's select no longer widens the page; a next bid past any balance is said; the terms say
+the add's own number; an empty auction view says its filter.
+
+**The records** (R1-R15, H7, L4, L5, L8, S2, R13). Professions-Arc 11, 13, 15, 18, 27 and 28 corrected in place, each
+line marked (the members' deposit, the Work tab's collect, Yours, the ids, the in-person line, 15's row, the stale
+PROF6 pointers, the four hosts); 18 records account deletion and the Tithe's line as OPEN (no route deletes an
+account; the Tithe is nought until SEAT1 writes its line); the patch notes say what shipped.
+
+## MERGE 2 (2026-09-29, Mac: "Merge and markdown notes") - main's realm taken into the professions branch, and the branch onto main
+
+Main's 88 commits since THE MERGE - REALM (an online character held by the account service under a lease, its trades,
+its guild and home gold on its record, customs and the door), RENOWN-ACCOUNT, TERMS1, PENITENT, REALM-DOOR and
+CUSTOMS-PASS, HOUSE-LOSS and RESTORE, OW6 and OW6L, WB8, VIEW-TOGGLE, the launcher and the field batches - came into the
+branch, and the branch (MARKS1 to AUDIT 31) goes to main with them; main's SPAWN-SHORE (#441) and LIVED1 (#442), which
+landed while this was checked, came in after it (their cites re-resolved the same way). What the two sides both built, or both
+numbered, is one now:
+
+- **The relay is world131.** The branch's BOUNTY1 + AUDIT 28 were world125 on the branch, never deployed, and world125
+  is main's VOICE1 (deployed, then reverted) - a number a deployed relay may carry is never reused; main went on to
+  REALM-DOOR (world130). The bounty fields ride one relay past it (`net/wire.js` RELAY_VERSION,
+  `test/relayversion.test.js`'s world131 row); a relay before it strips `bq`, `lv` and a row's `k`, `a` and `t`.
+- **The account service is acct30,** past main's acct23 (HOUSE-LOSS and RESTORE, deployed) and the branch's acct29
+  (AUDIT 31, undeployed). The branch's ten migrations are 0025-0034 (marks, board, professions, mining, audit29,
+  smithing, logging, market, auctions, writs) behind main's 0018-0024 (realm_characters, realm_trades, realm_audit,
+  renown_account, customs_carry, terms, customs_passes): D1 applies by name in order, none of the ten was ever applied
+  anywhere, and none rebuilds a table main's alter (homes, home_decor, guilds, players, the realm's) - the five they
+  rebuild (node_harvests, world_witness, marks_ledger, products, board_notes) are the branch's own. Records written
+  before this name the branch's migrations by their new numbers.
+- **A Court writ's Renown is the account's.** Main's RENOWN-ACCOUNT made Renown one track an account (`renown_accounts`)
+  and every source three quarters (`net/renown.js` renownRate); PROF1's delivery still wrote the character's
+  `renown_tracks` row - history nothing reads now - and bound RENOWN_TRACKS_MAX, which main removed. The delivery
+  credits the account's track in its own batch (made where it has none, as a raid's claim makes it; outside the hour's
+  bound, the writ being the service's own to prove - its units spent from the Stores in the same batch), answers as
+  `/v1/renown/xp` does (no `character`, `max` at the cap), and `net/professionLaw.js` writRenown passes through
+  renownRate: a tier-2 writ of 30 units pays 112, 150 at the full rate.
+- **The loot pile's call carries both sides' arguments** (`systems/loot.js` addPileLootExtras): FORAGE3's
+  `locationIndex` and `luck` for OnLootSpawned's subscribers, and REALM P0.4's `level` (online, a pile's gold divided
+  back by the level) - at the dungeon's pile, the camp's and a tavern's.
+- **A camp's stand** answers what stood or null (THE MERGE), counts its camps off the pool's one counter and grows by
+  one home bounded by the pool (main's OW6: `exteriorFoes.newCampId`, `campMembers`); a bounty's `fixed` pack is never
+  grown, and the bounty's dungeon pack takes its id off the same counter - the host's own `_nextCampId` went with OW6.
+- **The act choice comes after TogglePerspective** in ACTIONS: main's VIEW-TOGGLE shipped first and a port action's
+  index is live - 83 actions, 77 bound (`ArrowUp` and `Mouse4`, no clash).
+- **One `not-developer` word** (`net/accountClient.js`): both sides wrote the key; "Only a developer may do that." says
+  MARKS1's report, NOTICE1's notices and CUSTOMS-PASS's grant alike.
+- **The seams that merged by content:** the guild acts' context carries the env (the Marks switch, AUDIT 28 M5) and the
+  realm's bucket (REALM P2.2); a founding answers its Marks view and the realm's `seq`; the account card carries main's
+  one Renown and the branch's Marks; a decor placement proves a crafted piece's mark from its own row (PROF4) and then
+  pays on the realm character's record (REALM P2.2b); the guild routes list the realm's refusals beside the Stores'.
+- **The pins.** The branch's service pins make an account with the Terms ticked (TERMS1), give Renown on the account's
+  track, and found a guild or claim a house as a realm character - AUDIT REALM2 S2 made both a realm character's alone -
+  through `test/accountDb.mjs` `found` and `seatHome`, over main's own `test/realmSeat.mjs`. AUDIT REALM F1's
+  BOUND_TEMPLATES pin reads the branch's two registrars (Foraging's and the professions' rows - none bound: a material
+  and a tool change hands). Seven mutant records re-aimed by content; the pile's, the stand's and the card's re-killed.
+- **Main's own red, fixed here:** `test/tv6_dungeons.test.js` pinned travelViewWalkTo's options before TO-ROADS added
+  `roads`.
+- **LIVED1 (#442, "your own time") came in last:** a character keeps its own clock online. Foraging's quest time
+  (FORAGE4's wait on the hunt's page) now also passes on that clock, as the hunt's minutes do after its page
+  (`systems/quest/questActionsExtension.js` RaiseTime: the wait online, the host's raiseTime - the character's time -
+  in both lanes); MAC-LVL1's `restSimMinutes`, which LIVED1 retired, left the save's fields beside FORAGE4's
+  `foragingWait`; DEATH-PENALTY's screen-loss pair rides the encounter loop's lift beside LIVED1's sky.
+- **The records:** Systems.md and UI.md count their modules (319 and 252); the Features ceiling takes both new rows
+  (16654 characters, 63 rows); Port-Ledger section A is 246 rows, 231 standing, with main's six under GATE-CLEAR's and
+  the branch's ordinals corrected (they ran one and two high); section 2's `:NNN` identifiers moved six under main's
+  rows. `tools/citeMerge.mjs` (struck lines too) moved 744 cites; the 23 shared lines it held were stale on both sides
+  and stay as both had them.
+
+**OPEN - where the realm and the professions meet (Mac's to decide):**
+
+1. The professions' routes take any character id of a registered account; since AUDIT REALM2 S2 a founding, a house and
+   a placement are a realm character's alone. Online play is a realm character's at the relay's door (REALM-DOOR), so
+   only a modified client reaches the routes with another id, and the professions are behind `dev` - but a realm-only
+   door on harvests, the Stores, crafts, the market and the writs would make it the service's law as well.
+2. A professions act that changes the pack (a withdrawal, a craft, a market collect or listing, a commission's fill) is
+   not checkpointed at once, as a trade is (REALM P0.5): the two-minute checkpoint and the exit save carry it, and the
+   market's settle takes a listed piece's copy out of a restored save. Checkpointing them as trades are would close the
+   window.
+3. A realm character's delete takes its homes, its guild place and its Renown history; the professions' rows keyed by it
+   (its Stores, its tracks, a delivery on the road to it) stay, unreachable. The delete could refuse while any stands,
+   as it refuses a guildmaster with members.

@@ -726,6 +726,11 @@ export const FEATURES = Object.freeze([
   // two item templates (1320, 1321) merge when the game loads
   // (ItemHelper.LoadItemTemplates), so the switch reaches the next load.
   modFeature('come-sail-away', 'Takes effect when the game next loads.', 'world'),
+  // FORAGE1 (2026-09-28): FORAGING - `world`, the wilderness's work. A tool
+  // and a food read the switch as they are used; the quest pack is offered
+  // while it is on. AUDIT 28 F4: the pack is read once, when the quest lists
+  // are built (questLists.js) - so the row says the two halves apart.
+  modFeature('foraging', 'Takes effect at once for the tools, the foods and the loot; for the quest pack when the game next loads.', 'world'),
   modFeature('meanerMonsters', 'Takes effect on monsters spawned after the switch.', 'combat'),
   modFeature('pcaao', 'Takes effect at once.', 'combat'),
   modFeature('unleveledLoot', 'Takes effect on the next roll.', 'loot'),

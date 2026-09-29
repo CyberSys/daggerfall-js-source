@@ -47,7 +47,7 @@ let last = null;
 export const TRAVEL_HELD_WHY = Object.freeze({ load: 'while the land loads', ground: 'until the Overworld rises', foes: 'with enemies near' });
 export const TRAVEL_HELD_TEXT = (n, of, why = 'load') => `Held to ×${n} of ×${of} ${TRAVEL_HELD_WHY[why] ?? TRAVEL_HELD_WHY.load}`;
 
-/** enhancedHud.js:316 - write only on a change. */
+/** enhancedHud.js:319 - write only on a change. */
 function put(node, key, value) {
   if (!node || last[key] === value) return;
   last[key] = value;
@@ -163,7 +163,7 @@ export function paintJunction(canvas, buf, { mapPixel, direction, settings, deps
   const img = ctx.createImageData(w, h);
   const out = new Uint32Array(img.data.buffer);
   // the buffer is bottom-up, as every generated map texture in this
-  // port is (ui/travelMapWindow.js:1792-1800)
+  // port is (ui/travelMapWindow.js:1468-1475)
   for (let row = 0; row < h; row++) out.set(buf.subarray((h - row - 1) * w, (h - row) * w), row * w);
   ctx.putImageData(img, 0, 0);
   return true;

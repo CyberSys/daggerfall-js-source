@@ -122,8 +122,8 @@
   {
     "name": "OW6-C-host-own-counter",
     "file": "src/scenes/world.js",
-    "old": "    const campId = exteriorFoes.newCampId();",
-    "new": "    const campId = 1;",
+    "old": "    const campId = exteriorFoes.newCampId();   // OW6: the pool's one counter",
+    "new": "    const campId = 1;   // OW6: the pool's one counter",
     "tests": [
       "test/ow6_camps.test.js"
     ],

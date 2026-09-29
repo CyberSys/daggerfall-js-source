@@ -46,6 +46,9 @@ import { isTextEntryTarget } from './input.js';
 import { registerOverlay } from './enhancedOverlays.js';   // PX28b: Tab puts it away, as it puts away every enhanced window
 import { DECOR_KINDS, DECOR_SIZES, decorSize, filterDecor } from '../systems/decorCatalogue.js';
 import { decorRefund, DECOR_FURNITURE_GROUP, DECOR_STATIONS, DECOR_STATION_FEES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
+import { forgeOffered, PROF_STATIONS } from './profPages.js';
+/** The crafts a piece may be made here: every station, the Forge only where it works (AUDIT 29 B2). */
+export const stationsOffered = () => DECOR_STATIONS.filter((k) => !PROF_STATIONS.includes(k) || forgeOffered());   // PROF4: the workbench as the forge
 
 export const DECOR_STYLE_ID = 'dagger-decor-style';
 export const DECOR_CSS = `
@@ -333,7 +336,7 @@ export function createDecorPanel({
   const removeBtn = act('Remove', () => { const it = placedSelected(); if (it && !removeBtn.disabled) onRemove(it.piece); });
   // HOME-STATIONS: the craft offered (cycled, free) and the act on it (made for its licence, or unmade)
   let stationOffer = DECOR_STATIONS[0], stationFor = null, stationArmed = null;   // the offer follows a newly chosen piece's own craft
-  const stationPick = act('Station', () => { stationOffer = DECOR_STATIONS[(DECOR_STATIONS.indexOf(stationOffer) + 1) % DECOR_STATIONS.length]; stationArmed = null; paintRoomSide(); });
+  const stationPick = act('Station', () => { const o = stationsOffered(); stationOffer = o[(o.indexOf(stationOffer) + 1) % o.length]; stationArmed = null; paintRoomSide(); });
   // AUDIT HOME-STATIONS S3: the act is the one the button SAYS (painted with it), never re-read from a newer piece
   const stationBtn = act('Make station', () => {
     const it = placedSelected();

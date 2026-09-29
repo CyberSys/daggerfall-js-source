@@ -193,7 +193,7 @@ export const QUEST_CTX_CONTRACT = Object.freeze([
   'removeProgressRumors', 'removeQuestInfoTopics', 'removeQuestRumors',
   'removeQuestorPostMessage', 'setPlayerCrime', 'sharedClock', 'showPopup',
   'showPrompt', 'showPromptMulti', 'spawnCityGuards',
-  'undiscoverBuilding', 'world',
+  'undiscoverBuilding', 'waitOnline', 'world',
 ]);
 
 export const QUEST_CTX_REQUIRED = Object.freeze(['data']);
@@ -251,6 +251,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     getGoldPieces: () => ctx.getGoldPieces?.() ?? 0,
     deductGoldPieces: (n) => ctx.deductGoldPieces?.(n),
     raiseTime: (seconds) => ctx.raiseTime?.(seconds),
+    waitOnline: (seconds, quest) => ctx.waitOnline?.(seconds, quest),   // FORAGE4: online, QAE's raise time is the host's wait (scenes/foragingWait.js)
     spawnCityGuards: (immediate) => ctx.spawnCityGuards?.(immediate),
     makeEnemiesHostile: () => ctx.makeEnemiesHostile?.(),
     clearEnemies: () => ctx.clearEnemies?.(),

@@ -1,0 +1,803 @@
+[
+  {
+    "name": "AUDIT31-law-grace-none",
+    "file": "src/net/marketLaw.js",
+    "old": "export const AUCTION_GRACE_S = 7 * 86_400;",
+    "new": "export const AUCTION_GRACE_S = 0;",
+    "tests": [
+      "test/audit31_law.test.js",
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-law-kit-auctionable",
+    "file": "src/net/marketLaw.js",
+    "old": "&& takesQuality(/** @type {any} */ (recipeById(recipeId)));",
+    "new": "&& !!recipeById(recipeId);",
+    "tests": [
+      "test/audit31_law.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-law-unyielded-commissionable",
+    "file": "src/net/writLaw.js",
+    "old": "export const commissionable = (recipeId) => pieceListable(recipeId) && !commissionUnyielded(recipeId);",
+    "new": "export const commissionable = (recipeId) => pieceListable(recipeId);",
+    "tests": [
+      "test/audit31_law.test.js",
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-law-writmay-proto",
+    "file": "src/net/writLaw.js",
+    "old": "(Object.hasOwn(WRIT_POWERS, power) ? WRIT_POWERS[power] : [])",
+    "new": "(WRIT_POWERS[power] ?? [])",
+    "tests": [
+      "test/audit31_law.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-law-member-takes-more",
+    "file": "src/net/writLaw.js",
+    "old": "&& units <= ownDeposit);",
+    "new": "&& units <= ownDeposit + 1);",
+    "tests": [
+      "test/audit31_law.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-law-officers-deliver",
+    "file": "src/net/writLaw.js",
+    "old": "export const writDeliverMay = (rank) => rank == null || !writMay(rank, 'storesWithdraw');",
+    "new": "export const writDeliverMay = (rank) => rank == null || rank !== 0;",
+    "tests": [
+      "test/audit31_law.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-law-wear-rounds-whole",
+    "file": "src/net/marketLaw.js",
+    "old": "  if (cur >= max) return WEAR_WHOLE;\n  return Math.max(1, Math.min(WEAR_WHOLE - 1,",
+    "new": "  return Math.max(1, Math.min(WEAR_WHOLE,",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-ghost-bid-sold",
+    "file": "server-account/src/market.js",
+    "old": "if (!Number(a.live) || !Number(a.room)) {",
+    "new": "if (!Number(a.room)) {",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-ghost-owner-null",
+    "file": "server-account/src/market.js",
+    "old": "        WHERE provenance = (SELECT provenance FROM market_auctions WHERE id = ?1 AND cn = ?2)\n          AND EXISTS (SELECT 1 ${won})`)",
+    "new": "        WHERE provenance = (SELECT provenance FROM market_auctions WHERE id = ?1 AND cn = ?2)`)",
+    "tests": [
+      "test/audit31_service.test.js"
+    ],
+    "equivalent": true,
+    "why": "the sold close runs only for a standing bid read live (the decision asks it again, and the bid is marked won in the same batch before the owner moves) - a bid gone between the read and the batch leaves the decision unwritten and every later statement keyed on its cn; the guard keeps the owner never NULL whatever order a later change puts the statements in"
+  },
+  {
+    "name": "AUDIT31-svc-grace-never",
+    "file": "server-account/src/market.js",
+    "old": "        AND (NOT ${live('a')} OR ${room('a', netSql('high'))} OR ends_at + ?3 <= ?1)",
+    "new": "        AND (NOT ${live('a')} OR ${room('a', netSql('high'))} OR (ends_at + ?3 <= ?1 AND 0))",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-grace-bid-kept",
+    "file": "server-account/src/market.js",
+    "old": "        db.prepare(`UPDATE market_bids SET state = 'void' WHERE id = (SELECT high_bid FROM market_auctions WHERE id = ?1 AND cn = ?2) AND state = 'high'`)",
+    "new": "        db.prepare(`UPDATE market_bids SET state = 'void' WHERE id = (SELECT high_bid FROM market_auctions WHERE id = ?1 AND cn = ?2) AND state = 'none'`)",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-bid-moved-gone",
+    "file": "server-account/src/market.js",
+    "old": "  return { error: 'auction-moved' };",
+    "new": "  return { error: 'market-gone' };",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-thirty-ended",
+    "file": "server-account/src/market.js",
+    "old": "WHERE seller = ?1 AND state = 'open' AND ends_at > ${now}))`;",
+    "new": "WHERE seller = ?1 AND state = 'open' AND ${now} = ${now}))`;",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-bids-week-close",
+    "file": "server-account/src/market.js",
+    "old": "OR b.at > ?2 OR a.closed_at > ?2)",
+    "new": "OR b.at > ?2)",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-bad-bid-word",
+    "file": "server-account/src/market.js",
+    "old": "if (!bidOk(amount)) return { error: 'bad-bid' };",
+    "new": "if (!bidOk(amount)) return { error: 'bad-price' };",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-no-record-list",
+    "file": "server-account/src/market.js",
+    "old": "  if (kind === 'material') return { error: 'stores-short' };\n  const p = await db.prepare('SELECT owner, listed FROM products WHERE provenance = ?1').bind(provenance).first();\n  if (!p) return { error: 'market-no-record' };",
+    "new": "  if (kind === 'material') return { error: 'stores-short' };\n  const p = await db.prepare('SELECT owner, listed FROM products WHERE provenance = ?1').bind(provenance).first();\n  if (!p) return { error: 'market-not-yours' };",
+    "tests": [
+      "test/prof5_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-officer-delivers-early",
+    "file": "server-account/src/writs.js",
+    "old": "  return results.every((r) => writDeliverMay(Number(r.rank)));",
+    "new": "  return true;",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-officer-delivers-decision",
+    "file": "server-account/src/writs.js",
+    "old": "        AND NOT EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND guild_id = w.guild_id AND rank IN (${TAKERS_SQL}))",
+    "new": "        AND ?1 = ?1",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-member-takes-early",
+    "file": "server-account/src/writs.js",
+    "old": "  if (kind === 'withdraw' && !guildTakeMay(rank, units, await ownDeposit(db, g, key, me, character))) return { error: 'guild-stores-mine' };",
+    "new": "  if (kind === 'withdraw' && rank > 1 && false) return { error: 'guild-stores-mine' };",
+    "tests": [
+      "test/audit31_service.test.js",
+      "test/prof6_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-member-takes-decision",
+    "file": "server-account/src/writs.js",
+    "old": "        AND (?9 IN (${TAKERS_SQL})\n          OR COALESCE(",
+    "new": "        AND (?9 = ?9\n          OR COALESCE(",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-writ-room",
+    "file": "server-account/src/writs.js",
+    "old": "        AND ${guildHeldSql('?4', '?8')} + ${reservedSql('?4', '?8', '?12')} + ?9 <= ?18\n",
+    "new": "        AND ?18 = ?18 AND ?9 = ?9\n",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-writ-reserve-ignored",
+    "file": "server-account/src/writs.js",
+    "old": "        AND ${guildHeldSql('?4', '?8')} + ${reservedSql('?4', '?8', '?12')} + ?9 <= ?18\n",
+    "new": "        AND ${guildHeldSql('?4', '?8')} + ?9 <= ?18\n",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-writs-twenty-expired",
+    "file": "server-account/src/writs.js",
+    "old": "        AND (SELECT COUNT(*) FROM guild_writs WHERE guild_id = ?4 AND state = 'open' AND expires_at > ?12) < ?17",
+    "new": "        AND (SELECT COUNT(*) FROM guild_writs WHERE guild_id = ?4 AND state = 'open') < ?17",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-crafter-twenty-expired",
+    "file": "server-account/src/writs.js",
+    "old": "        AND (SELECT COUNT(*) FROM commissions WHERE crafter = ?4 AND state = 'open' AND expires_at > ?9) < ?14",
+    "new": "        AND (SELECT COUNT(*) FROM commissions WHERE crafter = ?4 AND state = 'open') < ?14",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-crafter-unsettled",
+    "file": "server-account/src/writs.js",
+    "old": "WHERE (poster = ?1 OR crafter = ?1) AND state = 'open' AND expires_at <= ?2`)",
+    "new": "WHERE poster = ?1 AND state = 'open' AND expires_at <= ?2`)",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-crafter-yours-filled-only",
+    "file": "server-account/src/writs.js",
+    "old": "      OR (c.crafter = ?1 AND (c.state = 'open' OR c.closed_at > ?2))",
+    "new": "      OR (c.crafter = ?1 AND (c.state = 'open' OR (c.state = 'filled' AND c.closed_at > ?2)))",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-unyielded-word",
+    "file": "server-account/src/writs.js",
+    "old": "  if (!commissionable(recipe)) return { error: pieceListable(recipe) && commissionUnyielded(recipe) ? 'commission-unyielded' : 'commission-recipe' };",
+    "new": "  if (!commissionable(recipe)) return { error: 'commission-recipe' };",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-fulfil-uncollected",
+    "file": "server-account/src/writs.js",
+    "old": "  if (await db.prepare('SELECT 1 FROM market_deliveries WHERE provenance = ?1 AND collected = 0').bind(provenance).first()) return { error: 'market-uncollected' };\n",
+    "new": "",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-eligible-bought",
+    "file": "server-account/src/writs.js",
+    "old": "      AND EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND (provenance = p.provenance OR provenance2 = p.provenance))",
+    "new": "      AND ?1 = ?1",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-eligible-order",
+    "file": "server-account/src/writs.js",
+    "old": "ORDER BY p.quality, p.provenance LIMIT",
+    "new": "ORDER BY p.quality DESC, p.provenance LIMIT",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-writ-room-view",
+    "file": "server-account/src/writs.js",
+    "old": "  room: Math.max(0, GUILD_STORES_MAX - Number(w.guild_held ?? 0)),",
+    "new": "  room: GUILD_STORES_MAX,",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-writs-open-said",
+    "file": "server-account/src/writs.js",
+    "old": "    writsOpen: true, me: displayName(player),",
+    "new": "    writsOpen: false, me: displayName(player),",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-writ-unyielded-word",
+    "file": "server-account/src/writs.js",
+    "old": "material(key) && UNYIELDED.includes(key) ? 'market-unyielded' : 'bad-material'",
+    "new": "'bad-material'",
+    "tests": [
+      "test/prof6_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-commission-elsewhere",
+    "file": "server-account/src/writs.js",
+    "old": "  if (Number(c.region) !== region) return { error: 'commission-elsewhere' };",
+    "new": "  if (Number(c.region) !== region) return { error: 'writ-elsewhere' };",
+    "tests": [
+      "test/prof6_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-reclaim-keeps",
+    "file": "server-account/src/guilds.js",
+    "old": "    AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = guilds.id AND balance > 0) AND NOT ${guildKeepsSql('guilds.id')}`)",
+    "new": "`)",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-svc-escrow-word",
+    "file": "server-account/src/guilds.js",
+    "old": "return 'guild-writ-escrow';",
+    "new": "return 'guild-writs';",
+    "tests": [
+      "test/audit31_service.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-no-session-market",
+    "file": "src/net/marketBook.js",
+    "old": "    if (!signedIn()) return { ok: false, error: 'no-session' };\n    if (body.provenance",
+    "new": "    if (body.provenance",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-no-session-writ",
+    "file": "src/net/writBook.js",
+    "old": "        if (!account()) return { ok: false, error: 'no-session' };\n",
+    "new": "",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-slot-reread",
+    "file": "src/net/writBook.js",
+    "old": "        if (kept(r) || slot() !== key) return { ok: false, kept: true, error: r?.error, text: WRIT_KEPT_TEXT };",
+    "new": "        if (kept(r)) return { ok: false, kept: true, error: r?.error, text: WRIT_KEPT_TEXT };",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-id-unslotted-writ",
+    "file": "src/net/writBook.js",
+    "old": "    const k = `${slot()}|${key}`;",
+    "new": "    const k = key;",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-id-unslotted-market",
+    "file": "src/net/marketBook.js",
+    "old": "    const k = `${slot()}|${key}`;",
+    "new": "    const k = key;",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-market-untold",
+    "file": "src/net/writBook.js",
+    "old": "      try { market?.told?.(d.balance); } catch { /* the market book's own */ }\n",
+    "new": "",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-market-unforgotten",
+    "file": "src/net/writBook.js",
+    "old": "    if (r?.ok && MOVES_MARKS.includes(key.split('|')[0])) { try { market?.forget?.(); }",
+    "new": "    if (false) { try { market?.forget?.(); }",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-writs-gen",
+    "file": "src/net/profBook.js",
+    "old": "      if (g !== writGen) return book.writs(region, { force: true });   // an act answered while it was read: read again\n",
+    "new": "",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-writs-unslotted",
+    "file": "src/net/profBook.js",
+    "old": "      const wk = `${slot()}|${region}`;",
+    "new": "      const wk = `${region}`;",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-moved-leading",
+    "file": "src/net/marketBook.js",
+    "old": "'auction-low', 'auction-leading', 'auction-bid-standing',",
+    "new": "'auction-low', 'auction-bid-standing',",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-settle-refused-writ",
+    "file": "src/net/writBook.js",
+    "old": "      return _busy && _busyKey !== 'settle' ? _busy.then(go, go) : go();",
+    "new": "      return go();",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-settle-refused-market",
+    "file": "src/net/marketBook.js",
+    "old": "      return _busy && _busyKey !== 'settle' ? _busy.then(go, go) : go();",
+    "new": "      return go();",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-holds-market",
+    "file": "src/net/marketBook.js",
+    "old": "    if (body.provenance && (keptPieces().has(body.provenance) || holds?.(body.provenance))) return",
+    "new": "    if (body.provenance && keptPieces().has(body.provenance)) return",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-holds-writ",
+    "file": "src/net/writBook.js",
+    "old": "        if (req?.provenance && (keptPieces().has(req.provenance) || holds?.(req.provenance))) return",
+    "new": "        if (req?.provenance && keptPieces().has(req.provenance)) return",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-gone-put-back",
+    "file": "src/net/marketBook.js",
+    "old": "    if (had && !PIECE_GONE.includes(r?.error)) {",
+    "new": "    if (had) {",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-gone-settle-market",
+    "file": "src/net/marketBook.js",
+    "old": "            if (PIECE_GONE.includes(r?.error)) { try { drop?.(l.item, l.where); }",
+    "new": "            if (false) { try { drop?.(l.item, l.where); }",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-gone-settle-writ",
+    "file": "src/net/writBook.js",
+    "old": "            if (PIECE_GONE.includes(r?.error)) { try { drop?.(f.item, f.where); }",
+    "new": "            if (false) { try { drop?.(f.item, f.where); }",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-book-piece-held-word",
+    "file": "src/net/marketBook.js",
+    "old": "    if (!piece?.take?.()) return { ok: false, error: 'piece-held' };",
+    "new": "    if (!piece?.take?.()) return { ok: false, error: 'bad-provenance' };",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-host-picker-kept",
+    "file": "src/scenes/world.js",
+    "old": " && !pieceKept(it.provenance))\n      .map((item) => ({ item, where: 'pack'",
+    "new": ")\n      .map((item) => ({ item, where: 'pack'",
+    "tests": [
+      "test/audit31_client.test.js",
+      "test/prof5_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-host-lists-wagon",
+    "file": "src/scenes/world.js",
+    "old": "playerEntity.furnishings, playerEntity.wagonItems, playerEntity.otherItems].filter(Array.isArray);",
+    "new": "playerEntity.furnishings].filter(Array.isArray);",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-host-recipe-unstamped",
+    "file": "src/systems/smithItems.js",
+    "old": "  item.recipe = r.id;   // AUDIT 31 H3: an Ebony and a Warforged piece mint the same template and material\n",
+    "new": "",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-host-recipe-unread",
+    "file": "src/systems/smithItems.js",
+    "old": "  if (typeof item?.recipe === 'string') return item.recipe === recipeId;",
+    "new": "",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-focus-lost",
+    "file": "src/ui/noticeWindow.js",
+    "old": "    giveBack(kept);\n  }",
+    "new": "    void kept;\n  }",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-scroll-lost",
+    "file": "src/ui/noticeWindow.js",
+    "old": "    if (b && k.top && k.where === `${tab}|${view}`) b.scrollTop = k.top;\n",
+    "new": "",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-two-grids",
+    "file": "src/ui/noticeWindow.js",
+    "old": "    for (const c of more) grid.append(c);",
+    "new": "    if (more.length) { const g2 = el('ul', 'notice-grid'); for (const c of more) g2.append(c); body.append(g2); }",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-shut-offered",
+    "file": "src/ui/workTab.js",
+    "old": "    node(data) {\n      if (data?.writsOpen !== true) return null;",
+    "new": "    node(data) {",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-note-button-shut",
+    "file": "src/ui/noticeWindow.js",
+    "old": "      else if (n.button === 'commission' && !commissionsOpen()) { b.disabled = true;",
+    "new": "      else if (false) { b.disabled = true;",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-room-ignored",
+    "file": "src/ui/workTab.js",
+    "old": "    const most = Math.min(x.left, held, room);",
+    "new": "    const most = Math.min(x.left, held);",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-own-guild-delivers",
+    "file": "src/ui/workTab.js",
+    "old": "  const mayDeliver = (data, x) => data?.guild?.id !== x.guild?.id || writDeliverMay(data.guild.rank);",
+    "new": "  const mayDeliver = () => true;",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-budget-none-silent",
+    "file": "src/ui/workTab.js",
+    "old": "            : officer && !(g.budget > 0) ? 'The Guildmaster has set no writ budget for Officers this week.'",
+    "new": "            : false ? 'The Guildmaster has set no writ budget for Officers this week.'",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-self-commission",
+    "file": "src/ui/workTab.js",
+    "old": "            : data?.me && name.toLowerCase() === String(data.me).toLowerCase() ? 'You cannot commission yourself.'",
+    "new": "            : false ? 'You cannot commission yourself.'",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-past-balance",
+    "file": "src/ui/workTab.js",
+    "old": "                  : balance != null && f.pay > balance ? `Your Marks hold only",
+    "new": "                  : false ? `Your Marks hold only",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-five-standing",
+    "file": "src/ui/workTab.js",
+    "old": "                : mineOpen >= COMMISSIONS_MAX ? `You have",
+    "new": "                : false ? `You have",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-decline-one-tap",
+    "file": "src/ui/workTab.js",
+    "old": "      if (!armed()) { st.arm = { id: c.id, at: nowMs() }; ui.rerender(); return; }\n",
+    "new": "",
+    "tests": [
+      "test/audit31_tabs.test.js",
+      "test/prof6_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-yours-no-decline",
+    "file": "src/ui/workTab.js",
+    "old": "        li.append(el('span', 'work-where', here ? 'Fill it on its card above.' : `Filled at the boards of ${where}.`), declineButton(c));",
+    "new": "        li.append(el('span', 'work-where', ''));",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-filled-unpointed",
+    "file": "src/ui/workTab.js",
+    "old": "        : c.mine && c.state === 'filled' ? 'filled - collect it at the Market tab'",
+    "new": "        : false ? 'filled - collect it at the Market tab'",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-drafts-lost",
+    "file": "src/ui/workTab.js",
+    "old": "  const st = keep ? (keep.workDrafts ??= fresh()) : fresh();",
+    "new": "  const st = fresh();",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-escape-window",
+    "file": "src/ui/noticeWindow.js",
+    "old": "    if (tab === 'work' && workMore?.closeForm()) { render(); return; }   // AUDIT 31 U12: Escape closes an open form first\n",
+    "new": "",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-pay-unfocused",
+    "file": "src/ui/workTab.js",
+    "old": "      st.focus = 'comm|pay';\n",
+    "new": "",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-quality-unnamed",
+    "file": "src/ui/workTab.js",
+    "old": "    const label = (p) => (p.quality != null ? `${p.name} (${QUALITY_NAMES[p.quality]})` : p.name);",
+    "new": "    const label = (p) => p.name;",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-held-back-silent",
+    "file": "src/ui/workTab.js",
+    "old": "(pieces).blocked > 0 ?",
+    "new": "(pieces).blocked > 1 ?",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-paid-text-nought",
+    "file": "src/ui/workTab.js",
+    "old": "struck to your account${tax > 0 ?",
+    "new": "struck to your account${tax >= 0 ?",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-next-past-max",
+    "file": "src/ui/marketTab.js",
+    "old": "    } else if (a.next > AUCTION_BID_MAX) {",
+    "new": "    } else if (false) {",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-empty-filter",
+    "file": "src/ui/marketTab.js",
+    "old": "st.family ? 'No Masterwork of that kind is up for auction.' :",
+    "new": "false ? 'No Masterwork of that kind is up for auction.' :",
+    "tests": [
+      "test/audit31_tabs.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-tab-hint-add-late",
+    "file": "src/ui/marketTab.js",
+    "old": "adds ${AUCTION_ADD_S / 60} more.",
+    "new": "adds ${AUCTION_LATE_S / 60} more.",
+    "tests": [
+      "test/prof5b_client.test.js"
+    ],
+    "equivalent": true,
+    "why": "the add and the late window are both 120 s today - the words read the add's own number so a change to either stays true"
+  },
+  {
+    "name": "AUDIT31-guild-refusal-silent",
+    "file": "src/ui/socialPanel.js",
+    "old": "Promise.resolve(W.guildStores()).then((r) => { guildUi.storesError = r?.ok ? null : (r?.error ?? 'server'); ui++; }",
+    "new": "Promise.resolve(W.guildStores()).then(() => { guildUi.storesError = null; ui++; }",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-guild-look-cached",
+    "file": "src/ui/socialPanel.js",
+    "old": "  const lookAtGuild = () => { guildUi.storesAsked = false; if (guild?.stale?.()) guild.refresh(); };",
+    "new": "  const lookAtGuild = () => { if (guild?.stale?.()) guild.refresh(); };",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-guild-switch-unpainted",
+    "file": "src/ui/socialPanel.js",
+    "old": " || guildWho() !== paintedWho",
+    "new": "",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-guild-member-no-take",
+    "file": "src/ui/socialPanel.js",
+    "old": "    const takeable = gs.rows.filter((r) => gs.mayWithdraw || r.mine > 0);",
+    "new": "    const takeable = gs.rows.filter(() => gs.mayWithdraw);",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-guild-take-unbounded",
+    "file": "src/ui/socialPanel.js",
+    "old": "            : n > outMost(k) ? (gs.mayWithdraw ?",
+    "new": "            : false ? (gs.mayWithdraw ?",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-guild-put-unbounded",
+    "file": "src/ui/socialPanel.js",
+    "old": "          : n > heldOf(k) ? `your Stores hold",
+    "new": "          : false ? `your Stores hold",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT31-guild-move-unbounded",
+    "file": "src/ui/socialPanel.js",
+    "old": "    const unitsTyped = () => { const t = String(d.storeUnits ?? '').trim(); const n = /^\\d+$/.test(t) ? Number(t) : 0; return guildMoveOk(n) ? n : 0; };",
+    "new": "    const unitsTyped = () => { const t = String(d.storeUnits ?? '').trim(); return /^\\d+$/.test(t) ? Number(t) : 0; };",
+    "tests": [
+      "test/audit31_client.test.js"
+    ]
+  }
+]
