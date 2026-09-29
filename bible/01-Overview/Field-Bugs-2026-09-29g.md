@@ -36,8 +36,16 @@ and the townsperson at Mac's word on the first draft (*"Spare townspeople in rai
 still DFU's Murder, and still turned the defenders). The civilian arm passes them by - and the first on the look ray
 stops the swing, as a spared defender does (the body DFU's SphereCast meets first); the world host's trample list is
 filtered by the same rule. No raid, DFU's Assault and Murder stand, whatever the setting.
-`test/fb0929_raidguards.test.js` (+1, failing on the code before it), `tools/mutants/fb0929g_raidguardnpc.json` (4, 4
-dead).
+`test/fb0929_raidguards.test.js` (+1, failing on the code before it), `tools/mutants/fb0929g_raidguardnpc.json` (9, 9
+dead, the audit's five among them).
+
+**AUDIT 29g (Mac: "audit this").** A code review of the batch found one fault, in this fix: `resolveCivilianHit`
+answered `false` when a spared body stopped the swing, and both hosts read `false` as a swing that met NOBODY - they
+handed it to the static door behind him (`attemptExteriorDoorBash`: a bash, and in town a break-in). FB0929's defender
+on the ray, whose parity this fix claims, carried the same fault since it landed. A stopped swing answers
+`{spared: true}` now; the hosts' tail whooshes it and bashes nothing, a swing that met nobody is still the door's, and a
+crime still surfaces. Pinned by running each host's own tail lifted off its source, both failing on the code before it.
+The review's other findings are all outside this batch (its local base was two days stale).
 
 ## WERE-LEVY: the passive levy writes the field, as DFU's does (2)
 

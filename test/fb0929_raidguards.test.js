@@ -156,7 +156,7 @@ test('FB0929: a defender on the look ray stays the swing - the townsperson behin
   const townsperson = { pos: [0, 0, 2.0], fwdYaw: Math.PI, guard: false, disable: () => struck.push('townsperson') };
   let murders = 0;
   const w = new PlayerWeapon({});
-  assert.equal(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), false, 'the swing stops on the defender');
+  assert.deepEqual(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), { spared: true }, 'the swing stops on the defender (AUDIT 29g: said as stopped, not as met-nobody)');
   assert.deepEqual([struck, murders, p.crimeCommitted], [[], 0, 0], 'nobody behind him is murdered');
   guards.dismissDefenders();
   assert.deepEqual(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), { crime: 'murder' }, 'nobody in front: the townsperson is the only body there (DFU\'s own fallback)');
@@ -233,9 +233,9 @@ test('RAID-GUARDS-NPC: while a raid is on, the town\'s walkers take none of the 
   const before = guards.guards.length;
   assert.equal(guards.playerSparesPerson(guardNpc), true, 'a raid on: spared');
   assert.equal(guards.playerSparesPerson(townsperson), true, 'a townsperson too (Mac: "Spare townspeople in raid")');
-  assert.equal(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [guardNpc, townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), false, 'the swing passes him by, and stops on him');
+  assert.deepEqual(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [guardNpc, townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), { spared: true }, 'the swing passes him by, and stops on him');
   assert.deepEqual([hit, murders, p.crimeCommitted, guards.guards.length], [[], 0, 0, before], 'no Assault, no watchman minted, nobody behind him struck');
-  assert.equal(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), false, 'the townsperson alone on the ray: spared');
+  assert.deepEqual(await guards.resolveCivilianHit(w, EYE0, FWD0, FEET0, [townsperson], { onMurder: () => { murders++; }, inViewFn: inView }), { spared: true }, 'the townsperson alone on the ray: spared');
   assert.deepEqual([hit, murders, p.crimeCommitted], [[], 0, 0], 'no Murder, no guards called');
   guards.update(0.016, FEET0, EYE0);
   for (const d of [beside, front]) assert.deepEqual([d.defender, d.entity.team], [true, 'PlayerAlly'], 'the squad still the player\'s');
@@ -250,4 +250,23 @@ test('RAID-GUARDS-NPC: while a raid is on, the town\'s walkers take none of the 
   assert.deepEqual([hit, murders, p.crimeCommitted], [['guard', 'townsperson'], 1, 5]);
   // THE HOST: the riding trample asks the same rule of the street's walkers
   assert.match(rd('src/scenes/world.js'), /livePersons: \(\) => _livePersons\.filter\(\(seat\) => !cityGuards\.playerSparesPerson\(seat\.person\)\),/, 'the trample passes a raid\'s walkers by');
+  // AUDIT 29g: THE HOSTS' TAIL, RUN. A swing that stopped on a spared body met someone: no door behind him is bashed (a
+  // break-in in town) and no HUD surfacing - it whooshes. A swing that met nobody is the door's; a crime surfaces.
+  for (const [file, doorArgs] of [['src/scenes/world.js', 'cam.pos, lookFwd'], ['src/scenes/exterior.js', 'eye, fwd']]) {
+    const src = rd(file);
+    const at = src.indexOf('{ onMurder: () => _crimeResponse(), onHitSound: guardHitSound, swing }).then((r) => {');
+    assert.ok(at > 0, `${file}: the civilian arm's tail`);
+    const body = src.slice(src.indexOf('{\n', at) + 1, src.indexOf("}).catch((e) => console.error('[civil]', e));", at));
+    const tail = (r) => {
+      const d = { bashed: 0, whoosh: 0, surfaced: 0, tallied: 0 };
+      new Function('r', 'modes', 'audio', 'surfacePlayer', 'tallySwingSkills', 'swingSoundFor', 'weaponRig', 'playerEntity', 'cam', 'lookFwd', 'eye', 'fwd', body)(
+        r, { attemptExteriorDoorBash: () => { d.bashed++; return true; } }, { playOneShot: () => { d.whoosh++; } }, () => { d.surfaced++; }, () => { d.tallied++; },
+        () => 'swing', { playerWeapon: {} }, {}, { pos: [0, 0, 0] }, [0, 0, 1], [0, 0, 0], [0, 0, 1]);
+      return d;
+    };
+    assert.ok(body.includes(`attemptExteriorDoorBash?.(${doorArgs})`));
+    assert.deepEqual(tail({ spared: true }), { bashed: 0, whoosh: 1, surfaced: 0, tallied: 0 }, `${file}: stopped on a spared body - no door bashed`);
+    assert.deepEqual(tail(false), { bashed: 1, whoosh: 0, surfaced: 0, tallied: 0 }, `${file}: met nobody - the door's`);
+    assert.deepEqual(tail({ crime: 'murder' }), { bashed: 0, whoosh: 0, surfaced: 1, tallied: 0 }, `${file}: a crime surfaces`);
+  }
 });

@@ -7655,7 +7655,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:497-502) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1558-1576) gives it -
+    // got exactly what removeGuard (cityGuards.js:1564-1582) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
     // (cityGuards.js:981) and spliced out at the end of it (:1171).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
@@ -23017,7 +23017,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1282). DFU makes no pool distinction:
+        // (cityGuards.js:1285). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.
@@ -23103,7 +23103,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           cityGuards.resolveCivilianHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, _guardPool(),
             { onMurder: () => _crimeResponse(), onHitSound: guardHitSound, swing }).then((r) => {
             if (r?.carriedHit) tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
-            if (r) surfacePlayer();
+            if (r?.crime) surfacePlayer();
             // ROAD-B: WeaponManager.WeaponEnvDamage (:474-477) - a
             // swing that met no living thing is offered to the STATIC
             // DOORS, and a door under it is BASHED (PlayerActivate
@@ -23114,7 +23114,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             // AUDIT 23 (C9): the no-enemy swing sound at the hit frame -
             // and NOT when the env arm consumed the swing, which is
             // what WeaponEnvDamage returning true means (:1066).
-            else if (!modes?.attemptExteriorDoorBash?.(cam.pos, lookFwd)) audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);
+            // AUDIT 29g: a swing that stopped on a spared body (r.spared) met someone - no door behind him is bashed
+            else if (r?.spared || !modes?.attemptExteriorDoorBash?.(cam.pos, lookFwd)) audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);
           }).catch((e) => console.error('[civil]', e));
         }
       }

@@ -5355,7 +5355,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1282). DFU makes no pool distinction:
+        // (cityGuards.js:1285). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.
@@ -5575,7 +5575,7 @@ export async function bootExterior(canvas, renderer, params, status) {
           cityGuards.resolveCivilianHit(weaponRig.playerWeapon, eye, fwd, player.pos, _guardPool(),
             { onMurder: () => _crimeResponse(), onHitSound: guardHitSound, swing }).then((r) => {
             if (r?.carriedHit) tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
-            if (r) surfacePlayer();
+            if (r?.crime) surfacePlayer();
             // ROAD-B: WeaponEnvDamage's static-door arm (:474-477),
             // world.js's twin - THE FOUR HOSTS RULE.
             // AUDIT 23 (C9) - WeaponManager.cs:423-424: the no-enemy
@@ -5583,7 +5583,8 @@ export async function bootExterior(canvas, renderer, params, status) {
             // gone); a swing that found neither guard, civilian nor
             // door - a swing the env arm consumed returns true and
             // rings nothing (:1066).
-            else if (!modes?.attemptExteriorDoorBash?.(eye, fwd)) audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);
+            // AUDIT 29g: a swing that stopped on a spared body (r.spared) met someone - no door behind him is bashed
+            else if (r?.spared || !modes?.attemptExteriorDoorBash?.(eye, fwd)) audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);
           }).catch((e) => console.error('[civil]', e));
         }
       }
