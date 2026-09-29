@@ -169,8 +169,8 @@ test('RENOWN-CHAR the worker: the token\'s level is the NAMED character\'s own -
   assert.deepEqual(await call('POST', '/v1/guilds/found', { character: fresh.id, name: 'The Hound', tag: 'HND', realm: fresh.at() }, me.secret), { status: 403, body: { error: 'guild-renown' } }, 'a character that never earned is Renown 1 - whatever the account\'s best (Mara\'s 10)');
   env.DB._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 1)').run(me.id, fresh.id, 'Fresh', renownXpFor(10));
   assert.equal((await call('POST', '/v1/guilds/found', { character: fresh.id, name: 'The Hound', tag: 'HND', realm: fresh.at() }, me.secret)).status, 200, 'at its own Renown 10, it founds');
-  assert.equal(ACCOUNT_VERSION, 'acct31', 'RENOWN-CHAR moved it on (acct31), past MERGE 2\'s acct30');
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct31"/);
+  assert.equal(ACCOUNT_VERSION, 'acct32', 'PROF-DELETE moved it on (acct32); RENOWN-CHAR before it (acct31), past MERGE 2\'s acct30');
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct32"/);
 });
 
 test('RENOWN-CHAR the raid: a town defended is paid to the character that FOUGHT it, at its own Renown - never the account\'s best - another character\'s track untouched; a claim naming no character is refused (mutants: the raid read at the account\'s best track)', async () => {
@@ -355,6 +355,6 @@ test('RENOWN-CHAR the client: the account card draws the characters\' tracks - t
   assert.match(w, /onRecorded: \(data\) => \{\n\s+if \(data\?\.renown\?\.character !== characterIdOf\(playerEntity\)\) return;[^\n]*\n\s+const a = renownAnswer\(\{ \.\.\.data\.renown, order: data\.order \?\? null \}, data\.renown\.credited \?\? 0, renownSaid\);/);
   // THE DELETE DIALOG: the Renown goes with the character again
   const menu = src('src/ui/enhancedMenu.js');
-  assert.match(menu, /- its Renown, its home and its guild place with it\. A copy you made offline stays\./);
+  assert.match(menu, /- its Renown, its professions and their Stores, its home and its guild place with it\. A copy you made offline stays\./);   // PROF-DELETE: and its professions
   assert.doesNotMatch(menu, /Your Renown belongs to your account/);
 });

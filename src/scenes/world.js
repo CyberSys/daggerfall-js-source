@@ -480,7 +480,7 @@ import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's 
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
 import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
-import { checkpointAllowed, checkpointDue, checkpointedTradePack } from '../systems/onlineCheckpoint.js';   // REALM P0.5: the character saved as it plays online
+import { checkpointAllowed, checkpointDue, checkpointedTradePack, createSaveSoon } from '../systems/onlineCheckpoint.js';   // REALM P0.5: the character saved as it plays online; PROF-SAVE: and at once after a professions act
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
 import { createTradePack, tradeRefusal } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack; PROF5: what may not be sold
 import { isLocked } from '../systems/itemLock.js';   // PROF5: a locked piece is not listed
@@ -1068,17 +1068,21 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  read before its line is a dead zone, whatever `?.` says). The pixels built before it stand their nodes when the
    *  state is first read. */
   let gatherHost = null;
+  /** PROF-SAVE (systems/onlineCheckpoint.js createSaveSoon): every professions act below that changes the save - the
+   *  pack, the home's things, the purse or the Bank's accounts, on the service's answer - asks ONE checkpoint on the next
+   *  task, as a trade saves at once; the checkpoint (onlineCheckpoint) is handed in once it is built (REALM P0.5). */
+  const saveSoon = createSaveSoon();
   /** PROF1: withdrawn from the Stores into the pack - the items the law names, minted as DFU mints them (law 3: they
    *  never go back). */
   const profMint = (key, n) => {
     const got = withdrawIntoPack(playerEntity, key, n);
-    if (got) townTalk.say(`${got} ${materialCountLabel(key, got)} taken from the Stores into your pack.`);
+    if (got) { townTalk.say(`${got} ${materialCountLabel(key, got)} taken from the Stores into your pack.`); saveSoon.changed(); }
   };
   /** PROF3: a craft's pieces into the pack (systems/smithItems.js) - each once, by its provenance id: a piece the pack
    *  already holds (another tab minted it) is not minted again. AUDIT 30 C4: and the station's fee kept with the craft,
    *  paid here - by the tab that mints it, on whichever answer lets it go (a kept craft settled a day later paid none). */
   const profMintCraft = (data, kept = null) => {
-    if (kept?.fee > 0) deductGold(playerEntity, Math.min(kept.fee, totalGoldAmount(playerEntity)));
+    if (kept?.fee > 0) { deductGold(playerEntity, Math.min(kept.fee, totalGoldAmount(playerEntity))); saveSoon.changed(); }
     // PROF4: the home's things too - a crafted table waits there (DECOR2b's furnishings), never in the pack; arrows carry
     // no provenance and join the quiver
     const have = heldProvenances();   // AUDIT 31 H5: wherever in the save it lies
@@ -1087,7 +1091,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (isCraftedFurniture(it)) (playerEntity.furnishings ??= []).push(it);
       else addItem((playerEntity.items ??= []), it, 'back');
     }
-    if (pieces.length) townTalk.say(craftedText(pieces));
+    if (pieces.length) { townTalk.say(craftedText(pieces)); saveSoon.changed(); }
   };
   /** AUDIT 31 H5: every list of the save a crafted piece can be in - the pack, the home's things, the wagon, and a
    *  repairer's hands (DFU's OtherItems) - so a piece is minted, put back and dropped once wherever it lies. */
@@ -1105,6 +1109,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const home = isCraftedFurniture(it);
     if (home) (playerEntity.furnishings ??= []).push(it); else addItem((playerEntity.items ??= []), it, 'back');
     townTalk.say(`${itemLongName(it)} is ${home ? 'among your home\'s things' : 'in your pack'}.`);
+    saveSoon.changed();
   };
   /** PROF5: a piece's name as its record mints it (the Crafted view's and the road's), kept by its provenance id. */
   const _pieceNames = new Map();
@@ -1148,6 +1153,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const i = (list ?? []).indexOf(item);
     if (i < 0 || (where === 'pack' && (tradeRefusal(item) || isLocked(item)))) return false;
     list.splice(i, 1);
+    saveSoon.changed();
     return true;
   };
   /** AUDIT 30 C3: a piece a settled listing took, out of the save - the take was made in a save that may not have been
@@ -1159,12 +1165,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (i < 0) continue;
       if (list === playerEntity.items) unequipItem(playerEntity, list[i]);
       list.splice(i, 1);
+      saveSoon.changed();
     }
   };
   const marketPutBack = (item, where) => {
     if (!item?.provenance) return;
     if (heldProvenances().has(item.provenance)) return;
     if (where === 'home') (playerEntity.furnishings ??= []).push(item); else addItem((playerEntity.items ??= []), item, 'back');
+    saveSoon.changed();
   };
   /** PROF5: every region's hub as this client derived it (HUB1) - the courier's road's ends, handed with every market
    *  request for the service to witness (PROF0 26). */
@@ -6910,7 +6918,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           // the fee for the smelt this press made, on the first answer it hears - `repeat` or not (AUDIT 29 C3: a first
           // answer lost, the same smelt asked again answers `repeat`, and the smith went unpaid); the page holds one press
           // at a time, and the book one ask an id
-          if (f.fee > 0) deductGold(playerEntity, f.fee);
+          if (f.fee > 0) { deductGold(playerEntity, f.fee); saveSoon.changed(); }
           const out = smeltRecipe(r.data.recipe)?.out ?? recipe;
           const made = (Number(r.data.own) || 0) + (Number(r.data.bought) || 0) || r.data.count;
           const verb = bench ? 'Sawed' : String(r.data.recipe).startsWith('burn:') ? 'Burnt' : 'Smelted';
@@ -11602,6 +11610,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       return names.length > 0;
     } catch (e) { console.error('[online] checkpoint failed', e); return false; }   // never the frame's end: the next is due in two minutes
   };
+  saveSoon.ready(() => onlineCheckpoint());   // PROF-SAVE: the professions' changes saved by the same checkpoint, from here on
   /** REALM P1.3: THE REALM'S CHECKPOINT - the character composed by the standing host and handed to the session by the
    *  composer's sink. Refused as the exit save is on the death screen: a dead character is never the realm's save. */
   function realmCheckpoint() {
@@ -18138,6 +18147,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // opened to their party opens to a player whose party holds the owner (net/homeLaw.js homeMayEnter)
     onlineHomes,
     marks: marksBook,   // MARKS1: the Bank of the Empire's Marks, online
+    saveSoon: () => saveSoon.changed(),   // PROF-SAVE: a Marks sale's gold in the Bank's account saved soon
     homeDecor,   // DECOR1c: an online home's placed pieces (null offline - the house's and the ship's are the save's)
     decorCharacter: () => characterIdOf(playerEntity),   // DECOR1d: the character an online home's placements are written as
     // REALM P2.2b: a realm character's home and decor acts move its record's gold on the service, in the act's own batch

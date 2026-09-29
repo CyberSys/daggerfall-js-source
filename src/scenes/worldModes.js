@@ -2529,7 +2529,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:628, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:634, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -3632,7 +3632,7 @@ export function createWorldModes(host) {
     // MARKS1: the balance fresh as the counter opens, and a sale whose answer was lost settled into its own account
     if (host.marks) {
       void host.marks.refresh();
-      void host.marks.settle(marksSaleCredit(() => playerEntity.bankAccounts, bankRegion)).then((line) => { if (line) hudText(line); });
+      void host.marks.settle(marksSaleCredit(() => playerEntity.bankAccounts, bankRegion, host.saveSoon)).then((line) => { if (line) hudText(line); });   // PROF-SAVE: saved soon
     }
     /** AUDIT 64 F26: ONE resolver for the owned house, because DFU's
      *  window and manager both ask the same question -
@@ -3812,7 +3812,7 @@ export function createWorldModes(host) {
         open: () => host.marks.state.open, balance: () => host.marks.state.balance, today: () => host.marks.state.today,
         pending: () => host.marks.pending,
       } : null,
-      sellMarks: host.marks ? (n) => host.marks.sell(n, marksSaleCredit(() => playerEntity.bankAccounts, bankRegion), bankRegion()) : null,
+      sellMarks: host.marks ? (n) => host.marks.sell(n, marksSaleCredit(() => playerEntity.bankAccounts, bankRegion, host.saveSoon), bankRegion()) : null,   // PROF-SAVE: saved soon
       onClose: () => { if (interiorOverlay === win) interiorOverlay = null; },
     });  win = enhancedWindow(win, 'bank');   // PORT4: the enhanced skin's face; the classic window unchanged
     interiorOverlay = win;
@@ -8296,7 +8296,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:13061's own wave-46 note); the interior
+          // a blow (world.js:13070's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10913,7 +10913,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3449-3471), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:9592). So an F9 pressed in a shop
+     *  unconditionally (world.js:9600). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10952,7 +10952,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:9703)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:9711)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10962,7 +10962,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:8602`
+     *  HARD2c: this used to spell them out, and named `world.js:8610`
      *  and `dungeonContext.js:7489` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

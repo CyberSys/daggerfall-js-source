@@ -415,8 +415,8 @@ test('MARKS1 the wiring: online the streaming host holds the book and hands it t
   assert.match(w, /marks: marksBook,   \/\/ MARKS1: the guild's Marks treasury/);
   assert.match(w, /onMarks: \(marks\) => marksBook\?\.strikeLine\(marks\) \?\? null,/);
   const m = src('src/scenes/worldModes.js');
-  assert.match(m, /sellMarks: host\.marks \? \(n\) => host\.marks\.sell\(n, marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion\), bankRegion\(\)\) : null,/);
-  assert.match(m, /void host\.marks\.settle\(marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion\)\)/, 'a kept sale settles as the counter opens');
+  assert.match(m, /sellMarks: host\.marks \? \(n\) => host\.marks\.sell\(n, marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\), bankRegion\(\)\) : null,/);
+  assert.match(m, /void host\.marks\.settle\(marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\)\)/, 'a kept sale settles as the counter opens');
   assert.match(src('src/ui/enhancedPorts.js'), /\{ label: w\.hooks\.marks\.pending\(\) \? 'Counting a sale\.\.\.' : 'Sell Marks', act: \(\) => w\._button\('sellMarks'\)/);
   assert.match(src('src/ui/socialPanel.js'), /if \(g\.marks\?\.state\?\.open === true\) \{\n\s*out\.push\(el\('div', 'dfsocial-sec', 'Marks treasury'\)\);/);
   assert.match(src('src/ui/enhancedAccount.js'), /if \(Number\.isSafeInteger\(flow\.account\.marks\)\) row\('Marks', marksText\(flow\.account\.marks\)\);/);

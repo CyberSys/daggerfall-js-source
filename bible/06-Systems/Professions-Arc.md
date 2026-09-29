@@ -1028,7 +1028,7 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
 ## 20. Rollout, moderation, data
 
 - **Switches**: `PROFESSIONS_OPEN`, `MARKS_OPEN` and `BOARD_OPEN` in the account service's config (off, dev, on); at
-  `dev` only the dev glyph sees them. `MARKS_OPEN` and `BOARD_OPEN` stand (MARKS1, NOTICE1, `server-account/wrangler.toml`), each shipped at `dev`; `BOARD_OPEN` is `on` since BOARD-ON (2026-09-29, Mac: "Board now, rest after fixes" - `06-Systems/Online-Arc.md` BOARD-ON), `MARKS_OPEN` and `PROFESSIONS_OPEN` still `dev` until the pack is saved after a professions act and a deleted character's Stores are no longer stranded. Season 0 (SEAT0 18) is the professions' beta too: Marks, the Stores and tracks
+  `dev` only the dev glyph sees them. `MARKS_OPEN` and `BOARD_OPEN` stand (MARKS1, NOTICE1, `server-account/wrangler.toml`), each shipped at `dev`; `BOARD_OPEN` is `on` since BOARD-ON (2026-09-29, Mac: "Board now, rest after fixes" - `06-Systems/Online-Arc.md` BOARD-ON), `MARKS_OPEN` and `PROFESSIONS_OPEN` still `dev` until the pack is saved after a professions act (PROF-SAVE) and a deleted character's Stores are no longer stranded (PROF-DELETE) - both fixes made, `06-Systems/Online-Arc.md`. Season 0 (SEAT0 18) is the professions' beta too: Marks, the Stores and tracks
   are kept through its wipe.
 - **Moderation**: player notes pass MAIL1's letter law and its filter; moderators (MOD1) remove a note
   (`/note remove <id>`) and may mute its author; a listing may be reported and removed the same way (the goods
