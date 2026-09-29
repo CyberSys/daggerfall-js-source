@@ -318,7 +318,7 @@ test('AUDIT OW4 D6: WHERE THE LAST LEG STARTS - the aim of the leg before it (a 
 
 test('AUDIT OW4 D1/D6 host: a walk to a spawn\'s DOOR is a place\'s - never refused for the peaks, its own pixel\'s step exempt, every other step under the law - while a spot there is refused; its edge faces the route\'s LAST LEG (lifted and run over the real planner)', () => {
   const w = rd('src/scenes/world.js');
-  const m = /\n {2}(function travelViewWalkTo\(point, pix, \{ door = null, water = false \} = \{\}\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
+  const m = /\n {2}(function travelViewWalkTo\(point, pix, \{ door = null, water = false, roads = false \} = \{\}\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
   assert.ok(m, 'the walk, with its one option');
   const P = 32768, mid = (p) => [p.x * P + P / 2, p.y * P + P / 2];   // this test's own native frame
   const doorAt = (px, py) => { const [x, z] = mid({ x: px, y: py }); return { minX: x - 2048, maxX: x + 2048, minZ: z - 2048, maxZ: z + 2048 }; };
