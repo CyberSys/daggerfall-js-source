@@ -97,6 +97,7 @@ import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/t
 import { hasPort } from '../systems/travelPorts.js';
 import { calculateTradePrice } from '../systems/shopStock.js';   // TravelTimeCalculatorTO's FormulaHelper.CalculateTradePrice
 import { liveStat } from '../systems/statMods.js';
+import { skillValue, SKILLS } from '../systems/skills.js';   // TO-FARE: GetLiveSkillValue(Mercantile)
 
 /** The five Hotkey assignments this window makes, in DFU's own setup
  *  order (:167, :171, :176, :188, :200) - Panel.ProcessHotkeySequences
@@ -204,7 +205,13 @@ export function enforceShipRestriction(settings, opts, ctx) {
  *  nights, ShipTravelCostScaleFactor over the passage) and each put
  *  through the shop-price formula at quality 10 afterwards. A factor of
  *  1 - the shipped default - leaves its half untouched, formula and all.
- *  No mod (`settings` null) leaves the fare as DFU billed it. */
+ *  No mod (`settings` null) leaves the fare as DFU billed it.
+ *
+ *  TO-FARE (FIELD BUGS 2026-09-29f): the formula is FormulaHelper's
+ *  CalculateTradePrice, which reads the player's live Mercantile SKILL
+ *  (GetLiveSkillValue, FormulaHelper.cs:1992/1998) - the fare read
+ *  `liveStat(e, 'mercantile')`, a stat no entity has, so every scaled
+ *  fare haggled at Mercantile 0 and a trained haggler paid a novice's. */
 export function scaleTripCost(c, settings, entity) {
   const s = settings;
   if (!s) return c;
@@ -212,7 +219,7 @@ export function scaleTripCost(c, settings, entity) {
   if (inns <= 1 && ships <= 1) return c;
   const e = entity ?? null;
   const trade = (cost) => calculateTradePrice(cost, 10, {
-    mercantile: e ? (liveStat(e, 'mercantile') ?? 0) : 0,
+    mercantile: e ? skillValue(e, SKILLS.Mercantile) : 0,
     personality: e ? (liveStat(e, 'personality') ?? 50) : 50,
   }, false);
   let piecesCost = c.piecesCost;

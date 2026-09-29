@@ -3353,8 +3353,9 @@ object is the authority over the boss and signs a receipt for each account that 
 
 ## RENOWN1 — Renown, the level that exists only online (2026-09-24)
 
-**Since RENOWN-ACCOUNT (2026-09-28, below), Renown is the ACCOUNT's, and every source pays three quarters.** What follows
-is RENOWN1 as it was built.
+**Since RENOWN-ACCOUNT (2026-09-28, below), every source pays three quarters. RENOWN-ACCOUNT also made Renown the
+ACCOUNT's for a day; RENOWN-CHAR (2026-09-29, below) made it each character's again.** What follows is RENOWN1 as it was
+built.
 
 Mac, bringing a friend's MMORPG pillars ("The Hybrid Leveling System ... a traditional EverQuest-style Adventuring
 Level ... which dictates total health, magicka"): "What if the leveling system was something seperate unique to online
@@ -3952,6 +3953,9 @@ handing its commit to the realm (`net/tradeSession.js` `escrow`, `systems/realmS
 
 ## RENOWN-ACCOUNT — one Renown an account, every source at three quarters (2026-09-28, acct19)
 
+**Half of this stands.** The three quarters and the hour's 15,000 stand. The one Renown an account was undone the next
+day by RENOWN-CHAR (below): Renown is each character's again, and `renown_accounts` is history.
+
 Mac: "Btw can you make sure renown is account based and not character based? Along with reducing the accumulation of
 renown from resources a bit. Want some more oomph to the grind".
 
@@ -4151,3 +4155,44 @@ before the realm, after the census froze - the relay still admitted such a build
   developer's end of it.
 - `acct22`. Pins: `test/realmdoor.test.js` (6), `test/customspass.test.js` (6); `test/accountworker.test.js` names the
   new table.
+
+## RENOWN-CHAR — Renown a character's again (2026-09-29, acct31)
+
+Mac: "Can we make renown per character again". Asked how each character should start, Mac chose **"Own + recent
+gains"**: each character goes back to its own track from before RENOWN-ACCOUNT, plus everything the account earned while
+Renown was the account's.
+
+- **A track a character, as RENOWN1 built it.** `renownTracks.js`, `raids.js` and the client's tracker, raid queue and
+  bar are RENOWN1's again, byte for byte:
+  - a report names its character (`renown-character` without one), and its answer names it back;
+  - the token's `lv` and the mint's total are the named character's (1 and 0 for one that never earned);
+  - `/v1/account`'s `renown` is the list of tracks again, the `RENOWN_CARD_TRACKS` (five) most recently earned;
+  - a raid is paid to the character that fought it, at its own Renown;
+  - a guild is founded on the founding character's own Renown;
+  - a Court writ pays the delivering character's track (`professions.js`; MERGE 2 had moved it to the account's).
+- **What stays from RENOWN-ACCOUNT:** every source at three quarters (`RENOWN_RATE_PCT` 75, `renownRate`), and the
+  hour's bound, 15,000, still the ACCOUNT's across all its characters. A second character is not a second allowance.
+- **The tracks' bound is back:** `RENOWN_TRACKS_MAX`, 60 an account. A 61st character is refused `renown-full` (409);
+  a raid for one is still counted, and a writ still filled and paid its Marks, with no Renown.
+- **Migration 0035 (`0035_renown_characters.sql`)** gives each track what it is owed:
+  - its own XP, plus the account's gains: `renown_accounts.xp` less the best track it began from (0021 began every
+    account at its best track, and no track's XP was written since). The gains were never recorded by character, so
+    every character of the account takes them. Nobody loses a level, and an alt takes only the gains.
+  - a realm character with no track (made since) gets the gains alone, only when there are gains, only into the room
+    the tracks' bound leaves, the most recently played first.
+  - never past the cap's total.
+  - every track takes the account's `last_rid`, so a report in flight across the deploy is answered as a repeat.
+  - a realm character's track is stamped with the later of its own time and its record's last move, so the card leads
+    with the character played last.
+  - one known over-payment: where a realm character holding the account's best track was deleted while Renown was the
+    account's, the gains are read against the best that remains. That is more than was earned, never less.
+  - `renown_accounts` stays as it stood, as history nothing writes.
+- **The client:** the account card's chip is the level of the character played last, named in its title, with a row a
+  character. The page takes a raid's credit only for the character that fought it. The realm delete dialog says the
+  Renown goes with the character again.
+- `acct31`. Pins: `test/renown_char.test.js` (7); `test/renown_account.test.js` now holds only what stands of
+  RENOWN-ACCOUNT (3: the rate, 0021 as it ran, the relay untouched); `test/prof1_service.test.js` a writ's Renown per
+  character. The pins RENOWN-ACCOUNT had rewritten were put back to the character's: RENOWN1, RENOWN4, RENOWN-BAR,
+  AUDIT RENOWN1, RAID4, AUDIT RAID, the guild pins, realm5 and auditrealm. Mutants: `tools/mutants/renown_char.json`
+  (18: 17 dead, 1 recorded equivalent - the migration's cap, which no row can reach); `renown_account.json` keeps its
+  8 that still apply (the rate, 0021), all dead; the records RENOWN-ACCOUNT had re-aimed were re-aimed back by content.

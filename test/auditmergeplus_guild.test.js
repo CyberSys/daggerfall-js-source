@@ -117,9 +117,9 @@ async function stand({ kp = null, db = d1() } = {}) {
     });
     return { status: res.status, body: await res.json().catch(() => null) };
   };
-  /** A linked account at Renown `renown` (RENOWN-ACCOUNT: the account's, which its character stands at), and the page's
-   *  session store the client's doors read. AUDIT REALM2 S2: a founder is a REALM character (`realm: true`) - a founding
-   *  is paid on its record - `at()` where it stands. */
+  /** A linked account at Renown `renown` on its character (RENOWN-CHAR: the character's own track again), and the
+   *  page's session store the client's doors read. AUDIT REALM2 S2: a founder is a REALM character (`realm: true`) - a
+   *  founding is paid on its record - `at()` where it stands. */
   const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN, realm = false } = {}) => {
     const secret = (await call('/v1/auth/guest', { ...ACCEPTED })).body.secret;
     assert.equal((await call('/v1/auth/register', { secret, handle, password: 'a good long one', ...ACCEPTED })).status, 200);
@@ -127,8 +127,8 @@ async function stand({ kp = null, db = d1() } = {}) {
     let at = null;
     if (realm) ({ id: character, at } = await seatRealm(env, secret, handle, { name: handle, level: 9, goldPieces: 100_000, items: [] }));
     if (renown > 1) {
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
-        .run(id, renownXpFor(renown), 1, 1);
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(id, character, handle, renownXpFor(renown), 1, 1);
     }
     const kept = new Map([[SESSION_KEY, JSON.stringify({ secret, id })]]);
     const storage = { getItem: (k) => kept.get(k) ?? null, setItem: (k, v) => kept.set(k, v), removeItem: (k) => kept.delete(k) };

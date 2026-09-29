@@ -117,7 +117,8 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // AUDIT REALM added `realm_census` (0020; 0018 on its branch): the characters that played online before the realm, counted once as the
   // migration is applied - customs' gate, which no session can write to since
   // RENOWN-ACCOUNT added `renown_accounts` (0021): ONE row an account's Renown, keyed by the account alone - each account
-  // began at its best character's track, and `renown_tracks` stays beside it as history nothing writes again
+  // began at its best character's track. RENOWN-CHAR (0035) made Renown the characters' again: each track took what
+  // the account earned while it was the account's, and `renown_accounts` stays as history nothing writes again
   // CUSTOMS-PASS added `realm_passes` (0024): one row a developer's grant of a customs pass - open until customs spends it
   // on the one character it lets in, then the record of whom it let in (at most one open an account)
   // MARKS1 added three (0025): `marks` (an account's balance), `guild_marks` (a guild's Marks treasury) and

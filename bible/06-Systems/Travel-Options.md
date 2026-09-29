@@ -1349,6 +1349,19 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
   over first (the map door's GiveOffer rung); a purse that holds the fare but not the inns' coin is told the coin. (A first draft of this record said the popup
   priced AFTER its guard and so read no ocean; the constructor's own refresh makes that false - corrected.)
 
+## TO-FARE (2026-09-29) - the fare's haggle reads the Mercantile skill
+
+Found on MERC-CAP's way (`01-Overview/Field-Bugs-2026-09-29f.md`), fixed at Mac's word: *"Fix the separate bug"*.
+The mod scales a fast-travel fare and puts each half back through `FormulaHelper.CalculateTradePrice(cost, 10, false)`
+(TravelTimeCalculatorTO.CalculateTripCost), which reads the traveller's live Mercantile SKILL (GetLiveSkillValue,
+FormulaHelper.cs:1992/1998). `scaleTripCost` read `liveStat(e, 'mercantile')` - a stat by the skill's name, which no
+entity has - so every scaled fare haggled at Mercantile 0: on a trip of 300 in inn nights and 400 in passage at x4 and
+x3, a traveller at Mercantile 90 was billed a novice's 1686 for a 1068 fare. It reads `skillValue(e,
+SKILLS.Mercantile)` now, the same read every counter makes, so a worn Enhances Skill haggles too. The split this page
+called faithful was; its haggle's Mercantile was not. Both maps and a party's fare bill through it (`travelFareDeps`),
+and the dials are the player's own online (`ONLINE_PLAYERS_OWN_MODS`), where MERC-CAP reads the skill no further than
+100. Offline, past 233 the mod's own call bills under nothing, as a room does - put to Mac with MERC-CAP.
+
 ## Pins
 
 `test/to1_travelOptions.test.js`. `tools/mutants/to1.json`.
@@ -1361,3 +1374,4 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
 `test/risestuck.test.js`, `tools/mutants/rise_stuck.json` (RISE-STUCK).
 `test/disc28e_shipport.test.js`, `tools/mutants/disc28e.json` (SHIP-PORT's ten, SHIP-SAIL's twenty-three).
 `test/fb0929d_toroads.test.js`, `tools/mutants/fb0929d_toroads.json` (TO-ROADS, 14 dead, 2 equivalent).
+`test/fb0929f_tofare.test.js`, `tools/mutants/fb0929f_tofare.json` (TO-FARE, 2 dead).
