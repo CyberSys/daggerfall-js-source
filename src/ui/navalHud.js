@@ -168,7 +168,12 @@ function cardState(t, board, key) {
   if (t.state === 'sinking') return { text: 'Going down', kind: 'sinking' };
   if (t.state === 'prize') return mine && board.kind === 'hold' ? { text: `Taken - ${key}: her hold`, kind: 'board' } : { text: 'Taken', kind: '' };
   if (t.boarded) return { text: 'Boarded', kind: '' };
-  if (t.state === 'struck') return mine && board.kind === 'board' ? { text: `Colours struck - ${key}: board her`, kind: 'board' } : { text: 'Colours struck', kind: '' };
+  if (t.state === 'struck') {
+    if (mine && board.kind === 'board') return { text: `Colours struck - ${key}: board her`, kind: 'board' };
+    // AUDIT NAV1 (the helm): in reach but too fast - the refusal said nothing
+    if (mine && board.kind === 'heave') return { text: board.heaving ? 'Colours struck - heaving to' : `Colours struck - ${key}: heave to`, kind: 'board' };
+    return { text: 'Colours struck', kind: '' };
+  }
   return { text: t.hostile ? 'Hostile' : '', kind: '' };
 }
 
@@ -208,7 +213,9 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
     chips: [ship.wrecked ? 'wreck' : null, ship.fire ? 'fire' : null, ship.braced ? 'brace' : null, ship.mending ? 'mend' : null].filter(Boolean),
     batteries,
     // the press that matters most, first: a ship in reach to board or plunder, then the guns
-    hint: model.board ? `${boardKey}: ${model.board.kind === 'hold' ? `open ${model.board.name}'s hold` : model.board.kind === 'yard' ? model.board.name : `board ${model.board.name}`}`
+    hint: model.board ? (model.board.kind === 'heave' && model.board.heaving ? `Heaving to beside ${model.board.name}`
+      : `${boardKey}: ${model.board.kind === 'hold' ? `open ${model.board.name}'s hold` : model.board.kind === 'yard' ? model.board.name
+        : model.board.kind === 'heave' ? `heave to beside ${model.board.name}` : `board ${model.board.name}`}`)
       : ship.wrecked ? 'Crippled - make port for a shipwright'   // AUDIT NAV1: the way out of a wreck, said
       : !model.armed ? 'No guns aboard' : model.aiming ? `${touch ? 'Lift' : 'Let go'} to fire - ${bracePress}`
       : `${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${bracePress}`,

@@ -9,9 +9,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { AIM_SLOPE, lookReach, aimSolution } from '../src/systems/naval/navalGunnery.js';
 import { HULL, batteryOf, hullBuild } from '../src/systems/naval/navalShips.js';
-import { SHIP_STATES, BRACE_TAKEN, BARE_POLES, WRECKED_OARS } from '../src/systems/naval/navalDamage.js';
+import { SHIP_STATES, BRACE_TAKEN, BARE_POLES, WRECKED_OARS, STRUCK_AT } from '../src/systems/naval/navalDamage.js';
+import { BOARD_RANGE, BOARD_SPEED } from '../src/systems/naval/navalBoarding.js';
 import { NAVAL_DEG, shotPosition, segmentBoxEntry } from '../src/systems/naval/navalBallistics.js';
-import { hullBoxOf, rigBoxesOf, AIM_CAM_OUT, AIM_CAM_UP, AIM_CAM_AFT, AIM_CAM_TAU, AIM_CAM_CLEAR, RAM_REACH, RAM_MEMORY_S, RAM_DAMAGE, RAM_RECOIL, BOW_RECOIL, GALLEY_RAM, RAM_SPEED, RAM_COOLDOWN_S } from '../src/scenes/navalHost.js';
+import { hullBoxOf, rigBoxesOf, AIM_CAM_OUT, AIM_CAM_UP, AIM_CAM_AFT, AIM_CAM_TAU, AIM_CAM_CLEAR, RAM_REACH, RAM_MEMORY_S, RAM_DAMAGE, RAM_RECOIL, BOW_RECOIL, GALLEY_RAM, RAM_SPEED, RAM_COOLDOWN_S, HEAVE_TO_ACCEL, HEAVE_TO_S, COMPASS_SHIP_RANGE, PLAYER_SKILL, PLAYER_SKILL_THIN } from '../src/scenes/navalHost.js';
+import { drawShipCompassMarks, SHIP_MARK_COLORS, compassMarkerLerp, DETECT_MARKER_W, DETECT_MARKER_H } from '../src/ui/hud.js';
 import { navalHudText, drawNavalHud, destroyNavalHud, navalTouchBrace, NAVAL_BRACE_H, NAVAL_HUD_CSS } from '../src/ui/navalHud.js';
 import { NavalRenderer, NAVAL_STRIDE, aimTone, AIM_TONES, AIM_POST_HALF_W, AIM_POST_HALF_H, AIM_STRIKE_HALF, flatAcross } from '../src/render/navalRender.js';
 import { yardOffer, yardAll, fieldMend, YARD_PRICE, BARREL_PRICE, FIELD_QUIET_S, FIELD_MEND_PER_S, FIELD_MEND_ALONE, FIELD_MEND_CAP, FIELD_REFLOAT } from '../src/systems/naval/navalYard.js';
@@ -760,4 +762,186 @@ test('AUDIT NAV1 H15 the shipwright\'s window: his words for her - each row what
   assert.equal(b.done, true);
   assert.equal(navalYardOpen(), false);
   assert.ok(WARM_CHUNKS.some((f) => String(f).includes('navalYardWindow.js')), 'warmed');
+});
+
+// ── heave to, the compass, my own deck afire, my crews' hands ───────────────────────────────────────────────────────
+
+/** A struck merchantman abeam to starboard, within BOARD_RANGE of my Small Ship's side. */
+function struckAbeam(h) {
+  const beams = hullBuild(HULL.SmallShip).beam * 2;
+  const at = { pos: [beams + BOARD_RANGE / 2, 0, 0], yaw: 0 };
+  frames(h, [[h.e, at]], 2);
+  h.e.ship.damage.apply({ hull: Math.ceil(h.e.ship.damage.maxHull * (1 - STRUCK_AT)) + 1, sail: 0, crew: 0 }, 0);
+  assert.equal(h.e.ship.damage.state, SHIP_STATES.struck);
+  return at;
+}
+
+test('AUDIT NAV1 H16 heave to: a struck ship in reach with the helm too fast to board - the card and the hint say so, and Activate strikes the sails and takes her way off at HEAVE_TO_ACCEL (Come Sail Away\'s `accelScale`), nothing driving her on, until she is under BOARD_SPEED - then the grapples are the key\'s; HEAVE_TO_S at most, and never for a ship no longer struck (mutants: the refusal silent, the brake unwired, the sails left set, the heave-to held past its end)', async () => {
+  const h = await helm();
+  const at = struckAbeam(h);
+  const name = h.e.ship.names.name;
+  h.runtime.state.sailPosition = 1;
+  let lowered = 0;
+  h.runtime.LowerSails = () => { lowered++; h.runtime.state.sailPosition = 0; };
+  h.runtime.state.velocityCurrent = [0, 0, 6];
+  frames(h, [[h.e, at]]);
+  let m = h.host.hudModel();
+  assert.deepEqual(m.board, { name, kind: 'heave', heaving: false });
+  const keys = { board: 'E' };
+  let t = navalHudText({ ...m, target: { ...m.target, name, state: 'struck' } }, keys);
+  assert.equal(t.plate.hint, `E: heave to beside ${name}`);
+  assert.equal(t.card.state, 'Colours struck - E: heave to');
+  assert.equal(h.host.accelScale(), 1);
+  // the press
+  assert.equal(h.host.activate(), true);
+  assert.equal(lowered, 1, 'the sails struck');
+  assert.match(h.log.say.at(-1), /^Heave to!/);
+  assert.equal(h.host.accelScale(), HEAVE_TO_ACCEL, 'her way comes off hard');
+  assert.deepEqual([h.host.wayScale(true), h.host.wayScale(false)], [0, 0], 'nothing driving her on');
+  frames(h, [[h.e, at]]);
+  m = h.host.hudModel();
+  assert.equal(m.board.heaving, true);
+  t = navalHudText({ ...m, target: { ...m.target, name, state: 'struck' } }, keys);
+  assert.equal(t.plate.hint, `Heaving to beside ${name}`);
+  assert.equal(t.card.state, 'Colours struck - heaving to');
+  // under BOARD_SPEED: done, and the grapples are the key's
+  h.runtime.state.velocityCurrent = [0, 0, BOARD_SPEED - 0.5];
+  frames(h, [[h.e, at]]);
+  assert.equal(h.host.accelScale(), 1, 'heaved to');
+  assert.equal(h.host.hudModel().board.kind, 'board');
+  // HEAVE_TO_S at most
+  h.runtime.state.velocityCurrent = [0, 0, 6];
+  frames(h, [[h.e, at]]);
+  h.host.activate();
+  frames(h, [[h.e, at]], Math.floor(HEAVE_TO_S * 10) - 2);
+  assert.equal(h.host.accelScale(), HEAVE_TO_ACCEL, 'still heaving to');
+  frames(h, [[h.e, at]], 4);
+  assert.equal(h.host.accelScale(), 1, 'past HEAVE_TO_S');
+  // she is gone from the struck: the heave-to with her
+  h.host.activate();
+  assert.equal(h.host.accelScale(), HEAVE_TO_ACCEL);
+  h.e.ship.damage.scuttle();
+  frames(h, [[h.e, at]]);
+  assert.equal(h.host.accelScale(), 1, 'nothing to heave to for');
+  // the world hands the brake to Come Sail Away
+  assert.match(src('scenes/world.js'), /accelScale: \(\) => naval\?\.accelScale\(\) \?\? 1,/);
+});
+
+test('AUDIT NAV1 H17 the sea\'s ships on the compass: within COMPASS_SHIP_RANGE, afloat or struck, each marked by what she is to me - hostile, a ship, struck - on the classic box a triangle turned up (never the party\'s or a Detect\'s) in SHIP_MARK_COLORS, on the enhanced strip a pooled mark; none going down, none far, none with the arc off (mutants: the range unread, the kinds merged, the marks never drawn, the triangle the party\'s)', async () => {
+  const h = await helm();
+  const pirate = h.host._sea.get(h.host.spawnShip('pirateBrig', { range: 900 }));
+  const struck = h.host._sea.get(h.host.spawnShip('merchantGalleon', { range: 900 }));
+  const far = h.host._sea.get(h.host.spawnShip('merchantGalleon', { range: 900 }));
+  const held = [[h.e, { pos: [300, 0, 0], yaw: 0 }], [pirate, { pos: [0, 0, 500], yaw: 0 }], [struck, { pos: [-400, 0, 0], yaw: 0 }], [far, { pos: [0, 0, -COMPASS_SHIP_RANGE - 50], yaw: 0 }]];
+  frames(h, held, 2);
+  struck.ship.damage.apply({ hull: Math.ceil(struck.ship.damage.maxHull * (1 - STRUCK_AT)) + 1, sail: 0, crew: 0 }, 0);
+  frames(h, held);
+  const marks = h.host.compassShips();
+  const byPos = (x, z) => marks.find((m) => Math.abs(m.x - x) < 1 && Math.abs(m.z - z) < 1)?.kind;
+  assert.equal(byPos(300, 0), 'ship', 'a merchantman');
+  assert.equal(byPos(0, 500), 'hostile', 'a pirate');
+  assert.equal(byPos(-400, 0), 'struck');
+  assert.equal(marks.length, 3, 'the far one is not on it');
+  struck.ship.damage.apply({ hull: 1e6, sail: 0, crew: 0 }, 0);
+  frames(h, held);
+  assert.equal(h.host.compassShips().length, 2, 'going down: off the compass');
+  h.host.setEnabled(false);
+  assert.equal(h.host.compassShips(), null);
+  // the classic box
+  const quads = [];
+  const renderer = { drawScreenQuad: (tex, rect, uv, col) => quads.push({ rect, col }) };
+  const box = { bx: 500, by: 400, bw: 100, s: 2 };
+  assert.equal(drawShipCompassMarks(renderer, [{ x: 0, z: 50, kind: 'hostile' }, { x: 50, z: 0, kind: 'struck' }], [0, 0], 0, box), 2);
+  assert.equal(quads.length, 6);
+  assert.deepEqual(quads.slice(0, 3).map((q) => q.rect.w), [1 * box.s, 3 * box.s, 5 * box.s], 'the point up: a bow');
+  assert.equal(quads[0].col, SHIP_MARK_COLORS.hostile);
+  assert.equal(quads[3].col, SHIP_MARK_COLORS.struck);
+  const mw = DETECT_MARKER_W * box.s;
+  assert.equal(quads[2].rect.x, box.bx + (box.bw - mw) * compassMarkerLerp([0, 50], [0, 0], 0));
+  assert.equal(quads[0].rect.y, box.by - DETECT_MARKER_H * box.s, 'over the box\'s top edge');
+  assert.equal(drawShipCompassMarks(renderer, null, [0, 0], 0, box), 0);
+  const H = src('ui/hud.js');
+  assert.match(H, /drawShipCompassMarks\(renderer, ships, playerXZ, heading01, \{ bx, by, bw, s \}\);/);
+  assert.match(H, /ships: ships \?\? null,/);
+  assert.match(src('scenes/world.js'), /ships: navalOn\(\) && _mode\(\) === 'exterior' \? naval\?\.compassShips\(\) \?\? null : null,/);
+  // the enhanced strip
+  const mk = () => ({
+    className: '', textContent: '', id: '', children: [], dataset: {}, attrs: {},
+    style: { setProperty(k, v) { this[k] = v; }, removeProperty(k) { delete this[k]; } },
+    classList: { _s: new Set(), add(...c) { c.forEach((x) => this._s.add(x)); }, remove(...c) { c.forEach((x) => this._s.delete(x)); }, toggle(c, on) { if (on) this._s.add(c); else this._s.delete(c); }, contains(c) { return this._s.has(c); } },
+    setAttribute(k, v) { this.attrs[k] = String(v); }, getAttribute(k) { return this.attrs[k]; }, removeAttribute(a) { delete this.attrs[a]; }, remove() {},
+    append(...c) { this.children.push(...c); }, appendChild(c) { this.children.push(c); return c; }, replaceChildren(...c) { this.children = c; }, addEventListener() {},
+  });
+  const findAll = (n, cls, out = []) => { if (String(n.className ?? '').split(/\s+/).includes(cls)) out.push(n); for (const c of n.children ?? []) findAll(c, cls, out); return out; };
+  const prev = globalThis.document;
+  globalThis.document = { createElement: mk, createElementNS: () => mk(), getElementById: () => null, head: mk(), body: mk() };
+  const { drawEnhancedHud, destroyEnhancedHud, SHIP_MARK_CSS } = await import('../src/ui/enhancedHud.js');
+  const me = { health: 40, maxHealth: 80, magicka: 0, maxMagicka: 10, fatigue: 100, items: [], equip: { slots: {} }, lightSource: null };
+  try {
+    const frame = (ships) => drawEnhancedHud(me, 0, 0, { weapon: null, weaponSheathed: true, playerXZ: [0, 0], ships });
+    frame([{ x: 0, z: 50, kind: 'hostile' }, { x: 50, z: 0, kind: 'ship' }]);
+    const root = globalThis.document.body.children.find((n) => n.className === 'hud');
+    let ms = findAll(root, 'hud-ship');
+    assert.equal(ms.length, 2);
+    assert.equal(ms[0].style.borderBottomColor, SHIP_MARK_CSS.hostile);
+    assert.equal(ms[1].style.borderBottomColor, SHIP_MARK_CSS.ship);
+    assert.ok(ms[0].style.cssText.includes('border-bottom:5px solid'), 'a bow, pointing up');
+    assert.equal(ms[0].style.left, `${(compassMarkerLerp([0, 50], [0, 0], 0) * 100).toFixed(1)}%`);
+    frame([{ x: 0, z: 50, kind: 'struck' }]);
+    ms = findAll(root, 'hud-ship');
+    assert.equal(ms.length, 2, 'pooled');
+    assert.equal(ms[1].style.display, 'none');
+    assert.equal(ms[0].style.borderBottomColor, SHIP_MARK_CSS.struck);
+  } finally {
+    destroyEnhancedHud();
+    globalThis.document = prev;
+  }
+});
+
+test('AUDIT NAV1 H18 my own deck afire is seen and heard: the flames along her deck with her, the burning loop, the glow among the host\'s lights - put out with the fire; and my gun crews lay by what is left of them: PLAYER_SKILL at a full crew or my own hand, down to PLAYER_SKILL_THIN at none (mutants: my fire unshown, the loop unheard, my glow unlit, the flames left burning, the crew\'s skill fixed)', async () => {
+  const flames = [];
+  const loops = [];
+  const h = await helm();
+  h.deps.flame = (pos) => { const f = { pos: [...pos], retired: false, move(p) { this.pos = [...p]; }, retire() { this.retired = true; } }; flames.push(f); return f; };
+  h.deps.audio.loop3d = (k, p) => { const l = { k, p: [...p], stopped: false, move(q) { this.p = [...q]; }, stop() { this.stopped = true; } }; loops.push(l); return l; };
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }]]);
+  // a fire aboard - a ball's
+  const box = hullBoxOf(h.boat, h.pool.models);
+  const d = () => h.host.hudModel().ship;
+  let tries = 0;
+  while (!d().fire && tries++ < 60) {
+    h.host._shots.fireVolley({ id: `f${tries}`, shooter: 'x', launches: [{ delay: 0, p0: [box.c[0] - 30, box.c[1] + 2, box.c[2]], v0: [120, 0, 0], gun: 'heavy', index: 0 }] });
+    frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }]], 3);
+  }
+  assert.equal(d().fire, true, 'she burns');
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }]]);
+  assert.equal(flames.length, 3, 'a Small Ship burns in three places');
+  const deckY = h.boat.GameObject.position[1] + hullBuild(HULL.SmallShip).deck + 1;
+  for (const f of flames) near(f.pos[1], deckY, 1e-6, 'on her deck');
+  assert.ok(loops.some((l) => l.k === 420 && !l.stopped), 'the burning loop');
+  const lit = h.host.lights().filter((l) => l.color && l.range > 0 && Math.abs(l.y - (h.boat.GameObject.position[1] + hullBuild(HULL.SmallShip).deck + 2)) < 1e-6);
+  assert.equal(lit.length, 1, 'her glow');
+  // she moves: the flames with her
+  h.boat.GameObject.position = [5, h.boat.GameObject.position[1], 0];
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }]]);
+  assert.ok(flames.every((f) => Math.abs(f.pos[0] - 5) < 1e-6), 'carried');
+  // put out
+  frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }]], 200);
+  assert.equal(d().fire, false);
+  assert.ok(flames.every((f) => f.retired), 'the flames out with the fire');
+  assert.ok(loops.every((l) => l.stopped), 'and the loop');
+  // the crews' hands
+  const skillAt = async (crew, crewed) => {
+    const g = await helm({ save: SAVE({ hull: 420, sail: 160, crew }) });
+    g.boat.crewed = crewed;
+    g.view.look = { origin: EYE, dir: [1, -0.05, 0] };
+    g.host.attackInput(true);
+    frames(g, [[g.e, { pos: [0, 0, 1500], yaw: 0 }]]);
+    g.host.attackInput(false);
+    return g.host.volleyWire.at(-1).skill;
+  };
+  assert.equal(await skillAt(24, true), PLAYER_SKILL, 'a full crew');
+  near(await skillAt(12, true), PLAYER_SKILL_THIN + (PLAYER_SKILL - PLAYER_SKILL_THIN) * 0.5, 1e-9, 'half of them');
+  assert.equal(await skillAt(0, true), PLAYER_SKILL_THIN, 'none left');
+  assert.equal(await skillAt(0, false), PLAYER_SKILL, 'a boat that carries none: my own hand');
 });

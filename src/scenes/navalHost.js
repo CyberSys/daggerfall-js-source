@@ -104,6 +104,19 @@ export const RAM_COOLDOWN_S = 3;
  *  (Come Sail Away takes a bow's way off it the frame it meets a hull), less the other's own way along her course. A
  *  stem not built to ram takes BOW_RECOIL times RAM_RECOIL back, a galley's ram a GALLEY_RAM-th of it. */
 export const RAM_REACH = 1.2;
+/** AUDIT NAV1 (the helm): HEAVE TO - a struck ship in reach with the helm too fast to board (the refusal said nothing:
+ *  under sail W/S do nothing, and a Small Ship at 8.2 m/s took 28 s and 151 m to lose her way with her sails struck):
+ *  Activate strikes the sails and brakes her, her own way off at HEAVE_TO_ACCEL times her own rate (Come Sail Away's
+ *  `accelScale` seam) for HEAVE_TO_S at most, until she is under BOARD_SPEED - then the grapples are the key's. */
+export const HEAVE_TO_ACCEL = 10;
+/** AUDIT NAV1 (the helm): the sea's ships stand on the compass within this (m) - the target card's own reach. */
+export const COMPASS_SHIP_RANGE = 900;
+/** AUDIT NAV1 (the helm): MY GUN CREWS' SKILL (navalGunnery.js volleyLaunches) - a full crew's, or my own hand at a boat
+ *  that carries none, is PLAYER_SKILL; a crew thinned by grape and boarders lays wider, down to PLAYER_SKILL_THIN at
+ *  none (it was PLAYER_SKILL whatever was left of them). */
+export const PLAYER_SKILL = 0.6;
+export const PLAYER_SKILL_THIN = 0.3;
+export const HEAVE_TO_S = 8;
 /** AUDIT NAV1 (the helm): THE SHIPWRIGHT stands at a port - a port town's waters (`where().nearPort`), her way under
  *  YARD_SPEED (she lies to his quay) and no hostile ship near (systems/naval/navalYard.js). */
 export const YARD_SPEED = 2.5;
@@ -784,6 +797,44 @@ export function createNavalHost(deps) {
   /** The shipwright's window over the world. */
   function openYard(boat) { return !!deps.openYard?.(yardModel(boat)); }
 
+  /** My gun crews' skill for a volley: PLAYER_SKILL at a full crew (or none to thin), less as they thin. */
+  const crewSkill = (boat, st) => (boat.crewed ? PLAYER_SKILL_THIN + (PLAYER_SKILL - PLAYER_SKILL_THIN) * st.damage.crewShare() : PLAYER_SKILL);
+
+  // ── a fire on my own deck (AUDIT NAV1, the helm): seen and heard as a sea ship's is - it read as a chip alone ────
+  const myFires = new Map();   // boat -> { fires: [{ at, handle }], loop }
+  function douseMine(boat, f) {
+    for (const fire of f.fires) fire.handle?.retire?.();
+    f.loop?.stop?.();
+    myFires.delete(boat);
+  }
+  /** Each burning boat of mine: her flames along her deck with her, the embers and smoke, the burning loop. */
+  function poseMyFires(dt) {
+    const standing = myBoats();
+    for (const [b, f] of myFires) if (!standing.includes(b)) douseMine(b, f);
+    for (const b of standing) {
+      const st = myBoatState(b);
+      let f = myFires.get(b);
+      if (st.damage.fire <= 0) { if (f) douseMine(b, f); continue; }
+      if (!f) {
+        f = { fires: [], loop: null };
+        const spots = b.hull <= 1 ? 1 : 3;
+        for (let i = 0; i < spots; i++) f.fires.push({ at: (i - (spots - 1) / 2) * 0.5, handle: deps.flame?.(b.GameObject.position) ?? null });
+        myFires.set(b, f);
+      }
+      const pose = boatPose(b);
+      const fw = flatUnit(quatRotate(pose.rotation, [0, 0, 1])) ?? [0, 0, 1];
+      const build = hullBuild(b.hull);
+      const deckY = pose.position[1] + build.deck + 1, len = (build.beam || 4) * 1.6;
+      for (const fire of f.fires) {
+        const p = [pose.position[0] + fw[0] * fire.at * len, deckY, pose.position[2] + fw[2] * fire.at * len];
+        fire.handle?.move?.(p);
+        effects.burn(p, dt);
+      }
+      f.loop ??= deps.audio?.loop3d?.(NAVAL_CLASSIC.burning, pose.position, 0.7, NAVAL_FIRE_LOOP) ?? null;
+      f.loop?.move?.(pose.position);
+    }
+  }
+
   // ── aiming ───────────────────────────────────────────────────────────────────────────────────────────────────────
   let aiming = false;
   let aim = null;   // the solution this frame, while aiming
@@ -894,6 +945,7 @@ export function createNavalHost(deps) {
   function wayScale(underSail) {
     const boat = myBoat();
     if (!enabled || !boat) return 1;
+    if (heaveTo) return 0;   // heaving to: nothing driving her on
     const d = myBoatState(boat).damage;
     if (underSail) return d.state === SHIP_STATES.wrecked ? 0 : d.wayShare();
     return d.state === SHIP_STATES.wrecked ? WRECKED_OARS : 1;
@@ -971,7 +1023,7 @@ export function createNavalHost(deps) {
     }
     const pose = boatPose(boat);
     const solution = lookAim(boat, side);
-    fire({ shooter: myBoatId(boat), wireShooter: -1, hull: boat.hull, pose, solution, skill: 0.6 });
+    fire({ shooter: myBoatId(boat), wireShooter: -1, hull: boat.hull, pose, solution, skill: crewSkill(boat, st) });
     st.guns.fired(side);
     deps.shake?.(1.2);
     return true;
@@ -983,11 +1035,11 @@ export function createNavalHost(deps) {
   // ── boarding ─────────────────────────────────────────────────────────────────────────────────────────────────────
   let boarding = null;
   /** The ship a boarding at the helm would take: struck, not taken, within reach - the one the look is on first. */
-  function boardable(boat) {
+  function boardable(boat, { anySpeed = false } = {}) {
     if (!boat) return null;
     const pose = boatPose(boat);
     const speed = Math.hypot(pose.velocity[0], pose.velocity[2]);
-    if (speed > BOARD_SPEED) return null;
+    if (speed > BOARD_SPEED && !anySpeed) return null;
     const look = deps.look?.();
     let best = null, bestScore = Infinity;
     for (const e of sea.values()) {
@@ -1006,6 +1058,31 @@ export function createNavalHost(deps) {
     return best;
   }
 
+  // ── heave to (AUDIT NAV1, the helm) ─────────────────────────────────────────────────────────────────────────────
+  let heaveTo = null;   // { id, until }
+  /** A struck ship in reach that the helm is too fast to board - the one a heave-to is for - or null. */
+  function heaveFor(boat) {
+    if (!boat || boardable(boat)) return null;
+    return boardable(boat, { anySpeed: true });
+  }
+  /** Strike the sails and take her way off beside `e`. */
+  function startHeaveTo(e) {
+    heaveTo = { id: e.id, until: clock + HEAVE_TO_S };
+    const r = csa();
+    if (r?.state?.sailPosition > 0) r.LowerSails?.();
+    deps.say?.(`Heave to! Your way comes off beside ${e.ship.names?.name ?? 'her'}.`, 2.5);
+  }
+  /** The heave-to ends under BOARD_SPEED, past HEAVE_TO_S, or with her gone from reach. */
+  function stepHeaveTo(boat) {
+    if (!heaveTo) return;
+    const e = sea.get(heaveTo.id);
+    const v = boat ? boatPose(boat).velocity : null;
+    const slow = !v || Math.hypot(v[0], v[2]) <= BOARD_SPEED;
+    if (slow || clock > heaveTo.until || !e || e.ship.damage.state !== SHIP_STATES.struck || e.ship.boarded) heaveTo = null;
+  }
+  /** Come Sail Away's `accelScale` seam: her way comes off at HEAVE_TO_ACCEL while she heaves to. */
+  const accelScale = () => (enabled && heaveTo && myBoat() ? HEAVE_TO_ACCEL : 1);
+
   /**
    * Activate: at the helm, throw the grapples on a struck ship in reach; on foot (a deck alongside her, or swimming
    * up), go over her rail when she is within reach and the look is on her. True when it took the press.
@@ -1019,6 +1096,8 @@ export function createNavalHost(deps) {
     if (boat) {
       const e = boardable(boat);
       if (e) { startBoarding('board', e, boat); return true; }
+      const fast = heaveFor(boat);
+      if (fast) { startHeaveTo(fast); return true; }   // AUDIT NAV1: too fast to board her - heave to
       return yardHere(boat) && openYard(boat);   // AUDIT NAV1: the shipwright, lying to his quay
     }
     const e = boardableOnFoot();
@@ -1392,6 +1471,8 @@ export function createNavalHost(deps) {
     // the ram and the aim, on the hulls as this frame stands them (AUDIT NAV1: both read the last frame's, a ship's way
     // behind - my stem where it is, her planking where it was)
     checkRams(boat);
+    stepHeaveTo(boat);
+    poseMyFires(total);
     aim = null; aimHit = null;
     if (aiming && boat) {
       const side = lookSide(boat);
@@ -1724,7 +1805,8 @@ export function createNavalHost(deps) {
     const hot = !!aimHit && state === 'ready';
     const nb = boarding ? null : boardable(boat);
     const pr = nb || boarding ? null : prizeInReach(boat);
-    const yard = !nb && !pr && !boarding && yardHere(boat);
+    const hv = nb || pr || boarding ? null : heaveFor(boat);
+    const yard = !nb && !pr && !hv && !boarding && yardHere(boat);
     return {
       ship: { name: HULL_NAMES[boat.hull], hull: st.damage.hullShare(), sail: st.damage.maxSail > 0 ? st.damage.sailShare() : null, crew: st.damage.maxCrew > 0 ? st.damage.crewShare() : null, fire: st.damage.fire > 0, wrecked: st.damage.state === SHIP_STATES.wrecked, braced: st.guns.braced, repair: repairCost(st.damage), mending },
       armed: batteries.length > 0,
@@ -1732,7 +1814,8 @@ export function createNavalHost(deps) {
       aim: aim ? { side: aim.side, gun: aim.gun, range: Math.round(aim.range), max: Math.round(aim.maxRange), hot, barrel: aim.barrel, state, left: state === 'reloading' ? +st.guns.left(aim.side).toFixed(1) : 0 } : null,
       aiming,
       target,
-      board: nb ? { name: nb.ship.names?.name ?? 'the ship', kind: 'board' } : pr ? { name: pr.ship.names?.name ?? 'the ship', kind: 'hold' } : yard ? { name: 'the shipwright', kind: 'yard' } : null,
+      board: nb ? { name: nb.ship.names?.name ?? 'the ship', kind: 'board' } : pr ? { name: pr.ship.names?.name ?? 'the ship', kind: 'hold' }
+        : hv ? { name: hv.ship.names?.name ?? 'the ship', kind: 'heave', heaving: !!heaveTo } : yard ? { name: 'the shipwright', kind: 'yard' } : null,
       boarding: boarding ? { kind: boarding.kind, phase: boarding.phase } : null,
       notoriety: notorietyWord,
       incoming: st.damage.state === SHIP_STATES.wrecked ? null : incoming(boat),
@@ -1797,7 +1880,13 @@ export function createNavalHost(deps) {
   function lights() {
     const out = flashes.map((f) => ({ x: f.pos[0], y: f.pos[1], z: f.pos[2], range: MUZZLE_FLASH_RANGE * (1 - (clock - f.t) / MUZZLE_FLASH_S), color: MUZZLE_FLASH_COLOR, carried: true }));
     const feet = deps.feet();
-    const burning = [...sea.values()].filter((e) => e.fires?.length && e.boat).sort((a, b) => dist2d(a.ship.pos, feet) - dist2d(b.ship.pos, feet)).slice(0, BURN_LIGHTS);
+    // AUDIT NAV1: my own burning deck's glow first - it is the nearest fire there is
+    for (const b of myFires.keys()) {
+      const p = b.GameObject.position;
+      if (out.length - flashes.length >= BURN_LIGHTS) break;
+      out.push({ x: p[0], y: p[1] + hullBuild(b.hull).deck + 2, z: p[2], range: BURN_RANGE * (0.85 + 0.15 * Math.sin(clock * 9)), color: BURN_COLOR, carried: true });
+    }
+    const burning = [...sea.values()].filter((e) => e.fires?.length && e.boat).sort((a, b) => dist2d(a.ship.pos, feet) - dist2d(b.ship.pos, feet)).slice(0, Math.max(0, BURN_LIGHTS - myFires.size));
     for (const e of burning) {
       const p = e.ship.pos;
       out.push({ x: p[0], y: deps.seaY() + hullBuild(e.ship.hull).deck + 2, z: p[2], range: BURN_RANGE * (0.85 + 0.15 * Math.sin(clock * 9 + e.phase)), color: BURN_COLOR, carried: true });
@@ -1829,7 +1918,8 @@ export function createNavalHost(deps) {
     wireVolleys = []; wireBarrels = [];
     seenVolleys.clear();
     flashes.length = 0;
-    aiming = false; aim = null;
+    aiming = false; aim = null; aimHit = null; heaveTo = null; wayIn = [];
+    for (const [b, f] of [...myFires]) douseMine(b, f);
     if (boarding) { for (const f of boarding.foes) deps.board?.removeFoe?.(f.handle); endBoarding(); }
     director.reset();
   }
@@ -1858,13 +1948,29 @@ export function createNavalHost(deps) {
   }
 
   return {
-    frame, attackInput, cancelAim, activate, hudModel, drawFrame, lights, offsetAll, clear, aimEye, wayScale, sailRefused,
+    frame, attackInput, cancelAim, activate, hudModel, drawFrame, lights, offsetAll, clear, aimEye, wayScale, sailRefused, accelScale,
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     leaveShipGate, raidEnded, placeQuestFoe,
     newSaveData, getSaveData, restoreSaveData,
     raiders, raiderShipOf,   // NAV-R
     /** Whether a hostile ship is near - Come Sail Away's time scale refuses to run with one (AreEnemiesNearby). */
     hostileNear: () => hostileNearMe(),
+    /** AUDIT NAV1 (the helm): the sea's ships on the compass (ui/hud.js drawShipCompassMarks, ui/enhancedHud.js) -
+     *  within COMPASS_SHIP_RANGE of the player, afloat or struck: `[{ x, z, kind }]` in scene XZ, `kind` 'hostile' (a
+     *  ship afloat that would take me), 'struck' (her colours down, or taken) or 'ship'. None with the arc off. */
+    compassShips() {
+      if (!enabled) return null;
+      const feet = deps.feet();
+      const out = [];
+      for (const e of sea.values()) {
+        const st = e.ship.damage.state;
+        if (st === SHIP_STATES.sinking || st === SHIP_STATES.sunk || dist2d(e.ship.pos, feet) > COMPASS_SHIP_RANGE) continue;
+        const kind = st !== SHIP_STATES.afloat ? 'struck'
+          : hostile(e.ship, { kind: 'player', id: myId() }, { notoriety: (c) => notoriety.get(c), now: clock }) ? 'hostile' : 'ship';
+        out.push({ x: e.ship.pos[0], z: e.ship.pos[2], kind });
+      }
+      return out;
+    },
     /** The sea ships' boats standing near enough to be struck and walked on (the world's collider takes them). */
     collidable() { const f = deps.feet(); return [...sea.values()].filter((e) => e.boat && dist2d(e.ship.pos, f) < COLLIDE_RANGE).map((e) => e.boat); },
     /** Every sea ship's boat (their particles ride Come Sail Away's lists). */

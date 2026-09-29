@@ -478,7 +478,7 @@ export function hideHudTextSurfaces(hudText = null) {
 }
 
 export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
-  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, party = null, largeHud = null, hover = null,
+  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, party = null, ships = null, largeHud = null, hover = null,
     readied = null, weapon = null, weaponSheathed = true, quickUse = null, quickSwap = null, quickOffHand = null, quickSpell = null, quickSwitchHand = null } = {}) {   // PX30b: for the enhanced HUD's hand plaques; AUDIT 28 W2: the arrow counter's gate; AUDIT 64 F35: the host's previousWindow answer; QS3: the diamond's sheathe state and its two phone taps; QS6: the caption's spell chip press
   // AUDIT 24 (wave 39): ShowPlayerDamage's red flash, under the bars.
   // THE FOUR HOSTS RULE, applied before the fact: drawHud is the one
@@ -644,6 +644,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       playerXZ: playerXZ ?? null,
       gate: gate ?? null,   // WB1: the Oblivion Gate's scene XZ while the player stands in its ring - the compass's own mark
       party: party ?? null,   // COMPASS-PARTY: the party's points (ui/partyMapMarks.js partyCompassPoints)
+      ships: ships ?? null,   // AUDIT NAV1 (the helm): the sea's ships (scenes/navalHost.js compassShips)
       // QS3: the quickslot diamond dims its main cell when the weapon
       // is put away. drawHud has carried `weaponSheathed` since AUDIT
       // 28 W2 for the arrow counter's gate and never passed it on, so
@@ -784,6 +785,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   }
   // COMPASS-PARTY: the party's marks, over the box as the Detect markers are, in the party's green
   drawPartyCompassMarks(renderer, party, playerXZ, heading01, { bx, by, bw, s });
+  drawShipCompassMarks(renderer, ships, playerXZ, heading01, { bx, by, bw, s });   // AUDIT NAV1: the sea's ships
   // U38: the crosshair and the interaction-mode indicator, LAST -
   // DaggerfallHUD draws them from one Update beside the vitals it
   // already owns, and drawHud is the ONE host-agnostic call all four
@@ -818,6 +820,35 @@ export function drawPartyCompassMarks(renderer, points, playerXZ, heading01, { b
     for (let r = 0; r < DETECT_MARKER_ROWS.length; r++) {
       const fill = DETECT_MARKER_ROWS[r] * s;
       renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, PARTY_GREEN);
+    }
+    drawn++;
+  }
+  return drawn;
+}
+
+/** AUDIT NAV1 (the helm - the audit: "there are no ship bearings on the compass", the target card only within 6 degrees
+ *  of the crosshair): the sea's ships on the classic compass - the Detect marker's triangle turned UP (a hull's bow, and
+ *  never the party's or a Detect's), its row over the box's top edge and its bearing law (compassMarkerLerp, clamped),
+ *  in SHIP_MARK_COLORS by what she is to me. `ships` are `{ x, z, kind }` in scene XZ (scenes/navalHost.js
+ *  compassShips). Answers how many it drew. */
+export const SHIP_MARK_COLORS = Object.freeze({
+  hostile: Object.freeze([0.93, 0.34, 0.27, 1]), ship: Object.freeze([0.92, 0.88, 0.76, 1]), struck: Object.freeze([0.56, 0.56, 0.56, 1]),
+});
+export function drawShipCompassMarks(renderer, ships, playerXZ, heading01, { bx, by, bw, s }) {
+  if (!ships || !ships.length || !playerXZ) return 0;
+  const mw = DETECT_MARKER_W * s, mh = DETECT_MARKER_H * s;
+  const boxLeft = bx, boxRight = bx + bw - mw;
+  const my = by - mh;
+  const rowH = mh / DETECT_MARKER_H;
+  const rows = [...DETECT_MARKER_ROWS].reverse();
+  let drawn = 0;
+  for (const t of ships) {
+    const lerp = Math.min(1, Math.max(0, compassMarkerLerp([t.x, t.z], playerXZ, heading01)));
+    const mx = boxLeft + (boxRight - boxLeft) * lerp;
+    const col = SHIP_MARK_COLORS[t.kind] ?? SHIP_MARK_COLORS.ship;
+    for (let r = 0; r < rows.length; r++) {
+      const fill = rows[r] * s;
+      renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, col);
     }
     drawn++;
   }

@@ -69,6 +69,10 @@
 - On a phone or tablet, your ship's panel has its own Brace button: hold it to brace.
 - Ramming now works. Hit a ship with your bow at speed to damage her, and you take some damage back (less when braced). A galley's ram hits three times as hard.
 - Damage now affects how your ship sails: torn sails slow you down, and a crippled ship can only row, slowly. When your rigging is shot away you're told once instead of every time you try to raise the sails.
+- Coming up on a ship that has struck her colours too fast to board? The ship's name shows "heave to". Press the board key to drop sail and brake hard, and once you're slow enough you can board.
+- Nearby ships now show on the compass: red for enemies, pale for other ships and grey for ships that have struck their colours.
+- A fire on your own ship now shows flames on deck, with the sound of burning and its glow.
+- Your gunners are less accurate as your crew is killed.
 
 ## Repairs - the shipwright
 - Ports now have a shipwright. Stop your ship in a port town's waters with no enemy ships around, and your ship's panel shows the key to visit him.

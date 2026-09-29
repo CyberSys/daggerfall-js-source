@@ -622,3 +622,18 @@ test('CSA-D x AUDIT NAV1 (the helm): the sea fight\'s seams - moveSpeed times `w
   near(s.rt.properties.moveSpeed(), sail * 0.25, 1e-6, 'under a torn rig, the canvas left');
   assert.equal(asked.at(-1), true, 'told she is under sail');
 });
+
+test('CSA-D x AUDIT NAV1 (the helm): a heave-to\'s brake - moveAccel times the sea fight\'s `accelScale`, held to 0..20, the mod\'s own rate with none (mutants: the scale unread, unheld)', () => {
+  const s = scene();
+  s.helm(s.place(1, 3));
+  const own = s.rt.properties.moveAccel();
+  assert.ok(own > 0);
+  s.deps.accelScale = () => 10;
+  near(s.rt.properties.moveAccel(), own * 10, 1e-6, 'heaving to');
+  s.deps.accelScale = () => 1e6;
+  near(s.rt.properties.moveAccel(), own * 20, 1e-5, 'held to 20');
+  s.deps.accelScale = () => -3;
+  assert.equal(s.rt.properties.moveAccel(), 0);
+  s.deps.accelScale = () => undefined;
+  near(s.rt.properties.moveAccel(), own, 1e-9, 'no word, her own');
+});

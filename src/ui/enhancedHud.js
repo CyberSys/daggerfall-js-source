@@ -282,6 +282,36 @@ function drawPartyMarks(points, playerXZ, heading01) {
   }
 }
 
+// AUDIT NAV1 (the helm): THE SEA'S SHIPS ON THE STRIP - the party's triangle turned up (a bow, never a mate's mark),
+// standing on the strip's top edge, by the same bearing law, in what she is to me: hostile red, a ship bone, struck grey.
+// Pooled and hidden, never removed.
+export const SHIP_MARK_CSS = Object.freeze({ hostile: '#ee5745', ship: '#ebe0c2', struck: '#8f8f8f' });
+const shipMarkCss = () => 'position:absolute;top:0;width:0;height:0;margin-left:-4px;'
+  + 'border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:5px solid;'
+  + 'filter:drop-shadow(0 0 1px rgba(0,0,0,0.9));pointer-events:none';
+function drawShipMarks(ships, playerXZ, heading01) {
+  const list = (ships && playerXZ) ? ships : [];
+  while (parts.shipMarks.length < list.length) {
+    const node = el('i', 'hud-ship');
+    node.style.cssText = shipMarkCss();
+    parts.compass.append(node);
+    parts.shipMarks.push(node);
+  }
+  for (let i = 0; i < parts.shipMarks.length; i++) {
+    const node = parts.shipMarks[i];
+    if (i >= list.length) {
+      if (node.style.display !== 'none') node.style.display = 'none';
+      continue;
+    }
+    if (node.style.display === 'none') node.style.display = '';
+    const at = Math.min(1, Math.max(0, compassMarkerLerp([list[i].x, list[i].z], playerXZ, heading01)));
+    const l = `${(at * 100).toFixed(1)}%`;
+    if (node.style.left !== l) node.style.left = l;
+    const c = SHIP_MARK_CSS[list[i].kind] ?? SHIP_MARK_CSS.ship;
+    if (node.style.borderBottomColor !== c) node.style.borderBottomColor = c;
+  }
+}
+
 /** The effects: name, rounds left, whether it is going, and (UI3) its ICON00I0 icon, whether I cast it on myself and
  *  whether a party mate did - the status widget's spell tiles. */
 export function effectRows(entity) {
@@ -717,7 +747,7 @@ function build(doc) {
   cells.main.cell.addEventListener('pointerdown', tap(() => { liveOpts.quickSwitchHand?.(); }));
 
   doc.body.append(root);
-  return { root, compass, marks, detectMarks: [], partyMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
+  return { root, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
     stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
@@ -834,6 +864,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   drawDetectMarkers(opts.detected ?? null, opts.playerXZ ?? null, heading01);
   drawGateMark(opts.gate ?? null, opts.playerXZ ?? null, heading01);   // WB1
   drawPartyMarks(opts.party ?? null, opts.playerXZ ?? null, heading01);   // COMPASS-PARTY
+  drawShipMarks(opts.ships ?? null, opts.playerXZ ?? null, heading01);   // AUDIT NAV1: the sea's ships
 
   // THE TARGET, when there is one.
   const t = foeTarget();

@@ -70,7 +70,9 @@ carries its row instead. It stands on three things the port already had:
 - **Interact boards** (E): a ship that has struck her colours within BOARD_RANGE of the helm, the way under
   BOARD_SPEED - the grapples fly, she is hauled alongside, and you go over her rail. On foot (swimming up, or from a
   deck alongside) the same press within FOOT_BOARD_M of her side with the look on her. The target card and the plate's
-  hint say the key ("Colours struck - E: board her").
+  hint say the key ("Colours struck - E: board her"). Too fast beside her, the same press HEAVES TO (AUDIT NAV1): the
+  sails struck and her way taken off at HEAVE_TO_ACCEL times her own rate until she is under BOARD_SPEED, HEAVE_TO_S at
+  most ("Colours struck - E: heave to", then "heaving to").
 - **Taken, she opens**: the plunder window - her hold, one thing to take from her, and her fate. Shut it and she lies
   taken where she is; Interact opens her again.
 
@@ -337,7 +339,8 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   to board or plunder, then the guns). The AIM under the crosshair (AUDIT NAV1: dimmed, with why, while the battery
   cannot fire). The TARGET CARD under the compass: her name, class and captain, the distance, her hull and sails,
   whether she is hostile, her state and the key that boards her - while a broadside is laid, the ship its guns strike. On
-  foot, the card alone - while a struck ship or a prize is in reach. AUDIT NAV1: THE WARNING over the crosshair -
+  foot, the card alone - while a struck ship or a prize is in reach. AUDIT NAV1: THE SEA'S SHIPS ON THE COMPASS, both skins
+  (a bow's triangle in what she is to me); THE WARNING over the crosshair -
   BROADSIDE and the brace's key, pulsing in the kit's blood edge - while a run-out bears on you and until its balls are
   down; THE TALLY under the aim for TALLY_S once your volley's last ball is down.
 - **Where the card stands** (THE MERGE with CSA-L): by the house law for what stands under the compass (the journey
@@ -425,9 +428,9 @@ its drawer Ships at sea (`naval-ships`: few, some, many), Pirates board you (`na
   pad's LB crouches already. AUDIT NAV1: at the helm it is the brace alone - the motor's stance and a levitating
   descent are not fed while sailing (world.js `helmBrace`).
 - **Come Sail Away's way and its sails take the sea fight's word** (AUDIT NAV1): the mod has no hurt, so the port's
-  runtime asks the naval host two things it never asked - `wayScale` (its moveSpeed times the host's share: the canvas
-  a shot-up rig still sets, a wreck's oars) and `sailRefused` (RaiseSails refused with that line, before the mod's own
-  obstruction).
+  runtime asks the naval host three things it never asked - `wayScale` (its moveSpeed times the host's share: the canvas
+  a shot-up rig still sets, a wreck's oars, nothing while she heaves to), `sailRefused` (RaiseSails refused with that
+  line, before the mod's own obstruction) and `accelScale` (its moveAccel times HEAVE_TO_ACCEL while she heaves to).
 - **Warm Ashes' LeaveShip asks a gate first** (above).
 - **A pirate flagship starts `WAQ_SHIP_ATTACK_PIRATE`**, which the mod registers and never starts.
 - **The player's boat is wrecked, never sunk.**
@@ -518,6 +521,10 @@ The helm audit's aiming findings (the player at the guns; 1080p, DFU's default F
 | the aim looks ready when it is not (H9) | the zone drawn braced, reloading ("Starboard broadside - 164 m" at 12% loaded) and wrecked; a braced release silent; no time on the reload | the aim's STATE (`aimState`): the line's tail says why - "reloading 6.1 s", "braced", "no barrels", "guns silent" - dimmed, the zone grey, never red; a braced release says so; the reload's message its seconds | - |
 | the zone a sliver on screen (H10) | discs 6 cm over the sea: 3.7 px tall at 150 m from the Small Ship's helm, 0.7 px at 100 m from the Large Boat's | a post of light over each splash, turned to the eye (AIM_POST_HALF_H: 3.4 m) | about 19 px at 150 m |
 | no way to mend her (H1) | the page promised a shipwright and none stood: `repairCost` written into the readout and read by nothing, the one mend a prize's timber - a Small Ship shot to nought still wrecked at hull 0 after a reload and an hour at sea, its unread quote 5,940 gold; with "Pirates board you" off a wreck stayed one for ever | THE SHIPWRIGHT (`yardHere`, `yardModel`, `navalYard.js`, `navalYardWindow.js` behind the plunder window's own door): a port's waters, still, no hostile near - hull, canvas, hands and barrels by the piece as far as the purse pays, MAKE HER WHOLE in order; HER HANDS' MENDING at sea to FIELD_MEND_CAP after FIELD_QUIET_S, a wreck afloat past FIELD_REFLOAT; the wreck's hint "Crippled - make port for a shipwright" | a wrecked Small Ship floats again after 75 s of quiet at a full crew, and a port makes her whole |
+| boarding needs a near-stop, and nothing says so (H11) | refused above BOARD_SPEED with the card at "Colours struck" - no key, no reason; under sail W/S do nothing, and a Small Ship at 8.2 m/s with her sails struck took 28.4 s and 151 m to come under 2.5 m/s | HEAVE TO (`heaveFor`, `startHeaveTo`): a struck ship in reach and the helm too fast - the card "Colours struck - E: heave to", the hint "E: heave to beside her"; the press strikes the sails and takes her way off at HEAVE_TO_ACCEL times her own rate (Come Sail Away's `accelScale`, nothing driving her on) until she is under BOARD_SPEED, HEAVE_TO_S at most, and never for a ship no longer struck | about 3 s from 8 m/s to boarding way |
+| no ship bearings on the compass (H14) | the card only within 6 degrees of the crosshair; "There are enemies nearby" and no direction | THE SEA'S SHIPS ON THE COMPASS (`compassShips`, `hud.js drawShipCompassMarks`, `enhancedHud.js` the strip's `hud-ship` marks): within COMPASS_SHIP_RANGE, afloat or struck, by what she is to me - hostile red, a ship bone, struck grey - a triangle turned up (a bow; the party's and a Detect's point down) | - |
+| a fire on my own deck invisible (H15) | only `damage.fire`: a chip on the plate | my own boat's fire as a sea ship's (`poseMyFires`): the flames along her deck with her, the embers and smoke, the burning loop, her glow first among the host's lights; out with the fire | - |
+| (minor) my volley skill fixed | 0.6 whatever was left of the crew | `crewSkill`: PLAYER_SKILL at a full crew or my own hand, down to PLAYER_SKILL_THIN at none | - |
 | the brace is the Crouch toggle (H5) | the press toggled the motor's crouch under the helm's freeze: the first brace left the player crouched (the eye 1.7 m over the feet to 0.8 - the lay 6.1 m shorter at 150 m), the next stood them; a phone had no brace - the touch table's slots hold none by default, and the hint said "Crouch: brace" | at the helm the Crouch action is the brace alone (`helmBrace`: the stance and the descent never fed while sailing); under a finger the plate's own BRACE, held (`navalTouchBrace`), named "hold Brace" in the hint and the warning; under Enhanced Plus the pad layout puts Crouch on R3 (its bumpers are the crossbar's) and the hint names it | - |
 | the ram cannot land (H6) | the bow point `beam x 2.4` from the root: a stem 1.0 m (Large Boat), 1.2 (Small Ship), 5.0 (Carrack) and 29.2 m (galley) inside her box before it counted - and Come Sail Away takes the way off a bow at the planking it meets: no ram ever landed; its recoil `RAM_RECOIL * 2`, the page's RAM_RECOIL | the STEM (`bowZ`) within RAM_REACH of her box, read after the hulls are posed; the way she came in with (the most of the last RAM_MEMORY_S) less hers along the course; the way spent on the first; BOW_RECOIL named - a plain stem takes twice RAM_RECOIL, a galley's ram a GALLEY_RAM-th - half braced | a Small Ship at 6 m/s rams for 84 and takes 50; a galley's ram from her own stem for 252 |
 | her hurts never in her handling (H8) | WRECKED_OARS read by nothing; a shot-up rig kept its whole way to the last of its canvas; wrecked, the host struck the sails every frame they went up - a line a press on top of the mod's own | Come Sail Away's seams: `wayScale` (moveSpeed times `wayShare` under sail - BARE_POLES and the rest by the canvas left - and WRECKED_OARS on a wreck's oars) and `sailRefused` (RaiseSails refused with one line: a wreck, a rig shot away); a rig lost with the canvas set struck once | - |
@@ -544,11 +551,11 @@ own, the guns' reach, the warning, the tell heard and seen, the tally) and `nava
 on a ship, the red where the balls strike her as she will stand, why the guns will not fire yet, the aim drawn, the
 broadside camera, the world's wiring), on the shared sea of `test/navalSea.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`
-and `navaudit_helm.json`, 409 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+and `navaudit_helm.json`, 438 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
-rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 102 with the
-audit's helm, and four of other suites' re-aimed by content at the laws the helm keeps);
+rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
+audit's helm, and seven of other suites' re-aimed by content at the laws the helm keeps);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

@@ -46,7 +46,7 @@ let last = null;
 export const TRAVEL_HELD_TEXT = (n, of, why = 'load') => (why === 'ground'
   ? `Held to ×${n} of ×${of} until the Overworld rises` : `Held to ×${n} of ×${of} while the land loads`);
 
-/** enhancedHud.js:316 - write only on a change. */
+/** enhancedHud.js:346 - write only on a change. */
 function put(node, key, value) {
   if (!node || last[key] === value) return;
   last[key] = value;

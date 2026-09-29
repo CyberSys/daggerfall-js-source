@@ -148,8 +148,8 @@
   {
     "name": "NAV1H-the-last-frames-hulls",
     "file": "src/scenes/navalHost.js",
-    "old": "    buildOne();\n    for (const e of sea.values()) poseShip(e, total, seaY);\n    // the ram and the aim, on the hulls as this frame stands them (AUDIT NAV1: both read the last frame's, a ship's way\n    // behind - my stem where it is, her planking where it was)\n    checkRams(boat);\n    aim = null; aimHit = null;\n    if (aiming && boat) {\n      const side = lookSide(boat);\n      if (side) { aim = lookAim(boat, side); aimHit = aimStrikes(aim); }\n    } else if (!boat) aiming = false;\n",
-    "new": "    aim = null; aimHit = null;\n    if (aiming && boat) {\n      const side = lookSide(boat);\n      if (side) { aim = lookAim(boat, side); aimHit = aimStrikes(aim); }\n    } else if (!boat) aiming = false;\n    buildOne();\n    for (const e of sea.values()) poseShip(e, total, seaY);\n    checkRams(boat);\n",
+    "old": "    buildOne();\n    for (const e of sea.values()) poseShip(e, total, seaY);\n    // the ram and the aim, on the hulls as this frame stands them (AUDIT NAV1: both read the last frame's, a ship's way\n    // behind - my stem where it is, her planking where it was)\n    checkRams(boat);\n    stepHeaveTo(boat);\n    poseMyFires(total);\n    aim = null; aimHit = null;\n    if (aiming && boat) {\n      const side = lookSide(boat);\n      if (side) { aim = lookAim(boat, side); aimHit = aimStrikes(aim); }\n    } else if (!boat) aiming = false;\n",
+    "new": "    aim = null; aimHit = null;\n    if (aiming && boat) {\n      const side = lookSide(boat);\n      if (side) { aim = lookAim(boat, side); aimHit = aimStrikes(aim); }\n    } else if (!boat) aiming = false;\n    buildOne();\n    for (const e of sea.values()) poseShip(e, total, seaY);\n    checkRams(boat);\n    stepHeaveTo(boat);\n    poseMyFires(total);\n",
     "tests": [
       "test/navaudit_helm.test.js"
     ]
@@ -850,8 +850,8 @@
   {
     "name": "NAV1H-the-yard-a-ship-to-board",
     "file": "src/ui/navalHud.js",
-    "old": " : model.board.kind === 'yard' ? model.board.name : `board ${model.board.name}`}`",
-    "new": " : `board ${model.board.name}`}`",
+    "old": "`open ${model.board.name}'s hold` : model.board.kind === 'yard' ? model.board.name\n",
+    "new": "`open ${model.board.name}'s hold`\n",
     "tests": [
       "test/navaudit_helm.test.js"
     ]
@@ -915,6 +915,267 @@
     "file": "src/ui/enhancedChunk.js",
     "old": "  () => import('./navalYardWindow.js'),   // AUDIT NAV1: the shipwright's - a port's, after a fight\n",
     "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-refusal-silent",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const hv = nb || pr || boarding ? null : heaveFor(boat);",
+    "new": "    const hv = null;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-heave-unpressed",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (fast) { startHeaveTo(fast); return true; }   // AUDIT NAV1: too fast to board her - heave to\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-sails-left-set",
+    "file": "src/scenes/navalHost.js",
+    "old": "    const r = csa();\n    if (r?.state?.sailPosition > 0) r.LowerSails?.();\n    deps.say?.(`Heave to!",
+    "new": "    const r = csa();\n    void r;\n    deps.say?.(`Heave to!",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-brake-unwired",
+    "file": "src/scenes/navalHost.js",
+    "old": "  const accelScale = () => (enabled && heaveTo && myBoat() ? HEAVE_TO_ACCEL : 1);",
+    "new": "  const accelScale = () => 1;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-driven-on-while-heaving",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (heaveTo) return 0;   // heaving to: nothing driving her on\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-heave-held-past-its-end",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (slow || clock > heaveTo.until || !e || e.ship.damage.state !== SHIP_STATES.struck || e.ship.boarded) heaveTo = null;",
+    "new": "    if (slow) heaveTo = null;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-heave-unstepped",
+    "file": "src/scenes/navalHost.js",
+    "old": "    stepHeaveTo(boat);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-heaving-card-unsaid",
+    "file": "src/ui/navalHud.js",
+    "old": "    if (mine && board.kind === 'heave') return { text: board.heaving ? 'Colours struck - heaving to' : `Colours struck - ${key}: heave to`, kind: 'board' };\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-heave-hint-a-boarding",
+    "file": "src/ui/navalHud.js",
+    "old": "        : model.board.kind === 'heave' ? `heave to beside ${model.board.name}` : `board ${model.board.name}`}`)",
+    "new": " : `board ${model.board.name}`}`)",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-brake-unread",
+    "file": "src/systems/comeSailAway.js",
+    "old": "    return f(moveAccelOwn() * f(Math.max(0, Math.min(20, Number(deps.accelScale?.() ?? 1)))));",
+    "new": "    return moveAccelOwn();",
+    "tests": [
+      "test/csa_wind.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-brake-unheld",
+    "file": "src/systems/comeSailAway.js",
+    "old": "    return f(moveAccelOwn() * f(Math.max(0, Math.min(20, Number(deps.accelScale?.() ?? 1)))));",
+    "new": "    return f(moveAccelOwn() * f(Number(deps.accelScale?.() ?? 1)));",
+    "tests": [
+      "test/csa_wind.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-brake-unwired-world",
+    "file": "src/scenes/world.js",
+    "old": "    accelScale: () => naval?.accelScale() ?? 1,",
+    "new": "    accelScale: () => 1,",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-compass-range-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "        if (st === SHIP_STATES.sinking || st === SHIP_STATES.sunk || dist2d(e.ship.pos, feet) > COMPASS_SHIP_RANGE) continue;",
+    "new": "        if (st === SHIP_STATES.sinking || st === SHIP_STATES.sunk) continue;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-going-down-on-the-compass",
+    "file": "src/scenes/navalHost.js",
+    "old": "        if (st === SHIP_STATES.sinking || st === SHIP_STATES.sunk || dist2d(e.ship.pos, feet) > COMPASS_SHIP_RANGE) continue;",
+    "new": "        if (st === SHIP_STATES.sunk || dist2d(e.ship.pos, feet) > COMPASS_SHIP_RANGE) continue;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-kinds-merged",
+    "file": "src/scenes/navalHost.js",
+    "old": "        const kind = st !== SHIP_STATES.afloat ? 'struck'\n",
+    "new": "        const kind = st !== SHIP_STATES.afloat ? 'ship'\n",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-hostile-unmarked",
+    "file": "src/scenes/navalHost.js",
+    "old": "          : hostile(e.ship, { kind: 'player', id: myId() }, { notoriety: (c) => notoriety.get(c), now: clock }) ? 'hostile' : 'ship';\n        out.push",
+    "new": "          : 'ship';\n        out.push",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-compass-with-the-arc-off",
+    "file": "src/scenes/navalHost.js",
+    "old": "    compassShips() {\n      if (!enabled) return null;\n",
+    "new": "    compassShips() {\n",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-ship-marks-undrawn",
+    "file": "src/ui/hud.js",
+    "old": "  drawShipCompassMarks(renderer, ships, playerXZ, heading01, { bx, by, bw, s });   // AUDIT NAV1: the sea's ships\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-party-triangle",
+    "file": "src/ui/hud.js",
+    "old": "  const rows = [...DETECT_MARKER_ROWS].reverse();",
+    "new": "  const rows = DETECT_MARKER_ROWS;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-one-colour-for-all",
+    "file": "src/ui/hud.js",
+    "old": "    const col = SHIP_MARK_COLORS[t.kind] ?? SHIP_MARK_COLORS.ship;",
+    "new": "    const col = SHIP_MARK_COLORS.ship;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-strip-colourless",
+    "file": "src/ui/enhancedHud.js",
+    "old": "    if (node.style.borderBottomColor !== c) node.style.borderBottomColor = c;\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-strip-unmarked",
+    "file": "src/ui/enhancedHud.js",
+    "old": "  drawShipMarks(opts.ships ?? null, opts.playerXZ ?? null, heading01);   // AUDIT NAV1: the sea's ships\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-compass-unfed",
+    "file": "src/scenes/world.js",
+    "old": "          ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null,   // AUDIT NAV1 (the helm): the sea's ships on the compass\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-my-fire-unshown",
+    "file": "src/scenes/navalHost.js",
+    "old": "    poseMyFires(total);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-my-fire-unheard",
+    "file": "src/scenes/navalHost.js",
+    "old": "      f.loop ??= deps.audio?.loop3d?.(NAVAL_CLASSIC.burning, pose.position, 0.7, NAVAL_FIRE_LOOP) ?? null;\n      f.loop?.move?.(pose.position);\n    }\n  }",
+    "new": "      f.loop?.move?.(pose.position);\n    }\n  }",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-my-glow-unlit",
+    "file": "src/scenes/navalHost.js",
+    "old": "      out.push({ x: p[0], y: p[1] + hullBuild(b.hull).deck + 2, z: p[2], range: BURN_RANGE * (0.85 + 0.15 * Math.sin(clock * 9)), color: BURN_COLOR, carried: true });\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-my-flames-left-burning",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (st.damage.fire <= 0) { if (f) douseMine(b, f); continue; }",
+    "new": "      if (st.damage.fire <= 0) continue;",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-my-flames-left-behind",
+    "file": "src/scenes/navalHost.js",
+    "old": "        fire.handle?.move?.(p);\n        effects.burn(p, dt);\n      }\n      f.loop ??=",
+    "new": "        effects.burn(p, dt);\n      }\n      f.loop ??=",
+    "tests": [
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAV1H-the-crews-skill-fixed",
+    "file": "src/scenes/navalHost.js",
+    "old": "  const crewSkill = (boat, st) => (boat.crewed ? PLAYER_SKILL_THIN + (PLAYER_SKILL - PLAYER_SKILL_THIN) * st.damage.crewShare() : PLAYER_SKILL);",
+    "new": "  const crewSkill = () => PLAYER_SKILL;",
     "tests": [
       "test/navaudit_helm.test.js"
     ]

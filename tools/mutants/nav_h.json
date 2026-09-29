@@ -2,7 +2,7 @@
   {
     "name": "NAV-H-the-release-never-fires",
     "file": "src/scenes/navalHost.js",
-    "old": "    fire({ shooter: myBoatId(boat), wireShooter: -1, hull: boat.hull, pose, solution, skill: 0.6 });\n    st.guns.fired(side);",
+    "old": "    fire({ shooter: myBoatId(boat), wireShooter: -1, hull: boat.hull, pose, solution, skill: crewSkill(boat, st) });\n    st.guns.fired(side);",
     "new": "    st.guns.fired(side);",
     "tests": [
       "test/nav_h_host.test.js"
