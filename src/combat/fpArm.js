@@ -1688,7 +1688,7 @@ async function buildTpBody({
       if (!arc) { missing.push(`${row.slot}: ${path} is not in your archives`); continue; }
       // partName rides along: a worn add's slot is a label carrying its
       // record id, and the binder's part rules key on the part itself.
-      partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, bytes: arc.get(path).slice() });
+      partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, restPose: row.restPose ?? false, bytes: arc.get(path).slice() });   // MW-BRIG1: a part fitted where it sits
     }
     if (!partBytes.length) {
       return { ok: false, stage: 'parts', error: werewolf ? 'no werewolf body mesh resolved - its robe, head and hair are Bloodmoon\'s' : `no third-person body mesh resolved for race "${race}"`, notes: missing, rows };
@@ -2121,7 +2121,7 @@ export async function buildFpArm({
       const path = `meshes/${add.model}`;
       const arc = find(path);
       if (!arc) { missing.push(`${add.slot}: ${path} is not in your archives`); continue; }
-      partBytes.push({ slot: add.slot, partName: add.partName, bones: add.bones, bytes: arc.get(path).slice() });
+      partBytes.push({ slot: add.slot, partName: add.partName, bones: add.bones, restPose: add.restPose ?? false, bytes: arc.get(path).slice() });   // MW-BRIG1
     }
     // MW-D9: THE WEAPON - resolveWeaponParts above, the one home MW-D19
     // gave it so a live weapon swap resolves through the very same door
