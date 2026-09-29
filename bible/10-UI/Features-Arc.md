@@ -565,7 +565,8 @@ room has no stake in. All three are read every frame by the two
 exterior hosts, so a press takes effect at once, and each has a kill
 door: `wind-wisps` (`windWisps`, `?wisps=off`) - the wisps that show
 the wind; `wind-sound` (`windSound`, `?windaudio=off`) - the quiet loop
-on Daggerfall's own wind clips, silent indoors (ES1, 2026-09-16: this
+(on Daggerfall's own wind clips until FIELD-WIND1, 2026-09-29, made it a
+bed of its own), silent indoors (ES1, 2026-09-16: this
 row became `enhanced-sounds` / `soundEnhancements`, the port's own sounds
 under one switch - see below); `flora-sway`
 (`floraSway`, `?sway=off`) - the trees and plants leaning with the
