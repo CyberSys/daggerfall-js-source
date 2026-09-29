@@ -1,4 +1,4 @@
-# FIELD BUGS 2026-09-29f - the skill past its range
+# FIELD BUGS 2026-09-29f - the skill past its range, and the fare that never read it
 
 From the Discord (#bug-reports, the thread "Mercantile Skill Issue"), through Mac: two screenshots and no words - the
 report MERC-RISE answered (29d), and the reminder its reporter, ValenValarys, sent Mac later that morning. The rule for a
@@ -11,10 +11,14 @@ Daggerfall's own said plainly, with what would change it left to Mac.
 > point, but I feel like no matter how much someone exploits, there should at least be some kind of soft cap or hard
 > cap in place. Having to pay gold just to sell items feels a bit too punishing!
 
+Mac, on the first draft: *"Fix the separate bug and this addresses the balance? We adjusted this in a prior commit"* -
+the separate bug is TO-FARE (3), fixed; the balance is answered below (The balance).
+
 | | Report | Reporter | What it was | Done |
 |---|---|---|---|---|
 | 1 | naked 303 gold, dressed to 90-105 Mercantile about 207 | ValenValarys | P0.4's old law, MERC-RISE's own report (29d) | fixed by MERC-RISE up to 100, and past it by MERC-CAP |
 | 2 | at 346 Mercantile a sale costs gold; "some kind of soft cap or hard cap" | ValenValarys | DFU reads Mercantile unbounded; its ask falls to nothing by 233, and MERC-RISE's half followed it past 100 | fixed (MERC-CAP) |
+| 3 | (found on MERC-CAP's way) a Travel Options fare ignores Mercantile | - | `scaleTripCost` read `liveStat(e, 'mercantile')`, a stat no entity has | fixed at Mac's word (TO-FARE) |
 
 ## MERC-CAP: online the haggle reads a skill in its own range (1, 2)
 
@@ -58,31 +62,50 @@ its mutant list lost the two records whose reference followed that lift and re-a
 dead). realm0's P0.4 pin reads the fixed reference (57, 57 dead). `06-Systems/Realm-Arc.md` P0.4, Port-Ledger A's P0.4
 row.
 
-## Found on the way, not touched
+## TO-FARE: Travel Options' fare haggles over the live Mercantile skill (3)
 
-- **Travel Options' fare reads Mercantile as a stat.** `ui/travelPopUp.js` `scaleTripCost` haggles the scaled fare
-  with `liveStat(e, 'mercantile')`, and no stat has that name, so every such fare haggles at Mercantile 0; the read
-  CalculateTradePrice makes is `skillValue(e, SKILLS.Mercantile)`. It reaches play only with a Travel Options cost
-  scale factor over 1, and it moves every such fare, so it waits for a word.
+Found on MERC-CAP's way and first left for a word; Mac's: *"Fix the separate bug"*. **Reproduced first**, on the real
+`scaleTripCost`: a trip of 300 in inn nights and 400 in passage, scaled x4 and x3, billed 1686 at Mercantile 0, 50 and
+90 alike. **Why.** The mod puts each scaled half through `FormulaHelper.CalculateTradePrice(cost, 10, false)`
+(TravelTimeCalculatorTO.CalculateTripCost, read off the mod's own source), which reads the live Mercantile SKILL
+(GetLiveSkillValue, FormulaHelper.cs:1992/1998); the port read `liveStat(e, 'mercantile')`, a stat by the skill's name,
+which no entity has - 0 for everyone. **The fix.** `ui/travelPopUp.js` `scaleTripCost` reads `skillValue(e,
+SKILLS.Mercantile)`, the read every counter makes: the fare at Mercantile 90 is the mod's own 1068, and a worn Enhances
+Skill haggles too. It reaches play wherever a player sets the mod's fare scaling past 1 (the mod suggests x4-x6 beside
+Climates & Calories; the dials are the player's own online, `ONLINE_PLAYERS_OWN_MODS`), through both maps and a party's
+fare (`travelFareDeps`); online MERC-CAP reads the skill no further than 100. Offline it is the mod's own call over
+DFU's unbounded read, so past 233 a scaled fare bills under nothing, as a room does - which the stat read never could;
+it goes to Mac with the rest (For Mac). `test/fb0929f_tofare.test.js` (2; both fail on the code before it),
+`tools/mutants/fb0929f_tofare.json` (2, 2 dead). Five line cites into `travelPopUp.js` moved with it
+(`tools/citeShift.mjs`). `06-Systems/Travel-Options.md` TO-FARE.
+
+## The balance
+
+Mac: *"this addresses the balance? We adjusted this in a prior commit."* The prior commit is MERC-RISE (#439, 29d), over
+P0.4's spread: across main and every branch, the only commits that ever changed a counter's online prices are P0.4,
+FB0929's floor, MERC-RISE and this batch. MERC-CAP sets no new balance. At Mercantile and Personality 0 to 100 every
+price is MERC-RISE's to the gold (pinned: inside the range nothing moves, over every quality, five lots, Mercantile in
+steps of five and five Personalities), and past 100 it holds MERC-RISE's balance where it broke - there a sale fell with
+the skill and went under nothing, and a purchase went free and then paid the buyer. So yes: the reporter's counter pays
+every seller 235, whatever their Mercantile, as MERC-RISE set it, and 29d's "Say which" is answered - the flat half is
+the balance (marked there).
 
 ## Ported, not this batch's
 
 - **`test/tv6_dungeons.test.js`'s walk pin was red on main.** TO-ROADS gave `travelViewWalkTo` a third option
   (`roads = false`), and AUDIT OW4 D1/D6's pin still lifted the function by its two-option signature ("the walk, with
-  its one option"). The one-line re-aim LIVED1 (#442) and SPAWN-SHORE (#441) both carry is ported here, byte for byte,
-  so this batch's check is green on its own; it merges clean whichever lands first.
+  its one option"). The one-line re-aim LIVED1 (#442) and SPAWN-SHORE (#441) both carry was ported here, byte for byte;
+  SPAWN-SHORE has since landed it on main, and the merge took it clean.
 
 ## For Mac
 
 - **Offline, Daggerfall's own reads stand**, and past Mercantile 100 they are Daggerfall's own quirk: at 346 a sale
   pays about twice what it pays at 100 (26639 against 13591 at the field's counter), the counter asks a gold a piece
-  (FB0929's floor), and past 233 a room, a cure and a spell cost less than nothing - `deductGold`, as DFU's
-  DeductGoldAmount, then pays the buyer. FB0929's "a hard minimum of 1 gold for anything" reached the counter only.
+  (FB0929's floor), and past 233 a room, a cure, a spell and a scaled Travel Options fare cost less than nothing -
+  `deductGold` (and a fare's `deductGoldPieces`), as DFU's DeductGoldAmount and DeductFastTravelGold, then pays the
+  buyer. FB0929's "a hard minimum of 1 gold for anything" reached the counter only.
   Should offline read the same range (MERC-CAP without its `online`), take FB0929's floor at every purchase, or stay
   Daggerfall's?
-- **MERC-RISE's flat price is still yours to settle** (29d's "Say which"). The reporter's own counter now pays every
-  seller 235, where naked they were paid 303 under P0.4's old law; the other lawful shapes stand - scale Daggerfall's
-  offer so the best haggler lands on half their ask, or raise the share.
 - **Online, Mercantile past 100 buys nothing.** Live Mercantile is read only by prices, so a worn Enhances Skill or a
   Mercantile affix past 100 does nothing online now. A soft cap past 100 cannot keep both of your laws (P0.4's half
   and no skill lowering a sale): any slope past 100 in the ask pulls the half down for everyone.
