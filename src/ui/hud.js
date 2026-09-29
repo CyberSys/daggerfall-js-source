@@ -20,6 +20,7 @@ import { maxFatigue, maxBreath, liveStat } from '../systems/statMods.js';
 import { isEnhanced } from '../systems/uiSkin.js';   // PX30: the HUD is a skin too
 import { drawEnhancedHud } from './enhancedHud.js';   // PX30
 import { drawLevelNotices } from './levelNotice.js';   // LV2: the level-up notification, on the same one call
+import { drawQuestHerald } from './questHerald.js';   // GUIDE3: the quest news, on the same one call
 import { drawCrosshairAndModeIcon, crosshairCentreY } from './hudCrosshair.js';   // U38; AUDIT RETRO1 G5: the reticle's row, for the loot panel beside it
 import { playerDamageFlash } from './damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage rides the one HUD call
 import { playerBloodScreen, SCREEN_SPATTER_MIN } from './bloodScreen.js';   // BLOOD2e: blood on the lens rides the same call
@@ -623,6 +624,12 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   // persistent DOM overlay must REACH its hide door rather than be
   // skipped) and reads whether a level is still owed off the one
   // player entity itself.
+  // GUIDE3: THE HERALD rides it too, and OUTSIDE the skin's gate: off
+  // (the classic skin, its switch) it must still reach its hide door, and
+  // it answers that itself (ui/questHerald.js). Its clock is the frame's
+  // real seconds and stops under the HUD's hide gate - DFU's HUD does not
+  // Update under a window (DaggerfallUI.cs:429-433).
+  drawQuestHerald({ hidden: cursorActive || !hudRenderEnabled(), dt });
   if (isEnhanced() && typeof document !== 'undefined') {
     drawLevelNotices({ hidden: cursorActive || !hudRenderEnabled() });
     drawEnhancedHud(vitals, heading01, dt, {

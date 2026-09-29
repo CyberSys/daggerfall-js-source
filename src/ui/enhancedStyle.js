@@ -5054,6 +5054,15 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
   background: rgba(10,12,17,0.82);
 }
 .notice.notice-toast .notice-row { font-size: 14px; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); text-align: center; }
+/* GUIDE3: THE HERALD'S NOTICE (ui/questHerald.js) - a quest's news as one
+   toast of three rows, read at a glance, so three weights are the whole
+   design: what happened in the sheet's small brass caps, to which quest in
+   the toast's own yellow, and the one thing to know (the new entry's
+   opening, the time left) in the box's quiet bone, capped to a readable
+   measure. A main-quest title wears the brass beside it. */
+.notice.notice-toast .notice-row.herald-kind { font-size: 11px; line-height: 1.5; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass); text-shadow: 1px 1px 0 rgba(0,0,0,0.85); }
+.notice.notice-toast .notice-row.herald-title.main { color: #e8c170; }
+.notice.notice-toast .notice-row.herald-line { font-size: 13px; color: #d8cfae; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); max-width: 30em; margin: 0 auto; }
 /* AUDIT HCC U5: THE FIELD'S OWN WINDOW (ui/enhancedInputBox.js) - DaggerfallInputMessageBox in the skin's face.
    ENH-NOTICE1's law: a field is a decision, not a notice, so it is not in the right-edge stack; it stands where the
    player looks while typing - centred, or at the top for showAtTopOfScreen - in the box's own panel and rule. It

@@ -133,10 +133,13 @@ function buildPanel(doc, key, toast = false, hint = undefined) {
 
 /** A row record as the box carries it: a string, a { text, center,
  *  highlight } record, or AUDIT 64 F28's { cells: [{ text, x }] }
- *  tab-stopped row. The panel keeps the columns the parchment kept. */
+ *  tab-stopped row. The panel keeps the columns the parchment kept.
+ *  GUIDE3: `cls` is a face's own class for the row (the quest herald's
+ *  kind, title and line), so a toast that says three things can say
+ *  them in three weights. */
 function paintRow(doc, node, row) {
   const rec = typeof row === 'string' ? { text: row } : (row ?? {});
-  const cls = `notice-row${rec.center ? ' center' : ''}${rec.highlight ? ' highlight' : ''}${Array.isArray(rec.cells) ? ' cells' : ''}`;
+  const cls = `notice-row${rec.center ? ' center' : ''}${rec.highlight ? ' highlight' : ''}${Array.isArray(rec.cells) ? ' cells' : ''}${rec.cls ? ` ${rec.cls}` : ''}`;
   if (node.className !== cls) node.className = cls;
   if (Array.isArray(rec.cells)) {
     const want = rec.cells.map((c) => c?.text ?? '');
@@ -301,7 +304,9 @@ const toastKey = (owner, id) => `${owner}:${id}`;
 /**
  * ONE FRAME OF ONE PopupText MODEL, AS TOASTS (ENH-NOTICE3). `frame`
  * is ui/hudText.js's own (`rows` front first, `ids` beside them,
- * `visible` the host's draw gate); each row is a panel of its own,
+ * `visible` the host's draw gate); each row is a panel of its own
+ * (GUIDE3: or, where `rows[i]` is itself a list, a panel of those rows -
+ * the quest herald's kind, title and line are one notice),
  * keyed by its id under `key`, so a row that was there last frame and
  * is not in this one has been POPPED by PopupText's timer and slides
  * out, while the rows still queued stay put - a new line never
@@ -320,7 +325,7 @@ export function drawEnhancedToasts(frame, doc = (typeof document === 'undefined'
   if (!mine) { mine = new Set(); toasts.set(key, mine); }
   const out = [];
   for (let i = 0; i < ids.length; i++) {
-    const host = drawEnhancedNotice({ rows: [rows[i] ?? ''], visible, toast: true }, doc, toastKey(key, ids[i]));
+    const host = drawEnhancedNotice({ rows: Array.isArray(rows[i]) ? rows[i] : [rows[i] ?? ''], visible, toast: true }, doc, toastKey(key, ids[i]));
     if (host) {
       const p = panels.get(toastKey(key, ids[i]));
       if (p) { p.toastOwner = key; p.rowId = ids[i]; }   // AUDIT ENH-NOTICE3 A2: the watchdog's release finds the owner's set through these

@@ -26,6 +26,7 @@
 // chunk for four functions.
 
 import { isMainQuestName as isMainQuest } from '../systems/quest/questLists.js';   // AUDIT 68 S31-questshare-mainquest-dup: the share gates' own predicate, one home
+import { DAY_NAMES, MONTH_NAMES } from '../systems/gameDate.js';   // GUIDE3: the date header an entry opens with
 
 /** The token formattings that carry a printable line - questJournal's
  *  own counted set (`LINE_FORMATTINGS`). */
@@ -36,6 +37,43 @@ export const JOURNAL_LINE_FORMATTINGS = new Set(['text', 'newline', 'highlight',
 export function journalLines(msgOrTokens) {
   const tokens = Array.isArray(msgOrTokens) ? msgOrTokens : (msgOrTokens?.getTextTokens?.() ?? []);
   return tokens.filter((t) => JOURNAL_LINE_FORMATTINGS.has(t?.formatting)).map((t) => String(t?.text ?? ''));
+}
+
+/** GUIDE3: the date header a log entry opens with - DFU's corpus writes
+ *  `%qdt:` on an entry's first line, and %qdt is DateString
+ *  (systems/gameDate.js dateString: "Sundas the 1st of Morning Star"),
+ *  built here from the same two name tables so the header cannot be
+ *  mistaken for a sentence and a sentence cannot be taken for it. */
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const DATE_HEADER = new RegExp(`^\\s*(?:${DAY_NAMES.map(escapeRe).join('|')}) the \\d{1,2}(?:st|nd|rd|th) of `
+  + `(?:${MONTH_NAMES.map(escapeRe).join('|')}):?\\s*$`);
+
+/** The cap on an opening, in characters: three short lines of a notice.
+ *  Of the corpus's 408 logged entries it cuts 56 (100 cut 159: a
+ *  Daggerfall journal's first sentence is long - test/guide3_herald.test.js
+ *  pins the count). */
+export const OPENING_MAX = 140;
+
+/**
+ * GUIDE3: AN ENTRY'S OPENING - what a face can say of a journal entry in
+ * one breath (the herald's notice; GUIDE4's tracker reads the same
+ * words). Here, beside journalLines, and not in the lens: the HUD draws
+ * the herald, and a face the HUD imports must not pull the quest machine
+ * into the HUD's import graph (the cycle place.js -> ... -> save.js ->
+ * hud.js that GUIDE3 met on its first full run - test/guide3_herald.test.js
+ * walks the graph). The lines are the quest author's own, hard-wrapped for a 1996
+ * logbook under a date header: the opening drops the header, joins the
+ * wrap, keeps the first sentence and, past `max`, cuts it at a word with
+ * an ellipsis. '' for an entry with no words (or none read).
+ */
+export function entryOpening(lines, max = OPENING_MAX) {
+  const body = (lines ?? []).filter((l, i) => !(i === 0 && DATE_HEADER.test(String(l))));
+  const text = body.join(' ').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  const first = /^.*?[.!?]+(?=\s+[A-Z"'(]|$)/.exec(text)?.[0] ?? text;   // a stop before a capital: "Hmm... he said." is one sentence
+  if (first.length <= max) return first;
+  const cut = first.lastIndexOf(' ', max - 1);
+  return `${first.slice(0, cut > max / 2 ? cut : max - 1).replace(/[\s,;:-]+$/, '')}\u2026`;
 }
 
 // PX22: a quest is FILED under its kind, not TITLED by it. The kind

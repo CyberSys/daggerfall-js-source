@@ -894,6 +894,19 @@ export const FEATURES = Object.freeze([
       also: Object.freeze([Object.freeze({ store: 'prefs', key: 'quickslots', initial: true, online: 'player' })]),   // QS: ui/enhancedHud.js hides the diamond on false
     }),
   }),
+  // GUIDE3 (2026-09-29, Mac: "...make it more accessible", then "This is your baby"): THE HERALD - a quest's news as
+  // a notice in the enhanced stack (ui/questHerald.js), fed by the quest bridge's tick. On by default (the arc's
+  // DECISIONS: the silence it answers is DISC6's report); the player's own online, since news is no one else's.
+  Object.freeze({
+    id: 'quest-herald',
+    group: 'interface',
+    title: 'Quest news',
+    note: 'A notice slides in when a quest begins, when its journal gains an entry, when under a day is left on its '
+      + 'clock and when it ends. Off is Daggerfall’s silence: the journal changes without a word.',
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'questHerald', initial: true, online: 'player' }),   // ui/questHerald.js HERALD_PREF
+  }),
   // CAMP1 (2026-09-17, Mac: camps and roaming packs in the wilderness):
   // an original addition, not a DFU classic feature - the classic game
   // spawns wandering monsters one at a time. This is a second roll

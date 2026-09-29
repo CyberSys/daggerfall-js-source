@@ -68,6 +68,7 @@ import { noteOfferPending } from '../ui/pendingOffer.js';   // AUDIT 58: Daggerf
 import { getTitle } from '../systems/guilds.js';
 import { addQuestResourceObjects } from '../systems/quest/sceneMount.js';
 import { QuestLens } from '../ui/questLens.js';   // GUIDE1: the modern faces' one read-only picture of this machine
+import { questHerald, heraldOn } from '../ui/questHerald.js';   // GUIDE3: the news the lens sees, told
 
 // AUDIT 24 (wave 24): SetLayoutData's three overloads and
 // GetPositionHash now live in characters/staticNpc.js, next to the
@@ -352,7 +353,32 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     if (updateTimer < 1 / TICKS_PER_SECOND) return false;
     machine.tick();
     updateTimer = 0;
+    news();
     return true;
+  }
+
+  // GUIDE3: THE NEWS - one lens look after each machine tick, handed to
+  // the herald (ui/questHerald.js), and only while it is listening (the
+  // enhanced skin, its switch on), so a player who never hears it never
+  // pays for the look. Here rather than in a host because every host
+  // that has quests ticks this bridge (THE ONE CONSTRUCTION SEAM): the
+  // news reaches all of them at once. A herald that starts listening
+  // mid-game hears a baseline first, never the backlog of whatever
+  // happened while it was off. The look is the lens's quiet one
+  // (GUIDE1's pin plays a game with a look at every tick and without:
+  // the same save, the same popups, the same draws), and a look that
+  // throws costs the news and never the frame: the machine has ticked.
+  let listening = false, newsWarned = false;
+  const warnNewsOnce = (err) => {
+    if (newsWarned) return;
+    newsWarned = true;
+    console.warn(`[quest herald] the lens could not look (${err?.message ?? err}); the news is silent, the machine is not`);
+  };
+  function news() {
+    if (!heraldOn()) { listening = false; return; }
+    let seen;
+    try { seen = lens.look(); } catch (err) { warnNewsOnce(err); return; }
+    if (listening) questHerald.hear(seen); else listening = true;
   }
 
   /** GetRaceFromFaction's two inputs, off the machine's own world. */

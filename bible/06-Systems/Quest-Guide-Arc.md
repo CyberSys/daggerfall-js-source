@@ -268,14 +268,127 @@ NOT SEEN IN A BROWSER: both faces are driven headless over the minimal
 DOM; the dress (`.px-qwhere`, `.cr-where`, the Plus button role) is
 unlooked at on a real screen.
 
+## GUIDE3 - THE HERALD (SHIPPED 2026-09-29)
+
+DFU says nothing when the journal changes. A quest's `log` is a bare
+addLogStep, `end quest` files the notebook in silence, and a clock inside
+its last day is a number the logbook shows only when opened. DISC6's
+player named what that costs (`01-Overview/Field-Bugs-2026-09-23.md`):
+"Theres no quest notification when you killed all monsters and no quest
+update in the log". GUIDE3 says the journal's news where the enhanced
+skin says news - and nothing the quest itself says moves: its `say`
+popups are the quest's, and stay the box they are.
+
+**What the player sees.** A notice in the enhanced stack
+(`ui/enhancedNotice.js`, ENH-NOTICE1/3 - the right edge, `aria-live`
+polite), one per quest, three rows in three weights: the KIND ("New
+quest", "Journal updated", "Under a day left", "Quest completed", "Quest
+ended") in the sheet's small brass caps, the TITLE (questRail's
+`questTitleOf`; a main quest's in brass), and ONE LINE - the newest
+entry's opening, or the time left in the journal's own `remainWords`.
+An ending says only that it ended. A notice holds seven seconds of a
+showing HUD (`HERALD_SECONDS`) and three quests at most
+(`HERALD_MAX`, the oldest news first out): every word of it is in the
+journal, and the herald only points there.
+
+**ONE NOTICE PER QUEST.** Two pieces of news for one quest inside one
+notice's life are one notice - its id kept, so the stack does not re-slide
+it, and its clock restarted - and the one that stands is the one a player
+most needs: an ending is the last word, a new quest stays new while its
+first entries land, and a deadline outranks a routine entry (and says the
+time the newest look carries).
+
+**THE OPENING** (`entryOpening`, `ui/questRail.js` - one home, which
+GUIDE4's tracker will read, beside `journalLines` and not in the lens: see
+THE HUD STAYS LIGHT below). A logged entry is its author's 1996 text:
+hard-wrapped for the logbook under a `%qdt:` date header. The opening
+drops the header (built from `gameDate.js`'s own day and month tables,
+so a sentence cannot be taken for it), joins the wrap, keeps the first
+sentence (a stop before a capital: "Hmm... he said." is one), and past
+`OPENING_MAX` (140) cuts it at a word with an ellipsis. Of the corpus's
+408 logged entries, 395 open on the header, every one opens with words,
+and 56 first sentences run past the cap (at 100 it was 159).
+
+**WHO FEEDS IT.** The quest bridge (`scenes/questBridge.js`), after each
+machine tick: one lens look, handed to the herald - only while it
+listens (`heraldOn`: the enhanced skin, the `quest-herald` switch, and a
+page to say it on - node drives the hosts headless and pays nothing).
+THE ONE CONSTRUCTION SEAM again: every host that holds quests ticks the
+bridge (`world.js`, `worldModes.js`, `exterior.js`), so the news reaches
+all of them at once and no host carries a line of it. A herald that
+starts listening mid-game hears a baseline first, never the backlog; a
+load is the lens's baseline already. A look that throws costs the news
+and one warning, never the frame - the machine has ticked. The look is
+GUIDE1's quiet one, and the pin plays a whole game through the bridge's
+own tick with the herald listening and without: the same save, popups,
+talk topics, seed, quest rolls and engine draws. It costs about 40
+microseconds a look over three quests, at the machine's ten ticks a
+second.
+
+**ITS CLOCK IS THE HUD'S.** `ui/hud.js` `drawHud` - the one call all four
+hosts make - draws it, OUTSIDE the skin's gate so that off (the classic
+skin, the switch) it still reaches its hide door (AUDIT 64 F37): the
+queue empties and the toasts slide out. It ticks on the frame's REAL
+seconds (a news line is the port's page, not the world's: at a journey's
+time scale it would be gone unread) and only while the HUD shows, on
+LV2's hide gate: DFU's HUD does not Update under a window
+(DaggerfallUI.cs:429-433, which midScreenText keeps), so news that lands
+as a window opens waits for it to close.
+
+**THE HUD STAYS LIGHT - learned on the slice's first full run.** The
+opening first lived in the lens, and the herald imported it from there.
+But `ui/hud.js` imports the herald, and `save.js` reaches `hud.js`
+(through the escort faces) from inside the quest layer: `place.js ->
+talkTopics -> interiorPeople -> shopStock -> guilds -> factionRep ->
+save.js -> hudEscortFaces -> hud.js -> questHerald -> questLens ->
+place.js`, a cycle in which the lens read `SITE_TYPES` at load before
+`place.js` had finished - a ReferenceError in every suite that loaded the
+quest layer first (three of them). The opening moved to the rail, whose
+imports are leaves, and the suite walks the herald's static imports:
+they never reach the lens, the machine, `place.js` or the HUD.
+
+**The stack, grown by two general seams:** a toast may carry a list of
+rows (`drawEnhancedToasts` - PopupText's rows are still one each), and a
+row record may carry a class of its own (`cls`, `paintRow`).
+
+**No chime.** DFU's journal is silent, and a sound a player did not ask
+for is not an accessibility feature; the stack is already read aloud.
+A sound can be a row of its own when someone asks for one.
+
+**The switch.** Features row `quest-herald` - Interface (beside Quick
+slots, the HUD's other row), Enhanced, on by default (DECISIONS 2), the
+player's own online (news is no one else's).
+
+**Pins.** `test/guide3_herald.test.js` (8): the words; one notice per
+quest (rank, cap, clock); the bridge's feed over the real bridge and
+machine (one look after each tick and none between, the baseline, new,
+updated, completed, ended); only while listening (the switch, the
+classic skin, no page, the backlog, a look that throws); the machine
+never knows (a whole game through the bridge's tick, heard and unheard);
+the HUD's clock and the stack's face (the rows' classes, hidden and
+stopped, run out, off at its hide door); one call, every host (by
+source, and the herald's import graph kept off the quest machine); the
+opening over the corpus. `test/enhancedNotice.test.js`'s
+roster knows the herald as the stack's newest importer.
+`tools/mutants/guide3.json`: 44 mutants. Ledger A: A QUEST'S NEWS IS A
+NOTICE.
+
+SEEN IN A BROWSER, NOT IN A GAME: the arc's first face looked at on a
+real screen - headless Chromium over a harness page that feeds the real
+module three notices beside a HUD toast (in the ignored `test-harness/`),
+at 1280x720 and at a phone's 390x844: the kind in brass caps, the title
+in the toast's yellow (a main quest's in brass), the opening in bone,
+wrapping inside the stack's cap at both widths. Not yet seen over a
+running game, which needs ARENA2.
+
 ## THE SLICES (Mac, 2026-09-29: "This is your baby. Take your time")
 
-In order. Every one reads the lens and nothing else. SHIPPED: GUIDE2 (below).
+In order. Every one reads the lens and nothing else. SHIPPED: GUIDE2 and GUIDE3 (above).
 
 | Slice | What the player gets | DFU? | Switch |
 |---|---|---|---|
 | **GUIDE2 THE WAY THERE** | The enhanced journal (pause tab and chronicle) gets DFU's own logbook click: on an entry whose target has a `find`, "Show on map" closes the journal and opens the map on the place through the host's `gotoPlace` - world.js's `toggleTravelMap(place)`, which already hands it to the held map (`_travelMap.gotoPlace`) and refuses indoors in DFU's words. Under the title, a "where" line of the target's SAID names. world.js wires it; the dungeon and `?exterior` hosts flag it (DFU's map will not open inside). | Parity: DFU's logbook has it; the "where" line is the enhanced face's | none - the journal's own |
-| **GUIDE3 THE HERALD** | The lens's events as the enhanced notices (ENH-NOTICE3's toast stack): "New quest", "Journal updated", "Quest completed" / "Quest ended", "Under a day left" - title and first line, `aria-live`, a chime if Mac wants one. Fed from the bridge's tick, so all four hosts at once. | Departure: DFU says nothing | `quest-herald` (interface, enhanced, `online: 'player'`) |
+| **GUIDE3 THE HERALD** (SHIPPED) | The lens's events as the enhanced notices (ENH-NOTICE3's toast stack): "New quest", "Journal updated", "Quest completed" / "Quest ended", "Under a day left" - the title and the newest entry's opening, `aria-live`, no chime (the section above says why). Fed from the bridge's tick, so all four hosts at once. | Departure: DFU says nothing | `quest-herald` (interface, enhanced, `online: 'player'`) |
 | **GUIDE4 THE TRACKER** | A HUD card: the tracked quest's title, its latest entry's opening, the target's said names and the live timer; a key to cycle quests and one to open the journal on it. The tracked quest is kept per character through `registerModSaveData`, by uid. | Departure | `quest-tracker` |
 | **GUIDE5 THE MARKS** | The target on the held map, the travel map and the enhanced compass (which already carries detect, gate and party marks) - only a target with `find` (DFU's own discovered gate). A target off the map gets the talk arc's hint instead: ask about it, which is what Daggerfall's directions are for (`06-Systems/Talk-Arc.md`, THE COMPASS MARK). | Departure | `quest-marks` |
 | **GUIDE6 THE ACCESSIBLE JOURNAL** | The pause tab: filter by kind (Main, Guild - the quest list's own group, `findQuestMeta` - Other), sort by updated or deadline, search, each entry's date, the deadline as words AND a date, keyboard and pad navigation with visible focus, a text size that works, and an entry read aloud (speechSynthesis). | Enhanced face | per choice |

@@ -1430,7 +1430,7 @@ PROVEN equivalents:
 - questBridge.js:67 `rawZ ?? 0 -> ?? 1`: the hash's only read of
   rawZ is `z >> 2`, and `1 >> 2 === 0 === 0 >> 2` - for any record
   LACKING rawZ the mutated default is arithmetically invisible.
-- questBridge.js:74 `(pn.flags ?? 0) -> (?? 1)` in the gender arm:
+- questBridge.js:75 `(pn.flags ?? 0) -> (?? 1)` in the gender arm:
   gender reads bit 5 alone, and `1 & 32 === 0 === 0 & 32` - Male
   either way, every path.
 
