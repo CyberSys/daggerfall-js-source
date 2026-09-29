@@ -441,6 +441,7 @@ import { setRenownLayer } from '../systems/renownLayer.js';   // RENOWN1: the le
 import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown and its bar, under the vitals
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
 import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
+import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
 import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
 import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips
@@ -11274,7 +11275,24 @@ export async function bootWorld(canvas, renderer, params, status) {
       // DISC23-A: the party in these streets, their feet taken into the location's frame by the SAME subtraction the
       // player's `local` is (the translation and the origin read at open, which the held motor keeps true)
       townParty: () => partyOnMaps().map((m) => ({ ...m, feet: [m.feet[0] - t[0] - b.locOrigin[0], m.feet[1] - t[1] - b.locOrigin[1], m.feet[2] - t[2] - b.locOrigin[2]] })),
+      // TOWN-MARKS (ui/townMapMarks.js): the town's Notice Boards, while the board is open (the boards noticeCountPoints
+      // counts over), with its unread count; and its player housing - the online homes and the bank's house
+      townBoards: () => townBoardMarks(b),
+      townHomes: () => townHomeRows({
+        buildings: summaries, mapId: dfLoc.mapTableData?.mapId, regionIndex: dfLoc.regionIndex, houses: playerEntity.houses ?? null,
+        homeAt: onlineHomes ? (mapId, buildingKey) => onlineHomes.homeAt(mapId, buildingKey) : null,
+      }),
+      townHomesVersion: () => onlineHomes?.version() ?? 0,
     }));
+    onlineHomes?.ensure(dfLoc.mapTableData?.mapId);   // TOWN-MARKS: a town heard from long ago is asked again, and its homes mark when it answers
+  };
+  /** TOWN-MARKS: a built pixel's Notice Boards for the town map - none while the board is closed (the town's boards are
+   *  then Daggerfall's rumour boards) or off a location. */
+  const townBoardMarks = (p) => {
+    if (!noticeBook || noticeBook.open !== true || !p?.boards?.length || !p.location) return [];
+    const bountyAt = boardSplitOf(p);
+    const town = noticeTownOf(p.px, p.py, bountyAt.size > 0);
+    return town ? townBoardRows(p, bountyAt, noticeBook.unseen(town.mapId)) : [];
   };
   /** SetCustomBuildingName (ExteriorAutomap.cs:867-899): the plate's
    *  double-click raises DFU's DaggerfallInputMessageBox over the open
