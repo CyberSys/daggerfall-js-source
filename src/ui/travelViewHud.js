@@ -329,6 +329,7 @@ export const TRAVEL_VIEW_MARK_COLORS = Object.freeze({
   plate: 'rgba(14,16,19,0.72)', plateEdge: 'rgba(192,138,62,0.35)',
   lair: '#b0443a',   // TV6: an undiscovered dungeon - a lair's dull red
   band: '#e0503c',   // TV7: a roaming band - the enemy's red
+  camp: '#d9622b',   // OW6: a camp, a pack or a band stood - an ember's red-orange, apart from the roaming bands
 });
 /** The plates' face - the stylesheet's --display, as the DOM plates had it. */
 export const TRAVEL_VIEW_PLATE_FONT = "'Cormorant', Georgia, serif";
@@ -387,7 +388,7 @@ export const isShipKind = (m) => /\bship\b/.test(m.kind ?? '');
 /** A mark's look, by its kind's first word. */
 const lookOf = (m) => {
   const k = (m.kind ?? '').split(' ')[0];
-  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'lair' || k === 'band' || k === 'raider' ? k : 'traveller';
+  return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'lair' || k === 'band' || k === 'raider' || k === 'camp' ? k : 'traveller';
 };
 /** OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the plates' stone - the Enhanced
  *  (Plus) theme's own `--slate`, at the plates' alpha; the kit's plate where the page names none. */
@@ -585,7 +586,7 @@ function drawMarks(marks, vw, vh, dpr) {
   let unmade = false;   // N1-1: a badge not made this frame - its name alone, and the picture drawn again next frame
   for (const q of placed) {
     const { m, held, x, y, look } = q;
-    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : C.brass;   // OWS3: a raider in the cinnabar
+    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);
@@ -596,6 +597,8 @@ function drawMarks(marks, vw, vh, dpr) {
       g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = C.brass; g.stroke();
     } else if (isShipKind(m)) {
       drawShipMark(g, x, y);
+    } else if (look === 'camp') {   // OW6: a camp - a tent's peak, not a band's dot
+      g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y + 5); g.lineTo(x - 6, y + 5); g.closePath(); g.fill(); g.stroke();
     } else {
       const r = look === 'dest' ? 7 : look === 'place' || look === 'far' ? 4 : 5;
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.stroke();

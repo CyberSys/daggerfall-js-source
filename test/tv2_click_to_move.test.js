@@ -514,8 +514,8 @@ test('TV2 host wiring: the click is a ray from the VIEW\'s eye through this fram
   assert.match(w, /leg\(me\.x, me\.z, n\[start\]\[0\], n\[start\]\[1\], pts\);[^\n]*\n(\s*\/\/[^\n]*\n)*\s*const gen = tvGroundGenNow\(\), kept = tvTrip\._tail;\n\s*let tail = kept && kept\.gen === gen && kept\.start === start && kept\.n === n \? kept\.pts : null;/, 'PERF-TV: the legs past the traveller\'s own kept while the ground and the leg hold');
   // AUDIT TV A5: a town's grown rect asked across the 3x3 about the hit
   assert.match(w, /for \(let dy = -1; dy <= 1; dy\+\+\) \{\n\s*for \(let dx = -1; dx <= 1; dx\+\+\) \{\n\s*const summary = tvPlaceSummary\(pix\.x \+ dx, pix\.y \+ dy\);/);
-  // PIN MOVED (AUDIT OW5 S4): an own-pixel sea spot is given its one sea leg first
-  assert.match(w, /let legs = tvJoinedLegs\(from, plan\);\n(?:\s*\/\/[^\n]*\n)*\s*if \(!legs\.length && seaAsk\?\.goal === 'sea'\) \{ legs = \[\{ x: pix\.x, y: pix\.y, kind: 'sea' \}\]; plan = \{ \.\.\.plan, kinds: \['sea'\] \}; \}\n(\s*if \(door\) n = [^\n]*\n)?\s*const ok = travelOptions\.beginTravelAlongRoute\(\{ legs, point: \{ pixel: pix, x: n\.x, z: n\.z \}, name: TRAVEL_VIEW_TEXT\.spot \}, tvCautious\(\), \{ quiet: tvQuiet \}\)/);
+  // PIN MOVED (AUDIT OW5 S4): an own-pixel sea spot is given its one sea leg first; AUDIT OW5b D3: the walk carries its door
+  assert.match(w, /let legs = tvJoinedLegs\(from, plan\);\n(?:\s*\/\/[^\n]*\n)*\s*if \(!legs\.length && seaAsk\?\.goal === 'sea'\) \{ legs = \[\{ x: pix\.x, y: pix\.y, kind: 'sea' \}\]; plan = \{ \.\.\.plan, kinds: \['sea'\] \}; \}\n(\s*if \(door\) n = [^\n]*\n)?\s*const ok = travelOptions\.beginTravelAlongRoute\(\{ legs, point: \{ pixel: pix, x: n\.x, z: n\.z, door \}, name: TRAVEL_VIEW_TEXT\.spot \}, tvCautious\(\), \{ quiet: tvQuiet \}\)/);
   for (const dep of [/onPick: \(x, y\) => onTravelViewPick\(x, y\),/, /onMark: \(key\) => onTravelViewMark\(key\),/, /marks: travelViewMarks,/, /route: travelViewRoute,/, /trip: \(\) => \(tvWalking \? TRAVEL_VIEW_TEXT\.travelling\(tvWalking, tvHeld\) : tvTripLive\(\) \? tvTrip\.line : ''\),/]) assert.match(w, dep);   // PIN MOVED (AUDIT OW5 G3): the keys' speed first
 });
 
@@ -523,8 +523,12 @@ test('TV2 host wiring: THE CAP - governed before the frame reads the travel scal
   const w = rd('src/scenes/world.js');
   assert.match(w, /travelViewGovern\(dt\);[^\n]*\n\s*const travelScale = worldTimeScale\(\);/, 'this frame\'s scale is the governed one');
   assert.match(w, /const journey = !!travelControlUI\?\.isShowing && !!travelOptions\?\.state\?\.autopilot;/);
-  // PIN MOVED (AUDIT OW5 G1): the hold's reason let go with it
-  assert.match(w, /if \(tvHeld != null\) \{ tvHeld = null; tvHeldGround = false; if \(journey\) setWorldTimeScale\(travelAsked\); \}\n\s*if \(tvWalking\) \{[^\n]*\n\s*travelGovernor\.reset\(\);/, 'the mod\'s own ask back (PIN MOVED, TV-WASD: the keys\' travel let go beside it - test/tv_wasd.test.js)');
+  // PIN MOVED (AUDIT OW5 G1; OW6): the hold and its reason let go together, and the enemies' line with them
+  assert.match(w, /if \(tvHeld != null\) \{ tvHeld = null; if \(journey\) setWorldTimeScale\(travelAsked\); \}\n\s*tvHeldWhy = null; journeySlowSaid\(null\);[^\n]*\n\s*if \(tvWalking\) \{[^\n]*\n\s*travelGovernor\.reset\(\);/, 'the mod\'s own ask back (PIN MOVED, TV-WASD: the keys\' travel let go beside it - test/tv_wasd.test.js)');
+  // OW6: the classic skin's journey (and First-Person Travel's) is the mod's own ask under the enemies' cap alone - nothing near,
+  // the ask handed back whole, never over the helm's own time step; under the view the lower of the ground's cap and the enemies'
+  assert.match(w, /const rate = csaHoldsTimeScale\(\) \? null : Math\.min\(travelAsked, foes\.cap\);\n\s*if \(rate != null && worldTimeScale\(\) !== rate\) setWorldTimeScale\(rate\);\n\s*tvHeld = rate != null && rate < travelAsked \? rate : null;/, 'the mod\'s own ask back');
+  assert.match(w, /const load = travelGovernor\.step\(dt, \{ unbuilt, requested: want \}\);\n\s*const rate = Math\.min\(load, foes\.cap\);/);
   // AUDIT TV A2: the ASK is the mod's - its spinner and its own caps (the ring walk's x15, an interrupt's x1), recorded
   // where the mod sets the clock - so the governor never lifts a journey past Travel Options' own limit
   assert.match(w, /onTimeAccelerationChanged: \(n\) => \{ travelAsked = n; setWorldTimeScale\(n\); \},/);
@@ -918,10 +922,10 @@ test('AUDIT OW4 J4/J5: the map\'s Resume PLANS the Overworld\'s journey again fr
   const w = rd('src/scenes/world.js');
   assert.match(w, /onResumeTravel: \(\) => \{ travelViewResume\(\); \},/, 'the held map\'s and the classic map\'s Resume');
   // PIN MOVED (AUDIT OW5 J1): the re-plan asks the route, not the switch - First Person Travel's Overworld-planned routes are re-planned too
-  assert.match(w, /function travelViewResume\(\) \{\n\s*const r = travelOptions\?\.route;\n\s*if \(!r \|\| !isEnhanced\(\) \|\| !travelView\) \{ travelOptions\?\.resumeTravel\(\); return; \}\n\s*const why = travelViewAllowed\(\);\n\s*if \(!why\.ok\) \{ if \(why\.why\) tvSay\(why\.why\); return; \}\n\s*if \(!travelViewCanGo\(\)\) return;\n\s*if \(r\.summary\) travelViewRouteTo\(r\.summary\);\n\s*else if \(r\.point\) \{\n\s*const there = locationIndex\.get\(`\$\{r\.point\.pixel\.x\},\$\{r\.point\.pixel\.y\}`\);[^\n]*\n\s*travelViewWalkTo\(tvSceneOf\(r\.point\.x, r\.point\.z, 0\), r\.point\.pixel, \{ door: there \? locationWorldRect\(there, r\.point\.pixel\.x, r\.point\.pixel\.y\) : null \}\);\n\s*\}\n\s*\}/, 'planned again - the classic skin and the mod\'s own journeys keep the mod\'s resume; a spawn\'s walk resumed is its door again (AUDIT OW4 X2)');
+  assert.match(w, /function travelViewResume\(\) \{\n\s*const r = travelOptions\?\.route;\n\s*if \(!r \|\| !isEnhanced\(\) \|\| !travelView\) \{ travelOptions\?\.resumeTravel\(\); return; \}\n\s*const why = travelViewAllowed\(\);\n\s*if \(!why\.ok\) \{ if \(why\.why\) tvSay\(why\.why\); return; \}\n\s*if \(!travelViewCanGo\(\)\) return;\n\s*if \(r\.summary\) travelViewRouteTo\(r\.summary\);\n(?:\s*\/\/[^\n]*\n)*\s*else if \(r\.point\) travelViewWalkTo\(tvSceneOf\(r\.point\.x, r\.point\.z, 0\), r\.point\.pixel, \{ door: r\.point\.door \?\? null \}\);\n\s*\}/, 'planned again - the classic skin and the mod\'s own journeys keep the mod\'s resume; a spawn\'s walk resumed is its door again (AUDIT OW4 X2) - the walk\'s OWN door, never the live index\'s (AUDIT OW5b D3)');
   // PIN MOVED (TV-WASD): the keys' travel is let go on the ground too, and the view's gate reads the keys' rate beside the journey
-  // PIN MOVED (AUDIT OW5 G1): and the bar told the hold is the ground's, not the load's
-  assert.match(w, /if \(journey && !travelView\?\.active && tvOwnsJourneys\(\)\) \{\n\s*if \(worldTimeScale\(\) !== 1\) setWorldTimeScale\(1\);\n\s*tvHeld = travelAsked > 1 \? 1 : null;[^\n]*\n\s*tvHeldGround = true;\n\s*tvWalking = 0;[^\n]*\n\s*travelGovernor\.reset\(\);\n\s*return;\n\s*\}\n\s*const walk = travelWalkRate\(\{[\s\S]{0,900}?\}\);\n\s*if \(!travelView\?\.active \|\| !\(journey \|\| walk\)\) \{/, 'held at x1 until the view rises - then the governor has it');   // PIN MOVED (AUDIT OW5 G4): the keys' read grew by the focus's law
+  // PIN MOVED (AUDIT OW5 G1): and the bar told the hold is the ground's, not the load's; OW6: then the enemies' cap on what runs
+  assert.match(w, /if \(journey && !travelView\?\.active && tvOwnsJourneys\(\)\) \{\n\s*if \(worldTimeScale\(\) !== 1\) setWorldTimeScale\(1\);\n\s*tvHeld = travelAsked > 1 \? 1 : null;[^\n]*\n\s*tvHeldWhy = tvHeld != null \? 'ground' : null;[^\n]*\n\s*tvWalking = 0;[^\n]*\n\s*travelGovernor\.reset\(\);\n\s*return;\n\s*\}\n\s*const walk = travelWalkRate\(\{[\s\S]{0,900}?\}\);\n(?:\s*\/\/[^\n]*\n)*\s*const foes = journey \|\| walk \? journeyThreatCap\(!!travelView\?\.active, !journey\) : null;\n\s*if \(journey && !travelView\?\.active\) \{/, 'held at x1 until the view rises - then the governor has it');   // PIN MOVED (AUDIT OW5 G4): the keys' read grew by the focus's law
   // what the resume re-plans past: the mod's resume aims the next leg from wherever the traveller stands, asking nothing
   const r = travelRig();
   const summary = { pixel: { x: 510, y: 250 }, name: 'Ripwych', mapId: 42 };
@@ -930,4 +934,25 @@ test('AUDIT OW4 J4/J5: the map\'s Resume PLANS the Overworld\'s journey again fr
   r.state.pixel = { x: 500, y: 246 }; r.state.pos = r.at(500, 246);   // walked off by hand, a range between (the host's to know)
   r.to.resumeTravel();
   assert.deepEqual(r.to.state.autopilot.destinationMapPixel, { x: 505, y: 245 }, 'straight at the leg - no planner asked');
+});
+
+test('AUDIT OW5b D3 (run on the host\'s own code): THE MAP\'S RESUME WALKS THE WALK\'S OWN DOOR - a far spawn\'s walk (its pixel never built, so the index knows nothing of it) resumes as its door; a spot clicked on a place\'s pixel resumes as that spot', () => {
+  const w = rd('src/scenes/world.js');
+  const m = /\n {2}(function travelViewResume\(\) \{\n[\s\S]*?\n {2}\})\n/.exec(w);
+  assert.ok(m, 'the resume lifted');
+  const walked = [];
+  const run = (point, index = new Map()) => {
+    walked.length = 0;
+    const resume = new Function('d', `const { travelOptions, isEnhanced, travelView, travelViewAllowed, tvSay, travelViewCanGo, travelViewRouteTo, travelViewWalkTo, tvSceneOf, locationIndex, locationWorldRect } = d;
+      return ${m[1]};`)({
+      travelOptions: { route: { point }, resumeTravel: () => walked.push('mod') }, isEnhanced: () => true, travelView: {}, travelViewAllowed: () => ({ ok: true }), tvSay() {},   // AUDIT OW5 J1: the route's re-plan, whoever owns the journey
+      travelViewCanGo: () => true, travelViewRouteTo: () => walked.push('route'), travelViewWalkTo: (at, pix, opts) => walked.push({ pix, door: opts?.door ?? null }),
+      tvSceneOf: (x, z) => [x, 0, z], locationIndex: index, locationWorldRect: () => ({ minX: 0, maxX: 1, minZ: 0, maxZ: 1 }),
+    });
+    resume();
+    return walked[0];
+  };
+  const door = { minX: 10, maxX: 20, minZ: 30, maxZ: 40 };
+  assert.deepEqual(run({ pixel: { x: 7, y: 8 }, x: 1, z: 2, door }), { pix: { x: 7, y: 8 }, door }, 'the far spawn: its own door, though the index holds nothing there');
+  assert.deepEqual(run({ pixel: { x: 7, y: 8 }, x: 1, z: 2, door: null }, new Map([['7,8', { name: 'A keep' }]])), { pix: { x: 7, y: 8 }, door: null }, 'a spot on a keep\'s pixel: a spot still');
 });

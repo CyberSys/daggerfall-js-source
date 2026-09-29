@@ -28,13 +28,14 @@ const mount = (env, body) => { const names = Object.keys(env); return new Functi
 
 test('AUDIT OW5 D1: the find asks every unfound dungeon in reach - a dozen found about the traveller no longer hides the one within a kilometre (the plates\' list keeps TV_DUNGEON_MAX, the found first)', () => {
   // twelve found dungeons about the traveller, a dozen within the find's own reach (a crowd: the uncapped law), and one
-  // unfound in the traveller's own pixel
+  // unfound two pixels east - past the plates' grid of one (inside it, AUDIT OW5b D1 plates an unfound one beside the
+  // twelve, so the plates would hold it), within the find's kilometre of feet at the east edge of their pixel
   const rows = [];
   const ring = [];   // past the grid (TV2's plates stand within it) and within the find's reach
   for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) >= 2 && Math.hypot(dx, dy) <= 4) ring.push([dx, dy]);
   for (let i = 0; i < 12; i++) rows.push({ x: 100 + ring[i][0], y: 200 + ring[i][1], row: { mapID: 1000 + i } });
-  rows.push({ x: 100, y: 200, row: { mapID: 7 } });
-  const found = (x, y) => !(x === 100 && y === 200);
+  rows.push({ x: 102, y: 200, row: { mapID: 7 } });
+  const found = (x, y) => !(x === 102 && y === 200);
   const loc = (x, y) => ({ name: found(x, y) ? `Keep ${x}.${y}` : 'Unfound Keep', x, y });
   const plates = nearDungeons({ at: { x: 100, y: 200 }, dungeons: rows, locAt: loc, isFound: found, grid: 1 });
   assert.equal(plates.length, TV_DUNGEON_MAX);
@@ -50,7 +51,7 @@ ${fnSource('travelViewFindList')}
 return { travelViewFindList };`);
   const list = host.travelViewFindList();
   assert.deepEqual(list.map((g) => g.loc.name), ['Unfound Keep'], 'the find\'s own list: every unfound one in reach, uncapped');
-  const g = dungeonToFind({ feet: { x: 100 * 32768 + 2048, z: 200 * 32768 + 2048 }, list, mid: (d) => d });
+  const g = dungeonToFind({ feet: { x: 100 * 32768 + 32000, z: 200 * 32768 + 2048 }, list, mid: (d) => d });   // 890 m from its middle
   assert.equal(g?.loc.name, 'Unfound Keep', 'walked up to: found');
   assert.ok(host.travelViewFindList() === list, 'kept while the pixel, the finds and the index stand');
   assert.match(fnSource('dungeonFindFrame'), /dungeonToFind\(\{ feet: \{ x: n\.x, z: n\.z \}, list: travelViewFindList\(\), mid: \(d\) => d \}\)/, 'the frame asks it');
@@ -67,6 +68,8 @@ test('AUDIT OW5 R1: a window or a death HOLDS a pirates\' chase at sea (the band
       worldTimeScale: () => 1, travelView: { active: false }, state: { worldCoords: () => ({ x: 0, z: 0 }) }, player: { pos: [0, 0, 0] },
       RAID_NATIVE_PIXEL, raiderSight: () => 0, isNight: () => false, minuteNow: () => 0, travelViewRaiders: () => [],
       raiderChaseStep, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, tvRaidSea: () => true, raidContact: () => {},
+      // since the merge with AUDIT OW5b: its world-moved hold (S6), its quarry (S2: on one's own boat), OW6's spend and peers
+      worldMoveBusy: () => false, raidQuarry: () => boat, seaRaidSpend: (id) => tvRaid.spent.add(id), seaRaidPeerChase: () => null,
     };
     mount(env, `${fnSource('raidFrame')}\nreturn raidFrame;`)(1 / 60);
     return tvRaid;
@@ -205,14 +208,14 @@ test('AUDIT OW5 P6: my party on the Overworld wherever they are - from the party
 });
 
 test('AUDIT OW5 G5: a first-person crossing keeps its journey\'s clock - Come Sail Away\'s own reset (the landfall\'s disembark) left x1 under a panel asking x10 with the view down; never over the Overworld\'s own hold, nor the helm\'s own time step', () => {
-  const run = ({ owns = false, helmStep = false, viewUp = false } = {}) => {
+  const run = ({ owns = false, helmStep = false, viewUp = false, held = null } = {}) => {
     let scale = 1;
     const env = {
       travelOptions: { route: { i: 0, legs: [{ kind: 'sea' }] }, state: { autopilot: {} } }, travelControlUI: { isShowing: true },
       tvSea: { means: { how: 'helm' }, phase: null, wasLive: false, legAt: 0, best: Infinity, bestS: 0, probeAt: 0 },
       csaRuntime: { isSailing: () => true, state: { CurrentBoat: {}, sailPosition: 1 } },
       travelView: { active: viewUp }, tvOwnsJourneys: () => owns, csaHoldsTimeScale: () => helmStep,
-      worldTimeScale: () => scale, setWorldTimeScale: (n) => { scale = n; }, travelAsked: 10,
+      worldTimeScale: () => scale, setWorldTimeScale: (n) => { scale = n; }, travelAsked: 10, tvHeld: held,
       SEA_KINDS: ['sea', 'landfall'], TV_SEA_PROBE_S: 1, tvSeaRelease: () => {}, tvSeaLaunch: () => {}, tvSeaLand: () => {},
       tvSeaSail: () => {}, tvSeaAshore: () => {}, csaHelmPress: () => {}, CSA_BOAT_ACTIONS: {},
     };
@@ -223,6 +226,7 @@ test('AUDIT OW5 G5: a first-person crossing keeps its journey\'s clock - Come Sa
   assert.equal(run({ owns: true }), 1, 'the Overworld\'s own journey with its view down: AUDIT OW4 J5 holds it at x1');
   assert.equal(run({ helmStep: true }), 1, 'the helm\'s own time step holds the clock: left to it');
   assert.equal(run({ viewUp: true }), 1, 'the view up: the governor\'s to give back');
+  assert.equal(run({ held: 4 }), 4, 'OW6: an enemy near holds the journey (the governor\'s tvHeld) - the restore asks that rate, never over it');
 });
 
 /** world.js's travelViewWalkTo and tvMooredDry, run over the real planner on a small map: `sea` the water, `means` the

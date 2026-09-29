@@ -65,6 +65,7 @@ function rig({ spinner = 10, limit = 100 } = {}) {
     travelGovernor: createLoadGovernor({ max: MAX_TIME_SCALE }),
     state: { terrainDistance: 3 }, playerTravelPixel: () => ({ x: 100, y: 200 }), tvGroundGenNow: () => w.unbuilt.size,
     unbuiltAround, built: { has: (k) => !w.unbuilt.has(k) },
+    journeyThreatCap: () => ({ cap: Infinity }), journeySlowSaid: () => {},   // OW6: no enemy about (test/ow6_slowdown.test.js runs the cap)
   };
   return { w, g: mountGovernor(env) };
 }

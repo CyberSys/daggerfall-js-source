@@ -122,8 +122,8 @@
   {
     "name": "OW3D3-grid-not-handed",
     "file": "src/scenes/world.js",
-    "old": "    const list = nearDungeons({ at, grid, dungeons:",
-    "new": "    const list = nearDungeons({ at, dungeons:",
+    "old": "    const list = nearDungeons({ at, grid, dungeons, locAt,",
+    "new": "    const list = nearDungeons({ at, dungeons, locAt,",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -132,8 +132,8 @@
   {
     "name": "OW3D3-rows-off-the-index",
     "file": "src/scenes/world.js",
-    "old": "const list = nearDungeons({ at, grid, dungeons: (_tvDungeonRows ??= dungeonRows(mapDict)),",
-    "new": "const list = nearDungeons({ at, grid, dungeons: (_tvDungeonRows ??= dungeonRows(locationIndex)),",
+    "old": "const dungeons = (_tvDungeonRows ??= dungeonRows(mapDict)), locAt",
+    "new": "const dungeons = (_tvDungeonRows ??= dungeonRows(locationIndex)), locAt",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -262,8 +262,8 @@
   {
     "name": "OW3D2-bands-mid-arrival",
     "file": "src/scenes/world.js",
-    "old": "  function bandFrame(now) {\n    if (worldMoveBusy()) return;",
-    "new": "  function bandFrame(now) {",
+    "old": "  function bandFrame(now, dt) {\n    if (worldMoveBusy()) return;",
+    "new": "  function bandFrame(now, dt) {",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],

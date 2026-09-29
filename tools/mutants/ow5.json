@@ -23,8 +23,8 @@
   {
     "name": "OW5-R1-window-ashore",
     "file": "src/scenes/world.js",
-    "old": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) return;\n    const at = warmAshesOn()",
-    "new": "    const at = warmAshesOn()",
+    "old": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused() || worldMoveBusy()) return;\n    const at = warmAshesOn()",
+    "new": "    if (worldMoveBusy()) return;\n    const at = warmAshesOn()",
     "tests": [
       "test/ow5_audit.test.js",
       "test/ows3_raiders.test.js"
@@ -145,20 +145,22 @@
   {
     "name": "OW5-G1-ground-held-as-load",
     "file": "src/scenes/world.js",
-    "old": "      tvHeldGround = true;\n",
-    "new": "      tvHeldGround = false;\n",
+    "old": "      tvHeldWhy = tvHeld != null ? 'ground' : null;",
+    "new": "      tvHeldWhy = tvHeld != null ? 'load' : null;",
     "tests": [
-      "test/ow_toggle.test.js"
+      "test/ow_toggle.test.js",
+      "test/ow6_slowdown.test.js"
     ],
     "note": "The ground hold said as the load's."
   },
   {
     "name": "OW5-G1-words",
     "file": "src/ui/enhancedTravelControl.js",
-    "old": "? `Held to ×${n} of ×${of} until the Overworld rises`",
-    "new": "? `Held to ×${n} of ×${of} while the land loads`",
+    "old": "ground: 'until the Overworld rises'",
+    "new": "ground: 'while the land loads'",
     "tests": [
-      "test/tv2_click_to_move.test.js"
+      "test/tv2_click_to_move.test.js",
+      "test/ow6_slowdown.test.js"
     ],
     "note": "The ground hold's own words gone."
   },
@@ -196,7 +198,7 @@
   {
     "name": "OW5-G5-crossing-at-one",
     "file": "src/scenes/world.js",
-    "old": "    if (!travelView?.active && !tvOwnsJourneys() && !csaHoldsTimeScale() && worldTimeScale() !== travelAsked) setWorldTimeScale(travelAsked);\n",
+    "old": "    if (!travelView?.active && !tvOwnsJourneys() && !csaHoldsTimeScale() && worldTimeScale() !== (tvHeld ?? travelAsked)) setWorldTimeScale(tvHeld ?? travelAsked);\n",
     "new": "",
     "tests": [
       "test/ow5_audit.test.js"
@@ -206,12 +208,12 @@
   {
     "name": "OW5-B1-patience-runs",
     "file": "src/scenes/world.js",
-    "old": "{ bandHold(now - was); return; }",
-    "new": "return;",
+    "old": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) return;\n    const aboard = !!csaRuntime",
+    "new": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) { _bandClock += dt * 1000; return; }\n    const aboard = !!csaRuntime",
     "tests": [
       "test/tv7_bands.test.js"
     ],
-    "note": "Two minutes in a window lose the chase."
+    "note": "The chase clock runs on held frames: two and a half minutes in a window loses the chase on the first frame after (since the merge, the one fix is AUDIT OW5b B4's chase clock)."
   },
   {
     "name": "OW5-B2-mod-rows",

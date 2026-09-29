@@ -132,3 +132,30 @@ test('RE1: both hosts bound the retry, and neither invented a second law', () =>
     assert.match(src, /placeFoeEnv/, `${name} uses the shared env adapter`);
   }
 });
+
+// AUDIT OW5b E1 (Mac, 2026-09-28: "Need to get pullout of fast travel little sooner for encounters. U run thru them"):
+// the wanderer placed beside a walking traveller stops the journey THEN - the foe's loads and its real-time classic tick
+// came after twenty to a hundred times DFU's ground at the journey's scale. Lifted out of world.js and run.
+test('AUDIT OW5b E1: a wanderer PLACED beside the traveller asks the walking journey at once (after the stand is sent); nothing placed - the pool full, no spot - asks nothing', () => {
+  const world = read('src/scenes/world.js');
+  const at = world.indexOf('  const _standEncounterFoe = (hit, feet) => {');
+  assert.ok(at > 0, 'the stander is found');
+  const src = world.slice(at, world.indexOf('\n  };\n', at) + 5);
+  const run = ({ room = 8, spot = { x: 3, y: 0, z: 4 } } = {}) => {
+    const order = [];
+    const scope = {
+      exteriorFoes: { encounterRoom: () => room, spawnFoe: (t) => { order.push(`spawn ${t}`); return Promise.resolve({}); } },
+      placeFoeEnv: () => ({}), collider: {}, cam: { yaw: 0 }, fieldOfView: () => 1, entityOccupancy: () => () => false, _placingPool: () => [],
+      LOOSE_FOE_PLACE_ATTEMPTS: 2, placeFoeFreely: () => spot, ENEMY_BASICS: {}, journeyMet: () => { order.push('met'); return 'stopped'; },
+    };
+    const k = Object.keys(scope);
+    const stand = new Function(...k, `${src}\nreturn _standEncounterFoe;`)(...k.map((x) => scope[x]));
+    const out = stand({ mobileType: 7, minDistance: 10, maxDistance: 20, lineOfSightCheck: true }, [0, 0, 0]);
+    return { out, order };
+  };
+  const placed = run();
+  assert.deepEqual(placed.order, ['spawn 7', 'met'], 'stood, then the journey asked');
+  assert.ok(placed.out instanceof Promise, 'the stand handed back');
+  assert.deepEqual(run({ room: 0 }), { out: null, order: [] }, 'the encounter pool full: nobody comes, nothing stops');
+  assert.deepEqual(run({ spot: null }), { out: null, order: [] }, 'no spot: nobody comes, nothing stops');
+});

@@ -75,6 +75,8 @@ import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angl
 import { isGateRoom } from './gateLaw.js';   // WB3: a gate's arena is one room of its own
 import { poseChanged, SOCKETS_MAX, WORLD_CELL, RANGE_PIXELS, PIXEL_UNITS, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, WORLD_FRAME_MAX, worldFrameMaxFor, isCellRoom, hitOwnerOf, validPose, validLook, sanitizeName, readBadge, sanitizeChat, chatGate, redGate, dmGate, relaySupportsDm, muteGate, subOf, mutedUntilOf, worldRoom, inRange, relayUrl, isWorldRoom, isChatRoom, foesGate, FOES_FRAME_MAX, MAX_FRAME_BYTES, hitGate, actGate, actFrameFits, whoGate, WHO_RETRY_MS, HEARTBEAT_MS, PING_MS, relayVersionOf, chatInGate, CHAT_ROOM_HZ_MAX, socialGate, partyGate, validPartyPose, validSocialFrame, validPartyFrame, PARTY_SEND_MS, validSocialAct, socialInGate, noteInGate, partyInGate, SOCIAL_IN_HZ_MAX, NOTE_IN_HZ_MAX, INBOUND_FRAME_MAX, questInGate, validQuestFrame, QUEST_SEND_MS, QUEST_HUB_MIN_MS, PARTY_MAX, tokenGate, validTradeData, tradeGate, tradeInGate, validCastData, castGate, castInGate, CAST_FRAME_MAX, CAST_IN_HZ_MAX, relaySupportsCast, TRADE_IN_HZ_MAX, relaySupportsTrade, TRADE_FRAME_MAX, parkGate, relaySupportsPark, PARK_CELL_MAX, PARK_KEY_RE, PARK_TTL_MS, relaySupportsChannels, CHAT_LINE_CHANNELS, partyChatInGate, PARTY_CHAT_ROOM_HZ_MAX, relaySupportsRoll, rollGate, validRollSpec, validRoll, relaySupportsEmote, validCardData, cardGate, cardInGate, CARD_FRAME_MAX, CARD_IN_HZ_MAX, relaySupportsCard, validPageData, pageGate, pageInGate, PAGE_FRAME_MAX, PAGE_IN_HZ_MAX, relaySupportsPage, validDuelData, duelGate, duelInGate, DUEL_FRAME_MAX, DUEL_IN_HZ_MAX, relaySupportsDuel, readRenown, renownGate, relaySupportsRenown, RENOWN_ORDER_KEEP_MS, RENOWN_RESEND_MS, lookGate, relaySupportsLook, relaySupportsPartyTravel, relaySupportsRestOpt, relaySupportsEvent, eventGate, validLiveEvent, LIVE_EVENTS, isSocialRoom, validGateIn, validGateOut, gateGate, relaySupportsGate, relaySupportsOwn, relaySupportsGateSpent, relaySupportsGateSite, gatePlaceWire, readGuildTag, relaySupportsGuild, GUILD_ORDER_KEEP_MS, guildChatInGate, GUILD_CHAT_ROOM_HZ_MAX, validRaidIn, validRaidOut, raidGate, relaySupportsRaid, validRaidTownsIn, isRegionRoom, validTravellerMark, validTravellerFrame, relaySupportsTravellers, travInGate, TRAV_SEND_MIN_MS, TRAV_WELCOME_MAX, TRAV_STALE_MS, relaySupportsPartyWalk } from './wire.js';   // SOC2: the hub's law, at home; AUDIT SOC B3/B11/B20: the act's projection, the inbound gates, the inbound bound
 import { RAID_TOWNS_CHUNK } from './raidLaw.js';   // RAID-ROLL: the towns table's pieces
+import { owGate, validOwIn, validOwOut, relaySupportsOverworld, OW_WORD_IDS_MAX, OW_WORD_ROWS_MAX } from './wire.js';   // OW6L: the overworld ledger's frame, both ways
+import { owIdInCell, owRowInCell, owRowSane } from './overworldLaw.js';   // OW6L: and the cell's law, held at home before a word is said
 
 export { WORLD_CELL, RANGE_PIXELS, worldRoom };
 
@@ -377,6 +379,9 @@ export class OnlineSession {
     this.raidOk = false;          // RAID3: the relay that welcomed my primary socket keeps a raid's ledger (relaySupportsRaid) - an older one CLOSES the socket on the frame, and RAID2's law runs the raid
     this.onRaid = null;           // RAID3: (frame, room) => void - a cell's word about a raid (its ledger, its cleanse, my receipt) or the hub's (a cleanse anywhere, the day's cleanses), projected by the wire's validRaidOut
     this._raidBucket = null;      // RAID3: my own raid words out - raidGate's law
+    this.owOk = false;            // OW6L: the relay that welcomed my primary socket keeps a cell's overworld ledger (relaySupportsOverworld) - an older one CLOSES the socket on the frame, so nothing is said to it
+    this.onOverworld = null;      // OW6L: (msg, room) => void - a cell's word on its overworld ledger, `{k:'sp', ids}` or `{k:'dg', rows}` (validOwOut), from my own cell or a halo's, its welcome's half by half
+    this._owBucket = null;        // OW6L: my own `ow` words out - owGate's law
     // name (below), so once Local chat went down this session a heal cast at a mate spent a chat line and a chat line a cast
     this._inTradeBuckets = new Map();   // TRADE1: and the gate on trade frames coming IN, per sender (AUDIT DROPS B3) - a peer is chosen by the sender, so a flood is a peer's, never the relay's
     this._inDirectedSaid = new Set();   // AUDIT 68 S14-inbound-directed-gate-dup: the kinds whose flood the console has said, once each (`_directedIn`)
@@ -984,6 +989,33 @@ export class OnlineSession {
     try { for (const p of pieces) this._ws.send(p); } catch { return false; }
     this.stats.sent += n;
     return true;
+  }
+
+  /**
+   * OW6L: my word on my CELL's overworld ledger (net/overworldLaw.js) - `sendOverworld('sp', ids)` the bands and raiders
+   * I spent (travelBands.js / seaRaiders.js ids), `sendOverworld('dg', rows)` the spawned dungeons I first saw or cleared
+   * (`[px, py, seen, cleared?]`, shared classic minutes - world/spawnedDungeons.js's `wireRow(key)`). Down the socket of
+   * my PRIMARY room alone, and only while it is a cell whose relay keeps the ledger (relaySupportsOverworld: an older one
+   * closes the socket on the frame) - a halo hears its own cell's players, and my word is about where I stand. THE
+   * RELAY'S LAW AT HOME FIRST: an entry my cell would STRIKE (an id's cell or a row's pixel outside its square widened by
+   * OW_CELL_MARGIN_PX, a pixel the spawn roll leaves empty, a clear before its sight, a shape the wire refuses) is left
+   * out and never sent; the first OW_WORD_IDS_MAX / OW_WORD_ROWS_MAX of the rest go as one word, OW_HZ_MAX a second (the
+   * relay's own bucket). Time is the cell's to judge - an id of a life gone, a row out of its window, is dropped there
+   * quietly, never struck. ANSWERS THE ENTRIES THAT WENT, projected and in order - an empty list when nothing did (not a
+   * cell, an older relay, the socket down, the gate shut, nothing the cell's law takes); the caller says the rest again.
+   * @param {'sp'|'dg'} k @param {unknown[]} payload @returns {Array<string|number[]>}
+   */
+  sendOverworld(k, payload) {
+    if (!this.owOk || !isCellRoom(this.room) || this.status !== 'open' || !this._ws || !Array.isArray(payload)) return [];
+    const room = this.room;
+    const w = k === 'sp' ? validOwIn({ k, ids: payload.filter((id) => owIdInCell(id, room)).slice(0, OW_WORD_IDS_MAX) })
+      : k === 'dg' ? validOwIn({ k, rows: payload.filter((r) => owRowSane(r) && owRowInCell(r, room)).slice(0, OW_WORD_ROWS_MAX) }) : null;
+    if (!w) return [];
+    const gate = owGate(this._owBucket, this._now());
+    if (!gate.pass) return [];
+    try { this._ws.send(JSON.stringify({ t: 'ow', ...w })); } catch { return []; }
+    this._owBucket = gate.bucket; this.stats.sent++; this.stats.ow = (this.stats.ow ?? 0) + 1;
+    return w.k === 'sp' ? w.ids : w.rows;
   }
 
   /** AUDIT WBX S1: a day's receipt spent on this device - its spoils given - said to the hub, which forgets its kept
@@ -1737,6 +1769,7 @@ export class OnlineSession {
       if (primary) this.gateSiteOk = relaySupportsGateSite(relayV);   // DISCORD-GATES: and where the gate stands
       if (primary) this.raidOk = relaySupportsRaid(relayV);   // RAID3
       else { const h = this._halo.get(room); if (h) h.raidOk = relaySupportsRaid(relayV); }   // AUDIT RAID R8b: a halo says for itself
+      if (primary) this.owOk = relaySupportsOverworld(relayV);   // OW6L: the cell keeps the overworld's ledger - an older relay closes the socket on `ow` (the word goes down the primary alone)
       // AUDIT RENOWN1 WIRE-3: THIS SOCKET'S OWN WORD, not the session's - a halo's welcome names its own relay, and a
       // socket whose welcome has not come is sent no renown order at all (the frame a relay behind would close it on)
       const _rnWs = primary ? this._ws : this._halo.get(room)?.ws;
@@ -1786,12 +1819,20 @@ export class OnlineSession {
       // stale on the first leave (the browser run that found this: three rows, one left, the header still said three).
       // While kept, every join and leave the channel says moves it, so it stays the room's count.
       this.roomCount = Number.isFinite(m.n) && m.n > keep.size + 1 ? m.n : null;
+      // OW6L: A CELL'S WELCOME CARRIES ITS OVERWORLD LEDGER (`ow`: {sp, dg} - absent, an empty one), handed on as the
+      // cell's own words are - one `sp` and one `dg`, each through the wire's door (validOwOut), each only when it holds
+      // something - from ANY cell socket I hold: my own cell's AND A HALO'S, since the halo is how a player at the seam
+      // hears the next cell (its bands, its raiders, its dungeons a pixel over the edge - the park's and the raid's rule).
+      // A halo's now; my own cell's once the relay's clock below is read, so whatever ages what it hears ages it on it
+      const owIn = isCellRoom(room) && m.ow && typeof m.ow === 'object' ? [validOwOut({ k: 'sp', ids: m.ow.sp }), validOwOut({ k: 'dg', rows: m.ow.dg })].filter(Boolean) : [];
+      if (!primary) for (const o of owIn) this._deliver('ow', () => this.onOverworld?.(o, room));
       if (!primary) return;
       this._setHost(m.host);   // WORLD1: the room's host, and the room's memory when it keeps one
       if (Number.isFinite(m.now)) {   // WORLD5: the relay's clock - a year off is no clock; OL3: and is SAID, on the console and the HUD line, rather than run uncorrected in silence
         if (Math.abs(m.now - Date.now()) < 366 * 24 * 3600 * 1000) { this.clockOffsetMs = m.now - Date.now(); this.clockRead = true; this.clockWarning = null; this._deliver('clock', () => this.onClock?.(this.clockOffsetMs)); }
         else if (!this.clockWarning) { this.clockWarning = CLOCK_WARNING; console.warn(`[online] ${CLOCK_WARNING} (relay ${new Date(m.now).toISOString()}, this machine ${new Date().toISOString()})`); }
       }
+      for (const o of owIn) this._deliver('ow', () => this.onOverworld?.(o, room));   // OW6L: my own cell's ledger, after its clock
       if (m.world && typeof m.world === 'object' && !Array.isArray(m.world)) this._deliver('world', () => this.onWorld?.(m.world));
       // SKEW1 (2026-09-16, Mac: "when the relay deploys/server restarts, there are 2 strings of messages that happen
       // outside of the chat box"): SLAM13 A5 compared `v` with this client's RELAY_VERSION here and put a warning on
@@ -1861,6 +1902,12 @@ export class OnlineSession {
       // AUDIT RAID R2: my receipt from the hub too - it keeps an earner's and hands it wherever the earner stands
       const r = validRaidOut(m);
       if (r && (r.k === 'cl' || r.k === 'rc' ? isCellRoom(room) || isSocialRoom(room) : r.k === 'cls' || r.k === 'tw' ? isSocialRoom(room) : isCellRoom(room))) this._deliver('raid', () => this.onRaid?.(r, room));   // RAID-ROLL: `tw` the hub's ask alone
+    } else if (m.t === 'ow') {
+      // OW6L: a cell's word on its overworld ledger - the ids it took, the rows it moved, or my own rows' answer - on ANY
+      // cell socket I hold (my own cell's, or a halo's: the welcome's rule above), projected by the wire's own law; a
+      // cell's alone (no other room keeps one). What it means is the host's to decide (onOverworld)
+      const o = isCellRoom(room) ? validOwOut(m) : null;
+      if (o) this._deliver('ow', () => this.onOverworld?.(o, room));
     } else if (m.t === 'park') {
       // HCC-PARK: a cell's word about one owner's parked team - on any cell socket I hold (my own cell's or a halo's:
       // a team parked across the seam stands for me too), never my own back; the name is the relay's stamp
