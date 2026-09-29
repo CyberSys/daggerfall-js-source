@@ -84,7 +84,7 @@ import { preloadSpellbookArt } from '../ui/spellbookWindow.js';   // U42: the cl
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { rangedDamageSpells } from '../systems/spellcast.js';   // U42: the flight probe's picker
-import { worldMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, setWorldPriceTilt, empireJoin } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
+import { worldMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
@@ -187,7 +187,7 @@ import { wearCondition, wearOf, WEAR_WHOLE } from '../net/marketLaw.js';   // PR
 import { commissionFilledBy } from '../net/writLaw.js';   // AUDIT 31 L8: a piece that answers a commission, the law's own test
 
 import { unseenText } from '../net/boardLaw.js';   // NOTICE1: the count over a board
-import { alignSurvival, shiftSurvival } from '../systems/survival/needs.js';   // SURV7: the needs' markers at an arrival; AUDIT SURV-TIERS (the third pass): and across a clock correction
+import { alignSurvival } from '../systems/survival/needs.js';   // SURV7: the needs' markers at an arrival
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // SURV7: the env's lycanthrope and beast-form flags
 import { elementalResistanceChance, ELEMENTS, BODY_CAPSULE_RADIUS, EFFECT_FLAGS, savingThrow } from '../systems/spellcast.js';   // SURV7: the env's fire and frost resistances; WB4: the saving throw a boss's fire meets   // DW-E3: a foe's controller, as a fish's probe meets it
 import { createTownWatch, runTownWatchFrame } from '../systems/townWatch.js';   // DISC19-F: the watch defends the town
@@ -4361,8 +4361,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   // runs once time has passed, so it is initialised by then.
   // AUDIT 23 (C5): the exhaustion collapse - exterior.js's twin.
   let _inExhaustion = false;
+  // AUDIT LIVED1b K1: DFU's popup guard (PlayerEntity.cs:2385-2391 displayingExhaustedPopup - "Somnalius poison after
+  // first exhaustion drop. Subsequent exhaustion events would otherwise stack on popup per poison round remaining"), as
+  // the dungeon's has been since AUDIT 68 S19: while the collapse's box stands, a drain to nothing collapses nobody
+  // again. Online, where the hour's rounds now run under that box (the ticker walks J's raise at once); offline the
+  // hour still nests inside the latch below, as before (K6's recorded twin), and nothing offline reads differently.
+  let _exhaustedBox = null;
+  const exhaustedShowing = () => !!_exhaustedBox && !_exhaustedBox.done && townTalk.containsOverlay(_exhaustedBox);
   function onExhaustedExterior() {
-    if (_inExhaustion) return;
+    if (_inExhaustion || (sharedClockOn() && exhaustedShowing())) return;
     _inExhaustion = true;
     if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath());   // CSA-D: PlayerEntity.OnExhausted -> ComeSailAway.OnPlayerDeath
     try {
@@ -4387,12 +4394,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       // the inventory, the map and the spellbook alike, and the
       // refusal meant the one message that explains the lost hour (or
       // the drowning) was dropped.
-      townTalk.pushOverlay(new ActionTextBox(lines));
+      _exhaustedBox = new ActionTextBox(lines);
+      townTalk.pushOverlay(_exhaustedBox);
       if (out.kind === 'rest') {
         playerTicker.advance(60);
         // CAMP-REST: the forced hour is a rest - its minutes are spent HERE, through the same tick the rest window uses, so the
         // frame never replays them as walking time (which is what let the 15-minute camp timer fire on waking)
-        runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, null, true);
+        runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true);
         playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + out.health);
         playerEntity.fatigue = Math.min(maxFatigue(playerEntity), (playerEntity.fatigue ?? 0) + out.fatigue);
         playerEntity.magicka = Math.min(playerEntity.maxMagicka ?? Infinity, (playerEntity.magicka ?? 0) + out.magicka);
@@ -4454,7 +4462,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // read it. It held the bare-skin block's naked-cold and sunburn
     // ticks and the byFire exposure damage (needs.js:480, :456) - the
     // health Mac wants ticking - and, the one TO-FIELD never counted,
-    // it shut the HUNTING roll off entirely (hunting.js:114 refuses on
+    // it shut the HUNTING roll off entirely (hunting.js:115 refuses on
     // `resting`), so a traveller could not hunt on the road at all.
     // One flag, four laws; the journey takes the world as it finds it.
     //
@@ -4977,6 +4985,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         onCancel: () => { releaseUnloadGuard(); location.reload(); },
         onDone: (r) => {
           finishChargen(playerEntity, r, sbi);
+          // AUDIT LIVED1b R4: DFU's AssignCharacter stamps the skill check at WorldTime.Now (PlayerEntity.cs:881); chargen
+          // stamps the classic game's start, which is now offline - online the character's clock begins at the world's,
+          // months past it, and the six-hour gate was open at birth
+          if (sharedClockOn()) playerEntity.lastSkillCheckTime = Math.floor(ownMinutes());
           preloadPaperDollArt({ renderer, fetchBytes, palette, getTexture },
             { race: r.race, gender: r.gender, faceIndex: r.faceIndex });
           surfacePlayer();
@@ -5179,7 +5191,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     place: () => ({ insideBuilding: _mode() === 'interior', insideDungeon: _mode() === 'dungeon', inTown: _isPlayerInTownStrict(), enemiesNearby: areEnemiesNearby(exteriorFoePool(), { resting: true }), inWater: !!player.isPlayerSwimming }),
     pixelKeyAt: () => `${playerTravelPixel().x},${playerTravelPixel().y}`, say: (l) => townTalk.say(l), showOverlay: (w) => townTalk.showOverlay(w),
     openRest: () => { townTalk.closeOverlay(); toggleRest(); },   // the menu's picker leaves the slot first (toggleRest refuses under a window); SURV4 takes the camp's own rest law from here
-    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, null, true); },   // offline the cook's minutes pass; online the clock is nobody's (WORLD5) and advance() stands   // CAMP-REST: spent through the tick as a skip, never replayed as walking time (no group roll)
+    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // the cook's minutes pass - online on the character's own clock (LIVED1)   // CAMP-REST: spent through the tick as a skip, never replayed as walking time (no group roll)
     selfId: () => online?.id ?? null, onChanged: () => { _foesFullAt = -Infinity; },   // a change asks for a full frame, which carries the camps
   });
   // SURV3 / AUDIT SURV-TIERS (the third pass): a camp's scene position in natives and back - the save's two converters,
@@ -6225,7 +6237,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const hunting = createHunting({
     entity: playerEntity,
     env: () => ({
-      minute: Math.floor(worldMinutes()), climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),
+      minute: Math.floor(ownMinutes()), climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // LIVED1: the hunt's minute is the body's (its needs, its catch's age); the winter below is the sky's
       luck: liveStat(playerEntity, 'luck'), winter: seasonValue(dateFromClassicMinutes(worldMinutes())) === SEASONS.Winter,
       outdoors: _mode() === 'exterior' && !(walkMode && playerSpawned && player.isPlayerSwimming), inLocationRect: _musicInLocationRect(), night: isNight(minuteNow()),
       enemiesNear: areEnemiesNearby(exteriorFoePool()), resting: !!playerEntity.isResting || !!playerEntity.preventEnemySpawns,
@@ -6233,7 +6245,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       skills: { archery: skillValue(playerEntity, SKILLS.Archery), stealth: skillValue(playerEntity, SKILLS.Stealth), criticalStrike: skillValue(playerEntity, SKILLS.CriticalStrike), climbing: skillValue(playerEntity, SKILLS.Climbing) },
     }),
     showOverlay: (w) => townTalk.showOverlay(w), overlayActive: () => townTalk.overlayActive,
-    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, null, true); },   // CAMP-REST: the search's minutes are spent through the tick as a skip - no group roll on the replay
+    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // CAMP-REST: the search's minutes are spent through the tick as a skip - no group roll on the replay
     spawnBeast: ({ mobileType, count }) => { const feet = walkMode && playerSpawned ? player.pos : cam.pos; for (let i = 0; i < count; i++) _standEncounterFoe({ mobileType, ...SPAWNER_ARMS.wilderness }, feet); },
     inflictPoison, inflictDisease, tally: (id) => tallySkill(playerEntity, id, 1),
   });
@@ -6397,7 +6409,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const drinkAtSpring = (key) => {
     const s = springAt(key);
     if (!s) return false;
-    townTalk.say(s.dry ? DRY_SOURCE_TEXT : drinkAtSource(playerEntity, Math.floor(worldMinutes())).text);
+    townTalk.say(s.dry ? DRY_SOURCE_TEXT : drinkAtSource(playerEntity, Math.floor(ownMinutes())).text);   // LIVED1: thirst is the body's own clock
     return true;
   };
   // ROAD-B: THE AREA, for GameManager.MakeEnemiesHostile.
@@ -6418,7 +6430,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
     raidHere: () => raidDefendingHere(),   // RAID-GUARDS: a raid on in this town spares its defenders every blow of the player's
     say: (l) => townTalk.say(l),   // C-slice: equipment breaks speak
-    currentMinute: () => Math.floor(playerTicker.classicMinutes),   // AUDIT 23 (hosts-3): the poison clock
+    currentMinute: () => Math.floor(playerTicker.ownMinutes),   // AUDIT 23 (hosts-3): the poison clock
     currentPixelKey: () => `${playerTravelPixel().x},${playerTravelPixel().y}`,   // TrackLooseObject's stamp - the pile seam's key, one shape
     makeAreaHostile: _makeEnemiesHostile,   // ROAD-G G1: DaggerfallEntityBehaviour.cs:255-258, over the SAME database the encounter pool walks
     // ROAD-B B4: PlayerEnterExit's entry latches, for SpawnCityGuards'
@@ -6457,7 +6469,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const exteriorFoes = createExteriorFoes({
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects,
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
-    currentMinute: () => Math.floor(playerTicker.classicMinutes),
+    currentMinute: () => Math.floor(playerTicker.ownMinutes),
     currentPixelKey: () => `${playerTravelPixel().x},${playerTravelPixel().y}`,   // TrackLooseObject's stamp
     playerSinks: playerTicker.sinks,   // AUDIT 24 (wave 30): OnMonsterHit's fatigue rider drains through the host's one set of doors
     regionIndex: () => _questRegionIndex(),   // DISC10-D V3: PlayerGPS.CurrentRegionIndex, for the vampire's bite
@@ -6502,15 +6514,14 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _lastEncMinutes = null;
   // `isResting` = "these minutes are a skip, not a walk": a rest window's sub-tick, but also the exhaustion collapse, a
   // camp meal and a forage/hunt search (CAMP-REST, 2026-09-19). Only the GROUP roll reads it; lone wanderers still roll.
-  function runEncounterTick(playerFeet, simMinutesEnd = null, isResting = false) {
-    // RESTX2: online, playerTicker.classicMinutes stands (WORLD5 - playerTicker.advance in shared.js fabricates
-    // nothing under the shared clock), so reading it here under a rest made `span` zero and the loop below never
-    // rolled - no online rest could be interrupted. `simMinutesEnd`, when given, is the rest session's own
-    // locally-simulated minute counter (never the real shared clock, never written back to it) standing in for
-    // `now` for exactly this roll, as dungeonContext's `_restAdvance` reads its sharedEnd. The tail's
-    // `_lastEncMinutes = now` then sits ahead of the standing clock until it catches up, and those frames roll
-    // nothing - the rest already rolled them.
-    const now = simMinutesEnd ?? Math.floor(playerTicker.classicMinutes);
+  /** AUDIT LIVED1b P1: `spawns: false` walks the minutes with the wanderers' roll left out - a party mirror's night
+   *  (PSCALE1 COUNT-1: the rester's roll is the party's), whose watch is still the follower's own. */
+  function runEncounterTick(playerFeet, isResting = false, { spawns = true } = {}) {
+    // LIVED1: the catch-up loop walks the CHARACTER's own minutes - DFU's is PlayerEntity.Update's, on the one clock
+    // the player owns. Online a rest's hours move that clock (the ticker's advance), so the loop rolls them as it
+    // does offline and the anchor stays in tune with it after the rest. [SUPERSEDES RESTX2's `simMinutesEnd`, the
+    // rest session's local counter standing in for `now` while the world's clock stood.]
+    const now = Math.floor(playerTicker.ownMinutes);
     if (_lastEncMinutes == null) _lastEncMinutes = now;
     // THE FLAG, AT LAST WITH A READER. PlayerEntity.Update wraps this
     // whole loop - the spawn roll AND the passive guard rolls inside
@@ -6552,8 +6563,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // it once per modal frame (host.encounterTick) and from its
       // interior rest; the host's own call below is the exterior arm.
       const _m = modes?.mode ?? 'exterior';
-      const hit = (walkMode && playerSpawned && player.isPlayerSwimming) ? null : intermittentEnemySpawn({   // XL-1: :489 reads PlayerEnterExit.IsPlayerSwimming, the host flag
+      const hit = (!spawns || (walkMode && playerSpawned && player.isPlayerSwimming)) ? null : intermittentEnemySpawn({   // XL-1: :489 reads PlayerEnterExit.IsPlayerSwimming, the host flag
         gameMinutes: _lastEncMinutes + l + 1, inside: _m !== 'exterior', inDungeon: _m === 'dungeon', isResting: false,   // the dungeon's rest roll is dungeonContext's own
+        skyMinutes: sharedClockOn() ? Math.floor(worldMinutes()) : null,   // LIVED1: online the minute is the character's own and night is the sky's
         restAsks: playerEntity.isResting ? playerEntity.restAsks : 1,   // SURV4 + SURV-TIERS: the rest's asks, its kind priced by the tier at the open (scenes/shared.js) - a rough rest asks twice in Hard, once in Casual
         // F061: IsPlayerInLocationRect is the WIDENED TOWN RECT
         // (PlayerGPS.cs:687-699), not "this pixel has a location" -
@@ -6978,7 +6990,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     playerEntity,
     playerSinks: playerSpellSinks,
     say: (l) => townTalk.say(l),
-    now: () => playerTicker.classicMinutes,   // V2a: MorphSelf's once-a-day clock
+    now: () => playerTicker.ownMinutes,   // V2a: MorphSelf's once-a-day clock
     // QG1: the ready-spell doors - the machine's CastSpellDo /
     // CastEffectDo latches ride these two events (machine.js's own
     // contract since the Q arc; nothing raised them until now, so the
@@ -7094,10 +7106,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2725 mounts the same one, gated on
+  // and dungeonContext.js:2728 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6408
+  // that context through modes.dungeonCtx - so worldModes.js:6427
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -7554,7 +7566,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       travelUIShowing: () => !!_travelUIHolder.ui?.isShowing,
       playerEntity,
       spellsByIndex: () => spellsByIndex,
-      now: () => Math.floor(playerTicker.classicMinutes),
+      now: () => Math.floor(playerTicker.ownMinutes),
       sinks: {
         hurt: (n) => { if (n > 0) hurtPlayer(playerEntity, n); },
         heal: (n) => { if (n > 0) { playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + n); surfacePlayer(); } },
@@ -7601,7 +7613,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  read the player's Stealth as 0, tallied it never, and - because
    *  gameMinutes defaulted to 0 - froze each foe's detection on its
    *  first roll for the rest of its life. */
-  const _foeSenses = () => sensesContext(playerEntity, playerTicker.classicMinutes, {
+  const _foeSenses = () => sensesContext(playerEntity, playerTicker.ownMinutes, {
     movingLessThanHalfSpeed: player.movingLessThanHalfSpeed ?? true, playerHeight: player.height, playerCrouching: !!player.crouching,   // AUDIT 62 F23: playerHeight is the LIVE capsule (crouch 0.9, ride 2.6, swim), not the standing constant   // ROAD-H H1b: PlayerMotor.IsCrouching, the LATCHED state an enemy archer's dip reads (DaggerfallMissile.cs:584) - a swimming player is 0.9 tall too and takes none
     // MT-ii: THE SHARED CANDIDATE LIST - DFU's
     // ActiveGameObjectDatabase.GetActiveEnemyBehaviours (EnemySenses
@@ -7671,7 +7683,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const quickslotHooks = (rig = weaponRig) => ({
     ...useHooks,
     isEnchanted,
-    nowMinute: () => Math.floor(playerTicker.classicMinutes ?? 0),
+    nowMinute: () => Math.floor(playerTicker.ownMinutes ?? 0),
     rows: (id, pick) => townTalk.lines(id, pick),
     hand: () => quickslotHand(rig),   // DISC21-C: an empty press names the key that readies a sheathed weapon
     ...packDoors,   // UI2: a hotbar slot's Use opens what the pack's Use opens
@@ -7734,7 +7746,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       localItems: playerEntity.items ?? [],
       spellCount: () => playerEntity.spells?.length ?? 0,
       isEnchanted,
-      nowMinute: Math.floor(playerTicker.classicMinutes ?? 0),
+      nowMinute: Math.floor(playerTicker.ownMinutes ?? 0),
     });
     if (r?.text) townTalk.say(r.text);
   };
@@ -7752,7 +7764,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     usingRightHand: () => (modes?.liveArm?.()?.rig ?? weaponRig).playerWeapon.usingRightHand,   // DISC12: the pack's figure holds the hand in USE - the live rig's, the pose's own read
     openCharSheet: () => { if (charSheetDoorReady()) townTalk.showOverlay(makeCharSheetWindow()); },   // MAC-C: the pack's other window key crosses over rather than doing nothing - the same door the sheet's own Items button takes back the other way
     ...useHooks,   // U53: the one bag (revealMap, drinkPotion, getQuest)
-    nowMinute: () => Math.floor(playerTicker.classicMinutes),
+    nowMinute: () => Math.floor(playerTicker.ownMinutes),
     // U8e: OnPop mints the world pile; P2: stamped with its map pixel.
     // G5: `icon` is the drop icon the player cycled to on the remote
     // panel (null = CreateDroppedLootContainer's -1 roll), and `at` is
@@ -8055,7 +8067,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // whole rested night's rolls fire in one burst the moment the
     // window closes, which is AUDIT 24 wave 30's finding about the
     // magic rounds, one system over.
-    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, sharedEnd, true); },   // CAMP1-REST: every tick this drives IS a rest   // RESTX2: sharedEnd is the session's local sim-minutes online, so the roll still gets a fresh `now` while the real clock stands   // REST-ROUNDS: the sub-tick's end reaches the rounds too
+    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // CAMP1-REST: every tick this drives IS a rest   // LIVED1: online the sub-tick's minutes are the character's own, so the roll and the rounds read a night that passed
     // TickRest :379 - QuestMachine.Instance.Tick() rides the same
     // sub-tick as the clock, UNPACED (DFU calls the machine directly,
     // not through QuestMachine.Update's ticksPerSecond timer). This
@@ -8135,7 +8147,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // levitating or falling player who cannot lie down.
     // V2b: the vampire's own rest gate - CheckStartRest is LAST in
     // DFU's ladder and the override speaks for itself (TEXT.RSC 36)
-    const rb = racialRestBlock(playerEntity, Math.floor(worldMinutes()));   // XL-1: the refusal's swim term below is PlayerEnterExit.IsPlayerSwimming (DaggerfallUI.cs:661), not PlayerMotor.IsSwimming
+    const rb = racialRestBlock(playerEntity, Math.floor(ownMinutes()));   // LIVED1: fed on the character's own clock   // XL-1: the refusal's swim term below is PlayerEnterExit.IsPlayerSwimming (DaggerfallUI.cs:661), not PlayerMotor.IsSwimming
     const d = restDecision({
       enemiesNearby: outdoorRestDeps.enemiesNearby(),
       swimming: !!player.isPlayerSwimming,   // DaggerfallUI.cs:661
@@ -8162,7 +8174,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // (DaggerfallUI.cs:655 - NOT the rest window's :655, which is
       // DoRestForAWhile; a bare citation here resolves to the wrong
       // file, since every other number in this block is the window's).
-      if (d.kind === 'enemies') setEnemyAlert(playerEntity, true, Math.floor(worldMinutes()));
+      if (d.kind === 'enemies') setEnemyAlert(playerEntity, true, Math.floor(ownMinutes()));   // LIVED1: the alert's decay is the character's
       // AUDIT 58: the offer took the press - the item was handed
       // over inside GiveOffer() and there is nothing to say.
       if (d.kind === 'offer') return;
@@ -9134,7 +9146,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     Promise.resolve().then(async () => {
       _wodInside = true;   // WOD6: the crypt is inside
       await _teleportToPixel(pos.x, pos.y);
-      _lastEncMinutes = Math.floor(playerTicker.classicMinutes);
+      _lastEncMinutes = Math.floor(playerTicker.ownMinutes);
       const entered = await (modes?.startInDungeon?.() ?? false);   // CRUX1: insideDungeon true - the crypt, not its door
       if (!entered) _wodInside = false;
       if (!entered) console.warn('[infection] the cemetery has no dungeon to wake in - the vampire wakes at its exterior');
@@ -9308,7 +9320,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (ohReturn) { await ohTeleportToWorld(ohReturn.worldX, ohReturn.worldZ); await ohAbyss.standAtPit(ohReturn); }   // AUDIT OH-F B5
         else await _teleportToPixel(land.x, land.y, null, { reposition: REPOSITION.RandomStartMarker });
       } finally { hccRuntimeOn()?.handlePostFastTravel(); }   // AUDIT HCC (branch audit): a teleport that threw still lifts the following team's suspension
-      _lastEncMinutes = Math.floor(playerTicker.classicMinutes);   // PreventEnemySpawns parity, the cemetery transfer's own line
+      _lastEncMinutes = Math.floor(playerTicker.ownMinutes);   // PreventEnemySpawns parity, the cemetery transfer's own line
       // MAC-D3: the heal is at the TOP now, before anything is torn
       // down or awaited. Re-asserted here only because a teleport can
       // cross a cell that re-reads vitals; it is the same value, so
@@ -9413,9 +9425,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       // cautious arrival heals in full; magicka honors NoRegenSpellPoints
       // AUDIT WORLD5 C14: the heal is the trip's NIGHTS - DFU's cautious traveller arrives rested because the days
-      // passed - and online the trip takes no world time, so it heals nothing: with it, a cautious trip with camping
-      // out (a zero fare) was a free, instant, repeatable full heal of every pool on a black screen
-      if (opts.speedCautious && !sharedClockOn()) {
+      // passed. LIVED1: online they pass too - on the character's own clock (the advance below), with every cost the
+      // days carry (effects run out, the needs, the curses, a room and a loan run on) - so the heal is paid for again,
+      // as a rest's is. [SUPERSEDES C14's online withholding, which answered a trip that took no time at all.]
+      if (opts.speedCautious) {
         playerEntity.health = playerEntity.maxHealth;
         playerEntity.fatigue = maxFatigue(playerEntity);
         if (!hasSpecialAbility(playerEntity.career, SPECIAL_ABILITY.NoRegenSpellPoints)) {
@@ -9435,9 +9448,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       // spends that jump in TWO advances, each of which claims its own
       // window, so the flag is raised before each of them; the claim
       // itself retires it (effectBroker.js).
-      // WORLD5: online the clock is the world's and a trip moves it not at all - no jump, no catch-up window, no
-      // arrival clamp (the vampire arrives when they arrive); the fare and the cautious heal stand
-      if (!sharedClockOn()) { setSyntheticTimeIncrease(true); playerTicker.advance(computed.minutes); }
+      // WORLD5: online the world's clock is nobody's and a trip moves it not at all - the arrival is the world's now.
+      // LIVED1: the trip's days are the CHARACTER's own time: the advance moves their clock and the tick walks the
+      // journey on it (the rounds under the synthetic shield, the diseases and the incubations, the needs, the
+      // calendar's own arms), exactly as offline. [SUPERSEDES WORLD5's "no jump, no catch-up window" for the
+      // character: only the world's half stands still.] The arrival clamp below stays the world's sky's.
+      setSyntheticTimeIncrease(true); playerTicker.advance(computed.minutes);
       // W1 review: DFU fast travel never fires the respawner's direct
       // re-roll - TeleportToCoordinates raises OnInitWorld, whose
       // weather half applies the destination climate's ARRAY slot
@@ -9473,7 +9489,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         sunAverse: racialSunAverse(playerEntity) || careerSunDamage(playerEntity.career),
       });
       if (clamp > 0 && !sharedClockOn()) { setSyntheticTimeIncrease(true); playerTicker.advance(clamp); }   // AUDIT 63 F13: the arrival clamp is inside DFU's one shielded Update too
-      _lastEncMinutes = Math.floor(playerTicker.classicMinutes);   // X-slice: PreventEnemySpawns parity - no spawn catch-up for the traveled window
+      _lastEncMinutes = Math.floor(playerTicker.ownMinutes);   // X-slice: PreventEnemySpawns parity - no spawn catch-up for the traveled window
       // TP1 - performFastTravel's tail (:380): RaiseSkills fires AFTER
       // the arrival clamp, so a trip that lands at 7:10am raises
       // against the arrival minute rather than the departure one. It
@@ -9576,12 +9592,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7449), so exterior mode and a
+    // composer, dungeonContext.js:7458), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
       interior,
-      classicMinutes: Math.floor(playerTicker.classicMinutes),
+      classicMinutes: Math.floor(playerTicker.ownMinutes),   // LIVED1: the save's clock is the character's own (every marker it holds is on it); save.js adds the world's minute beside it online
       readiedSpellIndex: magic.readiedIndex(),
       // B4: quest (Q4-v: machine + notebook + one-time list) and talk
       // (SaveDataConversation WHOLE, :368-375: the mill + questor-post
@@ -9893,7 +9909,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // Sheathed = !weaponDrawn (:420-421). Presence-gated: an old
       // envelope leaves the live pose standing.
       applyPose(extras.pose);
-      _lastEncMinutes = Math.floor(playerTicker.classicMinutes);   // no spawn catch-up across a load (DFU LoadInProgress)
+      _lastEncMinutes = Math.floor(playerTicker.ownMinutes);   // no spawn catch-up across a load (DFU LoadInProgress)
       surfacePlayer();
       townTalk.say('Game loaded.');
       slotLoaded(playerEntity.characterId ?? null);   // AUDIT ONLINE2 F3: the pack is the save's - the spoils' crash door asks again
@@ -10068,7 +10084,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       wodOnLoad(walkMode ? [lx, ly + player.height / 2, lz] : cam.pos);   // WOD6: StartFromClassicSave raises OnLoad too
     }
     applyPose(bundle.snap.pose);
-    _lastEncMinutes = Math.floor(playerTicker.classicMinutes);   // no spawn catch-up across a load
+    _lastEncMinutes = Math.floor(playerTicker.ownMinutes);   // no spawn catch-up across a load
     surfacePlayer();
     townTalk.say(`Loaded classic save: ${bundle.saveName || bundle.snap.name}.`);
     return true;
@@ -10137,8 +10153,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // own CFG bit, specialAdvantages.js:266 here) where CheckFastTravel
     // reads the RacialOverrideEffect. Same localized key at both sites,
     // so the box says the same sentence.
+    // LIVED1: online the day cannot be rested away - a rest moves the character's own clock, not the sky - so both
+    // rungs add when the world's night falls, in real minutes (worldTick.js worldNightfallText; nothing offline).
     if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) {
-      townTalk.say(SUNLIGHT_TRAVEL_TEXT);
+      sayWithNightfall(SUNLIGHT_TRAVEL_TEXT);
       return;
     }
     // V2b: CheckFastTravel at the map's own door, where DFU calls it
@@ -10149,7 +10167,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // DFU's line. Online `nowMin` is the shared clock's, whose day is
     // one real hour no rest or trip can shorten.
     const ftb = racialFastTravelBlock(playerEntity, nowMin);
-    if (ftb) { townTalk.say(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return; }
+    if (ftb) { sayWithNightfall(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return; }
     // TO1: the fork. `playerControlled` is the popup's own word for a
     // trip its three toggles say is WALKED (ui/travelPopUp.js
     // callFastTravelGoldCheck); everything else is DFU's fast travel.
@@ -10954,7 +10972,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         lines: (id) => townTalk.lines(id),
         macroContext: questBridge?.machine?.macroContext?.() ?? null,
         entity: playerEntity,
-        survival: survivalOn() ? { minutes: Math.floor(worldMinutes()), vampire: !!liveVampirism(playerEntity), endurance: liveStat(playerEntity, 'endurance') } : null,   // SURV5: the mod's advice, the readout's third page
+        survival: survivalOn() ? { minutes: Math.floor(ownMinutes()), vampire: !!liveVampirism(playerEntity), endurance: liveStat(playerEntity, 'endurance') } : null,   // SURV5: the mod's advice, the readout's third page
       });
     },
     toggleLogbook: () => townTalk.showOverlay(makeJournalWindow('activeQuests')),
@@ -11571,7 +11589,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  whether it wrote. */
   let _checkpointAt = -Infinity;
   const onlineCheckpoint = () => {
-    if (!checkpointAllowed({ online: !!online, spawned: playerSpawned, seatOut: seatOut(), duel: !!duelMgr?.duel })) return false;
+    if (!checkpointAllowed({ online: !!online, spawned: playerSpawned, seatOut: seatOut(), duel: !!duelMgr?.duel, walkWaiting: ownWalkWaiting(playerEntity) })) return false;   // AUDIT LIVED1b S1
     _checkpointAt = performance.now();
     try {
       // REALM P1.3: a realm character's checkpoint is ONE, the service's - the composer's sink sends it, no slot is written
@@ -12158,7 +12176,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9855-9919 -
+  // worldModes answers it in BOTH modes (worldModes.js:9874-9938 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -13038,7 +13056,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AddMembership pushes no welcome window the way the walk-in join
       // does.
       const initiated = guildInitiationQuestEnded(activeMemberships(playerEntity), q?.questName ?? '',
-        !!q?.questSuccess, dateFromClassicMinutes(playerTicker.classicMinutes), _questStore());   // AUDIT-RR F2: the store, so Join()'s rep floor (RR1) runs on the initiation path too
+        !!q?.questSuccess, dateFromClassicMinutes(playerTicker.ownMinutes), _questStore());   // AUDIT-RR F2: the store, so Join()'s rep floor (RR1) runs on the initiation path too
       // AUDIT 63 F9: both guilds override Join() to reveal their hall
       // on the town map at once (ThievesGuild.cs:168-173,
       // DarkBrotherhood.cs:177-182) - the join is one of DFU's three
@@ -13072,7 +13090,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     removeNpcQuestor: (seed) => npcSession.removeNpcQuestor(seed),
     // MakePcDiseased / CurePcDisease over the S18 system, which has
     // been ported since its own slice and wired to nothing here.
-    makePcDiseased: (diseaseType) => { startDisease(playerEntity, diseaseType, gameDaysNow()); surfacePlayer(); },
+    makePcDiseased: (diseaseType) => { startDisease(playerEntity, diseaseType, Math.floor(ownMinutes() / 1440)); surfacePlayer(); },   // AUDIT LIVED1 B (P1/S2/R1): the disease's day is the CHARACTER's - its rounds walk their clock, and a world's-day stamp days away gave back or billed the gap at once
     cureDisease: (diseaseType) => {
       for (const a of playerEntity.activeEffects ?? []) {
         if (a.kind === 'disease' && a.disease === diseaseType && !a.ended) endDisease(a);
@@ -13084,12 +13102,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // declared by the bridge since Q4 and wired to nothing here. The
     // RaiseTime(60) minute is the bare clock move both cures take.
     endVampirism: () => {
-      if (cureVampirism(playerEntity, { advanceMinutes: (m) => setWorldMinutes(worldMinutes() + m) })) surfacePlayer();
+      if (cureVampirism(playerEntity, { advanceMinutes: (m) => advanceOwnMinutes(m) })) surfacePlayer();   // LIVED1: the cure's minute is the character's own time (AUDIT LIVED1b D3: DFU's RaiseTime(60) is SECONDS - VampirismEffect.cs:302/308)
     },
     endLycanthropy: () => {
       if (cureLycanthropy(playerEntity, {
-        nowMinutes: Math.floor(worldMinutes()),
-        advanceMinutes: (m) => setWorldMinutes(worldMinutes() + m),
+        nowMinutes: Math.floor(ownMinutes()),
+        advanceMinutes: (m) => advanceOwnMinutes(m),   // LIVED1: the cure's minute, the character's own (AUDIT LIVED1b D3: LycanthropyEffect.cs:473/487)
       })) surfacePlayer();
     },
     // Q5: the un-pended quest actions' doors. setPlayerCrime rides
@@ -13102,8 +13120,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     setPlayerCrime: (crime) => setCrimeCommitted(playerEntity, crime),
     getGoldPieces: () => goldAmount(playerEntity),
     deductGoldPieces: (n) => deductGoldPieces(playerEntity, n),
-    raiseTime: (seconds) => setWorldMinutes(worldMinutes() + seconds / 60),
-    waitOnline: (seconds, quest) => { foragingWait.add(seconds, quest?.displayName ?? null); },   // FORAGE4: online, QAE's raise time
+    raiseTime: (seconds) => advanceOwnMinutes(seconds / 60),   // LIVED1: a quest's RaiseTime (TrainPc's hours) is the character's own time - offline the one clock
+    waitOnline: (seconds, quest) => { foragingWait.add(seconds, quest?.displayName ?? null); },   // FORAGE4: online, QAE's raise time is a wait too (MERGE 2: and the character's own time, raiseTime above)
+    ownMinutes: () => ownMinutes(),   // AUDIT LIVED1 D: TrainPc's training stamp, on the clock the guild's gate reads
     // ROAD-B: through the host's ONE entry, so a quest that calls the
     // watch on a player standing in a tavern gets the indoor arm too.
     spawnCityGuards: (immediate) => _spawnGuards(!!immediate),
@@ -13460,7 +13479,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   // The clock the tally stamps its three-day letter from - the same
   // classic minute every other dated law in this host reads.
-  setCrimeGuildClock(() => Math.floor(playerTicker.classicMinutes));
+  setCrimeGuildClock(() => Math.floor(playerTicker.ownMinutes));
   if (_questStartPending) questInitAtGameStart();
   // ONLINE1 (2026-09-12, Mac: "the basic bones of multiplayer"): THE
   // OTHERS. `?online` (the front door's Online button, main.js) joins the
@@ -14126,17 +14145,19 @@ export async function bootWorld(canvas, renderer, params, status) {
       tradeSay(pageOfferText(peerName(id), pageReadHow()));
     };
     online.onAct = (id, data) => { modes?.applyPlaceActions?.(id, data); };   // WORLD3: another's door, lever or platform; WORLD6a: in a building too
-    // WORLD5: this save's time markers are set to the WORLD's time - a save a month behind catches up no loans and no
-    // diseases on its first frame, one a year ahead reads no negative day - and the day's weather is rolled from the
-    // shared day's own seed, whatever sky the save carried
+    // WORLD5: the online arrival - the day's weather rolled from the shared day's own seed, whatever sky the save
+    // carried, and the tick's world reading anchored at the world's now.
     // AUDIT WORLD5 C2: and the same arrival again whenever the relay's clock moves this machine's by more than a
-    // second - the first welcome's offset lands AFTER this boot-time arrival (the socket opens later), and until it
-    // did the markers stood at the uncorrected clock's time: a machine minutes off caught up (or froze for) the
-    // difference on its first corrected tick. A room move's welcome says the same offset again and moves nothing.
+    // second - the first welcome's offset lands AFTER this boot-time arrival (the socket opens later). A room move's
+    // welcome says the same offset again and moves nothing.
+    // LIVED1: an arrival moves nothing of the CHARACTER's - their own clock (restored by the load, worldTick.js
+    // ownMinutes) is independent of the world's reading, so a correction of this machine's clock shifts no marker of
+    // theirs either. [SUPERSEDES the markers' shift to the world's time at every arrival and correction, and AUDIT
+    // SURV-TIERS' needs shift by the correction's delta.] The Empire's call and the needs read the character's clock.
     const onlineArrival = () => { alignEntityClocks(playerEntity, worldMinutes()); rollClimateWeathersForDay(worldMinutes()); refreshSeason(worldMinutes()); };
-    onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: worldMinutes(), say: (l, d) => townTalk.say(l, d) });   // REALM P0.3: the Empire calls in the debt it would not have lent, on the world's clock
-    alignSurvival(playerEntity, Math.floor(worldMinutes()), Math.floor(worldMinutes()));   // SURV7: a record ahead of the world's clock starts fresh; the gap itself is save.js's load arm
-    online.onClock = (offsetMs) => { const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; _sharedClockHeard = true; if (Math.abs(offsetMs - was) > 1000) { const before = playerEntity.lastGameMinutes; onlineArrival(); if (Number.isFinite(before)) shiftSurvival(playerEntity, Math.floor(worldMinutes()) - Math.floor(before)); alignSurvival(playerEntity, Math.floor(worldMinutes()), Math.floor(worldMinutes())); } };   // AUDIT SURV B: the correction re-aligns the needs too; AUDIT SURV-TIERS (the third pass): by the delta every other marker rode, first   // WORLD5: the relay's clock corrects this machine's
+    onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: ownMinutes(), say: (l, d) => townTalk.say(l, d) });   // REALM P0.3: the Empire calls in the debt it would not have lent - the loans run on the character's own clock (LIVED1)
+    alignSurvival(playerEntity, Math.floor(ownMinutes()), Math.floor(ownMinutes()));   // SURV7: a record ahead of the character's own clock starts fresh; the absence itself is save.js's load arm
+    online.onClock = (offsetMs) => { const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; _sharedClockHeard = true; if (Math.abs(offsetMs - was) > 1000) onlineArrival(); hearSharedClock(); };   // WORLD5: the relay's clock corrects this machine's; AUDIT LIVED1b P4: and the load's absence is paid on it
     online.onOverworld = (msg) => overworldLedgerHeard(msg);   // OW6L: my cell's (and a halo's) overworld ledger - its welcome, and each change
     remotePlayers = new RemotePlayers({ renderer, deps: { fetchBytes, palette, getTexture, uploadRecordFrame, audio } });   // 2026-09-17: uploadRecordFrame added for the class-enemy billboard path (net/remotePlayers.js _buildMobile/_syncMobilePeer) - the doll path never touches it
     // MWBODY1: the enhanced skin with Morrowind data attached puts every peer in a body of its own; otherwise the doll
@@ -15372,7 +15393,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const socialActText = (k, who) => (k === 'friend.request' ? `Friend request sent to ${who}`
     : k === 'party.invite' ? `Party invite sent to ${who}`
       : k === 'friend.remove' ? `${who} is no longer your friend` : 'Sent');
-  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:612) to the wire's small
+  /** PARTY-REST1: RestWindow's own `mode` string ('loiter'|'timed'|'full', restWindow.js:615) to the wire's small
    *  numbers (net/wire.js validPartyPose: 0/1/2) - the one place the three hosts' restState getters (worldModes.js,
    *  dungeonContext.js) and this host's own outdoor overlay converge, so the mapping is written once. */
   const partyRestModeCode = (mode) => (mode === 'timed' ? 1 : mode === 'full' ? 2 : 0);
@@ -15520,7 +15541,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       swimming: !!player.isPlayerSwimming,
       grounded: startRestGroundedCheck(!!player.grounded, player.pos, collider),
       preventedMessage: getPreventedRestMessage,
-      racialOverrideBlocks: !!racialRestBlock(playerEntity, Math.floor(worldMinutes())),
+      racialOverrideBlocks: !!racialRestBlock(playerEntity, Math.floor(ownMinutes())),   // LIVED1: the thirst is the character's own
     });
     return d.kind !== 'rest';
   };
@@ -15540,11 +15561,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     ...outdoorRestDeps,
     partyRest: () => true,   // OVH4: a mirror IS a party's rest - the party card on either skin (restDoor.js)
     // PARTY-REST1: only the leader's own real session is allowed to say enemies are near or roll an encounter - a
-    // follower's mirror answers false unconditionally and, below, never calls runEncounterTick at all. A room of
+    // follower's mirror answers false unconditionally and, below, never rolls a wanderer. A room of
     // four followers independently rolling the SAME slept hours would spawn four rooms' worth of monsters for one
     // party's one nap; the leader's own session (composePartyPose's `restWin`, unmirrored) is the one roll that counts.
     enemiesNearby: () => false,
-    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },   // local effects/quest catch-up only - no runEncounterTick   // REST-ROUNDS: the mirrored night's rounds, off its own session's minute
+    // LIVED1: the mirrored night is the follower's own time too. AUDIT LIVED1 H (P2): and the encounter loop's marker
+    // rides it - a marker left at the night's start made the first frame up walk the whole night as WALKING minutes.
+    // AUDIT LIVED1b P1: ...but H moved the marker PAST the night, and the loop's minutes are not the wanderers' alone:
+    // its second arm is the follower's own watch (PlayerEntity.cs:498-511 - a legal reputation below -10 rolls a 5%
+    // Criminal_Conspiracy and the city guards each minute, a banishment 10%), and a hated member slept in town untouched
+    // by mirroring a clean partner's night (0 of 200 nights watched, against 200 alone). The mirror walks each sub-tick
+    // through the loop with the wanderers' roll left out - the rester's is the party's (PSCALE1 COUNT-1).
+    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true, { spawns: false }); },
     commitCrime: () => {},   // a follower did not choose to trespass here themselves - the leader's own session already answers for the room
     canceledByFollower: () => false,   // AUDIT PARTY-REST: a mirror is nobody's target - only the real rester's session answers a follower's Stop
     // PARTY-REST19 (2026-09-22, per-request: "An non initiator MUST cancel the rest for all if he cancels the
@@ -16347,6 +16375,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       unwell: diseaseCount(playerEntity) + poisonCount(playerEntity) > 0,   // the popup's own warning, said on the prompt
     };
   }
+  /** LIVED1: a daylight refusal and, online, when the world's night falls (worldTick.js worldNightfallText) - the one
+   *  wait a rest cannot shorten, because the sun is everyone's. Offline the refusal alone, as DFU says it. */
+  function withNightfall(text) { const nf = worldNightfallText(); return nf ? `${text} ${nf}` : text; }
+  /** AUDIT LIVED1 M (U1): the same words on the HUD as TWO rows - the classic HUD draws a line unwrapped and centred,
+   *  and the refusal with its nightfall ran ~485 native px, off both edges of the screen with the minutes lost; the
+   *  chat's PARTY-TRAVEL refusal wraps and keeps the one line (withNightfall above). */
+  function sayWithNightfall(text) { townTalk.say(text); const nf = worldNightfallText(); if (nf) townTalk.say(nf); }
   /** PARTY-TRAVEL: THE MAP DOOR'S REFUSALS, for a journey that does not pass through the map - the rungs toggleTravelMap
    *  asks before the map opens (an enemy or a duel near, the career's and the racial override's sunlight), with what a
    *  journey begun off the map must also be: outdoors (the map opens nowhere else), alive, and not already moving.
@@ -16356,8 +16391,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!(playerEntity.health > 0) || worldMoveBusy()) return PARTY_TRAVEL_TEXT.off;
     if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes])) return CANNOT_TRAVEL_ENEMIES_TEXT;
     const nowMin = Math.floor(worldMinutes());
-    if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) return SUNLIGHT_TRAVEL_TEXT;
-    return racialFastTravelBlock(playerEntity, nowMin)?.text ?? null;
+    if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) return withNightfall(SUNLIGHT_TRAVEL_TEXT);
+    const sun = racialFastTravelBlock(playerEntity, nowMin)?.text ?? null;
+    return sun ? withNightfall(sun) : null;   // LIVED1: the door's own words, and when the world's night falls
   }
   /** PARTY-TRAVEL: the journey itself - the travel popup's own order (ui/travelPopUp.js tick): the screen smashed to
    *  black, then fastTravelTo, whose arrival fades it back; a journey that did not go clears it. */
@@ -18493,7 +18529,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // F-slice probe surface: the travel state + the nearest real
     // destination at least two pixels out (the live probe types its
     // name into the real window).
-    window.__travelProbe = () => JSON.stringify({ pixel: playerTravelPixel(), minutes: Math.floor(playerTicker.classicMinutes), gold: goldAmount(playerEntity) });
+    window.__travelProbe = () => JSON.stringify({ pixel: playerTravelPixel(), minutes: Math.floor(playerTicker.ownMinutes), gold: goldAmount(playerEntity) });
     // U42: the classic spellbook's live state. Its buttons are hit
     // rects painted into SPBK00I0, so a probe cannot see what it is
     // clicking - it reads the selection, the pushed box and the rows
@@ -18989,7 +19025,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (giveOffer()) return true;   // the map door's GiveOffer rung (DaggerfallUI.cs:612): a pending offer handed over spends the press (AUDIT 28e)
     if (!fare.afford) { tvSay(`${TRAVEL_VIEW_TEXT.noWay} ${fareText(fare.computed, false, fare.coinsShort)}`); return true; }
     const pick = { pixel: place.pixel, name: place.name, mapId: place.mapId, regionIndex: place.regionIndex, locationIndex: place.locationIndex };
-    const days = sharedClockOn() ? 0 : travelDays(fare.computed.minutes);   // OL2: online the arrival is now
+    const days = travelDays(fare.computed.minutes);   // MERGE (LIVED1 x SHIP-SAIL): the voyage's days, as the map counts them - online they are the traveller's own (fastTravelTo's advance bills them), OL2's "now" superseded
     // AUDIT 28e: Yes is a new destination - the journey on the ground ENDS (the mod's own ClearTravelDestination: the
     // panel closes, the route and the autopilot go, a party's walk ends with it), or it went on driving from the far
     // shore back into the sea. No leaves me where I stood, the Overworld up again if it was (the box cut it down, and
@@ -18997,7 +19033,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const viewUp = !!travelView && travelView.state !== 'off';
     let sailed = false;
     townTalk.showOverlay(new YesNoBoxWindow({
-      rows: shipPassageRows(place.name, fareText(fare.computed), days, fare.unwell),
+      rows: shipPassageRows(place.name, fareText(fare.computed), days, fare.unwell, sharedClockOn()),
       onYes: () => {
         sailed = true;
         travelOptions?.clearTravelDestination();
@@ -22069,7 +22105,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // again". TO-FIELD held SURV6's roll while an accelerated journey
     // ran; the gate is REMOVED on Mac's word, with the `resting` flag
     // above that was holding the roll a second time from inside
-    // (hunting.js:114).
+    // (hunting.js:115).
     //
     // WHAT IT MEANS, said plainly so it is not rediscovered as a bug:
     // the roll fires once a GAME minute, and a journey spends those at
@@ -22351,7 +22387,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         tallySkill(playerEntity, SKILLS.Dodging, 1);
         const dmg = shooter && !shooter.dead ? exteriorFoes.partyHit(calculateAttackDamage(shooter.entity, playerEntity, {
           weapon: m.weapon,
-          onInflictPoison: (att, tgt, pt) => inflictPoison(playerEntity, pt, false, { currentMinute: Math.floor(playerTicker.classicMinutes) }),
+          onInflictPoison: (att, tgt, pt) => inflictPoison(playerEntity, pt, false, { currentMinute: Math.floor(playerTicker.ownMinutes) }),
           say: (l) => townTalk.say(l),
         }), shooter) : 0;   // PSCALE1: a shared archer's arrow, harder for the party beside me
         if (dmg > 0) {
@@ -22386,7 +22422,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           ? cityGuards.hurtGuard(f, d, player.pos, m.dir)   // AUDIT-39r: the shaft shoves the watch too (WeaponManager.cs:576-595)
           : exteriorFoes.damageFoe(f, d, player.pos, m.dir, { kind: 'arrow' })),   // WORLD6b-iii(e): the kind rides the hit - a puppet's owner lands the shaft (ar), as the dungeon's host has since WORLD3
         audio, hitEffects, say: (l) => townTalk.say(l),
-        onInflictPoison: (att, tgt, pt) => (cityGuards.guards.includes(t) ? inflictPoison(tgt, pt, false, { currentMinute: Math.floor(playerTicker.classicMinutes) }) : exteriorFoes.poisonFoe(t, pt)),   // WORLD6b-iii(e): the pool's one poison door - a puppet's dose rides the hit to its owner; the watch is dosed here (the player's own)
+        onInflictPoison: (att, tgt, pt) => (cityGuards.guards.includes(t) ? inflictPoison(tgt, pt, false, { currentMinute: Math.floor(playerTicker.ownMinutes) }) : exteriorFoes.poisonFoe(t, pt)),   // WORLD6b-iii(e): the pool's one poison door - a puppet's dose rides the hit to its owner; the watch is dosed here (the player's own)
         // AUDIT 58: WeaponManager.cs:630's HandleAttackFromSource sits
         // AFTER the damage fork closes (:615), so a shaft that lost the
         // roll still enrages what it hit and wakes the area. ROAD-G G1

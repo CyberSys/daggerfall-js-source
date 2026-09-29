@@ -75,7 +75,7 @@
 // AUDIT-MAP (2026-09-18, bible/10-UI/Held-Map-Arc.md): the fare is the
 // mod's SCALED one (scaleTripCost, the popup's own export); a walked
 // trip hands its walked minutes to the host's ETA; No on the fee closes
-// the map; online no inn is billed and the arrival is now; the static
+// the map; online the trip's days pass on the traveller's own clock (LIVED1) and the fare is billed; the static
 // ink is a kept layer and the rings an overlay. Its recorded departures:
 // the coordinates click refuses a teleport visit, H works under the
 // panel, a bare pixel's ship laws see no destination, the resume prompt
@@ -2270,8 +2270,9 @@ export class HeldMapWindow {
     // deps, and everything the card bills or commits reads the blessed
     // minutes.
     const minutes = guildFastTravel(this.deps.playerEntity?.() ?? null, time.minutes);
-    // OL2 / AUDIT-MAP H1: online the world's clock does not wait, so
-    // the arrival is now and the day count is zero.
+    // OL2 / AUDIT-MAP H1 said the arrival is now and the day count
+    // zero online. [LIVED1 SUPERSEDES it: the trip's days pass on the
+    // traveller's own clock, so the count is the trip's, online too.]
     //
     // TRAVEL-FARE (2026-09-22, kurkku): the FARE is billed online now -
     // the inn's gold is the price of the journey, not rent on elapsed
@@ -2290,7 +2291,7 @@ export class HeldMapWindow {
     // :24-40), the popup's own export - the enhanced skin had billed
     // and CHARGED the unscaled fare since the relief map
     const scaled = scaleTripCost(cost, st.to?.settings, this.deps.playerEntity?.() ?? null);
-    st.trip = { ...time, minutes, ...scaled, days: nwt ? 0 : travelDays(minutes), online: nwt };
+    st.trip = { ...time, minutes, ...scaled, days: travelDays(minutes), online: nwt };   // LIVED1: the days are the traveller's own, online too
     // MAP2 (TravelOptionsPopUp.cs:104-137, UpdateLabels): a WALKED trip -
     // a bare pixel's, or a place's when the mod's fork says the player
     // drives it - has no fare and its own estimate: the classic one
@@ -3028,7 +3029,7 @@ export class HeldMapWindow {
     //   - the ship refusal (_toggleOpt below) is one of
     //     TravelOptionsPopUp.cs:168-180's three message boxes, which the
     //     classic twin still draws as a buttonless parchment
-    //     (ui/travelPopUp.js:642-648, `this.top` with no MB_BUTTONS)
+    //     (ui/travelPopUp.js:652-658, `this.top` with no MB_BUTTONS)
     //   - "not enough gold" (_confirmDiseased below) is
     //     DaggerfallTravelPopUp.cs:394-406, showNotEnoughGoldPopup,
     //     `messageBox.ClickAnywhereToClose = true` over TEXT.RSC 454
@@ -3137,7 +3138,7 @@ export class HeldMapWindow {
           add('Cost', TO_TEXT.MsgPlayerControlled);
           add('Purse', `${this.deps.goldPieces?.() ?? 0} gold`);   // AUDIT-MAP U5: the popup still shows the coins
         } else {
-          add('Journey', t.online ? 'now' : `${t.days} ${t.days === 1 ? 'day' : 'days'}`);   // OL2: online the arrival is now
+          add('Journey', `${t.days} ${t.days === 1 ? 'day' : 'days'}${t.online ? ' of your time' : ''}`);   // LIVED1: online the days are the traveller's own (OL2 said "now")
           add('Cost', `${t.totalCost} gold`);
           // the label shows COINS, never the letters-of-credit total -
           // the popup's own reading

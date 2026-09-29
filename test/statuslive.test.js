@@ -181,7 +181,7 @@ test('STATUS-LIVE by source: all four hosts reach the ONE composer, each with it
     assert.match(s, /mount: \(box\) => /, `${h} hands its own mount`);
     assert.match(s, /drop: \(box\) => /, `${h} hands its own drop - a close that frees the SLOT`);
     assert.equal(/new ActionTextBox\(statusInfoRows\(/.test(s), false, `${h} keeps no copy of the chain`);
-    assert.match(s, /survival: survivalOn\(\) \? \{ minutes: Math\.floor\(worldMinutes\(\)\)/, `${h} still feeds SURV5's page`);
+    assert.match(s, /survival: survivalOn\(\) \? \{ minutes: Math\.floor\((?:ownMinutes\(\)|classicMinutesRef\.value)\)/, `${h} still feeds SURV5's page (LIVED1: on the character's own clock)`);
   }
   // the yield, at every door a window key can come through
   assert.match(src('src/ui/input.js'), /if \(statusReadoutTakesAction\(action\)\) return true;/, 'routeAction, for the two modal hosts and the large HUD');

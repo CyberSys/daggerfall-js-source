@@ -14,7 +14,6 @@
 import { liveStat, maxFatigue } from './statMods.js';
 import { skillValue, SKILLS } from './skills.js';
 import { healingRateModifier } from '../combat/formulas.js';   // U10
-import { sharedClockOn, worldMinutes } from './worldTick.js';   // AUDIT WORLD5 C6: the collapse's hour, paid once a world hour online
 import { isOnlinePage } from './onlineLane.js';   // REST-MANA1: online, every career's magicka comes back with rest
 
 // ---- DFCareer.SpecialAbilityFlags (the low byte of
@@ -92,22 +91,16 @@ export const EXHAUSTED_IN_WATER = 'Fatigue overcomes you and sends you to a wate
  */
 export function exhaustionOutcome({ enemiesNearby = false, swimming = false, entity, day = false, inside = true }) {
   if (!enemiesNearby && !swimming) {
-    // AUDIT WORLD5 C6: ONLINE THE HOUR CANNOT BE CHARGED - the clock is the world's and the host's RaiseTime is
-    // refused - so it is not paid twice in one: the fatigue hour lands every collapse (it is what stands the player
-    // up; without it the next frame collapses again), the health and the magicka once per WORLD hour, which is what
-    // an hour's rest yields over the same real minutes. Offline every collapse costs its hour and pays in full.
-    let paid = true;
-    if (sharedClockOn()) {
-      const hour = Math.floor(worldMinutes() / 60);
-      paid = entity.lastExhaustionHour !== hour;
-      entity.lastExhaustionHour = hour;
-    }
+    // LIVED1: every collapse costs its hour and pays it in full, online as offline - the host's RaiseTime moves the
+    // character's own clock (worldTick.js advanceOwnMinutes through the ticker), so the hour is charged: the needs,
+    // the effects and the curses age by it. [SUPERSEDES AUDIT WORLD5 C6's once-per-world-hour pay, which answered an
+    // hour that could not be charged.]
     return {
       kind: 'rest',
       textId: EXHAUSTED_SAFE_TEXT_ID,
-      health: paid ? healthRecoveryRate(entity, { day, inside }) : 0,
+      health: healthRecoveryRate(entity, { day, inside }),
       fatigue: fatigueRecoveryRate(maxFatigue(entity)),
-      magicka: paid ? spellPointRecoveryRate(entity) : 0,
+      magicka: spellPointRecoveryRate(entity),
     };
   }
   return { kind: 'death', textId: swimming ? null : EXHAUSTED_ENEMIES_TEXT_ID, inWater: swimming };

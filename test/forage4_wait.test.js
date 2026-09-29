@@ -165,7 +165,7 @@ test('FORAGE4: a reload reopens the page with its seconds; offline a saved wait 
   assert.equal(edited.entity.foragingWait.seconds, 864, 'a SAVED wait is cut; a wait joined in play is the sum (AUDIT 28 F1)');
 });
 
-test('FORAGE4: QAE\'s raise time is the host\'s wait online and the clock offline', () => {
+test('FORAGE4: QAE\'s raise time is the host\'s wait online and the clock offline - MERGE 2 (main\'s LIVED1): and the character\'s own time online too', () => {
   const calls = [];
   const quest = (online) => ({
     displayName: 'Chop and Gather Wood',
@@ -175,7 +175,7 @@ test('FORAGE4: QAE\'s raise time is the host\'s wait online and the clock offlin
   const t = new RaiseTime(null);
   t.createNew('raise time by 1:30', quest(true)).update(null);
   t.createNew('raise time by 1:30', quest(false)).update(null);
-  assert.deepEqual(calls, [['wait', 5400, 'Chop and Gather Wood'], ['clock', 5400]]);
+  assert.deepEqual(calls, [['wait', 5400, 'Chop and Gather Wood'], ['clock', 5400], ['clock', 5400]], 'online the wait AND the character\'s own clock; offline the one clock');
   assert.ok(QUEST_CTX_CONTRACT.includes('waitOnline'), 'the bridge\'s contract names the door');
 });
 
@@ -203,7 +203,7 @@ test('FORAGE4 done-when: online, the Wood-Axe\'s quest gives a 12-second wait an
     m.scheduleQuest(src, 0, { rolls: () => 0.99 });
     for (let i = 0; i < 6; i++) m.tick();
   } finally { console.warn = ow; console.log = ol; }
-  assert.deepEqual(clock, [], 'the shared clock never asked to move');
+  assert.equal(clock.length, 1, 'MERGE 2 (LIVED1): the host\'s raiseTime, the character\'s OWN clock, takes the quest\'s time once - the shared clock is never the host\'s to move');
   assert.deepEqual(entity.foragingWait, { seconds: 12, label: 'Chop and Gather Wood', held: [] });
   assert.equal(entity.fatigue, 105 * FATIGUE_MULTIPLIER * 0.8, '20% of the maximum, as offline');
   const page = wait.tick();
@@ -217,6 +217,6 @@ test('FORAGE4: the wiring - the streaming host builds the wait on its own slot a
   assert.match(w, /waitOnline: \(seconds, quest\) => \{ foragingWait\.add\(seconds, quest\?\.displayName \?\? null\); \},/);
   assert.match(w, /const showQuestBox = \(box\) => \{\n[^\n]*\n\s*if \(foragingWait\.holds\(\)\) \{ foragingWait\.hold\(\(\) => showQuestBox\(box\), keptBox\(box\)\); return; \}/);
   assert.match(w, /if \(foragingWait\.holds\(\)\) foragingWait\.hold\(\(\) => giveReward\(dfItem\), \{ reward: dfItem \}\);/, 'a reward\'s pile after its box, behind the wait - and kept in the save');
-  assert.match(rd('src/systems/save.js'), /'restSimMinutes',[^\n]*\n\s*'foragingWait',/);
-  assert.match(rd('src/systems/quest/questActionsExtension.js'), /if \(hooks\?\.sharedClock\?\.\(\)\) hooks\?\.waitOnline\?\.\(seconds, this\.parentQuest\);\n\s*else hooks\?\.raiseTime\?\.\(seconds\);/);
+  assert.match(rd('src/systems/save.js'), /'lastSkillCheckTime',\n\s*'foragingWait',/);   // MERGE 2: main's LIVED1 retired restSimMinutes
+  assert.match(rd('src/systems/quest/questActionsExtension.js'), /if \(hooks\?\.sharedClock\?\.\(\)\) hooks\?\.waitOnline\?\.\(seconds, this\.parentQuest\);\n\s*hooks\?\.raiseTime\?\.\(seconds\);/);   // MERGE 2: the character's time in both lanes
 });

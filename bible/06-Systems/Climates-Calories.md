@@ -429,7 +429,9 @@ nearby". THE ALIGNMENT (WORLD5's law for these markers): the load arm
 under the shared clock aligns the needs to the world's time from the
 save's own clock (a day or more away starts fed, watered and rested;
 an hour away keeps its hunger), and the online arrival resets a record
-from further along than the world. With the mod off the feed is null,
+from further along than the world. [LIVED1 (2026-09-29): online the needs stand
+on the character's own clock, which stood while they were away - an hour away costs no hunger by construction, and the
+day-long grace stands.] With the mod off the feed is null,
 the gate answers nothing, and DFU's tick is DFU's.
 
 ### The audit (AUDIT SURV, 2026-09-18)
@@ -1296,8 +1298,8 @@ characters regardless of mode should start with supplies"* - had been read
 as every tier, Off's included, and shipped that way (SURV-KIT, `23ee51b8`).
 It is reverted whole (`4dffc8ef`), but for six line cites in the kit's
 fallback seam that had rotted before it and named moved lines (`equip.js`'s
-`startingGear.js:70`, `chargenSession.js:223` and `world.js:4760`, `startingGear.js`'s
-`equip.js:325` and `world.js:4760`, `exterior.js`'s `equip.js:324`): each
+`startingGear.js:70`, `chargenSession.js:223` and `world.js:4768`, `startingGear.js`'s
+`equip.js:325` and `world.js:4768`, `exterior.js`'s `equip.js:324`): each
 names its line again. Casual and Hard characters set out with the kit on
 every creation path there is - the wizard and `?class=` in each of the three
 hosts, and online, where the tier is the player's own - and Off's bag is
@@ -1391,8 +1393,8 @@ and was found now because SURV-OFFSIGHT made what Off sees depend on it.
 | 47 | The words: "Find a fountain, a well or a stream" (no stream fills a skin), "water skin" beside "waterskin", and Rations worth 250 minutes against the Peckish line's 240 - the page said "You could eat." and the sack refused for ten minutes. And the 250 wrote the meal's marker ten minutes AHEAD of the clock, which an online load reads as a fresh start: thirst, sleep debt, the wet and the drink wiped (the fuzz lens's exploit, older than the tiers) | both | "a fountain, a well or a trough"; one "waterskin"; Rations 240; no meal writes a marker past now (`eatLaw`) |
 | 48 | Casual's rough night sleeps at a third of a bed's rate and said nothing: eight hours on the ground woke Drowsy with no word for why | Casual | "You slept poorly on the bare ground." when a rough night leaves the sleeper short |
 | 49 | A Hard blackout's morning said nothing: the player woke on the floor without a word | Hard | the blackout hands its waking line and both tavern windows say it |
-| 50 | A relay clock correction aged the needs by the whole correction: three hours behind the relay, a player fed a minute ago read Starving (and in Hard lost two from every attribute) | both | the correction moves the markers by its own delta (`shiftSurvival`) |
-| 51 | An Off player's short online absence counted against the needs: the load's re-anchoring kept the markers for a gap under a day, and the arc had not been on for it | Off | the online load pauses the gap while Off (`pauseSurvival`), as the world tick does |
+| 50 | A relay clock correction aged the needs by the whole correction: three hours behind the relay, a player fed a minute ago read Starving (and in Hard lost two from every attribute) | both | the correction moves the markers by its own delta (`shiftSurvival`) [SUPERSEDED BY LIVED1: a correction moves nothing of the character's - their clock and their needs stand where they were.] |
+| 51 | An Off player's short online absence counted against the needs: the load's re-anchoring kept the markers for a gap under a day, and the arc had not been on for it | Off | the online load pauses the gap while Off (`pauseSurvival`), as the world tick does [SUPERSEDED BY LIVED1: an absence leaves no gap on the character's own clock, so there is nothing to pause.] |
 | 52 | THE LOAN WAS CUT BY A FALLING CEILING. A Drain on endurance, a ring of strength taken off or a Fortify's end shrank the pool's shortfall, #24's settle cut the loan to it, and when the ceiling came back the stamina the need took did not | Casual | the settle runs only on a REFILL - when the pool has risen since the last minute left it (`loanPool`, the fed hour's refund counted as the rise it is); the repayment still never fills past the ceiling |
 | 53 | A vampire's thirst chip stayed red for ever and never cost (the law freezes the thirst); and in Hard the frozen hunger, thirst and sleep drained up to twenty from every attribute (older than the tiers) | both | no thirst chip for a vampire; `survivalStatMods` skips the three drains for one |
 | 54 | A long Off left `offFor: 0` on the record for ever | - | deleted |

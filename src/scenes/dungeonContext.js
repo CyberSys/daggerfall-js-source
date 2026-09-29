@@ -142,7 +142,7 @@ import { fetchBytes, ensureAudio, loadMagicRegistries, wireInfectionVideos, endR
 import { sayRealmSave } from '../systems/realmSaves.js';   // REALM P1.3: a save online lands in the realm; AUDIT REALM2 C2: said once it has
 import { getNearbyObjects } from '../systems/nearbyObjects.js';   // X9: the dispel sweep filters the same scan
 import { preloadBookArt } from '../ui/bookReader.js'; import { makeOpenBookHook } from '../ui/bookDoor.js';   // B1; EB1: the reader's ONE door
-import { worldMinutes, setWorldMinutes, sharedClockOn } from '../systems/worldTick.js';   // WORLD8: the relay's clock stamps a death and a take
+import { worldMinutes, ownMinutes, setOwnMinutes, sharedClockOn } from '../systems/worldTick.js';   // WORLD8: the relay's clock stamps a death and a take
 import { ListPickerWindow, listPickerArtLoaded, preloadListPickerArt } from '../ui/listPicker.js';   // X11b: the Create Item picker
 import { createItemLabels, grantCreatedItem, lastCreateItemIndex, setLastCreateItemIndex } from '../systems/createItem.js';   // X11b
 import {
@@ -1742,7 +1742,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     getQuest: (uid) => opts.questBridge?.machine?.getQuest?.(uid) ?? null,
     // U44 / MAPLOOT1: no region index here - the OUTER host's reveal (world.js revealLocation via worldModes), null on ?dungeon
     revealMap: opts.revealMap ?? null,
-    nowMinute: () => Math.floor(worldMinutes()),   // AUDIT 21 F2: the one clock
+    nowMinute: () => Math.floor(ownMinutes()),   // AUDIT 21 F2: the one clock; LIVED1: a meal, a dose, a food's age are the character's own time
   };
   /** QS2: the diamond's presses - see scenes/world.js's twin for the whole of
    *  the reason. `say` is this context's own HUD line, the one the weapon rig
@@ -1888,7 +1888,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:13251 / exterior.js:3734), set
+  // host's own townTalk sink (world.js:13270 / exterior.js:3733), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2166,18 +2166,18 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   /** The rest window's clock jump for THIS host: the world minutes
    *  plus IntermittentEnemySpawn's catch-up loop, which is a dungeon
    *  law and is the one rest dep createRestDeps cannot supply. */
-  const _restAdvance = (n, sharedEnd = null) => {
+  const _restAdvance = (n) => {
     // E-slice: IntermittentEnemySpawn's catch-up loop across the
     // advanced minutes (PlayerEntity.Update:486-492) - resting in
     // a dungeon under an active enemy alert can spawn ONE foe; the
     // hourly enemy check then breaks the rest, DFU's own flow.
     //
-    // AUDIT WORLD5 C8: the span is the SESSION's under the shared
-    // clock (the sub-tick's end rides in; the write below is refused
-    // there) - read off the clock after the refused write, every
-    // sub-tick of a rested night offered the spawner the same ten
-    // minutes, ahead of the clock, rolled once per sub-tick.
-    const end = sharedEnd ?? classicMinutesRef.value + n;
+    // AUDIT WORLD5 C8 read the span off the rest session's own counter
+    // under the shared clock, where the write below was refused.
+    // LIVED1: the write is the CHARACTER's clock now (classicMinutesRef
+    // is its view) and it moves online as offline, so the span is simply
+    // the n minutes the clock is about to take.
+    const end = classicMinutesRef.value + n;
     const start = Math.floor(end) - n;
     classicMinutesRef.value += n;
     // AUDIT 24 (wave 30) - THE BROKER RUNS UNDER THE REST WINDOW.
@@ -2195,7 +2195,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // TickRest's hourly heal; a poison can kill you in your sleep
     // and the rest ends "You never awaken."
     const _w = claimMagicRounds(start, end);
-    runMagicRoundsFor(playerEntity, _w.from, _w.to, { sinks: playerSinks, say: (msg) => hudText.add(msg) });
+    // AUDIT LIVED1 A (K2/S1/R3): the sky these rounds read (the moon, VAMP-DAY, a sun-damaged career's light) is the
+    // WORLD's, as the tick's own rounds read it (worldTick.js skyMinutes: worldTo) - without it the window's end, the
+    // character's clock, forced a werewolf's change under the character's own full moon mid-rest
+    runMagicRoundsFor(playerEntity, _w.from, _w.to, { sinks: playerSinks, say: (msg) => hudText.add(msg), skyMinutes: sharedClockOn() ? Math.floor(worldMinutes()) : null });
     // AUDIT SURV B: the NEEDS under the rest window too. This host's frame body holds the only tickPlayerMinutes call
     // and the rest overlay holds the frame, so the whole night reached the minute law on the first frame after the
     // window closed - with `isResting` already false, as AWAKE minutes: the sleep debt rose through a night by the
@@ -2220,8 +2223,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // tick (the tick's own call is in systems/worldTick.js), so the
     // decay has to be run here or the roll this loop gates on the flag
     // would stay armed for the whole rest.
-    // AUDIT 68 S19-rest-alert-decay-wrong-clock: at the SESSION's minute, as the span above - online the write is
-    // refused and the shared clock barely moves through a rested night, so an old alert stayed armed for all of it.
+    // AUDIT 68 S19-rest-alert-decay-wrong-clock: at the span's own end - the character's clock (LIVED1), which a
+    // rested night moves online as offline.
     decayEnemyAlert(playerEntity, Math.floor(end));
     for (let l = 0; l < n; l++) {
     const hit = intermittentEnemySpawn({
@@ -2266,7 +2269,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // the rest window had just left - and on the level-up path it is
     // not free at all.
     box: (rows) => pushDungeonWindow(new ActionTextBox(rows)),
-    advanceMinutes: (n, sharedEnd) => _restAdvance(n, sharedEnd),
+    advanceMinutes: (n) => _restAdvance(n),
     // TickRest :379 - QuestMachine.Instance.Tick() rides the same
     // sub-tick as the clock, UNPACED. This host holds the bridge as
     // opts.questBridge (world.js and worldModes hand theirs down); a
@@ -2469,7 +2472,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1336,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1340,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -3003,7 +3006,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1112 against :1142; worldModes.js:7602 against :7629).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1112 against :1142; worldModes.js:7621 against :7648).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3233,7 +3236,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // standalone scene has no outer host and reads the clock itself.
   const survivalEnvNow = () => {
     const outer = opts.survivalEnv?.() ?? null;
-    const wm = classicMinutesRef.value;
+    const wm = worldMinutes();   // LIVED1: the month and the hour the air is felt at are the sky's
     return {
       climateIndex: 232, month: dateFromClassicMinutes(wm).month, hour: (((wm % 1440) + 1440) % 1440) / 60,
       ...(outer ?? {}),
@@ -3532,9 +3535,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // the day count over - which made a disease caught underground get
   // LONGER each time you walked out, and re-fired SongManager's "a new day
   // re-picks" on every crawl.
+  // LIVED1: and the one clock the dungeon's laws read is the CHARACTER's own -
+  // the world's offline (one variable), theirs online, where a rested night,
+  // the collapse's hour and a load move it and the world's sky does not. The
+  // sky's readers below (the passive specials' sunlight, the needs' hour and
+  // month, the music's day) read the world's clock by name.
   const classicMinutesRef = {
-    get value() { return worldMinutes(); },
-    set value(v) { setWorldMinutes(v); },
+    get value() { return ownMinutes(); },
+    set value(v) { setOwnMinutes(v); },
   };
   // V2c: THE SUNLIGHT SEAM, the dungeon's answers - always inside,
   // always a dungeon, never holy (PlayerEnterExit's holy pair is a
@@ -3543,7 +3551,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // previous registration (worldModes') is restored in destroy(), the
   // death-presenter shape.
   const _prevPassiveHost = setPassiveSpecialsHost({
-    now: () => Math.floor(classicMinutesRef.value),
+    now: () => Math.floor(worldMinutes()),   // LIVED1: the sunlight seam reads the sky
     isInside: () => true,
     inDungeon: () => true,
     isHolyPlace: () => false,
@@ -3704,8 +3712,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:22383,
-              // exterior.js:5343 and worldModes.js:8302 already ran;
+              // playerArrowHitFoe is the one copy world.js:22419,
+              // exterior.js:5342 and worldModes.js:8321 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -5010,7 +5018,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // ordering guarantee (health was already set above - re-clamp).
     if (sf.maxHealth != null) { f.entity.maxHealth = sf.maxHealth; f.entity.health = Math.min(f.entity.health, sf.maxHealth); }
     if (sf.fatigue != null) f.entity.fatigue = sf.fatigue;
-    if (sf.activeEffects) f.entity.activeEffects = sf.activeEffects.map((a) => ({ ...a, ...(a.effect ? { effect: { ...a.effect } } : {}), ...(a.statMods ? { statMods: { ...a.statMods } } : {}), ...(a.skillMods ? { skillMods: { ...a.skillMods } } : {}) }));
+    if (sf.activeEffects) f.entity.activeEffects = sf.activeEffects.map((a) => ({ ...a, ...(a.effect ? { effect: { ...a.effect } } : {}), ...(a.statMods ? { statMods: { ...a.statMods } } : {}), ...(a.skillMods ? { skillMods: { ...a.skillMods } } : {}), ...(wire && Number.isFinite(a.lastMinute) ? { lastMinute: Math.floor(ownMinutes()) } : {}) }));   // AUDIT LIVED1 V (P6): a poison's minute off the WIRE was stamped on the publishing host's own clock, days from this one's - it resumes at this host's now rather than landing the whole gap in one round
     // AUDIT 63 F26 / F29: the team pair (:179-181 + :157) and the
     // Wabbajack latch (:172), presence-gated. `!= null` and not a
     // truthiness test for the latch, so a BACKWARD load lowers a
@@ -6821,8 +6829,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // ushort, so the low 16 bits are the field. Verified over the real
     // archive: 4,232 dungeons, 3,769 distinct keys, near-uniform across
     // the 15-song list.
-    /** The host's cumulative clock, for the music context's gameDays. */
-    get classicMinutes() { return classicMinutesRef.value; },
+    /** The host's cumulative clock, for the music context's gameDays. LIVED1: the world's - the calendar the song
+     *  picks by is the sky's. */
+    get classicMinutes() { return worldMinutes(); },
     // PARTY-REST1: the dungeon twin of worldModes.js's own restState -
     // see that getter's doc comment for the whole of why (world.js owns
     // every party/online seam and cannot see into this closure's own
@@ -7343,7 +7352,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // through the overlay as 'back' (ends a running rest)": that route
     // was never real. ROAD-B B5 built the real one. With a window up,
     // overlayAction turns any single character into `char:<k>`, so
-    // KeyR arrives as 'char:r', and ui/restWindow.js:304-306 runs A8's
+    // KeyR arrives as 'char:r', and ui/restWindow.js:307-309 runs A8's
     // normalizeCode inverse to turn it back into 'KeyR' - DFU's
     // toggleClosedBinding - so a second Rest press ends a running rest
     // or closes the selection page (:302-315), which is
@@ -8129,7 +8138,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           lines: rscLines,
           macroContext: opts.questBridge?.machine?.macroContext?.() ?? null,
           entity: playerEntity,
-          survival: survivalOn() ? { minutes: Math.floor(worldMinutes()), vampire: !!liveVampirism(playerEntity), endurance: liveStat(playerEntity, 'endurance') } : null,   // SURV5
+          survival: survivalOn() ? { minutes: Math.floor(ownMinutes()), vampire: !!liveVampirism(playerEntity), endurance: liveStat(playerEntity, 'endurance') } : null,   // SURV5
         });
       }
     },

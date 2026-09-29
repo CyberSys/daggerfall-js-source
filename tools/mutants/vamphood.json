@@ -47,8 +47,8 @@
   {
     "name": "VAMPHOOD-the-hood-lifts-the-day-too",
     "file": "src/systems/vampirism.js",
-    "old": "  const mod = vampireStatMod(nowMinutes);",
-    "new": "  const mod = racialSunAverse(entity) ? vampireStatMod(nowMinutes) : VAMPIRE_STAT_MOD;",
+    "old": "  const mod = vampireStatMod(skyMinutes);",
+    "new": "  const mod = racialSunAverse(entity) ? vampireStatMod(skyMinutes) : VAMPIRE_STAT_MOD;",
     "tests": [
       "test/fb0929_vampirehood.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "VAMPHOOD-the-door-keeps-the-hint",
     "file": "src/scenes/world.js",
-    "old": "    if (ftb) { townTalk.say(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return; }",
-    "new": "    if (ftb) { townTalk.say(ftb.text); return; }",
+    "old": "    if (ftb) { sayWithNightfall(ftb.text); if (ftb.hint) townTalk.say(ftb.hint); return; }",
+    "new": "    if (ftb) { sayWithNightfall(ftb.text); return; }",
     "tests": [
       "test/fb0929_vampirehood.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "VAMPHOOD-the-party-forgets-the-sun",
     "file": "src/scenes/world.js",
-    "old": "    return racialFastTravelBlock(playerEntity, nowMin)?.text ?? null;",
-    "new": "    return null;",
+    "old": "    const sun = racialFastTravelBlock(playerEntity, nowMin)?.text ?? null;",
+    "new": "    const sun = null;",
     "tests": [
       "test/fb0929_vampirehood.test.js"
     ]

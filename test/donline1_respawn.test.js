@@ -81,7 +81,7 @@ test('D-ONLINE1 by source: the world host snapshots "was this death online" at t
   assert.match(read('src/systems/deathRespawn.js'), /'temple'|'city'|'graveyard'/, 'and the fall-through search never answers a dungeon');
   assert.match(fn, /const safe = nearestSafeLocation\(mapTable, px\) \?\? nearestSafeLocationAnywhere\(maps, px\);\s*\n\s*if \(safe\) \{ land = safe\.mapPixel; kind = safe\.kind; \}\s*\n\s*else kind = 'city';/, 'otherwise the nearest of the three - SEA-RISE: in any region when the death\'s holds none (the open sea) - and only a map with none anywhere stands where they fell');
   assert.match(fn, /await _teleportToPixel\(land\.x, land\.y, null, \{ reposition: REPOSITION\.RandomStartMarker \}\);/, 'the landing is a start marker, as TeleportAway names it - not the tile\'s dead centre');
-  assert.match(fn, /_lastEncMinutes = Math\.floor\(playerTicker\.classicMinutes\);/, 'no encounter catch-up across the trip');
+  assert.match(fn, /_lastEncMinutes = Math\.floor\(playerTicker\.ownMinutes\);/, 'no encounter catch-up across the trip');
   // MAC-D3 (Seanobi: "stuck in an infinite deathloop. Instant death
   // after respawning"): THE HEAL IS FIRST, AND THIS PIN USED TO SAY
   // OTHERWISE. It asserted the heal sat immediately before the flavour

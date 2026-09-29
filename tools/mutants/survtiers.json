@@ -283,8 +283,8 @@
   {
     "name": "SURVTIERS-rest-deps-stiffen-at-hard",
     "file": "src/scenes/shared.js",
-    "old": "stiffen(entity, worldMinutes(), REST_KIND.Rough, _rules)",
-    "new": "stiffen(entity, worldMinutes(), REST_KIND.Rough)",
+    "old": "stiffen(entity, ownMinutes(), REST_KIND.Rough, _rules)",
+    "new": "stiffen(entity, ownMinutes(), REST_KIND.Rough)",
     "tests": [
       "test/survtiers.test.js"
     ]
@@ -689,8 +689,8 @@
   {
     "name": "SURVTIERS-the-mirror-overrides-a-vital",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
-    "new": "    enemiesNearby: () => false,\n    fullyHealed: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    fullyHealed: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]
@@ -923,8 +923,8 @@
   {
     "name": "SURVTIERS-the-mirror-overrides-dead",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
-    "new": "    enemiesNearby: () => false,\n    dead: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    dead: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]
@@ -932,8 +932,8 @@
   {
     "name": "SURVTIERS-the-mirror-overrides-vitals",
     "file": "src/scenes/world.js",
-    "old": "    enemiesNearby: () => false,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
-    "new": "    enemiesNearby: () => false,\n    vitals: () => null,\n    advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); },",
+    "old": "    enemiesNearby: () => false,\n    // LIVED1: the mirrored night is the follower's own time too.",
+    "new": "    enemiesNearby: () => false,\n    vitals: () => null,\n    // LIVED1: the mirrored night is the follower's own time too.",
     "tests": [
       "test/partyrest1.test.js"
     ]
@@ -959,8 +959,8 @@
   {
     "name": "SURVTIERS-the-potion-cite-falls-short",
     "file": "src/systems/potions.js",
-    "old": "exterior.js:2514) and useItem.js:316",
-    "new": "exterior.js:2514) and useItem.js:301",
+    "old": "exterior.js:2512) and useItem.js:316",
+    "new": "exterior.js:2512) and useItem.js:301",
     "tests": [
       "test/citedrift.test.js"
     ]

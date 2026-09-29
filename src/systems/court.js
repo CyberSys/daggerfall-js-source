@@ -36,10 +36,10 @@
 // site). The prison time-skip riding the host clock callback is the
 // port's seam shape, not a remainder.
 // BANISHMENT'S CONSEQUENCES SHIPPED: `SeverePunishmentFlags |= 1` is
-// written at scenes/arrestFlow.js:561-564 (severePunishment, off
-// OnPop) and read every catch-up minute by encounters.js:241
+// written at scenes/arrestFlow.js:544-547 (severePunishment, off
+// OnPop) and read every catch-up minute by encounters.js:243
 // passiveGuardSpawns - PlayerEntity.cs:507's 10% banished-player
-// guard roll - fed at scenes/world.js:4810-4812. (The guild rescues -
+// guard roll - fed at scenes/world.js:4818-4820. (The guild rescues -
 // Thieves/Dark Brotherhood - landed at CR1, guildRescue below.)
 
 import { rand } from '../formats/dfRandom.js';
@@ -186,8 +186,11 @@ export function clampLegalReputations(player) {
  * a reputation below zero drifts one point back, a standing above zero
  * is kept - a player who takes a break comes back owing less, never
  * holding less. The clamp and the non-propagating ChangeReputation are
- * DFU's either way. A lived minute (the tick) and the minutes spent
- * dead (skipDeadMinutes) are the world's own and pay both halves.
+ * DFU's either way. A lived minute (the tick) pays both halves.
+ * [AUDIT LIVED1 K: the minutes spent dead no longer pay either -
+ * the drift is the character's, on their own clock, which stands
+ * under the death screen (worldTick.js skipDeadMinutes walks the
+ * world's arms alone).]
  */
 export function normalizeReputations(player, store, { recoveryOnly = false } = {}) {
   clampLegalReputations(player);

@@ -70,7 +70,9 @@ and the Features row together, as `vendor/foraging/`:
 3. **ONLINE CHANGES ONE THING: THE CLOCK.** The shared clock is nobody's to move (WORLD5: `sharedClassicMinutes`,
    `src/net/wire.js`), so QAE's `raise time by` cannot run online. It becomes a wait the player sits through (13.1) -
    the rule Climates & Calories' hunt already follows (SURV6: `HUNT_WAIT_PER_HOUR`,
-   `src/systems/survival/hunting.js`). Two small things change with it, both for the professions: the console
+   `src/systems/survival/hunting.js`). MERGE 2 (2026-09-29, main's LIVED1 - "your own time"): and, as the hunt's
+   minutes do after its page, the quest's time passes on the character's OWN clock online - the host's raiseTime is
+   the character's time in both lanes, the shared clock still nobody's. Two small things change with it, both for the professions: the console
    command refuses (8), and - BUILT with the professions (PROF1, 2026-09-28) - the six tools shelve whatever the switch
    says (law 6). Nothing else about Foraging changes online. (AUDIT 28 found this read as built before it was; PROF1
    built it: `systems/foragingInstall.js` foragingCustomItemsForGroup.)

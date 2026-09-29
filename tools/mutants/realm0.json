@@ -218,7 +218,7 @@
   {
     "name": "REALM0-join-not-wired",
     "file": "src/scenes/world.js",
-    "old": "    onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: worldMinutes(), say: (l, d) => townTalk.say(l, d) });",
+    "old": "    onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: ownMinutes(), say: (l, d) => townTalk.say(l, d) });",
     "new": "    onlineArrival();",
     "tests": [
       "test/realm0.test.js"
@@ -371,8 +371,8 @@
   {
     "name": "REALM0-checkpoint-in-duel",
     "file": "src/systems/onlineCheckpoint.js",
-    "old": "  return !!online && !!spawned && !seatOut && !duel;",
-    "new": "  return !!online && !!spawned && !seatOut;",
+    "old": "  return !!online && !!spawned && !seatOut && !duel && !walkWaiting;",
+    "new": "  return !!online && !!spawned && !seatOut && !walkWaiting;",
     "tests": [
       "test/realm0.test.js"
     ]
@@ -380,8 +380,8 @@
   {
     "name": "REALM0-checkpoint-out-of-seat",
     "file": "src/systems/onlineCheckpoint.js",
-    "old": "  return !!online && !!spawned && !seatOut && !duel;",
-    "new": "  return !!online && !!spawned && !duel;",
+    "old": "  return !!online && !!spawned && !seatOut && !duel && !walkWaiting;",
+    "new": "  return !!online && !!spawned && !duel && !walkWaiting;",
     "tests": [
       "test/realm0.test.js"
     ]
@@ -389,8 +389,8 @@
   {
     "name": "REALM0-checkpoint-offline",
     "file": "src/systems/onlineCheckpoint.js",
-    "old": "  return !!online && !!spawned && !seatOut && !duel;",
-    "new": "  return !!spawned && !seatOut && !duel;",
+    "old": "  return !!online && !!spawned && !seatOut && !duel && !walkWaiting;",
+    "new": "  return !!spawned && !seatOut && !duel && !walkWaiting;",
     "tests": [
       "test/realm0.test.js"
     ]

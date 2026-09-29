@@ -405,25 +405,25 @@ test('AUDIT 68 S19-round-ticks-player-provenance: the rest window\'s rounds and 
   assert.match(foeRoundBlock(), /killIfAnyLiveStatZero\(f\.entity, foeSinks\(f, false\), dt\);/, 'SetHealth(0), no source');
 });
 
-test('AUDIT 68 S19-rest-alert-decay-wrong-clock: online, the rest decays the alert on the SESSION\'s minute - an alert past eight hours of rested night goes out, and the night rolls unarmed', () => {
+test('AUDIT 68 S19-rest-alert-decay-wrong-clock (LIVED1): the rest decays the alert at the span\'s own end - the character\'s clock, which the rested night moves online as offline - an alert past eight hours of rested night goes out, and the night rolls unarmed', () => {
   const rolled = [];
+  let own = 5000 + ALERT_DECAY_MINUTES;   // the character's clock: eight hours of rested night since the alert
   const state = {
-    // the shared clock REFUSES the write (worldTick.setWorldMinutes) and reads the live world minute
-    classicMinutesRef: { get value() { return 5000; }, set value(v) { /* refused under the shared clock */ } },
+    classicMinutesRef: { get value() { return own; }, set value(v) { own = v; } },   // the dungeon's clock view: the character's own
     playerEntity: { level: 1, restAsks: 1 },
     claimMagicRounds: (a, b) => ({ from: a, to: b }), runMagicRoundsFor: () => 0, playerSinks: {}, hudText: { add: () => {} },
+    sharedClockOn: () => false, worldMinutes: () => own,   // AUDIT LIVED1 A: the arm hands its rounds the world's sky
     survivalFeed: () => null, survivalEnvNow: () => null, runSurvivalMinutes: () => {}, foes: [], foeSinks: () => ({}),
     decayEnemyAlert, dfLocation: { mapTableData: { dungeonType: 0 } }, _spawnEncounter: () => {},
     intermittentEnemySpawn: (ctx) => { rolled.push(ctx.enemyAlertActive); return null; },
   };
   setEnemyAlert(state.playerEntity, true, 5000);
   const { restAdvance } = mount(`${declSrc('_restAdvance')} return { restAdvance: _restAdvance };`, state);
-  const sessionEnd = 5000 + ALERT_DECAY_MINUTES + 10;   // restSession's _onlineSimMinutes, ten minutes past the decay
-  restAdvance(10, sessionEnd);
+  restAdvance(10);
+  assert.equal(own, 5000 + ALERT_DECAY_MINUTES + 10, 'the arm moved the character\'s clock by its ten minutes');
   assert.equal(state.playerEntity.enemyAlertActive, false, 'PlayerEntity.Update:380-384 at the rest\'s own minute');
   assert.deepEqual(rolled, Array(10).fill(false), 'every sub-tick\'s IntermittentEnemySpawn rolls unarmed');
 });
-
 test('AUDIT 68 S19-archer-hit-frame-continue: a bow shot\'s hit frame gates the melee resolution and skips nothing after it - the mobile update and draw run that frame', () => {
   const at = D.indexOf("if (playerFeet && f.events.includes('hit')");
   const end = D.indexOf("}   // WORLD2: the end of the authority's own step", at);

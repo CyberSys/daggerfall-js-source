@@ -121,7 +121,8 @@ const inRect = ([rx, ry, rw, rh], x, y) => x >= rx + BANK_PANEL_X && y >= ry + B
  *   now()          -> classic minutes
  *   wagonGold()    -> the cart's gold, for the parenthesised label
  *   rows(textId)   -> the host's TEXT.RSC reader
- *   dueDateText(minutes) -> GetLoanDueDateString
+ *   dueDateText(minutes, { short }) -> GetLoanDueDateString (AUDIT LIVED1 P:
+ *                    `short` for the classic label's room online)
  *   playerName(), cityName(), regionName()  -> AUDIT 64 F25: the three
  *                    GLOBAL macro producers the bank records quote
  *                    (%pcn, %cn, %reg); an unwired one leaves its
@@ -444,7 +445,8 @@ export class BankWindow {
       account: String(accountTotal(a, r)),
       inventory: wagon > 0 ? `${purse} (+${wagon})` : String(purse),
       loanDue: String(loanedTotal(a, r)),
-      loanBy: this.hooks.dueDateText?.(loanDueDate(a, r)) ?? '',
+      loanBy: this.hooks.dueDateText?.(loanDueDate(a, r), { short: true }) ?? '',   // AUDIT LIVED1 P: the parchment's room
+      loanByFull: this.hooks.dueDateText?.(loanDueDate(a, r)) ?? '',   // ...and the enhanced face's whole words
     };
   }
 

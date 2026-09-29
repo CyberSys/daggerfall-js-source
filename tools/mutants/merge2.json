@@ -28,5 +28,15 @@
       "test/prof1_service.test.js"
     ],
     "note": "An account with no Renown yet gets none from its first writ."
+  },
+  {
+    "name": "MERGE2-qae-online-no-own-time",
+    "file": "src/systems/quest/questActionsExtension.js",
+    "old": "      if (hooks?.sharedClock?.()) hooks?.waitOnline?.(seconds, this.parentQuest);\n      hooks?.raiseTime?.(seconds);",
+    "new": "      if (hooks?.sharedClock?.()) hooks?.waitOnline?.(seconds, this.parentQuest);\n      else hooks?.raiseTime?.(seconds);",
+    "tests": [
+      "test/forage4_wait.test.js"
+    ],
+    "note": "Online, Foraging's quest time a wait alone - the character's own clock (LIVED1) never takes it."
   }
 ]

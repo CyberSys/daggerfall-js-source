@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { SURVIVAL_RULES, SURVIVAL_STORED, SURVIVAL_OFF } from '../src/systems/survival/difficulty.js';
 import { SURVIVAL_PREF } from '../src/systems/survival/switch.js';
 import {
-  newSurvival, survivalOf, survivalMinute, runSurvivalMinutes, pauseSurvival, shiftSurvival, survivalStatMods, hungerMinutes,
+  newSurvival, survivalOf, survivalMinute, runSurvivalMinutes, pauseSurvival, survivalStatMods, hungerMinutes,
   awakeHours, drinkWater, settleLoan, ALIGN_GRACE_MINUTES, SURVIVAL_TEXT, NEED, WELL_FED_MINUTES,
 } from '../src/systems/survival/needs.js';
 import { survivalHudChips, survivalStatusLines, STATUS_TEXT } from '../src/systems/survival/status.js';
@@ -20,7 +20,7 @@ import { createCamps, CAMP_LIGHT_REACH, CAMP_LIGHTS_MAX } from '../src/scenes/ca
 import { createRestDeps, createPlayerTicker } from '../src/scenes/shared.js';
 import { TavernWindow } from '../src/ui/tavernWindow.js';
 import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
-import { setWorldMinutes, worldMinutes, setSharedClock } from '../src/systems/worldTick.js';
+import { setWorldMinutes, worldMinutes, setSharedClock, ownMinutes } from '../src/systems/worldTick.js';
 import { snapshotPlayer, restorePlayer } from '../src/systems/save.js';
 import { assignStartingGear } from '../src/systems/startingGear.js';
 import { seedStartingEquipment } from '../src/systems/equip.js';
@@ -381,17 +381,14 @@ test('the third pass: a VAMPIRE\'s needs cost no attribute in Hard - the frozen 
   assert.equal(e.activeEffects.some((a) => a.kind === 'survival'), false, 'through the minute law too');
 });
 
-test('the third pass: a long Off leaves no `offFor` behind; a relay correction moves the needs\' markers by its own delta; an Off player\'s online absence pauses the needs, as an Off span does', () => {
+test('the third pass: a long Off leaves no `offFor` behind; LIVED1: the needs stand on the character\'s own clock, which a relay correction does not move and an absence does not run - so an hour away is no hungrier in any tier', () => {
   const s = { ...newSurvival(0), lastMinute: 0 };
   pauseSurvival({ survival: s }, 0, ALIGN_GRACE_MINUTES + 60);
   assert.equal('offFor' in s, false, 'a long Off is a fresh start and leaves no mark');
-  const c = { survival: { ...newSurvival(1000), lastAte: 990, awakeSince: 900, lastMinute: 1000, stiffUntil: 1100 } };
-  assert.equal(shiftSurvival(c, 180), true);
-  assert.deepEqual([c.survival.lastAte, c.survival.awakeSince, c.survival.lastMinute, c.survival.stiffUntil], [1170, 1080, 1180, 1280], 'the correction moves them all by its delta');
-  assert.equal(shiftSurvival({ survival: { ...newSurvival(0), stiffUntil: 0 } }, 60), true);
-  assert.equal(shiftSurvival({}, 60), false, 'no record, nothing moved');
-  // the load arm, online, Off: the absence is Off's
-  for (const [tier, hungrier] of [[false, 0], ['casual', 720]]) {
+  assert.equal(readFileSync(new URL('../src/systems/survival/needs.js', import.meta.url), 'utf8').includes('export function shiftSurvival('), false,
+    'the correction\'s shift is retired - the needs are on a clock no correction moves');
+  // the load arm, online: the absence is nobody's - Off or on
+  for (const tier of [false, 'casual']) {
     _resetForTests(); setPref(SURVIVAL_PREF, tier);
     const S = 100 * 1440 + 8 * 60;
     const e = { ...body(), isPlayer: true, level: 1, magicka: 0, maxMagicka: 20, skills: [20], career: {}, skillUses: new Array(35).fill(0), spells: [], lastGameMinutes: S };
@@ -401,8 +398,9 @@ test('the third pass: a long Off leaves no `offFor` behind; a relay correction m
     try {
       const r = { ...body(), isPlayer: true, level: 1, magicka: 0, maxMagicka: 20, skills: [20], career: {}, skillUses: new Array(35).fill(0), spells: [] };
       restorePlayer(r, snap, null);
-      assert.equal(hungerMinutes(r.survival, S + 720) - 60, hungrier, `${tier === false ? 'Off' : tier}: twelve hours away are ${hungrier} minutes hungrier`);
-      assert.equal(awakeHours(r.survival, S + 720), tier === false ? 2 : 14);
+      assert.equal(ownMinutes(), S, 'the character\'s clock is the save\'s');
+      assert.equal(hungerMinutes(r.survival, ownMinutes()) - 60, 0, `${tier === false ? 'Off' : tier}: twelve of the world\'s hours away are no minutes hungrier`);
+      assert.equal(awakeHours(r.survival, ownMinutes()), 2);
     } finally { setSharedClock(null); }
   }
 });

@@ -20,8 +20,8 @@
   {
     "name": "CAMP1REST-the-world-rest-stops-saying-it-is-a-rest",
     "file": "src/scenes/world.js",
-    "old": "runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, sharedEnd, true); },   // CAMP1-REST: every tick this drives IS a rest",
-    "new": "runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, sharedEnd); },   // CAMP1-REST: every tick this drives IS a rest",
+    "old": "runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // CAMP1-REST: every tick this drives IS a rest",
+    "new": "runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos); },   // CAMP1-REST: every tick this drives IS a rest",
     "tests": [
       "test/camp1_groups.test.js",
       "test/restx2_online_rest.test.js"
@@ -30,8 +30,8 @@
   {
     "name": "CAMP1REST-the-exterior-rest-stops-saying-it-is-a-rest",
     "file": "src/scenes/exterior.js",
-    "old": "runEncounterTick(walkMode ? player.pos : cam.pos, sharedEnd, true); },   // CAMP1-REST: every tick this drives IS a rest",
-    "new": "runEncounterTick(walkMode ? player.pos : cam.pos, sharedEnd); },   // CAMP1-REST: every tick this drives IS a rest",
+    "old": "runEncounterTick(walkMode ? player.pos : cam.pos, true); },   // CAMP1-REST: every tick this drives IS a rest",
+    "new": "runEncounterTick(walkMode ? player.pos : cam.pos); },   // CAMP1-REST: every tick this drives IS a rest",
     "tests": [
       "test/camp1_groups.test.js",
       "test/restx2_online_rest.test.js"
@@ -40,8 +40,8 @@
   {
     "name": "CAMP1REST-the-gate-defaults-on-so-the-walking-roll-dies-too",
     "file": "src/scenes/world.js",
-    "old": "  function runEncounterTick(playerFeet, simMinutesEnd = null, isResting = false) {",
-    "new": "  function runEncounterTick(playerFeet, simMinutesEnd = null, isResting = true) {",
+    "old": "  function runEncounterTick(playerFeet, isResting = false, { spawns = true } = {}) {",
+    "new": "  function runEncounterTick(playerFeet, isResting = true, { spawns = true } = {}) {",
     "tests": [
       "test/camp1_groups.test.js",
       "test/restx2_online_rest.test.js"

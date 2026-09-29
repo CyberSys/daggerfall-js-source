@@ -250,7 +250,7 @@ test('REALM P0.3: a character joining online has the debt past the Empire\'s one
 
 test('REALM P0.3 by source: the join calls the debt in after the markers are aligned to the world\'s clock', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /onlineArrival\(\); empireJoin\(\{ entity: playerEntity, nowMinutes: worldMinutes\(\), say: \(l, d\) => townTalk\.say\(l, d\) \}\);/);
+  assert.match(w, /onlineArrival\(\); empireJoin\(\{ entity: playerEntity, nowMinutes: ownMinutes\(\), say: \(l, d\) => townTalk\.say\(l, d\) \}\);/);   // LIVED1: the loans run on the character's own clock
   assert.ok(w.indexOf('empireJoin({') > w.indexOf('const onlineArrival = () => { alignEntityClocks(playerEntity, worldMinutes());'), 'the loan due dates ride the shift first');
 });
 
@@ -397,7 +397,7 @@ test('REALM P0.5 by source: the host checkpoints every slot the exit save writes
   const frame = w.slice(w.indexOf('const onlineFrame = (now, dt) => {'));
   assert.match(frame, /_rezSeen = null;[^\n]*\n\s*if \(checkpointDue\(now, _checkpointAt\)\) onlineCheckpoint\(\);/, 'each online frame, past the seat\'s and the dead\'s returns');
   assert.match(w, /const tradePack = checkpointedTradePack\(createTradePack\(playerEntity\), \(\) => onlineCheckpoint\(\)\);/);
-  assert.match(w, /if \(!checkpointAllowed\(\{ online: !!online, spawned: playerSpawned, seatOut: seatOut\(\), duel: !!duelMgr\?\.duel \}\)\) return false;/);
+  assert.match(w, /if \(!checkpointAllowed\(\{ online: !!online, spawned: playerSpawned, seatOut: seatOut\(\), duel: !!duelMgr\?\.duel, walkWaiting: ownWalkWaiting\(playerEntity\) \}\)\) return false;/);
   assert.match(w, /const names = exitAutosaveNames\(playerEntity, \{ deathUp: townTalk\.overlay instanceof DeathScreen \|\| !!modes\?\.deathUp\?\.\(\) \}\);\n\s*for \(const saveName of names\) \{\n\s*if \(modes\) modes\?\.quickSaveNow\(saveName, \{ quiet: true \}\);[^\n]*\n\s*else worldQuickSave\(saveName, \{ quiet: true \}\);/);
   // quiet: no shot and no "Game saved." - a failure still speaks
   assert.match(w, /if \(r\.ok && !quiet\) requestScreenshot\(r\.key\);\n\s*if \(!r\.ok \|\| !quiet\) townTalk\.say\(r\.ok \? 'Game saved\.' : 'Save failed/);

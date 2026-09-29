@@ -99,7 +99,7 @@ const bank = {
       blocks: [
         { type: 'stats', items: [
           ['Account balance', L.account], ['Gold carried', L.inventory],
-          ['Loan owed', L.loanDue, Number(L.loanDue) > 0 ? 'warn' : ''], ['Loan due by', L.loanBy],
+          ['Loan owed', L.loanDue, Number(L.loanDue) > 0 ? 'warn' : ''], [empire ? 'Loan due' : 'Loan due by', L.loanByFull ?? L.loanBy],   // AUDIT LIVED1b U4 (O1): AUDIT LIVED1 S's "Loan due" is the online row's (a time left, not a date) - offline the row reads a date, as it always did
         ] },
         { type: 'cols', cols: [
           [{ type: 'group', title: 'Gold', blocks: [{ type: 'actions', layout: 'column', items: [

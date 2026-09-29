@@ -78,7 +78,7 @@ test('CRUX1: by source - the dungeon start falls back to the host\'s doorless si
   const w = rd('src/scenes/world.js');
   assert.match(w, /dungeonStartSite: \(\) => \{\s*\n\s*const p = playerTravelPixel\(\);\s*\n\s*const key = `\$\{p\.x\},\$\{p\.y\}`;\s*\n\s*const dfLocation = locationIndex\.get\(key\) \?\? null;\s*\n\s*if \(!dfLocation\?\.hasDungeon\) return null;\s*\n\s*return \{ dfLocation, climateBase: getWorldClimateSettings\(maps\.getClimateIndex\(p\.x, p\.y\)\)\.climateType, season: INTERIOR_SEASON, group: key, door: null, dfBlock: null, recordIndex: -1 \};/);
   assert.match(w, /const entered = await modes\?\.startInDungeon\(\);\s*\n\s*if \(!entered\) console\.warn\('\[quest\] respawn: no dungeon entrance at site/, 'the quest teleport');
-  assert.match(w, /_lastEncMinutes = Math\.floor\(playerTicker\.classicMinutes\);\s*\n\s*const entered = await \(modes\?\.startInDungeon\?\.\(\) \?\? false\);/, 'the vampire wakes in the crypt');
+  assert.match(w, /_lastEncMinutes = Math\.floor\(playerTicker\.ownMinutes\);[^\n]*\n\s*const entered = await \(modes\?\.startInDungeon\?\.\(\) \?\? false\);/, 'the vampire wakes in the crypt');
   assert.match(w, /playVideo: \(name\) => \{ _questVideos\(name\); \},/);
   assert.match(w, /const _questVideos = makeVideoQueue\(async \(name\) => \{/);
   assert.equal((w.match(/_questVideos\(name\)/g) ?? []).length, 1, 'one door into the queue');

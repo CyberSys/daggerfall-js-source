@@ -207,10 +207,10 @@ test('CAMP1 by source: the group roll is skipped while resting - camps/packs onl
   for (const host of ['src/scenes/exterior.js']) {
     const h = read(host);
     const i = h.indexOf('function runEncounterTick(');
-    assert.match(h.slice(i, i + 200), /function runEncounterTick\(playerFeet, simMinutesEnd = null, isResting = false\) \{/, `${host}: the tick knows whether it's servicing a rest`);
+    assert.match(h.slice(i, i + 200), /function runEncounterTick\(playerFeet, isResting = false\) \{/, `${host}: the tick knows whether it's servicing a rest`);
     const fn = h.slice(i, h.indexOf('\n  }\n', i));
     assert.match(fn, /if \(!isResting && getPref\('wildernessCamps'\)/, `${host}: the camp/pack roll is gated off during rest`);
-    assert.match(h, /advanceMinutes: \(n, sharedEnd\) => \{ playerTicker\.advance\(n, sharedEnd\); runEncounterTick\([^)]*, sharedEnd, true\); \}/, `${host}: the rest deps flag every tick they drive as a rest`);   // REST-ROUNDS: the ticker takes the sub-tick's end too
+    assert.match(h, /advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\([^)]*, true\); \}/, `${host}: the rest deps flag every tick they drive as a rest`);   // LIVED1: the ticker takes the minutes on the character's own clock
     // `encounterTick` takes no flag - and it is NOT only the walking tick, which is worth saying plainly because
     // the hand-off's note assumed it was: worldModes' INTERIOR rest deps drive it too
     // (`advanceMinutes: (n, sharedEnd) => { interiorTicker.advance(n, sharedEnd); host.encounterTick?.(); }`). That rest needs no flag
@@ -219,7 +219,7 @@ test('CAMP1 by source: the group roll is skipped while resting - camps/packs onl
     assert.match(h, /encounterTick: \(\) => runEncounterTick\([^,)]*\),/, `${host}: the frame's own tick passes no third argument - isResting defaults to false`);
   }
   // the interior rest that reaches encounterTick unflagged, and the one line that makes it harmless
-  assert.match(read('src/scenes/worldModes.js'), /advanceMinutes: \(n, sharedEnd\) => \{ interiorTicker\.advance\(n, sharedEnd\); host\.encounterTick\?\.\(\); \},/, 'the interior rest drives the host tick with no flag...');   // REST-ROUNDS: the rest's own line, not the camp meal's twin
+  assert.match(read('src/scenes/worldModes.js'), /advanceMinutes: \(n\) => \{ interiorTicker\.advance\(n\); host\.encounterTick\?\.\(\); \},   \/\/ LIVED1/, 'the interior rest drives the host tick with no flag...');   // the rest's own line (LIVED1's note), not the camp meal's twin
   assert.match(read('src/systems/campEncounters.js'), /const campGateOk = \(ctx\) => !\(ctx\.inside \|\| ctx\.inLocationRect \|\| ctx\.preventEnemySpawns\);/, '...and a roll from inside can never reach a group anyway');
 });
 
@@ -274,10 +274,10 @@ test('CAMP1-REST: the rest interrupt is SIGHT first - a seen foe reports at any 
 // frame's catch-up rolled them with isResting=false and the timer's 180-minute boundary fired a guaranteed group.
 test('CAMP-REST by source: every time skip is spent through the tick as a rest, and a campmate does not notice a sleeping player', () => {
   const w = read('src/scenes/world.js'), e = read('src/scenes/exterior.js'), ef = read('src/scenes/exteriorFoes.js');
-  assert.match(w, /playerTicker\.advance\(60\);\s*\n[^\n]*\n[^\n]*\n\s*runEncounterTick\(walkMode && playerSpawned \? player\.pos : cam\.pos, null, true\);/, 'world.js: the collapse hour is spent as a rest');
-  assert.equal((w.match(/advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode && playerSpawned \? player\.pos : cam\.pos, null, true\); \}/g) ?? []).length, 2, 'world.js: the camp meal and the forage/hunt search');
-  assert.match(e, /playerTicker\.advance\(60\);[^\n]*\n\s*runEncounterTick\(walkMode \? player\.pos : cam\.pos, null, true\);/, 'exterior.js: the collapse hour');
-  assert.match(e, /advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode \? player\.pos : cam\.pos, null, true\); \}/, 'exterior.js: the camp meal');
+  assert.match(w, /playerTicker\.advance\(60\);\s*\n[^\n]*\n[^\n]*\n\s*runEncounterTick\(walkMode && playerSpawned \? player\.pos : cam\.pos, true\);/, 'world.js: the collapse hour is spent as a rest');
+  assert.equal((w.match(/advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode && playerSpawned \? player\.pos : cam\.pos, true\); \}/g) ?? []).length, 3, 'world.js: the camp meal, the forage/hunt search and the rest (LIVED1: one shape now, the rest\'s minutes the character\'s own)');
+  assert.match(e, /playerTicker\.advance\(60\);[^\n]*\n\s*runEncounterTick\(walkMode \? player\.pos : cam\.pos, true\);/, 'exterior.js: the collapse hour');
+  assert.equal((e.match(/advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode \? player\.pos : cam\.pos, true\); \}/g) ?? []).length, 2, 'exterior.js: the camp meal and the rest (LIVED1: one shape now, as world.js\'s three)');
   assert.match(ef, /const campAsleep = f\.campId != null && !!senses\.playerEntity\?\.isResting && !isLocalPlayerTarget\(ai\.target\);/, 'a campmate, not already on the player, while the player rests');
   assert.match(ef, /noTargetMode: campAsleep,/, 'the target machine leaves the player off its list for it');
 });
