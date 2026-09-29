@@ -611,8 +611,8 @@
   {
     "name": "AUDIT31-tab-past-balance",
     "file": "src/ui/workTab.js",
-    "old": "                  : balance != null && f.pay > balance ? `Your Marks hold only",
-    "new": "                  : false ? `Your Marks hold only",
+    "old": "                  : balance != null && f.pay > balance ? `You hold only",
+    "new": "                  : false ? `You hold only",
     "tests": [
       "test/audit31_tabs.test.js"
     ]
