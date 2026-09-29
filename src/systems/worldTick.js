@@ -765,7 +765,14 @@ function tickPlayerMinutesOnce({
   // broker's, and deliberately so: a multi-minute jump costs ONE minute's
   // fatigue (S20) while it costs many magic rounds.
   if (Math.floor(next) !== Math.floor(classicMinutes)) {
-    let loss = FATIGUE_LOSS.Default;
+    // FATIGUE-IDLE (2026-09-29, Mac: "You shouldn't lose fatigue at an insane rate standing still"; asked what it
+    // should cost: "Nothing"): THE BAND CHARGES NOTHING STANDING STILL ON THE GROUND. DFU charges DefaultFatigueLoss
+    // every minute the player is not climbing, running or swimming (PlayerEntity.cs:405-418) - standing still included:
+    // the walk's 8 a minute on BALANCE1's scale, a full bar at STR/END 50 in ~67 real minutes of doing nothing.
+    // `standing` is the motor's IsStandingStill term (grounded, no move input - player/motor.js); the arms below still
+    // price a climb and a swim, whose passed roll pays the walk (treading water is not standing on the ground).
+    // Roleplay Realism's overload is its own round and keeps the mod's rule. A departure: Ledger A, FATIGUE-IDLE.
+    let loss = activity.standing && !activity.swimming ? 0 : FATIGUE_LOSS.Default;
     // AUDIT 26 F083: the CLIMBING arm heads DFU's band
     // (PlayerEntity.cs:405-408 - climbing, else running, else the
     // swimming arms; ClimbingFatigueLoss 22 at :110). The port tested

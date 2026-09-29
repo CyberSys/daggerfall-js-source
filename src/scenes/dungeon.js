@@ -146,7 +146,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
       placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
       // MAC1 J: this host's canvas, for the pause door's relock. The
-      // context owns none of its own (dungeonContext.js:7478), so each
+      // context owns none of its own (dungeonContext.js:7479), so each
       // dungeon host hands its own in and the resume gesture carries
       // the pointer back with it (ui/pauseDoor.js:141-165).
       relock: () => requestLook(canvas) });
@@ -1006,7 +1006,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       // grounded-gated and false in the air, so `player.standing` is
       // the faithful term (and the footstep gate above now reads it
       // too - AUDIT 64 F3 review).
-      ctx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, fell: player.landedFallDistance });   // P13 sneak state + P14 fall landing (AUDIT 26 F083)
+      ctx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, standing: !!player.standing, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, fell: player.landedFallDistance });   // P13 sneak state + P14 fall landing (AUDIT 26 F083)
       ctx.reportMotor(player.grounded, player.velY, cam.yaw);
       ctx.reportInput?.([...keys].join('+') || 'none', cam.pitch);
 // ROAD-Ar: the gate itself ran at :459, above the overlay guard.

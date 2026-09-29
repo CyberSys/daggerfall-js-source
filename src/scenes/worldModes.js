@@ -7113,7 +7113,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7478), so the OUTER host's one rides in.
+          // (dungeonContext.js:7479), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -7880,7 +7880,7 @@ export function createWorldModes(host) {
       // grounded-gated and false in the air, so `player.standing` is
       // the faithful term (and the footstep gate above now reads it
       // too - AUDIT 64 F3 review).
-      if (!overlayHeld) dungeonCtx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, fell: player.landedFallDistance });   // P13 sneak state + P14 fall landing (AUDIT 26 F083: + the climbing arm)
+      if (!overlayHeld) dungeonCtx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, standing: !!player.standing, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, fell: player.landedFallDistance });   // P13 sneak state + P14 fall landing (AUDIT 26 F083: + the climbing arm)
       // PlayerMotor.StartRestGroundedCheck (:184-194) reads the LIVE
       // grounded state; dungeonContext's `_grounded` is host-fed and
       // only dungeon.js:415 fed it, so in a world-hosted dungeon the
@@ -7917,6 +7917,7 @@ export function createWorldModes(host) {
       // poisons, fatigue and skill advancement had all stopped.
       if (!overlayHeld) interiorTicker.tick(dt, {
         running: player.isRunning && !player.standing,   // AUDIT 23 (entity-2)
+        standing: !!player.standing,   // FATIGUE-IDLE: standing still on the ground pays no minute's band (worldTick.js)
         // AUDIT 64 F7 - PlayerEntity.cs:311, the TALLY's own gate:
         // `playerMotor.IsRunning && !playerMotor.IsRiding`, with NO
         // standing test. The fatigue arm at :408 is the one that
@@ -10963,7 +10964,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:9057`
-     *  and `dungeonContext.js:7489` for its two sibling copies - lines
+     *  and `dungeonContext.js:7490` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {
