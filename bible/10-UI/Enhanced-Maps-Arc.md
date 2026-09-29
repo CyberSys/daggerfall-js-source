@@ -626,3 +626,31 @@ is nearest (`surfaceY`), the stairs between storeys are found
 above the thumb and marks you and the way out, and the foot says the keys.
 The record is `01-Overview/Field-Bugs-2026-09-25.md` DISC25-A.
 
+## TOWN-MARKS (2026-09-29) - the Notice Boards and the player housing on the town plan
+
+Mac: "For the notice boards in town. Can we physically mark them on the town map, and also mark owned player
+housing". Neither was on any map: the town plan marked the player, a quest's residence and (DISC23-A) the party.
+The bank's house showed only as its name ("<Name>'s residence", once discovered) and an online home (HOME1) not at
+all.
+
+- **A Notice Board** is a pinned card on a post, where the board stands in the street. It is one of the town's
+  boards (model 41739) that is not a bounty board (`questBoardIndices`), while the Notice Board is open: online,
+  `BOARD_OPEN` - the boards NOTICE1 floats a town's unread count over. Offline the boards are Daggerfall's rumour
+  boards and are not marked. Under the pointer: "Notice Board", or "Notice Board: 3 new".
+- **A player's house** is a house on a post, on its building's place (the plates' anchor). Every online home in the
+  town is marked, as its door names it: "Your home" filled in the player's ink (the caret's), another player's
+  ("Gryphoth's home") in parchment - the fill says whose, not the colour alone. The house the character bought at a
+  bank is "Your house", and only in its own town: `isHouseOwned` asks the region alone because its callers stand at
+  the door, and a building key is a location's own numbering, so the map id is matched too (unsigned).
+- **Where they are drawn:** under the names, each glyph `TOWN_MARK_LIFT` (17 px) above its place on a stem down to
+  it, so a name lettered at the place stays whole and the glyph clears it. Only the map's own pens (EM4's law).
+- **When the homes arrive:** the service answers after the map may be open, so the plan repaints once when the
+  registry's version moves (`breathes`), and the town's homes are asked for as the map opens.
+- **The classic exterior automap is untouched:** it is DFU's own window and draws DFU's marks alone, as DISC23-A left
+  the party. The `?exterior` probe host hands none.
+
+Code: `ui/townMapMarks.js` (the rows and the reading), `ui/inkTown.js` (`paintBoardMark`, `paintHomeMark`),
+`ui/townSheet.js`, `ui/townMapDoor.js`, `scenes/world.js` (`townBoardMarks`, `townHomes`). Pins:
+`test/town_marks.test.js` (8). Mutants: `tools/mutants/town_marks.json` (32, all dead); `disc23a.json`'s breathing
+record and `survtiers3.json`'s two cite records re-aimed. Patch notes: `PATCH-NOTES-Town-Map-Marks.md`.
+

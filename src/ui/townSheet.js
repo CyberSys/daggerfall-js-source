@@ -39,10 +39,11 @@
 import { boundarySegments, linkSegments, fitView, toPaper, NAME_FACE } from './inkMap.js';
 import {
   townBytes, townChains, quarterChains, quarterOfType, isBuilt, QUARTERS, sheetY,
-  paintTownStatic, paintTownOverlay, BLOCK_PX,
+  paintTownStatic, paintTownOverlay, BLOCK_PX, TOWN_MARK_LIFT,
 } from './inkTown.js';
 import { nameplateAnchor, resolveNameplates, WORLD_PER_PX } from './nameplateLayout.js';
 import { readPartyBodies, PARTY_MARK_CSS } from './partyMapMarks.js';   // DISC23-A: the party's bodies in the streets
+import { readTownBoards, readTownHomes, TOWN_MARK_REACH } from './townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing
 
 /** The fit at rest has ONE HOME in ui/inkMap.js - re-exported so a
  *  pin that has this sheet does not also have to reach for it. */
@@ -93,6 +94,9 @@ const EMPTY_SIZE = Object.freeze({ width: 1, height: 1 });
  *   revealAll?: () => boolean,
  *   player?: () => {x:number, y:number, yaw?:number}|null,
  *   party?: () => Array<{acct?: string|null, name?: string, feet?: number[], yaw?: number}>,
+ *   boards?: () => Array<{feet: number[], label?: string}>,
+ *   homes?: () => Array<{buildingKey: number, own?: boolean, label: string}>,
+ *   homesVersion?: () => number,
  *   title?: string,
  * }} deps
  */
@@ -105,6 +109,7 @@ export function createTownSheet(deps = {}) {
   let plates = null;     // { key, rows } - laid out per view
   let lastView = null;
   let lastPaper = 0;
+  let paintedHomes = null;   // TOWN-MARKS: the homes' version the overlay last painted
 
   function ensureField() {
     if (field) return field;
@@ -188,6 +193,31 @@ export function createTownSheet(deps = {}) {
     return readPartyBodies(deps.party).map((m) => ({
       x: m.feet[0] / WORLD_PER_PX, y: sheetY(h, m.feet[2] / WORLD_PER_PX), yaw: m.yaw, name: m.name,
     }));
+  }
+
+  /** TOWN-MARKS: the town's Notice Boards, in sheet space - the host hands each at its foot in the location's frame,
+   *  and it crosses into the sheet by the party's two steps (metres to layout pixels, then +Z up). */
+  function boardsOnSheet() {
+    const h = ensureField().h;
+    return readTownBoards(deps.boards).map((b) => ({ x: b.feet[0] / WORLD_PER_PX, y: sheetY(h, b.feet[2] / WORLD_PER_PX), label: b.label }));
+  }
+
+  /** TOWN-MARKS: the player housing, in sheet space - each home at its building's place, by the plates' own anchor law
+   *  (nameplateAnchor, then sheetY), so a home's mark and its building's name stand on one place. */
+  function homesOnSheet() {
+    const rows = readTownHomes(deps.homes);
+    if (!rows.length) return [];
+    const at = new Map();
+    for (const b of deps.buildings?.() ?? []) if (b?.buildingKey != null) at.set(b.buildingKey, b);
+    const h = ensureField().h;
+    const out = [];
+    for (const r of rows) {
+      const b = at.get(r.buildingKey);
+      if (!b) continue;
+      const [x, y] = nameplateAnchor(b.blockX ?? 0, b.blockY ?? 0, b.position ?? [0, 0, 0]);
+      out.push({ x, y: sheetY(h, y), own: r.own, label: r.label });
+    }
+    return out;
   }
 
   /** Every residence a quest has marked, named or not, in layout
@@ -317,7 +347,10 @@ export function createTownSheet(deps = {}) {
         player: playerOnSheet(),
         party: partyOnSheet(),   // DISC23-A
         partyFill: PARTY_MARK_CSS,
+        homes: homesOnSheet(),   // TOWN-MARKS
+        boards: boardsOnSheet(),
       });
+      paintedHomes = deps.homesVersion?.() ?? null;
     },
 
     pickAt() { /* a town plan picks nothing yet - the names are read, not chosen */ },
@@ -332,6 +365,12 @@ export function createTownSheet(deps = {}) {
           const [x, y] = toPaper(lastView, m.x, m.y);
           if ((x - px) ** 2 + (y - py) ** 2 <= PARTY_REACH * PARTY_REACH) return { label: m.name, cursor: '' };
         }
+        // TOWN-MARKS: a board's or a home's glyph under the pointer names it - its glyph stands TOWN_MARK_LIFT above
+        // its place, so the pointer is asked about the glyph, not the ground under it
+        for (const m of [...boardsOnSheet(), ...homesOnSheet()]) {
+          const [x, y] = toPaper(lastView, m.x, m.y);
+          if ((x - px) ** 2 + (y - TOWN_MARK_LIFT - py) ** 2 <= TOWN_MARK_REACH * TOWN_MARK_REACH) return { label: m.label, cursor: '' };
+        }
         for (const p of plates?.rows ?? []) {
           if (Math.abs(p.x - px) <= p.size * p.text.length * 0.3 && Math.abs(p.y - py) <= p.size) {
             return { label: p.text, cursor: 'pointer' };
@@ -341,8 +380,11 @@ export function createTownSheet(deps = {}) {
       return { label: deps.title ?? '', cursor: '' };
     },
 
-    /** DISC23-A: the street plan repaints on the window's beat while a party member walks it. */
-    breathes() { return readPartyBodies(deps.party).length > 0; },
+    /** DISC23-A: the street plan repaints on the window's beat while a party member walks it. TOWN-MARKS: and once more
+     *  when the town's homes have changed since it was painted - the service's answer lands after the map is open. */
+    breathes() {
+      return readPartyBodies(deps.party).length > 0 || (!!deps.homesVersion && deps.homesVersion() !== paintedHomes);
+    },
 
     mark() { /* the middle button marks a place on the BAY; a street has none */ },
     key() { return false; },
@@ -361,6 +403,8 @@ export function createTownSheet(deps = {}) {
     names: named,
     quests: questMarks,
     party: partyOnSheet,
+    boards: boardsOnSheet,   // TOWN-MARKS
+    homes: homesOnSheet,
     platesAt: (view, paperW, paperH, measure, reserveTop = 0, hands = null) => ensurePlates(view, paperW, paperH, measure, reserveTop, hands),
     get paperW() { return lastPaper; },
     /** One block is this many layout pixels - re-exported so a caller
