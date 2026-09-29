@@ -8,7 +8,9 @@
    options on the right, the update and PLAY along the bottom - the
    Warframe launcher's shape in the brand's own pixels. Words at 12-14px
    read #a89f88 (7.2:1 on the night); #7d7460 (4.1-4.4:1, under WCAG AA's
-   4.5) is for rules, borders and a held Play (AUDIT INSTALL L5-23). */
+   4.5) is for rules, borders and a held Play (AUDIT INSTALL L5-23). The
+   NEW badge's words read #e8e0c8 on the ruby (5.0:1 - #d8cfae there was
+   4.26, R2-E3); test/audit_install2.test.js computes every pair. */
 @font-face { font-family: 'Pixelify Five'; unicode-range: U+0035; font-display: block; src: url(data:font/woff2;base64,d09GMgABAAAAAAIIAA0AAAAABKQAAAG5AAEAQgAAAAAAAAAAAAAAAAAAAAAAAAAAGyAcIAZgADQRCAo8UQE2AiQDCAsGAAQgBYQEByAb0gMRFZQRZF8mbyrtyKnsmUtW0uh5eajRkkYiwmd9zzwevvZ7PXd3A4jjU0BFqJDHE1p0Mq4uqiyrUX1VpBcA/QCAwLv/sfo5F6Rn9t09Ls65/8pEjkFdE/m2A84AIXIHmiZwJJFm0pbQC2cFlGjCRS2xqAUWJRAZpScLgtmEN4H2INg9T6DZqHGxacuuvRoVqAhYvaSloI70IIWdVRLHLfgNBOxl356deyxZYUWpr+rJNb8JiK/pmJSRkNErC/QqJlEUgRWVXLV6ESBEVQESKEjoRA+gAFJrOROtuU2rFi1ORpsvt1y9+lW3f3N7TL8NBMKGS6Nj8yes/za5Bg8HfwuvHq+zWX05l2uol0Dwz5V3RP1cQJeUzrud3rstkMyqCwJGSQINDsuiNGGRJvRaJGn3iGytlxSz0U6dvbHww+rNxh0babDbhyLLJzB13YBvnsCnqKuRDUnSwnPAMmETnOcpx2EEPp+mbgw1LSumfKYqw0bLELM6SbGdRm08TAsa7XeSzTUZDFX+dPS7X+6RR5RVmJvg9p8MY4EtHAlMk2kyC+YFf/8E/GKovmqrnuLEDhW0/Ak2MwEAAA==) format('woff2'); }
 @font-face { font-family: 'Pixelify Sans'; font-weight: 400 700; font-display: block; src: url(fonts/PixelifySans-latin.woff2) format('woff2'); }
 @font-face { font-family: 'Jacquard 12'; font-display: block; src: url(fonts/Jacquard12-latin.woff2) format('woff2'); }
@@ -86,18 +88,22 @@ body[data-busy] .gem { animation: gleam 1.6s steps(8) infinite; }
 .release .ver { font-size: 13px; letter-spacing: 0.14em; color: #d8cfae; }
 .release .date { font-size: 13px; letter-spacing: 0.14em; color: #a89f88; }
 .badge { padding: 0 6px; font-size: 12px; line-height: 18px; letter-spacing: 0.14em; text-transform: uppercase; }
-.badge.new { color: #d8cfae; background: var(--ruby); }
+.badge.new { color: #e8e0c8; background: var(--ruby); }
 .badge.update { color: #0a0c11; background: var(--brass); }
 .release h4 { margin: 4px 0; font-size: 18px; font-weight: 400; color: #d8cfae; }
 .release h5 { margin: 8px 0 2px; font-size: 14px; font-weight: 400; letter-spacing: 0.14em; text-transform: uppercase; color: #a89f88; }
 .release p { margin: 0 0 6px; color: #a89f88; }
 .release ul { margin: 0 0 6px; padding-left: 18px; color: #a89f88; }
+.release li > ul { margin: 2px 0 0; }
 .release li { margin: 0 0 4px; }
 .release strong { font-weight: 500; color: #d8cfae; }
 
 /* `safe`: a card taller than the panel scrolls from its TOP - plain `center` overflows both ways, and the title
    and the first folders went where no scroll reaches (six folders found, measured) */
 .setup { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: safe center; padding: 18px 24px; text-align: center; }
+/* R2-E7: the card scrolls in the feed's own bar, not the system's white one */
+.setup::-webkit-scrollbar { width: 10px; }
+.setup::-webkit-scrollbar-thumb { background: rgba(125,116,96,0.45); }
 #setup-title { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.2; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 #setup-detail { margin: 8px 0 0; max-width: 58ch; color: #a89f88; }
 #setup-detail:empty { display: none; }

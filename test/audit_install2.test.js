@@ -424,3 +424,240 @@ test('R2-A6/A10: the in-game switch starts the hourly check; the File menu\'s ch
     'over the window found - a parentless box can open behind a fullscreen game');
   assert.match(main, /appImage: !!process\.env\.APPIMAGE,/, 'the table knows whether this copy runs as its AppImage');
 });
+
+// ---- the launcher's page, run (lane E) ---------------------------------------------------------------------------
+// app/launcher/launcher.js over app/launcher/index.html in test/launcherDom.mjs, fed views the real state makes
+
+const view = (s) => L.viewOf(s);
+const foundOne = () => apply(state(), { type: 'found', found: [{ dir: '/games/DF/DAGGER/ARENA2', source: 'steam' }] });
+
+test('R2-E1: after the first run\'s card the focus is on PLAY - Enter plays (it stayed on the card\'s answer, hidden, and pressed nothing)', async () => {
+  const { bootLauncher } = await import('./launcherDom.mjs');
+  const p = bootLauncher();
+  p.show(view(foundOne()));
+  assert.equal(p.doc.activeElement.textContent, 'Use these files', 'the card\'s answer first');
+  p.show(view(apply(foundOne(), { type: 'picked', dir: '/games/DF/DAGGER/ARENA2' })));
+  assert.equal(p.$('setup').hidden, true);
+  assert.equal(p.doc.activeElement.id, 'play', 'the answer taken, the card gone: Enter plays');
+  // the player's own control keeps the focus: Play never takes it from a switch they are on (E-13)
+  const q = bootLauncher();
+  q.show(view(state({ arena2Dir: '/a', checkEnabled: true })));
+  q.$('update-check').focus();
+  q.show(view(apply(state({ arena2Dir: '/a', checkEnabled: true }), { type: 'check-none' })));
+  assert.equal(q.doc.activeElement.id, 'update-check');
+  // and a view that changes nothing it keys on moves nothing (E-14): the card's answer is not retaken on every view
+  const r = bootLauncher();
+  r.show(view(foundOne()));
+  r.$('update-check').focus();
+  r.show(view(foundOne()));
+  assert.equal(r.doc.activeElement.id, 'update-check', 'the same card again leaves the focus where the player put it');
+});
+
+test('R2-E4/E8: one live region, and the notes as written - nested bullets stay nested, titles without "Patch Notes:"', async () => {
+  const html = rd('app/launcher/index.html');
+  assert.deepEqual([...html.matchAll(/<([a-z0-9]+)[^>]*\saria-live="[^"]+"[^>]*>/g)].map((m) => /id="([^"]+)"/.exec(m[0])?.[1]), ['status'],
+    'the status line alone - the card is announced by the focus that moves to its answer');
+  const { bootLauncher } = await import('./launcherDom.mjs');
+  const p = bootLauncher();
+  const text = '# Patch Notes: The Warden\n\n## Phases\n- **Three phases:**\n  - **The Burning Court**: fire.\n  - **Champion**: spokes.\n- He leaps.\n\nA paragraph\nthat wraps.';
+  p.show(view(state({ arena2Dir: '/a', news: [{ version: '0.1.4700', date: '2026-09-29T00:00:00Z', text }] })));
+  const release = p.doc.querySelector('#news .feed .release');
+  assert.equal(release.querySelector('h4').textContent, 'The Warden', 'E-21: the title as a player reads it');
+  const top = release.querySelector('ul');
+  assert.deepEqual(top.children.map((li) => li.childNodes.filter((c) => !(c.tagName === 'UL')).map((c) => c.textContent).join('')), ['Three phases:', 'He leaps.']);
+  const nested = top.children[0].querySelector('ul');
+  assert.ok(nested, 'the sub-points inside their point');
+  assert.deepEqual(nested.children.map((li) => li.textContent), ['The Burning Court: fire.', 'Champion: spokes.']);
+  assert.equal(release.querySelector('p').textContent, 'A paragraph that wraps.');
+});
+
+test('R2-E (L5-21, L5-12): the page redraws what changed and nothing else - a button under the pointer is never rebuilt between press and release', async () => {
+  const { bootLauncher } = await import('./launcherDom.mjs');
+  const p = bootLauncher();
+  // a download: views many times a second, only the percent moving - "Play without updating" stays the same element
+  const dl = (pct) => view(apply(state({ arena2Dir: '/a', checkEnabled: true }), { type: 'check-available', version: '0.1.4701', total: 100e6 }, { type: 'progress', percent: pct, transferred: pct * 1e6, total: 100e6 }));
+  p.show(dl(10));
+  const button = p.$('status-actions').children[0];
+  const rebuilt = p.$('status-actions').replaced;
+  for (const pct of [11, 12, 13]) p.show(dl(pct));
+  assert.equal(p.$('status-actions').replaced, rebuilt, 'E-16: not rebuilt on every tick');
+  assert.equal(p.$('status-actions').children[0], button);
+  assert.equal(button.textContent, 'Play without updating');
+  // E-17/E-18: the bar shows while there is progress, and says how far
+  const track = p.doc.querySelector('#progress .track');
+  assert.equal(p.$('progress').hidden, false);
+  assert.equal(track.getAttribute('aria-valuenow'), '13');
+  assert.equal(track.getAttribute('aria-valuetext'), '13.0 of 100.0 MB');
+  p.show(view(state({ arena2Dir: '/a' })));
+  assert.equal(p.$('progress').hidden, true, 'and hides when there is none');
+  // E-15: the card is not rebuilt by a view that leaves it as it was
+  const q = bootLauncher();
+  q.show(view(foundOne()));
+  const cardBuilds = q.$('setup-actions').replaced;
+  q.show(view(foundOne()));
+  assert.equal(q.$('setup-actions').replaced, cardBuilds);
+  // E-19: the card and the news trade places; E-20: the switch shows the setting; E-22: the files door's own words
+  assert.deepEqual([q.$('setup').hidden, q.$('news').hidden], [false, true]);
+  q.show(view(state({ arena2Dir: '/games/ARENA2', checkEnabled: false, checkOnLaunch: false })));
+  assert.deepEqual([q.$('setup').hidden, q.$('news').hidden], [true, false]);
+  assert.equal(q.$('update-check').checked, false);
+  q.show(view(state({ arena2Dir: '/games/ARENA2', checkEnabled: true })));
+  assert.equal(q.$('update-check').checked, true);
+  assert.equal(q.doc.querySelector('[data-act="choose-folder"]').textContent, 'Change folder');
+  q.show(view(state({ inGamePicker: true })));
+  assert.equal(q.doc.querySelector('[data-act="choose-folder"]').textContent, 'Choose folder');
+  assert.equal(q.$('files').textContent, 'Chosen in the game');
+});
+
+test('R2-E (L5-23, E-23/24, E-25..31): the page\'s own rules - every small word at AA, the keyboard\'s way in, hidden that hides, a bar that holds still', () => {
+  const css = rd('app/launcher/launcher.css');
+  const html = rd('app/launcher/index.html');
+  // contrast, computed: WCAG's relative luminance, for every text colour a small word wears and what it sits on
+  const lum = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+  const vars = { '--ruby': /--ruby: (#[0-9a-f]{6})/.exec(css)[1], '--brass': /--brass: (#[0-9a-f]{6})/.exec(css)[1] };
+  const rule = (sel) => {
+    const m = new RegExp(`(?:^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`).exec(css);
+    assert.ok(m, `${sel} is a rule`);
+    const val = (prop) => { const v = new RegExp(`(?:^|;)\\s*${prop}: ([^;]+);`).exec(m[1])?.[1]?.trim(); return v?.startsWith('var(') ? vars[v.slice(4, -1)] : v; };
+    return { color: val('color'), background: val('background') };
+  };
+  const night = '#0a0c11';
+  for (const [sel, on] of [['.badge.new', null], ['.badge.update', null], ['.release .date', night], ['.release p', night], ['#detail', night], ['.progress .label', night], ['.files', night]]) {
+    const r = rule(sel);
+    const c = ratio(r.color, on ?? r.background);
+    assert.ok(c >= 4.5, `${sel}: ${r.color} on ${on ?? r.background} is ${c.toFixed(2)}:1 - small text needs 4.5 (WCAG AA)`);
+  }
+  // the keyboard's way in: the news is a tab stop that scrolls (E-23, E-29), the switch is named by its label (E-24)
+  assert.match(html, /<div class="feed" tabindex="0"><\/div>/);
+  assert.match(css, /\.feed \{ flex: 1 1 auto; min-height: 0; overflow-y: auto;/);
+  assert.match(html, /<label class="check"><input id="update-check" type="checkbox"> Check automatically<\/label>/);
+  // a focused control shows it (E-26, E-27)
+  assert.match(css, /\.plaque:hover, \.plaque:focus-visible \{[^}]*border-color: var\(--brass\);/);
+  assert.match(css, /\.check input:focus-visible \{ outline: none; border-color: var\(--brass\); \}/);
+  // hidden wins over every region's own display (E-25); a long path shows its END (E-28); one bar height (E-30)
+  assert.match(css, /^\[hidden\] \{ display: none !important; \}$/m);
+  assert.match(css, /\.path \{[^}]*direction: rtl;/);
+  assert.match(css, /\.bar \{[^}]*[^-]height: 100px;/);
+  assert.doesNotMatch(css, /\.bar \{[^}]*min-height/);
+  // the gem holds still for a player who asked for less motion (E-31), and the card scrolls in the brand's bar (E-7)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*body\[data-busy\] \.gem \{ animation: none; \}/);
+  assert.match(css, /\.setup::-webkit-scrollbar-thumb \{ background: rgba\(125,116,96,0\.45\); \}/);
+});
+
+// ---- the laws round 1 left unpinned (lane E's survivors) ---------------------------------------------------------
+
+test('R2-E (E-01..E-12): the launcher state\'s own laws - timings a player can read, the right names, a fresh bar, the notes in order', () => {
+  // E-01/E-02: "Installing" stays long enough to read, and an installer that never takes over frees Play soon after
+  assert.ok(L.INSTALL_NOTICE_MS >= 1000 && L.INSTALL_NOTICE_MS <= 3000, `${L.INSTALL_NOTICE_MS} ms`);
+  assert.ok(L.INSTALL_GIVEUP_MS > L.INSTALL_NOTICE_MS && L.INSTALL_GIVEUP_MS <= 30000, `${L.INSTALL_GIVEUP_MS} ms`);
+  // E-03: each source by its own name
+  assert.deepEqual(L.SOURCE_LABEL, { dfu: 'from Daggerfall Unity', steam: 'Steam', gog: 'GOG', folder: 'on this computer' });
+  // E-04: a download tried again starts from nothing - not the failed one's percent and megabytes
+  const failed = apply(state({ arena2Dir: '/a', checkEnabled: true }), { type: 'check-available', version: '0.1.4701', total: 100e6 },
+    { type: 'progress', percent: 60, transferred: 60e6, total: 100e6 }, { type: 'download-failed' });
+  const again = apply(failed, { type: 'check-available', version: '0.1.4701', total: 100e6 });
+  assert.deepEqual([again.update.percent, again.update.transferred], [0, 0]);
+  // E-12: before the first byte it says it is starting - never "0.0 of 0.0 MB"
+  const starting = apply(state({ arena2Dir: '/a', checkEnabled: true }), { type: 'check-available', version: '0.1.4701' });
+  assert.equal(view(starting).progress.label, 'Starting the download');
+  // E-05: a stray refusal never sends a player whose files are set back to the card
+  assert.equal(L.reduce(state({ arena2Dir: '/a' }), { type: 'picked-bad', missing: null }).setup.status, 'ready');
+  // E-06: the news newest first, whatever order GitHub answers in (a hand re-cut of an old build is listed late)
+  const news = L.newsFrom([{ tag_name: 'app-v0.1.4600', body: 'old' }, { tag_name: 'app-v0.1.4701', body: 'new' }, { tag_name: 'app-v0.1.4650', body: 'mid' }]);
+  assert.deepEqual(news.map((n) => n.version), ['0.1.4701', '0.1.4650', '0.1.4600']);
+  // E-07: the version under Play; E-11: a stuck install says it tries again at quit, and how to run it by hand
+  assert.equal(view(state({ arena2Dir: '/a' })).version, 'v0.1.4700');
+  const stuck = apply(state({ arena2Dir: '/a', checkEnabled: true, installFailedFor: '0.1.4701' }), { type: 'check-available', version: '0.1.4701' }, { type: 'downloaded', version: '0.1.4701' });
+  assert.match(view(stuck).detail, /^Play this version - it tries again when you quit\. Or run the installer yourself/);
+});
+
+test('R2-E (E-43..E-47): the places a copy of Daggerfall is installed - each one run, not assumed', () => {
+  const root = mkdtempSync(join(tmpdir(), 'r2-roots-'));
+  const whole = (d) => { fsModule.mkdirSync(d, { recursive: true }); for (const n of ['ARCH3D.BSA', 'BLOCKS.BSA', 'MAPS.BSA', 'MONSTER.BSA', 'WOODS.WLD', 'TEXT.RSC', 'ART_PAL.COL']) writeFileSync(join(d, n), 'x'); return d; };
+  try {
+    // E-43: Daggerfall Unity's settings on Windows are in LocalLow (Unity's persistentDataPath), never Roaming
+    const home = join(root, 'win');
+    const dfu = whole(join(root, 'dfu-data', 'arena2'));
+    fsModule.mkdirSync(join(home, 'AppData', 'LocalLow', 'Daggerfall Workshop', 'Daggerfall Unity'), { recursive: true });
+    writeFileSync(join(home, 'AppData', 'LocalLow', 'Daggerfall Workshop', 'Daggerfall Unity', 'settings.ini'), `[Daggerfall]\nMyDaggerfallPath = ${join(root, 'dfu-data')}\n`);
+    assert.deepEqual(detectArena2({ platform: 'win32', home, env: { USERPROFILE: home }, regQuery: () => [] }).map((f) => [f.source, f.dir]), [['dfu', fsModule.realpathSync(dfu)]]);
+    // E-44: the registry's HKCU (Steam's own key) is read as HKEY_CURRENT_USER
+    const reg = 'Windows Registry Editor Version 5.00\r\n\r\n[HKEY_CURRENT_USER\\Software\\Valve\\Steam]\r\n"SteamPath"="d:/games/steam"\r\n';
+    assert.deepEqual(createRequire(import.meta.url)('../app/lib/arena2Detect.cjs').regFileValues(reg, 'HKCU\\Software\\Valve\\Steam', 'SteamPath'), ['d:/games/steam']);
+    // E-45/E-47: Flatpak's Steam and Heroic's GOG, on Linux
+    const lin = join(root, 'lin');
+    const flat = join(lin, '.var', 'app', 'com.valvesoftware.Steam', '.local', 'share', 'Steam', 'steamapps');
+    fsModule.mkdirSync(flat, { recursive: true });
+    writeFileSync(join(flat, 'appmanifest_1812390.acf'), '"AppState" { "installdir" "The Elder Scrolls Daggerfall" }');
+    const steamA2 = whole(join(flat, 'common', 'The Elder Scrolls Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
+    const heroicA2 = whole(join(lin, 'Games', 'Heroic', 'Daggerfall', 'ARENA2'));
+    const linFound = detectArena2({ platform: 'linux', home: lin, env: {}, regQuery: () => [] });
+    assert.deepEqual(linFound.map((f) => [f.source, f.dir]), [['steam', fsModule.realpathSync(steamA2)], ['gog', fsModule.realpathSync(heroicA2)]]);
+    // E-46: on Windows a folder reached down two spellings of one path is offered once (the disk ignores case)
+    const winHome = join(root, 'w2');
+    for (const pf of ['ProgramFiles', 'programfiles']) {
+      const lib = join(root, pf, 'Steam', 'steamapps');
+      fsModule.mkdirSync(lib, { recursive: true });
+      writeFileSync(join(lib, 'appmanifest_1812390.acf'), '"AppState" { "installdir" "DF" }');
+      whole(join(lib, 'common', 'DF', 'ARENA2'));
+    }
+    const twice = detectArena2({ platform: 'win32', home: winHome, env: { ProgramFiles: join(root, 'ProgramFiles'), 'ProgramFiles(x86)': join(root, 'programfiles') }, regQuery: () => [] });
+    assert.equal(twice.length, 1, `one install, offered once (got ${twice.map((f) => f.dir).join(', ')})`);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('R2-E (E-48..E-51): the notes command, spawned as the publish job spawns it - capped, newest first, a renamed file\'s additions, never its own tag as "previous"', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'r2-cli-'));
+  const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', maxBuffer: 1 << 24 }).trim();
+  const script = new URL('../scripts/desktopRelease.mjs', import.meta.url).pathname;
+  try {
+    git('init', '-q'); git('config', 'user.email', 'p@example.invalid'); git('config', 'user.name', 'p'); git('config', 'commit.gpgsign', 'false');
+    writeFileSync(join(repo, 'PATCH-NOTES-Old-Name.md'), '# Patch Notes: The Sea\n\n## Fixes\n- Swimming splashes in dungeon water.\n');
+    git('add', '-A'); git('commit', '-qm', 'one'); git('tag', 'app-v0.1.1');
+    // renamed AND added to: its addition is news (E-50)
+    fsModule.renameSync(join(repo, 'PATCH-NOTES-Old-Name.md'), join(repo, 'PATCH-NOTES-The-Sea.md'));
+    writeFileSync(join(repo, 'PATCH-NOTES-The-Sea.md'), '# Patch Notes: The Sea\n\n## Fixes\n- Swimming splashes in dungeon water.\n- Boats keep their cargo.\n');
+    git('add', '-A');
+    execFileSync('git', ['commit', '-qm', 'two'], { cwd: repo, env: { ...process.env, GIT_AUTHOR_DATE: '2026-09-28T00:00:00Z', GIT_COMMITTER_DATE: '2026-09-28T00:00:00Z' } });
+    // a huge file, later (E-48: capped; E-49: the newest change first)
+    const big = `# Patch Notes: Big\n\n${Array.from({ length: 4000 }, (_, i) => `- Line ${i} of a very long list of changes.`).join('\n')}\n`;
+    writeFileSync(join(repo, 'PATCH-NOTES-Big.md'), big);
+    git('add', '-A'); execFileSync('git', ['commit', '-qm', 'three'], { cwd: repo, env: { ...process.env, GIT_AUTHOR_DATE: '2030-01-01T00:00:00Z', GIT_COMMITTER_DATE: '2030-01-01T00:00:00Z' } });
+    git('tag', 'app-v0.1.2');   // the tag being cut is HEAD's own - never its own "previous" (E-51)
+    const out = execFileSync(process.execPath, [script, 'notes', 'app-v0.1.2'], { cwd: repo, encoding: 'utf8' });
+    assert.ok(out.startsWith('# Patch Notes: Big\n'), 'the newest change first');
+    assert.ok(out.length < big.length && out.length <= 64 * 1024 + 4096, `capped at NOTES_FILE_MAX (${out.length} of ${big.length})`);
+    assert.match(out, /# Patch Notes: The Sea\n\n## Fixes\n- Boats keep their cargo\.\n$/, 'a renamed file brings what it added');
+    assert.doesNotMatch(out, /Swimming splashes/);
+  } finally { rmSync(repo, { recursive: true, force: true }); }
+});
+
+test('R2-E (E-32..E-42, E-52..E-54): the shell\'s and the workflow\'s wiring the suite never read', () => {
+  // E-32: Play is heard once - the launch is marked before the game's window is built, or the next event opens another
+  assert.match(body('function launchGame()'), /^function launchGame\(\) \{\s*launcherDispatch\(\{ type: 'launching' \}\);/);
+  // E-33: the launcher is shown (built hidden, shown when ready)
+  assert.match(body('function openLauncherWindow()'), /win\.once\('ready-to-show', \(\) => \{ if \(!win\.isDestroyed\(\)\) win\.show\(\); \}\);/);
+  // E-36: the version last played reaches the state - the NEW marks and "Updated to" read it
+  assert.match(body('function runLauncher()'), /lastPlayed: cfg\.lastPlayed,/);
+  // E-37: the saves folder exists before it is opened - a fresh install has none
+  assert.match(body('function openSavesFolder()'), /fs\.mkdirSync\(dir, \{ recursive: true \}\);\s*shell\.openPath\(dir\);/);
+  // E-38: the menu's checkbox follows the launcher's switch (the macOS menu bar outlives it)
+  assert.match(body('function setCheckOnLaunch('), /saveConfig\(\{ \.\.\.loadConfig\(\), updateCheck: !!on \}\);\s*buildMenu\(\);/);
+  // E-41/E-42: the news asks GitHub for ten seconds at most, and a refusal (a 403 rate limit) never overwrites the kept news
+  const news = body('async function fetchNews()');
+  assert.match(news, /signal: AbortSignal\.timeout\(10000\),/);
+  assert.ok(news.indexOf("if (!res.ok) throw new Error(`HTTP ${res.status}`);") >= 0 && news.indexOf("if (!res.ok) throw new Error(`HTTP ${res.status}`);") < news.indexOf('saveNews(items);'));
+  // E-52: no ${{ }} text reaches ANY script in the release workflow - multi-line blocks included (L1-5's pin read one line)
+  const wf = rd('.github/workflows/release-desktop.yml');
+  const pasted = jobsOf(wf).flatMap((j) => stepsOf(j.text).map((s) => [nameOf(s), runOf(s)])).filter(([, run]) => run && /\$\{\{/.test(run));
+  assert.deepEqual(pasted, [], 'every value a script reads comes through its env');
+  // E-53: an artifacts-only run stamps nothing - `npm version ""` would fail the leg
+  const build = jobsOf(wf).find((j) => j.name === 'build');
+  assert.match(stepsOf(build.text).find((s) => nameOf(s) === 'Stamp the version'), /\n {8}if: needs\.version\.outputs\.version != ''\n/);
+  // E-54: no signing identity is hunted for on the Mac leg
+  assert.match(build.text, /\n {4}env:\n(?: {6}#[^\n]*\n)* {6}CSC_IDENTITY_AUTO_DISCOVERY: 'false'\n/);
+});

@@ -40,7 +40,8 @@
   const BADGE = { new: 'New', update: 'Update' };
 
   /** A release's patch notes - the PATCH-NOTES-*.md subset: headings,
-   *  bullets, paragraphs. Anything else is a paragraph of its text. */
+   *  bullets (nested by their indent), paragraphs. Anything else is a
+   *  paragraph of its text. */
   function notesBlock(note) {
     const box = el('article', 'release');
     const head = el('div', 'head');
@@ -48,24 +49,33 @@
     if (note.date) head.append(el('span', 'date', note.date));
     if (Object.hasOwn(BADGE, note.badge)) head.append(el('span', `badge ${note.badge}`, BADGE[note.badge]));
     box.append(head);
-    let list = null;
+    // the open lists, outermost first, each with the indent its bullets stand at (AUDIT INSTALL R2-E8: four
+    // PATCH-NOTES files nest their bullets, and flattened the sub-points read as points of their own)
+    let lists = [];
     let para = null;
     for (const raw of String(note.text ?? '').split('\n')) {
       const line = raw.trim();
-      const bullet = /^[-*]\s+(.*)$/.exec(line);
+      const bullet = /^(\s*)[-*]\s+(.*)$/.exec(raw.replace(/\t/g, '  '));
       const heading = /^(#{1,6})\s+(.*)$/.exec(line);
-      if (!line) { list = null; para = null; continue; }
+      if (!line) { lists = []; para = null; continue; }
       if (heading) {
-        list = null; para = null;
+        lists = []; para = null;
         box.append(el(heading[1].length === 1 ? 'h4' : 'h5', null, heading[2].replace(/^Patch Notes:\s*/i, '')));
       } else if (bullet) {
         para = null;
-        if (!list) { list = el('ul'); box.append(list); }
+        const indent = bullet[1].length;
+        while (lists.length && lists[lists.length - 1].indent > indent) lists.pop();
+        const top = lists[lists.length - 1];
+        if (!top || indent > top.indent) {
+          const ul = el('ul');
+          (top?.ul.lastElementChild ?? box).append(ul);
+          lists.push({ indent, ul });
+        }
         const li = el('li');
-        inline(li, bullet[1]);
-        list.append(li);
+        inline(li, bullet[2]);
+        lists[lists.length - 1].ul.append(li);
       } else {
-        list = null;
+        lists = [];
         if (!para) { para = el('p'); box.append(para); } else para.append(document.createTextNode(' '));
         inline(para, line);
       }
@@ -153,7 +163,10 @@
     const focusKey = v.panel === 'setup' ? `setup:${JSON.stringify(v.setup)}` : `play:${v.play.enabled}`;
     if (changed('focus', focusKey)) {
       const at = document.activeElement;
-      const idle = !at || at === document.body || at.disabled || !at.isConnected;
+      // AUDIT INSTALL R2-E1: a control inside a region just hidden (the card's answer, once the card gives way to the
+      // news) is gone for the player - Chromium blurs it only later, after this view had used up its one focus move,
+      // and Enter pressed nothing
+      const idle = !at || at === document.body || at.disabled || !at.isConnected || !at.checkVisibility();
       if (v.panel === 'setup') document.querySelector('#setup .plaque.primary')?.focus({ preventScroll: true });
       else if (v.play.enabled && idle) play.focus({ preventScroll: true });
     }

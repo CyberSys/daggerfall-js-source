@@ -212,8 +212,15 @@ const waitTitle = async (p, want) => { await waitFor(async () => (await titleOf(
 const statusOf = async (p) => (await p.textContent('#status'))?.trim();
 const configOf = (dirs) => { try { return JSON.parse(fs.readFileSync(path.join(dirs.userData, 'config.json'), 'utf8')); } catch { return {}; } };
 
+const launcherShown = (shell) => shell.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()
+  .some((w) => w.isVisible() && w.webContents.getURL().startsWith('dagger://launcher/')));
+/** A region as the player sees it: laid out, or not - never only the attribute that asks for it (AUDIT INSTALL R2-E). */
+const shows = (p, sel) => p.$eval(sel, (e) => getComputedStyle(e).display !== 'none');
+
 await scenario('first run, nothing found', {}, async (shell, lp, dirs) => {
   check(lp.url() === 'dagger://launcher/index.html', `the launcher is the first window (got ${lp.url()})`);
+  await waitFor(() => launcherShown(shell));
+  check(await launcherShown(shell), 'AUDIT INSTALL R2-E (L5-20): and it is SHOWN - a window built and never shown passed before');
   check(await waitTitle(lp, 'Where is Daggerfall?') === 'Where is Daggerfall?', 'a first run with no Daggerfall asks where it is - in the launcher, not a bare dialog');
   const bridge = await lp.evaluate(() => ({ words: Object.keys(window.daggerLauncher ?? {}).sort().join(','), shell: typeof window.daggerShell }));
   check(bridge.words === 'act,onView' && bridge.shell === 'undefined', `the launcher's bridge is two words and no storage (got ${bridge.words}; daggerShell ${bridge.shell})`);
@@ -248,7 +255,10 @@ await scenario('a Steam library found', {
   await waitFor(async () => (await filesRow())?.endsWith('DF/DAGGER/ARENA2'));
   const files = await filesRow();
   check(files?.endsWith('DF/DAGGER/ARENA2'), `DA10: the Game files row shows the folder taken (got ${files})`);
-  await pressPlay(shell);
+  // AUDIT INSTALL R2-E1: the card gone, ENTER plays - the focus sat on the card's hidden answer and pressed nothing
+  await waitFor(async () => (await lp.evaluate(() => document.activeElement?.id)) === 'play');
+  check(await lp.evaluate(() => document.activeElement?.id) === 'play', `R2-E1: after the card the focus is on Play (got ${await lp.evaluate(() => document.activeElement?.id || document.activeElement?.tagName)})`);
+  await lp.keyboard.press('Enter');
   const game = await gameWindow(shell);
   const a2 = fs.realpathSync(path.join(dirs.home, '.local', 'share', 'Steam', 'steamapps', 'common', 'The Elder Scrolls Daggerfall', 'DF', 'DAGGER', 'ARENA2'));
   check(configOf(dirs).arena2Path === a2, 'the found folder is the one config.json keeps');
@@ -279,15 +289,20 @@ await scenario('a whole folder saved', {
     const a2 = path.join(home, 'Games', 'DF', 'DAGGER', 'ARENA2');
     fs.mkdirSync(a2, { recursive: true });
     for (const n of WHOLE) fs.writeFileSync(path.join(a2, n), n === 'ART_PAL.COL' ? 'saved-palette' : 'x');
-    fs.writeFileSync(path.join(userData, 'config.json'), JSON.stringify({ arena2Path: a2, lastPlayed: APP_VERSION }));
+    fs.writeFileSync(path.join(userData, 'config.json'), JSON.stringify({ arena2Path: a2, lastPlayed: APP_VERSION, launcherSeen: true }));
+    fs.writeFileSync(path.join(userData, 'news.json'), JSON.stringify({ items: [{ version: APP_VERSION, date: '2026-09-28T12:00:00Z', text: '# Patch Notes: This One\n- A line.' }] }));
   },
 }, async (shell, lp, dirs) => {
   // AUDIT INSTALL L5-5: a player whose folder is set is never asked for it again - no card, the news, and Play
   await waitFor(async () => !(await lp.$eval('#play', (b) => b.disabled)));
-  check(await lp.$eval('#setup', (e) => e.hidden) && !(await lp.$eval('#news', (e) => e.hidden)), 'a configured folder asks nothing - the front door shows the news');
+  // R2-E (L5-20): as LAID OUT - with the stylesheet's [hidden] rule gone both panels showed, and the attribute said otherwise
+  check(!(await shows(lp, '#setup')) && await shows(lp, '#news'), 'a configured folder asks nothing - the front door shows the news');
   const files = (await lp.textContent('#files'))?.replace(/\u200E/g, '').trim();
   check(files === path.join(dirs.home, 'Games', 'DF', 'DAGGER', 'ARENA2'), `the Game files row names it (got ${files})`);
-  check(await statusOf(lp) === 'Update checks are off', 'and the version last played is this one - "Updated" is not said');
+  // the version last played is this one: its own notes are not marked NEW (the status line says "checks are off"
+  // whatever lastPlayed holds - this check read it, and could not fail)
+  const badge = await lp.$$eval('#news .release .badge', (b) => b.map((x) => x.textContent));
+  check(badge.length === 0, `and the version last played is this one - nothing is NEW (got ${JSON.stringify(badge)})`);
   await lp.click('#play');
   const game = await gameWindow(shell);
   const served = await game.evaluate(async () => { const r = await fetch('./arena2/ART_PAL.COL'); return r.ok ? r.text() : `HTTP ${r.status}`; });
@@ -414,8 +429,13 @@ await scenario('the front door', {
   const menuBar = await shell.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => w.isMenuBarVisible()));
   check(process.platform === 'darwin' || menuBar.every((v) => v === false), `the launcher wears no menu bar (got ${menuBar})`);
   await lp.click('#play');
+  // R2-E (E-32): an event after Play - here the switch - must not start a second game while the first is built
+  await lp.evaluate(() => window.daggerLauncher.act('set-update-check', true)).catch(() => {});
   const game = await gameWindow(shell);
   check(game.url() === 'dagger://game/play/index.html', 'Play hands over to the game');
+  await new Promise((r) => setTimeout(r, 1500));
+  const games = await shell.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => w.webContents.getURL().startsWith('dagger://game/')).length);
+  check(games === 1, `and once - an event after Play opened a second game (got ${games})`);
   await waitFor(() => configOf(dirs).lastPlayed === APP_VERSION);
   check(configOf(dirs).lastPlayed === APP_VERSION, 'and the version played is kept - the next launch marks what came since');
 });

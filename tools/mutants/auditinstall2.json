@@ -497,5 +497,425 @@
     "old": "    appImage: !!process.env.APPIMAGE,\n",
     "new": "",
     "tests": ["test/audit_install2.test.js", "test/autoupdate.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-01-the-installing-notice-is-never-read",
+    "file": "app/lib/launcherState.cjs",
+    "old": "const INSTALL_NOTICE_MS = 1500;",
+    "new": "const INSTALL_NOTICE_MS = 0;",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js"],
+    "note": "\"Installing ... reopens by itself\" is up for no time before the app closes under the player"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-02-an-installer-that-never-takes-over-holds-play-ten-minutes",
+    "file": "app/lib/launcherState.cjs",
+    "old": "const INSTALL_GIVEUP_MS = 15000;",
+    "new": "const INSTALL_GIVEUP_MS = 600000;",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js"],
+    "note": "the L2-3/DA8 give-up: Play held on \"Installing\" for 10 minutes"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-03-a-gog-find-is-labelled-steam",
+    "file": "app/lib/launcherState.cjs",
+    "old": "  gog: 'GOG',",
+    "new": "  gog: 'Steam',",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js"],
+    "note": "the card names the wrong store for a GOG install"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-04-a-retried-download-starts-where-the-failed-one-stopped",
+    "file": "app/lib/launcherState.cjs",
+    "old": "        u.percent = 0; u.transferred = 0; u.total = Number(ev.total) || 0;",
+    "new": "        u.total = Number(ev.total) || u.total;",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js"],
+    "note": "after \"Could not download\", the hourly retry shows the old 41% and old MB"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-05-a-refusal-lands-on-a-folder-already-taken",
+    "file": "app/lib/launcherState.cjs",
+    "old": "      if (SETUP_WAITING.has(st.status)) {\n        st.status = 'bad';",
+    "new": "      if (true) {\n        st.status = 'bad';",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js"],
+    "note": "a picked-bad arriving after the files were set (a stale use-found) throws the player back to the card"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-06-the-news-keeps-githubs-order",
+    "file": "app/lib/launcherState.cjs",
+    "old": "    .sort((a, b) => cmpV(b.v, a.v))\n    .map((r) => ({ version: r.v.join",
+    "new": "    .map((r) => ({ version: r.v.join",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js"],
+    "note": "a hand re-cut of an old build (listed first by GitHub) heads the news and pushes the newest past NEWS_MAX"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-07-the-version-under-play-is-gone",
+    "file": "app/lib/launcherState.cjs",
+    "old": "    version: s.current ? `v${s.current}` : '',",
+    "new": "    version: '',",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js"],
+    "note": "the running version is shown nowhere on the front door"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-11-the-stuck-install-says-nothing-of-the-retry-at-quit",
+    "file": "app/lib/launcherState.cjs",
+    "old": "    v.detail = 'Play this version - it tries again when you quit. Or run the installer yourself: your saves, settings and game files stay where they are.';",
+    "new": "    v.detail = '';",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js"],
+    "note": "the stuck state loses its only explanation"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-12-the-download-hides-its-megabytes",
+    "file": "app/lib/launcherState.cjs",
+    "old": "label: u.total ? `${mb(u.transferred)} of ${mb(u.total)} MB` : 'Starting the download' };",
+    "new": "label: `${mb(u.transferred)} of ${mb(u.total)} MB` };",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js"],
+    "note": "before the first byte the bar reads \"0.0 of 0.0 MB\""
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-13-play-steals-the-focus-from-the-players-own-control",
+    "file": "app/launcher/launcher.js",
+    "old": "      const idle = !at || at === document.body || at.disabled || !at.isConnected || !at.checkVisibility();",
+    "new": "      const idle = at !== undefined;",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "Play takes the focus from the checkbox/feed the player is on whenever Play frees"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-14-the-cards-answer-retakes-the-focus-on-every-view",
+    "file": "app/launcher/launcher.js",
+    "old": "    if (changed('focus', focusKey)) {",
+    "new": "    if (true) {",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "during a first-run download every progress view pulls the focus back to the card's primary - Tab cannot leave it"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-15-the-card-is-rebuilt-on-every-view",
+    "file": "app/launcher/launcher.js",
+    "old": "    if (v.setup && changed('setup', v.setup)) {",
+    "new": "    if (v.setup) {",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "the first run's buttons are rebuilt many times a second under a download - clicks lost, focus dropped"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-16-play-without-updating-is-rebuilt-on-every-tick",
+    "file": "app/launcher/launcher.js",
+    "old": "    if (changed('status-actions', v.statusActions)) {",
+    "new": "    if (true) {",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "the one way past a download is rebuilt on every progress view: a press and release straddling a view is no click"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-17-the-empty-progress-bar-shows-in-every-state",
+    "file": "app/launcher/launcher.js",
+    "old": "    progress.hidden = !v.progress;",
+    "new": "    progress.hidden = false;",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "an empty (or stale) bar under \"Up to date\""
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-18-the-progress-bar-never-says-how-far",
+    "file": "app/launcher/launcher.js",
+    "old": "      track.setAttribute('aria-valuenow', String(Math.round(v.progress.percent)));\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "a screen reader hears no percentage (L5-17's named progress bar)"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-19-the-first-run-card-never-shows",
+    "file": "app/launcher/launcher.js",
+    "old": "    $('setup').hidden = v.panel !== 'setup';",
+    "new": "    $('setup').hidden = true;",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "a first run with no files shows an empty panel and a held Play - no way to choose files"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-20-the-switch-never-shows-the-setting",
+    "file": "app/launcher/launcher.js",
+    "old": "    if (check.checked !== v.options.checkOnLaunch) check.checked = v.options.checkOnLaunch;\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "the update switch starts unticked whatever config.json holds"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-21-every-note-title-reads-patch-notes-colon",
+    "file": "app/launcher/launcher.js",
+    "old": "heading[2].replace(/^Patch Notes:\\s*/i, '')",
+    "new": "heading[2]",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "each release in the news is titled \"Patch Notes: X\""
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-22-the-game-files-door-keeps-its-first-label",
+    "file": "app/launcher/launcher.js",
+    "old": "      document.querySelector('[data-act=\"choose-folder\"]').textContent = v.options.files.label;\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "\"Change folder\" with no folder set"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-23-the-patch-notes-cannot-be-scrolled-by-keyboard",
+    "file": "app/launcher/index.html",
+    "old": "<div class=\"feed\" tabindex=\"0\"></div>",
+    "new": "<div class=\"feed\"></div>",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "a keyboard-only player cannot reach or scroll the news (WCAG 2.1.1)"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-24-the-update-switch-has-no-name",
+    "file": "app/launcher/index.html",
+    "old": "<label class=\"check\"><input id=\"update-check\" type=\"checkbox\"> Check automatically</label>",
+    "new": "<input id=\"update-check\" type=\"checkbox\"><span class=\"check\"> Check automatically</span>",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "a screen reader hears an unnamed checkbox; clicking the words no longer toggles it"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-25-hidden-regions-show-through",
+    "file": "app/launcher/launcher.css",
+    "old": "[hidden] { display: none !important; }\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "the first-run card and the news both show (.setup display:flex beats [hidden])"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-26-a-focused-plaque-shows-no-mark",
+    "file": "app/launcher/launcher.css",
+    "old": ".plaque:hover, .plaque:focus-visible { outline: none; color: rgb(243,239,44); border-color: var(--brass); text-shadow: 2px 2px 0 rgb(93,77,12); }",
+    "new": ".plaque:hover { color: rgb(243,239,44); border-color: var(--brass); text-shadow: 2px 2px 0 rgb(93,77,12); }\n.plaque:focus-visible { outline: none; }",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "every plaque button loses its focus indicator (WCAG 2.4.7)"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-27-the-focused-checkbox-shows-no-mark",
+    "file": "app/launcher/launcher.css",
+    "old": ".check input:focus-visible { outline: none; border-color: var(--brass); }",
+    "new": ".check input:focus-visible { outline: none; }",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "the update switch loses its focus indicator"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-28-a-long-path-shows-its-start",
+    "file": "app/launcher/launcher.css",
+    "old": "text-overflow: ellipsis; white-space: nowrap; color: #d8cfae; direction: rtl; text-align: left; }",
+    "new": "text-overflow: ellipsis; white-space: nowrap; color: #d8cfae; text-align: left; }",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "long paths cut from the right: every Steam find reads \"C:\\Program Files (x86)\\Steam\\steam...\" with the ARENA2 end hidden"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-29-the-patch-notes-cannot-scroll",
+    "file": "app/launcher/launcher.css",
+    "old": ".feed { flex: 1 1 auto; min-height: 0; overflow-y: auto;",
+    "new": ".feed { flex: 1 1 auto; min-height: 0; overflow-y: hidden;",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "a release longer than the panel is cut off for good"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-30-the-bar-grows-with-its-words",
+    "file": "app/launcher/launcher.css",
+    "old": "margin-top: 14px; height: 100px; }",
+    "new": "margin-top: 14px; min-height: 100px; }",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "L5-14's \"one height in every state\": the panel jumps as the status changes"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-31-reduced-motion-still-animates",
+    "file": "app/launcher/launcher.css",
+    "old": "@media (prefers-reduced-motion: reduce) {\n  body[data-busy] .gem { animation: none; }",
+    "new": "@media (prefers-reduced-motion: reduce) {\n  body[data-busy] .gem { }",
+    "tests": ["test/audit_install2.test.js", "test/da8_launcher.test.js", "test/da10_launcher.test.js", "test/audit_install.test.js"],
+    "note": "a player who asked for reduced motion still gets the breathing gem"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-32-play-opens-the-game-twice",
+    "file": "app/main.cjs",
+    "old": "function launchGame() {\n  launcherDispatch({ type: 'launching' });\n",
+    "new": "function launchGame() {\n",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js", "test/da9_arena2detect.test.js"],
+    "note": "launch stays \"requested\": the next dispatch (news, progress, detection) runs launchGame again - a second game window"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-33-the-launcher-window-is-never-shown",
+    "file": "app/main.cjs",
+    "old": "  win.once('ready-to-show', () => { if (!win.isDestroyed()) win.show(); });\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js", "test/da9_arena2detect.test.js"],
+    "note": "the front door is built hidden and never shown: a launch opens nothing"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-35-a-partial-saved-folder-is-called-unreachable",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "  return { missing, unreadable: false };\n}",
+    "new": "  return { missing, unreadable: true };\n}",
+    "tests": ["test/audit_install2.test.js", "test/da9_arena2detect.test.js"],
+    "note": "L4-5 inverted: a DOS ARENA2 is \"cannot be reached - is its drive connected?\""
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-36-the-new-marks-forget-the-last-launch",
+    "file": "app/main.cjs",
+    "old": "      lastPlayed: cfg.lastPlayed,\n",
+    "new": "      lastPlayed: null,\n",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js", "test/da9_arena2detect.test.js"],
+    "note": "no NEW mark and no \"Updated to\" ever again once lastPlayed exists"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-37-open-saves-does-nothing-on-a-fresh-install",
+    "file": "app/main.cjs",
+    "old": "  const dir = path.join(app.getPath('userData'), 'Saves');\n  fs.mkdirSync(dir, { recursive: true });\n",
+    "new": "  const dir = path.join(app.getPath('userData'), 'Saves');\n",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js", "test/da9_arena2detect.test.js"],
+    "note": "a new player with no save yet presses Open saves folder and nothing opens"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-38-the-mac-menus-checkbox-lies-after-the-launchers-switch",
+    "file": "app/main.cjs",
+    "old": "  saveConfig({ ...loadConfig(), updateCheck: !!on });\n  buildMenu();\n",
+    "new": "  saveConfig({ ...loadConfig(), updateCheck: !!on });\n",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js", "test/da9_arena2detect.test.js"],
+    "note": "the one setting shows two answers (macOS menu bar over the launcher)"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-41-the-news-waits-on-a-silent-github-for-ever",
+    "file": "app/main.cjs",
+    "old": "      signal: AbortSignal.timeout(10000),\n    });\n    if (!res.ok) throw new Error(`HTTP ${res.status}`);\n    const items = newsFrom(await res.json());",
+    "new": "    });\n    if (!res.ok) throw new Error(`HTTP ${res.status}`);\n    const items = newsFrom(await res.json());",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js", "test/da9_arena2detect.test.js"],
+    "note": "a GitHub that accepts and never answers keeps \"Loading the patch notes\" up for the whole session"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-42-a-rate-limited-answer-wipes-the-kept-news",
+    "file": "app/main.cjs",
+    "old": "    if (!res.ok) throw new Error(`HTTP ${res.status}`);\n    const items = newsFrom(await res.json());",
+    "new": "    const items = newsFrom(await res.json());",
+    "tests": ["test/audit_install2.test.js", "test/da10_launcher.test.js", "test/da8_launcher.test.js", "test/audit_install.test.js", "test/da9_arena2detect.test.js"],
+    "note": "a 403 rate limit ({ message }) becomes [] and is saved over news.json: the panel empties on a shared IP"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-43-dfu-settings-are-never-found-on-windows",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "  if (platform === 'win32') return [path.join(env.USERPROFILE || home, 'AppData', 'LocalLow', tail)];",
+    "new": "  if (platform === 'win32') return [path.join(env.USERPROFILE || home, 'AppData', 'Roaming', tail)];",
+    "tests": ["test/audit_install2.test.js", "test/da9_arena2detect.test.js"],
+    "note": "the best source (Daggerfall Unity already asked) is never read on Windows - L5-13 per-platform fixtures"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-44-steams-registry-path-is-never-read",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": ".replace(/^HKLM\\\\/, 'HKEY_LOCAL_MACHINE\\\\').replace(/^HKCU\\\\/, 'HKEY_CURRENT_USER\\\\');",
+    "new": ".replace(/^HKLM\\\\/, 'HKEY_LOCAL_MACHINE\\\\');",
+    "tests": ["test/audit_install2.test.js", "test/da9_arena2detect.test.js"],
+    "note": "reg export of HKCU\\Software\\Valve\\Steam never matches: Steam outside Program Files is never found on Windows"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-45-flatpak-steam-is-never-looked-in",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "    path.join(home, '.var', 'app', 'com.valvesoftware.Steam', '.local', 'share', 'Steam'),\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js", "test/da9_arena2detect.test.js"],
+    "note": "a Linux player on Flatpak Steam is never offered their install"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-46-a-windows-install-reached-twice-is-offered-twice",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "  const key = (d) => (platform === 'linux' ? real(d) : real(d).toLowerCase());",
+    "new": "  const key = (d) => real(d);",
+    "tests": ["test/audit_install2.test.js", "test/da9_arena2detect.test.js"],
+    "note": "case-insensitive Windows/macOS paths: one install offered twice when two sources spell it differently"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-47-heroic-gog-is-never-looked-in",
+    "file": "app/lib/arena2Detect.cjs",
+    "old": "  return [path.join(home, 'GOG Games'), path.join(home, 'Games', 'Heroic'), path.join(home, 'Games', 'gog')];",
+    "new": "  return [path.join(home, 'GOG Games')];",
+    "tests": ["test/audit_install2.test.js", "test/da9_arena2detect.test.js"],
+    "note": "a Linux GOG player (Heroic) is never offered their install"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-48-a-huge-notes-file-is-never-capped",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "  if (text.length <= NOTES_FILE_MAX) return text;",
+    "new": "  if (text.length <= NOTES_FILE_MAX * 16) return text;",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js"],
+    "note": "NOTES_FILE_MAX only exists as a constant: a 200 KB notes file reaches the body (GitHub caps a body at 125000 chars - the publish fails)"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-49-the-oldest-change-comes-first",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "  return notes.sort((a, b) => b.when - a.when || a.file.localeCompare(b.file))",
+    "new": "  return notes.sort((a, b) => a.when - b.when || a.file.localeCompare(b.file))",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js"],
+    "note": "Audit-Install L3-3: \"the newest change comes first\""
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-50-a-renamed-and-edited-notes-file-brings-nothing",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "'--diff-filter=AMRT'",
+    "new": "'--diff-filter=AMT'",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js"],
+    "note": "a notes file renamed with new lines drops out of the release body"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-51-the-notes-command-never-excludes-the-tag-being-cut",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "    process.stdout.write(composeReleaseNotes(patchNotesSince(previousReleaseTag(a))));",
+    "new": "    process.stdout.write(composeReleaseNotes(patchNotesSince(previousReleaseTag(b))));",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js"],
+    "note": "the one command the publish job runs for the body is never spawned: a tag-door release diffs against itself - \"Fixes and improvements.\""
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-52-a-tag-pasted-into-a-multi-line-script",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "          echo \"published $TAG (latest: $MAKE_LATEST)\"",
+    "new": "          echo \"published ${{ needs.version.outputs.tag }} (latest: $MAKE_LATEST)\"",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js", "test/updatecheck.test.js", "test/audit_install.test.js", "test/relwin1.test.js", "test/audit68_repo.test.js"],
+    "note": "L1-5's \"no tag text pasted into a script\" pin reads single-line run: only"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-53-a-try-build-stamps-an-empty-version",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "      - name: Stamp the version\n        if: needs.version.outputs.version != ''\n",
+    "new": "      - name: Stamp the version\n",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js", "test/updatecheck.test.js", "test/audit_install.test.js", "test/relwin1.test.js", "test/audit68_repo.test.js"],
+    "note": "an artifacts-only dispatch runs npm version \"\" and fails"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E-54-the-mac-leg-hunts-for-a-signing-identity",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "      CSC_IDENTITY_AUTO_DISCOVERY: 'false'\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js", "test/updatecheck.test.js", "test/audit_install.test.js", "test/relwin1.test.js", "test/audit68_repo.test.js"],
+    "note": "the macOS leg fails looking for a keychain identity"
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E1-a-hidden-answer-keeps-the-focus",
+    "file": "app/launcher/launcher.js",
+    "old": " || !at.isConnected || !at.checkVisibility();",
+    "new": " || !at.isConnected;",
+    "tests": ["test/audit_install2.test.js"],
+    "note": "After the card, focus sat on its hidden answer: Enter pressed nothing, and Tab reached the site link first."
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E3-the-new-badge-under-aa",
+    "file": "app/launcher/launcher.css",
+    "old": ".badge.new { color: #e8e0c8; background: var(--ruby); }",
+    "new": ".badge.new { color: #d8cfae; background: var(--ruby); }",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E4-two-live-regions",
+    "file": "app/launcher/index.html",
+    "old": "<section id=\"setup\" class=\"setup\" hidden>",
+    "new": "<section id=\"setup\" class=\"setup\" aria-live=\"polite\" hidden>",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E7-the-card-scrolls-in-white",
+    "file": "app/launcher/launcher.css",
+    "old": ".setup::-webkit-scrollbar-thumb { background: rgba(125,116,96,0.45); }\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-E8-sub-points-flattened",
+    "file": "app/launcher/launcher.js",
+    "old": "      if (!top || indent > top.indent) {",
+    "new": "      if (!top) {",
+    "tests": ["test/audit_install2.test.js"]
   }
 ]
