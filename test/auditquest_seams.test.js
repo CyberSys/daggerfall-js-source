@@ -5,7 +5,7 @@
 //
 //   F1  THE WORD "LOUDLY" WAS WRITTEN OVER AN OPERATION THAT IS SILENT.
 //       `machine.js:61` - "absent = headless, every Place pends its site
-//       LOUDLY" - and `place.js:16`/`:128`/`:172`, `person.js:15` and
+//       LOUDLY" - and `place.js:16`/`:144`/`:188`, `person.js:15` and
 //       the bridge's own header all said it. What happens is
 //       `sitePending = true`: a boolean. MEASURED against the real
 //       corpus: all 265 vendored quests start with no world seam, and

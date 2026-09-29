@@ -134,7 +134,6 @@ const CARRIED_AIM = new Map([
   ['disc13.json::DISC13-A-world-hands-the-torch-the-stepped-feet', 2],
   ['disc13.json::DISC13-A-worldModes-hands-the-flash-the-stepped-feet', 2],
   ['weather3a.json::WEATHER3a-births-ignore-the-hour', 2],
-  ['acc1d.json::ACC1d-12-a-signed-out-player-asks-anyway', 2],
   ['auditsoc.json::B9-any-tab-speaks-for-the-seat', 2],
   ['auditsoc.json::B8-panel-clock-never-ticks', 2],
   ['auditwod.json::WOD6-quickload-no-onload', 2],
