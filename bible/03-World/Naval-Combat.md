@@ -364,7 +364,7 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   and FULL brass when loaded, flashing as it comes ready - AUDIT NAV1 - gold when the look lays it, brass-edged when it
   can fire) and the hint (the key that matters most first - a ship in reach
   to board or plunder, then the guns). The AIM under the crosshair (AUDIT NAV1: dimmed, with why, while the battery
-  cannot fire). The TARGET CARD under the compass: her name, class and captain, the distance, her hull and sails,
+  cannot fire; one stack with THE TALLY under it, below). The TARGET CARD under the compass: her name, class and captain, the distance, her hull and sails,
   whether she is hostile (its red over her trade's colour), her state and the key that boards her - while a broadside is
   laid, the ship its guns strike; her hull bar reads a hit as the foe bar does (AUDIT NAV1: `ui/barLoss.js` - the ghost
   where it was, a piece breaking off, the card flashing). On
@@ -377,13 +377,36 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   lower while the foe's bar is up under the compass and further under its blade. Come Sail Away's HELM PANEL stands
   there too on Enhanced Plus, and its bar is as tall as its buttons wrap, so while it stands the card is placed
   NAVAL_CARD_GAP under its measured foot (`drawNavalHud`'s `under`, `enhancedHelm.js enhancedHelmBar` - the panel is
-  drawn earlier in the frame, and its foot is read only while both stand). The layer copies the HUD scale onto its
-  root, so the plate's size and the card's place follow the player's HUD scale together.
+  drawn earlier in the frame, and its foot is read only while a card stands or the layout is due). The layer copies
+  the HUD scale onto its root, so every part follows the player's HUD scale together - the card at it capped by its
+  column's room (The layout, below).
 - **On a finger's screen** (`touch`): no key is named - "Hold and drag to aim", "Lift to fire", "Tap: board her" (the
-  host's one activation arm answers a key, a click and a tap alike), "hold Brace" (AUDIT NAV1: the plate's own press,
-  NAVAL_BRACE_H tall under the rose, shown at an armed helm - the touch table's three slots hold no Crouch) -
-  and the plate stands NAVAL_PLATE_TOUCH_BOTTOM up, over the touch corner's presses rather than on them. A pad's
-  button is no key to print either: the hint names its action (the helm panel's `csaKeyLabel` law).
+  host's one activation arm answers a key, a click and a tap alike), "hold Brace" (AUDIT NAV1: the readout's own
+  BRACE, shown at an armed helm - the touch table's three slots hold no Crouch - its own press beside the plate's foot,
+  NAVAL_BRACE_H by NAVAL_BRACE_W at any scale; the warning names it, "Broadside - Brace") - and the plate stands
+  NAVAL_PLATE_TOUCH_BOTTOM up, over the touch corner's presses rather than on them. With A PAD in hand (AUDIT NAV1,
+  the presentation) the readout names the pad's own buttons (`hdGlyphName` off the attack's pad binding, else the
+  swing's right-click button; Activate's click; the brace's) - "Hold RT to aim - LB: brace" - and at an armed helm the
+  Plus pad's prompt bar shows the guns' rows beside the d-pad's (`navalPadPrompts`: the attack laying and firing, the
+  brace, Activate for the ship in reach), a row only for a button bound.
+- **The layout** (AUDIT NAV1, the presentation - measured in a real browser over the real HUD and helm panel, 1920x1080
+  to a 667x375 phone at HUD scale 0.5 to 2, aim up and down): no part covers another or the HUD, and a finger's press
+  never shrinks. THE PLATE stands over the vitals where she would reach into their rows, rather than shrinking
+  (`platePlace`); her scale the HUD's capped by the room under what stands over her columns (the helm panel's bar, the
+  card's band - held for her whether or not a card stands, so she never jumps as the look finds a ship) and clear of
+  the centre column's bands (the warning's, the stack's: narrower or lower, whichever costs her less), never under
+  PLATE_SCALE_MIN; on the classic skin her foot over the compass box (the host's `classicCompassBox`), and the kit's face
+  loaded by the readout itself. A SHORT screen (NAVAL_SHORT_H tall or less in the HUD's own pixels: a phone on its side,
+  720 lines at scale 1.5) packs her - her bars side by side, her rose in two rows, port and starboard either side of
+  bow over stern. THE CARD in its column at the HUD's scale capped by the room above the warning's band (`cardScale`;
+  on foot the crosshair's arms); where that holds it at less than CARD_SCALE_MIN, or the screen is short, it stands
+  ASIDE - slim, at the plate's foot beside her and her Brace, no wider than the room right of the quick block. THE AIM
+  AND THE TALLY one stack under the crosshair, no wider than the room either side of the centre line, wrapped balanced
+  (a range and its seconds kept whole); on a short screen closer, the aim its range and state alone (the rose's lit
+  side is the battery), the tally its count alone and waiting while the aim is up, the warning closer too. The places
+  are read (`placeParts`) on a change of the screen, the scale, the skin or her rows and every PLATE_LAYOUT_S - never
+  every frame. The helm panel's bar is as wide as its buttons (it wrapped at half the screen), and a finger's stands
+  centred in the room right of the corner's two presses (its 60 px reserve left the menu's press under it).
 - **The plunder window** (`ui/navalPlunderWindow.js`, a lazy chunk behind `ui/navalPlunderDoor.js`, the Sigil
   Broker's door's shape): her colours, name, class and captain; HER HOLD (the first HOLD_ROWS by name, Take all, Open
   her hold); TAKE FROM HER (the three tiles); HER FATE (Scuttle her - the warn role's blood edge - and Cast her adrift);
@@ -608,6 +631,11 @@ sea's ships on the compass (#14's second) and the aim's reasons (#5's readout); 
 | a ship's colours (#8) | struck, taken and sinking flew her faction's flag; the Carrack's prefab had no FlagObject - the pirate flagship and the merchant carrack flew no colours; a hostile navy or merchantman's card kept its trade's colour (`.hostile` lost by source order) | her colours by her state - hers afloat, down struck or going down, the captor's orange taken; the Small Ship's FlagObject grafted at a flagless sea hull's tallest truck (`graftColours`), a player's Carrack the mod's own; the hostile red last | the Carrack's black at 47.5 m |
 | the mix clips, and far guns get louder (#9) | my ripple of six summed to +3.4 dBFS at the default volume (11% of samples clipped at full); every gun one clip at pitch 1; the far roll 6.5 dB over the near at the switch, and played once a GUN; the inverse law never silent (0.006 at 5 km) | THE MIX: my own ripple at one over the root of its guns, each report GUN_PITCH_JITTER and GUN_GAIN_JITTER_DB its own; the far roll once a volley at FAR_MATCH times the root of her guns (the clips' own RMS through their references), crossfaded in equal power over FAR_FADE_M either side of NEAR_BOOM_M; nothing past its range | my ripple -4.4 dBFS at the default volume; at full 0.27% of samples (a single report is 0.95 - the bus has no limiter: a bus-wide change, not the arc's to make) |
 | the broadside's feel (#16) | the release shook the camera once, 1.2 (a Thunderlock pistol 3); a powder barrel on my deck 1.6 to a holed ball's 2.5; each launch 2.8 m aft of its port at 6 m/s | each gun of mine kicks as it goes (GUN_KICK, along the ripple); a barrel's blast BLAST_SHAKE; the launch carry the guns' slice's (`volleyLaunches` carry) | six kicks of 1.1 a Small Ship's broadside |
+| a phone's helm stack covers the aim (#2) | at 844x390 the helm panel's bar 188 px tall; the card over the band under the crosshair (204-299, the aim printed inside it); the plate 272x263, 67% of the screen's height (73% at 740x360), over the helm panel's buttons | THE LAYOUT (The UI, above): a SHORT screen packs the plate and caps her by the room under the bar; the card ASIDE at her foot; the aim and the tally one stack under the crosshair, the aim its range and state alone; the Brace a finger's own press at any scale (under her rose it shrank to 23 px); the bar as wide as its buttons (it wrapped at half the screen) and a finger's clear of the corner's presses (the menu's stood under it once it was) | at 844x390 the bar 138 px, the plate 214x156 at 0.79 under it, the card at 259-314, the aim at 215; nothing over anything on 16 screens, aim up and down - but the warning, for its seconds, over the bar's foot on the two shortest phones (14 px at 740x360, 6 at 667x375) |
+| the classic skin's plate (#10) | she stood on the classic compass (91% of its width and 57% of its height at 1280x720; 79% by 74% at 1920x1080), the readout in monospace (the face was the enhanced HUD's to load) | her foot over the compass box (`classicCompassBox`: COMPBOX at the classic scale); the readout loads the kit's face itself | clear of the compass; the pixel face on every skin |
+| the HUD scale (#11) | the plate over the vitals at 1.5 on a 1280 or 1366 screen and at 2 on 1920; the card, the aim and the helm panel's bar one size at every scale; three of the HUD's notice lines over her at 1.5 on 1280x720 | the plate over the vitals where she would meet them, never shrunk for them; her scale capped by her room and clear of the centre column's bands; the card, the aim, the tally and the warning at the HUD's scale, the card capped by its column's room above the warning (`cardScale`), aside under CARD_SCALE_MIN; the stack no wider than its room | nothing over anything from 0.5 to 2 at 1280x720, 1366x768 and 1920x1080 (the card at 1.21 in 1366x768's column; at 2 on 1280x720 the plate 1.57, the aim in two lines); the notices (ENH-NOTICE3's panel, over every HUD part by its own z) still meet her top at 1.5 on 720 lines for their seconds |
+| contrast off Slate, two wording slips (#12) | the plate's hint (which carries "E: board her") 1.9:1 on Stone, 3.7 on Iron, 4.1 on Forest; on Stone the waters 2.9, the labels and the card's sub-line 3.8, the plunder window's sub-line, lede and counts 3.3-3.5; a refused choice's reason 2.3 (3.2 on Slate); "The Crimson Gannet are coming alongside"; the card's "Taken - E: her hold" to the plate's "open X's hold" | the hint in the waters' tone; the sea fight's dim words joined to MERGE-PLUS D3's Stone rule; a refused tile greyed by its title and ground, its reason whole; "X is coming alongside"; the hold one wording, "open her hold" | the hint 5.1 on Stone, 5.5 on Iron, 6.2 on Forest; the plunder window's 5.8 on Stone, a refused reason 6.5 (10.8 on Slate) |
+| a pad player told keyboard keys (#13) | "Hold RIGHT CLICK to aim - C: brace", "E: board The Red Wake"; the helm's pad prompts the d-pad's alone | with a pad in hand the readout names its buttons (`hdGlyphName`); at an armed helm the prompt bar shows the guns' rows (`navalPadPrompts`) | "Hold RT to aim - LB: brace", "A: board The Red Wake"; the bar's RT, LB and A |
 
 ## The tests
 
@@ -636,9 +664,10 @@ polled, the cast-off, the surrender, the fire's finish, the founder, no save mid
 deck, the fight's card, the prize's papers, the minors) and `navaudit_presentation` (going down - every hull under,
 her list and trim, her spars as they stand, a peer's sinking on their own clock and let go of, her fires to the
 waterline, her colours; the mix, a hit that registers, the ready, her bar's loss, her colours by her state and the
-Carrack's), on the shared sea of `test/navalSea.mjs`.
+Carrack's; the plate's place, the card's column, the draw by the screen, the places written, the Brace's press, the
+centre column's sheet, the pad at the guns, the skins and the words), on the shared sea of `test/navalSea.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
-`navaudit_helm.json`, `navaudit_boarding.json` and `navaudit_presentation.json`, 567 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+`navaudit_helm.json`, `navaudit_boarding.json` and `navaudit_presentation.json`, 608 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
@@ -646,7 +675,8 @@ audit's helm, and seven of other suites' re-aimed by content at the laws the hel
 main's OW6, and eight of the arc's own re-aimed by content at the lines the merge rewrote; 56 with the audit's
 boarding, and NAV-R's sheer-off and NAV-F's card foot re-aimed at the lines the boarding rewrote; 27 with the
 audit's presentation, going down; 32 with its feedback, and NAV-H's reload record re-aimed at the line the kick
-left);
+left; 41 with its layout and words, and five of the arc's own - the card under the panel, the panel read with no card,
+the plate over the presses, the finger's root, the warning - re-aimed by content at the lines the layout rewrote);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

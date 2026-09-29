@@ -110,6 +110,15 @@
 - Broadsides no longer distort. Each gun sounds a little different, and a distant broadside rolls in as one rumble instead of a pile of copies. There's no longer a jump in loudness at the distance where a nearby broadside turns into a distant one.
 - Each of your guns kicks the camera as it fires, so a broadside rolls down the ship. A powder barrel going off on your deck now shakes harder than a cannonball.
 
+## The helm's panels on every screen
+- On a phone, the helm no longer buries the view. Come Sail Away's helm buttons fit in two rows beside the menu button instead of covering it, your ship's panel packs itself small under them, and the target's panel sits at the bottom beside it instead of over the crosshair.
+- The Brace button on a phone stays full finger size at any HUD scale, beside your ship's panel. The broadside warning says "Broadside - Brace".
+- The aim line and the volley count sit together under the crosshair and wrap instead of running under your ship's panel. On a small screen the aim line shows just the range and whether you're on target.
+- At larger HUD scales your ship's panel stands above the health bars instead of covering them, and the target's panel and the aim line grow with your HUD scale too, as far as the screen allows.
+- On the classic interface, your ship's panel stands above the compass instead of covering it, and uses the proper pixel font.
+- With a controller in hand, the hints name your controller's buttons ("Hold RT to aim - LB: brace"), and the button bar at the helm shows fire, brace and board.
+- Words are easier to read on the Stone theme, and a greyed-out plunder choice still shows why. Fixed "The Crimson Gannet are coming alongside" and made the prize's hold hint read the same everywhere.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.

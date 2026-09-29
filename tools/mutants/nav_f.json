@@ -165,7 +165,7 @@
   {
     "name": "NAV-F-the-card-over-the-helm-panel",
     "file": "src/ui/navalHud.js",
-    "old": "    const top = foot > 0 ? `${Math.ceil(foot) + NAVAL_CARD_GAP}px` : '';",
+    "old": "    const top = !aside && foot > 0 ? `${colTop}px` : '';",
     "new": "    const top = '';",
     "tests": [
       "test/nav_f_ui.test.js"
@@ -174,8 +174,8 @@
   {
     "name": "NAV-F-the-foot-read-with-no-card",
     "file": "src/ui/navalHud.js",
-    "old": "  const foot = c ? (under?.getBoundingClientRect?.()?.bottom ?? 0) : 0;",
-    "new": "  const foot = under?.getBoundingClientRect?.()?.bottom ?? 0;",
+    "old": "  const read = !under || !!c || due;",
+    "new": "  const read = true;",
     "tests": [
       "test/nav_f_ui.test.js"
     ]
@@ -246,7 +246,7 @@
   {
     "name": "NAV-F-the-plate-on-the-presses",
     "file": "src/ui/navalHud.js",
-    "old": ".dfnaval-hud.touch .dfnaval-plate { right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(${NAVAL_PLATE_TOUCH_BOTTOM}px + env(safe-area-inset-bottom, 0px)); }\n",
+    "old": ".dfnaval-hud.touch .dfnaval-plate { right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(var(--nc-foot, ${NAVAL_PLATE_TOUCH_BOTTOM}px) + env(safe-area-inset-bottom, 0px)); }\n",
     "new": "",
     "tests": [
       "test/nav_f_ui.test.js"
@@ -255,7 +255,7 @@
   {
     "name": "NAV-F-the-finger-root-never-marked",
     "file": "src/ui/navalHud.js",
-    "old": "  cls('rootc', root, touch ? 'dfnaval-hud touch' : 'dfnaval-hud');\n",
+    "old": "  cls('rootc', root, `dfnaval-hud${touch ? ' touch' : ''}${compass ? ' classic' : ''}${short ? ' short' : ''}${aside ? ' aside' : ''}`);\n",
     "new": "",
     "tests": [
       "test/nav_f_ui.test.js"

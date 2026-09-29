@@ -78,7 +78,11 @@ export const NAVAL_PLUNDER_CSS = `
   border: 2px solid; background-color: ${T.groundButton}; cursor: pointer; }
 .dfnaval-choice b { font-weight: normal; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #efe8d6; text-shadow: 1px 1px 0 #050608; }
 .dfnaval-choice span { font-size: 11px; color: #b9ab93; }
-.dfnaval-choice:disabled { cursor: default; opacity: 0.55; }
+/* AUDIT NAV1 (the presentation): a refused tile says WHY - greyed by its title and edge, never by fading the whole tile
+   (its reason read 2.3:1, 3.2 even on Slate) */
+.dfnaval-choice:disabled { cursor: default; background-color: rgba(8,9,12,0.6); }
+.dfnaval-choice:disabled b { color: #8f8670; text-shadow: 1px 1px 0 #050608; }
+.dfnaval-choice:disabled span { color: #c9bfa4; }
 .dfnaval-choice.on { opacity: 1; }
 .dfnaval-choice.on b { color: ${T.gold}; text-shadow: 1px 1px 0 rgb(93,77,12); }
 @media (max-width: 560px) {

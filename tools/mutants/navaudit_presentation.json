@@ -530,5 +530,377 @@
       "test/navaudit_presentation.test.js",
       "test/nav_e_sounds.test.js"
     ]
+  },
+  {
+    "name": "NAVP-plate-never-lifted",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (vitals && H - foot > vitals.top && W - right - plateW * scale < vitals.right + PLATE_GAP) foot = Math.max(foot, Math.ceil(H - vitals.top) + PLATE_GAP);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-plate-bar-beside-read-over",
+    "file": "src/ui/navalHud.js",
+    "old": ".filter((r) => r && r.right > left && r.left < W - right)",
+    "new": ".filter((r) => r)",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-plate-bands-unread",
+    "file": "src/ui/navalHud.js",
+    "old": "  for (const b of bands ?? []) {",
+    "new": "  for (const b of []) {",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-plate-dearer-step",
+    "file": "src/ui/navalHud.js",
+    "old": "    k = Math.min(k, Math.max((W / 2 - right - b.half) / plateW, (H - foot - b.bottom - PLATE_GAP) / plateH));",
+    "new": "    k = Math.min(k, Math.min((W / 2 - right - b.half) / plateW, (H - foot - b.bottom - PLATE_GAP) / plateH));",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-plate-no-floor",
+    "file": "src/ui/navalHud.js",
+    "old": "  return { scale: Math.max(PLATE_SCALE_MIN, Math.min(scale, k)), bottom: foot };",
+    "new": "  return { scale: Math.min(scale, k), bottom: foot };",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-uncapped",
+    "file": "src/ui/navalHud.js",
+    "old": "  const k = Math.min(scale, (floor - top) / NAVAL_CARD_H);",
+    "new": "  const k = scale;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-floor-unread",
+    "file": "src/ui/navalHud.js",
+    "old": "  return k >= Math.min(scale, CARD_SCALE_MIN) ? k : null;",
+    "new": "  return k;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-warning-on-foot",
+    "file": "src/ui/navalHud.js",
+    "old": "(warn ? NAVAL_WARN_UP * scale : NAVAL_CROSS_R)",
+    "new": "NAVAL_WARN_UP * scale",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-head-unscaled",
+    "file": "src/ui/navalHud.js",
+    "old": "export const cardTopPx = (scale, foe = 0) => 18 + 28 * scale + 12 + foe * scale;",
+    "new": "export const cardTopPx = (scale, foe = 0) => 18 + 28 + 12 + foe;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-foe-unread",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (due) shown.foe = foot > 0 ? 0 : foeStep(doc);",
+    "new": "  if (due) shown.foe = 0;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-short-by-css-pixels",
+    "file": "src/ui/navalHud.js",
+    "old": "  const short = H > 0 && H <= NAVAL_SHORT_H * scale;",
+    "new": "  const short = H > 0 && H <= NAVAL_SHORT_H;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-short-aim-keeps-side",
+    "file": "src/ui/navalHud.js",
+    "old": "    put('aimt', parts.aimText, short && t.aim.range ? '' : t.aim.text);",
+    "new": "    put('aimt', parts.aimText, t.aim.text);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-short-tally-over-aim",
+    "file": "src/ui/navalHud.js",
+    "old": "  show('tally', parts.tally, !!t.tally && !(short && t.aim));",
+    "new": "  show('tally', parts.tally, !!t.tally);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-short-tally-rest-kept",
+    "file": "src/ui/navalHud.js",
+    "old": ".dfnaval-hud.short .dfnaval-tally-rest { display: none; }\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-scale-unwritten",
+    "file": "src/ui/navalHud.js",
+    "old": "    setVar('--nc-card-scale', aside ? '' : String(Math.round(kc * 1000) / 1000));\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-placement-every-frame",
+    "file": "src/ui/navalHud.js",
+    "old": "  const due = key !== shown.layoutKey || hudClock - shown.layoutAt >= PLATE_LAYOUT_S;",
+    "new": "  const due = true;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-placement-rows-unkeyed",
+    "file": "src/ui/navalHud.js",
+    "old": "${p.chips.length > 0}",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-compass-unread",
+    "file": "src/ui/navalHud.js",
+    "old": "  const bottom = compass ? Math.round(compass.h) + PLATE_GAP : touch ? NAVAL_PLATE_TOUCH_BOTTOM : NAVAL_PLATE_BOTTOM;",
+    "new": "  const bottom = touch ? NAVAL_PLATE_TOUCH_BOTTOM : NAVAL_PLATE_BOTTOM;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-touch-foot-on-the-presses",
+    "file": "src/ui/navalHud.js",
+    "old": "  const bottom = compass ? Math.round(compass.h) + PLATE_GAP : touch ? NAVAL_PLATE_TOUCH_BOTTOM : NAVAL_PLATE_BOTTOM;",
+    "new": "  const bottom = compass ? Math.round(compass.h) + PLATE_GAP : NAVAL_PLATE_BOTTOM;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-card-band-unreserved",
+    "file": "src/ui/navalHud.js",
+    "old": "over: [helm, band]",
+    "new": "over: [helm]",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-aside-brace-width",
+    "file": "src/ui/navalHud.js",
+    "old": "  const right = 18 + (p ? pw + (braceOn ? 8 + NAVAL_BRACE_W : 0) + PLATE_GAP : 0);",
+    "new": "  const right = 18 + (p ? pw + PLATE_GAP : 0);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-aside-quick-unread",
+    "file": "src/ui/navalHud.js",
+    "old": "  const from = q && q.bottom > rows[0] && q.top < rows[1] ? q.right + PLATE_GAP : 18;",
+    "new": "  const from = 18;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-stack-uncapped",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (p && H - at.bottom - plateH * at.scale < sf) half = Math.min(half, W / 2 - 18 - pw - PLATE_GAP);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-brace-in-the-plate",
+    "file": "src/ui/navalHud.js",
+    "old": "  plate.append(head, hull.row, sail.row, crew.row, chips, rose, hint);\n  root.append(card, warn, stack, plate, brace);",
+    "new": "  plate.append(head, hull.row, sail.row, crew.row, chips, rose, hint, brace);\n  root.append(card, warn, stack, plate);",
+    "tests": [
+      "test/navaudit_presentation.test.js",
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-stack-order",
+    "file": "src/ui/navalHud.js",
+    "old": "  stack.append(aim, tallyEl);",
+    "new": "  stack.append(tallyEl, aim);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-finger-warning-says-hold",
+    "file": "src/ui/navalHud.js",
+    "old": "key: touch ? 'Brace' : bracePress }",
+    "new": "key: bracePress }",
+    "tests": [
+      "test/navaudit_presentation.test.js",
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-reload-seconds-broken",
+    "file": "src/ui/navalHud.js",
+    "old": "toFixed(1)}\\u00a0s`;",
+    "new": "toFixed(1)} s`;",
+    "tests": [
+      "test/navaudit_presentation.test.js",
+      "test/navaudit_helm.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-short-rose-unpacked",
+    "file": "src/ui/navalHud.js",
+    "old": ".dfnaval-hud.short .dfnaval-gun.port, .dfnaval-hud.short .dfnaval-gun.starboard { grid-row: 1 / span 2; display: flex; flex-direction: column; justify-content: center; }\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-pad-rows-unarmed",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (!model?.armed) return [];\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-pad-fire-words-swapped",
+    "file": "src/ui/navalHud.js",
+    "old": "model.aiming ? 'Let go: fire' : 'Hold: lay the guns'",
+    "new": "model.aiming ? 'Hold: lay the guns' : 'Let go: fire'",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-pad-row-unbound",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (codes.brace) rows.push(",
+    "new": "  if (true) rows.push(",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-pad-hold-words",
+    "file": "src/ui/navalHud.js",
+    "old": "b.kind === 'hold' ? `Open ${b.name}'s hold` : ",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-fonts-left-to-the-hud",
+    "file": "src/ui/navalHud.js",
+    "old": "  if (doc.head) injectEnhancedFonts(doc);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-stone-dim-left",
+    "file": "src/ui/enhancedPlusStyle.js",
+    "old": ":root[data-plus-theme=\"stone\"] body .dfnaval-hint, :root[data-plus-theme=\"stone\"] body .dfnaval-waters,\n",
+    "new": ":root[data-plus-theme=\"stone\"] body .dfnaval-waters,\n",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-refused-tile-faded",
+    "file": "src/ui/navalPlunderWindow.js",
+    "old": ".dfnaval-choice:disabled { cursor: default; background-color: rgba(8,9,12,0.6); }",
+    "new": ".dfnaval-choice:disabled { cursor: default; opacity: 0.55; }",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-helm-bar-half-screen",
+    "file": "src/ui/enhancedHelm.js",
+    "old": "padding: 8px 12px; width: max-content; max-width: calc(100vw - 24px);",
+    "new": "padding: 8px 12px; max-width: calc(100vw - 24px);",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-touch-bar-over-the-menu",
+    "file": "src/ui/enhancedHelm.js",
+    "old": "max-width: calc(100vw - 144px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); }",
+    "new": "max-width: calc(100vw - 120px); }",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-pad-keys-named-as-keys",
+    "file": "src/scenes/world.js",
+    "old": "    const family = controllerLook() ? padFamily() : null;",
+    "new": "    const family = null;",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-pad-rows-unshown",
+    "file": "src/scenes/world.js",
+    "old": "return r && naval?.atGuns ? [...r, ...navalPadPrompts(naval.hudModel(), navalPadCodes())] : r; },",
+    "new": "return r; },",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-classic-compass-unread",
+    "file": "src/scenes/world.js",
+    "old": "      compass: !isEnhanced() && hudArt?.compassBox ? classicCompassBox() : null,",
+    "new": "      compass: null,",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
+  },
+  {
+    "name": "NAVP-raider-grammar",
+    "file": "src/scenes/navalHost.js",
+    "old": "${entry.ship.names?.name ? `${entry.ship.names.name} is` : 'The pirates are'} coming alongside",
+    "new": "${entry.ship.names?.name ?? 'The pirates'} are coming alongside",
+    "tests": [
+      "test/navaudit_presentation.test.js"
+    ]
   }
 ]

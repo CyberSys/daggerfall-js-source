@@ -102,7 +102,7 @@ test('NAV-F the target card: her name and colours, her class, captain and distan
   assert.deepEqual(st({ state: 'struck' }, { name: 'The Black Kraken', kind: 'board' }), ['Colours struck', ''], 'another ship is the one in reach');
   assert.deepEqual(st({ state: 'afloat', boarded: true }), ['Boarded', '']);
   assert.deepEqual(st({ state: 'prize' }), ['Taken', '']);
-  assert.deepEqual(st({ state: 'prize' }, { name: 'The Red Wake', kind: 'hold' }), ['Taken - E: her hold', 'board']);
+  assert.deepEqual(st({ state: 'prize' }, { name: 'The Red Wake', kind: 'hold' }), ['Taken - E: open her hold', 'board']);
   assert.deepEqual(st({ state: 'sinking' }, { name: 'The Red Wake', kind: 'board' }), ['Going down', 'sinking']);
   const merchant = navalHudText(helm({ target: card({ captain: null, faction: 'merchant', sail: null, hostile: false }) }), KEYS).card;
   assert.equal(merchant.sub, 'Pirate Brigantine - 142 m');
@@ -110,7 +110,7 @@ test('NAV-F the target card: her name and colours, her class, captain and distan
   // on foot: the card alone, and only the plate's absence says so
   const foot = navalHudText({ ship: null, armed: false, batteries: [], aim: null, aiming: false, target: card({ state: 'prize' }), board: { name: 'The Red Wake', kind: 'hold' }, notoriety: { crown: 'Wayrest', level: 0 } }, KEYS);
   assert.equal(foot.plate, null);
-  assert.equal(foot.card.state, 'Taken - E: her hold');
+  assert.equal(foot.card.state, 'Taken - E: open her hold');   // AUDIT NAV1: the plate's own wording
 });
 
 test('NAV-F a finger\'s screen: no key is named - a tap boards her and opens her hold (the host\'s one activation arm, a key\'s, a click\'s or a tap\'s), the finger held and dragged lays the guns and its lift fires them, the plate\'s own Brace held the brace (AUDIT NAV1 - test/navaudit_helm.test.js); the plate stands over the touch corner\'s presses, never on them (mutants: the keys named to a finger, the plate on the presses, the finger\'s root never marked)', () => {
@@ -129,7 +129,7 @@ test('NAV-F a finger\'s screen: no key is named - a tap boards her and opens her
   assert.match(touchSrc, /const at = \[edge\('right', right\), edge\('bottom', 16\), action\.w \?\? 60\];/);
   assert.match(touchSrc, /width:\$\{w\}px;height:48px;/);
   assert.equal(NAVAL_PLATE_TOUCH_BOTTOM, 16 + 48 + 12);
-  assert.match(NAVAL_HUD_CSS, /\.dfnaval-hud\.touch \.dfnaval-plate \{ right: calc\(18px \+ env\(safe-area-inset-right, 0px\)\); bottom: calc\(76px \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
+  assert.match(NAVAL_HUD_CSS, /\.dfnaval-hud\.touch \.dfnaval-plate \{ right: calc\(18px \+ env\(safe-area-inset-right, 0px\)\); bottom: calc\(var\(--nc-foot, 76px\) \+ env\(safe-area-inset-bottom, 0px\)\); \}/);   // AUDIT NAV1: her foot the draw's (placePlate)
   destroyNavalHud();
   drawNavalHud(helm(), { keys: KEYS, touch: true });
   const [root] = byClass(globalThis.document.body, 'dfnaval-hud');
@@ -140,7 +140,7 @@ test('NAV-F a finger\'s screen: no key is named - a tap boards her and opens her
   assert.equal(byClass(root, 'dfnaval-hint')[0].textContent, 'Hold RIGHT CLICK to aim - C: brace');
   destroyNavalHud();
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
-  assert.match(w, /under: enhancedHelmBar\(\),[^\n]*\n\s+touch: !!touch,/);
+  assert.match(w, /under: enhancedHelmBar\(\),[^\n]*\n\s+vitals: enhancedHudBottom\(\), quick: enhancedHudQuick\(\),[^\n]*\n\s+compass: [^\n]*\n\s+touch: !!touch,/);
 });
 
 // ── the kit ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -240,8 +240,10 @@ test('NAV-F the card stands under the compass by the house law (the journey bar\
   assert.match(NAVAL_HUD_CSS, /body:has\(\.hud-foe\.on\) \.dfnaval-hud \{ --nc-top: calc\(18px \+ 28px \* var\(--hud-scale, 1\) \+ 12px \+ 46px \* var\(--hud-scale, 1\)\); \}/);
   assert.match(NAVAL_HUD_CSS, /body:has\(\.hud-foe\.on\.blade\) \.dfnaval-hud \{ --nc-top: calc\(18px \+ 28px \* var\(--hud-scale, 1\) \+ 12px \+ 76px \* var\(--hud-scale, 1\)\); \}/);
   assert.match(NAVAL_HUD_CSS, /\.dfnaval-card \{[^}]*top: var\(--nc-top\);/);
-  assert.match(NAVAL_HUD_CSS, /\.dfnaval-plate \{[^}]*transform: scale\(var\(--hud-scale, 1\)\);/);
+  assert.match(NAVAL_HUD_CSS, /\.dfnaval-plate \{[^}]*transform: scale\(var\(--nc-plate-scale, var\(--hud-scale, 1\)\)\);/);   // AUDIT NAV1: the HUD's scale, capped by her room
   assert.ok(NAVAL_HUD_CSS.indexOf('body:has(.hud-foe.on) .dfnaval-hud') < NAVAL_HUD_CSS.indexOf('body:has(.hud-foe.on.blade) .dfnaval-hud'), 'the blade after the bar, so the taller step wins');
+  // a screen with the column's room at scale 1.5 (the page's own 1280x720 is SHORT there - AUDIT NAV1: the card aside)
+  globalThis.innerWidth = 1920; globalThis.innerHeight = 1080;
   destroyNavalHud();
   drawNavalHud(helm({ target: card() }), { keys: KEYS });
   const [root] = byClass(globalThis.document.body, 'dfnaval-hud');
@@ -251,11 +253,12 @@ test('NAV-F the card stands under the compass by the house law (the journey bar\
   root.style.setProperty = (k, v) => props.push([k, v]);
   drawNavalHud(helm({ target: card() }), { keys: KEYS, scale: 1.5 });
   drawNavalHud(helm({ target: card() }), { keys: KEYS, scale: 1.5 });
-  assert.deepEqual(props, [['--hud-scale', '1.5']], 'copied once, onto the root');
+  assert.deepEqual(props, [['--hud-scale', '1.5'], ['--nc-plate-scale', '1.5'], ['--nc-plate-w', '408px'], ['--nc-card-right', '438px'], ['--nc-card-max', '976px'], ['--nc-stack-max', '1256px'], ['--nc-card-scale', '1.5']],
+    'copied once, onto the root - and beside it (AUDIT NAV1) the plate\'s own scale and width (no box to measure here, so the HUD\'s), the aside card\'s place and room, the stack\'s room and the card\'s scale in its column');
   assert.equal(c.style.top ?? '', '', 'no panel: the sheet places the card');
   // the helm panel standing: the card under its foot, rounded up, and the gap
   let reads = 0;
-  const bar = (bottom) => ({ getBoundingClientRect: () => { reads += 1; return { top: 66, bottom }; } });
+  const bar = (bottom) => ({ getBoundingClientRect: () => { reads += 1; return bottom > 0 ? { top: 66, bottom, left: 493, right: 1427, width: 934, height: bottom - 66 } : { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 }; } });
   drawNavalHud(helm({ target: card() }), { keys: KEYS, scale: 1.5, under: bar(141.2) });
   assert.equal(c.style.top, `${142 + NAVAL_CARD_GAP}px`);
   assert.equal(reads, 1);
@@ -268,6 +271,7 @@ test('NAV-F the card stands under the compass by the house law (the journey bar\
   drawNavalHud(helm({ target: card() }), { keys: KEYS, scale: 1.5 });
   assert.equal(c.style.top, '', 'the panel gone: the sheet again');
   destroyNavalHud();
+  globalThis.innerWidth = 1280; globalThis.innerHeight = 720;
   // the host hands it the bar it draws earlier in the frame
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   assert.match(w, /scale: enhancedHudScale\(\),\n\s+under: enhancedHelmBar\(\),/);

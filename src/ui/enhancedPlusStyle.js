@@ -1041,6 +1041,14 @@ body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; lett
 :root[data-plus-theme="stone"] body .dfpage-note, :root[data-plus-theme="stone"] body .dfduel-sub { color: ${STONE_WORD}; }
 :root[data-plus-theme="stone"] body .dfdecor-pick-why, :root[data-plus-theme="stone"] body .dfdecor-bar-why { color: ${STONE_AMBER}; }
 :root[data-plus-theme="stone"] body .dfdecor-row.dim .dfdecor-row-price { color: ${STONE_RED}; }
+/* AUDIT NAV1 (the presentation): the sea fight's dim words join them - on Stone the plate's hint (the board key's line)
+   read 1.9:1, its waters 2.9, its labels and the card's sub-line 3.8, the plunder window's sub-line, lede and counts
+   3.3-3.5 */
+:root[data-plus-theme="stone"] body .dfnaval-hint, :root[data-plus-theme="stone"] body .dfnaval-waters,
+:root[data-plus-theme="stone"] body .dfnaval-bar-label, :root[data-plus-theme="stone"] body .dfnaval-card-sub,
+:root[data-plus-theme="stone"] body .dfnaval-winsub, :root[data-plus-theme="stone"] body .dfnaval-lede,
+:root[data-plus-theme="stone"] body .dfnaval-count, :root[data-plus-theme="stone"] body .dfnaval-choice span,
+:root[data-plus-theme="stone"] body .dfnaval-yardrow span { color: ${STONE_DIM}; text-shadow: 1px 1px 0 rgba(5,6,8,0.85); }
 `;
 
 /** The layers that stand OVER the kit on purpose, in order - each outranks the kit's stone at the same weight. */

@@ -232,7 +232,7 @@ test('AUDIT NAV1 H6 why the guns will not fire yet - loading (the seconds left),
   assert.ok(m.aim.left > 0 && m.aim.left < 13);
   assert.equal(m.aim.hot, false, 'never red while loading');
   let t = navalHudText(m, {}).aim;
-  assert.deepEqual([t.target, t.dim, t.hot], [` - reloading ${m.aim.left.toFixed(1)} s`, true, false]);
+  assert.deepEqual([t.target, t.dim, t.hot], [` - reloading ${m.aim.left.toFixed(1)}\u00a0s`, true, false]);   // AUDIT NAV1 (the presentation): the seconds and their unit kept whole in a wrapped line
   let d = h.host.drawFrame().aim;
   assert.deepEqual([d.ready, d.hot], [false, false]);
   assert.ok(d.strikes.length > 0, 'the arcs still end at her side');
@@ -404,7 +404,7 @@ test('AUDIT NAV1 H10 the brace is the brace and nothing else: at the helm the Cr
   const model = (o = {}) => ({ ship: { name: 'Small Ship', hull: 1, sail: 1, crew: 1 }, armed: true, aiming: false, aim: null, board: null, batteries: [], notoriety: { crown: 'Daggerfall', level: 0 }, incoming: null, ...o });
   const keys = { aim: 'RIGHT CLICK', board: 'E', brace: 'C' };
   let t = navalHudText(model({ incoming: { name: 'x' } }), keys, { touch: true });
-  assert.deepEqual([t.plate.hint, t.warn.key, t.plate.brace], ['Hold and drag to aim - hold Brace', 'hold Brace', true]);
+  assert.deepEqual([t.plate.hint, t.warn.key, t.plate.brace], ['Hold and drag to aim - hold Brace', 'Brace', true]);   // AUDIT NAV1 (the presentation): the warning names the press
   t = navalHudText(model({ incoming: { name: 'x' } }), keys);
   assert.deepEqual([t.plate.hint, t.warn.key, t.plate.brace], ['Hold RIGHT CLICK to aim - C: brace', 'C: brace', false]);
   assert.equal(navalHudText(model({ armed: false }), keys, { touch: true }).plate.brace, false, 'no guns, no brace to hold');

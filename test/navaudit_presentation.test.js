@@ -10,7 +10,12 @@ import { sea } from './navalSea.mjs';
 import { sparsOf, FLAME_AWASH, BLAST_SHAKE, NEAR_BOOM_M, FAR_FADE_M, FAR_MATCH, GUN_PITCH_JITTER, GUN_GAIN_JITTER_DB, HIT_CONFIRM_REF_M, HIT_BURST_MAX, GUN_KICK } from '../src/scenes/navalHost.js';
 import { READY_FLASH_S } from '../src/systems/naval/navalGunnery.js';
 import { NAVAL_SFX, NAVAL_SOUND_RANGE } from '../src/systems/naval/navalSounds.js';
-import { navalHudText, drawNavalHud, destroyNavalHud, NAVAL_HUD_CSS, CARD_HIT_S } from '../src/ui/navalHud.js';
+import { navalHudText, drawNavalHud, destroyNavalHud, NAVAL_HUD_CSS, CARD_HIT_S, platePlace, cardScale, cardTopPx, navalPadPrompts, NAVAL_PLATE_BOTTOM, NAVAL_PLATE_TOUCH_BOTTOM,
+  PLATE_GAP, PLATE_SCALE_MIN, PLATE_LAYOUT_S, NAVAL_SHORT_H, NAVAL_CARD_H, CARD_SCALE_MIN, NAVAL_CARD_GAP, NAVAL_WARN_UP, NAVAL_WARN_UP_SHORT, NAVAL_AIM_DOWN, NAVAL_AIM_DOWN_SHORT,
+  NAVAL_CROSS_R, NAVAL_STACK_H, NAVAL_STACK_HALF, NAVAL_WARN_H, NAVAL_WARN_HALF, NAVAL_WARN_HALF_TOUCH, NAVAL_BRACE_H, NAVAL_BRACE_W, NAVAL_CARD_ASIDE_H, NAVAL_PLATE_W } from '../src/ui/navalHud.js';
+import { HELM_CSS } from '../src/ui/enhancedHelm.js';
+import { ONLINE_DRESS_CSS, STONE_DIM } from '../src/ui/enhancedPlusStyle.js';
+import { NAVAL_PLUNDER_CSS } from '../src/ui/navalPlunderWindow.js';
 import { byClass } from './chargenDom.mjs';
 import { FLAG_DONOR_HULL } from '../src/scenes/comeSailAwayPool.js';
 import { Boat, meshLocalBounds, worldBounds } from '../src/systems/comeSailAwayBoat.js';
@@ -481,4 +486,273 @@ test('AUDIT NAV1 (the presentation) her colours by her state: her faction\'s whi
   b.host._shots.dropBarrel({ id: 'x', shooter: 'x:1', pos: [0, 0, 0], resolve: true });
   b.run(3);
   assert.ok(b.log.shake.includes(BLAST_SHAKE) && BLAST_SHAKE > 2.5, `a barrel shakes past a holed ball (${b.log.shake})`);
+});
+
+// ── the layout and the words (5c) ─────────────────────────────────────────────────────────────────────────────────
+
+const HUD_KEYS = { aim: 'RIGHT CLICK', board: 'E', brace: 'C' };
+/** A helm's model with the aim up, a ship in the look and a volley's tally - every part standing. */
+const layoutModel = (o = {}) => ({
+  ship: { name: 'Small Ship', hull: 0.72, sail: 0.8, crew: 0.9, fire: true, wrecked: false, braced: false },
+  armed: true, aiming: true, board: null, boarding: null,
+  aim: { side: 'starboard', gun: 'long', range: 138, max: 211, hot: true, barrel: false, state: 'ready' },
+  batteries: [{ side: 'port', gun: 'long', guns: 6, progress: 1, ready: true, active: false, barrels: null }, { side: 'starboard', gun: 'long', guns: 6, progress: 1, ready: true, active: true, barrels: null }],
+  target: { id: 'a:1', name: 'The Red Wake', captain: 'Irna Vosk', classLine: 'Pirate brig', faction: 'pirate', hull: 0.55, sail: 0.8, state: 'afloat', boarded: false, distance: 142, hostile: true },
+  notoriety: { crown: 'Wayrest', value: 30, level: 1 }, incoming: null, tally: { balls: 6, hits: 3, holed: 2, rig: 1 }, ...o,
+});
+/** A box as a DOM rect. */
+const rect = (left, top, right, bottom) => ({ left, top, right, bottom, width: right - left, height: bottom - top });
+/** Run `fn` on a `w` x `h` screen, the page's own put back after. */
+function onScreen(w, h, fn) {
+  const was = [globalThis.innerWidth, globalThis.innerHeight];
+  globalThis.innerWidth = w; globalThis.innerHeight = h;
+  try { return fn(); } finally { [globalThis.innerWidth, globalThis.innerHeight] = was; destroyNavalHud(); }
+}
+/** The readout mounted (at scale 0.75, which no case below uses, so every variable a case sets is written) and its root
+ *  with its CSS variables caught, and its plate given a box (the fake page lays nothing out). */
+function laidOut(plateW = NAVAL_PLATE_W, plateH = 263, o = {}) {
+  drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 0.75, ...o });
+  const [root] = byClass(globalThis.document.body, 'dfnaval-hud');
+  const vars = {};
+  root.style.setProperty = (k, v) => { vars[k] = v; };
+  const [plate] = byClass(root, 'dfnaval-plate');
+  let reads = 0;
+  Object.defineProperty(plate, 'offsetWidth', { get: () => plateW, configurable: true });
+  Object.defineProperty(plate, 'offsetHeight', { get: () => { reads += 1; return plateH; }, configurable: true });
+  return { root, vars, plate, reads: () => reads };
+}
+
+test('AUDIT NAV1 (the presentation) THE PLATE\'S PLACE (platePlace) - measured in a real browser over the real HUD and helm panel, 1920x1080 to a 740x360 phone at HUD scale 0.5 to 2: she stands over the vitals where she would reach into their rows (at scale 1.5 on a 1280 screen she covered them) rather than shrinking; her scale is capped by the room under what stands over her columns (the helm panel\'s bar, the card\'s band), never above the HUD\'s nor under PLATE_SCALE_MIN; and she steps clear of the centre column\'s bands - narrower or lower, whichever costs her less (mutants: never lifted, a bar beside her read as over her, the band unread, the dearer step taken)', () => {
+  const P = { plateW: NAVAL_PLATE_W, plateH: 263 };
+  assert.deepEqual(platePlace({ ...P, scale: 1, W: 1920, H: 1080, vitals: rect(659, 1038, 1261, 1058) }), { scale: 1, bottom: NAVAL_PLATE_BOTTOM }, 'her corner free: the margin, the HUD\'s scale');
+  assert.deepEqual(platePlace({ ...P, scale: 1.5, W: 1280, H: 720, vitals: rect(189, 668, 1092, 698) }), { scale: 1.5, bottom: 720 - 668 + PLATE_GAP }, 'over the vitals, at the scale asked');
+  assert.equal(platePlace({ ...P, scale: 1, W: 1280, H: 720, vitals: rect(339, 678, 941, 698) }).bottom, NAVAL_PLATE_BOTTOM, 'clear of their columns: never lifted');
+  // the helm panel's bar over her columns - a phone's, over the touch corner
+  const phone = platePlace({ ...P, scale: 1, W: 844, H: 390, bottom: NAVAL_PLATE_TOUCH_BOTTOM, over: [rect(128, 8, 828, 146)] });
+  assert.deepEqual(phone, { scale: (390 - NAVAL_PLATE_TOUCH_BOTTOM - 146 - PLATE_GAP) / 263, bottom: NAVAL_PLATE_TOUCH_BOTTOM });
+  assert.equal(platePlace({ ...P, scale: 1, W: 1920, H: 400, over: [rect(100, 8, 900, 146)] }).scale, 1, 'a bar beside her columns caps nothing');
+  assert.equal(platePlace({ ...P, scale: 1, W: 740, H: 300, bottom: NAVAL_PLATE_TOUCH_BOTTOM, over: [rect(0, 8, 740, 146)] }).scale, PLATE_SCALE_MIN, 'never under the floor');
+  assert.equal(platePlace({ ...P, scale: 0.8, W: 3840, H: 2160 }).scale, 0.8, 'never over the HUD\'s');
+  // the centre column's bands: 1280x720 at scale 2, her compact rose (198) and the stack's keep - narrower costs less
+  const C = { plateW: NAVAL_PLATE_W, plateH: 198, scale: 2, W: 1280, bottom: 64 };
+  const stack = { bottom: 360 + (NAVAL_AIM_DOWN_SHORT + NAVAL_STACK_H) * 2, half: NAVAL_STACK_HALF * 2 + PLATE_GAP };
+  assert.equal(platePlace({ ...C, H: 720, bands: [stack] }).scale, (640 - 18 - stack.half) / NAVAL_PLATE_W);
+  // ...and lower costs less where the band is wide: her top under its foot
+  assert.equal(platePlace({ ...C, H: 1200, bands: [{ bottom: 900, half: 600 }] }).scale, (1200 - 64 - 900 - PLATE_GAP) / 198);
+  assert.equal(platePlace({ ...C, W: 1920, H: 720, bands: [stack] }).scale, 2, 'clear of its half: untouched');
+  assert.equal(platePlace({ ...C, H: 2000, bands: [stack] }).scale, 2, 'under its rows: untouched');
+});
+
+test('AUDIT NAV1 (the presentation) THE CARD\'S COLUMN (cardScale): the card stands under the compass, or the helm panel\'s bar, at the HUD\'s scale capped by the room down to the warning\'s band over the crosshair - at scale 1.5 on a 1366x768 screen its foot stood in that band, and the warning over it; where the room holds it at less than CARD_SCALE_MIN (or the HUD\'s own, less) it stands aside; on foot no warning stands and the crosshair\'s arms bound it; its head by the sheet\'s law (cardTopPx) where no panel stands (mutants: uncapped, the floor unread, the warning\'s band on foot)', () => {
+  const top = 156 + NAVAL_CARD_GAP;   // 1366x768 at 1.5: the helm panel's bar's foot, measured
+  assert.equal(cardScale({ scale: 1.5, H: 768, top }), (384 - NAVAL_WARN_UP * 1.5 - PLATE_GAP - top) / NAVAL_CARD_H);
+  assert.ok(Math.abs(cardScale({ scale: 1.5, H: 768, top }) - 1.211) < 0.001);
+  assert.equal(cardScale({ scale: 1.5, H: 1080, top }), 1.5, 'room enough: the HUD\'s');
+  assert.equal(cardScale({ scale: 2, H: 720, top: 178 }), null, '1280x720 at scale 2: aside');
+  assert.equal(cardScale({ scale: 1, H: 390, top: 154 }), null, 'a phone at the helm: its column is the helm panel\'s');
+  assert.equal(cardScale({ scale: 0.5, H: 720, top: 150 }), 0.5, 'a half-scale HUD: its own, where it fits');
+  assert.equal(cardScale({ scale: 1, H: 390, top: cardTopPx(1), warn: false }), 1, 'on foot: to the crosshair\'s arms');
+  assert.equal(cardScale({ scale: 1, H: 320, top: cardTopPx(1), warn: false }), (160 - NAVAL_CROSS_R - PLATE_GAP - cardTopPx(1)) / NAVAL_CARD_H);
+  assert.equal(CARD_SCALE_MIN, 0.75);
+  assert.equal(cardTopPx(1.5), 18 + 28 * 1.5 + 12);
+  assert.equal(cardTopPx(1, 46), 18 + 28 + 12 + 46, 'the foe bar\'s step');
+});
+
+test('AUDIT NAV1 (the presentation) THE DRAW BY THE SCREEN: a screen NAVAL_SHORT_H tall or less in the HUD\'s own pixels is SHORT (a phone on its side; 720 lines at scale 1.5) - her rose packed, the aim\'s range and state alone (the rose\'s lit side is the battery), the tally its count alone and waiting while the aim is up, the card aside; else the card in its column at its capped scale, under the helm panel\'s foot; the panel measured only while a card stands or the layout is due (mutants: short by the CSS pixels, the side\'s words kept, the tally over the aim, the card\'s scale unwritten)', () => {
+  onScreen(1920, 1080, () => {
+    const { root, vars } = laidOut();
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 1, dt: PLATE_LAYOUT_S });
+    assert.equal(root.className, 'dfnaval-hud');
+    assert.equal(byClass(root, 'dfnaval-aim-text')[0].textContent, 'Starboard broadside - ');
+    assert.equal(byClass(root, 'dfnaval-tally')[0].style.display, '', 'the tally under the aim');
+    // under the helm panel: the card's head its foot and a gap, its scale the column's
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 1.5, under: { getBoundingClientRect: () => rect(493, 80, 1427, 156) } });
+    assert.equal(byClass(root, 'dfnaval-card')[0].style.top, `${156 + NAVAL_CARD_GAP}px`);
+    assert.equal(vars['--nc-card-scale'], '1.5');
+  });
+  onScreen(1366, 768, () => {
+    const { root, vars } = laidOut();
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 1.5, under: { getBoundingClientRect: () => rect(216, 80, 1150, 156) } });
+    assert.equal(root.className, 'dfnaval-hud', '768 lines at 1.5 are 512 of the HUD\'s: not short');
+    assert.equal(vars['--nc-card-scale'], '1.211', 'the column\'s room caps it');
+  });
+  onScreen(1280, 720, () => {
+    let reads = 0;
+    const under = { getBoundingClientRect: () => { reads += 1; return rect(173, 80, 1107, 156); } };
+    const { root, vars } = laidOut(NAVAL_PLATE_W, 263, { under });
+    assert.ok(vars['--nc-card-scale'] === undefined && byClass(root, 'dfnaval-card')[0].style.top === `${156 + NAVAL_CARD_GAP}px`, 'mounted at 0.75: in its column');
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 1.5, under });
+    assert.equal(root.className, 'dfnaval-hud short aside', '720 lines at 1.5 are 480 of the HUD\'s');
+    assert.equal(byClass(root, 'dfnaval-card')[0].style.top, '', 'aside: the sheet places it');
+    assert.equal(vars['--nc-card-scale'], '', 'no column scale aside');
+    assert.deepEqual([byClass(root, 'dfnaval-aim-text')[0].textContent, byClass(root, 'dfnaval-aim-range')[0].textContent, byClass(root, 'dfnaval-aim-target')[0].textContent], ['', '138 m', ' - on target']);
+    assert.equal(byClass(root, 'dfnaval-tally')[0].style.display, 'none', 'the tally waits while the aim is up');
+    drawNavalHud(layoutModel({ aim: null, aiming: false }), { keys: HUD_KEYS, scale: 1.5, under });
+    assert.equal(byClass(root, 'dfnaval-tally')[0].style.display, '', '...and stands in its place once it is down');
+    drawNavalHud(layoutModel({ aim: { side: 'stern', gun: 'barrel', range: 0, max: 0, hot: false, barrel: true, state: 'ready' } }), { keys: HUD_KEYS, scale: 1.5, under });
+    assert.equal(byClass(root, 'dfnaval-aim-text')[0].textContent, 'Stern - roll a fire barrel', 'no range to stand alone: the words stay');
+    // no ship in the look, the layout not due: the panel unmeasured
+    reads = 0;
+    drawNavalHud(layoutModel({ target: null }), { keys: HUD_KEYS, scale: 1.5, under, dt: 0.01 });
+    assert.equal(reads, 0);
+    drawNavalHud(layoutModel({ target: null }), { keys: HUD_KEYS, scale: 1.5, under, dt: PLATE_LAYOUT_S });
+    assert.equal(reads, 1, 'the layout due: measured');
+    // the same screen at scale 1 is not short, and its column holds the card
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 1, under });
+    assert.equal(root.className, 'dfnaval-hud');
+  });
+  assert.match(NAVAL_HUD_CSS, /\.dfnaval-hud\.short \.dfnaval-tally-rest \{ display: none; \}/);
+  assert.equal(NAVAL_SHORT_H, 500);
+});
+
+test('AUDIT NAV1 (the presentation) THE PLACES WRITTEN: her foot over the vitals, or the classic compass (the plate stood on it, 91% of its width at 1280x720); her scale and width; the aside card at her foot, left of her (and her Brace), no wider than the room right of the quick block in its rows; the stack no wider than the room either side of the centre line; read on a change of the screen, the scale, the skin or her rows and every PLATE_LAYOUT_S - never every frame (mutants: the compass unread, the brace\'s width left out, the quick block unread, the stack uncapped, the placement every frame)', () => {
+  onScreen(1280, 720, () => {
+    const opts = { keys: HUD_KEYS, scale: 1.5, vitals: { getBoundingClientRect: () => rect(189, 668, 1092, 698) }, quick: { getBoundingClientRect: () => rect(24, 271, 372, 650) } };
+    const l = laidOut(NAVAL_PLATE_W, 198);   // her packed height, measured
+    drawNavalHud(layoutModel(), { ...opts, dt: PLATE_LAYOUT_S });
+    assert.deepEqual([l.vars['--nc-foot'], l.vars['--nc-plate-scale'], l.vars['--nc-plate-w']], [`${720 - 668 + PLATE_GAP}px`, '1.5', '408px']);
+    assert.equal(l.vars['--nc-card-right'], `${18 + 408 + PLATE_GAP}px`);
+    assert.equal(l.vars['--nc-card-max'], `${Math.floor((1280 - (18 + 408 + PLATE_GAP) - (372 + PLATE_GAP)) / 1.5)}px`, 'right of the quick block');
+    assert.equal(l.vars['--nc-stack-max'], `${Math.floor((2 * (640 - 18 - 408 - PLATE_GAP)) / 1.5)}px`, 'short of her either side');
+    // never every frame
+    const n = l.reads();
+    drawNavalHud(layoutModel(), { ...opts, dt: 0.1 });
+    drawNavalHud(layoutModel(), { ...opts, dt: 0.1 });
+    assert.equal(l.reads(), n, 'the same screen and rows: not read');
+    const calm = layoutModel({ ship: { name: 'Small Ship', hull: 0.72, sail: 0.8, crew: 0.9, fire: false, wrecked: false, braced: false } });
+    drawNavalHud(calm, { ...opts, dt: 0.1 });
+    assert.equal(l.reads(), n + 1, 'a row gone (her chips): read again');
+    drawNavalHud(calm, { ...opts, dt: 0.1 });
+    assert.equal(l.reads(), n + 1);
+    drawNavalHud(calm, { ...opts, dt: PLATE_LAYOUT_S });
+    assert.equal(l.reads(), n + 2, '...and on its clock (the helm panel\'s bar rewraps unseen)');
+  });
+  onScreen(1280, 720, () => {
+    // the classic skin: over the compass box, the vitals not the enhanced HUD's
+    const l = laidOut();
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 1, compass: { w: 138, h: 34 }, vitals: { getBoundingClientRect: () => rect(189, 668, 1092, 698) }, dt: PLATE_LAYOUT_S });
+    assert.equal(l.root.className, 'dfnaval-hud classic');
+    assert.equal(l.vars['--nc-foot'], `${34 + PLATE_GAP}px`);
+  });
+  onScreen(900, 520, () => {
+    // the card's band held for her whether or not a card stands: no ship in the look, the vitals' column tall (a hotbar
+    // over them) - her room runs to the card's foot in the column (58 + 95), not the screen's head
+    const l = laidOut();
+    drawNavalHud(layoutModel({ target: null }), { keys: HUD_KEYS, scale: 1, vitals: { getBoundingClientRect: () => rect(200, 420, 700, 500) }, dt: PLATE_LAYOUT_S });
+    const foot = 520 - 420 + PLATE_GAP;
+    assert.equal(l.vars['--nc-foot'], `${foot}px`);
+    assert.equal(l.vars['--nc-plate-scale'], String(Math.round(((520 - foot - (cardTopPx(1) + NAVAL_CARD_H) - PLATE_GAP) / 263) * 1000) / 1000));
+  });
+  onScreen(1024, 540, () => {
+    // a foe's bar under the compass: the column's head a step lower (the sheet's :has() law, read), the card's scale less
+    const l = laidOut();
+    const doc = { ...globalThis.document, querySelector: (sel) => (sel === '.hud-foe.on' ? {} : null) };
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 1, doc, dt: PLATE_LAYOUT_S });
+    assert.equal(l.vars['--nc-card-scale'], String(Math.round(((270 - NAVAL_WARN_UP - PLATE_GAP - cardTopPx(1, 46)) / NAVAL_CARD_H) * 1000) / 1000));
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 1, dt: PLATE_LAYOUT_S });
+    assert.equal(l.vars['--nc-card-scale'], '1', 'the bar gone: its full scale');
+  });
+  onScreen(844, 390, () => {
+    // a finger's: her Brace beside her foot, the card aside left of both
+    const under = { getBoundingClientRect: () => rect(128, 8, 828, 146) };
+    const l = laidOut(NAVAL_PLATE_W, 198);
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 1, touch: true, under, dt: PLATE_LAYOUT_S });
+    const k = (390 - NAVAL_PLATE_TOUCH_BOTTOM - 146 - PLATE_GAP) / 198, pw = Math.round(NAVAL_PLATE_W * k);
+    assert.equal(l.vars['--nc-plate-scale'], String(Math.round(k * 1000) / 1000));
+    assert.equal(l.vars['--nc-foot'], `${NAVAL_PLATE_TOUCH_BOTTOM}px`);
+    assert.equal(l.vars['--nc-card-right'], `${18 + pw + 8 + NAVAL_BRACE_W + PLATE_GAP}px`);
+    assert.equal(l.root.className, 'dfnaval-hud touch short aside');
+  });
+});
+
+test('AUDIT NAV1 (the presentation) THE BRACE under a finger is its own press on the readout\'s root, beside the plate\'s foot at NAVAL_BRACE_H by NAVAL_BRACE_W whatever her scale - under her rose it shrank with her (23 px at a phone\'s half scale, under the platforms\' 48); the finger\'s warning names it ("Hold Brace" was wider than a small phone\'s room) (mutants: the press back in the plate, its size scaled)', () => {
+  onScreen(844, 390, () => {
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS, scale: 1, touch: true });
+    const [root] = byClass(globalThis.document.body, 'dfnaval-hud');
+    const [brace] = byClass(root, 'dfnaval-brace');
+    assert.equal(brace.parentNode, root, 'the root\'s own');
+    assert.equal(byClass(byClass(root, 'dfnaval-plate')[0], 'dfnaval-brace').length, 0, 'not in the plate');
+  });
+  assert.ok(NAVAL_BRACE_H >= 48 && NAVAL_BRACE_W >= 48, 'the platforms\' 48 px');
+  const rule = /\.dfnaval-brace \{([^}]*)\}/.exec(NAVAL_HUD_CSS)[1];
+  assert.match(rule, /position: absolute; right: calc\(18px \+ var\(--nc-plate-w, 272px\) \+ 8px \+ env\(safe-area-inset-right, 0px\)\);/);
+  assert.match(rule, /bottom: calc\(var\(--nc-foot, 76px\) \+ env\(safe-area-inset-bottom, 0px\)\); box-sizing: border-box; width: 96px;\s+height: 48px;/);
+  assert.doesNotMatch(rule, /scale/, 'at no scale');
+  assert.equal(navalHudText(layoutModel({ incoming: { name: 'x' } }), HUD_KEYS, { touch: true }).warn.key, 'Brace');
+  assert.equal(navalHudText(layoutModel({ incoming: { name: 'x' } }), HUD_KEYS).warn.key, 'C: brace');
+  assert.equal(NAVAL_WARN_HALF_TOUCH < NAVAL_WARN_HALF, true);
+});
+
+test('AUDIT NAV1 (the presentation) THE CENTRE COLUMN\'S SHEET: the aim and the tally one stack under the crosshair, no wider than its room and wrapping balanced (they ran under the plate at scale 1.5), a range and the seconds kept whole; closer on a short screen, the warning too; the card at its column\'s scale and no wider than the screen at it; the aside card at the plate\'s foot; a short plate\'s rose in two rows, port and starboard either side of bow over stern (mutants: the stack uncapped, the range broken, the short offsets unread, the rose unpacked)', () => {
+  const rule = (sel) => new RegExp(`(?:^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`).exec(NAVAL_HUD_CSS)?.[1] ?? '';
+  assert.match(rule('.dfnaval-stack'), /top: calc\(50% \+ 34px \* var\(--hud-scale, 1\)\); transform: translateX\(-50%\) scale\(var\(--hud-scale, 1\)\);/);
+  assert.match(rule('.dfnaval-stack'), /flex-direction: column;[^;]*; gap: 4px; width: max-content;[\s\S]*max-width: var\(--nc-stack-max,/);
+  assert.match(rule('.dfnaval-hud.short .dfnaval-stack'), new RegExp(`top: calc\\(50% \\+ ${NAVAL_AIM_DOWN_SHORT}px \\* var\\(--hud-scale, 1\\)\\)`));
+  assert.match(rule('.dfnaval-aim'), /text-wrap: balance;/);
+  assert.doesNotMatch(rule('.dfnaval-aim'), /position|nowrap/, 'a line in the stack, free to wrap');
+  assert.match(rule('.dfnaval-aim-range'), /white-space: nowrap;/);
+  assert.match(rule('.dfnaval-tally'), /text-wrap: balance;/);
+  assert.match(rule('.dfnaval-warn'), new RegExp(`top: calc\\(50% - ${NAVAL_WARN_UP}px \\* var\\(--hud-scale, 1\\)\\)`));
+  assert.match(rule('.dfnaval-hud.short .dfnaval-warn'), new RegExp(`top: calc\\(50% - ${NAVAL_WARN_UP_SHORT}px \\* var\\(--hud-scale, 1\\)\\)`));
+  assert.match(rule('.dfnaval-card'), /transform: translateX\(-50%\) scale\(var\(--nc-card-scale, var\(--hud-scale, 1\)\)\);[\s\S]*max-width: calc\(86vw \/ var\(--nc-card-scale, var\(--hud-scale, 1\)\)\);/);
+  assert.match(rule('.dfnaval-hud.aside .dfnaval-card'), /right: var\(--nc-card-right, 302px\); bottom: var\(--nc-foot, 22px\);[\s\S]*transform-origin: 100% 100%; box-sizing: border-box; width: 300px; max-width: var\(--nc-card-max, 300px\);/);
+  assert.match(rule('.dfnaval-hud.short .dfnaval-rose'), /grid-template-rows: auto auto;/);
+  assert.match(rule('.dfnaval-hud.short .dfnaval-gun.port, .dfnaval-hud.short .dfnaval-gun.starboard'), /grid-row: 1 \/ span 2;/);
+  assert.match(rule('.dfnaval-hud.short .dfnaval-gun.stern'), /grid-row: 2;/);
+  assert.match(rule('.dfnaval-hud.short .dfnaval-ship'), /display: none;/);
+  assert.equal(NAVAL_AIM_DOWN, 34);
+  // the stack's DOM: the aim, then the tally
+  onScreen(1920, 1080, () => {
+    drawNavalHud(layoutModel(), { keys: HUD_KEYS });
+    const [stack] = byClass(globalThis.document.body, 'dfnaval-stack');
+    assert.deepEqual(stack.children.map((c) => c.className.split(' ')[0]), ['dfnaval-aim', 'dfnaval-tally']);
+  });
+  assert.equal(navalHudText(layoutModel({ aim: { side: 'port', gun: 'long', range: 90, max: 211, hot: false, barrel: false, state: 'reloading', left: 4.24 } }), HUD_KEYS).aim.target, ' - reloading 4.2 s');
+  assert.equal(NAVAL_STACK_H >= 2 * 15 + 4 + 2 * 14, true, 'two lines of aim, two of tally');
+  assert.equal(NAVAL_WARN_H >= 29, true, 'the warning as drawn');
+  assert.equal(NAVAL_CARD_ASIDE_H >= 55, true, 'the slim card as drawn');
+});
+
+test('AUDIT NAV1 (the presentation) THE PAD AT THE GUNS: the readout names the pad\'s own buttons while one is in hand (a pad player read "Hold RIGHT CLICK to aim"), and the prompt bar at an armed helm shows the guns\' rows beside the d-pad\'s - the attack laying and firing, the brace, Activate for the ship in reach - a row only for a bound button (mutants: the keys named to a pad, a row for an unbound button, the words of the wrong board)', () => {
+  const codes = { aim: 'JoystickAxis10Button0', board: 'JoystickButton0', brace: 'JoystickButton4' };
+  assert.deepEqual(navalPadPrompts(layoutModel({ armed: false }), codes), [], 'no guns: no rows');
+  assert.deepEqual(navalPadPrompts(layoutModel({ aiming: false }), codes), [[[codes.aim], 'Hold: lay the guns'], [[codes.brace], 'Hold: brace']]);
+  assert.deepEqual(navalPadPrompts(layoutModel(), codes)[0], [[codes.aim], 'Let go: fire']);
+  const board = (kind) => navalPadPrompts(layoutModel({ board: { name: 'The Red Wake', kind } }), codes).at(-1);
+  assert.deepEqual(board('board'), [[codes.board], 'Board The Red Wake']);
+  assert.deepEqual(board('hold'), [[codes.board], "Open The Red Wake's hold"]);
+  assert.deepEqual(board('heave'), [[codes.board], 'Heave to']);
+  assert.deepEqual(board('yard'), [[codes.board], 'The shipwright']);
+  assert.deepEqual(navalPadPrompts(layoutModel(), { aim: codes.aim }), [[[codes.aim], 'Let go: fire']], 'a row only for a bound button');
+  assert.equal(navalHudText(layoutModel({ aiming: false, aim: null }), { aim: 'RT', board: 'A', brace: 'LB' }).plate.hint, 'Hold RT to aim - LB: brace');
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /return \{ aim: getBinding\(b, 'SwingWeapon', false\) \?\? getJoystickUIBinding\(b, 'RightClick'\), board: getJoystickUIBinding\(b, 'LeftClick'\), brace: getBinding\(b, 'Crouch', false\) \};/);
+  assert.match(w, /const family = controllerLook\(\) \? padFamily\(\) : null;[^\n]*\n\s+const pad = family \? navalPadCodes\(\) : null;/);
+  assert.match(w, /keys: pad \? \{ aim: pad\.aim \? hdGlyphName\(family, pad\.aim\) : null, board: pad\.board \? hdGlyphName\(family, pad\.board\) : null, brace: pad\.brace \? hdGlyphName\(family, pad\.brace\) : null \}\n\s+: \{ aim: navalKeyName\('SwingWeapon'\), board: navalKeyName\('Interact'\), brace: navalKeyName\('Crouch'\) \},/);
+  assert.match(w, /return r && naval\?\.atGuns \? \[\.\.\.r, \.\.\.navalPadPrompts\(naval\.hudModel\(\), navalPadCodes\(\)\)\] : r; \},/);
+  assert.match(w, /compass: !isEnhanced\(\) && hudArt\?\.compassBox \? classicCompassBox\(\) : null,/);
+  assert.match(w, /return \{ w: hudArt\.compassBox\.w \* s \* k, h: hudArt\.compassBox\.h \* s \* k \};/);
+});
+
+test('AUDIT NAV1 (the presentation) THE SKINS AND THE WORDS: the kit\'s face on the classic skin too (it fell to monospace); on Stone the dim words read 5:1 (the hint 1.9, the waters 2.9, the labels and the card\'s sub-line 3.8, the plunder window\'s 3.3-3.5); a refused choice greyed by its title, its reason whole (2.3:1 faded); the helm panel\'s bar as wide as its buttons and a finger\'s clear of the corner\'s presses; a raider comes alongside in one number; the hold\'s one wording (mutants: the fonts left to the enhanced HUD, a dim word left dim, the tile faded, the menu\'s press under the bar)', () => {
+  destroyNavalHud();
+  for (const n of [...globalThis.document.head.children]) if (n.id === 'dagger-enhanced-fonts') n.remove();
+  drawNavalHud(layoutModel(), { keys: HUD_KEYS });
+  assert.ok(globalThis.document.head.children.some((n) => n.id === 'dagger-enhanced-fonts'), 'the face loaded by the readout itself');
+  destroyNavalHud();
+  assert.match(NAVAL_HUD_CSS, /\.dfnaval-hint \{[^}]*color: #b3a684;/);
+  for (const sel of ['dfnaval-hint', 'dfnaval-waters', 'dfnaval-bar-label', 'dfnaval-card-sub', 'dfnaval-winsub', 'dfnaval-lede', 'dfnaval-count', 'dfnaval-choice span', 'dfnaval-yardrow span']) {
+    assert.ok(ONLINE_DRESS_CSS.includes(`:root[data-plus-theme="stone"] body .${sel}`), sel);
+  }
+  assert.ok(ONLINE_DRESS_CSS.includes(`.dfnaval-yardrow span { color: ${STONE_DIM};`));
+  assert.match(NAVAL_PLUNDER_CSS, /\.dfnaval-choice:disabled \{ cursor: default; background-color: rgba\(8,9,12,0\.6\); \}\n\.dfnaval-choice:disabled b \{ color: #8f8670;[^}]*\}\n\.dfnaval-choice:disabled span \{ color: #c9bfa4; \}/);
+  assert.doesNotMatch(NAVAL_PLUNDER_CSS, /\.dfnaval-choice:disabled \{[^}]*opacity/);
+  assert.match(HELM_CSS, /\.helmpanel-bar \{[^}]*width: max-content; max-width: calc\(100vw - 24px\);/);
+  const t = readFileSync(new URL('../src/ui/touch.js', import.meta.url), 'utf8');
+  assert.match(t, /button\('≡', edge\('left', hooks\.dial \? 72 : 16\), edge\('top', 16\), 48,/);
+  assert.match(HELM_CSS, /\.helmpanel\.touch \.helmpanel-bar \{ top: calc\(8px \+ env\(safe-area-inset-top, 0px\)\); left: calc\(50% \+ 56px \+ \(env\(safe-area-inset-left, 0px\) - env\(safe-area-inset-right, 0px\)\) \/ 2\);\n\s+max-width: calc\(100vw - 144px - env\(safe-area-inset-left, 0px\) - env\(safe-area-inset-right, 0px\)\); \}/);
+  assert.equal(144, 72 + 48 + 8 + 16, 'the menu\'s press, air, and the right margin');
+  assert.equal(56, (72 + 48 + 8 - 16) / 2, 'centred in what is left');
+  const host = readFileSync(new URL('../src/scenes/navalHost.js', import.meta.url), 'utf8');
+  assert.ok(host.includes("`Grappling hooks! ${entry.ship.names?.name ? `${entry.ship.names.name} is` : 'The pirates are'} coming alongside - repel boarders!`"));
 });

@@ -129,6 +129,11 @@ import { setEnhancedMidTextScale } from './enhancedHudText.js';   // AUDIT FONT 
  */
 export const HUD_SCALE_MIN = 0.5;
 export const HUD_SCALE_MAX = 2;
+/** AUDIT NAV1 (the presentation): the bottom column - the vitals and the hotbar over them - and the quick block while
+ *  the HUD stands: the sea fight's ship plate keeps clear of the one, its card aside of the other (ui/navalHud.js
+ *  placeParts), as the card keeps under the helm panel's bar. */
+export const enhancedHudBottom = () => (host ? parts?.bottom ?? null : null);
+export const enhancedHudQuick = () => (host ? parts?.quick ?? null : null);
 export const enhancedHudScale = () => {
   const v = Number(getPref('hudScale'));
   if (!Number.isFinite(v) || v <= 0) return 1;
@@ -728,7 +733,7 @@ function build(doc) {
   cells.main.cell.addEventListener('pointerdown', tap(() => { liveOpts.quickSwitchHand?.(); }));
 
   doc.body.append(root);
-  return { root, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
+  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
     stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,

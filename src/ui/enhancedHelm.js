@@ -106,8 +106,10 @@ export const HELM_CSS = `
 .helmpanel { position: fixed; inset: 0; z-index: 5; pointer-events: none; font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
   font-variant-ligatures: none; color: #d8cfae; --hp-top: calc(18px + 28px * var(--hud-scale, 1) + 20px); }
 body:has(.hud-foe.on) .helmpanel { --hp-top: calc(18px + 28px * var(--hud-scale, 1) + 20px + 46px * var(--hud-scale, 1)); }
+/* AUDIT NAV1 (the presentation): as wide as its buttons (max-content) - a box placed at left: 50% shrinks to the room
+   right of its left edge, so the bar wrapped at half the screen: two rows at 1920x1080, three on a phone */
 .helmpanel-bar { position: absolute; left: 50%; top: var(--hp-top); transform: translateX(-50%); display: flex; flex-direction: column;
-  align-items: center; gap: 6px; padding: 8px 12px; max-width: calc(100vw - 24px); box-sizing: border-box; border: 2px solid; border-radius: 0; }
+  align-items: center; gap: 6px; padding: 8px 12px; width: max-content; max-width: calc(100vw - 24px); box-sizing: border-box; border: 2px solid; border-radius: 0; }
 .helmpanel-title { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 12px; }
 .helmpanel-name { font-size: 15px; letter-spacing: 0.06em; color: #efe8d6; text-shadow: 1px 1px 0 #050608; }
 .helmpanel-hint { font-size: 11px; letter-spacing: 0.08em; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
@@ -123,7 +125,13 @@ body:has(.hud-foe.on) .helmpanel { --hp-top: calc(18px + 28px * var(--hud-scale,
   text-shadow: 1px 1px 0 rgb(93,77,12); }
 .helmpanel-key { font-size: 10px; letter-spacing: 0.04em; color: #a89f88; }
 .helmpanel-key:empty { display: none; }
-.helmpanel.touch .helmpanel-bar { top: calc(8px + env(safe-area-inset-top, 0px)); max-width: calc(100vw - 120px); }
+/* AUDIT NAV1 (the presentation): a finger's bar stands centred in the room right of the corner's two presses - the
+   dial's and the menu's, 48 px from 16 and 72 (ui/touch.js), 120 px in past the safe area, and 8 of air - to 16 px
+   from the right edge: centred on the screen its 60 px reserve left the menu's press under a bar as wide as its
+   buttons (width: max-content, above), and a reserve either side wrapped a 667 px phone's buttons to three rows, the
+   bar's foot on the crosshair */
+.helmpanel.touch .helmpanel-bar { top: calc(8px + env(safe-area-inset-top, 0px)); left: calc(50% + 56px + (env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) / 2);
+  max-width: calc(100vw - 144px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); }
 .helmpanel.touch .helmpanel-btn { min-height: 44px; min-width: 44px; }
 .helmpanel.touch .helmpanel-key { display: none; }
 @media (max-width: 560px) { .helmpanel-btn { padding: 4px 7px; font-size: 12px; } }

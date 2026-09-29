@@ -328,7 +328,9 @@ import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } f
 import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR } from './navalHost.js';   // NAV-H: the sea fight - the Iliac Bay's ships, the guns, boarding, the law and the word
 import { createNavalFlames } from './navalFlames.js';   // NAV-B: a burning ship's deck fires
 import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke, the spray, the balls in flight and the aim
-import { drawNavalHud, navalTouchBrace } from '../ui/navalHud.js';   // NAV-F: the helm's readout; AUDIT NAV1: its Brace under a finger
+import { drawNavalHud, navalTouchBrace, navalPadPrompts } from '../ui/navalHud.js';
+import { padFamily } from '../ui/padGlyphs.js';   // AUDIT NAV1 (the presentation): the pad in hand's family - the readout names its buttons
+import { hdGlyphName } from '../ui/padGlyphsHD.js';   // NAV-F: the helm's readout; AUDIT NAV1: its Brace under a finger
 import { createNavalPlunderOverlay, closeNavalPlunder, createNavalYardOverlay, closeNavalYard } from '../ui/navalPlunderDoor.js';   // NAV-F: a taken ship's window, behind its door; AUDIT NAV1: the shipwright's
 import { installNavalSounds } from '../systems/naval/navalSounds.js';   // NAV-E: the guns' own sounds
 import { navalRecordKey } from '../systems/naval/navalWire.js';   // NAV-G: my sea's word, said when it changed
@@ -422,7 +424,7 @@ import { hasDaggerfallArrows } from '../combat/fpArm.js';   // MAC7 #2: the arro
 import { drawText } from '../ui/text.js';   // ONLINE1: the session's status line
 import { RemotePlayers, composeLook, createSightCache, NAME_RANGE } from '../net/remotePlayers.js';   // ONLINE1: the others, drawn; NAME1: and the sight test their names take, cached and hysteresised (AUDIT NAME1 F2/F5)
 import { createNameLayer, nameLayerWanted } from '../ui/nameLayer.js';   // NAME1 + BUBBLE1: the names and the chat bubbles, in the enhanced face; AUDIT NAME1 F7: and who gets that face
-import { enhancedHudScale, setHudSetChips } from '../ui/enhancedHud.js';   // AUDIT NAME1 F3: the player's own HUD scale, which the names wear like every other enhanced surface; SET5: the set powers' chips
+import { enhancedHudScale, setHudSetChips, enhancedHudBottom, enhancedHudQuick } from '../ui/enhancedHud.js';   // AUDIT NAME1 F3: the player's own HUD scale, which the names wear like every other enhanced surface; SET5: the set powers' chips
 import { makeHitPend } from '../net/hitPend.js';   // AUDIT FOES FOE2: a blow the wire refused waits and goes
 import { PeerBodies, peerIsWolf } from '../net/peerBodies.js';   // MWBODY1: the others in the Morrowind body; WEREWOLF1: and in Bloodmoon's wolf
 import { ChatLog, CHAT_REJOIN_MS } from '../net/chat.js';   // CHAT1: the tabs and their lines
@@ -537,6 +539,7 @@ import { classicSaveToSnapshot, takePendingClassicSave, peekPendingClassicSave }
 import { readTokens as readRscTokens, RSC } from '../formats/textRsc.js';   // SAV3: the classic rumors' token payloads
 import { lookScale, lookInvert, keyboardLookRate } from '../ui/lookSettings.js';   // SETT: MouseLookSensitivity + InvertMouseVertical
 import { LookFilter, swingSuppressesLook } from '../player/lookFilter.js';   // AUDIT 28 W7: MouseLookSmoothingFactor; MAC-O2: PlayerMouseLook.Update's swing suppression (:246-248)
+import { controllerLook } from '../player/lookFilter.js';   // AUDIT NAV1 (the presentation): a pad in hand - the sea fight's readout names its buttons (MAC-O2's seam line above kept as it is pinned)
 import { MoveAxes } from '../player/moveAxes.js';   // AUDIT 28 W8: MovementAcceleration
 import { CameraRecoiler } from '../player/cameraRecoiler.js';   // AUDIT 28 W9: CameraRecoilStrength
 import { HeadBobber } from '../player/headBobber.js';   // AUDIT 28 W10: HeadBobbing
@@ -544,7 +547,7 @@ import { lastHealthLost, lastHealthLostPercent } from '../ui/hudVitals.js';   //
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
 import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, pressed, released, actionsOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld } from '../ui/input.js';
 import { armUnloadGuard, releaseUnloadGuard } from '../systems/unloadGuard.js';   // MAC-L3: one door in front of every way out of a running game; AUDIT-MACL F3: ...and down for a door the game opened itself
-import { codeMeans, getBinding, codeForAction } from '../systems/inputActions.js';   // AUDIT-TO1 H2: the help's TravelMap binding, read through the store's own accessor   // FIX-E: the overlay's QuickLoad read, off the code alone   // I2: the rebindable registry; AUDIT 39r: the mouse half of the held set
+import { codeMeans, getBinding, codeForAction, getJoystickUIBinding } from '../systems/inputActions.js';   // AUDIT-TO1 H2: the help's TravelMap binding, read through the store's own accessor   // FIX-E: the overlay's QuickLoad read, off the code alone   // I2: the rebindable registry; AUDIT 39r: the mouse half of the held set
 import { buttonText } from '../systems/controlsConfig.js';   // AUDIT DEEP T1-12: the travel view's hint names the bound keys as the Controls page does
 import { hudShortcutKey, retroToggleKey, hudRenderEnabled } from '../ui/hudShortcuts.js';   // AUDIT 64 F36/F37: DaggerfallHUD.Update's LargeHUDToggle / HUDToggle arms
 import { createActivateGate, activateFrame, setClickDelay } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
@@ -6188,15 +6191,32 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (townTalk.overlayActive || gamePaused() || modeNow() !== 'exterior') naval.cancelAim();
     else naval.attackInput(false);
   }
+  /** AUDIT NAV1 (the presentation): the pad's own buttons for the readout's three - the attack's (its pad binding, else
+   *  the swing's right-click button), Activate's (the click's A) and the brace's - by code. */
+  const navalPadCodes = () => {
+    const b = bindings();
+    return { aim: getBinding(b, 'SwingWeapon', false) ?? getJoystickUIBinding(b, 'RightClick'), board: getJoystickUIBinding(b, 'LeftClick'), brace: getBinding(b, 'Crouch', false) };
+  };
+  /** AUDIT NAV1 (the presentation): the classic HUD's compass box in CSS px - COMPBOX.IMG at the classic scale, flush in the
+   *  bottom right (ui/hud.js) - where the sea fight's plate would stand; the plate stands over it. */
+  const classicCompassBox = () => {
+    const s = hudScale(canvas.width, canvas.height), k = canvas.width > 0 && canvas.clientWidth > 0 ? canvas.clientWidth / canvas.width : 1;
+    return { w: hudArt.compassBox.w * s * k, h: hudArt.compassBox.h * s * k };
+  };
   /** The helm's readout, under every window and with the HUD - `dt` the frame's (the card's hull bar's loss readout). */
   function navalHud(dt = 0) {
     if (!navalOn()) return;
+    const family = controllerLook() ? padFamily() : null;   // AUDIT NAV1: the pad in hand - its buttons named, not the keys
+    const pad = family ? navalPadCodes() : null;
     drawNavalHud(_mode() === 'exterior' ? naval.hudModel() : null, {
       dt: gamePaused() ? 0 : dt,
       covered: townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden,
-      keys: { aim: navalKeyName('SwingWeapon'), board: navalKeyName('Interact'), brace: navalKeyName('Crouch') },
+      keys: pad ? { aim: pad.aim ? hdGlyphName(family, pad.aim) : null, board: pad.board ? hdGlyphName(family, pad.board) : null, brace: pad.brace ? hdGlyphName(family, pad.brace) : null }
+        : { aim: navalKeyName('SwingWeapon'), board: navalKeyName('Interact'), brace: navalKeyName('Crouch') },
       scale: enhancedHudScale(),
       under: enhancedHelmBar(),   // THE MERGE with CSA-L: the helm panel stands under the compass too - the card under its foot (drawn earlier this frame)
+      vitals: enhancedHudBottom(), quick: enhancedHudQuick(),   // AUDIT NAV1: the vitals' column the plate keeps clear of, the quick block the card aside does
+      compass: !isEnhanced() && hudArt?.compassBox ? classicCompassBox() : null,   // AUDIT NAV1: the classic compass the plate stands over
       touch: !!touch,   // a finger's screen: the plate over the touch corner's presses, the hints a finger's
     });
   }
@@ -11504,7 +11524,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     helm: {
       up: () => !!(csaRuntime?.isSailing() && csaOn() && isEnhancedPlus()),
       gesture: (dir, kind) => { let r = false; csaCall(() => { r = helmPadGesture(dir, kind, csaRuntime?.helmPanelState() ?? null, { press: csaHelmPress, hold: csaHelmHold }); }); return r; },
-      prompts: () => { let r = null; csaCall(() => { r = helmPadPrompts(csaRuntime?.helmPanelState() ?? null); }); return r; },
+      prompts: () => { let r = null; csaCall(() => { r = helmPadPrompts(csaRuntime?.helmPanelState() ?? null); }); return r && naval?.atGuns ? [...r, ...navalPadPrompts(naval.hudModel(), navalPadCodes())] : r; },   // AUDIT NAV1: and the guns' own rows
     },
     stickRuns: () => !csaRuntime?.isSailing(),   // AUDIT PRE-MERGE 0928 U3: at Come Sail Away's helm Run + a side key is the oars' strafe - the stick's throw runs nowhere there, so a full push turns the boat
     // AUDIT 62 F7: the finger's pause gate - the same predicate the
