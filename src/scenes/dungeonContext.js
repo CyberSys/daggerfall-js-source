@@ -1888,7 +1888,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:13783 / exterior.js:3733), set
+  // host's own townTalk sink (world.js:13789 / exterior.js:3733), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3712,8 +3712,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:23017,
-              // exterior.js:5342 and worldModes.js:8321 already ran;
+              // playerArrowHitFoe is the one copy world.js:23023,
+              // exterior.js:5343 and worldModes.js:8321 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -6821,6 +6821,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     get retypedTo() { return rec.retypedTo; },
   });
   const api = {
+    // WARDEN-STRIKE (FB 2026-09-29g): the court's boss's spell door, for the OUTER host's enchant ctx - hosted, this
+    // context mounts none (`enchantCtx: false`), so its own `bossSpell` never ran and a Cast When Strikes spell on the
+    // Warden went nowhere in the real game. Outside a court, nobody: false.
+    spellOnBoss: (record) => (opts.gateBoss ? spellOnBoss(record) : false),
     // AUDIT 19 / 1:1: SelectCurrentSong's dungeon arm seeds DFRandom with
     // the dungeon record header's Unknown2 XOR the region byte
     // (SongManager.cs:346-358). An earlier pass flagged this as

@@ -137,7 +137,8 @@ test('ROAD-B: attemptExteriorDoorBash is a DOOR-only ray at weapon reach, exteri
 test('ROAD-B: both exterior hosts offer a missed swing to the doors before ringing the miss', () => {
   for (const [host, ray] of [['src/scenes/world.js', 'cam.pos, lookFwd'], ['src/scenes/exterior.js', 'eye, fwd']]) {
     const s = read(host);
-    assert.ok(s.includes(`else if (!modes?.attemptExteriorDoorBash?.(${ray})) audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);`),
+    // AUDIT 29g: a swing STOPPED on a spared body ({spared: true}) met someone - it whooshes and no door is offered it
+    assert.ok(s.includes(`else if (r?.spared || !modes?.attemptExteriorDoorBash?.(${ray})) audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);`),
       `${host}: the door arm runs on the no-enemy swing, and a consumed swing rings nothing`);
     // ...and the old unconditional miss sound is gone
     assert.ok(!s.includes('else audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);'),

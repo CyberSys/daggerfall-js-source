@@ -7114,7 +7114,11 @@ export async function bootWorld(canvas, renderer, params, status) {
         severePunishmentFlags: playerEntity.regionConditions?.[_region]?.severePunishmentFlags ?? 0,
       });
       for (let s = 0; s < _owed; s++) {
-        setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);   // V4: through the one setter (SuppressCrime)
+        // WERE-LEVY (FIELD BUGS 2026-09-29g): :502/:509 assign the FIELD (`crimeCommitted = ...`), not the setter -
+        // DFU's one crime write that SuppressCrime is never asked of. V4 routed it through the setter, so a transformed
+        // lycanthrope with a hated name drew the watch with NO crime to answer: never halted, never charged, and the
+        // watch never stood down (EnemyEntity keeps guards while transformed) - "now all guards won't leave me alone".
+        playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;
         _witnessResponse();
       }
       // ROAD-B: :513-516, the THIRD statement of the same minute -
@@ -7192,7 +7196,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   const rrRiding = createRrRidingContacts({
     playerEntity,
     feet: () => player.pos, yaw: () => cam.yaw,
-    livePersons: () => _livePersons, foes: () => exteriorFoes.foes, guards: () => cityGuards.guards.filter((g) => !cityGuards.playerSpares(g)),   // RAID-GUARDS: the charge passes a spared defender by
+    livePersons: () => _livePersons.filter((seat) => !cityGuards.playerSparesPerson(seat.person)),   // RAID-GUARDS-NPC: the trample passes a raid's walkers by (guards and townspeople)
+    foes: () => exteriorFoes.foes, guards: () => cityGuards.guards.filter((g) => !cityGuards.playerSpares(g)),   // RAID-GUARDS: the charge passes a spared defender by
     isGuardRecord: (f) => f._encounter === undefined && cityGuards.guards.includes(f),
     splashBlood: (pos, fwd) => hitEffects.showBloodSplash(0, pos, fwd, LETHAL_HIT),
     playClip: (clip, volume) => audio.playOneShot(clip, volume),
@@ -7651,7 +7656,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:497-502) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1543-1561) gives it -
+    // got exactly what removeGuard (cityGuards.js:1564-1582) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
     // (cityGuards.js:981) and spliced out at the end of it (:1171).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
@@ -8032,6 +8037,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       foeSinks: (f) => enchantFoeSinks(f),
       feet: () => enchantFeet(),
       standLooseFoe: _standLooseFoe,
+      bossSpell: (record) => { modes?.dungeonCtx?.spellOnBoss?.(record); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted)
       // V3: Azura's TEXT.RSC popup.
       // ENH-NOTICE3: through the one door, and the ROUTING CHANGES -
       // this was `townTalk.showOverlay`, a REPLACE of the outdoor slot
@@ -10050,7 +10056,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7458), so exterior mode and a
+    // composer, dungeonContext.js:7462), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -23029,7 +23035,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1270). DFU makes no pool distinction:
+        // (cityGuards.js:1285). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.
@@ -23115,7 +23121,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           cityGuards.resolveCivilianHit(weaponRig.playerWeapon, cam.pos, lookFwd, player.pos, _guardPool(),
             { onMurder: () => _crimeResponse(), onHitSound: guardHitSound, swing }).then((r) => {
             if (r?.carriedHit) tallySwingSkills(playerEntity, weaponRig.playerWeapon.weapon);
-            if (r) surfacePlayer();
+            if (r?.crime) surfacePlayer();
             // ROAD-B: WeaponManager.WeaponEnvDamage (:474-477) - a
             // swing that met no living thing is offered to the STATIC
             // DOORS, and a door under it is BASHED (PlayerActivate
@@ -23126,7 +23132,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             // AUDIT 23 (C9): the no-enemy swing sound at the hit frame -
             // and NOT when the env arm consumed the swing, which is
             // what WeaponEnvDamage returning true means (:1066).
-            else if (!modes?.attemptExteriorDoorBash?.(cam.pos, lookFwd)) audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);
+            // AUDIT 29g: a swing that stopped on a spared body (r.spared) met someone - no door behind him is bashed
+            else if (r?.spared || !modes?.attemptExteriorDoorBash?.(cam.pos, lookFwd)) audio.playOneShot(swingSoundFor(weaponRig.playerWeapon.weapon), 1.1);
           }).catch((e) => console.error('[civil]', e));
         }
       }

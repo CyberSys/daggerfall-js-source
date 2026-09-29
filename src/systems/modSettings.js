@@ -62,10 +62,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'A name under the crosshair for whatever you are looking at: a person, a shop and the hours it keeps, '
-          + 'a door and its lock level, the dungeon beyond an exit, a lever, a wheel, a ladder, a bookshelf, and a Daedra '
-          + 'waiting to be summoned. The mod\u2019s own ladder, in its own order, worn in the enhanced skin\u2019s dress. Off, the '
-          + 'plaque still lists what a chest or a body holds - that is the port\u2019s own and has no switch.',
+        description: 'A name under the crosshair for what you’re looking at: a person, a shop and its opening hours, a '
+          + 'door and its lock, where an exit leads, a lever, a wheel, a ladder, a bookshelf, a Daedra waiting to '
+          + 'be summoned. With it off, you still see what a chest or body holds.',
       }),
       HideDefaultInteractTooltip: Object.freeze({
         default: false,
@@ -79,9 +78,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RosyTheRascal\u2019s seasonal repaints of the woodland, hills, haunted and mountain trees, rocks and plants '
-          + '- autumn, spring and winter, at the mod\u2019s 3.1x size. The textures come from your own copy of the mod '
-          + 'through the Your own textures pick; without them the classic flats draw.',
+        description: 'Seasonal looks for the trees, rocks and plants: autumn, spring and winter. The textures come from '
+          + 'your own copy of the mod, added through Your own textures; without it the classic sprites are used.',
       }),
     }),
   }),
@@ -102,9 +100,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Hazelnut\u2019s Basic Roads, 1:1: his own road, track, river and stream network for the whole Iliac Bay, '
-          + 'painted onto the terrain as the mod paints it. Off draws the port\u2019s own network instead - generated '
-          + 'from the settlements on your map - so the world keeps its roads either way.',
+        description: 'Hazelnut’s roads, tracks, rivers and streams across the whole Iliac Bay, painted onto the land. Off '
+          + 'uses the port’s own roads, built from the towns on your map, so there are roads either way.',
       }),
       SmoothRoads: Object.freeze({ default: true, description: 'Enables light smoothing of road surfaces, disable for minor extra performance.' }),
       RiversAndStreams: Object.freeze({ default: false, description: 'Enables rendering of rivers and streams on terrain' }),
@@ -121,9 +118,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Kamer’s World of Daggerfall 2.0, 1:1: “Adds details to the wilderness, New Locations, and Dungeon '
-          + 'Exterior detail.” Bandit camps and forts, ruins, shrines, mountains and rock fields across the Iliac Bay, the '
-          + 'ground levelled under each, with their bandits, bears and treasure - and a camp outside Privateer’s Hold.',
+        description: 'More to find in the wilderness: bandit camps and forts, ruins, shrines, mountains and rock fields '
+          + 'across the Iliac Bay, with bandits, bears and treasure, and a camp outside Privateer’s Hold.',
       }),
     }),
   }),
@@ -137,9 +133,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Cliffworms’ Aquatic Sprites 1.0, 1:1: “Adds aquatic sprites to submerged caverns.” The weed, coral '
-          + 'and shells Daggerfall ships and never places, set into three of its flooded dungeon blocks - 119 of them, '
-          + 'drawn from your own game files.',
+        description: 'Seaweed, coral and shells placed in three flooded dungeon blocks. Daggerfall ships these sprites but '
+          + 'never uses them; they come from your own game files.',
       }),
     }),
   }),
@@ -151,9 +146,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Cliffworms’ Detailed Ships 1.0.0, 1:1: “Revamps the interior and exterior of player ships.” Rigging, '
-          + 'crates and barrels, tenders, rudders and railings outside; below decks, quarters for you and the crew, a '
-          + 'kitchen, a cargo hold, an armory and a shrine to Kynareth, with sailors to talk to.',
+        description: 'Your ship, rebuilt inside and out. Outside: rigging, crates and barrels, a small boat, a rudder and '
+          + 'railings. Below deck: quarters for you and the crew, a kitchen, a cargo hold, an armory, a shrine to '
+          + 'Kynareth, and sailors to talk to.',
       }),
     }),
   }),
@@ -166,9 +161,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Kamer\u2019s Warm Ashes - Ships 1.1, 1:1: \u201cEncounters on Ships and Ocean Fast Travel.\u201d Cross the sea by ship '
-          + 'and one voyage in four is ambushed: you are put on your ship\u2019s deck with your crew as pirate vessels close in '
-          + '(a ship is lent if you own none), and once the boarders are beaten you are set ashore where you were bound.',
+        description: 'Sailing somewhere by ship, one trip in four is attacked by pirates. You fight on your own deck with '
+          + 'your crew (a ship is lent to you if you don’t own one), and once the boarders are beaten you land '
+          + 'where you were going.',
       }),
     }),
   }),
@@ -180,10 +175,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Kamer’s World Events - Raiding Parties 1.1, made for this port: “Selects Random Cities/Hamlets/Towns for '
-          + 'Raids from enemies.” Knights, bandits or orcs fall on towns across the Bay for two hours at a time. Stand in '
-          + 'one and they come at you, with the town’s watch at your side; drive off 15 to 25 and the town is cleansed, '
-          + 'and standing in the region rises. Online every player in the town fights the same raid.',
+        description: 'Knights, bandits or orcs raid towns across the Bay for two hours at a time. Be there and they come '
+          + 'for you, with the town guard fighting beside you. Beat 15 to 25 of them to free the town and raise '
+          + 'your standing in the region. Made for this port. Online, everyone in the town fights the same raid.',
       }),
     }),
   }),
@@ -195,9 +189,10 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Harbinger451\u2019s Foraging 1.7, 1:1: in the wilderness, use a Wood-Axe to chop wood, a Pick-Axe to mine gems '
-          + 'and metals, a Sickle to cut plants, a Spade to rob graves, a Fishing-Net to fish and a Basket to forage for food - '
-          + 'by daylight, away from towns and foes, as your attributes, the climate and the season allow.',
+        description: 'Gather in the wilderness: chop wood with a Wood-Axe, mine gems and metals with a Pick-Axe, cut '
+          + 'plants with a Sickle, rob graves with a Spade, fish with a Fishing-Net and forage for food with a '
+          + 'Basket. Only by day, away from towns and enemies, and your attributes, the climate and the season '
+          + 'decide what you find.',
       }),
     }),
   }),
@@ -214,10 +209,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'jet082’s Iliac Puddle No More 1.2.2, 1:1: “The Iliac Puddle is now the Iliac Bay.” The sea is carved out '
-          + 'under the water - a seafloor that falls away from every coast, as deep as 250 metres - with a surface you see '
-          + 'from above and below, open-water swimming and your breath to watch, fish, weed and coral, wrecks and sunken '
-          + 'loot, and what lives in the deep.',
+        description: 'A real sea under the water: the seafloor drops away from every coast, up to 250 metres deep, with '
+          + 'swimming in open water, a breath meter, fish, weed and coral, shipwrecks and sunken loot, and '
+          + 'whatever lives in the deep.',
       }),
       'General.WaterDepth': Object.freeze({ default: 250.0, min: 5.0, max: 250.0, float: true, step: 1, description: 'Maximum water depth' }),
       'General.SpawnWaterSurfaces': Object.freeze({ default: true, description: 'Render visible water surfaces' }),
@@ -263,10 +257,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'jet082’s There’s a Hole in the Bottom of the Ocean 1.1.0, 1:1: “Adds deterministic blue holes in the '
-          + 'deep ocean leading to flooded abyssal dungeons with stronger loot.” Where a map pixel its hash picks (one in '
-          + 'forty-eight) is deep open sea on Iliac Puddle No More’s bay, a black hole opens in the seafloor under a plume of '
-          + 'miasma, and swimming down into it leads to a drowned dungeon.',
+        description: 'Blue holes in the deep sea lead down to flooded dungeons with better loot. About one open-sea square '
+          + 'in forty-eight has one: a black hole in the seafloor under a cloud of dark mist. Needs Iliac Puddle '
+          + 'No More.',
       }),
       'General.PitSpawnRate': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Pit spawn rate (off at 0, one in 48 at middle, one in 24 at maximum)' }),
       'General.SurfaceHoleSize': Object.freeze({ default: 0.5, min: 0.0, max: 1.0, float: true, step: 0.05, description: 'Surface hole size' }),
@@ -298,10 +291,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RedRoryOTheGlen’s Come Sail Away 2.1, 1:1: “Adds a usable boat and sailing mechanics.” Buy a boat '
-          + 'as its parts or its deed, put it in the water (the deed near a port) and take the helm: row with the oars or raise the sails '
-          + 'and let the wind carry you, trim them to it, and pack the boat up again to carry it on. Its cargo is what you '
-          + 'and your cart carry, and its position can be read on the travel map.',
+        description: 'Own and sail your own boat. Buy it as parts or as a deed, put it in the water (the deed near a port) '
+          + 'and take the helm: row with the oars or raise the sails and trim them to the wind, then pack it up '
+          + 'to take with you. It carries what you and your cart carry, and it shows on the travel map.',
       }),
       'Controls.Disembark': Object.freeze({ default: 'C', text: true, description: 'Leave the helm (the Transport key does too).' }),   // CSA-D / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
       'Controls.ToggleSail': Object.freeze({ default: 'Space', text: true, description: 'Raise or stow the sails at the helm.' }),   // CSA-E / KB1: not read by the mod any more - the key is the registry's action (inputActions.js MOD_ACTIONS); a player's saved value is carried there once (migrateKeyBinds)
@@ -365,9 +357,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Ralzar\u2019s Meaner Monsters 1.5.2, 1:1: \"Buffs many monsters. Debuffs rats, bats and zombies.\" Twenty '
-          + 'monsters\u2019 damage, health, level and armour rewritten, the werebeasts and the dragonling drawn larger. '
-          + 'With Physical Combat And Armor Overhaul also on, its own edit of these numbers takes over.',
+        description: 'Many monsters hit harder and take more to kill; rats, bats and zombies are weaker. Twenty monsters '
+          + 'are changed, and werebeasts and the dragonling are bigger. With Physical Combat And Armor Overhaul '
+          + 'also on, that mod’s version of these changes is used.',
       }),
     }),
   }),
@@ -385,9 +377,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Kirk.O\u2019s Physical Combat And Armor Overhaul 1.44, 1:1: armour reduces the damage you take instead of '
-          + 'your chance to be hit, skills decide the hit, weapons and shields wear and block by their material, and '
-          + 'critical strikes multiply damage. Off returns Daggerfall Unity\u2019s own combat formulas.',
+        description: 'Armour reduces the damage you take instead of your chance to be hit, your skills decide whether you '
+          + 'hit, weapons and shields wear and block according to their material, and critical hits multiply '
+          + 'damage. Off uses Daggerfall Unity’s combat.',
       }),
       equipmentDamageEnhanced: Object.freeze({ default: true, description: 'Equipment condition damage is increased significantly, the amount of wear your equipment takes is based on many different factors; Material, Damage Source, Etc' }),
       fadingEnchantedItems: Object.freeze({ default: true, description: 'Enchanted Weapons and Armor will be destroyed upon breaking from physical combat. !!!! This Module Is Dependent On Equipment Damage Enhanced' }),
@@ -409,9 +401,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Ralzar\u2019s Unleveled Loot 1.1.2, 1:1: \"Makes loot and shop stock materials not scale to your level.\" '
-          + 'Materials roll by your luck, the shop\u2019s quality and the dungeon\u2019s kind; a corpse\u2019s gold '
-          + 'follows your luck rather than your level. Off returns Daggerfall Unity\u2019s own rolls.',
+        description: 'Loot and shop stock no longer scale with your level. What materials drop depends on your luck, the '
+          + 'shop’s quality and the type of dungeon, and the gold you find follows your luck. Off uses Daggerfall '
+          + 'Unity’s rolls.',
       }),
       ...Object.fromEntries(['Iron', 'Steel', 'Silver', 'Elven', 'Dwarven', 'Mithril', 'Adamantium', 'Ebony', 'Orcish', 'Daedric'].map((name, i) => [name, Object.freeze({
         default: i,
@@ -451,9 +443,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RealAKP\u2019s Diverse Weapons 1.7.3: a first-person sprite set for every weapon, in every metal, plain and '
-          + 'enchanted, where the classic art has one per weapon class - a longsword no longer swings the broadsword\u2019s '
-          + 'sprite. The sprites ship with the port; a newer version\u2019s .dfmod attached through the textures pick wins over them.',
+        description: 'A different first-person look for every weapon in every metal, plain and enchanted, instead of one '
+          + 'per weapon type. A longsword no longer looks like a broadsword. Comes with the port; a newer version '
+          + 'added through Your own textures replaces it.',
       }),
       WeaponWidgetPreset: Object.freeze({
         default: false,   // DISC16-B (2026-09-24, Mac: "I just want it how it was before diverse weapons"): OFF, as at DW1 - the mod's sprites move with Weapon Widget's own defaults, as every weapon did before the mod; the preset (its step, inertia, true size and 142 bob) is the player's to choose. DW-CLIP ("mod should be defaulted on") had it on, DISC14-B off with two departures of its own
@@ -473,8 +465,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Hazelnut and Ralzar\u2019s Roleplay & Realism: Items 1.3, 1:1: two new weapons and a light and a medium armor set '
-          + 'in every metal, and the mod\u2019s changes to what items weigh and cost. Its modules below are the mod\u2019s own switches.',
+        description: 'Two new weapons, a light and a medium armour set in every metal, and changes to what items weigh and '
+          + 'cost. Its options below are the mod’s own.',
       }),
       lootRebalance: Object.freeze({ default: true, description: 'Rebalances loot on mobs and in piles' }),
       bandaging: Object.freeze({ default: true, description: 'Allows bandages to stack, and to be used for healing based on medical skill' }),
@@ -495,10 +487,11 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Hazelnut\u2019s Roleplay & Realism 1.8, 1:1: bows by their draw, no climbing with a weapon out, swing speed and material to-hit '
-          + 'moderated, armor worn by the blow, bank loans by level, ships from ports only, an encumbrance penalty, lights doused leaving a dungeon, '
-          + 'purification that cures poison, class enemies remixed, the underworld guilds expelling with prejudice, a bed you can click to sleep in. '
-          + 'The modules below are the mod\u2019s own switches.',
+        description: 'Realism changes: bows by draw weight, no climbing with a weapon out, fairer swing speed and hit '
+          + 'chance, armour that wears as it’s hit, bank loans by level, ships only from ports, a heavy-load '
+          + 'penalty, lights out when you leave a dungeon, purification that cures poison, reworked class '
+          + 'enemies, harsher guild expulsions, and beds you can click to sleep in. Its options below are the '
+          + 'mod’s own.',
       }),
       // the mod's own descriptions (modsettings.json, Modules)
       bedSleeping: Object.freeze({ default: true, description: 'Allows sleep to be initiated by clicking on a bed.' }),
@@ -538,8 +531,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'A shield in the first-person view, which classic Daggerfall never drew: the one in your hand, in its own '
-          + 'metal, battering as it wears and moving aside when you sheathe, swing or cast.',
+        description: 'See your shield in first person, which classic Daggerfall never shows. It is drawn in its own metal, '
+          + 'gets battered as it wears, and moves out of the way when you sheathe, swing or cast.',
       }),
       'Shield.Scale': Object.freeze({ default: 1.0, min: 0.8, max: 1.2, float: true, step: 0.1, description: 'Size of the sprite' }),
       'Shield.OffsetHorizontal': Object.freeze({ default: 0.5, min: -1.0, max: 1.0, float: true, step: 0.1, description: 'Offsets the sprite relative to the left edge of the screen' }),
@@ -585,9 +578,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RedRoryOTheGlen\u2019s Weapon Widget 1.6, 1:1: the first-person weapon sprite handled anew - swings that '
-          + 'wind up and recover, the sprite in the hand you swing with, a sheathe, a walking bob, look inertia and a '
-          + 'recoil on a hit or a parry. The same channels move the Morrowind arms.',
+        description: 'Livelier first-person weapons: swings that wind up and recover, the weapon in the hand you swing '
+          + 'with, a sheathe animation, a bob as you walk, sway as you look and a kick when you hit or parry. The '
+          + 'Morrowind arms move the same way.',
       }),
       'Modules.Swings': Object.freeze({ default: true, description: 'Swings: the strike winds up from the idle pose, plays at its own speed, and recovers - in reverse after a hit.' }),
       'Modules.Ambidexterity': Object.freeze({ default: true, description: 'Ambidexterity: the sprite is drawn in the hand you are swinging with (H), mirrored for the left.' }),
@@ -645,9 +638,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RedRoryOTheGlen\u2019s Handheld Torches 1.4.1, 1:1: a lit torch, candle or lantern needs a free hand, with '
-          + 'keys to ignite, drop or throw one (a thrown torch can set a foe alight). A first-person hand holds the '
-          + 'light, and a dropped torch burns on the ground, lights the room and can be picked up.',
+        description: 'A lit torch, candle or lantern needs a free hand. You get keys to light, drop or throw one (a thrown '
+          + 'torch can set an enemy on fire). You see the light in your hand in first person, and a dropped torch '
+          + 'keeps burning, lights the room and can be picked up again.',
       }),
       // SOC5 (2026-09-16, Mac: "Players should be able to interact with others
       // in the world upon encountering them by pressing F on their body"): THE
@@ -794,10 +787,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Regnier\u2019s Ambient Text 1.8, 1:1: an unobtrusive line about where you are, now and then, in the '
-          + 'corner of the screen - what a crypt smells of, what a village sounds like at night, what the desert does '
-          + 'to the light. It reads where you stand, the hour and the weather, and says nothing at all indoors. Off is '
-          + 'silence.',
+        description: 'Now and then, a short line in the corner about where you are: what a crypt smells like, what a '
+          + 'village sounds like at night, how the desert light looks. It depends on the place, the time and the '
+          + 'weather, and stays quiet indoors.',
       }),
       textChance: Object.freeze({ default: 33, min: 0, max: 100, description: 'Chance % of selecting any ambient text each interval' }),
       interval: Object.freeze({ default: 200, min: 60, max: 600, description: 'Interval length between checking ambient text in real time seconds' }),
@@ -821,10 +813,10 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'RedRoryOTheGlen\u2019s Eye Of The Beholder 2.1 (the camera and the sprite; its attack and death animations are not ported): third person without Morrowind data. Scroll out '
-          + 'and the camera swings behind your shoulder, clearing walls on its own; you are drawn as the mod\u2019s own '
-          + 'sprite, eight ways round, with idle, walk, attack and spell states on foot and in the saddle. Off keeps '
-          + 'you in first person unless you have the Morrowind body.',
+        description: 'Third person without Morrowind data. Scroll out and the camera moves behind your shoulder and keeps '
+          + 'clear of walls. You are drawn as the mod’s character sprite, from all sides, standing, walking, '
+          + 'attacking and casting, on foot and on horseback. Its attack and death animations aren’t included. '
+          + 'Off keeps you in first person unless you use the Morrowind body.',
       }),
       'Camera.StartInThirdPerson': Object.freeze({ default: true, description: 'Determines the POV when starting or loading a game' }),
       'Camera.FrontalPlaneOffset': Object.freeze({ default: Object.freeze([0.0, 0.5]), tuple: 'float', description: 'Moves the camera position on the X and Y axes' }),
@@ -936,7 +928,7 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Kirk.O\u2019s Immersive Footsteps 1.01, 1:1: footsteps by the ground you walk on, armour that sways as you move.',
+        description: 'Footsteps that match the ground you walk on, and armour that rattles as you move.',
       }),
       'AudioQualitySettings.SoundClipQuality': Object.freeze({ default: 0, options: Object.freeze(['Low-Quality (Retro)', 'High-Quality']), description: 'What Quality Sound-Clips Get Used' }),
       'FootstepSettings.AllowFootstepSounds': Object.freeze({ default: true, description: 'If Player Footsteps Should Make A Sound || Default = True' }),
@@ -982,7 +974,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Joshua Steinhauer\u2019s Better Ambience 0.1.4, 1:1: the camera shakes when you are hurt, a dungeon gets its own fog, light and echo, and rain is heard indoors.',
+        description: 'The camera shakes when you’re hurt, each dungeon gets its own fog, light and echo, and you can hear '
+          + 'rain indoors.',
       }),
       'Better Footsteps.enable': Object.freeze({ default: false, description: 'Enables better footsteps module' }),
       'Better Footsteps.armorVolume': Object.freeze({ default: 1.0, min: 0.0, max: 2.0, float: true, step: 0.1, description: 'Volume for armor clanking' }),
@@ -1035,7 +1028,8 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Oblivion Remastered’s leveling in place of Daggerfall’s: every skill you raise fills a 100-point bar, and levelling up hands you a purse of virtues to spend where you choose. New characters are asked which system they want.',
+        description: 'Level up like Oblivion Remastered: every skill you raise fills a 100-point bar, and each level gives '
+          + 'you virtues to spend on the attributes you choose. New characters are asked which system they want.',
       }),
       attributePoints: Object.freeze({ default: 12, min: 0, max: 60, description: 'Amount of points for increasing attributes' }),
       maxUpdatableAttribute: Object.freeze({ default: 3, min: 2, max: 8, description: 'The number of attributes to be increased in one level up' }),
@@ -1068,10 +1062,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Hazelnut\u2019s Travel Options 1.11, 1:1: the travel map and its popup decide between Daggerfall\u2019s own '
-          + 'fast travel and a TIME ACCELERATED journey you actually walk - the world streaming past at up to sixty times speed, '
-          + 'with a control panel to steer it, encounters and locations pausing it, and roads and tracks to follow. Off returns '
-          + 'the classic travel map and fast travel alone.',
+        description: 'Choose between Daggerfall’s fast travel and a journey you actually travel, sped up to sixty times, '
+          + 'with a panel to steer it. Encounters and places along the way stop you, and you can follow the '
+          + 'roads. Off brings back the classic travel map and fast travel only.',
       }),
       'CautiousTravel.PlayerControlledCautiousTravel': Object.freeze({ default: true, description: "Enables the travel option \"Cautiously\" to initiate time accelerated travel, instead of vanilla fast travel" }),
       'CautiousTravel.SpeedPenalty': Object.freeze({ default: 20, min: 5, max: 40, description: "Speed penalty for travelling cautiously, as a percentage" }),
@@ -1202,9 +1195,9 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'demifiend000\u2019s Horse Cart and Cargo 1.0.0-rc12, 1:1: your horse and wagon stand in the world - '
-          + 'left where you dismount, following or waiting on command, hitched and mounted by walking up to them. '
-          + 'Online, the others see them where you left them.',
+        description: 'Your horse and cart stay in the world: they wait where you get off, follow you or stay on command, '
+          + 'and you hitch or mount them by walking up to them. Online, other players see them where you left '
+          + 'them.',
       }),
       'Persistence.PhysicalPersistence': Object.freeze({ default: true, description: 'Physical Horse & Wagon Persistence. On: horse and wagon positions persist when left behind. Off: remote positions are forgotten and owned transport is recalled for vanilla-style transport and wagon access; the moving trailing wagon remains. Re-enabling starts fresh with owned transport at the player.' }),
       'Presentation.ShowTrailingWagon': Object.freeze({ default: true, description: 'Trailing Wagon While Riding. When disabled, hides only the wagon that trails behind you in Cart mode. Deployed and following wagons, cargo storage, physical persistence, and wagon gameplay remain enabled.' }),
