@@ -78,7 +78,7 @@ test('WORLD5: the relay\'s welcome carries its clock (`now`, ms) in every place 
   assert.equal(heard.length, 1, 'a welcome with no clock says nothing');
 });
 
-test('WORLD5: the ticker under the shared clock - worldMinutes reads the source, every write is refused, the tick claims the rounds the clock owes between two readings and fabricates none from dt, and a jump runs the owed rounds and moves nothing', () => {
+test('WORLD5: the ticker under the shared clock - worldMinutes reads the source, every write is refused, the tick claims the rounds the clock owes between two readings and fabricates none from dt, and a jump runs the owed rounds on the character\'s own clock and moves the world\'s nothing (LIVED1)', () => {
   let t = 1000;
   try {
     setSharedClock(() => t);
@@ -213,7 +213,7 @@ test('WORLD5 (superseded by WORLD7): the stand-down is gone - a quest clock char
   assert.equal(rd('src/systems/quest/clock.js').includes('questClocksStoodDown'), false, 'the stand-down word is gone from the clock');
 });
 
-test('WORLD5: the hosts by source - the shared clock installed at the boot before anything reads the time, ?tod and ?timescale standing down, the markers aligned and the day rolled when the session starts, the relay\'s offset heard, the trip taking no world time, the jump refused, the rest paced, the quest clocks stood down through the bridge and the parser', () => {
+test('WORLD5: the hosts by source - the shared clock installed at the boot before anything reads the time, ?tod and ?timescale standing down, the reading anchored and the day rolled when the session starts, the relay\'s offset heard, the trip taking no WORLD time (LIVED1: the character\'s own), the world\'s jump refused, the rest paced, the quest clocks on played time through the bridge and the parser', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /let _sharedOffsetMs = 0;[^\n]*\n\s*if \(params\.has\('online'\)\) \{ setSharedClock\(\(\) => sharedClassicMinutes\(Date\.now\(\) \+ _sharedOffsetMs\), \(m\) => wallMsForClassicMinutes\(m\) - _sharedOffsetMs\); setSharedWeather\(true\); \}/, 'installed at the boot, the shared weather with it (OL3: the inverse beside the source)');
   assert.match(w, /if \(bootTod != null && !sharedClockOn\(\)\) setWorldMinutes\(/, '?tod stands down');
@@ -225,7 +225,7 @@ test('WORLD5: the hosts by source - the shared clock installed at the boot befor
   assert.match(w, /if \(clamp > 0 && !sharedClockOn\(\)\) \{ setSyntheticTimeIncrease\(true\); playerTicker\.advance\(clamp\); \}/, 'no arrival clamp');
   assert.match(w, /questClockStepMax: \(\) => \(sharedClockOn\(\) \? PLAYED_STEP_MAX_SECONDS : Infinity\),/, 'the bridge\'s dep (WORLD7: the played step, not the stand-down)');
   const sh = rd('src/scenes/shared.js');
-  assert.match(sh, /advance\(minutes\) \{\s*if \(!\(minutes > 0\)\) return null;\s*if \(sharedClockOn\(\)\) return this\.tick\(0, undefined, 0, minutes\);/, 'LIVED1: RaiseTime under the shared clock raises the character\'s own clock, and the tick walks it');
+  assert.match(sh, /advance\(minutes\) \{\s*if \(!\(minutes > 0\)\) return null;\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) \{ if \(tickInFlight\(\)\) \{ advanceOwnMinutes\(minutes\); return null; \} return this\.tick\(0, undefined, 0, minutes\); \}/, 'LIVED1: RaiseTime under the shared clock raises the character\'s own clock, and the tick walks it');
   assert.match(sh, /sharedMinutes: \(\) => \(sharedClockOn\(\) \? worldMinutes\(\) : null\),/, 'every host\'s rest deps say the world\'s clock (the window\'s line, the session\'s quest gate)');
   assert.match(rd('src/scenes/questBridge.js'), /questClockStepMax: \(\) => ctx\.questClockStepMax\?\.\(\) \?\? Infinity,/);
   const m = rd('src/systems/quest/machine.js');

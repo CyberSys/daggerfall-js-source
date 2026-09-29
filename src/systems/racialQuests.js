@@ -12,14 +12,13 @@
 // every 84 days (120960) the CURE quest. Both walks run on absolute
 // classic minutes, over whatever span the tick walks: offline a
 // fortnight of prison or travel catches up exactly as DFU's
-// `for (i < minutesPassed)` does. AUDIT DISC28 TM-3: online the world's
-// clock is nobody's to jump, so there is no such fortnight; the minutes
-// a player lies dead ARE walked, at the rise (worldTick.js
-// skipDeadMinutes -> runCalendarArms, the loop's one body), but the
-// minutes of an ABSENCE are not - an arrival pays only the normalise's
-// recovery half (alignEntityClocks), so a 38- or 84-day minute that
-// falls while the player is away rolls nothing. That is the online time
-// model's standing gap, recorded, not DFU's law.
+// `for (i < minutesPassed)` does. LIVED1 (AUDIT LIVED1 K): online both
+// walks run on the CHARACTER's own clock, which a sentence, a journey or
+// the vampire's fortnight moves exactly as offline - so those spans are
+// walked too - and which stands while the player is away or dead, so a
+// 38- or 84-day minute is rolled when the character lives it, never
+// across an absence or a death. [SUPERSEDES AUDIT DISC28 TM-3's walk of
+// the dead span and the "no such fortnight" online.]
 //
 // THE ROLLS ARE EACH CURSE'S OWN, verbatim:
 //  - werewolf/wereboar: CURE only (the base StartQuest is empty) -

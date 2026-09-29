@@ -48,7 +48,7 @@
 // are still drawn on the canvas in the 1996 bitmap face under this
 // skin, and that is a slice of its own rather than an oversight:
 // ui/deathScreen.js:172-174, ui/restWindow.js:871, ui/saveWindow.js:641+
-// (shadowText, eight sites), ui/travelPopUp.js:720,
+// (shadowText, eight sites), ui/travelPopUp.js:721,
 // ui/questJournal.js:641-642, ui/messageBox.js:501/:504 and
 // ui/actionText.js:45/:137 (every ActionTextBox's parchment on the
 // classic skin). Each of those is a native window whose every drawn

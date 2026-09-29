@@ -191,14 +191,21 @@ available as a named constant if play shows it is needed. The credit is gone; th
 
 ## On screen
 
-- **Rest window:** "World time 15:05 - you rest on your own clock".
+- **Rest window:** "World time 15:05 - you rest on your own clock" (a loiter "waits"), on the classic
+  window's pages and the default skin's rest card alike (AUDIT LIVED1 O, S).
 - **Travel popup and enhanced map:** the trip's days, as offline, with "Online: the days pass on your
   own clock. You arrive in the world's present." / "N days of your time".
 - **Tavern offer:** "The room is yours for 7 days of your time (14h of play) - resting spends it,
-  time away does not." Heart's Day, a meal's holiday and the kitchen's hours read the world's calendar
-  (`worldNow`).
+  time away does not." - on the classic window in two rows, split at the play's bracket, so it fits
+  the screen (AUDIT LIVED1 N). Heart's Day, a meal's holiday and the kitchen's hours read the world's
+  calendar (`worldNow`), and so do the temple's free and half-price cure days (AUDIT LIVED1 C).
 - **Bank due-by and the smith's ready line:** "in 3 days of your time (6h of play)".
-  `ownTimeLeftText` says the time left on the character's clock, and the most play it can take.
+  `ownTimeLeftText` says the time left on the character's clock, and the most play it can take. The
+  classic bank's parchment and the character sheet's loan column have no room for the play, so they
+  take `ownTimeLeftShort` ("in 359 days of your time", "in 359 days"); a loan already due says "due
+  now" (AUDIT LIVED1 L, P, Q).
+- **The daylight refusal:** the nightfall words ride their own HUD row, since the classic HUD draws a
+  line unwrapped (AUDIT LIVED1 M).
 - **The Online pane's rules:** the character's own time, said at the door.
 
 ## The save
@@ -210,9 +217,20 @@ it.
 - **Online load:** the character's clock is restored from `classicMinutes`. The absence is
   `worldMinutes` to the world's now. A save from before LIVED1 carried the world's minute as its own,
   and every marker in it was stamped on that clock, so it answers for both.
-- **Copy to offline:** the offline world's clock is the character's, so every marker stays in tune.
-- **Bring online:** the offline clock becomes the character's.
-- **Save cards:** the world's date at the save (`worldMinutes ?? classicMinutes`).
+- **Copy to offline:** the offline world's clock is the character's, so every marker of theirs stays
+  in tune - and the WORLD's stamps the envelope carries (a quest clock's sample, a CreateFoe's last
+  wave, the rumours' limits, the spawned dungeons' ledger, a fire's hours) are rebased onto it by the
+  distance between the two clocks at the save; `worldMinutes` goes (`systems/offlineCopy.js
+  offlineCopyOf`, AUDIT LIVED1 E).
+- **Bring online:** the offline clock becomes the character's; the world's stamps move onto the shared
+  clock, and the envelope says it joined at the world's minute, so the first join pays no absence the
+  character never had (`onlineCopyOf`, AUDIT LIVED1 G).
+- **Save cards:** a card is a local slot's, and a local slot plays offline on its one clock - so every
+  card says `classicMinutes`' date, the date it loads at. [AUDIT LIVED1 T corrected this line: it said
+  the world's date, which no local slot but a copy carried.]
+- **A save from before LIVED1** whose disease day, poison minute or curse clock sat ahead of its clock
+  (RESTX2's checkpoint under a rest) is brought back to it on the online load (`save.js
+  clampMarkersAheadOf`, AUDIT LIVED1 F).
 
 ## The law in code
 
@@ -221,8 +239,11 @@ it.
   - `tickPlayerMinutes`' two windows and its `raiseMinutes`;
   - `runDayChange` and `runCalendarArms` take `arms` (`DAY_ARMS.world` / `own` / `all`);
   - `runMagicRoundsFor`' `skyMinutes`;
-  - arrival and death: `alignEntityClocks` (arrival), `skipDeadMinutes` (the world's half);
-  - words: `ownTimeLeftText`, `worldNightfallText`.
+  - arrival and death: `alignEntityClocks` (arrival), `skipDeadMinutes` (the world's half), and the
+    world arms' high-water mark both respect (AUDIT LIVED1 I);
+  - `tickInFlight`: an online raise from inside a tick is a bare move (AUDIT LIVED1 J);
+  - words: `ownTimeLeftText`, `ownTimeLeftShort`, `worldNightfallText`.
+- `systems/offlineCopy.js`: the two doors between the lanes (AUDIT LIVED1 E, G).
 - `scenes/shared.js`:
   - the ticker's `ownMinutes`, and `advance` online;
   - RaiseSkills on the character's clock;
@@ -269,4 +290,6 @@ No relay change. The servers keep the save opaque, and `RELAY_VERSION` does not 
   source were re-aimed by content where their law stands (46, all dead) and retired with it where it
   does not (14: the arrival's and the correction's shifts and pauses, the session counter and its seed,
   the rest arm's second window).
+- Audited: `01-Overview/Audit-Lived1.md` - six lanes, every finding reproduced and fixed or recorded;
+  `test/auditlived1.test.js` (13), `tools/mutants/auditlived1.json` (67, all dead).
 - Not verified in a browser: no online session exists in this container.

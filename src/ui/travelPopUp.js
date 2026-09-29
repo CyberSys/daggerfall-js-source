@@ -279,7 +279,8 @@ export class TravelPopUpWindow {
    *  trip's HOURS, and the journey has a length online even though the
    *  clock will not advance over it. The ship clause was always the
    *  correct reading of the same question ("a crossing is a crossing")
-   *  and now both halves agree. The zero days stand. */
+   *  and now both halves agree. [LIVED1: the days are counted online too
+   *  - they pass on the traveller's own clock.] */
   noWorldTime() { return !!this.deps.noWorldTime?.(); }
 
   /** Refresh -> UpdateTogglePanels + UpdateLabels (:254-258). The
@@ -691,8 +692,8 @@ export class TravelPopUpWindow {
       shadowText(renderer, font, String(this.trip.totalCost), m, LABEL_POS.cost[0], LABEL_POS.cost[1]);
       shadowText(renderer, font, String(this.countdownValueTravelTimeDays), m, LABEL_POS.time[0], LABEL_POS.time[1]);   // LIVED1: the days, online too - the line below says whose
     }
-    // TO-ONLINE: ...and NOT over a walked trip. The line says "you
-    // arrive now, and no inn is paid", which was true of every online
+    // TO-ONLINE: ...and NOT over a walked trip. The line said "you
+    // arrive now, and no inn is paid" (LIVED1's says whose days they are), which was true of every online
     // trip while Travel Options stood down on the shared clock and the
     // teleport was the only arrival there was. A walked trip online is
     // a real ride now (scenes/world.js beginAcceleratedTravel), so over

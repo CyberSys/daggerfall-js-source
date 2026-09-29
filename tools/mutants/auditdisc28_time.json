@@ -74,7 +74,7 @@
     ]
   },
   {
-    "name": "AUDITDISC28-TM5-the-broker-marker-stays-at-the-death",
+    "name": "AUDITDISC28-TM5-the-reading-stays-at-the-death",
     "file": "src/systems/worldTick.js",
     "old": "  if (_sharedClock) _sharedLastTick = nowMinutes;\n  entity.preventEnemySpawns = true;",
     "new": "  entity.preventEnemySpawns = true;",

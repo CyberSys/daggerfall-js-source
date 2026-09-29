@@ -593,7 +593,11 @@ export function empireJoin({ entity, nowMinutes, say = () => {} } = {}) {
   return call;
 }
 
-export function tickPlayerMinutes({
+export function tickPlayerMinutes(args = {}) {
+  _tickDepth++;
+  try { return tickPlayerMinutesOnce(args); } finally { _tickDepth--; }
+}
+function tickPlayerMinutesOnce({
   entity,
   classicMinutes,
   dt,
@@ -642,6 +646,8 @@ export function tickPlayerMinutes({
     classicMinutes = _ownMinutes ?? worldFrom;
     _ownMinutes = classicMinutes + (worldTo - worldFrom) + (raiseMinutes > 0 ? raiseMinutes : 0);
   }
+  // AUDIT LIVED1 I: the world's arms start at the world's high-water mark, never below it
+  const worldArmsFrom = _sharedClock ? Math.max(Math.floor(worldFrom), _worldArmsTo ?? -Infinity) : null;
   const next = _sharedClock ? _ownMinutes : classicMinutes + dt * CLASSIC_MINUTES_PER_SECOND;
   // AUDIT 39: the clock as it stood when this tick began. A sink can move
   // the WORLD clock from inside this call (the exhaustion collapse -
@@ -830,7 +836,7 @@ export function tickPlayerMinutes({
   // index, the six zones' roll) over the world's window, the character's (the landlord's sweep, the loan check) over
   // their own - in DFU's order, the world's half first as UpdateRegionalPrices and SetClimateWeathers lead the block.
   if (_sharedClock) {
-    runDayChange({ entity, lastMinutes: Math.floor(worldFrom), nowMinutes: Math.floor(worldTo), rolls, say, arms: DAY_ARMS.world });
+    runDayChange({ entity, lastMinutes: worldArmsFrom, nowMinutes: Math.floor(worldTo), rolls, say, arms: DAY_ARMS.world });
     runDayChange({ entity, lastMinutes, nowMinutes, rolls, say, arms: DAY_ARMS.own });
   } else runDayChange({ entity, lastMinutes, nowMinutes, rolls, say });
   // CLK2: the enhanced lane's HOURLY evolution of the six zones, on the
@@ -860,7 +866,8 @@ export function tickPlayerMinutes({
   // conditions, off the shared day's rolls) over the world's.
   if (_sharedClock) {
     runCalendarArms(entity, lastMinutes, nowMinutes, { rolls, arms: DAY_ARMS.own });
-    runCalendarArms(entity, Math.floor(worldFrom), Math.floor(worldTo), { rolls, arms: DAY_ARMS.world });
+    runCalendarArms(entity, worldArmsFrom, Math.floor(worldTo), { rolls, arms: DAY_ARMS.world });
+    _worldArmsTo = Math.max(_worldArmsTo ?? -Infinity, Math.floor(worldTo));   // AUDIT LIVED1 I
   } else runCalendarArms(entity, lastMinutes, nowMinutes, { rolls });
 
   // PlayerEntity.cs:528-530, the tail of the SAME update: the flag is a
@@ -1070,11 +1077,25 @@ let _worldMinutes = CLASSIC_GAME_START_TIME;
 // the WORLD's clock's; a character's own time is theirs to spend - advanceOwnMinutes, below.]
 let _sharedClock = null;
 let _sharedLastTick = null;
+// AUDIT LIVED1 I (K1): THE WORLD'S ARMS WALK EACH WORLD MINUTE ONCE. The reading re-anchors DOWN when the source steps
+// back (C2 below) or a correction lowers it (alignEntityClocks), and the world's arms - the seven-day power walk and the
+// thirty-eight-day conditions walk, neither of them idempotent - then walked the minutes between again. The per-minute
+// loop's own marker (lastGameMinutes, monotonic) guarded them while they walked the one clock; online they walk the
+// world's, so the world's own high-water mark guards them: only ever raised, and the arms start at it.
+let _worldArmsTo = null;
+// AUDIT LIVED1 J (K6): a tick in flight - the exhaustion collapse's RaiseTime can fire from INSIDE one (a poison
+// draining fatigue within a round), and online the ticker's advance then ran a nested tick whose hour of rounds landed
+// before the outer window's own: a disease day rolled in the nested hour was given back by the outer round
+// (daysPast = -1) and rolled again. DFU's RaiseTime is a bare clock move the broker's next Update catches up; online the
+// ticker's advance is that bare move while a tick is in flight (shared.js createPlayerTicker advance).
+let _tickDepth = 0;
+export const tickInFlight = () => _tickDepth > 0;
 /** Install (a function answering classic minutes) or remove (null) the shared clock. */
 export function setSharedClock(source, wallOf = null) {
   _sharedClock = typeof source === 'function' ? source : null;
   _sharedWall = _sharedClock && typeof wallOf === 'function' ? wallOf : null;
   _sharedLastTick = null;
+  _worldArmsTo = null;   // AUDIT LIVED1 I: a new session's world arms start at its first reading
   _ownMinutes = null;   // LIVED1: a clock installed or removed is a new session - the character's own time comes from its load
   // ECON1: the world's prices stand with the world's clock - every consumer of regionPriceAdjustment reads today's
   // world index while the clock stands, and the player's own again when it goes
@@ -1167,6 +1188,17 @@ export function ownTimeLeftText(untilMinutes) {
     : playMinutes >= 60 ? `${Math.floor(playMinutes / 60)}h${playMinutes % 60 ? ` ${playMinutes % 60}m` : ''}` : `${playMinutes}m`;
   return `${own} of your time (${play} of play)`;
 }
+/** AUDIT LIVED1 P/Q (U5/U6/R7): the same time left, SHORT, for a classic label with no room for the play - the bank's
+ *  parchment, the character sheet's due column: its largest whole unit, floored as the long form's is ("359 days",
+ *  "5 hours", "20 minutes"), "now" at or past it (AUDIT LIVED1 L: a due-by said "in 0 minutes of your time (0m of
+ *  play)" for a loan already due). Null offline, where DFU says its dates. */
+export function ownTimeLeftShort(untilMinutes) {
+  if (!_sharedClock || !Number.isFinite(untilMinutes)) return null;
+  const left = Math.ceil(untilMinutes - ownMinutes());
+  if (left <= 0) return 'now';
+  const n = (v, unit) => `${v} ${unit}${v === 1 ? '' : 's'}`;
+  return left >= MINUTES_PER_DAY ? n(Math.floor(left / MINUTES_PER_DAY), 'day') : left >= 60 ? n(Math.floor(left / 60), 'hour') : n(left, 'minute');
+}
 
 /** EntityEffectBroker.maxCatchupDays = 2, i.e. 2880 game minutes
  *  (EntityEffectBroker.cs:36, applied at :223). DFU's own reasoning: the
@@ -1232,9 +1264,9 @@ export function alignEntityClocks(entity, nowMinutes, { worldLeft = null } = {})
  *  half alone (court.js normalizeReputations' `recoveryOnly`, the port's online time model): a reputation below zero
  *  drifts one point back per boundary, a positive standing is kept. Paid both ways, a break wore every guild,
  *  temple and noble standing down a point per nine real days away and demoted a member at their rank's line on the
- *  next rank check - a cost an absence never had. The minutes spent DEAD are not an absence (the player is on the
- *  death screen while the world runs): skipDeadMinutes walks them through runCalendarArms, both halves, as the tick
- *  walks a lived minute. */
+ *  next rank check - a cost an absence never had. [AUDIT LIVED1 K: the minutes spent DEAD pay neither half - the
+ *  drift is the character's own and their clock stands under the death screen (skipDeadMinutes walks the world's
+ *  arms alone); a lived minute pays both, on the character's clock, as the tick walks it.] */
 export function normalizeAcross(entity, from, to) {
   if (!entity || !Number.isFinite(from) || !Number.isFinite(to)) return 0;
   const a = Math.floor(from), b = Math.floor(to);
@@ -1267,12 +1299,14 @@ export function normalizeAcross(entity, from, to) {
 export function skipDeadMinutes(entity, nowMinutes, { rolls = Math.random, say = () => {} } = {}) {
   if (!entity || !Number.isFinite(nowMinutes)) return false;
   const now = Math.floor(nowMinutes);
-  const last = _sharedClock && Number.isFinite(_sharedLastTick) ? Math.floor(_sharedLastTick) : now;
+  // AUDIT LIVED1 I: from the last reading, and never below the world's high-water mark
+  const last = _sharedClock && Number.isFinite(_sharedLastTick) ? Math.max(Math.floor(_sharedLastTick), _worldArmsTo ?? -Infinity) : now;
   if (_sharedClock) _sharedLastTick = nowMinutes;
   entity.preventEnemySpawns = true;   // AUDIT DISC28 TM-2: every host's encounter loop reads it and lowers it - raised on every rise
   if (now > last) {
     runDayChange({ entity, lastMinutes: last, nowMinutes: now, rolls, say, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: the day block first, as Update orders it
     runCalendarArms(entity, last, now, { rolls, arms: DAY_ARMS.world });   // AUDIT DISC28 TM-3: then the per-minute loop's world arms
+    if (_sharedClock) _worldArmsTo = Math.max(_worldArmsTo ?? -Infinity, now);   // AUDIT LIVED1 I
   }
   return true;
 }

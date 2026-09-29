@@ -5491,11 +5491,11 @@ instance* for the interior mode, so it covers the shops entered from
 `?exterior` too. It passed neither of `EntityEffectManager`'s two
 ready-spell events (`hostMagic.js:92-93`), and those two doors are the
 *only* route into the machine's `CastSpellDo` / `CastEffectDo` latches
-(`machine.js:890`/`:873`; C# subscribes them in the action's
+(`machine.js:899`/`:882`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
 other two engine-owning hosts wire (`world.js:6424-6425`,
-`dungeonContext.js:2462-2463`) is wired here now, and with it
+`dungeonContext.js:2465-2466`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
 byte-folded `spellHasMatchForClassicEffect` (`world.js:11498-11501`),
 absent which the action self-completes at *parse*
@@ -5798,7 +5798,7 @@ MAP - and the three findings it produced, all paid in the same commit.
 
 ### F1 - "LOUDLY" was written over an operation that is silent
 
-`machine.js:55` stated the headless charter: *"absent = headless, every
+`machine.js:61` stated the headless charter: *"absent = headless, every
 Place pends its site **LOUDLY** and the corpus gate stands."* The same
 word sat in `place.js` three times, in `person.js`, and twice in
 `foe.js`, and the bridge's header compressed it to *"absent members idle

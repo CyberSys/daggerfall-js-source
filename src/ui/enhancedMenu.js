@@ -105,6 +105,8 @@ import {
   effectiveSettings, setValue, saveSettings, resetToDefaults, tierOf, DEFAULTS,
 } from '../systems/settings.js';
 import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME, loadSlot, saveSlot } from '../systems/saveSlots.js';
+import { offlineCopyOf, onlineCopyOf } from '../systems/offlineCopy.js';   // AUDIT LIVED1 E/G: the doors between the lanes
+import { sharedClassicMinutes } from '../net/wire.js';   // AUDIT LIVED1 G: the shared clock's minute a character joins at
 import {
   realmIo, realmList, realmCustoms, realmPut, realmDelete, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
 } from '../systems/realmSaves.js';   // REALM P1.3: the Online door lists the realm's characters, the service's
@@ -322,7 +324,7 @@ export function takePickedSaveName() { const n = _pickedSaveName; _pickedSaveNam
 /** One slot as the cards draw it: the character's line and numbers, and the slot's own name. */
 function saveOf(entry) {
   const snap = entry.snap;
-  const date = Number.isFinite(snap.worldMinutes ?? snap.classicMinutes) ? dateFromClassicMinutes(snap.worldMinutes ?? snap.classicMinutes) : null;   // LIVED1: an online save's card says the world's date it was taken on (its own clock rides classicMinutes)
+  const date = Number.isFinite(snap.classicMinutes) ? dateFromClassicMinutes(snap.classicMinutes) : null;   // AUDIT LIVED1 T (R8/S5/U4): a card is a LOCAL slot's, and a local slot plays offline on its one clock - the date it loads at, as the classic window and the cloud cards say
   return {
     key: entry.key,
     saveName: entry.info?.saveName ?? QUICK_SAVE_NAME,
@@ -673,7 +675,7 @@ function savedGame() {
   try { entry = mostRecentRestorable(); } catch { entry = null; }
   if (!entry) return null;
   const snap = entry.snap;
-  const date = Number.isFinite(snap.worldMinutes ?? snap.classicMinutes) ? dateFromClassicMinutes(snap.worldMinutes ?? snap.classicMinutes) : null;   // LIVED1: an online save's card says the world's date it was taken on (its own clock rides classicMinutes)
+  const date = Number.isFinite(snap.classicMinutes) ? dateFromClassicMinutes(snap.classicMinutes) : null;   // AUDIT LIVED1 T (R8/S5/U4): a card is a LOCAL slot's, and a local slot plays offline on its one clock - the date it loads at, as the classic window and the cloud cards say
   return {
     key: entry.key,
     name: snap.name || 'Unnamed',
@@ -1102,7 +1104,7 @@ function bringOnline(save) {
     if (!snap) return { ok: false, error: 'no-data' };
     if (typeof snap.characterId !== 'string' || !snap.characterId) return { ok: false, error: 'customs-load-once' };
     if (snap.testRoom === true) return { ok: false, error: 'test-room' };   // AUDIT SET D4's law: the room's characters play offline
-    const copy = JSON.parse(JSON.stringify(snap));
+    const copy = onlineCopyOf(snap, sharedClassicMinutes(Date.now()));   // AUDIT LIVED1 G: the world's stamps onto the shared clock, and the world's minute it joins at
     const report = applyCustoms(copy);
     const made = await realmCustoms(io, snap.characterId, copy.name || save.name, realmSummaryOf(copy));
     if (!made.ok) return made;
@@ -1120,6 +1122,7 @@ function copyToOffline(row) {
     let snap = null;
     try { snap = JSON.parse(got.text); } catch { snap = null; }
     if (!snap || typeof snap !== 'object') return { ok: false, error: 'no-data' };
+    snap = offlineCopyOf(snap);   // AUDIT LIVED1 E: the world's stamps rebased onto the character's clock, the one clock offline
     snap.characterId = mintCharacterId();
     const r = saveSlot(snap.name || row.name, 'Copied from the realm', snap, { storage: appStorage() });
     return r.ok ? { ok: true } : { ok: false, error: 'no-room' };

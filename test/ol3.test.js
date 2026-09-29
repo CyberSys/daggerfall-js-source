@@ -75,10 +75,12 @@ test('OL3 (1) + LIVED1: the tavern\'s offer says how long the room is theirs in 
   const on = mk((m) => { asked.push(m); return '3 days of your time (6h of play)'; });
   const offer = offerFor(on, 3);
   assert.match(offer.rows[0].text, new RegExp(`^#${OFFER_PRICE_ID} `), 'DFU\'s offer first');
-  assert.equal(offer.rows.length, 2);
-  assert.equal(offer.rows[1].text, `${OWN_TIME_ROOM} 3 days of your time (6h of play)${OWN_TIME_ROOM_NOTE}`);
-  assert.equal(offer.rows[1].text, 'The room is yours for 3 days of your time (6h of play) - resting spends it, time away does not.');
+  // AUDIT LIVED1 N (U2): two rows, split at the play's bracket - the classic box lays its rows out unwrapped
+  assert.equal(offer.rows.length, 3);
+  assert.deepEqual(offer.rows.slice(1).map((r) => r.text), [`${OWN_TIME_ROOM} 3 days of your time`, `(6h of play)${OWN_TIME_ROOM_NOTE}`]);
+  assert.deepEqual(offer.rows.slice(1).map((r) => r.text), ['The room is yours for 3 days of your time', '(6h of play) - resting spends it, time away does not.']);
   assert.equal(offer.rows[1].center, true);
+  assert.equal(offer.rows[2].center, true);
   assert.deepEqual(asked, [now + 3 * MINUTES_PER_DAY], 'a fresh rental ends three days from now');
   const room = { name: 'The Dancing Dagger', mapId: 7, buildingKey: 42, allocatedBedIndex: 0, expiryMinutes: now + 20 * 60 };
   const renew = mk((m) => { asked.push(m); return '2 days 20 hours of your time (5h 40m of play)'; }, [room]);
@@ -87,7 +89,7 @@ test('OL3 (1) + LIVED1: the tavern\'s offer says how long the room is theirs in 
   const off = mk(null);
   assert.equal(offerFor(off, 3).rows.length, 1, 'offline: the offer it always was');
   assert.match(rd('src/scenes/worldModes.js'), /ownTimeOf: \(m\) => ownTimeLeftText\(m\),/, 'the host\'s word');
-  assert.match(rd('src/scenes/worldModes.js'), /dueDateText: \(minutes\) => \{\s*if \(!\(minutes > 0\)\) return '';\s*const own = ownTimeLeftText\(minutes\);\s*return own \? `in \$\{own\}` : dateString\(dateFromClassicMinutes\(minutes\)\);/, 'the bank\'s due-by says the time left in the character\'s own time online, and is the date alone offline');
+  assert.match(rd('src/scenes/worldModes.js'), /dueDateText: \(minutes, \{ short = false \} = \{\}\) => \{\s*if \(!\(minutes > 0\)\) return '';\s*const left = ownTimeLeftShort\(minutes\);\s*if \(left === 'now'\) return 'due now';\s*const own = short \? \(left && `\$\{left\} of your time`\) : ownTimeLeftText\(minutes\);\s*return own \? `in \$\{own\}` : dateString\(dateFromClassicMinutes\(minutes\)\);/, 'the bank\'s due-by says the time left in the character\'s own time online (short on the classic parchment, "due now" once due: AUDIT LIVED1 P/L), and is the date alone offline');
   // the words themselves: the character's clock and the most play it can take (the wire's one rate)
   try {
     setSharedClock(() => 900000);

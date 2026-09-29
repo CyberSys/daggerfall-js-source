@@ -914,6 +914,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
     const own = Math.floor(snap.classicMinutes ?? 0), at = Math.floor(worldMinutes());
     const left = Number.isFinite(snap.worldMinutes) ? Math.floor(snap.worldMinutes) : own;
     setOwnMinutes(own);
+    if (!Number.isFinite(snap.worldMinutes)) clampMarkersAheadOf(entity, own);   // AUDIT LIVED1 F: a save from before LIVED1
     alignEntityClocks(entity, at, { worldLeft: left });
     rollClimateWeathersForDay(at);
     // SURV7 (WORLD5's law for these markers): the needs stood with the character's clock, so an hour away costs no
@@ -924,6 +925,28 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // AUDIT 39: the three extras above ride back out too - a save from
   // before they were carried reads the same null/0 they used to.
   return { position: snap.position, pose: snap.pose ?? null, classicMinutes: snap.classicMinutes, readiedSpellIndex: snap.readiedSpellIndex, world: snap.world ?? null, locationKey: snap.locationKey ?? null, quest: snap.quest ?? null, talk: snap.talk ?? null, interior: snap.interior ?? null, dungeon: snap.dungeon ?? null, travelMap: snap.travelMap ?? null, escortingFaces: snap.escortingFaces ?? null, quickslots: snap.quickslots ?? null, spawns: snap.spawns ?? null, smallerDungeonsState: snap.smallerDungeonsState ?? 0, modData: snap.modData ?? null, terrainScale: snap.terrainScale ?? null };   // TERRAIN-SCALE1: null - written before the stamp, on the prefab's 1.5
+}
+
+/** AUDIT LIVED1 F (K3/S4): A SAVE FROM BEFORE LIVED1 CAN HOLD A MARKER AHEAD OF ITS OWN CLOCK. RESTX2's online rest ran
+ *  the rounds on a session counter ahead of the world's clock, and the 120-second checkpoint (and the page's close) saved
+ *  while the rest window held the frame - so a disease's day, a poison's minute or a curse's clock could be written a
+ *  night ahead of the `classicMinutes` beside it. The arrival's old shift clamped them (WORLD5 C3's `past`/`pastDay`);
+ *  LIVED1 restores the character's clock as it stood and shifts nothing, so the first round read `daysPast = -1`, gave
+ *  the day back and rolled it again (Lived-Time's seam 1, once more). A "last" marker is never in the future: those
+ *  ahead of the restored clock are brought back to it. Only for a save with no `worldMinutes` - one written by LIVED1
+ *  is on one clock by construction. Answers how many were moved. */
+export function clampMarkersAheadOf(entity, own) {
+  if (!entity || !Number.isFinite(own)) return 0;
+  const day = Math.floor(own / 1440);
+  let n = 0;
+  const cap = (a, k, max) => { if (Number.isFinite(a[k]) && a[k] > max) { a[k] = max; n++; } };
+  for (const a of entity.activeEffects ?? []) {
+    if (!a || typeof a !== 'object') continue;
+    if (a.kind === 'disease') { cap(a, 'lastDay', day); cap(a, 'startingDay', day); }
+    cap(a, 'lastMinute', own);   // a poison's
+    for (const k of ['lastKilledInnocent', 'lastCastMorphSelf', 'lastUrgeNotify', 'lastTimeFed']) cap(a, k, own);   // the curses'
+  }
+  return n;
 }
 
 /** CASTLE1 (2026-09-22, the same report's "(different dungeon - world

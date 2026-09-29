@@ -118,6 +118,12 @@ test('LIVED1 (Subdon): an infection counts the days the CHARACTER lives - rests 
       if (seen.turn == null && e.racialOverride?.racial === 'lycanthropy') seen.turn = h;
     }
     if (online) assert.equal(worldMinutes(), t.clock, 'online the world\'s clock stood through every rested hour');
+    // seam 4: the turn landed mid-rest, and the curse it minted is on the character's clock - no marker of it ahead
+    assert.ok(Number.isFinite(e.racialOverride?.lastKilledInnocent), 'the curse minted its satiation clock');
+    for (const k of ['lastKilledInnocent', 'lastCastMorphSelf', 'lastUrgeNotify']) {
+      const v = e.racialOverride?.[k];
+      if (Number.isFinite(v)) assert.ok(v <= ownMinutes(), `the curse's ${k} (${v}) sits on the character's clock (${ownMinutes()})`);
+    }
     return seen;
   };
   const off = turnedAfter(false);
@@ -229,7 +235,8 @@ test('LIVED1 words: a deadline on the character\'s clock is said in their time a
   assert.equal(worldNightfallText(), null, 'at night there is nothing to wait for');
   const w = rd('src/scenes/world.js');
   assert.match(w, /function withNightfall\(text\) \{ const nf = worldNightfallText\(\); return nf \? `\$\{text\} \$\{nf\}` : text; \}/, 'the host\'s one composer');
-  assert.equal((w.match(/withNightfall\(/g) ?? []).length, 5, 'the career\'s and the curse\'s refusals at the map door, and PARTY-TRAVEL\'s two');
+  assert.equal((w.match(/withNightfall\(/g) ?? []).length, 3, 'PARTY-TRAVEL\'s two, to the chat');
+  assert.equal((w.match(/sayWithNightfall\(/g) ?? []).length, 3, 'and the map door\'s two rungs, as two HUD rows (AUDIT LIVED1 M)');
 });
 
 test('LIVED1: the tavern\'s calendar is the WORLD\'s - a Heart\'s Day room is free by the world\'s date, whatever day the character\'s own clock reads', () => {
@@ -259,7 +266,7 @@ test('LIVED1: the tavern\'s calendar is the WORLD\'s - a Heart\'s Day room is fr
 
 test('LIVED1 by source: every RaiseTime online is the character\'s - the ticker\'s advance, the journey, the sentence, the cures, a quest\'s RaiseTime and the turn\'s fortnight - and the sky reads stay the world\'s', () => {
   const shared = rd('src/scenes/shared.js'), w = rd('src/scenes/world.js'), arrest = rd('src/scenes/arrestFlow.js'), tick = rd('src/systems/worldTick.js');
-  assert.match(shared, /advance\(minutes\) \{\s*if \(!\(minutes > 0\)\) return null;\s*if \(sharedClockOn\(\)\) return this\.tick\(0, undefined, 0, minutes\);/, 'the ticker\'s advance: the same tick, on the character\'s clock');
+  assert.match(shared, /advance\(minutes\) \{\s*if \(!\(minutes > 0\)\) return null;\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) \{ if \(tickInFlight\(\)\) \{ advanceOwnMinutes\(minutes\); return null; \} return this\.tick\(0, undefined, 0, minutes\); \}/, 'the ticker\'s advance: the same tick, on the character\'s clock (AUDIT LIVED1 J: a bare move from inside a tick)');
   assert.match(shared, /raiseTime: \(seconds\) => \{ setSyntheticTimeIncrease\(true\); return advanceOwnMinutes\(seconds \/ 60\); \}/, 'the vampire\'s fortnight');
   assert.match(w, /setSyntheticTimeIncrease\(true\); playerTicker\.advance\(computed\.minutes\);/, 'the journey, in both lanes');
   assert.match(arrest, /advanceDays = \(days\) => advanceOwnMinutes\(days \* MINUTES_PER_DAY\),/, 'the sentence');

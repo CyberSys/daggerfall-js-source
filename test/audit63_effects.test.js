@@ -368,7 +368,7 @@ test('AUDIT 63 F15: the quest action cannot give a vampire the plague', () => {
   assert.equal(startDisease(vampire, 5, 100), null, 'refused');
   assert.deepEqual(vampire.activeEffects, [], 'and nothing is left behind');
   // the world host's seam is the same one call
-  assert.match(src('src/scenes/world.js'), /makePcDiseased: \(diseaseType\) => \{ startDisease\(playerEntity, diseaseType, gameDaysNow\(\)\);/,
+  assert.match(src('src/scenes/world.js'), /makePcDiseased: \(diseaseType\) => \{ startDisease\(playerEntity, diseaseType, Math\.floor\(ownMinutes\(\) \/ 1440\)\);/,   // AUDIT LIVED1 B: stamped on the character's day
     'the quest hook goes through startDisease, which is where the gate lives');
   // a plain player at level >= 2 still catches it
   const mortal = patient();

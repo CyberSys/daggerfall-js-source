@@ -97,7 +97,7 @@ const bank = {
       blocks: [
         { type: 'stats', items: [
           ['Account balance', L.account], ['Gold carried', L.inventory],
-          ['Loan owed', L.loanDue, Number(L.loanDue) > 0 ? 'warn' : ''], ['Loan due by', L.loanBy],
+          ['Loan owed', L.loanDue, Number(L.loanDue) > 0 ? 'warn' : ''], ['Loan due', L.loanByFull ?? L.loanBy],
         ] },
         { type: 'cols', cols: [
           [{ type: 'group', title: 'Gold', blocks: [{ type: 'actions', layout: 'column', items: [

@@ -164,10 +164,10 @@ export const restArtLoaded = () => !!_art;
  *  hours are the character's OWN - their clock runs through the night
  *  (worldTick.js ownMinutes) while the world's sky stays where it is -
  *  so the line says whose time the counter is spending. */
-export function restClockLine(worldMinutes) {
+export function restClockLine(worldMinutes, { loiter = false } = {}) {
   const d = dateFromClassicMinutes(worldMinutes);
   const two = (n) => String(n).padStart(2, '0');
-  return `World time ${two(d.hour)}:${two(d.minute)} - you rest on your own clock`;
+  return `World time ${two(d.hour)}:${two(d.minute)} - you ${loiter ? 'wait' : 'rest'} on your own clock`;   // AUDIT LIVED1 S (U8): a loiter waits
 }
 
 export class RestWindow {
@@ -776,7 +776,7 @@ export class RestWindow {
       this.mode === 'loiter' ? 'Loitering...' : 'Resting...',
       `${st.texture === 'hoursPast' ? 'Hours passed' : 'Hours remaining'}: ${st.hours}`,
     ];
-    if (Number.isFinite(st.worldMinutes)) lines.push(restClockLine(st.worldMinutes));
+    if (Number.isFinite(st.worldMinutes)) lines.push(restClockLine(st.worldMinutes, { loiter: this.mode === 'loiter' }));
     if (v) lines.push(`Health ${v.health}/${v.maxHealth}  Fatigue ${v.fatigue}  Magicka ${v.magicka}`);
     lines.push('', 'Esc - stop');
     return lines;
@@ -832,7 +832,7 @@ export class RestWindow {
     }
     // OL2: the world's clock, under the vitals, while the shared clock stands (RESTX2: the pace half is gone)
     if (Number.isFinite(st.worldMinutes)) {
-      shadowText(renderer, font, restClockLine(st.worldMinutes), m, 0, REST_PANEL_Y + REST_COUNTER_RECT[3] + 18, { align: 'center', w: NATIVE_W });
+      shadowText(renderer, font, restClockLine(st.worldMinutes, { loiter: this.mode === 'loiter' }), m, 0, REST_PANEL_Y + REST_COUNTER_RECT[3] + 18, { align: 'center', w: NATIVE_W });
     }
     return true;
   }

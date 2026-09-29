@@ -75,7 +75,7 @@
 // AUDIT-MAP (2026-09-18, bible/10-UI/Held-Map-Arc.md): the fare is the
 // mod's SCALED one (scaleTripCost, the popup's own export); a walked
 // trip hands its walked minutes to the host's ETA; No on the fee closes
-// the map; online no inn is billed and the arrival is now; the static
+// the map; online the trip's days pass on the traveller's own clock (LIVED1) and the fare is billed; the static
 // ink is a kept layer and the rings an overlay. Its recorded departures:
 // the coordinates click refuses a teleport visit, H works under the
 // panel, a bare pixel's ship laws see no destination, the resume prompt
@@ -2164,8 +2164,9 @@ export class HeldMapWindow {
     // deps, and everything the card bills or commits reads the blessed
     // minutes.
     const minutes = guildFastTravel(this.deps.playerEntity?.() ?? null, time.minutes);
-    // OL2 / AUDIT-MAP H1: online the world's clock does not wait, so
-    // the arrival is now and the day count is zero.
+    // OL2 / AUDIT-MAP H1 said the arrival is now and the day count
+    // zero online. [LIVED1 SUPERSEDES it: the trip's days pass on the
+    // traveller's own clock, so the count is the trip's, online too.]
     //
     // TRAVEL-FARE (2026-09-22, kurkku): the FARE is billed online now -
     // the inn's gold is the price of the journey, not rent on elapsed
@@ -2917,7 +2918,7 @@ export class HeldMapWindow {
     //   - the ship refusal (_toggleOpt below) is one of
     //     TravelOptionsPopUp.cs:168-180's three message boxes, which the
     //     classic twin still draws as a buttonless parchment
-    //     (ui/travelPopUp.js:646-652, `this.top` with no MB_BUTTONS)
+    //     (ui/travelPopUp.js:647-653, `this.top` with no MB_BUTTONS)
     //   - "not enough gold" (_confirmDiseased below) is
     //     DaggerfallTravelPopUp.cs:394-406, showNotEnoughGoldPopup,
     //     `messageBox.ClickAnywhereToClose = true` over TEXT.RSC 454

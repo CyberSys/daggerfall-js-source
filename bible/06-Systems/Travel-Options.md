@@ -355,7 +355,8 @@ must be assigned there, never re-declared. Mutants
    written down here for whoever meets it.
 
    THE POPUP SAYS SO. `ONLINE_TRAVEL_LINE` - "the world's clock does
-   not wait. You arrive now, and no inn is paid" - is DFU's fast travel
+   not wait. You arrive now, and no inn is paid" [LIVED1: now "Online: the days pass
+   on your own clock. You arrive in the world's present."] - is DFU's fast travel
    talking, and it was true of every online trip while the journey stood
    down. It is false over a walked one, so both skins now gate it off
    `walkedTrip` / `t.walked`; that branch already carries the mod's own
@@ -638,7 +639,7 @@ third was a thing the port never said out loud.
 > not a fatigue knob, it is the needs' one word for "sat still", and
 > FOUR laws read it - the two fatigue drains it was aimed at, the two
 > health arms F12 later disclosed, and SURV6's hunting roll, which
-> refuses outright on `resting` (`hunting.js:114`). One flag reached
+> refuses outright on `resting` (`hunting.js:115`). One flag reached
 > three laws nobody had asked it to reach. That is the lesson worth
 > keeping out of this whole exchange.
 

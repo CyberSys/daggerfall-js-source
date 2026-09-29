@@ -37,7 +37,7 @@ import { expandRowValues } from '../systems/quest/questMacros.js';   // MACRO-3:
 import { announceSkillRaise, announceMastery } from '../ui/levelNotice.js';
 import { DOOR_SPELL_TEXT, castBySkeletonKey } from '../systems/mysticism.js';   // X1: the door-spell alert lines; D9: Open.CheckCastByItem
 import { raiseSkills } from '../systems/advancement.js';   // AUDIT 23 (entity-1): the rest-end raise
-import { tickPlayerMinutes, runMagicRoundsFor, worldMinutes, setWorldMinutes, ownMinutes, advanceOwnMinutes, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
+import { tickPlayerMinutes, runMagicRoundsFor, worldMinutes, setWorldMinutes, ownMinutes, advanceOwnMinutes, tickInFlight, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
 import { REST_KIND, REST_TEXT_SURVIVAL, restCost, restHour, stiffen } from '../systems/survival/rest.js';   // SURV4: the rest law - a bed and a fire sleep, the window alone is rough
 import { survivalRules } from '../systems/survival/switch.js';   // SURV-TIERS: the rest's price is the tier's, read at the open
 import { sleepStage } from '../systems/survival/needs.js';   // AUDIT SURV-TIERS (the third pass): the rough night's lesser sleep, said
@@ -1476,7 +1476,9 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
      *  every other raise with nothing.] */
     advance(minutes) {
       if (!(minutes > 0)) return null;
-      if (sharedClockOn()) return this.tick(0, undefined, 0, minutes);
+      // AUDIT LIVED1 J (K6): raised from INSIDE a tick (the collapse, out of a round's fatigue drain) the hour is a bare
+      // move of the character's clock, as DFU's RaiseTime is - the next tick walks it in order after the window in hand
+      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } return this.tick(0, undefined, 0, minutes); }
       // T1 (AUDIT 39): the dt below is FABRICATED game time - a jump
       // costs no REAL seconds, because DFU's RaiseTime does not advance
       // Time.deltaTime. The third argument is what the two real-time

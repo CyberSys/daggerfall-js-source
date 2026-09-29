@@ -63,7 +63,7 @@ import { collectHearths } from '../systems/survival/hearth.js';   // AUDIT HEART
 import { lanternColor, dungeonAmbient, dungeonTrilight, dungeonFog } from '../render/enhancedLighting.js';   // EL1: the world host installed the lane; this reads it; EL4: the dark; AUDIT-EL F6: the fog with it
 import { INTERIOR_AMBIENT, INTERIOR_NIGHT_AMBIENT, INTERIOR_LIGHT_DIR } from '../world/interiorLights.js';
 import { isNight } from '../world/worldClock.js';   // AUDIT 23 (C12)
-import { worldMinutes, setWorldMinutes, ownMinutes, ownTimeLeftText } from '../systems/worldTick.js';   // AUDIT 23 (C12): the one clock; G4's probe moves it; LIVED1: the character's own clock, and its deadlines said in their time
+import { worldMinutes, setWorldMinutes, ownMinutes, ownTimeLeftText, ownTimeLeftShort } from '../systems/worldTick.js';   // AUDIT 23 (C12): the one clock; G4's probe moves it; LIVED1: the character's own clock, and its deadlines said in their time
 import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';   // AUDIT 23 (C5)
 import { ActionTextBox } from '../ui/actionText.js';   // AUDIT 23 (C5)
 import { registerPresenter } from '../systems/notify.js';   // ENH-NOTICE3: the modal modes' slot, offered to the one door every message goes through
@@ -3645,9 +3645,13 @@ export function createWorldModes(host) {
       // days, time away does not), so online the due-by is that time left,
       // in their time and in play - a calendar date on their own clock is
       // not the world's calendar on the HUD, and would read as a wrong one.
-      dueDateText: (minutes) => {
+      // AUDIT LIVED1 P (U5): `short` for the classic parchment, which has no room for the play (the long form ran 99 px
+      // past its edge) - the enhanced face keeps the whole words. AUDIT LIVED1 L (K5): a loan already due says so.
+      dueDateText: (minutes, { short = false } = {}) => {
         if (!(minutes > 0)) return '';
-        const own = ownTimeLeftText(minutes);
+        const left = ownTimeLeftShort(minutes);
+        if (left === 'now') return 'due now';
+        const own = short ? (left && `${left} of your time`) : ownTimeLeftText(minutes);
         return own ? `in ${own}` : dateString(dateFromClassicMinutes(minutes));
       },
       // H1: house ownership is live. D6: so is SHIP ownership - the
@@ -3834,7 +3838,7 @@ export function createWorldModes(host) {
       // SetHealth, through the entity's own ceiling.
       heal: (n) => { playerEntity.health = Math.min(playerEntity.maxHealth, playerEntity.health + n); },
       // SURV5: the mod's menu - the climate keys it, the tavern's quality tiers it, a meal or a drink takes its minutes
-      // off this host's clock (a blackout the night; online the ticker stands, WORLD5), the endurance bands the drink
+      // off this host's clock (a blackout the night; online the character's own, LIVED1), the endurance bands the drink
       climateIndex: () => host.climateIndex?.() ?? 232,
       advanceMinutes: (n) => interiorTicker.advance(n),
       endurance: () => liveStat(playerEntity, 'endurance'),
@@ -4744,7 +4748,10 @@ export function createWorldModes(host) {
       });
     } else if (destination === 'guildServiceCureDisease') {
       flow = buildCureDiseaseFlow(playerEntity, guild, membership, {
-        rows, now, onClose: () => closeSelf(), godName,
+        // AUDIT LIVED1 C (R4/P4): the cure's one clock read is the HOLIDAY (GetHolidayId - the free and the half-price
+        // cure days), and holidays are the WORLD's calendar - on the character's clock a player rested onto South Winds
+        // Prayer for a free cure while the temple charged on the world's announced one
+        rows, now: () => interiorTicker.classicMinutes, onClose: () => closeSelf(), godName,
         // MAC-BUG2: the cure offer speaks a TRADE record, and those
         // quote the SHOP and the TOWN back at the player - see the
         // `identity` note in ui/guildServiceWindows.js.
@@ -7033,7 +7040,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7399), so the OUTER host's one rides in.
+          // (dungeonContext.js:7402), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:841 -> the
@@ -10846,7 +10853,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:7886`
-     *  and `dungeonContext.js:7410` for its two sibling copies - lines
+     *  and `dungeonContext.js:7413` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

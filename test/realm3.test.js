@@ -216,8 +216,8 @@ test('REALM P1.3 by source: the boot joins before any save is read, never a slot
   assert.match(menu, /\{ label: save\.unfinished \? 'Never saved' : 'Play', primary: true, disabled: realmBusy \|\| save\.unfinished, onClick: \(\) => \{ _pickedRealmId = row\.id; onAction\('online'\); \} \}/);
   assert.match(menu, /\{ label: 'New online character', primary: !realmRows\.length, disabled: realmBusy \|\| realmRows\.length >= realmMax, onClick: \(\) => onAction\('online-new'\) \}/);
   assert.match(menu, /label: 'Delete character', disabled: realmBusy, onClick: \(\) => ask\(/, 'a delete asks first');
-  const bring = menu.slice(menu.indexOf('function bringOnline(save)'));
-  const steps = ['const copy = JSON.parse(JSON.stringify(snap));', 'applyCustoms(copy);', 'await realmCustoms(io, snap.characterId,', 'copy.characterId = made.data.id;', 'await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1,'].map((t) => bring.indexOf(t));
+  const bring = menu.slice(menu.indexOf('function bringOnline(save)'));   // AUDIT LIVED1 G: the copy goes through the door between the lanes (systems/offlineCopy.js)
+  const steps = ['const copy = onlineCopyOf(snap, sharedClassicMinutes(Date.now()));', 'applyCustoms(copy);', 'await realmCustoms(io, snap.characterId,', 'copy.characterId = made.data.id;', 'await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1,'].map((t) => bring.indexOf(t));
   assert.ok(steps.every((at, i) => at > 0 && (i === 0 || at > steps[i - 1])), 'customs on a copy, made once, the realm\'s id, saved at 1');
   assert.match(bring, /if \(snap\.testRoom === true\) return \{ ok: false, error: 'test-room' \};/);
 });

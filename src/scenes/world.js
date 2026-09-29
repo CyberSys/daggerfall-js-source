@@ -4135,7 +4135,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // read it. It held the bare-skin block's naked-cold and sunburn
     // ticks and the byFire exposure damage (needs.js:480, :456) - the
     // health Mac wants ticking - and, the one TO-FIELD never counted,
-    // it shut the HUNTING roll off entirely (hunting.js:114 refuses on
+    // it shut the HUNTING roll off entirely (hunting.js:115 refuses on
     // `resting`), so a traveller could not hunt on the road at all.
     // One flag, four laws; the journey takes the world as it finds it.
     //
@@ -6651,10 +6651,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2680 mounts the same one, gated on
+  // and dungeonContext.js:2683 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6354
+  // that context through modes.dungeonCtx - so worldModes.js:6361
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8967,7 +8967,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7379), so exterior mode and a
+    // composer, dungeonContext.js:7382), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -9522,14 +9522,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     // LIVED1: online the day cannot be rested away - a rest moves the character's own clock, not the sky - so both
     // rungs add when the world's night falls, in real minutes (worldTick.js worldNightfallText; nothing offline).
     if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) {
-      townTalk.say(withNightfall(SUNLIGHT_TRAVEL_TEXT));
+      sayWithNightfall(SUNLIGHT_TRAVEL_TEXT);
       return;
     }
     // V2b: CheckFastTravel at the map's own door, where DFU calls it
     // (DaggerfallUI.cs:625) - a sun-damaged override cannot fast
     // travel by day, and the refusal is the override's own line.
     const ftb = racialFastTravelBlock(playerEntity, nowMin);
-    if (ftb) { townTalk.say(withNightfall(ftb.text)); return; }
+    if (ftb) { sayWithNightfall(ftb.text); return; }
     // TO1: the fork. `playerControlled` is the popup's own word for a
     // trip its three toggles say is WALKED (ui/travelPopUp.js
     // callFastTravelGoldCheck); everything else is DFU's fast travel.
@@ -11489,7 +11489,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9775-9839 -
+  // worldModes answers it in BOTH modes (worldModes.js:9782-9846 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -12380,7 +12380,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     removeNpcQuestor: (seed) => npcSession.removeNpcQuestor(seed),
     // MakePcDiseased / CurePcDisease over the S18 system, which has
     // been ported since its own slice and wired to nothing here.
-    makePcDiseased: (diseaseType) => { startDisease(playerEntity, diseaseType, gameDaysNow()); surfacePlayer(); },
+    makePcDiseased: (diseaseType) => { startDisease(playerEntity, diseaseType, Math.floor(ownMinutes() / 1440)); surfacePlayer(); },   // AUDIT LIVED1 B (P1/S2/R1): the disease's day is the CHARACTER's - its rounds walk their clock, and a world's-day stamp days away gave back or billed the gap at once
     cureDisease: (diseaseType) => {
       for (const a of playerEntity.activeEffects ?? []) {
         if (a.kind === 'disease' && a.disease === diseaseType && !a.ended) endDisease(a);
@@ -12411,6 +12411,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     getGoldPieces: () => goldAmount(playerEntity),
     deductGoldPieces: (n) => deductGoldPieces(playerEntity, n),
     raiseTime: (seconds) => advanceOwnMinutes(seconds / 60),   // LIVED1: a quest's RaiseTime (TrainPc's hours) is the character's own time - offline the one clock
+    ownMinutes: () => ownMinutes(),   // AUDIT LIVED1 D: TrainPc's training stamp, on the clock the guild's gate reads
     // ROAD-B: through the host's ONE entry, so a quest that calls the
     // watch on a player standing in a tavern gets the indoor arm too.
     spawnCityGuards: (immediate) => _spawnGuards(!!immediate),
@@ -14798,7 +14799,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // four followers independently rolling the SAME slept hours would spawn four rooms' worth of monsters for one
     // party's one nap; the leader's own session (composePartyPose's `restWin`, unmirrored) is the one roll that counts.
     enemiesNearby: () => false,
-    advanceMinutes: (n) => { playerTicker.advance(n); },   // local effects/quest catch-up only - no runEncounterTick   // LIVED1: the mirrored night is the follower's own time too
+    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },   // local effects/quest catch-up only - no runEncounterTick   // LIVED1: the mirrored night is the follower's own time too   // AUDIT LIVED1 H (P2): and the encounter loop's marker rides it - the mirror rolls nothing (PSCALE1 COUNT-1), and a marker left at the night's start made the first frame up walk the whole night as WALKING minutes
     commitCrime: () => {},   // a follower did not choose to trespass here themselves - the leader's own session already answers for the room
     canceledByFollower: () => false,   // AUDIT PARTY-REST: a mirror is nobody's target - only the real rester's session answers a follower's Stop
     // PARTY-REST19 (2026-09-22, per-request: "An non initiator MUST cancel the rest for all if he cancels the
@@ -15562,6 +15563,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** LIVED1: a daylight refusal and, online, when the world's night falls (worldTick.js worldNightfallText) - the one
    *  wait a rest cannot shorten, because the sun is everyone's. Offline the refusal alone, as DFU says it. */
   function withNightfall(text) { const nf = worldNightfallText(); return nf ? `${text} ${nf}` : text; }
+  /** AUDIT LIVED1 M (U1): the same words on the HUD as TWO rows - the classic HUD draws a line unwrapped and centred,
+   *  and the refusal with its nightfall ran ~485 native px, off both edges of the screen with the minutes lost; the
+   *  chat's PARTY-TRAVEL refusal wraps and keeps the one line (withNightfall above). */
+  function sayWithNightfall(text) { townTalk.say(text); const nf = worldNightfallText(); if (nf) townTalk.say(nf); }
   /** PARTY-TRAVEL: THE MAP DOOR'S REFUSALS, for a journey that does not pass through the map - the rungs toggleTravelMap
    *  asks before the map opens (an enemy or a duel near, the career's and the racial override's sunlight), with what a
    *  journey begun off the map must also be: outdoors (the map opens nowhere else), alive, and not already moving.
@@ -20581,7 +20586,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // again". TO-FIELD held SURV6's roll while an accelerated journey
     // ran; the gate is REMOVED on Mac's word, with the `resting` flag
     // above that was holding the roll a second time from inside
-    // (hunting.js:114).
+    // (hunting.js:115).
     //
     // WHAT IT MEANS, said plainly so it is not rediscovered as a bug:
     // the roll fires once a GAME minute, and a journey spends those at

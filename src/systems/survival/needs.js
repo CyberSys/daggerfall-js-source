@@ -619,8 +619,10 @@ export function runSurvivalMinutes(entity, from, to, env, deps) {
  * audit found both ways that was wrong: a meal eaten while Off (which
  * writes `lastAte` inside the gap) was moved a second time, days into
  * the future; and WORLD5's online load (worldTick.js alignEntityClocks)
- * leaves exactly such a gap for a short absence ON PURPOSE - "an hour
- * away keeps its hunger" - which the shift forgave in every tier. Paused
+ * left exactly such a gap for a short absence ON PURPOSE - "an hour
+ * away keeps its hunger" - which the shift forgave in every tier.
+ * [LIVED1: online an absence leaves no gap at all - the needs stand on
+ * the character's own clock, which stood while they were away.] Paused
  * here, per span, only while Off, neither can happen: a meal writes a
  * marker the next span carries, and a gap the arc was on for is not
  * touched. A player with no record is given none.

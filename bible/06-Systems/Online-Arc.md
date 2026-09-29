@@ -1918,7 +1918,10 @@ disease's day and every poison's minute - and the day's weather is
 rolled from the shared day's seed whatever sky the save carried. The
 world's time is where the player has arrived, not this save's
 continuation; a save made online carries the world's time and plays on
-from it offline.
+from it offline. [SUPERSEDED BY LIVED1 (2026-09-29): the arrival shifts
+nothing - the save's clock is the character's own and is restored as it stood; the world's half
+re-anchors and pays TM-1's recovery. Copy to offline rebases the world's stamps onto that clock
+(AUDIT LIVED1 E).]
 
 **A REST TAKES THE TIME IT TAKES.** `RestSession` is paced by the
 world's clock online (`deps.sharedMinutes`, every host's rest deps):
@@ -2033,7 +2036,8 @@ clock's time and the first corrected tick caught up (or froze for) the
 difference. A correction over a second now runs the same
 `onlineArrival` the session's start runs (the markers, the day's roll,
 the season); a room move's welcome saying the same offset again moves
-nothing.
+nothing. [LIVED1: the correction re-anchors the world's reading and moves nothing
+of the character's; the world's arms keep a high-water mark across it (AUDIT LIVED1 I).]
 
 **C3 - THE ALIGNMENT STAMPED FOUR MARKERS AND THE REST STAYED DATED BY
 THE SAVE.** WORLD5's `alignEntityClocks` set the day marker, the
@@ -2071,7 +2075,8 @@ to stand until the next day change. The one door every host loads
 through is `save.js restorePlayer`, and under the shared clock it now
 aligns and rolls the day's array from the shared seed (the first
 exterior frame drains it over the saved sky, and the drain is a jump).
-Executed over a real snapshot.
+Executed over a real snapshot. [LIVED1: the load restores the character's clock from the
+save and aligns nothing of theirs; C4's alignment is retired with C3's shift.]
 
 **C5 - THE SHARED ROLL WAS THE ROLLER'S, NOT THE DAY'S.** The roll's
 stamp was the roll's own minute, so a joiner at noon drained a "live"
@@ -2192,7 +2197,8 @@ coming on wall time while the player idles, which is a cadence, not a
 deadline, and stays deliberately. (3) Training costs no time online:
 `TrainPc`'s `raiseTime(3h)` and the guild trainer's hours are refused,
 so a lesson costs fatigue and gold and no afternoon; the daily
-cooldown (`timeOfLastSkillTraining`) still holds, on the shared clock.
+cooldown (`timeOfLastSkillTraining`) still holds, on the shared clock. [SUPERSEDED BY
+LIVED1: a lesson's hours are the character's own time online too, and the cooldown reads their clock.]
 (4) The pause-menu catch-up is bounded (the broker's 2,880-round cap,
 one day block) and measured at 8.8 ms for a real day away; DFU freezes
 time under a pausing window and this world cannot. (5, PAID BY OL2) The rest window
@@ -4769,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7028` read, on one physical line:
+`src/scenes/worldModes.js:7035` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4784,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5134`). With the property missing that call is a
+(`dungeonContext.js:5137`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -6857,13 +6863,16 @@ and every hour costs its real seconds again. DFU's unconditional tally
 stands everywhere. The rest window's OL2 clock line lost its pace half
 ("an hour here is 5 real minutes" stopped being true) and says the one
 thing that still is: `World time 15:05 - resting does not move it`;
-`REAL_MINUTES_PER_WORLD_HOUR` went with the sentence.
+`REAL_MINUTES_PER_WORLD_HOUR` went with the sentence. [SUPERSEDED BY LIVED1: a rest moves the
+character's own clock now, so the line says whose clock it spends - `World time 15:05 - you rest
+on your own clock`.]
 
 **THE FOUR HOSTS.** The zip fixed `exterior.js`'s `runEncounterTick`
 alone; `world.js` reads the standing clock the same way and got the
 same seam: `runEncounterTick(playerFeet, simMinutesEnd = null)`, `now`
 is the rest's minute when handed one, and the rest deps hand
-`sharedEnd` through. The dungeon's `_restAdvance` already read it; the
+`sharedEnd` through. [SUPERSEDED BY LIVED1: no end is handed - the roll reads the
+character's own clock, which the rest's advance moves.] The dungeon's `_restAdvance` already read it; the
 interior's arm rolls nothing inside a building and is unchanged.
 
 `test/restx2_online_rest.test.js` - 8 pins; WORLD5's loiter pin, AUDIT
@@ -10691,7 +10700,9 @@ character's.
 - C14 (the withheld cautious heal);
 - OL2's "now";
 - OL3's real-time deadlines (said now in the character's time and in play, `ownTimeLeftText`);
-- RESTX2's `_onlineSimMinutes`, REST-ROUNDS / RISE-REST F2's online arm, and MAC-LVL1's credit.
+- RESTX2's `_onlineSimMinutes` and REST-ROUNDS / RISE-REST F2's online arm (MAC-LVL1's credit is retired
+  in its own record, `09-Testing/Testing.md` mac_online_level's row and Active-Arcs' 2026-09-21 line);
+- C2's correction, C4's load alignment and OL3's (3), stamped by AUDIT LIVED1 (`01-Overview/Audit-Lived1.md`).
 
 **WORLD7 stands:** quest clocks charge played time. Moving the countdowns onto the character's clock
 is Lived-Time's OPEN 1.

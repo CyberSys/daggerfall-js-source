@@ -2,8 +2,8 @@
   {
     "name": "REST-ROUNDS-online-rest-runs-no-rounds",
     "file": "src/scenes/shared.js",
-    "old": "      if (sharedClockOn()) return this.tick(0, undefined, 0, minutes);",
-    "new": "      if (sharedClockOn()) return this.tick(0, undefined, 0);",
+    "old": "      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } return this.tick(0, undefined, 0, minutes); }",
+    "new": "      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } return this.tick(0, undefined, 0); }",
     "tests": [
       "test/restrounds.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "REST-ROUNDS-party-mirror-spends-nothing",
     "file": "src/scenes/world.js",
-    "old": "    advanceMinutes: (n) => { playerTicker.advance(n); },   // local effects/quest catch-up only",
-    "new": "    advanceMinutes: (n) => { },   // local effects/quest catch-up only",
+    "old": "    advanceMinutes: (n) => { playerTicker.advance(n); if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },   // local effects/quest catch-up only",
+    "new": "    advanceMinutes: (n) => { if (_lastEncMinutes !== null) _lastEncMinutes = Math.floor(playerTicker.ownMinutes); },   // local effects/quest catch-up only",
     "tests": [
       "test/restrounds.test.js"
     ]

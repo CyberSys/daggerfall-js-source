@@ -186,8 +186,11 @@ export function clampLegalReputations(player) {
  * a reputation below zero drifts one point back, a standing above zero
  * is kept - a player who takes a break comes back owing less, never
  * holding less. The clamp and the non-propagating ChangeReputation are
- * DFU's either way. A lived minute (the tick) and the minutes spent
- * dead (skipDeadMinutes) are the world's own and pay both halves.
+ * DFU's either way. A lived minute (the tick) pays both halves.
+ * [AUDIT LIVED1 K: the minutes spent dead no longer pay either -
+ * the drift is the character's, on their own clock, which stands
+ * under the death screen (worldTick.js skipDeadMinutes walks the
+ * world's arms alone).]
  */
 export function normalizeReputations(player, store, { recoveryOnly = false } = {}) {
   clampLegalReputations(player);

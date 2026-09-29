@@ -237,11 +237,18 @@ export class TavernWindow {
    *  the standing expiry, a fresh rental runs from now, tavern.js
    *  rentRoom) through the host's ownTimeOf - LIVED1: said in the
    *  character's own time and in play; no rows when the host answers
-   *  nothing (offline). */
+   *  nothing (offline). AUDIT LIVED1 N (U2): TWO rows, split at the
+   *  play's bracket - the box lays its rows out unwrapped, and the one
+   *  row (a renewal's "... 2 days 20 hours of your time (5h 43m of
+   *  play) - resting spends it ...") ran 550 native px, off both edges
+   *  of the screen. */
   _ownTimeRows(room, days, now) {
     const expiry = (room ? room.expiryMinutes : now) + 24 * 60 * days;
     const t = this.hooks.ownTimeOf?.(expiry);
-    return t ? [{ text: `${OWN_TIME_ROOM} ${t}${OWN_TIME_ROOM_NOTE}`, center: true }] : [];
+    if (!t) return [];
+    const c = t.indexOf(' (');
+    if (c < 0) return [{ text: `${OWN_TIME_ROOM} ${t}${OWN_TIME_ROOM_NOTE}`, center: true }];
+    return [{ text: `${OWN_TIME_ROOM} ${t.slice(0, c)}`, center: true }, { text: `${t.slice(c + 1)}${OWN_TIME_ROOM_NOTE}`, center: true }];
   }
 
   /** ConfirmRenting_OnButtonClick's Yes arm (:213-223). */

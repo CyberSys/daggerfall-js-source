@@ -2,8 +2,8 @@
   {
     "name": "LIVED1-the-rest-is-not-the-characters",
     "file": "src/scenes/shared.js",
-    "old": "      if (sharedClockOn()) return this.tick(0, undefined, 0, minutes);",
-    "new": "      if (sharedClockOn()) return this.tick(0, undefined, 0);",
+    "old": "      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } return this.tick(0, undefined, 0, minutes); }",
+    "new": "      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); return null; } return this.tick(0, undefined, 0); }",
     "tests": [
       "test/lived1.test.js"
     ]

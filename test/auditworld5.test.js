@@ -151,7 +151,7 @@ test('AUDIT WORLD5 C4 (LIVED1): a LOAD under the shared clock is an arrival thro
     assert.equal(currentWeatherEnum(), weatherForClimate(ZONE_CLIMATES[0]));
     assert.notEqual(currentWeatherEnum(), WEATHER_ENUM.snow);
   } finally { offline(); resetWeatherSim(); setWeatherMapLaw(false); }
-  assert.match(rd('src/systems/save.js'), /resetMagicRoundMarker\(Math\.floor\(snap\.classicMinutes \?\? 0\)\);\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) \{\s*const own = Math\.floor\(snap\.classicMinutes \?\? 0\), at = Math\.floor\(worldMinutes\(\)\);\s*const left = [^\n]*\n\s*setOwnMinutes\(own\);\s*alignEntityClocks\(entity, at, \{ worldLeft: left \}\);\s*rollClimateWeathersForDay\(at\);/, 'the one door every host loads through');
+  assert.match(rd('src/systems/save.js'), /resetMagicRoundMarker\(Math\.floor\(snap\.classicMinutes \?\? 0\)\);\s*(?:\/\/[^\n]*\n\s*)*if \(sharedClockOn\(\)\) \{\s*const own = Math\.floor\(snap\.classicMinutes \?\? 0\), at = Math\.floor\(worldMinutes\(\)\);\s*const left = [^\n]*\n\s*setOwnMinutes\(own\);\s*if \(!Number\.isFinite\(snap\.worldMinutes\)\) clampMarkersAheadOf\(entity, own\);[^\n]*\n\s*alignEntityClocks\(entity, at, \{ worldLeft: left \}\);\s*rollClimateWeathersForDay\(at\);/, 'the one door every host loads through');
 });
 
 test('AUDIT WORLD5 C5: the shared roll is THE DAY\'S - stamped at the day\'s first minute, so a joiner\'s drain at noon is a jump and a midnight roll\'s is a front; and the evolution replays from the day\'s first hour, so a client that joined at noon carries the sky the one that stood under it since midnight does', () => {
@@ -264,7 +264,7 @@ test('AUDIT WORLD5 C8 (LIVED1): the sub-tick\'s minutes ride to the host alone, 
   assert.match(dc, /advanceMinutes: \(n\) => _restAdvance\(n\),/);
   assert.match(dc, /const classicMinutesRef = \{\s*get value\(\) \{ return ownMinutes\(\); \},\s*set value\(v\) \{ setOwnMinutes\(v\); \},\s*\};/, 'the dungeon\'s one clock view is the character\'s');
 });
-test('AUDIT WORLD5 by source: the sentence refills nothing online (C9), exterior.js says the stand-down (C10), the welcome\'s clock is stamped as it is built and the relay says which one it is (C11), the pane says the clock (C12), the install is the boot\'s first act (C13), the cautious heal is the trip\'s nights (C14)', () => {
+test('AUDIT WORLD5 by source: the sentence refills in both lanes (C9; LIVED1: its days are served on the prisoner\'s own clock), exterior.js says the stand-down (C10), the welcome\'s clock is stamped as it is built and the relay says which one it is (C11), the pane says the clock (C12), the install is the boot\'s first act (C13), the cautious heal is the trip\'s nights (C14)', () => {
   const af = rd('src/scenes/arrestFlow.js');
   assert.match(af, /playerEntity\.inPrison = false;\s*(?:\/\/[^\n]*\n\s*)*fillVitalSigns\(playerEntity\);/, 'C9 (LIVED1): the days are the refill\'s price, and online they are served on the prisoner\'s own clock');
   assert.doesNotMatch(af, /sharedClockOn/, 'the sentence is gated on nothing - it is served in both lanes');

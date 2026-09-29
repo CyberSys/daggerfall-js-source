@@ -21,7 +21,13 @@
 //                                added back before the date is read
 //                                (questMacros' nowDate does it), and
 //                                only TrainPc's timeOfLastSkillTraining
-//                                wants the counter raw.
+//                                wants the counter raw - and that one
+//                                now reads ownMinutes (below).
+//   ownMinutes()               - AUDIT LIVED1 D: the CHARACTER's clock
+//                                in classic minutes (worldTick.js
+//                                ownMinutes; the world's offline), for
+//                                the one act that stamps a marker of
+//                                theirs: TrainPc's training time.
 //   getQuestSourceLines(name)  - quest source by name (the vendored
 //                                pack through the host's data seam;
 //                                the QuestListsManager stand-in that
@@ -504,6 +510,9 @@ export class QuestMachine {
       // date/time block reads.
       playerEntity: () => this.deps.playerEntity ?? null,
       nowSeconds: () => this.deps.nowSeconds?.() ?? null,
+      // AUDIT LIVED1 D: the CHARACTER's clock in classic minutes, for a quest act that stamps a marker of theirs
+      // (TrainPc's training time) - online nowSeconds is the world's, days from theirs; null where no host says
+      ownMinutes: () => this.deps.ownMinutes?.() ?? null,
       // Q5: the fourteen un-pended actions' doors
       setPlayerCrime: (crime) => this.deps.setPlayerCrime?.(crime),
       getGoldPieces: () => this.deps.getGoldPieces?.() ?? 0,

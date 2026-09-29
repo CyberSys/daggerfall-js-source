@@ -18,7 +18,8 @@
 //   TM-4 - the body's own effect clocks stood at the minute of death: a disease billed every day the corpse lay on
 //        the first round after the rise. They ride the span now, through the one walk an arrival uses.
 //   TM-5 - the round broker's marker and the tick's reading move with the rise: a buff held across a death spends
-//        one round on the first tick, not the span.
+//        one round on the first tick, not the span. [LIVED1: the tick's reading alone moves - the broker's marker is on
+//        the character's clock, which stood under the screen; AUDIT LIVED1 T12 renamed its record to what it mutates.]
 // LIVED1 (2026-09-29, Mac: "We need a better system for time online instead of a band aid fix") re-aims TM-1's dead
 // span, TM-3 and TM-4: the character's own clock stands under the death screen, so nothing of theirs moves and none
 // of their calendar walks the span - the cure and clan rolls, the landlord, the loans and the drift are theirs, and
@@ -206,9 +207,9 @@ test('AUDIT DISC28 TM-3 (LIVED1): the dead span walks the WORLD\'s calendar alon
 
   // ONE LAW: the tick and the rise walk the same bodies, the rise the world's half of them
   const t = rd('src/systems/worldTick.js');
-  const tick = fnText(t, 'tickPlayerMinutes'), rise = fnText(t, 'skipDeadMinutes'), arrive = fnText(t, 'alignEntityClocks');
+  const tick = fnText(t, 'tickPlayerMinutesOnce'), rise = fnText(t, 'skipDeadMinutes'), arrive = fnText(t, 'alignEntityClocks');   // AUDIT LIVED1 J: the tick's body (tickPlayerMinutes wraps it, counting the tick in flight)
   assert.match(tick, /runCalendarArms\(entity, lastMinutes, nowMinutes, \{ rolls \}\);/, 'the tick\'s loop is runCalendarArms (offline, whole)');
-  assert.match(tick, /runCalendarArms\(entity, lastMinutes, nowMinutes, \{ rolls, arms: DAY_ARMS\.own \}\);\s*\n\s*runCalendarArms\(entity, Math\.floor\(worldFrom\), Math\.floor\(worldTo\), \{ rolls, arms: DAY_ARMS\.world \}\);/, 'online, the character\'s arms on their clock and the world\'s on the world\'s');
+  assert.match(tick, /runCalendarArms\(entity, lastMinutes, nowMinutes, \{ rolls, arms: DAY_ARMS\.own \}\);\s*\n\s*runCalendarArms\(entity, worldArmsFrom, Math\.floor\(worldTo\), \{ rolls, arms: DAY_ARMS\.world \}\);/, 'online, the character\'s arms on their clock and the world\'s on the world\'s (from its high-water mark: AUDIT LIVED1 I)');
   assert.ok(rise.indexOf('runDayChange(') >= 0 && rise.indexOf('runDayChange(') < rise.indexOf('runCalendarArms('), 'the rise walks the day block, then the arms');
   assert.match(rise, /runDayChange\(\{ entity, lastMinutes: last, nowMinutes: now, rolls, say, arms: DAY_ARMS\.world \}\);/, '...the world\'s half of the day block');
   assert.match(rise, /runCalendarArms\(entity, last, now, \{ rolls, arms: DAY_ARMS\.world \}\);/, '...and of the arms');
@@ -254,7 +255,7 @@ test('AUDIT DISC28 TM-4 (LIVED1): the body\'s own effect clocks STAND through th
   assert.equal(t.includes('carryOwnEffectClocks('), false, 'the arrival and the rise carry nothing - the clock that stood needs no carrying');
 });
 
-test('AUDIT DISC28 TM-5: the round broker\'s marker and the tick\'s reading move with the rise - a 100-round effect across a 60-minute death spends one round', () => {
+test('AUDIT DISC28 TM-5 (LIVED1): the tick\'s reading moves with the rise (the broker\'s marker, on the character\'s clock, never moved) - a 100-round effect across a 60-minute death spends one round', () => {
   let clock = 500000;
   setSharedClock(() => clock);
   resetMagicRoundMarker(clock);   // the broker is module state: anchored here as a session's start, whatever ran before

@@ -51,7 +51,7 @@ test('OL2 (5): the clock line says the world\'s time of day (RESTX2: and that a 
   const off = resting({ vitals: () => ({ health: 10, maxHealth: 20, fatigue: 5, magicka: 6 }) });
   assert.deepEqual(off.restingLines(), ['Resting...', 'Hours remaining: 4', 'Health 10/20  Fatigue 5  Magicka 6', '', 'Esc - stop'], 'offline: the page it always was');
   const src = rd('src/ui/restWindow.js');
-  assert.match(src, /if \(Number\.isFinite\(st\.worldMinutes\)\) \{\s*shadowText\(renderer, font, restClockLine\(st\.worldMinutes\), m, 0, REST_PANEL_Y \+ REST_COUNTER_RECT\[3\] \+ 18, \{ align: 'center', w: NATIVE_W \}\);/, 'the art page, under the vitals');
+  assert.match(src, /if \(Number\.isFinite\(st\.worldMinutes\)\) \{\s*shadowText\(renderer, font, restClockLine\(st\.worldMinutes, \{ loiter: this\.mode === 'loiter' \}\), m, 0, REST_PANEL_Y \+ REST_COUNTER_RECT\[3\] \+ 18, \{ align: 'center', w: NATIVE_W \}\);/, 'the art page, under the vitals');
   assert.match(src, /lines = this\.restingLines\(\);/, 'one body for the text page and the pin');
 });
 
@@ -92,7 +92,7 @@ test('OL2 (6) + TRAVEL-FARE + LIVED1: online the trip\'s days are the traveller\
   for (let i = 0; i < 400 && !on.traveled.length; i++) on.w.tick(0.05);
   assert.equal(on.traveled.length, 1, 'and the online trip begins when its days are counted');
   assert.ok(on.traveled[0].computed.piecesCost >= 5, 'the trip that BEGINS carries the same fare the card quoted');
-  // the labels: 'now' where the days go, and the line under the panel
+  // the labels: the trip's days (LIVED1: the traveller's own, online too), and the line under the panel
   const painted = [];
   const font = { fnt: { glyphs: new Map(), ascent: 6, lineHeight: 8 }, texture: 't', drawGlyph: () => {}, glyphWidth: () => 4 };
   const renderer = { drawScreenQuad: () => {}, uploadTexture: () => 't', releaseTexture: () => {} };

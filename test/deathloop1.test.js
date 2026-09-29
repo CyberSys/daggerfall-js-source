@@ -102,7 +102,7 @@ test('DEATHLOOP1: the floor only lifts the dead - a revival is not a free heal',
   assert.ok(Number.isFinite(broken.health) && broken.health > 0, 'and never NaN');
 });
 
-test('DEATHLOOP1: EVERY path that puts a living player back in the world ends the drains', () => {
+test('DEATHLOOP1: EVERY revival that puts a living player back in the world ends the drains - and the prison release, whose days are served (LIVED1), refills as DFU\'s does', () => {
   // The fault was never one call site - it was four, each restoring
   // health on its own. This is the sweep that would have found them.
   const SITES = [
