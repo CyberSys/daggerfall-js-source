@@ -273,9 +273,10 @@ test('AUDIT 58: GiveOffer is a RUNG in both ladders - after the prevented messag
   }
   const w = src('scenes/world.js');
   const travel = w.slice(w.indexOf('const toggleTravelMap'), w.indexOf('const ftb = racialFastTravelBlock'));
-  assert.ok(travel.indexOf('areEnemiesNearby(') < travel.indexOf('if (giveOffer()) return;'),
+  assert.ok(travel.indexOf('areEnemiesNearby(') < travel.indexOf('if (giveOffer()) return false;'),
     'the travel rung sits BELOW AreEnemiesNearby');
-  assert.ok(travel.includes('if (giveOffer()) return;'), 'and ABOVE the racial fast-travel block');
+  assert.ok(travel.includes('if (giveOffer()) return false;'),   // GUIDE2: the door answers whether a map opened
+    'and ABOVE the racial fast-travel block');
   // the bridge IS DaggerfallUI's one subscription
   assert.match(src('scenes/questBridge.js'), /onOfferPending: \(givePc\) => noteOfferPending\(givePc\)/);
   assert.match(src('systems/quest/actions.js'), /hooks\?\.onOfferPending\?\.\(this\);/);

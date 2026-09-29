@@ -488,8 +488,8 @@
   {
     "name": "C6-hud-on-the-fps-counter",
     "file": "src/ui/partyPanel.js",
-    "old": "top: calc(92px + env(safe-area-inset-top, 0px));",
-    "new": "top: calc(40px + env(safe-area-inset-top, 0px));",
+    "old": "top: calc(92px + var(--dfquest-h, 0px) + env(safe-area-inset-top, 0px));",
+    "new": "top: calc(40px + var(--dfquest-h, 0px) + env(safe-area-inset-top, 0px));",
     "tests": [
       "test/soc4_partyhud.test.js"
     ]

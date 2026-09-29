@@ -1675,8 +1675,13 @@ async function buildTpBody({
     // reads synchronously - every third-person skin part and worn add
     // (the loop's own `meshes/${row.model}`), and the weapon and arrow
     // meshes resolveWeaponParts reads further down.
+    // MW-BRIG2: the body a worn model is skinned from - the player's own skin parts for the slots it names, SHADOWED
+    // OR NOT (the cuirass hides the very chest it copies; hidden is not drawn, and the skin is still the body's).
+    const bodyUnder = (add) => (add.skinFrom ?? []).flatMap((slot) => rows
+      .filter((r) => r.record && r.slot === slot).map((r) => ({ slot, path: `meshes/${r.record.model}` })));
     await loadFromArchives(archives, [
       ...[...skinRows, ...worn.adds].map((row) => `meshes/${row.model}`),
+      ...worn.adds.flatMap(bodyUnder).map((b) => b.path),   // MW-BRIG2
       ...weaponPartPaths({ weapon, hasAmmo, allWeapons, has: archiveHas(archives) }),   // MW-D50
       ...torchPartPaths({ torch, allLights, has: archiveHas(archives) }),   // MW-D51
       ...hipLanternPartPaths({ hipLight, allLights, has: archiveHas(archives) }),   // HT-WAIST
@@ -1688,7 +1693,8 @@ async function buildTpBody({
       if (!arc) { missing.push(`${row.slot}: ${path} is not in your archives`); continue; }
       // partName rides along: a worn add's slot is a label carrying its
       // record id, and the binder's part rules key on the part itself.
-      partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, restPose: row.restPose ?? false, bytes: arc.get(path).slice() });   // MW-BRIG1: a part fitted where it sits
+      partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, bytes: arc.get(path).slice(),
+        ...(row.skinFrom ? { skinFrom: bodyUnder(row).map((b) => ({ slot: b.slot, bytes: find(b.path)?.get(b.path)?.slice() })).filter((b) => b.bytes) } : {}) });   // MW-BRIG2
     }
     if (!partBytes.length) {
       return { ok: false, stage: 'parts', error: werewolf ? 'no werewolf body mesh resolved - its robe, head and hair are Bloodmoon\'s' : `no third-person body mesh resolved for race "${race}"`, notes: missing, rows };
@@ -2121,7 +2127,7 @@ export async function buildFpArm({
       const path = `meshes/${add.model}`;
       const arc = find(path);
       if (!arc) { missing.push(`${add.slot}: ${path} is not in your archives`); continue; }
-      partBytes.push({ slot: add.slot, partName: add.partName, bones: add.bones, restPose: add.restPose ?? false, bytes: arc.get(path).slice() });   // MW-BRIG1
+      partBytes.push({ slot: add.slot, partName: add.partName, bones: add.bones, bytes: arc.get(path).slice() });
     }
     // MW-D9: THE WEAPON - resolveWeaponParts above, the one home MW-D19
     // gave it so a live weapon swap resolves through the very same door

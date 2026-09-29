@@ -488,8 +488,8 @@
   {
     "name": "ENH-NOTICE3-the-toasts-ignore-the-hide",
     "file": "src/ui/enhancedNotice.js",
-    "old": "    const host = drawEnhancedNotice({ rows: [rows[i] ?? ''], visible, toast: true }, doc, toastKey(key, ids[i]));",
-    "new": "    const host = drawEnhancedNotice({ rows: [rows[i] ?? ''], visible: true, toast: true }, doc, toastKey(key, ids[i]));",
+    "old": "    const host = drawEnhancedNotice({ rows: Array.isArray(rows[i]) ? rows[i] : [rows[i] ?? ''], visible, toast: true }, doc, toastKey(key, ids[i]));",
+    "new": "    const host = drawEnhancedNotice({ rows: Array.isArray(rows[i]) ? rows[i] : [rows[i] ?? ''], visible: true, toast: true }, doc, toastKey(key, ids[i]));",
     "tests": [
       "test/hudtext.test.js"
     ]

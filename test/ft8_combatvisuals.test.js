@@ -24,7 +24,7 @@ test('FT8: the registry row - Enhanced, over the pref, on by default, taking eff
   assert.deepEqual(f.control, { store: 'prefs', key: 'enhancedCombatVisuals', initial: true, online: true });   // RF4
   assert.equal(PREF_DEFAULTS.enhancedCombatVisuals, true);
   assert.equal(f.effect, 'Takes effect at once.', 'read once per frame by every foe host - no reload');
-  assert.match(f.note, /Off keeps the 1:1 draw/); assert.match(f.note, /Nothing about the rules changes/);
+  assert.match(f.note, /Off hides them as the original does/); assert.match(f.note, /The rules don’t change/);
   assert.deepEqual(checkFeature(f), []);
   assert.equal(featureForControl('prefs', 'enhancedCombatVisuals'), f);
   // the switch's law is untouched: the kill door, the skin, the pref (ECV1)
@@ -40,5 +40,5 @@ test('FT8/FT12: the Enhanced category emptied into the home and then left the se
   const test = menu.slice(menu.indexOf('function paneTest('), menu.indexOf('\n}', menu.indexOf('function paneTest(')));
   assert.match(test, /outdoors\.append\(outdoorsTestRow\(\)\);/, 'the outdoors test door is the Test Room\'s');
   // the home holds every switch the category ever drew
-  assert.deepEqual(featureCounts(FEATURES).enhanced, 25);   // NAV's naval combat (2026-09-28); IIL1-T's modded lighting; EM3-3D's 3D dungeon map; PERF-SCALE's render scale; FT18: 27 less six - ten rows condensed into four (grass 2, wind 2, quick slots 2, blood 4), every switch still on a tile or in its drawer; DISC19-F's town watch, HB1's quickbar-or-hotbar switch, MAP-TOGGLE's enhanced map, QUICK-LOOT B4's take-from-the-plaque, GRASS-PX's grass style, BLOOD2g's gore dial, BLOOD2e's lens, FT4-FT8's seven, LR1's loot rarity, WIND3's three, WEATHER2b's field, EL1's lighting, QS's diamond, MAC-I's first-person lighting, CAMP1's camps & packs, SURV2's survival arc, GRAIN2's ground sharpness (which is BOTH kinds - the tile array is the classic lane's terrain too), BLOOD1a's blood marks, BLOOD1b's overkill
+  assert.deepEqual(featureCounts(FEATURES).enhanced, 28);   // GUIDE5's quest marks; GUIDE4's quest tracker; GUIDE3's quest herald; NAV's naval combat (2026-09-28); IIL1-T's modded lighting; EM3-3D's 3D dungeon map; PERF-SCALE's render scale; FT18: 27 less six - ten rows condensed into four (grass 2, wind 2, quick slots 2, blood 4), every switch still on a tile or in its drawer; DISC19-F's town watch, HB1's quickbar-or-hotbar switch, MAP-TOGGLE's enhanced map, QUICK-LOOT B4's take-from-the-plaque, GRASS-PX's grass style, BLOOD2g's gore dial, BLOOD2e's lens, FT4-FT8's seven, LR1's loot rarity, WIND3's three, WEATHER2b's field, EL1's lighting, QS's diamond, MAC-I's first-person lighting, CAMP1's camps & packs, SURV2's survival arc, GRAIN2's ground sharpness (which is BOTH kinds - the tile array is the classic lane's terrain too), BLOOD1a's blood marks, BLOOD1b's overkill
 });

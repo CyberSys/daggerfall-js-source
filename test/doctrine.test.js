@@ -398,8 +398,7 @@ const PUBLIC_ALLOWLIST = new Map([
   // the bytes.
   ['src/assets/mw/source/Brigandine_Steel.fbx', "SUPPLIED - Mac's Blender export of the steel brigandine, fitted on the Morrowind body in his scene (2026-09-29), committed so the files below are a DERIVATION the gate can re-run"],
   ['src/assets/mw/source/Brigandine_Steel.png', "SUPPLIED - the brigandine's texture as Mac supplied it with the mesh (the FBX's Steel.png), committed as the DDS's source"],
-  ['src/assets/mw/meshes/brigandine_steel_chest.nif', 'SUPPLIED - the brigandine above the belt, baked to a Morrowind NIF by tools/bakeBrigandine.mjs; a Bethesda format, no Bethesda data'],
-  ['src/assets/mw/meshes/brigandine_steel_skirt.nif', 'SUPPLIED - the brigandine below the belt, baked to a Morrowind NIF by tools/bakeBrigandine.mjs; a Bethesda format, no Bethesda data'],
+  ['src/assets/mw/meshes/brigandine_steel.nif', 'SUPPLIED - the brigandine, baked to a Morrowind NIF by tools/bakeBrigandine.mjs (skinned from the body at bind time, MW-BRIG2); a Bethesda format, no Bethesda data'],
   ['src/assets/mw/textures/brigandine_steel.dds', 'SUPPLIED - Brigandine_Steel.png mip-chained to an uncompressed DDS by tools/meshTexture.mjs writeDds; no ARENA2 or Morrowind pixel in it'],
 ]);
 

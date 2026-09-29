@@ -74,8 +74,8 @@
   {
     "name": "D23A-town-never-breathes",
     "file": "src/ui/townSheet.js",
-    "old": "    breathes() { return readPartyBodies(deps.party).length > 0; },",
-    "new": "    breathes() { return false; },",
+    "old": "      return readPartyBodies(deps.party).length > 0 || (!!deps.homesVersion",
+    "new": "      return false || (!!deps.homesVersion",
     "tests": [
       "test/disc23a_party_plans.test.js"
     ]

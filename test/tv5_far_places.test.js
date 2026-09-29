@@ -300,8 +300,8 @@ test('EDGE-FURNITURE readout: marks behind the camera stand ABOVE the bar with t
   const h = rd('src/ui/travelViewHud.js'), css = rd('src/ui/enhancedStyle.js');
   const sel = h.match(/const FURNITURE = '([^']+)';/);
   assert.ok(sel, 'the furniture named in one place');
-  assert.deepEqual(sel[1].split(', '), ['.hud-top', '.hud-bottom', '.hud-quick', '.travelpanel-bar', '.travelpanel-junction', '.dftouch-btn'],
-    'the compass, the vitals and hotbar, the quick-slot block, a journey\'s panel and its junction disc, a phone\'s buttons');
+  assert.deepEqual(sel[1].split(', '), ['.hud-top', '.hud-bottom', '.hud-quick', '.travelpanel-bar', '.travelpanel-junction', '.dftouch-btn', '.qtrack'],
+    'the compass, the vitals and hotbar, the quick-slot block, a journey\'s panel and its junction disc, a phone\'s buttons, the quest card (AUDIT GUIDE T1/D1)');
   const touch = rd('src/ui/touch.js');
   for (const c of sel[1].split(', ')) {
     const styled = new RegExp(`^\\${c} \\{`, 'm').test(css), named = touch.includes(`className = '${c.slice(1)}'`);

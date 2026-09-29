@@ -28,7 +28,7 @@ test('ES1 the row: Enhanced sounds on the Features home where the wind row stood
   assert.equal(ENHANCED_SOUNDS_KEY, 'soundEnhancements');
   assert.deepEqual(row.kinds, ['enhanced']);
   assert.equal(row.control.initial, true); assert.equal(row.control.online, 'player'); assert.equal(row.control.store, 'prefs');
-  assert.match(row.note, /wind/); assert.match(row.note, /gold/);
+  assert.match(row.note, /wind/); assert.match(row.note, /coin clink/);
   assert.equal(PREF_DEFAULTS.soundEnhancements, true, 'RF4: the shelf derives the default from the row');
   assert.ok(ONLINE_PLAYERS_OWN_PREFS.includes('soundEnhancements'), 'the lane leaves it to the player');
   assert.equal(FEATURES.find((f) => f.id === 'wind-sound'), undefined, 'the wind’s own row is gone - it IS this row');

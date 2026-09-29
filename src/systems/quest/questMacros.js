@@ -1017,7 +1017,7 @@ const NULL_HANDLERS = new Set(['%1hn', '%2hn', '%3hn', '%cbl', '%dts', '%ef',
   // E7: %tcn joins them. C#'s row IS null (MacroHelper.cs:221), so
   // the table's answer is [unhandled]; the travel window's own
   // `Replace("%tcn", name)` (DaggerfallTravelMapWindow.cs:1694, and
-  // ui/travelMapWindow.js:1195 after it) is string surgery on TEXT.RSC
+  // ui/travelMapWindow.js:1216 after it) is string surgery on TEXT.RSC
   // 31 that never reaches this ladder. M-X had recorded it as a port
   // handler standing where C# has null, with a carve-out in the
   // coverage gate; there was never a handler to carve out.
@@ -1212,11 +1212,14 @@ export function expandQuestString(parentQuest, questString) {
 }
 
 /** GetMessageResources (QuestMacroHelper.cs:61-83): every resource a
- *  message's macros reference. */
-export function getMessageResources(message) {
+ *  message's macros reference. The variant is drawn on `roll` - the
+ *  engine's (UnityEngine.Random, here Math.random) unless a caller hands
+ *  its own, the same seam Message.getTextTokens carries; GUIDE1's quest
+ *  lens hands one that draws nothing. */
+export function getMessageResources(message, roll = Math.random) {
   if (!message) return null;
   const resources = [];
-  const tokens = message.getTextTokens(-1, Math.random, false);
+  const tokens = message.getTextTokens(-1, roll, false);
   for (const token of tokens) {
     if (!token.text) continue;
     for (const word of token.text.split(' ')) {
