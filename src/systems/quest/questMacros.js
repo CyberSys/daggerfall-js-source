@@ -1212,11 +1212,14 @@ export function expandQuestString(parentQuest, questString) {
 }
 
 /** GetMessageResources (QuestMacroHelper.cs:61-83): every resource a
- *  message's macros reference. */
-export function getMessageResources(message) {
+ *  message's macros reference. The variant is drawn on `roll` - the
+ *  engine's (UnityEngine.Random, here Math.random) unless a caller hands
+ *  its own, the same seam Message.getTextTokens carries; GUIDE1's quest
+ *  lens hands one that draws nothing. */
+export function getMessageResources(message, roll = Math.random) {
   if (!message) return null;
   const resources = [];
-  const tokens = message.getTextTokens(-1, Math.random, false);
+  const tokens = message.getTextTokens(-1, roll, false);
   for (const token of tokens) {
     if (!token.text) continue;
     for (const word of token.text.split(' ')) {

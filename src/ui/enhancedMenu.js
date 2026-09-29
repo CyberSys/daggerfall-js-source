@@ -90,7 +90,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { fpArm, hasDaggerfallArrows } from '../combat/fpArm.js';
-import { questRail, journalLines, questTitleOf } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the chronicle
+import { questRail, journalLines, questTitleOf, QUEST_URGENT_SECONDS } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the chronicle
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1: a tap on the scrim resumes
 import { TEST_PRESETS, TEST_RIDE, TEST_LOOT } from '../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../formats/mwNpc.js';
@@ -3698,7 +3698,7 @@ export function statsGuilds(detail, entity) {
 export function questTimerWords(log, key) {
   const q = questRail(log ?? { active: [], finished: [] }).active.find((r) => r.key === key);
   if (!q || q.clockSeconds == null) return null;
-  return { text: `Time remains: ${remainWords(q.clockSeconds)}`, urgent: q.clockSeconds < 86400 };
+  return { text: `Time remains: ${remainWords(q.clockSeconds)}`, urgent: q.clockSeconds < QUEST_URGENT_SECONDS };
 }
 
 /** The journal rendered once when it opened and again on a click, so
@@ -3823,7 +3823,7 @@ function pauseQuests(body) {
       const meta = el('div', 'px-qmeta');
       if (sel.clockSeconds != null) {
         // Under a game day the words go URGENT gold.
-        const urgent = sel.clockSeconds < 86400;
+        const urgent = sel.clockSeconds < QUEST_URGENT_SECONDS;
         const timer = el('span', `px-qtimer${urgent ? ' urgent' : ''}`, `Time remains: ${remainWords(sel.clockSeconds)}`);
         meta.append(timer);
         armQuestTimer(timer, sel.key);

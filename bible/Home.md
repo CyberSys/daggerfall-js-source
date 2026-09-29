@@ -188,6 +188,7 @@ cited anywhere fails to resolve, that is why, and Mac holds the map.
 - `04-Characters/Werewolf-Body.md` - WEREWOLF1 (2026-09-26, Mac: "it's the 3d model" / "it needs to be imported if its not"): Bloodmoon's werewolf in the Morrowind rig, read off OpenMW - the wolf's skeletons and its own .kf, the `werewolfrobe` as its body, WerewolfHead/Hair, the rig and the peers following the curse, the Eye Of The Beholder fallback without Bloodmoon; and SHADOW-FANG's skin, a law over its textures for the Shadow Fang glyph's holder
 - `05-Combat/` - FormulaHelper port, weapons, hit resolution
 - `06-Systems/` - quests, items, magic, guilds, calendar, save format
+- `06-Systems/Quest-Guide-Arc.md` - THE QUEST GUIDE (GUIDE, opened 2026-09-29, Mac: "How can we set the foundation and improve the quest system substantially? Like really modernize it, make it more accessible"): the player's side of the 1:1 quest machine, built over it and never in it - GUIDE1 the quest lens (the one read-only picture every modern quest face draws from, invisible to the machine, saying nothing the journal has not said), then the proposed faces: the way there, the herald, the tracker, the marks, the accessible journal, the accessibility shelf
 - `07-Rendering/` - WebGL2 renderer, palettes, lighting, sky
 - `08-Audio/` - music (HMI/XMI), sound effects, audio state machine
 - `09-Testing/` - test doctrine, harnesses, data validation

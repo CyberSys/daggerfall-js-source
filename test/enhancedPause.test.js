@@ -437,7 +437,11 @@ test('PX22: the timer PX5 designed is still there, and only when there is one', 
   assert.match(src, /if \(sel\.clockSeconds != null\) \{/);
   assert.match(src, /Time remains: \$\{remainWords\(sel\.clockSeconds\)\}/);
   // URGENT below one GAME DAY - the threshold in seconds, not a guess.
-  assert.match(src, /const urgent = sel\.clockSeconds < 86400;/);
+  // GUIDE1: the number has one home (ui/questRail.js), shared with the
+  // quest lens's `urgent` news, so the gold line and the notice cannot
+  // disagree about what "under a day" is.
+  assert.match(src, /const urgent = sel\.clockSeconds < QUEST_URGENT_SECONDS;/);
+  assert.match(read('src/ui/questRail.js'), /export const QUEST_URGENT_SECONDS = 86400;/);
   assert.match(read('src/ui/enhancedStyle.js'), /\.px-qtimer\.urgent/);
   // THE CLOCK ITSELF is the quest machine's: the TIGHTEST running
   // Clock resource on the quest, by clockEnabled && !clockFinished.

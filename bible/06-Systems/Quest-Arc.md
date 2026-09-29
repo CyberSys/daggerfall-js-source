@@ -9,6 +9,11 @@ is vendored at `vendor/dfu-quests` (MIT, provenance-pinned README).
 That makes the quest corpus gate the first that runs with NO ARENA2 and
 no network anywhere.
 
+What the PLAYER sees of this machine - the journal's faces, the news,
+the way to a quest's place, accessibility - is its own arc, built over
+the machine and never in it: `06-Systems/Quest-Guide-Arc.md` (GUIDE,
+2026-09-29). Its GUIDE1 lens is pinned invisible to everything below.
+
 ## Q1 - THE PARSE LAYER (SHIPPED 2026-08-20)
 
 `src/systems/quest/`, all DFU sources named per file:

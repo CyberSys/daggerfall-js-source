@@ -67,6 +67,7 @@ import { getBool } from '../systems/settings.js';
 import { noteOfferPending } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI's GivePc.OnOfferPending subscription
 import { getTitle } from '../systems/guilds.js';
 import { addQuestResourceObjects } from '../systems/quest/sceneMount.js';
+import { QuestLens } from '../ui/questLens.js';   // GUIDE1: the modern faces' one read-only picture of this machine
 
 // AUDIT 24 (wave 24): SetLayoutData's three overloads and
 // GetPositionHash now live in characters/staticNpc.js, next to the
@@ -360,19 +361,27 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     raceOfCurrentRegion: () => ctx.world?.currentRegionRace?.() ?? 0,
   });
 
-  return {
-    machine, questLists, offerFlow, notebook,
+  // GUIDE1: the quest lens is made HERE, once, over this bridge's own
+  // walk - THE ONE CONSTRUCTION SEAM: every host that has quests holds
+  // the bridge, so no host builds a lens of its own - and a load resets
+  // it (restore, below), so the loaded game's quests are its baseline.
+  const lens = new QuestLens({ questLog: () => bridge.questLog() });
+
+  const bridge = {
+    machine, questLists, offerFlow, notebook, lens,
     tick,
 
     /**
      * MAC-K2 - THE QUEST WALK, ONE HOME.
      *
-     * `{active, finished}`: one row per live quest that has written a
-     * log entry, its messages in the machine's own order, and the
-     * TIGHTEST RUNNING clock on the quest's resources (Clock carries
+     * `{active, finished, ended}`: one row per live quest that has
+     * written a log entry, its messages in the machine's own order
+     * (and, GUIDE1, the step each was written at), and the TIGHTEST
+     * RUNNING clock on the quest's resources (Clock carries
      * `remainingTimeInSeconds` in game seconds beside
      * `clockEnabled`/`clockFinished`, quest/clock.js:118,164). The
-     * archive is the notebook's filed entries.
+     * archive is the notebook's filed entries; `ended` the completed
+     * quests the machine still holds, with their verdict.
      *
      * IT WAS WRITTEN THREE TIMES - world.js's pause hooks,
      * dungeonContext.js's, and exterior.js's `pauseQuestLog`, whose own
@@ -384,10 +393,31 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
      */
     questLog() {
       const active = [];
+      // GUIDE1: a quest that has COMPLETED - its log is gone
+      // (Quest.getLogMessages answers null) but it lingers a week as a
+      // tombstone - with the verdict the notebook files it under
+      // ('completed' when the quest paid out, notebook.js
+      // _createFinishedQuest). The quest lens reads it to say how a
+      // quest it was showing ended.
+      const ended = [];
       for (const q of machine.quests.values()) {
+        if (q.questComplete) {
+          ended.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', success: !!q.questSuccess });
+          continue;
+        }
         const les = q.getLogMessages();
         if (!les?.length) continue;
-        const messages = les.map((le) => q.getMessage(le.messageID)).filter(Boolean);
+        // GUIDE1: each message beside the step it was written at -
+        // `steps[i]` is `messages[i]`'s - so a face can order the
+        // entries by when they were written (ui/questRail.js
+        // writtenOrder) and tell a new one from one it has read.
+        const messages = [], steps = [];
+        for (const le of les) {
+          const message = q.getMessage(le.messageID);
+          if (!message) continue;
+          messages.push(message);
+          steps.push({ stepID: le.stepID, messageID: le.messageID, time: le.time ?? null });
+        }
         if (!messages.length) continue;
         let clockSeconds = null;
         for (const r of q.resources.values()) {
@@ -396,9 +426,9 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
             clockSeconds = clockSeconds == null ? left : Math.min(clockSeconds, left);
           }
         }
-        active.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', clockSeconds, messages });
+        active.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', clockSeconds, messages, steps });
       }
-      return { active, finished: notebook?.getFinishedQuests() ?? [] };
+      return { active, finished: notebook?.getFinishedQuests() ?? [], ended };
     },
 
     /** SetLayoutData's direct overload for a host that has a quest
@@ -550,6 +580,8 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
       // old-version envelope.
       if (data.notebook) notebook.restoreSaveData(data.notebook);
       questLists.oneTimeQuestsAccepted = data.oneTimeQuestsAccepted ? [...data.oneTimeQuestsAccepted] : null;
+      lens.reset();   // GUIDE1: a loaded game is not news
     },
   };
+  return bridge;
 }

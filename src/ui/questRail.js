@@ -67,6 +67,34 @@ export function parseFinished(entry, index) {
   };
 }
 
+/** PX5 / QT-LIVE1: under a game day a quest's clock is URGENT - the
+ *  pause window's timer goes gold, and the quest lens (GUIDE1,
+ *  ui/questLens.js) says so once when a clock crosses it. One number,
+ *  one home. */
+export const QUEST_URGENT_SECONDS = 86400;
+
+/** GUIDE1: the order a row's entries were WRITTEN, as indices into its
+ *  `messages`. The machine keeps its log in a Map keyed by step and
+ *  `addLogStep` re-sets an existing step IN PLACE (quest.js addLogStep;
+ *  C#'s Remove-then-Add lands in the freed slot too), so the walk's
+ *  order is the order each step was FIRST logged: a quest that re-logs
+ *  step 0 after step 1 still lists step 0 first, and every face that
+ *  reads "the last entry is the latest" - the pause window's
+ *  description (PX4), the chronicle's newest-first card - showed a
+ *  superseded entry as the state of the quest. The bridge hands each
+ *  message the time its step was written (`steps`, aligned with
+ *  `messages`); the sort is by that time and STABLE, so two steps
+ *  written in one tick keep the walk's order, and a row with no aligned
+ *  steps (a host that sends none) keeps the walk's order whole. */
+export function writtenOrder(q) {
+  const messages = q?.messages ?? [];
+  const order = messages.map((_, i) => i);
+  const steps = q?.steps;
+  if (!Array.isArray(steps) || steps.length !== messages.length) return order;
+  const at = (i) => (Number.isFinite(steps[i]?.time) ? steps[i].time : -Infinity);
+  return order.sort((a, b) => (at(a) === at(b) ? a - b : at(a) < at(b) ? -1 : 1));
+}
+
 /**
  * THE WALK. `{active, finished}` off a host's `questLog()` in, the two
  * lists every face draws out.
@@ -75,22 +103,39 @@ export function parseFinished(entry, index) {
  * own law rather than a tidy-up: `Quest.getLogMessages` returns null
  * once a quest completes and empty until its first `log` action runs,
  * so a quest that has written nothing has nothing to say yet.
+ *
+ * GUIDE1: `readLines(message, step, row)` is the reader, and it is the
+ * journal's own (journalLines, a LOUD read - DFU's logbook reads the
+ * same way) unless a caller hands another; the quest lens hands its
+ * quiet one, so both faces keep ONE law for which quests and which
+ * entries, in which order. `written` is the same entries with the
+ * step each was written at and its message, for a face that needs
+ * more than the lines.
  */
-export function questRail(log) {
-  const active = (log?.active ?? []).map((q, i) => ({
-    key: `a:${q.id ?? i}`,
-    // QUEST1: the raw id, kept alongside `key` rather than folded only
-    // into that composite string - a consumer wanting to ACT on this
-    // quest (not just render/fold it) needs the id on its own, and
-    // `key`'s "a:" prefix makes it unusable as one without parsing the
-    // string back apart.
-    id: q.id ?? null,
-    name: q.name || `Quest ${i + 1}`,
-    questName: q.questName ?? '',
-    main: isMainQuest(q.questName),
-    clockSeconds: Number.isFinite(q.clockSeconds) ? q.clockSeconds : null,
-    entries: (q.messages ?? []).map(journalLines).filter((ls) => ls.length),
-  })).filter((q) => q.entries.length);
+export function questRail(log, readLines = journalLines) {
+  const active = (log?.active ?? []).map((q, i) => {
+    // READ in the walk's order - the order DFU's logbook reads in, and a
+    // loud read latches the quest's last-referenced resource and place
+    // for the next entry's pronouns - and only then put them in the
+    // order they were written.
+    const read = (q.messages ?? []).map((message, j) => ({ step: q.steps?.[j] ?? null, message, lines: readLines(message, q.steps?.[j] ?? null, q) ?? [] }));
+    const written = writtenOrder(q).map((j) => read[j]).filter((e) => e.lines.length);
+    return {
+      key: `a:${q.id ?? i}`,
+      // QUEST1: the raw id, kept alongside `key` rather than folded only
+      // into that composite string - a consumer wanting to ACT on this
+      // quest (not just render/fold it) needs the id on its own, and
+      // `key`'s "a:" prefix makes it unusable as one without parsing the
+      // string back apart.
+      id: q.id ?? null,
+      name: q.name || `Quest ${i + 1}`,
+      questName: q.questName ?? '',
+      main: isMainQuest(q.questName),
+      clockSeconds: Number.isFinite(q.clockSeconds) ? q.clockSeconds : null,
+      entries: written.map((e) => e.lines),
+      written,
+    };
+  }).filter((q) => q.entries.length);
   const finished = (log?.finished ?? []).map(parseFinished).filter((q) => q.lines.length || q.name);
   return { active, finished };
 }
