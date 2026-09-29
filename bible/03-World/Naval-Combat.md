@@ -605,7 +605,8 @@ a save's: they are the waters', rolled again.
 
 The Features row **Naval Combat** (group Combat, the port's own): the switch (`naval`, on; FORCED ON online), and in
 its drawer Ships at sea (`naval-ships`: few, some, many), Pirates board you (`naval-boarders`), Raiders' plunder
-(`naval-raid-prize`) and Broadside camera (`naval-aim-camera`, AUDIT NAV1) - each the player's own online; a shared
+(`naval-raid-prize`), Broadside camera (`naval-aim-camera`, AUDIT NAV1) and Ship handling (`naval-handling`: Responsive
+or Classic, HELM-WAY) - each the player's own online; a shared
 sea is sailed at the lowest Ships at sea among the players who share it (Online, above).
 
 ## Departures (Port-Ledger section A)
@@ -885,6 +886,35 @@ shooting cannons should have attack canceling." Each one root-caused (`test/deck
 
 Mutants: `tools/mutants/deckfield.json` (19), all dead; three records re-aimed onto the new text (OW5-B1, NAV-F's board
 hint, SURV6's night gate), all dead.
+
+## HELM-WAY (2026-09-29) - the ships handle, and a ship with no hands strikes
+
+Mac: "Improve the overall mobility and maneuverability of ships." The player's own boat is Come Sail Away's runtime
+(`bible/03-World/Come-Sail-Away.md` HELM-WAY: the responsive helm - way on in 7 s not 24, off in 8 not 24, a rudder that
+answers at rest and bites hardest at half sail, the Carrack that could not move); the captains sail at the player's own
+helm (`systems/helmWay.js`, one law):
+
+- **They turn by the same steerage** (`navalAI.js maxTurnRate`/`turnRateAt`): her hull's helm (HULL_HELM, the prefab's
+  rudder x sail-turn modifiers) times `steerage(her way)`, capped by her class's handiness, never under TURN_FLOOR - a
+  brig turned on a 70.6 m least circle at every way (3.7 deg/s at half her way), and now at 9 there. The lookout's room
+  is the circle she sails at her class's own way (`turnRadius`), whatever way she has on - a ship lying still is about
+  to gather it.
+- **Their way comes and goes at the player's rates**: ACCEL 1 m/s^2 (0.35 was 22 s to a brig's way), DECEL 0.6 (the
+  coast); a galley rows round at OARS_TURN 6, and a ship's sweeps turn her at SWEEP_TURN 10 - the player's own Small
+  Ship's oars.
+- **A SHIP WITH NO HANDS STRIKES** (`navalDamage.js`, `unmanned`): a crewed AI hull whose every man is down strikes her
+  colours - nobody lays her guns or trims her sails - and her fires burn on (nobody fights them; a hull strike still
+  douses: her crew fights them then). Found by the handling: a pirate sloop with no men aboard went on loading and
+  firing (her crew's reload was only RELOAD_UNDERMANNED slower "at none") and gunned a navy cutter's twenty-six down to
+  none, so the cutter had no man to take her. Timber without hands keeps her struck; hands back, she fights. A
+  player's boat never strikes - the player works her guns.
+- The heave-to brakes at its own HEAVE_TO_DECEL (m/s^2, Come Sail Away's `brake`), never a multiple of a rate the Ship
+  handling moves.
+
+Pins: `test/helmway.test.js` (8); the captains' turn (M5), the lookout, the land, the broadside onto the land, the
+sweeps' pace, the raider's day sight, the chasers' stern chase, the fire's long guns and the navy's hearing re-aimed
+with their laws intact (each fixture's reason in its own line). Mutants: `tools/mutants/helmway.json` (19), all dead;
+eight records re-aimed onto the new text (the coast, the rudder's two, the radius, the brake's four), all dead.
 
 ## The tests
 

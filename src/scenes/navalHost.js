@@ -222,9 +222,10 @@ export const RAM_COOLDOWN_S = 3;
 export const RAM_REACH = 1.2;
 /** AUDIT NAV1 (the helm): HEAVE TO - a struck ship in reach with the helm too fast to board (the refusal said nothing:
  *  under sail W/S do nothing, and a Small Ship at 8.2 m/s took 28 s and 151 m to lose her way with her sails struck):
- *  Activate strikes the sails and brakes her, her own way off at HEAVE_TO_ACCEL times her own rate (Come Sail Away's
- *  `accelScale` seam) for HEAVE_TO_S at most, until she is under BOARD_SPEED - then the grapples are the key's. */
-export const HEAVE_TO_ACCEL = 10;
+ *  Activate strikes the sails and brakes her, her way off at HEAVE_TO_DECEL (m/s^2, Come Sail Away's `brake` seam) for
+ *  HEAVE_TO_S at most, until she is under BOARD_SPEED - then the grapples are the key's. HELM-WAY: a brake of its own
+ *  number - it was ten times her own coast, which the Ship handling choice now moves (a Small Ship's 0.2 m/s^2 made 2). */
+export const HEAVE_TO_DECEL = 2;
 /** AUDIT NAV1 (the helm): the sea's ships stand on the compass within this (m) - the target card's own reach. */
 export const COMPASS_SHIP_RANGE = 900;
 /** AUDIT NAV1 (the helm): MY GUN CREWS' SKILL (navalGunnery.js volleyLaunches) - a full crew's, or my own hand at a boat
@@ -1738,8 +1739,8 @@ export function createNavalHost(deps) {
     const slow = !v || Math.hypot(v[0], v[2]) <= BOARD_SPEED;
     if (slow || clock > heaveTo.until || !e || e.ship.damage.state !== SHIP_STATES.struck || e.ship.boarded) heaveTo = null;
   }
-  /** Come Sail Away's `accelScale` seam: her way comes off at HEAVE_TO_ACCEL while she heaves to. */
-  const accelScale = () => (enabled && heaveTo && myBoat() ? HEAVE_TO_ACCEL : 1);
+  /** Come Sail Away's `brake` seam: her way comes off at HEAVE_TO_DECEL while she heaves to (0: her own rate). */
+  const brake = () => (enabled && heaveTo && myBoat() ? HEAVE_TO_DECEL : 0);
 
   /**
    * Activate: at the helm, throw the grapples on a struck ship in reach; on foot (a deck alongside her, or swimming
@@ -2904,7 +2905,7 @@ export function createNavalHost(deps) {
   }
 
   return {
-    frame, attackInput, cancelAim, holdFire, activate, hudModel, drawFrame, lights, offsetAll, clear, aimEye, wayScale, sailRefused, accelScale,
+    frame, attackInput, cancelAim, holdFire, activate, hudModel, drawFrame, lights, offsetAll, clear, aimEye, wayScale, sailRefused, brake,
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     leaveShipGate, raidEnded, placeQuestFoe,
     newSaveData, getSaveData, restoreSaveData,

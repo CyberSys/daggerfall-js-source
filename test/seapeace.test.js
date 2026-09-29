@@ -299,7 +299,10 @@ test('SEA-PEACE the host hears the guns: every volley\'s first report is kept HE
   const s = await sea({ hull: null, seed: 9 });
   s.host.spawnShip('pirateBrig', { range: 300, bearing: 0, temper: 'wary' });
   s.host.spawnShip('merchantGalleon', { range: 450, bearing: 0.3 });
-  const n = s.host._sea.get(s.host.spawnShip('navyCutter', { range: 1400, bearing: Math.PI }));
+  // inside HEAR_GUNS_M of the fight (1,200 m) and outside her own lookout - where only the guns can tell her (HELM-WAY: at
+  // 1,700 m she heard them only when her own cruise happened to bear toward them)
+  const n = s.host._sea.get(s.host.spawnShip('navyCutter', { range: 900, bearing: Math.PI }));
+  assert.ok(Math.hypot(...n.ship.pos) + 300 < HEAR_GUNS_M && Math.hypot(...n.ship.pos) > lookoutOf(n.ship));
   let answered = false;
   for (let t = 0; t < 80 && !answered; t++) { s.run(1); answered = n.ship.mode === 'answer'; }
   assert.ok(answered, 'she answered the guns');

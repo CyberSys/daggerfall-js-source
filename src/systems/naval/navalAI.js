@@ -18,10 +18,11 @@
 // strikes sail and rows it).
 //
 // IT TURNS LIKE A HULL. The helm takes over TURN_TAU (the hull's own) and the turn eases in and out - never past the
-// course, the approach critically damped - at no more than the rate that keeps her on her least turning circle,
-// TURN_RADIUS_K lengths across, and her class's handiness (`turn`); with no way on she barely answers (TURN_FLOOR, a
-// galley's oars OARS_TURN). A turn at full helm costs her TURN_SPEED_LOSS of her way, and she heels into it - with
-// her way, and to leeward with the wind on her beam - on a spring, settling rather than snapping.
+// course, the approach critically damped - at no more than her STEERAGE allows (HELM-WAY, systems/helmWay.js: the
+// player's own responsive helm - her hull's helm times a curve of her way that answers at rest, bites hardest at half
+// her way and eases toward her full way, so she turns tightest at half sail) and her class's handiness (`turn`); never
+// under TURN_FLOOR, a galley's oars OARS_TURN. A turn at full helm costs her TURN_SPEED_LOSS of her way, and she heels
+// into it - with her way, and to leeward with the wind on her beam - on a spring, settling rather than snapping.
 //
 // IT KEEPS OFF THE LAND. Every NAV_EVERY_S the lookout sounds the course she wants - from the stem out past her
 // turning circle and LOOKAHEAD_S of her way (LOOKAHEAD_MIN at least), every SCAN_STEP, on the keel line and SCAN_MARGIN
@@ -73,6 +74,7 @@ import { createGunDeck, aimSolution } from './navalGunnery.js';
 import { NAVAL_DEG, rangeAt, SHOT_GRAVITY } from './navalBallistics.js';
 import { BERTH_GAP } from './navalBoarding.js';
 import { wrapAngle } from '../../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
+import { steerage, HULL_HELM } from '../helmWay.js';   // HELM-WAY: the player's own helm, the captains' too
 
 /** A galley's oars: its least way, as a share of its best. */
 export const OARS_FLOOR = 0.55;
@@ -167,17 +169,21 @@ export const BOARD_SAILS = Object.freeze({ min: 0.3, from: 15 });
  *  out her long oars: she is pulled round the short way at SWEEP_TURN degrees a second at least, through the wind's eye
  *  as readily as from it, and keeps SWEEP_WAY m/s of way whatever the wind (the pace that stops her short of the berth
  *  under it). Under sail alone she beat and wore round a wreck 60 m off for two minutes and more in a third of the
- *  winds - a brig wears through a circle of 150 m. */
+ *  winds - a brig wears through a circle of 150 m. HELM-WAY: her sweeps turn her as the player's own oars turn their
+ *  Small Ship (Come Sail Away's turnSpeedOar 20 x the hull's 0.5) - her responsive helm alone passes the old 5 at a
+ *  crawl. */
 export const SWEEP_RANGE = 250;
 export const SWEEP_WAY = 1.4;
-export const SWEEP_TURN = 5;
+export const SWEEP_TURN = 10;
 /** A crippled boat no one here will board is not fired on, and left after this (s). */
 export const WRECK_SPARE_S = 30;
 /** A navy hunts a player whose notoriety in its crown has reached this (0..100, NAV-D). */
 export const NAVY_HUNTS = 50;
-/** The way a ship gains and loses (m/s^2), a heavy hull half as quick to gain it - she carries her way through a tack. */
-export const ACCEL = 0.35;
-export const DECEL = 0.25;
+/** The way a ship gains and loses (m/s^2), a heavy hull half as quick to gain it - she carries her way through a tack.
+ *  HELM-WAY: the player's responsive helm's own (a Small Ship gathers 1.05 at the rated wind and coasts off at 0.6) -
+ *  the captains' were 0.35 and 0.25, a brig 22 s to her way. */
+export const ACCEL = 1;
+export const DECEL = 0.6;
 /** How long a blow keeps a ship provoked by who struck it (s). */
 export const PROVOKED_S = 300;
 /** SEA-PEACE: the tempers; the share of pirates drawn bold (the rest wary); the odds a wary pirate wants on a prize; the
@@ -201,13 +207,12 @@ export const CLOSE_HAULED = 135;
  *  the wind's eye on the side she sails from. */
 export const TACK_MIN_S = 12;
 export const TACK_FLIP = 35;
-/** A hull's least turning circle, as its length times this (Rowboat, Large Boat, Small Ship, Large Galley, Carrack). */
-export const TURN_RADIUS_K = Object.freeze([2.5, 2.5, 1.6, 1.3, 1.6]);
 /** How quickly a hull's helm takes (s), by hull. */
 export const TURN_TAU = Object.freeze([0.5, 0.6, 1.0, 1.5, 1.2]);
-/** With no way on a hull turns at this (degrees a second); a galley's oars turn her at OARS_TURN. */
+/** Her helm never answers slower than this (degrees a second); a galley's oars turn her at OARS_TURN (HELM-WAY: the
+ *  player's galley rows round at 15 - the captains' at 3 sailed a 240 m circle to show her bow). */
 export const TURN_FLOOR = 1;
-export const OARS_TURN = 3;
+export const OARS_TURN = 6;
 /** A turn at full helm costs this share of her way. */
 export const TURN_SPEED_LOSS = 0.25;
 /** The heel: a turn's (degrees per m/s of way per degree a second of turn), the wind's on the beam (degrees at the
@@ -434,13 +439,18 @@ export function provoke(ship, by, now) { if (by != null) ship.provoked.set(Strin
 
 /** A hull's length off its build (m). */
 export const hullLength = (hull) => { const b = hullBuild(hull); return b.bowZ - b.aftZ; };
-/** A ship's least turning circle (radius, m). */
-export const turnRadius = (ship) => TURN_RADIUS_K[ship.hull] * hullLength(ship.hull);
-/** The most she turns now (rad/s): her way over her least circle, never under the floor, never past her class's. */
-export function maxTurnRate(ship) {
+/** The most she turns at `v` m/s (rad/s): HELM-WAY's steerage times her hull's helm, never under the floor, never past
+ *  her class's handiness. */
+export function turnRateAt(ship, v) {
   const floor = (ship.hull === HULL.LargeGalley ? OARS_TURN : TURN_FLOOR) * DEG;
-  return Math.min(ship.cls.turn * DEG, Math.max(floor, ship.speed / turnRadius(ship)));
+  return Math.min(ship.cls.turn * DEG, Math.max(floor, (HULL_HELM[ship.hull] ?? 1) * steerage(v) * DEG));
 }
+/** The most she turns now (rad/s). */
+export const maxTurnRate = (ship) => turnRateAt(ship, ship.speed);
+/** The circle she turns on at her class's own way (radius, m: that way over her rate at it; never under half her own
+ *  length) - the room the lookout keeps and a side's course is sounded over, whatever way she has on now: a ship lying
+ *  still is about to gather it. */
+export const turnRadius = (ship) => Math.max(hullLength(ship.hull) * 0.5, ship.cls.speed / turnRateAt(ship, ship.cls.speed));
 
 // ── the land ───────────────────────────────────────────────────────────────────────────────────────────────────────
 

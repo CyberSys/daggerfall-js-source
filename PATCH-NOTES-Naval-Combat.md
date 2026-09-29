@@ -195,3 +195,12 @@
 - **Footsteps on a deck sound like wood.** Walking a boat's or a ship's deck no longer splashes as if you were wading the open sea (Immersive Footsteps read the water under the hull). Iron boots still ring and chain still chinks.
 - **No hunting at sea.** Tracks, birds and green hollows are for dry land: at a helm, on any deck or in the water the hunt never rolls, and a bounty's trail and a wilderness band leave you alone there too.
 - **Hold fire.** With the guns laid, press Activate (E, left click, the pad's A, or a tap) to put them down unfired. They stay loaded, and the readout says so while you aim.
+
+## Handling (2026-09-29)
+
+- **Ships handle.** Your ship picks up speed in about 7 seconds instead of 25, and slows to boarding speed in about 8 seconds when you stow the sails instead of 25.
+- **Steering that answers.** The rudder works even at a standstill with the sails up, and bites hardest at half sail, so easing off sail tightens the turn: a Small Ship turns on a circle of about 50 m at half sail and 125 m at full.
+- **The Carrack sails.** It could neither move nor turn; it now makes way and steers like the other big hulls.
+- **Classic handling** is one switch away: Features > Naval Combat > Ship handling.
+- **The AI ships handle the same way**, turning and gathering speed at your own ship's pace.
+- **A ship with no crew left surrenders.** Kill every hand aboard and her colours come down (her fires keep burning), so empty ships no longer keep firing.

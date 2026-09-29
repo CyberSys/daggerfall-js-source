@@ -5838,7 +5838,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     hudText: (text, seconds) => townTalk.say(text, seconds),
     wayScale: (underSail) => naval?.wayScale(underSail) ?? 1,   // AUDIT NAV1 (the helm): her hurts in her way - the canvas left, a wreck's oars
     sailRefused: () => naval?.sailRefused() ?? null,   // ...and no sail on a wreck or a rig shot away, said once
-    accelScale: () => naval?.accelScale() ?? 1,   // ...and a heave-to's brake beside a struck ship
+    brake: () => naval?.brake() ?? 0,   // ...and a heave-to's brake beside a struck ship
+    handling: () => getPref('naval-handling') ?? 'responsive',   // HELM-WAY: the Features row's Ship handling
     midScreenText: (text, seconds) => setMidScreenText(text, seconds),
     log: (text) => console.log(text),
     time: () => _csaTime,

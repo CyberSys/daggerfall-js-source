@@ -20,7 +20,7 @@
   {
     "name": "NAV1-the-radius-unread",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  return Math.min(ship.cls.turn * DEG, Math.max(floor, ship.speed / turnRadius(ship)));",
+    "old": "  return Math.min(ship.cls.turn * DEG, Math.max(floor, (HULL_HELM[ship.hull] ?? 1) * steerage(v) * DEG));",
     "new": "  return ship.cls.turn * DEG;",
     "tests": [
       "test/navaudit_captains.test.js"

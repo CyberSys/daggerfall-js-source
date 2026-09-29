@@ -130,7 +130,7 @@ test('NAV-R a raider near me at sea stands as a pirate of its seed\'s own class 
   assert.equal(host.raiderShipOf(RAIDER.seed + 1), null);
   // at night I am past her lookout: she sails her course, away from me - down its line, not off on a waypoint of her own
   let offLine = 0;
-  for (let t = 0; t < 40; t += 0.1) { host.frame(0.1); offLine = Math.max(offLine, Math.abs(e.ship.pos[2])); }
+  for (let t = 0; t < 40 && e.ship.pos[0] <= 960; t += 0.1) { host.frame(0.1); offLine = Math.max(offLine, Math.abs(e.ship.pos[2])); }   // (HELM-WAY: her way comes on in seconds - 40 s carried her past a day's sight)
   assert.equal(e.ship.mode, 'cruise');
   assert.ok(e.ship.pos[0] > 940 && offLine < 6, `on her course (${e.ship.pos.map((v) => v.toFixed(1))}, ${offLine.toFixed(1)} m off it)`);
   // by day her lookout sees me - further than the sea's own captains look (ENGAGE_RANGE)

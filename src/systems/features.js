@@ -1096,12 +1096,14 @@ export const FEATURES = Object.freeze([
         Object.freeze({ store: 'prefs', key: 'naval-boarders', initial: true, online: 'player' }),   // navalHost.js: a pirate's grapple on MY boat
         Object.freeze({ store: 'prefs', key: 'naval-raid-prize', initial: true, online: 'player' }),   // navalHost.js leaveShipGate: the voyage raiders' hold
         Object.freeze({ store: 'prefs', key: 'naval-aim-camera', initial: true, online: 'player' }),   // navalHost.js aimEye: the broadside camera (AUDIT NAV1)
+        Object.freeze({ store: 'prefs', key: 'naval-handling', initial: 'responsive', online: 'player' }),   // systems/helmWay.js: HELM-WAY's responsive helm, or Come Sail Away's own
       ]),
       parts: Object.freeze([
         Object.freeze({ key: 'naval-ships', label: 'Ships at sea', tiers: Object.freeze([['few', 'Few'], ['some', 'Some'], ['many', 'Many']]) }),
         Object.freeze({ key: 'naval-boarders', label: 'Pirates board you' }),
         Object.freeze({ key: 'naval-raid-prize', label: 'Raiders\u2019 plunder' }),
         Object.freeze({ key: 'naval-aim-camera', label: 'Broadside camera' }),
+        Object.freeze({ key: 'naval-handling', label: 'Ship handling', tiers: Object.freeze([['responsive', 'Responsive'], ['classic', 'Classic']]) }),
       ]),
     }),
   }),

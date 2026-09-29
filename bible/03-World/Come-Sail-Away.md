@@ -2025,6 +2025,34 @@ on the mod's own states (`bible/10-UI/Controls.md` HELM-KEYS has the keys):
   mod's own toggle where the square sails are the player's, which strikes all
   her canvas as its label says) - so its key hint is the arrow.
 
+## The responsive helm (HELM-WAY, 2026-09-29 - DECLARED)
+
+Mac: "Improve the overall mobility and maneuverability of ships." Measured first on the real runtime (1/60 s frames,
+waves off): a Small Ship took 29.8 s to her full way on a beam reach and 45 s (200 m) to lose it with her sails struck;
+she turned only with way on (the rudder IS her way: `TurnTarget = |v| x rudder / 10`), 0.75 deg/s at 1 m/s and none at
+rest, on a 153 m circle at every speed; a Large Galley under sail turned 0.85 deg/s (a 458 m circle); and a Carrack
+could neither make way nor turn - she has no `Cargo` node, so UpdateBoatCargoMod's `2 - w / (500 x 0)` clamps every
+speed and turn to nothing (kept, above, as the mod's own).
+
+**The law** (`systems/helmWay.js`, DECLARED - the Port-Ledger's HELM-WAY row): the Features row Naval Combat's drawer
+has **Ship handling** (`naval-handling`: Responsive, the default, or Classic - the mod to the letter), each player's
+own. The runtime is the mod unless the host hands a handling (`deps.handling`); under the responsive helm:
+
+- her way comes on at `HELM_WAY.sailAccel` (3.5) of the mod's rate under sail, and off at `HELM_WAY.coast` (3) of it
+  with her sails struck - every Handling dial still multiplies it; the oars are the mod's own;
+- her rudder answers her STEERAGE, not her way: `steerage(v)` - `steerFloor` at rest (the wind in her canvas swings
+  her), `steerPeak` at `steerPeakV`, easing toward her full way (`x e^(1 - x)`), times the rudder modifier as the mod's
+  way was - so half sail turns tightest, as Black Flag's does; the helm comes over at `HELM_WAY.turnAccelSail` (2.4)
+  of the mod's rate;
+- a hull with no Cargo node carries `CARGO_HOLD_MISSING` (the Large Galley's hold): the Carrack makes way and turns.
+
+Measured after, on the same runtime: a Small Ship to 95% of her way in 7 s (24.3 s the mod's) and from full way to
+boarding way in 8.3 s (24 s); two seconds from rest with the helm over she swings 8.3 deg/s (0.4); half her way turns
+on a 49 m circle, full way on 124 m (153 at every way the mod's); a Large Galley under sail 3.4 deg/s (a 114 m circle).
+The heave-to's brake (NAV1's `accelScale`, ten times her own coast) is its own number now - `brake`, HEAVE_TO_DECEL
+m/s^2 - so the handling choice never moves it. Pins: `test/helmway.test.js` (the harness `test/csaScene.mjs`, the
+wind suite's scene, one module).
+
 ## The Overworld's crossing (OWS2, 2026-09-28)
 
 The player's ask: *"You should transition to your boat if traveling across water then back onto land when hitting

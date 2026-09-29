@@ -162,8 +162,10 @@ test('AUDIT NAV1 G5 no friend across the line: a ship she does not take for an e
 });
 
 test('AUDIT NAV1 G6 the lay: a broadside laid for AIM_FREEBOARD of her hull\'s height at the lead, chain shot for the middle of her rig - a pirate\'s chasers cut the canvas a boarding needs slowed (mutants: laid for the sea, chain laid for the hull)', () => {
+  // a boat running dead ahead of her - the stern chase that keeps her chasers bearing (HELM-WAY: one lying still dead
+  // ahead, her quicker helm shows her broadside before the chasers' tell is out)
   const b = ship('pirateBrig');
-  const w = world({ contacts: [player([0, 0, 120])] });
+  const w = world({ contacts: [player([0, 0, 120], { vel: [0, 0, 6], speed: 6 })] });
   const r = run(b, w, 3);
   const bow = r.volleys.find((v) => v.side === 'bow');
   assert.ok(bow, 'the chasers fire over the stem');
@@ -291,7 +293,7 @@ test('AUDIT NAV1 G11 fire: a gun\'s FIRE_HP for FIRE_SECONDS, a barrel\'s BARREL
   h.run(0.3);
   const e = h.host._sea.get(id);
   const box = hullBoxOf(e.boat, h.pool.models);
-  const volley = (y, n, tag) => h.host._shots.fireVolley({ id: tag, shooter: 'me:42', launches: Array.from({ length: n }, (_, i) => ({ delay: i * 0.02, p0: [box.c[0] - 30, y, box.c[2] + (i % 9) - 4], v0: [150, 0, 0], gun: 'swivel', index: i })) });
+  const volley = (y, n, tag, gun = 'swivel') => h.host._shots.fireVolley({ id: tag, shooter: 'me:42', launches: Array.from({ length: n }, (_, i) => ({ delay: i * 0.02, p0: [box.c[0] - 30, y, box.c[2] + (i % 9) - 4], v0: [150, 0, 0], gun, index: i })) });
   volley(box.c[1] + box.h[1] + 12, 40, 'rig');
   h.run(1);
   assert.equal(e.ship.damage.fires, 0, 'the canvas a ball tore does not burn');
@@ -300,7 +302,9 @@ test('AUDIT NAV1 G11 fire: a gun\'s FIRE_HP for FIRE_SECONDS, a barrel\'s BARREL
   h.run(1);
   assert.equal(e.ship.damage.fires, 0, 'nor a hole the sea comes in by');
   e.ship.damage.repair();
-  volley(box.c[1] + 2, 60, 'hull');
+  // (HELM-WAY: long guns hole her side - sixty swivels' grape killed every hand first, and a ship with none strikes, the
+  // rest of that volley setting nothing alight on her)
+  volley(box.c[1] + 2, 20, 'hull', 'long');
   h.run(1.5);
   assert.ok(e.ship.damage.fires > 0, 'a hull hit above the waterline can');
 });

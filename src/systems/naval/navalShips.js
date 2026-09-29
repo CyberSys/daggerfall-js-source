@@ -157,7 +157,7 @@ export const FACTION_IDS = Object.freeze(Object.keys(NAVAL_FACTIONS));
  * their best point of sail on Come Sail Away's runtime: a Small Ship 8.96 m/s, a Large Galley 6.75, a Large Boat
  * 4.5 - a pirate a touch under the player, a merchant slower, a navy cutter the swiftest hull at sea: they catch a
  * boat beating to windward or rowing and lose one running free), `turn` the most degrees a second she turns (her
- * least turning circle bounds it at way - navalAI.js TURN_RADIUS_K), `skill` the gunners' (0..1: the scatter halved at 1, and how
+ * steerage bounds it at way - navalAI.js maxTurnRate, HELM-WAY), `skill` the gunners' (0..1: the scatter halved at 1, and how
  * well they lead), `range` how close it likes to fight (m), `cargo` the hold's worth (1-4, navalPlunder.js),
  * `minLevel` the player's level it first sails against, `weight` how often among its faction, `boarders` the muster a
  * boarding meets, `tactic` how it fights ('broadside', or a galley's 'bow' - its great guns over the stem). A flagship

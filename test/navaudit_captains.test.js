@@ -9,10 +9,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ENGAGE_RANGE, DISENGAGE, CHASE_GIVE_UP_S, SPARE_S, GRAPPLE_STILL_S, GRAPPLE_GAP, GRAPPLE_CREW, BOARD_SAILS, WRECK_SPARE_S, ACCEL, DECEL,
-  WIND_RATED, WIND_SHARE, CLOSE_HAULED, TACK_MIN_S, TACK_FLIP, TURN_RADIUS_K, TURN_TAU, TURN_FLOOR, OARS_TURN, TURN_SPEED_LOSS, HEEL_MAX,
+  WIND_RATED, WIND_SHARE, CLOSE_HAULED, TACK_MIN_S, TACK_FLIP, TURN_TAU, TURN_FLOOR, OARS_TURN, TURN_SPEED_LOSS, HEEL_MAX,
   AVOID_SHIP_SWING, AVOID_HOLD_S, NAV_EVERY_S, SCAN_STEP, PURSUIT_LEAD_S, RANGE_BEND, WEAR_BELOW, TACK_FROM, IRONS_DEG, PAYOFF_TURN,
   WAYPOINT_REACHED, ADRIFT_SPEED, AGROUND_WAY, SIDE_HOLD_S, AVOID_HEAD_ON, SWEEP_RANGE, SWEEP_WAY, SWEEP_TURN, GRAPPLE_STILL,
-  createSeaShip, stepCaptain, windShare, windFactor, maxTurnRate, turnRadius, hullLength, courseClear, avoidLand, tackCourse, sailable,
+  createSeaShip, stepCaptain, windShare, windFactor, maxTurnRate, turnRateAt, turnRadius, hullLength, courseClear, avoidLand, tackCourse, sailable,
   trafficCourse, intercept, hullGap, broadsideReach, velocityOf,
 } from '../src/systems/naval/navalAI.js';
 import { HULL, HULL_BUILDS, hullBuild, classById } from '../src/systems/naval/navalShips.js';
@@ -22,6 +22,7 @@ import { BERTH_GAP } from '../src/systems/naval/navalBoarding.js';
 import { createNavalDirector, DESPAWN_BEYOND, FIRST_ROLL_S, DENSITY } from '../src/systems/naval/navalDirector.js';
 import { FRAME_STEP_S, FRAME_STEPS_MAX, RAM_SPEED } from '../src/scenes/navalHost.js';
 import { sea } from './navalSea.mjs';
+import { HELM_WAY, HULL_HELM, steerage } from '../src/systems/helmWay.js';   // HELM-WAY: the captains turn at the player's own helm
 
 const DEG = NAVAL_DEG;
 const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''} ${a} vs ${b} (±${eps})`);
@@ -51,20 +52,25 @@ test('AUDIT NAV1 M4 the way: the classes are rated at the player\'s own pace - C
   assert.ok(g.speed > b.speed * 1.4, `a fresh wind (${g.speed.toFixed(2)} vs ${b.speed.toFixed(2)})`);
 });
 
-test('AUDIT NAV1 M5 the turn: a hull turns no tighter than TURN_RADIUS_K of her length and no faster than her class allows - a brig at 7 m/s about 5.7 degrees a second, the player\'s own pace; with no way on she barely answers (a galley\'s oars more); the helm eases in over TURN_TAU and never overshoots the course; a hard turn costs her way (mutants: the radius unread, the floor, the ease, the loss)', () => {
+test('AUDIT NAV1 M5 x HELM-WAY the turn: a hull turns at the player\'s own responsive helm - her hull\'s helm times the steerage of her way (answering at rest, hardest at half her way) - and no faster than her class allows; a galley\'s oars turn her at OARS_TURN; the helm eases in over TURN_TAU and never overshoots the course; a hard turn costs her way (mutants: the steerage unread, the floor, the ease, the loss)', () => {
   for (const b of HULL_BUILDS) assert.ok(b.bowZ > 0 && b.aftZ < 0 && b.halfWidth > 0, `hull ${b.hull}'s extents`);
   near(hullLength(HULL.SmallShip), 44.13, 0.01, 'the Small Ship\'s collider, stem to stern');
   const b = ship('pirateBrig');
-  near(turnRadius(b), TURN_RADIUS_K[HULL.SmallShip] * hullLength(HULL.SmallShip), 1e-9);
+  near(turnRadius(b), classById('pirateBrig').speed / turnRateAt(b, classById('pirateBrig').speed), 1e-9, 'the lookout\'s room: the circle she sails at her class\'s way, whatever way she has on');
+  assert.ok(turnRadius(b) > hullLength(HULL.SmallShip) * 0.5 && turnRadius(b) < 70, `${turnRadius(b).toFixed(1)} m - her circle was 70.6 m at every way`);
+  near(maxTurnRate(b) / DEG, HULL_HELM[HULL.SmallShip] * HELM_WAY.steerFloor, 1e-9, 'at rest she answers her steerage\'s floor - the wind in her canvas (the mod\'s rudder gave nothing)');
+  assert.ok(maxTurnRate(b) / DEG > TURN_FLOOR);
+  b.speed = 1;
+  near(maxTurnRate(b) / DEG, HULL_HELM[HULL.SmallShip] * steerage(1), 1e-9, 'the player\'s own Small Ship\'s helm at 1 m/s');
+  assert.ok(maxTurnRate(b) / DEG > 5, `${(maxTurnRate(b) / DEG).toFixed(2)} deg/s at 1 m/s`);
   b.speed = 7;
-  near(maxTurnRate(b) / DEG, 7 / turnRadius(b) / DEG, 1e-9, 'her way over her circle');
-  assert.ok(maxTurnRate(b) / DEG > 5 && maxTurnRate(b) / DEG < 6.5, `${(maxTurnRate(b) / DEG).toFixed(2)} deg/s at 7 m/s`);
-  b.speed = 0;
-  near(maxTurnRate(b) / DEG, TURN_FLOOR, 1e-9, 'no way on');
+  near(maxTurnRate(b) / DEG, Math.min(classById('pirateBrig').turn, HULL_HELM[HULL.SmallShip] * steerage(7)), 1e-9);
+  b.speed = 4.5;
+  near(maxTurnRate(b) / DEG, classById('pirateBrig').turn, 1e-9, 'at half her way the curve passes her class\'s handiness, which caps it');
   const g = ship('pirateGalley');
   near(maxTurnRate(g) / DEG, OARS_TURN, 1e-9, 'her oars');
-  const fast = ship('pirateSloop'); fast.speed = 50;
-  near(maxTurnRate(fast) / DEG, classById('pirateSloop').turn, 1e-9, 'her class\'s handiness caps it');
+  const c = ship('merchantCoaster'); c.speed = 2;
+  near(maxTurnRate(c) / DEG, HULL_HELM[HULL.LargeBoat] * steerage(2), 1e-9, 'a Large Boat\'s helm is her whole steerage');
   // the helm eases in, reaches her rate, and settles on the course without passing it
   const s = ship('pirateBrig', { yaw: 0 });
   s.speed = 7;
@@ -218,12 +224,12 @@ test('AUDIT NAV1 M7 the land: the lookout sounds from the stem past her turning 
   const r = ship('pirateBrig', { yaw: 0 }); r.speed = 5;
   avoidLand(r, 0, shore, [1.5, 0, 0]);
   const heldSwing = r.avoid.swing;
-  const onlyAhead = (x, z) => Math.abs(Math.atan2(x, z) - heldSwing * DEG) > 10 * DEG;   // her swung course now foul, dead ahead clear
+  const onlyAhead = (x, z) => Math.hypot(x, z) < 45 || Math.abs(Math.atan2(x, z) - heldSwing * DEG) > 10 * DEG;   // her swung course now foul out along it, dead ahead clear (HELM-WAY: a tighter circle swings her 50 degrees, not 80 - the wedge starts past her stem's own soundings)
   r.clock += NAV_EVERY_S;
   assert.equal(avoidLand(r, 0, onlyAhead, [1.5, 0, 0]), 0, 'the course, clear again');
   // boxed in: about, toward the open side
   const box = ship('pirateBrig', { yaw: 0 }); box.speed = 3;
-  const pond = (x, z) => Math.hypot(x + 60, z) < 100;   // a pond too small for any course, its water to her west
+  const pond = (x, z) => Math.hypot(x + 45, z) < 80;   // a pond too small for any course, its water to her west (HELM-WAY: sized to her tighter circle's reach)
   const about = avoidLand(box, 0, pond, [1.5, 0, 0]);
   assert.ok(box.avoid.heading != null, 'boxed in');
   assert.ok(wrapTo(about - box.yaw) < 0, `round to port, the open side (${(about / DEG).toFixed(0)})`);
@@ -319,8 +325,10 @@ test('AUDIT NAV1 M3 the broadside that bears soonest: each side\'s heading lays 
   assert.equal(h.present.side, 'port', 'kept, though starboard would bear as soon');
   assert.ok(SIDE_HOLD_S > 0);
   // a broadside course into the wind's eye is presented close-hauled
+  // (HELM-WAY: her port side's run north is the land here - her quicker helm would otherwise wear round to show it, the
+  // NO_BEAR_S law's own answer)
   const c = ship('pirateBrig', { yaw: 150 * DEG });
-  stepCaptain(c, world({ wind: [0, 0, 1.5], contacts: [player([Math.sin(-100 * DEG) * 100, 0, Math.cos(-100 * DEG) * 100], { vel: [0, 0, 1.5], speed: 1.5 })] }));
+  stepCaptain(c, world({ wind: [0, 0, 1.5], isWater: (x, z) => z < 40, contacts: [player([Math.sin(-100 * DEG) * 100, 0, Math.cos(-100 * DEG) * 100], { vel: [0, 0, 1.5], speed: 1.5 })] }));
   assert.equal(c.present.side, 'starboard');
   assert.ok(c.yawRate < 0, 'off toward close-hauled, not up into the eye');
 });
@@ -476,7 +484,8 @@ test('AUDIT NAV1 (online #10) HER SWEEPS: a pirate coming to board a boat lying 
   const upwind = Math.atan2((irons.berthSide || 1) * ironsGap - irons.pos[0], 0 - irons.pos[2]);
   assert.ok(Math.abs(Math.atan2(Math.sin(irons.yaw - upwind), Math.cos(irons.yaw - upwind))) < 10 * DEG, `her head on the berth, not a tack 45 degrees off it (${(irons.yaw / DEG).toFixed(0)} vs ${(upwind / DEG).toFixed(0)})`);
   // near the berth the sweeps' way is the pace that stops her short of it
-  const close = ship('pirateBrig', { pos: [hullBuild(HULL.SmallShip).halfWidth * 2 + BERTH_GAP + 2, 0, -17], yaw: 0 });   // 17 m astern of the berth
+  const back = BOARD_SAILS.from + SWEEP_WAY ** 2 / (2 * DECEL) * 0.5;   // inside the band where the pace is under SWEEP_WAY
+  const close = ship('pirateBrig', { pos: [hullBuild(HULL.SmallShip).halfWidth * 2 + BERTH_GAP, 0, -back], yaw: 0 });   // astern of the berth
   stepCaptain(close, world({ contacts: [wreck()] }));
   const d = Math.hypot(close.pos[0] - (hullBuild(close.hull).halfWidth + hullBuild(HULL.SmallShip).halfWidth + BERTH_GAP), close.pos[2]);
   near(close.sweeps, Math.min(SWEEP_WAY, Math.sqrt(2 * DECEL * Math.max(0, d - BOARD_SAILS.from))), 0.05, 'her sweeps paced to the berth');
