@@ -17,12 +17,19 @@
 // CONSULTS the refusal or is listed below with the reason it does not
 // have to. The list may shrink and never grow silently - a new caller
 // fails here.
+//
+// LIVED1 (2026-09-29) removed the trap at its root: a caller that MEANS
+// the passage of time - a sentence, a turn, a cure, a quest's RaiseTime -
+// moves the CHARACTER's own clock (worldTick.js advanceOwnMinutes), which
+// is theirs online and the one clock offline, and is never refused. No
+// caller asks the world's clock to move any more; the refusal stands for
+// anything that ever does, and this file holds both halves.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { advanceWorldMinutes, worldClockAdvances, setWorldMinutes, setSharedClock, worldMinutes } from '../src/systems/worldTick.js';
+import { advanceWorldMinutes, worldClockAdvances, setWorldMinutes, setSharedClock, worldMinutes, advanceOwnMinutes, ownMinutes, setOwnMinutes } from '../src/systems/worldTick.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -44,58 +51,48 @@ test('CLOCK-REFUSAL: the refusal is askable, and it answers the truth on both si
   setSharedClock(null);
 });
 
-test('CLOCK-REFUSAL: every caller that moves the world clock consults the refusal, or is named with its reason', () => {
-  // THE EXEMPTIONS, each with why it does not need to ask. EMPTY, and
-  // that is the finding: the first draft of this pin exempted
-  // `scenes/shared.js` as "the raiseTime seam, not a caller that means
-  // elapsed time" - and the pin's own staleness check answered back
-  // that shared.js already consults `sharedClockOn`. Every caller
-  // listens today, so the law stands with nothing excused from it,
-  // which is the strongest shape it can have.
-  const EXEMPT = {};
-
-  const callers = new Map();
-  const walk = (dir) => {
-    for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
-      const rel = `${dir}/${e.name}`;
-      if (e.isDirectory()) { walk(rel); continue; }
-      if (!e.name.endsWith('.js')) continue;
-      const src = readFileSync(join(ROOT, rel), 'utf8');
-      if (/\badvanceWorldMinutes\s*\(/.test(src) && !/export function advanceWorldMinutes/.test(src)) {
-        callers.set(rel, src);
-      }
-    }
-  };
-  walk('src');
-  assert.ok(callers.size >= 2, `the seam still has callers (${callers.size})`);
-
-  const deaf = [...callers.entries()]
-    // A caller is listening if it asks the refusal by either name - the
-    // predicate, or `sharedClockOn`, which is the same question from
-    // the other side and is what arrestFlow already branches on.
-    .filter(([rel, src]) => !/worldClockAdvances\s*\(|sharedClockOn\s*\(/.test(src))
-    .map(([rel]) => rel)
-    .filter((rel) => !(rel in EXEMPT));
-  assert.deepEqual(deaf, [],
-    'a caller that means elapsed time and never asks whether it elapsed is the prison-release bug again');
-
-  // ...and an exemption that starts asking should leave the list.
-  const stale = Object.keys(EXEMPT).filter((rel) => {
-    const src = callers.get(rel);
-    return src && /worldClockAdvances\s*\(|sharedClockOn\s*\(/.test(src);
-  });
-  assert.deepEqual(stale, [], 'an exemption that now consults the refusal should be deleted');
-  // an exemption for a file that no longer calls it is dead weight
-  const orphan = Object.keys(EXEMPT).filter((rel) => !callers.has(rel));
-  assert.deepEqual(orphan, [], 'an exemption for a non-caller is dead weight');
+test('CLOCK-REFUSAL (LIVED1): the passage of time is the character\'s and is never refused - online it moves their own clock and not the world\'s, offline the one clock', () => {
+  setSharedClock(null);
+  setWorldMinutes(1000);
+  assert.equal(advanceOwnMinutes(60), 1060, 'offline: the one clock moves');
+  assert.equal(worldMinutes(), 1060);
+  let world = 5000;
+  setSharedClock(() => world);
+  setOwnMinutes(4000);
+  assert.equal(advanceOwnMinutes(60), 4060, 'online: the character\'s clock takes the hour');
+  assert.equal(ownMinutes(), 4060);
+  assert.equal(worldMinutes(), 5000, 'and the world\'s does not');
+  world += 5;
+  assert.equal(ownMinutes(), 4060, 'the character\'s clock moves in a tick, not by reading the world\'s');
+  setSharedClock(null);
 });
 
-test('CLOCK-REFUSAL: the prison release, the one that paid for this, still branches on it', () => {
-  // DEATHLOOP1 fixed the consequence; this holds the SHAPE, so the
-  // branch cannot be flattened back into a single unconditional call.
+test('CLOCK-REFUSAL (LIVED1): no caller asks the world clock to move - every caller that means elapsed time moves the character\'s own clock, which answers the truth on both sides', () => {
+  const callers = (re) => {
+    const out = new Map();
+    const walk = (dir) => {
+      for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) { walk(rel); continue; }
+        if (!e.name.endsWith('.js')) continue;
+        const src = readFileSync(join(ROOT, rel), 'utf8');
+        if (re.test(src)) out.set(rel, src);
+      }
+    };
+    walk('src');
+    return out;
+  };
+  const world = [...callers(/\badvanceWorldMinutes\s*\(/).keys()].filter((rel) => rel !== 'src/systems/worldTick.js');
+  assert.deepEqual(world, [], 'a caller that means elapsed time and asks the WORLD for it is the prison-release bug again');
+  const own = [...callers(/\badvanceOwnMinutes\s*\(/).keys()].filter((rel) => rel !== 'src/systems/worldTick.js').sort();
+  assert.deepEqual(own, ['src/scenes/arrestFlow.js', 'src/scenes/shared.js', 'src/scenes/world.js'], 'the sentence, the turn\'s fortnight, the cures and a quest\'s RaiseTime');
+});
+
+test('CLOCK-REFUSAL: the prison release, the one that paid for this - LIVED1: its days are the prisoner\'s own, served online too, so it refills in both lanes', () => {
+  // DEATHLOOP1 fixed the consequence of a refused sentence; LIVED1 serves it
   const arrest = readFileSync(join(ROOT, 'src/scenes/arrestFlow.js'), 'utf8');
-  assert.match(arrest, /if \(!sharedClockOn\(\)\) fillVitalSigns\(playerEntity\);\n\s*else reviveForPlay\(playerEntity\);/,
-    'offline refills, online floors - because online the days it just asked for did not pass');
+  assert.match(arrest, /advanceDays = \(days\) => advanceOwnMinutes\(days \* MINUTES_PER_DAY\),/, 'the days are the prisoner\'s own');
+  assert.match(arrest, /playerEntity\.inPrison = false;\s*(?:\/\/[^\n]*\n\s*)*fillVitalSigns\(playerEntity\);/, 'and the refill is their price, in both lanes');
 });
 
 // ── CAMP-SILENT: USING AN ITEM ALWAYS SAYS SOMETHING ─────────────

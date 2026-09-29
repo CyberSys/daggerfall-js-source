@@ -70,7 +70,9 @@ test('RR3 the record: the four quest files vendored, the list\'s three rows, the
   // the mod's Quests/ folder rides the pack loader's globs
   const qd = rd('src/scenes/questData.js');
   assert.match(qd, /import\.meta\.glob\('\.\.\/\.\.\/vendor\/roleplay-realism\/Quests\/\*\.txt'/);
-  assert.match(qd, /if \(name\.startsWith\('QuestList-'\)\) tables\.set\(name, stripBom\(await load\(\)\)\);/);
+  // FORAGE-FIX (2026-09-28): a list is read as a quest is, and only Foraging's own is patched - RR's rides as shipped
+  assert.match(qd, /const text = stripBom\(await load\(\)\);\n[\s\S]*?let patched = text;\n\s*if \(path\.includes\('\/vendor\/foraging\/'\)\) \{/);
+  assert.match(qd, /if \(name\.startsWith\('QuestList-'\)\) tables\.set\(name, patched\);/);
 });
 
 // ---- RegisterFactionIds (:659-706) + FactionFile.RegisterCustomFaction + AddCustomFactions ----

@@ -385,6 +385,7 @@ function host({ online = null, removeSiteFoes = () => {} } = {}) {
     dwDecor: null,   // DW-E2: and its seafloor's decorations to theirs - none in this rig either
     _dwRubble: new Map(), _dwRubbleCarry: new Map(), _dwGuards: new Map(), dwFreeRubble: () => {},   // DW-E5 / AUDIT DW-F: the sunken loot's rubble and the wrecks' guards leave with a pixel - none in this rig
     oceanHoles: null,   // OH-B: and its pit to There's a Hole in the Bottom of the Ocean's host - none in this rig
+    gatherHost: null,   // PROF1/PROF2: destroyPixel tells the gathering host its pixel's nodes went - none in this rig
   };
   const names = Object.keys(env);
   const body = `${SLICE.wodCode}\n${SLICE.dpCode}\n

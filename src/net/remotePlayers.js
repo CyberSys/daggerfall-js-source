@@ -1231,15 +1231,21 @@ export class RemotePlayers {
    *          toScene?: (p: any) => number[], rect?: any, covered?: boolean,
    *          layer?: any, log?: any, colorOf?: ((id: string) => number[]|null)|null,
    *          blocked?: ((head: number[], id: string) => boolean)|null,
-   *          renderer?: any, font?: any, scale?: number, hudScale?: number}} [opts]
+   *          renderer?: any, font?: any, scale?: number, hudScale?: number,
+   *          extra?: ((o: {proj: any, view: any, w: number, h: number, eye: any, rect: any, blocked: any}) => any[])|null}} [opts]
+   *   `extra` - NOTICE1: the host's own labels in the names' face and law (a Notice Board's "3 new"), asked with the
+   *   face's own pixels and never on a covered frame
    * @returns {number} how many names the frame drew
    */
   nameFrame({
     proj, view, w, h, eye, toScene = (p) => [p.x, p.y, p.z], rect = null, covered = false,
     layer = null, log = null, colorOf = null, blocked = null,
-    renderer = null, font = null, scale = 1, hudScale = 1,
+    renderer = null, font = null, scale = 1, hudScale = 1, extra = null,
   } = {}) {
     const points = covered ? [] : this.namePoints(proj, view, w, h, eye, toScene, rect, blocked);
+    if (!covered && typeof extra === 'function') {
+      try { points.push(...(extra({ proj, view, w, h, eye, rect, blocked }) ?? [])); } catch { /* a label is never worth the names */ }
+    }
     if (layer) {
       // the world viewport's own height where the docked HUD shrinks it (E5) - the name is sized by the frame it
       // is drawn into, not by the page (AUDIT NAME1 F3). The rect is NORMALISED (ui/hudLarge.js

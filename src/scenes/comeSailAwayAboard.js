@@ -32,7 +32,7 @@
 //   replaces the sender's alone, a sender gone or quiet past the stale time takes theirs, a clear takes everyone's.
 import { raycastColliders, invertAffine } from '../world/prefabColliders.js';
 import { carriedPoint, yawDelta, activationModelOf, boardPlaceOf } from '../systems/comeSailAway.js';
-import { mat4FromQuatPosScale } from '../world/quat.js';
+import { mat4FromQuatPosScale, quatMultiply, quatRotate } from '../world/quat.js';
 import { CSA_WIRE_BOATS_MAX } from '../systems/comeSailAwayWire.js';
 
 /** How far under the feet a deck is met (the ray runs from the centre, half a height more). */
@@ -67,6 +67,77 @@ export function worldOf(pose, l) {
   return [m[0] * l[0] + m[4] * l[1] + m[8] * l[2] + m[12], m[1] * l[0] + m[5] * l[1] + m[9] * l[2] + m[13], m[2] * l[0] + m[6] * l[1] + m[10] * l[2] + m[14]];
 }
 const rootPose = (boat) => ({ position: boat.GameObject.position, rotation: boat.GameObject.rotation });
+/**
+ * FIELD BUGS 2026-09-29 (the sea) #1 ("The player sprite doesnt seem mounted to the deck when the ship moves around"):
+ * THE FRAME A PLACE ABOARD IS STOOD IN - her root's, carried by her deck's bob. Come Sail Away rocks a boat by her
+ * MeshObject's localRotation (LateUpdate's bob, from rest at her MeshObject's own place), never her root's: the hull, its
+ * colliders, the helm and every deck hang under it. A place is said in the root's frame at rest (the words' law, kept)
+ * and stood where the deck's bob carries it now - her MeshObject's place, plus the bob turning the rest of the way - so a
+ * passenger rides the deck that rolls and pitches under them on its owner's screen, where they had kept their place
+ * while it moved tens of centimetres at a big hull's ends. A copy that never rocks (a peer's boat: its root alone is
+ * posed) answers her root's own pose: nothing changes there. `root` the root's pose to carry (one ahead of hers), else
+ * hers. worldOf(deckPose(boat), l) = root x (m + Q (l - m)): m her MeshObject's place in her root (under the mod's
+ * replacement node between them), Q her bob as the root's frame turns it.
+ * @returns {{ position: number[], rotation: number[] }}
+ */
+export function deckPose(boat, root = rootPose(boat)) {
+  const mo = boat?.MeshObject;
+  if (!mo || mo === boat.GameObject) return root;
+  const bob = mo.localRotation;
+  if (bob[0] === 0 && bob[1] === 0 && bob[2] === 0) return root;   // at rest (a copy): the root's frame itself
+  // the links between her root and her MeshObject (the mod's replacement node), composed down from the root
+  const links = [];
+  let n = mo.parent;
+  for (; n && n !== boat.GameObject; n = n.parent) links.push(n);
+  if (!n) return root;   // not hung under her root: nothing of hers to carry
+  let t = [0, 0, 0], q = [0, 0, 0, 1];
+  for (let k = links.length - 1; k >= 0; k--) {
+    const o = quatRotate(q, links[k].localPosition);
+    t = [t[0] + o[0], t[1] + o[1], t[2] + o[2]];
+    q = quatMultiply(q, links[k].localRotation);
+  }
+  // her MeshObject's place in the root (m) and her bob as the root's frame turns it (Q): l -> m + Q (l - m)
+  const lm = quatRotate(q, mo.localPosition), m = [t[0] + lm[0], t[1] + lm[1], t[2] + lm[2]];
+  const Q = quatMultiply(quatMultiply(q, bob), [-q[0], -q[1], -q[2], q[3]]);
+  const qm = quatRotate(Q, m), o = quatRotate(root.rotation, [m[0] - qm[0], m[1] - qm[1], m[2] - qm[2]]);
+  return { position: [root.position[0] + o[0], root.position[1] + o[1], root.position[2] + o[2]], rotation: quatMultiply(root.rotation, Q) };
+}
+/** A node's place in its boat's root frame AT REST - the chain from her root down to it composed in doubles, each link's
+ *  position, rotation and scale, her MeshObject's rotation (the bob) left out - or null when it hangs under no root of
+ *  hers. Exact whatever her pose and bob: no world matrix (a float's) is asked. */
+function restPlace(boat, node) {
+  const chain = [];
+  let n = node;
+  for (; n && n !== boat.GameObject; n = n.parent) chain.push(n);
+  if (!n) return null;
+  let t = [0, 0, 0], q = [0, 0, 0, 1], sc = [1, 1, 1];
+  for (let k = chain.length - 1; k >= 0; k--) {
+    const c = chain[k], p = c.localPosition;
+    const o = quatRotate(q, [p[0] * sc[0], p[1] * sc[1], p[2] * sc[2]]);
+    t = [t[0] + o[0], t[1] + o[1], t[2] + o[2]];
+    if (c !== boat.MeshObject) q = quatMultiply(q, c.localRotation);
+    sc = [sc[0] * c.localScale[0], sc[1] * c.localScale[1], sc[2] * c.localScale[2]];
+  }
+  return t;
+}
+/**
+ * #1: THE HELMSMAN'S PLACE, said as a passenger's is. Only the others aboard said where they stood, so everyone else
+ * drew a player at their own helm from their world pose - shown a send behind (net/online.js's lag) while their boat
+ * is led AHEAD by its way (scenes/comeSailAwayPeers.js): the helmsman trailed the wheel by their speed times a tenth to
+ * a quarter second, metres at the helm's time scales. Their place is the helm's own - Come Sail Away pins the player's
+ * transform to DrivePosition (the feet half a height under it) - at rest in her root's frame, where it never moves: one
+ * word while they sail, none after, and every reader stands them at the wheel of the boat they draw.
+ * @returns {[string, number, number, number, number] | null}
+ */
+export function helmWord(owner, slot, boat, height) {
+  const drive = boat?.DrivePosition;
+  if (typeof owner !== 'string' || !owner || !drive || !Number.isInteger(slot) || slot < 0 || slot >= CSA_WIRE_BOATS_MAX) return null;
+  const l = restPlace(boat, drive);   // the helm at rest in her root's frame: her own chain, her bob left out
+  if (!l) return null;
+  l[1] -= (Number.isFinite(height) && height > 0 ? height : 1.8) / 2;   // the feet, half a height under the pinned transform
+  if (!l.every((v) => Math.abs(v) <= CSA_ABOARD_LOCAL_MAX)) return null;
+  return [owner, slot, r2(l[0]), r2(l[1]), r2(l[2])];
+}
 
 /**
  * A passenger's word through the door: `[owner, slot, x, y, z]` - a peer's id, one of their word's places, and the
@@ -156,10 +227,10 @@ export function createComeSailAwayAboard({ peers, geometry, selfId = () => null 
     return aboard?.boat ?? null;
   }
 
-  /** My word: `[owner, slot, x, y, z]` - my feet in the boat's own frame - or null, aboard nothing. */
+  /** My word: `[owner, slot, x, y, z]` - my feet in the boat's own frame, at rest (#1: deckPose - a copy is) - or null. */
   function word(feet) {
     if (!aboard) return null;
-    const l = localOf(rootPose(aboard.boat), feet);
+    const l = localOf(deckPose(aboard.boat), feet);
     return l ? [aboard.owner, aboard.slot, r2(l[0]), r2(l[1]), r2(l[2])] : null;
   }
 
@@ -185,8 +256,9 @@ export function createComeSailAwayAboard({ peers, geometry, selfId = () => null 
 
   /**
    * The others as drawn: each whose word stands them aboard a boat that stands here, on that boat at their eased place
-   * - a copy of their drawn entry with the pose's feet replaced (converted to the pose's frame by `toWire`). The rest
-   * pass as they came.
+   * - a copy of their drawn entry with the pose's feet replaced (converted to the pose's frame by `toWire`), and their
+   * place on that deck beside it (`deck`, `deckKey`: #1's pace). The rest pass as they came. `poseOf` answers the
+   * frame the words are stood in: the root's, carried by the deck's bob (deckPose).
    * @param {any[]} drawable - online.drawable()'s entries ({ id, shown })
    * @param {{ poseOf: (owner: string, slot: number) => ({ position: number[], rotation: number[] } | null),
    *           toWire: (p: number[]) => number[], dt: number }} host
@@ -201,7 +273,9 @@ export function createComeSailAwayAboard({ peers, geometry, selfId = () => null 
       const pose = poseOf(r.owner, r.slot);
       if (!pose) return d;
       const w = toWire(worldOf(pose, r.shown));
-      return { ...d, shown: { ...d.shown, x: w[0], y: w[1], z: w[2] } };
+      // #1: and where on that deck - its frame's own place and whose deck - so a pace is read off the stride on the
+      // deck (net/peerPace.js), never off the deck's own way: a body standing on a moving deck stands
+      return { ...d, shown: { ...d.shown, x: w[0], y: w[1], z: w[2], deck: [r.shown[0], r.shown[1], r.shown[2]], deckKey: `${r.owner}:${r.slot}` } };
     });
   }
 

@@ -146,8 +146,10 @@ export function pickPad(list) {
 
 /**
  * @param canvas the host's canvas (unused beyond identity; the pad has no element)
- * @param hooks { look(dx, dy), attack(dx, dy, held), overlayActive() }
+ * @param hooks { look(dx, dy), attack(dx, dy, held), overlayActive(), paused?(), aimHold?() }
  *   - the same object the host hands attachTouch
+ *   - aimHold: NAV-H - true while the attack is a held aim (a helm with guns): RT is held plainly, never stroked,
+ *     and the right stick looks under it
  * @returns { tick(dt), axes(), usingController(), dispose() } or null without the API
  */
 export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = synth, makeEvent = defaultMakeEvent } = {}) {
@@ -456,11 +458,14 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
    *    the rig reads it, let go on the next - so the look is dropped for one frame, never for the hold.
    *  - Click / Click-or-Hold modes, or bow drawback on: RT is simply held (the rig swings on the press, a bow draws
    *    and looses on the release), and those modes do not stop the look.
+   *  - NAV-H: at a helm with guns (the host's `aimHold`) RT is the broadside's aim, simply held in every mode - laid
+   *    while it is down, fired when it lifts - and the look runs on under it: a stroke's one-frame press would fire
+   *    the guns the frame after it laid them.
    */
   const SWING_REPEAT = 0.4, STROKE_PX = 60;
   let swingT = 0, swingAlt = false, pulsed = false;
   function plusSwing(down, left, dt) {
-    const gesture = getInt('Controls', 'WeaponSwingMode', 0, 2) === 0 && !getBool('Controls', 'BowDrawback');
+    const gesture = getInt('Controls', 'WeaponSwingMode', 0, 2) === 0 && !getBool('Controls', 'BowDrawback') && !hooks.aimHold?.();
     if (pulsed) { pulsed = false; hooks.attack?.(0, 0, false); }
     if (!down) {
       if (swinging) { swinging = false; if (!gesture) hooks.attack?.(0, 0, false); }
@@ -653,7 +658,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       const lookSens = s.lookSensitivity * (plus ? plusStickSens('right') : 1);   // PADPLUS10: the right stick's sensitivity
       const dx = toUnits(controllerLookDegrees(look.x, dt, lookSens));
       const dy = toUnits(controllerLookDegrees(look.y, dt, lookSens));
-      if (swinging && !plus) hooks.attack?.(look.x * SWING_PX_PER_SEC * dt, -look.y * SWING_PX_PER_SEC * dt, true);   // PADPLUS2: under Plus the right stick always looks
+      if (swinging && !plus && !hooks.aimHold?.()) hooks.attack?.(look.x * SWING_PX_PER_SEC * dt, -look.y * SWING_PX_PER_SEC * dt, true);   // PADPLUS2: under Plus the right stick always looks; NAV-H: and at a helm with guns, the aim's look
       else hooks.look(dx, -dy);   // the hook reads screen-down positive and negates
     }
   }

@@ -25,6 +25,12 @@ import { CLASSIC_GAME_START_TIME } from '../src/systems/gameDate.js';
 // tick alone stays offline-only; the free lane's full-health guard on
 // the Medical tally (AUDIT RESTX F1) is retired with the lane; and the
 // shared clock is never read for pacing again.
+//
+// LIVED1 (2026-09-29) re-aims the session's span: the host is handed
+// the sub-tick's minutes ALONE - its advance moves the character's own
+// clock online, as the one clock offline - so the session keeps no
+// minute counter and hands no end; the rest window's line says the
+// hours are the character's own. Everything else here stands.
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
@@ -64,20 +70,19 @@ test('RESTX2: a TIMED rest online paces on the timer - one frame is not eight ho
   assert.equal(d.quests, 0, 'the quest tick alone stays off the online path');
 });
 
-test('RESTX2: the host is handed the session\'s own sim-minute as each sub-tick\'s end - seeded from the shared clock at the first sub-tick, ten a sub-tick from there, and the live clock is never re-read', () => {
+test('RESTX2 (LIVED1): the host is handed each sub-tick\'s minutes alone - its advance moves the character\'s own clock, so the session keeps no counter and hands no end, online or off, and a leap of the world\'s clock is not in them', () => {
   let clock = 8000.7;
   const d = deps({ sharedMinutes: () => clock });
   const s = new RestSession('timed', 2, d);
   s.tick(SUB);
   clock += 500;   // the world moved on (or a hidden tab leapt)
   s.tick(SUB); s.tick(SUB);
-  assert.deepEqual(d.ends, [8010, 8020, 8030], 'floored seed plus ten per sub-tick: three distinct windows for three distinct rolls, and the 500-minute leap is not in them');
+  assert.deepEqual([d.minutes, d.ends], [30, [undefined, undefined, undefined]], 'three sub-ticks, ten minutes each, and the 500-minute leap is not in them');
   const off = deps({ sharedMinutes: OFFLINE });
   const so = new RestSession('timed', 2, off);
   so.tick(SUB);
-  assert.deepEqual(off.ends, [null], 'offline the end is null and the host reads its own clock');
+  assert.deepEqual([off.minutes, off.ends], [10, [undefined]], 'offline the same law');
 });
-
 test('RESTX2: a foe that wanders in BREAKS an online rest on the hour it arrives - the thing RESTX1 made impossible', () => {
   let foes = false;
   const d = deps({ sharedMinutes: ONLINE, tickVitals() { d.hours++; foes = d.hours >= 3; return false; }, enemiesNearby: () => foes });
@@ -145,7 +150,7 @@ test('RESTX2: the rest WINDOW\'s counter ticks down online at the offline rate, 
   w.tick(HOUR);
   assert.equal(w.status().hours, 3, 'one rested hour of real time later the counter reads three - RESTX1 read zero on the first frame');
   assert.equal(w.status().worldMinutes, CLASSIC_GAME_START_TIME + 95, 'the world\'s minutes still ride the status while the shared clock stands');
-  assert.equal(restClockLine(CLASSIC_GAME_START_TIME + 95), 'World time 15:05 - resting does not move it');
+  assert.equal(restClockLine(CLASSIC_GAME_START_TIME + 95), 'World time 15:05 - you rest on your own clock', 'LIVED1: the world\'s time, and whose time the counter spends');
 });
 
 test('RESTX2 by source: the free lane and the shared-clock lane are gone from the session; the four hosts hand the sub-tick\'s end to their encounter roll', () => {
@@ -156,21 +161,20 @@ test('RESTX2 by source: the free lane and the shared-clock lane are gone from th
   assert.match(src, /_takeSubTick\(\) \{\s*\n(?:\s*\/\/[^\n]*\n)*\s*if \(this\._timer < this\._subTickEvery\) return false;\s*\n\s*this\._timer -= this\._subTickEvery;\s*\n\s*return true;\s*\n\s*\}/, 'ONE pacing law: the timer, and nothing else is consulted');
   assert.match(src, /_accrue\(dt\) \{\s*\n\s*this\._timer \+= dt;\s*\n\s*\}/, 'every mode banks the frame');
   const loop = src.slice(src.indexOf('while (this._takeSubTick()) {'), src.indexOf('this._minutesOfHour += MINUTES_PER_TICK;'));
-  assert.match(loop, /const online = Number\.isFinite\(this\.deps\.sharedMinutes\?\.\(\)\);/);
-  assert.match(loop, /if \(this\._onlineSimMinutes == null\) this\._onlineSimMinutes = Math\.floor\(this\.deps\.sharedMinutes\(\)\);\s*\n\s*this\._onlineSimMinutes \+= MINUTES_PER_TICK;/, 'seeded once, ten a sub-tick');
-  assert.match(loop, /this\.deps\.advanceMinutes\(MINUTES_PER_TICK, online \? this\._onlineSimMinutes : null\);/, 'the ONE place time is spent, in every lane');
-  assert.match(loop, /if \(!online\) this\.deps\.tickQuests\?\.\(\);/, 'the quest tick alone is gated');
+  assert.doesNotMatch(src, /_onlineSimMinutes\s*[+=]/, 'LIVED1: the session keeps no minute counter of its own');
+  assert.match(loop, /this\.deps\.advanceMinutes\(MINUTES_PER_TICK\);/, 'the ONE place time is spent, in every lane - the host\'s advance moves the character\'s own clock');
+  assert.match(loop, /if \(!Number\.isFinite\(this\.deps\.sharedMinutes\?\.\(\)\)\) this\.deps\.tickQuests\?\.\(\);/, 'the quest tick alone is gated');
   assert.match(src, /if \(this\.mode === 'timed'\) \{\s*\n(?:\s*\/\/[^\n]*\n)*\s*this\.deps\.tickVitals\(\);/, 'F1\'s guard is gone: the tally is unconditional');
-  // THE FOUR HOSTS: the two exterior hosts read the end the session hands them; the dungeon already did
+  // THE FOUR HOSTS: the two exterior hosts' encounter roll reads the character's own clock, which the rest moves
   for (const host of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
     const h = read(host);
-    assert.match(h, /function runEncounterTick\(playerFeet, simMinutesEnd = null, isResting = false\) \{/, `${host}: the roll takes the rest's minute, and now knows it's a rest`);
-    assert.match(h, /const now = simMinutesEnd \?\? Math\.floor\(playerTicker\.classicMinutes\);/, `${host}: ...as its now, when handed one`);
+    assert.match(h, /function runEncounterTick\(playerFeet, isResting = false(?:, \{ spawns = true \} = \{\})?\) \{/, `${host}: the roll knows it's a rest`);   // AUDIT LIVED1b P1: a mirror's night walks it with the wanderers left out
+    assert.match(h, /const now = Math\.floor\(playerTicker\.ownMinutes\);/, `${host}: ...and its now is the character's own clock (LIVED1)`);
     // RESTING GATE: the rest deps pass isResting=true, so camps/packs (MIN_CAMP_SPAWN_DISTANCE always
     // outside RESTING_DISTANCE - see encounters.js/campEncounters.js) never silently outflank the
     // enemies-nearby interrupt - they're a walking-around feature only, same as before this gate existed.
-    assert.match(h, /advanceMinutes: \(n, sharedEnd\) => \{ playerTicker\.advance\(n, sharedEnd\); runEncounterTick\([^)]*, sharedEnd, true\); \}/, `${host}: the rest deps hand it over, flagged as a rest - to the roll and (REST-ROUNDS) to the ticker's rounds`);
+    assert.match(h, /advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\([^)]*, true\); \}/, `${host}: the rest deps spend the minutes on the character's clock and roll, flagged as a rest`);
   }
-  assert.match(read('src/scenes/dungeonContext.js'), /advanceMinutes: \(n, sharedEnd\) => _restAdvance\(n, sharedEnd\),/, 'the dungeon\'s arm, unchanged');
-  assert.match(read('src/scenes/worldModes.js'), /advanceMinutes: \(n, sharedEnd\) => \{ interiorTicker\.advance\(n, sharedEnd\); host\.encounterTick\?\.\(\); \},/, 'the interior\'s arm rolls nothing inside a building, and (REST-ROUNDS) its ticker takes the sub-tick\'s end for the rounds');
+  assert.match(read('src/scenes/dungeonContext.js'), /advanceMinutes: \(n\) => _restAdvance\(n\),/, 'the dungeon\'s arm');
+  assert.match(read('src/scenes/worldModes.js'), /advanceMinutes: \(n\) => \{ interiorTicker\.advance\(n\); host\.encounterTick\?\.\(\); \},/, 'the interior\'s arm rolls nothing inside a building, and its ticker takes the minutes');
 });

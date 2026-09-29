@@ -65,14 +65,15 @@ test('PLUS-DRESS the roles: the journal page, the F-menu, the decorator (a whole
 
 test('PLUS-DRESS the WARN role: a press that costs something (leave, remove, disband, challenge) is edged in blood lit from the top left, brighter under the pointer and never brass, sunk while held - written BEFORE the disabled rule, so a warn that cannot be pressed goes flat like any other; paint only (mutants: the warn edge after the disabled rule, brass on a warn\'s hover)', () => {
   const at = (s) => FRAME_CSS.indexOf(s);
-  const rest = at('body .dfsocial-btn.warn,\nbody .dfprofile-duel { border-color: #e0584a #5a130f #3d0d0a #b83a2e;');
+  // NAV-F (2026-09-28) joined the role: scuttling a prize (`body .dfnaval-scuttle`, a `.dfnaval-btn` first)
+  const rest = at('body .dfsocial-btn.warn,\nbody .dfprofile-duel,\nbody .dfnaval-scuttle { border-color: #e0584a #5a130f #3d0d0a #b83a2e;');
   assert.ok(rest > 0, 'the edge');
-  const hover = at('body .dfsocial-btn.warn:hover:not(:disabled),\nbody .dfprofile-duel:hover:not(:disabled), body .dfsocial-btn.warn:focus-visible,\nbody .dfprofile-duel:focus-visible { border-color: #ff8a76 #7a1d16 #5a130f #e0584a;');
+  const hover = at('body .dfsocial-btn.warn:hover:not(:disabled),\nbody .dfprofile-duel:hover:not(:disabled),\nbody .dfnaval-scuttle:hover:not(:disabled), body .dfsocial-btn.warn:focus-visible,\nbody .dfprofile-duel:focus-visible,\nbody .dfnaval-scuttle:focus-visible { border-color: #ff8a76 #7a1d16 #5a130f #e0584a;');
   assert.ok(hover > rest, 'brighter blood under the pointer');
-  assert.ok(at('body .dfsocial-btn.warn:active:not(:disabled),\nbody .dfprofile-duel:active:not(:disabled) { border-color: #3d0d0a #b83a2e #e0584a #5a130f; }') > hover, 'sunk while held');
+  assert.ok(at('body .dfsocial-btn.warn:active:not(:disabled),\nbody .dfprofile-duel:active:not(:disabled),\nbody .dfnaval-scuttle:active:not(:disabled) { border-color: #3d0d0a #b83a2e #e0584a #5a130f; }') > hover, 'sunk while held');
   const disabled = at('body .dfsocial-btn:disabled');
   assert.ok(disabled > rest && disabled > hover, 'the disabled rule comes after and wins at the same weight');
-  assert.ok(FRAME_ROLES.button.includes('body .dfprofile-duel') && FRAME_ROLES.button.includes('body .dfsocial-btn'), 'a warn is a button first');
+  assert.ok(FRAME_ROLES.button.includes('body .dfprofile-duel') && FRAME_ROLES.button.includes('body .dfsocial-btn') && FRAME_ROLES.button.includes('body .dfnaval-btn'), 'a warn is a button first');
 });
 
 test('PLUS-DRESS what a role cannot say: the words stay bone under the kit\'s hover (and the kit\'s hover said again where a native :not() outweighed it); each press the lane drew borderless or on a line gets a 2px edge taken out of its padding, so it keeps its size; the duel strip, the boss\'s bar and the gate\'s countdown in the pixel face; the Renown box a brass plaque wherever a name wears it, its bar the vitals\' own with clasps; the party\'s lines in the vitals\' tones (mutants: a width-changing edge, a border shorthand that wipes the kit\'s colours, the serif left on the gate)', () => {

@@ -187,6 +187,20 @@ export const MOD_SETTINGS = Object.freeze({
       }),
     }),
   }),
+  // FORAGE1 (2026-09-28): FORAGING 1.7 (Harbinger451). No modsettings of
+  // its own - six tools, five foods, a quest pack - so one switch.
+  'foraging': Object.freeze({
+    title: 'Foraging',
+    author: 'Harbinger451',
+    keys: Object.freeze({
+      Enabled: Object.freeze({
+        default: true,
+        description: 'Harbinger451\u2019s Foraging 1.7, 1:1: in the wilderness, use a Wood-Axe to chop wood, a Pick-Axe to mine gems '
+          + 'and metals, a Sickle to cut plants, a Spade to rob graves, a Fishing-Net to fish and a Basket to forage for food - '
+          + 'by daylight, away from towns and foes, as your attributes, the climate and the season allow.',
+      }),
+    }),
+  }),
   // DW-A (2026-09-25): ILIAC PUDDLE NO MORE 1.2.2 (jet082). Its one section,
   // General, restated flat with the section in front of each name (the
   // Immersive Footsteps convention), in the shipped order with the shipped
@@ -1068,7 +1082,7 @@ export const MOD_SETTINGS = Object.freeze({
       // you to a destination and theres no travel". DEPARTURE FROM THE
       // MOD'S SHIPPED DEFAULT, on Mac's word, and it is the whole of that
       // report. IsPlayerControlledTravel is an AND over three toggles
-      // (travelPopUp.js:183): `(cautiousTravel || !speedCautious) &&
+      // (travelPopUp.js:190): `(cautiousTravel || !speedCautious) &&
       // (stopAtInnsTravel || !sleepModeInn) && !travelShip`. The popup
       // opens with `sleepModeInn = true` - classic Daggerfall's own
       // default, stopping at inns - so with this key false the second
@@ -1100,6 +1114,13 @@ export const MOD_SETTINGS = Object.freeze({
       // pick begins it on the ground, the view does not rise with it and coming down does not stop it
       // (scenes/world.js tvOwnsJourneys, which reads it live - AUDIT OW5 T1). OFF, the default: OW-ONLY.
       'GeneralOptions.FirstPersonTravel': Object.freeze({ default: false, description: 'Walks time accelerated journeys in first person, as before the Overworld: a journey picked on the travel map runs on the ground, and the Overworld view neither rises with it nor stops it when brought down. Off, a journey on the enhanced interface is taken in the Overworld. Takes effect at once. (This port’s own switch - the mod has none.)' }),
+      // TO-ROADS (FIELD BUGS 2026-09-29d, SylviaBun on the Discord: "Travel Options First Person doesn't follow roads like
+      // Overworld Travel Options does" - "A way to toggle this behavior to match or not would be nice"): THE PORT'S OWN
+      // KEY beside First-Person Travel, the same shape - not in the vendored modsettings.json, on the tile, read live. ON,
+      // with First-Person Travel on: a journey picked on the travel map is the Overworld's route - its planner, its legs,
+      // its refusals (scenes/world.js tvRoutesJourneys) - walked in first person, the view not raised. OFF, the default:
+      // First-Person Travel is the mod's own straight journey, the original travel option Mac asked back.
+      'GeneralOptions.FirstPersonTravelFollowsRoads': Object.freeze({ default: false, description: 'With First Person Travel on, a journey picked on the travel map follows the roads and tracks as the Overworld’s journeys do - planned round the mountains, and refused where no way by land reaches - and is walked in first person, the Overworld view not raised. Off, it walks straight to its destination, as Travel Options does. Takes effect at once. (This port’s own switch - the mod has none.)' }),
       'TimeAcceleration.DefaultStartingAcceleration': Object.freeze({ default: 4, options: Object.freeze(["1", "2", "3", "5", "10", "15", "20", "25", "30", "40", "50"]), description: "The initial time acceleration used after starting the game" }),
       'TimeAcceleration.AlwaysUseStartingAcceleration': Object.freeze({ default: false, description: "Always uses the default starting acceleration when initiating a journey, rather than value from the previous journey" }),
       'TimeAcceleration.AccelerationLimit': Object.freeze({ default: 60, min: 10, max: 100, description: "The maximum limit allowed for time acceleration, road following is limited to half this amount" }),

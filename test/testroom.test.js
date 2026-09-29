@@ -247,8 +247,10 @@ test('TSR4: the pane, the boot and the frame gate - the edge landing, the ONE tr
   // entry is "either in the dungeon or in the ground". It keeps the
   // named start (the city's exterior); every other door keeps classic.
   const main = read('src/main.js');
-  assert.match(main, /const \{ TEST_RIDE \} = await import\('\.\/systems\/testRoom\.js'\);\s*\n\s*if \(params\.get\('test'\) === TEST_RIDE\.id\) params\.delete\('classic'\);\s*\n\s*else params\.set\('classic', '1'\);/,
-    'the ride drops the classic start through the one home\'s id; every other choice still sets it');
+  // FIELD BUGS 2026-09-29 (the sea) #5: the sea battle is a spawn outdoors too - the one home's list, which the
+  // route reads (test/fbsea_testroom.test.js pins the list itself)
+  assert.match(main, /const \{ testStartsOutdoors \} = await import\('\.\/systems\/testRoom\.js'\);\s*\n\s*if \(testStartsOutdoors\(params\.get\('test'\)\)\) params\.delete\('classic'\);\s*\n\s*else params\.set\('classic', '1'\);/,
+    'the ride drops the classic start through the one home\'s list; every other choice still sets it');
   assert.ok(main.indexOf("params.delete('classic')") > main.indexOf("else params.delete('test');"), 'decided after the test param is settled');
   const world = read('src/scenes/world.js');
   // the horse lands with the armory; the mount is DEFERRED to the frame

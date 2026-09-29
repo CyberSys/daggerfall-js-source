@@ -355,7 +355,8 @@ must be assigned there, never re-declared. Mutants
    written down here for whoever meets it.
 
    THE POPUP SAYS SO. `ONLINE_TRAVEL_LINE` - "the world's clock does
-   not wait. You arrive now, and no inn is paid" - is DFU's fast travel
+   not wait. You arrive now, and no inn is paid" [LIVED1: now "Online: the days pass
+   on your own clock. You arrive in the world's present."] - is DFU's fast travel
    talking, and it was true of every online trip while the journey stood
    down. It is false over a walked one, so both skins now gate it off
    `walkedTrip` / `t.walked`; that branch already carries the mod's own
@@ -648,7 +649,7 @@ third was a thing the port never said out loud.
 > not a fatigue knob, it is the needs' one word for "sat still", and
 > FOUR laws read it - the two fatigue drains it was aimed at, the two
 > health arms F12 later disclosed, and SURV6's hunting roll, which
-> refuses outright on `resting` (`hunting.js:114`). One flag reached
+> refuses outright on `resting` (`hunting.js:115`). One flag reached
 > three laws nobody had asked it to reach. That is the lesson worth
 > keeping out of this whole exchange.
 
@@ -761,7 +762,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:643-646`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:9876 -
+`locationTileRect` answered null for the neighbour (world.js:10807 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read
@@ -952,6 +953,12 @@ the Overworld's; on, this switch gives the mod's own first-person journey back
 raised with it nor stopping it (`test/ow_toggle.test.js`). A journey of the
 mod's own begun at a boat's helm meets the mod's own ocean stop, as the mod
 does (AUDIT OW5 S1: the Overworld's crossing alone stands it down).
+
+**Its roads (TO-ROADS, 2026-09-29, FIELD BUGS 2026-09-29d).** `GeneralOptions.FirstPersonTravelFollowsRoads`, the
+same shape again, OFF, beside it on the tile: with First-Person Travel on, a map pick is the Overworld's route - its
+planner, its join, the peaks and the water, its refusals - walked by this mod's autopilot leg by leg, in first person.
+A departure from the mod, which never routes to a named destination (TO-FIELD above) - off, it is the mod's beeline
+again. `06-Systems/Travel-View.md` TO-ROADS (`test/fb0929d_toroads.test.js`).
 
 **Not done, and said.** A gap barely wider than the corridor is threaded
 when it is on the line, or found while the detour walks past it at a
@@ -1342,6 +1349,19 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
   over first (the map door's GiveOffer rung); a purse that holds the fare but not the inns' coin is told the coin. (A first draft of this record said the popup
   priced AFTER its guard and so read no ocean; the constructor's own refresh makes that false - corrected.)
 
+## TO-FARE (2026-09-29) - the fare's haggle reads the Mercantile skill
+
+Found on MERC-CAP's way (`01-Overview/Field-Bugs-2026-09-29f.md`), fixed at Mac's word: *"Fix the separate bug"*.
+The mod scales a fast-travel fare and puts each half back through `FormulaHelper.CalculateTradePrice(cost, 10, false)`
+(TravelTimeCalculatorTO.CalculateTripCost), which reads the traveller's live Mercantile SKILL (GetLiveSkillValue,
+FormulaHelper.cs:1992/1998). `scaleTripCost` read `liveStat(e, 'mercantile')` - a stat by the skill's name, which no
+entity has - so every scaled fare haggled at Mercantile 0: on a trip of 300 in inn nights and 400 in passage at x4 and
+x3, a traveller at Mercantile 90 was billed a novice's 1686 for a 1068 fare. It reads `skillValue(e,
+SKILLS.Mercantile)` now, the same read every counter makes, so a worn Enhances Skill haggles too. The split this page
+called faithful was; its haggle's Mercantile was not. Both maps and a party's fare bill through it (`travelFareDeps`),
+and the dials are the player's own online (`ONLINE_PLAYERS_OWN_MODS`), where MERC-CAP reads the skill no further than
+100. Offline, past 233 the mod's own call bills under nothing, as a room does - put to Mac with MERC-CAP.
+
 ## Pins
 
 `test/to1_travelOptions.test.js`. `tools/mutants/to1.json`.
@@ -1353,3 +1373,5 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
 `test/spawntravel.test.js`, `tools/mutants/spawntravel.json` (SPAWN-TRAVEL).
 `test/risestuck.test.js`, `tools/mutants/rise_stuck.json` (RISE-STUCK).
 `test/disc28e_shipport.test.js`, `tools/mutants/disc28e.json` (SHIP-PORT's ten, SHIP-SAIL's twenty-three).
+`test/fb0929d_toroads.test.js`, `tools/mutants/fb0929d_toroads.json` (TO-ROADS, 14 dead, 2 equivalent).
+`test/fb0929f_tofare.test.js`, `tools/mutants/fb0929f_tofare.json` (TO-FARE, 2 dead).

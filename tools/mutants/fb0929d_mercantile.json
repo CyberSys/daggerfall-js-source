@@ -1,0 +1,30 @@
+[
+  {
+    "name": "MERC-RISE-the-half-is-of-the-seller's-own-ask",
+    "file": "src/systems/shopStock.js",
+    "old": "    return Math.min(sale, Math.floor(calculateTradePrice(cost, shopQuality, best, false) * ONLINE_SALE_SHARE));",
+    "new": "    return Math.min(sale, Math.floor(calculateTradePrice(cost, shopQuality, { mercantile, personality }, false) * ONLINE_SALE_SHARE));",
+    "tests": ["test/fb0929d_mercantile.test.js", "test/realm0.test.js"]
+  },
+  {
+    "name": "MERC-RISE-the-best-haggler-is-average",
+    "file": "src/systems/shopStock.js",
+    "old": "    const best = { mercantile: ONLINE_HAGGLE_MAX, personality: ONLINE_HAGGLE_MAX };",
+    "new": "    const best = { mercantile: 50, personality: 50 };",
+    "tests": ["test/fb0929d_mercantile.test.js", "test/realm0.test.js"]
+  },
+  {
+    "name": "MERC-RISE-the-reference-ignores-personality",
+    "file": "src/systems/shopStock.js",
+    "old": "    const best = { mercantile: ONLINE_HAGGLE_MAX, personality: ONLINE_HAGGLE_MAX };",
+    "new": "    const best = { mercantile: ONLINE_HAGGLE_MAX, personality };",
+    "tests": ["test/fb0929d_mercantile.test.js", "test/realm0.test.js"]
+  },
+  {
+    "name": "MERC-RISE-the-online-sale-is-uncapped",
+    "file": "src/systems/shopStock.js",
+    "old": "    if (!online) return sale;\n    const best",
+    "new": "    return sale;\n    const best",
+    "tests": ["test/fb0929d_mercantile.test.js", "test/realm0.test.js"]
+  }
+]

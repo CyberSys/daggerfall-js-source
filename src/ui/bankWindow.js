@@ -88,6 +88,12 @@ const OPENS = Object.freeze({
   loanRepay: TRANSACTION_TYPE.Repaying_loan,
 });
 
+/** MARKS1: the Marks sale's amount field - the PORT'S entry, never one of DFU's transaction types (online, the Bank of
+ *  the Empire buys Marks for gold; PROF0 10.5). Reached from the enhanced face's "Sell Marks" alone. */
+export const MARKS_ENTRY = 'marks';
+/** The line under the counting while the service answers. */
+export const MARKS_COUNTING = 'The Bank counts your Marks...';
+
 /** "cannotCarryGold" - the one result that is NOT a TEXT.RSC record,
  *  so the window supplies its own line (:308-309). */
 export const CANNOT_CARRY_GOLD = 'You cannot carry that much gold.';
@@ -115,7 +121,8 @@ const inRect = ([rx, ry, rw, rh], x, y) => x >= rx + BANK_PANEL_X && y >= ry + B
  *   now()          -> classic minutes
  *   wagonGold()    -> the cart's gold, for the parenthesised label
  *   rows(textId)   -> the host's TEXT.RSC reader
- *   dueDateText(minutes) -> GetLoanDueDateString
+ *   dueDateText(minutes, { short }) -> GetLoanDueDateString (AUDIT LIVED1 P:
+ *                    `short` for the classic label's room online)
  *   playerName(), cityName(), regionName()  -> AUDIT 64 F25: the three
  *                    GLOBAL macro producers the bank records quote
  *                    (%pcn, %cn, %reg); an unwired one leaves its
@@ -140,8 +147,12 @@ export class BankWindow {
   get accounts() { return this.hooks.accounts(); }
   get region() { return this.hooks.regionIndex(); }
 
-  /** UpdateButtons (:252-265), through the law. */
+  /** UpdateButtons (:252-265), through the law. MARKS1: the Marks sale is the port's own - open, held, nothing typed. */
   enabled(button) {
+    if (button === 'sellMarks') {
+      const m = this.hooks.marks;
+      return !!m && m.open() === true && (m.balance() ?? 0) > 0 && !m.pending() && this.transactionType === TRANSACTION_TYPE.None && !this.box;
+    }
     return bankButtonEnabled(button, {
       transactionType: this.transactionType, accounts: this.accounts, regionIndex: this.region,
     });
@@ -235,6 +246,7 @@ export class BankWindow {
     const type = this.transactionType;
     this._openInput(TRANSACTION_TYPE.None);
     if (amount == null) return;    // int.TryParse: nothing at all
+    if (type === MARKS_ENTRY) { this._sellMarks(amount); return; }   // MARKS1: the port's own
     const a = this.accounts, r = this.region, p = this.hooks.player;
     let result = TRANSACTION_RESULT.NONE;
     switch (type) {
@@ -250,9 +262,21 @@ export class BankWindow {
     this._popup(result, amount);
   }
 
+  /** MARKS1: the sale, asked of the service; the box counts until it answers, then says what the Bank paid (into this
+   *  region's account - the host's credit) or why not. */
+  _sellMarks(amount) {
+    this.box = { rows: [{ text: MARKS_COUNTING, center: true }], buttons: null, amount: 0, onYes: null, waiting: true };
+    const done = (r) => {
+      if (this.done) return;
+      this.box = { rows: [{ text: r?.text ?? MARKS_COUNTING, center: true }], buttons: null, amount: 0, onYes: null };
+    };
+    Promise.resolve(this.hooks.sellMarks?.(amount)).then(done, () => done(null));
+  }
+
   _button(name) {
     if (!this.enabled(name)) return;
     audio.playOneShot(SOUND.ButtonClick, 1);
+    if (name === 'sellMarks') { this.transactionType = MARKS_ENTRY; this.value = ''; return; }   // MARKS1
     if (OPENS[name]) { this._openInput(OPENS[name]); return; }
     if (name === 'depositLetters') { this._popup(TRANSACTION_RESULT.DEPOSIT_LOC); return; }
     if (name === 'loanBorrow') {
@@ -326,6 +350,7 @@ export class BankWindow {
   }
 
   _dismissBox(button = null) {
+    if (this.box?.waiting) return;   // MARKS1: the counting box stays until the service answers
     const b = this.box;
     this.box = null;
     if (b?.buttons === 'YesNo' && button === MB_BUTTONS.Yes) b.onYes?.();
@@ -420,7 +445,8 @@ export class BankWindow {
       account: String(accountTotal(a, r)),
       inventory: wagon > 0 ? `${purse} (+${wagon})` : String(purse),
       loanDue: String(loanedTotal(a, r)),
-      loanBy: this.hooks.dueDateText?.(loanDueDate(a, r)) ?? '',
+      loanBy: this.hooks.dueDateText?.(loanDueDate(a, r), { short: true }) ?? '',   // AUDIT LIVED1 P: the parchment's room
+      loanByFull: this.hooks.dueDateText?.(loanDueDate(a, r)) ?? '',   // ...and the enhanced face's whole words
     };
   }
 

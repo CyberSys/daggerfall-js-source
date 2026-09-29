@@ -248,6 +248,45 @@ function faceNy(tri) {
   return l > 0 ? Math.abs(ny) / l : 0;
 }
 
+/** AUDIT NAV1 (the frame's cost, #12): faceNy of a TURNED bucket's triangle - its plane's normal as the bucket's R
+ *  stands it in the world (world = R b + t; R's second row, column-major), the slope judged of the face as it stands. */
+function faceNyTurned(tri, R) {
+  const a = tri[0], b = tri[1], c = tri[2];
+  const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+  const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+  const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const l = Math.sqrt(nx * nx + ny * ny + nz * nz);
+  return l > 0 ? Math.abs(R[1] * nx + R[4] * ny + R[7] * nz) / l : 0;
+}
+
+/** AUDIT NAV1 (the frame's cost, #12): a world point in a bucket's own frame, into `out` - less its translation, and
+ *  turned back through R's transpose where the bucket turns (world = R b + t). */
+function intoBucket(x, y, z, t, R, out) {
+  const px = x - t[0], py = y - t[1], pz = z - t[2];
+  if (!R) { out[0] = px; out[1] = py; out[2] = pz; return out; }
+  out[0] = R[0] * px + R[1] * py + R[2] * pz;
+  out[1] = R[3] * px + R[4] * py + R[5] * pz;
+  out[2] = R[6] * px + R[7] * py + R[8] * pz;
+  return out;
+}
+/** A turned bucket's box as it stands in the world: its own box's centre carried, its half-extents through |R| -
+ *  [minX, minY, minZ, maxX, maxY, maxZ], holding every point of the turned box. */
+function turnedBox(bucket, t, R, out) {
+  for (let i = 0; i < 3; i++) {
+    let c = t[i], e = 0;
+    for (let j = 0; j < 3; j++) {
+      const r = R[j * 3 + i];   // row i of column j
+      c += r * ((bucket.min[j] + bucket.max[j]) / 2);
+      e += Math.abs(r) * ((bucket.max[j] - bucket.min[j]) / 2);
+    }
+    out[i] = c - e; out[i + 3] = c + e;
+  }
+  return out;
+}
+const LOCAL = [0, 0, 0];   // a query's point in the bucket it is asking - one scratch (no query re-enters another here)
+const LOCAL_DIR = [0, 0, 0];   // and a ray's direction there
+const TURNED_BOX = [0, 0, 0, 0, 0, 0];
+
 /** MAC-BUG W5: how far apart the two samples of a central difference
  *  are. Half a unit - wide enough that the terrain sampler's own
  *  interpolation answers two different heights on a real slope,
@@ -268,7 +307,7 @@ export class Collider {
   constructor(heightAt = () => -Infinity, surfaceAt = null) {
     this.heightAt = heightAt;
     this.surfaceAt = typeof surfaceAt === 'function' ? surfaceAt : null;
-    this._buckets = new Map(); // key -> {tris, grid: Map, t: () => [x,y,z], min: [x,y,z], max: [x,y,z]}   // AUDIT NAME1 F2: the bounds are the ray's broad phase
+    this._buckets = new Map(); // key -> {tris, grid: Map, t: () => [x,y,z], r: (() => number[]|null)|null, min: [x,y,z], max: [x,y,z]}   // AUDIT NAME1 F2: the bounds are the ray's broad phase
   }
 
   /**
@@ -310,15 +349,26 @@ export class Collider {
   /**
    * Register a mesh's triangles under a bucket. Positions/indices are the
    * meshReader model buffers; matrix bakes them into bucket space.
+   *
+   * AUDIT NAV1 (the frame's cost, #12): A MOVER'S BUCKET. `rotation`, where
+   * given, answers the turn the bucket's triangles stand at beside its
+   * translation - a column-major 3x3, orthonormal, or null for none: the
+   * world is R b + t. A boat's colliders are baked once and ride her as
+   * PhysX moves a MeshCollider by its transform; her every move had
+   * re-baked them (three ships near: 4,334 triangles and ~7 ms a frame).
+   * Every query takes its point, and a ray its direction, into the
+   * bucket's frame, and brings a contact, a normal or a push back out; a
+   * bucket with no turn (every bucket but a mover's) is walked exactly as
+   * it was.
    */
-  addMesh(bucketKey, positions, indices, matrix, translation = null) {
+  addMesh(bucketKey, positions, indices, matrix, translation = null, rotation = null) {
     let bucket = this._buckets.get(bucketKey);
     if (!bucket) {
       // AUDIT NAME1 F2: `min`/`max` are the bucket's own bounds in ITS
       // OWN space (the translation is applied to the RAY, as the DDA
       // already does), kept as the triangles go in - one compare per
       // vertex, paid once at load, against a walk paid per ray.
-      bucket = { tris: [], grid: new Map(), coarse: new Map(), huge: [], t: translation || (() => ZERO3), min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };   // AUDIT BRANCH (WoD) B1: the wide triangles' two homes
+      bucket = { tris: [], grid: new Map(), coarse: new Map(), huge: [], t: translation || (() => ZERO3), r: rotation, min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };   // AUDIT BRANCH (WoD) B1: the wide triangles' two homes
       this._buckets.set(bucketKey, bucket);
     }
     const m = matrix;
@@ -373,6 +423,12 @@ export class Collider {
     for (const bucket of this._buckets.values()) {
       if (!(bucket.min[0] <= bucket.max[0])) continue;   // an empty bucket's box is inverted
       const t = bucket.t();
+      const R = bucket.r ? bucket.r() : null;   // AUDIT NAV1 (#12): a mover's, its box as it stands turned
+      if (R) {
+        const b = turnedBox(bucket, t, R, TURNED_BOX);
+        for (let k = 0; k < 3; k++) { if (b[k] < min[k]) min[k] = b[k]; if (b[k + 3] > max[k]) max[k] = b[k + 3]; }
+        continue;
+      }
       for (let k = 0; k < 3; k++) {
         if (bucket.min[k] + t[k] < min[k]) min[k] = bucket.min[k] + t[k];
         if (bucket.max[k] + t[k] > max[k]) max[k] = bucket.max[k] + t[k];
@@ -413,19 +469,28 @@ export class Collider {
    * (systems/travelSteer.js createColliderProbe) and owns one result for
    * all of them. Without it the answer is the one it always was.
    */
-  raycastHit(origin, dir, maxDist, filter = null, out = null) {
+  raycastHit(origin, dirW, maxDist, filter = null, out = null) {
     let best = Infinity;
     let bestKey = null;
     let bestTri = null;   // M3 climbing: the hit surface's normal rides the result
+    let bestR = null;   // AUDIT NAV1 (#12): and the turn of the bucket it stands in
     const only = filter?.only ? new Set(filter.only) : null;
     const skip = filter?.skip ? new Set(filter.skip) : null;
     for (const [bkey, bucket] of this._buckets) {
       if (only && !only.has(bkey)) continue;
       if (skip && skip.has(bkey)) continue;
       const t = bucket.t();
-      const ox = origin[0] - t[0];
-      const oy = origin[1] - t[1];
-      const oz = origin[2] - t[2];
+      const R = bucket.r ? bucket.r() : null;
+      let ox, oy, oz, dir = dirW;   // AUDIT NAV1 (#12): the ray in the bucket's own frame - a mover's turned back
+      if (R) {
+        intoBucket(origin[0], origin[1], origin[2], t, R, LOCAL);
+        ox = LOCAL[0]; oy = LOCAL[1]; oz = LOCAL[2];
+        dir = intoBucket(dirW[0], dirW[1], dirW[2], ZERO3, R, LOCAL_DIR);
+      } else {
+        ox = origin[0] - t[0];
+        oy = origin[1] - t[1];
+        oz = origin[2] - t[2];
+      }
       // AUDIT NAME1 F2: THE BUCKET'S OWN BOX, FIRST. Without it every
       // ray walked a full 2-D DDA to maxDist through EVERY bucket -
       // and an exterior collider holds one bucket per streamed map
@@ -461,7 +526,7 @@ export class Collider {
             visited.add(ti);
             const tri = bucket.tris[ti];
             const hit = rayTriangle(ox, oy, oz, dir, tri[0], tri[1], tri[2]);
-            if (hit !== null && hit < best && hit <= maxDist) { best = hit; bestKey = bkey; bestTri = tri; }
+            if (hit !== null && hit < best && hit <= maxDist) { best = hit; bestKey = bkey; bestTri = tri; bestR = R; }
           }
         }
         if (tMaxX < tMaxZ) { walked = tMaxX; tMaxX += tDeltaX; cx += stepX; }
@@ -475,7 +540,7 @@ export class Collider {
             visited.add(ti);
             const tri = bucket.tris[ti];
             const hit = rayTriangle(ox, oy, oz, dir, tri[0], tri[1], tri[2]);
-            if (hit !== null && hit < best && hit <= maxDist) { best = hit; bestKey = bkey; bestTri = tri; }
+            if (hit !== null && hit < best && hit <= maxDist) { best = hit; bestKey = bkey; bestTri = tri; bestR = R; }
           }
         }
       }
@@ -490,9 +555,14 @@ export class Collider {
       nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
       ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
       nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+      if (bestR) {   // AUDIT NAV1 (#12): a mover's face, turned as it stands
+        const R = bestR;
+        const wx = R[0] * nx + R[3] * ny + R[6] * nz, wy = R[1] * nx + R[4] * ny + R[7] * nz, wz = R[2] * nx + R[5] * ny + R[8] * nz;
+        nx = wx; ny = wy; nz = wz;
+      }
       const l = Math.hypot(nx, ny, nz) || 1;
       nx /= l; ny /= l; nz /= l;
-      if (nx * dir[0] + ny * dir[1] + nz * dir[2] > 0) { nx = -nx; ny = -ny; nz = -nz; }
+      if (nx * dirW[0] + ny * dirW[1] + nz * dirW[2] > 0) { nx = -nx; ny = -ny; nz = -nz; }
       if (!out) normal = [nx, ny, nz];
     }
     if (out) {   // TRAVEL-NAV1: the caller's own result, written in place
@@ -579,9 +649,14 @@ export class Collider {
     const r2 = radius * radius;
     for (const [, bucket] of this._buckets) {
       const t = bucket.t();
-      const lx = center[0] - t[0];
-      const ly = center[1] - t[1];
-      const lz = center[2] - t[2];
+      const R = bucket.r ? bucket.r() : null;
+      let lx, ly, lz;
+      if (R) { intoBucket(center[0], center[1], center[2], t, R, LOCAL); lx = LOCAL[0]; ly = LOCAL[1]; lz = LOCAL[2]; }   // AUDIT NAV1 (#12): a mover's, turned back
+      else {
+        lx = center[0] - t[0];
+        ly = center[1] - t[1];
+        lz = center[2] - t[2];
+      }
       if (!sphereTouchesBox(lx, ly, lz, radius, bucket.min, bucket.max)) continue;   // PERF-COL1: the same broad phase (the test below is `< r2`, no skin)
       const visited = VISITED;
       visited.clear();
@@ -623,10 +698,12 @@ export class Collider {
     for (const [bkey, bucket] of this._buckets) {
       if (only && !only.has(bkey)) continue;
       const t = bucket.t();
-      const lx = feet[0] - t[0];
-      const lz = feet[2] - t[2];
+      const R = bucket.r ? bucket.r() : null;   // AUDIT NAV1 (#12): a mover's - each sample turned back, the contact out
+      let lx = feet[0] - t[0];
+      let lz = feet[2] - t[2];
       for (let i = 0; i < n; i++) {
-        const ly = feet[1] + CAPSULE_RADIUS + (axis * i) / (n - 1) - t[1];
+        let ly = feet[1] + CAPSULE_RADIUS + (axis * i) / (n - 1) - t[1];
+        if (R) { intoBucket(feet[0], feet[1] + CAPSULE_RADIUS + (axis * i) / (n - 1), feet[2], t, R, LOCAL); lx = LOCAL[0]; ly = LOCAL[1]; lz = LOCAL[2]; }
         if (!sphereTouchesBox(lx, ly, lz, lim, bucket.min, bucket.max)) continue;
         const visited = VISITED;
         visited.clear();
@@ -641,12 +718,14 @@ export class Collider {
             const dz = lz - TMP[2];
             const d2 = dx * dx + dy * dy + dz * dz;
             if (!(d2 <= lim2 && d2 < best)) continue;
+            let px = TMP[0] + t[0], py = TMP[1] + t[1], pz = TMP[2] + t[2];   // the contact in the world
+            if (R) { px = R[0] * TMP[0] + R[3] * TMP[1] + R[6] * TMP[2] + t[0]; py = R[1] * TMP[0] + R[4] * TMP[1] + R[7] * TMP[2] + t[1]; pz = R[2] * TMP[0] + R[5] * TMP[1] + R[8] * TMP[2] + t[2]; }
             if (beneath != null) {
-              const cx = TMP[0] + t[0] - feet[0], cy = TMP[1] + t[1] - (feet[1] + height / 2), cz = TMP[2] + t[2] - feet[2];
+              const cx = px - feet[0], cy = py - (feet[1] + height / 2), cz = pz - feet[2];
               const len = Math.hypot(cx, cy, cz);
               if (!(len > 0 && cy / len < beneath)) continue;
             }
-            best = d2; out[0] = TMP[0] + t[0]; out[1] = TMP[1] + t[1]; out[2] = TMP[2] + t[2];
+            best = d2; out[0] = px; out[1] = py; out[2] = pz;
           }
         }
       }
@@ -684,11 +763,16 @@ export class Collider {
     for (const [key, bucket] of this._buckets) {
       if (skip && skip.has(key)) continue;
       const t = bucket.t();
+      const R = bucket.r ? bucket.r() : null;   // AUDIT NAV1 (#12): a mover's - its box as it stands turned, the start turned back
       let apart = false;
-      for (let i = 0; i < 3; i++) if (hi[i] < bucket.min[i] + t[i] - BOX_SKIN || lo[i] > bucket.max[i] + t[i] + BOX_SKIN) apart = true;
+      if (R) {
+        const b = turnedBox(bucket, t, R, TURNED_BOX);
+        for (let i = 0; i < 3; i++) if (hi[i] < b[i] - BOX_SKIN || lo[i] > b[i + 3] + BOX_SKIN) apart = true;
+      } else for (let i = 0; i < 3; i++) if (hi[i] < bucket.min[i] + t[i] - BOX_SKIN || lo[i] > bucket.max[i] + t[i] + BOX_SKIN) apart = true;
       if (apart) continue;
       // the start: a triangle inside the sphere where the sweep begins
-      const lx = origin[0] - t[0], ly = origin[1] - t[1], lz = origin[2] - t[2];
+      let lx = origin[0] - t[0], ly = origin[1] - t[1], lz = origin[2] - t[2];
+      if (R) { intoBucket(origin[0], origin[1], origin[2], t, R, LOCAL); lx = LOCAL[0]; ly = LOCAL[1]; lz = LOCAL[2]; }
       let overlap = false;
       if (sphereTouchesBox(lx, ly, lz, radius, bucket.min, bucket.max)) {
         const visited = VISITED;
@@ -850,23 +934,31 @@ export class Collider {
     for (const [bkey, bucket] of this._buckets) {
       if (skip?.has(bkey)) continue;   // AUDIT DECOR-SHELL 1
       const t = bucket.t();
-      if (!sphereTouchesBox(center[0] - t[0], center[1] - t[1], center[2] - t[2], radius + SKIN, bucket.min, bucket.max)) continue;
+      // AUDIT NAV1 (the frame's cost, #12): a mover's bucket - the centre turned back into its frame for the box, the
+      // cells and each triangle's nearest point, and the contact's direction turned out again: every law below (the
+      // ground's slope, the wall above, the one-way floor, the push) reads the world's up, as it stands
+      const R = bucket.r ? bucket.r() : null;
+      if (R) intoBucket(center[0], center[1], center[2], t, R, LOCAL);
+      const bx = R ? LOCAL[0] : center[0] - t[0], by = R ? LOCAL[1] : center[1] - t[1], bz = R ? LOCAL[2] : center[2] - t[2];   // the centre in the bucket, as it stands at the bucket's turn
+      if (!sphereTouchesBox(bx, by, bz, radius + SKIN, bucket.min, bucket.max)) continue;
       const visited = VISITED;
       visited.clear();
-      for (const cell of nearCells(bucket, center[0] - t[0], center[2] - t[2])) {   // AUDIT BRANCH (WoD) B1: the fine 3x3, then any wide triangles
+      for (const cell of nearCells(bucket, bx, bz)) {   // AUDIT BRANCH (WoD) B1: the fine 3x3, then any wide triangles
         for (const ti of cell) {
           if (visited.has(ti)) continue;
           visited.add(ti);
           const tri = bucket.tris[ti];
           // Live local point: pushes from earlier triangles must be
           // seen by later ones (a stale snapshot compounded pushes).
-          const lx = center[0] - t[0];
-          const ly = center[1] - t[1];
-          const lz = center[2] - t[2];
+          let lx = center[0] - t[0];
+          let ly = center[1] - t[1];
+          let lz = center[2] - t[2];
+          if (R) { intoBucket(center[0], center[1], center[2], t, R, LOCAL); lx = LOCAL[0]; ly = LOCAL[1]; lz = LOCAL[2]; }
           closestPointOnTriangle(lx, ly, lz, tri[0], tri[1], tri[2], TMP);
-          const dx = lx - TMP[0];
-          const dy = ly - TMP[1];
-          const dz = lz - TMP[2];
+          let dx = lx - TMP[0];
+          let dy = ly - TMP[1];
+          let dz = lz - TMP[2];
+          if (R) { const wx = R[0] * dx + R[3] * dy + R[6] * dz, wy = R[1] * dx + R[4] * dy + R[7] * dz, wz = R[2] * dx + R[5] * dy + R[8] * dz; dx = wx; dy = wy; dz = wz; }
           const d2 = dx * dx + dy * dy + dz * dz;
           // Ground/contact is detected out to radius + SKIN, but the
           // sphere is only PUSHED OUT to the true radius. A floor at
@@ -928,7 +1020,9 @@ export class Collider {
           // DISC28-G (Discord: in Veraten "the swimming physics persisted after leaving the water ... rose way up and
           // then fell into the void"): THE LAW IS ABOUT A BODY STRADDLING A FLOOR, and a RISING body whose head is still
           // under the surface straddles nothing - it is pressing into a ceiling. The rising vertical pass hands the
-          // body's axis (`oneWayFloor` a number): the surface is a floor only below the head's centre. The crouched
+          // body's axis (`oneWayFloor` a number): the surface is a floor only below the head's centre (WW-LID: so does
+          // the sideways pass - a water walker's stride put its lower sphere under a lintel over its head's centre, and
+          // PH1 set the body on it). The crouched
           // swimmer's axis is 0.2 against a 0.2625 step, so a stroke up into a ceiling brought the lower sphere within
           // its radius of the face while the head was still beneath it, and this arm set the whole body ON the
           // ceiling's top - out of the level, under the block's water plane, where it swam on up and fell. PH1's own
@@ -948,11 +1042,11 @@ export class Collider {
           // |n.y| >= cos(slopeLimit), facing-blind as every test here is. A floor's edge is still its floor's; a
           // wall's edge is the wall's, and meets the plain push below.
           const floorAbove = oneWayFloor !== false && d < radius && !wallAbove && dy / d <= -GROUND_NY
-            && (oneWayFloor === true || t[1] + (ly - dy) < center[1] + oneWayFloor)
-            && faceNy(tri) >= GROUND_NY;
+            && (oneWayFloor === true || (R ? center[1] - dy : t[1] + (ly - dy)) < center[1] + oneWayFloor)
+            && (R ? faceNyTurned(tri, R) : faceNy(tri)) >= GROUND_NY;
           if (floorAbove) {
             const dh2 = dx * dx + dz * dz;
-            const cy = t[1] + (ly - dy);   // the closest point's world y
+            const cy = R ? center[1] - dy : t[1] + (ly - dy);   // the closest point's world y (a mover's: the centre less the contact's turned-out y)
             center[1] = cy + Math.sqrt(Math.max(0, radius * radius - dh2));   // the sphere ON the surface
             grounded = true;
             if (cy > groundY) groundY = cy;
@@ -1010,7 +1104,7 @@ export class Collider {
     if (groundKey != null && (out.groundKey == null || groundKey !== 'dungeon')) out.groundKey = groundKey;
   }
 
-  _resolveCapsule(feet, out, height = CAPSULE_HEIGHT, standCeil = Infinity, rising = false) {
+  _resolveCapsule(feet, out, height = CAPSULE_HEIGHT, standCeil = Infinity, straddle = false) {
     // Two spheres: lower centered radius above the feet, upper below
     // the top. height varies with the player's stance (P12 crouch:
     // the PlayerHeightChanger controller heights) - passed per call
@@ -1091,8 +1185,9 @@ export class Collider {
     // the player's stances out, and every foe from 1.6 m to RIDE_HEIGHT out with them: a 2.4 m body under a 2.0 m
     // ceiling still sank and fell out of the level
     const tall = height > RIDE_HEIGHT || !!this._keepFloor;
-    // DISC28-G: the lower sphere's floor is one-way (PH1) - and, rising, only for a surface under the head's centre
-    const lowOneWay = rising ? axis : true;
+    // DISC28-G: the lower sphere's floor is one-way (PH1) - and, in the rising pass (and since WW-LID the sideways
+    // one), only for a surface the body straddles: under the head's centre
+    const lowOneWay = straddle ? axis : true;
     let lowFloor = -Infinity;
     for (let iter = 0; iter < 3; iter++) {
       if (tall) {
@@ -1165,6 +1260,19 @@ export class Collider {
         this._resolveSphere(probe, CAPSULE_RADIUS, probeOut);
         if (probe[1] < y - 1e-4) { feet[1] = Math.max(entryY, floorFeet); break; }   // still being pushed DOWN out of a ceiling -> too tight, revert (SQUEEZE1: never under a tall body's floor)
       }
+    }
+    // WW-LID (FIELD BUGS 2026-09-29d, Cruor on Discord: "Water walking is still evil ... I fell out the map again"): A
+    // RESOLVE NEVER CARRIES THE HEAD UP THROUGH A FACE. The clamp above answers a head a ceiling still pushes DOWN; a
+    // lift that took the head clean THROUGH one - the lower sphere's one-way floor set the body on a doorway's lintel,
+    // and the head sphere, its centre now over the room's ceiling, was pushed out on top of it - left nothing in, and
+    // kept its rise. Unity's CharacterController sweeps and never crosses a plane. So when a resolve has raised the
+    // body, the path its head's centre rose along is asked, and a face across it refuses the rise, as the clamp above
+    // does. The ray starts a skin under the centre: rayTriangle takes no hit nearer than 1e-4, and a head whose centre
+    // stood ON a ceiling's plane was lifted through it unasked. A refused rise says so (`out.refused`) - the sideways
+    // pass and the step ladder's rung read it (_moveStep).
+    if (feet[1] - entryY > SKIN && Number.isFinite(this.raycast([feet[0], entryY + CAPSULE_RADIUS + axis - SKIN, feet[2]], UP, feet[1] - entryY + SKIN))) {
+      out.refused = true;
+      feet[1] = Math.max(entryY, floorFeet);
     }
   }
 
@@ -1263,7 +1371,11 @@ export class Collider {
     feet[0] += dx;
     feet[2] += dz;
     const hOut = { grounded: false, hitCeiling: false, pushedDown: false };
-    this._resolveCapsule(feet, hOut, height);
+    this._resolveCapsule(feet, hOut, height, Infinity, true);   // WW-LID: a body moving sideways straddles a floor only below its head's centre
+    // WW-LID: and a sideways pass the resolve refused is not taken - the refusal reverts to the resolve's entry, which is
+    // the move itself, so a body with a rib through its waist and no room over it passed clean through the rib. A
+    // controller walking into it is stopped by it; the step ladder below then asks whether it is a step.
+    if (hOut.refused) { feet[0] = beforeX; feet[2] = beforeZ; }
     const movedSq = (feet[0] - beforeX) ** 2 + (feet[2] - beforeZ) ** 2;
     const wantedSq = dx * dx + dz * dz;
 
@@ -1290,6 +1402,7 @@ export class Collider {
         const startOut = { grounded: false, hitCeiling: false, pushedDown: false };
         this._resolveCapsule(raisedStart, startOut, height, standCeil);
         if (raisedStart[1] <= prevResolvedY + 1e-4) break;   // no headroom gained - the ladder tops out
+        if (startOut.refused) break;   // WW-LID: a rung the resolve refused (the head has no room there) is no headroom either - it read as the raised height itself
         prevResolvedY = raisedStart[1];
         // Forward from the RESOLVED (possibly ceiling-capped) height,
         // full intent.
@@ -1456,6 +1569,7 @@ export class Collider {
 
 const ZERO3 = [0, 0, 0];
 const TMP = [0, 0, 0];
+const UP = Object.freeze([0, 1, 0]);   // WW-LID: the head's rise, asked as a ray
 /** restFloor's limiter: the smaller of two one-sided grades that agree in sign, else 0. */
 const minmod = (a, b) => (a * b <= 0 ? 0 : Math.abs(a) < Math.abs(b) ? a : b);
 // AUDIT COL1 F9: the middle spheres' centres, reused. _resolveCapsule

@@ -41,6 +41,7 @@ import { dfRandPick } from '../formats/textRsc.js';   // ROAD-A7: GetRandomToken
 import { hasArtifactEffect, hasArtifactSubtype, ARTIFACTS } from './artifactEffects.js';
 import { isSurvivalItem, isCampingEquipment, isCampfireKit, isSkillet } from './survival/items.js';   // SURV5: the survival items' own info box
 import { isFood, foodOf, foodStage, foodSatiety, isWaterskin, waterIn, WATERSKIN_CAPACITY_KG, STAGE_WORDS } from './survival/food.js';   // ROAD-U: the identity DFU reads off the item's own record
+import { makerName, PROVENANCE_RE } from '../net/recipeLaw.js';   // AUDIT 30 C7: a maker's mark as the law writes it
 
 /** The thirteen ids GetItemInfo names as constants (:750-762). */
 export const INFO_TEXT = Object.freeze({
@@ -183,10 +184,10 @@ export function weightString(item) {
 }
 
 /** WeaponDamage() (:150-154): "min - max", both shifted by the
- *  material modifier. */
+ *  material modifier - weaponDamageRange's two numbers (AC-COMPARE, below: one law for the row and its comparison). */
 export function weaponDamageString(item) {
-  const mod = weaponMaterialModifier(item?.material ?? WEAPON_MATERIALS.Iron);
-  return `${weaponMinDamage(item.templateIndex) + mod} - ${weaponMaxDamage(item.templateIndex) + mod}`;
+  const [min, max] = weaponDamageRange(item);
+  return `${min} - ${max}`;
 }
 
 /** ArmourMod() (:157-160): GetMaterialArmorValue with a C# "+0;-0;0"
@@ -274,6 +275,14 @@ export const itemHandsLine = (item) => (
  *  piece of armour has one, and a shield's comes off the same
  *  `itemArmorValue` the paperdoll totals. */
 export const itemArmourLine = (item) => (item?.group === 'Armor' ? armourModString(item) : null);
+
+/** AC-COMPARE (FIELD BUGS 2026-09-29d): WeaponDamage()'s two NUMBERS (:150-154) - the template's base damage, both ends
+ *  shifted by the material modifier - which weaponDamageString prints and the enhanced pack's card sets against the
+ *  weapon a wear would replace (ui/armourCard.js), so the card's Damage row and its comparison are one law. */
+export function weaponDamageRange(item) {
+  const mod = weaponMaterialModifier(item?.material ?? WEAPON_MATERIALS.Iron);
+  return [weaponMinDamage(item.templateIndex) + mod, weaponMaxDamage(item.templateIndex) + mod];
+}
 
 /** The material NAMES the %mat macro resolves (TextProvider's
  *  GetArmorMaterialName / GetWeaponMaterialName). Armor's enum is
@@ -547,6 +556,12 @@ export function itemNameParts(item, { getQuest = null, differentiatePlantIngredi
   let material = '';
   if (item?.group === 'Weapons' && !isAmmunition(item)) material = materialName(item);
   if (item?.group === 'Armor' && armorShouldShowMaterial(item)) material = materialName(item);
+  // PROF3: a Masterwork's name is its maker's mark (bible/06-Systems/Professions-Arc.md 9.2) - "Silverthorn's Mithril
+  // Longsword", the mark before the material, one name; PROF4: and a Master Joiner's furniture at any quality (`marked`)
+  // AUDIT 30 C7: only a mark the law would write (a peer's, the wire's or an old save's text is not a name), on a piece
+  // with a real provenance - the tooltip's and DECOR's own tests
+  if ((item?.quality === 4 || item?.marked === true) && typeof item.maker === 'string' && item.maker && makerName(item.maker) === item.maker
+    && typeof item.provenance === 'string' && PROVENANCE_RE.test(item.provenance)) return { name: `${item.maker}'s ${material ? `${material} ` : ''}${base}`, material: '' };
   if (isPotion(item)) return { name: potionMacroName(item) ?? base, material };
   const signoff = questLetterName(item, getQuest);
   if (signoff) return { name: signoff, material: '' };

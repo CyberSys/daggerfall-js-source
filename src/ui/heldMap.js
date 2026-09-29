@@ -49,9 +49,9 @@
 // RECORDED DEPARTURES (bible/10-UI/Held-Map-Arc.md): the 3D relief, the
 // cloud veil and the camera flight are gone - a journey begins the
 // moment Begin is pressed, the sheet lowers, and the host's own travel
-// runs; the filter chip row is gone (the store's flags still decide what
-// is inked, and the classic window's chips still set them); the province
-// pages and the region picker have no meaning on one sheet.
+// runs; the province pages and the region picker have no meaning on one
+// sheet. (MAP-KEY: DFU's four filters are on the sheet again, as its KEY
+// in the foot - the classic's own flip on the same live store.)
 //
 // ── MAP2: TRAVEL OPTIONS ON THE SHEET ─────────────────────────────
 //
@@ -75,7 +75,7 @@
 // AUDIT-MAP (2026-09-18, bible/10-UI/Held-Map-Arc.md): the fare is the
 // mod's SCALED one (scaleTripCost, the popup's own export); a walked
 // trip hands its walked minutes to the host's ETA; No on the fee closes
-// the map; online no inn is billed and the arrival is now; the static
+// the map; online the trip's days pass on the traveller's own clock (LIVED1) and the fare is billed; the static
 // ink is a kept layer and the rings an overlay. Its recorded departures:
 // the coordinates click refuses a teleport visit, H works under the
 // panel, a bare pixel's ship laws see no destination, the resume prompt
@@ -101,12 +101,14 @@ import { hasPort } from '../systems/travelPorts.js';
 import { noticeHold, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE3: this window's own click-anywhere boxes, as the enhanced panel
 import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/travelOptionsText.js';
 import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js';
-import { checkLocationDiscovered } from './travelMapWindow.js';
+import { checkLocationDiscovered, flipTravelMapFilter, travelMapDotColors } from './travelMapWindow.js';   // MAP-KEY: the classic's filter flip and its dots' colours
 import { readGateMark, gateMarkKey, GATE_RING_CSS, GATE_LEGEND_TEXT } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, read as the party is
+import { readBountyMarks, bountyMarksKey, BOUNTY_RING_CSS, BOUNTY_LEGEND_TEXT, BOUNTY_LEGEND_RIM_CSS } from './bountyMapMark.js';   // BOUNTY1: held bounties' black circles, read as the gate's ring is
 import { readRaidMarks, raidMarksKey, placeTip, tipKey, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
 import {
   buildInkModel, buildInkMarks, paintInkStatic, paintInkOverlay, zoomBand, clampView, scaleMinOf, SCALE_MAX,   // MAP-FIELD2: placeNames is inkMap's law still, but this sheet no longer inks the names
   viewCentredOn, zoomAt, toPaper, toMap, BAND_MARKS, PARTY_LABEL_STACK,
+  markKind, markInks, mapKeyGroups, KIND_WORD, paintKeyChip, KEY_CHIP_PX,   // MAP-KEY: the key, and each kind in its classic hue
 } from './inkMap.js';
 // SOC6: the party's marks, read the one way both maps read them.
 import {
@@ -516,6 +518,8 @@ export class HeldMapWindow {
     // the knuckles is not a HUD under a window (windowStack.hidesHud).
     this.hidesHud = true;
     this.filters = travelMapFilters();   // the LIVE store object, edited in place (the classic law)
+    this._inks = null;     // MAP-KEY: each kind's ink once a palette answers (_markInks)
+    this._keySig = '';     // MAP-KEY: what the key last said, so it is rebuilt only when that changes
     this.teleportationTravel = false;    // one-shot, cleared on close
     this._gotoPlace = null;              // one-shot, consumed on first tick
     this._ticked = false;
@@ -609,6 +613,9 @@ export class HeldMapWindow {
     // WB1: the gate's ring - the host's `gate` read on the party's own poll; null while no gate is marked
     this._gate = null;
     this._gateKey = '';
+    // BOUNTY1: the held bounties' black circles - the host's `bounties`, read on the same poll
+    this._bounties = [];
+    this._bountiesKey = '';
     // EVENT-TIP: the raided towns (the host's `raids`, on the same poll), and the card under the pointer
     this._raids = [];
     this._raidsKey = '';
@@ -645,7 +652,7 @@ export class HeldMapWindow {
     // EM3: the sheet the window OPENS on claims its chrome as well - it
     // never passes through _selectSheet, and a world map that opened
     // without its search box was the first thing this caught.
-    this._showChrome(['search', 'ports', 'legend', 'card'], false);
+    this._showChrome(['search', 'ports', 'legend', 'card', 'key'], false);
     this._sheet?.mount?.();
     this._writeHint();   // DISC25-A
     this._tornDown = false;
@@ -1126,6 +1133,7 @@ export class HeldMapWindow {
       staticKey: () => [
         this._marksVersion, this._portsShown() ? 1 : 0, this.markedMapId,
         this.filters.roads ? 1 : 0, this.filters.tracks ? 1 : 0,
+        this._markInks() ? 1 : 0,   // MAP-KEY: a palette that lands after the sheet rose repaints it tinted
       ].join('|'),
       paintStatic: (ctx, env) => {
         // MAP-FIELD2 (Mac, 2026-09-18): "all the town names need to be
@@ -1147,6 +1155,7 @@ export class HeldMapWindow {
           ports: this._portsShown(),
           markedMapId: this.markedMapId,
           markColor: rgbaCss(this._to?.settings?.markLocationColor),
+          inks: this._markInks(),   // MAP-KEY: each kind in its classic dot's hue, or the pen with no palette
         });
       },
       paintOverlay: (ctx, env) => {
@@ -1162,6 +1171,7 @@ export class HeldMapWindow {
             color: m.online ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS,
           })),
           gate: this._gate,   // WB1
+          bounties: this._bounties,   // BOUNTY1
           raids: this._raids,   // EVENT-TIP: the towns under attack
           travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey, ship: t.ship })),   // TV3; OWS1: at sea, a ship
           pulse: env.pulse,
@@ -1181,18 +1191,20 @@ export class HeldMapWindow {
       tick: (dt) => {
         this._partyPoll -= dt;
         if (this._partyPoll <= 0) { this._partyPoll = PARTY_POLL_S; this._refreshParty(); }
+        this._renderKey();   // MAP-KEY: a zoom across a band, or a palette landing, changes what the key says
       },
       // THE TRAVEL CHROME IS THE WORLD SHEET'S. The search box, the
       // ports button, the legend and the travel card exist to pick a
       // destination on the bay; a dungeon plan has no destination, so
       // they go with the tab rather than standing over it.
       mount: () => {
-        this._showChrome(['search', 'card'], true);
+        this._showChrome(['search', 'card', 'key'], true);   // MAP-KEY: the key is the bay's, with the search
         this._renderPorts();
         this._renderLegend();
+        this._renderKey();
       },
       unmount: () => {
-        this._showChrome(['search', 'ports', 'legend', 'card'], false);
+        this._showChrome(['search', 'ports', 'legend', 'card', 'key'], false);
         this._closePanel?.();
       },
       // at rest the whole bay is on the sheet, centred
@@ -1650,6 +1662,10 @@ export class HeldMapWindow {
     const gateKey = gateMarkKey(gate);
     let gateMoved = false;
     if (gateKey !== this._gateKey) { this._gateKey = gateKey; this._gate = gate; gateMoved = true; this._dirty = true; }
+    // BOUNTY1: the circles ride the gate's poll and its repaint - a bounty taken or paid with the map open
+    const bounties = readBountyMarks(this.deps.bounties, this._size);
+    const bKey = bountyMarksKey(bounties);
+    if (bKey !== this._bountiesKey) { this._bountiesKey = bKey; this._bounties = bounties; gateMoved = true; this._dirty = true; }
     // EVENT-TIP: the raided towns ride the same poll (a raid begins, withdraws or is cleansed while the map stands
     // open), and the card under a still pointer follows the marks - a countdown's second, a town cleansed under it
     const raids = readRaidMarks(this.deps.raids, this._size);
@@ -1686,7 +1702,7 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate && !this._raids.length && !this._trav.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._bounties.length && !this._raids.length && !this._trav.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
@@ -1702,6 +1718,12 @@ export class HeldMapWindow {
       dot.style.background = GATE_RING_CSS;
       leg.append(dot, el('span', 'hmlegtext', GATE_LEGEND_TEXT));
     }
+    if (this._bounties.length) {   // BOUNTY1: the black circle explains itself
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = BOUNTY_RING_CSS;
+      dot.style.boxShadow = `0 0 0 1px ${BOUNTY_LEGEND_RIM_CSS}`;   // a black dot needs a pale rim on the dark legend
+      leg.append(dot, el('span', 'hmlegtext', BOUNTY_LEGEND_TEXT));
+    }
     if (this._raids.length) {   // EVENT-TIP: and a raided town
       const dot = el('span', 'hmlegdot');
       dot.style.background = RAID_MARK_CSS;
@@ -1709,6 +1731,83 @@ export class HeldMapWindow {
     }
     leg.classList.toggle('open', true);
     leg.style.display = 'flex';
+  }
+
+  /** MAP-KEY: each kind's ink - its classic dot's hue in this hand (inkMap.js markInks over the colours the classic
+   *  window's loader read off FMAP_PAL.COL, travelMapDotColors), or null while no palette has loaded: the plain pen.
+   *  Asked again until it answers (the world sheet's clock asks every tick), and the answer dirties the sheet, so a
+   *  palette that lands after the sheet rose tints it at once, not at the next pan (ASYNC NEVER DROPS). */
+  _markInks() {
+    if (!this._inks) {
+      this._inks = markInks(travelMapDotColors());
+      if (this._inks) this._dirty = true;
+    }
+    return this._inks;
+  }
+
+  /**
+   * MAP-KEY (Jigglehimmer, 2026-09-29, #suggestions: "Enhanced map needs filterable key like the default Daggerfall
+   * world map"): THE KEY - the classic window's four filters as toggles standing on the foot, each naming the
+   * glyphs it hides in the ink they are inked in, so a dungeon's triangle is told from a graveyard's cross without a
+   * hover. A toggle is lit while its kinds are shown (the store's flag FALSE - DFU's inversion). A kind this band does
+   * not ink is dimmed, with the reason in its title: the far band inks the cities alone (BAND_MARKS), so there every
+   * other kind says to zoom in rather than leaving a lit toggle that seems to do nothing. The WORLD sheet's chrome:
+   * its mount claims it and its clock keeps it current (EM1 - the window never asks which sheet is up). Rebuilt only
+   * when what it says changes, so a press never loses its button under the pointer (PLUS-MAP's rule for the tools).
+   */
+  _renderKey() {
+    const box = this._chrome?.key;
+    if (!box) return;
+    const band = zoomBand(this._view.scale);
+    const inks = this._markInks();
+    const groups = mapKeyGroups();
+    const dpr = this._paper.dpr || 1;
+    const sig = [band, inks ? 1 : 0, dpr, ...groups.map((g) => (this.filters[g.filter] ? 1 : 0))].join('|');
+    if (sig === this._keySig) return;
+    this._keySig = sig;
+    if (typeof box.replaceChildren === 'function') box.replaceChildren(); else box.innerHTML = '';
+    const shown = BAND_MARKS[band] ?? BAND_MARKS.near;
+    for (const g of groups) {
+      const on = !this.filters[g.filter];
+      const row = el('div', `hmkeyrow${on ? '' : ' off'}`);
+      const b = el('button', `act hmkeyflt${on ? ' on' : ''}`, g.label);
+      b.type = 'button';
+      // NEVER THE FOCUS - out of the tab order, and a press takes none (the pointer's own default, which the click
+      // outlives): a focused button is pressed again by Space or Enter, and every key under the sheet is the map's
+      // (M and Escape close it); a search being typed keeps its box
+      b.tabIndex = -1;
+      b.onpointerdown = (e) => e.preventDefault?.();
+      b.dataset.filter = g.filter;
+      b.title = `${on ? 'Hide' : 'Show'} ${g.label.toLowerCase()}`;
+      b.setAttribute?.('aria-pressed', on ? 'true' : 'false');
+      b.onclick = () => this._toggleFilter(g.filter);
+      const kinds = el('div', 'hmkeykinds');
+      for (const kind of g.kinds) {
+        const inked = g.buckets.some((i) => markKind(i) === kind && shown.has(i));
+        const item = el('span', `hmkeykind${inked ? '' : ' dim'}`);
+        item.title = inked ? KIND_WORD[kind] : `${KIND_WORD[kind]} - zoom in to see`;
+        item.dataset.kind = kind;
+        const chip = el('canvas', 'hmkeychip');
+        chip.width = chip.height = Math.round(KEY_CHIP_PX * dpr);
+        chip.style.width = chip.style.height = `${KEY_CHIP_PX}px`;
+        paintKeyChip(chip.getContext?.('2d'), kind, inks?.[kind], { dpr });
+        item.append(chip, el('span', 'hmkeyname', KIND_WORD[kind]));
+        kinds.append(item);
+      }
+      row.append(b, kinds);
+      box.append(row);
+    }
+  }
+
+  /** MAP-KEY: a press on the key - the classic window's own flip on the LIVE store (flipTravelMapFilter), then the
+   *  marks rebuilt as the classic rebuilds its dots (:1064), so the classic window opens on what the sheet last
+   *  showed and the save carries it. Dead under a box, as the rest of the chrome is (AUDIT-MAP H6). */
+  _toggleFilter(which) {
+    if (this._phase !== 'map' || this._top || this._info) return;
+    if (!flipTravelMapFilter(this.filters, which)) return;
+    this._marksDirty = true;
+    this._dirty = true;
+    this._renderKey();
   }
 
   /** The member under the cursor, by a paper-space radius of 18 - two
@@ -1967,7 +2066,7 @@ export class HeldMapWindow {
     // info on the panel it stays display:none and the ROOT keeps
     // `hmmodal` on its own: the words moved, the modality did not, and
     // an empty .hmbox would paint a bordered blank over the bay
-    // (ui/enhancedStyle.js:1651 - the frame is the box's, not its
+    // (ui/enhancedStyle.js:1652 - the frame is the box's, not its
     // children's).
     const open = modal && !(this._info && onPanel);
     box.classList.toggle('open', open);
@@ -2171,8 +2270,9 @@ export class HeldMapWindow {
     // deps, and everything the card bills or commits reads the blessed
     // minutes.
     const minutes = guildFastTravel(this.deps.playerEntity?.() ?? null, time.minutes);
-    // OL2 / AUDIT-MAP H1: online the world's clock does not wait, so
-    // the arrival is now and the day count is zero.
+    // OL2 / AUDIT-MAP H1 said the arrival is now and the day count
+    // zero online. [LIVED1 SUPERSEDES it: the trip's days pass on the
+    // traveller's own clock, so the count is the trip's, online too.]
     //
     // TRAVEL-FARE (2026-09-22, kurkku): the FARE is billed online now -
     // the inn's gold is the price of the journey, not rent on elapsed
@@ -2191,7 +2291,7 @@ export class HeldMapWindow {
     // :24-40), the popup's own export - the enhanced skin had billed
     // and CHARGED the unscaled fare since the relief map
     const scaled = scaleTripCost(cost, st.to?.settings, this.deps.playerEntity?.() ?? null);
-    st.trip = { ...time, minutes, ...scaled, days: nwt ? 0 : travelDays(minutes), online: nwt };
+    st.trip = { ...time, minutes, ...scaled, days: travelDays(minutes), online: nwt };   // LIVED1: the days are the traveller's own, online too
     // MAP2 (TravelOptionsPopUp.cs:104-137, UpdateLabels): a WALKED trip -
     // a bare pixel's, or a place's when the mod's fork says the player
     // drives it - has no fare and its own estimate: the classic one
@@ -2456,7 +2556,10 @@ export class HeldMapWindow {
     // shown only while the mod restricts ship travel to ports
     const ports = el('button', 'act hmports', 'Ports');
     ports.onclick = () => { if (this._phase === 'map') this._togglePorts(); };
-    foot.append(hint, band, legend, ports, over);
+    // MAP-KEY: the key, a child of the foot standing on the row's own top edge - it rises with the row when the row
+    // wraps and never floats at a guessed height (AUDIT SOC C10/D5); drawn by _renderKey
+    const key = el('div', 'hmkey');
+    foot.append(key, hint, band, legend, ports, over);
     // MAP2: the box over the sheet - the I/H box, or the resume prompt
     const box = el('div', 'hmbox');
 
@@ -2481,7 +2584,7 @@ export class HeldMapWindow {
 
     root.append(stage, top, card, foot, tools, box, tip);
     document.body.append(root);
-    this._chrome = { root, stage, sprite, sheet, ink, hands, label, search, searchInput, note, noteInput, results, close, card, hint, band, legend, ports, over, box, tools, tip };
+    this._chrome = { root, stage, sprite, sheet, ink, hands, label, search, searchInput, note, noteInput, results, close, card, hint, band, legend, ports, over, box, tools, tip, key };
     // MAP-FIELD7: down and clear before the first tick, or the sheet
     // shows for one frame in its held place and then jumps to the floor
     // to start travelling.
@@ -2918,13 +3021,15 @@ export class HeldMapWindow {
     if (!card) return;
     card.innerHTML = '';
     card.classList.toggle('open', !!this._selected && this._phase === 'map');
+    // MAP-KEY: under 860px the card rides up over the foot, where the key stands - the key steps aside while it is up
+    this._chrome.root.classList.toggle('hmcardup', !!this._selected && this._phase === 'map');
     // ENH-NOTICE3 - THE CARD'S `notice` IS A CLICK-ANYWHERE BOX in both
     // of its two writers, and on the enhanced skin it is the panel's:
     //
     //   - the ship refusal (_toggleOpt below) is one of
     //     TravelOptionsPopUp.cs:168-180's three message boxes, which the
     //     classic twin still draws as a buttonless parchment
-    //     (ui/travelPopUp.js:642-648, `this.top` with no MB_BUTTONS)
+    //     (ui/travelPopUp.js:659-665, `this.top` with no MB_BUTTONS)
     //   - "not enough gold" (_confirmDiseased below) is
     //     DaggerfallTravelPopUp.cs:394-406, showNotEnoughGoldPopup,
     //     `messageBox.ClickAnywhereToClose = true` over TEXT.RSC 454
@@ -3033,7 +3138,7 @@ export class HeldMapWindow {
           add('Cost', TO_TEXT.MsgPlayerControlled);
           add('Purse', `${this.deps.goldPieces?.() ?? 0} gold`);   // AUDIT-MAP U5: the popup still shows the coins
         } else {
-          add('Journey', t.online ? 'now' : `${t.days} ${t.days === 1 ? 'day' : 'days'}`);   // OL2: online the arrival is now
+          add('Journey', `${t.days} ${t.days === 1 ? 'day' : 'days'}${t.online ? ' of your time' : ''}`);   // LIVED1: online the days are the traveller's own (OL2 said "now")
           add('Cost', `${t.totalCost} gold`);
           // the label shows COINS, never the letters-of-credit total -
           // the popup's own reading

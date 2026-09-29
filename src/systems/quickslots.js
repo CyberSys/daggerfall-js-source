@@ -104,7 +104,7 @@ const state = { c1: null, c2: null, swap: null };
  *  INDEX - a SPELLS.STD record number, or the negative one a made spell
  *  mints (systems/spellMaker.js:221-239) - and that index is already
  *  this port's name for "which spell": it is what the save writes
- *  (systems/save.js:336), what a restore reads back, and what
+ *  (systems/save.js:343), what a restore reads back, and what
  *  `setReadiedByIndex` resolves a readied spell by. So the slot keeps
  *  the same key the rest of the port keeps, and a book that changed
  *  under it (a spell sold, a made spell deleted) leaves a GHOST that
@@ -366,6 +366,8 @@ function useQuickslotNow(slot, { entity = null, items = null, hooks = {}, say = 
     say?.(USE_PENDING[res.kind]);
     return { kind: 'refused', name: r.name, result: res };
   }
+  // FORAGE1: a mod's use that REFUSED (Foraging's checks - the HUD already said why) is a refusal, never gold
+  if (res?.refused) return { kind: 'refused', name: r.name, result: res };
   // UI2: AND WHAT HAS NO USE SAYS SO. UseItem's catch-all does nothing and says nothing (DFU's own - the pack's click
   // on a pair of prayer beads is silent), which from a slot on the HUD, with no window to look at, is a key that seems
   // dead. The slot names it and flashes the refusal.
@@ -863,7 +865,7 @@ export function quickslotSaveData() {
   const out = {};
   for (const s of QUICKSLOTS) out[s] = state[s] ? { key: state[s].key, name: state[s].name } : null;
   // QS6: the spell slot rides the same block, keyed the way save.js
-  // already keys a spell - by index (systems/save.js:336).
+  // already keys a spell - by index (systems/save.js:343).
   out.spell = spellState ? { index: spellState.index, name: spellState.name } : null;
   // HB1: and the hotbar, on the same block - ten entries, each an item
   // kind or a spell index, exactly as the slots above key them.

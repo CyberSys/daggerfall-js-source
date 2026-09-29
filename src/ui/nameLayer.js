@@ -187,6 +187,9 @@ export const NAME_CSS = `${PIXELIFY_FIVE_FACE}
    exactly the label it wore before. */
 .dfname-guild { font-size: .82em; letter-spacing: .04em; color: #a9c4dd; }
 .dfname-guild:empty { display: none; }
+/* NOTICE1: a Notice Board's count - brass on a dark tab, never mistaken for a person's name */
+.dfname-board .dfname-tag { padding: 1px 6px; background: rgba(14,12,11,0.78); border: 1px solid #c08a3e; }
+.dfname-board .dfname-who { color: #f3cf86; letter-spacing: .06em; }
 /* RENOWN1 - THE RENOWN, LEFT OF THE NAME (Mac: "having their
    level appear on the left side of character name"). A small plate in
    the row the name and glyphs already are, so the whole run stays
@@ -355,7 +358,7 @@ export function createNameLayer({ doc = document, now = () => Date.now() } = {})
     /** AUDIT NAME1 F3: `viewport` is the world viewport's HEIGHT in CSS px and `hudScale` the player's own HUD
      *  scale (ui/enhancedHud.js enhancedHudScale). Both are taken by VALUE rather than through
      *  `scale(var(--hud-scale))`, because that variable is set on #enhanced-hud and this layer is a body sibling
-     *  of it - the damage numbers' own layer has the same problem and enhancedHud.js:810 solves it the same way,
+     *  of it - the damage numbers' own layer has the same problem and enhancedHud.js:829 solves it the same way,
      *  by writing the number where it is needed. Neither is passed on a probe host, and there the law is exactly
      *  the reference frame's: NAME_BASE_PX * the point's scale. */
     render({ points = [], log = null, covered = false, colorOf = null, viewport = null, hudScale = 1 } = {}) {
@@ -380,6 +383,7 @@ export function createNameLayer({ doc = document, now = () => Date.now() } = {})
         live.add(p.id);
         let tag = tags.get(p.id);
         if (!tag) { tag = makeTag(); tags.set(p.id, tag); }
+        setCls(tag.node, p.kind === 'board' ? 'dfname dfname-board' : 'dfname');   // NOTICE1: a Notice Board's count, not a person
         setStyle(tag.node, 'left', `${Math.round(p.x)}px`);
         // NAME_GAP_PX is taken HERE and not inside namePoints because it is a screen-pixel clearance and the point
         // is a projected head: the anchor stays the head for anything else that wants it, and the label's bottom

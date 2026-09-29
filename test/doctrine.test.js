@@ -90,6 +90,15 @@ const PUBLIC_ALLOWLIST = new Map([
   ['public/sfx/gun-fire-synth.wav', 'OURS - synthesised from noise and sine by tools/gunSfx.mjs, deterministically; no recording in it at all'],
   ['public/sfx/gun-reload-open-synth.wav', 'OURS - synthesised from noise and sine by tools/gunSfx.mjs, deterministically; no recording in it at all'],
   ['public/sfx/gun-reload-close-synth.wav', 'OURS - synthesised from noise and sine by tools/gunSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-cannon.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-cannon-far.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-swivel.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-hit.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-blast.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-grapple.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-runout.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-ready.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-sinking.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
   ['public/skin/skin-intensity.png', 'OURS - intensity baked from our own generated turnaround'],
   ['public/skin/skin-uv.json', "OURS - UVs over our own rig's geometry, no pixels at all"],
   ['public/skin/skin-layout.json', 'OURS - atlas cell rectangles, no pixels at all'],
@@ -446,6 +455,13 @@ test('doctrine: no raster of game data is tracked anywhere in the repo', () => {
 // claim about a file that is not there is not one) - see the pins
 // below.
 const BUNDLE_ART = new Map([
+  // FORAGE1 (2026-09-28): Foraging's seven pictures - the author's own
+  // pixel art (tools, a wood bundle, an egg), no Daggerfall record - taken
+  // out of the bundle's Texture2D objects. A directory row: membership is
+  // derived from the shipped manifest's Files, so it cannot widen.
+  ['vendor/foraging/Textures/',
+    { manifest: 'vendor/foraging/foraging.dfmod.json',
+      why: "THIRD-PARTY - Foraging 1.7 (Harbinger451), carried on Mac's word of the author's permission; the mod's own pixel art - the Wood-Axe, Pick-Axe, Sickle, Fishing-Net, Wood Bundle, Egg and Spade - written as PNG from the bundle's Texture2D objects (see vendor/foraging/README.md)" }],
   ['vendor/eye-of-the-beholder/Textures/',
     { manifest: 'vendor/eye-of-the-beholder/eyeofthebeholder.dfmod.json',
       why: "THIRD-PARTY - Eye Of The Beholder 2.1 (RedRoryOTheGlen); the mod's own player sprites, re-encoded as indexed PNG (lossless for every drawn pixel - see the vendor README)" }],

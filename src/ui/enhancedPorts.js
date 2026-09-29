@@ -19,7 +19,8 @@ import { itemIconUrl, itemName, spellIconUrl, paintFrame } from './enhancedArt.j
 import { serviceLabel } from '../systems/guildServiceFlow.js';
 import { GUILD_RECTS, PANEL_X as GUILD_X, PANEL_Y as GUILD_Y } from './guildServiceWindow.js';
 import { COVEN_RECTS, COVEN_PANEL_X, COVEN_PANEL_Y } from './covenWindow.js';
-import { BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y } from './bankWindow.js';
+import { BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y, MARKS_ENTRY } from './bankWindow.js';
+import { MARKS_BANK, marksText } from '../net/marksLaw.js';   // MARKS1: the Bank's Marks, online
 import { TRANSACTION_TYPE } from '../systems/banking.js';
 import { PURCHASE_RECTS, PURCHASE_PANEL_X, PURCHASE_PANEL_Y } from './bankPurchaseWindow.js';
 import { TRANSPORT_MODES } from '../systems/transport.js';
@@ -81,6 +82,7 @@ const BANK_FIELD_LABEL = Object.freeze({
   [TRANSACTION_TYPE.Withdrawing_Letter]: 'Letter of credit for',
   [TRANSACTION_TYPE.Repaying_loan]: 'Amount to repay',
   [TRANSACTION_TYPE.Borrowing_loan]: 'Amount to borrow',
+  [MARKS_ENTRY]: 'Marks to sell',   // MARKS1
 });
 const bank = {
   kind: 'bank',
@@ -97,7 +99,7 @@ const bank = {
       blocks: [
         { type: 'stats', items: [
           ['Account balance', L.account], ['Gold carried', L.inventory],
-          ['Loan owed', L.loanDue, Number(L.loanDue) > 0 ? 'warn' : ''], ['Loan due by', L.loanBy],
+          ['Loan owed', L.loanDue, Number(L.loanDue) > 0 ? 'warn' : ''], [empire ? 'Loan due' : 'Loan due by', L.loanByFull ?? L.loanBy],   // AUDIT LIVED1b U4 (O1): AUDIT LIVED1 S's "Loan due" is the online row's (a time left, not a date) - offline the row reads a date, as it always did
         ] },
         { type: 'cols', cols: [
           [{ type: 'group', title: 'Gold', blocks: [{ type: 'actions', layout: 'column', items: [
@@ -110,6 +112,17 @@ const bank = {
             btn('buyShip', 'Buy ship'), btn('sellShip', 'Sell ship'),
           ] }] }],
         ] },
+        // MARKS1 (PROF0 10.5): online, the Bank of the Empire buys Marks - 8 gold each, 300 a day, paid into this account
+        w.hooks.marks && w.hooks.marks.open() === true ? { type: 'group', title: 'Marks', blocks: [
+          { type: 'stats', items: [
+            ['Marks held', marksText(w.hooks.marks.balance() ?? 0)],
+            ['Sold today', `${(w.hooks.marks.today()?.exchanged ?? 0)} of ${MARKS_BANK.perDay}`],
+            ['The Bank pays', `${MARKS_BANK.goldPerMark} gold a Mark`],
+          ] },
+          { type: 'actions', layout: 'column', items: [
+            { label: w.hooks.marks.pending() ? 'Counting a sale...' : 'Sell Marks', act: () => w._button('sellMarks'), disabled: !w.enabled('sellMarks') },
+          ] },
+        ] } : null,
         busy ? { type: 'field', label: BANK_FIELD_LABEL[w.transactionType] ?? 'Amount', value: w.value, active: true } : null,
       ],
       foot: busy

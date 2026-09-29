@@ -246,7 +246,7 @@ export function amGroupRollOwner(myId, myFeet, peers, radius = GROUP_ROLL_RADIUS
  *  cluster of spiders", never a grab-bag, and a table entry that was
  *  never in that climate's list to begin with still can't appear. */
 export function rollGroupComposition(ctx, rolls) {   // TV7: exported - a roaming band is made of the same themed group
-  const timeOfDay = ctx.gameMinutes % 1440;
+  const timeOfDay = ((Number.isFinite(ctx.skyMinutes) ? ctx.skyMinutes : ctx.gameMinutes) % 1440 + 1440) % 1440;   // LIVED1: the sky's day and night, when handed
   const isDay = timeOfDay >= 360 && timeOfDay <= 1080;
   const rollCtx = { ...ctx, isDay };
 

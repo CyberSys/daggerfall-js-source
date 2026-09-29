@@ -37,12 +37,16 @@
 //          textureFiles }, fetchFn (the vendored files' fetch), log }
 
 import { loadComeSailAwayModels, rendererModel, rendererModelKey, bundleSlots } from '../systems/comeSailAwayModels.js';
-import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER, HULL_NAMES, setBoatVariant, Boat } from '../systems/comeSailAwayBoat.js';
-import { resolveNodePointer } from '../world/prefabNode.js';
+import { spawnBoat, boatAssetNeeds, DUNGEON_LIGHT_HANDLER, HULL_NAMES, setBoatVariant, Boat, FIRST_HULL_MODEL_ID, meshLocalBounds, worldBounds } from '../systems/comeSailAwayBoat.js';
+import { resolveNodePointer, instantiatePrefab, prefabShapeStamp } from '../world/prefabNode.js';
+import { StaticBatchBuilder } from '../render/staticBatch.js';   // AUDIT NAV1 (#13): a boat's still parts merged as a town's statics are
+import { instanceParticleSystems } from '../world/unityParticles.js';
 import { bakeSkinnedMesh, recalculateNormals, fixDeformationsTick } from '../world/skinnedBake.js';
 import { billboardSize } from '../world/rmbFlats.js';
 import { GLOBAL_SCALE } from '../world/meshReader.js';
-import { multiply } from '../world/mat4.js';
+import { multiply, identity } from '../world/mat4.js';
+import { spherePlanes, sphereInPlanes, transformSphere } from '../render/bounds.js';   // AUDIT NAV1 (#13): the boats culled as the world's meshes are
+import { cullDisabled } from '../render/frustum.js';
 import { mat4FromQuatPosScale } from '../world/quat.js';
 
 /** DungeonLightHandler.CheckLight's reach: UnscaledBlockRange x MeshReader.GlobalScale. */
@@ -50,6 +54,8 @@ export const LANTERN_HANDLER_REACH = DUNGEON_LIGHT_HANDLER.unscaledBlockRange * 
 /** How many of the boats' lit lanterns reach the host's light list - the nearest, as camps.js hands its fires
  *  (the port's renderer holds sixteen lights, forty-eight on the lane; a galleon carries eighteen lanterns). */
 export const CSA_LIGHTS_MAX = 8;
+/** AUDIT NAV1 (the presentation): the hull whose FlagObject a flagless sea ship is given (the Small Ship - graftColours). */
+export const FLAG_DONOR_HULL = 2;
 
 /** Each active object under `root` with its world matrix, depth first - the parent's matrix carried down once. */
 export function* activeObjects(root) {
@@ -97,6 +103,14 @@ export function lanternLightUpdate(light, { dt, cityLightsOn, playerPosition }) 
   }
 }
 
+/** AUDIT NAV1 (the frame's cost, #13): a boat's mesh narrower on the screen than this (pixels, its sphere's width at the
+ *  drawing buffer's height) is not drawn. */
+export const CULL_DETAIL_PX = 1;
+/** AUDIT NAV1 (#13): the fewest still parts a boat's batch is made of - one is its own draw already - and how many
+ *  frames running a part's chain reads the same before it is merged. */
+export const STILL_MIN = 2;
+export const STILL_FRAMES = 20;
+
 export function createComeSailAwayPool({ renderer = null, pipeline = null, fetchFn = null, log = console } = {}) {
   /** @type {any} */ let models = null;
   let modelsLoading = null, modelsFailed = false;
@@ -105,7 +119,13 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
    *  the host's colliders, rays and activations (which read `boats`) meet them only where CSA-K asks for one by name:
    *  the deck the player stands aboard, and another's boat's own ray (scenes/comeSailAwayAboard.js). */
   /** @type {any[]} */ const peerBoats = [];
-  const drawn = () => (peerBoats.length ? boats.concat(peerBoats) : boats);
+  /** NAV-C: the sea's ships (scenes/navalHost.js) - the Iliac Bay's pirates, merchantmen and navies, built on these same
+   *  hulls: drawn, baked and lit as mine, never in `boats` (no helm is taken on one, no deed places one); the naval host
+   *  poses them, and stands the near ones in the world's collider itself. */
+  /** @type {any[]} */ const seaBoats = [];
+  const drawn = () => (peerBoats.length || seaBoats.length ? boats.concat(peerBoats, seaBoats) : boats);
+  const _cullOn = !cullDisabled();   // AUDIT NAV1 (#13): ?cull=off, read once, as the world reads it
+  const _cullPv = new Float32Array(16), _cullPlanes = new Float32Array(24), _cullSphere = new Float32Array(4), _cullBox = new Float32Array(6);
   const meshes = new Map();      // rendererModelKey -> gpu mesh | null
   const meshLoads = new Map();   // in flight
   const bakes = new Map();       // FixDeformations script -> { gpu, positions, normals, loading }
@@ -216,6 +236,42 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     peerBoats.push(boat);
     return boat;
   }
+  /** NAV-C: a sea ship, built as SpawnBoat builds one (at the origin - the naval host poses it) and drawn - with her
+   *  colours whatever her hull (graftColours). */
+  function spawnSeaNow(boat) {
+    if (!models) return null;
+    spawnBoat(boat, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
+    graftColours(boat);
+    seaBoats.push(boat);
+    return boat;
+  }
+  /**
+   * AUDIT NAV1 (the presentation): A SEA SHIP FLIES HER COLOURS. The Carrack's prefab carries no FlagObject, so the
+   * pirate flagship and the merchant carrack flew none; she is given FLAG_DONOR_HULL's own, instanced from that hull's
+   * prefab (its particle flag and its inactive helper cube) and stood on the truck of her tallest mast, under that
+   * mast so it heels and settles with her. A player's boats keep the mod's rigs as they are (spawnNow grafts nothing).
+   */
+  function graftColours(boat) {
+    if (boat.FlagObject || !boat.MeshObject) return;
+    const find = (t) => (!t ? null : t.name === 'FlagObject' ? t : t.children.reduce((f, c) => f ?? find(c), null));
+    const donor = find(models.prefab(FIRST_HULL_MODEL_ID + FLAG_DONOR_HULL));
+    if (!donor) return;
+    let truck = null;
+    for (const node of boat.MeshObject.walk()) {
+      const local = node.activeInHierarchy ? meshLocalBounds({ models }, node.getComponent('MeshFilter')?.m_Mesh) : null;
+      if (!local) continue;
+      const wb = worldBounds(node, local);
+      if (!truck || wb.max[1] > truck.at[1]) truck = { node, at: [wb.center[0], wb.max[1], wb.center[2]] };
+    }
+    if (!truck) return;
+    const flag = instantiatePrefab(donor, models.components);
+    instanceParticleSystems(flag, {});
+    flag.setParent(truck.node);
+    flag.position = truck.at;
+    boat.FlagObject = flag;
+    boat.FlagEmitter = flag.getComponentInChildren('ParticleSystem')?.particleSystem ?? null;
+    boat.FlagEmitterMain = boat.FlagEmitter?.main ?? null;
+  }
   /** OWS2: A HULL'S RIG, read off a boat SpawnBoat builds once a hull on the pool's context and never places or draws -
    *  its five nodes in its own frame (Center, Fore, Aft and the beams off its hull collider's bounds: the Overworld's
    *  launch asks where each would stand before it puts a boat on the water), its sails, its crew, its packing and its
@@ -234,11 +290,14 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   }
   /** Object.Destroy(boat.GameObject): its meshes, bakes and flats go with it. */
   function remove(boat) {
-    const list = boats.includes(boat) ? boats : peerBoats;
+    const list = boats.includes(boat) ? boats : peerBoats.includes(boat) ? peerBoats : seaBoats;
     const i = list.indexOf(boat);
     if (i < 0) return;
     list.splice(i, 1);
     walks.delete(boat);   // AUDIT PRE-MERGE 0928 R5
+    const st = stills.get(boat);   // AUDIT NAV1 (#13): her still parts' batch with her
+    if (st?.mesh) renderer?.destroyMesh?.(st.mesh);
+    stills.delete(boat);
     for (const n of boat.GameObject.walk()) {
       const b = flats.get(n); if (b) { renderer?.destroyBillboardBatch?.(b); flats.delete(n); }
       for (const c of n.components) if (c.type === 'FixDeformations') { const k = bakes.get(c); if (k?.gpu) renderer?.destroyMesh?.(k.gpu); bakes.delete(c); }
@@ -343,31 +402,143 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   }
   const batches = () => [...flats.values()];
 
-  /** The boats' meshes, in the host's world pass. */
+  /**
+   * The boats' meshes, in the host's world pass.
+   *
+   * AUDIT NAV1 (the frame's cost, #13): CULLED AS THE WORLD'S MESHES ARE. Every mesh of every boat was drawn, wherever
+   * she was - the sea's ships out to 1.9 km all round, 10 to 140 meshes each, half and more behind the eye. Each mesh's
+   * sphere (its bundle's, through its matrix) is asked of the frame's planes (the renderer's own matrices, EV3/GHOST1's
+   * normalised test): one off screen is not drawn, and is recorded for the shadow maps alone when it would cast into
+   * them (SHADOW-REACH: the world's law - no shadow lost with its caster off screen). And a mesh whose sphere stands
+   * under a pixel across (CULL_DETAIL_PX, at the drawing buffer's height) - a far ship's crates and lanterns, never
+   * her hull at any range she sails - is not drawn: there is nothing of it to see. `?cull=off` draws everything.
+   */
   function draw(r = renderer, texRemap = null) {
     if (!models || !r?.drawMesh) return 0;
+    const cull = _cullOn && !!r._proj && !!r._view;
+    if (cull) spherePlanes(multiply(r._proj, r._view, _cullPv), _cullPlanes);
+    const eye = r._camPos ?? null;
+    const pxPerM = cull && eye ? r._proj[5] * (r.gl?.drawingBufferHeight ?? 0) / 2 : 0;   // a metre's pixels a metre off
     let n = 0;
+    const one = (gpu, m) => {
+      if (cull && gpu.bounds && gpu.bounds[3] > 0) {
+        const sp = transformSphere(m, gpu.bounds, _cullSphere);
+        if (pxPerM > 0 && 2 * sp[3] * pxPerM < CULL_DETAIL_PX * Math.hypot(sp[0] - eye[0], sp[1] - eye[1], sp[2] - eye[2])) return;   // under a pixel
+        if (!sphereInPlanes(_cullPlanes, sp[0], sp[1], sp[2], sp[3])) {
+          const box = _cullBox;
+          box[0] = sp[0] - sp[3]; box[1] = sp[1] - sp[3]; box[2] = sp[2] - sp[3]; box[3] = sp[0] + sp[3]; box[4] = sp[1] + sp[3]; box[5] = sp[2] + sp[3];
+          if (r.shadowReach?.(box)) r.recordShadowMesh?.(gpu, m, texRemap);
+          return;
+        }
+      }
+      r.drawMesh(gpu, m, texRemap); n++;
+    };
     for (const boat of drawn()) {
       const { nodes, mats } = walkOf(boat);   // AUDIT PRE-MERGE 0928 R5
+      const still = [];   // AUDIT NAV1 (#13): this frame's parts that hang in her hull's frame
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i], m = mats[i];
         const mr = node.getComponent('MeshRenderer');
         if (!mr || mr.m_Enabled === false || mr.materials?.[0]?.billboard) continue;
-        let gpu = null;
+        let gpu = null, key = null, slots = null, mesh = null;
         if (mr.classicModel != null) gpu = pipeline?.gpuMeshes?.get(mr.classicModel) ?? null;
         else {
           const mf = node.getComponent('MeshFilter');
           if (mf?.baked) { const fix = node.getComponent('FixDeformations'); gpu = bakes.get(fix)?.gpu ?? null; }
           else if (mf?.m_Mesh?.mesh) {
-            const slots = mr.materials ?? bundleSlots(mr);
-            const key = rendererModelKey(mf.m_Mesh.mesh, slots);
-            gpu = meshFor(key, () => rendererModel(models.geometry(mf.m_Mesh.mesh), slots));
+            mesh = mf.m_Mesh.mesh;
+            slots = mr.materials ?? bundleSlots(mr);
+            key = rendererModelKey(mesh, slots);
+            gpu = meshFor(key, () => rendererModel(models.geometry(mesh), slots));
           }
         }
-        if (gpu) { r.drawMesh(gpu, m, texRemap); n++; }
+        if (!gpu) continue;
+        const chain = key && boat.MeshObject ? stillChain(boat, node) : null;
+        if (chain) { still.push({ node, key, mesh, slots, chain, gpu, m }); continue; }
+        one(gpu, m);
       }
+      const batch = stillBatch(boat, still);
+      const frame = batch ? nodeMats.get(boat.MeshObject) : null;
+      if (batch && frame) one(batch.mesh, frame);
+      for (const c of still) if (!batch || !frame || !batch.nodes.has(c.node)) one(c.gpu, c.m);
     }
     return n;
+  }
+
+  // AUDIT NAV1 (the frame's cost, #13): A BOAT'S STILL PARTS, ONE MESH. A war galley is 136 meshes, 107 of them her
+  // oars, and every one was a draw of its own every frame she stood in view. The bundle meshes that hang still in her
+  // hull's frame - under her MeshObject, each part's chain down from it reading the same (its local position, rotation
+  // and scale) for STILL_FRAMES frames running - are merged into one mesh a texture (render/staticBatch.js, PERF4's
+  // builder: the town's own), laid in the MeshObject's frame as they read and drawn with its matrix: the same triangles,
+  // the same textures, the same light (the shader lights by world position and normal, both of which the merge carries).
+  // Read each frame, never by a tolerance: a part that moves in her frame (a flag turned to the wind, a boom trimmed, a
+  // door opened) leaves the batch that frame and is drawn on its own until it has been still STILL_FRAMES again; a part
+  // switched on or off, or another mesh, and the batch is made again. Fewer than STILL_MIN parts are not worth one.
+  /** boat -> { parts: Map(node -> { snap, calm }), members: [{ node, key }], nodes: Set, mesh } */
+  const stills = new Map();
+  const _stillChains = new WeakMap();   // node -> { stamp, frame, chain }
+  /** The nodes from `node`'s boat's MeshObject's child down to it (none: it is the MeshObject), or null when it does
+   *  not hang in that frame - kept per tree shape. */
+  function stillChain(boat, node) {
+    const stamp = prefabShapeStamp(), frame = boat.MeshObject;
+    const had = _stillChains.get(node);
+    if (had && had.stamp === stamp && had.frame === frame) return had.chain;
+    let chain = [];
+    let at = node;
+    for (; at && at !== frame; at = at.parent) chain.push(at);
+    if (!at) chain = null;
+    chain?.reverse();
+    _stillChains.set(node, { stamp, frame, chain });
+    return chain;
+  }
+  /** A chain's local values as they read now (position, rotation, scale a node), into `out`. */
+  function chainSnap(chain, out = new Float64Array(chain.length * 10)) {
+    chain.forEach((c, k) => { const q = c.localRotation, t = c.localPosition, sc = c.localScale, o = k * 10; out[o] = q[0]; out[o + 1] = q[1]; out[o + 2] = q[2]; out[o + 3] = q[3]; out[o + 4] = t[0]; out[o + 5] = t[1]; out[o + 6] = t[2]; out[o + 7] = sc[0]; out[o + 8] = sc[1]; out[o + 9] = sc[2]; });
+    return out;
+  }
+  /** Does a chain still read `snap`? */
+  function chainReads(chain, snap) {
+    if (snap.length !== chain.length * 10) return false;
+    for (let k = 0; k < chain.length; k++) {
+      const c = chain[k], q = c.localRotation, t = c.localPosition, sc = c.localScale, o = k * 10;
+      if (snap[o] !== q[0] || snap[o + 1] !== q[1] || snap[o + 2] !== q[2] || snap[o + 3] !== q[3] || snap[o + 4] !== t[0] || snap[o + 5] !== t[1]
+        || snap[o + 6] !== t[2] || snap[o + 7] !== sc[0] || snap[o + 8] !== sc[1] || snap[o + 9] !== sc[2]) return false;
+    }
+    return true;
+  }
+  /** Each of this frame's parts (`still`, in the walk's order) read, and the boat's batch of those still long enough -
+   *  the one made while its members are the same parts, else made again. Null: no batch (fewer than STILL_MIN). */
+  function stillBatch(boat, still) {
+    let st = stills.get(boat);
+    if (!st) { st = { parts: new Map(), members: [], nodes: new Set(), mesh: null }; stills.set(boat, st); }
+    const calm = [];
+    for (const c of still) {
+      let rec = st.parts.get(c.node);
+      if (!rec) { rec = { snap: chainSnap(c.chain), calm: 0 }; st.parts.set(c.node, rec); }
+      else if (chainReads(c.chain, rec.snap)) rec.calm++;
+      else { rec.snap = chainSnap(c.chain); rec.calm = 0; }
+      if (rec.calm >= STILL_FRAMES) calm.push(c);
+    }
+    let same = !!st.mesh && calm.length === st.members.length;
+    for (let k = 0; same && k < calm.length; k++) same = calm[k].node === st.members[k].node && calm[k].key === st.members[k].key;
+    if (same) return st;
+    if (st.mesh) { renderer?.destroyMesh?.(st.mesh); st.mesh = null; }
+    st.members = []; st.nodes = new Set();
+    if (calm.length < STILL_MIN || !renderer?.createMesh) return null;
+    const builder = new StaticBatchBuilder();
+    for (const c of calm) {
+      const model = rendererModel(models.geometry(c.mesh), c.slots);
+      if (!model) continue;
+      let rel = identity();
+      for (const node of c.chain) rel = multiply(rel, mat4FromQuatPosScale(node.localRotation, node.localPosition, node.localScale, _local));
+      builder.add(model, rel, (a, rec) => `${a}_${rec}`);
+      st.members.push({ node: c.node, key: c.key });
+      st.nodes.add(c.node);
+    }
+    const merged = st.members.length >= STILL_MIN ? builder.finish() : null;
+    if (!merged) { st.members = []; st.nodes = new Set(); return null; }
+    st.mesh = renderer.createMesh(merged);
+    return st;
   }
 
   /** The lit lanterns for the host's light list: the nearest CSA_LIGHTS_MAX to the eye. */
@@ -392,16 +563,19 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
       walks.delete(boat);   // AUDIT PRE-MERGE 0928 R5: moved - walked again
     }
   }
-  function destroyAll() { for (const b of [...boats, ...peerBoats]) remove(b); }
+  function destroyAll() { for (const b of [...boats, ...peerBoats, ...seaBoats]) remove(b); }
 
   return {
     ensureModels, spawn, spawnNow, preload, ready: () => preloaded, remove, setVariant, frame, batches, draw, lights, offsetAll, destroyAll,
     hullRig,   // OWS2
-    spawnPeerNow,
+    spawnPeerNow, spawnSeaNow,
     /** AUDIT PRE-MERGE 0928 R5: a boat's walk as this frame made it (its nodes and world matrices) - a probe's reading. */
     walkOf,
+    /** AUDIT NAV1 (#13): a boat's batch of still parts as the last draw left it ({ nodes, mesh }), or null - a probe's reading. */
+    stillOf: (boat) => { const st = stills.get(boat); return st?.mesh ? { nodes: st.nodes, mesh: st.mesh } : null; },
     get boats() { return boats; },
     get peerBoats() { return peerBoats; },
+    get seaBoats() { return seaBoats; },
     get models() { return models; },
     /** A probe's reading: what stands, and how much of it is drawn. */
     stat: () => boats.map((b) => ({ hull: b.hull, variant: b.variant, position: b.GameObject.position.map((v) => +v.toFixed(2)), meshes: [...meshes.values()].filter(Boolean).length, bakes: [...bakes.values()].filter((k) => k.gpu).length, flats: flats.size, lights: b.Lights.filter((l) => l.enabled).length })),

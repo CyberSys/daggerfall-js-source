@@ -121,11 +121,11 @@ test('WORLD6b-iii(e): the hosts and the dungeon twin, by source - the exterior\'
   for (const [p, ticker] of [['src/scenes/world.js', 'playerTicker'], ['src/scenes/exterior.js', 'playerTicker']]) {
     const s = rd(p);
     assert.match(s, /: exteriorFoes\.damageFoe\(f, d, player\.pos, m\.dir, \{ kind: 'arrow' \}\)\),/, `${p}: the shaft's kind rides`);
-    assert.match(s, new RegExp(`onInflictPoison: \\(att, tgt, pt\\) => \\(cityGuards\\.guards\\.includes\\(t\\) \\? inflictPoison\\(tgt, pt, false, \\{ currentMinute: Math\\.floor\\(${ticker}\\.classicMinutes\\) \\}\\) : exteriorFoes\\.poisonFoe\\(t, pt\\)\\),`), `${p}: the pool's one poison door, the watch its own`);
+    assert.match(s, new RegExp(`onInflictPoison: \\(att, tgt, pt\\) => \\(cityGuards\\.guards\\.includes\\(t\\) \\? inflictPoison\\(tgt, pt, false, \\{ currentMinute: Math\\.floor\\(${ticker}\\.ownMinutes\\) \\}\\) : exteriorFoes\\.poisonFoe\\(t, pt\\)\\),`), `${p}: the pool's one poison door, the watch its own`);
   }
   const m = rd('src/scenes/worldModes.js');
   assert.match(m, /\? interiorFoes\?\.damageFoe\(f, d, player\.pos, m\.dir, \{ kind: 'arrow' \}\)/);
-  assert.match(m, /onInflictPoison: \(att, tgt, pt\) => \(t\._encounter \? interiorFoes\?\.poisonFoe\(t, pt\) : inflictPoison\(tgt, pt, false, \{ currentMinute: Math\.floor\(interiorTicker\.classicMinutes\) \}\)\),/);
+  assert.match(m, /onInflictPoison: \(att, tgt, pt\) => \(t\._encounter \? interiorFoes\?\.poisonFoe\(t, pt\) : inflictPoison\(tgt, pt, false, \{ currentMinute: Math\.floor\(interiorTicker\.ownMinutes\) \}\)\),/);   // LIVED1: a dose is dated on the character's own clock
   const d = rd('src/scenes/dungeonContext.js');
   assert.match(d, /function poisonFoe\(f, pt\) \{\s*\n\s*if \(!f\) return null;\s*\n\s*const pi = foes\.indexOf\(f\);\s*\n\s*if \(\(!_authority && isRoomFoe\(f, pi\)\) \|\| f\._ownFrom != null\) \{ f\._divertPt = pt; return null; \}[^\n]*\n\s*return inflictPoison\(f\.entity, pt, false, \{ currentMinute: Math\.floor\(classicMinutesRef\.value\) \}\);/, 'the dungeon\'s door: a layout foe while another hosts is a puppet');
   assert.match(d, /\(f, pt\) => poisonFoe\(f, pt\)\)\) \{\s+\/\/ C2-slice \(combat-11\)/, 'the melee chain'); assert.match(d, /onInflictPoison: \(att, tgt, pt\) => poisonFoe\(f, pt\),/, 'the shaft');

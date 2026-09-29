@@ -92,8 +92,8 @@
   {
     "name": "OW3-T7-1-stand-unsaid",
     "file": "src/scenes/world.js",
-    "old": "    if (!anchor) return false;   // AUDIT OW3 T7-1",
-    "new": "    if (!anchor) return true;   // AUDIT OW3 T7-1",
+    "old": "    if (!anchor) return null;   // AUDIT OW3 T7-1",
+    "new": "    if (!anchor) return { foes: Promise.resolve([]), anchorFeet: feet };   // AUDIT OW3 T7-1",
     "tests": [
       "test/tv7_bands.test.js"
     ],

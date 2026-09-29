@@ -115,6 +115,18 @@ export const ITEM_FIELDS = Object.freeze({
   bound: bool(),
   // SS5: the Sigil Stones the Broker took for a ware (systems/sigilBroker.js brokerStock) - its dismantle's measure
   stonesPaid: int({ min: 1 }),
+  // PROF3: a crafted piece (systems/smithItems.js) - its quality (0 Crude .. 4 Masterwork), its provenance id (the
+  // service's `products`), the maker's name at the moment of making; a Repair Kit's metal (DFU's material, 0..9)
+  quality: int({ min: 0, max: 4 }),
+  provenance: str(),
+  maker: str(),
+  kitMetal: int({ min: 0, max: 9 }),
+  // AUDIT 31 H3: the recipe a crafted piece was minted of (recipeLaw's id) - an Ebony and a Warforged piece share their
+  // template and material, so a commission's picker reads this before any look-alike
+  recipe: str(),
+  // PROF4: a piece whose name carries its maker's mark below Masterwork - a Master Joiner's furniture (the service's
+  // `products.marked`)
+  marked: bool(),
 });
 
 /** The declared names, and those of one kind. */

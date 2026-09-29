@@ -951,8 +951,8 @@
   {
     "name": "OH-F-B3-pile-untagged",
     "file": "src/systems/loot.js",
-    "old": "tableLootSpawned.raise({ key: lootTableKey, items, where });",
-    "new": "tableLootSpawned.raise({ key: lootTableKey, items });",
+    "old": "raiseTabledLootSpawned({ locationIndex, key: lootTableKey, items, rolls, luck, where });",
+    "new": "raiseTabledLootSpawned({ locationIndex, key: lootTableKey, items, rolls, luck });",
     "tests": [
       "test/oh_abyss.test.js",
       "test/rri2_realism.test.js"

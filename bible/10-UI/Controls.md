@@ -115,6 +115,29 @@ the helm; left and right the time scale, held the trim), none of it a binding - 
 for the nine, and the prompt bar says what the d-pad does there. Aboard another player's boat (CSA-K) there is no
 key and no button: the helm is its owner's.
 
+## The sea fight at the helm (NAV-H, 2026-09-28 - for Mac's read)
+
+The naval arc spends NO key of its own; at a helm with guns three actions the player already has take the sea's
+meaning (`03-World/Naval-Combat.md`):
+
+- **SwingWeapon (the attack) is the broadside.** Held, the guns on the side the look is on are laid, the arcs and the
+  splash zone drawn; let go, they fire. The drag under the held button and the look while it is held are the AIM's -
+  the camera never freezes as a held swing freezes it (lookFilter.js's swing law stands down there) - so the look
+  lays the range. A readied spell still eats the press first. A pad (`aimHold`) holds RT plainly at the guns - no
+  gesture strokes, and its right stick looks - and the finger's swipe presses once and its drag is the look. At a
+  rowboat's helm, which has no guns, the attack is the weapon's swing as ever.
+- **Crouch is the BRACE**: ducking behind the rail - hits hurt less and the guns hold fire while it is held. Every
+  letter key is spent, and a held Left Ctrl would turn the helm's W into the browser's close-tab; a pad's LB already
+  crouches.
+- **Interact (Activate)** throws the grapples on a struck ship in reach (the way off her, `BOARD_SPEED`), goes over her
+  rail on foot, and opens a prize of yours again.
+
+The readout names the player's own bindings in the Controls page's own words (`controlsConfig.js buttonText` over
+`codeForAction`, the travel view's hint's reading); a pad's button, which is no key to print, is named by its action
+(CSA-L's helm panel reads its hints the same way), and on a finger's screen the hints are taps and drags - hold and
+drag to aim, lift to fire, a tap to board (the host's one activation arm), Crouch the touch table's press. The helm
+panel's buttons and the pad's d-pad at the helm are Come Sail Away's nine and nothing of the guns'.
+
 ## AUDIT KB1 (2026-09-24, Mac: "Audit this before we merge")
 
 Three lenses over the standard - the registry and the carry, the windows and the pad and the chat, the scene hosts -
@@ -239,6 +262,12 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | Action | Key | Pad | What it does |
 |---|---|---|---|
 | `SocialInteract` | F |  | Interact with player |
+
+### Professions
+
+| Action | Key | Pad | What it does |
+|---|---|---|---|
+| `ActChoice` | UP |  | At an herb patch: the herbs or the Basket |
 
 ### Game
 

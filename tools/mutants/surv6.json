@@ -110,8 +110,8 @@
   {
     "name": "SURV6-the-search-runs-every-tick-after",
     "file": "src/ui/huntWindow.js",
-    "old": "    if (this.phase !== HUNT_PHASE.Busy) return;\n    this._elapsed += Math.max(0, dt || 0);",
-    "new": "    this._elapsed += Math.max(0, dt || 0);",
+    "old": "    if (this.phase !== HUNT_PHASE.Busy || this.done) return;\n    if (this._interruptWhen?.()) { this._end(false); return; }   // FORAGE4: a foe near ends it, the rest forgiven\n    this._elapsed += Math.max(0, dt || 0);",
+    "new": "    if (this._interruptWhen?.()) { this._end(false); return; }   // FORAGE4: a foe near ends it, the rest forgiven\n    this._elapsed += Math.max(0, dt || 0);",
     "tests": [
       "test/surv6_hunting.test.js"
     ]

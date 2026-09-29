@@ -14,8 +14,8 @@
 
 import { mapPixelToLongitudeLatitude } from '../formats/mapsFile.js';
 import { MINUTES_PER_DAY } from '../systems/gameDate.js';   // TTL1: a day is the clock's own, never a second 1440
-import { TERRAIN_SIZE } from './terrainSampler.js';   // SPAWNED-DUNGEONS3: a pixel is 819.2 metres on a side
-import { getLocationTerrainTileOrigin, WORLD_MAP_TILE_DIM } from './terrainTiles.js';   // SPAWNED-DUNGEONS3: where a location stands in its pixel
+import { TERRAIN_SIZE, HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, SCALED_BEACH_ELEVATION, sampleKernel } from './terrainSampler.js';   // SPAWNED-DUNGEONS3: a pixel is 819.2 metres on a side; SPAWN-SHORE: the ground a ruin is flattened to
+import { getLocationTerrainTileOrigin, WORLD_MAP_TILE_DIM, BEACH_JITTER } from './terrainTiles.js';   // SPAWNED-DUNGEONS3: where a location stands in its pixel
 import { dataPoint, PATH_KEYS } from '../systems/travelPaths.js';   // SPAWN-ROADS: the network's own byte per pixel
 
 /** The chance a pixel holds a NORMAL spawned dungeon. */
@@ -79,6 +79,40 @@ export const spawnsDungeon = (salt, px, py, chance = ANY_SPAWN_CHANCE) => spawnR
 export function pathFreePixel(net, px, py) {
   for (let t = 0; t < PATH_KEYS.length; t++) if (dataPoint(net, t, px, py)) return false;
   return true;
+}
+
+/** SPAWN-SHORE (2026-09-29, Shabalako: "An elite dungeon spawned like this on a beach/sea"): the Ocean-climate gate
+ *  alone let ruins onto the sea. The boot spreads land climates two pixels out into it (terrainHelper.js
+ *  dilateCoastalClimate, StreamingWorld.ReadyCheck's repair), so a coast's first sea pixels READ as land. And a
+ *  location is flattened to its WHOLE pixel's average height (terrainGen.js: calcAvgMaxHeight then
+ *  blendLocationTerrain, DFU's own), so on a mostly-sea pixel the plateau sits at the waterline and the ruin stood on a
+ *  square of sand in the sea. A spawn now stands only where that plateau is DRY: above the beach band's highest
+ *  dirt (SCALED_BEACH_ELEVATION + its jitter, terrainTiles.js generateTileData).
+ *
+ *  The plateau is read WITHOUT the ground noise (sampleKernel's `groundNoise` false): that term is never negative and
+ *  the ocean clamp and clamp01 are monotone, so the noiseless average is at or under the real one - a strict lower
+ *  bound, a pixel it admits is dry for certain, at less than half the kernel's cost. Pure in the height map, which
+ *  every client holds alike, so every client agrees which pixels hold a spawn. */
+export const SPAWN_DRY_ELEVATION = SCALED_BEACH_ELEVATION + BEACH_JITTER;
+
+/** The plateau a location on (px, py) would be flattened to, metres - the noiseless lower bound (see above). */
+export function spawnPlateauFloor(woods, px, py) {
+  const k = sampleKernel(woods, px, py, HEIGHTMAP_DIMENSION, false);
+  let sum = 0;
+  for (let x = 0; x < HEIGHTMAP_DIMENSION; x++) for (let y = 0; y < HEIGHTMAP_DIMENSION; y++) sum += k(x, y);
+  return (sum / (HEIGHTMAP_DIMENSION * HEIGHTMAP_DIMENSION)) * MAX_TERRAIN_HEIGHT;
+}
+
+/** Would a ruin on (px, py) stand on dry ground? Kept per pixel: the height map does not change under a session, and
+ *  the build and the Overworld's far found spawns both ask. */
+export function createSpawnGround(woods) {
+  const dry = new Map();
+  return (px, py) => {
+    const key = py * 1000 + px;
+    let d = dry.get(key);
+    if (d === undefined) dry.set(key, d = spawnPlateauFloor(woods, px, py) > SPAWN_DRY_ELEVATION);
+    return d;
+  };
 }
 
 /** Is this pixel's spawned dungeon elite? The slice of the same roll just above the normal share. */
@@ -207,7 +241,10 @@ export function dungeonSightLine(metres, direction, elite = false) {
 //
 // THE CLOCK IS THE GAME'S. Everything here is in the same classic
 // minutes `playerTicker.classicMinutes` counts, so resting through a
-// week expires what a week of walking would.
+// week expires what a week of walking would. [AUDIT LIVED1b R: offline.
+// Online those minutes are the WORLD's (the ticker's classicMinutes is
+// worldMinutes), which a rest does not move - the ledger ages with the
+// world alone, as every player sees it.]
 
 /** Emptied, and left alone this long: gone. */
 export const CLEARED_TTL_DAYS = 2;

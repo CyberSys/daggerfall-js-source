@@ -74,7 +74,13 @@ export const FRAME_ROLES = {
     // decorator (HOME2/DECOR1) is a whole window over the room - the pack's own carved frame, not a rounded card
     'body .dfdecor-card',
     // SET7: the Sigil Broker's window - a shop over the world, the pack's own carved frame
-    'body .broker-win'],
+    'body .broker-win',
+    // NAV-F: a taken ship's plunder window (ui/navalPlunderWindow.js) - a whole window over the sea
+    'body .dfnaval-win',
+    // BOUNTY1: the bounty board and its payday notice - the Broker's carved frame
+    'body .bounty-win',
+    // NOTICE1: the Notice Board - the cork sits inside the same carved frame
+    'body .notice-win'],
   // the talk panel is a .px-win whose own ground rule outweighs .px-win's
   windowGround: ['.talk-shell .talk-panel'],
   panel: ['.port-host .port-card', '.pack-shell .packdetail .card', '.pack-shell .card', '.hmcard', '.px-sys .card', '.px-sys .dcard',
@@ -100,7 +106,10 @@ export const FRAME_ROLES = {
     // invitation and the duel challenge over the screen (DUEL1), and the decorator's placing bar
     'body .dfpage-card', 'body .dfpeer-card', 'body .dfsocial-toast', 'body .dfduel-toast', 'body .dfdecor-bar',
     // SET7: the Broker's card - the offer, whole, beside the list
-    'body .broker-card'],
+    'body .broker-card',
+    // NAV-F: the helm's readout (ui/navalHud.js) - the ship's plate and the target card, boxes over the sea
+    'body .dfnaval-plate', 'body .dfnaval-card',
+    'body .bounty-card'],   // BOUNTY1: the notice read whole, the reward box
   // panels that carry a brass edge on the left as their own mark
   panelAccent: ['.notice', '.inputbox', 'body .dfsocial-toast', 'body .dfdecor-bar'],   // PLUS-DRESS: the two that wore a brass line
   button: ['.port-host .port-btn', '.inv-info .act', '.pbind .act', '.px-sys .act', '.shell .act', '.px-win .card .act', '.pack-shell .act', '.px-setwrap .act',
@@ -108,6 +117,8 @@ export const FRAME_ROLES = {
     '.lv-pick .lv-press', '.shell .look-arrow', '.cr-shell .cr-rm', '.px-winclose', '.talk-head .act', '.talk-say .act',
     'body .dfsocial-btn', 'body .dfsocial-close', 'body .dfprofile-close', '.dlg-shell .dlg-btn',
     'body .broker-shell .act',   // SET7: the Broker's Buy and Close
+    'body .bounty-shell .act',   // BOUNTY1: Take, Give up, Share, Close, Take the reward
+    'body .notice-shell .act',   // NOTICE1: Pin a note, Pin it up, Report, Take it down, Close
     // PLUS3: the trade counter and the tavern panel (and the merchant/repair popup, which shares
     // .tavern-shell) never picked up a scoped role - their `.act` buttons fell through to the bare
     // base rule (flat outline, no bevel), which is the "still looks native" the shelf and the
@@ -129,11 +140,14 @@ export const FRAME_ROLES = {
     // PLUS-MAP: the 3D map's turn, tilt, floor and view buttons
     '.hmroot .hmtool',
     // PLUS-DRESS: the page's, the F-menu's (its Cancel stays a line of text), the duel's and the decorator's
-    'body .dfpage-btn', 'body .dfpeer-btn:not(.cancel)', 'body .dfduel-btn', 'body .dfprofile-duel', 'body .dfdecor-btn', 'body .dfdecor-open'],
-  primary: ['.lv-ok', '.hmroot .act:not(.hmtool)', 'body .dfdecor-place'],   // PLUS-MAP: the map's tools are plain stone   // PLUS-DRESS: Place is what the decorator is for
+    'body .dfpage-btn', 'body .dfpeer-btn:not(.cancel)', 'body .dfduel-btn', 'body .dfprofile-duel', 'body .dfdecor-btn', 'body .dfdecor-open',
+    'body .dfnaval-btn'],   // NAV-F: the plunder window's presses
+  primary: ['.lv-ok', '.hmroot .act:not(.hmtool)', 'body .dfdecor-place', 'body .bounty-shell .act.primary', 'body .notice-shell .act.primary',   // BOUNTY1: Take bounty and Take the reward in brass   // PLUS-MAP: the map's tools are plain stone   // PLUS-DRESS: Place is what the decorator is for
+    'body .dfnaval-take'],   // NAV-F: Take all (and a raid's Sail on) - what the plunder window is for
   // PLUS-DRESS: a press that COSTS something - leave or disband a guild, remove a member, challenge a player - the
   // button in blood rather than brass (the low-health frame's red). Each is a button above as well; this is its edge.
-  warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel'],
+  warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel',
+    'body .dfnaval-scuttle'],   // NAV-F: scuttling a prize - she and what is left in her go down
   tile: ['.port-host .port-tile', '.port-host .port-iconcell', '.pack-shell .itemrow', '.pack-shell .equipped .wornrow', '.pack-shell .wornsock', '.wizard .racegrid button',
     '.wizard .facegrid button', '.shell .ft-tile', '.shell .ft-seg', '.shell .ft-mchip', '.shell .ft-tile-more',   // FT18: a condensed tile's parts toggle
     '.sb-shell .sb-chip', '.cr-shell .sb-chip', '.piletab',
@@ -143,9 +157,11 @@ export const FRAME_ROLES = {
     // PLUS4: the held map's own pair of options (Speed/Passage/Rest) - a pickable cell in a row of
     // two, same as any other tile; its OWN .on state keeps its brass mark (below), not the kit's
     '.hmpick',
-    'body .dfdecor-chip'],   // PLUS-DRESS: the decorator's filters and modes - pickable cells, the chosen one brass
+    'body .dfdecor-chip',   // PLUS-DRESS: the decorator's filters and modes - pickable cells, the chosen one brass
+    'body .dfnaval-choice'],   // NAV-F: the captor's three choices - the one taken brass
   chip: ['.hud-qspell', '.hud-qstag', '.hud-readied', '.lv-note-key',   // (UI3: the effect and need chips are the status widget's tiles now)
-    '.shell .subbtn .count', '.hb .hb-caption'],
+    '.shell .subbtn .count', '.hb .hb-caption',
+    'body .dfnaval-chip', 'body .dfnaval-gun'],   // NAV-F: the plate's fire/brace chips and the battery rose - readouts, never pressed
   well: ['.trade-shell .packcol', '.shell .ft-search', '.shell .ft-tile-drawer',   // FT18: the Features search and a tile's opened drawer
     '.port-host .port-field', '.port-host .port-canvas', '.port-host .port-picture img', '.port-host .port-pictureword', '.wizard .namebox', '.sb-shell .sb-rename input', '.cr-shell .cr-compose input', '.hmsearch input',
     '.talk-face', '.pack-shell .figure-doll', '.pack-shell .wornmap-doll.noart', '.shell .look-pic',
@@ -155,19 +171,24 @@ export const FRAME_ROLES = {
     // OW-THEME: the Overworld's compass - its needle sunk in a socket, as the journey bar's clock is
     '.tview-compass',
     // PLUS-DRESS: the page's leaf, the decorator's list, preview, thumbnails and search, the party's portraits
-    'body .dfpage-leaf', 'body .dfdecor-list', 'body .dfdecor-preview', 'body .dfdecor-thumb', 'body .dfdecor-search', 'body .dfparty-face'],
+    'body .dfpage-leaf', 'body .dfdecor-list', 'body .dfdecor-preview', 'body .dfdecor-thumb', 'body .dfdecor-search', 'body .dfparty-face',
+    'body .dfnaval-holdlist'],   // NAV-F: a taken ship's hold, sunk into her window
   input: ['.shell .ft-search', '.wizard .namebox', '.sb-shell .sb-rename input', '.cr-shell .cr-compose input', '.hmsearch input',
     'body .dfsocial-field', 'body .dfchat-input', 'body .dfdecor-search'],
   meterFill: ['.px-fill'],
   header: ['.port-host .port-head', '.px-win .px-tabs', '.talk-head', '.sb-shell .sb-top', '.cr-shell .sb-top', '.trade-shell .sb-top',
     'body .broker-head',   // SET7: the Broker's header - who, the purse, the turn of the day
+    'body .dfnaval-winhead',   // NAV-F: the prize's name, her colours and her captain
+    'body .bounty-head',   // BOUNTY1: the board's header - the town, the day's turn
+    'body .notice-head',   // NOTICE1: the Notice Board's header - the town, the notes up
     '.tavern-shell .sb-top', '.pack-shell .pack-id', '.hmbox-title', '.loot-win .remotehead',
     // PLUS4: the shelf's own "On the shelf / N items" band - the same header a loot window's
     // remotehead already wears, just never scoped for the trade counter's own copy of that markup
     '.trade-shell .remotehead',
     'body .dfsocial-head', 'body .dfchat-tabs', 'body .dfsocial-tabs'],
   headerRule: ['.shell .ft-drawer-label', '.pack-shell .card h3', '.hmcard h3', '.hmcard h2', '.lv-crown', '.talk-modes', '.talk-cats',
-    'body .dfsocial-sec', 'body .dfpeer-name', 'body .dfdecor-head'],   // PLUS-DRESS: the Social panel's section heads (the Guild tab's), the F-menu's name
+    'body .dfsocial-sec', 'body .dfpeer-name', 'body .dfdecor-head',   // PLUS-DRESS: the Social panel's section heads (the Guild tab's), the F-menu's name
+    'body .dfnaval-sechead'],   // NAV-F: the plunder window's three heads
   footer: ['.port-host .port-foot', '.dlg-shell .dlg-acts', '.trade-shell .trade-footer', '.pack-shell .pack-dock', '.pack-shell .packbar', '.talk-say'],
   footerRule: ['.lv-foot', '.wizard .actionbar'],
   rule: ['.port-host .port-stat', '.px-stat', '.px-sys .row', '.shell .row', '.px-setwrap .row', '.hmresult', '.hmpair', '.cr-shell .cr-head',
@@ -179,7 +200,9 @@ export const FRAME_ROLES = {
   // (they are .pack-shell .itemrow too, so this outweighs the tile role)
   listRow: ['.pack-shell .loot-win .itemrow', '.trade-shell .itemrow',   // PLUS6: the shop's shelf and basket rows too
     'body .dfdecor-row',   // PLUS-DRESS: the decorator's catalogue
-    'body .broker-offer'],   // SET7: the Broker's offers
+    'body .broker-offer',   // SET7: the Broker's offers
+    'body .dfnaval-item',   // NAV-F: a taken ship's hold, a line a piece
+    'body .bounty-post'],   // BOUNTY1: the board's notices
   // the fading wing rules and dividers of the quest page
   wing: ['.px-qwing'],
   wingFlip: ['.px-qwing.px-flip'],
@@ -476,6 +499,41 @@ ${list(r.chosenLocked)} { color: ${T.brassHi}; }
   ${list(pressable, ':active:not(:disabled)')} { translate: none; }
 }
 `;
+}
+
+/** A selector list split at its top-level commas (never inside `:is(...)`/`:not(...)`). */
+function splitSelectors(prelude) {
+  const out = [];
+  let depth = 0, at = 0;
+  for (let i = 0; i < prelude.length; i++) {
+    const c = prelude[i];
+    if (c === '(') depth++; else if (c === ')') depth--;
+    else if (c === ',' && depth === 0) { out.push(prelude.slice(at, i).trim()); at = i + 1; }
+  }
+  out.push(prelude.slice(at).trim());
+  return out.filter(Boolean);
+}
+/** A sheet's rules cut to the selectors `keep` answers yes for - each rule's list cut, a rule left with none dropped,
+ *  an @media kept round what it keeps, a @keyframes kept whole (it dresses nothing by itself). The kit is written for
+ *  every surface, its roles and its hand-set rules alike (the hotbar's sockets, the dividers); the classic skin's
+ *  Broker lays its own window's share of it and nothing else (AUDIT SET U1), and the naval readout and its plunder
+ *  window theirs (NAV-F). Kept here, with the kit it cuts, so a surface in the main bundle needs no window's chunk. */
+export function scopeRules(css, keep) {
+  const text = String(css).replace(/\/\*[\s\S]*?\*\//g, '');
+  let out = '', i = 0;
+  while (i < text.length) {
+    const open = text.indexOf('{', i);
+    if (open < 0) break;
+    const prelude = text.slice(i, open).trim();
+    let depth = 1, j = open + 1;
+    while (j < text.length && depth) { if (text[j] === '{') depth++; else if (text[j] === '}') depth--; j++; }
+    const inner = text.slice(open + 1, j - 1);
+    if (/^@(media|supports)\b/.test(prelude)) { const kept = scopeRules(inner, keep); if (kept) out += `${prelude} {\n${kept}}\n`; }
+    else if (prelude.startsWith('@')) out += `${prelude} {${inner}}\n`;
+    else { const sels = splitSelectors(prelude).filter(keep); if (sels.length) out += `${sels.join(',\n')} {${inner}}\n`; }
+    i = j;
+  }
+  return out;
 }
 
 /**

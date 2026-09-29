@@ -64,7 +64,7 @@ import { lockRefuses, lockedText } from '../systems/itemLock.js';   // LOCK1: a 
 import { isBound, boundText } from '../systems/itemBound.js';   // SS4: nor a bound one - a Sigil Stone, the Broker's wares
 import { getBool } from '../systems/settings.js';   // UXB1-K: InstantRepairs - no clock to count down
 import { dateFromClassicMinutes, dateString } from '../systems/gameDate.js';
-import { sharedRealTimeText } from '../systems/worldTick.js';   // UXB1-K: online, the ready time in the player's own clock
+import { ownTimeLeftText, ownTimeLeftShort } from '../systems/worldTick.js';   // UXB1-K: online, the ready time in the player's own terms (LIVED1: their own clock)
 import { shopliftAttempt } from '../systems/theft.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';
 import { CANNOT_REMOVE_ITEM_TEXT } from '../systems/createItem.js';
@@ -258,10 +258,14 @@ function refuseTransfer(item) {
   return true;
 }
 
+/** ItemCollection.Transfer (:473-480): out of `from`, then AddItem into `to` - so a lot rejoins its own stack there,
+ *  as DFU's every click-back (TransferItem -> DoTransferItem) and ClearSelectedItems (Transfer, TransferAll) do.
+ *  BOOK-SPLIT: a `push` left a book taken back off the counter as a second row beside its own stack. A quest item goes
+ *  to the front (DoTransferItem's order, :1573-1579), as itemTransfer.applyTransfer places it. */
 function move(item, from, to) {
   const i = from.indexOf(item);
   if (i >= 0) from.splice(i, 1);
-  to.push(item);
+  addItem(to, item, item?.questItem ? 'front' : 'dontCare');
 }
 
 /** Whether a pending local (your own pack) selection in Buy mode is a
@@ -676,17 +680,29 @@ function repairEstimatesNow() {
 function repairWhen(item, now) {
   if (!repairEst) return null;
   const c = repairCountdown(item, now, repairEst.get(item) ?? null);
-  return c ? { ...c, text: repairCountdownText(c) } : null;
+  return c ? { ...c, text: repairRowText(c) } : null;
+}
+/** AUDIT LIVED1b U2: the row's words beside the detail line's - online both count the job down on the character's
+ *  clock in whole units FLOORED (ownTimeLeftShort, the long form's leading unit), where the row ceiled as DFU's
+ *  daysUntil does: "Ready in 2 days" stood over "Ready in 1 day of your time" for the same job. Offline the row is
+ *  UXB1-K's, DFU's unit and ceiling. */
+export function repairRowText(c) {
+  const own = !c.done ? ownTimeLeftShort(c.doneAt) : null;
+  if (!own || own === 'now') return repairCountdownText(c);
+  return c.estimate ? `About ${own}` : `Ready in ${own}`;
 }
 const pad2 = (n) => String(n).padStart(2, '0');
-/** The detail strip's line: the hour and the day it is ready, and online the player's own clock beside it (the
- *  bank's due date shape, worldModes.js dueDateText). */
+/** The detail strip's line: the hour and the day it is ready. LIVED1: online the job runs on the character's own
+ *  clock (a rest or a wait spends it, time away does not), so the line says the time left in their time and in play
+ *  (the bank's due-by shape, worldModes.js dueDateText) - an hour and a date on their own clock would read as the
+ *  world's. */
 export function repairReadyLine(c) {
   if (!c) return null;
   if (c.done) return 'Ready to collect.';
+  const own = ownTimeLeftText(c.doneAt);
+  if (own) return `${c.estimate ? 'Ready in about' : 'Ready in'} ${own}.`;
   const d = dateFromClassicMinutes(c.doneAt);
-  const real = sharedRealTimeText(c.doneAt);
-  return `${c.estimate ? 'Ready about' : 'Ready by'} ${pad2(d.hour)}:${pad2(d.minute)}, ${dateString(d)}${real ? ` (${real})` : ''}.`;
+  return `${c.estimate ? 'Ready about' : 'Ready by'} ${pad2(d.hour)}:${pad2(d.minute)}, ${dateString(d)}.`;
 }
 
 // ── ROWS ──────────────────────────────────────────────────────────

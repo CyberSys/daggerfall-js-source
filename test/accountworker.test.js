@@ -108,16 +108,33 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // RENOWN1 took it): one row a gate an account closed, keyed (day, account),
   // counted off it.
   // BASE-HIDE added `home_hidden` (0015): what an online home's owner took out of the room's own furniture
+  // RAID4 added `raid_cleanses` (0016): one row a (raid, account) whose receipt was counted and paid in
+  // Renown. AUDIT RAID added `raid_spoils` (0017): one row a (raid, account) whose town's thanks were given, keyed to the
+  // device's claim id. The professions branch's were renumbered behind them at THE MERGE, and again behind the realm's at MERGE 2 (0025-0034).
   // REALM P1 added `realm_characters` (0018; 0016 on its branch): one row a realm character - an online character's truth, its save in R2
   // REALM P2.1 added `realm_trades` (0019; 0017 on its branch): one row a trade the service settles, by the peers' sid - and
   // `realm_tx_guard`, which never holds a row: its CHECK is what rolls a settling batch back whole
   // AUDIT REALM added `realm_census` (0020; 0018 on its branch): the characters that played online before the realm, counted once as the
   // migration is applied - customs' gate, which no session can write to since
   // RENOWN-ACCOUNT added `renown_accounts` (0021): ONE row an account's Renown, keyed by the account alone - each account
-  // began at its best character's track, and `renown_tracks` stays beside it as history nothing writes again
+  // began at its best character's track. RENOWN-CHAR (0035) made Renown the characters' again: each track took what
+  // the account earned while it was the account's, and `renown_accounts` stays as history nothing writes again
   // CUSTOMS-PASS added `realm_passes` (0024): one row a developer's grant of a customs pass - open until customs spends it
   // on the one character it lets in, then the record of whom it let in (at most one open an account)
-  assert.deepEqual(tables, ['duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_members', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'players', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'realm_census', 'realm_characters', 'realm_passes', 'realm_trades', 'realm_tx_guard', 'renown_accounts', 'renown_tracks', 'saves', 'sessions']);
+  // MARKS1 added three (0025): `marks` (an account's balance), `guild_marks` (a guild's Marks treasury) and
+  // `marks_ledger` (one line a movement - the truth, whose own triggers move the two balances)
+  // NOTICE1 added three (0026): `board_notes` (a town's notes), `board_reports` (one row a reader who reported one)
+  // and `board_notices` (the server's word, on every board)
+  // PROF1 added seven (0027): `prof_tracks` (a character's track a profession), `prof_stores` (the Stores - a material,
+  // own or bought), `node_harvests` (the day's harvests), `prof_withdrawals` (one row a withdrawal to the pack),
+  // `world_witness` (the witnessed world's reports, its first kind the map pixel), `writ_days` and `writs` (a region's
+  // Court writs, written down for the day)
+  // PROF2 added one (0028): `prof_smelts` (one row a smelt). AUDIT 29 added one (0029): `prof_choices` (one row a free
+  // first specialisation, found by its id before the switch)
+  // PROF3 added three (0030): `prof_crafts` (one row a craft at the anvil), `products` (every crafted piece - its
+  // provenance id, owner and signed record) and `prof_stock` (one row a purchase from the smith's stock)
+  // PROF5 (0032_market.sql): the market's seven - listings, sales, deliveries, orders, fills, prices, reports
+  assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'commissions', 'duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guild_prof_stores', 'guild_store_ledger', 'guild_store_moves', 'guild_writ_budgets', 'guild_writ_fills', 'guild_writs', 'guilds', 'home_decor', 'home_hidden', 'homes', 'letters', 'market_auction_reports', 'market_auctions', 'market_bids', 'market_deliveries', 'market_fills', 'market_listings', 'market_orders', 'market_prices', 'market_reports', 'market_sales', 'marks', 'marks_ledger', 'node_harvests', 'players', 'products', 'prof_choices', 'prof_crafts', 'prof_smelts', 'prof_stock', 'prof_stores', 'prof_tracks', 'prof_withdrawals', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'realm_census', 'realm_characters', 'realm_passes', 'realm_trades', 'realm_tx_guard', 'renown_accounts', 'renown_tracks', 'saves', 'sessions', 'world_witness', 'writ_days', 'writs']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.
   const cols = db._raw.prepare('PRAGMA table_info(players)').all().map((c) => c.name);

@@ -117,7 +117,7 @@ test('encounters: the enemy alert - raise stamps the time, the 8-hour decay clea
 
 test('encounters: the dungeon host arm - the rest loop, the sight raise, the kill clear, the closed leg', () => {
   const src = readFileSync(join(root, 'src/scenes/dungeonContext.js'), 'utf8');
-  const i = src.indexOf('const _restAdvance = (n, sharedEnd = null) => {');
+  const i = src.indexOf('const _restAdvance = (n) => {');
   // The window ends at the NEXT rest dep, not at a character count: wave 30
   // grew this arm by thirty lines and a fixed 900-char slice stopped reaching
   // the spawn loop, so the pin failed for the one reason a pin must not -
@@ -152,7 +152,7 @@ test('encounters: the dungeon host arm - the rest loop, the sight raise, the kil
   // ...and so do the hosts the rest lanes gave rest to.
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js']) {
     const h = readFileSync(join(root, f), 'utf8');
-    assert.ok(h.includes("if (d.kind === 'enemies') setEnemyAlert(playerEntity, true, Math.floor(worldMinutes()));"), f);
+    assert.ok(h.includes("if (d.kind === 'enemies') setEnemyAlert(playerEntity, true, Math.floor(ownMinutes()));"), f);   // LIVED1: the alert is the character's, on their own clock
   }
   // AUDIT 26 (F204) CORRECTS THE WAVE-36 PIN THAT STOOD HERE. It read
   // "it lives in createPlayerTicker now, which every host already

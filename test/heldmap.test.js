@@ -2282,7 +2282,7 @@ test('AUDIT-MAP A9/H8: a summary with no region index names nothing rather than 
   assert.equal(wheelPixels({ deltaY: 'x' }, 800), 0);
 });
 
-test('AUDIT-MAP H1 + TRAVEL-FARE: online the journey reads "now" and the fare is billed AS OFFLINE, on the same card as the popup\'s line (mutants: online-waives-the-fare, online-counts-days)', () => {
+test('AUDIT-MAP H1 + TRAVEL-FARE + LIVED1: online the journey reads its days, of the traveller\'s own time, and the fare is billed AS OFFLINE, on the same card as the popup\'s line (mutants: online-waives-the-fare)', () => {
   withDocument(() => {
     const climate = () => CLIMATES.Woodlands;
     const win = open(mkWin({ noWorldTime: () => true, getClimateIndex: climate }));
@@ -2300,10 +2300,10 @@ test('AUDIT-MAP H1 + TRAVEL-FARE: online the journey reads "now" and the fare is
     const noInn = calculateTripCost(t.minutes, t.oceanPixels, { sleepModeInn: false, hasShip: false, travelShip: true });
     assert.ok(withInn.piecesCost > noInn.piecesCost, 'the fixture really does have an inn to bill');
     assert.equal(st.trip.piecesCost, withInn.piecesCost, 'the inn IS paid online - the fare is the journey\'s price');
-    assert.equal(st.trip.days, 0, 'and the arrival is now');
+    assert.ok(st.trip.days >= 1, 'LIVED1: the days are counted online - they pass on the traveller\'s own clock');
     assert.equal(st.trip.online, true);
     const texts = win._chrome.card.children.flatMap((c) => (c.children ?? []).map((k) => k.textContent));
-    assert.ok(texts.includes('now'), 'the journey row');
+    assert.ok(texts.includes(`${st.trip.days} ${st.trip.days === 1 ? 'day' : 'days'} of your time`), 'the journey row says whose days');
     assert.ok(win._chrome.card.children.some((c) => c.textContent === ONLINE_TRAVEL_LINE), 'the popup\'s line');
     win.dispose();
   });

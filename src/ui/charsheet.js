@@ -47,6 +47,7 @@ import { templateByIndex } from '../systems/itemTemplates.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
 import { bankingStatusRows } from '../systems/banking.js';   // AUDIT 64 F28: CreateBankingStatusBox's rows
+import { ownTimeLeftShort } from '../systems/worldTick.js';   // AUDIT LIVED1 Q: online, a loan's due as the time left on the character's clock
 import { REGION_NAMES } from '../formats/mapsFile.js';       // GetLocalizedRegionName
 import { InputMessageBoxWindow } from './inputMessageBox.js';   // CM4: the Name button's DaggerfallInputMessageBox
 import { ENTER_NEW_NAME } from './itemMakerWindow.js';          // CM4: Internal_Strings.enterNewName, homed with its first reader
@@ -54,6 +55,8 @@ import { healthStatusRows } from '../systems/healthStatus.js';   // CM4: CreateH
 import { affiliations } from '../systems/affiliations.js';   // CM4: ShowAffiliationsDialog's book - GUILD-REP: one model, both skins
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // CM4: the four buttons' DaggerfallShortcut bindings
 import { liveRaceTemplate } from '../systems/vampirism.js';   // DISC10-D V5: the live race the sheet names
+/** AUDIT LIVED1 Q: the sheet's due column online - "in 359 days" / "due now"; null offline, where DFU's date stands. */
+const loanDueShort = (due) => { const s = ownTimeLeftShort(due); return s == null ? null : s === 'now' ? 'due now' : `in ${s}`; };
 
 // U8a: the module-level art cache - hosts preload once at boot; a
 // failed load leaves the text fallback in charge.
@@ -656,7 +659,7 @@ export class CharSheet {
     if (inRect(R.gold, vx, vy)) {
       audio.playOneShot(SOUND.ButtonClick, 1);
       this.child = new ActionTextBox(
-        bankingStatusRows(this.entity?.bankAccounts, { regionName: (i) => REGION_NAMES[i] ?? '' }),
+        bankingStatusRows(this.entity?.bankAccounts, { regionName: (i) => REGION_NAMES[i] ?? '', dueText: loanDueShort }),   // AUDIT LIVED1 Q
         // SetHighlightColor(DaggerfallUnityStatDrainedTextColor) (:523)
         { highlightColor: STAT_DRAINED_COLOR },
       );

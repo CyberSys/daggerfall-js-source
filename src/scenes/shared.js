@@ -37,10 +37,10 @@ import { expandRowValues } from '../systems/quest/questMacros.js';   // MACRO-3:
 import { announceSkillRaise, announceMastery } from '../ui/levelNotice.js';
 import { DOOR_SPELL_TEXT, castBySkeletonKey } from '../systems/mysticism.js';   // X1: the door-spell alert lines; D9: Open.CheckCastByItem
 import { raiseSkills } from '../systems/advancement.js';   // AUDIT 23 (entity-1): the rest-end raise
-import { tickPlayerMinutes, claimMagicRounds, runMagicRoundsFor, worldMinutes, setWorldMinutes, advanceWorldMinutes, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
+import { tickPlayerMinutes, runMagicRoundsFor, worldMinutes, setWorldMinutes, ownMinutes, advanceOwnMinutes, tickInFlight, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
 import { REST_KIND, REST_TEXT_SURVIVAL, restCost, restHour, stiffen } from '../systems/survival/rest.js';   // SURV4: the rest law - a bed and a fire sleep, the window alone is rough
 import { survivalRules } from '../systems/survival/switch.js';   // SURV-TIERS: the rest's price is the tier's, read at the open
-import { sleepStage, runSurvivalMinutes } from '../systems/survival/needs.js';   // AUDIT SURV-TIERS (the third pass): the rough night's lesser sleep, said
+import { sleepStage } from '../systems/survival/needs.js';   // AUDIT SURV-TIERS (the third pass): the rough night's lesser sleep, said
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: VampirismInfection.cs:161-162
 import { setInfectionHost, vampireClanForFaction } from '../systems/infection.js';   // V1: the host seam for the dream/death videos and the turn's clock raise
 import { findFactions } from '../systems/talk.js';   // V1: GetRegionFaction's FindFactions(Province, region)
@@ -74,6 +74,8 @@ import { installDiverseWeaponsIcons } from '../combat/diverseWeaponsIcons.js';
 import { installRoleplayRealismItems } from '../systems/rriInstall.js';
 import { installDetailedShipsArt } from '../systems/detailedShips.js';   // DS1: Detailed Ships' pictures and xml scales
 import { installWarmAshesShips } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships' quest list and save slot
+import { installForaging } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's quest list, tools, foods, pictures and console command
+import { installSmithing } from '../systems/smithItems.js';   // PROF3: the Repair Kit's use
 import { installRaidingParties } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties' save slot
 import '../systems/gateSpoils.js';   // WB5: the Sigil Stone's own template (570) registers in every host, so a save carrying one loads it in any of the four
 import '../systems/sigilBroker.js';   // SET7: the Broker's record (what this character bought today) registers its save slot in every host, so a save made anywhere carries it
@@ -1210,6 +1212,7 @@ export function ensureAudio(fetch = fetchBytes) {
   // Registration is a name list and a loader - no PNG is read until an
   // archive that has replacements is actually loaded.
   installDetailedShipsArt();   // DS1: archives 1210/1230 on the texture door (their pictures built from your own records at the archive's load) and the six xml scales
+  installForaging();   // FORAGE1: the ForagingQuests list (before any quest bridge is built), the six tools' and five foods' UseItem, the seven pictures, Foraging_Tools
   installWarmAshesShips();   // WA1: the WA_Ships quest list (before any quest bridge is built - LoadQuestLists reads it) and the mod's save record
   installDiverseWeaponsIcons();   // DW3: before the archives load, so 233/234's preload carries the mod's icons
   installRoleplayRealismItems();
@@ -1235,6 +1238,7 @@ export function ensureAudio(fetch = fetchBytes) {
     })
     .catch(() => 0);
   installRaidingParties();   // RAID1: the mod's save record, in every host - a save made in a dungeon carries the day's raids too
+  installSmithing();   // PROF3: the Repair Kit's use on the item-use door, in every host (a kit is the pack's, offline too)
   // MW-IMPORT: same seam, same never-traps rule - no data means the
   // opt-in layer stays inert, which is its resting state anyway.
   const morrowind = registerMorrowindData().catch(() => 0);
@@ -1334,18 +1338,13 @@ export function raisePlayerSkills(entity, { say = () => {}, onLevelUp = null, ro
   // was. THE FANFARE STAYS IN BOTH LANES: it is the reward, not the
   // interruption. The CLASSIC skin takes both arms exactly as written
   // before this slice, which is why they are still written here.
-  // MAC-LVL1: the minutes an ONLINE rest simulated (restSession's
-  // creditSkillMinutes) are spent here, by pulling the last-check
-  // marker back by them - the marker stays in the shared clock's past,
-  // so alignEntityClocks' clamp never sees a future stamp, and one
-  // night is one advancement pass on both lanes (RaiseSkills' 360-minute
-  // gate, PlayerEntity.cs:1367, opened by the rest's own RaiseTime).
-  // Offline the credit is never written (the clock itself moved).
-  if (entity.restSimMinutes > 0) {
-    entity.lastSkillCheckTime = (entity.lastSkillCheckTime ?? 0) - entity.restSimMinutes;
-    entity.restSimMinutes = 0;
-  }
-  return raiseSkills(entity, Math.floor(worldMinutes()), rolls, onLevelUp,
+  // LIVED1: RaiseSkills' 360-minute gate (PlayerEntity.cs:1367) reads the
+  // CHARACTER's own clock, which a rest's hours move online as the one
+  // clock moves offline - so a night opens it on both lanes by the gate's
+  // own law. [SUPERSEDES MAC-LVL1's credit: the minutes an online rest
+  // simulated, banked on the entity and spent here by pulling the
+  // last-check marker back by them.]
+  return raiseSkills(entity, Math.floor(ownMinutes()), rolls, onLevelUp,
     (id) => {
       // AUDIT LV2 F3: the TEXT.RSC read is a THUNK, so it happens on
       // the lane that shows it. Passed by value it ran on BOTH - the
@@ -1439,9 +1438,36 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
   // SURV7: the rest gate on DFU's RegisterPreventRestCondition seam, with this host's readers - too cold without a
   // fire or a roof, too hot anywhere (survival/rest.js restBlock); inert but in Hard (SURV-TIERS: env.js survivalGateOn)
   if (survivalEnv) installSurvivalGate(registerPreventRestCondition, () => entity, survivalEnv);
+  // AUDIT LIVED1b K1 (K2): a raise J moved barely - the collapse's hour, fired from inside a round - waits here for its
+  // walk, and the walk is THIS frame's, run the moment the window in hand is done (tick, below). J left it to the next
+  // tick, which the collapse's own box holds until it is dismissed: the handler's latch was long down by then, so every
+  // remaining round of the drain that emptied the pool again was a collapse of its own (a Somnalius dose 6.8 of them
+  // against DFU's 3, a sixty-round fatigue drain 59 hours on the character's clock in half an hour of play), and a save
+  // taken under the box wrote the hour without its walk. DFU walks a RaiseTime on the next Update, popup or not, and
+  // the popup refuses a second collapse (the hosts' box guard) - so the hour's rounds fall under the box, as there.
+  let _raiseWaiting = false;
+  const DEFERRED_WALKS_MAX = 4;
+  const tickOnce = (dt, activity, realSeconds, raiseMinutes) => {
+    const r = tickPlayerMinutes({
+      entity, classicMinutes: worldMinutes(), dt, sinks, activity, realSeconds, raiseMinutes,   // LIVED1: an online raise's minutes, the character's own
+      fatigueMultiplier: fatigueLossMultiplierFor(entity),
+      say, inside: isInside(),
+      survival: survivalFeed(entity, survivalEnv?.() ?? null, { say }),   // SURV7: the needs' minute, when the host says where the player stands
+    });
+    setWorldMinutes(r.classicMinutes);
+    // PlayerEntity.Update:380-384's 8-hour alert decay used to be
+    // called here. It is part of the player's per-minute update, so
+    // it moved INTO tickPlayerMinutes above - this ticker is only
+    // three of the four hosts, and the dungeon calls that function
+    // directly.
+    for (const fn of subscribers) fn(r.magicRoundWindow.from, r.magicRoundWindow.to, dt);
+    return r;
+  };
 
   return {
     get classicMinutes() { return worldMinutes(); },
+    /** LIVED1: the character's own clock - the world's offline, their own online (systems/worldTick.js ownMinutes). */
+    get ownMinutes() { return ownMinutes(); },
     /** Register a foe pool. fn(from, to, dt) - the claimed magic-round window
      *  and the real seconds this tick covered. Returns an unsubscribe. */
     subscribe(fn) {
@@ -1454,20 +1480,11 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
      *  drains through exactly these doors, exhaustion presenter and
      *  all, and a pool that built its own would miss the collapse. */
     get sinks() { return sinks; },
-    tick(dt, activity = { running: false, runningTally: false, swimming: false }, realSeconds = dt) {
-      const r = tickPlayerMinutes({
-        entity, classicMinutes: worldMinutes(), dt, sinks, activity, realSeconds,
-        fatigueMultiplier: fatigueLossMultiplierFor(entity),
-        say, inside: isInside(),
-        survival: survivalFeed(entity, survivalEnv?.() ?? null, { say }),   // SURV7: the needs' minute, when the host says where the player stands
-      });
-      setWorldMinutes(r.classicMinutes);
-      // PlayerEntity.Update:380-384's 8-hour alert decay used to be
-      // called here. It is part of the player's per-minute update, so
-      // it moved INTO tickPlayerMinutes above - this ticker is only
-      // three of the four hosts, and the dungeon calls that function
-      // directly.
-      for (const fn of subscribers) fn(r.magicRoundWindow.from, r.magicRoundWindow.to, dt);
+    tick(dt, activity = { running: false, runningTally: false, swimming: false }, realSeconds = dt, raiseMinutes = 0) {
+      const r = tickOnce(dt, activity, realSeconds, raiseMinutes);
+      // AUDIT LIVED1b K1 (K2): the raise J moved barely inside that window, walked now (online only - offline a raise
+      // from inside a tick still nests, K6's recorded twin)
+      for (let n = 0; _raiseWaiting && !tickInFlight() && n < DEFERRED_WALKS_MAX; n++) { _raiseWaiting = false; tickOnce(0, undefined, 0, 0); }
       return r;
     },
     /** U24: DaggerfallDateTime.RaiseTime. Guild training eats three
@@ -1479,37 +1496,25 @@ export function createPlayerTicker(entity, { say = () => {}, onLevelUp = null, o
      *  all owe the world those minutes. The once-per-minute-change
      *  fatigue drain still fires once, exactly as it does in DFU
      *  across a jump, which is why the callers that need a session's
-     *  worth of fatigue charge it explicitly. REST-ROUNDS: `sharedEnd`
-     *  is a rest sub-tick's end off the session's own counter (null
-     *  offline), which online is the only clock those minutes have. */
-    advance(minutes, sharedEnd = null) {
+     *  worth of fatigue charge it explicitly.
+     *
+     *  LIVED1: ONLINE THE MINUTES ARE THE CHARACTER'S OWN. The world's
+     *  clock is nobody's to move (WORLD5), and the character's own is
+     *  theirs: the same tick runs over the same minutes on it - the
+     *  broker's rounds, the fatigue band's one minute, the day block's and
+     *  the calendar's own arms, the needs, the letters - while the world's
+     *  arms walk only what the world's clock moved. A rest, a journey, a
+     *  training session and the collapse all come through here, online as
+     *  offline. [SUPERSEDES REST-ROUNDS' and AUDIT RISE-REST F2's online
+     *  arm - a rest sub-tick's rounds and needs run over a session-local
+     *  counter - and WORLD5's "fabricates no minutes online", which left
+     *  every other raise with nothing.] */
+    advance(minutes) {
       if (!(minutes > 0)) return null;
-      // REST-ROUNDS (Discord, 2026-09-27: "when you rest, spell effects don't wear off ... I've acomplished permanent
-      // true invisibility, waterbreathing, regenerate health, etc."): A REST'S MINUTES OWE THEIR MAGIC ROUNDS ONLINE
-      // TOO. RESTX2 hands each sub-tick's end off the session's own counter (restSession.js `_onlineSimMinutes`) so
-      // the rolls and "the magic-round catch-up" run online, and only the dungeon's arm spent it on the rounds
-      // (dungeonContext.js _restAdvance) - here the arm below ran the world's real seconds and dropped it, so a night
-      // outdoors or in a building healed every hour and aged no effect: cast, rest the magicka back, cast again, and
-      // the incumbent's rounds stacked for good. The window is claimed the dungeon's way (WORLD5 C1 moves the tick's
-      // reading with it, so the next tick re-anchors rather than running the night twice) and fanned out to the foe
-      // pools as a tick's is. Nothing is moved on the shared clock.
-      if (sharedClockOn() && Number.isFinite(sharedEnd)) {
-        const end = Math.floor(sharedEnd), start = end - minutes;
-        const w = claimMagicRounds(start, sharedEnd);
-        runMagicRoundsFor(entity, w.from, w.to, { sinks, say });
-        // AUDIT RISE-REST F2: ...and the NEEDS over the same minutes, asleep, as the dungeon's arm pays them (AUDIT SURV
-        // B) - the tick below this arm is what paid them before, and online it had the world's seconds to pay: a night
-        // in a bed or by a fire cleared no sleep debt anywhere but underground (SURV4: "ONLINE the same"). The record's
-        // own marker keeps the first frame after the night from paying it again, awake.
-        const feed = survivalFeed(entity, survivalEnv?.() ?? null, { say });
-        if (feed) runSurvivalMinutes(entity, start, end, feed.env, { ...feed.deps, sinks, rolls: Math.random });
-        for (const fn of subscribers) fn(w.from, w.to, 0);
-        return { classicMinutes: worldMinutes(), rounds: w.rounds, magicRoundWindow: w };
-      }
-      // WORLD5: the shared clock is not this player's to move - a rest, a training session, a fast travel or the
-      // exhaustion collapse fabricates no minutes online; the tick runs whatever the world's clock owes since the last
-      // reading, and nothing more
-      if (sharedClockOn()) return this.tick(0, undefined, 0);
+      // AUDIT LIVED1 J (K6): raised from INSIDE a tick (the collapse, out of a round's fatigue drain) the hour is a bare
+      // move of the character's clock, as DFU's RaiseTime is - the next tick walks it in order after the window in hand
+      // (AUDIT LIVED1b K1: and walked the moment that window is done - `_raiseWaiting`, tick above)
+      if (sharedClockOn()) { if (tickInFlight()) { advanceOwnMinutes(minutes); _raiseWaiting = true; return null; } return this.tick(0, undefined, 0, minutes); }
       // T1 (AUDIT 39): the dt below is FABRICATED game time - a jump
       // costs no REAL seconds, because DFU's RaiseTime does not advance
       // Time.deltaTime. The third argument is what the two real-time
@@ -1809,8 +1814,9 @@ export function wireInfectionVideos(renderer, { textAt = null, factionDict = nul
     cancelRest,
     // DISC10-D V2: WorldTime.Now for the curse the deploy mints - read
     // AFTER the raise, which is the clock VampirismEffect.Start's
-    // UpdateSatiation stamps (:95-96).
-    nowMinutes: () => Math.floor(worldMinutes()),
+    // UpdateSatiation stamps (:95-96). LIVED1: the curse's clocks are the
+    // character's own, and the raise moved it.
+    nowMinutes: () => Math.floor(ownMinutes()),
     playVideo(name, onClose) {
       // Off the tick's own frame: playVideo OWNS the frame loop for
       // its lifetime, and pushing it from inside a frame body is the
@@ -1856,9 +1862,11 @@ export function wireInfectionVideos(renderer, { textAt = null, factionDict = nul
     // (:76-80), HealthLeech (:101-105) and CastWhenHeld's durability
     // loss (:131-136). So the new vampire's magic items survive the
     // fortnight; his diseases and spells still age through it.
-    // advanceWorldMinutes is the bare clock move, and the marker it
-    // leaves behind is what makes the next host frame claim the window.
-    raiseTime: (seconds) => { setSyntheticTimeIncrease(true); return advanceWorldMinutes(seconds / 60); },
+    // advanceOwnMinutes is the bare clock move, and the marker it leaves
+    // behind is what makes the next host frame claim the window. LIVED1:
+    // the fortnight is the new vampire's own - online their clock takes
+    // it while the world's sky stays where it is.
+    raiseTime: (seconds) => { setSyntheticTimeIncrease(true); return advanceOwnMinutes(seconds / 60); },
     // "Death is not eternal" (:187-188) - a DaggerfallMessageBox on
     // TEXT.RSC 401.
     //
@@ -2203,7 +2211,7 @@ export function createRestDeps(entity, opts = {}) {
       // SURV4: rough hours rested are a stiff morning (STIFF_HOURS of speed and agility) on the way out - an interrupted
       // night too, since the hours were slept - said once; the hours are spent
       // SURV-TIERS: under the tier the rest opened with - a Casual morning costs nothing, so nothing is said
-      if (!b && _roughHours > 0 && stiffen(entity, worldMinutes(), REST_KIND.Rough, _rules)) { say(REST_TEXT_SURVIVAL.stiff); _roughHours = 0; }
+      if (!b && _roughHours > 0 && stiffen(entity, ownMinutes(), REST_KIND.Rough, _rules)) { say(REST_TEXT_SURVIVAL.stiff); _roughHours = 0; }   // LIVED1: the body's morning, on its own clock
       // AUDIT SURV-TIERS (the third pass): a tier with no stiff morning (Casual) still sleeps the rough night at a third
       // of a bed's rate, and a sleeper woke Drowsy from eight hours on the ground with no word for why - said when it
       // left them short
@@ -2252,8 +2260,7 @@ export function createRestDeps(entity, opts = {}) {
       return healed;
     },
     fullyHealed: () => restFullyHealed(entity),
-    sharedMinutes: () => (sharedClockOn() ? worldMinutes() : null),   // WORLD5: a rest online is paced by the world's clock, not by the window's timer
-    creditSkillMinutes: (n) => { entity.restSimMinutes = (entity.restSimMinutes ?? 0) + n; },   // MAC-LVL1: the rest's simulated minutes, owed to the skill-check clock (raisePlayerSkills spends them)
+    sharedMinutes: () => (sharedClockOn() ? worldMinutes() : null),   // OL2: the window's world-clock line online, and the session's quest gate (RESTX2) - LIVED1: the rest's own hours are the character's
     dead: () => entity.health <= 0,
     vitals: () => ({
       health: entity.health, maxHealth: entity.maxHealth,

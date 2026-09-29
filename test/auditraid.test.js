@@ -361,15 +361,13 @@ test('AUDIT RAID R5 service: A RAID\'S RENOWN IS THE HOUR\'S - charged to the ac
   const rep = await reportRenownXp({ db, nowS }, A, { character: 'char-0001', xp: 50 });
   assert.equal(rep.credited, 0, 'a report after it finds the hour spent');
   const next = await claimRaid({ db, nowS: nowS + 3600, subtle, rand }, A, { receipt: await raidFor(A.id, `3:9:${D}`, priv, nowS + 3600), character: 'char-0001' }, pubKey);
-  assert.equal(next.renown.credited, renownRaidXp(renownForXp(100)), 'a new hour pays it whole (at the account\'s own Renown)');
-  // RENOWN-ACCOUNT: THE TRACKS' BOUND IS GONE - a character new to an account with sixty characters' history behind it
-  // (a new character past sixty was counted and paid nothing) is paid, to the account, and the hour spent on it
+  assert.equal(next.renown.credited, renownRaidXp(renownForXp(100)), 'a new hour pays it whole (at the track\'s own Renown)');
+  // a new character past the tracks' bound: counted, paid nothing - and the hour not spent on it
   const B = await member(db);
   for (let i = 0; i < 60; i++) db._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(B.id, `char-t${i}`, 'T', 0, S0, S0);
-  const paid = await claimRaid({ db, nowS, subtle, rand }, B, { receipt: await raidFor(B.id, `3:7:${D}`, priv), character: 'char-new1' }, pubKey);
-  assert.equal(paid.recorded, true); assert.equal(paid.renown.credited, renownRaidXp(1));
-  assert.equal(db._raw.prepare('SELECT xp FROM renown_accounts WHERE player = ?').get(B.id).xp, renownRaidXp(1), 'onto the account\'s track');
-  assert.equal(db._raw.prepare('SELECT renown_hour_xp AS x FROM players WHERE id = ?').get(B.id).x, renownRaidXp(1), 'the hour spent on it, as on any raid');
+  const none = await claimRaid({ db, nowS, subtle, rand }, B, { receipt: await raidFor(B.id, `3:7:${D}`, priv), character: 'char-new1' }, pubKey);
+  assert.equal(none.recorded, true); assert.equal(none.renown.credited, 0);
+  assert.equal(db._raw.prepare('SELECT renown_hour_xp AS x FROM players WHERE id = ?').get(B.id).x, 0, 'no place to pay: the hour untouched');
 });
 
 // ═══ THE DEVICE ═══════════════════════════════════════════════════════════════════════════════════

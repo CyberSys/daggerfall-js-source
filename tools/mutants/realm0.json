@@ -218,7 +218,7 @@
   {
     "name": "REALM0-join-not-wired",
     "file": "src/scenes/world.js",
-    "old": "    onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: worldMinutes(), say: (l, d) => townTalk.say(l, d) });",
+    "old": "    onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: ownMinutes(), say: (l, d) => townTalk.say(l, d) });",
     "new": "    onlineArrival();",
     "tests": [
       "test/realm0.test.js"
@@ -263,8 +263,8 @@
   {
     "name": "REALM0-sale-cap-the-sale",
     "file": "src/systems/shopStock.js",
-    "old": "calculateTradePrice(cost, shopQuality, { mercantile, personality }, false) * ONLINE_SALE_SHARE",
-    "new": "calculateTradePrice(cost, shopQuality, { mercantile, personality }, true, { online: false }) * ONLINE_SALE_SHARE",
+    "old": "calculateTradePrice(cost, shopQuality, best, false) * ONLINE_SALE_SHARE",
+    "new": "calculateTradePrice(cost, shopQuality, best, true, { online: false }) * ONLINE_SALE_SHARE",
     "tests": [
       "test/realm0.test.js"
     ]
@@ -299,8 +299,8 @@
   {
     "name": "REALM0-dungeon-pile-no-level",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    addPileLootExtras(items, lootKey, undefined, { level: playerEntity.level, where: 'dungeon' });",
-    "new": "    addPileLootExtras(items, lootKey, undefined, { where: 'dungeon' });",
+    "old": "luck: liveStat(playerEntity, 'luck'), level: playerEntity.level, where: 'dungeon' });",
+    "new": "luck: liveStat(playerEntity, 'luck'), where: 'dungeon' });",
     "tests": [
       "test/realm0.test.js"
     ]
@@ -371,8 +371,8 @@
   {
     "name": "REALM0-checkpoint-in-duel",
     "file": "src/systems/onlineCheckpoint.js",
-    "old": "  return !!online && !!spawned && !seatOut && !duel;",
-    "new": "  return !!online && !!spawned && !seatOut;",
+    "old": "  return !!online && !!spawned && !seatOut && !duel && !walkWaiting;",
+    "new": "  return !!online && !!spawned && !seatOut && !walkWaiting;",
     "tests": [
       "test/realm0.test.js"
     ]
@@ -380,8 +380,8 @@
   {
     "name": "REALM0-checkpoint-out-of-seat",
     "file": "src/systems/onlineCheckpoint.js",
-    "old": "  return !!online && !!spawned && !seatOut && !duel;",
-    "new": "  return !!online && !!spawned && !duel;",
+    "old": "  return !!online && !!spawned && !seatOut && !duel && !walkWaiting;",
+    "new": "  return !!online && !!spawned && !duel && !walkWaiting;",
     "tests": [
       "test/realm0.test.js"
     ]
@@ -389,8 +389,8 @@
   {
     "name": "REALM0-checkpoint-offline",
     "file": "src/systems/onlineCheckpoint.js",
-    "old": "  return !!online && !!spawned && !seatOut && !duel;",
-    "new": "  return !!spawned && !seatOut && !duel;",
+    "old": "  return !!online && !!spawned && !seatOut && !duel && !walkWaiting;",
+    "new": "  return !!spawned && !seatOut && !duel && !walkWaiting;",
     "tests": [
       "test/realm0.test.js"
     ]

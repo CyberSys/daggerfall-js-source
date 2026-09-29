@@ -713,7 +713,7 @@ test('OH-E the loot events: EnemyEntity.OnLootSpawned carries the table key, the
   offT();
   assert.equal(t.length, 2);
   const ctx = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
-  assert.match(ctx, /addPileLootExtras\(items, lootKey, undefined, \{ level: playerEntity\.level, where: 'dungeon' \}\);[^\n]*\n\s*rollLootRarity\(/, 'the dungeon\'s pile: the trio and the event, then the port\'s rarity roll');
+  assert.match(ctx, /addPileLootExtras\(items, lootKey, Math\.random, \{ locationIndex: dfLocation\.mapTableData\.dungeonType, luck: liveStat\(playerEntity, 'luck'\), level: playerEntity\.level, where: 'dungeon' \}\);[^\n]*\n\s*rollLootRarity\(/, 'the dungeon\'s pile: the trio and the event, then the port\'s rarity roll');
   const src = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   const body = src.slice(src.indexOf('const ohUpgrade = '), src.indexOf('_ohLootOff = () =>'));
   assert.ok(body.includes('ohAbyss.shouldUpgradeLoot()'), 'ShouldUpgradeLoot gates both');

@@ -45,7 +45,7 @@
 // reload. Classic works that way because classic is a DOS program with
 // a fixed 320x200 screen. Neither reason survives here.
 //
-// This is ONE screen, under BOTH skins (main.js:120-244, FD1: the
+// This is ONE screen, under BOTH skins (main.js:127-252, FD1: the
 // launcher and its settings window are deleted; the classic rail is
 // Begin, which leads into the splash and PICK03I0 exactly as before).
 // Every destination is a press away from every other, settings
@@ -92,7 +92,7 @@
 import { fpArm, hasDaggerfallArrows } from '../combat/fpArm.js';
 import { questRail, journalLines, questTitleOf } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the chronicle
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1: a tap on the scrim resumes
-import { TEST_PRESETS, TEST_RIDE, TEST_LOOT } from '../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
+import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT } from '../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../formats/mwNpc.js';
 import { EQUIP_SLOTS, equipTableOf } from '../systems/equip.js';
 import { dfWornEquipment } from '../formats/mwItemMap.js';
@@ -105,6 +105,8 @@ import {
   effectiveSettings, setValue, saveSettings, resetToDefaults, tierOf, DEFAULTS,
 } from '../systems/settings.js';
 import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME, loadSlot, saveSlot } from '../systems/saveSlots.js';
+import { offlineCopyOf, onlineCopyOf } from '../systems/offlineCopy.js';   // AUDIT LIVED1 E/G: the doors between the lanes
+import { sharedClassicMinutes } from '../net/wire.js';   // AUDIT LIVED1 G: the shared clock's minute a character joins at
 import {
   realmIo, realmList, realmCustoms, realmPut, realmDelete, realmUndo, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
 } from '../systems/realmSaves.js';   // REALM P1.3: the Online door lists the realm's characters, the service's
@@ -137,6 +139,7 @@ import { drawPixelGround } from './pixelGround.js';
 // Both are plain modules with no game data; the boot door never
 // renders the tab, so the front door still reads no game state.
 import { sheetModel } from './enhancedCharSheet.js';
+import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages } from './profPages.js';   // PROF1: the Professions and Stores pages, online
 import { affiliations } from '../systems/affiliations.js';   // GUILD-REP: the sheet's Affiliations box, on the Standing page
 import { enhancedHudScale as hudScaleNow, HUD_SCALE_MIN, HUD_SCALE_MAX } from './enhancedHud.js';   // PX30c
 import { playerEntity } from '../characters/playerEntity.js';
@@ -182,6 +185,7 @@ import { loadFace } from './facePortrait.js';
 import { profileBadge, portraitSave, liveCharacter } from './profileBadge.js';   // PROFILE1: the mark is the last character's portrait   // TILE1: the character's face, the one home chargen also reads
 import { cloudIo, cloudList, pushSlot, pullSlot, removeCloudSlot, cloudOnly, slotKeyOf, cloudRefusalText } from '../systems/cloudSaves.js';   // ACC2: the backup a tile can offer, AUDIT-312 F1's delete, and ACC2c's download of a save that is only up there
 import { serviceBase, storedSession } from '../net/accountClient.js';
+import { isBountyQuestId, abandonBountyQuest, shareBountyQuest, bountyQuestShareable } from '../systems/bountyJournal.js';   // BOUNTY1: a bounty in the journal - its Abandon and its Share
 import { liveBundles, canEndBundle, endBundle } from '../systems/mysticism.js';   // BUFF-END: the Stats page's Effects - the ONE bundle walk, and which the player may end
 import { maxRoundsRemaining } from './hudActiveSpells.js';   // BUFF-END: a bundle's rounds, as the HUD reads them
 
@@ -280,6 +284,7 @@ let groundTimer = null;     // PX1b: the home sky's 8fps clock - cleared by ever
 let questTimer = null;      // QT-LIVE1: the journal's once-a-second timer redraw - the same two owners
 let pauseTab = 'system';    // PX3: which tab the pause window shows - System lands on Resume/Save
 let questSel = null;        // PX4: the journal's selected row - 'a:<uid>' | 'f:<index>' | null = first active
+let bountyAbandonArmed = null;   // BOUNTY1: the bounty whose Abandon was pressed once - the second press gives it up
 let statsSec = 'character'; // PX6: the Stats page's rail - character | attributes | skills | standing
 let statsAllSkills = false; // PX6: the Miscellaneous disclosure, the sheet's own gesture
 let sysSec = 'save';        // PX7: the System page's rail - which pane fills the detail
@@ -324,7 +329,7 @@ export function takePickedSaveName() { const n = _pickedSaveName; _pickedSaveNam
 /** One slot as the cards draw it: the character's line and numbers, and the slot's own name. */
 function saveOf(entry) {
   const snap = entry.snap;
-  const date = Number.isFinite(snap.classicMinutes) ? dateFromClassicMinutes(snap.classicMinutes) : null;
+  const date = Number.isFinite(snap.classicMinutes) ? dateFromClassicMinutes(snap.classicMinutes) : null;   // AUDIT LIVED1 E (S5/U4's card; AUDIT LIVED1b T13 corrected the cite): a card is a LOCAL slot's, and a local slot plays offline on its one clock - the date it loads at, as the classic window and the cloud cards say
   return {
     key: entry.key,
     saveName: entry.info?.saveName ?? QUICK_SAVE_NAME,
@@ -675,7 +680,7 @@ function savedGame() {
   try { entry = mostRecentRestorable(); } catch { entry = null; }
   if (!entry) return null;
   const snap = entry.snap;
-  const date = Number.isFinite(snap.classicMinutes) ? dateFromClassicMinutes(snap.classicMinutes) : null;
+  const date = Number.isFinite(snap.classicMinutes) ? dateFromClassicMinutes(snap.classicMinutes) : null;   // AUDIT LIVED1 E (S5/U4's card; AUDIT LIVED1b T13 corrected the cite): a card is a LOCAL slot's, and a local slot plays offline on its one clock - the date it loads at, as the classic window and the cloud cards say
   return {
     key: entry.key,
     name: snap.name || 'Unnamed',
@@ -860,6 +865,13 @@ function paneTest(body) {
   ride.append(el('p', 'meta', TEST_RIDE.blurb));
   ride.append(acts([{ label: 'Ride out', primary: true, onClick: () => onAction(`test:${TEST_RIDE.id}`) }]));
   body.append(ride);
+  // FIELD BUGS 2026-09-29 (the sea) #5 (Mac: "Add a ship combat test menu option"): the sea battle - the same
+  // `test:<id>` door, a helm on the open Bay and a pirate standing in (systems/testRoom.js TEST_SEA)
+  const sea = el('div', 'card');
+  sea.append(el('h3', null, TEST_SEA.label));
+  sea.append(el('p', 'meta', TEST_SEA.blurb));
+  sea.append(acts([{ label: 'Set sail', primary: true, onClick: () => onAction(`test:${TEST_SEA.id}`) }]));
+  body.append(sea);
   // LR3: the loot ladder - one of everything Loot rarity can mint, in
   // the pack, through the same `test:<id>` door.
   const loot = el('div', 'card');
@@ -1045,7 +1057,7 @@ function paneOnline(body) {
   // agreeing to are still on the surface they enter through, where a
   // page in the bible cannot reach them.
   const foot = el('div', 'card svonlinefoot');
-  foot.append(el('p', 'meta', 'Everyone brings their own save; you see each other everywhere and can talk. A dungeon is one shared world: its foes, doors, levers, platforms and every chest anyone has opened are the same for everyone in it, and it remembers. A building is a shared world too: its doors, and every shelf and cupboard anyone has opened, are the same for everyone in it, and it remembers. Towns and the open country share who is there and the creatures that find you: what one player meets, everyone nearby sees and fights - and its creatures can hurt you too. The clock and the sky are the world\'s and run on real time: a rest, a trip, a sentence or a lesson takes none of it, so a quest that waits for an hour of the day waits for that hour of the world. Quest timers run while you play. The shared world is the enhanced lane: every enhancement the port owns in the world is on for everyone. The screens you play through are your own - your UI Overhaul, with the chat, your friends, the party and trading in their own panels over it. Most of your mods stay yours - turn them on or off online as you like. A few switches are the room\u2019s: the ones that shape the ground (Basic Roads, World of Daggerfall, Detailed Ships\u2019 deck, Iliac Puddle No More\u2019s sea), the ones that decide whose foes and whose loot (Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, and the items and foes of Roleplay & Realism and of the deep), and the rules a room plays by - the Mods pane marks each.'));   // AUDIT WORLD5 C12: the shared clock, said at the door; OL1: the lane, said at the door
+  foot.append(el('p', 'meta', 'Everyone brings their own save; you see each other everywhere and can talk. A dungeon is one shared world: its foes, doors, levers, platforms and every chest anyone has opened are the same for everyone in it, and it remembers. A building is a shared world too: its doors, and every shelf and cupboard anyone has opened, are the same for everyone in it, and it remembers. Towns and the open country share who is there and the creatures that find you: what one player meets, everyone nearby sees and fights - and its creatures can hurt you too. The clock and the sky are the world\'s and run on real time: a rest, a trip, a sentence or a lesson takes none of it, so a quest that waits for an hour of the day waits for that hour of the world. Your character keeps their own time beside it: it runs while you play, a rest, a trip, a sentence or a lesson spends it, and it stands still while you are logged off - your wounds, spells, hunger, diseases and curses, your guild ranks, and your rooms, loans and repairs run on it. Quest timers run while you play. The shared world is the enhanced lane: every enhancement the port owns in the world is on for everyone. The screens you play through are your own - your UI Overhaul, with the chat, your friends, the party and trading in their own panels over it. Most of your mods stay yours - turn them on or off online as you like. A few switches are the room\u2019s: the ones that shape the ground (Basic Roads, World of Daggerfall, Detailed Ships\u2019 deck, Iliac Puddle No More\u2019s sea), the ones that decide whose foes and whose loot (Meaner Monsters, the Combat and Armor Overhaul, Unleveled Loot, and the items and foes of Roleplay & Realism and of the deep), and the rules a room plays by - the Mods pane marks each.'));   // AUDIT WORLD5 C12: the shared clock, said at the door; OL1: the lane, said at the door
   foot.append(field('Relay', 'onlineServer', DEFAULT_SERVER, 200));
   body.append(foot);
   body.append(onlineSyncCard());   // UXB1-E: under the rules it copies
@@ -1081,7 +1093,7 @@ function realmCard(who) {
           // never landed is UNDONE, never deleted - its delete took the home customs had carried, and it could never come
           // in again. The undo gives back its home, its guild place and its customs (realm.js undoRealm).
           row.customs && save.unfinished ? { label: 'Undo bringing in', disabled: realmBusy, onClick: () => ask(`Undo bringing ${row.name} in?`, `${row.name} never finished coming into the realm - its first save never landed. Undoing takes it out and gives everything back: its home, its guild place and its one customs, so the offline character can be brought online again. To finish instead, press Bring online on it below.`, 'Undo', () => realmAct(() => realmUndo(realmIoNow(), row.id), [`${row.name} is out of the realm and customs is undone: its home and guild place are back with the offline character. Bring it online again when you are ready.`])) }
-            : { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its home and its guild place with it. Your Renown belongs to your account and stays, as does a copy you made offline.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
+            : { label: 'Delete character', disabled: realmBusy, onClick: () => ask(`Delete ${row.name}?`, 'An online character deleted is gone from the realm for good - its Renown, its professions and their Stores, its home and its guild place with it. A copy you made offline stays.', 'Delete', () => realmAct(() => realmDelete(realmIoNow(), row.id), [`${row.name} is gone from the realm.`])) },
         ],
       }));
     }
@@ -1118,7 +1130,7 @@ function customsNow(save) {
     if (!snap) return { ok: false, error: 'no-data' };
     if (typeof snap.characterId !== 'string' || !snap.characterId) return { ok: false, error: 'customs-load-once' };
     if (snap.testRoom === true) return { ok: false, error: 'test-room' };   // AUDIT SET D4's law: the room's characters play offline
-    const copy = JSON.parse(JSON.stringify(snap));
+    const copy = onlineCopyOf(snap, sharedClassicMinutes(Date.now()));   // AUDIT LIVED1 G: the world's stamps onto the shared clock, and the world's minute it joins at
     const report = applyCustoms(copy);
     const made = await realmCustoms(io, snap.characterId, copy.name || save.name, realmSummaryOf(copy));
     if (!made.ok) return made;
@@ -1136,6 +1148,7 @@ function copyToOffline(row) {
     let snap = null;
     try { snap = JSON.parse(got.text); } catch { snap = null; }
     if (!snap || typeof snap !== 'object') return { ok: false, error: 'no-data' };
+    snap = offlineCopyOf(snap);   // AUDIT LIVED1 E: the world's stamps rebased onto the character's clock, the one clock offline
     snap.characterId = mintCharacterId();
     const r = saveSlot(snap.name || row.name, 'Copied from the realm', snap, { storage: appStorage() });
     return r.ok ? { ok: true } : { ok: false, error: 'no-room' };
@@ -3489,11 +3502,16 @@ function meterRow(label, now, max, tone) {
   return r;
 }
 
+/** PROF1: the rail's pages - the sheet's six, and online, while the professions are this account's, the Professions
+ *  and Stores pages (ui/profPages.js). */
+const statsSections = () => (profPagesShown() ? [...STATS_SECTIONS, ...PROF_PAGE_SECTIONS] : STATS_SECTIONS);
+
 function pauseStats(body) {
   const m = sheetModel(playerEntity);
   const wrap = el('div', 'px-journal');
   const rail = el('div', 'px-qrail');
-  for (const [id, label] of STATS_SECTIONS) {
+  if (!statsSections().some(([id]) => id === statsSec)) statsSec = 'character';   // a page gone (the switch, offline) is never drawn
+  for (const [id, label] of statsSections()) {
     const b = el('button', `px-qrow${id === statsSec ? ' on' : ''}`);
     b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label));
     b.onclick = () => { statsSec = id; render(); };
@@ -3505,7 +3523,11 @@ function pauseStats(body) {
   // pauseSystem) carries. The kit's button role (enhancedFrame.js FRAME_ROLES) reads `.px-sys .act`,
   // so without it these four fell through to the bare, unpainted base .act under Plus.
   const detail = el('div', 'px-qdetail px-sys');   // DROPS-AUDIT F3: the system-page dress (Plus's; PLUS-DEAD: the only one)
-  ({ character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects })[statsSec](detail, m);
+  const profKit = { el, divider: pxDivider, meter: pxMeter };
+  ({
+    character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects,
+    professions: (d) => drawProfessionsPage(d, render, profKit), stores: (d) => drawStoresPage(d, render, profKit),
+  })[statsSec](detail, m);
   // PX25: THE DOORS THE F5 SHEET CARRIED. The classic character sheet
   // has four buttons down its side - Inventory, Spellbook, Logbook,
   // History - and the enhanced F5 overlay copied them. This page shows
@@ -3893,6 +3915,28 @@ function pauseQuests(body) {
       }
       if (meta.childNodes.length) detail.append(meta);   // PX22: an empty meta line is a gap the eye reads as a mistake
     }
+    // BOUNTY1 (Mac: "i also dont see the bounty in my questlog means i cant abandon it?"): a bounty's two presses - Abandon
+    // (twice: the first arms it, so a stray click gives nothing up) and, in a party, Share
+    if (sel.entries && isBountyQuestId(sel.id)) {
+      const acts = el('div', 'px-qacts');
+      acts.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin:6px 0 8px';
+      if (bountyQuestShareable(sel.id)) {
+        const sh = el('button', 'act', 'Share with party');
+        sh.onclick = () => { shareBountyQuest(sel.id); render(); };
+        acts.append(sh);
+      }
+      const armed = bountyAbandonArmed === sel.id;
+      const ab = el('button', 'act', armed ? 'Click again to abandon' : 'Abandon bounty');
+      ab.onclick = () => {
+        if (bountyAbandonArmed !== sel.id) { bountyAbandonArmed = sel.id; render(); return; }
+        bountyAbandonArmed = null;
+        abandonBountyQuest(sel.id);
+        questSel = null;
+        render();
+      };
+      acts.append(ab);
+      detail.append(acts);
+    }
     if (sel.entries) {
       // Active: the LATEST entry is the state of the quest; the trail
       // beneath it, newest first.
@@ -4249,7 +4293,9 @@ export function mountEnhancedMenu(host, {
   // whole settings screen, Controls among its categories), not on the home face a press away from it.
   else if (at && sections.some((l) => idOf(l) === at)) section = at;
   questSel = null;
+  bountyAbandonArmed = null;   // AUDIT 28 B11: an armed Abandon never outlives the visit it was armed on
   statsSec = 'character';
+  resetProfPages();   // PROF1: an armed change of specialisation never outlives the visit
   statsAllSkills = false;
   sysSec = 'save';
   category = CATEGORIES[0].id;
@@ -4258,6 +4304,9 @@ export function mountEnhancedMenu(host, {
   confirming = null;
   featureQuery = '';   // FT18: a fresh visit searches nothing
   discardControlsStaging();   // FIX-F: a second visit never inherits the first one's staged binds
+  // PROF2: a landing on a professions page - the Stats tab at it (a home forge's press opens the Stores' forge); the
+  // draw falls back to the character's own page when the professions are not the account's
+  if (PROF_PAGE_SECTIONS.some(([id]) => id === at)) { pauseTab = 'stats'; statsSec = at; }
   _eff = null;
   render();
   keyHandler = onKey;

@@ -180,9 +180,9 @@ export async function createRealm({ db, rand, nowS }, playerId, { name, summary 
  *  where they were lost to everyone: a building exclusive to nobody who could walk in, a guild without its master and
  *  its name and tag kept from any founding (Dracula/Valentin, the field). Migration 0022 carried them for every
  *  character customs had already made.
- *  RENOWN-ACCOUNT: THE TRACK IS HISTORY NOW - the Renown itself is the account's (renown_accounts, migration 0021, keyed
- *  by the account alone), so no character's customs or delete can move it or take it away, and a realm character stands
- *  at it from its first minute. */
+ *  RENOWN-CHAR: THE TRACK IS THE CHARACTER'S RENOWN AGAIN (RENOWN-ACCOUNT kept one an account for a day, renown_accounts,
+ *  migration 0021 - history now; migration 0035 gave each track back its share): customs carries it in with the rest, so
+ *  the plan's "Renown starts from its existing track" holds, and a delete takes it with the character. */
 export const CHARACTER_TABLES = Object.freeze(['renown_tracks', 'homes', 'guild_members']);
 
 /** CUSTOMS CARRIES A CHARACTER'S TRACK IN, re-keyed from the offline id to the realm's - the account's own rows only, and
@@ -536,15 +536,19 @@ export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @ty
  *  - then the row: saves.js's order, so a failure halfway leaves a row whose bytes lie rather than objects nothing
  *  names. AUDIT REALM L1-F7 / L3-F5: AND ITS ONLINE LIFE WITH IT, as the door promises ("its home and its guild place
  *  with it"): the row's delete carries its homes (their pieces and hidden furniture go by the tables' own cascade), its
- *  guild place and its Renown history row in ONE batch. They stood under a dead id: a house nobody could buy again nor
- *  its owner sell, a guild whose master could never be succeeded, a track that counted against the account.
- *  RENOWN-ACCOUNT: THE ACCOUNT'S RENOWN STAYS WHOLE - it is renown_accounts', keyed by the account alone, and nothing
- *  here names that table; a character deleted takes only its own history row.
+ *  guild place and its Renown track in ONE batch. They stood under a dead id: a house nobody could buy again nor its
+ *  owner sell, a guild whose master could never be succeeded, a track that counted against the account's sixty
+ *  (RENOWN-CHAR: the character's Renown goes with it again, as the door said before RENOWN-ACCOUNT).
  *  A guildmaster with members hands the guild over first ('guild-master-leaves', the guild's own word for leaving).
  *  AUDIT REALM2 S8: AND A LONE ONE EMPTIES THE TREASURY FIRST ('guild-treasury'), as leaving asks (guilds.js leaveGuild).
  *  The delete let it go with gold inside: a guild nobody is in, holding what its records paid in, until the next founder
  *  of its name or tag cleared it away, gold and all.
- *  HOUSE-LOSS: a customs character whose first save never landed is not deleted but UNDONE (undoCustoms, below). */
+ *  HOUSE-LOSS: a customs character whose first save never landed is not deleted but UNDONE (undoCustoms, below).
+ *  PROF-DELETE (2026-09-29, Mac's choice: "Goes with it; wait on trades"): AND ITS PROFESSIONS WITH IT - its Stores and
+ *  its professions' tracks go in the same batch, as its Renown does; they stood under a dead id where nothing could
+ *  reach them (MERGE 2's open question 3). What another player is part of waits: while the character has market
+ *  business open ('realm-market-open', REALM_MARKET_OPEN_SQL) the delete is refused, since the goods or the piece it
+ *  would be handed come to this character. The history (the ledger, the crafts, the sales) stays. */
 export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId, /** @type {unknown} */ id) {
   if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return { error: 'body' };
   const row = await db.prepare('SELECT obj, prev, bytes, origin_id FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
@@ -555,15 +559,35 @@ export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId
     WHERE m.player = ? AND m.char_id = ? AND m.rank = ?`).bind(playerId, id, GUILD_RANK_MASTER).first();
   if ((master?.n ?? 0) > 1) return { error: 'guild-master-leaves' };
   if ((master?.treasury ?? 0) > 0) return { error: 'guild-treasury' };
+  if (Number((await db.prepare(REALM_MARKET_OPEN_SQL).bind(playerId, id).first())?.n ?? 0) > 0) return { error: 'realm-market-open' };
   await dropCharacterObjects(bucket, playerId, id, [row.obj, row.prev]);
   await db.batch([
     db.prepare('DELETE FROM homes WHERE player = ? AND char_id = ?').bind(playerId, id),
     db.prepare('DELETE FROM guild_members WHERE player = ? AND char_id = ?').bind(playerId, id),
     db.prepare('DELETE FROM renown_tracks WHERE player = ? AND char_id = ?').bind(playerId, id),
+    db.prepare('DELETE FROM prof_stores WHERE player = ? AND char_id = ?').bind(playerId, id),   // PROF-DELETE
+    db.prepare('DELETE FROM prof_tracks WHERE player = ? AND char_id = ?').bind(playerId, id),   // PROF-DELETE
     db.prepare('DELETE FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId),
   ]);
   return { ok: true };
 }
+
+/** PROF-DELETE: A CHARACTER'S MARKET BUSINESS STILL OPEN (`?1` the account, `?2` the character) - each a thing another
+ *  player is part of whose goods, piece or Marks' worth would come to this character: a listing or an auction still
+ *  standing, or closed with its goods not yet back (market.js settle hands them back on the next read); a leading bid; a
+ *  buy order or a commission still open; a courier's load of materials still on the road to its Stores; a piece to
+ *  collect. Escrowed Marks come back to the ACCOUNT, never the character, so an outbid bid or a closed order holds
+ *  nothing up. `n`, the count. */
+export const REALM_MARKET_OPEN_SQL = `SELECT
+  (SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND char_id = ?2
+    AND (state = 'open' OR (state IN ('expired', 'removed') AND returned = 0)))
+  + (SELECT COUNT(*) FROM market_auctions WHERE seller = ?1 AND char_id = ?2
+    AND (state = 'open' OR (state IN ('unsold', 'removed') AND returned = 0)))
+  + (SELECT COUNT(*) FROM market_bids WHERE bidder = ?1 AND char_id = ?2 AND state = 'high')
+  + (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND char_id = ?2 AND state = 'open')
+  + (SELECT COUNT(*) FROM commissions WHERE poster = ?1 AND poster_char = ?2 AND state = 'open')
+  + (SELECT COUNT(*) FROM market_sales WHERE buyer = ?1 AND char_id = ?2 AND kind = 'material' AND delivered = 0)
+  + (SELECT COUNT(*) FROM market_deliveries WHERE player = ?1 AND char_id = ?2 AND collected = 0) AS n`;
 
 /** A character's objects: the ones its row names, and anything else under its prefix a lost write left. Best effort -
  *  an object that will not go is not a reason to keep the row. */

@@ -339,7 +339,7 @@ test('Q5: the world host mounts every new door', () => {
   for (const door of ['setPlayerCrime: (crime) => setCrimeCommitted(playerEntity, crime)',
     'getGoldPieces: () => goldAmount(playerEntity)',
     'deductGoldPieces: (n) => deductGoldPieces(playerEntity, n)',
-    'raiseTime: (seconds) => setWorldMinutes(worldMinutes() + seconds / 60)',
+    'raiseTime: (seconds) => advanceOwnMinutes(seconds / 60)',   // LIVED1: a quest's RaiseTime is the character's own time
     'spawnCityGuards: (immediate) =>',
     // ROAD-B MOVED THIS NEEDLE. The door is still mounted; it is no
     // longer an inline arrow, because MakeEnemiesHostile is now the

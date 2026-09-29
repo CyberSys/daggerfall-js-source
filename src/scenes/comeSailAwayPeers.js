@@ -48,6 +48,15 @@ export const CSA_PEER_BUILD_REFILL_MS = FOES_FULL_MS;
 const SAID_MAX = 16;
 
 const dist2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+/** NAV-H: a word's way in the scene, a second's - CSA-K's velocity (the wire frame's) carried through the frame as the
+ *  lead carries it (the frame is affine: the way is the difference of two converted points); a word that says none
+ *  (a boat not under way, an older build's) has none. */
+const sceneWay = (w, toScene) => {
+  const v = w.velocity;
+  if (!v) return [0, 0, 0];
+  const a = toScene(w.position), b = toScene([w.position[0] + v[0], w.position[1], w.position[2] + v[2]]);
+  return [b[0] - a[0], 0, b[2] - a[2]];
+};
 
 /**
  * @param {{ pool: any, selfId?: () => (string | null), log?: any }} opts
@@ -153,6 +162,7 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
     s.jumped = next.jumped;
     s.shown = next.position;
     s.turn = next.rotation;
+    s.vel = sceneWay(w, toScene);   // NAV-H: her way over the water as her word says it - what a captain at sea leads his guns by (scenes/navalHost.js contacts)
     s.boat.GameObject.position = s.shown;
     s.boat.GameObject.rotation = s.turn;
     for (let k = 0; k < s.boat.Sails.length; k++) {
@@ -225,6 +235,22 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
 
   return {
     applyOwner, sweepOwners, clearPeers, rebase, frame, setEnabled,
+    /** NAV-H: the boats other players stand at their helms, where each is and how it moves - the sea's contacts
+     *  (scenes/navalHost.js): a pirate hunts them as it hunts mine. A boat that stands nowhere (a hidden owner's) is
+     *  nobody's contact. */
+    helmBoats() {
+      const out = [];
+      for (const [owner, list] of shown) {
+        for (const s of list) {
+          if (!s?.helm || !s.shown || !s.boat.GameObject.activeSelf) continue;
+          const vel = s.vel ?? [0, 0, 0];
+          // AUDIT NAV1: her hull and heading too - the room a captain gives her and the side he comes up on
+          const q = s.turn, yaw = q ? Math.atan2(2 * (q[0] * q[2] + q[3] * q[1]), 1 - 2 * (q[0] * q[0] + q[1] * q[1])) : null;
+          out.push({ id: owner, pos: s.shown, vel, speed: Math.hypot(vel[0], vel[2]), hull: s.hull, yaw, boat: s.boat });   // AUDIT NAV1 (online): her hull, for the shots
+        }
+      }
+      return out;
+    },
     /** AUDIT PRE-MERGE 0928 O4: the host's word on each other player's look - 'hidden', a concealed visual, or null. */
     setPeerLook(fn) { peerLook = typeof fn === 'function' ? fn : null; },
     get enabled() { return enabled; },

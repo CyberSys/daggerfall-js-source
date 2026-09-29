@@ -211,7 +211,7 @@ export function allocateHouseToPlayer(houses, regionIndex, { buildingKey, mapId,
  * whatever the purse could not cover.
  *
  * The mechanism is DeductGoldAmount's return value, which is the
- * SHORTFALL rather than nothing (court.js:210 ports it, letters of
+ * SHORTFALL rather than nothing (court.js:213 ports it, letters of
  * credit and all) - so `accountGold -= deductGold(...)` subtracts
  * exactly the remainder, and subtracts ZERO when the purse covered it.
  * Written any other way this either double-charges or lets the account
@@ -421,6 +421,25 @@ const mustValidate = (accounts, regionIndex) => {
   if (!validateRegion(accounts, regionIndex)) {
     throw new RangeError(`region ${regionIndex} is outside the ${accounts.length} bank accounts`);
   }
+};
+
+/** MARKS1 (PROF0 10.5): what the Bank of the Empire pays for Marks sold at its counter, into THIS region's account - as a
+ *  deed's sale is paid (sellHouse above), so a purse's weight never refuses it. Answers the account's new total. */
+export function creditMarksSale(accounts, regionIndex, gold) {
+  mustValidate(accounts, regionIndex);
+  if (!Number.isSafeInteger(gold) || gold <= 0) return accounts[regionIndex].accountGold;
+  accounts[regionIndex].accountGold += gold;
+  return accounts[regionIndex].accountGold;
+}
+
+/** MARKS1 / AUDIT 28 M12: the Bank's credit as the Marks book calls it - `(gold, region)`, into the region the sale was
+ *  MADE at when the book names one (a kept sale settled at another bank), else this bank's (`here()`). PROF-SAVE: and
+ *  `saved()` told a credit landed (the host's checkpoint soon - the Marks are spent at the service, the gold only in the
+ *  save). */
+export const marksSaleCredit = (accounts, here, saved = null) => (gold, region = null) => {
+  const total = creditMarksSale(accounts(), Number.isSafeInteger(region) ? region : here(), gold);
+  if (Number.isSafeInteger(gold) && gold > 0) saved?.();
+  return total;
 };
 
 export function accountTotal(accounts, regionIndex) {
@@ -858,7 +877,7 @@ const loansLine = (cells, highlight = false) => ({
   cells: cells.map((text, i) => ({ x: BANKING_STATUS_COLUMNS[i], text: String(text ?? '') })),
 });
 
-export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
+export function bankingStatusRows(accounts, { regionName = () => '', dueText = null } = {}) {
   const rows = [loansLine(BANKING_STATUS_HEADERS), { text: '', center: false }];
   let found = false;
   for (let i = 0; i < (accounts?.length ?? 0); i++) {
@@ -869,8 +888,11 @@ export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
       String(accountTotal(accounts, i)),
       String(loanedTotal(accounts, i)),
       // GetLoanDueDateString (:573-582) - the same expression the bank
-      // window's own dueDateText carries.
-      due > 0 ? dateString(dateFromClassicMinutes(due)) : '',
+      // window's own dueDateText carries. AUDIT LIVED1 Q (U6/R7): online
+      // the loan runs on the character's own clock, so the host's
+      // `dueText` says the time left there (a date on that clock reads
+      // as the world's calendar, and wrong); null keeps DFU's date.
+      due > 0 ? (dueText?.(due) ?? dateString(dateFromClassicMinutes(due))) : '',
     ], hasDefaulted(accounts, i)));
     found = true;
   }
@@ -884,9 +906,9 @@ export function bankingStatusRows(accounts, { regionName = () => '' } = {}) {
 //    the permanent-scene set, so housesForSale, allocateHouseToPlayer
 //    and sellHouse above are live; H2/H4 brought the BUY UI itself -
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
-//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3007
+//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3033
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
-//    3D model panel, and ui/bankWindow.js:267-280 routes BUY HOUSE's
+//    3D model panel, and ui/bankWindow.js:291-304 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to
 //    DFU's own missing-directory answer, :433-434).
 //  - ReadNativeBankData (:584-614) IS PORTED, verbatim quirks and all:
