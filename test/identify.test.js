@@ -39,9 +39,10 @@ test('X7: identified is DERIVED - an unenchanted item is ALWAYS identified', () 
 
 test('X7: the mode charges for the unknown and refuses the known', () => {
   const ctx = { quality: 10 };
-  assert.deepEqual(tradeCost('Identify', [mundane()], ctx), { cost: 0, modeActionEnabled: false },
+  // FB0929: the walk also counts the pieces a PURCHASE pays for (the floor's count); identifying counts none
+  assert.deepEqual(tradeCost('Identify', [mundane()], ctx), { cost: 0, modeActionEnabled: false, pieces: 0 },
     'a mundane pack offers nothing to identify');
-  assert.deepEqual(tradeCost('Identify', [magic({ isIdentified: true })], ctx), { cost: 0, modeActionEnabled: false });
+  assert.deepEqual(tradeCost('Identify', [magic({ isIdentified: true })], ctx), { cost: 0, modeActionEnabled: false, pieces: 0 });
   const live = tradeCost('Identify', [magic()], ctx);
   assert.equal(live.cost, calculateItemIdentifyCost(1000));
   assert.equal(live.modeActionEnabled, true);

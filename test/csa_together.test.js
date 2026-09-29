@@ -400,6 +400,7 @@ test('CSA-K: the host - my place aboard rides my foes frame as `ab` (a changed w
     raidWireWord: () => null,   // THE MERGE: RAID2's word rides the same line
     bandWord: () => false,   // THE MERGE (TV7b): no band chases on this deck
     navalWord: () => false,   // THE MERGE with NAV-G: the sea's word rides beside it - no sea here, this pin is the aboard word's
+    seaRaidWord: () => false,   // OW6: nor raider chases
   };
   scope.csaAboardWord = mount(scope, cut(WORLD, 'function csaAboardWord(frame, full) {', '\n  }\n'), 'csaAboardWord');
   const foesStream = mount(scope, cut(WORLD, 'const foesStream = (now) => {', '\n  };\n'), 'foesStream');

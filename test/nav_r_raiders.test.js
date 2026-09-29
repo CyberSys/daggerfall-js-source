@@ -2,20 +2,22 @@
 // STOOD AS SHIPS OF THE SEA: the pure law (systems/naval/navalRaiders.js - a raider's class off its seed, the plan of
 // which stand and which go, one copy between two players), the host driving them through real frames over Come Sail
 // Away's real pool (scenes/navalHost.js raiders, raiderShipOf, the captain's own sight and course), and the world
-// host's wiring, pinned (bible/03-World/Naval-Combat.md NAV-R).
+// host's wiring, pinned (bible/03-World/Naval-Combat.md NAV-R). THE MERGE with main's OW6 (the raiders' chase, shared on the
+// cell's foes frames): a raider a peer holds is never stood here, the ships my sea stands are said as held, and a spent
+// ship is spent through the Overworld's own spend - the law, the host and the world host run.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { raiderClassOf, raiderPlan, RAIDER_STAND_M, RAIDER_DROP_M, RAIDER_SHIPS_MAX, RAIDER_LEAD_S } from '../src/systems/naval/navalRaiders.js';
-import { createNavalHost, RAIDER_SHEER_M } from '../src/scenes/navalHost.js';
+import { createNavalHost, RAIDER_SHEER_M, HOSTILE_NEAR_M } from '../src/scenes/navalHost.js';
 import { createComeSailAwayPool } from '../src/scenes/comeSailAwayPool.js';
 import { Boat } from '../src/systems/comeSailAwayBoat.js';
 import { SHIP_CLASSES } from '../src/systems/naval/navalShips.js';
 import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
 import { ENGAGE_RANGE } from '../src/systems/naval/navalAI.js';
 import { navalWireRecord } from '../src/systems/naval/navalWire.js';
-import { RAIDER_SIGHT_M, RAIDER_SIGHT_NIGHT_M, RAIDER_SAIL_MPS } from '../src/systems/seaRaiders.js';
+import { RAIDER_SIGHT_M, RAIDER_SIGHT_NIGHT_M, RAIDER_SAIL_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, RAIDER_CONTACT_M, RAIDER_CHASE_MPS, raiderWordOf } from '../src/systems/seaRaiders.js';
 
 const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
 
@@ -205,9 +207,121 @@ test('NAV-R the world host: with the sea fight on the raiders are its ships - th
   assert.match(ships, /if \(tvRaid\.spent\.has\(r\.id\)\) continue;/);
   assert.match(ships, /const a = raiderAt\(r, ms \+ RAIDER_LEAD_S \* 1000, tvRaidSea\);/);
   assert.match(ships, /list\.push\(\{ id: r\.id, seed: r\.seed, pos: \[x, 0, z\], yaw: Math\.atan2\(ax - x, az - z\), ahead: \[ax, 0, az\] \}\);/);
-  assert.match(ships, /naval\.raiders\(list, \{ sight: raiderSight\(isNight\(minuteNow\(\)\)\), spent: tvRaid\.spent \}\);/);
+  assert.match(ships, /naval\.raiders\(list, \{ sight: raiderSight\(isNight\(minuteNow\(\)\)\), spent: tvRaid\.spent, held \}\);/);
   assert.match(w, /const ship = navalRaidersOn\(\) \? naval\.raiderShipOf\(r\.seed\) : null;/);
-  assert.match(w, /const at = ship \? state\.worldCoords\(ship\.pos\) : c \? c\.pos : r;/);
+  assert.match(w, /const at = ship \? state\.worldCoords\(ship\.pos\) : c \? c\.pos : \(seaRaidPeerChase\(r\.id\) \?\? r\);/);   // THE MERGE (OW6): else where a peer's chase says
   assert.match(w, /const chase = ship \? ship\.chase : !!c;/);
-  assert.match(w, /raiderSpent: \(id\) => \{ tvRaid\.spent\.add\(id\); tvRaid\.chase\.delete\(id\); \},/);
+  assert.match(w, /raiderSpent: \(id\) => \{ seaRaidSpend\(id\); tvRaid\.chase\.delete\(id\); \},/);   // THE MERGE (OW6): spent through the Overworld's own spend - said and owed
+});
+
+// ── THE MERGE with main's OW6 (2026-09-29: the raiders' chase, shared) ──────────────────────────────────────────────
+
+test('THE MERGE (OW6) the plan: a raider a peer\'s raider word holds - their Overworld chase, or their sea\'s ship - is never stood here, whoever\'s id is lower (OW6\'s "never a sail a peer\'s chase holds"); one already stood yields to a holder with the lower id as to a peer\'s copy - her life over or not - and keeps her from a higher - whichever of a copy and a word holds her lower (mutants: the hold unread, the holder\'s id unread, the first holder alone)', () => {
+  const me = [0, 0, 0];
+  const r = (id, seed, x) => ({ id, seed, pos: [x, 0, 0] });
+  const empty = { me, myId: 'm', stood: new Map(), peers: new Map(), spent: new Set() };
+  assert.deepEqual(raiderPlan({ ...empty, raiders: [r('a', 7, 300)] }).stand, ['a'], 'no word: as ever');
+  assert.deepEqual(raiderPlan({ ...empty, raiders: [r('a', 7, 300)], held: new Map([['a', 'z-peer']]) }).stand, [], 'held by a peer - a higher id too: never mine to stand');
+  assert.deepEqual(raiderPlan({ ...empty, raiders: [r('a', 7, 300), r('b', 8, 400)], held: new Map([['a', 'a-peer']]) }).stand, ['b'], 'the one nobody holds stands');
+  const stood = new Map([['a', { pos: [300, 0, 0], engaged: true }]]);
+  assert.deepEqual(raiderPlan({ ...empty, stood, raiders: [r('a', 7, 300)], held: new Map([['a', 'a-peer']]) }).drop, ['a'], 'both hold her: the lower id keeps her - mine goes, even mid-fight');
+  assert.deepEqual(raiderPlan({ ...empty, stood, raiders: [], held: new Map([['a', 'a-peer']]) }).drop, ['a'], 'her life over (out of the list): the same');
+  assert.deepEqual(raiderPlan({ ...empty, stood, raiders: [r('a', 7, 300)], held: new Map([['a', 'z-peer']]) }).drop, [], 'a higher id\'s hold yields to mine');
+  assert.deepEqual(raiderPlan({ ...empty, stood, raiders: [r('a', 7, 300)], peers: new Map([[7, 'z-peer']]), held: new Map([['a', 'a-peer']]) }).drop, ['a'], 'a higher id\'s copy and a lower id\'s word: the lower id keeps her');
+});
+
+test('THE MERGE (OW6) the naval host: a raider a peer holds is not stood; the raiders it stands and has not spent are HELD (raiderHeld: her raider id and where she sails) - spent, held no more; a journey\'s threats are the hostile ships alone - by her lookout past the ring where a journey stops (HOSTILE_NEAR_M, NAV-H\'s enemy nearby) until she sights me, then that ring closing at her pace; none with the arc off (mutants: the hold unpassed to the plan, a spent one held, a friend a threat, the lookout unread, the chase unread)', async () => {
+  const { host, view, boat } = await harness({ settings: { ShipsAtSea: 'off' } });
+  host.raiders([RAIDER], { sight: RAIDER_SIGHT_M, spent: new Set(), held: new Map([[RAIDER.id, 'z-peer']]) });
+  assert.equal(raiderShips(host).length, 0, 'a peer holds her: not stood here');
+  assert.deepEqual(host.raiderHeld(), []);
+  host.spawnShip('merchantCoaster', { range: 5000, bearing: Math.PI });   // far past any lookout: a trader, no one's threat
+  host.raiders([RAIDER], { sight: RAIDER_SIGHT_M, spent: new Set() });
+  const [e] = raiderShips(host);
+  assert.deepEqual(host.raiderHeld(), [{ id: RAIDER.id, pos: e.ship.pos }], 'mine: held, where she sails');
+  assert.ok(RAIDER_SIGHT_M > HOSTILE_NEAR_M);
+  assert.deepEqual(host.threats(), [{ pos: e.ship.pos, reach: RAIDER_SIGHT_M, chasing: false, mps: e.ship.cls.speed }], 'the raider by her lookout; the trader none');
+  run(host, 2);
+  assert.equal(e.ship.mode, 'engage', 'she gives chase');
+  assert.deepEqual(host.threats().map((t) => [t.reach, t.chasing]), [[HOSTILE_NEAR_M, true]], 'coming for me: the ring the journey stops at, closing');
+  boat.GameObject.position = [-6000, 0, 0];
+  view.feet = [-6000, 0, 0];
+  run(host, 1);
+  assert.equal(e.raider.spent, true, 'given the slip');
+  assert.ok(raiderShips(host).length === 1, 'still on the water, sheering off');
+  assert.deepEqual(host.raiderHeld(), [], 'spent: held no more - the word says her spent instead');
+  assert.deepEqual(host.threats().map((t) => [t.reach, t.chasing]), [[HOSTILE_NEAR_M, false]], 'sheering off, her lookout shut: still a pirate within whose ring a journey stops');
+  host.setEnabled(false);
+  assert.deepEqual(host.threats(), [], 'the arc off: no sea');
+});
+
+test('THE MERGE (OW6) the world host, run: with the sea fight on my raider word says the ships my sea stands where they sail (the world\'s natives), and a ship sunk, taken or given the slip is spent through the Overworld\'s own spend - said to the cell\'s others and owed to its ledger; the raiders a peer\'s word holds reach the naval host; a journey slows for every hostile ship on either skin by the ring the naval host gives - a raider stood as a ship counted as the ship, never twice - and the map draws her where she sails; the sea fight off, the Overworld\'s own as ever (mutants: the ships unsaid, the spend unsaid, the hold unpassed, a raider ship counted twice, the sea unread by the journey, her closing unsaid, the marks at the seeded place)', () => {
+  const w = src('scenes/world.js');
+  const fn = (name) => { const m = new RegExp(`\\n  function ${name}\\([^)]*\\) \\{\\n[\\s\\S]*?\\n  \\}\\n`).exec(w); assert.ok(m, `${name} lifted`); return m[0]; };
+  const spent = /\n    raiderSpent: (\(id\) => \{[^\n]*?\}),/.exec(w);
+  assert.ok(spent, 'the naval host\'s raiderSpent lifted');
+  const a = w.indexOf('    // AUDIT OW5b S8: none drawn where none can come'), b = w.indexOf('\n    return marks;', a);
+  assert.ok(a > 0 && b > a, 'the raiders\' marks lifted');
+  const d = {
+    tvRaid: { chase: new Map(), spent: new Set(), spentAt: [], peer: new Map(), list: [], at: -Infinity, life: 5, clock: 0 },
+    owed: [], owSaySpent: (id) => d.owed.push(id), RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf,
+    now: 1000, performance: { now: () => d.now },
+    fight: true, navalRaidersOn: () => d.fight,
+    held: [], handed: [], ships: new Map(),
+    threats: [], naval: { raiderHeld: () => d.held, raiders: (list, o) => d.handed.push({ list, ...o }), raiderShipOf: (seed) => d.ships.get(seed) ?? null, threats: () => d.threats },
+    state: { worldCoords: (p) => ({ x: p[0] + 100000, z: p[2] + 200000 }), localFromWorld: (x, z) => [x - 100000, z - 200000] },
+    TV_RAID_LIST_MS: 500, raidNowMs: () => 0, list: [], travelViewRaiders: () => d.list, raiderAt: (r) => ({ x: r.x, z: r.z + 50 }), RAIDER_LEAD_S, tvRaidSea: () => true,
+    raiderSight: (night) => (night ? RAIDER_SIGHT_NIGHT_M : RAIDER_SIGHT_M), isNight: () => false, minuteNow: () => 720,
+    player: { feetAt: () => [0, 0, 0] }, getPref: () => false, playerEntity: {}, warmAshesOn: () => true, csaOn: () => true, raidQuarry: () => true,
+    RAIDER_CONTACT_M, RAIDER_CHASE_MPS, exteriorFoes: { foes: [] }, foeHostile: () => false, SIGHT_RADIUS: 60,
+    me: { x: 0, y: 0 }, marks: [], pixelOfNative: () => ({ x: 0, y: 0 }), tvSceneKept: (_h, x, z) => [x, 0, z], RAIDER_LABEL: 'Pirates',
+  };
+  d.state.terrainDistance = 3;
+  const names = Object.keys(d);
+  const h = new Function('d', `const { ${names.join(', ')} } = d;
+    ${fn('seaRaidSpend')}\n${fn('seaRaidPeerChase')}\n${fn('seaRaidHeld')}\nlet _seaRaidWordKey = '';\n${fn('seaRaidWord')}\nlet _raidShipsAt = -Infinity;\n${fn('raidShips')}\n${fn('journeyThreats')}
+    const raiderSpent = ${spent[1]};
+    const drawRaiders = () => { ${w.slice(a, b)} };
+    return { seaRaidWord, raiderSpent, raidShips, journeyThreats, drawRaiders };`)(d);
+  // the ships my sea stands, said where they sail
+  assert.equal(h.seaRaidWord(null, false), false, 'nothing held, nothing spent: nothing to say');
+  d.held = [{ id: 'r1.1.5', pos: [10.4, 0, -20.6] }];
+  assert.equal(h.seaRaidWord(null, false), true, 'a ship held asks for a frame - she moves');
+  const f = {};
+  h.seaRaidWord(f, false);
+  assert.deepEqual(f.sr, [['r1.1.5', 100010, 199979, 1]], 'her place in the world\'s natives');
+  // she is sunk: spent here, said, owed
+  d.held = [];
+  h.raiderSpent('r1.1.5');
+  assert.ok(d.tvRaid.spent.has('r1.1.5'), 'spent for her life');
+  assert.deepEqual(d.owed, ['r1.1.5'], 'owed to the cell\'s ledger (OW6L)');
+  const g = {};
+  h.seaRaidWord(g, false);
+  assert.deepEqual(g.sr, [['r1.1.5', 0, 0, 2]], 'and said to the others');
+  // the raiders a peer holds, handed to the naval host with the list
+  d.list = [{ id: 'r1.1.5', seed: 8, x: 100100, z: 200000 }, { id: 'r2.2.5', seed: 9, x: 100300, z: 200000 }, { id: 'r3.3.5', seed: 10, x: 100600, z: 200000 }];
+  d.tvRaid.peer.set('r3.3.5', { x: 1, z: 1, at: d.now, from: 'a-peer' });
+  h.raidShips(true);
+  assert.equal(d.handed.length, 1);
+  assert.deepEqual(d.handed[0].list.map((r) => r.id), ['r2.2.5', 'r3.3.5'], 'the spent one never; the held one listed (her plan decides)');
+  assert.deepEqual([...d.handed[0].held], [['r3.3.5', 'a-peer']], 'the peer\'s hold, with their id');
+  // a journey: a raider stood as a ship is the sea's own threat - never her seeded sail beside it - and every hostile
+  // ship by the ring the naval host gives, closing when she comes for me
+  d.ships.set(9, { pos: [300, 0, 40], chase: true });
+  d.ships.set(10, { pos: [600, 0, 0], chase: false });
+  d.threats = [{ pos: [300, 0, 40], reach: HOSTILE_NEAR_M, chasing: true, mps: 7.6 }, { pos: [600, 0, 0], reach: RAIDER_SIGHT_M, chasing: false, mps: 4.6 }, { pos: [-900, 0, 50], reach: 750, chasing: false, mps: 8 }];
+  assert.deepEqual(h.journeyThreats(true), [{ dx: 300, dz: 40, reach: HOSTILE_NEAR_M, chasing: true, mps: 7.6 }, { dx: 600, dz: 0, reach: RAIDER_SIGHT_M }, { dx: -900, dz: 50, reach: 750 }]);
+  assert.deepEqual(h.journeyThreats(false), h.journeyThreats(true), 'the sea\'s ships on either skin');
+  // the map: each where her ship sails - the one coming for me held at the edge; the spent one, shipless, never
+  h.drawRaiders();
+  assert.deepEqual(d.marks.map((m) => [m.key, m.at, m.kind, m.edge]), [['raid:r2.2.5', [100300, 0, 200040], 'raider ship chase', true], ['raid:r3.3.5', [100600, 0, 200000], 'raider ship', false]]);
+  // the sea fight off: the Overworld's own - my chases said, the seeded sails and a peer's chase where they say
+  d.fight = false;
+  d.tvRaid.chase.set('r2.2.5', { pos: { x: 100250.2, z: 200000 } });
+  const k = {};
+  h.seaRaidWord(k, true);
+  assert.deepEqual(k.sr, [['r2.2.5', 100250, 200000, 1], ['r1.1.5', 0, 0, 2]]);
+  d.tvRaid.chase.clear();
+  d.threats = [];   // the arc off: no sea (navalHost.js threats)
+  assert.deepEqual(h.journeyThreats(true), [{ dx: 300, dz: 0, reach: RAIDER_SIGHT_M }, { dx: 1 - 100000, dz: 1 - 200000, reach: RAIDER_SIGHT_M }]);
 });

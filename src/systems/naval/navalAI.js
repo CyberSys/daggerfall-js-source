@@ -117,6 +117,10 @@ export const FRIEND_CLEAR = 6;
  *  FLEE_RANGE. A chase that has not closed CHASE_GAIN of its range in CHASE_GIVE_UP_S is given up, and the one it
  *  chased left be for SPARE_S. */
 export const ENGAGE_RANGE = 750;
+/** A captain's lookout: how far she sees an enemy (m) - her own where she has one (a raider's, seaRaiders.js
+ *  raiderSight), else ENGAGE_RANGE. One law for her captain and for a journey that slows before her (navalHost.js
+ *  threats). */
+export const lookoutOf = (ship) => ship.sight ?? ENGAGE_RANGE;
 export const DISENGAGE = 1.35;
 export const FLEE_RANGE = 320;
 export const CHASE_GIVE_UP_S = 150;
@@ -561,7 +565,7 @@ export function stepCaptain(ship, world) {
   }
 
   // who is out there, and who is an enemy - the one she fights kept until it is past DISENGAGE of its reach
-  const sight = ship.sight ?? ENGAGE_RANGE;
+  const sight = lookoutOf(ship);
   let enemy = null, enemyD = Infinity, threat = null, threatD = Infinity;
   for (const c of world.contacts ?? []) {
     if (c.id === ship.id || c.gone) continue;

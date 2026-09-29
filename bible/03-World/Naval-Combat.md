@@ -273,6 +273,27 @@ With the sea fight on, a raider IS a pirate of the sea (`systems/naval/navalRaid
   `chaseYields`), and mine goes.
 - With no sea fight (the switch off), OWS3 stands as it was: the chase on the Overworld and the mod's raid alongside.
 
+**THE MERGE with main's OW6 (2026-09-29).** Main shared the Overworld's raider chase on the cell's foes frames (OW6,
+`bible/06-Systems/Travel-View.md`: a chase said where it sails, a spent raider said and kept by the cell's ledger, never
+a sail a peer's chase holds, the lower id keeping one two players chase) and made a fast journey slow as enemies close
+(`systems/travelThreat.js`) - both on the Overworld's own chase, which a sea fight does not run. So the ships join them:
+
+- **Spent through the Overworld's own spend.** A raider ship spent here goes through `seaRaidSpend` (`raiderSpent`):
+  spent for its life, said on my word to the cell's others and owed to the cell's ledger (OW6L) - a late joiner never
+  sees a sunk raider's sail again.
+- **Held, and said so.** The ships my sea stands and has not spent are said on my raider word as held, where each
+  sails (`naval.raiderHeld`, world.js `seaRaidHeld`), so a peer's client - with the sea fight or without it - holds off
+  a raider I hold as it holds off one a peer chases: never a chase of its own on her, and her mark where she sails.
+- **Never a sail a peer holds.** The raiders a peer's word holds reach the plan with the peer's id (`held`): never
+  stood here, and one stood here that a lower id holds too - by a copy or by a word - goes, as to a peer's copy
+  (`raiderPlan`).
+- **A journey slows for every hostile ship.** NAV-H made a hostile ship within HOSTILE_NEAR_M an enemy nearby that
+  stops a journey; OW6's governor slows a journey before an enemy's reach so the stop never comes unwarned - and read
+  no ship. The naval host now hands it its hostile ships afloat (`threats`, raiders stood as ships among them), each
+  where she sails with the ring the journey stops at, or her lookout past it (`lookoutOf`, the captain's own law) while
+  she has not sighted me, closing at her pace once she comes for me - on either skin, as the stop is. A raider stood as
+  a ship is counted as the ship, never her seeded sail beside it.
+
 ## The law (NAV-D)
 
 `navalLaw.js`: striking a lawful ship (a merchantman or a navy) in a crown's waters is PIRACY - `Crimes.Piracy`
@@ -542,7 +563,9 @@ helm boats, the doors) and `nav_h_host` (the host through real frames over Come 
 traffic, the law, boarding, boarders and Warm Ashes' raids, the voyage's wait, the save, the stander and the striker -
 and the world host's wiring, a hostile ship an enemy nearby at its five doors) - and `nav_r_raiders` (Warm Ashes'
 raiders as ships: the class law, the plan, a raider stood, sighting and spent, the director and a peer's copy, the world
-host's wiring) - and the audit's own suites: `navaudit_captains` (the way, the turn and the heel, the wind's eye, other
+host's wiring, and the merge with OW6 - a peer's hold, the held ships said, the spend said and owed, the sea's
+hostile ships as a journey's threats and the map, run through the world host's own lifted code; the governor's own
+run in `ow6_slowdown`) - and the audit's own suites: `navaudit_captains` (the way, the turn and the heel, the wind's eye, other
 hulls and the land, the intercept, the side that bears soonest, giving up, alongside to board, the wreck, the cruise,
 a prize adrift, the berths, the hulls kept apart, a galley's ram, the sea's time, a boarder chasing) and
 `navaudit_guns` (the run-out and its promise, the fire's window, never over her nor short, no friend across the line,
@@ -551,11 +574,12 @@ own, the guns' reach, the warning, the tell heard and seen, the tally) and `nava
 on a ship, the red where the balls strike her as she will stand, why the guns will not fire yet, the aim drawn, the
 broadside camera, the world's wiring), on the shared sea of `test/navalSea.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`
-and `navaudit_helm.json`, 438 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+and `navaudit_helm.json`, 452 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
-audit's helm, and seven of other suites' re-aimed by content at the laws the helm keeps);
+audit's helm, and seven of other suites' re-aimed by content at the laws the helm keeps; 14 with the merge with
+main's OW6, and eight of the arc's own re-aimed by content at the lines the merge rewrote);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

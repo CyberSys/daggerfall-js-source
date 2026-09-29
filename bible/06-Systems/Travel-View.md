@@ -767,6 +767,25 @@ held mark. 256 travellers cost two frames.
 on a move, the click boxes, the curtains' samples counted), `tools/mutants/tv5.json` (the
 PERF-TV records).
 
+**FB0929 - THE ROUTE LINE, BY ITS FRAMES (2026-09-29, the Discord through Mac: "The moment I go
+to my Travel Map and select a far away destination, the game drops to sub-10 FPS").** The timer
+above holds the update and the layout it owes, never the paint, and its route was 120 points on
+the screen. A pick on the travel map is a line of a hundred legs and more (400 pixels of
+Hazelnut's roads: 139 legs, 557 points), and a point of it beside the eye's plane projects
+hundreds of thousands of pixels out: the dashed brass line ran 1.5 million px, and the browser
+laid its 100,000 dashes, off the screen too, and rastered them again every frame the camera
+moved - 383-433 ms a frame in Chromium (the median, two runs; turned half round, 217-267), where a
+click in the view drew in 16.7. The JavaScript was never the cost (the update 0.1-0.4 ms; the
+plan is made once, at the pick). `routePath` now cuts the line to the screen grown by
+`ROUTE_CLIP_PX` (16 px, past the casing's round cap), a new stroke where it comes back on: the
+same line on the screen - byte for byte when it lies wholly there, its first stroke the old one's
+from the feet to the edge, dashes and all - and the far pick at 16.7 ms a frame. Where the line
+comes back onto the screen its dash pattern starts at the edge. The readout is world.js's alone
+(travelView.js names the FOUR HOSTS).
+**Proof.** `test/fb0929_farroute.test.js` (4: the planner on the vendored roads, the host's line
+lifted from world.js, the view's own camera and the readout), `tools/mutants/fb0929_farroute.json`
+(13, all dead), `tools/travelViewPerf.mjs` (a journey's line timed by its frames: 20 ms).
+
 ## AUDIT DEEP2 - the whole branch again, six reviewers, before the merge (2026-09-28, Mac: "Do another deep audit on everything before we decide to merge")
 
 Six read-only reviewers, one a lane (the view and its input; journeys; the region's
@@ -1287,6 +1306,20 @@ Each pinned (`test/ows2_crossing.test.js`, `test/ows3_raiders.test.js`) and each
 - The raid's fight is the mod's own, on its ship's deck - the ship boarded - not the open sea.
 - The classic lane has no Overworld: DFU's map, its fast travel and Warm Ashes' roll, whole.
 
+## FB0929 - the mouse captured under the Overworld (2026-09-29, a field report)
+
+Satranath (Discord, relayed by Mac): "Y doesn't free the mouse on overworld until after you press Escape." OW-ONLY's
+rise came on the wrong frame for the lock: a journey begun or resumed on the map raises the view on the frame after the
+map goes down (`tvJourneyUp`), the very frame whose look gate has just asked for the lock back on the map's close edge.
+A browser answers that request a task later, so the view's `freeCursor` found nothing to release and the lock landed
+under a view whose cursor is its own - the mouse captured, Y refused under the view (TV1's law, which stands), until the
+browser's own Escape ended it. The map's Overworld button never raced: its commit raises the view a frame before the
+gate asks, and the freed cursor refuses. `player/pointerLock.js` now lets go of a lock that lands while the cursor is
+free. AUDIT OW5 V1 (below) landed the same law on main the same day, in `requestLook`'s one page-wide listener; the
+merge kept that one and dropped this branch's copy in the toggle's listener, and `test/fb0929_overworld_mouse.test.js`
+(3) drives it in every host that binds the toggle (world.js, with worldModes.js and dungeonContext.js under it;
+exterior.js; dungeon.js), every pin made to fail.
+
 ## TV-WASD - THE KEYS TRAVEL - SHIPPED (2026-09-28, Mac: "Also need to add the ability to travel faster with WASD")
 
 Under the view the movement keys walked the traveller at walking pace (TV1) - a crawl from 260 m up, beside a click's
@@ -1360,9 +1393,11 @@ Every finding was verified by the lead against the code before it was fixed; eac
 **Fixed.**
 - **D1 THE FIND ASKS EVERY UNFOUND DUNGEON IN REACH** (MAJOR). The find searched the plates' list, TV_DUNGEON_MAX with the
   found first (AUDIT OW4 D7): a traveller who had found a dozen within 24 pixels never found another on approach. Its own
-  uncapped list now (`travelViewFindList`, TV_FIND_REACH pixels, the game's own dungeons, kept per pixel).
+  uncapped list now (`travelViewFindList`, TV_FIND_REACH pixels, the game's own dungeons, kept per pixel). AUDIT OW5b D1 (below) found the same: this list is the one the
+  merge kept, and OW5b's own half - an unfound one in the grid spends none of the twelve plates - stands beside it.
 - **R1 A WINDOW HOLDS THE PIRATES' CHASE** (MAJOR). `raidFrame` read a window as ashore: any window gave every chase up
-  and spent its raider - a free escape. A window or a death holds it now, the bands' law (AUDIT OW4 B9).
+  and spent its raider - a free escape. A window or a death holds it now, the bands' law (AUDIT OW4 B9). AUDIT OW5b S2 found the same (with the
+  quarry's own deck, and S6's world being moved): one line since the merge.
 - **J2 A JUMP STOPS A ROUTE'S WALK** (MAJOR, two lenses). A fast travel taken from the map mid-journey, a teleport, a
   Recall, a respawn, `/leader`, `/tp`: the route journey walked on from the new place straight at its old leg, the
   Overworld risen over it. `_teleportToPixel` stops a route journey through the panel (the Camp, the destination kept),
@@ -1396,9 +1431,11 @@ Every finding was verified by the lead against the code before it was fixed; eac
   Resume; and the keys' travel lets go when the page loses the focus (a key held then never sends its keyup, and the
   clock ran on at the spinner's rate).
 - **G5 A FIRST-PERSON CROSSING KEEPS ITS CLOCK** - Come Sail Away's landfall reset left x1 under a panel asking x10.
-- **B1 A HOLD CARRIES THE BAND'S PATIENCE** - two minutes in a window lost every chase the frame after.
+- **B1 A HOLD CARRIES THE BAND'S PATIENCE** - two minutes in a window lost every chase the frame after. AUDIT OW5b B4 found the
+  same; the merge kept B4's own chase clock (`_bandClock`, standing still on every frame a chase does not step - a world
+  being moved too) and retired `bandHold`, and this audit's pin steps at the frame's clamp, so it fails either way back.
 - **B2 THE BANDS FROM THE GAME'S OWN ROWS** - a world-data mod's rows (each client's Replace Game Artwork) barred pixels
-  on one client and not another.
+  on one client and not another. AUDIT OW5b B3 the same; this fill is the one kept.
 - **P3/P4/P5/P6 THE PARTY**: a sea spot walked as the sea (by the planner's byte - the walk's record carries no word and
   a new one is a relay's); a stop stamped from the future halts nothing (PARTY_WALK_TS_SKEW_MS); a halt is said ("The
   party has stopped.") and the question reads "to the marked spot"; my party on the Overworld wherever they are, from
@@ -1417,6 +1454,9 @@ Every finding was verified by the lead against the code before it was fixed; eac
 - **The bands' stand with the view down** (MINOR, a design call for Mac): a chase met with the view down stands its pack
   18-32 m off, where the band was 140 m; stood where it was (CAMP-FAR's 100-150 m) it would stand past its own 60 m
   sight and never come on.
+  **Decided at the merge** by AUDIT OW5b B2 (below): stood WHERE IT IS - Mac's CAMP-FAR stands a group 100-150 m
+  off ("far too sudden and overwhelming" beside the player), and such a band waits to be come across as a camp does. For
+  Mac to confirm.
 - **The badge cache at a phone's dpr 3** (MINOR): 256 titled players outgrow SPRITE_PIXELS_MAX (AUDIT NAMES N1-8's
   memory cap) and the names flicker; holding a frame's sprites whole costs the memory the cap was set to spare - Mac's.
 - **A far pick's half second** (MINOR): a pick past ~60 road pixels searches the whole map's rung for the cheapest way
@@ -1427,6 +1467,190 @@ Every finding was verified by the lead against the code before it was fixed; eac
 - **AUDIT OW4 X2's resume of a spawn's walk** has no player path today (a spot journey keeps no destination to offer
   Resume on); the branch stays for when it does.
 
+## AUDIT OW5b - THE ENEMIES, THE DUNGEONS AND THE ENEMY SHIPS (2026-09-28, the player: "do a detailed audit on their functionality and ensure everything is perfection")
+
+(Named AUDIT OW5 on its branch; OW5b since the merge - main's own AUDIT OW5, the audit before the merge, landed first,
+and some of its finding ids are this audit's too. Where the two found the same bug, the merge kept one fix: said at
+each finding below.)
+
+Mac's field report, streamed the day the bands went out: *"So enemy dont work right ... Close ... Need to get pullout of
+fast travel little sooner for encounters. U run thru them."* Measured first; then three read-only lanes (the bands, the
+dungeons, the sea) were sent over the tree, and every finding was verified against the code before a line changed.
+
+- **The encounters (E1, Mac's).** A Travel Options journey stopped for enemies only when its frame's sweep
+  (AreEnemiesNearby) saw them - a foe that had SEEN the traveller, or stood inside the classic spawn band (1094 x
+  GlobalScale: 27 m outdoors). In DFU that answer comes within a fraction of a metre: the spawn stands in its frame and
+  Time.timeScale runs the foes' senses with the journey. In the port it came late twice over - the foe stands only after
+  its career and sprites load (spawnFoe's awaits), and it senses on its own REAL-time classic tick (1/16 s), because the
+  port scales the traveller alone (TO1's clock, the slice's one departure). At x40 on foot that is 16-40 m; on a horse
+  40-100 m; at x100, or with a sprite not yet loaded, more - and a band's members stand 18-32 m off, see 60 m
+  (CAMP-SIGHT) and "would be spawned" only within 27 m, so a traveller carried past them before their first tick was
+  never met at all. That is "U run thru them". Now **the encounter asks the journey the moment it meets the traveller**:
+  Travel Options' enemies arm has one home (`enemiesStop`: the panel's Camp, a cautious traveller's avoid roll, the
+  reckless one's box), asked by the frame's sweep as ever and by the new `encounter()` - null with no journey walking,
+  'ignored' while a won roll's grace runs, 'avoided', or 'stopped'. The band's contact asks it before a member stands
+  (`journeyMet`): stopped, the band stands and the box brings the view down; a won roll, the band loses the trail -
+  spent, never stood (TV7's own words, "success, the band loses the trail", made true: it had stood, and the traveller
+  walked away from it at x1); the grace, the chase runs on and asks again. A band the full foe pool cannot stand
+  (`bandRoom`) meets nobody - no stop, no box, for a band that never comes. DFU's own wanderer (`_standEncounterFoe`)
+  asks it once placed beside the traveller, and stands nobody with the pool full. Camps (100-150 m out) and the World of
+  Daggerfall's are come across, not met: the sweep answers for them as before.
+- **Bands (B).** B1: the chase stepped on a clock of its own, clamped at 0.25 s against the frame's 0.1 - below ten
+  frames a second (a phone's hitch, the frame after an arrival) a band gained up to 2.5 times the ground the traveller
+  could put between them; `bandFrame(now, dt)` takes the frame's. B2: every band stood at 18-32 m - one met with the
+  view down at BAND_STAND_M (140 m, Mac's CAMP-FAR: no pack lands beside the player out of nowhere) was brought a
+  hundred metres nearer; it stands WHERE IT IS now (`bandStand(mk, yaw, dist)`, never nearer than BAND_STAND_MIN_M) -
+  AUDIT OW5 left this Mac's call; the merge keeps it, by CAMP-FAR's own 100-150 m.
+  B3: the land a band may stand on took every row of the index at boot, a world-data mod's additions with it (Roleplay
+  & Realism's Northrock Fort, on only where the mod is) - two players with different switches were born different
+  bands about it; the base rows alone now (HUB1's law, GATE-SEEN's, RAID2's; AUDIT OW5 B2 the same - its fill kept). B4: a held chase's patience ran on the
+  shared clock, which a hold never stops - two minutes of a death screen or a window and its first frame back gave the
+  band up, spent and said to everyone; the chases keep their own clock (`_bandClock`, the frames they step; AUDIT OW5 B1 the same - its
+  `bandHold` gave way to this clock at the merge). B5: a step
+  could close onto the feet themselves, and a bearing read there was float noise (a fast frame head-on; a band riding
+  along through a won roll's grace): `bandChaseStep` closes to the contact's ring and no nearer.
+- **Dungeons (D).** D1: the find read the Overworld's twelve, and AUDIT OW4 D7 took them found first - with twelve
+  found within the far range, not one "?" stood and nothing was found by approach again (the pixel's entry filed it,
+  silently). The find reads its own list (every undiscovered map dungeon in reach, uncapped - AUDIT OW5 D1 found the
+  same, and the merge kept its `travelViewFindList` for this audit's own), and an unfound one within the grid - the ground the view shows - spends none of the twelve, as a found one there (TV2's plate)
+  spends none. D2: an expired spawn was never removed. The build took the index's word for a spawn it held (no clock
+  asked), and at a rebuild buildPixel's probe expired it and FORGOT its ledger row - and the roll is a pure hash, so the
+  build's own ask stood the same dungeon again on a fresh seven days, while the Overworld (tvSpawnGone) had it gone. The
+  row is kept now (its clocks keep it gone, and the save carries it), the build asks every spawn its clocks
+  (`_locationToBuild`), and the Overworld calls one gone only once it is off the ground (never while its pixel stands
+  built). TTL1's rule, the creator's relayed by Mac: "Spawned Dungeons should expire/removed". D3: a walk's door was read
+  off the live index on the map's Resume and by a party member - a far found spawn's walk (its pixel never built)
+  resumed as a spot ("the mountains cannot be crossed"), a spot clicked on a place's pixel resumed as that place's door,
+  and a member following the leader to a spawn their own pixels never built walked a bare spot; the door rides the
+  walk's point, and a member asks what stands there (`tvLocationAt`: the index, else the spawn its roll would stand).
+  D4: every Overworld reset of a load sat in applyPose past `if (!pose) return;` - a save without a pose (an older
+  envelope) loaded with the last run's chases running and its rudder held; `overworldLoadReset` runs first, every load.
+- **The sea (S).** S1: the raid boarded by a teleport, which is no load and says nothing to Come Sail Away - the next
+  frame's sail stood the player back at their boat's helm (its drive position, in the ship pixel's frame now), on no deck
+  at all, the pirates on the one they had been carried to; the fast travel's ambush lets go of the helm first (CSA's
+  OnPreFastTravel before Warm Ashes' own). `raidContact` now asks the mod's refusals first (`raidRefusal`, raidAtSea's
+  one home for them) and lets go (StopSailing, the crossing's hand off it) BEFORE the raid arms - so a ship the helm lent
+  (a crewed boat's Small) is handed back and the raid lends its own Large, as the fast travel's does. S2: a window read
+  as "ashore" and spent the raider for its life, and so did stepping off the helm onto one's own deck; a pause holds
+  every chase (its clock with it), and the quarry is a traveller at sea on their OWN boat - its helm, or its deck (CSA's
+  own "I'm On A Boat") - never a passenger aboard another's (its helmsman is the one run down, and the raid's Leave Ship
+  would set a passenger back in the water the boat had sailed on from). (AUDIT OW5 R1 the same, and a death holding it too: one line since the merge.) S3: a chase whose raider's life turned over left
+  the list and came alongside unseen; it is marked wherever it is (the bands' T7-2). S4: a part-sailed leg asked its own
+  moving end, and flipped the moment it touched land - a raider jumped up to 700 m in a breath, into a lookout's sight -
+  and a full leg asked only its end, and sailed across a cape; a leg's way is chosen by the whole leg now, water all
+  along it (RAIDER_LEG_PROBES), and kept while it is sailed (the bands' T7-6). S5: off the map read as water - a raider was
+  born a pixel past the edge and sailed off the world; the raiders' sea is on the map. S6: a world being moved holds the
+  chase (the bands' D2). S7 is D4. S8: no Come Sail Away, no boat to be at sea in - no raider is drawn (the bands' B6).
+- **Known, not changed** (the first two since answered: OW6's raider word and OW6L's cell ledger, below). A raider's
+  chase is still the chased traveller's own and not said to the others (TV7b's word has no sea half): a helmsman and a friend on their own boat nearby may each be chased by the same sail. The spawn
+  ledger is one client's memory (TTL1's own note): two players can disagree whether a spawn is gone, and gone is now for
+  good on the client that saw it go. With the view down no band first sees anyone or stands but a chase it began (TV7
+  BUILT); a band stood 140 m off with the view down sees 60 m, so it waits to be come across as a camp does. A wanderer's
+  position stays a quarter second old when the shared clock steps backward (`_bandPos`), and the marks' preventEnemySpawns
+  hide seldom fires (the flag lives a frame) - both harmless.
+- Proof: `test/to1_travelOptions.test.js` (+1), `tv7_bands` (+7: the contact asked first, an x40 journey stopped the
+  frame the band reaches it on foot, riding and at x100 at 30 fps, the full pool, the frame's clock, the ring, where it
+  stands, a held patience), `encounterplace` (+1), `tv6_dungeons` (+1), `spawneddungeons` (+1), `tv2_click_to_move`
+  (+1), `tv8_party_walk` (+1), `ows3_raiders` (+6: the host's raider code lifted and RUN); `tools/mutants/ow5e.json`
+  (11), `ow5b.json` (6; 5 since the merge), `ow5d.json` (12; 11), `ow5s.json` (12) - all dead (the merge retired the two
+  whose code gave way to AUDIT OW5's, its records covering the kept code); 26 older records re-aimed by content (ow3d,
+  ow4d, ow4j, ow4t, ow4x, ows3, tv6, tv7, hub1, enhnotice3, and survtiers3's two cite records after the shift), and
+  every list naming an edited test run again on a passing baseline (31 lists), none surviving.
+
+## OW6 - THE OVERWORLD SHARED, ALIVE AND SEEN COMING (2026-09-29, the player, after AUDIT OW5b)
+
+The player's four asks, whole: *"Everything needs that persistence between players in the overworld. Enemies should
+spawn in varying numbers and roam more often. If a player is traveling very fast, they should slow if enemies become
+close. If a camp is spawned, it should show in the overworld."* Five research lanes read the tree first (the bands'
+generation, the camps' life, the online transport, the speed governor, and every rule of Mac's on record - CAMP-FAR,
+CAMP-SIGHT, CAMP-TRAVEL, CAMP-NOTIMER, TTL1, WORLD1's "True persistance"); the design keeps every one of them.
+
+- **The bands vary and roam (systems/travelBands.js).** BAND_CHANCE_DAY 0.3 -> 0.45 and BAND_CHANCE_NIGHT 0.45 -> 0.6
+  (half as many again by day, a third more by night); BAND_WANDER_MPS 1.3 -> 2 on BAND_LEG_MS 75 s -> 50 s legs (a band
+  at 1.3 m/s read as standing still from 150-450 m up). A band's NUMBER is its own roll now, `bandSizeOf` off its own
+  stream, one to six by BAND_SIZE_WEIGHTS [12, 20, 24, 20, 14, 10] - it was the camp's or the pack's range (2-5); the
+  themed group takes a caller's size (campEncounters.js rollGroupComposition `ctx.size`), and a band of ONE is alone
+  already, so a solitary kind may be it (a giant on the road, an imp, a mummy abroad by night) - a group still never
+  leads with one. A lone band's words are its kind alone ("Giant"). A warband of six met by a full party grew past the
+  eight-foe pool and stood nothing: every group's growth has one home now (world.js `campMembers`), bounded by
+  MAX_ACTIVE_ENCOUNTER_FOES - the widest camp, five and three, is exactly the bound, so no camp changes.
+- **One band for every player (the first ask).** A band's make read the VIEWER's level (and its label the viewer's
+  party), so two players looking at one band read two different creatures and numbers over it. Online it reads the
+  BAND's own level now - `bandLevelOf`, 1 + floor(20 u^2) off its own stream: half of all bands level 6 or under, a
+  quarter 12 or over, the label saying which is which - and its label its own number (PSCALE1's growth still comes at
+  the stand, with the party that meets it). Offline there is one player, and the band reads theirs, as Daggerfall does.
+- **The journey slows as enemies close (systems/travelThreat.js; the third ask).** The clock is held so the traveller
+  always has THREAT_WARN_S (5 s) of real time before the nearest enemy's REACH along their way - a band's sight, a
+  raider's lookout (at sea), any hostile foe's sight (a camp's sixty metres, CAMP-SIGHT), or, for a chaser, its contact
+  ring from any side at its own pace too (`metresToReach`, `threatCap`); stepped down the spinner's own ladder (1, 2, 3,
+  4, 5, then fives), never under walking pace (the encounter stops a journey - AUDIT OW5b E1 - the governor only slows
+  it). An enemy the way passes by, or one behind, holds nothing; inside a reach the journey is held while the way goes
+  deeper and free as it leads out. Under the view the lower of TV2's ground cap and this one holds; on the classic skin
+  (no governor there before) the mod's own ask under the enemies' cap alone, handed back whole with nothing near. The
+  panel says why it is held (TRAVEL_HELD_WHY: "while the land loads", "with enemies near", and "until the Overworld
+  rises" for AUDIT OW4 J5's walking pace with the view down, which had said the land was loading), and a line is said
+  once as an enemy begins to hold the journey ("Enemies near - you slow your pace."). Since the merge with main: its
+  reasons are AUDIT OW5 G1's words with this one beside them (`TRAVEL_HELD_WHY`: 'load', 'ground', 'foes'), and TV-WASD's
+  keys' travel under the view is held the same way - fast travel too - along the way the keys last moved (`_tvWalkYaw`);
+  a First-Person crossing's restore (AUDIT OW5 G5) asks the governor's rate, never over its hold. THE MERGE with the sea
+  fight (NAV-H, NAV-R; `03-World/Naval-Combat.md`): every hostile ship afloat is a reach too, on either skin - the ring
+  where she is an enemy nearby and the journey stops, or her lookout past it until she sights the traveller, closing
+  at her pace once she comes (`navalHost.js threats`) - and a raider stood as a ship is that ship, never her seeded
+  sail as well. A rider flown at x40 straight at a
+  band now comes into its sight at walking pace, the last half kilometre taking more than THREAT_WARN_S; it took under a
+  second. The bible's own open idea, "Encounters seen coming", is this.
+- **Camps on the Overworld, the same for everyone (world/campShared.js; the fourth ask).** Every group standing about -
+  a camp, a pack, a band once it has stood (`campKind`: 'camp' / 'pack' / 'band') - is one mark where its living members
+  stand, with its kind and number ("Orc camp, 4"), a tent in the ember (`#d9622b`); its last member down, the mark goes.
+  A camp's members already rode their owner's cell foes frame as bare records; the frame carries the camp tags `cz` now
+  (`[[i, campId, kind]]`, a live member's alone; no relay change), a reader keeps the tag on the puppet - and learns it
+  from a later frame when the member rode once before its camp was set - so every player within the relay's range sees
+  the same camp. The camp numbers have one counter, the pool's (`newCampId`).
+- **A camp stays a camp between players.** The handover (PDEATH-FOES, a door or a death) turned every camp into loose
+  wanderers at infighting: the heir's `adopt` takes it as ONE camp of its own - one number for all of it, its kind, its
+  sixty metres' sight, its alert radius, CAMP2's exemption - and marks it. And a camp its owner WALKED AWAY from was
+  culled from under the friend fighting it (CAMP-CULL, 200 m): past three quarters of its cull distance from its owner,
+  with a player nearer it, it is handed to them foe by foe (`handOverWalkedAway`, the door's own handover); nobody
+  nearer, the cull takes it as it always did.
+- **The raiders' chase, shared (systems/seaRaiders.js).** OWS3 said "nothing is sent", and AUDIT OW5b left it known: a
+  friend watched the sail that ran them down wander on, and could be chased by it too. The chaser's frame carries `sr`
+  now - the band word's own law, one home (travelBands.js `chaseWordOf` / `validChaseWord`, each chaser's own ids): the
+  raiders chasing it where they sail, and each spent - so every reader draws the chase where it runs, none gives chase
+  to a sail a peer's chase holds (two chasing one: the lower id keeps it), and none meets a spent raider again. With
+  the sea fight on (NAV-R, `03-World/Naval-Combat.md` "THE MERGE with main's OW6") the raiders are its ships: the ships a
+  client's sea stands ride the same word as held, a ship sunk, taken or given the slip is spent through the same spend
+  (said, and owed to the cell's ledger), no sea stands a raider a peer's word holds, and a journey slows for every
+  hostile ship before the ring where she stops it (NAV-H's enemy nearby) - a raider ship counted as the ship.
+- **The cell keeps the Overworld's ledger (OW6L, the relay - world127; net/overworldLaw.js).** What stays true after the
+  moment: a band or raider spent, and a spawned dungeon's clocks. TV7b's word reached three pixels, that minute - a band
+  fought was back for whoever came later in its life - and the spawn ledger was each client's own (TTL1's own note: two
+  players disagreed for days whether a spawn stood). Each CELL ROOM now keeps a ledger: the spent ids (their own life
+  and the next), and a row a spawned pixel - `[px, py, seen, cleared?]` in shared classic minutes, MIN-MERGED, so the
+  earliest sight and the earliest clear anyone had win (the spawn ledger's `merge`), kept sixty real days. A player's
+  spends and first sights and clears are owed to the cell until it takes them (world.js `overworldLedgerFrame`: said a
+  second apart, what was not taken said again, nothing to an older relay), and every change is said to everyone in the
+  cell - and the whole ledger to a player who walks in later, in its welcome (a halo's too, for the seam). The relay
+  checks each word against the cell's square (8 pixels of margin), the spawn roll itself and the clocks, on its own
+  bucket and fan budget, and answers a speaker whose row is BEHIND with its own (RAID3's law). Its numbers are pinned
+  equal to their homes rather than imported (gateLaw.js's own way), so the relay's graph stays flat. RELAY_VERSION
+  world127 - 125 was VOICE1's and 126 DISCORD-GATES', never reused; a client reads `relaySupportsOverworld` and says
+  nothing to an older relay (which would close the socket on the frame): it needs the relay deploy that ships with it.
+- **Known, not changed.** A live CHASE's place still rides the foes frame alone - the relay fans it three pixels while
+  bands are drawn to six (TV7b's own recorded limit) - so a viewer between three and six pixels from a chaser sees the band at its own
+  wander; that it was spent reaches them through the cell. The relay cannot verify when a pixel was first seen: a
+  modified client could make its cell's spawns run out early (bounded by the margin, the roll, the keep and the bucket).
+  A raider dragged far past its own cell by a long chase is not told to the escaping player's cell (the session leaves
+  out what the cell would strike). A camp is shared with the players its owner's frames reach (the relay's three
+  pixels), and its mark is drawn where its living members stand. One pre-existing mutant survivor was found on the way,
+  outside this work: auditqp.json's AQP-touched-cell-my-roll (the owner's record already carries the maximum it resets).
+- Proof: `test/ow6_bands.test.js` (6), `ow6_slowdown` (8: the law, a rider at x40, the host governor run on both skins),
+  `ow6_camps` (7: two real pools over their frames, the handover, the walk-away), `ows3_raiders` (+4: the raider word,
+  the host's run), `ow6_ledger` (18: the law, the wire, the relay over the real Room, the session, the spawn ledger's
+  merge, the host's owed and heard words, END TO END - A spends, B hears, C is told in its welcome);
+  `tools/mutants/ow6b.json` (14), `ow6s.json` (22; 27 since the merge - the keys' travel, the line through tvSay, the crossing's restore and the helm's
+  step added, the view-down word's record AUDIT OW5 G1's), `ow6c.json` (19), `ow6r.json` (10), `ow6l.json` (33), `ow6h.json`
+  (12) - all dead; 19 older records re-aimed by content, every list naming an edited test re-run on a passing baseline.
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),
@@ -1435,3 +1659,6 @@ each one line to change:
 - **The name** - "Overworld" to the player, TRAVEL VIEW in the code (TV1).
 - **Being seen** - the switch, on by default, nothing on the region's channel from indoors (TV3; the party's own pose still rides from indoors, as it always has - AUDIT DEEP2 C5).
 - **A second door** - the `TravelView` action, shipped unbound; the map stays the door (TV1).
+- **A band met with the view down** (2026-09-29, at the merge of AUDIT OW5 and OW5b) - stood WHERE IT IS, about 140 m off
+  (AUDIT OW5b B2, by CAMP-FAR's own 100-150 m: come across, not landed on); AUDIT OW5 had left it Mac's call. One line
+  to change back: `bandStand`'s distances.

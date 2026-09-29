@@ -352,3 +352,38 @@ walked it, and the raid's Update asks it the first frame the player stands in a 
 arrival reaches while the rooms change over. Walking in never met the gap. The seam now reads no room as nobody in
 town. Pinned by `test/field_raid_ft.test.js` (red before), one mutant dead.
 
+## FB0929 - the swing no longer finds the town's defenders (2026-09-29)
+
+Discord (Satranath): "Even with 'protect civilians from melee attacks' enabled, guards get hit in big battles and will
+arrest you. Nuked my rep trying to protect a town from a raid." The setting is DFU's MeleeAttackFriendlyProtection. The
+world host offered each swing to the watch, the monsters, then the defenders alone (DISC19-F), and that last pass took
+the NEAREST defender in reach and view - Audit 28's stand-in for DFU's look ray - so every swing that met no raider at
+its hit frame fell on one. A blow on a defender is Assault (AUDIT DISC19 W2): the squad turned, the watch's first blow
+raised the Halt box and its LowerRepForCrime, and the court followed. Under the protection the watch's pool now spares
+its defenders on every pass (`cityGuards.resolvePlayerHit`), as the player's spells, shafts and torches always have,
+and a defender on the look ray stops the swing short of the townsperson behind him. `scenes/world.js` is the host
+wired; `scenes/exterior.js` and `scenes/worldModes.js` stand no defender and take the pool's law as it is, and
+`scenes/dungeonContext.js` has no watch. Online nothing changes on the wire: a peer's blow on my defender was already
+refused by its owner (AUDIT FINAL F12). Port-Ledger A carries the departure (DFU's ray still strikes an ally alone in
+front). Pinned by `test/fb0929_raidguards.test.js` (red before), five mutants dead.
+
+**RAID-GUARDS (the same day, Mac: "Raids shouldnt let you damage the guards").** While a raid is on in the town, its
+defenders take none of the player's blows WHATEVER the setting. `cityGuards.playerSpares` is the one question - a
+defender, under friendly protection or with a raid on here (`raidHere`, which `scenes/world.js` answers with
+`raidDefendingHere`) - and the swing's pass and the riding charge's list (EnhancedRiding's charge struck a defender it
+met) ask it, while the guards' damage door refuses any blow of the player's on a raid's defender by whatever road it
+came: it lands nothing and raises no Assault. The crime watch is never spared, and with no raid on and the protection
+off the watch's pass strikes a defender as DFU's does (the DISC19-F watch against a monster). Kamer's defenders were
+passive watch-skinned Knights, re-pacified every three seconds and never a crime to strike; this is that, for the
+player's own hand. `test/fb0929_raidguards.test.js`, `tools/mutants/raidguards.json` (8, 8 dead).
+
+**RAID-REP (the same day, Mac: "I think it improves rep in all regions").** Checked, and it does not: GrantReputation
+raises the raided region's legal reputation, that region's People and its first knightly order, for a player who
+fought and stands on the town's pixel - no other region's. The one standing that is no region's is Kamer's +3 with the
+Fighters Guild, which the Standing page shows wherever the player is. Pinned in the same file with the other region's
+factions first in the dictionary, so a law that forgot the region would pay them.
+
+**Left, online:** my swing can still land on another player's defender standing here as a puppet (the encounter
+pool's own fallback) - a flash on my screen and nothing more: its owner refuses the blow, so no guard takes damage and
+no crime crosses the wire.
+

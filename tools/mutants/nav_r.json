@@ -29,8 +29,8 @@
   {
     "name": "NAV-R-the-range-unread",
     "file": "src/systems/naval/navalRaiders.js",
-    "old": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
-    "new": ".filter((r) => !stood.has(r.id) && !spent.has(r.id))",
+    "old": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "new": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id))",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "NAV-R-a-spent-one-stood",
     "file": "src/systems/naval/navalRaiders.js",
-    "old": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
-    "new": ".filter((r) => !stood.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "old": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "new": ".filter((r) => !stood.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "NAV-R-the-lower-id-kept-waiting",
     "file": "src/systems/naval/navalRaiders.js",
-    "old": "if (owner !== undefined && chaseYields(myId, owner)) { drop.push(id); continue; }",
-    "new": "if (owner !== undefined && chaseYields(owner, myId)) { drop.push(id); continue; }",
+    "old": "if (owners.some((owner) => owner !== undefined && chaseYields(myId, owner))) { drop.push(id); continue; }",
+    "new": "if (owners.some((owner) => owner !== undefined && chaseYields(owner, myId))) { drop.push(id); continue; }",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "NAV-R-the-sight-unread",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  const sight = ship.sight ?? ENGAGE_RANGE;",
-    "new": "  const sight = ENGAGE_RANGE;",
+    "old": "export const lookoutOf = (ship) => ship.sight ?? ENGAGE_RANGE;",
+    "new": "export const lookoutOf = () => ENGAGE_RANGE;",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "NAV-R-the-marks-at-the-seeded-place",
     "file": "src/scenes/world.js",
-    "old": "const ship = navalRaidersOn() ? naval.raiderShipOf(r.seed) : null;",
-    "new": "const ship = null;",
+    "old": "const ship = navalRaidersOn() ? naval.raiderShipOf(r.seed) : null;   // NAV-R: stood as a ship of the sea - drawn where she sails",
+    "new": "const ship = null;   // NAV-R: stood as a ship of the sea - drawn where she sails",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -182,8 +182,137 @@
   {
     "name": "NAV-R-the-spent-word-lost",
     "file": "src/scenes/world.js",
-    "old": "    raiderSpent: (id) => { tvRaid.spent.add(id); tvRaid.chase.delete(id); },   // NAV-R: the Overworld's law - spent for its life\n",
+    "old": "    raiderSpent: (id) => { seaRaidSpend(id); tvRaid.chase.delete(id); },   // NAV-R: the Overworld's law - spent for its life; THE MERGE (OW6): and said to the cell\n",
     "new": "",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-OW6-the-hold-unread",
+    "file": "src/systems/naval/navalRaiders.js",
+    "old": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "new": ".filter((r) => !stood.has(r.id) && !spent.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-OW6-the-holder-unread",
+    "file": "src/systems/naval/navalRaiders.js",
+    "old": "const owners = [r ? peers.get(r.seed) : undefined, held.get(id)];",
+    "new": "const owners = [r ? peers.get(r.seed) : undefined];",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-OW6-the-hold-unpassed-to-the-plan",
+    "file": "src/scenes/navalHost.js",
+    "old": "const plan = raiderPlan({ raiders: list, me: deps.feet(), myId: myId(), stood, peers, spent, held });",
+    "new": "const plan = raiderPlan({ raiders: list, me: deps.feet(), myId: myId(), stood, peers, spent });",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-OW6-a-spent-one-held",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (!e.owner && e.raider && !e.raider.spent) out.push({ id: e.raider.id, pos: e.ship.pos });",
+    "new": "if (!e.owner && e.raider) out.push({ id: e.raider.id, pos: e.ship.pos });",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-OW6-the-ships-unsaid",
+    "file": "src/scenes/world.js",
+    "old": "    if (!navalRaidersOn()) return tvRaid.chase;\n    const out = new Map();\n    for (const h of naval.raiderHeld())",
+    "new": "    return tvRaid.chase;\n    const out = new Map();\n    for (const h of naval.raiderHeld())",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-OW6-the-spend-unsaid",
+    "file": "src/scenes/world.js",
+    "old": "raiderSpent: (id) => { seaRaidSpend(id); tvRaid.chase.delete(id); },",
+    "new": "raiderSpent: (id) => { tvRaid.spent.add(id); tvRaid.chase.delete(id); },",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-OW6-the-hold-unpassed",
+    "file": "src/scenes/world.js",
+    "old": "        if (p) held.set(r.id, p.from);\n",
+    "new": "",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-OW6-a-raider-ship-counted-twice",
+    "file": "src/scenes/world.js",
+    "old": "        if (navalRaidersOn() && naval.raiderShipOf(r.seed)) continue;   // THE MERGE (NAV-R): stood as a ship of the sea - the sea's own threat, below\n",
+    "new": "",
+    "tests": [
+      "test/nav_r_raiders.test.js",
+      "test/ow6_slowdown.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-NAVH-the-sea-unread-by-the-journey",
+    "file": "src/scenes/world.js",
+    "old": "    for (const t of naval?.threats() ?? []) out.push(",
+    "new": "    for (const t of []) out.push(",
+    "tests": [
+      "test/nav_r_raiders.test.js",
+      "test/ow6_slowdown.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-NAVH-her-closing-unsaid",
+    "file": "src/scenes/world.js",
+    "old": "reach: t.reach, ...(t.chasing ? { chasing: true, mps: t.mps } : {}) });",
+    "new": "reach: t.reach });",
+    "tests": [
+      "test/nav_r_raiders.test.js",
+      "test/ow6_slowdown.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-NAVH-the-lookout-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "reach: chasing ? HOSTILE_NEAR_M : Math.max(HOSTILE_NEAR_M, lookoutOf(e.ship)), chasing,",
+    "new": "reach: HOSTILE_NEAR_M, chasing,",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-NAVH-a-friend-a-threat",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (!hostileToMe(e)) continue;\n      const chasing = chasesMe(e);\n",
+    "new": "      const chasing = chasesMe(e);\n",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-NAVH-the-chase-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "      const chasing = chasesMe(e);\n      out.push({ pos: e.ship.pos, reach:",
+    "new": "      const chasing = false;\n      out.push({ pos: e.ship.pos, reach:",
+    "tests": [
+      "test/nav_r_raiders.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-OW6-the-first-holder-alone",
+    "file": "src/systems/naval/navalRaiders.js",
+    "old": "const owners = [r ? peers.get(r.seed) : undefined, held.get(id)];",
+    "new": "const owners = [(r ? peers.get(r.seed) : undefined) ?? held.get(id)];",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]

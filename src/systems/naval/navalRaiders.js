@@ -11,7 +11,10 @@
 //
 // ONE COPY. A raider is stood by the client it is near - the chased traveller's own, as OWS3's chase was - and said in
 // that client's word (NAV-G) like any ship it stands; a peer's copy of the same seed yields to the lower id, TV7b's
-// chaseYields law for a band two players chase.
+// chaseYields law for a band two players chase. THE MERGE with main's OW6 (its raider chases said on the cell's foes
+// frames): a raider a peer HOLDS - their Overworld chase of it, or their sea's ship, each said in the raider word the
+// world host hears (scenes/world.js seaRaidHear, seaRaidHeld) - is never stood here, OW6's own law ("never a sail a
+// peer's chase holds"), and one stood here yields to it as to a peer's copy: the lower id keeps it.
 //
 // PURE: which raiders stand and which go, their class, and the course they steer; the host builds and steps them.
 
@@ -47,26 +50,28 @@ const flat = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
 /**
  * THE PLAN of one refresh: which raiders to stand and which of mine go.
  * @param {{ raiders: { id: string, seed: number, pos: number[] }[], me: number[], myId: string,
- *   stood: Map<string, { pos: number[], engaged: boolean }>, peers: Map<number, string>, spent: Set<string> }} q
+ *   stood: Map<string, { pos: number[], engaged: boolean }>, peers: Map<number, string>, spent: Set<string>,
+ *   held?: Map<string, string> }} q
  *   `raiders` the raiders about the player where they sail now (scene), `stood` mine by raider id, `peers` a peer's
- *   copy's owner by raider seed, `spent` the raiders spent this life.
+ *   copy's owner by raider seed, `spent` the raiders spent this life, `held` the raiders a peer's raider word holds (OW6)
+ *   - the peer's id by raider id.
  * @returns {{ stand: string[], drop: string[] }} raider ids
  */
-export function raiderPlan({ raiders, me, myId, stood, peers, spent }) {
+export function raiderPlan({ raiders, me, myId, stood, peers, spent, held = new Map() }) {
   const byId = new Map(raiders.map((r) => [r.id, r]));
   const drop = [];
   for (const [id, s] of stood) {
     const r = byId.get(id);
-    const owner = r ? peers.get(r.seed) : undefined;
-    // a peer's copy with the lower id keeps the raider. Else she leaves only out of sight - past the drop range and
-    // fighting no one: struck (to be boarded), spent (sheering off) or her life over (sailing on), she is still a ship
-    // on the water, never one that vanishes in view
-    if (owner !== undefined && chaseYields(myId, owner)) { drop.push(id); continue; }
+    const owners = [r ? peers.get(r.seed) : undefined, held.get(id)];
+    // a peer's copy - or a peer's word holding her (OW6) - with the lower id keeps the raider. Else she leaves only out
+    // of sight - past the drop range and fighting no one: struck (to be boarded), spent (sheering off) or her life over
+    // (sailing on), she is still a ship on the water, never one that vanishes in view
+    if (owners.some((owner) => owner !== undefined && chaseYields(myId, owner))) { drop.push(id); continue; }
     if (!s.engaged && flat(s.pos, me) > RAIDER_DROP_M) drop.push(id);
   }
   const keep = [...stood.keys()].filter((id) => !drop.includes(id));
   const candidates = raiders
-    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)
+    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && !held.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)
     .filter((r) => { const owner = peers.get(r.seed); return owner === undefined || !chaseYields(myId, owner); })
     .sort((a, b) => flat(a.pos, me) - flat(b.pos, me));
   const stand = candidates.slice(0, Math.max(0, RAIDER_SHIPS_MAX - keep.length)).map((r) => r.id);

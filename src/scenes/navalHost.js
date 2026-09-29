@@ -38,13 +38,14 @@
 //   random() -> [0, 1)                         the engine draw (Port-Ledger A's rule: injectable, Math.random by default)
 //   groundY(x, z) -> y, shake(amount), peerBoats() -> [{ id, pos, vel, speed }], warmAshesOn() -> bool   (optional)
 //   raiderSpent(raiderId)                      NAV-R: a raider ship of mine sunk, struck, taken or given the slip - spent
-//                                              for its life (the Overworld's own law, scenes/world.js tvRaid.spent)
+//                                              for its life (the Overworld's own law, scenes/world.js seaRaidSpend: and
+//                                              said to the cell, OW6's raider word and its ledger)
 // }
 
 import { createShotField, insideGrown } from '../systems/naval/navalShots.js';
 import { createNavalEffects } from '../systems/naval/navalEffects.js';
 import { createNavalDirector, DENSITY, seedBaseOf } from '../systems/naval/navalDirector.js';
-import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provoke, hostile, RUN_OUT_S, RUN_OUT_DEG, BOW_RUN_OUT } from '../systems/naval/navalAI.js';
+import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provoke, hostile, lookoutOf, RUN_OUT_S, RUN_OUT_DEG, BOW_RUN_OUT } from '../systems/naval/navalAI.js';
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap
 import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost } from '../systems/naval/navalDamage.js';
 import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S } from '../systems/naval/navalGunnery.js';
@@ -672,17 +673,18 @@ export function createNavalHost(deps) {
   /**
    * The raiders about the player, where they sail now (the world host's, off seaRaiders.js - the shared clock's):
    * `list` [{ id, seed, pos, yaw, ahead }] in the scene (`ahead` where the seeded course is RAIDER_LEAD_S on); `sight`
-   * the lookout's reach tonight or today; `spent` the raiders spent this life. Mine stand and go by raiderPlan; each
-   * steers its seeded course and looks out, until it is spent.
+   * the lookout's reach tonight or today; `spent` the raiders spent this life; `held` the raiders a peer's word holds
+   * (OW6's raider word: raider id -> the peer's id). Mine stand and go by raiderPlan; each steers its seeded course and
+   * looks out, until it is spent.
    */
-  function raiders(list, { sight = null, spent = new Set() } = {}) {
+  function raiders(list, { sight = null, spent = new Set(), held = new Map() } = {}) {
     if (!enabled) return;
     const stood = new Map(), peers = new Map();
     for (const e of sea.values()) {
       if (!e.owner && e.raider) stood.set(e.raider.id, { pos: e.ship.pos, engaged: raiderBusy(e) });
       else if (e.owner && e.ship.cls.faction === 'pirate') peers.set(e.ship.seed, e.owner);
     }
-    const plan = raiderPlan({ raiders: list, me: deps.feet(), myId: myId(), stood, peers, spent });
+    const plan = raiderPlan({ raiders: list, me: deps.feet(), myId: myId(), stood, peers, spent, held });
     for (const id of plan.drop) { const e = raiderEntry(id); if (e) drop(e); }
     const level = deps.level?.() ?? 1;
     for (const id of plan.stand) {
@@ -719,6 +721,14 @@ export function createNavalHost(deps) {
     }
     return null;
   }
+  /** THE MERGE (OW6): the raiders my sea stands and has not spent - `[{ id, pos }]`, where each sails (scene) - for the
+   *  Overworld's raider word (scenes/world.js seaRaidHeld), so a peer's client holds off a raider I hold, with the sea
+   *  fight or without it. */
+  function raiderHeld() {
+    const out = [];
+    for (const e of sea.values()) if (!e.owner && e.raider && !e.raider.spent) out.push({ id: e.raider.id, pos: e.ship.pos });
+    return out;
+  }
 
   // ── contacts the captains see ────────────────────────────────────────────────────────────────────────────────────
   function contacts() {
@@ -743,16 +753,30 @@ export function createNavalHost(deps) {
     return out;
   }
 
+  /** A ship afloat that would take me - her trade, the crowns' notoriety, a blow remembered (navalAI.js hostile). */
+  const hostileToMe = (e) => e.ship.damage.state === SHIP_STATES.afloat
+    && hostile(e.ship, { kind: 'player', id: myId() }, { notoriety: (c) => notoriety.get(c), now: clock });
   /** Whether a hostile ship afloat is within HOSTILE_NEAR_M of the player - Come Sail Away's time scale, the mending
    *  and the shipwright all ask it. */
   function hostileNearMe() {
     const feet = deps.feet();
-    for (const e of sea.values()) {
-      if (e.ship.damage.state !== SHIP_STATES.afloat) continue;
-      if (dist2d(e.ship.pos, feet) > HOSTILE_NEAR_M) continue;
-      if (hostile(e.ship, { kind: 'player', id: myId() }, { notoriety: (c) => notoriety.get(c), now: clock })) return true;
-    }
+    for (const e of sea.values()) if (dist2d(e.ship.pos, feet) <= HOSTILE_NEAR_M && hostileToMe(e)) return true;
     return false;
+  }
+  /** THE MERGE with main's OW6 (a fast journey slows as enemies close, systems/travelThreat.js): the hostile ships
+   *  afloat - mine and a peer's copies, raiders among them - each where she sails with the ring a journey must not
+   *  cross unwarned: HOSTILE_NEAR_M, where she is an enemy nearby and the journey stops (NAV-H), or her lookout past
+   *  it while she has not yet sighted me; closing at her pace once she comes for me. `[{ pos, reach, chasing, mps }]`,
+   *  none with the arc off. */
+  function threats() {
+    const out = [];
+    if (!enabled) return out;
+    for (const e of sea.values()) {
+      if (!hostileToMe(e)) continue;
+      const chasing = chasesMe(e);
+      out.push({ pos: e.ship.pos, reach: chasing ? HOSTILE_NEAR_M : Math.max(HOSTILE_NEAR_M, lookoutOf(e.ship)), chasing, mps: e.ship.cls.speed });
+    }
+    return out;
   }
 
   // ── the shipwright, and the mending at sea (AUDIT NAV1, the helm) ────────────────────────────────────────────────
@@ -1952,9 +1976,10 @@ export function createNavalHost(deps) {
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     leaveShipGate, raidEnded, placeQuestFoe,
     newSaveData, getSaveData, restoreSaveData,
-    raiders, raiderShipOf,   // NAV-R
+    raiders, raiderShipOf, raiderHeld,   // NAV-R; THE MERGE (OW6): the raiders I hold, for the raider word
     /** Whether a hostile ship is near - Come Sail Away's time scale refuses to run with one (AreEnemiesNearby). */
     hostileNear: () => hostileNearMe(),
+    threats,   // THE MERGE (OW6): the hostile ships a journey slows for
     /** AUDIT NAV1 (the helm): the sea's ships on the compass (ui/hud.js drawShipCompassMarks, ui/enhancedHud.js) -
      *  within COMPASS_SHIP_RANGE of the player, afloat or struck: `[{ x, z, kind }]` in scene XZ, `kind` 'hostile' (a
      *  ship afloat that would take me), 'struck' (her colours down, or taken) or 'ship'. None with the arc off. */

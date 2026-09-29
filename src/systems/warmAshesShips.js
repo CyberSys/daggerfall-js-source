@@ -148,8 +148,8 @@ function armRaid() {
  * fast travel's own `tempShip` refusal).
  */
 export function raidAtSea() {
-  if (hasTraveledbyShip || _boardIn !== null || raidRunning()) return 'busy';
-  if (tempShip) return 'lent';
+  const refused = raidRefusal();
+  if (refused) return refused;
   const armed = armRaid();
   onPostFastTravel();
   return armed;
@@ -157,15 +157,24 @@ export function raidAtSea() {
 
 /** A raid quest running, whoever started it - the host's word off the quest machine's live table (WA_RAID_QUESTS). */
 const raidRunning = () => !!host().raidRunning?.();
+/** OWS3: why the mod refuses a raid NOW - an ambush armed or boarding, or a raid quest running whoever started it
+ *  ('busy' - THE MERGE of NAV-D and OWS3, below), a lent ship out ('lent') - or null. The refusals' one home: raidAtSea
+ *  answers with it, and AUDIT OW5b S1's host asks it before it lets go of the helm (a raid refused leaves the traveller
+ *  sailing, the raider sheering off unheeded). */
+export function raidRefusal() {
+  if (hasTraveledbyShip || _boardIn !== null || raidRunning()) return 'busy';
+  if (tempShip) return 'lent';
+  return null;
+}
 /**
  * THE MERGE of NAV-D and OWS3 (2026-09-28): ONE RAID AT A TIME, WHOEVER STARTS IT. Beside the mod's own fast travel,
  * two starters make Warm Ashes' raid - a raider alongside on the Overworld (raidAtSea) and the sea fight's boarders on a
  * crewed Come Sail Away deck (scenes/navalHost.js beginFight) - and neither saw the other's: a raid on the deck with
  * the mod's ship boarded under it, or a flagship's raid over an armed ambush. So each asks this one answer: an ambush
- * armed or boarding, a lent ship out, or a raid quest running.
+ * armed or boarding, a lent ship out, or a raid quest running - raidRefusal's, as a yes or no.
  */
 export function raidUnderWay() {
-  return hasTraveledbyShip || _boardIn !== null || tempShip || raidRunning();
+  return raidRefusal() !== null;
 }
 
 /** CheckforEncounters [IL_0384], OnPostFastTravel's subscriber: an armed ambush starts the coroutine. */

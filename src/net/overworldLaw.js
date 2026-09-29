@@ -1,0 +1,300 @@
+// @ts-check
+// OW6L (2026-09-29, the product owner: "Everything needs that persistence between players in the overworld."): THE
+// OVERWORLD'S LEDGER, AS A CELL KEEPS IT - one a cell room (net/wire.js worldRoom: sixteen map pixels square), in the
+// cell object's storage, so every player in the cell agrees: the ones standing in it now, and the ones who walk in later.
+//
+// WHAT IT HOLDS - the two things the Overworld could not share before:
+//   - THE SPENT. A roaming band (systems/travelBands.js, `b<cx>.<cy>.<life>`) and a Warm Ashes raider
+//     (systems/seaRaiders.js, `r<cx>.<cy>.<life>`) are born of the land and the shared clock - every player computes the
+//     same ones with no word said - but one a player fought or escaped was told only peer to peer (a foes frame's `bd`),
+//     to the players within three map pixels at that moment and to nobody after. The ledger keeps each spent id through
+//     its own life and the next (the client's own bandPrune: a band two lives gone is nobody's), OW_CELL_SPENT_MAX of
+//     them, the oldest out first.
+//   - THE SPAWNED DUNGEONS' CLOCKS (world/spawnedDungeons.js TTL1: a spawn is gone two game days after it was cleared,
+//     seven after it was first seen). The roll that stands one on a pixel is a pure hash every client shares; its two
+//     clocks were each client's own, so two players disagreed whether one was gone. The ledger keeps a row a pixel -
+//     `[px, py, seen, cleared?]`, shared classic minutes - and MIN-MERGES: the earliest first sight and the earliest clear
+//     anyone has said. So a spawn's clocks only ever run out sooner, never wind back, and every machine that folds the
+//     same rows, in any order, holds the same row. OW_CELL_ROWS_MAX of them (the oldest first sight out first), each let
+//     go OW_ROW_KEEP_MIN after its first sight - sixty real days, long past both clocks, so a spawn that went stays gone.
+//
+// WHAT THE RELAY CAN CHECK, it checks: an id's shape, and its life - this one or the last, on the relay's own clock; a
+// row's pixel on the map and its SPAWN ROLL (a pixel the roll leaves empty holds no dungeon, and the roll is pure), its
+// clear no earlier than its first sight, both inside the keep's window; and every pixel - an id's cell origin, a row's
+// own - inside the receiving cell's square widened by OW_CELL_MARGIN_PX (a band met at the seam, a dungeon a pixel over
+// the edge). WHAT IT CANNOT: whether a band was fought, and when a pixel was first seen - those are the players'
+// machines' word (co-op's law: the relay has no world to see them in); and with no map files it cannot say a pixel is
+// sea or road. It holds what it was told inside its window, its cell and its roll, and nothing else.
+//
+// PURE - no storage, no socket, no clock of its own: the relay (server/src/index.js) and the session (net/online.js)
+// hand the moment in. It imports the wire (the cell's arithmetic, the shared clock's law, the frame's shapes),
+// net/gateLaw.js (the relay's copy of the spawn hash) and net/raidLaw.js (two clocks' skew) - all three the relay's
+// already, so the worker's graph grows by this file alone. The band's, the raider's and the spawn's own numbers are
+// PINNED EQUAL here, never imported (gateLaw.js's law for this very hash): their modules reach the map files, and every
+// byte this file reaches is the relay's deploy - test/ow6_ledger.test.js holds each copy to its home.
+//
+// Not a DFU member: Daggerfall has no other players, and no Overworld.
+import { WORLD_CELL, ONLINE_MINUTES_PER_MS, sharedClassicMinutes, cellOfRoom, OW_BAND_ID_RE, OW_RAIDER_ID_RE, OW_WORD_IDS_MAX, OW_WORD_ROWS_MAX, OW_CELL_SPENT_MAX, OW_CELL_ROWS_MAX, owWireRow } from './wire.js';
+import { gateHash } from './gateLaw.js';   // the spawned dungeons' hash (world/spawnedDungeons.js hash32) - the relay's one copy
+import { RAID_SLACK_MINUTES } from './raidLaw.js';   // ten real seconds of two clocks' skew (WORLD5)
+
+export { OW_WORD_IDS_MAX, OW_WORD_ROWS_MAX, OW_CELL_SPENT_MAX, OW_CELL_ROWS_MAX };
+
+/** A band's life, real ms on the shared clock (systems/travelBands.js BAND_LIFE_MS - pinned equal). */
+export const OW_BAND_LIFE_MS = 12 * 60 * 1000;
+/** A band's cell, map pixels square (travelBands.js BAND_CELL_PX - pinned equal). */
+export const OW_BAND_CELL_PX = 2;
+/** A raider's life, real ms on the shared clock (systems/seaRaiders.js RAIDER_LIFE_MS - pinned equal). */
+export const OW_RAIDER_LIFE_MS = 20 * 60 * 1000;
+/** A raider's cell, map pixels square (seaRaiders.js RAIDER_CELL_PX - pinned equal). */
+export const OW_RAIDER_CELL_PX = 6;
+/** The one salt every client rolls spawned dungeons with (world/spawnedDungeons.js WORLD_SALT - pinned equal). */
+export const OW_WORLD_SALT = 1;
+/** A pixel's chance of a spawned dungeon of either kind (spawnedDungeons.js ANY_SPAWN_CHANCE: SPAWN_CHANCE + ELITE_CHANCE,
+ *  the same sum - pinned equal, and the roll pinned pixel for pixel over the whole map). */
+export const OW_SPAWN_CHANCE = 0.30 + 0.10;
+/** How far past its cell's square an id's or a row's pixel may lie, map pixels - a band met at the seam (its cell is
+ *  two pixels, its walk a pixel more), a raider's cell origin (six pixels, and a chase), a dungeon over the edge. */
+export const OW_CELL_MARGIN_PX = 8;
+/** How long a row is kept after its first sight: sixty real days, in shared classic minutes (the wire's
+ *  ONLINE_MINUTES_PER_MS - 720 game days, long past GENERAL_TTL's seven). */
+export const OW_ROW_KEEP_MS = 60 * 24 * 60 * 60 * 1000;
+export const OW_ROW_KEEP_MIN = OW_ROW_KEEP_MS * ONLINE_MINUTES_PER_MS;
+/** A row's clock may run this far ahead of the relay's (classic minutes) - two machines' skew, taken as the relay's now. */
+export const OW_ROW_SLACK_MIN = RAID_SLACK_MINUTES;
+
+// ═══ THE IDS ═════════════════════════════════════════════════════════════════════════════════════
+
+/** An id's kind: 'band', 'raider', or null for anything that is neither. @param {unknown} id @returns {'band'|'raider'|null} */
+export function owIdKind(id) {
+  if (typeof id !== 'string') return null;
+  return OW_BAND_ID_RE.test(id) ? 'band' : OW_RAIDER_ID_RE.test(id) ? 'raider' : null;
+}
+/** A kind's life, ms. @param {'band'|'raider'|null} kind */
+export const owLifeMs = (kind) => (kind === 'band' ? OW_BAND_LIFE_MS : kind === 'raider' ? OW_RAIDER_LIFE_MS : NaN);
+/** An id's life - its trailing number - or null. @param {unknown} id @returns {number|null} */
+export function owIdLife(id) {
+  if (!owIdKind(id)) return null;
+  const s = /** @type {string} */ (id);
+  return Number(s.slice(s.lastIndexOf('.') + 1));
+}
+/**
+ * Is an id's life the current one for its kind at `nowMs` - the SHARED clock in wall ms (the relay's own Date.now(), a
+ * client's Date.now() plus the welcome's offset) - or the one just over? An id of any other life is nobody's here.
+ * @param {unknown} id @param {number} nowMs
+ */
+export function owIdLive(id, nowMs) {
+  const kind = owIdKind(id);
+  if (!kind || !Number.isFinite(nowMs)) return false;
+  const life = owIdLife(id), cur = Math.floor(nowMs / owLifeMs(kind));
+  return life === cur || life === cur - 1;
+}
+/** When a spent id stops mattering, ms: the end of the life AFTER its own (the client's bandPrune keeps it that long). */
+export const owIdUntil = (id) => { const kind = owIdKind(id); return kind ? (owIdLife(id) + 2) * owLifeMs(kind) : NaN; };
+/**
+ * THE MAP PIXEL OF AN ID'S CELL ORIGIN, `{x, y}` (the map's own rows, y counting south), or null. The two kinds count
+ * their cells differently, and this is where that is said once:
+ *   - a BAND's cells run in the bands' own rows (travelBands.js bandPixelOf: bandY = 499 - mapY - they are counted on
+ *     native z, which runs north), BAND_CELL_PX square: cell (cx, cy) starts at band pixel (2cx, 2cy), the map pixel
+ *     (2cx, 499 - 2cy) - the cell's southern row, the map's y running the other way;
+ *   - a RAIDER's cells run in the map's own rows (seaRaiders.js raiderOf draws its pixel as `cy * RAIDER_CELL_PX + k`
+ *     and stands it by MapsFile's own mapPixelToWorldCoord), RAIDER_CELL_PX square: cell (cx, cy) starts at (6cx, 6cy).
+ * @param {unknown} id @returns {{x: number, y: number}|null}
+ */
+export function owIdPixel(id) {
+  const kind = owIdKind(id);
+  if (!kind) return null;
+  const s = /** @type {string} */ (id);
+  const [cx, cy] = s.slice(1, s.lastIndexOf('.')).split('.').map(Number);
+  return kind === 'band' ? { x: cx * OW_BAND_CELL_PX, y: 499 - cy * OW_BAND_CELL_PX } : { x: cx * OW_RAIDER_CELL_PX, y: cy * OW_RAIDER_CELL_PX };
+}
+
+// ═══ THE CELL ════════════════════════════════════════════════════════════════════════════════════
+
+/** A cell room's pixel square widened by OW_CELL_MARGIN_PX on every side - `[x0, x1) x [y0, y1)`, map pixels - or null
+ *  for a key that is no cell (net/wire.js cellOfRoom, WORLD_CELL: the cell law's one home). @param {unknown} roomKey */
+export function owCellSquare(roomKey) {
+  const c = cellOfRoom(roomKey);
+  if (!c) return null;
+  return { x0: c[0] * WORLD_CELL - OW_CELL_MARGIN_PX, y0: c[1] * WORLD_CELL - OW_CELL_MARGIN_PX, x1: (c[0] + 1) * WORLD_CELL + OW_CELL_MARGIN_PX, y1: (c[1] + 1) * WORLD_CELL + OW_CELL_MARGIN_PX };
+}
+const inSquare = (s, x, y) => !!s && Number.isFinite(x) && Number.isFinite(y) && x >= s.x0 && x < s.x1 && y >= s.y0 && y < s.y1;
+/** Is an id's cell origin inside a cell room's widened square? A word naming one outside it is junk in that room. */
+export const owIdInCell = (id, roomKey) => { const p = owIdPixel(id); return !!p && inSquare(owCellSquare(roomKey), p.x, p.y); };
+/** Is a row's pixel inside a cell room's widened square? */
+export const owRowInCell = (row, roomKey) => Array.isArray(row) && inSquare(owCellSquare(roomKey), row[0], row[1]);
+
+// ═══ THE ROWS ════════════════════════════════════════════════════════════════════════════════════
+
+/** Does a map pixel hold a spawned dungeon - spawnedDungeons.js spawnsDungeon(WORLD_SALT, px, py), on the relay's copy
+ *  of its hash? @param {number} px @param {number} py */
+export const owSpawnsDungeon = (px, py) => gateHash(OW_WORLD_SALT, px, py, 1) / 4294967296 < OW_SPAWN_CHANCE;
+/** A row's key in a ledger: its pixel, as the spawn ledger keys it ("px,py"). */
+export const owRowKey = (px, py) => `${px},${py}`;
+/**
+ * Could an honest machine say this row? Its shape (net/wire.js owWireRow), a pixel whose roll holds a spawn, and a clear
+ * no earlier than its first sight. One that could not is junk, and struck - never merely dropped.
+ * @param {unknown} r
+ */
+export function owRowSane(r) {
+  const w = owWireRow(r);
+  return !!w && owSpawnsDungeon(w[0], w[1]) && (w.length < 4 || w[3] >= w[2]);
+}
+/**
+ * A row as the ledger may take it at the shared clock `nowMin` (classic minutes): sane, its first sight inside
+ * [nowMin - OW_ROW_KEEP_MIN, nowMin] and its clear inside [seen, nowMin] - a clock up to OW_ROW_SLACK_MIN ahead is taken
+ * at nowMin (never later: the merge keeps the earliest, and the relay's now is the latest any clock can mean) - or null
+ * (out of its time: dropped, never struck - a stale save, a clock at the edge).
+ * @param {unknown} r @param {number} nowMin @returns {number[]|null}
+ */
+export function owRowFits(r, nowMin) {
+  if (!owRowSane(r) || !Number.isFinite(nowMin)) return null;
+  const [px, py, seen, cleared = null] = owWireRow(r);
+  if (seen < nowMin - OW_ROW_KEEP_MIN || seen > nowMin + OW_ROW_SLACK_MIN) return null;
+  if (cleared !== null && cleared > nowMin + OW_ROW_SLACK_MIN) return null;
+  const s = Math.min(seen, nowMin);
+  return cleared === null ? [px, py, s] : [px, py, s, Math.min(cleared, nowMin)];
+}
+
+// ═══ THE LEDGER ══════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * A cell's ledger: `sp` the spent ids in the order they were taken, each with the moment (ms) it stops mattering;
+ * `dg` the rows by their key, each the wire's own row.
+ * @typedef {{ sp: Array<[string, number]>, dg: Record<string, number[]> }} OwLedger
+ */
+
+/** An empty ledger. @returns {OwLedger} */
+export const newOwLedger = () => ({ sp: [], dg: {} });
+/** Does a ledger hold nothing? @param {OwLedger} led */
+export const owLedgerEmpty = (led) => !led || (!led.sp.length && !Object.keys(led.dg).length);
+/** The oldest first sights out, down to OW_CELL_ROWS_MAX; answers whether any went. @param {OwLedger} led */
+function capRows(led) {
+  const keys = Object.keys(led.dg);
+  if (keys.length <= OW_CELL_ROWS_MAX) return false;
+  keys.sort((a, b) => led.dg[a][2] - led.dg[b][2]);
+  for (const k of keys.slice(0, keys.length - OW_CELL_ROWS_MAX)) delete led.dg[k];
+  return true;
+}
+/**
+ * A stored ledger read back - a FRESH object holding its well-formed entries alone (each id once, each row sane, the
+ * bounds kept), or an empty one. The relay reads its storage through it, and writes a copy through it (the runtime keeps
+ * what was put, never the instance's live object).
+ * @param {unknown} v @returns {OwLedger}
+ */
+export function owLedgerOf(v) {
+  const led = newOwLedger();
+  if (!v || typeof v !== 'object') return led;
+  const src = /** @type {{sp?: unknown, dg?: unknown}} */ (v);
+  const ids = new Set();
+  for (const e of Array.isArray(src.sp) ? src.sp : []) {
+    if (!Array.isArray(e) || !owIdKind(e[0]) || !Number.isFinite(e[1]) || ids.has(e[0])) continue;
+    ids.add(e[0]);
+    led.sp.push([e[0], e[1]]);
+  }
+  led.sp = led.sp.slice(-OW_CELL_SPENT_MAX);
+  for (const r of src.dg && typeof src.dg === 'object' ? Object.values(src.dg) : []) {
+    const w = owWireRow(r);
+    if (w && owRowSane(w)) led.dg[owRowKey(w[0], w[1])] = w;
+  }
+  capRows(led);
+  return led;
+}
+
+/**
+ * THE SPENT, FOLDED IN: each id of a live life the ledger does not hold is taken (its end the life after its own), the
+ * spent past their end let go first and the oldest past OW_CELL_SPENT_MAX after. Answers the ids newly taken - what the
+ * cell fans. An id already held, or of another life, changes nothing.
+ * @param {OwLedger} led @param {unknown} ids @param {number} nowMs @returns {string[]}
+ */
+export function owFoldSpent(led, ids, nowMs) {
+  const added = [];
+  if (!led || !Array.isArray(ids) || !Number.isFinite(nowMs)) return added;
+  led.sp = led.sp.filter((e) => e[1] > nowMs);
+  const held = new Set(led.sp.map((e) => e[0]));
+  for (const id of ids.slice(0, OW_WORD_IDS_MAX)) {
+    if (!owIdLive(id, nowMs) || held.has(id)) continue;
+    held.add(id);
+    led.sp.push([id, owIdUntil(id)]);
+    added.push(id);
+  }
+  if (led.sp.length > OW_CELL_SPENT_MAX) led.sp.splice(0, led.sp.length - OW_CELL_SPENT_MAX);
+  return added;
+}
+
+/**
+ * THE ROWS, FOLDED IN - MIN-MERGE: each row that fits its time (owRowFits) keeps the earliest first sight and the
+ * earliest clear the ledger has ever heard for its pixel; a row it has never held is taken whole. Rows past the keep are
+ * let go first, and the oldest first sights past OW_CELL_ROWS_MAX after. Answers the rows that CHANGED, as they stand now
+ * (each pixel once) - what the cell fans; a row that told the ledger nothing new is not among them.
+ * @param {OwLedger} led @param {unknown} rows @param {number} nowMin @returns {number[][]}
+ */
+export function owFoldRows(led, rows, nowMin) {
+  const changed = new Map();
+  if (!led || !Array.isArray(rows) || !Number.isFinite(nowMin)) return [];
+  for (const [k, r] of Object.entries(led.dg)) if (r[2] < nowMin - OW_ROW_KEEP_MIN) delete led.dg[k];
+  for (const r of rows.slice(0, OW_WORD_ROWS_MAX)) {
+    const w = owRowFits(r, nowMin);
+    if (!w) continue;
+    const k = owRowKey(w[0], w[1]);
+    const had = led.dg[k];
+    const wc = w.length > 3 ? w[3] : null, hc = had && had.length > 3 ? had[3] : null;
+    const seen = had ? Math.min(had[2], w[2]) : w[2];
+    const cleared = hc === null ? wc : wc === null ? hc : Math.min(hc, wc);
+    if (had && seen === had[2] && cleared === hc) continue;   // nothing new: never raised, never re-said
+    const row = cleared === null ? [w[0], w[1], seen] : [w[0], w[1], seen, cleared];
+    led.dg[k] = row;
+    changed.set(k, row);
+  }
+  capRows(led);
+  return [...changed].filter(([k]) => led.dg[k]).map(([, row]) => row.slice());
+}
+
+/**
+ * THE SPEAKER'S ANSWER: the ledger's own rows for the pixels a word named where the WORD WAS BEHIND them - a later first
+ * sight, or a clear it lacked or had later - less those the fold just moved (the fan says those, to the speaker too).
+ * So a machine that forgot a spawn and met it again is told the clocks the cell already holds (RAID3's law: a word
+ * that moves nothing is answered to its speaker alone).
+ * @param {OwLedger} led @param {unknown} rows @param {number[][]} [changed] @returns {number[][]}
+ */
+export function owRowsBehind(led, rows, changed = []) {
+  const moved = new Set(changed.map((r) => owRowKey(r[0], r[1])));
+  const out = new Map();
+  for (const r of Array.isArray(rows) ? rows.slice(0, OW_WORD_ROWS_MAX) : []) {
+    const w = owWireRow(r);
+    if (!w) continue;
+    const k = owRowKey(w[0], w[1]);
+    const held = led?.dg?.[k];
+    if (!held || moved.has(k) || out.has(k)) continue;
+    const wc = w.length > 3 ? w[3] : null, hc = held.length > 3 ? held[3] : null;
+    if (held[2] < w[2] || (hc !== null && (wc === null || hc < wc))) out.set(k, held.slice());
+  }
+  return [...out.values()];
+}
+
+/**
+ * The ledger PRUNED at the shared clock `nowMs`: the spent past their end, the rows past the keep, and the bounds.
+ * Answers whether anything went (the relay writes it back).
+ * @param {OwLedger} led @param {number} nowMs
+ */
+export function owPrune(led, nowMs) {
+  if (!led || !Number.isFinite(nowMs)) return false;
+  const nowMin = sharedClassicMinutes(nowMs);
+  const sp = led.sp.filter((e) => e[1] > nowMs).slice(-OW_CELL_SPENT_MAX);
+  let dropped = sp.length !== led.sp.length;
+  led.sp = sp;
+  for (const [k, r] of Object.entries(led.dg)) if (r[2] < nowMin - OW_ROW_KEEP_MIN) { delete led.dg[k]; dropped = true; }
+  return capRows(led) || dropped;
+}
+
+/**
+ * THE WELCOME'S `ow`: `{ sp: [ids], dg: [[px, py, seen, cleared?], ...] }` - the spent still mattering and the rows
+ * still kept at `nowMs`, inside the cell's bounds. Pure: the ledger is not touched.
+ * @param {OwLedger} led @param {number} nowMs @returns {{sp: string[], dg: number[][]}}
+ */
+export function toWelcome(led, nowMs) {
+  const nowMin = sharedClassicMinutes(nowMs);
+  const sp = (led?.sp ?? []).filter((e) => e[1] > nowMs).slice(-OW_CELL_SPENT_MAX).map((e) => e[0]);
+  const dg = Object.values(led?.dg ?? {}).filter((r) => r[2] >= nowMin - OW_ROW_KEEP_MIN).slice(0, OW_CELL_ROWS_MAX).map((r) => r.slice());
+  return { sp, dg };
+}

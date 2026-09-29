@@ -88,6 +88,9 @@ export function spawnedPixels(index) {
  * AUDIT OW4 D7: THE FOUND FIRST, THEN THE REST NEAREST - the twelve were the nearest twelve whatever they were, so a
  * found dungeon (a plate, a journey) went off the Overworld behind nearer "?"s it could do nothing with. The cap is
  * taken of the found ones first, then of the unfound nearest first; what is kept is handed back nearest first.
+ * AUDIT OW5b D1: AND AN UNFOUND ONE WITHIN THE GRID SPENDS NONE OF THEM - the ground the view shows (as a found one
+ * there is TV2's plate and spends none). Found first, twelve found within the far range left not one "?" on the
+ * Overworld, the one five hundred metres off included.
  * @param {{ at: {x:number,y:number}, dungeons: Array<{x:number,y:number,row:any}>, locAt: (x:number, y:number) => any,
  *   isFound: (x:number, y:number) => boolean, spawns?: Array<{x:number,y:number,loc:any}>, spawnKnown?: (s:any) => boolean,
  *   spawnFound?: (s:any) => boolean, spawnGone?: (s:any) => boolean, grid?: number, range?: number, max?: number }} q
@@ -111,8 +114,10 @@ export function nearDungeons({ at, dungeons, locAt, isFound, spawns = [], spawnK
     out.push({ key: `spawn:${s.loc.mapTableData?.mapId}`, x: s.x, y: s.y, loc: s.loc, row: null, d, found: !!spawnFound(s), spawn: true });
   }
   const nearer = (a, b) => a.d - b.d || a.x - b.x || a.y - b.y;
-  out.sort((a, b) => (b.found ? 1 : 0) - (a.found ? 1 : 0) || nearer(a, b));   // AUDIT OW4 D7: the found first
-  return out.slice(0, max).sort(nearer);
+  const inGrid = (g) => !g.found && Math.max(Math.abs(g.x - at.x), Math.abs(g.y - at.y)) <= grid;   // AUDIT OW5b D1
+  const rest = out.filter((g) => !inGrid(g));
+  rest.sort((a, b) => (b.found ? 1 : 0) - (a.found ? 1 : 0) || nearer(a, b));   // AUDIT OW4 D7: the found first
+  return [...out.filter(inGrid), ...rest.slice(0, max)].sort(nearer);
 }
 
 /**

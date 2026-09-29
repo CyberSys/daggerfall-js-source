@@ -227,8 +227,8 @@
   {
     "name": "NAV-D-under-way-forgets-the-lent-ship",
     "file": "src/systems/warmAshesShips.js",
-    "old": "  return hasTraveledbyShip || _boardIn !== null || tempShip || raidRunning();",
-    "new": "  return hasTraveledbyShip || _boardIn !== null || raidRunning();",
+    "old": "  if (tempShip) return 'lent';\n",
+    "new": "",
     "tests": [
       "test/nav_d_boarding.test.js"
     ]
@@ -236,8 +236,8 @@
   {
     "name": "NAV-D-under-way-forgets-the-running-raid",
     "file": "src/systems/warmAshesShips.js",
-    "old": "  return hasTraveledbyShip || _boardIn !== null || tempShip || raidRunning();",
-    "new": "  return hasTraveledbyShip || _boardIn !== null || tempShip;",
+    "old": "  if (hasTraveledbyShip || _boardIn !== null || raidRunning()) return 'busy';",
+    "new": "  if (hasTraveledbyShip || _boardIn !== null) return 'busy';",
     "tests": [
       "test/nav_d_boarding.test.js"
     ]

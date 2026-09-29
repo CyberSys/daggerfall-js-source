@@ -116,7 +116,8 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   noBoat: 'Your boat is not with you to cross the water.',
   aground: 'Your boat has run aground.',
   raidersAlongside: 'Pirates come alongside!',   // OWS3
-  // TV-WASD: the bar's line while the movement keys travel - the speed, and the load governor's hold beside it
+  enemiesSlow: 'Enemies near - you slow your pace.',   // OW6: the journey held for an enemy near (systems/travelThreat.js), said once as it begins
+  // TV-WASD: the bar's line while the movement keys travel - the speed, and the governor's hold beside it (the land's; OW6: or an enemy's)
   travelling: (rate, held = null) => (held != null && held < rate ? `Travelling at ×${held} of ×${rate}` : `Travelling at ×${rate}`),   // the travel strip's own sign
   inPlace: (place, region) => (region ? `${place}, ${region}` : place),
   nearPlace: (place, region) => (region ? `Near ${place}, ${region}` : `Near ${place}`),

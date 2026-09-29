@@ -67,6 +67,8 @@ import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39
 import { bindQuestFoeHost, isPrivateQuestFoe } from './questFoeHost.js';   // B1: quest foes ride this pool; CURSE-SYNC: a world quest's ride as the world's
 import { validSites, validSiteTags, WOD_CAMP_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
 import { validRaidTags, validAlliedIds, RAID_PUPPETS_MAX } from '../world/raidShared.js';   // RAID2: a town's raid, shared
+import { campTagsOf, validCampTags } from '../world/campShared.js';   // OW6: a camp rides tagged, and an heir takes it as a camp
+import { CAMP_SIGHT_RADIUS, CAMP_ALERT_RADIUS, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // OW6: a camp taken over sees and wakes as it did
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
 
@@ -237,6 +239,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   let _onCsa = null;            // CSA-J: (from, record | null, nowMs) - a peer's boats off the same frame (systems/comeSailAwayWire.js)
   let _onCsaClear = null;       // CSA-J: called wherever the teams' clear runs - the peers' boats go with the puppets
   let _onBands = null;          // TV7b: (from, word, nowMs) - a peer's band chases off the same frame (systems/travelBands.js validBandWord)
+  let _onSeaRaiders = null;     // OW6: (from, word, nowMs) - a peer's raider chases at sea, the bands' law (systems/seaRaiders.js validRaiderWord)
   let _onCsaAboard = null;      // CSA-K: (from, word | null, nowMs) - a peer's place aboard a boat, off the same frame
   let _onCsaAboardClear = null; // CSA-K: and gone with the boats
   let _onNaval = null;          // NAV-G: (from, record | null, nowMs) - a peer's sea (the ships they stand, their volleys) off the same frame (systems/naval/navalWire.js)
@@ -1750,6 +1753,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   function setOnCamps(fn) { _onCamps = typeof fn === 'function' ? fn : null; }
   function setOnHcc(fn, onClear = null) { _onHcc = typeof fn === 'function' ? fn : null; _onHccClear = typeof onClear === 'function' ? onClear : null; }   // HCC-ONLINE
   function setOnBands(fn) { _onBands = typeof fn === 'function' ? fn : null; }   // TV7b
+  function setOnSeaRaiders(fn) { _onSeaRaiders = typeof fn === 'function' ? fn : null; }   // OW6
   function setOnRaids(fn) { _onRaids = typeof fn === 'function' ? fn : null; }   // RAID2
   function setOnCsa(fn, onClear = null) { _onCsa = typeof fn === 'function' ? fn : null; _onCsaClear = typeof onClear === 'function' ? onClear : null; }   // CSA-J
   function setOnCsaAboard(fn, onClear = null) { _onCsaAboard = typeof fn === 'function' ? fn : null; _onCsaAboardClear = typeof onClear === 'function' ? onClear : null; }   // CSA-K
@@ -1827,8 +1831,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const qf = out.filter((r) => qtOf.has(r)).map((r) => { const f = src.get(r), fl = (f?._questMarker ? 1 : 0) | (r.d !== 1 && questTouched(f) ? 2 : 0); return fl ? [r.i, qtOf.get(r).q, qtOf.get(r).s, fl] : [r.i, qtOf.get(r).q, qtOf.get(r).s]; });   // QUEST-PARTY: which records are a shared quest's foes, and whose; phase 3: a marker's, and touched
     const dz = out.filter((r) => src.get(r)?.managed).map((r) => r.i);   // DEEP-SHARE: the deep's foes (managed: its spawner owns its life), by number - a reader stands them under DEEP_PUPPETS_MAX
     const rz = out.filter((r) => src.get(r)?.raidKey).map((r) => [r.i, src.get(r).raidKey]);   // RAID2: a raid's raiders, by number and raid - a reader stands them under RAID_PUPPETS_MAX
+    const cz = campTagsOf(out, (r) => src.get(r));   // OW6: a camp's members, by number, camp and kind - a reader marks the camp on its Overworld, an heir takes it as one
     const al = out.filter((r) => r.t === KNIGHT_CITYWATCH_ID && r.d !== 1 && src.get(r)?.defender).map((r) => r.i);   // RAID2: the watchmen who are MY allies (DISC19-F's defenders, a raid's among them) - a reader stands them as its allies, where a watch record carried no team
-    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(rz.length ? { rz } : {}), ...(al.length ? { al } : {}), ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}), ...(qf.length ? { qf } : {}) };
+    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(rz.length ? { rz } : {}), ...(cz.length ? { cz } : {}), ...(al.length ? { al } : {}), ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}), ...(qf.length ? { qf } : {}) };
   }
   /** The owner's record (AUDIT WORLD6b B4/C3), minted on its first frame. */
   function ownerOf(from) { let o = _owners.get(from); if (!o) { o = { n: -1, at: _now(), gen: ++_ownerGen, k: null }; _owners.set(from, o); } return o; }   // WORLD6b-iii(b): k the cell the owner's frames are keyed to - its own
@@ -1873,6 +1878,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const deepIds = validDeepIds(data.dz);   // DEEP-SHARE: which are the deep's
     const questTags = validQuestTags(data.qf);   // QUEST-PARTY: which are a shared quest's foes, and whose
     const raidTags = validRaidTags(data.rz);   // RAID2: which are a raid's raiders, and whose raid
+    const campTags = validCampTags(data.cz);   // OW6: which are a camp's members, and whose camp
     const allied = validAlliedIds(data.al);   // RAID2: which watchmen are the owner's allies
     const stood = new Set(), refused = new Set();   // AUDIT WOD7: a site whose every record the allowance refused is not spent here
     const liveMarks = [];   // QUEST-PARTY phase 3: the owner's live marker foes of a quest the party shares
@@ -1905,13 +1911,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (site && (f || _pupPending.has(key))) stood.add(site);   // AUDIT WOD7: standing or building here
       if (f) {
         if ((r.t !== undefined && r.t !== f.mobileType) || (r.d === 0 && f.dead) || (r.l !== undefined && f.mobileType >= 128 && r.l !== (f.builtLevel | 0))) removePuppet(f);   // AUDIT WORLD6b-ii B2: a CLASS foe's level is its owner's word (its skills and health are built from it) - a monster's is its species' (makeEnemyEntity), whatever the record says; AUDIT FOES FOE8: against the level it was BUILT at, which a City Watch's constructor re-rolls
-        else { applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r)) adopted += adopt(from, f); if (f.mobileType === KNIGHT_CITYWATCH_ID) alliedWatchPuppet(f, allied.has(r.i)); continue; }
+        else { if (campTags.has(r.i)) f._pupCamp = campTags.get(r.i); applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r)) adopted += adopt(from, f); if (f.mobileType === KNIGHT_CITYWATCH_ID) alliedWatchPuppet(f, allied.has(r.i)); continue; }   // OW6: its camp, as the owner last said it
       }
       // AUDIT (the pre-merge audit, D2): a foe of theirs I took, streamed ALIVE by them again (a socket back under the
       // same id, a tab that woke) - theirs again: mine goes, and their record stands it here as their puppet
       const took = _adopted.get(key);
       if (took) { _adopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGo(took); }
-      if (_pupPending.has(key)) { _pupPending.set(key, { ...r, t: _pupPending.get(key).t, _site: _pupPending.get(key)._site, _deep: _pupPending.get(key)._deep, _quest: _pupPending.get(key)._quest, _raid: _pupPending.get(key)._raid }); continue; }   // AUDIT ALL A1: a pending build's SPECIES is fixed at the build - a later word without `t` (or with another) neither moves it out of its class's count (an unbounded stand: a peer re-worded a pending watch as no species and stood ten more) nor lands a record of the wrong species on the build
+      if (_pupPending.has(key)) { _pupPending.set(key, { ...r, t: _pupPending.get(key).t, _site: _pupPending.get(key)._site, _deep: _pupPending.get(key)._deep, _quest: _pupPending.get(key)._quest, _raid: _pupPending.get(key)._raid, _camp: campTags.get(r.i) ?? _pupPending.get(key)._camp }); continue; }   // AUDIT ALL A1: a pending build's SPECIES is fixed at the build - a later word without `t` (or with another) neither moves it out of its class's count (an unbounded stand: a peer re-worded a pending watch as no species and stood ten more) nor lands a record of the wrong species on the build   OW6: and its camp, the newest word
       if (r.d === 1 || r.t === undefined || !ENEMY_BASICS[r.t] || !r.f) continue;
       if (site && livePuppetsOf(from, false, true) >= WOD_CAMP_PUPPETS_MAX) { refused.add(site); continue; }   // WOD7: a shared camp's foes under their own allowance
       const deep = deepIds.has(r.i);
@@ -1919,7 +1925,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (!site && (qt ? livePuppetsOf(from, false, false, false, true) >= QUEST_PUPPETS_MAX : deep ? livePuppetsOf(from, false, false, true) >= DEEP_PUPPETS_MAX : r.t === KNIGHT_CITYWATCH_ID ? livePuppetsOf(from, true) >= CELL_WATCH_PUPPETS_MAX : raidKey ? livePuppetsOf(from, false, false, false, false, true) >= RAID_PUPPETS_MAX : livePuppetsOf(from) >= CELL_PUPPETS_MAX)) continue;   // DEEP-SHARE: the deep's, its own   // AUDIT WATCH1 A1: the watch has its own allowance - under one cap the foes spent it first and no watchman ever stood; WOD7: a camp's, its own
       const feet = _net.toScene(r.f);
       if (!feet) continue;
-      _pupPending.set(key, { ...r, _site: site, _deep: deep, _quest: qt, _raid: raidKey });
+      _pupPending.set(key, { ...r, _site: site, _deep: deep, _quest: qt, _raid: raidKey, _camp: campTags.get(r.i) ?? null });
       if (site) stood.add(site);
       const gen = o.gen;
       spawnFoe(r.t, feet, { puppet: from, seq: r.i, gender: GENDER_BIT[r.x === 1 ? 1 : 0], feetGiven: true, yaw: r.y ?? null, level: r.l ?? null, site, allied: r.t === KNIGHT_CITYWATCH_ID && allied.has(r.i) })   // RAID2: a watchman the owner names its ally stands as mine
@@ -1935,6 +1941,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           nf._pupDeep = !!(rec._deep ?? deep);   // DEEP-SHARE: its class as it was built
           nf._pupQuest = rec._quest ?? qt;   // QUEST-PARTY: and its quest's word
           nf._pupRaid = rec._raid ?? raidKey;   // RAID2: and its raid
+          nf._pupCamp = rec._camp ?? campTags.get(r.i) ?? null;   // OW6: and its camp
           applyPuppetRecord(nf, rec);
           nf._heirElse = heirElse(rec);
           if (heirIsMe(rec) && adopt(from, nf)) console.info('[foes] took over 1 foe from a fallen player');   // AUDIT CONTRIB P1: a handed foe I had not stood yet
@@ -1957,6 +1964,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (data.rk !== undefined) _onRaids?.(from, data.rk, _now());   // RAID2: the owner's word on the raids it fought - past the same room test
     if (data.du !== undefined) _onDuel?.(from, data.du, _now());   // DUEL1: the ring the owner duels in (null: none) - a frame without the field leaves the last word standing; past the same room test
     if (data.bd !== undefined) _onBands?.(from, data.bd, _now());   // TV7b: the owner's band chases and spent bands - past the same room test
+    if (data.sr !== undefined) _onSeaRaiders?.(from, data.sr, _now());   // OW6: and its raider chases and spent raiders at sea - the same test
     if (data.sa !== undefined) _onCsa?.(from, data.sa, _now());   // CSA-J: the owner's boats (null: none stand) - a frame without the field leaves the last word standing; past the same room test
     if (data.ab !== undefined) _onCsaAboard?.(from, data.ab, _now());   // CSA-K: the sender's place aboard a boat (null: aboard none) - the same law, the same test
     if (data.nv !== undefined) _onNaval?.(from, data.nv, _now());   // NAV-G: the owner's sea (null: none) - the ships they stand, their last volleys and barrels; past the same room test
@@ -2354,6 +2362,18 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       takeTouched(f, qt);
     }
     if (f._pupRaid) { f.raidKey = f._pupRaid; f._pupRaid = null; }   // RAID2: a raid's raider taken over is still the raid's - it rides tagged from here, and its death is my share
+    // OW6: A CAMP TAKEN OVER IS STILL A CAMP - one number of mine for all of the owner's camp (its members still spare and
+    // wake each other, CAMP2's exemption keyed on it), its sixty metres' sight and its alert radius as they were; it rides
+    // tagged from here, and my Overworld marks it. The handover had turned every camp into loose wanderers at infighting
+    if (f._pupCamp) {
+      const t = f._pupCamp, ck = `${from}:${t.id}`;
+      f._pupCamp = null;
+      let id = _adoptedCamps.get(ck);
+      if (id == null) { id = newCampId(); _adoptedCamps.set(ck, id); }
+      f.campId = id; f.campKind = t.kind; f.campAlertRadius = t.kind === 'camp' ? CAMP_ALERT_RADIUS : PACK_ALERT_RADIUS;
+      if (f.ai) f.ai.sightRadius = CAMP_SIGHT_RADIUS;
+      if (f.entity) f.entity.campId = id;
+    }
     _adopted.set(origin, f);   // AUDIT (pre-merge) D2: theirs again if they stream it alive
     return 1;
   }
@@ -2397,10 +2417,16 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     _onCsaAboardClear?.();   // CSA-K: and their places aboard
     _onNavalClear?.();   // NAV-G: and the ships they stand
   }
+  /** OW6: THE CAMPS' NUMBERS, one counter for this pool - the host's stands (world.js _standCampEncounter) and a camp an
+   *  heir takes over (adopt) alike, so an adopted camp never shares a number with one of mine. */
+  let _nextCampId = 1;
+  const newCampId = () => _nextCampId++;
+  /** OW6: an owner's camp taken over, by `owner:campId` - every member of it one camp of mine. */
+  const _adoptedCamps = new Map();
   /** DROPS-AUDIT CAMP-CAP: the encounter slots still free, the spawns in flight counted. */
   const encounterRoom = () => MAX_ACTIVE_ENCOUNTER_FOES - activeCount() - spawning.filter((s) => s.capped).length;
 
-  return { foes, spawnFoe, damageFoe, encounterRoom, partyHit, healFoe, pendingFeet: () => spawning.map((p) => p.feet), handleAttackFromPlayer, attackFromPlayer, update, resolvePlayerHit, poisonFoe, batches, offsetAll, activeCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(foes, key, 'foeCorpse', corpseLens)), snapshotWorld, restoreWorld, destroy,   // LOOT-STACK: a body as the loot window's tab
+  return { foes, spawnFoe, damageFoe, encounterRoom, newCampId, partyHit, healFoe, pendingFeet: () => spawning.map((p) => p.feet), handleAttackFromPlayer, attackFromPlayer, update, resolvePlayerHit, poisonFoe, batches, offsetAll, activeCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(foes, key, 'foeCorpse', corpseLens)), snapshotWorld, restoreWorld, destroy,   // LOOT-STACK: a body as the loot window's tab
     /** AUDIT 39: CleanupUntrackedObjects' enemy half (StreamingWorld.cs
      *  :1624-1635), which a teleport reaches too through
      *  ClearStreamingWorld -> CollectLooseObjects(true) (:993-998) -
@@ -2419,6 +2445,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     setOnRaids,   // RAID2
     setOnCsa,   // CSA-J
     setOnBands,   // TV7b
+    setOnSeaRaiders,   // OW6
     setOnCsaAboard,   // CSA-K
     setOnNaval,   // NAV-G
     setOnCamps, setOnHcc, setOnDuel };   // SURV3; HCC-ONLINE

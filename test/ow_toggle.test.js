@@ -151,7 +151,7 @@ function mountGovernor(env) {
   const end = WORLD.indexOf('\n  }\n', fn) + 4;
   assert.ok(from >= 0 && fn > from && end > fn, 'the governor\'s source');
   const names = Object.keys(env);
-  return new Function(...names, `${WORLD.slice(from, end)}\nreturn { govern: travelViewGovern, held: () => tvHeld, ground: () => tvHeldGround };`)(...names.map((k) => env[k]));
+  return new Function(...names, `${WORLD.slice(from, end)}\nreturn { govern: travelViewGovern, held: () => tvHeld, ground: () => tvHeldWhy === 'ground' };`)(...names.map((k) => env[k]));   // AUDIT OW5 G1's word, OW6's reason
 }
 
 test('OW-TOGGLE host: a first-person journey under a view brought down runs at the speed asked - AUDIT OW4 J5\'s x1 hold is the Overworld\'s journey\'s alone', () => {
@@ -170,6 +170,7 @@ test('OW-TOGGLE host: a first-person journey under a view brought down runs at t
       state: { terrainDistance: 3 }, playerTravelPixel: () => ({ x: 100, y: 200 }), tvGroundGenNow: () => 0,
       unbuiltAround, built: { has: () => true },
       tvOwnsJourneys: () => owns,
+      journeyThreatCap: () => ({ cap: Infinity }), journeySlowSaid: () => {},   // OW6: no enemy about (test/ow6_slowdown.test.js runs the cap)
     });
     g.govern(1 / 60);
     assert.equal(timeScale(), want, owns ? 'the Overworld\'s journey on the ground: held at x1 until the view rises' : 'First-Person Travel: the journey\'s own x20, on the ground');

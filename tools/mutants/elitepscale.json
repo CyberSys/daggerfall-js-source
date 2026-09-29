@@ -16,7 +16,7 @@
   {
     "name": "EPS-camp-room-asks-the-ungrown-group",
     "file": "src/scenes/world.js",
-    "old": "            const size = partyGroupMembers(h.mobileTypes, partySize()).length;",
+    "old": "            const size = campMembers(h.mobileTypes).length;",
     "new": "            const size = h.mobileTypes.length;",
     "tests": ["test/elitepscale.test.js"]
   }

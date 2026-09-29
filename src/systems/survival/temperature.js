@@ -176,7 +176,8 @@ export function resistTemperature(temp, ctx = {}) {
  *  array indexed by slot (the equip table) or a plain object. */
 const at = (worn, slot) => (worn ? worn[slot] ?? null : null);
 
-/** The cloak on either cloak slot, and whether a hood is up. */
+/** The cloak on either cloak slot, and whether a hood is up - the ONE
+ *  hood law: VAMP-HOOD's sun reads it too (vampirism.js racialSunAverse). */
 export function cloakState(worn) {
   const cloaks = [at(worn, EQUIP_SLOTS.Cloak1), at(worn, EQUIP_SLOTS.Cloak2)].filter(Boolean);
   const cloak = cloaks.length > 0;
