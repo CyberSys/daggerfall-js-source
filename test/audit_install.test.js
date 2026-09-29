@@ -154,7 +154,7 @@ test('L1-2: the launcher navigates nowhere, opens nothing and is granted nothing
   assert.match(fences, /contents\.setWindowOpenHandler\(\(\{ url \}\) => \{\s*if \(launcherContents\.has\(contents\)\) return \{ action: 'deny' \};/, 'no window, and no browser either');
   assert.match(fences, /contents\.on\('will-navigate', \(e, url\) => \{\s*if \(launcherContents\.has\(contents\)\) \{ e\.preventDefault\(\); return; \}/,
     'not an https page (the app-wide fence hands those to the browser), not a dagger://game page with the launcher\'s bridge on it');
-  assert.match(main, /session\.defaultSession\.setPermissionRequestHandler\(\(wc, _permission, callback\) => callback\(!launcherContents\.has\(wc\)\)\);/,
+  assert.match(main, /session\.defaultSession\.setPermissionRequestHandler\(\(wc, _permission, callback, details\) => callback\(!isLauncherPage\(wc, details\?\.requestingUrl\)\)\);/,
     'the clipboard, notifications, the camera: denied to the launcher; every other page keeps Electron\'s default');
   assert.match(main, /const LAUNCHER_ORIGIN = 'dagger:\/\/launcher\/';/);
   assert.match(main, /ipcMain\.on\('launcher:ready', \(e\) => \{ if \(fromLauncher\(e\)\) renderLauncher\(\); \}\);/);
@@ -178,7 +178,7 @@ test('L1-1/L1-5/L3-2/L3-5/L3-6: the release workflow - no token left behind, a t
   assert.equal((wf.match(/persist-credentials: false/g) ?? []).length, checkouts.length, 'EVERY checkout - nothing here pushes, and the publish job holds contents: write');
   assert.doesNotMatch(wf, /\$\{\{ needs\.version\.outputs\.version \}\}"? --no-git-tag-version|run: .*\$\{\{ (inputs|github\.ref_name|needs\.version)/, 'no tag or input text is pasted into a script');
   const publish = wf.slice(wf.indexOf('\n  publish:'));
-  const guard = publish.indexOf('- name: The tag has no published release'), stage = publish.indexOf('softprops/action-gh-release@v2');
+  const guard = publish.indexOf('- name: The tag has no published release'), stage = publish.indexOf('uses: softprops/action-gh-release@');
   assert.ok(guard > 0 && stage > guard, 'the guard stands before anything is staged');
   assert.match(publish, /if gh api "repos\/\$GITHUB_REPOSITORY\/releases\/tags\/\$TAG" --silent 2>lookup-error\.txt; then\s*echo "::error::\$TAG is already published[^"]*"\s*exit 1\s*fi\s*grep -q 'HTTP 404' lookup-error\.txt \|\| \{ cat lookup-error\.txt >&2; exit 1; \}/);
   assert.match(publish, /if CURRENT=\$\(gh api "repos\/\$GITHUB_REPOSITORY\/releases\/latest" --jq \.tag_name 2>latest-error\.txt\); then :\s*elif grep -q 'HTTP 404' latest-error\.txt; then CURRENT=''\s*else cat latest-error\.txt >&2; exit 1\s*fi/,

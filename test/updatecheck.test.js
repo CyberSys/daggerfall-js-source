@@ -31,8 +31,9 @@ test('DA6/REL1/REL3: the release\'s number is ONE variable - the tag and the sta
   assert.ok(wf.includes('VERSION="${TAG#app-v}"'), 'the version IS the tag, less its prefix');
   // REL4: resolved ONCE, by the `version` job, whose outputs ARE the step's - every leg and the publish job read them
   assert.match(wf, /\n  version:\n[\s\S]*?outputs:\n\s+tag: \$\{\{ steps\.reltag\.outputs\.tag \}\}\n\s+version: \$\{\{ steps\.reltag\.outputs\.version \}\}/, 'the version job hands the one number on');
-  assert.match(wf, /env:\n\s+VERSION: \$\{\{ needs\.version\.outputs\.version \}\}\n\s+run: npm version "\$VERSION" --no-git-tag-version --allow-same-version/,
-    'the stamp reads the same output - from the environment, never pasted into the script');
+  // AUDIT INSTALL R2-B1: and in bash - on the Windows leg a step with no shell is PowerShell, where "$VERSION" is unset
+  assert.match(wf, /shell: bash\n\s+env:\n\s+VERSION: \$\{\{ needs\.version\.outputs\.version \}\}\n\s+run: npm version "\$VERSION" --no-git-tag-version --allow-same-version/,
+    'the stamp reads the same output - from the environment, never pasted into the script, in a shell that reads it on every leg');
   assert.match(wf, /tag_name: \$\{\{ needs\.version\.outputs\.tag \}\}/, 'the release is cut at the same output');
   // REL4: in the job that COUNTS - the publish job's own full checkout (for the notes' diff) must not stand in for it
   const versionJob = wf.slice(wf.indexOf('\n  version:\n'), wf.indexOf('\n  gate:\n'));

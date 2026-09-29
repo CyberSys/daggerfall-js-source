@@ -1,0 +1,190 @@
+[
+  {
+    "name": "AUDIT-INSTALL-R2-B1-the-stamp-in-powershell",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "        if: needs.version.outputs.version != ''\n        shell: bash\n        env:",
+    "new": "        if: needs.version.outputs.version != ''\n        env:",
+    "tests": ["test/audit_install2.test.js", "test/updatecheck.test.js"],
+    "note": "The Windows leg's default shell is pwsh: \"$VERSION\" is unset there, the stamp fails, and publish never runs."
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-B1-the-stamp-in-pwsh-by-name",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "        if: needs.version.outputs.version != ''\n        shell: bash\n",
+    "new": "        if: needs.version.outputs.version != ''\n        shell: pwsh\n",
+    "tests": ["test/audit_install2.test.js", "test/updatecheck.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-B1-a-new-step-reads-a-variable-in-any-shell",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "        run: npx electron-builder --publish never\n",
+    "new": "        run: npx electron-builder --publish never -c.extraMetadata.version=$VERSION\n",
+    "tests": ["test/audit_install2.test.js"],
+    "note": "The law is the whole file's, not the stamp's alone."
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-B4-the-action-on-a-moving-tag",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2\n",
+    "new": "uses: softprops/action-gh-release@v2\n",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-B4-a-commit-nobody-can-name",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2\n",
+    "new": "uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65\n",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C2-the-old-draft-is-reused",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "          LEFT=$(gh api --paginate \"repos/$GITHUB_REPOSITORY/releases?per_page=100\" --jq '.[] | select(.draft and .tag_name == env.TAG) | .id')\n          for ID in $LEFT; do\n            gh api -X DELETE \"repos/$GITHUB_REPOSITORY/releases/$ID\" --silent\n            echo \"deleted draft $ID, left at $TAG by an earlier run\"\n          done\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js"],
+    "note": "softprops keeps the lowest-id draft for the tag: the failed run's notes, and the commit the tag is then cut at."
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C2-a-failed-listing-deletes-nothing-silently",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "          LEFT=$(gh api --paginate \"repos/$GITHUB_REPOSITORY/releases?per_page=100\" --jq '.[] | select(.draft and .tag_name == env.TAG) | .id')\n          for ID in $LEFT; do\n",
+    "new": "          for ID in $(gh api --paginate \"repos/$GITHUB_REPOSITORY/releases?per_page=100\" --jq '.[] | select(.draft and .tag_name == env.TAG) | .id'); do\n",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C2-only-the-first-page",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "          LEFT=$(gh api --paginate \"repos/",
+    "new": "          LEFT=$(gh api \"repos/",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C2-published-releases-deleted-too",
+    "file": ".github/workflows/release-desktop.yml",
+    "old": "select(.draft and .tag_name == env.TAG)",
+    "new": "select(.tag_name == env.TAG)",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-B2-the-launcher-stays-on-about-blank",
+    "file": "app/main.cjs",
+    "old": "  contents.on('did-navigate', (_e, url) => {\n    if (launcherContents.has(contents) && !url.startsWith(LAUNCHER_ORIGIN)) contents.loadURL(LAUNCHER_URL).catch(() => {});\n  });\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js"],
+    "note": "location = 'about:blank' makes no request: will-navigate never sees it, and the launcher sits on a page that is not its own."
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-B3-checks-answer-granted",
+    "file": "app/main.cjs",
+    "old": "  session.defaultSession.setPermissionCheckHandler((wc, permission, requestingOrigin) => !isLauncherPage(wc, requestingOrigin) && permission !== 'deprecated-sync-clipboard-read');\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js"],
+    "note": "Notification.permission and permissions.query read granted, and an IdleDetector refused by its request starts."
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-B3-a-check-with-no-webcontents-is-granted",
+    "file": "app/main.cjs",
+    "old": "(!!wc && launcherContents.has(wc)) || String(url ?? '').startsWith(LAUNCHER_ORIGIN);",
+    "new": "(!!wc && launcherContents.has(wc));",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-B3-any-origin-that-begins-alike",
+    "file": "app/main.cjs",
+    "old": "String(url ?? '').startsWith(LAUNCHER_ORIGIN);",
+    "new": "String(url ?? '').startsWith('dagger://launcher');",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-B3-the-game-loses-its-defaults",
+    "file": "app/main.cjs",
+    "old": "=> !isLauncherPage(wc, requestingOrigin) && permission !== 'deprecated-sync-clipboard-read');",
+    "new": "=> !isLauncherPage(wc, requestingOrigin) && permission === 'fullscreen');",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C1-news-by-position-again",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "      && !was.some((r) => heldIn(l, r) >= REWRITE_SHARE));",
+    "new": "      && h.added.indexOf(l) >= h.removed.length);",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js"],
+    "note": "Round 1's rule: the first b added lines of a hunk that removed b are its rewrites - app-v0.1.4534 lost four fixes."
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C1-any-shared-word-is-a-rewrite",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "export const REWRITE_SHARE = 0.6;",
+    "new": "export const REWRITE_SHARE = 0.4;",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C1-a-rewrite-is-news",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "      && !was.some((r) => heldIn(l, r) >= REWRITE_SHARE));",
+    "new": "      && !was.some((r) => heldIn(l, r) >= 1));",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C1-a-moved-line-is-news",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "!HEADING_RE.test(l) && !moved.has(wordsOf(l).join(' '))",
+    "new": "!HEADING_RE.test(l)",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C1-a-heading-is-news",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "    const news = h.added.map((l) => wordsOf(l).length > 0 && !HEADING_RE.test(l) && !moved",
+    "new": "    const news = h.added.map((l) => wordsOf(l).length > 0 && !moved",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C1-plurals-count-apart",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "  .map((w) => (w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w));",
+    "new": "  .map((w) => w);",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C4-a-plus-plus-note-is-the-header",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "    if (raw.startsWith('+')) hunk.added.push(raw.slice(1));",
+    "new": "    if (raw.startsWith('+') && !raw.startsWith('+++')) hunk.added.push(raw.slice(1));",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C4-a-second-header-is-content",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "    if (raw.startsWith('diff --git ')) { hunk = null; continue; }   // a file's header lines are not content\n",
+    "new": "",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C4-quoted-names-dropped",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "run(['diff', '--raw', '-z', '--no-abbrev',",
+    "new": "run(['diff', '--raw', '--no-abbrev',",
+    "tests": ["test/audit_install2.test.js", "test/rel4_release.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C4-a-name-is-a-pattern",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "    const literal = (p) => `:(literal)${p}`;",
+    "new": "    const literal = (p) => p;",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C4-a-link-made-a-file-is-never-read",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "'--diff-filter=AMRT'",
+    "new": "'--diff-filter=AMR'",
+    "tests": ["test/audit_install2.test.js"]
+  },
+  {
+    "name": "AUDIT-INSTALL-R2-C4-utf16-published-as-nuls",
+    "file": "scripts/desktopRelease.mjs",
+    "old": "    if (/[\\0\\uFFFD]/.test(head)) {",
+    "new": "    if (false) {",
+    "tests": ["test/audit_install2.test.js"]
+  }
+]

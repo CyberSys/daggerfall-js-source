@@ -213,7 +213,7 @@
   {
     "name": "AUDIT-INSTALL-L1-2-the-launcher-reads-the-clipboard",
     "file": "app/main.cjs",
-    "old": "callback(!launcherContents.has(wc))",
+    "old": "callback(!isLauncherPage(wc, details?.requestingUrl))",
     "new": "callback(true)",
     "tests": ["test/audit_install.test.js"]
   },
@@ -256,8 +256,8 @@
   {
     "name": "AUDIT-INSTALL-L1-1-a-link-is-read",
     "file": "scripts/desktopRelease.mjs",
-    "old": "    if (!PATCH_NOTES_RE.test(file) || (mode !== '100644' && mode !== '100755')) continue;",
-    "new": "    if (!PATCH_NOTES_RE.test(file)) continue;",
+    "old": "    if (!PATCH_NOTES_RE.test(file ?? '') || (mode !== '100644' && mode !== '100755')) continue;",
+    "new": "    if (!PATCH_NOTES_RE.test(file ?? '')) continue;",
     "tests": ["test/rel4_release.test.js"]
   },
   {
@@ -277,23 +277,23 @@
   {
     "name": "AUDIT-INSTALL-L3-3-a-changed-file-is-republished-whole",
     "file": "scripts/desktopRelease.mjs",
-    "old": "    const fresh = h.added.slice(Math.min(h.removed, h.added.length));",
-    "new": "    const fresh = h.added;",
+    "old": "!HEADING_RE.test(l) && !moved.has(wordsOf(l).join(' '))\n      && !was.some((r) => heldIn(l, r) >= REWRITE_SHARE));",
+    "new": "!HEADING_RE.test(l));",
     "tests": ["test/rel4_release.test.js"],
     "note": "The Overworld notes, twice in the launcher's news."
   },
   {
     "name": "AUDIT-INSTALL-L3-3-changed-files-bring-the-whole-file",
     "file": "scripts/desktopRelease.mjs",
-    "old": "    const text = status === 'A' ? head",
+    "old": "    const text = status === 'A' || status === 'T' ? head",
     "new": "    const text = true ? head",
     "tests": ["test/rel4_release.test.js"]
   },
   {
     "name": "AUDIT-INSTALL-L3-3-an-addition-loses-its-heading",
     "file": "scripts/desktopRelease.mjs",
-    "old": "      out.push(heading);\n      under = heading;",
-    "new": "      under = heading;",
+    "old": "      if (heading && heading !== title && heading !== under) out.push(heading);\n",
+    "new": "",
     "tests": ["test/rel4_release.test.js"]
   },
   {

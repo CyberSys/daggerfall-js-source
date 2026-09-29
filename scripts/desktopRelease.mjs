@@ -37,7 +37,10 @@
 // release body (lane 1). And a file the release only CHANGED brings only
 // what was ADDED to it: the Overworld notes, first shipped in
 // app-v0.1.4556, were republished whole by every release that appended a
-// line, and the launcher's news listed them twice (lane 3).
+// line, and the launcher's news listed them twice (lane 3). Round 2: what
+// counts as added is decided by what the lines SAY (addedNotes) - by
+// position, app-v0.1.4534 lost four new fixes written where a deleted
+// "Notes" section had stood.
 //
 //   node scripts/desktopRelease.mjs check <dir>           exit 1 naming any file missing
 //   node scripts/desktopRelease.mjs notes <tag>           the release body, markdown, to stdout
@@ -131,46 +134,90 @@ export function previousReleaseTag(tag, run = git) {
 /** A heading line of the PATCH-NOTES markdown. */
 const HEADING_RE = /^#{1,6}\s/;
 
+/** A line's words, as a rewrite keeps them: lower case, apostrophes gone, a plural's s gone ("Boats" is "boat"). */
+const wordsOf = (line) => (String(line).toLowerCase().replace(/['’]/g, '').match(/[\p{L}\p{N}]+/gu) ?? [])
+  .map((w) => (w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w));
+
+/** The share of an added line's words that one removed line holds. */
+const heldIn = (added, removed) => {
+  const mine = new Set(wordsOf(added));
+  if (!mine.size) return 0;
+  const theirs = new Set(wordsOf(removed));
+  let held = 0;
+  for (const w of mine) if (theirs.has(w)) held++;
+  return held / mine.size;
+};
+
+/** An added line whose words are at least this much held in ONE line its hunk removed is that line, rewritten. */
+export const REWRITE_SHARE = 0.6;
+
+/** `git diff -U0`'s hunks: where each starts in the file as it is now, and the lines it removes and adds. */
+function hunksOf(diffText) {
+  const hunks = [];
+  let hunk = null;
+  for (const raw of String(diffText ?? '').replace(/\r\n/g, '\n').split('\n')) {
+    if (raw.startsWith('diff --git ')) { hunk = null; continue; }   // a file's header lines are not content
+    const at = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
+    if (at) {
+      hunk = { start: Number(at[1]), removed: [], added: [] };
+      hunks.push(hunk);
+      continue;
+    }
+    if (!hunk) continue;
+    // inside a hunk EVERY +/- line is content - a note that opens "++" or "+++" among them (AUDIT INSTALL R2-C4)
+    if (raw.startsWith('+')) hunk.added.push(raw.slice(1));
+    else if (raw.startsWith('-')) hunk.removed.push(raw.slice(1));
+  }
+  return hunks;
+}
+
 /**
  * What a CHANGED patch-notes file adds: from `git diff -U0` of it, the
- * lines each hunk adds beyond the ones it rewrites (a hunk that removes b
- * lines and adds d rewrites b of them - a typo fixed, a line reworded, a
- * last line given its newline - and adds d - b), each under the nearest
- * heading above it in the file as it is now, the file's title first. ''
- * when the change added nothing (a correction is not news).
+ * lines of NEWS - each run of them under the nearest heading above it in
+ * the file as it is now, the file's title first. '' when the change added
+ * no news (a correction is not news).
+ *
+ * AUDIT INSTALL R2-C1: news is decided by CONTENT, never by position. A
+ * line of text is news unless most of its words (REWRITE_SHARE) are held
+ * in one line its own hunk removed - a typo fixed, a line reworded or
+ * restyled, one line split in two - or it IS, word for word, a line the
+ * change removed anywhere in the file (moved). Round 1 took the first b
+ * added lines of a hunk that removed b as its rewrites, and a hunk that
+ * DELETES a section while adding new lines in its place is ordinary
+ * ("## Notes / - Boats are not in this update" gone as the boats ship):
+ * app-v0.1.4534 lost four new fixes that way. Headings are never news
+ * alone; they only say where news sits. A one-word line's typo fixed
+ * shares no word with it and reads as news - no note here is one word.
  *
  * @param {string} headText the file at HEAD
  * @param {string} diffText `git diff -U0` of it, previous release to HEAD
  */
 export function addedNotes(headText, diffText) {
   const lines = String(headText ?? '').replace(/\r\n/g, '\n').split('\n');
-  const hunks = [];
-  let hunk = null;
-  for (const raw of String(diffText ?? '').replace(/\r\n/g, '\n').split('\n')) {
-    const at = /^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(raw);
-    if (at) {
-      hunk = { removed: at[1] === undefined ? 1 : Number(at[1]), start: Number(at[2]), added: [] };
-      hunks.push(hunk);
-      continue;
-    }
-    if (hunk && raw.startsWith('+') && !raw.startsWith('+++')) hunk.added.push(raw.slice(1));
-  }
+  const hunks = hunksOf(diffText);
+  const moved = new Set(hunks.flatMap((h) => h.removed).filter((l) => !HEADING_RE.test(l)).map((l) => wordsOf(l).join(' ')).filter(Boolean));
   const out = [];
   const title = lines.find((l) => /^#\s/.test(l));
   let under = null;
   for (const h of hunks) {
-    const fresh = h.added.slice(Math.min(h.removed, h.added.length));
-    if (!fresh.some((l) => l.trim())) continue;
-    // the heading this addition sits under, when it does not open with its own
-    const first = h.start + (h.added.length - fresh.length) - 1;   // 0-based index of its first fresh line
-    let heading = null;
-    for (let i = first - 1; i >= 0; i--) if (HEADING_RE.test(lines[i])) { heading = lines[i]; break; }
-    if (out.length && out[out.length - 1].trim()) out.push('');   // one addition, one paragraph
-    if (heading && heading !== title && heading !== under && !HEADING_RE.test(fresh.find((l) => l.trim()) ?? '')) {
-      out.push(heading);
-      under = heading;
+    const was = h.removed.filter((l) => wordsOf(l).length && !HEADING_RE.test(l));
+    const news = h.added.map((l) => wordsOf(l).length > 0 && !HEADING_RE.test(l) && !moved.has(wordsOf(l).join(' '))
+      && !was.some((r) => heldIn(l, r) >= REWRITE_SHARE));
+    const rewritten = h.added.map((l, i) => !news[i] && wordsOf(l).length > 0 && !HEADING_RE.test(l));
+    for (let i = 0; i < h.added.length; i++) {
+      if (!news[i]) continue;
+      // a run: news, with the blank lines and headings between, up to its last line of news before a rewrite
+      let last = i;
+      for (let j = i + 1; j < h.added.length && !rewritten[j]; j++) if (news[j]) last = j;
+      const run = h.added.slice(i, last + 1);
+      let heading = null;
+      for (let k = h.start + i - 2; k >= 0; k--) if (HEADING_RE.test(lines[k] ?? '')) { heading = lines[k]; break; }
+      if (out.length && out[out.length - 1].trim()) out.push('');   // one run, one paragraph
+      if (heading && heading !== title && heading !== under) out.push(heading);
+      out.push(...run);
+      under = [...run].reverse().find((l) => HEADING_RE.test(l)) ?? heading;
+      i = last;
     }
-    out.push(...fresh);
   }
   const body = out.join('\n').trim();
   return body ? `${title ? `${title}\n\n` : ''}${body}` : '';
@@ -193,19 +240,31 @@ const capped = (text) => {
  */
 export function patchNotesSince(from, run = git) {
   if (!from) return [];
-  const raw = run(['diff', '--raw', '--no-abbrev', '-M', '--diff-filter=AMR', from, 'HEAD', '--', 'PATCH-NOTES-*.md']);
+  // AUDIT INSTALL R2-C4: -z - without it git QUOTES a name holding a non-ASCII letter, a tab or a quote
+  // ("PATCH-NOTES-Caf\303\251.md"), and those notes were dropped without a word. T: a link that became a file.
+  const raw = run(['diff', '--raw', '-z', '--no-abbrev', '-M', '--diff-filter=AMRT', from, 'HEAD', '--', 'PATCH-NOTES-*.md']);
+  const fields = raw.split('\0');
   const notes = [];
-  for (const line of raw.split('\n')) {
-    // :<old mode> <new mode> <old sha> <new sha> <status>\t<path>[\t<new path>]
-    const m = /^:\d{6} (\d{6}) [0-9a-f]+ [0-9a-f]+ ([AMR])\d*\t([^\t]+)(?:\t([^\t]+))?$/.exec(line.trim());
+  for (let i = 0; i < fields.length; i++) {
+    // :<old mode> <new mode> <old sha> <new sha> <status>, then its path (a rename: the old path, then the new)
+    const m = /^:\d{6} (\d{6}) [0-9a-f]+ [0-9a-f]+ ([AMRT])\d*$/.exec(fields[i]);
     if (!m) continue;
-    const [, mode, status, first, second] = m;
+    const [, mode, status] = m;
+    const first = fields[++i];
+    const second = status === 'R' ? fields[++i] : undefined;
     const file = second ?? first;
-    if (!PATCH_NOTES_RE.test(file) || (mode !== '100644' && mode !== '100755')) continue;
+    if (!PATCH_NOTES_RE.test(file ?? '') || (mode !== '100644' && mode !== '100755')) continue;
+    // a name is only ever a name: `[beta]` in one is no pattern that pulls in another file's hunks
+    const literal = (p) => `:(literal)${p}`;
     const head = run(['show', `HEAD:${file}`]);
-    const text = status === 'A' ? head
-      : addedNotes(head, run(['diff', '-U0', '--no-color', '-M', from, 'HEAD', '--', ...(second ? [first, second] : [file])]));
-    const when = Number(run(['log', '-1', '--format=%ct', `${from}..HEAD`, '--', file])) || 0;
+    if (/[\0\uFFFD]/.test(head)) {
+      console.error(`${file} is not UTF-8 text - left out of the notes`);
+      continue;
+    }
+    // added whole; and a link that became a file (T) brings the file whole - what the link pointed at was never notes
+    const text = status === 'A' || status === 'T' ? head
+      : addedNotes(head, run(['diff', '-U0', '--no-color', '-M', from, 'HEAD', '--', ...(second ? [literal(first), literal(second)] : [literal(file)])]));
+    const when = Number(run(['log', '-1', '--format=%ct', `${from}..HEAD`, '--', literal(file)])) || 0;
     if (text.trim()) notes.push({ file, text: capped(text), when });
   }
   return notes.sort((a, b) => b.when - a.when || a.file.localeCompare(b.file)).map(({ file, text }) => ({ file, text }));

@@ -109,24 +109,25 @@ test('REL4: the notes are the patch notes the release brings, once, and say so p
 });
 
 test('AUDIT INSTALL L3-3: a file the release only CHANGED brings what was ADDED to it, under its title and heading - a correction is not news', () => {
-  const head = '# Patch Notes: The Overworld\n\n## Travel\n- Walk.\n- Ride.\n- Sail.\n\n## Fixes\n- One.\n- Two.\n';
-  // two lines appended under "Travel" (a pure addition), and "One." reworded (a rewrite: nothing new)
+  const head = '# Patch Notes: The Overworld\n\n## Travel\n- Walk anywhere on the map.\n- Ride a horse across it.\n- Sail the coast.\n\n## Fixes\n- Swimming splashes in dungeon water.\n- Two saves no longer overwrite each other.\n- Loading a save keeps your horse.\n';
+  // two lines appended under "Travel" (a pure addition), and a typo fixed (a rewrite: nothing new)
   const diff = [
     'diff --git a/PATCH-NOTES-Overworld.md b/PATCH-NOTES-Overworld.md',
     '--- a/PATCH-NOTES-Overworld.md',
     '+++ b/PATCH-NOTES-Overworld.md',
     '@@ -4,0 +5,2 @@ ## Travel',
-    '+- Ride.',
-    '+- Sail.',
-    '@@ -8 +10 @@ ## Fixes',
-    '-- Oen.',
-    '+- One.',
+    '+- Ride a horse across it.',
+    '+- Sail the coast.',
+    '@@ -7 +9 @@ ## Fixes',
+    '-- Swiming splashes in dungeon water.',
+    '+- Swimming splashes in dungeon water.',
   ].join('\n');
-  assert.equal(addedNotes(head, diff), '# Patch Notes: The Overworld\n\n## Travel\n- Ride.\n- Sail.');
+  assert.equal(addedNotes(head, diff), '# Patch Notes: The Overworld\n\n## Travel\n- Ride a horse across it.\n- Sail the coast.');
   // a typo fixed and nothing else: nothing to say
-  assert.equal(addedNotes(head, '@@ -8 +10 @@\n-- Oen.\n+- One.'), '');
+  assert.equal(addedNotes(head, '@@ -7 +9 @@\n-- Swiming splashes in dungeon water.\n+- Swimming splashes in dungeon water.'), '');
   // a last line given its newline AND lines after it: the rewrite is not news, the lines after are
-  assert.equal(addedNotes(head, '@@ -10 +10,2 @@\n-- One.\n\\ No newline at end of file\n+- One.\n+- Two.'), '# Patch Notes: The Overworld\n\n## Fixes\n- Two.');
+  assert.equal(addedNotes(head, '@@ -10 +10,2 @@\n-- Two saves no longer overwrite each other.\n\\ No newline at end of file\n+- Two saves no longer overwrite each other.\n+- Loading a save keeps your horse.'),
+    '# Patch Notes: The Overworld\n\n## Fixes\n- Loading a save keeps your horse.');
   // an addition that opens with its own heading brings no second one; two additions stand a paragraph apart
   const withSection = '# T\n\n## A\n- a\n\n## B\n- b\n';
   assert.equal(addedNotes(withSection, '@@ -5,0 +6,2 @@\n+## B\n+- b\n@@ -3,0 +4 @@\n+- a'), '# T\n\n## B\n- b\n\n## A\n- a');
@@ -214,7 +215,7 @@ test('REL4: the workflow - one number, legs that only build, one publish gated o
   assert.match(publish, /if: needs\.version\.outputs\.tag != ''/, 'and only when there is a release to cut (no always(): a failed leg skips it)');
   assert.doesNotMatch(publish, /always\(\)|failure\(\)|cancelled\(\)/);
   assert.match(publish, /uses: actions\/download-artifact@v4[\s\S]*pattern: desktop-\*[\s\S]*merge-multiple: true/);
-  const check = publish.indexOf('desktopRelease.mjs check release'), stage = publish.indexOf('softprops/action-gh-release@v2');
+  const check = publish.indexOf('desktopRelease.mjs check release'), stage = publish.indexOf('uses: softprops/action-gh-release@');
   assert.ok(check > 0 && stage > check, 'the set is checked before anything is staged');
   assert.match(publish, /draft: true/, 'staged as a draft - invisible while the files upload');
   assert.match(publish, /body_path: release-notes\.md/);

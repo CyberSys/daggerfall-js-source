@@ -318,6 +318,59 @@ await scenario('the unload guard asks instead of trapping the player', { env: { 
   check((await closeAnswering('Leave')).open === false, 'UNLOAD-ASK: "Leave" closes it - the window\'s X, Alt+F4 and Quit work once a player is in the world');
 });
 
+await scenario('the launcher is granted nothing and goes nowhere', {
+  setup: ({ userData, home }) => {
+    const a2 = path.join(home, 'Games', 'ARENA2');
+    fs.mkdirSync(a2, { recursive: true });
+    for (const n of WHOLE) fs.writeFileSync(path.join(a2, n), 'x');
+    fs.writeFileSync(path.join(userData, 'config.json'), JSON.stringify({ arena2Path: a2, lastPlayed: APP_VERSION }));
+  },
+}, async (shell, lp) => {
+  await lp.waitForSelector('#play:not([disabled])', { timeout: 20000 });
+  // AUDIT INSTALL R2-B3: the CHECK side too - with only requests fenced, Notification.permission and
+  // permissions.query read "granted" and an IdleDetector refused by its request started anyway. A real click, since
+  // the request paths need the activation a player's click gives.
+  await lp.evaluate(() => {
+    const b = Object.assign(document.createElement('button'), { id: 'probe-asks' });
+    document.body.append(b);
+    b.addEventListener('click', async () => {
+      const r = { notification: Notification.permission };
+      for (const name of ['notifications', 'clipboard-read', 'camera', 'geolocation', 'idle-detection', 'window-management']) {
+        try { r[name] = (await navigator.permissions.query({ name })).state; } catch (e) { r[name] = `threw ${e.name}`; }
+      }
+      try { await new IdleDetector().start(); r.idleStart = 'STARTED'; } catch (e) { r.idleStart = e.name; }
+      try { await navigator.clipboard.readText(); r.clipboard = 'READ'; } catch (e) { r.clipboard = e.name; }
+      window.__asks = r;
+    });
+  });
+  await lp.click('#probe-asks');
+  await waitFor(() => lp.evaluate(() => !!window.__asks));
+  const asks = await lp.evaluate(() => window.__asks);
+  const granted = Object.entries(asks).filter(([, v]) => v === 'granted' || v === 'STARTED' || v === 'READ');
+  check(granted.length === 0 && asks.idleStart === 'NotAllowedError', `R2-B3: every check the launcher makes reads denied, and nothing it was refused runs (got ${JSON.stringify(asks)})`);
+  // AUDIT INSTALL R2-B2: about:blank makes no request, so will-navigate never sees it - the launcher goes home after.
+  // Its main-frame commits are read off the shell (the blank page can be too brief for the page object to see).
+  await shell.evaluate(({ webContents }) => {
+    const wc = webContents.getAllWebContents().find((w) => w.getURL().startsWith('dagger://launcher/'));
+    globalThis.__probeCommits = [];
+    wc.on('did-navigate', (_e, url) => globalThis.__probeCommits.push(url));
+  });
+  for (const target of ['about:blank', 'about:blank#x']) {
+    await shell.evaluate(() => { globalThis.__probeCommits.length = 0; });
+    await lp.evaluate((u) => { setTimeout(() => { location.href = u; }, 10); }, target);
+    await waitFor(async () => (await shell.evaluate(() => globalThis.__probeCommits.slice())).at(-1)?.startsWith('dagger://launcher/'));
+    const commits = await shell.evaluate(() => globalThis.__probeCommits.slice());
+    await lp.waitForSelector('#play:not([disabled])', { timeout: 10000 });
+    check(commits[0] === target && commits.at(-1) === 'dagger://launcher/index.html',
+      `R2-B2: sent to ${target}, the launcher is back on its own page with its view (commits ${JSON.stringify(commits)})`);
+  }
+  await lp.evaluate(() => document.querySelector('#play').click());
+  const game = await gameWindow(shell);
+  await game.waitForLoadState('domcontentloaded');
+  const gameAsks = await game.evaluate(async () => ({ notification: Notification.permission, 'idle-detection': (await navigator.permissions.query({ name: 'idle-detection' })).state }));
+  check(gameAsks.notification === 'granted' && gameAsks['idle-detection'] === 'granted', `and the game's page keeps Electron's defaults (got ${JSON.stringify(gameAsks)})`);
+});
+
 await scenario('the front door', {
   setup: ({ userData }) => {
     // a player who last played an older build: the versions since are NEW, a newer release is UPDATE

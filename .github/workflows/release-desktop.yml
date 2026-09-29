@@ -167,8 +167,14 @@ jobs:
       # read package.json's version, so the release's number is written
       # there before electron-builder runs - from the SAME output the
       # tag is cut from. Not committed: the working tree is the runner's.
+      # AUDIT INSTALL R2-B1: in bash on EVERY leg. A step with no `shell`
+      # runs in PowerShell on windows-latest, where "$VERSION" is an unset
+      # PowerShell variable, not the environment - the Windows stamp failed
+      # and no release was published. Any step here that reads a variable
+      # names its shell (test/audit_install.test.js holds the whole file to it).
       - name: Stamp the version
         if: needs.version.outputs.version != ''
+        shell: bash
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: npm version "$VERSION" --no-git-tag-version --allow-same-version
@@ -263,9 +269,15 @@ jobs:
       # than staging a draft (its `draft` input is ignored there) and
       # deletes and re-uploads each file on the LIVE release - `latest`'s
       # downloads and latest.yml gone while they upload, and an updater
-      # meeting the manifest before its installer. A draft left by a failed
-      # run is not published (the API answers 404) and is reused.
-      - name: The tag has no published release
+      # meeting the manifest before its installer. A draft is not published
+      # (the API answers 404 by tag).
+      # AUDIT INSTALL R2-C2: and a draft a failed run LEFT at the tag is
+      # deleted, never reused. softprops 2.6.2 cannot find a draft by tag,
+      # stages a second one, then keeps the LOWEST-id draft for the tag and
+      # deletes its own - so the old run's body and the old commit it was
+      # staged at (where publishing cuts the tag) would ship with this run's
+      # files. A draft is invisible to players; this run stages it afresh.
+      - name: The tag has no published release, and no draft left over
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.version.outputs.tag }}
@@ -275,6 +287,11 @@ jobs:
             exit 1
           fi
           grep -q 'HTTP 404' lookup-error.txt || { cat lookup-error.txt >&2; exit 1; }
+          LEFT=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft and .tag_name == env.TAG) | .id')
+          for ID in $LEFT; do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$ID" --silent
+            echo "deleted draft $ID, left at $TAG by an earlier run"
+          done
 
       # AUDIT 68: target_commitish cuts a NEW tag at the commit these
       # installers were built from. Without it GitHub cuts it at the
@@ -283,9 +300,13 @@ jobs:
       # REL4: a DRAFT, so nothing is visible while the files upload.
       # The body is the patch notes; GitHub appends its generated list
       # of merged changes beneath them, once.
+      # AUDIT INSTALL R2-B4: pinned to the commit, not a tag that can move -
+      # this is the one job holding contents: write, the builds are unsigned,
+      # and the launcher installs what the release carries before play.
+      # 3bb12739 is what v2 and v2.6.2 both named (git ls-remote, 2026-09-29).
       - name: Stage the release as a draft, every file attached
         id: release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: ${{ needs.version.outputs.tag }}
           name: ${{ needs.version.outputs.tag }}

@@ -963,6 +963,9 @@ let launcher = null;
  *  Every door it has is an action the shell names (the IPC below). */
 const launcherContents = new WeakSet();
 const LAUNCHER_ORIGIN = 'dagger://launcher/';
+/** The launcher's window, or any page of its origin (AUDIT INSTALL R2-B3: a permission CHECK can come with no
+ *  WebContents; its origin is always there). */
+const isLauncherPage = (wc, url) => (!!wc && launcherContents.has(wc)) || String(url ?? '').startsWith(LAUNCHER_ORIGIN);
 /** Heard only from the launcher's window, and only from its own page. */
 const fromLauncher = (e) => !!launcher && e.sender === launcher.win.webContents && !!e.senderFrame?.url?.startsWith(LAUNCHER_ORIGIN);
 
@@ -1280,6 +1283,12 @@ app.on('web-contents-created', (_e, contents) => {
     e.preventDefault();
     if (/^https?:/i.test(url)) shell.openExternal(url);
   });
+  // AUDIT INSTALL R2-B2: will-navigate is raised when a navigation's REQUEST starts, and about:blank makes none - the
+  // launcher committed it unasked, its bridge on a page that is not its own. What the fence cannot stop before, it
+  // undoes after: a launcher that finds itself anywhere but its own origin goes home (and asks for its view again).
+  contents.on('did-navigate', (_e, url) => {
+    if (launcherContents.has(contents) && !url.startsWith(LAUNCHER_ORIGIN)) contents.loadURL(LAUNCHER_URL).catch(() => {});
+  });
 });
 
 // The preload asks for its storage root synchronously at page boot -
@@ -1296,8 +1305,13 @@ ipcMain.on('dagger:relock', (e) => { e.sender.executeJavaScript('globalThis.__da
 app.whenReady().then(() => {
   if (!isSingleInstance) return;   // quitting; do not raise a window on the way out
   protocol.handle('dagger', handleDagger);
-  // L1-2: the launcher is granted nothing it asks for; every other page keeps Electron's default (granted)
-  session.defaultSession.setPermissionRequestHandler((wc, _permission, callback) => callback(!launcherContents.has(wc)));
+  // L1-2: the launcher is granted nothing it asks for; every other page keeps Electron's default (granted).
+  // AUDIT INSTALL R2-B3: nor anything it merely CHECKS. Chromium asks two questions - the request (a prompt) and the
+  // check (Notification.permission, permissions.query, IdleDetector.start) - and with the request side alone fenced
+  // the launcher read "granted" and ran an IdleDetector it had just been refused. With no check handler Electron
+  // grants every check but the deprecated synchronous paste; every other page keeps exactly that.
+  session.defaultSession.setPermissionRequestHandler((wc, _permission, callback, details) => callback(!isLauncherPage(wc, details?.requestingUrl)));
+  session.defaultSession.setPermissionCheckHandler((wc, permission, requestingOrigin) => !isLauncherPage(wc, requestingOrigin) && permission !== 'deprecated-sync-clipboard-read');
 
   // DA8: the launcher is the first window - the update check (inside DA6's
   // two gates), the first run's files (DA9: found, else chosen; the game's
