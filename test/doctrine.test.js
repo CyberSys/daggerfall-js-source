@@ -90,6 +90,15 @@ const PUBLIC_ALLOWLIST = new Map([
   ['public/sfx/gun-fire-synth.wav', 'OURS - synthesised from noise and sine by tools/gunSfx.mjs, deterministically; no recording in it at all'],
   ['public/sfx/gun-reload-open-synth.wav', 'OURS - synthesised from noise and sine by tools/gunSfx.mjs, deterministically; no recording in it at all'],
   ['public/sfx/gun-reload-close-synth.wav', 'OURS - synthesised from noise and sine by tools/gunSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-cannon.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-cannon-far.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-swivel.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-hit.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-blast.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-grapple.wav', 'OURS - NAV-E: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-runout.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-ready.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
+  ['public/sfx/naval-sinking.wav', 'OURS - AUDIT NAV1: synthesised from noise and sine by tools/navalSfx.mjs, deterministically; no recording in it at all'],
   ['public/skin/skin-intensity.png', 'OURS - intensity baked from our own generated turnaround'],
   ['public/skin/skin-uv.json', "OURS - UVs over our own rig's geometry, no pixels at all"],
   ['public/skin/skin-layout.json', 'OURS - atlas cell rectangles, no pixels at all'],
@@ -389,8 +398,7 @@ const PUBLIC_ALLOWLIST = new Map([
   // the bytes.
   ['src/assets/mw/source/Brigandine_Steel.fbx', "SUPPLIED - Mac's Blender export of the steel brigandine, fitted on the Morrowind body in his scene (2026-09-29), committed so the files below are a DERIVATION the gate can re-run"],
   ['src/assets/mw/source/Brigandine_Steel.png', "SUPPLIED - the brigandine's texture as Mac supplied it with the mesh (the FBX's Steel.png), committed as the DDS's source"],
-  ['src/assets/mw/meshes/brigandine_steel_chest.nif', 'SUPPLIED - the brigandine above the belt, baked to a Morrowind NIF by tools/bakeBrigandine.mjs; a Bethesda format, no Bethesda data'],
-  ['src/assets/mw/meshes/brigandine_steel_skirt.nif', 'SUPPLIED - the brigandine below the belt, baked to a Morrowind NIF by tools/bakeBrigandine.mjs; a Bethesda format, no Bethesda data'],
+  ['src/assets/mw/meshes/brigandine_steel.nif', 'SUPPLIED - the brigandine, baked to a Morrowind NIF by tools/bakeBrigandine.mjs (skinned from the body at bind time, MW-BRIG2); a Bethesda format, no Bethesda data'],
   ['src/assets/mw/textures/brigandine_steel.dds', 'SUPPLIED - Brigandine_Steel.png mip-chained to an uncompressed DDS by tools/meshTexture.mjs writeDds; no ARENA2 or Morrowind pixel in it'],
 ]);
 

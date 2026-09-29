@@ -46,6 +46,7 @@
 import { buildProgram } from './glProgram.js';
 import { FOG_GLSL } from './fogGlsl.js';
 import { COLUMN_GLSL } from './columnGlsl.js';   // DW-F: the column's share, one home (the renderer's billboards take it too)
+import { WATER_LAYER_UNITS } from './waterSurface.js';   // FIELD BUGS 2026-09-29 (the sea) #4: the top's place in the sea's stack
 import { SURFACE_TEXTURE_TILING, SURFACE_SCROLL, FLOOR_TEXTURE_WORLD_SCALE, FLOOR_SHADER_DEFAULTS } from '../world/deepWaterLook.js';
 
 // THE COLUMN'S SHARE (the top's alpha, split - see above): columnGlsl.js,
@@ -569,7 +570,12 @@ export class DeepWatersRenderer {
         gl.uniform1f(u.uColumnFogStrength, frame.columnFogStrength);
       }, false);
     } else {
+      // FIELD BUGS 2026-09-29 (the sea) #4: the top is the sea's surface film - over the beach 3 cm under it and the
+      // shelf's floor, in window depth (render/waterSurface.js WATER_LAYER_UNITS); the far arm writes its own depth and takes none
+      gl.enable(gl.POLYGON_OFFSET_FILL);
+      gl.polygonOffset(0, WATER_LAYER_UNITS.surface);
       pass(top, (u) => { gl.uniform4fv(u.uColor, frame.topColor); }, !!frame.topDepthWrite);
+      gl.disable(gl.POLYGON_OFFSET_FILL);
       gl.depthFunc(gl.LESS);
       pass(topFar, (u) => { gl.uniform4fv(u.uColor, frame.topColor); }, false);
     }

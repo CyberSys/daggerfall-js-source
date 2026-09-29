@@ -89,8 +89,10 @@ export function noticeCards({ town, rumour = [], bountyLine = false, gate = null
 }
 
 export const NOTICE_SKIN_STYLE_ID = 'notice-skin-style';
-/** The window's own sheet for the classic skins: its layout and the kit's rules cut to its selectors. */
-export const noticeSkinCss = () => [NOTICE_CSS, PROF_CSS, scopeRules(frameCss(), (sel) => sel.includes('notice'))].join('\n');
+/** The window's own sheet for the classic skins: its layout and the kit's rules cut to its selectors. TOAST-SPLIT: the
+ *  board's window, header and presses only - "notice" alone took the HUD toasts' `.notice` dress and fade too. */
+const BOARD_KIT_SEL = /\.notice-(?:shell|win|head)\b/;
+export const noticeSkinCss = () => [NOTICE_CSS, PROF_CSS, scopeRules(frameCss(), (sel) => BOARD_KIT_SEL.test(sel))].join('\n');
 function injectSkin(doc = document) {
   if (isEnhancedPlus() || doc.getElementById?.(NOTICE_SKIN_STYLE_ID)) return;
   const st = doc.createElement('style');
@@ -342,7 +344,7 @@ export function mountNoticeBoard(host, deps) {
   }
 
   function workBody() {
-    const body = el('div', 'notice-body');
+    const body = el('div', 'notice-cork');
     const grid = el('ul', 'notice-grid');
     grid.setAttribute('role', 'list');
     const list = writs?.writs ?? [];
@@ -384,7 +386,7 @@ export function mountNoticeBoard(host, deps) {
   }
 
   function boardBody() {
-    const body = el('div', 'notice-body');
+    const body = el('div', 'notice-cork');
     const cards = noticeCards({ town: deps.town, rumour: deps.rumour, bountyLine: deps.bountyLine, gate: deps.gate?.() ?? null, board, seenAt: seenAtOpen });
     const grid = el('ul', 'notice-grid');
     grid.setAttribute('role', 'list');
@@ -402,7 +404,7 @@ export function mountNoticeBoard(host, deps) {
 
   function readBody() {
     const c = reading;
-    const body = el('div', 'notice-body');
+    const body = el('div', 'notice-cork');
     const card = el('article', `notice-read seal-${c.seal}`);
     card.append(el('span', 'notice-pin'), el('h3', null, c.subject));
     const n = c.note;
@@ -454,7 +456,7 @@ export function mountNoticeBoard(host, deps) {
   }
 
   function pinBody() {
-    const body = el('div', 'notice-body');
+    const body = el('div', 'notice-cork');
     const form = el('form', 'notice-form');
     const subject = /** @type {HTMLInputElement} */ (el('input', 'notice-input'));
     subject.maxLength = NOTE_SUBJECT_MAX; subject.value = draft.subject; subject.placeholder = 'What is it about?';
@@ -470,7 +472,7 @@ export function mountNoticeBoard(host, deps) {
     for (const k of ['', ...NOTE_BUTTONS]) { const o = /** @type {HTMLOptionElement} */ (el('option', null, k ? NOTE_BUTTON_LABEL[k] : 'No button')); o.value = k; if (k === draft.button) o.selected = true; btn.append(o); }
     btn.onchange = () => { draft.button = btn.value; };
     form.append(field('Subject', subject), field('Note', text, counted), field('Stands for', days), field('A button for the reader', btn));
-    form.append(el('p', 'notice-hint', 'A recruitment button needs a guild rank that may invite. The reader\'s answer comes to you as a letter.'));
+    form.append(el('p', 'notice-tip', 'A recruitment button needs a guild rank that may invite. The reader\'s answer comes to you as a letter.'));
     const acts = el('div', 'notice-acts');
     const pin = button('primary notice-dopin', busy ? 'Pinning...' : 'Pin it up', () => {
       act(() => deps.book.pin(map, { subject: draft.subject, body: draft.body, days: draft.days, button: draft.button || null, character: deps.character?.() ?? null }))
@@ -485,7 +487,7 @@ export function mountNoticeBoard(host, deps) {
   }
 
   function noticeBody() {
-    const body = el('div', 'notice-body');
+    const body = el('div', 'notice-cork');
     const form = el('form', 'notice-form');
     const subject = /** @type {HTMLInputElement} */ (el('input', 'notice-input'));
     subject.maxLength = NOTE_SUBJECT_MAX; subject.value = noticeDraft.subject;
@@ -497,7 +499,7 @@ export function mountNoticeBoard(host, deps) {
     text.oninput = () => { noticeDraft.body = text.value; };
     days.oninput = () => { noticeDraft.days = Number(days.value); };
     form.append(field('Subject', subject), field('Notice', text), field(`Days (1 to ${NOTICE_DAYS_MAX})`, days));
-    form.append(el('p', 'notice-hint', 'The server\'s word, under the red seal, on every board.'));
+    form.append(el('p', 'notice-tip', 'The server\'s word, under the red seal, on every board.'));
     const acts = el('div', 'notice-acts');
     acts.append(button('primary notice-dopost', 'Post on every board', () => {
       // AUDIT 28 N7: posted, the draft is spent - a second press never puts the same notice up twice
@@ -520,11 +522,11 @@ export function mountNoticeBoard(host, deps) {
     const key = a && win.contains?.(a) ? a.getAttribute?.('data-focus') ?? null : null;
     let at = null;
     if (key) { try { at = [a.selectionStart, a.selectionEnd]; } catch { /* a number field has none */ } }
-    const b = /** @type {any} */ (win.querySelector?.('.notice-body'));
+    const b = /** @type {any} */ (win.querySelector?.('.notice-cork'));
     return { key, at, top: b?.scrollTop ?? 0, where: `${tab}|${view}` };
   }
   function giveBack(k) {
-    const b = /** @type {any} */ (win.querySelector?.('.notice-body'));
+    const b = /** @type {any} */ (win.querySelector?.('.notice-cork'));
     if (b && k.top && k.where === `${tab}|${view}`) b.scrollTop = k.top;
     if (!k.key) return;
     const n = /** @type {any} */ ([...(win.querySelectorAll?.('input, select, textarea') ?? [])].find((x) => x.getAttribute?.('data-focus') === k.key));

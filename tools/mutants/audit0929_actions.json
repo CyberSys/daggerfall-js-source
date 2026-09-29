@@ -38,8 +38,8 @@
   {
     "name": "AUDIT0929-D1-the-chain-its-feet-alone",
     "file": "src/player/collider.js",
-    "old": "      for (let i = 0; i < n; i++) {\n        const ly = feet[1] + CAPSULE_RADIUS + (axis * i) / (n - 1) - t[1];",
-    "new": "      for (let i = 0; i < 1; i++) {\n        const ly = feet[1] + CAPSULE_RADIUS + (axis * i) / (n - 1) - t[1];",
+    "old": "      for (let i = 0; i < n; i++) {\n        let ly = feet[1] + CAPSULE_RADIUS + (axis * i) / (n - 1) - t[1];",
+    "new": "      for (let i = 0; i < 1; i++) {\n        let ly = feet[1] + CAPSULE_RADIUS + (axis * i) / (n - 1) - t[1];",
     "tests": [
       "test/audit0929_actions.test.js"
     ]

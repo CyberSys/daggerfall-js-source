@@ -2,7 +2,7 @@
   {
     "name": "AUDIT-DISC28-MO1-a-wall-is-a-floor-again",
     "file": "src/player/collider.js",
-    "old": "\n            && faceNy(tri) >= GROUND_NY;",
+    "old": "\n            && (R ? faceNyTurned(tri, R) : faceNy(tri)) >= GROUND_NY;",
     "new": ";",
     "tests": [
       "test/auditdisc28_motion.test.js"
@@ -11,8 +11,8 @@
   {
     "name": "AUDIT-DISC28-MO1-no-face-is-a-floor",
     "file": "src/player/collider.js",
-    "old": "            && faceNy(tri) >= GROUND_NY;",
-    "new": "            && faceNy(tri) > 1;",
+    "old": "            && (R ? faceNyTurned(tri, R) : faceNy(tri)) >= GROUND_NY;",
+    "new": "            && (R ? faceNyTurned(tri, R) : faceNy(tri)) > 1;",
     "tests": [
       "test/auditdisc28_motion.test.js"
     ]

@@ -870,7 +870,9 @@ export const NOTICE_CSS = `/* ── NOTICE1: THE NOTICE BOARD ── */
 .notice-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 2px solid rgba(5,6,8,0.6); }
 .notice-tab { padding: 6px 14px 5px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #b9ab93; }
 .notice-tab.on { color: #f3cf86; border-bottom: 2px solid #c08a3e; margin-bottom: -2px; }
-.notice-body { padding: 14px 16px 16px; min-height: 0; overflow: auto;
+/* TOAST-SPLIT: the cork and the italic line are the board's own classes - .notice-body and .notice-hint are the HUD
+   toasts' (ui/enhancedNotice.js), and a rule on either dressed both. */
+.notice-cork { padding: 14px 16px 16px; min-height: 0; overflow: auto;
   background: radial-gradient(circle at 20% 30%, rgba(0,0,0,0.18) 0 1px, transparent 2px) 0 0 / 7px 7px,
     radial-gradient(circle at 70% 60%, rgba(255,220,160,0.05) 0 1px, transparent 2px) 0 0 / 11px 11px,
     linear-gradient(160deg, #5b3f26, #47301c 60%, #3b2816); }
@@ -913,10 +915,10 @@ export const NOTICE_CSS = `/* ── NOTICE1: THE NOTICE BOARD ── */
 .notice-textarea { resize: vertical; min-height: 120px; line-height: 1.45; }
 .notice-days { width: 6em; }
 .notice-count { align-self: flex-end; font-size: 11px; color: #5a4630; }
-.notice-hint { margin: 0; font-size: 12px; color: #5a4630; font-style: italic; }
+.notice-tip { margin: 0; font-size: 12px; color: #5a4630; font-style: italic; }
 @media (max-width: 720px) {
   .notice-shell { padding: 8px; }
-  .notice-body { padding: 10px; }
+  .notice-cork { padding: 10px; }
   .notice-grid { grid-template-columns: 1fr; }
   .notice-title h2 { font-size: 17px; letter-spacing: 0.08em; }
 }
@@ -1098,10 +1100,9 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .market-piece { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.4fr) auto minmax(0, 1.4fr); }
 .market-row > * { min-width: 0; }
 .market-where, .market-quality { overflow-wrap: anywhere; }
-/* AUDIT 30 U14: the board's parchment ink (#5a4630) on the market's dark boxes read 1.6:1 - the market's own, and none
-   of the popup's upper case and rule */
-.market-body .notice-hint, .market-body .notice-label { color: #cdbd9f; }
-.market-body .notice-hint { margin: 0; padding: 0; border-top: 0; font-size: 12px; letter-spacing: normal; text-transform: none; text-align: left; font-style: italic; }
+/* AUDIT 30 U14: the board's parchment ink (#5a4630) on the market's dark boxes read 1.6:1 - the market's own. (The
+   popup's upper case and rule it once undid here never reach the tip since TOAST-SPLIT.) */
+.market-body .notice-tip, .market-body .notice-label { color: #cdbd9f; }
 /* PROF5b: an auction's row - its name, its quality and its standing bid across, where it stands and when it ends under */
 .market-auction { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) auto; }
 .market-auction .market-where { grid-column: 1 / -1; }
@@ -1456,6 +1457,14 @@ body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; lett
 :root[data-plus-theme="stone"] body .dfpage-note, :root[data-plus-theme="stone"] body .dfduel-sub { color: ${STONE_WORD}; }
 :root[data-plus-theme="stone"] body .dfdecor-pick-why, :root[data-plus-theme="stone"] body .dfdecor-bar-why { color: ${STONE_AMBER}; }
 :root[data-plus-theme="stone"] body .dfdecor-row.dim .dfdecor-row-price { color: ${STONE_RED}; }
+/* AUDIT NAV1 (the presentation): the sea fight's dim words join them - on Stone the plate's hint (the board key's line)
+   read 1.9:1, its waters 2.9, its labels and the card's sub-line 3.8, the plunder window's sub-line, lede and counts
+   3.3-3.5 */
+:root[data-plus-theme="stone"] body .dfnaval-hint, :root[data-plus-theme="stone"] body .dfnaval-waters,
+:root[data-plus-theme="stone"] body .dfnaval-bar-label, :root[data-plus-theme="stone"] body .dfnaval-card-sub,
+:root[data-plus-theme="stone"] body .dfnaval-winsub, :root[data-plus-theme="stone"] body .dfnaval-lede,
+:root[data-plus-theme="stone"] body .dfnaval-count, :root[data-plus-theme="stone"] body .dfnaval-choice span,
+:root[data-plus-theme="stone"] body .dfnaval-yardrow span { color: ${STONE_DIM}; text-shadow: 1px 1px 0 rgba(5,6,8,0.85); }
 `;
 
 /** AC-COMPARE (FIELD BUGS 2026-09-29d): THE CHARACTER'S ARMOUR ON THE PACK, AND THE CARD'S COMPARISON

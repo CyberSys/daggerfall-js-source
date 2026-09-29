@@ -58,6 +58,7 @@
 // build() and read the live options bag from a module variable, so a
 // frame still costs no listener work.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
+import { stepGhost, chunkFrame, GHOST_HOLD } from './barLoss.js';   // VB2 / FRAME1: a bar's loss (AUDIT NAV1: shared with the sea fight's card)
 import { mountHitNumbers, healNumberFor, showNumber } from './hitNumbers.js';   // HN1; PARTY-BUFFS: the heal a frame shows
 import { maxRoundsRemaining } from './hudActiveSpells.js';
 import { liveBundles, canEndBundle, endBundle, endedSpellText } from '../systems/mysticism.js';   // PX30: the ONE bundle walk the HUD already uses; BUFF-END: and which of them the player may end
@@ -128,6 +129,11 @@ import { setEnhancedMidTextScale } from './enhancedHudText.js';   // AUDIT FONT 
  */
 export const HUD_SCALE_MIN = 0.5;
 export const HUD_SCALE_MAX = 2;
+/** AUDIT NAV1 (the presentation): the bottom column - the vitals and the hotbar over them - and the quick block while
+ *  the HUD stands: the sea fight's ship plate keeps clear of the one, its card aside of the other (ui/navalHud.js
+ *  placeParts), as the card keeps under the helm panel's bar. */
+export const enhancedHudBottom = () => (host ? parts?.bottom ?? null : null);
+export const enhancedHudQuick = () => (host ? parts?.quick ?? null : null);
 export const enhancedHudScale = () => {
   const v = Number(getPref('hudScale'));
   if (!Number.isFinite(v) || v <= 0) return 1;
@@ -285,6 +291,36 @@ function drawPartyMarks(points, playerXZ, heading01, pool = 'partyMarks', colour
   }
 }
 
+// AUDIT NAV1 (the helm): THE SEA'S SHIPS ON THE STRIP - the party's triangle turned up (a bow, never a mate's mark),
+// standing on the strip's top edge, by the same bearing law, in what she is to me: hostile red, a ship bone, struck grey.
+// Pooled and hidden, never removed.
+export const SHIP_MARK_CSS = Object.freeze({ hostile: '#ee5745', ship: '#ebe0c2', struck: '#8f8f8f' });
+const shipMarkCss = () => 'position:absolute;top:0;width:0;height:0;margin-left:-4px;'
+  + 'border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:5px solid;'
+  + 'filter:drop-shadow(0 0 1px rgba(0,0,0,0.9));pointer-events:none';
+function drawShipMarks(ships, playerXZ, heading01) {
+  const list = (ships && playerXZ) ? ships : [];
+  while (parts.shipMarks.length < list.length) {
+    const node = el('i', 'hud-ship');
+    node.style.cssText = shipMarkCss();
+    parts.compass.append(node);
+    parts.shipMarks.push(node);
+  }
+  for (let i = 0; i < parts.shipMarks.length; i++) {
+    const node = parts.shipMarks[i];
+    if (i >= list.length) {
+      if (node.style.display !== 'none') node.style.display = 'none';
+      continue;
+    }
+    if (node.style.display === 'none') node.style.display = '';
+    const at = Math.min(1, Math.max(0, compassMarkerLerp([list[i].x, list[i].z], playerXZ, heading01)));
+    const l = `${(at * 100).toFixed(1)}%`;
+    if (node.style.left !== l) node.style.left = l;
+    const c = SHIP_MARK_CSS[list[i].kind] ?? SHIP_MARK_CSS.ship;
+    if (node.style.borderBottomColor !== c) node.style.borderBottomColor = c;
+  }
+}
+
 /** The effects: name, rounds left, whether it is going, and (UI3) its ICON00I0 icon, whether I cast it on myself and
  *  whether a party mate did - the status widget's spell tiles. */
 export function effectRows(entity) {
@@ -333,26 +369,11 @@ const clipInset = (node, key, side) => {
   last[key] = v;
   node.style.clipPath = v;
 };
-/** VB2: how long the lost chunk stands before it drains (seconds), and
- *  how fast it drains once it goes (percent of the bar per second). */
-export const GHOST_HOLD = 0.55;
-export const GHOST_RATE = 70;
+/** VB2: the lost chunk's hold and drain, and its one frame - the law in ui/barLoss.js now (AUDIT NAV1: the sea fight's
+ *  card reads a hit the same way), exported here as ever. */
+export { GHOST_HOLD, GHOST_RATE, stepGhost } from './barLoss.js';
 /** VB2: at or below this percentage the health bar's frame warns. */
 export const LOW_HEALTH_PCT = 25;
-/**
- * VB2: one frame of the lost chunk, pure. `g` is last frame's
- * { at, pct, hold } (or null), `pct` the bar now, `dt` seconds. A gain
- * (or the first frame) snaps the chunk to the bar - there is nothing
- * lost to show. A fresh loss restarts the hold from wherever the chunk
- * stands, so a flurry of blows reads as one run of damage.
- */
-export function stepGhost(g, pct, dt) {
-  const p = Math.max(0, Math.min(100, pct));
-  if (!g || p >= g.at) return { at: p, pct: p, hold: GHOST_HOLD };
-  if (p < g.pct) return { at: g.at, pct: p, hold: GHOST_HOLD };
-  if (g.hold > 0) return { at: g.at, pct: p, hold: g.hold - dt };
-  return { at: Math.max(p, g.at - GHOST_RATE * dt), pct: p, hold: 0 };
-}
 const ghosts = {};
 /** FRAME1b: the last health (percent) the foe bar showed for each foe,
  *  keyed by the entity - so a foe struck again after its bar faded, or
@@ -366,13 +387,8 @@ const foeSeen = new WeakMap();
  *  of a sprint's fatigue does not, so the bar is not raining pieces. */
 export const CHUNK_MIN_LOSS = 1.5;
 export const FOE_CHUNK_MIN_LOSS = 0.5;
-/**
- * FRAME1: which of a bar's two chunk pieces the n-th loss uses, and
- * which of the two identical animations it runs. Alternating the
- * animation NAME is what restarts it on a piece that already fell - a
- * class swap, with no forced reflow (the node tests' DOM has none).
- */
-export const chunkFrame = (n) => ({ index: n % 2, cls: Math.floor(n / 2) % 2 ? 'fb' : 'fa' });
+/** FRAME1: which piece and which animation the n-th loss runs (ui/barLoss.js), exported here as ever. */
+export { chunkFrame } from './barLoss.js';
 const chunkCount = {};
 function dropChunk(key, chunks, to, from) {
   const n = (chunkCount[key] = (chunkCount[key] ?? -1) + 1);
@@ -720,7 +736,7 @@ function build(doc) {
   cells.main.cell.addEventListener('pointerdown', tap(() => { liveOpts.quickSwitchHand?.(); }));
 
   doc.body.append(root);
-  return { root, compass, marks, detectMarks: [], partyMarks: [], veinMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
+  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], veinMarks: [], gateMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
     stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
@@ -837,6 +853,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   drawDetectMarkers(opts.detected ?? null, opts.playerXZ ?? null, heading01);
   drawGateMark(opts.gate ?? null, opts.playerXZ ?? null, heading01);   // WB1
   drawPartyMarks(opts.party ?? null, opts.playerXZ ?? null, heading01);   // COMPASS-PARTY
+  drawShipMarks(opts.ships ?? null, opts.playerXZ ?? null, heading01);   // AUDIT NAV1: the sea's ships
   drawPartyMarks(opts.veins ?? null, opts.playerXZ ?? null, heading01, 'veinMarks', VEIN_MARK_CSS);   // PROF2: the Prospector's veins
 
   // THE TARGET, when there is one.

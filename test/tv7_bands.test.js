@@ -245,7 +245,7 @@ test('TV7b host: the band word rides my cell\'s foes frame (a chase asks for a f
   assert.match(ef, /function setOnBands\(fn\) \{ _onBands = typeof fn === 'function' \? fn : null; \}/);
   assert.match(w, /exteriorFoes\.setOnBands\(\(from, bd\) => bandHear\(from, bd\)\);/);
   assert.match(w, /const bandMoved = cell && bandWord\(null, full\);/);
-  assert.match(w, /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved(?: \|\| csaAboardMoved)? \|\| bandMoved(?: \|\| seaRaidMoved)?\)/, 'a chase asks for a frame');
+  assert.match(w, /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved(?: \|\| csaAboardMoved)? \|\| bandMoved(?: \|\| navalMoved)?(?: \|\| seaRaidMoved)?\)/, 'a chase asks for a frame');   // THE MERGE with NAV-G: the sea's moved word asks beside it, and OW6's raiders'
   assert.match(w, /if \(cell\) csaWord\(frame, full\);(?: if \(cell\) csaAboardWord\(frame, full\);)? if \(cell\) bandWord\(frame, full\);/, 'and rides it');
   assert.match(w, /if \(!full && !_bandChase\.size && key === _bandWordKey\) return false;/, 'a chase is said every frame; a spent list on a change and the full frames');
   assert.match(w, /if \(flag === 2\) \{ _bandSpent\.add\(id\); _bandChase\.delete\(id\); _bandPeer\.delete\(id\); continue; \}/, 'a peer\'s spent band: spent here');

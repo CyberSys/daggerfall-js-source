@@ -251,7 +251,7 @@ test('CSA-F: the particle systems step at the head of LateUpdate - a boat under 
   assert.deepEqual(boat.WakeEmitter.getParticles().map((q) => q.remainingLifetime), lives, 'a paused frame (Time.deltaTime nought) ages none');
 });
 
-test('CSA-F: the particles\' materials as the bundle\'s shaders draw them - WakeMaterial cut at half alpha and lit on its up-facing quad, Default-Particle premultiplied and unlit, the flag\'s cube orange and lit, its triangles wound out; the soft dot white, clear at its rim', () => {
+test('CSA-F: the particles\' materials as the bundle\'s shaders draw them - WakeMaterial cut at half alpha and lit on its up-facing quad, Default-Particle premultiplied and unlit, the flag\'s cube orange and lit, its triangles wound out; the soft dot white premultiplied, clear at its rim', () => {
   assert.match(PART_CUT_FS, /if \(t\.a \* uColor\.a - uCutoff < 0\.0\) discard;/);
   assert.match(PART_CUT_FS, /uSunScale \* max\(uLightDir\.y, 0\.0\)/);
   assert.match(PART_PREMUL_FS, /outColor = texture\(uTex, vUv\) \* c \* c\.a;/);
@@ -271,7 +271,8 @@ test('CSA-F: the particles\' materials as the bundle\'s shaders draw them - Wake
     assert.ok(cross[0] * n[0] + cross[1] * n[1] + cross[2] * n[2] > 0, `triangle ${i / 3} wound out`);
   }
   const dot = softParticleTexture(16);
-  assert.deepEqual([...dot.data.subarray(0, 4)], [255, 255, 255, 0], 'the corner clear');
+  assert.deepEqual([...dot.data.subarray(0, 4)], [0, 0, 0, 0], 'the corner clear - and black, or One OneMinusSrcAlpha adds its white over the whole quad (NAV-B)');
   const mid = (8 * 16 + 8) * 4;
   assert.ok(dot.data[mid + 3] > 200, 'the middle nearly opaque');
+  for (let i = 0; i < dot.data.length; i += 4) assert.ok(dot.data[i] === dot.data[i + 3] && dot.data[i + 1] === dot.data[i + 3] && dot.data[i + 2] === dot.data[i + 3], `texel ${i / 4}: white premultiplied, its colour its coverage`);
 });

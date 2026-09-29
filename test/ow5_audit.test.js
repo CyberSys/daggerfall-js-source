@@ -68,6 +68,7 @@ test('AUDIT OW5 R1: a window or a death HOLDS a pirates\' chase at sea (the band
       worldTimeScale: () => 1, travelView: { active: false }, state: { worldCoords: () => ({ x: 0, z: 0 }) }, player: { pos: [0, 0, 0] },
       RAID_NATIVE_PIXEL, raiderSight: () => 0, isNight: () => false, minuteNow: () => 0, travelViewRaiders: () => [],
       raiderChaseStep, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, tvRaidSea: () => true, raidContact: () => {},
+      navalRaidersOn: () => false,   // THE MERGE (NAV-R): the sea fight off - the mod's own chase, this pin's
       // since the merge with AUDIT OW5b: its world-moved hold (S6), its quarry (S2: on one's own boat), OW6's spend and peers
       worldMoveBusy: () => false, raidQuarry: () => boat, seaRaidSpend: (id) => tvRaid.spent.add(id), seaRaidPeerChase: () => null,
     };

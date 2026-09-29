@@ -586,7 +586,7 @@
   },
   {
     "name": "SET7-AUDIT-U1-a-comma-inside-parentheses-split",
-    "file": "src/ui/brokerWindow.js",
+    "file": "src/ui/enhancedFrame.js",
     "old": "    if (c === '(') depth++; else if (c === ')') depth--;\n    else if (c === ',' && depth === 0)",
     "new": "    if (c === ',')",
     "tests": [

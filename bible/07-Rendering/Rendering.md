@@ -104,6 +104,17 @@ directory by `test/audit18_bible_docs.test.js`:
   particle materials - WakeMaterial's cut-out quads, Default-Particle's
   premultiplied drops, FlagMaterial's lit cubes - over the renderer's own
   frame state (its matrices, light and fog). `03-World/Come-Sail-Away.md`.
+- `navalRender.js` - NAV-B THE SEA FIGHT, DRAWN: one program of CPU-laid
+  world quads for everything the naval arc shows between the shot and the
+  splinter - smoke, spray, foam, splinters, the balls in flight, the fire
+  barrels afloat and the aim's splash zone premultiplied and lit (back to
+  front), the muzzle flames, embers and the aim's arcs added (ONE / ONE) -
+  over the renderer's own matrices, light and fog (the travel view's focus
+  among them), testing the world's depth and writing none; four pictures
+  made at load, never shipped. NAV-B also made Come Sail Away's soft drop
+  premultiplied (`comeSailAwayRender.js softParticleTexture`, the root of the
+  white squares) and flies a sea ship's colours on its flag (`flagRuns`).
+  `03-World/Naval-Combat.md`.
 - `fogGlsl.js` - AUDIT 68 THE FOG BLOCK: `FOG_GLSL`, the one `fogFactorAt`
   every world pass interpolates - renderer.js's seven programs, the water
   surface and the lighting lane's five (DS1's exp2 had been added to nine
@@ -765,7 +776,11 @@ directory by `test/audit18_bible_docs.test.js`:
   water-corner table that inverts the marching squares, the swell, foam, Fresnel,
   glint and rain shader (`drawWaterSurface` in renderer.js), drawn after
   every opaque pass of a pixel and before the first flat, in both exterior
-  hosts. Switch `enhancedWater`, `?water=off`. `07-Rendering/Water-Arc.md`.
+  hosts. Switch `enhancedWater`, `?water=off`. `07-Rendering/Water-Arc.md`. And
+  (FIELD BUGS 2026-09-29 (the sea) #4) THE SEA'S STACK IN WINDOW DEPTH,
+  `WATER_LAYER_UNITS`: the polygon offsets the water sheets a few
+  centimetres apart are drawn at - the surface film (Iliac Puddle No More's
+  top, WATER1) over the ground, Come Sail Away's breakers over the film.
 - `underwaterFog.js` - ROAD-B B3: UnderwaterFog.UpdateFog, the submerged fog/tint law shared by the dungeon and exterior hosts
 - `windowEmission.js` - R2 window emission.
 - `precipitation.js` - R13 rain/snow + storm lightning. TWO PROFILES,

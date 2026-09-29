@@ -128,6 +128,10 @@
 //   transport.isOnShip()                          TransportManager.IsOnShip
 //   CSA-J, the message receiver:
 //   logError(text)                                Debug.LogErrorFormat (a message no arm knows)
+//   NAV-H x AUDIT NAV1 (the helm), the sea fight's seams (optional; the mod has no hurt):
+//   wayScale(underSail) -> 0..1                   the share of her way her hurts leave (moveSpeed)
+//   sailRefused() -> text | null                  why no sail will set (RaiseSails refuses with it)
+//   accelScale() -> 0..20                         her way's rate times this (moveAccel: a heave-to's brake)
 // }
 
 import { Boat, setLights, HULL_NAMES, HULL_PRICES, HULL_WEIGHTS, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds, animatorOf, boatAnimators, boatParticleSystems, nodeOf, AUDIO_CLIPS, SAIL_ANIMATION_SPEED } from './comeSailAwayBoat.js';
@@ -590,14 +594,21 @@ export function createComeSailAwayRuntime(deps) {
   const dt = () => f(deps.dt?.() ?? 0);                 // Time.deltaTime
   const cur = () => state.CurrentBoat;
 
-  /** moveSpeed (525-536). */
+  /** moveSpeed (525-536). NAV-H x AUDIT NAV1 (the helm): times the sea fight's share of her way (`deps.wayScale`, the
+   *  port's seam - the mod has no hurt): the canvas a shot-up rig still sets under sail, a wreck's oars under oars. */
   function moveSpeed() {
     const b = cur();
-    if (state.sailPosition === 0) return f(f(f(HANDLING.moveSpeedOar * handlingMod('OarMoveSpeed')) * state.boatCargoMod) * f(b.modifierMoveSpeedOar));
-    return f(f(f(HANDLING.moveSpeedSail * handlingMod('SailMoveSpeed')) * state.boatCargoMod) * f(b.modifierMoveSpeedSail));
+    const hurt = f(Math.max(0, Math.min(1, Number(deps.wayScale?.(state.sailPosition !== 0) ?? 1))));
+    if (state.sailPosition === 0) return f(f(f(f(HANDLING.moveSpeedOar * handlingMod('OarMoveSpeed')) * state.boatCargoMod) * f(b.modifierMoveSpeedOar)) * hurt);
+    return f(f(f(f(HANDLING.moveSpeedSail * handlingMod('SailMoveSpeed')) * state.boatCargoMod) * f(b.modifierMoveSpeedSail)) * hurt);
+  }
+  /** moveAccel: the rate below, times the sea fight's `accelScale` (AUDIT NAV1, the helm: a heave-to takes her way off
+   *  hard - the port's seam, held to 0..20; the mod has none). */
+  function moveAccel() {
+    return f(moveAccelOwn() * f(Math.max(0, Math.min(20, Number(deps.accelScale?.() ?? 1)))));
   }
   /** moveAccel (538-551): the oars' only while a key pulls them; with none held the sails' - a coast (kept). */
-  function moveAccel() {
+  function moveAccelOwn() {
     const b = cur();
     if (state.sailPosition === 0 && (has('MoveForwards') || has('MoveBackwards') || (has('Run') && (has('MoveRight') || has('MoveLeft'))))) {
       return f(f(f(HANDLING.moveAccelOar * handlingMod('OarMoveAcceleration')) * state.boatCargoMod) * f(b.modifierMoveAccelerationOar));
@@ -988,6 +999,13 @@ export function createComeSailAwayRuntime(deps) {
    *  stowed when the wind is more than 90 degrees off the bow. */
   function RaiseSails() {
     const b = state.CurrentBoat;
+    // NAV-H x AUDIT NAV1 (the helm): the sea fight's refusal first (`deps.sailRefused`: a wreck, a rig shot away) - once,
+    // where the host had lowered them again every frame they went up, a line a press
+    const refused = deps.sailRefused?.() ?? null;
+    if (refused) {
+      deps.hudText(refused);
+      return;
+    }
     if (!CanSail(b)) {
       deps.hudText('Unable to raise sail. Boat is obstructed.');
       return;
