@@ -9,7 +9,7 @@ import {
 } from '../src/systems/naval/navalBallistics.js';
 import {
   BOW_ARC, STERN_ARC, RIPPLE_S, RELOAD_UNDERMANNED, RELOAD_SINGLEHANDED, BARREL_DROP_S,
-  bearingOf, sideForBearing, aimSolution, volleyLaunches, reloadSeconds, createGunDeck, zoneCovers,
+  bearingOf, sideForBearing, aimSolution, volleyLaunches, reloadSeconds, createGunDeck,
 } from '../src/systems/naval/navalGunnery.js';
 import { GUNS, BARREL, batteryOf, batteriesOf, HULL_BUILDS } from '../src/systems/naval/navalShips.js';
 import {
@@ -126,19 +126,20 @@ test('NAV-A which battery bears: the look\'s bearing off the bow (positive to st
   assert.equal(sideForBearing(-179), 'stern');
 });
 
-test('NAV-A the aim: a look that meets the sea lays the side\'s guns to fall there - the zone at the look\'s range, every landing on the sea, a muzzle a gun; over the horizon the longest shot; a barrel rolled under the stern; a side with no guns none (mutants: the range measured from the eye, the look ignored, the carriage\'s top on a near look)', () => {
+test('NAV-A the aim: a look that meets the sea lays the side\'s guns to fall there - the zone at the look\'s range, every landing on the sea, a muzzle a gun; over the horizon the longest shot (AUDIT NAV1: toward it the lay goes on AIM_SLOPE a degree - test/navaudit_helm.test.js); a barrel rolled under the stern; a side with no guns none (mutants: the range measured from the eye, the look ignored, the carriage\'s top on a near look)', () => {
   const ship = { position: [0, 0, 0], rotation: ID, velocity: [0, 0, 0], hull: 2 };
   const seaY = 0;
-  // look from 6 m up, out to starboard to meet the sea 120 m from the guns
+  // look from 6 m up, out to starboard to meet the sea 60 m from the guns
   const bat = batteryOf(2, 'starboard');
   const cx = bat.muzzles.reduce((s, m) => s + m[0], 0) / bat.muzzles.length;
-  const target = [cx + 120, 0, 0], eye = [0, 6, 0];
+  const target = [cx + 60, 0, 0], eye = [0, 6, 0];
   const d = [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]], dl = Math.hypot(...d);
   const aim = aimSolution(ship, 'starboard', { origin: eye, dir: d.map((v) => v / dl) }, seaY);
   assert.equal(aim.side, 'starboard'); assert.equal(aim.gun, 'long'); assert.equal(aim.barrel, false);
   assert.equal(aim.launches.length, 6, 'six long guns a side on a Small Ship');
   assert.deepEqual(aim.dir.map((v) => +v.toFixed(9) + 0), [1, 0, 0], 'fired square to starboard');
-  near(aim.range, 120, 1.5, 'the zone where the look meets the sea');
+  near(aim.range, 60, 1.5, 'the zone where the look meets the sea');
+  near(aim.lookPoint[0], target[0], 1e-9, 'the look\'s own point on the sea');
   for (const l of aim.landings) near(l.point[1], seaY, 1e-9);
   assert.ok(aim.elevation < GUNS.long.maxEl * NAVAL_DEG);
   assert.ok(aim.width >= 2);
@@ -214,18 +215,6 @@ test('NAV-A the reload: the gun\'s own at a full crew, RELOAD_UNDERMANNED slower
   assert.equal(other.left('starboard'), 60, 'a clock bounded');
   assert.equal(other.left('port'), 0);
   assert.equal(other.barrels, 99);
-});
-
-test('NAV-A the zone on a ship: a landing inside her box grown by the margin is on target, one clear of it not (mutants: the margin ignored, the box\'s axes swapped)', () => {
-  const ship = { position: [0, 0, 0], rotation: ID, velocity: [0, 0, 0], hull: 2 };
-  const aim = aimSolution(ship, 'starboard', null, 0, { range: 100 });
-  const at = aim.landings[2].point;
-  const box = { c: [at[0], 0, at[2]], ax: [1, 0, 0], ay: [0, 1, 0], az: [0, 0, 1], h: [3, 2, 10] };
-  assert.equal(zoneCovers(aim, box), true);
-  assert.equal(zoneCovers(aim, { ...box, c: [at[0] + 30, 0, at[2]] }), false);
-  assert.equal(zoneCovers(aim, { ...box, c: [at[0] + 4.5, 0, at[2]] }, 2), true, 'within the margin');
-  assert.equal(zoneCovers(aim, { ...box, c: [at[0] + 5.5, 0, at[2]] }, 2), false);
-  assert.equal(zoneCovers(null, box), false);
 });
 
 test('NAV-A where a ball strikes her hull: within WATERLINE_BAND of the sea, by the height of the point it struck, holed, else the hull (her rigging is a target of its own - AUDIT NAV1, test/navaudit_guns.test.js); what each does - canvas and a man in the rig, HOLED_BONUS below the waterline, BRACE_TAKEN braced, each ball 85-115% (mutants: the band\'s edge, the bonus, the brace)', () => {

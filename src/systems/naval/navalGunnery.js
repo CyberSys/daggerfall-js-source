@@ -6,9 +6,14 @@
 // BLACK FLAG'S LAW, ON A DAGGERFALL HELM. Look over the side and the broadside bears; look over the bow and the
 // chasers do; look astern and the barrels roll off the stern. Hold the attack to AIM - the volley's landing zone
 // stands on the water where it will fall, following the look - and let go to FIRE. A quick click fires where the
-// look already is. The ship is the traverse: a broadside fires square to the hull and the look sets only the RANGE -
-// where the look meets the sea, projected out from the guns - so to bring the guns onto a ship you turn your own,
-// as a captain does. Looking at or over the horizon lays the guns at their highest.
+// look already is. The ship is the traverse: a broadside fires square to the hull and the look sets only the RANGE,
+// so to bring the guns onto a ship you turn your own, as a captain does.
+// AUDIT NAV1 (the helm): the zone stands where the look meets the sea only while that point moves less than
+// AIM_SLOPE metres a degree of the look's pitch; toward the horizon and over it the range goes on at AIM_SLOPE a degree
+// to the guns' longest (`lookReach`) - where the look met the sea at every range, a pixel of the default mouse threw a
+// long shot 37 m, and the zone read "longest" from a degree and a half under the horizon up. A look ON A SHIP (her
+// hull or her rig, the host's ray - `look.at`) lays the guns for that very point: its range out along the fire and its
+// height, so the crosshair on her side is a broadside into her side (the sea's point behind her flew it over).
 //
 // THE ZONE IS THE TRUTH. It is drawn from the same launches the volley flies (systems/naval/navalBallistics.js):
 // each gun's muzzle on the hull (navalShips.js), the elevation `elevationForRange` found, the deck's own velocity
@@ -26,7 +31,7 @@
 // on is not loading, so the brace is an answer to a broadside, not a stance held for free.
 
 import { GUNS, SIDE_DIR, batteryOf, BARREL } from './navalShips.js';
-import { launchVelocity, elevationForRange, landing, maxRange, raySeaHit, volleyRandom, scatter, flatUnit, NAVAL_DEG } from './navalBallistics.js';
+import { launchVelocity, elevationForRange, landing, maxRange, volleyRandom, scatter, flatUnit, NAVAL_DEG } from './navalBallistics.js';
 import { quatRotate } from '../../world/quat.js';
 
 /** The bow's arc and the stern's, either side of the keel line (degrees): a look within one lays that battery. */
@@ -39,8 +44,24 @@ export const RELOAD_UNDERMANNED = 0.8;
 export const RELOAD_SINGLEHANDED = 1.4;
 /** A fire barrel's roll: its own short clock, whatever the stern's reload says. */
 export const BARREL_DROP_S = 1.2;
+/** AUDIT NAV1 (the helm): the most the zone moves out a degree of the look's pitch (m) - see `lookReach`. */
+export const AIM_SLOPE = 30;
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+
+/**
+ * How far out on the flat a look lays (m from the eye's foot), for its pitch (radians, negative down) and the eye's
+ * height over the sea `h`: where it meets the sea (h / tan of the depression) while that point moves out less than
+ * AIM_SLOPE a degree - steeper than the depression p0 where sin^2(p0) = h / slope - and past it straight on at
+ * AIM_SLOPE, through the horizon and over it, meeting the first law at p0 in both its value and its rate.
+ */
+export function lookReach(pitch, h) {
+  const slope = AIM_SLOPE / NAVAL_DEG;   // m a radian
+  const hh = Math.max(0.5, h);
+  const p0 = Math.asin(Math.min(1, Math.sqrt(hh / slope)));
+  const dip = -pitch;
+  return dip >= p0 ? hh / Math.tan(dip) : hh / Math.tan(p0) + slope * (p0 - dip);
+}
 
 /** The ship's forward and starboard in the world (unit, flat) from its root rotation. */
 export function shipAxes(rotation) {
@@ -78,7 +99,8 @@ export const toWorld = (ship, p) => {
  * The aim for one battery: where its volley falls if fired now, and how to lay it.
  * @param {{ position: number[], rotation: number[], velocity?: number[], hull: number }} ship - the root's pose
  * @param {'starboard'|'port'|'bow'|'stern'} side
- * @param {{ origin: number[], dir: number[] } | null} look - the camera's ray (null: lay for `range`)
+ * @param {{ origin: number[], dir: number[], at?: number[] | null } | null} look - the camera's ray (null: lay for `range`); `at`
+ *   the point on a ship it meets (the host's ray: her hull or her rig), laid for itself
  * @param {number} seaY - the sea's height
  * @param {{ range?: number, target?: number[], targetY?: number }} [opts] - with no look: a range to lay for, or a world
  *   point to lay on (the AI's lead - its distance out from the guns, along the fire); `targetY` the height the lay
@@ -107,12 +129,18 @@ export function aimSolution(ship, side, look, seaY, { range = null, target = nul
   let want = range, lookPoint = null, layDy = dy;
   if (!look && target) want = (target[0] - c[0]) * dir[0] + (target[2] - c[2]) * dir[2];
   if (!look && Number.isFinite(targetY)) layDy = c[1] - targetY;
-  if (look) {
-    const hit = raySeaHit(look.origin, look.dir, seaY);
-    if (hit) {
-      lookPoint = hit.point;
-      want = (hit.point[0] - c[0]) * dir[0] + (hit.point[2] - c[2]) * dir[2];   // out from the guns, along the fire
-    } else want = far;   // at or over the horizon: the guns at their highest
+  if (look?.at) {
+    // on a ship: her very point - out from the guns along the fire, and its own height
+    lookPoint = look.at;
+    want = (look.at[0] - c[0]) * dir[0] + (look.at[2] - c[2]) * dir[2];
+    layDy = c[1] - look.at[1];
+  } else if (look) {
+    // the sea: the look's reach out along its own bearing, measured out from the guns along the fire
+    const l = Math.hypot(look.dir[0], look.dir[1], look.dir[2]) || 1;
+    const reach = lookReach(Math.asin(clamp(look.dir[1] / l, -1, 1)), look.origin[1] - seaY);
+    const flat = flatUnit(look.dir) ?? dir;
+    lookPoint = [look.origin[0] + flat[0] * reach, seaY, look.origin[2] + flat[2] * reach];
+    want = (lookPoint[0] - c[0]) * dir[0] + (lookPoint[2] - c[2]) * dir[2];
   }
   const elevation = want == null ? lo : want <= 0 ? lo : elevationForRange(want, gun.speed, layDy, lo, hi);
   const carry = ship.velocity ?? null;
@@ -203,15 +231,3 @@ export function createGunDeck(hull, { crewed = true, crewShare = () => 1, barrel
   return deck;
 }
 
-/** Whether a solution's zone lies on a ship: any landing within the ship's box grown by `margin` (m), on the flat -
- *  the aim's red. `box` an oriented box (navalBallistics.js orientedBox). */
-export function zoneCovers(solution, box, margin = 2) {
-  if (!solution || !box) return false;
-  for (const l of solution.landings) {
-    if (!l) continue;
-    const d = [l.point[0] - box.c[0], 0, l.point[2] - box.c[2]];
-    const x = Math.abs(d[0] * box.ax[0] + d[2] * box.ax[2]), z = Math.abs(d[0] * box.az[0] + d[2] * box.az[2]);
-    if (x <= box.h[0] + margin && z <= box.h[2] + margin) return true;
-  }
-  return false;
-}

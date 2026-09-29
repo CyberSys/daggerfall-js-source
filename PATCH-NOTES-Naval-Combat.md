@@ -4,7 +4,7 @@
 - Boats with guns can now fight. The Large Boat carries swivel guns. The Small Ship and the Carrack carry long guns, chain-shot chasers in the bow and fire barrels at the stern. The Large Galley carries long guns along her sides and great guns over her bow.
 - To fire, look to a side at the helm and hold Attack. The guns on that side are aimed where you look, and their arcs and the splash zone are drawn on the water. Let go to fire the whole broadside.
 - Look over the bow to aim the chasers. Look astern to roll a fire barrel over the side, where it floats until a ship runs into it.
-- Look higher to fire further. The aim shows the range, and the zone turns red when it lies on a ship.
+- Look higher to fire further. The aim shows the range, and turns red when your guns will hit a ship.
 - Each side reloads on its own, and a thin crew reloads slower. A boat with no crew reloads slowest of all. Hold Crouch at the helm to brace behind the rail: you take less damage, but your guns hold fire.
 - Cannon balls hole the hull, cut the sails and kill crew. A hit below the waterline does the most damage, and a ship can catch fire.
 - Needs Come Sail Away.
@@ -55,6 +55,15 @@
 - After each of your broadsides, a line under the crosshair counts how many balls struck, how many holed her below the waterline and how many went through her rigging.
 - Fixed: the last guns of a moving ship's broadside no longer fire from behind their ports.
 
+## Aiming - put the crosshair on her
+- Put your crosshair on an enemy ship's hull and the guns are aimed at that exact spot, so the broadside goes into her side instead of flying over her. Aim at her sails and your cannon still hit the hull, while chain shot goes for the sails.
+- Aiming at the water is smoother: nearby, the balls land right under your crosshair, and farther out each mouse movement shifts the range by a steady amount, not jumping tens of metres.
+- The aim turns red only when your guns will really hit a ship, based on where she will be when the balls arrive. It checks every ship, not just the one under your crosshair, and her name comes up while you're on her.
+- Each gun's arc now ends where its ball will stop: at a mark on her side, or at a splash on the water with a post of light over it so you can see it at a distance.
+- When your guns can't fire yet, the aim line says why: reloading (with the seconds left), braced, out of fire barrels, or guns silent on a crippled ship. The aim goes grey and never turns red.
+- A new broadside camera: while you aim a broadside, the view moves out over that side of your ship so your gun ports, the splash zone and the enemy are all on screen together. Letting go brings the view back. You can turn it off in Features > Naval Combat > Broadside camera.
+- Firing while braced now tells you to let go of the brace first, and the reload message gives the seconds left.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.
@@ -74,4 +83,4 @@
 ## Online
 - Everyone nearby shares one sea: the same ships, the same broadsides and the same sinking.
 - Pirates attack every player's boat. Players cannot hurt each other's boats.
-- Features > Naval Combat has settings for how many ships sail, whether pirates board you and the raiders' plunder.
+- Features > Naval Combat has settings for how many ships sail, whether pirates board you, the raiders' plunder and the broadside camera.

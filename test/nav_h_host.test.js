@@ -114,7 +114,7 @@ test('NAV-H at an armed helm the attack is the broadside\'s: look to a side and 
   assert.equal(hud.batteries.find((b) => b.side === 'starboard').ready, false, 'reloading');
   assert.equal(hud.batteries.find((b) => b.side === 'port').ready, true);
   host.attackInput(true); host.attackInput(false);
-  assert.ok(log.say.includes('The starboard guns are reloading.'));
+  assert.ok(log.say.some((t) => /^The starboard guns are reloading \(\d+\.\d s\)\.$/.test(t)), 'and how long yet (AUDIT NAV1)');
   // the brace: held, the guns stay silent
   view.look = { origin: [0, 5, 0], dir: [-1, -0.05, 0] };
   host.frame(0.1, { brace: true });

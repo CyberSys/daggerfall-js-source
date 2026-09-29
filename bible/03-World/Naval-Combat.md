@@ -43,14 +43,21 @@ carries its row instead. It stands on three things the port already had:
   (`navalGunnery.js` sideForBearing: within BOW_ARC of the bow the bow chasers, within STERN_ARC of the stern the stern,
   else port or starboard). The rose on the ship plate lights that battery gold.
 - **Hold Attack** (the SwingWeapon action - right mouse by default, RT on a pad, the swipe on a phone): the guns are
-  LAID where the look meets the sea - every muzzle's arc drawn to its splash, the splash zone ringed, both turning red
-  when the zone lies on a ship, and the range read under the crosshair ("Starboard broadside - 138 m", "(longest)" at
-  the battery's reach, "on target"). **Let go and they fire**, a ripple down the side (RIPPLE_S apart), the smoke
-  drifting down the wind. Black Flag's "viewing from the side" is exactly this: the look IS the aim, in first person or
-  over Eye of the Beholder's shoulder - so while the attack is held at the guns the mouse's drag, the pad's right stick
-  and the finger's drag all TURN THE VIEW (the swing's look law, which drops the look under a held swing, stands down
-  there, and the pad and the finger hold the attack plainly - `aimHold`). A readied spell still eats the press first.
-  A window opened over the aim puts it down unfired; the release itself is never gated.
+  LAID under the look - on the sea where it meets the water (out to where that point would move more than AIM_SLOPE a
+  degree, then AIM_SLOPE a degree on to the battery's longest), and ON A SHIP for her very point: the crosshair on her
+  side lays the broadside into her side, on her canvas round shot into her hull and chain into the canvas. Every
+  muzzle's arc is drawn to where it stops - a splash ringed on the sea with a post of light standing over it, or a
+  mark on her side where the ball will meet her - all turning red when the guns will strike a ship as she will stand
+  when the balls get there, and the range read under the crosshair ("Starboard broadside - 138 m", "(longest)" at the
+  battery's reach, "on target"; or why it will not fire yet - "reloading 6.1 s", "braced", "no barrels", "guns
+  silent" - the zone grey). THE BROADSIDE CAMERA eases the eye out over that side while a broadside is laid - her
+  ports, the zone and the enemy on one screen - and home on the release (the Broadside camera part of the row).
+  **Let go and they fire**, a ripple down the side (RIPPLE_S apart), the smoke drifting down the wind. Black Flag's
+  "viewing from the side" is exactly this: the look IS the aim, in first person or over Eye of the Beholder's
+  shoulder - so while the attack is held at the guns the mouse's drag, the pad's right stick and the finger's drag all
+  TURN THE VIEW (the swing's look law, which drops the look under a held swing, stands down there, and the pad and the
+  finger hold the attack plainly - `aimHold`). A readied spell still eats the press first. A window opened over the
+  aim puts it down unfired; the release itself is never gated.
 - **Crouch braces** (C, LB on a pad): the crew ducks behind the rail - half the hull and sail damage while held, no gun
   fires and no gun is loaded (AUDIT NAV1: the reload waits). It is the Crouch action because that is what bracing is;
   see the departures.
@@ -313,8 +320,9 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   hull under a quarter pulses), chips for fire, brace and a crippled ship, the crown's waters and four notoriety
   anchors, the BATTERY ROSE (bow over stern, port and starboard either side - each its guns, filling as it reloads,
   gold when the look lays it, brass-edged when loaded) and the hint (the key that matters most first - a ship in reach
-  to board or plunder, then the guns). The AIM under the crosshair. The TARGET CARD under the compass: her name, class
-  and captain, the distance, her hull and sails, whether she is hostile, her state and the key that boards her. On
+  to board or plunder, then the guns). The AIM under the crosshair (AUDIT NAV1: dimmed, with why, while the battery
+  cannot fire). The TARGET CARD under the compass: her name, class and captain, the distance, her hull and sails,
+  whether she is hostile, her state and the key that boards her - while a broadside is laid, the ship its guns strike. On
   foot, the card alone - while a struck ship or a prize is in reach. AUDIT NAV1: THE WARNING over the crosshair -
   BROADSIDE and the brace's key, pulsing in the kit's blood edge - while a run-out bears on you and until its balls are
   down; THE TALLY under the aim for TALLY_S once your volley's last ball is down.
@@ -354,7 +362,10 @@ as the colours come down, the bubbles of a ship going down, the burning loop. Ev
 ## The picture (NAV-B)
 
 One program (`render/navalRender.js`): soft quads premultiplied, the muzzle flame and the aim additive, the fog the
-world's (FOG_GLSL); depth tested, never written, drawn after the sea's transparent top. The textures are procedural
+world's (FOG_GLSL); depth tested, never written, drawn after the sea's transparent top. The aim (AUDIT NAV1): the
+zone's discs on the sea, a post of light over each (AIM_POST_HALF_W by AIM_POST_HALF_H, turned to the eye - a disc
+150 m off was 3.7 px tall), a mark where a ball meets a hull (AIM_STRIKE_HALF), in the tones of `aimTone` - brass laid,
+red on her, grey while the battery cannot fire. The textures are procedural
 (white, the shape in alpha). The deck fires are Daggerfall's own fire flat (TEXTURE.210 record 1, FLAME_SCALE the
 camp's size), carried with the ship; a muzzle flash and a burning deck light the scene (MUZZLE_FLASH_COLOR, BURN_COLOR,
 BURN_LIGHTS). A sea ship's flag flies her colours (`navalShips.js` NAVAL_FACTIONS' `flag`, the one table; the renderer
@@ -382,8 +393,8 @@ a save's: they are the waters', rolled again.
 ## The settings
 
 The Features row **Naval Combat** (group Combat, the port's own): the switch (`naval`, on; FORCED ON online), and in
-its drawer Ships at sea (`naval-ships`: few, some, many), Pirates board you (`naval-boarders`) and Raiders' plunder
-(`naval-raid-prize`) - each the player's own online.
+its drawer Ships at sea (`naval-ships`: few, some, many), Pirates board you (`naval-boarders`), Raiders' plunder
+(`naval-raid-prize`) and Broadside camera (`naval-aim-camera`, AUDIT NAV1) - each the player's own online.
 
 ## Departures (Port-Ledger section A)
 
@@ -467,6 +478,21 @@ THE BALANCE, measured (the player's Small Ship circling at 3 m/s and never firin
 every 16 s (44), and one running free at 7 m/s outruns a brig. The player's side is the audit's own (a same-level brig
 takes 4-5 good broadsides): the fight is the player's to win, and the tell is how.
 
+### The helm (the aim)
+
+The helm audit's aiming findings (the player at the guns; 1080p, DFU's default FOV 65 degrees and mouse sensitivity 2.0 -
+0.286 degrees a count):
+
+| finding | before (the audit's measure) | the law now | after |
+|---|---|---|---|
+| the lay too sensitive to aim with (H2) | where the look met the sea: the Large Boat's lays a count apart from the horizon 150, 150, 150, 131, 98, 78, 65 m - none inside a sloop's red window at 120 m (108-116); the Small Ship's first 11 counts "(longest)", then 11-18 m a count | `lookReach`: where the look meets the sea while that point moves out less than AIM_SLOPE (30 m) a degree - the seam where sin^2 = h / slope, one value and one rate either side - then AIM_SLOPE a degree through the horizon and over it; the lay measured from the guns along the fire | the Large Boat 8-9 m a count (141, 132, 124, 115, 107 ...); the Small Ship 8-9 m a count, "(longest)" 7 counts under the horizon |
+| a look on a ship laid past her (H2, H7) | the ray through her side met the sea behind her: the lay flew over | THE LOOK ON A SHIP (`lookOnShip`): the nearest of her hull's box and her rig's the look meets within the battery's reach (+LOOK_REACH_PAD) lays the guns for that point, at its height (`look.at`); on her canvas round shot is laid for her hull's centre and chain for the canvas; her way along the fire led over the ball's flight | the crosshair on her side: all six of a Small Ship's arcs end in it |
+| red judged from the crosshair, and wrong (H3, H7) | red when a landing fell in her footprint +-2 m: against a beam-on Small Ship at 150 m, red laid 132-152 m, balls striking laid 134-198 m (23 lays that hit never red, one red that missed); five red lays missed a ship sailing away at 3.7 m/s; only the ship under the crosshair asked - a galley laid square on a sloop 14.7 degrees off it: no red, no card | `aimStrikes`: each gun's unscattered arc walked HOT_STEP_S at a time against every ship's hull box (and her rig's for chain) moved on by her way over the ball's time aloft; red when a gun strikes and the battery can fire; each arc drawn to where it stops, a mark where it meets her; the card is the ship the guns strike | red exactly when the unscattered balls strike, wherever the look is |
+| no broadside camera (H4) | the Small Ship's rail hid the sea for every lay under 82-84 m from the helm; the head on the crosshair | THE BROADSIDE CAMERA (`aimEye`): while a broadside is laid the eye eases (AIM_CAM_TAU, smoothstepped) to AIM_CAM_OUT past the battery's ports, AIM_CAM_UP over them, AIM_CAM_AFT toward the stern - AIM_CAM_CLEAR short of a ship alongside - and home on the release; the look's ray starts from it (`_dwEyeOffset`); never for the chasers or a crippled ship; the row's Broadside camera part | the eye outboard of her own hull: nothing of her between it and the zone |
+| the aim looks ready when it is not (H9) | the zone drawn braced, reloading ("Starboard broadside - 164 m" at 12% loaded) and wrecked; a braced release silent; no time on the reload | the aim's STATE (`aimState`): the line's tail says why - "reloading 6.1 s", "braced", "no barrels", "guns silent" - dimmed, the zone grey, never red; a braced release says so; the reload's message its seconds | - |
+| the zone a sliver on screen (H10) | discs 6 cm over the sea: 3.7 px tall at 150 m from the Small Ship's helm, 0.7 px at 100 m from the Large Boat's | a post of light over each splash, turned to the eye (AIM_POST_HALF_H: 3.4 m) | about 19 px at 150 m |
+| (the slice's own) the aim read the last frame's hulls | computed before the ships were posed: a ship's way behind | the aim after the poses | - |
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
@@ -484,12 +510,15 @@ hulls and the land, the intercept, the side that bears soonest, giving up, along
 a prize adrift, the berths, the hulls kept apart, a galley's ram, the sea's time, a boarder chasing) and
 `navaudit_guns` (the run-out and its promise, the fire's window, never over her nor short, no friend across the line,
 the lay, station alongside, the helm's lead, the prize kept a prize, no feud from a stray, fire, the rig, the shots'
-own, the guns' reach, the warning, the tell heard and seen, the tally), on the shared sea of `test/navalSea.mjs`.
-Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json` and
-`navaudit_guns.json`, 307 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+own, the guns' reach, the warning, the tell heard and seen, the tally) and `navaudit_helm` (the look's reach, a look
+on a ship, the red where the balls strike her as she will stand, why the guns will not fire yet, the aim drawn, the
+broadside camera, the world's wiring), on the shared sea of `test/navalSea.mjs`.
+Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`
+and `navaudit_helm.json`, 348 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
-rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep);
+rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 41 with the
+audit's helm);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

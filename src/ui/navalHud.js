@@ -111,6 +111,8 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-aim .dfnaval-aim-range { color: ${T.brassHi}; }
 .dfnaval-aim.hot { color: #ffb4a6; }
 .dfnaval-aim.hot .dfnaval-aim-range { color: #ff8a76; }
+.dfnaval-aim.dim { color: #a39a86; }
+.dfnaval-aim.dim .dfnaval-aim-range { color: #8f8670; }
 .dfnaval-card { position: absolute; left: 50%; top: var(--nc-top); transform: translateX(-50%); width: 400px; max-width: 86vw; padding: 7px 14px 8px;
   text-align: center; background: ${T.groundPanel}; border: 2px solid ${T.stoneLit}; }
 .dfnaval-card-name { font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED}; }
@@ -140,6 +142,17 @@ const pct = (v) => Math.max(0, Math.min(100, Math.round((Number(v) || 0) * 100))
 const SIDE_WORDS = Object.freeze({ bow: 'Bow', port: 'Port', starboard: 'Starboard', stern: 'Stern' });
 const GUN_WORDS = Object.freeze({ long: 'long guns', swivel: 'swivels', heavy: 'great guns', chain: 'chain shot', barrel: 'fire barrels' });
 
+/** AUDIT NAV1 (the helm): the aim line's tail - on target, or why the battery will not fire yet. */
+function aimTail(a) {
+  switch (a.state) {
+    case 'reloading': return ` - reloading ${(Number(a.left) || 0).toFixed(1)} s`;
+    case 'braced': return ' - braced';
+    case 'crippled': return ' - guns silent';
+    case 'empty': return ' - no barrels';
+    default: return a.hot ? ' - on target' : '';
+  }
+}
+
 /** The card's state line: what she is doing, and - when she is in reach - the key that goes over her rail. */
 function cardState(t, board, key) {
   const mine = board?.name === t.name;
@@ -164,10 +177,11 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
     count: b.gun === 'barrel' ? `${b.barrels ?? 0} barrel${b.barrels === 1 ? '' : 's'}` : `${b.guns} ${b.guns === 1 ? GUN_WORDS[b.gun].replace(/s$/, '') : GUN_WORDS[b.gun]}`,
     fill: pct(b.ready ? 1 : b.progress), ready: !!b.ready, active: !!b.active, empty: b.gun === 'barrel' && !(b.barrels > 0),
   }));
-  const aim = model.aim ? {
-    text: model.aim.barrel ? `${SIDE_WORDS[model.aim.side]} - roll a fire barrel` : `${SIDE_WORDS[model.aim.side]} ${model.aim.side === 'bow' || model.aim.side === 'stern' ? 'chasers' : 'broadside'} - `,
-    range: model.aim.barrel ? '' : `${model.aim.range} m${model.aim.range >= model.aim.max - 1 ? ' (longest)' : ''}`,
-    hot: !!model.aim.hot, target: model.aim.hot ? ' - on target' : '',
+  const a = model.aim;
+  const aim = a ? {
+    text: a.barrel ? `${SIDE_WORDS[a.side]} - roll a fire barrel` : `${SIDE_WORDS[a.side]} ${a.side === 'bow' || a.side === 'stern' ? 'chasers' : 'broadside'} - `,
+    range: a.barrel ? '' : `${a.range} m${a.range >= a.max - 1 ? ' (longest)' : ''}`,
+    hot: !!a.hot && (a.state ?? 'ready') === 'ready', dim: !!a.state && a.state !== 'ready', target: aimTail(a),
   } : null;
   const t = model.target;
   const st = t ? cardState(t, model.board, boardKey) : null;
@@ -350,7 +364,7 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
   // the aim
   show('aim', parts.aim, !!t.aim);
   if (t.aim) {
-    cls('aimc', parts.aim, t.aim.hot ? 'dfnaval-aim hot' : 'dfnaval-aim');
+    cls('aimc', parts.aim, t.aim.hot ? 'dfnaval-aim hot' : t.aim.dim ? 'dfnaval-aim dim' : 'dfnaval-aim');
     put('aimt', parts.aimText, t.aim.text);
     put('aimr', parts.aimRange, t.aim.range);
     put('aimg', parts.aimTarget, t.aim.target);

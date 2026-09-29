@@ -85,10 +85,10 @@ test('NAV-F the hint says the press that matters most, in the registry\'s own na
 
 test('NAV-F the aim under the crosshair: the battery and its word - a broadside, the chasers, a barrel rolled - the range the guns are laid for, "(longest)" at the carriage\'s top, and ON TARGET when the zone lies on a ship (mutants: the chasers called a broadside, the longest never said)', () => {
   const aim = (a) => navalHudText(helm({ aim: a }), KEYS).aim;
-  assert.deepEqual(aim({ side: 'starboard', range: 120, max: 190, hot: false }), { text: 'Starboard broadside - ', range: '120 m', hot: false, target: '' });
-  assert.deepEqual(aim({ side: 'port', range: 189, max: 190, hot: true }), { text: 'Port broadside - ', range: '189 m (longest)', hot: true, target: ' - on target' });
+  assert.deepEqual(aim({ side: 'starboard', range: 120, max: 190, hot: false }), { text: 'Starboard broadside - ', range: '120 m', hot: false, dim: false, target: '' });
+  assert.deepEqual(aim({ side: 'port', range: 189, max: 190, hot: true }), { text: 'Port broadside - ', range: '189 m (longest)', hot: true, dim: false, target: ' - on target' });
   assert.equal(aim({ side: 'bow', range: 80, max: 150, hot: false }).text, 'Bow chasers - ');
-  assert.deepEqual(aim({ side: 'stern', barrel: true, range: 0, max: 0, hot: false }), { text: 'Stern - roll a fire barrel', range: '', hot: false, target: '' });
+  assert.deepEqual(aim({ side: 'stern', barrel: true, range: 0, max: 0, hot: false }), { text: 'Stern - roll a fire barrel', range: '', hot: false, dim: false, target: '' });
   assert.equal(navalHudText(helm(), KEYS).aim, null, 'nothing laid, nothing said');
 });
 

@@ -6038,7 +6038,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     peerBoats: () => csaPeers.helmBoats(),
     warmAshesOn: () => warmAshesOn(),
     raiderSpent: (id) => { tvRaid.spent.add(id); tvRaid.chase.delete(id); },   // NAV-R: the Overworld's law - spent for its life
-    setting: (key) => (key === 'ShipsAtSea' ? getPref('naval-ships') : key === 'RaidPrize' ? getPref('naval-raid-prize') !== false : key === 'Boarders' ? getPref('naval-boarders') !== false : undefined),
+    setting: (key) => (key === 'ShipsAtSea' ? getPref('naval-ships') : key === 'RaidPrize' ? getPref('naval-raid-prize') !== false : key === 'Boarders' ? getPref('naval-boarders') !== false
+      : key === 'AimCamera' ? getPref('naval-aim-camera') !== false : undefined),
     random: Math.random,   // THE ENGINE-PRNG RULE (Port-Ledger A)
   });
   naval.setEnabled(navalOn());   // the switch's state from the first frame (navalFrame follows it after)
@@ -20349,6 +20350,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const tvFace = tvf ? { yaw: tvf.yaw, up: tvf.up, grow: tvf.grow } : null;   // AUDIT DEEP R-2: the traveller's own sprite turns its quad to the travel view's eye
     setFlatLean(tvf ? Math.hypot(tvf.up[0], tvf.up[2]) : 0);   // AUDIT DEEP R-7: the flats' cull spheres grown by the lean, before any cull
     renderer.setFocus(tvf ? cam.pos : null, !!tvf && tvf.blend >= 0.5);   // AUDIT DEEP2 D7: the cascades grow half way up, where the picture has
+    // AUDIT NAV1 (the helm): THE BROADSIDE CAMERA - while a broadside is laid the eye eases out over that side, her ports,
+    // the zone and the enemy on one screen, and home on the release (navalHost.js aimEye): the view, the look's ray
+    // (_dwEyeOffset below) and every reader of `mwv.eye` from it - the frame's own object, the decor tool's precedent
+    // (worldModes.js); never the travel view's
+    if (naval && !tvf) mwv.eye = naval.aimEye(mwv.eye, dt);
     const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + viewFwd[0], mwv.eye[1] + viewFwd[1], mwv.eye[2] + viewFwd[2]], [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
     // DW-E5 x TV1: under the travel view `mwv.eye` is the raised eye - the view never opens in the sea (travelViewAllowed)
     for (let i = 0; i < 3; i++) _dwEyeOffset[i] = mwv.eye[i] - cam.pos[i];   // DW-E5: the spawners' camera, as this frame placed it

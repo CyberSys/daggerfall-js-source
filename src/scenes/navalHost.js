@@ -47,9 +47,9 @@ import { createNavalDirector, DENSITY, seedBaseOf } from '../systems/naval/naval
 import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provoke, hostile, RUN_OUT_S, RUN_OUT_DEG, BOW_RUN_OUT } from '../systems/naval/navalAI.js';
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap
 import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, BRACE_TAKEN, FIRE_CHANCE, repairCost } from '../systems/naval/navalDamage.js';
-import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, zoneCovers, toWorld, RIPPLE_S } from '../systems/naval/navalGunnery.js';
+import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S } from '../systems/naval/navalGunnery.js';
 import { hullBuild, batteryOf, batteriesOf, GUNS, classById, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
-import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt } from '../systems/naval/navalBallistics.js';
+import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
 import { lawOf, createNotoriety, crownRegion, notorietyLevel, WITNESS_RANGE, KNIGHTLY_FACTION, TEMPLE_FACTION } from '../systems/naval/navalLaw.js';
 import { drawHold, flotsamKeys, choiceEffect, choiceOffer, holdTier, CHOICES } from '../systems/naval/navalPlunder.js';
 import { createBoarding, berthPose, musterOf, handsOf, repelPartyOf, raidQuestOf, raidQuestWon, boardingWon, BOARD_RANGE, BOARD_SPEED, ABANDON_RANGE, HAND } from '../systems/naval/navalBoarding.js';
@@ -120,6 +120,18 @@ export const STRUCK_GRACE_S = 2;
 export const TALLY_S = 3.5;
 /** The run-out's warning reads a battery as bearing on my boat within this many degrees past its own arc. */
 export const INCOMING_SLACK = 10;
+/** AUDIT NAV1 (the helm): the look's ray finds a ship out to the battery's reach and this much more (m); a laid arc is
+ *  walked this finely (s) against each ship as she will stand. */
+export const LOOK_REACH_PAD = 60;
+export const HOT_STEP_S = 0.1;
+/** THE BROADSIDE CAMERA: while a broadside is laid, the eye eases (over AIM_CAM_TAU s) to AIM_CAM_OUT past the battery's
+ *  ports, AIM_CAM_UP over them and AIM_CAM_AFT toward the stern (m) - her guns, the zone and the enemy on one screen. */
+export const AIM_CAM_OUT = 4;
+export const AIM_CAM_UP = 5.5;
+export const AIM_CAM_AFT = 3;
+export const AIM_CAM_TAU = 0.22;
+/** ...and stops this far (m) short of another ship's side on its way out from the ports. */
+export const AIM_CAM_CLEAR = 1.2;
 
 /** A boat's hull as an oriented box in the world: its MeshCollider's own bounds through its MeshObject (null before
  *  its mesh is known) - the shots' target, the ram's, the target card's, and the host's deck rays'. */
@@ -145,6 +157,8 @@ const myBoatId = (boat) => `${MY_BOAT}:${boat?.uid || 0}`;
 const isMine = (id) => typeof id === 'string' && id.startsWith(`${MY_BOAT}:`);
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const dist2d = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
+/** A launch's arc to `t` seconds, in 18 points - an aim's line to where its ball stops short of the sea. */
+const arcTo = (l, t) => Array.from({ length: 18 }, (_, j) => shotPosition(l.p0, l.v0, t * j / 17));
 
 /**
  * @param {any} deps - see the file's head
@@ -707,7 +721,133 @@ export function createNavalHost(deps) {
   // ── aiming ───────────────────────────────────────────────────────────────────────────────────────────────────────
   let aiming = false;
   let aim = null;   // the solution this frame, while aiming
+  let aimHit = null;   // AUDIT NAV1: where that solution's guns strike this frame (aimStrikes: { ship, hits }), or null
   let braceHeld = false;
+
+  /**
+   * AUDIT NAV1 (the helm): the point on a sea ship the look meets - her hull's box or her rig's, the nearest - inside
+   * the battery's reach and LOOK_REACH_PAD: the guns are laid on it (navalGunnery.js `look.at`). A look on her canvas
+   * lays round shot for her hull - her centre, at her box's middle height: a ball laid for a sail flies on through it,
+   * and a galley's yard reaches out past her side - and chain for the canvas itself. Her way along the fire is led over
+   * the ball's flight, so a ship sailing away is laid for where she will be; across the fire it is the helm's own
+   * timing, as a broadside's always is.
+   */
+  function lookOnShip(boat, side, look) {
+    const bat = batteryOf(boat.hull, side);
+    if (!bat || bat.gun === 'barrel' || !look) return null;
+    const g = GUNS[bat.gun];
+    const reach = rangeAt(g.maxEl * NAVAL_DEG, g.speed, bat.muzzles[0][1]) + LOOK_REACH_PAD;
+    const l = Math.hypot(look.dir[0], look.dir[1], look.dir[2]) || 1;
+    const far = [look.origin[0] + look.dir[0] / l * reach, look.origin[1] + look.dir[1] / l * reach, look.origin[2] + look.dir[2] / l * reach];
+    let best = null;
+    for (const e of sea.values()) {
+      if (!e.boat || e.ship.damage.state === SHIP_STATES.sunk) continue;
+      const hull = hullBox(e.boat);
+      const boxes = [hull, ...rigBoxesOf(e.boat)];
+      for (let i = 0; i < boxes.length; i++) {
+        if (!boxes[i]) continue;
+        const hit = segmentBoxEntry(look.origin, far, boxes[i], 0);
+        if (hit && (!best || hit.t < best.t)) best = { t: hit.t, point: hit.point, e, hull, rig: i > 0 };
+      }
+    }
+    if (!best) return null;
+    const pose = boatPose(boat);
+    const fire = flatUnit(quatRotate(pose.rotation, SIDE_DIR[side])) ?? [0, 0, 1];
+    const v = velocityOf(best.e.ship);
+    const p = best.rig && bat.gun !== 'chain' && best.hull ? best.hull.c : best.point;
+    const along = (v[0] * fire[0] + v[2] * fire[2]) * dist2d(p, pose.position) / Math.max(1, g.speed * 0.97);
+    return [p[0] + fire[0] * along, p[1], p[2] + fire[2] * along];
+  }
+  /** My aim for a side: the look's pitch, or the point on a ship it meets. */
+  function lookAim(boat, side) {
+    const look = deps.look?.();
+    return aimSolution(boatPose(boat), side, look ? { ...look, at: lookOnShip(boat, side, look) } : null, deps.seaY());
+  }
+  /**
+   * AUDIT NAV1 (the helm): where each gun of a laid volley stops - its unscattered arc walked HOT_STEP_S at a time
+   * against every ship's hull box (and her rig's for chain shot) as she will stand when it gets there, her way times
+   * the ball's time aloft. `{ ship, hits }`: `hits[i]` the i-th gun's `{ t, point }` (the ball where it meets her) or
+   * null (it reaches the sea); `ship` the first struck. Every ship at sea is asked, not only the one under the crosshair
+   * (a broadside's zone lies forward of the look). Null when no gun strikes: the aim's red is this, never a guess.
+   */
+  function aimStrikes(solution) {
+    if (!solution || solution.barrel) return null;
+    const seaY = deps.seaY();
+    const ships = [];
+    for (const e of sea.values()) {
+      const st = e.ship.damage.state;
+      if (!e.boat || st === SHIP_STATES.sunk || st === SHIP_STATES.sinking) continue;
+      const boxes = [hullBox(e.boat), ...(solution.gun === 'chain' ? rigBoxesOf(e.boat) : [])].filter(Boolean);
+      if (boxes.length) ships.push({ e, v: velocityOf(e.ship), boxes: boxes.map((b) => ({ b, r: Math.hypot(b.h[0], b.h[1], b.h[2]) })) });
+    }
+    if (!ships.length) return null;
+    let ship = null;
+    const hits = solution.launches.map((l) => {
+      const end = landing(l.p0, l.v0, seaY)?.t ?? 4;
+      const n = Math.max(8, Math.ceil(end / HOT_STEP_S));
+      let a = l.p0, ta = 0;
+      for (let i = 1; i <= n; i++) {
+        const tb = end * i / n, b = shotPosition(l.p0, l.v0, tb), tm = (ta + tb) / 2;
+        const half = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / 2;
+        let best = null;
+        for (const s of ships) {
+          const sx = s.v[0] * tm, sz = s.v[2] * tm;
+          const a2 = [a[0] - sx, a[1], a[2] - sz], b2 = [b[0] - sx, b[1], b[2] - sz];
+          const m = [(a2[0] + b2[0]) / 2, (a2[1] + b2[1]) / 2, (a2[2] + b2[2]) / 2];
+          for (const { b: box, r } of s.boxes) {
+            if (Math.hypot(m[0] - box.c[0], m[1] - box.c[1], m[2] - box.c[2]) > r + half) continue;   // nowhere near her
+            const hit = segmentBoxEntry(a2, b2, box, 0);
+            if (hit && (!best || hit.t < best.k)) best = { k: hit.t, e: s.e };
+          }
+        }
+        if (best) {
+          const t = ta + (tb - ta) * best.k;
+          ship ??= best.e;
+          return { t, point: shotPosition(l.p0, l.v0, t) };
+        }
+        a = b; ta = tb;
+      }
+      return null;
+    });
+    return ship ? { ship, hits } : null;
+  }
+  /** The state of my battery for the aim's line: 'ready', 'reloading', 'braced', 'crippled' or 'empty' (no barrels). */
+  function aimState(st, side, boat) {
+    if (st.damage.state === SHIP_STATES.wrecked) return 'crippled';
+    if (st.guns.braced) return 'braced';
+    if (!st.guns.ready(side)) return batteryOf(boat.hull, side)?.gun === 'barrel' && st.guns.barrels <= 0 ? 'empty' : 'reloading';
+    return 'ready';
+  }
+
+  /** THE BROADSIDE CAMERA: the eye this frame - `ownEye` eased toward the broadside's own while one is laid, and home. */
+  let camK = 0, camSide = null;
+  function aimEye(ownEye, dt) {
+    const boat = myBoat();
+    const want = setting('AimCamera', true) !== false && aiming && boat && aim && (aim.side === 'port' || aim.side === 'starboard')
+      && myBoatState(boat).damage.state !== SHIP_STATES.wrecked ? aim.side : null;
+    if (want) camSide = want;
+    camK += ((want ? 1 : 0) - camK) * (1 - Math.exp(-Math.max(0, dt) / AIM_CAM_TAU));
+    if (!want && camK < 1e-3) { camK = 0; camSide = null; }
+    if (!boat || !camSide || camK <= 0) return ownEye;
+    const pose = boatPose(boat);
+    const bat = batteryOf(boat.hull, camSide);
+    if (!bat) return ownEye;
+    const ports = bat.muzzles.map((m) => toWorld(pose, m));
+    const c = ports.reduce((acc, m) => [acc[0] + m[0] / ports.length, acc[1] + m[1] / ports.length, acc[2] + m[2] / ports.length], [0, 0, 0]);
+    const fire = flatUnit(quatRotate(pose.rotation, SIDE_DIR[camSide])) ?? [1, 0, 0];
+    const fwd = flatUnit(quatRotate(pose.rotation, [0, 0, 1])) ?? [0, 0, 1];
+    let at = [c[0] + fire[0] * AIM_CAM_OUT - fwd[0] * AIM_CAM_AFT, c[1] + AIM_CAM_UP, c[2] + fire[2] * AIM_CAM_OUT - fwd[2] * AIM_CAM_AFT];
+    // never inside a ship alongside - a broadside at her rail's width is the one Black Flag remembers
+    let clear = 1;
+    for (const e of sea.values()) {
+      const box = e.boat && e.ship.damage.state !== SHIP_STATES.sunk ? hullBox(e.boat) : null;
+      const hit = box ? segmentBoxEntry(c, at, box, AIM_CAM_CLEAR) : null;
+      if (hit && hit.t < clear) clear = hit.t;
+    }
+    if (clear < 1) at = [c[0] + (at[0] - c[0]) * clear, c[1] + (at[1] - c[1]) * clear, c[2] + (at[2] - c[2]) * clear];
+    const k = camK * camK * (3 - 2 * camK);   // eased in and out
+    return [ownEye[0] + (at[0] - ownEye[0]) * k, ownEye[1] + (at[1] - ownEye[1]) * k, ownEye[2] + (at[2] - ownEye[2]) * k];
+  }
 
   /** The side the look lays on my boat, and whether it has guns. */
   function lookSide(boat) {
@@ -733,15 +873,14 @@ export function createNavalHost(deps) {
     const side = lookSide(boat);
     if (!side) { deps.say?.('No guns bear there.', 1.5); return true; }
     if (st.damage.state === SHIP_STATES.wrecked) { deps.say?.('Your guns are silent - the ship is crippled.', 2); return true; }
-    if (st.guns.braced) return true;
+    if (st.guns.braced) { deps.say?.('Braced - let go of the brace to fire.', 1.5); return true; }
     if (!st.guns.ready(side)) {
       const bat = batteryOf(boat.hull, side);
-      deps.say?.(bat?.gun === 'barrel' && st.guns.barrels <= 0 ? 'No fire barrels left.' : `The ${side} guns are reloading.`, 1.5);
+      deps.say?.(bat?.gun === 'barrel' && st.guns.barrels <= 0 ? 'No fire barrels left.' : `The ${side} guns are reloading (${st.guns.left(side).toFixed(1)} s).`, 1.5);
       return true;
     }
-    const look = deps.look?.();
     const pose = boatPose(boat);
-    const solution = aimSolution(pose, side, look, deps.seaY());
+    const solution = lookAim(boat, side);
     fire({ shooter: myBoatId(boat), wireShooter: -1, hull: boat.hull, pose, solution, skill: 0.6 });
     st.guns.fired(side);
     deps.shake?.(1.2);
@@ -1151,15 +1290,16 @@ export function createNavalHost(deps) {
       const r = csa();
       if (r?.state?.sailPosition > 0) { r.LowerSails?.(); deps.say?.('The rigging is shot away - no sail will set.', 2.5); }
     }
-    aim = null;
-    if (aiming && boat) {
-      const side = lookSide(boat);
-      if (side) aim = aimSolution(boatPose(boat), side, deps.look?.(), seaY);
-    } else if (!boat) aiming = false;
     // an owner gone from the room takes their ships with them (checked every OWNER_SWEEP_S)
     if (deps.online && clock - lastSweep >= OWNER_SWEEP_S) { lastSweep = clock; sweepOwners(new Set((deps.online.peers?.() ?? []).map((p) => p.id))); }
     buildOne();
     for (const e of sea.values()) poseShip(e, total, seaY);
+    // the aim, on the hulls as this frame stands them (AUDIT NAV1: it read the last frame's, a ship's way behind)
+    aim = null; aimHit = null;
+    if (aiming && boat) {
+      const side = lookSide(boat);
+      if (side) { aim = lookAim(boat, side); aimHit = aimStrikes(aim); }
+    } else if (!boat) aiming = false;
     // the word's memory of the last moments
     wireVolleys = wireVolleys.filter((v) => clock - v.at <= NAVAL_VOLLEY_KEEP_MS / 1000);
     wireBarrels = wireBarrels.filter((v) => clock - v.at <= NAVAL_VOLLEY_KEEP_MS / 1000);
@@ -1460,7 +1600,7 @@ export function createNavalHost(deps) {
       const card = targetCardOf(e, deps.feet());
       return {
         ship: null, armed: false, batteries: [], aim: null, aiming: false,
-        target: { ...card, box: undefined },
+        target: card,
         board: { name: card.name, kind: e.prize ? 'hold' : 'board' },
         boarding: null, notoriety: notorietyWord,
       };
@@ -1473,16 +1613,17 @@ export function createNavalHost(deps) {
       return { side, gun: b.gun, guns: b.muzzles.length, progress: st.guns.progress(side), ready: st.guns.ready(side), active: side === look, barrels: b.gun === 'barrel' ? st.guns.barrels : null };
     }).filter(Boolean);
     const target = targetCard(boat);
-    const hot = !!(aim && target && zoneCovers(aim, target.box));
+    const state = aim ? aimState(st, aim.side, boat) : null;
+    const hot = !!aimHit && state === 'ready';
     const nb = boarding ? null : boardable(boat);
     const pr = nb || boarding ? null : prizeInReach(boat);
     return {
       ship: { name: HULL_NAMES[boat.hull], hull: st.damage.hullShare(), sail: st.damage.maxSail > 0 ? st.damage.sailShare() : null, crew: st.damage.maxCrew > 0 ? st.damage.crewShare() : null, fire: st.damage.fire > 0, wrecked: st.damage.state === SHIP_STATES.wrecked, braced: st.guns.braced, repair: repairCost(st.damage) },
       armed: batteries.length > 0,
       batteries,
-      aim: aim ? { side: aim.side, gun: aim.gun, range: Math.round(aim.range), max: Math.round(aim.maxRange), hot, barrel: aim.barrel } : null,
+      aim: aim ? { side: aim.side, gun: aim.gun, range: Math.round(aim.range), max: Math.round(aim.maxRange), hot, barrel: aim.barrel, state, left: state === 'reloading' ? +st.guns.left(aim.side).toFixed(1) : 0 } : null,
       aiming,
-      target: target ? { ...target, box: undefined } : null,
+      target,
       board: nb ? { name: nb.ship.names?.name ?? 'the ship', kind: 'board' } : pr ? { name: pr.ship.names?.name ?? 'the ship', kind: 'hold' } : null,
       boarding: boarding ? { kind: boarding.kind, phase: boarding.phase } : null,
       notoriety: notorietyWord,
@@ -1490,8 +1631,11 @@ export function createNavalHost(deps) {
       tally: tally && clock - tally.at <= TALLY_S ? { balls: tally.balls, hits: tally.hits, holed: tally.holed, rig: tally.rig } : null,
     };
   }
-  /** The ship the look is on (within 900 m, within 6 degrees of its bearing or its box), as the target card reads. */
+  /** The ship the target card reads: while a broadside is laid, the one its guns strike (AUDIT NAV1: a broadside's
+   *  zone lies forward of the look - the galley's helm laid square on a sloop 14.7 degrees off the crosshair showed no
+   *  card); else the one the look is on (within 900 m, within 6 degrees of its bearing or its box). */
   function targetCard(boat) {
+    if (aimHit?.ship?.boat && sea.has(aimHit.ship.id)) return targetCardOf(aimHit.ship, boatPose(boat).position);
     const look = deps.look?.();
     if (!look) return null;
     const lf = flatUnit(look.dir) ?? [0, 0, 1];
@@ -1518,7 +1662,6 @@ export function createNavalHost(deps) {
       hull: s.damage.hullShare(), sail: s.damage.maxSail > 0 ? s.damage.sailShare() : null, state: s.damage.state, boarded: !!s.boarded,
       distance: Math.round(dist2d(s.pos, from)),
       hostile: hostile(s, { kind: 'player', id: myId() }, { notoriety: (c) => notoriety.get(c), now: clock }),
-      box: e.boat ? hullBox(e.boat) : null,
     };
   }
 
@@ -1527,13 +1670,17 @@ export function createNavalHost(deps) {
   function drawFrame() {
     let aimDraw = null;
     if (aim && !aim.barrel) {
-      const arcs = aim.launches.map((l) => arcPoints(l.p0, l.v0, deps.seaY(), 18));
-      const zone = aim.landings.filter(Boolean).map((l) => l.point);
+      // AUDIT NAV1 (the helm): each gun's arc to where it stops - her side (a strike's mark) or the sea (a zone's)
+      const hits = aimHit?.hits ?? [];
+      const arcs = aim.launches.map((l, i) => (hits[i] ? arcTo(l, hits[i].t) : arcPoints(l.p0, l.v0, deps.seaY(), 18)));
+      const zone = aim.landings.map((l, i) => (l && !hits[i] ? l.point : null)).filter(Boolean);
+      const strikes = hits.filter(Boolean).map((h) => h.point);
       const boat = myBoat();
-      const t = boat ? targetCard(boat) : null;
-      aimDraw = { arcs, zone, hot: !!(t && zoneCovers(aim, t.box)), radius: Math.max(1.6, aim.width / 2) };
+      const ready = !!boat && aimState(myBoatState(boat), aim.side, boat) === 'ready';
+      aimDraw = { arcs, zone, strikes, hot: ready && strikes.length > 0, radius: Math.max(1.6, aim.width / 2), ready, posts: true };
     } else if (aim?.barrel) {
-      aimDraw = { arcs: [], zone: aim.landings.map((l) => l.point), hot: false, radius: 2 };
+      const boat = myBoat();
+      aimDraw = { arcs: [], zone: aim.landings.map((l) => l.point), hot: false, radius: 2, ready: !!boat && aimState(myBoatState(boat), aim.side, boat) === 'ready', posts: false };
     }
     return { particles: effects.drawList(), balls: shots.balls(), floaters: shots.floaters(), aim: aimDraw };
   }
@@ -1603,7 +1750,7 @@ export function createNavalHost(deps) {
   }
 
   return {
-    frame, attackInput, cancelAim, activate, hudModel, drawFrame, lights, offsetAll, clear,
+    frame, attackInput, cancelAim, activate, hudModel, drawFrame, lights, offsetAll, clear, aimEye,
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     leaveShipGate, raidEnded, placeQuestFoe,
     newSaveData, getSaveData, restoreSaveData,

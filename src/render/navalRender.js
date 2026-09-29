@@ -29,6 +29,31 @@ export const NAVAL_STRIDE = 10;
 export const NAVAL_MAX_QUADS = 1600;
 /** The pictures' side (texels). */
 export const NAVAL_TEX_SIZE = 64;
+/** AUDIT NAV1 (the helm): a zone post's half width and half height (m), and a strike mark's half size. */
+export const AIM_POST_HALF_W = 0.45;
+export const AIM_POST_HALF_H = 1.7;
+export const AIM_STRIKE_HALF = 1.1;
+
+/**
+ * The aim's colours: brass laid, red when its guns strike a ship, grey while the battery cannot fire (loading, braced,
+ * crippled - where it would fall, not a promise). Premultiplied by the pass; the alpha is the strength.
+ */
+export function aimTone(aim) {
+  if (aim?.ready === false) return AIM_TONES.idle;
+  return aim?.hot ? AIM_TONES.hot : AIM_TONES.laid;
+}
+export const AIM_TONES = Object.freeze({
+  laid: Object.freeze({ zone: [0.98, 0.84, 0.46, 0.42], arc: [1, 0.86, 0.55, 0.4], post: [1, 0.84, 0.5, 0.3], strike: [1, 0.8, 0.45, 0.5] }),
+  hot: Object.freeze({ zone: [0.95, 0.18, 0.12, 0.55], arc: [1, 0.35, 0.22, 0.55], post: [1, 0.3, 0.2, 0.36], strike: [1, 0.26, 0.16, 0.8] }),
+  idle: Object.freeze({ zone: [0.62, 0.64, 0.66, 0.3], arc: [0.62, 0.64, 0.66, 0.22], post: [0.6, 0.62, 0.64, 0.16], strike: [0.62, 0.64, 0.66, 0.35] }),
+});
+
+/** A half-axis across the eye's line to `p`, on the flat, `half` long - an upright quad's width turned to the eye. */
+export function flatAcross(p, eye, half) {
+  const dx = p[0] - eye[0], dz = p[2] - eye[2];
+  const l = Math.hypot(dx, dz) || 1;
+  return [-dz / l * half, 0, dx / l * half];
+}
 
 const VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -245,7 +270,8 @@ export class NavalRenderer {
 
   /**
    * One frame's drawing. `frame` = { particles (navalEffects drawList), balls ([{ pos, gun }]), floaters ([{ kind,
-   * pos }]), aim: { arcs: point[][], zone: point[], hot: boolean } | null } - every list optional.
+   * pos }]), aim: { arcs: point[][], zone: point[], strikes?: point[], hot: boolean, ready?: boolean, posts?: boolean,
+   * radius?: number } | null } - every list optional.
    */
   draw(frame) {
     this.drawn = 0;
@@ -277,26 +303,46 @@ export class NavalRenderer {
       if (key && v > start) (batches.get(key) ?? batches.set(key, []).get(key)).push([start, v]);
     };
     lay(alpha, 'alpha');
-    // the aim: the zone's marks flat on the sea (blended), the arcs' ribbons (added)
+    // the aim: the zone's marks flat on the sea (blended), the arcs' ribbons, the posts and the strikes (added)
     const aim = frame.aim;
+    const tone = aimTone(aim);
+    const push = (key, start) => { if (v > start) (batches.get(key) ?? batches.set(key, []).get(key)).push([start, v]); };
     if (aim?.zone?.length) {
-      const zoneColor = aim.hot ? [0.95, 0.18, 0.12, 0.55] : [0.98, 0.84, 0.46, 0.42];
       const start = v;
       for (const z of aim.zone) {
         if (v + 6 > cap) break;
-        v = writeQuad(this.data, v, [z[0], z[1] + 0.06, z[2]], [aim.radius ?? 2.2, 0, 0], [0, 0, aim.radius ?? 2.2], zoneColor, false);
+        v = writeQuad(this.data, v, [z[0], z[1] + 0.06, z[2]], [aim.radius ?? 2.2, 0, 0], [0, 0, aim.radius ?? 2.2], tone.zone, false);
       }
-      if (v > start) (batches.get('ring|alpha') ?? batches.set('ring|alpha', []).get('ring|alpha')).push([start, v]);
+      push('ring|alpha', start);
     }
     lay(add, 'add');
     if (aim?.arcs?.length) {
       const start = v;
-      const arcColor = aim.hot ? [1, 0.35, 0.22, 0.55] : [1, 0.86, 0.55, 0.4];
       for (const arc of aim.arcs) {
         if (v + arc.length * 6 > cap) break;
-        v = writeRibbon(this.data, v, arc, eye, 0.12, arcColor, 2.5);
+        v = writeRibbon(this.data, v, arc, eye, 0.12, tone.arc, 2.5);
       }
-      if (v > start) (batches.get('soft|add') ?? batches.set('soft|add', []).get('soft|add')).push([start, v]);
+      push('soft|add', start);
+    }
+    // AUDIT NAV1 (the helm): a ball's fall stood up over its mark - a disc on the sea 150 m off is a line, a post of
+    // light is not - and a ball that meets a hull marked where it strikes her
+    if (aim?.posts && aim.zone?.length) {
+      const start = v;
+      for (const z of aim.zone) {
+        if (v + 6 > cap) break;
+        const f = flatAcross(z, eye, AIM_POST_HALF_W);
+        v = writeQuad(this.data, v, [z[0], z[1] + AIM_POST_HALF_H, z[2]], f, [0, AIM_POST_HALF_H, 0], tone.post, false);
+      }
+      push('soft|add', start);
+    }
+    if (aim?.strikes?.length) {
+      const start = v;
+      const h = AIM_STRIKE_HALF;
+      for (const z of aim.strikes) {
+        if (v + 6 > cap) break;
+        v = writeQuad(this.data, v, z, [axes.right[0] * h, axes.right[1] * h, axes.right[2] * h], [axes.up[0] * h, axes.up[1] * h, axes.up[2] * h], tone.strike, false);
+      }
+      push('soft|add', start);
     }
     if (!v) return;
     const gl = this.gl;
