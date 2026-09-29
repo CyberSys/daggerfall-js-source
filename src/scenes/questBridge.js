@@ -69,8 +69,7 @@ import { getTitle } from '../systems/guilds.js';
 import { addQuestResourceObjects } from '../systems/quest/sceneMount.js';
 import { QuestLens } from '../ui/questLens.js';   // GUIDE1: the modern faces' one read-only picture of this machine
 import { questHerald, heraldOn } from '../ui/questHerald.js';   // GUIDE3: the news the lens sees, told
-import { questTracker, trackerOn } from '../ui/questTracker.js';   // GUIDE4: the quest the HUD follows
-import { marksOn } from '../ui/questMarks.js';   // GUIDE5: the marks follow the same quest
+import { questTracker, followOn } from '../ui/questTracker.js';   // GUIDE4: the quest the HUD follows (GUIDE5: the card's or the marks')
 
 // AUDIT 24 (wave 24): SetLayoutData's three overloads and
 // GetPositionHash now live in characters/staticNpc.js, next to the
@@ -366,7 +365,10 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
   // that has quests ticks this bridge (THE ONE CONSTRUCTION SEAM): the
   // news reaches all of them at once. A herald that starts listening
   // mid-game hears a baseline first, never the backlog of whatever
-  // happened while it was off. The look is the lens's quiet one
+  // happened while it was off - the lens's: a look after a stretch with
+  // no look is one (AUDIT GUIDE L8), and a lens the tracker kept looking
+  // has no backlog, only this tick's news (AUDIT GUIDE H11: a flag of the
+  // bridge's own dropped that tick). The look is the lens's quiet one
   // (GUIDE1's pin plays a game with a look at every tick and without:
   // the same save, the same popups, the same draws), and a look that
   // throws costs the news and never the frame: the machine has ticked.
@@ -376,7 +378,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
   // only what changed - and the look answers the host's own two questions
   // (`ctx.questWhere`: is a place on the player's map, which place is the
   // player in - GUIDE2's gates), so the card can say "(you are here)".
-  let listening = false, newsWarned = false;
+  let newsWarned = false, lookedLast = false, textHour = null;
   const warnNewsOnce = (err) => {
     if (newsWarned) return;
     newsWarned = true;
@@ -388,15 +390,29 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
   // it followed is forgotten here (the player's tracked choice is the
   // save's and stays).
   function news() {
-    const herald = heraldOn(), follow = trackerOn() || marksOn();
-    if (!herald) listening = false;
+    const herald = heraldOn(), follow = followOn();
+    // AUDIT GUIDE T3: the tracked quest is let go when it is gone - every tick, faces on or off, so no save carries
+    // a uid a later quest could be minted under (the uid counter is re-derived from the loaded quests, Q4-iv)
+    if (questTracker.pinned != null) {
+      const q = machine.quests.get(Number(questTracker.pinned));
+      if (!q || q.questComplete) questTracker.pinned = null;
+    }
     if (!follow && (questTracker.views.length || questTracker.follow != null)) questTracker.forget();
-    if (!herald && !follow) return;
-    let seen;
-    try { seen = lens.look(ctx.questWhere ?? {}); } catch (err) { warnNewsOnce(err); return; }
-    if (follow) questTracker.hear(seen);
-    if (!herald) return;
-    if (listening) questHerald.hear(seen); else listening = true;
+    if (!herald && !follow) { lookedLast = false; return; }
+    // AUDIT GUIDE L8/T8: a look after a stretch with no look at all is a baseline, not a diff against the look before
+    // the gap - its "news" would be the backlog in the walk's order, and the card would follow the last of it
+    if (!lookedLast) lens.reset();
+    lookedLast = true;
+    // AUDIT GUIDE L6: a kept line whose macros read the world as it is (a clock's days, %di) is read again each game
+    // hour - the card's opening says what the journal says now
+    const hour = Math.floor((ctx.classicSeconds?.() ?? 0) / 3600);
+    if (textHour !== hour) { if (textHour != null) lens.rereadText(); textHour = hour; }
+    // AUDIT GUIDE L4: the look AND its listeners: a face that throws costs the news, never the frame
+    try {
+      const seen = lens.look(ctx.questWhere ?? {});
+      if (follow) questTracker.hear(seen);
+      if (herald) questHerald.hear(seen);
+    } catch (err) { warnNewsOnce(err); }
   }
 
   /** GetRaceFromFaction's two inputs, off the machine's own world. */
@@ -464,13 +480,15 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
         }
         if (!messages.length) continue;
         let clockSeconds = null;
+        const clocks = [];   // AUDIT GUIDE H1: each counting clock by name - the lens counts only one the journal names
         for (const r of q.resources.values()) {
           if (r.clockEnabled && !r.clockFinished && Number.isFinite(r.remainingTimeInSeconds) && clockCounts(q, r)) {   // DEAD-CLOCK
             const left = r.liveRemainingSeconds(q);   // QT-LIVE1: as of NOW, not as of the last tick the pause gate let through
             clockSeconds = clockSeconds == null ? left : Math.min(clockSeconds, left);
+            clocks.push({ name: r.symbol?.name ?? '', seconds: left });
           }
         }
-        active.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', clockSeconds, messages, steps });
+        active.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', clockSeconds, clocks, messages, steps });
       }
       return { active, finished: notebook?.getFinishedQuests() ?? [], ended };
     },
@@ -626,6 +644,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
       questLists.oneTimeQuestsAccepted = data.oneTimeQuestsAccepted ? [...data.oneTimeQuestsAccepted] : null;
       lens.reset();   // GUIDE1: a loaded game is not news
       questTracker.forget();   // GUIDE4: ...nor what the last game's card followed (the tracked quest is the save's own record)
+      questHerald.clear();   // AUDIT GUIDE O2: ...nor the last game's news - a notice standing over the loaded game could merge a same-uid quest's news under its verdict
     },
   };
   return bridge;

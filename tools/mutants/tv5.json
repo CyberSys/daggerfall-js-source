@@ -383,8 +383,8 @@
   {
     "name": "EDGE-FURNITURE-a-renamed-piece",
     "file": "src/ui/travelViewHud.js",
-    "old": "const FURNITURE = '.hud-top, .hud-bottom, .hud-quick, .travelpanel-bar, .travelpanel-junction, .dftouch-btn';",
-    "new": "const FURNITURE = '.hud-top, .hud-bottom, .hud-quick, .travel-panel-bar, .travelpanel-junction, .dftouch-btn';",
+    "old": "const FURNITURE = '.hud-top, .hud-bottom, .hud-quick, .travelpanel-bar, .travelpanel-junction, .dftouch-btn, .qtrack';",
+    "new": "const FURNITURE = '.hud-top, .hud-bottom, .hud-quick, .travel-panel-bar, .travelpanel-junction, .dftouch-btn, .qtrack';",
     "tests": [
       "test/tv5_far_places.test.js"
     ],

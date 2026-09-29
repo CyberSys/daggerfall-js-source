@@ -69,7 +69,7 @@ function withSwitches(fn, { tracker = true, herald = false, marks = false } = {}
 
 const TRACK_A = [
   'Quest: __GTRACKA', 'DisplayName: Main Quest - The First Road', 'QRC:',
-  'Message:  1010', '%qdt:', ' Find _pub_ in __pub_. The road is', ' long and the night is longer.', '',
+  'Message:  1010', '%qdt:', ' Find _pub_ in __pub_. The road is', ' long and the night is longer.', ' I have =timer_ days.', '',   // AUDIT GUIDE H1: a deadline the journal names
   'Message:  1011', '%qdt:', ' Now go to ___keep_ in ____keep_.', '',
   'QBN:',
   'Place _pub_ local tavern',
@@ -94,7 +94,7 @@ const TRACK_B = [
 // `say`, a clock that runs out.
 const QUIET_SRC = [
   'Quest: __GQUIET', 'DisplayName: The Quiet Read', 'QRC:',
-  'Message:  1010', '%qdt:', " _qgiver_ asked me, in %god's name, to find %n at _pub_ in __pub_.", '',
+  'Message:  1010', '%qdt:', " _qgiver_ asked me, in %god's name, to find %n at _pub_ in __pub_.", ' I have =timer_ days.', '',   // AUDIT GUIDE H1
   'Message:  1011', '%qdt:', ' %g said to look in ___keep_ of ____keep_.', '',
   'Message:  1020', ' _qgiver_ says: seek _pub_.', '',
   'QBN:',
@@ -185,12 +185,12 @@ test('GUIDE4 THE WORDS - the title (a main quest marked), the newest entry\'s op
     opening: entryOpening(long, TRACKER_OPENING_MAX),
     where: `Llugwych in ${REGION} province`,
     note: '',
-    time: `${remainWords(80000)} left`,
+    time: `Main Quest - ${remainWords(80000)} left`,   // AUDIT GUIDE U11: a main quest said on the time row
     urgent: true,
   });
   assert.equal(TRACKER_OPENING_MAX, 64, 'two lines of the card, cut at a word');
   assert.ok(t.frame().opening.length <= TRACKER_OPENING_MAX && t.frame().opening.endsWith('…'), 'two short lines: the card is quieter than the herald');
-  assert.equal(t.frame().time, TRACKER_WORDS.left(80000));
+  assert.equal(t.frame().time, `${TRACKER_WORDS.main} - ${TRACKER_WORDS.left(80000)}`);
   const plain = new QuestTracker();
   plain.hear({ quests: [view('2', { lines: [' Just words.'] })], events: [] });
   assert.deepEqual([plain.frame().where, plain.frame().time, plain.frame().urgent, plain.frame().main], ['', '', false, false]);
@@ -440,9 +440,9 @@ test('GUIDE4 THE JOURNAL\'S TOGGLE - the pause window\'s Quests tab: one Track b
       pins[0].click();
       assert.equal(questTracker.pinned, String(bq.uid), 'tracked');
       pins = pinsIn(host);
-      assert.equal(pins[0].textContent, TRACKER_WORDS.tracking, 'the tab redrew with the choice');
+      assert.equal(pins[0].textContent, TRACKER_WORDS.track, 'AUDIT GUIDE T6/U13: the same words - the state is aria-pressed (the toggle changed in place, T5)');
       assert.equal(pins[0].attrs['aria-pressed'], 'true');
-      assert.equal(pins[0].attrs['aria-label'], TRACKER_WORDS.untrackLabel('The Second Road'));
+      assert.equal(pins[0].attrs['aria-label'], TRACKER_WORDS.trackLabel('The Second Road'), 'AUDIT GUIDE T6/U13: one name');
       pins[0].click();
       assert.equal(questTracker.pinned, null, 'pressed again: tracking stops');
     });
@@ -464,17 +464,21 @@ test('GUIDE4 THE JOURNAL\'S TOGGLE - the chronicle: every live quest\'s card car
     const { b, bq } = twoQuests();
     globalThis.window ??= globalThis;
     const host = globalThis.document.createElement('div');
+    globalThis.document.body.append(host);   // on the page, as the chronicle is: a press answers every toggle there
     const view2 = mountEnhancedChronicle(host, { section: 'quests', questLog: () => b.questLog() });
     try {
       let pins = pinsIn(host);
       assert.equal(pins.length, 2, 'both live quests - the second has no place and no clock');
       const second = pins.find((p) => p.attrs['aria-label'] === TRACKER_WORDS.trackLabel('The Second Road'));
-      assert.ok(second);
+      const first = pins.find((p) => p !== second);
+      assert.ok(second && first);
+      first.click();   // the first tracked, then the second: the first's toggle must let go
+      assert.deepEqual(pinsIn(host).map((p) => p.attrs['aria-pressed']).sort(), ['false', 'true']);
       second.click();
       assert.equal(questTracker.pinned, String(bq.uid));
       pins = pinsIn(host);
       assert.deepEqual(pins.map((p) => p.attrs['aria-pressed']).sort(), ['false', 'true'], 'redrawn: one tracked');
-    } finally { view2.destroy(); assert.equal(intervals.size, 0); }
+    } finally { view2.destroy(); host.remove(); assert.equal(intervals.size, 0); }
     quiet(() => setPref(TRACKER_PREF, false));
     const host2 = globalThis.document.createElement('div');
     const view3 = mountEnhancedChronicle(host2, { section: 'quests', questLog: () => b.questLog() });
@@ -493,10 +497,10 @@ test('GUIDE4 ONE CALL, EVERY HOST - drawHud draws the card on its one call, outs
   const gate = hud.indexOf("if (isEnhanced() && typeof document !== 'undefined') {\n    drawLevelNotices(");
   assert.ok(call > 0 && gate > call, 'drawHud draws the card before (outside) the enhanced gate');
   const bridge = rd('src/scenes/questBridge.js');
-  assert.match(bridge, /try \{ seen = lens\.look\(ctx\.questWhere \?\? \{\}\); \}[^\n]*\n\s*if \(follow\) questTracker\.hear\(seen\);\n\s*if \(!herald\) return;/, 'every look reaches the tracker\'s model while a face follows - before the herald\'s baseline rule');
+  assert.match(bridge, /const seen = lens\.look\(ctx\.questWhere \?\? \{\}\);\n\s*if \(follow\) questTracker\.hear\(seen\);\n\s*if \(herald\) questHerald\.hear\(seen\);/, 'every look reaches the tracker\'s model while a face follows, the baseline too (AUDIT GUIDE L4: inside the try now; H11: the herald\'s baseline is the lens\'s)');
   assert.match(bridge, /if \(!follow && \(questTracker\.views\.length \|\| questTracker\.follow != null\)\) questTracker\.forget\(\);/, 'no face following: the bridge forgets what was followed');
   assert.match(bridge, /lens\.reset\(\);[^\n]*\n\s*questTracker\.forget\(\);/, 'a load forgets what the last game followed');
-  assert.match(rd('src/scenes/world.js'), /questWhere: \{ canFindPlace: \(regionName, name\) => canFindPlace\(maps, mapDict, regionName, name\), currentLocationName: \(\) => _questLoc\(\)\?\.name \?\? '' \},/, 'the street: both questions');
+  assert.match(rd('src/scenes/world.js'), /questWhere: \{ canFindPlace: \(regionName, name\) => canFindPlace\(maps, mapDict, regionName, name, questPlacePixel\), currentLocationName: \(\) => _questLoc\(\)\?\.name \?\? '' \},/, 'the street: both questions (AUDIT GUIDE O3: through the host\'s memo)');
   assert.match(rd('src/scenes/exterior.js'), /questWhere: \{ currentLocationName: \(\) => dfLocation\.name \?\? locationName \},/, 'the fixed-town route: the city it stands in, no map to ask');
   assert.match(PARTY_CSS, /\.dfparty \{[^}]*top: calc\(92px \+ var\(--dfquest-h, 0px\)/, 'the party list steps under the card');
   assert.match(PARTY_CSS, /\.dfparty\.touch \{ top: calc\(76px \+ var\(--dfquest-h, 0px\)/);
@@ -516,7 +520,7 @@ test('GUIDE4 ONE CALL, EVERY HOST - drawHud draws the card on its one call, outs
   const walk = (f) => {
     if (reach.has(f)) return;
     reach.add(f);
-    for (const m of readFileSync(join(ROOT, f), 'utf8').matchAll(/^\s*(?:import|export)\s[^'"]*?from\s+['"](\.[^'"]+)['"]/gm)) walk(join(dirname(f), m[1]).replace(/\\/g, '/'));
+    for (const m of readFileSync(join(ROOT, f), 'utf8').matchAll(/^\s*(?:import|export)\s[^'"]*?from\s+['"](\.[^'"]+)['"]|^\s*import\s+['"](\.[^'"]+)['"]|\bimport\(\s*['"](\.[^'"]+)['"]\s*\)/gm)) walk(join(dirname(f), m[1] ?? m[2] ?? m[3]).replace(/\\/g, '/'));   // AUDIT GUIDE O6: a bare and a dynamic import too
   };
   walk('src/ui/questTracker.js');
   for (const f of ['src/ui/questLens.js', 'src/systems/quest/place.js', 'src/systems/quest/machine.js', 'src/ui/hud.js']) {

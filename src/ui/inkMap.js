@@ -1173,13 +1173,13 @@ export function paintRaidMark(ctx, view, m, pulse = 0) {
   ctx.restore();
 }
 
-/** GUIDE5: A QUEST'S MARK - a diamond in the journal's gold standing QUEST_MARK_LIFT above its place's own mark (the
- *  raid's blades stand there too; a place is rarely both), outlined in the pen's ink so it reads on any parchment, and
- *  FILLED for the quest the tracker follows, hollow for the rest - the shape and the fill say it, not the colour
- *  alone. A thin stroke joins it to the place it names. */
+/** GUIDE5: A QUEST'S MARK - a diamond in the journal's gold standing QUEST_MARK_LIFT above its place's own mark (over a
+ *  raided town the mark's `lift`, QUEST_RAID_LIFT, clear of the raid's blades), outlined in the pen's ink so it reads
+ *  on any parchment, and FILLED with the ink for the quest the tracker follows, hollow for the rest - the shape and the
+ *  fill say it, not the colour alone. A thin stroke joins it to the place it names. */
 export function paintQuestMark(ctx, view, m) {
   const [x, y] = toPaper(view, m.x, m.y);
-  const cy = y - QUEST_MARK_LIFT, r = 6;
+  const cy = y - (m.lift ?? QUEST_MARK_LIFT), r = 6;   // AUDIT GUIDE K7: a raided town's quest stands over the blades
   ctx.save();
   ctx.setLineDash([]);
   ctx.strokeStyle = PEN.soft;
@@ -1187,7 +1187,8 @@ export function paintQuestMark(ctx, view, m) {
   ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x, cy + r); ctx.stroke();   // the tie to the place
   ctx.beginPath();
   ctx.moveTo(x, cy - r); ctx.lineTo(x + r, cy); ctx.lineTo(x, cy + r); ctx.lineTo(x - r, cy); ctx.closePath();
-  if (m.tracked) { ctx.fillStyle = QUEST_MARK_CSS; ctx.fill(); }
+  // AUDIT GUIDE U16: the followed quest's diamond filled with the pen's INK - gold on the paper is 2:1, the ink 8:1
+  if (m.tracked) { ctx.fillStyle = PEN.line; ctx.fill(); }
   ctx.strokeStyle = PEN.line;
   ctx.lineWidth = 2.4;
   ctx.stroke();

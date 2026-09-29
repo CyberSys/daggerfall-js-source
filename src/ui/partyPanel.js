@@ -100,6 +100,8 @@ ${PIXELIFY_FIVE_FACE}
    its height as --dfquest-h, 0 with no card), so the two never cover each other. */
 .dfparty { position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(92px + var(--dfquest-h, 0px) + env(safe-area-inset-top, 0px));
   width: 200px; max-width: calc(100vw - 16px); z-index: 5; pointer-events: none;
+  /* AUDIT GUIDE U17: stepped under the card, a full party is cut at the window's foot - never pushed off it */
+  max-height: calc(100dvh - 100px - var(--dfquest-h, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow: hidden;
   display: flex; flex-direction: column; gap: 3px;
   ${PIXEL_FONT_CSS} color: var(--bone, #e9e4d9);
   -webkit-user-select: none; user-select: none; }

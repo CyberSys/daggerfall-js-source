@@ -120,7 +120,7 @@ const OTHER_SRC = (n) => [
 // GUIDE1's quiet-read quest: a Place, a questor, %god on the quest's rolls, %n on DFRandom, a `say`, a clock.
 const QUIET_SRC = [
   'Quest: __GQUIET', 'DisplayName: The Quiet Read', 'QRC:',
-  'Message:  1010', '%qdt:', " _qgiver_ asked me, in %god's name, to find %n at _pub_ in __pub_.", '',
+  'Message:  1010', '%qdt:', " _qgiver_ asked me, in %god's name, to find %n at _pub_ in __pub_.", ' I have =timer_ days.', '',   // AUDIT GUIDE H1
   'Message:  1011', '%qdt:', ' %g said to look in ___keep_ of ____keep_.', '',
   'Message:  1020', ' _qgiver_ says: seek _pub_.', '',
   'QBN:',
@@ -183,7 +183,7 @@ test('GUIDE3 WHAT IT SAYS - each news is its kind, the quest\'s title and one li
   assert.deepEqual(h.frame(), {
     ids: [1, 2, 3],
     rows: [
-      [{ text: 'New quest', cls: 'herald-kind' }, { text: 'The Herald', cls: 'herald-title main' }, { text: 'I agreed to find the ring.', cls: 'herald-line' }],
+      [{ text: 'New quest - Main Quest', cls: 'herald-kind' }, { text: 'The Herald', cls: 'herald-title main' }, { text: 'I agreed to find the ring.', cls: 'herald-line' }],   // AUDIT GUIDE H10: a main quest SAID
       [{ text: 'Journal updated', cls: 'herald-kind' }, { text: 'Other', cls: 'herald-title' }, { text: 'Other entry.', cls: 'herald-line' }],
       [{ text: 'Under a day left', cls: 'herald-kind' }, { text: 'Third', cls: 'herald-title' }, { text: '23 hours 59 min left', cls: 'herald-line' }],
     ],
@@ -220,10 +220,10 @@ test('GUIDE3 ONE NOTICE PER QUEST - two pieces of news for one quest inside one 
   assert.equal(h.rows[0].left, HERALD_SECONDS - 5);
   h.hear({ quests: [view('7', DATED(' Second entry.'), 90000)], events: [{ type: 'updated', id: '7', title: 'The Herald', main: true, entries: ['k'] }] });
   assert.deepEqual(h.frame().ids, [1], 'one notice');
-  assert.deepEqual(said(h), [['New quest', 'The Herald', 'Second entry.']], 'still new - with the newest entry\'s words');
+  assert.deepEqual(said(h), [['New quest - Main Quest', 'The Herald', 'Second entry.']], 'still new - with the newest entry\'s words');
   assert.equal(h.rows[0].left, HERALD_SECONDS, 'the clock restarted for the new words');
   h.hear({ quests: [view('7', DATED(' Second entry.'), 80000)], events: [{ type: 'urgent', id: '7', title: 'The Herald', main: true, clockSeconds: 80000 }] });
-  assert.deepEqual(said(h), [['New quest', 'The Herald', 'Second entry.']], 'a new quest outranks its first deadline');
+  assert.deepEqual(said(h), [['New quest - Main Quest', 'The Herald', 'Second entry.']], 'a new quest outranks its first deadline');
 
   const u = new QuestHerald();
   u.hear({ quests: [view('5', [' An entry.'], 90000)], events: [{ type: 'updated', id: '5', title: 'Q', main: false }] });
@@ -402,11 +402,12 @@ test('GUIDE3 THE HUD\'S CLOCK, THE STACK\'S FACE - a notice is one toast in the 
     const panel = out[0];
     const stack = doc.getElementById(ENHANCED_NOTICE_ID);
     assert.equal(stack.attrs['aria-live'], 'polite', 'the stack is read aloud where the parchment never was');
+    assert.equal(panel.attrs['aria-hidden'], 'true', 'AUDIT GUIDE H3: the herald\'s toast is silent in it - the herald speaks each notice whole through its own region (test/audit_guide.test.js)');
     assert.equal(panel.className, 'notice notice-toast notice-in', 'a toast: no hint, never dismissed');
     assert.equal(panel.dataset.owner, `${HERALD_OWNER}:${questHerald.frame().ids[0]}`, 'keyed by the notice\'s own id under the herald');
     const rows = panel.children[0].children;
     assert.deepEqual(rows.map((r) => [r.className, r.textContent]), [
-      ['notice-row herald-kind', 'New quest'], ['notice-row herald-title main', 'The Herald'], ['notice-row herald-line', 'I agreed.'],
+      ['notice-row herald-kind', 'New quest - Main Quest'], ['notice-row herald-title main', 'The Herald'], ['notice-row herald-line', 'I agreed.'],
     ]);
     assert.equal(panel.children.find((c) => c.className === 'notice-hint'), undefined, 'no "click or press a key" on news');
     assert.equal(questHerald.rows[0].left, HERALD_SECONDS - 1);
@@ -453,8 +454,8 @@ test('GUIDE3 ONE CALL, EVERY HOST - drawHud draws the herald on its one call, OU
   assert.ok(call > 0 && gate > call, 'drawHud draws the herald, before (outside) the enhanced gate');
   const bridge = rd('src/scenes/questBridge.js');
   assert.match(bridge, /machine\.tick\(\);\n\s*updateTimer = 0;\n\s*news\(\);\n\s*return true;/, 'the news is heard after the machine\'s tick, on the tick that fired');
-  assert.match(bridge, /const herald = heraldOn\(\), follow = trackerOn\(\) \|\| marksOn\(\);\n\s*if \(!herald\) listening = false;\n[^\n]*\n\s*if \(!herald && !follow\) return;\n\s*let seen;\n\s*try \{ seen = lens\.look\(ctx\.questWhere \?\? \{\}\); \}/,
-    'the gate stands before the look: no face listening, no look (GUIDE4 made the tracker a face, GUIDE5 the marks)');
+  assert.match(bridge, /const herald = heraldOn\(\), follow = followOn\(\);\n[\s\S]*?\n\s*if \(!herald && !follow\) \{ lookedLast = false; return; \}\n[\s\S]*?\n\s*try \{\n\s*const seen = lens\.look\(ctx\.questWhere \?\? \{\}\);/,
+    'the gate stands before the look: no face listening, no look (GUIDE4 made the tracker a face, GUIDE5 the marks; AUDIT GUIDE T2 named the pair followOn)');
   const hosts = { 'src/scenes/world.js': /questBridge\.tick\(dt\)/, 'src/scenes/worldModes.js': /questBridge\?\.tick\(dt\)/, 'src/scenes/exterior.js': /questBridge\?\.tick\(dt\)/ };
   for (const [f, re] of Object.entries(hosts)) assert.match(rd(f), re, `${f} ticks the bridge`);
   for (const f of ['src/scenes/world.js', 'src/scenes/worldModes.js', 'src/scenes/exterior.js', 'src/scenes/dungeonContext.js']) {
@@ -466,7 +467,7 @@ test('GUIDE3 ONE CALL, EVERY HOST - drawHud draws the herald on its one call, OU
     ['interface', ['enhanced'], 'prefs', HERALD_PREF, true, 'player']);
   assert.equal(PREF_DEFAULTS[HERALD_PREF], true, 'RF4: the shelf derives the default from the row');
   // one home each
-  assert.match(rd('src/ui/questHerald.js'), /import \{ entryOpening, timeLeftWords \} from '\.\/questRail\.js';/, 'the opening and the time left: the rail\'s, one home each (GUIDE5 gave the phrase its home)');
+  assert.match(rd('src/ui/questHerald.js'), /import \{ entryOpening, timeLeftWords, QUEST_URGENT_SECONDS \} from '\.\/questRail\.js';/, 'the opening, the time left and the day: the rail\'s, one home each (GUIDE5 gave the phrase its home; AUDIT GUIDE H7 the day)');
   for (const f of ['src/ui/questHerald.js', 'src/ui/questLens.js', 'src/scenes/questBridge.js', 'src/ui/hud.js']) {
     assert.doesNotMatch(rd(f), /DAY_NAMES|MONTH_NAMES/, `${f} keeps no copy of the date header`);
   }
@@ -479,7 +480,7 @@ test('GUIDE3 ONE CALL, EVERY HOST - drawHud draws the herald on its one call, OU
     if (reach.has(f)) return;
     reach.add(f);
     const text = readFileSync(join(ROOT, f), 'utf8');
-    for (const m of text.matchAll(/^\s*(?:import|export)\s[^'"]*?from\s+['"](\.[^'"]+)['"]/gm)) walk(join(dirname(f), m[1]).replace(/\\/g, '/'));
+    for (const m of text.matchAll(/^\s*(?:import|export)\s[^'"]*?from\s+['"](\.[^'"]+)['"]|^\s*import\s+['"](\.[^'"]+)['"]|\bimport\(\s*['"](\.[^'"]+)['"]\s*\)/gm)) walk(join(dirname(f), m[1] ?? m[2] ?? m[3]).replace(/\\/g, '/'));   // AUDIT GUIDE O6: a bare and a dynamic import too
   };
   walk('src/ui/questHerald.js');
   for (const f of ['src/ui/questLens.js', 'src/systems/quest/place.js', 'src/systems/quest/machine.js', 'src/ui/hud.js']) {
@@ -516,6 +517,6 @@ test('GUIDE3 THE OPENING over the corpus - every message a quest of the 265 LOGS
     }
   }
   assert.deepEqual(empty, [], 'every logged entry has words to open with');
-  assert.deepEqual({ logged, headed, cut }, { logged: 408, headed: 395, cut: 56 },
+  assert.deepEqual({ logged, headed, cut }, { logged: 408, headed: 395, cut: 55 },   // AUDIT GUIDE W4: a stop inside a closing quote ends a sentence (P0A01L00:1015)
     'the 408 entries the corpus logs: 395 open on the %qdt header, and 56 first sentences run past OPENING_MAX (at 100 it was 159)');
 });

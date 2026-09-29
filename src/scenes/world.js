@@ -31,7 +31,7 @@ import { loadModWorldData } from './modWorldData.js';   // RR3b
 import { DFPalette } from '../formats/dfPalette.js';
 import { MapsFile, getWorldClimateSettings, longitudeLatitudeToMapPixel, getPixelFromPixelID, REGION_RACES, LOCATION_TYPES, CLIMATES, REGION_NAMES } from '../formats/mapsFile.js';   // SPAWNED-DUNGEONS1: the ocean gate and the synthesized location's region name
 import { questTracker } from '../ui/questTracker.js';   // GUIDE5: the quest the player follows - its places, marked
-import { marksOn, questMapMarks, questPixelOf } from '../ui/questMarks.js';   // GUIDE5: where the quests point, on the held map and the compass
+import { marksOn, questMapMarks } from '../ui/questMarks.js';   // GUIDE5: where the quests point, on the held map and the compass
 import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
 import { hasPort } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
@@ -114,7 +114,7 @@ import {
 } from '../systems/sceneCache.js';
 import { WORLD_CONTEXT, makeAnchor, teleportPlan } from '../systems/teleportAnchor.js';   // A10: the Recall anchor's law - shape, IsSameInterior, the cross-context plan
 import { isPlayerInTown } from '../systems/nearbyObjects.js';
-import { createTravelMapWindow, travelMapDoorReady, preloadTravelMapArt, travelMapPickerData, canFindPlace } from '../ui/travelMapDoor.js';
+import { createTravelMapWindow, travelMapDoorReady, preloadTravelMapArt, travelMapPickerData, canFindPlace, placePixelMemo } from '../ui/travelMapDoor.js';
 import { checkLocationDiscovered as travelCheckDiscovered, getPixelColorIndex as travelPixelColorIndex } from '../ui/travelMapWindow.js';
 import { travelMapFilters, travelMapMarkedMapId } from '../systems/travelMapState.js';   // AUDIT-TO1 F2: the junction map honours the map's four filters; AUDIT-MAP: and reads the mark from the store
 import { shortcutBinding, sequenceString } from '../systems/dialogShortcuts.js';   // AUDIT-TO1 H2: TravelExit is a dialog SHORTCUT, as DFU reads it   // TO1: the junction map draws by the same two laws the page does
@@ -791,6 +791,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // SmoothLocationNeighbourhood is HasLocation's other caller and has
   // to run before the first pixel streams.
   const mapDict = buildMapDict(maps);
+  const questPlacePixel = placePixelMemo();   // AUDIT GUIDE O3: a quest place's map pixel, read once a session (ui/travelMapWindow.js)
   // AUDIT 58 F4: StreamingWorld.ReadyCheck's two runtime data repairs
   // (StreamingWorld.cs:1676-1685), which had no port. Both mutate the
   // in-memory reader buffers ONCE, before anything streams: the
@@ -9632,9 +9633,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   // first tick (DaggerfallTravelMapWindow.Update), whoever opened it.
   let _travelGoto = null;
   const toggleTravelMap = (gotoPlace = null) => {
-    // GUIDE2: THE DOOR ANSWERS WHETHER A MAP OPENED - true once it is in the slot, false for every refusal (each of
-    // which says why, in DFU's words, before it returns) - the contract every door the enhanced journal hands off to
-    // keeps (AUDIT 27h A4: a page that goes down for a window that could not open resumes).
+    // GUIDE2: THE DOOR ANSWERS WHETHER A MAP OPENED - true once it is in the slot, false for every refusal - the
+    // contract every door the enhanced journal hands off to keeps (AUDIT 27h A4: a page that goes down for a window that
+    // could not open resumes). AUDIT GUIDE D6: six refusals first say why, in DFU's words. A window already up with no
+    // place to go is silent, a pending quest offer is shown instead (GiveOffer, DaggerfallUI.cs:612), and a party's
+    // travel question is asked - the journal's door always carries its place, so it meets only the offer.
     // FindPlace_OnButtonClick (DaggerfallQuestJournalWindow.cs:353-363)
     // closes the journal and posts dfuiOpenTravelMapWindow in the same
     // breath, so the journal is still the mounted overlay when the map
@@ -12552,7 +12555,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // GUIDE4: the two questions the quest lens asks of a target (GUIDE2's gates, the pause bag's own answers) - is the
     // place on the player's map, and which place does the player stand in - so the HUD's quest card can say "(you are
     // here)" and name only what the map holds.
-    questWhere: { canFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name), currentLocationName: () => _questLoc()?.name ?? '' },
+    questWhere: { canFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name, questPlacePixel), currentLocationName: () => _questLoc()?.name ?? '' },   // AUDIT GUIDE O3: every tick, so through the host's memo
     // TK-ii: the topic/dialog seams land in the tree (TalkManager's
     // own methods, 1:1; the machine's dialogLink/addDialog arg shapes
     // are already the C# ones)
@@ -14798,8 +14801,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     gone: () => closeBrokerDoor(),   // the gate fell under her open window: it is shut, and she says so
   }) : null;
   /** WB1: the compass's mark - the gate's spot in THIS scene, while the gate stands and the player is in its ring. */
-  // GUIDE5: a quest target's place to its map pixel (ui/questMarks.js questPixelOf - the held map's own goto law)
-  const questPixel = (find) => questPixelOf(maps, find, longitudeLatitudeToMapPixel);
+  // GUIDE5: a quest target's place to its map pixel (the held map's own goto law) - AUDIT GUIDE O3: through the host's
+  // one memo, which the look's map question shares, so the compass (every street frame) and the held map's poll never
+  // re-read a region (MapsFile keeps one in memory)
+  const questPixel = (find) => questPlacePixel(maps, find?.regionName ?? '', find?.locationName ?? '');
   /** GUIDE5: the tracker's quest's place on the compass - the centre of its map pixel in THIS scene's frame (the
    *  streaming host's pixelTranslation, the gate's own sum), on the street only (buildings and dungeons steer by
    *  their own frames), and only while the marks are on and the place is on the player's map. */

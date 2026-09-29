@@ -326,6 +326,9 @@ export function drawEnhancedToasts(frame, doc = (typeof document === 'undefined'
   const out = [];
   for (let i = 0; i < ids.length; i++) {
     const host = drawEnhancedNotice({ rows: Array.isArray(rows[i]) ? rows[i] : [rows[i] ?? ''], visible, toast: true }, doc, toastKey(key, ids[i]));
+    // AUDIT GUIDE H3: an owner that speaks its news itself (the quest herald's own live region) keeps its toasts out of
+    // the stack's - said once and whole there, never twice, never a merged row alone
+    if (host && frame?.silent && host.getAttribute?.('aria-hidden') !== 'true') host.setAttribute?.('aria-hidden', 'true');
     if (host) {
       const p = panels.get(toastKey(key, ids[i]));
       if (p) { p.toastOwner = key; p.rowId = ids[i]; }   // AUDIT ENH-NOTICE3 A2: the watchdog's release finds the owner's set through these

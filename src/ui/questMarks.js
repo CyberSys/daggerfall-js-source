@@ -20,7 +20,9 @@
 // filled, the rest hollow - each answering a hover with a card: the
 // quest's title, where, and the time left. THE COMPASS carries one mark,
 // the tracker's quest, on the street (the gate's bearing law). The host
-// resolves a place to its map pixel (scenes/world.js questPixel); this
+// resolves a place to its map pixel (scenes/world.js questPixel - the held
+// map's goto law, ui/travelMapWindow.js placePixelOf, read once a place
+// through the host's memo: AUDIT GUIDE O3); this
 // module is PURE and imports nothing of the maps or the quest machine,
 // because the HUD reads its switch (GUIDE3's lesson: the HUD stays light).
 //
@@ -41,26 +43,30 @@ export const QUEST_LEGEND_TEXT = 'Quest';
 export const QUEST_HIT_PX = 16;
 /** How far above the place's mark the diamond stands, paper pixels (the raid's blades stand 18 up). */
 export const QUEST_MARK_LIFT = 17;
+/** AUDIT GUIDE K7: ...and over a raided town, clear of the blades' reach (18 up, RAID_HIT_PX 16 about them): the diamond
+ *  stands above them, so neither overprints the other and each answers its own hover. */
+export const QUEST_RAID_LIFT = 42;
+/** AUDIT GUIDE U16: what the legend calls the followed quest's filled diamond. */
+export const QUEST_FOLLOWED_TEXT = 'Followed quest';
+/** The card's bounds (ui/eventMapMarks.js TIP_LINES_MAX / TIP_TEXT_MAX, the reader every map card passes - pinned equal),
+ *  and the label's (readQuestMarks): a card is built inside them, never cut by them (AUDIT GUIDE K5). */
+export const QUEST_TIP_LINES = 5;
+export const QUEST_TIP_TEXT = 80;
+export const QUEST_LABEL_MAX = 120;
+
+/** `head` cut at a word (with an ellipsis) so that `head + sep + tail` fits `max`; the tail - a place, a time - whole. */
+function fitHead(head, tail, max, sep = ' - ') {
+  const room = max - (tail ? tail.length + sep.length : 0);
+  let h = String(head ?? '');
+  if (h.length > room) {
+    const cut = h.lastIndexOf(' ', Math.max(0, room - 1));
+    h = `${h.slice(0, cut > room / 2 ? cut : Math.max(0, room - 1)).replace(/[\s,;:/-]+$/, '')}\u2026`;
+  }
+  return tail ? (h ? `${h}${sep}${tail}` : tail) : h;
+}
 
 /** Are the marks on? The enhanced skin, the player's switch, and a page (the herald's reason). */
 export const marksOn = () => isEnhanced() && !!getPref(MARKS_PREF) && typeof document !== 'undefined';
-
-/**
- * A quest target's place to its map pixel: the lens's `find` (DFU's own find-place payload - present only for a place
- * the player's map holds) resolved the way the held map's goto resolves it (ui/heldMap.js _consumeGotoPlace): the
- * region by name, the place by its map name, the row's longitude and latitude through `toPixel` (formats/mapsFile.js
- * longitudeLatitudeToMapPixel, handed in by the host so this module stays off the map readers). Null for anything it
- * cannot place.
- * @param {any} maps the host's MapsFile
- * @param {any} find
- * @param {(longitude: number, latitude: number) => ({x:number, y:number})} toPixel
- */
-export function questPixelOf(maps, find, toPixel) {
-  const region = maps?.getRegionByName?.(find?.regionName ?? '');
-  const index = region?.mapNameLookup?.get(find?.locationName ?? '');
-  const row = index == null ? null : region.mapTable?.[index];
-  return row ? toPixel(row.longitude, row.latitude) : null;
-}
 
 /**
  * The marks a map draws from the tracker's last look (ui/questTracker.js `views`): one per active quest whose target
@@ -81,25 +87,36 @@ export function questMapMarks(views, trackedId, pixelOf) {
     if (!p || !Number.isInteger(p.x) || !Number.isInteger(p.y)) continue;
     const key = `${p.x},${p.y}`;
     const tracked = v.id != null && v.id === trackedId;
-    const at = byPixel.get(key) ?? { px: p.x, py: p.y, place: v.words?.where || find.locationName, quests: [], tracked: false };
-    at.quests.push({ title: String(v.title ?? ''), clockSeconds: v.clockSeconds, tracked });
+    // AUDIT GUIDE K2: a mark says its town; each quest says its own building (the entry's, when it names one)
+    const at = byPixel.get(key) ?? { px: p.x, py: p.y, town: v.words?.town || find.locationName, quests: [], tracked: false };
+    at.quests.push({ title: String(v.title ?? ''), clockSeconds: v.clockSeconds, tracked, building: v.target?.buildingName ?? null, where: v.words?.where || find.locationName });
     at.tracked = at.tracked || tracked;
     byPixel.set(key, at);
   }
   const left = (q) => (Number.isFinite(q.clockSeconds) ? timeLeftWords(q.clockSeconds) : '');
   return [...byPixel.values()].map((m) => {
-    const titles = m.quests.map((q) => q.title).filter(Boolean);
-    const one = m.quests.length === 1;
+    // AUDIT GUIDE K5: the followed quest first - it is the one a player looks for
+    const quests = [...m.quests].sort((a, b) => Number(b.tracked) - Number(a.tracked));
+    const titles = quests.map((q) => q.title).filter(Boolean);
+    const one = quests.length === 1;
+    const place = one ? quests[0].where : m.town;
+    // several: the town alone, then each quest with its own building and its time whole, as many as the card holds
+    const lineOf = (q) => fitHead(q.building ? `${q.title} (${q.building})` : q.title, left(q), QUEST_TIP_TEXT);
+    const room = QUEST_TIP_LINES - 1;
+    const listed = quests.length <= room ? quests : quests.slice(0, room - 1);
+    const more = quests.length - listed.length;
     return {
       key: `quest:${m.px},${m.py}`,
       px: m.px,
       py: m.py,
       tracked: m.tracked,
-      label: titles.length ? `${titles.join(' / ')} - ${m.place}` : m.place,
-      // one quest: its title, where, and the time left; several: how many, where, and each with its time
+      label: titles.length ? fitHead(titles.join(' / '), place, QUEST_LABEL_MAX) : place,   // the place kept, the titles cut
+      // one quest: its title, where, and the time left; several: how many, the town, and each quest
       tip: one
-        ? { title: titles[0] || QUEST_LEGEND_TEXT, lines: [m.place, left(m.quests[0])].filter(Boolean) }
-        : { title: `${m.quests.length} quests`, lines: [m.place, ...m.quests.map((q) => (left(q) ? `${q.title} - ${left(q)}` : q.title))] },
+        ? { title: fitHead(titles[0] || QUEST_LEGEND_TEXT, '', QUEST_TIP_TEXT), lines: [fitHead(place, '', QUEST_TIP_TEXT), left(quests[0])].filter(Boolean) }
+        : { title: `${quests.length} quests`, lines: [fitHead(place, '', QUEST_TIP_TEXT), ...listed.map(lineOf), ...(more ? [`+${more} more`] : [])] },
+      // AUDIT GUIDE K8: the place card names them (a keyboard or a finger that never hovers learns them there)
+      quests: quests.map((q) => ({ title: q.title, left: left(q) })),
     };
   });
 }
@@ -120,7 +137,8 @@ export function readQuestMarks(fn, size) {
     if (!m || typeof m !== 'object') continue;
     const { px, py } = m;
     if (!Number.isInteger(px) || !Number.isInteger(py) || px < 0 || py < 0 || px >= size.width || py >= size.height) continue;
-    out.push({ key: String(m.key ?? `quest:${px},${py}`), px, py, x: px + 0.5, y: py + 0.5, tracked: !!m.tracked, label: String(m.label ?? '').slice(0, 120), tip: m.tip ?? null });
+    const quests = (Array.isArray(m.quests) ? m.quests : []).slice(0, 12).map((q) => ({ title: String(q?.title ?? '').slice(0, QUEST_TIP_TEXT), left: String(q?.left ?? '').slice(0, 40) }));
+    out.push({ key: String(m.key ?? `quest:${px},${py}`), px, py, x: px + 0.5, y: py + 0.5, tracked: !!m.tracked, label: String(m.label ?? '').slice(0, QUEST_LABEL_MAX), tip: m.tip ?? null, quests, lift: QUEST_MARK_LIFT });
   }
   return out;
 }

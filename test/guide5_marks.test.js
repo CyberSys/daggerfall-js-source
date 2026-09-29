@@ -21,7 +21,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  questMapMarks, readQuestMarks, questMarksKey, questPixelOf, marksOn,
+  questMapMarks, readQuestMarks, questMarksKey, marksOn, QUEST_FOLLOWED_TEXT,
   MARKS_PREF, QUEST_MARK_CSS, QUEST_LEGEND_TEXT, QUEST_HIT_PX, QUEST_MARK_LIFT,
 } from '../src/ui/questMarks.js';
 import { timeLeftWords } from '../src/ui/questRail.js';
@@ -33,6 +33,7 @@ import { HeldMapWindow } from '../src/ui/heldMap.js';
 import { toPaper, paintQuestMark, PEN } from '../src/ui/inkMap.js';
 import { RAID_MARK_CSS, raidMapMarks } from '../src/ui/eventMapMarks.js';
 import { CLIMATES, LOCATION_TYPES, getMapPixelID, longitudeLatitudeToMapPixel } from '../src/formats/mapsFile.js';
+import { placePixelOf } from '../src/ui/travelMapWindow.js';   // AUDIT GUIDE O3: the goto law's one home
 import { compassMarkerLerp } from '../src/ui/hud.js';
 import { setPref, PREF_DEFAULTS, _resetForTests } from '../src/systems/uiPrefs.js';
 import { FEATURES } from '../src/systems/features.js';
@@ -43,7 +44,7 @@ const quiet = (fn) => { const w = console.warn, i = console.info; console.warn =
 
 /** A view as the lens hands it: its target's `find` present only for a place the player's map holds. */
 const view = (id, { title = `Q${id}`, find = null, where = null, note = null, clockSeconds = null, updatedAt = 0 } = {}) =>
-  ({ id, title, updatedAt, clockSeconds, latest: { lines: [' An entry.'] }, target: find ? { find } : { find: null }, words: where || note ? { where, note } : null });
+  ({ id, title, updatedAt, clockSeconds, latest: { lines: [' An entry.'] }, target: find ? { find } : { find: null }, words: where || note ? { where, note, town: where } : null });   // AUDIT GUIDE K2: the lens's words carry the town
 const find = (locationName, regionName = REGION) => ({ regionIndex: 0, regionName, locationName });
 const PIXELS = { Bigtown: { x: 3, y: 7 }, Llugwych: { x: 8, y: 2 } };
 const pixelOf = (f) => PIXELS[f.locationName] ?? null;
@@ -63,9 +64,11 @@ test('GUIDE5 ONLY WHAT THE MAP HOLDS - a mark for each quest whose target the pl
   const marks = questMapMarks(views, '4', pixelOf);
   assert.deepEqual(marks, [
     { key: 'quest:3,7', px: 3, py: 7, tracked: false, label: `The First Road / Same Town - Bigtown in ${REGION} province`,
-      tip: { title: '2 quests', lines: [`Bigtown in ${REGION} province`, `The First Road - ${timeLeftWords(90000)}`, 'Same Town'] } },
+      tip: { title: '2 quests', lines: [`Bigtown in ${REGION} province`, `The First Road - ${timeLeftWords(90000)}`, 'Same Town'] },
+      quests: [{ title: 'The First Road', left: timeLeftWords(90000) }, { title: 'Same Town', left: '' }] },   // AUDIT GUIDE K8: named on the place card
     { key: 'quest:8,2', px: 8, py: 2, tracked: true, label: `The Second Road - Llugwych in ${REGION} province`,
-      tip: { title: 'The Second Road', lines: [`Llugwych in ${REGION} province`] } },
+      tip: { title: 'The Second Road', lines: [`Llugwych in ${REGION} province`] },
+      quests: [{ title: 'The Second Road', left: '' }] },
   ]);
   assert.equal(questMapMarks([views[0], views[4]], '1', pixelOf)[0].tracked, true, 'the followed quest listed first at a shared place keeps the mark followed');
   const one = questMapMarks([views[0]], '1', pixelOf);
@@ -76,13 +79,15 @@ test('GUIDE5 ONLY WHAT THE MAP HOLDS - a mark for each quest whose target the pl
   const noWords = questMapMarks([view('9', { find: find('Bigtown') })], null, pixelOf);
   assert.equal(noWords[0].label, 'Q9 - Bigtown', 'no words from the lens: the place\'s own name');
 
-  // the resolver: the held map's goto law over the host's maps
+  // the resolver: the held map's goto law over the host's maps (AUDIT GUIDE O3: one home, ui/travelMapWindow.js
+  // placePixelOf - the host reads it through its memo; questMarks.js's copy retired)
   const region = { mapNameLookup: new Map([['Bigtown', 1]]), mapTable: [{ longitude: 0, latitude: 0 }, { longitude: 12345, latitude: 23456 }] };
   const maps = { getRegionByName: (n) => (n === REGION ? region : null) };
-  assert.deepEqual(questPixelOf(maps, find('Bigtown'), longitudeLatitudeToMapPixel), longitudeLatitudeToMapPixel(12345, 23456));
-  assert.equal(questPixelOf(maps, find('Nowhere'), longitudeLatitudeToMapPixel), null, 'a place the region has not');
-  assert.equal(questPixelOf(maps, find('Bigtown', 'Elsewhere'), longitudeLatitudeToMapPixel), null, 'a region the maps have not');
-  assert.equal(questPixelOf(null, find('Bigtown'), longitudeLatitudeToMapPixel), null);
+  const at = (f) => placePixelOf(maps, f.regionName, f.locationName);
+  assert.deepEqual(at(find('Bigtown')), longitudeLatitudeToMapPixel(12345, 23456));
+  assert.equal(at(find('Nowhere')), null, 'a place the region has not');
+  assert.equal(at(find('Bigtown', 'Elsewhere')), null, 'a region the maps have not');
+  assert.equal(placePixelOf(null, REGION, 'Bigtown'), null);
 });
 
 test('GUIDE5 ONLY WHAT THE MAP HOLDS - the host\'s marks read and checked as the raids are: a throw, junk or a pixel off the bay is nothing; each mark\'s centre is its pixel\'s; the key moves with what a player can see (mutants: an off-bay pixel kept; the key blind to the followed quest)', () => {
@@ -234,9 +239,10 @@ test('GUIDE5 THE HELD MAP - the quests ride the party\'s poll (read WITH the win
     assert.deepEqual(win._quests[0].tip, { title: 'The First Road', lines: ['Bigtown in Devilrock province', '1 day left'] }, 'the card, bounded by the world events\' own reader');
     const legend = win._chrome.legend.children;
     const text = legend.map((c) => c.textContent).filter(Boolean);
-    assert.ok(text.includes(QUEST_LEGEND_TEXT), 'the legend explains the mark');
-    const dot = legend[legend.findIndex((c) => c.textContent === QUEST_LEGEND_TEXT) - 1];
-    assert.equal(dot.style.background, QUEST_MARK_CSS);
+    assert.ok(text.includes(QUEST_FOLLOWED_TEXT), 'the legend explains the mark (AUDIT GUIDE U16: the followed kind, as drawn)');
+    const dot = legend[legend.findIndex((c) => c.textContent === QUEST_FOLLOWED_TEXT) - 1];
+    assert.equal(dot.style.background, PEN.line, 'filled with the pen\'s ink');
+    assert.equal(dot.style.border, `2px solid ${QUEST_MARK_CSS}`, 'edged in gold');
     assert.match(dot.style.transform, /rotate\(45deg\)/, 'the legend\'s dot is the mark\'s own diamond');
     marks = [];
     win.tick(0.3);
@@ -249,8 +255,8 @@ test('GUIDE5 THE HELD MAP - the quests ride the party\'s poll (read WITH the win
     win._chrome.ink.getContext = () => ctx;
     win._dirty = true;
     win._paint();
-    const fills = ctx.calls.filter((c) => c.fn === 'fill' && c.fillStyle === QUEST_MARK_CSS);
-    assert.equal(fills.length, 1, 'the followed quest\'s diamond filled, the other hollow');
+    const fills = ctx.calls.filter((c) => c.fn === 'fill' && c.fillStyle === PEN.line);
+    assert.equal(fills.length, 1, 'the followed quest\'s diamond filled (AUDIT GUIDE U16: with the pen\'s ink), the other hollow');
     const golds = ctx.calls.filter((c) => c.fn === 'stroke' && c.strokeStyle === QUEST_MARK_CSS);
     assert.equal(golds.length, 2, 'both edged in gold');
     win.dispose();
@@ -346,7 +352,7 @@ test('GUIDE5 THE COMPASS - one mark, the tracker\'s quest\'s place: a hollow dia
 
 test('GUIDE5 ONE HOST, ITS LAWS - the street resolves a place with the held map\'s goto law, hands the held map every quest\'s place while the marks are on, and hands the compass the tracker\'s quest\'s place (the pixel\'s middle, the party marks\' own sum) on the street alone; drawHud forwards it and the enhanced HUD draws it; the classic map is DFU\'s and gets none; the switch is a Features row beside the tracker\'s; the module stays light (mutants: the marks off the switch; the compass indoors; the point off the pixel\'s middle; the forward dropped)', () => {
   const W = rd('src/scenes/world.js');
-  assert.match(W, /const questPixel = \(find\) => questPixelOf\(maps, find, longitudeLatitudeToMapPixel\);/);
+  assert.match(W, /const questPixel = \(find\) => questPlacePixel\(maps, find\?\.regionName \?\? '', find\?\.locationName \?\? ''\);/, 'AUDIT GUIDE O3: the host\'s memo - the held map\'s goto law (placePixelOf), read once a place');
   assert.match(W, /quests: \(\) => \(marksOn\(\) \? questMapMarks\(questTracker\.views, questTracker\.tracked\(\)\?\.id \?\? null, questPixel\) : \[\]\),/);
   assert.match(W, /const questCompassMark = \(\) => \{\n\s*if \(!marksOn\(\) \|\| \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) return null;\n\s*const find = questTracker\.tracked\(\)\?\.target\?\.find;\n\s*const p = find \? questPixel\(find\) : null;\n\s*if \(!p\) return null;\n\s*const t = state\.pixelTranslation\(p\.x, p\.y\);\n\s*return \[t\[0\] \+ TERRAIN_SIZE \/ 2, t\[2\] \+ TERRAIN_SIZE \/ 2\];/);
   assert.match(W, /quest: questCompassMark\(\),   \/\/ GUIDE5/);
@@ -364,7 +370,7 @@ test('GUIDE5 ONE HOST, ITS LAWS - the street resolves a place with the held map\
   const walk = (f) => {
     if (reach.has(f)) return;
     reach.add(f);
-    for (const m of readFileSync(join(ROOT, f), 'utf8').matchAll(/^\s*(?:import|export)\s[^'"]*?from\s+['"](\.[^'"]+)['"]/gm)) walk(join(dirname(f), m[1]).replace(/\\/g, '/'));
+    for (const m of readFileSync(join(ROOT, f), 'utf8').matchAll(/^\s*(?:import|export)\s[^'"]*?from\s+['"](\.[^'"]+)['"]|^\s*import\s+['"](\.[^'"]+)['"]|\bimport\(\s*['"](\.[^'"]+)['"]\s*\)/gm)) walk(join(dirname(f), m[1] ?? m[2] ?? m[3]).replace(/\\/g, '/'));   // AUDIT GUIDE O6: a bare and a dynamic import too
   };
   walk('src/ui/questMarks.js');
   for (const f of ['src/ui/questLens.js', 'src/systems/quest/place.js', 'src/systems/quest/machine.js', 'src/ui/hud.js', 'src/formats/mapsFile.js', 'src/systems/raidingParties.js']) {

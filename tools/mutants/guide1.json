@@ -6,13 +6,15 @@
     "new": "    return message.getTextTokens(-1, QUIET_ROLL, true, true);",
     "tests": [
       "test/guide1_questLens.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT GUIDE L3 gave the quiet read its own hooks, whose addDialog answers nothing - a reveal the flag lets through lands there, so the flag is the first of two guards (the letter's signoff, which reveals with no flag, passes only the second); AUDIT-GUIDE-L3-the-letter-loud kills the hooks' removal"
   },
   {
     "name": "GUIDE1-quiet-read-draws-the-quest-rolls",
     "file": "src/ui/questLens.js",
-    "old": "  if (quest) quest.rolls = QUIET_ROLL;",
-    "new": "  if (quest) quest.rolls = quest.rolls;",
+    "old": "    quest.rolls = QUIET_ROLL;\n",
+    "new": "    quest.rolls = quest.rolls;\n",
     "tests": [
       "test/guide1_questLens.test.js"
     ]
@@ -146,8 +148,8 @@
   {
     "name": "GUIDE1-region-said-ignored",
     "file": "src/ui/questLens.js",
-    "old": "    regionName: named || said.has(MACRO_TYPES.NameMacro4) ? (",
-    "new": "    regionName: named ? (",
+    "old": "    regionName: onMap === true || here || said.has(MACRO_TYPES.NameMacro4) ? (",
+    "new": "    regionName: onMap === true || here ? (",
     "tests": [
       "test/guide1_questLens.test.js"
     ]
@@ -155,7 +157,7 @@
   {
     "name": "GUIDE1-find-where-you-stand",
     "file": "src/ui/questLens.js",
-    "old": "    find: onMap === true && !here ? {",
+    "old": "    find: onMap === true && !hereByName ? {",
     "new": "    find: onMap === true ? {",
     "tests": [
       "test/guide1_questLens.test.js"
@@ -164,8 +166,8 @@
   {
     "name": "GUIDE1-find-off-the-map",
     "file": "src/ui/questLens.js",
-    "old": "    find: onMap === true && !here ? {",
-    "new": "    find: !here ? {",
+    "old": "    find: onMap === true && !hereByName ? {",
+    "new": "    find: !hereByName ? {",
     "tests": [
       "test/guide1_questLens.test.js"
     ]
@@ -218,8 +220,8 @@
   {
     "name": "GUIDE1-urgent-at-a-day",
     "file": "src/ui/questLens.js",
-    "old": "        urgent: r.clockSeconds != null && r.clockSeconds < QUEST_URGENT_SECONDS,",
-    "new": "        urgent: r.clockSeconds != null && r.clockSeconds <= QUEST_URGENT_SECONDS,",
+    "old": "        urgent: clockSeconds != null && clockSeconds < QUEST_URGENT_SECONDS,",
+    "new": "        urgent: clockSeconds != null && clockSeconds <= QUEST_URGENT_SECONDS,",
     "tests": [
       "test/guide1_questLens.test.js"
     ]

@@ -1718,7 +1718,14 @@ ${badgeCss()}
   .hmhint { display: none; }
   .hmcard { right: 12px; bottom: 76px; }
   .hmfoot { left: 12px; bottom: 12px; flex-wrap: wrap; max-width: calc(100vw - 24px); }
+  /* AUDIT GUIDE K6: the legend wraps inside the foot - it ran nowrap off a phone's edge, the quest's word first lost */
+  .hmlegend { flex: 1 1 auto; flex-wrap: wrap; min-width: 0; }
 }
+/* AUDIT GUIDE K3: while a place is picked the card stands above the foot - a foot grown by the legend or the Overworld's
+   button lay over the card's Travel press, and took it */
+.hmroot.hmcardup .hmcard { z-index: 1; }
+/* AUDIT GUIDE K8: the quests that point at the picked place, named on its card */
+.hmquest { color: #c9962c; font-size: 13px; margin: 2px 0; text-align: center; }
 
 /* ── PX1: THE PIXEL HOME (Mac, 2026-08-27) ──────────────────
    The boot menu's front face in Daggerfall's own idiom, adopted from
@@ -1831,7 +1838,7 @@ ${badgeCss()}
   margin: -4px 0 14px; }
 .px-qwhere-place { color: #d8cfae; font-size: 15px; letter-spacing: 0.04em; overflow-wrap: anywhere; text-align: center;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
-.px-qwhere-place::before { content: '\\25c8'; margin-right: 8px; color: var(--brass); }
+.px-qwhere-place::before { content: '\\25c8'; content: '\\25c8' / ''; margin-right: 8px; color: var(--brass); }   /* AUDIT GUIDE U18: decorative - its alt text empty */
 .px-qwhere .act, .px-qentry-where .act { min-height: 32px; padding: 2px 12px; font-size: 13px; }
 .px-qwhere-note { flex-basis: 100%; text-align: center; color: #b9b094; font-size: 13px; line-height: 1.5;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
@@ -3385,7 +3392,7 @@ ${badgeCss()}
    carried since PX5. */
 .cr-shell .cr-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 10px; max-width: 66ch; }
 .cr-shell .cr-whereplace { color: #d8cfae; font-size: 14px; overflow-wrap: anywhere; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
-.cr-shell .cr-whereplace::before { content: '\\25c8'; margin-right: 8px; color: var(--brass); }
+.cr-shell .cr-whereplace::before { content: '\\25c8'; content: '\\25c8' / ''; margin-right: 8px; color: var(--brass); }   /* AUDIT GUIDE U18 */
 .cr-shell .cr-where .act { min-height: 30px; padding: 2px 10px; font-size: 13px; }
 .cr-shell .cr-wherenote { flex-basis: 100%; color: #b9b094; font-size: 13px; line-height: 1.5; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .cr-shell .cr-timer { color: #c5bda2; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
@@ -5190,33 +5197,63 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
   position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(92px + env(safe-area-inset-top, 0px));
   z-index: 5; pointer-events: none; box-sizing: border-box; width: 260px; max-width: calc(100vw - 16px);
   display: flex; flex-direction: column; gap: 2px; padding: 5px 10px 6px 18px; text-align: right;
-  background: linear-gradient(90deg, rgba(10,12,17,0) 0%, rgba(10,12,17,0.6) 32%);
+  /* AUDIT GUIDE U9: the toast's own plate (0.82) - at 0.6 the dim rows fell under 4.5:1 over a bright sky or snow */
+  background: linear-gradient(90deg, rgba(10,12,17,0) 0%, rgba(10,12,17,0.82) 32%);
   border-right: 3px solid rgba(192,138,62,0.75);
   font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
   font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;
   color: #d8cfae; text-shadow: 2px 2px 0 rgba(0,0,0,0.85);
+  /* AUDIT GUIDE U8: where the compass ends at the HUD's own scale (ui/questTracker.js copies --hud-scale here) - the
+     travel panel's --tp-top sum, less its gap - so a scaled-up compass or foe frame never stands on the card */
+  --qt-clear: calc(18px + 28px * var(--hud-scale, 1) + 30px);
 }
-.qtrack.touch { top: calc(76px + env(safe-area-inset-top, 0px)); }
+.qtrack.touch { top: calc(max(76px, var(--qt-clear)) + env(safe-area-inset-top, 0px)); }
+@media (max-width: 900px) {
+  body:has(.hud-foe.on) .qtrack { --qt-clear: calc(18px + 28px * var(--hud-scale, 1) + 30px + 46px * var(--hud-scale, 1)); }
+  body:has(.hud-foe.on.blade) .qtrack { --qt-clear: calc(18px + 28px * var(--hud-scale, 1) + 30px + 76px * var(--hud-scale, 1)); }
+}
+/* AUDIT GUIDE T1/D1, U1, U7: the card steps aside - keeping its line, so the party list never jumps - for what stands
+   in its corner a while: the Overworld's block at the top of a touch screen, a narrow screen's chat lines, a journey's
+   junction disc */
+:root[data-tview-block="top"] .qtrack,
+body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
+@media (max-width: 720px) { body:has(.dfchat-peek:not(:empty)) .qtrack { visibility: hidden; } }
+/* AUDIT GUIDE U10: under forced colours a background image goes; the card keeps a plate of the system's own */
+@media (forced-colors: active) { .qtrack { background-color: Canvas; } }
 .qtrack-head { display: flex; justify-content: flex-end; align-items: baseline; gap: 6px; }
 .qtrack-mark { font-size: 11px; color: var(--brass); }
 .qtrack-title { font-size: 14px; line-height: 1.3; color: #e9e4d9; }
 .qtrack.main .qtrack-title { color: #e8c170; }
-.qtrack-line { font-size: 12px; line-height: 1.3; color: #b3a98e;
+.qtrack-line { font-size: 12px; line-height: 1.3; color: #cdc3a7;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }   /* the cap (TRACKER_OPENING_MAX) keeps it to two; a wide face wraps to three, and a clamp at two cut it mid-word - seen in Chromium */
-.qtrack-where { font-size: 12px; line-height: 1.3; color: #c9a45c; }
-.qtrack-where::before { content: '\\25c8'; margin-right: 5px; }
+.qtrack-where { font-size: 12px; line-height: 1.3; color: #d6b36b; }
+.qtrack-where::before { content: '\\25c8'; content: '\\25c8' / ''; margin-right: 5px; }   /* AUDIT GUIDE U18 */
 /* GUIDE5: a place the entry names but the player's map does not hold - no mark; the talk arc's answer, quietly */
-.qtrack-note { font-size: 11px; line-height: 1.3; color: #8b8578; font-style: italic; }
+.qtrack-note { font-size: 11px; line-height: 1.3; color: #b0a993; font-style: italic; }   /* AUDIT GUIDE U9: lighter dim rows */
 .qtrack-time { font-size: 12px; letter-spacing: 0.08em; color: #c5bda2; }
 .qtrack.urgent .qtrack-time { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
-/* the journal's Track toggle (ui/questTracker.js trackButton): pressed, it wears the card's brass edge as its word */
+/* the journal's Track toggle (ui/questTracker.js trackButton): pressed, it wears the card's brass edge and the card's
+   filled diamond - AUDIT GUIDE T6/U13: its word never changes; the diamond is drawn, not read (its alt text empty) */
+.qtrack-pinbox { display: inline-flex; align-items: center; gap: 8px; }
 .act.qtrack-pin.on { color: var(--brass); border-color: rgba(192,138,62,0.75); }
+.act.qtrack-pin.on::before { content: '\\25c6 '; content: '\\25c6 ' / ''; }
+/* AUDIT GUIDE U14: the quest the HUD follows, said where the choice is made */
+.qtrack-on { font-size: 11px; letter-spacing: 0.08em; color: var(--brass); }
+.qtrack-on:empty { display: none; }
 @media (max-width: 560px) {
-  .qtrack, .qtrack.touch { top: calc(104px + env(safe-area-inset-top, 0px)); width: min(260px, calc(100vw - 16px)); }
+  .qtrack, .qtrack.touch { top: calc(max(104px, var(--qt-clear)) + env(safe-area-inset-top, 0px)); width: min(260px, calc(100vw - 16px)); }
 }
 @media (max-height: 500px) {
   .qtrack-line, .qtrack-where, .qtrack-note { display: none; }
 }
+/* AUDIT GUIDE H8: a short screen keeps the herald's kind and title - its stack is capped at 90vh and a three-row notice
+   was clipped whole, or clipped the HUD's own lines beside it */
+@media (max-height: 520px) {
+  .notice.notice-toast .notice-row.herald-line { display: none; }
+}
+/* AUDIT GUIDE H3: the herald's own voice - read, never seen */
+.qherald-live { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 /* AUDIT HCC U5: THE FIELD'S OWN WINDOW (ui/enhancedInputBox.js) - DaggerfallInputMessageBox in the skin's face.
    ENH-NOTICE1's law: a field is a decision, not a notice, so it is not in the right-edge stack; it stands where the
    player looks while typing - centred, or at the top for showAtTopOfScreen - in the box's own panel and rule. It

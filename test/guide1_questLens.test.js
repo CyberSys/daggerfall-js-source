@@ -38,7 +38,7 @@ const quiet = (fn) => { const w = console.warn, i = console.info; console.warn =
 
 const LENS_SRC = [
   'Quest: __GLENS', 'DisplayName: Main Quest - The Lens', 'QRC:',
-  'Message:  1010', '%qdt:', ' I agreed to find the ring.', '',
+  'Message:  1010', '%qdt:', ' I agreed to find the ring.', ' I have =timer_ days.', '',   // AUDIT GUIDE H1: a deadline the journal names
   'Message:  1011', '%qdt:', ' I found the ring. I must return it.', '',
   'Message:  1012', '%qdt:', ' The deadline moved.', '',
   'QBN:',
@@ -64,7 +64,7 @@ const SECOND_SRC = [
 ];
 const QUIET_SRC = [
   'Quest: __GQUIET', 'DisplayName: The Quiet Read', 'QRC:',
-  'Message:  1010', '%qdt:', " _qgiver_ asked me, in %god's name, to find %n at _pub_ in __pub_.", '',
+  'Message:  1010', '%qdt:', " _qgiver_ asked me, in %god's name, to find %n at _pub_ in __pub_.", ' I have =timer_ days.', '',   // AUDIT GUIDE H1
   'Message:  1011', '%qdt:', ' %g said to look in ___keep_ of ____keep_.', '',
   'Message:  1020', ' _qgiver_ says: seek _pub_.', '',
   'QBN:',
@@ -116,7 +116,7 @@ test('GUIDE1 THE FEED over the real bridge: the first look is a baseline and say
   assert.equal(v.name, 'Main Quest - The Lens');
   assert.equal(v.clockSeconds, 172800, 'the tightest running clock, the bridge\'s own');
   assert.equal(v.urgent, false);
-  assert.deepEqual(v.latest.lines, ['Sundas the 1st of Morning Star:', ' I agreed to find the ring.'], '%qdt answers the step\'s own date - the bracket held through the quiet read');
+  assert.deepEqual(v.latest.lines, ['Sundas the 1st of Morning Star:', ' I agreed to find the ring.', ' I have 2 days.'], '%qdt answers the step\'s own date - the bracket held through the quiet read (AUDIT GUIDE H1: the clock\'s days, the deadline it names)');
   assert.equal(v.updatedAt, 1000);
   assert.equal(v.target, null, 'an entry that names no Place points nowhere');
 
@@ -342,7 +342,7 @@ test('GUIDE1 THE MACHINE NEVER KNOWS - a whole game, twice: the same quest (a Pl
   });
 });
 
-test('GUIDE1 NOTHING THE JOURNAL HAS NOT SAID - the target over producer-minted Places (a local tavern, a fixed town, a questor): the LAST Place an entry names, DFU\'s law, and the logbook\'s through the same export; the building only when the entry names the building; the town when the entry names it, when it is on the player\'s map, or when the player stands in it - and only the target\'s own macros say anything; the region when named that way or through the town; `find` exactly when HandleQuestClicks would offer the box - on the map and not here; a Person names no target; an entry with no Place points nowhere (mutants: the first Place for the last; the building without `_p_`; the town without being said; any symbol\'s macro saying it; `find` off the map or here)', () => {
+test('GUIDE1 NOTHING THE JOURNAL HAS NOT SAID - the target over producer-minted Places (a local tavern, a fixed town, a questor): the LAST Place an entry names, DFU\'s law, and the logbook\'s through the same export; the building only when the entry names the building; the town when the entry names it, when it is on the player\'s map, or when the player stands in it - and only the target\'s own macros say anything; the region when named that way or through the town; `find` exactly when HandleQuestClicks would offer the box - on the map and not here; a Person names no target; an entry with no Place points nowhere (mutants: the first Place for the last; the building without `_p_`; the town without being said; any symbol\'s macro saying it; `find` off the map or here; the town underfoot unnamed)', () => {
   const world = makeWorld();
   const m = new QuestMachine({ nowSeconds: () => 0, world, addDialog: () => {} });
   const q = quiet(() => m.scheduleQuest([
@@ -363,13 +363,19 @@ test('GUIDE1 NOTHING THE JOURNAL HAS NOT SAID - the target over producer-minted 
   const t = (id, onMap = false, here = 'Elsewhere') => entryTarget(q.getMessage(id), { canFindPlace: () => onMap, currentLocationName: () => here });
   const off = { onMap: false, here: false, find: null };
 
-  assert.deepEqual(t(1010), { symbol: 'pub', kind: 'building', locationName: 'Bigtown', regionName: REGION, buildingName: 'The Feather and Dog', ...off });
-  assert.deepEqual(t(1011), { symbol: 'pub', kind: 'building', locationName: 'Bigtown', regionName: REGION, buildingName: null, ...off }, '"somewhere in Bigtown" stays somewhere');
+  // AUDIT GUIDE W1: the town's own name (`__p_`) says the town, never its region - off the map, the region is said only
+  // by the entry (`____p_`) or DFU's box
+  assert.deepEqual(t(1010), { symbol: 'pub', kind: 'building', locationName: 'Bigtown', regionName: null, buildingName: 'The Feather and Dog', ...off });
+  assert.deepEqual(t(1011), { symbol: 'pub', kind: 'building', locationName: 'Bigtown', regionName: null, buildingName: null, ...off }, '"somewhere in Bigtown" stays somewhere');
   assert.deepEqual(t(1012), { symbol: 'keep', kind: 'town', locationName: 'Llugwych', regionName: REGION, buildingName: null, ...off });
   assert.deepEqual(t(1013), { symbol: 'keep', kind: null, locationName: null, regionName: REGION, buildingName: null, ...off }, 'the region said, the town not');
   assert.deepEqual(t(1013, true), { symbol: 'keep', kind: 'town', locationName: 'Llugwych', regionName: REGION, buildingName: null, onMap: true, here: false, find: { regionIndex: RI, regionName: REGION, locationName: 'Llugwych' } }, 'on the map, DFU\'s find-place box names it');
   assert.deepEqual(t(1013, true, 'Llugwych'), { symbol: 'keep', kind: 'town', locationName: 'Llugwych', regionName: REGION, buildingName: null, onMap: true, here: true, find: null }, 'standing in it: named, and nothing to travel to');
-  assert.deepEqual(t(1013, false, 'Llugwych').locationName, 'Llugwych');
+  assert.deepEqual(t(1013, false, 'Llugwych').locationName, null, 'AUDIT GUIDE W2: the map says no - the Llugwych underfoot is another of the name, and names nothing');
+  // the fixed-town route (exterior.js) asks the map nothing: the town the player stands in is named, and its region,
+  // by the standing alone - the entry says only `_keep_`
+  assert.deepEqual(entryTarget(q.getMessage(1017), { currentLocationName: () => 'Llugwych' }),
+    { symbol: 'keep', kind: 'town', locationName: 'Llugwych', regionName: REGION, buildingName: null, onMap: null, here: true, find: null }, 'standing in it, no map asked: named');
   assert.deepEqual(t(1017), { symbol: 'keep', kind: null, locationName: null, regionName: null, buildingName: null, ...off }, 'a fixed town has no building name to say, and `_p_` says nothing else');
   assert.deepEqual(t(1018), { symbol: 'pub', kind: null, locationName: null, regionName: REGION, buildingName: null, ...off }, 'the questor\'s name says nothing of the tavern\'s');
   assert.equal(t(1014).symbol, 'keep', 'the LAST Place the entry names');

@@ -477,6 +477,10 @@ export function hideHudTextSurfaces(hudText = null) {
   hudText?.hide();
   midScreenText.hide();
   horseNameTooltip.hide();   // AUDIT HCC U6: the mod's HUD label, the same door
+  // AUDIT GUIDE O1/T7/H9: the quest guide's two HUD faces, the same door - the herald's notices hide (their clock
+  // stopped) and the card hides and gives the party list its line back, as they do under a street window
+  drawQuestHerald({ hidden: true });
+  drawQuestTracker({ hidden: true });
 }
 
 export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,

@@ -53,7 +53,7 @@ import { REGION_NAMES, patchRegionIndex } from '../formats/mapsFile.js';
 import { questRail, journalLines, questTitleOf, QUEST_URGENT_SECONDS } from './questRail.js';
 
 /** GetLastPlaceMentionedInMessage (DaggerfallQuestJournalWindow.cs:
- *  469-485): the LAST Place resource any macro in the message names.
+ *  470-485): the LAST Place resource any macro in the message names.
  *  Not ParentQuest.LastPlaceReferenced - DFU's own comment says that
  *  sends the player to an unrelated home location for the last NPC
  *  processed - and a message that names no Place at all (the Dark
@@ -109,20 +109,33 @@ export function quietTokens(message) {
     place: quest.lastPlaceReferenced,
     logId: quest.currentLogMessageId,
     rolls: quest.rolls,
+    hooks: quest.hooks,
   } : null;
-  if (quest) quest.rolls = QUIET_ROLL;
+  if (quest) {
+    quest.rolls = QUIET_ROLL;
+    // AUDIT GUIDE L3: an entry that names a quest LETTER reads the letter's signoff (Item.expandMacro ->
+    // questLetterName -> expandLetterSignoff, DFU's ItemHelper and ExpandLetterSignoff) - and that path reveals its
+    // names with no reveal flag at all. The read's own hooks answer nothing; the rest are the quest's.
+    if (quest.hooks) quest.hooks = Object.create(quest.hooks, { addDialog: { value: () => {} }, dialogLink: { value: () => {} } });
+  }
+  // AUDIT GUIDE L3: ...and draws the letter's variant on the ENGINE's roll (questLetterName's Math.random default):
+  // for the read, the engine's roll is the quiet one, put back however the read leaves
+  const engineRoll = Math.random;
+  Math.random = QUIET_ROLL;
   try {
     return message.getTextTokens(-1, QUIET_ROLL, true, false);
   } catch (e) {
     warnOnce(`${quest?.uid}:${message.id}`, `[quest lens] message ${message.id} of ${quest?.questName ?? 'a quest'} does not expand (${e?.message ?? e}); it reads as nothing`);
     return null;
   } finally {
+    Math.random = engineRoll;
     setSeed(seed);
     if (quest) {
       quest.lastResourceReferenced = kept.resource;
       quest.lastPlaceReferenced = kept.place;
       quest.currentLogMessageId = kept.logId;
       quest.rolls = kept.rolls;
+      quest.hooks = kept.hooks;
     }
   }
 }
@@ -135,6 +148,23 @@ export function quietLines(message) {
 
 /** SiteTypes as a face names them. */
 const SITE_KIND = Object.freeze({ [SITE_TYPES.Town]: 'town', [SITE_TYPES.Dungeon]: 'dungeon', [SITE_TYPES.Building]: 'building' });
+
+/** AUDIT GUIDE H1: the clocks an entry NAMES - its DetailsMacros (`=queston_`, Clock.ExpandMacro's days), read
+ *  unexpanded like saidOf, so nothing moves. A clock the journal names is a deadline the quest gave the player; one it
+ *  never names is the script's own (a letter's arrival, the hour a quest waits before it closes itself) - DFU's
+ *  journal shows no clock, and only HUDQuestDebugger lists those. */
+function clocksNamed(message) {
+  const named = new Set();
+  if (typeof message?.getTextTokens !== 'function') return named;
+  for (const token of message.getTextTokens(0, QUIET_ROLL, false)) {
+    if (!token.text) continue;
+    for (const word of token.text.split(' ')) {
+      const macro = getMacro(word);
+      if (macro.type === MACRO_TYPES.DetailsMacro && macro.symbol) named.add(macro.symbol);
+    }
+  }
+  return named;
+}
 
 /** Which of a place's names an entry SAYS: the name macros (Place.
  *  ExpandMacro - `_p_` the building, `__p_` and `___p_` the location,
@@ -182,24 +212,30 @@ export function entryTarget(message, where = {}) {
   if (!site?.locationName) return null;
   const said = saidOf(message, place.symbol?.name);
   const onMap = where.canFindPlace ? !!where.canFindPlace(site.regionName, site.locationName) : null;
-  const here = !!where.currentLocationName && site.locationName === where.currentLocationName();
+  // HandleQuestClicks' own gate (:450) is the NAME: a place named as the player's location offers no box
+  const hereByName = !!where.currentLocationName && site.locationName === where.currentLocationName();
+  // AUDIT GUIDE W2: "(you are here)" is a CLAIM, and a player cannot stand in a place their map lacks - a place of the
+  // same name elsewhere is not it: never claimed where the map says no (and never lets that name the place)
+  const here = hereByName && onMap !== false;
   const named = onMap === true || here || said.has(MACRO_TYPES.NameMacro2) || said.has(MACRO_TYPES.NameMacro3);
-  const regionIndex = patchRegionIndex(site.regionIndex ?? 0, site.regionName ?? '');   // :474-481's legacy-save workaround, both sides of the seam
+  const regionIndex = patchRegionIndex(site.regionIndex ?? 0, site.regionName ?? '');   // :455-456's legacy-save workaround, both sides of the seam
   return {
     symbol: place.symbol?.name ?? null,
     kind: named ? (SITE_KIND[site.siteType] ?? null) : null,
     locationName: named ? site.locationName : null,
-    regionName: named || said.has(MACRO_TYPES.NameMacro4) ? (REGION_NAMES[regionIndex] ?? site.regionName ?? null) : null,
+    // AUDIT GUIDE W1: the region only where the entry says it or DFU's find-place box would (the place on the map, or
+    // the player in it) - the town's own name (`__p_`) never unlocks it
+    regionName: onMap === true || here || said.has(MACRO_TYPES.NameMacro4) ? (REGION_NAMES[regionIndex] ?? site.regionName ?? null) : null,
     buildingName: said.has(MACRO_TYPES.NameMacro1) ? (site.buildingName ?? null) : null,
     onMap,
     here,
-    find: onMap === true && !here ? { regionIndex: site.regionIndex ?? 0, regionName: site.regionName ?? '', locationName: site.locationName } : null,
+    find: onMap === true && !hereByName ? { regionIndex: site.regionIndex ?? 0, regionName: site.regionName ?? '', locationName: site.locationName } : null,
   };
 }
 
 /** Internal_Strings `locationInRegionProvince`, "{0} in {1} province" -
  *  the find-place box's own entry line (DaggerfallQuestJournalWindow.cs:
- *  474-481). ONE HOME: the classic logbook's FIND_PLACE_TEXT reads it from
+ *  459-462; AUDIT GUIDE D4). ONE HOME: the classic logbook's FIND_PLACE_TEXT reads it from
  *  here, and every enhanced face says a target's place in the same words. */
 export const locationInRegionText = (locationName, regionName) => `${locationName} in ${regionName} province`;
 
@@ -210,7 +246,7 @@ export const WHERE_TEXT = Object.freeze({
   here: 'you are here',
   offMap: 'Not on your map yet. Ask around for directions.',
   show: 'Show on map',
-  showLabel: (place) => `Show ${place} on the travel map`,
+  showLabel: (place) => `Show on map: ${place}`,   // AUDIT GUIDE U12: its own words first (WCAG 2.5.3 - a speech user says "Show on map")
 });
 
 /**
@@ -236,8 +272,9 @@ export function targetWords(target) {
   const where = [target.buildingName, place].filter(Boolean).join(', ');
   return {
     where: target.here ? `${where} (${WHERE_TEXT.here})` : where,
-    note: target.locationName && target.onMap === false && !target.here ? WHERE_TEXT.offMap : null,
+    note: target.locationName && target.onMap === false ? WHERE_TEXT.offMap : null,   // AUDIT GUIDE W2: a place the map lacks is never here
     find: target.find ?? null,
+    town: place,   // AUDIT GUIDE K2: the place without its building - what a map mark two quests share says
   };
 }
 
@@ -248,11 +285,15 @@ function entryKey(row, step, message) {
   return step ? `${row?.id}|${step.stepID}|${step.messageID}|${step.time}` : `${row?.id}|m${message?.id}`;
 }
 
+/** AUDIT GUIDE H4: an entry's identity as NEWS - its step and message, not the moment. The same words logged again
+ *  (P0B10L07 re-logs its step on every click; a shared quest's resync writes the partner's times) are not news. */
+const newsKey = (id, e) => (e.stepID != null ? `${id}|${e.stepID}|${e.messageID}` : `${id}|m${e.messageID}`);
+
 /**
  * THE LENS. One per quest bridge: scenes/questBridge.js makes it over
  * its own walk and resets it when a save is loaded.
  *
- * `look(where)` answers `{ quests, finished, events }`:
+ * `look(where)` answers `{ quests, events }`:
  *   quests   - one view per active quest the journal lists, in the
  *              walk's order: `{ key, id, name, title, questName, main,
  *              clockSeconds, urgent, entries, latest, updatedAt,
@@ -260,12 +301,17 @@ function entryKey(row, step, message) {
  *              each entry `{ key, stepID, messageID, time,
  *              lines, target }` oldest first, `latest` the last of
  *              them and `target` its target (never an older entry's -
- *              a quest that has moved on points where it points now).
- *   finished - questRail's archive, as the journal faces read it.
+ *              a quest that has moved on points where it points now;
+ *              AUDIT GUIDE O3: an older entry's target is null, never
+ *              asked). `clockSeconds` is the deadline the quest's own
+ *              entries NAME (AUDIT GUIDE H1), null when they name none.
+ *              The archive is the journal windows' own read, not the
+ *              lens's (AUDIT GUIDE O3).
  *   events   - what changed since the previous look: `started` (a quest
  *              the lens had not seen writes its first entry),
- *              `updated` (a quest writes an entry - `entries` names
- *              them), `urgent` (its clock crosses under
+ *              `updated` (a quest writes an entry - a step and message
+ *              it had not written; `entries` names them), `urgent`
+ *              (its named deadline crosses under
  *              QUEST_URGENT_SECONDS), `completed` / `ended` (it leaves
  *              the journal - the notebook's own two verdicts). Every
  *              event carries `id`, `title` and `main`. The first look,
@@ -281,6 +327,8 @@ export class QuestLens {
   constructor({ questLog = null } = {}) {
     this._questLog = questLog;
     this._text = new Map();    // entry key -> lines (null: the read threw)
+    this._named = new Map();   // entry key -> the clocks it names (AUDIT GUIDE H1)
+    this._namedBy = new Map();   // quest id -> every clock its entries have named since the baseline (a told deadline stays told)
     this._last = null;         // id -> { title, main, clockSeconds, entryKeys } as of the previous look
     this._known = new Set();   // ids the lens has shown since the baseline
   }
@@ -291,32 +339,51 @@ export class QuestLens {
     this._last = null;
     this._known.clear();
     this._text.clear();
+    this._named.clear();
+    this._namedBy.clear();
   }
 
   /** Drop the kept lines; the next look reads every entry again. */
   rereadText() { this._text.clear(); }
 
   look(where = {}) {
-    const log = this._questLog?.() ?? { active: [], finished: [], ended: [] };
+    const log = this._questLog?.() ?? { active: [], ended: [] };
     const read = new Set();
-    const rail = questRail(log, (message, step, row) => {
+    // AUDIT GUIDE O3/L5: the archive is the journal windows' (the pause tab, the chronicle); no face of the lens reads
+    // it, so a look parses none of it
+    const rail = questRail({ active: log.active ?? [], finished: [] }, (message, step, row) => {
       const key = entryKey(row, step, message);
       read.add(key);
       if (!this._text.has(key)) this._text.set(key, quietLines(message));
+      if (!this._named.has(key)) this._named.set(key, clocksNamed(message));
       return this._text.get(key);
     });
-    for (const key of this._text.keys()) if (!read.has(key)) this._text.delete(key);
+    for (const key of this._text.keys()) if (!read.has(key)) { this._text.delete(key); this._named.delete(key); }
 
+    const walk = new Map((log.active ?? []).map((a) => [String(a.id), a]));
     const quests = rail.active.map((r) => {
-      const entries = r.written.map((e) => ({
+      const entries = r.written.map((e, i) => ({
         key: entryKey(r, e.step, e.message),
         stepID: e.step?.stepID ?? null,
         messageID: e.step?.messageID ?? e.message?.id ?? null,
         time: e.step?.time ?? null,
         lines: e.lines,
-        target: entryTarget(e.message, where),
+        // AUDIT GUIDE O3/L5: the latest entry's target alone - every face reads that one (the card, the marks, the
+        // compass), and each target asks the host's map; an older entry's is the journal windows' to ask on a click
+        target: i === r.written.length - 1 ? entryTarget(e.message, where) : null,
       }));
       const latest = entries[entries.length - 1];
+      // AUDIT GUIDE H1: the deadline the quest's own journal names - the tightest running counting clock any entry
+      // names. A closing clock (_BRISIEN's _oneday_, A0C01Y09's _shortdelay_) or a letter's arrival is the script's,
+      // not the player's: no "Under a day left", no gold. The walk's clockSeconds stays the pause tab's (DEAD-CLOCK).
+      // A deadline once told stays told: a later entry that replaces the one that named it does not take it back.
+      const named = this._namedBy.get(r.id) ?? new Set();
+      for (const e of entries) for (const c of this._named.get(e.key) ?? []) named.add(c);
+      this._namedBy.set(r.id, named);
+      let clockSeconds = null;
+      for (const c of walk.get(String(r.id))?.clocks ?? []) {
+        if (named.has(c.name) && Number.isFinite(c.seconds)) clockSeconds = clockSeconds == null ? c.seconds : Math.min(clockSeconds, c.seconds);
+      }
       return {
         key: r.key,
         id: r.id,
@@ -324,8 +391,8 @@ export class QuestLens {
         title: questTitleOf(r.name),
         questName: r.questName,
         main: r.main,
-        clockSeconds: r.clockSeconds,
-        urgent: r.clockSeconds != null && r.clockSeconds < QUEST_URGENT_SECONDS,
+        clockSeconds,
+        urgent: clockSeconds != null && clockSeconds < QUEST_URGENT_SECONDS,
         entries,
         latest,
         updatedAt: latest.time,
@@ -338,8 +405,10 @@ export class QuestLens {
 
     const events = this._last ? this._diff(quests, log.ended ?? []) : [];
     for (const q of quests) this._known.add(q.id);
-    this._last = new Map(quests.map((q) => [q.id, { title: q.title, main: q.main, clockSeconds: q.clockSeconds, entryKeys: q.entries.map((e) => e.key) }]));
-    return { quests, finished: rail.finished, events };
+    const live = new Set(quests.map((q) => q.id));
+    for (const id of this._namedBy.keys()) if (!live.has(id)) this._namedBy.delete(id);
+    this._last = new Map(quests.map((q) => [q.id, { title: q.title, main: q.main, clockSeconds: q.clockSeconds, newsKeys: q.entries.map((e) => newsKey(q.id, e)) }]));
+    return { quests, events };
   }
 
   _diff(quests, ended) {
@@ -355,8 +424,8 @@ export class QuestLens {
       }
       // A quest the lens has shown, back after a look without entries (a
       // `remove log step` took them all), is news, not a new quest.
-      const had = new Set(was?.entryKeys ?? []);
-      const fresh = q.entries.filter((e) => !had.has(e.key)).map((e) => e.key);
+      const had = new Set(was?.newsKeys ?? []);
+      const fresh = q.entries.filter((e) => !had.has(newsKey(q.id, e))).map((e) => e.key);   // AUDIT GUIDE H4
       if (fresh.length) events.push({ type: 'updated', ...base, entries: fresh });
       if (was?.clockSeconds != null && was.clockSeconds >= QUEST_URGENT_SECONDS && q.urgent) {
         events.push({ type: 'urgent', ...base, clockSeconds: q.clockSeconds });

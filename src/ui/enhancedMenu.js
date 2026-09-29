@@ -92,7 +92,7 @@
 import { fpArm, hasDaggerfallArrows } from '../combat/fpArm.js';
 import { questRail, journalLines, questTitleOf, QUEST_URGENT_SECONDS, remainWords } from './questRail.js';
 import { entryTarget, targetWords, WHERE_TEXT } from './questLens.js';   // GUIDE2: where a quest points, and the way there   // MAC-K2: the ONE quest walk, shared with the chronicle
-import { questTracker, trackerOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD's card - the Track toggle, and the quest the journal opens on
+import { questTracker, followOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD's card - the Track toggle, and the quest the journal opens on
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1: a tap on the scrim resumes
 import { TEST_PRESETS, TEST_RIDE, TEST_LOOT } from '../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../formats/mwNpc.js';
@@ -3806,9 +3806,11 @@ function pxDivider(word) {
  *  here. `wayOnly` draws nothing unless there is a way to take; `skip` is a place already offered above. Null when the
  *  entry points nowhere. */
 function questWhere(message, cls, { wayOnly = false, skip = null } = {}) {
+  if (!isEnhanced()) return null;   // AUDIT GUIDE W3: THE LAWS 4 - the classic Controls door (DISC22-B) opens this tab on DFU's skin
   const said = targetWords(entryTarget(message, { canFindPlace: hooks.canFindPlace, currentLocationName: hooks.currentLocationName }));
   const door = typeof hooks.showQuestPlace === 'function' ? hooks.showQuestPlace : null;
-  if (!said || (wayOnly && !(said.find && door)) || (skip && said.find?.locationName === skip)) return null;
+  // AUDIT GUIDE W5: a place offered above is skipped by its region AND its name - two towns may share a name
+  if (!said || (wayOnly && !(said.find && door)) || (skip && said.find?.locationName === skip.locationName && said.find?.regionName === skip.regionName)) return null;
   const box = el('div', cls);
   box.append(el('span', `${cls}-place`, said.where));
   if (said.find && door) {
@@ -3823,10 +3825,10 @@ function questWhere(message, cls, { wayOnly = false, skip = null } = {}) {
   if (said.note) box.append(el('span', `${cls}-note`, said.note));
   return box;
 }
-/** GUIDE2: the location the quest's latest entry offers a way to, or null. */
+/** GUIDE2: the place the quest's latest entry offers a way to (its find payload: region and name), or null. */
 function latestPlace(sel) {
   const t = entryTarget(sel.written?.at(-1)?.message, { canFindPlace: hooks.canFindPlace, currentLocationName: hooks.currentLocationName });
-  return t?.find?.locationName ?? null;
+  return t?.find ?? null;
 }
 
 /** PX4 - THE JOURNAL (Mac's reference: Skyrim's quest page). A rail of
@@ -3855,7 +3857,7 @@ function pauseQuests(body) {
   // GUIDE4: THE JOURNAL OPENS ON THE QUEST THE HUD SHOWS - the tracker's (the one tracked, else the one the journal
   // last changed) - and only then on the first row.
   if (!rows.some((r) => r.key === questSel)) {
-    const onHud = trackerOn() ? questTracker.tracked()?.id : null;
+    const onHud = followOn() ? questTracker.tracked()?.id : null;   // AUDIT GUIDE T2: the card's or the marks' quest
     questSel = (onHud != null ? rows.find((r) => r.id === onHud)?.key : null) ?? rows[0].key;
   }
   const sel = rows.find((r) => r.key === questSel);
@@ -3921,7 +3923,7 @@ function pauseQuests(body) {
       }
       // GUIDE4: TRACK THIS QUEST on the HUD's card (ui/questTracker.js), beside its clock - the card follows the quest
       // the journal last changed until the player chooses one here (or in the chronicle: the same toggle, one home).
-      if (trackerOn() && sel.id != null) meta.append(trackButton(document, sel.id, questTitleOf(sel.name), render));
+      if (followOn() && sel.id != null) meta.append(trackButton(document, sel.id, questTitleOf(sel.name)));   // AUDIT GUIDE T2; T5: changed in place, the tab not rebuilt
       if (meta.childNodes.length) detail.append(meta);   // PX22: an empty meta line is a gap the eye reads as a mistake
       // GUIDE2: WHERE THE QUEST POINTS NOW, and the way there - DFU's own logbook click (HandleQuestClicks), which
       // this journal never had: the latest entry's target through the quest lens, in the find-place box's words.

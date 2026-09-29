@@ -38,8 +38,8 @@
   {
     "name": "GUIDE3-rank-inverted",
     "file": "src/ui/questHerald.js",
-    "old": "      const type = was && RANK[was.type] > RANK[event.type] ? was.type : event.type;",
-    "new": "      const type = was && RANK[was.type] < RANK[event.type] ? was.type : event.type;",
+    "old": "      const keeps = was && RANK[was.type] > RANK[event.type] &&",
+    "new": "      const keeps = was && RANK[was.type] < RANK[event.type] &&",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "GUIDE3-cap-off-by-one",
     "file": "src/ui/questHerald.js",
-    "old": "    while (this.rows.length > HERALD_MAX) this.rows.shift();",
-    "new": "    while (this.rows.length >= HERALD_MAX) this.rows.shift();",
+    "old": "    while (this.rows.length > HERALD_MAX) {",
+    "new": "    while (this.rows.length >= HERALD_MAX) {",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "GUIDE3-newest-dropped",
     "file": "src/ui/questHerald.js",
-    "old": "    while (this.rows.length > HERALD_MAX) this.rows.shift();",
-    "new": "    while (this.rows.length > HERALD_MAX) this.rows.pop();",
+    "old": "      this.rows.splice(out, 1);",
+    "new": "      this.rows.splice(this.rows.length - 1, 1);",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "GUIDE3-clock-runs-hidden",
     "file": "src/ui/questHerald.js",
-    "old": "  if (!hidden) questHerald.tick(dt);",
-    "new": "  questHerald.tick(dt);",
+    "old": "  if (!hidden) {\n    if (wasHidden) questHerald.refresh();   // AUDIT GUIDE H6: back from under a window - the count as it stands now\n    questHerald.tick(dt);",
+    "new": "  questHerald.tick(dt);\n  if (!hidden) {\n    if (wasHidden) questHerald.refresh();   // AUDIT GUIDE H6: back from under a window - the count as it stands now",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "GUIDE3-hide-door-skipped",
     "file": "src/ui/questHerald.js",
-    "old": "    releaseEnhancedToasts(HERALD_OWNER);\n    return [];",
-    "new": "    return [];",
+    "old": "    releaseEnhancedToasts(HERALD_OWNER);\n    dropLive();\n    return [];",
+    "new": "    dropLive();\n    return [];",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -209,8 +209,8 @@
   {
     "name": "GUIDE3-shown-while-hidden",
     "file": "src/ui/questHerald.js",
-    "old": "  return drawEnhancedToasts({ ...questHerald.frame(), visible: !hidden }, doc, HERALD_OWNER);",
-    "new": "  return drawEnhancedToasts({ ...questHerald.frame(), visible: true }, doc, HERALD_OWNER);",
+    "old": "visible: !hidden, silent: true }, doc, HERALD_OWNER);",
+    "new": "visible: true, silent: true }, doc, HERALD_OWNER);",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -236,8 +236,8 @@
   {
     "name": "GUIDE3-baseline-heard",
     "file": "src/scenes/questBridge.js",
-    "old": "    if (listening) questHerald.hear(seen); else listening = true;",
-    "new": "    questHerald.hear(seen); listening = true;",
+    "old": "    if (!lookedLast) lens.reset();",
+    "new": "    /* the backlog heard */",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -245,8 +245,8 @@
   {
     "name": "GUIDE3-look-before-the-gate",
     "file": "src/scenes/questBridge.js",
-    "old": "    if (!herald && !follow) return;\n    let seen;",
-    "new": "    lens.look();\n    if (!herald && !follow) return;\n    let seen;",
+    "old": "    if (!herald && !follow) { lookedLast = false; return; }",
+    "new": "    lens.look();\n    if (!herald && !follow) { lookedLast = false; return; }",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -254,8 +254,8 @@
   {
     "name": "GUIDE3-listening-kept-off",
     "file": "src/scenes/questBridge.js",
-    "old": "    if (!herald) listening = false;\n",
-    "new": "",
+    "old": "    if (!herald && !follow) { lookedLast = false; return; }",
+    "new": "    if (!herald && !follow) return;",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -263,8 +263,8 @@
   {
     "name": "GUIDE3-catch-dropped",
     "file": "src/scenes/questBridge.js",
-    "old": "    try { seen = lens.look(ctx.questWhere ?? {}); } catch (err) { warnNewsOnce(err); return; }",
-    "new": "    seen = lens.look(ctx.questWhere ?? {});",
+    "old": "    } catch (err) { warnNewsOnce(err); }\n  }",
+    "new": "    } catch (err) { throw err; }\n  }",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -299,8 +299,8 @@
   {
     "name": "GUIDE3-header-kept",
     "file": "src/ui/questRail.js",
-    "old": "  const body = (lines ?? []).filter((l, i) => !(i === 0 && DATE_HEADER.test(String(l))));",
-    "new": "  const body = (lines ?? []).filter(() => true);",
+    "old": "  const body = all.filter((l, i) => !(i === head && DATE_HEADER.test(l)));",
+    "new": "  const body = all.filter(() => true);",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -308,8 +308,8 @@
   {
     "name": "GUIDE3-header-any-line",
     "file": "src/ui/questRail.js",
-    "old": "  const body = (lines ?? []).filter((l, i) => !(i === 0 && DATE_HEADER.test(String(l))));",
-    "new": "  const body = (lines ?? []).filter((l) => !DATE_HEADER.test(String(l)));",
+    "old": "  const body = all.filter((l, i) => !(i === head && DATE_HEADER.test(l)));",
+    "new": "  const body = all.filter((l) => !DATE_HEADER.test(l));",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -326,8 +326,8 @@
   {
     "name": "GUIDE3-sentence-any-stop",
     "file": "src/ui/questRail.js",
-    "old": "  const first = /^.*?[.!?]+(?=\\s+[A-Z\"'(]|$)/.exec(text)?.[0] ?? text;",
-    "new": "  const first = /^.*?[.!?]+(?=\\s|$)/.exec(text)?.[0] ?? text;",
+    "old": "(?=\\s+[\"'\\u201c\\u2018(\\[]*\\p{Lu}|$)/gu;",
+    "new": "(?=\\s|$)/gu;",
     "tests": [
       "test/guide3_herald.test.js"
     ]
@@ -335,8 +335,8 @@
   {
     "name": "GUIDE3-whole-entry",
     "file": "src/ui/questRail.js",
-    "old": "  const first = /^.*?[.!?]+(?=\\s+[A-Z\"'(]|$)/.exec(text)?.[0] ?? text;",
-    "new": "  const first = text;",
+    "old": "  for (const m of text.matchAll(SENTENCE_END)) {",
+    "new": "  for (const m of [].values()) {",
     "tests": [
       "test/guide3_herald.test.js"
     ]

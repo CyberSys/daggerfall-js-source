@@ -209,8 +209,8 @@
   {
     "name": "GUIDE4-height-without-the-gap",
     "file": "src/ui/questTracker.js",
-    "old": "    publishHeight(doc, h ? h + TRACKER_GAP : 0);",
-    "new": "    publishHeight(doc, h);",
+    "old": "px = h ? h + TRACKER_GAP : 0; }",
+    "new": "px = h; }",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
@@ -273,8 +273,8 @@
   {
     "name": "GUIDE4-pressed-always",
     "file": "src/ui/questTracker.js",
-    "old": "  b.setAttribute('aria-pressed', on ? 'true' : 'false');",
-    "new": "  b.setAttribute('aria-pressed', 'true');",
+    "old": "  if (b && b.getAttribute?.('aria-pressed') !== (on ? 'true' : 'false')) b.setAttribute('aria-pressed', on ? 'true' : 'false');",
+    "new": "  if (b) b.setAttribute('aria-pressed', 'true');",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
@@ -282,8 +282,8 @@
   {
     "name": "GUIDE4-toggle-does-nothing",
     "file": "src/ui/questTracker.js",
-    "old": "  b.onclick = () => { questTracker.toggle(id); after?.(); };",
-    "new": "  b.onclick = () => { after?.(); };",
+    "old": "    questTracker.toggle(id);\n    paintTrackBox(box);",
+    "new": "    paintTrackBox(box);",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
@@ -291,8 +291,8 @@
   {
     "name": "GUIDE4-no-redraw",
     "file": "src/ui/questTracker.js",
-    "old": "  b.onclick = () => { questTracker.toggle(id); after?.(); };",
-    "new": "  b.onclick = () => { questTracker.toggle(id); };",
+    "old": "    syncTrackButtons(doc);\n  };",
+    "new": "  };",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
@@ -300,8 +300,8 @@
   {
     "name": "GUIDE4-button-without-the-switch",
     "file": "src/ui/enhancedMenu.js",
-    "old": "      if (trackerOn() && sel.id != null) meta.append(trackButton(document, sel.id, questTitleOf(sel.name), render));",
-    "new": "      if (sel.id != null) meta.append(trackButton(document, sel.id, questTitleOf(sel.name), render));",
+    "old": "      if (followOn() && sel.id != null) meta.append(trackButton(",
+    "new": "      if (sel.id != null) meta.append(trackButton(",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
@@ -309,7 +309,7 @@
   {
     "name": "GUIDE4-journal-ignores-the-hud",
     "file": "src/ui/enhancedMenu.js",
-    "old": "    const onHud = trackerOn() ? questTracker.tracked()?.id : null;",
+    "old": "    const onHud = followOn() ? questTracker.tracked()?.id : null;",
     "new": "    const onHud = null;",
     "tests": [
       "test/guide4_tracker.test.js"
@@ -318,8 +318,8 @@
   {
     "name": "GUIDE4-chronicle-only-where-a-place",
     "file": "src/ui/enhancedChronicle.js",
-    "old": "  const track = trackerOn() && e.uid != null;   // GUIDE4: every live card can be the HUD's",
-    "new": "  const track = trackerOn() && e.uid != null && !!e.where;   // GUIDE4: every live card can be the HUD's",
+    "old": "  const track = followOn() && e.uid != null;",
+    "new": "  const track = followOn() && e.uid != null && !!e.where;",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
@@ -327,8 +327,8 @@
   {
     "name": "GUIDE4-chronicle-without-the-switch",
     "file": "src/ui/enhancedChronicle.js",
-    "old": "  const track = trackerOn() && e.uid != null;   // GUIDE4: every live card can be the HUD's",
-    "new": "  const track = e.uid != null;   // GUIDE4: every live card can be the HUD's",
+    "old": "  const track = followOn() && e.uid != null;",
+    "new": "  const track = e.uid != null;",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
@@ -345,8 +345,8 @@
   {
     "name": "GUIDE4-baseline-withheld",
     "file": "src/scenes/questBridge.js",
-    "old": "    if (follow) questTracker.hear(seen);\n    if (!herald) return;\n    if (listening) questHerald.hear(seen); else listening = true;",
-    "new": "    if (!herald) return;\n    if (listening) { questHerald.hear(seen); if (follow) questTracker.hear(seen); } else listening = true;",
+    "old": "      if (follow) questTracker.hear(seen);",
+    "new": "      if (follow && seen.events.length) questTracker.hear(seen);",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
@@ -354,8 +354,8 @@
   {
     "name": "GUIDE4-questions-not-asked",
     "file": "src/scenes/questBridge.js",
-    "old": "    try { seen = lens.look(ctx.questWhere ?? {}); } catch (err) { warnNewsOnce(err); return; }",
-    "new": "    try { seen = lens.look({}); } catch (err) { warnNewsOnce(err); return; }",
+    "old": "      const seen = lens.look(ctx.questWhere ?? {});",
+    "new": "      const seen = lens.look({});",
     "tests": [
       "test/guide4_tracker.test.js"
     ]
@@ -399,7 +399,7 @@
   {
     "name": "GUIDE4-street-asks-nothing",
     "file": "src/scenes/world.js",
-    "old": "    questWhere: { canFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name), currentLocationName: () => _questLoc()?.name ?? '' },\n",
+    "old": "    questWhere: { canFindPlace: (regionName, name) => canFindPlace(maps, mapDict, regionName, name, questPlacePixel), currentLocationName: () => _questLoc()?.name ?? '' },   // AUDIT GUIDE O3: every tick, so through the host's memo\n",
     "new": "",
     "tests": [
       "test/guide4_tracker.test.js"

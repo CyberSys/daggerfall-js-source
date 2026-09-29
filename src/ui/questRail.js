@@ -52,6 +52,12 @@ const DATE_HEADER = new RegExp(`^\\s*(?:${DAY_NAMES.map(escapeRe).join('|')}) th
  *  ellipsis. */
 const TRAILING_SMALL_WORD = /\s+(?:a|an|the|of|to|in|on|at|for|and|or|but|with|by|from|as|his|her|its|their|my|your)$/i;
 
+/** AUDIT GUIDE W4: a sentence's end - its stops, any closing quote or bracket after them, then a space and a capital
+ *  in any script (an opening quote or bracket before it allowed), or the text's own end. */
+const SENTENCE_END = /[.!?]+["'\u201d\u2019)\]]*(?=\s+["'\u201c\u2018(\[]*\p{Lu}|$)/gu;
+/** ...and a full stop that ends no sentence: a title's abbreviation, or an initial. */
+const NOT_AN_END = /(?:^|\s)(?:St|Mr|Mrs|Ms|Dr|Mt|Sr|Jr|Lt|Sgt|Capt|Gen|Col|Prof|Rev|\p{Lu})\.$/u;
+
 /** The cap on an opening, in characters: three short lines of a notice.
  *  Of the corpus's 408 logged entries it cuts 56 (100 cut 159: a
  *  Daggerfall journal's first sentence is long - test/guide3_herald.test.js
@@ -71,10 +77,21 @@ export const OPENING_MAX = 140;
  * an ellipsis. '' for an entry with no words (or none read).
  */
 export function entryOpening(lines, max = OPENING_MAX) {
-  const body = (lines ?? []).filter((l, i) => !(i === 0 && DATE_HEADER.test(String(l))));
+  const all = (lines ?? []).map((l) => String(l ?? ''));
+  const head = all.findIndex((l) => l.trim());   // AUDIT GUIDE W4: the header is the first line with words
+  const body = all.filter((l, i) => !(i === head && DATE_HEADER.test(l)));
   const text = body.join(' ').replace(/\s+/g, ' ').trim();
   if (!text) return '';
-  const first = /^.*?[.!?]+(?=\s+[A-Z"'(]|$)/.exec(text)?.[0] ?? text;   // a stop before a capital: "Hmm... he said." is one sentence
+  // a stop before a capital: "Hmm... he said." is one sentence - AUDIT GUIDE W4: a closing quote or bracket after the
+  // stop still ends it, a capital in any script starts the next, and a lone full stop after a title's abbreviation or
+  // an initial ("St. Delyn", "Jolin D. Ferrow") ends nothing
+  let first = text;
+  for (const m of text.matchAll(SENTENCE_END)) {
+    const through = text.slice(0, m.index + 1);
+    if (/^\.["'\u201d\u2019)\]]*$/.test(m[0]) && NOT_AN_END.test(through)) continue;
+    first = text.slice(0, m.index + m[0].length);
+    break;
+  }
   if (first.length <= max) return first;
   const cut = first.lastIndexOf(' ', max - 1);
   const edge = (t) => t.replace(/[\s,;:-]+$/, '');

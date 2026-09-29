@@ -20,7 +20,7 @@ import { FntFile } from '../formats/fntFile.js';
 import { drawScreenDimBackdrop } from './chargenArt.js';
 import { MAX_LINES_QUESTS, MAX_LINES_SMALL, MAX_LINE_LENGTH } from '../systems/notebook.js';
 import { layoutMessageBox, drawMessageBox, messageBoxHit, MB_BUTTONS, messageBoxArtLoaded } from './messageBox.js';
-import { lastPlaceMentionedInMessage, locationInRegionText } from './questLens.js';   // GetLastPlaceMentionedInMessage (:469-485) - GUIDE1: its one home, shared with the quest lens; GUIDE2: and locationInRegionProvince's
+import { lastPlaceMentionedInMessage, locationInRegionText } from './questLens.js';   // GetLastPlaceMentionedInMessage (:470-485) - GUIDE1: its one home, shared with the quest lens; GUIDE2: and locationInRegionProvince's
 import { REGION_NAMES, patchRegionIndex } from '../formats/mapsFile.js';
 import { audio } from '../systems/audio.js';
 import { SOUND } from '../systems/soundClips.js';
@@ -530,7 +530,7 @@ export class QuestJournalWindow {
     if (!this.deps.gotoPlace) return false;
     if (!this.deps.canFindPlace(site.regionName, site.locationName)) return false;
     this.findPlace = place;
-    // :474-481 - the workaround for saves written before SiteDetails
+    // :455-456 - the workaround for saves written before SiteDetails   (AUDIT GUIDE D4: the cite corrected)
     // carried a regionIndex, and the region NAME the dialog shows comes
     // off the patched index.
     const regionIndex = patchRegionIndex(site.regionIndex ?? 0, site.regionName ?? '');

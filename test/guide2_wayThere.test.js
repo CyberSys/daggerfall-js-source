@@ -86,17 +86,19 @@ const buttonsIn = (node) => node.querySelectorAll('button');
 
 test('GUIDE2 THE WORDS - a target in the find-place box\'s own phrase, one home (the classic logbook\'s FIND_PLACE_TEXT reads it from the lens): the building first when the entry names it, then "{town} in {region} province"; the region alone as "Somewhere in ... province"; "(you are here)" underfoot, with no way there; the note only when the player\'s map is KNOWN not to have a named place - not with the region alone, not underfoot, and never where no map was asked (onMap null); nothing to say is null (mutants: the note on an unasked map; the note underfoot; the building dropped; the phrase drifted)', () => {
   const { q, step } = wayBridge();
-  const at = (id, where) => targetWords(entryTarget(q.getMessage(id), where));
+  const at = (id, where) => { const w = targetWords(entryTarget(q.getMessage(id), where)); if (w) delete w.town; return w; };   // AUDIT GUIDE K2's town: its own pin below
   const map = (onMap, here = 'Elsewhere') => ({ canFindPlace: () => onMap, currentLocationName: () => here });
 
   assert.equal(FIND_PLACE_TEXT.locationInRegion, locationInRegionText, 'one home for locationInRegionProvince');
+  assert.equal(targetWords(entryTarget(q.getMessage(1010), map(true))).town, `Bigtown in ${REGION} province`, 'AUDIT GUIDE K2: the place without its building - what a shared map mark says');
   assert.equal(locationInRegionText('Daggerfall', 'Daggerfall'), 'Daggerfall in Daggerfall province', 'DFU\'s words, verbatim');
 
-  assert.deepEqual(at(1010, map(false)), { where: `The Feather and Dog, Bigtown in ${REGION} province`, note: WHERE_TEXT.offMap, find: null });
+  assert.deepEqual(at(1010, map(false)), { where: 'The Feather and Dog, Bigtown', note: WHERE_TEXT.offMap, find: null }, 'AUDIT GUIDE W1: off the map, the entry\'s own names - the town, not its region');
   assert.deepEqual(at(1010, map(true)), { where: `The Feather and Dog, Bigtown in ${REGION} province`, note: null, find: { regionIndex: RI, regionName: REGION, locationName: 'Bigtown' } });
   assert.deepEqual(at(1010, map(true, 'Bigtown')), { where: `The Feather and Dog, Bigtown in ${REGION} province (you are here)`, note: null, find: null }, 'underfoot: said so, and nowhere to travel to');
-  assert.deepEqual(at(1010, map(false, 'Bigtown')).note, null, 'no "ask around" for the town the player stands in');
-  assert.deepEqual(at(1010, {}), { where: `The Feather and Dog, Bigtown in ${REGION} province`, note: null, find: null }, 'no map asked: the entry\'s own names, no note and no door');
+  assert.deepEqual(at(1010, map(false, 'Bigtown')).note, WHERE_TEXT.offMap, 'AUDIT GUIDE W2: a map that says no says the Bigtown underfoot is another of the name - the note stands');
+  assert.deepEqual(at(1010, { currentLocationName: () => 'Bigtown' }).where, `The Feather and Dog, Bigtown in ${REGION} province (you are here)`, 'no map to ask: the name is the claim, DFU\'s gate');
+  assert.deepEqual(at(1010, {}), { where: 'The Feather and Dog, Bigtown', note: null, find: null }, 'no map asked: the entry\'s own names (AUDIT GUIDE W1: the town, not its region), no note and no door');
   assert.deepEqual(at(1011, map(false)), { where: `Llugwych in ${REGION} province`, note: WHERE_TEXT.offMap, find: null });
   assert.deepEqual(at(1012, map(false)), { where: `Somewhere in ${REGION} province`, note: null, find: null }, 'the region said and the town not: nothing to ask about by name');
   assert.deepEqual(at(1012, map(true)), { where: `Llugwych in ${REGION} province`, note: null, find: { regionIndex: RI, regionName: REGION, locationName: 'Llugwych' } }, 'on the map, DFU\'s box would name it');
@@ -142,7 +144,7 @@ test('GUIDE2 THE PAUSE TAB, mounted and pressed: the where line under the quest\
     const go = buttonsIn(where);
     assert.equal(go.length, 1);
     assert.equal(go[0].textContent, WHERE_TEXT.show);
-    assert.equal(go[0].attrs['aria-label'], `Show Llugwych in ${REGION} province on the travel map`);
+    assert.equal(go[0].attrs['aria-label'], `Show on map: Llugwych in ${REGION} province`, 'AUDIT GUIDE U12: its own words first');
     go[0].click();
     assert.deepEqual(t.acts, ['handoff', 'door'], 'the page goes down as a handoff FIRST - no relock under the map - and then the map is asked for');
     assert.deepEqual(t.doors, [{ regionIndex: RI, regionName: REGION, locationName: 'Llugwych' }], 'and the map is asked for with the place');

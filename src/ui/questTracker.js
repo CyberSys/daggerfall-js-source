@@ -41,6 +41,7 @@ import { registerModSaveData } from '../systems/modSaveData.js';
 import { isTouchDevice } from './touchDevice.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { entryOpening, timeLeftWords } from './questRail.js';
+import { marksOn } from './questMarks.js';   // AUDIT GUIDE T2: the marks follow this model too (pure: the HUD stays light)
 
 /** The switch's prefs key (systems/features.js row `quest-tracker`). */
 export const TRACKER_PREF = 'questTracker';
@@ -61,13 +62,22 @@ export const TRACKER_GAP = 8;
 export const TRACKER_WORDS = Object.freeze({
   left: timeLeftWords,   // the quest faces' one phrase (ui/questRail.js)
   track: 'Track',
-  tracking: 'Tracking',
+  // AUDIT GUIDE T6/U13: ONE name - the toggle's words and label never change with its state (WAI-ARIA APG);
+  // aria-pressed says whether it is on, and the visible word begins the name (WCAG 2.5.3)
   trackLabel: (title) => `Track ${title} on the HUD`,
-  untrackLabel: (title) => `Stop tracking ${title}`,
+  // AUDIT GUIDE U14: the quest the HUD follows, said where the choice is made (the card itself is aria-hidden)
+  onHud: 'On the HUD',
+  onCompass: 'On the compass',
+  main: 'Main Quest',   // AUDIT GUIDE U11: a main quest said, never colour alone (the pause tab's own tag, PX5)
 });
 
 /** Is the tracker on? The enhanced skin, the player's switch, and a page (ui/questHerald.js heraldOn's reason). */
 export const trackerOn = () => isEnhanced() && !!getPref(TRACKER_PREF) && typeof document !== 'undefined';
+
+/** AUDIT GUIDE T2: does any face follow this model? The card, or the marks (the held map's filled diamond and the
+ *  compass's one mark read `tracked()` too) - the bridge feeds it while either is on, and while either is, the choice
+ *  steers something, so the journal keeps the Track toggle and opens on the followed quest. */
+export const followOn = () => trackerOn() || marksOn();
 
 /** The active quest written last - the walk's order breaks a tie. */
 function latestOf(views) {
@@ -131,7 +141,8 @@ export class QuestTracker {
       opening: entryOpening(v.latest?.lines, TRACKER_OPENING_MAX),
       where: v.words?.where ?? '',
       note: v.words?.note ?? '',   // GUIDE5: a named place not on the map - no mark, the talk arc's answer instead
-      time: Number.isFinite(v.clockSeconds) ? TRACKER_WORDS.left(v.clockSeconds) : '',
+      // AUDIT GUIDE U11: a main quest said on the time row - the one row every size of the card keeps
+      time: [v.main ? TRACKER_WORDS.main : '', Number.isFinite(v.clockSeconds) ? TRACKER_WORDS.left(v.clockSeconds) : ''].filter(Boolean).join(' - '),
       urgent: !!v.urgent,
     };
   }
@@ -153,26 +164,56 @@ registerModSaveData(TRACKER_SAVE, {
 /**
  * THE JOURNAL'S TRACK BUTTON, one home for both enhanced journal faces
  * (the pause window's Quests tab, the chronicle): a toggle, `aria-pressed`,
- * that tracks this quest on the HUD's card or stops tracking it. `after`
- * redraws the face that holds it.
+ * that tracks this quest on the HUD's card or stops tracking it, and beside
+ * it the note that this is the quest the HUD follows (AUDIT GUIDE U14).
+ * AUDIT GUIDE T5/U3: a press changes the toggle IN PLACE - and every other
+ * one on the page - so the focus stays on it and no face is rebuilt under
+ * the player.
  */
-export function trackButton(doc, id, title, after = null) {
-  const on = questTracker.isPinned(id);
+export function trackButton(doc, id, title) {
+  const box = doc.createElement('span');
+  box.className = 'qtrack-pinbox';
+  box.setAttribute('data-quest', String(id));
   const b = doc.createElement('button');
   b.type = 'button';
-  b.className = on ? 'act qtrack-pin on' : 'act qtrack-pin';
-  b.textContent = on ? TRACKER_WORDS.tracking : TRACKER_WORDS.track;
-  const label = on ? TRACKER_WORDS.untrackLabel(title) : TRACKER_WORDS.trackLabel(title);
+  b.textContent = TRACKER_WORDS.track;
+  const label = TRACKER_WORDS.trackLabel(title);
   b.title = label;
-  b.setAttribute('aria-pressed', on ? 'true' : 'false');
   b.setAttribute('aria-label', label);
-  b.onclick = () => { questTracker.toggle(id); after?.(); };
-  return b;
+  const note = doc.createElement('span');
+  note.className = 'qtrack-on';
+  box.append(b, note);
+  paintTrackBox(box);
+  b.onclick = () => {
+    questTracker.toggle(id);
+    paintTrackBox(box);
+    syncTrackButtons(doc);
+  };
+  return box;
+}
+
+/** One toggle's state, as the model stands: pressed when tracked, the note when it is the HUD's quest. */
+function paintTrackBox(box) {
+  const id = box.getAttribute?.('data-quest');
+  const b = box.querySelector?.('.qtrack-pin') ?? box.children?.[0];
+  const note = box.querySelector?.('.qtrack-on') ?? box.children?.[1];
+  const on = questTracker.isPinned(id);
+  const cls = on ? 'act qtrack-pin on' : 'act qtrack-pin';
+  if (b && b.className !== cls) b.className = cls;
+  if (b && b.getAttribute?.('aria-pressed') !== (on ? 'true' : 'false')) b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  const hud = questTracker.tracked()?.id;
+  const words = hud != null && String(hud) === id ? (trackerOn() ? TRACKER_WORDS.onHud : TRACKER_WORDS.onCompass) : '';
+  if (note && note.textContent !== words) note.textContent = words;
+}
+
+/** Every toggle on the page, as the model stands (a press tracks one quest and lets go of another). */
+export function syncTrackButtons(doc) {
+  for (const box of doc?.body?.querySelectorAll?.('.qtrack-pinbox') ?? []) paintTrackBox(box);
 }
 
 // ── THE CARD ─────────────────────────────────────────────────────────
 
-let card = null;   // { node, doc, touch, rows: { mark, title, opening, where, note, time }, last }
+let card = null;   // { node, doc, touch, rows: { mark, title, opening, where, note, time }, last, ro }
 
 function build(doc) {
   injectEnhancedStyle(doc);
@@ -193,8 +234,29 @@ function build(doc) {
   const time = row('qtrack-time');
   node.append(head, opening, where, note, time);
   doc.body.append(node);
-  return { node, doc, touch, rows: { mark, title, opening, where, note, time }, last: {} };
+  const c = { node, doc, touch, rows: { mark, title, opening, where, note, time }, last: {}, ro: null };
+  // AUDIT GUIDE O5/T4/U2: the card re-measures whenever its box changes - a phone turned, a window resized across the
+  // short-screen rule, the web face arriving after the first measure - not only when its words do
+  const RO = doc.defaultView?.ResizeObserver ?? globalThis.ResizeObserver;
+  if (typeof RO === 'function') {
+    c.ro = new RO(() => { if (card === c && c.last.shown) publishCard(c); });
+    c.ro.observe(node);
+  }
+  return c;
 }
+
+/** The party list's line under the card (AUDIT GUIDE U8: the card's own bottom, wherever the HUD's scale put its top),
+ *  or its height where a page cannot say where it stands (a test's document). */
+function publishCard(c) {
+  const r = c.node.getBoundingClientRect?.();
+  let px = 0;
+  if (r && Number.isFinite(r.bottom) && r.bottom > 0) px = Math.ceil(r.bottom) - (c.touch ? PARTY_TOUCH_TOP : PARTY_TOP) + TRACKER_GAP;
+  else { const h = Math.ceil(Number(c.node.offsetHeight) || 0); px = h ? h + TRACKER_GAP : 0; }
+  publishHeight(c.doc, Math.max(0, px));
+}
+/** The party list's own lines (ui/partyPanel.js .dfparty: 92, and 76 on a touch screen) - the card's bottom is published
+ *  against them. */
+const PARTY_TOP = 92, PARTY_TOUCH_TOP = 76;
 
 function setText(c, key, n, text) {
   if (c.last[key] === text) return false;
@@ -219,6 +281,7 @@ function hideCard() {
 
 function dropCard() {
   if (!card) return;
+  try { card.ro?.disconnect?.(); } catch { /* gone */ }
   try { card.node.remove(); } catch { /* gone */ }
   publishHeight(card.doc, 0);
   card = null;
@@ -250,11 +313,16 @@ export function drawQuestTracker({ hidden = false, doc = (typeof document === 'u
   const cls = `qtrack${c.touch ? ' touch' : ''}${f.main ? ' main' : ''}${f.urgent ? ' urgent' : ''}`;
   if (c.last.cls !== cls) { c.last.cls = cls; c.node.className = cls; moved = true; }
   if (c.last.shown !== true) { c.last.shown = true; c.node.style.display = ''; moved = true; }
-  // the party list steps under the card: its height, measured only when what it says changed
-  if (moved) {
-    const h = Math.ceil(Number(c.node.offsetHeight) || 0);
-    publishHeight(doc, h ? h + TRACKER_GAP : 0);
-  }
+  // AUDIT GUIDE U8: the HUD's own scale, read off the HUD (ui/enhancedHelm.js's way): the card's top clears the compass
+  // and the foe frame that scale grows (the style sheet's --qt-clear) - and a foe frame coming or going moves it
+  const hud = /** @type {any} */ (doc.querySelector?.('.hud'));
+  const scale = hud?.style?.getPropertyValue?.('--hud-scale') || '1';
+  const foe = /** @type {any} */ (doc.querySelector?.('.hud-foe.on'));
+  const sig = `${scale}|${foe ? (foe.classList?.contains?.('blade') ? 'blade' : 'bar') : ''}`;
+  if (c.last.sig !== sig) { c.last.sig = sig; c.node.style.setProperty?.('--hud-scale', scale); moved = true; }
+  // the party list steps under the card: measured when what it says or where it stands changed (and by the observer
+  // whenever its box does)
+  if (moved) publishCard(c);
   return f;
 }
 
