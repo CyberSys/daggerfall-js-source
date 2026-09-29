@@ -3878,6 +3878,20 @@ at a live 1 where the stat is read so a dawn never kills
 (`systems/statMods.js` liveStat). Holy ground still burns, the career
 bit still burns, and the flag still keys the travel rules.
 
+VAMP-HOOD (2026-09-29, Discord #suggestions, Starempire42: "adds the
+ability to travel during the day if you a wearing a cloak or robe
+with a hood up"; Mac: "nice, good idea") - a second section A
+departure: the flag keys the travel rules only for a bare head. Both
+rules ask `systems/vampirism.js` racialSunAverse - the flag, unless
+`survival/temperature.js` cloakState says the hood is up (the felt
+temperature's own law: a cloak's variants 1, 2 and 5, plain robes'
+variant 1, raised on the paper doll) - so a hooded vampire opens the
+map by day and its arrival is not pushed to dusk. Bare-headed, the
+door says DFU's line and then "Raise the hood of a cloak or robe to
+travel by day." Online this was the whole wait: the shared clock's day
+is one real hour, and no rest or trip moves it. The day's -20 is the
+hour's, not the sun's, and stays.
+
 THE SEAM IS REGISTERED BY THE MODE MACHINE. worldModes owns mode and
 interiorBuilding for BOTH town pages - world.js and exterior.js each
 build it at boot - so the one registration there answers all three

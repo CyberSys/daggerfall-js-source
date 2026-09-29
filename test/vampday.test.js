@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createVampirismCurse, vampirismMagicRound, vampireStatMod, liveRaceTemplate, racialFastTravelBlock, racialRestBlock,
-  VAMPIRE_STATS, VAMPIRE_STAT_MOD, VAMPIRE_SKILL_MOD, SUNLIGHT_TRAVEL_TEXT, NOT_SATED_TEXT_ID,
+  VAMPIRE_STATS, VAMPIRE_STAT_MOD, VAMPIRE_SKILL_MOD, SUNLIGHT_TRAVEL_TEXT, VAMPIRE_HOOD_TEXT, NOT_SATED_TEXT_ID,
 } from '../src/systems/vampirism.js';
 import { VAMPIRE_CLANS } from '../src/systems/infection.js';
 import { liveStat, killIfAnyLiveStatZero, REFRESH_MODS_DELAY } from '../src/systems/statMods.js';
@@ -95,7 +95,7 @@ test('VAMP-DAY: the sheet no longer lists damage from sunlight - holy places it 
   const race = liveRaceTemplate(v);
   assert.equal(race.specialAbilities & SPECIAL_ABILITY_BITS.sunDamage, 0, 'no sun on the sheet');
   assert.equal(race.specialAbilities & SPECIAL_ABILITY_BITS.holyDamage, SPECIAL_ABILITY_BITS.holyDamage);
-  assert.deepEqual(racialFastTravelBlock(v, at(12)), { text: SUNLIGHT_TRAVEL_TEXT }, 'no fast travel by day');
+  assert.deepEqual(racialFastTravelBlock(v, at(12)), { text: SUNLIGHT_TRAVEL_TEXT, hint: VAMPIRE_HOOD_TEXT }, 'no fast travel by day - bare-headed (VAMP-HOOD)');
   assert.equal(racialFastTravelBlock(v, at(22)), null);
   assert.deepEqual(racialRestBlock(v, at(19) + MINUTES_PER_DAY + 1), { textId: NOT_SATED_TEXT_ID }, 'an unfed vampire cannot rest');
 });
