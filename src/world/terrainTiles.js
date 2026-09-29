@@ -38,6 +38,9 @@ const TILE_DATA_DIM = WORLD_MAP_TILE_DIM + 1;
 const MAX_WORLD_TILE_COORD_Z = 64000; // MapsFile.MaxWorldTileCoordZ
 const RMB_TILES_PER_BLOCK = 16;
 const RMB_TILES_PER_TERRAIN = 128;
+/** The beach line's +/- jitter, metres (GenerateTileDataJob's nextFloatRange): dirt stands up to
+ *  SCALED_BEACH_ELEVATION + BEACH_JITTER. Exported for the spawned dungeons' dry-ground gate. */
+export const BEACH_JITTER = 1.5;
 
 const SEED = 417028; // Use same seed to ensure continuous tiles
 const WATER = 0;
@@ -164,7 +167,7 @@ export function generateTileData(heightmapData, mapPixelX, mapPixelY, hDim = HEI
       continue;
     }
     // A little +/- randomness so the beach line isn't too regular.
-    const jitter = UMRandom.createFromIndex(index >>> 0).nextFloatRange(-1.5, 1.5);
+    const jitter = UMRandom.createFromIndex(index >>> 0).nextFloatRange(-BEACH_JITTER, BEACH_JITTER);
     if (height <= Math.fround(SCALED_BEACH_ELEVATION + jitter)) {
       tileData[index] = DIRT;
       continue;

@@ -192,7 +192,7 @@ import { liveLycanthropy } from '../systems/lycanthropy.js';   // SURV7: the env
 import { elementalResistanceChance, ELEMENTS, BODY_CAPSULE_RADIUS, EFFECT_FLAGS, savingThrow } from '../systems/spellcast.js';   // SURV7: the env's fire and frost resistances; WB4: the saving throw a boss's fire meets   // DW-E3: a foe's controller, as a fish's probe meets it
 import { createTownWatch, runTownWatchFrame } from '../systems/townWatch.js';   // DISC19-F: the watch defends the town
 import { rollCampEncountersOnChunkLoad, amGroupRollOwner, campAnchorSpot, CAMP_SIGHT_RADIUS } from '../systems/campEncounters.js';   // CAMP1: the group-encounter roll - camps and packs; CAMP-NOTIMER: the chunk-load twin is this host's ONLY trigger now, so the timer's entry point is gone from here
-import { WORLD_SALT, spawnsDungeon, spawnedMapId, pathFreePixel, isEliteSpawn, pickTemplate, synthesizeDungeonLocation, spawnTemplates, createSpawnLedger, spawnedLocationCentreLocal, dungeonSightLine } from '../world/spawnedDungeons.js';   // SPAWNED-DUNGEONS1: online, a pixel may hold a dungeon; TTL1: ...and it does not hold it for ever
+import { WORLD_SALT, spawnsDungeon, spawnedMapId, pathFreePixel, createSpawnGround, isEliteSpawn, pickTemplate, synthesizeDungeonLocation, spawnTemplates, createSpawnLedger, spawnedLocationCentreLocal, dungeonSightLine } from '../world/spawnedDungeons.js';   // SPAWNED-DUNGEONS1: online, a pixel may hold a dungeon; TTL1: ...and it does not hold it for ever
 import { createGateOmen, insideGateRing, gateSceneXZ, fellLine, OMEN_SETTLE_MS, GATE_STORM_RING } from '../systems/gateOmen.js';   // WB1 (Mac: "on the timer, a large area would be shown on the map, also in chat"): the Oblivion Gate's omen - its lines, its ring, its compass mark
 import { gateScanner, findGateSite, gateSeaPixel, politicClaimed } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
@@ -1334,10 +1334,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     _spawnUnroaded.clear();
   }
+  const _spawnGround = createSpawnGround(woods);   // SPAWN-SHORE: dry ground under the plateau, never the sea's edge
   const spawnedDungeonAt = (px, py) => {
     if (!params.has('online')) return null;
     try {
-      if (!spawnsDungeon(_spawnSalt, px, py) || maps.getClimateIndex(px, py) === CLIMATES.Ocean) return null;
+      if (!spawnsDungeon(_spawnSalt, px, py) || maps.getClimateIndex(px, py) === CLIMATES.Ocean || !_spawnGround(px, py)) return null;
       // SPAWN-ROADS (2026-09-25, Mac: "Anyway to have things avoid being on a road?"): no ruin on a pixel a road,
       // track, river or stream crosses (spawnedDungeons.js pathFreePixel). Online the network is the room's (the
       // lane forces Basic Roads, onlineLane.js ONLINE_ROOM_MOD_KEYS), so every client asks the same bytes. Asked
@@ -19347,7 +19348,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  the pixel, the clocks; the roll and the page are asked by the caller) and its clone, with none of its writes (the
    *  index, the ledger's first sight, the roads' provisional keys): a far found spawn is marked, never built. */
   function tvSpawnAt(px, py) {
-    if (maps.getClimateIndex(px, py) === CLIMATES.Ocean || tvSpawnGone(px, py)) return null;
+    if (maps.getClimateIndex(px, py) === CLIMATES.Ocean || !_spawnGround(px, py) || tvSpawnGone(px, py)) return null;
     const roads = terrainGen.roads();
     return roads && !pathFreePixel(roads, px, py) ? null : _spawnCloneAt(px, py);
   }

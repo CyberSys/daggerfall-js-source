@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6991` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6992` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11374,8 +11374,9 @@ account; the Tithe is nought until SEAT1 writes its line); the patch notes say w
 Main's 88 commits since THE MERGE - REALM (an online character held by the account service under a lease, its trades,
 its guild and home gold on its record, customs and the door), RENOWN-ACCOUNT, TERMS1, PENITENT, REALM-DOOR and
 CUSTOMS-PASS, HOUSE-LOSS and RESTORE, OW6 and OW6L, WB8, VIEW-TOGGLE, the launcher and the field batches - came into the
-branch, and the branch (MARKS1 to AUDIT 31) goes to main with them. What the two sides both built, or both numbered, is
-one now:
+branch, and the branch (MARKS1 to AUDIT 31) goes to main with them; main's SPAWN-SHORE (#441), which landed while
+this was checked, came in after it (its cites re-resolved the same way). What the two sides both built, or both
+numbered, is one now:
 
 - **The relay is world131.** The branch's BOUNTY1 + AUDIT 28 were world125 on the branch, never deployed, and world125
   is main's VOICE1 (deployed, then reverted) - a number a deployed relay may carry is never reused; main went on to
