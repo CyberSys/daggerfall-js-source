@@ -127,11 +127,12 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
 
 /** SHIP-SAIL (2026-09-28): the rows of the passage the Overworld offers where the walk is refused and the map's ship
  *  passage sails - the question, the fare's own row (partyTravelLaw.fareText, the party's prompts' words), the days
- *  the map would count (none online, where the arrival is now), and the popup's warning, said on the prompt as the
- *  party's journeys say it. */
-export function shipPassageRows(name, fareRow, days = 0, unwell = false) {
+ *  the map would count (MERGE with LIVED1: online too - they pass on the traveller's own clock, `own`, as the enhanced
+ *  map's "N days of your time" says; OL2's "none online, where the arrival is now" is superseded), and the popup's
+ *  warning, said on the prompt as the party's journeys say it. */
+export function shipPassageRows(name, fareRow, days = 0, unwell = false, own = false) {
   const rows = [`There is no way to ${name || 'there'} by land. Sail there by ship?`, fareRow];
-  if (days > 0) rows.push(`The voyage takes ${days} ${days === 1 ? 'day' : 'days'}.`);
+  if (days > 0) rows.push(`The voyage takes ${days} ${days === 1 ? 'day' : 'days'}${own ? ' of your time' : ''}.`);
   if (unwell) rows.push('You are diseased or poisoned.');
   return rows;
 }

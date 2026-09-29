@@ -185,7 +185,7 @@ export const QUEST_CTX_CONTRACT = Object.freeze([
   'getReputation', 'getTotalGold', 'giveItemToPlayer', 'hasQuestTopics',
   'isPlayerInTown', 'isPlayerInsideCastle', 'makeEnemiesHostile',
   'makeHeldQuestItemsPermanent', 'makePcDiseased', 'midDateTimeString',
-  'offerReward', 'onQuestEnded', 'onQuestStarted', 'partySize', 'playSong',
+  'offerReward', 'onQuestEnded', 'onQuestStarted', 'ownMinutes', 'partySize', 'playSong',
   'playSound', 'playVideo', 'playerEntity', 'playerHasItem',
   'playerRaceName', 'questClockStepMax', 'questFoeInstances',
   'raiseTime', 'regionPriceAdjustment', 'releaseQuestItem',
@@ -233,6 +233,11 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
   const machine = new QuestMachine({
     world: ctx.world ?? null,
     nowSeconds: () => ctx.classicSeconds?.() ?? 0,
+    // AUDIT LIVED1b D1 (A1, O6): the character's clock, for the stamps a quest makes on it (TrainPc's training time) -
+    // AUDIT LIVED1 D gave the machine the hook and world.js the member, and the deps below are built key by key, so the
+    // member never reached the machine: TrainPc stamped the world's minute, the guild's gate read the character's
+    // (refused for 84 days of their time behind the world, open at once ahead of it)
+    ownMinutes: () => ctx.ownMinutes?.() ?? null,
     questClockStepMax: () => ctx.questClockStepMax?.() ?? Infinity,   // WORLD7: online, a quest clock charges played time (the host's step); a host that says nothing charges every clock, DFU's own
     sharedClock: () => !!ctx.sharedClock?.(),   // GUARD-ONLINE: online, a guarded quest's window is the player's arrival's (quest/onlineGuard.js)
     getQuestSourceLines: (name) => ctx.data.getQuestSourceLines(name),

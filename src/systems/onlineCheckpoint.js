@@ -17,10 +17,17 @@ export const ONLINE_CHECKPOINT_MS = 120_000;
 
 /**
  * Whether a checkpoint may be written now.
- * @param {{ online?: boolean, spawned?: boolean, seatOut?: boolean, duel?: boolean }} at
+ *
+ * AUDIT LIVED1b S1 (F2, K2): and not while a RaiseTime waits for its walk (`walkWaiting`, worldTick.js ownWalkWaiting).
+ * Online a sentence, the fortnight, a cure's minute, TrainPc's hours and the dungeon rest's calendar move the
+ * character's clock barely, and the next unpaused tick walks the span (Lived-Time); a window stands between, and the
+ * checkpoint wrote the moved clock under it - the load then re-anchored every marker to it and the span was never
+ * walked (a sentence's spells never ran out, its 112-day drift never paid; a dungeon rest's loan reminders lost). DFU
+ * can save only once Update has caught up. The last checkpoint stands; the next is written when the walk has been.
+ * @param {{ online?: boolean, spawned?: boolean, seatOut?: boolean, duel?: boolean, walkWaiting?: boolean }} at
  */
-export function checkpointAllowed({ online = false, spawned = false, seatOut = false, duel = false } = {}) {
-  return !!online && !!spawned && !seatOut && !duel;
+export function checkpointAllowed({ online = false, spawned = false, seatOut = false, duel = false, walkWaiting = false } = {}) {
+  return !!online && !!spawned && !seatOut && !duel && !walkWaiting;
 }
 
 /** Whether the periodic checkpoint is due, `nowMs` and `lastMs` on one clock. */

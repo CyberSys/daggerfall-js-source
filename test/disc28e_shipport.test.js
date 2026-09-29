@@ -183,10 +183,11 @@ test('SHIP-SAIL: where the walk is refused and the passage sails, the Overworld 
   reset(); offerPending = true;
   ask();
   assert.deepEqual([log, shown.length, said], [['offer handed over'], 0, []]);
-  // Online the arrival is now - no days - and the popup's warning rides the question.
+  // Online the days are the traveller's own (MERGE with LIVED1: fastTravelTo's advance bills them to the character's
+  // clock, and the map says "N days of your time") - and the popup's warning rides the question.
   reset(); online = true; fare = priced({ unwell: true });
   ask();
-  assert.deepEqual(shown[0].rows, ['There is no way to Wayrest by land. Sail there by ship?', 'The journey costs 150 gold.', 'You are diseased or poisoned.']);
+  assert.deepEqual(shown[0].rows, ['There is no way to Wayrest by land. Sail there by ship?', 'The journey costs 150 gold.', 'The voyage takes 3 days of your time.', 'You are diseased or poisoned.']);
   online = false;
   // The purse cannot hold it: said, and not asked.
   reset(); fare = priced({ afford: false });

@@ -18,11 +18,17 @@
 //   TM-4 - the body's own effect clocks stood at the minute of death: a disease billed every day the corpse lay on
 //        the first round after the rise. They ride the span now, through the one walk an arrival uses.
 //   TM-5 - the round broker's marker and the tick's reading move with the rise: a buff held across a death spends
-//        one round on the first tick, not the span.
+//        one round on the first tick, not the span. [LIVED1: the tick's reading alone moves - the broker's marker is on
+//        the character's clock, which stood under the screen; AUDIT LIVED1 T12 renamed its record to what it mutates.]
+// LIVED1 (2026-09-29, Mac: "We need a better system for time online instead of a band aid fix") re-aims TM-1's dead
+// span, TM-3 and TM-4: the character's own clock stands under the death screen, so nothing of theirs moves and none
+// of their calendar walks the span - the cure and clan rolls, the landlord, the loans and the drift are theirs, and
+// they did not live it. The world's half (the day's price flags and zones, the powers and conditions) walks it still.
+// TM-1's absence arm, TM-2 and TM-5 stand as written.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { tickPlayerMinutes, setSharedClock, worldMinutes, alignEntityClocks, skipDeadMinutes, resetMagicRoundMarker, MINUTES_PER_DAY, REGION_CONDITIONS_INTERVAL_MINUTES } from '../src/systems/worldTick.js';
+import { tickPlayerMinutes, setSharedClock, worldMinutes, ownMinutes, setOwnMinutes, alignEntityClocks, skipDeadMinutes, resetMagicRoundMarker, MINUTES_PER_DAY, REGION_CONDITIONS_INTERVAL_MINUTES } from '../src/systems/worldTick.js';
 import { reviveForPlay } from '../src/systems/deathRespawn.js';
 import { NORMALIZE_INTERVAL_MINUTES, REPUTATION_LOSS_PER_CRIME, CRIMES, legalRepOf, setCrimeCommitted } from '../src/systems/court.js';
 import { GUILDS, joinGuild, updateRank } from '../src/systems/guilds.js';
@@ -52,7 +58,7 @@ const guildStore = (rep) => {
   return store;
 };
 
-test('AUDIT DISC28 TM-1: an absence pays the recovery half only - a Fighters Guild 40 away 95 days keeps 40 and its rank; the dead span pays both halves', () => {
+test('AUDIT DISC28 TM-1: an absence pays the recovery half only - a Fighters Guild 40 away 95 days keeps 40 and its rank; the dead span (LIVED1) walks none of the character\'s calendar', () => {
   // 95 real days at the shared clock's 12x cross ten 112-day boundaries (one every 9.3 real days): [last, last + 10N)
   // crosses exactly ten
   const g = GUILDS.FightersGuild;
@@ -63,24 +69,33 @@ test('AUDIT DISC28 TM-1: an absence pays the recovery half only - a Fighters Gui
   const memberships = {};
   const m = joinGuild(memberships, g, dateFromClassicMinutes(last - 40 * MINUTES_PER_DAY));
   m.rank = 4;   // rank 4 asks a reputation of 40 (Guild.cs rankReqReputation)
-  alignEntityClocks(e, back);   // the arrival - world.js onlineArrival, save.js's load arm
+  alignEntityClocks(e, back, { worldLeft: last });   // the arrival - save.js's load arm, from the world's minute the save left at (LIVED1)
   assert.equal(getReputation(e.factionRep, g.factionId), 40, 'a positive standing is not worn down by the time away');
   assert.deepEqual(e.legalRep, [0, -5, 3], 'a legal reputation below zero drifts back a point a boundary; one above it is kept');
   assert.equal(updateRank(memberships, g, e, e.factionRep, dateFromClassicMinutes(back)), null, 'and the next rank check moves nothing');
   // ...and a legal -15 away across ONE boundary goes to -14
   const once = { legalRep: [-15], factionRep: null, lastGameMinutes: N - 5 };
   setSharedClock(() => N + 5);
-  alignEntityClocks(once, N + 5);
+  alignEntityClocks(once, N + 5, { worldLeft: N - 5 });
   assert.deepEqual(once.legalRep, [-14]);
+  // a correction of this machine's clock (no minute left at) is not an absence and pays nothing
+  const corr = { legalRep: [-15], factionRep: null };
+  alignEntityClocks(corr, N + 5);
+  assert.deepEqual(corr.legalRep, [-15]);
 
-  // THE DEAD SPAN IS NOT AN ABSENCE: the player is on the death screen while the world runs, and the boundary it
-  // crossed is paid as a lived minute's is - both halves
+  // LIVED1: THE DEAD SPAN IS NOT LIVED. The character's clock stood under the death screen, so the boundary the
+  // world crossed is not theirs: their standing is untouched, both halves (the next lived boundary pays it, as DFU's)
   const corpse = { health: 0, maxHealth: 60, fatigue: 0, stats: { strength: 50, endurance: 50 }, legalRep: [0, -15, 3],
     factionRep: guildStore(40), activeEffects: [], items: [], skills: {}, lastGameMinutes: N - 5 };
-  setSharedClock(() => N + 5);
+  let clock = N - 5;
+  setSharedClock(() => clock);
+  setOwnMinutes(N - 5);
+  alignEntityClocks(corpse, N - 5);   // the world's reading, at the minute of death
+  clock = N + 5;
   reviveForPlay(corpse, { force: true });
-  assert.deepEqual(corpse.legalRep, [0, -14, 2], 'the dead span pays the full normalise');
-  assert.equal(getReputation(corpse.factionRep, g.factionId), 39);
+  assert.deepEqual(corpse.legalRep, [0, -15, 3], 'the dead span walks no reputation of the character\'s');
+  assert.equal(getReputation(corpse.factionRep, g.factionId), 40);
+  assert.equal(ownMinutes(), N - 5, 'the character\'s clock stood through the death');
 });
 
 // ── TM-2: world.js's own runEncounterTick, resurrectInPlace and closeDeathScreen, out of the LIVE source ──────────────
@@ -116,7 +131,7 @@ test('AUDIT DISC28 TM-2: a Resurrect replays no dead minute of the encounter loo
   const deps = ['playerTicker', 'playerEntity', 'amGroupRollOwner', 'online', 'player', 'partyNear', 'modes', 'walkMode', 'playerSpawned',
     'intermittentEnemySpawn', '_musicInLocationRect', 'maps', 'playerTravelPixel', 'SOLITARY_TYPES', 'partyExtraFoes', 'partySize',
     '_standEncounterFoe', '_questRegionIndex', 'passiveGuardSpawns', 'legalRepOf', 'setCrimeCommitted', 'CRIMES', '_witnessResponse',
-    'cityGuards', '_guardPool', 'reviveForPlay', 'RESURRECT_HEALTH_PCT', 'RESURRECT_TEXT', 'townTalk', 'DeathScreen'];
+    'cityGuards', '_guardPool', 'reviveForPlay', 'RESURRECT_HEALTH_PCT', 'RESURRECT_TEXT', 'townTalk', 'DeathScreen', 'sharedClockOn', 'worldMinutes'];   // LIVED1: the spawn roll's sky
   const body = 'let _lastEncMinutes = null, _respawning = false, _rezSeen = null, _deadMark = null, _partyComposedAt = 0, _deathWasOnline = true;\n'
     + `${fnText(w, 'runEncounterTick')}\n${fnText(w, 'resurrectInPlace')}\n${fnText(w, 'closeDeathScreen')}\n`
     + 'return { runEncounterTick, resurrectInPlace, marker: () => _lastEncMinutes };';
@@ -125,12 +140,12 @@ test('AUDIT DISC28 TM-2: a Resurrect replays no dead minute of the encounter loo
   const e = { health: 80, maxHealth: 80, fatigue: 5000, stats: { strength: 50, endurance: 50 }, activeEffects: [], legalRep: [0, -15], level: 5, lastGameMinutes: clock };
   let guardCalls = 0;
   // eslint-disable-next-line no-new-func
-  const host = new Function(...deps, body)({ get classicMinutes() { return worldMinutes(); } }, e, () => true, null,
+  const host = new Function(...deps, body)({ get classicMinutes() { return worldMinutes(); }, get ownMinutes() { return ownMinutes(); } }, e, () => true, null,
     { feetAt: () => [0, 0, 0], isPlayerSwimming: false, stopAutorun() {} }, () => [], { mode: 'exterior', clearDeath() {} }, true, true,
     () => null, () => true, { getClimateIndex: () => 0 }, () => ({ x: 0, y: 0 }), new Set(), () => 0, () => 1, () => {}, () => 1,
     (ctx) => passiveGuardSpawns(ctx, () => 0), legalRepOf, setCrimeCommitted, CRIMES, () => { guardCalls++; },   // every conspiracy roll lands: a pin, not a chance
     { makeNpcGuardsIntoEnemies: () => Promise.resolve() }, () => [], reviveForPlay, RESURRECT_HEALTH_PCT, RESURRECT_TEXT,
-    { overlay: null, overlayActive: false, say() {}, closeOverlay() {} }, class { restoreView() {} });
+    { overlay: null, overlayActive: false, say() {}, closeOverlay() {} }, class { restoreView() {} }, () => true, worldMinutes);
   host.runEncounterTick([0, 0, 0]);   // a living frame: the marker at now
   e.health = 0; clock += 12;           // the death screen's 60 s at 12x - world.js's frame holds the loop under it
   host.resurrectInPlace({ name: 'Mate' });
@@ -159,57 +174,59 @@ test('AUDIT DISC28 TM-2: a Resurrect replays no dead minute of the encounter loo
   }
 });
 
-test('AUDIT DISC28 TM-3: the dead span walks the Update\'s calendar - the cure and clan rolls, the landlord\'s sweep, the loan check before the normalise', () => {
+test('AUDIT DISC28 TM-3 (LIVED1): the dead span walks the WORLD\'s calendar alone - the character\'s own (the cure and clan rolls, the landlord\'s sweep, the loan check, the normalise) did not live it, and none of it runs', () => {
   const started = [];
   setRacialQuestHost({ startQuest: (n) => started.push(n), findQuests: () => [], startQuestObject() {}, getVampireClanQuest: () => null });
   const corpse = (last, extra = {}) => ({ health: 0, maxHealth: 60, fatigue: 0, stats: { strength: 50, endurance: 50 }, legalRep: [0],
     factionRep: null, activeEffects: [], items: [], skills: {}, lastGameMinutes: last, ...extra });
-  // the werewolf's CURE roll on the 84-day minute the corpse lay across ($CUREWER at (1,100) < 30; every roll passes here)
+  /** The death: the world's reading and the character's clock at `at`, then the world runs to `to` under the screen. */
+  const dieAcross = (e, at, to) => { let clock = at; setSharedClock(() => clock); setOwnMinutes(at); alignEntityClocks(e, at); clock = to; return e; };
+  // the werewolf's CURE roll on the 84-day minute the corpse lay across
   const C = 5 * CURE_QUEST_INTERVAL_MINUTES;
-  setSharedClock(() => C + 5);
-  skipDeadMinutes(corpse(C - 5, { racialOverride: { racial: 'lycanthropy', ended: false } }), C + 5, { rolls: () => 0 });
-  assert.deepEqual(started, [LYCANTHROPY_CURE_QUEST], 'the cure roll of the minute under the death screen');
+  skipDeadMinutes(dieAcross(corpse(C - 5, { racialOverride: { racial: 'lycanthropy', ended: false } }), C - 5, C + 5), C + 5, { rolls: () => 0 });
+  assert.deepEqual(started, [], 'no cure roll: the 84-day minute is the character\'s, and they were dead');
   // the vampire's initiation on the 38-day minute
-  started.length = 0;
   const V = 7 * REGION_CONDITIONS_INTERVAL_MINUTES;
-  setSharedClock(() => V + 5);
-  skipDeadMinutes(corpse(V - 5, { racialOverride: { racial: 'vampirism', ended: false, hasStartedInitialVampireQuest: false } }), V + 5, { rolls: () => 0 });
-  assert.deepEqual(started, [VAMPIRE_INITIAL_QUEST], 'the clan\'s first quest on the 38-day minute under the death screen');
+  skipDeadMinutes(dieAcross(corpse(V - 5, { racialOverride: { racial: 'vampirism', ended: false, hasStartedInitialVampireQuest: false } }), V - 5, V + 5), V + 5, { rolls: () => 0 });
+  assert.deepEqual(started, [], 'no clan quest either');
 
-  // the landlord's sweep, through the rise's own door: a room that ran out before the midnight the corpse lay across
+  // the landlord, through the rise's own door: the room runs on the character's clock, which stood - it is still theirs
   const M = 700 * MINUTES_PER_DAY;
-  setSharedClock(() => M + 10);
-  const lodger = corpse(M - 20, { rentedRooms: [{ mapId: 1, buildingKey: 2, expiryMinutes: M - 10 }], sceneCache: null });
+  const lodger = dieAcross(corpse(M - 20, { rentedRooms: [{ mapId: 1, buildingKey: 2, expiryMinutes: M - 10 }], sceneCache: null }), M - 20, M + 10);
   reviveForPlay(lodger, { force: true });
-  assert.equal(lodger.rentedRooms.length, 0, 'swept at the day block the span crossed, not a day later');
+  assert.equal(lodger.rentedRooms.length, 1, 'not swept across the death: its last ten minutes are the character\'s to live');
 
-  // the ORDER (daychange.test.js's S41 law): the day block's loan default lands, THEN the normalise nudges it - on a
-  // 112-day boundary, which is a midnight too
-  const debtor = corpse(N - 5, { bankAccounts: createBankAccounts(4), regionPrices: {} });
+  // the loan: overdue already on the character's clock, and still NOT settled by the death - the next lived midnight does it
+  const debtor = dieAcross(corpse(N - 5, { bankAccounts: createBankAccounts(4), regionPrices: {} }), N - 5, N + 5);
   borrowLoan(debtor.bankAccounts, 0, 1000, { level: 10, nowMinutes: 0 });
-  debtor.bankAccounts[0].loanDueDate = N - MINUTES_PER_DAY;   // overdue already
+  debtor.bankAccounts[0].loanDueDate = N - MINUTES_PER_DAY;
   debtor.bankAccounts[0].accountGold = 0;
-  setSharedClock(() => N + 5);
   skipDeadMinutes(debtor, N + 5, { rolls: () => 0.5 });
-  assert.equal(hasDefaulted(debtor.bankAccounts, 0), true, 'the loan check ran');
-  assert.equal(legalRepOf(debtor, 0), -REPUTATION_LOSS_PER_CRIME[CRIMES.LoanDefault] + 1, 'the hit landed, then the boundary decayed it');
+  assert.equal(hasDefaulted(debtor.bankAccounts, 0), false, 'the loan check is the character\'s day block, and it did not run');
+  assert.equal(legalRepOf(debtor, 0), 0, 'nor the normalise');
 
-  // ONE LAW: the tick and the rise walk the same body, and the arms' minute test stands once
+  // ONE LAW: the tick and the rise walk the same bodies, the rise the world's half of them
   const t = rd('src/systems/worldTick.js');
-  const tick = fnText(t, 'tickPlayerMinutes'), rise = fnText(t, 'skipDeadMinutes'), arrive = fnText(t, 'alignEntityClocks');
-  assert.match(tick, /runCalendarArms\(entity, lastMinutes, nowMinutes, \{ rolls \}\);/, 'the tick\'s loop is runCalendarArms');
+  const tick = fnText(t, 'tickPlayerMinutesOnce'), rise = fnText(t, 'skipDeadMinutes'), arrive = fnText(t, 'alignEntityClocks');   // AUDIT LIVED1 J: the tick's body (tickPlayerMinutes wraps it, counting the tick in flight)
+  assert.match(tick, /runCalendarArms\(entity, lastMinutes, nowMinutes, \{ rolls \}\);/, 'the tick\'s loop is runCalendarArms (offline, whole)');
+  assert.match(tick, /runCalendarArms\(entity, lastMinutes, nowMinutes, \{ rolls, arms: DAY_ARMS\.own \}\);\s*\n\s*for \(const \[s, e\] of worldPieces\) runCalendarArms\(entity, s, e, \{ rolls, arms: DAY_ARMS\.world \}\);/, 'online, the character\'s arms on their clock and the world\'s on the world\'s (over what no walk covered: AUDIT LIVED1 I, LIVED1b P3)');
   assert.ok(rise.indexOf('runDayChange(') >= 0 && rise.indexOf('runDayChange(') < rise.indexOf('runCalendarArms('), 'the rise walks the day block, then the arms');
+  // AUDIT LIVED1b P3: over each piece of the span no walk this session covered
+  assert.match(rise, /runDayChange\(\{ entity, lastMinutes: s, nowMinutes: e, rolls, say, arms: DAY_ARMS\.world \}\);/, '...the world\'s half of the day block');
+  assert.match(rise, /runCalendarArms\(entity, s, e, \{ rolls, arms: DAY_ARMS\.world \}\);/, '...and of the arms');
   assert.equal(t.split('i % NORMALIZE_INTERVAL_MINUTES === 0').length - 1, 1, 'the normalise arm has one home');
   assert.equal(arrive.includes('runCalendarArms('), false, 'an absence walks no arm but the recovery half (recorded, not DFU\'s)');
 });
 
-test('AUDIT DISC28 TM-4: the body\'s own effect clocks ride the dead span - a disease bills no day the corpse lay; the world\'s deadlines stay', () => {
+test('AUDIT DISC28 TM-4 (LIVED1): the body\'s own effect clocks STAND through the dead span - the character\'s clock stood, so a disease bills no day the corpse lay and nothing has to be carried; their deadlines stand with it', () => {
   let clock = 300 * MINUTES_PER_DAY + 600;
   setSharedClock(() => clock);
+  setOwnMinutes(clock);
   resetMagicRoundMarker(clock);
   const e = { isPlayer: true, level: 5, health: 80, maxHealth: 80, fatigue: 5000, activeEffects: [], items: [], skills: {}, lastGameMinutes: clock,
     stats: { strength: 60, intelligence: 50, willpower: 50, agility: 50, endurance: 60, personality: 50, speed: 50, luck: 50 },
     bankAccounts: createBankAccounts(2) };
+  alignEntityClocks(e, clock);
   const day0 = Math.floor(clock / MINUTES_PER_DAY);
   startDisease(e, DISEASES.Plague, day0, () => 0.5);
   const wolf = createInfection(INFECTION.Werewolf, { day: day0 });
@@ -219,25 +236,27 @@ test('AUDIT DISC28 TM-4: the body\'s own effect clocks ride the dead span - a di
   borrowLoan(e.bankAccounts, 1, 1000, { level: 10, nowMinutes: clock });
   const due = e.bankAccounts[1].loanDueDate;
   const sinks = { ...quiet(), hurt: (n) => { e.health = Math.max(0, e.health - n); } };
+  const own0 = ownMinutes();
   e.health = 0;
   const span = 3 * MINUTES_PER_DAY;   // a hidden tab: the screen's countdown runs on frames, the world on the wall
   clock += span;
   reviveForPlay(e, { force: true });
   const risen = e.health;
-  assert.equal(e.activeEffects.find((a) => a.kind === 'disease' && !a.infection).lastDay, day0 + 3, 'the disease\'s day rode the span');
-  assert.equal(wolf.startingDay, day0 + 3, 'so did the incubation');
-  assert.deepEqual([curse.lastKilledInnocent, curse.lastCastMorphSelf, curse.lastUrgeNotify], [clock - 100, 0, clock - 50], 'and the curse\'s minutes (a zero is "never" and stays)');
-  assert.equal(e.bankAccounts[1].loanDueDate, due, 'a loan is the world\'s, and falls due through a death as through any hour');
+  assert.equal(ownMinutes(), own0, 'the character\'s clock stood through the three days');
+  assert.equal(e.activeEffects.find((a) => a.kind === 'disease' && !a.infection).lastDay, day0, 'the disease\'s day stands - nothing to carry');
+  assert.equal(wolf.startingDay, day0, 'so does the incubation');
+  assert.deepEqual([curse.lastKilledInnocent, curse.lastCastMorphSelf, curse.lastUrgeNotify], [own0 - 100, 0, own0 - 50], 'and the curse\'s minutes');
+  assert.equal(e.bankAccounts[1].loanDueDate, due, 'the loan is due when it was due, on the character\'s clock');
   clock += 1; tickPlayerMinutes({ entity: e, classicMinutes: clock, dt: 5, sinks, rolls: () => 0.5, realSeconds: 0.3 });
   assert.equal(e.health, risen, `the first tick after the rise billed the dead days: health ${risen} -> ${e.health}`);
+  assert.equal(ownMinutes(), own0 + 1, 'and the first lived minute is one minute of the character\'s');
 
-  // one walk for both stamps
+  // no walk exists to forget a marker in
   const t = rd('src/systems/worldTick.js');
-  assert.ok(fnText(t, 'alignEntityClocks').includes('carryOwnEffectClocks(entity, past, pastDay);'), 'the arrival carries them');
-  assert.ok(fnText(t, 'skipDeadMinutes').includes('carryOwnEffectClocks(entity, past, pastDay);'), 'the rise carries them through the same walk');
+  assert.equal(t.includes('carryOwnEffectClocks('), false, 'the arrival and the rise carry nothing - the clock that stood needs no carrying');
 });
 
-test('AUDIT DISC28 TM-5: the round broker\'s marker and the tick\'s reading move with the rise - a 100-round effect across a 60-minute death spends one round', () => {
+test('AUDIT DISC28 TM-5 (LIVED1): the tick\'s reading moves with the rise (the broker\'s marker, on the character\'s clock, never moved) - a 100-round effect across a 60-minute death spends one round', () => {
   let clock = 500000;
   setSharedClock(() => clock);
   resetMagicRoundMarker(clock);   // the broker is module state: anchored here as a session's start, whatever ran before

@@ -157,7 +157,8 @@ Items have no unique ids: "the port's items have no UID" (`save.js`), and "the p
     stops enchanted gear breaking for good.
   - Oblivion leveling's settings: up to 40 attribute points a level.
 - **Rest.** A rest online restores everything and runs a skill check in seconds. The shared clock runs at 12×, so the
-  skill clock opens every 30 real minutes.
+  skill clock opens every 30 real minutes. [LIVED1 (2026-09-29): the skill clock reads the character's own clock, which
+  a rest moves, so a night opens it - as offline.]
 - **Already restricted:**
   - duels clamp stats, level and material and strip enchantments;
   - the gate boss has a damage budget;

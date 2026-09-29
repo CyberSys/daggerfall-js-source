@@ -20,7 +20,7 @@
   {
     "name": "VAMPDAY-the-round-ignores-the-hour",
     "file": "src/systems/vampirism.js",
-    "old": "  const mod = vampireStatMod(nowMinutes);",
+    "old": "  const mod = vampireStatMod(skyMinutes);",
     "new": "  const mod = VAMPIRE_STAT_MOD;",
     "tests": [
       "test/vampday.test.js"

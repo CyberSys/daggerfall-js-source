@@ -516,6 +516,7 @@ test('AUDIT REALM2 C7: the pause menu\'s Exit ends a duel first and passes P0.5\
     const duelMgr = { duel: { live: true }, reset() { log.push('duel ended'); this.duel = null; } };
     const state = {
       playerEntity, duelMgr, log, checkpointAllowed, online: {}, playerSpawned: true, seatOut: () => seatOut, performance: { now: () => 1 },
+      ownWalkWaiting: () => false,   // AUDIT LIVED1b S1: no raise waiting
       townTalk: { overlay: null, say: () => {} }, DeathScreen: class {}, QUICK_SAVE_NAME: 'QuickSave', exitAutosaveNames: () => [], worldQuickSave: null,
       modes: { deathUp: () => false, quickSaveNow: () => { log.push({ health: playerEntity.health, effects: playerEntity.activeEffects.map((a) => a.name) }); return true; } },
       maxFatigue: () => 50, surfacePlayer: () => {}, console: { error() {} },

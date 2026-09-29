@@ -1265,8 +1265,8 @@ test('TO1: the wiring - one construction, the fork on the popup\'s word, the pan
     'the journey asks only whether the mod is there');
   assert.doesNotMatch(w, /if \(!travelOptions \|\| sharedClockOn\(\)\) return false;/, 'and not whether the clock is shared');
   // not vacuous: WORLD5's law is what makes this safe, so read it
-  assert.match(read('src/systems/worldTick.js'), /if \(_sharedClock\) \{\s*\n\s*classicMinutes = _sharedLastTick \?\? _sharedClock\(\);/,
-    'the shared clock is READ, never advanced from dt - which is why an accelerated journey cannot move it');
+  assert.match(read('src/systems/worldTick.js'), /if \(_sharedClock\) \{\s*\n\s*const reading = _sharedClock\(\);/,
+    'the shared clock is READ, never advanced from dt - which is why an accelerated journey cannot move it (LIVED1: nor the character\'s clock, which moves by the world\'s reading and by a raise alone)');
   // THE COMPATIBILITY CHECK Mac asked for: following is handed HIS network alone
   assert.match(w, /roads: \(\) => \{ const net = terrainGen\.roads\(\); return net\?\.source === 'basic-roads' \? net : null; \},/,
     'the port\'s own generated network is never followed');
@@ -1875,7 +1875,7 @@ test('TO-FIELD: the accelerated journey waits for the ground; TO-FIELD3 took the
   // fatigue drains it was aimed at, the bare-skin block's naked-cold
   // and sunburn ticks and the byFire exposure damage (the health), and
   // - never counted by the change that set it - SURV6's hunting roll,
-  // which refuses outright on `resting` (hunting.js:114).
+  // which refuses outright on `resting` (hunting.js:115).
   assert.match(w, /survivalEnv: \(\) => \(_mode\(\) === 'dungeon' \? \(playerEntity\.isResting \? modes\?\.dungeonCtx\?\.survivalEnvNow\?\.\(\) \?\? null : null\) : survivalEnvNow\(\)\),/,
     'the journey feeds the needs the world it is actually in');
   assert.doesNotMatch(w, /resting: true \}\n?\s*: survivalEnvNow/, 'and no travel arm sits the traveller down');
@@ -1918,7 +1918,7 @@ test('TO-ONLINE: an online trip the toggles call WALKED is a ride, and the "you 
   // online trip while the journey stood down and the teleport was the
   // only arrival there was. It is false over a walked one.
   const pop = read('src/ui/travelPopUp.js');
-  assert.match(pop, /if \(this\.noWorldTime\(\) && !this\.walkedTrip\) shadowText\(renderer, font, ONLINE_TRAVEL_LINE,/,
+  assert.match(pop, /if \(this\.noWorldTime\(\) && !this\.walkedTrip\) ONLINE_TRAVEL_ROWS\.forEach\(\(row, i\) => shadowText\(renderer, font, row,/,   // AUDIT LIVED1b U1: the line in two rows
     'the classic popup gates the line off the walked trip');
   // and the enhanced skin bills the same trip, so it says the same thing
   assert.match(read('src/ui/heldMap.js'), /if \(t\?\.online && !t\.walked\) card\.append\(el\('p', 'hmmeta', ONLINE_TRAVEL_LINE\)\);/,
