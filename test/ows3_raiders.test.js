@@ -226,8 +226,10 @@ test('OWS3 host wiring by source: the open sea a raider is born on, the shared c
   assert.match(w, /tvRaid\.chase\.clear\(\); tvRaid\.spent\.clear\(\); tvRaid\.list = \[\]; tvRaid\.at = -Infinity; tvRaid\.peer\.clear\(\); tvRaid\.spentAt\.length = 0;   \/\/ OWS3: no chase across a load/);
   assert.ok(w.indexOf('const tvRaid = {') < w.indexOf('tvRaid.chase.clear(); tvRaid.spent.clear();'), 'BOOT-TDZ: declared above the load that clears it');
   assert.match(w, /raidFrame\(dt\);[^\n]*\n\s*travelViewGovern\(dt\);/, 'each walking frame, before the cap');
-  assert.match(w, /marks\.push\(\{ key: `raid:\$\{r\.id\}`, at: tvSceneKept\(c \?\? r, at\.x, at\.z, 2, true\), label: RAIDER_LABEL, kind: c \? 'raider ship chase' : 'raider ship', edge: !!c \}\);/);
-  assert.match(w, /if \(!c && Math\.max\(Math\.abs\(px\.x - me\.x\), Math\.abs\(px\.y - me\.y\)\) > grid\) continue;/, 'the rest within the grid\'s reach');
+  // NAV-R (2026-09-28): a raider stood as a ship of the sea chases as her captain does - `chase` is the ship's word, or the
+  // Overworld's own chase with no sea fight (test/nav_r_raiders.test.js pins which)
+  assert.match(w, /marks\.push\(\{ key: `raid:\$\{r\.id\}`, at: tvSceneKept\(c \?\? r, at\.x, at\.z, 2, true\), label: RAIDER_LABEL, kind: chase \? 'raider ship chase' : 'raider ship', edge: chase \}\);/);
+  assert.match(w, /if \(!chase && Math\.max\(Math\.abs\(px\.x - me\.x\), Math\.abs\(px\.y - me\.y\)\) > grid\) continue;/, 'the rest within the grid\'s reach');
   assert.match(w, /if \(warmAshesOn\(\) && csaOn\(\)\) \{\n\s*const grid = Math\.max\(1, state\.terrainDistance \?\? 3\);/, 'the mod off, or no Come Sail Away to be at sea with: no raiders (AUDIT OW5b S8)');
 });
 
@@ -251,7 +253,8 @@ const liftSea = () => {
   const a = w.indexOf('    // AUDIT OW5b S8: none drawn where none can come'), b = w.indexOf('\n    return marks;', a);
   assert.ok(a > 0 && b > a, 'the raiders\' marks lifted');
   return { frame: fn('raidFrame'), contact: fn('raidContact'), quarry: arrow('raidQuarry'), open: arrow('tvRaidOpen'), sea: arrow('tvRaidSea'), marks: w.slice(a, b),
-    spend: fn('seaRaidSpend'), peer: fn('seaRaidPeerChase'), hear: fn('seaRaidHear'), word: fn('seaRaidWord') };   // OW6: the chase, shared
+    spend: fn('seaRaidSpend'), peer: fn('seaRaidPeerChase'), hear: fn('seaRaidHear'), word: fn('seaRaidWord'),   // OW6: the chase, shared
+    held: fn('seaRaidHeld') };   // THE MERGE (OW6, NAV-R): the raiders my word says I hold
 };
 const seaHost = (over = {}) => {
   const src = liftSea();
@@ -272,12 +275,13 @@ const seaHost = (over = {}) => {
     RAIDERS_WIRE_MAX, RAIDER_WORD_MS, RAIDER_LIFE_MS, raiderWordOf, validRaiderWord, raiderNearMe, chaseYields, online: { id: 'b' },
     playerTravelPixel: () => d.me, ms: 0, raidNowMs: () => d.ms, now: 0, performance: { now: () => d.now },
     owed: [], owSaySpent: (id) => d.owed.push(id),   // OW6L: a spend is owed to the cell's ledger
+    navalRaidersOn: () => false,   // THE MERGE (NAV-R): the sea fight off - the Overworld's own chase, these runs' (test/nav_r_raiders.test.js runs it on)
     tvSay: (t) => order.push(t),   // AUDIT OW5 G2: the Overworld's own lines, held at the clock's scale
     ...over,
   };
   const names = Object.keys(d).filter((k) => /^[A-Za-z_$][\w$]*$/.test(k));
   const host = new Function('d', `const { ${names.join(', ')} } = d;
-    ${src.open}\n${src.sea}\n${src.quarry}\n${src.contact}\n${src.spend}\n${src.peer}\n${src.hear}\nlet _seaRaidWordKey = '';\n${src.word}\n${src.frame}
+    ${src.open}\n${src.sea}\n${src.quarry}\n${src.contact}\n${src.spend}\n${src.peer}\n${src.hear}\n${src.held}\nlet _seaRaidWordKey = '';\n${src.word}\n${src.frame}
     const drawRaiders = () => { ${src.marks} };
     return { raidFrame, raidContact, raidQuarry, tvRaidOpen, tvRaidSea, drawRaiders, seaRaidHear, seaRaidWord, seaRaidPeerChase };`)(d);
   return { d, order, ...host };
@@ -471,8 +475,8 @@ test('OW6 host run: A PEER\'S CHASE IS SEEN AND HELD - their raider drawn where 
 test('OW6 host wiring: the raider word rides my cell\'s foes frame and asks for one; a peer\'s is heard past the pool\'s room test; the load forgets both (mutants: the frame unforced, the hook unregistered)', () => {
   const w = rd('src/scenes/world.js'), ef = rd('src/scenes/exteriorFoes.js');
   assert.match(w, /const seaRaidMoved = cell && seaRaidWord\(null, full\);/);
-  assert.match(w, /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved \|\| csaAboardMoved \|\| bandMoved \|\| seaRaidMoved\)/);
-  assert.match(w, /if \(cell\) bandWord\(frame, full\); if \(cell\) seaRaidWord\(frame, full\);/);
+  assert.match(w, /exteriorFoes\.foesFrame\(full, _hccDirty \|\| csaMoved \|\| csaAboardMoved \|\| bandMoved(?: \|\| navalMoved)? \|\| seaRaidMoved\)/);   // THE MERGE with NAV-G: the sea's word beside it
+  assert.match(w, /if \(cell\) bandWord\(frame, full\);(?: if \(cell\) navalWord\(frame, full\);)? if \(cell\) seaRaidWord\(frame, full\);/);
   assert.match(w, /exteriorFoes\.setOnSeaRaiders\(\(from, sr\) => seaRaidHear\(from, sr\)\);/);
   assert.match(ef, /if \(data\.sr !== undefined\) _onSeaRaiders\?\.\(from, data\.sr, _now\(\)\);/);
   assert.match(ef, /function setOnSeaRaiders\(fn\) \{ _onSeaRaiders = typeof fn === 'function' \? fn : null; \}/);

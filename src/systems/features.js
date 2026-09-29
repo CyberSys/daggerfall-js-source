@@ -1043,6 +1043,35 @@ export const FEATURES = Object.freeze([
       tiers: Object.freeze([[false, 'Off'], ['casual', 'Casual'], ['hard', 'Hard']]),
     }),
   }),
+  // NAV (2026-09-28, Mac: "proper naval combat with a huge reference to assassins creed black flag ... directly integrate
+  // into online mode"): THE SEA FIGHT (bible/03-World/Naval-Combat.md) - the port's own, on Come Sail Away's hulls, so
+  // it stands nothing without that mod. ONE SWITCH, FORCED ON ONLINE: the ships at sea are the room's world (one player
+  // stands the sea for everyone near - scenes/navalHost.js), and a room where one player sees the pirate boarding another
+  // and the other does not is two worlds. The rest is each player's own: the traffic the sea they stand is filled with,
+  // whether pirates grapple THEIR boat, and whether THEIR voyage's beaten raiders leave a hold to plunder.
+  Object.freeze({
+    id: 'naval-combat',
+    group: 'combat',
+    title: 'Naval Combat',
+    note: "Black Flag on the Iliac Bay, on Come Sail Away's boats: look to a side at the helm and hold Attack to lay that broadside - its arcs and splashes drawn - then let go to fire. Pirates, merchantmen and the crowns' navies sail; batter one until she strikes her colours, board her, take her hold, then scuttle her or cast her off. Piracy is a crime, and pirates who board you bring Warm Ashes' raids. Online the room shares one sea.",
+    effect: 'Takes effect at once - online the sea is on for everyone, one sea for the room.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({
+      store: 'prefs', key: 'naval', initial: true, online: true,   // scenes/world.js navalOn: the host stands down and empties the sea
+      also: Object.freeze([
+        Object.freeze({ store: 'prefs', key: 'naval-ships', initial: 'some', online: 'player' }),   // systems/naval/navalDirector.js DENSITY
+        Object.freeze({ store: 'prefs', key: 'naval-boarders', initial: true, online: 'player' }),   // navalHost.js: a pirate's grapple on MY boat
+        Object.freeze({ store: 'prefs', key: 'naval-raid-prize', initial: true, online: 'player' }),   // navalHost.js leaveShipGate: the voyage raiders' hold
+        Object.freeze({ store: 'prefs', key: 'naval-aim-camera', initial: true, online: 'player' }),   // navalHost.js aimEye: the broadside camera (AUDIT NAV1)
+      ]),
+      parts: Object.freeze([
+        Object.freeze({ key: 'naval-ships', label: 'Ships at sea', tiers: Object.freeze([['few', 'Few'], ['some', 'Some'], ['many', 'Many']]) }),
+        Object.freeze({ key: 'naval-boarders', label: 'Pirates board you' }),
+        Object.freeze({ key: 'naval-raid-prize', label: 'Raiders\u2019 plunder' }),
+        Object.freeze({ key: 'naval-aim-camera', label: 'Broadside camera' }),
+      ]),
+    }),
+  }),
 ]);
 
 // ── RF4: the lanes, and what the stores derive ────────────────────

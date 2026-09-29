@@ -45,7 +45,7 @@
 // reload. Classic works that way because classic is a DOS program with
 // a fixed 320x200 screen. Neither reason survives here.
 //
-// This is ONE screen, under BOTH skins (main.js:120-244, FD1: the
+// This is ONE screen, under BOTH skins (main.js:127-252, FD1: the
 // launcher and its settings window are deleted; the classic rail is
 // Begin, which leads into the splash and PICK03I0 exactly as before).
 // Every destination is a press away from every other, settings
@@ -92,7 +92,7 @@
 import { fpArm, hasDaggerfallArrows } from '../combat/fpArm.js';
 import { questRail, journalLines, questTitleOf } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the chronicle
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1: a tap on the scrim resumes
-import { TEST_PRESETS, TEST_RIDE, TEST_LOOT } from '../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
+import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT } from '../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../formats/mwNpc.js';
 import { EQUIP_SLOTS, equipTableOf } from '../systems/equip.js';
 import { dfWornEquipment } from '../formats/mwItemMap.js';
@@ -865,6 +865,13 @@ function paneTest(body) {
   ride.append(el('p', 'meta', TEST_RIDE.blurb));
   ride.append(acts([{ label: 'Ride out', primary: true, onClick: () => onAction(`test:${TEST_RIDE.id}`) }]));
   body.append(ride);
+  // FIELD BUGS 2026-09-29 (the sea) #5 (Mac: "Add a ship combat test menu option"): the sea battle - the same
+  // `test:<id>` door, a helm on the open Bay and a pirate standing in (systems/testRoom.js TEST_SEA)
+  const sea = el('div', 'card');
+  sea.append(el('h3', null, TEST_SEA.label));
+  sea.append(el('p', 'meta', TEST_SEA.blurb));
+  sea.append(acts([{ label: 'Set sail', primary: true, onClick: () => onAction(`test:${TEST_SEA.id}`) }]));
+  body.append(sea);
   // LR3: the loot ladder - one of everything Loot rarity can mint, in
   // the pack, through the same `test:<id>` door.
   const loot = el('div', 'card');

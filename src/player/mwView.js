@@ -141,8 +141,12 @@ let pendingClicks = 0;
  *
  * @returns {{eye:number[], thirdPerson:boolean, distance:number}}
  */
-export function mwViewFrame({ fpEye, feet, yaw, pitch, heightScale = null, raycast = null, spherecast = null, eyeOverride = null, ...state }) {
+export function mwViewFrame({ fpEye, feet, yaw, pitch, heightScale = null, raycast = null, spherecast = null, eyeOverride = null, seaReach = 0, ...state }) {
   standInEdge({ fpEye, feet, yaw, pitch });   // BEAST-SELF: the view carried across the arm's stand-aside
+  // FIELD BUGS 2026-09-29 (the sea) #3: the helm's reach (player/seaZoom.js; 0 off it) to both cameras, every frame -
+  // the host's word for the hull sailed, and off the helm a distance past either's own far end comes back to it
+  mwCamera.setSeaReach(seaReach);
+  eotbCamera.setSeaReach(seaReach);
   // EOTB4: the other lane, resolved first and returned whole - its
   // camera keeps its own ladder, its own smoothing and its own
   // obstacle casts (EOTB2), and nothing of Morrowind's runs.

@@ -1132,6 +1132,7 @@ export const PANEL_CLEAR_RGBA = Object.freeze([49 / 255, 77 / 255, 121 / 255, 5 
 // see AUTOMAP_WATER_COLOR below for the seam DFU reads it across.
 import { WATER_MAP_COLOR } from './underwaterFog.js';
 import { WATER_SURFACE_VS, waterSurfaceFs } from './waterSurface.js';   // WATER1: the enhanced water pass over the terrain grid
+import { WATER_LAYER_UNITS } from './waterSurface.js';   // FIELD BUGS 2026-09-29 (the sea) #4: WATER1's offset is the sea's surface film's
 import { packWaterMask, WATER_DRAW_MASK_TABLE } from '../world/waterCorners.js';   // MAC2: the corner table's one home; WATER-DRAW1: the PASS takes the draw's table, not the feet's
 
 /** The automap render panel, DFU's own rect on the 320x200 native
@@ -5564,7 +5565,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // front of a boat or a far shore standing just above it. The lift
     // already carries the sloped case.
     gl.enable(gl.POLYGON_OFFSET_FILL);
-    gl.polygonOffset(0, -2);
+    gl.polygonOffset(0, WATER_LAYER_UNITS.surface);   // FIELD BUGS 2026-09-29 (the sea) #4: the sea's layers, one table (render/waterSurface.js WATER_LAYER_UNITS)
     gl.depthFunc(gl.LEQUAL);
     let bound = null;
     for (let i = 0; i < n; i++) {

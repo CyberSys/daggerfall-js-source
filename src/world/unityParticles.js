@@ -349,6 +349,10 @@ function fireSubEmitters(ps, type, point, random) {
 
 function stepSystem(ps, dt, random) {
   const sim = ps._sim;
+  // AUDIT NAV1 (the presentation, #17): AN IDLE SYSTEM - stopped, nothing alive - has nothing to step: it returned
+  // below, after walking up its node's parents to ask whether it was active (a war galley carries 224 systems, one
+  // of them live, and walked the rest every frame - 0.45 ms of a far galley's). Returned first, the same no-op.
+  if (!ps.playing && !ps.particles.length) return;
   if (!ps.node.activeInHierarchy || dt <= 0) return;
   // the living: lived on, dead dropped, collided
   const kept = [];

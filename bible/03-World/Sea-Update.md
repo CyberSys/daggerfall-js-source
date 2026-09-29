@@ -156,3 +156,13 @@ and every re-pin was mutation-checked (the records committed at AUDIT PRE-MERGE 
   roadc_automap_window, roadb_castle, road_a5_seducer.
 
 With `ARENA2_PATH` set, the whole suite passes.
+
+### 6. After the Sea Update: the sea fight - NAV-A to NAV-H (2026-09-28)
+
+Mac, opening it: *"enhance the newly integrated ships by adding proper navel combat with a huge reference to
+assiasins creed black flag. Being able to aim and fire when viewing from the side. Along with this, I want to
+introduce actual sailing ships to the world yhat players can encounter and pillage, with should also directly enhance
+and integrate into the pirate quest system. All UI elements should follow enhanced plus UI."* Come Sail Away's hulls
+carry guns now, the Iliac Bay's pirates, merchantmen and the three crowns' navies sail on the same hulls, a struck
+ship is boarded and plundered, a pirate that grapples a crewed ship brings Warm Ashes' own raid onto its deck, and the
+room shares one sea. `03-World/Naval-Combat.md` is the record; its departures are on the Port-Ledger's section A row.

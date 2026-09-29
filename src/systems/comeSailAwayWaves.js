@@ -87,6 +87,110 @@ export const BAYER_8X8 = Object.freeze([
   169, 106, 153, 90, 165, 102, 149, 86,
 ]);
 
+/**
+ * FIELD BUGS 2026-09-29 (the sea) #4 (the Discord, through Mac: "Water flickers from a distance"): THE FRAMES FROM
+ * AFAR. The mod's 32 frames ship as one level each, point-filtered (the bundle's Texture2Ds: m_MipCount 1,
+ * m_FilterMode 0 - vendor/come-sail-away/Textures/textures.json), and a frame is tiled ten times over a strip hundreds
+ * of metres long: from a few hundred metres off a screen pixel covers dozens of its texels and picks one, a different
+ * one each time the deck bobs the camera a centimetre - the coast's breakers boil (tools/fbseaWaterProbe.mjs: a third
+ * to all of a strip's pixels change from one bob to the next, from 300 m out, at every height the camera stands at).
+ * DFU draws them so too; the port departs (Port-Ledger, the Come Sail Away row): the frames get the chain every other
+ * world texture of the port has - level 0 the mod's texel, untouched, and each level past it the mean of the texels
+ * it covers - so a minified strip shows what it averages to and holds still.
+ *
+ * A level's texel is the mean of the level-0 texels whose centres fall in it: texel `floor((c + 0.5) * size_L /
+ * size_0)` of level L holds level-0 texel `c` - the map the wave shader reads a level by. A level that halves level 0
+ * exactly (a power of two of it) is the mean of its four children; the rest (640's 5 to 2 to 1) sum the deepest exact
+ * level whose texels each fall whole in one of theirs (level 0's own when none is), so every level answers the one map.
+ * @param {number} width
+ * @param {number} height
+ * @param {number} channels
+ * @param {ArrayLike<number>} data - level 0, `channels` a texel, row after row
+ * @returns {{ width: number, height: number, data: Uint8Array }[]} level 0 to 1 x 1, rounded to bytes
+ */
+export function boxLevels(width, height, channels, data) {
+  const bytes = (v) => { const o = new Uint8Array(v.length); for (let i = 0; i < v.length; i++) o[i] = v[i] + 0.5; return o; };   // a mean of bytes is in [0, 255]: ToUint8 floors
+  const levels = [{ width, height, data: data instanceof Uint8Array ? data.slice() : Uint8Array.from(data) }];
+  /** @type {{ data: Uint8Array | Float32Array, w: number, h: number }[]} */
+  const exact = [{ data: levels[0].data, w: width, h: height }];   // the levels that halve level 0 exactly, as means (level 0 its bytes)
+  for (let L = 1; (width >> (L - 1)) > 1 || (height >> (L - 1)) > 1; L++) {
+    const w = Math.max(1, width >> L), h = Math.max(1, height >> L);
+    const out = new Float32Array(w * h * channels);
+    if (w << L === width && h << L === height && exact.length === L) {
+      const src = exact[L - 1].data, row = 2 * w * channels;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const a = 2 * y * row + 2 * x * channels, b = a + row, o = (y * w + x) * channels;
+          for (let c = 0; c < channels; c++) out[o + c] = (src[a + c] + src[a + channels + c] + src[b + c] + src[b + channels + c]) * 0.25;
+        }
+      }
+      exact.push({ data: out, w, h });
+    } else {
+      // the deepest exact level whose every texel falls whole in one of this level's: its texels, each the mean of as
+      // many of level 0's, are summed (level 0 itself when no coarser one is aligned)
+      const to = (c, size, n) => Math.floor(((c + 0.5) * n) / size);
+      const whole = (E) => {
+        const span = 1 << E, e = exact[E];
+        for (let i = 0; i < e.w; i++) if (to(i * span, width, w) !== to((i + 1) * span - 1, width, w)) return false;
+        for (let i = 0; i < e.h; i++) if (to(i * span, height, h) !== to((i + 1) * span - 1, height, h)) return false;
+        return true;
+      };
+      let E = exact.length - 1;
+      while (E > 0 && !whole(E)) E--;
+      const { data: src, w: ew, h: eh } = exact[E], span = 1 << E;
+      const mx = new Int32Array(ew), n = new Uint32Array(w * h);
+      for (let x = 0; x < ew; x++) mx[x] = to(x * span, width, w);
+      for (let y = 0; y < eh; y++) {
+        const base = to(y * span, height, h) * w;
+        let s = y * ew * channels;
+        for (let x = 0; x < ew; x++, s += channels) {
+          const t = base + mx[x], o = t * channels;
+          n[t]++;
+          for (let c = 0; c < channels; c++) out[o + c] += src[s + c];
+        }
+      }
+      for (let t = 0; t < w * h; t++) for (let c = 0; c < channels; c++) out[t * channels + c] /= n[t];
+    }
+    levels.push({ width: w, height: h, data: bytes(out) });
+  }
+  return levels;
+}
+
+/**
+ * #4: a paint's chain as the wave pass samples it. Level 0 is the paint itself - the mod's texel there, read as the mod
+ * reads it (the key colour compared, Daggerfall's snow texel under it). Past it each level is the mean of the frame the
+ * paint composes, PREMULTIPLIED (a level's texel its coverage and its colour): the paint's own texels, and the key's
+ * standing for the snow record at its mean colour - a level's texel spans 2^L of the record's, and its own grain is
+ * under the pixel there. One fetch at any level, as the mod made one.
+ * @param {{ width: number, height: number, data: Uint8Array }} paint - top-down RGBA, as decoded
+ * @param {ArrayLike<number>} snowMean - the snow record's mean colour, rgb 0-255 (wavePictureMean)
+ * @param {string} [key] - the key colour, rrggbbaa (Textures/derived.json's `key`)
+ * @returns {{ width: number, height: number, data: Uint8Array }[]} level 0 the paint, then the frame's means
+ */
+export function wavePaintLevels(paint, snowMean, key = 'ff00ffff') {
+  const k = [0, 2, 4, 6].map((i) => parseInt(key.slice(i, i + 2), 16));
+  const n = paint.width * paint.height, frame = new Uint8Array(n * 4), d = paint.data;
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    if (d[o] === k[0] && d[o + 1] === k[1] && d[o + 2] === k[2] && d[o + 3] === k[3]) {
+      frame[o] = snowMean[0]; frame[o + 1] = snowMean[1]; frame[o + 2] = snowMean[2]; frame[o + 3] = 255;   // the record's pixel, opaque
+      continue;
+    }
+    const a = d[o + 3];
+    frame[o] = Math.round((d[o] * a) / 255); frame[o + 1] = Math.round((d[o + 1] * a) / 255); frame[o + 2] = Math.round((d[o + 2] * a) / 255); frame[o + 3] = a;
+  }
+  const levels = boxLevels(paint.width, paint.height, 4, frame);
+  levels[0] = { width: paint.width, height: paint.height, data: d };   // the paint itself, its key kept: level 0 is the mod's read
+  return levels;
+}
+
+/** #4: a picture's mean colour, rgb 0-255 (the snow record's, for the frames' levels past 0). */
+export function wavePictureMean(pic) {
+  const sum = [0, 0, 0], n = pic.width * pic.height;
+  for (let i = 0; i < n; i++) for (let c = 0; c < 3; c++) sum[c] += pic.data[i * 4 + c];
+  return sum.map((v) => Math.round(v / n));
+}
+
 /** LoadSettings (838-839): `(2f - (float)(Speed / 100)) * 0.125f` - the INTEGER division, kept. */
 export const waveFrameTimeOf = (speed) => f(f(2 - Math.trunc(Number(speed) / 100)) * f(0.125));
 /** LoadSettings (836-837): the dither's end half the Length, its start the Fade's share of that. */

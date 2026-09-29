@@ -1643,7 +1643,11 @@ CAMP-SIGHT, CAMP-TRAVEL, CAMP-NOTIMER, TTL1, WORLD1's "True persistance"); the d
   once as an enemy begins to hold the journey ("Enemies near - you slow your pace."). Since the merge with main: its
   reasons are AUDIT OW5 G1's words with this one beside them (`TRAVEL_HELD_WHY`: 'load', 'ground', 'foes'), and TV-WASD's
   keys' travel under the view is held the same way - fast travel too - along the way the keys last moved (`_tvWalkYaw`);
-  a First-Person crossing's restore (AUDIT OW5 G5) asks the governor's rate, never over its hold. A rider flown at x40 straight at a
+  a First-Person crossing's restore (AUDIT OW5 G5) asks the governor's rate, never over its hold. THE MERGE with the sea
+  fight (NAV-H, NAV-R; `03-World/Naval-Combat.md`): every hostile ship afloat is a reach too, on either skin - the ring
+  where she is an enemy nearby and the journey stops, or her lookout past it until she sights the traveller, closing
+  at her pace once she comes (`navalHost.js threats`) - and a raider stood as a ship is that ship, never her seeded
+  sail as well. A rider flown at x40 straight at a
   band now comes into its sight at walking pace, the last half kilometre taking more than THREAT_WARN_S; it took under a
   second. The bible's own open idea, "Encounters seen coming", is this.
 - **Camps on the Overworld, the same for everyone (world/campShared.js; the fourth ask).** Every group standing about -
@@ -1663,7 +1667,11 @@ CAMP-SIGHT, CAMP-TRAVEL, CAMP-NOTIMER, TTL1, WORLD1's "True persistance"); the d
   friend watched the sail that ran them down wander on, and could be chased by it too. The chaser's frame carries `sr`
   now - the band word's own law, one home (travelBands.js `chaseWordOf` / `validChaseWord`, each chaser's own ids): the
   raiders chasing it where they sail, and each spent - so every reader draws the chase where it runs, none gives chase
-  to a sail a peer's chase holds (two chasing one: the lower id keeps it), and none meets a spent raider again.
+  to a sail a peer's chase holds (two chasing one: the lower id keeps it), and none meets a spent raider again. With
+  the sea fight on (NAV-R, `03-World/Naval-Combat.md` "THE MERGE with main's OW6") the raiders are its ships: the ships a
+  client's sea stands ride the same word as held, a ship sunk, taken or given the slip is spent through the same spend
+  (said, and owed to the cell's ledger), no sea stands a raider a peer's word holds, and a journey slows for every
+  hostile ship before the ring where she stops it (NAV-H's enemy nearby) - a raider ship counted as the ship.
 - **The cell keeps the Overworld's ledger (OW6L, the relay - world127; net/overworldLaw.js).** What stays true after the
   moment: a band or raider spent, and a spawned dungeon's clocks. TV7b's word reached three pixels, that minute - a band
   fought was back for whoever came later in its life - and the spawn ledger was each client's own (TTL1's own note: two

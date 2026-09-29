@@ -45,6 +45,12 @@ export const warmAshesOn = () => modSetting(WARM_ASHES_VENDOR, 'Enabled') === tr
 export const WA_QUEST_LIST = 'WA_Ships';
 /** The one quest the code starts [IL_0630]. */
 export const WA_RAID_QUEST = 'WAQ_SHIP_SMALLRAID';
+/** THE MERGE of NAV-D and OWS3: the raids a running quest makes, AS THE QUEST MACHINE NAMES THEM - each file's own
+ *  `Quest:` header (quest/parser.js): the ambush's, and a pirate flagship's, which the sea fight's boarders start from
+ *  its file WAQ_SHIP_ATTACK_PIRATE.txt (scenes/navalHost.js; systems/naval/navalBoarding.js WA_ATTACK_PIRATE) and whose
+ *  header names it WAQ_SHIP_PIRATEATTACK. AUDIT NAV1 (B5): listed by its file's name, a flagship's raid was never read
+ *  as running, and "one raid at a time" let an Overworld raider start a second on top of it. */
+export const WA_RAID_QUESTS = Object.freeze([WA_RAID_QUEST, 'WAQ_SHIP_PIRATEATTACK']);
 /** The two blocks the variants are set on, with AnyLocationKey (-8) [IL_047f, IL_03aa]. */
 export const WA_SHIP_BLOCKS = Object.freeze(['SHIPAA00.RMB', 'SHIPAA01.RMB']);
 export const WA_VARIANT_RAID = '_smallraid';
@@ -91,6 +97,7 @@ export const boardPending = () => _boardIn !== null;
  *   setTransportModeShip() TransportManager.TransportMode = Ship (UpdateMode's ship arm: a board, or a landing)
  *   currentRegionIndex()   PlayerGPS.CurrentRegionIndex
  *   setBlockVariant        WorldDataVariants.SetBlockVariant (a seam for the tests; the registry by default)
+ *   leaveShipGate(quest)   NAV-D: the sea fight's word on a "Leave Ship" - 'naval' | 'wait' | 'proceed' (scenes/navalHost.js)
  */
 let _host = null;
 export function setWarmAshesHost(host) { _host = host ?? null; }
@@ -140,7 +147,8 @@ function armRaid() {
  * the sailing arm of OnPreFastTravel arms it (armRaid) and CheckforEncounters starts its coroutine, so
  * TransportToShipWithDelay starts WAQ_SHIP_SMALLRAID and boards the ship, as the fast travel's ambush does - the roll
  * for peace is the sails' own (they were seen, and not outsailed). Refused (and said why) while an ambush is armed or
- * boarding, and while a lent ship is out (the fast travel's own `tempShip` refusal).
+ * boarding or a raid quest runs (raidUnderWay: the sea fight's boarders' among them), and while a lent ship is out (the
+ * fast travel's own `tempShip` refusal).
  */
 export function raidAtSea() {
   const refused = raidRefusal();
@@ -150,13 +158,26 @@ export function raidAtSea() {
   return armed;
 }
 
-/** OWS3: why the mod refuses a raid NOW - an ambush armed or boarding ('busy'), a lent ship out ('lent') - or null. The
- *  refusals' one home: raidAtSea answers with it, and AUDIT OW5b S1's host asks it before it lets go of the helm (a raid
- *  refused leaves the traveller sailing, the raider sheering off unheeded). */
+/** A raid quest running, whoever started it - the host's word off the quest machine's live table (WA_RAID_QUESTS). */
+const raidRunning = () => !!host().raidRunning?.();
+/** OWS3: why the mod refuses a raid NOW - an ambush armed or boarding, or a raid quest running whoever started it
+ *  ('busy' - THE MERGE of NAV-D and OWS3, below), a lent ship out ('lent') - or null. The refusals' one home: raidAtSea
+ *  answers with it, and AUDIT OW5b S1's host asks it before it lets go of the helm (a raid refused leaves the traveller
+ *  sailing, the raider sheering off unheeded). */
 export function raidRefusal() {
-  if (hasTraveledbyShip || _boardIn !== null) return 'busy';
+  if (hasTraveledbyShip || _boardIn !== null || raidRunning()) return 'busy';
   if (tempShip) return 'lent';
   return null;
+}
+/**
+ * THE MERGE of NAV-D and OWS3 (2026-09-28): ONE RAID AT A TIME, WHOEVER STARTS IT. Beside the mod's own fast travel,
+ * two starters make Warm Ashes' raid - a raider alongside on the Overworld (raidAtSea) and the sea fight's boarders on a
+ * crewed Come Sail Away deck (scenes/navalHost.js beginFight) - and neither saw the other's: a raid on the deck with
+ * the mod's ship boarded under it, or a flagship's raid over an armed ambush. So each asks this one answer: an ambush
+ * armed or boarding, a lent ship out, or a raid quest running - raidRefusal's, as a yes or no.
+ */
+export function raidUnderWay() {
+  return raidRefusal() !== null;
 }
 
 /** CheckforEncounters [IL_0384], OnPostFastTravel's subscriber: an armed ambush starts the coroutine. */
@@ -202,9 +223,15 @@ export class LeaveShip extends ActionTemplate {
     if (!this.test(source)) return null;
     return new LeaveShip(parentQuest);
   }
-  /** Update [IL_0540]. */
+  /** Update [IL_0540]. NAV-D (DECLARED, bible/03-World/Naval-Combat.md): the host's `leaveShipGate` is asked first -
+   *  'naval', a raid the sea fight started on the player's own boat: done, nothing sailed (the IL would lend a ship and
+   *  set the player on it); 'wait', a voyage's raid whose raiders' hold is open: not yet; 'proceed' (or no gate): the
+   *  IL's own body. */
   update(_caller) {
     const h = host();
+    const gate = h.leaveShipGate?.(this.parentQuest) ?? 'proceed';
+    if (gate === 'wait') return;
+    if (gate === 'naval') { this.setComplete(); return; }
     if (h.currentRegionIndex?.() === WA_SEA_REGION) {
       resetShipVariants();
       if (!h.ownsShip?.()) {

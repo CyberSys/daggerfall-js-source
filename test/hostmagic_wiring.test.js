@@ -19,7 +19,9 @@ test('M5: an armed cast eats the attack click in every host (WeaponManager defer
   // BEFORE handing the click to the weapon rig.
   for (const f of HOSTS) {
     const s = src(f);
-    assert.ok(/if \(magic\.interceptAttack\(true\)\) return; weaponRig\.attackInput/.test(s),
+    // NAV-H re-pinned (2026-09-28): at a helm with guns world.js's press lays them (navalHost.js attackInput) - AFTER
+    // the cast and before the rig, so the law holds: a readied spell eats the click before anything else takes it
+    assert.ok(/if \(magic\.interceptAttack\(true\)\) return; (?:if \(naval\?\.attackInput\(true\)\) return; )?weaponRig\.attackInput/.test(s),
       `${f}: the drag/press arms test the latch first`);
     assert.ok((s.match(/magic\.interceptAttack\(true\)/g) ?? []).length >= 3,
       `${f}: mousemove, mousedown and the touch arm all intercept`);

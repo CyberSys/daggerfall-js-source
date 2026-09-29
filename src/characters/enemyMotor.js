@@ -392,6 +392,11 @@ export class EnemyAI {
     this.landedFall = 0;   // > 0 for ONE host frame after a damaging landing
     this._airborne = false;
     this._restGrounded = false;   // C11's rest latch: true only while the grounded branch last left this foe resting on ground
+    // FIELD BUGS 2026-09-29 (the sea, #2): CharacterController.isGrounded - whether the controller's LAST Move stood it
+    // on something (CollisionFlags.Below), kept until the next Move, false for one that has never moved. Every branch
+    // below writes it from the move it makes; a step that makes none (a swimmer out of water, frozen) leaves it as the
+    // last one left it. Come Sail Away's riders read it (world.js csaEnemies): a swimmer in open water is on nothing.
+    this.isGrounded = false;
     // AUDIT 39: TakeAction re-derives `moveSpeed` from
     // `entity.Stats.LiveSpeed` EVERY FixedUpdate (:432), so a Drain or
     // Fortify Speed on a foe moves it. A number captured at spawn
@@ -1666,7 +1671,8 @@ export class EnemyAI {
         if (waterY !== null && center < waterY) {
           let my = myRaw;
           if (my > 0 && center + WATER_HEAD_MARGIN >= waterY) my = 0;
-          this.collider.move(this.feet, mx, my, mz, this.height, true, FOE_KEEPS_FLOOR);
+          const moveResult = this.collider.move(this.feet, mx, my, mz, this.height, true, FOE_KEEPS_FLOOR);
+          this.isGrounded = moveResult.grounded;
         }
       } else if (this.flies || this.levitating) {
         // :293-298 - `else if (flies || IsLevitating) controller.Move(...)`,
@@ -1679,11 +1685,13 @@ export class EnemyAI {
         if (this.flies && !this.levitating) this.velY -= GRAVITY * dt;   // flyerFalls: a hit knocks them out of the air
         else this.velY = 0;   // no gravity arm claims a levitator: the port's accumulator must not carry one either
         const r = this.collider.move(this.feet, mx, myRaw + this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
+        this.isGrounded = r.grounded;
         if (r.grounded) this.velY = 0;
         this._trackFall(r.grounded);   // CH3: a knocked-down flyer lands hard
       } else {
         this.velY -= GRAVITY * dt;   // SimpleMove: horizontal motion, gravity applies
         const r = this.collider.move(this.feet, mx, this.velY * dt, mz, this.height, true, FOE_KEEPS_FLOOR);
+        this.isGrounded = r.grounded;
         if (r.grounded) this.velY = 0;
         this._trackFall(r.grounded);
       }
@@ -1712,7 +1720,8 @@ export class EnemyAI {
       if (this.fallDetected || this.obstacleDetected) { this._findDetour(d); return; }
       let my = d[1] * this.speed * dt;
       if (my > 0 && center + WATER_HEAD_MARGIN >= waterY) my = 0;
-      this.collider.move(this.feet, d[0] * this.speed * dt, my, d[2] * this.speed * dt, this.height, true, FOE_KEEPS_FLOOR);
+      const moveResult = this.collider.move(this.feet, d[0] * this.speed * dt, my, d[2] * this.speed * dt, this.height, true, FOE_KEEPS_FLOOR);
+      this.isGrounded = moveResult.grounded;
       return;
     }
 
@@ -1765,7 +1774,8 @@ export class EnemyAI {
       this._obstacleCheck(d);
       this._fallCheck(d);
       if (this.fallDetected || this.obstacleDetected) { this._findDetour(d); this.lastGroundedY = this.feet[1]; return; }
-      this.collider.move(this.feet, d[0] * this.speed * dt, d[1] * this.speed * dt, d[2] * this.speed * dt, this.height, true, FOE_KEEPS_FLOOR);
+      const moveResult = this.collider.move(this.feet, d[0] * this.speed * dt, d[1] * this.speed * dt, d[2] * this.speed * dt, this.height, true, FOE_KEEPS_FLOOR);
+      this.isGrounded = moveResult.grounded;
       this.lastGroundedY = this.feet[1];   // the altitude-control anchor, post-move
       return;
     }
@@ -1805,6 +1815,7 @@ export class EnemyAI {
       }
     }
     const r = this.collider.move(this.feet, dxm, dy, dzm, this.height, true, FOE_KEEPS_FLOOR);
+    this.isGrounded = r.grounded;
     if (r.grounded) this.velY = 0;
     this._trackFall(r.grounded);   // CH3 (characters-8): walkers and falling paralyzed flyers
     this._restGrounded = !this.moving && r.grounded;

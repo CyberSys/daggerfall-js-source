@@ -242,6 +242,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   let _onSeaRaiders = null;     // OW6: (from, word, nowMs) - a peer's raider chases at sea, the bands' law (systems/seaRaiders.js validRaiderWord)
   let _onCsaAboard = null;      // CSA-K: (from, word | null, nowMs) - a peer's place aboard a boat, off the same frame
   let _onCsaAboardClear = null; // CSA-K: and gone with the boats
+  let _onNaval = null;          // NAV-G: (from, record | null, nowMs) - a peer's sea (the ships they stand, their volleys) off the same frame (systems/naval/navalWire.js)
+  let _onNavalClear = null;     // NAV-G: called wherever the teams' clear runs - the peers' ships go with the puppets
   let _onDuel = null;           // DUEL1: (from, record | null, nowMs) - the duel ring a peer stands in, off their foes frame (null: theirs is down)
   let _onDuelClear = null;      // DUEL1: called wherever clearPuppets runs - the peers' rings go with the puppets
   let _foesSeq = 0;             // my frames out, numbered
@@ -1564,6 +1566,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     _onDuelClear?.();   // DUEL1: and the rings they duel in
     _onCsaClear?.();   // CSA-J: and their boats
     _onCsaAboardClear?.();   // CSA-K: and their places aboard
+    _onNavalClear?.();   // NAV-G: and the ships they stand
   }
 
   /** AUDIT 17e F23: the floating-origin recenter shifts everything. */
@@ -1754,6 +1757,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   function setOnRaids(fn) { _onRaids = typeof fn === 'function' ? fn : null; }   // RAID2
   function setOnCsa(fn, onClear = null) { _onCsa = typeof fn === 'function' ? fn : null; _onCsaClear = typeof onClear === 'function' ? onClear : null; }   // CSA-J
   function setOnCsaAboard(fn, onClear = null) { _onCsaAboard = typeof fn === 'function' ? fn : null; _onCsaAboardClear = typeof onClear === 'function' ? onClear : null; }   // CSA-K
+  function setOnNaval(fn, onClear = null) { _onNaval = typeof fn === 'function' ? fn : null; _onNavalClear = typeof onClear === 'function' ? onClear : null; }   // NAV-G
   function setOnDuel(fn, onClear = null) { _onDuel = typeof fn === 'function' ? fn : null; _onDuelClear = typeof onClear === 'function' ? onClear : null; }   // DUEL1
   const _now = () => (_net?.now ? _net.now() : Date.now());
   /** My foes out, and my watch behind them (WATCH1) - every one of MINE whose streamed state changed since its last
@@ -1963,6 +1967,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (data.sr !== undefined) _onSeaRaiders?.(from, data.sr, _now());   // OW6: and its raider chases and spent raiders at sea - the same test
     if (data.sa !== undefined) _onCsa?.(from, data.sa, _now());   // CSA-J: the owner's boats (null: none stand) - a frame without the field leaves the last word standing; past the same room test
     if (data.ab !== undefined) _onCsaAboard?.(from, data.ab, _now());   // CSA-K: the sender's place aboard a boat (null: aboard none) - the same law, the same test
+    if (data.nv !== undefined) _onNaval?.(from, data.nv, _now());   // NAV-G: the owner's sea (null: none) - the ships they stand, their last volleys and barrels; past the same room test
     if (data.hv !== undefined) _onHcc?.(from, data.hv, _now());   // HCC-ONLINE: the owner's horse and wagon (null: none stand) - a frame without the field leaves the last word standing; past the same room test the camps pass
     if (Array.isArray(data.c)) _onCamps?.(from, data.c, _now());   // SURV3: the owner's camps ride the same frame, past the same room test - the host's pool lands them
     return true;
@@ -2410,6 +2415,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     _onDuelClear?.();   // DUEL1: and their rings
     _onCsaClear?.();   // CSA-J: and their boats
     _onCsaAboardClear?.();   // CSA-K: and their places aboard
+    _onNavalClear?.();   // NAV-G: and the ships they stand
   }
   /** OW6: THE CAMPS' NUMBERS, one counter for this pool - the host's stands (world.js _standCampEncounter) and a camp an
    *  heir takes over (adopt) alike, so an adopted camp never shares a number with one of mine. */
@@ -2441,5 +2447,6 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     setOnBands,   // TV7b
     setOnSeaRaiders,   // OW6
     setOnCsaAboard,   // CSA-K
+    setOnNaval,   // NAV-G
     setOnCamps, setOnHcc, setOnDuel };   // SURV3; HCC-ONLINE
 }

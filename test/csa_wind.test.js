@@ -588,3 +588,52 @@ test('CSA-E: TriggerDoor - the trigger\'s parent\'s Animator has its Opened turn
   s.frame();
   assert.equal(door.nextStateName, 'Opened');
 });
+
+test('CSA-D x AUDIT NAV1 (the helm): the sea fight\'s seams - moveSpeed times `wayScale` (told whether she is under sail) held to 0..1, the mod\'s own speed with none; RaiseSails refused with `sailRefused`\'s word before the mod\'s own obstruction, the sails kept stowed (mutants: the share unread, the sail flag unread, the refusal after the raise)', () => {
+  const s = scene();
+  const boat = s.helm(s.place(1, 3));
+  const oars = s.rt.properties.moveSpeed();
+  assert.ok(oars > 0);
+  const asked = [];
+  s.deps.wayScale = (underSail) => { asked.push(underSail); return 0.5; };
+  near(s.rt.properties.moveSpeed(), oars * 0.5, 1e-6, 'a hurt boat rows at her share');
+  assert.equal(asked.at(-1), false, 'told she is under oars');
+  s.deps.wayScale = () => 7;
+  near(s.rt.properties.moveSpeed(), oars, 1e-6, 'never past her own');
+  s.deps.wayScale = () => -1;
+  assert.equal(s.rt.properties.moveSpeed(), 0);
+  s.deps.wayScale = () => undefined;
+  near(s.rt.properties.moveSpeed(), oars, 1e-6, 'no word, her own');
+  // the refusal: said, and the sails stay stowed - before the mod's own obstruction
+  boat.NodeTileMapIndices[3] = 7;
+  s.deps.sailRefused = () => 'The rigging is shot away - no sail will set.';
+  s.rt.RaiseSails();
+  assert.equal(s.out.hud.at(-1), 'The rigging is shot away - no sail will set.');
+  assert.equal(s.rt.state.sailPosition, 0);
+  assert.ok(boat.Sails.every((n) => stowed(n)), 'every sail stowed');
+  boat.NodeTileMapIndices[3] = 0;
+  s.deps.sailRefused = () => null;
+  s.rt.state.windVectorCurrent = [0, 0, -1];
+  s.rt.RaiseSails();
+  assert.equal(s.out.hud.at(-1), 'Sail raised!');
+  assert.equal(s.rt.state.sailPosition, 1);
+  const sail = s.rt.properties.moveSpeed();
+  s.deps.wayScale = (underSail) => { asked.push(underSail); return 0.25; };
+  near(s.rt.properties.moveSpeed(), sail * 0.25, 1e-6, 'under a torn rig, the canvas left');
+  assert.equal(asked.at(-1), true, 'told she is under sail');
+});
+
+test('CSA-D x AUDIT NAV1 (the helm): a heave-to\'s brake - moveAccel times the sea fight\'s `accelScale`, held to 0..20, the mod\'s own rate with none (mutants: the scale unread, unheld)', () => {
+  const s = scene();
+  s.helm(s.place(1, 3));
+  const own = s.rt.properties.moveAccel();
+  assert.ok(own > 0);
+  s.deps.accelScale = () => 10;
+  near(s.rt.properties.moveAccel(), own * 10, 1e-6, 'heaving to');
+  s.deps.accelScale = () => 1e6;
+  near(s.rt.properties.moveAccel(), own * 20, 1e-5, 'held to 20');
+  s.deps.accelScale = () => -3;
+  assert.equal(s.rt.properties.moveAccel(), 0);
+  s.deps.accelScale = () => undefined;
+  near(s.rt.properties.moveAccel(), own, 1e-9, 'no word, her own');
+});
