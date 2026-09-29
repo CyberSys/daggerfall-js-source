@@ -377,7 +377,8 @@ export function navalPadPrompts(model, codes = {}) {
   if (codes.aim) rows.push([[codes.aim], model.aiming ? 'Let go: fire' : 'Hold: lay the guns']);
   if (codes.brace) rows.push([[codes.brace], 'Hold: brace']);
   const b = model.board;
-  if (codes.board && b) rows.push([[codes.board], b.kind === 'hold' ? `Open ${b.name}'s hold` : b.kind === 'heave' ? 'Heave to' : b.kind === 'yard' ? 'The shipwright' : `Board ${b.name}`]);
+  if (codes.board && model.aiming) rows.push([[codes.board], 'Hold fire']);   // GUN-HOLD: Activate's, while they are laid
+  else if (codes.board && b) rows.push([[codes.board], b.kind === 'hold' ? `Open ${b.name}'s hold` : b.kind === 'heave' ? 'Heave to' : b.kind === 'yard' ? 'The shipwright' : `Board ${b.name}`]);
   return rows;
 }
 
@@ -418,12 +419,14 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
     hull: pct(ship.hull), sail: ship.sail == null ? null : pct(ship.sail), crew: ship.crew == null ? null : pct(ship.crew),
     chips: [ship.wrecked ? 'wreck' : null, ship.fire ? 'fire' : null, ship.braced ? 'brace' : null, ship.mending ? 'mend' : null].filter(Boolean),
     batteries,
-    // the press that matters most, first: a ship in reach to board or plunder, then the guns
-    hint: model.board ? (model.board.kind === 'heave' && model.board.heaving ? `Heaving to beside ${model.board.name}`
+    // the press that matters most, first: the guns while they are laid (GUN-HOLD: Activate holds fire then, never
+    // boards), a ship in reach to board or plunder, then the guns
+    hint: model.aiming && model.armed && !ship.wrecked ? `${touch ? 'Lift' : 'Let go'} to fire - ${boardKey}: hold fire`
+      : model.board ? (model.board.kind === 'heave' && model.board.heaving ? `Heaving to beside ${model.board.name}`
       : `${boardKey}: ${model.board.kind === 'hold' ? `open ${model.board.name}'s hold` : model.board.kind === 'yard' ? model.board.name
         : model.board.kind === 'heave' ? `heave to beside ${model.board.name}` : `board ${model.board.name}`}`)
       : ship.wrecked ? 'Crippled - make port for a shipwright'   // AUDIT NAV1: the way out of a wreck, said
-      : !model.armed ? 'No guns aboard' : model.aiming ? `${touch ? 'Lift' : 'Let go'} to fire - ${bracePress}`
+      : !model.armed ? 'No guns aboard'
       : `${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${bracePress}`,
     brace: touch && !!model.armed,
   } : null;

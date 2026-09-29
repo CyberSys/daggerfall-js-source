@@ -4490,7 +4490,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // read it. It held the bare-skin block's naked-cold and sunburn
     // ticks and the byFire exposure damage (needs.js:480, :456) - the
     // health Mac wants ticking - and, the one TO-FIELD never counted,
-    // it shut the HUNTING roll off entirely (hunting.js:115 refuses on
+    // it shut the HUNTING roll off entirely (hunting.js:120 refuses on
     // `resting`), so a traveller could not hunt on the road at all.
     // One flag, four laws; the journey takes the world as it finds it.
     //
@@ -6694,12 +6694,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the minutes pass offline (online the clock stands, WORLD5), and
   // "the hunted" stands on the wilderness arm as an encounter would.
   // This host alone: exterior.js lives inside the town rect.
+  /** SEA-HUNT: the player afloat - at a helm (Come Sail Away sailing), on a boat's deck (its "I'm On A Boat"), aboard
+   *  another player's boat, on a sea ship's deck (the naval host's aboard), or swimming. The land's own business - the
+   *  hunt, a bounty's trail, a wilderness band's chase - is none of theirs there. */
+  const playerAfloat = () => !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName))
+    || !!csaAboard.aboard?.boat || !!naval?.aboard?.() || (walkMode && playerSpawned && !!player.isPlayerSwimming);
   const hunting = createHunting({
     entity: playerEntity,
     env: () => ({
       minute: Math.floor(ownMinutes()), climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // LIVED1: the hunt's minute is the body's (its needs, its catch's age); the winter below is the sky's
       luck: liveStat(playerEntity, 'luck'), winter: seasonValue(dateFromClassicMinutes(worldMinutes())) === SEASONS.Winter,
-      outdoors: _mode() === 'exterior' && !(walkMode && playerSpawned && player.isPlayerSwimming), inLocationRect: _musicInLocationRect(), night: isNight(minuteNow()),
+      outdoors: _mode() === 'exterior' && !(walkMode && playerSpawned && player.isPlayerSwimming), afloat: playerAfloat(), inLocationRect: _musicInLocationRect(), night: isNight(minuteNow()),   // SEA-HUNT: nothing is hunted from a deck
       enemiesNear: areEnemiesNearby(exteriorFoePool()), resting: !!playerEntity.isResting || !!playerEntity.preventEnemySpawns,
       hasBow: weaponTypeForItem(weaponRig.playerWeapon.weapon) === WEAPON_TYPES.Bow,
       skills: { archery: skillValue(playerEntity, SKILLS.Archery), stealth: skillValue(playerEntity, SKILLS.Stealth), criticalStrike: skillValue(playerEntity, SKILLS.CriticalStrike), climbing: skillValue(playerEntity, SKILLS.Climbing) },
@@ -8803,11 +8808,14 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the floating origin; it answers null off a built pixel, which
    *  playerTileMapIndex reads as DFU's -1. */
   const _SURFACE_DOWN = [0, -1, 0];
+  /** SHIP-DECK: a collider bucket of a boat's or a sea ship's hull (csaSyncColliders' keys). */
+  const isDeckBucket = (key) => typeof key === 'string' && key.startsWith('csaBoat:');
   const exteriorSurfaceNow = () => {
     const cy = player.pos[1] + player.height / 2;   // transform.position on a CharacterController
     const rayDistance = rayDistanceFor(isOnFoot(player.transportMode));
     const _ground = playerGroundSample();
-    return exteriorSurfaces({
+    const _down = collider.raycastHit([player.pos[0], cy, player.pos[2]], _SURFACE_DOWN, rayDistance * 2);
+    const surf = exteriorSurfaces({
       inside: false,
       rawTile: _ground?.tile ?? null,
       feet: _ground?.feet ?? null,   // MAC2: the player swims where the surface is drawn under the feet
@@ -8815,10 +8823,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       probe: downProbe({
         centreY: cy,
         terrainY: heightAt(player.pos[0], player.pos[2], true),   // DW-D: GetOnExteriorGroundMethod wants a DaggerfallTerrain - never the carved sea's floor (and the mod gates the terrain collider off over it)
-        meshDist: collider.raycast([player.pos[0], cy, player.pos[2]], _SURFACE_DOWN, rayDistance * 2),
+        meshDist: _down.dist,
         rayDistance,
       }),
     });
+    // SHIP-DECK: the model the feet stand on is a hull - a boat's or a sea ship's deck (the footsteps' wooden floor)
+    surf.deck = surf.staticGeometry && isDeckBucket(_down.key);
+    return surf;
   };
   /** StreamingWorld's RandomStartMarker landing for the location that
    *  stands on a BUILT map pixel, in that pixel's own local frame.
@@ -17044,7 +17055,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     canStandDungeon: () => (modes?.mode ?? 'exterior') === 'dungeon' && !!modes?.dungeonCtx && !gamePaused() && !playerEntity.isResting,
     standDungeonPack: (o) => _standBountyDungeonPack(o),
     canStand: () => (modes?.mode ?? 'exterior') === 'exterior' && playerSpawned && !gamePaused() && !playerEntity.isResting
-      && !travelOptions?.isTravelActive && !(walkMode && player.isPlayerSwimming),
+      && !travelOptions?.isTravelActive && !(walkMode && player.isPlayerSwimming) && !playerAfloat(),   // SEA-HUNT: no trail is read, no pack stood, from a deck
     standPack: (o) => _standBountyPack(o),
     foePool: () => ((modes?.mode ?? 'exterior') === 'dungeon' ? (modes?.dungeonCtx?.foes ?? []) : exteriorFoes.foes),
     say: (line) => townTalk.say(line),
@@ -20216,7 +20227,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // B4 found the same; the one fix is the chases' own clock (`_bandClock`, below), which stands still on EVERY frame a
     // chase does not step - this hold, a world being moved, the view down with none - so nothing is carried over by hand
     if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) return;
-    const aboard = !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName));
+    const aboard = playerAfloat();   // SEA-HUNT: a sea ship's deck and another's boat too - the one afloat
     if (!isEnhanced() || (modes?.mode ?? 'exterior') !== 'exterior' || !walkMode || !playerSpawned || getPref('wildernessCamps') === false
       || playerEntity.preventEnemySpawns || player.isPlayerSwimming || aboard
       || _inAnyLocationRect(player.feetAt())) { bandDrop(); return; }   // AUDIT OW3 T7-7: nor into a town - a band gives up at its edge
@@ -21543,12 +21554,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           if (_step && classicFootstepAllowed(_step.clip)) audio.playOneShot(_step.clip, _step.volume);   // IF1: DisableVanillaFootsteps - every classic clip is None while the mod owns the stride; BA1: Better Ambience nulls all but Dungeon2 and Outside2 (DisableBuiltInFootsteps' slip)   // IF1: DisableVanillaFootsteps - every classic clip is None while the mod owns the stride; BA1: Better Ambience nulls all but Dungeon2 and Outside2 (DisableBuiltInFootsteps' slip)
           // IF1: ImmersiveFootstepsObject.FixedUpdate - the exterior arm reads the season, the climate and the tile the classic set above reads.
           immersiveFootsteps.update(dt, {
-            paused: _overlayHeld || _seasonHeld || _travelSoundsOff, entity: playerEntity,   // AUDIT-TO1 J1: the mod's stride stands down with the classic one
+            paused: _overlayHeld || _seasonHeld || _travelSoundsOff || _csaFootstepsOff, entity: playerEntity,   // AUDIT-TO1 J1: the mod's stride stands down with the classic one - SHIP-DECK: at the helm too (CSA-D's)
             grounded: player.grounded, standingStill: player.standing, isRunning: player.isRunning, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed,
             transportMode: player.transportMode, swimming: !!player.isPlayerSwimming, pos: player.pos,
             inside: false, inDungeon: false,
             season, climateIndex: maps.getClimateIndex(_p.x, _p.y), tileMapIndex: _surf.tileIndex ?? -1,   // AUDIT-IF F2: StreamingWorld.PlayerTileMapIndex is -1 off terrain, and (byte)-1 sits in no table - never 0, which is water
             waterWalking: _surf.water === ON_EXTERIOR_WATER.WaterWalking,
+            deck: !!_surf.deck, onStaticGeometry: !!_surf.staticGeometry,   // SHIP-DECK: the floor under the feet decides before the tile under it
           });
           // BA1: BetterFootstepsComponentPlayer.Update, CameraShaker.Update, ReverbMod.Update and the rain source's Update, one call.
           betterAmbience.frame(dt, {
@@ -21598,11 +21610,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           hudBlocked: activeMouseOverLargeHUD(),
           paused: _overlayHeld,
         });
-        if (_act.cast && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
+        // GUN-HOLD: Activate while the guns are laid holds fire (navalHost.js holdFire, the bow's own cancel) - before the
+        // click casts a readied spell or the helm's ladder boards, heaves to or opens the yard
+        const _holdFire = (_act.activate || _act.cast) && !!naval?.aiming && naval.holdFire();
+        if (_act.cast && !_holdFire && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
         const useEdge = !travelView?.active && pressed(latch.edge, keys, 'Interact');   // AUDIT OW5 V2: never from under the travel view - its ray is the hidden head's (a door took the traveller inside, a townsperson opened talk); KB1: the Interact ACTION (E by default, Mac's call) - it was a raw `KeyE` beside DFU's E-AbortSpell, and one press did both
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
         const nodeTook = useEdge && !modes.transitioning && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's
-        if ((_act.activate || (useEdge && !nodeTook)) && !modes.transitioning) {
+        if ((_act.activate || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
           // T3b: a townsperson under the ray wins the activation (the
           // PlayerActivate nearest-hit order); G3: a guard corpse next
           // (loot pickup on the dungeon's S2 shape); doors otherwise.
@@ -22762,7 +22777,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // again". TO-FIELD held SURV6's roll while an accelerated journey
     // ran; the gate is REMOVED on Mac's word, with the `resting` flag
     // above that was holding the roll a second time from inside
-    // (hunting.js:115).
+    // (hunting.js:120).
     //
     // WHAT IT MEANS, said plainly so it is not rediscovered as a bug:
     // the roll fires once a GAME minute, and a journey spends those at

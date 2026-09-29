@@ -189,3 +189,9 @@
 - **The arrow keys are the helm.** Up makes more sail and down takes it in. With square sails you handle yourself, that steps through all sails, then fore-and-aft only, then none. Left and right steer, like A and D. At the helm the arrows no longer turn your view. End still raises and stows the sails, and every key can be rebound under Controls > Come Sail Away.
 - The helm panel shows your controls at a glance (sails and steering, with your current keys), and its sails button uses the arrows.
 - In irons: if your sails are up and your bow points into the wind with no speed, the helm tells you how to get out: strike sail and row round.
+
+## On deck (2026-09-29)
+
+- **Footsteps on a deck sound like wood.** Walking a boat's or a ship's deck no longer splashes as if you were wading the open sea (Immersive Footsteps read the water under the hull). Iron boots still ring and chain still chinks.
+- **No hunting at sea.** Tracks, birds and green hollows are for dry land: at a helm, on any deck or in the water the hunt never rolls, and a bounty's trail and a wilderness band leave you alone there too.
+- **Hold fire.** With the guns laid, press Activate (E, left click, the pad's A, or a tap) to put them down unfired. They stay loaded, and the readout says so while you aim.

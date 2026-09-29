@@ -860,6 +860,32 @@ Measured after, over 30 minutes of the director's own traffic at level 8 (`some`
 helm met a peaceful coaster, a wary sloop that ran down a coaster, took and fired her on her own, and one bold corsair
 galley that came for them; on foot beside the same waters nobody engaged or hailed, and no rest or journey was held.
 
+## DECK-FIELD (2026-09-29) - the deck's own sounds, no hunt at sea, and HOLD FIRE
+
+Mac, from one sailing session: "Walking on the deck gives water sounds, hunting notifications appear when sailing,
+shooting cannons should have attack canceling." Each one root-caused (`test/deckfield.test.js`):
+
+- **SHIP-DECK** (DECLARED): Immersive Footsteps read the terrain tile under the feet and nothing else - its own noted
+  IsOnShip bug - so a deck over the sea (tile 0) stepped in deep water all voyage. The host's down probe now keeps the
+  collider bucket it struck, and a hull's bucket (`csaBoat:`) is a deck: the mod's own wooden-floor rule. The helm's
+  footsteps-off reaches the mod's stride too (`bible/06-Systems/Immersive-Footsteps.md` SHIP-DECK).
+- **SEA-HUNT** (DECLARED): the hunt asked outdoors-and-not-swimming, and the coast's first sea pixels read as land's
+  climate, so a helm rolled the hunt. `huntRoll` takes `afloat` - off the host's one predicate, `playerAfloat` (a helm,
+  a boat's deck, another's boat, a sea ship's deck, the water) - which a bounty's trail and a wilderness band now read
+  too (`bible/06-Systems/Climates-Calories.md` SEA-HUNT).
+- **GUN-HOLD**: a laid broadside could only be fired - press to lay, release to fire, and no way to put it down but a
+  window over it or bracing. ACTIVATE WHILE THE GUNS ARE LAID HOLDS FIRE (`navalHost.js holdFire`): the aim put down,
+  "Hold fire." said, the release owes nothing and the guns stay loaded - the bow's own cancel (`playerWeapon.js`
+  cancelHeld: Activate un-draws a drawn bow). The world hands Activate to the hold first - before the click casts a
+  readied spell or the helm's ladder boards, heaves to or opens the yard - and the readout says it while they are laid
+  ("Let go to fire - E: hold fire"; a finger's "Tap: hold fire"; the pad's Activate row "Hold fire"), over any ship in
+  reach. The attack's own order stays the cast law's: a readied spell takes the press before the guns (NAV-H's pin,
+  `tools/mutants/nav_h.json` NAV-H-the-guns-before-the-spell) - readying one is the player's own choice of what the
+  press does.
+
+Mutants: `tools/mutants/deckfield.json` (19), all dead; three records re-aimed onto the new text (OW5-B1, NAV-F's board
+hint, SURV6's night gate), all dead.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's

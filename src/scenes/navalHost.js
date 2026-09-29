@@ -1680,6 +1680,15 @@ export function createNavalHost(deps) {
 
   /** The aim put down without a shot - a window opened over it, the helm was left: the release owes nothing. */
   function cancelAim() { aiming = false; aim = null; }
+  /** GUN-HOLD (2026-09-29, Mac: "shooting cannons should have attack canceling") - HOLD FIRE: the laid broadside put
+   *  down unfired on purpose, by Activate while the guns are laid - the bow's own cancel (playerWeapon.js cancelHeld:
+   *  Activate held un-draws a drawn bow). The release then owes nothing; the guns stay loaded. */
+  function holdFire() {
+    if (!aiming) return false;
+    cancelAim();
+    deps.say?.('Hold fire.', 1.2);
+    return true;
+  }
 
   // ── boarding ─────────────────────────────────────────────────────────────────────────────────────────────────────
   let boarding = null;
@@ -2895,13 +2904,15 @@ export function createNavalHost(deps) {
   }
 
   return {
-    frame, attackInput, cancelAim, activate, hudModel, drawFrame, lights, offsetAll, clear, aimEye, wayScale, sailRefused, accelScale,
+    frame, attackInput, cancelAim, holdFire, activate, hudModel, drawFrame, lights, offsetAll, clear, aimEye, wayScale, sailRefused, accelScale,
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     leaveShipGate, raidEnded, placeQuestFoe,
     newSaveData, getSaveData, restoreSaveData,
     raiders, raiderShipOf, raiderHeld,   // NAV-R; THE MERGE (OW6): the raiders I hold, for the raider word
     /** Whether a hostile ship is near - Come Sail Away's time scale refuses to run with one (AreEnemiesNearby). */
     hostileNear: () => hostileNearMe(),
+    /** SEA-HUNT: whether the player stands aboard - at a helm, on a boat of theirs or on a sea ship's deck (aboardShip). */
+    aboard: () => aboardShip(),
     saveRefused,   // AUDIT NAV1 (B14): no save in a boarding or on a sea ship's deck
     threats,   // THE MERGE (OW6): the hostile ships a journey slows for
     tags: tagsModel,   // AUDIT NAV1 (#14): the ships the tags stand over (the world projects them)
