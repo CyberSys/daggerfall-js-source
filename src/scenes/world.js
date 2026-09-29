@@ -7618,6 +7618,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   // THAT building's collider, not the street's.
   const _insidePool = () => modes?.insideFoes?.() ?? [];
   const enchantFoes = () => liveEnchantFoes(_mode(), modes?.dungeonCtx ?? null, () => [...cityGuards.guards, ...exteriorFoes.foes], _insidePool);
+  /** STRIKE-SHARED (2026-09-29, Mac: "Do #1"): a strike spell on a foe another player runs goes to that player - asked
+   *  of the pool the record is IN (enchantFoeHost's law, dungeon first): the room's (a dungeon's host, a party member's
+   *  quest or loose stand) or the cell's (a peer's puppet above ground). The interior host's pools stream to no one. */
+  const enchantSpellToOwner = (f, record, level) => {
+    const host = enchantFoeHost(f, modes?.dungeonCtx ?? null, _insidePool);
+    if (host === 'dungeon') return !!modes?.dungeonCtx?.spellToOwner?.(f, record, level);
+    if (host === 'exterior') return exteriorFoes.spellToOwner(f, record, level, enchantFeet());
+    return false;
+  };
   const enchantFoeSinks = (f, fromPlayer = true) => liveEnchantFoeSinks(f, modes?.dungeonCtx ?? null, foeSinks, _insidePool, (g, fp) => modes?.insideFoeSinksFor(g, fp), fromPlayer);
   /** AUDIT 58 (review): THE WABBAJACK'S TRANSFORM, routed by the same
    *  POOL MEMBERSHIP the sinks are. This body sat inside the mount
@@ -8042,6 +8051,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       feet: () => enchantFeet(),
       standLooseFoe: _standLooseFoe,
       bossSpell: (record) => { modes?.dungeonCtx?.spellOnBoss?.(record); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted)
+      spellToOwner: (f, record, level) => enchantSpellToOwner(f, record, level),   // STRIKE-SHARED: routed by membership, below
       // V3: Azura's TEXT.RSC popup.
       // ENH-NOTICE3: through the one door, and the ROUTING CHANGES -
       // this was `townTalk.showOverlay`, a REPLACE of the outdoor slot
@@ -10065,7 +10075,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7470), so exterior mode and a
+    // composer, dungeonContext.js:7518), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -14609,6 +14619,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       now: () => performance.now(),
       staleMs: FOES_STALE_MS,   // AUDIT WORLD6b C3: an owner whose stream has died is swept as the seat is (WORLD2's own window)
       onPeerHit: (hit, fate) => hitSend(hit, fate),   // AUDIT FOES FOE2: through the pending set, so a refused blow heals; LOOT-DUP: with the frame's own fate
+      // STRIKE-SHARED: a peer's strike spell on my foe, landed through the cast engine's foe door - the caster a stand-in
+      // at the striker's level (the gauntlet runs as for any caster), the striker's id marking a trap as theirs
+      spellOnFoe: (f, spell, level, sinks, from) => { magic.applySpellToFoe(spell, level, f, { entity: { level } }, { peerCaster: from }, sinks); },
       // WATCH1 (2026-09-17, the paused online arc's first stop: "guards on a shared crime"): the criminal's watch
       // rides the cell's stream as puppets at every peer, and a peer's blow on one lands through the watch's own
       // door as NOT this player's blow (no Murder of mine for a watchman a peer kills). The crime itself stays the
