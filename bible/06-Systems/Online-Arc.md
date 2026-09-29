@@ -4790,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5193`). With the property missing that call is a
+(`dungeonContext.js:5233`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1063`, `src/net/online.js:2248`):**
+**Now (`src/net/wire.js:1098`, `src/net/online.js:2248`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -11632,3 +11632,39 @@ the account service that opens them is the one that already has them (`acct32`).
   relay's door, so only a modified client reaches the routes with another id.
 - `test/marks1.test.js` and `test/notice1.test.js` pin the three lines at `"on"`. The Marks and professions patch notes
   say they are open to everyone.
+
+## DRAKES (2026-09-29, Mac: "Can we change the name of marks to something else") - the currency is called Drakes
+
+Asked what to, Mac chose **"Drakes"** (an old Imperial coin): "250 Drakes", "1 Drake", "Sell Drakes" at the Bank.
+
+- **Only the words a player reads changed.** `net/marksLaw.js` `marksText` ("1 Drake", "1,240 Drakes"); the account
+  card's row; the Bank's face (Drakes to sell, Drakes held, "8 gold a Drake", Sell Drakes, "The Bank counts your
+  Drakes..."); the gate's lines (`net/marksBook.js`); the Market and Work tabs' labels and lines; a writ's pay; the
+  professions' pages (the smith's and the furnisher's prices, a material's worth, the respec's cost); the guild's
+  "Drake treasury" and its weekly writ budget; the host's bought and filled lines (`scenes/world.js`); and every
+  refusal the account door words (`net/accountClient.js`). "Your Marks hold only 500 Marks" on the Work tab's
+  commission form reads "You hold only 500 Drakes." now.
+- **Nothing stored moved.** The balances, the ledger, the routes (`/v1/marks/...`), the switch (`MARKS_OPEN`), the
+  service (`server-account/src/marks.js`), no account version and no relay: the code and these records keep "Marks"
+  as their own name for the currency (MARKS1), and the rename is the client's words alone.
+- **Not the currency, and unchanged:** DFU's two Mark jewellery slots, the King's Mark, the travel map's "Mark a
+  location", the blood marks' "Marks stay".
+- Pins: `test/drakes.test.js` (2; red on the tree before): the balance's words and two refusals, and a sweep of the
+  twelve files that show the currency for any word left saying "Mark"; the MARKS1, PROF and AUDIT 30/31 client pins
+  read the new words. Mutants: `tools/mutants/drakes.json` (10, all dead); `audit31.json`'s past-balance record and
+  `prof6.json`'s writ-filled record re-aimed by content. Patch notes: `PATCH-NOTES-Drakes.md`.
+
+## STRIKE-SHARED (2026-09-29, Mac: "Do #1") - a strike spell reaches a foe another player runs
+
+For Mac 4 of `01-Overview/Field-Bugs-2026-09-29g.md`, the shared-foe half. A Cast When Strikes spell on a foe
+another player runs (a cell's puppet, a dungeon room's foe on a joiner, a party member's quest foe or loose stand) now
+rides the hit to that foe's owner whole. The hit carries `sp`, the record through the cast frame's `castSpellOf`, and
+`lv`, the striker's level. The owner lands it on the real foe through the cast engine's foe door, and its damage
+counts as the striker's blow. A peer's soul trap is its caster's: the owner names the caster on the dead foe's record
+(`j`, `q`) and the caster rolls the soul into its own pack. A peer's watchman keeps WATCH1's door (a blow, nothing
+else).
+
+- **The relay is world132.** It reads neither field: a hit is fanned opaque, and a foes frame is fanned unparsed. The
+  number moved because the bundle's bytes did (`hitSpellOf`, `hitSpellFields` and `validFoeRecord` live in
+  `src/net/wire.js`). An older relay carries both fields untouched, and an older client reads past them.
+- Pins: `test/strikeshared.test.js` (7). Mutants: `tools/mutants/strikeshared.json` (16, all dead).

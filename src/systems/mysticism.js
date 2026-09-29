@@ -509,6 +509,17 @@ export function attemptSoulTrap(target, soulType, items, roll01, { azurasStarOnl
   return { allowDeath: false, alert: 'trapNoneEmpty', filled: null };
 }
 
+/** STRIKE-SHARED (2026-09-29): the running soul trap on `target` when ANOTHER PLAYER cast it - online, a peer's Cast
+ *  When Strikes lands on the foe's owner (hostMagic applySpellToFoe, `ctx.peerCaster`), which marks the new trap with
+ *  its caster (`by`). Its soul is that caster's, not the owner's: the owner's kill door reads no gem of its own for it
+ *  and names the caster on the dead foe's record (`j`, `q`), where the caster rolls the trap against its own pack as
+ *  the Oblivion Gate's court already does (world.js gateCourt `soulTrap`, WBX7) - and, as there, with no tether: the
+ *  foe fell on the owner's machine. Null for no trap, or a trap of the owner's own. */
+export function peerSoulTrapOf(target) {
+  const trap = (target?.activeEffects ?? []).find((a) => a.kind === 'soulTrap' && !a.ended);
+  return trap && typeof trap.by === 'string' ? trap : null;
+}
+
 /** ItemHelper.ResolveItemLongName's soul-trap tail (:352-368): a
  *  FILLED trap shows its soul in brackets, an empty one shows nothing.
  *  DFU left the "(empty)" alternative commented out at :365-368, so

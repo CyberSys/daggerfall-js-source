@@ -403,7 +403,7 @@ test('PROF4 pages: the Workbench at a Furniture Store - the saws for the logs he
   const bed = buttons().find((b) => b.textContent.startsWith('Plain Double Bed'));
   assert.match(bed.textContent, /wants its inputs/, 'no Linen');
   bed.onclick();
-  await press('Buy 2 from the furnisher - 4 Marks');
+  await press('Buy 2 from the furnisher - 4 Drakes');
   assert.deepEqual(bought, [['cloth:linen', 2]]);
   press('Small Oak Table');
   assert.match(text(), /Use a Heartwood for a plank - a step better \(1 stored\)/);

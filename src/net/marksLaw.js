@@ -95,4 +95,4 @@ export const exchangeGold = (marks) => marks * MARKS_BANK.goldPerMark;
 export const MARKS_RID_RE = /^[A-Za-z0-9_-]{8,40}$/;
 
 /** A balance as a person reads it: "1,240 Marks", "1 Mark". */
-export const marksText = (n) => `${Number(n).toLocaleString('en-US')} ${n === 1 ? 'Mark' : 'Marks'}`;
+export const marksText = (n) => `${Number(n).toLocaleString('en-US')} ${n === 1 ? 'Drake' : 'Drakes'}`;

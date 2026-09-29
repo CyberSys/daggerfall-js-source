@@ -210,7 +210,7 @@ export function drawProfessionsPage(detail, rerender, kit) {
       card.disabled = locked || chosen === s.id || !!t.respec;
       if (s.later) card.append(el('i', 'prof-cost', LATER_WORDS[s.later] ?? 'Comes with a later work'));
       const armedHere = _armed === `${r}|${s.id}`;
-      if (!locked && chosen && chosen !== s.id && !t.respec) card.append(el('i', 'prof-cost', armedHere ? `Press again: ${RESPEC.marks.toLocaleString('en-US')} Marks, in effect in ${RESPEC.days} days` : `Change: ${RESPEC.marks.toLocaleString('en-US')} Marks`));
+      if (!locked && chosen && chosen !== s.id && !t.respec) card.append(el('i', 'prof-cost', armedHere ? `Press again: ${RESPEC.marks.toLocaleString('en-US')} Drakes, in effect in ${RESPEC.days} days` : `Change: ${RESPEC.marks.toLocaleString('en-US')} Drakes`));
       if (t.respec?.to === s.id && t.respec?.rank === r) card.append(el('i', 'prof-cost', `In effect from ${new Date(t.respec.at * 1000).toUTCString().slice(0, 16)}`));
       card.onclick = async () => {
         if (chosen && !armedHere) { _armed = `${r}|${s.id}`; rerender(); return; }
@@ -311,7 +311,7 @@ export function drawStoresPage(detail, rerender, kit) {
   const pick = rows.find((r) => r.material === _stores.picked);
   if (pick) {
     const bar = el('div', 'prof-matbar');
-    bar.append(el('span', 'prof-matline', `${pick.name} x${pick.total} - tier ${pick.tier} - ${pick.value} Mark${pick.value === 1 ? '' : 's'} each`));
+    bar.append(el('span', 'prof-matline', `${pick.name} x${pick.total} - tier ${pick.tier} - ${pick.value} Drake${pick.value === 1 ? '' : 's'} each`));
     const qty = el('input', 'prof-qty');
     qty.type = 'number'; qty.min = '1'; qty.max = String(Math.min(WITHDRAW_MAX, pick.total)); qty.value = String(Math.min(_stores.qty, pick.total, WITHDRAW_MAX));
     qty.oninput = () => { _stores.qty = Math.max(1, Math.min(WITHDRAW_MAX, pick.total, Math.floor(Number(qty.value) || 1))); };
@@ -552,7 +552,7 @@ function drawAnvil(detail, rerender, { el, divider }) {
       const sale = stockOf(inp.key);
       if (sale && have < inp.n && forge.kind === 'shop' && p.stock) {
         const need = inp.n - have;
-        const buy = el('button', 'act', `Buy ${need} from the smith - ${sale.marks * need} Marks`);
+        const buy = el('button', 'act', `Buy ${need} from the smith - ${sale.marks * need} Drakes`);
         buy.type = 'button';
         buy.disabled = _anvil.busy;
         buy.onclick = async () => {
@@ -783,7 +783,7 @@ function drawWorkbench(detail, rerender, { el, divider }) {
       const sale = stockOf(inp.key);
       if (sale?.counter === 'furnisher' && have < inp.n && bench.kind === 'shop' && p.stock) {
         const need = inp.n - have;
-        const buy = el('button', 'act', `Buy ${need} from the furnisher - ${sale.marks * need} Marks`);
+        const buy = el('button', 'act', `Buy ${need} from the furnisher - ${sale.marks * need} Drakes`);
         buy.type = 'button';
         buy.disabled = _bench.busy;
         buy.onclick = async () => {
