@@ -98,14 +98,15 @@ import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // VC6c: a covered sun t
 import { BAYER_GLSL, BAYER_MEAN } from './orderedDither.js';   // EL6: the port's one Bayer - the dither at the byte, the AO's rotation
 import { spherePlanes, recordVisible, subMeshVisible, batchVisible, ZERO_ORIGIN } from './bounds.js';   // EL5: the emission replay culls by the records' spheres too (a leaf's import: bounds.js touches no GL)
 import { billboardKey } from './billboardKey.js';   // AUDIT 68 S16-bbkey-stale-shadow-reach: re-keyed here, however the batch reached the records
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** The kill door: `?air=off` keeps EL1 and EL2 and drops the three effects. */
 export function airOn(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('air') !== 'off';
+  return pageParam('air', search) !== 'off';   // PERF-URL
 }
 /** EL8: the contact shadows' door - `?contact=off` (the air's shape). */
 export function contactOn(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('contact') !== 'off';
+  return pageParam('contact', search) !== 'off';   // PERF-URL
 }
 
 /** The AO image's scale of the world viewport, and the bloom's and shafts'. */
