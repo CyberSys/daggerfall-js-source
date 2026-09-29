@@ -2197,3 +2197,39 @@ answer too depends on which way the body moves. The staircase bites 9 times down
 motor's own rest (0.078 over the seat, where DISC29-A's pins stood the feet by hand at 0.027). The acting FLATS keep
 their box - DFU gives a flat's action a trigger BoxCollider (RDBLayout.cs:977-987). `test/audit0929_actions.test.js`
 (6, three on the real BLOCKS.BSA); `tools/mutants/audit0929_actions.json` (11, all dead - D3's among them).
+
+## WW-LID - A lift the body has no room for is never taken (2026-09-29, Cruor)
+
+"Water walking is still evil" - "I fell out the map again..", the dungeon seen from outside it, Water Walking on the
+effect list. FOUND BY FUZZING, not guessed: a water walker and a plain swimmer driven at random (float up and down,
+run, strafe, 12-60 fps) through every flooded RDB block over the real BLOCKS.BSA, with a probe that asks whether the
+body's centre crossed a face in one frame. The first road out, W0000021.RDB: a flooded room with its ceiling at 3.2
+and, in its wall, a doorway whose lintel is at 2.8, the passage's ceiling sloping down behind it. A crouched swimmer
+(0.9 tall) floated to the ceiling and swam at the doorway. Water walking moves a swimmer at the LAND speed
+(LevitateMotor.cs:116-122, ported verbatim), so one step carried the LOWER sphere under the lintel's floor-sloped
+underside before the head had met the lintel; PH1's one-way floor (above) set the body ON it, and the head sphere, its
+centre now over the room's ceiling, was pushed out on top of that. A swimmer's slower stroke lets the head meet the
+lintel first and be turned back - which is why only water walking did it (through the real motor: 16 of 16 water
+walker runs out through the ceiling, 0 of 16 swimmers). With that road shut the fuzz found two more, a rib hung under
+the ceiling through the crouched body's waist (straddled, so PH1 lifted it into the ceiling) and the step ladder
+lifting the body onto such a rib. Four laws in `player/collider.js`, the rest of the resolve untouched:
+
+- **S - the sideways pass straddles too.** DISC28-G's law - a surface is a floor to the lower sphere only below the
+  head's centre - held for the rising pass alone; `_moveStep`'s horizontal resolve hands it now (`straddle`, the
+  renamed `rising`). A standing body's band is empty, so only a crouched body (0.9, axis 0.2) and the swim sphere change.
+- **H - a resolve never carries the head up through a face.** When a resolve has raised the body past a skin, the path
+  its head's centre rose along is asked (a ray from a skin under the centre - `rayTriangle` takes no hit nearer than
+  1e-4, and a centre standing ON a ceiling's plane went through it unasked), and a face across it refuses the rise, as
+  the too-tight clamp does. The refusal says so (`out.refused`).
+- **B - a refused sideways pass is not taken.** The refusal reverts to the resolve's entry, which is the move itself -
+  so a body with a rib through its waist and no room over it passed clean through the rib. It is stopped now, and the
+  step ladder asks whether the rib is a step.
+- **L - a refused rung is no headroom.** The too-tight revert hands a raised rung back at the raised height, which the
+  ladder read as room gained.
+
+Each is held by its own case in `test/fb0929b_waterwalk.test.js` (6: the motor at the doorway, the stride sweep, the
+high doorway for S, the ribs for B, H and L, the crawl slot for H, the real block's step behind ARENA2); every scene is
+built there in the doorway's shape, never read off the block. `tools/mutants/fb0929b_waterwalk.json`, 10 mutants, 10
+dead. The fuzz, before and after, over all 32 flooded blocks (W0000000-W0000029, S0000160-S0000161): see `01-Overview/Field-Bugs-2026-09-29b.md` WW-LID.
+PH1's own cases (a floor the body sank under, its head over it) are unchanged and pinned; PH1's source pin re-aimed to
+the renamed line, and DISC28-G's and AUDIT DISC28's `rising` mutants with it.
