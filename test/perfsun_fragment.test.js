@@ -162,7 +162,9 @@ test('PERF-SUN: the tree sway is CLEARED as a suspect - the lean is baked at bui
   }
   assert.doesNotMatch(w, /floraSwayOf\([^)]*\)[^\n]*\n[^\n]*for \(const b of p\.batches\)/, 'nothing recomputes a lean inside the draw walk');
   // ...but the DOOR beside it was parsing the query string once a frame
-  assert.match(read('src/systems/windDrive.js'), /let _swayOff;/, 'the ?sway=off door is read once, as ?cull=off is');
+  // AUDIT PERF-URL A4: read through the page's one parse (systems/pageQuery.js) - held BY COUNT in
+  // test/perfurl_doors.test.js, where a hundred reads of one search mint one URLSearchParams across nine doors
+  assert.match(read('src/systems/windDrive.js'), /return pageParam\('sway', search\) === 'off';/, 'the ?sway=off door is read once a search');
   assert.equal(swayDisabled('?sway=off'), true);
   assert.equal(swayDisabled('?sway=on'), false, 'and it re-reads when the search really changes');
   assert.equal(typeof floraSwayOn(''), 'boolean');
@@ -235,12 +237,15 @@ test('AUDIT F1: the sway door\u2019s state is declared ABOVE its reader', () => 
   // init today - but this port has already lost a boot to one end of a
   // module cycle reaching the other too early (the HOTFIX black screen),
   // and the fix for that class is to not write the shape at all.
+  // AUDIT PERF-URL A4: the door keeps no state now - the memo is the page's one parse - so the law moves with the
+  // state: pageQuery.js declares its two `let`s above the function that reads them
   const w = read('src/systems/windDrive.js');
-  const decl = w.indexOf('let _swaySearch;');
-  const reader = w.indexOf('export function swayDisabled');
-  assert.ok(decl > 0 && reader > 0, 'both are there');
-  assert.ok(decl < reader, 'the state is declared before the function that reads it');
-  assert.ok(w.indexOf('let _swayOff;') < reader, '...and so is its sibling');
+  assert.doesNotMatch(w, /let _sway(?:Off|Search)\b/, 'no private copy of the memo');
+  const q = read('src/systems/pageQuery.js');
+  const reader = q.indexOf('function parsed(search)');
+  assert.ok(reader > 0 && q.indexOf('let _search = null;') > 0 && q.indexOf('let _params = null;') > 0, 'the home and its state are there');
+  assert.ok(q.indexOf('let _search = null;') < reader, 'the state is declared before the function that reads it');
+  assert.ok(q.indexOf('let _params = null;') < reader, '...and so is its sibling');
 });
 
 

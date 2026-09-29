@@ -78,6 +78,7 @@ import { ALIGN } from './weaponAlign.js';
 // ui/nativePanel.js.
 import { NATIVE_W, NATIVE_H } from '../ui/nativePanel.js';
 import { weaponOffsetHeight } from '../ui/hudLarge.js';   // ROAD-D D10: LargeHUDUndockedOffsetWeapon / the docked force
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 export { NATIVE_W, NATIVE_H };
 
@@ -356,7 +357,7 @@ export const FLIP_STATES = Object.freeze(['Idle', 'StrikeDown', 'StrikeUp']);
  * what takes the tint, and the classic skin is where it is always drawn.
  */
 export function fpLightingOn(search = globalThis.location?.search ?? '') {
-  return !!getPref('firstPersonLighting') && new URLSearchParams(search).get('fplight') !== 'off';
+  return !!getPref('firstPersonLighting') && pageParam('fplight', search) !== 'off';   // PERF-URL
 }
 
 export function drawFpsWeapon(renderer, canvas, art, state, frame, {

@@ -40,6 +40,7 @@
 import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { buildProgram } from './glProgram.js';   // AUDIT 68 S17-gl-program-dup: the one compile and link
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** A JS number as a GLSL float literal (`${1}` is an int to the compiler): the clock's and the gust's derived
  *  literals below. */
@@ -154,7 +155,7 @@ export function wispCount(strength01, look = WISP_LOOK) {
 /** The wisps' switch: the enhanced skin, the `windWisps` pref, and
  *  `?wisps=off` the kill door. Read once a frame by the exterior hosts. */
 export function wispsOn(search = globalThis.location?.search ?? '') {
-  return isEnhanced() && !!getPref('windWisps') && new URLSearchParams(search).get('wisps') !== 'off';
+  return isEnhanced() && !!getPref('windWisps') && pageParam('wisps', search) !== 'off';   // PERF-URL
 }
 
 function mat4Multiply(out, a, b) {

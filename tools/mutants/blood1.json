@@ -1442,7 +1442,7 @@
   {
     "name": "AUDIT3-blood-off-does-not-exist",
     "file": "src/combat/bloodSwitch.js",
-    "old": "  getPref(BLOOD_PREF) !== false && new URLSearchParams(search).get('blood') !== 'off';",
+    "old": "  getPref(BLOOD_PREF) !== false && pageParam('blood', search) !== 'off';",
     "new": "  getPref(BLOOD_PREF) !== false;",
     "tests": [
       "test/blood1_decals.test.js"

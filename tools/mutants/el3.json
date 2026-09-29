@@ -2,7 +2,7 @@
   {
     "name": "door-ignored",
     "file": "src/render/airPass.js",
-    "old": "  return new URLSearchParams(search).get('air') !== 'off';",
+    "old": "  return pageParam('air', search) !== 'off';",
     "new": "  return true;",
     "tests": [
       "test/el3_air.test.js"

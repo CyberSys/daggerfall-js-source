@@ -38,7 +38,7 @@
   {
     "name": "contact-door-ignored",
     "file": "src/render/airPass.js",
-    "old": "  return new URLSearchParams(search).get('contact') !== 'off';",
+    "old": "  return pageParam('contact', search) !== 'off';",
     "new": "  return true;",
     "tests": [
       "test/el8_contact.test.js"
