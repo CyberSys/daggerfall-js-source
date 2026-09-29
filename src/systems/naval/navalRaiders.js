@@ -1,0 +1,74 @@
+// @ts-check
+// NAV-R (2026-09-28, Mac, of main's Overworld raiders: "Definitely want them to appear as ships") - WARM ASHES'
+// RAIDERS, STOOD AS SHIPS OF THE SEA. Main's OWS3 sails one raider a cell a life on the Overworld (systems/seaRaiders.js:
+// seeded, so every player sees the same sail at the same minute) and drew none in play - alongside, the mod's raid
+// boarded a ship the player was carried onto. Here a raider near a player at sea IS a pirate of the sea: its seed's own
+// class and name, sailing its seeded course (steered for where that course is RAIDER_LEAD_S on, so the sail on the map is
+// the sail met on the water) until its lookout (seaRaiders.js raiderSight: a day's 1,000 m, a night's 500) sights a
+// boat - then a captain like any pirate's (systems/naval/navalAI.js): the broadsides, the grapple, and Warm Ashes' own
+// raid on the boarded deck (WAQ_SHIP_SMALLRAID, scenes/navalHost.js beginFight). Sunk, taken, struck or given the slip,
+// it is SPENT for its life - OWS3's own law, so the map does not raise it again.
+//
+// ONE COPY. A raider is stood by the client it is near - the chased traveller's own, as OWS3's chase was - and said in
+// that client's word (NAV-G) like any ship it stands; a peer's copy of the same seed yields to the lower id, TV7b's
+// chaseYields law for a band two players chase.
+//
+// PURE: which raiders stand and which go, their class, and the course they steer; the host builds and steps them.
+
+import { SHIP_CLASSES } from './navalShips.js';
+import { seededRng } from '../seaRaiders.js';
+import { chaseYields } from '../travelBands.js';   // TV7b: a chase two players share, kept by the lower id - one law
+
+/** A raider within this of the player (m) is stood as a ship; one stood goes past RAIDER_DROP_M unless it fights. */
+export const RAIDER_STAND_M = 1200;
+export const RAIDER_DROP_M = 1700;
+/** Its course: the place its seeded course reaches this many seconds on is what it steers for. */
+export const RAIDER_LEAD_S = 45;
+/** At most this many raiders stand at once - the nearest (a raider is a cell's in a life: two is already a crowd). */
+export const RAIDER_SHIPS_MAX = 2;
+/** The seed's salt for its class (never the course's own stream). */
+const CLASS_SALT = 0x5ea1c1a5;
+
+/**
+ * A raider's class: a pirate the player's level has met (navalShips.js minLevel), drawn by weight off the raider's own
+ * seed - never the flagship (the small raid's crew, WAQ_SHIP_SMALLRAID, not the flagship's WAQ_SHIP_ATTACK_PIRATE).
+ */
+export function raiderClassOf(seed, level) {
+  const pool = SHIP_CLASSES.filter((c) => c.faction === 'pirate' && !c.flagship && c.minLevel <= Math.max(1, level | 0));
+  const list = pool.length ? pool : SHIP_CLASSES.filter((c) => c.faction === 'pirate' && !c.flagship).slice(0, 1);
+  const total = list.reduce((s, c) => s + c.weight, 0);
+  let x = seededRng((seed ^ CLASS_SALT) >>> 0)() * total;
+  for (const c of list) { if ((x -= c.weight) < 0) return c; }
+  return list[list.length - 1];
+}
+
+const flat = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
+
+/**
+ * THE PLAN of one refresh: which raiders to stand and which of mine go.
+ * @param {{ raiders: { id: string, seed: number, pos: number[] }[], me: number[], myId: string,
+ *   stood: Map<string, { pos: number[], engaged: boolean }>, peers: Map<number, string>, spent: Set<string> }} q
+ *   `raiders` the raiders about the player where they sail now (scene), `stood` mine by raider id, `peers` a peer's
+ *   copy's owner by raider seed, `spent` the raiders spent this life.
+ * @returns {{ stand: string[], drop: string[] }} raider ids
+ */
+export function raiderPlan({ raiders, me, myId, stood, peers, spent }) {
+  const byId = new Map(raiders.map((r) => [r.id, r]));
+  const drop = [];
+  for (const [id, s] of stood) {
+    const r = byId.get(id);
+    const owner = r ? peers.get(r.seed) : undefined;
+    // a peer's copy with the lower id keeps the raider. Else she leaves only out of sight - past the drop range and
+    // fighting no one: struck (to be boarded), spent (sheering off) or her life over (sailing on), she is still a ship
+    // on the water, never one that vanishes in view
+    if (owner !== undefined && chaseYields(myId, owner)) { drop.push(id); continue; }
+    if (!s.engaged && flat(s.pos, me) > RAIDER_DROP_M) drop.push(id);
+  }
+  const keep = [...stood.keys()].filter((id) => !drop.includes(id));
+  const candidates = raiders
+    .filter((r) => !stood.has(r.id) && !spent.has(r.id) && flat(r.pos, me) <= RAIDER_STAND_M)
+    .filter((r) => { const owner = peers.get(r.seed); return owner === undefined || !chaseYields(myId, owner); })
+    .sort((a, b) => flat(a.pos, me) - flat(b.pos, me));
+  const stand = candidates.slice(0, Math.max(0, RAIDER_SHIPS_MAX - keep.length)).map((r) => r.id);
+  return { stand, drop };
+}

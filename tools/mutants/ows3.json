@@ -281,8 +281,8 @@
   {
     "name": "OWS3-host-chaser-lost-off-screen",
     "file": "src/scenes/world.js",
-    "old": "kind: c ? 'raider ship chase' : 'raider ship', edge: !!c });",
-    "new": "kind: c ? 'raider ship chase' : 'raider ship', edge: false });",
+    "old": "kind: chase ? 'raider ship chase' : 'raider ship', edge: chase });",
+    "new": "kind: chase ? 'raider ship chase' : 'raider ship', edge: false });",
     "tests": [
       "test/ows3_raiders.test.js"
     ]

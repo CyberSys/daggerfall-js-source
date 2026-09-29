@@ -92,6 +92,8 @@ export function createSeaShip({ id, seed, classId, variant = 0, pos, yaw = 0, na
     id: String(id), seed: seed >>> 0, cls, hull: cls.hull, variant, names, owner,
     pos: [...pos], yaw: wrapAngle(yaw), speed: 0, turnNow: 0, sails: 1, heel: 0, settle: 0,
     mode: 'cruise', target: null, waypoint: null, damage,
+    /** NAV-R: a raider's own lookout (m; null: ENGAGE_RANGE) and the course it sails ([x, z]; null: a waypoint of its own) */
+    sight: null, course: null,
     guns: createGunDeck(cls.hull, { crewed: true, crewShare: () => damage.crewShare() }),
     /** attacker id -> the time of its last blow */
     provoked: new Map(),
@@ -206,7 +208,7 @@ export function stepCaptain(ship, world) {
     if (c.id === ship.id || c.gone) continue;
     const { dist } = bearingTo(ship, c.pos);
     if (hostile(ship, c, world)) {
-      if (dist < ENGAGE_RANGE && dist < enemyD) { enemy = c; enemyD = dist; }
+      if (dist < (ship.sight ?? ENGAGE_RANGE) && dist < enemyD) { enemy = c; enemyD = dist; }
     }
     // a threat is anything hostile that would take US
     const theyTakeUs = c.kind === 'ship' ? c.ship && hostile(c.ship, { kind: 'ship', faction: ship.cls.faction, id: ship.id }, world) : ship.cls.faction !== 'pirate' && (ship.provoked.get(c.id) ?? -Infinity) > world.now - PROVOKED_S;
@@ -326,8 +328,10 @@ function engageCourse(ship, enemy, d, reach, bowReach = 0) {
   return wrapAngle(ship.yaw + bearing - wantDeg * NAVAL_DEG * sign);
 }
 
-/** A cruise: toward a far waypoint, a new one on arrival (the host may give merchants a port's). */
+/** A cruise: toward a far waypoint, a new one on arrival (the host may give merchants a port's) - or a raider's own
+ *  seeded course, where the host sets one (NAV-R). */
 function cruiseCourse(ship, world) {
+  if (ship.course) return Math.atan2(ship.course[0] - ship.pos[0], ship.course[1] - ship.pos[2]);
   const r = world.random ?? Math.random;
   const wp = ship.waypoint;
   if (!wp || Math.hypot(wp[0] - ship.pos[0], wp[1] - ship.pos[2]) < 120 || !world.isWater(wp[0], wp[1])) {

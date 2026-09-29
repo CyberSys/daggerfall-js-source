@@ -337,7 +337,8 @@ import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
 import { raycastColliders, rayBoxEntry, collidersOf, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
-import { raidersNear, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
+import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
+import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
 import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
 import { isQualifyingThreatState } from '../systems/horseFollow.js';   // HCC: CollectThreats' qualification, the mod's own five-term test
@@ -5976,6 +5977,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     peerBoats: () => csaPeers.helmBoats(),
     warmAshesOn: () => warmAshesOn(),
+    raiderSpent: (id) => { tvRaid.spent.add(id); tvRaid.chase.delete(id); },   // NAV-R: the Overworld's law - spent for its life
     setting: (key) => (key === 'ShipsAtSea' ? getPref('naval-ships') : key === 'RaidPrize' ? getPref('naval-raid-prize') !== false : key === 'Boarders' ? getPref('naval-boarders') !== false : undefined),
     random: Math.random,   // THE ENGINE-PRNG RULE (Port-Ledger A)
   });
@@ -18676,11 +18678,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const grid = Math.max(1, state.terrainDistance ?? 3);
       for (const r of travelViewRaiders()) {
         const c = tvRaid.chase.get(r.id);
-        if (tvRaid.spent.has(r.id) && !c) continue;
-        const at = c ? c.pos : r;
+        const ship = navalRaidersOn() ? naval.raiderShipOf(r.seed) : null;   // NAV-R: stood as a ship of the sea - drawn where she sails
+        if (tvRaid.spent.has(r.id) && !c && !ship) continue;
+        const at = ship ? state.worldCoords(ship.pos) : c ? c.pos : r;
+        const chase = ship ? ship.chase : !!c;
         const px = pixelOfNative(at.x, at.z);
-        if (!c && Math.max(Math.abs(px.x - me.x), Math.abs(px.y - me.y)) > grid) continue;
-        marks.push({ key: `raid:${r.id}`, at: tvSceneKept(c ?? r, at.x, at.z, 2, true), label: RAIDER_LABEL, kind: c ? 'raider ship chase' : 'raider ship', edge: !!c });
+        if (!chase && Math.max(Math.abs(px.x - me.x), Math.abs(px.y - me.y)) > grid) continue;
+        marks.push({ key: `raid:${r.id}`, at: tvSceneKept(c ?? r, at.x, at.z, 2, true), label: RAIDER_LABEL, kind: chase ? 'raider ship chase' : 'raider ship', edge: chase });
       }
     }
     return marks;
@@ -18727,6 +18731,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  it), is lost or comes alongside. Ashore - or the mod off - no chase stands. */
   function raidFrame(dt) {
     const at = warmAshesOn() && isEnhanced() && walkMode && playerSpawned && (modes?.mode ?? 'exterior') === 'exterior' && !gamePaused() ? csaBoatUnderMe() : null;
+    // NAV-R (Mac: "Definitely want them to appear as ships"): with the sea fight on, the raiders are ITS ships - stood,
+    // sailed and fought by the naval host - so the chase is their captains' and the boarding their own raid on the deck;
+    // the mod's carried-aboard raid (raidContact) is for a sea with no fight
+    if (navalRaidersOn()) { tvRaid.chase.clear(); raidShips(!!at); return; }
     if (!at) { for (const id of tvRaid.chase.keys()) tvRaid.spent.add(id); tvRaid.chase.clear(); return; }   // ashore: every chase given up, for its life
     const scale = worldTimeScale();
     tvRaid.clock += dt * 1000 * Math.max(1, scale);   // the chase's patience runs on the world's clock
@@ -18749,6 +18757,28 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       tvRaid.chase.delete(id); tvRaid.spent.add(id);
       if (step.state === 'contact') raidContact();
     }
+  }
+  /** NAV-R: the naval host stands the raiders - the sea fight on and Warm Ashes' raiders sailing. */
+  const navalRaidersOn = () => navalOn() && !!naval?.enabled && warmAshesOn();
+  let _raidShipsAt = -Infinity;
+  /** NAV-R: the raiders about the traveller handed to the naval host each TV_RAID_LIST_MS - where each sails now and
+   *  where its seeded course is RAIDER_LEAD_S on, in the scene; ashore, none (the host lets its far ones go). */
+  function raidShips(atSea) {
+    const t = performance.now();
+    if (t - _raidShipsAt < TV_RAID_LIST_MS) return;
+    _raidShipsAt = t;
+    const list = [];
+    if (atSea) {
+      const ms = raidNowMs();
+      for (const r of travelViewRaiders()) {
+        if (tvRaid.spent.has(r.id)) continue;
+        const [x, z] = state.localFromWorld(r.x, r.z);
+        const a = raiderAt(r, ms + RAIDER_LEAD_S * 1000, tvRaidSea);
+        const [ax, az] = state.localFromWorld(a.x, a.z);
+        list.push({ id: r.id, seed: r.seed, pos: [x, 0, z], yaw: Math.atan2(ax - x, az - z), ahead: [ax, 0, az] });
+      }
+    }
+    naval.raiders(list, { sight: raiderSight(isNight(minuteNow())), spent: tvRaid.spent });
   }
   /** The route line's world points: the natives re-read into the scene each frame (the floating origin moves), each
    *  leg sampled four times so the line follows the ground it walks. The first point is the traveller's feet. */

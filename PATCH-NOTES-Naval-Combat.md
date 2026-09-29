@@ -14,6 +14,7 @@
 - Pirates attack anything. Merchantmen run from a fight. A navy hunts pirates, and it will hunt you once your notoriety is high enough.
 - Ships sail by the wind, keep off the rocks and fight broadside to broadside. A galley turns her bow toward you to fire her great guns.
 - Near ports you meet more merchantmen and navy ships. Out on the open bay you meet more pirates. Pirate flagships only appear once you are a seasoned captain.
+- Warm Ashes' raiders from the Overworld map are now real ships at sea. A raider close by is a pirate sloop, brigantine or galley with her own name and captain, sailing the course the map shows. When her lookout sights you (farther by day than by night), she closes to fight and board, and her boarding is Warm Ashes' raid on your own deck. Outsail her and she gives up and sheers off.
 - A hostile ship nearby counts as an enemy nearby. You cannot fast travel or rest while one is close, and a Travel Options journey stops for her, including a crossing by sea.
 
 ## Boarding and plunder

@@ -37,6 +37,8 @@
 //   setting(key) -> value                      the arc's own settings (NAVAL_SETTINGS)
 //   random() -> [0, 1)                         the engine draw (Port-Ledger A's rule: injectable, Math.random by default)
 //   groundY(x, z) -> y, shake(amount), peerBoats() -> [{ id, pos, vel, speed }], warmAshesOn() -> bool   (optional)
+//   raiderSpent(raiderId)                      NAV-R: a raider ship of mine sunk, struck, taken or given the slip - spent
+//                                              for its life (the Overworld's own law, scenes/world.js tvRaid.spent)
 // }
 
 import { createShotField } from '../systems/naval/navalShots.js';
@@ -59,6 +61,7 @@ import { quatRotate, quatLookRotation } from '../world/quat.js';
 import { constantCurve } from '../world/unityParticles.js';
 import { amGroupRollOwner } from '../systems/campEncounters.js';
 import { NAVAL_SFX, NAVAL_CLASSIC, NAVAL_FIRE_LOOP, navalSoundRange } from '../systems/naval/navalSounds.js';
+import { raiderPlan, raiderClassOf } from '../systems/naval/navalRaiders.js';
 
 /** The record's name in the save's per-mod slot (systems/modSaveData.js) - the port's own, as the Sigil Broker's is. */
 export const NAVAL_SAVE_VENDOR = 'NavalCombat';
@@ -104,6 +107,8 @@ export const OWNER_STALE_S = 6;
 /** A ship another player stands that goes down within this of my last blow on her is mine to answer for (s): her
  *  stander lands the hurt (the victim's law), and my word never reaches it - the sinking does, in their next word. */
 export const SINK_CREDIT_S = 20;
+/** NAV-R: a raider given the slip sheers off for its life: it steers for a point this far on, away from who slipped it. */
+export const RAIDER_SHEER_M = 3000;
 
 /** A boat's hull as an oriented box in the world: its MeshCollider's own bounds through its MeshObject (null before
  *  its mesh is known) - the shots' target, the ram's, the target card's, and the host's deck rays'. */
@@ -504,6 +509,61 @@ export function createNavalHost(deps) {
     const peers = on.peers?.() ?? [];
     standing = amGroupRollOwner(id, deps.feet(), peers, standing ? NAVAL_SHARE_RADIUS : NAVAL_SHARE_RADIUS * SHARE_HYSTERESIS);
     return standing;
+  }
+
+  // ── NAV-R: Warm Ashes' raiders, stood as ships (systems/naval/navalRaiders.js) ─────────────────────────────────────
+  /** A raider of mine busy at sea - fighting, running, boarded or going down: never let go of while it is. */
+  const raiderBusy = (e) => e.ship.mode === 'engage' || e.ship.mode === 'flee' || e.ship.boarded || boarding?.shipId === e.id
+    || e.ship.damage.state === SHIP_STATES.sinking;
+  /**
+   * The raiders about the player, where they sail now (the world host's, off seaRaiders.js - the shared clock's):
+   * `list` [{ id, seed, pos, yaw, ahead }] in the scene (`ahead` where the seeded course is RAIDER_LEAD_S on); `sight`
+   * the lookout's reach tonight or today; `spent` the raiders spent this life. Mine stand and go by raiderPlan; each
+   * steers its seeded course and looks out, until it is spent.
+   */
+  function raiders(list, { sight = null, spent = new Set() } = {}) {
+    if (!enabled) return;
+    const stood = new Map(), peers = new Map();
+    for (const e of sea.values()) {
+      if (!e.owner && e.raider) stood.set(e.raider.id, { pos: e.ship.pos, engaged: raiderBusy(e) });
+      else if (e.owner && e.ship.cls.faction === 'pirate') peers.set(e.ship.seed, e.owner);
+    }
+    const plan = raiderPlan({ raiders: list, me: deps.feet(), myId: myId(), stood, peers, spent });
+    for (const id of plan.drop) { const e = raiderEntry(id); if (e) drop(e); }
+    const level = deps.level?.() ?? 1;
+    for (const id of plan.stand) {
+      const r = list.find((x) => x.id === id);
+      const cls = raiderClassOf(r.seed, level);
+      if (!deps.isWater(r.pos[0], r.pos[2], cls.hull)) continue;   // a sail not yet on water deep enough for her hull
+      const e = launch({ seed: r.seed, classId: cls.id, pos: [r.pos[0], deps.seaY(), r.pos[2]], yaw: r.yaw });
+      if (e) e.raider = { id, chased: false, spent: false };
+    }
+    for (const e of sea.values()) {
+      if (e.owner || !e.raider || e.raider.spent) continue;
+      const r = list.find((x) => x.id === e.raider.id);
+      e.ship.sight = sight;
+      e.ship.course = r?.ahead ? [r.ahead[0], r.ahead[2]] : null;   // its life over, it sails on for a waypoint of its own
+    }
+  }
+  const raiderEntry = (raiderId) => [...sea.values()].find((e) => !e.owner && e.raider?.id === raiderId) ?? null;
+  /** A raider spent for its life: said to the world host once; one given the slip sheers off and looks for no one. */
+  function spendRaider(e, sheerOff) {
+    e.raider.spent = true;
+    deps.raiderSpent?.(e.raider.id);
+    if (!sheerOff) return;
+    const me = deps.feet();
+    const dx = e.ship.pos[0] - me[0], dz = e.ship.pos[2] - me[2], d = Math.hypot(dx, dz) || 1;
+    e.ship.sight = 0;
+    e.ship.course = [e.ship.pos[0] + (dx / d) * RAIDER_SHEER_M, e.ship.pos[2] + (dz / d) * RAIDER_SHEER_M];
+  }
+  /** The ship a raider of this seed sails as - mine or a peer's copy - for the Overworld's mark: where, and whether it
+   *  chases me. Null: none stands. */
+  function raiderShipOf(seed) {
+    for (const e of sea.values()) {
+      if (e.ship.seed !== (seed >>> 0) || e.ship.cls.faction !== 'pirate' || (!e.owner && !e.raider)) continue;
+      return { pos: e.ship.pos, chase: e.ship.mode === 'engage' && e.ship.target === myId() };
+    }
+    return null;
   }
 
   // ── contacts the captains see ────────────────────────────────────────────────────────────────────────────────────
@@ -993,7 +1053,7 @@ export function createNavalHost(deps) {
       const mine = [...sea.values()].filter((e) => !e.owner);
       const out = director.step(d, {
         density, player: deps.feet(), players, level: deps.level?.() ?? 1, seaY,
-        ships: mine.map((e) => ({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, engaged: e.ship.mode === 'engage' || e.ship.boarded || boarding?.shipId === e.id })),
+        ships: mine.map((e) => ({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, engaged: e.ship.mode === 'engage' || e.ship.boarded || boarding?.shipId === e.id || !!e.raider })),   // NAV-R: a raider is its own law's to despawn (raiders()), and counts in the density
         isOpenWater: (x, z, hull) => deps.isWater(x, z, hull), nearPort: !!w.nearPort, notoriety: notoriety.get(crown.name),
         seedBase: seedBaseOf(w.px ?? 0, w.py ?? 0, w.day ?? 0),
       });
@@ -1014,6 +1074,13 @@ export function createNavalHost(deps) {
       for (const v of out.volleys) fire({ shooter: e.id, wireShooter: e.n, hull: s.hull, pose, solution: v.solution, skill: s.cls.skill });
       for (const bsol of out.barrels) fire({ shooter: e.id, wireShooter: e.n, hull: s.hull, pose, solution: bsol, skill: s.cls.skill });
       if (out.grapple && !boarding && boat && out.grapple === myId() && setting('Boarders', true) !== false) startBoarding('repel', e, boat);
+    }
+    // NAV-R: a raider of mine sunk, struck, taken or boarding, or one that chased me and lost me, is spent for its life
+    for (const e of sea.values()) {
+      if (e.owner || !e.raider || e.raider.spent) continue;
+      if (e.ship.mode === 'engage' && e.ship.target === myId()) e.raider.chased = true;
+      const slipped = e.raider.chased && e.ship.mode === 'cruise';
+      if (slipped || e.ship.boarded || boarding?.shipId === e.id || e.ship.damage.state !== SHIP_STATES.afloat) spendRaider(e, slipped);
     }
     // an owner gone from the room takes their ships with them (checked every OWNER_SWEEP_S)
     if (deps.online && clock - lastSweep >= OWNER_SWEEP_S) { lastSweep = clock; sweepOwners(new Set((deps.online.peers?.() ?? []).map((p) => p.id))); }
@@ -1286,6 +1353,7 @@ export function createNavalHost(deps) {
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     leaveShipGate, raidEnded, placeQuestFoe,
     newSaveData, getSaveData, restoreSaveData,
+    raiders, raiderShipOf,   // NAV-R
     /** Whether a hostile ship is near - Come Sail Away's time scale refuses to run with one (AreEnemiesNearby). */
     hostileNear() {
       for (const e of sea.values()) {
