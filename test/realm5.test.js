@@ -19,6 +19,7 @@ import { LETTER_OF_CREDIT_TEMPLATE as INV_LETTER } from '../src/systems/inventor
 import { GuildBook } from '../src/net/guildBook.js';
 import { realmIo, realmCreate, realmPut, realmFetch, createRealmSession, realmGoldAct } from '../src/systems/realmSaves.js';
 import { freshSave, layRecord } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const { subtle } = webcrypto;
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -79,9 +80,9 @@ async function stand() {
     return res;
   };
   async function player(handle, save, { renown = GUILD_FOUND_RENOWN } = {}) {
-    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
+    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
     const reg = await worker.fetch(new Request('https://accounts.invalid/v1/auth/register', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ secret: g.secret, handle, password: 'a good long one' }),
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ secret: g.secret, handle, password: 'a good long one', ...ACCEPTED }),
     }), env);
     assert.equal(reg.status, 200, `${handle} registers`);
     const storage = fakeStorage();

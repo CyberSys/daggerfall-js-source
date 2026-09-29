@@ -41,6 +41,7 @@ import {
 import { GLYPH_RGBA, GLYPH_PATH, GLYPH_MARK } from '../src/ui/playerBadge.js';
 import { GLYPH_LABEL } from '../src/ui/enhancedAccount.js';
 import { REFUSALS, accountRefusalText } from '../src/net/accountClient.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -159,7 +160,7 @@ async function standService(vars = {}) {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const account = async (handle) => {
-    const guest = (await call('POST', '/v1/auth/guest', {})).body;
+    const guest = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
     if (handle) await register({ db: env.DB, subtle, rand, nowS: Math.floor(Date.now() / 1000) }, guest.id, { handle, password: 'a-long-enough-password' });
     return guest;
   };

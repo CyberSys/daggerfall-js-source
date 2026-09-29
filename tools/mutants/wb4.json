@@ -2,7 +2,7 @@
   {
     "name": "WB4-the-body-out-of-the-cone",
     "file": "src/net/gateStrike.js",
-    "old": "(d <= BOSS_R || Math.abs(wrap(Math.atan2(dx, dz) - atk.yw))",
+    "old": "(d <= P.bossR || Math.abs(wrap(Math.atan2(dx, dz) - atk.yw))",
     "new": "(false || Math.abs(wrap(Math.atan2(dx, dz) - atk.yw))",
     "tests": [
       "test/wb4_gate_boss.test.js"
@@ -20,8 +20,8 @@
   {
     "name": "WB4-the-targets-discs-about-him",
     "file": "src/net/gateStrike.js",
-    "old": "case 'disc': return A.aim === 'self' ? d <= A.r :",
-    "new": "case 'disc': return true ? d <= A.r :",
+    "old": "case 'disc': return A.aim === 'self' ? d <= r :",
+    "new": "case 'disc': return true ? d <= r :",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "WB4-the-wrath-saved",
     "file": "src/net/gateStrike.js",
-    "old": "saved: A.el === 'fire' && A !== ATTACKS.wrath",
-    "new": "saved: A.el === 'fire'",
+    "old": "saved: L.el != null && A !== ATTACKS.wrath",
+    "new": "saved: L.el != null",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -245,8 +245,8 @@
   {
     "name": "WB4-the-throw-skipped",
     "file": "src/scenes/gateCourt.js",
-    "old": "    if (so.saved) dmg = fireShare(dmg, save(e));",
-    "new": "    if (false) dmg = fireShare(dmg, save(e));",
+    "old": "    if (so.saved) dmg = savedShare(dmg, save(e, so.el));",
+    "new": "    if (false) dmg = savedShare(dmg, save(e, so.el));",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "WB4-the-body-at-the-sprites-own-size",
     "file": "src/scenes/gateCourt.js",
-    "old": "    const w = sz.w * body.scale, h = sz.h * body.scale;",
-    "new": "    const w = sz.w, h = sz.h;",
+    "old": "    const w = sz.w * body.scale * P.size, h = sz.h * body.scale * P.size;",
+    "new": "    const w = sz.w * P.size, h = sz.h * P.size;",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -326,7 +326,7 @@
   {
     "name": "WB4-fire-never-saved",
     "file": "src/scenes/world.js",
-    "old": "    save: (e) => savingThrow(ELEMENTS.Fire, EFFECT_FLAGS.Fire, e),",
+    "old": "    save: (e, el = 'fire') => { const w = GATE_SAVES[el] ?? GATE_SAVES.fire; return savingThrow(w[0], w[1], e); },",
     "new": "    save: () => 100,",
     "tests": [
       "test/wb4_gate_boss.test.js"
@@ -353,7 +353,7 @@
   {
     "name": "WB4-the-strike-unflashed",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (!fire) flashPlayerDamage(dmg);",
+    "old": "      if (!el) flashPlayerDamage(dmg);",
     "new": "      if (false) flashPlayerDamage(dmg);",
     "tests": [
       "test/wb4_gate_boss.test.js"

@@ -19,6 +19,7 @@ import {
 import { renownXpFor } from '../src/net/renown.js';
 import { accountGuilds, REFUSALS, SESSION_KEY } from '../src/net/accountClient.js';
 import { r2, seatRealm } from './realmSeat.mjs';   // AUDIT REALM2 S2: a founding is a realm character's, paid on its record
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -63,13 +64,13 @@ async function stand() {
     }), env);
     return { status: res.status, body: await res.json().catch(() => null) };
   };
-  const guest = async () => (await call('/v1/auth/guest', {})).body.secret;
+  const guest = async () => (await call('/v1/auth/guest', { ...ACCEPTED })).body.secret;
   /** A registered account at `renown` (the service's own track - RENOWN-ACCOUNT: the account's, which every one of its
    *  characters stands at), and one of its characters. AUDIT REALM2 S2: a founder is a REALM character (`realm: true`) -
    *  a founding is paid on its record - and `at()` where that stands. */
   const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN, realm = false } = {}) => {
     const secret = await guest();
-    const reg = await call('/v1/auth/register', { secret, handle, password: 'a good long one' });
+    const reg = await call('/v1/auth/register', { secret, handle, password: 'a good long one', ...ACCEPTED });
     assert.equal(reg.status, 200, `${handle} registers`);
     const id = env.DB._raw.prepare('SELECT id FROM players WHERE handle_lc = ?').get(handle.toLowerCase()).id;
     if (realm) {
@@ -368,8 +369,8 @@ test('GUILD1 raced: every write decides on what it read - a rank moves, and a me
   raw.prepare('UPDATE guild_members SET rank = 2 WHERE player = ?').run(member.id);
   // an invitation withdrawn as it is answered: nobody joins
   const dana = await (async () => {
-    const secret = (await call('/v1/auth/guest', {})).body.secret;
-    await call('/v1/auth/register', { secret, handle: 'Dana', password: 'a good long one' });
+    const secret = (await call('/v1/auth/guest', { ...ACCEPTED })).body.secret;
+    await call('/v1/auth/register', { secret, handle: 'Dana', password: 'a good long one', ...ACCEPTED });
     return { secret, character: 'char-dana', id: raw.prepare('SELECT id FROM players WHERE handle_lc = ?').get('dana').id };
   })();
   await call('/v1/guilds/invite', { character: gm.character, handle: 'dana' }, gm.secret);

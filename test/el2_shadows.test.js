@@ -181,7 +181,9 @@ test('EL2: the receiver block and the depth shaders - six uniforms, no dynamic m
   assert.match(SHADOW_GLSL, /int c = d < uSunShadowParams\.x \* 0\.9 \? 0 : d < uSunShadowParams\.y \* 0\.9 \? 1 : 2;/, 'the cascade by view distance');
   assert.match(SHADOW_GLSL, /vec2 wA = 2\.0 - f, wB = 1\.0 \+ f;/, 'a 3x3 PCF - PERF-EXT5: in four bilinear taps that weigh its texels as its nine did');
   assert.match(SHADOW_GLSL, /float near = 0\.1;/, 'the cube near plane, the constant');
-  assert.match(SHADOW_GLSL, /if \(uSunShadowParams\.w <= 0\.0\) return 1\.0;/); assert.match(SHADOW_GLSL, /if \(far <= 0\.0\) return 1\.0;/);
+  assert.match(SHADOW_GLSL, /if \(uSunShadowParams\.w <= 0\.0\) return 1\.0;/);
+  // pointShadowAt's own guard, by its head: VOL1's pointShadowOne carries the same line, and a bare match took either
+  assert.match(SHADOW_GLSL, /float pointShadowAt\(int k, vec3 wp, vec3 n\) \{\n  vec4 P = uPointShadowParams\[k\];\n  float far = P\.w;\n  if \(far <= 0\.0\) return 1\.0;/, 'a caster with no map this frame is lit, not dark');
   assert.equal(DEPTH_FS, '#version 300 es\nprecision highp float;\nvoid main() {}');
   assert.match(DEPTH_BB_FS, /if \(texture\(uTex, vUV\)\.a < 0\.5\) discard;/);
   for (const [name, fs] of [['mesh', EL_MESH_FS], ['terrain', EL_TERRAIN_FS], ['char', EL_CHAR_FS]]) {

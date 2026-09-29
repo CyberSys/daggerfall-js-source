@@ -68,6 +68,7 @@ import { getPref } from './uiPrefs.js';
 import { armorBodyParts, equipTableOf } from './equip.js';   // LR4: the parts a piece covers, the foe's worn table
 import { registerEntityFold, registerWeaponDamageMod, newMods, EMPTY_MODS } from './entityMods.js';   // RF1: the fold is one of the entity's, read once per channel
 import { templateByIndex, itemBaseValue, isAmmunition } from './itemTemplates.js';   // AUDIT 68 S27-ammo-arrow-only: the ammunition registry's home
+import { rriVariantWord } from './rriItems.js';   // DISC29-B: the word Roleplay & Realism: Items' mint put before the template's name
 import { STAT_KEYS_ORDER } from './statMods.js';
 import { SKILL_NAMES, SKILL_COUNT } from './skills.js';
 import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';
@@ -517,16 +518,43 @@ export function legendariesFor(item) {
 // ── the mint ────────────────────────────────────────────────────────
 /** The item's name for a tier: "Sentinel's Cuirass of the Bear"
  *  (prefix, the template, suffix). A Magic item has one word, a Rare
- *  both, a Legendary its record's name. */
+ *  both, a Legendary its record's name.
+ *
+ *  DISC29-B (Julian on Discord: a coloured-tier "iron" helmet his class was refused as leather): "the template" is the
+ *  template's name AS THE MINT WROTE IT - Roleplay & Realism: Items puts Brigandine, Fur or Mail before it
+ *  (rriItems.js rriVariantWord), and the class check reads that make (a brigandine helmet is leather to it, by the
+ *  mod's design). Built from the bare template the word was gone: the list said "Iron Sentinel's Helmet", and the
+ *  refusal read as a bug. */
 export function rarityName(item, tier, affixes) {
-  const base = templateByIndex(item.templateIndex)?.name ?? item.name ?? '';
-  const pre = affixes.find((a) => AFFIX_KINDS[a.id].slot === 'prefix');
-  const suf = affixes.find((a) => AFFIX_KINDS[a.id].slot === 'suffix');
+  const template = templateByIndex(item.templateIndex)?.name;
+  return nameAround(template != null ? rriVariantWord(item) + template : (item.name ?? ''), tier, affixes);
+}
+const nameAround = (base, tier, affixes) => {
+  const pre = affixes.find((a) => AFFIX_KINDS[a?.id]?.slot === 'prefix');
+  const suf = affixes.find((a) => AFFIX_KINDS[a?.id]?.slot === 'suffix');
   const parts = [];
   if (pre) parts.push(affixWord(pre, tier));
   parts.push(base);
   if (suf) parts.push(affixWord(suf, tier));
   return parts.join(' ');
+};
+
+/** DISC29-B: THE NAMES A SAVE KEPT. A Magic or Rare piece of Roleplay & Realism: Items armour rolled before the fix
+ *  carries the name built from the bare template; on load it is given the word its mint wrote ("Sentinel's Helmet of
+ *  the Bear" -> "Sentinel's Brigandine Helmet of the Bear"). Only a name that IS that old build moves - a piece whose
+ *  make has no word (leather, the mod off) or whose name is anything else is left as it came - so a second load finds
+ *  nothing to do. In place, as the save's other repairs are; answers how many were renamed. */
+export function repairRarityNames(items) {
+  let n = 0;
+  for (const it of Array.isArray(items) ? items : []) {
+    if (!it || typeof it !== 'object' || (it.rarity !== 'magic' && it.rarity !== 'rare') || !Array.isArray(it.affixes) || !Object.isExtensible(it)) continue;
+    const word = rriVariantWord(it);
+    const template = templateByIndex(it.templateIndex)?.name;
+    if (!word || template == null || it.name !== nameAround(template, it.rarity, it.affixes)) continue;
+    it.name = nameAround(word + template, it.rarity, it.affixes);
+    n++;
+  }
+  return n;
 }
 
 /** The gold the affixes add. */

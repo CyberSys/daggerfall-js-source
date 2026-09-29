@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 
 import { ATTACKS, ATTACK_BY_ID, BOSS_R, COURT_CENTRE, COURT_R, PHASE_AT, PHASE3_WINDUP } from '../src/net/gateBrain.js';
 import {
-  inAttack, chargeHead, chargeStrikes, strikeVerdict, blowOf, strikeDamage, fireShare, telegraphAt, segmentDistance, STRIKE_LATE_MS,
+  inAttack, chargeHead, chargeStrikes, strikeVerdict, blowOf, strikeDamage, savedShare, telegraphAt, segmentDistance, STRIKE_LATE_MS,
 } from '../src/net/gateStrike.js';
 import {
   bossAct, bossFrame, bossGlow, bossPlace, bossLookOf, BOSS_LOOKS, BOSS_CUES, ATTACK_COLORS, WARD_COLOR, EMBER_COLOR, FALL_MS, FLINCH_MS,
@@ -102,7 +102,7 @@ test('WB4 what a strike does: a share of the struck player\'s own maximum health
   assert.equal(strikeDamage(0.3, 40, -5), 12, 'a base is never a heal');
   assert.equal(strikeDamage(0.001, 10), 1, 'at least one');
   assert.ok(strikeDamage(ATTACKS.wrath.pct, 900) > 900, 'more than any health');
-  assert.equal(fireShare(40, 50), 20); assert.equal(fireShare(40, 0), 0); assert.equal(fireShare(40, 250), 40); assert.equal(fireShare(41, 50), 20);
+  assert.equal(savedShare(40, 50), 20); assert.equal(savedShare(40, 0), 0); assert.equal(savedShare(40, 250), 40); assert.equal(savedShare(41, 50), 20);   // WB8b: fireShare, for every element now
   const t1 = telegraphAt(W('slam'), 1, 10000 - ATTACKS.slam.windup / 2);
   assert.equal(t1.t, 0.5); assert.equal(t1.landing, false); assert.equal(t1.key, 'slam');
   const w3 = Math.round(ATTACKS.slam.windup * PHASE3_WINDUP);
@@ -352,7 +352,7 @@ test('WB4 the court\'s driver, the strikes: each attack judged once against my f
   await tick(h, 9000, state({ atk: slam }));
   assert.equal(h.struck.length, 0, 'nothing before the landing');
   await tick(h, 10005);
-  assert.deepEqual(h.struck, [[90, { fire: false, name: 'Ground Slam' }]], 'WBX4: 40% of my 200, and its 10');
+  assert.deepEqual(h.struck, [[90, { fire: false, el: null, name: 'Ground Slam' }]], 'WBX4: 40% of my 200, and its 10');
   await tick(h, 10050); await tick(h, 10100);
   assert.equal(h.struck.length, 1, 'judged once');
   const nova = W('nova', { i: 6, at: 12001 });
@@ -362,7 +362,7 @@ test('WB4 the court\'s driver, the strikes: each attack judged once against my f
   const hf = W('hellfire', { i: 7, at: 13001, tg: [[1, 1]] });
   await tick(h, 13000, state({ atk: hf, phase: 2 }));
   await tick(h, 13001);
-  assert.deepEqual(h.struck[1], [33, { fire: true, name: 'Hellfire' }], 'WBX4: 30% of 200 and its 6, halved by my throw');
+  assert.deepEqual(h.struck[1], [33, { fire: true, el: 'fire', name: 'Hellfire' }], 'WBX4: 30% of 200 and its 6, halved by my throw');
   const r = court({ feet: [1, 0, 1], save: 0 });
   await tick(r, 13000, state({ atk: hf, phase: 2 })); await tick(r, 13001);
   assert.deepEqual(r.struck, []); assert.deepEqual(r.said, [COURT_STRIKE_TEXT.resisted('Hellfire')]);
@@ -446,7 +446,8 @@ test('WB4 the court\'s driver, the voice and the body: the wind-up cued at the w
 test('WB4 the seams, by source: the world host makes the court on the link, frames it with the gate\'s frame, draws its body with the peers, hands its glow and its telegraph to the dungeon arm, judges fire by the saving throw and lands a blow through the dungeon context\'s door; the dungeon arm lights and draws it in the court; the door has the three signs a foe\'s blow has (mutants: each seam removed)', () => {
   const w = read('src/scenes/world.js');
   assert.match(w, /const gateCourt = gateLink \? createGateCourt\(\{/);
-  assert.match(w, /save: \(e\) => savingThrow\(ELEMENTS\.Fire, EFFECT_FLAGS\.Fire, e\),/);
+  assert.match(w, /save: \(e, el = 'fire'\) => \{ const w = GATE_SAVES\[el\] \?\? GATE_SAVES\.fire; return savingThrow\(w\[0\], w\[1\], e\); \},/);   // WB8b: the throw against his aspect's element
+  assert.match(w, /fire: Object\.freeze\(\[ELEMENTS\.Fire, EFFECT_FLAGS\.Fire\]\),\n\s*frost: Object\.freeze\(\[ELEMENTS\.Frost, EFFECT_FLAGS\.Frost\]\),\n\s*shock: Object\.freeze\(\[ELEMENTS\.Shock, EFFECT_FLAGS\.Shock\]\),\n\s*poison: Object\.freeze\(\[ELEMENTS\.DiseaseOrPoison, EFFECT_FLAGS\.Poison\]\),/);
   assert.match(w, /strike: \(dmg, how\) => modes\?\.dungeonCtx\?\.strikePlayer\?\.\(dmg, how\),/);
   assert.match(w, /feet: \(\) => \(playerSpawned && modes\?\.gateArenaDay\?\.\(\) != null \? player\.feetAt\(\) : null\),/);
   // the frame's own, every online frame after the court's day is read (AUDIT WBX F10's is a second, in the collapse alone)
@@ -460,5 +461,5 @@ test('WB4 the seams, by source: the world host makes the court on the link, fram
   const bb = wm.indexOf('renderer.drawBillboards([...dungeonCtx.billboardBatches'), tg = wm.indexOf('if (isGateArena(dungeonLoc)) host.drawGateCourt?.({ proj, view, eye: mwv.eye });'), foes = wm.indexOf('dungeonCtx.drawFoes(dt, canvas');
   assert.ok(bb > 0 && tg > bb && tg < foes, 'the telegraph after the court and its billboards, before drawFoes\' screen quads end the world pass');
   const dc = read('src/scenes/dungeonContext.js');
-  assert.match(dc, /strikePlayer\(dmg, \{ fire = false \} = \{\}\) \{\n\s*if \(!\(dmg > 0\)\) return;\n\s*audio\.playOneShot\(fire \? SOUND\.Burning : hitSoundFor\(null\), PLAYER_HIT_VOLUME\);\n\s*hurtPlayer\(dmg\);\n\s*if \(!fire\) flashPlayerDamage\(dmg\);\n\s*playPlayerVoice\(audio, playerPainVoice\(playerEntity, dmg\)\);/);
+  assert.match(dc, /strikePlayer\(dmg, \{ fire = false, el = fire \? 'fire' : null \} = \{\}\) \{\n\s*if \(!\(dmg > 0\)\) return;\n\s*const cast = GATE_STRIKE_CAST\[el\];\n\s*if \(cast != null\) audio\.playOneShotId\?\.\(cast, PLAYER_HIT_VOLUME\);\n\s*else audio\.playOneShot\(el === 'fire' \? SOUND\.Burning : hitSoundFor\(null\), PLAYER_HIT_VOLUME\);\n\s*hurtPlayer\(dmg\);\n\s*if \(!el\) flashPlayerDamage\(dmg\);\n\s*playPlayerVoice\(audio, playerPainVoice\(playerEntity, dmg\)\);/);   // WB8b: his frost, lightning and venom unflashed too, each in its element's cast
 });

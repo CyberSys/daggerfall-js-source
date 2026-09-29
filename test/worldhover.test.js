@@ -34,6 +34,7 @@ import { foldQuickLoot, quickLootWheel, resetQuickLoot } from '../src/systems/qu
 import { PREF_DEFAULTS, setPref } from '../src/systems/uiPrefs.js';
 import { CROSSHAIR_ARM, crosshairCentreY } from '../src/ui/hudCrosshair.js';
 import { hudScale } from '../src/ui/hud.js';
+import { _frameForTests, DRAW_FRAMES_UNDRAWN } from '../src/ui/drawWatchdog.js';   // DISC29-D: frames that pass undrawn
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -521,7 +522,15 @@ test('AUDIT-WH2 L3-F2: the plaque has a heartbeat - frames that stop coming take
       armed = null;
       showWorldPlaque(resolveHover(hit('person:1'), { name: () => ({ title: 'Marcus Grey' }) }));
       assert.ok(armed, 'an unchanged frame re-arms it too');
+      // DISC29-D: a frame SLOWER than the timer is not a stop - the timer fires with no frame gone by undrawn, and
+      // the plaque stays (the check re-arms) rather than coming down and going up again every slow frame
+      const slow = armed;
+      armed = null;
+      slow.fn();
+      assert.equal(n.classList.contains('on'), true, 'a slow frame keeps the plaque');
+      assert.ok(armed, 'and re-arms the heartbeat');
       // now the frames stop, and the timer is what is left
+      _frameForTests(DRAW_FRAMES_UNDRAWN);
       armed.fn();
       assert.equal(n.classList.contains('on'), false, 'a plaque nobody is drawing comes down by itself');
     });
@@ -2004,14 +2013,17 @@ test('AUDIT-WH P1/P2/P5: one answer a frame, and the mod\'s own cache on the one
 
   // every host says it at BOTH of its early returns, and nowhere else
   // does a frame escape between the stamp and the close.
-  for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeon.js']) {
+  // DISC29-D: ...and the two streaming hosts' INDOOR foot is a whole frame (the interior or the dungeon), so it closes
+  // the token WITH a sample - frameEnd - and the counter's script time reads indoors too. dungeon.js's early return is
+  // its UI overlay's, the frame that does next to nothing: it keeps frameAbort, as the held frame does everywhere.
+  for (const [f, modalFoot] of [['src/scenes/world.js', 'frameEnd'], ['src/scenes/exterior.js', 'frameEnd'], ['src/scenes/dungeon.js', 'frameAbort']]) {
     const src = read(f);
     assert.match(src, /import \{ frameBegin, frameEnd, frameAbort \}/, `${f}: takes the door`);
-    assert.equal((src.match(/frameAbort\(\);/g) ?? []).length, 2,
-      `${f}: the held frame and the modal return, both`);
+    assert.equal((src.match(/frameAbort\(\);/g) ?? []).length, modalFoot === 'frameAbort' ? 2 : 1,
+      `${f}: the held frame${modalFoot === 'frameAbort' ? ' and the overlay return, both' : ' alone'}`);
     assert.match(src, /if \(frameHeld\(\)\) \{ frameAbort\(\);/, `${f}: the held frame closes it`);
-    assert.match(src, /frameAbort\(\);[^\n]*\n\s+requestAnimationFrame\(frame\);\n\s+return;/,
-      `${f}: and so does the modal return, before it re-arms`);
+    assert.match(src, new RegExp(`${modalFoot}\\(\\);[^\\n]*\\n\\s+requestAnimationFrame\\(frame\\);\\n\\s+return;`),
+      `${f}: and the early return closes it too (${modalFoot}), before it re-arms`);
   }
 });
 

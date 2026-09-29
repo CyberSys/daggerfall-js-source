@@ -19,6 +19,7 @@ import { injectEnhancedStyle } from './enhancedStyle.js';
 import { inClassicScope } from './enhancedScope.js';
 import { replayClick } from './enhancedDialog.js';
 import { nativeMetrics } from './nativePanel.js';
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
 
 export const PICKER_WATCHDOG_MS = 150;
 
@@ -33,7 +34,7 @@ const el = (doc, tag, cls, text) => {
 
 export function closeEnhancedPicker() {
   if (!active) return;
-  clearTimeout(active.watchdog);
+  disarmDraw(active.watchdog);
   try { active.shell.remove(); } catch { /* gone */ }
   active = null;
 }
@@ -110,7 +111,7 @@ export function drawEnhancedPicker(picker, renderer, canvas, geo, doc = globalTh
     active.rows[sel]?.scrollIntoView?.({ block: 'nearest' });
     active.sel = sel;
   }
-  clearTimeout(active.watchdog);
-  active.watchdog = setTimeout(closeEnhancedPicker, PICKER_WATCHDOG_MS);
+  disarmDraw(active.watchdog);
+  active.watchdog = armDrawWatchdog(PICKER_WATCHDOG_MS, closeEnhancedPicker);   // DISC29-D: a frame undrawn, not a slow one
   return true;
 }

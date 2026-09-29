@@ -90,6 +90,9 @@ export function motionBagOf(player) {
     // top at the swim line), and the live capsule height (the billboard's parent is the capsule's centre)
     sneaking: !!player.isSneaking, freeze: player.freezeMotor || 0, onExteriorWater: !!player.onExteriorWater,
     height: Number.isFinite(player.height) ? player.height : 0,
+    // AUDIT PRE-MERGE 0929 D1/D2: and the yaw the motor moved by (its own, beside forward and strafe; NaN before a
+    // step) - the collision-trigger pass turns forward/strafe into the direction the body presses (actionContact)
+    yaw: Number.isFinite(player.moveYaw) ? player.moveYaw : NaN,
   };
 }
 export const CROUCH_JUMP_DELTA = 0.8;
@@ -467,7 +470,7 @@ export class PlayerMotor {
     // state (the swim quirk rides it too: waterWalking's Speed read).
     this.isRunning = false;
     this.moveForward = 0;
-    this.moveStrafe = 0;
+    this.moveStrafe = 0; this.moveYaw = NaN;   // AUDIT PRE-MERGE 0929 D1/D2: the yaw the walk moved by (motionBagOf's `yaw`)
     this.moveSpeed = 0;
     this.isSneaking = false;
     this.bobOffset = [0, 0, 0];   // AUDIT 28 W10: HeadBobber's eye offset, world space
@@ -992,7 +995,7 @@ export class PlayerMotor {
       //
       // The pass condition is `!Number.isFinite(dist)`, not a
       // comparison against the distance: collider.sphereCast
-      // (collider.js:748) returns Infinity ONLY on a clear sweep and a
+      // (collider.js:801) returns Infinity ONLY on a clear sweep and a
       // finite dist (0 on a start-overlap) for any hit, which is
       // exactly Unity's boolean. One accepted deviation: Unity's
       // SphereCast ignores colliders overlapping the START sphere, so a
@@ -1692,7 +1695,7 @@ export class PlayerMotor {
     // paths leave the last values (their animation families are
     // recorded as deferred).
     this.moveForward = input.forward || 0;
-    this.moveStrafe = input.strafe || 0;
+    this.moveStrafe = input.strafe || 0; this.moveYaw = yaw;   // AUDIT PRE-MERGE 0929 D1/D2: and the yaw they were turned by
 
     // fwd = (sin, 0, cos); screen-right = (cos, 0, -sin) - Unity's
     // own. HANDEDNESS (mat4's law): the projection now mirrors NDC x,

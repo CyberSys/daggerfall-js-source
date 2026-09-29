@@ -23,6 +23,7 @@ import {
 import { createGateLink } from '../src/net/gateLink.js';
 import { createDuelRecords } from '../src/net/duelRecord.js';
 import { profileView, profileGateLine, createProfileWindow } from '../src/ui/profileWindow.js';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -117,19 +118,19 @@ test('WB5b the worker: /v1/gate/claim behind a session and never open - the sess
   t.mock.method(Date, 'now', () => clock);
   const { priv, pub } = await gatePair();
   assert.ok(ROUTES.has('/v1/gate/claim') && !OPEN_ROUTES.has('/v1/gate/claim'));
-  assert.equal(ACCOUNT_VERSION, 'acct19');   // THE MERGE moved it on (acct19: REALM P1-P2.2b and AUDIT REALM - acct17 on its branch, never deployed, renumbered past RAID4 (acct17) and AUDIT RAID (acct18); its migrations 0016-0018 are 0018-0020); AUDIT RAID before it (acct18: a town's thanks once a raid and account, a raid's Renown the hour's); before it RAID4 (acct17: the towns defended - a raid's receipt counted and paid in Renown); before it HOME-STATIONS (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); SHADOW-FANG's title and glyph moved it on (acct14 - acct12 on its branch); WB5b's was acct11 (acct10 on its branch; main's RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); BASE-HIDE's taken-out furniture moved it on (acct12); RENOWN4 and GUILD1c moved it again (acct13 - acct12 on their branch)
+  assert.equal(ACCOUNT_VERSION, 'acct20');   // TERMS1's agreement moved it on last (acct20 - acct17, then acct19, on its branch, never deployed, renumbered past RAID4, AUDIT RAID and THE MERGE's REALM at the merges); before it THE MERGE moved it on (acct19: REALM P1-P2.2b and AUDIT REALM - acct17 on its branch, never deployed, renumbered past RAID4 (acct17) and AUDIT RAID (acct18); its migrations 0016-0018 are 0018-0020); AUDIT RAID before it (acct18: a town's thanks once a raid and account, a raid's Renown the hour's); before it RAID4 (acct17: the towns defended - a raid's receipt counted and paid in Renown); before it HOME-STATIONS (acct16 - acct15 on its branch, renumbered past FOUNDER3 at the merge: a decor place's station); FOUNDER3's first contact moved it on (acct15); SHADOW-FANG's title and glyph moved it on (acct14 - acct12 on its branch); WB5b's was acct11 (acct10 on its branch; main's RENOWN1, HOME1, DECOR1 and GUILD1 took acct10 first); BASE-HIDE's taken-out furniture moved it on (acct12); RENOWN4 and GUILD1c moved it again (acct13 - acct12 on their branch)
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /ACCOUNT_VERSION = "acct19"/);
+  assert.match(toml, /ACCOUNT_VERSION = "acct20"/);
   // GATE-KEYS: the public half is a Worker SECRET the account deploy puts (account-deploy.yml, "Mint the gate receipt
   // pair") - a var of the name would be rewritten by every deploy and would refuse the secret its binding
   assert.doesNotMatch(toml, /^\s*GATE_PUBLIC_KEY\s*=/m, 'no var of the public half - the deploy puts it as a secret');
   assert.doesNotMatch(toml, /GATE_SIGNING_KEY\s*=/, 'the private half is never in the account service\'s file');
   const { call } = await stand({ gateKey: pub });
-  const me = (await call('POST', '/v1/auth/guest', {})).body;
-  const them = (await call('POST', '/v1/auth/guest', {})).body;
+  const me = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
+  const them = (await call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   const r = await receiptFor(me.id, 700, priv, T0);
   assert.deepEqual((await call('POST', '/v1/gate/claim', { receipt: r }, me.secret)).body, { recorded: false, why: 'guest', closed: 0 });
-  assert.equal((await call('POST', '/v1/auth/register', { handle: 'GateCloser', password: 'correct horse battery' }, me.secret)).status, 200);
+  assert.equal((await call('POST', '/v1/auth/register', { handle: 'GateCloser', password: 'correct horse battery', ...ACCEPTED }, me.secret)).status, 200);
   assert.equal((await call('POST', '/v1/gate/claim', { receipt: r })).status, 401, 'a stranger claims nothing');
   assert.deepEqual((await call('POST', '/v1/gate/claim', { receipt: r, account: them.id }, me.secret)).body, { recorded: true, closed: 1 });
   assert.equal((await call('POST', '/v1/gate/claim', { receipt: r }, them.secret)).status, 403, 'another\'s receipt');
@@ -143,7 +144,7 @@ test('WB5b the worker: /v1/gate/claim behind a session and never open - the sess
   assert.deepEqual((await call('GET', '/v1/account', undefined, me.secret)).body.account.gates, { closed: 1 }, 'the main menu\'s card reads it here');
   assert.deepEqual((await call('POST', '/v1/duel/record', { id: me.id }, them.secret)).body.gates, { closed: 1 }, 'and the Inspect card with the duels');
   const bare = await stand();
-  const g = (await bare.call('POST', '/v1/auth/guest', {})).body;
+  const g = (await bare.call('POST', '/v1/auth/guest', { ...ACCEPTED })).body;
   const no = await bare.call('POST', '/v1/gate/claim', { receipt: await receiptFor(g.id, 700, priv, T0) }, g.secret);
   assert.equal(no.status, 503); assert.equal(no.body.error, 'no-gate-key');
   for (const w of ['no-gate-key', 'receipt', 'not-yours']) assert.equal(typeof REFUSALS[w], 'string', `${w} has its sentence`);

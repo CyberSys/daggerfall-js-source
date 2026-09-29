@@ -26,6 +26,7 @@ import {
   realmRefusalText, REALM_TRADE_WAIT_MS,
 } from '../src/systems/realmSaves.js';
 import { freshSave, layRecord } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -77,7 +78,7 @@ async function realm() {
   _resetKeyForTests();
   const env = { DB: d1(), SAVES: r2(), ACCOUNT_VERSION: 'test1' };
   async function player() {
-    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
+    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
     const storage = fakeStorage();
     storage.setItem(SESSION_KEY, JSON.stringify({ id: g.id, secret: g.secret }));
     const door = { mode: 'ok', inits: [] };

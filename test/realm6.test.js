@@ -19,6 +19,7 @@ import { createOnlineHomes, buyOnlineHome, sellOnlineHome, homeRefund } from '..
 import { realmIo, realmCreate, realmPut, realmFetch, createRealmSession, realmGoldAct } from '../src/systems/realmSaves.js';
 import { freshSave, layRecord } from './realmSeat.mjs';   // AUDIT REALM2 S1: a first save is a new character's
 import { settle, toolRig, placeFrom, all, one, rows } from './decorFakes.mjs';
+import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIGRATIONS = readdirSync(new URL('../server-account/migrations', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
@@ -68,9 +69,9 @@ async function stand() {
   _resetKeyForTests();
   const env = { DB: d1(), SAVES: r2(), ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
   async function player(handle, save) {
-    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: '{}' }), env)).json();
+    const g = await (await worker.fetch(new Request('https://accounts.invalid/v1/auth/guest', { method: 'POST', body: JSON.stringify(ACCEPTED) }), env)).json();
     const reg = await worker.fetch(new Request('https://accounts.invalid/v1/auth/register', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ secret: g.secret, handle, password: 'a good long one' }),
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ secret: g.secret, handle, password: 'a good long one', ...ACCEPTED }),
     }), env);
     assert.equal(reg.status, 200);
     const storage = fakeStorage();

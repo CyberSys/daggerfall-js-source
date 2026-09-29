@@ -390,8 +390,8 @@
   {
     "name": "PERF-EXT-R2-the-lo-tier-asks-every-lamp-by-its-quads-the-first-cut",
     "file": "src/render/shadowPass.js",
-    "old": "    this._staticSignatures(cp, 1, this._sigOneOut, false);",
-    "new": "    this._staticSignatures(cp, 1, this._sigOneOut, true);",
+    "old": "this._staticSignatures(cp, 1, this._sigOneOut, false, true);",
+    "new": "this._staticSignatures(cp, 1, this._sigOneOut, true, true);",
     "tests": [
       "test/perfexta.test.js"
     ]

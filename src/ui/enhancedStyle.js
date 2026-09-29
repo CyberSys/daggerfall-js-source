@@ -1084,6 +1084,24 @@ img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn
 .card p.meta.acctwhy.good { color: var(--verdigris); }
 .card p.meta.acctwhy:empty { display: none; }
 
+/* TERMS1: THE BOXES - "reviewed and checked off by players before
+   creating an account". A tick and a sentence whose last words are the
+   document it agrees to. The whole ROW is the tick's target (it is a
+   <label>) and stands at the field's 44px, because a 20px square is not
+   a thumb's; the sentence is the field label's quiet size; the box is
+   the browser's own, in the skin's brass (accent-color) rather than a
+   drawn fourth shape - told the page is dark (color-scheme), or its
+   UNTICKED face is the browser's white square, the one bright thing on
+   the card; and the document's name is brass and underlined, so the
+   thing to read is the thing that looks pressable. */
+.card label.acctagree {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0 0 6px;
+  font-size: 13px; line-height: 1.45; color: var(--dim); cursor: pointer;
+}
+.card label.acctagree input { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; accent-color: var(--brass); color-scheme: dark; cursor: pointer; }
+.card label.acctagree a { color: var(--brass); text-decoration: underline; text-underline-offset: 3px; }
+.card label.acctagree input:focus-visible, .card label.acctagree a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
 /* ACC3c - THE WARDROBE. Mac put the equip control on the account card
    ("tap the account icon to equip 1 feature along with signing out"),
    so it borrows .fieldlabel and .act's own vocabulary rather than
@@ -2178,6 +2196,7 @@ ${badgeCss()}
 .px-win.px-acctwin .card.acct .acts { justify-content: center; }
 .px-win.px-acctwin .card.acct label.field { align-items: center; }
 .px-win.px-acctwin .card.acct label.field input { text-align: center; width: 100%; }
+.px-win.px-acctwin .card.acct label.acctagree { justify-content: center; }   /* TERMS1: the boxes stand on the window's one axis too */
 .px-win.px-acctwin .card.acct ul.acctfacts li { justify-content: center; }
 /* AUDIT RENOWN1 UI-1: the KEY keeps its width and the VALUE may shrink and wrap. Both were "0 0 auto", and the
    Renown rows were the first long values this list held - "Mara Venn - Renown 10, 490 / 2,150 XP to Renown 11"
