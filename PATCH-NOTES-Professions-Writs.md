@@ -38,5 +38,5 @@
 - On the Guild tab, the guild Stores are read again each time you look, and a failed read offers Try again.
 
 ## Rollout
-- These open wherever the professions and the Marks are, to the developers first. Everyone else's game is unchanged until they are switched on for all.
+- These are **open to everyone** online, with the professions and the Marks.
 - Offline, nothing changes.

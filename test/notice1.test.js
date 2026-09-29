@@ -139,6 +139,7 @@ test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHE
   const toml = src('server-account/wrangler.toml');
   assert.match(toml, /^ACCOUNT_VERSION = "acct32"$/m);
   assert.match(toml, /^BOARD_OPEN = "on"$/m, 'BOARD-ON: shipped at dev, opened to everyone (Mac: "Board now, rest after fixes")');
+  assert.deepEqual(['MARKS_OPEN', 'PROFESSIONS_OPEN'].map((k) => toml.match(new RegExp(`^${k} = "(\\w+)"$`, 'm'))?.[1]), ['on', 'on'], 'SWITCH-ON (Mac: "Fuck it lets switch everything on"): the Marks and the professions too, after PROF-SAVE and PROF-DELETE');
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/boardLaw\.js"/, 'the law the Worker bundles deploys it');
 });
 

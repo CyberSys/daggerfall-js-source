@@ -11614,3 +11614,20 @@ wait on trades"**.
 - **The words:** the door says what to settle (`net/accountClient.js`), and the delete dialog now names "its
   professions and their Stores" (`ui/enhancedMenu.js`).
 - `acct32`. Pins: `test/profdelete.test.js` (3). Mutants: `tools/mutants/profdelete.json` (18, all dead).
+
+## SWITCH-ON (2026-09-29, Mac: "Fuck it lets switch everything on") - Marks and the professions opened to everyone
+
+After PROF-SAVE and PROF-DELETE, Mac: **"Fuck it lets switch everything on"**. `MARKS_OPEN` and `PROFESSIONS_OPEN` are
+`"on"` (`server-account/wrangler.toml`), beside BOARD-ON's `BOARD_OPEN`. They ship in the same PR as the two fixes, so
+the account service that opens them is the one that already has them (`acct32`).
+
+- **Every account now has:** Marks (struck at the Oblivion Gate, sold at the Bank, a guild's Marks treasury); the
+  professions (Herbalism, Mining and Quarrying, Smithing, Logging and Carpentry; the Stores; Court writs); the Notice
+  Board's Work and Market tabs (the market, auctions, guild writs, the guild Stores and commissions).
+- **Not built yet:** 8 of the 13 professions' tracks show with no way to level them yet (Hunting, Fishing, Outfitting,
+  Masonry, Alchemy, Enchanting, Cooking, Jewelcrafting); a boulder's stone levels Mining. The Tithe's line is nought
+  until SEAT1. No route deletes an account.
+- **Still open:** MERGE 2's question 1 (realm-only professions routes). Online play is a realm character's at the
+  relay's door, so only a modified client reaches the routes with another id.
+- `test/marks1.test.js` and `test/notice1.test.js` pin the three lines at `"on"`. The Marks and professions patch notes
+  say they are open to everyone.

@@ -194,7 +194,7 @@ test('MARKS1 the switch: off, nothing strikes and nothing answers; dev, the deve
   const p = await dev.registered('Pell');
   assert.deepEqual((await dev.claim(d, 700, T0)).body.marks, { struck: 50, balance: 50 }, 'a developer strikes');
   assert.equal((await dev.claim(p, 700, T0)).body.marks, null, 'everyone else waits for "on"');
-  assert.match(src('server-account/wrangler.toml'), /^MARKS_OPEN = "dev"$/m, 'shipped at dev - opened to everyone by one line');
+  assert.match(src('server-account/wrangler.toml'), /^MARKS_OPEN = "on"$/m, 'shipped at dev - opened to everyone by one line (SWITCH-ON, Mac: "Fuck it lets switch everything on")');
 });
 
 // ─── THE BANK ────────────────────────────────────────────────────────────────────────────────────────────────────────
