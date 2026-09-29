@@ -578,9 +578,9 @@ export const FEATURES = Object.freeze([
     id: 'enhanced-sounds',
     group: 'sound',   // FT18: was world
     title: 'Enhanced sounds',
-    note: 'The sounds the port adds under the enhanced skin: a quiet wind outdoors from Daggerfall\u2019s own clips, '
-      + 'rising and falling with its strength and silent indoors, and the gold clink and click when you take or '
-      + 'store items in the enhanced inventory.',
+    note: 'The sounds the port adds under the enhanced skin: a quiet, steady wind outdoors, rising and falling '
+      + 'with its strength and silent indoors, and the gold clink and click when you take or store items in the '
+      + 'enhanced inventory.',
     effect: 'Takes effect at once.',
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'soundEnhancements', initial: true, online: 'player' }),   // ES1: systems/enhancedSounds.js enhancedSoundsOn; windAudio.js windSoundOn rides it
