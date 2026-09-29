@@ -17,11 +17,17 @@
 //   timber - AUDIT NAV1 (the presentation, #15): planks off a holed hull, laid long on the sea (`aspect`), drifting
 //            slow and gone after TIMBER_LIFE or so; and a battered hull's SMOLDER - grey smoke along her deck, more as
 //            she is hurt
-// Every particle ages to its `life` and is gone; the whole field is held under PARTICLE_BUDGET - past it the oldest
-// go first, so a long broadside never costs the frame more than its budget.
+// Every particle ages to its `life` and is gone; the whole field is held under PARTICLE_BUDGET, so a long broadside
+// never costs the frame more than its budget - past it, what a fight's picture misses least goes first (EVICT_RANK).
 
 /** The most particles alive at once. */
 export const PARTICLE_BUDGET = 900;
+/** AUDIT NAV1 (the frame's cost, #13): WHAT GOES FIRST PAST THE BUDGET - by kind, the least of a fight's picture
+ *  first: a splash's spray and foam and a port's glints (a second's flicker each), then the splinters, the canvas
+ *  scraps and the embers, then the flashes (a shot's tell) and the planks afloat, and the smoke last - the broadside's
+ *  wall, Black Flag's picture of a fight, which went first when the oldest did (two ships trading broadsides reached
+ *  the budget in 3 s, and their smoke thinned from the first puff on). Within a kind, the one nearest its end. */
+export const EVICT_RANK = Object.freeze({ spray: 0, foam: 0, glint: 0, debris: 1, shred: 1, ember: 1, flash: 2, timber: 2, smoke: 3 });
 /** AUDIT NAV1 (the presentation, #15): a plank's life afloat (s, and up to half again), and a battered hull's smoke at
  *  its worst (puffs a second). */
 export const TIMBER_LIFE = 18;
@@ -157,8 +163,20 @@ export function createNavalEffects({ random = Math.random, wind = () => [0, 0, 0
       p.rot += p.spin * t;
       keep.push(p);
     }
-    if (keep.length > PARTICLE_BUDGET) keep.splice(0, keep.length - PARTICLE_BUDGET);
-    parts = keep;
+    parts = keep.length > PARTICLE_BUDGET ? evict(keep, keep.length - PARTICLE_BUDGET) : keep;
+  }
+  /** `list` less `n` of it by EVICT_RANK - the lowest rank's first, within a rank the nearest its end - the rest kept
+   *  in their order. Whole ranks go uncounted; the one the cut falls in is sorted alone. */
+  function evict(list, n) {
+    const byRank = [[], [], [], []];
+    for (let i = 0; i < list.length; i++) byRank[EVICT_RANK[list[i].kind] ?? 0].push(i);
+    const drop = new Uint8Array(list.length);
+    for (const idx of byRank) {
+      if (n <= 0) break;
+      if (idx.length > n) idx.sort((a, b) => list[b].age / list[b].life - list[a].age / list[a].life);
+      for (let k = 0; k < idx.length && n > 0; k++, n--) drop[idx[k]] = 1;
+    }
+    return list.filter((_, i) => !drop[i]);
   }
 
   /** What to draw: `{ pos, size, color: [r, g, b, a], rot, blend, flat, solid }` - the size and alpha by age. */

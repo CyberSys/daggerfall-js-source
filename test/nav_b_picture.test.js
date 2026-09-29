@@ -85,7 +85,7 @@ test('NAV-B the smoke hangs and drifts: it slows in the air, rises a little and 
   assert.ok(b.flash >= 10 && b.smoke >= 12 && b.debris === 16 && b.spray === 22 && b.foam === 1, JSON.stringify(b));
 });
 
-test('NAV-B a burning ship breathes embers and smoke at a rate per second whatever the frame; a founder foams where she goes under; the field never holds more than PARTICLE_BUDGET - the oldest go first; the origin\'s move carries them; a clear empties them (mutants: the rate per frame, the newest dropped)', () => {
+test('NAV-B a burning ship breathes embers and smoke at a rate per second whatever the frame; a founder foams where she goes under; the field never holds more than PARTICLE_BUDGET - the spray of a splash going before the smoke; the origin\'s move carries them; a clear empties them (mutants: the rate per frame, the newest dropped)', () => {
   const count = (dt, frames) => {
     const fx = createNavalEffects({ random: seeded(11) });
     for (let i = 0; i < frames; i++) fx.burn([0, 0, 0], dt);
@@ -103,7 +103,16 @@ test('NAV-B a burning ship breathes embers and smoke at a rate per second whatev
   for (let i = 0; i < 200; i++) full.splash([100, 0, 0]);
   full.step(0.01);
   assert.equal(full.count, PARTICLE_BUDGET);
-  assert.ok(!full.drawList().some((p) => p.pos === first), 'the oldest went first');
+  // AUDIT NAV1 (the frame's cost, #13): past the budget the splashes' spray and foam went first, never the smoke
+  // before them (navalEffects.js EVICT_RANK) - it went first when the oldest did
+  assert.ok(full.drawList().some((p) => p.pos === first), 'the first puff of smoke kept');
+  assert.equal(full.drawList().filter((p) => p.kind === 'smoke').length, 10, 'every puff kept');
+  const late = createNavalEffects({ random: seeded(7) });
+  for (let i = 0; i < 200; i++) late.splash([100, 0, 0]);
+  late.smoke([0, 0, 0], [1, 0, 0], 1, 10);
+  late.step(0.01);
+  assert.equal(late.count, PARTICLE_BUDGET);
+  assert.equal(late.drawList().filter((p) => p.kind === 'smoke').length, 10, 'the newest smoke kept too - never the newest dropped');
   const o = createNavalEffects({ random: () => 0.5 });
   o.flash([1, 2, 3], [1, 0, 0]);
   o.offsetAll([10, 0, -5]);

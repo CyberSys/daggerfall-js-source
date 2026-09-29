@@ -128,6 +128,11 @@
 - A ship going down groans as the sea rushes in, right up until she's gone. Before, one gurgle as she started to sink was all you heard.
 - Ships far away cost much less to animate, so a busy bay runs smoother.
 
+## Smoother at sea
+- A bay with several ships in it runs much smoother. Ships no longer rebuild their collision every frame as they sail and roll on the swell, your own boat at the helm included, and working out who stands on which deck, or which ship you're pointing at, skips the ships nowhere near.
+- Ships behind you or off screen are no longer drawn, though their shadows still fall where you can see them, and neither are details smaller than a pixel. The parts of a ship that aren't moving, like a war galley's 107 oars at rest, are drawn as one piece.
+- Smoke, splashes and sparks are drawn in a few passes instead of one per kind of effect. In a fight big enough to hit the effect limit, splash spray and sparkles make way first and the broadside's smoke stays longest. Before, the oldest effects vanished first, smoke included.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.

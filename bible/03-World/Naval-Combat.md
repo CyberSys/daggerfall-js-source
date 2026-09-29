@@ -547,6 +547,44 @@ its shape in alpha, sampled by the drops' "Alpha Blended Premultiply" material (
 takes the texel's colour whole - every oar's and rudder's drop drew as a white square. The disc is premultiplied now
 (its colour its coverage), and its pin says so.
 
+## The frame's cost (AUDIT NAV1, the online audit's #11-#14)
+
+A sea fight is hulls, balls, smoke and bodies on decks, and none of it may cost a frame what the port's town of them
+does not. The laws that carry it, each the port's own machinery made to do it rather than a thing skipped:
+
+- **A SHIP IN THE WORLD'S COLLIDER IS CARRIED, NOT BAKED** (`player/collider.js` A MOVER'S BUCKET; `world.js`
+  csaSyncColliders, `csaCarry`). Each collider of a boat is a bucket baked once; every sync carries it by the rigid
+  motion its object made since - the bake's matrix undone and the new one done, a turn and a translation - and the
+  collider's every query takes its point, and a ray its direction, into the bucket's frame, and brings a contact, a
+  normal or a push back out: the world's up read as it stands (a deck rolled 30 degrees is ground, rolled 80 a wall, as
+  the same deck baked rolled answers). A bucket is baked again only for a motion no turn carries (a scale), another
+  shape (another collider, a box resized, another mesh) or the mode's collider changed. The sea's ships are synced
+  again after the sea's own frame poses them (they stood a frame behind the hulls drawn). Every boat of the mod rides
+  it - the player's own at her helm, rolling on the swell, re-baked every frame before.
+- **A SHIP'S RAY, BOUNDS FIRST** (`world/prefabColliders.js`). A tree's colliders are indexed by its shape
+  (`prefabShapeStamp`: a node hung elsewhere or given a component), what is on read live; a collider is asked only when
+  the ray passes within its chain's reach of the tree's root (each link's length plus its largest scale times what
+  hangs below - true at any turn of any node: the swell, a boom's trim, a sinking's list), then its box before its
+  triangles, and a mesh of more than MESH_GRID_FROM triangles through its own grid (`rayMeshEntryWithin`: the cells the
+  ray crosses, stopped past the nearest hit). The same hit, to the bit, as the walk it replaced.
+- **A NODE'S MATRIX KEPT WHILE IT READS THE SAME** (`world/prefabNode.js` worldMatrix, rotation) - Unity's kept
+  Transform: made again only when the node's own position, rotation or scale reads otherwise (their values, never the
+  arrays' identity), its parent is another, or its parent's own was made again; the same product of the same values.
+  A hull's box, her rig, her spars, her fires and her emitters asked it some 240 times a frame with eight ships near.
+- **THE BOATS CULLED AS THE WORLD'S MESHES ARE** (`comeSailAwayPool.js` draw): a mesh off screen is not drawn, and is
+  recorded for the shadow maps where it would cast into them (SHADOW-REACH, the world's law); one under CULL_DETAIL_PX
+  across is not drawn. **A BOAT'S STILL PARTS AS ONE MESH**: the bundle meshes under her MeshObject whose chain has read
+  the same STILL_FRAMES frames running are merged a texture a group (render/staticBatch.js, PERF4's builder, the
+  town's own) and drawn once at her hull's matrix; a part that moves in her frame (a flag to the wind, a boom trimmed,
+  a galley's oars rowing) leaves the batch that frame and is drawn on its own until it has been still again; a part
+  switched on or off makes the batch again; the batch goes with her.
+- **THE EFFECTS ON ONE SHEET** (`render/navalRender.js` NAVAL_SHEET): the four particle pictures in cells of their own,
+  a clear texel round each (NAVAL_SHEET_GUTTER), a quad its picture's cell - a fight's frame three draws, the arcs'
+  dashed line a picture of its own. **PAST THE BUDGET** (`systems/naval/navalEffects.js` EVICT_RANK): a splash's spray
+  and foam and a port's glints first, then the splinters, scraps and embers, the flashes and the planks, and the smoke
+  last - the broadside's wall - within a kind the nearest its end.
+- **THE SEA'S WORD ONCE A TICK** (`world.js` navalWord): the moved test and the frame it rides ask one word.
+
 ## THE FOUR HOSTS RULE
 
 Only the streaming world's host (`scenes/world.js`) has a sea: the naval host is made there and its frame runs in the
@@ -752,7 +790,17 @@ and their blows as directed frames (`test/navalRoom.mjs` now). Its fifteen findi
 | whose traffic (#15) | the stander's Ships at sea sailed everyone's sea, the bible's "each player's own" untrue | each word says its player's; the lowest of those who share the sea | a group of many and few sails at few; a player out of reach counts for nothing |
 | a flood of volleys (#14) | nothing bounded how many new volleys a word could say: twelve more every word | PEER_VOLLEYS_MAX of one player's in NAVAL_VOLLEY_KEEP_MS, the rest seen and never flown | at most 24 in 1.5 s |
 
-The rest - the frame's cost (#11-#14) - is the online slice's next.
+The frame's cost (#11-#14), the online slice's last (The frame's cost, above) - the audit's measures and the port's
+own, on the same probes:
+
+| finding | before (the audit's measure) | the law now | after |
+|---|---|---|---|
+| posing the ships (#11) | 4.4 MB of garbage and 5-6 ms a frame with eight ships, 96% of it posing them (5d found the animators once and strode the far ships' rigging); eight ships in a melee 160-360 m off still 5.1 ms a frame, a fifth of it matrices made afresh | a node's matrix and rotation kept while it reads the same (`prefabNode.js`) | naval.frame 2.9 ms for the same eight |
+| the collider rebuilt (#12) | three ships near: 21 buckets and 4,334 triangles re-baked a frame, ~7 ms and 380 KB (the host's frame and the sync 10.5 ms) | A MOVER'S BUCKET, carried by its object's rigid motion (`csaCarry`); synced again after the sea's frame | not a triangle baked after the first frame; the sync 0.04 ms, the frame and the sync 1.8 ms; carried against a fresh bake within 0.7 mm (the half-millimetre law let a hull's ends stand ~1 cm off) |
+| a ray walks every hull (#12) | 64-478 us a missed hull (32-176 here), a boarding's sixteen foes a ray each beside four hulls 8.8 ms a frame | bounds first: the tree's colliders indexed, a chain's reach, a box before triangles, a big mesh's grid | a missed hull 1.3-5.8 us; the boarding's rays 0.32 ms; 16,000 rays against the old walk, none apart |
+| the effects' draws (#13) | 234-296 draws and as many texture binds a frame at the particle budget; the oldest particle dropped first, so the smoke went first | THE EFFECTS ON ONE SHEET, the runs merged; EVICT_RANK | two draws and two binds at the budget, three with the aim's arcs; a broadside's smoke kept whole through the splashes |
+| the hulls drawn (#13) | every sea hull drawn whole every frame, all round, out to 1.9 km; a war galley 136 meshes, 107 of them her oars | culled as the world's meshes are; her still parts as one mesh | eight ships round the eye: 382 mesh draws, now four (the four astern none, each one ahead one); a batch made again in under a millisecond |
+| the minors (#14) | targets built for every ball; the land sounded every frame; the word built and keyed twice a tick; a word's twelve new volleys | the targets once a step (the wire's slice); the soundings every NAV_EVERY_S (the captains' slice) - the three a ship a frame left are her grounding; the word once a tick; PEER_VOLLEYS_MAX (the wire's slice) | the HUD's model (26 KB a frame) and its draw's (16-42 KB) measured and kept: young garbage, no collection in the measure |
 
 ## The tests
 
@@ -789,9 +837,14 @@ another's ship in one world, no twins, one number and one name, a ship between w
 taken over, each player's own law, a pirate's barrel and ball at another's boat, another's wreck boarded through the
 grapple's word, a volley heard late and a late ball's arc, the word after the world moved, one sea's traffic, a
 peer's volleys bounded, a sunk ship's casks every player's and a cask's claim held to its end) over several players'
-seas in the room of `test/navalRoom.mjs`.
+seas in the room of `test/navalRoom.mjs` - and `navaudit_frame` (a mover's bucket and the world's up through its turn,
+a ship's ray bounds first to the bit - a stretching chain's box too - a mesh's triangles filed where they stand, the
+index and the kept matrices, the world's sync carrying her buckets and baking a new shape, the boats culled and their
+still parts one mesh at her hull's matrix, the effects on one sheet, what goes first past the budget, the sea's word
+once a tick).
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
-`navaudit_helm.json`, `navaudit_boarding.json`, `navaudit_presentation.json` and `navaudit_online.json`, 806 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+`navaudit_helm.json`, `navaudit_boarding.json`, `navaudit_presentation.json`, `navaudit_online.json` and
+`navaudit_frame.json`, 852 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
@@ -815,7 +868,12 @@ wreck boarded through the grapple's word, and four of the arc's own - her own pl
 codes, a peer's blow - re-aimed by content at the lines it rewrote; 50 with the wire's reliability - the blows through
 the retry queue, a volley's age and a late ball's arc, the casks every player's, one sea's traffic, a peer's volleys
 bounded - whose one survivor named a test whose owner's word was never empty straight from its casks, and ten of the
-arc's own re-aimed by content at the lines it rewrote);
+arc's own re-aimed by content at the lines it rewrote; 46 with the frame's cost, whose three survivors named what no
+test checked - a stretching link's reach (a hull's trigger boxes stand in a band past what the links' lengths reach,
+and no ray asked of the hulls crossed it), a box resized (no hull ships a solid box: the test's case never ran), the
+batch drawn at its first part's matrix (every hull's own mesh is her first part) - and five of the arc's own (the
+budget's cut, the quad's cap and its v, the aim's post, the arcs' run) with thirteen of other suites' re-aimed by
+content at the lines it rewrote);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

@@ -359,7 +359,13 @@ test('AUDIT PRE-MERGE 0928 R5: the pool walks each boat ONCE a frame - its walk 
   renderer.drawn.length = 0;
   const drawn = pool.draw();
   const galley = pool.walkOf(boats[3]);
-  const drawnGalley = renderer.drawn.filter((d) => galley.mats.includes(d.matrix));
+  // AUDIT NAV1 (the frame's cost, #13): her still parts, still these forty frames, drawn as her one batch at her hull's
+  // matrix (comeSailAwayPool.js stillBatch); every other object at its own
+  const still = pool.stillOf(boats[3]);
+  assert.ok(still && still.nodes.size > 100, `the galley's still parts merged (${still?.nodes.size})`);
+  const hullAt = galley.mats[galley.nodes.indexOf(boats[3].MeshObject)];
+  assert.deepEqual(renderer.drawn.filter((d) => d.mesh === still.mesh).map((d) => d.matrix), [hullAt], 'her batch drawn once, at her hull\'s matrix');
+  const drawnGalley = renderer.drawn.filter((d) => d.mesh !== still.mesh && galley.mats.includes(d.matrix));
   const drawsHere = (n) => {   // the draw's own law, over what it reads
     const mr = n.getComponent('MeshRenderer');
     if (!mr || mr.m_Enabled === false || mr.materials?.[0]?.billboard) return false;
@@ -368,8 +374,9 @@ test('AUDIT PRE-MERGE 0928 R5: the pool walks each boat ONCE a frame - its walk 
     if (mf?.baked) return !!n.getComponent('FixDeformations')?.bakedMesh?.gpu;
     return !!mf?.m_Mesh?.mesh && !!rendererModel(pool.models.geometry(mf.m_Mesh.mesh), mr.materials ?? bundleSlots(mr));
   };
-  const drawable = galley.nodes.filter(drawsHere);
-  assert.ok(drawnGalley.length > 0 && drawnGalley.length === drawable.length, `the galley: every drawable object drawn once (${drawnGalley.length} of ${drawable.length})`);
+  const drawable = galley.nodes.filter((n) => drawsHere(n) && !still.nodes.has(n));
+  assert.ok(galley.nodes.filter(drawsHere).every((n) => still.nodes.has(n) || drawable.includes(n)));
+  assert.ok(drawnGalley.length > 0 && drawnGalley.length === drawable.length, `the galley: every drawable object not in her batch drawn once (${drawnGalley.length} of ${drawable.length})`);
   assert.deepEqual(drawnGalley.map((d) => galley.nodes[galley.mats.indexOf(d.matrix)]), drawable, 'those objects, each at its own matrix');
   const at = drawnGalley.map((d) => galley.mats.indexOf(d.matrix));
   assert.ok(at.every((v, i) => i === 0 || v > at[i - 1]), 'in the walk\'s order');

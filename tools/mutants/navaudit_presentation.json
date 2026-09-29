@@ -915,8 +915,8 @@
   {
     "name": "NAVP-arc-soft-dot-again",
     "file": "src/render/navalRender.js",
-    "old": "push('line|add', start);",
-    "new": "push('soft|add', start);",
+    "old": "      run('add', 'line', start);",
+    "new": "      run('add', 'sheet', start);",
     "tests": [
       "test/navaudit_presentation.test.js"
     ]

@@ -265,8 +265,8 @@
   {
     "name": "NAV1H-the-post-lying-flat",
     "file": "src/render/navalRender.js",
-    "old": "        v = writeQuad(this.data, v, [z[0], z[1] + AIM_POST_HALF_H, z[2]], f, [0, AIM_POST_HALF_H, 0], tone.post, false);",
-    "new": "        v = writeQuad(this.data, v, [z[0], z[1] + AIM_POST_HALF_H, z[2]], f, [0, 0, AIM_POST_HALF_H], tone.post, false);",
+    "old": "f, [0, AIM_POST_HALF_H, 0], tone.post, false, uv.u0, uv.u1, uv.v0, uv.v1);",
+    "new": "f, [0, 0, AIM_POST_HALF_H], tone.post, false, uv.u0, uv.u1, uv.v0, uv.v1);",
     "tests": [
       "test/navaudit_helm.test.js"
     ]

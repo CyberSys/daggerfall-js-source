@@ -346,7 +346,7 @@ import { classicRecordRgba } from '../formats/derivedTexture.js';   // CSA-F: th
 import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js';   // CSA-E: a screen quad's PNG keeps its rows
 import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
-import { raycastColliders, rayBoxEntry, collidersOf, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
+import { raycastColliders, rayBoxEntry, colliderPoses, invertAffine, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
@@ -5122,15 +5122,51 @@ export async function bootWorld(canvas, renderer, params, status) {
    * CSA-D: A BOAT STANDS IN THE WORLD'S COLLIDER. Every active boat's switched-on, non-trigger colliders
    * (world/prefabColliders.js collidersOf - the hull, the masts, the doors, a crate's box) are buckets of the mode's
    * collider, in scene space: the player walks the deck, a foe stands on it, and every other ray and capsule meets it
-   * as it meets a wall - as PhysX meets a MeshCollider moved by its transform. A bucket stands again when its
-   * object's matrix moved past half a millimetre (Horse Cart and Cargo's standBox law): every frame the helm moves
-   * the boat, and on FloatingOrigin's shift. A convex collider stands as its mesh's own faces (DECLARED).
+   * as it meets a wall - as PhysX meets a MeshCollider moved by its transform. A convex collider stands as its mesh's
+   * own faces (DECLARED).
+   * AUDIT NAV1 (the frame's cost, #12): A BUCKET IS BAKED ONCE AND RIDES ITS OBJECT. It stood again whenever its
+   * object's matrix moved past half a millimetre (Horse Cart and Cargo's standBox law) - and a boat moves every
+   * frame: the helm, the swell a ship's hull is posed on, FloatingOrigin's shift. Three ships near re-baked 21
+   * buckets and 4,334 triangles a frame (~7 ms, 380 KB). Now the collider carries each bucket by the rigid motion
+   * its object made since it was baked (`csaCarry`: the bake's matrix undone, the new one done - player/collider.js
+   * A MOVER'S BUCKET), exact to the float wherever it stands; it is baked again only when that motion is not rigid
+   * (a scale changed), its shape changed (another collider, a box resized, another mesh) or the mode's collider did.
    */
-  const _csaBuckets = new Map();   // key -> { col, m, boat }
+  const _csaBuckets = new Map();   // key -> { col, m, inv, c, shape, R, T, boat }
   const _csaBoatIds = new WeakMap();
   let _csaBoatSerial = 0;
   const csaBoatId = (boat) => { let id = _csaBoatIds.get(boat); if (id == null) { id = ++_csaBoatSerial; _csaBoatIds.set(boat, id); } return id; };
-  const _csaSameMatrix = (a, b) => { for (let i = 0; i < 16; i++) if (Math.abs(a[i] - b[i]) >= 5e-4) return false; return true; };
+  /** A collider's shape as a bucket was baked of it: a box's own centre and size, or the mesh it meets. */
+  const csaShapeOf = (c) => (c.type === 'BoxCollider'
+    ? `${c.m_Center?.x ?? 0},${c.m_Center?.y ?? 0},${c.m_Center?.z ?? 0},${c.m_Size?.x ?? 1},${c.m_Size?.y ?? 1},${c.m_Size?.z ?? 1}`
+    : csaColliderMesh(c)?.positions ?? null);
+  /** How far a carried bucket's turn may stray from a rotation's own (its columns' lengths and angles) and still be
+   *  one - float matrices', never a scale's. */
+  const CSA_RIGID_EPS = 1e-5;
+  /** AUDIT NAV1 (#12): a bucket carried to where its object stands - the motion since its bake (the object's matrix
+   *  times the bake's inverse) its turn (`R`, column-major; null when there is none) and its translation (`T`). False
+   *  when that motion is not rigid: the bucket is baked again. */
+  function csaCarry(b, m) {
+    let same = true;
+    for (let i = 0; i < 16; i++) if (m[i] !== b.m[i]) { same = false; break; }
+    if (same) { b.R = null; b.T[0] = 0; b.T[1] = 0; b.T[2] = 0; return true; }
+    // the motion m * inv, in doubles (mat4.multiply's scratch is single: its rounding at a kilometre is 0.1 mm)
+    const v = b.inv, R = b.Rs, T = b.T;
+    for (let c = 0; c < 3; c++) for (let r = 0; r < 3; r++) R[c * 3 + r] = m[r] * v[c * 4] + m[4 + r] * v[c * 4 + 1] + m[8 + r] * v[c * 4 + 2];
+    for (let i = 0; i < 3; i++) {
+      for (let j = i; j < 3; j++) {
+        const g = R[i * 3] * R[j * 3] + R[i * 3 + 1] * R[j * 3 + 1] + R[i * 3 + 2] * R[j * 3 + 2];
+        if (Math.abs(g - (i === j ? 1 : 0)) > CSA_RIGID_EPS) return false;
+      }
+    }
+    const det = R[0] * (R[4] * R[8] - R[5] * R[7]) - R[3] * (R[1] * R[8] - R[2] * R[7]) + R[6] * (R[1] * R[5] - R[2] * R[4]);
+    if (!(det > 0)) return false;
+    let turned = false;
+    for (let i = 0; i < 9; i++) if (Math.abs(R[i] - (i % 4 === 0 ? 1 : 0)) > 1e-12) { turned = true; break; }
+    b.R = turned ? R : null;   // a pure translation walks the plain bucket's path
+    for (let r = 0; r < 3; r++) T[r] = m[r] * v[12] + m[4 + r] * v[13] + m[8 + r] * v[14] + m[12 + r];
+    return true;
+  }
   const csaBoxTriangles = (c) => {
     const ce = c.m_Center ?? { x: 0, y: 0, z: 0 }, sz = c.m_Size ?? { x: 1, y: 1, z: 1 };
     const hx = Math.abs(sz.x) / 2, hy = Math.abs(sz.y) / 2, hz = Math.abs(sz.z) / 2;
@@ -5146,18 +5182,20 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!boat.GameObject?.activeSelf) continue;
       const id = csaBoatId(boat);
       let i = 0;
-      for (const { node, collider: c } of collidersOf(boat.GameObject)) {
+      for (const { collider: c, world: m } of colliderPoses(boat.GameObject)) {
         if (c.m_IsTrigger) continue;
         const key = `csaBoat:${id}:${i++}`;
         want.add(key);
-        const m = node.worldMatrix();
         const had = _csaBuckets.get(key);
-        if (had && had.col === col && _csaSameMatrix(had.m, m)) continue;
+        const shape = csaShapeOf(c);
+        if (had && had.col === col && had.c === c && had.shape === shape && csaCarry(had, m)) continue;   // AUDIT NAV1 (#12): carried, not baked
         had?.col?.removeBucket?.(key);
         const tri = c.type === 'BoxCollider' ? csaBoxTriangles(c) : csaColliderMesh(c);
-        if (!tri || !col?.addMesh) { _csaBuckets.delete(key); continue; }
-        col.addMesh(key, tri.positions, tri.indices, m);
-        _csaBuckets.set(key, { col, m: Float64Array.from(m), boat });
+        const inv = invertAffine(m);
+        if (!tri || !inv || !col?.addMesh) { _csaBuckets.delete(key); continue; }
+        const b = { col, m: Float64Array.from(m), inv, c, shape, R: null, Rs: new Float64Array(9), T: [0, 0, 0], boat };
+        col.addMesh(key, tri.positions, tri.indices, m, () => b.T, () => b.R);
+        _csaBuckets.set(key, b);
       }
     }
     for (const [key, b] of _csaBuckets) if (!want.has(key)) { b.col?.removeBucket?.(key); _csaBuckets.delete(key); }
@@ -6207,6 +6245,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!on) return;
     if (csa.seaBoats.length || csaRuntime.isSailing()) installNavalSounds(audio);   // once: the first sea (the loader keeps its promise)
     naval.frame(dt * worldTimeScale(), { paused: gamePaused() || _loading, outdoors: _mode() === 'exterior', brace: csaRuntime.isSailing() && (held(keys, 'Crouch') || navalTouchBrace()) });   // the brace: ducking behind the rail - the Crouch action at the helm (AUDIT NAV1: or the plate's Brace under a finger)
+    // AUDIT NAV1 (the frame's cost, #12): the sea's ships stand in the world's collider where this frame posed them - the
+    // sync in the mod's own step runs before the sea's, so their decks and hulls stood a frame behind the hulls drawn;
+    // carried (csaCarry), a second sync is their poses alone
+    if (naval.collidable().length) csaSyncColliders();
     navalFlames.tick(gamePaused() ? 0 : dt);
   }
   /** The attack let go (every door's release, beside the rig's and as ungated): a laid broadside fires - unless a window
@@ -6263,12 +6305,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     });
   }
   let _navalWordKey = null;   // the word my last foes frame carried ('' none stood; null: none said yet)
+  let _navalWordMade = null;   // AUDIT NAV1 (#14): this tick's word and its key, { at: the tick's send time, rec, key }
   /** NAV-G: my sea for the others (systems/naval/navalWire.js) - the ships I stand, my volleys and barrels - on every
-   *  full foes frame and on a changed word between them (a volley is news at once); the arc off, one null. */
+   *  full foes frame and on a changed word between them (a volley is news at once); the arc off, one null. AUDIT NAV1
+   *  (the frame's cost, #14): made once a tick - the moved test and the frame it rides ask the same word, which was
+   *  built and keyed twice a tick (the foes tick's own send time tells the one tick from the next). */
   function navalWord(frame, full) {
     if (!navalOn()) { if (!_navalWordKey) return false; if (frame) { frame.nv = null; _navalWordKey = ''; } return true; }
-    const rec = naval.word(campToWire);
-    const key = navalRecordKey(rec);
+    if (_navalWordMade?.at !== _foesSentAt) { const made = naval.word(campToWire); _navalWordMade = { at: _foesSentAt, rec: made, key: navalRecordKey(made) }; }
+    const { rec, key } = _navalWordMade;
     if (!full && key === _navalWordKey) return false;
     if (frame) { frame.nv = rec; _navalWordKey = key; }
     return true;

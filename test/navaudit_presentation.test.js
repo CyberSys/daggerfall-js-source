@@ -13,7 +13,7 @@ import { sparsOf, FLAME_AWASH, BLAST_SHAKE, NEAR_BOOM_M, FAR_FADE_M, FAR_MATCH, 
 import { createNavalEffects, TIMBER_LIFE, SMOLDER_RATE } from '../src/systems/naval/navalEffects.js';
 import { drawNavalTags, tagState, tagAlpha, TAG_FADE_FROM, TAG_FADE_TO } from '../src/ui/navalHud.js';
 import { NAVY_HUNTS } from '../src/systems/naval/navalAI.js';
-import { NavalRenderer, NAVAL_TEXTURES, NAVAL_STRIDE, ARC_WIDTH_VH, ARC_DASH_M, ARC_DASH_SPEED } from '../src/render/navalRender.js';
+import { NavalRenderer, NAVAL_GL_TEXTURES, NAVAL_STRIDE, ARC_WIDTH_VH, ARC_DASH_M, ARC_DASH_SPEED } from '../src/render/navalRender.js';
 import { READY_FLASH_S } from '../src/systems/naval/navalGunnery.js';
 import { NAVAL_SFX, NAVAL_SOUND_RANGE, NAVAL_CLASSIC, NAVAL_SINK_LOOP } from '../src/systems/naval/navalSounds.js';
 import { navalHudText, drawNavalHud, destroyNavalHud, NAVAL_HUD_CSS, CARD_HIT_S, platePlace, cardScale, cardTopPx, navalPadPrompts, NAVAL_PLATE_BOTTOM, NAVAL_PLATE_TOUCH_BOTTOM,
@@ -792,9 +792,10 @@ test('AUDIT NAV1 (the presentation) THE ARCS AS LINES (#4): each ball\'s arc ARC
   const pass = new NavalRenderer(r);
   const arc = [[-10, 5, -40], [10, 6, -40], [30, 5, -40]];   // across the view, 40 m out
   pass.draw({ particles: [], aim: { arcs: [arc], zone: [], hot: true, radius: 2 }, time: 2 });
-  // the pictures: the line alone repeated along
+  // the pictures: the line alone repeated along (AUDIT NAV1, #13: the particles' four on one sheet, the line its own)
   const made = calls.filter((c) => c[0] === 'createTexture').map((c) => c[1]);
-  const names = Object.keys(NAVAL_TEXTURES);
+  const names = Object.keys(NAVAL_GL_TEXTURES);
+  assert.deepEqual(names, ['sheet', 'line']);
   const wrapS = new Map();
   let bound = null;
   for (const c of calls) {

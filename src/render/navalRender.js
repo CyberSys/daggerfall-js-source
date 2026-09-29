@@ -9,7 +9,9 @@
 // (the view's own right and up), a foam ring or a zone disc laid flat on the sea, a ribbon segment turned about its
 // own length toward the eye - so one small program draws it all: a vertex is its place, its picture coordinate, its
 // colour and whether the scene's light falls on it. Four pictures, made here and never shipped (`naval*Texture`):
-// a soft dot, a lumpy smoke puff, a foam ring and a hard disc - white, their shape in alpha.
+// a soft dot, a lumpy smoke puff, a foam ring and a hard disc - white, their shape in alpha - laid side by side on
+// one sheet (AUDIT NAV1, the frame's cost, #13: NAVAL_SHEET), so the blended layers, sorted back to front, are one
+// draw whatever pictures they wear; the arcs' dashed line is a picture of its own, repeated along them.
 //
 // TWO BLENDS. ALPHA - smoke, spray, foam, splinters, the balls, the zone - premultiplied in the shader (colour times
 // alpha, ONE / ONE_MINUS_SRC_ALPHA), drawn back to front so a wall of smoke layers true; lit by the scene's ambient
@@ -159,22 +161,55 @@ export const navalDiscTexture = () => picture((u, v) => { const r = Math.hypot(u
 export const navalLineTexture = () => ({ ...picture((u, v) => Math.max(0, Math.min(1, (0.97 - Math.abs(v)) / 0.3)) * (u < 0 ? 1 : ARC_DASH_DIM)), repeatS: true });
 export const NAVAL_TEXTURES = Object.freeze({ soft: navalSoftTexture, smoke: navalSmokeTexture, ring: navalRingTexture, disc: navalDiscTexture, line: navalLineTexture });
 
+/**
+ * AUDIT NAV1 (the frame's cost, #13): THE PICTURES ON ONE SHEET. The blended layers are sorted back to front, and a
+ * run of one picture was one draw: two ships trading broadsides put 234-296 draws a frame, and as many texture binds,
+ * through this pass once their smoke, spray and splinters mixed. The four particle pictures stand side by side on one
+ * sheet, each in a cell of its own a texel wider all round (NAVAL_SHEET_GUTTER, clear), so the linear filter at a
+ * quad's edge reads the picture's own rim and never its neighbour's; a quad's picture is its cell (`sheetUv`). The
+ * blended pass is one draw, the added two (the sheet's, and the arcs' line, which repeats and has its own).
+ */
+export const NAVAL_SHEET_GUTTER = 1;
+export const NAVAL_SHEET = Object.freeze({ soft: Object.freeze([0, 0]), smoke: Object.freeze([1, 0]), ring: Object.freeze([0, 1]), disc: Object.freeze([1, 1]) });
+const SHEET_CELL = NAVAL_TEX_SIZE + 2 * NAVAL_SHEET_GUTTER;
+export const NAVAL_SHEET_SIZE = SHEET_CELL * 2;
+/** A picture's cell on the sheet: `{ u0, u1, v0, v1 }` - its own texels, edge to edge. */
+export function sheetUv(pic) {
+  const [col, row] = NAVAL_SHEET[pic] ?? NAVAL_SHEET.soft;
+  const x0 = col * SHEET_CELL + NAVAL_SHEET_GUTTER, y0 = row * SHEET_CELL + NAVAL_SHEET_GUTTER;
+  return { u0: x0 / NAVAL_SHEET_SIZE, u1: (x0 + NAVAL_TEX_SIZE) / NAVAL_SHEET_SIZE, v0: y0 / NAVAL_SHEET_SIZE, v1: (y0 + NAVAL_TEX_SIZE) / NAVAL_SHEET_SIZE };
+}
+const SHEET_UV = Object.freeze(Object.fromEntries(Object.keys(NAVAL_SHEET).map((k) => [k, Object.freeze(sheetUv(k))])));
+/** The sheet: the four pictures copied into their cells, the gutters clear (white, alpha nought). */
+export function navalSheetTexture() {
+  const size = NAVAL_SHEET_SIZE, data = new Uint8Array(size * size * 4);
+  for (let i = 0; i < data.length; i += 4) { data[i] = 255; data[i + 1] = 255; data[i + 2] = 255; }
+  for (const [name, [col, row]] of Object.entries(NAVAL_SHEET)) {
+    const pic = NAVAL_TEXTURES[name]();
+    const x0 = col * SHEET_CELL + NAVAL_SHEET_GUTTER, y0 = row * SHEET_CELL + NAVAL_SHEET_GUTTER;
+    for (let y = 0; y < pic.height; y++) data.set(pic.data.subarray(y * pic.width * 4, (y + 1) * pic.width * 4), ((y0 + y) * size + x0) * 4);
+  }
+  return { width: size, height: size, data };
+}
+/** What the pass uploads: the sheet, and the line. */
+export const NAVAL_GL_TEXTURES = Object.freeze({ sheet: navalSheetTexture, line: navalLineTexture });
+
 /** Which picture a particle kind wears. */
 export const pictureOf = (p) => (p.kind === 'smoke' ? 'smoke' : p.kind === 'foam' ? 'ring' : p.solid ? 'disc' : 'soft');
 
 /**
  * Lays a quad into `out` at vertex `v`: centre `c`, half-axes `ax` and `ay` (world), the colour and the lit flag - its
- * picture's u from `u0` to `u1` along `ax` (0 to 1 but for a line repeated along its length). Answers the next vertex.
- * Pure - the tests read the layout off it.
+ * picture's u from `u0` to `u1` along `ax` (0 to 1 but for a line repeated along its length) and v from `v0` to `v1`
+ * along `ay` (a picture's cell on the sheet). Answers the next vertex. Pure - the tests read the layout off it.
  */
-export function writeQuad(out, v, c, ax, ay, color, lit, u0 = 0, u1 = 1) {
+export function writeQuad(out, v, c, ax, ay, color, lit, u0 = 0, u1 = 1, v0 = 0, v1 = 1) {
   const corners = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]];
   for (const [sx, sy] of corners) {
     const o = v * NAVAL_STRIDE;
     out[o] = c[0] + ax[0] * sx + ay[0] * sy;
     out[o + 1] = c[1] + ax[1] * sx + ay[1] * sy;
     out[o + 2] = c[2] + ax[2] * sx + ay[2] * sy;
-    out[o + 3] = u0 + (u1 - u0) * (sx + 1) / 2; out[o + 4] = (1 - sy) / 2;
+    out[o + 3] = u0 + (u1 - u0) * (sx + 1) / 2; out[o + 4] = v0 + (v1 - v0) * (1 - sy) / 2;
     out[o + 5] = color[0]; out[o + 6] = color[1]; out[o + 7] = color[2]; out[o + 8] = color[3];
     out[o + 9] = lit ? 1 : 0;
     v++;
@@ -256,7 +291,7 @@ export class NavalRenderer {
     gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, S, 5 * F);
     gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 1, gl.FLOAT, false, S, 9 * F);
     gl.bindVertexArray(null);
-    for (const [name, make] of Object.entries(NAVAL_TEXTURES)) {
+    for (const [name, make] of Object.entries(NAVAL_GL_TEXTURES)) {
       const pic = make();
       const tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -302,8 +337,13 @@ export class NavalRenderer {
     if (!r?._proj || !r?._view) return;
     const eye = r._camPos ?? [0, 0, 0];
     const axes = viewAxes(r._view);
-    /** batches: `${picture}|${blend}` -> quads laid out as { v0, v1 } ranges in one buffer */
-    const batches = new Map();
+    /** AUDIT NAV1 (#13): each blend's runs in the order laid - [texture, first vertex, end] - one draw a run */
+    const runs = { alpha: [], add: [] };
+    const run = (blend, tex, start) => {
+      if (v <= start) return;
+      const list = runs[blend], last = list[list.length - 1];
+      if (last && last[0] === tex && last[2] === start) last[2] = v; else list.push([tex, start, v]);
+    };
     const alpha = [], add = [];
     for (const p of frame.particles ?? []) (p.blend === 'add' ? add : alpha).push(p);
     for (const b of frame.balls ?? []) alpha.push({ pos: b.pos, size: b.gun === 'heavy' ? 0.34 : b.gun === 'swivel' ? 0.16 : 0.26, color: [0.07, 0.07, 0.08, 1], rot: 0, blend: 'alpha', solid: true, kind: 'ball' });
@@ -314,31 +354,50 @@ export class NavalRenderer {
     let v = 0;
     const cap = NAVAL_MAX_QUADS * 6;
     const lay = (list, blend) => {
-      // a run of one picture is one draw; the order within the blend is kept
-      let key = null, start = v;
+      // every picture a cell of the sheet: the list, in its order, is one run
+      const start = v;
       for (const p of list) {
         if (v + 6 > cap) break;
-        const k = `${pictureOf(p)}|${blend}`;
-        if (k !== key) { if (key) (batches.get(key) ?? batches.set(key, []).get(key)).push([start, v]); key = k; start = v; }
         const { ax, ay } = particleAxes(p, axes);
-        v = writeQuad(this.data, v, p.pos, ax, ay, p.color, blend === 'alpha' && p.kind !== 'flash');
+        const uv = SHEET_UV[pictureOf(p)];
+        v = writeQuad(this.data, v, p.pos, ax, ay, p.color, blend === 'alpha' && p.kind !== 'flash', uv.u0, uv.u1, uv.v0, uv.v1);
       }
-      if (key && v > start) (batches.get(key) ?? batches.set(key, []).get(key)).push([start, v]);
+      run(blend, 'sheet', start);
     };
     lay(alpha, 'alpha');
-    // the aim: the zone's marks flat on the sea (blended), the arcs' ribbons, the posts and the strikes (added)
+    // the aim: the zone's marks flat on the sea (blended), the posts and the strikes and the arcs' ribbons (added)
     const aim = frame.aim;
     const tone = aimTone(aim);
-    const push = (key, start) => { if (v > start) (batches.get(key) ?? batches.set(key, []).get(key)).push([start, v]); };
     if (aim?.zone?.length) {
-      const start = v;
+      const start = v, uv = SHEET_UV.ring;
       for (const z of aim.zone) {
         if (v + 6 > cap) break;
-        v = writeQuad(this.data, v, [z[0], z[1] + 0.06, z[2]], [aim.radius ?? 2.2, 0, 0], [0, 0, aim.radius ?? 2.2], tone.zone, false);
+        v = writeQuad(this.data, v, [z[0], z[1] + 0.06, z[2]], [aim.radius ?? 2.2, 0, 0], [0, 0, aim.radius ?? 2.2], tone.zone, false, uv.u0, uv.u1, uv.v0, uv.v1);
       }
-      push('ring|alpha', start);
+      run('alpha', 'sheet', start);
     }
     lay(add, 'add');
+    // AUDIT NAV1 (the helm): a ball's fall stood up over its mark - a disc on the sea 150 m off is a line, a post of
+    // light is not - and a ball that meets a hull marked where it strikes her. Added light: laid before the arcs, it
+    // sums the same, and runs on with the flashes' sheet
+    if (aim?.posts && aim.zone?.length) {
+      const start = v, uv = SHEET_UV.soft;
+      for (const z of aim.zone) {
+        if (v + 6 > cap) break;
+        const f = flatAcross(z, eye, AIM_POST_HALF_W);
+        v = writeQuad(this.data, v, [z[0], z[1] + AIM_POST_HALF_H, z[2]], f, [0, AIM_POST_HALF_H, 0], tone.post, false, uv.u0, uv.u1, uv.v0, uv.v1);
+      }
+      run('add', 'sheet', start);
+    }
+    if (aim?.strikes?.length) {
+      const start = v, uv = SHEET_UV.soft;
+      const h = AIM_STRIKE_HALF;
+      for (const z of aim.strikes) {
+        if (v + 6 > cap) break;
+        v = writeQuad(this.data, v, z, [axes.right[0] * h, axes.right[1] * h, axes.right[2] * h], [axes.up[0] * h, axes.up[1] * h, axes.up[2] * h], tone.strike, false, uv.u0, uv.u1, uv.v0, uv.v1);
+      }
+      run('add', 'sheet', start);
+    }
     if (aim?.arcs?.length) {
       // AUDIT NAV1 (the presentation, #4): one width on the screen, dashed by the metres flown and marching out
       const start = v;
@@ -348,27 +407,7 @@ export class NavalRenderer {
         if (v + arc.length * 6 > cap) break;
         v = writeRibbon(this.data, v, arc, eye, ARC_WIDTH_VH, tone.arc, { vh, period: ARC_DASH_M, offset });
       }
-      push('line|add', start);
-    }
-    // AUDIT NAV1 (the helm): a ball's fall stood up over its mark - a disc on the sea 150 m off is a line, a post of
-    // light is not - and a ball that meets a hull marked where it strikes her
-    if (aim?.posts && aim.zone?.length) {
-      const start = v;
-      for (const z of aim.zone) {
-        if (v + 6 > cap) break;
-        const f = flatAcross(z, eye, AIM_POST_HALF_W);
-        v = writeQuad(this.data, v, [z[0], z[1] + AIM_POST_HALF_H, z[2]], f, [0, AIM_POST_HALF_H, 0], tone.post, false);
-      }
-      push('soft|add', start);
-    }
-    if (aim?.strikes?.length) {
-      const start = v;
-      const h = AIM_STRIKE_HALF;
-      for (const z of aim.strikes) {
-        if (v + 6 > cap) break;
-        v = writeQuad(this.data, v, z, [axes.right[0] * h, axes.right[1] * h, axes.right[2] * h], [axes.up[0] * h, axes.up[1] * h, axes.up[2] * h], tone.strike, false);
-      }
-      push('soft|add', start);
+      run('add', 'line', start);
     }
     if (!v) return;
     const gl = this.gl;
@@ -386,14 +425,12 @@ export class NavalRenderer {
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(P.u.uTex, 0);
     // the blended first (back to front as laid), then the added over them
+    let bound = null;
     for (const blend of ['alpha', 'add']) {
       gl.uniform1i(P.u.uAdd, blend === 'add' ? 1 : 0);
       gl.blendFunc(gl.ONE, blend === 'add' ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA);
-      const ranges = [];
-      for (const [key, rs] of batches) if (key.endsWith(`|${blend}`)) for (const rr of rs) ranges.push([key.split('|')[0], rr]);
-      ranges.sort((a, b) => a[1][0] - b[1][0]);
-      for (const [pic, [a, b]] of ranges) {
-        gl.bindTexture(gl.TEXTURE_2D, this._tex.get(pic));
+      for (const [tex, a, b] of runs[blend]) {
+        if (bound !== tex) { gl.bindTexture(gl.TEXTURE_2D, this._tex.get(tex)); bound = tex; }
         gl.drawArrays(gl.TRIANGLES, a, b - a);
       }
     }

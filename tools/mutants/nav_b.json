@@ -20,8 +20,8 @@
   {
     "name": "NAV-B-the-newest-dropped",
     "file": "src/systems/naval/navalEffects.js",
-    "old": "    if (keep.length > PARTICLE_BUDGET) keep.splice(0, keep.length - PARTICLE_BUDGET);",
-    "new": "    if (keep.length > PARTICLE_BUDGET) keep.length = PARTICLE_BUDGET;",
+    "old": "    parts = keep.length > PARTICLE_BUDGET ? evict(keep, keep.length - PARTICLE_BUDGET) : keep;",
+    "new": "    parts = keep.length > PARTICLE_BUDGET ? keep.slice(0, PARTICLE_BUDGET) : keep;",
     "tests": [
       "test/nav_b_picture.test.js"
     ]
@@ -102,8 +102,8 @@
   {
     "name": "NAV-B-the-cap-ignored",
     "file": "src/render/navalRender.js",
-    "old": "        if (v + 6 > cap) break;\n        const k = `${pictureOf(p)}|${blend}`;",
-    "new": "        const k = `${pictureOf(p)}|${blend}`;",
+    "old": "        if (v + 6 > cap) break;\n        const { ax, ay } = particleAxes(p, axes);",
+    "new": "        const { ax, ay } = particleAxes(p, axes);",
     "tests": [
       "test/nav_b_picture.test.js"
     ]
@@ -111,8 +111,8 @@
   {
     "name": "NAV-B-the-uv-flipped",
     "file": "src/render/navalRender.js",
-    "old": "    out[o + 3] = u0 + (u1 - u0) * (sx + 1) / 2; out[o + 4] = (1 - sy) / 2;",
-    "new": "    out[o + 3] = u0 + (u1 - u0) * (sx + 1) / 2; out[o + 4] = (sy + 1) / 2;",
+    "old": "out[o + 4] = v0 + (v1 - v0) * (1 - sy) / 2;",
+    "new": "out[o + 4] = v0 + (v1 - v0) * (sy + 1) / 2;",
     "tests": [
       "test/nav_b_picture.test.js"
     ]

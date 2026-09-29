@@ -219,7 +219,7 @@
   {
     "name": "DISC28-G-straddle-ignored",
     "file": "src/player/collider.js",
-    "old": "&& (oneWayFloor === true || t[1] + (ly - dy) < center[1] + oneWayFloor)\n            ",
+    "old": "&& (oneWayFloor === true || (R ? center[1] - dy : t[1] + (ly - dy)) < center[1] + oneWayFloor)\n            ",
     "new": "",
     "tests": [
       "test/disc28_swim.test.js"
