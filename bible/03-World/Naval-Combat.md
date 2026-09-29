@@ -34,6 +34,7 @@ carries its row instead. It stands on three things the port already had:
 | NAV-F | THE UI, ENHANCED PLUS: the helm's readout (ship plate, battery rose, aim, target card) and the plunder window, in the stone-and-brass kit on either skin | `ui/navalHud.js`, `ui/navalPlunderDoor.js`, `ui/navalPlunderWindow.js`, `ui/enhancedFrame.js` (FRAME_ROLES, scopeRules) |
 | NAV-G | ONLINE: one player stands the sea for everyone near; the ships, volleys and barrels ride the foes frame; a blow on another's ship goes to its owner; a boarding claims the ship | `systems/naval/navalWire.js`, `scenes/exteriorFoes.js` (setOnNaval), `scenes/comeSailAwayPeers.js` (helmBoats) |
 | NAV-H | THE HOST: the sea fight stood in the streaming world - the frame, the input, the activation, the draw, the lights, the origin, the colliders, the save, the transitions, the quests, the settings | `scenes/navalHost.js`, `scenes/world.js` (the NAV-H block) |
+| AUDIT NAV1 | THE DEEP AUDIT (2026-09-29): six lenses measured the arc against Black Flag on its own harnesses; the captains' seamanship rebuilt (below), the hulls kept apart, a galley's ram, the sea on the world's clock | `systems/naval/navalAI.js`, `navalShips.js` (the hulls' extents, the classes' pace), `navalDirector.js` (the berths), `scenes/navalHost.js` (`stepSea`, `separateHulls`, `checkShipRams`), `scenes/comeSailAwayPeers.js` (helmBoats' hull and heading) |
 | NAV-R | WARM ASHES' RAIDERS AS SHIPS (merged OWS3): a raider near the player at sea stood as a pirate of her seed's own class and name, sailing her seeded course until her lookout sights a boat, then fighting and boarding as any pirate; spent for her life; one copy between two players | `systems/naval/navalRaiders.js`, `scenes/navalHost.js` (`raiders`, `raiderShipOf`), `systems/naval/navalAI.js` (`sight`, `course`), `scenes/world.js` (`raidShips`, the marks) |
 
 ## How it plays
@@ -132,16 +133,20 @@ Nine classes in three trades (`SHIP_CLASSES`), each on one of Come Sail Away's h
 DFU's `NameHelper.FullName` over the region's name bank on the ship's own seed (the global DFRandom stream put back as
 it stood). The crown of any water is the nearest of the three capitals (`crownOf`).
 
-**The captains** (`navalAI.js stepCaptain`) sail the wind (`windFactor`: in irons nothing, a broad reach best), keep
-off the land (LOOKAHEAD_S of their way ahead, swinging by AVOID_SWINGS until clear), and fight as Black Flag's do:
-far off they INTERCEPT; within PRESENT_WITHIN of their reach they PRESENT A LOADED BROADSIDE, turning beam-on; between
-they close or open on the range their guns want, holding the side that is loaded unless a slow ship would swing past
-it; a galley steers her bow guns at the LEAD. A gun fires when the lead bears (`leadPoint`: where the target will be
-when the ball arrives). A merchantman RUNS from anything that would take her; a pirate under PIRATE_RUNS_AT of her
-hull runs too - a flagship never. A pirate with GRAPPLE_CREW men to send GRAPPLES a boat within GRAPPLE_RANGE that is crippled, under GRAPPLE_HULL of
-its hull, or has lain under GRAPPLE_STILL m/s for GRAPPLE_STILL_S.
-A navy HUNTS a player whose notoriety in its waters is NAVY_HUNTS or more, and turns on anyone who struck a lawful
-ship in its sight (PROVOKED_S).
+**The captains** (`navalAI.js stepCaptain`, rebuilt by AUDIT NAV1 - below) sail the wind at the player's own pace
+(`windFactor`: in irons nothing, a broad reach best; `windShare`: Come Sail Away's linear wind), never nearer it than
+close-hauled - a course into the eye is beaten on a TACK, a slow ship WEARS; they turn on their hull's own turning
+circle, eased and heeling on a spring; they keep off the land (the hull's own width sounded every SCAN_STEP past the
+turning circle, swinging by AVOID_SWINGS and holding a swing) and off each other (the rule of the road); and they
+fight as Black Flag's do: far off they INTERCEPT (a true intercept on the enemy's smoothed way); in reach they show
+the broadside that will bear SOONEST - its lead laid dead abeam while it is loaded, bent to work the range while it
+reloads; a galley steers her bow guns at the LEAD. A gun fires when the lead bears (`leadPoint`: where the target will
+be when the ball arrives). A merchantman RUNS from anything that would take her, on her fastest point of sail; a pirate
+under PIRATE_RUNS_AT of her hull runs too - a flagship never. A pirate with GRAPPLE_CREW men to send COMES ALONGSIDE a
+player's boat that is crippled, under GRAPPLE_HULL of its hull, or has lain under GRAPPLE_STILL m/s for GRAPPLE_STILL_S,
+her broadsides held, and GRAPPLES across GRAPPLE_GAP of water (GRAPPLE_RANGE where a hull is unknown). A navy HUNTS a
+player whose notoriety in its waters is NAVY_HUNTS or more, and turns on anyone who struck a lawful ship in its sight
+(PROVOKED_S).
 
 **The traffic** (`navalDirector.js`): while the player is on open water, a roll every SPAWN_EVERY seconds (the first
 FIRST_ROLL_S after reaching it) stands a ship SPAWN_RING away - out of sight, never nearer than SPAWN_CLEAR to any
@@ -377,6 +382,40 @@ its drawer Ships at sea (`naval-ships`: few, some, many), Pirates board you (`na
   hold the old doors were re-pinned with the law they state intact.
 - **Come Sail Away's soft drop premultiplied** (above) - a fix, recorded because the pin moved.
 
+## AUDIT NAV1 (2026-09-29) - the deep audit
+
+Mac, 2026-09-28, of the arc: "Lets do a deep comprehensive audit and ensure this is perfection. I want ship movement
+and combat to flow perfectly, just like assisins creed black flag. This is your baby."
+
+**THE AUDIT.** Six lenses, each run against a frozen snapshot of the arc on its own harness - the real naval host over
+Come Sail Away's real pool, frames driven as `world.js` drives them - and each measuring rather than reading: THE
+CAPTAINS' MOVEMENT (25 five-minute scenarios at 30, 60 and 144 fps and on jittered frames, seeded and on a constant
+draw), THE HELM (the player's boat on Come Sail Away's runtime, the aim's sight lines ray-cast on the hull colliders),
+THE GUNS (a thousand AI volleys at the player, 6,000 balls against a fine-step ground truth), BOARDING (Warm Ashes'
+real quest files through the port's real parser and machine), THE PICTURE (the real HUD and pass in headless
+Chromium) and ONLINE (two real hosts over a stand-in relay). About ninety findings; this section records what each fix
+answered, slice by slice, and what was measured before and after.
+
+### The captains (the seamanship)
+
+The movement audit's twelve findings, and the guns' and boarding's that were the captains' own:
+
+| finding | before (the audit's measure) | the law now | after (the same harness) |
+|---|---|---|---|
+| ships stall head to wind - no tack (M2) | a brig 600 m downwind of an anchored player made 0.3 m/s for 300 s and never fired; 108-147 s in irons in duels | no course nearer than CLOSE_HAULED: `tackCourse` beats on a tack, put about when the goal bears TACK_FLIP past the eye; a turn through the eye decided once - TACK with way (TACK_CARRY of her rate through it), WEAR the long way round without; in irons she PAYS OFF (PAYOFF_TURN) | first broadside at 159-184 s; the anchored duel 0 s in irons |
+| the coast stall (M3) | 101 s loaded and in reach without firing, bow to the wind | the side that bears SOONEST: turn time against reload, a course past close-hauled presented close-hauled (`sailable`, BEAR_COST_S), a side onto the land never taken, the side held unless the other is SIDE_HOLD_S better | 0 s of hull on land; no side-dithering |
+| half the player's pace (M4) | 2.5-4.4 m/s against the player's 6.2-9 | the classes rated at the player's own hulls (a brig 7.6, a cutter 8.0; `windShare` linear in the wind) | the pirate catches a boat beating or rowing, loses one running free |
+| tops that snap into turns (M5) | a brig turned in 0.53 of her length, full rate in one frame, the heel stepping 18-20 deg/s | TURN_RADIUS_K lengths, eased over TURN_TAU, critically damped, a hard turn costing TURN_SPEED_LOSS; heel by way and turn and to leeward on a spring (HEEL_OMEGA, HEEL_ZETA) | a brig at 7 m/s turns 5.7 deg/s (the player's pace); heel steps 0.1 |
+| hulls through each other (M6) | two merchantmen head-on overlapped 14.6 s; duels 16-52 s | `trafficCourse`: room given inside AVOID_SHIP_S, starboard for one ahead; the host's `separateHulls` pushes overlapping hulls apart and takes their way into it | head-on 35 m apart; duels under 1.1 s |
+| land crossed and scraped (M7) | an 18 m spit crossed; an island hugged with the hull on land 38.8 s | the hull's width sounded every SCAN_STEP past the turning circle; swings held; the course retried; a stem never stood on land (AGROUND_WAY, warped round); a big turn round the open side; waypoints never upwind nor across land, one reached let go | 0 s on land (a dead-end channel's quarter 12 s while it pivots) |
+| the sea falls behind the time scale (M8) | 60% of the world's pace at x10, 20% at x30 | FRAME_STEP_S steps, FRAME_STEPS_MAX a frame (`stepSea`) | one long frame = ten short ones |
+| the intercept minutes ahead, range overshot (M11) | the brig led a 5 m/s player by 162 s, 810 m | `intercept` solves the meeting (PURSUIT_LEAD_S past it); the enemy's way smoothed (TARGET_VEL_TAU); the bend (RANGE_BEND) only while reloading | first broadside at 92 s against a 3 m/s player (was 206-222) |
+| never alongside - a wreck shelled forever (M1, G3) | a sloop 55 m off a wreck for 300 s, 59 broadsides, never grappled | a pirate comes ALONGSIDE on the side she approaches from, her way falling to stop her short, broadsides held; grapples across GRAPPLE_GAP; no captain fires on a wreck, and one that will not board her leaves it (WRECK_SPARE_S) | the sloop grapples at 94 s, the brig at 69 s |
+| no giving up (M12) | a chase ended only at 750 m | DISENGAGE hysteresis; a chase that gains nothing in CHASE_GIVE_UP_S (past her fighting range) given up, the chased left SPARE_S | the 7 m/s runner given up at 150 s |
+| paths depend on frame rate | a galley duel ended 0.7-1.5 km apart between 60 and 144 fps | the lookout on her own clock (NAV_EVERY_S), the heel stepped at 0.05 s | 5 m at most on the same draw (a spit 43 m) |
+| a galley never rams (G9) | - | `checkShipRams`: a galley's stem into a hull at RAM_SPEED is the ram's own law (braced, half) | - |
+| prizes fill the sea (B1) | three prizes emptied the sea until the next transition | `boarded` cleared on a win; engaged only while fighting, alongside or boarded; only a ship afloat fills a berth; a prize cast adrift drifts off (ADRIFT_SPEED) | a new ship rolls with two prizes lying by |
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
@@ -389,9 +428,14 @@ helm boats, the doors) and `nav_h_host` (the host through real frames over Come 
 traffic, the law, boarding, boarders and Warm Ashes' raids, the voyage's wait, the save, the stander and the striker -
 and the world host's wiring, a hostile ship an enemy nearby at its five doors) - and `nav_r_raiders` (Warm Ashes'
 raiders as ships: the class law, the plan, a raider stood, sighting and spent, the director and a peer's copy, the world
-host's wiring). Mutants: `tools/mutants/nav_a.json` to `nav_h.json` and `nav_r.json`, 193 records, every one dead (149
-at the arc's close; 23 more at the merge with main - the card's place and the finger's screen, one raid at a time, a
-hostile ship an enemy nearby, a peer's way read off its word; 21 with NAV-R);
+host's wiring) - and the audit's own suites: `navaudit_captains` (the way, the turn and the heel, the wind's eye, other
+hulls and the land, the intercept, the side that bears soonest, giving up, alongside to board, the wreck, the cruise,
+a prize adrift, the berths, the hulls kept apart, a galley's ram, the sea's time, a boarder chasing), on the shared sea
+of `test/navalSea.mjs`. Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json` and
+`navaudit_captains.json`, 247 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
+word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
+rebuilt captains keep);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

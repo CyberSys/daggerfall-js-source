@@ -104,7 +104,7 @@ async function harness(o = {}) {
     raiderSpent: (id) => log.spent.push(id),
   };
   const host = createNavalHost(deps);
-  return { host, pool, boat, log, view, deps };
+  return { host, pool, boat, log, view, deps, runtime };
 }
 const run = (host, seconds) => { for (let t = 0; t < seconds - 1e-9; t += 0.1) host.frame(0.1); };
 const raiderShips = (host) => [...host._sea.values()].filter((e) => e.raider);
@@ -112,7 +112,8 @@ const raiderShips = (host) => [...host._sea.values()].filter((e) => e.raider);
 const RAIDER = { id: 'r16.16.100', seed: 0x51f00d, pos: [900, 0, 0], yaw: Math.PI / 2, ahead: [900 + RAIDER_SAIL_MPS * RAIDER_LEAD_S, 0, 0] };
 
 test('NAV-R a raider near me at sea stands as a pirate of its seed\'s own class and name - her colours, her guns, her captain - steering the place its seeded course reaches RAIDER_LEAD_S on; she looks out as far as the raiders\' lookout sees (a night\'s 500 m) and, a day\'s 1,000 m sighting me, closes and fights as any pirate; the map finds her where she sails and that she chases (mutants: the course unread, the sight unread, the chase unsaid)', async () => {
-  const { host } = await harness({ settings: { ShipsAtSea: 'off' } });
+  const { host, runtime } = await harness({ settings: { ShipsAtSea: 'off' } });
+  runtime.state.velocityCurrent = [0, 0, 2];   // AUDIT NAV1: under way - a boat lying still draws her alongside to board instead (navaudit_captains)
   host.raiders([RAIDER], { sight: RAIDER_SIGHT_NIGHT_M, spent: new Set() });
   const [e] = raiderShips(host);
   assert.ok(e, 'stood');
@@ -124,10 +125,11 @@ test('NAV-R a raider near me at sea stands as a pirate of its seed\'s own class 
   assert.deepEqual(e.ship.course, [RAIDER.ahead[0], RAIDER.ahead[2]]);
   assert.deepEqual(host.raiderShipOf(RAIDER.seed), { pos: e.ship.pos, chase: false });
   assert.equal(host.raiderShipOf(RAIDER.seed + 1), null);
-  // at night I am past her lookout: she sails her course, away from me
-  run(host, 20);
+  // at night I am past her lookout: she sails her course, away from me - down its line, not off on a waypoint of her own
+  let offLine = 0;
+  for (let t = 0; t < 40; t += 0.1) { host.frame(0.1); offLine = Math.max(offLine, Math.abs(e.ship.pos[2])); }
   assert.equal(e.ship.mode, 'cruise');
-  assert.ok(e.ship.pos[0] > 905 && Math.abs(e.ship.pos[2]) < 30, `on her course (${e.ship.pos.map((v) => v.toFixed(1))})`);
+  assert.ok(e.ship.pos[0] > 940 && offLine < 6, `on her course (${e.ship.pos.map((v) => v.toFixed(1))}, ${offLine.toFixed(1)} m off it)`);
   // by day her lookout sees me - further than the sea's own captains look (ENGAGE_RANGE)
   assert.ok(RAIDER_SIGHT_M > ENGAGE_RANGE);
   host.raiders([{ ...RAIDER, pos: e.ship.pos }], { sight: RAIDER_SIGHT_M, spent: new Set() });
@@ -137,7 +139,7 @@ test('NAV-R a raider near me at sea stands as a pirate of its seed\'s own class 
   assert.equal(e.ship.target, 'local');
   assert.equal(host.raiderShipOf(RAIDER.seed).chase, true, 'the map says she chases');
   const d0 = Math.hypot(...e.ship.pos);
-  run(host, 30);
+  run(host, 90);   // AUDIT NAV1: she wears round on her own turning circle first (a sloop in this sea's light wind)
   assert.ok(Math.hypot(...e.ship.pos) < d0 - 40, 'she closes');
 });
 

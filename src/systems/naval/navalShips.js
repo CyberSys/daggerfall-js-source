@@ -60,40 +60,43 @@ export const SIDE_DIR = Object.freeze({ starboard: Object.freeze([1, 0, 0]), por
  * Each hull's fighting build, measured off its prefab. `broadside` lists the STARBOARD muzzles (the port side is
  * their mirror); `bow` and `stern` their own. `hullHp`, `sailHp` and `crew` are what the PLAYER's boat of that hull
  * stands with; a class scales them. `deck` is the height boarders stand on, `beam` the half beam at it, `ram` a bow
- * that rams (the galley's).
+ * that rams (the galley's). AUDIT NAV1 (2026-09-29): `bowZ`, `aftZ` and `halfWidth` are the hull's own MeshCollider
+ * bounds in the root's frame (its stem, its stern and its widest half beam - measured off the vendored prefabs
+ * through the real pool): what a captain steers clear of, the length its turning circle is scaled by, and the stem a
+ * ram strikes with.
  */
 export const HULL_BUILDS = Object.freeze([
   Object.freeze({   // 0 Rowboat - no guns; a rowboat is shot at, never fights
     hull: 0, gun: null, broadside: Object.freeze([]), bow: null, stern: null,
-    hullHp: 60, sailHp: 0, crew: 0, deck: 0.1, beam: 1.0, ram: false,
+    hullHp: 60, sailHp: 0, crew: 0, deck: 0.1, beam: 1.0, ram: false, bowZ: 2.94, aftZ: -2.14, halfWidth: 1.08,
   }),
   Object.freeze({   // 1 Large Boat - swivels on the gunwale (1.2 m), three a side and one in the bow
     hull: 1, gun: 'swivel',
     broadside: Object.freeze([[1.8, 1.3, -2.3], [2.05, 1.3, 0.3], [1.8, 1.3, 2.3]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'swivel', muzzles: Object.freeze([Object.freeze([0, 1.6, 5.9])]) }),
     stern: null,
-    hullHp: 150, sailHp: 60, crew: 0, deck: 0.1, beam: 1.9, ram: false,
+    hullHp: 150, sailHp: 60, crew: 0, deck: 0.1, beam: 1.9, ram: false, bowZ: 6.51, aftZ: -5.99, halfWidth: 2.15,
   }),
   Object.freeze({   // 2 Small Ship - the gun deck at 3.64, ports 0.9 over it from the quarter to the forecastle
     hull: 2, gun: 'long',
     broadside: Object.freeze([[7.2, 4.5, -12], [7.8, 4.5, -8], [8.1, 4.5, -4.5], [7.8, 4.5, -1], [7.4, 4.5, 2.5], [7.0, 4.5, 6]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'chain', muzzles: Object.freeze([Object.freeze([-1.4, 7.6, 16.0]), Object.freeze([1.4, 7.6, 16.0])]) }),
     stern: Object.freeze({ gun: 'barrel', muzzles: Object.freeze([Object.freeze([0, 7.6, -23.0])]) }),
-    hullHp: 420, sailHp: 160, crew: 24, deck: 3.64, beam: 7.4, ram: false,
+    hullHp: 420, sailHp: 160, crew: 24, deck: 3.64, beam: 7.4, ram: false, bowZ: 19.88, aftZ: -24.25, halfWidth: 8.43,
   }),
   Object.freeze({   // 3 Large Galley - four long guns a side on the upper deck (10.25), three heavy guns over the stem, a ram
     hull: 3, gun: 'long',
     broadside: Object.freeze([[9.3, 11.1, -20], [9.3, 11.1, -8], [9.3, 11.1, 4], [9.3, 11.1, 16]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'heavy', muzzles: Object.freeze([Object.freeze([-1.6, 8.3, 45.0]), Object.freeze([0, 8.3, 46.0]), Object.freeze([1.6, 8.3, 45.0])]) }),
     stern: null,
-    hullHp: 520, sailHp: 90, crew: 60, deck: 10.25, beam: 8.8, ram: true,
+    hullHp: 520, sailHp: 90, crew: 60, deck: 10.25, beam: 8.8, ram: true, bowZ: 51.27, aftZ: -41.89, halfWidth: 11.17,
   }),
   Object.freeze({   // 4 Carrack - seven long guns a side on the main deck (3.64), chasers under the forecastle, barrels astern
     hull: 4, gun: 'long',
     broadside: Object.freeze([[6.3, 4.5, -16], [7.0, 4.5, -12], [7.7, 4.5, -8], [7.9, 4.5, -4.2], [7.4, 4.5, 0], [7.1, 4.5, 4.2], [5.8, 4.5, 8.4]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'chain', muzzles: Object.freeze([Object.freeze([-1.2, 10.1, 19.5]), Object.freeze([1.2, 10.1, 19.5])]) }),
     stern: Object.freeze({ gun: 'barrel', muzzles: Object.freeze([Object.freeze([0, 7.6, -27.5])]) }),
-    hullHp: 560, sailHp: 220, crew: 30, deck: 3.64, beam: 7.4, ram: false,
+    hullHp: 560, sailHp: 220, crew: 30, deck: 3.64, beam: 7.4, ram: false, bowZ: 23.71, aftZ: -28.24, halfWidth: 8.43,
   }),
 ]);
 
@@ -130,22 +133,26 @@ export const FACTION_IDS = Object.freeze(Object.keys(NAVAL_FACTIONS));
 
 /**
  * The classes. `hullHp`/`sailHp`/`crew` scale the hull's own build; `speed` is the best way it makes with the wind
- * on the quarter (m/s), `turn` degrees a second at way, `skill` the gunners' (0..1: the scatter halved at 1, and how
+ * on the quarter at the rated wind (m/s; navalAI.js WIND_RATED - AUDIT NAV1 set it off the player's own hulls at
+ * their best point of sail on Come Sail Away's runtime: a Small Ship 8.96 m/s, a Large Galley 6.75, a Large Boat
+ * 4.5 - a pirate a touch under the player, a merchant slower, a navy cutter the swiftest hull at sea: they catch a
+ * boat beating to windward or rowing and lose one running free), `turn` the most degrees a second she turns (her
+ * least turning circle bounds it at way - navalAI.js TURN_RADIUS_K), `skill` the gunners' (0..1: the scatter halved at 1, and how
  * well they lead), `range` how close it likes to fight (m), `cargo` the hold's worth (1-4, navalPlunder.js),
  * `minLevel` the player's level it first sails against, `weight` how often among its faction, `boarders` the muster a
  * boarding meets, `tactic` how it fights ('broadside', or a galley's 'bow' - its great guns over the stem). A flagship
  * carries a named captain the quest makes its boss.
  */
 export const SHIP_CLASSES = Object.freeze([
-  cls('pirateSloop', 'pirate', HULL.LargeBoat, 'Pirate Sloop', { hullHp: 1.1, sailHp: 1, crew: 10, speed: 4.4, turn: 16, skill: 0.45, range: 55, cargo: 1, minLevel: 1, weight: 5, boarders: 8 }),
-  cls('pirateBrig', 'pirate', HULL.SmallShip, 'Pirate Brigantine', { hullHp: 0.9, sailHp: 0.9, crew: 22, speed: 3.7, turn: 9, skill: 0.55, range: 95, cargo: 2, minLevel: 4, weight: 4, boarders: 13 }),
-  cls('pirateGalley', 'pirate', HULL.LargeGalley, 'Corsair Galley', { hullHp: 0.85, sailHp: 1, crew: 40, speed: 3.4, turn: 8, skill: 0.5, range: 80, cargo: 2, minLevel: 7, weight: 2, boarders: 13, tactic: 'bow' }),
-  cls('pirateFlagship', 'pirate', HULL.Carrack, 'Pirate Flagship', { hullHp: 1.15, sailHp: 1, crew: 34, speed: 3.0, turn: 6, skill: 0.7, range: 110, cargo: 4, minLevel: 9, weight: 1, boarders: 20, flagship: true }),
-  cls('merchantCoaster', 'merchant', HULL.LargeBoat, 'Coasting Trader', { hullHp: 0.9, sailHp: 1, crew: 5, speed: 3.9, turn: 13, skill: 0.25, range: 60, cargo: 1, minLevel: 1, weight: 5, boarders: 5 }),
-  cls('merchantGalleon', 'merchant', HULL.SmallShip, 'Merchant Galleon', { hullHp: 0.8, sailHp: 0.9, crew: 14, speed: 3.1, turn: 8, skill: 0.3, range: 110, cargo: 3, minLevel: 3, weight: 3, boarders: 9 }),
-  cls('merchantCarrack', 'merchant', HULL.Carrack, 'Merchant Carrack', { hullHp: 0.9, sailHp: 0.9, crew: 18, speed: 2.5, turn: 5, skill: 0.3, range: 120, cargo: 4, minLevel: 5, weight: 2, boarders: 11 }),
-  cls('navyCutter', 'navy', HULL.SmallShip, 'Navy Cutter', { hullHp: 1, sailHp: 1, crew: 26, speed: 3.9, turn: 10, skill: 0.75, range: 90, cargo: 2, minLevel: 1, weight: 3, boarders: 14 }),
-  cls('navyGalley', 'navy', HULL.LargeGalley, 'War Galley', { hullHp: 1, sailHp: 1, crew: 60, speed: 3.5, turn: 9, skill: 0.7, range: 70, cargo: 2, minLevel: 6, weight: 2, boarders: 18, tactic: 'bow' }),
+  cls('pirateSloop', 'pirate', HULL.LargeBoat, 'Pirate Sloop', { hullHp: 1.1, sailHp: 1, crew: 10, speed: 4.6, turn: 16, skill: 0.45, range: 55, cargo: 1, minLevel: 1, weight: 5, boarders: 8 }),
+  cls('pirateBrig', 'pirate', HULL.SmallShip, 'Pirate Brigantine', { hullHp: 0.9, sailHp: 0.9, crew: 22, speed: 7.6, turn: 9, skill: 0.55, range: 95, cargo: 2, minLevel: 4, weight: 4, boarders: 13 }),
+  cls('pirateGalley', 'pirate', HULL.LargeGalley, 'Corsair Galley', { hullHp: 0.85, sailHp: 1, crew: 40, speed: 6.6, turn: 8, skill: 0.5, range: 80, cargo: 2, minLevel: 7, weight: 2, boarders: 13, tactic: 'bow' }),
+  cls('pirateFlagship', 'pirate', HULL.Carrack, 'Pirate Flagship', { hullHp: 1.15, sailHp: 1, crew: 34, speed: 6.4, turn: 6, skill: 0.7, range: 110, cargo: 4, minLevel: 9, weight: 1, boarders: 20, flagship: true }),
+  cls('merchantCoaster', 'merchant', HULL.LargeBoat, 'Coasting Trader', { hullHp: 0.9, sailHp: 1, crew: 5, speed: 4.0, turn: 13, skill: 0.25, range: 60, cargo: 1, minLevel: 1, weight: 5, boarders: 5 }),
+  cls('merchantGalleon', 'merchant', HULL.SmallShip, 'Merchant Galleon', { hullHp: 0.8, sailHp: 0.9, crew: 14, speed: 6.5, turn: 8, skill: 0.3, range: 110, cargo: 3, minLevel: 3, weight: 3, boarders: 9 }),
+  cls('merchantCarrack', 'merchant', HULL.Carrack, 'Merchant Carrack', { hullHp: 0.9, sailHp: 0.9, crew: 18, speed: 5.4, turn: 5, skill: 0.3, range: 120, cargo: 4, minLevel: 5, weight: 2, boarders: 11 }),
+  cls('navyCutter', 'navy', HULL.SmallShip, 'Navy Cutter', { hullHp: 1, sailHp: 1, crew: 26, speed: 8.0, turn: 10, skill: 0.75, range: 90, cargo: 2, minLevel: 1, weight: 3, boarders: 14 }),
+  cls('navyGalley', 'navy', HULL.LargeGalley, 'War Galley', { hullHp: 1, sailHp: 1, crew: 60, speed: 6.8, turn: 9, skill: 0.7, range: 70, cargo: 2, minLevel: 6, weight: 2, boarders: 18, tactic: 'bow' }),
 ]);
 
 function cls(id, faction, hull, title, o) {

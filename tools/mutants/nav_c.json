@@ -29,8 +29,8 @@
   {
     "name": "NAV-C-the-beam-soundings-dropped",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  return isWater(ex + r[0] * beam, ez + r[2] * beam) && isWater(ex - r[0] * beam, ez - r[2] * beam);",
-    "new": "  return true;",
+    "old": "    if (!isWater(x, z) || !isWater(x + r[0] * half, z + r[2] * half) || !isWater(x - r[0] * half, z - r[2] * half)) return false;",
+    "new": "    if (!isWater(x, z) || !isWater(x + r[0] * half, z + r[2] * half)) return false;",
     "tests": [
       "test/nav_c_ships.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "NAV-C-the-stillness-never-counted",
     "file": "src/systems/naval/navalAI.js",
-    "old": "    if (enemy.crippled || (enemy.hullShare ?? 1) < GRAPPLE_HULL || still >= GRAPPLE_STILL_S) out.grapple = enemy.id;",
-    "new": "    if (enemy.crippled || (enemy.hullShare ?? 1) < GRAPPLE_HULL) out.grapple = enemy.id;",
+    "old": "  return !!enemy.crippled || (enemy.hullShare ?? 1) < GRAPPLE_HULL || (ship.stillFor.get(enemy.id) ?? 0) >= GRAPPLE_STILL_S;",
+    "new": "  return !!enemy.crippled || (enemy.hullShare ?? 1) < GRAPPLE_HULL;",
     "tests": [
       "test/nav_c_ships.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "NAV-C-the-grapple-range-ignored",
     "file": "src/systems/naval/navalAI.js",
-    "old": "enemy.kind === 'player' && enemyD <= GRAPPLE_RANGE && ship.damage.crew >= GRAPPLE_CREW",
-    "new": "enemy.kind === 'player' && ship.damage.crew >= GRAPPLE_CREW",
+    "old": ": enemyD <= GRAPPLE_RANGE;\n    if (close) out.grapple = enemy.id;",
+    "new": ": true;\n    if (close) out.grapple = enemy.id;",
     "tests": [
       "test/nav_c_ships.test.js"
     ]
@@ -110,7 +110,7 @@
   {
     "name": "NAV-C-the-oars-dropped",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  if (ship.hull === 3) best = Math.max(best, ship.cls.speed * OARS_FLOOR);",
+    "old": "    if (ship.hull === HULL.LargeGalley) best = Math.max(best, ship.cls.speed * OARS_FLOOR);",
     "new": "",
     "tests": [
       "test/nav_c_ships.test.js"

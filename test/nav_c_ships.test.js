@@ -141,8 +141,9 @@ test('NAV-C who takes whom: pirates take anything; a navy takes pirates, and the
   assert.equal(hostile(merchant, ship('pirate')), false);
 });
 
-test('NAV-C off the rocks: a course is clear when three soundings along it and one either beam of its end are water; a foul one swings to the NEAREST clear swing, starboard first; a ship boxed in comes about (mutants: the beam soundings dropped, the swings\' order)', () => {
-  const ship = createSeaShip({ id: 1, seed: 1, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0 });
+test('NAV-C off the rocks (AUDIT NAV1: every SCAN_STEP on the keel line and past either side of the hull): a course is clear when its soundings are water; a foul one swings to the NEAREST clear swing, starboard first; a ship boxed in comes about (mutants: the beam soundings dropped, the swings\' order)', () => {
+  const fresh = () => createSeaShip({ id: 1, seed: 1, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0 });
+  const ship = fresh();
   const land = (x, z) => z < 50;   // a shore across the bow
   assert.equal(courseClear([0, 0, 0], 0, LOOKAHEAD_MIN, land), false);
   assert.equal(courseClear([0, 0, 0], Math.PI, LOOKAHEAD_MIN, land), true);
@@ -150,8 +151,8 @@ test('NAV-C off the rocks: a course is clear when three soundings along it and o
   assert.equal(courseClear([0, 0, 0], 50 * NAVAL_DEG, LOOKAHEAD_MIN, land), false, 'the beam sounding finds it');
   assert.deepEqual(AVOID_SWINGS.slice(0, 6), [25, -25, 50, -50, 80, -80]);
   near(avoidLand(ship, 0, land), 80 * NAVAL_DEG, 1e-12);
-  near(avoidLand(ship, Math.PI, land), Math.PI, 1e-12, 'a clear course is kept');
-  near(Math.abs(avoidLand(ship, 0, () => false)), Math.PI, 1e-12, 'boxed in: about');
+  near(avoidLand(fresh(), Math.PI, land), Math.PI, 1e-12, 'a clear course is kept');
+  near(Math.abs(avoidLand(fresh(), 0, () => false)), Math.PI, 1e-2, 'boxed in: about');
   // the bearing: + to starboard (+x at a heading of 0)
   near(bearingTo(ship, [10, 0, 0]).bearing, Math.PI / 2, 1e-12);
   near(bearingTo(ship, [-10, 0, 0]).bearing, -Math.PI / 2, 1e-12);
@@ -171,7 +172,8 @@ test('NAV-C the lead: a still target is laid on; a moving one where it will be w
 
 test('NAV-C a captain at sea: with no enemy she cruises for a waypoint on open water, gathering way at ACCEL; a pirate with the player in reach engages - she presents her loaded broadside and fires it as the player bears abeam, the side then reloading (mutants: the broadside\'s bearing, the reach, the reload skipped)', () => {
   const s = createSeaShip({ id: 'c', seed: 5, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0 });
-  const out = stepCaptain(s, world());
+  let k = 0;
+  const out = stepCaptain(s, world({ random: () => [0.1, 0.4, 0.2][(k++) % 3] }));   // AUDIT NAV1: a constant draw would be an upwind course every try
   assert.equal(s.mode, 'cruise');
   assert.ok(Array.isArray(s.waypoint) && s.waypoint.length === 2, 'a waypoint');
   near(s.speed, ACCEL * 1, 1e-12, 'a heavy hull gathers way at half; a brigantine at ACCEL');

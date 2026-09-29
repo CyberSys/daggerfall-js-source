@@ -27,6 +27,19 @@
 - When you beat Warm Ashes' voyage ambush, you can plunder the raiders' hold before you sail on.
 - Only one pirate raid runs at a time. Pirates who board you during another raid fight you as a boarding party instead, and raiders on the Overworld leave you alone until it is over.
 
+## Seamanship - the ships sail like ships
+- Ships now sail at your own boat's pace. A pirate brigantine is nearly as quick as your Small Ship: running free you can outsail her, but beating into the wind or rowing, she will catch you. Navy cutters are the swiftest ships at sea.
+- Ships no longer sail into the wind and stall. They tack up to windward, and a ship without enough way wears round instead.
+- Ships turn in wide, eased turns on their own turning circle, as your boat does, and heel into the turn and away from the wind.
+- Ships give each other room and keep to the rule of the road. They no longer pass through each other or through your boat.
+- Ships keep off the land. They no longer cut across spits and headlands, scrape along islands or run aground, and a ship boxed in at the end of a channel turns round where she lies.
+- A ship in a fight shows you the broadside that will fire soonest, holds you square on her beam while it is loaded and closes the range while it reloads. Near a coast she keeps to the open-water side.
+- Pirates come alongside to board a boat that is crippled, badly holed or lying still, holding their broadsides as they close. No ship keeps firing on a crippled boat, and one that will not board it leaves it be.
+- A pirate who cannot catch you gives up the chase.
+- War galleys and corsair galleys ram. Brace to take half the blow.
+- Taking prizes no longer empties the sea: new ships keep coming over the horizon, and a prize you cast adrift drifts away on the wind.
+- When you speed up time at the helm, the ships at sea keep pace with you.
+
 ## The law
 - Firing on a merchantman or a navy ship is piracy, and that kingdom's law hears of it. Your notoriety in its waters rises, shown as anchors on your ship's panel, and it fades day by day.
 - Sinking or taking a pirate earns you standing with that kingdom and the knightly orders. A pirate flagship earns you standing with the temples too.

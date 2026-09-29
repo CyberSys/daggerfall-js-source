@@ -65,8 +65,10 @@ export function factionWeights({ nearPort = false, notoriety = 0 } = {}) {
 /**
  * The director. `step(dt, ctx)` answers `{ spawn: spec | null, despawn: id[] }`:
  *   ctx = { density, player: [x, y, z], players: [x, y, z][] (every player the host places - itself included),
- *           level, ships: [{ id, pos, classId, engaged }], isOpenWater(x, z, hull), nearPort, notoriety, seedBase,
+ *           level, ships: [{ id, pos, classId, engaged, afloat }], isOpenWater(x, z, hull), nearPort, notoriety, seedBase,
  *           seaY }
+ * Only a ship `afloat` (not false) counts against the density - a prize, a struck hulk, a ship going down is still at
+ * sea but fills no berth (AUDIT NAV1 B1: three prizes emptied the sea until the next transition).
  * A spec is `{ seed, classId, variant, pos, yaw, hunter }`.
  */
 export function createNavalDirector({ random = Math.random } = {}) {
@@ -81,7 +83,7 @@ export function createNavalDirector({ random = Math.random } = {}) {
       wait -= Math.max(0, dt);
       if (wait > 0) return out;
       wait = SPAWN_EVERY[0] + random() * (SPAWN_EVERY[1] - SPAWN_EVERY[0]);
-      const alive = (ctx.ships ?? []).filter((s) => !out.despawn.includes(s.id)).length;
+      const alive = (ctx.ships ?? []).filter((s) => !out.despawn.includes(s.id) && s.afloat !== false).length;   // AUDIT NAV1 (B1): a prize, a hulk or a wreck going down fills no berth
       if (alive >= (ctx.density ?? 0) || random() >= SHIP_SPAWN_CHANCE) return out;
       const seed = hash32(ctx.seedBase >>> 0, count++);
       const rng = mulberry32(seed);

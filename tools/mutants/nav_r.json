@@ -92,8 +92,8 @@
   {
     "name": "NAV-R-the-sight-unread",
     "file": "src/systems/naval/navalAI.js",
-    "old": "if (dist < (ship.sight ?? ENGAGE_RANGE) && dist < enemyD)",
-    "new": "if (dist < ENGAGE_RANGE && dist < enemyD)",
+    "old": "  const sight = ship.sight ?? ENGAGE_RANGE;",
+    "new": "  const sight = ENGAGE_RANGE;",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "NAV-R-the-chase-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "return { pos: e.ship.pos, chase: e.ship.mode === 'engage' && e.ship.target === myId() };",
-    "new": "return { pos: e.ship.pos, chase: false };",
+    "old": "      return { pos: e.ship.pos, chase: chasesMe(e) };",
+    "new": "      return { pos: e.ship.pos, chase: false };",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -137,8 +137,8 @@
   {
     "name": "NAV-R-the-director-takes-her",
     "file": "src/scenes/navalHost.js",
-    "old": "boarding?.shipId === e.id || !!e.raider })),",
-    "new": "boarding?.shipId === e.id })),",
+    "old": "boarding?.shipId === e.id || !!e.raider, afloat:",
+    "new": "boarding?.shipId === e.id, afloat:",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
