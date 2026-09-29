@@ -343,7 +343,7 @@ test('PROF2 forge: what the Stores can smelt of a recipe - every input\'s units 
   assert.equal(smeltable(smeltRecipe('ingot:steel'), held), 0, 'no Charcoal');
   assert.equal(smeltable(smeltRecipe('ingot:iron'), () => 1000), 100);
   assert.equal(SMELT_RECIPES.length, 10);
-  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge', 'workbench']);   // PROF4: the workbench, a fifth
+  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom']);   // PROF4: the workbench, a fifth; PROF7: the loom, a sixth
   assert.deepEqual([DECOR_STATION_FEES.forge, DECOR_STATION_NAMES.forge], [50_000, 'Forge']);
 });
 
@@ -396,13 +396,14 @@ test('PROF2 DONE WHEN: veins placed on rock fields; signatures by kingdom - a co
 
 test('PROF2 hosts: the streaming world stands every kind through the one host, its rock pieces carried on the pixel; the dungeon\'s veins through its own doors; the forge at a smith\'s or a home; the Prospector\'s compass on both skins', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /gatherHost = createGatherHost\(\{\n\s*book: profBook, hud, kinds: \[herbKind\(\{ book: profBook \}\), mineKind\(\{ book: profBook \}\),\n\s*treeKind\(\{ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord \}\)\],/);   // PROF4: Logging's trees, the third
+  assert.match(w, /gatherHost = createGatherHost\(\{\n\s*book: profBook, hud, kinds: \[herbKind\(\{ book: profBook \}\), mineKind\(\{ book: profBook \}\),\n\s*treeKind\(\{ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord \}\),[^\n]*\n\s*huntKind\(\{ book: profBook, bodies: \(\) => huntBodies\(\) \}\)\],/);   // PROF4: Logging's trees, the third; PROF7: Hunting's bodies, the fourth
   assert.match(w, /if \(rockPick\(m\.pick\)\) pixelRocks\.push\(box\);/, 'a rock piece that stood - after the road\'s clearance');
   assert.match(w, /rocks: pixelRocks,/);
   assert.match(w, /const rockPick = \(i\) => wodPicks\[i\]\?\.name === 'Rocks' \|\| wodPicks\[i\]\?\.name === 'Mountains';/);
   assert.match(w, /if \(!townTalk\.overlayActive && act === 'Escape' && gatherHost\?\.cancel\(\)\) \{ e\.preventDefault\(\); e\.profActEnded = true; return true; \}/, 'Escape above the mode gate');
   assert.ok(w.indexOf("act === 'Escape' && gatherHost?.cancel()") < w.indexOf("if (!townTalk.overlayActive && (modes?.mode ?? 'exterior') === 'exterior') {"), 'before the exterior gate');
-  assert.match(w, /veins: prospectorVeins\(\),/);
+  assert.match(w, /veins: professionMarks\(\),/);   // PROF7 moved it: a Tracker's animals beside a Prospector's veins
+  assert.match(w, /const v = prospectorVeins\(\), a = trackerAnimals\(\);/);
   assert.match(w, /onDungeonLeave: \(\) => \{ const n = handOverRoomFoes\(\);[^\n]*gatherHost\?\.leaveDungeon\(\); worldPublish\(performance\.now\(\), true\); \},/, 'the veins dropped while the dungeon still stands');
   assert.match(w, /profPress: \(\) => gatherHost\?\.press\(\) \?\? false,/);
   assert.match(src('src/world/worldOfDaggerfall.js'), /name: session\.name\[pick\.index\] \}\)\);/);

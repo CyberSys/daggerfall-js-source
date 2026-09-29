@@ -33,12 +33,21 @@
 // on its value, never a Loot Rarity roll), the mark on a Masterwork and
 // on every piece a Master Joiner makes (`marked`); the Basket Foraging's
 // own, its quality its life.
+//
+// PROF7 (2026-09-29, Mac: "Do it"; Professions-Arc.md 29): AND THE
+// LOOM'S. Leather armour is CreateArmor's at Leather (material 0), its
+// quality the smith's armour's; a garment is DFU's clothing template in
+// its group (the men's or the women's), its variant the record's seed's
+// and its dye the record's (`u`) - as DFU's shelf mints clothing, the
+// variant then the dye - its quality the armour's; the rugs,
+// tapestries and skins are furniture; the Fishing-Net Foraging's own and
+// the Skinning Knife the port's (603), each a tool, its quality its life.
 // ═══════════════════════════════════════════════════════════════════
 import {
   recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, INGOT_MATERIAL, ARMOR_PLATE,
   ARMOR_CHAIN, PROVENANCE_RE, makerName, QUALITY_NAMES,
 } from '../net/recipeLaw.js';
-import { minedMaterial } from '../net/professionLaw.js';
+import { minedMaterial, SKINNING_KNIFE } from '../net/professionLaw.js';
 import { weaponOfMaterial, armorOfMaterial, createWeapon } from '../combat/enemyEquipment.js';
 import { setItemFields, mintCondition, templateByIndex, registerItemUseHandler } from './itemTemplates.js';
 import { itemLongName } from './itemInfo.js';
@@ -56,13 +65,31 @@ const kitValue = (tier) => 10 + 10 * tier;
 
 // ─── THE PIECE ───────────────────────────────────────────────────────
 
+/** PROF7: a tool that is not Foraging's (the Skinning Knife, 603 - its row registered by profTemplates.js), or Foraging's
+ *  own mint. */
+const toolItem = (templateIndex) => (templateIndex === SKINNING_KNIFE.templateIndex
+  ? mintCondition(setItemFields({ group: 'UselessItems2', templateIndex, material: 0, flags: 0, variant: 0, message: 0, stackCount: 1 }))
+  : createForagingItem(templateIndex));
 /**
- * One piece of a craft's answer - `{ recipe, quality, seed, maker, marked }` and the piece's `provenance` - as the pack
- * (or, furniture, the home's things) holds it, or null for a recipe this client does not know.
- * @param {{ recipe: string, quality: number, seed: number, maker?: string|null, marked?: boolean }} made
+ * PROF7: A GARMENT as DFU's shelf mints clothing (systems/shopStock.js) - the template in its group, then its variant (the
+ * record's seed's, so every client mints the same one), then its dye (the record's, `u`; an undyed shirt none).
+ * @param {import('../net/recipeLaw.js').Recipe} r @param {number} seed @param {number|null} dye
+ */
+export function garmentItem(r, seed, dye = null) {
+  const variants = Math.max(1, templateByIndex(r.templateIndex)?.variants ?? 0);
+  /** @type {any} */
+  const item = mintCondition(setItemFields({ group: r.group, templateIndex: r.templateIndex, material: 0, flags: 0, variant: (seed >>> 0) % variants, message: 0, stackCount: 1 }));
+  if (r.dyes === true && Number.isInteger(dye)) item.dye = dye;
+  return item;
+}
+
+/**
+ * One piece of a craft's answer - `{ recipe, quality, seed, maker, marked, dye }` and the piece's `provenance` - as the
+ * pack (or, furniture, the home's things) holds it, or null for a recipe this client does not know.
+ * @param {{ recipe: string, quality: number, seed: number, maker?: string|null, marked?: boolean, dye?: number|null }} made
  * @param {string} provenance
  */
-export function mintPiece({ recipe, quality, seed, maker = null, marked = false }, provenance) {
+export function mintPiece({ recipe, quality, seed, maker = null, marked = false, dye = null }, provenance) {
   const r = recipeById(recipe);
   if (!r || typeof provenance !== 'string' || !PROVENANCE_RE.test(provenance)) return null;
   const mark = makerName(maker);
@@ -101,11 +128,13 @@ export function mintPiece({ recipe, quality, seed, maker = null, marked = false 
     return item;
   }
   if (r.kind === 'tool') {
-    item = createForagingItem(r.templateIndex);
+    item = toolItem(r.templateIndex);   // PROF7: the Skinning Knife the port's own
     if (!item) return null;
     item.maxCondition = item.currentCondition = TOOL_LIFE[q];   // FORAGE0 14.7: a tool's quality is its life
   } else {
-    item = r.kind === 'weapon' || r.kind === 'staff' || r.kind === 'bow' ? weaponOfMaterial(r.templateIndex, r.material) : armorOfMaterial(r.templateIndex, r.material);   // PROF4: a staff's or a bow's material its wood's
+    item = r.kind === 'weapon' || r.kind === 'staff' || r.kind === 'bow' ? weaponOfMaterial(r.templateIndex, r.material)   // PROF4: a staff's or a bow's material its wood's
+      : r.kind === 'garment' ? garmentItem(r, seed, dye)   // PROF7: DFU's clothing, its variant and dye the record's
+        : armorOfMaterial(r.templateIndex, r.material);   // PROF7: leather armour at Leather (0)
     const eff = QUALITY_EFFECTS[q];
     if (eff.rarity && rarityEligible(item)) { applyRarity(item, eff.rarity, seededRng(seed >>> 0)); item.isIdentified = true; }
     item.maxCondition = item.currentCondition = Math.max(1, Math.round(item.maxCondition * eff.condition));
@@ -214,3 +243,5 @@ export function craftedText(pieces) {
 export const CRAFT_KEPT_TEXT = 'The anvil rang, but no word came back - the work is kept, and made when the word comes.';
 /** AUDIT 30 A4: the workbench's own (Carpentry's work is planed, not struck). */
 export const BENCH_KEPT_TEXT = 'The shavings fell, but no word came back - the work is kept, and made when the word comes.';
+/** PROF7: the loom's own. */
+export const LOOM_KEPT_TEXT = 'The last stitch was pulled, but no word came back - the work is kept, and made when the word comes.';

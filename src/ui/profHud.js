@@ -10,7 +10,8 @@
 //   the METER   - centred under the crosshair while an act plays: the
 //                 kneel's and the steady hand's bar (the hold turns red
 //                 when the herb bruises), the Basket's leaves with the
-//                 glint to tap; a still bar under reduced motion (the
+//                 glint to tap; PROF7 the knife's dotted line over the
+//                 carcass, the points drawn past lit; a still bar under reduced motion (the
 //                 system's own - the port has no setting of its own);
 //   the TOASTS  - on the right, four at most, three seconds each:
 //                 "+3 Red Roses to your Stores", "+45 Herbalism XP",
@@ -24,7 +25,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { BASKET_SPOTS } from '../systems/herbAct.js';
 import { MINE_POINTS } from '../systems/mineAct.js';   // PROF2: the vein's face
-import { MINE_ACT, CHOP_ACT } from '../net/professionLaw.js';
+import { MINE_ACT, CHOP_ACT, TRACE_ACT } from '../net/professionLaw.js';
 import { PROF_CSS } from './enhancedPlusStyle.js';
 
 /** The toasts: four at most, three seconds each (PROF0 8). */
@@ -172,6 +173,42 @@ export function createProfHud({ doc = globalThis.document } = {}) {
         const hint = mk('prof-hint');
         hint.textContent = st.gentle ? (label || 'strike') : (label || 'strike the glint');
         meter.append(face, pips, hint);
+        return;
+      }
+      if (st.kind === 'trace') {
+        // PROF7: THE TRACE - the carcass's face as a box (the line's span, a margin round it), the dotted line, the points
+        // the knife has passed lit, and where the crosshair is on it; a hold's bar for Gentle acts
+        if (st.gentle) {
+          const bar = mk('prof-bar');
+          const fill = doc.createElement('i');
+          fill.style.width = `${Math.round(act.progress * 100)}%`;
+          bar.append(fill);
+          const hint = mk('prof-hint');
+          hint.textContent = label || 'hold attack';
+          meter.append(bar, hint);
+          return;
+        }
+        const face = mk('prof-face');
+        const w = TRACE_ACT.spanYawDeg + 2 * TRACE_ACT.startDeg, h = 2 * (TRACE_ACT.spanPitchDeg + TRACE_ACT.startDeg);
+        /** @param {readonly number[]} p [yaw, pitch] degrees */
+        const at = (p) => [50 + (p[0] / w) * 100, 50 - (p[1] / h) * 100];
+        st.points.forEach((p, i) => {
+          const passed = st.tracing && i <= st.reached;
+          const n = mk(passed ? 'prof-glint' : 'prof-point');
+          const [x, y] = at(p);
+          n.style.left = `${x}%`; n.style.top = `${y}%`;
+          if (passed && reduced()) n.style.animation = 'none';
+          face.append(n);
+        });
+        if (st.aim) {
+          const a = mk('prof-aim');
+          const [x, y] = at([Math.max(-w / 2, Math.min(w / 2, st.aim.yaw)), Math.max(-h / 2, Math.min(h / 2, st.aim.pitch))]);
+          a.style.left = `${x}%`; a.style.top = `${y}%`;
+          face.append(a);
+        }
+        const hint = mk('prof-hint');
+        hint.textContent = label || (st.tracing ? 'draw the knife along the line' : 'hold attack on the first point');
+        meter.append(face, hint);
         return;
       }
       if (st.kind === 'basket') {

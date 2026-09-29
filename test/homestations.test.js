@@ -36,8 +36,8 @@ function choose(rig, id) {
 const PLACE = Object.freeze({ pos: [1, 0, 2], rot: [90, 0, 0], scale: 1, light: null, storage: false, paid: 120 });
 
 test('HOME-STATIONS the law: a piece serves one of three crafts, carried only when it serves one; a craft it does not know, a piece that holds things, and one\'s own item serve none (mutants: any word taken; storage and a station together; the key always written)', () => {
-  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge', 'workbench']);   // PROF2: the forge, a fourth (Professions-Arc 23); PROF4: the workbench, a fifth (25)
-  assert.deepEqual({ ...DECOR_STATION_FEES }, { alchemy: 50000, spells: 100000, enchant: 200000, forge: 50000, workbench: 50000 });   // STATION-FEES: ten times the first pass; PROF2: a forge as the alchemy station; PROF4: a workbench as the forge
+  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom']);   // PROF2: the forge, a fourth (Professions-Arc 23); PROF4: the workbench, a fifth (25); PROF7: the loom, a sixth (29)
+  assert.deepEqual({ ...DECOR_STATION_FEES }, { alchemy: 50000, spells: 100000, enchant: 200000, forge: 50000, workbench: 50000, loom: 50000 });   // STATION-FEES: ten times the first pass; PROF2: a forge as the alchemy station; PROF4: a workbench as the forge; PROF7: a loom as the workbench
   assert.deepEqual({ ...DECOR_STATION_SERVICES }, { alchemy: 'guildServicePotionMaker', spells: 'guildServiceSpellMaker', enchant: 'guildServiceItemMaker' }, 'the forge is no guild\'s service - it opens the Stores\' forge');
   assert.deepEqual(decorStationWords(null, 'forge'), { pick: 'Station: Forge >', act: 'Make station - 50,000 gold', what: 'station:forge' });
   assert.equal(DECOR_STATION_NAMES.spells, 'Spellmaking station');

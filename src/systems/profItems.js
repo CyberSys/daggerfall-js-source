@@ -22,23 +22,33 @@
 // (MetalIngredients, Gems), minted as the herbs are; an ORE, an INGOT or
 // STONE is its registered template (systems/profTemplates.js, 610-674) in
 // DFU's miscellany - the item DFU's own ItemCollection would hold for it.
+//
+// PROF7: A HIDE, A LEATHER OR A BOLT the same (655-671); a body's DFU
+// part its own ingredient (Big Tooth, Spider's Venom...); its butchery
+// C&C's Raw Meat, and a Slaughterfish's Raw Fish as the Basket's fruit is
+// chosen - C&C's while it is on, else Foraging's Fish.
 // ═══════════════════════════════════════════════════════════════════
 import { material } from '../net/nodeLaw.js';
 import { minedMaterial } from '../net/professionLaw.js';
 import { setItemFields, mintCondition, templateByIndex } from './itemTemplates.js';
 import { addItem } from './inventory.js';
 import { itemNameParts } from './itemInfo.js';
-import { FT, fruitTemplate } from './foragingLaw.js';
+import { FT, fruitTemplate, fishTemplate } from './foragingLaw.js';
+import { TEMPLATE as CC_TEMPLATE } from './survival/food.js';   // PROF7: C&C's Raw Meat
 import { createForagingItem } from './foragingInstall.js';
 import { survivalOn } from './survival/switch.js';
 import { PROF_ITEM_GROUP } from './profTemplates.js';   // PROF2: the ores', ingots' and stone's group (and their rows, registered)
 
-/** The template a food key withdraws as, C&C on or off. */
+/** The template a food key withdraws as, C&C on or off. PROF7: a body's butchery - C&C's Raw Meat either way (4.4:
+ *  "Butchery gives C&C's Raw Meat"), and a Slaughterfish's Raw Fish as Foraging's own code makes a fish (5.2: C&C's Raw
+ *  Fish while C&C is on, else Foraging's Fish). */
 export function foodTemplate(key, cc) {
   if (key === 'food:apple') return fruitTemplate('Apple', cc);
   if (key === 'food:orange') return fruitTemplate('Orange', cc);
   if (key === 'food:mushroom') return FT.Mushroom;
   if (key === 'food:egg') return FT.Egg;
+  if (key === 'food:meat') return CC_TEMPLATE.RawMeat;
+  if (key === 'food:fish') return fishTemplate(cc);
   return null;
 }
 
@@ -85,16 +95,18 @@ export function materialCountLabel(key, n, cc = survivalOn()) {
 
 /**
  * WITHDRAWN INTO THE PACK: `n` items of the material, each added as DFU's AddItem adds (a stackable one joins its
- * stack). Answers how many were added.
- * @param {{ items?: any[] }} entity
+ * stack). Answers how many were added. PROF7: `slowRot` - a Butcher's meat, which spoils half as fast (PROF0 3.3).
+ * @param {{ items?: any[] }} entity @param {string} key @param {number} n @param {boolean} [cc]
+ * @param {{ slowRot?: boolean }} [opts]
  */
-export function withdrawIntoPack(entity, key, n, cc = survivalOn()) {
+export function withdrawIntoPack(entity, key, n, cc = survivalOn(), { slowRot = false } = {}) {
   if (!entity || !Number.isSafeInteger(n) || n < 1) return 0;
   if (!Array.isArray(entity.items)) entity.items = [];
   let added = 0;
   for (let i = 0; i < n; i++) {
     const item = mintMaterialItem(key, cc);
     if (!item) break;
+    if (slowRot === true) item.slowRot = true;
     addItem(entity.items, item, 'back');
     added++;
   }

@@ -24,19 +24,26 @@
 //   PROF3: THE ANVIL beside it. PROF4: the Forge burns logs to Charcoal,
 //   and THE WORKBENCH - the saws and Carpentry's recipes, with the plane
 //   - while the player stands at one (a Furniture Store's, its fee a
-//   craft or a saw; a home's workbench).
+//   craft or a saw; a home's workbench). PROF7: THE LOOM - the tanning
+//   rack's cures, the weave, and Outfitting's recipes with the stitch and
+//   a garment's dye - at a Clothing Store (its fee a craft, a cure or a
+//   weave) or a home's loom.
 //
 // The pages draw with the menu's own kit (its `el`, divider and meter,
 // handed in), so they are the sheet's pages and not a second window.
 // ═══════════════════════════════════════════════════════════════════
 import {
   PROFESSIONS, SPECIALISATIONS, SPEC_RANKS, RESPEC, xpForRank, rankName, PROF_RANK_MAX, TIER_RANKS, CRAFTS_ABOVE_JOURNEYMAN,
-  JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
-  withdrawable, stockOf, STOCK_MAX, BURN_RECIPES, SAW_RECIPES, WORKBENCH_FEE, WOODS, workPer,
+  JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
+  withdrawable, stockOf, STOCK_MAX, BURN_RECIPES, SAW_RECIPES, WORKBENCH_FEE, WOODS, workPer, workSpecRank, CURE_RECIPES,
+  WEAVE_RECIPES, LOOM_FEE, CLOTHS, WEAVERS_STOCK,
 } from '../net/professionLaw.js';
 import {
-  RECIPES, recipeOpen, qualityOdds, QUALITY_NAMES, HEAT_ACT, takesQuality, recipeInputs, takesHeartwood, PLANE_ACT,
+  RECIPES, recipeOpen, qualityOdds, QUALITY_NAMES, HEAT_ACT, takesQuality, recipeInputs, takesHeartwood, PLANE_ACT, STITCH_ACT,
+  GARMENT_DYES,
 } from '../net/recipeLaw.js';
+import { createStitchAct } from '../systems/stitchAct.js';
+import { DYE_NAMES } from '../characters/dyes.js';
 import { isTextEntryTarget, isDomControlTarget } from './input.js';   // AUDIT 30 A9: a field's keys and a button's are their own
 import { createHeatAct } from '../systems/heatAct.js';
 import { createPlaneAct } from '../systems/planeAct.js';
@@ -53,21 +60,30 @@ import { isEnhanced } from '../systems/uiSkin.js';
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [forge]   PROF2: the forge the player stands at, or null
  * @property {(recipe: string, count: number) => Promise<{ ok: boolean, text: string }>} [smelt]   PROF2: a smelt, its fee paid
  * @property {() => Promise<any>} [settle]   AUDIT 29 C4: the kept withdrawals asked again (the Stores page opened)
- * @property {(recipe: string, opts: { clean: boolean, heartwood?: boolean }) => Promise<{ ok: boolean, text: string }>} [craft]
- *   PROF3: a craft at the anvil (PROF4: or the workbench, by the recipe's profession), its pieces made and its fee paid
- * @property {(material: string, qty: number) => Promise<{ ok: boolean, text: string }>} [stock]   PROF3: the smith's stock
- *   (PROF4: and the furnisher's)
+ * @property {(recipe: string, opts: { clean: boolean, heartwood?: boolean, dye?: number|null }) => Promise<{ ok: boolean, text: string }>} [craft]
+ *   PROF3: a craft at the anvil (PROF4: or the workbench, by the recipe's profession; PROF7: or the loom, a garment's
+ *   `dye`), its pieces made and its fee paid
+ * @property {(material: string, qty: number, counter?: string) => Promise<{ ok: boolean, text: string }>} [stock]   PROF3: the
+ *   smith's stock (PROF4: and the furnisher's; PROF7: the Weavers' at the tailor's loom - `counter`)
  * @property {() => number} [heatBand]   PROF3: the heat's attribute band (recipeLaw heatBand)
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [workbench]   PROF4: the workbench the player stands at
  * @property {() => number} [planeBand]   PROF4: the plane's attribute band (recipeLaw planeBand)
  * @property {() => number} [purse]   AUDIT 30 U13: the gold the player carries - a station's fee the purse cannot meet is
  *   not offered (the heat was struck, and then the smith refused)
+ * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [loom]   PROF7: the loom the player stands at
+ * @property {() => number} [stitchBand]   PROF7: the stitch's attribute band (recipeLaw stitchBand)
+ * @property {() => 'MensClothing'|'WomensClothing'} [clothing]   PROF7: the clothing the loom shows first - the player's own,
+ *   as DFU's Clothing Store shelves it
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
 export function setProfessionsPages(p) { _provider = p ?? null; }
 /** What a locked specialisation's card says it waits for (professionLaw.js `later`). */
-const LATER_WORDS = Object.freeze({ PROF2b: 'Comes with the Motherlodes', SEAT2: 'Comes with the sieges' });
+const LATER_WORDS = Object.freeze({
+  PROF2b: 'Comes with the Motherlodes', SEAT2: 'Comes with the sieges',
+  // PROF7 (Professions-Arc.md 29): what DFU gives these nothing to stand as - for Mac
+  trophy: 'Waits on a trophy to stand as', 'two-colour': 'Waits on a second dye DFU\'s cloth takes', wagon: 'Waits on a wagon upgrade to hold',
+});
 /** Whether the pages stand: a book, and the professions this account's. */
 export const profPagesShown = () => !!_provider && _provider.book?.state?.open === true;
 /** AUDIT 29 B2: whether a Forge works here - the professions the account's (the pages shown) and the Enhanced pause
@@ -79,9 +95,10 @@ export const forgeOffered = () => profPagesShown() && isEnhanced();
 export const FORGE_COLD_LINE = 'The forge is cold. Smelting is done online, from your Stores, on the Enhanced pause menu\'s Stores page.';
 /** PROF4 (bible/06-Systems/Professions-Arc.md 25): the home stations the Stores page works - the forge and the workbench -
  *  offered, sold and worked only where it is (forgeOffered's gate, AUDIT 29 B2). */
-export const PROF_STATIONS = Object.freeze(['forge', 'workbench']);
+export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom']);   // PROF7: the loom
 export const WORKBENCH_COLD_LINE = 'The workbench is bare. Carpentry is done online, from your Stores, on the Enhanced pause menu\'s Stores page.';
-export const stationColdLine = (station) => (station === 'workbench' ? WORKBENCH_COLD_LINE : FORGE_COLD_LINE);
+export const LOOM_COLD_LINE = 'The loom is still. Outfitting is done online, from your Stores, on the Enhanced pause menu\'s Stores page.';
+export const stationColdLine = (station) => (station === 'workbench' ? WORKBENCH_COLD_LINE : station === 'loom' ? LOOM_COLD_LINE : FORGE_COLD_LINE);
 /** The rail's rows the pages add. */
 export const PROF_PAGE_SECTIONS = Object.freeze([Object.freeze(['professions', 'Professions']), Object.freeze(['stores', 'Stores'])]);
 
@@ -109,6 +126,15 @@ const _bench = {
   busy: false, word: /** @type {string|null} */ (null), counts: /** @type {Record<string, number>} */ ({}), heartwood: false,
   actRecipe: /** @type {string|null} */ (null), actWood: false,   // AUDIT 30 A3: the plane's own recipe
 };
+/** PROF7: the loom's family, cloth and clothing shown, the recipe chosen, the dye, the stitch being sewn, a craft in
+ *  flight and its word, the cures' and the weave's counts. */
+const _loom = {
+  family: 'leather', cloth: 'cloth:linen', clothing: /** @type {string|null} */ (null), picked: /** @type {string|null} */ (null),
+  dye: /** @type {number|null} */ (null), act: /** @type {any} */ (null), busy: false, word: /** @type {string|null} */ (null),
+  counts: /** @type {Record<string, number>} */ ({}), els: /** @type {any} */ (null), off: /** @type {(() => void)|null} */ (null),
+  stitch: /** @type {(() => void)|null} */ (null),
+  actRecipe: /** @type {string|null} */ (null), actDye: /** @type {number|null} */ (null),   // AUDIT 30 A3's law: the stitch's own recipe and dye
+};
 /** AUDIT 30 U20: the one row a smelt, burn or saw is under way on - its button alone says so. */
 let _workingOn = /** @type {string|null} */ (null);
 /** AUDIT 30 U13: a station's fee the purse cannot meet - its words, or null. */
@@ -125,6 +151,7 @@ export function resetProfPages() {
   _armed = null; _profWord = null; _stores.word = null; _stores.picked = null; _stores.qty = 1; _forge.word = null; _forge.counts = {};
   endHeat(); _anvil.word = null; _anvil.picked = null; _anvil.heartwood = false;
   _bench.act?.cancel(); _bench.act = null; _bench.actRecipe = null; _bench.word = null; _bench.picked = null; _bench.counts = {}; _bench.heartwood = false;   // PROF4
+  endStitch(); _loom.word = null; _loom.picked = null; _loom.counts = {}; _loom.dye = null;   // PROF7
 }
 
 /** What the Professions page says a harvest earns for each profession PROF1 gathers, by tier. */
@@ -135,13 +162,20 @@ const UNLOCKS = Object.freeze({
     ['Gold, Moonstone, Dwarven Scrap', 4], ['Platinum, Mithril', 5], ['Adamantium, Ebony, Orichalcum', 6]]),
   // PROF4: the woods by their tiers (PROF0 4.2); Smithing's metals and Carpentry's woods by theirs
   logging: Object.freeze([['Pine', 1], ['Oak', 2], ['Cherry', 3], ['Teak', 4], ['Mahogany', 5], ['Ironwood, Ghostwood', 6]]),
-  smithing: Object.freeze([['Iron; the Wood-Axe, Pick-Axe and Sickle', 1], ['Steel; the chain; the Spade', 2],   // AUDIT 30 U19: the Spade is rank 10's ['Silver', 3], ['Elven, Dwarven', 4], ['Mithril', 5],
-    ['Adamantium, Ebony, Orcish; Warforged', 6], ['Daedric', 7]]),
+  // AUDIT 30 U19: the Spade is rank 10's. PROF7 (FOUND): that note once swallowed Silver, Elven and Dwarven, and Mithril
+  smithing: Object.freeze([['Iron; the Wood-Axe, Pick-Axe, Sickle and Skinning Knife', 1], ['Steel; the chain; the Spade', 2],
+    ['Silver', 3], ['Elven, Dwarven', 4], ['Mithril', 5], ['Adamantium, Ebony, Orcish; Warforged', 6], ['Daedric', 7]]),
   carpentry: Object.freeze([['Pine: staves, bows, arrows, the Basket, a plain single bed', 1], ['Oak: tables, chairs, a plain double bed', 2],
     ['Cherry: a fancy single bed', 3], ['Teak: a fancy double bed', 4], ['Mahogany', 5], ['Ironwood, Ghostwood: staves and bows', 6]]),
+  // PROF7: the hides by their tiers (PROF0 4.4); Outfitting's leathers and cloths by theirs (9.3)
+  hunting: Object.freeze([['Rat Pelt', 1], ['Bat Leather, Bear Hide', 2], ['Tiger Pelt, Spider Silk', 3], ['Scorpion Chitin, Slaughterfish Scales', 4],
+    ['Harpy Feathers, Dreugh Shell', 5], ['Dragonling Scale', 6]]),
+  outfitting: Object.freeze([['Linen clothing; the Fishing-Net', 1], ['Cured Leather armour; Wool clothing, rugs and tapestries; the skins', 2],
+    ['Tiger skins', 3], ['Silk clothing', 4], ['Hardened Leather armour; Standard-bearer\'s Silk', 5]]),
 });
-/** PROF4 (FOUND): Smithing was practised from PROF3 and the page never said so - its cards stood locked. */
-const PRACTISED = Object.freeze(['herbalism', 'mining', 'logging', 'smithing', 'carpentry']);
+/** PROF4 (FOUND): Smithing was practised from PROF3 and the page never said so - its cards stood locked. PROF7: Hunting
+ *  and Outfitting. */
+const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'logging', 'smithing', 'outfitting', 'carpentry']);
 /** A craft practised in part - what raises it now (none since PROF4: Smithing's is whole). */
 const PARTLY = Object.freeze({});
 
@@ -194,7 +228,12 @@ export function drawProfessionsPage(detail, rerender, kit) {
   pane.append(title, el('p', 'prof-xp', xpLine(t)));
   const practised = PRACTISED.includes(_sel);
   if (!practised) pane.append(el('p', 'px-note', PARTLY[_sel] ?? 'This profession is not practised in the Bay yet.'));
-  if (PROFESSIONS.find((x) => x.id === _sel)?.kind === 'gathering' && practised) {
+  if (_sel === 'hunting') {
+    // PROF7: Hunting's day is the account's (PROF0 6) - its hides, every character's together, and the rare ones
+    const h = book.state.hunt ?? { hides: 0, high: 0 };
+    pane.append(el('p', 'prof-today', `Today: ${h.hides} of ${book.state.caps?.hides ?? HIDES_PER_DAY} hides, ${h.high} of ${book.state.caps?.highHides ?? HIGH_HIDES_PER_DAY} of tiers 5-6 - your account's, across your characters`));
+    pane.append(el('p', 'px-note', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold attack on the first point of the line and draw the knife along it.'));
+  } else if (PROFESSIONS.find((x) => x.id === _sel)?.kind === 'gathering' && practised) {
     pane.append(el('p', 'prof-today', `Today: ${book.state.today?.[_sel] ?? 0} of ${book.state.caps?.harvests ?? HARVESTS_PER_DAY} harvests`));
   }
   // THE SPECIALISATIONS: two cards a rank, the chosen one lit; a change of mind pressed twice
@@ -336,6 +375,7 @@ export function drawStoresPage(detail, rerender, kit) {
   drawForge(detail, rerender, kit);
   drawAnvil(detail, rerender, kit);   // PROF3
   drawWorkbench(detail, rerender, kit);   // PROF4
+  drawLoom(detail, rerender, kit);   // PROF7
 }
 
 /** What the Stores make of a recipe now: the most it can smelt (every input's units over its need), to SMELT_MAX. */
@@ -353,11 +393,11 @@ function workRows(detail, rerender, el, recipes, state, verb, busyVerb, go, shor
   const p = /** @type {ProfPagesProvider} */ (_provider);
   const book = p.book;
   const held = (k) => book.held(k);
-  const specs100 = Object.fromEntries(PROFESSIONS.map((x) => [x.id, book.track(x.id)?.specs?.[100] ?? null]));
   for (const r of recipes) {
     const most = smeltable(r, held);
     const row = el('div', `prof-smelt${most ? '' : ' prof-locked'}`);
-    const per = workPer(r, specs100);
+    // PROF7: the choice that raises a work is read at its own rank - a Tanner's at 50
+    const per = workPer(r, r.more ? { [r.more.profession]: book.track(r.more.profession)?.specs?.[workSpecRank(r)] ?? null } : {});
     const ins = r.inputs.map((inp) => `${inp.n} ${p.name(inp.key)} (${held(inp.key)})`).join(' + ');
     row.append(el('b', null, `${p.name(r.out)}${per > 1 ? ` x${per}` : ''}`), el('span', 'prof-split', ins));
     const qty = el('input', 'prof-qty');
@@ -845,4 +885,243 @@ function drawWorkbench(detail, rerender, { el, divider }) {
     detail.append(box);
   }
   if (_bench.word) detail.append(el('p', 'prof-word', _bench.word));
+}
+
+// ─── PROF7: THE LOOM AND THE TANNING RACK (bible/06-Systems/Professions-Arc.md 4.4, 4.5, 9.3, 9.4, 29) ─────
+
+/** The loom's families, in its row's order: the leather armour, the clothing, the rugs, tapestries and skins, the
+ *  Fishing-Net. */
+export const LOOM_FAMILIES = Object.freeze([['leather', 'Leather'], ['clothing', 'Clothing'], ['furnishings', 'Furnishings'], ['tools', 'Tools']]);
+/** DFU's two clothing groups, as the loom's row names them. */
+const CLOTHING_ROW = Object.freeze([['MensClothing', 'Men\'s'], ['WomensClothing', 'Women\'s']]);
+/** The recipes the loom lists for a family - a garment of the cloth and the group shown. */
+export const loomRecipes = (family, cloth, clothing) => RECIPES.filter((r) => r.profession === 'outfitting' && r.family === family
+  && (family !== 'clothing' || (r.cloth === cloth && r.group === clothing)));
+/** A dye's name as the loom says it ("Dark Brown"). */
+export const dyeWord = (dye) => String(DYE_NAMES[dye] ?? dye).replace(/([a-z])([A-Z])/g, '$1 $2');
+
+/** The stitch let go: its loop and its keys. */
+function endStitch() {
+  _loom.off?.();
+  _loom.off = null;
+  _loom.stitch = null;
+  _loom.act = null;
+  _loom.els = null;
+  _loom.actRecipe = null; _loom.actDye = null;
+}
+/** The stitch's frame: the beat ticked and its marker drawn, the act ended when the page is gone; the craft asked on the
+ *  eighth stitch (the heat's loop, a beat for a glow). */
+function stitchLoop(finish) {
+  const raf = globalThis.requestAnimationFrame?.bind(globalThis) ?? ((fn) => setTimeout(() => fn(Date.now()), 16));
+  const caf = globalThis.cancelAnimationFrame?.bind(globalThis) ?? clearTimeout;
+  let last = null, id = 0, live = true, inStep = false;
+  const clock = () => globalThis.performance?.now?.() ?? Date.now();
+  const next = () => { id = raf(() => { if (inStep) setTimeout(step, 16); else step(); }); };
+  const step = () => {
+    if (!live || !_loom.act) return;
+    inStep = true;
+    try {
+      const els = _loom.els;
+      if (!els?.bar || els.bar.isConnected === false) { _loom.act.cancel(); endStitch(); return; }   // the page shut under the act: nothing spent
+      const t = clock();
+      const dt = last == null ? 0 : Math.min(0.1, (t - last) / 1000);
+      last = t;
+      _loom.act.tick(dt);
+      els.marker.style.left = `${(_loom.act.beat * 100).toFixed(1)}%`;
+      els.bar.classList.toggle('prof-inband', _loom.act.onBeat);
+      next();
+    } finally { inStep = false; }
+  };
+  const stitch = () => {
+    const a = _loom.act;
+    if (!a) return;
+    const hit = a.stitch();
+    if (hit == null) return;
+    _loom.els?.marks?.[a.state.stitches.length - 1]?.classList.add(hit ? 'hit' : 'miss');
+    if (a.state.done) { const clean = a.report().clean; endStitch(); finish(clean); }
+  };
+  const key = (e) => {
+    if (isTextEntryTarget(e.target) || isDomControlTarget(e.target)) return;
+    if (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault?.(); e.stopPropagation?.(); stitch(); }
+  };
+  globalThis.document?.addEventListener?.('keydown', key, true);
+  Promise.resolve().then(() => { if (live) next(); });
+  _loom.off = () => { live = false; caf(id); globalThis.document?.removeEventListener?.('keydown', key, true); };
+  return stitch;
+}
+
+/**
+ * PROF7: THE LOOM - the tanning rack's cures (a hide to its leather, a Tanner's 1:1) and the weave (Spider Silk to a Silk
+ * Bolt), then Outfitting's recipes by family (a garment by its cloth and its clothing, the men's or the women's), each
+ * with its inputs as the Stores hold them, the rank it asks and the odds; the Weavers' Linen and Wool where the Stores
+ * are short (a Clothing Store's alone); a garment's dye; Craft (the stitch) and Quick craft. Only at a loom: a Clothing
+ * Store's, its fee a craft, a cure or a weave, or the player's own home's.
+ * @param {HTMLElement} detail @param {() => void} rerender @param {{ el: Function, divider: (w: string) => HTMLElement }} kit
+ */
+function drawLoom(detail, rerender, { el, divider }) {
+  const p = _provider;
+  if (!p?.loom || !p.craft || !p.smelt) return;
+  const book = p.book;
+  const loom = p.loom();
+  detail.append(divider('The Loom'));
+  if (!loom) {
+    endStitch();
+    detail.append(el('p', 'px-note', `Outfitting, and the tanning of hides, is done at a loom: a Clothing Store's (${LOOM_FEE} gold a craft, a cure or a weave), or your own home's.`));
+    return;
+  }
+  const rank = book.track('outfitting')?.rank ?? 0;
+  const specs = book.track('outfitting')?.specs ?? {};
+  detail.append(el('p', 'px-note', `${loom.kind === 'shop' ? `The tailor's loom and tanning rack - ${loom.fee} gold a craft, a cure or a weave.` : 'Your loom.'} Outfitting ${rank} (${rankName(rank)}).`));
+  const short = purseShort(loom, 'tailor', 'a craft, a cure or a weave');
+  if (short) detail.append(el('p', 'px-note prof-short', short));
+  // AUDIT 30 A2's law: Gentle acts switched on under a stitch sets the needle down - nothing spent, the craft a plain one
+  if (_loom.act && getPref('gentleActs') === true) { _loom.act.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; }
+  const sewing = !!_loom.act;
+  // THE TANNING RACK AND THE LOOM'S OWN WORK: the hides the Stores hold, cured; Spider Silk, woven
+  const cures = CURE_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
+  if (cures.length) workRows(detail, rerender, el, cures, _loom, 'Cure', 'Curing...', (id, n) => p.smelt(id, n), short);
+  else detail.append(el('p', 'px-note', 'Two hides cure to a leather here (a Tanner\'s one). Hides come from the bodies your own blow fells (Hunting).'));
+  const weaves = WEAVE_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
+  if (weaves.length) workRows(detail, rerender, el, weaves, _loom, 'Weave', 'Weaving...', (id, n) => p.smelt(id, n), short);
+  const held = (k) => book.held(k);
+  const fams = el('div', 'prof-families');
+  for (const [id, word] of LOOM_FAMILIES) {
+    const b = el('button', `prof-family${_loom.family === id ? ' on' : ''}`, word);
+    b.type = 'button';
+    b.disabled = sewing;
+    b.onclick = () => { _loom.family = id; _loom.picked = null; rerender(); };
+    fams.append(b);
+  }
+  detail.append(fams);
+  const clothing = _loom.clothing ?? p.clothing?.() ?? 'MensClothing';
+  if (_loom.family === 'clothing') {
+    const row = el('div', 'prof-families prof-metals');
+    for (const [id, word] of CLOTHING_ROW) {
+      const b = el('button', `prof-family${clothing === id ? ' on' : ''}`, word);
+      b.type = 'button';
+      b.disabled = sewing;
+      b.onclick = () => { _loom.clothing = id; _loom.picked = null; rerender(); };
+      row.append(b);
+    }
+    for (const c of CLOTHS) {
+      const b = el('button', `prof-family${_loom.cloth === c.key ? ' on' : ''}`, c.name.replace(/ Bolt$/, ''));
+      b.type = 'button';
+      b.disabled = sewing;
+      b.onclick = () => { _loom.cloth = c.key; _loom.picked = null; rerender(); };
+      row.append(b);
+    }
+    detail.append(row);
+  }
+  const list = loomRecipes(_loom.family, _loom.cloth, clothing);
+  for (const r of list) {
+    const open = recipeOpen(r, rank);
+    const can = open && craftable(r, held);
+    const row = el('button', `prof-recipe${_loom.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
+    row.type = 'button';
+    row.disabled = sewing;
+    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));
+    row.onclick = () => { _loom.picked = r.id; rerender(); };
+    detail.append(row);
+  }
+  const r = list.find((x) => x.id === _loom.picked);
+  if (r) {
+    const box = el('div', 'prof-craft');
+    box.append(el('b', null, `${r.name} - rank ${r.rank}`));
+    for (const inp of r.inputs) {
+      const have = held(inp.key);
+      const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
+      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      const sale = WEAVERS_STOCK.find((x) => x.key === inp.key);   // the Weavers' Linen and Wool (4.5), at the tailor's
+      if (sale && have < inp.n && loom.kind === 'shop' && p.stock) {
+        const need = inp.n - have;
+        const buy = el('button', 'act', `Buy ${need} from the Weavers - ${sale.marks * need} Drakes`);
+        buy.type = 'button';
+        buy.disabled = _loom.busy;
+        buy.onclick = async () => {
+          if (_loom.busy) return;
+          _loom.busy = true; rerender();
+          const res = await p.stock(inp.key, Math.min(STOCK_MAX, need), 'weavers');
+          _loom.busy = false; _loom.word = res?.text ?? null; rerender();
+        };
+        line.append(buy);
+      }
+      box.append(line);
+    }
+    if (r.family === 'furnishings') box.append(el('p', 'px-note', 'Furnishings go among your things, to set down in a room of your own (Decorate).'));
+    // A GARMENT'S DYE (9.3: "itemDye.js's colours"): one of DFU's ten, chosen here and sewn in - an undyed shirt none
+    if (r.kind === 'garment' && r.dyes === true) {
+      const dyes = el('div', 'prof-families prof-metals');
+      const none = el('button', `prof-family${_loom.dye == null ? ' on' : ''}`, 'Undyed');
+      none.type = 'button';
+      none.disabled = sewing;
+      none.onclick = () => { _loom.dye = null; rerender(); };
+      dyes.append(none);
+      for (const d of GARMENT_DYES) {
+        const b = el('button', `prof-family${_loom.dye === d ? ' on' : ''}`, dyeWord(d));
+        b.type = 'button';
+        b.disabled = sewing;
+        b.onclick = () => { _loom.dye = d; rerender(); };
+        dyes.append(b);
+      }
+      box.append(dyes);
+    } else if (r.kind === 'garment') box.append(el('p', 'px-note', 'This shirt takes no dye - DFU keeps it its own colour.'));
+    if (takesQuality(r) && recipeOpen(r, rank)) {
+      const odds = qualityOdds(rank - r.rank, { masterwright: false });
+      box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean stitch is a step better${specs[50] === 'tailor' && r.family === 'clothing' ? ', and a Tailor\'s clothing another' : specs[50] === 'leatherworker' && r.family === 'leather' ? ', and a Leatherworker\'s leather another' : ''}.`));
+    }
+    const gentle = getPref('gentleActs') === true;
+    const dye = r.kind === 'garment' && r.dyes === true ? _loom.dye : null;
+    const ready = recipeOpen(r, rank) && craftable(r, held) && !_loom.busy && !_loom.act && !short;
+    // AUDIT 30 A3's law: the stitch makes the recipe it began on, in the dye it began in
+    const craftOf = (id, d) => async (clean) => {
+      _loom.busy = true; rerender();
+      const res = await p.craft(id, { clean: clean && getPref('gentleActs') !== true, dye: d });
+      _loom.busy = false; _loom.word = res?.text ?? null; rerender();
+    };
+    const finish = craftOf(r.id, dye);
+    if (_loom.act) {
+      // THE STITCH: the needle's beat along its bar, the band a stitch lands on, the stitches so far
+      const panel = el('div', 'prof-heat');
+      const bar = el('div', 'prof-heatbar');
+      const w = _loom.act.state.w;
+      for (const [left, width] of [[0, w / 2], [1 - w / 2, w / 2]]) {
+        const band = el('div', 'prof-heatband');
+        band.style.left = `${(left * 100).toFixed(1)}%`;
+        band.style.width = `${(width * 100).toFixed(1)}%`;
+        bar.append(band);
+      }
+      const marker = el('div', 'prof-heatmark');
+      bar.append(marker);
+      const marks = el('div', 'prof-strikes');
+      const dots = [];
+      for (let i = 0; i < STITCH_ACT.stitches; i++) { const d = el('span', `prof-strike${i < _loom.act.state.stitches.length ? (_loom.act.state.stitches[i] ? ' hit' : ' miss') : ''}`, 'o'); dots.push(d); marks.append(d); }
+      const hit = el('button', 'act primary', 'Stitch');
+      hit.type = 'button';
+      const cancel = el('button', 'act', 'Set the needle down');
+      cancel.type = 'button';
+      cancel.onclick = () => { _loom.act?.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; rerender(); };
+      panel.append(el('span', 'prof-heatword', `The stitch - press on the beat, ${STITCH_ACT.stitches} in a row (Space)`), bar, marks, hit, cancel);
+      box.append(panel);
+      _loom.els = { bar, marker, marks: dots };
+      if (!_loom.off) _loom.stitch = stitchLoop(craftOf(_loom.actRecipe ?? r.id, _loom.actRecipe ? _loom.actDye : dye));
+      hit.onclick = () => _loom.stitch?.();
+    } else {
+      const go = el('button', 'act primary', _loom.busy ? 'At the loom...' : 'Craft');
+      go.type = 'button';
+      go.disabled = !ready;
+      go.onclick = () => {
+        if (gentle) { void finish(false); return; }   // Gentle acts: a plain craft, no stitch
+        _loom.act = createStitchAct({ band: p.stitchBand?.() ?? 1 });
+        _loom.actRecipe = r.id; _loom.actDye = dye;
+        rerender();
+      };
+      const quick = el('button', 'act', 'Quick craft');
+      quick.type = 'button';
+      quick.disabled = !ready;
+      quick.onclick = () => { void finish(false); };
+      box.append(go, quick);
+    }
+    detail.append(box);
+  }
+  if (_loom.word) detail.append(el('p', 'prof-word', _loom.word));
 }

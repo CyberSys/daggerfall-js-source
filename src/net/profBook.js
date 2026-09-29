@@ -99,6 +99,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
     caps: /** @type {any} */ (null),
     /** PROF3: the account's Marks as the smith's stock last answered them, or null */
     marks: /** @type {number|null} */ (null),
+    /** PROF7: the account's hides today, every character's together (PROF0 6: 30, of them 3 of tiers 5-6) */
+    hunt: { hides: 0, high: 0 },
   };
   const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
   const slot = () => `${account() ?? ''}|${character() ?? ''}`;
@@ -160,6 +162,11 @@ export function createProfBook({ door, storage = null, character = () => null, n
     for (const s of data?.stores ?? []) applyStore(s);
     if (data?.writs) state.writs = { today: data.writs.today | 0, max: data.writs.max | 0 };
     state.caps = data?.caps ?? null;
+    applyHunt(data?.hunt);
+  }
+  /** PROF7: the account's hides today, as the state or a skinning answered them. */
+  function applyHunt(h) {
+    if (h && typeof h === 'object') state.hunt = { hides: Math.max(0, h.hides | 0), high: Math.max(0, h.high | 0) };
   }
 
   /** The pixels' states, as the service last said them this UTC day: 'x,y' -> { day, state, climate?, region? }. */
@@ -282,8 +289,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
     taken(node, kind) { return state.taken.has(`${node}|${kind}`); },
     counting(node, kind) { return keptOf().harvests.some((h) => h.node === node && h.kind === kind); },
     /**
-     * A NODE HARVESTED: `{ node, kind, climate, region, act, at }` (the act's end, epoch seconds on the shared clock) -
-     * kept with its own id, then asked. Answers `{ ok: true, data }` (the service's harvest), `{ ok: false, error }` (the
+     * A NODE HARVESTED: `{ node, kind, climate, region, act, at }` (the act's end, epoch seconds on the shared clock;
+     * PROF7: a body's `foe` beside them) - kept with its own id, then asked. Answers `{ ok: true, data }` (the service's harvest), `{ ok: false, error }` (the
      * service's no - the act is let go), or `{ ok: false, kept: true }` (no answer yet - kept, and `pump` asks again).
      */
     async harvest(req) {
@@ -375,14 +382,14 @@ export function createProfBook({ door, storage = null, character = () => null, n
      * the craft and handed to `mint` with it - the tab that mints the pieces pays it, whenever the answer comes.
      * @returns {Promise<{ ok: boolean, data?: any, error?: string, kept?: boolean, elsewhere?: boolean }>}
      */
-    async craft(recipe, { clean = false, name = null, heartwood = false, fee = 0 } = {}, mint) {
+    async craft(recipe, { clean = false, name = null, heartwood = false, fee = 0, dye = null } = {}, mint) {
       if (_craftBusy) return { ok: false, error: 'prof-busy' };
       const key = slot();
       const c = character();
       if (!c || !account()) return { ok: false, error: 'no-session' };
       _craftBusy = (async () => {
         const w = { rid: rid(), recipe, clean: clean === true, name: typeof name === 'string' ? name : null, character: c, heartwood: heartwood === true,   // PROF4: a Heartwood for a plank
-          fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0 };
+          fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0, ...(Number.isInteger(dye) ? { dye } : {}) };   // PROF7: a garment's dye
         const kept = keptOf(key);
         kept.crafts.push(w);
         writeKept(kept, key);
@@ -506,7 +513,10 @@ export function createProfBook({ door, storage = null, character = () => null, n
 
   /** A kept harvest's one ask: answered (the state moved), refused (let go), or kept for the pump. */
   async function send(h, key) {
-    const body = { character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: h.rid };
+    const body = {
+      character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: h.rid,
+      ...(h.foe === undefined ? {} : { foe: h.foe }),   // PROF7: the foe a body is (PROF0 6: the client's claim)
+    };
     let r;
     sending.add(h.rid);
     try { r = await door.harvest(body); } catch { r = { ok: false, error: 'offline' }; } finally { sending.delete(h.rid); }
@@ -515,6 +525,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
       state.taken.add(`${h.node}|${h.kind}`);
       applyStore(r.data?.store);
       applyStore(r.data?.gemStore);   // PROF2: a gem the strikes found
+      applyStore(r.data?.extraStore);   // PROF7 (FOUND): a tree's Resin and a body's butchery - PROF4 never applied it
+      applyHunt(r.data?.hunt);   // PROF7: the account's hides today
       applyTrack(r.data?.track);
       if (r.data?.track && Number.isSafeInteger(r.data?.today)) state.today = { ...state.today, [r.data.track.profession]: r.data.today };
       return { ok: true, data: r.data };
@@ -538,7 +550,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
   /** A kept craft's ask (PROF3): its pieces minted and the craft let go on an answer, let go on a refusal, kept on
    *  silence - the service's row answers the same id with the same pieces whenever it is asked again. */
   async function craftOne(w, key, mint) {
-    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true));
+    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null));
     const kept = keptOf(key);
     if (r?.ok) {
       const had = kept.crafts.some((x) => x.rid === w.rid);

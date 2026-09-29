@@ -180,6 +180,8 @@ import { createGatherHost } from './gatherHost.js';   // PROF1/PROF2: the gather
 import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kind in it
 import { mineKind, PROSPECT_M } from './mineHost.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; the Prospector's reach
 import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
+import { huntKind, createBodyStamps, bodiesOf, trackerMarks } from './huntHost.js';   // PROF7: Hunting's bodies - a kind in it, the kills that stamp them, a Tracker's marks
+import { registerPlayerKillListener } from '../systems/playerKills.js';   // PROF7: the player's own kill stamps a body
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
 import { smeltRecipe, stockOf, WEAVERS_STOCK, professionName } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
@@ -344,8 +346,8 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, answered by this host
 import { registerContainerLootHandler } from '../systems/containerLoot.js';   // THE MERGE: CSA-H's shelf subscriber, by its mod's name, on PlayerActivate.OnLootSpawned's one home
-import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, isCraftedFurniture, asMinted, pieceOfRecipe } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things
-import { heatBand, planeBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station
+import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, LOOM_KEPT_TEXT, isCraftedFurniture, asMinted, pieceOfRecipe } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things
+import { heatBand, planeBand, stitchBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station; PROF7: the stitch's
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
@@ -1089,6 +1091,15 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  read before its line is a dead zone, whatever `?.` says). The pixels built before it stand their nodes when the
    *  state is first read. */
   let gatherHost = null;
+  /** PROF7: the stamped bodies where the player is (scenes/huntHost.js bodiesOf) - the gather host's, once it is built. */
+  let huntBodies = () => [];
+  /** PROF7: the station a recipe's profession is crafted at - the anvil (Smithing's), the workbench (Carpentry's, PROF4),
+   *  the loom (Outfitting's) - its place, its keeper and its words. */
+  const craftStation = (profession) => (profession === 'carpentry'
+    ? { here: () => modes?.workbenchHere?.() ?? null, a: 'a workbench', who: 'furnisher', noun: 'workbench', kept: BENCH_KEPT_TEXT, xp: 'Carpentry' }
+    : profession === 'outfitting'
+      ? { here: () => modes?.loomHere?.() ?? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting' }
+      : { here: () => modes?.forgeHere?.() ?? null, a: 'an anvil', who: 'smith', noun: 'anvil', kept: CRAFT_KEPT_TEXT, xp: 'Smithing' });
   /** PROF-SAVE (systems/onlineCheckpoint.js createSaveSoon): every professions act below that changes the save - the
    *  pack, the home's things, the purse or the Bank's accounts, on the service's answer - asks ONE checkpoint on the next
    *  task, as a trade saves at once; the checkpoint (onlineCheckpoint) is handed in once it is built (REALM P0.5). */
@@ -1096,7 +1107,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** PROF1: withdrawn from the Stores into the pack - the items the law names, minted as DFU mints them (law 3: they
    *  never go back). */
   const profMint = (key, n) => {
-    const got = withdrawIntoPack(playerEntity, key, n);
+    // PROF7: a Butcher's meat spoils half as fast (PROF0 3.3) - the Stores keep no unit's maker, so a Butcher's withdrawal
+    // is a Butcher's meat
+    const got = withdrawIntoPack(playerEntity, key, n, undefined, { slowRot: key === 'food:meat' && profBook?.track('hunting')?.specs?.[100] === 'butcher' });
     if (got) { townTalk.say(`${got} ${materialCountLabel(key, got)} taken from the Stores into your pack.`); saveSoon.changed(); }
   };
   /** PROF3: a craft's pieces into the pack (systems/smithItems.js) - each once, by its provenance id: a piece the pack
@@ -7300,9 +7313,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (profBook) {
     const hud = createProfHud();
     if (hud) {
+      // PROF7 (bible/06-Systems/Professions-Arc.md 29): A BODY MY OWN BLOW FELLED - stamped at the kill (the street's, the
+      // dungeon's, a puppet's owner's word), a node where it lies while the pack holds a Skinning Knife
+      const bodyStamps = createBodyStamps({ nowMs: () => Date.now() + _sharedOffsetMs });
+      registerPlayerKillListener('hunting', (entity) => { bodyStamps.stamp(entity); });
+      huntBodies = () => (modeNow() === 'dungeon'
+        ? bodiesOf(modes?.dungeonCtx?.foes, bodyStamps, (f) => f.ai?.feet)
+        : bodiesOf(exteriorFoes.foes, bodyStamps, (f) => f.corpseMarker?.pos ?? f.ai?.feet));
       gatherHost = createGatherHost({
         book: profBook, hud, kinds: [herbKind({ book: profBook }), mineKind({ book: profBook }),
-          treeKind({ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord })],   // PROF4: Logging's trees
+          treeKind({ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord }),   // PROF4: Logging's trees
+          huntKind({ book: profBook, bodies: () => huntBodies() })],   // PROF7: Hunting's bodies
         renderer, getTexture, uploadRecord, billboardSize, flatBatchAabb,
         built: () => built, pixelTranslation: (x, y, out) => state.pixelTranslation(x, y, out),
         pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } },
@@ -7321,7 +7342,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         feet: () => (walkMode ? player.pos : cam.pos),
         entity: () => playerEntity,
         keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : '?'; },
-        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon'), choice: pressed(latch.edge, keys, 'ActChoice') }),
+        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon'), choice: pressed(latch.edge, keys, 'ActChoice'), attackHeld: held(keys, 'SwingWeapon') }),   // PROF7: the knife drawn while attack is held
         active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning,
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
         onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); },
@@ -7335,24 +7356,24 @@ export async function bootWorld(canvas, renderer, params, status) {
         // PROF3 (bible/06-Systems/Professions-Arc.md 24): THE ANVIL beside it - a craft through the book, its pieces into
         // the pack (kept until minted), the smith's fee a craft on the service's answer, as a smelt's; the smith's stock;
         // the heat's band, Smithing's attribute pair
-        craft: async (recipe, { clean, heartwood = false }) => {
-          // PROF4: the station is the recipe's - the anvil for Smithing's, the workbench for Carpentry's
-          const bench = recipeById(recipe)?.profession === 'carpentry';
-          const f = (bench ? modes?.workbenchHere?.() : modes?.forgeHere?.()) ?? null;
-          if (!f) return { ok: false, text: bench ? 'You are not at a workbench.' : 'You are not at an anvil.' };
-          const who = bench ? 'furnisher' : 'smith';
-          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${bench ? 'workbench' : 'anvil'}.` };
+        craft: async (recipe, { clean, heartwood = false, dye = null }) => {
+          // PROF4: the station is the recipe's - the anvil for Smithing's, the workbench for Carpentry's; PROF7: the loom
+          // for Outfitting's
+          const st = craftStation(recipeById(recipe)?.profession);
+          const f = st.here();
+          if (!f) return { ok: false, text: `You are not at ${st.a}.` };
+          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${st.who} asks ${f.fee} gold for the use of the ${st.noun}.` };
           // AUDIT 30 C4: the fee rides the kept craft and is paid as its pieces are minted (profMintCraft) - by this press's
           // answer, or a settle's later; A4: the workbench's kept word its own
-          const r = await profBook.craft(recipe, { clean, heartwood, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null }, profMintCraft);
-          if (!r?.ok) return { ok: false, text: r?.kept ? (bench ? BENCH_KEPT_TEXT : CRAFT_KEPT_TEXT) : accountRefusalText(r?.error) };
+          const r = await profBook.craft(recipe, { clean, heartwood, dye, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null }, profMintCraft);
+          if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : accountRefusalText(r?.error) };
           const paid = f.fee > 0 && !r.elsewhere;
-          return { ok: true, text: `${craftedText(mintPieces(r.data))} (+${r.data.xp} ${bench ? 'Carpentry' : 'Smithing'} XP)${paid ? `, and paid the ${who} ${f.fee} gold` : ''}.` };
+          return { ok: true, text: `${craftedText(mintPieces(r.data))} (+${r.data.xp} ${st.xp} XP)${paid ? `, and paid the ${st.who} ${f.fee} gold` : ''}.` };
         },
-        stock: async (material, qty) => {
+        stock: async (material, qty, counter = stockOf(material)?.counter) => {
           const r = await profBook.stock(material, qty);
           if (Number.isSafeInteger(r?.data?.balance)) marksBook?.set(r.data.balance);   // PROF5 (FOUND): the Bank's balance told too
-          const who = stockOf(material)?.counter === 'furnisher' ? 'furnisher' : 'smith';   // PROF4: the furnisher's Linen
+          const who = counter === 'furnisher' ? 'furnisher' : counter === 'weavers' ? 'Weavers' : 'smith';   // PROF4: the furnisher's Linen; PROF7: the Weavers' at the tailor's
           return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(material, r.data.qty)} from the ${who} for ${r.data.marks} Drakes.` } : { ok: false, text: accountRefusalText(r?.error) };
         },
         heatBand: () => heatBand({ strength: liveStat(playerEntity, 'strength'), agility: liveStat(playerEntity, 'agility') }),
@@ -7360,14 +7381,20 @@ export async function bootWorld(canvas, renderer, params, status) {
         workbench: () => modes?.workbenchHere?.() ?? null,
         planeBand: () => planeBand({ agility: liveStat(playerEntity, 'agility'), willpower: liveStat(playerEntity, 'willpower') }),
         purse: () => totalGoldAmount(playerEntity),   // AUDIT 30 U13: a station's fee the purse cannot meet is not offered
+        // PROF7 (bible/06-Systems/Professions-Arc.md 29): THE LOOM the player stands at, the stitch's band, and the clothing
+        // it shows first - the player's own, as DFU's Clothing Store shelves it
+        loom: () => modes?.loomHere?.() ?? null,
+        stitchBand: () => stitchBand({ agility: liveStat(playerEntity, 'agility'), speed: liveStat(playerEntity, 'speed') }),
+        clothing: () => (playerEntity?.gender === 'female' ? 'WomensClothing' : 'MensClothing'),
         smelt: async (recipe, count) => {
-          // PROF4: the station is the work's - a smelt's and a burn's the forge, a saw's the workbench
+          // PROF4: the station is the work's - a smelt's and a burn's the forge, a saw's the workbench; PROF7: a cure's and
+          // a weave's the loom
           const work = smeltRecipe(recipe);
-          const bench = work?.station === 'workbench';
-          const f = (bench ? modes?.workbenchHere?.() : modes?.forgeHere?.()) ?? null;
-          if (!f) return { ok: false, text: bench ? 'You are not at a workbench.' : 'You are not at a forge.' };
-          const who = bench ? 'furnisher' : 'smith';
-          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${bench ? 'workbench' : 'forge'}.` };
+          const bench = work?.station === 'workbench', loom = work?.station === 'loom';
+          const f = (loom ? modes?.loomHere?.() : bench ? modes?.workbenchHere?.() : modes?.forgeHere?.()) ?? null;
+          if (!f) return { ok: false, text: loom ? 'You are not at a loom.' : bench ? 'You are not at a workbench.' : 'You are not at a forge.' };
+          const who = loom ? 'tailor' : bench ? 'furnisher' : 'smith';
+          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${loom ? 'loom' : bench ? 'workbench' : 'forge'}.` };
           const r = await profBook.smelt(recipe, count);
           if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
           // the fee for the smelt this press made, on the first answer it hears - `repeat` or not (AUDIT 29 C3: a first
@@ -7376,7 +7403,8 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (f.fee > 0) { deductGold(playerEntity, f.fee); saveSoon.changed(); }
           const out = smeltRecipe(r.data.recipe)?.out ?? recipe;
           const made = (Number(r.data.own) || 0) + (Number(r.data.bought) || 0) || r.data.count;
-          const verb = bench ? 'Sawed' : String(r.data.recipe).startsWith('burn:') ? 'Burnt' : 'Smelted';
+          const id = String(r.data.recipe);
+          const verb = bench ? 'Sawed' : id.startsWith('burn:') ? 'Burnt' : id.startsWith('cure:') ? 'Cured' : id.startsWith('weave:') ? 'Wove' : 'Smelted';   // PROF7: the loom's
           return { ok: true, text: `${verb} ${made} ${materialCountLabel(out, made)}${r.data.xp > 0 ? ` (+${r.data.xp} Smithing XP)` : ''}${f.fee > 0 ? `, and paid the ${who} ${f.fee} gold` : ''}.` };
         },
       });
@@ -16247,6 +16275,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     for (const { world } of gatherHost.stoodOf('mine', (n) => n.what === 'vein', { pos: at, r: PROSPECT_M })) if (Math.hypot(world[0] - at[0], world[2] - at[2]) <= PROSPECT_M) out.push([world[0], world[2]]);   // AUDIT 29 C10: the near pixels alone
     return out;
   };
+  /** PROF7: A TRACKER'S MARKS (PROF0 3.3) - the living animals within TRACKER_M of the player, on the street, as scene
+   *  XZ, for a character whose Hunting stands under Tracker; null otherwise. */
+  const trackerAnimals = () => {
+    if (!gatherHost || profBook?.state.open !== true || profBook.track('hunting').specs?.[50] !== 'tracker' || _mode() !== 'exterior') return null;
+    return trackerMarks(exteriorFoes.foes, enchantFeet());
+  };
+  /** The professions' marks on the compass - a Prospector's veins and a Tracker's animals, one mark (the veins' copper). */
+  const professionMarks = () => {
+    const v = prospectorVeins(), a = trackerAnimals();
+    return v || a ? [...(v ?? []), ...(a ?? [])] : null;
+  };
   /** COMPASS-PARTY (2026-09-27, Discord - Ashley: "being able to see where party members are on compass? - just lil
    *  green marks that point in that direction"): the party on MY compass, in this scene's XZ (ui/partyMapMarks.js
    *  partyCompassPoints) - the bodies the maps mark where they stand, and the rest where their poses say: the leader's
@@ -23332,7 +23371,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           quest: questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street
           party: partyCompass(),   // COMPASS-PARTY: the party's marks - the bodies drawn here, the rest where their poses say
           ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null,   // AUDIT NAV1 (the helm): the sea's ships on the compass
-          veins: prospectorVeins(),   // PROF2: a Prospector's veins within 200 m (PROF0 3.3)
+          veins: professionMarks(),   // PROF2: a Prospector's veins within 200 m (PROF0 3.3); PROF7: a Tracker's animals within 100 m
           largeHud: largeHudOptions({ renderer, fetchBytes, palette }, playerEntity),
           // AUDIT 39: the enhanced HUD's two hand plaques. Both values
           // are already this host's - the rig one argument over, the

@@ -130,7 +130,7 @@ export const SPECIALISATIONS = Object.freeze({
   hunting: Object.freeze({
     50: pair(spec('tracker', 'Tracker', 'Animals within 100 m are marked.'),
       spec('tanner', 'Tanner', 'Hides cure 1:1, not 2:1.')),
-    100: pair(spec('trophy-hunter', 'Trophy Hunter', 'A trophy decor piece from a tier 5+ kill.'),
+    100: pair(spec('trophy-hunter', 'Trophy Hunter', 'A trophy decor piece from a tier 5+ kill.', 'trophy'),   // PROF7: no piece to stand as
       spec('butcher', 'Butcher', 'Meat x2, and it spoils half as fast.')),
   }),
   fishing: Object.freeze({
@@ -148,8 +148,8 @@ export const SPECIALISATIONS = Object.freeze({
   outfitting: Object.freeze({
     50: pair(spec('tailor', 'Tailor', 'Clothing +1 quality step.'),
       spec('leatherworker', 'Leatherworker', 'Leather armour +1 quality step.')),
-    100: pair(spec('couturier', 'Couturier', 'Two-colour dyes.'),
-      spec('saddler', 'Saddler', 'A wagon upgrade (Horse Cart and Cargo) of +100 kg.')),
+    100: pair(spec('couturier', 'Couturier', 'Two-colour dyes.', 'two-colour'),   // PROF7: DFU's cloth takes one dye
+      spec('saddler', 'Saddler', 'A wagon upgrade (Horse Cart and Cargo) of +100 kg.', 'wagon')),   // PROF7: DFU's wagon has one limit
   }),
   carpentry: Object.freeze({
     50: pair(spec('bowyer', 'Bowyer', 'Bows +1 quality step (arrows take none).'),
@@ -276,7 +276,7 @@ export const herbKey = (templateIndex, region) => {
   return g ? `${g}:${templateIndex}` : null;
 };
 /** The Basket's foods, as the Stores keep them - the template is chosen when one is withdrawn (FORAGE0 14.6). */
-export const FOOD_KEYS = Object.freeze(['food:apple', 'food:orange', 'food:mushroom', 'food:egg']);
+export const FOOD_KEYS = Object.freeze(['food:apple', 'food:orange', 'food:mushroom', 'food:egg', 'food:meat', 'food:fish']);   // PROF7: a body's butchery - C&C's Raw Meat, and a Slaughterfish's Raw Fish (5.2's Fishing keeps the same)
 /** Foraging's food code (BASKET_BLOCKS: 2 fruit, 3 Mushroom, 4 Egg) and the block's fruit, as a material key. */
 export const foodKey = (code, fruit) => (code === 2 ? (fruit === 'Apple' ? 'food:apple' : 'food:orange') : code === 3 ? 'food:mushroom' : code === 4 ? 'food:egg' : null);
 /** Marks value by tier (PROF0 4.8) - an herb's by its own rarity: common 1, uncommon 2, rare 5. */
@@ -382,20 +382,109 @@ export const RESIN = made('wood:resin', 'wood', 1, 653, 'Resin', ICON_ALOE, null
 export const HEARTWOOD = made('wood:heartwood', 'wood', 4, 654, 'Heartwood', ICON_TWIGS, null);
 /** Every new template PROF4 registers, by template. */
 export const WOOD_TEMPLATES = Object.freeze([...LOGS, ...PLANKS, CHARCOAL, RESIN, HEARTWOOD]);
-/** Hunting's Bear Hide (4.4: 657, tier 2) - named for the Ram Kit that asks it (PROF0 25); nothing yields it before
- *  PROF7. Linen (4.5: 668, tier 1) - never gathered: the furnisher's stock sells it until the Weavers' counter stands. */
-export const BEAR_HIDE = made('hide:bear', 'hides', 2, 657, 'Bear Hide', null, null);
-export const LINEN = made('cloth:linen', 'hides', 1, 668, 'Linen Bolt', null, null);
-/** PROF5 (PROF0 26): Wool Bolt (4.5: 669, tier 2 - 9.3's cloth steps, Linen 1, Wool 2) - never gathered: the Weavers'
- *  counter sells it. */
-export const WOOL = made('cloth:wool', 'hides', 2, 669, 'Wool Bolt', null, null);
+// ─── THE HIDES PROF7 STORES (PROF0 4.4, 4.5, 4.8, 29) ────────────────
+
+/** DFU's pictures the hides and the cloth borrow (law 6). FOUND (PROF0 29): 4.8's "DFU Small Skins" and "Large Skins"
+ *  and "Small Tapestry" have none - DFU's furniture templates carry world texture 0/0 - so a pelt is Nymph Hair's lock
+ *  (TEXTURE.254 record 55), silk Mummy Wrappings' (41), a scale, chitin or shell Fairy Dragon's Scales' (37), a feather
+ *  Gryphon's (53), and leather and a bolt a dropped garment's own flat (TEXTURE.204 record 0). Unverified without the
+ *  player's data - FLAGGED to Mac's eye, as PROF4's woods. */
+export const ICON_HAIR = Object.freeze([254, 55]);
+export const ICON_WRAPPINGS = Object.freeze([254, 41]);
+export const ICON_SCALES = Object.freeze([254, 37]);
+export const ICON_FEATHER = Object.freeze([254, 53]);
+export const ICON_GARMENT = Object.freeze([204, 0]);
+/** DFU's MobileTypes (characters/mobileTypes.js, generated from DaggerfallUnityEnums.cs) of the ten foes 4.4 skins. */
+const MOB = Object.freeze({
+  Rat: 0, GiantBat: 3, GrizzlyBear: 4, SabertoothTiger: 5, Spider: 6, Slaughterfish: 11, Harpy: 13, GiantScorpion: 20,
+  Dragonling: 34, DragonlingAlternate: 40, Dreugh: 41,
+});
+/** A DFU creature part a body may give (4.4's "a chance of the DFU ingredient"), at its price's tier as a gem is
+ *  (PROF0 23's bands): Big Tooth 8 gold, Spider's Venom 22, Giant Scorpion Stinger 25, Dragon's Scales 375. */
+export const PARTS = Object.freeze([
+  dfu('part:tooth', 'hides', gemTierOfPrice(8), 'MiscellaneousIngredients1', 56),
+  dfu('part:venom', 'hides', gemTierOfPrice(22), 'CreatureIngredients1', 41),
+  dfu('part:stinger', 'hides', gemTierOfPrice(25), 'CreatureIngredients2', 47),
+  dfu('part:dragonscale', 'hides', gemTierOfPrice(375), 'CreatureIngredients2', 46),
+]);
+/**
+ * @typedef {MinedRow & { foes: readonly number[], part: string|null, meat: string|null, cures: string|null }} HideRow
+ *   a hide's row: the foes it is skinned from, the DFU part a body may give, what its butchery gives, what it cures to
+ */
+/** @returns {HideRow} */
+const hide = (key, templateIndex, name, tier, icon, foes, part, meat, cures) =>
+  Object.freeze({ ...made(key, 'hides', tier, templateIndex, name, icon, null), foes: Object.freeze(foes), part, meat, cures });
+/**
+ * THE TEN HIDES (4.4, templates 655-664 in its order), each its foes, tier, DFU part (4.4's column), its butchery (C&C's
+ * own animals: SURV2's MEAT_BY_TYPE - Rat, Giant Bat, Grizzly Bear, Sabretooth Tiger, Spider, Giant Scorpion - Raw Meat;
+ * its FISH_BY_TYPE's Slaughterfish Raw Fish; the Harpy, the Dreugh and the Dragonling none, as C&C gives their bodies
+ * none) and its cure: tiers 1-3 to Cured Leather, 4-6 to Hardened Leather (4.4) - but Spider Silk, woven to a Silk Bolt
+ * (4.5), and Harpy Feathers, which fletch (9.3's arrows), never cure (PROF0 29).
+ */
+export const HIDES = Object.freeze([
+  hide('hide:rat', 655, 'Rat Pelt', 1, ICON_HAIR, [MOB.Rat], null, 'food:meat', 'leather:cured'),
+  hide('hide:bat', 656, 'Bat Leather', 2, ICON_HAIR, [MOB.GiantBat], null, 'food:meat', 'leather:cured'),
+  hide('hide:bear', 657, 'Bear Hide', 2, ICON_HAIR, [MOB.GrizzlyBear], 'part:tooth', 'food:meat', 'leather:cured'),
+  hide('hide:tiger', 658, 'Tiger Pelt', 3, ICON_HAIR, [MOB.SabertoothTiger], 'part:tooth', 'food:meat', 'leather:cured'),
+  hide('hide:spider', 659, 'Spider Silk', 3, ICON_WRAPPINGS, [MOB.Spider], 'part:venom', 'food:meat', null),
+  hide('hide:scorpion', 660, 'Scorpion Chitin', 4, ICON_SCALES, [MOB.GiantScorpion], 'part:stinger', 'food:meat', 'leather:hardened'),
+  hide('hide:slaughterfish', 661, 'Slaughterfish Scales', 4, ICON_SCALES, [MOB.Slaughterfish], null, 'food:fish', 'leather:hardened'),
+  hide('hide:harpy', 662, 'Harpy Feathers', 5, ICON_FEATHER, [MOB.Harpy], null, null, null),
+  hide('hide:dreugh', 663, 'Dreugh Shell', 5, ICON_SCALES, [MOB.Dreugh], null, null, 'leather:hardened'),
+  hide('hide:dragonling', 664, 'Dragonling Scale', 6, ICON_SCALES, [MOB.Dragonling, MOB.DragonlingAlternate], 'part:dragonscale', null, 'leather:hardened'),
+]);
+/** The hide a foe's body gives, by its MobileTypes value, or null for a body no knife takes a hide from. */
+export const hideOfFoe = (mobileType) => (Number.isSafeInteger(mobileType) ? HIDES.find((h) => h.foes.includes(mobileType)) ?? null : null);
+/** Hunting's Bear Hide - the Ram Kit's (PROF0 25). */
+export const BEAR_HIDE = HIDES[2];
+/** The leathers (4.4: 665, 666): Cured the cure of tiers 1-3, their middle, tier 2; Hardened of tiers 4-6, tier 5. */
+export const CURED_LEATHER = made('leather:cured', 'hides', 2, 665, 'Cured Leather', ICON_GARMENT, null);
+export const HARDENED_LEATHER = made('leather:hardened', 'hides', 5, 666, 'Hardened Leather', ICON_GARMENT, null);
+/** The cloth (4.5, 668-671), each its step (9.3: Linen 1, Wool 2, Silk 4, Standard-bearer's Silk 5). Linen and Wool are
+ *  never gathered - the Weavers' counter sells them; a Silk Bolt is woven from Spider Silk; Standard-bearer's Silk is a
+ *  Siege Honour's Spoils (4.7), which nothing yields before the sieges. */
+export const LINEN = made('cloth:linen', 'hides', 1, 668, 'Linen Bolt', ICON_GARMENT, null);
+export const WOOL = made('cloth:wool', 'hides', 2, 669, 'Wool Bolt', ICON_GARMENT, null);
+export const SILK = made('cloth:silk', 'hides', 4, 670, 'Silk Bolt', ICON_GARMENT, null);
+export const STANDARD_SILK = made('cloth:standard', 'hides', 5, 671, "Standard-bearer's Silk", ICON_GARMENT, null);
+export const CLOTHS = Object.freeze([LINEN, WOOL, SILK, STANDARD_SILK]);
+/** Every new template PROF7 registers, by template: the hides, the leathers, the cloth. */
+export const HIDE_TEMPLATES = Object.freeze([...HIDES, CURED_LEATHER, HARDENED_LEATHER, ...CLOTHS]);
+
+// ─── HUNTING (PROF0 5.2, 6, 29) ──────────────────────────────────────
+
+/** The day's hides an ACCOUNT takes (PROF0 6: Hunting is bounded, not witnessed - the tier is the client's claim, and the
+ *  cap is the whole defence), and of them the most of tiers `HIGH_HIDE_TIER` and past it. */
+export const HIDES_PER_DAY = 30;
+export const HIGH_HIDES_PER_DAY = 3;
+export const HIGH_HIDE_TIER = 5;
+/** A body's DFU part (4.4): one body in four, lost with a torn pelt (PROF0 29). */
+export const PART_CHANCE = 0.25;
+/** A body's butchery (PROF0 29): one Raw Meat (or Raw Fish) into the Stores; a Butcher's two (3.3). */
+export const BUTCHERY = Object.freeze({ meat: 1, butcher: 2 });
+/** A hide's yield before the act (PROF0 6): one; a clean pelt x1.5, the fraction a chance (the act's bound). */
+export const HIDE_YIELD = 1;
+/** The act's bound on a yield (PROF0 5.1): +50% at most. */
+export const ACT_YIELD_MAX = 1.5;
+/** A Tracker's marks (3.3): the animals within this many metres. */
+export const TRACKER_M = 100;
+/** THE SKINNING KNIFE (PROF0 4.8, FORAGE0 14.2): 603 - 0.5 kg, 50 uses, 100 gold, rarity 10, a group-9 tool on DFU's
+ *  Dagger's picture (TEXTURE.207 record 5); online shelves only. */
+export const SKINNING_KNIFE = Object.freeze({ templateIndex: 603, name: 'Skinning Knife', weight: 0.5, hitPoints: 50, price: 100, rarity: 10, icon: Object.freeze([207, 5]) });
+/** The knife's checks (FORAGE0 14.3), in the order Foraging's tools ask theirs: never inside (a body lies where it fell -
+ *  PROF0 17.1) nor daylight (foes die at night), and its lines in Foraging's voice - the knife is the port's own. */
+export const KNIFE_CHECKS = Object.freeze(['town', 'sea', 'enemies', 'encumbered']);
+export const KNIFE_REFUSALS = Object.freeze({
+  town: 'You cannot skin in a settlement!', sea: 'You cannot skin out here!',
+  enemies: 'You cannot skin with enemies nearby!', encumbered: 'You cannot skin when fully encumbered!',
+});
 
 // ─── THE SMITH'S STOCK (PROF0 24) ────────────────────────────────────
 
-/** PROF3: the fittings Smithing's recipes ask (PROF0 9.3) that no profession yields yet - Hunting's Cured Leather
+/** PROF3: the fittings Smithing's recipes ask (PROF0 9.3) that no profession yielded then - Hunting's Cured Leather
  *  (665: 4.4's cure of tier 1-3 hides, their middle, tier 2) and Logging's Oak and Pine Planks (646 tier 2, 645 tier
- *  1) and Charcoal. The smith's forge sells them into the Stores for Marks: a counter's goods (4.5), bought, never own. */
-export const CURED_LEATHER = made('leather:cured', 'hides', 2, 665, 'Cured Leather', null, null);
+ *  1) and Charcoal. The smith's forge sells them into the Stores for Marks: a counter's goods (4.5), bought, never own.
+ *  PROF4 and PROF7 yield all four now; the counter stands, at twice their worth. */
 /** PROF4: Logging's own planks now (their templates registered, PROF0 25). */
 export const OAK_PLANK = PLANKS[1];
 export const PINE_PLANK = PLANKS[0];
@@ -417,12 +506,12 @@ export const STOCKS = Object.freeze([...SMITH_STOCK, ...FURNISHER_STOCK, ...WEAV
 export const stockOf = (key) => STOCKS.find((s) => s.key === key) ?? null;
 /** Units a purchase, at most. */
 export const STOCK_MAX = 100;
-/** The materials with no pack form yet: Hunting's Cured Leather and Bear Hide (PROF7) and the Weavers' Linen
- *  (Outfitting's), and PROF5's Wool beside it - PROF4 registered the planks' and Charcoal's templates, so they withdraw now. */
-export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen', 'cloth:wool']);
+/** The materials with no pack form yet - none since PROF7, which registered the hides', the leathers' and the cloth's
+ *  templates (PROF4 the planks' and Charcoal's before it): every material the Stores hold withdraws. */
+export const NO_PACK_FORM = Object.freeze([]);
 /** Whether the Stores may give a material to the pack. */
 export const withdrawable = (key) => !NO_PACK_FORM.includes(key);
-const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, ...WOOD_TEMPLATES, CURED_LEATHER, BEAR_HIDE, LINEN, WOOL].map((m) => [m.key, m]));
+const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts
 /** A mined (or smelted) material's row, or null. */
 export const minedMaterial = (key) => MINED.get(key) ?? null;
 /** PROF5: every registered material's key, in the registry's order - the market's catalogue beside the herbs and foods. */
@@ -497,6 +586,27 @@ export const HEARTWOOD_CHANCE = 0.02;
 export const FORESTER_MULT = 2;
 export const RESIN_CHANCE = 0.25;
 
+// ─── HUNTING'S ACT (PROF0 5.2, 29; FORAGE0 14.4) ─────────────────────
+
+/**
+ * THE TRACE: a dotted line of `4 + tier` points over the carcass (5 to 9 - PROF0 5.2), drawn with the crosshair: attack
+ * pressed within `startDeg` of the first point and held along the line to the last. The points stand across `spanYawDeg`
+ * of the body's face, a zigzag of up to `spanPitchDeg`. The score is 1 less the mean deviation over the tolerance -
+ * `tolDeg` at Novice, half again at Master (`masterWiden`), x the knife's band - measured along the line the crosshair
+ * drew every `stepDeg` (AUDIT 30 A1: a jump between two frames is its chord, never a free leap). A trace that took `minS`
+ * to `maxS` and scored `clean` or more is a clean pelt; one under `torn` is torn. Gentle acts hold attack `gentleS`.
+ */
+export const TRACE_ACT = Object.freeze({
+  minPoints: 5, maxPoints: 9, spanYawDeg: 14, spanPitchDeg: 3, startDeg: 2.5, tolDeg: 3, masterWiden: 0.5,
+  stepDeg: 0.25, minS: 0.6, maxS: 6, clean: 0.8, torn: 0.4, gentleS: 1.2,
+});
+/** The trace's points by the body's tier: 4 + tier, 5 at tier 1 to 9 at tier 5 and past it. */
+export const tracePoints = (tier) => Math.max(TRACE_ACT.minPoints, Math.min(TRACE_ACT.maxPoints, 4 + (tier | 0)));
+/** The trace's tolerance at a rank, x the knife's band (degrees). */
+export const traceTolerance = (rank, band = 1) => TRACE_ACT.tolDeg * band * (1 + TRACE_ACT.masterWiden * Math.max(0, Math.min(100, rank)) / 100);
+/** The Skinning Knife's attribute pair (FORAGE0 14.4): (INT + AGI) / 2, on Foraging's four bands. */
+export const knifeBand = ({ intelligence, agility }) => actBand(Math.trunc((intelligence + agility) / 2));
+
 // ─── SMELTING (PROF0 4.1, 23) ────────────────────────────────────────
 
 /** A smelt, most units a request. */
@@ -505,11 +615,14 @@ export const SMELT_MAX = 100;
 export const FORGE_FEE = 50;
 /** PROF4: a Furniture Store's workbench asks the same, a craft or a saw. */
 export const WORKBENCH_FEE = 50;
+/** PROF7 (PROF0 9.3): a Clothing Store's loom and tanning rack asks the same, a craft, a cure or a weave. */
+export const LOOM_FEE = 50;
 /**
  * A forge's or a workbench's work, no act (PROF0 4.1, 4.2, 25): `out` made from `inputs`, `per` a unit - or `more.per`
- * for a character standing under `more.spec`, their `more.profession`'s choice at 100 (a Quartermaster's ingots, a
- * Charcoal Burner's charcoal, a Timberwright's planks); `station` where it is done; `xp` the track it raises (10 x the
- * product's tier a unit) or null (a log's XP was its fall's - PROF0 25).
+ * for a character standing under `more.spec`, their `more.profession`'s choice at `more.rank` (100 unless it says: a
+ * Quartermaster's ingots, a Charcoal Burner's charcoal, a Timberwright's planks; PROF7 a Tanner's leather, a choice at
+ * 50); `station` where it is done; `xp` the track it raises (10 x the product's tier a unit) or null (a log's XP was
+ * its fall's - PROF0 25; a hide's its skinning's - PROF0 29).
  */
 const recipe = (id, out, inputs, { station = 'forge', per = 1, more = null, xp = 'smithing' } = {}) =>
   Object.freeze({ id, out, inputs: Object.freeze(inputs.map(([key, n]) => Object.freeze({ key, n }))), station, per, more, xp });
@@ -535,11 +648,20 @@ export const BURN_RECIPES = Object.freeze(LOGS.map((l) => recipe(`burn:${woodOf(
   { more: Object.freeze({ profession: 'logging', spec: 'charcoal-burner', per: 2 }), xp: null })));
 export const SAW_RECIPES = Object.freeze(LOGS.map((l) => recipe(`saw:${woodOf(l.key)}`, `plank:${woodOf(l.key)}`, [[l.key, 1]],
   { station: 'workbench', per: 2, more: Object.freeze({ profession: 'logging', spec: 'timberwright', per: 3 }), xp: null })));
-/** Every work of the forge and the workbench, by its id. */
-export const WORK_RECIPES = Object.freeze([...SMELT_RECIPES, ...BURN_RECIPES, ...SAW_RECIPES]);
+/** PROF7 (PROF0 4.4, 4.5, 29): a hide cures to its leather at the tanning rack - two a leather, a Tanner's one (a unit
+ *  of work two hides, and a Tanner's makes two); Spider Silk weaves to a Silk Bolt at the loom, three a bolt. The rack
+ *  and the loom are Outfitting's one station. No XP: a hide's was its skinning's, as a log's was its fall's (PROF0 25). */
+export const CURE_RECIPES = Object.freeze(HIDES.filter((h) => h.cures).map((h) => recipe(`cure:${h.key.slice('hide:'.length)}`, /** @type {string} */ (h.cures), [[h.key, 2]],
+  { station: 'loom', more: Object.freeze({ profession: 'hunting', spec: 'tanner', per: 2, rank: 50 }), xp: null })));
+export const WEAVE_RECIPES = Object.freeze([recipe('weave:silk', SILK.key, [['hide:spider', 3]], { station: 'loom', xp: null })]);
+/** Every work of the forge, the workbench and the loom, by its id. */
+export const WORK_RECIPES = Object.freeze([...SMELT_RECIPES, ...BURN_RECIPES, ...SAW_RECIPES, ...CURE_RECIPES, ...WEAVE_RECIPES]);
 export const smeltRecipe = (id) => WORK_RECIPES.find((r) => r.id === id) ?? null;
-/** The products a unit of work makes, for a character whose choices at 100 are `specs100` ({ profession: spec }). */
-export const workPer = (r, specs100 = {}) => (r.more && specs100?.[r.more.profession] === r.more.spec ? r.more.per : r.per);
+/** The rank a work's raising choice is made at: its own (a Tanner's 50), else 100. */
+export const workSpecRank = (r) => r.more?.rank ?? 100;
+/** The products a unit of work makes, for a character whose choices at the work's rank are `specsAt` ({ profession: spec }
+ *  - the choice at workSpecRank, PROF7; the choices at 100 before it). */
+export const workPer = (r, specsAt = {}) => (r.more && specsAt?.[r.more.profession] === r.more.spec ? r.more.per : r.per);
 /** Smithing XP a smelt: 10 x its tier a unit (PROF0 4.1) - a quarter for a recipe more than two tiers below the smith's
  *  rank's top (3.2's "a node or recipe"; AUDIT 29 A7: a Master smelting Iron took it whole). */
 export function smeltXp(tier, units, rank = 0) {
