@@ -3878,9 +3878,9 @@ at a live 1 where the stat is read so a dawn never kills
 (`systems/statMods.js` liveStat). Holy ground still burns, the career
 bit still burns, and the flag still keys the travel rules.
 
-VAMP-HOOD (2026-09-29, Discord #suggestions, Starempire42: "adds the
-ability to travel during the day if you a wearing a cloak or robe
-with a hood up"; Mac: "nice, good idea") - a second section A
+VAMP-HOOD (2026-09-29, #suggestions, Starempire42: "adds the ability
+to travel during the day if you a wearing a cloak or robe with a hood
+up"; Sir McMobdon: "nice, good idea"; sent in by Mac) - a second section A
 departure: the flag keys the travel rules only for a bare head. Both
 rules ask `systems/vampirism.js` racialSunAverse - the flag, unless
 `survival/temperature.js` cloakState says the hood is up (the felt
