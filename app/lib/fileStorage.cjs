@@ -155,6 +155,16 @@ function parseDataUrl(value) {
  *  for a key (the old '.tmp-<pid>' suffix WAS mintable: a pref key
  *  ending '.tmp-5' enumerated live but vanished from a restart's
  *  rescan, which filtered the pattern). */
+/** A pref's file - the one spelling getItem/setItem and readPref share. */
+const prefPath = (root, key) => path.join(root, PREFS_DIR, encodePrefName(key));
+
+/** ONE pref, read straight off its file: no store built, so no scan of Saves/ (FPS-VSYNC, AUDIT 28d: the shell's
+ *  launch read of the settings blob built a whole store for it - every slot's folder listed, before the single-instance
+ *  lock, 22 ms at 300 slots). Absent or unreadable reads as null, localStorage's answer. */
+function readPref(root, key) {
+  try { return fs.readFileSync(prefPath(root, String(key)), 'utf8'); } catch { return null; }
+}
+
 const TMP_MARK = '~tmp';
 function writeAtomic(file, data) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -183,7 +193,7 @@ function createFileStorage(root, { scanTtlMs = 2000 } = {}) {
   // ---- the paths, per key ----
   const fileOf = (key) => {
     const slot = slotOf(key);
-    if (!slot) return { pref: path.join(prefsDir, encodePrefName(key)) };
+    if (!slot) return { pref: prefPath(root, key) };
     if (slot.kind === 'data') return { file: path.join(slotDir(slot.n), DATA_FILE) };
     if (slot.kind === 'info') return { file: path.join(slotDir(slot.n), INFO_FILE) };
     return { shotDir: slotDir(slot.n) };   // shot: spelling depends on the value
@@ -342,7 +352,7 @@ function createFileStorage(root, { scanTtlMs = 2000 } = {}) {
 }
 
 module.exports = {
-  createFileStorage,
+  createFileStorage, readPref,
   // exported for the test pins
   SAVE_DATA_PREFIX, SAVE_INFO_PREFIX, SAVE_SHOT_PREFIX,
   encodePrefName, decodePrefName, parseDataUrl,

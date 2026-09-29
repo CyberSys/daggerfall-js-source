@@ -431,7 +431,9 @@ must be assigned there, never re-declared. Mutants
     passage from the deck, while DFU reckons every trip from the deck from
     the boarding pixel (TravelTimeCalculator.GetPlayerTravelPosition) and the
     mod's own `HasNoOceanTravel` (:93-96) names `IsOnShip`, the passage it
-    meant. Ashore the rule reads exactly as the mod's.
+    meant. Ashore the rule reads exactly as the mod's. The boarding PLACE is
+    what is read, not a harbour by fiat: a ship boarded in the wilderness
+    (DFU boards anywhere) reads no port from its deck, as there (AUDIT 28d).
 
 ## AUDIT-TO1 (2026-09-18) - the audit of TO1, and what it found
 
@@ -759,7 +761,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:643-646`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:9668 -
+`locationTileRect` answered null for the neighbour (world.js:9672 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read
@@ -1306,6 +1308,9 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
   By land then walked from the deck onto the sea, into the mod's own ocean stop ("maybe you should travel on a ship").
   The one dep bag both maps and a party's fare read (`travelFareDeps`) now hands the ship laws `travelOriginMapId`:
   where the player stands, unless they stand on their own ship - then the place the ship was boarded at. Departure 20.
+  DFU boards the ship anywhere (`ShipAvailiable = HasShip`), so a ship boarded in the wilderness reads the
+  wilderness from its deck - no port, as it would ashore there (AUDIT 28d). A passage taken from the deck caches the
+  deck's scene first, as `performFastTravel` does (:330-332), so what lies on the deck waits for the return.
 - **The re-bill.** The enhanced map's card priced the trip, THEN ran the mod's OnPush guard, and never priced it again:
   a guard that knocked the ship off left By land showing over the ship's days and fare, and Begin gold-checked that
   fare - a walk refused for gold it does not cost. The classic window refreshes after its guard (`travelMapWindow.js`);
@@ -1319,7 +1324,11 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
   the water: the ports rule, the guild's blessing, the fare, the two-sided gold gate), refused by the map door's own
   rungs (`partyTravelRefusal`: foes near, the sun, indoors), and on Yes taken as the map takes it - a party gathered
   asked first, then the fade and `fastTravelTo`. A purse that cannot pay is told so and not asked; where the passage's
-  own law refuses the place (no port here), the boat's line stands. (A first draft of this record said the popup
+  own law refuses the place (no port here), the boat's line stands (with Come Sail Away off, the plain refusal). The
+  passage is Daggerfall's, so it is offered with that mod on or off (AUDIT 28d: the first version asked it only with
+  the mod on). AUDIT 28d too: Yes ENDS the journey on the ground first (the mod's `ClearTravelDestination` - it drove
+  on from the far shore back into the sea); No raises the Overworld the box cut down; a pending quest offer is handed
+  over first (the map door's GiveOffer rung); a purse that holds the fare but not the inns' coin is told the coin. (A first draft of this record said the popup
   priced AFTER its guard and so read no ocean; the constructor's own refresh makes that false - corrected.)
 
 ## Pins
@@ -1332,4 +1341,4 @@ The Discord through Mac: *"a player is at a port but unable to set sail"*. The b
 `tools/mutants/audittravelstrafe2.json` (AUDIT TRAVEL-STRAFE2, 11 dead).
 `test/spawntravel.test.js`, `tools/mutants/spawntravel.json` (SPAWN-TRAVEL).
 `test/risestuck.test.js`, `tools/mutants/rise_stuck.json` (RISE-STUCK).
-`test/disc28d_shipport.test.js`, `tools/mutants/disc28d.json` (SHIP-PORT's four, SHIP-SAIL's eight).
+`test/disc28d_shipport.test.js`, `tools/mutants/disc28d.json` (SHIP-PORT's ten, SHIP-SAIL's twenty-three).

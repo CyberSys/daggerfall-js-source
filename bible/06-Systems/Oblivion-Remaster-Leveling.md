@@ -294,7 +294,8 @@ this page named them and it named one, which ORL1's deep audit caught.
 | `systems/advancement.js` | asks `usesVirtueLeveling` once per skill check; feeds the bar - and keeps the DFU sum as ever, which levels nothing for a virtue character (LEVEL-PCT: every screen that reads progress must ask whose law it is); the DFU arithmetic is untouched |
 | `ui/charSheetDoor.js` | mounts `VirtueLevelUpScreen` in BOTH lanes for a virtue character (Oghma excepted) |
 | `ui/charsheet.js` | the classic sheet's rollout stands down while a virtue level-up is owed; its Level box reads the bar as a percent (`levelProgressPercent`, LEVEL-PCT) |
-| `systems/oblivionLeveling.js` `levelBarProgress` | the bar held to 0..100, the one reading the Ascension's crown and the classic Level box both draw (LEVEL-PCT) |
+| `systems/oblivionLeveling.js` `levelBarProgress` | the bar held to 0..100, the one reading the Ascension's crown, the classic Level box and the mod's canvas window draw (LEVEL-PCT; the canvas since AUDIT 28d) |
+| `ui/levelUpView.js` `levelProgress` | the crown reads the CHARACTER's law, not the screen's lane - the Oghma Infinium mounts the classic rollout for a character the bar levels (AUDIT 28d) |
 | `systems/chargenSession.js` | the question, wrapped around the wizard so every chargen host gets it; `finishChargen` sets the answer beside the DFU level anchor |
 | `systems/save.js` | `levelingSystem`, `levelProgress`, `levelRollUp` |
 | `systems/classicSave.js` | a classic import is a classic character |

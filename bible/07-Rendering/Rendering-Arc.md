@@ -2418,7 +2418,7 @@ beside them. Then the same shape turned up everywhere else:
 | `worldModes.js:8146` | the dungeon's flats, camps, torches and peers |
 | `worldModes.js:8341` | the interior's flats and peers |
 | `worldModes.js:8347-8414` | blood, torches, drops, foes, guards - **five separate uncut calls** |
-| `exterior.js:5328`, `world.js:20309` | the spell missiles |
+| `exterior.js:5328`, `world.js:20327` | the spell missiles |
 | `exterior.js:5404` | the fixed city's townspeople |
 | `interior.js:382`, `dungeon.js:1096` | the flats, the camps, the torches |
 
@@ -3300,15 +3300,26 @@ placement, the counter driven over a capped second); `perf1` and
 `audit39_dungeonshared` re-aimed at the gate's line between the guard and
 the stamp.
 
-### FPS-VSYNC (2026-09-28): the desktop app runs past the screen, by DFU's law
+### FPS-VSYNC (2026-09-28): the desktop app runs past the screen, by DFU's law for VSync off
 
 The Discord (Regi: "Settings are also set for 300 FPS but it seems it's limited to 60 (possibly by vsync)") and Mac,
 asked whether the desktop app should run above the screen's refresh: "Yes". The departure above was a browser's: a
 page cannot stop waiting for the screen. The app's Chromium can, if told at launch, so the app now keeps DFU's own
-rule (StartGameBehaviour.cs:238-250): VSync on, frames wait for the screen; VSync off, they do not, and the Frame Rate
-Cap holds them (Off lets them run free). The shell reads the saved `Video/VSync` before it is ready
+rule for VSync off (StartGameBehaviour.cs:238-250): frames do not wait for the screen, and the Frame Rate Cap holds
+them (Off lets them run free). VSync on, frames wait for the screen as before - and the cap still holds them back below
+it, where DFU's does nothing: the departure above stands there, in the app as in a browser (AUDIT 28d). The shell reads the saved `Video/VSync` before it is ready
 (`app/lib/frameRate.cjs`, over the page's own settings blob and its GetBool reading) and, with it off, launches with
 `disable-gpu-vsync` and `disable-frame-rate-limit`; this file's gate then does the holding, up to 300. VSync on, the
 default, changes nothing. In the app the VSync row is a switch that takes effect at the next start (the settings
 tier `restart`, `systems/settings.js` SHELL_AT_LAUNCH); in a browser it stays unavailable. Record:
-`01-Overview/Field-Bugs-2026-09-28d.md`; pins `test/disc28d_vsync.test.js` (4).
+`01-Overview/Field-Bugs-2026-09-28d.md`; pins `test/disc28d_vsync.test.js` (7).
+
+**THE PACER (AUDIT 28d).** The gate above could not hold frames ABOVE the screen: with the wait lifted a browser frame
+that draws nothing costs a whole refresh (the display scheduler waits out the deadline of a frame with no damage), and
+a held callback is exactly that - 144, 240 and 300 each drew about 56. So where the shell lifted the wait
+(`daggerShell.framesLifted`, what main.cjs appended at THIS launch) `installFramePacer` stands in front of the page's
+rAF, first thing at boot: a request waits on a timer until `PACER_LEAD_MS` before its slot, every request of the slot
+rides one browser frame with one stamp, and that frame IS the slot (`capTake`), so no frame goes by undrawn and the
+hosts' own gate reads "drawn". It paces every rAF loop, the menus' included; CSS animations are the compositor's and
+are not paced. Measured in Electron 42 under Xvfb (the frame lane's harness): 144/240/300 draw 144/240/300; VSync on,
+nothing is installed and the gate works as before.

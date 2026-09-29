@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('daggerShell', {
   // ESC-LOCK (2026-09-27): a pointer-lock request the page lost for want of a gesture (an Escape close after the
   // player ended the lock) is re-run by the main process AS a gesture (src/player/pointerLock.js shellRelock)
   relockPointer: () => ipcRenderer.send('dagger:relock'),
+  // FPS-VSYNC (AUDIT 28d): this launch lifted Chromium's wait (VSync off when it started) - the page paces its frames
+  framesLifted: ipcRenderer.sendSync('dagger:frames-lifted') === true,
   storage: {
     length: () => store.length(),
     key: (i) => store.key(i),

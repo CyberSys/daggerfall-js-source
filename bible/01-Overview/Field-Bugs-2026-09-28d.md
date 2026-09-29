@@ -2,7 +2,7 @@
 
 Mac, with four screenshots of the Discord's bug-reports threads and one line of Mac's own. This page is the batch's
 record; each fix has its own section below. Then Mac's answers to the page's own questions: SHIP-SAIL and FPS-VSYNC.
-Mutants: `tools/mutants/disc28d.json` (34, all dead).
+Mutants: `tools/mutants/disc28d.json` (95: 93 dead, 2 recorded equivalent - AUDIT 28d, below).
 
 The list, as the screenshots carried it:
 
@@ -71,9 +71,9 @@ draws too.
 
 Found beside it: the box's DFU arithmetic was a double's. DFU holds the level in a `float currentLevel`
 (DaggerfallCharacterSheetWindow.cs:782), so the quotient is a single before its fraction is taken; in a double 36/15's
-fraction is 0.3999... and 27/15's 0.8000..., and the box read 39% and 80% where DFU's reads 40% and 79%. It is a
-single now (`Math.fround`), pinned against DFU's own values for spans 26 to 41. `test/disc28d_levelpct.test.js` (3),
-four mutants.
+fraction is 0.3999... and 39/15's 0.6000..., and the box read 39% and 60% where DFU's reads 40% and 59% - two of
+the fifteen spans a level has (the sum never falls below its start, so 28 to 42). It is a single now (`Math.fround`),
+pinned against DFU's own values for those fifteen. `test/disc28d_levelpct.test.js` (4), seven mutants.
 
 ## ASCEND-LIVE: the Ascension's stars wear what the character has (4)
 
@@ -86,7 +86,7 @@ press the law allows would show; the star wears the live value, tinted as the cl
 or below its permanent one, and the chosen star's line says it in words: "100 with its bonus - a point here shows only
 once that ends". The presses, the caps and the exit gate are unchanged. The classic skin's level-up is DFU's own
 window (DFU draws the permanent values there too) and is untouched. `10-UI/UI-Arc.md` ASCEND-LIVE;
-`test/disc28d_ascendlive.test.js` (4), nine mutants.
+`test/disc28d_ascendlive.test.js` (7), twenty-eight mutants.
 
 ## THE READING: the phone's attribute rows (1)
 
@@ -128,22 +128,92 @@ map's own popup, headless (`partyTripFare`: the ports rule, the guild's blessing
 refused by the map door's own rungs (foes near, the sun, indoors - `partyTravelRefusal`), and on Yes taken as the map
 takes it: a party gathered is asked first, then the fade and `fastTravelTo`. A purse that cannot pay is told so ("You
 cannot afford the journey (150 gold).") and not asked; where the passage's own law refuses the place - no port here -
-the boat's line stands. The same offer answers both doors to it: a town clicked in the Overworld, and a place picked
-on the map with By land chosen. `test/disc28d_shipport.test.js` (the offer and the popup's pricing), eight mutants.
+the boat's line stands (with Come Sail Away off, the plain refusal). The passage is Daggerfall's, so it is offered
+whatever that mod says (AUDIT 28d: it was offered only with the mod on). The same offer answers both doors to it: a
+town clicked in the Overworld, and a place picked on the map with By land chosen. `test/disc28d_shipport.test.js` (the
+offer and the popup's pricing), twenty-three mutants.
 
 ## FPS-VSYNC: the desktop app runs past the screen, as DFU does (Mac's answer)
 
-Asked whether the desktop app should run above the screen's refresh, Mac: *"Yes"*. Done by DFU's own law
-(StartGameBehaviour.cs:238-250) rather than beside it: with VSync on every frame waits for the screen and the cap
-does nothing; with VSync OFF the Frame Rate Cap is what holds them, and Off lets them run free. A page cannot stop
-waiting; the app's Chromium can, if told before it starts. So the shell reads the player's saved VSync at launch
+Asked whether the desktop app should run above the screen's refresh, Mac: *"Yes"*. Done by DFU's own law for VSync
+off (StartGameBehaviour.cs:238-250): frames do not wait for the screen, and the Frame Rate Cap is what holds them (Off
+lets them run free). With VSync on, DFU's cap does nothing; this one still holds frames back below the screen - FPS-CAP1's
+departure, which stands there, in the app as in a browser (AUDIT 28d: this page first said the app keeps DFU's rule
+whole). A page cannot stop waiting; the app's Chromium can, if told before it starts. So the shell reads the player's saved VSync at launch
 (`app/lib/frameRate.cjs`: the page's own settings blob in the shell's file store, read as the page's GetBool reads it)
 and, with it off, lifts both of Chromium's waits (`disable-gpu-vsync`, `disable-frame-rate-limit`); the page's cap
 (`systems/frameCap.js`) then holds the frames, up to its 300. VSync on - DFU's default - changes nothing, so no install
 runs uncapped unless its player turns VSync off. In the app the VSync row is a real switch now, said to take effect
 the next time the app starts (the settings screen's `restart` tier); in a browser it stays unavailable. The report's
 "300 FPS but limited to 60 (possibly by vsync)" is answered in the app: turn Wait For Screen Refresh off, restart.
-`test/disc28d_vsync.test.js` (4), nine mutants. Not proven on a real desktop GPU here (no display in this box).
+`test/disc28d_vsync.test.js` (7), twenty-seven mutants. Measured in Electron under Xvfb (AUDIT 28d, below); not on a
+real desktop GPU.
+
+## AUDIT 28d (2026-09-29, Mac: "Please audit this")
+
+Four lanes over a frozen snapshot of the batch (a worktree at 71354d35), each told to reproduce before it reported -
+SEA (the deck, the passage, the offer), LEVEL (the box and the stars), FRAME (the shell's VSync), RECORDS (the pages,
+the pins, the mutants) - and the fixes made in the tree beside them, never in what they read.
+
+**SEA.**
+- BUG: **Yes to the passage left the journey on the ground running.** The fade and `fastTravelTo` touched neither the
+  mod's destination, the Overworld's trip nor a party's walk; the view rose again over the black screen for the old
+  trip, and past the arrival the autopilot drove from the far shore back into the sea - the mod's ocean stop. Yes now
+  ends it first (`clearTravelDestination`, the mod's own: the panel, the route, the autopilot, the walk).
+- RISK: **a passage from the deck skipped DFU's ship-scene cache** (`performFastTravel` :330-332, "Cache scene first,
+  if fast travelling while on ship") - SHIP-PORT opened that door. `fastTravelTo` caches the deck's scene now, after
+  the pre-travel event and before the teleport.
+- RISK: **No left the Overworld down** (the box cuts the view; the HUD line it replaced did not). No raises it again.
+- NITs: a purse that holds the fare but not the inns' coin is told the coin (`fareText`'s third argument); a pending
+  quest offer is handed over first, the map door's GiveOffer rung; departure 20 says a ship boarded in the wilderness
+  reads no port from its deck.
+- From RECORDS: **the offer was asked only with Come Sail Away on** - it sat behind the boat mod's own check. The
+  passage is Daggerfall's: offered with the mod off, the boat's line still the mod's.
+- Verified: the box outlives the map's close and takes one journey; two offers before a frame leave one box; the
+  deck's reading across saves, loads and disembarking; the party's round and the fade's three ends; online, no days.
+
+**LEVEL.**
+- BUG: **the live line reflowed the window, and taps missed or landed on the wrong star.** Inside the pick name it
+  wrapped to four lines on a phone and came and went with the choice, so the figure above it jumped (390x664: 42 of
+  56 aimed taps landed; 360x640: 20, four on another attribute); on a desktop it widened the pick and moved + from
+  under the pointer. Each attribute's line now sits over its own blurb, all eight laid in one cell with only the chosen
+  one seen, so the band is the tallest's whichever star is chosen; on a phone or a short screen the line takes the
+  blurb's place; Luck's blurb is a line shorter (at 360 to 375 wide it was the only one to run to a third line). The
+  lane's own probes, re-run: 56 of 56 at every size tried, plain and cursed (the base drew 47 at 360x640); + never
+  moves; Ascend shows 34-36px at 844x390 (the base, 22).
+- BUG: **the Oghma Infinium's window read the skill sum for a character the mod's bar levels** - the crown asks the
+  character's law now, not the screen's lane.
+- BUG: **a point held at a floor was not flagged** (a vampire's day never takes a stat below 1) - `capped` asks liveStat
+  one point on, so a floor is a ceiling's twin; the line then says "1 for now - a point here won't show".
+- RISK: the tints lost to a raised star's gold and beat a full star's grey - by specificity now, measured in Chromium.
+- NIT: the mod's canvas window printed the raw bar - `levelBarProgress`, the one reading.
+- NOT CHANGED, for the record: at the survival floor the needs' entry is capped against the permanent value when it
+  is written each minute (`survival/needs.js`), looser at the read, so a point the star counts can be taken back a
+  minute later (Personality 38 under -36: the star 9, the Stats page 9, then 6) - the survival law's two caps, not this
+  window's. And the box and the crown differ by a point for ordinary characters: DFU's single against an exact
+  fraction, both faithful.
+
+**FRAME.**
+- BUG: **with VSync off the Frame Rate Cap could not hold frames above the screen** - 144, 240 and 300 each drew about
+  56 a second. With the wait lifted a browser frame that draws nothing costs a whole refresh
+  (`display_scheduler.cc`: `if (!needs_draw_) return kLate`), and the gate's held callbacks were exactly those. THE
+  PACER (`systems/frameCap.js` `installFramePacer`, first thing at boot, only where the shell says it lifted the wait -
+  `daggerShell.framesLifted`, the launch's own switches): a request waits on a timer until just before its slot, and
+  the frame that answers is the slot. Measured in Electron 42 under Xvfb with the lane's harness: 144, 240, 300 draw
+  144, 240, 300 (5 ms of work a frame: 180); VSync on is untouched (no pacer; 30 still draws 30).
+- NITs: the switches' comment said both must go (the frame-rate limit alone frees rAF); the launch read built a whole
+  file store, listing every save slot before the single-instance lock - one file now (`fileStorage.cjs` readPref).
+- STILL OPEN, for Mac below: CSS animations run at the compositor's rate with the wait lifted; only Linux/X11 was
+  measured; on macOS closing the window does not quit the app, so "the next time the app starts" means Cmd+Q.
+
+**RECORDS.** The page's own claims, corrected above in place: the app keeps DFU's rule for VSync OFF, not whole
+(with VSync on the cap still holds frames below the screen - FPS-CAP1's departure, which stands there); LEVEL-PCT's
+example span (27) is one no character reaches - 36 and 39 are the two of a level's fifteen; the `restart` tier had no
+dot of its own and no line in the tier lists; departure 20 was missing from the ledger's Travel Options row; Active-Arcs
+still named the retired hint line. The pins: five source pins a comment could satisfy read CODE now
+(`test/codeOnly.mjs`); the stars' lowered tint, their screen-reader words, the colours and the folds' channel were
+unpinned (`liveTint`, `starLabel`); the ship tests' places are the retail MAPS.BSA's own. Left as practice:
+citeShift has moved the historical quotes in `test/citedrift.test.js` at every batch since at least 698c040b.
 
 ## For Mac
 
@@ -151,13 +221,23 @@ the next time the app starts (the settings screen's `restart` tier); in a browse
   the ship was boarded at. Kept unless you say otherwise.
 - **A point into a curse-capped attribute is still allowed**, as DFU allows it (it counts after a cure). The window now
   says so where it happens; making the press refuse there would change the law, and is yours.
+- **With VSync off in the app, CSS animations are not paced** (the boot home's drifting sky, a caret's blink): the
+  compositor draws them as fast as it can, so the menus work the GPU hard; DFU's own menus run uncapped with VSync off
+  and no cap, but a cap would hold them. Pausing those animations while the wait is lifted is the fix, if you want it.
+- **Only Linux/X11 was measured** for FPS-VSYNC: Windows (tearing in fullscreen), macOS and native Wayland are not.
 
 ## Records
 
-- Tests: `test/disc28d_levelpct.test.js` (3), `test/disc28d_ascendlive.test.js` (4), `test/disc28d_shipport.test.js`
-  (5), `test/disc28d_vsync.test.js` (4) - each red before its fix.
-- Mutants: `tools/mutants/disc28d.json` (34 dead); `lv1.json`'s `canRaise-restates-the-law-instead-of-asking-it`
-  re-aimed by content (the row's `canRaise` is a const now), dead.
+- Tests: `test/disc28d_levelpct.test.js` (4), `test/disc28d_ascendlive.test.js` (7), `test/disc28d_shipport.test.js`
+  (5), `test/disc28d_vsync.test.js` (7) - each red before its fix, but for pins that hold a correction or a mutant
+  rather than a fix: the shipport popup's pricing (it held before the batch too), and ascendlive's fold and colours.
+  The layout's proof is the level lane's browser probes (aimed taps, band heights, the exit), re-run after the fix;
+  the pacer's, the frame lane's Electron harness.
+  `test/codeOnly.mjs`, the source pins' code reader (AUDIT 28d).
+- Mutants: `tools/mutants/disc28d.json` (95: 93 dead; the deck's column and the percent's scale recorded equivalent);
+  `lv1.json`'s `canRaise-restates-the-law-instead-of-asking-it` re-aimed by content (the row's `canRaise` is a const
+  now), dead.
 - Citations: `tools/citeShift.mjs --apply` (93 moved) and the four struck `world.js` cites CD4 reads moved by hand;
-  then, over the Overworld's ship question, `--apply --struck` against that state (20 moved).
+  then, over the Overworld's ship question, `--apply --struck` against that state (20 moved); the second commit
+  (SHIP-SAIL, FPS-VSYNC), `--apply --struck` (24 moved); the audit's, `--apply --struck` against 71354d35.
 - Re-aimed: `test/to1_travelOptions.test.js`'s D1 pin reads the location through `travelOriginMapId`.

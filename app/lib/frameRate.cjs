@@ -13,19 +13,22 @@
 
 'use strict';
 
-const { createFileStorage } = require('./fileStorage.cjs');
+const { readPref } = require('./fileStorage.cjs');
 
 /** src/systems/settings.js STORAGE_KEY - the page's settings blob (test/disc28d_vsync.test.js holds the two equal). */
 const SETTINGS_PREF = 'dagger.settings.v1';
 
-/** Chromium's two waits: the GPU's swap on the screen's refresh, and the compositor's frame-rate limit that paces
- *  requestAnimationFrame. Both go, or rAF still waits. */
+/** Chromium's two waits: the compositor's frame-rate limit, which paces requestAnimationFrame (the one that matters -
+ *  measured in the app, alone it frees rAF, ~1000 a second, where `disable-gpu-vsync` alone leaves 60), and the GPU's
+ *  swap on the screen's refresh, which Chromium's own switches.cc says the first implies. Both are passed, the pair
+ *  Chromium documents - harmless together (AUDIT 28d: this said both must go). */
 const VSYNC_OFF_SWITCHES = Object.freeze(['disable-gpu-vsync', 'disable-frame-rate-limit']);
 
-/** The saved `[Video] VSync`, read as the page reads it. An unreadable store is DFU's default (on). */
+/** The saved `[Video] VSync`, read as the page reads it. An unreadable store is DFU's default (on). The pref's own
+ *  file, read alone (fileStorage.cjs readPref) - no store built, so no scan of the save slots at launch. */
 function savedVSync(userDataRoot) {
   try {
-    const raw = createFileStorage(userDataRoot).getItem(SETTINGS_PREF);
+    const raw = readPref(userDataRoot, SETTINGS_PREF);
     const v = raw ? JSON.parse(raw)?.Video?.VSync : undefined;
     if (v == null) return true;
     return String(v).trim().toLowerCase() === 'true';

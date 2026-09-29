@@ -17,9 +17,14 @@ import { createVampirismCurse, vampirismMagicRound } from '../src/systems/vampir
 import { LYCANTHROPY_TYPES } from '../src/systems/infection.js';
 import { liveStat } from '../src/systems/statMods.js';
 import { isDayFromMinutes, CLASSIC_GAME_START_TIME } from '../src/systems/gameDate.js';
-import { LevelUpScreen } from '../src/ui/charsheet.js';
+import { applySpell } from '../src/systems/effects.js';
+import { LevelUpScreen, STAT_INCREASED_COLOR, STAT_DRAINED_COLOR } from '../src/ui/charsheet.js';
+import { ENHANCED_CSS } from '../src/ui/enhancedStyle.js';
+import { LV2_CSS } from '../src/ui/levelUpStyle.js';
+import { registerEntityFold, computeEntityMods } from '../src/systems/entityMods.js';
+import { codeHasOnce } from './codeOnly.mjs';
 import { VirtueLevelUpScreen } from '../src/ui/virtueLevelUp.js';
-import { rolloutRows, liveNote, viewOnlyScreen, raiseAt, focusAt, canAscend } from '../src/ui/levelUpView.js';
+import { rolloutRows, liveNote, liveTint, starLabel, viewOnlyScreen, raiseAt, focusAt, canAscend, ATTRIBUTE_BLURB } from '../src/ui/levelUpView.js';
 import { sheetModel } from '../src/ui/enhancedCharSheet.js';
 import { initVirtueLeveling, LEVELING_VIRTUE, levelingSettings, ORL_VENDOR } from '../src/systems/oblivionLeveling.js';
 import { MOD_SETTINGS } from '../src/systems/modSettings.js';
@@ -59,10 +64,13 @@ test('ASCEND-LIVE: the report - a werewolf\'s stars wear what the character HAS,
   const str = row(s, 'strength');
   assert.deepEqual([str.value, str.live, str.capped, str.canRaise], [63, 100, true, true],
     'permanent 63 (what the presses move, DFU\'s law), live 100 (what the Stats page shows), and a press the law allows that cannot show');
-  assert.equal(liveNote(str), '100 with its bonus - a point here shows only once that ends');
+  assert.equal(liveNote(str), '100 with its bonus - a point here won\'t show');
   assert.deepEqual(['agility', 'endurance', 'speed'].map((k) => [row(s, k).live, row(s, k).capped]), [[93, false], [98, false], [90, false]]);
   assert.equal(liveNote(row(s, 'agility')), '93 with its bonus');
   assert.deepEqual([row(s, 'willpower').live, liveNote(row(s, 'willpower'))], [52, ''], 'a stat the curse leaves alone says nothing more');
+  assert.deepEqual([liveTint(str), liveTint(row(s, 'willpower'))], ['boosted', ''], 'the classic sheet\'s tint above the permanent value, none where the two agree');
+  assert.equal(starLabel(str), 'Strength 100 (63 of its own), a point here will not show for now');
+  assert.equal(starLabel(row(s, 'willpower')), 'Willpower 52');
   // The live value follows the WORKING value: Endurance 58 + 40 = 98, two points from the ceiling.
   focusAt(s, 'endurance');
   assert.ok(raiseAt(s, 'endurance') && raiseAt(s, 'endurance'));
@@ -70,6 +78,7 @@ test('ASCEND-LIVE: the report - a werewolf\'s stars wear what the character HAS,
   // ...and the law is untouched: the permanent point still goes in, and the window closes the same way.
   assert.ok(raiseAt(s, 'strength'));
   assert.deepEqual([row(s, 'strength').value, row(s, 'strength').live], [64, 100]);
+  assert.equal(starLabel(row(s, 'strength')), 'Strength 100 (64 of its own), raised by 1, a point here will not show for now');
   assert.equal(canAscend(s), s.pool === 0);
 });
 
@@ -80,8 +89,30 @@ test('ASCEND-LIVE: a vampire by day reads lower and by night higher - the live v
   const s = new LevelUpScreen(p, seq(0), { fanfare: false });
   assert.deepEqual([row(s, 'strength').value, row(s, 'strength').live], [63, 43]);
   assert.equal(liveNote(row(s, 'strength')), '43 for now');
+  assert.equal(liveTint(row(s, 'strength')), 'lowered', 'the classic sheet\'s drained tint');
+  assert.equal(starLabel(row(s, 'strength')), 'Strength 43 (63 of its own)');
   vampirismMagicRound(p, { nowMinutes: NIGHT + 24 * 60 });
   assert.equal(row(new LevelUpScreen(p, seq(0), { fanfare: false }), 'strength').live, 83);
+});
+
+test('ASCEND-LIVE: a point held at a FLOOR is flagged as one at the ceiling is - a vampire\'s day never takes a stat below 1', () => {
+  // AUDIT 28d (the level lane): `capped` asked the ceiling alone, so a drained vampire by day - Strength held at 1 -
+  // took points that showed nothing and said only "1 for now". Now the row asks liveStat one point on.
+  const p = character();
+  assert.ok(createVampirismCurse(p, 0, { now: NIGHT }));
+  const drain = { type: 7, subType: 0, magnitudeBaseLow: 45, magnitudeBaseHigh: 45, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 0 };
+  applySpell({ element: 4, rangeType: 2, effects: [drain] }, 1, p, {}, seq(0.99));
+  vampirismMagicRound(p, { nowMinutes: DAY });
+  assert.equal(liveStat(p, 'strength'), 1, 'the drain and the day, held at the floor');
+  const s = new LevelUpScreen(p, seq(0), { fanfare: false });
+  const str = row(s, 'strength');
+  assert.deepEqual([str.value, str.live, str.capped], [63, 1, true]);
+  assert.equal(liveNote(str), '1 for now - a point here won\'t show');
+  assert.equal(starLabel(str), 'Strength 1 (63 of its own), a point here will not show for now');
+  // A point that shows is never flagged: by night the same Strength reads 63 - 45 + 20 and rises with a press.
+  vampirismMagicRound(p, { nowMinutes: NIGHT + 24 * 60 });
+  const night = row(new LevelUpScreen(p, seq(0), { fanfare: false }), 'strength');
+  assert.deepEqual([night.live, night.capped, liveNote(night)], [38, false, '38 for now']);
 });
 
 test('ASCEND-LIVE: the mod\'s lane and the view the Stats page opens read the same live values the Stats page draws', () => {
@@ -100,11 +131,67 @@ test('ASCEND-LIVE: the mod\'s lane and the view the Stats page opens read the sa
   assert.ok(row(v, 'endurance').live > 98, 'the mod\'s delta moves the live value too');
 });
 
-test('ASCEND-LIVE by source: the window paints the live value on the star, its brightness and its line', () => {
+test('ASCEND-LIVE: the live value folds the modifier channels too - a set\'s or an affix\'s strength is on the star as on the Stats page', () => {
+  // The producer's own mint: a fold registered on the one registry, summed onto _mods by computeEntityMods (an equip
+  // change or a magic round runs it), read by liveStat's fold arm.
+  const p = character();
+  registerEntityFold('disc28d-test', (e) => (e === p ? { stats: { strength: 7, luck: -5 } } : null));
+  try {
+    computeEntityMods(p);
+    const s = new LevelUpScreen(p, seq(0), { fanfare: false });
+    assert.deepEqual([row(s, 'strength').value, row(s, 'strength').live, liveTint(row(s, 'strength'))], [63, 70, 'boosted']);
+    assert.deepEqual([row(s, 'luck').value, row(s, 'luck').live, liveTint(row(s, 'luck'))], [57, 52, 'lowered']);
+    assert.deepEqual(rolloutRows(s).map((r) => r.live), sheetModel(p).attributes.map((a) => a.value), 'the Stats page\'s numbers');
+  } finally {
+    registerEntityFold('disc28d-test', null);
+  }
+});
+
+test('ASCEND-LIVE: the stars wear the classic sheet\'s own two colours - over a raised star\'s gold, under a full star\'s grey', () => {
+  const rgb = (c) => `rgb(${c.slice(0, 3).map((v) => Math.round(v * 255)).join(',')})`;
+  const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = strip(ENHANCED_CSS);
+  const ruleColour = (sel, from = css) => {
+    const at = from.indexOf(`\n${sel} {`);
+    assert.ok(at >= 0, sel);
+    return from.slice(at, from.indexOf('}', at)).match(/(?:^|[\s;{])color: (rgb\([^)]*\))/)?.[1];
+  };
+  assert.equal(ruleColour('.lv-star.boosted:not(.full) .lv-val'), rgb(STAT_INCREASED_COLOR));
+  assert.equal(ruleColour('.lv-star.lowered:not(.full) .lv-val'), rgb(STAT_DRAINED_COLOR));
+  assert.equal(ruleColour('.lv-live'), rgb(STAT_INCREASED_COLOR));
+  assert.equal(ruleColour('.lv-live.lowered'), rgb(STAT_DRAINED_COLOR));
+  // THE CASCADE, by specificity (AUDIT 28d: the Plus sheet's raised gold is appended after this sheet and won at equal
+  // weight; the tint came after the full grey and won that). A class or a :not(.class) weighs one.
+  const weight = (sel) => (sel.match(/\.[\w-]+/g) || []).length;
+  assert.ok(strip(LV2_CSS).includes('\n.lv-star.raised .lv-val {'), 'the raised gold');
+  assert.ok(css.includes('\n.lv-star.full .lv-val {'), 'the full grey');
+  assert.ok(weight('.lv-star.boosted:not(.full) .lv-val') > weight('.lv-star.raised .lv-val'), 'the tint outranks the raised gold');
+  assert.ok(!'.lv-star.full .lv-val'.includes(':not') && /:not\(\.full\)/.test('.lv-star.boosted:not(.full) .lv-val'), 'and stands aside for a full star');
+});
+
+test('ASCEND-LIVE by source: the window paints the live value on the star, its brightness, its tint, its words and its line', () => {
   const w = readFileSync(new URL('../src/ui/enhancedLevelUp.js', import.meta.url), 'utf8');
-  assert.match(w, /s\.val\.textContent = String\(r\.live\);/);
-  assert.match(w, /starBrightness\(r\.live\)/);
-  assert.match(w, /s\.node\.classList\.toggle\('boosted', r\.live > r\.value\);/);
-  assert.match(w, /pickL\.textContent = liveNote\(row\);/);
-  assert.match(w, /pickName\.append\(pickN, pickF, pickC, pickL\);/);
+  const paint = w.slice(w.indexOf('    for (const s of stars) {'), w.indexOf('    // A LINE LIGHTS WHEN BOTH ITS STARS HAVE RISEN.'));
+  codeHasOnce(paint, /s\.val\.textContent = String\(r\.live\);/);
+  codeHasOnce(paint, /s\.gem\.style\.opacity = String\(0\.45 \+ 0\.55 \* starBrightness\(r\.live\)\);/);
+  codeHasOnce(paint, /const tint = liveTint\(r\);\s*s\.node\.classList\.toggle\('boosted', tint === 'boosted'\);\s*s\.node\.classList\.toggle\('lowered', tint === 'lowered'\);/);
+  codeHasOnce(paint, /s\.node\.setAttribute\('aria-label', starLabel\(r\)\);/);
+  const about = w.slice(w.indexOf('    for (const [k, a] of about) {'), w.indexOf('    plus.disabled'));
+  codeHasOnce(about, /a\.item\.classList\.toggle\('on', k === m\.focus\);\s*a\.line\.textContent = liveNote\(r\);\s*a\.line\.classList\.toggle\('lowered', liveTint\(r\) === 'lowered'\);/,
+    'every attribute\'s line is written, the chosen one seen - so the band is the tallest\'s, whichever is chosen');
+  const build = w.slice(w.indexOf("  const pickName = el('div', 'lv-pickname');"), w.indexOf('  choice.append(') + 80);
+  codeHasOnce(build, /pickName\.append\(pickN, pickF, pickC\);/, 'the pick name keeps to its own three - no line widens it');
+  codeHasOnce(build, /const item = el\('div', 'lv-about'\);\s*const line = el\('div', 'lv-live'\);\s*item\.append\(line, el\('p', null, ATTRIBUTE_BLURB\[k\] \?\? ''\)\);/);
+  codeHasOnce(build, /choice\.append\(ask, pick, blurb\);/);
+  // THE ROOM, in the sheet (comments stripped): one cell for the eight; on a phone or a short screen the line takes
+  // its blurb's place; short, both are one line. The browser probe measured it: the choosing tap never moves the figure.
+  const css = ENHANCED_CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(css, /\n\.lv-blurb > \.lv-about \{ grid-area: 1 \/ 1;[^}]*visibility: hidden; \}\n\.lv-blurb > \.lv-about\.on \{ visibility: visible; \}/);
+  assert.match(css, /@media \(max-width: 480px\), \(max-height: 620px\) \{\s*\.lv-about:has\(> \.lv-live:not\(:empty\)\) > p \{ display: none; \}\s*\}/);
+  assert.match(css, /@media \(max-height: 620px\) \{\s*\.lv-about > p \{ white-space: nowrap;[^}]*\}\s*\.lv-live \{ height: 1\.3em; max-height: none; white-space: nowrap; \}\s*\}/);
+  assert.ok(css.indexOf('@media (max-height: 620px) {\n  .lv-about > p') > css.indexOf('@media (max-width: 480px) {\n  .lv-live {'), 'the short screen\'s one line holds over the phone\'s two');
+  // The tallest blurb sets the band for all eight, so none may be the lone long one (Luck's ran to a third line at 360
+  // to 375 wide; the probe measured the rest level there).
+  const len = Object.values(ATTRIBUTE_BLURB).map((b) => b.length);
+  assert.ok(ATTRIBUTE_BLURB.luck.length <= Math.max(...len.filter((_, i) => i !== Object.keys(ATTRIBUTE_BLURB).indexOf('luck'))), 'Luck no longer the outlier');
 });

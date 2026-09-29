@@ -45,7 +45,7 @@
 // reload. Classic works that way because classic is a DOS program with
 // a fixed 320x200 screen. Neither reason survives here.
 //
-// This is ONE screen, under BOTH skins (main.js:118-234, FD1: the
+// This is ONE screen, under BOTH skins (main.js:120-236, FD1: the
 // launcher and its settings window are deleted; the classic rail is
 // Begin, which leads into the splash and PICK03I0 exactly as before).
 // Every destination is a press away from every other, settings
@@ -783,7 +783,7 @@ function paneContinue(body) {
 // settings, because they are questions about the game you are about to
 // start and nowhere else. StartInDungeon in particular is the answer
 // to "do I begin in Privateer's Hold" - a new-game question wearing a
-// settings key's clothes (systems/settings.js:90-95).
+// settings key's clothes (systems/settings.js:94-99).
 function paneNew(body) {
   const c = el('div', 'card');
   c.append(el('h3', null, 'A new character'));
@@ -1595,7 +1595,7 @@ function write(key, next) {
 }
 
 // ── MODS ─────────────────────────────────────────────────────────
-// There is NO mod system (Ledger C, Not planned - and settings.js:166
+// There is NO mod system (Ledger C, Not planned - and settings.js:170
 // blocks four keys on exactly that ground). The section still exists,
 // because Mac's call was to set the menus up now, and because a rail
 // that quietly omits mods teaches the player they are impossible.
@@ -1993,8 +1993,8 @@ function tierGroup(catId, tier, title, blurb, keys) {
   return g;
 }
 
-/** A category's rows, in order: the port's own, the live store keys
- *  flat, then the two folded tiers. */
+/** A category's rows, in order: the port's own, the store keys that do
+ *  something here flat (drawsFlat), then the two folded tiers. */
 function categoryRows(catId) {
   const keys = paneKeys(catId);   // FT13: the moved keys are the home's
   const out = [...portRows(catId)];

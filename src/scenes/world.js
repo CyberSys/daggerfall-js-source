@@ -8707,6 +8707,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       // WA1: RaiseOnPreFastTravelEvent (DaggerfallTravelPopUp.cs:328) - after DeductFastTravelGold, before the teleport:
       // Warm Ashes' OnPreFastTravel reads the journey's ocean pixels and the ship toggle
       if (warmAshesOn()) warmAshesPreTravel({ oceanPixels: computed.oceanPixels ?? 0, travelShip: !!opts.travelShip });
+      // performFastTravel (:330-332): "Cache scene first, if fast travelling while on ship" - the deck's piles wait in the
+      // cache for the return, as boarding's own hand-off keeps them (AUDIT 28d: SHIP-PORT opened the passage from the
+      // deck, and this step was never carried, so what lay on the deck went with the torn-down pixel)
+      if (isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel())) cacheExteriorScene(playerTravelPixel());
       // ROAD-Ar (R1): the ARRIVAL minute rides the teleport. RaiseTime
       // is below, exactly where performFastTravel puts it (:344, after
       // TeleportToCoordinates at :333) - so the core is handed the
@@ -15439,6 +15443,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       opts: { speedCautious: pop.speedCautious, sleepModeInn: pop.sleepModeInn, travelShip: pop.travelShip },
       computed: { ...pop.trip, minutes: guildFastTravel(playerEntity, pop.trip.minutes) },   // the popup's own hand-over: the blessed minutes
       afford: pop.enoughGoldCheck(),
+      coinsShort: (pop.deps.gold?.() ?? 0) >= pop.trip.totalCost && (pop.deps.goldPieces?.() ?? 0) < pop.trip.piecesCost,   // the gate's second half alone
       unwell: diseaseCount(playerEntity) + poisonCount(playerEntity) > 0,   // the popup's own warning, said on the prompt
     };
   }
@@ -17799,21 +17804,34 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (!fare.opts.travelShip) return false;
     const refused = partyTravelRefusal();
     if (refused) { townTalk.say(refused); return true; }
-    if (!fare.afford) { townTalk.say(`${TRAVEL_VIEW_TEXT.noWay} ${fareText(fare.computed, false)}`); return true; }
+    if (giveOffer()) return true;   // the map door's GiveOffer rung (DaggerfallUI.cs:612): a pending offer handed over spends the press (AUDIT 28d)
+    if (!fare.afford) { townTalk.say(`${TRAVEL_VIEW_TEXT.noWay} ${fareText(fare.computed, false, fare.coinsShort)}`); return true; }
     const pick = { pixel: place.pixel, name: place.name, mapId: place.mapId, regionIndex: place.regionIndex, locationIndex: place.locationIndex };
     const days = sharedClockOn() ? 0 : travelDays(fare.computed.minutes);   // OL2: online the arrival is now
+    // AUDIT 28d: Yes is a new destination - the journey on the ground ENDS (the mod's own ClearTravelDestination: the
+    // panel closes, the route and the autopilot go, a party's walk ends with it), or it went on driving from the far
+    // shore back into the sea. No leaves me where I stood, the Overworld up again if it was (the box cut it down, and
+    // the line this offer replaced was a HUD message the view stayed up under).
+    const viewUp = !!travelView && travelView.state !== 'off';
+    let sailed = false;
     townTalk.showOverlay(new YesNoBoxWindow({
       rows: shipPassageRows(place.name, fareText(fare.computed), days, fare.unwell),
-      onYes: () => { if (!partyTravel?.propose(pick, fare.opts, fare.computed)) partyTravelJourney(pick, fare.opts, fare.computed); },
-    }));
+      onYes: () => {
+        sailed = true;
+        travelOptions?.clearTravelDestination();
+        if (!partyTravel?.propose(pick, fare.opts, fare.computed)) partyTravelJourney(pick, fare.opts, fare.computed);
+      },
+    }), () => { if (viewUp && !sailed) travelView?.enter(); });
     return true;
   }
-  /** No route: and would a boat have made one? Then that is said - unless the place is one the map's ship passage
-   *  reaches from here, which is then offered (SHIP-SAIL; SHIP-PORT: "a boat would carry you" said at a port read as no
-   *  way to set sail). */
+  /** No route: would the water have made one? Then a place the map's ship passage reaches from here is offered it
+   *  (SHIP-SAIL; SHIP-PORT: "a boat would carry you" said at a port read as no way to set sail), and otherwise a boat
+   *  is said to be the way - with Come Sail Away on, the only boats there are. The passage is Daggerfall's own, so it
+   *  is asked whatever that mod says (AUDIT 28d: it was asked only with the mod on). */
   function tvSeaNoWay(from, to, means, net, goal, place = null) {
-    const boat = !means && !!csaRuntime && csaOn() && !!planRoute(from, to, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: { start: 'land', again: true, goal } });   // THE MERGE: a boat's way round the peaks too
-    if (boat && place && tvOfferPassage(place)) return;
+    const sea = !means && !!planRoute(from, to, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: { start: 'land', again: true, goal } });   // THE MERGE: a boat's way round the peaks too
+    if (sea && place && tvOfferPassage(place)) return;
+    const boat = sea && !!csaRuntime && csaOn();
     townTalk.say(boat ? TRAVEL_VIEW_TEXT.needBoat : goal === 'sea' ? TRAVEL_VIEW_TEXT.water : TRAVEL_VIEW_TEXT.noWay);
   }
   /** The journey's hand let go of the helm. */

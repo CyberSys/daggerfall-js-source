@@ -284,7 +284,8 @@ export const LEVEL_PROGRESS_PREFIX = 'Progress made to the next level: ';
  *  that level in a `float` - a single - so the quotient is rounded to
  *  one before its fraction is taken (LEVEL-PCT, 2026-09-28: in a double
  *  36/15's fraction is 0.3999... and the box read 39% where DFU's reads
- *  40%, and 27/15's is 0.8000... and it read 80% where DFU's reads 79%).
+ *  40%, and 39/15's is 0.6000... and it read 60% where DFU's reads 59% -
+ *  two of the fifteen a level spans, AUDIT 28d).
  *  ORL1: a character the mod's law levels is measured on that law's bar.
  *  The skill sum still moves for them (advancement.js raiseSkills) but
  *  levels nothing, so its fraction was a number about a rule they are

@@ -52,7 +52,7 @@ import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import {
   STAR_FIGURE, ATTRIBUTE_BLURB, attributeLabel, levelUpModel, levelUpFrame, levelUpVitals,
   focusAt, raiseAt, lowerAt, ascend, focusedKey, starBrightness, refusalText,
-  LANE_OGHMA, liveNote,
+  LANE_OGHMA, liveNote, liveTint, starLabel,
 } from './levelUpView.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -313,10 +313,23 @@ export function mountEnhancedLevelUp(hostEl, d = {}) {
   const pickN = el('span', 'n');
   const pickF = el('span', 'f');
   const pickC = el('span', 'c');
-  const pickL = el('span', 'l');   // ASCEND-LIVE: what the chosen attribute IS, when that is not what the presses move
-  pickName.append(pickN, pickF, pickC, pickL);
+  pickName.append(pickN, pickF, pickC);
   pick.append(prev, minus, pickName, plus, next);
-  const blurb = el('p', 'lv-blurb');
+  // THE ABOUT KEEPS ITS ROOM. Each attribute's words - ASCEND-LIVE's line (what it IS, when that is not what the
+  // presses move) over its blurb - lie in ONE cell with the other seven's, and only the chosen one is seen: the band is
+  // as tall as the tallest, so choosing a star never moves the figure above it, and a line rides in the room a
+  // shorter blurb leaves. AUDIT 28d: the line sat in the pick name, wrapped to four lines on a phone and came and
+  // went with the choice - the figure jumped and a tap landed on the wrong star; on a desktop it widened the pick under
+  // the pointer; and Luck's second blurb line at 800x600 lifted its own star from under the pointer between the tap
+  // that chose it and the tap that spent on it.
+  const blurb = el('div', 'lv-blurb');
+  const about = new Map(STAT_KEYS_ORDER.map((k) => {
+    const item = el('div', 'lv-about');
+    const line = el('div', 'lv-live');
+    item.append(line, el('p', null, ATTRIBUTE_BLURB[k] ?? ''));
+    blurb.append(item);
+    return [k, { item, line }];
+  }));
   choice.append(ask, pick, blurb);
   root.append(choice);
 
@@ -427,8 +440,9 @@ export function mountEnhancedLevelUp(hostEl, d = {}) {
       // the 63 under its curse - tinted as the classic sheet tints a live
       // value above or below its permanent one; the presses still move the
       // permanent value, and the pick line below says both.
-      s.node.classList.toggle('boosted', r.live > r.value);
-      s.node.classList.toggle('lowered', r.live < r.value);
+      const tint = liveTint(r);
+      s.node.classList.toggle('boosted', tint === 'boosted');
+      s.node.classList.toggle('lowered', tint === 'lowered');
       s.val.textContent = String(r.live);
       s.delta.textContent = r.delta > 0 ? `+${r.delta}` : '';
       // The star's own brightness is its VALUE - the figure is the
@@ -438,10 +452,7 @@ export function mountEnhancedLevelUp(hostEl, d = {}) {
       // announces itself pressed when a point happens to sit in it
       // tells a screen reader the wrong kind of thing. The label
       // carries the same fact in words (LV1's audit).
-      s.node.setAttribute('aria-label',
-        `${r.label} ${r.live}${r.live !== r.value ? ` (${r.value} of its own)` : ''}`
-        + `${r.delta > 0 ? `, raised by ${r.delta}` : ''}${r.canRaise ? '' : ', cannot raise'}`
-        + `${r.capped ? ', a point here will not show while its bonus lasts' : ''}`);
+      s.node.setAttribute('aria-label', starLabel(r));
     }
     // A LINE LIGHTS WHEN BOTH ITS STARS HAVE RISEN. It is the one
     // thing on this screen that is pure celebration and it is also
@@ -465,9 +476,12 @@ export function mountEnhancedLevelUp(hostEl, d = {}) {
     // (attributeOffset), and a window that hid that would be lying
     // about what the next press costs.
     pickC.textContent = row.cost > 1 ? `${row.cost} per point` : '';
-    pickL.textContent = liveNote(row);
-    pickL.classList.toggle('lowered', row.live < row.value);
-    blurb.textContent = ATTRIBUTE_BLURB[m.focus] ?? '';
+    for (const [k, a] of about) {
+      const r = rows.get(k);
+      a.item.classList.toggle('on', k === m.focus);
+      a.line.textContent = liveNote(r);
+      a.line.classList.toggle('lowered', liveTint(r) === 'lowered');
+    }
     plus.disabled = !row.canRaise;
     minus.disabled = !row.canLower;
 

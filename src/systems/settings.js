@@ -42,6 +42,10 @@
 //   unavailable  meaningless here (resolution, controllers, mod
 //                paths) or the port implements ONE side of the branch
 //                (EnhancedCombatAI, AdvancedClimbing - see the Ledger)
+//   restart      FPS-VSYNC: read by the desktop shell at its next launch
+//                (SHELL_AT_LAUNCH names the reader) - in the app it
+//                changes play from the next start; in a browser the
+//                same key is unavailable
 // A tier is a CLAIM about this port, so settings.test.js re-derives
 // the live set from the code and fails if a tier lies.
 

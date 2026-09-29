@@ -7,14 +7,18 @@
 // a double two spans in fifteen read a point off what DFU's box reads.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { CharSheet, CHARSHEET_RECTS, levelProgressPercent } from '../src/ui/charsheet.js';
-import { levelProgress, viewOnlyScreen } from '../src/ui/levelUpView.js';
+import { levelProgress, viewOnlyScreen, levelUpFrame, LANE_OGHMA } from '../src/ui/levelUpView.js';
+import { createCharSheetWindow } from '../src/ui/charSheetDoor.js';
+import { SPECIAL_ARTIFACT_HANDLERS, ARTIFACTS } from '../src/systems/artifactEffects.js';
 import { initVirtueLeveling, LEVELING_VIRTUE, LEVELING_CLASSIC, LEVELUP_TOTAL } from '../src/systems/oblivionLeveling.js';
 import { createCharacter } from '../src/systems/chargen.js';
 import { raiseSkills, skillUsesForAdvancement, SKILL_ADVANCEMENT_MULTIPLIER } from '../src/systems/advancement.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { CLASSIC_GAME_START_TIME as T0 } from '../src/systems/gameDate.js';
+import { codeHasOnce } from './codeOnly.mjs';
 
 const seq = (...v) => { let i = 0; return () => v[Math.min(i++, v.length - 1)]; };
 const career = {
@@ -57,6 +61,23 @@ test('LEVEL-PCT: the report - a character the bar levels reads the bar on the cl
   assert.deepEqual(levelProgress(c, viewOnlyScreen(c, false)), { now: 14, max: 15, carried: 0, label: 'Skill sum toward the next' });
 });
 
+test('LEVEL-PCT: the Oghma Infinium\'s window reads the bar too - the crown asks the character\'s law, not the screen\'s lane', () => {
+  // AUDIT 28d (the level lane): the book mounts the CLASSIC rollout for a character the mod's bar levels
+  // (charSheetDoor: an Oghma level-up is never the mod's window), and its crown read the skill sum - 14 of 15 beside
+  // the box's 12%, LEVEL-PCT's own mismatch inside Enhanced Plus.
+  const v = played(LEVELING_VIRTUE);
+  SPECIAL_ARTIFACT_HANDLERS.get(ARTIFACTS.OghmaInfinium).used({ entity: v, ctx: {} });
+  const w = createCharSheetWindow({ entity: v });
+  const frame = levelUpFrame(v, w);
+  assert.equal(frame.lane, LANE_OGHMA, 'the book\'s own window');
+  assert.deepEqual(frame.progress, { now: 12, max: LEVELUP_TOTAL, carried: 0, label: 'Toward the next' });
+  assert.deepEqual(box(v), ['Progress made to the next level: 12%'], 'the box and the crown, one number');
+  // The same book on DFU's law reads the sum, as before.
+  const c = played(LEVELING_CLASSIC);
+  SPECIAL_ARTIFACT_HANDLERS.get(ARTIFACTS.OghmaInfinium).used({ entity: c, ctx: {} });
+  assert.deepEqual(levelUpFrame(c, createCharSheetWindow({ entity: c })).progress, { now: 14, max: 15, carried: 0, label: 'Skill sum toward the next' });
+});
+
 test('LEVEL-PCT: the bar reads the same on both screens at its ends - held to 0..100, a full bar 100%', () => {
   const v = played(LEVELING_VIRTUE);
   for (const [bar, pct] of [[0, 0], [99, 99], [LEVELUP_TOTAL, 100], [LEVELUP_TOTAL + 40, 100], [-5, 0]]) {
@@ -64,12 +85,19 @@ test('LEVEL-PCT: the bar reads the same on both screens at its ends - held to 0.
     assert.equal(levelProgressPercent(v), pct, `bar ${bar}`);
     assert.equal(levelProgress(v, viewOnlyScreen(v, true)).now, pct, `the crown's bar ${bar}`);
   }
+  // ...and the mod's own canvas window prints the same reading (AUDIT 28d: it printed the raw field).
+  const src = readFileSync(new URL('../src/ui/virtueLevelUp.js', import.meta.url), 'utf8');
+  const at = src.indexOf('    at(`bar ');
+  assert.ok(at > 0, 'the canvas window\'s bar line');
+  codeHasOnce(src.slice(at, src.indexOf('\n', at)), /at\(`bar \$\{levelBarProgress\(this\.entity\)\}\/\$\{LEVELUP_TOTAL\}`/);
 });
 
 test('LEVEL-PCT: the classic box is LevelButton_OnMouseClick in DFU\'s own precision (`float currentLevel`, a single)', () => {
   // (current - starting + 28) / 15f, its fraction truncated to a percent - the values DFU's single-precision
-  // arithmetic prints, spans 26 to 41. A double reads 27 as 80 and 36 as 39; DFU prints 79 and 40 (and 59 at 39).
-  const dfu = [73, 79, 86, 93, 0, 6, 13, 20, 26, 33, 40, 46, 53, 59, 66, 73];
-  const port = dfu.map((_, i) => levelProgressPercent({ startingLevelUpSkillSum: 100, currentLevelUpSkillSum: 98 + i }));
+  // arithmetic prints over a level's fifteen spans (the sum never falls below its start, so 28 to 42). A double reads
+  // 36 as 39 and 39 as 60; DFU prints 40 and 59 (AUDIT 28d: the first pin's window began at 26, and its example, 27,
+  // is a span no character reaches).
+  const dfu = [86, 93, 0, 6, 13, 20, 26, 33, 40, 46, 53, 59, 66, 73, 79];
+  const port = dfu.map((_, i) => levelProgressPercent({ startingLevelUpSkillSum: 100, currentLevelUpSkillSum: 100 + i }));
   assert.deepEqual(port, dfu);
 });
