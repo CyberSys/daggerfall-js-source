@@ -4,7 +4,6 @@
 //                            [--forward=-z] [--up=-x]
 //                            [--units=52.5] [--origin=centre|grip]
 //                            [--keep-rotation] [--no-normalise]
-//                            [--placement=object|scene]
 //
 // FIELD-GUN-MW1 (2026-09-20, Mac: "texturing and rigging this for the
 // morrowind model"). The reader's header says why an FBX is a source
@@ -28,20 +27,8 @@
 //    106 quads and 13 octagons. A batch is a triangle list by contract,
 //    so the polygons are fanned. Fanning is correct for the convex
 //    polygons a modelling package emits and WRONG for a concave one -
-//    which is why a concave n-gon is never fanned.
-//
-//    MW-BRIG1 (2026-09-29, Mac's steel brigandine): IT IS EAR-CLIPPED
-//    INSTEAD. The first cut REFUSED a concave n-gon ("triangulate it in
-//    Blender"), and the brigandine carries six - three mirrored pairs
-//    round its front clasps, a quad and a pentagon each, real notches
-//    and not rounding noise. Blender draws those faces by ear-clipping
-//    them, so an ear clip is the triangulation the modeller SAW, and
-//    asking him to re-export is asking him to do by hand what the file
-//    already says. A convex polygon still FANS, corner for corner as it
-//    always did - so every mesh that baked before bakes to the same
-//    bytes (test/fieldgunmw.test.js holds the Thunderlock to that) -
-//    and only a polygon no ear clip can resolve, one that crosses
-//    itself, is refused.
+//    which is why a concave n-gon is REFUSED by name below rather than
+//    quietly folded inside out.
 //
 // 2. WELDS THE CORNERS. Normals and UVs are ByPolygonVertex here: the
 //    mesh has 199 positions and 543 corners, and a corner is a
@@ -96,23 +83,6 @@
 //    hand closes around the receiver rather than the grip. `grip` is
 //    derived, not typed: the centroid of the rearmost band of the long
 //    axis, which is the part a hand actually holds.
-//
-// ═══ OBJECT OR SCENE ═══════════════════════════════════════════════
-//
-// `--placement=object` is everything above: the object's own shape,
-// its scene placement dropped, framed and normalised by the bake. It
-// is right for a thing that is HELD - a gun is placed by the hand that
-// grips it, not by where it sat in Blender.
-//
-// `--placement=scene` (MW-BRIG1) is the other kind of asset: a thing
-// that is WORN, fitted onto the Morrowind body in Mac's scene, where
-// WHERE IT SITS IS THE AUTHORING. The whole object transform is kept
-// (translation, rotation, scale - FBX's T*R*S), the file's own axis
-// system is read out of GlobalSettings rather than assumed, and the
-// scene's units are kept: 1 Blender unit is what the scene measured
-// in, which for a scene built on an imported Morrowind body is one
-// Morrowind unit. Nothing is normalised and nothing is re-centred - a
-// cuirass that moved to its bounds centre would sit at the feet.
 //
 // THE SOURCE IS NOT COMMITTED, exactly as tools/gunPaperdoll.mjs's
 // PNGs are not: scratch/ is ignored, Mac keeps his .blend, and what
@@ -203,173 +173,6 @@ export function polygonsOf(polygonVertexIndex) {
   return polys;
 }
 
-/** Newell's normal of a polygon: right for one that is not perfectly
- *  planar, where any single corner's cross product may be noise. Its
- *  length is twice the polygon's area. */
-function newellNormal(pts) {
-  const nrm = [0, 0, 0];
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i]; const b = pts[(i + 1) % pts.length];
-    nrm[0] += (a[1] - b[1]) * (a[2] + b[2]);
-    nrm[1] += (a[2] - b[2]) * (a[0] + b[0]);
-    nrm[2] += (a[0] - b[0]) * (a[1] + b[1]);
-  }
-  return nrm;
-}
-
-/**
- * A FAN IS ONLY A TRIANGULATION OF A CONVEX POLYGON: every corner must
- * turn the same way about the polygon's own plane normal. A degenerate
- * polygon (no area to have a normal) counts as convex - a fan cannot
- * make it worse, and there is nothing an ear clip could orient by.
- */
-export function isConvexPolygon(pts) {
-  const nrm = newellNormal(pts);
-  const scaleN = Math.hypot(...nrm);
-  if (scaleN < 1e-9) return true;
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i]; const b = pts[(i + 1) % pts.length]; const c = pts[(i + 2) % pts.length];
-    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-    const w = [c[0] - b[0], c[1] - b[1], c[2] - b[2]];
-    const turn = ((u[1] * w[2] - u[2] * w[1]) * nrm[0] + (u[2] * w[0] - u[0] * w[2]) * nrm[1]
-      + (u[0] * w[1] - u[1] * w[0]) * nrm[2]) / scaleN;
-    // Tolerance scaled to the polygon, so a big face's rounding noise
-    // is not a reflex corner and a small face's real notch still is.
-    if (turn < -1e-6 * scaleN) return false;
-  }
-  return true;
-}
-
-/**
- * MW-BRIG1: EAR CLIPPING, for the polygon a fan would tear.
- *
- * The polygon is projected onto the plane its Newell normal names -
- * dropping the dominant axis, and flipping the other two when that
- * axis points away, so the projection keeps the polygon's own winding
- * - and an EAR is a convex corner whose triangle holds no other corner
- * of what remains. Cutting ears until three corners are left is a
- * triangulation of any simple polygon (Meisters' two-ears theorem), and
- * every triangle keeps the polygon's winding, so a face's front stays
- * its front. Ears are taken lowest index first, so the result is a
- * function of the file and nothing else.
- *
- * Returns triangles as index triples into `pts`. A polygon that crosses
- * itself has no triangulation to find, and is refused by name - as is
- * one that folds so that no ear is left to cut.
- */
-export function earClip(pts) {
-  const nrm = newellNormal(pts);
-  const k = [0, 1, 2].reduce((best, i) => (Math.abs(nrm[i]) > Math.abs(nrm[best]) ? i : best), 0);
-  const [ia, ib] = k === 0 ? [1, 2] : k === 1 ? [2, 0] : [0, 1];
-  const flip = nrm[k] < 0 ? -1 : 1;
-  const p2 = pts.map((p) => [p[ia], p[ib] * flip]);
-  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-  const inside = (p, a, b, c) => cross(a, b, p) >= 0 && cross(b, c, p) >= 0 && cross(c, a, p) >= 0;
-  // SIMPLE FIRST. Ear clipping is only a triangulation of a polygon that
-  // does not cross itself - handed a bow tie it still finds "ears" and
-  // emits triangles, covering an area the face never had. Two edges that
-  // share no corner and properly cross are that polygon.
-  const n = p2.length;
-  const crosses = (a, b, c, d) => {
-    const d1 = cross(a, b, c); const d2 = cross(a, b, d); const d3 = cross(c, d, a); const d4 = cross(c, d, b);
-    return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
-  };
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 2; j < n; j++) {
-      if (i === 0 && j === n - 1) continue;   // adjacent across the wrap
-      if (crosses(p2[i], p2[(i + 1) % n], p2[j], p2[(j + 1) % n])) {
-        throw new Error(`a ${n}-gon crosses itself (edges ${i} and ${j}) - no triangulation covers it. Fix the face in Blender before exporting.`);
-      }
-    }
-  }
-  const ring = pts.map((_, i) => i);
-  const tris = [];
-  while (ring.length > 3) {
-    let cut = -1;
-    for (let r = 0; r < ring.length && cut < 0; r++) {
-      const i0 = ring[(r + ring.length - 1) % ring.length]; const i1 = ring[r]; const i2 = ring[(r + 1) % ring.length];
-      const [a, b, c] = [p2[i0], p2[i1], p2[i2]];
-      if (cross(a, b, c) <= 0) continue;   // reflex (or flat) - not an ear
-      let clear = true;
-      for (const j of ring) {
-        if (j === i0 || j === i1 || j === i2) continue;
-        if (inside(p2[j], a, b, c)) { clear = false; break; }
-      }
-      if (clear) cut = r;
-    }
-    if (cut < 0) throw new Error(`a ${pts.length}-gon has no ear left to cut - it folds back over itself. Fix the face in Blender before exporting.`);
-    const r = cut;
-    tris.push([ring[(r + ring.length - 1) % ring.length], ring[r], ring[(r + 1) % ring.length]]);
-    ring.splice(r, 1);
-  }
-  tris.push([ring[0], ring[1], ring[2]]);
-  return tris;
-}
-
-/**
- * MW-BRIG1: THE SCENE'S FRAME, read out of the file rather than
- * assumed. Returns `{ m, unitScale }`: `m` is the 3x3 (row-major, the
- * unit folded in) taking a vector in FBX world space - the space
- * `Lcl Translation` lives in - to the modeller's own Z-up scene.
- *
- * AXES. GlobalSettings names which FBX axis is UP and which is the
- * COORD (right) axis; the scene is Z-up with X on the coord axis, and
- * its Y is up x coord, which is what keeps (X, Y, Z) right-handed.
- * Blender's default export is up = +Y, coord = +X, so the scene's Y is
- * FBX -Z, the conversion its exporter applied on the way out.
- *
- * UNITS. `UnitScaleFactor` is centimetres per FBX unit, and a Blender
- * unit at scene scale 1 is a metre - so a scene unit is 100 /
- * UnitScaleFactor FBX units. That is exactly the `Lcl Scaling` 100 a
- * Blender export carries on every object, which is what makes the
- * geometry come back in the scene's own numbers.
- */
-export function sceneFrame(tree) {
-  const gs = nodeAt(tree.nodes, 'GlobalSettings');
-  const num = (name, d) => { const v = gs ? property70(gs, name)?.[0] : undefined; return v === undefined ? d : Number(v); };
-  const axis = (i, sign) => { const v = [0, 0, 0]; v[i] = sign < 0 ? -1 : 1; return v; };
-  const upI = num('UpAxis', 1); const coordI = num('CoordAxis', 0);
-  if (![0, 1, 2].includes(upI) || ![0, 1, 2].includes(coordI) || upI === coordI) {
-    throw new Error(`GlobalSettings names UpAxis ${upI} and CoordAxis ${coordI} - not two distinct axes`);
-  }
-  const up = axis(upI, num('UpAxisSign', 1));
-  const coord = axis(coordI, num('CoordAxisSign', 1));
-  const side = [up[1] * coord[2] - up[2] * coord[1], up[2] * coord[0] - up[0] * coord[2], up[0] * coord[1] - up[1] * coord[0]];
-  const unitScale = num('UnitScaleFactor', 1);
-  if (!(unitScale > 0)) throw new Error(`GlobalSettings UnitScaleFactor ${unitScale} is not a length`);
-  const u = unitScale / 100;
-  // Rows: scene X = coord, scene Y = up x coord, scene Z = up.
-  const m = [...coord, ...side, ...up].map((v) => v * u);
-  return { m, unitScale };
-}
-
-/** The transform properties a T*R*S reading does not carry. Blender
- *  writes none of them; a file that does was authored with a pivot or
- *  an offset this bake would silently drop, so it is refused instead. */
-const UNSUPPORTED_TRANSFORM = [
-  ['PreRotation', [0, 0, 0]], ['PostRotation', [0, 0, 0]],
-  ['RotationOffset', [0, 0, 0]], ['RotationPivot', [0, 0, 0]],
-  ['ScalingOffset', [0, 0, 0]], ['ScalingPivot', [0, 0, 0]],
-  ['GeometricTranslation', [0, 0, 0]], ['GeometricRotation', [0, 0, 0]], ['GeometricScaling', [1, 1, 1]],
-];
-
-/** The object is a ROOT of the scene: its Lcl transform is its world
- *  transform only if nothing above it adds one. */
-function assertRootObject(tree, model) {
-  const id = model.props[0];
-  for (const c of childrenNamed(nodeAt(tree.nodes, 'Connections'), 'C')) {
-    if (c.props[0] === 'OO' && c.props[1] === id && c.props[2] !== 0 && c.props[2] !== 0n) {
-      throw new Error(`${objectName(model.props[1])} is parented under object ${c.props[2]} - apply or clear the parent in Blender, a scene placement reads the object's own transform only`);
-    }
-  }
-  for (const [name, identity] of UNSUPPORTED_TRANSFORM) {
-    const v = property70(model, name);
-    if (v && v.some((x, i) => Math.abs(Number(x) - identity[i]) > 1e-9)) {
-      throw new Error(`${objectName(model.props[1])} carries ${name} ${JSON.stringify(v)} - a scene placement reads T*R*S only`);
-    }
-  }
-}
-
 /** A layer element's value for corner `c`, honouring the two mapping
  *  modes Blender writes. ByPolygonVertex indexes by corner;
  *  ByVertice/ByVertex indexes by the corner's POSITION, which is a
@@ -402,9 +205,7 @@ function layerReader(layer, stride, valueKey, indexKey) {
  * Bake one Geometry/Model pair out of a parsed FBX tree.
  * Pure: bytes in, numbers out, nothing touched on disk.
  */
-export function bakeMesh(tree, { name = null, keepRotation = false, normalise = true, forward = '-z', up = '-x', units = 1, origin = 'centre', placement = 'object' } = {}) {
-  if (placement !== 'object' && placement !== 'scene') throw new Error(`placement "${placement}" is not object or scene`);
-  const scene = placement === 'scene';
+export function bakeMesh(tree, { name = null, keepRotation = false, normalise = true, forward = '-z', up = '-x', units = 1, origin = 'centre' } = {}) {
   const toBasis = basisMap(forward, up);
   const objects = nodeAt(tree.nodes, 'Objects');
   if (!objects) throw new Error('no Objects section in this FBX');
@@ -418,7 +219,6 @@ export function bakeMesh(tree, { name = null, keepRotation = false, normalise = 
   const geo = geos[0];
   const models = childrenNamed(objects, 'Model').filter((m) => m.props[2] === 'Mesh');
   const model = models[0] ?? null;
-  if (scene && !model) throw new Error('a scene placement needs the Model that places the mesh, and this FBX has none');
 
   const positions = childNamed(geo, 'Vertices')?.props[0];
   const pvi = childNamed(geo, 'PolygonVertexIndex')?.props[0];
@@ -432,21 +232,7 @@ export function bakeMesh(tree, { name = null, keepRotation = false, normalise = 
   // ── the object transform ──────────────────────────────────────────
   const scale = (model && property70(model, 'Lcl Scaling')) ?? [1, 1, 1];
   const rotation = (model && property70(model, 'Lcl Rotation')) ?? [0, 0, 0];
-  const translation = (model && property70(model, 'Lcl Translation')) ?? [0, 0, 0];
-  const useRotation = keepRotation || scene;
-  // eulerXYZ is eOrderXYZ; any other order is a different matrix from
-  // the same three numbers, so an applied rotation states the order.
-  const rotationOrder = model ? Number(property70(model, 'RotationOrder')?.[0] ?? 0) : 0;
-  if (useRotation && rotationOrder !== 0) throw new Error(`RotationOrder ${rotationOrder} is not eOrderXYZ (0) - set the object's rotation mode to XYZ Euler in Blender`);
-  const R = useRotation ? eulerXYZ(rotation) : null;
-  // MW-BRIG1: the scene placement - the file's axes and units, and the
-  // object's translation carried through them. See sceneFrame.
-  let frame = null;
-  if (scene) {
-    assertRootObject(tree, model);
-    const f = sceneFrame(tree);
-    frame = { m: f.m, t: apply3(f.m, translation.map(Number)), unitScale: f.unitScale };
-  }
+  const R = keepRotation ? eulerXYZ(rotation) : null;
   // The inverse transpose of a pure scale is its reciprocal - which is
   // why this is not just "apply the same matrix to the normal".
   const nScale = scale.map((s) => (s === 0 ? 0 : 1 / s));
@@ -454,15 +240,11 @@ export function bakeMesh(tree, { name = null, keepRotation = false, normalise = 
   const placePosition = (p) => {
     let v = [p[0] * scale[0], p[1] * scale[1], p[2] * scale[2]];
     if (R) v = apply3(R, v);
-    if (frame) { v = apply3(frame.m, v); v = [v[0] + frame.t[0], v[1] + frame.t[1], v[2] + frame.t[2]]; }
     return toBasis(v);
   };
   const placeNormal = (n) => {
     let v = [n[0] * nScale[0], n[1] * nScale[1], n[2] * nScale[2]];
     if (R) v = apply3(R, v);
-    // The frame is a rotation times a positive uniform unit, so it is
-    // its own inverse transpose up to a length the divide below takes out.
-    if (frame) v = apply3(frame.m, v);
     v = toBasis(v);
     const len = Math.hypot(v[0], v[1], v[2]);
     return len > 1e-12 ? [v[0] / len, v[1] / len, v[2] / len] : [0, 0, 1];
@@ -474,7 +256,6 @@ export function bakeMesh(tree, { name = null, keepRotation = false, normalise = 
   const seen = new Map();
   let corner = 0;
   let ngons = 0;
-  let clipped = 0;
   const cornerOf = (c, positionIndex) => {
     const n = readNormal ? readNormal(c, positionIndex) : null;
     const uv = readUv ? readUv(c, positionIndex) : null;
@@ -499,20 +280,10 @@ export function bakeMesh(tree, { name = null, keepRotation = false, normalise = 
     corner += poly.length;
     if (poly.length < 3) throw new Error(`a polygon with ${poly.length} corners is not a face`);
     if (poly.length > 4) ngons++;
+    // FAN from corner 0. Correct for convex; refused below if not.
     const ring = poly.map((p, i) => cornerOf(base + i, p));
-    // FAN from corner 0 when that is a triangulation - every convex
-    // polygon, and every triangle - and EAR-CLIP when it is not (MW-BRIG1,
-    // see the header). The test is on the PLACED corners, the geometry
-    // the triangles will actually have.
-    const pts = poly.length > 3 ? poly.map((p) => placePosition(positions.slice(p * 3, p * 3 + 3))) : null;
-    if (!pts || isConvexPolygon(pts)) {
-      for (let i = 1; i + 1 < ring.length; i++) indices.push(ring[0], ring[i], ring[i + 1]);
-    } else {
-      let tris;
-      try { tris = earClip(pts); } catch (err) { throw new Error(`${err.message} (the polygon at corner ${base})`); }
-      for (const [a, b, c] of tris) indices.push(ring[a], ring[b], ring[c]);
-      clipped++;
-    }
+    for (let i = 1; i + 1 < ring.length; i++) indices.push(ring[0], ring[i], ring[i + 1]);
+    if (poly.length > 3) assertConvex(poly, base, positions, placePosition);
   }
 
   if (outPos.length / 3 > 65535) throw new Error(`${outPos.length / 3} vertices will not fit a Uint16 index buffer`);
@@ -524,15 +295,12 @@ export function bakeMesh(tree, { name = null, keepRotation = false, normalise = 
   }
   const size = [0, 1, 2].map((k) => max[k] - min[k]);
   const longest = Math.max(...size);
-  // A SCENE PLACEMENT IS NEITHER NORMALISED NOR RE-CENTRED: where the
-  // mesh sits, at the size it has, is what the modeller authored.
-  const unit = !scene && normalise && longest > 0 ? units / longest : 1;
+  const unit = normalise && longest > 0 ? units / longest : 1;
   // THE PIVOT, measured BEFORE the scale is applied so the anchor is in
   // the mesh's own units and the two decisions stay independent.
-  const anchor = scene ? [0, 0, 0]
-    : origin === 'grip'
-      ? gripAnchor(outPos, min, max)
-      : [0, 1, 2].map((k) => (min[k] + max[k]) / 2);
+  const anchor = origin === 'grip'
+    ? gripAnchor(outPos, min, max)
+    : [0, 1, 2].map((k) => (min[k] + max[k]) / 2);
   for (let i = 0; i < outPos.length; i += 3) {
     for (let k = 0; k < 3; k++) outPos[i + k] = (outPos[i + k] - anchor[k]) * unit;
   }
@@ -550,20 +318,15 @@ export function bakeMesh(tree, { name = null, keepRotation = false, normalise = 
       sourceCorners: pvi.length,
       polygons: polys.length,
       ngons,
-      // MW-BRIG1: how many concave polygons were ear-clipped, not fanned.
-      clipped,
-      placement,
       appliedScale: round(scale, 6),
-      droppedRotation: useRotation ? null : round(rotation, 6),
-      // MW-BRIG1: the placement a scene bake kept, in the scene's units.
-      ...(frame ? { sceneTranslation: round(frame.t, 6), unitScaleFactor: frame.unitScale } : {}),
+      droppedRotation: keepRotation ? null : round(rotation, 6),
       basis: `Morrowind (+Y forward, +Z up), from local forward=${forward} up=${up}`,
       // In the mesh's OWN units after the scale bake, before the unit
       // divide: what one unit of the shipped mesh is worth.
       sizeBeforeNormalise: round(size, 4),
       unitDivisor: +(1 / unit).toFixed(6),
-      units: scene ? null : units,
-      origin: scene ? 'scene' : origin,
+      units,
+      origin,
       // Where the pivot landed in the mesh's own pre-scale space, so a
       // re-bake that moved it is visible in the diff.
       anchor: round(anchor, 4),
@@ -607,6 +370,41 @@ export function gripAnchor(positions, min, max, band = 0.18) {
   return sum.map((v) => v / n);
 }
 
+/**
+ * A FAN IS ONLY A TRIANGULATION OF A CONVEX POLYGON. For a concave one
+ * it emits triangles outside the face and leaves a hole - visible as a
+ * shard of geometry sticking out of the model, which is exactly the
+ * bug somebody would spend an afternoon on. So the fan states its
+ * precondition: every corner turns the same way about the polygon's
+ * own plane normal.
+ */
+function assertConvex(poly, base, positions, place) {
+  const pts = poly.map((p) => place(positions.slice(p * 3, p * 3 + 3)));
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  // Newell's normal: right for a polygon that is not perfectly planar,
+  // where any single corner's cross product may be noise.
+  const nrm = [0, 0, 0];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]; const b = pts[(i + 1) % pts.length];
+    nrm[0] += (a[1] - b[1]) * (a[2] + b[2]);
+    nrm[1] += (a[2] - b[2]) * (a[0] + b[0]);
+    nrm[2] += (a[0] - b[0]) * (a[1] + b[1]);
+  }
+  const scaleN = Math.hypot(...nrm);
+  if (scaleN < 1e-9) return;   // degenerate; the fan cannot make it worse
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]; const b = pts[(i + 1) % pts.length]; const c = pts[(i + 2) % pts.length];
+    const turn = dot(cross(sub(b, a), sub(c, b)), nrm) / scaleN;
+    // Tolerance scaled to the polygon, so a big face's rounding noise
+    // is not a reflex corner and a small face's real notch still is.
+    if (turn < -1e-6 * scaleN) {
+      throw new Error(`a ${poly.length}-gon at corner ${base} is CONCAVE - a fan would tear it. Triangulate it in Blender before exporting.`);
+    }
+  }
+}
+
 // ── the CLI ───────────────────────────────────────────────────────────
 if (isMain(import.meta.url)) {
   const args = process.argv.slice(2);
@@ -614,7 +412,7 @@ if (isMain(import.meta.url)) {
   const opt = (k, d = null) => args.find((a) => a.startsWith(`--${k}=`))?.split('=').slice(1).join('=') ?? d;
   const files = args.filter((a) => !a.startsWith('--'));
   if (files.length !== 2) {
-    console.error('usage: node tools/fbxMesh.mjs <in.fbx> <out.json> [--name=X] [--forward=-z] [--up=-x] [--units=N] [--origin=centre|grip] [--keep-rotation] [--no-normalise] [--placement=object|scene]');
+    console.error('usage: node tools/fbxMesh.mjs <in.fbx> <out.json> [--name=X] [--forward=-z] [--up=-x] [--units=N] [--origin=centre|grip] [--keep-rotation] [--no-normalise]');
     process.exit(2);
   }
   const [inPath, outPath] = files;
@@ -622,16 +420,14 @@ if (isMain(import.meta.url)) {
     name: opt('name'), keepRotation: flag('keep-rotation'), normalise: !flag('no-normalise'),
     forward: opt('forward', '-z'), up: opt('up', '-x'),
     units: Number(opt('units', 1)), origin: opt('origin', 'centre'),
-    placement: opt('placement', 'object'),
   });
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, `${JSON.stringify(mesh)}\n`);
   const b = mesh.bake;
   console.log(`${inPath} -> ${outPath}`);
-  console.log(`  ${mesh.name}: ${b.polygons} polygons (${b.ngons} n-gons, ${b.clipped} ear-clipped) -> ${mesh.indices.length / 3} triangles`);
+  console.log(`  ${mesh.name}: ${b.polygons} polygons (${b.ngons} n-gons) -> ${mesh.indices.length / 3} triangles`);
   console.log(`  ${b.sourceCorners} corners welded to ${mesh.positions.length / 3} vertices`);
-  if (b.placement === 'scene') console.log(`  scene placement kept: translation ${b.sceneTranslation.join(', ')}, size ${b.sizeBeforeNormalise.join(' x ')}`);
-  else console.log(`  scale ${b.appliedScale.join(' x ')} baked; size ${b.sizeBeforeNormalise.join(' x ')} / ${b.unitDivisor} -> longest axis ${b.units}`);
+  console.log(`  scale ${b.appliedScale.join(' x ')} baked; size ${b.sizeBeforeNormalise.join(' x ')} / ${b.unitDivisor} -> longest axis ${b.units}`);
   console.log(`  origin ${b.origin} at ${JSON.stringify(b.anchor)}`);
   console.log(`  ${b.basis}`);
   console.log(`  bounds ${JSON.stringify(mesh.bounds.min)} .. ${JSON.stringify(mesh.bounds.max)}`);
