@@ -7,6 +7,11 @@
 - **Your options, beside the notes:** your game files (change the folder at any time), your saves folder, the update check (on or off) and Reinstall.
 - The Windows installer and the Linux AppImage update themselves. The portable exe and the Mac tell you when a new version is out, with a Download button.
 
+## While you play
+- **A new version that comes out while you play is shown on screen.** It installs when you quit, or at once from File > Restart to Update (save first). On a Mac or the portable exe, the File menu's Download gets it.
+- **Closing the window in the middle of a game now asks "Leave the game?"**, with Stay the default. Before, the window's X, Alt+F4 and File > Quit did nothing while you were in the world.
+- The app has its own icon.
+
 ## Finding your Daggerfall files
 - **On first run the launcher looks for Daggerfall itself**: Daggerfall Unity's settings, every Steam library, GOG, and a DaggerfallGameFiles.zip unpacked in Downloads, Desktop, Documents or Games. It shows what it finds, and you choose.
 - **Choose the game's folder, not just ARENA2**, and it looks inside for you. Steam's "Browse local files" folder works.
