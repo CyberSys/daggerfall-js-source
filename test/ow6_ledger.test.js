@@ -518,3 +518,121 @@ test('OW6L by source: the relay\'s arm spends its own bucket before it asks for 
   const from = [...law.matchAll(/\bfrom\s+'([^']+)'/g)].map((m) => m[1]);
   assert.deepEqual(from, ['./wire.js', './gateLaw.js', './raidLaw.js'], 'the relay\'s own files alone - never a systems or world module');
 });
+
+// ═══ THE HOST (scenes/world.js) - lifted and RUN ═══════════════════════════════════════════════════════════════════
+import { bandLifeOf } from '../src/systems/travelBands.js';
+import { raiderLifeOf } from '../src/systems/seaRaiders.js';
+
+/** The host's ledger block (world.js OW6L: what is owed, said, heard; the spawn's first-sight door), lifted and mounted. */
+function ledgerHost({ online, clockMin = M0, ms = T0 } = {}) {
+  const W = rd('src/scenes/world.js');
+  const a = W.indexOf('  const OW_SAY_MS = 1000;'), b = W.indexOf('\n  }\n', W.indexOf('  function _spawnSeen(key) {'));
+  assert.ok(a > 0 && b > a, 'the host\'s ledger block lifted');
+  const d = {
+    online, _spawnLedger: createSpawnLedger(), clockMin, ms, t: 0,
+    _bandSpent: new Set(), _bandChase: new Map(), _bandPeer: new Map(), tvRaid: { spent: new Set(), chase: new Map(), peer: new Map() }, tvDng: { at: {} },
+  };
+  const scope = {
+    online: d.online, _spawnLedger: d._spawnLedger, _spawnClock: () => d.clockMin, bandNowMs: () => d.ms, raidNowMs: () => d.ms,
+    BAND_LIFE_MS, RAIDER_LIFE_MS, bandLifeOf, raiderLifeOf, _bandSpent: d._bandSpent, _bandChase: d._bandChase, _bandPeer: d._bandPeer,
+    tvRaid: d.tvRaid, tvDng: d.tvDng, performance: { now: () => d.t },
+  };
+  const names = Object.keys(scope);
+  const h = new Function(...names, `${W.slice(a, b + 4)}
+    return { owSaySpent, owSayRow, overworldLedgerFrame, overworldLedgerHeard, _spawnSeen, owed: () => ({ sp: [..._owSay.sp.keys()], dg: [..._owSay.dg.keys()] }), OW_SAY_MS, OW_SAY_KEEP_MS };`)(...names.map((k) => scope[k]));
+  return { d, ...h };
+}
+
+test('OW6L host run: WHAT I SPEND AND MY SPAWNS\' CLOCKS ARE OWED TO THE CELL until it takes them - a spent band or raider, a spawn\'s first sight (and never a sight already in my ledger), its clear; said a second apart at most, what the cell did not take said again, nothing said to a relay that keeps no ledger (and nothing lost); a spent id of a life gone and a row owed too long let go (mutants: the first sight unsaid, the rest dropped, an old relay spoken to)', () => {
+  const sent = [];
+  let take = Infinity;
+  const online = { owOk: false, sendOverworld: (k, payload) => { const went = payload.slice(0, take); sent.push([k, went]); return went; } };
+  const h = ledgerHost({ online });
+  const key = `${S1[0]},${S1[1]}`;
+  h._spawnSeen(key);
+  h._spawnSeen(key);
+  h.owSaySpent(bandIn(0)); h.owSaySpent(bandIn(1)); h.owSaySpent(raiderIn());
+  assert.deepEqual(h.owed(), { sp: [bandIn(0), bandIn(1), raiderIn()], dg: [key] }, 'owed: the three spent, the one first sight');
+  h.overworldLedgerFrame(10_000);
+  assert.deepEqual(sent, [], 'a relay that keeps no ledger is told nothing');
+  assert.equal(h.owed().sp.length, 3, 'and nothing is lost');
+  online.owOk = true; take = 1;
+  h.overworldLedgerFrame(20_000);
+  assert.deepEqual(sent, [['sp', [bandIn(0)]], ['dg', [[...S1, M0]]]], 'said: the cell takes one of each');
+  h.overworldLedgerFrame(20_000 + h.OW_SAY_MS - 1);
+  assert.equal(sent.length, 2, 'not again within the second');
+  take = Infinity;
+  h.overworldLedgerFrame(20_000 + h.OW_SAY_MS);
+  assert.deepEqual(sent.at(-1), ['sp', [bandIn(1), raiderIn()]], 'the rest said again');
+  assert.deepEqual(h.owed(), { sp: [], dg: [] }, 'all taken');
+  h._spawnSeen(key);
+  assert.deepEqual(h.owed().dg, [], 'a sight already in my ledger (its pixel rebuilt) owes nothing');
+  // the clear: the row again, with its clear
+  h.d.clockMin = M0 + 30;
+  h.d._spawnLedger.clear(key, M0 + 30); h.owSayRow(key);
+  h.overworldLedgerFrame(40_000);
+  assert.deepEqual(sent.at(-1), ['dg', [[...S1, M0, M0 + 30]]]);
+  // let go: a spent id two lives gone; a row owed past OW_SAY_KEEP_MS
+  const gone = `b44.142.${lifeB() - 2}`;
+  online.owOk = false;
+  h.owSaySpent(gone); h.d.t = 50_000; h.owSayRow(key);
+  online.owOk = true; take = 0;
+  h.overworldLedgerFrame(50_000 + h.OW_SAY_KEEP_MS + 1);
+  assert.deepEqual(h.owed(), { sp: [], dg: [] }, 'both let go');
+});
+
+test('OW6L host run: THE CELL\'S WORD HEARD - a spent band is spent here and its chase ends, a spent raider too; a row min-merged into my spawn ledger, the Overworld\'s dungeons read again only when it moved (mutants: a band unspent, a raider taken for a band, the list never re-read)', () => {
+  const h = ledgerHost({ online: { owOk: true, sendOverworld: () => [] } });
+  h.d._bandChase.set(bandIn(0), {}); h.d._bandPeer.set(bandIn(0), {}); h.d.tvRaid.chase.set(raiderIn(), {});
+  h.overworldLedgerHeard({ k: 'sp', ids: [bandIn(0), raiderIn()] });
+  assert.ok(h.d._bandSpent.has(bandIn(0)) && !h.d._bandChase.has(bandIn(0)) && !h.d._bandPeer.has(bandIn(0)), 'the band: spent, its chase ended');
+  assert.ok(h.d.tvRaid.spent.has(raiderIn()) && !h.d.tvRaid.chase.has(raiderIn()) && !h.d._bandSpent.has(raiderIn()), 'the raider: spent as a raider');
+  const key = `${S1[0]},${S1[1]}`;
+  h.d._spawnLedger.note(key, M0);
+  h.overworldLedgerHeard({ k: 'dg', rows: [[...S1, M0 - 100]] });
+  assert.equal(h.d.tvDng.at, null, 'moved: the Overworld\'s list read again');
+  assert.deepEqual(h.d._spawnLedger.wireRow(key), [...S1, M0 - 100], 'the earlier sight kept');
+  h.d.tvDng.at = {};
+  h.overworldLedgerHeard({ k: 'dg', rows: [[...S1, M0 - 50]] });
+  assert.notEqual(h.d.tvDng.at, null, 'a later sight moves nothing, and nothing is read again');
+  assert.deepEqual(h.d._spawnLedger.wireRow(key), [...S1, M0 - 100]);
+});
+
+test('OW6L END TO END: A spends a band and first sees a spawn; the relay\'s cell keeps both; B, standing in the cell, hears them; C, walking in later, is told in its welcome - each through its own host\'s heard door (mutants anywhere on the way)', async () => {
+  await withOw(async ({ r, say }) => {
+    const a = r.connect(), b = r.connect();
+    await r.hello(a, 'peer-0001', ON); await r.hello(b, 'peer-0002', ON);
+    const pending = [];
+    const bridge = { owOk: true, sendOverworld: (k, payload) => { pending.push(say(a, k === 'sp' ? { k, ids: payload } : { k, rows: payload })); return payload; } };
+    const A = ledgerHost({ online: bridge }), B = ledgerHost({ online: bridge }), C = ledgerHost({ online: bridge });
+    const key = `${S2[0]},${S2[1]}`;
+    A._spawnSeen(key); A.owSaySpent(bandIn(3));
+    A.overworldLedgerFrame(10_000);   // the frame's clock is performance.now()'s (requestAnimationFrame's), as the owed rows' own
+    await Promise.all(pending);
+    for (const m of ows(b)) B.overworldLedgerHeard(m);
+    assert.ok(B.d._bandSpent.has(bandIn(3)), 'B: the band A fought is gone');
+    assert.deepEqual(B.d._spawnLedger.wireRow(key), [...S2, M0], 'B: the spawn\'s clock is A\'s sight');
+    const c = r.connect();
+    await r.hello(c, 'peer-0003', ON);
+    const w = welcomeOf(c);
+    assert.ok(w.ow, 'the welcome carries the cell\'s ledger');
+    C.overworldLedgerHeard({ k: 'sp', ids: w.ow.sp }); C.overworldLedgerHeard({ k: 'dg', rows: w.ow.dg });
+    assert.ok(C.d._bandSpent.has(bandIn(3)), 'C, later: gone for C too');
+    assert.deepEqual(C.d._spawnLedger.wireRow(key), [...S2, M0], 'C, later: the same clock');
+  });
+});
+
+test('OW6L host wiring: a band\'s spend and a raider\'s owe themselves to the cell; the spawn\'s one first-sight door is the roll\'s and the dungeon\'s; the clear owes its row; the session\'s word is heard; what is owed is said every online frame; a load forgets it (mutants: any of them unwired)', () => {
+  const W = rd('src/scenes/world.js');
+  assert.match(W, /function bandSpend\(id\) \{\n\s*_bandSpent\.add\(id\);\n\s*owSaySpent\(id\);/);
+  assert.match(W, /function seaRaidSpend\(id\) \{\n\s*tvRaid\.spent\.add\(id\);\n\s*owSaySpent\(id\);/);
+  assert.match(W, /_spawnSeen\(key\);   \/\/ TTL1: first sight starts the seven-day clock/);
+  assert.match(W, /onDungeonSpawned: \(\) => \{ const p = playerTravelPixel\(\); _spawnSeen\(`\$\{p\.x\},\$\{p\.y\}`\); \},/);
+  assert.doesNotMatch(W, /_spawnLedger\.note\(key, _spawnClock\(\)\);   \/\/ TTL1/, 'no other first-sight door');
+  assert.match(W, /_spawnLedger\.clear\(key, _spawnClock\(\)\);\n\s*owSayRow\(key\);/);
+  assert.match(W, /online\.onOverworld = \(msg\) => overworldLedgerHeard\(msg\);/);
+  assert.match(W, /hccParkTick\(now\);[^\n]*\n\s*overworldLedgerFrame\(now\);/);
+  const reset = W.slice(W.indexOf('  function overworldLoadReset() {'), W.indexOf('\n  }\n', W.indexOf('  function overworldLoadReset() {')));
+  assert.match(reset, /travelView\?\.exit\('load', true\);[^\n]*\n\s*_owSay\.sp\.clear\(\); _owSay\.dg\.clear\(\);/, 'the load forgets what was owed - after the view\'s exit, the last thing that could owe');
+  assert.ok(W.indexOf('  const _owSay = ') < W.indexOf('  const spawnedDungeonAt = '), 'BOOT-TDZ: declared ahead of the roll that says its first sight');
+});

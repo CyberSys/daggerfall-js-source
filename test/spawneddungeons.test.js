@@ -229,7 +229,9 @@ test('TTL1 by source: expiry is checked on the pixel build, and never while the 
   assert.match(fn, /_spawnLedger\.expired\(key, _spawnClock\(\)\) && !_insideSpawn\(key\)/, 'both clocks AND the creator\'s "no player in it"');
   assert.match(fn, /_locIndexGen \+= 1;[^\n]*\n\s*locationIndex\.delete\(key\);\s*\n\s*return null;/, 'expired: the location goes, the pixel is empty land');
   assert.ok(!/_spawnLedger\.forget\(key\)/.test(fn), 'AUDIT OW5 D2: and the row STAYS - its clocks keep it gone; forgotten, the pure roll stood the same dungeon again on a fresh seven days');
-  assert.match(fn, /_spawnLedger\.note\(key, _spawnClock\(\)\);/, 'first sight starts the long clock');
+  assert.match(fn, /_spawnSeen\(key\);/, 'first sight starts the long clock - through the one first-sight door (OW6L)');
+  const seenAt = w.indexOf('  function _spawnSeen(key) {');
+  assert.match(w.slice(seenAt, w.indexOf('\n  }\n', seenAt)), /_spawnLedger\.note\(key, _spawnClock\(\)\);/, 'which notes the ledger');
   // the boot builds the player's OWN pixel through this function before
   // `playerTicker` is declared - a temporal dead zone `?.` cannot save
   assert.match(w, /let _spawnClock = \(\) => NaN;/, 'the clock is ASKED, not read: until the ticker stands every ledger call is a no-op');
@@ -247,7 +249,7 @@ test('TTL1 by source: expiry is checked on the pixel build, and never while the 
   assert.match(cleared, /if \(!locationIndex\.get\(key\)\?\.spawned\) return;/, 'a real dungeon being cleared never invents a ledger row');
   assert.match(cleared, /_spawnLedger\.clear\(key, _spawnClock\(\)\)/);
   assert.match(w, /onDungeonCleared: _noteSpawnCleared,/, 'the host answers the context');
-  assert.match(w, /onDungeonSpawned: \(\) => \{ const p = playerTravelPixel\(\); _spawnLedger\.note\(`\$\{p\.x\},\$\{p\.y\}`/, 'entering one starts the long clock too - a save loaded straight into a spawn was never built through buildPixelNow this session');
+  assert.match(w, /onDungeonSpawned: \(\) => \{ const p = playerTravelPixel\(\); _spawnSeen\(`\$\{p\.x\},\$\{p\.y\}`\); \},/, 'entering one starts the long clock too - a save loaded straight into a spawn was never built through buildPixelNow this session');
 });
 
 test('TTL1 by source: the dungeon context tells the host, on a throttle, ahead of the automap\'s own early return', async () => {
@@ -313,15 +315,19 @@ test('AUDIT OW5 D2 host run: A SPAWN PAST ITS TIME IS GONE FOR GOOD - the build\
   const spawned = w.slice(i, w.indexOf('\n  };\n', i) + 5);
   const j = w.indexOf('  function _locationToBuild(px, py) {');
   const build = w.slice(j, w.indexOf('\n  }\n', j) + 4);
-  assert.ok(i > 0 && j > 0, 'both lifted');
+  const k = w.indexOf('  function _spawnSeen(key) {');
+  const seen = w.slice(k, w.indexOf('\n  }\n', k) + 4);   // OW6L: the one first-sight door, run as it stands
+  assert.ok(i > 0 && j > 0 && k > 0, 'all three lifted');
   const run = ({ inside = false } = {}) => {
-    const d = { now: 0, inside, index: new Map(), ledger: createSpawnLedger() };
+    const d = { now: 0, inside, index: new Map(), ledger: createSpawnLedger(), owed: [] };
     const host = new Function('d', 'createSpawnLedger', `
       const params = { has: () => true }, spawnsDungeon = () => true, _spawnSalt = 1, maps = { getClimateIndex: () => 0 }, CLIMATES = { Ocean: 99 };
       const terrainGen = { roads: () => null }, pathFreePixel = () => true, _spawnUnroaded = new Set();
       const _spawnLedger = d.ledger, _spawnClock = () => d.now, _insideSpawn = () => d.inside, locationIndex = d.index;
       const _spawnCloneAt = (px, py) => ({ name: 'Old Keep', spawned: true, px, py });
+      const owSayRow = (key) => d.owed.push(key);
       let _locIndexGen = 0;
+      ${seen}
       ${spawned}
       ${build}
       return { spawnedDungeonAt, _locationToBuild, gen: () => _locIndexGen };`)(d, createSpawnLedger);
@@ -331,6 +337,7 @@ test('AUDIT OW5 D2 host run: A SPAWN PAST ITS TIME IS GONE FOR GOOD - the build\
   const first = h._locationToBuild(7, 9);
   assert.equal(first?.name, 'Old Keep', 'first sight: stood, its seven days begun');
   assert.equal(h.d.ledger.toJSON()[0][1], 0);
+  assert.deepEqual(h.d.owed, ['7,9'], 'and its row owed to the cell (OW6L)');
   h.d.now = GENERAL_TTL_MINUTES + 1;
   const gen = h.gen();
   assert.equal(h._locationToBuild(7, 9), null, 'held in the index, past its time: its pixel built empty');

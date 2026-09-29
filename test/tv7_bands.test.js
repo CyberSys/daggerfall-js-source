@@ -281,6 +281,7 @@ const bandHost = async (over = {}) => {
     bandYaw: (pos) => Math.atan2(pos.x - d.feet.x, pos.z - d.feet.z),
     standOk: () => true, standCalls: [], online: { id: 'b' }, playerTravelPixel: () => ({ x: 0, y: 499 }),
     met: null, metCalls: 0, journeyMet: () => { d.metCalls++; d.order?.push('met'); return typeof d.met === 'function' ? d.met() : d.met; },   // AUDIT OW5 E1: no journey walks, unless a pin says one does
+    owed: [], owSaySpent: (id) => d.owed.push(id),   // OW6L: a spend is owed to the cell's ledger
     ...over,
   };
   const names = Object.keys(d).filter((k) => /^[A-Za-z_$][\w$]*$/.test(k));
@@ -350,6 +351,7 @@ test('AUDIT OW4 B10 host run: water, a boat, a town\'s rect or the camps off end
     again.bandFrame(1000);
     assert.equal(again.d._bandChase.size, 0, `${what}: the chase ends`);
     assert.ok(again.d._bandSpent.has('b1.1.5'), `${what}: spent, not forgotten`);
+    assert.deepEqual(again.d.owed, ['b1.1.5'], `${what}: and owed to the cell, which keeps it (OW6L)`);
   }
   for (const [what, over] of [['dead', { playerEntity: { health: 0, activeEffects: [] } }], ['a window', { gamePaused: () => true }]]) {
     const h = await bandHost(over);
@@ -358,6 +360,7 @@ test('AUDIT OW4 B10 host run: water, a boat, a town\'s rect or the camps off end
     h.bandFrame(1000); h.bandFrame(1200);
     assert.equal(c.pos.z, 200 * NATIVE_PER_M, `${what}: the chase holds where it was`);
     assert.equal(h.d._bandSpent.size, 0);
+    assert.deepEqual(h.d.owed, [], `${what}: nothing owed`);
   }
 });
 

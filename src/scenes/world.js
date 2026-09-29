@@ -1048,7 +1048,65 @@ export async function bootWorld(canvas, renderer, params, status) {
     const key = `${p.x},${p.y}`;
     if (!locationIndex.get(key)?.spawned) return;
     _spawnLedger.clear(key, _spawnClock());
+    owSayRow(key);   // OW6L: and the cell hears the short clock start
   };
+  // OW6L (2026-09-29, the player: "Everything needs that persistence between players in the overworld"): THE CELL'S
+  // OVERWORLD LEDGER (net/overworldLaw.js, kept by the relay's cell room; net/online.js sendOverworld / onOverworld).
+  // What I spend - a band fought or escaped (TV7), a raider come alongside or outsailed (OWS3) - and a spawned
+  // dungeon's clocks - its first sight here, its first clear (TTL1) - are said to the cell I stand in, which keeps them
+  // and says them to every player there, and to one who walks in later in its welcome: a band someone fought is gone
+  // for everyone for its life, not only for those whose frames heard it (TV7b's word reached three pixels, that minute);
+  // and every player's spawned dungeons run out on the SAME clocks - the earliest sight and the earliest clear anyone
+  // had (the spawn ledger's merge), where each client's own clocks let two players disagree for days whether one stood.
+  // A word the cell did not take (the gate shut, a socket down, a dungeon's room rather than a cell) is said again.
+  // Declared ahead of the spawn roll below, whose first sight says its row during the boot's own builds (BOOT-TDZ).
+  const OW_SAY_MS = 1000;   // how often what is owed is said (the session's own bucket is OW_HZ_MAX a second)
+  const OW_SAY_KEEP_MS = 10 * 60 * 1000;   // a row owed past this is let go (my ledger keeps it; the cell's behind-answer heals)
+  const OW_SAY_MAX = 64;   // and never more owed than this, the oldest let go
+  const _owSay = { sp: new Map(), dg: new Map() };   // id -> since; key -> since
+  let _owSaidAt = -Infinity;
+  /** OW6L: a band or a raider spent here - owed to the cell. */
+  function owSaySpent(id) { _owSay.sp.delete(id); _owSay.sp.set(id, performance.now()); owSayBound(_owSay.sp); }
+  /** OW6L: a spawned dungeon's row (its first sight, its clear) - owed to the cell as my ledger has it now. */
+  function owSayRow(key) { if (!_spawnLedger.wireRow(key)) return; _owSay.dg.delete(key); _owSay.dg.set(key, performance.now()); owSayBound(_owSay.dg); }
+  function owSayBound(m) { while (m.size > OW_SAY_MAX) m.delete(m.keys().next().value); }
+  /** OW6L: what is owed, said (a second apart at most) - what the cell took no longer owed; a spent id of a life gone, and
+   *  a row owed too long, let go (the cell drops the one quietly, and its behind-answer heals the other). */
+  function overworldLedgerFrame(now) {
+    if (!online?.owOk || now - _owSaidAt < OW_SAY_MS || (!_owSay.sp.size && !_owSay.dg.size)) return;
+    _owSaidAt = now;
+    const bandLife = Math.floor(bandNowMs() / BAND_LIFE_MS), raidLife = Math.floor(raidNowMs() / RAIDER_LIFE_MS);
+    for (const id of [..._owSay.sp.keys()]) if ((id[0] === 'b' ? bandLifeOf(id) < bandLife - 1 : raiderLifeOf(id) < raidLife - 1)) _owSay.sp.delete(id);
+    for (const [key, since] of [..._owSay.dg]) if (now - since > OW_SAY_KEEP_MS) _owSay.dg.delete(key);
+    if (_owSay.sp.size) for (const id of online.sendOverworld('sp', [..._owSay.sp.keys()])) _owSay.sp.delete(id);
+    if (_owSay.dg.size) {
+      const rows = [..._owSay.dg.keys()].map((k) => _spawnLedger.wireRow(k)).filter(Boolean);
+      for (const r of online.sendOverworld('dg', rows)) _owSay.dg.delete(`${r[0]},${r[1]}`);
+    }
+  }
+  /** OW6L: the cell's word - its ledger's welcome, or a change - on my own cell's socket or a halo's: a spent band or
+   *  raider is spent here (a chase of it ends; TV7b's own flag 2), and every row min-merged into my spawn ledger (a spawn
+   *  whose clocks ran out on someone else's sight is gone here too - the Overworld's list is read again). */
+  function overworldLedgerHeard(msg) {
+    if (msg?.k === 'sp') {
+      for (const id of msg.ids) {
+        if (id[0] === 'b') { _bandSpent.add(id); _bandChase.delete(id); _bandPeer.delete(id); }
+        else { tvRaid.spent.add(id); tvRaid.chase.delete(id); tvRaid.peer.delete(id); }
+      }
+      return;
+    }
+    if (msg?.k !== 'dg') return;
+    let moved = false;
+    for (const [px, py, seen, cleared] of msg.rows) moved = _spawnLedger.merge(`${px},${py}`, seen, cleared) || moved;
+    if (moved) tvDng.at = null;   // the Overworld's dungeons read again: a spawn now gone leaves its list
+  }
+  /** OW6L: a spawn's first sight here - its long clock started, and the cell told (a sight already in my ledger - my own,
+   *  or the cell's merged in - starts nothing and says nothing). */
+  function _spawnSeen(key) {
+    const fresh = !_spawnLedger.wireRow(key);
+    _spawnLedger.note(key, _spawnClock());
+    if (fresh) owSayRow(key);
+  }
   const _spawnUnroaded = new Set();   // SPAWN-ROADS: spawned keys decided before the road network landed
   /** SPAWN-ROADS: the roads sweep's first act - a ruin decided before the network landed that a path crosses
    *  is taken back (the index and its TTL clock), unless the player stands in it (TTL1's own exception); its
@@ -1094,7 +1152,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       _locIndexGen += 1;   // AUDIT OW4 D5
       locationIndex.set(key, loc);
       if (!net) _spawnUnroaded.add(key);   // SPAWN-ROADS: decided without the network - the sweep asks again
-      _spawnLedger.note(key, _spawnClock());   // TTL1: first sight starts the seven-day clock
+      _spawnSeen(key);   // TTL1: first sight starts the seven-day clock (OW6L: and the cell hears it)
       return loc;
     } catch (e) { console.warn('[spawned dungeons]', px, py, e?.message ?? e); return null; }
   };
@@ -9345,6 +9403,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     tvDng = { at: null, dg: -1, list: [], finds: [] };   // TV6: nor the dungeons
     tvBandSeen = { at: null, life: -1, list: [] }; _bandChase.clear(); _bandSpent.clear(); _bandMake.clear(); _bandPos.clear(); _bandPeer.clear(); _bandSpentAt.length = 0;   // TV7: nor the bands
     travelView?.exit('load', true);   // AUDIT DEEP X-3: a load under the travel view cuts it first - its release put the head back over the camera the save restores
+    _owSay.sp.clear(); _owSay.dg.clear();   // OW6L: nor what the abandoned run still owed its cell (the loaded ledger is the save's)
     // AUDIT OW4 D3: NOR THE SPAWNS THE ABANDONED RUN WAS TOLD OF - the Overworld marks a spawn once its pixel's line was
     // said (tvSpawnKnown), and that set outlived every load: another save's character saw "?"s where the last one had
     // walked. The loaded character's own are in the store its save restored (the same crossing files them, syncTopics).
@@ -13450,6 +13509,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: worldMinutes(), say: (l, d) => townTalk.say(l, d) });   // REALM P0.3: the Empire calls in the debt it would not have lent, on the world's clock
     alignSurvival(playerEntity, Math.floor(worldMinutes()), Math.floor(worldMinutes()));   // SURV7: a record ahead of the world's clock starts fresh; the gap itself is save.js's load arm
     online.onClock = (offsetMs) => { const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; _sharedClockHeard = true; if (Math.abs(offsetMs - was) > 1000) { const before = playerEntity.lastGameMinutes; onlineArrival(); if (Number.isFinite(before)) shiftSurvival(playerEntity, Math.floor(worldMinutes()) - Math.floor(before)); alignSurvival(playerEntity, Math.floor(worldMinutes()), Math.floor(worldMinutes())); } };   // AUDIT SURV B: the correction re-aligns the needs too; AUDIT SURV-TIERS (the third pass): by the delta every other marker rode, first   // WORLD5: the relay's clock corrects this machine's
+    online.onOverworld = (msg) => overworldLedgerHeard(msg);   // OW6L: my cell's (and a halo's) overworld ledger - its welcome, and each change
     remotePlayers = new RemotePlayers({ renderer, deps: { fetchBytes, palette, getTexture, uploadRecordFrame, audio } });   // 2026-09-17: uploadRecordFrame added for the class-enemy billboard path (net/remotePlayers.js _buildMobile/_syncMobilePeer) - the doll path never touches it
     // MWBODY1: the enhanced skin with Morrowind data attached puts every peer in a body of its own; otherwise the doll
     const enhanced = isEnhanced();   // the skin cannot change without a reload (switchSkin), so it is read once, not per frame
@@ -16735,6 +16795,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     hitFlush(now);     // AUDIT FOES FOE2: and a BLOW the wire refused - a joiner applies none locally, so a lost frame is a lost blow
     modes?.setDungeonAuthority?.(dungeonAuthority(now));   // AUDIT WORLD2 C2: the seat re-read every frame - a dead socket, a terminal close or a silent host hands the foes back
     hccParkTick(now);   // HCC-PARK: my parked team's word to the cell it stands in, when it changed
+    overworldLedgerFrame(now);   // OW6L: what I spent and my spawns' clocks, to the cell that keeps them
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) camps.sweepOwners(ids, now, FOES_STALE_MS); }   // PERF11: the same list   // SURV3: a peer's camps go as their puppets do - the same liveness, the same answer-gate   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) hcc.sweepOwners(ids, now, FOES_STALE_MS); }   // HCC-ONLINE: a peer's team goes as their puppets and camps do - the same memoised list, the same liveness   // PERF11: the same list   // SURV3: a peer's camps go as their puppets do - the same liveness, the same answer-gate   // AUDIT WORLD6b-iii(b) C3/B5: no answer (the socket not open) is not "nobody" - it pruned every owner while the halos kept feeding frames, a spawn-and-discard loop per frame   // AUDIT WORLD6b-ii C2: ONE liveness for the owner - the peers the hunt reads (visible: a pose, in range, inside the timeout) are the peers whose puppets stand
     if (isCellRoom(online.room)) { const ids = ownerIds(); if (ids) csaPeers.sweepOwners(ids, now, FOES_STALE_MS); }   // CSA-J: a peer's boats go as their team does - the same memoised list, the same liveness
@@ -17032,7 +17093,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // dungeon. `onDungeonSpawned` only fires for a synthesized one, so
     // the note is unconditional; `onDungeonCleared` fires for ANY
     // dungeon, so _noteSpawnCleared checks the pixel first.
-    onDungeonSpawned: () => { const p = playerTravelPixel(); _spawnLedger.note(`${p.x},${p.y}`, _spawnClock()); },
+    onDungeonSpawned: () => { const p = playerTravelPixel(); _spawnSeen(`${p.x},${p.y}`); },   // OW6L: the one first-sight door
     onDungeonCleared: _noteSpawnCleared,
     spawnLedger: () => _spawnLedger,   // TTL1: so a save made INSIDE a dungeon carries the clocks too
     dungeonOnline: () => onlineOn,   // AUDIT WORLD34 B2: online, the dungeon that gets built is the WHOLE dungeon - the room's layout is one layout
@@ -18403,6 +18464,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** TV7b: a band spent here - gone for its life, and said on my frames so the others spend it too. */
   function bandSpend(id) {
     _bandSpent.add(id);
+    owSaySpent(id);   // OW6L: and the cell keeps it, for everyone there and whoever comes
     const k = _bandSpentAt.indexOf(id);
     if (k >= 0) _bandSpentAt.splice(k, 1);
     _bandSpentAt.unshift(id);
@@ -18703,6 +18765,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** OW6: a raider spent here - gone for its life, and said on my frames so the others spend it too (TV7b's bandSpend). */
   function seaRaidSpend(id) {
     tvRaid.spent.add(id);
+    owSaySpent(id);   // OW6L: and the cell keeps it
     const k = tvRaid.spentAt.indexOf(id);
     if (k >= 0) tvRaid.spentAt.splice(k, 1);
     tvRaid.spentAt.unshift(id);

@@ -101,6 +101,7 @@
 - Camps show on the Overworld: every camp, pack or band standing about is marked where it stands, with what and how many ("Orc camp, 4"), and its mark goes when the last of them falls. Online, other players' camps show too.
 - Online, a camp stays a camp for everyone: if the player who found it leaves (through a door, or by dying), whoever takes it over keeps it together as one camp. If they walk away from a camp you're standing by, it's handed to you instead of vanishing from under you.
 - Online, pirate ships are shared like bands: a ship chasing another player is seen chasing them, one ship never chases two players at once, and a ship someone has fought or escaped is gone for everyone.
+- Online, the world remembers: a band or pirate ship someone has fought or escaped stays gone for everyone in the area - even players who arrive later - and spawned dungeons run out on the same clock for every player (the earliest anyone found them, and the first time anyone cleared them), so you and your friends always agree which are still there. (This needs the server update that ships with it; until then, only players nearby at the time hear it.)
 
 ## Fixes before release
 - Your health, magicka and fatigue stay readable while the Overworld is up - its bar sits above them now. On phones its Return button is no longer under the touch buttons.

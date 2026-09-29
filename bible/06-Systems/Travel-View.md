@@ -1413,6 +1413,34 @@ CAMP-SIGHT, CAMP-TRAVEL, CAMP-NOTIMER, TTL1, WORLD1's "True persistance"); the d
   now - the band word's own law, one home (travelBands.js `chaseWordOf` / `validChaseWord`, each chaser's own ids): the
   raiders chasing it where they sail, and each spent - so every reader draws the chase where it runs, none gives chase
   to a sail a peer's chase holds (two chasing one: the lower id keeps it), and none meets a spent raider again.
+- **The cell keeps the Overworld's ledger (OW6L, the relay - world127; net/overworldLaw.js).** What stays true after the
+  moment: a band or raider spent, and a spawned dungeon's clocks. TV7b's word reached three pixels, that minute - a band
+  fought was back for whoever came later in its life - and the spawn ledger was each client's own (TTL1's own note: two
+  players disagreed for days whether a spawn stood). Each CELL ROOM now keeps a ledger: the spent ids (their own life
+  and the next), and a row a spawned pixel - `[px, py, seen, cleared?]` in shared classic minutes, MIN-MERGED, so the
+  earliest sight and the earliest clear anyone had win (the spawn ledger's `merge`), kept sixty real days. A player's
+  spends and first sights and clears are owed to the cell until it takes them (world.js `overworldLedgerFrame`: said a
+  second apart, what was not taken said again, nothing to an older relay), and every change is said to everyone in the
+  cell - and the whole ledger to a player who walks in later, in its welcome (a halo's too, for the seam). The relay
+  checks each word against the cell's square (8 pixels of margin), the spawn roll itself and the clocks, on its own
+  bucket and fan budget, and answers a speaker whose row is BEHIND with its own (RAID3's law). Its numbers are pinned
+  equal to their homes rather than imported (gateLaw.js's own way), so the relay's graph stays flat. RELAY_VERSION
+  world127 - 125 was VOICE1's and 126 DISCORD-GATES', never reused; a client reads `relaySupportsOverworld` and says
+  nothing to an older relay (which would close the socket on the frame): it needs the relay deploy that ships with it.
+- **Known, not changed.** A live CHASE's place still rides the foes frame alone - the relay fans it three pixels while
+  bands are drawn to six (TV7b's own recorded limit) - so a viewer between three and six pixels from a chaser sees the band at its own
+  wander; that it was spent reaches them through the cell. The relay cannot verify when a pixel was first seen: a
+  modified client could make its cell's spawns run out early (bounded by the margin, the roll, the keep and the bucket).
+  A raider dragged far past its own cell by a long chase is not told to the escaping player's cell (the session leaves
+  out what the cell would strike). A camp is shared with the players its owner's frames reach (the relay's three
+  pixels), and its mark is drawn where its living members stand. One pre-existing mutant survivor was found on the way,
+  outside this work: auditqp.json's AQP-touched-cell-my-roll (the owner's record already carries the maximum it resets).
+- Proof: `test/ow6_bands.test.js` (6), `ow6_slowdown` (8: the law, a rider at x40, the host governor run on both skins),
+  `ow6_camps` (7: two real pools over their frames, the handover, the walk-away), `ows3_raiders` (+4: the raider word,
+  the host's run), `ow6_ledger` (18: the law, the wire, the relay over the real Room, the session, the spawn ledger's
+  merge, the host's owed and heard words, END TO END - A spends, B hears, C is told in its welcome);
+  `tools/mutants/ow6b.json` (14), `ow6s.json` (22), `ow6c.json` (19), `ow6r.json` (10), `ow6l.json` (33), `ow6h.json`
+  (12) - all dead; 19 older records re-aimed by content, every list naming an edited test re-run on a passing baseline.
 
 ## Open, for Mac
 

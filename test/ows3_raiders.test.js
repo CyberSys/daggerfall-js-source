@@ -268,6 +268,7 @@ const seaHost = (over = {}) => {
     // OW6: the chase, shared - the law, my id, my pixel, the shared clock and the frame clock
     RAIDERS_WIRE_MAX, RAIDER_WORD_MS, RAIDER_LIFE_MS, raiderWordOf, validRaiderWord, raiderNearMe, chaseYields, online: { id: 'b' },
     playerTravelPixel: () => d.me, ms: 0, raidNowMs: () => d.ms, now: 0, performance: { now: () => d.now },
+    owed: [], owSaySpent: (id) => d.owed.push(id),   // OW6L: a spend is owed to the cell's ledger
     ...over,
   };
   const names = Object.keys(d).filter((k) => /^[A-Za-z_$][\w$]*$/.test(k));
@@ -421,6 +422,7 @@ test('OW6 host run: MY CHASE IS SAID - a raider chasing me rides my frame where 
   const g = {};
   h.seaRaidWord(g, false);
   assert.deepEqual(g.sr, [['r1.1.5', 0, 0, 2]], 'spent here - and said');
+  assert.deepEqual(h.d.owed, ['r1.1.5'], 'and owed to the cell, which keeps it (OW6L)');
   assert.equal(h.seaRaidWord(null, false), false, 'unchanged: not said again between the full frames');
   assert.equal(h.seaRaidWord(null, true), true, 'and said on the full frames');
 });
