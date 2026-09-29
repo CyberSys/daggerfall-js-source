@@ -7559,10 +7559,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2728 mounts the same one, gated on
+  // and dungeonContext.js:2729 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6427
+  // that context through modes.dungeonCtx - so worldModes.js:6431
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -7908,20 +7908,25 @@ export async function bootWorld(canvas, renderer, params, status) {
     return { foes: stood.foes, dx: stood.anchorFeet[0] - feet[0], dz: stood.anchorFeet[2] - feet[2] };
   };
   // BOUNTY1 (Mac: "Dungeon bounties (notices name a nearby dungeon)"): A BOUNTY'S PACK UNDERGROUND - its lair deeper in:
-  // the anchor is where one of the dungeon's own foes stands 25 to 90 metres from the hunter (the farthest there is when
-  // none is in that band), and the members stand round it through the dungeon's own chain (spawnLooseFoe - a loose
+  // the anchor is one of the dungeon's own places 25 to 90 metres from the hunter (the farthest there is when none is in
+  // that band), and the members stand round it through the dungeon's own chain (spawnLooseFoe - a loose
   // stand rides the room's lane to everyone in it online, SUMMON-SYNC). A member with no floor near the anchor is not
   // stood: the host stands what is left of the pack again on the next visit.
+  // FIELD BUGS 29h (BOUNTY-LAIR; the Discord: "Bounty targets can spawn in inaccessible parts of dungeons"): the places are
+  // the dungeon's QUEST SPAWN MARKERS - where DFU's Place stands every dungeon quest's foe (199.11, questSpawnSpots) - and
+  // its own foes' only where it has none. A foe stands at every enemy marker of every block, sealed rooms, water and the
+  // far side of a held door among them, and none of those places was ever asked to be reached; a quest's are.
   const _standBountyDungeonPack = ({ mobileType, count }) => {
     const d = _dungeonPool();
     if (!d?.spawnLooseFoe || !d.collider) return null;
     const feet = enchantFeet();
-    const dist = (f) => Math.hypot(f.ai.feet[0] - feet[0], f.ai.feet[2] - feet[2]);
-    const layout = (d.foes ?? []).filter((f) => f?.ai?.feet && !f.puppet && f._ownFrom == null);
-    if (!layout.length) return null;
-    const band = layout.filter((f) => { const m = dist(f); return m >= 25 && m <= 90; });
-    const at = band.length ? band[Math.floor(Math.random() * band.length)] : layout.reduce((a, b) => (dist(b) > dist(a) ? b : a));
-    const anchorFeet = [at.ai.feet[0], at.ai.feet[1], at.ai.feet[2]];
+    const dist = (p) => Math.hypot(p[0] - feet[0], p[2] - feet[2]);
+    const spots = d.questSpawnSpots?.() ?? [];
+    const places = spots.length ? spots : (d.foes ?? []).filter((f) => f?.ai?.feet && !f.puppet && f._ownFrom == null).map((f) => f.ai.feet);
+    if (!places.length) return null;
+    const band = places.filter((p) => { const m = dist(p); return m >= 25 && m <= 90; });
+    const at = band.length ? band[Math.floor(Math.random() * band.length)] : places.reduce((a, b) => (dist(b) > dist(a) ? b : a));
+    const anchorFeet = [at[0], at[1], at[2]];
     const campId = exteriorFoes.newCampId();   // OW6 (MERGE 2): the one counter, the pool's - a pack never shares a camp's number
     const stands = [];
     for (let k = 0; k < count; k++) {
@@ -10049,7 +10054,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7458), so exterior mode and a
+    // composer, dungeonContext.js:7460), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12027,7 +12032,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // straight back into the same death. exitAutosaveNames answers no
   // slot at all while the player is dead or any host's death screen is
   // up - DFU never saves during a death.
-  addEventListener('beforeunload', () => {
+  // FIELD BUGS 29h (BOOT-HIDE): registered with the checkpoint's other doors, below the duel's (THE CHECKPOINT'S DOORS).
+  const exitAutosave = () => {
     // AUDIT ONESEAT H4: and never from a tab another took the seat from (ONE-SEAT) - it is offline, and its every slot
     // of the character would be written over what the tab that has the seat saved (the same character, played on there)
     if (!online || !playerSpawned || seatOut()) return;
@@ -12040,7 +12046,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (realmSession) return;   // the realm's: no slot
     const save = (saveName) => (modes ? modes?.quickSaveNow(saveName) : worldQuickSave(saveName));   // `?.` even inside the ternary: audit24 wave37's gate above the declaration is all-or-nothing
     for (const saveName of exitAutosaveNames(playerEntity, { deathUp: townTalk.overlay instanceof DeathScreen || !!modes?.deathUp?.() })) save(saveName);
-  });
+  };
   /** REALM P0.5 (systems/onlineCheckpoint.js): THE CHARACTER SAVED AS IT PLAYS ONLINE - every slot the exit save above
    *  writes, quietly (no "Game saved.", no shot), every ONLINE_CHECKPOINT_MS (onlineFrame) and at each change a trade
    *  makes to the pack (checkpointedTradePack). Refused where the exit save is, and while a duel is in play. Answers
@@ -12060,7 +12066,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       return names.length > 0;
     } catch (e) { console.error('[online] checkpoint failed', e); return false; }   // never the frame's end: the next is due in two minutes
   };
-  saveSoon.ready(() => onlineCheckpoint());   // PROF-SAVE: the professions' changes saved by the same checkpoint, from here on
   /** REALM P1.3: THE REALM'S CHECKPOINT - the character composed by the standing host and handed to the session by the
    *  composer's sink. Refused as the exit save is on the death screen: a dead character is never the realm's save. */
   function realmCheckpoint() {
@@ -12077,14 +12082,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     exitToTitleMenu();
   }
   if (realmSession) {
-    // the door the game opens - the pause menu's Exit, the death's: the last checkpoint and the leave, then the menu
-    // (five seconds at most: the loop is already claimed, and a hung network must not hold the door shut). AUDIT REALM2
-    // C7: a duel ended first and P0.5's gate passed, as the page's end and the seat's - realmCheckpoint straight wrote a
-    // character that left mid-duel at the duel's 1 health, the opponent's spells on it
-    setBeforeTitleExit(async () => { if (!realmSession.lost) { try { duelLeaveNow(); } catch { /* no duel was built: nothing to end */ } onlineCheckpoint(); await Promise.race([realmSession.leave(), new Promise((r) => { setTimeout(r, REALM_EXIT_WAIT_MS); })]); } });
-    // a tab put away (a phone's home button, another tab) is checkpointed while the page still can be
-    whenPageHides(globalThis.document, () => { if (online) onlineCheckpoint(); });
-    // AUDIT REALM2 C2: the lease given up as the page GOES (pagehide, the unload guard answered) - the leave alone, with
+    // the title exit and the page put away are the checkpoint's: registered with its other doors (THE CHECKPOINT'S
+    // DOORS, below the duel's). AUDIT REALM2 C2: the lease given up as the page GOES (pagehide, the unload guard answered) - the leave alone, with
     // keepalive (the browser finishes it; a save that large it cannot, so the two-minute checkpoints bound what a close
     // costs) - and taken again when a page the back-forward cache kept is shown
     whenPageGoes(globalThis, () => { realmSession.leave({ keepalive: true }); }, () => { realmSession.rejoin(); });
@@ -12196,7 +12195,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     enhanced: isEnhanced(),   // FONT1: the layer's text in the pixel face under the enhanced skin
     cycleMode: () => townTalk.nextMode(),   // T3-touch: the phone's F1-F4
     socialInteract: () => socialInteract(),   // AUDIT SOC C9: the phone's F - the host's own door (a card over the body in front, else the friends panel; false with no account, and the layer's button then does nothing)
-    overlayActive: () => townTalk.overlayActive || !!travelView?.active,   // AUDIT DEEP2 A2: under the view the pad is a cursor (its pick, orbit and zoom) - never the world's look, activation or swing
+    overlayActive: () => townTalk.overlayActive || !!travelView?.active || !!modes?.overlayHeld,   // AUDIT DEEP2 A2: under the view the pad is a cursor (its pick, orbit and zoom) - never the world's look, activation or swing. FIELD BUGS 29h (TOUCH-HELD): and a window on a building's or a dungeon's own stack is a window - the castle guard's terms box had no nav row, so no abc, no keyboard and no Return on a phone (the standalone dungeon host's hook always read its stack)
     aimHold: () => !!naval?.atGuns,   // NAV-H: at a helm with guns the attack is the broadside's aim - the pad and the finger HOLD it (no gesture strokes) and look on under it
     // CSA-L: the pad's helm d-pad (ui/gamepadInput.js HELM_DPAD) - at the helm on Enhanced Plus, the helm panel's presses
     helm: {
@@ -12657,7 +12656,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9874-9938 -
+  // worldModes answers it in BOTH modes (worldModes.js:9878-9942 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -15408,6 +15407,24 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     surfacePlayer();
   };
+  // FIELD BUGS 29h (BOOT-HIDE; the Discord's "CRASH (2) ReferenceError: Cannot access 'be' before initialization", from
+  // the document's hide event): THE CHECKPOINT'S DOORS - the ones the PAGE opens (the unload, a tab or window put
+  // away) and the two the game hands on (a change saved soon, the title exit). Each runs the exit autosave or the
+  // checkpoint, which read the online half: `online`, `seatOut`, the duel manager, all declared above this line. They
+  // were registered some 3,400 lines higher, and between the two the boot awaits the quest pack and the first pixel's
+  // people - a window put away while it waited read `online` in its dead zone. Here every binding they reach exists
+  // before any of them can run (test/fb0929h_boothide.test.js walks it).
+  addEventListener('beforeunload', exitAutosave);
+  saveSoon.ready(() => onlineCheckpoint());   // PROF-SAVE: the professions' changes saved by the same checkpoint, from here on
+  if (realmSession) {
+    // the door the game opens - the pause menu's Exit, the death's: the last checkpoint and the leave, then the menu
+    // (five seconds at most: the loop is already claimed, and a hung network must not hold the door shut). AUDIT REALM2
+    // C7: a duel ended first and P0.5's gate passed, as the page's end and the seat's - realmCheckpoint straight wrote a
+    // character that left mid-duel at the duel's 1 health, the opponent's spells on it
+    setBeforeTitleExit(async () => { if (!realmSession.lost) { try { duelLeaveNow(); } catch { /* no duel was built: nothing to end */ } onlineCheckpoint(); await Promise.race([realmSession.leave(), new Promise((r) => { setTimeout(r, REALM_EXIT_WAIT_MS); })]); } });
+    // a tab put away (a phone's home button, another tab) is checkpointed while the page still can be
+    whenPageHides(globalThis.document, () => { if (online) onlineCheckpoint(); });
+  }
   /** The duel's rows on a peer (ui/socialMenu.js): 'Accept duel' + 'Decline duel' while their challenge waits, 'Yield the
    *  duel' while we fight - nothing else (the challenge itself is the Inspect card's). */
   const duelActionsFor = (peerId) => {
@@ -19888,8 +19905,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** AUDIT OW4 D2: HAS A SPAWN'S TIME RUN OUT - the spawned feature's own test (spawnedDungeonAt's: the ledger's two
    *  clocks, never while the player is in it), asked NOW: the index lets an expired spawn go only when its pixel next
    *  builds, and until then its plate stood and its walk went. AUDIT OW5b D2: gone FROM THE GROUND - one standing on built
-   *  ground stands until that ground is next built (_locationToBuild takes it out then), and its plate stands with it. */
-  const tvSpawnGone = (x, y) => { const key = `${x},${y}`; return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && !built.has(key); };
+   *  ground stands until that ground is next built (_locationToBuild takes it out then), and its plate stands with it.
+   *  FIELD BUGS 29h (SPAWN-PLATE; the Discord: "Elite Dungeons that despawn stay on map ... no entrance anymore but are
+   *  still marked"): standing on the ground is the BUILD's word - whether the pixel stood a location, never that it is
+   *  built. A pixel built after the clock ran out is built EMPTY, and read as built it kept its found plate (the store
+   *  files a spawn for good) and its walk to bare grass whenever the traveller came within the grid. */
+  const tvSpawnGone = (x, y) => { const key = `${x},${y}`; return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && built.get(key)?.location == null; };
   /** AUDIT OW4 D4: WHAT spawnedDungeonAt WOULD STAND on a pixel it has not built - its own gates (the sea, a path across
    *  the pixel, the clocks; the roll and the page are asked by the caller) and its clone, with none of its writes (the
    *  index, the ledger's first sight, the roads' provisional keys): a far found spawn is marked, never built. */

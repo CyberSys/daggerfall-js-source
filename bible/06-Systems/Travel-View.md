@@ -1568,8 +1568,10 @@ dungeons, the sea) were sent over the tree, and every finding was verified again
   asked), and at a rebuild buildPixel's probe expired it and FORGOT its ledger row - and the roll is a pure hash, so the
   build's own ask stood the same dungeon again on a fresh seven days, while the Overworld (tvSpawnGone) had it gone. The
   row is kept now (its clocks keep it gone, and the save carries it), the build asks every spawn its clocks
-  (`_locationToBuild`), and the Overworld calls one gone only once it is off the ground (never while its pixel stands
-  built). TTL1's rule, the creator's relayed by Mac: "Spawned Dungeons should expire/removed". D3: a walk's door was read
+  (`_locationToBuild`), and the Overworld calls one gone only once it is off the ground (never while the ground built
+  before its time ran out still carries it - SPAWN-PLATE, FIELD BUGS 2026-09-29h: "off the ground" is the build's word,
+  the pixel's `location`, since a pixel built after the clock ran out is built EMPTY and "built" had kept its plate over
+  bare grass). TTL1's rule, the creator's relayed by Mac: "Spawned Dungeons should expire/removed". D3: a walk's door was read
   off the live index on the map's Resume and by a party member - a far found spawn's walk (its pixel never built)
   resumed as a spot ("the mountains cannot be crossed"), a spot clicked on a place's pixel resumed as that place's door,
   and a member following the leader to a spawn their own pixels never built walked a bare spot; the door rides the

@@ -584,9 +584,9 @@ test('AUDIT ONESEAT, the host run: a court\'s fighter is cast out on the first f
 
 test('AUDIT ONESEAT H4: the page\'s exit save is never a tab\'s the seat was taken from - it is offline, and every slot of the character would be written over what the tab that has the seat saved (mutant: the seat not asked)', () => {
   const w = rd('src/scenes/world.js');
-  const at = w.indexOf("  addEventListener('beforeunload', () => {\n    // AUDIT ONESEAT H4");
-  assert.ok(at > 0);
-  const body = w.slice(w.indexOf('{', at) + 1, w.indexOf('\n  });', at));
+  const at = w.indexOf('  const exitAutosave = () => {\n    // AUDIT ONESEAT H4');   // FIELD BUGS 29h (BOOT-HIDE): the page's exit save, named
+  assert.ok(at > 0 && w.includes("\n  addEventListener('beforeunload', exitAutosave);\n"));
+  const body = w.slice(w.indexOf('{', at) + 1, w.indexOf('\n  };', at));
   const run = (out, realmSession = null) => {
     const written = [];
     // eslint-disable-next-line no-new-func

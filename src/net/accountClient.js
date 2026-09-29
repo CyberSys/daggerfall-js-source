@@ -646,7 +646,7 @@ export function forgetSession(storage) {
 export function accountTokenMinter({ fetch, storage, onIssued = null, character = null }) {
   return async () => {
     const session = storedSession(storage);
-    if (!session) return null;
+    if (!session) { console.warn('[account] no identity token: no sign-in stored on this device'); return null; }   // TOKEN-WAIT
     let named = null;
     try { named = character?.() ?? null; } catch { named = null; }   // a seam that throws costs the level, never the hello
     const answer = await mintIdentity({ fetch, base: serviceBase(storage), secret: session.secret }, typeof named === 'string' && named ? named : null);
@@ -671,6 +671,9 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
     // having a bad minute, and signing a player out over a 503 or a
     // rate limit would make an outage permanent.
     if (answer.error === 'auth') forgetSession(storage);
+    // FIELD BUGS 29h (TOKEN-WAIT): the refusal said where a player can read it - without a token the relay refuses the
+    // hello as "sign in to play online", which is all the World line can show, whatever the service's own answer was
+    console.warn(`[account] no identity token: ${answer.error ?? 'refused'}${answer.status ? ` (${answer.status})` : ''}`);
     return null;
   };
 }

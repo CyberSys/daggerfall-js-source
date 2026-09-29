@@ -1410,6 +1410,18 @@ refusal "You cannot pack a boat you are driving!" stands), and fast
 travel packs a packable boat sailed (CSA-D's OnPreFastTravel); placing
 parts brings their cargo aboard again (CSA-C's arm).
 
+LOST-BOAT (the port's own, FIELD BUGS 2026-09-29h; Julian: "the large boats
+floating underneath the town ... very loud boat noises but no boats to be
+seen"): a boat FIELD-CSA1's four ways lost before that fix is in its owner's
+save where it stood, and the restore stands it there verbatim. Update asks
+each boat ONCE, when the ground under it is built (`recoverLostBoats`): a hull
+whose place is `LOST_UNDER_M` (2 m) under the ground or under the sea's top
+is lost, and an uncrewed one (the Rowboat, the Large Boat - their deed spent
+on placing) goes through PackBoat into its parts, with "A boat of yours was
+lost where no one could reach it". A crewed hull is left for its deed to call
+to a port; never indoors, never a boat placed inside, never the one sailed.
+Port-Ledger A.
+
 The cargo box (OpenBoatCargo, 5575-5587) opens the boat's own
 DaggerfallLoot as the inventory's loot target (OpenCargo, 6521-6525:
 LootTarget, then dfuiOpenInventoryWindow) in whichever slot the mode
