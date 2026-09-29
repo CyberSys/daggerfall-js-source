@@ -278,8 +278,8 @@ test('AUDIT 30 U5 + U12 + U14 + U21: the market\'s rows at a phone\'s width, its
   assert.match(PROF_CSS, /\.market-piece \{ grid-template-columns: minmax\(0, 1\.6fr\) minmax\(0, 1\.4fr\) auto minmax\(0, 1\.4fr\); \}/);
   assert.match(PROF_CSS, /\.market-row > \* \{ min-width: 0; \}/);
   assert.match(PROF_CSS, /@media \(max-width: 640px\) \{ \.market-row, \.market-piece \{ grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\); \} \.market-row > b \{ grid-column: 1 \/ -1; \}/);
-  assert.match(PROF_CSS, /\.market-body \.notice-hint, \.market-body \.notice-label \{ color: #cdbd9f; \}/);
-  assert.match(PROF_CSS, /\.market-body \.notice-hint \{ margin: 0; padding: 0; border-top: 0;[^}]*text-transform: none;/);
+  assert.match(PROF_CSS, /\.market-body \.notice-tip, \.market-body \.notice-label \{ color: #cdbd9f; \}/);
+  assert.doesNotMatch(PROF_CSS, /\.notice-hint/, 'TOAST-SPLIT: the popup\'s hint is the toasts\' own, never the market\'s to undo');
   const w = src('src/ui/noticeWindow.js');
   assert.match(w, /busy: \(\) => marketBusy \|\| !!marketHost\.book\?\.busy,\n\s*run: async \(start\) => \{\n\s*if \(marketBusy\) return;/);
   assert.match(src('src/scenes/world.js'), /nowS: \(\) => Math\.floor\(\(Date\.now\(\) \+ _sharedOffsetMs\) \/ 1000\),/);

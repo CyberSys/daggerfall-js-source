@@ -88,14 +88,14 @@ test('AUDIT 31 U1: the field being typed in keeps the focus and its caret, and t
   const n = field(host, 'supply|W1');
   n.focus();
   n.value = '7'; n.oninput();
-  const body = byClass(host, 'notice-body')[0];
+  const body = byClass(host, 'notice-cork')[0];
   body.scrollTop = 240;
   v.repaint();   // a read's answer, an act's word - the window draws itself again
   const now = field(host, 'supply|W1');
   assert.notEqual(now, n, 'a new field');
   assert.equal(document.activeElement, now, 'the focus handed to it');
   assert.equal(now.value, '7', 'the typed number kept');
-  assert.equal(byClass(host, 'notice-body')[0].scrollTop, 240, 'the list where it was');
+  assert.equal(byClass(host, 'notice-cork')[0].scrollTop, 240, 'the list where it was');
   // nothing had the focus: nothing is given it
   document.body.focus?.();
   document.activeElement = document.body;
