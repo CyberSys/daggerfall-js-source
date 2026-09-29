@@ -20,7 +20,7 @@
   {
     "name": "FB0929-no-body-on-the-ray-stays-the-swing",
     "file": "src/scenes/cityGuards.js",
-    "old": "    if (guards.some((g) => !g.dead && g.defender && rayPersonDistance(eye, lookDir, g.ai.feet) < bestD)) return false;\n",
+    "old": "    if (guards.some((g) => !g.dead && g.defender && rayPersonDistance(eye, lookDir, g.ai.feet) < bestD)) return SWING_SPARED;\n",
     "new": "",
     "tests": [
       "test/fb0929_raidguards.test.js"
@@ -29,8 +29,8 @@
   {
     "name": "FB0929-the-defender-behind-stays-it",
     "file": "src/scenes/cityGuards.js",
-    "old": "rayPersonDistance(eye, lookDir, g.ai.feet) < bestD)) return false;",
-    "new": "rayPersonDistance(eye, lookDir, g.ai.feet) > bestD)) return false;",
+    "old": "rayPersonDistance(eye, lookDir, g.ai.feet) < bestD)) return SWING_SPARED;",
+    "new": "rayPersonDistance(eye, lookDir, g.ai.feet) > bestD)) return SWING_SPARED;",
     "tests": [
       "test/fb0929_raidguards.test.js"
     ]

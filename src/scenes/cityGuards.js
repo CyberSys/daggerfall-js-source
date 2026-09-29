@@ -1182,6 +1182,21 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     return !!g?.defender && (getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') || !!raidHere());
   }
 
+  /** RAID-GUARDS-NPC (FIELD BUGS 2026-09-29g, ! OG: "Hit a guard killed him in a raid ... Protect bystanders was on
+   *  tooo"): THE TOWN'S WANDERING GUARDS ARE THE RAID'S GUARDS TOO. RAID-GUARDS spared the watch the raid stands (its
+   *  defenders) and left the town's own walking guards - a MobilePersonNPC with `guard` - to DFU's mobile-NPC branch,
+   *  where one swing or a riding trample is Assault and turns him into a watchman on the spot; and ANY crime turns
+   *  every defender into the crime watch the next frame (update's enlist), which is how one stray swing in a raid
+   *  became a squad to kill and a Halt to pay. While a raid is on here the player's blows pass such a guard by, as
+   *  they pass a defender (Mac: "Raids shouldnt let you damage the guards") - and a townsperson too (Mac, on 29g's
+   *  first draft: "Spare townspeople in raid"): no Murder, the squad still the player's. No raid, DFU's rule. */
+  /** AUDIT 29g: what resolveCivilianHit answers when the swing STOPPED on a spared body - not `false`, which the hosts
+   *  read as a swing that met nobody and hand to the door behind him (a bash, and in town a break-in). */
+  const SWING_SPARED = Object.freeze({ spared: true });
+  function playerSparesPerson(person) {
+    return !!person && !!raidHere();
+  }
+
   /** The player's swing resolves against live guards (the dungeon's
    *  resolvePlayerHit shape over playerWeapon.resolveHit). */
   function resolvePlayerHit(playerWeapon, eye, lookDir, playerFeet, inViewFn, onHitSound, { swing = null } = {}) {
@@ -1295,7 +1310,10 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // Murder + SpawnCityGuards(true) through the host's onMurder; a
   // wandering GUARD NPC converts on the spot - Assault - and the
   // swing carries onto the fresh guard foe (DFU re-points the hit).
-  // Returns false, {crime:'murder'} or {crime:'assault', carriedHit}.
+  // Returns false (the swing met nobody: the hosts offer it to the doors),
+  // {spared: true} (a spared body stood first on the ray and the swing
+  // stopped on him - no door behind him is struck; AUDIT 29g),
+  // {crime:'murder'} or {crime:'assault', carriedHit}.
   async function resolveCivilianHit(playerWeapon, eye, lookDir, playerFeet, pool, { onMurder = () => {}, onHitSound = null, inViewFn = null, swing = null } = {}) {
     let best = null, bestD = Infinity;
     for (const p of pool) {
@@ -1308,7 +1326,10 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // FB0929: a defender the swing spared (resolvePlayerHit) standing on
     // the ray in front of the person is the body DFU's SphereCast meets
     // first (WeaponManager.cs:1057-1064) - the swing stops on him.
-    if (guards.some((g) => !g.dead && g.defender && rayPersonDistance(eye, lookDir, g.ai.feet) < bestD)) return false;
+    if (guards.some((g) => !g.dead && g.defender && rayPersonDistance(eye, lookDir, g.ai.feet) < bestD)) return SWING_SPARED;
+    // RAID-GUARDS-NPC: a raid on here, the town's walkers are spared - guard or townsperson - and the first on the ray
+    // stops the swing as a spared defender does (no Assault, no Murder, no watchman minted, nobody behind struck)
+    if (playerSparesPerson(best)) return SWING_SPARED;
     if (!best.guard) {
       // WeaponManager.cs:504-508 - murdering a wandering civilian
       // splashes record 0, NOT a BloodIndex: a MobilePersonNPC has no
@@ -1545,7 +1566,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     releaseGuardBatch(g);
     g.dead = true;   // no `corpse` - a removed guard is destroyed, not killed
   }
-  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, update, offsetAll, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, playerSpares, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab
+  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, update, offsetAll, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab
     /** RR2: PlayerEntity.SpawnCityGuard(position, direction) (PlayerEntity.cs:678-694) for a caller
      *  outside the watch's own call - the ONE watchman minted where a walker stood, facing their
      *  way, hostile to the player. Resolves to the guard record (or null when the world moved on). */
