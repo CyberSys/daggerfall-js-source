@@ -183,11 +183,11 @@ test('MODS-ONLINE-2: the lock, the pane and the door all say the same true thing
   // A lock that gives the wrong reason is as bad as no reason: the two
   // road rows are not locked because "online is the enhanced lane".
   assert.match(menu, /const ONLINE_GROUND_NOTE = '[^']*same ground[^']*';/, 'the ground lock has its own words');
-  assert.match(menu, /const ground = onlineForcedModSetting\(vendor, key\);/);
+  assert.match(menu, /const ground = onlineModSetting\(vendor, key\);/);   // REALM P0.2: the room table, then a balance mod owned whole
   // MODS-ONLINE-4: the three balance switches are not locked for the
   // GROUND's reason, so they do not wear the ground's words.
   assert.match(menu, /const ONLINE_SHARED_NOTE = '[^']*belong to whoever is hosting it[^']*';/, 'the shared lock has its own words');
-  assert.match(menu, /if \(ground !== undefined\) lockOnline\(b, null, \{ note: onlineLockNote\(vendor, key\), value: ground \}\);/);
+  assert.match(menu, /if \(ground !== undefined\) lockOnline\(b, null, \{ note: modLockNote\(vendor, key\), value: ground \}\);/);
   // WOD1: the ground's words go to the two vendors that write terrain heights, and only them. DS1: and the ships' shared deck. OH-A: and the pits cut into the seafloor.
   assert.match(menu, /const ONLINE_GROUND_VENDORS = Object\.freeze\(\['roads-hazelnut', 'world-of-daggerfall', 'detailed-ships', 'ocean-holes'\]\);/);
   // MODS-ONLINE-5: the ruleset's reason is its own words, and only RR's seven wear them

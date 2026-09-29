@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1299`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1301`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7025` read, on one physical line:
+`src/scenes/worldModes.js:7042` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5136`). With the property missing that call is a
+(`dungeonContext.js:5148`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6516` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6559` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7103,7 +7103,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1041`, `src/net/online.js:2227`):**
+**Now (`src/net/wire.js:1041`, `src/net/online.js:2201`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10602,84 +10602,23 @@ foes are shared online, so both act on other players.
 
 `net/staffCommands.js` (pure); `test/staff1.test.js` (5); `tools/mutants/staff1.json` (16, all dead).
 
-## VOICE1 (2026-09-28, Mac: "Lets instead take this idea and develop prox chat") - proximity voice - world124
+## VOICE1 reverted (2026-09-28, Mac: "Do not merge voice chat. Please revert voice chat but keep other changes") - world124 again
 
-The idea is PR #375's (Skooma-Breath: Morrowind voice lines played to nearby players, tes3mp's way); what ships is the
-players' OWN voices. Mac chose: PUSH-TO-TALK, STUN ONLY (no TURN - free, and a pair that cannot meet directly is told
-so), NEARBY ONLY, and the mouse's BACK SIDE BUTTON for the key (every letter is spent - inputActions.js FREEMOUSE).
+VOICE1 (proximity voice chat, world125) and AUDIT VOICE1 came out whole with PR #427's merge reverted:
+- the links and the sound (`net/proxVoice.js`), earshot (`net/voiceLaw.js`), and who is speaking (`ui/voiceHud.js`);
+- the relay's `rtc` frame and its arm;
+- the `PushToTalk` action and the voice prefs.
 
-- THE VOICE NEVER TOUCHES THE RELAY. Each pair of players within earshot holds one WebRTC peer connection, browser to
-  browser (`net/proxVoice.js`). The relay only INTRODUCES them: one new directed frame, `rtc` (wire.js validRtcData -
-  `offer`/`answer` an SDP of printable ASCII to RTC_SDP_MAX, `ice` a candidate line with its mid and index, `bye`),
-  the page arm's routing - a place room only, the one socket `to` names, the sender's id stamped, its own meter
-  (RTC_HZ_MAX, an ICE burst) and the per-sender funnel - and NEVER from a muted player (MOD1: a mute that stopped a
-  line and let a voice through would be no mute), in silence. VOICE_RELAY_MIN 124; an older relay closes the socket on
-  the frame, so none is sent to one. RELAY_VERSION world124 - the deploy drops every connected player once.
-- EARSHOT (`net/voiceLaw.js`): full voice within 2 m, a linear fall to silence at 30 m (WebAudio's 'linear' model, so
-  the panner and the law say the same number); a link opened within 35 m and kept to 45 m (no flapping on the edge); the
-  nearest 8; the LOWER id offers (no crossed offers); an offer answered only from a player within the kept band while
-  my voice is on (a stranger across town is not let into my speakers by asking).
-- THE LINK: one audio transceiver, sendrecv from birth, so the microphone joins a standing link by `replaceTrack` (no
-  renegotiation) and a player who has not granted the microphone still HEARS. ICE that races ahead of the description
-  is held (to 64) and flushed. A link that is not connected 20 s after it is made is let go and rested a minute - said
-  ("Voice could not connect to X") only when the other side answered, since silence from a client without voice is
-  not news; a link that stood and dropped is not "could not connect". A `bye` (declined, out of earshot, voice off)
-  rests it too, so it is not re-offered every frame.
-- THE SOUND: each voice through a PannerNode at the speaker's head (HRTF - 3D-AUDIO's law - the handedness turned at
-  the audio door, `placeAudio`), a gain for Voice volume, into the LISTENER's bus (past the sound-effects volume, under
-  the underwater muffle like every sound). Chrome plays a remote stream into WebAudio only while a media element holds
-  it, so a muted `<audio>` does. Who is speaking: an analyser per voice, ten reads a second, RMS past 0.02.
-- PUSH-TO-TALK: the `PushToTalk` action (Controls > Online), default `Mouse3` - `MOUSE_CODES` grew Unity's Mouse3 and
-  Mouse4, the side buttons, so they bind like any button; the world host stops the browser's Back/Forward on them. The
-  microphone (echo cancellation, noise suppression, gain control) is asked for on the FIRST press, never before; its
-  track is live only while held. Blocked, the player is told and still hears.
-- THE SWITCH: Settings, "Proximity voice chat" - ON by default (Mac, 2026-09-28: "Have it on by default"; it shipped
-  opt-in first). On, a player HEARS the players near them and sends nothing until push-to-talk is held - the microphone
-  is asked for on that first press. A peer link tells the players near you your network address, and the row says so;
-  "Voice volume" beside it. Both the player's own say online.
-- THE READOUT (`ui/voiceHud.js`): at the left edge, "Talking" while the button is held (or why not), then the names of
-  those heard speaking now, four and a count.
+The relay is world124's bytes again, and `RELAY_VERSION` names world124. world125's row stays in
+`test/relayversion.test.js` as the record of bytes that were deployed.
 
-Not built: a TURN relay for strict networks (Mac: later), muting one player locally, walls stopping sound.
-`test/voice1.test.js` (11); `tools/mutants/voice1.json` (40 - 39 dead, the funnel's recorded equivalent).
+Kept: VIEW-TOGGLE (PR #427's other change - `TogglePerspective`, one press first person or third, on the mouse's
+forward side button), and the side-button plumbing it rides, which came with VOICE1:
+- `ui/input.js` `MOUSE_CODES` through Mouse4;
+- `systems/keyCodes.js`' Mouse3 and Mouse4;
+- the world host keeping the side buttons from the browser's Back and Forward.
 
-## AUDIT VOICE1 (2026-09-28, Mac: "Have it on by default and do an audit") - world125
-
-Proximity voice is ON by default now (the switch above). The audit, one read-only lens over the links, the sound, the
-relay arm and the host, found twelve; each is fixed and pinned (`test/voice1_audit.test.js`, `tools/mutants/voice1_audit.json`).
-
-- **A1 (high) a video-only offer froze the game.** `createMediaStreamSource` throws on a stream without audio, and the
-  frame retried it every frame - `frame()` asks for its next frame at its end, so one throw stopped the world. A voice
-  link now takes only an audio track, a stream without one is never handed to WebAudio, and a graph that throws marks
-  its link and never leaves the frame.
-- **A2 (high) push-to-talk stuck on past a lost focus.** A key held into another window never hears its release, so the
-  microphone stayed open in the other app. The window's `blur` lets go of push-to-talk's codes; a hidden tab runs no frames, so the lapse below lets go there.
-- **A3 voice outlived going offline, a held frame and the page.** A STALL WATCH in the module: no frame has ticked the
-  voice for VOICE_STALL_MS (3 s - offline, a video holding the frame, a hidden tab) and every link goes with its goodbye
-  and the microphone is let go; `pagehide` closes it at once. And push-to-talk lives only while a frame keeps saying so
-  (VOICE_TALK_HOLD_MS, 400 ms) - A2's other half.
-- **A4 a mute did not quiet a standing link.** The relay's mute order already reaches the muted player at once; their
-  own voice now goes quiet on it (`_voiceMutedUntil`), and a muted player's OFFER is answered with the `muted` notice
-  (only the offer - a link's setup is a burst), so a reload learns it too. THE LIMIT, SAID: the voice itself never
-  touches the relay, so a modified client could keep talking on a link it already holds; new links are the relay's.
-- **A5 a rest nobody could lift.** Only the lower id offers, and a bye or a silent timeout rested the link a minute - so a
-  door, a reload or the switch turned on left the pair silent 20-80 s. A fifth kind, `hi`: the higher id says it is here
-  (at most every VOICE_HI_MS, 5 s), and the lower id lifts a SOFT rest and offers at once. A rest two networks earned by
-  failing to meet (said to the player) is HARD and a `hi` does not lift it.
-- **A6 frames the relay's gate refused were lost** (a crowd's offers and candidates past RTC_HZ_MAX): an outbox holds
-  them, in order, to the next frame; a link let go takes its unsent frames with it; bounded at 256.
-- **A7 speaker echo.** Chrome's echo canceller takes only what a media ELEMENT plays as its reference, not WebAudio's
-  output (crbug 687574) - the voices now leave through a MediaStream destination played by an unmuted `<audio>`,
-  still panned. (The listener bus's underwater muffle no longer reaches them - the price of being heard once.)
-- **A8 a microphone captured twice.** A generation counter: a stale answer is stopped, the old stream let go before a
-  new one is kept.
-- **A9 the answerer past the cap** churned a fresh connection a minute in a crowd: an offer is answered only from among
-  my nearest eight.
-- **A10 a stood link that dropped was rested** (a reload on the far side unheard ~90 s): not rested, not said.
-- **A11 a blocked microphone was never asked again**: asked on a press ten seconds after the refusal.
-- **A12 the rests were never pruned**: ended on their time (memory - `voicePlan` already read them by time).
-
-`hi` is a new wire kind inside world125 (never deployed), so the version stands; its law's bytes are re-recorded.
+`test/viewtoggle.test.js` pins all three.
 
 ## WB8 (2026-09-28, Mac: "give him unique and different modifers on every 2 hour spawn") - world126
 
@@ -10698,6 +10637,6 @@ and the relay is the one that fights under them, so the relay moved:
   that does not know the marks would judge a colossus's slam at the old reach and his frost as fire.
 - **The hub's omen post names tonight's marks** (`net/gateHerald.js omenPost`), in the tables' words alone.
 
-Relay world126 (its row in `test/relayversion.test.js`; the version pins of the seventeen suites that name it moved,
+Relay world126 (its row in `test/relayversion.test.js` - world125 is VOICE1's, which main reverted before it deployed; the version pins of the suites that name it moved,
 each with its history). Pinned in `test/wb8b_gate_marks.test.js` (the wire and the relay's draw on the real Room).
 

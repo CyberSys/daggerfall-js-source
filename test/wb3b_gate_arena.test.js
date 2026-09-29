@@ -237,7 +237,7 @@ test('WB3b the seams, by source: the dungeon host enters the court through its o
   const dc = read('src/scenes/dungeonContext.js');
   for (const [what, re] of [['the map', /toggleAutomap\(\) \{\n\s+if \(activeOverlay\) return;\n\s+if \(isGateArena\(dfLocation\)\) \{ hudText\.add\(COURT_TEXT\.noMap\); return; \}/],
     ['the rest', /toggleRest\(\) \{\n\s+if \(activeOverlay\) return;\n\s+if \(isGateArena\(dfLocation\)\) \{ hudText\.add\(COURT_TEXT\.noRest\); return; \}/],
-    ['the save', /if \(isGateArena\(dfLocation\)\) \{ hudText\.add\(COURT_TEXT\.noSave\); return false; \}\n\s+const snap = snapshotPlayer\(/],
+    ['the save', /if \(isGateArena\(dfLocation\)\) \{ if \(!quiet\) hudText\.add\(COURT_TEXT\.noSave\); return false; \}\n\s+const snap = snapshotPlayer\(/],   // REALM P0.5: a quiet checkpoint is refused in silence
     ['the pause\'s save', /savingPrevented: \(\) => isGateArena\(dfLocation\),/]]) assert.match(dc, re, what);
   const w = read('src/scenes/world.js');
   assert.match(w, /ready: \(\) => !!online\?\.gateOk,/);

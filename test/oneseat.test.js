@@ -29,7 +29,7 @@ test('ONE-SEAT: the hello\'s claim is 1 or nothing - anything else is refused, a
   assert.equal('cl' in parseClient(JSON.stringify(base)), false, 'a reconnect says nothing');
   for (const bad of [0, true, '1', 2]) assert.deepEqual(parseClient(JSON.stringify({ ...base, cl: bad })), { error: 'bad claim' }, JSON.stringify(bad));
   assert.equal(SEAT_ELSEWHERE, 'online in another tab, window or device');
-  assert.equal(RELAY_VERSION, 'world126');   // WB8 (world126: marks on the gate state, the fed word) past VOICE1 (world125: the voice rtc frame) past TV8 (world124: the party's Overworld walk) past THE MERGE (world123: the raids, the gates and Discord), one relay past main's TV3 (world122); world119, then world120, on this branch - main's AUDIT SET took world119 and PARTY-BUFFS + REST-OPT world120 first (the merges renumbered ONE-SEAT's)
+  assert.equal(RELAY_VERSION, 'world126');   // WB8 (world126: marks on the gate state, the fed word; world125 was VOICE1's, reverted on main before it deployed) past TV8 (world124: the party's Overworld walk) past THE MERGE (world123: the raids, the gates and Discord), one relay past main's TV3 (world122); world119, then world120, on this branch - main's AUDIT SET took world119 and PARTY-BUFFS + REST-OPT world120 first (the merges renumbered ONE-SEAT's)
 });
 
 test('ONE-SEAT at the hub: a claim closes the account\'s other tab - the reason said first, CLOSE_REPLACED - and its leave is said to the room; the newest tab stays; another account is not touched (mutants: no supersede; by the browser\'s account instead of the verified one; every room instead of the hub)', async () => {
@@ -587,13 +587,20 @@ test('AUDIT ONESEAT H4: the page\'s exit save is never a tab\'s the seat was tak
   const at = w.indexOf("  addEventListener('beforeunload', () => {\n    // AUDIT ONESEAT H4");
   assert.ok(at > 0);
   const body = w.slice(w.indexOf('{', at) + 1, w.indexOf('\n  });', at));
-  const run = (out) => {
+  const run = (out, realmSession = null) => {
     const written = [];
     // eslint-disable-next-line no-new-func
-    new Function('online', 'playerSpawned', 'seatOut', 'duelLeaveNow', 'modes', 'worldQuickSave', 'exitAutosaveNames', 'playerEntity', 'townTalk', 'DeathScreen', body)(
-      {}, true, () => out, () => {}, { quickSaveNow: (n) => written.push(n), deathUp: () => false }, null, () => ['QuickSave', 'AutoSave', 'Before the crypt'], {}, { overlay: null }, class {});
+    new Function('online', 'playerSpawned', 'seatOut', 'duelLeaveNow', 'modes', 'worldQuickSave', 'exitAutosaveNames', 'playerEntity', 'townTalk', 'DeathScreen', 'realmSession', body)(
+      {}, true, () => out, () => {}, { quickSaveNow: (n) => written.push(n), deathUp: () => false }, null, () => ['QuickSave', 'AutoSave', 'Before the crypt'], {}, { overlay: null }, class {}, realmSession);
     return written;
   };
   assert.deepEqual(run(true), [], 'out of the seat: nothing written');
   assert.deepEqual(run(false), ['QuickSave', 'AutoSave', 'Before the crypt'], 'in it: every slot of the character, as ONLINE-AUTOSAVE1 says');
+  // REALM P1.3: a realm character's exit writes no slot of it. AUDIT REALM2 C2: nor gives its lease up - this event
+  // comes before the unload guard's "Leave site?" is answered; the leave is the page's going (pagehide,
+  // test/auditrealm2_client.test.js)
+  const left = [];
+  const realm = { leave: (o) => left.push(o) };
+  assert.deepEqual([run(false, realm), left], [[], []], 'a realm character: never a slot, and no leave before the answer');
+  assert.deepEqual([run(true, realm), left.length], [[], 0], 'out of the seat: nothing');
 });

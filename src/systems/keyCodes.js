@@ -30,7 +30,7 @@ const PAIRS = [
   ['Backslash', 'Backslash'], ['Semicolon', 'Semicolon'], ['Quote', 'Quote'], ['Comma', 'Comma'], ['Period', 'Period'], ['Slash', 'Slash'],
   ['KeypadDivide', 'NumpadDivide'], ['KeypadMultiply', 'NumpadMultiply'], ['KeypadMinus', 'NumpadSubtract'], ['KeypadPlus', 'NumpadAdd'], ['KeypadPeriod', 'NumpadDecimal'],
   // the mouse, as the port's held set spells it (ui/input.js MOUSE_CODES)
-  ['Mouse0', 'Mouse0'], ['Mouse1', 'Mouse1'], ['Mouse2', 'Mouse2'], ['Mouse3', 'Mouse3'], ['Mouse4', 'Mouse4'],   // VOICE1: the side buttons (Unity's own names), push-to-talk's
+  ['Mouse0', 'Mouse0'], ['Mouse1', 'Mouse1'], ['Mouse2', 'Mouse2'], ['Mouse3', 'Mouse3'], ['Mouse4', 'Mouse4'],   // VIEW-TOGGLE (from VOICE1, which is reverted): the side buttons (Unity's own names), the view toggle's
   // PAD1: the controller, as the poller spells it (ui/gamepadInput.js
   // synthesises a keydown whose code is Unity's own JoystickButtonN name,
   // and the hosts' raw set is what a mod's key polls). Unity's KeyCode

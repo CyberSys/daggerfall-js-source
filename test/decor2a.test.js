@@ -367,7 +367,7 @@ test('DECOR2a the host (worldModes.js) by source: the tool\'s pack is the player
   assert.match(m, /for \(const id of interiorDecor\.ownIds\(\)\) \{\n\s*if \(standing\.has\(id\)\) continue;\n\s*const item = interiorDecor\.takeOwn\(id\);\n\s*if \(item\) \{ decorPackGive\(item\); back\.push\(item\); \}/);
   assert.match(m, /const kept = interiorDecor\.ownOf\(piece\.id\);\n\s*const n = \(kept \? itemLongName\(kept\) : null\) \|\| decorItemName\(piece\.item\);/);
   assert.match(m, /const own = takeSceneOwn\(sceneCache\(\), sceneName\);[^\n]*\n\s*for \(const item of own\) decorPackGive\(item\);/, 'a sold house or ship');
-  assert.match(m, /const own = takeSceneOwn\(sceneCache\(\), homeSceneName\(mapId, bd\.buildingKey\)\);[^\n]*\n\s*for \(const item of own\) decorPackGive\(item\);\n\s*removePermanentScene\(sceneCache\(\), homeSceneName\(mapId, bd\.buildingKey\)\);/, 'an online home, before its scene goes');
+  assert.match(m, /own = takeSceneOwn\(sceneCache\(\), homeSceneName\(mapId, bd\.buildingKey\)\);[^\n]*\n\s*for \(const item of own\) decorPackGive\(item\);\n\s*removePermanentScene\(sceneCache\(\), homeSceneName\(mapId, bd\.buildingKey\)\);/, 'an online home, before its scene goes (AUDIT REALM2 C6: as the sale is paid - test/auditrealm2_client.test.js)');
   assert.match(m, /iconUrl: \(a, r, dye = null, dyeTarget = null\) => loadIcon\(a, r, \{ scale: 1, dye, dyeTarget \}\),/);
   assert.equal(chipNamed != null, true);
 });

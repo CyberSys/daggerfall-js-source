@@ -1382,6 +1382,19 @@ export class StartQuest extends ActionTemplate {
  *  HUD line, %s replaced by the stack amount, as TextManager does. */
 export const YOU_RECEIVE_GOLD_PIECES = 'You receive %s gold pieces.';
 
+/** REALM P0.4 (2026-09-28, bible/06-Systems/Realm-Arc.md "Shared quest rewards are split"): A PARTY'S QUEST PAYS ONE
+ *  REWARD. Each partner's copy pays its own (a resync rearms GivePc - machine.js REPLAYABLE_ONE_TIME_ACTIONS), so a
+ *  party of six drew six purses for one quest. A shared quest's gold is paid in shares now - the party's size at the
+ *  payment (hooks.rewardShares), never under one piece - and the HUD says so. An item reward is each partner's own.
+ *  Answers whether it split. */
+export function shareQuestGold(quest, dfItem) {
+  const shares = quest?.hooks?.rewardShares?.(quest) ?? 1;
+  if (!(shares > 1) || !isGoldPieces(dfItem)) return false;
+  dfItem.stackCount = Math.max(1, Math.floor((dfItem.stackCount ?? 0) / shares));
+  quest.hooks?.addHUDText?.(`Your share of the party's reward: ${dfItem.stackCount} gold.`);
+  return true;
+}
+
 /** GivePc.cs: the three formats - "give pc anItem" offers the reward
  *  through the QuestComplete box + loot window (and makes the item
  *  PERMANENT - Sx010's cursed item stays keepable); "give pc nothing"
@@ -1456,6 +1469,7 @@ export class GivePc extends ActionTemplate {
       console.warn(`[quest] Could not find Item resource symbol ${this.itemSymbol?.name}`);
       return;
     }
+    shareQuestGold(this.parentQuest, item.daggerfallUnityItem);   // REALM P0.4: a party's quest pays one reward
     if (this.textId !== 0) {
       this.parentQuest.hooks?.giveItemToPlayer?.(item.daggerfallUnityItem, true);   // AddPosition.Front
       this.parentQuest.showMessagePopup(this.textId);

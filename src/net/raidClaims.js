@@ -6,10 +6,12 @@
 //
 // THE RELAY SIGNS, THE ACCOUNT SERVICE COUNTS AND PAYS, THIS FILE CARRIES. A receipt the relay hands this socket at a
 // town's cleanse (systems/raidingParties.js raidRelayWord's `rc`, the same one again after a reconnect) is kept on the
-// device (RAID_CLAIMS_KEY) WITH THE CHARACTER THAT FOUGHT IT - the service pays that character its Renown - and offered
-// to the account service (`/v1/raid/claim` - server-account/src/raids.js claimRaid) at once, and again while it is
-// kept, at most every RAID_CLAIM_RETRY_MS. An answer that SETTLES it lets it go: counted (its Renown handed to the page,
-// `onRecorded`), counted before, the day's raids already counted, not a receipt the relay signed, no character to pay.
+// device (RAID_CLAIMS_KEY) WITH THE CHARACTER THAT FOUGHT IT - the service pays the ACCOUNT its Renown (RENOWN-ACCOUNT:
+// it paid that character; the character is the claim's record now) - and offered to the account service
+// (`/v1/raid/claim` - server-account/src/raids.js claimRaid) at once, and again while it is kept, at most every
+// RAID_CLAIM_RETRY_MS. An answer that SETTLES it lets it go: counted (its Renown handed to the page, `onRecorded` -
+// whichever character is playing, since the Renown is the account's), counted before, the day's raids already counted,
+// not a receipt the relay signed, no character to pay (a service's from before RENOWN-ACCOUNT).
 // One that does not keeps it: no session yet, the service without its public half, a guest who may still register,
 // the network, and a refusal the SERVICE can mend (its public half not the relay's pair, a clock off - the gate's
 // AUDIT WB A5). An expired receipt is let go unasked - expired by the RELAY's clock (AUDIT ONLINE2 F2: the device's
@@ -62,7 +64,7 @@ export const RAID_CLAIM_MENDABLE = Object.freeze(['signature', 'verify-threw', '
 /** What the account service's answer does to a kept receipt: 'done' (let it go) or 'keep'. */
 export function raidClaimVerdict(answer) {
   if (answer?.ok) return answer.data?.why === 'guest' ? 'keep' : 'done';   // counted, counted before, the day full
-  if (answer?.error === 'renown-character') return 'done';   // no character to pay - it never will be
+  if (answer?.error === 'renown-character') return 'done';   // no character to pay - it never will be (a service from before RENOWN-ACCOUNT; this one pays the account)
   return answer?.error === 'receipt' && !RAID_CLAIM_MENDABLE.includes(answer.why) ? 'done' : 'keep';
 }
 

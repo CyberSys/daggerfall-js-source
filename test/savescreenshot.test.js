@@ -168,14 +168,14 @@ test('SS1: the hosts arm at save and deliver at frame end - THE FOUR HOSTS named
   // deliver - a save armed from the pause window must not wait for
   // the modal arm to drop.
   const world = read('src/scenes/world.js');
-  assert.match(world, /if \(r\.ok\) requestScreenshot\(r\.key\);/,
+  assert.match(world, /if \(r\.ok && !quiet\) requestScreenshot\(r\.key\);/,   // REALM P0.5: a quiet checkpoint takes no shot
     'the world composer arms on success');
   assert.equal((world.match(/capturePendingScreenshot\(canvas\);/g) || []).length, 2,
     'both world frame tails deliver');
   // the dungeon pair: the CONTEXT arms (it owns no canvas), the HOST
   // loop delivers - dungeon.js's two tails.
   const dctx = read('src/scenes/dungeonContext.js');
-  assert.match(dctx, /if \(r\.ok\) requestScreenshot\(r\.key\);/,
+  assert.match(dctx, /if \(r\.ok && !quiet\) requestScreenshot\(r\.key\);/,   // REALM P0.5: a quiet checkpoint takes no shot
     'the dungeon composer arms on success');
   const dhost = read('src/scenes/dungeon.js');
   assert.equal((dhost.match(/capturePendingScreenshot\(canvas\);/g) || []).length, 2,

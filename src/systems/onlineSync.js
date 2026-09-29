@@ -12,7 +12,8 @@
 // room on every relay. So the sync is a copy of the lane into the offline stores:
 //   - every pref the lane forces (ONLINE_FORCED_PREFS, the registry's `online: true` rows among them),
 //   - every DFU setting it forces (ONLINE_FORCED_SETTINGS),
-//   - every mod key the room owns (ONLINE_ROOM_MOD_KEYS),
+//   - every mod key the room owns (ONLINE_ROOM_MOD_KEYS), and (REALM P0.2) every key of a balance mod it owns whole
+//     (ONLINE_WHOLE_MODS) at the key's shipped default,
 //   - and the one layout rule that is not in a table: online a dungeon is always the whole dungeon
 //     (world/smallerDungeons.js useSmallerDungeon, AUDIT WORLD34 B2), so Smaller Dungeons is set off.
 // WHAT IT DOES NOT COPY: the rules that are not switches at all (the real-time clock, the rest and the journey that
@@ -21,7 +22,7 @@
 //
 // Undoable: the values it replaced are kept in the storage seam, and Undo writes them back - every sync's since the
 // last Undo (AUDIT UXB1 F2).
-import { ONLINE_FORCED_PREFS, ONLINE_FORCED_SETTINGS, ONLINE_ROOM_MOD_KEYS, isOnlinePage } from './onlineLane.js';
+import { ONLINE_FORCED_PREFS, ONLINE_FORCED_SETTINGS, ONLINE_ROOM_MOD_KEYS, ONLINE_WHOLE_MODS, onlineWholeModKey, isOnlinePage } from './onlineLane.js';
 import { featureForControl } from './features.js';   // the registry declares its online prefs at load (declareOnlinePrefs), and names them
 import { getPref, setPref } from './uiPrefs.js';
 import { getString, setValue, saveSettings } from './settings.js';
@@ -78,6 +79,14 @@ export function onlineSyncPlan({ search } = /** @type {{ search?: string }} */ (
     for (const [key, online] of Object.entries(keys)) {
       const offline = modSetting(vendor, key);
       rows.push({ id: `mods:${vendor}/${key}`, store: 'mods', vendor, key, label: modKeyLabel(vendor, key), online, offline, same: offline === online });
+    }
+  }
+  // REALM P0.2: and every other key of a balance mod the room owns whole, at the value it reads online - its shipped default
+  for (const vendor of Object.keys(ONLINE_WHOLE_MODS)) {
+    for (const [key, def] of Object.entries(MOD_SETTINGS[vendor]?.keys ?? {})) {
+      if (Object.hasOwn(ONLINE_ROOM_MOD_KEYS[vendor] ?? {}, key) || !onlineWholeModKey(vendor, key, undefined, { offline: true })) continue;
+      const offline = modSetting(vendor, key);
+      rows.push({ id: `mods:${vendor}/${key}`, store: 'mods', vendor, key, label: modKeyLabel(vendor, key), online: def.default, offline, same: offline === def.default });
     }
   }
   return rows;

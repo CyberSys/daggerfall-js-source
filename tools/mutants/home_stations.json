@@ -38,7 +38,7 @@
   {
     "name": "HOME-STATIONS-licence-unpaid",
     "file": "src/scenes/decorTool.js",
-    "old": "    if (fee > 0) deps.wallet().pay(fee);\n",
+    "old": "      if (!act && fee > 0) deps.wallet().pay(fee);\n",
     "new": "",
     "tests": [
       "test/homestations.test.js"
@@ -65,8 +65,8 @@
   {
     "name": "HOME-STATIONS-refund-on-unmaking",
     "file": "src/scenes/decorTool.js",
-    "old": "    if (fee > 0) deps.wallet().pay(fee);",
-    "new": "    if (fee > 0) deps.wallet().pay(fee); else deps.wallet().credit?.(DECOR_STATION_FEES[piece.station] / 2);",
+    "old": "      if (!act && fee > 0) deps.wallet().pay(fee);",
+    "new": "      if (!act && fee > 0) deps.wallet().pay(fee); else deps.wallet().credit?.(DECOR_STATION_FEES[piece.station] / 2);",
     "tests": [
       "test/homestations.test.js"
     ]

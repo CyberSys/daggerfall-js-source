@@ -182,8 +182,8 @@
   {
     "name": "DECOR1d-paying-on-a-refusal",
     "file": "src/scenes/decorTool.js",
-    "old": "?? 'The piece could not be placed.', at: now() }; return false; }",
-    "new": "?? 'The piece could not be placed.', at: now() }; deps.wallet().pay(price); return false; }",
+    "old": "character: deps.character?.(), piece });\n        if (!res?.ok) { p.refused = { text: deps.refusal?.(res?.error) ?? 'The piece could not be placed.', at: now() }; return false; }",
+    "new": "character: deps.character?.(), piece });\n        if (!res?.ok) { p.refused = { text: deps.refusal?.(res?.error) ?? 'The piece could not be placed.', at: now() }; deps.wallet().pay(price); return false; }",
     "tests": [
       "test/decor1d.test.js"
     ]
@@ -200,8 +200,8 @@
   {
     "name": "DECOR1d-a-left-room-stood-in",
     "file": "src/scenes/decorTool.js",
-    "old": "        if (deps.visit?.() === visit) standRound(",
-    "new": "        standRound(",
+    "old": "        wallet.pay(price);\n        if (deps.visit?.() === visit) standRound(",
+    "new": "        wallet.pay(price);\n        standRound(",
     "tests": [
       "test/decor1d.test.js"
     ]

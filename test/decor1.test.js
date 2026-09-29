@@ -28,6 +28,7 @@ import { billboardSize } from '../src/world/rmbFlats.js';
 import { FlatAnimator } from '../src/render/flatAnimation.js';
 import { collectInteriorLights } from '../src/world/interiorLights.js';
 import { createSceneCache, cacheScene, restoreCachedScene, snapshotSceneCache, restoreSceneCache } from '../src/systems/sceneCache.js';
+import { r2, seatRealm, realmJoinAt } from './realmSeat.mjs';   // AUDIT REALM2 S2: a house and a piece are a realm character's
 import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -61,7 +62,7 @@ async function stand() {
   _resetKeyForTests();
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const pkcs8 = Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64');
-  const env = { DB: d1(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
+  const env = { DB: d1(), SAVES: r2(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
   const call = async (method, path, body, bearer = null) => {
     const res = await worker.fetch(new Request(`https://accounts.invalid${path}`, {
       method,
@@ -82,6 +83,15 @@ const T0 = 1_800_000_000;
 const HOME = { mapId: 1291010263, buildingKey: 0x10203 };
 const home = (extra = {}) => ({ ...HOME, region: 17, character: 'char-aldric', price: 42000, ...extra });
 const piece = (extra = {}) => ({ id: 'p1', model: 41000, flat: null, pos: [1.5, 0, -2.25], rot: [90, 0, 0], scale: 1, light: null, storage: false, paid: 180, ...extra });
+/** AUDIT REALM2 S2: A HOUSE AND A PIECE ARE A REALM CHARACTER'S, paid on its record - rich enough for every piece a pin
+ *  places. `owner()` seats one for an account and claims the house on its record; `at(extra)` is a body in its name,
+ *  naming where its record stands. */
+const RICH = (name) => ({ name, level: 9, goldPieces: 10_000_000, items: [], bankAccounts: new Array(62).fill(0).map(() => ({ accountGold: 0 })) });
+async function owner(env, call, secret, name) {
+  const P = await seatRealm(env, secret, name, RICH(name));
+  assert.equal((await call('POST', '/v1/homes/claim', home({ character: P.id, realm: P.at() }), secret)).status, 200);
+  return { ...P, at: (extra = {}) => ({ ...HOME, character: P.id, realm: P.at(), ...extra }) };
+}
 
 test('DECOR1 the law: a piece is WHAT it is (one model, or one flat\'s archive and record, never both) and WHERE it stands (a position within the bounds of the building\'s origin, a turn within a half-circle each way, a scale a quarter to four times, an optional light, whether it holds things, what it cost), rounded as stored; priced by its scaled size between twenty and four hundred gold, half back when removed, a rescale paying the difference or giving half of it back; the cap and the hour\'s writes (mutants: both at once, a bound, the rounding, the price\'s floor and ceiling, the half, the rescale\'s refund)', () => {
   assert.equal(DECOR_CAP, 200);
@@ -136,56 +146,62 @@ test('DECOR1 the service: a home\'s pieces are any session\'s to read (a guest\'
   assert.deepEqual(await placeDecor({ db: env.DB, nowS: T0 }, { id: 'g1', handle: null, guest_name: 'Quiet Fox' }, { ...HOME, character: 'char-guest', piece: piece() }), { error: 'homes-need-account' }, 'and the function asks again');
   const aldric = await registered('Aldric');
   const mara = await registered('Mara');
-  assert.equal((await call('POST', '/v1/homes/claim', home(), aldric)).status, 200);
-  const at = (extra = {}) => ({ ...HOME, character: 'char-aldric', ...extra });
+  // AUDIT REALM2 S2: the owner, its other character and another player are realm characters, each on its own record
+  const M = await seatRealm(env, mara, 'Mara', RICH('Mara'));
+  const A2 = await seatRealm(env, aldric, 'Aldric Two', RICH('Aldric Two'));
+  const A = await seatRealm(env, aldric, 'Aldric', RICH('Aldric'));
+  assert.equal((await call('POST', '/v1/homes/claim', home({ character: A.id, realm: A.at() }), aldric)).status, 200);
+  const at = async (extra = {}) => ({ ...HOME, character: A.id, realm: await realmJoinAt(env, aldric, A.id), ...extra });
+  const named = (extra = {}) => ({ ...HOME, character: A.id, ...extra });   // the owner's character named by another - never its record
   // placing
-  const noHome = await call('POST', '/v1/homes/decor/place', { ...HOME, character: 'char-mara', piece: piece() }, mara);
+  const noHome = await call('POST', '/v1/homes/decor/place', { ...HOME, character: M.id, realm: M.at(), piece: piece() }, mara);
   assert.deepEqual([noHome.status, noHome.body.error], [404, 'no-home'], 'another player\'s home is no home to place in');
-  // a character id is the client's own word - another player can NAME the owner's; the account is the service's
-  const named = await call('POST', '/v1/homes/decor/place', at({ piece: piece() }), mara);
-  assert.deepEqual([named.status, named.body.error], [404, 'no-home'], 'another player naming the owner\'s character owns nothing');
-  const otherChar = await call('POST', '/v1/homes/decor/place', at({ character: 'char-second', piece: piece() }), aldric);
+  // a character id is the client's own word - another player can NAME the owner's; the account is the service's, and a
+  // realm character's record is its account's alone
+  const namedPlace = await call('POST', '/v1/homes/decor/place', named({ piece: piece() }), mara);
+  assert.deepEqual([namedPlace.status, namedPlace.body.error], [400, 'realm-needed'], 'another player naming the owner\'s character pays with no record of it');
+  const otherChar = await call('POST', '/v1/homes/decor/place', { ...HOME, character: A2.id, realm: await realmJoinAt(env, aldric, A2.id), piece: piece() }, aldric);
   assert.deepEqual([otherChar.status, otherChar.body.error], [404, 'no-home'], 'the owner\'s OTHER character does not own it');
-  const p1 = await call('POST', '/v1/homes/decor/place', at({ piece: piece() }), aldric);
-  assert.deepEqual([p1.status, p1.body], [200, { ok: true, piece: piece() }]);
-  const again = await call('POST', '/v1/homes/decor/place', at({ piece: piece() }), aldric);
+  const p1 = await call('POST', '/v1/homes/decor/place', await at({ piece: piece() }), aldric);
+  assert.deepEqual([p1.status, p1.body.ok, p1.body.piece, p1.body.gold], [200, true, piece(), -180], 'placed, and paid on the record');
+  const again = await call('POST', '/v1/homes/decor/place', await at({ piece: piece() }), aldric);
   assert.deepEqual([again.status, again.body.repeat], [200, true], 'a placement sent again after a lost answer is answered as the placement');
-  const taken = await call('POST', '/v1/homes/decor/place', at({ piece: piece({ model: 41001 }) }), aldric);
+  const taken = await call('POST', '/v1/homes/decor/place', await at({ piece: piece({ model: 41001 }) }), aldric);
   assert.deepEqual([taken.status, taken.body.error], [409, 'decor-taken']);
   const flat = piece({ id: 'p2', model: null, flat: [210, 4], pos: [0, 1, 0], light: { color: [1, 0.8, 0.5], range: 6, intensity: 1 }, paid: 40 });
-  assert.equal((await call('POST', '/v1/homes/decor/place', at({ piece: flat }), aldric)).status, 200);
-  assert.deepEqual((await call('POST', '/v1/homes/decor/place', at({ piece: { ...piece({ id: 'p3' }), pos: [0, 0, 999] } }), aldric)).body.error, 'bad-decor');
+  assert.equal((await call('POST', '/v1/homes/decor/place', await at({ piece: flat }), aldric)).status, 200);
+  assert.deepEqual((await call('POST', '/v1/homes/decor/place', await at({ piece: { ...piece({ id: 'p3' }), pos: [0, 0, 999] } }), aldric)).body.error, 'bad-decor');
   // everyone reads the room
   const asMara = (await call('POST', '/v1/homes/decor', HOME, mara)).body.pieces;
   assert.deepEqual(asMara, [piece(), flat], 'the room is the same room to every visitor, oldest first');
   // moving: where it stands, never what it is
-  const moved = await call('POST', '/v1/homes/decor/move', at({ id: 'p1', place: { ...piece({ pos: [3, 0, 3], rot: [0, 0, 0], storage: true }), model: 99999, flat: [216, 1] } }), aldric);
+  const moved = await call('POST', '/v1/homes/decor/move', await at({ id: 'p1', place: { ...piece({ pos: [3, 0, 3], rot: [0, 0, 0], storage: true }), model: 99999, flat: [216, 1] } }), aldric);
   assert.deepEqual(moved.body, { ok: true, piece: piece({ pos: [3, 0, 3], rot: [0, 0, 0], storage: true }) }, 'the model is its own column - a move cannot turn a bed into a statue');
   const strangerMove = await call('POST', '/v1/homes/decor/move', { ...HOME, character: 'char-mara', id: 'p1', place: piece() }, mara);
   assert.deepEqual([strangerMove.status, strangerMove.body.error], [404, 'no-decor']);
-  assert.equal((await call('POST', '/v1/homes/decor/move', at({ id: 'p1', place: piece() }), mara)).body.error, 'no-decor', 'nor by naming the owner\'s character');
-  assert.equal((await call('POST', '/v1/homes/decor/move', at({ id: 'nope', place: piece() }), aldric)).body.error, 'no-decor');
-  assert.equal((await call('POST', '/v1/homes/decor/move', at({ id: 'p1', place: { ...piece(), scale: 9 } }), aldric)).body.error, 'bad-decor');
+  assert.equal((await call('POST', '/v1/homes/decor/move', named({ id: 'p1', place: piece() }), mara)).body.error, 'no-decor', 'nor by naming the owner\'s character');
+  assert.equal((await call('POST', '/v1/homes/decor/move', await at({ id: 'nope', place: piece() }), aldric)).body.error, 'no-decor');
+  assert.equal((await call('POST', '/v1/homes/decor/move', await at({ id: 'p1', place: { ...piece(), scale: 9 } }), aldric)).body.error, 'bad-decor');
   // removing
   const strangerRemove = await call('POST', '/v1/homes/decor/remove', { ...HOME, character: 'char-mara', id: 'p1' }, mara);
   assert.deepEqual([strangerRemove.status, strangerRemove.body.error], [404, 'no-decor']);
-  assert.equal((await call('POST', '/v1/homes/decor/remove', at({ id: 'p1' }), mara)).body.error, 'no-decor', 'nor by naming the owner\'s character');
-  const removed = await call('POST', '/v1/homes/decor/remove', at({ id: 'p2' }), aldric);
-  assert.deepEqual(removed.body, { ok: true, piece: flat }, 'the piece as it stood - its cost among it');
-  assert.equal((await call('POST', '/v1/homes/decor/remove', at({ id: 'p2' }), aldric)).body.error, 'no-decor', 'gone');
+  assert.equal((await call('POST', '/v1/homes/decor/remove', named({ id: 'p1' }), mara)).body.error, 'no-decor', 'nor by naming the owner\'s character');
+  const removed = await call('POST', '/v1/homes/decor/remove', await at({ id: 'p2' }), aldric);
+  assert.deepEqual([removed.body.ok, removed.body.piece, removed.body.gold], [true, flat, 20], 'the piece as it stood - its cost among it - and half of it back on the record');
+  assert.equal((await call('POST', '/v1/homes/decor/remove', await at({ id: 'p2' }), aldric)).body.error, 'no-decor', 'gone');
   // the cap
   const db = env.DB._raw;
   const ins = db.prepare('INSERT INTO home_decor (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at) VALUES (?, ?, ?, 41000, NULL, NULL, ?, ?)');
   for (let k = 0; k < DECOR_CAP - 1; k++) ins.run(HOME.mapId, HOME.buildingKey, `f${k}`, JSON.stringify({ pos: [0, 0, 0], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 20 }), T0 + 1);
-  const full = await call('POST', '/v1/homes/decor/place', at({ piece: piece({ id: 'last' }) }), aldric);
+  const full = await call('POST', '/v1/homes/decor/place', await at({ piece: piece({ id: 'last' }) }), aldric);
   assert.deepEqual([full.status, full.body.error], [409, 'decor-cap']);
   assert.equal((await call('POST', '/v1/homes/decor', HOME, mara)).body.pieces.length, DECOR_CAP, 'and the room reads whole');
   // the hour's writes
   db.prepare('INSERT OR REPLACE INTO rate_limits (key, window_start, count) VALUES (?, ?, ?)').run(`decor:${db.prepare("SELECT id FROM players WHERE handle = 'Aldric'").get().id}`, Math.floor(T0 / 3600) * 3600, DECOR_OPS_MAX);
-  const rated = await call('POST', '/v1/homes/decor/move', at({ id: 'p1', place: piece() }), aldric);
+  const rated = await call('POST', '/v1/homes/decor/move', await at({ id: 'p1', place: piece() }), aldric);
   assert.deepEqual([rated.status, rated.body.error], [429, 'decor-rate']);
   // the home released takes its pieces
-  assert.equal((await call('POST', '/v1/homes/release', HOME, aldric)).status, 200);
+  assert.equal((await call('POST', '/v1/homes/release', { ...HOME, realm: await realmJoinAt(env, aldric, A.id) }, aldric)).status, 200);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM home_decor').get().n, 0, 'CASCADE - the next owner walks into an empty house');
 });
 
@@ -194,11 +210,15 @@ test('DECOR1e a home sold takes its placed pieces, and its release answers how m
   const { env, call, registered } = await stand();
   const aldric = await registered('Aldric');
   const mara = await registered('Mara');
-  assert.equal((await call('POST', '/v1/homes/claim', home(), aldric)).status, 200);
-  const at = (extra = {}) => ({ ...HOME, character: 'char-aldric', ...extra });
-  const pieces = [piece({ id: 'a1', paid: 181 }), piece({ id: 'a2', paid: 41 }), piece({ id: 'a3', paid: 21 })];
-  for (const p of pieces) assert.equal((await call('POST', '/v1/homes/decor/place', at({ piece: p }), aldric)).status, 200);
+  // AUDIT REALM2 S2: a house and its pieces from BEFORE the realm - a claim and a placement are a realm character's now -
+  // sold through the lane that still serves them, on the client's word of what each cost
   const db = env.DB._raw;
+  const aldricId = db.prepare("SELECT id FROM players WHERE handle = 'Aldric'").get().id;
+  const house = () => db.prepare("INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at) VALUES (?, ?, ?, 'char-aldric', 'Aldric', 17, 'private', 42000, ?)").run(HOME.mapId, HOME.buildingKey, aldricId, T0);
+  house();
+  const pieces = [piece({ id: 'a1', paid: 181 }), piece({ id: 'a2', paid: 41 }), piece({ id: 'a3', paid: 21 })];
+  const lay = db.prepare('INSERT INTO home_decor (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at) VALUES (?, ?, ?, ?, NULL, NULL, ?, ?)');
+  for (const p of pieces) lay.run(HOME.mapId, HOME.buildingKey, p.id, p.model, JSON.stringify({ pos: p.pos, rot: p.rot, scale: p.scale, light: p.light, storage: p.storage, paid: p.paid }), T0);
   db.prepare('INSERT INTO home_decor (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at) VALUES (?, ?, ?, 41000, NULL, NULL, ?, ?)')
     .run(HOME.mapId, HOME.buildingKey, 'broken', 'not json', T0);
   const stranger = await call('POST', '/v1/homes/release', HOME, mara);
@@ -208,7 +228,7 @@ test('DECOR1e a home sold takes its placed pieces, and its release answers how m
   assert.deepEqual(sold.body, { ok: true, price: 42000, decorCount: 3, decorBack: 90 + 20 + 10 }, 'each half truncated - never the half of the sum (121)');
   assert.equal(sold.body.decorBack, decorSaleBack(pieces), 'the service\'s sum is the law\'s');
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM home_decor').get().n, 0, 'and they went with it');
-  assert.equal((await call('POST', '/v1/homes/claim', home(), aldric)).status, 200);
+  house();
   assert.deepEqual((await call('POST', '/v1/homes/release', HOME, aldric)).body, { ok: true, price: 42000, decorCount: 0, decorBack: 0 }, 'none placed, none back');
 });
 
@@ -217,11 +237,11 @@ test('DECOR2a an own item\'s piece in an online home: the service keeps WHICH it
   const { env, call, registered } = await stand();
   const aldric = await registered('Aldric');
   const mara = await registered('Mara');
-  assert.equal((await call('POST', '/v1/homes/claim', home(), aldric)).status, 200);
-  const at = (extra = {}) => ({ ...HOME, character: 'char-aldric', ...extra });
+  const { at } = await owner(env, call, aldric, 'Aldric');   // AUDIT REALM2 S2: a realm character's house, on its record
   const statue = piece({ id: 'o1', model: null, flat: [202, 5], item: { t: 265, g: 10, m: null, v: null, a: null, p: null }, paid: 0 });
   const r1 = await call('POST', '/v1/homes/decor/place', at({ piece: statue }), aldric);
   assert.deepEqual([r1.status, r1.body], [200, { ok: true, piece: statue }]);
+  assert.equal((await call('POST', '/v1/homes/decor/place', at({ piece: statue }), aldric)).body.repeat, true, 'a free placement sent again is answered as the placement');
   assert.deepEqual((await call('POST', '/v1/homes/decor', HOME, mara)).body.pieces, [statue], 'every visitor reads which item it is');
   const moved = await call('POST', '/v1/homes/decor/move', at({ id: 'o1', place: { ...statue, pos: [2, 0, 2], item: { t: 0, g: 14 } } }), aldric);
   assert.deepEqual(moved.body, { ok: true, piece: { ...statue, pos: [2, 0, 2] } }, 'where it stands moves; which item it is never does');
@@ -238,18 +258,17 @@ test('DECOR2a an own item\'s piece in an online home: the service keeps WHICH it
   ];
   for (const b of bad) assert.equal((await call('POST', '/v1/homes/decor/place', at({ piece: b }), aldric)).body.error, 'bad-decor', b.id);
   assert.equal((await call('POST', '/v1/homes/decor/place', at({ piece: piece({ id: 'c1', paid: 181 }) }), aldric)).status, 200);
-  const sold = await call('POST', '/v1/homes/release', HOME, aldric);
-  assert.deepEqual(sold.body, { ok: true, price: 42000, decorCount: 2, decorBack: 90 }, 'the own piece counted, and nothing owed for it');
+  const sold = await call('POST', '/v1/homes/release', at(), aldric);
+  assert.deepEqual([sold.body.ok, sold.body.price, sold.body.decorCount, sold.body.decorBack], [true, 42000, 2, 90], 'the own piece counted, and nothing owed for it');
   assert.equal(env.DB._raw.prepare('SELECT COUNT(*) AS n FROM home_decor').get().n, 0);
 });
 
 test('DECOR2b a piece of furniture in an online home: the service keeps a model with the furniture\'s own numbers - read back by every visitor, never rewritten by a move - and refuses any other own item on a model (mutants: the model refused, a statue let onto one)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
-  const { call, registered } = await stand();
+  const { env, call, registered } = await stand();
   const aldric = await registered('Aldric');
   const mara = await registered('Mara');
-  assert.equal((await call('POST', '/v1/homes/claim', home(), aldric)).status, 200);
-  const at = (extra = {}) => ({ ...HOME, character: 'char-aldric', ...extra });
+  const { at } = await owner(env, call, aldric, 'Aldric');   // AUDIT REALM2 S2: a realm character's house, on its record
   const bed = piece({ id: 'b1', model: 41001, flat: null, item: { t: 219, g: 8, m: null, v: null, a: null, p: null }, paid: 0 });
   const r = await call('POST', '/v1/homes/decor/place', at({ piece: bed }), aldric);
   assert.deepEqual([r.status, r.body], [200, { ok: true, piece: bed }]);
@@ -262,11 +281,10 @@ test('DECOR2b a piece of furniture in an online home: the service keeps a model 
 
 test('DECOR2c a mount in an online home: the service keeps a weapon or shield hung as its own pack picture - the port\'s own archives past 511 among them - with its spin, read by every visitor; a picture past the law\'s bound is refused (mutants: the bound kept at 511)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
-  const { call, registered } = await stand();
+  const { env, call, registered } = await stand();
   const aldric = await registered('Aldric');
   const mara = await registered('Mara');
-  assert.equal((await call('POST', '/v1/homes/claim', home(), aldric)).status, 200);
-  const at = (extra = {}) => ({ ...HOME, character: 'char-aldric', ...extra });
+  const { at } = await owner(env, call, aldric, 'Aldric');   // AUDIT REALM2 S2: a realm character's house, on its record
   const axe = piece({ id: 'w1', model: null, flat: [513, 2], item: { t: 513, g: 3, m: null, v: null, a: null, p: null }, rot: [180, 0, 15], paid: 0 });
   const r = await call('POST', '/v1/homes/decor/place', at({ piece: axe }), aldric);
   assert.deepEqual([r.status, r.body], [200, { ok: true, piece: axe }]);
@@ -275,16 +293,16 @@ test('DECOR2c a mount in an online home: the service keeps a weapon or shield hu
   assert.equal((await call('POST', '/v1/homes/decor/place', at({ piece: past }), aldric)).body.error, 'bad-decor');
   // DECOR-MODFLATS: a mod's flat - Detailed Ships' own, "Decoration 49" onward - is a piece to the service too
   const ship = piece({ id: 'w3', model: null, flat: [1210, 1], paid: 20 });
-  assert.deepEqual((await call('POST', '/v1/homes/decor/place', at({ piece: ship }), aldric)).body, { ok: true, piece: ship });
+  const shipped = (await call('POST', '/v1/homes/decor/place', at({ piece: ship }), aldric)).body;
+  assert.deepEqual([shipped.ok, shipped.piece, shipped.gold], [true, ship, -20]);
 });
 
 test('AUDIT HOME-STATIONS (the batch\'s cross-cutting audit, F8) the service: a station rides the piece\'s place - kept on a move and read back by every visitor, refused beside storage, gone on a move without it; placed with one it stands with it (mutants: the craft never stored; stored beside storage)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
-  const { call, registered } = await stand();
+  const { env, call, registered } = await stand();
   const aldric = await registered('Aldric');
   const mara = await registered('Mara');
-  assert.equal((await call('POST', '/v1/homes/claim', home(), aldric)).status, 200);
-  const at = (extra = {}) => ({ ...HOME, character: 'char-aldric', ...extra });
+  const { at } = await owner(env, call, aldric, 'Aldric');   // AUDIT REALM2 S2: a realm character's house, on its record
   const place = (x = {}) => { const { id, model, flat, ...pl } = piece(x); return pl; };
   assert.equal((await call('POST', '/v1/homes/decor/place', at({ piece: piece() }), aldric)).status, 200);
   const made = await call('POST', '/v1/homes/decor/move', at({ id: 'p1', place: place({ station: 'alchemy' }) }), aldric);

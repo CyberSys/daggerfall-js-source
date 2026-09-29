@@ -7,6 +7,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ACTIONS, PORT_ACTIONS, DEFAULT_BINDINGS, ACTION_GROUPS } from '../src/systems/inputActions.js';
+import { mouseCode } from '../src/ui/input.js';
+import { isBindableKeyCode } from '../src/systems/keyCodes.js';
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -33,13 +35,16 @@ test('VIEW-TOGGLE seam: the sprite lane flips first to third and back, one press
     'the Morrowind lane: in by the head\'s own door, out by the restore door, never in the saddle (RIDE-POV)');
 });
 
-test('VIEW-TOGGLE action: a port action, appended, on the mouse\'s forward side button beside push-to-talk, drawn in Movement; the world host polls its press edge under no window and hands it to the seam before the view frame', () => {
+test('VIEW-TOGGLE action: a port action, appended, on the mouse\'s forward side button (a binding code since VOICE1, kept when voice was reverted - and never the browser\'s Forward), drawn in Movement; the world host polls its press edge under no window and hands it to the seam before the view frame', () => {
   assert.equal(ACTIONS.at(-1), 'TogglePerspective');
   assert.ok(PORT_ACTIONS.includes('TogglePerspective'));
   assert.deepEqual(DEFAULT_BINDINGS.filter(([, a]) => a === 'TogglePerspective'), [['Mouse4', 'TogglePerspective']]);
   assert.equal(DEFAULT_BINDINGS.filter(([k]) => k === 'Mouse4').length, 1, 'nothing else on it');
+  assert.equal(mouseCode(4), 'Mouse4', 'the forward side button is a binding code');
+  assert.ok(isBindableKeyCode('Mouse4'), 'and a key the controls pane can name');
   assert.ok(ACTION_GROUPS.find((g) => g.title === 'Movement').rows.some((r) => r.action === 'TogglePerspective' && r.label === 'First / third person'));
   const w = rd('src/scenes/world.js');
   assert.match(w, /if \(hccActionPressed\('TogglePerspective'\)\) mwViewTogglePerspective\(\);\n\s*const mwv0 = mwViewFrame\(\{/);
+  assert.match(w, /for \(const kind of \['mousedown', 'mouseup'\]\) addEventListener\(kind, \(e\) => \{ if \(e\.button === 3 \|\| e\.button === 4\) e\.preventDefault\(\); \}\);/, 'the side buttons are never the browser\'s Back and Forward in the world');
   assert.match(w, /const hccActionPressed = \(action\) => !gamePaused\(\) && !pointerSurfaces\.size && !_loading && pressed\(latch\.edge, keys, action\);/, 'the gate it rides');
 });

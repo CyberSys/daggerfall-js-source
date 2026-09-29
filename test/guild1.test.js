@@ -18,6 +18,7 @@ import {
 } from '../src/net/guildLaw.js';
 import { renownXpFor } from '../src/net/renown.js';
 import { accountGuilds, REFUSALS, SESSION_KEY } from '../src/net/accountClient.js';
+import { r2, seatRealm } from './realmSeat.mjs';   // AUDIT REALM2 S2: a founding is a realm character's, paid on its record
 import { ACCEPTED } from '../src/net/legalLaw.js';   // TERMS1: a request that makes an account carries the versions ticked
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -54,7 +55,7 @@ async function stand() {
   _resetKeyForTests();
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const pkcs8 = Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64');
-  const env = { DB: d1(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
+  const env = { DB: d1(), SAVES: r2(), IDENTITY_PRIVATE_KEY: pkcs8, ACCOUNT_VERSION: 'test1', ALLOWED_ORIGIN: '*' };
   const call = async (path, body, bearer = null) => {
     const res = await worker.fetch(new Request(`https://accounts.invalid${path}`, {
       method: 'POST',
@@ -64,21 +65,43 @@ async function stand() {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const guest = async () => (await call('/v1/auth/guest', { ...ACCEPTED })).body.secret;
-  /** A registered account, and one of its characters seated at `renown` (the service's own track). */
-  const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN } = {}) => {
+  /** A registered account at `renown` (the service's own track - RENOWN-ACCOUNT: the account's, which every one of its
+   *  characters stands at), and one of its characters. AUDIT REALM2 S2: a founder is a REALM character (`realm: true`) -
+   *  a founding is paid on its record - and `at()` where that stands. */
+  const registered = async (handle, { character = `char-${handle.toLowerCase()}`, renown = GUILD_FOUND_RENOWN, realm = false } = {}) => {
     const secret = await guest();
     const reg = await call('/v1/auth/register', { secret, handle, password: 'a good long one', ...ACCEPTED });
     assert.equal(reg.status, 200, `${handle} registers`);
     const id = env.DB._raw.prepare('SELECT id FROM players WHERE handle_lc = ?').get(handle.toLowerCase()).id;
+    if (realm) {
+      const R = await seatRealm(env, secret, handle, { name: handle, level: 9, goldPieces: GUILD_FOUND_GOLD * 10, items: [] });
+      character = R.id;
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(id, renownXpFor(renown), T0, T0);
+      return { secret, id, character, handle, at: R.at };
+    }
     if (renown > 1) {
-      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(id, character, handle, renownXpFor(renown), T0, T0);
+      env.DB._raw.prepare('INSERT OR REPLACE INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(id, renownXpFor(renown), T0, T0);
     }
     return { secret, id, character, handle };
   };
   return { env, call, guest, registered };
 }
 const mine = async (call, who) => (await call('/v1/guilds/mine', { character: who.character }, who.secret)).body.guild;
+/** AUDIT REALM2 S2: A GUILD FROM BEFORE THE REALM, its founder its guildmaster - the rows foundGuild wrote, as it wrote
+ *  them. A founding is a realm character's now, paid on its record (the founding pin founds so); the pins that only need
+ *  a guild to act in keep the lane every character of a registered account still has for it. Answers the guild as its
+ *  founder reads it. */
+async function oldGuild(env, call, who, name, tag) {
+  const n = guildNameOf(name), nowS = Math.floor(Date.now() / 1000);
+  const id = `g${who.handle.toLowerCase().padEnd(10, '0').slice(0, 10).replace(/[^0-9a-z]/g, '0')}`;
+  env.DB._raw.prepare('INSERT INTO guilds (id, name, name_key, tag, ranks, treasury, founded_at) VALUES (?, ?, ?, ?, ?, 0, ?)')
+    .run(id, n, guildNameKey(n), guildTagOf(tag), JSON.stringify(GUILD_RANK_NAMES), nowS);
+  env.DB._raw.prepare(`INSERT INTO guild_members (player, char_id, guild_id, rank, name, joined_at) VALUES (?, ?, ?, 0, ?, ?)`)
+    .run(who.id, who.character, id, who.handle, nowS);
+  return mine(call, who);
+}
 /** GUILD1c: an answer with the orders it carries set aside - test/guild1c.test.js reads those. */
 const bare = ({ order, outOrder, ...body }) => body;
 
@@ -119,11 +142,11 @@ test('GUILD1 founding: an account\'s character at Renown 10 on the service\'s ow
   assert.deepEqual((await call('/v1/guilds/found', { character: 'char-x', name: 'The Hound', tag: 'HND' }, g)), { status: 403, body: { error: 'guilds-need-account' } });
   assert.deepEqual((await call('/v1/guilds/invites', {}, g)).body, { ok: true, invites: [] }, 'a guest has none');
   assert.deepEqual(await call('/v1/guilds/mine', { character: 'char-x' }, g), { status: 403, body: { error: 'guilds-need-account' } });
-  const low = await registered('Lowly', { renown: GUILD_FOUND_RENOWN - 1 });
-  assert.deepEqual(await call('/v1/guilds/found', { character: low.character, name: 'The Hound', tag: 'HND', renown: 50 }, low.secret), { status: 403, body: { error: 'guild-renown' } }, 'the service\'s own track, never the word sent');
-  const aldric = await registered('Aldric');
+  const low = await registered('Lowly', { renown: GUILD_FOUND_RENOWN - 1, realm: true });
+  assert.deepEqual(await call('/v1/guilds/found', { character: low.character, name: 'The Hound', tag: 'HND', renown: 50, realm: low.at() }, low.secret), { status: 403, body: { error: 'guild-renown' } }, 'the service\'s own track, never the word sent');
+  const aldric = await registered('Aldric', { realm: true });
   assert.equal(await mine(call, aldric), null, 'in no guild');
-  const r = await call('/v1/guilds/found', { character: aldric.character, name: '  The   Hound ', tag: 'hnd' }, aldric.secret);
+  const r = await call('/v1/guilds/found', { character: aldric.character, name: '  The   Hound ', tag: 'hnd', realm: aldric.at() }, aldric.secret);
   assert.equal(r.status, 200);
   const { guild } = r.body;
   assert.deepEqual([guild.name, guild.tag, guild.ranks, guild.treasury, guild.rank, guild.foundedAt], ['The Hound', 'HND', GUILD_RANK_NAMES, 0, 0, T0 > 0 ? guild.foundedAt : 0]);
@@ -131,13 +154,14 @@ test('GUILD1 founding: an account\'s character at Renown 10 on the service\'s ow
   assert.deepEqual(guild.members.map((m) => [m.name, m.rank, m.you]), [['Aldric', 0, true]], 'the founder is its guildmaster');
   assert.match(guild.members[0].member, GUILD_MEMBER_RE);
   assert.deepEqual([guild.invites, guild.ledger], [[], []]);
-  assert.equal((await call('/v1/guilds/found', { character: aldric.character, name: 'Another', tag: 'ANO' }, aldric.secret)).body.error, 'guild-already');
-  const mara = await registered('Mara');
-  assert.deepEqual(await call('/v1/guilds/found', { character: mara.character, name: 'the hound', tag: 'MRA' }, mara.secret), { status: 409, body: { error: 'guild-name-taken' } });
-  assert.deepEqual(await call('/v1/guilds/found', { character: mara.character, name: 'Mara Band', tag: 'hnd' }, mara.secret), { status: 409, body: { error: 'guild-tag-taken' } });
-  assert.deepEqual(await call('/v1/guilds/found', { character: mara.character, name: 'x', tag: 'MRA' }, mara.secret), { status: 400, body: { error: 'bad-guild' } });
+  assert.equal((await call('/v1/guilds/found', { character: aldric.character, name: 'Another', tag: 'ANO', realm: aldric.at() }, aldric.secret)).body.error, 'guild-already');
+  const mara = await registered('Mara', { realm: true });
+  assert.deepEqual(await call('/v1/guilds/found', { character: mara.character, name: 'the hound', tag: 'MRA', realm: mara.at() }, mara.secret), { status: 409, body: { error: 'guild-name-taken' } });
+  assert.deepEqual(await call('/v1/guilds/found', { character: mara.character, name: 'Mara Band', tag: 'hnd', realm: mara.at() }, mara.secret), { status: 409, body: { error: 'guild-tag-taken' } });
+  assert.deepEqual(await call('/v1/guilds/found', { character: mara.character, name: 'x', tag: 'MRA', realm: mara.at() }, mara.secret), { status: 400, body: { error: 'bad-guild' } });
   assert.deepEqual(await call('/v1/guilds/found', { character: 'no such!', name: 'Mara Band', tag: 'MRA' }, mara.secret), { status: 400, body: { error: 'guild-character' } });
-  assert.equal((await call('/v1/guilds/found', { character: mara.character, name: 'Mara Band', tag: 'MRA' }, mara.secret)).status, 200, 'her own');
+  assert.deepEqual(await call('/v1/guilds/found', { character: 'char-mara', name: 'Mara Band', tag: 'MRA' }, mara.secret), { status: 400, body: { error: 'realm-only' } }, 'AUDIT REALM2 S2: no other character founds');
+  assert.equal((await call('/v1/guilds/found', { character: mara.character, name: 'Mara Band', tag: 'MRA', realm: mara.at() }, mara.secret)).status, 200, 'her own');
   // a second character of the same account is free
   const second = { ...aldric, character: 'char-aldric-two' };
   assert.equal(await mine(call, second), null, 'per character: the account\'s other character belongs to none');
@@ -150,7 +174,7 @@ test('GUILD1 invitations: an officer or the guildmaster invites an ACCOUNT by it
   t.mock.method(Date, 'now', () => clock.now);
   const { env, call, registered } = await stand();
   const aldric = await registered('Aldric');
-  const { guild } = (await call('/v1/guilds/found', { character: aldric.character, name: 'The Hound', tag: 'HND' }, aldric.secret)).body;
+  const guild = await oldGuild(env, call, aldric, 'The Hound', 'HND');   // AUDIT REALM2 S2
   const mara = await registered('Mara', { renown: 1 });
   assert.deepEqual(await call('/v1/guilds/invite', { character: aldric.character, handle: 'nobody-here' }, aldric.secret), { status: 404, body: { error: 'no-player' } });
   assert.deepEqual((await call('/v1/guilds/invite', { character: aldric.character, handle: 'mara' }, aldric.secret)).body, { ok: true });
@@ -210,9 +234,9 @@ test('GUILD1 invitations: an officer or the guildmaster invites an ACCOUNT by it
 
 async function guildOfThree() {
   const s = await stand();
-  const { call, registered } = s;
+  const { env, call, registered } = s;
   const gm = await registered('Aldric');
-  const { guild } = (await call('/v1/guilds/found', { character: gm.character, name: 'The Hound', tag: 'HND' }, gm.secret)).body;
+  const guild = await oldGuild(env, call, gm, 'The Hound', 'HND');   // AUDIT REALM2 S2
   const join = async (handle) => {
     const w = await registered(handle, { renown: 1 });
     await call('/v1/guilds/invite', { character: gm.character, handle }, gm.secret);
@@ -305,18 +329,18 @@ test('GUILD1 leaving and handing on: a member leaves; the guildmaster leaves onl
   assert.deepEqual([await mine(call, gm), await mine(call, officer)], [null, null], 'everything of it went');
   // the lone guildmaster leaves: the guild goes - once its treasury is empty
   const solo = await registered('Solo');
-  await call('/v1/guilds/found', { character: solo.character, name: 'Lone Wolf', tag: 'WOLF' }, solo.secret);
+  await oldGuild(env, call, solo, 'Lone Wolf', 'WOLF');   // AUDIT REALM2 S2
   await call('/v1/guilds/deposit', { character: solo.character, gold: 5 }, solo.secret);
   assert.deepEqual(await call('/v1/guilds/leave', { character: solo.character }, solo.secret), { status: 409, body: { error: 'guild-treasury' } });
   await call('/v1/guilds/withdraw', { character: solo.character, gold: 5 }, solo.secret);
   assert.deepEqual(bare((await call('/v1/guilds/leave', { character: solo.character }, solo.secret)).body), { ok: true, disbanded: true });
   // an orphaned guild's name and tag go to the next founder
   const lone = await registered('Loner');
-  const { guild } = (await call('/v1/guilds/found', { character: lone.character, name: 'Orphans', tag: 'ORP' }, lone.secret)).body;
+  const guild = await oldGuild(env, call, lone, 'Orphans', 'ORP');   // AUDIT REALM2 S2
   env.DB._raw.prepare('DELETE FROM players WHERE id = ?').run(lone.id);
   assert.ok(env.DB._raw.prepare('SELECT 1 FROM guilds WHERE id = ?').get(guild.id), 'held for no one');
-  const next = await registered('Next');
-  assert.equal((await call('/v1/guilds/found', { character: next.character, name: 'orphans', tag: 'orp' }, next.secret)).status, 200, 'given up to the next founder');
+  const next = await registered('Next', { realm: true });
+  assert.equal((await call('/v1/guilds/found', { character: next.character, name: 'orphans', tag: 'orp', realm: next.at() }, next.secret)).status, 200, 'given up to the next founder');
 });
 
 test('GUILD1 raced: every write decides on what it read - a rank moves, and a member goes, only from the rank read; a join lands only while its invitation stands; a guild is handed on only while its giver still holds it, and the giver steps down only once the new guildmaster stands; nobody hands the guild to themselves (mutants: each guard dropped)', async () => {
@@ -377,7 +401,7 @@ test('GUILD1 succession: a guild whose guildmaster\'s account went is given its 
   t.mock.method(Date, 'now', () => clock.now);
   const { env, call, registered } = await stand();
   const gm = await registered('Aldric');
-  const { guild } = (await call('/v1/guilds/found', { character: gm.character, name: 'The Hound', tag: 'HND' }, gm.secret)).body;
+  const guild = await oldGuild(env, call, gm, 'The Hound', 'HND');   // AUDIT REALM2 S2
   const join = async (handle) => {
     clock.now += 60_000;
     const w = await registered(handle, { renown: 1 });
