@@ -25,8 +25,8 @@ export const BAND_LIFE_MS = 12 * 60 * 1000;
 /** The chance a cell holds a band in a life (by day, by night). OW6 (2026-09-29, the player: "Enemies should spawn in
  *  varying numbers and roam more often"): half as many again by day, a third more by night - 0.3 and 0.45 left a
  *  league of empty road between most bands. */
-export const BAND_CHANCE_DAY = 0.45;
-export const BAND_CHANCE_NIGHT = 0.6;
+export const BAND_CHANCE_DAY = 0.75;   // was 0.45: a band in three cells of four, so the nearest one is about a quarter nearer
+export const BAND_CHANCE_NIGHT = 0.9;   // was 0.6
 /** A wandering band's pace (m/s) and how long it keeps one heading (ms). OW6: a brisk walk, turning oftener - from the
  *  Overworld's height (150-450 m up) a band at 1.3 m/s on 75 s legs read as one standing still. */
 export const BAND_WANDER_MPS = 2;

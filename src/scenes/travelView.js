@@ -101,7 +101,8 @@ export const TRAVEL_VIEW_TEXT = Object.freeze({
   placesOnly: 'Travel Options only travels to places - click a town.',   // AUDIT DEEP T2-8: coordinate targeting off
   spot: 'The marked spot',
   theSpot: 'the marked spot',   // AUDIT OW5 P5: inside a sentence ("L leads the party to the marked spot.")
-  partyHalted: 'The party has stopped.',   // AUDIT OW5 P5: a halt said - the panel only closed, and nobody knew why
+  partyHalted: 'The party has stopped.',
+  attackAsk: (name) => [`Attack ${name || 'them'}?`, 'You will travel straight to them.'],   // OW-ATTACK: the box on an enemy's double-click   // AUDIT OW5 P5: a halt said - the panel only closed, and nobody knew why
   byRoad: (name) => `To ${name}, by the road`,
   acrossCountry: (name) => `To ${name}, across country`,
   toSpot: 'To the marked spot',
@@ -276,7 +277,7 @@ export function createTravelView(deps) {
       // PERF-TV: the marks are drawn, so a click on a plate is found by where it landed - a place's (or TV5's far
       // place's) journey, never the ground's pick
       const key = deps.hud?.pickAt?.(e.clientX, e.clientY) ?? null;
-      if (key) deps.onMark?.(key); else deps.onPick?.(e.clientX, e.clientY, e);
+      if (key) deps.onMark?.(key, e); else deps.onPick?.(e.clientX, e.clientY, e);   // OW-ATTACK: the press with the mark (an enemy's single click is the ground's)
     }
   }
   function onMouse(e) {   // the host's window mousedown/mouseup (the swing, Mouse0) - the canvas's are the view's
@@ -379,7 +380,7 @@ export function createTravelView(deps) {
       deps.freeCursor?.(true);
     }
     listen(true);
-    deps.hud?.show({ onReturn: () => exit('button') });
+    deps.hud?.show({ onReturn: () => exit('button'), onMap: () => deps.openMap?.() });   // OW-BLOCK: the block's Map
     rearm();
     return true;
   }

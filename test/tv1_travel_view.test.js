@@ -791,11 +791,11 @@ test('AUDIT DEEP2 A2/A3/A4/A6/A7 view: a wheel zooms by its size; a repeat of a 
 
 test('AUDIT DEEP2 A1/A2/A5/A8/A9 by source: the travel panel keeps its presses; the pad is a cursor under the view; the key never repeats and answers indoors; a duel refuses the view', () => {
   const panel = rd('src/ui/enhancedTravelControl.js');
-  assert.match(panel, /root\.addEventListener\('mousedown', \(e\) => \{ if \(e\.target\?\.closest\?\.\('\[data-act\]'\)\) e\.stopPropagation\(\); \}\);/);
+  assert.match(panel, /bar\.addEventListener\('mousedown', \(e\) => \{ if \(e\.target\?\.closest\?\.\('\[data-act\]'\)\) e\.stopPropagation\(\); \}\);/);
   assert.doesNotMatch(panel, /addEventListener\('mouseup', \(e\) => \{ if \(e\.target\?\.closest/, 'never the release (AUDIT CHAT C5)');
   const w = rd('src/scenes/world.js');
   assert.match(w, /overlayActive: \(\) => townTalk\.overlayActive \|\| !!travelView\?\.active,/);
-  assert.match(w, /overlayUp: \(\) => overlayOpen\(\),/);
+  assert.match(w, /overlayUp: \(\) => overlayOpen\(\) \|\| travelViewConfirmOpen\(\),/);   // PIN MOVED (OW-CONFIRM): and the view's own question has the keys
   assert.match(w, /if \(act === 'Escape' && e\.repeat\) return true;[^\n]*\n\s*if \(act === 'Escape' && pauseDoorReady\(\)\) \{ hudCtx\.togglePause\(\); return true; \}/);
 });
 

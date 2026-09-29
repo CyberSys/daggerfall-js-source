@@ -174,7 +174,7 @@ test('PERF-TV readout: a click on a drawn plate is found where it landed (the on
 
 test('PERF-TV by source: the view asks the readout before it picks; the host keeps the marks\' scene points between the ground\'s changes (the route\'s far legs and the cap\'s count are tv2\'s pins)', () => {
   const v = rd('src/scenes/travelView.js');
-  assert.match(v, /const key = deps\.hud\?\.pickAt\?\.\(e\.clientX, e\.clientY\) \?\? null;\n\s*if \(key\) deps\.onMark\?\.\(key\); else deps\.onPick\?\.\(e\.clientX, e\.clientY, e\);/);
+  assert.match(v, /const key = deps\.hud\?\.pickAt\?\.\(e\.clientX, e\.clientY\) \?\? null;\n\s*if \(key\) deps\.onMark\?\.\(key, e\); else deps\.onPick\?\.\(e\.clientX, e\.clientY, e\);/);
   const w = rd('src/scenes/world.js');
   assert.match(w, /hud: \{ show: showTravelViewHud, hide: hideTravelViewHud, update: updateTravelViewHud, pickAt: travelViewHudPickAt \},/);
   assert.match(w, /if \(k\[0\] !== built\.size \|\| k\[1\] !== state\.mapOrigin\.x \|\| k\[2\] !== state\.mapOrigin\.y \|\| k\[3\] !== c\[0\] \|\| k\[4\] !== c\[1\] \|\| k\[5\] !== c\[2\] \|\| t - k\[6\] > 500\) \{/, 'the ground moves on a build, a drop, a re-anchor - and every half second besides');
@@ -365,7 +365,9 @@ test('AUDIT DEEP2 E6/E7 readout: a corner piece stops the marks along its edge s
     // behind and down-left: held on the foot at x 150, inside the block's span; off the left at y 397, over the block's top
     hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [far('far:foot', 1192.6, 60, false), far('far:left', -5000, 700)] });
     const hits = hud.travelViewHudState().hits, at = (k) => hits.find((h) => h.key === k);
-    assert.ok(at('far:foot').x0 >= quick.right, `along the foot, past the block (${JSON.stringify(at('far:foot'))})`);
+    // OW-EDGES: the foot is a notch where a piece stands, not a band across it - a mark behind and down-left may reach the
+    // left edge first; either way it stands clear of the corner piece (along the foot past it, or down the left over it)
+    { const q = at('far:foot'); assert.ok(q.x0 >= quick.right || q.y1 <= quick.top, `clear of the block (${JSON.stringify(q)})`); }
     assert.ok(at('far:left').y1 <= quick.top, `down the left, over it (${JSON.stringify(at('far:left'))})`);
   } finally { hud.disposeTravelViewHud(); }
   // a landscape phone on a journey: the panel's foot at 147, the bar and the buttons under - the room kept
