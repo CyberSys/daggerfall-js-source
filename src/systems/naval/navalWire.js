@@ -24,7 +24,13 @@
 //       seed, skill]: the shooting ship's number (-1: the owner's own boat), its hull and root pose at the fire, the
 //       lay and the volley's seed - every receiver flies the same balls from it (navalGunnery.js volleyLaunches) and
 //       draws them, hitting nothing (`resolve: false`); at most NAVAL_WIRE_VOLLEYS
-//   b - the fire barrels dropped in the same window, each [id, x, y, z], at most NAVAL_WIRE_BARRELS
+//   b - the fire barrels dropped in the same window, each [id, x, y, z, shooter], at most NAVAL_WIRE_BARRELS - AUDIT
+//       NAV1 (online #7): `shooter` the dropping ship's number as a volley's (-1: the owner's own boat; an older
+//       build's four fields read so), so a pirate's barrel blows under any player's boat, not its stander's alone
+//   p - AUDIT NAV1 (online): the owner's own boat at sea - [hull%, crippled, boarders]: her hull, whether she is a wreck,
+//       and whether the player lets pirates board them (the Features row) - the captains another stands judge her by
+//   n - AUDIT NAV1 (online #6): the owner's notoriety, each [crown, 0..NOTORIETY.max] by CROWNS' row, the crowns it is
+//       owed in - another's navy hunts every player by their own, never by its stander's
 // A word passes the door whole or not at all (`validNavalRecord`): a known class and variant, bounded places, a state
 // the ship can be in, shares in 0..100, a side, a finite lay.
 //
@@ -32,13 +38,16 @@
 // ship's number, its hull, sail and crew damage, a fire, the zone) that the relay routes by `to` alone, landed by
 // the stander, who says the ship's new state in its next word. `validNavalHit` is its door: bounded damage, no more
 // than one broadside's worth in one frame (NAVAL_HIT_MAX); its fire `f` 1 a ball's, 2 a barrel's (AUDIT NAV1: a
-// barrel's burns longer and hotter). AUDIT NAV1 (online): a ship boarded is no claim to her stander any more - her
+// barrel's burns longer and hotter). AUDIT NAV1 (online): the same frame with `g` 1 and no hurt is a GRAPPLE - my ship
+// `n` alongside you, her grapnels thrown: the victim takes her over and fights her boarders on his own deck, if he lets
+// pirates board him; else his word says he does not and she sheers off. And a ship boarded is no claim to her stander - her
 // boarder takes her over at the grapple (one past her handover count, in the word) and the haul, the fight, the prize
 // and her fate are the boarder's world; the four board claims (boarding, taken, scuttled, adrift) marked her in the
 // stander's world while all of it happened in another's.
 
 import { POSE_BOUND, POSE_Y_BOUND } from '../../net/wire.js';
-import { SHIP_CLASSES } from './navalShips.js';
+import { SHIP_CLASSES, CROWNS } from './navalShips.js';
+import { NOTORIETY } from './navalLaw.js';
 import { REGION_NAMES } from '../../formats/mapsFile.js';
 import { HULL_NAMES, HULL_VARIANT_COUNTS } from '../comeSailAwayBoat.js';
 
@@ -66,8 +75,10 @@ const U32 = 0xffffffff;
 
 /**
  * My word: the ships I stand, the volleys and barrels of the last moments - in scene units, `toWire` taking a scene
- * point to the wire frame. Null when there is nothing to say (the reader drops mine).
- * @param {{ ships: any[], volleys: any[], barrels: any[] }} view
+ * point to the wire frame - and (AUDIT NAV1, online) my own boat at sea and my notoriety by crown. Null when there is
+ * nothing to say (the reader drops mine).
+ * @param {{ ships?: any[], volleys?: any[], barrels?: any[], me?: { hull: number, crippled: boolean, boarders: boolean } | null,
+ *   law?: Record<string, number> }} view
  */
 export function navalWireRecord(view, toWire = (p) => p) {
   const s = [], v = [], b = [];
@@ -90,14 +101,21 @@ export function navalWireRecord(view, toWire = (p) => p) {
   for (const ba of view?.barrels ?? []) {
     if (b.length >= NAVAL_WIRE_BARRELS) break;
     const p = toWire(ba.pos);
-    b.push([ba.id >>> 0, r2(p[0]), r2(p[1]), r2(p[2])]);
+    b.push([ba.id >>> 0, r2(p[0]), r2(p[1]), r2(p[2]), Number.isInteger(ba.shooter) && ba.shooter >= 0 && ba.shooter <= 0xffff ? ba.shooter : -1]);
   }
-  return s.length || v.length || b.length ? { s, v, b } : null;
+  const out = { s, v, b };
+  const me = view?.me;
+  if (me) out.p = [pct(me.hull), me.crippled ? 1 : 0, me.boarders === false ? 0 : 1];
+  const law = [];
+  for (const [i, c] of CROWNS.entries()) { const n = Math.round(view?.law?.[c.name] ?? 0); if (n > 0) law.push([i, Math.min(NOTORIETY.max, n)]); }
+  if (law.length) out.n = law;
+  return s.length || v.length || b.length || out.p || out.n ? out : null;
 }
 
 /**
  * A peer's word through the door - whole or not at all.
- * @returns {{ ships: any[], volleys: any[], barrels: any[] } | null}
+ * @returns {{ ships: any[], volleys: any[], barrels: any[], me: { hull: number, crippled: boolean, boarders: boolean } | null,
+ *   law: Record<string, number> } | null}
  */
 export function validNavalRecord(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
@@ -129,34 +147,53 @@ export function validNavalRecord(raw) {
   }
   const barrels = [];
   for (const w of b) {
-    if (!Array.isArray(w) || w.length !== 4 || !w.every(Number.isFinite) || !int(w[0], 0, U32)) return null;
+    if (!Array.isArray(w) || (w.length !== 4 && w.length !== 5) || !w.every(Number.isFinite) || !int(w[0], 0, U32)) return null;
     const pos = [w[1], w[2], w[3]];
-    if (!inBounds(pos)) return null;
-    barrels.push({ id: w[0], pos });
+    if (!inBounds(pos) || (w.length === 5 && !int(w[4], -1, 0xffff))) return null;
+    barrels.push({ id: w[0], pos, shooter: w[4] ?? -1 });
   }
-  return { ships, volleys, barrels };
+  let me = null;
+  if (raw.p !== undefined) {
+    const p = raw.p;
+    if (!Array.isArray(p) || p.length !== 3 || !int(p[0], 0, 100) || !int(p[1], 0, 1) || !int(p[2], 0, 1)) return null;
+    me = { hull: p[0] / 100, crippled: p[1] === 1, boarders: p[2] === 1 };
+  }
+  const law = {};
+  if (raw.n !== undefined) {
+    if (!Array.isArray(raw.n) || raw.n.length > CROWNS.length) return null;
+    for (const w of raw.n) {
+      if (!Array.isArray(w) || w.length !== 2 || !int(w[0], 0, CROWNS.length - 1) || !int(w[1], 0, NOTORIETY.max)) return null;
+      law[CROWNS[w[0]].name] = w[1];
+    }
+  }
+  return { ships, volleys, barrels, me, law };
 }
 
 /** A change key: the word rides a delta frame only when it moved (the full frame always carries it). */
 export const navalRecordKey = (rec) => (rec ? JSON.stringify(rec) : '');
 
 /**
- * The blow's `nv`, as its striker sends it - `fire` true (a ball's), 'barrel' or false.
+ * The blow's `nv`, as its striker sends it - `fire` true (a ball's), 'barrel' or false; `grapple` (AUDIT NAV1, online)
+ * a grapple of my ship `n` on the player it goes to, no hurt.
  * @param {string} to
- * @param {{ n: number, hull?: number, sail?: number, crew?: number, fire?: boolean | 'barrel', zone?: string }} blow
+ * @param {{ n: number, hull?: number, sail?: number, crew?: number, fire?: boolean | 'barrel', zone?: string, grapple?: boolean }} blow
  */
-export function navalHitData(to, { n, hull = 0, sail = 0, crew = 0, fire = false, zone = 'hull' }) {
-  return { to, nv: { n: n | 0, h: Math.round(hull), s: Math.round(sail), c: crew | 0, f: fire === 'barrel' ? 2 : fire ? 1 : 0, z: zone === 'rig' ? 1 : zone === 'holed' ? 2 : 0 } };
+export function navalHitData(to, { n, hull = 0, sail = 0, crew = 0, fire = false, zone = 'hull', grapple = false }) {
+  const nv = { n: n | 0, h: Math.round(hull), s: Math.round(sail), c: crew | 0, f: fire === 'barrel' ? 2 : fire ? 1 : 0, z: zone === 'rig' ? 1 : zone === 'holed' ? 2 : 0 };
+  if (grapple) nv.g = 1;
+  return { to, nv };
 }
 
 /**
- * A blow on a ship I stand, through the door: bounded numbers, a known zone. Null for anything else.
- * @returns {{ n: number, hull: number, sail: number, crew: number, fire: boolean | 'barrel', zone: string } | null}
+ * A blow on a ship I stand, through the door: bounded numbers, a known zone - or a grapple (`g` 1, no hurt). Null for
+ * anything else.
+ * @returns {{ n: number, hull: number, sail: number, crew: number, fire: boolean | 'barrel', zone: string, grapple: boolean } | null}
  */
 export function validNavalHit(data) {
   const nv = data?.nv;
   if (!nv || typeof nv !== 'object' || Array.isArray(nv)) return null;
   if (!int(nv.n, 0, 0xffff) || !int(nv.h, 0, NAVAL_HIT_MAX) || !int(nv.s, 0, NAVAL_HIT_MAX) || !int(nv.c, 0, 60)) return null;
   if (!int(nv.f, 0, 2) || !int(nv.z, 0, 2)) return null;
-  return { n: nv.n, hull: nv.h, sail: nv.s, crew: nv.c, fire: nv.f === 2 ? 'barrel' : nv.f === 1, zone: ['hull', 'rig', 'holed'][nv.z] };
+  if (nv.g !== undefined && (nv.g !== 1 || nv.h || nv.s || nv.c || nv.f)) return null;   // a grapple carries no hurt
+  return { n: nv.n, hull: nv.h, sail: nv.s, crew: nv.c, fire: nv.f === 2 ? 'barrel' : nv.f === 1, zone: ['hull', 'rig', 'holed'][nv.z], grapple: nv.g === 1 };
 }

@@ -358,7 +358,7 @@ test('AUDIT NAV1 M12 giving up: a chase that has not closed in CHASE_GIVE_UP_S w
 
 // ── boarding ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('AUDIT NAV1 M1/G3 alongside to board: a pirate with men comes up to a player\'s boat lying still GRAPPLE_STILL_S, crippled or holed - on the side she approaches from, her way falling to stop her short of the berth, her broadsides held (her chasers still fire) - and grapples across GRAPPLE_GAP of water; never a peer\'s boat, never with Boarders off, never short of men (mutants: the stillness at range, the side, the held broadsides, the gap)', () => {
+test('AUDIT NAV1 M1/G3 alongside to board: a pirate with men comes up to a player\'s boat lying still GRAPPLE_STILL_S, crippled or holed - on the side she approaches from, her way falling to stop her short of the berth, her broadsides held (her chasers still fire) - and grapples across GRAPPLE_GAP of water; a peer\'s only as their own word allows (AUDIT NAV1, online), never with Boarders off, never short of men (mutants: the stillness at range, the side, the held broadsides, the gap)', () => {
   const s = ship('pirateBrig', { pos: [-220, 0, 60], yaw: 90 * DEG });
   const boat = player([0, 0, 0], { yaw: 0, hull: HULL.SmallShip, crippled: true });
   const w = world({ wind: [0, 0, 1.5], contacts: [boat] });
@@ -396,10 +396,14 @@ test('AUDIT NAV1 M1/G3 alongside to board: a pirate with men comes up to a playe
   const lg = ship('pirateBrig', { pos: [0, 0, galleyAft - 5 - bow], yaw: 0 });
   const o2 = stepCaptain(lg, world({ contacts: [player([0, 0, 0], { yaw: 0, hull: HULL.LargeGalley, crippled: true })] }));
   assert.equal(o2.grapple, 'me', 'the grapnels fly across GRAPPLE_GAP of water');
-  // never a peer's, never with Boarders off, never short of men
+  // AUDIT NAV1 (online #10): a peer's wreck when their own word lets pirates board them (the grapple theirs to take),
+  // never when it does not; never with Boarders off, never short of men
   const peer = ship('pirateBrig', { pos: [0, 0, 300] });
-  stepCaptain(peer, world({ contacts: [player([0, 0, 0], { crippled: true, peer: true })] }));
-  assert.notEqual(peer.mode, 'board');
+  stepCaptain(peer, world({ contacts: [player([0, 0, 0], { crippled: true, peer: true, boarders: true })] }));
+  assert.equal(peer.mode, 'board', 'a peer who lets them');
+  const refuses = ship('pirateBrig', { pos: [0, 0, 300] });
+  stepCaptain(refuses, world({ boarders: true, contacts: [player([0, 0, 0], { crippled: true, peer: true, boarders: false })] }));
+  assert.notEqual(refuses.mode, 'board', 'a peer who does not - whatever my own setting says');
   const off = ship('pirateBrig', { pos: [0, 0, 300] });
   stepCaptain(off, world({ boarders: false, contacts: [player([0, 0, 0], { crippled: true })] }));
   assert.notEqual(off.mode, 'board');

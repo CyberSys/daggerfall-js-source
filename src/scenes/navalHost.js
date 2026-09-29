@@ -240,6 +240,9 @@ export const OWNER_STALE_S = 6;
  */
 export const ORPHAN_S = 8;
 export const PREDICT_MAX_S = 2.5;
+/** AUDIT NAV1 (online #10): a ship of mine alongside another player's boat says her grapple to them this often (s) -
+ *  theirs to take her over; the word they send back says whether they let pirates board them. */
+export const GRAPPLE_CLAIM_S = 2;
 /** Whether a claim on a ship - her handover count `gen` said by `id` - holds her over another's. */
 export const claimBeats = (gen, id, otherGen, otherId) => gen > otherGen || (gen === otherGen && String(id) < String(otherId));
 /** A player's id folded into a number: the salt of the traffic they stand (0 offline - the waters' own seeds). */
@@ -327,6 +330,8 @@ const MY_BOAT = 'me';
 /** A boat of mine as the shots know it: its own id, so its balls never meet its own planking. */
 const myBoatId = (boat) => `${MY_BOAT}:${boat?.uid || 0}`;
 const isMine = (id) => typeof id === 'string' && id.startsWith(`${MY_BOAT}:`);
+/** A shot a sea ship fired - never a player's own (mine, or a peer's `peer:`). */
+const shipShot = (shooter) => !(typeof shooter === 'string' && (shooter.startsWith('peer:') || isMine(shooter)));
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const dist2d = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
 /** A launch's arc to `t` seconds, in 18 points - an aim's line to where its ball stops short of the sea. */
@@ -408,6 +413,13 @@ export function createNavalHost(deps) {
       const box = hullBox(e.boat);
       if (box) out.push({ id: e.id, box, rig: rigBoxesOf(e.boat) });
     }
+    // AUDIT NAV1 (online): another player's boat at her helm - a sea ship's ball or barrel that meets her bursts here too
+    // (her own client alone judges it, the victim's law), never passing through her on my screen; a player's shot - mine
+    // or any peer's, her own among them - never meets her (`hitBy`: no fight between players at sea)
+    for (const p of deps.peerBoats?.() ?? []) {
+      const box = p.boat ? hullBox(p.boat) : null;
+      if (box) out.push({ id: `peer:${p.id}`, box, rig: rigBoxesOf(p.boat), hitBy: shipShot });
+    }
     for (const b of myBoats()) {
       const box = hullBox(b);
       if (box) out.push({ id: myBoatId(b), box, rig: rigBoxesOf(b), boat: b });
@@ -434,6 +446,9 @@ export function createNavalHost(deps) {
   let wireBarrels = [];
   /** A peer's volleys and barrels seen already: owner -> Set of ids. */
   const seenVolleys = new Map();
+  /** AUDIT NAV1 (online): each peer's own word of themselves - owner -> { law: { crown: notoriety }, me: their boat's
+   *  { hull, crippled, boarders } | null } - the captains I stand judge each player by their own. */
+  const peerSelf = new Map();
 
   /** A sound at a place, heard over its own range (systems/naval/navalSounds.js NAVAL_SOUND_RANGE) - and not at all
    *  past its end (AUDIT NAV1: the bus's inverse law never reaches silence; the bus's own 500 m for a key without one). */
@@ -462,7 +477,7 @@ export function createNavalHost(deps) {
       for (const drop of solution.landings) {
         const id = u32();
         shots.dropBarrel({ id: String(id), shooter, pos: drop.point, resolve });
-        wireBarrels.push({ id, pos: [...drop.point], at: clock });
+        wireBarrels.push({ id, pos: [...drop.point], at: clock, shooter: wireShooter });   // AUDIT NAV1 (online #7): whose she is
         sound(NAVAL_CLASSIC.splashSmall, drop.point, 0.5);   // a barrel over the side
       }
       return solution.landings.length;
@@ -580,9 +595,10 @@ export function createNavalHost(deps) {
    * a ball from a ship of her own trade - or between two lawful ones - provokes nothing (a stray is not a feud: the
    * audit's pirates turned on their sisters in six fights of sixteen); the rest of the volley that struck her cannot
    * take her under one hull (STRUCK_GRACE_S), and striking puts her fires out (navalDamage.js). AUDIT NAV1 (B4): who
-   * set her afire is kept (`fireBy`) - her fires' own changes are theirs (stateChanged).
+   * set her afire is kept (`fireBy`) - her fires' own changes are theirs (stateChanged). `byPlayer`: the blow is a
+   * player's - mine, or (AUDIT NAV1, online #6) a peer's landed here (applyPeerHit).
    */
-  function strike(entry, hurt, by) {
+  function strike(entry, hurt, by, byPlayer = by === myId()) {
     const s = entry.ship;
     const striker = typeof by === 'string' ? sea.get(by)?.ship ?? null : null;
     if (!striker || !kindred(striker, s)) provoke(s, by, clock);
@@ -590,8 +606,9 @@ export function createNavalHost(deps) {
     const before = s.damage.state;
     const change = s.damage.apply(hurt, clock, { floor });
     if (hurt.fire && s.damage.fire > 0) { igniteShip(entry); entry.fireBy = by; }
-    // a navy that saw a lawful ship struck by the player is provoked at once
-    if (by === myId() && s.cls.faction !== 'pirate') {
+    // a navy that saw a lawful ship struck by a player is provoked at once - AUDIT NAV1 (online #6): any player's (a
+    // peer's piracy beside a navy provoked no one)
+    if (byPlayer && s.cls.faction !== 'pirate') {
       for (const w of sea.values()) if (w.ship.cls.faction === 'navy' && dist2d(w.ship.pos, s.pos) < WITNESS_RANGE) provoke(w.ship, by, clock);
     }
     if (change) stateChanged(entry, before, change, by);
@@ -772,7 +789,7 @@ export function createNavalHost(deps) {
     const num = n ?? nextNumber();
     const id = owner ? `${owner}:${num}` : `${myId()}:${num}`;
     const ship = createSeaShip({ id, seed: spec.seed, classId: spec.classId, variant: spec.variant ?? 0, pos: spec.pos, yaw: spec.yaw ?? 0, names, owner });
-    const entry = { id, n: num, owner, gen: Math.max(0, Math.min(NAVAL_GEN_MAX, spec.gen | 0)), region, orphan: null, ship, boat: null, fires: null, fireLoop: null, sinkLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, lifeDt: 0, lifeN: num % FAR_LIFE_EVERY, list: null, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colours: null };
+    const entry = { id, n: num, owner, gen: Math.max(0, Math.min(NAVAL_GEN_MAX, spec.gen | 0)), region, orphan: null, ship, boat: null, fires: null, fireLoop: null, sinkLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, grappleAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, lifeDt: 0, lifeN: num % FAR_LIFE_EVERY, list: null, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colours: null };
     sea.set(id, entry);
     return entry;
   }
@@ -854,6 +871,7 @@ export function createNavalHost(deps) {
    *  taken over where they lie if that is me; kept ORPHAN_S for the heir's word if not; one going down finishes going
    *  down on my clock (letGo). */
   function releaseOwner(owner) {
+    peerSelf.delete(owner);
     const heir = heirOf(owner);
     for (const e of [...sea.values()]) {
       if (e.owner !== owner || boarding?.shipId === e.id) continue;
@@ -1122,8 +1140,17 @@ export function createNavalHost(deps) {
       });
     }
     // the other players' boats at their helms (Come Sail Away's `sa`): a pirate takes them as it takes me; their hurts
-    // are their own clients' to take (the victim's law), and only I am ever grappled by the sea I stand
-    for (const p of deps.peerBoats?.() ?? []) out.push({ id: p.id, kind: 'player', pos: p.pos, vel: p.vel ?? [0, 0, 0], speed: p.speed ?? 0, yaw: p.yaw, hull: p.hull ?? null, peer: true });
+    // are their own clients' to take (the victim's law), and so is her grapple - said to them, their own to take her over
+    // by (AUDIT NAV1, online #10)
+    for (const p of deps.peerBoats?.() ?? []) {
+      // AUDIT NAV1 (online #6, #10): judged by their own word - their notoriety, their hull, a wreck, whether they let
+      // pirates board them (the navy hunted every player by the stander's notoriety, and a peer's wreck was never boarded)
+      const self = peerSelf.get(p.id);
+      out.push({
+        id: p.id, kind: 'player', pos: p.pos, vel: p.vel ?? [0, 0, 0], speed: p.speed ?? 0, yaw: p.yaw, hull: p.hull ?? null, peer: true,
+        notoriety: (c) => self?.law?.[c] ?? 0, hullShare: self?.me?.hull ?? 1, crippled: !!self?.me?.crippled, boarders: self?.me ? self.me.boarders : false,
+      });
+    }
     return out;
   }
 
@@ -2077,7 +2104,8 @@ export function createNavalHost(deps) {
       }
       const out = director.step(d, {
         density: stands ? density : 0, player: feet, players, level: deps.level?.() ?? 1, seaY, ships,
-        isOpenWater: (x, z, hull) => deps.isWater(x, z, hull), nearPort: !!w.nearPort, notoriety: notoriety.get(crown.name),
+        // AUDIT NAV1 (online #6): the waters draw the navy after the most notorious player in them, not the stander alone
+        isOpenWater: (x, z, hull) => deps.isWater(x, z, hull), nearPort: !!w.nearPort, notoriety: Math.max(notoriety.get(crown.name), ...[...peerSelf.values()].map((p) => p.law?.[crown.name] ?? 0)),
         seedBase: seedBaseOf(w.px ?? 0, w.py ?? 0, w.day ?? 0, SEED_SALT ^ idSalt(myId())),
       });
       for (const id of out.despawn) { const e = sea.get(id); if (e) drop(e); }
@@ -2103,6 +2131,12 @@ export function createNavalHost(deps) {
       for (const v of out.volleys) { fire({ shooter: e.id, wireShooter: e.n, hull: s.hull, pose, solution: v.solution, skill: s.cls.skill }); noteInbound(e, v.side); }
       for (const bsol of out.barrels) fire({ shooter: e.id, wireShooter: e.n, hull: s.hull, pose, solution: bsol, skill: s.cls.skill });
       if (out.grapple && !boarding && boat && out.grapple === myId() && setting('Boarders', true) !== false) startBoarding('repel', e, boat);
+      else if (out.grapple && out.grapple !== myId() && peerSelf.has(out.grapple) && clock - e.grappleAt >= GRAPPLE_CLAIM_S) {
+        // AUDIT NAV1 (online #10): alongside another player's boat - her grapnels said to them (GRAPPLE_CLAIM_S apart);
+        // theirs to take her over
+        e.grappleAt = clock;
+        deps.online?.sendHit?.(navalHitData(out.grapple, { n: e.n, grapple: true }));
+      }
     }
     checkShipRams();
     separateHulls();
@@ -2252,7 +2286,10 @@ export function createNavalHost(deps) {
       runOut: [...e.ship.runOut.keys()].reduce((m, side) => m | (1 << SIDES.indexOf(side)), 0),
       gen: e.gen, region: e.region,
     }));
-    return navalWireRecord({ ships, volleys: wireVolleys, barrels: wireBarrels }, toWire);
+    // AUDIT NAV1 (online): my boat at sea and my notoriety - the captains another stands judge me by my own
+    const b = boatInPlay(), st = b ? myBoatState(b) : null;
+    const me = st ? { hull: st.damage.hullShare(), crippled: st.damage.state === SHIP_STATES.wrecked, boarders: setting('Boarders', true) !== false } : null;
+    return navalWireRecord({ ships, volleys: wireVolleys, barrels: wireBarrels, me, law: notoriety.snapshot() }, toWire);
   }
   /** A peer's word: their ships stood as puppets, their volleys flown and drawn, their barrels afloat. */
   function applyWord(owner, raw, toScene = (p) => p) {
@@ -2312,8 +2349,11 @@ export function createNavalHost(deps) {
       const key = `b${b.id}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      shots.dropBarrel({ id: `${owner}:${b.id}`, shooter: `peer:${owner}`, pos: toScene(b.pos), resolve: false, owner });
+      // AUDIT NAV1 (online #7): a ship's barrel is a ship's - it blows under my boat as her balls strike it; the owner's
+      // own is a player's, never mine to take (no fight between players at sea)
+      shots.dropBarrel({ id: `${owner}:${b.id}`, shooter: b.shooter >= 0 ? `${owner}:${b.shooter}` : `peer:${owner}`, pos: toScene(b.pos), resolve: false, owner });
     }
+    peerSelf.set(owner, { law: rec.law, me: rec.me });
     if (seen.size > 512) { const keepIds = [...seen].slice(-256); seen.clear(); for (const k of keepIds) seen.add(k); }
     return true;
   }
@@ -2333,6 +2373,7 @@ export function createNavalHost(deps) {
   function clearPeers() {
     for (const e of [...sea.values()]) if (e.owner) drop(e);
     seenVolleys.clear();
+    peerSelf.clear();
   }
   /** An owner gone from the room, or quiet past `staleS`: their ships the heir's (releaseOwner); an orphan no word has
    *  claimed in ORPHAN_S let go. */
@@ -2350,9 +2391,18 @@ export function createNavalHost(deps) {
   function applyPeerHit(from, data) {
     const hit = validNavalHit(data);
     if (!hit) return false;
+    if (hit.grapple) {
+      // AUDIT NAV1 (online #10): their ship alongside my boat, her grapnels thrown - I take her over and fight her
+      // boarders on my own deck, if I let pirates board me at all (else my word says so and she sheers off)
+      const e = sea.get(`${from}:${hit.n}`);
+      const boat = myBoat();
+      if (!e || boarding || !boat || setting('Boarders', true) === false || e.ship.cls.faction !== 'pirate' || e.ship.damage.state !== SHIP_STATES.afloat) return false;
+      startBoarding('repel', e, boat);
+      return true;
+    }
     const entry = ownByN(hit.n);   // AUDIT NAV1 (online #8): by her number, whatever id she was minted under
     if (!entry) return false;
-    strike(entry, { hull: hit.hull, sail: hit.sail, crew: hit.crew, fire: hit.fire }, from);
+    strike(entry, { hull: hit.hull, sail: hit.sail, crew: hit.crew, fire: hit.fire }, from, true);   // a player's blow
     return true;
   }
 
@@ -2661,7 +2711,7 @@ export function createNavalHost(deps) {
       const pos = [f[0] + Math.sin(bearing) * range, deps.seaY(), f[2] + Math.cos(bearing) * range];
       return launch({ seed: u32(), classId, variant: 0, pos, yaw: yaw ?? bearing + Math.PI })?.id ?? null;
     },
-    _sea: sea, _shots: shots, _effects: effects,
+    _sea: sea, _shots: shots, _effects: effects, _contacts: contacts,
     get volleyWire() { return wireVolleys; },
     directorState: director,
     SIDE_DIR,

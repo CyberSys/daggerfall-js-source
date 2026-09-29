@@ -56,8 +56,8 @@
   {
     "name": "NAV-G-the-zones-swapped",
     "file": "src/systems/naval/navalWire.js",
-    "old": "z: zone === 'rig' ? 1 : zone === 'holed' ? 2 : 0 } };",
-    "new": "z: zone === 'rig' ? 2 : zone === 'holed' ? 1 : 0 } };",
+    "old": "z: zone === 'rig' ? 1 : zone === 'holed' ? 2 : 0 };",
+    "new": "z: zone === 'rig' ? 2 : zone === 'holed' ? 1 : 0 };",
     "tests": [
       "test/nav_g_online.test.js"
     ]

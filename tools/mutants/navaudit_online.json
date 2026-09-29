@@ -252,5 +252,484 @@
     "tests": [
       "test/navaudit_online.test.js"
     ]
+  },
+  {
+    "name": "NAV1O-barrel-ship-unsaid",
+    "file": "src/scenes/navalHost.js",
+    "old": "wireBarrels.push({ id, pos: [...drop.point], at: clock, shooter: wireShooter });",
+    "new": "wireBarrels.push({ id, pos: [...drop.point], at: clock });",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-barrel-read-as-players",
+    "file": "src/scenes/navalHost.js",
+    "old": "shooter: b.shooter >= 0 ? `${owner}:${b.shooter}` : `peer:${owner}`,",
+    "new": "shooter: `peer:${owner}`,",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-owners-barrel-a-ships",
+    "file": "src/scenes/navalHost.js",
+    "old": "shooter: b.shooter >= 0 ?",
+    "new": "shooter: b.shooter >= -1 ?",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-peer-word-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "peerSelf.set(owner, { law: rec.law, me: rec.me });",
+    "new": "peerSelf.set(owner, { law: {}, me: null });",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-law-unsaid",
+    "file": "src/scenes/navalHost.js",
+    "old": "barrels: wireBarrels, me, law: notoriety.snapshot() }, toWire);",
+    "new": "barrels: wireBarrels, me, law: {} }, toWire);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-boat-unsaid",
+    "file": "src/scenes/navalHost.js",
+    "old": "barrels: wireBarrels, me, law: notoriety.snapshot() }, toWire);",
+    "new": "barrels: wireBarrels, me: null, law: notoriety.snapshot() }, toWire);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-boat-hull-unsaid",
+    "file": "src/scenes/navalHost.js",
+    "old": "const me = st ? { hull: st.damage.hullShare(),",
+    "new": "const me = st ? { hull: 1,",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-boat-wreck-unsaid",
+    "file": "src/scenes/navalHost.js",
+    "old": "crippled: st.damage.state === SHIP_STATES.wrecked, boarders: setting('Boarders', true) !== false } : null;",
+    "new": "crippled: false, boarders: setting('Boarders', true) !== false } : null;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-boat-setting-unsaid",
+    "file": "src/scenes/navalHost.js",
+    "old": "crippled: st.damage.state === SHIP_STATES.wrecked, boarders: setting('Boarders', true) !== false } : null;",
+    "new": "crippled: st.damage.state === SHIP_STATES.wrecked, boarders: true } : null;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-contact-law-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "notoriety: (c) => self?.law?.[c] ?? 0, hullShare",
+    "new": "notoriety: () => 0, hullShare",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-contact-hull-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "hullShare: self?.me?.hull ?? 1, crippled",
+    "new": "hullShare: 1, crippled",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-contact-wreck-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "crippled: !!self?.me?.crippled, boarders",
+    "new": "crippled: false, boarders",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-contact-boarders-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "boarders: self?.me ? self.me.boarders : false,",
+    "new": "boarders: true,",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-silent-boat-boarded",
+    "file": "src/scenes/navalHost.js",
+    "old": "boarders: self?.me ? self.me.boarders : false,",
+    "new": "boarders: self?.me ? self.me.boarders : true,",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-grapple-unsaid",
+    "file": "src/scenes/navalHost.js",
+    "old": "deps.online?.sendHit?.(navalHitData(out.grapple, { n: e.n, grapple: true }));",
+    "new": "void 0;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-grapple-flood",
+    "file": "src/scenes/navalHost.js",
+    "old": "clock - e.grappleAt >= GRAPPLE_CLAIM_S",
+    "new": "true",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-refused",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (hit.grapple) {",
+    "new": "if (false) {",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-setting-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (!e || boarding || !boat || setting('Boarders', true) === false || e.ship.cls.faction",
+    "new": "if (!e || boarding || !boat || e.ship.cls.faction",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-any-ship",
+    "file": "src/scenes/navalHost.js",
+    "old": "|| e.ship.cls.faction !== 'pirate' || e.ship.damage.state !== SHIP_STATES.afloat) return false;",
+    "new": "|| e.ship.damage.state !== SHIP_STATES.afloat) return false;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-struck-ship",
+    "file": "src/scenes/navalHost.js",
+    "old": "|| e.ship.cls.faction !== 'pirate' || e.ship.damage.state !== SHIP_STATES.afloat) return false;",
+    "new": "|| e.ship.cls.faction !== 'pirate') return false;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-mid-fight",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (!e || boarding || !boat || setting('Boarders', true)",
+    "new": "if (!e || !boat || setting('Boarders', true)",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-at-no-helm",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (!e || boarding || !boat || setting('Boarders', true)",
+    "new": "if (!e || boarding || setting('Boarders', true)",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-witness-mine-alone",
+    "file": "src/scenes/navalHost.js",
+    "old": "strike(entry, { hull: hit.hull, sail: hit.sail, crew: hit.crew, fire: hit.fire }, from, true);",
+    "new": "strike(entry, { hull: hit.hull, sail: hit.sail, crew: hit.crew, fire: hit.fire }, from);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-director-law-mine",
+    "file": "src/scenes/navalHost.js",
+    "old": "notoriety: Math.max(notoriety.get(crown.name), ...[...peerSelf.values()].map((p) => p.law?.[crown.name] ?? 0)),",
+    "new": "notoriety: notoriety.get(crown.name),",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-director-law-theirs-alone",
+    "file": "src/scenes/navalHost.js",
+    "old": "notoriety: Math.max(notoriety.get(crown.name), ...[",
+    "new": "notoriety: Math.max(0, ...[",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-peer-boat-untargeted",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (box) out.push({ id: `peer:${p.id}`, box, rig: rigBoxesOf(p.boat), hitBy: shipShot });",
+    "new": "void box;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-peer-boat-struck-by-all",
+    "file": "src/scenes/navalHost.js",
+    "old": "rig: rigBoxesOf(p.boat), hitBy: shipShot });",
+    "new": "rig: rigBoxesOf(p.boat) });",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-peer-shots-meet-her",
+    "file": "src/scenes/navalHost.js",
+    "old": "(shooter.startsWith('peer:') || isMine(shooter))",
+    "new": "(isMine(shooter))",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-my-shots-meet-her",
+    "file": "src/scenes/navalHost.js",
+    "old": "(shooter.startsWith('peer:') || isMine(shooter))",
+    "new": "(shooter.startsWith('peer:'))",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-ball-law-unread",
+    "file": "src/systems/naval/navalShots.js",
+    "old": "if (t.alive === false || t.id === shooter || t.hitBy?.(shooter) === false) continue;",
+    "new": "if (t.alive === false || t.id === shooter) continue;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-canvas-law-unread",
+    "file": "src/systems/naval/navalShots.js",
+    "old": "t.id === ball.shooter || t.hitBy?.(ball.shooter) === false ||",
+    "new": "t.id === ball.shooter ||",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-barrel-law-unread",
+    "file": "src/systems/naval/navalShots.js",
+    "old": "s.id !== f.shooter && s.hitBy?.(f.shooter) !== false &&",
+    "new": "s.id !== f.shooter &&",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-barrel-shooter-unwritten",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "Number.isInteger(ba.shooter) && ba.shooter >= 0 && ba.shooter <= 0xffff ? ba.shooter : -1]",
+    "new": "-1]",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-barrel-shooter-unread",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "barrels.push({ id: w[0], pos, shooter: w[4] ?? -1 });",
+    "new": "barrels.push({ id: w[0], pos, shooter: -1 });",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-barrel-shooter-unbounded",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "(w.length === 5 && !int(w[4], -1, 0xffff))",
+    "new": "false",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-boat-unwritten",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (me) out.p = ",
+    "new": "if (false) out.p = ",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-boat-setting-inverted",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "me.boarders === false ? 0 : 1]",
+    "new": "me.boarders === false ? 1 : 0]",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-law-unwritten",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (law.length) out.n = law;",
+    "new": "void law;",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-law-uncapped",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "law.push([i, Math.min(NOTORIETY.max, n)]);",
+    "new": "law.push([i, n]);",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-self-alone-unsaid",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "return s.length || v.length || b.length || out.p || out.n ? out : null;",
+    "new": "return s.length || v.length || b.length ? out : null;",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-door-boat-hull-unbounded",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "!int(p[0], 0, 100)",
+    "new": "!int(p[0], 0, 1000)",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-door-boat-wreck-bit",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "!int(p[1], 0, 1)",
+    "new": "!int(p[1], 0, 2)",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-door-too-many-crowns",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "raw.n.length > CROWNS.length",
+    "new": "false",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-door-no-such-crown",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "!int(w[0], 0, CROWNS.length - 1)",
+    "new": "!int(w[0], 0, CROWNS.length)",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-door-notoriety-unbounded",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "!int(w[1], 0, NOTORIETY.max)) return null;",
+    "new": "!int(w[1], 0, 1e9)) return null;",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-door-grapple-with-hurt",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "(nv.g !== 1 || nv.h || nv.s || nv.c || nv.f)",
+    "new": "(nv.g !== 1)",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-door-grapple-unread",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "grapple: nv.g === 1 };",
+    "new": "grapple: false };",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-grapple-unwritten",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (grapple) nv.g = 1;",
+    "new": "void grapple;",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-navy-by-stander-law",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "(contact.notoriety ?? notoriety)(ship.names?.crown ?? null)",
+    "new": "notoriety(ship.names?.crown ?? null)",
+    "tests": [
+      "test/navaudit_captains.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-peer-never-boarded",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "(enemy.peer ? enemy.boarders === false : world.boarders === false)",
+    "new": "enemy.peer || world.boarders === false",
+    "tests": [
+      "test/navaudit_captains.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-peer-by-my-setting",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "(enemy.peer ? enemy.boarders === false : world.boarders === false)",
+    "new": "world.boarders === false",
+    "tests": [
+      "test/navaudit_captains.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-helm-boat-unsaid",
+    "file": "src/scenes/comeSailAwayPeers.js",
+    "old": "hull: s.hull, yaw, boat: s.boat });",
+    "new": "hull: s.hull, yaw });",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
   }
 ]

@@ -56,8 +56,8 @@
   {
     "name": "NAV-A-her-own-planking",
     "file": "src/systems/naval/navalShots.js",
-    "old": "      if (t.alive === false || t.id === shooter) continue;",
-    "new": "      if (t.alive === false) continue;",
+    "old": "      if (t.alive === false || t.id === shooter || t.hitBy?.(shooter) === false) continue;",
+    "new": "      if (t.alive === false || t.hitBy?.(shooter) === false) continue;",
     "tests": [
       "test/nav_a_guns.test.js"
     ]

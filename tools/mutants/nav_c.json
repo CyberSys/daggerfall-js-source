@@ -11,8 +11,8 @@
   {
     "name": "NAV-C-the-crown-not-asked",
     "file": "src/systems/naval/navalAI.js",
-    "old": "    if (f === 'navy') return provokedBy || notoriety(ship.names?.crown ?? null) >= NAVY_HUNTS;",
-    "new": "    if (f === 'navy') return provokedBy || notoriety(null) >= NAVY_HUNTS;",
+    "old": "    if (f === 'navy') return provokedBy || (contact.notoriety ?? notoriety)(ship.names?.crown ?? null) >= NAVY_HUNTS;",
+    "new": "    if (f === 'navy') return provokedBy || (contact.notoriety ?? notoriety)(null) >= NAVY_HUNTS;",
     "tests": [
       "test/nav_c_ships.test.js"
     ]

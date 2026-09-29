@@ -307,7 +307,8 @@ region's People), once per act per ship; no watch stands at sea, so no crime is 
 in the crown's waters rises with each act (NOTORIETY: fire, sink, board) and decays a day at a time
 (decayPerDay); the plate shows it as four anchors. Past NAVY_HUNTS a navy engages on sight; past HUNTER_AT the
 director sends hunters. Sinking or taking a PIRATE is lawful: PIRATE_REWARD - legal repute with the crown, and the
-Knightly Order's and the temples' regard (KNIGHTLY_FACTION, TEMPLE_FACTION), a flagship's the most.
+Knightly Order's and the temples' regard (KNIGHTLY_FACTION, TEMPLE_FACTION), a flagship's the most. Online a player's
+notoriety is their own: it rides their word, and the navy another player stands judges them by it (Online, below).
 
 ## An enemy nearby (NAV-H)
 
@@ -341,14 +342,26 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   handover's count and the names' region last; an older word's sixteen or seventeen read as none, the first claim and
   the reader's own region), its volleys
   (NAVAL_WIRE_VOLLEYS: the shooter, the hull, the side, the pose, the elevation, the seed and the skill - everything a
-  peer needs to fly the same balls) and its barrels, kept NAVAL_VOLLEY_KEEP_MS; it rides the owner's foes frame (`nv`,
+  peer needs to fly the same balls) and its barrels (each with its ship's number, AUDIT NAV1 online: an older word's four
+  fields read as the owner's own), kept NAVAL_VOLLEY_KEEP_MS; AUDIT NAV1 (online), its player's own boat at sea (`p`: her
+  hull, whether she is a wreck, whether they let pirates board them) and notoriety (`n`: each crown they are owed in, by
+  its row, 0..100); it rides the owner's foes frame (`nv`,
   beside Come Sail Away's `sa`) on every full frame and whenever it changed. `validNavalRecord` takes it whole or not
   at all, every number bounded (the pose bounds are `net/wire.js`'s own). NO RELAY CHANGE: the relay passes the foes
   frame through and routes a cell's hit by its `to`.
 - **The victim resolves**: a ball that strikes MY boat is mine to take, from any ship's volley flown here; a blow on a
   ship another player stands goes to them as a hit frame (`navalHitData`: `to`, the ship's number, the damage,
   bounded by NAVAL_HIT_MAX), and they land it. **No fight between players at sea**: a peer's own volley never hurts my
-  boat.
+  boat. A pirate's fire barrel is a ship's, whoever stands her (AUDIT NAV1, online #7: its word named no ship, so it
+  read as a player's - it blew under another player's boat for no hurt and floated on on her stander's screen). On
+  the stander's screen another player's boat stops a ship's ball, tears on her canvas and sets off her barrels as the
+  stander's own boat would - the splinters and the blast seen and heard there, the hurt hers to take on her own client -
+  and a player's shot passes her by (`hitBy`).
+- **Each player answers to their own law** (AUDIT NAV1, online #6): the captains another stands judge each player by
+  the notoriety their own word says - a navy hunts a wanted peer and leaves a lawful one be, whoever is wanted of her
+  stander; the stander's director draws the navy after the most notorious player in its waters; and any player's blow
+  on a lawful ship provokes the navy that saw it (`strike`'s `byPlayer`). (The navy judged every player by its
+  stander's notoriety, and a peer's piracy beside a navy provoked no one.)
 - **A boarding takes the ship over** (AUDIT NAV1, online): the boarder adopts her at the grapple, so the haul, the fight,
   the prize and her fate are one world - the boarder's - and her fire and her sinking ride his word to every screen.
   (Four board claims marked her in her stander's world while all of it happened in the boarder's: his copy hauled 17 m,
@@ -371,9 +384,14 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   converted points). A word that says no way - a boat brought up short, a moored fleet, an older build's - has none,
   and a snap (a summons, a fast travel) moves her place and never her speed, which is never measured off her places.
   (Before the merge with CSA-K the port measured the way off the eased places and threw a snap's step away; the
-  owner's own word is the truth that measure stood in for.) But a pirate GRAPPLES only the
-  boat of the player who stands the sea: a boarding is a fight on one client's deck, and the others' boats meet the
-  guns alone.
+  owner's own word is the truth that measure stood in for.) A pirate BOARDS any player's boat
+  their own word lets her (AUDIT NAV1, online #10): crippled, holed or lying still, and the player letting pirates
+  board them - their own setting, never the stander's. She comes alongside as her stander's captain brings her, and her
+  GRAPPLE goes to them as a claim (`navalHitData`'s `g`, no hurt, said every GRAPPLE_CLAIM_S while she lies alongside):
+  they take her over, one past her count as a boarder does, and fight her boarders on their own deck - a boarding is
+  one client's fight, the victim's. They refuse her at no helm, mid-fight, with their setting off, or she no pirate
+  afloat. (A pirate beside a peer's wreck sat 76 m off for two minutes and never boarded - the peer could neither
+  travel nor rest - and pirates grappled their stander alone.)
 - **The switch is forced ON online** (the Features row): the ships at sea are the room's world, and a room where one
   player sees the pirate boarding another and the other does not is two worlds. The traffic, the boarders and a
   voyage raid's plunder stay each player's own.
@@ -706,9 +724,12 @@ and their blows as directed frames (`test/navalRoom.mjs` now). Its fifteen findi
 | a ship minted with the socket away (#8) | `local:1` took nothing from a peer's blow (378 hull kept), a ship minted after it the same blow | a blow finds her by her number (`ownByN`) | the blow lands |
 | a ship named by the reader (#6, its crown) | the same cutter The Illessan Guard of Wayrest to her stander and The Daggerfall Vigilant of Daggerfall to a peer a pixel over | her names drawn in the region her word carries | one name, one captain, one crown |
 | another's ship a word behind | a brig at 7 m/s eased toward a word 200-280 ms old - stepping, a word and more behind | sailed on along her course at her way since the word (PREDICT_MAX_S) | within 1.2 m of where her stander has her; a word gone quiet, she stops PREDICT_MAX_S on |
+| the law by the stander (#6) | the navy judged every player by its stander's notoriety: it cruised 350 m past a peer at 80 (whose own client, a hostile ship near, could neither travel nor rest) and engaged a lawful peer when the stander was the wanted; a peer who fired on a merchantman beside a navy provoked the merchantman alone | each word says its player's notoriety (`n`) and the captains judge each by their own; the director draws the navy after the most notorious; any player's blow provokes the witnesses | the navy engages the wanted peer within 3 s and never the lawful one beside a wanted stander; the navy that saw a peer fire on a merchantman is provoked by them |
+| a pirate's barrel under another's boat (#7) | a peer who sailed onto a brig's barrel heard it blow and kept a whole hull (the stander's own fell 1.00 to 0.90), and it floated on on the stander's screen | the barrel says its ship's number (`b`'s fifth field); another's boat a target on the stander's screen, for a ship's shot alone | her own barrel, dropped as her captain drops one for a pursuer close under her stern, took the peer's hull from 1.00 to 0.88 on their own client, and blew on her stander's screen too; a player's barrel still never hurts another |
+| another's wreck (#10) | a pirate beside a peer's wreck sat 76 m off for 120 s and never boarded: no travel, no rest, the guns silent | each word says its boat (`p`); a pirate comes alongside another's wreck as her stander's and her grapple is said to them (`g`); they take her over and fight her boarders | boarded in 28 to 97 s from 60-130 m (three approaches); a player who does not let pirates board is spared, and the wreck left after WRECK_SPARE_S |
 
-The rest - the law judged by the stander's notoriety (#6), a peer's wreck and a pirate's barrel (#7, #10), the blows'
-retry and the volleys' age (#9, #15), and the frame's cost (#12-#14) - are the online slice's next.
+The rest - the blows' retry and the volleys' age (#9, #15), and the frame's cost (#12-#14) - are the online slice's
+next.
 
 ## The tests
 
@@ -742,9 +763,10 @@ centre column's sheet, the pad at the guns, the skins and the words; the arcs as
 ships' tags, the lookout, the tags drawn, her list and canvas, her smoke and planks, and her groan going down), on the
 shared sea of `test/navalSea.mjs` - and `navaudit_online` (the claim, the sea handed on, a quiet stander, boarding
 another's ship in one world, no twins, one number and one name, a ship between words, two standers meeting, a raider
-taken over) over several players' seas in the room of `test/navalRoom.mjs`.
+taken over, each player's own law, a pirate's barrel and ball at another's boat, another's wreck boarded through the
+grapple's word) over several players' seas in the room of `test/navalRoom.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
-`navaudit_helm.json`, `navaudit_boarding.json`, `navaudit_presentation.json` and `navaudit_online.json`, 704 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+`navaudit_helm.json`, `navaudit_boarding.json`, `navaudit_presentation.json` and `navaudit_online.json`, 756 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
@@ -763,7 +785,9 @@ the line the sweeps split; 28 with the online slice's handover, whose three surv
 player not standing the sea launching into a short one, the director's own law that another's ship is never its to
 let go, a yielded raider still mine to spend - and fourteen of the arc's own re-aimed at the lines it rewrote, three
 retired with the laws they checked: the board claims' door, the claim's mark, and the first of two holders a raider
-now has one of);
+now has one of; 52 with each player's own law online, a pirate's barrel and ball at another's boat, and another's
+wreck boarded through the grapple's word, and four of the arc's own - her own planking, the crown asked, the zones'
+codes, a peer's blow - re-aimed by content at the lines it rewrote);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

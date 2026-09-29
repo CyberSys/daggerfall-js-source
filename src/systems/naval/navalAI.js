@@ -308,9 +308,10 @@ export function createSeaShip({ id, seed, classId, variant = 0, pos, yaw = 0, na
 export const velocityOf = (ship) => { const f = forwardOfYaw(ship.yaw); return [f[0] * ship.speed, 0, f[2] * ship.speed]; };
 
 /**
- * Whether faction `a`'s ship takes `b` (a contact: `{ kind: 'ship'|'player', faction?, id }`) for an enemy.
+ * Whether faction `a`'s ship takes `b` (a contact: `{ kind: 'ship'|'player', faction?, id }`) for an enemy - a player
+ * by the notoriety their contact carries (AUDIT NAV1, online #6: a peer's own word's), else by `opts.notoriety`.
  * @param {any} ship
- * @param {{ kind: string, faction?: string, id: string }} contact
+ * @param {{ kind: string, faction?: string, id: string, notoriety?: (crown: string | null) => number }} contact
  * @param {{ notoriety?: (crown: string | null) => number, now?: number }} [opts]
  */
 export function hostile(ship, contact, { notoriety = () => 0, now = 0 } = {}) {
@@ -318,7 +319,8 @@ export function hostile(ship, contact, { notoriety = () => 0, now = 0 } = {}) {
   const provokedBy = (ship.provoked.get(contact.id) ?? -Infinity) > now - PROVOKED_S;
   if (contact.kind === 'player') {
     if (f === 'pirate') return true;
-    if (f === 'navy') return provokedBy || notoriety(ship.names?.crown ?? null) >= NAVY_HUNTS;
+    // AUDIT NAV1 (online #6): a player by their own notoriety - a peer's contact carries it, else the law handed in
+    if (f === 'navy') return provokedBy || (contact.notoriety ?? notoriety)(ship.names?.crown ?? null) >= NAVY_HUNTS;
     return provokedBy;   // a merchant: only who fired on it
   }
   const g = contact.faction;
@@ -645,10 +647,11 @@ export function stepCaptain(ship, world) {
   return out;
 }
 
-/** A pirate's boarding: a player's own boat (never a peer's - their sea is theirs), men to send, the Boarders setting
- *  on, and the boat crippled, holed or lying still. */
+/** A pirate's boarding: a player's boat - AUDIT NAV1 (online #10): another player's too, whose own word lets pirates
+ *  board them (the grapple theirs to take her over by) - men to send, the Boarders setting on, and the boat crippled,
+ *  holed or lying still. */
 function boardsHer(ship, enemy, world) {
-  if (ship.cls.faction !== 'pirate' || enemy.kind !== 'player' || enemy.peer || world.boarders === false) return false;
+  if (ship.cls.faction !== 'pirate' || enemy.kind !== 'player' || (enemy.peer ? enemy.boarders === false : world.boarders === false)) return false;
   if (ship.damage.crew < GRAPPLE_CREW || ship.damage.hullShare() < PIRATE_RUNS_AT) return false;
   return !!enemy.crippled || (enemy.hullShare ?? 1) < GRAPPLE_HULL || (ship.stillFor.get(enemy.id) ?? 0) >= GRAPPLE_STILL_S;
 }

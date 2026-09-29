@@ -41,9 +41,11 @@ export const FLOTSAM_REACH = 3;
 const GROUND_STEP = 4;
 
 /**
- * @typedef {{ id: string, box: { c: number[], ax: number[], ay: number[], az: number[], h: number[] }, rig?: any[], alive?: boolean }} ShotTarget
+ * @typedef {{ id: string, box: { c: number[], ax: number[], ay: number[], az: number[], h: number[] }, rig?: any[], alive?: boolean,
+ *   hitBy?: (shooter: any) => boolean }} ShotTarget
  *   a ship as the shots see it: its hull box this frame (navalBallistics.js orientedBox) and its rig's boxes; `alive`
- *   false for a ship that no longer takes hits (sunk)
+ *   false for a ship that no longer takes hits (sunk); `hitBy` false for a shooter whose balls and barrels never meet
+ *   her (AUDIT NAV1, online: another player's boat, met by a ship's shot alone)
  */
 
 /**
@@ -83,7 +85,7 @@ export function createShotField(deps) {
   const nearestHit = (targets, a, b, radius, shooter) => {
     let best = null;
     for (const t of targets) {
-      if (t.alive === false || t.id === shooter) continue;
+      if (t.alive === false || t.id === shooter || t.hitBy?.(shooter) === false) continue;
       const e = segmentBoxEntry(a, b, t.box, radius);
       if (e && (!best || e.t < best.e.t)) best = { t, e };
     }
@@ -93,7 +95,7 @@ export function createShotField(deps) {
   const rigsCrossed = (targets, a, b, radius, ball, before) => {
     const out = [];
     for (const t of targets) {
-      if (t.alive === false || t.id === ball.shooter || !t.rig?.length || ball.rigged?.has(t.id)) continue;
+      if (t.alive === false || t.id === ball.shooter || t.hitBy?.(ball.shooter) === false || !t.rig?.length || ball.rigged?.has(t.id)) continue;
       let best = null;
       for (const box of t.rig) { const e = segmentBoxEntry(a, b, box, radius); if (e && e.t <= before && (!best || e.t < best.t)) best = e; }
       if (best) out.push({ t, e: best });
@@ -159,7 +161,7 @@ export function createShotField(deps) {
       if (w) { f.pos[0] += (w[0] ?? 0) * FLOAT_DRIFT * span; f.pos[2] += (w[2] ?? 0) * FLOAT_DRIFT * span; }
       f.pos[1] = seaY + 0.15 * Math.sin(clock * 1.7 + f.phase);
       if (f.kind === 'barrel' && age >= BARREL_ARM) {
-        const t = targets.find((s) => s.alive !== false && s.id !== f.shooter && insideGrown(s.box, f.pos, BARREL.fuse));
+        const t = targets.find((s) => s.alive !== false && s.id !== f.shooter && s.hitBy?.(f.shooter) !== false && insideGrown(s.box, f.pos, BARREL.fuse));
         if (t) { emit({ type: 'blast', id: f.id, shooter: f.shooter, owner: f.owner, target: t.id, point: [...f.pos], resolve: f.resolve }); continue; }
       }
       if (f.kind === 'flotsam') {

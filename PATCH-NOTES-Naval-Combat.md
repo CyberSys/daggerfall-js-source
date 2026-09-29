@@ -150,5 +150,8 @@
 - Boarding a ship another player's game is running now happens in one world. The ship is hauled alongside, fought over, taken and scuttled the same way on every screen, and the prize no longer slides out from under you.
 - Two groups meeting at sea no longer double the ships for good, and two players in the same waters no longer meet identical twin ships.
 - Other players' ships sail smoothly between updates instead of stepping, and a ship's name, captain and crown are the same for everyone.
+- The navy judges each player by their own notoriety. Before, it judged everyone by the notoriety of the player whose game ran it, so it could sail past a wanted player and attack a lawful one. A navy ship that sees any player fire on a merchantman now turns on them.
 - Pirates attack every player's boat. Players cannot hurt each other's boats.
+- A pirate's fire barrel now hurts any player's boat that sails onto it. Before, it only hurt the player whose game ran the pirate.
+- Pirates now come alongside and board any player's crippled or stopped boat, and that player fights the boarders on their own deck. Before, a pirate would sit beside another player's wreck for good, and they could neither travel nor rest. Turn off Features > Naval Combat > Pirates board you and they leave you be.
 - Features > Naval Combat has settings for how many ships sail, whether pirates board you, the raiders' plunder and the broadside camera.

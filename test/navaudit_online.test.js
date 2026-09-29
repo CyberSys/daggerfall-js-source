@@ -7,12 +7,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { room } from './navalRoom.mjs';
 import { sea } from './navalSea.mjs';
-import { OWNER_SWEEP_S, OWNER_STALE_S, ORPHAN_S, PREDICT_MAX_S, PUPPET_SNAP_M, claimBeats, idSalt } from '../src/scenes/navalHost.js';
+import { OWNER_SWEEP_S, OWNER_STALE_S, ORPHAN_S, PREDICT_MAX_S, PUPPET_SNAP_M, GRAPPLE_CLAIM_S, claimBeats, idSalt, hullBoxOf, rigBoxesOf } from '../src/scenes/navalHost.js';
 import { seedBaseOf, SEED_SALT, createNavalDirector } from '../src/systems/naval/navalDirector.js';
 import { NAVAL_GEN_MAX, navalWireRecord, validNavalRecord } from '../src/systems/naval/navalWire.js';
 import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
 import { GRAPPLE_S } from '../src/systems/naval/navalBoarding.js';
 import { CROWNS } from '../src/systems/naval/navalShips.js';
+import { NAVY_HUNTS, WRECK_SPARE_S } from '../src/systems/naval/navalAI.js';
+import { NAVAL_SFX } from '../src/systems/naval/navalSounds.js';
+import { BARREL_ARM } from '../src/systems/naval/navalShots.js';
 
 const bySeed = (c, seed) => [...c.s.host._sea.values()].find((e) => e.ship.seed === seed) ?? null;
 const flat = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
@@ -265,4 +268,210 @@ test('AUDIT NAV1 (online) A NUMBER SAID AGAIN for another ship (her stander\'s n
   assert.equal(gone, old.boat, 'her hull let go');
   assert.equal(h.host._sea.get('z:5').ship.seed, 12, 'the number is the new ship\'s');
   assert.equal([...h.host._sea.values()].filter((e) => e.ship.seed === 11).length, 0);
+});
+
+/** A player's boat moved where the test wants it, and their feet with it. */
+const moor = (c, pos) => { c.s.boat.GameObject.position = [...pos]; c.s.view.feet = [...pos]; };
+
+test('AUDIT NAV1 (online #6) THE LAW BY EACH PLAYER\'S OWN: the navy another player stands hunted everyone by that player\'s notoriety - it sailed past a wanted peer and engaged a lawful one when its stander was the wanted - and a peer\'s piracy beside a navy provoked no one; now each player\'s word says their own notoriety, the captains judge each by it, and any player\'s blow on a lawful ship provokes the navy that saw it (mutants: the stander\'s law for all, the peer\'s word unread, the witness the stander\'s alone)', async () => {
+  const r = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }]);
+  const A = r.get('a'), B = r.get('b');
+  moor(B, [150, 0, 0]);
+  const navy = stand(A, 'navyCutter', [80, 0, 350]);
+  assert.equal(navy.ship.names.crown, 'Wayrest');
+  B.s.host.notoriety.add('Wayrest', NAVY_HUNTS);
+  r.run(3);
+  assert.deepEqual([navy.ship.mode, navy.ship.target], ['engage', 'b'], 'the wanted peer, by their own word');
+  const q = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }]);
+  moor(q.get('b'), [0, 0, 300]);
+  const qn = stand(q.get('a'), 'navyCutter', [20, 0, 380]);
+  q.get('a').s.host.notoriety.add('Wayrest', NAVY_HUNTS);
+  q.run(3);
+  assert.equal(qn.ship.target, 'a', 'the wanted stander');
+  q.run(10);
+  assert.notEqual(qn.ship.target, 'b', 'never the lawful peer beside her');
+  // a peer's blow on a lawful ship, a navy looking on: provoked by them
+  const w = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }]);
+  moor(w.get('b'), [0, 0, 300]);
+  const trader = stand(w.get('a'), 'merchantGalleon', [60, 0, 420]);
+  const witness = stand(w.get('a'), 'navyCutter', [-60, 0, 460]);
+  w.run(1);
+  assert.equal(w.get('a').s.host.applyPeerHit('b', { to: 'a', nv: { n: trader.n, h: 30, s: 0, c: 0, f: 0, z: 0 } }), true);
+  assert.ok(witness.ship.provoked.has('b'), 'the navy saw b fire on her');
+});
+
+test('AUDIT NAV1 (online #7) A PIRATE\'S BARREL under another player\'s boat blew with no hurt to them (the barrel\'s word named no ship, so it read as a player\'s) and lay on floating on her stander\'s screen - now her barrel says her number: it blows under any player\'s boat and their own client takes it; a player\'s own barrel still never hurts another; and on her stander\'s screen it blows too, the victim alone judging it; her own barrel, dropped by her captain, the whole road (mutants: the shooter unsaid, read as a player\'s, another\'s boat passed through)', async () => {
+  const r = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }]);
+  const A = r.get('a'), B = r.get('b');
+  moor(B, [0, 0, 250]);
+  const brig = stand(A, 'pirateBrig', [200, 0, 400]);
+  r.run(1);
+  const hullOf = (c) => c.s.host.hudModel()?.ship?.hull;
+  const hull0 = hullOf(B);
+  assert.equal(hull0, 1);
+  const word = (shooter) => ({ ...A.s.host.word((p) => p), b: [[77 + shooter, 0, 0, 250, shooter]] });
+  B.s.host.applyWord('a', word(-1), (p) => p);
+  for (let t = 0; t < BARREL_ARM + 1; t += 0.1) B.s.host.frame(0.1);
+  assert.equal(hullOf(B), hull0, 'the owner\'s own barrel: never mine to take');
+  B.s.host.applyWord('a', word(brig.n), (p) => p);
+  for (let t = 0; t < BARREL_ARM + 1; t += 0.1) B.s.host.frame(0.1);
+  assert.ok(hullOf(B) < hull0, `her barrel blew under me (${hullOf(B).toFixed(3)})`);
+  // her stander's screen: her barrel blows under b's boat too - the blast heard, the barrel gone; a player's never meets b
+  A.s.host._shots.dropBarrel({ id: 'mine', shooter: 'me:42', pos: [0, 0, 250], resolve: true });
+  A.s.host._shots.dropBarrel({ id: 'hers', shooter: brig.id, pos: [0, 0, 250], resolve: true });
+  const heard = A.s.log.sounds.length;
+  for (let t = 0; t < BARREL_ARM + 1; t += 0.1) A.s.host.frame(0.1);
+  const left = A.s.host._shots.floaters().map((f) => f.id);
+  assert.ok(!left.includes('hers') && left.includes('mine'), `hers blew, mine floats on (${left})`);
+  assert.ok(A.s.log.sounds.slice(heard).some(([k]) => k === NAVAL_SFX.blast), 'the blast heard');
+  // the whole road: her own barrel, dropped as her captain drops one for a pursuer close under her stern, said with her
+  // number, and blowing under b's boat on b's own client
+  const q = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }]);
+  moor(q.get('a'), [0, 0, -700]);
+  moor(q.get('b'), [0, 0, 250]);
+  const chaser = stand(q.get('a'), 'pirateBrig', [0, 0, 285]);
+  q.run(0.2, 0.1);
+  assert.deepEqual(q.get('a').s.host.word((p) => p).b.map((w) => w[4]), [chaser.n], 'her barrel said with her number');
+  q.run(2.5, 0.1);
+  assert.ok(hullOf(q.get('b')) < 1, `it blew under b (${hullOf(q.get('b'))?.toFixed(3)})`);
+  assert.ok(q.get('b').s.log.sounds.some(([k]) => k === NAVAL_SFX.blast), 'heard on b\'s own screen');
+});
+
+test('AUDIT NAV1 (online #10) ANOTHER PLAYER\'S WRECK: a pirate beside a peer\'s wreck sat at 76 m for two minutes and never boarded - the peer could neither travel nor rest - and pirates grappled their stander alone; now each player\'s word says their boat\'s hurt and whether they let pirates board them: she comes alongside another\'s wreck as her stander\'s, and her grapple goes to them - they take her over and fight her boarders on their own deck; a player who does not let pirates board is spared (mutants: the peer never boarded, the grapple unsaid, the claim refused, the setting unread)', async () => {
+  const wreck = { v: 1, boats: { 42: { hull: 0, sail: 0, crew: 0, fire: 0, state: 'wrecked', barrels: 0 } }, notoriety: {}, day: 1, raids: [] };
+  const r = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2, save: wreck }]);
+  const A = r.get('a'), B = r.get('b');
+  moor(A, [0, 0, -700]);
+  const brig = stand(A, 'pirateBrig', [70, 0, 30]);
+  let t = 0;
+  for (; t < 90 && !B.s.host.boarding; t += 0.1) r.tick(0.1);
+  assert.equal(B.s.host.boarding?.kind, 'repel', `her grapple came to b, who fights her boarders (${t.toFixed(0)} s)`);
+  const hers = bySeed(B, brig.ship.seed);
+  assert.deepEqual([hers.owner, hers.gen], [null, 1], 'b took her over at the grapple');
+  r.run(1);
+  assert.deepEqual([brig.owner, brig.gen], ['b', 1], 'a\'s copy is b\'s now');
+  // b does not let pirates board: spared
+  const q = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2, save: wreck, settings: { ShipsAtSea: 'off', Boarders: false } }]);
+  moor(q.get('a'), [0, 0, -700]);
+  const spare = stand(q.get('a'), 'pirateBrig', [70, 0, 30]);
+  q.run(20, 0.1);
+  assert.notEqual(spare.ship.mode, 'board', 'never comes to board');
+  assert.equal(q.get('b').s.host.boarding, null);
+  q.run(WRECK_SPARE_S + 5, 0.1);
+  assert.notEqual(spare.ship.target, 'b', 'and leaves the wreck be');
+});
+
+test('AUDIT NAV1 (online #6, #10) A PLAYER AS THE CAPTAINS SEE THEM is their own last word: their hull, a wreck, whether they let pirates board them and their notoriety by crown; a boat at a helm whose word has not come is whole, lawful and not to be boarded (mutants: each field unread, a silent boat boarded)', async () => {
+  const r = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }]);
+  const A = r.get('a'), B = r.get('b');
+  moor(B, [0, 0, 200]);
+  const peerOf = () => A.s.host._contacts().find((c) => c.id === 'b');
+  let c = peerOf();
+  assert.ok(c?.peer, 'b at her helm: a contact');
+  assert.deepEqual([c.hullShare, c.crippled, c.boarders, c.notoriety('Wayrest')], [1, false, false, 0], 'no word yet');
+  const wayrest = CROWNS.findIndex((k) => k.name === 'Wayrest');
+  assert.equal(A.s.host.applyWord('b', { p: [20, 1, 1], n: [[wayrest, 60]] }, (p) => p), true);
+  c = peerOf();
+  assert.deepEqual([c.hullShare, c.crippled, c.boarders, c.notoriety('Wayrest'), c.notoriety('Sentinel')], [0.2, true, true, 60, 0]);
+  A.s.host.applyWord('b', { p: [90, 0, 0] }, (p) => p);
+  c = peerOf();
+  assert.deepEqual([c.hullShare, c.crippled, c.boarders, c.notoriety('Wayrest')], [0.9, false, false, 0], 'each word whole: what it no longer says is gone');
+  // b's own word, as b's client says it: her hull, her setting, her notoriety - and a wreck
+  const hurt = { v: 1, boats: { 42: { hull: 100, sail: 50, crew: 10, fire: 0, state: 'afloat', barrels: 0 } }, notoriety: {}, day: 1, raids: [] };
+  const q = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2, save: hurt, settings: { ShipsAtSea: 'off', Boarders: false } }]);
+  moor(q.get('b'), [0, 0, 200]);
+  q.get('b').s.host.notoriety.add('Sentinel', 30);
+  q.run(0.5);
+  const share = q.get('b').s.host.hudModel().ship.hull;
+  assert.ok(share > 0 && share < 1, `b hurt (${share})`);
+  c = q.get('a').s.host._contacts().find((k) => k.id === 'b');
+  assert.deepEqual([c.hullShare, c.crippled, c.boarders, c.notoriety('Sentinel')], [Math.round(share * 100) / 100, false, false, 30]);
+  const wreck = { v: 1, boats: { 42: { hull: 0, sail: 0, crew: 0, fire: 0, state: 'wrecked', barrels: 0 } }, notoriety: {}, day: 1, raids: [] };
+  const w = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2, save: wreck }]);
+  moor(w.get('b'), [0, 0, 200]);
+  w.run(0.5);
+  c = w.get('a').s.host._contacts().find((k) => k.id === 'b');
+  assert.deepEqual([c.hullShare, c.crippled, c.boarders], [0, true, true], 'a wreck who lets pirates board');
+});
+
+test('AUDIT NAV1 (online #10) THE GRAPPLE\'S WORD is said to the victim every GRAPPLE_CLAIM_S while she lies alongside - never a frame\'s flood - and the victim alone takes her: at their helm, not already fighting, their own Boarders setting on, and only a pirate afloat (mutants: the cadence, each refusal)', async () => {
+  const wreck = { v: 1, boats: { 42: { hull: 0, sail: 0, crew: 0, fire: 0, state: 'wrecked', barrels: 0 } }, notoriety: {}, day: 1, raids: [] };
+  const settings = { ShipsAtSea: 'off', Boarders: true };
+  const r = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2, save: wreck, settings }, { id: 'c', hull: null }]);
+  const A = r.get('a'), B = r.get('b'), C = r.get('c');
+  moor(A, [0, 0, -700]);
+  const brig = stand(A, 'pirateBrig', [70, 0, 30]);
+  const claims = [];
+  const take = B.s.host.applyPeerHit;
+  B.s.host.applyPeerHit = (from, body) => { if (body.nv?.g) { claims.push(r.t); return false; } return take(from, body); };
+  for (let t = 0; t < 90 && !claims.length; t += 0.1) r.tick(0.1);
+  assert.ok(claims.length, 'alongside, her grapple said');
+  r.run(10, 0.1);
+  const n = claims.length - 1;
+  assert.ok(n >= Math.floor(10 / GRAPPLE_CLAIM_S) - 1 && n <= Math.ceil(10 / GRAPPLE_CLAIM_S) + 1, `${n} claims in 10 s`);
+  B.s.host.applyPeerHit = take;
+  const grapple = (e) => ({ to: 'b', nv: { n: e.n, h: 0, s: 0, c: 0, f: 0, z: 0, g: 1 } });
+  settings.Boarders = false;
+  assert.equal(B.s.host.applyPeerHit('a', grapple(brig)), false, 'b does not let pirates board');
+  settings.Boarders = true;
+  const trader = stand(A, 'merchantGalleon', [-120, 0, 60]);
+  r.run(0.6);
+  assert.equal(B.s.host.applyPeerHit('a', grapple(trader)), false, 'a merchantman boards no one');
+  assert.equal(B.s.host.applyPeerHit('a', { to: 'b', nv: { n: 999, h: 0, s: 0, c: 0, f: 0, z: 0, g: 1 } }), false, 'no such ship');
+  assert.equal(C.s.host.applyPeerHit('a', { ...grapple(brig), to: 'c' }), false, 'c is at no helm');
+  const struck = stand(A, 'pirateSloop', [-150, 0, 90]);
+  r.run(0.6);
+  const hers = bySeed(B, struck.ship.seed);
+  hers.ship.damage.restore({ ...hers.ship.damage.snapshot(), state: SHIP_STATES.struck });
+  assert.equal(B.s.host.applyPeerHit('a', grapple(struck)), false, 'her colours struck: she boards no one');
+  assert.equal(B.s.host.applyPeerHit('a', grapple(brig)), true, 'b takes her over');
+  assert.equal(B.s.host.boarding?.kind, 'repel');
+  const second = stand(A, 'pirateSloop', [-60, 0, -40]);
+  r.run(0.6);
+  assert.equal(B.s.host.applyPeerHit('a', grapple(second)), false, 'one fight at a time');
+});
+
+test('AUDIT NAV1 (online #6) THE WATERS DRAW THE NAVY after the most notorious player in them - the stander\'s director weighed its own notoriety alone (mutants: the stander\'s alone, the peers\' unread)', async () => {
+  const r = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }]);
+  const A = r.get('a'), B = r.get('b');
+  const seen = [];
+  const director = A.s.host.directorState, step = director.step;
+  director.step = (d, ctx) => { seen.push(ctx.notoriety); return step.call(director, d, ctx); };
+  r.run(1);
+  assert.equal(seen.at(-1), 0);
+  B.s.host.notoriety.add('Wayrest', 70);
+  r.run(3);
+  assert.equal(seen.at(-1), 70, 'b\'s, the most notorious');
+  A.s.host.notoriety.add('Wayrest', 80);
+  r.run(1);
+  assert.equal(seen.at(-1), 80, 'a\'s own when it is the most');
+});
+
+test('AUDIT NAV1 (online) ANOTHER PLAYER\'S BOAT STOPS A SHIP\'S BALL on the stander\'s screen, and tears on her canvas - it flew through her as through the air, splinters and all unseen - and a player\'s ball passes her by, mine or another\'s (no fight between players at sea) (mutants: her boat no target, a player\'s ball stopped - mine, a peer\'s, any - the ball\'s law and the canvas\'s unread)', async () => {
+  const r = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }]);
+  const A = r.get('a'), B = r.get('b');
+  moor(A, [0, 0, -700]);
+  moor(B, [0, 0, 250]);
+  const brig = stand(A, 'pirateBrig', [300, 0, 600]);
+  r.run(0.5);
+  const c = hullBoxOf(B.s.boat, A.s.pool.models).c, canvas = rigBoxesOf(B.s.boat)[0].c;
+  const shots = A.s.host._shots;
+  const fly = (shooter, at = c) => {
+    shots.clear();
+    shots.fireVolley({ id: `t-${shooter}`, shooter, resolve: true, launches: [{ gun: 'long', index: 0, p0: [at[0], at[1], at[2] - 60], v0: [0, 0.981, 300], delay: 0 }] });
+    for (let t = 0; t < 0.4; t += 1 / 60) A.s.host.frame(1 / 60);
+    return shots.inFlight;
+  };
+  const struck = (from) => A.s.log.sounds.slice(from).some(([k]) => k === NAVAL_SFX.hit);
+  let heard = A.s.log.sounds.length;
+  assert.equal(fly('me:42'), 1, 'a player\'s ball passes her by');
+  assert.equal(fly('peer:c'), 1, 'another player\'s too');
+  assert.equal(fly('me:42', canvas), 1);
+  assert.ok(!struck(heard), 'no splinter, no torn canvas');
+  heard = A.s.log.sounds.length;
+  assert.equal(fly(brig.id, canvas), 1, 'a ship\'s ball tears through her canvas and flies on');
+  assert.ok(struck(heard), 'heard through her canvas');
+  heard = A.s.log.sounds.length;
+  assert.equal(fly(brig.id), 0, 'and stops on her hull');
+  assert.ok(struck(heard), 'heard striking her');
 });

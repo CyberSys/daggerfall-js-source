@@ -27,7 +27,10 @@ export async function room(specs, { latency = 0.08, foesMs = 200, fullMs = 2000 
         return true;
       },
     };
-    c.s = await sea({ seed: 5 + i * 7919, ...spec, pool: await freshPool(), online });   // each client its own stream, as Math.random is
+    // the others' boats at their helms, as Come Sail Away's peers hand them: where, her way, her hull and her heading
+    const peerBoats = () => (c.present ? [...clients.values()].filter((o) => o !== c && o.present && o.s.boat && o.s.runtime?.sailing)
+      .map((o) => ({ id: o.id, pos: [...o.s.boat.GameObject.position], vel: [0, 0, 0], speed: 0, hull: o.s.boat.hull, yaw: 0, boat: o.s.boat })) : []);
+    c.s = await sea({ seed: 5 + i * 7919, peerBoats, ...spec, pool: await freshPool(), online });   // each client its own stream, as Math.random is
     clients.set(spec.id, c);
   }
   /** The world's pump: the word rides a frame when it changed, and every fullMs always. */

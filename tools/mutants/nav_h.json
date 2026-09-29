@@ -173,7 +173,7 @@
   {
     "name": "NAV-H-a-peers-blow-ignored",
     "file": "src/scenes/navalHost.js",
-    "old": "    strike(entry, { hull: hit.hull, sail: hit.sail, crew: hit.crew, fire: hit.fire }, from);",
+    "old": "    strike(entry, { hull: hit.hull, sail: hit.sail, crew: hit.crew, fire: hit.fire }, from, true);   // a player's blow",
     "new": "",
     "tests": [
       "test/nav_h_host.test.js"

@@ -42,7 +42,7 @@ export async function freshPool() {
  * A sea: `hull` the player's boat at a helm (null: on foot), `water(x, z)` the land test, `wind`, `settings`, `level`,
  * `raidQuest(name)` the quest a raid starts (none: refused), `save` a save to restore first, `online` the room's seam
  * (none: offline), `pool` a client's own pool (freshPool; else the suites' shared one, emptied), `where` the waters'
- * fields over the harness's own.
+ * fields over the harness's own, `peerBoats` the other players' boats at their helms (Come Sail Away's peers).
  * Answers `{ host, pool, boat, runtime, view, log, deps, run(seconds, dt) }`.
  */
 export async function sea(o = {}) {
@@ -76,6 +76,7 @@ export async function sea(o = {}) {
     },
     hold: (key, tier) => [{ name: `${key}@${tier}` }],
     online: o.online ?? null, setting: (k) => (o.settings ?? { ShipsAtSea: 'off' })[k], random: seeded(o.seed ?? 5), shake: (a) => log.shake.push(a),
+    peerBoats: () => o.peerBoats?.() ?? [],
     raiderSpent: (id) => log.spent.push(id),
   };
   const host = createNavalHost(deps);

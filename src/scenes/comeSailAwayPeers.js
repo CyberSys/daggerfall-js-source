@@ -246,7 +246,7 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
           const vel = s.vel ?? [0, 0, 0];
           // AUDIT NAV1: her hull and heading too - the room a captain gives her and the side he comes up on
           const q = s.turn, yaw = q ? Math.atan2(2 * (q[0] * q[2] + q[3] * q[1]), 1 - 2 * (q[0] * q[0] + q[1] * q[1])) : null;
-          out.push({ id: owner, pos: s.shown, vel, speed: Math.hypot(vel[0], vel[2]), hull: s.hull, yaw });
+          out.push({ id: owner, pos: s.shown, vel, speed: Math.hypot(vel[0], vel[2]), hull: s.hull, yaw, boat: s.boat });   // AUDIT NAV1 (online): her hull, for the shots
         }
       }
       return out;
