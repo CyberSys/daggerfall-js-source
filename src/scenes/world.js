@@ -202,7 +202,7 @@ import { saveSlot, loadSlot, quickLoadSlot, mostRecentRestorable, QUICK_SAVE_NAM
 import { frameBegin, frameEnd, frameAbort } from '../systems/frameClock.js';   // PERF1: the frame's script time; AUDIT-WH2 L1-F4: and the door an early return takes
 import { frameCapSkip } from '../systems/frameCap.js';   // FPS-CAP1: DFU's TargetFrameRate - a held frame re-arms before the clock and the input frame
 import { frameInterval, lastBusy, lendFrame, framesBegun } from '../systems/frameClock.js';   // PERF-EXT24: the frame's period and its own script, and the stream's slices lent back - those no frame ran inside
-import { arrivalClampMinutes, playerTravelPosition } from '../systems/travel.js';   // F-slice; F114: the ship-aware travel origin
+import { arrivalClampMinutes, playerTravelPosition, travelDays } from '../systems/travel.js';   // F-slice; F114: the ship-aware travel origin; SHIP-SAIL: the passage's days, as the map counts them
 import { hasSpecialAbility, SPECIAL_ABILITY } from '../systems/rest.js';   // F-slice: the NoRegen restore gate
 import { locationCompassDirection, buildingCompassDirection, findFactionByTypeAndRegion, directionHintString } from '../systems/talk.js';   // wave 26: %di's remote arm + the region-faction search; the LOCAL arm beside it; SPAWNED-DUNGEONS2b: the same eight-word compass
 import { seasonValue, SEASONS, MINUTES_PER_DAY, dateFromClassicMinutes, dateTimeString, midDateTimeString, isDayFromMinutes } from '../systems/gameDate.js';   // AUDIT 23 (wts-1); Q4-v: the notebook's header shapes
@@ -226,7 +226,7 @@ import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel oppon
 import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
-import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine, travelWalkRate } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
+import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine, travelWalkRate, shipPassageRows } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
 import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt } from '../ui/travelViewHud.js';   // TV1: its readout
 import { groundHit, canvasPoint, classifyPick } from '../player/travelPick.js';   // TV2: the click's ground
 import { planRoute, routeLegs, roadShare, crossesWater, dryLine, SEA_KINDS } from '../systems/travelRoute.js';   // TV2: the way by the roads; OWS2: and over the water
@@ -428,7 +428,7 @@ import { GATE_BRAIN_V } from '../net/wire.js';   // AUDIT WBX R7: the brain's la
 import { characterIdOf } from '../systems/characterId.js';   // AUDIT HCC-PARK: my parked team is my CHARACTER's (the relay keys it by the account and this)
 import { chooseTable, tableMoveSpeed } from '../player/eotbBillboard.js';   // AUDIT RIDE: the rider's gallop is the table the rider's own sprite shows
 import { PARTY_READY_TIMEOUT_MS, memberPresent, latestStamp, voteStands, snapshotCancels, cancelRequestFor, mirrorKey, cooldownStamp, stampOf, restsAlone, partyRestsTogether, restAloneText, restsApart, REST_APART_TEXT } from '../systems/partyRestLaw.js';   // AUDIT PARTY-REST: the pure half of the party-rest mechanic, pinned by execution   // SOC2: the hub's room and the party pose's floor (a second wire import: AUDIT WORLD4 A1 pins the first as it stands)
-import { besideLandingOf, PARTY_TRAVEL_TEXT, BESIDE_LEVEL } from '../systems/partyTravelLaw.js';   // PARTY-TRAVEL: the party's journey - to the leader, and together
+import { besideLandingOf, PARTY_TRAVEL_TEXT, BESIDE_LEVEL, fareText } from '../systems/partyTravelLaw.js';   // PARTY-TRAVEL: the party's journey - to the leader, and together; SHIP-SAIL: the fare's own row
 import { createPartyTravel } from '../systems/partyTravel.js';   // PARTY-TRAVEL: its session, over this host's seams
 import { TravelPopUpWindow } from '../ui/travelPopUp.js';   // PARTY-TRAVEL: the map's own popup prices a party journey, headless
 import { YesNoBoxWindow } from '../ui/yesNoBox.js';   // PARTY-TRAVEL: the journey's prompts - UXB1-M's box, either skin
@@ -7785,6 +7785,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   function playerTravelOrigin() {
     return playerTravelPosition(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel());
   }
+  /** SHIP-PORT (2026-09-28): the MapId the ship laws read as where the player is - PlayerGPS.CurrentLocation's (the
+   *  location of the pixel stood in, `_musicLoc`), unless the player stands on their own ship: then the location it
+   *  was boarded at, the pixel playerTravelOrigin reckons every trip from. Null in open wilderness (the C#'s
+   *  !Loaded). A DECLARATION for the same reason as its neighbour: the dep bag captures it by name. */
+  function travelOriginMapId() {
+    const here = playerTravelPixel(), from = playerTravelOrigin();
+    if (from.x === here.x && from.y === here.y) return _musicLoc?.mapTableData?.mapId ?? null;
+    return locationIndex.get(`${from.x},${from.y}`)?.mapTableData?.mapId ?? null;
+  }
   /** FS1 (2026-08-28) - THE TILE UNDER THE PLAYER, which this host has
    *  wanted since the FS-slice: the footstep block's own comment says
    *  "the path/water tile arms ride the tile-under-player flag", and
@@ -8861,6 +8870,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       // WA1: RaiseOnPreFastTravelEvent (DaggerfallTravelPopUp.cs:328) - after DeductFastTravelGold, before the teleport:
       // Warm Ashes' OnPreFastTravel reads the journey's ocean pixels and the ship toggle
       if (warmAshesOn()) warmAshesPreTravel({ oceanPixels: computed.oceanPixels ?? 0, travelShip: !!opts.travelShip });
+      // performFastTravel (:330-332): "Cache scene first, if fast travelling while on ship" - the deck's piles wait in the
+      // cache for the return, as boarding's own hand-off keeps them (AUDIT 28e: SHIP-PORT opened the passage from the
+      // deck, and this step was never carried, so what lay on the deck went with the torn-down pixel)
+      if (isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel())) cacheExteriorScene(playerTravelPixel());
       // ROAD-Ar (R1): the ARRIVAL minute rides the teleport. RaiseTime
       // is below, exactly where performFastTravel puts it (:344, after
       // TeleportToCoordinates at :333) - so the core is handed the
@@ -10041,7 +10054,16 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AUDIT-TO1 D1: PlayerGPS.CurrentLocation's MapId (null in open
       // wilderness, the C#'s !Loaded) and TransportManager.IsOnShip - the
       // two reads IsNotAtPort / HasNoOceanTravel need and never had.
-      currentLocationMapId: () => _musicLoc?.mapTableData?.mapId ?? null,
+      // SHIP-PORT (2026-09-28, Discord: "a player is at a port but unable
+      // to set sail"): ON THE SHIP, the port it was boarded at. The deck is
+      // "Your Ship" (2,2 or 5,5), in neither port list, so the passage was
+      // refused from the deck ("since there's no port") while every trip
+      // from it is reckoned from the boarding pixel - and By land walked
+      // out onto the sea into the mod's ocean stop ("maybe you should
+      // travel on a ship"). The mod reads PlayerGPS.CurrentLocation and
+      // meets the same dead end; its own HasNoOceanTravel names IsOnShip,
+      // the passage from the deck it meant (DEPARTURE, Travel-Options.md).
+      currentLocationMapId: () => travelOriginMapId(),
       isOnShip: () => isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel()),
     };
   }
@@ -15723,6 +15745,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       opts: { speedCautious: pop.speedCautious, sleepModeInn: pop.sleepModeInn, travelShip: pop.travelShip },
       computed: { ...pop.trip, minutes: guildFastTravel(playerEntity, pop.trip.minutes) },   // the popup's own hand-over: the blessed minutes
       afford: pop.enoughGoldCheck(),
+      coinsShort: (pop.deps.gold?.() ?? 0) >= pop.trip.totalCost && (pop.deps.goldPieces?.() ?? 0) < pop.trip.piecesCost,   // the gate's second half alone
       unwell: diseaseCount(playerEntity) + poisonCount(playerEntity) > 0,   // the popup's own warning, said on the prompt
     };
   }
@@ -17956,7 +17979,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     let plan = planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: tvSeaAsk(means, 'land') });   // OW-MOUNTAINS: never across the peaks; OWS2: across the water in a boat
     const dry = tvMooredDry(means, plan, () => planRoute(from, summary.pixel, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround() }));   // AUDIT OW5 S3
     if (dry) { plan = dry; means = null; }
-    if (!plan) { tvSeaNoWay(from, summary.pixel, means, net, 'land'); return false; }
+    if (!plan) { tvSeaNoWay(from, summary.pixel, means, net, 'land', summary); return false; }
     const legs = tvJoinedLegs(from, plan);
     const ok = travelOptions.beginTravelAlongRoute({ legs, summary, name: summary.name }, tvCautious(), { quiet: tvQuiet });
     if (!ok) return false;
@@ -18102,9 +18125,49 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   }
   /** The planner's ask: where the traveller starts, whether a landfall packs the boat, where the journey ends. */
   const tvSeaAsk = (means, goal) => (means ? { start: means.start, again: means.again, goal } : null);
-  /** No route: and would a boat have made one? Then that is said. */
-  function tvSeaNoWay(from, to, means, net, goal) {
-    const boat = !means && !!csaRuntime && csaOn() && !!planRoute(from, to, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: { start: 'land', again: true, goal } });   // THE MERGE: a boat's way round the peaks too
+  /**
+   * SHIP-SAIL (2026-09-28, Mac, of the Overworld taking the map's ship passage itself: "Shouldn't it already function
+   * as such?"). The Overworld sails the player's own boats (OWS2); the map sells Daggerfall's passage. A PLACE across
+   * the water the passage reaches from here is now OFFERED it where the walk is refused: priced as the map prices it
+   * (partyTripFare - the popup headless over the one dep bag: its ship law, the Travel Options ports rule off meaning
+   * DFU's passage from anywhere, the guild's blessing, the fare, the two-sided gold gate), refused by the map door's own
+   * rungs (partyTravelRefusal), asked in a Yes/No box, and taken as the map takes it - a party gathered is asked first
+   * (the map's own onTravel order), then the fade and fastTravelTo (partyTravelJourney). True when this answered the
+   * refusal, false when the passage's own law refuses the place (the boat's line then stands).
+   */
+  function tvOfferPassage(place) {
+    const fare = partyTripFare(place.pixel, { ...travelMapPopUpState(), travelShip: true });
+    if (!fare.opts.travelShip) return false;
+    const refused = partyTravelRefusal();
+    if (refused) { tvSay(refused); return true; }
+    if (giveOffer()) return true;   // the map door's GiveOffer rung (DaggerfallUI.cs:612): a pending offer handed over spends the press (AUDIT 28e)
+    if (!fare.afford) { tvSay(`${TRAVEL_VIEW_TEXT.noWay} ${fareText(fare.computed, false, fare.coinsShort)}`); return true; }
+    const pick = { pixel: place.pixel, name: place.name, mapId: place.mapId, regionIndex: place.regionIndex, locationIndex: place.locationIndex };
+    const days = sharedClockOn() ? 0 : travelDays(fare.computed.minutes);   // OL2: online the arrival is now
+    // AUDIT 28e: Yes is a new destination - the journey on the ground ENDS (the mod's own ClearTravelDestination: the
+    // panel closes, the route and the autopilot go, a party's walk ends with it), or it went on driving from the far
+    // shore back into the sea. No leaves me where I stood, the Overworld up again if it was (the box cut it down, and
+    // the line this offer replaced was a HUD message the view stayed up under).
+    const viewUp = !!travelView && travelView.state !== 'off';
+    let sailed = false;
+    townTalk.showOverlay(new YesNoBoxWindow({
+      rows: shipPassageRows(place.name, fareText(fare.computed), days, fare.unwell),
+      onYes: () => {
+        sailed = true;
+        travelOptions?.clearTravelDestination();
+        if (!partyTravel?.propose(pick, fare.opts, fare.computed)) partyTravelJourney(pick, fare.opts, fare.computed);
+      },
+    }), () => { if (viewUp && !sailed) travelView?.enter(); });
+    return true;
+  }
+  /** No route: would the water have made one? Then a place the map's ship passage reaches from here is offered it
+   *  (SHIP-SAIL; SHIP-PORT: "a boat would carry you" said at a port read as no way to set sail), and otherwise a boat
+   *  is said to be the way - with Come Sail Away on, the only boats there are. The passage is Daggerfall's own, so it
+   *  is asked whatever that mod says (AUDIT 28e: it was asked only with the mod on). */
+  function tvSeaNoWay(from, to, means, net, goal, place = null) {
+    const sea = !means && !!planRoute(from, to, { roads: net?.roads ?? null, tracks: net?.tracks ?? null, ...tvRouteGround(), sea: { start: 'land', again: true, goal } });   // THE MERGE: a boat's way round the peaks too
+    if (sea && place && tvOfferPassage(place)) return;
+    const boat = sea && !!csaRuntime && csaOn();
     tvSay(boat ? TRAVEL_VIEW_TEXT.needBoat : goal === 'sea' ? TRAVEL_VIEW_TEXT.water : TRAVEL_VIEW_TEXT.noWay);
   }
   /** The journey's hand let go of the helm. */

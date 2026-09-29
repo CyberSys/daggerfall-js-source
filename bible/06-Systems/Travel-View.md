@@ -1178,6 +1178,10 @@ so away from row 250 none comes within sight - recorded here for that branch; th
   ten minutes of rowing, little more than a kilometre at the oars' 2 m/s - and the Carrack makes no way at all - the mod divides its cargo by a Cargo
   modifier it lacks (kept, CSA-D) - so neither is a crossing's boat. No boat: the sea is refused as it always was, and
   a route a boat would have made is said ("There is no way there by land - a boat would carry you across the water.").
+  SHIP-SAIL (2026-09-28, Mac: "Shouldn't it already function as such?"): unless the place is one the map's ship
+  passage sails to from here - then the passage is OFFERED ("Sail there by ship?", its fare and days) and, on Yes,
+  taken as the map takes it (`01-Overview/Field-Bugs-2026-09-28e.md`). The passage is Daggerfall's, so it is offered
+  with this mod off too (AUDIT 28e); the boat's line is this mod's, said only with it on.
 - **The planner's sea** (`systems/travelRoute.js`, `sea`): three layers of the grid - ashore with the boat to hand,
   afloat, ashore with it left behind. A step from a land pixel into the water is the LAUNCH (`embark`), steps between
   water pixels are SAILED (`sea`: 1.2 a step - a little dearer than a road; 1.5 beside the land, so a route stands off a
