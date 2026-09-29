@@ -120,7 +120,7 @@ test('PROF3 piece: the quality laid on DFU\'s item - Crude\'s condition down, Fi
   }
   for (const f of ['quality', 'provenance', 'maker', 'kitMetal']) assert.ok(ITEM_FIELDS[f], `${f} is a declared item field`);
   assert.match(craftedText([w(2)]), /^You made a Fine Mithril Longsword$/);
-  assert.match(craftedText([w(4)]), /^You made an? Silverthorn's Mithril Longsword$/);
+  assert.match(craftedText([w(4)]), /^You made Silverthorn's Mithril Longsword$/, 'PROF4: a marked name takes no article (it said "an" for a maker whose name began with a vowel)');
   void lootRarityOn;
 });
 
@@ -254,10 +254,10 @@ test('PROF3 anvil page: at a smith\'s forge - the families and metals, a recipe\
 
 test('PROF3 wiring: the host mints a craft\'s pieces once each by provenance, pays the smith on the answer, asks the heat\'s band off STR and AGI; every host installs the kit\'s use; the Stores refuse to withdraw the stock', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /const pieces = mintPieces\(data\)\.filter\(\(it\) => !have\.has\(it\.provenance\)\);/);
+  assert.match(w, /const pieces = mintPieces\(data\)\.filter\(\(it\) => !it\.provenance \|\| !have\.has\(it\.provenance\)\);/);   // PROF4: arrows carry none
   assert.match(w, /settle: \(\) => profBook\.settle\(profMint, profMintCraft\),/);
   assert.match(w, /onSettle: \(\) => \{ profBook\.settle\(profMint, profMintCraft\)\.catch\(\(\) => \{\}\); \},/);
-  assert.match(w, /const r = await profBook\.craft\(recipe, \{ clean, name: [^\n]*\n\s*if \(!r\?\.ok\) return \{ ok: false, text: r\?\.kept \? CRAFT_KEPT_TEXT : accountRefusalText\(r\?\.error\) \};\n\s*if \(f\.fee > 0\) deductGold\(playerEntity, f\.fee\);/);
+  assert.match(w, /const r = await profBook\.craft\(recipe, \{ clean, heartwood, name: [^\n]*\n\s*if \(!r\?\.ok\) return \{ ok: false, text: r\?\.kept \? CRAFT_KEPT_TEXT : accountRefusalText\(r\?\.error\) \};\n\s*if \(f\.fee > 0\) deductGold\(playerEntity, f\.fee\);/);   // PROF4: a Heartwood for a plank
   assert.match(w, /heatBand: \(\) => heatBand\(\{ strength: liveStat\(playerEntity, 'strength'\), agility: liveStat\(playerEntity, 'agility'\) \}\),/);
   assert.match(src('src/scenes/shared.js'), /installSmithing\(\);/);
   assert.match(src('src/ui/profPages.js'), /go\.disabled = _stores\.busy \|\| !withdrawable\(pick\.material\);/);

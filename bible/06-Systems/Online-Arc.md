@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6684` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6717` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11003,3 +11003,22 @@ departure (`Port-Ledger.md` section A, SMITHING: THE ANVIL, QUALITY AND PROVENAN
 - **Pinned:** `test/prof3_law.test.js`, `test/prof3_service.test.js`, `test/prof3_client.test.js`;
   `tools/mutants/prof3.json` (59, every one dead).
 
+## PROF4 (2026-09-28, Mac: "Continue") - Logging, Carpentry and the furniture
+
+The record is `06-Systems/Professions-Arc.md` 4.2, 9.3, 9.4 and 25; this is what the slice built, online's alone. A
+Ledger A departure (`Port-Ledger.md` section A, LOGGING, CARPENTRY AND THE FURNITURE).
+
+- **The service** is `acct24`, its table changes `0024_logging.sql`: `node_harvests` rebuilt for the kind `logs` and a
+  second find (`extra`, a tree's Resin), `prof_crafts.heartwood`, `products.marked`. No new route: a tree is the
+  harvest's, a burn or a saw the smelt's (no XP), Carpentry's craft the craft route's (its rank, cap and track
+  Carpentry's), the furnisher's Linen the stock route's; the Ram Kit is refused before anything is spent (`prof-later`).
+  The act's report is bounded as PROF2's: the Clean Cuts at most the finish's, a clean act only with every chop clean.
+- **A crafted piece set down in a home** carries its provenance id and its maker's mark in DECOR's descriptor; the
+  service keeps the id only where its own `products` row is this account's and this template's, and writes the mark
+  from that row alone (a Masterwork's, a Master Joiner's) - never from what the client sent. A visitor reads it.
+- **The trees are the forest's own flats**, not new ones: the streamed pixel keeps its tree records and their batches,
+  a felled tree's flat is sunk in its batch and a stump stood (the world's own pictures), and the fall is the billboard
+  shader's (`uTip`) - so every player standing there sees the same forest, and the felled trees are the service's day.
+- **FOUND and fixed:** PROF3 left Smithing unpractised on the Professions page - its specialisation cards locked.
+- **Pinned:** `test/prof4_law.test.js`, `test/prof4_service.test.js`, `test/prof4_client.test.js`;
+  `tools/mutants/prof4.json` (87: 86 dead, one recorded equivalent).

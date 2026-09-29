@@ -328,7 +328,7 @@ test('PROF2 items: a metal or a gem withdrawn is DFU\'s own item in its own grou
   assert.deepEqual(inventoryItemImage(mintMaterialItem('stone:rough', false)).dyeTarget, null, 'stone is Lodestone\'s lump as it is');
   assert.equal(MINING_TEMPLATE_ROWS.length, 19);
   assert.ok(MINING_TEMPLATE_ROWS.every((r) => r.stackable === true && r.rarity === 10 && r.isIngredient === false), 'never shelved, never an ingredient');
-  assert.equal(mintMaterialItem('wood:charcoal', false), null, 'Charcoal is Logging\'s to register');
+  assert.equal(mintMaterialItem('wood:charcoal', false)?.templateIndex, 652, 'PROF4: Charcoal is Logging\'s, registered with it');
   const pack = { items: [] };
   assert.equal(withdrawIntoPack(pack, 'ingot:iron', 5, false), 5);
   assert.equal(pack.items.length, 1, 'the ingots stack');
@@ -343,7 +343,7 @@ test('PROF2 forge: what the Stores can smelt of a recipe - every input\'s units 
   assert.equal(smeltable(smeltRecipe('ingot:steel'), held), 0, 'no Charcoal');
   assert.equal(smeltable(smeltRecipe('ingot:iron'), () => 1000), 100);
   assert.equal(SMELT_RECIPES.length, 10);
-  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge']);
+  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge', 'workbench']);   // PROF4: the workbench, a fifth
   assert.deepEqual([DECOR_STATION_FEES.forge, DECOR_STATION_NAMES.forge], [50_000, 'Forge']);
 });
 
@@ -396,7 +396,7 @@ test('PROF2 DONE WHEN: veins placed on rock fields; signatures by kingdom - a co
 
 test('PROF2 hosts: the streaming world stands every kind through the one host, its rock pieces carried on the pixel; the dungeon\'s veins through its own doors; the forge at a smith\'s or a home; the Prospector\'s compass on both skins', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /gatherHost = createGatherHost\(\{\n\s*book: profBook, hud, kinds: \[herbKind\(\{ book: profBook \}\), mineKind\(\{ book: profBook \}\)\],/);
+  assert.match(w, /gatherHost = createGatherHost\(\{\n\s*book: profBook, hud, kinds: \[herbKind\(\{ book: profBook \}\), mineKind\(\{ book: profBook \}\),\n\s*treeKind\(\{ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord \}\)\],/);   // PROF4: Logging's trees, the third
   assert.match(w, /if \(rockPick\(m\.pick\)\) pixelRocks\.push\(box\);/, 'a rock piece that stood - after the road\'s clearance');
   assert.match(w, /rocks: pixelRocks,/);
   assert.match(w, /const rockPick = \(i\) => wodPicks\[i\]\?\.name === 'Rocks' \|\| wodPicks\[i\]\?\.name === 'Mountains';/);
@@ -409,7 +409,7 @@ test('PROF2 hosts: the streaming world stands every kind through the one host, i
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /\n\s*dungeonLoc = dfLocation;\n\s*host\.profDungeonEntered\?\.\(ctx\);/, 'after the flip and its lock, once the dungeon is the one stood in');
   assert.match(m, /if \(interact && !pressCast && host\.profPress\?\.\(\)\) return true;/, 'AUDIT 29: Interact alone, above QG1');
-  assert.match(m, /if \(piece\.station === 'forge'\) \{ if \(forgeOffered\(\)\) interiorKeyCtx\.togglePause\(\{ at: 'stores' \}\); else say\(FORGE_COLD_LINE\); return; \}/, 'AUDIT 29 B2: a cold forge says so');
+  assert.match(m, /if \(PROF_STATIONS\.includes\(piece\.station\)\) \{ if \(forgeOffered\(\)\) interiorKeyCtx\.togglePause\(\{ at: 'stores' \}\); else say\(stationColdLine\(piece\.station\)\); return; \}/, 'AUDIT 29 B2: a cold forge says so');
   assert.match(m, /if \(t === BUILDING_TYPES\.WeaponSmith \|\| t === BUILDING_TYPES\.Armorer\) return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: FORGE_FEE \};/, 'AUDIT 29 D4: open for trade');
   const d = src('src/scenes/dungeonContext.js');
   assert.match(d, /actTool: \(\) => opts\.actTool\?\.\(\) \?\? null,/);

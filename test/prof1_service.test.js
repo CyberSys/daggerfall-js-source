@@ -136,7 +136,7 @@ test('PROF1 service: the day, the hour and the node are the law\'s - yesterday\'
   assert.deepEqual(await post({ at: _now + 61 }), { error: 'prof-late' });
   assert.deepEqual(await post({ node: nodeKey({ kind: 'herb', x: p.x, y: p.y, day: utcDay(_now), slot: 4 }) }), { error: 'bad-node' }, 'Woodlands has four patches');
   assert.deepEqual(await post({ node: 'vein:1:1:1:0' }), { error: 'prof-kind' }, 'PROF2: a vein is ore, never herbs');
-  assert.deepEqual(await post({ node: 'tree:1:1:1:0', kind: 'herbs' }), { error: 'bad-node' }, 'a tree is Logging\'s, not yet');
+  assert.deepEqual(await post({ node: 'tree:1:1:1:0', kind: 'herbs' }), { error: 'prof-kind' }, 'PROF4: a tree is Logging\'s - logs, never herbs');
   assert.deepEqual(await post({ kind: 'logs' }), { error: 'prof-kind' });
   assert.deepEqual(await post({ climate: 223 }), { error: 'prof-pixel' }, 'the sea grows no herbs');
   const night = secondAt(utcDay(_now) * DAY + 60, 2);

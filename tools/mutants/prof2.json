@@ -116,8 +116,8 @@
   {
     "name": "PROF2-13-steel-without-charcoal",
     "file": "src/net/professionLaw.js",
-    "old": "  recipe('ingot:steel', 'ingot:steel', [['ingot:iron', 1], ['wood:charcoal', 1]]),",
-    "new": "  recipe('ingot:steel', 'ingot:steel', [['ingot:iron', 1]]),",
+    "old": "  ingot('ingot:steel', [['ingot:iron', 1], ['wood:charcoal', 1]]),",
+    "new": "  ingot('ingot:steel', [['ingot:iron', 1]]),",
     "tests": [
       "test/prof2_law.test.js",
       "test/prof2_client.test.js"
@@ -174,8 +174,8 @@
   {
     "name": "PROF2-19-any-rank-mines-deep",
     "file": "server-account/src/professions.js",
-    "old": "    tier = found.tier;\n    if (!tierOpen(rank, tier)) return { error: 'prof-rank' };",
-    "new": "    tier = found.tier;",
+    "old": "    tier = found.tier;\n    if (!tierOpen(rank, tier)) return { error: 'prof-rank' };\n    const s = strikesOf(act, tier);",
+    "new": "    tier = found.tier;\n    const s = strikesOf(act, tier);",
     "tests": [
       "test/prof2_service.test.js"
     ]
@@ -354,8 +354,8 @@
   {
     "name": "PROF2-39-a-forge-for-nothing",
     "file": "src/net/decorLaw.js",
-    "old": "enchant: 200_000, forge: 50_000 });",
-    "new": "enchant: 200_000, forge: 0 });",
+    "old": "enchant: 200_000, forge: 50_000, workbench: 50_000 });",
+    "new": "enchant: 200_000, forge: 0, workbench: 50_000 });",
     "tests": [
       "test/prof2_client.test.js",
       "test/homestations.test.js"

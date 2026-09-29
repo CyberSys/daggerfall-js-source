@@ -31,7 +31,7 @@ import { SEASONS, seasonValue, dateFromClassicMinutes } from '../systems/gameDat
 import { basketBlock, BASKET_BLOCKS } from '../systems/foragingCore.js';   // the Basket's blocks and foods - the IL's, one home
 import {
   herbKey, materialOf, foodKey, WRIT_UNITS, WRIT_TIER_WEIGHTS, writPay, writRenown, minedMaterial, CUT_RATIO,
-  DEEP_DELVER_MULT, GEM_CHANCE, PROSPECTOR_GEM,
+  DEEP_DELVER_MULT, GEM_CHANCE, PROSPECTOR_GEM, HEARTWOOD_CHANCE, FORESTER_MULT, RESIN_CHANCE, RESIN, HEARTWOOD,
 } from './professionLaw.js';
 import { kingdomOf, FREE_LANDS, MARCH_REGIONS, isMarch } from './kingdomLaw.js';   // SEAT0 4.3's map, one home (PROF2)
 
@@ -313,6 +313,69 @@ export function dungeonVeins(p) {
   return out;
 }
 
+// ─── THE TREES (PROF0 4.2, 6, 25) ────────────────────────────────────
+
+/** Each climate's woods, as log keys (PROF0 4.2): a tree's tier is each log's own (professionLaw LOGS). FOUND: 4.2
+ *  names only Ghostwood for the HauntedWoodlands - DECIDED (PROF0 25): its other trees are Woodlands' Oak and Cherry.
+ *  The Desert stands none (section 6's count). */
+export const WOOD_TABLES = Object.freeze({
+  [CLIMATES.Woodlands]: row('log:oak', 'log:cherry'),
+  [CLIMATES.MountainWoods]: row('log:pine', 'log:oak'),
+  [CLIMATES.Mountain]: row('log:pine'),
+  [CLIMATES.HauntedWoodlands]: row('log:oak', 'log:cherry'),
+  [CLIMATES.Swamp]: row('log:oak'),
+  [CLIMATES.Rainforest]: row('log:teak', 'log:mahogany'),
+  [CLIMATES.Subtropical]: row('log:cherry', 'log:teak'),
+});
+/** The rare woods (4.2): one tree in twenty of their climate's, on a confirmed pixel only. */
+export const RARE_WOODS = Object.freeze({ [CLIMATES.Rainforest]: 'log:ironwood', [CLIMATES.HauntedWoodlands]: 'log:ghostwood' });
+export const RARE_WOOD_CHANCE = 1 / 20;
+/**
+ * ONE TREE of a pixel's day: its law point (`u`, `v`), its tier and wood. A rare wood's one in twenty is its own roll,
+ * first, on a confirmed pixel; else the tier is drawn over the tiers the climate's woods hold by the weights, held to
+ * tier 2 on a pixel not confirmed - so an unconfirmed pixel whose woods are all past tier 2 (Rainforest, Subtropical)
+ * stands no tree (PROF0 25). Null past the day's count, or where no tree grows.
+ * @param {{ x: number, y: number, day: number, slot: number, climate: number, confirmed?: boolean }} p
+ */
+export function tree({ x, y, day, slot, climate, confirmed = false }) {
+  const table = WOOD_TABLES[climate];
+  if (!table || !Number.isSafeInteger(slot) || slot < 0 || slot >= nodeCount(climate, 'tree')) return null;
+  const u = 0.04 + 0.92 * unit('tree', x, y, day, slot, 1);
+  const v = 0.04 + 0.92 * unit('tree', x, y, day, slot, 2);
+  const rare = RARE_WOODS[climate];
+  if (confirmed && rare && unit('tree', x, y, day, slot, 5) < RARE_WOOD_CHANCE) return { slot, u, v, tier: tierOfKey(rare), material: rare, rare: true };
+  const d = drawFromTable(table, unit('tree', x, y, day, slot, 3), unit('tree', x, y, day, slot, 4), confirmed ? 7 : 2);
+  return d ? { slot, u, v, tier: d.tier, material: d.material, rare: false } : null;
+}
+/** Every tree of a pixel's day, slot 0 first. */
+export function trees(p) {
+  const out = [];
+  for (let slot = 0; slot < nodeCount(p.climate, 'tree'); slot++) { const n = tree({ ...p, slot }); if (n) out.push(n); }
+  return out;
+}
+/** A tree's base roll (the service's dice): 2 to 4 logs. */
+export const TREE_YIELD = Object.freeze([2, 4]);
+/** A TREE'S YIELD, in PROF0 6's order: the base roll; a march's +25%; the fraction a chance. The act moves no logs. */
+export function treeYield({ roll, march = false }, chance) {
+  let y = roll;
+  if (march) y *= MARCH_MULT;
+  return Math.max(1, wholeYield(y, chance));
+}
+/**
+ * A TREE'S FINDS (PROF0 4.2, 25): Resin one tree in four, on any ground; Heartwood a chance each Clean Cut (a Forester's
+ * twice it), one at most, on ground the witnesses confirmed. `dice()` the service's, a unit a call - the Resin's first.
+ * @returns {{ resin: string|null, heartwood: string|null }}
+ */
+export function treeFinds({ cuts, confirmed, forester = false }, dice) {
+  const resin = dice() < RESIN_CHANCE ? RESIN.key : null;
+  let heartwood = null;
+  if (confirmed) {
+    const chance = HEARTWOOD_CHANCE * (forester ? FORESTER_MULT : 1);
+    for (let i = 0; i < cuts; i++) if (dice() < chance) { heartwood = HEARTWOOD.key; break; }
+  }
+  return { resin, heartwood };
+}
+
 /** The gem a climate's veins give (PROF0 4.6): Amber (Woodlands), Jade (Rainforest), Turquoise (the deserts),
  *  Malachite (Swamp), Ruby, Sapphire or Emerald (Mountain); none elsewhere. A dungeon's vein gives a Diamond. */
 export const VEIN_GEMS = Object.freeze({
@@ -462,7 +525,8 @@ export const factConfirmed = (fact) => fact?.state === 'confirmed' || fact?.stat
 /**
  * WHAT A REGION'S COURT MAY ASK on a day: every herb its witnessed ground grows in the day's season - a confirmed
  * pixel's whole table, an unconfirmed one's tiers 1-2 - as the region's own group's material; its veins' metals by the
- * same rule, the region's signature ore on a confirmed pixel, Rough Stone where boulders stand (PROF2); each with the
+ * same rule, the region's signature ore on a confirmed pixel, Rough Stone where boulders stand (PROF2); its trees' logs
+ * by the same rule and its rare wood on a confirmed pixel (PROF4); each with the
  * material's own tier and value, ordered by key (a stable input for the draw).
  * @param {number} region
  * @param {Array<{ climate: number, confirmed: boolean }>} pixels the region's witnessed pixels
@@ -484,6 +548,12 @@ export function regionWritTable(region, pixels, season) {
     for (const k of VEIN_TABLES[p.climate] ?? []) if (tierOfKey(k) <= (p.confirmed ? 7 : 2)) keys.add(k);
     if (sig && p.confirmed) keys.add(sig.ore);
     if (nodeCount(p.climate, 'boulder') > 0) keys.add('stone:rough');
+    // PROF4: the ground's woods - its trees' logs by the same rule, its rare wood on a confirmed pixel. Never a plank,
+    // Charcoal, Resin or Heartwood: sawn, burnt or found, not the ground's
+    if (nodeCount(p.climate, 'tree') > 0) {
+      for (const k of WOOD_TABLES[p.climate] ?? []) if (tierOfKey(k) <= (p.confirmed ? 7 : 2)) keys.add(k);
+      if (p.confirmed && RARE_WOODS[p.climate]) keys.add(RARE_WOODS[p.climate]);
+    }
   }
   return [...keys].sort().map((key) => { const m = material(key); return { material: key, tier: m.tier, value: m.value }; });
 }

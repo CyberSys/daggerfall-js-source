@@ -864,7 +864,8 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 - `node_harvests` (day, node, kind, player, char_id - the node its one spelling, AUDIT 29) - BUILT,
   `0020_professions.sql` (with the harvest's profession, material, qty, XP credited, rid and nonce; AUDIT 29's
   `0022_audit29.sql` adds `deep_unconfirmed`, a dungeon vein nobody vouched for; pruned after two days by the state's own read, section 20; PROF2's `0021_mining.sql` rebuilt it for
-  the kinds `ore` and `stone` and a found `gem`); `prof_withdrawals` (a withdrawal's rid) and `world_witness` (SEAT0
+  the kinds `ore` and `stone` and a found `gem`; PROF4's `0024_logging.sql` rebuilt it again for the kind `logs` and a
+  second find, `extra` - a tree's Resin); `prof_withdrawals` (a withdrawal's rid) and `world_witness` (SEAT0
   3.2's witnessed pixel) BUILT with it - its second kind, the witnessed dungeon, PROF2's; `fish_hauls` (day, account,
   n) for the account cap
 - `prof_smelts` (player, rid, char_id, recipe, count, own, bought, xp, at, n) - BUILT, `0021_mining.sql` (PROF2: a
@@ -877,7 +878,8 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
   listing writes the item's condition and enchantments as the pack held them, and the buyer receives exactly that -
   BUILT, `0023_smithing.sql` (PROF3: provenance, owner, char_id, maker, recipe, template, material, quality, seed, record,
   made_at, listed; condition and enchantments come with the listing, PROF5), with `prof_crafts` (a craft's row) and
-  `prof_stock` (a purchase from the smith's stock)
+  `prof_stock` (a purchase from the smith's stock); `0024_logging.sql` (PROF4) adds `products.marked` (the maker's mark
+  a Masterwork or a Master Joiner's piece carries) and `prof_crafts.heartwood`
 - `marks` (account, balance); `guild_marks` (guild_id, balance); `marks_ledger` (seq, src_kind, src_id, dst_kind,
   dst_id, kind, amount, day, at, actor, who, rid) - BUILT, `0018_marks.sql` (AUDIT 28: this line gave the first sketch)
 - `market_listings` (id, region, seller, material or provenance, qty, price, expires_at); `market_orders`;
@@ -888,10 +890,11 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 - `board_notes` (id, map_id, author, author_name, subject, body, button, guild_id, char_id, at, expires_at, hidden,
   rid), `board_reports` (note_id, reporter, at) and `board_notices` (id, subject, body, author, author_name, at,
   expires_at, rid) - BUILT, `0019_board.sql` (AUDIT 28: this line gave the first sketch)
-- Endpoints: `/v1/prof/*` (harvest, spec; `smelt` BUILT with PROF2; `craft` and `stock` BUILT with PROF3), `/v1/stores/*`, `/v1/marks/*` (balance,
+- Endpoints: `/v1/prof/*` (harvest, spec; `smelt` BUILT with PROF2; `craft` and `stock` BUILT with PROF3; PROF4's trees, burns, saws, Carpentry and
+  the furnisher's Linen through the same five), `/v1/stores/*`, `/v1/marks/*` (balance,
   exchange, guild), `/v1/board/*` (notes), `/v1/market/*`, `/v1/writs/*`.
 - Law modules (pure, shared by client and service): marksLaw.js, boardLaw.js, professionLaw.js, nodeLaw.js and
-  kingdomLaw.js (built - the last PROF2's, SEAT0 4.3's map); recipeLaw.js (built, PROF3) and productRecord.js (PROF3's signed record).
+  kingdomLaw.js (built - the last PROF2's, SEAT0 4.3's map); recipeLaw.js (built, PROF3; Carpentry's with PROF4) and productRecord.js (PROF3's signed record).
 - The relay: the activity field on the pose (a `RELAY_VERSION` and LAW row); the in-person check for deliveries.
 
 ## 15. The slices, in order
@@ -905,7 +908,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF1** - SHIPPED 2026-09-28 (at `dev`, section 22) | The Stores; **Herbalism** with its act; the board's **Work tab**; the Professions and Stores tabs, the prompt, the meter, the toasts; the Sickle and the Basket's search; withdraw to pack; **Court writs** (section 11); FORAGE0 law 6's online exception - the six tools shelve online whatever the switch says. **Needs FORAGE1-2 (shipped)**, MARKS1 and NOTICE1 (FORAGE0 17) | An herb picked online reaches DFU's potion maker by the pack |
 | **PROF2** - SHIPPED 2026-09-28 (at `dev`, section 23) | Mining and Quarrying with their acts; the dungeon veins and the witnessed dungeon; gems; smelting at a forge (a smith's, or a home's forge station); ores and ingots (610-630) and stone (673-674); the Prospector's compass; metal and stone writs. Motherlodes and gate-touched ground are PROF2b. Needs FORAGE1-2 (shipped: the Pick-Axe) | Veins placed on rock fields; signatures by kingdom |
 | **PROF3** - SHIPPED 2026-09-28 (at `dev`, section 24) | Smithing with its act; quality; provenance; the anvil (the forge stands since PROF2); the smith's stock (the fittings the professions do not yet yield) | A crafted Mithril Longsword is DFU's, with its quality |
-| **PROF4** | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
+| **PROF4** - SHIPPED 2026-09-28 (at `dev`, section 25) | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
 | **PROF5** | The Market tab: listings, regional markets, couriers, buy orders, history | Needs MARKS1, NOTICE1, PROF3 |
 | **PROF5b** | Timed auctions for Masterworks | - |
 | **PROF6** | Writs: guild, seat, commissions, bounties | Needs SEAT1b for seat writs |
@@ -1438,6 +1441,156 @@ As built:
   real Worker, its piece minted from the answer - DFU's template 120 at Mithril (5), its damage DFU's, its condition its
   quality's, its provenance the signed record's.
 
+## 25. PROF4 - Logging, Carpentry and the furniture, as built (SHIPPED 2026-09-28, at `dev`)
+
+Mac: **"Continue"** (PROF4 after PROF3). What the design above left open for PROF4, DECIDED here (the record's, at
+Mac's instruction - "make the decisions ... This is your baby"), and what was found (FACT):
+
+- **What PROF4 is.** Logging's trees in the streaming world with their act (the ring, the fall, the stump); the logs,
+  planks, Charcoal, Resin and Heartwood (4.2) as materials and as items; sawing at a workbench and burning at a forge;
+  Carpentry's recipes at **the workbench** (9.3) with its act (**the plane**, 9.4); the furniture into DECOR, where the
+  owner sets it down (the done-when); the Ram Kit named; wood in the Court writs. Not here, named: the Harpy-feathered
+  arrows (Hunting's feathers, PROF7), the Ram Kit's making and use (its Bear Hides are Hunting's, its siege SEAT2's),
+  Siegewright (SEAT2), the held map's marks, "Craft x N" (9.3's third button - neither station has it yet).
+- **FOUND - PROF3 left Smithing unpractised on the Professions page.** The page's list of practised professions
+  (`ui/profPages.js` PRACTISED) held Herbalism and Mining alone, so Smithing's four specialisation cards stood locked
+  and its pane still said "the rest of the craft comes later" - the service took the choice (`chooseSpec` asks no such
+  list); the page never offered it. Smithing, Logging and Carpentry are practised now, each with its unlocks by tier.
+- **The woods** (4.2), each climate's: Woodlands Oak and Cherry; MountainWoods Pine and Oak; Mountain Pine; Swamp Oak;
+  Subtropical Cherry and Teak; Rainforest Teak and Mahogany, and Ironwood one tree in 20; HauntedWoodlands Ghostwood one
+  tree in 20 - FOUND: 4.2 names no other wood there. DECIDED: a haunted wood is a woodland under its curse - its other
+  nineteen trees are Woodlands' Oak and Cherry. The Desert stands none (section 6's count). A tree's tier is drawn over
+  the tiers its climate's woods hold by section 6's weights renormalised, the wood evenly among that tier's; the rare
+  wood's one in twenty is its own roll first, on a confirmed pixel only. **A pixel not confirmed is held to tiers 1-2**
+  (section 6) - so an unconfirmed Rainforest or Subtropical pixel stands no tree at all until three witnesses vouch for
+  it (a claimed Rainforest anywhere would otherwise be Teak on anyone's word); its herbs and veins bring the witnesses.
+- **Where a tree stands** (section 6: "a tree flat for a tree"). FACT: the streaming world lays out Daggerfall's own
+  nature flats per pixel from a seeded roll (`world/terrainNature.js` layoutNature - every client the same forest), one
+  merged billboard batch per (archive, record) (`scenes/world.js`), and nothing kept which flat was a tree. FACT: World
+  of Daggerfall names the nature records (`vendor/world-of-daggerfall/Scripts/LocationHelper.cs` billboards: 504's trees
+  12-18, 25 and 30, its trunks 19-20, its logs 31; each climate archive's own), and a winter archive is its summer
+  archive's records under snow (`world/climateSwaps.js`). DECIDED: a built pixel keeps its **tree flats** (the records
+  that table names Tree, by the climate's summer archive), and a tree node stands AT the tree flat nearest its law point,
+  one node a flat - **the player chops a tree of the forest**, not a tree added to it. A felled tree's own flat is sunk
+  below the ground in its batch (the batch rewritten in place, `render/renderer.js` moveBillboardBatch) for the rest of
+  the character's UTC day; on a pixel rebuilt, the node is gone and sunk again.
+- **The act** (5.2): the Wood-Axe drawn as DFU's War Axe (template 128), its chop StrikeDownRight's frames (FORAGE0
+  14.1). Chops 5 (tiers 1-2), 6 (3-4), 8 (5-6), Lumberjack two fewer, three at least. **The ring**: a circle shrinks from
+  three times the notch's radius onto it over **0.9 s** and on past it; a chop while it stands within the band - **12%**
+  of the notch's radius at Novice to **20%** at Master, x the Wood-Axe's band ((INT + STR) / 2, Foraging's pair, FORAGE0
+  14.4) - is a **Clean Cut**, worth two chops. One chop a 0.45 s swing; the ring starts again after each. A **clean act**
+  is every chop a Clean Cut. The tree creaks at half its chops. Gentle acts: every chop plain.
+- **The fall**: on the service's answer the tree tips away from the player and fades over **1.5 s** (the flat's own
+  picture on a one-flat batch, leaned about its root by a per-batch tip the billboard shader gains - `uTip`, 0 for every
+  other batch), and its **stump** stands - the climate archive's Tree Trunk (record 19) where World of Daggerfall's table
+  names one (504, 506, 508, 510), else nothing. **The logs at its foot** are DFU's own Logs flat (record 31) where the
+  archive has one (504, 508), gone when the player walks over them - a sight, not a second door: the logs were the
+  Stores' the moment the service answered (law 3). The answer is waited for, as every node greys only when the service
+  confirms (section 19).
+- **The yield** (section 6): a tree 2-4 logs, a march's +25%, the fraction a chance; **Resin** one tree in four (tier
+  1, the service's dice, any ground); **Heartwood** 2% a Clean Cut (Forester x2), one at most, on confirmed ground only
+  (a find, as a gem is). The act moves no logs - clean gives fewer chops, the Heartwood chance and the clean act's +50%
+  XP. The service bounds the report: the Clean Cuts at most the finish's (every chop clean), a clean act only with every
+  chop clean. The harvest row's second find is a new column (`node_harvests.extra` - the Resin); the Heartwood rides the
+  gem's (a Clean Cut's find, as a glint's).
+- **Heartwood** (4.2): FOUND - 4.8 gives it one template (654), so it is one material, not a tier-up plank of each wood.
+  DECIDED: tier 4 (a rare find worth a Teak plank's price); in any recipe that asks a plank - a carpenter's or a smith's
+  - one Heartwood may stand in for one plank, and it is 9.2's "Heartwood or a Warforged ingot" step: one step, never two
+  with a Warforged ingot.
+- **Sawing and burning** (4.2): no act, up to 100 logs a press, at no XP (DECIDED: a log's XP was its fall's; the forge's
+  smelt pays Smithing because Smithing has no gathering of its own, and Logging does). A log saws to **2 planks** of its
+  wood at a workbench (Timberwright 3); a log burns to **1 Charcoal** at a forge (Charcoal Burner 2) - the fire is the
+  forge's, and Steel's Charcoal is wanted there. They ride the smelt's route and decision (`/v1/prof/smelt`, one table,
+  `prof_smelts`), each recipe naming its station and the specialisation that multiplies it (a Quartermaster's ingots
+  moved into the same rule).
+- **The workbench** (9.3: "Carpentry (a workbench)"): FACT: DFU's towns hold Furniture Stores (building type 7) whose
+  shelves sell DFU's furniture (`systems/shopStock.js`, DECOR2b's furnisher). DECIDED: a Furniture Store's workbench,
+  open for trade, for **50 gold** a craft or a saw (the forge's fee), or a home's **workbench** station - HOME-STATIONS'
+  fifth, its licence 50,000 gold as the forge's, offered only where the Stores page is. The Workbench is a section of the
+  Stores page, live where it stands; its press at home opens the page, as the forge's does.
+- **Carpentry's recipes** (9.3), each at its wood (the recipe's tier and rank its wood's): the **Staff** (DFU 115) 3
+  planks; the **Short Bow** (129) 3 planks and 1 Resin; the **Long Bow** (130) 4 planks and 1 Resin - a staff's or bow's
+  material is its wood's tier's (9.3: "the bow's or staff's material step is its wood's tier"): Pine Iron, Oak Steel,
+  Cherry Silver, Teak Elven, Mahogany Mithril, Ironwood Adamantium, Ghostwood Ebony (DECIDED - the two tier-6 woods
+  split between the tier's metals, the hard wood the hard metal, the dark wood the dark one). **Arrows**, twenty: 1 Pine
+  Plank, 1 Iron Ingot and 4 Twigs - DFU's Twigs is a plant of both lands (both plant groups, `professionLaw.js`), so the
+  Stores keep it twice and the recipe is two, the northern Twigs' and the southern's, as the Stores name them. **The
+  furniture**, DFU's own templates in their own wood: the Large Tables (221-224) 6 planks, the Small Tables (225-228) 3,
+  the Chairs (229-232) 2, in Oak, Cherry, Mahogany and Teak; the beds 8 planks and 2 Linen - FOUND: DFU's four beds name
+  no wood; DECIDED: each is the wood of its place in DFU's own rarity column (Plain Single 1 Pine, Plain Double 2 Oak,
+  Fancy Single 3 Cherry, Fancy Double 4 Teak). **The Basket** (Foraging's 1607, FORAGE0 14.7) 2 Pine Planks. **The Ram
+  Kit** (690, rank 60): 40 Oak Planks, 20 Iron Ingots, 4 Bear Hides - named on the workbench and never made in PROF4:
+  its hides are Hunting's (PROF7) and its use the siege's (SEAT2); the service refuses it (`prof-later`).
+- **Linen** (4.5) is never gathered, and a bed asks two. FOUND: the Weavers' counter is the Market tab's (PROF5).
+  DECIDED: until it stands, **the furnisher's stock** - the Furniture Store's counter, the smith's stock's precedent
+  (section 24): a counter's goods, bought, for Marks burnt - sells Linen Bolt at 4.5's **2 Marks**. Its pack form waits
+  for Outfitting, as Cured Leather's for Hunting.
+- **The quality** (9.2) on Carpentry's pieces: the staff and the bows as the smith's weapons (condition, weight, a
+  Superior's Magic and a Masterwork's Rare roll, the mark); **arrows take none** - FACT: DFU mints an arrow stack at
+  condition 0 (`combat/enemyEquipment.js` createWeapon's arrow arm) and a quiver is one stack, so a quality has nothing
+  to act on and a mark on one arrow would split the quiver; the arrows carry no provenance either (the service keeps its
+  row), and Twigs' "one step lower" waits with the feathers. **Furniture**: its quality is its worth - the condition's
+  multiplier on its value - and never a Loot Rarity roll (DFU enchants no furniture); a Masterwork carries the maker's
+  mark, and every piece a **Master Joiner** makes does (3.3). The steps: the clean plane; **Bowyer** the bows (9.3's "bows
+  and arrows", the arrows taking none); Heartwood. **Joiner**: furniture at half the planks, rounded up.
+- **The plane** (9.4: "a steady drag along the grain, deviation scored as the trace is"): at the workbench the grain
+  runs across a board, a gentle curve its own each act; the player presses at its head and drags to its foot. The score
+  is the mean deviation from the grain against a tolerance - **18%** of the board's half-height, x Carpentry's band
+  ((AGI + WIL) / 2 - DECIDED: a steady hand, Foraging's four bands) and widening to half again by Master (the trace's
+  rule, 5.2); a pass whose mean deviation is within it, taking at least **1.2 s** and at most **4 s** (a plane is drawn,
+  not flicked), is clean - one step. A pass let go early starts again. Quick craft skips it; Gentle acts planes plain.
+- **The furniture goes to DECOR.** FACT: DECOR2b keeps a player's furniture in the save's `furnishings` (`scenes/
+  worldModes.js` decorHome), its "Your things" rows, set down free as any model of its kind the owner chooses
+  (`systems/decorFurnish.js`); a piece of furniture in the pack is never offered. DECIDED: a crafted table, chair or bed
+  is minted into the furnishings, as the furnisher's delivery is, and DECOR places it - the done-when. **Its mark goes
+  with it**: a set-down piece's descriptor (`net/decorLaw.js` decorItemOf) carries its provenance id, and the account
+  service writes the maker's mark into the placed row only from its own `products` row - the owner's, the template's -
+  so a visitor reads "Silverthorn's Oak Table" and no client can write a mark a craft did not make.
+- **The XP** (3.2): Logging a tree's 15 x its tier (+50% clean, a quarter more than two tiers below); Carpentry a craft's
+  20 x its tier, +500 the first, under the crafter's limit.
+- **The Court writs** ask logs too: the witnessed pixel's trees' woods (a confirmed pixel's all, an unconfirmed one's
+  tiers 1-2), never a plank, Charcoal, Resin or Heartwood (sawn, burnt or found, not the ground's). A wood's writ XP is
+  Logging's.
+
+As built:
+
+- **Behind PROF1's switch.** `PROFESSIONS_OPEN`, at `dev`; the furnisher's Linen behind MARKS1's too (`MARKS_OPEN`). The
+  service is `acct24`; the table changes are `0024_logging.sql` - `node_harvests` rebuilt to learn the kind `logs` and a
+  second find, `extra` (a tree's Resin; its Heartwood rides `gem`, the act's own find), every column carried and both
+  indexes made again; `prof_crafts.heartwood` (a craft that spent one); `products.marked` (a piece that carries its
+  maker's mark - a Masterwork, or any a Master Joiner made). No new route: a tree is `/v1/prof/harvest`'s (kind `logs`),
+  a burn and a saw are `/v1/prof/smelt`'s (the recipe names its station, the XP none), Carpentry's craft is
+  `/v1/prof/craft`'s (the recipe names its profession - its rank, cap and track Carpentry's), the Linen is
+  `/v1/prof/stock`'s (the counter `furnisher`), and a crafted piece is set down through DECOR's place route. The Ram Kit
+  is refused before anything is spent (`prof-later`, 409: "That is made when the sieges come.").
+- **The law** is `src/net/professionLaw.js` (the woods and their items; the ring's numbers; the burns, the saws, the
+  workbench's fee; the stocks by counter and what has no pack form), `src/net/nodeLaw.js` (the climates' trees, the
+  yield and its finds, the writs' woods), `src/net/recipeLaw.js` (Carpentry's 41 recipes beside the smith's 307; what a
+  craft spends - the Joiner's planks, the Heartwood's plank; the steps; the mark; the plane) and `src/net/decorLaw.js`
+  (a set-down piece's provenance and mark). One statement decides each act, as PROF1-3's do.
+- **The trees** are the forest's own (`src/scenes/treeHost.js`): the streamed pixel keeps its nature flats' tree
+  records and their batches (`scenes/world.js`), each law tree stands at the nearest one not already taken, and a felled
+  tree's flat is sunk in its batch (`moveBillboardBatch`) - the stump (record 19) stood in its place and the Logs pile
+  (record 31) at its foot until the player walks over it. The fall is the billboard shader's (`render/renderer.js`
+  `uTip`: the way it falls, away from the player, and the angle it has leaned, over 1.5 s), its shadow dropped. The ring and its meter are
+  `systems/chopAct.js` and `ui/profHud.js` (a bar under reduced motion); the Wood-Axe in the hand is DFU's War Axe.
+- **The workbench** is a section of the Stores page beside the Forge and the Anvil (`ui/profPages.js` drawWorkbench):
+  the saws of the logs held, the families (Staves, Bows, Arrows, Furniture, Tools, Siege) and the woods, each recipe's
+  inputs as the Stores hold them, a bed's Linen bought from the furnisher, "Use a Heartwood" where a recipe takes one,
+  **Craft** (the plane, unless Gentle acts) and **Quick craft**. It stands at a Furniture Store (50 gold a craft or a
+  saw) or at a home's `workbench` station (DECOR, 50,000); away, the word says where. The Forge burns the logs held; the
+  Anvil lists the smith's recipes alone. The plane is `systems/planeAct.js`, drawn on the board's grain.
+- **The piece** (`systems/smithItems.js`): a staff and a bow DFU's at the wood's material with the quality laid on,
+  arrows twenty in one stack with no provenance, furniture DFU's template worth its quality's condition multiplier and
+  marked by its record; a marked piece's name is its maker's (`itemInfo.js`, `itemFields.js` `marked`). Furniture is
+  minted into `playerEntity.furnishings`, never the pack (`scenes/world.js` profMintCraft), and DECOR's descriptor
+  carries its provenance and mark (`systems/decorItems.js`).
+- **Pinned**: `test/prof4_law.test.js` (8), `test/prof4_service.test.js` (6), `test/prof4_client.test.js` (8);
+  `tools/mutants/prof4.json`, 87 mutants, 86 dead and one recorded equivalent (the chops' floor of three, which no
+  tree's count reaches today). The done-when is `prof4_client`'s DONE WHEN: an Oak felled, its logs sawn at the
+  workbench, a Small Oak Table made through the real Worker and minted among the home's things, listed by DECOR, set
+  down in a home and read by a visitor with its maker's mark.
+
 ## Appendix A - a day of a gatherer
 
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven, when the wilderness opens. The board's Work tab has a
@@ -1488,6 +1641,16 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | The smith's stock (PROF3) | Cured Leather 4, Oak Plank 4, Pine Plank 2, Charcoal 2 Marks a unit (twice the Marks value), 100 a purchase, bought units |
 | A piece's quality (PROF3) | condition x0.75 / 1 / 1.15 / 1.30 / 1.30; weight x1 / 1 / 0.95 / 0.90 / 0.90; Superior a Magic roll, Masterwork a Rare roll and the maker's mark; a tool's life 37 / 50 / 57 / 65 / 65 |
 | The Repair Kit (PROF3) | 1 ingot + 1 Cured Leather; a quarter of the most-worn piece of its metal, once; a Quartermaster's two; 10 gold + 10 a tier |
+| The woods (PROF4) | Pine 1, Oak 2, Cherry 3, Teak 4, Mahogany 5, Ironwood 6, Ghostwood 6; Ironwood and Ghostwood one tree in 20, confirmed ground only; an unconfirmed pixel's trees tiers 1-2 |
+| A tree (PROF4) | 2-4 logs (+25% a march); Resin one tree in four; Heartwood 2% a Clean Cut on confirmed ground, a Forester's 4%, one at most; Logging XP 15 x the tier |
+| The ring (PROF4) | chops 5 (tiers 1-2), 6 (3-4), 8 (5-6), a Lumberjack's two fewer, three at least; the circle from 3x the notch to it over 0.9 s and on to 0.5x; the band 12% (novice) to 20% (Master) of the notch x (INT + STR) / 2's band; a Clean Cut two chops; a swing 0.45 s; the creak at half; the fall 1.5 s |
+| Burning and sawing (PROF4) | a log a Charcoal at a forge (a Charcoal Burner's two); a log two planks at a workbench (a Timberwright's three); no XP |
+| The workbench (PROF4) | a Furniture Store's, 50 gold a craft or a saw; a home's `workbench` station, 50,000 gold |
+| Carpentry's recipes (PROF4) | staves 3 planks; short bows 3 and a Resin; long bows 4 and a Resin (DFU material by the wood: Pine Iron, Oak Steel, Cherry Silver, Teak Elven, Mahogany Mithril, Ironwood Adamantium, Ghostwood Ebony); arrows 20 of a Pine Plank, an Iron Ingot and 4 Twigs, no quality; tables 6 and 3 planks, chairs 2, beds 8 and 2 Linen; the Basket; the Ram Kit rank 60, later (SEAT2); XP 20 x the tier, +500 the first |
+| Carpentry's choices (PROF4) | Joiner: furniture at half the planks, rounded up; Bowyer: a step on the bows; a Heartwood: one plank and a step (one step with a Warforged ingot, never two); Master Joiner: every piece of furniture marked |
+| The plane (PROF4) | tolerance 18% of the board's half-height x (AGI + WIL) / 2's band, x1.5 at Master; a pass 1.2-4 s, from the head (x <= 0.08) to the foot (x >= 0.98) |
+| Furniture's quality (PROF4) | its value x its condition multiplier; no Loot Rarity roll; a Masterwork or a Master Joiner's piece marked |
+| The furnisher's stock (PROF4) | Linen 2 Marks a unit, 100 a purchase, bought units; Linen, Cured Leather and Bear Hide have no pack form |
 | Station use fee in town | 50 gold |
 | Alchemy | 2 / 3 potions; Potent +25%, 10% / 20%, +5% an unbruised herb |
 | Enchanting | -10% / -20%; 1 Essence per 100 points |

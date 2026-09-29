@@ -23,13 +23,23 @@
 // condition, once, on the most-worn weapon or armour of its metal the
 // pack holds. Its row is registered with the ores and ingots
 // (profTemplates.js), so any scene the save loads in knows it.
+//
+// PROF4 (2026-09-28, Mac: "Continue"; Professions-Arc.md 25): AND THE
+// WORKBENCH'S. A staff or a bow is DFU's weapon at its wood's material,
+// its quality the smith's weapons'; arrows are CreateWeapon's arrow arm
+// at twenty, no quality and no provenance (DFU mints a quiver at
+// condition 0, one stack - a mark would split it); furniture is DFU's
+// Furniture template, its quality its worth (the condition's multiplier
+// on its value, never a Loot Rarity roll), the mark on a Masterwork and
+// on every piece a Master Joiner makes (`marked`); the Basket Foraging's
+// own, its quality its life.
 // ═══════════════════════════════════════════════════════════════════
 import {
   recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, INGOT_MATERIAL, ARMOR_PLATE,
   ARMOR_CHAIN, PROVENANCE_RE, makerName, QUALITY_NAMES,
 } from '../net/recipeLaw.js';
 import { minedMaterial } from '../net/professionLaw.js';
-import { weaponOfMaterial, armorOfMaterial } from '../combat/enemyEquipment.js';
+import { weaponOfMaterial, armorOfMaterial, createWeapon } from '../combat/enemyEquipment.js';
 import { setItemFields, mintCondition, templateByIndex, registerItemUseHandler } from './itemTemplates.js';
 import { itemLongName } from './itemInfo.js';
 import './profTemplates.js';   // the Repair Kit's row (692), registered with the ores and ingots
@@ -47,15 +57,22 @@ const kitValue = (tier) => 10 + 10 * tier;
 // ─── THE PIECE ───────────────────────────────────────────────────────
 
 /**
- * One piece of a craft's answer - `{ recipe, quality, seed, maker }` and the piece's `provenance` - as the pack holds it,
- * or null for a recipe this client does not know.
- * @param {{ recipe: string, quality: number, seed: number, maker?: string|null }} made
+ * One piece of a craft's answer - `{ recipe, quality, seed, maker, marked }` and the piece's `provenance` - as the pack
+ * (or, furniture, the home's things) holds it, or null for a recipe this client does not know.
+ * @param {{ recipe: string, quality: number, seed: number, maker?: string|null, marked?: boolean }} made
  * @param {string} provenance
  */
-export function mintPiece({ recipe, quality, seed, maker = null }, provenance) {
+export function mintPiece({ recipe, quality, seed, maker = null, marked = false }, provenance) {
   const r = recipeById(recipe);
   if (!r || typeof provenance !== 'string' || !PROVENANCE_RE.test(provenance)) return null;
   const mark = makerName(maker);
+  if (r.kind === 'siege') return null;   // PROF4: the Ram Kit is the Stores' (and made with the sieges)
+  if (r.kind === 'arrows') {
+    // PROF4: CreateWeapon's arrow arm (combat/enemyEquipment.js), the stack the recipe's - no quality, no provenance
+    const arrows = createWeapon(r.templateIndex, 0, () => 0);
+    arrows.stackCount = r.stack ?? 1;
+    return arrows;
+  }
   /** @type {any} */
   let item;
   if (r.kind === 'kit') {
@@ -69,12 +86,24 @@ export function mintPiece({ recipe, quality, seed, maker = null }, provenance) {
     return item;
   }
   const q = Math.max(0, Math.min(MASTERWORK, quality | 0));
+  if (r.kind === 'furniture') {
+    // PROF4: DFU's Furniture template (the furnisher's own mint, systems/shopStock.js), its quality its worth
+    item = mintCondition(setItemFields({ group: 'Furniture', templateIndex: r.templateIndex, material: 0, flags: 0, variant: 0, message: 0, stackCount: 1 }));
+    const base = templateByIndex(r.templateIndex);
+    item.value = Math.max(1, Math.round((base?.basePrice ?? item.value ?? 1) * QUALITY_EFFECTS[q].condition));
+    if (base?.name) item.name = base.name;
+    item.quality = q;
+    item.provenance = provenance;
+    if (mark) item.maker = mark;
+    if (marked === true && q !== MASTERWORK) item.marked = true;   // a Master Joiner's (a Masterwork's mark is its own)
+    return item;
+  }
   if (r.kind === 'tool') {
     item = createForagingItem(r.templateIndex);
     if (!item) return null;
     item.maxCondition = item.currentCondition = TOOL_LIFE[q];   // FORAGE0 14.7: a tool's quality is its life
   } else {
-    item = r.kind === 'weapon' ? weaponOfMaterial(r.templateIndex, r.material) : armorOfMaterial(r.templateIndex, r.material);
+    item = r.kind === 'weapon' || r.kind === 'staff' || r.kind === 'bow' ? weaponOfMaterial(r.templateIndex, r.material) : armorOfMaterial(r.templateIndex, r.material);   // PROF4: a staff's or a bow's material its wood's
     const eff = QUALITY_EFFECTS[q];
     if (eff.rarity && rarityEligible(item)) { applyRarity(item, eff.rarity, seededRng(seed >>> 0)); item.isIdentified = true; }
     item.maxCondition = item.currentCondition = Math.max(1, Math.round(item.maxCondition * eff.condition));
@@ -89,6 +118,8 @@ export function mintPiece({ recipe, quality, seed, maker = null }, provenance) {
 
 /** Every piece of a craft's answer, minted - two of a Quartermaster's kit. @param {any} data */
 export const mintPieces = (data) => (data?.pieces ?? []).map((p) => mintPiece(data, p.provenance)).filter(Boolean);
+/** PROF4: whether a minted piece is furniture - the home's things (DECOR2b's furnishings), never the pack. */
+export const isCraftedFurniture = (item) => item?.group === 'Furniture';
 
 // ─── THE REPAIR KIT'S USE ────────────────────────────────────────────
 
@@ -133,13 +164,20 @@ export function repairKitUse(item, collection) {
 /** Every host's install (scenes/shared.js): the Repair Kit's use on the item-use door. */
 export function installSmithing() { registerItemUseHandler(REPAIR_KIT_TEMPLATE, repairKitUse); }
 
-/** What a craft says it made: "You made a Fine Mithril Longsword." - "two Mithril Repair Kits" for a Quartermaster's. */
+/** What a craft says it made: "You made a Fine Mithril Longsword." - "two Mithril Repair Kits" for a Quartermaster's;
+ *  PROF4: "20 Arrows"; a table waits among the home's things. */
 export function craftedText(pieces) {
   if (!pieces.length) return 'You made nothing.';
   const it = pieces[0];
-  const word = Number.isInteger(it.quality) && !Number.isInteger(it.kitMetal) && it.quality !== MASTERWORK ? `${QUALITY_NAMES[it.quality]} ` : '';
+  if ((it.stackCount ?? 1) > 1) return `You made ${it.stackCount} ${itemLongName(it)}s`;
   const name = itemLongName(it);
-  return pieces.length > 1 ? `You made ${pieces.length} ${name}s` : `You made ${/^[AEIOU]/.test(word || name) ? 'an' : 'a'} ${word}${name}`;
+  // a piece whose name is its maker's mark ("Silverthorn's Mithril Longsword") takes no article and no quality word -
+  // PROF4 found PROF3 saying "an Silverthorn's..." whenever the maker's name began with a vowel
+  const marked = typeof it.maker === 'string' && it.maker && (it.quality === MASTERWORK || it.marked === true);
+  const word = !marked && Number.isInteger(it.quality) && !Number.isInteger(it.kitMetal) ? `${QUALITY_NAMES[it.quality]} ` : '';
+  const one = marked ? name : `${/^[AEIOU]/.test(word || name) ? 'an' : 'a'} ${word}${name}`;
+  if (isCraftedFurniture(it)) return `You made ${one} - it waits among your things for a room to stand in`;
+  return pieces.length > 1 ? `You made ${pieces.length} ${name}s` : `You made ${one}`;
 }
 /** What a craft whose answer did not come says: kept, and made when it does. */
 export const CRAFT_KEPT_TEXT = 'The anvil rang, but no word came back - the work is kept, and made when the word comes.';

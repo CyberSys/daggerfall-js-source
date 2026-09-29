@@ -121,6 +121,9 @@ export const ITEM_FIELDS = Object.freeze({
   provenance: str(),
   maker: str(),
   kitMetal: int({ min: 0, max: 9 }),
+  // PROF4: a piece whose name carries its maker's mark below Masterwork - a Master Joiner's furniture (the service's
+  // `products.marked`)
+  marked: bool(),
 });
 
 /** The declared names, and those of one kind. */

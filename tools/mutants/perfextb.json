@@ -2,8 +2,8 @@
   {
     "name": "PERF-EXT10-1-the-hosts-dress-is-gained-after-birth-a-tree-and-a-town-flat-split",
     "file": "src/render/renderer.js",
-    "old": "      _box: undefined, sway: undefined, conceal: undefined,",
-    "new": "      conceal: undefined,",
+    "old": "      _box: undefined, sway: undefined, tip: undefined, conceal: undefined,",
+    "new": "      tip: undefined, conceal: undefined,",
     "tests": [
       "test/perfextb.test.js"
     ]

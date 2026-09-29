@@ -273,8 +273,8 @@ import {
 import { HOME_ENTRIES, homePriceOk } from '../net/homeLaw.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
 import { decorPieceOf, decorSaleBack, DECOR_STATION_SERVICES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
-import { forgeOffered, FORGE_COLD_LINE } from '../ui/profPages.js';   // AUDIT 29 B2: a Forge worked only where the Stores page is
-import { FORGE_FEE } from '../net/professionLaw.js';   // PROF2: a smith's forge's use fee
+import { forgeOffered, PROF_STATIONS, stationColdLine } from '../ui/profPages.js';   // AUDIT 29 B2: a Forge worked only where the Stores page is; PROF4: a Workbench
+import { FORGE_FEE, WORKBENCH_FEE } from '../net/professionLaw.js';   // PROF2: a smith's forge's use fee; PROF4: a furnisher's workbench's
 /** HOME-STATIONS: a station pressed whose maker's art has not landed yet. */
 const DECOR_STATION_NOT_READY = 'The station is not ready yet - try again in a moment.';
 /** AUDIT HOME-STATIONS S7: a maker's refusal whose TEXT.RSC record did not answer. */
@@ -3406,7 +3406,7 @@ export function createWorldModes(host) {
     // PROF2 (bible/06-Systems/Professions-Arc.md 23): a forge is no guild's maker - it opens the Stores' own forge, where
     // the player's smelting is done; where the Stores page is not (offline, the switch shut, the classic skin) it says
     // so (AUDIT 29 B2 - it landed on the Character page without a word)
-    if (piece.station === 'forge') { if (forgeOffered()) interiorKeyCtx.togglePause({ at: 'stores' }); else say(FORGE_COLD_LINE); return; }
+    if (PROF_STATIONS.includes(piece.station)) { if (forgeOffered()) interiorKeyCtx.togglePause({ at: 'stores' }); else say(stationColdLine(piece.station)); return; }   // PROF4: the workbench too
     const rows = (id, pick) => townTalk?.lines?.(id, pick) ?? [];
     const flow = openServiceFlow(DECOR_STATION_SERVICES[piece.station], { guild: null, memberships: null, store: null, rows, route: null });
     if (isServiceBox(flow)) {   // STATION-ROWS: the spell maker's window carries `rows` too - its reader, not a box
@@ -8221,7 +8221,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:12568's own wave-46 note); the interior
+          // a blow (world.js:12601's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10759,6 +10759,14 @@ export function createWorldModes(host) {
       if (decorOwnerHere() && interiorDecor.list().some((p) => p?.station === 'forge')) return { kind: 'home', fee: 0 };
       return null;
     },
+    /** PROF4 (bible/06-Systems/Professions-Arc.md 25): THE WORKBENCH THE PLAYER STANDS AT - a Furniture Store's, open for
+     *  trade (its use fee, WORKBENCH_FEE gold a craft or a saw), or their own home's workbench station - or null. */
+    workbenchHere() {
+      if (mode !== 'interior' || !interiorBuilding) return null;
+      if (interiorBuilding.buildingType === BUILDING_TYPES.FurnitureStore) return interiorBuilding.insideOpenShop === false ? null : { kind: 'shop', fee: WORKBENCH_FEE };
+      if (decorOwnerHere() && interiorDecor.list().some((p) => p?.station === 'workbench')) return { kind: 'home', fee: 0 };
+      return null;
+    },
     // Q4-v: the world seam's playerInside half + the machine's
     // hot-place callback (deps.world.mountCurrentSiteQuestResources).
     get interiorBuilding() { return interiorBuilding; },
@@ -10830,7 +10838,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3444-3466), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:9229). So an F9 pressed in a shop
+     *  unconditionally (world.js:9262). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10869,7 +10877,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:9338)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:9371)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10879,7 +10887,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:8250`
+     *  HARD2c: this used to spell them out, and named `world.js:8283`
      *  and `dungeonContext.js:7422` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

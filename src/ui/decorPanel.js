@@ -46,9 +46,9 @@ import { isTextEntryTarget } from './input.js';
 import { registerOverlay } from './enhancedOverlays.js';   // PX28b: Tab puts it away, as it puts away every enhanced window
 import { DECOR_KINDS, DECOR_SIZES, decorSize, filterDecor } from '../systems/decorCatalogue.js';
 import { decorRefund, DECOR_FURNITURE_GROUP, DECOR_STATIONS, DECOR_STATION_FEES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
-import { forgeOffered } from './profPages.js';
+import { forgeOffered, PROF_STATIONS } from './profPages.js';
 /** The crafts a piece may be made here: every station, the Forge only where it works (AUDIT 29 B2). */
-export const stationsOffered = () => DECOR_STATIONS.filter((k) => k !== 'forge' || forgeOffered());
+export const stationsOffered = () => DECOR_STATIONS.filter((k) => !PROF_STATIONS.includes(k) || forgeOffered());   // PROF4: the workbench as the forge
 
 export const DECOR_STYLE_ID = 'dagger-decor-style';
 export const DECOR_CSS = `

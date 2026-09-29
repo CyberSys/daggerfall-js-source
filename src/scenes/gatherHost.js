@@ -75,6 +75,13 @@ export function aimAt(eyePos, at, view) {
  * @property {() => void} [retarget] a new node is targeted
  * @property {(a: any, data: any) => string} cleanNote what a clean act is called in the XP toast
  * @property {(profession: string) => string} title a rank's banner word ('Herbalist', 'Miner')
+ * @property {(node: any, entry: any) => Array<{ archive: number, record: number, scale: number, centers: number[][] }>} [goneFlatsOf]
+ *   PROF4: what a node gone for the day leaves standing (a felled tree's stump)
+ * @property {(entry: any, nodes: any[]) => void} [stood] PROF4: a pixel's nodes of this kind stood (the felled trees sunk)
+ * @property {(node: any, at: { entry: any, from: number[], tr: number[] }) => void} [felled] PROF4: a node taken on the
+ *   service's answer, this session (the tree's fall)
+ * @property {(dt: number, ctx: { feet: number[], translation: (entry: any) => number[]|null }) => void} [frame] PROF4: every frame
+ * @property {(entry: any) => void} [dropped] PROF4: a pixel torn down
  */
 
 /**
@@ -135,12 +142,14 @@ export function createGatherHost(deps) {
     if (confirmed && (fact.climate !== info.climate || fact.region !== info.region)) return;
     const ctx = { entry, px: entry.px, py: entry.py, day, info, confirmed, specs, book };
     rec.nodes = kinds.flatMap((k) => k.nodesOf(ctx).map((n) => ({ ...n, kind: k.id })));
+    for (const k of kinds) k.stood?.(entry, rec.nodes.filter((n) => n.kind === k.id));   // PROF4: the felled trees sunk
     /** archive -> `${record}:${scale}` -> centres */
     const groups = new Map();
     for (const n of rec.nodes) {
       const k = kindOf(n);
-      if (!k || k.gone(n)) continue;   // gone for the day
-      for (const f of k.flatsOf(n)) {
+      if (!k) continue;
+      // gone for the day: nothing, or what it leaves (PROF4: a felled tree's stump)
+      for (const f of k.gone(n) ? (k.goneFlatsOf?.(n, entry) ?? []) : k.flatsOf(n)) {
         if (!groups.has(f.archive)) groups.set(f.archive, new Map());
         const g = groups.get(f.archive);
         const gk = `${f.record}:${f.scale}`;
@@ -287,6 +296,7 @@ export function createGatherHost(deps) {
       const k = a ? kindOf(a.node) : kinds.find((x) => x.professions.includes(profession));
       hud.toast(`+${d.qty} ${materialCountLabel(d.material, d.qty)} to your Stores`);
       if (d.gem) hud.toast(`...and a ${materialCountLabel(d.gem, 1)}!`);
+      if (d.extra) hud.toast(`...and ${materialCountLabel(d.extra, 1)}`);   // PROF4: a tree's Resin
       hud.toast(`+${d.xp} ${professionName(profession)} XP${a?.clean ? (k?.cleanNote(a, d) ?? '') : ''}`);
       const after = d.track?.rank ?? before;
       if (after > before) {
@@ -300,8 +310,12 @@ export function createGatherHost(deps) {
       }
       chipProfession = profession;
       chipLeft = CHIP_S;
-      if (a && k?.gone(a.node)) restandOf(a);
-      else if (!a && nodeKeyOf) restandNode(nodeKeyOf);
+      if (a && k?.gone(a.node)) {
+        // PROF4: the node's fall, seen by the one who worked it (a felled tree tips away from them)
+        const s = a.dungeon ? null : stood.get(pixelKey(a.px, a.py));
+        if (s && k.felled) k.felled(a.node, { entry: s.entry, from: deps.eye().pos, tr: deps.pixelTranslation(a.px, a.py, [0, 0, 0]) });
+        restandOf(a);
+      } else if (!a && nodeKeyOf) restandNode(nodeKeyOf);
       return;
     }
     if (r?.kept) {
@@ -317,7 +331,11 @@ export function createGatherHost(deps) {
     /** A pixel built: its nodes stood. */
     onBuilt(entry) { if (entry) stand(entry); },
     /** A pixel torn down: its batches went with it (they are in its list); forgotten here. */
-    onDestroyed(entry) { if (entry) stood.delete(`${entry.px},${entry.py}`); },
+    onDestroyed(entry) {
+      if (!entry) return;
+      stood.delete(`${entry.px},${entry.py}`);
+      for (const k of kinds) k.dropped?.(entry);   // PROF4: a fall or logs under way on it went with its batches
+    },
     /**
      * PROF2: A DUNGEON ENTERED - `{ id, climate, region, wall, stand, drop }`: DFU's identity for it (MapId & 0xfffff),
      * its ground as this client derives it, the wall its veins stand on (`wall(marker, bearing)`), and its own doors
@@ -382,6 +400,9 @@ export function createGatherHost(deps) {
       // AUDIT 29 C4: a kept harvest's answer said with the rank it rose from (the book hands it - the track moved before
       // this call), and its node stood again by its key
       book.pump((h, r, before) => answered(null, r, before ?? rank(r?.data?.track?.profession ?? 'herbalism'), h?.node));
+      // PROF4: the kinds' own frame - a felled tree's fall, the logs at its foot
+      const feetNow = deps.feet();
+      for (const k of kinds) k.frame?.(dt, { feet: feetNow, translation: (e) => (stood.get(pixelKey(e.px, e.py))?.entry === e ? deps.pixelTranslation(e.px, e.py, [0, 0, 0]) : null) });
       const input = deps.input();
       if (act) {
         const { pos } = deps.eye();

@@ -200,6 +200,7 @@ const PROF_STATUS = Object.freeze({
   'prof-pixel': 409, 'prof-day': 409, 'prof-late': 409, 'prof-night': 409, 'prof-cap': 409, 'stores-full': 409, 'stores-short': 409,
   'prof-account-cap': 409, 'prof-deep-cap': 409, 'prof-spec-stale': 409, 'prof-spec-taken': 409,   // AUDIT 29
   'prof-no-pack-form': 409,   // PROF3: the smith's stock stays in the Stores until its professions' templates
+  'prof-later': 409,   // PROF4: a recipe whose slice is to come - the Ram Kit (PROF0 25)
   'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
   'prof-rate': 429,
 });
@@ -659,8 +660,8 @@ export default {
           '/v1/prof/harvest': () => harvestNode(ctx, who.player, env, body),
           '/v1/prof/spec': () => chooseSpec(ctx, who.player, env, body),
           '/v1/prof/smelt': () => smeltAtForge(ctx, who.player, env, body),   // PROF2
-          '/v1/prof/craft': () => craftAtAnvil(ctx, who.player, env, body),   // PROF3: the anvil
-          '/v1/prof/stock': () => buyStock(ctx, who.player, env, body),   // PROF3: the smith's stock
+          '/v1/prof/craft': () => craftAtAnvil(ctx, who.player, env, body),   // PROF3: the anvil; PROF4: the workbench
+          '/v1/prof/stock': () => buyStock(ctx, who.player, env, body),   // PROF3: the smith's stock; PROF4: the furnisher's
           '/v1/stores/withdraw': () => withdrawStores(ctx, who.player, env, body),
           '/v1/writs/list': () => listWrits(ctx, who.player, env, body),
           '/v1/writs/deliver': () => deliverWrit(ctx, who.player, env, body),

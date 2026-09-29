@@ -173,9 +173,10 @@ import { createProfHud } from '../ui/profHud.js';   // PROF1: the prompt, the ac
 import { createGatherHost } from './gatherHost.js';   // PROF1/PROF2: the gathering professions in the streaming world - the nodes, the target, the act
 import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kind in it
 import { mineKind, PROSPECT_M } from './mineHost.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; the Prospector's reach
+import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
-import { smeltRecipe } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word
+import { smeltRecipe, stockOf } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's
 import { unseenText } from '../net/boardLaw.js';   // NOTICE1: the count over a board
 import { alignSurvival, shiftSurvival } from '../systems/survival/needs.js';   // SURV7: the needs' markers at an arrival; AUDIT SURV-TIERS (the third pass): and across a clock correction
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // SURV7: the env's lycanthrope and beast-form flags
@@ -326,8 +327,8 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, answered by this host
 import { registerContainerLootHandler } from '../systems/containerLoot.js';   // THE MERGE: CSA-H's shelf subscriber, by its mod's name, on PlayerActivate.OnLootSpawned's one home
-import { mintPieces, craftedText, CRAFT_KEPT_TEXT } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack
-import { heatBand } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band
+import { mintPieces, craftedText, CRAFT_KEPT_TEXT, isCraftedFurniture } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things
+import { heatBand, planeBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
 import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
@@ -995,9 +996,14 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** PROF3: a craft's pieces into the pack (systems/smithItems.js) - each once, by its provenance id: a piece the pack
    *  already holds (another tab minted it) is not minted again. */
   const profMintCraft = (data) => {
-    const have = new Set((playerEntity.items ?? []).map((it) => it?.provenance).filter(Boolean));
-    const pieces = mintPieces(data).filter((it) => !have.has(it.provenance));
-    for (const it of pieces) addItem((playerEntity.items ??= []), it, 'back');
+    // PROF4: the home's things too - a crafted table waits there (DECOR2b's furnishings), never in the pack; arrows carry
+    // no provenance and join the quiver
+    const have = new Set([...(playerEntity.items ?? []), ...(playerEntity.furnishings ?? [])].map((it) => it?.provenance).filter(Boolean));
+    const pieces = mintPieces(data).filter((it) => !it.provenance || !have.has(it.provenance));
+    for (const it of pieces) {
+      if (isCraftedFurniture(it)) (playerEntity.furnishings ??= []).push(it);
+      else addItem((playerEntity.items ??= []), it, 'back');
+    }
     if (pieces.length) townTalk.say(craftedText(pieces));
   };
   /** NOTICE1: the town a board on map pixel (px, py) belongs to - its map id (unsigned), its name, and whether one of its
@@ -2947,6 +2953,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const k = `${archive}_${record}`;
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k).push([x, y, z]);
+      return groups.get(k).length - 1;   // PROF4: the flat's place in its group (a felled tree is sunk there)
     };
     // WOD2: a flat the mod SCALES (LoadObject's `localScale *= scale`,
     // LocationHelper.cs:1243) is a batch of its own at its own size; the
@@ -3358,7 +3365,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     // EV7: the nature layout arrived with the kernel's reply - laid
     // out over the same blended samples and finished tilemap, consumed
     // at the same point in the sequence it was always computed at.
-    for (const f of nature) addFlat(natureArchive, f.record, f.x, f.y, f.z);
+    // PROF4 (bible/06-Systems/Professions-Arc.md 25): THE FOREST'S TREES KEPT - the flats World of Daggerfall's table names
+    // a Tree by the climate's summer archive, each its group and its place in it: Logging's trees stand at them
+    const pixelTrees = [];
+    for (const f of nature) {
+      const i = addFlat(natureArchive, f.record, f.x, f.y, f.z);
+      if (isTreeRecord(climate.natureArchive, f.record)) pixelTrees.push({ id: pixelTrees.length, group: `${natureArchive}_${f.record}`, i, x: f.x, y: f.y, z: f.z });
+    }
     // WOD4: THE CAMP AT PRIVATEER'S HOLD (world/wodPrivateersHold.js).
     // DungeonExterior finds the block by name and PrivateersHold.Start
     // builds the camp in the block's frame: the models with their
@@ -3405,6 +3418,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const flatAnims = new FlatAnimator();   // FA1
     const batches = [];
     made.batches = batches;   // BUILD-FAIL1
+    const forestGroups = new Map();   // PROF4: the nature groups' batches, by group - where a felled tree is sunk
     for (const [k, centers] of groups) {
       await breather.breathe();   // PERF-EXT23: a flat group a breath - its texture is a cached promise, a microtask, and gave no frame back
       const [archive, record] = k.split('_').map(Number);
@@ -3425,6 +3439,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         batch.sway = floraSwayOf(archive, natureArchive, sib.size.h);   // WIND3: the season's trees lean too
         unionBox(batch._box);
         batches.push(batch);
+        if (archive === natureArchive) forestGroups.set(k, { batch, centers, size: sib.size });   // PROF4: a felled tree's batch
         continue;
       }
       uploadRecord(archive, record);
@@ -3435,6 +3450,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       unionBox(batch._box);
       armFlatAnim(batch, t, archive, record, flatAnims, uploadRecordFrame);
       batches.push(batch);
+      if (archive === natureArchive) forestGroups.set(k, { batch, centers, size });   // PROF4: a felled tree's batch
     }
     // WOD2: the scaled flats - billboardSize times the object's own scale.
     for (const { archive, record, scale, centers } of scaledGroups.values()) {
@@ -3529,6 +3545,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       wodLights: pixelWodLights,   // WOD2: the mod's AddLight lights, pixel-local, lit at every hour
       wodSite,     // WOD2: the levelled rect in tile space (grass keeps off it), null on a pixel with no site
       rocks: pixelRocks,   // PROF2: its rock fields' standing pieces (pixel-local boxes) - Mining's veins and boulders stand at them
+      // PROF4: its forest - the tree flats (a batch drawn for each) Logging's trees stand at, the summer archive that names
+      // them and the archive they are drawn from, and their groups' batches where a felled tree is sunk
+      forest: { base: climate.natureArchive, archive: natureArchive, trees: pixelTrees.filter((t) => forestGroups.has(t.group)), groups: forestGroups },
       wodSpawners, // WOD2: LoadObject's spawn markers, for WOD3
       privateersHold,   // WOD4: the camp's block origins and its Start's state, null off the Hold
       wodLife,     // AUDIT BRANCH (WoD) L1-3/m1: the terrain's identity, which a late pile and the carry name
@@ -6536,7 +6555,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     const hud = createProfHud();
     if (hud) {
       gatherHost = createGatherHost({
-        book: profBook, hud, kinds: [herbKind({ book: profBook }), mineKind({ book: profBook })],
+        book: profBook, hud, kinds: [herbKind({ book: profBook }), mineKind({ book: profBook }),
+          treeKind({ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord })],   // PROF4: Logging's trees
         renderer, getTexture, uploadRecord, billboardSize, flatBatchAabb,
         built: () => built, pixelTranslation: (x, y, out) => state.pixelTranslation(x, y, out),
         pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } },
@@ -6569,24 +6589,35 @@ export async function bootWorld(canvas, renderer, params, status) {
         // PROF3 (bible/06-Systems/Professions-Arc.md 24): THE ANVIL beside it - a craft through the book, its pieces into
         // the pack (kept until minted), the smith's fee a craft on the service's answer, as a smelt's; the smith's stock;
         // the heat's band, Smithing's attribute pair
-        craft: async (recipe, { clean }) => {
-          const f = modes?.forgeHere?.() ?? null;
-          if (!f) return { ok: false, text: 'You are not at an anvil.' };
-          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The smith asks ${f.fee} gold for the use of the anvil.` };
-          const r = await profBook.craft(recipe, { clean, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null }, profMintCraft);
+        craft: async (recipe, { clean, heartwood = false }) => {
+          // PROF4: the station is the recipe's - the anvil for Smithing's, the workbench for Carpentry's
+          const bench = recipeById(recipe)?.profession === 'carpentry';
+          const f = (bench ? modes?.workbenchHere?.() : modes?.forgeHere?.()) ?? null;
+          if (!f) return { ok: false, text: bench ? 'You are not at a workbench.' : 'You are not at an anvil.' };
+          const who = bench ? 'furnisher' : 'smith';
+          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${bench ? 'workbench' : 'anvil'}.` };
+          const r = await profBook.craft(recipe, { clean, heartwood, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null }, profMintCraft);
           if (!r?.ok) return { ok: false, text: r?.kept ? CRAFT_KEPT_TEXT : accountRefusalText(r?.error) };
           if (f.fee > 0) deductGold(playerEntity, f.fee);
-          return { ok: true, text: `${craftedText(mintPieces(r.data))} (+${r.data.xp} Smithing XP)${f.fee > 0 ? `, and paid the smith ${f.fee} gold` : ''}.` };
+          return { ok: true, text: `${craftedText(mintPieces(r.data))} (+${r.data.xp} ${bench ? 'Carpentry' : 'Smithing'} XP)${f.fee > 0 ? `, and paid the ${who} ${f.fee} gold` : ''}.` };
         },
         stock: async (material, qty) => {
           const r = await profBook.stock(material, qty);
-          return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(material, r.data.qty)} from the smith for ${r.data.marks} Marks.` } : { ok: false, text: accountRefusalText(r?.error) };
+          const who = stockOf(material)?.counter === 'furnisher' ? 'furnisher' : 'smith';   // PROF4: the furnisher's Linen
+          return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(material, r.data.qty)} from the ${who} for ${r.data.marks} Marks.` } : { ok: false, text: accountRefusalText(r?.error) };
         },
         heatBand: () => heatBand({ strength: liveStat(playerEntity, 'strength'), agility: liveStat(playerEntity, 'agility') }),
+        // PROF4 (bible/06-Systems/Professions-Arc.md 25): THE WORKBENCH the player stands at, and the plane's band
+        workbench: () => modes?.workbenchHere?.() ?? null,
+        planeBand: () => planeBand({ agility: liveStat(playerEntity, 'agility'), willpower: liveStat(playerEntity, 'willpower') }),
         smelt: async (recipe, count) => {
-          const f = modes?.forgeHere?.() ?? null;
-          if (!f) return { ok: false, text: 'You are not at a forge.' };
-          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The smith asks ${f.fee} gold for the use of the forge.` };
+          // PROF4: the station is the work's - a smelt's and a burn's the forge, a saw's the workbench
+          const work = smeltRecipe(recipe);
+          const bench = work?.station === 'workbench';
+          const f = (bench ? modes?.workbenchHere?.() : modes?.forgeHere?.()) ?? null;
+          if (!f) return { ok: false, text: bench ? 'You are not at a workbench.' : 'You are not at a forge.' };
+          const who = bench ? 'furnisher' : 'smith';
+          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${bench ? 'workbench' : 'forge'}.` };
           const r = await profBook.smelt(recipe, count);
           if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
           // the fee for the smelt this press made, on the first answer it hears - `repeat` or not (AUDIT 29 C3: a first
@@ -6594,7 +6625,9 @@ export async function bootWorld(canvas, renderer, params, status) {
           // at a time, and the book one ask an id
           if (f.fee > 0) deductGold(playerEntity, f.fee);
           const out = smeltRecipe(r.data.recipe)?.out ?? recipe;
-          return { ok: true, text: `Smelted ${r.data.count} ${materialCountLabel(out, r.data.count)} (+${r.data.xp} Smithing XP)${f.fee > 0 ? `, and paid the smith ${f.fee} gold` : ''}.` };
+          const made = (Number(r.data.own) || 0) + (Number(r.data.bought) || 0) || r.data.count;
+          const verb = bench ? 'Sawed' : String(r.data.recipe).startsWith('burn:') ? 'Burnt' : 'Smelted';
+          return { ok: true, text: `${verb} ${made} ${materialCountLabel(out, made)}${r.data.xp > 0 ? ` (+${r.data.xp} Smithing XP)` : ''}${f.fee > 0 ? `, and paid the ${who} ${f.fee} gold` : ''}.` };
         },
       });
     }

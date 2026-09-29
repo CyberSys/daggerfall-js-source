@@ -359,6 +359,7 @@ uniform vec3 uOrigin;
 uniform vec2 uSize;
 uniform vec4 uFlatWind;   // WIND3: the wind's rate x, z (m/s, the lab's rate from systems/windDrive.js), the clock, the gust
 uniform float uSway;      // WIND3: this batch's share of the lean (0 = stands still)
+uniform vec3 uTip;        // PROF4: a felled tree's fall - x, z the way it falls, the angle it has leaned (0 = stands)
 out vec2 vUV;
 out vec3 vBBWorld;
 out vec3 vBBBase;   // EL2: the flat's placement base, where the lane's shadow is read for the whole sprite (the classic FS declares it not, which GLSL allows)
@@ -387,6 +388,13 @@ void main() {
     float push = wl * (0.55 + gust * 0.75) * 0.0015 * uSway;
     float top = aCorner.y + 0.5;
     world.xz += wdir * push * top * top * uSize.y;
+  }
+  // PROF4 (bible/06-Systems/Professions-Arc.md 25): A FELLED TREE TIPS OVER. The quad turns about its root, the height
+  // up it laid along the fall's way by the angle; 0 for every batch but a falling tree's.
+  if (uTip.z != 0.0) {
+    float up = (aCorner.y + 0.5) * uSize.y;
+    world = aCenter + uOrigin + uRight * (aCorner.x * uSize.x)
+      + vec3(uTip.x * sin(uTip.z) * up, cos(uTip.z) * up, uTip.y * sin(uTip.z) * up);
   }
   vBBWorld = world;
   // Textures are bottom-up (v=0 = image bottom), so the quad top
@@ -1358,6 +1366,7 @@ export class Renderer {
     this._dwFog = new Float32Array(20);
     this._dwColumn = null;   // DW-F: the water column's frame for the flats (setWaterColumn), a frame's like the fog
     this._bbColumnOn = 0;   // LA-COST1 x DW-F: the billboard program's uColumnOn as last sent (the frame block resets it)
+    this._bbTipOn = false;   // PROF4: the billboard program's uTip as last sent - a falling tree's (the frame block resets it)
     this._dwCamFwd = new Float32Array(3);
     this._fogColor = new Float32Array([0, 0, 0]);
     this._camPos = new Float32Array(3);
@@ -1912,6 +1921,7 @@ export class Renderer {
     this.bbUIndirectColor = gl.getUniformLocation(this.bbProgram, 'uIndirectColor');
     this.bbUFlatWind = gl.getUniformLocation(this.bbProgram, 'uFlatWind');   // WIND3
     this.bbUSway = gl.getUniformLocation(this.bbProgram, 'uSway');   // WIND3
+    this.bbUTip = gl.getUniformLocation(this.bbProgram, 'uTip');   // PROF4: a felled tree's fall
     // DW-F: COLUMN_GLSL's (both lanes' flats declare it)
     this.bbColumn = Object.fromEntries(['uColumnOn', 'uSurfaceTex', 'uDwCamFwd', 'uSeaY', 'uTopColor', 'uTopVision', 'uSurfaceScroll', 'uPixelOrigin'].map((n) => [n, gl.getUniformLocation(this.bbProgram, n)]));
     // EL1: the lane's own uniforms, per program (null on the classic set, which never declares them)
@@ -4923,7 +4933,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     return {
       vao, indexCount: count * 6, archive, record, size, buffers: [vb, ib], origin: null, frame: null, bounds, _quads: count, _dyn: !!dynamic,
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
-      _box: undefined, sway: undefined, conceal: undefined, hitFlash: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
+      _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
       _shGen: undefined, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,
       _shRec: undefined, _shFlip: undefined, _shDyn: undefined, _shSway: undefined, _shMovedAt: undefined, _shId: undefined,
@@ -5643,6 +5653,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       // DW-F: the column's frame rides the block (setWaterColumn moves the stamp); its switch starts the frame off
       gl.uniform1f(bc.uColumnOn, 0);
       this._bbColumnOn = 0;
+      gl.uniform3f(this.bbUTip, 0, 0, 0);   // PROF4: every flat stands until a felled tree says otherwise
+      this._bbTipOn = false;
       if (this._dwColumn && bc.uColumnOn) {
         const dw = this._dwColumn, v = this._view;
         this._dwCamFwd[0] = -v[2]; this._dwCamFwd[1] = -v[6]; this._dwCamFwd[2] = -v[10];   // the camera's forward: minus the view's third row
@@ -5720,6 +5732,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       if (o[0] !== lastOx || o[1] !== lastOy || o[2] !== lastOz) { gl.uniform3f(this.bbUOrigin, o[0], o[1], o[2]); lastOx = o[0]; lastOy = o[1]; lastOz = o[2]; }   // PERF-EXT11
       const sw = b.sway || 0;   // WIND3: the batch's share of the lean, uploaded when it changes between batches
       if (sw !== lastSway) { gl.uniform1f(this.bbUSway, sw); lastSway = sw; }
+      const tp = b.tip;   // PROF4: a felled tree's fall ([x, z, angle]); every other batch stands
+      if (tp || this._bbTipOn) { gl.uniform3f(this.bbUTip, tp ? tp[0] : 0, tp ? tp[1] : 0, tp ? tp[2] : 0); this._bbTipOn = !!tp; }
       const col = dwc && b.dwColumn ? 1 : 0;   // DW-F: a flat in a carved sea takes the column's share
       if (col !== this._bbColumnOn) { gl.uniform1f(bc.uColumnOn, col); this._bbColumnOn = col; }   // LA-COST1: the program's switch, sent when a flat changes it
       const hf = b.hitFlash || 0;   // HITFLASH1: a struck body's red, uploaded when it changes between batches

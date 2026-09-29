@@ -367,13 +367,13 @@ export function createProfBook({ door, storage = null, character = () => null, n
      * that lets the craft go mints it (AUDIT 29 C5's law). One at a time.
      * @returns {Promise<{ ok: boolean, data?: any, error?: string, kept?: boolean, elsewhere?: boolean }>}
      */
-    async craft(recipe, { clean = false, name = null } = {}, mint) {
+    async craft(recipe, { clean = false, name = null, heartwood = false } = {}, mint) {
       if (_craftBusy) return { ok: false, error: 'prof-busy' };
       const key = slot();
       const c = character();
       if (!c || !account()) return { ok: false, error: 'no-session' };
       _craftBusy = (async () => {
-        const w = { rid: rid(), recipe, clean: clean === true, name: typeof name === 'string' ? name : null, character: c };
+        const w = { rid: rid(), recipe, clean: clean === true, name: typeof name === 'string' ? name : null, character: c, heartwood: heartwood === true };   // PROF4: a Heartwood for a plank
         const kept = keptOf(key);
         kept.crafts.push(w);
         writeKept(kept, key);
@@ -523,7 +523,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
   /** A kept craft's ask (PROF3): its pieces minted and the craft let go on an answer, let go on a refusal, kept on
    *  silence - the service's row answers the same id with the same pieces whenever it is asked again. */
   async function craftOne(w, key, mint) {
-    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid));
+    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true));
     const kept = keptOf(key);
     if (r?.ok) {
       const had = kept.crafts.some((x) => x.rid === w.rid);

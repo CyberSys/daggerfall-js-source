@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 
 import {
-  RECIPES, recipeById, recipeOpen, WEAPON_PRODUCTS, PLATE, SHIELDS, CHAIN, TOOLS, INGOT_MATERIAL, ARMOR_CHAIN, ARMOR_PLATE,
+  RECIPES, SMITH_RECIPES, recipeById, recipeOpen, WEAPON_PRODUCTS, PLATE, SHIELDS, CHAIN, TOOLS, INGOT_MATERIAL, ARMOR_CHAIN, ARMOR_PLATE,
   QUALITY_ROWS, qualityOdds, rollQuality, qualitySteps, craftQuality, QUALITY_EFFECTS, TOOL_LIFE, takesQuality, craftXp,
   craftCount, FIRST_CRAFT_XP, HEAT_ACT, heatWindow, glowAt, heatBand, makerName, MAKER_MAX, pieceLines, MASTERWORK,
 } from '../src/net/recipeLaw.js';
@@ -20,7 +20,9 @@ import { MARKS_KINDS } from '../src/net/marksLaw.js';
 const subtle = webcrypto.subtle;
 
 test('PROF3 law: 9.3\'s recipes - the weapons, the plate and the shields at every metal, the chain at Steel, the tools at Iron, the kits at every metal but the Warforged\'s; each its ingots and fittings', () => {
-  assert.equal(RECIPES.length, (WEAPON_PRODUCTS.length + PLATE.length + SHIELDS.length) * 11 + CHAIN.length + TOOLS.length + 10);
+  // PROF4: the anvil's are SMITH_RECIPES now; RECIPES holds the workbench's beside them (prof4_law)
+  assert.equal(SMITH_RECIPES.length, (WEAPON_PRODUCTS.length + PLATE.length + SHIELDS.length) * 11 + CHAIN.length + TOOLS.length + 10);
+  assert.ok(SMITH_RECIPES.every((r) => r.profession === 'smithing' && RECIPES.includes(r)));
   assert.equal(new Set(RECIPES.map((r) => r.id)).size, RECIPES.length, 'one id a recipe');
   const ins = (id) => recipeById(id).inputs.map((i) => [i.key, i.n]);
   assert.deepEqual(ins('dagger:iron'), [['ingot:iron', 1], ['metal:tin', 1]]);
@@ -89,12 +91,13 @@ test('PROF3 law: the XP - 20 x the tier, a quarter more than two tiers below the
   assert.deepEqual(pieceLines({ quality: 2, maker: 'Ann' }), [], 'no provenance, no anvil made it');
 });
 
-test('PROF3 law: the smith\'s stock - Cured Leather 4, Oak Plank 4, Pine Plank 2, Charcoal 2 Marks (twice each one\'s value), materials the Stores know, none withdrawn; a `stock` line burns', () => {
+test('PROF3 law: the smith\'s stock - Cured Leather 4, Oak Plank 4, Pine Plank 2, Charcoal 2 Marks (twice each one\'s value), materials the Stores know, Cured Leather never withdrawn (PROF4: the planks and Charcoal are); a `stock` line burns', () => {
   assert.deepEqual(SMITH_STOCK.map((s) => [s.key, s.marks]), [['leather:cured', 4], ['plank:oak', 4], ['plank:pine', 2], ['wood:charcoal', 2]]);
   for (const s of SMITH_STOCK) {
     const m = materialOf(s.key, herbTier);
     assert.equal(s.marks, 2 * m.value, s.key);
-    assert.equal(withdrawable(s.key), false);
+    // PROF4 registered the planks' and Charcoal's templates (PROF0 25): Cured Leather alone waits, for Hunting
+    assert.equal(withdrawable(s.key), s.key !== 'leather:cured', s.key);
   }
   assert.deepEqual([materialOf('leather:cured', herbTier).tier, materialOf('plank:oak', herbTier).tier, materialOf('plank:pine', herbTier).tier], [2, 2, 1]);
   assert.equal(stockOf('ingot:iron'), null);

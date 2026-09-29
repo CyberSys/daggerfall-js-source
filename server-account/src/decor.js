@@ -103,6 +103,22 @@ export async function hideDecorBase(ctx, player, { mapId, buildingKey, character
 }
 
 /**
+ * PROF4 (bible/06-Systems/Professions-Arc.md 25): A CRAFTED PIECE SET DOWN - its provenance id kept only where the
+ * account service's own `products` row says the piece is this account's and this template's, and its maker's mark
+ * written from that row alone (where its name carries one - a Masterwork, a Master Joiner's furniture), never from what
+ * the client sent. A piece whose id the row does not bear out stands as the plain piece it is.
+ */
+async function provenOf(db, player, p) {
+  const pv = p.item.pv;
+  const plain = { ...p.item };
+  delete plain.pv;
+  delete plain.mk;   // never the client's word
+  const row = await db.prepare('SELECT owner, template, maker, marked FROM products WHERE provenance = ?').bind(pv).first();
+  const ours = row && row.owner === player.id && Number(row.template) === p.item.t;
+  return decorPieceOf({ ...p, item: ours ? { ...plain, pv, ...(Number(row.marked) === 1 && row.maker ? { mk: row.maker } : {}) } : plain });
+}
+
+/**
  * PLACE ONE: it stands in the owner's home, or it is refused and nothing changes. A placement sent again because its
  * answer was lost finds the same piece standing and is answered as the placement.
  * @param {{db: any, nowS: number}} ctx
@@ -110,9 +126,11 @@ export async function hideDecorBase(ctx, player, { mapId, buildingKey, character
 export async function placeDecor(ctx, player, { mapId, buildingKey, character, piece } = {}) {
   const shut = await writeDoor(ctx, player, { mapId, buildingKey, character });
   if (shut) return { error: shut };
-  const p = decorPieceOf(piece);
-  if (!p) return { error: 'bad-decor' };
+  const sent = decorPieceOf(piece);
+  if (!sent) return { error: 'bad-decor' };
   const { db, nowS } = ctx;
+  const p = sent.item?.pv ? await provenOf(db, player, sent) : sent;
+  if (!p) return { error: 'bad-decor' };
   const r = await db.prepare(`INSERT OR IGNORE INTO home_decor (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at, item)
     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${OWNS} AND (SELECT COUNT(*) FROM home_decor WHERE map_id = ? AND building_key = ?) < ?`)
     .bind(mapId, buildingKey, p.id, p.model, p.flat?.[0] ?? null, p.flat?.[1] ?? null, placeJson(p), nowS, p.item ? JSON.stringify(p.item) : null,

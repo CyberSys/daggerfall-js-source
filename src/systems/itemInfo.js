@@ -548,8 +548,8 @@ export function itemNameParts(item, { getQuest = null, differentiatePlantIngredi
   if (item?.group === 'Weapons' && !isAmmunition(item)) material = materialName(item);
   if (item?.group === 'Armor' && armorShouldShowMaterial(item)) material = materialName(item);
   // PROF3: a Masterwork's name is its maker's mark (bible/06-Systems/Professions-Arc.md 9.2) - "Silverthorn's Mithril
-  // Longsword", the mark before the material, one name
-  if (item?.quality === 4 && typeof item.maker === 'string' && item.maker && typeof item.provenance === 'string') return { name: `${item.maker}'s ${material ? `${material} ` : ''}${base}`, material: '' };
+  // Longsword", the mark before the material, one name; PROF4: and a Master Joiner's furniture at any quality (`marked`)
+  if ((item?.quality === 4 || item?.marked === true) && typeof item.maker === 'string' && item.maker && typeof item.provenance === 'string') return { name: `${item.maker}'s ${material ? `${material} ` : ''}${base}`, material: '' };
   if (isPotion(item)) return { name: potionMacroName(item) ?? base, material };
   const signoff = questLetterName(item, getQuest);
   if (signoff) return { name: signoff, material: '' };

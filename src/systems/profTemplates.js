@@ -1,7 +1,8 @@
 // @ts-check
 // ═══════════════════════════════════════════════════════════════════
 // PROF2 (2026-09-28, Mac: "Go") - THE NEW MATERIALS AS ITEMS: the ores
-// (610-615), the ingots (620-630) and the stone (673-674), registered as
+// (610-615), the ingots (620-630) and the stone (673-674) - and PROF4's
+// logs, planks, Charcoal, Resin and Heartwood (635-654) - registered as
 // custom templates in the professions' reserved range (PROF0 4.8, law
 // 2), as the Sigil Stone (570, systems/gateSpoils.js) and Foraging's
 // twelve (1600-1611) are. The rows are the law's (net/professionLaw.js
@@ -28,7 +29,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { registerCustomTemplates, registerKitDye } from './itemTemplates.js';
 import { DYE_COLORS } from '../characters/dyes.js';
-import { ORES, INGOTS, STONES, TIER_VALUES } from '../net/professionLaw.js';
+import { ORES, INGOTS, STONES, TIER_VALUES, WOOD_TEMPLATES } from '../net/professionLaw.js';
 import { REPAIR_KIT_TEMPLATE } from '../net/recipeLaw.js';
 
 /** The group every new material mints in: DFU's miscellany (UselessItems2), where Foraging's own items sit - not an
@@ -66,6 +67,22 @@ export const MINING_TEMPLATE_ROWS = Object.freeze([...ORES, ...INGOTS, ...STONES
   ...(m.dye ? { iconDye: DYE_COLORS[m.dye] } : {}),
 })));
 registerCustomTemplates(MINING_TEMPLATE_ROWS);
+
+// ─── PROF4: THE WOODS (PROF0 4.2, 4.8, 25: 635-654) ───────────────────
+/** Weights (kg): a log a length of trunk, a plank a board, Charcoal Iron's lump, Resin a pinch, Heartwood a board. */
+const WOOD_WEIGHT = Object.freeze({ log: 2, plank: 1, 'wood:charcoal': 0.5, 'wood:resin': 0.25, 'wood:heartwood': 1 });
+const woodWeight = (m) => WOOD_WEIGHT[m.key] ?? WOOD_WEIGHT[m.key.slice(0, m.key.indexOf(':'))] ?? 1;
+/** A gold price in the metals' scale: 8 x the tier's Marks value, a plank half again a log's (it was sawn). */
+const woodPrice = (m) => Math.round(8 * TIER_VALUES[m.tier - 1] * (m.key.startsWith('plank:') ? 1.5 : 1));
+/** The logs, planks, Charcoal, Resin and Heartwood - the rows the law names, on DFU's own pictures (a plank the Staff's,
+ *  dyed as DFU dyes an Iron Staff: its `iconDye`), stacking, never shelved. */
+export const WOOD_TEMPLATE_ROWS = Object.freeze(WOOD_TEMPLATES.map((m) => Object.freeze({
+  index: m.templateIndex, name: m.name, baseWeight: woodWeight(m), hitPoints: 50, capacityOrTarget: 0, basePrice: woodPrice(m),
+  enchantmentPoints: 0, rarity: 10, variants: 0, drawOrderOrEffect: 0, isBluntWeapon: false, isLiquid: false,
+  isOneHanded: false, isIngredient: false, worldTextureArchive: m.icon[0], worldTextureRecord: m.icon[1],
+  playerTextureArchive: 0, playerTextureRecord: 0, stackable: true, ...(m.dye ? { iconDye: DYE_COLORS[m.dye] } : {}),
+})));
+registerCustomTemplates(WOOD_TEMPLATE_ROWS);
 
 // ─── PROF3: THE REPAIR KIT (PROF0 4.8: 692, DFU's Warhammer picture) ───
 /** The anvil's consumable (systems/smithItems.js): the Warhammer's own world picture (TEXTURE.214 record 3), dyed per

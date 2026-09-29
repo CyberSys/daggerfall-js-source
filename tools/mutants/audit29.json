@@ -122,7 +122,7 @@
   {
     "name": "AUDIT29-A14-the-smelt-xp-offered",
     "file": "server-account/src/professions.js",
-    "old": "        MAX(0, MIN(?8, ${Number(cap)} - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = 'smithing'), 0))), ?9, ?10",
+    "old": "        MAX(0, MIN(?8, ${Number(cap)} - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = '${r.xp ?? 'smithing'}'), 0))), ?9, ?10",
     "new": "        ?8, ?9, ?10",
     "tests": [
       "test/audit29_service.test.js"
@@ -131,8 +131,8 @@
   {
     "name": "AUDIT29-A7-the-smith-s-rank-unasked",
     "file": "server-account/src/professions.js",
-    "old": "smeltXp(out.tier, count, ranks.smithing ?? 0);",
-    "new": "smeltXp(out.tier, count);",
+    "old": "smeltXp(out.tier, count, ranks[r.xp] ?? 0)",
+    "new": "smeltXp(out.tier, count)",
     "tests": [
       "test/audit29_service.test.js"
     ]
@@ -285,7 +285,7 @@
   {
     "name": "AUDIT29-B2-a-forge-sold-anywhere",
     "file": "src/ui/decorPanel.js",
-    "old": "export const stationsOffered = () => DECOR_STATIONS.filter((k) => k !== 'forge' || forgeOffered());",
+    "old": "export const stationsOffered = () => DECOR_STATIONS.filter((k) => !PROF_STATIONS.includes(k) || forgeOffered());",
     "new": "export const stationsOffered = () => DECOR_STATIONS.filter(() => true);",
     "tests": [
       "test/audit29_client.test.js"
@@ -375,8 +375,8 @@
   {
     "name": "AUDIT29-C4-the-node-stood-as-it-was",
     "file": "src/scenes/gatherHost.js",
-    "old": "      else if (!a && nodeKeyOf) restandNode(nodeKeyOf);\n",
-    "new": "",
+    "old": "      } else if (!a && nodeKeyOf) restandNode(nodeKeyOf);\n",
+    "new": "      }\n",
     "tests": [
       "test/audit29_host.test.js"
     ]

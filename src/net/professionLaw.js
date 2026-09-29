@@ -151,9 +151,9 @@ export const SPECIALISATIONS = Object.freeze({
       spec('saddler', 'Saddler', 'A wagon upgrade (Horse Cart and Cargo) of +100 kg.')),
   }),
   carpentry: Object.freeze({
-    50: pair(spec('bowyer', 'Bowyer', 'Bows and arrows +1 quality step.'),
+    50: pair(spec('bowyer', 'Bowyer', 'Bows +1 quality step (arrows take none).'),
       spec('joiner', 'Joiner', 'Furniture at half the planks.')),
-    100: pair(spec('siegewright', 'Siegewright', 'Rams +50% vitality; siege works a day sooner.'),
+    100: pair(spec('siegewright', 'Siegewright', 'Rams +50% vitality; siege works a day sooner.', 'SEAT2'),   // PROF4: the sieges are SEAT2's
       spec('master-joiner', 'Master Joiner', "Furniture carries the maker's mark.")),
   }),
   masonry: Object.freeze({
@@ -348,10 +348,43 @@ export const GEMS = Object.freeze([
   dfu('gem:jade', 'gems', gemTierOfPrice(10), 'Gems', 4), dfu('gem:turquoise', 'gems', gemTierOfPrice(50), 'Gems', 5),
   dfu('gem:malachite', 'gems', gemTierOfPrice(25), 'Gems', 6), dfu('gem:amber', 'gems', gemTierOfPrice(100), 'Gems', 7),
 ]);
-/** Charcoal (PROF0 4.2): Logging's, tier 1 - the Steel recipe names it; the smith's stock sells it (PROF3). */
-export const CHARCOAL = made('wood:charcoal', 'wood', 1, 652, 'Charcoal', ICON_LODESTONE, null);
 /** Every new template PROF2 registers, by template. */
 export const MINING_TEMPLATES = Object.freeze([...ORES, ...INGOTS, ...STONES]);
+
+// ─── THE WOODS PROF4 STORES (PROF0 4.2, 4.8, 25) ─────────────────────
+
+/** DFU's pictures the woods borrow (law 6, PROF0 4.8): a log and Heartwood Twigs' (TEXTURE.254 record 9); a plank the
+ *  Staff's (TEXTURE.207 record 7 - a length of worked wood, drawn as DFU draws an Iron Staff: its Iron dye); Resin
+ *  Aloe's (254/23); Charcoal Lodestone's lump. FOUND: 4.8's "Small Oak Table's board" has no picture (DFU's furniture
+ *  templates carry world texture 0/0). The woods are not tinted apart - PROF0 25: DFU's two swatches are clothing's and
+ *  metal's, and a twig's picture is neither's (unverified without the player's data - FLAGGED to Mac's eye). */
+export const ICON_TWIGS = Object.freeze([254, 9]);
+export const ICON_STAFF = Object.freeze([207, 7]);
+export const ICON_ALOE = Object.freeze([254, 23]);
+/** The seven woods (4.2), each its tier: Pine 1, Oak 2, Cherry 3, Teak 4, Mahogany 5, Ironwood and Ghostwood 6. */
+export const WOODS = Object.freeze([
+  Object.freeze({ id: 'pine', name: 'Pine', tier: 1 }), Object.freeze({ id: 'oak', name: 'Oak', tier: 2 }),
+  Object.freeze({ id: 'cherry', name: 'Cherry', tier: 3 }), Object.freeze({ id: 'teak', name: 'Teak', tier: 4 }),
+  Object.freeze({ id: 'mahogany', name: 'Mahogany', tier: 5 }), Object.freeze({ id: 'ironwood', name: 'Ironwood', tier: 6 }),
+  Object.freeze({ id: 'ghostwood', name: 'Ghostwood', tier: 6 }),
+]);
+/** The logs (635-641) and the planks (645-651), in the woods' order. */
+export const LOGS = Object.freeze(WOODS.map((w, i) => made(`log:${w.id}`, 'wood', w.tier, 635 + i, `${w.name} Log`, ICON_TWIGS, null)));
+export const PLANKS = Object.freeze(WOODS.map((w, i) => made(`plank:${w.id}`, 'wood', w.tier, 645 + i, `${w.name} Plank`, ICON_STAFF, 'Iron')));
+/** A wood's id from a log's or a plank's key (`log:oak` -> `oak`), or null. */
+export const woodOf = (key) => (typeof key === 'string' && /^(log|plank):[a-z]+$/.test(key) && WOODS.some((w) => w.id === key.slice(key.indexOf(':') + 1)) ? key.slice(key.indexOf(':') + 1) : null);
+/** Charcoal (PROF0 4.2): burnt from a log, tier 1 - the Steel recipe names it; the smith's stock sells it (PROF3). */
+export const CHARCOAL = made('wood:charcoal', 'wood', 1, 652, 'Charcoal', ICON_LODESTONE, null);
+/** Resin (4.2): one tree in four, tier 1 - a bow's string-wax. Heartwood (4.2, PROF0 25): 2% a Clean Cut, one material
+ *  (4.8 gives it one template), tier 4 - one stands in for a plank in any recipe that asks one, and is a quality step. */
+export const RESIN = made('wood:resin', 'wood', 1, 653, 'Resin', ICON_ALOE, null);
+export const HEARTWOOD = made('wood:heartwood', 'wood', 4, 654, 'Heartwood', ICON_TWIGS, null);
+/** Every new template PROF4 registers, by template. */
+export const WOOD_TEMPLATES = Object.freeze([...LOGS, ...PLANKS, CHARCOAL, RESIN, HEARTWOOD]);
+/** Hunting's Bear Hide (4.4: 657, tier 2) - named for the Ram Kit that asks it (PROF0 25); nothing yields it before
+ *  PROF7. Linen (4.5: 668, tier 1) - never gathered: the furnisher's stock sells it until the Weavers' counter stands. */
+export const BEAR_HIDE = made('hide:bear', 'hides', 2, 657, 'Bear Hide', null, null);
+export const LINEN = made('cloth:linen', 'hides', 1, 668, 'Linen Bolt', null, null);
 
 // ─── THE SMITH'S STOCK (PROF0 24) ────────────────────────────────────
 
@@ -359,19 +392,28 @@ export const MINING_TEMPLATES = Object.freeze([...ORES, ...INGOTS, ...STONES]);
  *  (665: 4.4's cure of tier 1-3 hides, their middle, tier 2) and Logging's Oak and Pine Planks (646 tier 2, 645 tier
  *  1) and Charcoal. The smith's forge sells them into the Stores for Marks: a counter's goods (4.5), bought, never own. */
 export const CURED_LEATHER = made('leather:cured', 'hides', 2, 665, 'Cured Leather', null, null);
-export const OAK_PLANK = made('plank:oak', 'wood', 2, 646, 'Oak Plank', null, null);
-export const PINE_PLANK = made('plank:pine', 'wood', 1, 645, 'Pine Plank', null, null);
-/** The smith's price, a unit: twice the material's Marks value (4.8) - a gatherer's own undersells it once the
- *  professions that yield it come (PROF4, PROF7). In the stock window's order. */
-export const SMITH_STOCK = Object.freeze([CURED_LEATHER, OAK_PLANK, PINE_PLANK, CHARCOAL]
-  .map((m) => Object.freeze({ key: m.key, marks: 2 * TIER_VALUES[m.tier - 1] })));
-export const stockOf = (key) => SMITH_STOCK.find((s) => s.key === key) ?? null;
+/** PROF4: Logging's own planks now (their templates registered, PROF0 25). */
+export const OAK_PLANK = PLANKS[1];
+export const PINE_PLANK = PLANKS[0];
+/** A counter's price, a unit: twice the material's Marks value (4.8) - a gatherer's own undersells it once the
+ *  professions that yield it come (PROF4, PROF7). The smith's, in its window's order. */
+const stock = (counter) => (m) => Object.freeze({ key: m.key, marks: 2 * TIER_VALUES[m.tier - 1], counter });
+export const SMITH_STOCK = Object.freeze([CURED_LEATHER, OAK_PLANK, PINE_PLANK, CHARCOAL].map(stock('smith')));
+/** PROF4 (PROF0 25): the furnisher's stock - a Furniture Store's counter, the bed's Linen (4.5's 2 Marks) until the
+ *  Weavers' counter stands on the Market tab (PROF5). */
+export const FURNISHER_STOCK = Object.freeze([LINEN].map(stock('furnisher')));
+/** Every counter's goods. The service cannot see a counter (as it cannot see the forge): it sells any of them wherever
+ *  it is asked, and the client asks at the counter's shop - a lie buys the same goods at the same price. */
+export const STOCKS = Object.freeze([...SMITH_STOCK, ...FURNISHER_STOCK]);
+export const stockOf = (key) => STOCKS.find((s) => s.key === key) ?? null;
 /** Units a purchase, at most. */
 export const STOCK_MAX = 100;
-/** Whether the Stores may give a material to the pack: not the stock's four, whose templates their own professions
- *  register (FACT: none of 645, 646, 652, 665 is a template before PROF4 and PROF7). */
-export const withdrawable = (key) => !stockOf(key);
-const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, CHARCOAL, CURED_LEATHER, OAK_PLANK, PINE_PLANK].map((m) => [m.key, m]));
+/** The materials with no pack form yet: Hunting's Cured Leather and Bear Hide (PROF7) and the Weavers' Linen
+ *  (Outfitting's) - PROF4 registered the planks' and Charcoal's templates, so they withdraw now. */
+export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen']);
+/** Whether the Stores may give a material to the pack. */
+export const withdrawable = (key) => !NO_PACK_FORM.includes(key);
+const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, ...WOOD_TEMPLATES, CURED_LEATHER, BEAR_HIDE, LINEN].map((m) => [m.key, m]));
 /** A mined (or smelted) material's row, or null. */
 export const minedMaterial = (key) => MINED.get(key) ?? null;
 
@@ -398,9 +440,9 @@ export function materialOf(key, herbTier) {
   if (r) return { key, family: r.family, tier: r.tier, value: TIER_VALUES[r.tier - 1], ...(r.group ? { group: r.group } : {}), templateIndex: r.templateIndex };
   return null;
 }
-/** Which profession gathers a material - a writ's XP goes to it. */
+/** Which profession gathers a material - a writ's XP goes to it. PROF4: wood is Logging's (a writ asks only logs). */
 export const professionOfFamily = (family) => (family === 'herbs' || family === 'food' ? 'herbalism'
-  : family === 'metals' || family === 'stone' || family === 'gems' ? 'mining' : null);
+  : family === 'metals' || family === 'stone' || family === 'gems' ? 'mining' : family === 'wood' ? 'logging' : null);
 
 // ─── MINING'S ACT (PROF0 5.2, 23; FORAGE0 14.4) ──────────────────────
 
@@ -422,28 +464,71 @@ export const CUT_RATIO = 2;
 /** The Pick-Axe's attribute pair (FORAGE0 14.4): (INT + AGI) / 2 - Foraging's average, the IL's Agility. */
 export const pickAxeBand = ({ intelligence, agility }) => actBand(Math.trunc((intelligence + agility) / 2));
 
+// ─── LOGGING'S ACT (PROF0 5.2, 25; FORAGE0 14.4) ─────────────────────
+
+/** The chops a tree takes by its tier: 5 (1-2), 6 (3-4), 8 (5-6); a Lumberjack two fewer, three at least. */
+export const chopsFor = (tier, lumberjack = false) => Math.max(3, (tier <= 2 ? 5 : tier <= 4 ? 6 : 8) - (lumberjack ? 2 : 0));
+/**
+ * THE RING: a circle shrinks from `ringFrom` times the notch's radius onto it over `ringS`, and on past it to
+ * `ringTo`, then starts again; a chop while it stands within the band of the notch - `bandNovice` of its radius to
+ * `bandMaster` at Master, x the Wood-Axe's band - is a Clean Cut, worth two chops. One chop a `swingS`; the tree creaks at
+ * `creakAt` of its chops.
+ */
+export const CHOP_ACT = Object.freeze({ ringS: 0.9, ringFrom: 3, ringTo: 0.5, bandNovice: 0.12, bandMaster: 0.2, swingS: 0.45, creakAt: 0.5 });
+/** The ring's band at a rank, x the attribute band: 12% at Novice to 20% at Master. */
+export const ringBand = (rank, band = 1) => (CHOP_ACT.bandNovice + (CHOP_ACT.bandMaster - CHOP_ACT.bandNovice) * Math.max(0, Math.min(100, rank)) / 100) * band;
+/** The most Clean Cuts a finish can hold - every chop clean, each counting two. */
+export const cutsMax = (tier, lumberjack = false) => Math.ceil(chopsFor(tier, lumberjack) / 2);
+/** The Wood-Axe's attribute pair (FORAGE0 14.4): (INT + STR) / 2 - Foraging's own. */
+export const woodAxeBand = ({ intelligence, strength }) => actBand(Math.trunc((intelligence + strength) / 2));
+/** Heartwood: 2% a Clean Cut (a Forester's x2), one at most, on confirmed ground. Resin: one tree in four. */
+export const HEARTWOOD_CHANCE = 0.02;
+export const FORESTER_MULT = 2;
+export const RESIN_CHANCE = 0.25;
+
 // ─── SMELTING (PROF0 4.1, 23) ────────────────────────────────────────
 
 /** A smelt, most units a request. */
 export const SMELT_MAX = 100;
 /** The use fee a Weaponsmith's or Armorer's forge asks, a smelt (gold, the purse's). */
 export const FORGE_FEE = 50;
-const recipe = (id, out, inputs) => Object.freeze({ id, out, inputs: Object.freeze(inputs.map(([key, n]) => Object.freeze({ key, n }))) });
+/** PROF4: a Furniture Store's workbench asks the same, a craft or a saw. */
+export const WORKBENCH_FEE = 50;
+/**
+ * A forge's or a workbench's work, no act (PROF0 4.1, 4.2, 25): `out` made from `inputs`, `per` a unit - or `more.per`
+ * for a character standing under `more.spec`, their `more.profession`'s choice at 100 (a Quartermaster's ingots, a
+ * Charcoal Burner's charcoal, a Timberwright's planks); `station` where it is done; `xp` the track it raises (10 x the
+ * product's tier a unit) or null (a log's XP was its fall's - PROF0 25).
+ */
+const recipe = (id, out, inputs, { station = 'forge', per = 1, more = null, xp = 'smithing' } = {}) =>
+  Object.freeze({ id, out, inputs: Object.freeze(inputs.map(([key, n]) => Object.freeze({ key, n }))), station, per, more, xp });
+const QUARTERMASTER = Object.freeze({ profession: 'smithing', spec: 'quartermaster', per: 2 });
+const ingot = (id, inputs) => recipe(id, id, inputs, { more: QUARTERMASTER });
 /** The forge's recipes, in the window's order: two of a raw metal an ingot; Steel an Iron Ingot and a Charcoal; Brass
  *  a Copper and a Tin. Daedric waits on its heart and its stone (PROF0 23). */
 export const SMELT_RECIPES = Object.freeze([
-  recipe('ingot:iron', 'ingot:iron', [['metal:iron', 2]]),
-  recipe('ingot:steel', 'ingot:steel', [['ingot:iron', 1], ['wood:charcoal', 1]]),
-  recipe('ingot:silver', 'ingot:silver', [['metal:silver', 2]]),
-  recipe('metal:brass', 'metal:brass', [['metal:copper', 1], ['metal:tin', 1]]),
-  recipe('ingot:moonstone', 'ingot:moonstone', [['ore:moonstone', 2]]),
-  recipe('ingot:dwarven', 'ingot:dwarven', [['ore:dwarven', 2]]),
-  recipe('ingot:mithril', 'ingot:mithril', [['ore:mithril', 2]]),
-  recipe('ingot:adamantium', 'ingot:adamantium', [['ore:adamantium', 2]]),
-  recipe('ingot:ebony', 'ingot:ebony', [['ore:ebony', 2]]),
-  recipe('ingot:orichalcum', 'ingot:orichalcum', [['ore:orichalcum', 2]]),
+  ingot('ingot:iron', [['metal:iron', 2]]),
+  ingot('ingot:steel', [['ingot:iron', 1], ['wood:charcoal', 1]]),
+  ingot('ingot:silver', [['metal:silver', 2]]),
+  recipe('metal:brass', 'metal:brass', [['metal:copper', 1], ['metal:tin', 1]]),   // Brass is a metal, not an ingot (PROF3)
+  ingot('ingot:moonstone', [['ore:moonstone', 2]]),
+  ingot('ingot:dwarven', [['ore:dwarven', 2]]),
+  ingot('ingot:mithril', [['ore:mithril', 2]]),
+  ingot('ingot:adamantium', [['ore:adamantium', 2]]),
+  ingot('ingot:ebony', [['ore:ebony', 2]]),
+  ingot('ingot:orichalcum', [['ore:orichalcum', 2]]),
 ]);
-export const smeltRecipe = (id) => SMELT_RECIPES.find((r) => r.id === id) ?? null;
+/** PROF4 (PROF0 4.2, 25): a log burns to a Charcoal at a forge (a Charcoal Burner's two); a log saws to two planks of its
+ *  wood at a workbench (a Timberwright's three). No XP. */
+export const BURN_RECIPES = Object.freeze(LOGS.map((l) => recipe(`burn:${woodOf(l.key)}`, CHARCOAL.key, [[l.key, 1]],
+  { more: Object.freeze({ profession: 'logging', spec: 'charcoal-burner', per: 2 }), xp: null })));
+export const SAW_RECIPES = Object.freeze(LOGS.map((l) => recipe(`saw:${woodOf(l.key)}`, `plank:${woodOf(l.key)}`, [[l.key, 1]],
+  { station: 'workbench', per: 2, more: Object.freeze({ profession: 'logging', spec: 'timberwright', per: 3 }), xp: null })));
+/** Every work of the forge and the workbench, by its id. */
+export const WORK_RECIPES = Object.freeze([...SMELT_RECIPES, ...BURN_RECIPES, ...SAW_RECIPES]);
+export const smeltRecipe = (id) => WORK_RECIPES.find((r) => r.id === id) ?? null;
+/** The products a unit of work makes, for a character whose choices at 100 are `specs100` ({ profession: spec }). */
+export const workPer = (r, specs100 = {}) => (r.more && specs100?.[r.more.profession] === r.more.spec ? r.more.per : r.per);
 /** Smithing XP a smelt: 10 x its tier a unit (PROF0 4.1) - a quarter for a recipe more than two tiers below the smith's
  *  rank's top (3.2's "a node or recipe"; AUDIT 29 A7: a Master smelting Iron took it whole). */
 export function smeltXp(tier, units, rank = 0) {

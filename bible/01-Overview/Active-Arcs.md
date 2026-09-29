@@ -13,6 +13,13 @@
 One line per arc, newest first within each group. Each entry names its own
 page; the page is the record, this is the way in.
 
+- `06-Systems/Professions-Arc.md` 25 (PROF4) - 2026-09-28, Mac ("Continue"): LOGGING, CARPENTRY AND THE FURNITURE,
+  SHIPPED on the branch behind PROF1's switch: the forest's own trees felled with the ring (`systems/chopAct.js`) and
+  falling in the billboard shader (`scenes/treeHost.js`, `uTip`), their stumps and logs; seven woods' logs, planks,
+  Charcoal, Resin and Heartwood; burning at the forge and sawing and Carpentry's 41 recipes at the workbench (a Furniture
+  Store's or a home's), the plane (`systems/planeAct.js`) or a quick craft; furniture into the home's things and set
+  down by DECOR with its maker's mark from the service's own record; the Ram Kit named for the sieges. Migration 0024,
+  `acct24`. Done when DECOR places a crafted table - `test/prof4_client.test.js`.
 - `06-Systems/Professions-Arc.md` 24 (PROF3) - 2026-09-28, Mac ("Lets keep moving"): SMITHING - THE ANVIL, QUALITY AND
   PROVENANCE, SHIPPED on the branch behind PROF1's switch: 9.3's recipes at the anvil beside every forge (`net/recipeLaw.js`,
   307), the heat (`systems/heatAct.js`) or a quick craft, 9.2's quality rolled by the service and laid on DFU's own piece

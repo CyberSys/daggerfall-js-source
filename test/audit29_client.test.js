@@ -139,9 +139,9 @@ test('AUDIT 29 B2: a home\'s Forge station is offered, and sold, only where a Fo
   assert.equal(forgeOffered(), false, 'the classic skin\'s pause has no Stores page');
   setPref('skin', 'enhanced');
   assert.equal(forgeOffered(), true);
-  assert.deepEqual(stationsOffered(), ['alchemy', 'spells', 'enchant', 'forge']);
+  assert.deepEqual(stationsOffered(), ['alchemy', 'spells', 'enchant', 'forge', 'workbench'], 'PROF4: the workbench by the same gate');
   assert.match(FORGE_COLD_LINE, /Stores page/);
   setProfessionsPages(null);
   const src = (await import('node:fs')).readFileSync(new URL('../src/scenes/decorTool.js', import.meta.url), 'utf8');
-  assert.match(src, /if \(want === 'forge' && !forgeOffered\(\)\) \{ deps\.say\?\.\(FORGE_COLD_LINE\); return false; \}/, 'the tool sells none where the panel offers none');
+  assert.match(src, /if \(PROF_STATIONS\.includes\(want\) && !forgeOffered\(\)\) \{ deps\.say\?\.\(stationColdLine\(want\)\); return false; \}/, 'the tool sells none where the panel offers none (PROF4: a workbench neither)');
 });

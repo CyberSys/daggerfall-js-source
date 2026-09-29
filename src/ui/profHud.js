@@ -24,7 +24,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { BASKET_SPOTS } from '../systems/herbAct.js';
 import { MINE_POINTS } from '../systems/mineAct.js';   // PROF2: the vein's face
-import { MINE_ACT } from '../net/professionLaw.js';
+import { MINE_ACT, CHOP_ACT } from '../net/professionLaw.js';
 import { PROF_CSS } from './enhancedPlusStyle.js';
 
 /** The toasts: four at most, three seconds each (PROF0 8). */
@@ -115,7 +115,39 @@ export function createProfHud({ doc = globalThis.document } = {}) {
       const st = act.state;
       meter.classList.toggle('bruised', !!st.bruised);
       meter.classList.toggle('struck-glint', st.kind === 'mine' && st.last === 'glint' && act.swing > 0);
+      meter.classList.toggle('clean-cut', st.kind === 'chop' && st.last === 'clean' && act.swing > 0);
       meter.replaceChildren();
+      if (st.kind === 'chop') {
+        // PROF4: THE RING - the trunk's notch, the band a Clean Cut stands in, and the ring shrinking onto it (a still
+        // bar under reduced motion: the ring's marker sliding along it, the band marked); the chops below
+        const span = CHOP_ACT.ringFrom - CHOP_ACT.ringTo;
+        const pct = (r) => `${Math.round(((r - CHOP_ACT.ringTo) / span) * 1000) / 10}%`;
+        if (reduced()) {
+          const bar = mk('prof-ringbar');
+          const band = mk('prof-ringband');
+          band.style.left = pct(1 - st.band); band.style.width = `${Math.round(((2 * st.band) / span) * 1000) / 10}%`;
+          const mark = mk('prof-ringmark');
+          mark.style.left = pct(act.ring);
+          bar.append(band, mark);
+          meter.append(bar);
+        } else {
+          const box = mk(`prof-ring${act.inBand ? ' in-band' : ''}`);
+          const r1 = ((1 - st.band) / CHOP_ACT.ringFrom) * 100, r2 = ((1 + st.band) / CHOP_ACT.ringFrom) * 100;
+          if (st.band > 0) box.style.backgroundImage = `radial-gradient(circle closest-side, transparent ${r1}%, rgba(243,207,134,0.45) ${r1}%, rgba(243,207,134,0.45) ${r2}%, transparent ${r2}%)`;
+          const notch = mk('prof-notch');
+          notch.style.width = `${Math.round((1 / CHOP_ACT.ringFrom) * 1000) / 10}%`;
+          const ring = mk('prof-ringline');
+          ring.style.width = `${Math.round((Math.max(0, act.ring) / CHOP_ACT.ringFrom) * 1000) / 10}%`;
+          box.append(notch, ring);
+          meter.append(box);
+        }
+        const pips = mk('prof-finds');
+        pips.textContent = `${'o '.repeat(Math.min(st.points, st.need))}${'. '.repeat(Math.max(0, st.need - st.points))}`.trim();
+        const hint = mk('prof-hint');
+        hint.textContent = st.creaked ? 'it creaks - keep chopping' : st.gentle ? (label || 'chop') : (label || 'chop as the ring meets the notch');
+        meter.append(pips, hint);
+        return;
+      }
       if (st.kind === 'mine') {
         // PROF2: THE GLINT - the node's face as a box (MINE_ACT's spread), its five points, the one glinting, and where
         // the crosshair is on it; the strikes below (a strike on the glint counts two)

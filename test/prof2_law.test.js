@@ -76,7 +76,7 @@ test('PROF2 law: the new templates are the reserved range\'s - ores 610-615, ing
     assert.deepEqual([r.family, r.tier, r.value], [m.family, m.tier, TIER_VALUES[m.tier - 1]], m.key);
     assert.equal(minedMaterial(m.key), m);
   }
-  assert.deepEqual([professionOfFamily('metals'), professionOfFamily('stone'), professionOfFamily('gems'), professionOfFamily('wood')], ['mining', 'mining', 'mining', null]);
+  assert.deepEqual([professionOfFamily('metals'), professionOfFamily('stone'), professionOfFamily('gems'), professionOfFamily('wood')], ['mining', 'mining', 'mining', 'logging']);   // PROF4: wood is Logging's
   assert.equal(material('ore:nothing'), null);
 });
 

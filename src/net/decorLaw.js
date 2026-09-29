@@ -25,6 +25,7 @@
 // degrees, its scale, an optional light, whether it holds things, and
 // the gold it cost (half of which comes back when it is removed).
 // ═══════════════════════════════════════════════════════════════════
+import { PROVENANCE_RE, makerName } from './recipeLaw.js';   // PROF4: a crafted piece's id and mark, one home
 
 /** How many pieces one home holds - a room full of furniture, not a frame-rate. */
 export const DECOR_CAP = 200;
@@ -78,14 +79,21 @@ export const DECOR_ARTIFACT_UNKNOWN = 255;
  * and draws from its own data: the template `t`, and what makes it that item - its group `g` (Daggerfall's ItemGroups
  * number: a plant's name hangs on it), its material `m`, variant `v`, artifact `a` and message `p` (a painting's
  * picture, a book's title) - each null when it has none. Or null.
+ *
+ * PROF4 (bible/06-Systems/Professions-Arc.md 25): a crafted piece's provenance id `pv` (net/recipeLaw.js), and with it
+ * its maker's mark `mk` - the one text a descriptor carries, and online the account service's own: it writes `mk` from
+ * its `products` row (the owner's, the template's) and nothing a client sent (server-account/src/decor.js). Each is
+ * absent when the piece has none.
  */
 export function decorItemOf(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const { t, g = null, m = null, v = null, a = null, p = null } = raw;
+  const { t, g = null, m = null, v = null, a = null, p = null, pv = null, mk = null } = raw;
   const small = (x, max) => x === null || (Number.isSafeInteger(x) && x >= 0 && x <= max);
   if (!Number.isSafeInteger(t) || t < 0 || t > DECOR_TEMPLATE_MAX) return null;
   if (!small(g, 63) || !small(m, 0xffff) || !small(v, 255) || !small(a, 255) || !small(p, 0xffff)) return null;
-  return { t, g, m, v, a, p };
+  if (pv !== null && (typeof pv !== 'string' || !PROVENANCE_RE.test(pv))) return null;
+  if (mk !== null && makerName(mk) !== mk) return null;
+  return { t, g, m, v, a, p, ...(pv ? { pv } : {}), ...(pv && mk ? { mk } : {}) };
 }
 
 /** DECOR2b: Daggerfall's ItemGroups.Furniture - the furnisher's pieces, whose shape the owner chooses among the
@@ -183,17 +191,18 @@ export function decorLightOf(raw) {
 /** HOME-STATIONS (2026-09-27, Discord - Tabitha: "CRAFTABLE / PURCHASABLE CRAFT / GUILD STATIONS [Spellmaking, Alchemy,
  *  Enchanting] FOR HOMES / SHIPS"): the three crafts a placed piece may be made to serve - the guilds' own makers
  *  (DFU's MakePotions, MakeSpells and MakeMagicItems services), at home. */
-export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge']);   // PROF2: the forge - smelting at home (bible/06-Systems/Professions-Arc.md 23)
+export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench']);   // PROF2: the forge - smelting at home (bible/06-Systems/Professions-Arc.md 23); PROF4: the workbench (25)
 /** What a station costs to make, once - a licence for the craft in that piece, not the piece's own price (`paid`), so
  *  nothing of it comes back when the piece is removed or the room sold. STATION-FEES (2026-09-27, Discord: "Make
  *  crafting stations in interiors way more expensive"): ten times the first pass (5,000, 10,000 and 20,000) - a
  *  guild's maker at home is a hall's worth of gold, not an afternoon's. */
-export const DECOR_STATION_FEES = Object.freeze({ alchemy: 50_000, spells: 100_000, enchant: 200_000, forge: 50_000 });   // PROF2: a forge as the alchemy station
+export const DECOR_STATION_FEES = Object.freeze({ alchemy: 50_000, spells: 100_000, enchant: 200_000, forge: 50_000, workbench: 50_000 });   // PROF2: a forge as the alchemy station; PROF4: a workbench as the forge
 /** The guild service each craft opens - the same maker windows the Mages Guild and the temples offer (worldModes.js
- *  openServiceFlow's destinations). PROF2: the forge is no guild's - it opens the Stores' forge (ui/profPages.js). */
+ *  openServiceFlow's destinations). PROF2: the forge is no guild's - it opens the Stores' forge (ui/profPages.js);
+ *  PROF4: nor the workbench - the Stores' workbench. */
 export const DECOR_STATION_SERVICES = Object.freeze({ alchemy: 'guildServicePotionMaker', spells: 'guildServiceSpellMaker', enchant: 'guildServiceItemMaker' });
 /** A station's name, as the panel and the room say it. */
-export const DECOR_STATION_NAMES = Object.freeze({ alchemy: 'Alchemy station', spells: 'Spellmaking station', enchant: 'Enchanting station', forge: 'Forge' });
+export const DECOR_STATION_NAMES = Object.freeze({ alchemy: 'Alchemy station', spells: 'Spellmaking station', enchant: 'Enchanting station', forge: 'Forge', workbench: 'Workbench' });
 
 /**
  * WHERE a piece stands and what it cost - the half a move may change - projected and rounded (a millimetre, a tenth

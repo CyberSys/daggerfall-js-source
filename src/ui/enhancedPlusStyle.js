@@ -989,6 +989,17 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .prof-aim { position: absolute; width: 10%; aspect-ratio: 1; margin: -5% 0 0 -5%; border: 1px solid #efe0b8; box-sizing: border-box;
   box-shadow: 0 0 0 1px #050608; }
 .prof-meter.struck-glint .prof-face { box-shadow: 0 0 0 2px #050608, 0 0 6px 2px rgba(243,207,134,0.8); }
+.prof-ring { position: relative; width: calc(64px * var(--hud-scale, 1)); height: calc(64px * var(--hud-scale, 1)); margin: 0 auto 4px;
+  border-radius: 50%; background-color: #4a3524; box-shadow: 0 0 0 2px #050608; }
+.prof-notch, .prof-ringline { position: absolute; left: 50%; top: 50%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
+  box-sizing: border-box; }
+.prof-notch { border: 2px solid #050608; background: #2a1d12; }
+.prof-ringline { border: 2px solid #efe0b8; box-shadow: 0 0 0 1px #050608; }
+.prof-ring.in-band .prof-ringline { border-color: #f3cf86; box-shadow: 0 0 0 1px #050608, 0 0 6px 1px rgba(243,207,134,0.9); }
+.prof-meter.clean-cut .prof-ring { box-shadow: 0 0 0 2px #050608, 0 0 6px 2px rgba(243,207,134,0.8); }
+.prof-ringbar { position: relative; height: calc(10px * var(--hud-scale, 1)); margin-bottom: 4px; background: rgba(5,6,8,0.8); box-shadow: 0 0 0 1px #050608; }
+.prof-ringband { position: absolute; top: 0; bottom: 0; background: rgba(243,207,134,0.45); }
+.prof-ringmark { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: #efe0b8; }
 .prof-toasts { position: fixed; right: 12px; top: 34%; z-index: 12; display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
   pointer-events: none; font-family: ${PIXEL_STACK}; font-size: calc(12px * var(--hud-scale, 1)); }
 .prof-toast { padding: 3px 10px; color: #efe0b8; background: rgba(10,8,6,0.78); border-left: 2px solid var(--brass, #c08a3e);
