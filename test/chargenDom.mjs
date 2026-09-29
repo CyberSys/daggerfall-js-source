@@ -25,6 +25,7 @@ class Node_ {
   dispatch(type, ev) { ev.target ??= this; ev.type = type; if (this.disabled && type === 'click') return; if (type === 'click' && this.onclick) this.onclick(ev); if (type === 'input' && this.oninput) this.oninput(ev); if (type === 'keydown' && this.onkeydown) this.onkeydown(ev); for (const f of this.listeners[type] ?? []) f(ev); }
   getContext() { return new Proxy({}, { get: (t, k) => k === 'createImageData' ? (w, h) => ({ data: new Uint8ClampedArray(w * h * 4), width: w, height: h }) : k === 'getImageData' ? (x, y, w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }) : k === 'measureText' ? () => ({ width: 1 }) : (typeof k === 'string' ? () => {} : undefined), set: () => true }); }
   getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; }
+  get childNodes() { return this.children; }   // GUIDE2: the pause journal's PX22 meta line asks it (a real node's live NodeList)
   get classList() { const n = this; return { add: (c) => { n.className += ' ' + c; }, remove() {}, toggle() {}, contains: (c) => n.className.split(/\s+/).includes(c) }; }
 }
 /** AUDIT 31 U1: A NODE TAKEN OUT OF THE DOCUMENT TAKES THE FOCUS WITH IT, as a browser's does - the focus falls to the

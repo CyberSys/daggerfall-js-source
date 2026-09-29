@@ -434,16 +434,37 @@ export function checkLocationDiscovered(summary) {
   return hasDiscoveredLocationId(summary.id) || !!summary.discovered || _revealUndiscoveredLocations;
 }
 
+/** CanFindPlace's first half (:1136-1141): a place's map pixel through its NAME - the region by name, the place by
+ *  its map name, the row's longitude and latitude - or null for a name the region does not hold. */
+export function placePixelOf(maps, regionName, name) {
+  const region = maps?.getRegionByName?.(regionName);
+  const index = region?.mapNameLookup?.get(name);
+  if (index === undefined || index === null) return null;
+  const row = region.mapTable[index];
+  return longitudeLatitudeToMapPixel(row.longitude, row.latitude);
+}
+
+/** AUDIT GUIDE O3: placePixelOf, kept per place for a session. MapsFile holds ONE region in memory (autoDiscard), so
+ *  a question asked every tick about places in two regions re-read and re-parsed a region twenty times a second; a
+ *  place's pixel never moves, so each is read once, a miss included. The discovered test (the other half) stays live:
+ *  a place found by asking directions is on the map at the next ask. */
+export function placePixelMemo() {
+  const memo = new Map();
+  return (maps, regionName, name) => {
+    const key = `${regionName}\n${name}`;
+    if (!memo.has(key)) memo.set(key, placePixelOf(maps, regionName, name));
+    return memo.get(key);
+  };
+}
+
 /** CanFindPlace (:1134-1146) - the same test through a NAME, which is
  *  why the journal's find-place gate can ask it: a location the player
  *  has not discovered cannot be found on the map, so the dialog is
- *  never offered for one. */
-export function canFindPlace(maps, mapDict, regionName, name) {
-  const region = maps?.getRegionByName?.(regionName);
-  const index = region?.mapNameLookup?.get(name);
-  if (index === undefined || index === null) return false;
-  const row = region.mapTable[index];
-  const pixel = longitudeLatitudeToMapPixel(row.longitude, row.latitude);
+ *  never offered for one. `pixelOf` is the pixel's reader (a host's
+ *  placePixelMemo, AUDIT GUIDE O3). */
+export function canFindPlace(maps, mapDict, regionName, name, pixelOf = placePixelOf) {
+  const pixel = pixelOf(maps, regionName, name);
+  if (!pixel) return false;
   const summary = locationSummaryAt(mapDict, pixel.x, pixel.y);
   return summary ? checkLocationDiscovered(summary) : false;
 }

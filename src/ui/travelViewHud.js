@@ -880,7 +880,7 @@ const HELD_GAP = 4;
 /** EDGE-FURNITURE: what stands at the screen's edges while the view is up - the game HUD's compass, its vitals and
  *  hotbar and its quick-slot block (the HUD stays under the view), a journey's travel panel and its junction disc, a
  *  phone's touch buttons. The view's own bar is measured apart (it is MOVED clear of what stands under it). */
-const FURNITURE = '.hud-top, .hud-bottom, .hud-quick, .travelpanel-bar, .travelpanel-junction, .dftouch-btn';
+const FURNITURE = '.hud-top, .hud-bottom, .hud-quick, .travelpanel-bar, .travelpanel-junction, .dftouch-btn, .qtrack';   // AUDIT GUIDE D1: the quest card's corner too
 /** A held arrow's room off the furniture (px) - its own half height (10) and a little air. */
 const FURNITURE_GAP = 12;
 /** How often the furniture is measured (ms) - a layout read, so twice a second and never per mark. */

@@ -90,7 +90,9 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { fpArm, hasDaggerfallArrows } from '../combat/fpArm.js';
-import { questRail, journalLines, questTitleOf } from './questRail.js';   // MAC-K2: the ONE quest walk, shared with the chronicle
+import { questRail, journalLines, questTitleOf, QUEST_URGENT_SECONDS, remainWords } from './questRail.js';
+import { entryTarget, targetWords, WHERE_TEXT } from './questLens.js';   // GUIDE2: where a quest points, and the way there   // MAC-K2: the ONE quest walk, shared with the chronicle
+import { questTracker, followOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD's card - the Track toggle, and the quest the journal opens on
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1: a tap on the scrim resumes
 import { TEST_PRESETS, TEST_RIDE, TEST_SEA, TEST_LOOT } from '../systems/testRoom.js';   // TR3: the one home the pane shows; TSR4: the ride; LR3: the loot ladder
 import { mwRaceId } from '../formats/mwNpc.js';
@@ -3771,8 +3773,6 @@ export function statsGuilds(detail, entity) {
 // LABEL still needs its own trailing separator, which is what keeps
 // "Main Quest Backbone" a name.
 
-/** PX5: remaining game seconds as words - days+hours above a day,
- *  hours+minutes below it, minutes alone under an hour. */
 /** QT-LIVE1 (Mac, 2026-09-21: "The time doesn't print out live?"):
  *  the timer line for the selected quest off a FRESH quest log, or
  *  null when that quest no longer has a running clock. The words are
@@ -3780,7 +3780,7 @@ export function statsGuilds(detail, entity) {
 export function questTimerWords(log, key) {
   const q = questRail(log ?? { active: [], finished: [] }).active.find((r) => r.key === key);
   if (!q || q.clockSeconds == null) return null;
-  return { text: `Time remains: ${remainWords(q.clockSeconds)}`, urgent: q.clockSeconds < 86400 };
+  return { text: `Time remains: ${remainWords(q.clockSeconds)}`, urgent: q.clockSeconds < QUEST_URGENT_SECONDS };
 }
 
 /** The journal rendered once when it opened and again on a click, so
@@ -3804,14 +3804,6 @@ function armQuestTimer(span, key) {
   }, 1000);
 }
 
-function remainWords(s) {
-  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m2 = Math.floor((s % 3600) / 60);
-  if (d > 0) return `${d} day${d === 1 ? '' : 's'}${h ? ` ${h} hour${h === 1 ? '' : 's'}` : ''}`;
-  if (h > 0) return `${h} hour${h === 1 ? '' : 's'}${m2 ? ` ${m2} min` : ''}`;
-  return `${Math.max(1, m2)} min`;
-}
-
-
 /** The finished-quest header the notebook files:
  *  '<name> completed|ended at <date>:' (notebook.js:153-184). The name
  *  and the verdict come back out of it; a headerless overflow entry
@@ -3823,6 +3815,39 @@ function pxDivider(word) {
   const d = el('div', 'px-divider');
   d.append(el('span', 'px-gem'), el('span', 'px-divword', word), el('span', 'px-gem'));
   return d;
+}
+
+/** GUIDE2: THE WHERE LINE - an entry's target as the journal draws it: the place in the find-place box's own words
+ *  (ui/questLens.js targetWords - only the names the entry says, or DFU's box would), the way there where this host
+ *  hands a door over, and the note when the player's map is KNOWN not to have it. The door is HandleQuestClicks' Yes
+ *  in this window's law: the page goes down as a HANDOFF and the map is asked for with the place; a map the host
+ *  refuses (an enemy near, the sun) says why in DFU's words and the page resumes - AUDIT 27h A4's rule for every door
+ *  here. `wayOnly` draws nothing unless there is a way to take; `skip` is a place already offered above. Null when the
+ *  entry points nowhere. */
+function questWhere(message, cls, { wayOnly = false, skip = null } = {}) {
+  if (!isEnhanced()) return null;   // AUDIT GUIDE W3: THE LAWS 4 - the classic Controls door (DISC22-B) opens this tab on DFU's skin
+  const said = targetWords(entryTarget(message, { canFindPlace: hooks.canFindPlace, currentLocationName: hooks.currentLocationName }));
+  const door = typeof hooks.showQuestPlace === 'function' ? hooks.showQuestPlace : null;
+  // AUDIT GUIDE W5: a place offered above is skipped by its region AND its name - two towns may share a name
+  if (!said || (wayOnly && !(said.find && door)) || (skip && said.find?.locationName === skip.locationName && said.find?.regionName === skip.regionName)) return null;
+  const box = el('div', cls);
+  box.append(el('span', `${cls}-place`, said.where));
+  if (said.find && door) {
+    const go = el('button', 'act', WHERE_TEXT.show);
+    go.type = 'button';
+    go.title = WHERE_TEXT.showLabel(said.where);
+    go.setAttribute('aria-label', WHERE_TEXT.showLabel(said.where));
+    const find = said.find;
+    go.onclick = () => { onAction('handoff'); if (door(find) === false) onAction('resume'); };
+    box.append(go);
+  }
+  if (said.note) box.append(el('span', `${cls}-note`, said.note));
+  return box;
+}
+/** GUIDE2: the place the quest's latest entry offers a way to (its find payload: region and name), or null. */
+function latestPlace(sel) {
+  const t = entryTarget(sel.written?.at(-1)?.message, { canFindPlace: hooks.canFindPlace, currentLocationName: hooks.currentLocationName });
+  return t?.find ?? null;
 }
 
 /** PX4 - THE JOURNAL (Mac's reference: Skyrim's quest page). A rail of
@@ -3848,7 +3873,12 @@ function pauseQuests(body) {
     return;
   }
   const rows = [...active, ...finished];
-  if (!rows.some((r) => r.key === questSel)) questSel = rows[0].key;
+  // GUIDE4: THE JOURNAL OPENS ON THE QUEST THE HUD SHOWS - the tracker's (the one tracked, else the one the journal
+  // last changed) - and only then on the first row.
+  if (!rows.some((r) => r.key === questSel)) {
+    const onHud = followOn() ? questTracker.tracked()?.id : null;   // AUDIT GUIDE T2: the card's or the marks' quest
+    questSel = (onHud != null ? rows.find((r) => r.id === onHud)?.key : null) ?? rows[0].key;
+  }
   const sel = rows.find((r) => r.key === questSel);
 
   const wrap = el('div', 'px-journal');
@@ -3905,12 +3935,19 @@ function pauseQuests(body) {
       const meta = el('div', 'px-qmeta');
       if (sel.clockSeconds != null) {
         // Under a game day the words go URGENT gold.
-        const urgent = sel.clockSeconds < 86400;
+        const urgent = sel.clockSeconds < QUEST_URGENT_SECONDS;
         const timer = el('span', `px-qtimer${urgent ? ' urgent' : ''}`, `Time remains: ${remainWords(sel.clockSeconds)}`);
         meta.append(timer);
         armQuestTimer(timer, sel.key);
       }
+      // GUIDE4: TRACK THIS QUEST on the HUD's card (ui/questTracker.js), beside its clock - the card follows the quest
+      // the journal last changed until the player chooses one here (or in the chronicle: the same toggle, one home).
+      if (followOn() && sel.id != null) meta.append(trackButton(document, sel.id, questTitleOf(sel.name)));   // AUDIT GUIDE T2; T5: changed in place, the tab not rebuilt
       if (meta.childNodes.length) detail.append(meta);   // PX22: an empty meta line is a gap the eye reads as a mistake
+      // GUIDE2: WHERE THE QUEST POINTS NOW, and the way there - DFU's own logbook click (HandleQuestClicks), which
+      // this journal never had: the latest entry's target through the quest lens, in the find-place box's words.
+      const where = questWhere(sel.written?.at(-1)?.message, 'px-qwhere');
+      if (where) detail.append(where);
     }
     // BOUNTY1 (Mac: "i also dont see the bounty in my questlog means i cant abandon it?"): a bounty's two presses - Abandon
     // (twice: the first arms it, so a stray click gives nothing up) and, in a party, Share
@@ -3943,11 +3980,17 @@ function pauseQuests(body) {
       detail.append(desc);
       if (sel.entries.length > 1) {
         detail.append(pxDivider('Journal'));
+        const offered = latestPlace(sel);   // GUIDE2: the place the where line above already offers
         for (let i = sel.entries.length - 2; i >= 0; i--) {
           const e = el('div', 'px-qentry');
           const mark = el('span', 'px-qmark', '\u25c7');
           const text = el('div');
           for (const line of sel.entries[i]) text.append(el('p', null, line));
+          // GUIDE2: an OLDER entry's own place - the classic logbook takes a click on ANY entry to where it names -
+          // drawn only where it is a way somewhere (on the map, with a door here) and not the place the quest points
+          // now, which the line above already offers.
+          const was = questWhere(sel.written?.[i]?.message, 'px-qentry-where', { wayOnly: true, skip: offered });
+          if (was) text.append(was);
           e.append(mark, text);
           detail.append(e);
         }

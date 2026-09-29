@@ -907,6 +907,44 @@ export const FEATURES = Object.freeze([
       also: Object.freeze([Object.freeze({ store: 'prefs', key: 'quickslots', initial: true, online: 'player' })]),   // QS: ui/enhancedHud.js hides the diamond on false
     }),
   }),
+  // GUIDE3 (2026-09-29, Mac: "...make it more accessible", then "This is your baby"): THE HERALD - a quest's news as
+  // a notice in the enhanced stack (ui/questHerald.js), fed by the quest bridge's tick. On by default (the arc's
+  // DECISIONS: the silence it answers is DISC6's report); the player's own online, since news is no one else's.
+  Object.freeze({
+    id: 'quest-herald',
+    group: 'interface',
+    title: 'Quest news',
+    note: 'A notice slides in when a quest begins, when its journal gains an entry, when a deadline it gave you has '
+      + 'under a day left, and when it ends. Off is Daggerfall’s silence: the journal changes without a word.',   // AUDIT GUIDE H1
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'questHerald', initial: true, online: 'player' }),   // ui/questHerald.js HERALD_PREF
+  }),
+  // GUIDE4 (2026-09-29): THE TRACKER - the quest you follow as a card at the HUD's right-upper edge (ui/questTracker.js),
+  // fed by the same look. On by default but quiet (DECISIONS 2): it follows the quest the journal last changed until
+  // the player tracks one from the journal, and shows nothing with no quest to follow. The player's own online.
+  Object.freeze({
+    id: 'quest-tracker',
+    group: 'interface',
+    title: 'Quest tracker',
+    note: 'A card at the top right shows the quest your journal last changed - its newest entry, where it points and '
+      + 'the time left - or the one you track from the journal. Off is Daggerfall’s HUD, which says nothing of quests.',
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'questTracker', initial: true, online: 'player' }),   // ui/questTracker.js TRACKER_PREF
+  }),
+  // GUIDE5 (2026-09-29): THE MARKS - where a quest points, on the held map and the enhanced compass (ui/questMarks.js):
+  // only a place the player's map already holds, never the quest debugger's knowledge. On by default (DECISIONS 7).
+  Object.freeze({
+    id: 'quest-marks',
+    group: 'interface',
+    title: 'Quest marks',
+    note: 'Your quests\u2019 places are marked on the map, and the one you follow on the compass - only places your map '
+      + 'already holds. Off is Daggerfall\u2019s map and compass, which mark nothing for a quest.',
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'questMarks', initial: true, online: 'player' }),   // ui/questMarks.js MARKS_PREF
+  }),
   // CAMP1 (2026-09-17, Mac: camps and roaming packs in the wilderness):
   // an original addition, not a DFU classic feature - the classic game
   // spawns wandering monsters one at a time. This is a second roll

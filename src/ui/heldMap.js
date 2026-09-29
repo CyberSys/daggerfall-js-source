@@ -104,11 +104,13 @@ import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js
 import { checkLocationDiscovered, flipTravelMapFilter, travelMapDotColors } from './travelMapWindow.js';   // MAP-KEY: the classic's filter flip and its dots' colours
 import { readGateMark, gateMarkKey, GATE_RING_CSS, GATE_LEGEND_TEXT } from './gateMapMark.js';   // WB1: the Oblivion Gate's ring, read as the party is
 import { readBountyMarks, bountyMarksKey, BOUNTY_RING_CSS, BOUNTY_LEGEND_TEXT, BOUNTY_LEGEND_RIM_CSS } from './bountyMapMark.js';   // BOUNTY1: held bounties' black circles, read as the gate's ring is
-import { readRaidMarks, raidMarksKey, placeTip, tipKey, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
+import { readRaidMarks, raidMarksKey, placeTip, tipKey, readTip, RAID_MARK_CSS, RAID_LEGEND_TEXT, RAID_HIT_PX } from './eventMapMarks.js';   // EVENT-TIP: the raided towns, and the card a world event answers a hover with
+import { readQuestMarks, questMarksKey, QUEST_MARK_CSS, QUEST_LEGEND_TEXT, QUEST_HIT_PX, QUEST_MARK_LIFT, QUEST_RAID_LIFT, QUEST_FOLLOWED_TEXT } from './questMarks.js';   // GUIDE5: where the quests point
 import {
   buildInkModel, buildInkMarks, paintInkStatic, paintInkOverlay, zoomBand, clampView, scaleMinOf, SCALE_MAX,   // MAP-FIELD2: placeNames is inkMap's law still, but this sheet no longer inks the names
   viewCentredOn, zoomAt, toPaper, toMap, BAND_MARKS, PARTY_LABEL_STACK,
   markKind, markInks, mapKeyGroups, KIND_WORD, paintKeyChip, KEY_CHIP_PX,   // MAP-KEY: the key, and each kind in its classic hue
+  PEN,   // AUDIT GUIDE U16: the followed quest's diamond is the pen's ink, in the legend as on the sheet
 } from './inkMap.js';
 // SOC6: the party's marks, read the one way both maps read them.
 import {
@@ -619,6 +621,9 @@ export class HeldMapWindow {
     // EVENT-TIP: the raided towns (the host's `raids`, on the same poll), and the card under the pointer
     this._raids = [];
     this._raidsKey = '';
+    // GUIDE5: where the quests point (the host's `quests`, on the same poll) - each place the player's map holds
+    this._quests = [];
+    this._questsKey = '';
     this._tipKey = '';
     this._hoverAt = null;   // where the pointer last hovered, paper and client - a poll refreshes the card under it
     this._selected = null;  // { summary, name, x, y } - or { coords: true, ... } for a bare pixel (MAP2)
@@ -1173,6 +1178,7 @@ export class HeldMapWindow {
           gate: this._gate,   // WB1
           bounties: this._bounties,   // BOUNTY1
           raids: this._raids,   // EVENT-TIP: the towns under attack
+          quests: this._quests,   // GUIDE5: where the quests point
           travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey, ship: t.ship })),   // TV3; OWS1: at sea, a ship
           pulse: env.pulse,
         });
@@ -1671,6 +1677,13 @@ export class HeldMapWindow {
     const raids = readRaidMarks(this.deps.raids, this._size);
     const raidsKey = raidMarksKey(raids);
     if (raidsKey !== this._raidsKey) { this._raidsKey = raidsKey; this._raids = raids; gateMoved = true; this._dirty = true; }
+    // GUIDE5: the quests' places ride the same poll (a step logged, a place found, the followed quest changed while the
+    // map stands open); a card is bounded by the world events' own reader
+    const quests = readQuestMarks(this.deps.quests, this._size).map((m) => ({ ...m, tip: readTip(m.tip),
+      // AUDIT GUIDE K7: over a raided town the diamond stands clear of the blades
+      lift: this._raids.some((r) => r.px === m.px && r.py === m.py) ? QUEST_RAID_LIFT : QUEST_MARK_LIFT }));
+    const questsKey = `${questMarksKey(quests)}#${quests.map((m) => m.lift).join(',')}`;
+    if (questsKey !== this._questsKey) { this._questsKey = questsKey; this._quests = quests; gateMoved = true; this._dirty = true; }
     // TV3: the region's travellers ride the same poll, on their own key
     const trav = readTravellerMarks(this.deps.travellers, this._size);
     const travKey = travellerMarksKey(trav);
@@ -1702,7 +1715,7 @@ export class HeldMapWindow {
     const leg = this._chrome?.legend;
     if (!leg) return;
     leg.innerHTML = '';
-    if (!this._party.length && !this._gate && !this._bounties.length && !this._raids.length && !this._trav.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
+    if (!this._party.length && !this._gate && !this._bounties.length && !this._raids.length && !this._trav.length && !this._quests.length) { leg.classList.toggle('open', false); leg.style.display = 'none'; return; }
     if (this._party.length) {
       const dot = el('span', 'hmlegdot');
       dot.style.background = this._party.some((m) => m.online) ? PARTY_MARK_CSS : PARTY_OFFLINE_CSS;
@@ -1729,6 +1742,19 @@ export class HeldMapWindow {
       dot.style.background = RAID_MARK_CSS;
       leg.append(dot, el('span', 'hmlegtext', RAID_LEGEND_TEXT));
     }
+    // GUIDE5: and a quest's place - the legend's dot turned to the mark's own diamond. AUDIT GUIDE U16: both kinds, as
+    // the sheet draws them - the followed quest's filled with the pen's ink, the rest hollow, each edged in gold
+    const diamond = (filled, text) => {
+      const dot = el('span', 'hmlegdot');
+      dot.style.background = filled ? PEN.line : 'transparent';
+      dot.style.border = `2px solid ${QUEST_MARK_CSS}`;
+      dot.style.boxSizing = 'border-box';
+      dot.style.borderRadius = '0';
+      dot.style.transform = 'rotate(45deg) scale(0.85)';
+      leg.append(dot, el('span', 'hmlegtext', text));
+    };
+    if (this._quests.some((q) => q.tracked)) diamond(true, QUEST_FOLLOWED_TEXT);
+    if (this._quests.some((q) => !q.tracked)) diamond(false, QUEST_LEGEND_TEXT);
     leg.classList.toggle('open', true);
     leg.style.display = 'flex';
   }
@@ -1835,6 +1861,30 @@ export class HeldMapWindow {
       if (d < bestD) { best = m; bestD = d; }
     }
     return best;
+  }
+
+  /** GUIDE5: the quest mark under the cursor - its diamond above the place, or the place's own mark under it, within
+   *  the location marks' own reach (inkMap.js paintQuestMark). */
+  _questAt(sx, sy, { diamondOnly = false } = {}) {
+    let best = null, bestD = QUEST_HIT_PX * QUEST_HIT_PX;
+    for (const m of this._quests) {
+      const [x, y] = toPaper(this._view, m.x, m.y);
+      const diamond = (x - sx) ** 2 + (y - (m.lift ?? QUEST_MARK_LIFT) - sy) ** 2;
+      const d = diamondOnly ? diamond : Math.min((x - sx) ** 2 + (y - sy) ** 2, diamond);
+      if (d < bestD) { best = m; bestD = d; }
+    }
+    return best;
+  }
+
+  /** AUDIT GUIDE K1/K4: the place a quest's mark stands over, as a pick - the inked mark on that pixel whatever this band
+   *  shows (the player pointed at the quest's diamond, which every band draws), else - its kind hidden by the key - the
+   *  place's own record, the journal goto's way (_consumeGotoPlace). Null for a place the player has not found. */
+  _questPlace(q) {
+    const hit = (this._ensureWorldModel()?.marks ?? []).find((k) => Math.floor(k.x) === q.px && Math.floor(k.y) === q.py);
+    if (hit) return hit;
+    const summary = locationSummaryAt(this.deps.mapDict, q.px, q.py);
+    if (!summary || !this._discovered(summary)) return null;
+    return { x: q.px + 0.5, y: q.py + 0.5, colorIndex: 11, kind: 'city', name: '', summary };
   }
 
   /** EVENT-TIP: the gate's ring under the cursor - it marks an AREA (bible World-Bosses.md section 2), so anywhere
@@ -2951,10 +3001,16 @@ export class HeldMapWindow {
         cursor: 'pointer',
       };
     }
+    // AUDIT GUIDE K7: a quest's own diamond answers as the quest first - over a raided town it stands above the blades
+    const m = this._markerAt(sx, sy);
+    const onDiamond = this._questAt(sx, sy, { diamondOnly: true });
+    if (onDiamond) return { label: onDiamond.label, cursor: this._questPlace(onDiamond) ? 'pointer' : '', tip: onDiamond.tip };   // AUDIT GUIDE K1: a press picks its place
     // EVENT-TIP: a raided town answers as its raid (the card names the town); a press still picks the town under it
     const raid = this._raidAt(sx, sy);
-    const m = this._markerAt(sx, sy);
     if (raid) return { label: raid.label, cursor: m ? 'pointer' : '', tip: raid.tip };
+    // GUIDE5: a quest's place answers as the quest (its card names the place); a press still picks the place under it
+    const quest = this._questAt(sx, sy);
+    if (quest) return { label: quest.label, cursor: m || this._questPlace(quest) ? 'pointer' : '', tip: quest.tip };
     if (m) {
       const name = m.name || this._summaryName(m.summary);
       const region = REGION_NAMES[m.summary.regionIndex] ?? '';
@@ -2982,6 +3038,11 @@ export class HeldMapWindow {
     if (!this._onSheet([sx, sy])) return;   // AUDIT-MAP2: off the paper is off the map (the sprite's hands, the world)
     const m = this._markerAt(sx, sy);
     if (m) { this._select(m); return; }
+    // AUDIT GUIDE K1/K4: a quest's diamond stands above its place, out of the place mark's reach - pressed, it picks the
+    // place (never a journey to the bare pixel north of it), whatever this band or the key hides
+    const quest = this._questAt(sx, sy);
+    const place = quest ? this._questPlace(quest) : null;
+    if (place) { this._select(place); return; }
     // MAP2 (:1375): a bare pixel opens the coordinates decision when the
     // mod allows it - the classic page's own click, on the sheet.
     // AUDIT-MAP2: "bare" is the DATA's word (the classic's locationSelected
@@ -3069,6 +3130,12 @@ export class HeldMapWindow {
     card.append(el('p', 'hmmeta', this._selected.coords
       ? this._regionNameAt(Math.floor(this._selected.x), Math.floor(this._selected.y))
       : (REGION_NAMES[summary.regionIndex] ?? '')));
+    // AUDIT GUIDE K8/U15: the quests that point here, named on the card - the hover's card is the pointer's; this is
+    // where a keyboard (the search, then the pick) and a finger learn them
+    if (!this._selected.coords) {
+      const at = this._quests.filter((q) => q.px === Math.floor(this._selected.x) && q.py === Math.floor(this._selected.y));
+      for (const q of at.flatMap((x) => x.quests ?? [])) card.append(el('p', 'hmquest', q.left ? `${q.title} - ${q.left}` : q.title));
+    }
 
     if (this._panel === 'teleport') {
       // AUDIT-TO1 C3: the fee first. No purse for it: the mod's
