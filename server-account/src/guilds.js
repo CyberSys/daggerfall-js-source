@@ -267,6 +267,15 @@ export async function answerInvite({ db, nowS, env }, player, { character, guild
   return { ok: true, guild: view, badge: view ? badgeOfRow(me, view.tag) : {} };   // GUILD1c: the joiner wears the tag now
 }
 
+/**
+ * PROF6: whether a guild still keeps something of the professions' - goods in its guild Stores, or a writ standing (or a
+ * closed one's escrow not yet home) - in SQL, the guild's id at `p`. A guild that keeps one does not go (Professions-Arc
+ * 18's grown clause): the delete below asks it, and so does the Marks sweep batched before it (marks.js), so a refused
+ * going leaves the Marks where they were.
+ */
+export const guildKeepsSql = (p) => `(EXISTS (SELECT 1 FROM guild_prof_stores WHERE guild_id = ${p} AND qty > 0)
+  OR EXISTS (SELECT 1 FROM guild_writs WHERE guild_id = ${p} AND (state = 'open' OR (returned = 0 AND escrow > 0))))`;
+
 /** The guild going: its Marks swept to the guildmaster (marks.js guildMarksSweep) and the row deleted, IN ONE BATCH -
  *  the delete only once the guild's gold treasury is empty and its Marks treasury has been emptied into the
  *  guildmaster's balance (AUDIT 28 M3: the leave's delete never looked at the Marks, and the cascade took them with no
@@ -275,18 +284,26 @@ async function endGuild(db, guildId, player, nowS, { alone = false } = {}) {
   const [, gone] = await db.batch([
     guildMarksSweep(db, guildId, player, nowS, { alone }),
     db.prepare(`DELETE FROM guilds WHERE id = ?1 AND treasury = 0 AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = ?1 AND balance > 0)
+      AND NOT ${guildKeepsSql('?1')}
       AND (?2 = 0 OR (SELECT COUNT(*) FROM guild_members WHERE guild_id = ?1) = 1)`).bind(guildId, alone ? 1 : 0),
   ]);
   return gone;
 }
-/** Why a guild did not go: its members, its gold, or Marks its guildmaster's balance has no room for. */
+/** Why a guild did not go: its members, its gold, its guild Stores or writs (PROF6), or Marks its guildmaster's balance has
+ *  no room for. */
 async function whyNotGone(db, guildId, { alone = false } = {}) {
   if (alone) {
     const n = await db.prepare('SELECT COUNT(*) AS n FROM guild_members WHERE guild_id = ?').bind(guildId).first();
     if ((n?.n ?? 0) > 1) return 'guild-master-leaves';
   }
   const g = await db.prepare('SELECT treasury FROM guilds WHERE id = ?').bind(guildId).first();
-  return g && g.treasury > 0 ? 'guild-treasury' : g ? 'marks-full' : 'no-guild';
+  if (g && g.treasury > 0) return 'guild-treasury';
+  // PROF6: its guild Stores, or its writs
+  if (g && await db.prepare('SELECT 1 FROM guild_prof_stores WHERE guild_id = ?1 AND qty > 0').bind(guildId).first()) return 'guild-stores';
+  if (g && await db.prepare(`SELECT 1 FROM guild_writs WHERE guild_id = ?1 AND (state = 'open' OR (returned = 0 AND escrow > 0))`).bind(guildId).first()) {
+    return 'guild-writs';
+  }
+  return g ? 'marks-full' : 'no-guild';
 }
 
 /** LEAVE. The guildmaster leaves only a guild with nobody else in it, and only once its gold treasury is empty - that

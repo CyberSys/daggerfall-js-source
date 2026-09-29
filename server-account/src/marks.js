@@ -47,7 +47,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
 import { isDeveloper } from './titles.js';
-import { guildActorOf } from './guilds.js';
+import { guildActorOf, guildKeepsSql } from './guilds.js';
 import {
   MARKS_MAX, MARKS_FAUCETS, MARKS_BANK, MARKS_MOVE_MAX, MARKS_REPORT_DAYS, MARKS_OPS_MAX, MARKS_OPS_WINDOW_S, MARKS_RID_RE,
   marksSwitchOf, utcDay, marksAmountOk, exchangeGold,
@@ -257,6 +257,7 @@ export function guildMarksSweep(db, guildId, player, nowS, { alone = false } = {
     WHERE gm.guild_id = ?1 AND gm.balance > 0
       AND COALESCE((SELECT balance FROM marks WHERE account = ?2), 0) + gm.balance <= ?7
       AND EXISTS (SELECT 1 FROM guilds WHERE id = ?1 AND treasury = 0)
+      AND NOT ${guildKeepsSql('?1')}   -- PROF6: a guild that keeps its Stores or a writ does not go, so its Marks stay
       AND (?8 = 0 OR (SELECT COUNT(*) FROM guild_members WHERE guild_id = ?1) = 1)`)
     .bind(guildId, player.id, utcDay(nowS), nowS, displayName(player), `disband:${guildId}`, MARKS_MAX, alone ? 1 : 0);
 }
@@ -268,7 +269,7 @@ export function guildMarksSweep(db, guildId, player, nowS, { alone = false } = {
  * moved between accounts and guilds, what is in circulation now, the day-by-day line, and the accounts that reached a
  * cap (a faucet's or the Bank's), each once, with the account-days beside them - the numbers PROF0 16 steers the
  * economy by. PROF5: the median prices of the twenty most-traded materials over the same days (10.5), and the Marks held
- * in buy orders' escrow beside the balances in circulation.
+ * in escrow beside the balances in circulation (PROF6: every escrow - orders, bids, guild writs, commissions).
  */
 export async function marksReport({ db, nowS }, player, env) {
   if (!isDeveloper(player, env)) return { error: 'not-developer' };
@@ -282,7 +283,10 @@ export async function marksReport({ db, nowS }, player, env) {
   const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
   const acc = await db.prepare('SELECT COALESCE(SUM(balance), 0) AS s, COUNT(*) AS n FROM marks WHERE balance > 0').first();
   const gld = await db.prepare('SELECT COALESCE(SUM(balance), 0) AS s FROM guild_marks').first();
-  const esc = await db.prepare('SELECT COALESCE(SUM(escrow), 0) AS s FROM market_orders').first();
+  // PROF6: the Marks in escrow are the ledger's escrow end - what went in less what came out - so the orders', the bids'
+  // (PROF5b's, which the orders' own column never counted), the guild writs' and the commissions' are one number
+  const esc = await db.prepare(`SELECT COALESCE(SUM(CASE WHEN dst_kind = 'escrow' THEN amount ELSE 0 END), 0)
+    - COALESCE(SUM(CASE WHEN src_kind = 'escrow' THEN amount ELSE 0 END), 0) AS s FROM marks_ledger WHERE dst_kind = 'escrow' OR src_kind = 'escrow'`).first();
   // PROF5: the market's twenty most-traded materials, each its units and its median over the report's days
   const { results: traded = [] } = await db.prepare(`SELECT material, SUM(units) AS u FROM market_prices WHERE day >= ?1 GROUP BY material
     ORDER BY u DESC, material LIMIT ?2`).bind(from, MARKET_REPORT_MEDIANS).all();

@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6792` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6807` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11176,3 +11176,26 @@ Ledger A departure, extended (`Port-Ledger.md` section A, THE MARKET).
   on screen; `MARKS1-13` had aimed at a trigger `0025_market.sql` rebuilt, and survived unseen since PROF5.
 - **Pinned:** `test/prof5b_law.test.js`, `test/prof5b_service.test.js`, `test/prof5b_client.test.js`;
   `tools/mutants/prof5b.json` (40: 35 dead, five recorded equivalent).
+
+## PROF6 (2026-09-29, Mac: "continue") - Guild writs, the guild Stores and commissions
+
+The record is `06-Systems/Professions-Arc.md` 7, 11 and 28; this is what the slice built, online's alone. A Ledger A
+departure (`Port-Ledger.md` section A, GUILD WRITS, THE GUILD STORES AND COMMISSIONS).
+
+- **The service** is `acct28`, its tables `0027_writs.sql`: a guild's writs and their deliveries, the Officers' writ
+  budgets, the guild Stores (a row a material and a depositor) with their ledger (written by triggers) and moves, the
+  commissions, and `board_notes` rebuilt for its fourth button (its reports carried across the drop). `/v1/writs/post`,
+  `supply`, `withdraw`, `budget`, `commission`, `fulfil`, `cancel`, `decline` and `/v1/stores/guild`, `guild-deposit`,
+  `guild-withdraw` (writs.js) each decide by one statement keyed on its nonce; `/v1/writs/list` answers the region's
+  guild writs and commissions beside the Court's. Every Marks line a plain INSERT under its own suffix; the ledger's
+  escrow end holds a writ's and a commission's pay.
+- **Nothing on a clock**: a guild writ past its seventh day is closed by anyone's Work read, its escrow home to the
+  treasury under the cap; a commission's pay comes back on its poster's read.
+- **A guild keeps its Stores and its writs**: its going is refused while they hold anything, and the Marks sweep batched
+  with the going asks the same, so a refused going moves no Mark.
+- **FOUND and fixed:** a Court writ's word said "Herbalism XP" for every writ (a metal writ's is Mining's); the weekly
+  report's escrow was the buy orders' column and never counted PROF5b's bids - it is the ledger's escrow end now; a
+  commission's fill wrote its lines for every commission row while its guard held (`WHERE EXISTS` over the whole table
+  - caught by the refusals pin, which held five, before it shipped).
+- **Pinned:** `test/prof6_law.test.js`, `test/prof6_service.test.js`, `test/prof6_client.test.js`;
+  `tools/mutants/prof6.json`.

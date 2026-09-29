@@ -1059,6 +1059,34 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 /* PROF5b: an auction's row - its name, its quality and its standing bid across, where it stands and when it ends under */
 .market-auction { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) auto; }
 .market-auction .market-where { grid-column: 1 / -1; }
+/* PROF6: the Work tab's guild writs (NOTICE1's guild blue - no guild's colours are stored until SEAT1c's heraldry) and
+   commissions (green), "Yours", the forms - the market's dark boxes, the board's cards */
+.notice-card.seal-commission, .notice-read.seal-commission { --seal: #3f7a3a; }
+.notice-writ.seal-guild .writ-kind { color: #2f4a66; }
+.notice-writ.seal-commission .writ-kind { color: #2f5a2b; }
+.notice-writ .writ-take { flex-wrap: wrap; }
+.notice-writ .work-num { width: 4.5em; }
+/* a card as narrow as its column - the Fill's select names a piece in full, and its longest name set the track's width */
+.notice-grid > .notice-writ { min-width: 0; }
+.notice-writ .work-select { max-width: 100%; min-width: 0; width: 100%; flex: 1 1 140px; text-overflow: ellipsis; }
+.notice-writ .writ-need { overflow-wrap: anywhere; }
+.work-more { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.work-yours, .work-form { display: flex; flex-direction: column; gap: 6px; padding: 6px 10px; background: rgba(10,8,6,0.5);
+  border: 1px solid rgba(192,138,62,0.3); color: var(--bone, #e9e4d9); font-size: 12px; }
+.work-head { margin: 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #efe0b8; }
+.work-rows { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.work-row { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; padding: 4px 8px; background: rgba(10,8,6,0.4);
+  border-left: 2px solid var(--brass, #c08a3e); }
+.work-what { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.work-where { color: #b9ab93; font-size: 11px; }
+.work-fields { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.work-fields .work-select { flex: 1 1 150px; min-width: 0; max-width: 100%; }
+.work-num { width: 5.5em; }
+.work-text { flex: 1 1 140px; min-width: 0; }
+.work-hint { margin: 0; color: #cdbd9f; font-style: italic; }
+.work-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.work-open.on { border-color: var(--brass, #c08a3e); background: rgba(192,138,62,0.16); }
+.work-none { font-style: italic; }
 @media (max-width: 640px) { .market-row, .market-piece { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .market-row > b { grid-column: 1 / -1; }
   .market-line { display: none; } }
 @media (prefers-reduced-motion: reduce) { .prof-glint { animation: none; } .prof-toast { transition: none; } }`;

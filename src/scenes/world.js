@@ -176,9 +176,10 @@ import { mineKind, PROSPECT_M } from './mineHost.js';   // PROF2: Mining's veins
 import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
-import { smeltRecipe, stockOf, WEAVERS_STOCK } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
+import { smeltRecipe, stockOf, WEAVERS_STOCK, professionName } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
 import { createMarketBook } from '../net/marketBook.js';   // PROF5: the market's book
-import { wearCondition } from '../net/marketLaw.js';   // PROF5: a bought piece's wear
+import { createWritBook } from '../net/writBook.js';   // PROF6: guild writs, commissions, the guild Stores
+import { wearCondition, wearOf, WEAR_WHOLE } from '../net/marketLaw.js';   // PROF5: a bought piece's wear; PROF6: a commission's piece unworn
 
 import { unseenText } from '../net/boardLaw.js';   // NOTICE1: the count over a board
 import { alignSurvival, shiftSurvival } from '../systems/survival/needs.js';   // SURV7: the needs' markers at an arrival; AUDIT SURV-TIERS (the third pass): and across a clock correction
@@ -330,7 +331,7 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, answered by this host
 import { registerContainerLootHandler } from '../systems/containerLoot.js';   // THE MERGE: CSA-H's shelf subscriber, by its mod's name, on PlayerActivate.OnLootSpawned's one home
-import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, isCraftedFurniture, asMinted } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things
+import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, isCraftedFurniture, asMinted, pieceOfRecipe } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things
 import { heatBand, planeBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
@@ -409,7 +410,7 @@ import { createWorldModes } from './worldModes.js';
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: Ambient Text's one component - this host claims it and feeds it the frame
 import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
 import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../net/oneSeat.js';   // ONE-SEAT: one tab of a player online - the browser's arm, beside the hub's
-import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids, accountMarket } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
+import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids, accountMarket, accountWrits } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
 import { renownKillXp, renownQuestXp, renownPartyXp, renownText } from '../net/renown.js';   // RENOWN1: what a kill and a quest are worth, and the party's bonus (RENOWN3: read against my Renown)
@@ -994,6 +995,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, marks: marksBook,
       stores: { apply: (st) => profBook?.applyStore(st) } })   // AUDIT 30 U1: what the market moves in the Stores, the Stores' count
     : null;
+  // PROF6 (bible/06-Systems/Professions-Arc.md 28): the writs' book - a guild writ posted, supplied, withdrawn; a
+  // commission posted, filled (the piece KEPT before it is asked), cancelled, declined; the guild Stores (net/writBook.js).
+  // Its answers tell the Marks book the balance and the professions' book the Stores. Online only.
+  const writBook = params.has('online')
+    ? createWritBook({ door: accountWrits({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
+      character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, marks: marksBook,
+      stores: { apply: (st) => profBook?.applyStore(st) } })
+    : null;
   /** PROF1/PROF2: the gathering professions in the streaming world (scenes/gatherHost.js) - made below, once the rig
    *  stands; declared HERE, before the first pixel is built, because every pixel's publish tells it (BOOT-TDZ2: a `let`
    *  read before its line is a dead zone, whatever `?.` says). The pixels built before it stand their nodes when the
@@ -1049,6 +1058,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     ...(playerEntity.items ?? []).filter((it) => it?.provenance && asMinted(it) && !tradeRefusal(it) && !isLocked(it)).map((item) => ({ item, where: 'pack', name: itemLongName(item) })),
     ...(playerEntity.furnishings ?? []).filter((it) => it?.provenance && asMinted(it)).map((item) => ({ item, where: 'home', name: itemLongName(item) })),
   ];
+  /** PROF6: the pieces in the save that answer a commission - listable as the market's are (as minted, not worn,
+   *  locked or bound), of its recipe (smithItems pieceOfRecipe), at least its quality, and unworn (a commission is new
+   *  work, Professions-Arc 28) - each taken out of the save and put back as a listed piece is. */
+  const commissionPieces = (c) => marketPieces()
+    .filter((p) => pieceOfRecipe(p.item, c.recipe) && (c.quality == null || (p.item.quality ?? -1) >= c.quality) && wearOf(p.item) === WEAR_WHOLE)
+    .map((p) => ({ ...p, take: () => marketTake(p.item, p.where), putBack: marketPutBack }));
   /** PROF5: a listed piece out of the save (the book keeps it until the service answers), and back on a refusal. */
   const marketTake = (item, where) => {
     const list = where === 'home' ? playerEntity.furnishings : playerEntity.items;
@@ -14148,6 +14163,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     guildBook = new GuildBook({
       door: accountGuilds({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }),
       marks: marksBook,   // MARKS1: the guild's Marks treasury moves through the account's Marks
+      // PROF6: the guild Stores and the Officers' writ budget, through the writs' book, while the professions are this
+      // account's
+      profStores: writBook ? { writs: writBook, open: () => profBook?.state.open === true, mine: () => profBook?.state.stores ?? new Map(), name: materialCountLabel } : null,
       character: () => characterIdOf(playerEntity),
       // GUILD1c: what the service signed, to the rooms - my guild now down every socket I hold (the tag beside my name,
       // the hub's guild chat), and a member removed or a guild disbanded to the hub, where it reaches them
@@ -16051,6 +16069,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     const work = profBook?.state.open === true && Number.isInteger(region) ? {
       book: profBook, region, regionName: REGION_NAMES[region] ?? 'the region', countName: materialCountLabel,
       onTaken: (r) => profWritTaken(r),
+      // PROF6: the guild writs and commissions beside the Court's, while the Marks are this account's too
+      ...(writBook && marksBook?.state?.open !== false ? {
+        writs: writBook, regionNameOf: (r) => REGION_NAMES[r] ?? 'another region', pieces: commissionPieces,
+        settle: () => writBook.settle(marketPutBack, marketDrop),
+      } : {}),
     } : null;
     // PROF5: the Market tab - the board's region handed on its own (not through Work's), while the professions are this
     // account's; the service says whether the market is (its book's `open`)
@@ -16090,7 +16113,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (a.order) online?.sendRenownOrder?.(a.order, a.level);
       if (a.announce !== null) { renownSaid = a.announce; rose = ` Your Renown is now ${a.announce}.`; }
     }
-    return `Writ filled: ${Number(d.pay ?? 0).toLocaleString('en-US')} Marks struck to your account, ${Number(d.renown?.credited ?? 0).toLocaleString('en-US')} Renown and ${Number(d.pay ?? 0) * 2} Herbalism XP.${rose}`;
+    // PROF6 (FOUND): the XP is the writ's material's profession's - a metal writ's Mining, a wood writ's Logging - never
+    // always Herbalism's, as this line said since PROF2 (the answer's track names it)
+    const prof = professionName(d.track?.profession) || 'profession';
+    return `Writ filled: ${Number(d.pay ?? 0).toLocaleString('en-US')} Marks struck to your account, ${Number(d.renown?.credited ?? 0).toLocaleString('en-US')} Renown and ${Number(d.pay ?? 0) * 2} ${prof} XP.${rose}`;
   };
   /** NOTICE1: the server's word on the Oblivion Gate while it stands - the map's own mark (WB1), under the red seal. */
   const noticeGateCard = () => {

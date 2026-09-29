@@ -40,6 +40,7 @@ import {
 } from '../net/boardLaw.js';
 import { accountRefusalText } from '../net/accountClient.js';   // PROF1: a writ's refusal, in words
 import { createMarketTab } from './marketTab.js';   // PROF5: the Market tab
+import { createWorkTab } from './workTab.js';   // PROF6: the Work tab's guild writs and commissions
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {
@@ -110,10 +111,12 @@ function injectSkin(doc = document) {
  *   nowS?: () => number,
  *   onExit?: (() => void) | null,
  *   work?: ({ book: any, region: number, regionName: string, countName: (key: string, n: number) => string,
- *     onTaken?: (r: any) => (string|void) } | null),
+ *     onTaken?: (r: any) => (string|void), writs?: any, regionNameOf?: (r: number) => string,
+ *     pieces?: (c: any) => any[], settle?: () => any } | null),
  *   market?: (any | null),
  * }} deps `work` - PROF1's Court writs for the board's region (net/profBook.js), or null where the professions are not
- *   this account's; `market` - PROF5's Market tab's host (ui/marketTab.js createMarketTab's `m`), or null where the
+ *   this account's; PROF6: with `writs` (net/writBook.js) the guild writs and commissions beside them (ui/workTab.js),
+ *   `pieces` the pieces in the save that answer a commission; `market` - PROF5's Market tab's host (ui/marketTab.js createMarketTab's `m`), or null where the
  *   market is not
  */
 export function mountNoticeBoard(host, deps) {
@@ -156,6 +159,26 @@ export function mountNoticeBoard(host, deps) {
     alive: () => alive,
   }) : null;
   let marketOpened = false;
+  // PROF6: the Work tab's guild writs and commissions - their own door, as the market's
+  let workBusy = false;
+  const workMore = work?.writs ? createWorkTab({
+    writs: work.writs, held: (m) => work.book.held(m), region: work.region, regionName: work.regionName,
+    regionNameOf: work.regionNameOf ?? ((r) => String(r)), countName: work.countName, pieces: work.pieces ?? (() => []),
+    reload: () => loadWrits(true),
+  }, {
+    busy: () => workBusy || busy || !!work.writs.busy,
+    run: async (start) => {
+      if (workBusy) return;
+      workBusy = true; render();
+      let r = null;
+      try { r = await start(); } finally { workBusy = false; }
+      if (!alive) return;
+      word = { ok: !!r?.ok, text: r?.text ?? '' };
+      render();
+    },
+    rerender: () => render(),
+    nowS,
+  }) : null;
   let reading = null;   // the card read large
   let word = null;      // { ok, text } - the status line
   let board = null, stale = false, error = null, busy = false;
@@ -237,7 +260,7 @@ export function mountNoticeBoard(host, deps) {
         t.onclick = () => {
           if (tab === id) return;
           tab = id; word = null;
-          if (id === 'work' && !writs && !writsBusy) loadWrits(false);
+          if (id === 'work') openWork();
           if (id === 'market' && market && !marketOpened) { marketOpened = true; market.open(); }
           render();
         };
@@ -245,6 +268,13 @@ export function mountNoticeBoard(host, deps) {
       tabs.append(t);
     }
     return tabs;
+  }
+
+  /** The Work tab shown: PROF6's kept fills settled once (a commission's piece whose answer was lost), the list read. */
+  let workSettled = false;
+  function openWork() {
+    if (!workSettled && work?.settle) { workSettled = true; Promise.resolve(work.settle()).catch(() => {}).then(() => { if (alive && workMore) loadWrits(true); }); }
+    if (!writs && !writsBusy) loadWrits(false);
   }
 
   async function loadWrits(force) {
@@ -312,6 +342,7 @@ export function mountNoticeBoard(host, deps) {
     }
     else if (writs && !list.length) grid.append(el('li', 'notice-empty', `The Court of ${work.regionName} posts no writs yet. When its lands are known to the counting-houses - gathered on, and witnessed - its writs go up here each day.`));
     body.append(grid);
+    if (workMore) body.append(workMore.node(writs));   // PROF6: this region's guild writs and commissions, "Yours", the forms
     const today = writs?.today ?? { filled: work.book.state.writs?.today ?? 0, max: work.book.state.writs?.max ?? 3 };
     body.append(el('p', 'notice-worktoday', `Court writs today: ${today.filled} of ${today.max}${writsStale ? ' - the list may be out of date' : ''}`));
     return body;
@@ -367,6 +398,15 @@ export function mountNoticeBoard(host, deps) {
     const acts = el('div', 'notice-acts');
     if (n && n.button && !n.mine && deps.answer) {
       const b = button('primary notice-answer', NOTE_BUTTON_LABEL[n.button] ?? 'Answer', () => {
+        // PROF6: a crafter's advertisement - the Work tab's commission form, its author named (10.6)
+        if (n.button === 'commission') {
+          if (!workMore || !workShown()) { word = { ok: false, text: 'Commissions are not open to you here.' }; render(); return; }
+          workMore.openCommission(n.from);
+          tab = 'work'; view = 'board'; reading = null; word = null;
+          openWork();
+          render();
+          return;
+        }
         const r = deps.answer?.(n);
         if (r && r.ok === false) { word = { ok: false, text: r.text ?? '' }; render(); }
       });

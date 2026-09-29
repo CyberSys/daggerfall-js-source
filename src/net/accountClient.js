@@ -50,6 +50,7 @@ import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
 import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
+import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
  *  DEFAULT_SERVER (net/online.js), because they are two Workers and
@@ -298,6 +299,33 @@ export const REFUSALS = Object.freeze({
   'auction-low': 'Another bid came first. The next bid is higher now.',
   'auction-leading': 'Your bid already leads.',
   'auction-bid-standing': 'A bid stands on it, so it cannot be taken back now.',
+  // PROF6: guild writs, commissions and the guild Stores
+  'writs-closed': 'Guild writs and commissions are not open to this account.',
+  'writ-pay': 'A guild writ pays at most half again the material\'s worth a unit.',
+  'writ-budget': 'That is past the Officers\' writ budget for this week. The Guildmaster sets it on the Guild tab.',
+  'writ-gone': 'That writ is no longer posted.',
+  'writ-elsewhere': 'That writ is delivered at the boards of the region that posted it.',
+  'writ-short': 'That writ wants fewer than that now.',
+  'writ-moved': 'Another delivered first. The writ has been read again.',
+  'writ-rate': 'You have posted or delivered as many writs as an hour allows.',
+  'writ-busy': 'The counting-house is still settling your last writ.',
+  'guild-writs-max': `A guild may have ${GUILD_WRITS_MAX} writs posted at once.`,
+  'guild-stores-full': `The guild Stores hold at most ${GUILD_STORES_MAX.toLocaleString('en-US')} of a material.`,
+  'guild-stores-short': 'The guild Stores do not hold that many.',
+  'guild-stores': 'Empty the guild Stores first.',
+  'guild-writs': 'Withdraw the guild\'s writs first.',
+  'bad-budget': `A writ budget is 0 to ${MARKS_MAX.toLocaleString('en-US')} Marks.`,
+  'bad-quality': 'Ask a quality from Crude to Masterwork - or none, for a piece that takes none.',
+  'bad-pay': 'A commission pays 1 to 1,000,000 Marks.',
+  'commission-recipe': 'Only a piece the market lists may be commissioned - never arrows or siege works.',
+  'commission-crafter': 'There is no crafter by that name.',
+  'commission-self': 'You cannot commission yourself.',
+  'commissions-max': `You may have ${COMMISSIONS_MAX} commissions posted at once.`,
+  'commissions-crafter-max': 'That crafter has as many commissions waiting as they can be sent.',
+  'commission-not-yours': 'That commission names another crafter.',
+  'commission-piece': 'That piece is not what the commission asks.',
+  'commission-not-made': 'A commission is filled with a piece of your own make.',
+  'commission-worn': 'A commission is new work: that piece is worn.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
 });
@@ -859,6 +887,26 @@ export function accountMarket({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) 
     // PROF5b: an auction posted (a Masterwork at its opening bid), and a bid on one
     auction: (req) => post('/v1/market/auction', req),
     bid: (req) => post('/v1/market/bid', req),
+  };
+}
+
+/** PROF6: the writs' door beside the Court's (server-account/src/writs.js) - a guild writ posted, supplied, withdrawn,
+ *  the Officers' budget; a commission posted, fulfilled, cancelled, declined; the guild Stores read and moved. */
+export function accountWrits({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);
+  return {
+    account: () => storedSession(storage)?.id ?? null,
+    post: (req) => post('/v1/writs/post', req),
+    supply: (req) => post('/v1/writs/supply', req),
+    withdraw: (req) => post('/v1/writs/withdraw', req),
+    budget: (req) => post('/v1/writs/budget', req),
+    commission: (req) => post('/v1/writs/commission', req),
+    fulfil: (req) => post('/v1/writs/fulfil', req),
+    cancel: (commission, rid) => post('/v1/writs/cancel', { commission, rid }),
+    decline: (commission, rid) => post('/v1/writs/decline', { commission, rid }),
+    stores: (character) => post('/v1/stores/guild', { character }),
+    deposit: (req) => post('/v1/stores/guild-deposit', req),
+    withdrawStores: (req) => post('/v1/stores/guild-withdraw', req),
   };
 }
 

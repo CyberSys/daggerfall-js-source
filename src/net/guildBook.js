@@ -82,11 +82,16 @@ export class GuildBook {
    * @param {() => number} [opts.now]  ms
    * @param {((orders: { order?: string, outOrder?: string }) => void)|null} [opts.onOrders]  GUILD1c: the host carries them
    * @param {any} [opts.marks]  MARKS1: the account's Marks book (net/marksBook.js), or null
+   * @param {any} [opts.profStores]  PROF6: the guild Stores' host - `{ writs, open, mine, name }`: the writs' book
+   *        (net/writBook.js), whether the professions are this account's, the character's own Stores (a Map), a
+   *        material's name for a count - or null
    */
-  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null }) {
+  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null, profStores = null }) {
     this.door = door;
     /** MARKS1: the account's Marks book (net/marksBook.js) - the Marks treasury moves through it; null offline */
     this.marks = marks;
+    /** PROF6: the guild Stores and the Officers' writ budget (Professions-Arc 7, 28); null offline */
+    this.profStores = profStores;
     this.character = character;
     this.wallet = wallet;
     this.now = now;

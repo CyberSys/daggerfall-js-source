@@ -13,6 +13,14 @@
 One line per arc, newest first within each group. Each entry names its own
 page; the page is the record, this is the way in.
 
+- `06-Systems/Professions-Arc.md` 28 (PROF6) - 2026-09-29, Mac ("continue"): GUILD WRITS, THE GUILD STORES AND COMMISSIONS,
+  SHIPPED on the branch behind the professions' and the Marks' switches: a guild's writ posted by its Guildmaster, or an
+  Officer within the week's writ budget, from its Marks treasury (escrowed), delivered by anyone from their Stores into
+  the guild Stores and paid pro rata less the tax; the guild Stores (any member deposits, Officers withdraw, a member's
+  own deposit own again for them alone); a commission naming a crafter and a piece, filled only with a piece of their
+  own make, reaching the poster by delivery; the note's "Commission a piece" button. Seat writs wait on SEAT1b,
+  bounties on SEAT1d, found recipes on PROF6b. `server-account/src/writs.js`, `net/writLaw.js`, `net/writBook.js`,
+  `ui/workTab.js`. Migration 0027, `acct28` - `test/prof6_service.test.js`.
 - `06-Systems/Professions-Arc.md` 27 (PROF5b) - 2026-09-29, Mac ("Go"): TIMED AUCTIONS FOR MASTERWORKS, SHIPPED on the
   branch behind the market's three switches: the Market tab's Auctions view - a Masterwork posted at an opening bid for 24
   hours, each bid 5% over the last and escrowed with its courier, a bid in the last two minutes adding two, an outbid

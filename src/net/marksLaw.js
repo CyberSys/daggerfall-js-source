@@ -73,6 +73,12 @@ export const MARKS_KINDS = Object.freeze({
   'bid-escrow': 'move',       // PROF5b: an auction bid and its courier, held while it stands (the `escrow` end, the bid's id)
   'bid-return': 'move',       // PROF5b: an outbid (or a removed auction's) bid's escrow, back to its bidder
   'auction-sale': 'move',     // PROF5b: the winning bid less its tax, out of its escrow into the seller's balance
+  'writ-escrow': 'move',      // PROF6: a guild writ's whole pay, from its guild's treasury, held while it stands (the writ's id)
+  'writ-pay': 'move',         // PROF6: a delivery's pay less its tax, out of the writ's escrow into the deliverer's balance
+  'writ-return': 'move',      // PROF6: what is left of a guild writ's escrow, back to its guild at a withdrawal or its seventh day
+  'commission-escrow': 'move', // PROF6: a commission's pay, held while it stands (the commission's id)
+  'commission-pay': 'move',   // PROF6: the pay less its tax, out of the escrow into the crafter's balance
+  'commission-return': 'move', // PROF6: a withdrawn, declined or expired commission's pay, back to its poster
 });
 
 /** The switch the service's config holds (MARKS_OPEN): off, dev (the developers alone), on. */

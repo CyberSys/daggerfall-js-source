@@ -462,8 +462,8 @@
   {
     "name": "SURVTIERS3-the-kit-cite-world-seed-rots",
     "file": "src/systems/equip.js",
-    "old": "(world.js:4608, exterior.js:1290)",
-    "new": "(world.js:4607, exterior.js:1290)",
+    "old": "(world.js:4623, exterior.js:1290)",
+    "new": "(world.js:4622, exterior.js:1290)",
     "tests": [
       "test/citedrift.test.js"
     ]
@@ -480,8 +480,8 @@
   {
     "name": "SURVTIERS3-the-gear-cite-world-seed-rots",
     "file": "src/systems/startingGear.js",
-    "old": "world.js:4608 and exterior.js:1290 seed it",
-    "new": "world.js:4607 and exterior.js:1290 seed it",
+    "old": "world.js:4623 and exterior.js:1290 seed it",
+    "new": "world.js:4622 and exterior.js:1290 seed it",
     "tests": [
       "test/citedrift.test.js"
     ]

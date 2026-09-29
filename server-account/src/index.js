@@ -143,6 +143,10 @@ import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './de
 import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
 import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, smeltAtForge, craftAtAnvil, buyStock, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions; PROF2: the forge; PROF3: the anvil and the smith's stock
+import {
+  writBoard, postGuildWrit, supplyGuildWrit, withdrawGuildWrit, setWritBudget, postCommission, fulfilCommission, cancelCommission, declineCommission,
+  guildStores, depositGuildStores, withdrawGuildStores,
+} from './writs.js';   // PROF6: guild writs, commissions and the guild Stores
 import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove, marketAuction, marketBid } from './market.js';   // PROF5: the market; PROF5b: its auctions
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
@@ -173,6 +177,7 @@ const GUILD_STATUS = Object.freeze({
   'no-guild': 404, 'no-invite': 404, 'no-member': 404, 'no-player': 404,
   'guild-already': 409, 'guild-name-taken': 409, 'guild-tag-taken': 409, 'guild-full': 409, 'guild-master-leaves': 409,
   'guild-treasury': 409, 'guild-treasury-full': 409, 'guild-treasury-short': 409, 'marks-full': 409,
+  'guild-stores': 409, 'guild-writs': 409,   // PROF6: a guild keeping its Stores or a writ does not go (Professions-Arc 18)
   'guild-rate': 429,
 });
 /** MARKS1: each Marks refusal's status - not this account's (a guest, the switch, a rank, a developer's) 403, no
@@ -204,6 +209,14 @@ const PROF_STATUS = Object.freeze({
   'prof-later': 409,   // PROF4: a recipe whose slice is to come - the Ram Kit (PROF0 25)
   'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
   'prof-rate': 429,
+  // PROF6: guild writs, commissions and the guild Stores
+  'writs-closed': 403, 'guild-rank': 403, 'guilds-need-account': 403, 'commission-not-yours': 403, 'market-not-yours': 403,
+  'no-guild': 404, 'commission-crafter': 404,
+  'writ-gone': 409, 'writ-elsewhere': 409, 'writ-short': 409, 'writ-moved': 409, 'writ-budget': 409, 'guild-marks-short': 409,
+  'guild-writs-max': 409, 'guild-stores-full': 409, 'guild-stores-short': 409, 'commissions-max': 409, 'commissions-crafter-max': 409,
+  'commission-self': 409, 'commission-piece': 409, 'commission-not-made': 409, 'commission-worn': 409, 'market-listed': 409,
+  'market-standing': 409,
+  'writ-rate': 429,
 });
 /** PROF5: each market refusal's status - not this account's (a guest, the switches, a moderator's act) 403, no such
  *  listing, order or delivery 404, a conflict with what stands (the Marks, the Stores, the units, the road, the price
@@ -678,8 +691,23 @@ export default {
           '/v1/prof/craft': () => craftAtAnvil(ctx, who.player, env, body),   // PROF3: the anvil; PROF4: the workbench
           '/v1/prof/stock': () => buyStock(ctx, who.player, env, body),   // PROF3: the smith's stock; PROF4: the furnisher's
           '/v1/stores/withdraw': () => withdrawStores(ctx, who.player, env, body),
-          '/v1/writs/list': () => listWrits(ctx, who.player, env, body),
+          // PROF6: the Court's writs, and beside them this board's guild writs and commissions (writs.js writBoard)
+          '/v1/writs/list': async () => {
+            const r = await listWrits(ctx, who.player, env, body);
+            return 'error' in r ? r : { ...r, ...(await writBoard(ctx, who.player, env, body)) };
+          },
           '/v1/writs/deliver': () => deliverWrit(ctx, who.player, env, body),
+          '/v1/writs/post': () => postGuildWrit(ctx, who.player, env, body),   // PROF6: a guild writ
+          '/v1/writs/supply': () => supplyGuildWrit(ctx, who.player, env, body),
+          '/v1/writs/withdraw': () => withdrawGuildWrit(ctx, who.player, env, body),
+          '/v1/writs/budget': () => setWritBudget(ctx, who.player, env, body),
+          '/v1/writs/commission': () => postCommission(ctx, who.player, env, body),   // PROF6: a commission
+          '/v1/writs/fulfil': () => fulfilCommission(ctx, who.player, env, body),
+          '/v1/writs/cancel': () => cancelCommission(ctx, who.player, env, body),
+          '/v1/writs/decline': () => declineCommission(ctx, who.player, env, body),
+          '/v1/stores/guild': () => guildStores(ctx, who.player, env, body),   // PROF6: the guild Stores
+          '/v1/stores/guild-deposit': () => depositGuildStores(ctx, who.player, env, body),
+          '/v1/stores/guild-withdraw': () => withdrawGuildStores(ctx, who.player, env, body),
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();

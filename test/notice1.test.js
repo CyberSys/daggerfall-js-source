@@ -94,7 +94,7 @@ test('NOTICE1 the law: three live notes an account, one, three or seven days, th
   assert.deepEqual(NOTE_DAYS, [1, 3, 7]);
   assert.equal(NOTE_DAY_S, 86400);
   assert.deepEqual([BOARD_NOTES_SHOWN, BOARD_NOTICES_SHOWN, NOTES_PINNED_MAX, NOTE_REPORTS_HIDE, BOARD_CACHE_MS], [30, 20, 10, 3, 60_000]);
-  assert.deepEqual(NOTE_BUTTONS, ['party', 'guild', 'duel']);
+  assert.deepEqual(NOTE_BUTTONS, ['party', 'guild', 'duel', 'commission']);   // PROF6: a crafter's commission (10.6)
   assert.deepEqual(BOARD_SWITCH, ['off', 'dev', 'on']);
   assert.deepEqual(['on', 'dev', 'off', 'ON', undefined].map(boardSwitchOf), ['on', 'dev', 'off', 'off', 'off']);
   assert.deepEqual([0, 4294967295, -1, 4294967296, 1.5, '7'].map(boardKeyOk), [true, true, false, false, false, false]);
@@ -134,9 +134,9 @@ test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHE
   for (const r of ['/v1/board/read', '/v1/board/pin', '/v1/board/take-down', '/v1/board/report', '/v1/board/mod/remove', '/v1/board/mod/restore', '/v1/board/notice', '/v1/board/notice/remove']) {
     assert.ok(ROUTES.has(r), r);
   }
-  assert.equal(ACCOUNT_VERSION, 'acct27');   // the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that, PROF5 after that, AUDIT 30 after that, PROF5b after that
+  assert.equal(ACCOUNT_VERSION, 'acct28');   // the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that, PROF5 after that, AUDIT 30 after that, PROF5b after that
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /^ACCOUNT_VERSION = "acct27"$/m);
+  assert.match(toml, /^ACCOUNT_VERSION = "acct28"$/m);
   assert.match(toml, /^BOARD_OPEN = "dev"$/m, 'the board ships at dev');
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/boardLaw\.js"/, 'the law the Worker bundles deploys it');
 });

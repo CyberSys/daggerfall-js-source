@@ -93,8 +93,8 @@
   {
     "name": "MARKS1-11-a-disband-with-marks",
     "file": "server-account/src/guilds.js",
-    "old": " AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = ?1 AND balance > 0)\n      AND (?2 = 0",
-    "new": "\n      AND (?2 = 0",
+    "old": " AND NOT EXISTS (SELECT 1 FROM guild_marks WHERE guild_id = ?1 AND balance > 0)\n      AND NOT ${guildKeepsSql('?1')}\n      AND (?2 = 0",
+    "new": "\n      AND NOT ${guildKeepsSql('?1')}\n      AND (?2 = 0",
     "tests": [
       "test/marks1.test.js",
       "test/audit28_marks.test.js"

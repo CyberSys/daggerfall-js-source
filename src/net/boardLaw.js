@@ -51,11 +51,14 @@ export const BOARD_CACHE_MS = 60_000;
  *   guild - "Ask to join": a letter to the author asking for their guild's invitation (GUILD1: a member invites by
  *           handle; a guild has no application).
  *   duel  - "Challenge": DUEL1's own challenge, when the author is in the reader's room; otherwise a letter.
- * Commissions (section 11) come with PROF6.
+ *   commission - PROF6 (section 11, Professions-Arc 28): a crafter's advertisement - the board's Work tab opens its
+ *           commission form with the author named (writLaw.js; the commission is the reader's to post).
  */
-export const NOTE_BUTTONS = Object.freeze(['party', 'guild', 'duel']);
+export const NOTE_BUTTONS = Object.freeze(['party', 'guild', 'duel', 'commission']);
 /** The words each button wears. */
-export const NOTE_BUTTON_LABEL = Object.freeze({ party: 'Ask to join the party', guild: 'Ask to join the guild', duel: 'Challenge to a duel' });
+export const NOTE_BUTTON_LABEL = Object.freeze({
+  party: 'Ask to join the party', guild: 'Ask to join the guild', duel: 'Challenge to a duel', commission: 'Commission a piece',
+});
 
 /** The switch the service's config holds (BOARD_OPEN): off, dev (the developers alone), on. */
 export const BOARD_SWITCH = Object.freeze(['off', 'dev', 'on']);

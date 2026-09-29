@@ -132,6 +132,16 @@ export function asMinted(item) {
 
 /** Every piece of a craft's answer, minted - two of a Quartermaster's kit. @param {any} data */
 export const mintPieces = (data) => (data?.pieces ?? []).map((p) => mintPiece(data, p.provenance)).filter(Boolean);
+
+/** PROF6 (Professions-Arc 28): whether a crafted piece is of a recipe - DFU's group, template and material (a kit's
+ *  metal) as the recipe mints them - so the Work tab offers a commission only the pieces that answer it (the service
+ *  asks the piece's own record: writs.js fulfilCommission). */
+export function pieceOfRecipe(item, recipeId) {
+  const s = mintPiece({ recipe: recipeId, quality: 1, seed: 0 }, '0000000000000000');
+  if (!s || !item) return false;
+  return item.group === s.group && item.templateIndex === s.templateIndex && (item.material ?? 0) === (s.material ?? 0)
+    && (item.kitMetal ?? null) === (s.kitMetal ?? null);
+}
 /** PROF4: whether a minted piece is furniture - the home's things (DECOR2b's furnishings), never the pack. */
 export const isCraftedFurniture = (item) => item?.group === 'Furniture';
 
