@@ -149,7 +149,7 @@ import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideI
   BOOKSHELF_TEXT, SHOP_SHELF_TEXT, LADDER_TEXT, BULLETIN_BOARD_TEXT, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: the mod's ladder for the families THIS host stands   // WORLD-HOVER: the mod's ladder for the families THIS host stands
 import { LOCATION_TYPES } from '../formats/mapsFile.js';   // WORLD-HOVER: .cs:777-782 - a dungeon exit names its town, or the region   // WORLD-HOVER: the texture record is DERIVED at its one reader, off the stored model id
 import { isShop, isRepairShop, stockShopShelf, stockHouseContainer, PRIVATE_PROPERTY_TEXT_ID, privatePropertyRows, calculateCost, calculateTradePrice, regionPriceAdjustment, SHOP_BUYS_GROUPS, shopBuysItem, stockSoulGems, stockGuildMagicItems, stockGuildPotions, dayShelf, createStockedDate, needsRestock, stockSearched } from '../systems/shopStock.js';   // X6: the soul-gem shelf; G4: the two guild shelves; A2: the daily restock
-import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal
+import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT, tradeCost, getTradePrice } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal; FB0929: the keyed rows' prices are the counter's
 import { liveBundles, dispelBundle, dispellableBundles, DISPEL_MAGIC_TEXT } from '../systems/mysticism.js';   // X10: the Dispel Magic picker
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // X10
 import { createItemLabels, grantCreatedItem, lastCreateItemIndex, setLastCreateItemIndex } from '../systems/createItem.js';   // X11b
@@ -212,7 +212,7 @@ import { longitudeLatitudeToMapPixel } from '../formats/mapsFile.js';   // PH1: 
 import { reviveForPlay } from '../systems/deathRespawn.js';   // PH1: the in-place respawn's own heal, the SAME fraction world.js's own online respawn uses
 import { reducedRepairCost } from '../systems/guildServices.js';   // R1: FightersGuild.ReducedRepairCost finds its caller
 import {
-  calculateItemRepairCost, updateRepairTimes, repairJobsAt, repairRefusal, repairStatusLabel,
+  updateRepairTimes, repairJobsAt, repairRefusal, repairStatusLabel,
   isBeingRepaired, isRepairFinished, collectRepaired, calculateItemRepairTime, leaveForRepair,
   MAGIC_ITEMS_CANNOT_BE_REPAIRED_TEXT_ID, DOES_NOT_NEED_TO_BE_REPAIRED_TEXT_ID, CANNOT_BE_REPAIRED_TEXT,
   INTERRUPT_REPAIR_TEXT,
@@ -2638,11 +2638,13 @@ export function createWorldModes(host) {
   function itemValue(it) { return itemValueOf(it); }   // JAN1: the one value read (a non-finite value is an absent one)
   function buyPrice(it) {
     const b = interiorBuilding;
-    const cost = calculateCost(itemValue(it), b.quality, regionPriceAdjustment(playerEntity, b.regionIndex ?? 0)) * (it.stackCount ?? 1);
-    return calculateTradePrice(cost, b.quality, {
+    // FB0929: the counter's own law, not a second copy of it - the walk's cost and pieces, and GetTradePrice's floor
+    // of a gold a piece, so the keyed row's price is the price it charges and the trade window's
+    const lot = tradeCost('Buy', [it], { quality: b.quality, priceAdjustment: regionPriceAdjustment(playerEntity, b.regionIndex ?? 0) });
+    return getTradePrice('Buy', lot.cost, b.quality, {
       mercantile: skillValue(playerEntity, SKILLS.Mercantile),
       personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality'),
-    }, false);
+    }, lot.pieces);
   }
   // E3: the sell offer - CalculateCost(value)*stack through the
   // SELLING branch of CalculateTradePrice (DaggerfallTradeWindow's
@@ -4805,12 +4807,14 @@ export function createWorldModes(host) {
   };
   function repairPrice(it, discount) {
     const b = interiorBuilding;
-    const raw = calculateItemRepairCost(itemValue(it), b?.quality ?? 0, it.currentCondition ?? 0, it.maxCondition ?? 0, {
-      reducedRepairCost: discount ?? null,
+    // FB0929: the Repair window's own walk (CalculateItemRepairCost x stack) and GetTradePrice, where Repair shares
+    // the Buy branch (:497-498) and its floor of a gold a piece
+    const lot = tradeCost('Repair', [it], {
+      quality: b?.quality ?? 0,
       priceAdjustment: regionPriceAdjustment(playerEntity, b?.regionIndex ?? 0),
-    }) * (it.stackCount ?? 1);
-    // GetTradePrice: Repair shares the Buy branch (:497-498)
-    return calculateTradePrice(raw, b?.quality ?? 0, { mercantile: skillValue(playerEntity, SKILLS.Mercantile), personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality') }, false);
+      reducedRepairCost: discount ?? null,
+    });
+    return getTradePrice('Repair', lot.cost, b?.quality ?? 0, { mercantile: skillValue(playerEntity, SKILLS.Mercantile), personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality') }, lot.pieces);
   }
   /** D7: the native INVE12I0 Repair screen when the art is up, the
    *  keyed list when it is not - the same split openShelf takes for

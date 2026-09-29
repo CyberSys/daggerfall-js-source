@@ -8216,3 +8216,19 @@ CastWhen* lists as one table of names by id. Nothing to migrate: a saved
 Mark carries the same `{0, 37}` and reads right on load. Pinned in
 `test/fb0929_featherweight.test.js` (5; the fifth over the real files);
 `tools/mutants/fb0929_featherweight.json`, 4 mutants, 4 dead.
+
+### FB0929 - A PURCHASE IS NEVER FREE (2026-09-29)
+
+lumin on Discord, through Mac: "Vendors selling items for 0 gold ... There should be a hard minimum of 1 gold for
+anything." E1's cost law and E2's haggle are Daggerfall's to the bit: CalculateCost floors a piece at 2 gold and
+CalculateTradePrice's buying arm scales the lot by 66/256 to 256/256 and truncates, so a piece at that floor - a
+candle, the General Store's parchment (worth 0), a Climates & Calories apple, a bandage in a cheap province, a cheap
+blade's repair - went for nothing over a third of the counters and hagglers it meets, and a stack for less than a gold
+a piece. Mac's call, Port-Ledger A: `tradeModes.js` `getTradePrice` asks both purchase modes, Buy and Repair, for a
+gold a piece at least - `tradeCost` counts the pieces in the walk that totals the cost - and Daggerfall's number
+wherever it is more. The classic and enhanced counters, the enhanced quote and the keyed fallback's rows all price
+through it, so what a counter shows is what it takes; only worldModes owns a counter (the dungeon's one trade window
+is the Identify spell's, paid in magicka, and both exterior hosts hand a shop's door to it). The sale is not floored:
+online P0.4 pays half the ask at most, and half a gold is nothing. The floor only raises an ask - and it shut a loop
+Daggerfall had, a quality-1 counter in a cheap province asking nothing for a bandage and paying a gold for it back.
+`test/fb0929_min_price.test.js`, `tools/mutants/fb0929.json`.
