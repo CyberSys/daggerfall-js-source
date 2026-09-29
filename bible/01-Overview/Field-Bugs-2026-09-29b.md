@@ -10,7 +10,7 @@ port's own faults fixed and pinned, and what is Daggerfall's own said plainly, w
 | 2 | "Water walking is still evil" - fell out of the map again | Cruor | a water walker's land-speed stride set on a doorway's lintel and out through the ceiling | fixed (WW-LID) |
 | 3 | a higher Mercantile sells for less (3499 gold at 60, 2888 at 90) | ValenValarys | REALM P0.4's cap was half the SELLER's ask, which falls as the skill rises | fixed (MERC-RISE) |
 | 4 | first-person journeys go straight through the forest; the Overworld follows roads | SylviaBun | First-Person Travel is Travel Options' own journey, which walks straight at a place | a second switch (TO-ROADS) |
-| 5 | the pack should show total armour, and an item's stats against what is worn | SylviaBun (Althea's idea) | AC-COMPARE | see below |
+| 5 | the pack should show total armour, and an item's stats against what is worn | SylviaBun (Althea's idea) | Daggerfall keeps no total: its armour is seven numbers, one a body part | the armour on the pack, and a wear's comparison (AC-COMPARE) |
 | 6 | the enhanced map needs the classic map's filters and its colours | Jigglehimmer | the held map kept the classic filters' store but gave it no control, and inked every place in one pen | the key, and each place in its classic colour (MAP-KEY) |
 
 ## BOOK-SPLIT: a book split off a stack is that book (1)
@@ -111,6 +111,28 @@ inks the cities alone, and the key dims the rest. `test/fb0929b_mapkey.test.js` 
 (39, 39 dead). Two cites into `travelMapWindow.js` that named the filter handler for the buffer flip (wrong before this
 change) now name the flip. `10-UI/Held-Map-Arc.md` MAP-KEY, Port-Ledger A's HELD MAP row.
 
+## AC-COMPARE: the character's armour, and what a wear would change (5)
+
+SylviaBun's suggestion, Althea's idea: the pack should say the character's total armour, and an item's card how it
+compares with what is worn, green better and red worse. Daggerfall keeps no total - its armour is seven numbers, one a
+body part, and a blow meets one of them (CalculateStruckBodyPart, then CalculateArmorToHit) - so the enhanced pack now
+shows the seven where the classic doll does, each on the worn map's panel for its part, and one figure made of them: the
+armour a blow meets on average, each part weighed by the struck-part table of the combat core in force
+(FormulaHelper's 2/3/3/4/4/3/1 in 20, or the overhaul's own), on a plaque at the figure's head. The item card, hovered or
+picked, says what the wear would replace (EquipItem's three arms - one export, `wearLeavers`, which `equipItem` itself now
+runs), a weapon's damage against the one it replaces, the overall figure and every part it moves, now and after - and
+what the card says is what the wear then does, pinned. An unidentified piece's affixes stay out of its comparison until
+it is identified. No modifier key: the card is always the item's. The classic window is untouched.
+`test/fb0929b_accompare.test.js` (5), `tools/mutants/fb0929b_accompare.json` (35, 35 dead).
+`10-UI/Slots-Hotbar-Status.md` AC-COMPARE, Port-Ledger A.
+
+## Found on the way, not touched
+
+- On a phone held upright with paperdoll art, the enhanced pack's worn map collapses its side columns to 0px (grid
+  "0px 330px 0px") - seen in AC-COMPARE's browser probe with a stand-in doll; it predates this batch.
+- `tools/heldMapProbe.mjs` fails six of its own checks on the base as well (its I/H-box checks look for the box
+  ENH-NOTICE3 moved onto the notice panel); MAP-KEY was checked with a probe of its own instead.
+
 ## For Mac
 
 - **MERC-RISE's price is flat for most sellers.** Your 50% and "no skill lowers a sale" together force it: the best
@@ -128,5 +150,8 @@ change) now name the flip. `10-UI/Held-Map-Arc.md` MAP-KEY, Port-Ledger A's HELD
   leave? And a keep and a ruin share the labyrinth's orange - their own classic oranges, inked, sit too near the
   graveyard's red (the ruin's 7.3 from it). The key is always open (about 115px, lower left); the path filters (roads,
   tracks, rivers, streams) still have no control on the sheet.
+- **AC-COMPARE's "total" is the armour a blow meets on average** (the seven weighed by where blows land), because a
+  blow meets one part; a plain mean or a sum of the seven are the other choices, and neither means anything in combat.
+  Only the pack's own card compares (not the shop or trade cards yet), with no modifier key.
 - **BOOK-SPLIT departs from DFU** (Port-Ledger A): DFU's own split loses the same three terms. The counters' merge on
   the way back is DFU's law restored, not a departure.
